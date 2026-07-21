@@ -112,18 +112,31 @@ La règle de travail est :
 
 > **Documenter d'abord, décider ensuite, implémenter en dernier.**
 
-## Premiers sujets à cadrer
+## Documents de référence
 
-- cas d'usage prioritaires ;
-- périmètre du MVP ;
-- modèle normalisé des spécifications ;
-- cycle de vie d'un changement ;
-- distinction entre état courant et changement proposé ;
-- stratégie de providers de spécifications ;
-- évaluation d'OpenSpec comme premier provider ;
-- stockage et historisation ;
-- traçabilité entre exigences, décisions, tâches et critères d'acceptation ;
-- intégration future avec MINOS ;
-- production de contexte pour NEXUS ;
-- orchestration par JARVIS ;
-- exposition future par CLI, MCP et API.
+La source de vérité du cadrage est :
+
+- [`docs/CAHIER_DES_CHARGES.md`](docs/CAHIER_DES_CHARGES.md).
+
+Documents complémentaires :
+
+- [`docs/ECOSYSTEME.md`](docs/ECOSYSTEME.md) — responsabilités et frontières avec MINOS, NEXUS et JARVIS ;
+- [`docs/architecture/overview.md`](docs/architecture/overview.md) — architecture candidate ;
+- [`docs/MVP.md`](docs/MVP.md) — périmètre MVP proposé ;
+- [`docs/PLAN.md`](docs/PLAN.md) — plan de travail C0 / M0 ;
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — feuille de route ;
+- [`docs/research/openspec-provider-study.md`](docs/research/openspec-provider-study.md) — étude d'OpenSpec comme provider candidat ;
+- [`docs/adr/`](docs/adr/) — décisions d'architecture proposées et leurs critères de validation.
+
+## Décisions structurantes actuellement proposées
+
+- domaine MORPHEUS indépendant des providers ;
+- OpenSpec comme premier provider de référence, sans verrouillage ;
+- persistance derrière `SpecificationKnowledgeStore` ;
+- cœur local-first sans LLM obligatoire ;
+- traçabilité comme concept de premier ordre ;
+- distinction structurelle état courant / proposé / historique ;
+- intégrations cross-engine découplées ;
+- providers read-first, avec écriture séparée et optionnelle.
+
+Ces décisions restent **proposées** jusqu'à leur validation selon les conditions décrites dans leurs ADR respectives.
