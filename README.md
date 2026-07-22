@@ -88,7 +88,7 @@ MORPHEUS :
 - distingue explicitement `READ / ABSENT / UNSUPPORTED / FAILED / PARTIAL` ;
 - sépare lecture et écriture ;
 - ne convertit jamais automatiquement un `Scenario` en `AcceptanceCriterion` ;
-- publiera la connaissance par snapshots cohérents à activation atomique observable ;
+- publie la connaissance par snapshots cohérents à activation atomique observable à partir de M3 ;
 - conserve un backend mémoire de référence pour les tests contractuels ;
 - utilise SQLite derrière `SpecificationKnowledgeStore` ;
 - conserve un modèle conceptuel de graphe sans graph database obligatoire au MVP ;
@@ -118,8 +118,8 @@ Distribution         : native-first / container-supported
 C0 — Cadrage fonctionnel et architectural     ✅ VALIDÉE
 M0 — Faisabilité technique                    ✅ VALIDÉE
 M1 — Découverte des projets et providers      ✅ VALIDÉE
-M2 — Ingestion et modèle normalisé            🚧 7/8 — VALIDATION FINALE
-M3 — État temporel / versions / snapshots     ⏳ BLOQUÉ PAR GATE M2-S8
+M2 — Ingestion et modèle normalisé            ✅ VALIDÉE — 8/8
+M3 — État temporel / versions / snapshots     🚀 AUTORISÉE
 ```
 
 ### Preuves M2
@@ -132,10 +132,19 @@ S4  requirement deltas                      70/70 PASS
 S5  ExternalReference                       76/76 PASS
 S6  lecture unifiée / partiel / diagnostics 84/84 PASS
 S7  second provider / anti-lock-in           94/94 PASS
-S8  validation finale                       gate 94 attendu
+S8  validation finale                        94/94 PASS
 ```
 
-Le dossier de sortie est préparé dans [`docs/VALIDATION_M2.md`](docs/VALIDATION_M2.md).
+Gate final M2 :
+
+```text
+Failures = 0
+Errors   = 0
+Skipped  = 0
+BUILD SUCCESS
+```
+
+La preuve de sortie est [`docs/VALIDATION_M2.md`](docs/VALIDATION_M2.md).
 
 ## Ce que M2 a stabilisé
 
@@ -171,7 +180,7 @@ ProviderReadResult
 └── Diagnostic[]
 ```
 
-Le second provider de vérification :
+Preuve anti-lock-in :
 
 ```text
 OpenSpec source ─────┐
@@ -191,7 +200,7 @@ ChangeLifecycleState complet
 application / promotion des deltas
 ```
 
-ADR-0030 propose que les **premières tables métier complètes** soient créées en M3 en même temps que le membership version/snapshot, plutôt que de figer un schéma provisoire à la fin de M2.
+ADR-0030 fixe que les **premières tables métier complètes** sont créées en M3 avec le membership version/snapshot, plutôt que de figer un schéma provisoire à la fin de M2.
 
 Les éléments déjà persistés restent :
 
@@ -202,9 +211,19 @@ entity identity bindings
 migration ledger
 ```
 
+M3 doit introduire :
+
+```text
+TemporalState
+SpecificationVersion
+KnowledgeSnapshot complet
+snapshot/version membership
+premières migrations métier versionnées
+```
+
 ## Distribution
 
-ADR-0027 fixe la stratégie :
+ADR-0027 fixe :
 
 ```text
 Native-first
@@ -225,7 +244,7 @@ Voir [`docs/roadmap/DEPLOYMENT.md`](docs/roadmap/DEPLOYMENT.md).
 
 ## Vérification du build
 
-Le gate obligatoire du dépôt reste le Maven Wrapper.
+Gate obligatoire du dépôt :
 
 Sous Windows :
 
@@ -249,8 +268,8 @@ Une CI distante pourra être ajoutée lorsqu'un besoin réel de validation dista
 - [`docs/VALIDATION_C0.md`](docs/VALIDATION_C0.md) — sortie C0 ;
 - [`docs/VALIDATION_M0.md`](docs/VALIDATION_M0.md) — sortie M0 ;
 - [`docs/VALIDATION_M1.md`](docs/VALIDATION_M1.md) — sortie M1 ;
-- [`docs/VALIDATION_M2.md`](docs/VALIDATION_M2.md) — dossier de sortie M2, actuellement candidat ;
-- [`docs/roadmap/M2_EXECUTION.md`](docs/roadmap/M2_EXECUTION.md) — tableau opérationnel M2 ;
+- [`docs/VALIDATION_M2.md`](docs/VALIDATION_M2.md) — sortie M2 et autorisation M3 ;
+- [`docs/roadmap/M2_EXECUTION.md`](docs/roadmap/M2_EXECUTION.md) — historique opérationnel M2 ;
 - [`experiments/m0/results/README.md`](experiments/m0/results/README.md) — synthèse des preuves M0.
 
 ### Architecture et domaine
