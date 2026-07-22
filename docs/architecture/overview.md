@@ -10,9 +10,9 @@ La source de vérité fonctionnelle reste [`../CAHIER_DES_CHARGES.md`](../CAHIER
 
 ## 1. Finalité
 
-MORPHEUS transforme des sources de spécification hétérogènes en une représentation normalisée, traçable et interrogeable de l'intention d'un projet.
+MORPHEUS transforme des sources de spécification hétérogènes en une représentation normalisée, versionnée, traçable et interrogeable de l'intention d'un projet.
 
-Il doit être capable de répondre sans dépendance obligatoire à un LLM ni à un format de spécification particulier.
+Il doit fonctionner sans dépendance obligatoire à un LLM, à un service cloud, à un provider particulier ou à une technologie de stockage particulière.
 
 ---
 
@@ -20,15 +20,18 @@ Il doit être capable de répondre sans dépendance obligatoire à un LLM ni à 
 
 MORPHEUS doit être :
 
-- indépendant du format de spécification ;
+- provider-agnostic ;
+- backend-agnostic à la frontière du domaine ;
 - local-first ;
 - indépendant des fournisseurs d'IA ;
 - utilisable sans LLM ;
 - versionné ;
 - traçable ;
 - explicable ;
-- capable de distinguer état courant et changement proposé ;
-- agnostique du backend à la frontière du domaine ;
+- capable de distinguer `CURRENT`, `PROPOSED` et `HISTORICAL` ;
+- capable de représenter un cycle de vie indépendant de l'état temporel ;
+- capable de conserver des références non résolues ;
+- read-first ;
 - extensible vers plusieurs providers ;
 - consommable par CLI, MCP, API et autres moteurs.
 
@@ -40,47 +43,60 @@ MORPHEUS doit être :
 Sources / dépôts / workspaces
            │
            ▼
-Découverte des sources de spécification
+Discovery / Project Specification Registry
            │
            ▼
 SpecificationProviderRegistry
            │
+    probe + capability negotiation
+           │
      ┌─────┼────────────────────────┐
      ▼     ▼                        ▼
- OpenSpec Markdown structuré      Futurs providers
+ OpenSpec  Structured Markdown     Future providers
      │     │                        │
      └─────┴───────────┬────────────┘
                        ▼
-              Ingestion MORPHEUS
+              Provider Snapshot
                        │
                        ▼
-            Modèle normalisé MORPHEUS
+               MORPHEUS Ingestion
+                       │
+            identity + normalization
+                       │
+                       ▼
+            Normalized MORPHEUS Model
+                       │
+                       ▼
+              KnowledgeSnapshot
+                       │
+               validate + activate
                        │
                        ▼
           SpecificationKnowledgeStore
                        │
-            ┌──────────┼──────────┐
-            ▼          ▼          ▼
-        Requêtes   Traçabilité  Historique
+          ┌────────────┼─────────────┐
+          ▼            ▼             ▼
+       Queries     Traceability    History
+          │            │             │
+          └────────────┼─────────────┘
+                       ▼
+             MORPHEUS Intelligence
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+     Coverage       Change scope    Diagnostics
+     Orphans        Context views   Conflicts
                        │
                        ▼
-            Intelligence MORPHEUS
+              Application Services
                        │
-            ┌──────────┼──────────┐
-            ▼          ▼          ▼
-         Changes    Coverage    Conflicts
-         Context    Orphans     Analysis
-                       │
-                       ▼
-               Services de cas d'usage
-                       │
-            ┌──────────┼──────────┐
-            ▼          ▼          ▼
-           CLI        MCP        API
+             ┌─────────┼─────────┐
+             ▼         ▼         ▼
+            CLI       MCP       API
                        │
           ┌────────────┼────────────┐
           ▼            ▼            ▼
-       JARVIS        NEXUS        autres
+       JARVIS        NEXUS         autres
 ```
 
 ---
@@ -90,72 +106,134 @@ SpecificationProviderRegistry
 Responsabilités :
 
 - identifier la racine de projet ;
-- détecter les répertoires et fichiers de spécification ;
-- détecter les formats reconnus ;
+- détecter les sources de spécification candidates ;
 - appliquer les exclusions ;
-- détecter plusieurs providers potentiels ;
-- construire un inventaire sans interpréter le métier.
+- construire un inventaire ;
+- invoquer les probes de providers ;
+- détecter les ambiguïtés ;
+- conserver les diagnostics.
 
-La découverte ne doit pas contenir de logique propre à OpenSpec en dehors d'adaptateurs dédiés.
+La découverte ne doit pas interpréter le domaine métier.
+
+Elle ne doit contenir aucune logique OpenSpec en dehors des adaptateurs/providers dédiés.
 
 ---
 
-## 5. SpecificationProviderRegistry
+## 5. `SpecificationProviderRegistry`
 
-Le registre expose les providers disponibles et leurs capacités.
+Le registre connaît les providers disponibles et organise leur sélection.
 
-Contrat conceptuel :
+Il manipule conceptuellement :
 
 ```text
 SpecificationProvider
-├── id
-├── capabilities
-├── supports(source)
-├── discover(source)
-├── readCurrentSpecifications(...)
-├── readChanges(...)
-└── readHistory(...)
+ProviderCapability
+ProviderCapabilitySet
+ProviderSelectionPolicy
+ProbeResult
 ```
 
-Capacités candidates :
+La sélection tient compte :
+
+- du support réel de la source ;
+- de la version du format ;
+- des capacités obligatoires du cas d'usage ;
+- des capacités optionnelles ;
+- de la configuration explicite ;
+- de la préférence local-first ;
+- des diagnostics de compatibilité.
+
+Le détail du contrat est [`../contracts/SPECIFICATION_PROVIDER.md`](../contracts/SPECIFICATION_PROVIDER.md).
+
+### Capacités candidates
 
 ```text
-DISCOVER
-CURRENT_SPECIFICATIONS
-CHANGES
-REQUIREMENTS
-SCENARIOS
-DESIGN
-TASKS
-ACCEPTANCE_CRITERIA
-HISTORY
-WATCH
-WRITE
-ARCHIVE
+DISCOVER_PROJECT
+READ_CURRENT_SPECIFICATIONS
+READ_CHANGES
+READ_REQUIREMENTS
+READ_CONSTRAINTS
+READ_SCENARIOS
+READ_DESIGN_DECISIONS
+READ_ACCEPTANCE_CRITERIA
+READ_IMPLEMENTATION_TASKS
+READ_HISTORY
+READ_ARCHIVES
+INCREMENTAL_READ
+WATCH_CHANGES
+WRITE_CHANGE
+WRITE_TASK_STATE
+ARCHIVE_CHANGE
 ```
 
-La sélection doit se faire selon les capacités et la source réelle, pas via une liste figée de formats dans le cœur.
+Un provider read-only est un provider valide.
 
 ---
 
-## 6. Ingestion MORPHEUS
+## 6. Provider Snapshot
 
-Cette couche transforme des objets externes en concepts du domaine MORPHEUS.
+Un provider produit une vue cohérente de sa source à un instant ou une révision donnés.
 
-Elle doit :
+Cette vue peut contenir :
 
-- valider les données ;
-- normaliser les identités ;
-- conserver la provenance ;
-- transformer les relations externes ;
-- signaler les éléments inconnus ou partiellement compris ;
-- préserver les identifiants externes comme métadonnées lorsque pertinent.
+- artefacts externes ;
+- identifiants externes ;
+- emplacements ;
+- version du format ;
+- source revision ;
+- diagnostics ;
+- empreintes ;
+- deltas si supportés.
 
-Aucun type spécifique à OpenSpec ne doit fuiter hors de l'adaptateur.
+Le `ProviderSnapshot` est une structure d'adaptation. Il ne fait pas partie du domaine public MORPHEUS.
 
 ---
 
-## 7. Modèle normalisé
+## 7. Ingestion MORPHEUS
+
+L'ingestion est la frontière anti-corruption entre providers et domaine.
+
+Responsabilités :
+
+1. valider les données importées ;
+2. résoudre ou créer les identités MORPHEUS ;
+3. séparer identité, version, locator et external ID ;
+4. normaliser les concepts ;
+5. mapper les statuts ;
+6. mapper les relations ;
+7. construire provenance et preuves ;
+8. conserver les références non résolues ;
+9. produire les diagnostics de normalisation ;
+10. construire un `KnowledgeSnapshot` candidat.
+
+Aucun type provider-specific ne doit sortir de cette frontière.
+
+---
+
+## 8. Identité
+
+Le domaine distingue :
+
+```text
+DomainIdentity
+EntityVersion
+SourceLocator
+ExternalReference
+```
+
+Règles :
+
+- un chemin source n'est pas l'identité ;
+- un titre n'est pas l'identité ;
+- un identifiant externe aide à la résolution mais ne devient pas automatiquement l'identité publique ;
+- les ambiguïtés sont représentées ;
+- une fusion heuristique silencieuse est interdite.
+
+Voir [`../adr/0009-stable-domain-identity.md`](../adr/0009-stable-domain-identity.md).
+
+---
+
+## 9. Modèle normalisé
 
 Concepts candidats :
 
@@ -170,127 +248,268 @@ DesignDecision
 AcceptanceCriterion
 ImplementationTask
 SpecificationVersion
+KnowledgeSnapshot
 Evidence
+Provenance
 TraceabilityLink
 ExternalReference
 ```
 
-### 7.1 Identité
+Le détail est documenté dans [`../domain/MODEL.md`](../domain/MODEL.md).
 
-Chaque concept durable doit posséder une identité MORPHEUS indépendante d'un chemin de fichier lorsque possible.
+### États orthogonaux
 
-Points à expérimenter :
-
-- identifiant explicite fourni par la source ;
-- clé logique normalisée ;
-- identifiant dérivé stable ;
-- gestion des renommages ;
-- collision entre providers ;
-- identité inter-version.
-
-### 7.2 Provenance
-
-Chaque élément doit pouvoir exposer :
+#### TemporalState
 
 ```text
-sourceProvider
-sourceLocation
-externalId
-sourceRevision
-observedAt
+CURRENT
+PROPOSED
+HISTORICAL
 ```
 
-### 7.3 Statut
+#### ChangeLifecycleState
 
-Le modèle doit distinguer les dimensions suivantes :
+```text
+DRAFT
+PROPOSED
+SPECIFIED
+DESIGNED
+PLANNED
+IMPLEMENTING
+VERIFYING
+COMPLETED
+ARCHIVED
+ABANDONED
+```
 
-- état de validité ;
-- état du cycle de vie ;
-- état courant ou proposé ;
-- état d'archivage.
+#### ResolutionState
 
-Une seule enum universelle ne doit pas être imposée prématurément à des dimensions différentes.
+```text
+RESOLVED
+PARTIALLY_RESOLVED
+UNRESOLVED
+HEURISTIC
+```
+
+#### VerificationStatus
+
+```text
+NOT_VERIFIED
+PARTIALLY_VERIFIED
+VERIFIED
+FAILED
+UNKNOWN
+```
+
+Une seule enum universelle est explicitement exclue.
 
 ---
 
-## 8. TraceabilityLink
+## 10. Cycle de vie des changements
+
+Le cycle de vie est une machine d'état normalisée, pas un simple label.
+
+MORPHEUS doit pouvoir à terme exposer :
+
+```text
+canTransition
+validateTransition
+getBlockingConditions
+```
+
+La lecture du cycle de vie reste possible sans capacité d'écriture.
+
+Le détail est [`../domain/CHANGE_LIFECYCLE.md`](../domain/CHANGE_LIFECYCLE.md).
+
+---
+
+## 11. `TraceabilityLink`
 
 La traçabilité est un concept de premier ordre.
 
-Un lien doit pouvoir conserver :
-
 ```text
-source
-relationType
-target
-evidence
-origin
-confidence
+TraceabilityLink
+├── source
+├── relationType
+├── target
+├── resolution
+├── origin
+├── confidence
+├── evidence
+├── validFromVersion
+└── validToVersion
 ```
 
-Relations candidates :
+Taxonomie initiale :
 
 ```text
 REFINES
 DERIVES_FROM
 CONSTRAINS
-SATISFIES
 IMPLEMENTS
+SATISFIES
 VALIDATES
 VERIFIED_BY
-SUPERSEDES
+DECIDED_BY
 DEPENDS_ON
 AFFECTS
-DECIDED_BY
+SUPERSEDES
 LINKS_TO_CODE
+LINKS_TO_TEST
+RELATED_TO
 ```
 
-Les relations déterministes et inférées doivent être distinguées.
+Le type ne doit pas encoder la confiance.
+
+Exemple correct :
+
+```text
+type = IMPLEMENTS
+origin = HEURISTIC
+resolution = HEURISTIC
+confidence = 0.74
+```
+
+La direction est canonique et les inverses utiles peuvent être dérivés par la couche de requête.
+
+Voir ADR-0005 et ADR-0010.
 
 ---
 
-## 9. SpecificationKnowledgeStore
+## 12. Provenance et Evidence
 
-`SpecificationKnowledgeStore` est une abstraction possédée par MORPHEUS.
+### `Provenance`
 
-Le contrat doit être dérivé des cas d'usage.
+Répond à :
 
-Opérations conceptuelles :
+> D'où cette information vient-elle et dans quelle révision a-t-elle été observée ?
+
+Champs candidats :
 
 ```text
-storeProjectSpecification
-storeSpecifications
-storeRequirements
-storeChanges
-storeTraceabilityLinks
-getCurrentSpecification
-findSpecification
-findRequirements
-findChanges
-findConstraints
-findAcceptanceCriteria
-findDesignDecisions
-findTasks
-findRelatedElements
-trace
-getHistory
+providerId
+providerVersion
+source
+externalId
+sourceRevision
+importedAt
 ```
+
+### `Evidence`
+
+Référence la preuve concrète :
+
+```text
+source
+locator
+excerptHash
+observedAt
+provider
+interpretation
+```
+
+Le contenu complet de la source n'a pas besoin d'être dupliqué si un locator suffisamment stable permet de l'expliquer.
+
+---
+
+## 13. `KnowledgeSnapshot`
+
+Un snapshot représente un état cohérent du modèle normalisé pour un projet.
+
+Cycle technique candidat :
+
+```text
+BUILDING
+   ↓
+VALIDATING
+   ↓
+READY
+   ↓
+ACTIVE
+   ↓
+RETIRED
+
+FAILED est possible avant activation.
+```
+
+Publication observable :
+
+```text
+consumers see Vn
+       │
+activation atomique
+       ▼
+consumers see Vn+1
+```
+
+Le backend peut implémenter cette propriété via transaction, MVCC, génération, staging ou autre mécanisme.
+
+Voir ADR-0012.
+
+---
+
+## 14. `SpecificationKnowledgeStore`
+
+`SpecificationKnowledgeStore` est un port possédé par MORPHEUS.
 
 Le domaine ne doit pas connaître :
 
 - SQL ;
 - Cypher ;
-- un moteur documentaire ;
-- un moteur graphe ;
-- un schéma propre à un produit.
+- schéma documentaire ;
+- graph database ;
+- moteur de recherche particulier.
 
-Un backend mémoire doit pouvoir implémenter le contrat pour les tests.
+Familles d'opérations :
+
+```text
+WRITE
+READ
+SEARCH
+TRAVERSE
+SNAPSHOT / VERSION
+MAINTENANCE
+DIAGNOSTICS
+```
+
+Opérations conceptuelles :
+
+```text
+storeSnapshot
+applyDelta
+getCurrentVersion
+getSpecification
+getRequirement
+getChange
+findRequirements
+findConstraints
+findAcceptanceCriteria
+findDesignDecisions
+findImplementationTasks
+search
+findOutgoingLinks
+findIncomingLinks
+traverse
+findPath
+listVersions
+compareVersions
+getEvidence
+getProvenance
+```
+
+Un backend mémoire doit implémenter le contrat.
+
+Un backend persistant local sera sélectionné par M0.
+
+Une graph database ne sera ajoutée que si les benchmarks de traversée démontrent un bénéfice significatif.
+
+Voir [`../contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](../contracts/SPECIFICATION_KNOWLEDGE_STORE.md).
 
 ---
 
-## 10. Intelligence MORPHEUS
+## 15. Intelligence MORPHEUS
 
-La couche d'intelligence ajoute des connaissances dérivées propres au produit.
+La couche d'intelligence produit des informations dérivées à partir du modèle normalisé.
 
 Capacités candidates :
 
@@ -302,22 +521,29 @@ ORPHAN_DETECTION
 SPEC_CONFLICT
 TRACEABILITY_PATH
 CURRENT_STATE_RECONSTRUCTION
+LIFECYCLE_DIAGNOSTICS
+UNRESOLVED_REFERENCE_ANALYSIS
 ```
 
 Toute information dérivée doit exposer :
 
 ```text
 origin
+resolution
 confidence
 evidence
 path
 ```
 
+Aucune heuristique ne doit être présentée comme certitude.
+
 ---
 
-## 11. Services de requêtes
+## 16. Application services
 
-Premiers services candidats :
+Les services correspondent aux cas d'usage, pas aux tables ou collections du backend.
+
+MVP :
 
 ```text
 getCurrentSpecification
@@ -326,14 +552,18 @@ getChange
 listChanges
 getConstraints
 getAcceptanceCriteria
-getDesignDecisions
 getImplementationTasks
 traceRequirement
 getChangeContext
-getSpecificationContext
 ```
 
-Services ultérieurs :
+Selon le dataset :
+
+```text
+getDesignDecisions
+```
+
+Plus tard :
 
 ```text
 compareSpecificationVersions
@@ -341,21 +571,24 @@ findConflicts
 findUncoveredRequirements
 findUnverifiedAcceptanceCriteria
 analyzeChangeScope
+resolveExternalReference
 ```
 
-Les services ne doivent pas exposer directement les objets propres au backend.
+Voir [`../USE_CASES.md`](../USE_CASES.md).
 
 ---
 
-## 12. Provider OpenSpec candidat
+## 17. Provider OpenSpec candidat
 
 Architecture :
 
 ```text
-OpenSpec files
+OpenSpec source
      │
      ▼
 OpenSpecSpecificationProvider
+     │
+ ProviderSnapshot
      │
      ▼
 MORPHEUS ingestion
@@ -364,98 +597,144 @@ MORPHEUS ingestion
 MORPHEUS domain
 ```
 
-L'adaptateur OpenSpec sera responsable de :
+Responsabilités de l'adaptateur :
 
-- découvrir la structure OpenSpec ;
-- interpréter les specs courantes ;
-- interpréter les changements ;
+- détecter la structure ;
+- détecter la version ;
+- lire specs courantes ;
+- lire changements ;
 - lire proposal/design/tasks lorsque disponibles ;
-- conserver les emplacements sources ;
-- gérer les versions de format prises en charge ;
+- lire archives ;
+- conserver les emplacements ;
+- exposer ses capacités effectives ;
 - signaler clairement ce qui n'est pas compris.
 
----
-
-## 13. Écriture et mutation
-
-Le MVP doit privilégier la lecture et la compréhension.
-
-L'écriture via provider doit être considérée comme une capacité séparée.
-
-Raisons :
-
-- écrire implique davantage de risques de corruption ;
-- les formats peuvent imposer leurs propres invariants ;
-- un provider en lecture seule doit rester valide ;
-- les agents doivent pouvoir proposer des changements sans mutation automatique.
-
-Une future abstraction d'écriture devra donc être explicitement validée.
+OpenSpec reste un provider, pas le domaine.
 
 ---
 
-## 14. Synchronisation et fraîcheur
+## 18. Écriture et mutation
 
-MORPHEUS devra pouvoir détecter qu'une source a changé.
+Le MVP privilégie lecture et compréhension.
 
-Approches candidates :
+Une future capacité d'écriture doit suivre :
 
-- empreinte de fichiers ;
+```text
+request
+  ↓
+MORPHEUS validation
+  ↓
+provider WRITE capability
+  ↓
+permission / conflict policy
+  ↓
+source mutation
+  ↓
+re-read / confirmation
+```
+
+Règles :
+
+- aucune écriture implicite ;
+- aucune correction silencieuse des sources ;
+- aucune capacité d'écriture déduite d'une capacité de lecture ;
+- idéalement preview/dry-run pour opérations sensibles.
+
+---
+
+## 19. Synchronisation et fraîcheur
+
+Sources possibles de changement :
+
+- empreintes de fichiers ;
 - révision Git ;
 - timestamp ;
 - watcher local ;
 - mécanisme natif du provider.
 
-Les règles d'invalidation devront être documentées avant M1/M2.
+Un provider peut exposer `INCREMENTAL_READ`.
+
+Deltas candidats :
+
+```text
+ADDED
+MODIFIED
+REMOVED
+MOVED
+UNCHANGED
+UNKNOWN
+```
+
+Le full rebuild reste toujours un fallback officiel lorsque l'incrémental n'est pas fiable.
 
 ---
 
-## 15. Intégration MINOS
-
-L'intégration ne doit pas créer de dépendance de domaine.
+## 20. Intégration MINOS
 
 Approche candidate :
 
 ```text
-MORPHEUS concept
+MORPHEUS entity
       │
       ▼
 ExternalReference
       │
-      ├── system = "minos"
-      ├── project
-      ├── targetType
-      └── targetId
+      ├── system = MINOS
+      ├── resourceType = SYMBOL / FILE / MODULE / TEST
+      ├── externalId
+      └── version?
 ```
 
-Le format concret devra être stabilisé conjointement avec les contrats d'intégration de l'écosystème.
+Un résolveur d'intégration peut enrichir la référence sans introduire de type MINOS dans le domaine.
+
+MORPHEUS reste fonctionnel si MINOS est indisponible.
 
 ---
 
-## 16. Intégration NEXUS
+## 21. Intégration NEXUS
 
-MORPHEUS expose des vues compactes et structurées.
-
-Exemple conceptuel :
+MORPHEUS expose des vues compactes :
 
 ```text
-SpecificationContext
+ChangeContext
 ├── objective
+├── rationale
 ├── requirements[]
 ├── constraints[]
 ├── decisions[]
 ├── acceptanceCriteria[]
 ├── tasks[]
 ├── traceability[]
+├── unresolvedReferences[]
+├── warnings[]
 └── provenance
 ```
 
-NEXUS reste responsable de la sélection finale.
+NEXUS reste responsable du ranking global et du budget de contexte.
 
 ---
 
-## 17. Exposition
+## 22. Intégration JARVIS
 
-Architecture attendue :
+MORPHEUS expose les faits nécessaires à l'orchestration :
+
+```text
+change state
+requirements
+constraints
+acceptance status
+blocking conditions
+allowed transitions
+unresolved references
+```
+
+JARVIS décide quoi faire ensuite.
+
+La logique d'orchestration ne doit pas être implémentée dans les services MORPHEUS.
+
+---
+
+## 23. Exposition
 
 ```text
 Domain / Application Services
@@ -465,11 +744,35 @@ Domain / Application Services
   CLI    MCP    API
 ```
 
-Les handlers ne doivent contenir ni parsing de provider, ni règles de traçabilité, ni logique métier.
+Les handlers ne doivent contenir :
+
+- ni parsing de provider ;
+- ni règles de traçabilité ;
+- ni machine d'état métier ;
+- ni logique de backend.
+
+Les DTO publics doivent être stables et compacts.
 
 ---
 
-## 18. Non-objectifs de C0 et M0
+## 24. Tests architecturaux attendus
+
+M0 doit disposer de tests démontrant notamment :
+
+- aucun type OpenSpec dans le domaine ;
+- aucun type backend dans les services ;
+- fake provider enregistrable ;
+- backend mémoire et persistant passant les mêmes tests de contrat ;
+- current/proposed isolation ;
+- snapshot activation ;
+- identité stable ;
+- références non résolues conservées ;
+- provenance préservée ;
+- traversée de traçabilité stable.
+
+---
+
+## 25. Non-objectifs de C0 et M0
 
 Ne pas construire immédiatement :
 
@@ -477,11 +780,15 @@ Ne pas construire immédiatement :
 - une plateforme collaborative ;
 - un moteur LLM ;
 - une génération automatique de specs par IA ;
+- un moteur vectoriel ;
 - une intégration complète avec tous les trackers ;
+- une composition multi-provider de production ;
+- un event sourcing complet ;
+- une graph database obligatoire ;
 - une API publique de production ;
 - une orchestration JARVIS complète ;
 - un couplage runtime obligatoire à MINOS ou NEXUS.
 
 C0 cadre.
 
-M0 doit ensuite valider les choix structurants par des expérimentations mesurables.
+M0 valide les choix structurants par des expérimentations mesurables définies dans [`../research/M0_EXPERIMENT_MATRIX.md`](../research/M0_EXPERIMENT_MATRIX.md).
