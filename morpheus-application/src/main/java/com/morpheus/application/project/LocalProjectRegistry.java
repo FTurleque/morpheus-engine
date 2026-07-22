@@ -1,5 +1,6 @@
 package com.morpheus.application.project;
 
+import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -20,7 +21,8 @@ public final class LocalProjectRegistry {
 
     /**
      * Registers the normalized local root once and returns the stable MORPHEUS project identity.
-     * Re-registering the same lexical root is idempotent.
+     * Re-registering the same lexical root is idempotent, including when another registration wins
+     * the insertion race between the initial lookup and the store write.
      */
     public ProjectStoreEntry register(Path workspaceRoot) {
         SourceLocator rootLocator = rootLocator(workspaceRoot);
@@ -30,8 +32,12 @@ public final class LocalProjectRegistry {
         }
 
         ProjectStoreEntry created = new ProjectStoreEntry(ProjectSpecificationId.generate(), rootLocator);
-        store.putProject(created);
-        return created;
+        try {
+            store.putProject(created);
+            return created;
+        } catch (KnowledgeStoreException exception) {
+            return store.findProjectByRoot(rootLocator).orElseThrow(() -> exception);
+        }
     }
 
     public Optional<ProjectStoreEntry> find(Path workspaceRoot) {
