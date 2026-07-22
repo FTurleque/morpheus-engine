@@ -20,6 +20,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -62,6 +64,12 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
                 return;
             }
 
+            Optional<ProjectStoreEntry> rootOwner = findProjectByRootInternal(project.rootLocator());
+            if (rootOwner.isPresent()) {
+                throw new KnowledgeStoreException(
+                        "project root already registered by another identity: " + rootOwner.orElseThrow().id());
+            }
+
             try (PreparedStatement statement = connection.prepareStatement(
                     "INSERT INTO projects(id, root_scheme, root_value) VALUES (?, ?, ?)")) {
                 statement.setString(1, project.id().toString());
@@ -81,6 +89,33 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
             return findProjectInternal(projectId);
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot read project " + projectId, exception);
+        }
+    }
+
+    @Override
+    public synchronized Optional<ProjectStoreEntry> findProjectByRoot(SourceLocator rootLocator) {
+        ensureOpen();
+        Objects.requireNonNull(rootLocator, "rootLocator");
+        try {
+            return findProjectByRootInternal(rootLocator);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read project by root " + rootLocator, exception);
+        }
+    }
+
+    @Override
+    public synchronized List<ProjectStoreEntry> listProjects() {
+        ensureOpen();
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT id, root_scheme, root_value FROM projects ORDER BY id");
+             ResultSet result = statement.executeQuery()) {
+            List<ProjectStoreEntry> projects = new ArrayList<>();
+            while (result.next()) {
+                projects.add(mapProject(result));
+            }
+            return List.copyOf(projects);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot list registered projects", exception);
         }
     }
 
@@ -227,17 +262,29 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
 
     private Optional<ProjectStoreEntry> findProjectInternal(ProjectSpecificationId projectId) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT root_scheme, root_value FROM projects WHERE id = ?")) {
+                "SELECT id, root_scheme, root_value FROM projects WHERE id = ?")) {
             statement.setString(1, projectId.toString());
             try (ResultSet result = statement.executeQuery()) {
-                if (!result.next()) {
-                    return Optional.empty();
-                }
-                return Optional.of(new ProjectStoreEntry(
-                        projectId,
-                        new SourceLocator(result.getString("root_scheme"), result.getString("root_value"))));
+                return result.next() ? Optional.of(mapProject(result)) : Optional.empty();
             }
         }
+    }
+
+    private Optional<ProjectStoreEntry> findProjectByRootInternal(SourceLocator rootLocator) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT id, root_scheme, root_value FROM projects WHERE root_scheme = ? AND root_value = ?")) {
+            statement.setString(1, rootLocator.scheme());
+            statement.setString(2, rootLocator.value());
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next() ? Optional.of(mapProject(result)) : Optional.empty();
+            }
+        }
+    }
+
+    private ProjectStoreEntry mapProject(ResultSet result) throws SQLException {
+        return new ProjectStoreEntry(
+                ProjectSpecificationId.parse(result.getString("id")),
+                new SourceLocator(result.getString("root_scheme"), result.getString("root_value")));
     }
 
     private Optional<KnowledgeSnapshotMetadata> findSnapshotInternal(KnowledgeSnapshotId snapshotId) throws SQLException {
