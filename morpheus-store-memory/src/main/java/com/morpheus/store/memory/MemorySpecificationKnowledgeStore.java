@@ -37,16 +37,21 @@ public final class MemorySpecificationKnowledgeStore implements SpecificationKno
 
     @Override
     public synchronized void putSnapshot(KnowledgeSnapshotMetadata snapshot) {
-        validateSnapshotForInsert(snapshot);
+        if (snapshot.state() == KnowledgeSnapshotState.ACTIVE
+                || snapshot.state() == KnowledgeSnapshotState.RETIRED) {
+            throw new KnowledgeStoreException("ACTIVE/RETIRED snapshots must be produced by activation lifecycle");
+        }
 
         KnowledgeSnapshotMetadata existing = snapshots.get(snapshot.id());
-        if (existing == null) {
-            snapshots.put(snapshot.id(), snapshot);
+        if (existing != null) {
+            if (!existing.sameDefinitionAs(snapshot)) {
+                throw new KnowledgeStoreException("snapshot identity collision: " + snapshot.id());
+            }
             return;
         }
-        if (!existing.equals(snapshot)) {
-            throw new KnowledgeStoreException("snapshot identity collision: " + snapshot.id());
-        }
+
+        validateSnapshotReferences(snapshot);
+        snapshots.put(snapshot.id(), snapshot);
     }
 
     @Override
@@ -100,13 +105,9 @@ public final class MemorySpecificationKnowledgeStore implements SpecificationKno
         return activated;
     }
 
-    private void validateSnapshotForInsert(KnowledgeSnapshotMetadata snapshot) {
+    private void validateSnapshotReferences(KnowledgeSnapshotMetadata snapshot) {
         if (!projects.containsKey(snapshot.projectId())) {
             throw new KnowledgeStoreException("project not found: " + snapshot.projectId());
-        }
-        if (snapshot.state() == KnowledgeSnapshotState.ACTIVE
-                || snapshot.state() == KnowledgeSnapshotState.RETIRED) {
-            throw new KnowledgeStoreException("ACTIVE/RETIRED snapshots must be produced by activation lifecycle");
         }
 
         snapshot.predecessorId().ifPresent(predecessorId -> {
