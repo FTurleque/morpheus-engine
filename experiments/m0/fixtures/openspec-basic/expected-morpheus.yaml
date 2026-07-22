@@ -11,8 +11,9 @@ provider:
     - READ_REQUIREMENTS
     - READ_SCENARIOS
     - READ_DESIGN_DECISIONS
-    - READ_ACCEPTANCE_CRITERIA
     - READ_IMPLEMENTATION_TASKS
+  deliberately_not_claimed_yet:
+    - READ_ACCEPTANCE_CRITERIA
 
 current:
   specifications: 1
@@ -33,6 +34,10 @@ proposed:
     - auth-session/persistent-credential-revocation
   tasks: 8
   design_decisions_minimum: 2
+
+mapping_notes:
+  - OpenSpec scenarios are normalized as MORPHEUS Scenario in this first spike.
+  - A scenario is not automatically promoted to AcceptanceCriterion without an explicit mapping rule.
 
 invariants:
   - current_session_expiration_must_remain_queryable_without_applying_delta
@@ -57,3 +62,4 @@ negative_assertions:
   - no_proposed_requirement_is_current
   - no_write_capability_is_required_for_E01_E02
   - no_llm_or_network_access_is_required
+  - no_acceptance_criterion_capability_without_explicit_mapping
