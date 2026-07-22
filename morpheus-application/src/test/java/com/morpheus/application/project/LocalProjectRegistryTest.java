@@ -5,6 +5,7 @@ import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
+import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.domain.source.SourceLocator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -93,6 +94,14 @@ class LocalProjectRegistryTest {
 
         @Override
         public Optional<KnowledgeSnapshotMetadata> activeSnapshot(ProjectSpecificationId projectId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public KnowledgeSnapshotMetadata transitionSnapshotState(
+                KnowledgeSnapshotId snapshotId,
+                KnowledgeSnapshotState expectedState,
+                KnowledgeSnapshotState targetState) {
             throw new UnsupportedOperationException();
         }
 
