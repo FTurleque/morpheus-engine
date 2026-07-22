@@ -1,9 +1,10 @@
 fixture: openspec-basic
-purpose: E01-E02 initial oracle
+purpose: E01-E02 reference oracle
 
 provider:
   expected_provider: openspec
   expected_schema: spec-driven
+  format_version: null
   required_capabilities:
     - DISCOVER_PROJECT
     - READ_CURRENT_SPECIFICATIONS
@@ -12,8 +13,13 @@ provider:
     - READ_SCENARIOS
     - READ_DESIGN_DECISIONS
     - READ_IMPLEMENTATION_TASKS
-  deliberately_not_claimed_yet:
+    - READ_HISTORY
+    - READ_ARCHIVES
+  deliberately_not_claimed:
     - READ_ACCEPTANCE_CRITERIA
+    - WRITE_CHANGE
+    - WRITE_TASK_STATE
+    - ARCHIVE_CHANGE
 
 current:
   specifications: 1
@@ -32,20 +38,32 @@ proposed:
   added_requirements:
     - auth-session/explicit-remember-me-opt-in
     - auth-session/persistent-credential-revocation
+  constraints: 2
   tasks: 8
-  design_decisions_minimum: 2
+  design_decisions: 2
+
+historical:
+  changes: 1
+  change_key: legacy-session-warning
+  temporal_state: HISTORICAL
 
 mapping_notes:
-  - OpenSpec scenarios are normalized as MORPHEUS Scenario in this first spike.
+  - OpenSpec scenarios are normalized as MORPHEUS Scenario in this spike.
   - A scenario is not automatically promoted to AcceptanceCriterion without an explicit mapping rule.
+  - OpenSpec config exposes a workflow schema; this spike does not invent an independent format version when the source does not provide one.
+  - Custom schemas remain legitimate OpenSpec inputs, but this provider advertises support only for schemas it actually understands.
 
 invariants:
   - current_session_expiration_must_remain_queryable_without_applying_delta
   - proposed_modified_session_expiration_must_not_replace_current_baseline_during_ingestion
-  - every_normalized_object_must_have_provenance
+  - historical_change_must_not_be_reported_as_current_or_proposed
+  - every_normalized_requirement_must_have_provenance
   - provider_specific_types_must_not_escape_ingestion_boundary
   - source_locations_must_point_back_to_fixture_files
   - change_and_current_specification_must_have_distinct_temporal_state
+  - unsupported_schema_must_fail_explicitly
+  - partial_source_must_preserve_valid_elements_and_emit_diagnostic
+  - second_provider_must_use_same_normalized_contract_shape
 
 expected_traceability:
   - source: add-remember-me
@@ -60,6 +78,9 @@ expected_traceability:
 
 negative_assertions:
   - no_proposed_requirement_is_current
+  - no_historical_change_is_current
   - no_write_capability_is_required_for_E01_E02
   - no_llm_or_network_access_is_required
   - no_acceptance_criterion_capability_without_explicit_mapping
+  - no_remote_provider_without_opt_in
+  - no_silent_success_when_required_capability_is_missing
