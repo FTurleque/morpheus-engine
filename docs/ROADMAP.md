@@ -1,42 +1,261 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Roadmap active — C0, M0 et M1 validés ; M2 autorisée**
+Statut : **Roadmap active — C0, M0 et M1 validés ; M2 en cours**
 
 Date de dernière mise à jour : 22 juillet 2026
 
-La roadmap est guidée par les preuves. Un jalon peut être ajusté lorsqu'une expérimentation, un test contractuel ou un retour d'usage invalide une hypothèse.
-
-## État synthétique
-
-```text
-C0 — Cadrage fonctionnel et architectural     ✅ VALIDÉE
-M0 — Faisabilité technique                    ✅ VALIDÉE
-M1 — Découverte des projets et providers      ✅ VALIDÉE
-M2 — Ingestion et modèle normalisé            🚧 AUTORISÉE / À DÉMARRER
-M3+                                           ⏳ PLANIFIÉ
-```
-
-Références de décision :
-
-- [`VALIDATION_C0.md`](VALIDATION_C0.md) ;
-- [`VALIDATION_M0.md`](VALIDATION_M0.md) ;
-- [`VALIDATION_M1.md`](VALIDATION_M1.md) ;
-- [`adr/README.md`](adr/README.md).
+La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas considéré terminé parce que son code existe : il doit disposer de contrats stables, de tests, d'ADR cohérentes et d'une preuve de sortie explicite.
 
 ---
 
-## C0 — Cadrage fonctionnel et architectural ✅
+# 1. Où en sommes-nous exactement ?
 
-### Objectif
+## 1.1 Vue globale
 
-Définir précisément ce que MORPHEUS doit fournir avant de développer ses fonctionnalités.
+| Jalon | Sujet | Statut | Preuve / prochaine porte |
+|---|---|---|---|
+| C0 | Cadrage fonctionnel et architectural | ✅ VALIDÉ | `VALIDATION_C0.md` |
+| M0 | Faisabilité technique | ✅ VALIDÉ | `VALIDATION_M0.md` |
+| M1 | Discovery, providers et fondation store | ✅ VALIDÉ | `VALIDATION_M1.md`, 42/42 tests |
+| **M2** | **Ingestion et modèle normalisé** | **🚧 EN COURS** | 4 slices validés, 70/70 tests |
+| M3 | État temporel, lifecycle, snapshots, versions | ⏳ BLOQUÉ PAR M2 | ouverture après `VALIDATION_M2.md` |
+| M4 | Traçabilité | ⏳ PLANIFIÉ | après modèle temporel stable |
+| M5 | Requêtes et contexte compact | ⏳ PLANIFIÉ | après M4 |
+| M6 | Qualité / couverture | ⏳ PLANIFIÉ | après primitives de requête |
+| M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | après snapshots stables |
+| M8 | Analyse des changements | ⏳ PLANIFIÉ | après M3/M4 |
+| M9 | CLI stabilisée | ⏳ PLANIFIÉ | après cœur fonctionnel |
+| M10 | MCP | ⏳ PLANIFIÉ | après API applicative stable |
+| M11 | API | ⏳ PLANIFIÉ | framework différé jusque-là |
+| M12 | MINOS | ⏳ PLANIFIÉ | intégration optionnelle |
+| M13 | NEXUS | ⏳ PLANIFIÉ | MORPHEUS reste autonome |
+| M14 | JARVIS | ⏳ PLANIFIÉ | orchestration seulement |
 
-### Livrables
+Références :
+
+- [`VALIDATION_C0.md`](VALIDATION_C0.md)
+- [`VALIDATION_M0.md`](VALIDATION_M0.md)
+- [`VALIDATION_M1.md`](VALIDATION_M1.md)
+- [`adr/README.md`](adr/README.md)
+- issue M2 : `#9`
+
+---
+
+## 1.2 Tableau de bord M2
+
+M2 est découpée en **8 slices de pilotage**. Ce découpage sert à visualiser l'avancement ; il ne représente pas une estimation linéaire de l'effort.
+
+| Slice | Contenu | Statut | PR | ADR | Gate observé |
+|---|---|---|---|---|---|
+| M2-S1 | Domaine normalisé courant + provenance/evidence | ✅ VALIDÉ | #10 | ADR-0022 | 48/48 |
+| M2-S2 | Identité persistante provider-scoped | ✅ VALIDÉ | #11 | ADR-0023 | 58/58 |
+| M2-S3 | ChangeProposal / Constraint / DesignDecision / Task | ✅ VALIDÉ | #12 | ADR-0024 | 64/64 |
+| M2-S4 | Requirement deltas ADDED/MODIFIED/REMOVED | ✅ VALIDÉ | #13 | ADR-0025 | 70/70 |
+| **M2-S5** | **ExternalReference + résolution optionnelle** | **🚧 PROCHAIN / EN DÉMARRAGE** | à créer | ADR-0026 candidate | gate à définir |
+| M2-S6 | Contrat de lecture unifié + sources partielles + diagnostics + catégories non supportées | ⬜ À FAIRE | — | à décider | — |
+| M2-S7 | Second provider synthétique + preuve anti-lock-in | ⬜ À FAIRE | — | si nécessaire | — |
+| M2-S8 | Revue de sortie M2 + décision persistance métier + `VALIDATION_M2.md` | ⬜ À FAIRE | — | revue ADR | — |
+
+**Position actuelle : 4 slices validés sur 8 ; le slice M2-S5 démarre.**
+
+---
+
+## 1.3 Ce que M2 sait déjà faire
+
+```text
+OpenSpec schema=spec-driven
+        ↓
+provider-internal readers
+        ↓
+anti-corruption boundary
+        ↓
+NormalizedProjectContent
+```
+
+Le modèle de production contient déjà :
+
+```text
+ProjectSpecification
+Specification
+Requirement
+Scenario
+ChangeProposal
+RequirementDelta
+Constraint
+DesignDecision
+ImplementationTask
+Provenance
+Evidence
+```
+
+Les identités sont provider-neutral et UUIDv7. Les mappings externes sont persistés via :
+
+```text
+(providerId, entityType, externalId)
+              ↓
+PersistentEntityIdentityResolver
+              ↓
+DomainIdentity UUIDv7
+```
+
+La fixture `openspec-basic` produit actuellement :
+
+```text
+1 Specification
+2 current Requirements
+2 current Scenarios
+1 ChangeProposal
+3 RequirementDeltas
+2 Constraints
+2 DesignDecisions
+8 ImplementationTasks
+26 Evidence
+```
+
+Le requirement `auth-session/session-expiration` est déjà prouvé comme pouvant exister :
+
+```text
+baseline content
++
+MODIFIED delta content
+```
+
+avec le **même `RequirementId`** mais deux contenus distincts, sans application implicite du delta.
+
+---
+
+## 1.4 Ce qu'il manque réellement pour fermer M2
+
+### M2-S5 — ExternalReference et résolution optionnelle
+
+À livrer :
+
+```text
+ExternalReference
+ExternalReferenceResolutionState
+ExternalReferenceResolver
+ResolverRegistry
+résolution optionnelle
+UNVALIDATED / UNRESOLVED / RESOLVED / STALE
+NO_RESOLVER explicite
+```
+
+Invariants :
+
+```text
+DomainIdentity != ExternalReference
+ExternalReference peut exister sans système cible
+absence de MINOS/GitHub/Jira != panne MORPHEUS
+resolver externe != dépendance du domaine
+```
+
+### M2-S6 — Contrat de lecture et ingestion partielle
+
+À livrer :
+
+- une entrée de lecture provider cohérente au-delà de `probe` ;
+- déclaration explicite des catégories supportées / absentes ;
+- résultat partiel non ambigu ;
+- diagnostics `PARTIAL_INGESTION`, `UNRESOLVED_REFERENCE`, `BROKEN_REFERENCE`, etc. lorsque justifiés ;
+- politique explicite pour `AcceptanceCriterion` : **jamais dérivé automatiquement d'un Scenario** ;
+- fixture `openspec-partial` portée dans les tests Java.
+
+### M2-S7 — Second provider / anti-lock-in
+
+À livrer :
+
+```text
+OpenSpec provider ──┐
+                    ├──> même forme de domaine MORPHEUS
+Synthetic provider ─┘
+```
+
+Preuve attendue : aucun `if (openspec)` dans le domaine ou les contrats applicatifs publics.
+
+### M2-S8 — Fermeture M2
+
+À faire avant M3 :
+
+- audit de l'issue #9 ;
+- audit des ADR M2 ;
+- décider si une persistance métier supplémentaire est réellement nécessaire avant M3 ;
+- porter les invariants M0 restants pertinents ;
+- créer `docs/VALIDATION_M2.md` ;
+- mettre README et roadmap à jour ;
+- fermer l'issue #9 uniquement si la porte de sortie est démontrée.
+
+---
+
+## 1.5 Porte de sortie M2
+
+M2 est terminé uniquement lorsque :
+
+> **Une source supportée peut être ingérée et normalisée dans un modèle MORPHEUS provider-neutral avec identités stables, provenance, preuves, références externes et diagnostics, et un second provider démontre que le modèle n'est pas verrouillé sur OpenSpec.**
+
+Checklist de sortie :
+
+| Condition | État |
+|---|---|
+| domaine courant provider-neutral | ✅ |
+| provenance + evidence | ✅ |
+| identité stable/persistante | ✅ |
+| changements / contraintes / décisions / tâches | ✅ |
+| deltas ADDED/MODIFIED/REMOVED | ✅ |
+| ExternalReference | ⬜ |
+| résolution externe optionnelle | ⬜ |
+| source partielle + diagnostics explicites | ⬜ |
+| politique AcceptanceCriterion explicite | ⬜ |
+| second provider anti-lock-in | ⬜ |
+| validation finale M2 | ⬜ |
+
+**M3 ne démarre pas avant que cette checklist soit satisfaite ou qu'une ADR explique explicitement un report de portée.**
+
+---
+
+# 2. Principes de séquencement
+
+Les règles suivantes gouvernent tous les jalons :
+
+```text
+Documenter d'abord
+Décider ensuite
+Implémenter après
+Prouver avant de valider
+```
+
+Et :
+
+```text
+OpenSpec-first, not OpenSpec-locked
+MORPHEUS owns intent/specification semantics
+MINOS owns code intelligence
+NEXUS owns context selection/ranking/compression
+JARVIS owns orchestration
+```
+
+Invariants transverses :
+
+```text
+DomainIdentity != EntityVersion != SourceLocator != ExternalReference
+Scenario != AcceptanceCriterion par défaut
+provider facts != MORPHEUS domain
+backend details != domain
+```
+
+---
+
+# 3. C0 — Cadrage fonctionnel et architectural ✅
+
+## Objectif
+
+Définir précisément ce que MORPHEUS doit fournir avant le développement fonctionnel.
+
+## Livré
 
 - cahier des charges ;
 - position dans l'écosystème ;
 - périmètre MVP ;
-- modèle de domaine détaillé ;
+- modèle de domaine ;
 - cycle de vie des changements ;
 - cas d'usage prioritaires ;
 - stratégie `SpecificationProvider` ;
@@ -44,168 +263,153 @@ Définir précisément ce que MORPHEUS doit fournir avant de développer ses fon
 - étude OpenSpec ;
 - stratégie `SpecificationKnowledgeStore` ;
 - stratégie d'identité ;
-- stratégie de snapshots/versionnement ;
-- modèle et taxonomie de traçabilité ;
+- snapshots/versionnement ;
+- modèle de traçabilité ;
 - critères de validation ;
 - ADR structurantes ;
 - matrice d'expérimentation M0.
 
-### Porte de décision
-
-> Savons-nous précisément ce que MORPHEUS doit comprendre, pourquoi, à partir de quelles sources, avec quelles frontières, quels invariants et selon quels critères mesurables ?
-
-Décision : **VALIDÉE**.
+Porte : **VALIDÉE**.
 
 ---
 
-## M0 — Faisabilité technique ✅
+# 4. M0 — Faisabilité technique ✅
 
-### Objectif
+## Objectif
 
-Valider les choix structurants par des expérimentations réelles et mesurables.
+Valider les choix structurants par expérimentation réelle.
 
-### Périmètre validé
+## Preuves principales
 
-- provider OpenSpec de référence ;
-- second provider synthétique de découplage ;
-- ingestion et normalisation expérimentales ;
-- identité stable et UUIDv7 ;
-- séparation `CURRENT / PROPOSED / HISTORICAL` ;
-- mapping du cycle de vie ;
-- snapshots et versionnement ;
-- taxonomie de traçabilité ;
-- backend mémoire ;
-- SQLite comme backend persistant candidat ;
-- graph database non requise au MVP ;
-- recherche lexicale ;
+- OpenSpec reference provider ;
+- second provider synthétique expérimental ;
+- normalisation expérimentale ;
+- UUIDv7 ;
+- séparation CURRENT / PROPOSED / HISTORICAL ;
+- lifecycle ;
+- snapshots ;
+- traçabilité ;
+- store mémoire ;
+- SQLite candidat ;
+- graph DB non nécessaire au MVP ;
+- recherche lexicale suffisante ;
 - diagnostics ;
 - contexte compact ;
 - incrémental ;
-- références externes.
+- références externes optionnelles.
 
-### Porte de décision
-
-> L'architecture provider → ingestion → modèle normalisé → snapshots → knowledge store permet-elle de conserver MORPHEUS indépendant du provider et du backend ?
-
-Décision : **ADOPTER AVEC CONTRAINTES**.
+Porte : **ADOPTER AVEC CONTRAINTES — VALIDÉE**.
 
 ---
 
-## M1 — Découverte des projets et providers ✅
+# 5. M1 — Discovery, providers et fondation store ✅
 
-### Objectif
+## Objectif
 
-Détecter les sources de spécification et sélectionner les providers adaptés selon leurs capacités effectives.
+Détecter les sources de spécification et sélectionner un provider compatible de manière déterministe.
 
-### Livré
+## Livré
 
 - registre local des projets ;
-- découverte de workspace explicit-first ;
-- fallback Git structurel sans dépendance au binaire Git ;
-- détection des sources ;
+- workspace discovery explicit-first ;
+- fallback `.git` structurel sans binaire Git ;
 - `SpecificationProviderRegistry` ;
-- `ProviderCapabilitySet` ;
-- probes provider ;
-- capabilities obligatoires et préférées ;
-- préférence local-first ;
-- opt-in pour providers distants ;
-- ambiguïtés et départage déterministe ;
+- probes/capabilities ;
+- required/preferred capabilities ;
+- local-first ;
+- remote opt-in ;
 - diagnostics structurés ;
-- provider OpenSpec `schema=spec-driven` read-only ;
+- provider OpenSpec `spec-driven` read-only ;
 - `SourceLocator` provider-neutral ;
-- `DomainIdentity` UUIDv7 ;
-- store mémoire de référence ;
-- SQLite derrière `SpecificationKnowledgeStore` ;
-- migrations `V001` et `V002` ;
+- UUIDv7 ;
+- memory store de référence ;
+- SQLite derrière le port ;
+- migrations V001/V002/V003 ;
 - tests d'architecture.
-
-### Décisions de portée
-
-La discovery M1 ne réalise pas de crawl récursif global. Un moteur d'exclusions récursives reste différé jusqu'à l'introduction d'une telle discovery.
-
-Les invariants suivants restent rattachés à leurs jalons métier naturels :
-
-```text
-CURRENT / PROPOSED / HISTORICAL -> M3
-ExternalReference                -> M2
-```
-
-### Critère de sortie
-
-> Une source supportée est détectée et un provider compatible est sélectionné de manière déterministe et explicable.
 
 Preuve finale :
 
 ```text
 42/42 tests PASS
-Failures = 0
-Errors   = 0
 BUILD SUCCESS
 ```
 
-Décision : **VALIDÉE — M2 AUTORISÉE**.
+Porte : **VALIDÉE — M2 AUTORISÉE**.
 
 ---
 
-## M2 — Ingestion et modèle normalisé 🚧
+# 6. M2 — Ingestion et modèle normalisé 🚧
 
-### Objectif
+## Objectif
 
-Transformer une source supportée en concepts MORPHEUS indépendants du provider.
+Transformer les sources supportées en concepts MORPHEUS indépendants du provider.
 
-### Périmètre
-
-- `ProjectSpecification` ;
-- `Specification` ;
-- `Requirement` ;
-- `ChangeProposal` ;
-- `Constraint` ;
-- `Scenario` ;
-- `DesignDecision` ;
-- `AcceptanceCriterion` ;
-- `ImplementationTask` ;
-- `Evidence` ;
-- `Provenance` ;
-- `ExternalReference` ;
-- résolution d'identité ;
-- locators ;
-- diagnostics de normalisation ;
-- ingestion OpenSpec réelle derrière l'anti-corruption boundary ;
-- second provider/synthetic fixture pour démontrer le découplage du modèle.
-
-### Invariants
+## Domaine cible M2
 
 ```text
-OpenSpec-first, not OpenSpec-locked
-DomainIdentity != SourceLocator != ExternalReference
-Scenario != AcceptanceCriterion par défaut
+ProjectSpecification
+Specification
+Requirement
+RequirementDelta
+ChangeProposal
+Constraint
+Scenario
+DesignDecision
+AcceptanceCriterion   (uniquement si sémantique explicite)
+ImplementationTask
+Evidence
+Provenance
+ExternalReference
 ```
 
-Aucun type OpenSpec ne doit traverser le domaine ou les services publics.
+## Frontière
 
-### Critère de sortie
+```text
+source externe
+    ↓
+SpecificationProvider / reader adapter
+    ↓
+provider facts internes
+    ↓
+normalisation
+    ↓
+MORPHEUS normalized domain
+```
 
-> Une source supportée peut être ingérée et normalisée dans un modèle MORPHEUS provider-neutral, avec provenance et diagnostics, sans fuite de types provider.
+Aucun type OpenSpec ne doit traverser `com.morpheus.domain` ni les contrats applicatifs publics.
+
+## Ce qui reste hors M2
+
+```text
+TemporalState complet                  -> M3
+SpecificationVersion complet           -> M3
+promotion/application des deltas       -> M3
+TraceabilityLink / AFFECTS              -> M4
+recherche métier                         -> M5
+CLI stabilisée                           -> M9
+MCP / API                                -> M10/M11
+```
 
 ---
 
-## M3 — État temporel, cycle de vie, snapshots et versions
+# 7. M3 — État temporel, lifecycle, snapshots et versions ⏳
 
-### Objectif
+## Objectif
 
-Reconstruire de manière fiable l'état de référence, distinguer les évolutions proposées et maintenir un historique cohérent.
+Reconstruire l'état de référence, les évolutions proposées et l'historique sans ambiguïté.
 
-### Périmètre
+## Candidats de slices M3
 
-#### État temporel
+### M3-S1 — TemporalState et versions
 
 ```text
 CURRENT
 PROPOSED
 HISTORICAL
+SpecificationVersion
 ```
 
-#### Cycle de vie
+### M3-S2 — ChangeLifecycleState
 
 ```text
 DRAFT
@@ -220,95 +424,111 @@ ARCHIVED
 ABANDONED
 ```
 
-#### Versionnement
+### M3-S3 — Composition des snapshots
 
-- `SpecificationVersion` ;
-- `KnowledgeSnapshot` complet ;
-- predecessor ;
-- activation atomique observable ;
-- idempotence ;
+- construire ;
+- valider ;
+- publier ;
+- activer atomiquement ;
+- conserver predecessor ;
+- interdire une visibilité partielle.
+
+### M3-S4 — Application/promotion des deltas
+
+- `ADDED` ;
+- `MODIFIED` ;
+- `REMOVED` ;
+- maintien simultané current/proposed avant promotion ;
+- aucune promotion implicite à `COMPLETED`.
+
+### M3-S5 — Historique / archives / comparaison
+
+- `UNCHANGED` ;
+- `MOVED/RENAMED` si identité suffisante ;
 - rétention ;
-- comparaison `ADDED / MODIFIED / REMOVED / UNCHANGED` ;
-- `MOVED / RENAMED` lorsque l'identité le permet.
+- historique explicable.
 
-### Critère de sortie
+## Porte de sortie M3
 
-`get_current_specification` ne contient jamais implicitement un delta seulement proposé, même pendant une resynchronisation.
+`get_current_specification` ne doit jamais contenir implicitement un delta seulement proposé, même pendant une resynchronisation.
 
 ---
 
-## M4 — Traçabilité
+# 8. M4 — Traçabilité ⏳
 
-### Objectif
+## Objectif
 
 Relier les éléments de spécification et expliquer leur origine.
 
-### Périmètre
-
-- `TraceabilityLink` ;
-- taxonomie contrôlée ;
-- direction canonique ;
-- relations inverses ;
-- exigences ↔ scénarios ;
-- exigences ↔ critères d'acceptation ;
-- exigences ↔ tâches ;
-- changements ↔ exigences ;
-- contraintes ↔ portée ;
-- décisions ↔ changements ;
-- liens cassés ;
-- relations non résolues ;
-- origin/résolution/confiance ;
-- preuves ;
-- chemins de traçabilité.
-
-### Critère de sortie
+## Périmètre
 
 ```text
-morpheus trace <requirement>
+TraceabilityLink
+REFINES
+DERIVES_FROM
+CONSTRAINS
+SATISFIES
+IMPLEMENTS
+VALIDATES
+VERIFIED_BY
+DEPENDS_ON
+AFFECTS
+DECIDED_BY
+SUPERSEDES
+LINKS_TO_CODE
+LINKS_TO_TEST
+RELATED_TO
 ```
 
-retourne un sous-graphe normalisé, directionnel et explicable.
+À livrer :
+
+- direction canonique ;
+- inverse éventuel ;
+- origine ;
+- résolution ;
+- confiance ;
+- preuves ;
+- références cassées ;
+- chemins de traçabilité ;
+- change → requirement ;
+- requirement → scenario/criterion/task ;
+- design decision → change.
+
+Porte : un `trace <requirement>` interne doit produire un sous-graphe normalisé et explicable.
 
 ---
 
-## M5 — Requêtes et contexte compact
+# 9. M5 — Requêtes et contexte compact ⏳
 
-### Objectif
+## Objectif
 
-Rendre MORPHEUS directement exploitable par des humains, scripts et agents.
+Rendre MORPHEUS directement interrogeable par humains, scripts et agents.
 
-### Périmètre
+Primitives prévues :
 
-- `get_current_specification` ;
-- `find_requirements` ;
-- `get_change` ;
-- `list_changes` ;
-- `get_constraints` ;
-- `get_acceptance_criteria` ;
-- `get_design_decisions` ;
-- `get_implementation_tasks` ;
-- `trace_requirement` ;
-- `get_change_context` ;
-- recherche lexicale ;
-- JSON compact ;
-- limites de résultats ;
-- pagination ;
-- warnings et provenance.
+```text
+get_current_specification
+find_requirements
+get_change
+list_changes
+get_constraints
+get_acceptance_criteria
+get_design_decisions
+get_implementation_tasks
+trace_requirement
+get_change_context
+```
 
-Ce jalon constitue le premier cœur MORPHEUS directement utilisable par un agent sans intégration NEXUS obligatoire.
+Inclut : recherche lexicale, pagination, limites, JSON compact, warnings et provenance.
 
 ---
 
-## M6 — Qualité et couverture des spécifications
+# 10. M6 — Qualité et couverture ⏳
 
-### Objectif
+À détecter :
 
-Identifier les lacunes de traçabilité, de complétude et de vérification.
-
-### Périmètre
-
-- exigences orphelines ;
-- tâches sans exigence ;
+- requirements orphelins ;
+- tâches sans requirement ;
 - critères d'acceptation non reliés ;
 - critères non vérifiés ;
 - changements incomplets ;
@@ -316,65 +536,52 @@ Identifier les lacunes de traçabilité, de complétude et de vérification.
 - références cassées ;
 - couverture de traçabilité ;
 - blocages de transition ;
-- explication des diagnostics ;
-- distinction diagnostics déterministes / heuristiques.
+- diagnostics déterministes vs heuristiques.
 
 ---
 
-## M7 — Synchronisation incrémentale et fraîcheur
+# 11. M7 — Synchronisation incrémentale et fraîcheur ⏳
 
-### Objectif
-
-Maintenir la connaissance MORPHEUS à jour sans réingestion complète systématique.
-
-### Périmètre
+## Périmètre
 
 - empreintes ;
-- révisions source ;
+- source revisions ;
 - fichiers ajoutés/modifiés/supprimés ;
 - mouvements/renommages ;
 - archives ;
 - `INCREMENTAL_READ` ;
 - invalidation ;
-- construction de snapshot à partir de delta ;
 - watcher local ;
-- détection de format/version modifiée ;
-- repli vers ingestion complète ;
+- format/version modifié ;
+- fallback full rebuild ;
 - métriques de fraîcheur.
 
-### Invariant
-
-La fiabilité prime sur la performance : en cas de doute, full rebuild.
+Invariant : **la fiabilité prime ; en cas de doute, full rebuild.**
 
 ---
 
-## M8 — Analyse des changements
+# 12. M8 — Analyse des changements ⏳
 
-### Objectif
+## Objectif
 
-Analyser l'étendue fonctionnelle et documentaire d'un changement à partir des relations connues.
+Analyser l'étendue fonctionnelle/documentaire d'un changement.
 
-### Périmètre
+Inclut :
 
 - comparaison current/proposed ;
 - exigences ajoutées/modifiées/supprimées ;
 - contraintes affectées ;
-- décisions associées ;
-- critères d'acceptation ;
+- décisions ;
+- critères ;
 - changements dépendants ;
 - chemins explicatifs ;
-- projections contrôlées ;
 - limites explicites des inférences.
 
-MORPHEUS analyse l'intention et la spécification ; l'analyse du code reste la responsabilité de MINOS.
+L'analyse du code reste MINOS.
 
 ---
 
-## M9 — CLI stabilisée
-
-### Objectif
-
-Stabiliser l'interface développeur et automatisation.
+# 13. M9 — CLI stabilisée ⏳
 
 Commandes candidates :
 
@@ -398,15 +605,11 @@ morpheus inspect
 morpheus health
 ```
 
-Les commandes de mutation restent hors périmètre tant qu'une ADR d'écriture n'a pas été acceptée.
+Les mutations restent hors périmètre sans ADR d'écriture acceptée.
 
 ---
 
-## M10 — Serveur MCP
-
-### Objectif
-
-Exposer des primitives compactes aux agents IA.
+# 14. M10 — Serveur MCP ⏳
 
 Outils candidats :
 
@@ -427,21 +630,17 @@ get_blocking_conditions
 get_sync_status
 ```
 
-Aucune logique métier essentielle ne doit résider dans les handlers MCP.
+Aucune logique métier essentielle dans les handlers MCP.
 
 ---
 
-## M11 — API
+# 15. M11 — API ⏳
 
-### Objectif
-
-Permettre à des systèmes externes de consommer MORPHEUS sans connaître ses providers ou son backend.
-
-### Périmètre
+## Périmètre
 
 - projets ;
 - spécifications ;
-- exigences ;
+- requirements ;
 - changements ;
 - contraintes ;
 - critères ;
@@ -452,50 +651,35 @@ Permettre à des systèmes externes de consommer MORPHEUS sans connaître ses pr
 - diagnostics ;
 - DTO stables.
 
-Le choix du framework serveur reste différé jusqu'à ce jalon.
+Le framework serveur reste différé jusqu'à ce jalon.
 
 ---
 
-## M12 — Intégration MINOS
+# 16. M12 — Intégration MINOS ⏳
 
-### Objectif
+## Objectif
 
 Relier intention et code sans fusionner les domaines.
 
-### Périmètre
+```text
+ExternalReference(system=MINOS, ...)
+```
 
-- `ExternalReference(system=MINOS, ...)` ;
-- références vers symboles/fichiers/modules/tests ;
-- résolution via MINOS ;
-- Requirement → code ;
-- ChangeProposal → code ;
-- AcceptanceCriterion → tests ;
-- traçabilité cross-engine ;
-- références non résolues conservées ;
-- indisponibilité de MINOS tolérée.
+Périmètre : symboles, fichiers, modules, tests, Requirement → code, ChangeProposal → code, AcceptanceCriterion → tests, références non résolues conservées, indisponibilité MINOS tolérée.
 
 ---
 
-## M13 — Intégration NEXUS
+# 17. M13 — Intégration NEXUS ⏳
 
-### Objectif
+MORPHEUS fournit : intention, requirements, contraintes, décisions, critères, tâches, provenance et chemins.
 
-Fournir des vues de spécifications exploitables par la sélection de contexte.
+NEXUS sélectionne, classe, fusionne et compresse le contexte global.
 
-### Frontière
-
-- MORPHEUS fournit intention, exigences, contraintes, décisions, critères, tâches, provenance et chemins ;
-- NEXUS sélectionne, classe, fusionne et compresse le contexte global.
-
-MORPHEUS reste utilisable sans NEXUS.
+**MORPHEUS reste utilisable sans NEXUS.**
 
 ---
 
-## M14 — Orchestration JARVIS
-
-### Objectif
-
-Permettre à JARVIS d'orchestrer MORPHEUS dans des workflows de développement et d'analyse.
+# 18. M14 — Orchestration JARVIS ⏳
 
 MORPHEUS peut exposer :
 
@@ -508,19 +692,18 @@ unresolved references
 specification context
 ```
 
-JARVIS décide de la séquence d'actions. MORPHEUS reste autonome et ne contient aucune logique JARVIS.
+JARVIS décide de la séquence d'actions. MORPHEUS ne contient aucune logique JARVIS.
 
 ---
 
-## Explorations futures
+# 19. Explorations futures
 
 Non engagées dans la roadmap principale :
 
-- génération assistée de spécifications par LLM ;
-- recherche sémantique ;
-- embeddings ;
-- analyse automatique de contradictions avancées ;
-- synchronisation Jira / GitHub Issues / autres trackers ;
+- génération assistée par LLM ;
+- recherche sémantique / embeddings ;
+- contradictions avancées ;
+- Jira / GitHub Issues / trackers ;
 - éditeur visuel ;
 - collaboration temps réel ;
 - providers distants ;
@@ -529,3 +712,21 @@ Non engagées dans la roadmap principale :
 - event sourcing complet ;
 - conformité automatique code ↔ spécification ;
 - mutations orchestrées de specs par agents.
+
+---
+
+# 20. Règle de pilotage
+
+À chaque slice :
+
+```text
+1. documenter l'invariant / ADR
+2. implémenter le plus petit vertical slice
+3. ajouter les preuves contractuelles
+4. exécuter .\mvnw.cmd clean test
+5. accepter l'ADR uniquement après preuve
+6. merger
+7. mettre à jour ce tableau de bord
+```
+
+La ligne **M2-S5** est la prochaine ligne active.
