@@ -68,6 +68,19 @@ class PersistentEntityIdentityResolverTest {
                 () -> resolver.continueIdentity(provider, "requirement", "old-key", "already-owned-key"));
     }
 
+    @Test
+    void explicitContinuityRequiresPreviouslyKnownExternalIdentity() {
+        InMemoryIdentityStore store = new InMemoryIdentityStore();
+        PersistentEntityIdentityResolver resolver = new PersistentEntityIdentityResolver(store);
+        ProviderId provider = new ProviderId("openspec");
+
+        assertThrows(
+                IdentityContinuityException.class,
+                () -> resolver.continueIdentity(provider, "requirement", "unknown-old-key", "new-key"));
+        assertEquals(Optional.empty(), store.find(new EntityIdentityKey(provider, "requirement", "unknown-old-key")));
+        assertEquals(Optional.empty(), store.find(new EntityIdentityKey(provider, "requirement", "new-key")));
+    }
+
     private static final class InMemoryIdentityStore implements EntityIdentityStore {
         private final Map<EntityIdentityKey, DomainIdentity> identities = new HashMap<>();
 
