@@ -1,0 +1,146 @@
+package com.morpheus.store.sqlite;
+
+import com.morpheus.application.store.KnowledgeStoreException;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.List;
+
+/** Minimal explicit SQL migration runner for the embedded SQLite adapter. */
+final class SqliteSchemaManager {
+    private static final List<Migration> MIGRATIONS = List.of(
+            new Migration(1, "foundation", "/db/migration/V001__foundation.sql"));
+
+    void migrate(Connection connection) {
+        boolean previousAutoCommit;
+        try {
+            previousAutoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+            createMigrationLedger(connection);
+
+            for (Migration migration : MIGRATIONS) {
+                applyMigration(connection, migration);
+            }
+
+            connection.commit();
+            connection.setAutoCommit(previousAutoCommit);
+        } catch (SQLException exception) {
+            rollbackQuietly(connection);
+            throw new KnowledgeStoreException("SQLite schema migration failed", exception);
+        }
+    }
+
+    int currentVersion(Connection connection) {
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")) {
+            return result.next() ? result.getInt(1) : 0;
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read SQLite schema version", exception);
+        }
+    }
+
+    private void createMigrationLedger(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS schema_migrations (
+                        version INTEGER PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        checksum TEXT NOT NULL,
+                        applied_at TEXT NOT NULL
+                    )
+                    """);
+        }
+    }
+
+    private void applyMigration(Connection connection, Migration migration) throws SQLException {
+        String script = loadScript(migration.resourcePath());
+        String checksum = sha256(script);
+        AppliedMigration applied = findAppliedMigration(connection, migration.version());
+
+        if (applied != null) {
+            if (!applied.name().equals(migration.name()) || !applied.checksum().equals(checksum)) {
+                throw new KnowledgeStoreException(
+                        "SQLite migration history mismatch for version " + migration.version());
+            }
+            return;
+        }
+
+        executeScript(connection, script);
+        try (PreparedStatement statement = connection.prepareStatement(
+                "INSERT INTO schema_migrations(version, name, checksum, applied_at) VALUES (?, ?, ?, ?)")) {
+            statement.setInt(1, migration.version());
+            statement.setString(2, migration.name());
+            statement.setString(3, checksum);
+            statement.setString(4, Instant.now().toString());
+            statement.executeUpdate();
+        }
+    }
+
+    private AppliedMigration findAppliedMigration(Connection connection, int version) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT name, checksum FROM schema_migrations WHERE version = ?")) {
+            statement.setInt(1, version);
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    return null;
+                }
+                return new AppliedMigration(result.getString("name"), result.getString("checksum"));
+            }
+        }
+    }
+
+    private void executeScript(Connection connection, String script) throws SQLException {
+        for (String fragment : script.split(";")) {
+            String sql = fragment.trim();
+            if (sql.isEmpty()) {
+                continue;
+            }
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(sql);
+            }
+        }
+    }
+
+    private String loadScript(String resourcePath) {
+        try (var stream = SqliteSchemaManager.class.getResourceAsStream(resourcePath)) {
+            if (stream == null) {
+                throw new KnowledgeStoreException("SQLite migration resource not found: " + resourcePath);
+            }
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException exception) {
+            throw new KnowledgeStoreException("Cannot read SQLite migration resource: " + resourcePath, exception);
+        }
+    }
+
+    private String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 must be available", exception);
+        }
+    }
+
+    private void rollbackQuietly(Connection connection) {
+        try {
+            connection.rollback();
+        } catch (SQLException ignored) {
+            // Preserve the original migration error.
+        }
+    }
+
+    private record Migration(int version, String name, String resourcePath) {
+    }
+
+    private record AppliedMigration(String name, String checksum) {
+    }
+}
