@@ -13,6 +13,11 @@ Le changement :
 - conserve l'expiration actuelle de 30 minutes pour les sessions normales ;
 - exige une révocation lorsque l'utilisateur se déconnecte explicitement.
 
+## Constraints
+
+- une session standard SHALL conserver le comportement courant par défaut ;
+- aucune persistance SHALL être activée sans opt-in explicite.
+
 ## Out of scope
 
 - synchronisation multi-appareils ;
