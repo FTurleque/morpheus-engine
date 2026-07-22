@@ -1,26 +1,26 @@
 # Validation M2 — MORPHEUS
 
-Statut : **CANDIDATE — gate final M2-S8 requis avant clôture**
+Statut : **M2 VALIDÉE — M3 autorisée**
 
 Date : 22 juillet 2026
 
 ---
 
-# 1. Décision candidate
+# 1. Décision
 
-La phase **M2 — Ingestion et modèle normalisé** est candidate à la validation.
+La phase **M2 — Ingestion et modèle normalisé** est validée.
 
 Question de sortie :
 
 > **Une source supportée peut-elle être ingérée et normalisée dans un modèle MORPHEUS provider-neutral avec identités stables, provenance, preuves, références externes et diagnostics, tandis qu'un second provider démontre que le modèle n'est pas verrouillé sur OpenSpec ?**
 
-Réponse démontrée par S1-S7 :
+Réponse :
 
 ```text
 OUI — sous les frontières M2/M3/M4 documentées
 ```
 
-La clôture reste conditionnée au gate local final de S8.
+M3 est autorisée.
 
 ---
 
@@ -35,7 +35,7 @@ La clôture reste conditionnée au gate local final de S8.
 | M2-S5 | ExternalReference + résolution optionnelle | #15 | ADR-0026 | 76/76 PASS |
 | M2-S6 | lecture unifiée + partiel + diagnostics | #17 | ADR-0028 | 84/84 PASS |
 | M2-S7 | second provider anti-lock-in | #18 | ADR-0029 | 94/94 PASS |
-| M2-S8 | audit final + décision persistance | à ouvrir | ADR-0030 | **gate final requis** |
+| M2-S8 | audit final + décision persistance | #19 | ADR-0030 | 94/94 PASS |
 
 ADR-0027 est transversale : distribution **native-first / container-supported**.
 
@@ -43,7 +43,7 @@ ADR-0027 est transversale : distribution **native-first / container-supported**.
 
 # 3. Domaine normalisé validé
 
-M2 stabilise les concepts de production suivants :
+M2 stabilise :
 
 ```text
 ProjectSpecification
@@ -62,7 +62,7 @@ ExternalReferenceTarget
 ResolvedExternalTarget
 ```
 
-`AcceptanceCriterion` reste un concept du domaine cible, mais **aucune instance n'est dérivée automatiquement d'un `Scenario`**. Un provider doit exposer une sémantique explicite avant que cette catégorie soit produite.
+`AcceptanceCriterion` reste un concept du domaine cible, mais aucune instance n'est dérivée automatiquement d'un `Scenario`.
 
 Invariant :
 
@@ -74,7 +74,7 @@ Scenario != AcceptanceCriterion
 
 # 4. OpenSpec — provider de référence
 
-Le provider OpenSpec supporté en M2 :
+Provider M2 :
 
 ```text
 schema = spec-driven
@@ -104,13 +104,9 @@ ProviderReadResult
 NormalizedProjectContent
 ```
 
-Le provider n'invente pas de version de format absente et rejette explicitement les schémas inconnus.
+Un schéma inconnu est rejeté explicitement et aucune version de format absente n'est inventée.
 
----
-
-# 5. Oracle `openspec-basic`
-
-Le graphe agrégé prouvé contient :
+Oracle `openspec-basic` :
 
 ```text
 1 Specification
@@ -127,33 +123,23 @@ Le graphe agrégé prouvé contient :
 Deltas :
 
 ```text
-1 MODIFIED
-2 ADDED
+ADDED
+MODIFIED
+REMOVED
 ```
-
-Un test séparé prouve également `REMOVED` sans inventer de statement absent.
 
 Invariant critique :
 
 ```text
-baseline RequirementId
-        ==
-MODIFIED delta RequirementId
-```
-
-mais :
-
-```text
-baseline content != delta content
+baseline RequirementId == MODIFIED delta RequirementId
+baseline content       != MODIFIED delta content
 ```
 
 Le delta est normalisé mais non appliqué en M2.
 
 ---
 
-# 6. Identité stable
-
-Résolution :
+# 5. Identité stable
 
 ```text
 (providerId, entityType, externalId)
@@ -171,17 +157,15 @@ DomainIdentity != SourceLocator
 DomainIdentity != ExternalReference
 externalId != DomainIdentity
 provider namespace fait partie de la résolution
-continuité d'identité explicite uniquement
+continuité explicite uniquement
 aucune fusion par titre/chemin/similarité
 ```
 
-Les bindings survivent à une fermeture/réouverture SQLite.
+Les bindings persistent après fermeture/réouverture SQLite.
 
 ---
 
-# 7. Provenance et evidence
-
-Chaque entité importée porte une `Provenance` reliée à une `Evidence` :
+# 6. Provenance et evidence
 
 ```text
 entity
@@ -193,32 +177,11 @@ Evidence
 SourceLocator + SourceRange + hash optionnel
 ```
 
-Le graphe normalisé rejette les références vers des evidences absentes.
+Le contenu importé reste rattaché à sa preuve source.
 
 ---
 
-# 8. Changements et deltas
-
-M2 distingue :
-
-```text
-ChangeProposal
-RequirementDelta
-```
-
-et interdit de confondre structure de changement et temporalité :
-
-```text
-RequirementDeltaKind != TemporalState
-change structure != ChangeLifecycleState
-normalized delta != applied delta
-```
-
-`CURRENT / PROPOSED / HISTORICAL` et le lifecycle complet restent M3.
-
----
-
-# 9. ExternalReference
+# 7. ExternalReference
 
 États validés :
 
@@ -255,9 +218,9 @@ Aucune dépendance MINOS/GitHub/Jira n'entre dans le domaine.
 
 ---
 
-# 10. Lecture provider unifiée et ingestion partielle
+# 8. Lecture provider unifiée
 
-M2 distingue désormais :
+M2 sépare :
 
 ```text
 SpecificationProvider.probe()
@@ -265,7 +228,7 @@ SpecificationProvider.probe()
 SpecificationContentReader.read()
 ```
 
-Le résultat de lecture fournit un statut explicite par catégorie :
+Statuts de lecture :
 
 ```text
 READ
@@ -281,7 +244,7 @@ Invariant :
 empty collection != ambiguous success
 ```
 
-La fixture `openspec-partial` prouve :
+Fixture `openspec-partial` :
 
 ```text
 CURRENT_SPECIFICATIONS = READ      1
@@ -291,17 +254,19 @@ CHANGES                = ABSENT    0
 PARTIAL_INGESTION
 ```
 
-Le contenu valide reste exploitable malgré une lecture partielle.
+Le contenu valide reste exploitable malgré la lecture partielle.
 
 ---
 
-# 11. Anti-lock-in OpenSpec
+# 9. Anti-lock-in OpenSpec
 
-S7 introduit un module de vérification compilé :
+S7 introduit le module compilé :
 
 ```text
 morpheus-provider-synthetic
 ```
+
+Il est `verification-only`.
 
 Architecture prouvée :
 
@@ -314,9 +279,9 @@ Synthetic JSON ──────┘          ↓
                       NormalizedProjectContent
 ```
 
-Le même consumer lit les deux formats sans `instanceof`, sans `switch(providerId)` et sans structure source spécifique.
+Le même consumer lit les deux formats sans `instanceof`, sans branche provider-specific et sans type source dans les contrats applicatifs.
 
-Une même external key est namespacée par provider :
+Une même external key reste provider-scoped :
 
 ```text
 (openspec, requirement, X) != (synthetic-json, requirement, X)
@@ -326,13 +291,13 @@ Aucun changement de `morpheus-domain` ou `morpheus-application` n'a été requis
 
 ---
 
-# 12. Persistance — décision M2-S8
+# 10. Décision de persistance — ADR-0030
 
-Décision candidate ADR-0030 :
+Décision acceptée :
 
 > **La persistance complète des entités normalisées est introduite en M3 avec `TemporalState`, `SpecificationVersion` et le membership `KnowledgeSnapshot`, pas à la fin de M2.**
 
-M2 persiste déjà :
+M2 persiste :
 
 ```text
 projects
@@ -356,15 +321,15 @@ external_references
 provenance/evidence
 ```
 
-Raison : créer ces tables sans leur ownership version/snapshot obligerait à figer un schéma immédiatement remodelé par M3.
+Raison : créer ces tables sans ownership version/snapshot figerait un schéma immédiatement remodelé par M3.
 
 Conséquence acceptée : le contenu métier normalisé complet reste reconstructible depuis les sources jusqu'à M3 ; les identités stables restent persistées.
 
 ---
 
-# 13. Frontière M2 -> M3
+# 11. Frontière M2 -> M3
 
-M3 doit prendre en charge :
+M3 possède :
 
 ```text
 TemporalState
@@ -381,33 +346,51 @@ premières migrations métier versionnées
 
 M2 n'implémente aucune de ces responsabilités par anticipation.
 
----
-
-# 14. Hors périmètre confirmé
-
-```text
-TraceabilityLink / graphe de traçabilité complet -> M4
-recherche métier / context query               -> M5
-sync incrémentale complète                      -> M7
-analyse des changements                         -> M8
-CLI stabilisée / packaging natif                -> M9
-MCP                                              -> M10
-API                                              -> M11
-MINOS / NEXUS / JARVIS                          -> M12-M14
-```
-
-La distribution est néanmoins gouvernée par ADR-0027 :
-
-```text
-Native-first
-Container-supported
-```
+M4 conserve la traçabilité métier complète (`TraceabilityLink`, `AFFECTS`, traversées de graphe, etc.).
 
 ---
 
-# 15. Limites et warnings connus
+# 12. Gate final M2-S8
 
-Non bloquants pour M2 :
+Commande officielle :
+
+```text
+.\mvnw.cmd clean test
+```
+
+Environnement observé :
+
+```text
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultats par module :
+
+```text
+Domain                                   4 tests
+Application                             38 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             6 tests
+Architecture tests                      13 tests
+-----------------------------------------------
+TOTAL                                   94/94 PASS
+Failures                                    0
+Errors                                      0
+Skipped                                     0
+BUILD SUCCESS
+```
+
+Gate terminé le 22 juillet 2026 à 22:38:52 +02:00.
+
+S8 ne modifie aucun fichier Java, POM ou migration SQL : le gate final valide donc le même produit M2 que celui démontré en S7, avec uniquement la gouvernance de sortie finalisée.
+
+---
+
+# 13. Warnings connus non bloquants
 
 1. Xerial SQLite sous JDK 24 signale que `System::load` nécessitera à terme `--enable-native-access=ALL-UNNAMED` ; à traiter avant stabilisation runtime/CLI.
 2. ArchUnit émet un warning SLF4J NOP ; aucun logger n'est ajouté uniquement pour le masquer.
@@ -416,9 +399,9 @@ Non bloquants pour M2 :
 
 ---
 
-# 16. Checklist de sortie M2
+# 14. Checklist de sortie M2
 
-| Condition | État avant gate final |
+| Condition | État |
 |---|---|
 | domaine provider-neutral | ✅ |
 | provenance + evidence | ✅ |
@@ -434,46 +417,18 @@ Non bloquants pour M2 :
 | diagnostics structurés | ✅ |
 | politique AcceptanceCriterion | ✅ |
 | second provider anti-lock-in | ✅ |
-| décision persistance métier | ✅ candidate ADR-0030 |
-| gate final M2 | ⏳ |
+| décision persistance métier | ✅ ADR-0030 |
+| gate final M2 | ✅ 94/94 |
 
 ---
 
-# 17. Gate final requis
-
-Commande officielle :
-
-```text
-.\mvnw.cmd clean test
-```
-
-Baseline attendue après S7 :
-
-```text
-94 tests
-Failures = 0
-Errors   = 0
-BUILD SUCCESS
-```
-
-Le gate doit être exécuté sur la branche M2-S8 après les seuls changements de gouvernance/documentation.
-
----
-
-# 18. Porte de sortie
-
-Si le gate final reste vert :
+# 15. Porte de sortie
 
 ```text
 M2 = VALIDÉE
 ADR-0030 = ACCEPTÉE — M2
-issue #9 = FERMÉE
+M2-S8 = VALIDÉ
 M3 = AUTORISÉE
 ```
 
-Sinon :
-
-```text
-M2 reste ouverte
-M3 reste bloquée
-```
+La fermeture administrative de l'issue #9 et le merge de la PR #19 matérialisent cette décision dans GitHub.
