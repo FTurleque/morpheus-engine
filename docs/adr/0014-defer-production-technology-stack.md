@@ -1,6 +1,6 @@
 # ADR-0014 — Différer le choix de la stack de production jusqu'aux preuves nécessaires
 
-- Statut : **Proposée — à valider pendant C0**
+- Statut : **Acceptée — validation C0 du 22 juillet 2026**
 - Date : 22 juillet 2026
 - Portée : langage, build, frameworks, distribution et spikes M0
 
@@ -61,7 +61,7 @@ Windows et Linux doivent être raisonnablement supportables.
 
 ---
 
-## 4. Décision proposée
+## 4. Décision
 
 Pendant C0 :
 
@@ -320,24 +320,26 @@ Mitigation : matrice de critères avec pondération explicite lorsque la décisi
 
 Cette ADR ne nécessite pas un benchmark complet pour être acceptée ; elle constitue une règle de gouvernance C0.
 
-Avant acceptation, vérifier que :
+La validation C0 a confirmé que :
 
-- aucun document normatif ne déclare déjà une stack produit ;
+- aucun document normatif ne déclare une stack produit ;
 - aucun jalon C0/M0 ne dépend d'un framework particulier ;
 - les expériences M0 peuvent être exécutées sans figer les contrats publics ;
-- la roadmap prévoit un moment explicite de décision avant la fondation de production.
+- la roadmap distingue explicitement la phase de preuves de la fondation de production.
 
 ---
 
 ## 18. Critères d'acceptation
 
-Cette ADR peut passer à **Acceptée** lors de la validation C0 si :
+Les critères sont satisfaits à la sortie C0 :
 
 1. le dépôt reste sans stack de production implicitement engagée ;
 2. M0 est explicitement reconnu comme phase de preuves ;
 3. les technologies de spike sont considérées jetables par défaut ;
 4. toute adoption de langage/build/framework/backend nécessite une ADR ou une décision documentée ;
 5. la compatibilité Windows/local-first fait partie des critères futurs.
+
+Décision : **Acceptée le 22 juillet 2026.**
 
 ---
 
