@@ -1,6 +1,6 @@
 # ADR-0033 — Compléter le lifecycle KnowledgeSnapshot et préserver l'activation atomique
 
-- Statut : **Proposée — validation M3-S3 requise**
+- Statut : **Acceptée — M3**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0012, ADR-0021, ADR-0030, ADR-0031, ADR-0032
 - Portée : M3-S3, lifecycle technique des snapshots, validation, activation atomique
@@ -9,7 +9,7 @@
 
 M1 a déjà introduit `KnowledgeSnapshotMetadata`, les états techniques et une activation atomique minimale dans `SpecificationKnowledgeStore`.
 
-M3-S3 doit compléter le lifecycle avant activation sans dupliquer le store ni introduire prématurément les tables métier de M3-S4.
+M3-S3 complète le lifecycle avant activation sans dupliquer le store ni introduire prématurément les tables métier de M3-S4.
 
 Cycle retenu :
 
@@ -29,7 +29,7 @@ FAILED
 
 `FAILED` est atteignable lorsqu'une construction/validation échoue avant publication.
 
-## Décision proposée
+## Décision
 
 ### 1. Conserver le port existant
 
@@ -149,6 +149,49 @@ Le CAS de transition utilise une mise à jour conditionnelle sur `(id, state)`.
 
 L'activation multi-lignes reste transactionnelle.
 
+Un test dédié démontre qu'après fermeture/réouverture SQLite, le nouveau snapshot reste `ACTIVE` et son predecessor reste `RETIRED`.
+
+## Preuve M3-S3
+
+Gate local Windows exécuté le 22 juillet 2026 :
+
+```text
+.\mvnw.cmd clean test
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultats :
+
+```text
+Domain                           13 tests
+Application                      54 tests
+OpenSpec provider                26 tests
+Synthetic provider                7 tests
+SQLite store                      7 tests
+Architecture tests               20 tests
+-----------------------------------------
+TOTAL                           127/127 PASS
+Failures                           0
+Errors                             0
+Skipped                            0
+BUILD SUCCESS
+```
+
+Preuves spécifiques S3 :
+
+```text
+SnapshotLifecycleServiceTest             7/7 PASS
+SqliteSnapshotLifecyclePersistenceTest   1/1 PASS
+SpecificationKnowledgeStoreContractTest  4/4 PASS
+```
+
+Le contrat commun exerce le CAS sur Memory et SQLite.
+
+Warnings connus non bloquants : Xerial/JDK24 native access et SLF4J NOP dans les tests ArchUnit.
+
 ## Hors périmètre S3
 
 - tables métier versionnées : S4 ;
@@ -159,9 +202,9 @@ L'activation multi-lignes reste transactionnelle.
 - multi-writer distribué ;
 - traçabilité M4.
 
-## Critères d'acceptation
+## Validation
 
-ADR-0033 passe à **Acceptée — M3** lorsque le build complet démontre :
+Les critères d'acceptation sont satisfaits :
 
 1. cycle `BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED` ;
 2. validation invalide -> `FAILED` ;
@@ -172,6 +215,13 @@ ADR-0033 passe à **Acceptée — M3** lorsque le build complet démontre :
 7. predecessor stale rejeté sans changer l'actif ;
 8. activation avant `READY` rejetée ;
 9. transition CAS rejette un état source devenu stale ;
-10. memory et SQLite respectent le même contrat ;
-11. aucune migration métier ni payload JSON générique n'est ajoutée ;
-12. `.\mvnw.cmd clean test` est vert.
+10. Memory et SQLite respectent le même contrat ;
+11. aucune migration métier ni payload JSON générique n'est ajouté ;
+12. `127/127 PASS` et `BUILD SUCCESS`.
+
+Décision :
+
+```text
+ADR-0033 = ACCEPTÉE — M3
+M3-S3    = VALIDÉ — 127/127
+```
