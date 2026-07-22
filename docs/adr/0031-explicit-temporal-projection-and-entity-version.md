@@ -1,6 +1,6 @@
 # ADR-0031 — Projeter explicitement l'état temporel sur des occurrences versionnées
 
-- Statut : **Proposée — validation M3-S1 requise**
+- Statut : **Acceptée — M3**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0006, ADR-0009, ADR-0012, ADR-0022, ADR-0030
 - Portée : M3-S1, temporalité, versions métier, occurrence d'entité
@@ -31,9 +31,9 @@ PROPOSED change B
 
 sans fusion ni choix arbitraire.
 
-## Décision proposée
+## Décision
 
-Introduire quatre concepts :
+Introduire cinq concepts :
 
 ```text
 TemporalState
@@ -209,3 +209,43 @@ ADR-0031 passe à **Acceptée — M3** lorsque le build complet démontre :
 8. une réingestion technique peut réutiliser explicitement la même `SpecificationVersionId` ;
 9. aucune entité M2 n'est modifiée pour ajouter la temporalité ;
 10. `.\mvnw.cmd clean test` est vert.
+
+## Preuve d'acceptation — 22 juillet 2026
+
+Gate local Windows :
+
+```text
+.\mvnw.cmd clean test
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultats :
+
+```text
+TemporalVersioningTest     5/5 PASS
+TemporalProjectionTest     4/4 PASS
+
+Domain                     9 tests
+Application               42 tests
+OpenSpec provider         26 tests
+Synthetic provider         7 tests
+SQLite store               6 tests
+Architecture tests        13 tests
+----------------------------------
+TOTAL                    103/103 PASS
+Failures                    0
+Errors                      0
+Skipped                     0
+BUILD SUCCESS
+```
+
+La preuve matérialise explicitement l'oracle concurrent E04 : une même identité logique conserve une baseline `CURRENT` à 30 minutes et deux propositions concurrentes à 60 et 15 minutes, tandis que `currentFor(identity)` ne retourne que la baseline.
+
+Deux occurrences `CURRENT` pour une même `DomainIdentity` sont rejetées ; plusieurs `PROPOSED` restent autorisées. La réingestion technique peut produire plusieurs `EntityVersionId` tout en réutilisant la même `SpecificationVersionId`.
+
+Aucun record normalisé M2 n'a été modifié pour porter `TemporalState`.
+
+Les warnings connus restent non bloquants : Xerial SQLite appelle `System::load` sous JDK 24 sans `--enable-native-access=ALL-UNNAMED`, et ArchUnit utilise le logger SLF4J NOP faute de provider configuré.
