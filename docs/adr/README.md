@@ -41,7 +41,7 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0019](0019-maven-coordinates-java-namespace.md) | `io.github.fturleque` + namespace Java `com.morpheus.*` | **Acceptée — bootstrap M1** |
 | [ADR-0020](0020-workspace-root-resolution.md) | Discovery explicit-first avec fallback Git structurel sans dépendance au binaire Git | **Acceptée — M1** |
 | [ADR-0021](0021-sqlite-schema-migrations-foundation.md) | Migrations SQLite explicites, versionnées et schéma V1 minimal normalisé | **Acceptée — M1** |
-| [ADR-0022](0022-m2-normalized-content-before-temporal-projection.md) | Normaliser le contenu en M2 avant la projection temporelle M3 | **Proposée — validation M2** |
+| [ADR-0022](0022-m2-normalized-content-before-temporal-projection.md) | Normaliser le contenu en M2 avant la projection temporelle M3 | **Acceptée — M2** |
 
 Les décisions de sortie sont consignées dans :
 
@@ -161,7 +161,7 @@ Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` du driver SQLite reste un
 
 ### ADR-0022
 
-M2 doit démontrer :
+Le premier slice M2 a démontré sous Windows :
 
 ```text
 provider source
@@ -181,7 +181,16 @@ CURRENT / PROPOSED / HISTORICAL
 
 qui reste une responsabilité M3.
 
-Le premier slice M2 doit attacher provenance et evidence à chaque entité importée et ne laisser aucun type OpenSpec traverser `com.morpheus.domain`.
+Preuves :
+
+```text
+OpenSpecCurrentSpecificationReaderTest   3/3 PASS
+NormalizedProjectContentTest             3/3 PASS
+TOTAL                                    48/48 PASS
+BUILD SUCCESS
+```
+
+Le slice normalise `Specification`, `Requirement` et `Scenario`, attache provenance/evidence aux entités importées, garde `DomainIdentity` distinct des clés externes et ne laisse aucun type OpenSpec traverser `com.morpheus.domain`.
 
 ---
 
