@@ -38,7 +38,7 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0016](0016-java-21-production-baseline.md) | Java avec source/bytecode baseline 21 | **Acceptée — M0** |
 | [ADR-0017](0017-maven-build-foundation.md) | Maven 3.9.16 + Maven Wrapper, `release=21` | **Acceptée avec contraintes — M0** |
 | [ADR-0018](0018-sqlite-initial-persistent-store.md) | SQLite comme backend persistant initial derrière le port | **Acceptée avec contraintes — M0** |
-| [ADR-0019](0019-maven-coordinates-java-namespace.md) | `io.github.fturleque` + namespace Java `com.morpheus.*` | **Proposée — bootstrap M1** |
+| [ADR-0019](0019-maven-coordinates-java-namespace.md) | `io.github.fturleque` + namespace Java `com.morpheus.*` | **Acceptée — bootstrap M1** |
 
 La décision de sortie C0 est consignée dans [`../VALIDATION_C0.md`](../VALIDATION_C0.md).
 
@@ -50,7 +50,7 @@ La décision de sortie M0, les preuves et les contraintes d'acceptation sont con
 
 ### ADR-0001
 
-Ajouter au bootstrap M1 un test d'architecture empêchant :
+Le bootstrap M1 possède un test d'architecture empêchant :
 
 ```text
 domain -> provider-openspec
@@ -82,13 +82,16 @@ L'étape `DESIGNED` peut être sautée uniquement par politique explicite lorsqu
 
 ### ADR-0017
 
-Le premier squelette M1 doit prouver :
+Le bootstrap M1 a prouvé sous Windows :
 
 ```text
-mvnw.cmd test   sur Windows
-./mvnw test     en CI
-maven.compiler.release = 21
+mvnw.cmd clean test
+Apache Maven 3.9.16
+javac release 21
+BUILD SUCCESS
 ```
+
+Le gate `./mvnw test` en CI Linux/Windows reste requis avant merge de la PR de bootstrap.
 
 Maven 4 reste différé jusqu'à GA et validation de migration.
 
@@ -102,7 +105,7 @@ Le bootstrap M1 doit créer un schéma versionné/migrable et vérifier le drive
 
 ### ADR-0019
 
-Le bootstrap M1 doit trancher définitivement les coordonnées avant la création de classes durables :
+Coordonnées et namespace acceptés après preuve Windows :
 
 ```text
 groupId = io.github.fturleque
@@ -110,7 +113,7 @@ artifact prefix = morpheus-
 Java namespace = com.morpheus
 ```
 
-et prouver les dépendances dirigées vers l'intérieur.
+Le test ArchUnit du bootstrap démontre les dépendances dirigées vers l'intérieur.
 
 ---
 
