@@ -1,38 +1,39 @@
 # Validation M1 — MORPHEUS
 
-Statut : **CANDIDATE À VALIDATION — dernier gate Windows requis**
+Statut : **M1 VALIDÉE — M2 autorisée**
 
 Date : 22 juillet 2026
 
 ---
 
-## 1. Décision candidate
+## 1. Décision
 
-La phase **M1 — Découverte des projets et providers** est candidate à validation.
-
-La décision finale sera prononcée uniquement après exécution réussie du gate officiel :
-
-```text
-.\mvnw.cmd clean test
-```
-
-sur la branche de clôture M1.
+La phase **M1 — Découverte des projets et providers** est validée.
 
 Question de sortie :
 
 > **MORPHEUS peut-il découvrir de manière fiable un workspace et ses sources de spécification, enregistrer localement le projet, sélectionner un provider selon ses capacités effectives et produire des diagnostics déterministes sur une fondation Java durable et découplée ?**
 
-Réponse candidate :
+Réponse :
 
 ```text
-OUI — sous réserve du dernier BUILD SUCCESS de clôture
+OUI — M1 VALIDÉE
+M2 — INGESTION ET MODÈLE NORMALISÉ — AUTORISÉE
 ```
+
+La validation repose sur le gate officiel du dépôt :
+
+```text
+.\mvnw.cmd clean test
+```
+
+exécuté avec succès le 22 juillet 2026 sur Windows 10 x64.
 
 ---
 
 ## 2. Incréments M1
 
-M1 a été construit par incréments validés séparément :
+M1 a été construit et validé par incréments :
 
 ```text
 PR #4  Bootstrap Java 21 / Maven Wrapper
@@ -42,13 +43,13 @@ PR #7  Knowledge Store mémoire / SQLite et migrations
 PR #8  Registre local des projets et clôture M1
 ```
 
-Les PR #4 à #7 ont été validées localement sous Windows avant merge.
+Chaque incrément a été soumis au gate local Maven Wrapper avant intégration.
 
 ---
 
 ## 3. Porte fonctionnelle M1
 
-Flux de production obtenu :
+Flux obtenu :
 
 ```text
 requested workspace path
@@ -72,17 +73,15 @@ LocalProjectRegistry
 SpecificationKnowledgeStore
 ```
 
-### Critère roadmap
+Critère de sortie de la roadmap :
 
 > Une source supportée est détectée et un provider compatible est sélectionné de manière déterministe et explicable.
 
-État candidat : **SATISFAIT**.
+État : **SATISFAIT**.
 
 ---
 
 ## 4. Registre local des projets
-
-La roadmap M1 exige un registre local des projets.
 
 M1 fournit :
 
@@ -92,23 +91,22 @@ SpecificationKnowledgeStore.findProjectByRoot(...)
 SpecificationKnowledgeStore.listProjects()
 ```
 
-Règles :
+Règles validées :
 
-- la racine est convertie en `SourceLocator` provider-neutral ;
-- la normalisation reste lexicale (`toAbsolutePath().normalize()`) conformément à ADR-0020 ;
-- réenregistrer la même racine retourne la même identité MORPHEUS ;
-- deux identités différentes ne peuvent pas posséder la même racine ;
-- la liste des projets est déterministe ;
-- le backend mémoire et SQLite appliquent le même contrat ;
-- SQLite verrouille l'unicité avec la migration `V002__project_root_uniqueness.sql`.
+- normalisation lexicale par `toAbsolutePath().normalize()` ;
+- racine représentée par un `SourceLocator` provider-neutral ;
+- identité MORPHEUS indépendante du chemin ;
+- réenregistrement d'une même racine idempotent ;
+- une racine ne peut appartenir qu'à une seule identité ;
+- liste déterministe ;
+- même contrat sur Memory et SQLite ;
+- unicité SQLite verrouillée par `V002__project_root_uniqueness.sql`.
 
 Invariant :
 
 ```text
 ProjectSpecificationId != SourceLocator
 ```
-
-La racine locale n'est jamais utilisée comme `DomainIdentity`.
 
 ---
 
@@ -119,37 +117,22 @@ ADR-0020 est **Acceptée — M1**.
 Politique :
 
 ```text
-1. chemin explicite
-2. fallback ancêtre .git uniquement si aucune source n'est reconnue
-3. aucune commande git
-4. workspace non-Git valide
+1. chemin explicite en priorité
+2. fallback vers un ancêtre .git uniquement si aucune source n'est reconnue
+3. aucune dépendance au binaire git
+4. workspace non-Git supporté
 ```
 
-Propriétés démontrées :
+Propriétés validées :
 
 - chemins normalisés ;
 - `.git` fichier ou répertoire ;
 - monorepo protégé par priorité au chemin explicite ;
 - source reconnue mais invalide/non supportée jamais masquée ;
-- résultat déterministe ;
-- provenance via `SpecificationSource` / `SourceLocator`.
+- provenance conservée via `SpecificationSource` / `SourceLocator` ;
+- résultat déterministe.
 
-### Exclusions
-
-La roadmap mentionne des exclusions de discovery.
-
-M1 **ne réalise aucune exploration récursive globale du filesystem**. La recherche est bornée au chemin explicite puis, si nécessaire, à une racine Git ancêtre unique.
-
-Conséquence : il n'existe pas encore de collection de sous-répertoires à exclure. Un moteur d'exclusions serait artificiel à ce stade.
-
-Décision M1 :
-
-```text
-recursive discovery = deferred
-exclusion engine     = not required until recursive discovery exists
-```
-
-Ce point n'affaiblit pas le critère de sortie M1 et reste explicite.
+La discovery M1 n'effectue pas de crawl récursif global. Un moteur d'exclusions récursives reste donc différé jusqu'à l'introduction d'un tel crawl.
 
 ---
 
@@ -168,21 +151,21 @@ ProviderSelectionPolicy
 ProviderSelectionResult
 ```
 
-Règles démontrées :
+Règles validées :
 
-- unsupported refusé ;
+- provider unsupported refusé ;
 - capabilities `required` obligatoires ;
 - capabilities `preferred` utilisées comme préférence ;
-- absence d'une capability préférée = diagnostic de dégradation ;
-- provider local préféré à capacités équivalentes ;
-- provider distant soumis à opt-in ;
-- provider explicite toujours soumis à compatibilité ;
-- égalité résolue de manière déterministe par `providerId` ;
+- capability préférée absente = dégradation explicite ;
+- local préféré à remote à capacités équivalentes ;
+- remote soumis à opt-in ;
+- provider explicite toujours vérifié ;
+- départage stable par `providerId` ;
 - matches multiples signalés explicitement.
 
 ---
 
-## 7. OpenSpec M1
+## 7. Provider OpenSpec M1
 
 Premier provider de référence :
 
@@ -192,7 +175,7 @@ schema     = spec-driven
 mode       = local / read-only
 ```
 
-Signatures M1 :
+Signature :
 
 ```text
 openspec/config.yaml
@@ -205,39 +188,28 @@ Locator :
 file:openspec/config.yaml
 ```
 
-Capabilities effectives selon les répertoires réellement présents.
-
-Invariants :
+Invariants validés :
 
 ```text
 Scenario != AcceptanceCriterion
-```
-
-et aucune capability d'écriture n'est annoncée :
-
-```text
 WRITE_CHANGE      = absent
 WRITE_TASK_STATE  = absent
 ARCHIVE_CHANGE    = absent
 ```
 
-### Version de format
-
-Le contrat `ProviderProbeResult` transporte `formatVersion` lorsqu'un provider peut la déterminer.
-
-Les fixtures OpenSpec M1 ne déclarent pas de version de format distincte du `schema`. MORPHEUS retourne donc :
+Aucune `formatVersion` n'est inventée lorsque la source n'en déclare pas :
 
 ```text
 formatVersion = empty
 ```
 
-plutôt que d'inventer une version.
+Les schémas OpenSpec inconnus échouent explicitement avec `UNSUPPORTED_PROVIDER_SCHEMA`.
 
 ---
 
-## 8. Diagnostics
+## 8. Diagnostics M1
 
-Catalogue M1 présent :
+Catalogue présent :
 
 ```text
 NO_PROVIDER_FOUND
@@ -253,7 +225,7 @@ INVALID_SOURCE
 PARTIAL_INGESTION
 ```
 
-Contrat :
+Contrat machine :
 
 ```text
 code
@@ -263,15 +235,15 @@ details
 source?
 ```
 
-Les consommateurs automatiques utilisent `code`, `severity` et `details`, jamais le texte du message humain comme protocole.
+Les consommateurs machine ne dépendent pas du texte du message humain.
 
 ---
 
-## 9. Identité et store
+## 9. Identité et Knowledge Store
 
-### `DomainIdentity`
+### DomainIdentity
 
-ADR-0015 est portée en Java :
+ADR-0015 est portée en production Java :
 
 ```text
 RFC 9562 UUIDv7
@@ -279,21 +251,21 @@ opaque
 provider-neutral
 ```
 
-La composante temporelle du UUIDv7 n'est jamais interprétée comme donnée métier.
+La composante temporelle du UUIDv7 n'est jamais utilisée comme donnée métier implicite.
 
-### `SpecificationKnowledgeStore`
+### SpecificationKnowledgeStore
 
-Deux backends partagent le même contrat :
+Backends conformes au même contrat :
 
 ```text
 MemorySpecificationKnowledgeStore
 SqliteSpecificationKnowledgeStore
 ```
 
-Invariants M1 prouvés :
+Invariants validés :
 
 - rejeu idempotent ;
-- collision d'identité explicite ;
+- collision d'identité explicite, jamais fusionnée silencieusement ;
 - snapshot non `ACTIVE` invisible via `activeSnapshot` ;
 - activation atomique observable ;
 - predecessor obsolète rejeté ;
@@ -311,30 +283,30 @@ V002__project_root_uniqueness.sql
 
 Le ledger `schema_migrations` conserve version, nom, checksum SHA-256 et date d'application.
 
-Le blob JSON expérimental E08 reste explicitement rejeté comme schéma de production.
+Le blob JSON expérimental E08 reste rejeté comme schéma de production.
 
 ---
 
-## 10. Invariants M0 portés ou différés explicitement
+## 10. Invariants M0 portés ou différés
 
-| Invariant M0 | État M1 | Justification |
-|---|---|---|
-| `Scenario != AcceptanceCriterion` | **PORTÉ** | test OpenSpec + capability absente |
-| collision d'identité sans fusion silencieuse | **PORTÉ** | tests contractuels store |
-| UUIDv7 opaque | **PORTÉ** | `DomainIdentityTest` |
-| provider read-only valide | **PORTÉ** | capabilities d'écriture absentes |
-| capability obligatoire manquante = diagnostic | **PORTÉ** | `ProviderSelectionPolicyTest` |
-| snapshot non actif jamais visible | **PORTÉ** | contrat mémoire/SQLite |
-| `CURRENT / PROPOSED / HISTORICAL` | **DIFFÉRÉ M3** | état temporel complet hors périmètre M1 |
-| external reference sans cible possible | **DIFFÉRÉ M2** | `ExternalReference` entre dans le modèle normalisé M2 |
+| Invariant | Décision M1 |
+|---|---|
+| `Scenario != AcceptanceCriterion` | **PORTÉ** |
+| collision d'identité sans fusion silencieuse | **PORTÉ** |
+| UUIDv7 opaque | **PORTÉ** |
+| provider read-only valide | **PORTÉ** |
+| capability obligatoire manquante = diagnostic | **PORTÉ** |
+| snapshot non actif jamais visible | **PORTÉ** |
+| `CURRENT / PROPOSED / HISTORICAL` | **DIFFÉRÉ M3** |
+| `ExternalReference` sans cible | **DIFFÉRÉ M2** |
 
-La fermeture M1 ne crée donc aucun type métier uniquement pour cocher une case d'un jalon ultérieur.
+Aucun type métier M2/M3 n'a été créé uniquement pour satisfaire artificiellement une checklist M1.
 
 ---
 
-## 11. Fixtures M0 et non-régression
+## 11. Fixtures M0 réutilisées
 
-Réutilisées directement en M1 :
+Réutilisées directement :
 
 ```text
 openspec-basic
@@ -342,15 +314,15 @@ openspec-partial
 openspec-unsupported-schema
 ```
 
-Les autres fixtures restent associées au jalon dont elles portent la sémantique :
+Différées avec leur sémantique :
 
 ```text
 openspec-state-matrix -> M3
-identity-scenarios    -> résolution d'identité M2/M3 selon les cas
-synthetic-basic       -> normalisation multi-provider M2
+identity-scenarios    -> M2/M3
+synthetic-basic       -> M2
 ```
 
-Règle maintenue : les fixtures M0 ne sont pas modifiées pour arranger l'implémentation de production.
+Les fixtures M0 n'ont pas été modifiées pour arranger l'implémentation de production.
 
 ---
 
@@ -365,91 +337,96 @@ com.morpheus.application -X-> provider/store/cli
 
 SQLite/JDBC et OpenSpec restent des adapters.
 
-Aucun type OpenSpec ne traverse `com.morpheus.domain`.
-
-Aucun `SQLException` ne devient un contrat public MORPHEUS.
+Aucun type OpenSpec ne traverse `com.morpheus.domain` et aucun `SQLException` ne devient un contrat public MORPHEUS.
 
 ---
 
-## 13. Fondation technique M1
+## 13. Fondation technique validée
 
 ```text
 Language             : Java
 Compatibility        : Java 21 source / bytecode
 Compiler JDK         : Java 21+ avec --release 21
 Build                : Maven 3.9.16 + Maven Wrapper
-Persistent store     : SQLite 3.53.1.0 derrière SpecificationKnowledgeStore
+Persistent store     : SQLite JDBC 3.53.1.0 derrière SpecificationKnowledgeStore
 Memory store         : référence des tests contractuels
 DomainIdentity       : UUIDv7
 Remote CI            : optionnelle, non gate
-LLM                   : aucun obligatoire
+LLM                  : aucun obligatoire
 ```
 
-Validation principale réalisée sous Windows 10 x64 avec JDK 24.0.1 compilant en `release 21`.
+Validation effective M1 :
 
-Le code de discovery utilise les abstractions Java `Path` et n'appelle aucun binaire Git. La portabilité Linux/macOS est une propriété recherchée de l'implémentation, mais aucune exécution Linux distincte n'est revendiquée comme preuve M1 depuis la suppression volontaire du gate CI distante.
+```text
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+La portabilité Linux/macOS est recherchée par l'usage des abstractions Java `Path`, mais aucune exécution Linux distincte n'est revendiquée comme preuve M1.
 
 ---
 
-## 14. Limites connues acceptées
+## 14. Gate final M1 — preuve
 
-- pas de canonicalisation physique systématique symlink/junction (`toRealPath`) ;
-- pas de discovery récursive globale ;
-- pas de moteur d'exclusions tant qu'il n'existe pas de crawl récursif ;
-- pas d'ingestion métier OpenSpec M2 ;
-- pas de `TemporalState` de production avant M3 ;
-- pas d'`ExternalReference` de production avant M2 ;
-- pas de CLI fonctionnelle stabilisée ;
-- warning JDK 24 sur l'accès natif Xerial SQLite à traiter avant stabilisation packaging/CLI ;
-- aucune CI distante obligatoire.
-
-Aucune de ces limites n'empêche le critère de sortie M1.
-
----
-
-## 15. Gate final attendu
-
-Après les ajouts de clôture, la suite attendue contient **42 tests** :
+Commande :
 
 ```text
-DomainIdentityTest                         4
-LocalProjectRegistryTest                  2
-ProjectDiscoveryServiceTest               6
-WorkspaceRootResolverTest                 3
-ProviderSelectionPolicyTest               6
-OpenSpecDiscoveryIntegrationTest          5
-OpenSpecSpecificationProviderTest         5
-SqliteDriverSmokeTest                     1
-SqliteSchemaMigrationTest                 4
-LayerDependencyTest                       2
-SpecificationKnowledgeStoreContractTest   4
-
-TOTAL                                    42
+.\mvnw.cmd clean test
 ```
 
-Critère :
+Résultats observés le 22 juillet 2026 :
 
 ```text
-Failures = 0
-Errors   = 0
+DomainIdentityTest                         4/4 PASS
+LocalProjectRegistryTest                  2/2 PASS
+ProjectDiscoveryServiceTest               6/6 PASS
+WorkspaceRootResolverTest                 3/3 PASS
+ProviderSelectionPolicyTest               6/6 PASS
+OpenSpecDiscoveryIntegrationTest          5/5 PASS
+OpenSpecSpecificationProviderTest         5/5 PASS
+SqliteDriverSmokeTest                     1/1 PASS
+SqliteSchemaMigrationTest                 4/4 PASS
+LayerDependencyTest                       2/2 PASS
+SpecificationKnowledgeStoreContractTest   4/4 PASS
+
+TOTAL                                    42/42 PASS
+Failures                                  0
+Errors                                    0
 BUILD SUCCESS
 ```
 
+Le warning JDK 24 relatif à `System::load` / `--enable-native-access=ALL-UNNAMED` du driver Xerial SQLite reste non bloquant pour M1 et devra être traité avant stabilisation du packaging/CLI.
+
 ---
 
-## 16. Décision finale à appliquer après le gate
+## 15. Limites acceptées
 
-Si le gate final est vert :
+- pas de canonicalisation physique systématique symlink/junction ;
+- pas de discovery récursive globale ;
+- pas de moteur d'exclusions récursives ;
+- pas d'ingestion métier OpenSpec avant M2 ;
+- pas de `ExternalReference` de production avant M2 ;
+- pas de `TemporalState` de production avant M3 ;
+- pas de CLI fonctionnelle stabilisée ;
+- aucune CI distante obligatoire.
+
+Ces limites sont explicites et n'empêchent pas la porte de sortie M1.
+
+---
+
+## 16. Décision finale
 
 ```text
 M1 = VALIDÉE
 M2 = AUTORISÉE
 ```
 
-Le prochain jalon sera :
+Le prochain jalon est :
 
 > **M2 — Ingestion et modèle normalisé**
 
-avec comme contrainte principale :
+Contrainte principale de M2 :
 
 > **aucun type OpenSpec ne traverse le domaine MORPHEUS ni ses services publics.**
