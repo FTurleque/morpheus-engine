@@ -14,8 +14,6 @@ MORPHEUS répond principalement à la question :
 
 ## Position dans l'écosystème
 
-Vue fonctionnelle candidate :
-
 ```text
                            JARVIS
                         Orchestration
@@ -33,7 +31,7 @@ Vue fonctionnelle candidate :
                        Agents / profils IA
 ```
 
-Les responsabilités sont volontairement séparées :
+Les responsabilités sont séparées :
 
 - **MORPHEUS** comprend l'intention, les exigences, les changements, les contraintes et les critères d'acceptation ;
 - **MINOS** comprend le code, les symboles, les relations, les dépendances et les impacts ;
@@ -41,13 +39,9 @@ Les responsabilités sont volontairement séparées :
 - **JARVIS** orchestre les différentes capacités de l'écosystème ;
 - **Alfred** et **Brainiac** représentent des agents ou profils spécialisés pouvant consommer ces capacités.
 
-Chaque brique doit rester autonome et ne pas devenir une dépendance fonctionnelle obligatoire des autres.
+Chaque brique doit rester autonome.
 
-## Principe d'architecture
-
-MORPHEUS possède son propre modèle métier et ne doit pas être couplé à un format ou un outil de spécification particulier.
-
-Architecture candidate :
+## Architecture validée
 
 ```text
 Sources de spécifications
@@ -60,10 +54,10 @@ SpecificationProvider Registry
 OpenSpec Markdown     Futur
         │
         ▼
-Ingestion MORPHEUS
+Ingestion / Normalisation MORPHEUS
         │
         ▼
-Modèle normalisé MORPHEUS
+Domaine MORPHEUS
         │
         ├── Specification
         ├── Requirement
@@ -73,99 +67,134 @@ Modèle normalisé MORPHEUS
         ├── DesignDecision
         ├── AcceptanceCriterion
         ├── ImplementationTask
-        ├── Evidence
+        ├── Evidence / Provenance
         └── TraceabilityLink
         │
         ▼
-SpecificationKnowledgeStore
+KnowledgeSnapshot
         │
         ▼
-Services d'intelligence MORPHEUS
+SpecificationKnowledgeStore
+    ┌───┴────┐
+    ▼        ▼
+  Memory   SQLite
+        │
+        ▼
+Query / Search / Traceability / Context
         │
    ┌────┼─────┐
    ▼    ▼     ▼
   CLI  MCP   API
 ```
 
-**OpenSpec est envisagé comme un premier fournisseur de spécifications, pas comme le domaine de MORPHEUS.**
+**OpenSpec est le premier provider de référence, pas le domaine de MORPHEUS.**
 
-## Invariants de travail
+## Invariants validés
 
-MORPHEUS doit :
+MORPHEUS :
 
-- rester indépendant des fournisseurs d'IA ;
-- fonctionner sans LLM ;
-- être local-first par défaut ;
-- rester indépendant du format de spécification à la frontière du domaine ;
-- distinguer identité logique, version, emplacement source et identifiant externe ;
-- distinguer `CURRENT`, `PROPOSED` et `HISTORICAL` du cycle de vie d'un changement ;
-- conserver provenance et preuves ;
-- traiter la traçabilité comme un concept de premier ordre ;
-- sélectionner les providers selon leurs capacités effectives ;
-- publier l'état de connaissance par snapshots cohérents ;
-- séparer lecture et écriture ;
-- coopérer avec MINOS, NEXUS et JARVIS sans dépendre fonctionnellement d'eux ;
-- ne pas laisser un spike M0 choisir implicitement la stack de production.
+- possède son propre modèle de domaine ;
+- est local-first et fonctionne sans LLM obligatoire ;
+- distingue `CURRENT`, `PROPOSED` et `HISTORICAL` ;
+- sépare identité, version, locator et identifiant externe ;
+- utilise UUIDv7 comme format canonique opaque de `DomainIdentity` ;
+- traite la traçabilité comme un concept de premier ordre ;
+- sélectionne les providers selon leurs capacités effectives ;
+- sépare lecture et écriture ;
+- publie la connaissance par snapshots cohérents à activation atomique observable ;
+- conserve un backend mémoire de référence pour les tests contractuels ;
+- utilise SQLite comme backend persistant initial derrière `SpecificationKnowledgeStore` ;
+- conserve un modèle conceptuel de graphe sans graph database obligatoire au MVP ;
+- expose des références cross-engine sans dépendance directe à MINOS, NEXUS ou JARVIS ;
+- fournit des vues compactes sans absorber le ranking global de NEXUS.
 
-Ces invariants sont des hypothèses structurantes à tester lorsque leurs ADR exigent une preuve M0.
+## Fondation technique retenue
+
+À la sortie de M0 :
+
+```text
+Language             : Java
+Compatibility        : Java 21 source / bytecode
+Compiler JDK         : Java 21+ avec --release 21
+Build                : Maven 3.9.16 + Maven Wrapper
+Persistent store     : SQLite derrière SpecificationKnowledgeStore
+Memory store         : référence des tests contractuels
+DomainIdentity       : UUIDv7
+Graph DB             : aucune au MVP
+Server framework     : aucun dans la fondation
+DI framework         : aucun obligatoire
+LLM                  : aucun obligatoire
+```
+
+La baseline Java 21 est volontairement alignée avec l'écosystème existant. Un JDK plus récent peut compiler MORPHEUS tant que `--release 21` est respecté.
 
 ## Phase actuelle
 
-La phase C0 a été validée le **22 juillet 2026**.
+Les phases :
+
+```text
+C0 — Cadrage fonctionnel et architectural     ✅ VALIDÉE
+M0 — Faisabilité technique                    ✅ VALIDÉE
+M1 — Découverte des projets et providers      🚧 EN COURS
+```
 
 Le projet entre maintenant en :
 
-> **M0 — Faisabilité technique**
+> **M1 — Découverte des projets et providers**
 
-M0 doit valider les choix structurants avec des expériences réelles et mesurables, sans transformer les technologies de spike en stack de production par défaut.
+M1 commence par un bootstrap technique obligatoire avant toute fonctionnalité significative : Maven Wrapper, Java release 21, build Windows/CI, tests d'architecture, portage des invariants M0 critiques et premier schéma SQLite versionné.
 
-La décision de sortie C0 est documentée dans [`docs/VALIDATION_C0.md`](docs/VALIDATION_C0.md).
+La règle de travail devient :
 
-La règle de travail reste :
-
-> **Documenter l'hypothèse, expérimenter, mesurer, décider, puis implémenter durablement.**
+> **Transformer les preuves M0 en code de production, sans affaiblir les frontières validées.**
 
 ## Documents de référence
 
-La source de vérité fonctionnelle et architecturale issue de C0 est :
+### Sources de vérité et validations
 
-- [`docs/CAHIER_DES_CHARGES.md`](docs/CAHIER_DES_CHARGES.md).
+- [`docs/CAHIER_DES_CHARGES.md`](docs/CAHIER_DES_CHARGES.md) — source de vérité fonctionnelle et architecturale ;
+- [`docs/VALIDATION_C0.md`](docs/VALIDATION_C0.md) — sortie C0 ;
+- [`docs/VALIDATION_M0.md`](docs/VALIDATION_M0.md) — sortie M0 et fondation M1 ;
+- [`experiments/m0/results/README.md`](experiments/m0/results/README.md) — synthèse des preuves M0.
 
-Validation et audit :
+### Architecture et domaine
 
-- [`docs/VALIDATION_C0.md`](docs/VALIDATION_C0.md) — décision de sortie C0 et règles de passage en M0 ;
-- [`docs/AUDIT_COHERENCE_C0.md`](docs/AUDIT_COHERENCE_C0.md) — audit d'alignement et décisions encore ouvertes.
+- [`docs/ECOSYSTEME.md`](docs/ECOSYSTEME.md) — frontières MORPHEUS / MINOS / NEXUS / JARVIS ;
+- [`docs/architecture/overview.md`](docs/architecture/overview.md) — architecture ;
+- [`docs/domain/MODEL.md`](docs/domain/MODEL.md) — modèle de domaine ;
+- [`docs/domain/CHANGE_LIFECYCLE.md`](docs/domain/CHANGE_LIFECYCLE.md) — machine d'état des changements ;
+- [`docs/USE_CASES.md`](docs/USE_CASES.md) — cas d'usage ;
+- [`docs/MVP.md`](docs/MVP.md) — MVP ;
+- [`docs/PLAN.md`](docs/PLAN.md) — plan ;
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — roadmap.
 
-Documents fonctionnels et architecturaux :
+### Contrats
 
-- [`docs/ECOSYSTEME.md`](docs/ECOSYSTEME.md) — responsabilités et frontières avec MINOS, NEXUS et JARVIS ;
-- [`docs/architecture/overview.md`](docs/architecture/overview.md) — architecture candidate ;
-- [`docs/domain/MODEL.md`](docs/domain/MODEL.md) — modèle de domaine détaillé ;
-- [`docs/domain/CHANGE_LIFECYCLE.md`](docs/domain/CHANGE_LIFECYCLE.md) — machine d'état candidate des changements ;
-- [`docs/USE_CASES.md`](docs/USE_CASES.md) — cas d'usage et priorités ;
-- [`docs/MVP.md`](docs/MVP.md) — périmètre MVP proposé ;
-- [`docs/PLAN.md`](docs/PLAN.md) — plan de travail ;
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — feuille de route.
+- [`docs/contracts/SPECIFICATION_PROVIDER.md`](docs/contracts/SPECIFICATION_PROVIDER.md) — provider et capabilities ;
+- [`docs/contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](docs/contracts/SPECIFICATION_KNOWLEDGE_STORE.md) — store de connaissance.
 
-Contrats conceptuels :
+### Recherche
 
-- [`docs/contracts/SPECIFICATION_PROVIDER.md`](docs/contracts/SPECIFICATION_PROVIDER.md) — contrat des providers et capacités ;
-- [`docs/contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](docs/contracts/SPECIFICATION_KNOWLEDGE_STORE.md) — contrat du store de connaissance.
+- [`docs/research/openspec-provider-study.md`](docs/research/openspec-provider-study.md) — OpenSpec ;
+- [`docs/research/M0_EXPERIMENT_MATRIX.md`](docs/research/M0_EXPERIMENT_MATRIX.md) — matrice M0 ;
+- [`docs/research/domain-identity-format.md`](docs/research/domain-identity-format.md) — UUIDv7 ;
+- [`docs/research/production-stack-evaluation.md`](docs/research/production-stack-evaluation.md) — choix de fondation.
 
-Recherche et expérimentations :
+### Décisions
 
-- [`docs/research/openspec-provider-study.md`](docs/research/openspec-provider-study.md) — étude d'OpenSpec comme provider candidat ;
-- [`docs/research/M0_EXPERIMENT_MATRIX.md`](docs/research/M0_EXPERIMENT_MATRIX.md) — datasets, expériences, mesures et portes de décision M0.
+- [`docs/adr/`](docs/adr/) — registre ADR et statuts de sortie M0.
 
-Décisions :
+## Gates immédiats de M1
 
-- [`docs/adr/`](docs/adr/) — registre des ADR, alternatives, risques, preuves attendues et conditions d'acceptation.
+Avant toute fonctionnalité M1 significative :
 
-## Statut des décisions structurantes
-
-À la sortie C0 :
-
-- **ADR-0014 est Acceptée** : aucun choix de stack de production ne doit être déduit des spikes M0 ;
-- les autres ADR structurantes restent **Proposées** lorsqu'elles exigent explicitement des preuves M0 ou ultérieures.
-
-Cela permet de démarrer les expérimentations sans présenter des hypothèses encore non testées comme des décisions techniques acquises.
+1. Maven Wrapper 3.9.16 ;
+2. `maven.compiler.release=21` ;
+3. `mvnw.cmd test` validé sous Windows ;
+4. `./mvnw test` validé en CI ;
+5. test d'architecture interdisant `domain -> adapters` ;
+6. portage en JUnit des invariants M0 critiques ;
+7. store mémoire de référence ;
+8. schéma SQLite initial versionné et migrable ;
+9. validation du driver SQLite sous Windows ;
+10. conservation des fixtures M0 comme corpus de non-régression.
