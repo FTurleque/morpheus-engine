@@ -18,7 +18,8 @@ import java.util.List;
 /** Minimal explicit SQL migration runner for the embedded SQLite adapter. */
 final class SqliteSchemaManager {
     private static final List<Migration> MIGRATIONS = List.of(
-            new Migration(1, "foundation", "/db/migration/V001__foundation.sql"));
+            new Migration(1, "foundation", "/db/migration/V001__foundation.sql"),
+            new Migration(2, "project-root-uniqueness", "/db/migration/V002__project_root_uniqueness.sql"));
 
     void migrate(Connection connection) {
         final boolean previousAutoCommit;
