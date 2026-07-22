@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
@@ -19,6 +20,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SqliteSchemaMigrationTest {
@@ -64,6 +66,25 @@ class SqliteSchemaMigrationTest {
             assertEquals(1, result.getInt("count"));
             assertEquals(64, result.getInt("checksum_length"));
         }
+    }
+
+    @Test
+    void modifiedMigrationHistoryIsRejected() throws Exception {
+        Path database = tempDir.resolve("tampered.db");
+        try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
+            // Apply the canonical migration first.
+        }
+
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+             var statement = connection.createStatement()) {
+            statement.executeUpdate("UPDATE schema_migrations SET checksum = 'tampered' WHERE version = 1");
+        }
+
+        assertThrows(KnowledgeStoreException.class, () -> {
+            try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
+                // Opening must fail before the store becomes usable.
+            }
+        });
     }
 
     @Test
