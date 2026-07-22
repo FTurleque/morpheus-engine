@@ -1,121 +1,149 @@
 # M2 — Plan d'exécution détaillé
 
-Statut : **M2 en cours — 5 slices validés sur 8**
+Statut : **M2 en cours — 6 slices validés sur 8 ; S7 actif**
 
 Dernière mise à jour : 22 juillet 2026
 
-Ce document complète [`../ROADMAP.md`](../ROADMAP.md) et sert de tableau de bord opérationnel.
+Ce document complète [`../ROADMAP.md`](../ROADMAP.md) et constitue le tableau de bord opérationnel de M2.
 
 ---
 
-# 1. Vue immédiate — NOW / NEXT / LATER
-
-## NOW — prochain slice actif
+# 1. Position actuelle
 
 ```text
-M2-S6 — Contrat de lecture unifié, sources partielles et diagnostics
-Statut  : 🚧 PROCHAIN
-Branche : à créer après merge de PR #15
-PR      : à créer
-ADR     : candidate à documenter
-Gate    : base actuelle = 76/76 tests
+C0     ✅ validé
+M0     ✅ validé
+M1     ✅ validé
+M2     🚧 actif
+  S1   ✅ domaine courant
+  S2   ✅ identité persistante
+  S3   ✅ modèle de changement
+  S4   ✅ requirement deltas
+  S5   ✅ ExternalReference
+  S6   ✅ lecture unifiée / partiel / diagnostics
+  S7   🚧 second provider / anti-lock-in
+  S8   ⬜ validation finale
+M3     ⏳ bloqué par M2
 ```
 
-Objectif :
-
-> Un provider expose un résultat de lecture unique, explicite sur ce qui a été lu, absent, non supporté, partiel ou en échec, sans laisser une collection vide masquer une perte d'information.
-
-Livrables prévus :
+Progression de pilotage :
 
 ```text
-SpecificationContentReader
-ProviderReadRequest
-ProviderReadResult
-ReadCategory
-ReadCategoryStatus
-ReadCategoryReport
+M2 : [███████████████░░░░░] 6 / 8 slices validés
 ```
 
-Statuts candidats :
+Cette barre mesure les slices de gouvernance, pas la charge restante.
 
-```text
-READ
-ABSENT
-UNSUPPORTED
-FAILED
-PARTIAL
-```
+---
 
-Catégories à gouverner :
+# 2. NOW / NEXT / LATER
 
-```text
-CURRENT_SPECIFICATIONS
-CHANGES
-REQUIREMENTS
-SCENARIOS
-CONSTRAINTS
-DESIGN_DECISIONS
-IMPLEMENTATION_TASKS
-EXTERNAL_REFERENCES
-ARCHIVES
-```
-
-Diagnostics à exercer lorsque sémantiquement justifiés :
-
-```text
-PARTIAL_INGESTION
-OPTIONAL_CAPABILITY_UNAVAILABLE
-UNRESOLVED_REFERENCE
-BROKEN_REFERENCE
-```
-
-Fixture principale :
-
-```text
-experiments/m0/fixtures/openspec-partial
-```
-
-Politique AcceptanceCriterion à figer :
-
-```text
-Scenario != AcceptanceCriterion
-aucune dérivation automatique
-absence de sémantique explicite => catégorie non produite
-```
-
-## NEXT — immédiatement après S6
+## NOW — M2-S7
 
 ```text
 M2-S7 — Second provider synthétique / preuve anti-lock-in
+Branche : m2/synthetic-provider-anti-lockin
+PR      : Draft à ouvrir
+ADR     : ADR-0029 proposée
+Base    : main @ 84/84 tests
 ```
 
-Objectif :
+Question :
+
+> Le même contrat applicatif et le même domaine MORPHEUS peuvent-ils être produits par un second format sans introduire une seule dépendance OpenSpec dans le domaine ou l'application ?
+
+Architecture cible :
 
 ```text
-OpenSpec reader ─────┐
-                      ├──> même contrat applicatif
-Synthetic reader ────┘     même domaine MORPHEUS
+OpenSpec source ─────> OpenSpec adapter ──────┐
+                                              │
+                                              ├──> SpecificationContentReader
+                                              │        ↓
+Synthetic JSON ──────> Synthetic adapter ─────┘    ProviderReadResult
+                                                       ↓
+                                              NormalizedProjectContent
+```
+
+Livrables :
+
+```text
+morpheus-provider-synthetic
+SyntheticSpecificationProvider
+SyntheticSpecificationContentReader
+SyntheticJsonParser (adapter-internal)
+ProviderAntiLockInTest
+ADR-0029
 ```
 
 Preuves obligatoires :
 
-- aucun type OpenSpec dans `com.morpheus.domain` ;
-- aucun branchement `if provider == openspec` dans les contrats applicatifs ;
-- mêmes catégories et statuts de lecture ;
-- identités provider-scoped distinctes ;
-- contenu normalisé comparable par concept, pas par format source.
+```text
+même port SpecificationProvider
+même port SpecificationContentReader
+même ProviderReadResult
+même NormalizedProjectContent
+même ReadCategory vocabulary
+aucun type OpenSpec dans domain/application
+aucun type synthetic JSON dans domain/application
+même external key + provider différent => DomainIdentity différente
+```
 
-## LATER — fermeture M2
+Fixture :
+
+```text
+experiments/m0/fixtures/synthetic-basic/morpheus-spec.json
+```
+
+Oracle principal :
+
+```text
+Specification : billing
+Requirement   : billing/invoice-retention
+Scenario      : Retain invoice
+Change        : extend-retention
+```
+
+Gate attendu avant acceptation :
+
+```text
+84 tests baseline S6
++ 3 SyntheticSpecificationProviderTest
++ 4 SyntheticSpecificationContentReaderTest
++ 3 ProviderAntiLockInTest
+----------------------------------------------
+94 tests attendus
+```
+
+## NEXT — M2-S8
 
 ```text
 M2-S8 — Audit final + décision de persistance + VALIDATION_M2.md
 ```
 
-M3 reste bloquée tant que S6, S7 et S8 ne sont pas validés ou explicitement reportés par ADR.
+Travail prévu :
+
+```text
+audit issue #9
+audit ADR-0022..ADR-0029
+audit fixtures M0 pertinentes
+décision explicite persistance métier avant M3
+VALIDATION_M2.md
+README + ROADMAP
+fermeture issue #9
+autorisation ou refus de M3
+```
+
+## LATER
+
+```text
+M3 — TemporalState / lifecycle / versions / snapshots
+```
+
+M3 ne démarre pas avant la preuve de sortie M2.
 
 ---
 
-# 2. Tableau de progression M2
+# 3. Tableau de progression M2
 
 | Slice | Résultat | Statut | PR | ADR | Gate |
 |---|---|---|---|---|---|
@@ -124,80 +152,81 @@ M3 reste bloquée tant que S6, S7 et S8 ne sont pas validés ou explicitement re
 | M2-S3 | changements / contraintes / décisions / tâches | ✅ VALIDÉ | #12 | ADR-0024 | 64/64 |
 | M2-S4 | requirement deltas ADDED/MODIFIED/REMOVED | ✅ VALIDÉ | #13 | ADR-0025 | 70/70 |
 | M2-S5 | ExternalReference + résolution optionnelle | ✅ VALIDÉ | #15 | ADR-0026 | 76/76 |
-| **M2-S6** | **lecture unifiée + partiel + diagnostics** | **🚧 PROCHAIN** | — | candidate | base 76 |
-| M2-S7 | second provider anti-lock-in | ⬜ À FAIRE | — | à décider | — |
+| M2-S6 | lecture unifiée + partiel + diagnostics | ✅ VALIDÉ | #17 | ADR-0028 | 84/84 |
+| **M2-S7** | **second provider anti-lock-in** | **🚧 ACTIF** | à ouvrir | ADR-0029 | base 84 |
 | M2-S8 | validation et clôture M2 | ⬜ À FAIRE | — | revue globale | — |
 
-Progression de pilotage :
-
-```text
-M2 : [████████████░░░░░░░░] 5 / 8 slices validés
-```
-
-Cette barre représente le nombre de slices, pas une estimation proportionnelle de charge.
+ADR-0027 est transversale et fixe la stratégie de distribution `native-first / container-supported` ; elle n'est pas un slice M2.
 
 ---
 
-# 3. Ce qui est réellement disponible aujourd'hui
+# 4. Ce que MORPHEUS sait réellement faire aujourd'hui
 
-## 3.1 Discovery / providers
+## 4.1 Discovery et sélection
 
 ```text
-workspace path
-    ↓
+workspace
+  ↓
 WorkspaceRootResolver
-    ↓
+  ↓
 SpecificationProviderRegistry
-    ↓
-probe + capability negotiation
+  ↓
+probe
+  ↓
+capability negotiation
 ```
 
-Validé depuis M1.
+Garanties :
 
-## 3.2 Lecture OpenSpec
+```text
+explicit path first
+Git ancestor fallback seulement si nécessaire
+local preferred à capacité équivalente
+remote opt-in
+sélection déterministe
+```
+
+## 4.2 OpenSpec courant
 
 ```text
 openspec/specs/**/spec.md
-    ↓
+  ↓
 OpenSpecCurrentSpecificationReader
-
-openspec/changes/*/proposal.md
-openspec/changes/*/design.md
-openspec/changes/*/tasks.md
-    ↓
-OpenSpecChangeMetadataReader
-
-openspec/changes/*/specs/**/spec.md
-    ↓
-OpenSpecRequirementDeltaReader
-
-ensemble
-    ↓
-OpenSpecProjectContentReader
-    ↓
-NormalizedProjectContent
-```
-
-## 3.3 Domaine normalisé M2 actuellement stabilisé
-
-```text
-ProjectSpecification
+  ↓
 Specification
 Requirement
-RequirementDelta
 Scenario
-ChangeProposal
-Constraint
-DesignDecision
-ImplementationTask
-Provenance
 Evidence
-ExternalReference
-ExternalReferenceTarget
-ResolvedExternalTarget
+Provenance
 ```
 
-## 3.4 Identité
+## 4.3 Changements OpenSpec
+
+```text
+proposal.md
+  ↓ ChangeProposal + Constraint
+
+design.md
+  ↓ DesignDecision
+
+tasks.md
+  ↓ ImplementationTask
+
+changes/*/specs/**/spec.md
+  ↓ RequirementDelta
+```
+
+Les deltas :
+
+```text
+ADDED
+MODIFIED
+REMOVED
+```
+
+restent normalisés mais **non appliqués**.
+
+## 4.4 Identité
 
 ```text
 (providerId, entityType, externalId)
@@ -207,61 +236,21 @@ PersistentEntityIdentityResolver
 DomainIdentity UUIDv7
 ```
 
-Store persistant :
+Invariant :
+
+```text
+DomainIdentity != externalId
+DomainIdentity != SourceLocator
+DomainIdentity != ExternalReference
+```
+
+SQLite persiste les bindings via :
 
 ```text
 V003__entity_identity_bindings.sql
 ```
 
-## 3.5 Oracle OpenSpec actuel
-
-`openspec-basic` produit :
-
-```text
-1 Specification
-2 current Requirements
-2 current Scenarios
-1 ChangeProposal
-3 RequirementDeltas
-2 Constraints
-2 DesignDecisions
-8 ImplementationTasks
-26 Evidence
-```
-
-Invariant déjà prouvé :
-
-```text
-baseline RequirementId
-        ==
-MODIFIED delta RequirementId
-```
-
-mais :
-
-```text
-baseline content != delta content
-```
-
-Aucune application implicite de delta n'a lieu en M2.
-
-## 3.6 Références externes
-
-Architecture validée :
-
-```text
-Domain entity
-    ↓
-ExternalReference
-    ↓ optional
-ExternalReferenceResolutionService
-    ↓
-ExternalReferenceResolverRegistry
-    ↓
-resolver externe
-```
-
-États :
+## 4.5 Références externes
 
 ```text
 UNVALIDATED
@@ -270,296 +259,260 @@ RESOLVED
 STALE
 ```
 
-Transitions prouvées :
+Architecture :
 
 ```text
-UNVALIDATED -- no resolver --> UNRESOLVED / NO_RESOLVER
-UNVALIDATED -- found -------> RESOLVED
-UNRESOLVED  -- found -------> RESOLVED
-RESOLVED    -- missing -----> STALE
-STALE       -- found -------> RESOLVED
+ExternalReference
+    ↓ optional
+ExternalReferenceResolutionService
+    ↓
+ExternalReferenceResolverRegistry
+    ↓
+adapter externe optionnel
 ```
 
-Gate :
+Une panne ou absence MINOS/GitHub/Jira ne rend pas MORPHEUS indisponible.
+
+## 4.6 Lecture provider unifiée
+
+Depuis S6 :
 
 ```text
-PR #15
-ADR-0026
-ExternalReferenceResolutionServiceTest 6/6
-TOTAL 76/76 PASS
-BUILD SUCCESS
+SpecificationProvider.probe()
+        !=
+SpecificationContentReader.read()
 ```
+
+Résultat :
+
+```text
+ProviderReadResult
+├── content?
+├── ReadCategoryReport[]
+└── Diagnostic[]
+```
+
+Statuts :
+
+```text
+READ
+ABSENT
+UNSUPPORTED
+FAILED
+PARTIAL
+```
+
+Invariant :
+
+```text
+empty collection != ambiguous success
+```
+
+Fixture `openspec-partial` prouvée :
+
+```text
+CURRENT_SPECIFICATIONS = READ      1
+REQUIREMENTS           = READ      2
+SCENARIOS              = PARTIAL   1
+CHANGES                = ABSENT    0
+PARTIAL_INGESTION
+```
+
+## 4.7 AcceptanceCriterion
+
+Règle M2 maintenant formelle :
+
+```text
+Scenario != AcceptanceCriterion
+```
+
+OpenSpec actuel :
+
+```text
+READ_ACCEPTANCE_CRITERIA non annoncé
+ACCEPTANCE_CRITERIA = UNSUPPORTED
+```
+
+Aucune conversion automatique.
 
 ---
 
-# 4. Historique détaillé des slices validés
+# 5. Preuves accumulées
 
-## M2-S1 — Domaine courant
-
-Livrables :
+## M2-S1
 
 ```text
-ProjectSpecification
-Specification
-Requirement
-Scenario
-Provenance
-Evidence
-NormalizedProjectContent
-OpenSpecCurrentSpecificationReader
+PR #10
+ADR-0022
+48/48 PASS
 ```
 
-Invariants :
+Prouve domaine current provider-neutral + evidence/provenance.
+
+## M2-S2
 
 ```text
-provider facts != MORPHEUS domain
-Scenario != AcceptanceCriterion
-content normalization != temporal projection
+PR #11
+ADR-0023
+58/58 PASS
 ```
 
-Preuve : `PR #10 / ADR-0022 / 48/48`.
+Prouve identité provider-scoped persistante.
 
-## M2-S2 — Identité persistante
-
-Livrables :
+## M2-S3
 
 ```text
-EntityIdentityKey
-EntityIdentityBinding
-EntityIdentityStore
-PersistentEntityIdentityResolver
-MemoryEntityIdentityStore
-SqliteEntityIdentityStore
-V003__entity_identity_bindings.sql
+PR #12
+ADR-0024
+64/64 PASS
 ```
 
-Invariants :
+Prouve ChangeProposal, Constraint, DesignDecision, ImplementationTask.
+
+## M2-S4
 
 ```text
-externalId != DomainIdentity
-provider namespace fait partie de la résolution
-continuité explicite uniquement
-aucune fusion par titre/chemin/contenu
+PR #13
+ADR-0025
+70/70 PASS
 ```
 
-Preuve : `PR #11 / ADR-0023 / 58/58`.
+Prouve deltas ADDED/MODIFIED/REMOVED et continuité du RequirementId logique.
 
-## M2-S3 — Métadonnées de changement
-
-Livrables :
-
-```text
-ChangeProposal
-Constraint
-DesignDecision
-ImplementationTask
-OpenSpecChangeMetadataReader
-```
-
-Invariants :
-
-```text
-change structure != TemporalState
-checkbox task != ChangeLifecycleState
-texte anonyme != identité
-```
-
-Preuve : `PR #12 / ADR-0024 / 64/64`.
-
-## M2-S4 — Requirement deltas
-
-Livrables :
-
-```text
-RequirementDeltaKind
-RequirementDeltaId
-RequirementDelta
-OpenSpecRequirementDeltaReader
-```
-
-Invariants :
-
-```text
-RequirementDeltaKind != TemporalState
-RequirementDeltaId != RequirementId
-normalized delta != applied delta
-```
-
-Preuve : `PR #13 / ADR-0025 / 70/70`.
-
-## M2-S5 — ExternalReference
-
-Livrables :
-
-```text
-ExternalReferenceId
-ExternalReferenceTarget
-ExternalReference
-ExternalReferenceResolutionState
-ExternalReferenceResolutionReason
-ExternalReferenceResolutionEvent
-ResolvedExternalTarget
-ExternalReferenceResolver
-ExternalReferenceResolverResult
-ExternalReferenceResolverRegistry
-ExternalReferenceResolutionService
-```
-
-Invariants :
-
-```text
-DomainIdentity != ExternalReference
-ExternalReference peut exister sans resolver
-NO_RESOLVER est explicite
-resolver indisponible != panne MORPHEUS
-cible supprimée != suppression de référence
-historique et provenance sont conservés
-```
-
-Preuve :
+## M2-S5
 
 ```text
 PR #15
 ADR-0026
 76/76 PASS
-BUILD SUCCESS
+```
+
+Prouve ExternalReference et résolution optionnelle.
+
+## M2-S6
+
+```text
+PR #17
+ADR-0028
+84/84 PASS
+```
+
+Prouve :
+
+```text
+READ / ABSENT / UNSUPPORTED / FAILED / PARTIAL
+source partielle exploitable
+diagnostics non ambigus
+Scenario != AcceptanceCriterion
 ```
 
 ---
 
-# 5. Fiche de travail — M2-S6
+# 6. M2-S7 — plan détaillé
 
-## 5.1 Problème à résoudre
+## 6.1 Pourquoi un vrai module
 
-Aujourd'hui plusieurs readers OpenSpec produisent des sous-ensembles corrects, mais le contrat public de lecture ne dit pas encore explicitement :
+Un simple mock dans un test prouverait seulement que l'interface est mockable.
+
+S7 introduit donc :
 
 ```text
-ce qui a été lu
-ce qui était absent
-ce qui n'est pas supporté
-ce qui a échoué
-ce qui n'a été lu que partiellement
+morpheus-provider-synthetic
 ```
 
-Une collection vide ne doit jamais être ambiguë.
+comme adapter réel compilé dans le reactor, mais **verification-only**.
 
-## 5.2 Contrat cible
+Il ne devient pas une fonctionnalité utilisateur et ne devra pas être injecté dans le runtime CLI par défaut.
 
-Candidate :
+## 6.2 Frontières
 
 ```text
-ProviderReadRequest
-├── workspace / source
-├── requestedCategories
-└── policy
+morpheus-domain              -X-> provider-openspec
+morpheus-domain              -X-> provider-synthetic
+morpheus-application         -X-> provider-openspec
+morpheus-application         -X-> provider-synthetic
 
+provider-openspec            -> domain + application
+provider-synthetic           -> domain + application
+```
+
+ArchUnit couvre déjà `com.morpheus.provider..` de manière générique.
+
+## 6.3 Identité cross-provider
+
+Test obligatoire :
+
+```text
+external key = requirement:auth-session/session-expiration
+```
+
+Avec le même resolver :
+
+```text
+ProviderId openspec       -> DomainIdentity A
+ProviderId synthetic-json -> DomainIdentity B
+A != B
+```
+
+Aucune fusion implicite cross-provider.
+
+## 6.4 Consumer neutre
+
+Une même méthode de test reçoit :
+
+```java
 SpecificationContentReader
-    ↓
-ProviderReadResult
-├── NormalizedProjectContent
-├── categoryReports
-└── diagnostics
 ```
 
-Rapport par catégorie :
+et lit successivement :
 
 ```text
-ReadCategoryReport
-├── category
-├── status
-├── itemCount
-└── diagnosticIds / message éventuel
+OpenSpecSpecificationContentReader
+SyntheticSpecificationContentReader
 ```
 
-## 5.3 Fixture partielle
+sans `instanceof`, sans `switch(providerId)`, sans structure source spécifique.
 
-`openspec-partial` doit démontrer au minimum :
+## 6.5 Critères de sortie S7
 
-- source reconnue ;
-- certaines catégories lisibles ;
-- catégories absentes distinguées de catégories non supportées ;
-- lecture exploitable malgré contenu incomplet ;
-- `PARTIAL_INGESTION` uniquement lorsqu'une partie demandée n'a pas pu être produite ;
-- aucun faux succès silencieux.
-
-## 5.4 AcceptanceCriterion
-
-Décision à formaliser dans S6 :
-
-```text
-Scenario != AcceptanceCriterion
-```
-
-MORPHEUS ne crée un `AcceptanceCriterion` que si la source/provider expose une sémantique explicite de critère d'acceptation.
-
-Pour OpenSpec M2 actuel :
-
-```text
-READ_ACCEPTANCE_CRITERIA non annoncé
-Scenario ne déclenche aucune conversion implicite
-```
-
-## 5.5 Critères de sortie S6
-
-- un seul point d'entrée de lecture provider-facing ;
-- statut explicite par catégorie demandée ;
-- `READ / ABSENT / UNSUPPORTED / FAILED / PARTIAL` testés ;
-- `openspec-partial` exercée en Java ;
-- diagnostics déterministes ;
-- contenu partiel exploitable sans ambiguïté ;
-- politique AcceptanceCriterion testée ;
-- aucun changement de temporalité M3 ;
+- module synthétique compilé ;
+- source JSON réellement lue ;
+- provider réellement probé ;
+- domaine MORPHEUS produit ;
+- mêmes ports application utilisés ;
+- même vocabulaire `ReadCategory` ;
+- identités provider-scoped prouvées ;
+- aucune modification du domaine nécessaire ;
+- ArchUnit vert ;
 - build complet vert.
 
 ---
 
-# 6. Fiche suivante — M2-S7 anti-lock-in
+# 7. M2-S8 — plan de clôture
 
-Objectif :
+## 7.1 Audit fonctionnel
 
-```text
-OpenSpec reader ─────┐
-                      ├──> ProviderReadResult
-Synthetic reader ────┘     NormalizedProjectContent
-```
+Vérifier la porte de sortie :
 
-Preuves obligatoires :
+> Une source supportée peut être ingérée et normalisée dans un modèle MORPHEUS provider-neutral avec identités stables, provenance, preuves, références externes et diagnostics, et un second provider démontre l'absence de verrouillage OpenSpec.
 
-```text
-mêmes contrats applicatifs
-mêmes concepts MORPHEUS
-aucun type OpenSpec dans le domaine
-aucun branchement OpenSpec dans l'application
-identités provider-scoped distinctes
-```
+## 7.2 Persistance métier
 
----
+Décision explicite requise :
 
-# 7. Fiche de clôture — M2-S8
+> Persister les entités normalisées en M2, ou attendre M3 afin d'introduire simultanément versions et snapshots ?
 
-Audit :
+Aucune table métier supplémentaire avant cette décision.
 
-- checklist issue #9 ;
-- ADR-0022 à ADR-0026+ ;
-- fixtures M0 pertinentes ;
-- diagnostics ;
-- second provider ;
-- frontières M2/M3/M4.
-
-Question de persistance :
-
-> Faut-il persister les entités normalisées avant M3, ou introduire cette persistance avec les versions/snapshots M3 ?
-
-Aucune table métier supplémentaire ne sera créée sans décision explicite.
-
-Livrables :
+## 7.3 Livrables
 
 ```text
 docs/VALIDATION_M2.md
-README mis à jour
-ROADMAP mise à jour
-issue #9 fermée
-M3 autorisée ou refusée avec raisons
+README.md mis à jour
+docs/ROADMAP.md mis à jour
+docs/roadmap/M2_EXECUTION.md finalisé
+issue #9 fermée si et seulement si gate final vert
+M3 autorisée ou refusée explicitement
 ```
 
 ---
@@ -575,16 +528,16 @@ M3 autorisée ou refusée avec raisons
 | deltas normalisés | ✅ | S4 |
 | ExternalReference | ✅ | S5 |
 | résolution externe optionnelle | ✅ | S5 |
-| lecture unifiée | 🚧 | S6 |
-| ingestion partielle explicite | 🚧 | S6 |
-| politique AcceptanceCriterion | 🚧 | S6 |
-| second provider | ⬜ | S7 |
+| lecture unifiée | ✅ | S6 |
+| ingestion partielle explicite | ✅ | S6 |
+| politique AcceptanceCriterion | ✅ | S6 |
+| second provider | 🚧 | S7 |
 | décision persistance métier | ⬜ | S8 |
 | VALIDATION_M2.md | ⬜ | S8 |
 
 ---
 
-# 9. Règle de mise à jour
+# 9. Règle de gouvernance
 
 Après chaque gate vert :
 
@@ -592,7 +545,7 @@ Après chaque gate vert :
 1. inscrire le résultat exact dans l'ADR
 2. mettre la PR Ready
 3. merger
-4. déplacer NOW vers le slice suivant
-5. mettre à jour le tableau de progression
-6. mettre à jour la checklist bloquante M3
+4. mettre à jour issue #9
+5. déplacer NOW vers le slice suivant
+6. mettre à jour la checklist M3
 ```
