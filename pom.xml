@@ -19,6 +19,7 @@
         <module>morpheus-store-memory</module>
         <module>morpheus-store-sqlite</module>
         <module>morpheus-cli</module>
+        <module>morpheus-architecture-tests</module>
     </modules>
 
     <properties>
