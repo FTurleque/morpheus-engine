@@ -1,6 +1,6 @@
 # ADR-0020 — Résoudre la racine de workspace sans dépendance Git obligatoire
 
-- Statut : **Proposée — validation M1 requise**
+- Statut : **Acceptée — M1**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001, ADR-0002, ADR-0011, ADR-0017
 - Portée : découverte de workspace, sélection de provider, chemins locaux, monorepos, provenance
@@ -257,11 +257,39 @@ Gate :
 
 sous Windows, baseline `release=21`.
 
+### Preuve d'acceptation — 22 juillet 2026
+
+Environnement :
+
+```text
+Windows 10 x64
+Apache Maven 3.9.16
+JDK de build 24.0.1
+javac release 21
+```
+
+Résultats :
+
+```text
+ProjectDiscoveryServiceTest          6/6 PASS
+WorkspaceRootResolverTest            3/3 PASS
+ProviderSelectionPolicyTest          6/6 PASS
+OpenSpecDiscoveryIntegrationTest     5/5 PASS
+OpenSpecSpecificationProviderTest    4/4 PASS
+SqliteDriverSmokeTest                1/1 PASS
+LayerDependencyTest                  2/2 PASS
+
+TOTAL                               27/27 PASS
+BUILD SUCCESS
+```
+
+Les critères d'acceptation ci-dessous sont donc satisfaits.
+
 ---
 
 ## 12. Critère d'acceptation
 
-ADR-0020 peut passer à **Acceptée — M1** lorsque les tests démontrent :
+ADR-0020 est **Acceptée — M1** après démonstration de :
 
 ```text
 explicit-first
