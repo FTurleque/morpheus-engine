@@ -1,32 +1,24 @@
 # E02 — Domain mapping
 
-Statut : **PARTIAL_PASS**
+Statut : **PASS**
 
 Date : 22 juillet 2026
 
 ## Hypothèse
 
-Une source OpenSpec peut être transformée en représentation MORPHEUS minimale en conservant :
+Une source OpenSpec peut être transformée en représentation MORPHEUS normalisée en conservant la sémantique utile, la provenance et les états temporels, sans exposer les structures propres au provider dans le contrat normalisé.
 
-- la séparation `CURRENT` / `PROPOSED` ;
-- requirements ;
-- scenarios ;
-- provenance ;
-- artifacts de changement ;
+La même forme de contrat peut être produite par un second provider synthétique.
 
-sans exposer un type OpenSpec dans le résultat normalisé expérimental.
-
-## Question
-
-Le spike peut-il lire le corpus de référence sans appliquer le delta proposé à la baseline courante ?
-
-## Dataset
+## Datasets
 
 ```text
 experiments/m0/fixtures/openspec-basic
+experiments/m0/fixtures/openspec-partial
+experiments/m0/fixtures/synthetic-basic
 ```
 
-Oracle :
+Oracle principal :
 
 ```text
 experiments/m0/fixtures/openspec-basic/expected-morpheus.yaml
@@ -44,18 +36,19 @@ La technologie est jetable et ne constitue pas une décision de production.
 
 ## Protocole exécuté
 
-Suite :
-
 ```text
 python -m unittest -v
 ```
 
-Résultat :
+Résultat global E01/E02 :
 
 ```text
-Ran 7 tests
-OK
+Ran 15 tests
+15 PASS
+0 FAIL
 ```
+
+Sous-ensemble E02 : **6 tests PASS**.
 
 ## Résultats observés
 
@@ -79,9 +72,10 @@ auth-session/session-activity-refresh
 ```text
 Change: add-remember-me
 TemporalState: PROPOSED
+Requirements: 3
+Constraints: 2
 Tasks: 8
-Explicit design decisions: 2
-Delta requirements: 3
+Design decisions: 2
 ```
 
 Deltas :
@@ -92,7 +86,7 @@ ADDED    auth-session/explicit-remember-me-opt-in
 ADDED    auth-session/persistent-credential-revocation
 ```
 
-### Invariant critique vérifié
+### Invariant CURRENT / PROPOSED
 
 La clé :
 
@@ -100,87 +94,172 @@ La clé :
 auth-session/session-expiration
 ```
 
-existe simultanément dans :
+existe simultanément comme :
 
 ```text
 CURRENT baseline
 PROPOSED MODIFIED delta
 ```
 
-avec deux contenus distincts.
+Le delta ne remplace donc pas silencieusement la baseline pendant l'ingestion.
 
-Le spike ne remplace donc pas la baseline courante par le delta pendant l'ingestion.
+### Proposal
+
+Le spike normalise séparément :
+
+```text
+intent
+scope[]
+out_of_scope[]
+risks[]
+provenance
+```
+
+### Constraints
+
+La fixture contient deux contraintes explicites dans le proposal. Elles sont normalisées comme objets distincts avec provenance.
+
+### Design decisions
+
+Les décisions ne sont plus simplement comptées : elles sont extraites individuellement avec :
+
+```text
+title
+statement
+provenance
+```
+
+### Tasks
+
+Les 8 tâches sont normalisées individuellement avec :
+
+```text
+label
+completed
+provenance
+```
+
+### Scenario vs AcceptanceCriterion
+
+Règle retenue pour E02 :
+
+> Un `Scenario` OpenSpec reste un `Scenario` MORPHEUS tant qu'aucune règle explicite ne démontre qu'il constitue un `AcceptanceCriterion`.
+
+Le provider ne revendique donc pas `READ_ACCEPTANCE_CRITERIA`.
+
+### Historique
+
+Une fixture archivée est exposée séparément :
+
+```text
+legacy-session-warning
+TemporalState: HISTORICAL
+```
+
+Elle n'apparaît ni dans `CURRENT`, ni dans les changements `PROPOSED`.
 
 ### Provenance
 
-Chaque requirement extrait contient :
+Les requirements et scenarios extraits possèdent au minimum :
 
 ```text
 source path
 line number
 ```
 
-Chaque scenario possède également un locator source minimal.
+Les proposal, contraintes, décisions et tâches possèdent également un locator source minimal.
+
+### Source partiellement lisible
+
+Une fixture contenant une exigence sans scenario conserve les éléments lisibles et produit :
+
+```text
+PARTIAL_INGESTION
+```
+
+Le provider ne transforme donc pas une lecture partielle en succès silencieux et ne jette pas les éléments valides.
+
+### Second provider synthétique
+
+Le provider `synthetic-json` produit la même enveloppe normalisée :
+
+```text
+probe
+current
+proposed
+historical
+diagnostics
+```
+
+avec les mêmes concepts temporels `CURRENT` et `PROPOSED`.
+
+Le code de consommation du test n'a pas besoin de connaître le format OpenSpec pour lire les résultats du provider synthétique.
 
 ## Ce qui est démontré
 
-- [x] lecture de spec courante ;
+- [x] lecture de spécifications courantes ;
 - [x] extraction de requirements ;
 - [x] extraction de scenarios ;
 - [x] lecture d'un changement actif ;
 - [x] reconnaissance `ADDED` / `MODIFIED` ;
-- [x] comptage des tâches ;
-- [x] extraction minimale de décisions explicites ;
+- [x] proposal normalisée ;
+- [x] contraintes normalisées ;
+- [x] design decisions normalisées individuellement ;
+- [x] tasks normalisées individuellement ;
 - [x] provenance ;
 - [x] séparation `CURRENT` / `PROPOSED` ;
+- [x] représentation `HISTORICAL` séparée ;
+- [x] diagnostic de lecture partielle ;
+- [x] second provider synthétique ;
+- [x] même forme de contrat normalisé pour deux providers ;
 - [x] aucun LLM ;
 - [x] aucun réseau ;
-- [x] aucun type OpenSpec requis dans les structures normalisées du spike.
+- [x] aucun type OpenSpec requis dans les structures normalisées publiques du spike.
 
-## Ce qui reste à démontrer avant PASS complet E02
+## Périmètre volontairement transféré aux expériences dédiées
 
-- [ ] mapping des contraintes ;
-- [ ] règle explicite `Scenario` vs `AcceptanceCriterion` ;
-- [ ] proposal normalisée comme intention/périmètre ;
-- [ ] design plus riche que le simple comptage ;
-- [ ] tasks normalisées individuellement ;
-- [ ] relations `AFFECTS`, `VALIDATES`, `IMPLEMENTS`, etc. ;
-- [ ] éléments supprimés ;
-- [ ] archives ;
-- [ ] structure invalide ;
-- [ ] source partiellement lisible ;
-- [ ] second provider synthétique ;
-- [ ] invariants de `DomainIdentity` ;
-- [ ] `KnowledgeSnapshot`.
+Les sujets suivants ne bloquent plus E02 car ils disposent de leur propre expérience :
+
+```text
+relations de traçabilité -> E06
+DomainIdentity           -> E03
+KnowledgeSnapshot        -> E05
+suppression/incrémental  -> E11
+```
+
+Ils ne doivent pas être implémentés artificiellement dans le parser E02 uniquement pour gonfler son périmètre.
 
 ## Impact ADR
 
 ### ADR-0001 — Domaine indépendant
 
-**Signal positif.**
+**Preuve positive forte.**
 
-Le spike montre qu'une normalisation simple peut déjà séparer le modèle produit de l'arborescence externe, mais le second provider synthétique reste obligatoire avant acceptation.
+Deux providers distincts produisent une enveloppe de domaine commune sans imposer leur format au consommateur.
+
+ADR-0001 reste `Proposée` jusqu'aux preuves d'architecture et de store prévues par ses critères d'acceptation.
 
 ### ADR-0002 — OpenSpec provider de référence
 
-**Signal positif.**
+**Preuve positive forte sur le schéma `spec-driven`.**
 
-La séparation native specs courantes / changes facilite fortement le test de `CURRENT` / `PROPOSED`.
+La séparation native entre specs courantes et changes facilite fortement la normalisation `CURRENT` / `PROPOSED`.
 
 ### ADR-0006 — Current / Proposed / Historical
 
-**Signal positif fort** pour `CURRENT` / `PROPOSED`.
+**Les trois états temporels sont maintenant exercés par E02.**
 
-`HISTORICAL` n'est pas encore testé ; l'ADR reste donc proposée.
+L'ADR reste néanmoins `Proposée` jusqu'à E04 qui doit tester plusieurs changements concurrents et les règles de promotion.
 
 ### ADR-0008 — Read-first
 
-Le spike fonctionne entièrement en lecture seule, ce qui renforce l'hypothèse. Les autres fonctionnalités MVP doivent encore confirmer qu'aucune mutation n'est nécessaire.
+E02 fonctionne entièrement en lecture seule et ne nécessite aucune mutation de la source.
 
-## Décision provisoire
+## Décision
 
 ```text
-CONTINUE_E02
+E02 = PASS
+CONTINUE_NORMALIZED_DOMAIN
 ```
 
-Le mapping minimal est viable. La prochaine extension doit privilégier les cas négatifs, les archives, le second provider synthétique et la normalisation des relations avant d'élargir le parser.
+Le mapping provider → domaine normalisé est suffisamment viable pour passer à E03 sans élargir davantage ce spike.
