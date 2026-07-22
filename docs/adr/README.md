@@ -41,18 +41,21 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0019](0019-maven-coordinates-java-namespace.md) | `io.github.fturleque` + namespace Java `com.morpheus.*` | **Acceptée — bootstrap M1** |
 | [ADR-0020](0020-workspace-root-resolution.md) | Discovery explicit-first avec fallback Git structurel sans dépendance au binaire Git | **Acceptée — M1** |
 | [ADR-0021](0021-sqlite-schema-migrations-foundation.md) | Migrations SQLite explicites, versionnées et schéma V1 minimal normalisé | **Acceptée — M1** |
+| [ADR-0022](0022-m2-normalized-content-before-temporal-projection.md) | Normaliser le contenu en M2 avant la projection temporelle M3 | **Acceptée — M2** |
 
-La décision de sortie C0 est consignée dans [`../VALIDATION_C0.md`](../VALIDATION_C0.md).
+Les décisions de sortie sont consignées dans :
 
-La décision de sortie M0, les preuves et les contraintes d'acceptation sont consignées dans [`../VALIDATION_M0.md`](../VALIDATION_M0.md).
+- [`../VALIDATION_C0.md`](../VALIDATION_C0.md) ;
+- [`../VALIDATION_M0.md`](../VALIDATION_M0.md) ;
+- [`../VALIDATION_M1.md`](../VALIDATION_M1.md).
 
 ---
 
-## Contraintes actives issues de M0
+## Contraintes actives
 
 ### ADR-0001
 
-Le bootstrap M1 possède un test d'architecture empêchant :
+Le test d'architecture empêche :
 
 ```text
 domain -> provider-openspec
@@ -62,7 +65,7 @@ domain -> CLI/MCP/API adapters
 
 ### ADR-0002
 
-Le premier provider de production vise initialement :
+Le premier provider de production vise :
 
 ```text
 OpenSpec schema = spec-driven
@@ -94,7 +97,7 @@ javac release 21
 BUILD SUCCESS
 ```
 
-Le Maven Wrapper constitue le gate de build obligatoire. Une CI distante reste optionnelle et pourra être ajoutée lorsque le projet aura un besoin explicite de validation distante, multi-OS, publication ou release automation.
+Le Maven Wrapper constitue le gate de build obligatoire. Une CI distante reste optionnelle.
 
 Maven 4 reste différé jusqu'à GA et validation de migration.
 
@@ -104,11 +107,11 @@ SQLite reste caché derrière `SpecificationKnowledgeStore`.
 
 Le schéma JSON du spike E08 est **rejeté** comme schéma de production.
 
-Le smoke-test SQLite JDBC est validé sous Windows. Le schéma et le mécanisme de migrations M1 sont gouvernés par ADR-0021.
+Le schéma et le mécanisme de migrations sont gouvernés par ADR-0021.
 
 ### ADR-0019
 
-Coordonnées et namespace acceptés après preuve Windows :
+Coordonnées et namespace validés :
 
 ```text
 groupId = io.github.fturleque
@@ -116,11 +119,9 @@ artifact prefix = morpheus-
 Java namespace = com.morpheus
 ```
 
-Le test ArchUnit du bootstrap démontre les dépendances dirigées vers l'intérieur.
-
 ### ADR-0020
 
-La discovery M1 a démontré sous Windows :
+La discovery M1 a démontré :
 
 ```text
 explicit path first
@@ -129,7 +130,6 @@ no git binary dependency
 non-Git workspace support
 provider-neutral source locator
 recognized invalid source is never masked by fallback
-27/27 tests PASS
 BUILD SUCCESS
 ```
 
@@ -137,7 +137,7 @@ Le comportement spécifique aux symlinks/junctions reste différé tant qu'un ca
 
 ### ADR-0021
 
-La fondation de store M1 a démontré sous Windows :
+La fondation de store M1 a démontré :
 
 ```text
 UUIDv7 opaque
@@ -145,19 +145,52 @@ memory store reference
 SQLite store behind same port
 schema_migrations ledger
 V1 = projects + knowledge_snapshots metadata
+V2 = project root uniqueness
 migration checksum immutability
 migration history tampering rejected
 atomic snapshot activation
 stale predecessor rejection
 persistence across reopen
 no generic JSON domain payload
-39/39 tests PASS
 BUILD SUCCESS
 ```
 
-Les tables métier M2+ ne doivent pas être créées avant stabilisation de leurs contrats.
+Les tables métier M2+ ne sont créées qu'après stabilisation de leurs contrats Java.
 
-Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` du driver SQLite reste une contrainte runtime/packaging à traiter avant stabilisation CLI ; il n'est pas bloquant pour M1.
+Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` du driver SQLite reste une contrainte runtime/packaging à traiter avant stabilisation CLI.
+
+### ADR-0022
+
+Le premier slice M2 a démontré sous Windows :
+
+```text
+provider source
+    ↓
+provider-internal parsing
+    ↓
+MORPHEUS normalization
+    ↓
+provider-neutral content
+```
+
+sans projeter prématurément :
+
+```text
+CURRENT / PROPOSED / HISTORICAL
+```
+
+qui reste une responsabilité M3.
+
+Preuves :
+
+```text
+OpenSpecCurrentSpecificationReaderTest   3/3 PASS
+NormalizedProjectContentTest             3/3 PASS
+TOTAL                                    48/48 PASS
+BUILD SUCCESS
+```
+
+Le slice normalise `Specification`, `Requirement` et `Scenario`, attache provenance/evidence aux entités importées, garde `DomainIdentity` distinct des clés externes et ne laisse aucun type OpenSpec traverser `com.morpheus.domain`.
 
 ---
 
@@ -202,4 +235,5 @@ Le registre doit être lu avec :
 
 - [`../research/M0_EXPERIMENT_MATRIX.md`](../research/M0_EXPERIMENT_MATRIX.md) ;
 - [`../../experiments/m0/results/README.md`](../../experiments/m0/results/README.md) ;
-- [`../VALIDATION_M0.md`](../VALIDATION_M0.md).
+- [`../VALIDATION_M0.md`](../VALIDATION_M0.md) ;
+- [`../VALIDATION_M1.md`](../VALIDATION_M1.md).
