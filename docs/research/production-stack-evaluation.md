@@ -13,13 +13,14 @@ Après E01–E14 et les preuves complémentaires, il est maintenant possible de 
 Cette étude sépare volontairement :
 
 1. langage/runtime ;
-2. build ;
-3. backend persistant initial ;
-4. frameworks d'exposition futurs.
+2. baseline de compatibilité Java ;
+3. build ;
+4. backend persistant initial ;
+5. frameworks d'exposition futurs.
 
 ---
 
-## 2. Contraintes issues de C0/M0
+## 2. Contraintes issues de C0/M0 et de l'écosystème
 
 La fondation doit permettre :
 
@@ -39,7 +40,17 @@ La fondation doit permettre :
 - maintenance sur plusieurs années ;
 - intégration simple dans l'écosystème existant.
 
-Elle ne doit pas imposer dès M1 :
+Contrainte d'écosystème importante :
+
+```text
+NEXUS source / bytecode baseline = Java 21
+```
+
+Cette baseline est déjà compatible avec l'environnement de développement utilisant un JDK plus récent.
+
+MORPHEUS n'a démontré aucun besoin exigeant une API Java >21.
+
+La fondation ne doit pas imposer dès M1 :
 
 - serveur HTTP ;
 - framework d'injection ;
@@ -57,7 +68,7 @@ Elle ne doit pas imposer dès M1 :
 Forces :
 
 - typage nominal adapté au domaine riche MORPHEUS ;
-- très bon tooling IDE ;
+- très bon tooling IntelliJ ;
 - écosystème de tests mature ;
 - JDBC ;
 - packaging multiplateforme ;
@@ -84,10 +95,10 @@ Forces :
 
 Faiblesses pour ce projet :
 
-- nouvel écosystème à maintenir en parallèle ;
+- nouvel écosystème de production à maintenir en parallèle ;
 - moins d'alignement avec les composants Java existants ;
 - certains choix SQLite demandent de choisir entre native/CGO/pure-Go ;
-- moins de bénéfice spécifique pour un moteur principalement orienté domaine, parsing documentaire et stockage local.
+- aucun besoin de performance ou concurrence démontré qui rende Go nécessaire.
 
 ### Python
 
@@ -103,7 +114,7 @@ Faiblesses pour la fondation :
 - runtime/package management supplémentaire ;
 - garanties de types plus faibles au runtime ;
 - performance et consommation moins prévisibles pour un moteur long-lived ;
-- les avantages observés en M0 concernent surtout la vitesse de spike, précisément ce qu'ADR-0014 interdit de confondre avec la production.
+- son avantage observé en M0 est précisément la vitesse de spike, pas une preuve de meilleure fondation produit.
 
 ---
 
@@ -130,31 +141,40 @@ Go     ~4.00 / 5
 Python ~3.30 / 5
 ```
 
-Cette matrice ne prétend pas être une mesure scientifique. Elle rend explicites les raisons du choix et évite une décision basée uniquement sur préférence personnelle.
+Cette matrice n'est pas une mesure scientifique ; elle rend explicites les forces qui justifient le choix.
 
 ---
 
-## 5. Runtime Java
-
-### Java 25
-
-JDK 25 est GA depuis le 16 septembre 2025 et OpenJDK indique qu'il s'agit d'une release LTS chez la plupart des vendors.
-
-Il constitue la cible recommandée pour un nouveau projet démarré en 2026.
+## 5. Baseline Java
 
 ### Java 21
 
-Alternative LTS plus ancienne, très mature.
+JDK 21 est une release LTS et fournit déjà les fonctionnalités nécessaires à MORPHEUS.
 
-Non retenue comme cible principale parce que MORPHEUS démarre après la GA de Java 25 et n'a aucune contrainte de compatibilité legacy nécessitant Java 21.
+Avantages spécifiques :
+
+- baseline commune avec NEXUS ;
+- records, sealed types, pattern matching et virtual threads déjà disponibles lorsque pertinents ;
+- compatibilité plus large ;
+- compilation possible avec un JDK plus récent via `javac --release 21` ;
+- aucune fonctionnalité Java 22–25 nécessaire au domaine validé par M0.
+
+### Java 25
+
+JDK 25 est GA depuis septembre 2025 et constitue une LTS chez la plupart des vendors.
+
+Il reste un excellent **JDK de développement/compilation possible**, mais l'utiliser comme baseline bytecode apporterait actuellement peu de valeur tout en créant une divergence gratuite avec NEXUS.
 
 ### Décision proposée
 
 ```text
-production runtime baseline = Java 25
+language = Java
+source / bytecode baseline = Java 21
+compiler JDK = Java 21+ compatible
+maven compiler release = 21
 ```
 
-La politique de support de versions ultérieures devra être documentée séparément.
+Le JDK du développeur peut donc évoluer indépendamment de la baseline produit tant que `--release 21` est respecté.
 
 ---
 
@@ -173,11 +193,12 @@ La branche 3.9.x reste GA et maintenue ; Maven 3.9.16 est une version GA publié
 ```text
 build = Maven
 baseline = Maven 3.9.16 via Maven Wrapper
+compiler release = 21
 ```
 
-Le wrapper doit constituer la référence du dépôt afin que la version de Maven ne dépende pas de l'installation globale du poste.
+Le wrapper constitue l'interface de build officielle du dépôt.
 
-Maven 4 pourra être étudié après GA, dans une ADR de migration si nécessaire.
+Maven 4 pourra être étudié après GA dans une migration explicite.
 
 ---
 
@@ -193,11 +214,11 @@ E08 a validé un candidat SQLite :
 - comparaison ;
 - faible complexité opérationnelle.
 
-E06b a confirmé que la traçabilité peut être persistée derrière le même port.
+E06b confirme la traçabilité persistée derrière le même port.
 
-E09 n'a montré aucune nécessité actuelle d'imposer une graph database au MVP.
+E09 ne montre aucune nécessité actuelle d'imposer une graph database au MVP.
 
-Pour Java, Xerial SQLite JDBC fournit un driver SQLite JDBC avec bibliothèques natives pour les plateformes majeures, dont Windows et Linux.
+Pour Java, Xerial SQLite JDBC fournit un driver JDBC SQLite avec natives pour les plateformes majeures dont Windows et Linux.
 
 ### Décision proposée
 
@@ -207,9 +228,9 @@ access = JDBC adapter
 public boundary = SpecificationKnowledgeStore
 ```
 
-Important : le schéma JSON du spike E08 est rejeté comme schéma de production.
+Le schéma JSON du spike E08 est explicitement rejeté comme schéma de production.
 
-La fondation M1 devra utiliser un schéma contrôlé/migrable adapté aux entités, snapshots et relations.
+La fondation M1 devra créer un schéma contrôlé et migrable pour les entités, snapshots et relations.
 
 ---
 
@@ -220,9 +241,10 @@ Décision M0 :
 ```text
 conceptual graph model = retained
 mandatory graph database = no
+graph store for MVP = not needed
 ```
 
-Un moteur graphe dédié ne sera ajouté que si une mesure ultérieure démontre un besoin que SQLite ne satisfait pas raisonnablement.
+Un moteur graphe spécialisé ne sera ajouté que si une mesure ultérieure montre un besoin réel.
 
 ---
 
@@ -230,23 +252,23 @@ Un moteur graphe dédié ne sera ajouté que si une mesure ultérieure démontre
 
 ### Framework serveur
 
-Aucun framework serveur en M1.
+Aucun framework serveur dans la fondation M1.
 
-L'API est prévue plus tard ; elle ne doit pas définir le domaine.
+L'API arrive plus tard et ne doit pas définir le domaine.
 
 ### Injection de dépendances
 
-Aucun framework DI obligatoire dans la fondation.
+Aucun framework DI obligatoire.
 
-Les ports/adapters doivent pouvoir être câblés explicitement tant que la complexité ne justifie pas une solution supplémentaire.
+Les ports/adapters sont câblés explicitement tant que cette simplicité reste suffisante.
 
 ### CLI
 
-Le choix précis de bibliothèque CLI est différé au jalon CLI, sauf besoin minimal de bootstrap.
+Le choix précis de bibliothèque CLI est différé au jalon approprié.
 
 ### MCP
 
-Le SDK/protocole concret sera décidé au jalon MCP sur la base de l'écosystème disponible à ce moment.
+Le SDK concret sera décidé au jalon MCP selon l'écosystème disponible à ce moment.
 
 ---
 
@@ -259,12 +281,10 @@ morpheus-engine
 ├── morpheus-provider-openspec
 ├── morpheus-store-memory
 ├── morpheus-store-sqlite
-└── morpheus-cli            (léger / évolutif)
+└── morpheus-cli
 ```
 
-Cette structure est une cible candidate. Le nombre exact de modules peut être simplifié au démarrage si les dépendances restent contrôlées.
-
-Invariant de dépendances :
+Le nombre exact de modules peut être simplifié si nécessaire ; la direction des dépendances est l'invariant :
 
 ```text
 domain
@@ -278,9 +298,9 @@ Jamais :
 
 ```text
 domain -> SQLite
- domain -> OpenSpec
- domain -> CLI framework
- domain -> MCP
+domain -> OpenSpec
+domain -> CLI framework
+domain -> MCP
 ```
 
 ---
@@ -291,7 +311,7 @@ Fondation recommandée :
 
 - JUnit 5 ;
 - tests contractuels partagés pour les stores ;
-- tests de provider par fixtures ;
+- tests de providers par fixtures ;
 - tests d'architecture pour interdire les dépendances inversées ;
 - tests hors réseau ;
 - fixtures M0 conservées comme corpus de non-régression.
@@ -301,21 +321,24 @@ Fondation recommandée :
 ## 12. Décision recommandée
 
 ```text
-Language/runtime : Java 25
-Build            : Maven 3.9.16 + Maven Wrapper
-Persistent store : SQLite behind SpecificationKnowledgeStore
-Graph DB         : none for MVP
-Server framework : none in foundation
-DI framework     : none required
-LLM              : none required
+Language          : Java
+Compatibility     : Java 21 source / bytecode
+Compiler JDK      : 21+ compatible via --release 21
+Build             : Maven 3.9.16 + Maven Wrapper
+Persistent store  : SQLite behind SpecificationKnowledgeStore
+Graph DB          : none for MVP
+Server framework  : none in foundation
+DI framework      : none required
+LLM               : none required
 ```
 
-Python reste autorisé pour des outils/spikes de recherche mais ne fait pas partie du runtime produit par défaut.
+Python reste autorisé pour les outils/spikes de recherche mais ne fait pas partie du runtime produit par défaut.
 
 ---
 
 ## 13. Sources primaires consultées
 
-- OpenJDK — JDK 25 project/release information.
+- OpenJDK — JDK 21 et JDK 25 project/release information.
+- Oracle `javac` documentation — `--release` pour compiler vers une release antérieure.
 - Apache Maven — release history/download documentation.
 - Xerial SQLite JDBC — official repository/release documentation.
