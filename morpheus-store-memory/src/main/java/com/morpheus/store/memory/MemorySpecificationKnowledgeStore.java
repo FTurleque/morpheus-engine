@@ -1,9 +1,14 @@
 package com.morpheus.store.memory;
 
+import com.morpheus.application.identity.EntityIdentityBinding;
+import com.morpheus.application.identity.EntityIdentityKey;
+import com.morpheus.application.identity.EntityIdentityStore;
+import com.morpheus.application.identity.IdentityCollisionException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.SnapshotConflictException;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
+import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
@@ -15,10 +20,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** Reference in-memory implementation of the M1 storage contract. */
-public final class MemorySpecificationKnowledgeStore implements SpecificationKnowledgeStore {
+/** Reference in-memory implementation of the local MORPHEUS storage contracts. */
+public final class MemorySpecificationKnowledgeStore implements SpecificationKnowledgeStore, EntityIdentityStore {
     private final Map<ProjectSpecificationId, ProjectStoreEntry> projects = new HashMap<>();
     private final Map<KnowledgeSnapshotId, KnowledgeSnapshotMetadata> snapshots = new HashMap<>();
+    private final Map<EntityIdentityKey, DomainIdentity> entityIdentities = new HashMap<>();
 
     @Override
     public synchronized void putProject(ProjectStoreEntry project) {
@@ -54,6 +60,24 @@ public final class MemorySpecificationKnowledgeStore implements SpecificationKno
         return projects.values().stream()
                 .sorted((left, right) -> left.id().compareTo(right.id()))
                 .toList();
+    }
+
+    @Override
+    public synchronized Optional<DomainIdentity> find(EntityIdentityKey key) {
+        return Optional.ofNullable(entityIdentities.get(key));
+    }
+
+    @Override
+    public synchronized void put(EntityIdentityBinding binding) {
+        DomainIdentity existing = entityIdentities.get(binding.key());
+        if (existing != null) {
+            if (!existing.equals(binding.identity())) {
+                throw new IdentityCollisionException(
+                        "external identity key already belongs to another MORPHEUS identity: " + binding.key());
+            }
+            return;
+        }
+        entityIdentities.put(binding.key(), binding.identity());
     }
 
     @Override
@@ -120,7 +144,6 @@ public final class MemorySpecificationKnowledgeStore implements SpecificationKno
 
         active.ifPresent(current -> snapshots.put(
                 current.id(), current.withState(KnowledgeSnapshotState.RETIRED)));
-
         KnowledgeSnapshotMetadata activated = target.withState(KnowledgeSnapshotState.ACTIVE);
         snapshots.put(snapshotId, activated);
         return activated;
