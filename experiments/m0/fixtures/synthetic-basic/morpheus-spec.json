@@ -1,0 +1,54 @@
+{
+  "format_version": 1,
+  "capabilities": [
+    "DISCOVER_PROJECT",
+    "READ_CURRENT_SPECIFICATIONS",
+    "READ_CHANGES",
+    "READ_REQUIREMENTS",
+    "READ_SCENARIOS",
+    "READ_DESIGN_DECISIONS",
+    "READ_IMPLEMENTATION_TASKS"
+  ],
+  "current": {
+    "specifications": 1,
+    "requirements": [
+      {
+        "key": "billing/invoice-retention",
+        "title": "Invoice retention",
+        "statement": "The system SHALL retain invoices for the configured legal period.",
+        "temporal_state": "CURRENT",
+        "change": null,
+        "delta_kind": null,
+        "scenarios": [
+          {
+            "title": "Retain invoice",
+            "steps": ["GIVEN an invoice", "THEN retain it"],
+            "provenance": {"path": "morpheus-spec.json", "line": 1}
+          }
+        ],
+        "provenance": {"path": "morpheus-spec.json", "line": 1}
+      }
+    ]
+  },
+  "proposed": {
+    "changes": [
+      {
+        "key": "extend-retention",
+        "temporal_state": "PROPOSED",
+        "proposal": {
+          "intent": "Extend retention",
+          "scope": [],
+          "out_of_scope": [],
+          "risks": [],
+          "provenance": {"path": "morpheus-spec.json", "line": 1}
+        },
+        "design_decisions": [],
+        "tasks": [],
+        "requirements": [],
+        "constraints": []
+      }
+    ]
+  },
+  "historical": {"changes": []},
+  "diagnostics": []
+}
