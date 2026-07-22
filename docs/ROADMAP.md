@@ -1,24 +1,22 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Roadmap active — C0, M0 et M1 validés ; M2 en validation finale**
+Statut : **Roadmap active — C0 à M2 validés ; M3 autorisée**
 
 Date de dernière mise à jour : 22 juillet 2026
 
-La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas considéré terminé parce que son code existe : il doit disposer de contrats stables, de tests, d'ADR cohérentes et d'une preuve de sortie explicite.
+La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé parce que son code existe : il doit disposer de contrats stables, de tests, d'ADR cohérentes et d'une preuve de sortie explicite.
 
 ---
 
-# 1. Où en sommes-nous exactement ?
-
-## 1.1 Vue globale
+# 1. Vue globale
 
 | Jalon | Sujet | Statut | Preuve / prochaine porte |
 |---|---|---|---|
 | C0 | Cadrage fonctionnel et architectural | ✅ VALIDÉ | `VALIDATION_C0.md` |
 | M0 | Faisabilité technique | ✅ VALIDÉ | `VALIDATION_M0.md` |
 | M1 | Discovery, providers et fondation store | ✅ VALIDÉ | `VALIDATION_M1.md`, 42/42 tests |
-| **M2** | **Ingestion et modèle normalisé** | **🚧 VALIDATION FINALE** | 7/8 slices, dernière baseline 94/94 |
-| M3 | État temporel, lifecycle, snapshots, versions | ⏳ BLOQUÉ PAR GATE M2-S8 | ouverture après `VALIDATION_M2.md` |
+| M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 tests |
+| **M3** | **État temporel, lifecycle, snapshots, versions** | **🚀 AUTORISÉ / PROCHAIN** | ouvrir après merge de #19 |
 | M4 | Traçabilité | ⏳ PLANIFIÉ | après modèle temporel stable |
 | M5 | Requêtes et contexte compact | ⏳ PLANIFIÉ | après M4 |
 | M6 | Qualité / couverture | ⏳ PLANIFIÉ | après primitives de requête |
@@ -36,64 +34,10 @@ Références :
 - [`VALIDATION_C0.md`](VALIDATION_C0.md)
 - [`VALIDATION_M0.md`](VALIDATION_M0.md)
 - [`VALIDATION_M1.md`](VALIDATION_M1.md)
-- [`VALIDATION_M2.md`](VALIDATION_M2.md) — candidat jusqu'au gate final
+- [`VALIDATION_M2.md`](VALIDATION_M2.md)
 - [`roadmap/M2_EXECUTION.md`](roadmap/M2_EXECUTION.md)
 - [`roadmap/DEPLOYMENT.md`](roadmap/DEPLOYMENT.md)
 - [`adr/README.md`](adr/README.md)
-- issue M2 : `#9`
-
----
-
-## 1.2 Tableau de bord M2
-
-M2 est découpée en **8 slices de pilotage**.
-
-| Slice | Contenu | Statut | PR | ADR | Gate observé |
-|---|---|---|---|---|---|
-| M2-S1 | Domaine normalisé courant + provenance/evidence | ✅ VALIDÉ | #10 | ADR-0022 | 48/48 |
-| M2-S2 | Identité persistante provider-scoped | ✅ VALIDÉ | #11 | ADR-0023 | 58/58 |
-| M2-S3 | ChangeProposal / Constraint / DesignDecision / Task | ✅ VALIDÉ | #12 | ADR-0024 | 64/64 |
-| M2-S4 | Requirement deltas ADDED/MODIFIED/REMOVED | ✅ VALIDÉ | #13 | ADR-0025 | 70/70 |
-| M2-S5 | ExternalReference + résolution optionnelle | ✅ VALIDÉ | #15 | ADR-0026 | 76/76 |
-| M2-S6 | Lecture unifiée + sources partielles + diagnostics | ✅ VALIDÉ | #17 | ADR-0028 | 84/84 |
-| M2-S7 | Second provider synthétique + preuve anti-lock-in | ✅ VALIDÉ | #18 | ADR-0029 | 94/94 |
-| **M2-S8** | **Audit final + décision persistance + `VALIDATION_M2.md`** | **🚧 ACTIF** | à ouvrir | ADR-0030 | gate final 94 attendu |
-
-Position actuelle :
-
-```text
-M2 : [██████████████████░░] 7 / 8 slices validés
-```
-
-ADR-0027 est transversale : distribution **native-first / container-supported**.
-
----
-
-## 1.3 Porte de sortie M2
-
-M2 est terminé uniquement lorsque :
-
-> **Une source supportée peut être ingérée et normalisée dans un modèle MORPHEUS provider-neutral avec identités stables, provenance, preuves, références externes et diagnostics, et un second provider démontre que le modèle n'est pas verrouillé sur OpenSpec.**
-
-Checklist :
-
-| Condition | État |
-|---|---|
-| domaine courant provider-neutral | ✅ |
-| provenance + evidence | ✅ |
-| identité stable provider-scoped | ✅ |
-| identité persistée | ✅ |
-| changements / contraintes / décisions / tâches | ✅ |
-| deltas ADDED/MODIFIED/REMOVED | ✅ |
-| ExternalReference | ✅ |
-| résolution externe optionnelle | ✅ |
-| source partielle + diagnostics explicites | ✅ |
-| politique AcceptanceCriterion explicite | ✅ |
-| second provider anti-lock-in | ✅ |
-| décision persistance métier | ✅ candidate ADR-0030 |
-| validation finale M2 | ⏳ gate S8 |
-
-M3 ne démarre pas avant le dernier gate et la validation explicite de `VALIDATION_M2.md`.
 
 ---
 
@@ -164,24 +108,28 @@ Valider les choix structurants par expérimentation réelle.
 
 ## Preuves principales
 
-- OpenSpec reference provider ;
-- second provider synthétique expérimental ;
-- normalisation expérimentale ;
-- UUIDv7 ;
-- séparation CURRENT / PROPOSED / HISTORICAL ;
-- lifecycle ;
-- snapshots ;
-- traçabilité ;
-- store mémoire ;
-- SQLite candidat ;
-- graph DB non nécessaire au MVP ;
-- recherche lexicale suffisante ;
-- diagnostics ;
-- contexte compact ;
-- incrémental ;
-- références externes optionnelles.
+```text
+E01  provider detection
+E02  domain mapping
+E03  stable identity semantics
+E03b UUIDv7
+E04  current reconstruction
+E04b change lifecycle
+E05  knowledge snapshots
+E05b rebuild / retention
+E06  traceability
+E06b store-backed traceability
+E07  memory store
+E08  SQLite
+E09  graph DB NOT_NEEDED_FOR_MVP
+E10  lexical search
+E11  incremental inventory/invalidation
+E12  diagnostics
+E13  compact context
+E14  external references
+```
 
-Porte : **ADOPTER AVEC CONTRAINTES — VALIDÉE**.
+Porte : **VALIDÉE — ADOPTER AVEC CONTRAINTES**.
 
 ---
 
@@ -207,13 +155,13 @@ Détecter les sources de spécification et sélectionner un provider compatible 
 - UUIDv7 ;
 - memory store de référence ;
 - SQLite derrière le port ;
-- migrations V001/V002 puis V003 pour les identity bindings ;
+- migrations V001/V002/V003 ;
 - tests d'architecture.
 
-Preuve finale :
+Preuve :
 
 ```text
-42/42 tests PASS
+42/42 PASS
 BUILD SUCCESS
 ```
 
@@ -221,7 +169,7 @@ Porte : **VALIDÉE — M2 AUTORISÉE**.
 
 ---
 
-# 6. M2 — Ingestion et modèle normalisé 🚧 VALIDATION FINALE
+# 6. M2 — Ingestion et modèle normalisé ✅
 
 ## Objectif
 
@@ -244,27 +192,37 @@ Provenance
 ExternalReference
 ```
 
-`AcceptanceCriterion` reste produit uniquement lorsqu'une sémantique provider explicite le justifie.
+`AcceptanceCriterion` est conservé comme concept cible uniquement lorsqu'une source expose une sémantique explicite.
 
-## Frontière provider
+## Huit slices validés
+
+| Slice | Contenu | PR | ADR | Gate |
+|---|---|---|---|---|
+| S1 | domaine courant + provenance/evidence | #10 | ADR-0022 | 48/48 |
+| S2 | identité persistante provider-scoped | #11 | ADR-0023 | 58/58 |
+| S3 | change / constraint / decision / task | #12 | ADR-0024 | 64/64 |
+| S4 | requirement deltas | #13 | ADR-0025 | 70/70 |
+| S5 | ExternalReference + résolution optionnelle | #15 | ADR-0026 | 76/76 |
+| S6 | lecture unifiée + partiel + diagnostics | #17 | ADR-0028 | 84/84 |
+| S7 | second provider anti-lock-in | #18 | ADR-0029 | 94/94 |
+| S8 | audit final + frontière persistance | #19 | ADR-0030 | 94/94 |
+
+## Contrat de lecture
 
 ```text
-source externe
-    ↓
 SpecificationProvider.probe()
-    ↓
+        !=
 SpecificationContentReader.read()
-    ↓
-ProviderReadResult
-    ↓
-anti-corruption boundary
-    ↓
-NormalizedProjectContent
 ```
 
-Aucun type OpenSpec ni Synthetic ne traverse `com.morpheus.domain` ou les contrats applicatifs.
+Résultat :
 
-## Lecture explicite
+```text
+ProviderReadResult
+├── NormalizedProjectContent?
+├── ReadCategoryReport[]
+└── Diagnostic[]
+```
 
 Statuts :
 
@@ -276,122 +234,67 @@ FAILED
 PARTIAL
 ```
 
-Invariant :
-
-```text
-empty collection != ambiguous success
-```
-
-## Oracle OpenSpec
-
-`openspec-basic` :
-
-```text
-1 Specification
-2 current Requirements
-2 current Scenarios
-1 ChangeProposal
-3 RequirementDeltas
-2 Constraints
-2 DesignDecisions
-8 ImplementationTasks
-26 Evidence
-```
-
-La baseline et un delta `MODIFIED` peuvent partager le même `RequirementId` sans partager le même contenu.
-
-## Source partielle
-
-`openspec-partial` :
-
-```text
-CURRENT_SPECIFICATIONS = READ      1
-REQUIREMENTS           = READ      2
-SCENARIOS              = PARTIAL   1
-CHANGES                = ABSENT    0
-PARTIAL_INGESTION
-```
-
-## ExternalReference
-
-```text
-UNVALIDATED
-UNRESOLVED
-RESOLVED
-STALE
-```
-
-La résolution externe reste optionnelle et une panne du système cible ne rend pas MORPHEUS indisponible.
-
 ## Anti-lock-in
 
 ```text
 OpenSpec source ─────┐
                      ├──> SpecificationContentReader
-Synthetic JSON ──────┘     ProviderReadResult
+Synthetic JSON ──────┘          ↓
+                         ProviderReadResult
+                               ↓
+                      NormalizedProjectContent
 ```
 
-Le provider synthétique est `verification-only` ; il a prouvé l'architecture sans modifier le domaine ou l'application.
+Le second provider synthétique est `verification-only` et n'a nécessité aucune modification du domaine ou de l'application.
 
 ## Persistance à la sortie M2
 
-Déjà persisté :
+Persisté :
 
 ```text
 projects
 knowledge snapshot metadata
-provider-scoped identity bindings
-schema migration ledger
+entity identity bindings
+migration ledger
 ```
 
-ADR-0030 propose de différer les tables métier complètes à M3 afin de les concevoir directement avec :
+Différé à M3 par ADR-0030 :
 
 ```text
+premières tables métier complètes
 TemporalState
 SpecificationVersion
-KnowledgeSnapshot
+KnowledgeSnapshot complet
 snapshot/version membership
 ```
 
-## Ce qui reste hors M2
+Preuve finale :
 
 ```text
-TemporalState complet                  -> M3
-SpecificationVersion complet           -> M3
-KnowledgeSnapshot complet              -> M3
-promotion/application des deltas       -> M3
-premières tables métier versionnées    -> M3
-TraceabilityLink / AFFECTS             -> M4
-recherche métier                       -> M5
-CLI stabilisée                         -> M9
-MCP / API                              -> M10/M11
+94/94 PASS
+Failures = 0
+Errors   = 0
+Skipped  = 0
+BUILD SUCCESS
 ```
 
-## Porte M2-S8
-
-```text
-.\mvnw.cmd clean test
-94 tests attendus
-```
-
-Après gate vert :
-
-```text
-VALIDATION_M2.md = VALIDÉE
-ADR-0030          = ACCEPTÉE
-issue #9          = CLOSED
-M3                = AUTORISÉE
-```
+Porte : **VALIDÉE — M3 AUTORISÉE**.
 
 ---
 
-# 7. M3 — État temporel, lifecycle, snapshots, versions ⏳
+# 7. M3 — État temporel, lifecycle, snapshots et versions 🚀
 
 ## Objectif
 
-Reconstruire l'état de référence, les évolutions proposées et l'historique sans ambiguïté, puis persister ce contenu avec une ownership version/snapshot explicite.
+Reconstruire l'état de référence, les évolutions proposées et l'historique sans ambiguïté, puis persister ce modèle avec une ownership explicite par version/snapshot.
 
-## M3-S1 — TemporalState et versions
+## Question de sortie
+
+> **MORPHEUS peut-il publier et requêter un état `CURRENT` cohérent tout en conservant séparément les propositions, l'historique et les changements en cours, sans jamais exposer un snapshot partiellement construit ?**
+
+## Slices candidats
+
+### M3-S1 — TemporalState et SpecificationVersion
 
 ```text
 CURRENT
@@ -402,11 +305,12 @@ SpecificationVersion
 
 À prouver :
 
-- une même identité logique peut exister dans plusieurs versions ;
-- version logique != snapshot technique ;
-- aucune source directory ne devient implicitement un `TemporalState`.
+- un contenu `PROPOSED` ne fuit jamais dans une requête `CURRENT` ;
+- une identité stable peut avoir plusieurs occurrences/version states ;
+- `DomainIdentity != EntityVersion` reste vrai ;
+- la version logique reste distincte d'une réingestion technique.
 
-## M3-S2 — ChangeLifecycleState
+### M3-S2 — ChangeLifecycleState
 
 ```text
 DRAFT
@@ -421,38 +325,99 @@ ARCHIVED
 ABANDONED
 ```
 
-Règle : `COMPLETED` ne promeut jamais automatiquement une spécification en `CURRENT`.
+À prouver :
 
-## M3-S3 — Composition et persistance des snapshots
+- transitions autorisées/interdites ;
+- `SPECIFIED -> PLANNED` autorisé si `design_required=false` ;
+- transitions backward selon politique ;
+- `COMPLETED` n'implique pas promotion automatique en `CURRENT`.
 
-- construire ;
-- valider ;
-- publier ;
-- activer atomiquement ;
-- conserver predecessor ;
-- interdire une visibilité partielle ;
-- introduire les premières migrations métier ;
-- rattacher chaque occurrence persistée à sa version/snapshot.
+### M3-S3 — KnowledgeSnapshot complet
 
-## M3-S4 — Application/promotion des deltas
+```text
+BUILDING
+VALIDATING
+READY
+ACTIVE
+FAILED
+RETIRED
+```
 
-- `ADDED` ;
-- `MODIFIED` ;
-- `REMOVED` ;
-- maintien simultané current/proposed avant promotion ;
-- aucune promotion implicite à `COMPLETED`.
+À livrer :
 
-## M3-S5 — Historique / archives / comparaison
+- construction ;
+- validation ;
+- publication ;
+- activation atomique ;
+- predecessor ;
+- détection du predecessor obsolète ;
+- aucune visibilité partielle.
 
-- `UNCHANGED` ;
-- `MOVED/RENAMED` si identité suffisante ;
+### M3-S4 — Premières migrations métier versionnées
+
+Concevoir les premières tables métier avec ownership explicite :
+
+```text
+content occurrence
+    ↓
+SpecificationVersion / KnowledgeSnapshot
+```
+
+Familles candidates :
+
+```text
+specifications
+requirements
+changes
+constraints
+scenarios
+design_decisions
+acceptance_criteria
+implementation_tasks
+external_references
+provenance/evidence
+```
+
+Aucune table ne doit ambiguïser l'identité stable et l'occurrence versionnée.
+
+### M3-S5 — Application / promotion des deltas
+
+```text
+ADDED
+MODIFIED
+REMOVED
+```
+
+À prouver :
+
+- coexistence current/proposed ;
+- application déterministe ;
+- promotion explicite ;
+- aucune promotion implicite à `COMPLETED` ;
+- provenance de l'opération conservée.
+
+### M3-S6 — Historique, comparaison et rétention
+
+Comparer :
+
+```text
+ADDED
+MODIFIED
+REMOVED
+UNCHANGED
+MOVED / RENAMED si identité suffisante
+```
+
+À définir :
+
 - rétention ;
-- historique explicable ;
-- rebuild depuis sources.
+- reconstruction ;
+- rollback logique ;
+- explicabilité entre deux snapshots.
 
 ## Porte de sortie M3
 
-`get_current_specification` ne doit jamais contenir implicitement un delta seulement proposé, même pendant une resynchronisation.
+`get_current_specification` ne doit jamais contenir implicitement un delta seulement proposé, y compris pendant une resynchronisation ou une activation de snapshot.
 
 ---
 
@@ -482,9 +447,21 @@ LINKS_TO_TEST
 RELATED_TO
 ```
 
-À livrer : direction canonique, inverse éventuel, origine, résolution, confiance, preuves, références cassées et chemins de traçabilité.
+À livrer :
 
-Porte : un `trace <requirement>` interne doit produire un sous-graphe normalisé et explicable.
+- direction canonique ;
+- inverse éventuel ;
+- origine ;
+- résolution ;
+- confiance ;
+- preuves ;
+- références cassées ;
+- chemins de traçabilité ;
+- change → requirement ;
+- requirement → scenario/criterion/task ;
+- design decision → change.
+
+Porte : `trace <requirement>` produit un sous-graphe normalisé et explicable.
 
 ---
 
@@ -509,7 +486,7 @@ trace_requirement
 get_change_context
 ```
 
-Inclut recherche lexicale, pagination, limites, JSON compact, warnings et provenance.
+Inclut : recherche lexicale, pagination, limites, JSON compact, warnings et provenance.
 
 ---
 
@@ -532,7 +509,7 @@ Inclut recherche lexicale, pagination, limites, JSON compact, warnings et proven
 
 # 11. M7 — Synchronisation incrémentale et fraîcheur ⏳
 
-## Périmètre
+Périmètre :
 
 - empreintes ;
 - source revisions ;
@@ -556,13 +533,22 @@ Invariant : **la fiabilité prime ; en cas de doute, full rebuild.**
 
 Analyser l'étendue fonctionnelle/documentaire d'un changement.
 
-Inclut comparaison current/proposed, exigences ajoutées/modifiées/supprimées, contraintes affectées, décisions, critères, changements dépendants, chemins explicatifs et limites explicites des inférences.
+Inclut :
+
+- comparaison current/proposed ;
+- exigences ajoutées/modifiées/supprimées ;
+- contraintes affectées ;
+- décisions ;
+- critères ;
+- changements dépendants ;
+- chemins explicatifs ;
+- limites explicites des inférences.
 
 L'analyse du code reste MINOS.
 
 ---
 
-# 13. M9 — CLI stabilisée et distribution native ⏳
+# 13. M9 — CLI stabilisée et distribution locale ⏳
 
 Commandes candidates :
 
@@ -586,14 +572,14 @@ morpheus inspect
 morpheus health
 ```
 
-Distribution à prouver selon ADR-0027 :
+Distribution selon ADR-0027 :
 
 ```text
+native-first
 archive portable
-runtime Java embarqué
-jlink / jpackage ou équivalent à évaluer
-installateur Windows/Linux approprié
-CLI locale sans Docker obligatoire
+runtime Java embarqué à prouver
+jlink / jpackage à évaluer
+Windows + Linux
 ```
 
 Les mutations restent hors périmètre sans ADR d'écriture acceptée.
@@ -601,6 +587,12 @@ Les mutations restent hors périmètre sans ADR d'écriture acceptée.
 ---
 
 # 14. M10 — Serveur MCP ⏳
+
+Transport local prioritaire :
+
+```text
+stdio natif
+```
 
 Outils candidats :
 
@@ -621,20 +613,15 @@ get_blocking_conditions
 get_sync_status
 ```
 
-Cible de distribution :
-
-```text
-stdio natif d'abord
-mode headless / conteneur seulement si le transport réseau le justifie
-```
-
 Aucune logique métier essentielle dans les handlers MCP.
+
+Un conteneur headless reste optionnel si un transport réseau justifie son coût.
 
 ---
 
 # 15. M11 — API / headless ⏳
 
-## Périmètre
+Périmètre :
 
 - projets ;
 - spécifications ;
@@ -651,7 +638,15 @@ Aucune logique métier essentielle dans les handlers MCP.
 
 Le framework serveur reste différé jusqu'à ce jalon.
 
-Cible de distribution : image Docker officielle **si** le mode headless/API est démontré utile, avec workspace montable en lecture seule et données persistantes externalisées.
+Selon ADR-0027, M11 est le jalon naturel pour prouver une **image Docker officielle** :
+
+```text
+workspace montable read-only
+state SQLite externalisé
+healthcheck
+config explicite
+même core que le mode natif
+```
 
 ---
 
@@ -671,7 +666,7 @@ Périmètre : symboles, fichiers, modules, tests, Requirement → code, ChangePr
 
 # 17. M13 — Intégration NEXUS ⏳
 
-MORPHEUS fournit intention, requirements, contraintes, décisions, critères, tâches, provenance et chemins.
+MORPHEUS fournit : intention, requirements, contraintes, décisions, critères, tâches, provenance et chemins.
 
 NEXUS sélectionne, classe, fusionne et compresse le contexte global.
 
@@ -726,7 +721,7 @@ Non engagées dans la roadmap principale :
 4. exécuter .\mvnw.cmd clean test
 5. accepter l'ADR uniquement après preuve
 6. merger
-7. mettre à jour le tableau de bord
+7. mettre à jour ce tableau de bord
 ```
 
-La ligne **M2-S8** est la seule ligne M2 encore active.
+**Prochaine ligne active : M3-S1 — TemporalState et SpecificationVersion.**
