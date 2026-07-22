@@ -6,6 +6,7 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.requirement.RequirementDeltaKind;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -102,6 +103,31 @@ class OpenSpecRequirementDeltaReaderTest {
                 modified.provenance().source().toString());
         assertTrue(result.evidence().stream()
                 .anyMatch(item -> item.id().equals(modified.provenance().evidenceId())));
+    }
+
+    @Test
+    void supportsRemovedRequirementWithoutInventingStatement(@TempDir Path workspace) throws Exception {
+        Path openspec = workspace.resolve("openspec");
+        Path deltaFile = openspec.resolve("changes/remove-legacy/specs/auth-session/spec.md");
+        Files.createDirectories(deltaFile.getParent());
+        Files.writeString(openspec.resolve("config.yaml"), "schema: spec-driven\n");
+        Files.writeString(deltaFile, """
+                # Authentication Session Delta
+
+                ## REMOVED Requirements
+
+                ### Requirement: Legacy session warning
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(1, result.requirementDeltas().size());
+        var removed = result.requirementDeltas().getFirst();
+        assertEquals(RequirementDeltaKind.REMOVED, removed.kind());
+        assertEquals("auth-session/legacy-session-warning", removed.key().orElseThrow());
+        assertTrue(removed.statement().isEmpty());
+        assertTrue(removed.scenarios().isEmpty());
+        assertEquals(1, result.evidence().size());
     }
 
     private Path fixture(String name) {
