@@ -33,6 +33,7 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0011](0011-provider-capability-negotiation.md) | Sélection des providers par capacités effectives | Proposée |
 | [ADR-0012](0012-snapshot-versioning-strategy.md) | Publication par snapshots versionnés et activation atomique | Proposée |
 | [ADR-0013](0013-change-lifecycle-state-machine.md) | Cycle de vie des changements sous forme de machine d'état | Proposée |
+| [ADR-0014](0014-defer-production-technology-stack.md) | Différer le choix de stack de production jusqu'aux preuves nécessaires | Proposée |
 
 ---
 
