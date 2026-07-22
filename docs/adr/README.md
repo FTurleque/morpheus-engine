@@ -42,6 +42,7 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0020](0020-workspace-root-resolution.md) | Discovery explicit-first avec fallback Git structurel sans dépendance au binaire Git | **Acceptée — M1** |
 | [ADR-0021](0021-sqlite-schema-migrations-foundation.md) | Migrations SQLite explicites, versionnées et schéma V1 minimal normalisé | **Acceptée — M1** |
 | [ADR-0022](0022-m2-normalized-content-before-temporal-projection.md) | Normaliser le contenu en M2 avant la projection temporelle M3 | **Acceptée — M2** |
+| [ADR-0023](0023-persistent-provider-scoped-entity-identity.md) | Persister les mappings d'identité provider-scoped avec continuité explicite | **Proposée — validation M2** |
 
 Les décisions de sortie sont consignées dans :
 
@@ -103,7 +104,7 @@ Maven 4 reste différé jusqu'à GA et validation de migration.
 
 ### ADR-0018
 
-SQLite reste caché derrière `SpecificationKnowledgeStore`.
+SQLite reste caché derrière `SpecificationKnowledgeStore` et les ports de persistance applicatifs.
 
 Le schéma JSON du spike E08 est **rejeté** comme schéma de production.
 
@@ -191,6 +192,30 @@ BUILD SUCCESS
 ```
 
 Le slice normalise `Specification`, `Requirement` et `Scenario`, attache provenance/evidence aux entités importées, garde `DomainIdentity` distinct des clés externes et ne laisse aucun type OpenSpec traverser `com.morpheus.domain`.
+
+### ADR-0023
+
+Le slice en validation doit démontrer :
+
+```text
+(providerId, entityType, externalId)
+              ↓
+PersistentEntityIdentityResolver
+              ↓
+DomainIdentity UUIDv7 stable
+```
+
+Règles :
+
+```text
+provider namespace is part of identity resolution
+same key -> same DomainIdentity
+external id change -> continuity only when explicit
+same key + different DomainIdentity -> IDENTITY_COLLISION
+no title/path/content similarity merge
+```
+
+Memory et SQLite doivent appliquer le même contrat. SQLite utilise `V003__entity_identity_bindings.sql` et la stabilité doit survivre à une réouverture de la base.
 
 ---
 
