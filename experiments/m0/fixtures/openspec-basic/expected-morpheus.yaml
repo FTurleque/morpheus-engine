@@ -1,0 +1,59 @@
+fixture: openspec-basic
+purpose: E01-E02 initial oracle
+
+provider:
+  expected_provider: openspec
+  expected_schema: spec-driven
+  required_capabilities:
+    - DISCOVER_PROJECT
+    - READ_CURRENT_SPECIFICATIONS
+    - READ_CHANGES
+    - READ_REQUIREMENTS
+    - READ_SCENARIOS
+    - READ_DESIGN_DECISIONS
+    - READ_ACCEPTANCE_CRITERIA
+    - READ_IMPLEMENTATION_TASKS
+
+current:
+  specifications: 1
+  requirements: 2
+  requirement_keys:
+    - auth-session/session-expiration
+    - auth-session/session-activity-refresh
+  temporal_state: CURRENT
+
+proposed:
+  changes: 1
+  change_key: add-remember-me
+  temporal_state: PROPOSED
+  modified_requirements:
+    - auth-session/session-expiration
+  added_requirements:
+    - auth-session/explicit-remember-me-opt-in
+    - auth-session/persistent-credential-revocation
+  tasks: 8
+  design_decisions_minimum: 2
+
+invariants:
+  - current_session_expiration_must_remain_queryable_without_applying_delta
+  - proposed_modified_session_expiration_must_not_replace_current_baseline_during_ingestion
+  - every_normalized_object_must_have_provenance
+  - provider_specific_types_must_not_escape_ingestion_boundary
+  - source_locations_must_point_back_to_fixture_files
+  - change_and_current_specification_must_have_distinct_temporal_state
+
+expected_traceability:
+  - source: add-remember-me
+    relation: AFFECTS
+    target: auth-session/session-expiration
+  - source: add-remember-me
+    relation: AFFECTS
+    target: auth-session/explicit-remember-me-opt-in
+  - source: add-remember-me
+    relation: AFFECTS
+    target: auth-session/persistent-credential-revocation
+
+negative_assertions:
+  - no_proposed_requirement_is_current
+  - no_write_capability_is_required_for_E01_E02
+  - no_llm_or_network_access_is_required
