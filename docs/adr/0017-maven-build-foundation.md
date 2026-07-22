@@ -9,11 +9,12 @@
 
 ## 1. Contexte
 
-Une fois Java 25 retenu comme runtime candidat, MORPHEUS doit disposer d'un build reproductible sur Windows et Linux.
+Une fois Java retenu avec une baseline de compatibilité Java 21, MORPHEUS doit disposer d'un build reproductible sur Windows et Linux.
 
 Le build doit gérer :
 
-- compilation Java 25 ;
+- compilation avec `--release 21` ;
+- exécution possible du build avec un JDK 21 ou plus récent compatible ;
 - dépendances ;
 - tests ;
 - multi-module si nécessaire ;
@@ -36,6 +37,7 @@ Adopter :
 Build tool = Apache Maven
 Baseline M0/M1 = Maven 3.9.16
 Repository pinning = Maven Wrapper
+Compiler release = 21
 ```
 
 Le dépôt doit utiliser `mvnw` / `mvnw.cmd` afin que la version de build de référence soit contrôlée par le projet.
@@ -59,6 +61,18 @@ Les bibliothèques nécessaires au futur provider OpenSpec, à SQLite JDBC, aux 
 ### Multi-module
 
 MORPHEUS peut démarrer avec une structure simple puis séparer domain/application/adapters sans changer d'outil.
+
+### Baseline Java indépendante du JDK développeur
+
+Le build doit configurer :
+
+```text
+maven.compiler.release = 21
+```
+
+ou la configuration équivalente du compiler plugin.
+
+Ainsi, un JDK de compilation plus récent ne permet pas accidentellement l'utilisation d'API Java >21.
 
 ---
 
@@ -100,15 +114,16 @@ Insuffisant pour la gestion des dépendances, tests, packaging et CI à long ter
 
 ## 6. Invariants de build
 
-1. Java release = 25 ;
+1. Java `release = 21` ;
 2. pas de preview feature sans ADR ;
 3. tests unitaires exécutés par défaut ;
 4. tests d'architecture exécutables en CI ;
 5. versions de dépendances explicites ou centralisées ;
 6. build reproductible via wrapper ;
-7. aucun repository privé obligatoire pour compiler le cœur open/local ;
+7. aucun repository privé obligatoire pour compiler le cœur local ;
 8. aucun secret requis pour `test` ;
-9. le build principal fonctionne hors réseau une fois les dépendances en cache.
+9. le build principal fonctionne hors réseau une fois les dépendances en cache ;
+10. JDK plus récent autorisé seulement s'il respecte `--release 21`.
 
 ---
 
@@ -139,6 +154,7 @@ L'invariant important est la direction des dépendances, pas le nombre de POMs.
 - dépendances Maven Central ;
 - wrapper Windows/Linux ;
 - support multi-module ;
+- séparation claire baseline Java / JDK développeur ;
 - plugins de tests/packaging matures ;
 - migration possible vers Maven 4 ultérieurement.
 
@@ -163,9 +179,13 @@ Mitigation : utiliser un POM Maven 3 classique sans hacks inutiles afin de facil
 
 Mitigation : wrapper comme chemin officiel de build.
 
-### Plugins incompatibles Java 25
+### Utilisation accidentelle d'une API Java >21
 
-Mitigation : sélectionner des versions de plugins actuelles et les verrouiller explicitement.
+Mitigation : `maven.compiler.release=21` et compilation CI avec au moins un JDK de référence.
+
+### Plugins incompatibles avec le JDK de build
+
+Mitigation : sélectionner des versions actuelles et les verrouiller explicitement.
 
 ---
 
@@ -174,6 +194,7 @@ Mitigation : sélectionner des versions de plugins actuelles et les verrouiller 
 Cette ADR peut être acceptée à la sortie M0 si :
 
 - Java est retenu ;
+- la baseline Java 21 est explicitement définie ;
 - Maven 4 n'est pas encore GA ;
 - Maven 3.9.x est GA et maintenu ;
 - le wrapper est prévu comme interface officielle ;
