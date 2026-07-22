@@ -142,11 +142,31 @@ Le projet entre maintenant en :
 
 > **M1 — Découverte des projets et providers**
 
-M1 commence par un bootstrap technique obligatoire avant toute fonctionnalité significative : Maven Wrapper, Java release 21, build Windows/CI, tests d'architecture, portage des invariants M0 critiques et premier schéma SQLite versionné.
+M1 commence par un bootstrap technique obligatoire avant toute fonctionnalité significative : Maven Wrapper, Java release 21, build local reproductible, tests d'architecture, portage des invariants M0 critiques et premier schéma SQLite versionné.
 
 La règle de travail devient :
 
 > **Transformer les preuves M0 en code de production, sans affaiblir les frontières validées.**
+
+## Vérification du build
+
+Le gate obligatoire du dépôt est local et reproductible via le Maven Wrapper.
+
+Sous Windows :
+
+```text
+.\mvnw.cmd clean test
+```
+
+Sous Linux/macOS :
+
+```text
+./mvnw clean test
+```
+
+Une PR ne doit pas être considérée comme prête si ce build échoue sur l'environnement de développement concerné.
+
+GitHub Actions ou une autre CI pourront être ajoutés ultérieurement lorsqu'un besoin réel de validation distante, multi-OS, publication ou automatisation de release apparaîtra. **La CI n'est pas une dépendance fonctionnelle ni un gate obligatoire de MORPHEUS.**
 
 ## Documents de référence
 
@@ -190,11 +210,12 @@ Avant toute fonctionnalité M1 significative :
 
 1. Maven Wrapper 3.9.16 ;
 2. `maven.compiler.release=21` ;
-3. `mvnw.cmd test` validé sous Windows ;
-4. `./mvnw test` validé en CI ;
-5. test d'architecture interdisant `domain -> adapters` ;
-6. portage en JUnit des invariants M0 critiques ;
-7. store mémoire de référence ;
-8. schéma SQLite initial versionné et migrable ;
-9. validation du driver SQLite sous Windows ;
-10. conservation des fixtures M0 comme corpus de non-régression.
+3. `.\mvnw.cmd clean test` validé sous Windows ;
+4. test d'architecture interdisant `domain -> adapters` ;
+5. portage en JUnit des invariants M0 critiques ;
+6. store mémoire de référence ;
+7. schéma SQLite initial versionné et migrable ;
+8. validation du driver SQLite sous Windows ;
+9. conservation des fixtures M0 comme corpus de non-régression.
+
+Une CI distante reste optionnelle et pourra être ajoutée plus tard selon les besoins du projet.
