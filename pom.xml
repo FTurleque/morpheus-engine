@@ -16,6 +16,7 @@
         <module>morpheus-domain</module>
         <module>morpheus-application</module>
         <module>morpheus-provider-openspec</module>
+        <module>morpheus-provider-synthetic</module>
         <module>morpheus-store-memory</module>
         <module>morpheus-store-sqlite</module>
         <module>morpheus-cli</module>
