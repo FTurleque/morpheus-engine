@@ -1,14 +1,31 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Proposition initiale — à valider pendant C0**
+Statut : **Roadmap active — C0, M0 et M1 validés ; M2 autorisée**
 
-Date : 22 juillet 2026
+Date de dernière mise à jour : 22 juillet 2026
 
-La roadmap est guidée par les preuves. Un jalon peut être modifié si une expérimentation invalide une hypothèse.
+La roadmap est guidée par les preuves. Un jalon peut être ajusté lorsqu'une expérimentation, un test contractuel ou un retour d'usage invalide une hypothèse.
+
+## État synthétique
+
+```text
+C0 — Cadrage fonctionnel et architectural     ✅ VALIDÉE
+M0 — Faisabilité technique                    ✅ VALIDÉE
+M1 — Découverte des projets et providers      ✅ VALIDÉE
+M2 — Ingestion et modèle normalisé            🚧 AUTORISÉE / À DÉMARRER
+M3+                                           ⏳ PLANIFIÉ
+```
+
+Références de décision :
+
+- [`VALIDATION_C0.md`](VALIDATION_C0.md) ;
+- [`VALIDATION_M0.md`](VALIDATION_M0.md) ;
+- [`VALIDATION_M1.md`](VALIDATION_M1.md) ;
+- [`adr/README.md`](adr/README.md).
 
 ---
 
-## C0 — Cadrage fonctionnel et architectural
+## C0 — Cadrage fonctionnel et architectural ✅
 
 ### Objectif
 
@@ -37,84 +54,100 @@ Définir précisément ce que MORPHEUS doit fournir avant de développer ses fon
 
 > Savons-nous précisément ce que MORPHEUS doit comprendre, pourquoi, à partir de quelles sources, avec quelles frontières, quels invariants et selon quels critères mesurables ?
 
-Aucune implémentation fonctionnelle significative ne commence avant validation C0.
+Décision : **VALIDÉE**.
 
 ---
 
-## M0 — Faisabilité technique
+## M0 — Faisabilité technique ✅
 
 ### Objectif
 
 Valider les choix structurants par des expérimentations réelles et mesurables.
 
-### Périmètre
+### Périmètre validé
 
 - provider OpenSpec de référence ;
-- fake/second provider de découplage ;
-- ingestion et normalisation ;
-- identité stable ;
+- second provider synthétique de découplage ;
+- ingestion et normalisation expérimentales ;
+- identité stable et UUIDv7 ;
 - séparation `CURRENT / PROPOSED / HISTORICAL` ;
 - mapping du cycle de vie ;
 - snapshots et versionnement ;
 - taxonomie de traçabilité ;
 - backend mémoire ;
-- backend persistant local candidat ;
-- option graph store seulement si les mesures la justifient ;
+- SQLite comme backend persistant candidat ;
+- graph database non requise au MVP ;
 - recherche lexicale ;
-- vertical slice de requêtes ;
 - diagnostics ;
 - contexte compact ;
-- premières mesures d'incrémental.
-
-### Plan de preuves
-
-La source de vérité des expériences est :
-
-[`research/M0_EXPERIMENT_MATRIX.md`](research/M0_EXPERIMENT_MATRIX.md)
+- incrémental ;
+- références externes.
 
 ### Porte de décision
 
-> L'architecture provider + ingestion + modèle normalisé + snapshots + knowledge store permet-elle de conserver MORPHEUS indépendant du provider et du backend tout en répondant efficacement aux cas d'usage prioritaires ?
+> L'architecture provider → ingestion → modèle normalisé → snapshots → knowledge store permet-elle de conserver MORPHEUS indépendant du provider et du backend ?
 
-Décisions possibles :
-
-```text
-ADOPTER
-ADOPTER_AVEC_CONTRAINTES
-REVOIR
-REMPLACER
-```
+Décision : **ADOPTER AVEC CONTRAINTES**.
 
 ---
 
-## M1 — Découverte des projets et providers
+## M1 — Découverte des projets et providers ✅
 
 ### Objectif
 
 Détecter les sources de spécification et sélectionner les providers adaptés selon leurs capacités effectives.
 
-### Périmètre
+### Livré
 
 - registre local des projets ;
-- découverte de workspace ;
+- découverte de workspace explicit-first ;
+- fallback Git structurel sans dépendance au binaire Git ;
 - détection des sources ;
-- exclusions ;
 - `SpecificationProviderRegistry` ;
 - `ProviderCapabilitySet` ;
-- probes ;
-- versions de format ;
-- capacités obligatoires/préférées ;
+- probes provider ;
+- capabilities obligatoires et préférées ;
 - préférence local-first ;
-- ambiguïtés de sélection ;
-- diagnostics.
+- opt-in pour providers distants ;
+- ambiguïtés et départage déterministe ;
+- diagnostics structurés ;
+- provider OpenSpec `schema=spec-driven` read-only ;
+- `SourceLocator` provider-neutral ;
+- `DomainIdentity` UUIDv7 ;
+- store mémoire de référence ;
+- SQLite derrière `SpecificationKnowledgeStore` ;
+- migrations `V001` et `V002` ;
+- tests d'architecture.
+
+### Décisions de portée
+
+La discovery M1 ne réalise pas de crawl récursif global. Un moteur d'exclusions récursives reste différé jusqu'à l'introduction d'une telle discovery.
+
+Les invariants suivants restent rattachés à leurs jalons métier naturels :
+
+```text
+CURRENT / PROPOSED / HISTORICAL -> M3
+ExternalReference                -> M2
+```
 
 ### Critère de sortie
 
-Une source supportée est détectée et un provider compatible est sélectionné de manière déterministe et explicable.
+> Une source supportée est détectée et un provider compatible est sélectionné de manière déterministe et explicable.
+
+Preuve finale :
+
+```text
+42/42 tests PASS
+Failures = 0
+Errors   = 0
+BUILD SUCCESS
+```
+
+Décision : **VALIDÉE — M2 AUTORISÉE**.
 
 ---
 
-## M2 — Ingestion et modèle normalisé
+## M2 — Ingestion et modèle normalisé 🚧
 
 ### Objectif
 
@@ -136,11 +169,23 @@ Transformer une source supportée en concepts MORPHEUS indépendants du provider
 - `ExternalReference` ;
 - résolution d'identité ;
 - locators ;
-- diagnostics de normalisation.
+- diagnostics de normalisation ;
+- ingestion OpenSpec réelle derrière l'anti-corruption boundary ;
+- second provider/synthetic fixture pour démontrer le découplage du modèle.
+
+### Invariants
+
+```text
+OpenSpec-first, not OpenSpec-locked
+DomainIdentity != SourceLocator != ExternalReference
+Scenario != AcceptanceCriterion par défaut
+```
+
+Aucun type OpenSpec ne doit traverser le domaine ou les services publics.
 
 ### Critère de sortie
 
-Aucun type du provider de référence ne traverse le domaine ou les services publics.
+> Une source supportée peut être ingérée et normalisée dans un modèle MORPHEUS provider-neutral, avec provenance et diagnostics, sans fuite de types provider.
 
 ---
 
@@ -178,7 +223,7 @@ ABANDONED
 #### Versionnement
 
 - `SpecificationVersion` ;
-- `KnowledgeSnapshot` ;
+- `KnowledgeSnapshot` complet ;
 - predecessor ;
 - activation atomique observable ;
 - idempotence ;
@@ -463,9 +508,7 @@ unresolved references
 specification context
 ```
 
-JARVIS décide de la séquence d'actions.
-
-MORPHEUS reste autonome et ne contient aucune logique JARVIS.
+JARVIS décide de la séquence d'actions. MORPHEUS reste autonome et ne contient aucune logique JARVIS.
 
 ---
 
@@ -482,7 +525,7 @@ Non engagées dans la roadmap principale :
 - collaboration temps réel ;
 - providers distants ;
 - composition multi-provider de production ;
-- federation multi-projets ;
+- fédération multi-projets ;
 - event sourcing complet ;
 - conformité automatique code ↔ spécification ;
 - mutations orchestrées de specs par agents.

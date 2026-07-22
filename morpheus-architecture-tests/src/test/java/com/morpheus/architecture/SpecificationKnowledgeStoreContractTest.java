@@ -16,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,23 +42,29 @@ class SpecificationKnowledgeStoreContractTest {
     }
 
     @Test
-    void memoryStoreRejectsIdentityCollisions() {
-        verifyIdentityCollisions(new MemorySpecificationKnowledgeStore());
+    void memoryStoreRejectsIdentityAndRootCollisions() {
+        verifyIdentityAndRootCollisions(new MemorySpecificationKnowledgeStore());
     }
 
     @Test
-    void sqliteStoreRejectsIdentityCollisions() {
+    void sqliteStoreRejectsIdentityAndRootCollisions() {
         try (var store = new SqliteSpecificationKnowledgeStore(tempDir.resolve("collisions.db"))) {
-            verifyIdentityCollisions(store);
+            verifyIdentityAndRootCollisions(store);
         }
     }
 
     private void verifyProjectAndSnapshotContract(SpecificationKnowledgeStore store) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        ProjectStoreEntry project = new ProjectStoreEntry(projectId, new SourceLocator("file", "workspace"));
+        SourceLocator root = new SourceLocator("file", "workspace");
+        ProjectStoreEntry project = new ProjectStoreEntry(projectId, root);
         store.putProject(project);
         store.putProject(project);
         assertEquals(project, store.findProject(projectId).orElseThrow());
+        assertEquals(project, store.findProjectByRoot(root).orElseThrow());
+        assertEquals(1, store.listProjects().size());
+        assertEquals(
+                store.listProjects().stream().sorted(Comparator.comparing(ProjectStoreEntry::id)).toList(),
+                store.listProjects());
 
         KnowledgeSnapshotMetadata first = readySnapshot(projectId, Optional.empty(), "revision-1", T0);
         store.putSnapshot(first);
@@ -102,11 +109,10 @@ class SpecificationKnowledgeStoreContractTest {
         assertEquals(second.id(), store.activeSnapshot(projectId).orElseThrow().id());
     }
 
-    private void verifyIdentityCollisions(SpecificationKnowledgeStore store) {
+    private void verifyIdentityAndRootCollisions(SpecificationKnowledgeStore store) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        ProjectStoreEntry originalProject = new ProjectStoreEntry(
-                projectId,
-                new SourceLocator("file", "workspace-a"));
+        SourceLocator root = new SourceLocator("file", "workspace-a");
+        ProjectStoreEntry originalProject = new ProjectStoreEntry(projectId, root);
         store.putProject(originalProject);
 
         assertThrows(
@@ -114,6 +120,12 @@ class SpecificationKnowledgeStoreContractTest {
                 () -> store.putProject(new ProjectStoreEntry(
                         projectId,
                         new SourceLocator("file", "workspace-b"))));
+
+        assertThrows(
+                KnowledgeStoreException.class,
+                () -> store.putProject(new ProjectStoreEntry(
+                        ProjectSpecificationId.generate(),
+                        root)));
 
         KnowledgeSnapshotMetadata originalSnapshot = readySnapshot(
                 projectId,

@@ -18,11 +18,12 @@ class OpenSpecSpecificationProviderTest {
     private final OpenSpecSpecificationProvider provider = new OpenSpecSpecificationProvider();
 
     @Test
-    void probesBasicM0FixtureAndExposesOnlyEffectiveCapabilities() {
+    void probesBasicM0FixtureAndExposesOnlyEffectiveReadCapabilities() {
         var result = provider.probe(fixture("openspec-basic"));
 
         assertEquals(ProviderProbeStatus.SUPPORTED, result.status());
         assertEquals("spec-driven", result.schema().orElseThrow());
+        assertTrue(result.formatVersion().isEmpty());
         assertEquals(SourceLocator.file("openspec/config.yaml"), result.sourceLocator().orElseThrow());
         assertTrue(result.capabilities().contains(ProviderCapability.DISCOVER_PROJECT));
         assertTrue(result.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS));
@@ -32,7 +33,25 @@ class OpenSpecSpecificationProviderTest {
         assertTrue(result.capabilities().contains(ProviderCapability.READ_DESIGN_DECISIONS));
         assertTrue(result.capabilities().contains(ProviderCapability.READ_IMPLEMENTATION_TASKS));
         assertFalse(result.capabilities().contains(ProviderCapability.READ_ACCEPTANCE_CRITERIA));
+        assertFalse(result.capabilities().contains(ProviderCapability.WRITE_CHANGE));
+        assertFalse(result.capabilities().contains(ProviderCapability.WRITE_TASK_STATE));
+        assertFalse(result.capabilities().contains(ProviderCapability.ARCHIVE_CHANGE));
         assertTrue(result.diagnostics().isEmpty());
+    }
+
+    @Test
+    void probesPartialM0FixtureWithoutInventingWriteOrAcceptanceCapabilities() {
+        var result = provider.probe(fixture("openspec-partial"));
+
+        assertEquals(ProviderProbeStatus.SUPPORTED, result.status());
+        assertEquals("spec-driven", result.schema().orElseThrow());
+        assertTrue(result.formatVersion().isEmpty());
+        assertEquals(SourceLocator.file("openspec/config.yaml"), result.sourceLocator().orElseThrow());
+        assertTrue(result.capabilities().contains(ProviderCapability.DISCOVER_PROJECT));
+        assertFalse(result.capabilities().contains(ProviderCapability.READ_ACCEPTANCE_CRITERIA));
+        assertFalse(result.capabilities().contains(ProviderCapability.WRITE_CHANGE));
+        assertFalse(result.capabilities().contains(ProviderCapability.WRITE_TASK_STATE));
+        assertFalse(result.capabilities().contains(ProviderCapability.ARCHIVE_CHANGE));
     }
 
     @Test
@@ -41,6 +60,7 @@ class OpenSpecSpecificationProviderTest {
 
         assertEquals(ProviderProbeStatus.UNSUPPORTED, result.status());
         assertEquals("research-first", result.schema().orElseThrow());
+        assertTrue(result.formatVersion().isEmpty());
         assertEquals(SourceLocator.file("openspec/config.yaml"), result.sourceLocator().orElseThrow());
         assertTrue(result.diagnostics().stream()
                 .anyMatch(diagnostic -> diagnostic.code() == DiagnosticCode.UNSUPPORTED_PROVIDER_SCHEMA));
