@@ -6,14 +6,21 @@ import com.morpheus.application.identity.EntityIdentityStore;
 import com.morpheus.application.identity.IdentityCollisionException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
+import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.store.SnapshotConflictException;
+import com.morpheus.application.store.SnapshotSpecificationVersionBinding;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
+import com.morpheus.application.store.VersionedRequirementStore;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.domain.source.SourceLocator;
+import com.morpheus.domain.temporal.TemporalState;
+import com.morpheus.domain.version.EntityVersionId;
+import com.morpheus.domain.version.SpecificationVersion;
+import com.morpheus.domain.version.SpecificationVersionId;
 
 import java.util.HashMap;
 import java.util.List;
@@ -21,10 +28,14 @@ import java.util.Map;
 import java.util.Optional;
 
 /** Reference in-memory implementation of the local MORPHEUS storage contracts. */
-public final class MemorySpecificationKnowledgeStore implements SpecificationKnowledgeStore, EntityIdentityStore {
+public final class MemorySpecificationKnowledgeStore
+        implements SpecificationKnowledgeStore, EntityIdentityStore, VersionedRequirementStore {
     private final Map<ProjectSpecificationId, ProjectStoreEntry> projects = new HashMap<>();
     private final Map<KnowledgeSnapshotId, KnowledgeSnapshotMetadata> snapshots = new HashMap<>();
     private final Map<EntityIdentityKey, DomainIdentity> entityIdentities = new HashMap<>();
+    private final Map<SpecificationVersionId, SpecificationVersion> specificationVersions = new HashMap<>();
+    private final Map<KnowledgeSnapshotId, SnapshotSpecificationVersionBinding> snapshotVersionBindings = new HashMap<>();
+    private final Map<EntityVersionId, RequirementVersionRecord> requirementVersions = new HashMap<>();
 
     @Override
     public synchronized void putProject(ProjectStoreEntry project) {
@@ -166,6 +177,122 @@ public final class MemorySpecificationKnowledgeStore implements SpecificationKno
         KnowledgeSnapshotMetadata activated = target.withState(KnowledgeSnapshotState.ACTIVE);
         snapshots.put(snapshotId, activated);
         return activated;
+    }
+
+    @Override
+    public synchronized void putSpecificationVersion(SpecificationVersion version) {
+        if (!projects.containsKey(version.projectId())) {
+            throw new KnowledgeStoreException("project not found for specification version: " + version.projectId());
+        }
+        version.predecessor().ifPresent(predecessorId -> {
+            SpecificationVersion predecessor = specificationVersions.get(predecessorId);
+            if (predecessor == null) {
+                throw new KnowledgeStoreException("specification version predecessor not found: " + predecessorId);
+            }
+            if (!predecessor.projectId().equals(version.projectId())) {
+                throw new KnowledgeStoreException("specification version predecessor belongs to another project");
+            }
+        });
+
+        SpecificationVersion existing = specificationVersions.get(version.id());
+        if (existing != null) {
+            if (!existing.equals(version)) {
+                throw new KnowledgeStoreException("specification version identity collision: " + version.id());
+            }
+            return;
+        }
+        specificationVersions.put(version.id(), version);
+    }
+
+    @Override
+    public synchronized Optional<SpecificationVersion> findSpecificationVersion(SpecificationVersionId versionId) {
+        return Optional.ofNullable(specificationVersions.get(versionId));
+    }
+
+    @Override
+    public synchronized void bindSnapshotVersion(SnapshotSpecificationVersionBinding binding) {
+        KnowledgeSnapshotMetadata snapshot = snapshots.get(binding.snapshotId());
+        if (snapshot == null) {
+            throw new KnowledgeStoreException("snapshot not found: " + binding.snapshotId());
+        }
+        SpecificationVersion version = specificationVersions.get(binding.specificationVersionId());
+        if (version == null) {
+            throw new KnowledgeStoreException("specification version not found: " + binding.specificationVersionId());
+        }
+        if (!snapshot.projectId().equals(version.projectId())) {
+            throw new KnowledgeStoreException("snapshot and specification version belong to different projects");
+        }
+
+        SnapshotSpecificationVersionBinding existing = snapshotVersionBindings.get(binding.snapshotId());
+        if (existing != null) {
+            if (!existing.equals(binding)) {
+                throw new KnowledgeStoreException("snapshot already bound to another specification version");
+            }
+            return;
+        }
+        snapshotVersionBindings.put(binding.snapshotId(), binding);
+    }
+
+    @Override
+    public synchronized Optional<SnapshotSpecificationVersionBinding> findSnapshotVersion(KnowledgeSnapshotId snapshotId) {
+        return Optional.ofNullable(snapshotVersionBindings.get(snapshotId));
+    }
+
+    @Override
+    public synchronized void putRequirementVersion(RequirementVersionRecord record) {
+        SnapshotSpecificationVersionBinding binding = snapshotVersionBindings.get(record.snapshotId());
+        if (binding == null) {
+            throw new KnowledgeStoreException("snapshot has no specification version binding: " + record.snapshotId());
+        }
+        if (!binding.specificationVersionId().equals(record.entityVersion().specificationVersionId())) {
+            throw new KnowledgeStoreException("requirement version does not match snapshot specification version");
+        }
+
+        RequirementVersionRecord existing = requirementVersions.get(record.entityVersion().id());
+        if (existing != null) {
+            if (!existing.equals(record)) {
+                throw new KnowledgeStoreException("entity version identity collision: " + record.entityVersion().id());
+            }
+            return;
+        }
+
+        if (record.entityVersion().temporalState() == TemporalState.CURRENT) {
+            boolean duplicateCurrent = requirementVersions.values().stream()
+                    .filter(candidate -> candidate.snapshotId().equals(record.snapshotId()))
+                    .map(RequirementVersionRecord::entityVersion)
+                    .anyMatch(candidate -> candidate.temporalState() == TemporalState.CURRENT
+                            && candidate.entityIdentity().equals(record.entityVersion().entityIdentity()));
+            if (duplicateCurrent) {
+                throw new KnowledgeStoreException(
+                        "multiple CURRENT requirement versions for the same identity in one snapshot");
+            }
+        }
+
+        requirementVersions.put(record.entityVersion().id(), record);
+    }
+
+    @Override
+    public synchronized Optional<RequirementVersionRecord> findRequirementVersion(EntityVersionId entityVersionId) {
+        return Optional.ofNullable(requirementVersions.get(entityVersionId));
+    }
+
+    @Override
+    public synchronized List<RequirementVersionRecord> listRequirementVersions(KnowledgeSnapshotId snapshotId) {
+        return requirementVersions.values().stream()
+                .filter(record -> record.snapshotId().equals(snapshotId))
+                .sorted((left, right) -> left.entityVersion().id().compareTo(right.entityVersion().id()))
+                .toList();
+    }
+
+    @Override
+    public synchronized Optional<RequirementVersionRecord> currentRequirement(
+            KnowledgeSnapshotId snapshotId,
+            DomainIdentity entityIdentity) {
+        return requirementVersions.values().stream()
+                .filter(record -> record.snapshotId().equals(snapshotId))
+                .filter(record -> record.entityVersion().entityIdentity().equals(entityIdentity))
+                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+                .findFirst();
     }
 
     private void validateSnapshotReferences(KnowledgeSnapshotMetadata snapshot) {

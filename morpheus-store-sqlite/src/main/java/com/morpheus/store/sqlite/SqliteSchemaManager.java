@@ -20,7 +20,8 @@ final class SqliteSchemaManager {
     private static final List<Migration> MIGRATIONS = List.of(
             new Migration(1, "foundation", "/db/migration/V001__foundation.sql"),
             new Migration(2, "project-root-uniqueness", "/db/migration/V002__project_root_uniqueness.sql"),
-            new Migration(3, "entity-identity-bindings", "/db/migration/V003__entity_identity_bindings.sql"));
+            new Migration(3, "entity-identity-bindings", "/db/migration/V003__entity_identity_bindings.sql"),
+            new Migration(4, "versioned-requirement-persistence", "/db/migration/V004__versioned_requirement_persistence.sql"));
 
     void migrate(Connection connection) {
         final boolean previousAutoCommit;

@@ -36,25 +36,33 @@ class SqliteSchemaMigrationTest {
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(3, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(4, new SqliteSchemaManager().currentVersion(connection));
             assertTrue(tableExists(connection, "schema_migrations"));
             assertTrue(tableExists(connection, "projects"));
             assertTrue(tableExists(connection, "knowledge_snapshots"));
             assertTrue(tableExists(connection, "entity_identity_bindings"));
+            assertTrue(tableExists(connection, "specification_versions"));
+            assertTrue(tableExists(connection, "snapshot_specification_versions"));
+            assertTrue(tableExists(connection, "requirement_versions"));
             assertTrue(indexExists(connection, "uq_projects_root"));
             assertTrue(indexExists(connection, "idx_entity_identity_bindings_domain_identity"));
+            assertTrue(indexExists(connection, "uq_requirement_versions_current_snapshot_identity"));
 
             List<String> projectColumns = columnNames(connection, "projects");
             List<String> snapshotColumns = columnNames(connection, "knowledge_snapshots");
             List<String> identityColumns = columnNames(connection, "entity_identity_bindings");
+            List<String> specificationVersionColumns = columnNames(connection, "specification_versions");
+            List<String> requirementVersionColumns = columnNames(connection, "requirement_versions");
             assertFalse(projectColumns.stream().anyMatch(name -> name.toLowerCase().contains("json")));
             assertFalse(snapshotColumns.stream().anyMatch(name -> name.toLowerCase().contains("json")));
             assertFalse(identityColumns.stream().anyMatch(name -> name.toLowerCase().contains("json")));
+            assertFalse(specificationVersionColumns.stream().anyMatch(name -> name.toLowerCase().contains("json")));
+            assertFalse(requirementVersionColumns.stream().anyMatch(name -> name.toLowerCase().contains("json")));
         }
     }
 
     @Test
-    void migrationReplayIsIdempotentAndLedgerContainsThreeImmutableEntries() throws Exception {
+    void migrationReplayIsIdempotentAndLedgerContainsFourImmutableEntries() throws Exception {
         Path database = tempDir.resolve("replay.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // First application.
@@ -68,7 +76,7 @@ class SqliteSchemaMigrationTest {
              ResultSet result = statement.executeQuery(
                      "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum FROM schema_migrations")) {
             assertTrue(result.next());
-            assertEquals(3, result.getInt("count"));
+            assertEquals(4, result.getInt("count"));
             assertEquals(64, result.getInt("min_checksum"));
             assertEquals(64, result.getInt("max_checksum"));
         }
