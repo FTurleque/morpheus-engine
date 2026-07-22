@@ -44,6 +44,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0024](0024-m2-change-metadata-normalization.md) | Métadonnées de changement normalisées | **Acceptée — M2** |
 | [ADR-0025](0025-m2-requirement-delta-normalization.md) | Requirement deltas sans application temporelle | **Acceptée — M2** |
 | [ADR-0026](0026-optional-external-reference-resolution.md) | Références externes via resolvers optionnels | **Acceptée — M2** |
+| [ADR-0027](0027-native-first-container-supported-distribution.md) | Distribution native-first et container-supported | **Acceptée avec contraintes — distribution** |
 
 ---
 
@@ -58,6 +59,8 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | M2-S5 ExternalReference | ADR-0026 | `76/76 PASS` |
 
 La vue opérationnelle détaillée est : [`../roadmap/M2_EXECUTION.md`](../roadmap/M2_EXECUTION.md).
+
+La trajectoire de packaging/déploiement est : [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
 
 ---
 
@@ -150,6 +153,27 @@ historique de résolution conservé
 ```
 
 Aucune intégration MINOS/GitHub/Jira concrète n'est requise par le cœur.
+
+## Distribution
+
+```text
+Native-first
+Container-supported
+```
+
+Règles :
+
+```text
+CLI locale sans Docker obligatoire
+runtime Java embarqué à prouver en M9
+MCP stdio natif privilégié
+Docker officiel pour headless/MCP réseau/API lorsque justifié
+workspace montable read-only
+données persistantes externalisées du conteneur
+même core dans tous les modes
+```
+
+Les choix concrets `jlink/jpackage`, format installateur, image de base Docker, framework HTTP et transport MCP restent à prouver aux jalons M9/M10/M11.
 
 ---
 
