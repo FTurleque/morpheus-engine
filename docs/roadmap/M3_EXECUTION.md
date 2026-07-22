@@ -1,6 +1,6 @@
 # M3 — Plan d'exécution détaillé
 
-Statut : **M3 actif — 1 slice validé sur 6 ; S2 prochain**
+Statut : **M3 actif — 2 slices validés sur 6 ; S3 prochain**
 
 Dernière mise à jour : 22 juillet 2026
 
@@ -17,8 +17,8 @@ M1     ✅ validé
 M2     ✅ validé — 8/8 — 94/94
 M3     🚧 actif
   S1   ✅ TemporalState + SpecificationVersion — PR #21 — ADR-0031 — 103/103
-  S2   🚧 ChangeLifecycleState — prochain
-  S3   ⬜ KnowledgeSnapshot complet
+  S2   ✅ ChangeLifecycleState — PR #22 — ADR-0032 — 119/119
+  S3   🚧 KnowledgeSnapshot complet — prochain
   S4   ⬜ persistance métier versionnée
   S5   ⬜ application / promotion des deltas
   S6   ⬜ historique / comparaison / rétention
@@ -28,7 +28,7 @@ M4     ⏳ bloqué par M3
 Progression de pilotage :
 
 ```text
-M3 : [███░░░░░░░░░░░░░░░░░] 1 / 6 slices validés
+M3 : [███████░░░░░░░░░░░░░] 2 / 6 slices validés
 ```
 
 Cette barre mesure les slices validés, pas une estimation de charge.
@@ -59,7 +59,7 @@ redémarrage du store
 
 # 3. M3-S1 — VALIDÉ : TemporalState et SpecificationVersion
 
-## Architecture retenue
+Architecture :
 
 ```text
 normalized content M2
@@ -74,14 +74,6 @@ EntityVersion<T>
 TemporalProjection<T>
 ```
 
-États :
-
-```text
-CURRENT
-PROPOSED
-HISTORICAL
-```
-
 Invariants validés :
 
 ```text
@@ -92,7 +84,7 @@ PROPOSED never leaks into CURRENT
 technical reingestion != implicit business version
 ```
 
-Oracle principal validé :
+Oracle :
 
 ```text
 same logical requirement
@@ -103,41 +95,18 @@ same logical requirement
 CURRENT view => 30 minutes only
 ```
 
-Unicité observable :
-
-```text
-une DomainIdentity -> au plus une occurrence CURRENT
-```
-
-Plusieurs propositions concurrentes restent autorisées.
-
-Livrables :
-
-```text
-TemporalState
-EntityVersionId
-SpecificationVersionId
-EntityVersion<T>
-SpecificationVersion
-TemporalProjection<T>
-ADR-0031
-```
-
 Preuve :
 
 ```text
 TemporalVersioningTest  5/5 PASS
 TemporalProjectionTest  4/4 PASS
 TOTAL                  103/103 PASS
-Failures                 0
-Errors                   0
-Skipped                  0
 BUILD SUCCESS
 ```
 
 ---
 
-# 4. NOW — M3-S2 ChangeLifecycleState
+# 4. M3-S2 — VALIDÉ : ChangeLifecycleState
 
 Cycle canonique :
 
@@ -154,45 +123,71 @@ ARCHIVED
 ABANDONED
 ```
 
-Objectif :
-
-> Représenter le cycle métier d'un `ChangeProposal` comme une machine d'état explicite et indépendante de `TemporalState` et de l'état technique des snapshots.
-
-Preuves à obtenir :
-
-- transitions autorisées et interdites ;
-- `SPECIFIED -> PLANNED` seulement si `design_required=false` ;
-- `SPECIFIED -> DESIGNED` lorsque le design est requis ;
-- transitions backward uniquement selon politique explicite ;
-- `COMPLETED != CURRENT` ;
-- `ARCHIVED != promotion CURRENT` ;
-- `ChangeLifecycleState != TemporalState` ;
-- `ChangeLifecycleState != KnowledgeSnapshotState` ;
-- l'état d'une checkbox de tâche ne devient jamais le lifecycle du changement.
-
-Frontière :
+Architecture :
 
 ```text
-ChangeProposal content M2
-        ↓
-lifecycle occurrence / state machine
-
-pas de TemporalState implicite
-pas de promotion de delta
-pas de snapshot activation
+ChangeProposal (contenu M2)
+        │
+        └── ChangeId
+              ↓
+       ChangeLifecycle
+              ↓
+ChangeLifecycleStateMachine
 ```
 
-ADR de slice : à documenter avant implémentation.
-
-Baseline gate :
+Invariants validés :
 
 ```text
-103 tests
+ChangeLifecycleState != TemporalState
+ChangeLifecycleState != KnowledgeSnapshotState
+ChangeLifecycleState != task checkbox
+COMPLETED != CURRENT
+ARCHIVED  != CURRENT
+```
+
+Règles prouvées :
+
+```text
+PROPOSED -> SPECIFIED
+  nécessite requirements + contraintes critiques + acceptance criteria
+
+SPECIFIED -> PLANNED
+  seulement si design_required=false + plan présent
+
+PLANNED -> IMPLEMENTING
+  bloqué par un bloqueur connu
+
+VERIFYING -> COMPLETED
+  bloqué par critère bloquant FAILED ou non vérifié
+
+backward transitions
+  uniquement par policy explicite
+
+ABANDONED
+  raison structurée obligatoire
+
+ABANDONED -> PROPOSED
+  réouverture canonique
+
+ARCHIVED -> ...
+  aucune réouverture implicite
+```
+
+Preuve :
+
+```text
+ChangeLifecycleTest               4/4 PASS
+ChangeLifecycleStateMachineTest  12/12 PASS
+TOTAL                           119/119 PASS
+Failures                           0
+Errors                             0
+Skipped                            0
+BUILD SUCCESS
 ```
 
 ---
 
-# 5. M3-S3 — KnowledgeSnapshot complet
+# 5. NOW — M3-S3 KnowledgeSnapshot complet
 
 États techniques :
 
@@ -205,30 +200,58 @@ FAILED
 RETIRED
 ```
 
+Objectif :
+
+> Représenter un snapshot de connaissance complet, cohérent et atomiquement observable, distinct de `SpecificationVersion` et du lifecycle métier.
+
 Livrables candidats :
 
 ```text
 KnowledgeSnapshot
 SnapshotActivationService
-snapshot validation contract
+SnapshotValidationResult
+SnapshotValidationRule / contract
 predecessor / activation policy
 ```
 
-Preuves :
+Invariants à prouver :
 
 ```text
-Vn ACTIVE
-build Vn+1
-failure before activation
-=> Vn stays ACTIVE
+SpecificationVersion != KnowledgeSnapshot
+ChangeLifecycleState != KnowledgeSnapshotState
+seul ACTIVE est observable comme snapshot courant
+un projet possède au plus un snapshot ACTIVE
+stale predecessor est rejeté
+FAILED n'évince jamais l'ACTIVE existant
+activation observable atomique
 ```
 
-et :
+Oracle principal :
 
 ```text
-before activation -> consumers see Vn
-after activation  -> consumers see Vn+1
-never partial
+Vn = ACTIVE
+Vn+1 = BUILDING -> VALIDATING -> FAILED
+
+résultat observable : Vn reste ACTIVE
+```
+
+Puis :
+
+```text
+Vn = ACTIVE
+Vn+1 = BUILDING -> VALIDATING -> READY -> ACTIVE
+
+before activation -> Vn
+ after activation -> Vn+1
+ never             -> mélange partiel
+```
+
+Le store mémoire reste l'oracle contractuel. S3 ne crée pas encore les tables métier de S4.
+
+Baseline gate :
+
+```text
+119 tests
 ```
 
 ---
@@ -330,9 +353,11 @@ historical query semantics
 | CURRENT view sans fuite PROPOSED | ✅ | S1 |
 | plusieurs PROPOSED concurrents conservés | ✅ | S1 |
 | unicité CURRENT par identité dans une projection | ✅ | S1 |
-| ChangeLifecycleState complet | 🚧 | S2 |
-| KnowledgeSnapshot complet | ⬜ | S3 |
-| activation atomique observable | ⬜ | S3 |
+| ChangeLifecycleState complet | ✅ | S2 |
+| lifecycle distinct de TemporalState | ✅ | S2 |
+| `COMPLETED != CURRENT` | ✅ | S2 |
+| KnowledgeSnapshot complet | 🚧 | S3 |
+| activation atomique observable | 🚧 | S3 |
 | persistance métier versionnée | ⬜ | S4 |
 | application/promotion des deltas | ⬜ | S5 |
 | historique/comparaison/rétention | ⬜ | S6 |
