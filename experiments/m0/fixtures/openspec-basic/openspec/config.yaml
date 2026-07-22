@@ -1,0 +1,16 @@
+schema: spec-driven
+
+context: |
+  Fixture MORPHEUS M0.
+  Application locale de démonstration avec gestion de session utilisateur.
+  Le corpus doit permettre de distinguer l'état courant d'un changement proposé.
+
+rules:
+  proposal:
+    - Décrire explicitement l'intention et le périmètre.
+  specs:
+    - Utiliser des exigences vérifiables avec scénarios Given/When/Then.
+  design:
+    - Documenter les décisions techniques nécessaires au changement.
+  tasks:
+    - Garder des tâches atomiques et vérifiables.
