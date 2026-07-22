@@ -1,6 +1,6 @@
 # M3 — Plan d'exécution détaillé
 
-Statut : **M3 actif — 2 slices validés sur 6 ; S3 prochain**
+Statut : **M3 actif — 3 slices validés sur 6 ; S4 prochain**
 
 Dernière mise à jour : 22 juillet 2026
 
@@ -18,8 +18,8 @@ M2     ✅ validé — 8/8 — 94/94
 M3     🚧 actif
   S1   ✅ TemporalState + SpecificationVersion — PR #21 — ADR-0031 — 103/103
   S2   ✅ ChangeLifecycleState — PR #22 — ADR-0032 — 119/119
-  S3   🚧 KnowledgeSnapshot complet — prochain
-  S4   ⬜ persistance métier versionnée
+  S3   ✅ KnowledgeSnapshot complet — PR #23 — ADR-0033 — 127/127
+  S4   🚧 persistance métier versionnée — prochain
   S5   ⬜ application / promotion des deltas
   S6   ⬜ historique / comparaison / rétention
 M4     ⏳ bloqué par M3
@@ -28,7 +28,7 @@ M4     ⏳ bloqué par M3
 Progression de pilotage :
 
 ```text
-M3 : [███████░░░░░░░░░░░░░] 2 / 6 slices validés
+M3 : [███████████░░░░░░░░░░] 3 / 6 slices validés
 ```
 
 Cette barre mesure les slices validés, pas une estimation de charge.
@@ -179,15 +179,12 @@ Preuve :
 ChangeLifecycleTest               4/4 PASS
 ChangeLifecycleStateMachineTest  12/12 PASS
 TOTAL                           119/119 PASS
-Failures                           0
-Errors                             0
-Skipped                            0
 BUILD SUCCESS
 ```
 
 ---
 
-# 5. NOW — M3-S3 KnowledgeSnapshot complet
+# 5. M3-S3 — VALIDÉ : KnowledgeSnapshot complet
 
 États techniques :
 
@@ -200,33 +197,58 @@ FAILED
 RETIRED
 ```
 
-Objectif :
-
-> Représenter un snapshot de connaissance complet, cohérent et atomiquement observable, distinct de `SpecificationVersion` et du lifecycle métier.
-
-Livrables candidats :
+Architecture retenue :
 
 ```text
-KnowledgeSnapshot
-SnapshotActivationService
-SnapshotValidationResult
-SnapshotValidationRule / contract
-predecessor / activation policy
+SpecificationKnowledgeStore
+        │
+        ├── putSnapshot()
+        ├── transitionSnapshotState()  // CAS
+        ├── activeSnapshot()
+        └── activateSnapshot()         // publication atomique
+                    │
+                    ▼
+          SnapshotLifecycleService
 ```
 
-Invariants à prouver :
+Flux de validation :
+
+```text
+register BUILDING
+    ↓
+BUILDING -> VALIDATING
+    ↓
+validator
+    ├── valid   -> READY
+    ├── invalid -> FAILED
+    └── throws  -> FAILED + exception contrôlée
+```
+
+Activation :
+
+```text
+Vn ACTIVE
+Vn+1 READY(predecessor=Vn)
+        ↓ activateSnapshot
+Vn RETIRED
+Vn+1 ACTIVE
+```
+
+Invariants validés :
 
 ```text
 SpecificationVersion != KnowledgeSnapshot
-ChangeLifecycleState != KnowledgeSnapshotState
+KnowledgeSnapshotState != TemporalState
+KnowledgeSnapshotState != ChangeLifecycleState
 seul ACTIVE est observable comme snapshot courant
 un projet possède au plus un snapshot ACTIVE
 stale predecessor est rejeté
 FAILED n'évince jamais l'ACTIVE existant
-activation observable atomique
+ACTIVE/RETIRED ne sont produits que par activateSnapshot
+transitionSnapshotState applique un CAS explicite
 ```
 
-Oracle principal :
+Oracle d'échec :
 
 ```text
 Vn = ACTIVE
@@ -235,34 +257,75 @@ Vn+1 = BUILDING -> VALIDATING -> FAILED
 résultat observable : Vn reste ACTIVE
 ```
 
-Puis :
+Oracle succès :
 
 ```text
 Vn = ACTIVE
 Vn+1 = BUILDING -> VALIDATING -> READY -> ACTIVE
 
 before activation -> Vn
- after activation -> Vn+1
- never             -> mélange partiel
+after activation  -> Vn+1
+never             -> mélange partiel
+```
+
+SQLite :
+
+```text
+aucune migration S3 nécessaire
+index unique partiel -> au plus un ACTIVE par projet
+CAS -> UPDATE ... WHERE id = ? AND state = ?
+activation multi-lignes transactionnelle
+ACTIVE/RETIRED survivent à fermeture/réouverture
+```
+
+Preuve :
+
+```text
+SnapshotLifecycleServiceTest             7/7 PASS
+SqliteSnapshotLifecyclePersistenceTest   1/1 PASS
+SpecificationKnowledgeStoreContractTest  4/4 PASS
+TOTAL                                   127/127 PASS
+Failures                                   0
+Errors                                     0
+Skipped                                    0
+BUILD SUCCESS
 ```
 
 Le store mémoire reste l'oracle contractuel. S3 ne crée pas encore les tables métier de S4.
 
-Baseline gate :
-
-```text
-119 tests
-```
-
 ---
 
-# 6. M3-S4 — Premières migrations métier versionnées
+# 6. NOW — M3-S4 Premières migrations métier versionnées
 
 ADR-0030 impose la question :
 
 > **Quelle version / quel snapshot possède ou expose cette occurrence de contenu ?**
 
 avant toute table métier.
+
+Objectif : persister les occurrences normalisées avec ownership explicite :
+
+```text
+DomainIdentity
+    ↓
+EntityVersionId
+    ↓
+SpecificationVersionId
+    ↓
+KnowledgeSnapshotId
+    ↓
+TemporalState
+```
+
+Chaque occurrence persistée doit donc répondre à :
+
+```text
+quelle identité logique ?
+quelle occurrence/version d'entité ?
+quelle SpecificationVersion ?
+quel KnowledgeSnapshot ?
+quel TemporalState ?
+```
 
 Familles candidates :
 
@@ -279,13 +342,25 @@ external_references
 provenance/evidence
 ```
 
+S4 doit décider le plus petit schéma de production cohérent ; il ne doit pas créer mécaniquement toutes les familles si une preuve plus petite suffit à verrouiller le pattern.
+
 Contraintes :
 
 - SQLite reste derrière les ports ;
 - memory store reste l'oracle contractuel ;
 - aucune payload JSON générique ;
 - ownership version/snapshot explicite ;
-- reopen SQLite reconstruit le même état observable.
+- `DomainIdentity != EntityVersionId` ;
+- `SpecificationVersion != KnowledgeSnapshot` ;
+- `TemporalState` persiste avec l'occurrence ;
+- reopen SQLite reconstruit le même état observable ;
+- aucune fuite d'un `PROPOSED` dans la vue `CURRENT` après redémarrage.
+
+Gate de départ :
+
+```text
+127 tests
+```
 
 ---
 
@@ -356,9 +431,12 @@ historical query semantics
 | ChangeLifecycleState complet | ✅ | S2 |
 | lifecycle distinct de TemporalState | ✅ | S2 |
 | `COMPLETED != CURRENT` | ✅ | S2 |
-| KnowledgeSnapshot complet | 🚧 | S3 |
-| activation atomique observable | 🚧 | S3 |
-| persistance métier versionnée | ⬜ | S4 |
+| KnowledgeSnapshot complet | ✅ | S3 |
+| activation atomique observable | ✅ | S3 |
+| échec avant activation conserve l'ancien ACTIVE | ✅ | S3 |
+| stale predecessor rejeté | ✅ | S3 |
+| état ACTIVE persiste après redémarrage SQLite | ✅ | S3 |
+| persistance métier versionnée | 🚧 | S4 |
 | application/promotion des deltas | ⬜ | S5 |
 | historique/comparaison/rétention | ⬜ | S6 |
 | VALIDATION_M3.md | ⬜ | clôture |

@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** SQLite adapter for the minimal M1 {@link SpecificationKnowledgeStore} contract. */
+/** SQLite adapter for the MORPHEUS knowledge-store foundation. */
 public final class SqliteSpecificationKnowledgeStore implements SpecificationKnowledgeStore, AutoCloseable {
     private final Connection connection;
     private boolean closed;
@@ -172,6 +172,34 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
             return activeSnapshotInternal(projectId);
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot read active snapshot for project " + projectId, exception);
+        }
+    }
+
+    @Override
+    public synchronized KnowledgeSnapshotMetadata transitionSnapshotState(
+            KnowledgeSnapshotId snapshotId,
+            KnowledgeSnapshotState expectedState,
+            KnowledgeSnapshotState targetState) {
+        ensureOpen();
+        rejectPublishedTargetState(targetState);
+        try (PreparedStatement statement = connection.prepareStatement("""
+                UPDATE knowledge_snapshots
+                SET state = ?
+                WHERE id = ? AND state = ?
+                """)) {
+            statement.setString(1, targetState.name());
+            statement.setString(2, snapshotId.toString());
+            statement.setString(3, expectedState.name());
+            if (statement.executeUpdate() == 1) {
+                return findSnapshotInternal(snapshotId).orElseThrow();
+            }
+
+            KnowledgeSnapshotMetadata current = findSnapshotInternal(snapshotId)
+                    .orElseThrow(() -> new KnowledgeStoreException("snapshot not found: " + snapshotId));
+            throw new SnapshotConflictException(
+                    "snapshot state changed: expected " + expectedState + " but was " + current.state());
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot transition snapshot " + snapshotId, exception);
         }
     }
 
@@ -345,6 +373,12 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
             if (statement.executeUpdate() != 1) {
                 throw new KnowledgeStoreException("snapshot not found during state update: " + snapshotId);
             }
+        }
+    }
+
+    private void rejectPublishedTargetState(KnowledgeSnapshotState targetState) {
+        if (targetState == KnowledgeSnapshotState.ACTIVE || targetState == KnowledgeSnapshotState.RETIRED) {
+            throw new SnapshotConflictException("ACTIVE/RETIRED states are owned by snapshot activation");
         }
     }
 

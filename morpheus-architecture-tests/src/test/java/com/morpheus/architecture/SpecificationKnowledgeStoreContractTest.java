@@ -66,6 +66,38 @@ class SpecificationKnowledgeStoreContractTest {
                 store.listProjects().stream().sorted(Comparator.comparing(ProjectStoreEntry::id)).toList(),
                 store.listProjects());
 
+        KnowledgeSnapshotMetadata lifecycleCandidate = buildingSnapshot(
+                projectId,
+                Optional.empty(),
+                "lifecycle-candidate",
+                T0.minusSeconds(1));
+        store.putSnapshot(lifecycleCandidate);
+        assertEquals(
+                KnowledgeSnapshotState.VALIDATING,
+                store.transitionSnapshotState(
+                        lifecycleCandidate.id(),
+                        KnowledgeSnapshotState.BUILDING,
+                        KnowledgeSnapshotState.VALIDATING).state());
+        assertThrows(
+                SnapshotConflictException.class,
+                () -> store.transitionSnapshotState(
+                        lifecycleCandidate.id(),
+                        KnowledgeSnapshotState.BUILDING,
+                        KnowledgeSnapshotState.READY));
+        assertEquals(
+                KnowledgeSnapshotState.FAILED,
+                store.transitionSnapshotState(
+                        lifecycleCandidate.id(),
+                        KnowledgeSnapshotState.VALIDATING,
+                        KnowledgeSnapshotState.FAILED).state());
+        assertThrows(
+                SnapshotConflictException.class,
+                () -> store.transitionSnapshotState(
+                        lifecycleCandidate.id(),
+                        KnowledgeSnapshotState.FAILED,
+                        KnowledgeSnapshotState.ACTIVE));
+        assertTrue(store.activeSnapshot(projectId).isEmpty());
+
         KnowledgeSnapshotMetadata first = readySnapshot(projectId, Optional.empty(), "revision-1", T0);
         store.putSnapshot(first);
         store.putSnapshot(first);
@@ -143,6 +175,20 @@ class SpecificationKnowledgeStoreContractTest {
                 T0);
 
         assertThrows(KnowledgeStoreException.class, () -> store.putSnapshot(collidingSnapshot));
+    }
+
+    private KnowledgeSnapshotMetadata buildingSnapshot(
+            ProjectSpecificationId projectId,
+            Optional<KnowledgeSnapshotId> predecessorId,
+            String sourceRevision,
+            Instant createdAt) {
+        return new KnowledgeSnapshotMetadata(
+                KnowledgeSnapshotId.generate(),
+                projectId,
+                predecessorId,
+                KnowledgeSnapshotState.BUILDING,
+                Optional.of(sourceRevision),
+                createdAt);
     }
 
     private KnowledgeSnapshotMetadata readySnapshot(

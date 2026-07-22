@@ -113,6 +113,25 @@ public final class MemorySpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
+    public synchronized KnowledgeSnapshotMetadata transitionSnapshotState(
+            KnowledgeSnapshotId snapshotId,
+            KnowledgeSnapshotState expectedState,
+            KnowledgeSnapshotState targetState) {
+        rejectPublishedTargetState(targetState);
+        KnowledgeSnapshotMetadata snapshot = snapshots.get(snapshotId);
+        if (snapshot == null) {
+            throw new KnowledgeStoreException("snapshot not found: " + snapshotId);
+        }
+        if (snapshot.state() != expectedState) {
+            throw new SnapshotConflictException(
+                    "snapshot state changed: expected " + expectedState + " but was " + snapshot.state());
+        }
+        KnowledgeSnapshotMetadata updated = snapshot.withState(targetState);
+        snapshots.put(snapshotId, updated);
+        return updated;
+    }
+
+    @Override
     public synchronized KnowledgeSnapshotMetadata activateSnapshot(
             KnowledgeSnapshotId snapshotId,
             Optional<KnowledgeSnapshotId> expectedActiveSnapshotId) {
@@ -163,5 +182,11 @@ public final class MemorySpecificationKnowledgeStore implements SpecificationKno
                 throw new KnowledgeStoreException("snapshot predecessor belongs to another project");
             }
         });
+    }
+
+    private void rejectPublishedTargetState(KnowledgeSnapshotState targetState) {
+        if (targetState == KnowledgeSnapshotState.ACTIVE || targetState == KnowledgeSnapshotState.RETIRED) {
+            throw new SnapshotConflictException("ACTIVE/RETIRED states are owned by snapshot activation");
+        }
     }
 }
