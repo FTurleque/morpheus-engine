@@ -1,8 +1,8 @@
 # M3 — Plan d'exécution détaillé
 
-Statut : **M3 actif — 3 slices validés sur 6 ; S4 prochain**
+Statut : **M3 actif — 4 slices validés sur 6 ; S5 prochain**
 
-Dernière mise à jour : 22 juillet 2026
+Dernière mise à jour : 23 juillet 2026
 
 Ce document complète [`../ROADMAP.md`](../ROADMAP.md) et sert de tableau de bord opérationnel pour M3.
 
@@ -19,19 +19,17 @@ M3     🚧 actif
   S1   ✅ TemporalState + SpecificationVersion — PR #21 — ADR-0031 — 103/103
   S2   ✅ ChangeLifecycleState — PR #22 — ADR-0032 — 119/119
   S3   ✅ KnowledgeSnapshot complet — PR #23 — ADR-0033 — 127/127
-  S4   🚧 persistance métier versionnée — prochain
-  S5   ⬜ application / promotion des deltas
+  S4   ✅ persistance métier versionnée — PR #24 — ADR-0034 — 134/134
+  S5   🚧 application / promotion des deltas — prochain
   S6   ⬜ historique / comparaison / rétention
 M4     ⏳ bloqué par M3
 ```
 
-Progression de pilotage :
+Progression :
 
 ```text
-M3 : [███████████░░░░░░░░░░] 3 / 6 slices validés
+M3 : [██████████████░░░░░░] 4 / 6 slices validés
 ```
-
-Cette barre mesure les slices validés, pas une estimation de charge.
 
 ---
 
@@ -74,7 +72,7 @@ EntityVersion<T>
 TemporalProjection<T>
 ```
 
-Invariants validés :
+Invariants :
 
 ```text
 DomainIdentity != EntityVersionId
@@ -95,14 +93,7 @@ same logical requirement
 CURRENT view => 30 minutes only
 ```
 
-Preuve :
-
-```text
-TemporalVersioningTest  5/5 PASS
-TemporalProjectionTest  4/4 PASS
-TOTAL                  103/103 PASS
-BUILD SUCCESS
-```
+Preuve : `103/103 PASS`.
 
 ---
 
@@ -123,19 +114,7 @@ ARCHIVED
 ABANDONED
 ```
 
-Architecture :
-
-```text
-ChangeProposal (contenu M2)
-        │
-        └── ChangeId
-              ↓
-       ChangeLifecycle
-              ↓
-ChangeLifecycleStateMachine
-```
-
-Invariants validés :
+Invariants :
 
 ```text
 ChangeLifecycleState != TemporalState
@@ -145,165 +124,73 @@ COMPLETED != CURRENT
 ARCHIVED  != CURRENT
 ```
 
-Règles prouvées :
+Politique :
 
 ```text
-PROPOSED -> SPECIFIED
-  nécessite requirements + contraintes critiques + acceptance criteria
-
-SPECIFIED -> PLANNED
-  seulement si design_required=false + plan présent
-
-PLANNED -> IMPLEMENTING
-  bloqué par un bloqueur connu
-
-VERIFYING -> COMPLETED
-  bloqué par critère bloquant FAILED ou non vérifié
-
-backward transitions
-  uniquement par policy explicite
-
-ABANDONED
-  raison structurée obligatoire
-
-ABANDONED -> PROPOSED
-  réouverture canonique
-
-ARCHIVED -> ...
-  aucune réouverture implicite
+SPECIFIED -> PLANNED uniquement si design_required=false + plan
+backward transitions uniquement par policy explicite
+ABANDONED exige une raison structurée
+ABANDONED -> PROPOSED autorisé
+ARCHIVED n'est pas rouvert implicitement
 ```
 
-Preuve :
-
-```text
-ChangeLifecycleTest               4/4 PASS
-ChangeLifecycleStateMachineTest  12/12 PASS
-TOTAL                           119/119 PASS
-BUILD SUCCESS
-```
+Preuve : `119/119 PASS`.
 
 ---
 
 # 5. M3-S3 — VALIDÉ : KnowledgeSnapshot complet
 
-États techniques :
+Cycle :
 
 ```text
-BUILDING
-VALIDATING
-READY
-ACTIVE
-FAILED
-RETIRED
+BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
+                         \-> FAILED
 ```
 
-Architecture retenue :
+Architecture :
 
 ```text
 SpecificationKnowledgeStore
-        │
         ├── putSnapshot()
         ├── transitionSnapshotState()  // CAS
         ├── activeSnapshot()
         └── activateSnapshot()         // publication atomique
-                    │
-                    ▼
+                    ↓
           SnapshotLifecycleService
 ```
 
-Flux de validation :
+Invariants :
 
 ```text
-register BUILDING
-    ↓
-BUILDING -> VALIDATING
-    ↓
-validator
-    ├── valid   -> READY
-    ├── invalid -> FAILED
-    └── throws  -> FAILED + exception contrôlée
-```
-
-Activation :
-
-```text
-Vn ACTIVE
-Vn+1 READY(predecessor=Vn)
-        ↓ activateSnapshot
-Vn RETIRED
-Vn+1 ACTIVE
-```
-
-Invariants validés :
-
-```text
-SpecificationVersion != KnowledgeSnapshot
-KnowledgeSnapshotState != TemporalState
-KnowledgeSnapshotState != ChangeLifecycleState
 seul ACTIVE est observable comme snapshot courant
-un projet possède au plus un snapshot ACTIVE
+un projet possède au plus un ACTIVE
 stale predecessor est rejeté
 FAILED n'évince jamais l'ACTIVE existant
 ACTIVE/RETIRED ne sont produits que par activateSnapshot
 transitionSnapshotState applique un CAS explicite
 ```
 
-Oracle d'échec :
+Oracle :
 
 ```text
-Vn = ACTIVE
-Vn+1 = BUILDING -> VALIDATING -> FAILED
-
-résultat observable : Vn reste ACTIVE
+Vn ACTIVE
+Vn+1 BUILDING -> VALIDATING -> FAILED
+=> Vn reste ACTIVE
 ```
 
-Oracle succès :
+SQLite conserve `ACTIVE/RETIRED` après fermeture/réouverture.
 
-```text
-Vn = ACTIVE
-Vn+1 = BUILDING -> VALIDATING -> READY -> ACTIVE
-
-before activation -> Vn
-after activation  -> Vn+1
-never             -> mélange partiel
-```
-
-SQLite :
-
-```text
-aucune migration S3 nécessaire
-index unique partiel -> au plus un ACTIVE par projet
-CAS -> UPDATE ... WHERE id = ? AND state = ?
-activation multi-lignes transactionnelle
-ACTIVE/RETIRED survivent à fermeture/réouverture
-```
-
-Preuve :
-
-```text
-SnapshotLifecycleServiceTest             7/7 PASS
-SqliteSnapshotLifecyclePersistenceTest   1/1 PASS
-SpecificationKnowledgeStoreContractTest  4/4 PASS
-TOTAL                                   127/127 PASS
-Failures                                   0
-Errors                                     0
-Skipped                                    0
-BUILD SUCCESS
-```
-
-Le store mémoire reste l'oracle contractuel. S3 ne crée pas encore les tables métier de S4.
+Preuve : `127/127 PASS`.
 
 ---
 
-# 6. NOW — M3-S4 Premières migrations métier versionnées
+# 6. M3-S4 — VALIDÉ : persistance métier versionnée
 
-ADR-0030 impose la question :
+ADR : **ADR-0034 — Acceptée — M3**.
 
-> **Quelle version / quel snapshot possède ou expose cette occurrence de contenu ?**
+Premier vertical slice : `Requirement`.
 
-avant toute table métier.
-
-Objectif : persister les occurrences normalisées avec ownership explicite :
+Architecture persistante :
 
 ```text
 DomainIdentity
@@ -317,54 +204,73 @@ KnowledgeSnapshotId
 TemporalState
 ```
 
-Chaque occurrence persistée doit donc répondre à :
+Migration V004 :
 
 ```text
-quelle identité logique ?
-quelle occurrence/version d'entité ?
-quelle SpecificationVersion ?
-quel KnowledgeSnapshot ?
-quel TemporalState ?
+specification_versions
+snapshot_specification_versions
+requirement_versions
 ```
 
-Familles candidates :
+Relation métier/technique :
 
 ```text
-specifications
-requirements
-changes
-constraints
-scenarios
-design_decisions
-acceptance_criteria
-implementation_tasks
-external_references
-provenance/evidence
+SpecificationVersion 1 <--- N KnowledgeSnapshot
 ```
 
-S4 doit décider le plus petit schéma de production cohérent ; il ne doit pas créer mécaniquement toutes les familles si une preuve plus petite suffit à verrouiller le pattern.
+Le binding snapshot/version est explicite. `RequirementVersionRecord` reconstruit exactement `EntityVersion<Requirement>` avec provenance.
 
-Contraintes :
-
-- SQLite reste derrière les ports ;
-- memory store reste l'oracle contractuel ;
-- aucune payload JSON générique ;
-- ownership version/snapshot explicite ;
-- `DomainIdentity != EntityVersionId` ;
-- `SpecificationVersion != KnowledgeSnapshot` ;
-- `TemporalState` persiste avec l'occurrence ;
-- reopen SQLite reconstruit le même état observable ;
-- aucune fuite d'un `PROPOSED` dans la vue `CURRENT` après redémarrage.
-
-Gate de départ :
+Invariants validés :
 
 ```text
-127 tests
+DomainIdentity != EntityVersionId
+SpecificationVersion != KnowledgeSnapshot
+normalized Requirement != persisted occurrence
+snapshot/version ownership obligatoire
+1 CURRENT max par (snapshot, DomainIdentity)
+N PROPOSED concurrents autorisés
+aucune payload JSON générique
 ```
+
+Vue courante :
+
+```text
+project
+  ↓
+activeSnapshot(project)
+  ↓
+currentRequirement(snapshotId, DomainIdentity)
+```
+
+Donc un `PROPOSED` persiste mais reste invisible dans `CURRENT`.
+
+Preuve de redémarrage SQLite :
+
+```text
+CURRENT  = 30 jours
+PROPOSED = 60 jours
+        ↓ close/reopen
+CURRENT query = 30 jours
+PROPOSED      = toujours conservé séparément
+```
+
+Preuve :
+
+```text
+VersionedRequirementPersistenceTest  7/7 PASS
+SqliteSchemaMigrationTest            4/4 PASS
+TOTAL                              134/134 PASS
+Failures                              0
+Errors                                0
+Skipped                               0
+BUILD SUCCESS
+```
+
+Le pattern S4 est désormais la référence pour les autres familles métier ; il n'impose pas de les persister toutes avant que leur usage le justifie.
 
 ---
 
-# 7. M3-S5 — Application / promotion des deltas
+# 7. NOW — M3-S5 Application / promotion des deltas
 
 Entrées :
 
@@ -374,22 +280,53 @@ MODIFIED
 REMOVED
 ```
 
-Règles :
+Règles non négociables :
 
 ```text
 normalized delta != applied delta
 COMPLETED != automatic promotion
 promotion must be explicit and evidenced
+CURRENT ne change pas avant activation du nouveau snapshot
 ```
 
-Preuves :
+Objectif : transformer explicitement un ensemble de `RequirementDelta` normalisés en une projection candidate versionnée sans modifier la baseline active.
+
+Flux cible :
+
+```text
+ACTIVE snapshot / CURRENT baseline
+        +
+RequirementDelta[]
+        ↓ apply explicitement
+nouvelle SpecificationVersion
+        ↓
+BUILDING candidate snapshot
+        ↓
+RequirementVersionRecord[]
+        ↓ validate
+READY
+        ↓ activation explicite
+ACTIVE
+```
+
+Preuves à construire :
 
 - baseline et propositions coexistent ;
 - application déterministe ;
-- promotion explicite ;
-- `MODIFIED` conserve identité logique ;
-- `REMOVED` retire uniquement la projection cible ;
-- provenance de promotion conservée.
+- `ADDED` crée une nouvelle identité logique seulement pour un nouvel élément ;
+- `MODIFIED` conserve `DomainIdentity` et produit une nouvelle `EntityVersionId` ;
+- `REMOVED` retire uniquement l'occurrence de la projection cible ;
+- ordre des deltas incohérent / conflit est rejeté explicitement ;
+- `COMPLETED` n'entraîne aucune promotion automatique ;
+- avant activation, la vue `CURRENT` reste celle du snapshot précédent ;
+- après activation, la nouvelle baseline devient visible atomiquement ;
+- provenance/evidence de l'application/promotion sont conservées.
+
+Gate de départ :
+
+```text
+134 tests
+```
 
 ---
 
@@ -426,8 +363,8 @@ historical query semantics
 | EntityVersion distinct de DomainIdentity | ✅ | S1 |
 | SpecificationVersion | ✅ | S1 |
 | CURRENT view sans fuite PROPOSED | ✅ | S1 |
-| plusieurs PROPOSED concurrents conservés | ✅ | S1 |
-| unicité CURRENT par identité dans une projection | ✅ | S1 |
+| plusieurs PROPOSED concurrents conservés | ✅ | S1/S4 |
+| unicité CURRENT par identité | ✅ | S1/S4 |
 | ChangeLifecycleState complet | ✅ | S2 |
 | lifecycle distinct de TemporalState | ✅ | S2 |
 | `COMPLETED != CURRENT` | ✅ | S2 |
@@ -436,8 +373,10 @@ historical query semantics
 | échec avant activation conserve l'ancien ACTIVE | ✅ | S3 |
 | stale predecessor rejeté | ✅ | S3 |
 | état ACTIVE persiste après redémarrage SQLite | ✅ | S3 |
-| persistance métier versionnée | 🚧 | S4 |
-| application/promotion des deltas | ⬜ | S5 |
+| persistance métier versionnée | ✅ | S4 |
+| ownership snapshot/version explicite | ✅ | S4 |
+| CURRENT/PROPOSED persistants et séparés après reopen | ✅ | S4 |
+| application/promotion des deltas | 🚧 | S5 |
 | historique/comparaison/rétention | ⬜ | S6 |
 | VALIDATION_M3.md | ⬜ | clôture |
 
