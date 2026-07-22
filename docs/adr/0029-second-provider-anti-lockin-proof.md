@@ -1,6 +1,6 @@
 # ADR-0029 — Prouver l'anti-lock-in avec un second provider synthétique
 
-- Statut : **Proposée — validation M2-S7 requise**
+- Statut : **Acceptée — M2**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001, ADR-0002, ADR-0009, ADR-0011, ADR-0023, ADR-0028
 - Portée : provider neutrality, anti-corruption boundary, preuve anti-lock-in M2
@@ -13,7 +13,7 @@ M2 doit prouver en code de production que deux formats distincts peuvent travers
 
 La fixture M0 `synthetic-basic/morpheus-spec.json` constitue l'oracle du second format.
 
-## Décision candidate
+## Décision
 
 Introduire un module :
 
@@ -118,3 +118,44 @@ La fixture est enrichie de métadonnées déjà compatibles avec le spike M0 afi
 ## Critère d'acceptation
 
 ADR-0029 passe à **Acceptée — M2** lorsque le gate complet démontre les preuves ci-dessus et qu'aucune modification du domaine n'est nécessaire pour accueillir le second provider.
+
+## Preuve d'acceptation — 22 juillet 2026
+
+Gate exécuté sous Windows :
+
+```text
+.\mvnw.cmd clean test
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultats observés :
+
+```text
+SyntheticSpecificationContentReaderTest   4/4 PASS
+SyntheticSpecificationProviderTest        3/3 PASS
+ProviderAntiLockInTest                     3/3 PASS
+
+Domain module                              4 tests
+Application module                        38 tests
+OpenSpec provider                         26 tests
+Synthetic provider                         7 tests
+SQLite store                               6 tests
+Architecture tests                        13 tests
+
+TOTAL                                     94/94 PASS
+Failures                                      0
+Errors                                        0
+Skipped                                       0
+BUILD SUCCESS
+```
+
+La preuve S7 confirme qu'un second format compilé traverse exactement les mêmes ports `SpecificationProvider` et `SpecificationContentReader`, produit les mêmes concepts MORPHEUS et peut être consommé sans branche provider-specific.
+
+Une même external key est résolue dans deux namespaces provider distincts et produit donc deux `DomainIdentity` distinctes. Les règles ArchUnit restent génériques sur `com.morpheus.provider..` : aucune dépendance du domaine ou de l'application vers OpenSpec ou Synthetic n'est introduite.
+
+L'accueil du second provider n'a nécessité aucune modification de `morpheus-domain` ni de `morpheus-application`.
+
+Les warnings JDK 24 `--enable-native-access=ALL-UNNAMED` du driver SQLite et SLF4J NOP dans les tests d'architecture restent non bloquants.
