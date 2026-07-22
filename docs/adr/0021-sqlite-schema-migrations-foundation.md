@@ -1,6 +1,6 @@
 # ADR-0021 — Versionner le schéma SQLite par migrations explicites et minimales
 
-- Statut : **Proposée — validation M1 requise**
+- Statut : **Acceptée — M1**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0003, ADR-0012, ADR-0015, ADR-0018
 - Portée : persistance locale, migrations, identité, métadonnées de snapshots
@@ -214,7 +214,40 @@ Mitigation : backup/reconstruction documentés avant application.
 
 ## 9. Validation
 
-La preuve M1 doit démontrer :
+Validation locale Windows effectuée le 22 juillet 2026 avec :
+
+```text
+Windows 10 x64
+Apache Maven 3.9.16
+JDK de build 24.0.1
+javac release 21
+```
+
+Gate exécuté :
+
+```text
+.\mvnw.cmd clean test
+```
+
+Résultats :
+
+```text
+DomainIdentityTest                         4/4 PASS
+ProjectDiscoveryServiceTest               6/6 PASS
+WorkspaceRootResolverTest                 3/3 PASS
+ProviderSelectionPolicyTest               6/6 PASS
+OpenSpecDiscoveryIntegrationTest          5/5 PASS
+OpenSpecSpecificationProviderTest         4/4 PASS
+SqliteDriverSmokeTest                     1/1 PASS
+SqliteSchemaMigrationTest                 4/4 PASS
+LayerDependencyTest                       2/2 PASS
+SpecificationKnowledgeStoreContractTest   4/4 PASS
+
+TOTAL                                    39/39 PASS
+BUILD SUCCESS
+```
+
+La preuve démontre :
 
 ```text
 UUIDv7 valide et opaque
@@ -222,27 +255,24 @@ store mémoire conforme
 store SQLite conforme
 migration V1 appliquée
 rejeu migration idempotent
+checksum de migration immuable
+historique de migration falsifié rejeté
 persistance après réouverture SQLite
 activation atomique d'un snapshot
 predecessor obsolète rejeté
 snapshot non ACTIVE invisible via activeSnapshot
 aucun payload JSON générique
-BUILD SUCCESS
 ```
 
-Gate :
-
-```text
-.\mvnw.cmd clean test
-```
-
-sous Windows avec `maven.compiler.release=21`.
+Le warning JDK 24 relatif à `System::load` / `--enable-native-access=ALL-UNNAMED` est non bloquant pour M1 et reste à traiter dans la stratégie runtime/packaging avant stabilisation CLI.
 
 ---
 
 ## 10. Critère d'acceptation
 
-ADR-0021 passe à **Acceptée — M1** lorsque la suite commune mémoire/SQLite, les tests de migration V1 et les tests UUIDv7 sont verts avec le build complet.
+Le critère d'acceptation est **satisfait**.
+
+ADR-0021 est **Acceptée — M1** : la suite commune mémoire/SQLite, les tests de migration V1, les tests UUIDv7 et le build complet sont verts.
 
 ---
 
