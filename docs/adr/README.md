@@ -36,9 +36,9 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0014](0014-defer-production-technology-stack.md) | Différer le choix de stack de production jusqu'aux preuves nécessaires | **Acceptée — C0** |
 | [ADR-0015](0015-domain-identity-uuidv7.md) | UUIDv7 comme format canonique opaque de `DomainIdentity` | **Acceptée — M0** |
 | [ADR-0016](0016-java-21-production-baseline.md) | Java avec source/bytecode baseline 21 | **Acceptée — M0** |
-| [ADR-0017](0017-maven-build-foundation.md) | Maven 3.9.16 + Maven Wrapper, `release=21` | **Acceptée avec contraintes — M0** |
+| [ADR-0017](0017-maven-build-foundation.md) | Maven 3.9.16 + Maven Wrapper, `release=21` | **Acceptée avec contraintes — M0/M1** |
 | [ADR-0018](0018-sqlite-initial-persistent-store.md) | SQLite comme backend persistant initial derrière le port | **Acceptée avec contraintes — M0** |
-| [ADR-0019](0019-maven-coordinates-java-namespace.md) | `io.github.fturleque` + namespace Java `com.morpheus.*` | **Proposée — bootstrap M1** |
+| [ADR-0019](0019-maven-coordinates-java-namespace.md) | `io.github.fturleque` + namespace Java `com.morpheus.*` | **Acceptée — bootstrap M1** |
 
 La décision de sortie C0 est consignée dans [`../VALIDATION_C0.md`](../VALIDATION_C0.md).
 
@@ -50,7 +50,7 @@ La décision de sortie M0, les preuves et les contraintes d'acceptation sont con
 
 ### ADR-0001
 
-Ajouter au bootstrap M1 un test d'architecture empêchant :
+Le bootstrap M1 possède un test d'architecture empêchant :
 
 ```text
 domain -> provider-openspec
@@ -82,13 +82,17 @@ L'étape `DESIGNED` peut être sautée uniquement par politique explicite lorsqu
 
 ### ADR-0017
 
-Le premier squelette M1 doit prouver :
+Le bootstrap M1 a prouvé sous Windows :
 
 ```text
-mvnw.cmd test   sur Windows
-./mvnw test     en CI
+mvnw.cmd clean test
+Apache Maven 3.9.16
 maven.compiler.release = 21
+javac release 21
+BUILD SUCCESS
 ```
+
+Le Maven Wrapper constitue le gate de build obligatoire. Une CI distante reste optionnelle et pourra être ajoutée lorsque le projet aura un besoin explicite de validation distante, multi-OS, publication ou release automation.
 
 Maven 4 reste différé jusqu'à GA et validation de migration.
 
@@ -98,11 +102,11 @@ SQLite reste caché derrière `SpecificationKnowledgeStore`.
 
 Le schéma JSON du spike E08 est **rejeté** comme schéma de production.
 
-Le bootstrap M1 doit créer un schéma versionné/migrable et vérifier le driver sous Windows.
+Le smoke-test SQLite JDBC est validé sous Windows. Le bootstrap M1 doit encore créer un schéma versionné/migrable avant toute persistance fonctionnelle durable.
 
 ### ADR-0019
 
-Le bootstrap M1 doit trancher définitivement les coordonnées avant la création de classes durables :
+Coordonnées et namespace acceptés après preuve Windows :
 
 ```text
 groupId = io.github.fturleque
@@ -110,7 +114,7 @@ artifact prefix = morpheus-
 Java namespace = com.morpheus
 ```
 
-et prouver les dépendances dirigées vers l'intérieur.
+Le test ArchUnit du bootstrap démontre les dépendances dirigées vers l'intérieur.
 
 ---
 

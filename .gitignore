@@ -1,0 +1,23 @@
+# Maven
+**/target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Eclipse / generic Java tooling
+.classpath
+.project
+.settings/
+
+# Local databases and runtime files
+*.db
+*.sqlite
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
