@@ -1,26 +1,19 @@
 # E01 — Provider detection
 
-Statut : **PARTIAL_PASS**
+Statut : **PASS**
 
 Date : 22 juillet 2026
 
 ## Hypothèse
 
-MORPHEUS peut détecter une source OpenSpec minimale et exposer un ensemble de capacités effectives sans confondre présence du format et support de toutes les fonctionnalités.
+MORPHEUS peut détecter une source de spécifications supportée, exposer ses capacités effectives et sélectionner un provider de manière déterministe sans confondre présence du format, capacités réelles et permissions.
 
-## Question
-
-Le mécanisme de probe peut-il distinguer :
-
-- un projet OpenSpec supporté ;
-- son schéma ;
-- les capabilities effectivement couvertes par le spike ;
-- une source absente ?
-
-## Dataset
+## Datasets
 
 ```text
 experiments/m0/fixtures/openspec-basic
+experiments/m0/fixtures/openspec-unsupported-schema
+experiments/m0/fixtures/synthetic-basic
 ```
 
 ## Environnement d'exécution
@@ -31,35 +24,40 @@ Linux container
 standard library only for spike runtime
 ```
 
-La technologie est expérimentale et n'est pas une décision de stack de production.
+La technologie est expérimentale conformément à ADR-0014 et ne constitue pas une décision de stack de production.
 
 ## Protocole exécuté
-
-Suite :
 
 ```text
 python -m unittest -v
 ```
 
-Tests E01 :
-
-1. détection du projet OpenSpec ;
-2. lecture du schéma `spec-driven` ;
-3. capabilities minimales présentes ;
-4. absence volontaire de `READ_ACCEPTANCE_CRITERIA` ;
-5. source inexistante → diagnostic `NO_PROVIDER_FOUND`.
-
-## Résultat observé
+Suite E01/E02 complète :
 
 ```text
-7 tests de la suite E01/E02
-7 PASS
+Ran 15 tests
+15 PASS
 0 FAIL
 ```
 
-Sous-ensemble E01 : **PASS**.
+Sous-ensemble E01 : **9 tests PASS**.
 
-Capabilities observées sur la fixture :
+## Résultats E01
+
+### Source OpenSpec supportée
+
+Le provider détecte :
+
+```text
+provider = openspec
+schema = spec-driven
+format_version = null
+supported = true
+```
+
+`format_version = null` est volontaire : le `config.yaml` OpenSpec testé expose un **schema de workflow** et le spike n'invente pas un numéro de format absent de la source.
+
+### Capabilities effectives
 
 ```text
 DISCOVER_PROJECT
@@ -69,54 +67,140 @@ READ_REQUIREMENTS
 READ_SCENARIOS
 READ_DESIGN_DECISIONS
 READ_IMPLEMENTATION_TASKS
+READ_HISTORY
+READ_ARCHIVES
 ```
 
-## Découverte importante
+Le provider ne revendique notamment pas :
 
-Le premier oracle déclarait initialement `READ_ACCEPTANCE_CRITERIA`.
+```text
+READ_ACCEPTANCE_CRITERIA
+WRITE_CHANGE
+WRITE_TASK_STATE
+ARCHIVE_CHANGE
+```
 
-Cette déclaration a été retirée avant stabilisation du spike :
+La présence de `Scenario` ne suffit pas à produire automatiquement la sémantique MORPHEUS `AcceptanceCriterion`.
 
-> la présence de scenarios OpenSpec ne prouve pas automatiquement que le provider sait produire la sémantique `AcceptanceCriterion` de MORPHEUS.
+### Schéma OpenSpec non pris en charge
 
-Cette correction confirme l'intérêt d'une négociation par **capabilities effectives** plutôt que par simple détection de format.
+Une fixture utilisant un schéma différent de `spec-driven` produit :
 
-## Ce qui reste à exécuter avant PASS complet E01
+```text
+UNSUPPORTED_PROVIDER_SCHEMA
+```
 
-- [ ] version OpenSpec/format explicitement supportée ;
-- [ ] version non supportée ;
-- [ ] plusieurs providers candidats ;
-- [ ] provider explicite incompatible ;
-- [ ] required capability manquante ;
-- [ ] optional capability manquante ;
-- [ ] provider read-only ;
-- [ ] provider distant nécessitant opt-in ;
-- [ ] politique de sélection déterministe.
+Le résultat ne prétend pas qu'un schéma custom est invalide dans OpenSpec ; il indique seulement que **ce provider expérimental MORPHEUS ne sait pas encore l'interpréter**.
 
-## Mesures
+### Source absente
 
-Sur ce corpus minimal, l'exécution de la suite complète E01/E02 est inférieure au seuil de mesure utile à l'échelle humaine (~milliseconde dans l'environnement de contrôle).
+```text
+NO_PROVIDER_FOUND
+```
 
-Aucun seuil de performance n'est déduit de ce résultat : le corpus est trop petit.
+### Plusieurs providers candidats
+
+Deux providers possédant les mêmes capabilities produisent un gagnant déterministe.
+
+À score égal :
+
+```text
+local > remote
+puis provider_id lexical pour départage stable
+```
+
+Le diagnostic :
+
+```text
+MULTIPLE_PROVIDER_MATCHES
+```
+
+reste visible.
+
+### Provider explicite incompatible
+
+```text
+EXPLICIT_PROVIDER_INCOMPATIBLE
+```
+
+Une configuration explicite ne transforme jamais une incompatibilité en succès silencieux.
+
+### Capability obligatoire manquante
+
+```text
+MISSING_REQUIRED_CAPABILITY
+```
+
+Aucun provider insuffisant n'est sélectionné.
+
+### Capability préférée manquante
+
+L'opération peut continuer, mais expose :
+
+```text
+OPTIONAL_CAPABILITY_UNAVAILABLE
+```
+
+avec la liste des capabilities absentes.
+
+### Provider distant
+
+Sans opt-in :
+
+```text
+REMOTE_PROVIDER_REQUIRES_OPT_IN
+```
+
+Avec opt-in explicite, le provider peut devenir candidat.
+
+### Provider read-only
+
+Le provider OpenSpec du spike satisfait E01/E02 sans aucune capability d'écriture.
+
+## Conclusion
+
+Les critères E01 sont couverts :
+
+- [x] découverte d'une source supportée ;
+- [x] schéma détecté ;
+- [x] absence de version de format représentée explicitement plutôt qu'inventée ;
+- [x] schéma non supporté diagnostiqué ;
+- [x] capabilities effectives ;
+- [x] absence de provider ;
+- [x] plusieurs providers candidats ;
+- [x] provider explicite incompatible ;
+- [x] required capability manquante ;
+- [x] optional capability manquante ;
+- [x] provider read-only ;
+- [x] provider distant avec opt-in ;
+- [x] politique de sélection déterministe.
 
 ## Impact ADR
 
-### ADR-0011
+### ADR-0011 — Capability negotiation
 
-**Signal positif**, mais preuve insuffisante pour acceptation.
+**Preuve positive forte.**
 
-Le concept `ProviderCapabilitySet` est utile dès le premier spike, notamment pour éviter une capability exagérée.
+E01 démontre que le contrat capability-based permet :
 
-### ADR-0002
+- de ne pas exagérer les capacités du provider ;
+- de représenter une dégradation optionnelle ;
+- de bloquer une opération sans capacité obligatoire ;
+- de conserver une préférence local-first ;
+- d'exiger un opt-in pour un provider distant ;
+- de sélectionner de manière déterministe.
 
-OpenSpec reste un candidat viable pour poursuivre l'expérimentation.
+ADR-0011 reste toutefois `Proposée` jusqu'à validation des autres fixtures/contrats prévues par ses critères d'acceptation M0.
 
-Aucune conclusion finale sur le provider de référence n'est encore possible.
+### ADR-0002 — Provider de référence
 
-## Décision provisoire
+OpenSpec reste un candidat viable pour le provider de référence sur le schéma `spec-driven`.
+
+## Décision
 
 ```text
-CONTINUE_E01
+E01 = PASS
+CONTINUE_PROVIDER_STRATEGY
 ```
 
-Conserver l'approche capability-based et enrichir les fixtures négatives avant réévaluation des ADR-0002 et ADR-0011.
+La négociation par capacités est conservée pour les expériences suivantes.
