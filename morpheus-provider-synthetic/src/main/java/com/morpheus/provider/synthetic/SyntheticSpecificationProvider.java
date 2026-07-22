@@ -30,9 +30,7 @@ public final class SyntheticSpecificationProvider implements SpecificationProvid
             ProviderCapability.READ_CURRENT_SPECIFICATIONS,
             ProviderCapability.READ_CHANGES,
             ProviderCapability.READ_REQUIREMENTS,
-            ProviderCapability.READ_SCENARIOS,
-            ProviderCapability.READ_DESIGN_DECISIONS,
-            ProviderCapability.READ_IMPLEMENTATION_TASKS);
+            ProviderCapability.READ_SCENARIOS);
 
     @Override
     public ProviderId id() {
