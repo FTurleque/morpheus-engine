@@ -7,6 +7,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+SUPPORTED_SCHEMAS = {"spec-driven"}
+PROVIDER_CONTRACT_VERSION = "m0-e01-e02-v2"
+
 REQ_RE = re.compile(r"^### Requirement:\s*(.+?)\s*$")
 SCENARIO_RE = re.compile(r"^#### Scenario:\s*(.+?)\s*$")
 TASK_RE = re.compile(r"^\s*- \[(?P<state>[ xX])\]\s+(?P<label>.+?)\s*$")
@@ -35,12 +38,11 @@ class Requirement:
 class Change:
     key: str
     temporal_state: str
-    proposal_path: str | None
-    design_path: str | None
-    tasks_path: str | None
-    task_count: int
-    design_decision_count: int
+    proposal: dict[str, Any]
+    design_decisions: list[dict[str, Any]]
+    tasks: list[dict[str, Any]]
     requirements: list[Requirement]
+    constraints: list[dict[str, Any]]
 
 
 def _rel(path: Path, root: Path) -> str:
@@ -56,6 +58,122 @@ def read_schema(config: Path) -> str | None:
         if match:
             return match.group(1).strip()
     return None
+
+
+def _section_lines(path: Path, section_name: str) -> tuple[list[tuple[int, str]], SourceLocation | None]:
+    if not path.exists():
+        return [], None
+    lines = path.read_text(encoding="utf-8").splitlines()
+    target = f"## {section_name}"
+    start: int | None = None
+    collected: list[tuple[int, str]] = []
+    for index, line in enumerate(lines):
+        if line.strip() == target:
+            start = index + 1
+            continue
+        if start is not None:
+            if line.startswith("## "):
+                break
+            if line.strip():
+                collected.append((index + 1, line.strip()))
+    return collected, (SourceLocation(str(path), start) if start is not None else None)
+
+
+def _bullets(lines: list[tuple[int, str]], path: Path, root: Path) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for line_no, text in lines:
+        if text.startswith("- "):
+            result.append(
+                {
+                    "text": text[2:].strip(),
+                    "provenance": {"path": _rel(path, root), "line": line_no},
+                }
+            )
+    return result
+
+
+def parse_proposal(path: Path, project_root: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {
+            "intent": None,
+            "scope": [],
+            "out_of_scope": [],
+            "risks": [],
+            "provenance": None,
+        }
+
+    intent_lines, _ = _section_lines(path, "Intent")
+    scope_lines, _ = _section_lines(path, "Scope")
+    out_lines, _ = _section_lines(path, "Out of scope")
+    risk_lines, _ = _section_lines(path, "Risks")
+
+    intent = " ".join(text for _, text in intent_lines).strip() or None
+    return {
+        "intent": intent,
+        "scope": _bullets(scope_lines, path, project_root),
+        "out_of_scope": _bullets(out_lines, path, project_root),
+        "risks": _bullets(risk_lines, path, project_root),
+        "provenance": {"path": _rel(path, project_root), "line": 1},
+    }
+
+
+def parse_constraints(path: Path, project_root: Path) -> list[dict[str, Any]]:
+    lines, _ = _section_lines(path, "Constraints")
+    return _bullets(lines, path, project_root)
+
+
+def parse_design_decisions(path: Path, project_root: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    in_decisions = False
+    result: list[dict[str, Any]] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if line.strip() == "## Decisions":
+            in_decisions = True
+            index += 1
+            continue
+        if in_decisions and line.startswith("## ") and line.strip() != "## Decisions":
+            break
+        if in_decisions and line.startswith("### "):
+            title = line[4:].strip()
+            line_no = index + 1
+            body: list[str] = []
+            index += 1
+            while index < len(lines) and not lines[index].startswith("### ") and not lines[index].startswith("## "):
+                stripped = lines[index].strip()
+                if stripped:
+                    body.append(stripped)
+                index += 1
+            result.append(
+                {
+                    "title": title,
+                    "statement": " ".join(body),
+                    "provenance": {"path": _rel(path, project_root), "line": line_no},
+                }
+            )
+            continue
+        index += 1
+    return result
+
+
+def parse_tasks(path: Path, project_root: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    result: list[dict[str, Any]] = []
+    for index, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        match = TASK_RE.match(line)
+        if match:
+            result.append(
+                {
+                    "label": match.group("label").strip(),
+                    "completed": match.group("state").lower() == "x",
+                    "provenance": {"path": _rel(path, project_root), "line": index},
+                }
+            )
+    return result
 
 
 def parse_requirements(
@@ -149,88 +267,123 @@ def parse_requirements(
     return result
 
 
-def count_tasks(path: Path) -> int:
-    if not path.exists():
-        return 0
-    return sum(
-        1
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if TASK_RE.match(line)
-    )
-
-
-def count_design_decisions(path: Path) -> int:
-    if not path.exists():
-        return 0
-
-    in_decisions = False
-    count = 0
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip() == "## Decisions":
-            in_decisions = True
-            continue
-        if in_decisions and line.startswith("## ") and line.strip() != "## Decisions":
-            in_decisions = False
-        if in_decisions and line.startswith("### "):
-            count += 1
-    return count
-
-
 def probe(project_root: Path) -> dict[str, Any]:
     openspec = project_root / "openspec"
     config = openspec / "config.yaml"
-    schema = read_schema(config)
-    supported = bool(openspec.exists() and config.exists() and schema)
+    if not openspec.exists() or not config.exists():
+        return {
+            "provider": None,
+            "schema": None,
+            "format_version": None,
+            "provider_contract_version": PROVIDER_CONTRACT_VERSION,
+            "supported": False,
+            "capabilities": [],
+            "diagnostics": ["NO_PROVIDER_FOUND"],
+        }
 
-    capabilities: list[str] = []
-    if supported:
-        capabilities.append("DISCOVER_PROJECT")
-        if (openspec / "specs").exists():
-            capabilities.extend(
-                [
-                    "READ_CURRENT_SPECIFICATIONS",
-                    "READ_REQUIREMENTS",
-                    "READ_SCENARIOS",
-                ]
-            )
-        if (openspec / "changes").exists():
-            capabilities.extend(
-                [
-                    "READ_CHANGES",
-                    "READ_DESIGN_DECISIONS",
-                    "READ_IMPLEMENTATION_TASKS",
-                ]
-            )
+    schema = read_schema(config)
+    if schema not in SUPPORTED_SCHEMAS:
+        return {
+            "provider": "openspec",
+            "schema": schema,
+            "format_version": None,
+            "provider_contract_version": PROVIDER_CONTRACT_VERSION,
+            "supported": False,
+            "capabilities": [],
+            "diagnostics": ["UNSUPPORTED_PROVIDER_SCHEMA"],
+        }
+
+    capabilities: list[str] = ["DISCOVER_PROJECT"]
+    if (openspec / "specs").exists():
+        capabilities.extend(
+            [
+                "READ_CURRENT_SPECIFICATIONS",
+                "READ_REQUIREMENTS",
+                "READ_SCENARIOS",
+            ]
+        )
+    if (openspec / "changes").exists():
+        capabilities.extend(
+            [
+                "READ_CHANGES",
+                "READ_DESIGN_DECISIONS",
+                "READ_IMPLEMENTATION_TASKS",
+            ]
+        )
+    if (openspec / "changes" / "archive").exists():
+        capabilities.extend(["READ_HISTORY", "READ_ARCHIVES"])
 
     return {
-        "provider": "openspec" if supported else None,
+        "provider": "openspec",
         "schema": schema,
-        "supported": supported,
+        # OpenSpec project config identifies a schema, not an independent format version.
+        "format_version": None,
+        "provider_contract_version": PROVIDER_CONTRACT_VERSION,
+        "supported": True,
         "capabilities": sorted(set(capabilities)),
-        "diagnostics": [] if supported else ["NO_PROVIDER_FOUND"],
+        "diagnostics": [],
     }
+
+
+def _parse_change(change_dir: Path, project_root: Path, temporal_state: str) -> Change:
+    change_requirements: list[Requirement] = []
+    change_specs = change_dir / "specs"
+    if change_specs.exists():
+        for spec_file in sorted(change_specs.glob("*/spec.md")):
+            spec_key = spec_file.parent.name
+            change_requirements.extend(
+                parse_requirements(
+                    spec_file,
+                    project_root,
+                    spec_key=spec_key,
+                    temporal_state=temporal_state,
+                    change=change_dir.name,
+                    delta_mode=True,
+                )
+            )
+
+    proposal_path = change_dir / "proposal.md"
+    design_path = change_dir / "design.md"
+    tasks_path = change_dir / "tasks.md"
+    return Change(
+        key=change_dir.name,
+        temporal_state=temporal_state,
+        proposal=parse_proposal(proposal_path, project_root),
+        design_decisions=parse_design_decisions(design_path, project_root),
+        tasks=parse_tasks(tasks_path, project_root),
+        requirements=change_requirements,
+        constraints=parse_constraints(proposal_path, project_root),
+    )
 
 
 def normalize(project_root: Path) -> dict[str, Any]:
     probe_result = probe(project_root)
     if not probe_result["supported"]:
-        return {"probe": probe_result, "current": {}, "proposed": {"changes": []}}
+        return {
+            "probe": probe_result,
+            "current": {"specifications": 0, "requirements": []},
+            "proposed": {"changes": []},
+            "historical": {"changes": []},
+            "diagnostics": list(probe_result["diagnostics"]),
+        }
 
     openspec = project_root / "openspec"
+    diagnostics: list[str] = []
 
     current_requirements: list[Requirement] = []
     specs_root = openspec / "specs"
     if specs_root.exists():
         for spec_file in sorted(specs_root.glob("*/spec.md")):
             spec_key = spec_file.parent.name
-            current_requirements.extend(
-                parse_requirements(
-                    spec_file,
-                    project_root,
-                    spec_key=spec_key,
-                    temporal_state="CURRENT",
-                )
+            parsed = parse_requirements(
+                spec_file,
+                project_root,
+                spec_key=spec_key,
+                temporal_state="CURRENT",
             )
+            if not parsed:
+                diagnostics.append("INVALID_SOURCE")
+            current_requirements.extend(parsed)
 
     changes: list[Change] = []
     changes_root = openspec / "changes"
@@ -240,37 +393,24 @@ def normalize(project_root: Path) -> dict[str, Any]:
             for path in changes_root.iterdir()
             if path.is_dir() and path.name != "archive"
         ):
-            change_requirements: list[Requirement] = []
-            change_specs = change_dir / "specs"
-            if change_specs.exists():
-                for spec_file in sorted(change_specs.glob("*/spec.md")):
-                    spec_key = spec_file.parent.name
-                    change_requirements.extend(
-                        parse_requirements(
-                            spec_file,
-                            project_root,
-                            spec_key=spec_key,
-                            temporal_state="PROPOSED",
-                            change=change_dir.name,
-                            delta_mode=True,
-                        )
-                    )
+            changes.append(_parse_change(change_dir, project_root, "PROPOSED"))
 
-            proposal = change_dir / "proposal.md"
-            design = change_dir / "design.md"
-            tasks = change_dir / "tasks.md"
-            changes.append(
-                Change(
-                    key=change_dir.name,
-                    temporal_state="PROPOSED",
-                    proposal_path=_rel(proposal, project_root) if proposal.exists() else None,
-                    design_path=_rel(design, project_root) if design.exists() else None,
-                    tasks_path=_rel(tasks, project_root) if tasks.exists() else None,
-                    task_count=count_tasks(tasks),
-                    design_decision_count=count_design_decisions(design),
-                    requirements=change_requirements,
-                )
-            )
+    historical_changes: list[Change] = []
+    archive_root = changes_root / "archive"
+    if archive_root.exists():
+        for change_dir in sorted(path for path in archive_root.iterdir() if path.is_dir()):
+            historical_changes.append(_parse_change(change_dir, project_root, "HISTORICAL"))
+
+    all_requirements = list(current_requirements)
+    for change in [*changes, *historical_changes]:
+        all_requirements.extend(change.requirements)
+    if any(not requirement.scenarios for requirement in all_requirements):
+        diagnostics.append("PARTIAL_INGESTION")
+
+    def serialize_change(change: Change) -> dict[str, Any]:
+        raw = asdict(change)
+        raw["requirements"] = [asdict(requirement) for requirement in change.requirements]
+        return raw
 
     return {
         "probe": probe_result,
@@ -278,15 +418,11 @@ def normalize(project_root: Path) -> dict[str, Any]:
             "specifications": len({r.key.split("/")[0] for r in current_requirements}),
             "requirements": [asdict(r) for r in current_requirements],
         },
-        "proposed": {
-            "changes": [
-                {
-                    **{key: value for key, value in asdict(change).items() if key != "requirements"},
-                    "requirements": [asdict(requirement) for requirement in change.requirements],
-                }
-                for change in changes
-            ]
+        "proposed": {"changes": [serialize_change(change) for change in changes]},
+        "historical": {
+            "changes": [serialize_change(change) for change in historical_changes]
         },
+        "diagnostics": sorted(set(diagnostics)),
     }
 
 
