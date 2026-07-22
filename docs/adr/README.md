@@ -44,6 +44,7 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0022](0022-m2-normalized-content-before-temporal-projection.md) | Normaliser le contenu en M2 avant la projection temporelle M3 | **Acceptée — M2** |
 | [ADR-0023](0023-persistent-provider-scoped-entity-identity.md) | Persister les mappings d'identité provider-scoped avec continuité explicite | **Acceptée — M2** |
 | [ADR-0024](0024-m2-change-metadata-normalization.md) | Normaliser les métadonnées de changement avant leurs effets temporels | **Acceptée — M2** |
+| [ADR-0025](0025-m2-requirement-delta-normalization.md) | Normaliser les deltas de requirements sans appliquer la projection temporelle | **Acceptée — M2** |
 
 Les décisions de sortie sont consignées dans :
 
@@ -266,6 +267,44 @@ BUILD SUCCESS
 ```
 
 La fixture `openspec-basic` produit exactement `1 ChangeProposal`, `2 Constraint`, `2 DesignDecision` et `8 ImplementationTask`. Le graphe agrégé conserve provenance/evidence et n'introduit ni `TemporalState` ni lifecycle complet M3.
+
+### ADR-0025
+
+Le slice M2 a démontré sous Windows :
+
+```text
+openspec/changes/<change>/specs/**/spec.md
+                 ↓
+OpenSpecRequirementDeltaReader
+                 ↓
+RequirementDelta
+                 ↓
+OpenSpecProjectContentReader
+                 ↓
+NormalizedProjectContent
+```
+
+Règles validées :
+
+```text
+RequirementDeltaKind != TemporalState
+RequirementDeltaId != RequirementId
+normalized delta != applied delta
+baseline + MODIFIED delta may share RequirementId
+ChangeId ownership != traceability AFFECTS
+```
+
+Preuves :
+
+```text
+NormalizedProjectContentTest        7/7 PASS
+OpenSpecRequirementDeltaReaderTest  4/4 PASS
+OpenSpecProjectContentReaderTest    1/1 PASS
+TOTAL                              70/70 PASS
+BUILD SUCCESS
+```
+
+La fixture `openspec-basic` produit exactement `3 RequirementDelta` (`1 MODIFIED`, `2 ADDED`) avec 5 scénarios de delta et 8 evidences. Un test dédié couvre `REMOVED` sans statement. Le requirement `auth-session/session-expiration` conserve le même `RequirementId` entre baseline et delta `MODIFIED`, tandis que les contenus restent séparés et simultanément accessibles. Aucun `TemporalState`, application de delta ou relation `AFFECTS` n'est introduit.
 
 ---
 
