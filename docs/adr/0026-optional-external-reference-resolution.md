@@ -1,6 +1,6 @@
 # ADR-0026 — Références externes résolues par adapters optionnels
 
-- Statut : **Proposée — validation M2 requise**
+- Statut : **Acceptée — M2**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0007, ADR-0009, ADR-0022, ADR-0023
 - Portée : modèle M2, références cross-engine, résolution optionnelle
@@ -18,7 +18,7 @@ RESOLVED
 STALE
 ```
 
-## Décision proposée
+## Décision
 
 Le domaine introduit :
 
@@ -110,3 +110,32 @@ ADR-0026 passe à **Acceptée — M2** lorsque le build complet démontre :
 8. registry refuse deux resolvers du même système ;
 9. aucune dépendance directe vers un système concret ;
 10. `.\mvnw.cmd clean test` est vert.
+
+## Preuve d'acceptation — 22 juillet 2026
+
+Gate exécuté sous Windows :
+
+```text
+.\mvnw.cmd clean test
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultats observés :
+
+```text
+ExternalReferenceResolutionServiceTest  6/6 PASS
+
+TOTAL                                  76/76 PASS
+Failures                                   0
+Errors                                     0
+BUILD SUCCESS
+```
+
+Les six scénarios E14 sont exercés en Java : référence sans resolver, `NO_RESOLVER`, résolution optionnelle, cible supprimée vers `STALE`, résolution différée, indisponibilité externe non fatale et rejet d'un resolver dupliqué.
+
+Le domaine ne dépend d'aucune classe MINOS, SDK GitHub ou client Jira. La référence et son historique survivent conceptuellement à l'absence ou à la disparition du système cible.
+
+Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` du driver SQLite reste non bloquant et relève de la stratégie runtime/packaging.
