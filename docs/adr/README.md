@@ -45,6 +45,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0025](0025-m2-requirement-delta-normalization.md) | Requirement deltas sans application temporelle | **Acceptée — M2** |
 | [ADR-0026](0026-optional-external-reference-resolution.md) | Références externes via resolvers optionnels | **Acceptée — M2** |
 | [ADR-0027](0027-native-first-container-supported-distribution.md) | Distribution native-first et container-supported | **Acceptée avec contraintes — distribution** |
+| [ADR-0028](0028-unified-provider-read-contract.md) | Contrat de lecture unifié et résultats partiels explicites | **Acceptée — M2** |
 
 ---
 
@@ -57,6 +58,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | M2-S3 changement normalisé | ADR-0024 | `64/64 PASS` |
 | M2-S4 requirement deltas | ADR-0025 | `70/70 PASS` |
 | M2-S5 ExternalReference | ADR-0026 | `76/76 PASS` |
+| M2-S6 lecture unifiée / partiel / diagnostics | ADR-0028 | `84/84 PASS` |
 
 La vue opérationnelle détaillée est : [`../roadmap/M2_EXECUTION.md`](../roadmap/M2_EXECUTION.md).
 
@@ -82,6 +84,25 @@ schema = spec-driven
 unknown schema -> UNSUPPORTED_PROVIDER_SCHEMA
 Scenario != AcceptanceCriterion
 ```
+
+## Lecture provider
+
+```text
+SpecificationProvider.probe() != SpecificationContentReader.read()
+empty collection != ambiguous success
+```
+
+Statuts de lecture :
+
+```text
+READ
+ABSENT
+UNSUPPORTED
+FAILED
+PARTIAL
+```
+
+`AcceptanceCriterion` n'est jamais dérivé automatiquement d'un `Scenario`.
 
 ## Build
 
