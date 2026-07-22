@@ -1,6 +1,6 @@
 # ADR-0024 — Normaliser les métadonnées de changement en M2 avant leurs effets temporels
 
-- Statut : **Proposée — validation M2 requise**
+- Statut : **Acceptée — M2**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001, ADR-0006, ADR-0009, ADR-0013, ADR-0022, ADR-0023
 - Portée : modèle M2, normalisation OpenSpec, identité des éléments anonymes
@@ -40,7 +40,7 @@ MORPHEUS doit normaliser ces informations sans :
 3. confondre un changement avec ses deltas de requirements ;
 4. utiliser le texte libre d'une contrainte ou d'une tâche comme identité métier.
 
-## 3. Décision proposée
+## 3. Décision
 
 M2 introduit les concepts provider-neutral :
 
@@ -151,8 +151,8 @@ Les preuves sont localisées dans :
 
 ```text
 proposal.md
- design.md
- tasks.md
+design.md
+tasks.md
 ```
 
 Le texte source ne devient jamais une identité MORPHEUS.
@@ -218,3 +218,31 @@ ADR-0024 passe à **Acceptée — M2** lorsque le build complet démontre :
 8. le reader agrégé produit un graphe cohérent courant + changement ;
 9. aucun `TemporalState` ni lifecycle complet n'est introduit ;
 10. `.\mvnw.cmd clean test` est vert.
+
+## 12. Preuve d'acceptation — 22 juillet 2026
+
+Gate exécuté sous Windows :
+
+```text
+.\mvnw.cmd clean test
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultats :
+
+```text
+NormalizedProjectContentTest         5/5 PASS
+OpenSpecChangeMetadataReaderTest     3/3 PASS
+OpenSpecProjectContentReaderTest     1/1 PASS
+
+TOTAL                               64/64 PASS
+Failures                                0
+Errors                                  0
+BUILD SUCCESS
+```
+
+Le reader OpenSpec normalise exactement `1 ChangeProposal`, `2 Constraint`, `2 DesignDecision` et `8 ImplementationTask` à partir de `openspec-basic`. Le reader agrégé produit un graphe cohérent courant + changement, avec provenance/evidence et sans introduire `TemporalState` ni lifecycle complet M3.
+
+Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` du driver SQLite reste non bloquant et relève de la stratégie runtime/packaging.
