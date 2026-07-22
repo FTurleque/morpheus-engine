@@ -1,6 +1,6 @@
 # ADR-0018 — Utiliser SQLite comme backend persistant initial derrière `SpecificationKnowledgeStore`
 
-- Statut : **Proposée — décision de sortie M0**
+- Statut : **Acceptée avec contraintes — M0**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0003, ADR-0012, ADR-0016
 - Portée : persistance locale initiale, snapshots, traçabilité
@@ -53,7 +53,7 @@ E09 n'a montré aucun besoin mesuré imposant une graph database au MVP.
 
 ---
 
-## 3. Décision proposée
+## 3. Décision adoptée
 
 Adopter SQLite comme **backend persistant initial de production** derrière :
 
@@ -219,7 +219,7 @@ Exigences :
 - rollback ou restauration documentée selon le type de migration ;
 - reconstruction depuis les sources toujours possible pour les données dérivées.
 
-Le mécanisme précis de migration fera l'objet de la fondation M1.
+Le mécanisme précis de migration fait l'objet de la fondation M1 et d'ADR-0021.
 
 ---
 
