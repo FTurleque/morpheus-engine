@@ -8,8 +8,10 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
+import com.morpheus.domain.source.SourceLocator;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -21,18 +23,37 @@ public final class MemorySpecificationKnowledgeStore implements SpecificationKno
     @Override
     public synchronized void putProject(ProjectStoreEntry project) {
         ProjectStoreEntry existing = projects.get(project.id());
-        if (existing == null) {
-            projects.put(project.id(), project);
+        if (existing != null) {
+            if (!existing.equals(project)) {
+                throw new KnowledgeStoreException("project identity collision: " + project.id());
+            }
             return;
         }
-        if (!existing.equals(project)) {
-            throw new KnowledgeStoreException("project identity collision: " + project.id());
-        }
+
+        findProjectByRoot(project.rootLocator()).ifPresent(rootOwner -> {
+            throw new KnowledgeStoreException(
+                    "project root already registered by another identity: " + rootOwner.id());
+        });
+        projects.put(project.id(), project);
     }
 
     @Override
     public synchronized Optional<ProjectStoreEntry> findProject(ProjectSpecificationId projectId) {
         return Optional.ofNullable(projects.get(projectId));
+    }
+
+    @Override
+    public synchronized Optional<ProjectStoreEntry> findProjectByRoot(SourceLocator rootLocator) {
+        return projects.values().stream()
+                .filter(project -> project.rootLocator().equals(rootLocator))
+                .findFirst();
+    }
+
+    @Override
+    public synchronized List<ProjectStoreEntry> listProjects() {
+        return projects.values().stream()
+                .sorted((left, right) -> left.id().compareTo(right.id()))
+                .toList();
     }
 
     @Override
