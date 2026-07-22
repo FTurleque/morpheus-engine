@@ -2,7 +2,7 @@
 
 **MORPHEUS** est un moteur d'intelligence des spécifications et de l'intention (*Specification & Intent Intelligence Engine*).
 
-Sa responsabilité est de construire, maintenir et exposer une compréhension structurée, persistante et interrogeable de ce qu'un projet **doit devenir** : exigences, changements, contraintes, scénarios, décisions de conception, critères d'acceptation et tâches associées.
+Sa responsabilité est de construire, maintenir et exposer une compréhension structurée, persistante, versionnée et interrogeable de ce qu'un projet **doit devenir** : exigences, changements, contraintes, scénarios, décisions de conception, critères d'acceptation et tâches associées.
 
 MORPHEUS ne remplace ni le code, ni les outils de gestion de projet, ni les agents IA. Il fournit une couche de connaissance dédiée à l'intention et aux spécifications.
 
@@ -10,7 +10,7 @@ MORPHEUS ne remplace ni le code, ni les outils de gestion de projet, ni les agen
 
 MORPHEUS répond principalement à la question :
 
-> **Qu'est-ce qui doit être construit, pourquoi, et quelles règles doivent être respectées ?**
+> **Qu'est-ce qui doit être construit, pourquoi, selon quelles règles, et comment prouver que le résultat correspond à l'intention ?**
 
 ## Position dans l'écosystème
 
@@ -45,7 +45,7 @@ Chaque brique doit rester autonome et ne pas devenir une dépendance fonctionnel
 
 ## Principe d'architecture
 
-MORPHEUS doit posséder son propre modèle métier et ne pas être couplé à un format ou un outil de spécification particulier.
+MORPHEUS possède son propre modèle métier et ne doit pas être couplé à un format ou un outil de spécification particulier.
 
 Architecture candidate :
 
@@ -53,10 +53,10 @@ Architecture candidate :
 Sources de spécifications
         │
         ▼
-SpecificationProvider
+SpecificationProvider Registry
         │
-  ┌─────┼──────────────┐
-  ▼     ▼              ▼
+   ┌────┼──────────────┐
+   ▼    ▼              ▼
 OpenSpec Markdown     Futur
         │
         ▼
@@ -72,7 +72,9 @@ Modèle normalisé MORPHEUS
         ├── Constraint
         ├── DesignDecision
         ├── AcceptanceCriterion
-        └── ImplementationTask
+        ├── ImplementationTask
+        ├── Evidence
+        └── TraceabilityLink
         │
         ▼
 SpecificationKnowledgeStore
@@ -87,22 +89,26 @@ Services d'intelligence MORPHEUS
 
 **OpenSpec est envisagé comme un premier fournisseur de spécifications, pas comme le domaine de MORPHEUS.**
 
-## Principes directeurs
+## Invariants actuellement proposés
 
-MORPHEUS doit être :
+MORPHEUS doit :
 
-- indépendant des fournisseurs d'IA ;
-- utilisable sans LLM ;
-- local-first autant que possible ;
-- indépendant du format de spécification à la frontière du domaine ;
-- explicite sur la provenance et l'état des informations ;
-- capable de distinguer les spécifications actuelles des changements proposés ;
-- consommable par des humains, des outils CLI, des IDE, des serveurs MCP, des API et des agents IA ;
-- conçu pour coopérer avec MINOS, NEXUS et JARVIS sans dépendre fonctionnellement d'eux.
+- rester indépendant des fournisseurs d'IA ;
+- fonctionner sans LLM ;
+- être local-first par défaut ;
+- rester indépendant du format de spécification à la frontière du domaine ;
+- distinguer identité logique, version, emplacement source et identifiant externe ;
+- distinguer `CURRENT`, `PROPOSED` et `HISTORICAL` du cycle de vie d'un changement ;
+- conserver provenance et preuves ;
+- traiter la traçabilité comme un concept de premier ordre ;
+- sélectionner les providers selon leurs capacités effectives ;
+- publier l'état de connaissance par snapshots cohérents ;
+- séparer lecture et écriture ;
+- coopérer avec MINOS, NEXUS et JARVIS sans dépendre fonctionnellement d'eux.
 
 ## Phase actuelle
 
-Le projet démarre en phase :
+Le projet est en phase :
 
 > **C0 — Cadrage fonctionnel et architectural**
 
@@ -118,15 +124,30 @@ La source de vérité du cadrage est :
 
 - [`docs/CAHIER_DES_CHARGES.md`](docs/CAHIER_DES_CHARGES.md).
 
-Documents complémentaires :
+Documents fonctionnels et architecturaux :
 
 - [`docs/ECOSYSTEME.md`](docs/ECOSYSTEME.md) — responsabilités et frontières avec MINOS, NEXUS et JARVIS ;
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — architecture candidate ;
+- [`docs/domain/MODEL.md`](docs/domain/MODEL.md) — modèle de domaine détaillé ;
+- [`docs/domain/CHANGE_LIFECYCLE.md`](docs/domain/CHANGE_LIFECYCLE.md) — machine d'état candidate des changements ;
+- [`docs/USE_CASES.md`](docs/USE_CASES.md) — cas d'usage et priorités ;
 - [`docs/MVP.md`](docs/MVP.md) — périmètre MVP proposé ;
 - [`docs/PLAN.md`](docs/PLAN.md) — plan de travail C0 / M0 ;
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — feuille de route ;
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — feuille de route.
+
+Contrats conceptuels :
+
+- [`docs/contracts/SPECIFICATION_PROVIDER.md`](docs/contracts/SPECIFICATION_PROVIDER.md) — contrat des providers et capacités ;
+- [`docs/contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](docs/contracts/SPECIFICATION_KNOWLEDGE_STORE.md) — contrat du store de connaissance.
+
+Recherche et expérimentations :
+
 - [`docs/research/openspec-provider-study.md`](docs/research/openspec-provider-study.md) — étude d'OpenSpec comme provider candidat ;
-- [`docs/adr/`](docs/adr/) — décisions d'architecture proposées et leurs critères de validation.
+- [`docs/research/M0_EXPERIMENT_MATRIX.md`](docs/research/M0_EXPERIMENT_MATRIX.md) — datasets, expériences, mesures et portes de décision M0.
+
+Décisions :
+
+- [`docs/adr/`](docs/adr/) — registre des ADR, alternatives, risques, preuves attendues et conditions d'acceptation.
 
 ## Décisions structurantes actuellement proposées
 
@@ -135,8 +156,13 @@ Documents complémentaires :
 - persistance derrière `SpecificationKnowledgeStore` ;
 - cœur local-first sans LLM obligatoire ;
 - traçabilité comme concept de premier ordre ;
-- distinction structurelle état courant / proposé / historique ;
+- séparation structurelle état courant / proposé / historique ;
 - intégrations cross-engine découplées ;
-- providers read-first, avec écriture séparée et optionnelle.
+- providers read-first, avec écriture séparée et optionnelle ;
+- identité MORPHEUS opaque distincte de la version, du locator et des IDs externes ;
+- taxonomie contrôlée des relations ;
+- providers sélectionnés par capacités effectives ;
+- publication par snapshots versionnés avec activation atomique observable ;
+- cycle de vie des changements normalisé par machine d'état.
 
-Ces décisions restent **proposées** jusqu'à leur validation selon les conditions décrites dans leurs ADR respectives.
+Ces décisions restent **proposées** jusqu'à leur validation selon les conditions décrites dans leurs ADR respectives et, lorsque nécessaire, les preuves M0.
