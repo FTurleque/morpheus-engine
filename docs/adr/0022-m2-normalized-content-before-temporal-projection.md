@@ -1,6 +1,6 @@
 # ADR-0022 — Normaliser le contenu en M2 avant la projection temporelle M3
 
-- Statut : **Proposée — validation M2 requise**
+- Statut : **Acceptée — M2**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001, ADR-0006, ADR-0009, ADR-0015
 - Portée : modèle normalisé M2, ingestion, frontière M2/M3
@@ -27,7 +27,7 @@ Introduire dès le premier parser M2 `CURRENT / PROPOSED / HISTORICAL` créerait
 2. porter prématurément dans le domaine des règles qui appartiennent au snapshot/versioning M3 ;
 3. laisser OpenSpec dicter implicitement la temporalité MORPHEUS parce que ses répertoires distinguent specs, changes et archives.
 
-## Décision proposée
+## Décision
 
 M2 normalise d'abord le **contenu structurel** et son origine :
 
@@ -102,12 +102,44 @@ KnowledgeSnapshot métier complet
 
 Ces limites sont intentionnelles et cohérentes avec la roadmap.
 
+## Validation
+
+Gate exécuté sous Windows le 22 juillet 2026 :
+
+```text
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+
+.\mvnw.cmd clean test
+```
+
+Résultats :
+
+```text
+42 tests hérités de M1                         PASS
+NormalizedProjectContentTest               3/3 PASS
+OpenSpecCurrentSpecificationReaderTest     3/3 PASS
+
+TOTAL                                     48/48 PASS
+Failures                                      0
+Errors                                        0
+BUILD SUCCESS
+```
+
+La preuve démontre notamment :
+
+- normalisation de `Specification`, `Requirement` et `Scenario` depuis `openspec-basic` ;
+- provenance et evidence présentes pour chaque entité importée du slice ;
+- cohérence référentielle vérifiée par `NormalizedProjectContent` ;
+- aucune dépendance OpenSpec dans `com.morpheus.domain` ;
+- aucun `TemporalState` inventé par le reader ;
+- mapping `GIVEN/AND/WHEN/THEN` vers `preconditions/action/expectedOutcome` provider-neutral ;
+- identités MORPHEUS distinctes des clés externes OpenSpec.
+
 ## Critère d'acceptation
 
-ADR-0022 passe à **Acceptée — M2** lorsque :
+Le critère est **satisfait**.
 
-- le premier vertical slice OpenSpec normalise au moins `Specification`, `Requirement` et `Scenario` ;
-- toute entité importée possède une provenance et une preuve ;
-- aucune dépendance OpenSpec n'apparaît dans `com.morpheus.domain` ;
-- aucun `TemporalState` n'est inventé par le premier reader ;
-- les tests M2 et le build complet sont verts.
+ADR-0022 est **Acceptée — M2** : le premier vertical slice OpenSpec normalise le contenu structurel avec provenance/evidence, sans fuite provider ni projection temporelle prématurée, et le build complet est vert.
