@@ -89,7 +89,7 @@ Services d'intelligence MORPHEUS
 
 **OpenSpec est envisagé comme un premier fournisseur de spécifications, pas comme le domaine de MORPHEUS.**
 
-## Invariants actuellement proposés
+## Invariants de travail
 
 MORPHEUS doit :
 
@@ -107,27 +107,34 @@ MORPHEUS doit :
 - coopérer avec MINOS, NEXUS et JARVIS sans dépendre fonctionnellement d'eux ;
 - ne pas laisser un spike M0 choisir implicitement la stack de production.
 
+Ces invariants sont des hypothèses structurantes à tester lorsque leurs ADR exigent une preuve M0.
+
 ## Phase actuelle
 
-Le projet est en phase :
+La phase C0 a été validée le **22 juillet 2026**.
 
-> **C0 — Cadrage fonctionnel et architectural**
+Le projet entre maintenant en :
 
-Aucune implémentation fonctionnelle importante ne doit commencer avant validation du besoin, du périmètre initial, du modèle de domaine, des frontières avec les autres briques de l'écosystème et des principales décisions d'architecture.
+> **M0 — Faisabilité technique**
 
-La règle de travail est :
+M0 doit valider les choix structurants avec des expériences réelles et mesurables, sans transformer les technologies de spike en stack de production par défaut.
 
-> **Documenter d'abord, décider ensuite, implémenter en dernier.**
+La décision de sortie C0 est documentée dans [`docs/VALIDATION_C0.md`](docs/VALIDATION_C0.md).
 
-L'audit actuel conclut :
+La règle de travail reste :
 
-> **C0 prête pour revue de validation, mais pas encore déclarée terminée.**
+> **Documenter l'hypothèse, expérimenter, mesurer, décider, puis implémenter durablement.**
 
 ## Documents de référence
 
-La source de vérité du cadrage est :
+La source de vérité fonctionnelle et architecturale issue de C0 est :
 
 - [`docs/CAHIER_DES_CHARGES.md`](docs/CAHIER_DES_CHARGES.md).
+
+Validation et audit :
+
+- [`docs/VALIDATION_C0.md`](docs/VALIDATION_C0.md) — décision de sortie C0 et règles de passage en M0 ;
+- [`docs/AUDIT_COHERENCE_C0.md`](docs/AUDIT_COHERENCE_C0.md) — audit d'alignement et décisions encore ouvertes.
 
 Documents fonctionnels et architecturaux :
 
@@ -137,9 +144,8 @@ Documents fonctionnels et architecturaux :
 - [`docs/domain/CHANGE_LIFECYCLE.md`](docs/domain/CHANGE_LIFECYCLE.md) — machine d'état candidate des changements ;
 - [`docs/USE_CASES.md`](docs/USE_CASES.md) — cas d'usage et priorités ;
 - [`docs/MVP.md`](docs/MVP.md) — périmètre MVP proposé ;
-- [`docs/PLAN.md`](docs/PLAN.md) — plan de travail C0 / M0 ;
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — feuille de route ;
-- [`docs/AUDIT_COHERENCE_C0.md`](docs/AUDIT_COHERENCE_C0.md) — audit d'alignement et questions encore ouvertes.
+- [`docs/PLAN.md`](docs/PLAN.md) — plan de travail ;
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — feuille de route.
 
 Contrats conceptuels :
 
@@ -155,21 +161,11 @@ Décisions :
 
 - [`docs/adr/`](docs/adr/) — registre des ADR, alternatives, risques, preuves attendues et conditions d'acceptation.
 
-## Décisions structurantes actuellement proposées
+## Statut des décisions structurantes
 
-- domaine MORPHEUS indépendant des providers ;
-- OpenSpec comme premier provider de référence, sans verrouillage ;
-- persistance derrière `SpecificationKnowledgeStore` ;
-- cœur local-first sans LLM obligatoire ;
-- traçabilité comme concept de premier ordre ;
-- séparation structurelle état courant / proposé / historique ;
-- intégrations cross-engine découplées ;
-- providers read-first, avec écriture séparée et optionnelle ;
-- identité MORPHEUS opaque distincte de la version, du locator et des IDs externes ;
-- taxonomie contrôlée des relations ;
-- providers sélectionnés par capacités effectives ;
-- publication par snapshots versionnés avec activation atomique observable ;
-- cycle de vie des changements normalisé par machine d'état ;
-- choix de stack de production différé jusqu'aux preuves nécessaires.
+À la sortie C0 :
 
-Ces décisions restent **proposées** jusqu'à leur validation selon les conditions décrites dans leurs ADR respectives et, lorsque nécessaire, les preuves M0.
+- **ADR-0014 est Acceptée** : aucun choix de stack de production ne doit être déduit des spikes M0 ;
+- les autres ADR structurantes restent **Proposées** lorsqu'elles exigent explicitement des preuves M0 ou ultérieures.
+
+Cela permet de démarrer les expérimentations sans présenter des hypothèses encore non testées comme des décisions techniques acquises.
