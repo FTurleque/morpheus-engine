@@ -1,0 +1,65 @@
+name: M1 Bootstrap CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    name: Java 21 / Maven Wrapper bootstrap
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Show bootstrap Maven
+        run: mvn --version
+
+      - name: Generate Maven Wrapper 3.3.4 for Maven 3.9.16
+        run: >-
+          mvn -N
+          org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper
+          -Dmaven=3.9.16
+          -Dtype=only-script
+
+      - name: Upload generated Maven Wrapper
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-wrapper-3.3.4
+          path: |
+            mvnw
+            mvnw.cmd
+            .mvn/wrapper/maven-wrapper.properties
+          if-no-files-found: error
+
+      - name: Verify Maven Wrapper
+        run: |
+          chmod +x mvnw
+          ./mvnw --version
+
+      - name: Build and test with Wrapper
+        run: ./mvnw -B --no-transfer-progress test
+
+      - name: Enforce committed Wrapper
+        shell: bash
+        run: |
+          missing=0
+          for file in mvnw mvnw.cmd .mvn/wrapper/maven-wrapper.properties; do
+            if ! git ls-files --error-unmatch "$file" >/dev/null 2>&1; then
+              echo "::error file=$file::Generated Maven Wrapper file is not committed yet"
+              missing=1
+            fi
+          done
+          exit "$missing"
