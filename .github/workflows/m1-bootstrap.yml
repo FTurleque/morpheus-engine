@@ -44,5 +44,5 @@ jobs:
         shell: pwsh
         run: |
           .\mvnw.cmd --version
-          .\mvnw.cmd -q help:evaluate -Dexpression=maven.compiler.release -DforceStdout
+          .\mvnw.cmd -q help:evaluate "-Dexpression=maven.compiler.release" -DforceStdout
           .\mvnw.cmd -B --no-transfer-progress test
