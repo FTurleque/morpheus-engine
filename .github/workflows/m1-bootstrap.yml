@@ -10,8 +10,14 @@ permissions:
 
 jobs:
   bootstrap:
-    name: Java 21 / Maven Wrapper bootstrap
-    runs-on: ubuntu-latest
+    name: Java 21 / Maven Wrapper / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
@@ -24,42 +30,19 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Show bootstrap Maven
-        run: mvn --version
-
-      - name: Generate Maven Wrapper 3.3.4 for Maven 3.9.16
-        run: >-
-          mvn -N
-          org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper
-          -Dmaven=3.9.16
-          -Dtype=only-script
-
-      - name: Upload generated Maven Wrapper
-        uses: actions/upload-artifact@v4
-        with:
-          name: maven-wrapper-3.3.4
-          path: |
-            mvnw
-            mvnw.cmd
-            .mvn/wrapper/maven-wrapper.properties
-          if-no-files-found: error
-
-      - name: Verify Maven Wrapper
+      - name: Verify Wrapper and build on Linux
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           chmod +x mvnw
           ./mvnw --version
+          ./mvnw -q help:evaluate -Dexpression=maven.compiler.release -DforceStdout
+          ./mvnw -B --no-transfer-progress test
 
-      - name: Build and test with Wrapper
-        run: ./mvnw -B --no-transfer-progress test
-
-      - name: Enforce committed Wrapper
-        shell: bash
+      - name: Verify Wrapper and build on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          missing=0
-          for file in mvnw mvnw.cmd .mvn/wrapper/maven-wrapper.properties; do
-            if ! git ls-files --error-unmatch "$file" >/dev/null 2>&1; then
-              echo "::error file=$file::Generated Maven Wrapper file is not committed yet"
-              missing=1
-            fi
-          done
-          exit "$missing"
+          .\mvnw.cmd --version
+          .\mvnw.cmd -q help:evaluate -Dexpression=maven.compiler.release -DforceStdout
+          .\mvnw.cmd -B --no-transfer-progress test
