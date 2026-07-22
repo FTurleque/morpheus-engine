@@ -50,13 +50,15 @@ SpecificationProviderRegistry
         ↓
 Providers
         ↓
-ProviderSnapshot / ingestion
+SpecificationContentReader
+        ↓
+ProviderReadResult
         ↓
 Normalisation MORPHEUS
         ↓
-Domaine MORPHEUS
+NormalizedProjectContent
         ↓
-KnowledgeSnapshot
+KnowledgeSnapshot / versions            ← M3
         ↓
 SpecificationKnowledgeStore
    ┌───────┴───────┐
@@ -70,23 +72,27 @@ CLI / MCP / API
 
 **OpenSpec est le premier provider de référence, pas le domaine de MORPHEUS.**
 
+Un second provider synthétique compilé démontre que les mêmes contrats applicatifs peuvent normaliser un autre format sans modifier le domaine.
+
 ## Invariants structurants
 
 MORPHEUS :
 
 - possède son propre modèle de domaine ;
 - est local-first et fonctionne sans LLM obligatoire ;
-- sépare identité, version, locator et identifiant externe ;
+- sépare identité, version, locator et référence externe ;
 - utilise UUIDv7 comme format canonique opaque de `DomainIdentity` ;
+- namespace les identités externes par provider ;
 - sélectionne les providers selon leurs capacités effectives ;
+- sépare `probe` et lecture réelle ;
+- distingue explicitement `READ / ABSENT / UNSUPPORTED / FAILED / PARTIAL` ;
 - sépare lecture et écriture ;
-- publie la connaissance par snapshots cohérents à activation atomique observable ;
+- ne convertit jamais automatiquement un `Scenario` en `AcceptanceCriterion` ;
+- publiera la connaissance par snapshots cohérents à activation atomique observable ;
 - conserve un backend mémoire de référence pour les tests contractuels ;
 - utilise SQLite derrière `SpecificationKnowledgeStore` ;
 - conserve un modèle conceptuel de graphe sans graph database obligatoire au MVP ;
 - reste découplé de MINOS, NEXUS et JARVIS.
-
-Les concepts `CURRENT / PROPOSED / HISTORICAL`, la traçabilité complète et les références cross-engine restent gouvernés par leurs jalons respectifs de la roadmap.
 
 ## Fondation technique
 
@@ -103,6 +109,7 @@ Server framework     : aucun dans la fondation
 DI framework         : aucun obligatoire
 LLM                  : aucun obligatoire
 Remote CI            : optionnelle, non gate
+Distribution         : native-first / container-supported
 ```
 
 ## État du projet
@@ -111,45 +118,110 @@ Remote CI            : optionnelle, non gate
 C0 — Cadrage fonctionnel et architectural     ✅ VALIDÉE
 M0 — Faisabilité technique                    ✅ VALIDÉE
 M1 — Découverte des projets et providers      ✅ VALIDÉE
-M2 — Ingestion et modèle normalisé            🚧 AUTORISÉE / À DÉMARRER
+M2 — Ingestion et modèle normalisé            🚧 7/8 — VALIDATION FINALE
+M3 — État temporel / versions / snapshots     ⏳ BLOQUÉ PAR GATE M2-S8
 ```
 
-M1 a validé :
+### Preuves M2
 
 ```text
-workspace discovery
-        ↓
-provider registry
-        ↓
-capability negotiation
-        ↓
-OpenSpec spec-driven probe
-        ↓
-LocalProjectRegistry
-        ↓
-SpecificationKnowledgeStore
-        ↓
-Memory / SQLite migrations V1 + V2
+S1  domaine courant                         48/48 PASS
+S2  identité persistante                    58/58 PASS
+S3  modèle de changement                    64/64 PASS
+S4  requirement deltas                      70/70 PASS
+S5  ExternalReference                       76/76 PASS
+S6  lecture unifiée / partiel / diagnostics 84/84 PASS
+S7  second provider / anti-lock-in           94/94 PASS
+S8  validation finale                       gate 94 attendu
 ```
 
-Gate final M1 :
+Le dossier de sortie est préparé dans [`docs/VALIDATION_M2.md`](docs/VALIDATION_M2.md).
+
+## Ce que M2 a stabilisé
 
 ```text
-42/42 tests PASS
-Failures: 0
-Errors: 0
-BUILD SUCCESS
+ProjectSpecification
+Specification
+Requirement
+RequirementDelta
+Scenario
+ChangeProposal
+Constraint
+DesignDecision
+ImplementationTask
+Evidence
+Provenance
+ExternalReference
 ```
 
-Le projet entre maintenant en :
+Lecture provider :
 
-> **M2 — Ingestion et modèle normalisé**
+```text
+SpecificationProvider.probe()
+        !=
+SpecificationContentReader.read()
+```
 
-Objectif M2 : transformer une source supportée en concepts MORPHEUS indépendants du provider.
+Résultat explicite :
 
-Contrainte principale :
+```text
+ProviderReadResult
+├── NormalizedProjectContent?
+├── ReadCategoryReport[]
+└── Diagnostic[]
+```
 
-> **aucun type OpenSpec ne traverse le domaine MORPHEUS ni ses services publics.**
+Le second provider de vérification :
+
+```text
+OpenSpec source ─────┐
+                     ├──> mêmes contrats application
+Synthetic JSON ──────┘     même domaine MORPHEUS
+```
+
+## Frontière M2 → M3
+
+M2 normalise la structure mais ne projette pas encore :
+
+```text
+CURRENT / PROPOSED / HISTORICAL
+SpecificationVersion complet
+KnowledgeSnapshot complet
+ChangeLifecycleState complet
+application / promotion des deltas
+```
+
+ADR-0030 propose que les **premières tables métier complètes** soient créées en M3 en même temps que le membership version/snapshot, plutôt que de figer un schéma provisoire à la fin de M2.
+
+Les éléments déjà persistés restent :
+
+```text
+projects
+knowledge snapshot metadata
+entity identity bindings
+migration ledger
+```
+
+## Distribution
+
+ADR-0027 fixe la stratégie :
+
+```text
+Native-first
+Container-supported
+```
+
+Trajectoire :
+
+```text
+M9  CLI + distribution locale native / portable
+M10 MCP natif stdio, conteneur headless si justifié
+M11 API + image Docker officielle si justifiée
+```
+
+Docker n'est pas requis pour utiliser le CLI local.
+
+Voir [`docs/roadmap/DEPLOYMENT.md`](docs/roadmap/DEPLOYMENT.md).
 
 ## Vérification du build
 
@@ -176,7 +248,9 @@ Une CI distante pourra être ajoutée lorsqu'un besoin réel de validation dista
 - [`docs/CAHIER_DES_CHARGES.md`](docs/CAHIER_DES_CHARGES.md) — source de vérité fonctionnelle et architecturale ;
 - [`docs/VALIDATION_C0.md`](docs/VALIDATION_C0.md) — sortie C0 ;
 - [`docs/VALIDATION_M0.md`](docs/VALIDATION_M0.md) — sortie M0 ;
-- [`docs/VALIDATION_M1.md`](docs/VALIDATION_M1.md) — sortie M1 et autorisation M2 ;
+- [`docs/VALIDATION_M1.md`](docs/VALIDATION_M1.md) — sortie M1 ;
+- [`docs/VALIDATION_M2.md`](docs/VALIDATION_M2.md) — dossier de sortie M2, actuellement candidat ;
+- [`docs/roadmap/M2_EXECUTION.md`](docs/roadmap/M2_EXECUTION.md) — tableau opérationnel M2 ;
 - [`experiments/m0/results/README.md`](experiments/m0/results/README.md) — synthèse des preuves M0.
 
 ### Architecture et domaine
@@ -188,7 +262,8 @@ Une CI distante pourra être ajoutée lorsqu'un besoin réel de validation dista
 - [`docs/USE_CASES.md`](docs/USE_CASES.md) — cas d'usage ;
 - [`docs/MVP.md`](docs/MVP.md) — MVP ;
 - [`docs/PLAN.md`](docs/PLAN.md) — plan ;
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — roadmap.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — roadmap stratégique ;
+- [`docs/roadmap/DEPLOYMENT.md`](docs/roadmap/DEPLOYMENT.md) — packaging et déploiement.
 
 ### Contrats
 
