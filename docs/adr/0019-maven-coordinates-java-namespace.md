@@ -1,6 +1,6 @@
 # ADR-0019 — Stabiliser les coordonnées Maven et le namespace Java de MORPHEUS
 
-- Statut : **Proposée — à accepter au bootstrap M1**
+- Statut : **Acceptée — bootstrap M1 validé sous Windows**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001, ADR-0016, ADR-0017
 - Portée : coordonnées Maven, packages Java, noms de modules et compatibilité future
@@ -9,7 +9,7 @@
 
 ## 1. Contexte
 
-M1 va créer la première fondation Java durable de MORPHEUS.
+M1 crée la première fondation Java durable de MORPHEUS.
 
 Avant le premier `pom.xml` et les premières classes, il faut distinguer plusieurs identités qui ne répondent pas au même besoin :
 
@@ -32,7 +32,7 @@ L'écosystème existant utilise déjà une convention où :
 
 ---
 
-## 2. Décision proposée
+## 2. Décision adoptée
 
 ### Produit
 
@@ -81,7 +81,7 @@ morpheus-cli
 com.morpheus
 ```
 
-Packages candidats :
+Packages initiaux :
 
 ```text
 com.morpheus.domain
@@ -214,7 +214,7 @@ Cela permet de refactorer l'organisation interne sans casser un protocole extern
 
 ### A. `io.github.fturleque.morpheus.*` comme package Java
 
-**Non retenue comme préférence initiale.**
+**Non retenue.**
 
 Avantage : correspondance stricte avec le `groupId`.
 
@@ -283,7 +283,7 @@ Ces coûts sont essentiellement organisationnels.
 
 ## 12. Validation M1
 
-Le bootstrap doit démontrer :
+Le bootstrap devait démontrer :
 
 ```text
 io.github.fturleque:morpheus-domain
@@ -296,7 +296,7 @@ io.github.fturleque:morpheus-store-sqlite
     -> package com.morpheus.store.sqlite
 ```
 
-Un test d'architecture doit empêcher les dépendances :
+Un test d'architecture devait empêcher les dépendances :
 
 ```text
 com.morpheus.domain -> com.morpheus.provider..
@@ -304,8 +304,56 @@ com.morpheus.domain -> com.morpheus.store..
 com.morpheus.domain -> com.morpheus.cli..
 ```
 
+### Preuve Windows du 22 juillet 2026
+
+Environnement observé :
+
+```text
+OS            = Windows 10 amd64
+Maven Wrapper = Apache Maven 3.9.16
+JDK de build  = OpenJDK 24.0.1 / Oracle
+bytecode/API  = release 21
+```
+
+Commande exécutée :
+
+```text
+.\mvnw.cmd clean test
+```
+
+Le réacteur Maven a compilé les modules avec :
+
+```text
+javac [debug release 21]
+```
+
+Les tests d'architecture ont produit :
+
+```text
+Tests run: 2
+Failures: 0
+Errors: 0
+Skipped: 0
+```
+
+Résultat global :
+
+```text
+BUILD SUCCESS
+```
+
+Cette preuve démontre également qu'un JDK de build plus récent peut compiler la baseline Java 21 conformément à ADR-0016.
+
+Le contrôle CI Linux/Windows reste un gate de merge de la PR de bootstrap, mais n'est plus une condition d'acceptation de la convention de coordonnées elle-même.
+
 ---
 
 ## 13. Critère d'acceptation
 
-Cette ADR peut passer à **Acceptée** dès que le premier bootstrap Maven M1 utilise ces coordonnées et que les tests d'architecture démontrent les frontières attendues.
+Le critère était :
+
+> le premier bootstrap Maven M1 utilise ces coordonnées et les tests d'architecture démontrent les frontières attendues.
+
+Ce critère est satisfait par le build Windows du 22 juillet 2026.
+
+**Décision : ADR-0019 Acceptée.**
