@@ -40,6 +40,7 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0018](0018-sqlite-initial-persistent-store.md) | SQLite comme backend persistant initial derrière le port | **Acceptée avec contraintes — M0** |
 | [ADR-0019](0019-maven-coordinates-java-namespace.md) | `io.github.fturleque` + namespace Java `com.morpheus.*` | **Acceptée — bootstrap M1** |
 | [ADR-0020](0020-workspace-root-resolution.md) | Discovery explicit-first avec fallback Git structurel sans dépendance au binaire Git | **Acceptée — M1** |
+| [ADR-0021](0021-sqlite-schema-migrations-foundation.md) | Migrations SQLite explicites, versionnées et schéma V1 minimal normalisé | **Acceptée — M1** |
 
 La décision de sortie C0 est consignée dans [`../VALIDATION_C0.md`](../VALIDATION_C0.md).
 
@@ -103,7 +104,7 @@ SQLite reste caché derrière `SpecificationKnowledgeStore`.
 
 Le schéma JSON du spike E08 est **rejeté** comme schéma de production.
 
-Le smoke-test SQLite JDBC est validé sous Windows. Le bootstrap M1 doit encore créer un schéma versionné/migrable avant toute persistance fonctionnelle durable.
+Le smoke-test SQLite JDBC est validé sous Windows. Le schéma et le mécanisme de migrations M1 sont gouvernés par ADR-0021.
 
 ### ADR-0019
 
@@ -133,6 +134,30 @@ BUILD SUCCESS
 ```
 
 Le comportement spécifique aux symlinks/junctions reste différé tant qu'un cas réel ne justifie pas une canonicalisation physique.
+
+### ADR-0021
+
+La fondation de store M1 a démontré sous Windows :
+
+```text
+UUIDv7 opaque
+memory store reference
+SQLite store behind same port
+schema_migrations ledger
+V1 = projects + knowledge_snapshots metadata
+migration checksum immutability
+migration history tampering rejected
+atomic snapshot activation
+stale predecessor rejection
+persistence across reopen
+no generic JSON domain payload
+39/39 tests PASS
+BUILD SUCCESS
+```
+
+Les tables métier M2+ ne doivent pas être créées avant stabilisation de leurs contrats.
+
+Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` du driver SQLite reste une contrainte runtime/packaging à traiter avant stabilisation CLI ; il n'est pas bloquant pour M1.
 
 ---
 
