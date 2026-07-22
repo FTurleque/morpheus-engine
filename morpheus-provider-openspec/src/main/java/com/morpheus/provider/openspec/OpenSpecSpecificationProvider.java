@@ -8,6 +8,7 @@ import com.morpheus.domain.provider.ProviderCapabilitySet;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.provider.ProviderProbeResult;
 import com.morpheus.domain.provider.ProviderProbeStatus;
+import com.morpheus.domain.source.SourceLocator;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +29,7 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
     public static final String SUPPORTED_SCHEMA = "spec-driven";
 
     private static final Pattern SCHEMA_PATTERN = Pattern.compile("^schema:\\s*([^#\\s]+)");
+    private static final SourceLocator CONFIG_LOCATOR = SourceLocator.file("openspec/config.yaml");
 
     @Override
     public ProviderId id() {
@@ -51,7 +53,12 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
         Path config = openspecRoot.resolve("config.yaml");
 
         if (!Files.isDirectory(openspecRoot) || !Files.exists(config)) {
-            return result(ProviderProbeStatus.UNSUPPORTED, Optional.empty(), ProviderCapabilitySet.of(), List.of());
+            return result(
+                    ProviderProbeStatus.UNSUPPORTED,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ProviderCapabilitySet.of(),
+                    List.of());
         }
 
         if (!Files.isRegularFile(config) || !Files.isReadable(config)) {
@@ -77,12 +84,18 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
                             "provider", ID.value(),
                             "schema", schema.orElseThrow(),
                             "supportedSchema", SUPPORTED_SCHEMA));
-            return result(ProviderProbeStatus.UNSUPPORTED, schema, ProviderCapabilitySet.of(), List.of(diagnostic));
+            return result(
+                    ProviderProbeStatus.UNSUPPORTED,
+                    schema,
+                    Optional.of(CONFIG_LOCATOR),
+                    ProviderCapabilitySet.of(),
+                    List.of(diagnostic));
         }
 
         return result(
                 ProviderProbeStatus.SUPPORTED,
                 schema,
+                Optional.of(CONFIG_LOCATOR),
                 detectCapabilities(openspecRoot),
                 List.of());
     }
@@ -128,12 +141,18 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
                 message,
                 Map.of("provider", ID.value()),
                 Optional.of(source.toString()));
-        return result(ProviderProbeStatus.INVALID, Optional.empty(), ProviderCapabilitySet.of(), List.of(diagnostic));
+        return result(
+                ProviderProbeStatus.INVALID,
+                Optional.empty(),
+                Optional.of(CONFIG_LOCATOR),
+                ProviderCapabilitySet.of(),
+                List.of(diagnostic));
     }
 
     private ProviderProbeResult result(
             ProviderProbeStatus status,
             Optional<String> schema,
+            Optional<SourceLocator> sourceLocator,
             ProviderCapabilitySet capabilities,
             List<Diagnostic> diagnostics) {
         return new ProviderProbeResult(
@@ -142,6 +161,7 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
                 status,
                 schema,
                 Optional.empty(),
+                sourceLocator,
                 capabilities,
                 false,
                 diagnostics);
