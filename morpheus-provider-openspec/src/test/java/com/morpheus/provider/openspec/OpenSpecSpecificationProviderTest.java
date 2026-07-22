@@ -40,6 +40,21 @@ class OpenSpecSpecificationProviderTest {
     }
 
     @Test
+    void probesPartialM0FixtureWithoutInventingWriteOrAcceptanceCapabilities() {
+        var result = provider.probe(fixture("openspec-partial"));
+
+        assertEquals(ProviderProbeStatus.SUPPORTED, result.status());
+        assertEquals("spec-driven", result.schema().orElseThrow());
+        assertTrue(result.formatVersion().isEmpty());
+        assertEquals(SourceLocator.file("openspec/config.yaml"), result.sourceLocator().orElseThrow());
+        assertTrue(result.capabilities().contains(ProviderCapability.DISCOVER_PROJECT));
+        assertFalse(result.capabilities().contains(ProviderCapability.READ_ACCEPTANCE_CRITERIA));
+        assertFalse(result.capabilities().contains(ProviderCapability.WRITE_CHANGE));
+        assertFalse(result.capabilities().contains(ProviderCapability.WRITE_TASK_STATE));
+        assertFalse(result.capabilities().contains(ProviderCapability.ARCHIVE_CHANGE));
+    }
+
+    @Test
     void rejectsUnknownOpenSpecSchemaExplicitly() {
         var result = provider.probe(fixture("openspec-unsupported-schema"));
 
