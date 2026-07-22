@@ -48,6 +48,8 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0028](0028-unified-provider-read-contract.md) | Contrat de lecture unifié et résultats partiels explicites | **Acceptée — M2** |
 | [ADR-0029](0029-second-provider-anti-lockin-proof.md) | Second provider synthétique pour preuve anti-lock-in | **Acceptée — M2** |
 | [ADR-0030](0030-defer-normalized-business-persistence-to-m3.md) | Persistance métier complète introduite avec versions/snapshots M3 | **Acceptée — M2** |
+| [ADR-0031](0031-explicit-temporal-projection-and-entity-version.md) | Projection temporelle explicite sur occurrences versionnées | **Acceptée — M3** |
+| [ADR-0032](0032-explicit-change-lifecycle-state-machine.md) | Machine d'état explicite du lifecycle des changements | **Acceptée — M3** |
 
 ---
 
@@ -66,8 +68,16 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 
 M2 est validée. La preuve de sortie est [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
 
-La vue opérationnelle est [`../roadmap/M2_EXECUTION.md`](../roadmap/M2_EXECUTION.md).
+---
 
+# Preuves M3 en cours
+
+| Slice | ADR | Preuve |
+|---|---|---|
+| M3-S1 temporalité + versions | ADR-0031 | `103/103 PASS` |
+| M3-S2 lifecycle des changements | ADR-0032 | `119/119 PASS` |
+
+La vue opérationnelle M3 est [`../roadmap/M3_EXECUTION.md`](../roadmap/M3_EXECUTION.md).
 La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
 
 ---
@@ -173,26 +183,38 @@ Le schéma JSON du spike E08 reste rejeté comme modèle de production.
 
 Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` reste non bloquant et devra être traité avant stabilisation runtime/CLI.
 
-## Identité
+## Identité et temporalité
 
 ```text
-DomainIdentity != EntityVersion != SourceLocator != ExternalReference
+DomainIdentity != EntityVersionId
+SpecificationVersion != KnowledgeSnapshot
+DomainIdentity != SourceLocator != ExternalReference
 externalId != DomainIdentity
 provider namespace fait partie de la résolution
 continuité d'identité explicite uniquement
 aucune fusion par titre/chemin/contenu
 ```
 
-## M2 / M3
+Projection M3 :
 
 ```text
-content normalization != temporal projection
-RequirementDeltaKind != TemporalState
-normalized delta != applied delta
-change structure != ChangeLifecycleState
+CURRENT / PROPOSED / HISTORICAL explicites
+PROPOSED never leaks into CURRENT
+une DomainIdentity -> au plus une occurrence CURRENT par projection
+plusieurs PROPOSED concurrents restent permis
 ```
 
-`CURRENT / PROPOSED / HISTORICAL`, versions complètes, promotion des deltas, lifecycle complet et persistance métier versionnée appartiennent à M3.
+## Lifecycle des changements
+
+```text
+ChangeLifecycleState != TemporalState
+ChangeLifecycleState != KnowledgeSnapshotState
+ChangeLifecycleState != task checkbox
+COMPLETED != CURRENT
+ARCHIVED  != CURRENT
+```
+
+Le skip `SPECIFIED -> PLANNED` est conditionnel à `design_required=false` et à la présence d'un plan. Les retours arrière sont gouvernés par politique explicite. `ABANDONED` exige une raison structurée et peut revenir à `PROPOSED`; `ARCHIVED` n'est pas rouvert implicitement.
 
 ## ExternalReference
 
@@ -244,6 +266,6 @@ Les choix concrets `jlink/jpackage`, format installateur, image de base Docker, 
 3. ajouter les preuves contractuelles
 4. exécuter le Maven Wrapper
 5. accepter l'ADR uniquement après preuve
-6. merger
+6. merger seulement après signal explicite
 7. mettre à jour roadmap + issue de milestone
 ```
