@@ -1,0 +1,22 @@
+{
+  "purpose": "E03 stable identity oracle",
+  "product_id_format_decided": false,
+  "scenarios": [
+    {"name": "move_file", "expect_same_identity": true, "evidence": "stable external id"},
+    {"name": "rename_title", "expect_same_identity": true, "evidence": "stable logical key"},
+    {"name": "change_external_key", "expect_same_identity": true, "evidence": "explicit continuity from previous external id"},
+    {"name": "modify_statement", "expect_same_identity": true, "evidence": "stable external id"},
+    {"name": "duplicate_requirement", "expect_same_identity": false, "evidence": "similar content is heuristic only"},
+    {"name": "delete_restore", "expect_same_identity": true, "evidence": "same external id on restore"},
+    {"name": "archive", "expect_same_identity": true, "evidence": "temporal state changes, identity does not"},
+    {"name": "provider_collision", "expect_same_identity": false, "evidence": "external ids are namespaced by provider"},
+    {"name": "conflicting_identifiers", "expect_same_identity": false, "evidence": "new external id claiming an owned logical key must emit IDENTITY_COLLISION"}
+  ],
+  "invariants": [
+    "title_is_not_identity",
+    "locator_is_not_identity",
+    "content_similarity_never_silently_merges",
+    "provider_namespace_is_part_of_external_reference_resolution",
+    "ambiguous_identity_never_silently_merges"
+  ]
+}
