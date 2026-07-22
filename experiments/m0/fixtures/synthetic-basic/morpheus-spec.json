@@ -11,6 +11,10 @@
   ],
   "current": {
     "specifications": 1,
+    "specification": {
+      "key": "billing",
+      "title": "Billing"
+    },
     "requirements": [
       {
         "key": "billing/invoice-retention",
@@ -22,7 +26,11 @@
         "scenarios": [
           {
             "title": "Retain invoice",
-            "steps": ["GIVEN an invoice", "THEN retain it"],
+            "steps": [
+              "GIVEN an invoice",
+              "WHEN the retention policy is evaluated",
+              "THEN retain it"
+            ],
             "provenance": {"path": "morpheus-spec.json", "line": 1}
           }
         ],
@@ -34,6 +42,7 @@
     "changes": [
       {
         "key": "extend-retention",
+        "title": "Extend retention",
         "temporal_state": "PROPOSED",
         "proposal": {
           "intent": "Extend retention",

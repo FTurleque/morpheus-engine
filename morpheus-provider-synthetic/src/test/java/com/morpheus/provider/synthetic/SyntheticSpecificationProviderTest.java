@@ -1,0 +1,65 @@
+package com.morpheus.provider.synthetic;
+
+import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.provider.ProviderCapability;
+import com.morpheus.domain.provider.ProviderProbeStatus;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class SyntheticSpecificationProviderTest {
+    private final SyntheticSpecificationProvider provider = new SyntheticSpecificationProvider();
+
+    @Test
+    void recognizesSyntheticFixture() {
+        var result = provider.probe(fixture("synthetic-basic"));
+
+        assertEquals(ProviderProbeStatus.SUPPORTED, result.status());
+        assertEquals(SyntheticSpecificationProvider.ID, result.providerId());
+        assertEquals(SyntheticSpecificationProvider.SCHEMA, result.schema().orElseThrow());
+        assertEquals("1", result.formatVersion().orElseThrow());
+        assertFalse(result.remote());
+        assertTrue(result.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS));
+        assertTrue(result.capabilities().contains(ProviderCapability.READ_REQUIREMENTS));
+        assertTrue(result.capabilities().contains(ProviderCapability.READ_SCENARIOS));
+        assertTrue(result.capabilities().contains(ProviderCapability.READ_CHANGES));
+        assertFalse(result.capabilities().contains(ProviderCapability.READ_ACCEPTANCE_CRITERIA));
+    }
+
+    @Test
+    void reportsMissingSyntheticSourceAsUnsupported(@TempDir Path tempDir) {
+        var result = provider.probe(tempDir);
+
+        assertEquals(ProviderProbeStatus.UNSUPPORTED, result.status());
+        assertTrue(result.diagnostics().isEmpty());
+    }
+
+    @Test
+    void reportsMalformedSyntheticSourceAsInvalid(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve(SyntheticSpecificationProvider.SOURCE_FILE), "{not-json");
+
+        var result = provider.probe(tempDir);
+
+        assertEquals(ProviderProbeStatus.INVALID, result.status());
+        assertEquals(DiagnosticCode.INVALID_SOURCE, result.diagnostics().getFirst().code());
+    }
+
+    private Path fixture(String name) {
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        while (current != null) {
+            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
+            if (Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Cannot locate fixture " + name);
+    }
+}

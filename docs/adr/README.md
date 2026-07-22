@@ -46,6 +46,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0026](0026-optional-external-reference-resolution.md) | Références externes via resolvers optionnels | **Acceptée — M2** |
 | [ADR-0027](0027-native-first-container-supported-distribution.md) | Distribution native-first et container-supported | **Acceptée avec contraintes — distribution** |
 | [ADR-0028](0028-unified-provider-read-contract.md) | Contrat de lecture unifié et résultats partiels explicites | **Acceptée — M2** |
+| [ADR-0029](0029-second-provider-anti-lockin-proof.md) | Second provider synthétique pour preuve anti-lock-in | **Acceptée — M2** |
 
 ---
 
@@ -59,6 +60,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | M2-S4 requirement deltas | ADR-0025 | `70/70 PASS` |
 | M2-S5 ExternalReference | ADR-0026 | `76/76 PASS` |
 | M2-S6 lecture unifiée / partiel / diagnostics | ADR-0028 | `84/84 PASS` |
+| M2-S7 second provider anti-lock-in | ADR-0029 | `94/94 PASS` |
 
 La vue opérationnelle détaillée est : [`../roadmap/M2_EXECUTION.md`](../roadmap/M2_EXECUTION.md).
 
@@ -68,14 +70,17 @@ La trajectoire de packaging/déploiement est : [`../roadmap/DEPLOYMENT.md`](../r
 
 # Contraintes actives principales
 
-## Frontière domaine
+## Frontière domaine et providers
 
 ```text
-com.morpheus.domain -X-> provider-openspec
-com.morpheus.domain -X-> SQLite
-com.morpheus.domain -X-> CLI/MCP/API adapters
-com.morpheus.domain -X-> MINOS/GitHub/Jira clients
+com.morpheus.domain      -X-> com.morpheus.provider..
+com.morpheus.application -X-> com.morpheus.provider..
+com.morpheus.domain      -X-> SQLite
+com.morpheus.domain      -X-> CLI/MCP/API adapters
+com.morpheus.domain      -X-> MINOS/GitHub/Jira clients
 ```
+
+OpenSpec et Synthetic dépendent vers l'intérieur de `domain + application` ; jamais l'inverse.
 
 ## OpenSpec
 
@@ -103,6 +108,27 @@ PARTIAL
 ```
 
 `AcceptanceCriterion` n'est jamais dérivé automatiquement d'un `Scenario`.
+
+## Anti-lock-in
+
+```text
+OpenSpec source  ─────┐
+                      ├──> SpecificationContentReader -> ProviderReadResult
+Synthetic JSON ───────┘
+```
+
+Garanties prouvées :
+
+```text
+même contrat applicatif
+même domaine MORPHEUS
+consumer sans branche provider-specific
+même ReadCategory vocabulary
+(providerId, entityType, externalId) namespace l'identité
+aucun type provider dans domain/application
+```
+
+Le provider synthétique est `verification-only` et ne constitue pas une fonctionnalité utilisateur à stabiliser.
 
 ## Build
 
@@ -147,7 +173,7 @@ Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` est non bloquant à ce st
 ```text
 DomainIdentity != EntityVersion != SourceLocator != ExternalReference
 externalId != DomainIdentity
-provider namespace fait partie de la résolution externe
+provider namespace fait partie de la résolution
 continuité d'identité explicite uniquement
 aucune fusion par titre/chemin/contenu
 ```

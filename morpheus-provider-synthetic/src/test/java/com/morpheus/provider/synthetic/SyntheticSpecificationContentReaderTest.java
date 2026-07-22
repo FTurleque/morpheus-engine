@@ -1,0 +1,130 @@
+package com.morpheus.provider.synthetic;
+
+import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.read.ProviderReadRequest;
+import com.morpheus.application.read.ReadCategory;
+import com.morpheus.application.read.ReadCategoryStatus;
+import com.morpheus.domain.identity.DomainIdentity;
+import com.morpheus.domain.project.ProjectSpecificationId;
+import org.junit.jupiter.api.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class SyntheticSpecificationContentReaderTest {
+    private final SyntheticSpecificationContentReader reader = new SyntheticSpecificationContentReader();
+
+    @Test
+    void normalizesSyntheticFixtureThroughPublicReadContract() {
+        Path root = fixture("synthetic-basic");
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+
+        var result = reader.read(
+                ProviderReadRequest.all(root, projectId),
+                new InMemoryResolver());
+
+        assertEquals(SyntheticSpecificationProvider.ID, result.providerId());
+        var content = result.content().orElseThrow();
+        assertEquals(projectId, content.project().id());
+        assertEquals(1, content.specifications().size());
+        assertEquals(1, content.requirements().size());
+        assertEquals(1, content.scenarios().size());
+        assertEquals(1, content.changes().size());
+        assertEquals(4, content.evidence().size());
+
+        var specification = content.specifications().getFirst();
+        assertEquals("billing", specification.key());
+        assertEquals("Billing", specification.title());
+        assertEquals(SyntheticSpecificationProvider.ID, specification.provenance().providerId());
+
+        var requirement = content.requirements().getFirst();
+        assertEquals("billing/invoice-retention", requirement.key().orElseThrow());
+        assertEquals("Invoice retention", requirement.title());
+        assertTrue(requirement.statement().contains("retain invoices"));
+
+        var scenario = content.scenarios().getFirst();
+        assertEquals("Retain invoice", scenario.title());
+        assertEquals("the retention policy is evaluated", scenario.action());
+        assertEquals("retain it", scenario.expectedOutcome());
+
+        var change = content.changes().getFirst();
+        assertEquals("extend-retention", change.key().orElseThrow());
+        assertEquals("Extend retention", change.title());
+        assertEquals("Extend retention", change.intent());
+    }
+
+    @Test
+    void reportsImplementedAndUnsupportedCategoriesExplicitly() {
+        var result = reader.read(
+                ProviderReadRequest.all(fixture("synthetic-basic"), ProjectSpecificationId.generate()),
+                new InMemoryResolver());
+
+        assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.CURRENT_SPECIFICATIONS).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.REQUIREMENTS).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.SCENARIOS).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.CHANGES).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.UNSUPPORTED, result.report(ReadCategory.ACCEPTANCE_CRITERIA).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.UNSUPPORTED, result.report(ReadCategory.EXTERNAL_REFERENCES).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.UNSUPPORTED, result.report(ReadCategory.ARCHIVES).orElseThrow().status());
+    }
+
+    @Test
+    void returnsOnlyRequestedCategoryReports() {
+        var request = new ProviderReadRequest(
+                fixture("synthetic-basic"),
+                ProjectSpecificationId.generate(),
+                EnumSet.of(ReadCategory.REQUIREMENTS, ReadCategory.ACCEPTANCE_CRITERIA));
+
+        var result = reader.read(request, new InMemoryResolver());
+
+        assertEquals(2, result.categoryReports().size());
+        assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.REQUIREMENTS).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.UNSUPPORTED, result.report(ReadCategory.ACCEPTANCE_CRITERIA).orElseThrow().status());
+        assertFalse(result.report(ReadCategory.SCENARIOS).isPresent());
+    }
+
+    @Test
+    void reusesSyntheticIdentitiesAcrossRepeatedReads() {
+        Path root = fixture("synthetic-basic");
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        InMemoryResolver resolver = new InMemoryResolver();
+        ProviderReadRequest request = ProviderReadRequest.all(root, projectId);
+
+        var first = reader.read(request, resolver).content().orElseThrow();
+        var second = reader.read(request, resolver).content().orElseThrow();
+
+        assertEquals(first.specifications().getFirst().id(), second.specifications().getFirst().id());
+        assertEquals(first.requirements().getFirst().id(), second.requirements().getFirst().id());
+        assertEquals(first.scenarios().getFirst().id(), second.scenarios().getFirst().id());
+        assertEquals(first.changes().getFirst().id(), second.changes().getFirst().id());
+    }
+
+    private Path fixture(String name) {
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        while (current != null) {
+            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
+            if (Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Cannot locate fixture " + name);
+    }
+
+    private static final class InMemoryResolver implements EntityIdentityResolver {
+        private final Map<String, DomainIdentity> identities = new HashMap<>();
+
+        @Override
+        public DomainIdentity resolve(com.morpheus.domain.provider.ProviderId providerId, String entityType, String externalId) {
+            String key = providerId + "|" + entityType + "|" + externalId;
+            return identities.computeIfAbsent(key, ignored -> DomainIdentity.generate());
+        }
+    }
+}
