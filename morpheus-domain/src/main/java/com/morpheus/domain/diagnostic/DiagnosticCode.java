@@ -1,0 +1,16 @@
+package com.morpheus.domain.diagnostic;
+
+/** Stable diagnostic codes used by M1 discovery and provider selection. */
+public enum DiagnosticCode {
+    NO_PROVIDER_FOUND,
+    UNSUPPORTED_SOURCE,
+    UNSUPPORTED_PROVIDER_SCHEMA,
+    UNSUPPORTED_FORMAT_VERSION,
+    MISSING_REQUIRED_CAPABILITY,
+    OPTIONAL_CAPABILITY_UNAVAILABLE,
+    MULTIPLE_PROVIDER_MATCHES,
+    EXPLICIT_PROVIDER_INCOMPATIBLE,
+    REMOTE_PROVIDER_REQUIRES_OPT_IN,
+    INVALID_SOURCE,
+    PARTIAL_INGESTION
+}
