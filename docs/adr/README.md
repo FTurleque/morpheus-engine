@@ -43,6 +43,7 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0021](0021-sqlite-schema-migrations-foundation.md) | Migrations SQLite explicites, versionnées et schéma V1 minimal normalisé | **Acceptée — M1** |
 | [ADR-0022](0022-m2-normalized-content-before-temporal-projection.md) | Normaliser le contenu en M2 avant la projection temporelle M3 | **Acceptée — M2** |
 | [ADR-0023](0023-persistent-provider-scoped-entity-identity.md) | Persister les mappings d'identité provider-scoped avec continuité explicite | **Acceptée — M2** |
+| [ADR-0024](0024-m2-change-metadata-normalization.md) | Normaliser les métadonnées de changement avant leurs effets temporels | **Acceptée — M2** |
 
 Les décisions de sortie sont consignées dans :
 
@@ -227,6 +228,44 @@ BUILD SUCCESS
 ```
 
 Memory et SQLite appliquent le même contrat. SQLite utilise `V003__entity_identity_bindings.sql` et la stabilité des identités survit à une fermeture/réouverture de la base.
+
+### ADR-0024
+
+Le slice M2 a démontré sous Windows :
+
+```text
+proposal.md / design.md / tasks.md
+             ↓
+OpenSpecChangeMetadataReader
+             ↓
+ChangeProposal / Constraint / DesignDecision / ImplementationTask
+             ↓
+OpenSpecProjectContentReader
+             ↓
+NormalizedProjectContent
+```
+
+Règles validées :
+
+```text
+change structure != temporal projection
+source checkbox != ChangeLifecycleState
+change intent != requirement deltas
+anonymous source text != identity
+externalId != DomainIdentity
+```
+
+Preuves :
+
+```text
+NormalizedProjectContentTest      5/5 PASS
+OpenSpecChangeMetadataReaderTest  3/3 PASS
+OpenSpecProjectContentReaderTest  1/1 PASS
+TOTAL                            64/64 PASS
+BUILD SUCCESS
+```
+
+La fixture `openspec-basic` produit exactement `1 ChangeProposal`, `2 Constraint`, `2 DesignDecision` et `8 ImplementationTask`. Le graphe agrégé conserve provenance/evidence et n'introduit ni `TemporalState` ni lifecycle complet M3.
 
 ---
 

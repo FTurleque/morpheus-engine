@@ -1,5 +1,9 @@
 package com.morpheus.application.ingestion;
 
+import com.morpheus.domain.change.ChangeId;
+import com.morpheus.domain.change.ChangeProposal;
+import com.morpheus.domain.constraint.Constraint;
+import com.morpheus.domain.constraint.ConstraintId;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.project.ProjectSpecification;
@@ -81,6 +85,65 @@ class NormalizedProjectContentTest {
                 List.of()));
     }
 
+    @Test
+    void acceptsConstraintReferencingKnownChange() {
+        Fixture fixture = fixture();
+        ChangeProposal change = change(fixture);
+        Constraint constraint = new Constraint(
+                ConstraintId.generate(),
+                change.id(),
+                "No persistence without explicit opt-in.",
+                fixture.provenance);
+
+        assertDoesNotThrow(() -> new NormalizedProjectContent(
+                fixture.project,
+                List.of(fixture.specification),
+                List.of(fixture.requirement),
+                List.of(),
+                List.of(change),
+                List.of(constraint),
+                List.of(),
+                List.of(),
+                List.of(fixture.evidence),
+                List.of()));
+    }
+
+    @Test
+    void rejectsConstraintReferencingUnknownChange() {
+        Fixture fixture = fixture();
+        ChangeProposal change = change(fixture);
+        Constraint invalid = new Constraint(
+                ConstraintId.generate(),
+                ChangeId.generate(),
+                "No persistence without explicit opt-in.",
+                fixture.provenance);
+
+        assertThrows(IllegalArgumentException.class, () -> new NormalizedProjectContent(
+                fixture.project,
+                List.of(fixture.specification),
+                List.of(fixture.requirement),
+                List.of(),
+                List.of(change),
+                List.of(invalid),
+                List.of(),
+                List.of(),
+                List.of(fixture.evidence),
+                List.of()));
+    }
+
+    private ChangeProposal change(Fixture fixture) {
+        return new ChangeProposal(
+                ChangeId.generate(),
+                fixture.project.id(),
+                Optional.of("add-remember-me"),
+                "Add remember-me sessions",
+                "Allow explicit persistent authentication.",
+                List.of("Add an explicit remember-me option."),
+                List.of(),
+                List.of(),
+                fixture.provenance);
+    }
+
     private Fixture fixture() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         SourceLocator source = SourceLocator.file("openspec/specs/auth-session/spec.md");
@@ -110,13 +173,14 @@ class NormalizedProjectContentTest {
                 "Session expiration",
                 "The system SHALL expire an inactive session.",
                 provenance);
-        return new Fixture(project, specification, requirement, evidence);
+        return new Fixture(project, specification, requirement, evidence, provenance);
     }
 
     private record Fixture(
             ProjectSpecification project,
             Specification specification,
             Requirement requirement,
-            Evidence evidence) {
+            Evidence evidence,
+            Provenance provenance) {
     }
 }
