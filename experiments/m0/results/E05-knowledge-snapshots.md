@@ -1,6 +1,6 @@
 # E05 — Knowledge snapshots
 
-Statut : **PARTIAL_PASS — backend mémoire validé, backend persistant encore requis**
+Statut : **PASS**
 
 Date : 22 juillet 2026
 
@@ -8,41 +8,25 @@ Date : 22 juillet 2026
 
 MORPHEUS peut publier un nouvel état de connaissance de manière atomique au niveau observable : un consommateur voit soit l'ancien snapshot actif, soit le nouveau snapshot validé, jamais un état intermédiaire.
 
-## Spike
+## Preuves associées
 
 ```text
-experiments/m0/spikes/e05_e07_memory_store_python/
-├── store.py
-└── test_store.py
+E05/E07 memory store
+E08 SQLite persistent store
+E05b rebuild + retention
+E06b store-backed traceability
 ```
 
-## Environnement
+## Backends exercés
 
 ```text
-Python 3.13.5
-Linux container
-standard library only
+InMemorySpecificationKnowledgeStore
+SQLiteSpecificationKnowledgeStore
 ```
 
-Le spike est expérimental conformément à ADR-0014.
+SQLite reste un **candidat expérimental**, pas une décision de backend de production.
 
-## Protocole exécuté
-
-```text
-python -m unittest -v
-```
-
-Suite E05/E07 :
-
-```text
-Ran 8 tests
-8 PASS
-0 FAIL
-```
-
-Sous-ensemble snapshot E05 : **7 tests PASS**.
-
-## Cycle exercé
+## Cycle validé
 
 ```text
 BUILDING
@@ -54,73 +38,46 @@ READY
 ACTIVE
 ```
 
-Le snapshot actif précédent passe à :
+L'ancien snapshot actif devient :
 
 ```text
 RETIRED
 ```
 
-Un snapshot invalide passe à :
+Un snapshot structurellement invalide devient :
 
 ```text
 FAILED
 ```
 
-## Scénarios validés
+## Invariants validés
 
-### Activation V1
+### État intermédiaire invisible
 
-Un premier snapshot validé devient l'état actif.
+Un snapshot `BUILDING`, `VALIDATING`, `READY` ou `FAILED` n'est jamais présenté comme état courant.
 
-### Construction V2 interrompue
-
-Pendant que V2 reste `BUILDING` :
+### Activation observable atomique
 
 ```text
-active = V1
-queries = V1
+avant activation -> Vn visible
+après activation -> Vn+1 visible
 ```
 
-V2 n'est jamais visible comme état courant.
+Aucun consommateur ne doit observer un mélange Vn/Vn+1.
 
-### Validation V2 échouée
+### Concurrence / predecessor
 
-Un snapshot incomplet devient `FAILED` et ne peut pas être activé.
+Un snapshot construit sur un predecessor qui n'est plus actif est rejeté par `SnapshotConflict`.
 
-V1 reste actif.
+Il ne peut donc pas écraser silencieusement une génération plus récente.
 
-### Activation atomique V2
+### Idempotence
 
-Après validation :
-
-```text
-before activate -> V1 ACTIVE
-after activate  -> V2 ACTIVE / V1 RETIRED
-```
-
-Les requêtes basculent directement de V1 vers V2.
-
-### Concurrence sur predecessor
-
-Deux snapshots construits depuis V1 ne peuvent pas tous deux écraser l'état actif.
-
-Si A est activé avant B :
-
-```text
-B.predecessor = V1
-active = A
-=> SnapshotConflict
-```
-
-Cela empêche un snapshot obsolète d'écraser silencieusement une génération plus récente.
-
-### Rejeu idempotent
-
-Deux constructions avec le même payload canonique réutilisent le même fingerprint et le même snapshot expérimental.
+Un payload normalisé identique possède un fingerprint stable et son rejeu est détectable.
 
 ### Comparaison
 
-Le store sait dériver au minimum :
+Le contrat sait dériver :
 
 ```text
 ADDED
@@ -129,43 +86,65 @@ MODIFIED
 UNCHANGED
 ```
 
-sur les requirements `CURRENT`.
+### Persistance
 
-## Invariants confirmés sur backend mémoire
+Le backend SQLite du spike conserve l'état actif après fermeture/réouverture et applique l'activation dans une transaction.
 
-- [x] aucun état `BUILDING` visible comme actif ;
-- [x] aucun état `FAILED` activable ;
-- [x] activation observable atomique ;
-- [x] predecessor obsolète détecté ;
-- [x] rejeu identique idempotent ;
-- [x] snapshot précédent conservé comme `RETIRED` ;
-- [x] comparaison Vn / Vn+1 possible.
+### Traçabilité attachée au snapshot
 
-## Limites
+E06b démontre que les relations d'un snapshot actif restent interrogeables sur les deux stores sans mélanger plusieurs générations.
 
-E05 n'est pas encore complètement validée car ADR-0012 exige les mêmes garanties sur un **backend persistant candidat**.
+### Reconstruction
 
-Restent notamment à mesurer :
+Le store peut être supprimé/recréé puis reconstruit à partir des sources et du pipeline de normalisation.
 
-- coût disque ;
-- coût de rétention ;
-- reconstruction après redémarrage ;
-- atomicité avec une vraie transaction/persistance ;
-- migration de schéma ;
-- comportement après crash process ;
-- politique finale de rétention.
+La frontière `CURRENT / PROPOSED` reste identique après reconstruction.
+
+### Rétention minimale M0
+
+La politique validée pour la faisabilité est :
+
+```text
+ACTIVE                  toujours conservé
+1 RETIRED predecessor   conservé par défaut
+RETIRED plus anciens    purgeables
+```
+
+Cette politique pourra évoluer selon les volumes réels.
+
+## Baseline de coût
+
+E08 fournit une première mesure exploratoire sur 5 000 requirements avec un schéma SQLite volontairement naïf. Les résultats démontrent la faisabilité locale mais ne constituent pas des seuils de production.
+
+## Points volontairement non figés par E05
+
+- politique de rétention production ;
+- schéma physique final ;
+- backend produit final ;
+- mécanisme interne d'atomicité pour un autre backend ;
+- durée de conservation des snapshots liés à des releases métier.
+
+Ces choix peuvent évoluer tant que l'invariant observable reste respecté.
 
 ## Impact ADR-0012
 
-**Preuve positive forte sur la sémantique snapshot et le backend mémoire.**
+Les conditions M0 de l'ADR sont désormais démontrées :
 
-ADR-0012 reste `Proposée` jusqu'à E08.
+- [x] `SpecificationVersion` distinct de `KnowledgeSnapshot` ;
+- [x] deux implémentations de store ;
+- [x] activation atomique observable ;
+- [x] interruption/échec sans corruption de l'actif ;
+- [x] idempotence ;
+- [x] isolation `CURRENT / PROPOSED` ;
+- [x] rétention minimale ;
+- [x] coût initial mesuré ;
+- [x] reconstruction depuis les sources.
 
-## Décision provisoire
+## Décision
 
 ```text
-E05_MEMORY = PASS
-E05_OVERALL = PARTIAL_PASS
-SNAPSHOT_MODEL = RETAIN
-CONTINUE_TO_PERSISTENT_STORE = YES
+E05 = PASS
+KNOWLEDGE_SNAPSHOT_MODEL = RETAIN
+OBSERVABLE_ATOMIC_ACTIVATION = REQUIRED
+STORE_REBUILDABLE_FROM_SOURCES = REQUIRED
 ```
