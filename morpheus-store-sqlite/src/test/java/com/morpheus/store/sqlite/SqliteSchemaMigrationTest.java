@@ -29,17 +29,18 @@ class SqliteSchemaMigrationTest {
     Path tempDir;
 
     @Test
-    void migrationV1CreatesVersionedNormalizedFoundationWithoutGenericJsonPayload() throws Exception {
+    void migrationsCreateVersionedNormalizedFoundationWithoutGenericJsonPayload() throws Exception {
         Path database = tempDir.resolve("schema.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // Constructor applies migrations.
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(1, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(2, new SqliteSchemaManager().currentVersion(connection));
             assertTrue(tableExists(connection, "schema_migrations"));
             assertTrue(tableExists(connection, "projects"));
             assertTrue(tableExists(connection, "knowledge_snapshots"));
+            assertTrue(indexExists(connection, "uq_projects_root"));
 
             List<String> projectColumns = columnNames(connection, "projects");
             List<String> snapshotColumns = columnNames(connection, "knowledge_snapshots");
@@ -49,7 +50,7 @@ class SqliteSchemaMigrationTest {
     }
 
     @Test
-    void migrationReplayIsIdempotentAndLedgerContainsOneImmutableV1Entry() throws Exception {
+    void migrationReplayIsIdempotentAndLedgerContainsTwoImmutableEntries() throws Exception {
         Path database = tempDir.resolve("replay.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // First application.
@@ -61,10 +62,11 @@ class SqliteSchemaMigrationTest {
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
              var statement = connection.createStatement();
              ResultSet result = statement.executeQuery(
-                     "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS checksum_length FROM schema_migrations WHERE version = 1")) {
+                     "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum FROM schema_migrations")) {
             assertTrue(result.next());
-            assertEquals(1, result.getInt("count"));
-            assertEquals(64, result.getInt("checksum_length"));
+            assertEquals(2, result.getInt("count"));
+            assertEquals(64, result.getInt("min_checksum"));
+            assertEquals(64, result.getInt("max_checksum"));
         }
     }
 
@@ -72,7 +74,7 @@ class SqliteSchemaMigrationTest {
     void modifiedMigrationHistoryIsRejected() throws Exception {
         Path database = tempDir.resolve("tampered.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
-            // Apply the canonical migration first.
+            // Apply the canonical migrations first.
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
@@ -109,6 +111,8 @@ class SqliteSchemaMigrationTest {
 
         try (var reopened = new SqliteSpecificationKnowledgeStore(database)) {
             assertEquals(project, reopened.findProject(projectId).orElseThrow());
+            assertEquals(project, reopened.findProjectByRoot(project.rootLocator()).orElseThrow());
+            assertEquals(1, reopened.listProjects().size());
             assertEquals(snapshotId, reopened.activeSnapshot(projectId).orElseThrow().id());
             assertEquals(KnowledgeSnapshotState.ACTIVE, reopened.findSnapshot(snapshotId).orElseThrow().state());
         }
@@ -118,6 +122,16 @@ class SqliteSchemaMigrationTest {
         try (var statement = connection.prepareStatement(
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")) {
             statement.setString(1, tableName);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        }
+    }
+
+    private boolean indexExists(java.sql.Connection connection, String indexName) throws Exception {
+        try (var statement = connection.prepareStatement(
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?")) {
+            statement.setString(1, indexName);
             try (ResultSet result = statement.executeQuery()) {
                 return result.next();
             }
