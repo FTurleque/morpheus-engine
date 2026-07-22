@@ -47,10 +47,11 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0027](0027-native-first-container-supported-distribution.md) | Distribution native-first et container-supported | **Acceptée avec contraintes — distribution** |
 | [ADR-0028](0028-unified-provider-read-contract.md) | Contrat de lecture unifié et résultats partiels explicites | **Acceptée — M2** |
 | [ADR-0029](0029-second-provider-anti-lockin-proof.md) | Second provider synthétique pour preuve anti-lock-in | **Acceptée — M2** |
+| [ADR-0030](0030-defer-normalized-business-persistence-to-m3.md) | Persistance métier complète introduite avec versions/snapshots M3 | **Acceptée — M2** |
 
 ---
 
-# État des preuves M2
+# État final des preuves M2
 
 | Slice | ADR | Preuve |
 |---|---|---|
@@ -61,10 +62,13 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | M2-S5 ExternalReference | ADR-0026 | `76/76 PASS` |
 | M2-S6 lecture unifiée / partiel / diagnostics | ADR-0028 | `84/84 PASS` |
 | M2-S7 second provider anti-lock-in | ADR-0029 | `94/94 PASS` |
+| M2-S8 validation finale / persistance | ADR-0030 | `94/94 PASS` |
 
-La vue opérationnelle détaillée est : [`../roadmap/M2_EXECUTION.md`](../roadmap/M2_EXECUTION.md).
+M2 est validée. La preuve de sortie est [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
 
-La trajectoire de packaging/déploiement est : [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
+La vue opérationnelle est [`../roadmap/M2_EXECUTION.md`](../roadmap/M2_EXECUTION.md).
+
+La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
 
 ---
 
@@ -97,7 +101,7 @@ SpecificationProvider.probe() != SpecificationContentReader.read()
 empty collection != ambiguous success
 ```
 
-Statuts de lecture :
+Statuts :
 
 ```text
 READ
@@ -106,8 +110,6 @@ UNSUPPORTED
 FAILED
 PARTIAL
 ```
-
-`AcceptanceCriterion` n'est jamais dérivé automatiquement d'un `Scenario`.
 
 ## Anti-lock-in
 
@@ -128,7 +130,7 @@ même ReadCategory vocabulary
 aucun type provider dans domain/application
 ```
 
-Le provider synthétique est `verification-only` et ne constitue pas une fonctionnalité utilisateur à stabiliser.
+Le provider synthétique est `verification-only`.
 
 ## Build
 
@@ -148,25 +150,28 @@ Java source/bytecode release 21
 
 GitHub Actions n'est pas une porte obligatoire.
 
-## SQLite
+## SQLite et frontière M3
 
-SQLite reste derrière les ports applicatifs.
-
-Validé :
+Persisté après M2 :
 
 ```text
 schema_migrations
-V001 projects + knowledge_snapshots
-V002 project root uniqueness
-V003 entity_identity_bindings
-checksum immutability
-atomic snapshot activation
-persistence across reopen
+projects
+knowledge_snapshots metadata
+entity_identity_bindings
+```
+
+ADR-0030 fixe :
+
+```text
+M2 : identité + métadonnées persistantes
+M3 : premières tables métier complètes avec TemporalState,
+     SpecificationVersion et snapshot/version membership
 ```
 
 Le schéma JSON du spike E08 reste rejeté comme modèle de production.
 
-Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` est non bloquant à ce stade et devra être traité avant stabilisation runtime/CLI.
+Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` reste non bloquant et devra être traité avant stabilisation runtime/CLI.
 
 ## Identité
 
@@ -187,7 +192,7 @@ normalized delta != applied delta
 change structure != ChangeLifecycleState
 ```
 
-`CURRENT / PROPOSED / HISTORICAL`, versions complètes, promotion des deltas et lifecycle complet restent M3.
+`CURRENT / PROPOSED / HISTORICAL`, versions complètes, promotion des deltas, lifecycle complet et persistance métier versionnée appartiennent à M3.
 
 ## ExternalReference
 
@@ -198,8 +203,6 @@ resolver indisponible != panne MORPHEUS
 cible supprimée -> STALE, référence conservée
 historique de résolution conservé
 ```
-
-Aucune intégration MINOS/GitHub/Jira concrète n'est requise par le cœur.
 
 ## Distribution
 
@@ -229,13 +232,11 @@ Les choix concrets `jlink/jpackage`, format installateur, image de base Docker, 
 - [`../VALIDATION_C0.md`](../VALIDATION_C0.md)
 - [`../VALIDATION_M0.md`](../VALIDATION_M0.md)
 - [`../VALIDATION_M1.md`](../VALIDATION_M1.md)
-- `VALIDATION_M2.md` sera créée à M2-S8.
+- [`../VALIDATION_M2.md`](../VALIDATION_M2.md) — **M2 validée, M3 autorisée**.
 
 ---
 
 # Principe de validation
-
-Pour chaque slice :
 
 ```text
 1. documenter l'invariant / ADR
