@@ -3,6 +3,7 @@ package com.morpheus.provider.openspec;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.provider.ProviderCapability;
 import com.morpheus.domain.provider.ProviderProbeStatus;
+import com.morpheus.domain.source.SourceLocator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -22,6 +23,7 @@ class OpenSpecSpecificationProviderTest {
 
         assertEquals(ProviderProbeStatus.SUPPORTED, result.status());
         assertEquals("spec-driven", result.schema().orElseThrow());
+        assertEquals(SourceLocator.file("openspec/config.yaml"), result.sourceLocator().orElseThrow());
         assertTrue(result.capabilities().contains(ProviderCapability.DISCOVER_PROJECT));
         assertTrue(result.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS));
         assertTrue(result.capabilities().contains(ProviderCapability.READ_REQUIREMENTS));
@@ -39,6 +41,7 @@ class OpenSpecSpecificationProviderTest {
 
         assertEquals(ProviderProbeStatus.UNSUPPORTED, result.status());
         assertEquals("research-first", result.schema().orElseThrow());
+        assertEquals(SourceLocator.file("openspec/config.yaml"), result.sourceLocator().orElseThrow());
         assertTrue(result.diagnostics().stream()
                 .anyMatch(diagnostic -> diagnostic.code() == DiagnosticCode.UNSUPPORTED_PROVIDER_SCHEMA));
     }
@@ -48,6 +51,7 @@ class OpenSpecSpecificationProviderTest {
         var result = provider.probe(workspace);
 
         assertEquals(ProviderProbeStatus.UNSUPPORTED, result.status());
+        assertTrue(result.sourceLocator().isEmpty());
         assertTrue(result.capabilities().values().isEmpty());
         assertTrue(result.diagnostics().isEmpty());
     }
@@ -60,6 +64,7 @@ class OpenSpecSpecificationProviderTest {
         var result = provider.probe(workspace);
 
         assertEquals(ProviderProbeStatus.INVALID, result.status());
+        assertEquals(SourceLocator.file("openspec/config.yaml"), result.sourceLocator().orElseThrow());
         assertTrue(result.diagnostics().stream()
                 .anyMatch(diagnostic -> diagnostic.code() == DiagnosticCode.INVALID_SOURCE));
     }
