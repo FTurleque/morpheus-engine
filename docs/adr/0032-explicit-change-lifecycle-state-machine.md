@@ -1,6 +1,6 @@
 # ADR-0032 — Appliquer une machine d'état explicite au lifecycle des changements
 
-- Statut : **Proposée — validation M3-S2 requise**
+- Statut : **Acceptée — M3**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0006, ADR-0013, ADR-0024, ADR-0031
 - Portée : M3-S2, lifecycle métier des changements, validation de transitions
@@ -17,7 +17,7 @@ PROPOSED
 HISTORICAL
 ```
 
-M3-S2 doit maintenant matérialiser le lifecycle métier démontré par M0/E04b sans confondre :
+M3-S2 matérialise le lifecycle métier démontré par M0/E04b sans confondre :
 
 ```text
 progression du changement
@@ -26,7 +26,7 @@ progression du changement
 état de vérification
 ```
 
-## Décision proposée
+## Décision
 
 Introduire le cycle canonique :
 
@@ -265,3 +265,41 @@ ADR-0032 passe à **Acceptée — M3** lorsque le build complet démontre :
 10. `COMPLETED` et `ARCHIVED` ne modifient jamais `TemporalState` ;
 11. `ChangeProposal` et `ImplementationTask.completed` ne deviennent pas le lifecycle ;
 12. `.\mvnw.cmd clean test` est vert.
+
+## Preuve d'acceptation — 22 juillet 2026
+
+Gate exécuté sous Windows :
+
+```text
+.\mvnw.cmd clean test
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultats :
+
+```text
+ChangeLifecycleTest               4/4 PASS
+ChangeLifecycleStateMachineTest  12/12 PASS
+
+Domain                           13 tests
+Application                      54 tests
+OpenSpec provider                26 tests
+Synthetic provider                7 tests
+SQLite store                      6 tests
+Architecture tests               13 tests
+-----------------------------------------
+TOTAL                           119/119 PASS
+Failures                           0
+Errors                             0
+Skipped                            0
+BUILD SUCCESS
+```
+
+Les preuves E04b sont reproduites en Java : préconditions de spécification, design facultatif, bloqueurs d'implémentation, critères d'acceptation bloquants, retours arrière gouvernés, abandon avec raison, réouverture depuis `ABANDONED`, absence de réouverture implicite depuis `ARCHIVED` et séparation stricte du lifecycle avec `TemporalState`.
+
+Le test d'orthogonalité démontre explicitement qu'un changement peut être `COMPLETED` tandis que son occurrence reste `TemporalState.PROPOSED`. Une tâche `completed=true` ne modifie pas non plus le lifecycle du changement.
+
+Les warnings JDK 24 liés au chargement natif SQLite et l'absence de provider SLF4J dans les tests ArchUnit restent connus et non bloquants.
