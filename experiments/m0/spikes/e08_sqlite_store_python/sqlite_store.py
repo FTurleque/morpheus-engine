@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections import deque
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,21 @@ class SQLiteSpecificationKnowledgeStore:
                     payload_json TEXT,
                     failure_reason TEXT
                 );
+                CREATE TABLE IF NOT EXISTS trace_links (
+                    snapshot_id TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    relation TEXT NOT NULL,
+                    target TEXT NOT NULL,
+                    origin TEXT,
+                    resolution TEXT,
+                    evidence TEXT,
+                    PRIMARY KEY(snapshot_id, source, relation, target, origin, resolution, evidence),
+                    FOREIGN KEY(snapshot_id) REFERENCES snapshots(snapshot_id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_trace_source
+                    ON trace_links(snapshot_id, source);
+                CREATE INDEX IF NOT EXISTS idx_trace_target
+                    ON trace_links(snapshot_id, target);
                 CREATE TABLE IF NOT EXISTS meta (
                     key TEXT PRIMARY KEY,
                     value TEXT
@@ -106,6 +122,25 @@ class SQLiteSpecificationKnowledgeStore:
                     self._canonical(payload),
                 ),
             )
+            for link in payload.get("traceability", []):
+                self.connection.execute(
+                    """
+                    INSERT OR IGNORE INTO trace_links(
+                        snapshot_id, source, relation, target, origin, resolution, evidence
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        snapshot_id,
+                        link.get("source"),
+                        link.get("relation"),
+                        link.get("target"),
+                        link.get("origin"),
+                        link.get("resolution"),
+                        json.dumps(link.get("evidence"), sort_keys=True, ensure_ascii=False)
+                        if isinstance(link.get("evidence"), (dict, list))
+                        else link.get("evidence"),
+                    ),
+                )
         return snapshot_id
 
     def validate(self, snapshot_id: str) -> str:
@@ -220,6 +255,86 @@ class SQLiteSpecificationKnowledgeStore:
             if change.get("key") == change_key:
                 return change
         return None
+
+    def trace(
+        self,
+        start: str,
+        *,
+        max_depth: int = 3,
+        bidirectional: bool = True,
+    ) -> list[dict[str, Any]]:
+        active = self._active_id()
+        if active is None or max_depth <= 0:
+            return []
+
+        queue = deque([(start, 0, [start])])
+        visited = {start}
+        paths: list[dict[str, Any]] = []
+
+        while queue:
+            node, depth, path = queue.popleft()
+            if depth >= max_depth:
+                continue
+            rows = list(
+                self.connection.execute(
+                    """
+                    SELECT source, relation, target, origin, resolution, evidence, 0 AS inverse
+                    FROM trace_links WHERE snapshot_id=? AND source=?
+                    """,
+                    (active, node),
+                )
+            )
+            if bidirectional:
+                rows.extend(
+                    self.connection.execute(
+                        """
+                        SELECT target AS source, relation, source AS target,
+                               origin, resolution, evidence, 1 AS inverse
+                        FROM trace_links WHERE snapshot_id=? AND target=?
+                        """,
+                        (active, node),
+                    )
+                )
+
+            for row in rows:
+                target = row["target"]
+                new_path = [*path, target]
+                paths.append(
+                    {
+                        "depth": depth + 1,
+                        "path": new_path,
+                        "relation": row["relation"],
+                        "origin": row["origin"],
+                        "resolution": row["resolution"],
+                        "evidence": row["evidence"],
+                        "inverse": bool(row["inverse"]),
+                    }
+                )
+                if target not in visited:
+                    visited.add(target)
+                    queue.append((target, depth + 1, new_path))
+        return paths
+
+    def prune_retired(self, *, keep_recent: int = 1) -> list[str]:
+        if keep_recent < 0:
+            raise ValueError("keep_recent must be >= 0")
+        rows = list(
+            self.connection.execute(
+                "SELECT snapshot_id FROM snapshots WHERE status='RETIRED' ORDER BY snapshot_id DESC"
+            )
+        )
+        to_remove = [row["snapshot_id"] for row in rows[keep_recent:]]
+        if not to_remove:
+            return []
+        with self.connection:
+            for snapshot_id in to_remove:
+                self.connection.execute(
+                    "DELETE FROM trace_links WHERE snapshot_id=?", (snapshot_id,)
+                )
+                self.connection.execute(
+                    "DELETE FROM snapshots WHERE snapshot_id=?", (snapshot_id,)
+                )
+        return sorted(to_remove)
 
     def compare(self, left_id: str, right_id: str) -> dict[str, list[str]]:
         def reqs(snapshot_id: str) -> dict[str, dict[str, Any]]:
