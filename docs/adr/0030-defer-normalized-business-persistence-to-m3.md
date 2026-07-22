@@ -1,6 +1,6 @@
 # ADR-0030 — Introduire la persistance métier normalisée avec M3
 
-- Statut : **Proposée — validation M2-S8 requise**
+- Statut : **Acceptée — M2**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0003, ADR-0006, ADR-0012, ADR-0018, ADR-0021, ADR-0022, ADR-0023, ADR-0025
 - Portée : frontière M2/M3, schéma SQLite métier, snapshots et versions
@@ -34,7 +34,7 @@ schema_migrations
 
 ADR-0021 a volontairement différé les tables métier tant que les contrats n'étaient pas stabilisés.
 
-La question de sortie M2 est donc :
+La question de sortie M2 était donc :
 
 > Faut-il créer maintenant les tables métier normalisées, ou les introduire avec M3 lorsque `TemporalState`, `SpecificationVersion` et la projection par `KnowledgeSnapshot` deviennent des concepts de production complets ?
 
@@ -62,9 +62,9 @@ ADR-0012 impose un état de connaissance observable cohérent par snapshot, et d
 
 ### Coût de migration
 
-Créer aujourd'hui des tables métier sans leurs dimensions de version/snapshot conduirait vraisemblablement à une migration structurelle immédiate en M3.
+Créer des tables métier sans leurs dimensions de version/snapshot conduirait à une migration structurelle immédiate en M3.
 
-## Décision proposée
+## Décision
 
 **Ne pas créer de nouvelles tables métier dans M2.**
 
@@ -112,14 +112,14 @@ provenance / evidence
 
 ## Pourquoi pas en M2
 
-Créer ces tables maintenant obligerait soit :
+Créer ces tables en M2 obligerait soit :
 
 1. à stocker un contenu sans ownership temporel/versionné ;
 2. à inventer prématurément le modèle M3 ;
-3. à introduire une association snapshot provisoire qui serait immédiatement remplacée ;
+3. à introduire une association snapshot provisoire immédiatement remplacée ;
 4. à transformer le modèle M2 structurel en modèle de persistance définitif sans preuve de projection.
 
-Ces quatre options contredisent le principe :
+Ces options contredisent le principe :
 
 ```text
 Documenter d'abord
@@ -157,7 +157,7 @@ La stabilité d'identité entre deux ingestions reste donc conservée avant M3.
 
 ## Critères d'acceptation
 
-ADR-0030 passe à **Acceptée — M2** lorsque :
+ADR-0030 est acceptée lorsque :
 
 1. l'audit M2 confirme qu'aucune exigence de sortie n'impose la persistance complète des entités ;
 2. ADR-0012 confirme que snapshot/version membership appartient à la projection de connaissance ;
@@ -165,3 +165,34 @@ ADR-0030 passe à **Acceptée — M2** lorsque :
 4. `VALIDATION_M2.md` documente explicitement cette limite ;
 5. M3 inscrit la persistance métier versionnée dans son périmètre d'ouverture ;
 6. le gate complet M2 reste vert sans nouvelle table métier.
+
+## Preuve d'acceptation — 22 juillet 2026
+
+Gate final exécuté sur `m2/final-validation` :
+
+```text
+.\mvnw.cmd clean test
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultat :
+
+```text
+TOTAL      94/94 PASS
+Failures       0
+Errors         0
+Skipped        0
+BUILD SUCCESS
+```
+
+Le diff S8 ne modifie aucun fichier Java, POM ou migration SQL. La totalité des preuves M2 reste donc verte sans introduire de table métier prématurée.
+
+Décision finale :
+
+```text
+M2 : normalisation structurelle validée
+M3 : temporalité + versions + snapshots + premières tables métier versionnées
+```
