@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -147,6 +148,73 @@ class InMemorySpecificationKnowledgeStore:
             if change.get("key") == change_key:
                 return copy.deepcopy(change)
         return None
+
+    def trace(
+        self,
+        start: str,
+        *,
+        max_depth: int = 3,
+        bidirectional: bool = True,
+    ) -> list[dict[str, Any]]:
+        active = self.active_snapshot()
+        if active is None or active.payload is None or max_depth <= 0:
+            return []
+        links = active.payload.get("traceability", [])
+        queue = deque([(start, 0, [start])])
+        visited = {start}
+        paths: list[dict[str, Any]] = []
+
+        while queue:
+            node, depth, path = queue.popleft()
+            if depth >= max_depth:
+                continue
+            candidates: list[dict[str, Any]] = []
+            for link in links:
+                if link.get("source") == node:
+                    candidates.append(link)
+                elif bidirectional and link.get("target") == node:
+                    reversed_link = dict(link)
+                    reversed_link["source"] = node
+                    reversed_link["target"] = link.get("source")
+                    reversed_link["inverse"] = True
+                    candidates.append(reversed_link)
+
+            for link in candidates:
+                target = link.get("target")
+                if not target:
+                    continue
+                new_path = [*path, target]
+                paths.append(
+                    {
+                        "depth": depth + 1,
+                        "path": new_path,
+                        "relation": link.get("relation"),
+                        "origin": link.get("origin"),
+                        "resolution": link.get("resolution"),
+                        "evidence": link.get("evidence"),
+                        "inverse": bool(link.get("inverse")),
+                    }
+                )
+                if target not in visited:
+                    visited.add(target)
+                    queue.append((target, depth + 1, new_path))
+        return paths
+
+    def prune_retired(self, *, keep_recent: int = 1) -> list[str]:
+        if keep_recent < 0:
+            raise ValueError("keep_recent must be >= 0")
+        retired = [
+            snapshot
+            for snapshot in self._snapshots.values()
+            if snapshot.status == "RETIRED"
+        ]
+        retired.sort(key=lambda snapshot: snapshot.snapshot_id, reverse=True)
+        removed: list[str] = []
+        for snapshot in retired[keep_recent:]:
+            removed.append(snapshot.snapshot_id)
+            self._snapshots.pop(snapshot.snapshot_id, None)
+            self._fingerprints.pop(snapshot.fingerprint, None)
+        return sorted(removed)
 
     def compare(self, left_id: str, right_id: str) -> dict[str, list[str]]:
         left = self._snapshots[left_id].payload or {}
