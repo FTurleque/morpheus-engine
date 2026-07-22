@@ -1,6 +1,6 @@
 # ADR-0034 — Introduire une persistance métier versionnée par occurrence
 
-- Statut : **Proposée — validation M3-S4 requise**
+- Statut : **Acceptée — M3**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0012, ADR-0021, ADR-0022, ADR-0030, ADR-0031, ADR-0033
 - Portée : M3-S4, première persistance métier normalisée, ownership version/snapshot
@@ -20,7 +20,7 @@ EntityVersion<T>
 
 M3-S3 a stabilisé le lifecycle technique de `KnowledgeSnapshot` et l'activation atomique observable.
 
-Il manque maintenant le premier stockage durable du contenu métier lui-même. ADR-0030 impose que chaque occurrence persistée réponde explicitement à :
+Il manquait encore le premier stockage durable du contenu métier lui-même. ADR-0030 impose que chaque occurrence persistée réponde explicitement à :
 
 ```text
 quelle identité logique ?
@@ -30,7 +30,7 @@ quel KnowledgeSnapshot ?
 quel TemporalState ?
 ```
 
-## Décision proposée
+## Décision
 
 M3-S4 introduit un vertical slice complet sur `Requirement` plutôt que de créer prématurément toutes les tables métier.
 
@@ -89,7 +89,7 @@ snapshot -> bound SpecificationVersion
 
 ## Schéma SQLite
 
-Migration candidate `V004__versioned_requirement_persistence.sql` :
+Migration `V004__versioned_requirement_persistence.sql` :
 
 ```text
 specification_versions
@@ -167,7 +167,7 @@ currentRequirement(snapshotId, DomainIdentity)
 
 Donc un `PROPOSED` stocké dans le snapshot actif reste invisible dans la vue `CURRENT`.
 
-Après redémarrage SQLite, cette séparation doit rester identique.
+Après redémarrage SQLite, cette séparation reste identique.
 
 ## Idempotence et collisions
 
@@ -197,13 +197,47 @@ Le slice ne modifie pas les providers et ne rend pas SQLite visible depuis le do
 - payload JSON métier ;
 - ORM ou framework serveur.
 
-## Critères d'acceptation
+## Preuve d'acceptation — 23 juillet 2026
 
-ADR-0034 passe à **Acceptée — M3** lorsque le build complet démontre :
+Gate local Windows exécuté sur le head `b4a367d7e985471e178e5bed49065ecd971b65e6` :
 
-1. `SpecificationVersion` persistée et reconstructible ;
-2. binding snapshot/version explicite et cohérent avec le projet ;
-3. `RequirementVersionRecord` reconstructible à l'identique ;
+```text
+.\mvnw.cmd clean test
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultat :
+
+```text
+Domain                           13 tests
+Application                      54 tests
+OpenSpec provider                26 tests
+Synthetic provider                7 tests
+SQLite store                      7 tests
+Architecture tests               27 tests
+-----------------------------------------
+TOTAL                           134/134 PASS
+Failures                           0
+Errors                             0
+Skipped                            0
+BUILD SUCCESS
+```
+
+Preuves spécifiques :
+
+```text
+VersionedRequirementPersistenceTest  7/7 PASS
+SqliteSchemaMigrationTest            4/4 PASS
+```
+
+Les 13 critères d'acceptation sont démontrés :
+
+1. `SpecificationVersion` est persistée et reconstruite à l'identique ;
+2. le binding snapshot/version est explicite et cohérent avec le projet ;
+3. `RequirementVersionRecord` est reconstructible à l'identique ;
 4. Memory et SQLite respectent le même contrat ;
 5. plusieurs snapshots peuvent représenter la même `SpecificationVersion` ;
 6. deux `PROPOSED` concurrents de même identité sont permis ;
@@ -213,4 +247,13 @@ ADR-0034 passe à **Acceptée — M3** lorsque le build complet démontre :
 10. un `PROPOSED` ne fuit jamais dans la vue `CURRENT` ;
 11. fermeture/réouverture SQLite reconstruit le même état observable ;
 12. aucune payload JSON générique n'est ajoutée ;
-13. `./mvnw clean test` / `.\mvnw.cmd clean test` est vert.
+13. le Maven Wrapper complet est vert.
+
+Warnings connus non bloquants : Xerial/JDK24 native access et SLF4J NOP dans les tests ArchUnit.
+
+Décision finale :
+
+```text
+ADR-0034 = ACCEPTÉE — M3
+M3-S4    = VALIDÉ — 134/134
+```
