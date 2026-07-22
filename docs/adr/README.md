@@ -51,6 +51,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0031](0031-explicit-temporal-projection-and-entity-version.md) | Projection temporelle explicite sur occurrences versionnées | **Acceptée — M3** |
 | [ADR-0032](0032-explicit-change-lifecycle-state-machine.md) | Machine d'état explicite du lifecycle des changements | **Acceptée — M3** |
 | [ADR-0033](0033-knowledge-snapshot-lifecycle-and-atomic-activation.md) | Lifecycle complet des KnowledgeSnapshot et activation atomique | **Acceptée — M3** |
+| [ADR-0034](0034-versioned-requirement-persistence.md) | Première persistance métier versionnée sur `Requirement` | **Acceptée — M3** |
 
 ---
 
@@ -78,6 +79,7 @@ M2 est validée. La preuve de sortie est [`../VALIDATION_M2.md`](../VALIDATION_M
 | M3-S1 temporalité + versions | ADR-0031 | `103/103 PASS` |
 | M3-S2 lifecycle des changements | ADR-0032 | `119/119 PASS` |
 | M3-S3 KnowledgeSnapshot / activation atomique | ADR-0033 | `127/127 PASS` |
+| M3-S4 persistance métier versionnée | ADR-0034 | `134/134 PASS` |
 
 La vue opérationnelle M3 est [`../roadmap/M3_EXECUTION.md`](../roadmap/M3_EXECUTION.md).
 La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
@@ -86,63 +88,69 @@ La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roa
 
 # Contraintes actives principales
 
-## Frontière domaine et providers
+## Frontière domaine / providers / adapters
 
 ```text
 com.morpheus.domain      -X-> com.morpheus.provider..
 com.morpheus.application -X-> com.morpheus.provider..
 com.morpheus.domain      -X-> SQLite
 com.morpheus.domain      -X-> CLI/MCP/API adapters
-com.morpheus.domain      -X-> MINOS/GitHub/Jira clients
 ```
 
 OpenSpec et Synthetic dépendent vers l'intérieur de `domain + application` ; jamais l'inverse.
 
-## OpenSpec
+## Identité et temporalité
 
 ```text
-schema = spec-driven
-unknown schema -> UNSUPPORTED_PROVIDER_SCHEMA
-Scenario != AcceptanceCriterion
+DomainIdentity != EntityVersionId
+SpecificationVersion != KnowledgeSnapshot
+DomainIdentity != SourceLocator != ExternalReference
+CURRENT / PROPOSED / HISTORICAL explicites
+PROPOSED never leaks into CURRENT
+plusieurs PROPOSED concurrents restent permis
 ```
 
-## Lecture provider
+## Lifecycle métier
 
 ```text
-SpecificationProvider.probe() != SpecificationContentReader.read()
-empty collection != ambiguous success
+ChangeLifecycleState != TemporalState
+ChangeLifecycleState != KnowledgeSnapshotState
+COMPLETED != CURRENT
+ARCHIVED  != CURRENT
 ```
 
-Statuts :
+## KnowledgeSnapshot
 
 ```text
-READ
-ABSENT
-UNSUPPORTED
-FAILED
-PARTIAL
+BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
+                         \-> FAILED
 ```
 
-## Anti-lock-in
+Seul `ACTIVE` est observable comme snapshot courant. L'activation est atomique et un predecessor stale est rejeté.
+
+## Persistance métier versionnée
+
+M3-S4 introduit :
 
 ```text
-OpenSpec source  ─────┐
-                      ├──> SpecificationContentReader -> ProviderReadResult
-Synthetic JSON ───────┘
+specification_versions
+snapshot_specification_versions
+requirement_versions
 ```
 
-Garanties prouvées :
+Invariants :
 
 ```text
-même contrat applicatif
-même domaine MORPHEUS
-consumer sans branche provider-specific
-même ReadCategory vocabulary
-(providerId, entityType, externalId) namespace l'identité
-aucun type provider dans domain/application
+SpecificationVersion 1 <--- N KnowledgeSnapshot
+snapshot/version ownership explicite
+1 CURRENT max par (snapshot, DomainIdentity)
+N PROPOSED concurrents autorisés
+vue courante = ACTIVE snapshot + CURRENT
+reopen SQLite conserve la séparation CURRENT / PROPOSED
+aucune payload JSON générique
 ```
 
-Le provider synthétique est `verification-only`.
+Les autres familles métier doivent réutiliser ce pattern plutôt que créer une persistance non versionnée.
 
 ## Build
 
@@ -153,102 +161,11 @@ Windows : .\mvnw.cmd clean test
 Unix    : ./mvnw clean test
 ```
 
-Baseline :
-
-```text
-Maven 3.9.16
-Java source/bytecode release 21
-```
+Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
 GitHub Actions n'est pas une porte obligatoire.
 
-## SQLite et frontière M3
-
-Persisté après M2 :
-
-```text
-schema_migrations
-projects
-knowledge_snapshots metadata
-entity_identity_bindings
-```
-
-ADR-0030 fixe :
-
-```text
-M2 : identité + métadonnées persistantes
-M3 : premières tables métier complètes avec TemporalState,
-     SpecificationVersion et snapshot/version membership
-```
-
-M3-S3 complète le lifecycle technique de `knowledge_snapshots` sans migration SQL supplémentaire. Les tables métier versionnées restent M3-S4.
-
-Le schéma JSON du spike E08 reste rejeté comme modèle de production.
-
-Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` reste non bloquant et devra être traité avant stabilisation runtime/CLI.
-
-## Identité et temporalité
-
-```text
-DomainIdentity != EntityVersionId
-SpecificationVersion != KnowledgeSnapshot
-DomainIdentity != SourceLocator != ExternalReference
-externalId != DomainIdentity
-provider namespace fait partie de la résolution
-continuité d'identité explicite uniquement
-aucune fusion par titre/chemin/contenu
-```
-
-Projection M3 :
-
-```text
-CURRENT / PROPOSED / HISTORICAL explicites
-PROPOSED never leaks into CURRENT
-une DomainIdentity -> au plus une occurrence CURRENT par projection
-plusieurs PROPOSED concurrents restent permis
-```
-
-## Lifecycle des changements
-
-```text
-ChangeLifecycleState != TemporalState
-ChangeLifecycleState != KnowledgeSnapshotState
-ChangeLifecycleState != task checkbox
-COMPLETED != CURRENT
-ARCHIVED  != CURRENT
-```
-
-Le skip `SPECIFIED -> PLANNED` est conditionnel à `design_required=false` et à la présence d'un plan. Les retours arrière sont gouvernés par politique explicite. `ABANDONED` exige une raison structurée et peut revenir à `PROPOSED`; `ARCHIVED` n'est pas rouvert implicitement.
-
-## Lifecycle KnowledgeSnapshot
-
-```text
-BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
-                         \-> FAILED
-```
-
-Invariants :
-
-```text
-seul ACTIVE est observable comme snapshot courant
-un projet possède au plus un ACTIVE
-FAILED n'évince jamais l'ACTIVE existant
-predecessor stale -> SnapshotConflictException
-activation ACTIVE/RETIRED réservée à activateSnapshot
-transitionSnapshotState = CAS explicite
-```
-
-Memory et SQLite respectent le même contrat. L'activation SQLite reste transactionnelle et l'état `ACTIVE/RETIRED` survit à fermeture/réouverture.
-
-## ExternalReference
-
-```text
-ExternalReference peut exister sans resolver
-NO_RESOLVER est explicite
-resolver indisponible != panne MORPHEUS
-cible supprimée -> STALE, référence conservée
-historique de résolution conservé
-```
+Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` reste non bloquant et devra être traité avant stabilisation runtime/CLI. Le warning SLF4J NOP des tests ArchUnit reste également non bloquant.
 
 ## Distribution
 
@@ -257,19 +174,7 @@ Native-first
 Container-supported
 ```
 
-Règles :
-
-```text
-CLI locale sans Docker obligatoire
-runtime Java embarqué à prouver en M9
-MCP stdio natif privilégié
-Docker officiel pour headless/MCP réseau/API lorsque justifié
-workspace montable read-only
-données persistantes externalisées du conteneur
-même core dans tous les modes
-```
-
-Les choix concrets `jlink/jpackage`, format installateur, image de base Docker, framework HTTP et transport MCP restent à prouver aux jalons M9/M10/M11.
+CLI locale sans Docker obligatoire ; runtime Java embarqué à prouver en M9 ; Docker officiel pour les modes headless/MCP réseau/API lorsque justifié.
 
 ---
 
