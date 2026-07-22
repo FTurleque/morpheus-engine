@@ -67,6 +67,8 @@ class SpecificationKnowledgeStoreContractTest {
         KnowledgeSnapshotMetadata firstActive = store.activateSnapshot(first.id(), Optional.empty());
         assertEquals(KnowledgeSnapshotState.ACTIVE, firstActive.state());
         assertEquals(first.id(), store.activeSnapshot(projectId).orElseThrow().id());
+        store.putSnapshot(first);
+        assertEquals(KnowledgeSnapshotState.ACTIVE, store.findSnapshot(first.id()).orElseThrow().state());
 
         KnowledgeSnapshotMetadata second = readySnapshot(
                 projectId,
@@ -81,6 +83,8 @@ class SpecificationKnowledgeStoreContractTest {
         assertEquals(
                 KnowledgeSnapshotState.RETIRED,
                 store.findSnapshot(first.id()).orElseThrow().state());
+        store.putSnapshot(second);
+        assertEquals(KnowledgeSnapshotState.ACTIVE, store.findSnapshot(second.id()).orElseThrow().state());
 
         KnowledgeSnapshotMetadata replay = store.activateSnapshot(second.id(), Optional.of(first.id()));
         assertEquals(secondActive, replay);
