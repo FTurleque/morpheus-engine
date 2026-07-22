@@ -21,6 +21,9 @@
 @REM ----------------------------------------------------------------------------
 @REM Apache Maven Wrapper startup batch script, version 3.3.4
 @REM
+@REM MORPHEUS compatibility extension:
+@REM   resolve Windows PowerShell even when powershell.exe is missing from PATH.
+@REM
 @REM Optional ENV vars
 @REM   MVNW_REPOURL - repo url base for downloading maven distribution
 @REM   MVNW_USERNAME/MVNW_PASSWORD - user and password for downloading maven
@@ -30,13 +33,26 @@
 @IF "%__MVNW_ARG0_NAME__%"=="" (SET __MVNW_ARG0_NAME__=%~nx0)
 @SET __MVNW_CMD__=
 @SET __MVNW_ERROR__=
+@SET __MVNW_POWERSHELL__=
+@WHERE powershell.exe >NUL 2>NUL
+@IF NOT ERRORLEVEL 1 (SET "__MVNW_POWERSHELL__=powershell.exe")
+@IF "%__MVNW_POWERSHELL__%"=="" IF EXIST "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" (SET "__MVNW_POWERSHELL__=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")
+@IF "%__MVNW_POWERSHELL__%"=="" (
+  @WHERE pwsh.exe >NUL 2>NUL
+  @IF NOT ERRORLEVEL 1 (SET "__MVNW_POWERSHELL__=pwsh.exe")
+)
+@IF "%__MVNW_POWERSHELL__%"=="" (
+  @echo Cannot locate Windows PowerShell or PowerShell 7 required by Maven Wrapper >&2
+  @exit /b 1
+)
 @SET __MVNW_PSMODULEP_SAVE=%PSModulePath%
 @SET PSModulePath=
-@FOR /F "usebackq tokens=1* delims==" %%A IN (`powershell -noprofile "& {$scriptDir='%~dp0'; $script='%__MVNW_ARG0_NAME__%'; icm -ScriptBlock ([Scriptblock]::Create((Get-Content -Raw '%~f0'))) -NoNewScope}"`) DO @(
+@FOR /F "usebackq tokens=1* delims==" %%A IN (`"%__MVNW_POWERSHELL__%" -noprofile "& {$scriptDir='%~dp0'; $script='%__MVNW_ARG0_NAME__%'; icm -ScriptBlock ([Scriptblock]::Create((Get-Content -Raw '%~f0'))) -NoNewScope}"`) DO @(
   IF "%%A"=="MVN_CMD" (set __MVNW_CMD__=%%B) ELSE IF "%%B"=="" (echo %%A) ELSE (echo %%A=%%B)
 )
 @SET PSModulePath=%__MVNW_PSMODULEP_SAVE%
 @SET __MVNW_PSMODULEP_SAVE=
+@SET __MVNW_POWERSHELL__=
 @SET __MVNW_ARG0_NAME__=
 @SET MVNW_USERNAME=
 @SET MVNW_PASSWORD=
