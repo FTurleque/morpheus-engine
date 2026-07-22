@@ -292,11 +292,12 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
                     return Optional.empty();
                 }
                 long sequence = result.getLong("sequence");
+                boolean sequenceWasNull = result.wasNull();
                 String predecessor = result.getString("predecessor_id");
                 return Optional.of(new SpecificationVersion(
                         versionId,
                         ProjectSpecificationId.parse(result.getString("project_id")),
-                        result.wasNull() ? Optional.empty() : Optional.of(sequence),
+                        sequenceWasNull ? Optional.empty() : Optional.of(sequence),
                         Optional.ofNullable(result.getString("provider_version")),
                         Optional.ofNullable(result.getString("source_revision")),
                         Instant.parse(result.getString("created_at")),
