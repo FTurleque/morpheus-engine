@@ -50,6 +50,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0030](0030-defer-normalized-business-persistence-to-m3.md) | Persistance métier complète introduite avec versions/snapshots M3 | **Acceptée — M2** |
 | [ADR-0031](0031-explicit-temporal-projection-and-entity-version.md) | Projection temporelle explicite sur occurrences versionnées | **Acceptée — M3** |
 | [ADR-0032](0032-explicit-change-lifecycle-state-machine.md) | Machine d'état explicite du lifecycle des changements | **Acceptée — M3** |
+| [ADR-0033](0033-knowledge-snapshot-lifecycle-and-atomic-activation.md) | Lifecycle complet des KnowledgeSnapshot et activation atomique | **Acceptée — M3** |
 
 ---
 
@@ -76,6 +77,7 @@ M2 est validée. La preuve de sortie est [`../VALIDATION_M2.md`](../VALIDATION_M
 |---|---|---|
 | M3-S1 temporalité + versions | ADR-0031 | `103/103 PASS` |
 | M3-S2 lifecycle des changements | ADR-0032 | `119/119 PASS` |
+| M3-S3 KnowledgeSnapshot / activation atomique | ADR-0033 | `127/127 PASS` |
 
 La vue opérationnelle M3 est [`../roadmap/M3_EXECUTION.md`](../roadmap/M3_EXECUTION.md).
 La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
@@ -179,6 +181,8 @@ M3 : premières tables métier complètes avec TemporalState,
      SpecificationVersion et snapshot/version membership
 ```
 
+M3-S3 complète le lifecycle technique de `knowledge_snapshots` sans migration SQL supplémentaire. Les tables métier versionnées restent M3-S4.
+
 Le schéma JSON du spike E08 reste rejeté comme modèle de production.
 
 Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` reste non bloquant et devra être traité avant stabilisation runtime/CLI.
@@ -215,6 +219,26 @@ ARCHIVED  != CURRENT
 ```
 
 Le skip `SPECIFIED -> PLANNED` est conditionnel à `design_required=false` et à la présence d'un plan. Les retours arrière sont gouvernés par politique explicite. `ABANDONED` exige une raison structurée et peut revenir à `PROPOSED`; `ARCHIVED` n'est pas rouvert implicitement.
+
+## Lifecycle KnowledgeSnapshot
+
+```text
+BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
+                         \-> FAILED
+```
+
+Invariants :
+
+```text
+seul ACTIVE est observable comme snapshot courant
+un projet possède au plus un ACTIVE
+FAILED n'évince jamais l'ACTIVE existant
+predecessor stale -> SnapshotConflictException
+activation ACTIVE/RETIRED réservée à activateSnapshot
+transitionSnapshotState = CAS explicite
+```
+
+Memory et SQLite respectent le même contrat. L'activation SQLite reste transactionnelle et l'état `ACTIVE/RETIRED` survit à fermeture/réouverture.
 
 ## ExternalReference
 
