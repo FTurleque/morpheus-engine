@@ -47,7 +47,8 @@ public final class PersistentEntityIdentityResolver implements EntityIdentityRes
         EntityIdentityKey newKey = new EntityIdentityKey(providerId, entityType, newExternalId);
 
         DomainIdentity identity = store.find(previousKey)
-                .orElseGet(() -> resolve(providerId, entityType, previousExternalId));
+                .orElseThrow(() -> new IdentityContinuityException(
+                        "previous external identity is not known and cannot prove continuity: " + previousKey));
 
         Optional<DomainIdentity> existingNew = store.find(newKey);
         if (existingNew.isPresent()) {
