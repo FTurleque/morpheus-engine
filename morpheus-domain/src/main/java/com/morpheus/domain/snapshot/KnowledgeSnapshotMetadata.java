@@ -35,4 +35,14 @@ public record KnowledgeSnapshotMetadata(
                 sourceRevision,
                 createdAt);
     }
+
+    /** Lifecycle state may evolve while the immutable snapshot definition remains the same. */
+    public boolean sameDefinitionAs(KnowledgeSnapshotMetadata other) {
+        Objects.requireNonNull(other, "other");
+        return id.equals(other.id)
+                && projectId.equals(other.projectId)
+                && predecessorId.equals(other.predecessorId)
+                && sourceRevision.equals(other.sourceRevision)
+                && createdAt.equals(other.createdAt);
+    }
 }
