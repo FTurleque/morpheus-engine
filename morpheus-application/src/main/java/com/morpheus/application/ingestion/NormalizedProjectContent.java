@@ -11,6 +11,8 @@ import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.requirement.Requirement;
+import com.morpheus.domain.requirement.RequirementDelta;
+import com.morpheus.domain.requirement.RequirementDeltaId;
 import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.specification.Specification;
@@ -30,6 +32,7 @@ public record NormalizedProjectContent(
         List<Requirement> requirements,
         List<Scenario> scenarios,
         List<ChangeProposal> changes,
+        List<RequirementDelta> requirementDeltas,
         List<Constraint> constraints,
         List<DesignDecision> designDecisions,
         List<ImplementationTask> tasks,
@@ -43,7 +46,21 @@ public record NormalizedProjectContent(
             List<Scenario> scenarios,
             List<Evidence> evidence,
             List<Diagnostic> diagnostics) {
-        this(project, specifications, requirements, scenarios, List.of(), List.of(), List.of(), List.of(), evidence, diagnostics);
+        this(project, specifications, requirements, scenarios, List.of(), List.of(), List.of(), List.of(), List.of(), evidence, diagnostics);
+    }
+
+    public NormalizedProjectContent(
+            ProjectSpecification project,
+            List<Specification> specifications,
+            List<Requirement> requirements,
+            List<Scenario> scenarios,
+            List<ChangeProposal> changes,
+            List<Constraint> constraints,
+            List<DesignDecision> designDecisions,
+            List<ImplementationTask> tasks,
+            List<Evidence> evidence,
+            List<Diagnostic> diagnostics) {
+        this(project, specifications, requirements, scenarios, changes, List.of(), constraints, designDecisions, tasks, evidence, diagnostics);
     }
 
     public NormalizedProjectContent {
@@ -52,6 +69,7 @@ public record NormalizedProjectContent(
         requirements = List.copyOf(Objects.requireNonNull(requirements, "requirements"));
         scenarios = List.copyOf(Objects.requireNonNull(scenarios, "scenarios"));
         changes = List.copyOf(Objects.requireNonNull(changes, "changes"));
+        requirementDeltas = List.copyOf(Objects.requireNonNull(requirementDeltas, "requirementDeltas"));
         constraints = List.copyOf(Objects.requireNonNull(constraints, "constraints"));
         designDecisions = List.copyOf(Objects.requireNonNull(designDecisions, "designDecisions"));
         tasks = List.copyOf(Objects.requireNonNull(tasks, "tasks"));
@@ -94,6 +112,14 @@ public record NormalizedProjectContent(
             }
         }
 
+        Set<RequirementDeltaId> requirementDeltaIds = new HashSet<>();
+        for (RequirementDelta delta : requirementDeltas) {
+            requireKnownChange(delta.changeId(), changeIds, "requirement delta", delta.id());
+            if (!requirementDeltaIds.add(delta.id())) {
+                throw new IllegalArgumentException("duplicate requirement delta identity: " + delta.id());
+            }
+        }
+
         Set<ConstraintId> constraintIds = new HashSet<>();
         for (Constraint constraint : constraints) {
             requireKnownChange(constraint.changeId(), changeIds, "constraint", constraint.id());
@@ -129,6 +155,10 @@ public record NormalizedProjectContent(
         requirements.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         scenarios.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         changes.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
+        requirementDeltas.forEach(item -> {
+            requireEvidence(item.provenance().evidenceId(), evidenceIds);
+            item.scenarios().forEach(scenario -> requireEvidence(scenario.provenance().evidenceId(), evidenceIds));
+        });
         constraints.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         designDecisions.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         tasks.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));

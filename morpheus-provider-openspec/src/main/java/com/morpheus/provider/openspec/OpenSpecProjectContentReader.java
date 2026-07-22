@@ -14,16 +14,28 @@ import java.util.Objects;
 public final class OpenSpecProjectContentReader {
     private final OpenSpecCurrentSpecificationReader currentReader;
     private final OpenSpecChangeMetadataReader changeReader;
+    private final OpenSpecRequirementDeltaReader requirementDeltaReader;
 
     public OpenSpecProjectContentReader() {
-        this(new OpenSpecCurrentSpecificationReader(), new OpenSpecChangeMetadataReader());
+        this(
+                new OpenSpecCurrentSpecificationReader(),
+                new OpenSpecChangeMetadataReader(),
+                new OpenSpecRequirementDeltaReader());
     }
 
     OpenSpecProjectContentReader(
             OpenSpecCurrentSpecificationReader currentReader,
             OpenSpecChangeMetadataReader changeReader) {
+        this(currentReader, changeReader, new OpenSpecRequirementDeltaReader());
+    }
+
+    OpenSpecProjectContentReader(
+            OpenSpecCurrentSpecificationReader currentReader,
+            OpenSpecChangeMetadataReader changeReader,
+            OpenSpecRequirementDeltaReader requirementDeltaReader) {
         this.currentReader = Objects.requireNonNull(currentReader, "currentReader");
         this.changeReader = Objects.requireNonNull(changeReader, "changeReader");
+        this.requirementDeltaReader = Objects.requireNonNull(requirementDeltaReader, "requirementDeltaReader");
     }
 
     public NormalizedProjectContent read(
@@ -32,6 +44,7 @@ public final class OpenSpecProjectContentReader {
             EntityIdentityResolver identityResolver) {
         var current = currentReader.read(workspaceRoot, projectId, identityResolver);
         var changes = changeReader.read(workspaceRoot, projectId, identityResolver);
+        var deltas = requirementDeltaReader.read(workspaceRoot, identityResolver);
 
         if (!current.project().equals(changes.project())) {
             throw new IllegalStateException("OpenSpec readers produced inconsistent project descriptors");
@@ -39,10 +52,12 @@ public final class OpenSpecProjectContentReader {
 
         var evidence = new ArrayList<>(current.evidence());
         evidence.addAll(changes.evidence());
+        evidence.addAll(deltas.evidence());
 
         List<Diagnostic> diagnostics = new ArrayList<>();
         diagnostics.addAll(current.diagnostics());
         changes.diagnostics().stream().filter(item -> !diagnostics.contains(item)).forEach(diagnostics::add);
+        deltas.diagnostics().stream().filter(item -> !diagnostics.contains(item)).forEach(diagnostics::add);
 
         return new NormalizedProjectContent(
                 current.project(),
@@ -50,6 +65,7 @@ public final class OpenSpecProjectContentReader {
                 current.requirements(),
                 current.scenarios(),
                 changes.changes(),
+                deltas.requirementDeltas(),
                 changes.constraints(),
                 changes.designDecisions(),
                 changes.tasks(),
