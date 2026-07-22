@@ -1,6 +1,6 @@
 # M3 — Plan d'exécution détaillé
 
-Statut : **M3 actif — S1 en cours**
+Statut : **M3 actif — 1 slice validé sur 6 ; S2 prochain**
 
 Dernière mise à jour : 22 juillet 2026
 
@@ -16,8 +16,8 @@ M0     ✅ validé
 M1     ✅ validé
 M2     ✅ validé — 8/8 — 94/94
 M3     🚧 actif
-  S1   🚧 TemporalState + SpecificationVersion
-  S2   ⬜ ChangeLifecycleState
+  S1   ✅ TemporalState + SpecificationVersion — PR #21 — ADR-0031 — 103/103
+  S2   🚧 ChangeLifecycleState — prochain
   S3   ⬜ KnowledgeSnapshot complet
   S4   ⬜ persistance métier versionnée
   S5   ⬜ application / promotion des deltas
@@ -28,8 +28,10 @@ M4     ⏳ bloqué par M3
 Progression de pilotage :
 
 ```text
-M3 : [███░░░░░░░░░░░░░░░░░] 0 / 6 slices validés ; S1 actif
+M3 : [███░░░░░░░░░░░░░░░░░] 1 / 6 slices validés
 ```
+
+Cette barre mesure les slices validés, pas une estimation de charge.
 
 ---
 
@@ -55,13 +57,9 @@ redémarrage du store
 
 ---
 
-# 3. NOW — M3-S1
+# 3. M3-S1 — VALIDÉ : TemporalState et SpecificationVersion
 
-## Objectif
-
-Introduire la projection temporelle sans contaminer le contenu normalisé M2.
-
-Architecture :
+## Architecture retenue
 
 ```text
 normalized content M2
@@ -84,7 +82,7 @@ PROPOSED
 HISTORICAL
 ```
 
-Invariants :
+Invariants validés :
 
 ```text
 DomainIdentity != EntityVersionId
@@ -94,7 +92,7 @@ PROPOSED never leaks into CURRENT
 technical reingestion != implicit business version
 ```
 
-Oracle principal :
+Oracle principal validé :
 
 ```text
 same logical requirement
@@ -104,6 +102,14 @@ same logical requirement
 
 CURRENT view => 30 minutes only
 ```
+
+Unicité observable :
+
+```text
+une DomainIdentity -> au plus une occurrence CURRENT
+```
+
+Plusieurs propositions concurrentes restent autorisées.
 
 Livrables :
 
@@ -115,22 +121,23 @@ EntityVersion<T>
 SpecificationVersion
 TemporalProjection<T>
 ADR-0031
-tests domaine + application
 ```
 
-Gate attendu depuis baseline M2 :
+Preuve :
 
 ```text
-94 tests M2
-+ 5 TemporalVersioningTest
-+ 4 TemporalProjectionTest
---------------------------------
-103 tests attendus
+TemporalVersioningTest  5/5 PASS
+TemporalProjectionTest  4/4 PASS
+TOTAL                  103/103 PASS
+Failures                 0
+Errors                   0
+Skipped                  0
+BUILD SUCCESS
 ```
 
 ---
 
-# 4. NEXT — M3-S2 ChangeLifecycleState
+# 4. NOW — M3-S2 ChangeLifecycleState
 
 Cycle canonique :
 
@@ -147,14 +154,41 @@ ARCHIVED
 ABANDONED
 ```
 
-Preuves :
+Objectif :
+
+> Représenter le cycle métier d'un `ChangeProposal` comme une machine d'état explicite et indépendante de `TemporalState` et de l'état technique des snapshots.
+
+Preuves à obtenir :
 
 - transitions autorisées et interdites ;
 - `SPECIFIED -> PLANNED` seulement si `design_required=false` ;
-- transitions backward selon politique explicite ;
+- `SPECIFIED -> DESIGNED` lorsque le design est requis ;
+- transitions backward uniquement selon politique explicite ;
 - `COMPLETED != CURRENT` ;
-- `ARCHIVED != promotion` ;
-- lifecycle distinct de `TemporalState` et de `KnowledgeSnapshotState`.
+- `ARCHIVED != promotion CURRENT` ;
+- `ChangeLifecycleState != TemporalState` ;
+- `ChangeLifecycleState != KnowledgeSnapshotState` ;
+- l'état d'une checkbox de tâche ne devient jamais le lifecycle du changement.
+
+Frontière :
+
+```text
+ChangeProposal content M2
+        ↓
+lifecycle occurrence / state machine
+
+pas de TemporalState implicite
+pas de promotion de delta
+pas de snapshot activation
+```
+
+ADR de slice : à documenter avant implémentation.
+
+Baseline gate :
+
+```text
+103 tests
+```
 
 ---
 
@@ -290,11 +324,13 @@ historical query semantics
 
 | Condition | État | Slice |
 |---|---|---|
-| TemporalState explicite | 🚧 | S1 |
-| EntityVersion distinct de DomainIdentity | 🚧 | S1 |
-| SpecificationVersion | 🚧 | S1 |
-| CURRENT view sans fuite PROPOSED | 🚧 | S1 |
-| ChangeLifecycleState complet | ⬜ | S2 |
+| TemporalState explicite | ✅ | S1 |
+| EntityVersion distinct de DomainIdentity | ✅ | S1 |
+| SpecificationVersion | ✅ | S1 |
+| CURRENT view sans fuite PROPOSED | ✅ | S1 |
+| plusieurs PROPOSED concurrents conservés | ✅ | S1 |
+| unicité CURRENT par identité dans une projection | ✅ | S1 |
+| ChangeLifecycleState complet | 🚧 | S2 |
 | KnowledgeSnapshot complet | ⬜ | S3 |
 | activation atomique observable | ⬜ | S3 |
 | persistance métier versionnée | ⬜ | S4 |
@@ -324,7 +360,7 @@ Après chaque gate vert :
 ```text
 1. inscrire la preuve exacte dans l'ADR
 2. mettre la PR Ready
-3. merger
+3. merger seulement après signal explicite de poursuite
 4. mettre à jour issue #20
 5. avancer NOW vers le slice suivant
 6. mettre à jour la checklist bloquante M4
