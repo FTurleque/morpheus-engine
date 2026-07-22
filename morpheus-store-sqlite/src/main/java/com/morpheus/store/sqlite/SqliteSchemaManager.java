@@ -21,9 +21,14 @@ final class SqliteSchemaManager {
             new Migration(1, "foundation", "/db/migration/V001__foundation.sql"));
 
     void migrate(Connection connection) {
-        boolean previousAutoCommit;
+        final boolean previousAutoCommit;
         try {
             previousAutoCommit = connection.getAutoCommit();
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot inspect SQLite auto-commit mode", exception);
+        }
+
+        try {
             connection.setAutoCommit(false);
             createMigrationLedger(connection);
 
@@ -32,10 +37,14 @@ final class SqliteSchemaManager {
             }
 
             connection.commit();
-            connection.setAutoCommit(previousAutoCommit);
         } catch (SQLException exception) {
             rollbackQuietly(connection);
             throw new KnowledgeStoreException("SQLite schema migration failed", exception);
+        } catch (RuntimeException exception) {
+            rollbackQuietly(connection);
+            throw exception;
+        } finally {
+            restoreAutoCommit(connection, previousAutoCommit);
         }
     }
 
@@ -135,6 +144,14 @@ final class SqliteSchemaManager {
             connection.rollback();
         } catch (SQLException ignored) {
             // Preserve the original migration error.
+        }
+    }
+
+    private void restoreAutoCommit(Connection connection, boolean autoCommit) {
+        try {
+            connection.setAutoCommit(autoCommit);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode after migration", exception);
         }
     }
 
