@@ -11,6 +11,9 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.requirement.Requirement;
+import com.morpheus.domain.requirement.RequirementDelta;
+import com.morpheus.domain.requirement.RequirementDeltaId;
+import com.morpheus.domain.requirement.RequirementDeltaKind;
 import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.specification.Specification;
@@ -129,6 +132,60 @@ class NormalizedProjectContentTest {
                 List.of(),
                 List.of(fixture.evidence),
                 List.of()));
+    }
+
+    @Test
+    void acceptsModifiedDeltaSharingLogicalRequirementIdentityWithCurrentBaseline() {
+        Fixture fixture = fixture();
+        ChangeProposal change = change(fixture);
+        RequirementDelta delta = delta(fixture, change.id(), fixture.requirement.id());
+
+        assertDoesNotThrow(() -> new NormalizedProjectContent(
+                fixture.project,
+                List.of(fixture.specification),
+                List.of(fixture.requirement),
+                List.of(),
+                List.of(change),
+                List.of(delta),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(fixture.evidence),
+                List.of()));
+    }
+
+    @Test
+    void rejectsRequirementDeltaReferencingUnknownChange() {
+        Fixture fixture = fixture();
+        ChangeProposal change = change(fixture);
+        RequirementDelta delta = delta(fixture, ChangeId.generate(), fixture.requirement.id());
+
+        assertThrows(IllegalArgumentException.class, () -> new NormalizedProjectContent(
+                fixture.project,
+                List.of(fixture.specification),
+                List.of(fixture.requirement),
+                List.of(),
+                List.of(change),
+                List.of(delta),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(fixture.evidence),
+                List.of()));
+    }
+
+    private RequirementDelta delta(Fixture fixture, ChangeId changeId, RequirementId requirementId) {
+        return new RequirementDelta(
+                RequirementDeltaId.generate(),
+                changeId,
+                RequirementDeltaKind.MODIFIED,
+                fixture.specification.key(),
+                requirementId,
+                fixture.requirement.key(),
+                fixture.requirement.title(),
+                Optional.of("The system SHALL preserve remember-me sessions when explicitly requested."),
+                List.of(),
+                fixture.provenance);
     }
 
     private ChangeProposal change(Fixture fixture) {
