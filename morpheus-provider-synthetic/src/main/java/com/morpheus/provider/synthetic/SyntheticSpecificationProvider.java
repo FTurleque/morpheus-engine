@@ -75,7 +75,7 @@ public final class SyntheticSpecificationProvider implements SpecificationProvid
                     PROVIDER_VERSION,
                     ProviderProbeStatus.SUPPORTED,
                     Optional.of(SCHEMA),
-                    Optional.of(formatVersion.toString()),
+                    Optional.of(formatVersion(formatVersion)),
                     Optional.of(SourceLocator.file(SOURCE_FILE)),
                     CAPABILITIES,
                     false,
@@ -83,6 +83,15 @@ public final class SyntheticSpecificationProvider implements SpecificationProvid
         } catch (IOException | IllegalArgumentException exception) {
             return invalid(source, "Synthetic source cannot be parsed: " + exception.getMessage());
         }
+    }
+
+    private String formatVersion(Object value) {
+        if (value instanceof Number number) {
+            double decimal = number.doubleValue();
+            long integer = number.longValue();
+            return decimal == integer ? Long.toString(integer) : number.toString();
+        }
+        return value.toString();
     }
 
     private ProviderProbeResult invalid(Path source, String message) {
