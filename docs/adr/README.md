@@ -39,6 +39,7 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0017](0017-maven-build-foundation.md) | Maven 3.9.16 + Maven Wrapper, `release=21` | **Acceptée avec contraintes — M0/M1** |
 | [ADR-0018](0018-sqlite-initial-persistent-store.md) | SQLite comme backend persistant initial derrière le port | **Acceptée avec contraintes — M0** |
 | [ADR-0019](0019-maven-coordinates-java-namespace.md) | `io.github.fturleque` + namespace Java `com.morpheus.*` | **Acceptée — bootstrap M1** |
+| [ADR-0020](0020-workspace-root-resolution.md) | Discovery explicit-first avec fallback Git structurel sans dépendance au binaire Git | **Proposée — validation M1** |
 
 La décision de sortie C0 est consignée dans [`../VALIDATION_C0.md`](../VALIDATION_C0.md).
 
@@ -115,6 +116,21 @@ Java namespace = com.morpheus
 ```
 
 Le test ArchUnit du bootstrap démontre les dépendances dirigées vers l'intérieur.
+
+### ADR-0020
+
+La discovery M1 doit démontrer avant acceptation :
+
+```text
+explicit path first
+Git ancestor fallback only when needed
+no git binary dependency
+non-Git workspace support
+provider-neutral source locator
+recognized invalid source is never masked by fallback
+```
+
+Le comportement spécifique aux symlinks/junctions reste différé tant qu'un cas réel ne justifie pas une canonicalisation physique.
 
 ---
 
