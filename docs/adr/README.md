@@ -38,6 +38,7 @@ Une ADR proposée ne devient pas automatiquement une décision définitive parce
 | [ADR-0016](0016-java-21-production-baseline.md) | Java avec source/bytecode baseline 21 | **Acceptée — M0** |
 | [ADR-0017](0017-maven-build-foundation.md) | Maven 3.9.16 + Maven Wrapper, `release=21` | **Acceptée avec contraintes — M0** |
 | [ADR-0018](0018-sqlite-initial-persistent-store.md) | SQLite comme backend persistant initial derrière le port | **Acceptée avec contraintes — M0** |
+| [ADR-0019](0019-maven-coordinates-java-namespace.md) | `io.github.fturleque` + namespace Java `com.morpheus.*` | **Proposée — bootstrap M1** |
 
 La décision de sortie C0 est consignée dans [`../VALIDATION_C0.md`](../VALIDATION_C0.md).
 
@@ -98,6 +99,18 @@ SQLite reste caché derrière `SpecificationKnowledgeStore`.
 Le schéma JSON du spike E08 est **rejeté** comme schéma de production.
 
 Le bootstrap M1 doit créer un schéma versionné/migrable et vérifier le driver sous Windows.
+
+### ADR-0019
+
+Le bootstrap M1 doit trancher définitivement les coordonnées avant la création de classes durables :
+
+```text
+groupId = io.github.fturleque
+artifact prefix = morpheus-
+Java namespace = com.morpheus
+```
+
+et prouver les dépendances dirigées vers l'intérieur.
 
 ---
 
