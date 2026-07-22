@@ -1,6 +1,6 @@
 # ADR-0023 — Persister les identités d'entités par clé externe provider-scoped
 
-- Statut : **Proposée — validation M2 requise**
+- Statut : **Acceptée — M2**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001, ADR-0009, ADR-0015, ADR-0021, ADR-0022
 - Portée : résolution d'identité M2, ingestion, persistance locale
@@ -35,7 +35,7 @@ Trois approches seraient dangereuses :
 
 Elles rendraient les références instables et feraient dépendre l'identité MORPHEUS de conventions provider ou de heuristiques non prouvées.
 
-## 3. Décision proposée
+## 3. Décision
 
 Introduire une clé provider-scoped :
 
@@ -81,7 +81,7 @@ La continuité doit être déclarée :
 continueIdentity(providerId, entityType, previousExternalId, newExternalId)
 ```
 
-Cette opération crée un nouvel alias vers le même `DomainIdentity`.
+Cette opération crée un nouvel alias vers le même `DomainIdentity`, uniquement si l'ancien external ID possède déjà un binding connu.
 
 Plusieurs external IDs peuvent donc légitimement pointer vers la même identité MORPHEUS.
 
@@ -211,3 +211,33 @@ ADR-0023 passe à **Acceptée — M2** lorsque le build complet démontre :
 8. le reader OpenSpec retrouve les mêmes identités après réouverture SQLite ;
 9. migration V3 appliquée et rejouable avec checksum immuable ;
 10. `./mvnw clean test` / `.\mvnw.cmd clean test` est vert.
+
+## 11. Preuve d'acceptation — 22 juillet 2026
+
+Gate exécuté sous Windows :
+
+```text
+.\mvnw.cmd clean test
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultats :
+
+```text
+48 tests précédents                            PASS
+PersistentEntityIdentityResolverTest       5/5 PASS
+EntityIdentityStoreContractTest            3/3 PASS
+SqliteEntityIdentityStoreTest              1/1 PASS
+PersistentIdentityOpenSpecIntegrationTest  1/1 PASS
+
+TOTAL                                      58/58 PASS
+Failures                                       0
+Errors                                         0
+BUILD SUCCESS
+```
+
+La migration SQLite V3 est appliquée, le binding survit à une réouverture de la base et le reader OpenSpec retrouve les mêmes identités de `Specification`, `Requirement`, `Scenario` et `Evidence` après redémarrage du resolver.
+
+Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` du driver SQLite reste non bloquant et relève de la stratégie runtime/packaging.
