@@ -1,6 +1,6 @@
 # ADR-0025 — Normaliser les deltas de requirements sans projeter l'état temporel
 
-- Statut : **Proposée — validation M2 requise**
+- Statut : **Acceptée — M2**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001, ADR-0006, ADR-0009, ADR-0022, ADR-0023, ADR-0024
 - Portée : modèle M2, deltas OpenSpec, identité logique des requirements
@@ -37,7 +37,7 @@ M2 doit normaliser `ADDED / MODIFIED / REMOVED` sans :
 4. confondre l'identité logique du requirement avec l'identité de l'occurrence de delta ;
 5. créer dès maintenant les relations de traçabilité `AFFECTS` de M4.
 
-## 3. Décision proposée
+## 3. Décision
 
 Introduire :
 
@@ -241,3 +241,34 @@ ADR-0025 passe à **Acceptée — M2** lorsque le build complet démontre :
 9. le reader agrégé conserve 2 requirements courants + 3 deltas séparés ;
 10. aucun `TemporalState`, application de delta ou relation `AFFECTS` n'est introduit ;
 11. `.\mvnw.cmd clean test` est vert.
+
+## 13. Preuve d'acceptation — 22 juillet 2026
+
+Gate exécuté sous Windows :
+
+```text
+.\mvnw.cmd clean test
+Windows 10 x64
+Apache Maven 3.9.16
+JDK 24.0.1
+javac release 21
+```
+
+Résultats :
+
+```text
+NormalizedProjectContentTest          7/7 PASS
+OpenSpecRequirementDeltaReaderTest    4/4 PASS
+OpenSpecProjectContentReaderTest      1/1 PASS
+
+TOTAL                                70/70 PASS
+Failures                                 0
+Errors                                   0
+BUILD SUCCESS
+```
+
+La fixture `openspec-basic` produit exactement 3 deltas : `1 MODIFIED`, `2 ADDED`, `0 REMOVED`, avec 5 scénarios de delta et 8 evidences. Un test dédié couvre `REMOVED` sans statement et confirme qu'aucun contenu absent n'est inventé.
+
+Le `MODIFIED auth-session/session-expiration` partage le même `RequirementId` que la baseline courante, tandis que `RequirementDeltaId` reste distinct et que les deux statements restent simultanément accessibles. Le graphe agrégé conserve 2 requirements courants + 3 deltas séparés et n'introduit ni `TemporalState`, ni application de delta, ni relation `AFFECTS`.
+
+Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` du driver SQLite reste non bloquant et relève de la stratégie runtime/packaging.
