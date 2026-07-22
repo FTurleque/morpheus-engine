@@ -8,6 +8,7 @@ context: |
 rules:
   proposal:
     - Décrire explicitement l'intention et le périmètre.
+    - Lister les contraintes explicites dans une section Constraints.
   specs:
     - Utiliser des exigences vérifiables avec scénarios Given/When/Then.
   design:
