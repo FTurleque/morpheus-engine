@@ -1,0 +1,342 @@
+package com.morpheus.store.sqlite;
+
+import com.morpheus.application.store.KnowledgeStoreException;
+import com.morpheus.application.store.ProjectStoreEntry;
+import com.morpheus.application.store.SnapshotConflictException;
+import com.morpheus.application.store.SpecificationKnowledgeStore;
+import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
+import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
+import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
+import com.morpheus.domain.source.SourceLocator;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.Optional;
+
+/** SQLite adapter for the minimal M1 {@link SpecificationKnowledgeStore} contract. */
+public final class SqliteSpecificationKnowledgeStore implements SpecificationKnowledgeStore, AutoCloseable {
+    private final Connection connection;
+    private boolean closed;
+
+    public SqliteSpecificationKnowledgeStore(Path databasePath) {
+        Objects.requireNonNull(databasePath, "databasePath");
+        Path absolutePath = databasePath.toAbsolutePath().normalize();
+        Connection opened = null;
+        try {
+            Path parent = absolutePath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            opened = DriverManager.getConnection("jdbc:sqlite:" + absolutePath);
+            configure(opened);
+            new SqliteSchemaManager().migrate(opened);
+            this.connection = opened;
+        } catch (SQLException | IOException | RuntimeException exception) {
+            closeQuietly(opened);
+            if (exception instanceof KnowledgeStoreException knowledgeStoreException) {
+                throw knowledgeStoreException;
+            }
+            throw new KnowledgeStoreException("Cannot initialize SQLite knowledge store", exception);
+        }
+    }
+
+    @Override
+    public synchronized void putProject(ProjectStoreEntry project) {
+        ensureOpen();
+        try {
+            Optional<ProjectStoreEntry> existing = findProjectInternal(project.id());
+            if (existing.isPresent()) {
+                if (!existing.orElseThrow().equals(project)) {
+                    throw new KnowledgeStoreException("project identity collision: " + project.id());
+                }
+                return;
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "INSERT INTO projects(id, root_scheme, root_value) VALUES (?, ?, ?)")) {
+                statement.setString(1, project.id().toString());
+                statement.setString(2, project.rootLocator().scheme());
+                statement.setString(3, project.rootLocator().value());
+                statement.executeUpdate();
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot store project " + project.id(), exception);
+        }
+    }
+
+    @Override
+    public synchronized Optional<ProjectStoreEntry> findProject(ProjectSpecificationId projectId) {
+        ensureOpen();
+        try {
+            return findProjectInternal(projectId);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read project " + projectId, exception);
+        }
+    }
+
+    @Override
+    public synchronized void putSnapshot(KnowledgeSnapshotMetadata snapshot) {
+        ensureOpen();
+        try {
+            validateSnapshotForInsert(snapshot);
+            Optional<KnowledgeSnapshotMetadata> existing = findSnapshotInternal(snapshot.id());
+            if (existing.isPresent()) {
+                if (!existing.orElseThrow().equals(snapshot)) {
+                    throw new KnowledgeStoreException("snapshot identity collision: " + snapshot.id());
+                }
+                return;
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    INSERT INTO knowledge_snapshots(
+                        id, project_id, predecessor_id, state, source_revision, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """)) {
+                statement.setString(1, snapshot.id().toString());
+                statement.setString(2, snapshot.projectId().toString());
+                statement.setString(3, snapshot.predecessorId().map(KnowledgeSnapshotId::toString).orElse(null));
+                statement.setString(4, snapshot.state().name());
+                statement.setString(5, snapshot.sourceRevision().orElse(null));
+                statement.setString(6, snapshot.createdAt().toString());
+                statement.executeUpdate();
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot store snapshot " + snapshot.id(), exception);
+        }
+    }
+
+    @Override
+    public synchronized Optional<KnowledgeSnapshotMetadata> findSnapshot(KnowledgeSnapshotId snapshotId) {
+        ensureOpen();
+        try {
+            return findSnapshotInternal(snapshotId);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read snapshot " + snapshotId, exception);
+        }
+    }
+
+    @Override
+    public synchronized Optional<KnowledgeSnapshotMetadata> activeSnapshot(ProjectSpecificationId projectId) {
+        ensureOpen();
+        try {
+            return activeSnapshotInternal(projectId);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read active snapshot for project " + projectId, exception);
+        }
+    }
+
+    @Override
+    public synchronized KnowledgeSnapshotMetadata activateSnapshot(
+            KnowledgeSnapshotId snapshotId,
+            Optional<KnowledgeSnapshotId> expectedActiveSnapshotId) {
+        ensureOpen();
+        boolean previousAutoCommit;
+        try {
+            previousAutoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot begin SQLite snapshot activation", exception);
+        }
+
+        try {
+            KnowledgeSnapshotMetadata target = findSnapshotInternal(snapshotId)
+                    .orElseThrow(() -> new KnowledgeStoreException("snapshot not found: " + snapshotId));
+            Optional<KnowledgeSnapshotMetadata> active = activeSnapshotInternal(target.projectId());
+
+            if (target.state() == KnowledgeSnapshotState.ACTIVE) {
+                if (active.map(KnowledgeSnapshotMetadata::id).equals(Optional.of(snapshotId))) {
+                    connection.commit();
+                    return target;
+                }
+                throw new SnapshotConflictException(
+                        "active snapshot state is inconsistent for project " + target.projectId());
+            }
+
+            if (target.state() != KnowledgeSnapshotState.READY) {
+                throw new SnapshotConflictException("only READY snapshots can be activated: " + snapshotId);
+            }
+            if (!target.predecessorId().equals(expectedActiveSnapshotId)) {
+                throw new SnapshotConflictException("snapshot predecessor does not match expected active snapshot");
+            }
+
+            Optional<KnowledgeSnapshotId> currentActiveId = active.map(KnowledgeSnapshotMetadata::id);
+            if (!currentActiveId.equals(expectedActiveSnapshotId)) {
+                throw new SnapshotConflictException("active snapshot changed before activation");
+            }
+
+            if (active.isPresent()) {
+                updateSnapshotState(active.orElseThrow().id(), KnowledgeSnapshotState.RETIRED);
+            }
+            updateSnapshotState(snapshotId, KnowledgeSnapshotState.ACTIVE);
+
+            connection.commit();
+            return target.withState(KnowledgeSnapshotState.ACTIVE);
+        } catch (SQLException exception) {
+            rollbackQuietly();
+            throw new KnowledgeStoreException("SQLite snapshot activation failed", exception);
+        } catch (RuntimeException exception) {
+            rollbackQuietly();
+            throw exception;
+        } finally {
+            restoreAutoCommit(previousAutoCommit);
+        }
+    }
+
+    @Override
+    public synchronized void close() {
+        if (closed) {
+            return;
+        }
+        try {
+            connection.close();
+            closed = true;
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot close SQLite knowledge store", exception);
+        }
+    }
+
+    private void validateSnapshotForInsert(KnowledgeSnapshotMetadata snapshot) throws SQLException {
+        if (findProjectInternal(snapshot.projectId()).isEmpty()) {
+            throw new KnowledgeStoreException("project not found: " + snapshot.projectId());
+        }
+        if (snapshot.state() == KnowledgeSnapshotState.ACTIVE
+                || snapshot.state() == KnowledgeSnapshotState.RETIRED) {
+            throw new KnowledgeStoreException("ACTIVE/RETIRED snapshots must be produced by activation lifecycle");
+        }
+
+        if (snapshot.predecessorId().isPresent()) {
+            KnowledgeSnapshotMetadata predecessor = findSnapshotInternal(snapshot.predecessorId().orElseThrow())
+                    .orElseThrow(() -> new KnowledgeStoreException(
+                            "snapshot predecessor not found: " + snapshot.predecessorId().orElseThrow()));
+            if (!predecessor.projectId().equals(snapshot.projectId())) {
+                throw new KnowledgeStoreException("snapshot predecessor belongs to another project");
+            }
+        }
+    }
+
+    private Optional<ProjectStoreEntry> findProjectInternal(ProjectSpecificationId projectId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT root_scheme, root_value FROM projects WHERE id = ?")) {
+            statement.setString(1, projectId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(new ProjectStoreEntry(
+                        projectId,
+                        new SourceLocator(result.getString("root_scheme"), result.getString("root_value"))));
+            }
+        }
+    }
+
+    private Optional<KnowledgeSnapshotMetadata> findSnapshotInternal(KnowledgeSnapshotId snapshotId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT project_id, predecessor_id, state, source_revision, created_at
+                FROM knowledge_snapshots
+                WHERE id = ?
+                """)) {
+            statement.setString(1, snapshotId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next() ? Optional.of(mapSnapshot(snapshotId, result)) : Optional.empty();
+            }
+        }
+    }
+
+    private Optional<KnowledgeSnapshotMetadata> activeSnapshotInternal(ProjectSpecificationId projectId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT id, predecessor_id, state, source_revision, created_at
+                FROM knowledge_snapshots
+                WHERE project_id = ? AND state = 'ACTIVE'
+                """)) {
+            statement.setString(1, projectId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    return Optional.empty();
+                }
+                KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.parse(result.getString("id"));
+                return Optional.of(mapSnapshot(snapshotId, projectId, result));
+            }
+        }
+    }
+
+    private KnowledgeSnapshotMetadata mapSnapshot(KnowledgeSnapshotId snapshotId, ResultSet result) throws SQLException {
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(result.getString("project_id"));
+        return mapSnapshot(snapshotId, projectId, result);
+    }
+
+    private KnowledgeSnapshotMetadata mapSnapshot(
+            KnowledgeSnapshotId snapshotId,
+            ProjectSpecificationId projectId,
+            ResultSet result) throws SQLException {
+        String predecessor = result.getString("predecessor_id");
+        String sourceRevision = result.getString("source_revision");
+        return new KnowledgeSnapshotMetadata(
+                snapshotId,
+                projectId,
+                predecessor == null ? Optional.empty() : Optional.of(KnowledgeSnapshotId.parse(predecessor)),
+                KnowledgeSnapshotState.valueOf(result.getString("state")),
+                Optional.ofNullable(sourceRevision),
+                Instant.parse(result.getString("created_at")));
+    }
+
+    private void updateSnapshotState(KnowledgeSnapshotId snapshotId, KnowledgeSnapshotState state) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "UPDATE knowledge_snapshots SET state = ? WHERE id = ?")) {
+            statement.setString(1, state.name());
+            statement.setString(2, snapshotId.toString());
+            if (statement.executeUpdate() != 1) {
+                throw new KnowledgeStoreException("snapshot not found during state update: " + snapshotId);
+            }
+        }
+    }
+
+    private void configure(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("PRAGMA foreign_keys = ON");
+            statement.execute("PRAGMA busy_timeout = 5000");
+        }
+    }
+
+    private void ensureOpen() {
+        if (closed) {
+            throw new KnowledgeStoreException("SQLite knowledge store is closed");
+        }
+    }
+
+    private void rollbackQuietly() {
+        try {
+            connection.rollback();
+        } catch (SQLException ignored) {
+            // Preserve the original activation error.
+        }
+    }
+
+    private void restoreAutoCommit(boolean autoCommit) {
+        try {
+            connection.setAutoCommit(autoCommit);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode", exception);
+        }
+    }
+
+    private static void closeQuietly(Connection connection) {
+        if (connection == null) {
+            return;
+        }
+        try {
+            connection.close();
+        } catch (SQLException ignored) {
+            // Initialization is already failing.
+        }
+    }
+}
