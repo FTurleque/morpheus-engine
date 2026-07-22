@@ -104,7 +104,8 @@ MORPHEUS doit :
 - sélectionner les providers selon leurs capacités effectives ;
 - publier l'état de connaissance par snapshots cohérents ;
 - séparer lecture et écriture ;
-- coopérer avec MINOS, NEXUS et JARVIS sans dépendre fonctionnellement d'eux.
+- coopérer avec MINOS, NEXUS et JARVIS sans dépendre fonctionnellement d'eux ;
+- ne pas laisser un spike M0 choisir implicitement la stack de production.
 
 ## Phase actuelle
 
@@ -117,6 +118,10 @@ Aucune implémentation fonctionnelle importante ne doit commencer avant validati
 La règle de travail est :
 
 > **Documenter d'abord, décider ensuite, implémenter en dernier.**
+
+L'audit actuel conclut :
+
+> **C0 prête pour revue de validation, mais pas encore déclarée terminée.**
 
 ## Documents de référence
 
@@ -133,7 +138,8 @@ Documents fonctionnels et architecturaux :
 - [`docs/USE_CASES.md`](docs/USE_CASES.md) — cas d'usage et priorités ;
 - [`docs/MVP.md`](docs/MVP.md) — périmètre MVP proposé ;
 - [`docs/PLAN.md`](docs/PLAN.md) — plan de travail C0 / M0 ;
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — feuille de route.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — feuille de route ;
+- [`docs/AUDIT_COHERENCE_C0.md`](docs/AUDIT_COHERENCE_C0.md) — audit d'alignement et questions encore ouvertes.
 
 Contrats conceptuels :
 
@@ -163,6 +169,7 @@ Décisions :
 - taxonomie contrôlée des relations ;
 - providers sélectionnés par capacités effectives ;
 - publication par snapshots versionnés avec activation atomique observable ;
-- cycle de vie des changements normalisé par machine d'état.
+- cycle de vie des changements normalisé par machine d'état ;
+- choix de stack de production différé jusqu'aux preuves nécessaires.
 
 Ces décisions restent **proposées** jusqu'à leur validation selon les conditions décrites dans leurs ADR respectives et, lorsque nécessaire, les preuves M0.
