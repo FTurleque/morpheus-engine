@@ -87,16 +87,21 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     @Override
     public synchronized void putSnapshot(KnowledgeSnapshotMetadata snapshot) {
         ensureOpen();
+        if (snapshot.state() == KnowledgeSnapshotState.ACTIVE
+                || snapshot.state() == KnowledgeSnapshotState.RETIRED) {
+            throw new KnowledgeStoreException("ACTIVE/RETIRED snapshots must be produced by activation lifecycle");
+        }
+
         try {
-            validateSnapshotForInsert(snapshot);
             Optional<KnowledgeSnapshotMetadata> existing = findSnapshotInternal(snapshot.id());
             if (existing.isPresent()) {
-                if (!existing.orElseThrow().equals(snapshot)) {
+                if (!existing.orElseThrow().sameDefinitionAs(snapshot)) {
                     throw new KnowledgeStoreException("snapshot identity collision: " + snapshot.id());
                 }
                 return;
             }
 
+            validateSnapshotReferences(snapshot);
             try (PreparedStatement statement = connection.prepareStatement("""
                     INSERT INTO knowledge_snapshots(
                         id, project_id, predecessor_id, state, source_revision, created_at
@@ -205,13 +210,9 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
         }
     }
 
-    private void validateSnapshotForInsert(KnowledgeSnapshotMetadata snapshot) throws SQLException {
+    private void validateSnapshotReferences(KnowledgeSnapshotMetadata snapshot) throws SQLException {
         if (findProjectInternal(snapshot.projectId()).isEmpty()) {
             throw new KnowledgeStoreException("project not found: " + snapshot.projectId());
-        }
-        if (snapshot.state() == KnowledgeSnapshotState.ACTIVE
-                || snapshot.state() == KnowledgeSnapshotState.RETIRED) {
-            throw new KnowledgeStoreException("ACTIVE/RETIRED snapshots must be produced by activation lifecycle");
         }
 
         if (snapshot.predecessorId().isPresent()) {
