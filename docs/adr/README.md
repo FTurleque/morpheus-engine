@@ -47,6 +47,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0027](0027-native-first-container-supported-distribution.md) | Distribution native-first et container-supported | **Acceptée avec contraintes — distribution** |
 | [ADR-0028](0028-unified-provider-read-contract.md) | Contrat de lecture unifié et résultats partiels explicites | **Acceptée — M2** |
 | [ADR-0029](0029-second-provider-anti-lockin-proof.md) | Second provider synthétique pour preuve anti-lock-in | **Acceptée — M2** |
+| [ADR-0030](0030-defer-normalized-business-persistence-to-m3.md) | Persistance métier complète introduite avec versions/snapshots M3 | **Proposée — validation M2-S8 requise** |
 
 ---
 
@@ -61,6 +62,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | M2-S5 ExternalReference | ADR-0026 | `76/76 PASS` |
 | M2-S6 lecture unifiée / partiel / diagnostics | ADR-0028 | `84/84 PASS` |
 | M2-S7 second provider anti-lock-in | ADR-0029 | `94/94 PASS` |
+| M2-S8 validation finale / persistance | ADR-0030 | **gate final 94 attendu** |
 
 La vue opérationnelle détaillée est : [`../roadmap/M2_EXECUTION.md`](../roadmap/M2_EXECUTION.md).
 
@@ -97,7 +99,7 @@ SpecificationProvider.probe() != SpecificationContentReader.read()
 empty collection != ambiguous success
 ```
 
-Statuts de lecture :
+Statuts :
 
 ```text
 READ
@@ -128,7 +130,7 @@ même ReadCategory vocabulary
 aucun type provider dans domain/application
 ```
 
-Le provider synthétique est `verification-only` et ne constitue pas une fonctionnalité utilisateur à stabiliser.
+Le provider synthétique est `verification-only`.
 
 ## Build
 
@@ -152,21 +154,35 @@ GitHub Actions n'est pas une porte obligatoire.
 
 SQLite reste derrière les ports applicatifs.
 
-Validé :
+Persisté aujourd'hui :
 
 ```text
 schema_migrations
-V001 projects + knowledge_snapshots
-V002 project root uniqueness
-V003 entity_identity_bindings
+projects
+knowledge_snapshots metadata
+entity_identity_bindings
+```
+
+Validé :
+
+```text
 checksum immutability
-atomic snapshot activation
+atomic snapshot metadata activation
 persistence across reopen
 ```
 
 Le schéma JSON du spike E08 reste rejeté comme modèle de production.
 
-Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` est non bloquant à ce stade et devra être traité avant stabilisation runtime/CLI.
+### Frontière candidate ADR-0030
+
+```text
+M2 : identité + métadonnées persistantes
+M3 : premières tables métier complètes avec version/snapshot membership
+```
+
+La raison est que le schéma métier doit être conçu avec `TemporalState`, `SpecificationVersion` et `KnowledgeSnapshot`, plutôt que créé une première fois sans temporalité puis remodelé immédiatement.
+
+Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` reste non bloquant et devra être traité avant stabilisation runtime/CLI.
 
 ## Identité
 
@@ -187,7 +203,7 @@ normalized delta != applied delta
 change structure != ChangeLifecycleState
 ```
 
-`CURRENT / PROPOSED / HISTORICAL`, versions complètes, promotion des deltas et lifecycle complet restent M3.
+`CURRENT / PROPOSED / HISTORICAL`, versions complètes, promotion des deltas, lifecycle complet et persistance métier versionnée restent M3.
 
 ## ExternalReference
 
@@ -229,7 +245,7 @@ Les choix concrets `jlink/jpackage`, format installateur, image de base Docker, 
 - [`../VALIDATION_C0.md`](../VALIDATION_C0.md)
 - [`../VALIDATION_M0.md`](../VALIDATION_M0.md)
 - [`../VALIDATION_M1.md`](../VALIDATION_M1.md)
-- `VALIDATION_M2.md` sera créée à M2-S8.
+- [`../VALIDATION_M2.md`](../VALIDATION_M2.md) — candidate jusqu'au gate S8.
 
 ---
 
