@@ -65,6 +65,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0045](0045-deterministic-business-content-queries.md) | Getters et listes métier déterministes sur snapshots publiés | **Acceptée — M5** |
 | [ADR-0046](0046-change-context-query-aggregation.md) | Agrégation déterministe de `trace_requirement` et `get_change_context` | **Acceptée — M5** |
 | [ADR-0047](0047-compact-query-views-and-canonical-json.md) | Vues compactes, warnings structurés, provenance/evidence et JSON canonique | **Acceptée — M5** |
+| [ADR-0048](0048-quality-findings-and-requirement-coverage.md) | Findings de qualité explicables et couverture de traçabilité des requirements | **Acceptée — M6** |
 
 ---
 
@@ -115,7 +116,7 @@ M4 est validée et intégrée. Preuve : [`../VALIDATION_M4.md`](../VALIDATION_M4
 
 ---
 
-# Preuves M5 en cours
+# Preuves M5
 
 | Slice | ADR | Preuve |
 |---|---|---|
@@ -124,8 +125,19 @@ M4 est validée et intégrée. Preuve : [`../VALIDATION_M4.md`](../VALIDATION_M4
 | M5-S3 getters/listes déterministes | ADR-0045 | `210/210 PASS` |
 | M5-S4 trace query view + change context | ADR-0046 | `217/217 PASS` |
 | M5-S5 vues compactes + warnings + JSON canonique | ADR-0047 | `227/227 PASS` |
+| M5-S6 validation finale | — | `227/227 PASS` |
 
-Vue d'exécution : [`../roadmap/M5_EXECUTION.md`](../roadmap/M5_EXECUTION.md).
+M5 est validé et intégré. Preuve : [`../VALIDATION_M5.md`](../VALIDATION_M5.md).
+
+---
+
+# Preuves M6 en cours
+
+| Slice | ADR | Preuve |
+|---|---|---|
+| M6-S1 couverture requirements + orphelins | ADR-0048 | `234/234 PASS` |
+
+Vue d'exécution : [`../roadmap/M6_EXECUTION.md`](../roadmap/M6_EXECUTION.md).
 
 ---
 
@@ -159,6 +171,7 @@ Requirement = persistance versionnée spécialisée
 familles S2 = projection immutable snapshot-scoped
 snapshot/version ownership explicite
 aucune payload JSON métier générique
+quality finding = résultat dérivé, non persisté
 ```
 
 ## Requêtes / contexte M5
@@ -183,6 +196,19 @@ aucune recherche fuzzy / sémantique / LLM
 aucun ranking/fusion/compression NEXUS
 ```
 
+## Qualité M6
+
+```text
+QualityFinding != Diagnostic d'ingestion
+DETERMINISTIC != HEURISTIC
+DETERMINISTIC => confidence interdite
+HEURISTIC => confidence obligatoire [0,1]
+Requirement coverage = liens directs persistés
+CURRENT Requirement uniquement
+absence de lien != lien inventé
+findings stables Memory == SQLite
+```
+
 ## Build
 
 Gate obligatoire :
@@ -194,18 +220,19 @@ Unix    : ./mvnw clean test
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
-Dernier gate M5-S5 :
+Dernier gate M6-S1 :
 
 ```text
-Architecture tests 100/100 PASS
-227/227 PASS
-Failures 0
-Errors   0
-Skipped  0
+RequirementQualityContractTest 7/7 PASS
+Architecture tests            107/107 PASS
+TOTAL                          234/234 PASS
+Failures                       0
+Errors                         0
+Skipped                        0
 BUILD SUCCESS
 ```
 
-Gate terminé le **23 juillet 2026 à 20:06:21 +02:00**.
+Gate terminé le **23 juillet 2026 à 20:52:28 +02:00**.
 
 GitHub Actions n'est pas une porte obligatoire. Les warnings JDK native-access Xerial SQLite et SLF4J NOP restent connus et non bloquants.
 
