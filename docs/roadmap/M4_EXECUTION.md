@@ -1,6 +1,6 @@
 # M4 — Plan d'exécution détaillé
 
-Statut : **M4 actif — 3 slices validés sur 6 ; S4 prochain**
+Statut : **M4 actif — 4 slices validés sur 6 ; S5 prochain**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -20,8 +20,8 @@ M4     🚧 actif
   S1   ✅ domaine TraceabilityLink + taxonomie contrôlée — PR #28 — ADR-0037 — 155/155
   S2   ✅ persistance snapshot-scoped Memory + SQLite — PR #29 — ADR-0038 — 160/160
   S3   ✅ dérivation déterministe depuis modèle normalisé — PR #31 — ADR-0039 — 167/167
-  S4   ⏳ direct / inverse / traversal / path — prochain
-  S5   ⏳ références externes / unresolved / broken links
+  S4   ✅ direct / inverse / traversal / path — PR #32 — ADR-0040 — 174/174
+  S5   ⏳ références externes / unresolved / broken links — prochain
   S6   ⏳ validation finale trace(requirement)
 M5     ⏳ bloqué par M4
 ```
@@ -29,7 +29,7 @@ M5     ⏳ bloqué par M4
 Progression :
 
 ```text
-M4 : [██████████░░░░░░░░░░░] 3 / 6 slices validés
+M4 : [██████████████░░░░░░░] 4 / 6 slices validés
 ```
 
 Baseline d'entrée M4 :
@@ -47,9 +47,18 @@ M4-S1 merge = 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f
 M4-S1 gate  = 155/155 PASS
 M4-S2 merge = 32694f2c74aa9ce4248f9eea907d85460de93eff
 M4-S2 gate  = 160/160 PASS
+M4-S3 merge = 4b3bb5c79e65b8f1501b9949b49f4940294c4312
+M4-S3 gate  = 167/167 PASS
 ```
 
-S3 est validé techniquement dans PR #31 et attend le signal explicite de merge.
+Dernier gate validé :
+
+```text
+M4-S4 PR #32 = Ready après finalisation documentaire
+M4-S4 gate   = 174/174 PASS
+```
+
+S4 reste non mergé tant qu'aucun nouveau signal explicite de merge n'est donné.
 
 ---
 
@@ -160,22 +169,9 @@ heuristic => confidence obligatoire
 evidence non vide et immuable
 direction canonique
 inverse = vue de requête, pas seconde preuve
-aucune persistance/traversée en S1
 ```
 
-Gate :
-
-```text
-TraceabilityLinkTest                    8/8 PASS
-LayerDependencyTest                     2/2 PASS
-TOTAL                                 155/155 PASS
-Failures                                0
-Errors                                  0
-Skipped                                 0
-BUILD SUCCESS
-```
-
-Gate terminé le **23 juillet 2026 à 12:17:43 +02:00**.
+Gate : **155/155 PASS**.
 
 ---
 
@@ -231,29 +227,23 @@ traceability_link_evidence
 snapshot_traceability_links
 ```
 
-Gate :
-
-```text
-TraceabilityPersistenceContractTest     5/5 PASS
-LayerDependencyTest                     2/2 PASS
-TOTAL                                 160/160 PASS
-Failures                                0
-Errors                                  0
-Skipped                                 0
-BUILD SUCCESS
-```
-
-Gate terminé le **23 juillet 2026 à 12:47:46 +02:00**.
+Gate : **160/160 PASS**.
 
 Le close/reopen SQLite conserve définition, evidence et memberships multi-snapshot.
 
 ---
 
-# 7. M4-S3 — VALIDÉ TECHNIQUEMENT : Dérivation déterministe
+# 7. M4-S3 — VALIDÉ ET INTÉGRÉ : Dérivation déterministe
 
 ADR : **ADR-0039 — Acceptée — M4**.
 
-PR : **#31 — Ready après gate ; merge en attente de signal explicite**.
+PR : **#31 — merged**.
+
+Merge :
+
+```text
+4b3bb5c79e65b8f1501b9949b49f4940294c4312
+```
 
 Application :
 
@@ -271,21 +261,6 @@ Scenario -> Requirement             REFINES
 Constraint -> Change                CONSTRAINS
 Change -> DesignDecision            DECIDED_BY
 Change -> Requirement               AFFECTS via RequirementDelta
-```
-
-Les scenarios imbriqués dans un `RequirementDelta` produisent aussi `REFINES` lorsque leur `RequirementId` est explicite.
-
-Identité :
-
-```text
-TraceabilityDerivationKey
-  fact: TraceabilityEntityRef
-  source
-  relationType
-  target
-
-TraceabilityLinkIdentityResolver
-  resolve(key) -> Optional<TraceabilityLinkId>
 ```
 
 Invariants validés :
@@ -307,9 +282,69 @@ aucun LLM / embedding
 aucun Task -> Requirement sans fait structurel
 ```
 
-Déduplication autorisée uniquement pour une même `TraceabilityDerivationKey` exacte ; les evidences de ce même fait peuvent être agrégées.
+Gate : **167/167 PASS**.
 
-Deux faits distincts vers les mêmes endpoints restent deux observations distinctes.
+---
+
+# 8. M4-S4 — VALIDÉ TECHNIQUEMENT : Traversée et chemins
+
+ADR : **ADR-0040 — Acceptée — M4**.
+
+PR : **#32 — Ready après gate ; merge en attente de signal explicite**.
+
+Application :
+
+```text
+TraceabilityTraversalDirection
+TraceabilityPathStep
+TraceabilityPath
+TraceabilitySubgraph
+TraceabilityTraversalService
+```
+
+API :
+
+```text
+direct(snapshotId, endpoint, direction, relationTypes)
+traverse(snapshotId, start, maxDepth, direction, relationTypes)
+findPath(snapshotId, start, target, maxDepth, direction, relationTypes)
+```
+
+Directions :
+
+```text
+OUTGOING
+INCOMING
+BIDIRECTIONAL
+```
+
+Invariants validés :
+
+```text
+maxDepth > 0 explicite
+snapshot-scoped
+BFS borné
+cycle-safe
+ordre de voisins déterministe
+relation filters explicites
+empty filter = toutes les relations
+incoming/bidirectional = vues de requête
+aucune arête inverse persistée
+path step conserve persisted TraceabilityLink + from/into
+shortest path déterministe
+transitivity policy != traversal permission
+A -> B -> C != arête synthétique A -> C
+Memory == SQLite observable semantics
+```
+
+S4 reste exclusivement applicatif au-dessus de `TraceabilityStore.outgoing/incoming` :
+
+```text
+aucune migration SQLite
+aucune modification des adapters S2
+aucune graph database
+aucun backend query language dans domain/application
+```
 
 Gate local Windows :
 
@@ -317,77 +352,33 @@ Gate local Windows :
 .\mvnw.cmd clean test
 javac release 21
 
-DeterministicTraceabilityDerivationServiceTest   7/7 PASS
-LayerDependencyTest                              2/2 PASS
+TraceabilityTraversalContractTest      7/7 PASS
+LayerDependencyTest                    2/2 PASS
 
-Domain                                           21 tests
-Application                                      61 tests
-OpenSpec provider                                26 tests
-Synthetic provider                                7 tests
-SQLite store                                      7 tests
-Architecture tests                               45 tests
-----------------------------------------------------------
-TOTAL                                           167/167 PASS
-Failures                                          0
-Errors                                            0
-Skipped                                           0
+Domain                                21 tests
+Application                           61 tests
+OpenSpec provider                     26 tests
+Synthetic provider                     7 tests
+SQLite store                           7 tests
+Architecture tests                    52 tests
+---------------------------------------------
+TOTAL                                174/174 PASS
+Failures                               0
+Errors                                 0
+Skipped                                0
 BUILD SUCCESS
-Total time                                     15.746 s
+Total time                           15.256 s
 ```
 
-Gate terminé le **23 juillet 2026 à 13:09:18 +02:00**.
+Gate terminé le **23 juillet 2026 à 13:26:39 +02:00**.
 
 Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
 
 ---
 
-# 8. NOW — M4-S4 Traversée
+# 9. NOW — M4-S5 Références externes et liens non résolus
 
-Objectif : exposer une traversée snapshot-scoped bornée et déterministe sans transformer le domaine en backend graphe.
-
-Capacités :
-
-```text
-outgoing
-incoming
-traverse
-findPath
-```
-
-À décider explicitement :
-
-```text
-TraceabilityTraversalService
-TraceabilityTraversalResult / subgraph
-TraceabilityPath
-maxDepth
-relation filters
-bidirectional policy
-node/edge ordering
-cycle handling
-path tie-breaking
-```
-
-Invariants à prouver :
-
-```text
-maxDepth > 0 explicite
-ordre déterministe
-cycle-safe
-relation filters explicites
-snapshot-scoped
-bidirectional n'invente aucune seconde preuve
-path conserve chaque arête réelle
-transitivity policy != traversal permission
-un chemin A -> B -> C ne crée pas A -> C
-Memory == SQLite observable semantics
-```
-
-S4 ne doit pas introduire de graph database ni de query language backend dans domain/application.
-
----
-
-# 9. M4-S5 — Références externes et liens non résolus
+Objectif : rendre les relations vers des cibles externes explicitement représentables et explicables même lorsque leur résolution échoue ou n'est pas disponible.
 
 Relations prioritaires :
 
@@ -398,7 +389,7 @@ VERIFIED_BY
 SATISFIES
 ```
 
-Intégration :
+Intégration cible :
 
 ```text
 TraceabilityLink
@@ -410,14 +401,30 @@ ExternalReference
 ResolvedExternalTarget
 ```
 
-Invariants :
+Invariants à prouver :
 
 ```text
 MINOS indisponible != MORPHEUS indisponible
 UNRESOLVED reste visible
-STALE external reference reste explicable
+référence cassée reste explicable
 resolution externe != relation semantics
+resolution externe != mutation de la preuve canonique
+origin / resolution / confidence / evidence restent séparés
+snapshot-scoped
+aucun couplage obligatoire à MINOS
+Memory == SQLite observable semantics
 ```
+
+S5 devra expliciter la différence entre :
+
+```text
+UNRESOLVED
+PARTIALLY_RESOLVED
+HEURISTIC
+RESOLVED
+```
+
+sans confondre l'état de résolution du lien avec la disponibilité instantanée d'un moteur externe.
 
 ---
 
@@ -475,9 +482,11 @@ S6 crée `docs/VALIDATION_M4.md` et répond à la question de sortie.
 | aucun fuzzy matching | ✅ | S3 |
 | identité de lien dérivée explicitement via resolver | ✅ | S3 |
 | evidence du fait structurel conservée | ✅ | S3 |
-| outgoing/incoming | ⬜ | S4 |
-| traversal borné et cycle-safe | ⬜ | S4 |
-| path explicable | ⬜ | S4 |
+| outgoing/incoming | ✅ | S4 |
+| traversal borné et cycle-safe | ✅ | S4 |
+| path explicable | ✅ | S4 |
+| shortest path déterministe | ✅ | S4 |
+| aucune arête inverse/transitive synthétique | ✅ | S4 |
 | unresolved externe conservé | ⬜ | S5 |
 | cross-engine découplé | ⬜ | S5 |
 | `trace(requirement)` | ⬜ | S6 |
