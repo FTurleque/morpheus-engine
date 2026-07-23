@@ -22,7 +22,6 @@ import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.store.SnapshotBusinessContent;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
-import com.morpheus.application.traceability.ExternalTraceabilityAvailability;
 import com.morpheus.application.traceability.ExternalTraceabilityView;
 import com.morpheus.application.traceability.TraceRequirementResult;
 import com.morpheus.domain.change.ChangeProposal;
@@ -199,7 +198,7 @@ public final class CompactQueryViewService {
                 snapshot.state().name(),
                 snapshot.predecessorId().map(Object::toString),
                 snapshot.sourceRevision(),
-                snapshot.builtAt().toString());
+                snapshot.createdAt().toString());
     }
 
     private RequirementView requirement(RequirementVersionRecord record, Collector collector) {
