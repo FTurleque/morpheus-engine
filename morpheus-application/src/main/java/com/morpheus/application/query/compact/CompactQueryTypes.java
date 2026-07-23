@@ -93,6 +93,9 @@ public final class CompactQueryTypes {
 
     public record RequirementView(
             String id,
+            String entityVersionId,
+            String specificationVersionId,
+            String temporalState,
             String specificationId,
             Optional<String> key,
             String title,
@@ -100,6 +103,9 @@ public final class CompactQueryTypes {
             ProvenanceView provenance) {
         public RequirementView {
             id = requireNonBlank(id, "id");
+            entityVersionId = requireNonBlank(entityVersionId, "entityVersionId");
+            specificationVersionId = requireNonBlank(specificationVersionId, "specificationVersionId");
+            temporalState = requireNonBlank(temporalState, "temporalState");
             specificationId = requireNonBlank(specificationId, "specificationId");
             key = normalized(key, "key");
             title = requireNonBlank(title, "title");
@@ -209,7 +215,8 @@ public final class CompactQueryTypes {
             Optional<String> project,
             Optional<String> resourceType,
             Optional<String> externalId,
-            Optional<String> revision) {
+            Optional<String> revision,
+            Optional<ProvenanceView> provenance) {
         public ExternalReferenceView {
             linkId = requireNonBlank(linkId, "linkId");
             availability = requireNonBlank(availability, "availability");
@@ -219,6 +226,7 @@ public final class CompactQueryTypes {
             resourceType = normalized(resourceType, "resourceType");
             externalId = normalized(externalId, "externalId");
             revision = normalized(revision, "revision");
+            provenance = Objects.requireNonNull(provenance, "provenance");
         }
     }
 
