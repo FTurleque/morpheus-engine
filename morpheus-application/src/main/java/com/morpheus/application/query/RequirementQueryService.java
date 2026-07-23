@@ -74,7 +74,7 @@ public final class RequirementQueryService {
         List<RequirementVersionRecord> items = matches.subList(from, to);
         boolean hasMore = to < totalMatches;
 
-        return new RequirementSearchPage(snapshot, items, pageRequest, totalMatches, hasMore);
+        return new RequirementSearchPage(snapshot, query, items, pageRequest, totalMatches, hasMore);
     }
 
     private boolean matches(Requirement requirement, RequirementSearchQuery query) {
