@@ -1,6 +1,6 @@
 # M3 — Plan d'exécution détaillé
 
-Statut : **M3 actif — 4 slices validés sur 6 ; S5 prochain**
+Statut : **M3 actif — 5 slices validés sur 6 ; S6 prochain**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -20,15 +20,15 @@ M3     🚧 actif
   S2   ✅ ChangeLifecycleState — PR #22 — ADR-0032 — 119/119
   S3   ✅ KnowledgeSnapshot complet — PR #23 — ADR-0033 — 127/127
   S4   ✅ persistance métier versionnée — PR #24 — ADR-0034 — 134/134
-  S5   🚧 application / promotion des deltas — prochain
-  S6   ⬜ historique / comparaison / rétention
+  S5   ✅ application / promotion des deltas — PR #25 — ADR-0035 — 142/142
+  S6   🚧 historique / comparaison / rétention — prochain
 M4     ⏳ bloqué par M3
 ```
 
 Progression :
 
 ```text
-M3 : [██████████████░░░░░░] 4 / 6 slices validés
+M3 : [█████████████████░░░] 5 / 6 slices validés
 ```
 
 ---
@@ -270,7 +270,9 @@ Le pattern S4 est désormais la référence pour les autres familles métier ; i
 
 ---
 
-# 7. NOW — M3-S5 Application / promotion des deltas
+# 7. M3-S5 — VALIDÉ : application / promotion explicite des deltas
+
+ADR : **ADR-0035 — Acceptée — M3**.
 
 Entrées :
 
@@ -280,57 +282,97 @@ MODIFIED
 REMOVED
 ```
 
-Règles non négociables :
+Séparation validée :
 
 ```text
-normalized delta != applied delta
-COMPLETED != automatic promotion
-promotion must be explicit and evidenced
-CURRENT ne change pas avant activation du nouveau snapshot
+APPLY != PROMOTE
+PROMOTE != ACTIVATE
+COMPLETED != PROMOTE
+COMPLETED != ACTIVATE
 ```
 
-Objectif : transformer explicitement un ensemble de `RequirementDelta` normalisés en une projection candidate versionnée sans modifier la baseline active.
-
-Flux cible :
+Flux :
 
 ```text
 ACTIVE snapshot / CURRENT baseline
         +
 RequirementDelta[]
-        ↓ apply explicitement
+        ↓ APPLY explicite
 nouvelle SpecificationVersion
         ↓
 BUILDING candidate snapshot
         ↓
-RequirementVersionRecord[]
-        ↓ validate
-READY
-        ↓ activation explicite
+RequirementVersionRecord[] CURRENT
+        ↓ PROMOTE explicite
+VALIDATING
+   ├── READY
+   └── FAILED
+        ↓ ACTIVATE explicite uniquement si READY
 ACTIVE
 ```
 
-Preuves à construire :
-
-- baseline et propositions coexistent ;
-- application déterministe ;
-- `ADDED` crée une nouvelle identité logique seulement pour un nouvel élément ;
-- `MODIFIED` conserve `DomainIdentity` et produit une nouvelle `EntityVersionId` ;
-- `REMOVED` retire uniquement l'occurrence de la projection cible ;
-- ordre des deltas incohérent / conflit est rejeté explicitement ;
-- `COMPLETED` n'entraîne aucune promotion automatique ;
-- avant activation, la vue `CURRENT` reste celle du snapshot précédent ;
-- après activation, la nouvelle baseline devient visible atomiquement ;
-- provenance/evidence de l'application/promotion sont conservées.
-
-Gate de départ :
+Invariants validés :
 
 ```text
-134 tests
+normalized delta != applied delta
+CURRENT ne change pas avant activation
+ADDED refuse une identité déjà existante
+aucun fuzzy matching titre/chemin/contenu/similarité
+MODIFIED conserve DomainIdentity
+MODIFIED crée une nouvelle EntityVersionId
+REMOVED retire seulement l'occurrence du candidat
+ACTIVE n'est jamais muté par APPLY
+lot incohérent/ambigu rejeté avant écriture
+ordre d'entrée des deltas sans sémantique
+promotion explicite et evidenced
+FAILED candidate conserve l'ancien ACTIVE
+Memory et SQLite respectent le même contrat
 ```
+
+La construction candidate réutilise le schéma V004 ; aucune migration V005 n'est nécessaire pour ce vertical slice.
+
+`RequirementDelta.scenarios` reste hors persistance S5 conformément à la frontière S4 : le slice ne généralise pas prématurément la persistance à toutes les familles métier.
+
+Oracle de visibilité :
+
+```text
+avant activation
+CurrentRequirementQueryService -> ancienne baseline ACTIVE
+
+après activation
+CurrentRequirementQueryService -> nouvelle baseline ACTIVE
+
+candidate FAILED
+CurrentRequirementQueryService -> ancienne baseline ACTIVE
+```
+
+Preuve locale Windows :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+RequirementDeltaApplicationContractTest  8/8 PASS
+
+Domain                                  13 tests
+Application                             54 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      35 tests
+-----------------------------------------------
+TOTAL                                  142/142 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+```
+
+Les warnings Xerial SQLite/JDK24 native access et SLF4J NOP restent connus et non bloquants.
 
 ---
 
-# 8. M3-S6 — Historique / comparaison / rétention
+# 8. NOW — M3-S6 Historique / comparaison / rétention
 
 Comparaison minimale :
 
@@ -351,6 +393,17 @@ snapshot comparison
 logical rollback
 reconstruction
 historical query semantics
+```
+
+S6 doit réutiliser les invariants désormais prouvés :
+
+```text
+DomainIdentity stable
+EntityVersionId occurrence-specific
+SpecificationVersion != KnowledgeSnapshot
+ACTIVE observable atomiquement
+CURRENT / PROPOSED / HISTORICAL explicites
+APPLY / PROMOTE / ACTIVATE séparés
 ```
 
 ---
@@ -376,8 +429,10 @@ historical query semantics
 | persistance métier versionnée | ✅ | S4 |
 | ownership snapshot/version explicite | ✅ | S4 |
 | CURRENT/PROPOSED persistants et séparés après reopen | ✅ | S4 |
-| application/promotion des deltas | 🚧 | S5 |
-| historique/comparaison/rétention | ⬜ | S6 |
+| application/promotion des deltas | ✅ | S5 |
+| `APPLY != PROMOTE != ACTIVATE` | ✅ | S5 |
+| CURRENT inchangé avant activation | ✅ | S5 |
+| historique/comparaison/rétention | 🚧 | S6 |
 | VALIDATION_M3.md | ⬜ | clôture |
 
 ---
