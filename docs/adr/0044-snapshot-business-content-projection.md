@@ -1,6 +1,6 @@
 # ADR-0044 — Projection métier requêtable snapshot-scoped
 
-- Statut : **Proposée — M5**
+- Statut : **Acceptée — M5**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0022, ADR-0030, ADR-0034, ADR-0036, ADR-0043
 - Portée : M5-S2, persistance requêtable des familles métier hors `Requirement`
@@ -15,7 +15,7 @@ merge = 92b1321a0e23553641ea5dbe1f1c25c0acc874e3
 gate = 196/196 PASS
 ```
 
-`Requirement` possède déjà une persistance versionnée complète via ADR-0034. Les autres familles normalisées nécessaires aux primitives M5 restent uniquement disponibles dans `NormalizedProjectContent` :
+`Requirement` possède déjà une persistance versionnée complète via ADR-0034. Les autres familles nécessaires aux primitives M5 restaient disponibles uniquement dans `NormalizedProjectContent` :
 
 ```text
 Specification
@@ -27,9 +27,9 @@ ImplementationTask
 Evidence
 ```
 
-ADR-0034 impose que l'extension de persistance conserve l'ownership explicite par snapshot/version. Cependant ces familles n'ont pas encore de `TemporalState` ni d'`EntityVersionId` de production. S2 ne doit donc pas inventer une temporalité artificielle.
+Ces familles disposent d'identités métier stables et de provenance mais n'ont pas de `TemporalState` ni d'`EntityVersionId` de production. M5-S2 ne leur invente donc pas une temporalité artificielle.
 
-## Décision candidate
+## Décision
 
 Introduire :
 
@@ -38,14 +38,14 @@ SnapshotBusinessContent
 SnapshotBusinessContentStore
 ```
 
-Une projection `SnapshotBusinessContent` est une occurrence immuable de contenu normalisé possédée par :
+Une projection est une occurrence immuable de contenu normalisé possédée explicitement par :
 
 ```text
 KnowledgeSnapshotId
 SpecificationVersionId
 ```
 
-et contient :
+Elle contient :
 
 ```text
 Specification[]
@@ -61,7 +61,7 @@ Evidence[]
 
 ## Identité et temporalité
 
-Les identités métier restent les identités MORPHEUS existantes :
+Les identités métier existantes restent canoniques :
 
 ```text
 SpecificationId
@@ -73,7 +73,7 @@ TaskId
 EvidenceId
 ```
 
-S2 n'ajoute pas de `EntityVersionId` aux familles qui n'en ont pas encore besoin.
+Invariants :
 
 ```text
 DomainIdentity stable
@@ -93,7 +93,7 @@ snapshot -> SpecificationVersion binding existe
 binding.specificationVersionId == content.specificationVersionId
 ```
 
-Les `Specification` et `ChangeProposal` de la projection doivent appartenir au même projet que le snapshot.
+Les `Specification` et `ChangeProposal` doivent appartenir au même projet que le snapshot.
 
 ## Intégrité de projection
 
@@ -103,13 +103,12 @@ Une projection est complète et immuable par snapshot :
 0 ou 1 SnapshotBusinessContent par KnowledgeSnapshotId
 ```
 
-Même snapshot + même contenu : idempotent.
-
+Même snapshot + même contenu : idempotent.  
 Même snapshot + contenu différent : `KnowledgeStoreException`.
 
-Les collections top-level sont canoniquement ordonnées par identité et les identités sont uniques dans chaque famille.
+Les collections top-level sont ordonnées canoniquement par identité et les identités sont uniques dans chaque famille.
 
-Relations internes conservées et validées :
+Relations internes validées :
 
 ```text
 Constraint.changeId -> ChangeProposal
@@ -117,13 +116,13 @@ DesignDecision.changeId -> ChangeProposal
 ImplementationTask.changeId -> ChangeProposal
 ```
 
-`Scenario.requirementId` reste une référence typée vers la famille `Requirement`, persistée séparément. Le store conserve cette référence sans fabriquer de lien alternatif.
+`Scenario.requirementId` reste une référence typée vers `Requirement`, persisté séparément. Aucun lien alternatif n'est fabriqué.
 
 ## Evidence et provenance
 
-Toutes les entités qui portent une `Provenance` doivent référencer un `EvidenceId` présent dans la projection.
+Toute entité portant une `Provenance` doit référencer un `EvidenceId` présent dans la projection.
 
-La reconstruction doit conserver exactement :
+La reconstruction conserve exactement :
 
 ```text
 providerId
@@ -144,10 +143,11 @@ excerptHash?
 
 ## SQLite V007
 
-Ajouter une migration normalisée, sans payload JSON métier :
+Migration normalisée, sans payload JSON métier :
 
 ```text
 snapshot_business_content
+snapshot_evidence
 snapshot_specifications
 snapshot_scenarios
 snapshot_scenario_preconditions
@@ -158,12 +158,11 @@ snapshot_change_risks
 snapshot_constraints
 snapshot_design_decisions
 snapshot_implementation_tasks
-snapshot_evidence
 ```
 
 Les listes sont persistées dans des tables enfants avec `ordinal` afin de reconstruire leur ordre exact.
 
-## Backend
+## Backends
 
 Implémentations de référence :
 
@@ -174,18 +173,18 @@ SqliteSnapshotBusinessContentStore
 
 L'adapter mémoire compose `SpecificationKnowledgeStore + VersionedRequirementStore` afin de réutiliser les mêmes règles d'ownership sans gonfler le store de fondation.
 
-Les deux adapters exposent la même sémantique observable :
+Les deux adapters exposent :
 
 ```text
 putSnapshotContent(...)
 findSnapshotContent(snapshotId)
 ```
 
-SQLite doit reconstruire exactement la projection après fermeture/réouverture.
+et doivent produire la même sémantique observable. SQLite doit reconstruire exactement la projection après fermeture/réouverture.
 
 ## Frontières
 
-S2 ne fait pas :
+M5-S2 ne fait pas :
 
 ```text
 nouvelle temporalité métier
@@ -199,25 +198,41 @@ FTS
 MCP / API / CLI
 ```
 
-## Preuves attendues
+## Preuve d'acceptation — 23 juillet 2026
 
-Le gate S2 doit démontrer au minimum :
+Gate local Windows exécuté sur la branche :
 
-1. projection complète Memory == SQLite ;
-2. ownership snapshot / SpecificationVersion obligatoire ;
-3. projet incompatible rejeté ;
-4. identités dupliquées rejetées ;
-5. relations Change -> Constraint/Decision/Task invalides rejetées ;
-6. provenance sans evidence correspondante rejetée ;
-7. même snapshot/même projection idempotent ;
-8. même snapshot/projection différente rejetée ;
-9. listes ordonnées reconstruites exactement ;
-10. `Scenario.requirementId` conservé ;
-11. SQLite V007 normalisée et sans colonne JSON ;
-12. SQLite close/reopen conserve la projection exacte ;
-13. le store `Requirement` reste séparé ;
-14. `.\mvnw.cmd clean test` vert.
+```text
+m5/snapshot-business-content
+head GitHub = 2740b5ae907ba5a33415ba2070cd01b7e3b43154
+.\mvnw.cmd clean test
+javac release 21
+```
 
-## Preuve d'acceptation
+Résultat :
 
-À compléter uniquement après gate local complet vert.
+```text
+Domain                                  21 tests
+Application                             66 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      75 tests
+-----------------------------------------------
+TOTAL                                  202/202 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+Total time                             16.347 s
+Finished at                 2026-07-23T17:52:59+02:00
+```
+
+Les 14 critères d'acceptation sont couverts : projection complète Memory/SQLite, ownership snapshot/version, projet, unicité, relations Change, evidence/provenance, idempotence/collision, ordre des listes, `Scenario.requirementId`, V007 sans JSON, reopen SQLite, séparation de `Requirement`, et gate Maven complet vert.
+
+Décision finale :
+
+```text
+ADR-0044 = ACCEPTÉE — M5
+M5-S2    = VALIDÉ — 202/202
+```
