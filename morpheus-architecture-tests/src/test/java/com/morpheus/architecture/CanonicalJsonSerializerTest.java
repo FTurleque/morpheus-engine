@@ -39,6 +39,11 @@ class CanonicalJsonSerializerTest {
         assertEquals(json, serializer.toJson(warning));
         assertEquals("null", serializer.toJson(Optional.empty()));
         assertEquals("[2,1]", serializer.toJson(List.of(2, 1)));
+
+        LinkedHashMap<String, Object> nullable = new LinkedHashMap<>();
+        nullable.put("zeta", null);
+        nullable.put("alpha", "value");
+        assertEquals("{\"alpha\":\"value\",\"zeta\":null}", serializer.toJson(nullable));
     }
 
     @Test
