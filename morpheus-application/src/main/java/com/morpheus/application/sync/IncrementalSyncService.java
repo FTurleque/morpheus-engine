@@ -82,6 +82,7 @@ public final class IncrementalSyncService {
         Optional<Instant> observedChangeAt = plan.hasSourceChanges()
                 ? Optional.of(completedAt)
                 : previousObservedChange;
+        Optional<String> archivedRevision = plan.previousInventory().flatMap(SourceInventory::sourceRevision);
 
         List<SourceArchiveRecord> archives = plan.archiveActions().stream()
                 .map(action -> new SourceArchiveRecord(
@@ -90,7 +91,7 @@ public final class IncrementalSyncService {
                         completedAt,
                         action.reason(),
                         action.movedTo(),
-                        current.sourceRevision()))
+                        archivedRevision))
                 .toList();
 
         store.commitSuccessfulSync(
@@ -121,6 +122,9 @@ public final class IncrementalSyncService {
             Optional<SourceInventory> current,
             Optional<SourceInventoryDiff> diff,
             Optional<ProjectSyncState> state) {
+        if (!scan.complete()) {
+            return Optional.of(SyncPlan.FullRebuildReason.SCAN_INCOMPLETE);
+        }
         if (trigger.forceFullRebuild()) {
             return Optional.of(SyncPlan.FullRebuildReason.FORCED);
         }
@@ -128,8 +132,8 @@ public final class IncrementalSyncService {
                 && watchPolicy.requiresFullRebuild(trigger.watchSignals())) {
             return Optional.of(SyncPlan.FullRebuildReason.WATCH_OVERFLOW);
         }
-        if (!scan.complete()) {
-            return Optional.of(SyncPlan.FullRebuildReason.SCAN_INCOMPLETE);
+        if (!baselineConsistent(state, previous)) {
+            return Optional.of(SyncPlan.FullRebuildReason.BASELINE_INCONSISTENT);
         }
         if (state.flatMap(ProjectSyncState::pendingFullRebuildReason).isPresent()) {
             return Optional.of(SyncPlan.FullRebuildReason.PREVIOUS_REBUILD_PENDING);
@@ -154,6 +158,22 @@ public final class IncrementalSyncService {
             return Optional.of(SyncPlan.FullRebuildReason.AMBIGUOUS_MOVE);
         }
         return Optional.empty();
+    }
+
+    private boolean baselineConsistent(
+            Optional<ProjectSyncState> state,
+            Optional<SourceInventory> inventory) {
+        boolean successfulState = state.flatMap(ProjectSyncState::lastSuccessfulSyncAt).isPresent();
+        if (successfulState != inventory.isPresent()) {
+            return false;
+        }
+        if (inventory.isEmpty()) {
+            return true;
+        }
+        ProjectSyncState syncState = state.orElseThrow();
+        SourceInventory baseline = inventory.orElseThrow();
+        return syncState.currentSourceCount() == baseline.entries().size()
+                && syncState.sourceRevision().equals(baseline.sourceRevision());
     }
 
     private SyncPlan.InvalidationSet invalidation(
