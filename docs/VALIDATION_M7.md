@@ -1,6 +1,6 @@
 # Validation M7 — Synchronisation incrémentale et fraîcheur
 
-Statut : **VALIDÉ — intégration finale portée par PR #51**
+Statut : **VALIDÉ ET INTÉGRÉ**
 
 Date : 24 juillet 2026
 
@@ -16,6 +16,13 @@ Le gate local Windows final a validé le head exécutable exact :
 
 ```text
 2e19ab104be18b98536eb871981d60e6b95e1e8c
+```
+
+L'intégration fonctionnelle finale a été vérifiée sur :
+
+```text
+PR #51
+merge = c3c397f4e5a2c97b686c96cfa936e00ac29a52bf
 ```
 
 ## Baseline
@@ -145,10 +152,14 @@ Finished 2026-07-24T00:22:11+02:00
 
 Les warnings Xerial SQLite native-access et SLF4J NOP observés restent connus et non bloquants ; aucun test n'échoue.
 
+## Audit post-gate
+
+Après le head exécutable testé, les six commits suivants de PR #51 étaient exclusivement documentaires : roadmap, validation, plan M7 et ADR-0053/54/55. Aucun artefact exécutable n'a changé après le gate.
+
 ## Décision finale
 
-**M7 satisfait sa question de sortie.**
+**M7 satisfait sa question de sortie et est VALIDÉ ET INTÉGRÉ.**
 
 MORPHEUS dispose désormais d'une stratégie de synchronisation incrémentale locale déterministe, persistante et conservatrice. Lorsqu'il ne peut plus démontrer la sûreté d'une mise à jour incrémentale, il expose la raison et impose un `FULL_REBUILD` plutôt que de fabriquer une continuité.
 
-M7 est **VALIDÉ**. Son intégration finale est portée par la PR #51 ; M8 devient le prochain jalon après merge.
+Prochain jalon : **M8 — Analyse des changements**.

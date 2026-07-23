@@ -70,6 +70,9 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0050](0050-change-completeness-and-lifecycle-quality.md) | Complétude des changements et qualité lifecycle sans faits inventés | **Acceptée — M6** |
 | [ADR-0051](0051-decision-and-external-reference-quality.md) | Qualité des décisions et références externes sans justification inventée | **Acceptée — M6** |
 | [ADR-0052](0052-aggregate-quality-report-and-compact-view.md) | Rapport qualité agrégé et vue compacte déterministe | **Acceptée — M6** |
+| [ADR-0053](0053-deterministic-source-inventory-and-incremental-diff.md) | Inventaire de sources SHA-256 et diff incrémental conservateur | **Acceptée — M7** |
+| [ADR-0054](0054-persisted-sync-state-archives-and-freshness.md) | État de synchronisation persisté, archives et fraîcheur | **Acceptée — M7** |
+| [ADR-0055](0055-local-watcher-and-full-rebuild-fallback.md) | Watcher local conservateur et fallback full rebuild | **Acceptée — M7** |
 
 ---
 
@@ -151,6 +154,21 @@ Vue d'exécution : [`../roadmap/M6_EXECUTION.md`](../roadmap/M6_EXECUTION.md).
 
 ---
 
+# Preuves M7
+
+| Incrément | ADR | Preuve |
+|---|---|---|
+| Inventaire SHA-256 + diff conservateur | ADR-0053 | `282/282 PASS` |
+| Persistance sync + archives + fraîcheur + V008 | ADR-0054 | `282/282 PASS` |
+| Watcher local + fallback full rebuild | ADR-0055 | `282/282 PASS` |
+| Validation finale M7 | — | `282/282 PASS`, architecture `139/139` |
+
+Validation : [`../VALIDATION_M7.md`](../VALIDATION_M7.md).  
+Vue d'exécution : [`../roadmap/M7_EXECUTION.md`](../roadmap/M7_EXECUTION.md).  
+Reçu d'intégration : [`../roadmap/M7_INTEGRATION.md`](../roadmap/M7_INTEGRATION.md).
+
+---
+
 # Contraintes actives principales
 
 ## Architecture
@@ -191,6 +209,23 @@ SQLite reopen
 compact quality JSON déterministe
 ```
 
+## Synchronisation M7
+
+```text
+reliability > incremental speed
+fingerprint = SHA-256(content)
+sourceRevision opaque
+move ambigu => FULL_REBUILD
+watcher != source of truth
+OVERFLOW => FULL_REBUILD
+baseline persisted only after success
+archive != suppression historique publié
+invalidation != suppression snapshot
+freshness uses explicit now/maxAge
+Memory == SQLite
+SQLite reopen
+```
+
 ## Build
 
 Gate obligatoire :
@@ -202,17 +237,18 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate M6 :
+Dernier gate M7 :
 
 ```text
-Architecture tests 134/134 PASS
-TOTAL              261/261 PASS
-Failures             0
-Errors               0
-Skipped              0
+MORPHEUS Application  82/82 PASS
+Architecture Tests   139/139 PASS
+TOTAL                282/282 PASS
+Failures               0
+Errors                 0
+Skipped                0
 BUILD SUCCESS
-Total time          19.543 s
-Finished 2026-07-23T23:32:49+02:00
+Total time           21.141 s
+Finished 2026-07-24T00:22:11+02:00
 ```
 
 GitHub Actions n'est pas la porte obligatoire. Les warnings JDK native-access Xerial SQLite et SLF4J NOP restent connus et non bloquants.

@@ -1,6 +1,6 @@
 # M7 — Plan d'exécution détaillé
 
-Statut : **M7 VALIDÉ — intégration finale portée par PR #51**
+Statut : **M7 VALIDÉ ET INTÉGRÉ**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -12,13 +12,19 @@ M6 final gate  = 261/261 PASS
 ```
 
 Issue : **#50**  
-PR : **#51**  
-Branche : `m7/incremental-sync-freshness`
+PR fonctionnelle : **#51**  
+Branche fonctionnelle : `m7/incremental-sync-freshness`
 
 Head exécutable validé :
 
 ```text
 2e19ab104be18b98536eb871981d60e6b95e1e8c
+```
+
+Merge final M7 :
+
+```text
+c3c397f4e5a2c97b686c96cfa936e00ac29a52bf
 ```
 
 ## Question de sortie
@@ -212,13 +218,15 @@ no semantic matching
 no fuzzy rename
 ```
 
-## Porte finale
-
-Gate local Windows : **PASS**.
+## Clôture
 
 ```text
-282/282 PASS
-Architecture 139/139 PASS
+Gate final        282/282 PASS
+Architecture      139/139 PASS
+PR fonctionnelle  #51
+Merge final       c3c397f4e5a2c97b686c96cfa936e00ac29a52bf
 ```
 
-M7 est **VALIDÉ**. Après intégration de PR #51, l'issue #50 peut être clôturée et M8 devient le prochain jalon.
+M7 est **VALIDÉ ET INTÉGRÉ**.
+
+Prochain jalon : **M8 — Analyse des changements**.
