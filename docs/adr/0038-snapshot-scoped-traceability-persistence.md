@@ -1,6 +1,6 @@
 # ADR-0038 — Persistance de traçabilité snapshot-scoped
 
-- Statut : **Proposée — M4**
+- Statut : **Acceptée — M4**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0003, ADR-0005, ADR-0010, ADR-0018, ADR-0021, ADR-0033, ADR-0037
 - Portée : M4-S2, persistance Memory + SQLite
@@ -16,7 +16,7 @@ M4-S1 = 155/155 PASS
 main   = 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f
 ```
 
-## Décision candidate
+## Décision
 
 Introduire un port applicatif dédié :
 
@@ -49,13 +49,13 @@ TraceabilityLink identity/definition != KnowledgeSnapshot membership
 
 Un `TraceabilityLinkId` identifie une définition immuable. Le même lien peut appartenir à plusieurs snapshots si sa définition est strictement identique.
 
-Une tentative de réutiliser le même `TraceabilityLinkId` avec un contenu différent doit être rejetée explicitement.
+Une tentative de réutiliser le même `TraceabilityLinkId` avec un contenu différent est rejetée explicitement.
 
 ## Snapshot obligatoire
 
 Toute écriture exige un `KnowledgeSnapshotId` déjà connu du store.
 
-S2 n'impose pas que le snapshot soit `ACTIVE` : les liens doivent pouvoir être préparés dans un candidat `BUILDING/VALIDATING/READY` avant activation. L'isolation provient du membership snapshot explicite.
+S2 n'impose pas que le snapshot soit `ACTIVE` : les liens peuvent être préparés dans un candidat `BUILDING/VALIDATING/READY` avant activation. L'isolation provient du membership snapshot explicite.
 
 ```text
 snapshot A links != snapshot B links
@@ -153,7 +153,7 @@ Il reçoit le `SpecificationKnowledgeStore` snapshot comme dépendance pour vér
 
 ## Reconstruction
 
-SQLite doit reconstruire exactement :
+SQLite reconstruit exactement :
 
 - endpoints typés ;
 - relation ;
@@ -163,7 +163,7 @@ SQLite doit reconstruire exactement :
 - evidence IDs ;
 - observedAt.
 
-La fermeture/réouverture du fichier SQLite ne doit modifier aucune de ces valeurs.
+La fermeture/réouverture du fichier SQLite ne modifie aucune de ces valeurs.
 
 ## Frontières
 
@@ -190,11 +190,7 @@ suppression/invalidation incrémentale complète
 
 `SqliteSchemaMigrationTest` est étendu à V005 et vérifie les trois tables, les index, le ledger à cinq entrées et l'absence de colonne JSON.
 
-Total attendu avant gate : **160 tests** (`155 + 5`).
-
-## Critères d'acceptation
-
-ADR-0038 pourra passer à **Acceptée — M4** lorsque le gate local complet démontre :
+## Critères d'acceptation — validés
 
 1. snapshot obligatoire et connu ;
 2. définition du lien distincte du membership ;
@@ -208,8 +204,34 @@ ADR-0038 pourra passer à **Acceptée — M4** lorsque le gate local complet dé
 10. migration V005 appliquée et rejouable ;
 11. aucune payload JSON générique ;
 12. aucun type SQLite dans domain/application ;
-13. gate `.\mvnw.cmd clean test` vert.
+13. gate `\.\mvnw.cmd clean test` vert.
 
 ## Preuve d'acceptation
 
-À compléter uniquement après gate local complet vert.
+Gate local Windows exécuté le **23 juillet 2026 à 12:47:46 +02:00** :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+TraceabilityPersistenceContractTest     5/5 PASS
+LayerDependencyTest                     2/2 PASS
+
+Domain                                 21 tests
+Application                            54 tests
+OpenSpec provider                      26 tests
+Synthetic provider                      7 tests
+SQLite store                            7 tests
+Architecture tests                     45 tests
+----------------------------------------------
+TOTAL                                 160/160 PASS
+Failures                                0
+Errors                                  0
+Skipped                                 0
+BUILD SUCCESS
+Total time                            17.136 s
+```
+
+Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
+
+Conclusion : **ADR-0038 acceptée — M4-S2 validé techniquement**.
