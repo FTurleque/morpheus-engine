@@ -20,18 +20,17 @@ public record TraceabilityPath(
             if (!start.equals(target)) {
                 throw new IllegalArgumentException("empty path is valid only when start equals target");
             }
-            return;
-        }
-
-        if (!steps.getFirst().from().equals(start)) {
-            throw new IllegalArgumentException("first path step must start at the path start entity");
-        }
-        if (!steps.getLast().into().equals(target)) {
-            throw new IllegalArgumentException("last path step must end at the path target entity");
-        }
-        for (int index = 1; index < steps.size(); index++) {
-            if (!steps.get(index - 1).into().equals(steps.get(index).from())) {
-                throw new IllegalArgumentException("path steps must form a contiguous chain");
+        } else {
+            if (!steps.getFirst().from().equals(start)) {
+                throw new IllegalArgumentException("first path step must start at the path start entity");
+            }
+            if (!steps.getLast().into().equals(target)) {
+                throw new IllegalArgumentException("last path step must end at the path target entity");
+            }
+            for (int index = 1; index < steps.size(); index++) {
+                if (!steps.get(index - 1).into().equals(steps.get(index).from())) {
+                    throw new IllegalArgumentException("path steps must form a contiguous chain");
+                }
             }
         }
     }
