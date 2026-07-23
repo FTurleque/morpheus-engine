@@ -34,13 +34,6 @@ public record ProjectSyncState(
         if (lastObservedChangeAt.isPresent() && lastSuccessfulSyncAt.isEmpty()) {
             throw new IllegalArgumentException("observed change requires a successful sync");
         }
-        if (lastAttemptAt.isPresent() && lastSuccessfulSyncAt.isPresent()
-                && lastAttemptAt.orElseThrow().isAfter(lastSuccessfulSyncAt.orElseThrow())) {
-            // This is valid only when a newer failed/pending attempt exists.
-            if (pendingFullRebuildReason.isEmpty()) {
-                throw new IllegalArgumentException("attempt after last success requires pending rebuild reason");
-            }
-        }
     }
 
     public static ProjectSyncState empty(ProjectSpecificationId projectId) {
