@@ -1,6 +1,6 @@
 # Validation M4 — Traçabilité typée, explicable et traversable
 
-Statut : **VALIDÉ — 6/6 slices — 189/189 PASS**
+Statut : **VALIDÉ ET INTÉGRÉ — 6/6 slices — 189/189 PASS**
 
 Date : 23 juillet 2026
 
@@ -25,7 +25,7 @@ M4 démontre une traçabilité first-class, snapshot-scoped, provider/backend-ne
 | S5 | références externes / unresolved / broken-reference | #33 | ADR-0041 | 184/184 |
 | S6 | validation finale `trace(requirement)` | #34 | ADR-0042 | 189/189 |
 
-Baselines intégrées avant S6 :
+Merges intégrés :
 
 ```text
 M4-S1 merge = 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f
@@ -33,9 +33,8 @@ M4-S2 merge = 32694f2c74aa9ce4248f9eea907d85460de93eff
 M4-S3 merge = 4b3bb5c79e65b8f1501b9949b49f4940294c4312
 M4-S4 merge = cafbc8e61a4af2ed204cd6fc24dcdd262f6ed9e4
 M4-S5 merge = e25aebf0479dfa9d1f146df4d2af0f072b551d39
+M4-S6 merge = ac317eb63bbe0edb854c04660c5c143ba46e0c43
 ```
-
-Le merge final S6 est inscrit après intégration de la PR #34.
 
 ---
 
@@ -318,6 +317,13 @@ Head de code testé :
 d46b66b5c5c22baabcfe8cfcb53a2da2eff68782
 ```
 
+Merge final validé :
+
+```text
+PR #34
+ac317eb63bbe0edb854c04660c5c143ba46e0c43
+```
+
 Warnings connus non bloquants uniquement :
 
 ```text
@@ -330,12 +336,10 @@ SLF4J NOP dans les tests d'architecture
 # 9. Décision de sortie
 
 ```text
-M4 = VALIDÉ
-6/6 slices = VALIDÉS
+M4 = VALIDÉ ET INTÉGRÉ
+6/6 slices = VALIDÉS ET INTÉGRÉS
 189/189 = PASS
 M5 = AUTORISÉ
 ```
 
 La question de sortie M4 reçoit une réponse positive sur les deux backends de référence sans dépendance à un backend graphe.
-
-La PR #34 peut être intégrée sous le signal explicite utilisateur déjà donné : **« merge et finalise M4 »**.
