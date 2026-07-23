@@ -1,6 +1,6 @@
 # M6 — Plan d'exécution détaillé
 
-Statut : **M6 actif — 2/6 validés ; S1 intégré, S2 Ready, S3 prochain après merge**
+Statut : **M6 actif — 2/6 intégrés ; S3 implémenté, gate en attente**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -17,6 +17,7 @@ M5 final gate  = 227/227 PASS
 
 M6-S1 merge    = 5b0984ec7777eabb6f2d1417b4c900c08a038947
 M6-S1 gate     = 234/234 PASS
+M6-S2 merge    = 916201c724722cf9ace50d44e55d001d8faf383c
 M6-S2 gate     = 241/241 PASS
 ```
 
@@ -57,15 +58,15 @@ no LLM/semantic dependency
 
 ```text
 S1  ✅ requirement traceability coverage + orphan requirements — PR #44 — ADR-0048 — 234/234 — MERGED
-S2  ✅ implementation-task coverage + acceptance capability gap — PR #45 — ADR-0049 — 241/241 — READY
-S3  ⏳ change completeness + lifecycle blocking conditions — PROCHAIN APRÈS MERGE S2
+S2  ✅ implementation-task coverage + acceptance capability gap — PR #45 — ADR-0049 — 241/241 — MERGED
+S3  🚧 change completeness + lifecycle blocking conditions — PR #46 — ADR-0050 proposée — gate attendu 248
 S4  ⏳ design-decision justification + broken/unresolved reference quality
 S5  ⏳ aggregate quality report + stable metrics/order + compact exposure
 S6  ⏳ validation finale VALIDATION_M6.md
 ```
 
 ```text
-M6 : 2 / 6 slices validés
+M6 : 2 / 6 slices intégrés
 ```
 
 ---
@@ -81,11 +82,14 @@ absence de lien != lien inventé
 Scenario != AcceptanceCriterion
 DETERMINISTIC != HEURISTIC
 heuristic finding => confidence obligatoire
+lifecycle state != snapshot state
+lifecycle state != temporal state
+lifecycle state != task completion
 provider-neutral
 backend-neutral
 ```
 
-Aucune heuristique n'est présentée comme certitude.
+Aucune heuristique n'est présentée comme certitude et aucun fait indisponible n'est remplacé par `false`.
 
 ---
 
@@ -95,34 +99,6 @@ ADR : **ADR-0048 — Acceptée — M6**
 PR : **#44 — MERGED**  
 Merge : `5b0984ec7777eabb6f2d1417b4c900c08a038947`
 
-Contrats :
-
-```text
-QualityFinding
-QualityFindingCode
-QualityEvidenceKind
-RequirementTraceabilityCoverage
-RequirementQualityService
-```
-
-Sémantique validée :
-
-```text
-ACTIVE by default
-ACTIVE/RETIRED explicit only
-CURRENT Requirement only
-linked = >= 1 direct incoming/outgoing persisted TraceabilityLink
-orphan = no direct incoming AND no direct outgoing link
-coverage = linked / total CURRENT requirements
-zero CURRENT requirements = coverage 1.0
-ORPHAN_REQUIREMENT = WARNING + DETERMINISTIC
-finding evidence = Requirement provenance evidence
-DETERMINISTIC => confidence interdite
-HEURISTIC => confidence obligatoire et bornée [0,1]
-```
-
-Preuve :
-
 ```text
 RequirementQualityContractTest          7/7 PASS
 Architecture tests                    107/107 PASS
@@ -131,25 +107,13 @@ BUILD SUCCESS
 Finished at                2026-07-23T20:52:28+02:00
 ```
 
-Head de code testé :
-
-```text
-34ecc48057f27990221cbe7669b555eb73950581
-```
-
 ---
 
-# 6. M6-S2 — VALIDÉ TECHNIQUEMENT / READY
+# 6. M6-S2 — INTÉGRÉ
 
 ADR : **ADR-0049 — Acceptée — M6**  
-PR : **#45 — Ready après gate**  
-Branche : `m6/task-acceptance-quality`
-
-Head de code testé :
-
-```text
-10c1313fbdbab2abcfb53a71a2d610dcc6167614
-```
+PR : **#45 — MERGED**  
+Merge : `916201c724722cf9ace50d44e55d001d8faf383c`
 
 Contrats :
 
@@ -161,83 +125,17 @@ AcceptanceCoverageAssessment
 AcceptanceQualityService
 ```
 
-Extensions de `QualityFindingCode` :
+Sémantique :
 
 ```text
-IMPLEMENTATION_TASK_WITHOUT_REQUIREMENT
-ACCEPTANCE_COVERAGE_UNAVAILABLE
-```
-
-## Couverture task -> requirement
-
-Aucune relation `Task -> Requirement` n'est inventée.
-
-Pour une task `T` :
-
-```text
-T.changeId = C
-```
-
-La task est couverte seulement si :
-
-```text
-Change(C) --AFFECTS--> Requirement(R)
-R possède une occurrence CURRENT dans le même snapshot
-```
-
-```text
-AFFECTS -> CURRENT          = couvert
-AFFECTS -> PROPOSED only    = non couvert
-AFFECTS -> cible absente    = non couvert
-aucun AFFECTS               = non couvert
-```
-
-Finding d'une task non couverte :
-
-```text
-code = IMPLEMENTATION_TASK_WITHOUT_REQUIREMENT
-severity = WARNING
-evidenceKind = DETERMINISTIC
-subject = IMPLEMENTATION_TASK(taskId)
-confidence = empty
-evidence = task.provenance.evidenceId
-```
-
-Calcul :
-
-```text
-totalTasks
-coveredTasks
-uncoveredTasks
-coverageRatio = covered / total
-zero task => coverage 1.0
-```
-
-## Gap acceptance
-
-Le contrat production possède `ProviderCapability.READ_ACCEPTANCE_CRITERIA`, mais aucun type normalisé/persisté `AcceptanceCriterion` n'existe encore.
-
-S2 expose donc :
-
-```text
+task.changeId = C
+Change(C) --AFFECTS--> Requirement(R) CURRENT => task couverte
+PROPOSED-only / cible absente / aucun AFFECTS => non couverte
+Scenario != AcceptanceCriterion
 AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL
 ```
 
-avec une finding par specification :
-
-```text
-ACCEPTANCE_COVERAGE_UNAVAILABLE
-WARNING
-DETERMINISTIC
-```
-
-Aucun faux dénominateur, aucun ratio `0 %` et aucune conversion de `Scenario` en critère d'acceptation.
-
-```text
-Scenario != AcceptanceCriterion
-```
-
-Preuves :
+Preuve :
 
 ```text
 TaskAcceptanceQualityContractTest        7/7 PASS
@@ -247,41 +145,176 @@ Failures                                0
 Errors                                  0
 Skipped                                 0
 BUILD SUCCESS
-Total time                            18.871 s
 Finished at                2026-07-23T22:08:29+02:00
 ```
 
-Warnings connus non bloquants uniquement : Xerial SQLite/JDK restricted native access et SLF4J NOP.
+---
+
+# 7. M6-S3 — IMPLÉMENTÉ / GATE EN ATTENTE
+
+ADR : **ADR-0050 — Proposée — M6**  
+PR : **#46 — Draft**  
+Branche : `m6/change-lifecycle-quality`
+
+## Contrats
+
+```text
+QualityFactValue = TRUE / FALSE / UNAVAILABLE
+LifecycleFactSource = DERIVED / EXPLICIT
+ChangeLifecycleFactAssessment
+ChangeCompletenessAssessment
+ChangeCompletenessReport
+ChangeCompletenessService
+ChangeLifecycleQualityAssessment
+ChangeLifecycleQualityService
+```
+
+Extensions `QualityFindingCode` :
+
+```text
+CHANGE_WITHOUT_CURRENT_REQUIREMENT
+CHANGE_COMPLETENESS_PARTIALLY_OBSERVABLE
+LIFECYCLE_REQUIRED_FACT_UNAVAILABLE
+LIFECYCLE_TRANSITION_BLOCKED
+```
+
+## Complétude snapshot-scoped
+
+Pour chaque change publié :
+
+```text
+currentRequirementCount
+constraintCount
+designDecisionCount
+implementationTaskCount
+```
+
+Projection des faits M3 :
+
+```text
+requirementsIdentified
+  TRUE  si >=1 AFFECTS -> Requirement CURRENT
+  FALSE sinon
+
+criticalConstraintsKnown
+  UNAVAILABLE
+
+acceptanceCriteriaDefined
+  UNAVAILABLE
+
+designRequired
+  UNAVAILABLE
+
+designDecisionsAvailable
+  TRUE/FALSE selon DesignDecision liée
+
+planPresent
+  TRUE si >=1 ImplementationTask
+  UNAVAILABLE si aucune task
+
+knownBlocker
+  UNAVAILABLE
+
+blockingAcceptanceCriterionFailed
+blockingAcceptanceCriterionUnverified
+  UNAVAILABLE
+```
+
+Donc :
+
+```text
+risks != blockers
+0 task != preuve d'absence de plan
+task.completed != lifecycle state
+```
+
+Un change sans requirement CURRENT produit :
+
+```text
+CHANGE_WITHOUT_CURRENT_REQUIREMENT
+WARNING
+DETERMINISTIC
+```
+
+Les dimensions non observables produisent un finding informatif :
+
+```text
+CHANGE_COMPLETENESS_PARTIALLY_OBSERVABLE
+INFO
+DETERMINISTIC
+```
+
+## Lifecycle quality
+
+Le `ChangeLifecycle` source est toujours fourni explicitement par l'appelant. Il n'est jamais reconstruit depuis le snapshot.
+
+### Mode DERIVED
+
+La liste des faits réellement consultés par la transition M3 est connue explicitement.
+
+Si un fait requis est `UNAVAILABLE` :
+
+```text
+state machine NON appelée
+decision = empty
+LIFECYCLE_REQUIRED_FACT_UNAVAILABLE
+```
+
+Si tous les faits requis sont disponibles :
+
+```text
+state machine M3 = source de vérité
+```
+
+### Mode EXPLICIT
+
+L'appelant fournit directement un `ChangeLifecycleFacts` complet :
+
+```text
+aucune dérivation
+aucune substitution
+state machine M3 appelée avec ces faits exacts
+```
+
+Chaque blocker M3 est conservé dans `ChangeLifecycleTransitionDecision` et projeté aussi en :
+
+```text
+LIFECYCLE_TRANSITION_BLOCKED
+WARNING
+DETERMINISTIC
+blocker=<ChangeLifecycleBlocker exact>
+```
+
+## Preuves ajoutées
+
+`ChangeLifecycleQualityContractTest` — **7 tests** :
+
+```text
+Memory == SQLite completeness
+faits tri-state exacts
+CURRENT only
+risks -> knownBlocker UNAVAILABLE
+task.completed n'infère aucun lifecycle
+0 task -> planPresent UNAVAILABLE
+PROPOSED -> SPECIFIED dérivé non évalué si faits requis indisponibles
+transition sans faits requis déléguée à M3
+faits explicites -> blockers M3 exacts
+changeId absent du snapshot rejeté
+ACTIVE default / RETIRED allowed / READY rejected
+missing ACTIVE distinct
+SQLite reopen
+```
+
+Baseline : **241/241 PASS**.  
+Gate attendu : **248/248**, dont **121 tests d'architecture**.
 
 Aucune migration, aucun store adapter, aucun provider, aucun `pom.xml` modifié.
 
 ---
 
-# 7. M6-S3 — Changement et lifecycle
-
-Prochaine slice après merge S2.
-
-Cibles :
-
-```text
-change incomplet
-conditions de blocage de transition
-état lifecycle explicite
-faits structurels uniquement pour diagnostics déterministes
-```
-
-Le design devra réutiliser la machine d'état M3 et ne pas confondre :
-
-```text
-lifecycle state
-snapshot state
-temporal state
-task completion
-```
-
----
-
 # 8. M6-S4 — Décisions et références
+
+Prochaine slice après merge S3.
 
 Cibles :
 
@@ -338,4 +371,4 @@ Répondre explicitement à la question de sortie et prouver la parité des backe
 9. issue #43 + roadmap mises à jour
 ```
 
-**Prochaine ligne active après merge S2 : M6-S3 — change completeness + lifecycle blocking conditions.**
+**Prochaine porte : gate local M6-S3 attendu 248/248.**
