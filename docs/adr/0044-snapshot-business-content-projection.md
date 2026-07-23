@@ -107,7 +107,7 @@ Même snapshot + même contenu : idempotent.
 
 Même snapshot + contenu différent : `KnowledgeStoreException`.
 
-Les identités sont uniques dans chaque famille.
+Les collections top-level sont canoniquement ordonnées par identité et les identités sont uniques dans chaque famille.
 
 Relations internes conservées et validées :
 
@@ -168,11 +168,13 @@ Les listes sont persistées dans des tables enfants avec `ordinal` afin de recon
 Implémentations de référence :
 
 ```text
-MemorySpecificationKnowledgeStore
+MemorySnapshotBusinessContentStore
 SqliteSnapshotBusinessContentStore
 ```
 
-Elles doivent exposer la même sémantique observable :
+L'adapter mémoire compose `SpecificationKnowledgeStore + VersionedRequirementStore` afin de réutiliser les mêmes règles d'ownership sans gonfler le store de fondation.
+
+Les deux adapters exposent la même sémantique observable :
 
 ```text
 putSnapshotContent(...)
@@ -214,7 +216,7 @@ Le gate S2 doit démontrer au minimum :
 11. SQLite V007 normalisée et sans colonne JSON ;
 12. SQLite close/reopen conserve la projection exacte ;
 13. le store `Requirement` reste séparé ;
-14. `\.\mvnw.cmd clean test` vert.
+14. `.\mvnw.cmd clean test` vert.
 
 ## Preuve d'acceptation
 
