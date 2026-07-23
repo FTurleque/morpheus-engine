@@ -56,10 +56,17 @@ class CanonicalJsonSerializerTest {
     }
 
     @Test
-    void rejectsUnsupportedTypesNonStringMapKeysAndNonFiniteNumbers() {
+    void rejectsUnsupportedTypesNonStringMapKeysNonFiniteNumbersAndNonWarningSeverity() {
         assertThrows(IllegalArgumentException.class, () -> serializer.toJson(new Object()));
         assertThrows(IllegalArgumentException.class, () -> serializer.toJson(Map.of(1, "value")));
         assertThrows(IllegalArgumentException.class, () -> serializer.toJson(Double.NaN));
         assertThrows(IllegalArgumentException.class, () -> serializer.toJson(Float.POSITIVE_INFINITY));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new WarningView(
+                        CompactWarningCode.CHANGE_NOT_FOUND,
+                        DiagnosticSeverity.ERROR,
+                        "invalid severity",
+                        Map.of()));
     }
 }
