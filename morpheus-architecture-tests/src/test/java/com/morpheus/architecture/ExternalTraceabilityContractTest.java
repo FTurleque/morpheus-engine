@@ -56,7 +56,7 @@ class ExternalTraceabilityContractTest {
     Path tempDir;
 
     @Test
-    void memoryRoundTripsExternalReferencesAndResolvedTraceabilityView() {
+    void memoryRoundTripsExternalReferencesAndUnresolvedTraceabilityView() {
         var snapshots = new MemorySpecificationKnowledgeStore();
         verifyRoundTrip(
                 snapshots,
@@ -65,7 +65,7 @@ class ExternalTraceabilityContractTest {
     }
 
     @Test
-    void sqliteRoundTripsExternalReferencesAndResolvedTraceabilityView() {
+    void sqliteRoundTripsExternalReferencesAndUnresolvedTraceabilityView() {
         Path database = tempDir.resolve("external-roundtrip.db");
         try (var snapshots = new SqliteSpecificationKnowledgeStore(database);
              var references = new SqliteExternalReferenceStore(database);
@@ -151,7 +151,7 @@ class ExternalTraceabilityContractTest {
         createProjectAndSnapshots(snapshots, projectId, snapshotId, KnowledgeSnapshotId.generate());
 
         DomainIdentity owner = DomainIdentity.generate();
-        ExternalReference reference = resolvedReference(owner);
+        ExternalReference reference = unresolvedReference(owner);
         references.putReference(snapshotId, reference);
         references.putReference(snapshotId, reference);
 
@@ -175,7 +175,7 @@ class ExternalTraceabilityContractTest {
         assertEquals(1, views.size());
         assertEquals(link, views.getFirst().link());
         assertEquals(reference, views.getFirst().reference().orElseThrow());
-        assertEquals(ExternalTraceabilityAvailability.REFERENCE_RESOLVED, views.getFirst().availability());
+        assertEquals(ExternalTraceabilityAvailability.REFERENCE_UNRESOLVED, views.getFirst().availability());
     }
 
     private void verifyBrokenReference(
@@ -238,24 +238,30 @@ class ExternalTraceabilityContractTest {
         assertEquals(changed, references.findReference(second, original.id()).orElseThrow());
     }
 
-    private ExternalReference resolvedReference(DomainIdentity owner) {
-        Provenance provenance = new Provenance(
-                new ProviderId("openspec"),
-                Optional.of("1.0"),
-                SourceLocator.file("specs/payments.md"),
-                Optional.of("ext-ref-42"),
-                Optional.of("source-rev-7"),
-                EvidenceId.generate());
+    private ExternalReference unresolvedReference(DomainIdentity owner) {
         ExternalReference unvalidated = ExternalReference.unvalidated(
                 ExternalReferenceId.generate(),
                 owner,
                 target(),
-                Optional.of(provenance));
-        ExternalReference unresolved = unvalidated.transition(
+                Optional.of(provenance()));
+        return unvalidated.transition(
                 ExternalReferenceResolutionState.UNRESOLVED,
                 ExternalReferenceResolutionReason.TARGET_NOT_FOUND,
                 Optional.empty(),
                 T0.plusSeconds(1));
+    }
+
+    private ExternalReference resolvedReference(DomainIdentity owner) {
+        ExternalReference unresolved = ExternalReference.unvalidated(
+                        ExternalReferenceId.generate(),
+                        owner,
+                        target(),
+                        Optional.of(provenance()))
+                .transition(
+                        ExternalReferenceResolutionState.UNRESOLVED,
+                        ExternalReferenceResolutionReason.TARGET_NOT_FOUND,
+                        Optional.empty(),
+                        T0.plusSeconds(1));
         return unresolved.transition(
                 ExternalReferenceResolutionState.RESOLVED,
                 ExternalReferenceResolutionReason.RESOLVED,
@@ -263,6 +269,16 @@ class ExternalTraceabilityContractTest {
                         target(),
                         Map.of("symbolKind", "class", "language", "java"))),
                 T0.plusSeconds(2));
+    }
+
+    private Provenance provenance() {
+        return new Provenance(
+                new ProviderId("openspec"),
+                Optional.of("1.0"),
+                SourceLocator.file("specs/payments.md"),
+                Optional.of("ext-ref-42"),
+                Optional.of("source-rev-7"),
+                EvidenceId.generate());
     }
 
     private ExternalReferenceTarget target() {
