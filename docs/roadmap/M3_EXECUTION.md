@@ -1,6 +1,6 @@
 # M3 — Plan d'exécution détaillé
 
-Statut : **M3 actif — 5 slices validés sur 6 ; S6 prochain**
+Statut : **M3 VALIDÉ — 6 slices sur 6 ; intégration PR #26 requise avant M4**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -8,28 +8,30 @@ Ce document complète [`../ROADMAP.md`](../ROADMAP.md) et sert de tableau de bor
 
 ---
 
-# 1. Position actuelle
+# 1. Position finale
 
 ```text
 C0     ✅ validé
 M0     ✅ validé
 M1     ✅ validé
 M2     ✅ validé — 8/8 — 94/94
-M3     🚧 actif
+M3     ✅ validé techniquement
   S1   ✅ TemporalState + SpecificationVersion — PR #21 — ADR-0031 — 103/103
   S2   ✅ ChangeLifecycleState — PR #22 — ADR-0032 — 119/119
   S3   ✅ KnowledgeSnapshot complet — PR #23 — ADR-0033 — 127/127
   S4   ✅ persistance métier versionnée — PR #24 — ADR-0034 — 134/134
   S5   ✅ application / promotion des deltas — PR #25 — ADR-0035 — 142/142
-  S6   🚧 historique / comparaison / rétention — prochain
-M4     ⏳ bloqué par M3
+  S6   ✅ historique / comparaison / rétention — PR #26 — ADR-0036 — 147/147
+M4     ⏳ autorisé après merge de la PR #26
 ```
 
 Progression :
 
 ```text
-M3 : [█████████████████░░░] 5 / 6 slices validés
+M3 : [████████████████████] 6 / 6 slices validés
 ```
+
+Preuve de sortie : [`../VALIDATION_M3.md`](../VALIDATION_M3.md).
 
 ---
 
@@ -37,20 +39,29 @@ M3 : [█████████████████░░░] 5 / 6 slices
 
 > **MORPHEUS peut-il publier et requêter un état `CURRENT` cohérent tout en conservant séparément les propositions, l'historique et les changements en cours, sans jamais exposer un snapshot partiellement construit ?**
 
-Porte technique finale :
+Réponse validée :
 
 ```text
-get_current_specification
+OUI
 ```
 
-ne doit jamais contenir un delta seulement proposé, y compris pendant :
+Oracle de visibilité :
 
 ```text
-réingestion
-construction de snapshot
-validation de snapshot
-activation concurrente
-redémarrage du store
+CURRENT query
+    -> ACTIVE snapshot uniquement
+    -> TemporalState.CURRENT uniquement
+
+PROPOSED
+    -> persiste séparément
+    -> ne fuit jamais dans CURRENT
+
+BUILDING / VALIDATING / READY / FAILED
+    -> jamais observables comme CURRENT
+
+RETIRED
+    -> historique publié adressable explicitement
+    -> jamais réactivé directement
 ```
 
 ---
@@ -68,8 +79,6 @@ EntityVersion<T>
 ├── SpecificationVersionId
 ├── TemporalState
 └── content
-        ↓
-TemporalProjection<T>
 ```
 
 Invariants :
@@ -80,17 +89,6 @@ SpecificationVersion != KnowledgeSnapshot
 content normalization != temporal projection
 PROPOSED never leaks into CURRENT
 technical reingestion != implicit business version
-```
-
-Oracle :
-
-```text
-same logical requirement
-├── CURRENT   30 minutes
-├── PROPOSED  60 minutes
-└── PROPOSED  15 minutes
-
-CURRENT view => 30 minutes only
 ```
 
 Preuve : `103/103 PASS`.
@@ -127,7 +125,7 @@ ARCHIVED  != CURRENT
 Politique :
 
 ```text
-SPECIFIED -> PLANNED uniquement si design_required=false + plan
+SPECIFIED -> PLANNED si design_required=false + plan
 backward transitions uniquement par policy explicite
 ABANDONED exige une raison structurée
 ABANDONED -> PROPOSED autorisé
@@ -147,18 +145,6 @@ BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
                          \-> FAILED
 ```
 
-Architecture :
-
-```text
-SpecificationKnowledgeStore
-        ├── putSnapshot()
-        ├── transitionSnapshotState()  // CAS
-        ├── activeSnapshot()
-        └── activateSnapshot()         // publication atomique
-                    ↓
-          SnapshotLifecycleService
-```
-
 Invariants :
 
 ```text
@@ -166,16 +152,8 @@ seul ACTIVE est observable comme snapshot courant
 un projet possède au plus un ACTIVE
 stale predecessor est rejeté
 FAILED n'évince jamais l'ACTIVE existant
-ACTIVE/RETIRED ne sont produits que par activateSnapshot
+ACTIVE/RETIRED uniquement via activateSnapshot
 transitionSnapshotState applique un CAS explicite
-```
-
-Oracle :
-
-```text
-Vn ACTIVE
-Vn+1 BUILDING -> VALIDATING -> FAILED
-=> Vn reste ACTIVE
 ```
 
 SQLite conserve `ACTIVE/RETIRED` après fermeture/réouverture.
@@ -190,7 +168,15 @@ ADR : **ADR-0034 — Acceptée — M3**.
 
 Premier vertical slice : `Requirement`.
 
-Architecture persistante :
+Migration V004 :
+
+```text
+specification_versions
+snapshot_specification_versions
+requirement_versions
+```
+
+Ownership :
 
 ```text
 DomainIdentity
@@ -204,69 +190,23 @@ KnowledgeSnapshotId
 TemporalState
 ```
 
-Migration V004 :
-
-```text
-specification_versions
-snapshot_specification_versions
-requirement_versions
-```
-
-Relation métier/technique :
+Relation :
 
 ```text
 SpecificationVersion 1 <--- N KnowledgeSnapshot
 ```
 
-Le binding snapshot/version est explicite. `RequirementVersionRecord` reconstruit exactement `EntityVersion<Requirement>` avec provenance.
-
-Invariants validés :
+Invariants :
 
 ```text
-DomainIdentity != EntityVersionId
-SpecificationVersion != KnowledgeSnapshot
-normalized Requirement != persisted occurrence
 snapshot/version ownership obligatoire
 1 CURRENT max par (snapshot, DomainIdentity)
 N PROPOSED concurrents autorisés
 aucune payload JSON générique
+reopen SQLite conserve CURRENT / PROPOSED séparés
 ```
 
-Vue courante :
-
-```text
-project
-  ↓
-activeSnapshot(project)
-  ↓
-currentRequirement(snapshotId, DomainIdentity)
-```
-
-Donc un `PROPOSED` persiste mais reste invisible dans `CURRENT`.
-
-Preuve de redémarrage SQLite :
-
-```text
-CURRENT  = 30 jours
-PROPOSED = 60 jours
-        ↓ close/reopen
-CURRENT query = 30 jours
-PROPOSED      = toujours conservé séparément
-```
-
-Preuve :
-
-```text
-VersionedRequirementPersistenceTest  7/7 PASS
-SqliteSchemaMigrationTest            4/4 PASS
-TOTAL                              134/134 PASS
-Failures                              0
-Errors                                0
-Skipped                               0
-BUILD SUCCESS
-```
-
-Le pattern S4 est désormais la référence pour les autres familles métier ; il n'impose pas de les persister toutes avant que leur usage le justifie.
+Preuve : `134/134 PASS`.
 
 ---
 
@@ -274,17 +214,10 @@ Le pattern S4 est désormais la référence pour les autres familles métier ; i
 
 ADR : **ADR-0035 — Acceptée — M3**.
 
-Entrées :
+Séparation :
 
 ```text
-ADDED
-MODIFIED
-REMOVED
-```
-
-Séparation validée :
-
-```text
+normalized delta != applied delta
 APPLY != PROMOTE
 PROMOTE != ACTIVATE
 COMPLETED != PROMOTE
@@ -294,87 +227,58 @@ COMPLETED != ACTIVATE
 Flux :
 
 ```text
-ACTIVE snapshot / CURRENT baseline
+ACTIVE CURRENT baseline
         +
 RequirementDelta[]
-        ↓ APPLY explicite
+        ↓ APPLY
 nouvelle SpecificationVersion
         ↓
-BUILDING candidate snapshot
+BUILDING candidate
         ↓
 RequirementVersionRecord[] CURRENT
-        ↓ PROMOTE explicite
+        ↓ PROMOTE
 VALIDATING
    ├── READY
    └── FAILED
-        ↓ ACTIVATE explicite uniquement si READY
+        ↓ ACTIVATE si READY
 ACTIVE
 ```
 
-Invariants validés :
+Sémantique :
 
 ```text
-normalized delta != applied delta
-CURRENT ne change pas avant activation
-ADDED refuse une identité déjà existante
-aucun fuzzy matching titre/chemin/contenu/similarité
-MODIFIED conserve DomainIdentity
-MODIFIED crée une nouvelle EntityVersionId
-REMOVED retire seulement l'occurrence du candidat
-ACTIVE n'est jamais muté par APPLY
-lot incohérent/ambigu rejeté avant écriture
-ordre d'entrée des deltas sans sémantique
-promotion explicite et evidenced
-FAILED candidate conserve l'ancien ACTIVE
-Memory et SQLite respectent le même contrat
+ADDED    -> nouvelle identité réellement nouvelle
+MODIFIED -> même DomainIdentity + nouvel EntityVersionId
+REMOVED  -> absent du candidat uniquement
 ```
 
-La construction candidate réutilise le schéma V004 ; aucune migration V005 n'est nécessaire pour ce vertical slice.
+Aucun fuzzy matching.
 
-`RequirementDelta.scenarios` reste hors persistance S5 conformément à la frontière S4 : le slice ne généralise pas prématurément la persistance à toutes les familles métier.
-
-Oracle de visibilité :
-
-```text
-avant activation
-CurrentRequirementQueryService -> ancienne baseline ACTIVE
-
-après activation
-CurrentRequirementQueryService -> nouvelle baseline ACTIVE
-
-candidate FAILED
-CurrentRequirementQueryService -> ancienne baseline ACTIVE
-```
-
-Preuve locale Windows :
-
-```text
-.\mvnw.cmd clean test
-javac release 21
-
-RequirementDeltaApplicationContractTest  8/8 PASS
-
-Domain                                  13 tests
-Application                             54 tests
-OpenSpec provider                       26 tests
-Synthetic provider                       7 tests
-SQLite store                             7 tests
-Architecture tests                      35 tests
------------------------------------------------
-TOTAL                                  142/142 PASS
-Failures                                 0
-Errors                                   0
-Skipped                                  0
-BUILD SUCCESS
-```
-
-Les warnings Xerial SQLite/JDK24 native access et SLF4J NOP restent connus et non bloquants.
+Preuve : `142/142 PASS`.
 
 ---
 
-# 8. NOW — M3-S6 Historique / comparaison / rétention
+# 8. M3-S6 — VALIDÉ : historique / comparaison / rétention
 
-Comparaison minimale :
+ADR : **ADR-0036 — Acceptée — M3**.
+
+## Historique publié
+
+```text
+RETIRED* -> ACTIVE
+```
+
+`BUILDING`, `VALIDATING`, `READY` et `FAILED` ne sont jamais exposés comme historique publié.
+
+Une requête historique adresse explicitement un snapshot `ACTIVE` ou `RETIRED` et ne retourne que ses occurrences `CURRENT`.
+
+```text
+snapshot RETIRED != occurrence TemporalState.HISTORICAL
+```
+
+## Comparaison
+
+Taxonomie :
 
 ```text
 ADDED
@@ -383,28 +287,84 @@ REMOVED
 UNCHANGED
 ```
 
-`MOVED / RENAMED` seulement si la continuité d'identité est démontrée.
+Continuité par `DomainIdentity` ; comparaison du contenu `Requirement` normalisé.
 
-Décisions à figer :
-
-```text
-retention policy
-snapshot comparison
-logical rollback
-reconstruction
-historical query semantics
-```
-
-S6 doit réutiliser les invariants désormais prouvés :
+Les métadonnées suivantes n'impliquent pas une modification :
 
 ```text
-DomainIdentity stable
-EntityVersionId occurrence-specific
-SpecificationVersion != KnowledgeSnapshot
-ACTIVE observable atomiquement
-CURRENT / PROPOSED / HISTORICAL explicites
-APPLY / PROMOTE / ACTIVATE séparés
+EntityVersionId
+SpecificationVersionId
+KnowledgeSnapshotId
+TemporalState
 ```
+
+Donc un nouvel `EntityVersionId` seul reste `UNCHANGED`.
+
+`MOVED / RENAMED` ne sont pas introduits implicitement.
+
+## Rollback logique
+
+Invariant :
+
+```text
+RETIRED -X-> ACTIVE
+```
+
+Flux validé :
+
+```text
+ACTIVE current -> RETIRED target
+        ↓ compare
+RequirementDelta[]
+        ↓ APPLY
+nouvelle SpecificationVersion
+nouveau BUILDING
+        ↓ PROMOTE
+READY
+        ↓ ACTIVATE
+nouvel ACTIVE
+```
+
+Le snapshot historique reste intact et de nouveaux `EntityVersionId` sont créés.
+
+Un changement cross-specification est comparable comme `MODIFIED`, mais son rollback est rejeté sans politique `MOVED`/reparenting explicite.
+
+## Rétention
+
+```text
+PublishedHistoryRetentionPolicy.KEEP_ALL_PUBLISHED
+```
+
+Aucune purge destructive, TTL, limite de cardinalité ou compactage en M3.
+
+Aucune migration V005 : V004 suffit.
+
+## Preuve locale Windows
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+PublishedHistoryContractTest              5/5 PASS
+RequirementDeltaApplicationContractTest   8/8 PASS
+
+Domain                                  13 tests
+Application                             54 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      40 tests
+-----------------------------------------------
+TOTAL                                  147/147 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+```
+
+Gate terminé le 23 juillet 2026 à 10:50:47 +02:00.
+
+Warnings connus non bloquants : Xerial SQLite/JDK24 native access et SLF4J NOP.
 
 ---
 
@@ -432,8 +392,10 @@ APPLY / PROMOTE / ACTIVATE séparés
 | application/promotion des deltas | ✅ | S5 |
 | `APPLY != PROMOTE != ACTIVATE` | ✅ | S5 |
 | CURRENT inchangé avant activation | ✅ | S5 |
-| historique/comparaison/rétention | 🚧 | S6 |
-| VALIDATION_M3.md | ⬜ | clôture |
+| historique/comparaison/rétention | ✅ | S6 |
+| rollback logique sans réactivation RETIRED | ✅ | S6 |
+| reopen SQLite conserve historique publié | ✅ | S6 |
+| `VALIDATION_M3.md` | ✅ | clôture |
 
 ---
 
@@ -448,9 +410,25 @@ CLI stabilisée                          -> M9
 MCP / API                               -> M10 / M11
 ```
 
+`MOVED/RENAMED` reste différé tant qu'une politique explicite de continuité/reparenting n'est pas décidée.
+
 ---
 
-# 11. Règle de gouvernance
+# 11. Porte de sortie M3
+
+```text
+M3 = VALIDÉE
+6 / 6 slices = VALIDÉS
+ADR-0036 = ACCEPTÉE — M3
+Gate final = 147/147 PASS
+M4 = AUTORISÉE APRÈS MERGE PR #26
+```
+
+La PR #26 doit rester non mergée jusqu'au signal explicite de poursuite. L'issue #20 reste ouverte jusqu'à cette intégration.
+
+---
+
+# 12. Règle de gouvernance
 
 Après chaque gate vert :
 
@@ -458,7 +436,7 @@ Après chaque gate vert :
 1. inscrire la preuve exacte dans l'ADR
 2. mettre la PR Ready
 3. merger seulement après signal explicite de poursuite
-4. mettre à jour issue #20
-5. avancer NOW vers le slice suivant
-6. mettre à jour la checklist bloquante M4
+4. mettre à jour l'issue de milestone
+5. avancer la roadmap vers le jalon suivant
+6. conserver une validation de sortie explicite
 ```

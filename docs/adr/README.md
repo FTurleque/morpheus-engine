@@ -53,6 +53,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0033](0033-knowledge-snapshot-lifecycle-and-atomic-activation.md) | Lifecycle complet des KnowledgeSnapshot et activation atomique | **Acceptée — M3** |
 | [ADR-0034](0034-versioned-requirement-persistence.md) | Première persistance métier versionnée sur `Requirement` | **Acceptée — M3** |
 | [ADR-0035](0035-explicit-requirement-delta-application-and-promotion.md) | Application, promotion et activation explicites des `RequirementDelta` | **Acceptée — M3** |
+| [ADR-0036](0036-published-history-comparison-and-logical-rollback.md) | Historique publié, comparaison et rollback logique | **Acceptée — M3** |
 
 ---
 
@@ -69,11 +70,11 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | M2-S7 second provider anti-lock-in | ADR-0029 | `94/94 PASS` |
 | M2-S8 validation finale / persistance | ADR-0030 | `94/94 PASS` |
 
-M2 est validée. La preuve de sortie est [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
+M2 est validée. Preuve : [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
 
 ---
 
-# Preuves M3 en cours
+# État final des preuves M3
 
 | Slice | ADR | Preuve |
 |---|---|---|
@@ -82,6 +83,9 @@ M2 est validée. La preuve de sortie est [`../VALIDATION_M2.md`](../VALIDATION_M
 | M3-S3 KnowledgeSnapshot / activation atomique | ADR-0033 | `127/127 PASS` |
 | M3-S4 persistance métier versionnée | ADR-0034 | `134/134 PASS` |
 | M3-S5 application / promotion des deltas | ADR-0035 | `142/142 PASS` |
+| M3-S6 historique / comparaison / rollback / rétention | ADR-0036 | `147/147 PASS` |
+
+M3 est validée techniquement. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3.md).
 
 La vue opérationnelle M3 est [`../roadmap/M3_EXECUTION.md`](../roadmap/M3_EXECUTION.md).
 La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
@@ -96,6 +100,7 @@ La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roa
 com.morpheus.domain      -X-> com.morpheus.provider..
 com.morpheus.application -X-> com.morpheus.provider..
 com.morpheus.domain      -X-> SQLite
+com.morpheus.application -X-> SQLite
 com.morpheus.domain      -X-> CLI/MCP/API adapters
 ```
 
@@ -132,8 +137,6 @@ Seul `ACTIVE` est observable comme snapshot courant. L'activation est atomique e
 
 ## Persistance métier versionnée
 
-M3-S4 introduit :
-
 ```text
 specification_versions
 snapshot_specification_versions
@@ -148,15 +151,11 @@ snapshot/version ownership explicite
 1 CURRENT max par (snapshot, DomainIdentity)
 N PROPOSED concurrents autorisés
 vue courante = ACTIVE snapshot + CURRENT
-reopen SQLite conserve la séparation CURRENT / PROPOSED
+reopen SQLite conserve CURRENT / PROPOSED séparés
 aucune payload JSON générique
 ```
 
-Les autres familles métier doivent réutiliser ce pattern plutôt que créer une persistance non versionnée.
-
 ## Application / promotion des RequirementDelta
-
-M3-S5 valide :
 
 ```text
 normalized delta != applied delta
@@ -167,7 +166,21 @@ COMPLETED != ACTIVATE
 CURRENT inchangé avant activation
 ```
 
-`ADDED` ne fait aucun rapprochement fuzzy, `MODIFIED` conserve la `DomainIdentity` avec un nouvel `EntityVersionId`, et `REMOVED` ne retire que l'occurrence de la projection candidate. Un candidat `FAILED` ne modifie pas l'ancien `ACTIVE`.
+`ADDED` ne fait aucun fuzzy matching, `MODIFIED` conserve la `DomainIdentity` avec un nouvel `EntityVersionId`, et `REMOVED` ne retire que l'occurrence de la projection candidate.
+
+## Historique / comparaison / rollback
+
+```text
+published history = RETIRED* -> ACTIVE
+historical query = snapshot explicite ACTIVE/RETIRED + CURRENT
+comparison = ADDED / MODIFIED / REMOVED / UNCHANGED
+logical rollback != reactivate RETIRED
+retention = KEEP_ALL_PUBLISHED
+```
+
+Un `EntityVersionId` différent n'implique pas à lui seul `MODIFIED`. Le rollback reconstruit une nouvelle publication via `RequirementDelta -> APPLY -> PROMOTE -> ACTIVATE`.
+
+`MOVED/RENAMED` ne sont pas introduits implicitement ; un rollback cross-specification est rejeté tant qu'une politique dédiée n'existe pas.
 
 ## Build
 
@@ -179,6 +192,16 @@ Unix    : ./mvnw clean test
 ```
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
+
+Gate final M3 :
+
+```text
+147/147 PASS
+Failures 0
+Errors   0
+Skipped  0
+BUILD SUCCESS
+```
 
 GitHub Actions n'est pas une porte obligatoire.
 
@@ -200,7 +223,8 @@ CLI locale sans Docker obligatoire ; runtime Java embarqué à prouver en M9 ; D
 - [`../VALIDATION_C0.md`](../VALIDATION_C0.md)
 - [`../VALIDATION_M0.md`](../VALIDATION_M0.md)
 - [`../VALIDATION_M1.md`](../VALIDATION_M1.md)
-- [`../VALIDATION_M2.md`](../VALIDATION_M2.md) — **M2 validée, M3 autorisée**.
+- [`../VALIDATION_M2.md`](../VALIDATION_M2.md) — **M2 validée**.
+- [`../VALIDATION_M3.md`](../VALIDATION_M3.md) — **M3 validée techniquement ; intégration PR #26 avant M4**.
 
 ---
 
