@@ -1,6 +1,6 @@
 # ADR-0052 — Rapport qualité agrégé et vue compacte déterministe
 
-- Statut : **Proposée — M6**
+- Statut : **Acceptée — M6**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0047, ADR-0048, ADR-0049, ADR-0050, ADR-0051
 - Portée : M6-S5
@@ -18,7 +18,7 @@ ChangeLifecycleQualityService
 DecisionReferenceQualityService
 ```
 
-M6-S5 doit exposer une vue qualité globale, stable et compacte sans dupliquer les règles de ces services.
+M6-S5 expose une vue qualité globale, stable et compacte sans dupliquer les règles de ces services.
 
 Baseline :
 
@@ -27,7 +27,7 @@ M6-S4 merge = ef6975d05d4bfcd994669d27e3a6600bc4ecdc1a
 M6-S4 gate  = 254/254 PASS
 ```
 
-## Décision candidate
+## Décision
 
 Ajouter :
 
@@ -52,26 +52,15 @@ ChangeCompletenessService.assessSnapshot
 DecisionReferenceQualityService.assessSnapshot
 ```
 
-Les résultats spécialisés restent la source de vérité.
-
-S5 ne recalcule pas :
-
-```text
-orphan requirement
-implementation-task coverage
-acceptance availability
-change completeness
-external availability
-decision trace
-```
+Les résultats spécialisés restent la source de vérité. S5 ne recalcule ni orphelin requirement, ni task coverage, ni acceptance availability, ni change completeness, ni external availability, ni decision trace.
 
 ## Snapshot coherence
 
 `assessActive(projectId)` résout l'ACTIVE une seule fois, puis agrège explicitement cet ID.
 
-Chaque composant doit retourner exactement le même `KnowledgeSnapshotMetadata`. Une divergence est une erreur de cohérence et n'est jamais transformée en warning.
+Chaque composant doit retourner exactement le même `KnowledgeSnapshotMetadata`. Une divergence est une erreur de cohérence, jamais un warning.
 
-`assessSnapshot(snapshotId)` reste limité aux snapshots publiés selon les contrats S1-S4 :
+`assessSnapshot(snapshotId)` reste limité aux snapshots publiés :
 
 ```text
 ACTIVE / RETIRED seulement
@@ -79,9 +68,7 @@ ACTIVE / RETIRED seulement
 
 ## Lifecycle
 
-`ChangeLifecycleQualityService` nécessite un `ChangeLifecycle` explicitement fourni par l'appelant.
-
-Un rapport snapshot global ne possède pas cette donnée et ne doit donc jamais inventer un lifecycle.
+`ChangeLifecycleQualityService` nécessite un `ChangeLifecycle` explicitement fourni par l'appelant. Un rapport snapshot global ne possède pas cette donnée et ne doit jamais inventer un lifecycle.
 
 S5 expose :
 
@@ -89,11 +76,11 @@ S5 expose :
 LifecycleQualityAggregationStatus.REQUIRES_EXPLICIT_LIFECYCLE_INPUT
 ```
 
-Les analyses de transition lifecycle restent disponibles via le service S3 spécialisé et seront couvertes séparément par la validation finale M6.
+Les analyses lifecycle restent disponibles via le service S3 spécialisé et sont validées séparément dans M6.
 
 ## Findings agrégés
 
-Les findings issus des composants snapshot-scoped sont :
+Les findings des composants snapshot-scoped sont :
 
 ```text
 concaténés
@@ -105,7 +92,7 @@ Aucun code n'est réinterprété.
 
 ## Métriques
 
-`QualityReportMetrics` expose au minimum :
+`QualityReportMetrics` expose :
 
 ```text
 totalFindings
@@ -146,9 +133,7 @@ confidence
 evidenceIds
 ```
 
-`CompactQualityReportService` réutilise `CanonicalJsonSerializer` M5.
-
-Donc :
+`CompactQualityReportService` réutilise `CanonicalJsonSerializer` M5 :
 
 ```text
 même QualityReport -> même DTO compact
@@ -158,44 +143,33 @@ même String -> mêmes bytes UTF-8
 
 Aucun pretty printing, timestamp runtime, hash runtime ou ordre de map non déterministe.
 
-## Persistance
+## Persistance et frontières
 
-Le rapport et sa vue compacte sont calculés à la demande :
+Le rapport est calculé à la demande : aucune nouvelle table, migration ou payload JSON métier persisté.
 
-```text
-aucune nouvelle table
-aucune migration
-aucun payload JSON métier persisté
-```
+M6-S5 n'ajoute aucune nouvelle règle qualité, inférence lifecycle, résolution externe, persistance de rapport, ranking arbitraire, LLM, semantic search ni fonction NEXUS.
 
-## Frontières
+## Preuve d'acceptation
 
-M6-S5 ne fait pas :
+Gate local Windows exécuté sur le head de code :
 
 ```text
-nouvelle règle qualité
-inférence lifecycle
-nouvelle résolution externe
-persistance de QualityReport
-ranking / score global arbitraire
-LLM
-semantic search
-NEXUS ranking/fusion/compression
+head = 0ba5b8a78116a21f0fb1fb36fef58772b2f4da64
+
+AggregateQualityReportContractTest        6/6 PASS
+QualityReportSnapshotCoherenceTest        1/1 PASS
+Architecture tests                      134/134 PASS
+TOTAL                                   261/261 PASS
+Failures                                  0
+Errors                                    0
+Skipped                                   0
+BUILD SUCCESS
+Total time                              19.543 s
+Finished at                  2026-07-23T23:32:49+02:00
 ```
 
-## Preuves attendues
+Preuves couvertes : Memory == SQLite, ACTIVE/RETIRED, cohérence stricte de snapshot, métriques exactes, findings distincts/triés, lifecycle explicit-only, vue compacte, JSON/UTF-8 déterministes et SQLite reopen.
 
-- Memory == SQLite ;
-- ACTIVE par défaut et RETIRED explicite ;
-- cohérence stricte de snapshot ;
-- métriques exactes ;
-- findings distincts et triés ;
-- lifecycle global explicitement non évalué sans input ;
-- compact view complète ;
-- JSON/UTF-8 répétés identiques ;
-- SQLite reopen identique ;
-- gate complet vert.
+Warnings connus non bloquants : Xerial SQLite/JDK restricted native access et SLF4J NOP.
 
-## Acceptation
-
-À compléter après le gate local M6-S5.
+**Décision acceptée.**
