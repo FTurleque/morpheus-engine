@@ -1,6 +1,6 @@
 # ADR-0051 — Qualité des décisions et références externes sans justification inventée
 
-- Statut : **Proposée — M6**
+- Statut : **Acceptée — M6**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0039, ADR-0041, ADR-0048, ADR-0050
 - Portée : M6-S4
@@ -16,7 +16,7 @@ gate  = 248/248 PASS
 
 `DesignDecision` normalise `id`, `changeId`, `title`, `decision`, `provenance`, mais aucun champ `rationale` ou `justification` explicite.
 
-La traçabilité M4 dérive en revanche structurellement :
+La traçabilité M4 dérive structurellement :
 
 ```text
 Change --DECIDED_BY--> DesignDecision
@@ -32,7 +32,7 @@ REFERENCE_STALE
 BROKEN_REFERENCE
 ```
 
-## Décision candidate
+## Décision
 
 Ajouter :
 
@@ -57,7 +57,7 @@ EXTERNAL_REFERENCE_BROKEN
 
 ## Design decision
 
-Une décision est `TRACED` si le snapshot contient un lien persistant :
+Une décision est tracée si le snapshot contient un lien persistant :
 
 ```text
 Change(decision.changeId) --DECIDED_BY--> DesignDecision(decision.id)
@@ -80,7 +80,7 @@ INFO
 DETERMINISTIC
 ```
 
-Ce finding signifie uniquement que MORPHEUS ne possède pas encore un champ de justification normalisé.
+Ce finding signifie uniquement que MORPHEUS ne possède pas encore un champ de justification normalisé. Il ne conclut jamais qu'une décision est mauvaise.
 
 ## Références externes
 
@@ -97,6 +97,8 @@ BROKEN_REFERENCE      -> EXTERNAL_REFERENCE_BROKEN
 ```
 
 Tous les findings sont `DETERMINISTIC` et conservent les evidence IDs du lien quand disponibles.
+
+Un lien cassé reste visible et auditable même si l'`ExternalReference` ciblée n'existe pas dans le store.
 
 ## Snapshot policy
 
@@ -129,7 +131,11 @@ provider change
 LLM / fuzzy / semantic search
 ```
 
-## Preuves attendues
+## Preuves validées
+
+`DecisionReferenceQualityContractTest` : **6/6 PASS**.
+
+Preuves :
 
 - décision correctement reliée -> pas de `DESIGN_DECISION_WITHOUT_TRACE` ;
 - décision sans `DECIDED_BY` -> finding déterministe ;
@@ -140,8 +146,32 @@ LLM / fuzzy / semantic search
 - ACTIVE / RETIRED / READY policy ;
 - Memory == SQLite ;
 - SQLite reopen ;
-- gate complet vert.
+- ordre et rapport déterministes.
+
+Gate local Windows complet :
+
+```text
+DecisionReferenceQualityContractTest     6/6 PASS
+Architecture tests                    127/127 PASS
+TOTAL                                 254/254 PASS
+Failures                                0
+Errors                                  0
+Skipped                                 0
+BUILD SUCCESS
+Total time                            21.444 s
+Finished at                2026-07-23T22:52:42+02:00
+```
+
+Warnings connus non bloquants uniquement : Xerial SQLite/JDK restricted native access et SLF4J NOP.
+
+Head de code effectivement testé :
+
+```text
+53356fe77df0d5a3cc474b8aca3224d970fb88d7
+```
 
 ## Acceptation
 
-À compléter après le gate local M6-S4.
+**Acceptée — M6.**
+
+La qualité des décisions et des références externes est exposée par des faits structurels et des états M4 existants, sans justification ni résolution inventée.
