@@ -238,6 +238,9 @@ public final class CompactQueryTypes {
         public WarningView {
             Objects.requireNonNull(code, "code");
             Objects.requireNonNull(severity, "severity");
+            if (severity != DiagnosticSeverity.WARNING) {
+                throw new IllegalArgumentException("compact warning severity must be WARNING");
+            }
             message = requireNonBlank(message, "message");
             Objects.requireNonNull(details, "details");
             TreeMap<String, String> sorted = new TreeMap<>();
