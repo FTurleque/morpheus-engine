@@ -57,6 +57,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0037](0037-traceability-domain-and-controlled-taxonomy.md) | Domaine `TraceabilityLink` et taxonomie contrôlée | **Acceptée — M4** |
 | [ADR-0038](0038-snapshot-scoped-traceability-persistence.md) | Persistance de traçabilité snapshot-scoped Memory + SQLite | **Acceptée — M4** |
 | [ADR-0039](0039-deterministic-traceability-derivation.md) | Dérivation déterministe depuis le modèle normalisé | **Acceptée — M4** |
+| [ADR-0040](0040-bounded-deterministic-traceability-traversal.md) | Traversée bornée, déterministe et chemins explicables | **Acceptée — M4** |
 
 ---
 
@@ -99,6 +100,7 @@ M3 est validée et intégrée. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3
 | M4-S1 domaine `TraceabilityLink` + taxonomie contrôlée | ADR-0037 | `155/155 PASS` |
 | M4-S2 persistance snapshot-scoped Memory + SQLite | ADR-0038 | `160/160 PASS` |
 | M4-S3 dérivation déterministe depuis modèle normalisé | ADR-0039 | `167/167 PASS` |
+| M4-S4 traversal / path snapshot-scoped | ADR-0040 | `174/174 PASS` |
 
 La vue opérationnelle M4 est [`../roadmap/M4_EXECUTION.md`](../roadmap/M4_EXECUTION.md).
 La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
@@ -230,6 +232,24 @@ aucun fuzzy matching
 aucun Task -> Requirement implicite
 ```
 
+## Traversée de traçabilité M4-S4
+
+```text
+OUTGOING / INCOMING / BIDIRECTIONAL explicites
+maxDepth > 0
+snapshot-scoped
+BFS borné et cycle-safe
+ordre déterministe
+relation filters explicites
+inverse query != persisted inverse edge
+shortest path déterministe
+path = persisted link + sens de parcours
+traversal != transitivity
+A -> B -> C != arête synthétique A -> C
+Memory == SQLite observable semantics
+aucune migration SQLite S4
+```
+
 ## Build
 
 Gate obligatoire :
@@ -241,10 +261,11 @@ Unix    : ./mvnw clean test
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
-Dernier gate M4-S3 :
+Dernier gate M4-S4 :
 
 ```text
-167/167 PASS
+TraceabilityTraversalContractTest 7/7 PASS
+174/174 PASS
 Failures 0
 Errors   0
 Skipped  0
