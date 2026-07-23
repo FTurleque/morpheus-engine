@@ -110,14 +110,15 @@ class CompactQueryViewContractTest {
         MemorySpecificationKnowledgeStore memoryCore = new MemorySpecificationKnowledgeStore();
         MemorySnapshotBusinessContentStore memoryContent = new MemorySnapshotBusinessContentStore(memoryCore, memoryCore);
         KnowledgeSnapshotMetadata active = seed(memoryCore, memoryCore, memoryContent, projectId, snapshotId, versionId, content);
+        RequirementSearchQuery query = new RequirementSearchQuery("  REQUIREMENT  ");
         RequirementSearchPage page = new RequirementSearchPage(
                 active,
+                query,
                 List.of(second, first),
                 new PageRequest(0, 10),
                 2,
                 false);
-        RequirementSearchQuery query = new RequirementSearchQuery("  PAYMENT  ");
-        CompactRequirementSearchView memoryView = new CompactQueryViewService(memoryContent).requirementSearch(query, page);
+        CompactRequirementSearchView memoryView = new CompactQueryViewService(memoryContent).requirementSearch(page);
 
         Path database = tempDir.resolve("compact-query.db");
         try (var snapshots = new SqliteSpecificationKnowledgeStore(database);
@@ -130,21 +131,19 @@ class CompactQueryViewContractTest {
 
         CompactRequirementSearchView sqliteView;
         try (var reopened = new SqliteSnapshotBusinessContentStore(database)) {
-            sqliteView = new CompactQueryViewService(reopened).requirementSearch(query, page);
+            sqliteView = new CompactQueryViewService(reopened).requirementSearch(page);
         }
 
         assertEquals(memoryView, sqliteView);
         assertEquals("find_requirements", memoryView.metadata().operation());
         assertEquals(1, memoryView.metadata().schemaVersion());
-        assertEquals("payment", memoryView.searchText());
+        assertEquals("requirement", memoryView.searchText());
         assertEquals(2, memoryView.page().totalMatches());
         assertEquals(2, memoryView.evidence().size());
         assertTrue(memoryView.warnings().isEmpty());
         assertTrue(memoryView.requirements().get(0).id().compareTo(memoryView.requirements().get(1).id()) < 0);
         assertEquals(TemporalState.CURRENT.name(), memoryView.requirements().getFirst().temporalState());
-        assertEquals(
-                json.toJson(memoryView),
-                json.toJson(sqliteView));
+        assertEquals(json.toJson(memoryView), json.toJson(sqliteView));
         assertEquals(json.toJson(memoryView), json.toJson(memoryView));
     }
 
@@ -167,10 +166,15 @@ class CompactQueryViewContractTest {
                 "statement");
         SnapshotBusinessContent content = content(snapshotId, versionId, List.of());
         RequirementSearchPage page = new RequirementSearchPage(
-                snapshot, List.of(record), new PageRequest(0, 10), 1, false);
+                snapshot,
+                RequirementSearchQuery.all(),
+                List.of(record),
+                new PageRequest(0, 10),
+                1,
+                false);
 
         CompactRequirementSearchView view = new CompactQueryViewService(new FixedContentStore(content))
-                .requirementSearch(RequirementSearchQuery.all(), page);
+                .requirementSearch(page);
 
         assertEquals(1, view.requirements().size());
         assertTrue(view.evidence().isEmpty());
@@ -317,9 +321,7 @@ class CompactQueryViewContractTest {
         assertEquals(5, view.externalReferences().size());
         assertTrue(view.externalReferences().stream()
                 .anyMatch(reference -> reference.availability().equals(ExternalTraceabilityAvailability.REFERENCE_RESOLVED.name())));
-        assertFalse(view.warnings().stream().anyMatch(warning -> warning.code().name().contains("RESOLVED")
-                && warning.code() != CompactWarningCode.AFFECTED_REQUIREMENT_UNRESOLVED
-                && warning.code() != CompactWarningCode.EXTERNAL_REFERENCE_UNRESOLVED));
+        assertFalse(view.warnings().stream().anyMatch(warning -> warning.code().name().equals("EXTERNAL_REFERENCE_RESOLVED")));
     }
 
     @Test
@@ -376,12 +378,16 @@ class CompactQueryViewContractTest {
                 snapshotId, versionId, SpecificationId.generate(), RequirementId.generate(), EntityVersionId.generate(), evidenceId,
                 "REQ-NO-CONTENT", "No content", "no projection");
         RequirementSearchPage page = new RequirementSearchPage(
-                snapshot, List.of(record), new PageRequest(0, 10), 1, false);
+                snapshot,
+                RequirementSearchQuery.all(),
+                List.of(record),
+                new PageRequest(0, 10),
+                1,
+                false);
 
         assertThrows(
                 KnowledgeStoreException.class,
-                () -> new CompactQueryViewService(new FixedContentStore(null))
-                        .requirementSearch(RequirementSearchQuery.all(), page));
+                () -> new CompactQueryViewService(new FixedContentStore(null)).requirementSearch(page));
     }
 
     private KnowledgeSnapshotMetadata seed(
@@ -574,8 +580,11 @@ class CompactQueryViewContractTest {
         return new ExternalTraceabilityView(link, reference, availability);
     }
 
-    private List<CompactWarningCode> warningCodes(List<com.morpheus.application.query.compact.CompactQueryTypes.WarningView> warnings) {
-        return warnings.stream().map(com.morpheus.application.query.compact.CompactQueryTypes.WarningView::code).toList();
+    private List<CompactWarningCode> warningCodes(
+            List<com.morpheus.application.query.compact.CompactQueryTypes.WarningView> warnings) {
+        return warnings.stream()
+                .map(com.morpheus.application.query.compact.CompactQueryTypes.WarningView::code)
+                .toList();
     }
 
     private static final class FixedContentStore implements SnapshotBusinessContentStore {
