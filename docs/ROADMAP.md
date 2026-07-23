@@ -1,8 +1,8 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M5 validés et intégrés ; M6 VALIDÉ — intégration finale portée par PR #49 ; M7 prochain**
+Statut : **C0 à M6 validés et intégrés ; M7 VALIDÉ — intégration finale portée par PR #51 ; M8 prochain**
 
-Dernière mise à jour : 23 juillet 2026
+Dernière mise à jour : 24 juillet 2026
 
 La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohérentes, tests et réponse explicite à chaque question de sortie.
 
@@ -19,9 +19,9 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M3 | Temporalité, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 147/147 |
 | M4 | Traçabilité typée | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 189/189 |
 | M5 | Requêtes et contexte compact | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M5.md`, 227/227 |
-| **M6** | **Qualité, couverture et diagnostics explicables** | **✅ VALIDÉ — PR #49 finale** | `VALIDATION_M6.md`, 261/261 |
-| M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | prochain jalon |
-| M8 | Analyse des changements | ⏳ PLANIFIÉ | après M7 |
+| M6 | Qualité, couverture et diagnostics explicables | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M6.md`, 261/261 |
+| **M7** | **Synchronisation incrémentale et fraîcheur** | **✅ VALIDÉ — PR #51 finale** | `VALIDATION_M7.md`, 282/282 |
+| M8 | Analyse des changements | ⏳ PLANIFIÉ | prochain jalon après intégration M7 |
 | M9 | CLI stabilisée et distribution native | ⏳ PLANIFIÉ | après cœur fonctionnel |
 | M10 | MCP | ⏳ PLANIFIÉ | stdio natif d'abord |
 | M11 | API / headless | ⏳ PLANIFIÉ | après CLI/MCP |
@@ -35,7 +35,9 @@ Références :
 - [`VALIDATION_M4.md`](VALIDATION_M4.md)
 - [`VALIDATION_M5.md`](VALIDATION_M5.md)
 - [`VALIDATION_M6.md`](VALIDATION_M6.md)
+- [`VALIDATION_M7.md`](VALIDATION_M7.md)
 - [`roadmap/M6_EXECUTION.md`](roadmap/M6_EXECUTION.md)
+- [`roadmap/M7_EXECUTION.md`](roadmap/M7_EXECUTION.md)
 - [`adr/README.md`](adr/README.md)
 
 ---
@@ -203,6 +205,12 @@ ef6975d05d4bfcd994669d27e3a6600bc4ecdc1a
 ab91b6c537c73c586b925dd6367021e2780808aa
 ```
 
+Merge final M6 :
+
+```text
+904058251829b0ae39b34cd9da25c2b8918851a6
+```
+
 Capacités validées :
 
 ```text
@@ -238,7 +246,7 @@ risks != blockers
 lifecycle non inféré depuis snapshot
 aucun TraceabilityLink inventé
 aucune persistance de QualityFinding/QualityReport
-aucune nouvelle migration
+aucune nouvelle migration M6
 aucun LLM
 aucune recherche sémantique
 aucun ranking/fusion/compression NEXUS
@@ -261,11 +269,80 @@ Vue d'exécution : [`roadmap/M6_EXECUTION.md`](roadmap/M6_EXECUTION.md).
 
 ---
 
-# 8. M7 — Synchronisation incrémentale et fraîcheur ⏳
+# 8. M7 — Synchronisation incrémentale et fraîcheur ✅
 
-Périmètre : fingerprints, source revisions, ajouts/modifications/suppressions, mouvements/renommages, archives, invalidation, watcher local, fallback full rebuild et métriques de fraîcheur.
+Question de sortie :
+
+> **MORPHEUS peut-il détecter de façon déterministe les changements de sources locales, appliquer une stratégie incrémentale fiable, conserver archives et état de synchronisation, exposer une fraîcheur explicable et basculer vers un full rebuild dès que la sûreté de l'incrémental n'est plus démontrable ?**
+
+**Réponse : OUI.**
+
+Capacités validées :
+
+```text
+SourcePath canonique relatif
+SHA-256(content) comme fingerprint
+sourceRevision opaque
+scan complet/incomplet explicite
+mutation pendant hash détectée
+ADDED / MODIFIED / DELETED / MOVED / UNCHANGED
+move uniquement sur match contenu 1:1
+move ambigu => FULL_REBUILD
+invalidations et refresh sets explicites
+archives DELETED / MOVED
+SyncStateStore Memory + SQLite
+V008 spécialisée
+prepare / complete / fail
+baseline seulement après succès
+WatchService local récursif
+watcher sans suivi de symlink
+OVERFLOW => FULL_REBUILD
+freshness UNKNOWN / FRESH / STALE / REBUILD_REQUIRED
+SQLite reopen
+```
+
+Fallbacks explicites :
+
+```text
+NO_BASELINE
+SCAN_INCOMPLETE
+WATCH_OVERFLOW
+AMBIGUOUS_MOVE
+REVISION_INCONSISTENCY
+REVISION_SIGNAL_LOST
+BASELINE_INCONSISTENT
+PREVIOUS_REBUILD_PENDING
+EXECUTION_FAILED
+FORCED
+```
+
+ADR :
+
+```text
+ADR-0053 — Acceptée
+ADR-0054 — Acceptée
+ADR-0055 — Acceptée
+```
+
+Gate technique final :
+
+```text
+MORPHEUS Application  82/82 PASS
+Architecture Tests   139/139 PASS
+TOTAL                282/282 PASS
+Failures               0
+Errors                 0
+Skipped                0
+BUILD SUCCESS
+Finished 2026-07-24T00:22:11+02:00
+```
 
 Invariant : **la fiabilité prime ; en cas de doute, full rebuild.**
+
+Validation : [`VALIDATION_M7.md`](VALIDATION_M7.md).  
+Vue d'exécution : [`roadmap/M7_EXECUTION.md`](roadmap/M7_EXECUTION.md).
+
+Intégration finale : **PR #51**.
 
 ---
 
@@ -348,4 +425,4 @@ MORPHEUS expose états, transitions, blockers, acceptance status, références e
 7. mettre à jour roadmap + issue
 ```
 
-**Prochaine étape après intégration finale de M6 : M7 — Synchronisation incrémentale et fraîcheur.**
+**Prochaine étape après intégration finale de M7 : M8 — Analyse des changements.**
