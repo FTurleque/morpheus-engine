@@ -1,6 +1,6 @@
 # ADR-0035 — Séparer explicitement application, promotion et activation des RequirementDelta
 
-- Statut : **Proposée — M3**
+- Statut : **Acceptée — M3**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0006, ADR-0009, ADR-0012, ADR-0013, ADR-0025, ADR-0031, ADR-0032, ADR-0033, ADR-0034
 - Portée : M3-S5, application de `RequirementDelta`, promotion candidate, publication explicite
@@ -228,7 +228,7 @@ Le service S5 dépend uniquement des ports applicatifs existants et du domaine p
 
 ## Critères d'acceptation
 
-ADR-0035 pourra passer à **Acceptée — M3** lorsque le gate complet démontre :
+ADR-0035 passe à **Acceptée — M3** lorsque le gate complet démontre :
 
 1. baseline `ACTIVE` et propositions peuvent coexister pendant la construction du candidat ;
 2. l'application ne dépend pas de l'ordre d'entrée des deltas ;
@@ -248,6 +248,50 @@ ADR-0035 pourra passer à **Acceptée — M3** lorsque le gate complet démontre
 16. aucune migration SQLite S5 n'est requise ;
 17. `.\mvnw.cmd clean test` est vert.
 
-## Preuve d'acceptation
+## Preuve d'acceptation — 23 juillet 2026
 
-À compléter uniquement après exécution du gate local complet.
+Gate local Windows exécuté sur la branche `m3/requirement-delta-promotion` :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+RequirementDeltaApplicationContractTest  8/8 PASS
+
+Domain                                  13 tests
+Application                             54 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      35 tests
+-----------------------------------------------
+TOTAL                                  142/142 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+```
+
+Les 8 nouveaux tests contractuels exercent le même slice sur Memory et SQLite et démontrent notamment :
+
+```text
+APPLY != PROMOTE != ACTIVATE
+CURRENT inchangé avant activation
+nouvelle baseline visible après activation atomique
+ADDED / MODIFIED / REMOVED
+MODIFIED conserve DomainIdentity et change EntityVersionId
+REMOVED ne touche pas l'ACTIVE
+ordre d'entrée des deltas sans sémantique
+lots incohérents rejetés
+candidate altéré -> FAILED, ancien ACTIVE conservé
+COMPLETED sans effet automatique
+```
+
+Les tests S1 à S4 restent verts sans régression. Les warnings Xerial SQLite/JDK24 native access et SLF4J NOP dans les tests ArchUnit restent les warnings connus et non bloquants déjà documentés.
+
+Décision finale :
+
+```text
+ADR-0035 = ACCEPTÉE — M3
+M3-S5    = VALIDÉ — 142/142
+```
