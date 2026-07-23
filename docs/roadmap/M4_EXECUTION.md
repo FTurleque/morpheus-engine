@@ -1,6 +1,6 @@
 # M4 — Plan d'exécution détaillé
 
-Statut : **M4 actif — 2 slices validés sur 6 ; S3 prochain**
+Statut : **M4 actif — 3 slices validés sur 6 ; S4 prochain**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -19,8 +19,8 @@ M3     ✅ validé — 6/6 — 147/147
 M4     🚧 actif
   S1   ✅ domaine TraceabilityLink + taxonomie contrôlée — PR #28 — ADR-0037 — 155/155
   S2   ✅ persistance snapshot-scoped Memory + SQLite — PR #29 — ADR-0038 — 160/160
-  S3   ⏳ dérivation déterministe depuis le modèle normalisé — prochain
-  S4   ⏳ direct / inverse / traversal / path
+  S3   ✅ dérivation déterministe depuis modèle normalisé — PR #31 — ADR-0039 — 167/167
+  S4   ⏳ direct / inverse / traversal / path — prochain
   S5   ⏳ références externes / unresolved / broken links
   S6   ⏳ validation finale trace(requirement)
 M5     ⏳ bloqué par M4
@@ -29,7 +29,7 @@ M5     ⏳ bloqué par M4
 Progression :
 
 ```text
-M4 : [███████░░░░░░░░░░░░░] 2 / 6 slices validés
+M4 : [██████████░░░░░░░░░░░] 3 / 6 slices validés
 ```
 
 Baseline d'entrée M4 :
@@ -40,12 +40,16 @@ main = 30f4ea43c55b5f6ff7cf235d0d1acc75ab4053fa
 BUILD SUCCESS
 ```
 
-Dernière baseline intégrée :
+Baselines intégrées :
 
 ```text
 M4-S1 merge = 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f
 M4-S1 gate  = 155/155 PASS
+M4-S2 merge = 32694f2c74aa9ce4248f9eea907d85460de93eff
+M4-S2 gate  = 160/160 PASS
 ```
+
+S3 est validé techniquement dans PR #31 et attend le signal explicite de merge.
 
 ---
 
@@ -142,21 +146,6 @@ Merge :
 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f
 ```
 
-Livrables :
-
-```text
-TraceabilityLinkId
-TraceabilityEntityKind
-TraceabilityEntityRef
-TraceabilityRelationType
-TraceabilityLinkOrigin
-TraceabilityResolutionState
-TraceabilityConfidence
-TraceabilityTransitivityPolicy
-TraceabilitySemanticClass
-TraceabilityLink
-```
-
 Décisions validées :
 
 ```text
@@ -174,22 +163,11 @@ inverse = vue de requête, pas seconde preuve
 aucune persistance/traversée en S1
 ```
 
-Gate local Windows :
+Gate :
 
 ```text
-.\mvnw.cmd clean test
-javac release 21
-
 TraceabilityLinkTest                    8/8 PASS
 LayerDependencyTest                     2/2 PASS
-
-Domain                                 21 tests
-Application                            54 tests
-OpenSpec provider                      26 tests
-Synthetic provider                      7 tests
-SQLite store                            7 tests
-Architecture tests                     40 tests
-----------------------------------------------
 TOTAL                                 155/155 PASS
 Failures                                0
 Errors                                  0
@@ -199,15 +177,19 @@ BUILD SUCCESS
 
 Gate terminé le **23 juillet 2026 à 12:17:43 +02:00**.
 
-Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
-
 ---
 
-# 6. M4-S2 — VALIDÉ TECHNIQUEMENT : Persistance snapshot-scoped
+# 6. M4-S2 — VALIDÉ ET INTÉGRÉ : Persistance snapshot-scoped
 
 ADR : **ADR-0038 — Acceptée — M4**.
 
-PR : **#29 — Ready après gate ; merge en attente de signal explicite**.
+PR : **#29 — merged**.
+
+Merge :
+
+```text
+32694f2c74aa9ce4248f9eea907d85460de93eff
+```
 
 Contrat :
 
@@ -249,77 +231,119 @@ traceability_link_evidence
 snapshot_traceability_links
 ```
 
-Propriétés :
-
-```text
-schema normalisé
-aucun JSON générique
-foreign keys snapshot/link explicites
-index source / target / membership
-replay idempotent
-ledger = 5 migrations immuables
-```
-
-Preuve contractuelle :
+Gate :
 
 ```text
 TraceabilityPersistenceContractTest     5/5 PASS
 LayerDependencyTest                     2/2 PASS
-
-Domain                                 21 tests
-Application                            54 tests
-OpenSpec provider                      26 tests
-Synthetic provider                      7 tests
-SQLite store                            7 tests
-Architecture tests                     45 tests
-----------------------------------------------
 TOTAL                                 160/160 PASS
 Failures                                0
 Errors                                  0
 Skipped                                 0
 BUILD SUCCESS
-Total time                            17.136 s
 ```
 
 Gate terminé le **23 juillet 2026 à 12:47:46 +02:00**.
 
 Le close/reopen SQLite conserve définition, evidence et memberships multi-snapshot.
 
-Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
-
 ---
 
-# 7. NOW — M4-S3 Dérivation déterministe
+# 7. M4-S3 — VALIDÉ TECHNIQUEMENT : Dérivation déterministe
 
-Objectif : transformer uniquement les relations déjà prouvées dans le modèle normalisé en liens explicables.
+ADR : **ADR-0039 — Acceptée — M4**.
 
-Sources candidates directement démontrables :
+PR : **#31 — Ready après gate ; merge en attente de signal explicite**.
+
+Application :
+
+```text
+TraceabilityDerivationKey
+TraceabilityLinkIdentityResolver
+DeterministicTraceabilityDerivationService
+```
+
+Relations dérivées uniquement depuis des faits structurels :
 
 ```text
 Requirement -> Specification        DERIVES_FROM
 Scenario -> Requirement             REFINES
 Constraint -> Change                CONSTRAINS
 Change -> DesignDecision            DECIDED_BY
-Change -> Requirement               AFFECTS, lorsqu'un RequirementDelta fournit l'identité
+Change -> Requirement               AFFECTS via RequirementDelta
 ```
 
-Règles :
+Les scenarios imbriqués dans un `RequirementDelta` produisent aussi `REFINES` lorsque leur `RequirementId` est explicite.
+
+Identité :
 
 ```text
-pas de fuzzy matching
-pas de rapprochement par titre
-pas de rapprochement par chemin
-pas de LLM
-pas d'inférence de Task -> Requirement sans fait source
+TraceabilityDerivationKey
+  fact: TraceabilityEntityRef
+  source
+  relationType
+  target
+
+TraceabilityLinkIdentityResolver
+  resolve(key) -> Optional<TraceabilityLinkId>
 ```
 
-Toute dérivation conserve l'evidence qui la justifie.
+Invariants validés :
 
-S3 devra décider explicitement comment produire les `TraceabilityLinkId` des liens dérivés sans contredire ADR-0037 : aucune identité cachée par hash d'arête et aucune fusion heuristique.
+```text
+aucun TraceabilityLinkId.generate() caché
+aucun hash d'arête transformé en identité
+identité manquante = échec explicite
+même link id pour deux faits = échec explicite
+origin = DERIVED
+resolution = RESOLVED
+confidence = empty
+observedAt explicite
+evidence = entité qui encode le fait
+ordre canonique (source, relation, target, fact)
+aucun fuzzy matching
+aucun matching titre/statement/path
+aucun LLM / embedding
+aucun Task -> Requirement sans fait structurel
+```
+
+Déduplication autorisée uniquement pour une même `TraceabilityDerivationKey` exacte ; les evidences de ce même fait peuvent être agrégées.
+
+Deux faits distincts vers les mêmes endpoints restent deux observations distinctes.
+
+Gate local Windows :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+DeterministicTraceabilityDerivationServiceTest   7/7 PASS
+LayerDependencyTest                              2/2 PASS
+
+Domain                                           21 tests
+Application                                      61 tests
+OpenSpec provider                                26 tests
+Synthetic provider                                7 tests
+SQLite store                                      7 tests
+Architecture tests                               45 tests
+----------------------------------------------------------
+TOTAL                                           167/167 PASS
+Failures                                          0
+Errors                                            0
+Skipped                                           0
+BUILD SUCCESS
+Total time                                     15.746 s
+```
+
+Gate terminé le **23 juillet 2026 à 13:09:18 +02:00**.
+
+Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
 
 ---
 
-# 8. M4-S4 — Traversée
+# 8. NOW — M4-S4 Traversée
+
+Objectif : exposer une traversée snapshot-scoped bornée et déterministe sans transformer le domaine en backend graphe.
 
 Capacités :
 
@@ -330,19 +354,36 @@ traverse
 findPath
 ```
 
-Invariants :
+À décider explicitement :
+
+```text
+TraceabilityTraversalService
+TraceabilityTraversalResult / subgraph
+TraceabilityPath
+maxDepth
+relation filters
+bidirectional policy
+node/edge ordering
+cycle handling
+path tie-breaking
+```
+
+Invariants à prouver :
 
 ```text
 maxDepth > 0 explicite
 ordre déterministe
 cycle-safe
 relation filters explicites
+snapshot-scoped
 bidirectional n'invente aucune seconde preuve
 path conserve chaque arête réelle
 transitivity policy != traversal permission
+un chemin A -> B -> C ne crée pas A -> C
+Memory == SQLite observable semantics
 ```
 
-Un chemin A -> B -> C ne crée jamais implicitement une arête A -> C.
+S4 ne doit pas introduire de graph database ni de query language backend dans domain/application.
 
 ---
 
@@ -430,8 +471,10 @@ S6 crée `docs/VALIDATION_M4.md` et répond à la question de sortie.
 | persistance snapshot-scoped | ✅ | S2 |
 | Memory/SQLite même contrat | ✅ | S2 |
 | migration V005 normalisée / reopen | ✅ | S2 |
-| dérivation déterministe | ⬜ | S3 |
-| aucun fuzzy matching | ⬜ | S3 |
+| dérivation déterministe | ✅ | S3 |
+| aucun fuzzy matching | ✅ | S3 |
+| identité de lien dérivée explicitement via resolver | ✅ | S3 |
+| evidence du fait structurel conservée | ✅ | S3 |
 | outgoing/incoming | ⬜ | S4 |
 | traversal borné et cycle-safe | ⬜ | S4 |
 | path explicable | ⬜ | S4 |
