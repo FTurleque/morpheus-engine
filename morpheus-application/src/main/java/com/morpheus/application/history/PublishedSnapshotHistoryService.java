@@ -2,6 +2,7 @@ package com.morpheus.application.history;
 
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 
@@ -20,6 +21,10 @@ public final class PublishedSnapshotHistoryService {
         this.snapshotStore = Objects.requireNonNull(snapshotStore, "snapshotStore");
     }
 
+    public PublishedHistoryRetentionPolicy retentionPolicy() {
+        return PublishedHistoryRetentionPolicy.KEEP_ALL_PUBLISHED;
+    }
+
     public List<KnowledgeSnapshotMetadata> lineage(ProjectSpecificationId projectId) {
         Objects.requireNonNull(projectId, "projectId");
         KnowledgeSnapshotMetadata active = snapshotStore.activeSnapshot(projectId).orElse(null);
@@ -31,7 +36,7 @@ public final class PublishedSnapshotHistoryService {
         }
 
         List<KnowledgeSnapshotMetadata> newestFirst = new ArrayList<>();
-        Set<Object> visited = new HashSet<>();
+        Set<KnowledgeSnapshotId> visited = new HashSet<>();
         KnowledgeSnapshotMetadata current = active;
         boolean head = true;
 
@@ -56,9 +61,10 @@ public final class PublishedSnapshotHistoryService {
                 break;
             }
 
-            current = snapshotStore.findSnapshot(current.predecessorId().orElseThrow())
+            KnowledgeSnapshotId predecessorId = current.predecessorId().orElseThrow();
+            current = snapshotStore.findSnapshot(predecessorId)
                     .orElseThrow(() -> new PublishedHistoryException(
-                            "published predecessor not found: " + newestFirst.get(newestFirst.size() - 1).predecessorId().orElseThrow()));
+                            "published predecessor not found: " + predecessorId));
             head = false;
         }
 
