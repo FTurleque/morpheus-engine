@@ -66,35 +66,8 @@ public final class RequirementLogicalRollbackService {
                 continue;
             }
 
-            RequirementDeltaKind deltaKind;
-            Requirement materialized;
-            Optional<String> statement;
-            switch (difference.kind()) {
-                case ADDED -> {
-                    deltaKind = RequirementDeltaKind.ADDED;
-                    materialized = content(difference.target(), "ADDED target");
-                    statement = Optional.of(materialized.statement());
-                }
-                case MODIFIED -> {
-                    Requirement source = content(difference.source(), "MODIFIED source");
-                    Requirement targetContent = content(difference.target(), "MODIFIED target");
-                    if (!source.specificationId().equals(targetContent.specificationId())) {
-                        throw new PublishedHistoryException(
-                                "cross-specification logical rollback requires a MOVED policy and is outside M3-S6: "
-                                        + difference.entityIdentity());
-                    }
-                    deltaKind = RequirementDeltaKind.MODIFIED;
-                    materialized = targetContent;
-                    statement = Optional.of(materialized.statement());
-                }
-                case REMOVED -> {
-                    deltaKind = RequirementDeltaKind.REMOVED;
-                    materialized = content(difference.source(), "REMOVED source");
-                    statement = Optional.empty();
-                }
-                case UNCHANGED -> throw new IllegalStateException("UNCHANGED is filtered before rollback materialization");
-            }
-
+            RollbackMaterialization materialization = materialize(difference);
+            Requirement materialized = materialization.requirement();
             String specificationKey = specificationKey(request, materialized.specificationId());
             SpecificationId previous = specificationIdsByKey.put(specificationKey, materialized.specificationId());
             if (previous != null && !previous.equals(materialized.specificationId())) {
@@ -106,12 +79,12 @@ public final class RequirementLogicalRollbackService {
             deltas.add(new RequirementDelta(
                     deltaId,
                     request.changeId(),
-                    deltaKind,
+                    materialization.deltaKind(),
                     specificationKey,
                     materialized.id(),
                     materialized.key(),
                     materialized.title(),
-                    statement,
+                    materialization.statement(),
                     List.of(),
                     materialized.provenance()));
         }
@@ -122,6 +95,37 @@ public final class RequirementLogicalRollbackService {
                 request.changeId(),
                 deltas,
                 specificationIdsByKey);
+    }
+
+    private static RollbackMaterialization materialize(RequirementSnapshotDifference difference) {
+        return switch (difference.kind()) {
+            case ADDED -> {
+                Requirement target = content(difference.target(), "ADDED target");
+                yield new RollbackMaterialization(
+                        RequirementDeltaKind.ADDED,
+                        target,
+                        Optional.of(target.statement()));
+            }
+            case MODIFIED -> {
+                Requirement source = content(difference.source(), "MODIFIED source");
+                Requirement target = content(difference.target(), "MODIFIED target");
+                if (!source.specificationId().equals(target.specificationId())) {
+                    throw new PublishedHistoryException(
+                            "cross-specification logical rollback requires a MOVED policy and is outside M3-S6: "
+                                    + difference.entityIdentity());
+                }
+                yield new RollbackMaterialization(
+                        RequirementDeltaKind.MODIFIED,
+                        target,
+                        Optional.of(target.statement()));
+            }
+            case REMOVED -> new RollbackMaterialization(
+                    RequirementDeltaKind.REMOVED,
+                    content(difference.source(), "REMOVED source"),
+                    Optional.empty());
+            case UNCHANGED -> throw new IllegalArgumentException(
+                    "UNCHANGED differences cannot be materialized as rollback deltas");
+        };
     }
 
     private static Requirement content(Optional<RequirementVersionRecord> record, String side) {
@@ -157,5 +161,17 @@ public final class RequirementLogicalRollbackService {
                     "no explicit specificationKey mapping for rollback SpecificationId: " + specificationId);
         }
         return key.trim();
+    }
+
+    private record RollbackMaterialization(
+            RequirementDeltaKind deltaKind,
+            Requirement requirement,
+            Optional<String> statement) {
+
+        private RollbackMaterialization {
+            Objects.requireNonNull(deltaKind, "deltaKind");
+            Objects.requireNonNull(requirement, "requirement");
+            Objects.requireNonNull(statement, "statement");
+        }
     }
 }
