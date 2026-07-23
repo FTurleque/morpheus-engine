@@ -4,13 +4,11 @@ import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.RecordComponent;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 
 /** Minimal deterministic JSON serializer for the typed compact-query DTO surface. */
 public final class CanonicalJsonSerializer {
@@ -85,18 +83,17 @@ public final class CanonicalJsonSerializer {
     }
 
     private void appendMap(StringBuilder out, Map<?, ?> map) {
-        List<Map.Entry<String, Object>> entries = new ArrayList<>();
+        TreeMap<String, Object> entries = new TreeMap<>();
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             if (!(entry.getKey() instanceof String key)) {
                 throw new IllegalArgumentException("canonical JSON maps require String keys");
             }
-            entries.add(Map.entry(key, entry.getValue()));
+            entries.put(key, entry.getValue());
         }
-        entries.sort(Comparator.comparing(Map.Entry::getKey));
 
         out.append('{');
         boolean first = true;
-        for (Map.Entry<String, Object> entry : entries) {
+        for (Map.Entry<String, Object> entry : entries.entrySet()) {
             if (!first) {
                 out.append(',');
             }
