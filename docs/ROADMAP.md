@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M6 validés et intégrés ; M7 VALIDÉ — intégration finale portée par PR #51 ; M8 prochain**
+Statut : **C0 à M7 validés et intégrés ; M8 prochain**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -20,8 +20,8 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M4 | Traçabilité typée | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 189/189 |
 | M5 | Requêtes et contexte compact | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M5.md`, 227/227 |
 | M6 | Qualité, couverture et diagnostics explicables | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M6.md`, 261/261 |
-| **M7** | **Synchronisation incrémentale et fraîcheur** | **✅ VALIDÉ — PR #51 finale** | `VALIDATION_M7.md`, 282/282 |
-| M8 | Analyse des changements | ⏳ PLANIFIÉ | prochain jalon après intégration M7 |
+| **M7** | **Synchronisation incrémentale et fraîcheur** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M7.md`, 282/282, merge `c3c397f4e5a2c97b686c96cfa936e00ac29a52bf` |
+| **M8** | **Analyse des changements** | **⏳ PROCHAIN** | prochain jalon |
 | M9 | CLI stabilisée et distribution native | ⏳ PLANIFIÉ | après cœur fonctionnel |
 | M10 | MCP | ⏳ PLANIFIÉ | stdio natif d'abord |
 | M11 | API / headless | ⏳ PLANIFIÉ | après CLI/MCP |
@@ -38,6 +38,7 @@ Références :
 - [`VALIDATION_M7.md`](VALIDATION_M7.md)
 - [`roadmap/M6_EXECUTION.md`](roadmap/M6_EXECUTION.md)
 - [`roadmap/M7_EXECUTION.md`](roadmap/M7_EXECUTION.md)
+- [`roadmap/M7_INTEGRATION.md`](roadmap/M7_INTEGRATION.md)
 - [`adr/README.md`](adr/README.md)
 
 ---
@@ -337,12 +338,19 @@ BUILD SUCCESS
 Finished 2026-07-24T00:22:11+02:00
 ```
 
+Merge final M7 :
+
+```text
+c3c397f4e5a2c97b686c96cfa936e00ac29a52bf
+```
+
 Invariant : **la fiabilité prime ; en cas de doute, full rebuild.**
 
 Validation : [`VALIDATION_M7.md`](VALIDATION_M7.md).  
-Vue d'exécution : [`roadmap/M7_EXECUTION.md`](roadmap/M7_EXECUTION.md).
+Vue d'exécution : [`roadmap/M7_EXECUTION.md`](roadmap/M7_EXECUTION.md).  
+Reçu d'intégration : [`roadmap/M7_INTEGRATION.md`](roadmap/M7_INTEGRATION.md).
 
-Intégration finale : **PR #51**.
+M7 est **VALIDÉ ET INTÉGRÉ**.
 
 ---
 
@@ -425,4 +433,4 @@ MORPHEUS expose états, transitions, blockers, acceptance status, références e
 7. mettre à jour roadmap + issue
 ```
 
-**Prochaine étape après intégration finale de M7 : M8 — Analyse des changements.**
+**Prochaine étape : M8 — Analyse des changements.**
