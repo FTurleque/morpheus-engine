@@ -1,8 +1,8 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Roadmap active — C0 à M2 validés ; M3 autorisée**
+Statut : **Roadmap active — C0 à M3 validés ; M4 en cours — 2/6 ; S3 prochain**
 
-Date de dernière mise à jour : 22 juillet 2026
+Date de dernière mise à jour : 23 juillet 2026
 
 La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé parce que son code existe : il doit disposer de contrats stables, de tests, d'ADR cohérentes et d'une preuve de sortie explicite.
 
@@ -16,8 +16,8 @@ La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé pa
 | M0 | Faisabilité technique | ✅ VALIDÉ | `VALIDATION_M0.md` |
 | M1 | Discovery, providers et fondation store | ✅ VALIDÉ | `VALIDATION_M1.md`, 42/42 tests |
 | M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 tests |
-| **M3** | **État temporel, lifecycle, snapshots, versions** | **🚀 AUTORISÉ / PROCHAIN** | ouvrir après merge de #19 |
-| M4 | Traçabilité | ⏳ PLANIFIÉ | après modèle temporel stable |
+| M3 | État temporel, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 6/6, 147/147 tests, PR #26 |
+| **M4** | **Traçabilité** | **🚧 EN COURS — 2/6** | S3 prochain ; dernier gate 160/160 |
 | M5 | Requêtes et contexte compact | ⏳ PLANIFIÉ | après M4 |
 | M6 | Qualité / couverture | ⏳ PLANIFIÉ | après primitives de requête |
 | M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | après snapshots stables |
@@ -35,7 +35,10 @@ Références :
 - [`VALIDATION_M0.md`](VALIDATION_M0.md)
 - [`VALIDATION_M1.md`](VALIDATION_M1.md)
 - [`VALIDATION_M2.md`](VALIDATION_M2.md)
+- [`VALIDATION_M3.md`](VALIDATION_M3.md)
 - [`roadmap/M2_EXECUTION.md`](roadmap/M2_EXECUTION.md)
+- [`roadmap/M3_EXECUTION.md`](roadmap/M3_EXECUTION.md)
+- [`roadmap/M4_EXECUTION.md`](roadmap/M4_EXECUTION.md)
 - [`roadmap/DEPLOYMENT.md`](roadmap/DEPLOYMENT.md)
 - [`adr/README.md`](adr/README.md)
 
@@ -63,10 +66,13 @@ JARVIS owns orchestration
 Invariants transverses :
 
 ```text
-DomainIdentity != EntityVersion != SourceLocator != ExternalReference
+DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
+SpecificationVersion != KnowledgeSnapshot
 Scenario != AcceptanceCriterion par défaut
 provider facts != MORPHEUS domain
 backend details != domain
+PROPOSED never leaks into CURRENT
+APPLY != PROMOTE != ACTIVATE
 ```
 
 ---
@@ -282,7 +288,7 @@ Porte : **VALIDÉE — M3 AUTORISÉE**.
 
 ---
 
-# 7. M3 — État temporel, lifecycle, snapshots et versions 🚀
+# 7. M3 — État temporel, lifecycle, snapshots et versions ✅
 
 ## Objectif
 
@@ -292,140 +298,121 @@ Reconstruire l'état de référence, les évolutions proposées et l'historique 
 
 > **MORPHEUS peut-il publier et requêter un état `CURRENT` cohérent tout en conservant séparément les propositions, l'historique et les changements en cours, sans jamais exposer un snapshot partiellement construit ?**
 
-## Slices candidats
+**Réponse : OUI.**
 
-### M3-S1 — TemporalState et SpecificationVersion
+## Six slices validés et intégrés
 
-```text
-CURRENT
-PROPOSED
-HISTORICAL
-SpecificationVersion
-```
+| Slice | Contenu | PR | ADR | Gate |
+|---|---|---|---|---|
+| S1 | `TemporalState` + `SpecificationVersion` + `EntityVersionId` | #21 | ADR-0031 | 103/103 |
+| S2 | `ChangeLifecycleState` explicite | #22 | ADR-0032 | 119/119 |
+| S3 | lifecycle complet `KnowledgeSnapshot` + activation atomique | #23 | ADR-0033 | 127/127 |
+| S4 | persistance métier versionnée `Requirement` | #24 | ADR-0034 | 134/134 |
+| S5 | application / promotion explicites des `RequirementDelta` | #25 | ADR-0035 | 142/142 |
+| S6 | historique publié / comparaison / rollback logique / rétention | #26 | ADR-0036 | 147/147 |
 
-À prouver :
-
-- un contenu `PROPOSED` ne fuit jamais dans une requête `CURRENT` ;
-- une identité stable peut avoir plusieurs occurrences/version states ;
-- `DomainIdentity != EntityVersion` reste vrai ;
-- la version logique reste distincte d'une réingestion technique.
-
-### M3-S2 — ChangeLifecycleState
+## Invariants stabilisés
 
 ```text
-DRAFT
-PROPOSED
-SPECIFIED
-DESIGNED
-PLANNED
-IMPLEMENTING
-VERIFYING
-COMPLETED
-ARCHIVED
-ABANDONED
+DomainIdentity != EntityVersionId
+SpecificationVersion != KnowledgeSnapshot
+CURRENT / PROPOSED / HISTORICAL explicites
+PROPOSED never leaks into CURRENT
+COMPLETED != CURRENT
+COMPLETED != promotion
+COMPLETED != activation
 ```
 
-À prouver :
-
-- transitions autorisées/interdites ;
-- `SPECIFIED -> PLANNED` autorisé si `design_required=false` ;
-- transitions backward selon politique ;
-- `COMPLETED` n'implique pas promotion automatique en `CURRENT`.
-
-### M3-S3 — KnowledgeSnapshot complet
+Lifecycle snapshot :
 
 ```text
-BUILDING
-VALIDATING
-READY
-ACTIVE
-FAILED
-RETIRED
+BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
+                         \-> FAILED
 ```
 
-À livrer :
+Règles :
 
-- construction ;
-- validation ;
-- publication ;
-- activation atomique ;
-- predecessor ;
-- détection du predecessor obsolète ;
-- aucune visibilité partielle.
+- seul `ACTIVE` est observable comme snapshot courant ;
+- un seul `ACTIVE` par projet ;
+- un predecessor obsolète est rejeté ;
+- `FAILED` n'évince jamais l'`ACTIVE` ;
+- `ACTIVE` et `RETIRED` ne sont produits que par `activate` ;
+- un snapshot `RETIRED` n'est jamais réactivé.
 
-### M3-S4 — Premières migrations métier versionnées
+## Persistance versionnée
 
-Concevoir les premières tables métier avec ownership explicite :
+SQLite V004 :
 
 ```text
-content occurrence
-    ↓
-SpecificationVersion / KnowledgeSnapshot
+specification_versions
+snapshot_specification_versions
+requirement_versions
 ```
 
-Familles candidates :
+Invariants :
 
 ```text
-specifications
-requirements
-changes
-constraints
-scenarios
-design_decisions
-acceptance_criteria
-implementation_tasks
-external_references
-provenance/evidence
+SpecificationVersion 1:N KnowledgeSnapshot
+snapshot/version ownership explicite
+1 CURRENT max par (snapshot, DomainIdentity)
+N PROPOSED concurrents permis
+vue courante = ACTIVE snapshot + CURRENT
+aucune payload JSON générique
 ```
 
-Aucune table ne doit ambiguïser l'identité stable et l'occurrence versionnée.
-
-### M3-S5 — Application / promotion des deltas
+## Deltas et publication
 
 ```text
-ADDED
-MODIFIED
-REMOVED
+normalized delta != applied delta
+APPLY != PROMOTE
+PROMOTE != ACTIVATE
 ```
 
-À prouver :
+- `ADDED` n'utilise aucun fuzzy matching ;
+- `MODIFIED` conserve la `DomainIdentity` et crée un nouvel `EntityVersionId` ;
+- `REMOVED` retire l'occurrence de la projection candidate sans muter l'ACTIVE ;
+- un mouvement cross-specification n'est pas inventé implicitement.
 
-- coexistence current/proposed ;
-- application déterministe ;
-- promotion explicite ;
-- aucune promotion implicite à `COMPLETED` ;
-- provenance de l'opération conservée.
-
-### M3-S6 — Historique, comparaison et rétention
-
-Comparer :
+## Historique publié
 
 ```text
-ADDED
-MODIFIED
-REMOVED
-UNCHANGED
-MOVED / RENAMED si identité suffisante
+RETIRED* -> ACTIVE
 ```
 
-À définir :
+- seules les publications `ACTIVE/RETIRED` font partie de l'historique publié ;
+- comparaison : `ADDED / MODIFIED / REMOVED / UNCHANGED` ;
+- un `EntityVersionId` différent ne suffit pas à produire `MODIFIED` ;
+- rollback logique = nouvelle publication via `RequirementDelta -> APPLY -> PROMOTE -> ACTIVATE` ;
+- rétention : `KEEP_ALL_PUBLISHED` ;
+- aucune TTL, purge ou compaction en M3.
 
-- rétention ;
-- reconstruction ;
-- rollback logique ;
-- explicabilité entre deux snapshots.
+## Preuve finale M3
 
-## Porte de sortie M3
+```text
+147/147 PASS
+Failures = 0
+Errors   = 0
+Skipped  = 0
+BUILD SUCCESS
+```
 
-`get_current_specification` ne doit jamais contenir implicitement un delta seulement proposé, y compris pendant une resynchronisation ou une activation de snapshot.
+Validation : [`VALIDATION_M3.md`](VALIDATION_M3.md).
+
+Merge final M3 : PR #26 — `30f4ea43c55b5f6ff7cf235d0d1acc75ab4053fa`.
+
+Porte : **VALIDÉE — M4 AUTORISÉE**.
 
 ---
 
-# 8. M4 — Traçabilité ⏳
+# 8. M4 — Traçabilité 🚧
 
 ## Objectif
 
 Relier les éléments de spécification et expliquer leur origine.
+
+## Question de sortie
+
+> **MORPHEUS peut-il relier les éléments d'intention/specification par des relations typées, directionnelles et explicables, conserver les liens non résolus, puis produire un sous-graphe borné et déterministe sans dépendre d'un backend graphe ?**
 
 ## Périmètre
 
@@ -461,7 +448,96 @@ RELATED_TO
 - requirement → scenario/criterion/task ;
 - design decision → change.
 
-Porte : `trace <requirement>` produit un sous-graphe normalisé et explicable.
+## Progression M4
+
+| Slice | Contenu | PR | ADR | Gate | État |
+|---|---|---|---|---|---|
+| S1 | domaine `TraceabilityLink` + taxonomie contrôlée | #28 | ADR-0037 | 155/155 | ✅ MERGED |
+| S2 | persistance snapshot-scoped Memory + SQLite | #29 | ADR-0038 | 160/160 | ✅ MERGED |
+| **S3** | **dérivation déterministe depuis `NormalizedProjectContent`** | — | — | — | **🚧 PROCHAIN** |
+| S4 | direct / inverse / traversal / path | — | — | — | ⏳ |
+| S5 | external / unresolved / broken-reference semantics | — | — | — | ⏳ |
+| S6 | validation finale `trace(requirement)` | — | — | — | ⏳ |
+
+## M4-S1 — domaine et taxonomie
+
+Validé :
+
+```text
+TraceabilityLinkId explicite
+TraceabilityLinkId != hash(source,type,target)
+endpoint = EntityKind + DomainIdentity
+14 relations MVP contrôlées
+relation type != origin != resolution
+confidence bornée [0,1]
+heuristic => confidence obligatoire
+evidence obligatoire
+direction canonique
+inverse = vue de requête, pas seconde preuve
+```
+
+## M4-S2 — persistance snapshot-scoped
+
+Validé :
+
+```text
+TraceabilityStore
+MemoryTraceabilityStore
+SqliteTraceabilityStore
+TraceabilityLink definition != snapshot membership
+KnowledgeSnapshotId obligatoire
+same link id + different definition = collision
+snapshot A links != snapshot B links
+Memory == SQLite contract
+```
+
+SQLite V005 :
+
+```text
+traceability_links
+traceability_link_evidence
+snapshot_traceability_links
+```
+
+Preuve :
+
+```text
+TraceabilityPersistenceContractTest  5/5 PASS
+Architecture tests                  45/45 PASS
+TOTAL                              160/160 PASS
+BUILD SUCCESS
+```
+
+Merge S2 : PR #29 — `32694f2c74aa9ce4248f9eea907d85460de93eff`.
+
+## NOW — M4-S3
+
+Dérivation déterministe depuis le modèle normalisé :
+
+```text
+Requirement -> Specification        DERIVES_FROM
+Scenario -> Requirement             REFINES
+Constraint -> Change                CONSTRAINS
+Change -> DesignDecision            DECIDED_BY
+Change -> Requirement               AFFECTS si RequirementDelta fournit l'identité
+```
+
+Contraintes :
+
+```text
+pas de fuzzy matching
+pas de rapprochement par titre
+pas de rapprochement par chemin
+pas de LLM
+pas d'identité de lien cachée dérivée d'un hash d'arête
+pas d'inférence Task -> Requirement sans fait source
+```
+
+Toute dérivation doit conserver l'evidence qui la justifie.
+
+Porte M4 : `trace <requirement>` produit un sous-graphe normalisé, borné, déterministe et explicable.
+
+Vue opérationnelle : [`roadmap/M4_EXECUTION.md`](roadmap/M4_EXECUTION.md).
 
 ---
 
@@ -720,8 +796,8 @@ Non engagées dans la roadmap principale :
 3. ajouter les preuves contractuelles
 4. exécuter .\mvnw.cmd clean test
 5. accepter l'ADR uniquement après preuve
-6. merger
+6. merger seulement après signal explicite
 7. mettre à jour ce tableau de bord
 ```
 
-**Prochaine ligne active : M3-S1 — TemporalState et SpecificationVersion.**
+**Prochaine ligne active : M4-S3 — dérivation déterministe depuis le modèle normalisé.**
