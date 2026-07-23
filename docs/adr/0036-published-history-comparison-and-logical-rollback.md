@@ -1,6 +1,6 @@
 # ADR-0036 — Historique publié, comparaison de snapshots et rollback logique
 
-- Statut : **Proposée — M3**
+- Statut : **Acceptée — M3**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0006, ADR-0009, ADR-0012, ADR-0013, ADR-0025, ADR-0031, ADR-0033, ADR-0034, ADR-0035
 - Portée : M3-S6, historique publié, comparaison, reconstruction logique et rétention
@@ -17,7 +17,7 @@ ACTIVE observable atomiquement
 APPLY != PROMOTE != ACTIVATE
 ```
 
-S6 doit maintenant rendre l'état publié historique consultable et comparable, puis définir un rollback logique sans contourner le lifecycle de snapshot.
+S6 rend l'état publié historique consultable et comparable, puis définit un rollback logique sans contourner le lifecycle de snapshot.
 
 Le store possède déjà les informations structurelles nécessaires :
 
@@ -42,7 +42,7 @@ logical rollback plan
 retention policy
 ```
 
-Elles ne doivent pas être fusionnées avec :
+Elles restent distinctes de :
 
 ```text
 TemporalState
@@ -55,8 +55,6 @@ KnowledgeSnapshot activation
 
 L'historique publié d'un projet est la lignée obtenue en partant du snapshot `ACTIVE` et en suivant `predecessorId` jusqu'à la racine.
 
-Dans cette lignée :
-
 ```text
 exactement un ACTIVE : la tête
 0..N RETIRED          : les prédécesseurs publiés
@@ -64,9 +62,7 @@ exactement un ACTIVE : la tête
 
 Les snapshots `BUILDING`, `VALIDATING`, `READY` et `FAILED` ne font jamais partie de l'historique publié.
 
-Un candidat échoué peut rester physiquement stocké ; il n'est pas pour autant une version historique publiée.
-
-La reconstruction de lignée doit rejeter explicitement :
+La reconstruction de lignée rejette explicitement :
 
 - un predecessor absent ;
 - un predecessor appartenant à un autre projet ;
@@ -76,22 +72,16 @@ La reconstruction de lignée doit rejeter explicitement :
 
 ## Sémantique de requête historique
 
-Une requête historique est toujours adressée à un `KnowledgeSnapshotId` explicite et n'est autorisée que pour un snapshot publié :
+Une requête historique est toujours adressée à un `KnowledgeSnapshotId` explicite et n'est autorisée que pour :
 
 ```text
 ACTIVE
 RETIRED
 ```
 
-La vue métier d'un snapshot publié ne retourne que ses occurrences :
+La vue métier d'un snapshot publié ne retourne que ses occurrences `TemporalState.CURRENT`.
 
-```text
-TemporalState.CURRENT
-```
-
-Une occurrence `CURRENT` d'un snapshot `RETIRED` reste `CURRENT` relativement à cette projection historique. S6 ne réécrit donc pas artificiellement son `TemporalState` en `HISTORICAL`.
-
-Ainsi :
+Une occurrence `CURRENT` d'un snapshot `RETIRED` reste `CURRENT` relativement à cette projection historique :
 
 ```text
 snapshot state RETIRED != occurrence TemporalState.HISTORICAL
@@ -101,7 +91,7 @@ La dimension historique est portée par le snapshot publié adressé, pas par un
 
 ## Comparaison de snapshots
 
-La comparaison minimale reste strictement :
+La taxonomie M3 reste strictement :
 
 ```text
 ADDED
@@ -115,10 +105,10 @@ Elle utilise `DomainIdentity` comme clé de continuité logique.
 Pour une comparaison `from -> to` :
 
 ```text
-absent from, présent to    => ADDED
-présent from, absent to    => REMOVED
+absent from, présent to             => ADDED
+présent from, absent to             => REMOVED
 présent des deux, contenu différent => MODIFIED
-présent des deux, contenu identique  => UNCHANGED
+présent des deux, contenu identique => UNCHANGED
 ```
 
 Le contenu comparé est le `Requirement` normalisé complet. Les métadonnées d'occurrence suivantes n'entrent pas dans la classification :
@@ -130,17 +120,15 @@ KnowledgeSnapshotId
 TemporalState
 ```
 
-En revanche, la provenance/evidence fait partie du `Requirement` normalisé et reste donc observable dans une modification.
+La provenance/evidence fait partie du `Requirement` normalisé et reste donc observable dans une modification.
 
-`MOVED` et `RENAMED` ne sont pas introduits dans S6. Même avec continuité d'identité démontrée, un changement de clé, titre ou rattachement de spécification reste classé `MODIFIED` tant qu'une taxonomie dédiée n'est pas décidée.
+`MOVED` et `RENAMED` ne sont pas introduits implicitement. Un changement de clé, titre ou rattachement de spécification reste `MODIFIED` tant qu'une taxonomie dédiée n'est pas décidée.
 
 L'ordre de sortie est déterministe par `DomainIdentity`.
 
 ## Rollback logique
 
-Un rollback n'est jamais la réactivation d'un snapshot `RETIRED`.
-
-Invariant :
+Un rollback n'est jamais la réactivation d'un snapshot `RETIRED` :
 
 ```text
 RETIRED -X-> ACTIVE
@@ -165,18 +153,16 @@ REMOVED   => RequirementDelta.REMOVED pour l'élément absent de la cible
 UNCHANGED => aucun delta
 ```
 
-La comparaison et l'applicabilité du rollback restent deux contrats distincts. Un requirement dont la `DomainIdentity` reste stable mais dont la `SpecificationId` change est bien visible comme `MODIFIED` dans le diff ; en revanche le rollback S6 rejette ce cas, car ADR-0035 impose encore qu'un `RequirementDelta.MODIFIED` se résolve vers la même `SpecificationId` que la baseline courante.
-
-Donc :
+La comparaison et l'applicabilité du rollback restent deux contrats distincts. Un requirement dont la `DomainIdentity` reste stable mais dont la `SpecificationId` change est comparable comme `MODIFIED`, mais le rollback S6 rejette ce cas : ADR-0035 impose qu'un `RequirementDelta.MODIFIED` se résolve vers la même `SpecificationId` que la baseline courante.
 
 ```text
 cross-specification MODIFIED => comparable
 cross-specification MODIFIED -X-> rollback S6
 ```
 
-Une reconstruction cross-specification devra attendre une politique explicite `MOVED`/reparenting au lieu d'affaiblir silencieusement ADR-0035. Les renommages et autres changements restant dans la même `SpecificationId` continuent d'être reconstruits comme `MODIFIED`.
+Une reconstruction cross-specification attend une politique explicite `MOVED`/reparenting au lieu d'affaiblir ADR-0035.
 
-Le résultat est ensuite destiné au pipeline déjà validé en S5 :
+Le résultat est destiné au pipeline S5 :
 
 ```text
 rollback plan
@@ -197,27 +183,25 @@ logical rollback != PROMOTE
 logical rollback != ACTIVATE
 ```
 
-La reconstruction crée de nouvelles occurrences `EntityVersionId`; elle ne réutilise jamais les occurrences historiques.
+La reconstruction crée de nouvelles occurrences `EntityVersionId` ; elle ne réutilise jamais les occurrences historiques.
 
 ## Identités et absence de génération cachée
 
 Le plan de rollback reçoit explicitement :
 
 - un `ChangeId` représentant l'intention de rollback ;
-- un `RequirementDeltaId` pour chaque identité effectivement modifiée par le rollback ;
+- un `RequirementDeltaId` pour chaque identité effectivement modifiée ;
 - la résolution `SpecificationId -> specificationKey` nécessaire au contrat `RequirementDelta`.
 
 Le service ne génère aucun identifiant en cachette et n'effectue aucun fuzzy matching.
 
-Le plan expose également la résolution inverse `specificationKey -> SpecificationId` directement réutilisable par `RequirementDeltaApplicationPlan`.
+Le plan expose également la résolution inverse `specificationKey -> SpecificationId` réutilisable par `RequirementDeltaApplicationPlan`.
 
 ## Scenarios et frontière du vertical slice
 
 S4 et S5 ne persistent que le vertical slice `Requirement`.
 
 Les `Scenario` n'étant pas reconstructibles depuis la persistance S4, les deltas de rollback S6 ont une liste de scénarios vide.
-
-Cette limite est explicite :
 
 ```text
 rollback S6 = reconstruction du vertical slice Requirement persisté
@@ -235,15 +219,9 @@ KEEP_ALL_PUBLISHED
 
 Tous les snapshots publiés de la lignée `ACTIVE/RETIRED`, leurs bindings de `SpecificationVersion` et leurs `RequirementVersionRecord` sont conservés.
 
-S6 n'introduit :
+S6 n'introduit ni TTL, ni limite de cardinalité, ni purge destructive, ni compactage, ni suppression physique d'un snapshot publié.
 
-- ni TTL ;
-- ni limite de cardinalité ;
-- ni purge destructive ;
-- ni compactage ;
-- ni suppression physique d'un snapshot publié.
-
-Une politique de purge future devra préserver explicitement les contraintes de rollback, provenance, audit et traçabilité avant d'être autorisée.
+Une politique future devra préserver explicitement rollback, provenance, audit et traçabilité avant d'être autorisée.
 
 ## Persistance
 
@@ -258,7 +236,7 @@ requirement_versions
 
 Aucune migration V005 n'est requise pour S6.
 
-La preuve SQLite doit démontrer qu'après fermeture/réouverture :
+La preuve SQLite démontre qu'après fermeture/réouverture :
 
 ```text
 ACTIVE actuel reste observable
@@ -268,39 +246,89 @@ comparaison reste identique
 
 ## Frontières
 
-Les nouveaux services vivent dans `morpheus-application` et ne dépendent que :
+Les nouveaux services vivent dans `morpheus-application` et ne dépendent que du domaine MORPHEUS, de `SpecificationKnowledgeStore` et de `VersionedRequirementStore`.
 
-- du domaine MORPHEUS ;
-- de `SpecificationKnowledgeStore` ;
-- de `VersionedRequirementStore`.
-
-Aucune dépendance provider, SQLite ou CLI n'est admise dans domain/application.
+```text
+com.morpheus.domain      -X-> provider
+com.morpheus.domain      -X-> SQLite
+com.morpheus.application -X-> provider implementation
+com.morpheus.application -X-> SQLite
+```
 
 ## Critères d'acceptation
 
-ADR-0036 pourra passer à **Acceptée — M3** lorsque le gate complet démontre :
+Le gate complet doit démontrer :
 
-1. la lignée publiée est reconstruite `RETIRED* -> ACTIVE` dans un ordre déterministe ;
-2. `BUILDING`, `VALIDATING`, `READY` et `FAILED` ne sont jamais exposés comme historique publié ;
-3. une requête historique n'accepte que `ACTIVE` ou `RETIRED` ;
-4. une requête historique ne retourne que les occurrences `CURRENT` du snapshot adressé ;
-5. `ADDED`, `MODIFIED`, `REMOVED`, `UNCHANGED` sont classés par `DomainIdentity` et contenu normalisé ;
-6. `EntityVersionId` différent n'implique pas à lui seul `MODIFIED` ;
-7. l'ordre de comparaison est déterministe ;
-8. le rollback logique cible uniquement un `RETIRED` appartenant à la lignée publiée courante ;
-9. le rollback ne réactive jamais un snapshot `RETIRED` ;
-10. le rollback produit des deltas explicites réutilisables par S5 ;
-11. un changement cross-specification est comparable mais rejeté par le rollback tant qu'aucune politique `MOVED` n'est définie ;
-12. le rollback ne génère aucun `ChangeId`, `RequirementDeltaId`, `EntityVersionId` ou snapshot implicitement ;
-13. l'application du plan de rollback construit une nouvelle projection avec de nouvelles occurrences ;
-14. l'ancien snapshot historique reste inchangé après rollback ;
-15. la politique `KEEP_ALL_PUBLISHED` conserve l'historique publié ;
-16. fermeture/réouverture SQLite conserve l'ACTIVE et les RETIRED requêtables/comparables ;
-17. Memory et SQLite respectent le même contrat ;
-18. aucun type provider/SQLite ne fuite dans domain/application ;
-19. aucune migration V005 n'est nécessaire ;
-20. `.\mvnw.cmd clean test` est vert.
+1. lignée publiée `RETIRED* -> ACTIVE` déterministe ;
+2. candidats non publiés jamais exposés comme historique ;
+3. requêtes historiques limitées à `ACTIVE/RETIRED` ;
+4. occurrences historiques filtrées sur `CURRENT` ;
+5. comparaison `ADDED/MODIFIED/REMOVED/UNCHANGED` par identité et contenu ;
+6. `EntityVersionId` différent n'implique pas `MODIFIED` ;
+7. ordre déterministe ;
+8. rollback ciblant uniquement un `RETIRED` de la lignée courante ;
+9. aucune réactivation de `RETIRED` ;
+10. deltas explicites réutilisables par S5 ;
+11. cross-specification comparable mais non rollbackable sans `MOVED` ;
+12. aucun identifiant généré implicitement ;
+13. nouvelles occurrences lors de la reconstruction ;
+14. historique source inchangé après rollback ;
+15. `KEEP_ALL_PUBLISHED` ;
+16. reopen SQLite préserve historique et comparaison ;
+17. même contrat Memory/SQLite ;
+18. aucune fuite provider/SQLite dans domain/application ;
+19. aucune migration V005 ;
+20. `.\mvnw.cmd clean test` vert.
 
-## Preuve d'acceptation
+## Preuve d'acceptation — 23 juillet 2026
 
-À compléter uniquement après exécution du gate local complet.
+Premier passage du gate : échec de compilation Java 21 sur le `switch` impératif de `RequirementLogicalRollbackService`. Le défaut a été corrigé par une switch expression exhaustive retournant un `RollbackMaterialization` immuable ; le gate complet a ensuite été réexécuté depuis une branche locale propre et synchronisée.
+
+Commande officielle :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+```
+
+Résultats :
+
+```text
+PublishedHistoryContractTest              5/5 PASS
+RequirementDeltaApplicationContractTest   8/8 PASS
+
+Domain                                  13 tests
+Application                             54 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      40 tests
+-----------------------------------------------
+TOTAL                                  147/147 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+```
+
+Gate terminé le **23 juillet 2026 à 10:50:47 +02:00**.
+
+Les warnings Xerial SQLite/JDK24 native access et SLF4J NOP restent les warnings connus et non bloquants. Aucun logger n'est ajouté uniquement pour masquer SLF4J.
+
+Les cinq tests S6 démontrent :
+
+```text
+Memory history/query/diff/rollback complet
+SQLite même contrat + fermeture/réouverture
+candidats non publiés rejetés
+RequirementDeltaId explicites et exacts
+cross-spec rollback rejeté sans politique MOVED
+```
+
+Décision finale :
+
+```text
+ADR-0036 = ACCEPTÉE — M3
+M3-S6    = VALIDÉ — 147/147
+M3       = 6/6 slices validés
+```
