@@ -1,6 +1,6 @@
 # ADR-0049 — Couverture task → requirement et gap explicite d'acceptance coverage
 
-- Statut : **Proposée — M6**
+- Statut : **Acceptée — M6**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0037, ADR-0038, ADR-0039, ADR-0044, ADR-0048
 - Portée : M6-S2, qualité des `ImplementationTask` et capacité d'acceptance coverage
@@ -24,7 +24,7 @@ ImplementationTask -> ChangeId
 
 mais M4 ne dérive pas de relation `ImplementationTask -> Requirement`.
 
-Les requirements affectés par un changement sont au contraire explicitement représentés par des liens persistés :
+Les requirements affectés par un changement sont explicitement représentés par des liens persistés :
 
 ```text
 Change --AFFECTS--> Requirement
@@ -38,15 +38,13 @@ ProviderCapability.READ_ACCEPTANCE_CRITERIA existe
 
 mais le modèle normalisé/persisté production ne contient pas encore de type `AcceptanceCriterion`.
 
-Donc :
+Donc l'invariant suivant reste bloquant :
 
 ```text
 Scenario != AcceptanceCriterion
 ```
 
-reste un invariant bloquant.
-
-## Décision candidate
+## Décision
 
 Étendre la couche `application.quality` avec :
 
@@ -82,7 +80,7 @@ Pour une task `T` :
 T.changeId = C
 ```
 
-`T` est **couverte** si le snapshot contient au moins un lien persisté :
+`T` est couverte si le snapshot contient au moins un lien persisté :
 
 ```text
 Change(C) --AFFECTS--> Requirement(R)
@@ -92,7 +90,14 @@ et si `R` possède une occurrence `RequirementVersionRecord` `CURRENT` dans le m
 
 Aucun `TraceabilityLink` `Task -> Requirement` n'est synthétisé.
 
-Une task est **non couverte** si aucun `Requirement CURRENT` ne peut être atteint par ce mécanisme structurel.
+Une task est non couverte si aucun `Requirement CURRENT` ne peut être atteint par ce mécanisme structurel.
+
+```text
+AFFECTS -> CURRENT          = couvert
+AFFECTS -> PROPOSED only    = non couvert
+AFFECTS -> cible absente    = non couvert
+aucun AFFECTS               = non couvert
+```
 
 Calcul :
 
@@ -122,11 +127,12 @@ confidence = empty
 evidenceIds = task.provenance.evidenceId
 ```
 
-Les détails doivent conserver au minimum :
+Les détails conservent au minimum :
 
 ```text
 taskId
 changeId
+snapshotId
 ```
 
 La finding ne prétend pas que le changement est sans requirement au sens absolu : elle affirme uniquement qu'aucun `AFFECTS -> Requirement CURRENT` n'est publié pour ce change dans le snapshot analysé.
@@ -175,7 +181,7 @@ L'absence de snapshot ACTIVE reste distincte d'un rapport vide.
 ## Déterminisme
 
 - tasks triées par `TaskId` ;
-- requirements résolus par `RequirementId` ;
+- requirements `CURRENT` résolus dans le même snapshot ;
 - findings triées selon l'ordre canonique `QualityFinding` ;
 - résultat identique Memory / SQLite ;
 - reopen SQLite identique.
@@ -198,23 +204,51 @@ change completeness
 lifecycle blockers
 ```
 
-## Preuves attendues
+## Preuves validées
+
+`TaskAcceptanceQualityContractTest` : **7/7 PASS**.
+
+Les preuves couvrent :
 
 - task couverte via `task.changeId` + `Change --AFFECTS--> Requirement CURRENT` ;
 - task non couverte -> finding déterministe ;
 - AFFECTS vers requirement PROPOSED uniquement ne couvre pas la task ;
-- AFFECTS cassé/non résolu ne couvre pas la task s'il n'existe aucune occurrence CURRENT ;
+- AFFECTS vers cible absente/non résolue ne couvre pas la task ;
 - zero task -> 100 % ;
 - ACTIVE par défaut ;
 - RETIRED explicite autorisé ;
 - READY rejeté ;
+- absence ACTIVE distincte d'une population vide ;
 - Memory == SQLite ;
 - SQLite reopen ;
 - acceptance status explicite `UNAVAILABLE_IN_NORMALIZED_MODEL` ;
-- aucun type `AcceptanceCriterion` production ;
-- aucun Scenario converti ;
-- gate Windows complet vert.
+- aucun type production `AcceptanceCriterion` ;
+- aucun `Scenario` converti.
+
+Gate local Windows complet :
+
+```text
+TaskAcceptanceQualityContractTest        7/7 PASS
+Architecture tests                    114/114 PASS
+TOTAL                                 241/241 PASS
+Failures                                0
+Errors                                  0
+Skipped                                 0
+BUILD SUCCESS
+Total time                            18.871 s
+Finished at                2026-07-23T22:08:29+02:00
+```
+
+Warnings connus non bloquants uniquement : Xerial SQLite/JDK restricted native access et SLF4J NOP.
+
+Head de code effectivement testé :
+
+```text
+10c1313fbdbab2abcfb53a71a2d610dcc6167614
+```
 
 ## Acceptation
 
-À compléter uniquement après le gate local complet M6-S2.
+**Acceptée — M6.**
+
+La couverture task → requirement et le gap d'acceptance sont déterministes, snapshot-scoped et backend-neutral, sans relation ni critère synthétique.
