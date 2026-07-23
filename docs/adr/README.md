@@ -2,7 +2,7 @@
 
 Ce répertoire contient les **Architecture Decision Records** de MORPHEUS.
 
-Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse technique.
+Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 
 ## Statuts
 
@@ -66,6 +66,10 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0046](0046-change-context-query-aggregation.md) | Agrégation déterministe de `trace_requirement` et `get_change_context` | **Acceptée — M5** |
 | [ADR-0047](0047-compact-query-views-and-canonical-json.md) | Vues compactes, warnings structurés, provenance/evidence et JSON canonique | **Acceptée — M5** |
 | [ADR-0048](0048-quality-findings-and-requirement-coverage.md) | Findings de qualité explicables et couverture de traçabilité des requirements | **Acceptée — M6** |
+| [ADR-0049](0049-task-requirement-coverage-and-acceptance-gap.md) | Couverture task → requirement et gap explicite d'acceptance coverage | **Acceptée — M6** |
+| [ADR-0050](0050-change-completeness-and-lifecycle-quality.md) | Complétude des changements et qualité lifecycle sans faits inventés | **Acceptée — M6** |
+| [ADR-0051](0051-decision-and-external-reference-quality.md) | Qualité des décisions et références externes sans justification inventée | **Acceptée — M6** |
+| [ADR-0052](0052-aggregate-quality-report-and-compact-view.md) | Rapport qualité agrégé et vue compacte déterministe | **Acceptée — M6** |
 
 ---
 
@@ -82,7 +86,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | M2-S7 second provider anti-lock-in | ADR-0029 | `94/94 PASS` |
 | M2-S8 validation finale / persistance | ADR-0030 | `94/94 PASS` |
 
-M2 est validée. Preuve : [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
+Validation : [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
 
 ---
 
@@ -97,7 +101,7 @@ M2 est validée. Preuve : [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
 | M3-S5 application / promotion des deltas | ADR-0035 | `142/142 PASS` |
 | M3-S6 historique / comparaison / rollback / rétention | ADR-0036 | `147/147 PASS` |
 
-M3 est validée et intégrée. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3.md).
+Validation : [`../VALIDATION_M3.md`](../VALIDATION_M3.md).
 
 ---
 
@@ -105,14 +109,14 @@ M3 est validée et intégrée. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3
 
 | Slice | ADR | Preuve |
 |---|---|---|
-| M4-S1 domaine `TraceabilityLink` + taxonomie contrôlée | ADR-0037 | `155/155 PASS` |
-| M4-S2 persistance snapshot-scoped Memory + SQLite | ADR-0038 | `160/160 PASS` |
-| M4-S3 dérivation déterministe depuis modèle normalisé | ADR-0039 | `167/167 PASS` |
-| M4-S4 traversal / path snapshot-scoped | ADR-0040 | `174/174 PASS` |
+| M4-S1 domaine `TraceabilityLink` + taxonomie | ADR-0037 | `155/155 PASS` |
+| M4-S2 persistance snapshot-scoped | ADR-0038 | `160/160 PASS` |
+| M4-S3 dérivation déterministe | ADR-0039 | `167/167 PASS` |
+| M4-S4 traversal / path | ADR-0040 | `174/174 PASS` |
 | M4-S5 références externes / unresolved / broken | ADR-0041 | `184/184 PASS` |
-| M4-S6 porte finale `trace(requirement)` | ADR-0042 | `189/189 PASS` |
+| M4-S6 `trace(requirement)` | ADR-0042 | `189/189 PASS` |
 
-M4 est validée et intégrée. Preuve : [`../VALIDATION_M4.md`](../VALIDATION_M4.md).
+Validation : [`../VALIDATION_M4.md`](../VALIDATION_M4.md).
 
 ---
 
@@ -120,23 +124,29 @@ M4 est validée et intégrée. Preuve : [`../VALIDATION_M4.md`](../VALIDATION_M4
 
 | Slice | ADR | Preuve |
 |---|---|---|
-| M5-S1 recherche lexicale + pagination requirements | ADR-0043 | `196/196 PASS` |
+| M5-S1 recherche lexicale + pagination | ADR-0043 | `196/196 PASS` |
 | M5-S2 projection métier snapshot-scoped | ADR-0044 | `202/202 PASS` |
 | M5-S3 getters/listes déterministes | ADR-0045 | `210/210 PASS` |
 | M5-S4 trace query view + change context | ADR-0046 | `217/217 PASS` |
 | M5-S5 vues compactes + warnings + JSON canonique | ADR-0047 | `227/227 PASS` |
 | M5-S6 validation finale | — | `227/227 PASS` |
 
-M5 est validé et intégré. Preuve : [`../VALIDATION_M5.md`](../VALIDATION_M5.md).
+Validation : [`../VALIDATION_M5.md`](../VALIDATION_M5.md).
 
 ---
 
-# Preuves M6 en cours
+# Preuves M6
 
 | Slice | ADR | Preuve |
 |---|---|---|
 | M6-S1 couverture requirements + orphelins | ADR-0048 | `234/234 PASS` |
+| M6-S2 couverture tasks + acceptance gap | ADR-0049 | `241/241 PASS` |
+| M6-S3 change completeness + lifecycle blockers | ADR-0050 | `248/248 PASS` |
+| M6-S4 decisions + références externes | ADR-0051 | `254/254 PASS` |
+| M6-S5 rapport agrégé + vue compacte | ADR-0052 | `261/261 PASS` |
+| M6-S6 validation finale | — | `261/261 PASS` |
 
+Validation : [`../VALIDATION_M6.md`](../VALIDATION_M6.md).  
 Vue d'exécution : [`../roadmap/M6_EXECUTION.md`](../roadmap/M6_EXECUTION.md).
 
 ---
@@ -164,49 +174,21 @@ PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 ```
 
-## Persistance
-
-```text
-Requirement = persistance versionnée spécialisée
-familles S2 = projection immutable snapshot-scoped
-snapshot/version ownership explicite
-aucune payload JSON métier générique
-quality finding = résultat dérivé, non persisté
-```
-
-## Requêtes / contexte M5
-
-```text
-ACTIVE par défaut
-snapshot explicite = ACTIVE/RETIRED uniquement
-CURRENT only pour Requirement
-not-found explicite
-tri stable + pagination bornée
-AFFECTS directs conservés
-trace bornée / déterministe / cycle-safe
-external unresolved/broken visibles
-Memory == SQLite
-SQLite reopen
-Scenario != AcceptanceCriterion
-compact DTOs typés
-provenance/evidence conservées
-warnings code/severity/details
-canonical deterministic JSON
-aucune recherche fuzzy / sémantique / LLM
-aucun ranking/fusion/compression NEXUS
-```
-
 ## Qualité M6
 
 ```text
-QualityFinding != Diagnostic d'ingestion
+QualityFinding != diagnostic d'ingestion
+finding = dérivé, non persisté
 DETERMINISTIC != HEURISTIC
 DETERMINISTIC => confidence interdite
 HEURISTIC => confidence obligatoire [0,1]
-Requirement coverage = liens directs persistés
-CURRENT Requirement uniquement
+Scenario != AcceptanceCriterion
+DesignDecision.decision != justification
+lifecycle non inféré depuis snapshot
 absence de lien != lien inventé
-findings stables Memory == SQLite
+Memory == SQLite
+SQLite reopen
+compact quality JSON déterministe
 ```
 
 ## Build
@@ -218,23 +200,22 @@ Windows : .\mvnw.cmd clean test
 Unix    : ./mvnw clean test
 ```
 
-Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
+Baseline : Java `release 21`.
 
-Dernier gate M6-S1 :
+Dernier gate M6 :
 
 ```text
-RequirementQualityContractTest 7/7 PASS
-Architecture tests            107/107 PASS
-TOTAL                          234/234 PASS
-Failures                       0
-Errors                         0
-Skipped                        0
+Architecture tests 134/134 PASS
+TOTAL              261/261 PASS
+Failures             0
+Errors               0
+Skipped              0
 BUILD SUCCESS
+Total time          19.543 s
+Finished 2026-07-23T23:32:49+02:00
 ```
 
-Gate terminé le **23 juillet 2026 à 20:52:28 +02:00**.
-
-GitHub Actions n'est pas une porte obligatoire. Les warnings JDK native-access Xerial SQLite et SLF4J NOP restent connus et non bloquants.
+GitHub Actions n'est pas la porte obligatoire. Les warnings JDK native-access Xerial SQLite et SLF4J NOP restent connus et non bloquants.
 
 ---
 
@@ -246,6 +227,6 @@ GitHub Actions n'est pas une porte obligatoire. Les warnings JDK native-access X
 3. ajouter les preuves contractuelles
 4. exécuter le Maven Wrapper
 5. accepter l'ADR uniquement après preuve
-6. merger seulement après signal explicite
+6. merger sous autorisation explicite
 7. mettre à jour roadmap + issue de milestone
 ```
