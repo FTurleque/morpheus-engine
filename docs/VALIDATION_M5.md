@@ -1,6 +1,6 @@
 # Validation M5 — Requêtes déterministes et contexte compact
 
-Statut : **CANDIDAT À VALIDATION — 5/6 intégrés ; S6 gate final en attente**
+Statut : **VALIDÉ — 6/6 slices — 227/227 PASS ; intégration S6 en attente du merge #42**
 
 Date : 23 juillet 2026
 
@@ -8,36 +8,40 @@ Date : 23 juillet 2026
 
 > **MORPHEUS peut-il exposer des requêtes métier déterministes, snapshot-cohérentes et bornées, puis produire un contexte compact avec provenance et warnings sans dépendre d'un moteur sémantique, d'un LLM ou de NEXUS ?**
 
-**Réponse candidate : OUI.**
+**Réponse : OUI.**
 
-Les slices M5-S1 à M5-S5 démontrent déjà la capacité fonctionnelle. M5-S6 ne rajoute aucune architecture : elle consolide les preuves et exige un dernier gate Maven complet avant de déclarer M5 validée et intégrée.
+M5 démontre des requêtes métier stables, déterministes, provider/backend-neutral et snapshot-cohérentes, avec recherche lexicale bornée, historique publié explicite, traçabilité/context agrégés, vues compactes, provenance/evidence, warnings structurés et JSON canonique déterministe.
+
+Aucune dépendance obligatoire à un moteur sémantique, à un LLM, à NEXUS, à MINOS ou à un backend graphe n'est introduite.
 
 ---
 
-# 1. Progression M5
+# 1. Progression finale M5
 
 | Slice | Contenu | PR | ADR | Gate | État |
 |---|---|---|---|---|---|
-| S1 | recherche lexicale `find_requirements` + pagination | #37 | ADR-0043 | 196/196 | MERGED |
+| S1 | `find_requirements` + pagination | #37 | ADR-0043 | 196/196 | MERGED |
 | S2 | projection métier snapshot-scoped | #38 | ADR-0044 | 202/202 | MERGED |
 | S3 | getters/listes déterministes | #39 | ADR-0045 | 210/210 | MERGED |
-| S4 | `trace_requirement` query view + `get_change_context` | #40 | ADR-0046 | 217/217 | MERGED |
+| S4 | `trace_requirement` + `get_change_context` | #40 | ADR-0046 | 217/217 | MERGED |
 | S5 | vues compactes + warnings/provenance + JSON canonique | #41 | ADR-0047 | 227/227 | MERGED |
-| S6 | validation finale | #42 | — | **227/227 attendu** | GATE EN ATTENTE |
+| S6 | validation finale | #42 | — | **227/227** | **VALIDÉ / READY après finalisation documentaire** |
 
-Merges intégrés :
+Merges déjà intégrés :
 
 ```text
-M5-S1 merge = 92b1321a0e23553641ea5dbe1f1c25c0acc874e3
-M5-S2 merge = 3a39371518d9d327ea4cbee0994da65b218ec64c
-M5-S3 merge = 28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73
-M5-S4 merge = a1be0820f16c077a33047eefb1e0deac0d5ab680
-M5-S5 merge = 330c7831dfe5261247fef98eef850d82c8f0e7c9
+M5-S1 = 92b1321a0e23553641ea5dbe1f1c25c0acc874e3
+M5-S2 = 3a39371518d9d327ea4cbee0994da65b218ec64c
+M5-S3 = 28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73
+M5-S4 = a1be0820f16c077a33047eefb1e0deac0d5ab680
+M5-S5 = 330c7831dfe5261247fef98eef850d82c8f0e7c9
 ```
+
+L'intégration de S6 dans `main` reste soumise au merge explicite de la PR #42.
 
 ---
 
-# 2. Requête Requirement déterministe
+# 2. Recherche Requirement déterministe
 
 Contrats :
 
@@ -61,9 +65,9 @@ Sémantique validée :
 ACTIVE par défaut
 ACTIVE / RETIRED uniquement pour snapshot explicite
 CURRENT only
-PROPOSED jamais exposé comme CURRENT
+PROPOSED never leaks into CURRENT
 recherche lexicale key/title/statement
-normalisation Unicode-aware + Locale.ROOT
+normalisation Locale.ROOT
 AND entre termes
 aucun fuzzy matching
 ordre stable par RequirementId
@@ -74,18 +78,11 @@ Memory == SQLite
 SQLite reopen
 ```
 
-S5 renforce le contrat : `RequirementSearchPage` conserve la `RequirementSearchQuery` normalisée qui a réellement produit la page.
-
-Preuves principales :
-
-```text
-RequirementQueryContractTest               7/7 PASS
-RequirementQueryMetadataRetentionTest      1/1 PASS
-```
+S5 renforce le contrat : `RequirementSearchPage` conserve la `RequirementSearchQuery` normalisée ayant réellement produit la page.
 
 ---
 
-# 3. Projection métier requêtable
+# 3. Projection métier snapshot-scoped
 
 Contrats :
 
@@ -96,7 +93,7 @@ MemorySnapshotBusinessContentStore
 SqliteSnapshotBusinessContentStore
 ```
 
-Familles snapshot-scoped :
+Familles :
 
 ```text
 Specification
@@ -108,39 +105,29 @@ ImplementationTask
 Evidence / Provenance
 ```
 
-`Requirement` reste dans `VersionedRequirementStore` et conserve son modèle versionné spécialisé.
-
 Invariants :
 
 ```text
 KnowledgeSnapshotId ownership explicite
 SpecificationVersionId binding explicite
 DomainIdentity stable
-aucun faux TemporalState
-aucun faux EntityVersionId
+aucun faux EntityVersionId / TemporalState
 projection immuable par snapshot
 idempotence exacte
-collision explicite
-provenance -> evidence obligatoire
-Change -> Constraint/Decision/Task validé
+relations Change -> Constraint/Decision/Task validées
 Scenario.requirementId conservé
+Requirement reste dans VersionedRequirementStore
 Memory == SQLite
-SQLite close/reopen
+SQLite reopen
 ```
 
-SQLite V007 est normalisée, sans payload JSON métier générique. Les collections ordonnées utilisent des tables enfants avec `ordinal`.
-
-Preuve principale :
-
-```text
-SnapshotBusinessContentPersistenceTest      6/6 PASS
-```
+SQLite V007 reste normalisée sans payload JSON métier générique.
 
 ---
 
 # 4. Getters et listes métier
 
-Contrats :
+Contrat principal :
 
 ```text
 BusinessContentQueryService
@@ -159,90 +146,37 @@ activeDesignDecisions / snapshotDesignDecisions
 activeImplementationTasks / snapshotImplementationTasks
 ```
 
-Sémantique :
+Règles :
 
 ```text
-ACTIVE par défaut
+ACTIVE by default
 ACTIVE / RETIRED explicite uniquement
 absence d'ACTIVE != entity not found
 not-found explicite
 snapshot publié sans projection = erreur
-ordre stable par DomainIdentity
-pagination bornée après filtrage/tri
-Memory == SQLite
-SQLite reopen
-aucune nouvelle persistance
-aucune V008
+tri stable par DomainIdentity
+pagination bornée
+provider-neutral
+backend-neutral
 ```
 
-`get_current_specification` est adressé par `SpecificationId`, car un projet peut porter plusieurs spécifications.
-
-MORPHEUS n'invente aucun `AcceptanceCriterion` :
-
-```text
-Scenario != AcceptanceCriterion
-```
-
-Aucun type `AcceptanceCriterion` n'est exposé tant qu'une source ne fournit pas cette sémantique explicitement.
-
-Preuves principales :
-
-```text
-BusinessContentQueryContractTest            7/7 PASS
-BusinessContentQueryBackendParityTest       1/1 PASS
-```
+`Scenario != AcceptanceCriterion` reste un invariant : aucun `AcceptanceCriterion` n'est inventé sans sémantique de source explicite.
 
 ---
 
-# 5. `trace_requirement`
-
-M5 n'introduit pas une seconde implémentation de trace. `TraceRequirementQueryService` délègue à la capacité M4 déjà validée.
-
-Résultat :
-
-```text
-TraceRequirementResult
-  snapshot
-  CURRENT requirement
-  bounded TraceabilitySubgraph
-  external traceability views
-```
-
-Règles héritées et conservées :
-
-```text
-ACTIVE par défaut
-ACTIVE / RETIRED explicite
-CURRENT requirement obligatoire
-BIDIRECTIONAL
-maxDepth > 0
-cycle-safe
-ordre déterministe
-relation filters explicites
-unresolved/broken external refs visibles
-Memory == SQLite
-SQLite reopen
-```
-
-Preuves M4/M5 :
-
-```text
-TraceRequirementFinalValidationTest         5/5 PASS
-ChangeContextQueryContractTest              7/7 PASS
-```
-
----
-
-# 6. `get_change_context`
+# 5. `trace_requirement` et `get_change_context`
 
 Contrats :
 
 ```text
+TraceRequirementQueryService
 ChangeContextQueryService
 ChangeContextResult
 ```
 
-Agrégation strictement snapshot-scoped :
+`trace_requirement` réutilise exactement la traçabilité M4.
+
+`get_change_context` agrège dans un seul snapshot publié :
 
 ```text
 ChangeProposal
@@ -252,40 +186,30 @@ Constraint
 DesignDecision
 ImplementationTask
 TraceabilitySubgraph borné
-ExternalTraceabilityView unresolved/broken
+ExternalTraceabilityView
 ```
 
-Les requirements affectés sont dérivés exclusivement des liens `Change --AFFECTS--> Requirement` déjà publiés. Aucune inférence n'est faite depuis le titre, le texte ou le chemin d'une source.
-
-Les `RequirementDelta` bruts ne sont pas présentés comme requêtables : ils n'existent pas comme collection persistée dédiée.
-
-Une cible `AFFECTS` cassée reste visible dans les liens bruts même si aucune occurrence CURRENT ne peut être résolue.
-
-Invariants :
+Règles :
 
 ```text
 ACTIVE par défaut
 ACTIVE / RETIRED explicite
-CURRENT only
-PROPOSED jamais exposé
-AFFECTS directs uniquement
-références cassées conservées
-traversal borné et cycle-safe
+CURRENT requirements uniquement
+AFFECTS directs seulement
+aucune inférence par titre/key/texte
+cible AFFECTS cassée conservée
+traversal BIDIRECTIONAL borné
+cycle-safe
+external unresolved/stale/broken visible
 Memory == SQLite
 SQLite reopen
-aucune persistance supplémentaire
-aucune V008
 ```
 
-Preuve principale :
-
-```text
-ChangeContextQueryContractTest              7/7 PASS
-```
+Les `RequirementDelta` bruts ne sont pas présentés comme requêtables puisqu'ils n'existent pas comme collection persistée dédiée.
 
 ---
 
-# 7. Vues compactes
+# 6. Vues compactes
 
 Contrats :
 
@@ -295,59 +219,35 @@ CompactRequirementSearchView
 CompactTraceRequirementView
 CompactChangeContextView
 CompactQueryViewService
-CompactWarningCode
 ```
 
-Les vues couvrent :
-
-```text
-find_requirements
-trace_requirement
-get_change_context
-```
-
-Métadonnées conservées :
+Les vues conservent explicitement :
 
 ```text
 schemaVersion = 1
-operation
-snapshotId
-projectId
-snapshot state
-predecessorId?
-sourceRevision?
-createdAt
+snapshot metadata
 pagination metadata
-```
-
-L'identité/version reste visible :
-
-```text
 RequirementId
 EntityVersionId
 SpecificationVersionId
 TemporalState
+provenance
+evidence
+trace nodes / links
+external references
+warnings
 ```
 
-Donc :
+La compacité ne détruit donc pas :
 
 ```text
 DomainIdentity != EntityVersionId
-```
-
-reste explicitement observable dans la surface compacte.
-
-Les objets métier ne sont jamais sérialisés directement ; ils sont projetés vers des DTO applicatifs dédiés.
-
-Preuve principale :
-
-```text
-CompactQueryViewContractTest                6/6 PASS
+SpecificationVersion != KnowledgeSnapshot
 ```
 
 ---
 
-# 8. Provenance et evidence
+# 7. Provenance et evidence
 
 La provenance compacte conserve :
 
@@ -360,22 +260,19 @@ sourceRevision?
 evidenceId
 ```
 
-Les evidence exposées sont uniquement celles effectivement référencées par la réponse, triées et dédupliquées par `EvidenceId`.
-
-Une evidence référencée mais absente ne masque pas l'entité ; elle produit un warning `EVIDENCE_NOT_FOUND`.
-
-Invariants :
+Les evidence exposées sont :
 
 ```text
-provenance jamais supprimée pour compacter
-evidence absente != suppression de la donnée métier
-même projection Memory/SQLite
-SQLite reopen conserve les faits nécessaires
+référencées uniquement
+dédupliquées
+triées par EvidenceId
 ```
+
+Une evidence référencée mais absente ne masque pas la donnée métier : elle produit `EVIDENCE_NOT_FOUND`.
 
 ---
 
-# 9. Warnings structurés
+# 8. Warnings structurés
 
 Catalogue M5 :
 
@@ -398,59 +295,30 @@ message
 details
 ```
 
-Les warnings sont dérivés exclusivement de faits observables :
-
-```text
-change absent
-AFFECTS sans Requirement CURRENT
-état de résolution d'une ExternalReference
-evidence référencée absente
-```
-
-Ils ne reposent sur aucun score, embedding, fuzzy matching ou LLM.
-
-Une external reference `RESOLVED` n'émet aucun warning.
+Les warnings sont dérivés exclusivement de faits stockés/observables. Une référence externe `RESOLVED` ne produit aucun warning.
 
 ---
 
-# 10. JSON canonique déterministe
+# 9. JSON canonique déterministe
 
-Contrat :
+Contrat : `CanonicalJsonSerializer`.
 
-```text
-CanonicalJsonSerializer
-```
-
-Sous-ensemble supporté :
-
-```text
-record
-String / char
-boolean
-nombre fini
-enum
-Optional
-Collection / array
-Map<String, ?>
-null
-```
-
-Règles canoniques :
+Règles :
 
 ```text
 record fields = ordre de déclaration
 map keys = ordre lexicographique
-map null values supportées
-collections = ordre déjà canonisé
+map values null supportées
 Optional.empty = null
+collections = ordre DTO canonique
 enum = name()
-aucun pretty-print
-échappement strict quote/backslash/control/surrogate
-même DTO -> même String JSON
+nombres finis uniquement
+échappement JSON strict
+même DTO -> même String
 même String -> mêmes octets UTF-8
 ```
 
-Rejets explicites :
+Sont rejetés explicitement :
 
 ```text
 type non supporté
@@ -459,46 +327,33 @@ NaN
 Infinity
 ```
 
-Aucune dépendance Jackson/Gson/autre bibliothèque JSON n'est introduite.
-
-Le JSON est une **vue d'exposition** seulement ; il n'est jamais utilisé comme payload métier générique de persistance.
-
-Preuve principale :
-
-```text
-CanonicalJsonSerializerTest                 3/3 PASS
-```
+Aucune dépendance JSON tierce n'est ajoutée et aucun objet métier/store n'est sérialisé directement.
 
 ---
 
-# 11. Parité backend et historique
+# 10. Déterminisme et parité backend
 
-La preuve M5 couvre les deux backends de référence :
-
-```text
-Memory
-SQLite
-```
-
-Les contrats démontrent :
+Les preuves cumulées démontrent :
 
 ```text
-mêmes résultats de recherche Requirement
-mêmes pages métier
-mêmes vues compactes
-mêmes relations et contexte
-même reconstruction après SQLite reopen
-ACTIVE et RETIRED explicitement distingués
-READY / états techniques non publiés rejetés
+Memory == SQLite
+SQLite close/reopen
+stable ordering
+pagination stable
+snapshot isolation
+CURRENT isolation
+bounded traversal
+cycle safety
+byte-identical canonical JSON
 ```
 
-MORPHEUS ne dépend d'aucun backend graphe, moteur de recherche sémantique ou service distant pour ces capacités.
+Le comportement observable ne dépend pas du backend de référence.
 
 ---
 
-# 12. Frontière MORPHEUS / NEXUS
+# 11. Frontières de responsabilité
 
-M5 fournit :
+MORPHEUS fournit :
 
 ```text
 facts métier
@@ -511,25 +366,23 @@ DTO compacts
 JSON canonique
 ```
 
-M5 ne fournit pas :
+MORPHEUS ne prend pas en charge :
 
 ```text
 ranking global
 fusion multi-engine
 compression selon budget de tokens
-sélection globale de contexte inter-engines
+sélection globale inter-engines
 semantic search / embeddings
 ```
 
 Ces responsabilités restent NEXUS.
 
-MORPHEUS reste utilisable sans NEXUS.
-
 ---
 
-# 13. Dépendances exclues
+# 12. Dépendances explicitement non requises
 
-La preuve S1-S5 confirme l'absence de dépendance obligatoire à :
+M5 ne dépend pas obligatoirement de :
 
 ```text
 LLM
@@ -541,19 +394,25 @@ backend graphe
 bibliothèque JSON tierce
 ```
 
-Les références MINOS éventuelles restent des `ExternalReference` optionnelles et ne conditionnent pas la disponibilité de MORPHEUS.
+MORPHEUS reste autonome.
 
 ---
 
-# 14. Gate final M5 — EN ATTENTE
+# 13. Gate final M5
 
-Commande obligatoire :
+Commande exécutée :
 
 ```text
 Windows : .\mvnw.cmd clean test
 ```
 
-Baseline S5 intégrée :
+Head S6 testé :
+
+```text
+a91c925d32f3d6ee1901aa3495d37326bf7518ca
+```
+
+Preuve finale :
 
 ```text
 Domain                                  21 tests
@@ -564,44 +423,41 @@ SQLite store                             7 tests
 Architecture tests                     100 tests
 -----------------------------------------------
 TOTAL                                  227/227 PASS
-```
-
-M5-S6 n'ajoute volontairement aucun test de comportement : elle ne modifie aucun contrat de production. Le gate final attendu reste donc :
-
-```text
-TOTAL       227/227 PASS
-Failures      0
-Errors        0
-Skipped       0
+Failures                                 0
+Errors                                   0
+Skipped                                  0
 BUILD SUCCESS
+Total time                             19.206 s
+Finished at                 2026-07-23T20:24:57+02:00
 ```
 
-La date, la durée, le head testé et la preuve finale seront inscrits ici uniquement après exécution locale réussie du gate S6.
-
-Warnings connus et non bloquants :
+Warnings connus non bloquants uniquement :
 
 ```text
-Xerial SQLite / JDK native-access
+Xerial SQLite / JDK restricted native access
 SLF4J NOP dans les tests d'architecture
 ```
 
+S6 est une slice docs-only : aucun code de production, test, store, migration, dépendance ou contrat JSON n'a été modifié pour obtenir ce gate.
+
 ---
 
-# 15. Décision de sortie — BLOQUÉE PAR LE GATE S6
-
-Toutes les preuves fonctionnelles S1-S5 soutiennent déjà la réponse :
+# 14. Décision de sortie
 
 ```text
 Question de sortie M5 = OUI
-```
-
-La clôture formelle reste toutefois bloquée tant que le dernier gate local S6 n'est pas vert.
-
-Après un `227/227 PASS`, la décision finale devra devenir :
-
-```text
-M5 = VALIDÉ ET INTÉGRÉ
-6/6 slices = VALIDÉS ET INTÉGRÉS
+M5 = VALIDÉ
+6/6 slices = VALIDÉES
 227/227 = PASS
 M6 = AUTORISÉ
 ```
+
+Intégration repository :
+
+```text
+S1-S5 = INTÉGRÉS
+S6 = VALIDÉ / PR #42 Ready après finalisation documentaire
+M5 = sera entièrement INTÉGRÉ après merge explicite de #42
+```
+
+La distinction est volontaire : **validation technique != merge GitHub**.
