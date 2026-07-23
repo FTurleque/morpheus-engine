@@ -1,6 +1,6 @@
 # M6 — Plan d'exécution détaillé
 
-Statut : **M6 actif — 1/6 validé ; S1 Ready, S2 prochain après merge**
+Statut : **M6 actif — 2/6 validés ; S1 intégré, S2 Ready, S3 prochain après merge**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -15,7 +15,9 @@ M5 = VALIDÉ ET INTÉGRÉ
 M5 final merge = 6bbaf086cf1fed81e3517bb1cef5b643264fb836
 M5 final gate  = 227/227 PASS
 
+M6-S1 merge    = 5b0984ec7777eabb6f2d1417b4c900c08a038947
 M6-S1 gate     = 234/234 PASS
+M6-S2 gate     = 241/241 PASS
 ```
 
 Issue de pilotage : **#43**.
@@ -54,16 +56,16 @@ no LLM/semantic dependency
 # 3. Progression M6
 
 ```text
-S1  ✅ requirement traceability coverage + orphan requirements — PR #44 — ADR-0048 — 234/234 — READY
-S2  ⏳ implementation-task coverage + acceptance capability gap — PROCHAIN APRÈS MERGE S1
-S3  ⏳ change completeness + lifecycle blocking conditions
+S1  ✅ requirement traceability coverage + orphan requirements — PR #44 — ADR-0048 — 234/234 — MERGED
+S2  ✅ implementation-task coverage + acceptance capability gap — PR #45 — ADR-0049 — 241/241 — READY
+S3  ⏳ change completeness + lifecycle blocking conditions — PROCHAIN APRÈS MERGE S2
 S4  ⏳ design-decision justification + broken/unresolved reference quality
 S5  ⏳ aggregate quality report + stable metrics/order + compact exposure
 S6  ⏳ validation finale VALIDATION_M6.md
 ```
 
 ```text
-M6 : 1 / 6 slices validé
+M6 : 2 / 6 slices validés
 ```
 
 ---
@@ -87,17 +89,11 @@ Aucune heuristique n'est présentée comme certitude.
 
 ---
 
-# 5. M6-S1 — VALIDÉ TECHNIQUEMENT
+# 5. M6-S1 — INTÉGRÉ
 
 ADR : **ADR-0048 — Acceptée — M6**  
-PR : **#44 — Ready après gate**  
-Branche : `m6/requirement-quality-coverage`
-
-Head de code testé :
-
-```text
-34ecc48057f27990221cbe7669b555eb73950581
-```
+PR : **#44 — MERGED**  
+Merge : `5b0984ec7777eabb6f2d1417b4c900c08a038947`
 
 Contrats :
 
@@ -121,71 +117,149 @@ coverage = linked / total CURRENT requirements
 zero CURRENT requirements = coverage 1.0
 ORPHAN_REQUIREMENT = WARNING + DETERMINISTIC
 finding evidence = Requirement provenance evidence
-```
-
-Les relations ne sont pas filtrées en S1 : tout lien direct persisté constitue une couverture structurelle. Les références cassées ou faibles seront diagnostiquées séparément en S4 ; elles ne sont pas transformées en absence de trace.
-
-Contrat de preuve :
-
-```text
 DETERMINISTIC => confidence interdite
 HEURISTIC => confidence obligatoire et bornée [0,1]
 ```
 
-Preuves ciblées :
+Preuve :
 
 ```text
-RequirementQualityContractTest  7/7 PASS
-```
-
-Gate local Windows :
-
-```text
-Domain                                  21 tests
-Application                             66 tests
-OpenSpec provider                       26 tests
-Synthetic provider                       7 tests
-SQLite store                             7 tests
-Architecture tests                     107 tests
------------------------------------------------
-TOTAL                                  234/234 PASS
-Failures                                 0
-Errors                                   0
-Skipped                                  0
+RequirementQualityContractTest          7/7 PASS
+Architecture tests                    107/107 PASS
+TOTAL                                 234/234 PASS
 BUILD SUCCESS
-Total time                             27.269 s
-Finished at                 2026-07-23T20:52:28+02:00
+Finished at                2026-07-23T20:52:28+02:00
 ```
 
-Warnings connus non bloquants : Xerial SQLite/JDK restricted native access et SLF4J NOP.
+Head de code testé :
+
+```text
+34ecc48057f27990221cbe7669b555eb73950581
+```
 
 ---
 
-# 6. M6-S2 — Task / acceptance coverage
+# 6. M6-S2 — VALIDÉ TECHNIQUEMENT / READY
 
-Cibles :
+ADR : **ADR-0049 — Acceptée — M6**  
+PR : **#45 — Ready après gate**  
+Branche : `m6/task-acceptance-quality`
 
-```text
-ImplementationTask sans Requirement relié
-couverture task -> requirement
-absence de sémantique AcceptanceCriterion explicite signalée sans convertir Scenario
-```
-
-`Scenario != AcceptanceCriterion` reste bloquant.
-
-Principes S2 :
+Head de code testé :
 
 ```text
-snapshot publié uniquement
-relation persistée uniquement
-aucun lien task->requirement inventé
-acceptance capability gap explicite si le domaine/source ne fournit pas AcceptanceCriterion
-aucun Scenario converti en critère d'acceptation
+10c1313fbdbab2abcfb53a71a2d610dcc6167614
 ```
+
+Contrats :
+
+```text
+TaskRequirementCoverage
+TaskQualityService
+AcceptanceCoverageStatus
+AcceptanceCoverageAssessment
+AcceptanceQualityService
+```
+
+Extensions de `QualityFindingCode` :
+
+```text
+IMPLEMENTATION_TASK_WITHOUT_REQUIREMENT
+ACCEPTANCE_COVERAGE_UNAVAILABLE
+```
+
+## Couverture task -> requirement
+
+Aucune relation `Task -> Requirement` n'est inventée.
+
+Pour une task `T` :
+
+```text
+T.changeId = C
+```
+
+La task est couverte seulement si :
+
+```text
+Change(C) --AFFECTS--> Requirement(R)
+R possède une occurrence CURRENT dans le même snapshot
+```
+
+```text
+AFFECTS -> CURRENT          = couvert
+AFFECTS -> PROPOSED only    = non couvert
+AFFECTS -> cible absente    = non couvert
+aucun AFFECTS               = non couvert
+```
+
+Finding d'une task non couverte :
+
+```text
+code = IMPLEMENTATION_TASK_WITHOUT_REQUIREMENT
+severity = WARNING
+evidenceKind = DETERMINISTIC
+subject = IMPLEMENTATION_TASK(taskId)
+confidence = empty
+evidence = task.provenance.evidenceId
+```
+
+Calcul :
+
+```text
+totalTasks
+coveredTasks
+uncoveredTasks
+coverageRatio = covered / total
+zero task => coverage 1.0
+```
+
+## Gap acceptance
+
+Le contrat production possède `ProviderCapability.READ_ACCEPTANCE_CRITERIA`, mais aucun type normalisé/persisté `AcceptanceCriterion` n'existe encore.
+
+S2 expose donc :
+
+```text
+AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL
+```
+
+avec une finding par specification :
+
+```text
+ACCEPTANCE_COVERAGE_UNAVAILABLE
+WARNING
+DETERMINISTIC
+```
+
+Aucun faux dénominateur, aucun ratio `0 %` et aucune conversion de `Scenario` en critère d'acceptation.
+
+```text
+Scenario != AcceptanceCriterion
+```
+
+Preuves :
+
+```text
+TaskAcceptanceQualityContractTest        7/7 PASS
+Architecture tests                    114/114 PASS
+TOTAL                                 241/241 PASS
+Failures                                0
+Errors                                  0
+Skipped                                 0
+BUILD SUCCESS
+Total time                            18.871 s
+Finished at                2026-07-23T22:08:29+02:00
+```
+
+Warnings connus non bloquants uniquement : Xerial SQLite/JDK restricted native access et SLF4J NOP.
+
+Aucune migration, aucun store adapter, aucun provider, aucun `pom.xml` modifié.
 
 ---
 
 # 7. M6-S3 — Changement et lifecycle
+
+Prochaine slice après merge S2.
 
 Cibles :
 
@@ -194,6 +268,15 @@ change incomplet
 conditions de blocage de transition
 état lifecycle explicite
 faits structurels uniquement pour diagnostics déterministes
+```
+
+Le design devra réutiliser la machine d'état M3 et ne pas confondre :
+
+```text
+lifecycle state
+snapshot state
+temporal state
+task completion
 ```
 
 ---
@@ -255,4 +338,4 @@ Répondre explicitement à la question de sortie et prouver la parité des backe
 9. issue #43 + roadmap mises à jour
 ```
 
-**Prochaine ligne active après merge S1 : M6-S2 — implementation-task coverage + acceptance capability gap.**
+**Prochaine ligne active après merge S2 : M6-S3 — change completeness + lifecycle blocking conditions.**
