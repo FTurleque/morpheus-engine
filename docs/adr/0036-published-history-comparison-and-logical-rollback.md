@@ -165,6 +165,17 @@ REMOVED   => RequirementDelta.REMOVED pour l'élément absent de la cible
 UNCHANGED => aucun delta
 ```
 
+La comparaison et l'applicabilité du rollback restent deux contrats distincts. Un requirement dont la `DomainIdentity` reste stable mais dont la `SpecificationId` change est bien visible comme `MODIFIED` dans le diff ; en revanche le rollback S6 rejette ce cas, car ADR-0035 impose encore qu'un `RequirementDelta.MODIFIED` se résolve vers la même `SpecificationId` que la baseline courante.
+
+Donc :
+
+```text
+cross-specification MODIFIED => comparable
+cross-specification MODIFIED -X-> rollback S6
+```
+
+Une reconstruction cross-specification devra attendre une politique explicite `MOVED`/reparenting au lieu d'affaiblir silencieusement ADR-0035. Les renommages et autres changements restant dans la même `SpecificationId` continuent d'être reconstruits comme `MODIFIED`.
+
 Le résultat est ensuite destiné au pipeline déjà validé en S5 :
 
 ```text
@@ -216,7 +227,7 @@ S6 ne prétend pas reconstruire des familles métier non encore persistées.
 
 ## Rétention
 
-La politique M3 est :
+La politique M3 est explicitement représentée par `PublishedHistoryRetentionPolicy` :
 
 ```text
 KEEP_ALL_PUBLISHED
@@ -279,15 +290,16 @@ ADR-0036 pourra passer à **Acceptée — M3** lorsque le gate complet démontre
 8. le rollback logique cible uniquement un `RETIRED` appartenant à la lignée publiée courante ;
 9. le rollback ne réactive jamais un snapshot `RETIRED` ;
 10. le rollback produit des deltas explicites réutilisables par S5 ;
-11. le rollback ne génère aucun `ChangeId`, `RequirementDeltaId`, `EntityVersionId` ou snapshot implicitement ;
-12. l'application du plan de rollback construit une nouvelle projection avec de nouvelles occurrences ;
-13. l'ancien snapshot historique reste inchangé après rollback ;
-14. la politique `KEEP_ALL_PUBLISHED` conserve l'historique publié ;
-15. fermeture/réouverture SQLite conserve l'ACTIVE et les RETIRED requêtables/comparables ;
-16. Memory et SQLite respectent le même contrat ;
-17. aucun type provider/SQLite ne fuite dans domain/application ;
-18. aucune migration V005 n'est nécessaire ;
-19. `.\mvnw.cmd clean test` est vert.
+11. un changement cross-specification est comparable mais rejeté par le rollback tant qu'aucune politique `MOVED` n'est définie ;
+12. le rollback ne génère aucun `ChangeId`, `RequirementDeltaId`, `EntityVersionId` ou snapshot implicitement ;
+13. l'application du plan de rollback construit une nouvelle projection avec de nouvelles occurrences ;
+14. l'ancien snapshot historique reste inchangé après rollback ;
+15. la politique `KEEP_ALL_PUBLISHED` conserve l'historique publié ;
+16. fermeture/réouverture SQLite conserve l'ACTIVE et les RETIRED requêtables/comparables ;
+17. Memory et SQLite respectent le même contrat ;
+18. aucun type provider/SQLite ne fuite dans domain/application ;
+19. aucune migration V005 n'est nécessaire ;
+20. `.\mvnw.cmd clean test` est vert.
 
 ## Preuve d'acceptation
 
