@@ -1,6 +1,6 @@
 # M5 — Plan d'exécution détaillé
 
-Statut : **M5 actif — 3/6 intégrés ; S4 implémenté, gate en attente**
+Statut : **M5 actif — 4/6 validés ; S4 Ready, S5 prochain après intégration**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -22,6 +22,7 @@ M5-S2 merge = 3a39371518d9d327ea4cbee0994da65b218ec64c
 M5-S2 gate  = 202/202 PASS
 M5-S3 merge = 28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73
 M5-S3 gate  = 210/210 PASS
+M5-S4 gate  = 217/217 PASS
 ```
 
 Issue de pilotage : **#36**.
@@ -87,13 +88,13 @@ token-budget compression = NEXUS
 S1  ✅ find_requirements + pagination déterministe — PR #37 — ADR-0043 — 196/196 — MERGED
 S2  ✅ projection métier requêtable snapshot-scoped — PR #38 — ADR-0044 — 202/202 — MERGED
 S3  ✅ getters/lists déterministes — PR #39 — ADR-0045 — 210/210 — MERGED
-S4  🚧 trace_requirement query view + get_change_context — PR #40 — ADR-0046 proposée — gate attendu 217
-S5  ⏳ vues compactes + warnings/provenance + JSON déterministe
+S4  ✅ trace_requirement query view + get_change_context — PR #40 — ADR-0046 — 217/217 — READY
+S5  ⏳ vues compactes + warnings/provenance + JSON déterministe — PROCHAIN APRÈS MERGE S4
 S6  ⏳ validation finale VALIDATION_M5.md
 ```
 
 ```text
-M5 : 3 / 6 slices intégrés
+M5 : 4 / 6 slices validés
 ```
 
 ---
@@ -132,18 +133,6 @@ MemorySnapshotBusinessContentStore
 SqliteSnapshotBusinessContentStore
 ```
 
-Familles persistées :
-
-```text
-Specification
-Scenario
-ChangeProposal
-Constraint
-DesignDecision
-ImplementationTask
-Evidence / Provenance
-```
-
 SQLite V007 normalisée sans payload JSON métier.
 
 ---
@@ -154,12 +143,6 @@ ADR : **ADR-0045 — Acceptée — M5**
 PR : **#39 — MERGED**  
 Merge : `28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73`  
 Gate : **210/210 PASS**.
-
-Head de code testé :
-
-```text
-755bbd394347e5a8de67aa7d5eb69234a6b0ba8b
-```
 
 Contrats :
 
@@ -180,33 +163,25 @@ activeDesignDecisions / snapshotDesignDecisions
 activeImplementationTasks / snapshotImplementationTasks
 ```
 
-Sémantique validée :
-
-```text
-ACTIVE by default
-snapshot explicit = ACTIVE/RETIRED only
-no ACTIVE != entity not found
-not-found explicit
-published snapshot without S2 projection = error
-stable ordering by domain identity
-pagination after filtering + ordering
-PageRequest reused from S1
-offset >= 0
-1 <= limit <= 100
-provider-neutral
-backend-neutral
-no new persistence
-no V008
-Scenario != AcceptanceCriterion
-```
-
 ---
 
-# 8. M5-S4 — IMPLÉMENTÉ / GATE EN ATTENTE
+# 8. M5-S4 — VALIDÉ TECHNIQUEMENT
 
-ADR : **ADR-0046 — Proposée — M5**  
-PR : **#40 — Draft**  
+ADR : **ADR-0046 — Acceptée — M5**  
+PR : **#40 — Ready après gate**  
 Branche : `m5/change-context-query`
+
+Head complet testé :
+
+```text
+da1c0c53fdcf0e98b60cf7a46699bf014ee67091
+```
+
+Head code/test inclus :
+
+```text
+6df77f79feeaf92e10b9848c333b1b756c8af33c
+```
 
 Contrats :
 
@@ -233,7 +208,7 @@ ExternalTraceabilityView unresolved/broken
 
 Les `RequirementDelta` bruts ne sont pas exposés : ils ne sont pas persistés comme collection requêtable. Les liens `AFFECTS` bruts restent dans `ChangeContextResult`, y compris lorsque la cible n'a aucune occurrence CURRENT.
 
-Sémantique candidate :
+Sémantique validée :
 
 ```text
 ACTIVE by default
@@ -256,22 +231,39 @@ no fuzzy / semantic search / LLM
 no NEXUS ranking/fusion
 ```
 
-Preuves ajoutées :
+Preuves ciblées :
 
 ```text
-ChangeContextQueryContractTest   7 tests
+ChangeContextQueryContractTest    7/7 PASS
+Architecture tests               90/90 PASS
 ```
 
-Couverture : query view M4 exacte, parité Memory/SQLite, CURRENT-only, cible AFFECTS cassée conservée, ACTIVE/RETIRED, READY rejeté, no-ACTIVE vs not-found, filtre/depth borné, SQLite reopen et unresolved/broken externes.
+Gate local Windows :
 
-Baseline : **210/210 PASS**.  
-Gate attendu : **217/217**.
+```text
+Domain                                  21 tests
+Application                             66 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      90 tests
+-----------------------------------------------
+TOTAL                                  217/217 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+Total time                             16.688 s
+Finished at                 2026-07-23T19:22:37+02:00
+```
 
 ---
 
-# 9. M5-S5 — Enveloppe compacte
+# 9. M5-S5 — PROCHAIN APRÈS MERGE S4
 
-Stabiliser :
+Objectif : stabiliser l'enveloppe compacte de query sans modifier les sources de vérité S1-S4.
+
+Cibles :
 
 ```text
 query metadata
@@ -281,6 +273,20 @@ structured warnings
 provenance/evidence
 compact DTOs
 stable deterministic JSON representation
+```
+
+Invariants :
+
+```text
+compact != lossy semantics
+warnings structurés et ordonnés
+provenance/evidence conservées
+JSON déterministe
+pas de payload JSON de persistance
+pas de ranking global
+pas de fusion multi-engine
+pas de compression par budget de tokens
+pas de dépendance NEXUS / LLM
 ```
 
 Le JSON reste une vue d'exposition, jamais une payload métier générique de persistance.
@@ -333,10 +339,10 @@ no semantic/LLM/NEXUS dependency
 | AcceptanceCriterion non inventé | ✅ | S3 |
 | Memory/SQLite business query parity | ✅ | S3 |
 | SQLite reopen business queries | ✅ | S3 |
-| `trace_requirement` query view | 🚧 gate S4 | S4 |
-| `get_change_context` | 🚧 gate S4 | S4 |
-| AFFECTS cassé conservé | 🚧 gate S4 | S4 |
-| external unresolved/broken dans change context | 🚧 gate S4 | S4 |
+| `trace_requirement` query view | ✅ | S4 |
+| `get_change_context` | ✅ | S4 |
+| AFFECTS cassé conservé | ✅ | S4 |
+| external unresolved/broken dans change context | ✅ | S4 |
 | compact DTOs | ⬜ | S5 |
 | warnings structurés | ⬜ | S5 |
 | provenance/evidence conservées | ⬜ | S5 |
@@ -377,4 +383,4 @@ MINOS production code resolution            -> M12
 9. issue #36 + roadmap mises à jour
 ```
 
-**Prochaine porte : gate local M5-S4 attendu 217/217.**
+**Prochaine ligne active après merge S4 : M5-S5 — vues compactes, warnings/provenance et JSON déterministe.**
