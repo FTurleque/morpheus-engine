@@ -84,21 +84,23 @@ Si aucune identité n'est fournie pour une relation dérivée, la dérivation é
 `TraceabilityDerivationKey` décrit le fait source sans être elle-même une `TraceabilityLinkId` :
 
 ```text
-factIdentity
-source
-relationType
-target
+fact: TraceabilityEntityRef
+source: TraceabilityEntityRef
+relationType: TraceabilityRelationType
+target: TraceabilityEntityRef
 ```
 
-`factIdentity` est l'identité de l'entité qui encode le fait :
+Le `fact` est une référence **typée** vers l'entité qui encode le fait :
 
 ```text
-RequirementId       pour Requirement -> Specification
-ScenarioId          pour Scenario -> Requirement
-ConstraintId        pour Constraint -> Change
-DesignDecisionId    pour Change -> DesignDecision
-RequirementDeltaId  pour Change -> Requirement
+REQUIREMENT       pour Requirement -> Specification
+SCENARIO          pour Scenario -> Requirement
+CONSTRAINT        pour Constraint -> Change
+DESIGN_DECISION   pour Change -> DesignDecision
+REQUIREMENT_DELTA pour Change -> Requirement
 ```
+
+La clé descriptive n'est jamais transformée en ID par hash. Elle sert uniquement à demander une identité explicite au resolver.
 
 Deux faits explicites distincts peuvent donc produire deux observations distinctes même si leurs endpoints sont identiques.
 
@@ -126,21 +128,35 @@ DesignDecision.provenance   -> DECIDED_BY
 RequirementDelta.provenance -> AFFECTS
 ```
 
-Une déduplication n'est autorisée que pour une **même `TraceabilityDerivationKey` exacte**. Aucune similarité sémantique n'est utilisée.
+Une déduplication n'est autorisée que pour une **même `TraceabilityDerivationKey` exacte**. Les evidences de ce même fait exact sont agrégées. Aucune similarité sémantique n'est utilisée.
 
 ## Déterminisme
 
 L'ordre d'entrée des listes de `NormalizedProjectContent` ne doit pas modifier l'ordre sémantique du résultat.
 
-Les faits sont triés par une clé canonique avant résolution des IDs et matérialisation.
+Les faits sont stockés dans un ordre canonique `(source, relation, target, fact)` avant résolution des IDs et matérialisation.
 
 Le resolver d'identité reste une dépendance explicite : le service est déterministe pour un même contenu, le même instant d'observation et le même mapping d'identité.
+
+Un même `TraceabilityLinkId` ne peut pas être fourni pour deux clés de dérivation différentes dans une même matérialisation.
 
 ## Temps d'observation
 
 `observedAt` est fourni explicitement au service.
 
 Aucun `Instant.now()` caché n'est autorisé dans le cœur de dérivation.
+
+## Implémentation S3
+
+```text
+morpheus-application
+  com.morpheus.application.traceability
+    TraceabilityDerivationKey
+    TraceabilityLinkIdentityResolver
+    DeterministicTraceabilityDerivationService
+```
+
+Le service retourne les `TraceabilityLink` ; il n'écrit pas lui-même dans `TraceabilityStore`.
 
 ## Frontières
 
@@ -158,6 +174,22 @@ invalidation incrémentale
 
 La persistance reste S2 ; traversal/path reste S4 ; external/unresolved reste S5.
 
+## Preuves ajoutées
+
+`DeterministicTraceabilityDerivationServiceTest` ajoute **7 tests** :
+
+1. dérivation des cinq familles structurelles + scenario de delta, evidence et sémantique ;
+2. scenario sans requirement + task au titre similaire n'inventent aucun lien ;
+3. identité de lien manquante = échec explicite ;
+4. un même link ID ne peut représenter deux faits distincts ;
+5. ordre d'entrée différent = même ordre de liens ;
+6. deux deltas distincts vers la même requirement restent deux observations ;
+7. même clé de fait exacte = une observation avec evidences agrégées.
+
+Baseline avant S3 : `160/160`.
+
+Total attendu avant gate : **167 tests**, à confirmer par le gate réel.
+
 ## Critères d'acceptation
 
 ADR-0039 pourra passer à **Acceptée — M4** lorsque le gate local complet démontre :
@@ -169,11 +201,12 @@ ADR-0039 pourra passer à **Acceptée — M4** lorsque le gate local complet dé
 5. l'evidence correspond au fait source ;
 6. les IDs de liens sont fournis explicitement par resolver ;
 7. une identité manquante échoue explicitement ;
-8. aucun appel caché à `TraceabilityLinkId.generate()` ;
+8. aucun appel caché à `TraceabilityLinkId.generate()` dans le service ;
 9. l'ordre de sortie reste déterministe malgré un ordre d'entrée différent ;
 10. deux faits distincts vers la même arête ne sont pas fusionnés par similarité ;
-11. le domaine et l'application restent indépendants des providers/stores ;
-12. `\.\mvnw.cmd clean test` est vert.
+11. une même identité de lien n'est pas réutilisable pour deux faits distincts ;
+12. le domaine et l'application restent indépendants des providers/stores ;
+13. `\.\mvnw.cmd clean test` est vert.
 
 ## Preuve d'acceptation
 
