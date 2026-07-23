@@ -1,6 +1,6 @@
 # ADR-0043 — Recherche lexicale déterministe et pagination des requirements
 
-- Statut : **Proposée — M5**
+- Statut : **Acceptée — M5**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0004, ADR-0006, ADR-0012, ADR-0034, ADR-0036
 - Portée : M5-S1, première primitive de requête métier persistante
@@ -26,9 +26,9 @@ KnowledgeSnapshot ownership
 SpecificationVersion ownership
 ```
 
-M5-S1 doit donc produire `find_requirements` sans introduire un second index prématuré ni une nouvelle migration.
+M5-S1 produit donc `find_requirements` sans introduire un second index prématuré ni une nouvelle migration.
 
-## Décision candidate
+## Décision
 
 Ajouter un service applicatif provider/backend-neutral :
 
@@ -71,7 +71,7 @@ TemporalState.CURRENT
 
 Les `PROPOSED` ne sont jamais incluses dans `find_requirements`.
 
-Cela conserve :
+Invariant :
 
 ```text
 PROPOSED never leaks into CURRENT
@@ -94,9 +94,9 @@ La provenance reste retournée dans le `Requirement` mais n'est pas utilisée co
 Pour chaque requête et chaque champ :
 
 ```text
-Unicode lowercase via Locale.ROOT
-trim
-split on Unicode whitespace
+Unicode-aware strip
+lowercase via Locale.ROOT
+split on Java Unicode whitespace
 ignore empty terms
 ```
 
@@ -190,7 +190,7 @@ VersionedRequirementStore
 
 Aucune nouvelle table SQLite n'est ajoutée.
 
-La sémantique observable doit être identique avec :
+La sémantique observable est identique avec :
 
 ```text
 MemorySpecificationKnowledgeStore
@@ -214,9 +214,21 @@ JSON public
 CLI/MCP/API
 ```
 
-## Preuves attendues
+## Preuves S1
 
-Le gate S1 doit démontrer au minimum :
+`RequirementQueryContractTest` apporte **7 tests** :
+
+1. Memory et SQLite produisent le même résultat lexical exact ;
+2. ACTIVE n'expose ni PROPOSED, ni RETIRED, ni READY ;
+3. RETIRED explicite est accepté et les snapshots techniques/unknown sont rejetés ;
+4. recherche case-insensitive, termes AND et corpus key/title/statement sans fuzzy ;
+5. pagination appliquée après ordre stable par `RequirementId` ;
+6. bornes invalides rejetées et absence d'ACTIVE gérée explicitement ;
+7. fermeture/réouverture SQLite conserve recherche et pagination.
+
+## Critères d'acceptation
+
+Les critères sont validés :
 
 1. `findActive` utilise seulement le snapshot ACTIVE ;
 2. `PROPOSED` ne fuit jamais dans les résultats ;
@@ -231,8 +243,53 @@ Le gate S1 doit démontrer au minimum :
 11. Memory et SQLite produisent le même résultat ;
 12. SQLite reopen conserve le même résultat ;
 13. aucune migration SQLite S1 ;
-14. `\.\mvnw.cmd clean test` vert.
+14. `.\mvnw.cmd clean test` est vert.
 
 ## Preuve d'acceptation
 
-À compléter uniquement après gate local complet vert.
+Head de code testé :
+
+```text
+e81525403cd413df8db2d4df3e1d0aa9f22dbf4b
+```
+
+Gate local Windows :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+RequirementQueryContractTest             7/7 PASS
+LayerDependencyTest                      2/2 PASS
+
+Domain                                  21 tests
+Application                             66 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      69 tests
+-----------------------------------------------
+TOTAL                                  196/196 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+Total time                             16.263 s
+```
+
+Gate terminé le **23 juillet 2026 à 16:20:02 +02:00**.
+
+Warnings connus et non bloquants uniquement :
+
+```text
+Xerial SQLite / JDK native-access
+SLF4J NOP dans les tests d'architecture
+```
+
+Décision finale :
+
+```text
+ADR-0043 = ACCEPTÉE — M5
+M5-S1    = VALIDÉ — 196/196
+M5-S2    = PROCHAIN après intégration de S1
+```
