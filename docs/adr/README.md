@@ -54,6 +54,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0034](0034-versioned-requirement-persistence.md) | Première persistance métier versionnée sur `Requirement` | **Acceptée — M3** |
 | [ADR-0035](0035-explicit-requirement-delta-application-and-promotion.md) | Application, promotion et activation explicites des `RequirementDelta` | **Acceptée — M3** |
 | [ADR-0036](0036-published-history-comparison-and-logical-rollback.md) | Historique publié, comparaison et rollback logique | **Acceptée — M3** |
+| [ADR-0037](0037-traceability-domain-and-controlled-taxonomy.md) | Domaine `TraceabilityLink` et taxonomie contrôlée | **Acceptée — M4** |
 
 ---
 
@@ -85,9 +86,17 @@ M2 est validée. Preuve : [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
 | M3-S5 application / promotion des deltas | ADR-0035 | `142/142 PASS` |
 | M3-S6 historique / comparaison / rollback / rétention | ADR-0036 | `147/147 PASS` |
 
-M3 est validée techniquement. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3.md).
+M3 est validée et intégrée. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3.md).
 
-La vue opérationnelle M3 est [`../roadmap/M3_EXECUTION.md`](../roadmap/M3_EXECUTION.md).
+---
+
+# Preuves M4 en cours
+
+| Slice | ADR | Preuve |
+|---|---|---|
+| M4-S1 domaine `TraceabilityLink` + taxonomie contrôlée | ADR-0037 | `155/155 PASS` |
+
+La vue opérationnelle M4 est [`../roadmap/M4_EXECUTION.md`](../roadmap/M4_EXECUTION.md).
 La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
 
 ---
@@ -143,8 +152,6 @@ snapshot_specification_versions
 requirement_versions
 ```
 
-Invariants :
-
 ```text
 SpecificationVersion 1 <--- N KnowledgeSnapshot
 snapshot/version ownership explicite
@@ -166,8 +173,6 @@ COMPLETED != ACTIVATE
 CURRENT inchangé avant activation
 ```
 
-`ADDED` ne fait aucun fuzzy matching, `MODIFIED` conserve la `DomainIdentity` avec un nouvel `EntityVersionId`, et `REMOVED` ne retire que l'occurrence de la projection candidate.
-
 ## Historique / comparaison / rollback
 
 ```text
@@ -178,9 +183,17 @@ logical rollback != reactivate RETIRED
 retention = KEEP_ALL_PUBLISHED
 ```
 
-Un `EntityVersionId` différent n'implique pas à lui seul `MODIFIED`. Le rollback reconstruit une nouvelle publication via `RequirementDelta -> APPLY -> PROMOTE -> ACTIVATE`.
+## Traçabilité M4-S1
 
-`MOVED/RENAMED` ne sont pas introduits implicitement ; un rollback cross-specification est rejeté tant qu'une politique dédiée n'existe pas.
+```text
+TraceabilityLinkId explicite
+TraceabilityLinkId != hash(source,type,target)
+endpoint = EntityKind + DomainIdentity
+relation type fermé
+origin / resolution / confidence orthogonaux au type
+evidence obligatoire
+inverse view != persisted duplicate link
+```
 
 ## Build
 
@@ -193,10 +206,10 @@ Unix    : ./mvnw clean test
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
-Gate final M3 :
+Dernier gate M4-S1 :
 
 ```text
-147/147 PASS
+155/155 PASS
 Failures 0
 Errors   0
 Skipped  0
@@ -205,7 +218,7 @@ BUILD SUCCESS
 
 GitHub Actions n'est pas une porte obligatoire.
 
-Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` reste non bloquant et devra être traité avant stabilisation runtime/CLI. Le warning SLF4J NOP des tests ArchUnit reste également non bloquant.
+Les warnings JDK native-access Xerial SQLite et SLF4J NOP ArchUnit restent connus et non bloquants.
 
 ## Distribution
 
@@ -224,7 +237,7 @@ CLI locale sans Docker obligatoire ; runtime Java embarqué à prouver en M9 ; D
 - [`../VALIDATION_M0.md`](../VALIDATION_M0.md)
 - [`../VALIDATION_M1.md`](../VALIDATION_M1.md)
 - [`../VALIDATION_M2.md`](../VALIDATION_M2.md) — **M2 validée**.
-- [`../VALIDATION_M3.md`](../VALIDATION_M3.md) — **M3 validée techniquement ; intégration PR #26 avant M4**.
+- [`../VALIDATION_M3.md`](../VALIDATION_M3.md) — **M3 validée et intégrée**.
 
 ---
 
