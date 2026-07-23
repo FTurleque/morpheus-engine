@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 1/6 validé ; S1 Ready, S2 prochain après merge**
+Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 3/6 validés ; S1/S2 intégrés, S3 Ready, S4 prochain après merge**
 
 Date de dernière mise à jour : 23 juillet 2026
 
@@ -18,7 +18,7 @@ La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé pa
 | M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 tests |
 | M3 | État temporel, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 6/6, 147/147 tests |
 | M4 | Traçabilité | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 6/6, 189/189 tests |
-| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 1/6 VALIDÉ** | S1 196/196 Ready ; S2 prochain après merge ; issue #36 |
+| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 3/6 VALIDÉS** | S1 196/196 merged ; S2 202/202 merged ; S3 210/210 Ready ; S4 prochain après merge ; issue #36 |
 | M6 | Qualité / couverture | ⏳ PLANIFIÉ | après primitives de requête |
 | M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | après snapshots stables |
 | M8 | Analyse des changements | ⏳ PLANIFIÉ | après M3/M4/M5 |
@@ -237,6 +237,8 @@ trace_requirement
 get_change_context
 ```
 
+`get_acceptance_criteria` reste conditionnel à l'existence future d'une sémantique explicite ; aucun `Scenario` n'est transformé artificiellement en `AcceptanceCriterion`.
+
 Inclut : recherche lexicale, pagination, limites, vues compactes, warnings et provenance.
 
 N'inclut pas : ranking global, fusion multi-engine ou compression par budget de tokens ; ces responsabilités restent NEXUS.
@@ -245,14 +247,14 @@ N'inclut pas : ranking global, fusion multi-engine ou compression par budget de 
 
 | Slice | Contenu | État |
 |---|---|---|
-| **S1** | **`find_requirements` + pagination déterministe** | **✅ VALIDÉ — PR #37 Ready — 196/196** |
-| **S2** | **projection métier requêtable des autres familles** | **▶ PROCHAIN APRÈS MERGE S1** |
-| S3 | getters/lists déterministes | ⏳ |
-| S4 | `get_current_specification` + `get_change_context` + query view de trace | ⏳ |
+| **S1** | **`find_requirements` + pagination déterministe** | **✅ MERGED — PR #37 — ADR-0043 — 196/196** |
+| **S2** | **projection métier requêtable des autres familles** | **✅ MERGED — PR #38 — ADR-0044 — 202/202** |
+| **S3** | **getters/lists déterministes** | **✅ VALIDÉ — PR #39 Ready — ADR-0045 — 210/210** |
+| S4 | `trace_requirement` query view + `get_change_context` | ⏳ PROCHAIN APRÈS MERGE S3 |
 | S5 | vues compactes + warnings/provenance + JSON déterministe | ⏳ |
 | S6 | validation finale `VALIDATION_M5.md` | ⏳ |
 
-### M5-S1 validé
+### M5-S1 — intégré
 
 ```text
 PageRequest
@@ -283,17 +285,86 @@ no semantic/fuzzy/LLM
 no SQLite migration
 ```
 
+Gate : **196/196 PASS**.  
+ADR : **ADR-0043 — Acceptée — M5**.  
+Merge : `92b1321a0e23553641ea5dbe1f1c25c0acc874e3`.
+
+### M5-S2 — intégré
+
+```text
+SnapshotBusinessContent
+SnapshotBusinessContentStore
+MemorySnapshotBusinessContentStore
+SqliteSnapshotBusinessContentStore
+SQLite V007
+```
+
+Familles snapshot-scoped :
+
+```text
+Specification
+Scenario
+ChangeProposal
+Constraint
+DesignDecision
+ImplementationTask
+Evidence / Provenance
+```
+
+Invariants prouvés : ownership snapshot/version, identités stables, aucune fausse temporalité, projection immuable, Memory == SQLite, reopen SQLite, listes normalisées avec ordinal et aucune payload JSON métier générique.
+
+Gate : **202/202 PASS**.  
+ADR : **ADR-0044 — Acceptée — M5**.  
+Merge : `3a39371518d9d327ea4cbee0994da65b218ec64c`.
+
+### M5-S3 — validé techniquement
+
+```text
+BusinessContentQueryService
+SnapshotItemResult<T>
+SnapshotPage<T>
+```
+
+Primitives validées :
+
+```text
+activeSpecification / snapshotSpecification
+activeChange / snapshotChange
+listActiveChanges / listSnapshotChanges
+activeConstraints / snapshotConstraints
+activeDesignDecisions / snapshotDesignDecisions
+activeImplementationTasks / snapshotImplementationTasks
+```
+
+Invariants prouvés :
+
+```text
+ACTIVE by default
+ACTIVE/RETIRED explicit only
+no ACTIVE != not-found
+not-found explicit
+published snapshot without projection = error
+stable domain-identity ordering
+pagination after filtering + ordering
+PageRequest reused from S1
+Memory == SQLite
+SQLite reopen
+no V008
+Scenario != AcceptanceCriterion
+```
+
 Gate :
 
 ```text
-RequirementQueryContractTest  7/7 PASS
-TOTAL                        196/196 PASS
+BusinessContentQueryBackendParityTest 1/1 PASS
+BusinessContentQueryContractTest      7/7 PASS
+TOTAL                               210/210 PASS
 BUILD SUCCESS
 ```
 
-ADR : **ADR-0043 — Acceptée — M5**.
+ADR : **ADR-0045 — Acceptée — M5**.
 
-Vue opérationnelle : [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md).
+Vue opérationnelle : [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md).  
 Issue : **#36**.
 
 ---
@@ -429,4 +500,4 @@ Non engagées : génération assistée par LLM, recherche sémantique/embeddings
 7. mettre à jour roadmap + issue
 ```
 
-**Prochaine ligne active après merge S1 : M5-S2 — projection métier requêtable complète.**
+**Prochaine ligne active après merge S3 : M5-S4 — `trace_requirement` query view + `get_change_context`.**
