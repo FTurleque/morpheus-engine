@@ -30,6 +30,15 @@ TraceabilityStore
 
 Le port reste indépendant de SQLite et d'un moteur graphe.
 
+Les adapters sont dédiés :
+
+```text
+MemoryTraceabilityStore
+SqliteTraceabilityStore
+```
+
+Ils s'appuient sur la fondation snapshot existante sans gonfler artificiellement `SpecificationKnowledgeStore` ou `VersionedRequirementStore`.
+
 ## Définition du lien != membership snapshot
 
 Invariant :
@@ -74,6 +83,8 @@ Elles sont :
 - déterministes, triées par `TraceabilityLinkId` ;
 - sans matérialisation d'une arête inverse.
 
+Un ensemble de relations vide signifie « toutes les relations ».
+
 La traversée multi-niveaux et `findPath` restent M4-S4.
 
 ## SQLite
@@ -117,18 +128,28 @@ Aucun JSON générique n'est introduit.
 (snapshot_id, link_id) PK
 ```
 
-Les foreign keys rattachent le membership aux snapshots existants. Des index couvrent `(snapshot_id, source_kind, source_identity_id)` et `(snapshot_id, target_kind, target_identity_id)`.
+Les foreign keys rattachent le membership aux snapshots existants.
+
+Les index sont adaptés au schéma normalisé :
+
+```text
+traceability_links(source_kind, source_identity_id, relation_type, link_id)
+traceability_links(target_kind, target_identity_id, relation_type, link_id)
+snapshot_traceability_links(snapshot_id, link_id)
+```
+
+La requête directe joint le membership snapshot à la définition ; aucun endpoint n'est dupliqué dans la table de membership.
 
 ## Memory
 
-`MemorySpecificationKnowledgeStore` implémente le même port avec :
+`MemoryTraceabilityStore` implémente le même port avec :
 
 ```text
 linkDefinitions: TraceabilityLinkId -> TraceabilityLink
 snapshotMembership: KnowledgeSnapshotId -> Set<TraceabilityLinkId>
 ```
 
-Il reste l'implémentation de référence sémantique.
+Il reçoit le `SpecificationKnowledgeStore` snapshot comme dépendance pour vérifier l'existence du snapshot et reste l'adapter de référence sémantique.
 
 ## Reconstruction
 
@@ -157,6 +178,20 @@ fuzzy matching
 suppression/invalidation incrémentale complète
 ```
 
+## Preuves ajoutées
+
+`TraceabilityPersistenceContractTest` exerce cinq scénarios :
+
+1. round-trip + queries directes Memory ;
+2. même contrat SQLite ;
+3. snapshot inconnu + collision d'identité Memory ;
+4. même contrat SQLite ;
+5. close/reopen SQLite avec conservation définition/evidence/memberships.
+
+`SqliteSchemaMigrationTest` est étendu à V005 et vérifie les trois tables, les index, le ledger à cinq entrées et l'absence de colonne JSON.
+
+Total attendu avant gate : **160 tests** (`155 + 5`).
+
 ## Critères d'acceptation
 
 ADR-0038 pourra passer à **Acceptée — M4** lorsque le gate local complet démontre :
@@ -173,7 +208,7 @@ ADR-0038 pourra passer à **Acceptée — M4** lorsque le gate local complet dé
 10. migration V005 appliquée et rejouable ;
 11. aucune payload JSON générique ;
 12. aucun type SQLite dans domain/application ;
-13. gate `\.\mvnw.cmd clean test` vert.
+13. gate `.\mvnw.cmd clean test` vert.
 
 ## Preuve d'acceptation
 
