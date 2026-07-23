@@ -1,6 +1,6 @@
 # ADR-0050 — Complétude des changements et qualité lifecycle sans faits inventés
 
-- Statut : **Proposée — M6**
+- Statut : **Acceptée — M6**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0032, ADR-0044, ADR-0048, ADR-0049
 - Portée : M6-S3, change completeness et lifecycle blocking conditions
@@ -36,7 +36,7 @@ et `ChangeLifecycle` n'est pas persisté dans `SnapshotBusinessContent`.
 
 Le snapshot publié permet de dériver certains faits, mais pas tous.
 
-## Décision candidate
+## Décision
 
 S3 ajoute une projection de faits tri-state :
 
@@ -259,7 +259,11 @@ modification provider
 LLM / fuzzy / semantic
 ```
 
-## Preuves attendues
+## Preuves validées
+
+`ChangeLifecycleQualityContractTest` : **7/7 PASS**.
+
+Les preuves couvrent :
 
 - facts tri-state exacts ;
 - CURRENT requirement seulement ;
@@ -275,6 +279,30 @@ LLM / fuzzy / semantic
 - SQLite reopen ;
 - gate Windows complet vert.
 
+Gate local Windows complet :
+
+```text
+ChangeLifecycleQualityContractTest       7/7 PASS
+Architecture tests                    121/121 PASS
+TOTAL                                 248/248 PASS
+Failures                                0
+Errors                                  0
+Skipped                                 0
+BUILD SUCCESS
+Total time                            20.687 s
+Finished at                2026-07-23T22:29:23+02:00
+```
+
+Warnings connus non bloquants uniquement : Xerial SQLite/JDK restricted native access et SLF4J NOP.
+
+Head de code effectivement testé :
+
+```text
+84f41498610af2d76236fe1e6c419a6234a5f8c9
+```
+
 ## Acceptation
 
-À compléter après le gate local complet M6-S3.
+**Acceptée — M6.**
+
+La complétude des changements et l'évaluation des blocages lifecycle sont déterministes, snapshot-cohérentes et explicables, sans transformer un fait indisponible en valeur négative ni déduire le lifecycle depuis d'autres états.
