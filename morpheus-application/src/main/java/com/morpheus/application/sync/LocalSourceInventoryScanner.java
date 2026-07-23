@@ -5,6 +5,7 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -60,10 +61,21 @@ public final class LocalSourceInventoryScanner {
                         }
                         try {
                             SourcePath sourcePath = new SourcePath(workspace.relativize(file.toAbsolutePath().normalize()).toString());
+                            SourceFingerprint fingerprint = SourceFingerprint.ofFile(file);
+                            BasicFileAttributes after = Files.readAttributes(
+                                    file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                            if (!after.isRegularFile()
+                                    || attrs.size() != after.size()
+                                    || !attrs.lastModifiedTime().equals(after.lastModifiedTime())) {
+                                failures.add(new SourceInventoryScanResult.Failure(
+                                        Optional.of(sourcePath.toString()),
+                                        "source changed while fingerprint was being computed"));
+                                return FileVisitResult.CONTINUE;
+                            }
                             SourceInventory.Entry entry = new SourceInventory.Entry(
                                     sourcePath,
-                                    SourceFingerprint.ofFile(file),
-                                    attrs.size());
+                                    fingerprint,
+                                    after.size());
                             SourceInventory.Entry existing = entries.putIfAbsent(sourcePath, entry);
                             if (existing != null && !existing.equals(entry)) {
                                 failures.add(new SourceInventoryScanResult.Failure(
