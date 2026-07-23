@@ -1,6 +1,6 @@
 # M5 — Plan d'exécution détaillé
 
-Statut : **M5 actif — 3/6 validés ; S3 Ready, S4 prochain après intégration**
+Statut : **M5 actif — 4/6 validés ; S4 Ready, S5 prochain après intégration**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -20,7 +20,9 @@ M5-S1 merge = 92b1321a0e23553641ea5dbe1f1c25c0acc874e3
 M5-S1 gate  = 196/196 PASS
 M5-S2 merge = 3a39371518d9d327ea4cbee0994da65b218ec64c
 M5-S2 gate  = 202/202 PASS
+M5-S3 merge = 28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73
 M5-S3 gate  = 210/210 PASS
+M5-S4 gate  = 217/217 PASS
 ```
 
 Issue de pilotage : **#36**.
@@ -72,7 +74,7 @@ M0 a déjà validé :
 ```text
 lexical search deterministic = MVP
 semantic search = NOT_REQUIRED_FOR_MVP
-compact MORPHEUS context = yes
+compact context MORPHEUS = yes
 global ranking = NEXUS
 multi-engine fusion = NEXUS
 token-budget compression = NEXUS
@@ -85,14 +87,14 @@ token-budget compression = NEXUS
 ```text
 S1  ✅ find_requirements + pagination déterministe — PR #37 — ADR-0043 — 196/196 — MERGED
 S2  ✅ projection métier requêtable snapshot-scoped — PR #38 — ADR-0044 — 202/202 — MERGED
-S3  ✅ getters/lists déterministes — PR #39 — ADR-0045 — 210/210 — READY
-S4  ⏳ get_change_context + query view trace — PROCHAIN APRÈS MERGE S3
-S5  ⏳ vues compactes + warnings/provenance + JSON déterministe
+S3  ✅ getters/lists déterministes — PR #39 — ADR-0045 — 210/210 — MERGED
+S4  ✅ trace_requirement query view + get_change_context — PR #40 — ADR-0046 — 217/217 — READY
+S5  ⏳ vues compactes + warnings/provenance + JSON déterministe — PROCHAIN APRÈS MERGE S4
 S6  ⏳ validation finale VALIDATION_M5.md
 ```
 
 ```text
-M5 : 3 / 6 slices validés
+M5 : 4 / 6 slices validés
 ```
 
 ---
@@ -101,7 +103,8 @@ M5 : 3 / 6 slices validés
 
 ADR : **ADR-0043 — Acceptée — M5**  
 PR : **#37 — MERGED**  
-Merge : `92b1321a0e23553641ea5dbe1f1c25c0acc874e3`
+Merge : `92b1321a0e23553641ea5dbe1f1c25c0acc874e3`  
+Gate : **196/196 PASS**.
 
 Contrats :
 
@@ -110,12 +113,7 @@ PageRequest
 RequirementSearchQuery
 RequirementSearchPage
 RequirementQueryService
-
-findActive(...)
-findSnapshot(...)
 ```
-
-Gate : **196/196 PASS**.
 
 ---
 
@@ -123,7 +121,8 @@ Gate : **196/196 PASS**.
 
 ADR : **ADR-0044 — Acceptée — M5**  
 PR : **#38 — MERGED**  
-Merge : `3a39371518d9d327ea4cbee0994da65b218ec64c`
+Merge : `3a39371518d9d327ea4cbee0994da65b218ec64c`  
+Gate : **202/202 PASS**.
 
 Contrats :
 
@@ -134,34 +133,16 @@ MemorySnapshotBusinessContentStore
 SqliteSnapshotBusinessContentStore
 ```
 
-Familles persistées :
-
-```text
-Specification
-Scenario
-ChangeProposal
-Constraint
-DesignDecision
-ImplementationTask
-Evidence / Provenance
-```
-
-SQLite V007 normalisée sans payload JSON métier.  
-Gate : **202/202 PASS**.
+SQLite V007 normalisée sans payload JSON métier.
 
 ---
 
-# 7. M5-S3 — VALIDÉ TECHNIQUEMENT
+# 7. M5-S3 — INTÉGRÉ
 
 ADR : **ADR-0045 — Acceptée — M5**  
-PR : **#39 — Ready après gate**  
-Branche : `m5/deterministic-business-queries`
-
-Head de code testé :
-
-```text
-755bbd394347e5a8de67aa7d5eb69234a6b0ba8b
-```
+PR : **#39 — MERGED**  
+Merge : `28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73`  
+Gate : **210/210 PASS**.
 
 Contrats :
 
@@ -182,34 +163,79 @@ activeDesignDecisions / snapshotDesignDecisions
 activeImplementationTasks / snapshotImplementationTasks
 ```
 
+---
+
+# 8. M5-S4 — VALIDÉ TECHNIQUEMENT
+
+ADR : **ADR-0046 — Acceptée — M5**  
+PR : **#40 — Ready après gate**  
+Branche : `m5/change-context-query`
+
+Head complet testé :
+
+```text
+da1c0c53fdcf0e98b60cf7a46699bf014ee67091
+```
+
+Head code/test inclus :
+
+```text
+6df77f79feeaf92e10b9848c333b1b756c8af33c
+```
+
+Contrats :
+
+```text
+TraceRequirementQueryService
+ChangeContextQueryService
+ChangeContextResult
+```
+
+`TraceRequirementQueryService` réutilise exactement `TraceRequirementService` M4.
+
+`ChangeContextQueryService` agrège un seul snapshot publié :
+
+```text
+ChangeProposal
+AFFECTS directs
+Requirement CURRENT résolus
+Constraint
+DesignDecision
+ImplementationTask
+TraceabilitySubgraph borné
+ExternalTraceabilityView unresolved/broken
+```
+
+Les `RequirementDelta` bruts ne sont pas exposés : ils ne sont pas persistés comme collection requêtable. Les liens `AFFECTS` bruts restent dans `ChangeContextResult`, y compris lorsque la cible n'a aucune occurrence CURRENT.
+
 Sémantique validée :
 
 ```text
 ACTIVE by default
 snapshot explicit = ACTIVE/RETIRED only
-no ACTIVE != entity not found
-not-found explicit
-published snapshot without S2 projection = error
-stable ordering by domain identity
-pagination after filtering + ordering
-PageRequest reused from S1
-offset >= 0
-1 <= limit <= 100
-provider-neutral
-backend-neutral
+no ACTIVE != change not found
+CURRENT requirements only
+PROPOSED never leaks
+AFFECTS direct outgoing only
+no title/key/text inference
+stable domain/link ordering
+bounded BIDIRECTIONAL traversal
+relation filter shapes subgraph only
+core business/AFFECTS facts remain available
+external unresolved/broken visible
+Memory == SQLite
+SQLite reopen
 no new persistence
 no V008
+no fuzzy / semantic search / LLM
+no NEXUS ranking/fusion
 ```
-
-`get_current_specification` est adressé par `SpecificationId` car un projet peut contenir plusieurs spécifications.
-
-`AcceptanceCriterion` n'est pas exposé en S3 : aucune sémantique explicite n'existe dans le domaine et aucun `Scenario` n'est converti artificiellement.
 
 Preuves ciblées :
 
 ```text
-BusinessContentQueryBackendParityTest    1/1 PASS
-BusinessContentQueryContractTest         7/7 PASS
+ChangeContextQueryContractTest    7/7 PASS
+Architecture tests               90/90 PASS
 ```
 
 Gate local Windows :
@@ -220,62 +246,24 @@ Application                             66 tests
 OpenSpec provider                       26 tests
 Synthetic provider                       7 tests
 SQLite store                             7 tests
-Architecture tests                      83 tests
+Architecture tests                      90 tests
 -----------------------------------------------
-TOTAL                                  210/210 PASS
+TOTAL                                  217/217 PASS
 Failures                                 0
 Errors                                   0
 Skipped                                  0
 BUILD SUCCESS
-Total time                             18.127 s
-Finished at                 2026-07-23T18:24:34+02:00
-```
-
-Warnings connus non bloquants : Xerial SQLite/JDK restricted native access et SLF4J NOP.
-
----
-
-# 8. M5-S4 — PROCHAIN APRÈS MERGE S3
-
-Primitives :
-
-```text
-trace_requirement
-get_change_context
-```
-
-`trace_requirement` réutilise M4 via une vue de query stable et compacte.
-
-`get_change_context` agrège uniquement des faits MORPHEUS :
-
-```text
-change
-requirement deltas / affected requirements
-constraints
-design decisions
-tasks
-traceability paths
-external unresolved/broken refs
-```
-
-Contraintes :
-
-```text
-ACTIVE by default
-published snapshot explicit variant
-bounded traversal inherited from M4
-deterministic ordering
-no fuzzy / no semantic search
-no global ranking
-no NEXUS fusion
-no new persistence unless a proven gap blocks the query
+Total time                             16.688 s
+Finished at                 2026-07-23T19:22:37+02:00
 ```
 
 ---
 
-# 9. M5-S5 — Enveloppe compacte
+# 9. M5-S5 — PROCHAIN APRÈS MERGE S4
 
-Stabiliser :
+Objectif : stabiliser l'enveloppe compacte de query sans modifier les sources de vérité S1-S4.
+
+Cibles :
 
 ```text
 query metadata
@@ -285,6 +273,20 @@ structured warnings
 provenance/evidence
 compact DTOs
 stable deterministic JSON representation
+```
+
+Invariants :
+
+```text
+compact != lossy semantics
+warnings structurés et ordonnés
+provenance/evidence conservées
+JSON déterministe
+pas de payload JSON de persistance
+pas de ranking global
+pas de fusion multi-engine
+pas de compression par budget de tokens
+pas de dépendance NEXUS / LLM
 ```
 
 Le JSON reste une vue d'exposition, jamais une payload métier générique de persistance.
@@ -337,8 +339,10 @@ no semantic/LLM/NEXUS dependency
 | AcceptanceCriterion non inventé | ✅ | S3 |
 | Memory/SQLite business query parity | ✅ | S3 |
 | SQLite reopen business queries | ✅ | S3 |
-| `trace_requirement` query view | ⬜ | S4 |
-| `get_change_context` | ⬜ | S4 |
+| `trace_requirement` query view | ✅ | S4 |
+| `get_change_context` | ✅ | S4 |
+| AFFECTS cassé conservé | ✅ | S4 |
+| external unresolved/broken dans change context | ✅ | S4 |
 | compact DTOs | ⬜ | S5 |
 | warnings structurés | ⬜ | S5 |
 | provenance/evidence conservées | ⬜ | S5 |
@@ -379,4 +383,4 @@ MINOS production code resolution            -> M12
 9. issue #36 + roadmap mises à jour
 ```
 
-**Prochaine ligne active après merge S3 : M5-S4 — `trace_requirement` query view + `get_change_context`.**
+**Prochaine ligne active après merge S4 : M5-S5 — vues compactes, warnings/provenance et JSON déterministe.**

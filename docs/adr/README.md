@@ -63,6 +63,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0043](0043-deterministic-requirement-lexical-query.md) | Recherche lexicale déterministe et pagination des requirements | **Acceptée — M5** |
 | [ADR-0044](0044-snapshot-business-content-projection.md) | Projection métier snapshot-scoped des familles hors `Requirement` | **Acceptée — M5** |
 | [ADR-0045](0045-deterministic-business-content-queries.md) | Getters et listes métier déterministes sur snapshots publiés | **Acceptée — M5** |
+| [ADR-0046](0046-change-context-query-aggregation.md) | Agrégation déterministe de `trace_requirement` et `get_change_context` | **Acceptée — M5** |
 
 ---
 
@@ -120,6 +121,7 @@ M4 est validée et intégrée. Preuve : [`../VALIDATION_M4.md`](../VALIDATION_M4
 | M5-S1 recherche lexicale + pagination requirements | ADR-0043 | `196/196 PASS` |
 | M5-S2 projection métier snapshot-scoped | ADR-0044 | `202/202 PASS` |
 | M5-S3 getters/listes déterministes | ADR-0045 | `210/210 PASS` |
+| M5-S4 trace query view + change context | ADR-0046 | `217/217 PASS` |
 
 Vue d'exécution : [`../roadmap/M5_EXECUTION.md`](../roadmap/M5_EXECUTION.md).
 
@@ -153,24 +155,6 @@ published history = RETIRED* -> ACTIVE
 ## Persistance métier
 
 ```text
-specification_versions
-snapshot_specification_versions
-requirement_versions
-snapshot_business_content
-snapshot_evidence
-snapshot_specifications
-snapshot_scenarios
-snapshot_scenario_preconditions
-snapshot_changes
-snapshot_change_scope
-snapshot_change_out_of_scope
-snapshot_change_risks
-snapshot_constraints
-snapshot_design_decisions
-snapshot_implementation_tasks
-```
-
-```text
 Requirement = persistance versionnée spécialisée
 familles S2 = projection immutable snapshot-scoped
 snapshot/version ownership explicite
@@ -195,6 +179,8 @@ aucun backend graphe requis
 ```text
 RequirementQueryService
 BusinessContentQueryService
+TraceRequirementQueryService
+ChangeContextQueryService
 
 ACTIVE par défaut
 snapshot explicite = ACTIVE/RETIRED uniquement
@@ -202,11 +188,14 @@ CURRENT only pour Requirement
 not-found explicite
 tri stable par identité domaine
 pagination après filtrage + tri
-offset >= 0
-1 <= limit <= 100
+AFFECTS directs seulement pour requirements affectés
+cibles AFFECTS cassées conservées
+trace bornée / déterministe / cycle-safe
+external unresolved/broken visibles
 Memory == SQLite
 SQLite reopen
 aucune recherche fuzzy / sémantique / LLM
+aucun ranking/fusion NEXUS
 Scenario != AcceptanceCriterion
 ```
 
@@ -221,19 +210,19 @@ Unix    : ./mvnw clean test
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
-Dernier gate M5-S3 :
+Dernier gate M5-S4 :
 
 ```text
-BusinessContentQueryBackendParityTest 1/1 PASS
-BusinessContentQueryContractTest      7/7 PASS
-210/210 PASS
+ChangeContextQueryContractTest 7/7 PASS
+Architecture tests            90/90 PASS
+217/217 PASS
 Failures 0
 Errors   0
 Skipped  0
 BUILD SUCCESS
 ```
 
-Gate terminé le **23 juillet 2026 à 18:24:34 +02:00**.
+Gate terminé le **23 juillet 2026 à 19:22:37 +02:00**.
 
 GitHub Actions n'est pas une porte obligatoire.
 
