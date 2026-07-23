@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Roadmap active — C0 à M5 validés ; M5 6/6 validé, S6 Ready ; M6 autorisé après intégration finale #42**
+Statut : **Roadmap active — C0 à M5 validés et intégrés ; M6 actif — 1/6 validé ; S1 Ready, S2 prochain après merge**
 
 Date de dernière mise à jour : 23 juillet 2026
 
@@ -18,8 +18,8 @@ La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé pa
 | M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 tests |
 | M3 | État temporel, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 147/147 tests |
 | M4 | Traçabilité | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 189/189 tests |
-| **M5** | **Requêtes et contexte compact** | **✅ VALIDÉ — 6/6** | `VALIDATION_M5.md`, 227/227 ; S1-S5 merged ; S6 Ready #42 |
-| **M6** | **Qualité / couverture** | **▶ AUTORISÉ** | démarrage depuis le merge exact de #42 |
+| M5 | Requêtes et contexte compact | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M5.md`, 227/227 ; merge final `6bbaf086...` |
+| **M6** | **Qualité / couverture** | **🚧 ACTIF — 1/6 VALIDÉ** | S1 PR #44 Ready — ADR-0048 — 234/234 ; S2 prochain après merge |
 | M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | après snapshots stables |
 | M8 | Analyse des changements | ⏳ PLANIFIÉ | après M3/M4/M5 |
 | M9 | CLI stabilisée et distribution native | ⏳ PLANIFIÉ | après cœur fonctionnel |
@@ -39,6 +39,7 @@ Références :
 - [`VALIDATION_M4.md`](VALIDATION_M4.md)
 - [`VALIDATION_M5.md`](VALIDATION_M5.md)
 - [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md)
+- [`roadmap/M6_EXECUTION.md`](roadmap/M6_EXECUTION.md)
 - [`adr/README.md`](adr/README.md)
 
 ---
@@ -200,7 +201,13 @@ Validation : [`VALIDATION_M4.md`](VALIDATION_M4.md).
 | S3 | getters/lists déterministes | ✅ MERGED — PR #39 — ADR-0045 — 210/210 |
 | S4 | `trace_requirement` + `get_change_context` | ✅ MERGED — PR #40 — ADR-0046 — 217/217 |
 | S5 | vues compactes + warnings/provenance + JSON déterministe | ✅ MERGED — PR #41 — ADR-0047 — 227/227 |
-| S6 | validation finale `VALIDATION_M5.md` | ✅ VALIDÉ — PR #42 Ready — 227/227 |
+| S6 | validation finale `VALIDATION_M5.md` | ✅ MERGED — PR #42 — 227/227 |
+
+Merge final :
+
+```text
+6bbaf086cf1fed81e3517bb1cef5b643264fb836
+```
 
 ## Capacités validées
 
@@ -244,29 +251,87 @@ Finished 2026-07-23T20:24:57+02:00
 Validation : [`VALIDATION_M5.md`](VALIDATION_M5.md).  
 Vue opérationnelle : [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md).
 
-Distinction de gouvernance : **M5 est validé ; S6 sera intégré à `main` après merge explicite de #42.**
-
 ---
 
-# 10. M6 — Qualité et couverture ▶ AUTORISÉ
+# 10. M6 — Qualité et couverture 🚧
+
+## Question de sortie
+
+> **MORPHEUS peut-il détecter et expliquer les lacunes de qualité d'une spécification sur un snapshot publié, mesurer sa couverture, exposer les blocages et références cassées, tout en distinguant strictement les constats déterministes des heuristiques et sans inventer les relations absentes ?**
 
 Objectif : détecter les lacunes et incohérences de la spécification sans confondre preuve déterministe et heuristique.
 
-Cibles :
+## Progression
+
+| Slice | Contenu | État |
+|---|---|---|
+| **S1** | **requirement traceability coverage + orphan requirements** | **✅ VALIDÉ — PR #44 Ready — ADR-0048 — 234/234** |
+| S2 | implementation-task coverage + acceptance capability gap | ⏳ PROCHAIN APRÈS MERGE S1 |
+| S3 | change completeness + lifecycle blocking conditions | ⏳ |
+| S4 | design-decision justification + broken/unresolved references | ⏳ |
+| S5 | aggregate quality report + stable metrics/order + compact exposure | ⏳ |
+| S6 | validation finale `VALIDATION_M6.md` | ⏳ |
+
+### M6-S1 — validé techniquement
+
+Contrats :
 
 ```text
-requirements orphelins
+QualityFinding
+QualityFindingCode
+QualityEvidenceKind
+RequirementTraceabilityCoverage
+RequirementQualityService
+```
+
+Sémantique validée :
+
+```text
+ACTIVE by default
+ACTIVE/RETIRED explicit only
+CURRENT Requirement only
+linked = >= 1 direct incoming/outgoing persisted TraceabilityLink
+orphan = no direct incoming AND no direct outgoing link
+coverage = linked / total CURRENT requirements
+zero CURRENT requirements = coverage 1.0
+ORPHAN_REQUIREMENT = WARNING + DETERMINISTIC
+finding evidence = Requirement provenance evidence
+DETERMINISTIC => no confidence
+HEURISTIC => confidence required in [0,1]
+Memory == SQLite
+SQLite reopen
+```
+
+Gate :
+
+```text
+RequirementQualityContractTest 7/7 PASS
+Architecture tests            107/107 PASS
+TOTAL                          234/234 PASS
+Failures                       0
+Errors                         0
+Skipped                        0
+BUILD SUCCESS
+Finished 2026-07-23T20:52:28+02:00
+```
+
+ADR : **ADR-0048 — Acceptée — M6**.  
+Vue opérationnelle : [`roadmap/M6_EXECUTION.md`](roadmap/M6_EXECUTION.md).  
+Issue : **#43**.
+
+Cibles M6 restantes :
+
+```text
 tâches sans requirement
-critères non reliés / non vérifiés
+acceptance capability gap explicite
 changements incomplets
 décisions sans justification
-références cassées
+références cassées / unresolved
 couverture de traçabilité
 blocages de transition
 distinction déterministe / heuristique
+rapport qualité agrégé
 ```
-
-Principe de démarrage : **créer M6 depuis le merge exact de #42, jamais depuis une branche S6 non intégrée.**
 
 ---
 
@@ -395,4 +460,4 @@ Non engagées : génération assistée par LLM, recherche sémantique/embeddings
 7. mettre à jour roadmap + issue
 ```
 
-**Prochaine action : merge explicite de #42 pour intégrer M5-S6, clôturer #36 et démarrer M6 depuis ce merge exact.**
+**Prochaine action : merge explicite de #44 pour intégrer M6-S1, puis démarrer M6-S2 depuis ce merge exact.**
