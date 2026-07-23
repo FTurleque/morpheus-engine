@@ -60,10 +60,11 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0040](0040-bounded-deterministic-traceability-traversal.md) | Traversée bornée, déterministe et chemins explicables | **Acceptée — M4** |
 | [ADR-0041](0041-snapshot-external-reference-traceability.md) | Références externes snapshot-scoped et liens unresolved/broken explicables | **Acceptée — M4** |
 | [ADR-0042](0042-final-trace-requirement-query.md) | Porte finale `trace(requirement)` sur snapshots publiés | **Acceptée — M4** |
+| [ADR-0043](0043-deterministic-requirement-lexical-query.md) | Recherche lexicale déterministe et pagination des requirements | **Acceptée — M5** |
 
 ---
 
-# État final des preuves M2
+# Preuves M2
 
 | Slice | ADR | Preuve |
 |---|---|---|
@@ -80,7 +81,7 @@ M2 est validée. Preuve : [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
 
 ---
 
-# État final des preuves M3
+# Preuves M3
 
 | Slice | ADR | Preuve |
 |---|---|---|
@@ -95,7 +96,7 @@ M3 est validée et intégrée. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3
 
 ---
 
-# État final des preuves M4
+# Preuves M4
 
 | Slice | ADR | Preuve |
 |---|---|---|
@@ -106,16 +107,23 @@ M3 est validée et intégrée. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3
 | M4-S5 références externes / unresolved / broken | ADR-0041 | `184/184 PASS` |
 | M4-S6 porte finale `trace(requirement)` | ADR-0042 | `189/189 PASS` |
 
-M4 est validée. Preuve : [`../VALIDATION_M4.md`](../VALIDATION_M4.md).
+M4 est validée et intégrée. Preuve : [`../VALIDATION_M4.md`](../VALIDATION_M4.md).
 
-La vue d'exécution M4 est [`../roadmap/M4_EXECUTION.md`](../roadmap/M4_EXECUTION.md).
-La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
+---
+
+# Preuves M5 en cours
+
+| Slice | ADR | Preuve |
+|---|---|---|
+| M5-S1 recherche lexicale + pagination requirements | ADR-0043 | `196/196 PASS` |
+
+Vue d'exécution : [`../roadmap/M5_EXECUTION.md`](../roadmap/M5_EXECUTION.md).
 
 ---
 
 # Contraintes actives principales
 
-## Frontière domaine / providers / adapters
+## Architecture
 
 ```text
 com.morpheus.domain      -X-> com.morpheus.provider..
@@ -127,7 +135,7 @@ com.morpheus.domain      -X-> CLI/MCP/API adapters
 
 OpenSpec et Synthetic dépendent vers l'intérieur de `domain + application` ; jamais l'inverse.
 
-## Identité et temporalité
+## Identité / temporalité
 
 ```text
 DomainIdentity != EntityVersionId
@@ -135,28 +143,10 @@ SpecificationVersion != KnowledgeSnapshot
 DomainIdentity != SourceLocator != ExternalReference
 CURRENT / PROPOSED / HISTORICAL explicites
 PROPOSED never leaks into CURRENT
-plusieurs PROPOSED concurrents restent permis
+published history = RETIRED* -> ACTIVE
 ```
 
-## Lifecycle métier
-
-```text
-ChangeLifecycleState != TemporalState
-ChangeLifecycleState != KnowledgeSnapshotState
-COMPLETED != CURRENT
-ARCHIVED  != CURRENT
-```
-
-## KnowledgeSnapshot
-
-```text
-BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
-                         \-> FAILED
-```
-
-Seul `ACTIVE` est observable comme snapshot courant. L'activation est atomique et un predecessor stale est rejeté.
-
-## Persistance métier versionnée
+## Persistance métier
 
 ```text
 specification_versions
@@ -165,127 +155,43 @@ requirement_versions
 ```
 
 ```text
-SpecificationVersion 1 <--- N KnowledgeSnapshot
+SpecificationVersion 1:N KnowledgeSnapshot
 snapshot/version ownership explicite
 1 CURRENT max par (snapshot, DomainIdentity)
 N PROPOSED concurrents autorisés
-vue courante = ACTIVE snapshot + CURRENT
-reopen SQLite conserve CURRENT / PROPOSED séparés
 aucune payload JSON générique
 ```
 
-## Application / promotion des RequirementDelta
+## Traçabilité M4
 
 ```text
-normalized delta != applied delta
-APPLY != PROMOTE
-PROMOTE != ACTIVATE
-COMPLETED != PROMOTE
-COMPLETED != ACTIVATE
-CURRENT inchangé avant activation
-```
-
-## Historique / comparaison / rollback
-
-```text
-published history = RETIRED* -> ACTIVE
-historical query = snapshot explicite ACTIVE/RETIRED + CURRENT
-comparison = ADDED / MODIFIED / REMOVED / UNCHANGED
-logical rollback != reactivate RETIRED
-retention = KEEP_ALL_PUBLISHED
-```
-
-## Traçabilité M4-S1
-
-```text
-TraceabilityLinkId explicite
-TraceabilityLinkId != hash(source,type,target)
-endpoint = EntityKind + DomainIdentity
-relation type fermé
-origin / resolution / confidence orthogonaux au type
-evidence obligatoire
-inverse view != persisted duplicate link
-```
-
-## Persistance de traçabilité M4-S2
-
-```text
-TraceabilityLink definition != KnowledgeSnapshot membership
-snapshot membership obligatoire
-same TraceabilityLinkId + different definition = collision
-snapshot A links != snapshot B links
-Memory == SQLite contract
-V005 = traceability_links + traceability_link_evidence + snapshot_traceability_links
-outgoing/incoming snapshot-scoped et déterministes
-aucun JSON générique
-SQLite reopen conserve liens/evidence/memberships
-```
-
-## Dérivation de traçabilité M4-S3
-
-```text
-faits structurels uniquement
-TraceabilityDerivationKey typée
-TraceabilityLinkIdentityResolver explicite
-aucun TraceabilityLinkId.generate() caché
-aucun hash d'arête comme identité
-origin = DERIVED
-resolution = RESOLVED
-confidence = empty
-evidence du fait source conservée
-ordre déterministe
-aucun fuzzy matching
-aucun Task -> Requirement implicite
-```
-
-## Traversée de traçabilité M4-S4
-
-```text
-OUTGOING / INCOMING / BIDIRECTIONAL explicites
-maxDepth > 0
+TraceabilityLink first-class
 snapshot-scoped
-BFS borné et cycle-safe
-ordre déterministe
-relation filters explicites
-inverse query != persisted inverse edge
-shortest path déterministe
-path = persisted link + sens de parcours
-traversal != transitivity
-A -> B -> C != arête synthétique A -> C
-Memory == SQLite observable semantics
-aucune migration SQLite S4
-```
-
-## Références externes M4-S5
-
-```text
-ExternalReference snapshot-scoped
-TraceabilityResolutionState != ExternalReferenceResolutionState
-V006 = snapshot_external_references + attributes + history
-UNRESOLVED reste visible
-STALE reste explicable
-BROKEN_REFERENCE reste visible
-resolver externe != mutation du TraceabilityLink canonique
-aucun couplage obligatoire à MINOS
-aucun JSON générique
-Memory == SQLite observable semantics
-SQLite reopen conserve coordonnées, attributs, provenance et historique
-```
-
-## Porte finale M4-S6
-
-```text
+Memory == SQLite
+bounded / cycle-safe traversal
+UNRESOLVED et BROKEN_REFERENCE visibles
 traceActive -> ACTIVE uniquement
 traceSnapshot -> ACTIVE/RETIRED uniquement
-non-published snapshots rejetés
-CURRENT requirement obligatoire
-root = REQUIREMENT + RequirementId.value
-BIDIRECTIONAL
-maxDepth > 0
-Memory == SQLite
-SQLite reopen conserve la vue finale
-UNRESOLVED / BROKEN_REFERENCE restent observables
 aucun backend graphe requis
+```
+
+## Requêtes M5-S1
+
+```text
+findActive -> ACTIVE uniquement
+findSnapshot -> ACTIVE/RETIRED uniquement
+CURRENT only
+lexical key/title/statement
+Unicode-aware + Locale.ROOT
+AND terms
+no fuzzy / semantic / LLM
+stable RequirementId ordering
+pagination après tri
+offset >= 0
+1 <= limit <= 100
+Memory == SQLite
+SQLite reopen
+aucune migration S1
 ```
 
 ## Build
@@ -299,22 +205,22 @@ Unix    : ./mvnw clean test
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
-Dernier gate M4-S6 :
+Dernier gate M5-S1 :
 
 ```text
-TraceRequirementFinalValidationTest 5/5 PASS
-189/189 PASS
+RequirementQueryContractTest 7/7 PASS
+196/196 PASS
 Failures 0
 Errors   0
 Skipped  0
 BUILD SUCCESS
 ```
 
-Gate terminé le **23 juillet 2026 à 14:57:23 +02:00**.
+Gate terminé le **23 juillet 2026 à 16:20:02 +02:00**.
 
 GitHub Actions n'est pas une porte obligatoire.
 
-Les warnings JDK native-access Xerial SQLite et SLF4J NOP ArchUnit restent connus et non bloquants.
+Les warnings JDK native-access Xerial SQLite et SLF4J NOP restent connus et non bloquants.
 
 ## Distribution
 
@@ -334,7 +240,7 @@ CLI locale sans Docker obligatoire ; runtime Java embarqué à prouver en M9 ; D
 - [`../VALIDATION_M1.md`](../VALIDATION_M1.md)
 - [`../VALIDATION_M2.md`](../VALIDATION_M2.md) — **M2 validée**.
 - [`../VALIDATION_M3.md`](../VALIDATION_M3.md) — **M3 validée et intégrée**.
-- [`../VALIDATION_M4.md`](../VALIDATION_M4.md) — **M4 validée**.
+- [`../VALIDATION_M4.md`](../VALIDATION_M4.md) — **M4 validée et intégrée**.
 
 ---
 
