@@ -61,6 +61,8 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0041](0041-snapshot-external-reference-traceability.md) | Références externes snapshot-scoped et liens unresolved/broken explicables | **Acceptée — M4** |
 | [ADR-0042](0042-final-trace-requirement-query.md) | Porte finale `trace(requirement)` sur snapshots publiés | **Acceptée — M4** |
 | [ADR-0043](0043-deterministic-requirement-lexical-query.md) | Recherche lexicale déterministe et pagination des requirements | **Acceptée — M5** |
+| [ADR-0044](0044-snapshot-business-content-projection.md) | Projection métier snapshot-scoped des familles hors `Requirement` | **Acceptée — M5** |
+| [ADR-0045](0045-deterministic-business-content-queries.md) | Getters et listes métier déterministes sur snapshots publiés | **Acceptée — M5** |
 
 ---
 
@@ -116,6 +118,8 @@ M4 est validée et intégrée. Preuve : [`../VALIDATION_M4.md`](../VALIDATION_M4
 | Slice | ADR | Preuve |
 |---|---|---|
 | M5-S1 recherche lexicale + pagination requirements | ADR-0043 | `196/196 PASS` |
+| M5-S2 projection métier snapshot-scoped | ADR-0044 | `202/202 PASS` |
+| M5-S3 getters/listes déterministes | ADR-0045 | `210/210 PASS` |
 
 Vue d'exécution : [`../roadmap/M5_EXECUTION.md`](../roadmap/M5_EXECUTION.md).
 
@@ -152,14 +156,25 @@ published history = RETIRED* -> ACTIVE
 specification_versions
 snapshot_specification_versions
 requirement_versions
+snapshot_business_content
+snapshot_evidence
+snapshot_specifications
+snapshot_scenarios
+snapshot_scenario_preconditions
+snapshot_changes
+snapshot_change_scope
+snapshot_change_out_of_scope
+snapshot_change_risks
+snapshot_constraints
+snapshot_design_decisions
+snapshot_implementation_tasks
 ```
 
 ```text
-SpecificationVersion 1:N KnowledgeSnapshot
+Requirement = persistance versionnée spécialisée
+familles S2 = projection immutable snapshot-scoped
 snapshot/version ownership explicite
-1 CURRENT max par (snapshot, DomainIdentity)
-N PROPOSED concurrents autorisés
-aucune payload JSON générique
+aucune payload JSON métier générique
 ```
 
 ## Traçabilité M4
@@ -175,23 +190,24 @@ traceSnapshot -> ACTIVE/RETIRED uniquement
 aucun backend graphe requis
 ```
 
-## Requêtes M5-S1
+## Requêtes M5
 
 ```text
-findActive -> ACTIVE uniquement
-findSnapshot -> ACTIVE/RETIRED uniquement
-CURRENT only
-lexical key/title/statement
-Unicode-aware + Locale.ROOT
-AND terms
-no fuzzy / semantic / LLM
-stable RequirementId ordering
-pagination après tri
+RequirementQueryService
+BusinessContentQueryService
+
+ACTIVE par défaut
+snapshot explicite = ACTIVE/RETIRED uniquement
+CURRENT only pour Requirement
+not-found explicite
+tri stable par identité domaine
+pagination après filtrage + tri
 offset >= 0
 1 <= limit <= 100
 Memory == SQLite
 SQLite reopen
-aucune migration S1
+aucune recherche fuzzy / sémantique / LLM
+Scenario != AcceptanceCriterion
 ```
 
 ## Build
@@ -205,18 +221,19 @@ Unix    : ./mvnw clean test
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
-Dernier gate M5-S1 :
+Dernier gate M5-S3 :
 
 ```text
-RequirementQueryContractTest 7/7 PASS
-196/196 PASS
+BusinessContentQueryBackendParityTest 1/1 PASS
+BusinessContentQueryContractTest      7/7 PASS
+210/210 PASS
 Failures 0
 Errors   0
 Skipped  0
 BUILD SUCCESS
 ```
 
-Gate terminé le **23 juillet 2026 à 16:20:02 +02:00**.
+Gate terminé le **23 juillet 2026 à 18:24:34 +02:00**.
 
 GitHub Actions n'est pas une porte obligatoire.
 
