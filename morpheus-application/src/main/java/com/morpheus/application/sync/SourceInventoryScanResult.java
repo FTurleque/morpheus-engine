@@ -19,7 +19,7 @@ public record SourceInventoryScanResult(
                 .peek(failure -> Objects.requireNonNull(failure, "failures item"))
                 .sorted()
                 .toList();
-        if (inventory.isPresent() == !failures.isEmpty()) {
+        if (inventory.isPresent() != failures.isEmpty()) {
             throw new IllegalArgumentException("complete scan requires inventory and no failures; incomplete scan requires failures only");
         }
         inventory.ifPresent(value -> {
