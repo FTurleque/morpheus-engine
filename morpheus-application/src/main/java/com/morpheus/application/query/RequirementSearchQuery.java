@@ -20,7 +20,7 @@ public record RequirementSearchQuery(String text) {
         if (text.isEmpty()) {
             return List.of();
         }
-        return Arrays.stream(text.split("\\s+"))
+        return Arrays.stream(text.split("\\p{javaWhitespace}+"))
                 .filter(term -> !term.isEmpty())
                 .toList();
     }
