@@ -52,6 +52,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0032](0032-explicit-change-lifecycle-state-machine.md) | Machine d'état explicite du lifecycle des changements | **Acceptée — M3** |
 | [ADR-0033](0033-knowledge-snapshot-lifecycle-and-atomic-activation.md) | Lifecycle complet des KnowledgeSnapshot et activation atomique | **Acceptée — M3** |
 | [ADR-0034](0034-versioned-requirement-persistence.md) | Première persistance métier versionnée sur `Requirement` | **Acceptée — M3** |
+| [ADR-0035](0035-explicit-requirement-delta-application-and-promotion.md) | Application, promotion et activation explicites des `RequirementDelta` | **Acceptée — M3** |
 
 ---
 
@@ -80,6 +81,7 @@ M2 est validée. La preuve de sortie est [`../VALIDATION_M2.md`](../VALIDATION_M
 | M3-S2 lifecycle des changements | ADR-0032 | `119/119 PASS` |
 | M3-S3 KnowledgeSnapshot / activation atomique | ADR-0033 | `127/127 PASS` |
 | M3-S4 persistance métier versionnée | ADR-0034 | `134/134 PASS` |
+| M3-S5 application / promotion des deltas | ADR-0035 | `142/142 PASS` |
 
 La vue opérationnelle M3 est [`../roadmap/M3_EXECUTION.md`](../roadmap/M3_EXECUTION.md).
 La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
@@ -151,6 +153,21 @@ aucune payload JSON générique
 ```
 
 Les autres familles métier doivent réutiliser ce pattern plutôt que créer une persistance non versionnée.
+
+## Application / promotion des RequirementDelta
+
+M3-S5 valide :
+
+```text
+normalized delta != applied delta
+APPLY != PROMOTE
+PROMOTE != ACTIVATE
+COMPLETED != PROMOTE
+COMPLETED != ACTIVATE
+CURRENT inchangé avant activation
+```
+
+`ADDED` ne fait aucun rapprochement fuzzy, `MODIFIED` conserve la `DomainIdentity` avec un nouvel `EntityVersionId`, et `REMOVED` ne retire que l'occurrence de la projection candidate. Un candidat `FAILED` ne modifie pas l'ancien `ACTIVE`.
 
 ## Build
 
