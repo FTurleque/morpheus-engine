@@ -1,11 +1,12 @@
 # ADR-0054 — État de synchronisation persisté, archives, invalidation et fraîcheur
 
-- Statut : **Proposée — M7**
+- Statut : **Acceptée — M7**
 - Date : 23 juillet 2026
+- Acceptée : 24 juillet 2026
 - Dépend de : ADR-0018, ADR-0021, ADR-0036, ADR-0053
 - Portée : M7, état de sync Memory/SQLite, archives, invalidation, freshness
 
-## Décision candidate
+## Décision
 
 Ajouter un port `SyncStateStore` avec parité Memory/SQLite et une migration dédiée `V008`.
 
@@ -47,6 +48,25 @@ sync_source_archives
 
 Aucun JSON métier générique.
 
-## Acceptation
+## Preuve d'acceptation
 
-À compléter après le gate local final M7.
+Gate local Windows final M7 exécuté sur le head :
+
+```text
+2e19ab104be18b98536eb871981d60e6b95e1e8c
+```
+
+Résultat :
+
+```text
+MORPHEUS Application  82/82 PASS
+Architecture Tests   139/139 PASS
+TOTAL                282/282 PASS
+Failures               0
+Errors                 0
+Skipped                0
+BUILD SUCCESS
+Finished 2026-07-24T00:22:11+02:00
+```
+
+Les preuves couvrent notamment la parité Memory/SQLite, V008, SQLite reopen, archives et rebuild pending. ADR acceptée après preuve.
