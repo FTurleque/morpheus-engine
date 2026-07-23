@@ -2,7 +2,6 @@ package com.morpheus.application.query.compact;
 
 import com.morpheus.application.query.ChangeContextResult;
 import com.morpheus.application.query.RequirementSearchPage;
-import com.morpheus.application.query.RequirementSearchQuery;
 import com.morpheus.application.query.compact.CompactQueryTypes.ChangeView;
 import com.morpheus.application.query.compact.CompactQueryTypes.ConstraintView;
 import com.morpheus.application.query.compact.CompactQueryTypes.DesignDecisionView;
@@ -56,10 +55,7 @@ public final class CompactQueryViewService {
         this.contentStore = Objects.requireNonNull(contentStore, "contentStore");
     }
 
-    public CompactRequirementSearchView requirementSearch(
-            RequirementSearchQuery query,
-            RequirementSearchPage page) {
-        Objects.requireNonNull(query, "query");
+    public CompactRequirementSearchView requirementSearch(RequirementSearchPage page) {
         Objects.requireNonNull(page, "page");
 
         Collector collector = collector(page.snapshot());
@@ -72,7 +68,7 @@ public final class CompactQueryViewService {
         return new CompactRequirementSearchView(
                 metadata("find_requirements"),
                 snapshot(page.snapshot()),
-                query.text(),
+                page.query().text(),
                 new PageMetadata(
                         page.pageRequest().offset(),
                         page.pageRequest().limit(),
