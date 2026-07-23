@@ -1,6 +1,6 @@
 # ADR-0041 — Références externes snapshot-scoped et traçabilité non résolue
 
-- Statut : **Proposée — M4**
+- Statut : **Acceptée — M4**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0005, ADR-0007, ADR-0026, ADR-0037, ADR-0038, ADR-0040
 - Portée : M4-S5, external / unresolved / broken-reference semantics
@@ -13,11 +13,11 @@ M4-S4 est intégré avec un gate `174/174 PASS`.
 M4-S4 merge = cafbc8e61a4af2ed204cd6fc24dcdd262f6ed9e4
 ```
 
-Le domaine M2 possède déjà `ExternalReference` et un resolver optionnel. M4 doit maintenant relier des entités MORPHEUS à ces références tout en conservant la preuve lorsque la cible externe est indisponible, supprimée ou sans resolver.
+Le domaine M2 possède déjà `ExternalReference` et un resolver optionnel. M4 doit relier des entités MORPHEUS à ces références tout en conservant la preuve lorsque la cible externe est indisponible, supprimée ou sans resolver.
 
-V005 persiste l'identité d'un endpoint `EXTERNAL_REFERENCE`, mais pas ses coordonnées (`system`, `project`, `resourceType`, `externalId`, `revision`). S5 doit donc rendre la référence elle-même observable après reopen SQLite.
+V005 persistait l'identité d'un endpoint `EXTERNAL_REFERENCE`, mais pas ses coordonnées (`system`, `project`, `resourceType`, `externalId`, `revision`). S5 rend donc la référence elle-même observable après reopen SQLite.
 
-## Décision candidate
+## Décision
 
 Introduire un port snapshot-scoped dédié :
 
@@ -38,13 +38,13 @@ SqliteExternalReferenceStore
 La clé logique reste `ExternalReferenceId`. Dans un snapshot donné, la même identité est immuable :
 
 ```text
-same snapshot + same id + same value      -> idempotent
+same snapshot + same id + same value       -> idempotent
 same snapshot + same id + different value -> collision explicite
 ```
 
 Le même `ExternalReferenceId` peut apparaître dans plusieurs snapshots avec un état de résolution différent.
 
-## Persistance SQLite candidate
+## Persistance SQLite
 
 Migration V006 normalisée, sans JSON générique :
 
@@ -75,13 +75,13 @@ Les attributs de `ResolvedExternalTarget` sont stockés en table clé/valeur. L'
 
 ## Lien externe canonique
 
-Ajouter un factory applicatif provider-neutral :
+Le factory applicatif provider-neutral :
 
 ```text
 ExternalTraceabilityLinkFactory
 ```
 
-Il reçoit explicitement :
+reçoit explicitement :
 
 ```text
 TraceabilityLinkId
@@ -118,7 +118,7 @@ SATISFIES
 
 `TraceabilityResolutionState` décrit l'état de résolution de l'arête au moment de l'observation.
 
-`ExternalReferenceResolutionState` décrit l'état courant/observé de la cible externe :
+`ExternalReferenceResolutionState` décrit l'état observé de la cible externe :
 
 ```text
 UNVALIDATED
@@ -127,7 +127,7 @@ RESOLVED
 STALE
 ```
 
-Projection initiale candidate :
+Projection au moment de l'observation :
 
 ```text
 UNVALIDATED -> TraceabilityResolutionState.UNRESOLVED
@@ -142,14 +142,14 @@ Une résolution ultérieure de `ExternalReference` ne mute jamais un `Traceabili
 
 ## Broken-reference semantics
 
-Ajouter une vue applicative :
+La vue applicative :
 
 ```text
 ExternalTraceabilityView
 ExternalTraceabilityQueryService
 ```
 
-La vue conserve toujours le `TraceabilityLink` canonique et expose :
+conserve toujours le `TraceabilityLink` canonique et expose :
 
 ```text
 REFERENCE_UNVALIDATED
@@ -193,9 +193,7 @@ CLI publique trace
 MCP/API
 ```
 
-## Preuves attendues
-
-Le gate S5 devra démontrer :
+## Critères d'acceptation validés
 
 1. round-trip snapshot-scoped Memory + SQLite d'un `ExternalReference` complet ;
 2. close/reopen SQLite conserve coordonnées, resolved attributes, provenance et history ;
@@ -213,4 +211,38 @@ Le gate S5 devra démontrer :
 
 ## Preuve d'acceptation
 
-À compléter uniquement après gate local complet vert.
+Gate local Windows :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+ExternalTraceabilityLinkFactoryTest      5/5 PASS
+ExternalTraceabilityContractTest         5/5 PASS
+LayerDependencyTest                      2/2 PASS
+
+Domain                                  21 tests
+Application                             66 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      57 tests
+-----------------------------------------------
+TOTAL                                  184/184 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+Total time                             16.782 s
+```
+
+Gate terminé le **23 juillet 2026 à 14:03:45 +02:00**.
+
+Warnings connus non bloquants uniquement :
+
+```text
+Xerial SQLite / JDK native-access
+SLF4J NOP dans les tests d'architecture
+```
+
+Conclusion : **ADR-0041 acceptée ; M4-S5 validé techniquement. S6 devient la porte finale de M4.**
