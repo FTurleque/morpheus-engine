@@ -7,6 +7,7 @@ import com.morpheus.domain.requirement.RequirementDeltaId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.specification.SpecificationId;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -25,21 +26,24 @@ public record RequirementLogicalRollbackRequest(
         Objects.requireNonNull(targetSnapshotId, "targetSnapshotId");
         Objects.requireNonNull(changeId, "changeId");
         deltaIdsByIdentity = Map.copyOf(Objects.requireNonNull(deltaIdsByIdentity, "deltaIdsByIdentity"));
-        specificationKeysById = Map.copyOf(Objects.requireNonNull(specificationKeysById, "specificationKeysById"));
 
         Set<RequirementDeltaId> uniqueDeltaIds = new HashSet<>(deltaIdsByIdentity.values());
         if (uniqueDeltaIds.size() != deltaIdsByIdentity.size()) {
             throw new IllegalArgumentException("rollback RequirementDeltaId values must be unique");
         }
 
+        Map<SpecificationId, String> normalizedKeys = new HashMap<>();
         Set<String> uniqueKeys = new HashSet<>();
-        for (Map.Entry<SpecificationId, String> entry : specificationKeysById.entrySet()) {
-            Objects.requireNonNull(entry.getKey(), "specificationId");
+        for (Map.Entry<SpecificationId, String> entry
+                : Objects.requireNonNull(specificationKeysById, "specificationKeysById").entrySet()) {
+            SpecificationId specificationId = Objects.requireNonNull(entry.getKey(), "specificationId");
             String key = requireNonBlank(entry.getValue(), "specificationKey");
             if (!uniqueKeys.add(key)) {
                 throw new IllegalArgumentException("rollback specification keys must map to exactly one SpecificationId: " + key);
             }
+            normalizedKeys.put(specificationId, key);
         }
+        specificationKeysById = Map.copyOf(normalizedKeys);
     }
 
     private static String requireNonBlank(String value, String name) {
