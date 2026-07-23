@@ -28,14 +28,14 @@ public final class CompactQueryTypes {
             String state,
             Optional<String> predecessorId,
             Optional<String> sourceRevision,
-            String builtAt) {
+            String createdAt) {
         public SnapshotMetadata {
             snapshotId = requireNonBlank(snapshotId, "snapshotId");
             projectId = requireNonBlank(projectId, "projectId");
             state = requireNonBlank(state, "state");
             predecessorId = normalized(predecessorId, "predecessorId");
             sourceRevision = normalized(sourceRevision, "sourceRevision");
-            builtAt = requireNonBlank(builtAt, "builtAt");
+            createdAt = requireNonBlank(createdAt, "createdAt");
         }
     }
 
