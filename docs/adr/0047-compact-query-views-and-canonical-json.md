@@ -1,6 +1,6 @@
 # ADR-0047 — Vues de requête compactes et JSON canonique déterministe
 
-- Statut : **Proposée — M5**
+- Statut : **Acceptée — M5**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0004, ADR-0009, ADR-0033, ADR-0034, ADR-0041, ADR-0042, ADR-0043, ADR-0044, ADR-0045, ADR-0046
 - Portée : M5-S5, vues compactes, warnings structurés, provenance/evidence et sérialisation JSON déterministe
@@ -16,22 +16,13 @@ M5-S3 merge = 28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73 — 210/210
 M5-S4 merge = a1be0820f16c077a33047eefb1e0deac0d5ab680 — 217/217
 ```
 
-Les queries existent, mais leurs résultats restent des objets applicatifs/métier riches. M5 doit fournir une représentation compacte stable et directement consommable par scripts/agents sans déplacer vers MORPHEUS le ranking, la fusion ou la compression globale de NEXUS.
-
-M0 a déjà fixé :
-
-```text
-compact context MORPHEUS = ADOPTÉ
-global ranking = NEXUS
-multi-engine fusion = NEXUS
-token-budget compression = NEXUS
-```
+Les queries S1-S4 exposent des objets applicatifs/métier riches. M5 doit fournir une représentation compacte stable, directement consommable par scripts et agents, sans déplacer vers MORPHEUS les responsabilités NEXUS de ranking, fusion multi-engine ou compression par budget de tokens.
 
 Le projet ne dépend d'aucune bibliothèque JSON tierce.
 
-## Décision candidate
+## Décision
 
-Introduire une couche applicative dédiée :
+Introduire la couche applicative :
 
 ```text
 com.morpheus.application.query.compact
@@ -51,7 +42,7 @@ CanonicalJsonSerializer
 
 Les DTO sont typés. Aucun objet de domaine ou de store n'est sérialisé directement.
 
-S5 stabilise trois vues couvrant les résultats les plus riches :
+S5 stabilise trois vues :
 
 ```text
 find_requirements
@@ -59,48 +50,30 @@ trace_requirement
 get_change_context
 ```
 
-Les getters/listes S3 restent sources de vérité et pourront réutiliser ces types dans les adapters futurs.
+## Rétention de la query `find_requirements`
 
-## Rétention de la query find_requirements
-
-`RequirementSearchPage` ne conservait historiquement que :
+`RequirementSearchPage` conserve désormais la `RequirementSearchQuery` normalisée ayant réellement produit la page.
 
 ```text
 snapshot
+query
 items
 pageRequest
 totalMatches
 hasMore
 ```
 
-S5 ajoute :
+`RequirementQueryService` propage toujours cette query. Un constructeur de compatibilité cinq arguments reste disponible et utilise `RequirementSearchQuery.all()` pour les callers historiques qui construisent eux-mêmes une page.
 
-```text
-RequirementSearchQuery query
-```
+La vue compacte reçoit uniquement `RequirementSearchPage`; elle ne peut donc pas être associée accidentellement à un texte de recherche différent.
 
-Le `RequirementQueryService` renseigne toujours la query normalisée ayant produit la page.
-
-Un constructeur de compatibilité 5 arguments reste disponible et utilise `RequirementSearchQuery.all()` pour les rares callers qui construisent eux-mêmes une page sans métadonnée de query.
-
-La vue compacte reçoit donc uniquement `RequirementSearchPage`; elle ne peut pas être associée accidentellement à un texte de recherche différent.
-
-## Métadonnées de query
+## Métadonnées
 
 Chaque vue contient :
 
 ```text
 schemaVersion = 1
-operation = find_requirements | trace_requirement | get_change_context
-```
-
-Le snapshot réellement utilisé est conservé ; aucun mode d'appel n'est inventé.
-
-## Snapshot et pagination
-
-La vue snapshot conserve :
-
-```text
+operation
 snapshotId
 projectId
 state
@@ -109,7 +82,7 @@ sourceRevision?
 createdAt ISO-8601
 ```
 
-`find_requirements` conserve :
+`find_requirements` conserve également :
 
 ```text
 searchText normalisé
@@ -119,17 +92,15 @@ totalMatches
 hasMore
 ```
 
-La pagination ne modifie pas la sémantique S1.
+## Identité et temporalité
 
-## DTO Requirement
-
-La compacité ne doit pas effacer la séparation identité/version :
+Le DTO `RequirementView` conserve explicitement :
 
 ```text
 id                       = RequirementId / DomainIdentity stable
 entityVersionId          = occurrence versionnée
 specificationVersionId   = version de spécification
- temporalState           = CURRENT/PROPOSED/HISTORICAL
+temporalState            = CURRENT / PROPOSED / HISTORICAL
 specificationId
 key?
 title
@@ -137,55 +108,18 @@ statement
 provenance
 ```
 
-Dans les queries S1/S4 validées, seules les occurrences `CURRENT` sont exposées, mais le champ temporel reste explicite dans le DTO.
-
-## Autres DTO métier
-
-### ChangeProposal
+La compacité ne masque donc pas :
 
 ```text
-id
-projectId
-key?
-title
-intent
-scope
-outOfScope
-risks
-provenance
+DomainIdentity != EntityVersionId
+SpecificationVersion != KnowledgeSnapshot
 ```
 
-### Constraint
+Les queries validées S1/S4 n'exposent que les occurrences `CURRENT`, mais le champ temporel reste explicite.
 
-```text
-id
-changeId
-statement
-provenance
-```
+## DTO métier
 
-### DesignDecision
-
-```text
-id
-changeId
-title
-decision
-provenance
-```
-
-### ImplementationTask
-
-```text
-id
-changeId
-key?
-title
-completed
-provenance
-```
-
-Toutes les listes sont réordonnées par identité avant exposition.
+Les vues compactes de `ChangeProposal`, `Constraint`, `DesignDecision` et `ImplementationTask` conservent leurs identités, relations métier, contenu utile et provenance. Les listes sont ordonnées de manière stable par identité.
 
 ## Provenance et evidence
 
@@ -213,7 +147,7 @@ Une réponse compacte inclut uniquement les evidence effectivement référencée
 
 Si une `EvidenceId` référencée n'existe pas dans `SnapshotBusinessContent.evidence`, la donnée métier reste visible et un warning `EVIDENCE_NOT_FOUND` est émis.
 
-L'absence complète de projection `SnapshotBusinessContent` pour un snapshot publié reste une `KnowledgeStoreException`, conformément à S3/S4.
+L'absence complète de projection `SnapshotBusinessContent` pour un snapshot publié reste une `KnowledgeStoreException`.
 
 ## Trace compacte
 
@@ -244,9 +178,7 @@ Une `BROKEN_REFERENCE` conserve l'identité portée par le lien même sans objet
 
 ## Warnings structurés
 
-S5 introduit un catalogue applicatif dédié, sans étendre le `DiagnosticCode` de domaine orienté discovery/ingestion.
-
-Format :
+S5 introduit un catalogue applicatif dédié. Le format est :
 
 ```text
 code
@@ -269,22 +201,13 @@ EXTERNAL_REFERENCE_BROKEN
 EVIDENCE_NOT_FOUND
 ```
 
-Ils sont dérivés uniquement de faits observables :
+Les warnings sont dérivés uniquement de faits observables : change absent, cible `AFFECTS` sans occurrence `CURRENT`, `ExternalTraceabilityAvailability`, evidence référencée absente. Aucune heuristique textuelle.
 
-```text
-ChangeContextResult.change empty
-AFFECTS target sans Requirement CURRENT
-ExternalTraceabilityAvailability
-EvidenceId référencée absente
-```
+Les warnings sont dédupliqués et ordonnés de façon stable. Une external reference `RESOLVED` n'émet aucun warning.
 
-Aucune heuristique textuelle.
+## JSON canonique
 
-Les warnings sont dédupliqués et triés de manière stable par code puis détails canoniques.
-
-## Sérialisation JSON
-
-`CanonicalJsonSerializer` n'introduit aucune dépendance tierce et n'accepte que le sous-ensemble nécessaire aux DTO compacts :
+`CanonicalJsonSerializer` n'introduit aucune dépendance tierce et accepte uniquement le sous-ensemble nécessaire aux DTO compacts :
 
 ```text
 record
@@ -304,7 +227,7 @@ Contrat :
 record fields = ordre de déclaration
 map keys = ordre lexicographique
 map values peuvent être null
-collections = ordre déjà canonisé du DTO
+collections = ordre canonique du DTO
 Optional.empty = null
 enum = name()
 aucun pretty-print
@@ -313,11 +236,11 @@ même DTO -> même String JSON
 même String -> mêmes octets UTF-8
 ```
 
-Un type non supporté, une clé de map non String ou un `NaN/Infinity` est rejeté explicitement.
+Un type non supporté, une clé de map non `String`, `NaN` ou `Infinity` est rejeté explicitement.
 
 Les identités, `SourceLocator` et `Instant` sont convertis en chaînes dans la projection ; le sérialiseur n'interprète jamais un objet métier.
 
-Le JSON est uniquement une vue d'exposition. Aucune payload JSON métier n'est persistée.
+Le JSON est exclusivement une vue d'exposition. Aucune payload JSON métier n'est persistée.
 
 ## Backends
 
@@ -327,26 +250,26 @@ Les résultats riches S1-S4 conservent leurs preuves backend-neutral déjà vali
 
 ## Frontières
 
-S5 ne fait pas :
+S5 n'introduit pas :
 
 ```text
+pom.xml change
+bibliothèque JSON tierce
 nouvelle table / migration SQLite
 nouvelle persistance métier
 JSON métier dans SQLite
-ORM
-nouveau backend
+store adapter change
 semantic search / embeddings
 ranking global
 fusion multi-engine
 compression par budget de tokens
-LLM
-NEXUS
+LLM / NEXUS
 MCP / API / CLI publics
 ```
 
-## Preuves attendues
+## Preuves S5
 
-Tests S5 ajoutés :
+Tests ajoutés :
 
 ```text
 CompactQueryViewContractTest           6 tests
@@ -356,35 +279,43 @@ RequirementQueryMetadataRetentionTest  1 test
 TOTAL S5                              10 tests
 ```
 
-Baseline : `217/217 PASS`.  
-Gate attendu : **227/227**.
+Le gate couvre notamment : query retenue par la page, snapshot/pagination, Memory == SQLite, SQLite reopen, identité/version/temporalité explicites, trace compacte, change context compact, provenance/evidence, evidence manquante, warnings factuels, external resolved sans warning, ordre stable, JSON byte-identical, tri des maps, valeurs null, escaping strict et rejets explicites.
 
-Le gate doit démontrer :
+## Preuve d'acceptation — 23 juillet 2026
 
-1. query `find_requirements` retenue par sa page ;
-2. query/snapshot/pagination compactes ;
-3. Memory == SQLite pour la projection compacte ;
-4. SQLite reopen ;
-5. `RequirementId != EntityVersionId` visible dans la vue ;
-6. `trace_requirement` compact et borné ;
-7. `get_change_context` conserve change/requirements/constraints/decisions/tasks ;
-8. provenance conservée ;
-9. evidence référencée incluse une seule fois et triée ;
-10. evidence manquante produit un warning sans masquer l'entité ;
-11. change absent produit `CHANGE_NOT_FOUND` ;
-12. cible AFFECTS non résolue produit un warning ;
-13. external unvalidated/unresolved/stale/broken produit les warnings attendus ;
-14. external resolved ne produit aucun warning ;
-15. warnings de sévérité `WARNING` uniquement ;
-16. ordre stable ;
-17. JSON byte-identical sur répétitions/backends ;
-18. clés de map triées ;
-19. échappement JSON strict ;
-20. types invalides / NaN / clés non String rejetés ;
-21. aucune dépendance JSON tierce ;
-22. aucune migration S5 ;
-23. `.\mvnw.cmd clean test` vert.
+Gate local Windows exécuté sur :
 
-## Preuve d'acceptation
+```text
+branch = m5/compact-query-views
+head   = 77df15e4ea5aaa93722b25d0f18f7c38214b0d9e
+.\mvnw.cmd clean test
+javac release 21
+```
 
-À compléter uniquement après gate local complet vert.
+Résultat :
+
+```text
+Domain                                  21 tests
+Application                             66 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                     100 tests
+-----------------------------------------------
+TOTAL                                  227/227 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+Total time                             19.928 s
+Finished at                 2026-07-23T20:06:21+02:00
+```
+
+Le gate confirme en particulier `RequirementQueryMetadataRetentionTest 1/1 PASS` et l'ensemble Architecture **100/100 PASS**. Les warnings Xerial SQLite/JDK native-access et SLF4J NOP restent les warnings connus, non bloquants, lorsqu'ils apparaissent.
+
+Décision finale :
+
+```text
+ADR-0047 = ACCEPTÉE — M5
+M5-S5    = VALIDÉ — 227/227
+```
