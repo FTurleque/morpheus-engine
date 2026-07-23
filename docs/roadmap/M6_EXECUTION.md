@@ -1,6 +1,6 @@
 # M6 — Plan d'exécution détaillé
 
-Statut : **M6 actif — 2/6 intégrés ; S3 implémenté, gate en attente**
+Statut : **M6 actif — 3/6 validés ; S1-S2 intégrés, S3 Ready, S4 prochain après merge**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -19,6 +19,7 @@ M6-S1 merge    = 5b0984ec7777eabb6f2d1417b4c900c08a038947
 M6-S1 gate     = 234/234 PASS
 M6-S2 merge    = 916201c724722cf9ace50d44e55d001d8faf383c
 M6-S2 gate     = 241/241 PASS
+M6-S3 gate     = 248/248 PASS
 ```
 
 Issue de pilotage : **#43**.
@@ -59,14 +60,14 @@ no LLM/semantic dependency
 ```text
 S1  ✅ requirement traceability coverage + orphan requirements — PR #44 — ADR-0048 — 234/234 — MERGED
 S2  ✅ implementation-task coverage + acceptance capability gap — PR #45 — ADR-0049 — 241/241 — MERGED
-S3  🚧 change completeness + lifecycle blocking conditions — PR #46 — ADR-0050 proposée — gate attendu 248
-S4  ⏳ design-decision justification + broken/unresolved reference quality
+S3  ✅ change completeness + lifecycle blocking conditions — PR #46 — ADR-0050 — 248/248 — READY
+S4  ⏳ design-decision justification + broken/unresolved reference quality — PROCHAIN APRÈS MERGE S3
 S5  ⏳ aggregate quality report + stable metrics/order + compact exposure
 S6  ⏳ validation finale VALIDATION_M6.md
 ```
 
 ```text
-M6 : 2 / 6 slices intégrés
+M6 : 3 / 6 slices validés
 ```
 
 ---
@@ -150,11 +151,17 @@ Finished at                2026-07-23T22:08:29+02:00
 
 ---
 
-# 7. M6-S3 — IMPLÉMENTÉ / GATE EN ATTENTE
+# 7. M6-S3 — VALIDÉ TECHNIQUEMENT / READY
 
-ADR : **ADR-0050 — Proposée — M6**  
-PR : **#46 — Draft**  
+ADR : **ADR-0050 — Acceptée — M6**  
+PR : **#46 — Ready après gate**  
 Branche : `m6/change-lifecycle-quality`
+
+Head de code testé :
+
+```text
+84f41498610af2d76236fe1e6c419a6234a5f8c9
+```
 
 ## Contrats
 
@@ -285,28 +292,21 @@ DETERMINISTIC
 blocker=<ChangeLifecycleBlocker exact>
 ```
 
-## Preuves ajoutées
-
-`ChangeLifecycleQualityContractTest` — **7 tests** :
+## Preuve
 
 ```text
-Memory == SQLite completeness
-faits tri-state exacts
-CURRENT only
-risks -> knownBlocker UNAVAILABLE
-task.completed n'infère aucun lifecycle
-0 task -> planPresent UNAVAILABLE
-PROPOSED -> SPECIFIED dérivé non évalué si faits requis indisponibles
-transition sans faits requis déléguée à M3
-faits explicites -> blockers M3 exacts
-changeId absent du snapshot rejeté
-ACTIVE default / RETIRED allowed / READY rejected
-missing ACTIVE distinct
-SQLite reopen
+ChangeLifecycleQualityContractTest       7/7 PASS
+Architecture tests                    121/121 PASS
+TOTAL                                 248/248 PASS
+Failures                                0
+Errors                                  0
+Skipped                                 0
+BUILD SUCCESS
+Total time                            20.687 s
+Finished at                2026-07-23T22:29:23+02:00
 ```
 
-Baseline : **241/241 PASS**.  
-Gate attendu : **248/248**, dont **121 tests d'architecture**.
+Warnings connus non bloquants uniquement : Xerial SQLite/JDK restricted native access et SLF4J NOP.
 
 Aucune migration, aucun store adapter, aucun provider, aucun `pom.xml` modifié.
 
@@ -325,6 +325,8 @@ external stale
 broken reference
 qualité de résolution explicite
 ```
+
+Le design devra réutiliser la persistance/lecture M4 des références externes et ne pas transformer l'absence de justification en preuve d'une mauvaise décision sans signal structurel explicite.
 
 ---
 
@@ -371,4 +373,4 @@ Répondre explicitement à la question de sortie et prouver la parité des backe
 9. issue #43 + roadmap mises à jour
 ```
 
-**Prochaine porte : gate local M6-S3 attendu 248/248.**
+**Prochaine ligne active après merge S3 : M6-S4 — design-decision justification + broken/unresolved reference quality.**
