@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 3/6 intégrés ; S4 implémenté, gate en attente**
+Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 4/6 validés ; S1/S2/S3 intégrés, S4 Ready, S5 prochain après merge**
 
 Date de dernière mise à jour : 23 juillet 2026
 
@@ -18,7 +18,7 @@ La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé pa
 | M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 tests |
 | M3 | État temporel, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 6/6, 147/147 tests |
 | M4 | Traçabilité | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 6/6, 189/189 tests |
-| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 3/6 INTÉGRÉS** | S1 196/196 merged ; S2 202/202 merged ; S3 210/210 merged ; S4 implémenté, gate attendu 217 ; issue #36 |
+| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 4/6 VALIDÉS** | S1 196/196 merged ; S2 202/202 merged ; S3 210/210 merged ; S4 217/217 Ready ; S5 prochain après merge ; issue #36 |
 | M6 | Qualité / couverture | ⏳ PLANIFIÉ | après primitives de requête |
 | M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | après snapshots stables |
 | M8 | Analyse des changements | ⏳ PLANIFIÉ | après M3/M4/M5 |
@@ -250,8 +250,8 @@ N'inclut pas : ranking global, fusion multi-engine ou compression par budget de 
 | **S1** | **`find_requirements` + pagination déterministe** | **✅ MERGED — PR #37 — ADR-0043 — 196/196** |
 | **S2** | **projection métier requêtable des autres familles** | **✅ MERGED — PR #38 — ADR-0044 — 202/202** |
 | **S3** | **getters/lists déterministes** | **✅ MERGED — PR #39 — ADR-0045 — 210/210** |
-| **S4** | **`trace_requirement` query view + `get_change_context`** | **🚧 IMPLÉMENTÉ — PR #40 Draft — ADR-0046 proposée — gate attendu 217** |
-| S5 | vues compactes + warnings/provenance + JSON déterministe | ⏳ |
+| **S4** | **`trace_requirement` query view + `get_change_context`** | **✅ VALIDÉ — PR #40 Ready — ADR-0046 — 217/217** |
+| **S5** | **vues compactes + warnings/provenance + JSON déterministe** | **⏳ PROCHAIN APRÈS MERGE S4** |
 | S6 | validation finale `VALIDATION_M5.md` | ⏳ |
 
 ### M5-S1 — intégré
@@ -277,17 +277,7 @@ SqliteSnapshotBusinessContentStore
 SQLite V007
 ```
 
-Familles snapshot-scoped :
-
-```text
-Specification
-Scenario
-ChangeProposal
-Constraint
-DesignDecision
-ImplementationTask
-Evidence / Provenance
-```
+Familles snapshot-scoped : `Specification`, `Scenario`, `ChangeProposal`, `Constraint`, `DesignDecision`, `ImplementationTask`, `Evidence / Provenance`.
 
 Gate : **202/202 PASS**.  
 ADR : **ADR-0044 — Acceptée — M5**.  
@@ -301,22 +291,13 @@ SnapshotItemResult<T>
 SnapshotPage<T>
 ```
 
-Primitives validées :
-
-```text
-activeSpecification / snapshotSpecification
-activeChange / snapshotChange
-listActiveChanges / listSnapshotChanges
-activeConstraints / snapshotConstraints
-activeDesignDecisions / snapshotDesignDecisions
-activeImplementationTasks / snapshotImplementationTasks
-```
+Primitives validées : specification, change, list changes, constraints, design decisions et implementation tasks sur ACTIVE et snapshot publié explicite.
 
 Gate : **210/210 PASS**.  
 ADR : **ADR-0045 — Acceptée — M5**.  
 Merge : `28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73`.
 
-### M5-S4 — implémenté / gate en attente
+### M5-S4 — validé techniquement
 
 ```text
 TraceRequirementQueryService
@@ -339,7 +320,7 @@ TraceabilitySubgraph borné
 ExternalTraceabilityView unresolved/broken
 ```
 
-Invariants candidats :
+Invariants prouvés :
 
 ```text
 ACTIVE by default
@@ -356,9 +337,16 @@ no V008
 no semantic/LLM/NEXUS ranking/fusion
 ```
 
-Preuves ajoutées : `ChangeContextQueryContractTest` **7 tests**.  
-Gate attendu : **217/217**.  
-ADR : **ADR-0046 — Proposée — M5**.
+Gate :
+
+```text
+ChangeContextQueryContractTest   7/7 PASS
+Architecture tests             90/90 PASS
+TOTAL                          217/217 PASS
+BUILD SUCCESS
+```
+
+ADR : **ADR-0046 — Acceptée — M5**.
 
 Vue opérationnelle : [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md).  
 Issue : **#36**.
@@ -496,4 +484,4 @@ Non engagées : génération assistée par LLM, recherche sémantique/embeddings
 7. mettre à jour roadmap + issue
 ```
 
-**Prochaine porte : gate local M5-S4 attendu 217/217.**
+**Prochaine ligne active après merge S4 : M5-S5 — vues compactes, warnings/provenance et JSON déterministe.**
