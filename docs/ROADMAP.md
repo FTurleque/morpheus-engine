@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 0/6 ; S1 en cours**
+Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 1/6 validé ; S1 Ready, S2 prochain après merge**
 
 Date de dernière mise à jour : 23 juillet 2026
 
@@ -18,7 +18,7 @@ La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé pa
 | M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 tests |
 | M3 | État temporel, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 6/6, 147/147 tests |
 | M4 | Traçabilité | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 6/6, 189/189 tests |
-| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 0/6** | S1 `find_requirements` en cours ; issue #36 |
+| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 1/6 VALIDÉ** | S1 196/196 Ready ; S2 prochain après merge ; issue #36 |
 | M6 | Qualité / couverture | ⏳ PLANIFIÉ | après primitives de requête |
 | M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | après snapshots stables |
 | M8 | Analyse des changements | ⏳ PLANIFIÉ | après M3/M4/M5 |
@@ -150,12 +150,7 @@ ExternalReference
 
 `AcceptanceCriterion` n'est créé que si une source expose une sémantique explicite.
 
-Huit slices validés ; gate final :
-
-```text
-94/94 PASS
-BUILD SUCCESS
-```
+Huit slices validés ; gate final : **94/94 PASS**.
 
 Porte : **VALIDÉE — M3 AUTORISÉE**.
 
@@ -191,7 +186,6 @@ requirement_versions
 ```
 
 Gate final : **147/147 PASS**.
-Validation : [`VALIDATION_M3.md`](VALIDATION_M3.md).
 
 ---
 
@@ -203,8 +197,6 @@ Question de sortie :
 
 **Réponse : OUI.**
 
-Six slices validés et intégrés :
-
 | Slice | Contenu | PR | ADR | Gate |
 |---|---|---|---|---|
 | S1 | `TraceabilityLink` + taxonomie | #28 | ADR-0037 | 155/155 |
@@ -213,17 +205,6 @@ Six slices validés et intégrés :
 | S4 | traversal / path | #32 | ADR-0040 | 174/174 |
 | S5 | external / unresolved / broken refs | #33 | ADR-0041 | 184/184 |
 | S6 | `trace(requirement)` | #34 | ADR-0042 | 189/189 |
-
-Merges :
-
-```text
-S1 = 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f
-S2 = 32694f2c74aa9ce4248f9eea907d85460de93eff
-S3 = 4b3bb5c79e65b8f1501b9949b49f4940294c4312
-S4 = cafbc8e61a4af2ed204cd6fc24dcdd262f6ed9e4
-S5 = e25aebf0479dfa9d1f146df4d2af0f072b551d39
-S6 = ac317eb63bbe0edb854c04660c5c143ba46e0c43
-```
 
 Validation : [`VALIDATION_M4.md`](VALIDATION_M4.md).
 
@@ -260,39 +241,60 @@ Inclut : recherche lexicale, pagination, limites, vues compactes, warnings et pr
 
 N'inclut pas : ranking global, fusion multi-engine ou compression par budget de tokens ; ces responsabilités restent NEXUS.
 
-## Plan M5
+## Progression M5
 
 | Slice | Contenu | État |
 |---|---|---|
-| **S1** | **`find_requirements` + pagination déterministe** | **🚧 EN COURS** |
-| S2 | projection métier requêtable des autres familles | ⏳ |
+| **S1** | **`find_requirements` + pagination déterministe** | **✅ VALIDÉ — PR #37 Ready — 196/196** |
+| **S2** | **projection métier requêtable des autres familles** | **▶ PROCHAIN APRÈS MERGE S1** |
 | S3 | getters/lists déterministes | ⏳ |
 | S4 | `get_current_specification` + `get_change_context` + query view de trace | ⏳ |
 | S5 | vues compactes + warnings/provenance + JSON déterministe | ⏳ |
 | S6 | validation finale `VALIDATION_M5.md` | ⏳ |
 
-Vue opérationnelle : [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md).
-Issue : **#36**.
-
-## NOW — M5-S1
+### M5-S1 validé
 
 ```text
-find_requirements
+PageRequest
+RequirementSearchQuery
+RequirementSearchPage
+RequirementQueryService
+
+findActive(...)
+findSnapshot(...)
+```
+
+Invariants prouvés :
+
+```text
 ACTIVE by default
-ACTIVE/RETIRED explicit snapshot variant
+ACTIVE/RETIRED explicit snapshot
 CURRENT only
+PROPOSED never leaks into CURRENT
 lexical key/title/statement
-case-insensitive
-AND semantics
+case-insensitive / Unicode-aware
+AND terms
 stable RequirementId ordering
 bounded offset pagination
-no semantic search
-no fuzzy matching
-no LLM/embedding
+1 <= limit <= 100
+Memory == SQLite
+SQLite reopen
+no semantic/fuzzy/LLM
 no SQLite migration
 ```
 
-ADR candidate : **ADR-0043 — Recherche lexicale déterministe et pagination des requirements**.
+Gate :
+
+```text
+RequirementQueryContractTest  7/7 PASS
+TOTAL                        196/196 PASS
+BUILD SUCCESS
+```
+
+ADR : **ADR-0043 — Acceptée — M5**.
+
+Vue opérationnelle : [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md).
+Issue : **#36**.
 
 ---
 
@@ -383,11 +385,7 @@ M11 est le jalon naturel pour prouver une image Docker officielle si justifiée.
 
 # 16. M12 — Intégration MINOS ⏳
 
-Objectif : relier intention et code sans fusionner les domaines.
-
-```text
-ExternalReference(system=MINOS, ...)
-```
+Objectif : relier intention et code sans fusionner les domaines via `ExternalReference(system=MINOS, ...)`.
 
 Périmètre : symboles, fichiers, modules, tests, Requirement → code, ChangeProposal → code, AcceptanceCriterion → tests, références non résolues conservées et indisponibilité MINOS tolérée.
 
@@ -405,16 +403,7 @@ NEXUS sélectionne, classe, fusionne et compresse le contexte global.
 
 # 18. M14 — Orchestration JARVIS ⏳
 
-MORPHEUS peut exposer :
-
-```text
-change state
-allowed transitions
-blocking conditions
-acceptance status
-unresolved references
-specification context
-```
+MORPHEUS peut exposer : change state, allowed transitions, blocking conditions, acceptance status, unresolved references et specification context.
 
 JARVIS décide de la séquence d'actions. MORPHEUS ne contient aucune logique JARVIS.
 
@@ -440,4 +429,4 @@ Non engagées : génération assistée par LLM, recherche sémantique/embeddings
 7. mettre à jour roadmap + issue
 ```
 
-**Prochaine ligne active : M5-S1 — `find_requirements` et pagination déterministe.**
+**Prochaine ligne active après merge S1 : M5-S2 — projection métier requêtable complète.**
