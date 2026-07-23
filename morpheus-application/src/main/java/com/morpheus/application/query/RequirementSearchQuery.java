@@ -26,6 +26,6 @@ public record RequirementSearchQuery(String text) {
     }
 
     static String normalize(String value) {
-        return value.trim().toLowerCase(Locale.ROOT);
+        return value.strip().toLowerCase(Locale.ROOT);
     }
 }
