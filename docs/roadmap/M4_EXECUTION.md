@@ -1,6 +1,6 @@
 # M4 — Plan d'exécution détaillé
 
-Statut : **M4 actif — 0 slice validé sur 6 ; S1 en cours**
+Statut : **M4 actif — 1 slice validé sur 6 ; S2 prochain**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -17,8 +17,8 @@ M1     ✅ validé
 M2     ✅ validé — 94/94
 M3     ✅ validé — 6/6 — 147/147
 M4     🚧 actif
-  S1   🚧 domaine TraceabilityLink + taxonomie contrôlée
-  S2   ⏳ persistance snapshot-scoped Memory + SQLite
+  S1   ✅ domaine TraceabilityLink + taxonomie contrôlée — PR #28 — ADR-0037 — 155/155
+  S2   ⏳ persistance snapshot-scoped Memory + SQLite — prochain
   S3   ⏳ dérivation déterministe depuis le modèle normalisé
   S4   ⏳ direct / inverse / traversal / path
   S5   ⏳ références externes / unresolved / broken links
@@ -29,10 +29,10 @@ M5     ⏳ bloqué par M4
 Progression :
 
 ```text
-M4 : [░░░░░░░░░░░░░░░░░░░░] 0 / 6 slices validés
+M4 : [███░░░░░░░░░░░░░░░░░] 1 / 6 slices validés
 ```
 
-Baseline d'entrée :
+Baseline d'entrée M4 :
 
 ```text
 main = 30f4ea43c55b5f6ff7cf235d0d1acc75ab4053fa
@@ -63,7 +63,7 @@ explicable
 snapshot-cohérent
 ```
 
-Chaque arête observable doit conserver :
+Chaque arête observable conserve :
 
 ```text
 relation type
@@ -100,7 +100,7 @@ aucun langage backend dans le domaine
 pas de graph database requise par le corpus MVP
 ```
 
-Ces résultats sont des preuves de faisabilité. Ils ne remplacent pas les contrats Java de production M4 et doivent être réalignés avec M3.
+Ces résultats sont des preuves de faisabilité. Ils ne remplacent pas les contrats Java de production M4 et sont réalignés avec M3.
 
 ---
 
@@ -119,13 +119,13 @@ backend details != domain
 provider facts != MORPHEUS domain
 ```
 
-M4 ne doit jamais créer une traçabilité qui permette de contourner ces frontières.
+M4 ne doit jamais créer une traçabilité qui contourne ces frontières.
 
 ---
 
-# 5. M4-S1 — Domaine et taxonomie contrôlée
+# 5. M4-S1 — VALIDÉ : Domaine et taxonomie contrôlée
 
-ADR : **ADR-0037 — Proposée — M4**.
+ADR : **ADR-0037 — Acceptée — M4**.
 
 Livrables :
 
@@ -142,28 +142,53 @@ TraceabilitySemanticClass
 TraceabilityLink
 ```
 
-Décisions :
+Décisions validées :
 
 ```text
 TraceabilityLinkId explicite
-pas d'identité dérivée d'un hash d'arête
-relation type fermé
+TraceabilityLinkId != hash(source,type,target)
+endpoint = EntityKind + DomainIdentity
+relation type fermé : 14 relations MVP
 origin != relation type
 resolution != relation type
-confidence bornée
+confidence bornée [0,1]
 heuristic => confidence obligatoire
-evidence non vide
+evidence non vide et immuable
 direction canonique
-inverse = vue de requête future
+inverse = vue de requête, pas seconde preuve
+aucune persistance/traversée en S1
 ```
 
-S1 n'introduit ni store, ni migration, ni traversal.
+Gate local Windows :
 
-Gate d'entrée : `147/147 PASS`.
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+TraceabilityLinkTest                    8/8 PASS
+LayerDependencyTest                     2/2 PASS
+
+Domain                                 21 tests
+Application                            54 tests
+OpenSpec provider                      26 tests
+Synthetic provider                      7 tests
+SQLite store                            7 tests
+Architecture tests                     40 tests
+----------------------------------------------
+TOTAL                                 155/155 PASS
+Failures                                0
+Errors                                  0
+Skipped                                 0
+BUILD SUCCESS
+```
+
+Gate terminé le **23 juillet 2026 à 12:17:43 +02:00**.
+
+Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
 
 ---
 
-# 6. M4-S2 — Persistance snapshot-scoped
+# 6. NOW — M4-S2 Persistance snapshot-scoped
 
 Objectif : stocker les liens sans mélanger deux générations de connaissance.
 
@@ -177,7 +202,7 @@ TraceabilityStore
   incoming(snapshotId, target, relationTypes?)
 ```
 
-Invariants :
+Invariants à prouver :
 
 ```text
 KnowledgeSnapshotId membership obligatoire
@@ -185,6 +210,7 @@ ACTIVE history != candidate history
 même TraceabilityLinkId ne change pas de définition silencieusement
 inverse query != duplicate persisted edge
 Memory == SQLite contract
+snapshot A links != snapshot B links
 ```
 
 Le schéma SQLite sera décidé uniquement après le contrat Java. Une migration V005 est autorisée si elle matérialise exactement ce contrat.
@@ -215,13 +241,11 @@ pas de LLM
 pas d'inférence de Task -> Requirement sans fait source
 ```
 
-Toute dérivation doit conserver l'evidence qui la justifie.
+Toute dérivation conserve l'evidence qui la justifie.
 
 ---
 
 # 8. M4-S4 — Traversée
-
-Objectif : fournir le moteur de navigation backend-neutral.
 
 Capacités :
 
@@ -244,13 +268,11 @@ path conserve chaque arête réelle
 transitivity policy != traversal permission
 ```
 
-Le fait qu'un chemin traverse A -> B -> C ne crée jamais implicitement une arête A -> C.
+Un chemin A -> B -> C ne crée jamais implicitement une arête A -> C.
 
 ---
 
 # 9. M4-S5 — Références externes et liens non résolus
-
-Objectif : relier MORPHEUS à des cibles qu'il ne possède pas sans dépendance cross-engine.
 
 Relations prioritaires :
 
@@ -325,12 +347,12 @@ S6 crée `docs/VALIDATION_M4.md` et répond à la question de sortie.
 
 | Condition | État | Slice |
 |---|---|---|
-| `TraceabilityLink` first-class | 🚧 | S1 |
-| taxonomie contrôlée | 🚧 | S1 |
-| identité de lien explicite | 🚧 | S1 |
-| direction canonique | 🚧 | S1 |
-| origin/resolution/confidence séparés | 🚧 | S1 |
-| evidence obligatoire | 🚧 | S1 |
+| `TraceabilityLink` first-class | ✅ | S1 |
+| taxonomie contrôlée | ✅ | S1 |
+| identité de lien explicite | ✅ | S1 |
+| direction canonique | ✅ | S1 |
+| origin/resolution/confidence séparés | ✅ | S1 |
+| evidence obligatoire | ✅ | S1 |
 | persistance snapshot-scoped | ⬜ | S2 |
 | Memory/SQLite même contrat | ⬜ | S2 |
 | dérivation déterministe | ⬜ | S3 |
