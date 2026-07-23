@@ -3,6 +3,7 @@ package com.morpheus.application.sync;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
@@ -33,7 +34,7 @@ public final class LocalSourceWatcher implements AutoCloseable {
         try {
             for (Path root : roots) {
                 Path resolved = resolveWithin(this.workspaceRoot, root);
-                if (!Files.isDirectory(resolved)) {
+                if (!Files.isDirectory(resolved, LinkOption.NOFOLLOW_LINKS)) {
                     throw new IOException("watched root is not a directory: " + root);
                 }
                 registerRecursively(resolved);
@@ -110,7 +111,8 @@ public final class LocalSourceWatcher implements AutoCloseable {
             try {
                 SourcePath sourcePath = new SourcePath(workspaceRoot.relativize(absolute).toString());
                 signals.add(new SourceWatchSignal(toKind(kind), java.util.Optional.of(sourcePath)));
-                if (kind == StandardWatchEventKinds.ENTRY_CREATE && Files.isDirectory(absolute)) {
+                if (kind == StandardWatchEventKinds.ENTRY_CREATE
+                        && Files.isDirectory(absolute, LinkOption.NOFOLLOW_LINKS)) {
                     registerRecursively(absolute);
                 }
             } catch (IOException | RuntimeException exception) {
@@ -126,7 +128,10 @@ public final class LocalSourceWatcher implements AutoCloseable {
 
     private void registerRecursively(Path root) throws IOException {
         try (var stream = Files.walk(root)) {
-            for (Path directory : stream.filter(Files::isDirectory).sorted().toList()) {
+            for (Path directory : stream
+                    .filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+                    .sorted()
+                    .toList()) {
                 WatchKey key = directory.register(
                         watchService,
                         StandardWatchEventKinds.ENTRY_CREATE,
