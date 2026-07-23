@@ -1,6 +1,6 @@
 # M4 — Plan d'exécution détaillé
 
-Statut : **M4 actif — 1 slice validé sur 6 ; S2 prochain**
+Statut : **M4 actif — 2 slices validés sur 6 ; S3 prochain**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -18,8 +18,8 @@ M2     ✅ validé — 94/94
 M3     ✅ validé — 6/6 — 147/147
 M4     🚧 actif
   S1   ✅ domaine TraceabilityLink + taxonomie contrôlée — PR #28 — ADR-0037 — 155/155
-  S2   ⏳ persistance snapshot-scoped Memory + SQLite — prochain
-  S3   ⏳ dérivation déterministe depuis le modèle normalisé
+  S2   ✅ persistance snapshot-scoped Memory + SQLite — PR #29 — ADR-0038 — 160/160
+  S3   ⏳ dérivation déterministe depuis le modèle normalisé — prochain
   S4   ⏳ direct / inverse / traversal / path
   S5   ⏳ références externes / unresolved / broken links
   S6   ⏳ validation finale trace(requirement)
@@ -29,7 +29,7 @@ M5     ⏳ bloqué par M4
 Progression :
 
 ```text
-M4 : [███░░░░░░░░░░░░░░░░░] 1 / 6 slices validés
+M4 : [███████░░░░░░░░░░░░░] 2 / 6 slices validés
 ```
 
 Baseline d'entrée M4 :
@@ -38,6 +38,13 @@ Baseline d'entrée M4 :
 main = 30f4ea43c55b5f6ff7cf235d0d1acc75ab4053fa
 147/147 PASS
 BUILD SUCCESS
+```
+
+Dernière baseline intégrée :
+
+```text
+M4-S1 merge = 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f
+M4-S1 gate  = 155/155 PASS
 ```
 
 ---
@@ -123,9 +130,17 @@ M4 ne doit jamais créer une traçabilité qui contourne ces frontières.
 
 ---
 
-# 5. M4-S1 — VALIDÉ : Domaine et taxonomie contrôlée
+# 5. M4-S1 — VALIDÉ ET INTÉGRÉ : Domaine et taxonomie contrôlée
 
 ADR : **ADR-0037 — Acceptée — M4**.
+
+PR : **#28 — merged**.
+
+Merge :
+
+```text
+07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f
+```
 
 Livrables :
 
@@ -188,36 +203,93 @@ Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
 
 ---
 
-# 6. NOW — M4-S2 Persistance snapshot-scoped
+# 6. M4-S2 — VALIDÉ TECHNIQUEMENT : Persistance snapshot-scoped
 
-Objectif : stocker les liens sans mélanger deux générations de connaissance.
+ADR : **ADR-0038 — Acceptée — M4**.
 
-Contrat cible :
+PR : **#29 — Ready après gate ; merge en attente de signal explicite**.
+
+Contrat :
 
 ```text
 TraceabilityStore
   putLink(snapshotId, link)
   findLink(snapshotId, linkId)
-  outgoing(snapshotId, source, relationTypes?)
-  incoming(snapshotId, target, relationTypes?)
+  outgoing(snapshotId, source, relationTypes)
+  incoming(snapshotId, target, relationTypes)
 ```
 
-Invariants à prouver :
+Adapters :
+
+```text
+MemoryTraceabilityStore
+SqliteTraceabilityStore
+```
+
+Invariants validés :
 
 ```text
 KnowledgeSnapshotId membership obligatoire
-ACTIVE history != candidate history
-même TraceabilityLinkId ne change pas de définition silencieusement
+link definition != snapshot membership
+same TraceabilityLinkId + same definition = idempotent
+same TraceabilityLinkId + different definition = collision
+snapshot A links != snapshot B links
+candidate snapshot autorisé
+empty relation filter = all relations
+outgoing/incoming déterministes
 inverse query != duplicate persisted edge
 Memory == SQLite contract
-snapshot A links != snapshot B links
 ```
 
-Le schéma SQLite sera décidé uniquement après le contrat Java. Une migration V005 est autorisée si elle matérialise exactement ce contrat.
+Migration SQLite V005 :
+
+```text
+traceability_links
+traceability_link_evidence
+snapshot_traceability_links
+```
+
+Propriétés :
+
+```text
+schema normalisé
+aucun JSON générique
+foreign keys snapshot/link explicites
+index source / target / membership
+replay idempotent
+ledger = 5 migrations immuables
+```
+
+Preuve contractuelle :
+
+```text
+TraceabilityPersistenceContractTest     5/5 PASS
+LayerDependencyTest                     2/2 PASS
+
+Domain                                 21 tests
+Application                            54 tests
+OpenSpec provider                      26 tests
+Synthetic provider                      7 tests
+SQLite store                            7 tests
+Architecture tests                     45 tests
+----------------------------------------------
+TOTAL                                 160/160 PASS
+Failures                                0
+Errors                                  0
+Skipped                                 0
+BUILD SUCCESS
+Total time                            17.136 s
+```
+
+Gate terminé le **23 juillet 2026 à 12:47:46 +02:00**.
+
+Le close/reopen SQLite conserve définition, evidence et memberships multi-snapshot.
+
+Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
 
 ---
 
-# 7. M4-S3 — Dérivation déterministe
+# 7. NOW — M4-S3 Dérivation déterministe
 
 Objectif : transformer uniquement les relations déjà prouvées dans le modèle normalisé en liens explicables.
 
@@ -242,6 +314,8 @@ pas d'inférence de Task -> Requirement sans fait source
 ```
 
 Toute dérivation conserve l'evidence qui la justifie.
+
+S3 devra décider explicitement comment produire les `TraceabilityLinkId` des liens dérivés sans contredire ADR-0037 : aucune identité cachée par hash d'arête et aucune fusion heuristique.
 
 ---
 
@@ -353,8 +427,9 @@ S6 crée `docs/VALIDATION_M4.md` et répond à la question de sortie.
 | direction canonique | ✅ | S1 |
 | origin/resolution/confidence séparés | ✅ | S1 |
 | evidence obligatoire | ✅ | S1 |
-| persistance snapshot-scoped | ⬜ | S2 |
-| Memory/SQLite même contrat | ⬜ | S2 |
+| persistance snapshot-scoped | ✅ | S2 |
+| Memory/SQLite même contrat | ✅ | S2 |
+| migration V005 normalisée / reopen | ✅ | S2 |
 | dérivation déterministe | ⬜ | S3 |
 | aucun fuzzy matching | ⬜ | S3 |
 | outgoing/incoming | ⬜ | S4 |
