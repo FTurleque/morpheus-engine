@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 4/6 validés ; S1/S2/S3 intégrés, S4 Ready, S5 prochain après merge**
+Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 4/6 intégrés ; S5 implémenté, gate en attente**
 
 Date de dernière mise à jour : 23 juillet 2026
 
@@ -18,7 +18,7 @@ La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé pa
 | M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 tests |
 | M3 | État temporel, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 6/6, 147/147 tests |
 | M4 | Traçabilité | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 6/6, 189/189 tests |
-| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 4/6 VALIDÉS** | S1 196/196 merged ; S2 202/202 merged ; S3 210/210 merged ; S4 217/217 Ready ; S5 prochain après merge ; issue #36 |
+| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 4/6 INTÉGRÉS** | S1 196/196 merged ; S2 202/202 merged ; S3 210/210 merged ; S4 217/217 merged ; S5 implémenté, gate attendu 227 ; issue #36 |
 | M6 | Qualité / couverture | ⏳ PLANIFIÉ | après primitives de requête |
 | M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | après snapshots stables |
 | M8 | Analyse des changements | ⏳ PLANIFIÉ | après M3/M4/M5 |
@@ -239,7 +239,7 @@ get_change_context
 
 `get_acceptance_criteria` reste conditionnel à l'existence future d'une sémantique explicite ; aucun `Scenario` n'est transformé artificiellement en `AcceptanceCriterion`.
 
-Inclut : recherche lexicale, pagination, limites, vues compactes, warnings et provenance.
+Inclut : recherche lexicale, pagination, limites, vues compactes, warnings, provenance/evidence et JSON déterministe.
 
 N'inclut pas : ranking global, fusion multi-engine ou compression par budget de tokens ; ces responsabilités restent NEXUS.
 
@@ -250,8 +250,8 @@ N'inclut pas : ranking global, fusion multi-engine ou compression par budget de 
 | **S1** | **`find_requirements` + pagination déterministe** | **✅ MERGED — PR #37 — ADR-0043 — 196/196** |
 | **S2** | **projection métier requêtable des autres familles** | **✅ MERGED — PR #38 — ADR-0044 — 202/202** |
 | **S3** | **getters/lists déterministes** | **✅ MERGED — PR #39 — ADR-0045 — 210/210** |
-| **S4** | **`trace_requirement` query view + `get_change_context`** | **✅ VALIDÉ — PR #40 Ready — ADR-0046 — 217/217** |
-| **S5** | **vues compactes + warnings/provenance + JSON déterministe** | **⏳ PROCHAIN APRÈS MERGE S4** |
+| **S4** | **`trace_requirement` query view + `get_change_context`** | **✅ MERGED — PR #40 — ADR-0046 — 217/217** |
+| **S5** | **vues compactes + warnings/provenance + JSON déterministe** | **🚧 IMPLÉMENTÉ — PR #41 Draft — ADR-0047 proposée — gate attendu 227** |
 | S6 | validation finale `VALIDATION_M5.md` | ⏳ |
 
 ### M5-S1 — intégré
@@ -297,7 +297,7 @@ Gate : **210/210 PASS**.
 ADR : **ADR-0045 — Acceptée — M5**.  
 Merge : `28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73`.
 
-### M5-S4 — validé techniquement
+### M5-S4 — intégré
 
 ```text
 TraceRequirementQueryService
@@ -320,33 +320,55 @@ TraceabilitySubgraph borné
 ExternalTraceabilityView unresolved/broken
 ```
 
-Invariants prouvés :
+Invariants prouvés : ACTIVE par défaut, ACTIVE/RETIRED explicite, CURRENT only, cible AFFECTS cassée conservée, traversal borné/cycle-safe, Memory == SQLite, reopen SQLite, aucun V008 et aucune dépendance semantic/LLM/NEXUS.
+
+Gate : **217/217 PASS**.  
+ADR : **ADR-0046 — Acceptée — M5**.  
+Merge : `a1be0820f16c077a33047eefb1e0deac0d5ab680`.
+
+### M5-S5 — implémenté / gate en attente
 
 ```text
-ACTIVE by default
-ACTIVE/RETIRED explicit only
-no ACTIVE != change not found
-CURRENT only / PROPOSED excluded
-AFFECTS direct only
-broken AFFECTS target retained
-bounded deterministic cycle-safe traversal
-relation filter shapes trace view only
-Memory == SQLite
-SQLite reopen
-no V008
-no semantic/LLM/NEXUS ranking/fusion
+CompactQueryTypes
+CompactRequirementSearchView
+CompactTraceRequirementView
+CompactChangeContextView
+CompactQueryViewService
+CompactWarningCode
+CanonicalJsonSerializer
 ```
 
-Gate :
+Vues couvertes :
 
 ```text
-ChangeContextQueryContractTest   7/7 PASS
-Architecture tests             90/90 PASS
-TOTAL                          217/217 PASS
-BUILD SUCCESS
+find_requirements
+trace_requirement
+get_change_context
 ```
 
-ADR : **ADR-0046 — Acceptée — M5**.
+`RequirementSearchPage` conserve désormais la query normalisée qui l'a produite. La vue compacte expose : métadonnées query/snapshot/pagination, identités/version/temporalité explicites, provenance, evidence référencée uniquement et warnings structurés.
+
+Warnings :
+
+```text
+CHANGE_NOT_FOUND
+AFFECTED_REQUIREMENT_UNRESOLVED
+EXTERNAL_REFERENCE_UNVALIDATED
+EXTERNAL_REFERENCE_UNRESOLVED
+EXTERNAL_REFERENCE_STALE
+EXTERNAL_REFERENCE_BROKEN
+EVIDENCE_NOT_FOUND
+```
+
+Le JSON canonique est sans dépendance tierce : ordre des champs de record stable, clés de map triées, échappement strict, `Optional.empty = null`, nombres non finis rejetés et même DTO => mêmes octets UTF-8.
+
+Preuves ajoutées : **10 tests**.  
+Baseline : **217/217**.  
+Gate attendu : **227/227**, dont **100 tests d'architecture**.
+
+Aucun `pom.xml`, aucune migration SQLite et aucun adapter de store ne sont modifiés par S5.
+
+ADR : **ADR-0047 — Proposée — M5**.
 
 Vue opérationnelle : [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md).  
 Issue : **#36**.
@@ -484,4 +506,4 @@ Non engagées : génération assistée par LLM, recherche sémantique/embeddings
 7. mettre à jour roadmap + issue
 ```
 
-**Prochaine ligne active après merge S4 : M5-S5 — vues compactes, warnings/provenance et JSON déterministe.**
+**Prochaine porte : gate local M5-S5 attendu 227/227.**
