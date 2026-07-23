@@ -1,6 +1,6 @@
 # ADR-0040 — Traversée bornée et déterministe de la traçabilité
 
-- Statut : **Proposée — M4**
+- Statut : **Acceptée — M4**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0005, ADR-0010, ADR-0037, ADR-0038, ADR-0039
 - Portée : M4-S4, requêtes directes, traversal et findPath
@@ -16,9 +16,9 @@ M4-S3 merge = 4b3bb5c79e65b8f1501b9949b49f4940294c4312
 M4-S3 gate  = 167/167 PASS
 ```
 
-S4 doit rendre les liens navigables sans introduire de backend graphe, sans matérialiser d'arêtes inverses et sans transformer une traversée en nouvelle preuve sémantique.
+S4 rend les liens navigables sans introduire de backend graphe, sans matérialiser d'arêtes inverses et sans transformer une traversée en nouvelle preuve sémantique.
 
-## Décision candidate
+## Décision
 
 Ajouter un service applicatif provider/store-neutral au-dessus de `TraceabilityStore.outgoing/incoming` :
 
@@ -165,9 +165,21 @@ graph database
 
 Les références externes/unresolved restent S5.
 
+## Preuves S4
+
+`TraceabilityTraversalContractTest` apporte **7 tests** :
+
+1. direct/inverse/bidirectional conservent l'arête canonique persistée ;
+2. traversal borné cycle-safe et aucune arête transitive synthétique ;
+3. `findPath` choisit un plus court chemin déterministe ;
+4. filtres relationnels respectés sur traversal/path ;
+5. `maxDepth <= 0` rejeté ;
+6. isolation stricte entre snapshots ;
+7. Memory et SQLite produisent exactement le même subgraph/path.
+
 ## Critères d'acceptation
 
-ADR-0040 pourra passer à **Acceptée — M4** lorsque le gate local démontre :
+Les critères sont validés :
 
 1. `maxDepth > 0` obligatoire ;
 2. OUTGOING / INCOMING / BIDIRECTIONAL explicites ;
@@ -178,11 +190,44 @@ ADR-0040 pourra passer à **Acceptée — M4** lorsque le gate local démontre :
 7. incoming/bidirectional ne créent aucune seconde arête ;
 8. `findPath` retourne un plus court chemin déterministe ;
 9. chaque step conserve le `TraceabilityLink` réel et son sens de parcours ;
-10. aucun lien transitive synthétique n'est produit ;
+10. aucun lien transitif synthétique n'est produit ;
 11. Memory et SQLite exposent les mêmes résultats ;
 12. aucune migration SQLite S4 ;
 13. `\.\mvnw.cmd clean test` est vert.
 
 ## Preuve d'acceptation
 
-À compléter uniquement après gate local complet vert.
+Gate local Windows :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+TraceabilityTraversalContractTest      7/7 PASS
+LayerDependencyTest                    2/2 PASS
+
+Domain                                21 tests
+Application                           61 tests
+OpenSpec provider                     26 tests
+Synthetic provider                     7 tests
+SQLite store                           7 tests
+Architecture tests                    52 tests
+---------------------------------------------
+TOTAL                                174/174 PASS
+Failures                               0
+Errors                                 0
+Skipped                                0
+BUILD SUCCESS
+Total time                           15.256 s
+```
+
+Gate terminé le **23 juillet 2026 à 13:26:39 +02:00**.
+
+Warnings connus et non bloquants uniquement :
+
+```text
+Xerial SQLite / JDK native-access
+SLF4J NOP dans les tests d'architecture
+```
+
+Conclusion : **ADR-0040 acceptée ; M4-S4 validé techniquement. M4-S5 devient le prochain slice.**
