@@ -1,16 +1,22 @@
 # Validation M7 — Synchronisation incrémentale et fraîcheur
 
-Statut : **CANDIDAT — gate local final en attente**
+Statut : **VALIDÉ — intégration finale portée par PR #51**
 
-Date : 23 juillet 2026
+Date : 24 juillet 2026
 
 ## Question de sortie
 
 > **MORPHEUS peut-il détecter de façon déterministe les changements de sources locales, appliquer une stratégie incrémentale fiable, conserver archives et état de synchronisation, exposer une fraîcheur explicable et basculer vers un full rebuild dès que la sûreté de l'incrémental n'est plus démontrable ?**
 
-## Réponse candidate
+## Réponse
 
-**OUI, sous réserve du gate local final M7.**
+**OUI.**
+
+Le gate local Windows final a validé le head exécutable exact :
+
+```text
+2e19ab104be18b98536eb871981d60e6b95e1e8c
+```
 
 ## Baseline
 
@@ -19,13 +25,14 @@ M6 final merge = 904058251829b0ae39b34cd9da25c2b8918851a6
 M6 final gate  = 261/261 PASS
 ```
 
-## Capacités M7 implémentées
+## Capacités M7 validées
 
 ```text
 SourcePath canonique relatif
 SourceFingerprint SHA-256 bytes
 LocalSourceInventoryScanner
 scan complet ou explicitement incomplet
+mutation pendant hash détectée
 SourceInventory + sourceRevision opaque
 SourceInventoryDiffer
 ADDED / MODIFIED / DELETED / MOVED / UNCHANGED
@@ -39,9 +46,12 @@ MemorySyncStateStore
 SqliteSyncStateStore
 V008 sync state/source inventory/source archives
 IncrementalSyncService prepare/complete/fail
+baseline persistée seulement après succès
 LocalSourceWatcher récursif
+watcher sans suivi de symlink
 WatchService OVERFLOW => FULL_REBUILD
 SyncFreshness UNKNOWN/FRESH/STALE/REBUILD_REQUIRED
+Memory == SQLite
 SQLite reopen
 ```
 
@@ -93,39 +103,52 @@ sync_source_archives
 
 Aucun JSON métier générique.
 
-## Preuves ajoutées
+## Preuves
 
-### Application — 16 tests
+### Application — 82/82 PASS
+
+Le module Application contient notamment les 16 tests M7 :
 
 ```text
-SourceSynchronizationCoreTest          14
-SyncReliabilityFallbackTest             2
+SourceSynchronizationCoreTest          14/14
+SyncReliabilityFallbackTest             2/2
 ```
 
 Preuves : path canonicalization, SHA-256, source-root selection, scan incomplete, diff complet, move unique/ambigu, initial full rebuild, incremental invalidation/archive, revision inconsistency/loss, watcher overflow, execution failure, freshness, WatchService event, revision opaque, baseline inconsistency.
 
-### Architecture — 5 tests
+### Architecture — 139/139 PASS
 
-```text
-IncrementalSyncPersistenceContractTest  5
-```
-
-Preuves : Memory == SQLite, baseline/archives/freshness parity, SQLite reopen, pending rebuild reopen, successful full rebuild clears pending state, unknown project rejected.
+Les 5 tests `IncrementalSyncPersistenceContractTest` valident : Memory == SQLite, baseline/archives/freshness parity, SQLite reopen, pending rebuild reopen, successful full rebuild clears pending state, unknown project rejected.
 
 ### SQLite migration
 
-`SqliteSchemaMigrationTest` reste à 4 tests et valide désormais V008, 8 ledger entries, tables/indexes M7 et absence de colonne JSON.
+`SqliteSchemaMigrationTest` reste à 4 tests et valide V008, 8 ledger entries, tables/indexes M7 et absence de colonne JSON.
 
-## Gate attendu
-
-Baseline M6 : `261/261`.
-
-Nouveaux tests M7 : `21`.
+## Gate final officiel
 
 ```text
-MORPHEUS Application       attendu : 82 tests
-Architecture Tests         attendu : 139 tests
-TOTAL                      attendu : 282/282
+MORPHEUS Domain          21/21 PASS
+MORPHEUS Application     82/82 PASS
+OpenSpec Provider        26/26 PASS
+Synthetic Provider        7/7 PASS
+SQLite Store              7/7 PASS
+Architecture Tests      139/139 PASS
+
+TOTAL                   282/282 PASS
+Failures                   0
+Errors                     0
+Skipped                    0
+BUILD SUCCESS
+Total time               21.141 s
+Finished 2026-07-24T00:22:11+02:00
 ```
 
-La réponse de sortie ne devient définitive qu'après `BUILD SUCCESS` sur `./mvnw clean test` / `.\mvnw.cmd clean test`.
+Les warnings Xerial SQLite native-access et SLF4J NOP observés restent connus et non bloquants ; aucun test n'échoue.
+
+## Décision finale
+
+**M7 satisfait sa question de sortie.**
+
+MORPHEUS dispose désormais d'une stratégie de synchronisation incrémentale locale déterministe, persistante et conservatrice. Lorsqu'il ne peut plus démontrer la sûreté d'une mise à jour incrémentale, il expose la raison et impose un `FULL_REBUILD` plutôt que de fabriquer une continuité.
+
+M7 est **VALIDÉ**. Son intégration finale est portée par la PR #51 ; M8 devient le prochain jalon après merge.
