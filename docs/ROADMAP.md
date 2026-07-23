@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 autorisé / prochain**
+Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 0/6 ; S1 en cours**
 
 Date de dernière mise à jour : 23 juillet 2026
 
@@ -17,11 +17,11 @@ La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé pa
 | M1 | Discovery, providers et fondation store | ✅ VALIDÉ | `VALIDATION_M1.md`, 42/42 tests |
 | M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 tests |
 | M3 | État temporel, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 6/6, 147/147 tests |
-| **M4** | **Traçabilité** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M4.md`, 6/6, 189/189 tests, PR #34 |
-| **M5** | **Requêtes et contexte compact** | **▶ AUTORISÉ / PROCHAIN** | démarrer après clôture M4 |
+| M4 | Traçabilité | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 6/6, 189/189 tests |
+| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 0/6** | S1 `find_requirements` en cours ; issue #36 |
 | M6 | Qualité / couverture | ⏳ PLANIFIÉ | après primitives de requête |
 | M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | après snapshots stables |
-| M8 | Analyse des changements | ⏳ PLANIFIÉ | après M3/M4 |
+| M8 | Analyse des changements | ⏳ PLANIFIÉ | après M3/M4/M5 |
 | M9 | CLI stabilisée et distribution native | ⏳ PLANIFIÉ | après cœur fonctionnel |
 | M10 | MCP | ⏳ PLANIFIÉ | natif stdio d'abord |
 | M11 | API / headless | ⏳ PLANIFIÉ | Docker officiel si justifié |
@@ -40,6 +40,7 @@ Références :
 - [`roadmap/M2_EXECUTION.md`](roadmap/M2_EXECUTION.md)
 - [`roadmap/M3_EXECUTION.md`](roadmap/M3_EXECUTION.md)
 - [`roadmap/M4_EXECUTION.md`](roadmap/M4_EXECUTION.md)
+- [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md)
 - [`roadmap/DEPLOYMENT.md`](roadmap/DEPLOYMENT.md)
 - [`adr/README.md`](adr/README.md)
 
@@ -54,7 +55,7 @@ Implémenter après
 Prouver avant de valider
 ```
 
-Et :
+Responsabilités :
 
 ```text
 OpenSpec-first, not OpenSpec-locked
@@ -80,27 +81,7 @@ APPLY != PROMOTE != ACTIVATE
 
 # 3. C0 — Cadrage fonctionnel et architectural ✅
 
-## Objectif
-
-Définir précisément ce que MORPHEUS doit fournir avant le développement fonctionnel.
-
-## Livré
-
-- cahier des charges ;
-- position dans l'écosystème ;
-- périmètre MVP ;
-- modèle de domaine ;
-- cycle de vie des changements ;
-- cas d'usage prioritaires ;
-- stratégie `SpecificationProvider` ;
-- négociation de capacités ;
-- stratégie `SpecificationKnowledgeStore` ;
-- stratégie d'identité ;
-- snapshots/versionnement ;
-- modèle de traçabilité ;
-- critères de validation ;
-- ADR structurantes ;
-- matrice d'expérimentation M0.
+Cadrage fonctionnel, modèle de domaine, providers, store, snapshots, identité, traçabilité, critères de validation et ADR structurantes établis.
 
 Porte : **VALIDÉE**.
 
@@ -108,13 +89,28 @@ Porte : **VALIDÉE**.
 
 # 4. M0 — Faisabilité technique ✅
 
-## Objectif
+Preuves E01 à E14 validées, notamment :
 
-Valider les choix structurants par expérimentation réelle.
+```text
+provider detection / domain mapping
+stable identity / UUIDv7
+current reconstruction / lifecycle
+knowledge snapshots / retention
+traceability / Memory + SQLite
+graph DB NOT_NEEDED_FOR_MVP
+lexical search PASS
+compact context PASS
+external references PASS
+```
 
-Preuves principales : provider detection, domain mapping, stable identity, current reconstruction, change lifecycle, knowledge snapshots, traceability, Memory/SQLite, lexical search, incremental inventory, diagnostics, compact context et external references.
+Décisions M5 héritées de M0 :
 
-Décision structurante : **graph DB non requise pour le MVP**.
+```text
+lexical search déterministe = ADOPTÉ
+semantic search = NOT_REQUIRED_FOR_MVP
+compact context MORPHEUS = ADOPTÉ
+global ranking / multi-engine fusion / token compression = NEXUS
+```
 
 Porte : **VALIDÉE — ADOPTER AVEC CONTRAINTES**.
 
@@ -122,30 +118,7 @@ Porte : **VALIDÉE — ADOPTER AVEC CONTRAINTES**.
 
 # 5. M1 — Discovery, providers et fondation store ✅
 
-## Objectif
-
-Détecter les sources de spécification et sélectionner un provider compatible de manière déterministe.
-
-Livré :
-
-```text
-registre local des projets
-workspace discovery explicit-first
-SpecificationProviderRegistry
-probes/capabilities
-required/preferred capabilities
-local-first
-remote opt-in
-diagnostics structurés
-provider OpenSpec read-only
-SourceLocator provider-neutral
-UUIDv7
-Memory store
-SQLite + migrations V001/V002/V003
-architecture tests
-```
-
-Preuve :
+Livré : discovery explicit-first, provider registry/capabilities, OpenSpec read-only, diagnostics, UUIDv7, Memory store, SQLite et migrations de fondation.
 
 ```text
 42/42 PASS
@@ -157,10 +130,6 @@ Porte : **VALIDÉE — M2 AUTORISÉE**.
 ---
 
 # 6. M2 — Ingestion et modèle normalisé ✅
-
-## Objectif
-
-Transformer les sources supportées en concepts MORPHEUS indépendants du provider.
 
 Domaine stabilisé :
 
@@ -179,38 +148,12 @@ Provenance
 ExternalReference
 ```
 
-`AcceptanceCriterion` reste un concept cible uniquement lorsqu'une source expose une sémantique explicite.
+`AcceptanceCriterion` n'est créé que si une source expose une sémantique explicite.
 
-## Huit slices validés
-
-| Slice | Contenu | PR | ADR | Gate |
-|---|---|---|---|---|
-| S1 | domaine courant + provenance/evidence | #10 | ADR-0022 | 48/48 |
-| S2 | identité persistante provider-scoped | #11 | ADR-0023 | 58/58 |
-| S3 | change / constraint / decision / task | #12 | ADR-0024 | 64/64 |
-| S4 | requirement deltas | #13 | ADR-0025 | 70/70 |
-| S5 | ExternalReference + résolution optionnelle | #15 | ADR-0026 | 76/76 |
-| S6 | lecture unifiée + partiel + diagnostics | #17 | ADR-0028 | 84/84 |
-| S7 | second provider anti-lock-in | #18 | ADR-0029 | 94/94 |
-| S8 | audit final + frontière persistance | #19 | ADR-0030 | 94/94 |
-
-Contrat de lecture :
-
-```text
-SpecificationProvider.probe()
-        !=
-SpecificationContentReader.read()
-```
-
-Le second provider synthétique reste `verification-only` et n'a nécessité aucune modification du domaine ou de l'application.
-
-Preuve finale :
+Huit slices validés ; gate final :
 
 ```text
 94/94 PASS
-Failures = 0
-Errors   = 0
-Skipped  = 0
 BUILD SUCCESS
 ```
 
@@ -220,33 +163,19 @@ Porte : **VALIDÉE — M3 AUTORISÉE**.
 
 # 7. M3 — État temporel, lifecycle, snapshots et versions ✅
 
-## Question de sortie
+Question de sortie :
 
 > **MORPHEUS peut-il publier et requêter un état `CURRENT` cohérent tout en conservant séparément les propositions, l'historique et les changements en cours, sans jamais exposer un snapshot partiellement construit ?**
 
 **Réponse : OUI.**
 
-## Six slices validés et intégrés
-
-| Slice | Contenu | PR | ADR | Gate |
-|---|---|---|---|---|
-| S1 | `TemporalState` + `SpecificationVersion` + `EntityVersionId` | #21 | ADR-0031 | 103/103 |
-| S2 | `ChangeLifecycleState` explicite | #22 | ADR-0032 | 119/119 |
-| S3 | lifecycle complet `KnowledgeSnapshot` + activation atomique | #23 | ADR-0033 | 127/127 |
-| S4 | persistance métier versionnée `Requirement` | #24 | ADR-0034 | 134/134 |
-| S5 | application / promotion explicites des `RequirementDelta` | #25 | ADR-0035 | 142/142 |
-| S6 | historique publié / comparaison / rollback logique / rétention | #26 | ADR-0036 | 147/147 |
-
-Invariants :
+Six slices validés et intégrés ; invariants :
 
 ```text
 DomainIdentity != EntityVersionId
 SpecificationVersion != KnowledgeSnapshot
 CURRENT / PROPOSED / HISTORICAL explicites
 PROPOSED never leaks into CURRENT
-COMPLETED != CURRENT
-COMPLETED != promotion
-COMPLETED != activation
 BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
                          \-> FAILED
 published history = RETIRED* -> ACTIVE
@@ -261,42 +190,29 @@ snapshot_specification_versions
 requirement_versions
 ```
 
-Preuve finale :
-
-```text
-147/147 PASS
-Failures = 0
-Errors   = 0
-Skipped  = 0
-BUILD SUCCESS
-```
-
+Gate final : **147/147 PASS**.
 Validation : [`VALIDATION_M3.md`](VALIDATION_M3.md).
-
-Merge final M3 : PR #26 — `30f4ea43c55b5f6ff7cf235d0d1acc75ab4053fa`.
-
-Porte : **VALIDÉE — M4 AUTORISÉE**.
 
 ---
 
 # 8. M4 — Traçabilité ✅
 
-## Question de sortie
+Question de sortie :
 
 > **MORPHEUS peut-il relier les éléments d'intention/specification par des relations typées, directionnelles et explicables, conserver les liens non résolus, puis produire un sous-graphe borné et déterministe sans dépendre d'un backend graphe ?**
 
 **Réponse : OUI.**
 
-## Six slices validés et intégrés
+Six slices validés et intégrés :
 
-| Slice | Contenu | PR | ADR | Gate | État |
-|---|---|---|---|---|---|
-| S1 | domaine `TraceabilityLink` + taxonomie contrôlée | #28 | ADR-0037 | 155/155 | ✅ MERGED |
-| S2 | persistance snapshot-scoped Memory + SQLite | #29 | ADR-0038 | 160/160 | ✅ MERGED |
-| S3 | dérivation déterministe depuis `NormalizedProjectContent` | #31 | ADR-0039 | 167/167 | ✅ MERGED |
-| S4 | direct / inverse / traversal / path | #32 | ADR-0040 | 174/174 | ✅ MERGED |
-| S5 | external / unresolved / broken-reference semantics | #33 | ADR-0041 | 184/184 | ✅ MERGED |
-| S6 | validation finale `trace(requirement)` | #34 | ADR-0042 | 189/189 | ✅ MERGED |
+| Slice | Contenu | PR | ADR | Gate |
+|---|---|---|---|---|
+| S1 | `TraceabilityLink` + taxonomie | #28 | ADR-0037 | 155/155 |
+| S2 | persistance snapshot-scoped | #29 | ADR-0038 | 160/160 |
+| S3 | dérivation déterministe | #31 | ADR-0039 | 167/167 |
+| S4 | traversal / path | #32 | ADR-0040 | 174/174 |
+| S5 | external / unresolved / broken refs | #33 | ADR-0041 | 184/184 |
+| S6 | `trace(requirement)` | #34 | ADR-0042 | 189/189 |
 
 Merges :
 
@@ -309,132 +225,23 @@ S5 = e25aebf0479dfa9d1f146df4d2af0f072b551d39
 S6 = ac317eb63bbe0edb854c04660c5c143ba46e0c43
 ```
 
-## Modèle et persistance
-
-```text
-TraceabilityLink first-class
-14 relations contrôlées
-direction canonique
-origin / resolution / confidence séparés
-evidence obligatoire
-snapshot-scoped
-Memory == SQLite
-```
-
-SQLite V005 :
-
-```text
-traceability_links
-traceability_link_evidence
-snapshot_traceability_links
-```
-
-SQLite V006 :
-
-```text
-snapshot_external_references
-snapshot_external_reference_attributes
-snapshot_external_reference_history
-```
-
-## Dérivation
-
-```text
-Requirement -> Specification        DERIVES_FROM
-Scenario -> Requirement             REFINES
-Constraint -> Change                CONSTRAINS
-Change -> DesignDecision            DECIDED_BY
-Change -> Requirement               AFFECTS
-```
-
-Aucun fuzzy matching, LLM/embedding ou identité de lien cachée n'est requis.
-
-## Traversal
-
-```text
-OUTGOING / INCOMING / BIDIRECTIONAL
-maxDepth > 0
-BFS borné
-cycle-safe
-ordre déterministe
-relation filters
-shortest path déterministe
-inverse query != seconde arête persistée
-traversal != transitivity
-```
-
-## Références externes
-
-```text
-UNRESOLVED reste visible
-STALE reste explicable
-BROKEN_REFERENCE reste visible
-TraceabilityResolutionState != ExternalReferenceResolutionState
-resolver externe != mutation du lien canonique
-MINOS indisponible != MORPHEUS indisponible
-```
-
-## Porte finale
-
-```text
-TraceRequirementService.traceActive(...)
-TraceRequirementService.traceSnapshot(...)
-```
-
-Règles :
-
-```text
-ACTIVE courant uniquement via traceActive
-ACTIVE/RETIRED explicites via traceSnapshot
-snapshots non publiés rejetés
-CURRENT requirement obligatoire
-racine REQUIREMENT + RequirementId.value
-BIDIRECTIONAL
-Memory == SQLite
-SQLite reopen conserve la vue finale
-```
-
-Scénario final :
-
-```text
-Scenario -> Requirement               REFINES
-Change -> Requirement                 AFFECTS
-Constraint -> Change                  CONSTRAINS
-Change -> DesignDecision              DECIDED_BY
-DesignDecision -> Specification       profondeur 3
-DesignDecision -> Change              cycle réel
-Requirement -> ExternalReference      UNRESOLVED
-Requirement -> ExternalReference      BROKEN_REFERENCE
-```
-
-Preuve finale :
-
-```text
-TraceRequirementFinalValidationTest  5/5 PASS
-TOTAL                              189/189 PASS
-Failures                            0
-Errors                              0
-Skipped                             0
-BUILD SUCCESS
-```
-
-Gate final : **23 juillet 2026 à 14:57:23 +02:00**.
-
-Merge final : PR #34 — `ac317eb63bbe0edb854c04660c5c143ba46e0c43`.
-
 Validation : [`VALIDATION_M4.md`](VALIDATION_M4.md).
 
 Porte : **VALIDÉE — M5 AUTORISÉ**.
 
 ---
 
-# 9. M5 — Requêtes et contexte compact ▶
+# 9. M5 — Requêtes et contexte compact 🚧
+
+## Question de sortie
+
+> **MORPHEUS peut-il exposer des requêtes métier déterministes, snapshot-cohérentes et bornées, puis produire un contexte compact avec provenance et warnings sans dépendre d'un moteur sémantique, d'un LLM ou de NEXUS ?**
 
 ## Objectif
 
-Rendre MORPHEUS directement interrogeable par humains, scripts et agents.
+Rendre MORPHEUS directement interrogeable par humains, scripts et agents au moyen de contrats applicatifs stables et provider/backend-neutral.
 
-Primitives prévues :
+Primitives cibles :
 
 ```text
 get_current_specification
@@ -449,19 +256,55 @@ trace_requirement
 get_change_context
 ```
 
-Inclut : recherche lexicale, pagination, limites, JSON compact, warnings et provenance.
+Inclut : recherche lexicale, pagination, limites, vues compactes, warnings et provenance.
+
+N'inclut pas : ranking global, fusion multi-engine ou compression par budget de tokens ; ces responsabilités restent NEXUS.
+
+## Plan M5
+
+| Slice | Contenu | État |
+|---|---|---|
+| **S1** | **`find_requirements` + pagination déterministe** | **🚧 EN COURS** |
+| S2 | projection métier requêtable des autres familles | ⏳ |
+| S3 | getters/lists déterministes | ⏳ |
+| S4 | `get_current_specification` + `get_change_context` + query view de trace | ⏳ |
+| S5 | vues compactes + warnings/provenance + JSON déterministe | ⏳ |
+| S6 | validation finale `VALIDATION_M5.md` | ⏳ |
+
+Vue opérationnelle : [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md).
+Issue : **#36**.
+
+## NOW — M5-S1
+
+```text
+find_requirements
+ACTIVE by default
+ACTIVE/RETIRED explicit snapshot variant
+CURRENT only
+lexical key/title/statement
+case-insensitive
+AND semantics
+stable RequirementId ordering
+bounded offset pagination
+no semantic search
+no fuzzy matching
+no LLM/embedding
+no SQLite migration
+```
+
+ADR candidate : **ADR-0043 — Recherche lexicale déterministe et pagination des requirements**.
 
 ---
 
 # 10. M6 — Qualité et couverture ⏳
 
-À détecter : requirements orphelins, tâches sans requirement, critères d'acceptation non reliés/non vérifiés, changements incomplets, décisions sans justification, références cassées, couverture de traçabilité, blocages de transition et distinction déterministe/heuristique.
+Détecter : requirements orphelins, tâches sans requirement, critères non reliés/non vérifiés, changements incomplets, décisions sans justification, références cassées, couverture de traçabilité, blocages de transition et distinction déterministe/heuristique.
 
 ---
 
 # 11. M7 — Synchronisation incrémentale et fraîcheur ⏳
 
-Périmètre : empreintes, source revisions, fichiers ajoutés/modifiés/supprimés, mouvements/renommages, archives, `INCREMENTAL_READ`, invalidation, watcher local, changement de format/version, fallback full rebuild et métriques de fraîcheur.
+Périmètre : fingerprints, source revisions, ajouts/modifications/suppressions, mouvements/renommages, archives, `INCREMENTAL_READ`, invalidation, watcher local, changement de format/version, fallback full rebuild et métriques de fraîcheur.
 
 Invariant : **la fiabilité prime ; en cas de doute, full rebuild.**
 
@@ -499,7 +342,7 @@ morpheus inspect
 morpheus health
 ```
 
-Distribution selon ADR-0027 : native-first, archive portable, runtime Java embarqué à prouver, jlink/jpackage à évaluer, Windows + Linux.
+Distribution : native-first, archive portable, runtime Java embarqué à prouver, jlink/jpackage à évaluer, Windows + Linux.
 
 ---
 
@@ -579,7 +422,7 @@ JARVIS décide de la séquence d'actions. MORPHEUS ne contient aucune logique JA
 
 # 19. Explorations futures
 
-Non engagées dans la roadmap principale : génération assistée par LLM, recherche sémantique/embeddings, contradictions avancées, trackers externes, éditeur visuel, collaboration temps réel, providers distants, composition multi-provider de production, fédération multi-projets, event sourcing complet, conformité automatique code ↔ spécification et mutations orchestrées par agents.
+Non engagées : génération assistée par LLM, recherche sémantique/embeddings, contradictions avancées, trackers externes, éditeur visuel, collaboration temps réel, providers distants, composition multi-provider de production, fédération multi-projets, event sourcing complet, conformité automatique code ↔ spécification et mutations orchestrées par agents.
 
 ---
 
@@ -594,7 +437,7 @@ Non engagées dans la roadmap principale : génération assistée par LLM, reche
 4. exécuter .\mvnw.cmd clean test
 5. accepter l'ADR uniquement après preuve
 6. merger seulement après signal explicite
-7. mettre à jour ce tableau de bord
+7. mettre à jour roadmap + issue
 ```
 
-**Prochaine ligne active : M5 — Requêtes et contexte compact.**
+**Prochaine ligne active : M5-S1 — `find_requirements` et pagination déterministe.**
