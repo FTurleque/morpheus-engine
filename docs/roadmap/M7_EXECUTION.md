@@ -1,8 +1,8 @@
 # M7 — Plan d'exécution détaillé
 
-Statut : **M7 actif — implémentation intégrale terminée ; gate local final en attente**
+Statut : **M7 VALIDÉ — intégration finale portée par PR #51**
 
-Dernière mise à jour : 23 juillet 2026
+Dernière mise à jour : 24 juillet 2026
 
 Base :
 
@@ -12,14 +12,22 @@ M6 final gate  = 261/261 PASS
 ```
 
 Issue : **#50**  
-PR : **#51 Draft**  
+PR : **#51**  
 Branche : `m7/incremental-sync-freshness`
+
+Head exécutable validé :
+
+```text
+2e19ab104be18b98536eb871981d60e6b95e1e8c
+```
 
 ## Question de sortie
 
 > **MORPHEUS peut-il détecter de façon déterministe les changements de sources locales, appliquer une stratégie incrémentale fiable, conserver archives et état de synchronisation, exposer une fraîcheur explicable et basculer vers un full rebuild dès que la sûreté de l'incrémental n'est plus démontrable ?**
 
-## Contrats implémentés
+**Réponse : OUI.**
+
+## Contrats validés
 
 ```text
 SourcePath
@@ -126,7 +134,7 @@ CREATE / MODIFY / DELETE => rescan
 OVERFLOW => FULL_REBUILD
 ```
 
-Le watcher n'est jamais la source de vérité ; le scanner SHA-256 l'est.
+Le watcher ne suit pas les symlinks pour enregistrer des répertoires et n'est jamais la source de vérité ; le scanner SHA-256 l'est.
 
 ## Fraîcheur
 
@@ -142,33 +150,42 @@ Calcul avec `now` et `maxAge` fournis explicitement. Aucun clock read caché.
 ## ADR
 
 ```text
-ADR-0053 — Proposée — source inventory/diff
-ADR-0054 — Proposée — persisted state/archive/freshness
-ADR-0055 — Proposée — watcher/fallback
+ADR-0053 — Acceptée — source inventory/diff
+ADR-0054 — Acceptée — persisted state/archive/freshness
+ADR-0055 — Acceptée — watcher/fallback
 ```
 
-Elles restent proposées jusqu'au gate final M7.
+Acceptées après gate local final M7.
 
 ## Preuves
 
-Nouveaux tests : **21**.
+Nouveaux tests M7 : **21**.
 
 ```text
-SourceSynchronizationCoreTest              14
-SyncReliabilityFallbackTest                  2
-IncrementalSyncPersistenceContractTest       5
+SourceSynchronizationCoreTest              14/14
+SyncReliabilityFallbackTest                  2/2
+IncrementalSyncPersistenceContractTest       5/5
 ```
 
-`SqliteSchemaMigrationTest` conserve 4 tests mais valide maintenant V008 et 8 migrations immuables.
+`SqliteSchemaMigrationTest` conserve 4 tests et valide V008 et 8 migrations immuables.
 
-Baseline M6 : **261/261**.
-
-Gate attendu M7 :
+## Gate final officiel
 
 ```text
-MORPHEUS Application  82 tests
-Architecture Tests   139 tests
-TOTAL                282/282 PASS
+MORPHEUS Domain          21/21 PASS
+MORPHEUS Application     82/82 PASS
+OpenSpec Provider        26/26 PASS
+Synthetic Provider        7/7 PASS
+SQLite Store              7/7 PASS
+Architecture Tests      139/139 PASS
+
+TOTAL                   282/282 PASS
+Failures                   0
+Errors                     0
+Skipped                    0
+BUILD SUCCESS
+Total time               21.141 s
+Finished 2026-07-24T00:22:11+02:00
 ```
 
 ## Invariants finaux
@@ -197,8 +214,11 @@ no fuzzy rename
 
 ## Porte finale
 
+Gate local Windows : **PASS**.
+
 ```text
-.\mvnw.cmd clean test
+282/282 PASS
+Architecture 139/139 PASS
 ```
 
-Candidat attendu : **282/282 PASS**, architecture **139/139 PASS**.
+M7 est **VALIDÉ**. Après intégration de PR #51, l'issue #50 peut être clôturée et M8 devient le prochain jalon.
