@@ -73,6 +73,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -98,16 +99,16 @@ class ChangeContextQueryContractTest {
         TraceRequirementResult direct = new TraceRequirementService(snapshots, snapshots, traceability, references)
                 .traceActive(fixture.projectId(), fixture.requirementOneId(), 2, Set.of())
                 .orElseThrow();
-        TraceRequirementResult queryView = new TraceRequirementQueryService(snapshots, snapshots, traceability, references)
+        TraceRequirementQueryService query = new TraceRequirementQueryService(
+                snapshots, snapshots, traceability, references);
+        TraceRequirementResult queryView = query
                 .active(fixture.projectId(), fixture.requirementOneId(), 2, Set.of())
                 .orElseThrow();
 
         assertEquals(direct, queryView);
         assertEquals(
                 direct,
-                new TraceRequirementQueryService(snapshots, snapshots, traceability, references)
-                        .snapshot(fixture.snapshotId(), fixture.requirementOneId(), 2, Set.of())
-                        .orElseThrow());
+                query.snapshot(fixture.snapshotId(), fixture.requirementOneId(), 2, Set.of()).orElseThrow());
     }
 
     @Test
@@ -156,7 +157,7 @@ class ChangeContextQueryContractTest {
 
         assertEquals(3, result.affectedRequirementLinks().size());
         assertEquals(
-                List.of(fixture.requirementOneId(), fixture.requirementTwoId()),
+                Stream.of(fixture.requirementOneId(), fixture.requirementTwoId()).sorted().toList(),
                 result.affectedRequirements().stream()
                         .map(record -> record.entityVersion().content().id())
                         .toList());
@@ -193,7 +194,14 @@ class ChangeContextQueryContractTest {
                 Optional.of(fixture.versionId())));
         snapshots.bindSnapshotVersion(new SnapshotSpecificationVersionBinding(successorId, successorVersionId));
         content.putSnapshotContent(successorContent);
-        putCurrentRequirements(snapshots, successorId, successorVersionId, fixture, "successor");
+        putCurrentRequirements(
+                snapshots,
+                successorId,
+                successorVersionId,
+                fixture,
+                EntityVersionId.generate(),
+                EntityVersionId.generate(),
+                "successor");
         traceability.putLink(successorId, internalLink(
                 TraceabilityLinkId.generate(), fixture.changeRef(), TraceabilityRelationType.AFFECTS,
                 fixture.requirementOneRef(), fixture.evidenceId(), T0.plusSeconds(51)));
@@ -334,12 +342,20 @@ class ChangeContextQueryContractTest {
         requirements.bindSnapshotVersion(new SnapshotSpecificationVersionBinding(
                 fixture.snapshotId(), fixture.versionId()));
         content.putSnapshotContent(fixture.content());
-        putCurrentRequirements(requirements, fixture.snapshotId(), fixture.versionId(), fixture, "active");
+        putCurrentRequirements(
+                requirements,
+                fixture.snapshotId(),
+                fixture.versionId(),
+                fixture,
+                fixture.requirementOneCurrentVersionId(),
+                fixture.requirementTwoCurrentVersionId(),
+                "active");
         requirements.putRequirementVersion(requirementVersion(
                 fixture.snapshotId(),
                 fixture.versionId(),
-                EntityVersionId.generate(),
+                fixture.requirementOneProposedVersionId(),
                 fixture.requirementOneId(),
+                fixture.specificationId(),
                 "PROPOSED requirement one",
                 TemporalState.PROPOSED,
                 fixture.evidenceId()));
@@ -400,20 +416,24 @@ class ChangeContextQueryContractTest {
             KnowledgeSnapshotId snapshotId,
             SpecificationVersionId versionId,
             Fixture fixture,
+            EntityVersionId firstVersionId,
+            EntityVersionId secondVersionId,
             String suffix) {
         requirements.putRequirementVersion(requirementVersion(
                 snapshotId,
                 versionId,
-                EntityVersionId.generate(),
+                firstVersionId,
                 fixture.requirementOneId(),
+                fixture.specificationId(),
                 "CURRENT requirement one " + suffix,
                 TemporalState.CURRENT,
                 fixture.evidenceId()));
         requirements.putRequirementVersion(requirementVersion(
                 snapshotId,
                 versionId,
-                EntityVersionId.generate(),
+                secondVersionId,
                 fixture.requirementTwoId(),
+                fixture.specificationId(),
                 "CURRENT requirement two " + suffix,
                 TemporalState.CURRENT,
                 fixture.evidenceId()));
@@ -424,12 +444,13 @@ class ChangeContextQueryContractTest {
             SpecificationVersionId versionId,
             EntityVersionId entityVersionId,
             RequirementId requirementId,
+            SpecificationId specificationId,
             String statement,
             TemporalState temporalState,
             EvidenceId evidenceId) {
         Requirement requirement = new Requirement(
                 requirementId,
-                SpecificationId.parse(requirementId.value().toString()),
+                specificationId,
                 Optional.of("REQ-" + requirementId),
                 "Requirement " + requirementId,
                 statement,
@@ -572,6 +593,9 @@ class ChangeContextQueryContractTest {
             RequirementId requirementOneId,
             RequirementId requirementTwoId,
             RequirementId missingRequirementId,
+            EntityVersionId requirementOneCurrentVersionId,
+            EntityVersionId requirementTwoCurrentVersionId,
+            EntityVersionId requirementOneProposedVersionId,
             EvidenceId evidenceId,
             ChangeProposal change,
             Constraint constraint,
@@ -604,6 +628,9 @@ class ChangeContextQueryContractTest {
             RequirementId requirementOneId = RequirementId.generate();
             RequirementId requirementTwoId = RequirementId.generate();
             RequirementId missingRequirementId = RequirementId.generate();
+            EntityVersionId requirementOneCurrentVersionId = EntityVersionId.generate();
+            EntityVersionId requirementTwoCurrentVersionId = EntityVersionId.generate();
+            EntityVersionId requirementOneProposedVersionId = EntityVersionId.generate();
             EvidenceId evidenceId = EvidenceId.generate();
             Provenance provenance = new Provenance(
                     new ProviderId("m5-s4-test"),
@@ -660,6 +687,9 @@ class ChangeContextQueryContractTest {
                     requirementOneId,
                     requirementTwoId,
                     missingRequirementId,
+                    requirementOneCurrentVersionId,
+                    requirementTwoCurrentVersionId,
+                    requirementOneProposedVersionId,
                     evidenceId,
                     change,
                     constraint,
