@@ -1,6 +1,6 @@
 # M5 — Plan d'exécution détaillé
 
-Statut : **M5 actif — 2/6 validés ; S2 Ready, S3 prochain après intégration**
+Statut : **M5 actif — 2/6 intégrés ; S3 implémenté, gate en attente**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -18,6 +18,8 @@ M4 final docs merge = d4a4c9f4816e42a8629d2f41cfe22703f53f210a
 
 M5-S1 merge = 92b1321a0e23553641ea5dbe1f1c25c0acc874e3
 M5-S1 gate  = 196/196 PASS
+M5-S2 merge = 3a39371518d9d327ea4cbee0994da65b218ec64c
+M5-S2 gate  = 202/202 PASS
 ```
 
 Issue de pilotage : **#36**.
@@ -61,6 +63,7 @@ RETIRED = historique explicite
 Requirement persistence = versioned / snapshot-owned
 Traceability = snapshot-scoped
 trace(requirement) = bounded deterministic subgraph
+Scenario != AcceptanceCriterion
 ```
 
 M0 a déjà validé :
@@ -80,15 +83,15 @@ token-budget compression = NEXUS
 
 ```text
 S1  ✅ find_requirements + pagination déterministe — PR #37 — ADR-0043 — 196/196 — MERGED
-S2  ✅ projection métier requêtable snapshot-scoped — PR #38 — ADR-0044 — 202/202 — READY
-S3  ⏳ getters/lists déterministes — PROCHAIN APRÈS MERGE S2
-S4  ⏳ get_current_specification + get_change_context + query view trace
+S2  ✅ projection métier requêtable snapshot-scoped — PR #38 — ADR-0044 — 202/202 — MERGED
+S3  🚧 getters/lists déterministes — PR #39 — ADR-0045 proposée — gate attendu 210
+S4  ⏳ get_change_context + query view trace
 S5  ⏳ vues compactes + warnings/provenance + JSON déterministe
 S6  ⏳ validation finale VALIDATION_M5.md
 ```
 
 ```text
-M5 : 2 / 6 slices validés
+M5 : 2 / 6 slices intégrés
 ```
 
 ---
@@ -111,39 +114,15 @@ findActive(...)
 findSnapshot(...)
 ```
 
-Sémantique validée :
-
-```text
-ACTIVE by default
-ACTIVE/RETIRED explicit snapshot
-CURRENT only
-PROPOSED never leaks into CURRENT
-lexical key/title/statement
-Unicode-aware / Locale.ROOT
-AND terms
-stable RequirementId ordering
-bounded offset pagination
-1 <= limit <= 100
-Memory == SQLite
-SQLite reopen
-no semantic/fuzzy/LLM
-```
-
 Gate : **196/196 PASS**.
 
 ---
 
-# 6. M5-S2 — VALIDÉ TECHNIQUEMENT
+# 6. M5-S2 — INTÉGRÉ
 
 ADR : **ADR-0044 — Acceptée — M5**  
-PR : **#38 — Ready après gate**  
-Branche : `m5/snapshot-business-content`
-
-Head de code testé :
-
-```text
-2740b5ae907ba5a33415ba2070cd01b7e3b43154
-```
+PR : **#38 — MERGED**  
+Merge : `3a39371518d9d327ea4cbee0994da65b218ec64c`
 
 Contrats :
 
@@ -166,97 +145,70 @@ ImplementationTask
 Evidence / Provenance
 ```
 
-`Requirement` reste dans `VersionedRequirementStore`.
-
-Invariants validés :
-
-```text
-KnowledgeSnapshotId ownership explicite
-SpecificationVersionId binding explicite
-DomainIdentity stable
-aucun faux TemporalState / EntityVersionId
-0 ou 1 projection complète par snapshot
-idempotence exacte
-mutation/collision rejetée
-provenance -> evidence obligatoire
-Change -> Constraint/Decision/Task validé
-Scenario.requirementId conservé
-ordre top-level canonique
-ordre des listes métier conservé
-Memory == SQLite
-SQLite close/reopen
-```
-
-SQLite V007 :
-
-```text
-snapshot_business_content
-snapshot_evidence
-snapshot_specifications
-snapshot_scenarios
-snapshot_scenario_preconditions
-snapshot_changes
-snapshot_change_scope
-snapshot_change_out_of_scope
-snapshot_change_risks
-snapshot_constraints
-snapshot_design_decisions
-snapshot_implementation_tasks
-```
-
-Les listes sont normalisées avec `ordinal`; aucune payload JSON métier générique.
-
-Gate local Windows :
-
-```text
-Domain                                  21 tests
-Application                             66 tests
-OpenSpec provider                       26 tests
-Synthetic provider                       7 tests
-SQLite store                             7 tests
-Architecture tests                      75 tests
------------------------------------------------
-TOTAL                                  202/202 PASS
-Failures                                 0
-Errors                                   0
-Skipped                                  0
-BUILD SUCCESS
-Total time                             16.347 s
-Finished at                 2026-07-23T17:52:59+02:00
-```
+SQLite V007 normalisée sans payload JSON métier.  
+Gate : **202/202 PASS**.
 
 ---
 
-# 7. M5-S3 — PROCHAIN APRÈS MERGE S2
+# 7. M5-S3 — IMPLÉMENTÉ / GATE EN ATTENTE
 
-Objectif : exposer les getters et listes déterministes au-dessus des sources de vérité S1/S2.
+ADR : **ADR-0045 — Proposée — M5**  
+PR : **#39 — Draft**  
+Branche : `m5/deterministic-business-queries`
+
+Contrats :
+
+```text
+BusinessContentQueryService
+SnapshotItemResult<T>
+SnapshotPage<T>
+```
 
 Primitives :
 
 ```text
-get_current_specification
-get_change
-list_changes
-get_constraints
-get_acceptance_criteria (uniquement si sémantique explicite disponible)
-get_design_decisions
-get_implementation_tasks
+activeSpecification / snapshotSpecification
+activeChange / snapshotChange
+listActiveChanges / listSnapshotChanges
+activeConstraints / snapshotConstraints
+activeDesignDecisions / snapshotDesignDecisions
+activeImplementationTasks / snapshotImplementationTasks
 ```
 
-Règles :
+Sémantique :
 
 ```text
 ACTIVE by default
-published snapshot explicit variant where meaningful
-stable ordering
-bounded lists
+snapshot explicit = ACTIVE/RETIRED only
+no ACTIVE != entity not found
 not-found explicit
+published snapshot without S2 projection = error
+stable ordering by domain identity
+pagination after filtering + ordering
+PageRequest reused from S1
+offset >= 0
+1 <= limit <= 100
 provider-neutral
 backend-neutral
-AcceptanceCriterion jamais inventé à partir de Scenario
+no new persistence
+no V008
 ```
 
-S3 ne doit pas introduire une seconde persistance ; il doit requêter les stores existants.
+`get_current_specification` est adressé par `SpecificationId` car un projet peut contenir plusieurs spécifications.
+
+`AcceptanceCriterion` n'est pas exposé en S3 : aucune sémantique explicite n'existe dans le domaine et aucun `Scenario` n'est converti artificiellement.
+
+Preuves ajoutées : **8 tests** :
+
+```text
+BusinessContentQueryContractTest         7 tests
+BusinessContentQueryBackendParityTest    1 test
+```
+
+Ils couvrent ACTIVE, RETIRED, READY rejeté, not-found, absence d'ACTIVE, projection manquante, pagination/ordre, filtrage par ChangeId, parité Memory/SQLite, reopen SQLite et absence d'AcceptanceCriterion synthétique.
+
+Baseline : `202/202 PASS`.  
+Gate attendu : **210/210**.
 
 ---
 
@@ -345,8 +297,8 @@ no semantic/LLM/NEXUS dependency
 | Memory/SQLite même contrat complet | ✅ | S2 |
 | close/reopen SQLite familles métier | ✅ | S2 |
 | V007 normalisée sans JSON métier | ✅ | S2 |
-| getters/lists déterministes | ⬜ | S3 |
-| AcceptanceCriterion non inventé | ⬜ | S3 |
+| getters/lists déterministes | 🚧 gate S3 | S3 |
+| AcceptanceCriterion non inventé | 🚧 gate S3 | S3 |
 | `trace_requirement` query view | ⬜ | S4 |
 | `get_change_context` | ⬜ | S4 |
 | compact DTOs | ⬜ | S5 |
@@ -389,4 +341,4 @@ MINOS production code resolution            -> M12
 9. issue #36 + roadmap mises à jour
 ```
 
-**Prochaine ligne active après merge S2 : M5-S3 — getters et listes déterministes.**
+**Prochaine porte : gate local M5-S3 attendu 210/210.**
