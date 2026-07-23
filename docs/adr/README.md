@@ -55,6 +55,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0035](0035-explicit-requirement-delta-application-and-promotion.md) | Application, promotion et activation explicites des `RequirementDelta` | **Acceptée — M3** |
 | [ADR-0036](0036-published-history-comparison-and-logical-rollback.md) | Historique publié, comparaison et rollback logique | **Acceptée — M3** |
 | [ADR-0037](0037-traceability-domain-and-controlled-taxonomy.md) | Domaine `TraceabilityLink` et taxonomie contrôlée | **Acceptée — M4** |
+| [ADR-0038](0038-snapshot-scoped-traceability-persistence.md) | Persistance de traçabilité snapshot-scoped Memory + SQLite | **Acceptée — M4** |
 
 ---
 
@@ -95,6 +96,7 @@ M3 est validée et intégrée. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3
 | Slice | ADR | Preuve |
 |---|---|---|
 | M4-S1 domaine `TraceabilityLink` + taxonomie contrôlée | ADR-0037 | `155/155 PASS` |
+| M4-S2 persistance snapshot-scoped Memory + SQLite | ADR-0038 | `160/160 PASS` |
 
 La vue opérationnelle M4 est [`../roadmap/M4_EXECUTION.md`](../roadmap/M4_EXECUTION.md).
 La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
@@ -195,6 +197,20 @@ evidence obligatoire
 inverse view != persisted duplicate link
 ```
 
+## Persistance de traçabilité M4-S2
+
+```text
+TraceabilityLink definition != KnowledgeSnapshot membership
+snapshot membership obligatoire
+same TraceabilityLinkId + different definition = collision
+snapshot A links != snapshot B links
+Memory == SQLite contract
+V005 = traceability_links + traceability_link_evidence + snapshot_traceability_links
+outgoing/incoming snapshot-scoped et déterministes
+aucun JSON générique
+SQLite reopen conserve liens/evidence/memberships
+```
+
 ## Build
 
 Gate obligatoire :
@@ -206,10 +222,10 @@ Unix    : ./mvnw clean test
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
-Dernier gate M4-S1 :
+Dernier gate M4-S2 :
 
 ```text
-155/155 PASS
+160/160 PASS
 Failures 0
 Errors   0
 Skipped  0
