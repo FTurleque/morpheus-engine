@@ -17,7 +17,7 @@ La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé pa
 | M1 | Discovery, providers et fondation store | ✅ VALIDÉ | `VALIDATION_M1.md`, 42/42 tests |
 | M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 tests |
 | M3 | État temporel, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 6/6, 147/147 tests |
-| **M4** | **Traçabilité** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M4.md`, 6/6, 189/189 tests |
+| **M4** | **Traçabilité** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M4.md`, 6/6, 189/189 tests, PR #34 |
 | **M5** | **Requêtes et contexte compact** | **▶ AUTORISÉ / PROCHAIN** | démarrer après clôture M4 |
 | M6 | Qualité / couverture | ⏳ PLANIFIÉ | après primitives de requête |
 | M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | après snapshots stables |
@@ -287,7 +287,7 @@ Porte : **VALIDÉE — M4 AUTORISÉE**.
 
 **Réponse : OUI.**
 
-## Six slices validés
+## Six slices validés et intégrés
 
 | Slice | Contenu | PR | ADR | Gate | État |
 |---|---|---|---|---|---|
@@ -296,7 +296,18 @@ Porte : **VALIDÉE — M4 AUTORISÉE**.
 | S3 | dérivation déterministe depuis `NormalizedProjectContent` | #31 | ADR-0039 | 167/167 | ✅ MERGED |
 | S4 | direct / inverse / traversal / path | #32 | ADR-0040 | 174/174 | ✅ MERGED |
 | S5 | external / unresolved / broken-reference semantics | #33 | ADR-0041 | 184/184 | ✅ MERGED |
-| S6 | validation finale `trace(requirement)` | #34 | ADR-0042 | 189/189 | ✅ VALIDÉ / merge final |
+| S6 | validation finale `trace(requirement)` | #34 | ADR-0042 | 189/189 | ✅ MERGED |
+
+Merges :
+
+```text
+S1 = 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f
+S2 = 32694f2c74aa9ce4248f9eea907d85460de93eff
+S3 = 4b3bb5c79e65b8f1501b9949b49f4940294c4312
+S4 = cafbc8e61a4af2ed204cd6fc24dcdd262f6ed9e4
+S5 = e25aebf0479dfa9d1f146df4d2af0f072b551d39
+S6 = ac317eb63bbe0edb854c04660c5c143ba46e0c43
+```
 
 ## Modèle et persistance
 
@@ -408,6 +419,8 @@ BUILD SUCCESS
 ```
 
 Gate final : **23 juillet 2026 à 14:57:23 +02:00**.
+
+Merge final : PR #34 — `ac317eb63bbe0edb854c04660c5c143ba46e0c43`.
 
 Validation : [`VALIDATION_M4.md`](VALIDATION_M4.md).
 

@@ -1,6 +1,6 @@
 # M4 — Plan d'exécution détaillé
 
-Statut : **M4 VALIDÉ — 6/6 slices — 189/189 PASS — M5 autorisé**
+Statut : **M4 VALIDÉ ET INTÉGRÉ — 6/6 slices — 189/189 PASS — M5 autorisé**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -16,7 +16,7 @@ M0     ✅ validé
 M1     ✅ validé
 M2     ✅ validé — 94/94
 M3     ✅ validé — 6/6 — 147/147
-M4     ✅ validé — 6/6 — 189/189
+M4     ✅ validé et intégré — 6/6 — 189/189
   S1   ✅ domaine TraceabilityLink + taxonomie contrôlée — PR #28 — ADR-0037 — 155/155
   S2   ✅ persistance snapshot-scoped Memory + SQLite — PR #29 — ADR-0038 — 160/160
   S3   ✅ dérivation déterministe depuis modèle normalisé — PR #31 — ADR-0039 — 167/167
@@ -29,7 +29,7 @@ M5     ▶ autorisé
 Progression :
 
 ```text
-M4 : [████████████████████] 6 / 6 slices validés
+M4 : [████████████████████] 6 / 6 slices validés et intégrés
 ```
 
 Baseline d'entrée M4 :
@@ -40,7 +40,7 @@ main = 30f4ea43c55b5f6ff7cf235d0d1acc75ab4053fa
 BUILD SUCCESS
 ```
 
-Baselines intégrées :
+Merges intégrés :
 
 ```text
 M4-S1 merge = 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f — 155/155 PASS
@@ -48,16 +48,14 @@ M4-S2 merge = 32694f2c74aa9ce4248f9eea907d85460de93eff — 160/160 PASS
 M4-S3 merge = 4b3bb5c79e65b8f1501b9949b49f4940294c4312 — 167/167 PASS
 M4-S4 merge = cafbc8e61a4af2ed204cd6fc24dcdd262f6ed9e4 — 174/174 PASS
 M4-S5 merge = e25aebf0479dfa9d1f146df4d2af0f072b551d39 — 184/184 PASS
+M4-S6 merge = ac317eb63bbe0edb854c04660c5c143ba46e0c43 — 189/189 PASS
 ```
 
-S6 est validé sur le head de code :
+Head de code S6 effectivement testé :
 
 ```text
 d46b66b5c5c22baabcfe8cfcb53a2da2eff68782
-189/189 PASS
 ```
-
-Le SHA de merge final S6 est inscrit après intégration de la PR #34.
 
 ---
 
@@ -312,7 +310,8 @@ close/reopen SQLite conserve coordonnées, attributs, provenance et historique
 # 9. M4-S6 — Validation finale `trace(requirement)`
 
 ADR : **ADR-0042 — Acceptée — M4**.  
-PR : **#34 — gate final vert ; intégration autorisée par le signal explicite utilisateur**.  
+PR : **#34 — merged**.  
+Merge : `ac317eb63bbe0edb854c04660c5c143ba46e0c43`.  
 Gate : **189/189 PASS**.
 
 Application :
@@ -459,9 +458,9 @@ résolution code MINOS de production       -> M12
 ```text
 1. ADR-0042 acceptée après preuve
 2. VALIDATION_M4.md validée
-3. PR #34 Ready après finalisation documentaire
-4. merge #34 autorisé par le signal explicite utilisateur
-5. issue #27 fermée après vérification du merge
+3. PR #34 mergée sur le head finalisé
+4. merge final S6 = ac317eb63bbe0edb854c04660c5c143ba46e0c43
+5. issue #27 clôturée après alignement documentaire final
 6. ROADMAP globale alignée sur M4 VALIDÉ / M5 autorisé
 ```
 
