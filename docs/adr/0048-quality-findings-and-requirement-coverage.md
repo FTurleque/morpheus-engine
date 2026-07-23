@@ -1,6 +1,6 @@
 # ADR-0048 — Findings de qualité explicables et couverture de traçabilité des requirements
 
-- Statut : **Proposée — M6**
+- Statut : **Acceptée — M6**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0033, ADR-0034, ADR-0037, ADR-0038, ADR-0042, ADR-0043
 - Portée : M6-S1, modèle de findings et couverture de traçabilité des `Requirement CURRENT`
@@ -18,7 +18,7 @@ M6 doit détecter les lacunes de qualité sans confondre preuve déterministe et
 
 Les `Diagnostic` existants décrivent principalement discovery/ingestion. Les findings de qualité sont des résultats dérivés d'un snapshot publié ; ils ne doivent ni étendre artificiellement le catalogue d'ingestion ni devenir des entités persistées.
 
-## Décision candidate
+## Décision
 
 Introduire dans la couche applicative qualité :
 
@@ -39,7 +39,7 @@ DETERMINISTIC
 HEURISTIC
 ```
 
-Une finding `HEURISTIC` exige une confidence explicite. Une finding `DETERMINISTIC` n'en exige pas.
+Une finding `HEURISTIC` exige une confidence explicite bornée dans `[0,1]`. Une finding `DETERMINISTIC` interdit une confidence afin de ne pas présenter un score comme une preuve.
 
 ## Sémantique S1
 
@@ -118,23 +118,49 @@ lifecycle blockers
 aggregate M6 report
 ```
 
-## Preuves attendues
+## Preuve d'acceptation — 23 juillet 2026
 
-- ACTIVE par défaut ;
-- ACTIVE/RETIRED explicite uniquement ;
-- CURRENT only ;
-- requirement lié par incoming ou outgoing ;
-- requirement sans lien -> `ORPHAN_REQUIREMENT` ;
-- PROPOSED ignoré ;
-- coverage déterministe et stable ;
-- zero requirements -> 100 % ;
-- evidence du requirement conservée ;
-- Memory == SQLite ;
-- SQLite reopen ;
-- aucune migration/persistance de finding ;
-- aucune finding heuristique sans confidence ;
-- gate local Windows complet vert.
+Gate local Windows exécuté sur :
 
-## Acceptation
+```text
+branch = m6/requirement-quality-coverage
+head   = 34ecc48057f27990221cbe7669b555eb73950581
+.\mvnw.cmd clean test
+javac release 21
+```
 
-À compléter uniquement après le gate local complet M6-S1.
+Preuve ciblée :
+
+```text
+RequirementQualityContractTest  7/7 PASS
+```
+
+Résultat global :
+
+```text
+Domain                                  21 tests
+Application                             66 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                     107 tests
+-----------------------------------------------
+TOTAL                                  234/234 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+Total time                             27.269 s
+Finished at                 2026-07-23T20:52:28+02:00
+```
+
+Warnings connus et non bloquants uniquement : Xerial SQLite/JDK restricted native access et SLF4J NOP.
+
+Les preuves couvrent : ACTIVE par défaut, ACTIVE/RETIRED explicite, CURRENT only, couverture par lien entrant ou sortant, exclusion PROPOSED, finding orpheline déterministe avec evidence, population vide à 100 %, séparation absence d'ACTIVE / ACTIVE vide, contrat de confidence déterministe/heuristique, parité Memory/SQLite et SQLite reopen.
+
+Décision finale :
+
+```text
+ADR-0048 = ACCEPTÉE — M6
+M6-S1    = VALIDÉ — 234/234
+```
