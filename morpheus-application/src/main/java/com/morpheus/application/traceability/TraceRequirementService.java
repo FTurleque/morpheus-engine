@@ -12,6 +12,7 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.domain.traceability.TraceabilityEntityKind;
 import com.morpheus.domain.traceability.TraceabilityEntityRef;
+import com.morpheus.domain.traceability.TraceabilityLink;
 import com.morpheus.domain.traceability.TraceabilityRelationType;
 
 import java.util.Comparator;
@@ -48,6 +49,7 @@ public final class TraceRequirementService {
         Objects.requireNonNull(projectId, "projectId");
         Objects.requireNonNull(requirementId, "requirementId");
         Objects.requireNonNull(relationTypes, "relationTypes");
+        requirePositiveDepth(maxDepth);
 
         return snapshotStore.activeSnapshot(projectId)
                 .flatMap(snapshot -> tracePublished(snapshot, requirementId, maxDepth, relationTypes));
@@ -61,6 +63,7 @@ public final class TraceRequirementService {
         Objects.requireNonNull(snapshotId, "snapshotId");
         Objects.requireNonNull(requirementId, "requirementId");
         Objects.requireNonNull(relationTypes, "relationTypes");
+        requirePositiveDepth(maxDepth);
 
         KnowledgeSnapshotMetadata snapshot = snapshotStore.findSnapshot(snapshotId)
                 .orElseThrow(() -> new KnowledgeStoreException("unknown knowledge snapshot: " + snapshotId));
@@ -86,7 +89,7 @@ public final class TraceRequirementService {
                             relationTypes);
                     var externalLinks = subgraph.links().stream()
                             .filter(link -> link.target().kind() == TraceabilityEntityKind.EXTERNAL_REFERENCE)
-                            .sorted(Comparator.comparing(link -> link.id()))
+                            .sorted(Comparator.comparing(TraceabilityLink::id))
                             .map(link -> externalQueryService.inspect(snapshot.id(), link))
                             .toList();
                     return new TraceRequirementResult(snapshot, requirement, subgraph, externalLinks);
@@ -99,6 +102,12 @@ public final class TraceRequirementService {
             throw new KnowledgeStoreException(
                     "trace(requirement) requires an ACTIVE or RETIRED snapshot: "
                             + snapshot.id() + " is " + snapshot.state());
+        }
+    }
+
+    private void requirePositiveDepth(int maxDepth) {
+        if (maxDepth <= 0) {
+            throw new IllegalArgumentException("maxDepth must be greater than zero");
         }
     }
 }
