@@ -1,6 +1,6 @@
 # ADR-0045 — Getters et listes métier déterministes sur snapshots publiés
 
-- Statut : **Proposée — M5**
+- Statut : **Acceptée — M5**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0033, ADR-0034, ADR-0036, ADR-0043, ADR-0044
 - Portée : M5-S3, lecture métier provider/backend-neutral
@@ -16,9 +16,9 @@ M5-S1 merge = 92b1321a0e23553641ea5dbe1f1c25c0acc874e3 — 196/196
 M5-S2 merge = 3a39371518d9d327ea4cbee0994da65b218ec64c — 202/202
 ```
 
-S3 doit exposer des lectures déterministes sans introduire de nouvelle persistance ni contourner la sémantique de publication des snapshots.
+S3 expose des lectures déterministes sans introduire de nouvelle persistance ni contourner la sémantique de publication des snapshots.
 
-## Décision candidate
+## Décision
 
 Introduire :
 
@@ -133,6 +133,8 @@ Une entité absente dans un snapshot publié n'est pas une erreur de store : ell
 
 Une référence de changement inexistante pour une liste retourne une page vide avec `totalMatches = 0` ; S3 ne fabrique aucun objet.
 
+Un snapshot publié sans projection S2 attendue provoque une `KnowledgeStoreException` afin de ne pas confondre corruption/incomplétude de store et absence métier.
+
 ## AcceptanceCriterion
 
 Aucun type `AcceptanceCriterion` explicite n'existe actuellement dans le domaine MORPHEUS.
@@ -147,14 +149,14 @@ Cette primitive ne sera ajoutée que lorsqu'une sémantique de source explicite 
 
 ## Backend
 
-La logique de lecture est entièrement applicative. Les mêmes contrats doivent produire les mêmes résultats avec :
+La logique de lecture est entièrement applicative. Les mêmes contrats produisent les mêmes résultats avec :
 
 ```text
 MemorySnapshotBusinessContentStore
 SqliteSnapshotBusinessContentStore
 ```
 
-SQLite close/reopen doit conserver les résultats.
+SQLite close/reopen conserve les résultats.
 
 ## Frontières
 
@@ -171,25 +173,50 @@ CLI / MCP / API
 AcceptanceCriterion synthétique
 ```
 
-## Preuves attendues
+## Preuve d'acceptation — 23 juillet 2026
 
-Le gate S3 doit démontrer :
+Gate local Windows exécuté sur :
 
-1. ACTIVE par défaut ;
-2. ACTIVE/RETIRED explicite uniquement ;
-3. absence d'ACTIVE distincte de not-found ;
-4. spécification adressée explicitement par `SpecificationId` ;
-5. `get_change` déterministe ;
-6. `list_changes` borné et ordonné ;
-7. contraintes filtrées par `ChangeId`, triées et paginées ;
-8. décisions filtrées par `ChangeId`, triées et paginées ;
-9. tâches filtrées par `ChangeId`, triées et paginées ;
-10. Memory == SQLite ;
-11. SQLite reopen ;
-12. aucune API `AcceptanceCriterion` synthétique ;
-13. aucune migration S3 ;
-14. `\.\mvnw.cmd clean test` vert.
+```text
+branch = m5/deterministic-business-queries
+head   = 755bbd394347e5a8de67aa7d5eb69234a6b0ba8b
+.\mvnw.cmd clean test
+javac release 21
+```
 
-## Preuve d'acceptation
+Preuves S3 ciblées :
 
-À compléter uniquement après gate local complet vert.
+```text
+BusinessContentQueryBackendParityTest    1/1 PASS
+BusinessContentQueryContractTest         7/7 PASS
+```
+
+Résultat global :
+
+```text
+Domain                                  21 tests
+Application                             66 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      83 tests
+-----------------------------------------------
+TOTAL                                  210/210 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+Total time                             18.127 s
+Finished at                 2026-07-23T18:24:34+02:00
+```
+
+Warnings connus et non bloquants uniquement : Xerial SQLite/JDK restricted native access et SLF4J NOP.
+
+Les 14 critères de preuve sont satisfaits : ACTIVE par défaut, historique ACTIVE/RETIRED, distinction no-ACTIVE/not-found, `SpecificationId` explicite, change/getters/listes déterministes et bornés, filtrage par `ChangeId`, Memory == SQLite, reopen SQLite, aucune API `AcceptanceCriterion` synthétique, aucune migration S3 et gate Maven complet vert.
+
+Décision finale :
+
+```text
+ADR-0045 = ACCEPTÉE — M5
+M5-S3    = VALIDÉ — 210/210
+```
