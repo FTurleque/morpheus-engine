@@ -22,7 +22,8 @@ final class SqliteSchemaManager {
             new Migration(2, "project-root-uniqueness", "/db/migration/V002__project_root_uniqueness.sql"),
             new Migration(3, "entity-identity-bindings", "/db/migration/V003__entity_identity_bindings.sql"),
             new Migration(4, "versioned-requirement-persistence", "/db/migration/V004__versioned_requirement_persistence.sql"),
-            new Migration(5, "snapshot-traceability-persistence", "/db/migration/V005__snapshot_traceability_persistence.sql"));
+            new Migration(5, "snapshot-traceability-persistence", "/db/migration/V005__snapshot_traceability_persistence.sql"),
+            new Migration(6, "snapshot-external-reference-persistence", "/db/migration/V006__snapshot_external_reference_persistence.sql"));
 
     void migrate(Connection connection) {
         final boolean previousAutoCommit;

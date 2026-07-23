@@ -58,6 +58,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0038](0038-snapshot-scoped-traceability-persistence.md) | Persistance de traçabilité snapshot-scoped Memory + SQLite | **Acceptée — M4** |
 | [ADR-0039](0039-deterministic-traceability-derivation.md) | Dérivation déterministe depuis le modèle normalisé | **Acceptée — M4** |
 | [ADR-0040](0040-bounded-deterministic-traceability-traversal.md) | Traversée bornée, déterministe et chemins explicables | **Acceptée — M4** |
+| [ADR-0041](0041-snapshot-external-reference-traceability.md) | Références externes snapshot-scoped et liens unresolved/broken explicables | **Acceptée — M4** |
 
 ---
 
@@ -101,6 +102,7 @@ M3 est validée et intégrée. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3
 | M4-S2 persistance snapshot-scoped Memory + SQLite | ADR-0038 | `160/160 PASS` |
 | M4-S3 dérivation déterministe depuis modèle normalisé | ADR-0039 | `167/167 PASS` |
 | M4-S4 traversal / path snapshot-scoped | ADR-0040 | `174/174 PASS` |
+| M4-S5 références externes / unresolved / broken | ADR-0041 | `184/184 PASS` |
 
 La vue opérationnelle M4 est [`../roadmap/M4_EXECUTION.md`](../roadmap/M4_EXECUTION.md).
 La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
@@ -250,6 +252,22 @@ Memory == SQLite observable semantics
 aucune migration SQLite S4
 ```
 
+## Références externes M4-S5
+
+```text
+ExternalReference snapshot-scoped
+TraceabilityResolutionState != ExternalReferenceResolutionState
+V006 = snapshot_external_references + attributes + history
+UNRESOLVED reste visible
+STALE reste explicable
+BROKEN_REFERENCE reste visible
+resolver externe != mutation du TraceabilityLink canonique
+aucun couplage obligatoire à MINOS
+aucun JSON générique
+Memory == SQLite observable semantics
+SQLite reopen conserve coordonnées, attributs, provenance et historique
+```
+
 ## Build
 
 Gate obligatoire :
@@ -261,11 +279,12 @@ Unix    : ./mvnw clean test
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
-Dernier gate M4-S4 :
+Dernier gate M4-S5 :
 
 ```text
-TraceabilityTraversalContractTest 7/7 PASS
-174/174 PASS
+ExternalTraceabilityLinkFactoryTest 5/5 PASS
+ExternalTraceabilityContractTest    5/5 PASS
+184/184 PASS
 Failures 0
 Errors   0
 Skipped  0
