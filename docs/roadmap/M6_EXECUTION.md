@@ -1,6 +1,6 @@
 # M6 — Plan d'exécution détaillé
 
-Statut : **M6 actif — 3/6 validés ; S1-S2 intégrés, S3 Ready, S4 prochain après merge**
+Statut : **M6 actif — 4/6 validés ; S1-S3 intégrés, S4 Ready, S5 prochain après merge**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -19,7 +19,9 @@ M6-S1 merge    = 5b0984ec7777eabb6f2d1417b4c900c08a038947
 M6-S1 gate     = 234/234 PASS
 M6-S2 merge    = 916201c724722cf9ace50d44e55d001d8faf383c
 M6-S2 gate     = 241/241 PASS
+M6-S3 merge    = 03fd5a86e11f2afc40e3f1ecd5b1b8a1d1d211f7
 M6-S3 gate     = 248/248 PASS
+M6-S4 gate     = 254/254 PASS
 ```
 
 Issue de pilotage : **#43**.
@@ -45,9 +47,10 @@ implementation-task coverage
 acceptance capability gap explicit
 change completeness
 lifecycle blockers
-design-decision justification
+design-decision justification availability
 broken/unresolved references
 stable aggregate metrics/order
+compact quality exposure
 Memory == SQLite
 SQLite reopen
 no LLM/semantic dependency
@@ -60,37 +63,41 @@ no LLM/semantic dependency
 ```text
 S1  ✅ requirement traceability coverage + orphan requirements — PR #44 — ADR-0048 — 234/234 — MERGED
 S2  ✅ implementation-task coverage + acceptance capability gap — PR #45 — ADR-0049 — 241/241 — MERGED
-S3  ✅ change completeness + lifecycle blocking conditions — PR #46 — ADR-0050 — 248/248 — READY
-S4  ⏳ design-decision justification + broken/unresolved reference quality — PROCHAIN APRÈS MERGE S3
-S5  ⏳ aggregate quality report + stable metrics/order + compact exposure
+S3  ✅ change completeness + lifecycle blocking conditions — PR #46 — ADR-0050 — 248/248 — MERGED
+S4  ✅ design-decision justification + external reference quality — PR #47 — ADR-0051 — 254/254 — READY
+S5  ⏳ aggregate quality report + stable metrics/order + compact exposure — PROCHAIN APRÈS MERGE S4
 S6  ⏳ validation finale VALIDATION_M6.md
 ```
 
 ```text
-M6 : 3 / 6 slices validés
+M6 : 4 / 6 slices validés
 ```
 
 ---
 
-# 4. Principes
+# 4. Invariants M6
 
 ```text
 quality finding != ingestion diagnostic
-finding = résultat dérivé, pas entité persistée
+finding = résultat dérivé, non persisté
 snapshot-scoped
 CURRENT only pour Requirement
 absence de lien != lien inventé
 Scenario != AcceptanceCriterion
-DETERMINISTIC != HEURISTIC
-heuristic finding => confidence obligatoire
+DesignDecision.decision != justification
+risks != blockers
+0 task != preuve d'absence de plan
 lifecycle state != snapshot state
 lifecycle state != temporal state
 lifecycle state != task completion
+DETERMINISTIC != HEURISTIC
+DETERMINISTIC => confidence interdite
+HEURISTIC => confidence obligatoire [0,1]
 provider-neutral
 backend-neutral
 ```
 
-Aucune heuristique n'est présentée comme certitude et aucun fait indisponible n'est remplacé par `false`.
+Aucun fait indisponible n'est remplacé par `false` et aucune heuristique n'est présentée comme certitude.
 
 ---
 
@@ -100,13 +107,29 @@ ADR : **ADR-0048 — Acceptée — M6**
 PR : **#44 — MERGED**  
 Merge : `5b0984ec7777eabb6f2d1417b4c900c08a038947`
 
+Contrats :
+
 ```text
-RequirementQualityContractTest          7/7 PASS
-Architecture tests                    107/107 PASS
-TOTAL                                 234/234 PASS
-BUILD SUCCESS
-Finished at                2026-07-23T20:52:28+02:00
+QualityFinding
+QualityFindingCode
+QualityEvidenceKind
+RequirementTraceabilityCoverage
+RequirementQualityService
 ```
+
+Règles principales :
+
+```text
+ACTIVE default
+ACTIVE/RETIRED explicit only
+CURRENT Requirement only
+orphan = aucun lien direct entrant/sortant
+coverage = linked / total CURRENT
+zero CURRENT = 1.0
+ORPHAN_REQUIREMENT = WARNING + DETERMINISTIC
+```
+
+Gate : **234/234 PASS**.
 
 ---
 
@@ -126,44 +149,27 @@ AcceptanceCoverageAssessment
 AcceptanceQualityService
 ```
 
-Sémantique :
+Règles :
 
 ```text
 task.changeId = C
-Change(C) --AFFECTS--> Requirement(R) CURRENT => task couverte
+Change(C) --AFFECTS--> Requirement CURRENT => task couverte
 PROPOSED-only / cible absente / aucun AFFECTS => non couverte
 Scenario != AcceptanceCriterion
 AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL
 ```
 
-Preuve :
-
-```text
-TaskAcceptanceQualityContractTest        7/7 PASS
-Architecture tests                    114/114 PASS
-TOTAL                                 241/241 PASS
-Failures                                0
-Errors                                  0
-Skipped                                 0
-BUILD SUCCESS
-Finished at                2026-07-23T22:08:29+02:00
-```
+Gate : **241/241 PASS**.
 
 ---
 
-# 7. M6-S3 — VALIDÉ TECHNIQUEMENT / READY
+# 7. M6-S3 — INTÉGRÉ
 
 ADR : **ADR-0050 — Acceptée — M6**  
-PR : **#46 — Ready après gate**  
-Branche : `m6/change-lifecycle-quality`
+PR : **#46 — MERGED**  
+Merge : `03fd5a86e11f2afc40e3f1ecd5b1b8a1d1d211f7`
 
-Head de code testé :
-
-```text
-84f41498610af2d76236fe1e6c419a6234a5f8c9
-```
-
-## Contrats
+Contrats :
 
 ```text
 QualityFactValue = TRUE / FALSE / UNAVAILABLE
@@ -176,174 +182,119 @@ ChangeLifecycleQualityAssessment
 ChangeLifecycleQualityService
 ```
 
-Extensions `QualityFindingCode` :
+Règles :
 
 ```text
-CHANGE_WITHOUT_CURRENT_REQUIREMENT
-CHANGE_COMPLETENESS_PARTIALLY_OBSERVABLE
-LIFECYCLE_REQUIRED_FACT_UNAVAILABLE
-LIFECYCLE_TRANSITION_BLOCKED
+requirementsIdentified = TRUE/FALSE via AFFECTS -> CURRENT
+designDecisionsAvailable = TRUE/FALSE
+planPresent = TRUE si task, sinon UNAVAILABLE
+criticalConstraintsKnown = UNAVAILABLE
+acceptanceCriteriaDefined = UNAVAILABLE
+designRequired = UNAVAILABLE
+knownBlocker = UNAVAILABLE
+blocking acceptance facts = UNAVAILABLE
 ```
 
-## Complétude snapshot-scoped
+Le `ChangeLifecycle` est fourni explicitement par l'appelant. La machine M3 reste source de vérité ; un fait requis `UNAVAILABLE` empêche la fausse évaluation de transition.
 
-Pour chaque change publié :
+Gate : **248/248 PASS**.
+
+---
+
+# 8. M6-S4 — VALIDÉ TECHNIQUEMENT / READY
+
+ADR : **ADR-0051 — Acceptée — M6**  
+PR : **#47 — Ready après finalisation post-gate**
+
+Head de code testé :
 
 ```text
-currentRequirementCount
-constraintCount
-designDecisionCount
-implementationTaskCount
+53356fe77df0d5a3cc474b8aca3224d970fb88d7
 ```
 
-Projection des faits M3 :
+Contrats :
 
 ```text
-requirementsIdentified
-  TRUE  si >=1 AFFECTS -> Requirement CURRENT
-  FALSE sinon
-
-criticalConstraintsKnown
-  UNAVAILABLE
-
-acceptanceCriteriaDefined
-  UNAVAILABLE
-
-designRequired
-  UNAVAILABLE
-
-designDecisionsAvailable
-  TRUE/FALSE selon DesignDecision liée
-
-planPresent
-  TRUE si >=1 ImplementationTask
-  UNAVAILABLE si aucune task
-
-knownBlocker
-  UNAVAILABLE
-
-blockingAcceptanceCriterionFailed
-blockingAcceptanceCriterionUnverified
-  UNAVAILABLE
+DecisionJustificationStatus
+DesignDecisionQualityAssessment
+ExternalReferenceQualityAssessment
+DecisionReferenceQualityReport
+DecisionReferenceQualityService
 ```
 
-Donc :
+Findings :
 
 ```text
-risks != blockers
-0 task != preuve d'absence de plan
-task.completed != lifecycle state
+DESIGN_DECISION_WITHOUT_TRACE
+DECISION_JUSTIFICATION_UNAVAILABLE
+EXTERNAL_REFERENCE_UNVALIDATED
+EXTERNAL_REFERENCE_UNRESOLVED
+EXTERNAL_REFERENCE_STALE
+EXTERNAL_REFERENCE_BROKEN
 ```
 
-Un change sans requirement CURRENT produit :
+Règles décision :
 
 ```text
-CHANGE_WITHOUT_CURRENT_REQUIREMENT
-WARNING
-DETERMINISTIC
+Change --DECIDED_BY--> DesignDecision = trace structurelle
+absence de DECIDED_BY = WARNING déterministe
+justification normalisée absente = INFO déterministe
+absence de justification != mauvaise décision
 ```
 
-Les dimensions non observables produisent un finding informatif :
+Règles externes :
 
 ```text
-CHANGE_COMPLETENESS_PARTIALLY_OBSERVABLE
-INFO
-DETERMINISTIC
+REFERENCE_RESOLVED    -> aucun finding
+REFERENCE_UNVALIDATED -> EXTERNAL_REFERENCE_UNVALIDATED
+REFERENCE_UNRESOLVED  -> EXTERNAL_REFERENCE_UNRESOLVED
+REFERENCE_STALE       -> EXTERNAL_REFERENCE_STALE
+BROKEN_REFERENCE      -> EXTERNAL_REFERENCE_BROKEN
 ```
 
-## Lifecycle quality
+`ExternalTraceabilityQueryService` M4 reste la source de vérité ; S4 ne refait aucune résolution.
 
-Le `ChangeLifecycle` source est toujours fourni explicitement par l'appelant. Il n'est jamais reconstruit depuis le snapshot.
-
-### Mode DERIVED
-
-La liste des faits réellement consultés par la transition M3 est connue explicitement.
-
-Si un fait requis est `UNAVAILABLE` :
+Preuve :
 
 ```text
-state machine NON appelée
-decision = empty
-LIFECYCLE_REQUIRED_FACT_UNAVAILABLE
-```
-
-Si tous les faits requis sont disponibles :
-
-```text
-state machine M3 = source de vérité
-```
-
-### Mode EXPLICIT
-
-L'appelant fournit directement un `ChangeLifecycleFacts` complet :
-
-```text
-aucune dérivation
-aucune substitution
-state machine M3 appelée avec ces faits exacts
-```
-
-Chaque blocker M3 est conservé dans `ChangeLifecycleTransitionDecision` et projeté aussi en :
-
-```text
-LIFECYCLE_TRANSITION_BLOCKED
-WARNING
-DETERMINISTIC
-blocker=<ChangeLifecycleBlocker exact>
-```
-
-## Preuve
-
-```text
-ChangeLifecycleQualityContractTest       7/7 PASS
-Architecture tests                    121/121 PASS
-TOTAL                                 248/248 PASS
+DecisionReferenceQualityContractTest     6/6 PASS
+Architecture tests                    127/127 PASS
+TOTAL                                 254/254 PASS
 Failures                                0
 Errors                                  0
 Skipped                                 0
 BUILD SUCCESS
-Total time                            20.687 s
-Finished at                2026-07-23T22:29:23+02:00
+Total time                            21.444 s
+Finished at                2026-07-23T22:52:42+02:00
 ```
 
-Warnings connus non bloquants uniquement : Xerial SQLite/JDK restricted native access et SLF4J NOP.
+Warnings connus non bloquants : Xerial SQLite/JDK restricted native access et SLF4J NOP.
 
 Aucune migration, aucun store adapter, aucun provider, aucun `pom.xml` modifié.
 
 ---
 
-# 8. M6-S4 — Décisions et références
-
-Prochaine slice après merge S3.
-
-Cibles :
-
-```text
-decision sans justification/trace suffisante
-external unresolved
-external stale
-broken reference
-qualité de résolution explicite
-```
-
-Le design devra réutiliser la persistance/lecture M4 des références externes et ne pas transformer l'absence de justification en preuve d'une mauvaise décision sans signal structurel explicite.
-
----
-
 # 9. M6-S5 — Rapport qualité agrégé
+
+Prochaine slice après merge S4.
 
 Stabiliser :
 
 ```text
 QualityReport
-metrics stables
-findings triés
-counts par code/severity/evidence kind
-compact exposure
-published snapshot metadata
+snapshot metadata
+stable metrics
+counts par code
+counts par severity
+counts par evidence kind
+findings triés/dédupliqués
+compact quality view
+canonical deterministic JSON
 ```
 
-Aucune persistance de rapport si elle n'est pas nécessaire.
+Le rapport agrège les services S1 à S4 ; il ne recalcule pas leurs règles et n'est pas persisté.
+
+Les dimensions volontairement indisponibles restent explicitement visibles dans les findings existants.
 
 ---
 
@@ -355,7 +306,25 @@ Créer :
 docs/VALIDATION_M6.md
 ```
 
-Répondre explicitement à la question de sortie et prouver la parité des backends ainsi que la séparation déterministe/heuristique.
+Prouver explicitement :
+
+```text
+Requirement coverage/orphans
+Task coverage
+Acceptance gap
+Change completeness
+Lifecycle blockers
+Decision trace / justification availability
+External degraded states
+Aggregate metrics/order
+Compact deterministic serialization
+Memory == SQLite
+SQLite reopen
+ACTIVE/RETIRED policy
+CURRENT isolation
+DETERMINISTIC/HEURISTIC separation
+no LLM / semantic dependency
+```
 
 ---
 
@@ -369,8 +338,10 @@ Répondre explicitement à la question de sortie et prouver la parité des backe
 5. gate Windows .\mvnw.cmd clean test
 6. ADR acceptée uniquement après preuve
 7. PR Ready uniquement après gate vert
-8. merge uniquement après signal explicite
+8. merge uniquement sous autorisation utilisateur
 9. issue #43 + roadmap mises à jour
 ```
 
-**Prochaine ligne active après merge S3 : M6-S4 — design-decision justification + broken/unresolved reference quality.**
+L'autorisation utilisateur courante couvre la poursuite jusqu'à la clôture de M6, mais chaque merge reste conditionné au gate local officiel de la slice correspondante.
+
+**Prochaine ligne active après merge S4 : M6-S5 — aggregate quality report + compact exposure.**
