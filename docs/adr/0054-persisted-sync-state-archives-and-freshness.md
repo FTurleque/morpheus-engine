@@ -18,6 +18,7 @@ lastAttemptAt
 lastObservedChangeAt
 optional sourceRevision
 last mode INCREMENTAL/FULL_REBUILD
+optional pendingFullRebuildReason
 current source inventory
 ```
 
@@ -26,14 +27,25 @@ Les sources supprimées ou déplacées sont conservées comme `SourceArchiveReco
 La fraîcheur est calculée à la demande avec un `now` et un seuil explicites : aucun `Instant.now()` caché dans les métriques.
 
 ```text
-UNKNOWN = aucune sync réussie
-FRESH   = age <= maxAge
-STALE   = age > maxAge
+UNKNOWN          = aucune sync réussie et aucun rebuild pending
+FRESH            = age <= maxAge
+STALE            = age > maxAge
+REBUILD_REQUIRED = pendingFullRebuildReason présent
 ```
+
+`REBUILD_REQUIRED` domine FRESH/STALE : une baseline encore récente n'est pas présentée comme saine lorsqu'une tentative plus récente a démontré qu'un full rebuild est requis.
 
 ## Persistance
 
-V008 crée uniquement les tables spécialisées nécessaires à M7. Aucun JSON métier générique.
+V008 crée uniquement les tables spécialisées nécessaires à M7 :
+
+```text
+sync_state
+sync_inventory_entries
+sync_source_archives
+```
+
+Aucun JSON métier générique.
 
 ## Acceptation
 
