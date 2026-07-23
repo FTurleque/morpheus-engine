@@ -1,14 +1,14 @@
 # M4 — Plan d'exécution détaillé
 
-Statut : **M4 actif — 5 slices validés sur 6 ; S6 prochain**
+Statut : **M4 VALIDÉ — 6/6 slices — 189/189 PASS — M5 autorisé**
 
 Dernière mise à jour : 23 juillet 2026
 
-Ce document complète [`../ROADMAP.md`](../ROADMAP.md) et pilote l'exécution de M4.
+Ce document complète [`../ROADMAP.md`](../ROADMAP.md) et constitue la trace d'exécution finale de M4.
 
 ---
 
-# 1. Position actuelle
+# 1. Position finale
 
 ```text
 C0     ✅ validé
@@ -16,20 +16,20 @@ M0     ✅ validé
 M1     ✅ validé
 M2     ✅ validé — 94/94
 M3     ✅ validé — 6/6 — 147/147
-M4     🚧 actif
+M4     ✅ validé — 6/6 — 189/189
   S1   ✅ domaine TraceabilityLink + taxonomie contrôlée — PR #28 — ADR-0037 — 155/155
   S2   ✅ persistance snapshot-scoped Memory + SQLite — PR #29 — ADR-0038 — 160/160
   S3   ✅ dérivation déterministe depuis modèle normalisé — PR #31 — ADR-0039 — 167/167
   S4   ✅ direct / inverse / traversal / path — PR #32 — ADR-0040 — 174/174
   S5   ✅ références externes / unresolved / broken links — PR #33 — ADR-0041 — 184/184
-  S6   ⏳ validation finale trace(requirement) — prochain
-M5     ⏳ bloqué par M4
+  S6   ✅ validation finale trace(requirement) — PR #34 — ADR-0042 — 189/189
+M5     ▶ autorisé
 ```
 
 Progression :
 
 ```text
-M4 : [█████████████████░░░] 5 / 6 slices validés
+M4 : [████████████████████] 6 / 6 slices validés
 ```
 
 Baseline d'entrée M4 :
@@ -47,16 +47,17 @@ M4-S1 merge = 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f — 155/155 PASS
 M4-S2 merge = 32694f2c74aa9ce4248f9eea907d85460de93eff — 160/160 PASS
 M4-S3 merge = 4b3bb5c79e65b8f1501b9949b49f4940294c4312 — 167/167 PASS
 M4-S4 merge = cafbc8e61a4af2ed204cd6fc24dcdd262f6ed9e4 — 174/174 PASS
+M4-S5 merge = e25aebf0479dfa9d1f146df4d2af0f072b551d39 — 184/184 PASS
 ```
 
-Dernier gate validé :
+S6 est validé sur le head de code :
 
 ```text
-M4-S5 PR #33 = Ready après finalisation documentaire
-M4-S5 gate   = 184/184 PASS
+d46b66b5c5c22baabcfe8cfcb53a2da2eff68782
+189/189 PASS
 ```
 
-S5 reste non mergé jusqu'à la finalisation de la PR ; le signal explicite utilisateur autorisant la finalisation M4 est déjà acquis.
+Le SHA de merge final S6 est inscrit après intégration de la PR #34.
 
 ---
 
@@ -64,21 +65,23 @@ S5 reste non mergé jusqu'à la finalisation de la PR ; le signal explicite util
 
 > **MORPHEUS peut-il relier les éléments d'intention/specification par des relations typées, directionnelles et explicables, conserver les liens non résolus, puis produire un sous-graphe borné et déterministe sans dépendre d'un backend graphe ?**
 
-Porte technique finale :
+**Réponse : OUI.**
+
+La porte technique finale :
 
 ```text
 trace(requirement)
 ```
 
-doit retourner un sous-graphe :
+retourne une vue :
 
 ```text
-normalisé
-borné
+normalisée
+bornée
 cycle-safe
 déterministe
 explicable
-snapshot-cohérent
+snapshot-cohérente
 ```
 
 Chaque arête observable conserve :
@@ -94,35 +97,7 @@ evidence
 
 ---
 
-# 3. Evidence héritée de M0
-
-E06 : **PASS**
-
-```text
-taxonomie contrôlée
-direction canonique
-incoming/outgoing
-traversée profondeur 3
-unresolved conservé
-origin/resolution/confidence séparés
-déduplication d'une observation identique
-```
-
-E06b : **PASS**
-
-```text
-même contrat Memory / SQLite
-snapshot comme frontière de cohérence
-index source / target suffisants pour le MVP
-aucun langage backend dans le domaine
-pas de graph database requise par le corpus MVP
-```
-
-Ces résultats sont des preuves de faisabilité. M4 les a remplacés par des contrats Java de production réalignés avec M3.
-
----
-
-# 4. Invariants hérités M3
+# 3. Invariants hérités M3
 
 ```text
 DomainIdentity != EntityVersionId
@@ -141,7 +116,7 @@ M4 ne crée aucune traçabilité qui contourne ces frontières.
 
 ---
 
-# 5. M4-S1 — VALIDÉ ET INTÉGRÉ : Domaine et taxonomie contrôlée
+# 4. M4-S1 — Domaine et taxonomie contrôlée
 
 ADR : **ADR-0037 — Acceptée — M4**.  
 PR : **#28 — merged**.  
@@ -163,7 +138,7 @@ inverse = vue de requête, pas seconde preuve
 
 ---
 
-# 6. M4-S2 — VALIDÉ ET INTÉGRÉ : Persistance snapshot-scoped
+# 5. M4-S2 — Persistance snapshot-scoped
 
 ADR : **ADR-0038 — Acceptée — M4**.  
 PR : **#29 — merged**.  
@@ -176,7 +151,6 @@ SqliteTraceabilityStore
 TraceabilityLink definition != snapshot membership
 same TraceabilityLinkId + different definition = collision
 snapshot A links != snapshot B links
-candidate snapshot autorisé
 outgoing/incoming déterministes
 inverse query != duplicate persisted edge
 Memory == SQLite contract
@@ -192,11 +166,13 @@ snapshot_traceability_links
 
 ---
 
-# 7. M4-S3 — VALIDÉ ET INTÉGRÉ : Dérivation déterministe
+# 6. M4-S3 — Dérivation déterministe
 
 ADR : **ADR-0039 — Acceptée — M4**.  
 PR : **#31 — merged**.  
 Gate : **167/167 PASS**.
+
+Relations structurelles :
 
 ```text
 Requirement -> Specification        DERIVES_FROM
@@ -205,6 +181,8 @@ Constraint -> Change                CONSTRAINS
 Change -> DesignDecision            DECIDED_BY
 Change -> Requirement               AFFECTS via RequirementDelta
 ```
+
+Invariants :
 
 ```text
 faits structurels uniquement
@@ -223,7 +201,7 @@ aucun Task -> Requirement implicite
 
 ---
 
-# 8. M4-S4 — VALIDÉ ET INTÉGRÉ : Traversée et chemins
+# 7. M4-S4 — Traversée et chemins
 
 ADR : **ADR-0040 — Acceptée — M4**.  
 PR : **#32 — merged**.  
@@ -266,14 +244,14 @@ Memory == SQLite observable semantics
 aucune migration SQLite S4
 ```
 
-Gate terminé le **23 juillet 2026 à 13:26:39 +02:00**.
-
 ---
 
-# 9. M4-S5 — VALIDÉ TECHNIQUEMENT : Références externes et liens non résolus
+# 8. M4-S5 — Références externes et liens non résolus
 
 ADR : **ADR-0041 — Acceptée — M4**.  
-PR : **#33 — Ready après gate ; merge autorisé par le signal explicite de finalisation M4**.
+PR : **#33 — merged**.  
+Merge : `e25aebf0479dfa9d1f146df4d2af0f072b551d39`.  
+Gate : **184/184 PASS**.
 
 Persistance :
 
@@ -283,7 +261,7 @@ MemoryExternalReferenceStore
 SqliteExternalReferenceStore
 ```
 
-Migration SQLite V006 normalisée :
+SQLite V006 :
 
 ```text
 snapshot_external_references
@@ -300,22 +278,7 @@ ExternalTraceabilityView
 ExternalTraceabilityAvailability
 ```
 
-Relations autorisées :
-
-```text
-LINKS_TO_CODE
-LINKS_TO_TEST
-VERIFIED_BY
-SATISFIES
-```
-
-Deux axes restent distincts :
-
-```text
-TraceabilityResolutionState != ExternalReferenceResolutionState
-```
-
-Sémantique de disponibilité :
+Sémantique :
 
 ```text
 REFERENCE_UNVALIDATED
@@ -325,15 +288,15 @@ REFERENCE_STALE
 BROKEN_REFERENCE
 ```
 
-Invariants validés :
+Invariants :
 
 ```text
 ExternalReference snapshot-scoped
-same snapshot + same id + same value = idempotent
 same snapshot + same id + different value = collision
 same id peut évoluer entre snapshots
 EXTERNAL_REFERENCE endpoint explicite
 TraceabilityLinkId explicite
+TraceabilityResolutionState != ExternalReferenceResolutionState
 resolver externe != mutation du TraceabilityLink canonique
 UNRESOLVED reste visible
 STALE reste explicable
@@ -344,75 +307,105 @@ Memory == SQLite observable semantics
 close/reopen SQLite conserve coordonnées, attributs, provenance et historique
 ```
 
-Gate local Windows :
+---
+
+# 9. M4-S6 — Validation finale `trace(requirement)`
+
+ADR : **ADR-0042 — Acceptée — M4**.  
+PR : **#34 — gate final vert ; intégration autorisée par le signal explicite utilisateur**.  
+Gate : **189/189 PASS**.
+
+Application :
+
+```text
+TraceRequirementService
+TraceRequirementResult
+```
+
+API :
+
+```text
+traceActive(projectId, requirementId, maxDepth, relationTypes)
+traceSnapshot(snapshotId, requirementId, maxDepth, relationTypes)
+```
+
+Règles :
+
+```text
+traceActive -> ACTIVE uniquement
+traceSnapshot -> ACTIVE/RETIRED uniquement
+BUILDING/VALIDATING/READY/FAILED rejetés
+CURRENT requirement obligatoire
+racine = REQUIREMENT + RequirementId.value
+BIDIRECTIONAL
+maxDepth > 0
+relation filters explicites
+external enrichment != mutation des arêtes
+```
+
+Scénario final :
+
+```text
+Scenario -> Requirement               REFINES
+Change -> Requirement                 AFFECTS
+Constraint -> Change                  CONSTRAINS
+Change -> DesignDecision              DECIDED_BY
+DesignDecision -> Specification       RELATED_TO   (profondeur 3)
+DesignDecision -> Change              RELATED_TO   (cycle réel)
+Requirement -> ExternalReference      LINKS_TO_CODE / UNRESOLVED
+Requirement -> ExternalReference      LINKS_TO_TEST / BROKEN_REFERENCE
+```
+
+Preuves :
+
+```text
+Memory == SQLite
+close/reopen SQLite
+incoming + outgoing
+profondeur >= 3
+cycle réel
+filtres
+UNRESOLVED
+BROKEN_REFERENCE
+provenance/evidence
+RETIRED explicite
+ACTIVE isolation
+snapshots non publiés rejetés
+```
+
+Gate final local Windows :
 
 ```text
 .\mvnw.cmd clean test
 javac release 21
 
-ExternalTraceabilityLinkFactoryTest      5/5 PASS
-ExternalTraceabilityContractTest         5/5 PASS
-LayerDependencyTest                      2/2 PASS
+TraceRequirementFinalValidationTest       5/5 PASS
+LayerDependencyTest                       2/2 PASS
 
-Domain                                  21 tests
-Application                             66 tests
-OpenSpec provider                       26 tests
-Synthetic provider                       7 tests
-SQLite store                             7 tests
-Architecture tests                      57 tests
------------------------------------------------
-TOTAL                                  184/184 PASS
-Failures                                 0
-Errors                                   0
-Skipped                                  0
+Domain                                   21 tests
+Application                              66 tests
+OpenSpec provider                        26 tests
+Synthetic provider                        7 tests
+SQLite store                              7 tests
+Architecture tests                       62 tests
+------------------------------------------------
+TOTAL                                   189/189 PASS
+Failures                                  0
+Errors                                    0
+Skipped                                   0
 BUILD SUCCESS
-Total time                             16.782 s
+Total time                              27.573 s
 ```
 
-Gate terminé le **23 juillet 2026 à 14:03:45 +02:00**.
+Gate terminé le **23 juillet 2026 à 14:57:23 +02:00**.
 
 Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
 
----
-
-# 10. NOW — M4-S6 Validation finale
-
-Porte :
-
-```text
-trace(requirement)
-```
-
-Doit démontrer au minimum :
-
-```text
-Requirement <- REFINES - Scenario
-Requirement <- AFFECTS - Change
-Change - DECIDED_BY -> DesignDecision
-Constraint - CONSTRAINS -> Change
-Requirement - LINKS_TO_CODE -> ExternalReference (resolved ou unresolved)
-```
-
-Avec :
-
-```text
-Memory + SQLite
-close/reopen SQLite
-profondeur >= 3
-incoming + outgoing
-cycle
-filtres
-unresolved
-provenance/evidence
-snapshot historique explicite
-ACTIVE isolation
-```
-
-S6 doit fournir une façade applicative `trace(requirement)` provider/store-neutral au-dessus des primitives S2–S5, ajouter la preuve contractuelle finale, créer `docs/VALIDATION_M4.md`, répondre explicitement à la question de sortie et autoriser M5 uniquement si le gate complet reste vert.
+Validation : [`../VALIDATION_M4.md`](../VALIDATION_M4.md).
 
 ---
 
-# 11. Checklist bloquante avant M5
+# 10. Checklist bloquante avant M5
 
 | Condition | État | Slice |
 |---|---|---|
@@ -438,12 +431,14 @@ S6 doit fournir une façade applicative `trace(requirement)` provider/store-neut
 | broken-reference visible | ✅ | S5 |
 | cross-engine découplé | ✅ | S5 |
 | V006 normalisée / reopen | ✅ | S5 |
-| `trace(requirement)` | ⬜ | S6 |
-| `VALIDATION_M4.md` | ⬜ | S6 |
+| `trace(requirement)` | ✅ | S6 |
+| `VALIDATION_M4.md` | ✅ | S6 |
+
+**Aucun bloqueur M4 ne subsiste avant M5.**
 
 ---
 
-# 12. Hors périmètre M4
+# 11. Hors périmètre M4
 
 ```text
 recherche lexicale générale               -> M5
@@ -459,15 +454,15 @@ résolution code MINOS de production       -> M12
 
 ---
 
-# 13. Gouvernance
-
-Après chaque gate vert :
+# 12. Gouvernance finale
 
 ```text
-1. inscrire la preuve exacte dans l'ADR
-2. mettre la PR Ready
-3. merger seulement après signal explicite
-4. mettre à jour issue #27
-5. avancer NOW vers le slice suivant
-6. mettre à jour la checklist bloquante M5
+1. ADR-0042 acceptée après preuve
+2. VALIDATION_M4.md validée
+3. PR #34 Ready après finalisation documentaire
+4. merge #34 autorisé par le signal explicite utilisateur
+5. issue #27 fermée après vérification du merge
+6. ROADMAP globale alignée sur M4 VALIDÉ / M5 autorisé
 ```
+
+**Prochaine ligne active : M5 — Requêtes et contexte compact.**
