@@ -1,6 +1,6 @@
 # M5 — Plan d'exécution détaillé
 
-Statut : **M5 actif — 0/6 ; S1 en cours**
+Statut : **M5 actif — 1/6 validé ; S1 Ready, S2 prochain après intégration**
 
 Dernière mise à jour : 23 juillet 2026
 
@@ -117,41 +117,117 @@ Donc M5 ne doit pas prétendre que `get_change`, `get_constraints`, `get_design_
 
 ---
 
-# 6. Plan M5 — 6 slices
-
-## M5-S1 — `find_requirements` et pagination déterministe
-
-Objectif : livrer la première primitive M5 sur la seule famille déjà persistée complètement.
+# 6. Progression M5
 
 ```text
-RequirementQueryService
+S1  ✅ find_requirements + pagination déterministe — PR #37 — ADR-0043 — 196/196
+S2  ⏳ projection métier requêtable des autres familles — prochain après merge S1
+S3  ⏳ getters/lists déterministes
+S4  ⏳ get_current_specification + get_change_context + query view trace
+S5  ⏳ vues compactes + warnings/provenance + JSON déterministe
+S6  ⏳ validation finale VALIDATION_M5.md
+```
+
+Progression :
+
+```text
+M5 : [███░░░░░░░░░░░░░░░░] 1 / 6 slices validés
+```
+
+---
+
+# 7. M5-S1 — VALIDÉ TECHNIQUEMENT : `find_requirements`
+
+ADR : **ADR-0043 — Acceptée — M5**.
+
+PR : **#37 — Ready après finalisation documentaire ; merge en attente de signal explicite**.
+
+Head de code testé :
+
+```text
+e81525403cd413df8db2d4df3e1d0aa9f22dbf4b
+```
+
+Application :
+
+```text
+PageRequest
 RequirementSearchQuery
 RequirementSearchPage
-PageRequest
+RequirementQueryService
 ```
 
-Portée :
+API :
 
 ```text
-ACTIVE current requirements by default
-explicit ACTIVE/RETIRED snapshot query
-CURRENT occurrences only
-lexical query over key/title/statement
-case-insensitive deterministic normalization
-AND semantics across lexical terms
-stable sort by RequirementId
-bounded page size
-stable offset pagination
-explicit totalMatches
-provenance remains in Requirement content
-no fuzzy matching
-no semantic ranking
-no LLM/embedding
+findActive(projectId, query, pageRequest)
+findSnapshot(snapshotId, query, pageRequest)
 ```
 
-Aucune migration SQLite requise en S1.
+Sémantique validée :
 
-## M5-S2 — Projection métier requêtable complète
+```text
+ACTIVE by default
+ACTIVE/RETIRED explicit snapshot
+CURRENT only
+PROPOSED never leaks into CURRENT
+lexical corpus = key + title + statement
+Locale.ROOT lowercase
+Unicode-aware strip / whitespace split
+AND semantics across terms
+substring deterministic matching
+empty query = all CURRENT
+stable RequirementId order
+pagination after filter + sort
+offset >= 0
+1 <= limit <= 100
+totalMatches + hasMore
+```
+
+Frontières :
+
+```text
+no semantic search
+no fuzzy matching
+no stemming
+no LLM / embeddings
+no provider-specific query
+no SQLite FTS dependency
+no new migration
+no query of non-Requirement families yet
+```
+
+Gate local Windows :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+RequirementQueryContractTest             7/7 PASS
+LayerDependencyTest                      2/2 PASS
+
+Domain                                  21 tests
+Application                             66 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      69 tests
+-----------------------------------------------
+TOTAL                                  196/196 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+Total time                             16.263 s
+```
+
+Gate terminé le **23 juillet 2026 à 16:20:02 +02:00**.
+
+Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
+
+---
+
+# 8. M5-S2 — PROCHAIN : Projection métier requêtable complète
 
 Étendre le pattern ADR-0034 aux familles nécessaires aux requêtes :
 
@@ -177,7 +253,11 @@ close/reopen SQLite
 no generic business JSON payload
 ```
 
-## M5-S3 — Getters et listes déterministes
+S2 ne doit pas créer de getter public incomplet : il établit d'abord la source de vérité persistante sur laquelle S3 s'appuiera.
+
+---
+
+# 9. M5-S3 — Getters et listes déterministes
 
 Primitives :
 
@@ -202,7 +282,9 @@ not-found explicit
 provider-neutral
 ```
 
-## M5-S4 — Contexte métier compact
+---
+
+# 10. M5-S4 — Contexte métier compact
 
 Primitives :
 
@@ -227,7 +309,9 @@ external unresolved/broken refs
 
 Aucune fusion NEXUS.
 
-## M5-S5 — Enveloppe compacte, warnings et sérialisation déterministe
+---
+
+# 11. M5-S5 — Enveloppe compacte, warnings et sérialisation déterministe
 
 Stabiliser :
 
@@ -243,7 +327,9 @@ stable deterministic JSON representation
 
 Le JSON est une vue d'exposition ; il ne devient pas une payload métier générique de persistance.
 
-## M5-S6 — Validation finale
+---
+
+# 12. M5-S6 — Validation finale
 
 Créer :
 
@@ -271,17 +357,19 @@ no semantic/LLM/NEXUS dependency
 
 ---
 
-# 7. Checklist bloquante avant M6
+# 13. Checklist bloquante avant M6
 
 | Condition | État | Slice |
 |---|---|---|
-| recherche lexicale déterministe | ⬜ | S1 |
-| pagination/limites bornées | ⬜ | S1 |
-| ACTIVE/CURRENT isolation | ⬜ | S1 |
-| snapshot historique publié explicite | ⬜ | S1 |
+| recherche lexicale déterministe | ✅ | S1 |
+| pagination/limites bornées | ✅ | S1 |
+| ACTIVE/CURRENT isolation | ✅ | S1 |
+| snapshot historique publié explicite | ✅ | S1 |
+| Memory/SQLite même résultat requirement query | ✅ | S1 |
+| SQLite reopen conserve requirement query | ✅ | S1 |
 | projection requêtable autres familles | ⬜ | S2 |
 | Memory/SQLite même contrat complet | ⬜ | S2 |
-| close/reopen SQLite | ⬜ | S2 |
+| close/reopen SQLite familles métier | ⬜ | S2 |
 | getters/lists déterministes | ⬜ | S3 |
 | AcceptanceCriterion non inventé | ⬜ | S3 |
 | `trace_requirement` query view | ⬜ | S4 |
@@ -294,7 +382,7 @@ no semantic/LLM/NEXUS dependency
 
 ---
 
-# 8. Hors périmètre M5
+# 14. Hors périmètre M5
 
 ```text
 semantic search / embeddings                -> future, optionnel
@@ -312,7 +400,7 @@ MINOS production code resolution            -> M12
 
 ---
 
-# 9. Gouvernance
+# 15. Gouvernance
 
 Après chaque slice :
 
@@ -328,22 +416,4 @@ Après chaque slice :
 9. issue #36 + roadmap mises à jour
 ```
 
----
-
-# 10. NOW — M5-S1
-
-```text
-find_requirements
-ACTIVE by default
-ACTIVE/RETIRED explicit snapshot variant
-CURRENT only
-lexical key/title/statement
-AND terms
-case-insensitive
-stable RequirementId order
-bounded offset pagination
-no migration
-Memory == SQLite through VersionedRequirementStore behavior
-```
-
-ADR candidate : **ADR-0043 — Contrat de recherche lexicale et pagination déterministe des requirements**.
+Prochaine ligne active après merge S1 : **M5-S2 — projection métier requêtable complète**.
