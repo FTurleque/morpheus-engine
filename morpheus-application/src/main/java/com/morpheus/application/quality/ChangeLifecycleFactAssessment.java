@@ -68,7 +68,16 @@ public record ChangeLifecycleFactAssessment(
                 QualityFactValue.of(facts.blockingAcceptanceCriterionUnverified()));
     }
 
-    public ChangeLifecycleFacts materializeUnavailableAsFalse() {
+    /** Materializes facts only after proving every fact required by the requested transition is available. */
+    public ChangeLifecycleFacts materializeForEvaluation(List<String> requiredFacts) {
+        Objects.requireNonNull(requiredFacts, "requiredFacts");
+        List<String> unavailableRequired = requiredFacts.stream()
+                .peek(this::value)
+                .filter(name -> value(name) == QualityFactValue.UNAVAILABLE)
+                .toList();
+        if (!unavailableRequired.isEmpty()) {
+            throw new IllegalStateException("required lifecycle facts are unavailable: " + unavailableRequired);
+        }
         return new ChangeLifecycleFacts(
                 booleanValue(requirementsIdentified),
                 booleanValue(criticalConstraintsKnown),
