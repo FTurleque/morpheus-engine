@@ -1,27 +1,27 @@
 # ADR-0042 — Porte finale `trace(requirement)`
 
-- Statut : **Proposée — M4**
+- Statut : **Acceptée — M4**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0033, ADR-0034, ADR-0037, ADR-0038, ADR-0040, ADR-0041
 - Portée : M4-S6, validation finale de la traçabilité
 
 ## Contexte
 
-M4-S1 à S5 sont validés ; S5 est intégré sur :
+M4-S1 à S5 sont validés et intégrés. S5 est intégré sur :
 
 ```text
 e25aebf0479dfa9d1f146df4d2af0f072b551d39
 ```
 
-Dernier gate :
+Baseline avant S6 :
 
 ```text
 184/184 PASS
 ```
 
-M4 doit maintenant exposer une porte applicative unique qui prouve la question de sortie : partir d'une exigence stable, sélectionner un snapshot publié explicite, puis produire un sous-graphe borné, déterministe et explicable, incluant les références externes résolues, non résolues ou cassées.
+M4 doit exposer une porte applicative unique permettant de partir d'une exigence stable, de sélectionner un snapshot publié explicite et de produire un sous-graphe borné, déterministe et explicable incluant les références externes résolues, non résolues ou cassées.
 
-## Décision candidate
+## Décision
 
 Ajouter :
 
@@ -54,6 +54,8 @@ VALIDATING
 READY
 FAILED
 ```
+
+`maxDepth` est validé par la façade elle-même et doit être strictement positif, même lorsqu'aucun ACTIVE ou aucune exigence n'est trouvé.
 
 ## Racine
 
@@ -145,31 +147,80 @@ nouvelle persistance graphe
 nouvelle sémantique de relation
 ```
 
-## Preuves attendues
+## Preuves S6
 
-Le gate final M4 devra démontrer au minimum :
+`TraceRequirementFinalValidationTest` apporte **5 tests d'intégration** :
 
-1. `traceActive` choisit uniquement l'ACTIVE du projet ;
-2. `traceSnapshot` accepte ACTIVE/RETIRED et rejette les états non publiés ;
-3. Requirement CURRENT obligatoire dans le snapshot adressé ;
-4. racine `REQUIREMENT + RequirementId.value` ;
-5. traversal BIDIRECTIONAL borné et cycle-safe ;
-6. profondeur >= 3 ;
-7. incoming + outgoing dans le même résultat ;
-8. `Scenario -> Requirement -> ExternalReference` observable ;
-9. `Constraint -> Change -> Requirement` observable ;
-10. `Change -> DesignDecision` observable ;
-11. unresolved externe conservé ;
-12. broken reference conservée ;
-13. provenance/evidence des arêtes inchangées ;
-14. snapshot historique explicite ;
-15. ACTIVE isolation ;
-16. Memory et SQLite produisent la même vue observable ;
-17. close/reopen SQLite conserve le résultat ;
-18. aucun backend graphe requis ;
-19. création de `docs/VALIDATION_M4.md` ;
-20. `.\mvnw.cmd clean test` vert.
+1. Memory et SQLite produisent exactement le même résultat final ;
+2. `traceActive` isole l'ACTIVE, tandis qu'un RETIRED reste explicitement requêtable et un READY est rejeté ;
+3. les filtres relationnels sont respectés et une exigence absente retourne vide ;
+4. un close/reopen SQLite conserve exactement le résultat final, y compris `UNRESOLVED` et `BROKEN_REFERENCE` ;
+5. les snapshots techniques non publiés sont rejetés.
+
+Le scénario final démontre notamment :
+
+```text
+Scenario -> Requirement               REFINES
+Change -> Requirement                 AFFECTS
+Constraint -> Change                  CONSTRAINS
+Change -> DesignDecision              DECIDED_BY
+DesignDecision -> Specification       RELATED_TO   (profondeur 3)
+DesignDecision -> Change              RELATED_TO   (cycle réel)
+Requirement -> ExternalReference      LINKS_TO_CODE / UNRESOLVED
+Requirement -> ExternalReference      LINKS_TO_TEST / BROKEN_REFERENCE
+```
+
+La preuve couvre aussi :
+
+```text
+incoming + outgoing dans la même vue
+provenance/evidence conservées
+snapshot historique explicite
+ACTIVE isolation
+Memory == SQLite
+close/reopen SQLite
+aucun backend graphe
+```
 
 ## Preuve d'acceptation
 
-À compléter uniquement après gate local complet vert.
+Gate local Windows :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+TraceRequirementFinalValidationTest       5/5 PASS
+LayerDependencyTest                       2/2 PASS
+
+Domain                                   21 tests
+Application                              66 tests
+OpenSpec provider                        26 tests
+Synthetic provider                        7 tests
+SQLite store                              7 tests
+Architecture tests                       62 tests
+------------------------------------------------
+TOTAL                                   189/189 PASS
+Failures                                  0
+Errors                                    0
+Skipped                                   0
+BUILD SUCCESS
+Total time                              27.573 s
+```
+
+Gate terminé le **23 juillet 2026 à 14:57:23 +02:00**.
+
+Warnings connus et non bloquants uniquement :
+
+```text
+Xerial SQLite / JDK native-access
+SLF4J NOP dans les tests d'architecture
+```
+
+Le head de code effectivement testé est :
+
+```text
+d46b66b5c5c22baabcfe8cfcb53a2da2eff68782
+```
+
+Conclusion : **ADR-0042 acceptée ; la porte finale `trace(requirement)` satisfait la question de sortie M4.**
