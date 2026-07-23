@@ -1,6 +1,6 @@
 # ADR-0039 — Dérivation déterministe de la traçabilité depuis le modèle normalisé
 
-- Statut : **Proposée — M4**
+- Statut : **Acceptée — M4**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0022, ADR-0025, ADR-0037, ADR-0038
 - Portée : M4-S3, application / dérivation de relations
@@ -9,7 +9,7 @@
 
 M4-S1 a stabilisé `TraceabilityLink` et la taxonomie contrôlée. M4-S2 a stabilisé la persistance snapshot-scoped Memory + SQLite.
 
-S3 doit maintenant produire des liens à partir des relations déjà explicitement encodées dans `NormalizedProjectContent`, sans fuzzy matching et sans inventer d'identité.
+S3 produit des liens à partir des relations déjà explicitement encodées dans `NormalizedProjectContent`, sans fuzzy matching et sans inventer d'identité.
 
 Baseline :
 
@@ -18,7 +18,7 @@ M4-S2 = 160/160 PASS
 main   = e8fdb629ec592db1ea35d9c43dc704fb2fc7e5d3
 ```
 
-## Décision candidate
+## Décision
 
 Introduire une dérivation applicative provider-neutral :
 
@@ -188,11 +188,9 @@ La persistance reste S2 ; traversal/path reste S4 ; external/unresolved reste S5
 
 Baseline avant S3 : `160/160`.
 
-Total attendu avant gate : **167 tests**, à confirmer par le gate réel.
+## Critères d'acceptation validés
 
-## Critères d'acceptation
-
-ADR-0039 pourra passer à **Acceptée — M4** lorsque le gate local complet démontre :
+Le gate local complet démontre :
 
 1. les cinq familles de relations S3 sont dérivées uniquement depuis des références structurelles ;
 2. les scenarios sans `requirementId` ne produisent aucun `REFINES` ;
@@ -210,4 +208,30 @@ ADR-0039 pourra passer à **Acceptée — M4** lorsque le gate local complet dé
 
 ## Preuve d'acceptation
 
-À compléter uniquement après gate local complet vert.
+Gate local Windows exécuté le **23 juillet 2026 à 13:09:18 +02:00** :
+
+```text
+.\mvnw.cmd clean test
+javac release 21
+
+DeterministicTraceabilityDerivationServiceTest   7/7 PASS
+LayerDependencyTest                              2/2 PASS
+
+Domain                                           21 tests
+Application                                      61 tests
+OpenSpec provider                                26 tests
+Synthetic provider                                7 tests
+SQLite store                                      7 tests
+Architecture tests                               45 tests
+----------------------------------------------------------
+TOTAL                                           167/167 PASS
+Failures                                          0
+Errors                                            0
+Skipped                                           0
+BUILD SUCCESS
+Total time                                     15.746 s
+```
+
+Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
+
+ADR-0039 est **Acceptée — M4** sur cette preuve.
