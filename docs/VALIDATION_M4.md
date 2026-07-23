@@ -1,6 +1,6 @@
 # Validation M4 — Traçabilité typée, explicable et traversable
 
-Statut : **CANDIDATE — gate final M4-S6 en attente**
+Statut : **VALIDÉ — 6/6 slices — 189/189 PASS**
 
 Date : 23 juillet 2026
 
@@ -8,29 +8,38 @@ Date : 23 juillet 2026
 
 > **MORPHEUS peut-il relier les éléments d'intention/specification par des relations typées, directionnelles et explicables, conserver les liens non résolus, puis produire un sous-graphe borné et déterministe sans dépendre d'un backend graphe ?**
 
-Réponse finale : **à confirmer par le gate S6**.
+**Réponse : OUI.**
+
+M4 démontre une traçabilité first-class, snapshot-scoped, provider/backend-neutral, déterministe et explicable, avec traversal borné, historique publié, références externes non résolues ou cassées conservées, et une porte finale `trace(requirement)` fonctionnant de manière équivalente sur Memory et SQLite.
 
 ---
 
-# 1. Baseline validée avant S6
+# 1. Progression finale M4
+
+| Slice | Contenu | PR | ADR | Gate |
+|---|---|---|---|---|
+| S1 | domaine `TraceabilityLink` + taxonomie contrôlée | #28 | ADR-0037 | 155/155 |
+| S2 | persistance snapshot-scoped Memory + SQLite | #29 | ADR-0038 | 160/160 |
+| S3 | dérivation déterministe depuis modèle normalisé | #31 | ADR-0039 | 167/167 |
+| S4 | direct / inverse / traversal / path | #32 | ADR-0040 | 174/174 |
+| S5 | références externes / unresolved / broken-reference | #33 | ADR-0041 | 184/184 |
+| S6 | validation finale `trace(requirement)` | #34 | ADR-0042 | 189/189 |
+
+Baselines intégrées avant S6 :
 
 ```text
-M4-S1 PR #28 / ADR-0037 / 155/155 PASS
-M4-S2 PR #29 / ADR-0038 / 160/160 PASS
-M4-S3 PR #31 / ADR-0039 / 167/167 PASS
-M4-S4 PR #32 / ADR-0040 / 174/174 PASS
-M4-S5 PR #33 / ADR-0041 / 184/184 PASS
+M4-S1 merge = 07d9bb1c2c85501ad5a5f6a1eab562a27ec53e9f
+M4-S2 merge = 32694f2c74aa9ce4248f9eea907d85460de93eff
+M4-S3 merge = 4b3bb5c79e65b8f1501b9949b49f4940294c4312
+M4-S4 merge = cafbc8e61a4af2ed204cd6fc24dcdd262f6ed9e4
+M4-S5 merge = e25aebf0479dfa9d1f146df4d2af0f072b551d39
 ```
 
-S5 merge :
-
-```text
-e25aebf0479dfa9d1f146df4d2af0f072b551d39
-```
+Le merge final S6 est inscrit après intégration de la PR #34.
 
 ---
 
-# 2. Modèle de lien
+# 2. Modèle de lien stabilisé
 
 M4 stabilise un `TraceabilityLink` first-class :
 
@@ -80,7 +89,7 @@ RELATED_TO
 
 # 3. Persistance snapshot-scoped
 
-V005 :
+SQLite V005 :
 
 ```text
 traceability_links
@@ -103,6 +112,7 @@ link definition != snapshot membership
 same link id + different definition = collision
 snapshot A links != snapshot B links
 outgoing/incoming déterministes
+inverse query != seconde arête persistée
 Memory == SQLite
 ```
 
@@ -110,7 +120,7 @@ Memory == SQLite
 
 # 4. Dérivation déterministe
 
-Relations de production validées :
+Relations structurelles validées :
 
 ```text
 Requirement -> Specification        DERIVES_FROM
@@ -172,7 +182,7 @@ aucun backend graphe requis
 
 # 6. Références externes
 
-V006 :
+SQLite V006 :
 
 ```text
 snapshot_external_references
@@ -180,7 +190,7 @@ snapshot_external_reference_attributes
 snapshot_external_reference_history
 ```
 
-Deux axes distincts :
+Deux axes restent distincts :
 
 ```text
 TraceabilityResolutionState
@@ -211,9 +221,9 @@ close/reopen SQLite conserve coordonnées, attributs, provenance et historique
 
 ---
 
-# 7. Porte finale M4-S6
+# 7. Porte finale `trace(requirement)`
 
-API candidate :
+API validée :
 
 ```text
 TraceRequirementService.traceActive(...)
@@ -224,74 +234,108 @@ Résultat :
 
 ```text
 TraceRequirementResult
-  snapshot
-  requirement CURRENT
-  subgraph
-  externalLinks
+  KnowledgeSnapshotMetadata snapshot
+  RequirementVersionRecord requirement
+  TraceabilitySubgraph subgraph
+  ExternalTraceabilityView[] externalLinks
 ```
 
-La porte doit démontrer :
+Règles :
 
 ```text
-Requirement <- REFINES - Scenario
-Requirement <- AFFECTS - Change
-Constraint - CONSTRAINS -> Change
-Change - DECIDED_BY -> DesignDecision
-Requirement - LINKS_TO_CODE -> ExternalReference
+traceActive -> ACTIVE uniquement
+traceSnapshot -> ACTIVE ou RETIRED uniquement
+BUILDING / VALIDATING / READY / FAILED rejetés
+CURRENT requirement obligatoire dans le snapshot adressé
+racine = REQUIREMENT + RequirementId.value
+BIDIRECTIONAL
+maxDepth > 0
+relation filters explicites
+external enrichment != mutation des arêtes
 ```
 
-et :
+Le scénario final couvre simultanément :
 
 ```text
-Memory == SQLite
-close/reopen SQLite
-profondeur >= 3
+Scenario -> Requirement               REFINES
+Change -> Requirement                 AFFECTS
+Constraint -> Change                  CONSTRAINS
+Change -> DesignDecision              DECIDED_BY
+DesignDecision -> Specification       RELATED_TO   (profondeur 3)
+DesignDecision -> Change              RELATED_TO   (cycle réel)
+Requirement -> ExternalReference      LINKS_TO_CODE / UNRESOLVED
+Requirement -> ExternalReference      LINKS_TO_TEST / BROKEN_REFERENCE
+```
+
+Il démontre également :
+
+```text
 incoming + outgoing
-cycle réel
 filtres
-UNRESOLVED
-BROKEN_REFERENCE
-provenance/evidence
+provenance/evidence conservées
 RETIRED explicite
 ACTIVE isolation
-READY/BUILDING non observables
+Memory == SQLite
+close/reopen SQLite
 ```
-
-Les **5 tests S6** portent le total attendu de `184` à **189 tests**.
 
 ---
 
-# 8. Gate final
+# 8. Gate final M4
 
-Commande obligatoire :
+Commande exécutée :
 
 ```text
 Windows : .\mvnw.cmd clean test
 ```
 
-Attendu avant acceptation :
+Preuve :
 
 ```text
-TraceRequirementFinalValidationTest  5/5 PASS
-TOTAL                              189/189 PASS
-Failures                            0
-Errors                              0
-Skipped                             0
+TraceRequirementFinalValidationTest       5/5 PASS
+LayerDependencyTest                       2/2 PASS
+
+Domain                                   21 tests
+Application                              66 tests
+OpenSpec provider                        26 tests
+Synthetic provider                        7 tests
+SQLite store                              7 tests
+Architecture tests                       62 tests
+------------------------------------------------
+TOTAL                                   189/189 PASS
+Failures                                  0
+Errors                                    0
+Skipped                                   0
 BUILD SUCCESS
+Total time                              27.573 s
 ```
 
-La preuve exacte, le timestamp, le total réel et la réponse finale à la question de sortie seront inscrits uniquement après exécution locale verte.
+Gate terminé le **23 juillet 2026 à 14:57:23 +02:00**.
+
+Head de code testé :
+
+```text
+d46b66b5c5c22baabcfe8cfcb53a2da2eff68782
+```
+
+Warnings connus non bloquants uniquement :
+
+```text
+Xerial SQLite / JDK native-access
+SLF4J NOP dans les tests d'architecture
+```
 
 ---
 
 # 9. Décision de sortie
 
-Tant que le gate S6 n'est pas vert :
-
 ```text
-M4 != validé final
-M5 != autorisé
-ADR-0042 reste proposée
-PR S6 reste Draft
-issue #27 reste ouverte
+M4 = VALIDÉ
+6/6 slices = VALIDÉS
+189/189 = PASS
+M5 = AUTORISÉ
 ```
+
+La question de sortie M4 reçoit une réponse positive sur les deux backends de référence sans dépendance à un backend graphe.
+
+La PR #34 peut être intégrée sous le signal explicite utilisateur déjà donné : **« merge et finalise M4 »**.
