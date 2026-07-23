@@ -59,6 +59,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0039](0039-deterministic-traceability-derivation.md) | Dérivation déterministe depuis le modèle normalisé | **Acceptée — M4** |
 | [ADR-0040](0040-bounded-deterministic-traceability-traversal.md) | Traversée bornée, déterministe et chemins explicables | **Acceptée — M4** |
 | [ADR-0041](0041-snapshot-external-reference-traceability.md) | Références externes snapshot-scoped et liens unresolved/broken explicables | **Acceptée — M4** |
+| [ADR-0042](0042-final-trace-requirement-query.md) | Porte finale `trace(requirement)` sur snapshots publiés | **Acceptée — M4** |
 
 ---
 
@@ -94,7 +95,7 @@ M3 est validée et intégrée. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3
 
 ---
 
-# Preuves M4 en cours
+# État final des preuves M4
 
 | Slice | ADR | Preuve |
 |---|---|---|
@@ -103,8 +104,11 @@ M3 est validée et intégrée. Preuve : [`../VALIDATION_M3.md`](../VALIDATION_M3
 | M4-S3 dérivation déterministe depuis modèle normalisé | ADR-0039 | `167/167 PASS` |
 | M4-S4 traversal / path snapshot-scoped | ADR-0040 | `174/174 PASS` |
 | M4-S5 références externes / unresolved / broken | ADR-0041 | `184/184 PASS` |
+| M4-S6 porte finale `trace(requirement)` | ADR-0042 | `189/189 PASS` |
 
-La vue opérationnelle M4 est [`../roadmap/M4_EXECUTION.md`](../roadmap/M4_EXECUTION.md).
+M4 est validée. Preuve : [`../VALIDATION_M4.md`](../VALIDATION_M4.md).
+
+La vue d'exécution M4 est [`../roadmap/M4_EXECUTION.md`](../roadmap/M4_EXECUTION.md).
 La trajectoire de packaging/déploiement est [`../roadmap/DEPLOYMENT.md`](../roadmap/DEPLOYMENT.md).
 
 ---
@@ -268,6 +272,22 @@ Memory == SQLite observable semantics
 SQLite reopen conserve coordonnées, attributs, provenance et historique
 ```
 
+## Porte finale M4-S6
+
+```text
+traceActive -> ACTIVE uniquement
+traceSnapshot -> ACTIVE/RETIRED uniquement
+non-published snapshots rejetés
+CURRENT requirement obligatoire
+root = REQUIREMENT + RequirementId.value
+BIDIRECTIONAL
+maxDepth > 0
+Memory == SQLite
+SQLite reopen conserve la vue finale
+UNRESOLVED / BROKEN_REFERENCE restent observables
+aucun backend graphe requis
+```
+
 ## Build
 
 Gate obligatoire :
@@ -279,17 +299,18 @@ Unix    : ./mvnw clean test
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
-Dernier gate M4-S5 :
+Dernier gate M4-S6 :
 
 ```text
-ExternalTraceabilityLinkFactoryTest 5/5 PASS
-ExternalTraceabilityContractTest    5/5 PASS
-184/184 PASS
+TraceRequirementFinalValidationTest 5/5 PASS
+189/189 PASS
 Failures 0
 Errors   0
 Skipped  0
 BUILD SUCCESS
 ```
+
+Gate terminé le **23 juillet 2026 à 14:57:23 +02:00**.
 
 GitHub Actions n'est pas une porte obligatoire.
 
@@ -313,6 +334,7 @@ CLI locale sans Docker obligatoire ; runtime Java embarqué à prouver en M9 ; D
 - [`../VALIDATION_M1.md`](../VALIDATION_M1.md)
 - [`../VALIDATION_M2.md`](../VALIDATION_M2.md) — **M2 validée**.
 - [`../VALIDATION_M3.md`](../VALIDATION_M3.md) — **M3 validée et intégrée**.
+- [`../VALIDATION_M4.md`](../VALIDATION_M4.md) — **M4 validée**.
 
 ---
 
