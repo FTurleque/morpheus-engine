@@ -23,10 +23,11 @@ public record SnapshotPage<T>(
         if (items.size() > pageRequest.limit()) {
             throw new IllegalArgumentException("items must not exceed page limit");
         }
-        if (hasMore && pageRequest.offset() + items.size() >= totalMatches) {
+        long consumed = (long) pageRequest.offset() + items.size();
+        if (hasMore && consumed >= totalMatches) {
             throw new IllegalArgumentException("hasMore is inconsistent with page bounds");
         }
-        if (!hasMore && pageRequest.offset() + items.size() < totalMatches) {
+        if (!hasMore && consumed < totalMatches) {
             throw new IllegalArgumentException("hasMore is inconsistent with page bounds");
         }
     }
