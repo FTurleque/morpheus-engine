@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 3/6 validés ; S1/S2 intégrés, S3 Ready, S4 prochain après merge**
+Statut : **Roadmap active — C0 à M4 validés et intégrés ; M5 actif — 3/6 intégrés ; S4 implémenté, gate en attente**
 
 Date de dernière mise à jour : 23 juillet 2026
 
@@ -18,7 +18,7 @@ La roadmap MORPHEUS est pilotée par des preuves. Un jalon n'est pas terminé pa
 | M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 tests |
 | M3 | État temporel, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 6/6, 147/147 tests |
 | M4 | Traçabilité | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 6/6, 189/189 tests |
-| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 3/6 VALIDÉS** | S1 196/196 merged ; S2 202/202 merged ; S3 210/210 Ready ; S4 prochain après merge ; issue #36 |
+| **M5** | **Requêtes et contexte compact** | **🚧 ACTIF — 3/6 INTÉGRÉS** | S1 196/196 merged ; S2 202/202 merged ; S3 210/210 merged ; S4 implémenté, gate attendu 217 ; issue #36 |
 | M6 | Qualité / couverture | ⏳ PLANIFIÉ | après primitives de requête |
 | M7 | Synchronisation incrémentale | ⏳ PLANIFIÉ | après snapshots stables |
 | M8 | Analyse des changements | ⏳ PLANIFIÉ | après M3/M4/M5 |
@@ -249,8 +249,8 @@ N'inclut pas : ranking global, fusion multi-engine ou compression par budget de 
 |---|---|---|
 | **S1** | **`find_requirements` + pagination déterministe** | **✅ MERGED — PR #37 — ADR-0043 — 196/196** |
 | **S2** | **projection métier requêtable des autres familles** | **✅ MERGED — PR #38 — ADR-0044 — 202/202** |
-| **S3** | **getters/lists déterministes** | **✅ VALIDÉ — PR #39 Ready — ADR-0045 — 210/210** |
-| S4 | `trace_requirement` query view + `get_change_context` | ⏳ PROCHAIN APRÈS MERGE S3 |
+| **S3** | **getters/lists déterministes** | **✅ MERGED — PR #39 — ADR-0045 — 210/210** |
+| **S4** | **`trace_requirement` query view + `get_change_context`** | **🚧 IMPLÉMENTÉ — PR #40 Draft — ADR-0046 proposée — gate attendu 217** |
 | S5 | vues compactes + warnings/provenance + JSON déterministe | ⏳ |
 | S6 | validation finale `VALIDATION_M5.md` | ⏳ |
 
@@ -261,28 +261,6 @@ PageRequest
 RequirementSearchQuery
 RequirementSearchPage
 RequirementQueryService
-
-findActive(...)
-findSnapshot(...)
-```
-
-Invariants prouvés :
-
-```text
-ACTIVE by default
-ACTIVE/RETIRED explicit snapshot
-CURRENT only
-PROPOSED never leaks into CURRENT
-lexical key/title/statement
-case-insensitive / Unicode-aware
-AND terms
-stable RequirementId ordering
-bounded offset pagination
-1 <= limit <= 100
-Memory == SQLite
-SQLite reopen
-no semantic/fuzzy/LLM
-no SQLite migration
 ```
 
 Gate : **196/196 PASS**.  
@@ -311,13 +289,11 @@ ImplementationTask
 Evidence / Provenance
 ```
 
-Invariants prouvés : ownership snapshot/version, identités stables, aucune fausse temporalité, projection immuable, Memory == SQLite, reopen SQLite, listes normalisées avec ordinal et aucune payload JSON métier générique.
-
 Gate : **202/202 PASS**.  
 ADR : **ADR-0044 — Acceptée — M5**.  
 Merge : `3a39371518d9d327ea4cbee0994da65b218ec64c`.
 
-### M5-S3 — validé techniquement
+### M5-S3 — intégré
 
 ```text
 BusinessContentQueryService
@@ -336,33 +312,53 @@ activeDesignDecisions / snapshotDesignDecisions
 activeImplementationTasks / snapshotImplementationTasks
 ```
 
-Invariants prouvés :
+Gate : **210/210 PASS**.  
+ADR : **ADR-0045 — Acceptée — M5**.  
+Merge : `28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73`.
+
+### M5-S4 — implémenté / gate en attente
+
+```text
+TraceRequirementQueryService
+ChangeContextQueryService
+ChangeContextResult
+```
+
+`trace_requirement` réutilise exactement M4.
+
+`get_change_context` compose dans un seul snapshot :
+
+```text
+ChangeProposal
+AFFECTS directs
+Requirement CURRENT résolus
+Constraint
+DesignDecision
+ImplementationTask
+TraceabilitySubgraph borné
+ExternalTraceabilityView unresolved/broken
+```
+
+Invariants candidats :
 
 ```text
 ACTIVE by default
 ACTIVE/RETIRED explicit only
-no ACTIVE != not-found
-not-found explicit
-published snapshot without projection = error
-stable domain-identity ordering
-pagination after filtering + ordering
-PageRequest reused from S1
+no ACTIVE != change not found
+CURRENT only / PROPOSED excluded
+AFFECTS direct only
+broken AFFECTS target retained
+bounded deterministic cycle-safe traversal
+relation filter shapes trace view only
 Memory == SQLite
 SQLite reopen
 no V008
-Scenario != AcceptanceCriterion
+no semantic/LLM/NEXUS ranking/fusion
 ```
 
-Gate :
-
-```text
-BusinessContentQueryBackendParityTest 1/1 PASS
-BusinessContentQueryContractTest      7/7 PASS
-TOTAL                               210/210 PASS
-BUILD SUCCESS
-```
-
-ADR : **ADR-0045 — Acceptée — M5**.
+Preuves ajoutées : `ChangeContextQueryContractTest` **7 tests**.  
+Gate attendu : **217/217**.  
+ADR : **ADR-0046 — Proposée — M5**.
 
 Vue opérationnelle : [`roadmap/M5_EXECUTION.md`](roadmap/M5_EXECUTION.md).  
 Issue : **#36**.
@@ -500,4 +496,4 @@ Non engagées : génération assistée par LLM, recherche sémantique/embeddings
 7. mettre à jour roadmap + issue
 ```
 
-**Prochaine ligne active après merge S3 : M5-S4 — `trace_requirement` query view + `get_change_context`.**
+**Prochaine porte : gate local M5-S4 attendu 217/217.**
