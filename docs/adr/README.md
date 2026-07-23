@@ -64,6 +64,7 @@ Une ADR n'est acceptée qu'après preuve lorsqu'elle dépend d'une hypothèse te
 | [ADR-0044](0044-snapshot-business-content-projection.md) | Projection métier snapshot-scoped des familles hors `Requirement` | **Acceptée — M5** |
 | [ADR-0045](0045-deterministic-business-content-queries.md) | Getters et listes métier déterministes sur snapshots publiés | **Acceptée — M5** |
 | [ADR-0046](0046-change-context-query-aggregation.md) | Agrégation déterministe de `trace_requirement` et `get_change_context` | **Acceptée — M5** |
+| [ADR-0047](0047-compact-query-views-and-canonical-json.md) | Vues compactes, warnings structurés, provenance/evidence et JSON canonique | **Acceptée — M5** |
 
 ---
 
@@ -122,6 +123,7 @@ M4 est validée et intégrée. Preuve : [`../VALIDATION_M4.md`](../VALIDATION_M4
 | M5-S2 projection métier snapshot-scoped | ADR-0044 | `202/202 PASS` |
 | M5-S3 getters/listes déterministes | ADR-0045 | `210/210 PASS` |
 | M5-S4 trace query view + change context | ADR-0046 | `217/217 PASS` |
+| M5-S5 vues compactes + warnings + JSON canonique | ADR-0047 | `227/227 PASS` |
 
 Vue d'exécution : [`../roadmap/M5_EXECUTION.md`](../roadmap/M5_EXECUTION.md).
 
@@ -139,8 +141,6 @@ com.morpheus.application -X-> SQLite
 com.morpheus.domain      -X-> CLI/MCP/API adapters
 ```
 
-OpenSpec et Synthetic dépendent vers l'intérieur de `domain + application` ; jamais l'inverse.
-
 ## Identité / temporalité
 
 ```text
@@ -152,7 +152,7 @@ PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 ```
 
-## Persistance métier
+## Persistance
 
 ```text
 Requirement = persistance versionnée spécialisée
@@ -161,42 +161,26 @@ snapshot/version ownership explicite
 aucune payload JSON métier générique
 ```
 
-## Traçabilité M4
+## Requêtes / contexte M5
 
 ```text
-TraceabilityLink first-class
-snapshot-scoped
-Memory == SQLite
-bounded / cycle-safe traversal
-UNRESOLVED et BROKEN_REFERENCE visibles
-traceActive -> ACTIVE uniquement
-traceSnapshot -> ACTIVE/RETIRED uniquement
-aucun backend graphe requis
-```
-
-## Requêtes M5
-
-```text
-RequirementQueryService
-BusinessContentQueryService
-TraceRequirementQueryService
-ChangeContextQueryService
-
 ACTIVE par défaut
 snapshot explicite = ACTIVE/RETIRED uniquement
 CURRENT only pour Requirement
 not-found explicite
-tri stable par identité domaine
-pagination après filtrage + tri
-AFFECTS directs seulement pour requirements affectés
-cibles AFFECTS cassées conservées
+tri stable + pagination bornée
+AFFECTS directs conservés
 trace bornée / déterministe / cycle-safe
 external unresolved/broken visibles
 Memory == SQLite
 SQLite reopen
-aucune recherche fuzzy / sémantique / LLM
-aucun ranking/fusion NEXUS
 Scenario != AcceptanceCriterion
+compact DTOs typés
+provenance/evidence conservées
+warnings code/severity/details
+canonical deterministic JSON
+aucune recherche fuzzy / sémantique / LLM
+aucun ranking/fusion/compression NEXUS
 ```
 
 ## Build
@@ -210,43 +194,20 @@ Unix    : ./mvnw clean test
 
 Baseline : Maven 3.9.16, Java source/bytecode `release 21`.
 
-Dernier gate M5-S4 :
+Dernier gate M5-S5 :
 
 ```text
-ChangeContextQueryContractTest 7/7 PASS
-Architecture tests            90/90 PASS
-217/217 PASS
+Architecture tests 100/100 PASS
+227/227 PASS
 Failures 0
 Errors   0
 Skipped  0
 BUILD SUCCESS
 ```
 
-Gate terminé le **23 juillet 2026 à 19:22:37 +02:00**.
+Gate terminé le **23 juillet 2026 à 20:06:21 +02:00**.
 
-GitHub Actions n'est pas une porte obligatoire.
-
-Les warnings JDK native-access Xerial SQLite et SLF4J NOP restent connus et non bloquants.
-
-## Distribution
-
-```text
-Native-first
-Container-supported
-```
-
-CLI locale sans Docker obligatoire ; runtime Java embarqué à prouver en M9 ; Docker officiel pour les modes headless/MCP réseau/API lorsque justifié.
-
----
-
-# Documents de validation
-
-- [`../VALIDATION_C0.md`](../VALIDATION_C0.md)
-- [`../VALIDATION_M0.md`](../VALIDATION_M0.md)
-- [`../VALIDATION_M1.md`](../VALIDATION_M1.md)
-- [`../VALIDATION_M2.md`](../VALIDATION_M2.md) — **M2 validée**.
-- [`../VALIDATION_M3.md`](../VALIDATION_M3.md) — **M3 validée et intégrée**.
-- [`../VALIDATION_M4.md`](../VALIDATION_M4.md) — **M4 validée et intégrée**.
+GitHub Actions n'est pas une porte obligatoire. Les warnings JDK native-access Xerial SQLite et SLF4J NOP restent connus et non bloquants.
 
 ---
 
