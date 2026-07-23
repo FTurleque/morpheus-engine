@@ -1,6 +1,6 @@
 # ADR-0046 — Agrégation déterministe du contexte de changement
 
-- Statut : **Proposée — M5**
+- Statut : **Acceptée — M5**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0034, ADR-0038, ADR-0040, ADR-0041, ADR-0042, ADR-0044, ADR-0045
 - Portée : M5-S4, `trace_requirement` query view et `get_change_context`
@@ -17,9 +17,9 @@ M5-S3 merge = 28c32ea2ede7b9144eb10a2a7fb60b0df44f2a73 — 210/210
 
 M4 fournit déjà une traçabilité snapshot-scoped bornée et `TraceRequirementService`. S2/S3 fournissent les projections métier et leurs getters/lists.
 
-S4 doit composer ces capacités sans créer une seconde source de vérité ni déplacer vers MORPHEUS les responsabilités de ranking/fusion de NEXUS.
+S4 compose ces capacités sans créer une seconde source de vérité ni déplacer vers MORPHEUS les responsabilités de ranking/fusion de NEXUS.
 
-## Décision candidate
+## Décision
 
 Introduire :
 
@@ -170,9 +170,9 @@ TraceabilityStore
 ExternalReferenceStore
 ```
 
-Aucune migration SQLite S4 n'est prévue.
+Aucune migration SQLite S4 n'est introduite.
 
-Memory et SQLite doivent produire la même sémantique observable ; SQLite close/reopen doit conserver le contexte.
+Memory et SQLite produisent la même sémantique observable ; SQLite close/reopen conserve le contexte.
 
 ## Frontières
 
@@ -194,26 +194,54 @@ warnings structurés finaux
 
 Les vues compactes, warnings structurés et sérialisation déterministe restent M5-S5.
 
-## Preuves attendues
+## Preuve d'acceptation — 23 juillet 2026
 
-Le gate S4 doit démontrer :
+Gate local Windows exécuté sur le head complet candidat :
 
-1. façade `trace_requirement` identique aux sémantiques M4 ;
-2. ACTIVE par défaut et ACTIVE/RETIRED explicite ;
-3. absence d'ACTIVE distincte de change absent ;
-4. `ChangeContextResult` cohérent sur un seul snapshot ;
-5. requirements affectés issus uniquement des liens `AFFECTS` directs ;
-6. seules les occurrences CURRENT sont résolues ;
-7. cible AFFECTS cassée conservée dans les liens bruts ;
-8. contraintes/décisions/tâches filtrées par `ChangeId` ;
-9. sous-graphe borné, déterministe et cycle-safe ;
-10. filtre de trace n'altère pas les faits métier de base ;
-11. external unresolved/broken visible ;
-12. Memory == SQLite ;
-13. SQLite reopen ;
-14. aucune migration S4 ;
-15. `.\mvnw.cmd clean test` vert.
+```text
+branch = m5/change-context-query
+head   = da1c0c53fdcf0e98b60cf7a46699bf014ee67091
+.\mvnw.cmd clean test
+javac release 21
+```
 
-## Preuve d'acceptation
+Head code/test contenu dans ce candidat :
 
-À compléter uniquement après gate local complet vert.
+```text
+6df77f79feeaf92e10b9848c333b1b756c8af33c
+```
+
+Preuve ciblée S4 :
+
+```text
+ChangeContextQueryContractTest    7/7 PASS
+Architecture tests               90/90 PASS
+```
+
+Résultat global :
+
+```text
+Domain                                  21 tests
+Application                             66 tests
+OpenSpec provider                       26 tests
+Synthetic provider                       7 tests
+SQLite store                             7 tests
+Architecture tests                      90 tests
+-----------------------------------------------
+TOTAL                                  217/217 PASS
+Failures                                 0
+Errors                                   0
+Skipped                                  0
+BUILD SUCCESS
+Total time                             16.688 s
+Finished at                 2026-07-23T19:22:37+02:00
+```
+
+Les 15 critères de preuve sont satisfaits : façade `trace_requirement` identique à M4, ACTIVE/RETIRED cohérents, distinction no-ACTIVE/not-found, agrégat mono-snapshot, `AFFECTS` directs uniquement, CURRENT only, cible AFFECTS cassée conservée, contenu métier filtré par `ChangeId`, sous-graphe borné/déterministe/cycle-safe, filtre de trace sans perte des faits métier, unresolved/broken externes visibles, Memory == SQLite, SQLite reopen, aucune migration S4 et gate Maven complet vert.
+
+Décision finale :
+
+```text
+ADR-0046 = ACCEPTÉE — M5
+M5-S4    = VALIDÉ — 217/217
+```
