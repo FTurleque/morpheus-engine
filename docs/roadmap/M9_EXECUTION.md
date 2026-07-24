@@ -1,6 +1,6 @@
 # M9 — Plan d'exécution détaillé
 
-Statut : **M9 FONCTIONNELLEMENT COMPLET — validation Windows/Linux pending**
+Statut : **M9 FONCTIONNELLEMENT COMPLET — gate Windows validé, gate Linux pending**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -19,7 +19,7 @@ Branche : `m9/cli-distribution`
 
 > **MORPHEUS peut-il être utilisé de façon fiable depuis une CLI locale stable, avec des commandes explicites et scriptables, des codes de sortie déterministes, une configuration de workspace/base de données claire, une archive portable reproductible, et une stratégie de runtime Java embarqué évaluée et prouvée sur Windows et Linux sans déplacer la logique métier dans l'adapter CLI ?**
 
-Réponse actuelle : **implémentation OUI ; preuve finale pending**.
+Réponse actuelle : **implémentation OUI ; preuve Windows OUI ; preuve Linux pending**.
 
 ## M9-S1 — Contrat CLI
 
@@ -135,7 +135,7 @@ MorpheusMainTest
 ProjectSnapshotImportContractTest
 ```
 
-Couverture prévue :
+Couverture :
 
 - help/version/paths ;
 - exit codes + stdout/stderr ;
@@ -153,6 +153,33 @@ Couverture prévue :
 - import SQLite ;
 - predecessor/version sequence ;
 - candidate FAILED ne remplace pas ACTIVE.
+
+Gate Windows observé le 24 juillet 2026 :
+
+```text
+MORPHEUS Domain          21/21 PASS
+MORPHEUS Application     82/82 PASS
+OpenSpec Provider        26/26 PASS
+Synthetic Provider        7/7 PASS
+Memory Store              0 test
+SQLite Store              7/7 PASS
+MORPHEUS CLI              6/6 PASS
+Architecture Tests      149/149 PASS
+TOTAL                   298/298 PASS
+Failures                   0
+Errors                     0
+Skipped                    0
+BUILD SUCCESS
+Finished 2026-07-24T10:49:08+02:00
+```
+
+Détails M9 :
+
+```text
+MorpheusCliTest                    4/4 PASS
+MorpheusMainTest                   2/2 PASS
+ProjectSnapshotImportContractTest  3/3 PASS
+```
 
 ## M9-S5 — JAR autonome
 
@@ -180,7 +207,7 @@ distribution/build-portable.ps1
 distribution/build-portable.sh
 ```
 
-Ils construisent un `jpackage --type app-image`, smoke-testent le launcher, puis produisent :
+Ils construisent un `jpackage --type app-image`, smoke-testent le launcher en sortie humaine et JSON, puis produisent :
 
 ```text
 Windows -> ZIP
@@ -188,6 +215,22 @@ Linux   -> tar.gz
 ```
 
 Le runtime Java est embarqué dans l'app-image ; l'utilisateur final n'a pas de JDK manuel à configurer.
+
+Preuve Windows du 24 juillet 2026 :
+
+```text
+morpheus.exe --version
+  MORPHEUS 0.1.0-SNAPSHOT
+
+morpheus.exe --json version
+  {"version":"0.1.0-SNAPSHOT"}
+
+archive
+  dist/morpheus-0.1.0-windows-x64.zip
+
+runtime Java embarqué
+  OUI
+```
 
 ## M9-S7 — Installateur Windows
 
@@ -198,6 +241,8 @@ distribution/build-windows-installer.ps1
 Produit un EXE depuis l'app-image lorsque WiX est disponible sur la machine de packaging.
 
 L'installateur est optionnel ; le ZIP autonome reste l'artefact Windows officiel M9.
+
+Le 24 juillet 2026, WiX était absent de la machine de validation. Le script a correctement détecté cette absence et a terminé en skip explicite sans invalider l'app-image portable déjà prouvée.
 
 ## M9-S8 — Upgrade / uninstall
 
@@ -218,11 +263,11 @@ ADR-0060 — Proposée — sync full snapshot conservateur
 ADR-0061 — Proposée — distribution portable jpackage
 ```
 
-Elles passeront Acceptées uniquement après les preuves reproductibles.
+Le gate Windows est désormais prouvé. Les ADR restent proposées jusqu'à la preuve cross-platform finale incluant Linux.
 
 ## Gates requis
 
-### Windows
+### Windows — ✅ VALIDÉ le 24 juillet 2026
 
 ```powershell
 .\mvnw.cmd clean test
@@ -231,16 +276,27 @@ Elles passeront Acceptées uniquement après les preuves reproductibles.
 .\distribution\build-windows-installer.ps1
 ```
 
-Preuves attendues : BUILD SUCCESS, comptes exacts, `MorpheusCliTest`, `MorpheusMainTest`, `ProjectSnapshotImportContractTest`, launcher packagé `--version`, ZIP présent.
+Résultat :
 
-### Linux
+```text
+298/298 PASS
+Architecture 149/149 PASS
+BUILD SUCCESS
+portable ZIP produit
+launcher --version PASS
+launcher --json version PASS
+runtime Java embarqué prouvé
+WiX absent -> installateur optionnel SKIPPED proprement
+```
+
+### Linux — ⏳ PENDING
 
 ```bash
 ./mvnw clean test
 ./distribution/build-portable.sh
 ```
 
-Preuves attendues : BUILD SUCCESS, mêmes tests, launcher packagé `--version`, tar.gz présent.
+Preuves attendues : BUILD SUCCESS, mêmes tests, launcher packagé `--version` et `--json version`, tar.gz présent.
 
 ## Invariants
 
@@ -258,7 +314,3 @@ no manual JDK for end user
 Windows + Linux proof required
 native-first, container-supported
 ```
-
-## Clôture
-
-M9 ne sera marqué **VALIDÉ** qu'après les gates Windows et Linux. Avant ces preuves, la PR doit rester draft et les ADR-0059/60/61 restent Proposées.
