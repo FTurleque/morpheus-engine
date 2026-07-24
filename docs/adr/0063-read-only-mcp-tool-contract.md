@@ -1,6 +1,6 @@
 # ADR-0063 — Catalogue MCP read-only et sémantique explicite
 
-- Statut : **Proposée — M10 gate pending**
+- Statut : **Acceptée — M10**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0043 à ADR-0058
 - Portée : M10 — tools MCP
@@ -45,22 +45,34 @@ Donc :
 
 ```text
 get_acceptance_criteria -> UNAVAILABLE_IN_NORMALIZED_MODEL si absent
-get_change_status       -> UNAVAILABLE si lifecycle non persisté
+get_change_status       -> UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT si lifecycle non persisté
 ```
 
 L'absence est une information explicite ; elle ne doit pas être masquée par une valeur inventée.
 
 ## Résultats
 
-Les réponses complexes réutilisent les vues compactes et le JSON canonique déjà validés en M5/M6/M8 lorsque possible. Les nouvelles vues M10 doivent rester déterministes, ordonnées et snapshot-scoped.
+Les réponses complexes réutilisent les vues compactes et le JSON canonique déjà validés en M5/M6/M8 lorsque possible. Les nouvelles vues M10 restent déterministes, ordonnées et snapshot-scoped.
 
-## Critères d'acceptation
+`get_specification_context` agrège uniquement les relations `AFFECTS` persistées. `get_blocking_conditions` réutilise `ChangeCompletenessService` et les facts tri-state M6.
 
-1. catalogue exact ;
-2. tools tous read-only ;
-3. ACTIVE/CURRENT respectés ;
-4. pagination/profondeur bornées ;
-5. aucune acceptance criterion synthétique ;
-6. aucun lifecycle inféré ;
-7. résultats stables Memory/SQLite lorsqu'un service existant le garantit ;
-8. erreurs tool-level explicites pour not-found / arguments métier invalides.
+## Preuve M10
+
+```text
+MorpheusMcpToolCatalogTest      3/3 PASS
+MorpheusMcpToolServiceTest      1/1 PASS
+MorpheusMcpStdioIntegrationTest 1/1 PASS
+TOTAL                          307/307 PASS
+Architecture                   149/149 PASS
+```
+
+Le fixture SQLite de `MorpheusMcpToolServiceTest` appelle les quatorze tools et vérifie explicitement :
+
+```text
+criteria=[] quand AcceptanceCriterion est indisponible
+Scenario jamais relabellé AcceptanceCriterion
+lifecycleState=UNAVAILABLE quand lifecycle non persisté
+ACTIVE/CURRENT conservés
+```
+
+Validation détaillée : `docs/VALIDATION_M10.md`.
