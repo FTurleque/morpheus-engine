@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M13 validés et intégrés**
+Statut : **C0 à M13 validés et intégrés ; M14 validé, prêt à intégrer**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -8,7 +8,7 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 
 ## 1. Vue globale
 
-| Jalon | Sujet | Statut | Preuve |
+| Jalon | Sujet | Statut | Preuve / prochaine porte |
 |---|---|---|---|
 | C0 | Cadrage fonctionnel et architectural | ✅ VALIDÉ | `VALIDATION_C0.md` |
 | M0 | Faisabilité technique | ✅ VALIDÉ | `VALIDATION_M0.md` |
@@ -22,61 +22,55 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M8 | Analyse des changements | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M8.md`, 289/289 |
 | M9 | CLI stabilisée et distribution locale | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M9.md`, 298/298 Windows + Linux |
 | M10 | Serveur MCP STDIO natif | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M10.md`, 307/307 |
-| M11 | API HTTP headless | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M11.md`, 314/314 + packaged health |
-| M12 | MINOS optionnel / intention → code | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M12.md`, 331/331 + packaging |
-| **M13** | **NEXUS optionnel / intention → contexte technique** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M13.md`, 346/346 + packaging |
-| M14 | JARVIS | ⏳ PLANIFIÉ | orchestration seulement |
+| M11 | API HTTP headless | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M11.md`, 314/314 |
+| M12 | MINOS optionnel / intention → code | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M12.md`, 331/331 |
+| M13 | NEXUS optionnel / intention → contexte technique | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M13.md`, 346/346 |
+| **M14** | **JARVIS / contrat d'orchestration read-only** | **✅ VALIDÉ** | `VALIDATION_M14.md`, 357/357 + JARVIS 536 tests |
 
-Merges :
+Merges actifs :
 
 ```text
 M12 = 86dbb1d50e87ce354b7174156e9c8c5717722a17
 M13 = 2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f
+main baseline M14 = 5269fbf8ef5586e0e04a776293dda2bf46786d0d
 ```
 
-Références actives :
+Références M14 :
 
-- [`VALIDATION_M13.md`](VALIDATION_M13.md)
-- [`roadmap/M13_EXECUTION.md`](roadmap/M13_EXECUTION.md)
-- [`MINOS.md`](MINOS.md)
-- [`NEXUS.md`](NEXUS.md)
+- [`VALIDATION_M14.md`](VALIDATION_M14.md)
+- [`roadmap/M14_EXECUTION.md`](roadmap/M14_EXECUTION.md)
+- [`JARVIS.md`](JARVIS.md)
 - [`API.md`](API.md)
 - [`MCP.md`](MCP.md)
+- [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml)
 - [`../distribution/README.md`](../distribution/README.md)
 - [`adr/README.md`](adr/README.md)
 
-## 2. Principes de séquencement
+## 2. Responsabilités
 
 ```text
-Documenter d'abord
-Décider ensuite
-Implémenter après
-Prouver avant de valider
-Merger uniquement après autorisation explicite
-```
-
-Responsabilités :
-
-```text
-MORPHEUS owns intent/specification semantics
+MORPHEUS owns specification facts + lifecycle rules
 MINOS owns code intelligence
 NEXUS owns context selection/ranking/fusion/compression
-JARVIS owns orchestration
+JARVIS owns orchestration and action sequencing
 ```
 
-Invariants transverses :
+Invariants :
 
 ```text
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
 SpecificationVersion != KnowledgeSnapshot
 Scenario != AcceptanceCriterion
-provider facts != MORPHEUS domain
 PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 optional engine absence != MORPHEUS failure
 external live observation != published snapshot mutation
 NEXUS ContextBundle != KnowledgeSnapshot persistence
+lifecycle unavailable != lifecycle inferred
+transition evaluation != lifecycle mutation
+UNKNOWN != BLOCKED
+MORPHEUS rules != JARVIS action sequencing
 ```
 
 ## 3. Gates validés
@@ -94,79 +88,82 @@ M10 307/307
 M11 314/314
 M12 331/331 | Architecture 153/153 | packaging PASS
 M13 346/346 | Architecture 154/154 | packaging PASS
+M14 357/357 | Architecture 160/160 | packaging PASS | JARVIS 536 tests BUILD SUCCESS
 ```
 
 ## 4. M12 — MINOS ✅ / INTÉGRÉ
 
-Question de sortie :
-
-> MORPHEUS peut-il résoudre en production une `ExternalReference(system=MINOS, resourceType=SYMBOL, ...)`, enrichir la traçabilité intention → code avec des faits MINOS explicites et révisés, tout en restant totalement utilisable lorsque MINOS est absent, arrêté, incompatible ou sur une autre JVM ?
-
-**Réponse : OUI.**
-
-```text
-MORPHEUS Java 21
- -> morpheus-integration-minos
- -> MCP client 2.0.0 / STDIO
- -> process MINOS Java 24
-```
-
-Gate : **331/331 PASS**, architecture **153/153**, packaging Windows PASS.  
-ADR : **0069..0072 acceptées**.  
-Validation : [`VALIDATION_M12.md`](VALIDATION_M12.md).  
-Merge : `86dbb1d50e87ce354b7174156e9c8c5717722a17`.
+MORPHEUS résout les références code MINOS via MCP STDIO sans dépendance `com.minos.*`. Gate : **331/331**, architecture **153/153**.
 
 ## 5. M13 — NEXUS ✅ / INTÉGRÉ
 
+MORPHEUS délègue sélection/ranking/fusion/compression du contexte technique à NEXUS via MCP STDIO sans dépendance `com.nexus.*`. Gate : **346/346**, architecture **154/154**.
+
+## 6. M14 — JARVIS ✅ VALIDÉ
+
 Question de sortie :
 
-> **MORPHEUS peut-il déléguer à NEXUS la sélection, le ranking, la fusion et la compression du contexte technique sous budget, à partir d'une intention MORPHEUS explicite, sans recopier ces règles et tout en restant entièrement utilisable lorsque NEXUS est absent ou indisponible ?**
+> **MORPHEUS peut-il fournir à JARVIS un contrat machine stable et explicable indiquant l'état observable d'un changement, les faits manquants, les références non résolues, les contraintes applicables et les transitions lifecycle autorisées/bloquées/inconnues, sans devenir lui-même l'orchestrateur ni inventer des faits non observables ?**
 
 **Réponse : OUI.**
-
-Architecture :
-
-```text
-MORPHEUS Java 21
- -> TechnicalContextProvider
- -> morpheus-integration-nexus
- -> MCP client 2.0.0 / STDIO
- -> NEXUS MCP runner Java 21
- -> list_projects + build_context + explain_context
-```
 
 Frontière :
 
 ```text
-MORPHEUS = intention structurée
-NEXUS    = sélection / ranking / fusion / compression / budget technique
+MORPHEUS = facts + lifecycle rules + transition decisions
+JARVIS   = sequencing + orchestration + action choice
 ```
 
-Mapping explicite :
+Lifecycle :
 
 ```text
-nexusProject = UUID ou nom unique NEXUS
+absent  -> UNAVAILABLE
+fourni  -> CALLER_SUPPLIED
 ```
 
-Aucune création/indexation/rebuild NEXUS déclenchée par MORPHEUS.
-
-Surfaces :
+Décision read-only :
 
 ```text
-CLI nexus-status
-CLI augmented-context requirement|change
-MCP get_augmented_requirement_context
-MCP get_augmented_change_context
-HTTP GET  /integrations/nexus/status
-HTTP POST /projects/{id}/requirements/{requirementId}/augmented-context
-HTTP POST /projects/{id}/changes/{changeId}/augmented-context
+ALLOWED
+BLOCKED
+UNKNOWN
+REQUIRES_INPUT
 ```
 
-Serveur MCP : **18 tools read-only**.
+Surface :
 
-Optionalité : sans `MORPHEUS_NEXUS_JAR`, NEXUS est `DISABLED`, l'intention MORPHEUS reste disponible et CLI/MCP/API continuent de fonctionner.
+```text
+CLI  change-orchestration state|transition-check
+MCP  get_change_orchestration_state
+MCP  evaluate_change_transition
+HTTP GET  /projects/{id}/changes/{changeId}/orchestration
+HTTP POST /projects/{id}/changes/{changeId}/transition-check
+```
 
-Gate autoritatif sur `a44e8938bfa03e8b8a1039c8271a8865b871ed7d` :
+Serveur M14 : **20 tools read-only**.
+
+UC-16 :
+
+```text
+snapshot / change / lifecycle
+observableFacts
+missingArtifacts
+unavailableFacts
+acceptanceCriteria
+applicableConstraints
+blockingConstraints
+unresolvedLinks
+qualityFindings
+nextAllowedTransitions
+transitionEvaluations
+persisted=false
+```
+
+Acceptance et blocking constraints non modélisés restent explicitement `UNAVAILABLE`; aucun fait n'est inventé.
+
+### Gate MORPHEUS
+
+Head : `d44d418ae0f1e528ea09a56cdd8c45647048c740`.
 
 ```text
 Domain              21/21 PASS
@@ -177,30 +174,34 @@ SQLite                7/7 PASS
 MINOS Integration     8/8 PASS
 NEXUS Integration     7/7 PASS
 MCP                    5/5 PASS
-API                    7/7 PASS
-CLI                  17/17 PASS
-Architecture       154/154 PASS
+API                    9/9 PASS
+CLI                  20/20 PASS
+Architecture       160/160 PASS
 --------------------------------
-TOTAL              346/346 PASS
+TOTAL              357/357 PASS
 ```
 
-Packaging Windows :
+Packaging Windows : **PASS**, archive `33,702,405 bytes`.
+
+### Gate JARVIS cross-repo
+
+Head : `58899855bcd3446636c1f274ace8c1bfc8f46930`.
 
 ```text
-MCP/API/MINOS/NEXUS adapter packaging proof: PASS
-Packaged standalone optional-engines smoke: PASS
-Packaged API health smoke: PASS
-Portable archive creation: PASS
-ZIP 33,654,379 bytes
+jarvis-core
+Tests run: 536
+Failures: 0
+Errors: 0
+Skipped: 16
+BUILD SUCCESS
+MorpheusOrchestrationClientTest 6/6 PASS
 ```
 
-ADR : **0073..0076 acceptées**.  
-Validation : [`VALIDATION_M13.md`](VALIDATION_M13.md).  
-Merge : `2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f`.
+Les raisons d'abandon observation/source/cible sont transmises séparément et jamais inventées.
 
-## 6. M14 — JARVIS ⏳
+ADR-0077..0080 : **Acceptées — M14**.
 
-MORPHEUS expose états, transitions, blockers, acceptance status, références et contexte. JARVIS orchestre la séquence d'actions sans devenir propriétaire du domaine MORPHEUS, MINOS ou NEXUS.
+Validation : [`VALIDATION_M14.md`](VALIDATION_M14.md).
 
 ## 7. Règle de pilotage
 

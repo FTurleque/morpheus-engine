@@ -40,7 +40,9 @@ public final class MorpheusMain {
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
         int exitCode;
-        if (MorpheusAugmentedContextCli.handles(args)) {
+        if (MorpheusJarvisOrchestrationCli.handles(args)) {
+            exitCode = new MorpheusJarvisOrchestrationCli().run(args, out, err, environment, properties);
+        } else if (MorpheusAugmentedContextCli.handles(args)) {
             exitCode = new MorpheusAugmentedContextCli(nexus, nexus)
                     .run(args, out, err, environment, properties);
         } else if (MorpheusExternalIntegrationCli.handles(args)) {
@@ -70,6 +72,11 @@ public final class MorpheusMain {
             out.println("  morpheus [--json] augmented-context requirement --project ID --requirement ID --nexus-project ID_OR_NAME [--budget N] [--source TYPE] [--constraint k=v] [--explain]");
             out.println("  morpheus [--json] augmented-context change --project ID --change ID --nexus-project ID_OR_NAME [--budget N] [--source TYPE] [--constraint k=v] [--explain]");
             out.println("  NEXUS is optional; configure MORPHEUS_NEXUS_JAR to enable live technical context.");
+            out.println();
+            out.println("JARVIS / orchestration contract (read-only):");
+            out.println("  morpheus [--json] change-orchestration state --project ID --change ID [--lifecycle STATE] [--abandonment-reason REASON]");
+            out.println("  morpheus [--json] change-orchestration transition-check --project ID --change ID --from STATE --to STATE [--from-abandonment-reason REASON] [--abandonment-reason REASON] [--allow-backward] [--allow-completed-reopen]");
+            out.println("  MORPHEUS exposes lifecycle facts and decisions; JARVIS remains responsible for orchestration.");
         }
         return exitCode;
     }

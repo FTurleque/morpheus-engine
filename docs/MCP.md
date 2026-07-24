@@ -1,6 +1,6 @@
-# MORPHEUS MCP — M10 + M12 + M13
+# MORPHEUS MCP — M10 à M14
 
-Statut : **M10/M12/M13 validés**
+Statut : **M10/M12/M13/M14 validés**
 
 MORPHEUS expose un serveur Model Context Protocol natif sur STDIO pour IDE, agents et orchestrateurs locaux.
 
@@ -11,14 +11,7 @@ morpheus mcp --stdio
 morpheus --db /path/to/morpheus.db mcp --stdio
 ```
 
-Stockage : même SQLite que CLI/API.
-
-```text
-stdout = protocole MCP JSON-RPC uniquement
-stderr = diagnostics runtime uniquement
-```
-
-SDK : Java MCP SDK officiel `2.0.0`, `McpServer.sync`, `StdioServerTransportProvider`, `validateToolInputs=true`.
+`stdout` est réservé au JSON-RPC MCP ; `stderr` aux diagnostics. SDK : Java MCP SDK `2.0.0`, transport STDIO, validation stricte des inputs.
 
 ## Catalogue historique M10 — 14 tools
 
@@ -39,7 +32,7 @@ get_blocking_conditions
 get_sync_status
 ```
 
-Contrats conservés :
+Contrats historiques conservés :
 
 ```text
 Scenario != AcceptanceCriterion
@@ -49,98 +42,109 @@ queries snapshot-scoped / CURRENT
 read-only
 ```
 
-## Extensions M12 — 2 tools read-only
+## M12 — 2 tools
 
 ```text
 list_external_references
 resolve_external_reference
 ```
 
-Le serveur M12 porte le catalogue à **16 tools**. La résolution live retourne `stored`, `observed`, `persisted=false` et ne modifie jamais la référence persistée.
+Catalogue : **16 tools**.
 
-MINOS reste optionnel. Sans resolver : observation `UNRESOLVED / NO_RESOLVER`, serveur MCP toujours fonctionnel.
-
-## Extensions M13 — 2 tools read-only
-
-Le serveur M13 porte additivement le catalogue à **18 tools** :
+## M13 — 2 tools
 
 ```text
 get_augmented_requirement_context
 get_augmented_change_context
 ```
 
-### `get_augmented_requirement_context`
+Catalogue : **18 tools**. NEXUS reste optionnel et le `ContextBundle` live n'est pas persisté.
+
+# M14 — 2 tools read-only
+
+Catalogue validé : **20 tools read-only**.
+
+```text
+get_change_orchestration_state
+evaluate_change_transition
+```
+
+Les tools M14 sont additifs et séparés du catalogue historique M10.
+
+## `get_change_orchestration_state`
 
 Input strict :
 
 ```json
 {
   "projectId":"<morpheus-project-uuid>",
-  "requirementId":"<requirement-uuid>",
-  "nexusProject":"<nexus-name-or-uuid>",
-  "tokenBudget":2000,
-  "requestedSources":["FILE","SYMBOL","TEST"],
-  "constraints":{"language":"java"},
-  "explain":false
+  "changeId":"<change-uuid>",
+  "lifecycleState":"DRAFT",
+  "abandonmentReason":null
 }
 ```
 
-MORPHEUS construit uniquement :
+Required : `projectId`, `changeId`.
+
+`lifecycleState` est optionnel. Sans lui, MORPHEUS retourne explicitement :
 
 ```text
-Requirement: <key?> <title>
-Statement: <statement>
+lifecycle.state  = absent
+lifecycle.source = UNAVAILABLE
 ```
 
-Puis délègue sélection/ranking/fusion/compression au `TechnicalContextProvider`.
+Avec lui : `source=CALLER_SUPPLIED`.
 
-### `get_augmented_change_context`
+La réponse expose :
 
-Input identique avec `changeId`. Le seed contient les faits du snapshot ACTIVE : change title/intent/scope, requirements affectés, contraintes, décisions et tâches.
+```text
+snapshot
+change
+lifecycle
+observableFacts
+missingArtifacts
+unavailableFacts
+acceptanceCriteria
+applicableConstraints
+blockingConstraints
+unresolvedLinks
+qualityFindings
+nextAllowedTransitions
+transitionEvaluations
+persisted=false
+```
 
-### Résultat M13
+## `evaluate_change_transition`
+
+Input strict :
 
 ```json
 {
-  "snapshot":{"id":"...","state":"ACTIVE"},
-  "intentContext":{"subjectType":"REQUIREMENT","query":"..."},
-  "technicalContext":{
-    "status":{"system":"NEXUS","state":"AVAILABLE"},
-    "bundle":{"tokenBudget":2000,"estimatedTokens":900,"items":[]}
-  },
-  "persisted":false
+  "projectId":"<morpheus-project-uuid>",
+  "changeId":"<change-uuid>",
+  "fromState":"PROPOSED",
+  "targetState":"SPECIFIED",
+  "allowBackwardTransitions":false,
+  "allowCompletedReopen":false
 }
 ```
 
-Les scores, composants de score, raisons, exclusions et métadonnées du bundle sont des faits NEXUS ; MORPHEUS ne les reranke pas.
+Optional : `fromAbandonmentReason`, `abandonmentReason`.
 
-## NEXUS optionnel
-
-Sans configuration :
+Résultat :
 
 ```text
-NEXUS provider = DISABLED
-MORPHEUS intent context = disponible
-technical bundle = absent
-MCP server = entièrement fonctionnel
+ALLOWED        préconditions observables + machine autorise
+BLOCKED        préconditions observables + machine bloque
+UNKNOWN        fait requis UNAVAILABLE
+REQUIRES_INPUT information explicite requise
 ```
 
-Avec `MORPHEUS_NEXUS_JAR` valide :
-
-```text
-get_augmented_*_context
- -> AugmentedContextService
- -> TechnicalContextProvider
- -> NexusMcpContextGateway
- -> MCP STDIO
- -> NEXUS build_context | explain_context
-```
-
-MORPHEUS ne dépend d'aucun type `com.nexus.*`.
+M14 réutilise la `ChangeLifecycleStateMachine`. Un fait `UNAVAILABLE` n'est jamais transformé en `false`.
 
 ## JSON Schemas
 
-Tous les inputs MCP M10/M12/M13 :
+Tous les inputs M10/M12/M13/M14 :
 
 ```text
 type = object
@@ -148,15 +152,11 @@ additionalProperties = false
 required = explicite
 ```
 
-Bornes :
+États lifecycle M14 :
 
 ```text
-M10 limit          1..100
-M10 depth          1..20
-M10 maxAgeMinutes  1..525600
-M10 offset         >= 0
-M13 tokenBudget    1..100000
-M13 sources        FILE | SYMBOL | TEST | DOCUMENTATION | INSTRUCTION | SKILL | GIT
+DRAFT | PROPOSED | SPECIFIED | DESIGNED | PLANNED
+IMPLEMENTING | VERIFYING | COMPLETED | ARCHIVED | ABANDONED
 ```
 
 ## Absence de write tools
@@ -169,20 +169,41 @@ RequirementDelta apply
 PROMOTE
 ACTIVATE
 rollback
+apply lifecycle transition
 persist external live resolution
 persist NEXUS ContextBundle
 index/rebuild NEXUS
+orchestrate JARVIS actions
 ```
 
-## Validation M13
+## Validation M14
 
 ```text
-MCP                         5/5 PASS
-MorpheusM13McpStdioIntegrationTest 1/1 PASS
-Architecture            154/154 PASS
-TOTAL                    346/346 PASS
+MorpheusM14McpStdioIntegrationTest
+ -> vrai subprocess MORPHEUS MCP STDIO
+ -> découvre les 2 tools M14
+ -> conserve M12/M13
+ -> appelle evaluate_change_transition
 ```
 
-Le vrai subprocess MORPHEUS MCP STDIO découvre les deux tools M13 sans NEXUS installé.
+Gate MORPHEUS sur `d44d418ae0f1e528ea09a56cdd8c45647048c740` :
 
-Références : [`VALIDATION_M13.md`](VALIDATION_M13.md), [`NEXUS.md`](NEXUS.md), [`roadmap/M13_EXECUTION.md`](roadmap/M13_EXECUTION.md).
+```text
+MCP             5/5 PASS
+CLI            20/20 PASS
+Architecture 160/160 PASS
+TOTAL         357/357 PASS
+Packaging         PASS
+```
+
+Preuve JARVIS sur `58899855bcd3446636c1f274ace8c1bfc8f46930` :
+
+```text
+jarvis-core 536 tests
+0 failure
+0 error
+BUILD SUCCESS
+MorpheusOrchestrationClientTest 6/6 PASS
+```
+
+Références : [`VALIDATION_M14.md`](VALIDATION_M14.md), [`JARVIS.md`](JARVIS.md), [`roadmap/M14_EXECUTION.md`](roadmap/M14_EXECUTION.md).

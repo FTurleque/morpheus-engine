@@ -92,6 +92,10 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0074](0074-explicit-nexus-project-mapping.md) | Mapping projet NEXUS explicite | **Acceptée — M13** |
 | [ADR-0075](0075-morpheus-intent-vs-nexus-technical-context.md) | Intention MORPHEUS distincte du contexte technique NEXUS | **Acceptée — M13** |
 | [ADR-0076](0076-optional-nexus-runtime-and-surfaces.md) | Runtime/surfaces NEXUS optionnels | **Acceptée — M13** |
+| [ADR-0077](0077-morpheus-jarvis-read-only-orchestration-boundary.md) | Frontière read-only MORPHEUS / JARVIS | **Acceptée — M14** |
+| [ADR-0078](0078-explicit-lifecycle-and-tristate-transition-evaluation.md) | Lifecycle explicite et transition tri-state | **Acceptée — M14** |
+| [ADR-0079](0079-nondestructive-change-orchestration-state.md) | État d'orchestration agrégé non destructif | **Acceptée — M14** |
+| [ADR-0080](0080-jarvis-orchestration-surfaces-and-optional-client.md) | Surfaces M14 et client JARVIS optionnel | **Acceptée — M14** |
 
 # Preuves par jalon
 
@@ -108,6 +112,7 @@ M10 307/307 PASS Windows | Architecture 149/149 | MCP STDIO + packaging
 M11 314/314 PASS Windows | Architecture 150/150 | API health packaging
 M12 331/331 PASS Windows | Architecture 153/153 | MINOS optional packaging
 M13 346/346 PASS Windows | Architecture 154/154 | MINOS/NEXUS optional packaging
+M14 357/357 PASS Windows | Architecture 160/160 | JARVIS orchestration packaging | JARVIS 536 tests BUILD SUCCESS
 ```
 
 ## M12
@@ -133,6 +138,20 @@ Validation : [`../VALIDATION_M12.md`](../VALIDATION_M12.md).
 Validation : [`../VALIDATION_M13.md`](../VALIDATION_M13.md).  
 Documentation : [`../NEXUS.md`](../NEXUS.md).
 
+## M14
+
+| Incrément | ADR | Preuve |
+|---|---|---|
+| frontière MORPHEUS/JARVIS | ADR-0077 | `LayerDependencyTest`, client JARVIS sans `com.morpheus.*`, HTTP JSON local |
+| lifecycle explicite / tri-state | ADR-0078 | `JarvisOrchestrationContractTest 5/5`, API/CLI transition-check |
+| agrégation UC-16 non destructive | ADR-0079 | missing vs unavailable, unresolved links, `persisted=false`, API `2/2` |
+| surfaces + client optionnel | ADR-0080 | CLI `20/20`, API `9/9`, MCP subprocess M14, packaging PASS, JARVIS client `6/6` |
+
+Gate cross-repo JARVIS : `536 tests`, `0 failure`, `0 error`, `BUILD SUCCESS`.
+
+Validation : [`../VALIDATION_M14.md`](../VALIDATION_M14.md).  
+Documentation : [`../JARVIS.md`](../JARVIS.md).
+
 # Contraintes actives principales
 
 ## Architecture
@@ -142,6 +161,8 @@ domain/application -X-> provider/store/cli/mcp/api/integration
 API -X-> CLI/MCP/integration
 MINOS integration -X-> CLI/MCP/API/store/com.minos.*
 NEXUS integration -X-> CLI/MCP/API/store/com.nexus.*
+MORPHEUS -X-> com.jarvis.*
+JARVIS cross-repo -X-> com.morpheus.*
 CLI = composition root
 business rules = application/domain
 ```
@@ -158,6 +179,8 @@ published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 live external observation != persisted snapshot mutation
 NEXUS ContextBundle != KnowledgeSnapshot persistence
+lifecycle unavailable != lifecycle inferred
+transition evaluation != lifecycle mutation
 ```
 
 ## Qualité / analyse
@@ -168,8 +191,11 @@ DETERMINISTIC != HEURISTIC
 Scenario != AcceptanceCriterion
 absence de lien != lien inventé
 lifecycle non inféré depuis snapshot
+UNKNOWN lifecycle fact != FALSE
+blocking constraint non modélisée != blocker inventé
 code impact analysis = MINOS
 technical context ranking/compression = NEXUS
+orchestration sequencing = JARVIS
 ```
 
 ## Build
@@ -183,12 +209,13 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé** : M13.
+Dernier gate **validé** : M14.
 
 ```text
-TOTAL         346/346 PASS
-Architecture  154/154 PASS
+TOTAL         357/357 PASS
+Architecture  160/160 PASS
 Packaging     PASS
+JARVIS        536 tests | 0 failure | 0 error | BUILD SUCCESS
 ```
 
 # Principe de validation
