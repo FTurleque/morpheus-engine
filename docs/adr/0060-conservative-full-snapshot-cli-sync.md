@@ -1,6 +1,6 @@
 # ADR-0060 — Sync CLI conservateur par publication complète de snapshot
 
-- Statut : **Proposée — gate Windows PASS, validation Linux pending**
+- Statut : **Acceptée — M9**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0033, ADR-0034, ADR-0039, ADR-0053, ADR-0054, ADR-0055
 - Portée : M9 — ingestion exécutable depuis la CLI
@@ -79,7 +79,9 @@ Les `TraceabilityLinkId` des observations dérivées sont des identités d'occur
 
 Ce slice ne promet pas : application partielle des deltas M7, watcher CLI longue durée, merge de sous-graphes ou mutation in-place d'un snapshot.
 
-## Preuve Windows intermédiaire — 24 juillet 2026
+## Preuves finales — 24 juillet 2026
+
+Windows et Linux/WSL ont chacun prouvé :
 
 ```text
 ProjectSnapshotImportContractTest  3/3 PASS
@@ -92,11 +94,13 @@ BUILD SUCCESS
 
 Le test CLI end-to-end couvre OpenSpec -> sync -> SQLite -> reopen et vérifie que le launcher officiel enregistre `FULL_REBUILD`, cohérent avec l'exécution réelle.
 
-La preuve Linux reste requise avant acceptation finale M9 de cette ADR.
+Le gate Linux a été exécuté avec OpenJDK 21.0.11 sur filesystem Linux WSL et confirme la même sémantique que le gate Windows.
+
+Validation complète : [`../VALIDATION_M9.md`](../VALIDATION_M9.md).
 
 ## Critères d'acceptation
 
-ADR acceptée lorsque les tests prouvent :
+Les tests prouvent :
 
 1. publication complète OpenSpec ;
 2. requirements CURRENT dans le nouveau snapshot ;
@@ -109,3 +113,5 @@ ADR acceptée lorsque les tests prouvent :
 9. Memory + SQLite ;
 10. SQLite reopen ;
 11. CLI sync enregistre FULL_REBUILD et non un faux INCREMENTAL.
+
+**Décision : ADR-0060 acceptée.**
