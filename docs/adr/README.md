@@ -73,11 +73,13 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0053](0053-deterministic-source-inventory-and-incremental-diff.md) | Inventaire de sources SHA-256 et diff incrémental conservateur | **Acceptée — M7** |
 | [ADR-0054](0054-persisted-sync-state-archives-and-freshness.md) | État de synchronisation persisté, archives et fraîcheur | **Acceptée — M7** |
 | [ADR-0055](0055-local-watcher-and-full-rebuild-fallback.md) | Watcher local conservateur et fallback full rebuild | **Acceptée — M7** |
+| [ADR-0056](0056-deterministic-current-proposed-change-analysis.md) | Analyse déterministe CURRENT / proposé sans promotion | **Proposée — M8, preuve Maven en attente** |
+| [ADR-0057](0057-explicit-bounded-dependency-impact-paths.md) | Impacts de dépendance explicites par chemins bornés | **Proposée — M8, preuve Maven en attente** |
+| [ADR-0058](0058-compact-change-analysis-and-canonical-json.md) | Vue compacte d'analyse et JSON canonique | **Proposée — M8, preuve Maven en attente** |
 
 ---
 
 # Preuves M2
-
 | Slice | ADR | Preuve |
 |---|---|---|
 | M2-S1 domaine courant | ADR-0022 | `48/48 PASS` |
@@ -155,7 +157,6 @@ Vue d'exécution : [`../roadmap/M6_EXECUTION.md`](../roadmap/M6_EXECUTION.md).
 ---
 
 # Preuves M7
-
 | Incrément | ADR | Preuve |
 |---|---|---|
 | Inventaire SHA-256 + diff conservateur | ADR-0053 | `282/282 PASS` |
@@ -166,6 +167,19 @@ Vue d'exécution : [`../roadmap/M6_EXECUTION.md`](../roadmap/M6_EXECUTION.md).
 Validation : [`../VALIDATION_M7.md`](../VALIDATION_M7.md).  
 Vue d'exécution : [`../roadmap/M7_EXECUTION.md`](../roadmap/M7_EXECUTION.md).  
 Reçu d'intégration : [`../roadmap/M7_INTEGRATION.md`](../roadmap/M7_INTEGRATION.md).
+
+---
+
+# Preuves M8 — en attente du gate
+
+| Incrément | ADR | Preuve attendue |
+|---|---|---|
+| CURRENT / proposé + warnings | ADR-0056 | `ChangeAnalysisContractTest` |
+| DEPENDS_ON + chemins bornés | ADR-0057 | `ChangeAnalysisContractTest` |
+| Vue compacte + JSON canonique | ADR-0058 | `ChangeAnalysisContractTest` |
+| Validation finale M8 | — | `./mvnw clean test` |
+
+Vue d'exécution : [`../roadmap/M8_EXECUTION.md`](../roadmap/M8_EXECUTION.md).
 
 ---
 
@@ -226,6 +240,22 @@ Memory == SQLite
 SQLite reopen
 ```
 
+## Analyse M8
+
+```text
+analysis = derived view
+CURRENT baseline != proposed RequirementDelta
+no promotion during analysis
+Scenario != AcceptanceCriterion
+DEPENDS_ON persisted only
+bounded shortest paths
+proposed-only trace gap explicit
+code impact analysis = MINOS
+Memory == SQLite
+SQLite reopen
+canonical JSON
+```
+
 ## Build
 
 Gate obligatoire :
@@ -237,7 +267,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate M7 :
+Dernier gate validé : M7.
 
 ```text
 MORPHEUS Application  82/82 PASS
@@ -251,7 +281,7 @@ Total time           21.141 s
 Finished 2026-07-24T00:22:11+02:00
 ```
 
-GitHub Actions n'est pas la porte obligatoire. Les warnings JDK native-access Xerial SQLite et SLF4J NOP restent connus et non bloquants.
+Le gate M8 n'est pas encore enregistré. GitHub Actions n'est pas la porte obligatoire. Les warnings JDK native-access Xerial SQLite et SLF4J NOP restent connus et non bloquants.
 
 ---
 
@@ -260,9 +290,9 @@ GitHub Actions n'est pas la porte obligatoire. Les warnings JDK native-access Xe
 ```text
 1. documenter l'invariant / ADR
 2. implémenter le plus petit vertical slice
-3. ajouter les preuves contractuelles
-4. exécuter le Maven Wrapper
-5. accepter l'ADR uniquement après preuve
-6. merger sous autorisation explicite
-7. mettre à jour roadmap + issue de milestone
+3. prouver le comportement par tests reproductibles
+4. accepter l'ADR seulement après la preuve
+5. exécuter le gate Maven complet
+6. mettre à jour roadmap + issue après validation
+7. fusionner uniquement après autorisation explicite
 ```
