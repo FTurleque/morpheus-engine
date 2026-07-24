@@ -101,6 +101,38 @@ class ExternalReferenceResolutionServiceTest {
                 new MutableResolver(ExternalReferenceResolverResult.notFound()))));
     }
 
+    @Test
+    void ambiguityRevisionMismatchAndUnsupportedTargetsRemainDistinct() {
+        MutableResolver resolver = new MutableResolver(ExternalReferenceResolverResult.ambiguous());
+        ExternalReferenceResolutionService service = service(List.of(resolver));
+
+        ExternalReference ambiguous = service.resolve(reference());
+        assertEquals(ExternalReferenceResolutionState.UNRESOLVED, ambiguous.resolutionState());
+        assertEquals(ExternalReferenceResolutionReason.TARGET_AMBIGUOUS, ambiguous.resolutionReason());
+
+        resolver.result = ExternalReferenceResolverResult.revisionMismatch();
+        ExternalReference revisionMismatch = service.resolve(reference());
+        assertEquals(ExternalReferenceResolutionReason.TARGET_REVISION_MISMATCH, revisionMismatch.resolutionReason());
+
+        resolver.result = ExternalReferenceResolverResult.unsupported();
+        ExternalReference unsupported = service.resolve(reference());
+        assertEquals(ExternalReferenceResolutionReason.TARGET_TYPE_UNSUPPORTED, unsupported.resolutionReason());
+    }
+
+    @Test
+    void enrichedFailureAfterSuccessfulResolutionProducesStaleObservation() {
+        MutableResolver resolver = new MutableResolver(ExternalReferenceResolverResult.found(resolvedTarget()));
+        ExternalReferenceResolutionService service = service(List.of(resolver));
+        ExternalReference resolved = service.resolve(reference());
+        resolver.result = ExternalReferenceResolverResult.revisionMismatch();
+
+        ExternalReference stale = service.resolve(resolved);
+
+        assertEquals(ExternalReferenceResolutionState.STALE, stale.resolutionState());
+        assertEquals(ExternalReferenceResolutionReason.TARGET_REVISION_MISMATCH, stale.resolutionReason());
+        assertTrue(stale.resolvedTarget().isEmpty());
+    }
+
     private ExternalReferenceResolutionService service(List<? extends ExternalReferenceResolver> resolvers) {
         return new ExternalReferenceResolutionService(new ExternalReferenceResolverRegistry(resolvers), CLOCK);
     }
