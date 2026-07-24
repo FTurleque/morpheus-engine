@@ -2,6 +2,9 @@ package com.morpheus.cli;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
@@ -43,6 +46,25 @@ class MorpheusMainTest {
                 new String[]{"mcp", "--stdio", "--db", "state.db"}, Map.of(), properties);
 
         assertEquals(Path.of("state.db").toAbsolutePath().normalize(), options.layout().databasePath());
+    }
+
+    @Test
+    void officialHelpDocumentsNativeMcpStdioMode() {
+        Properties properties = new Properties();
+        properties.setProperty("user.home", Path.of("home").toAbsolutePath().toString());
+        properties.setProperty("os.name", "Linux");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+
+        int exit;
+        try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
+            exit = MorpheusMain.run(new String[]{"help"}, out, err, Map.of(), properties);
+        }
+
+        assertEquals(CliExitCode.SUCCESS.code(), exit);
+        assertTrue(output.toString(StandardCharsets.UTF_8).contains("mcp --stdio"));
+        assertTrue(errors.toString(StandardCharsets.UTF_8).isEmpty());
     }
 
     @Test
