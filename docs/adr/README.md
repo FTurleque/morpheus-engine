@@ -76,129 +76,112 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0056](0056-deterministic-current-proposed-change-analysis.md) | Analyse déterministe CURRENT / proposé sans promotion | **Acceptée — M8** |
 | [ADR-0057](0057-explicit-bounded-dependency-impact-paths.md) | Impacts de dépendance explicites par chemins bornés | **Acceptée — M8** |
 | [ADR-0058](0058-compact-change-analysis-and-canonical-json.md) | Vue compacte d'analyse et JSON canonique | **Acceptée — M8** |
-| [ADR-0059](0059-stable-local-cli-contract.md) | CLI locale stable, scriptable, stdout/stderr et exit codes | **Proposée — M9, gate pending** |
-| [ADR-0060](0060-conservative-full-snapshot-cli-sync.md) | Sync CLI conservateur par full snapshot publié | **Proposée — M9, gate pending** |
-| [ADR-0061](0061-self-contained-jpackage-portable-distribution.md) | Distribution portable autonome via jpackage/jlink | **Proposée — M9, preuves Windows/Linux pending** |
+| [ADR-0059](0059-stable-local-cli-contract.md) | CLI locale stable, scriptable, stdout/stderr et exit codes | **Acceptée — M9** |
+| [ADR-0060](0060-conservative-full-snapshot-cli-sync.md) | Sync CLI conservateur par full snapshot publié | **Acceptée — M9** |
+| [ADR-0061](0061-self-contained-jpackage-portable-distribution.md) | Distribution portable autonome via jpackage/jlink | **Acceptée — M9** |
 
 ---
 
-# Preuves M2
+# Preuves par jalon
+
+## M2
 
 | Slice | ADR | Preuve |
 |---|---|---|
-| M2-S1 domaine courant | ADR-0022 | `48/48 PASS` |
-| M2-S2 identité persistante | ADR-0023 | `58/58 PASS` |
-| M2-S3 changement normalisé | ADR-0024 | `64/64 PASS` |
-| M2-S4 requirement deltas | ADR-0025 | `70/70 PASS` |
-| M2-S5 ExternalReference | ADR-0026 | `76/76 PASS` |
-| M2-S6 lecture unifiée / partiel / diagnostics | ADR-0028 | `84/84 PASS` |
-| M2-S7 second provider anti-lock-in | ADR-0029 | `94/94 PASS` |
-| M2-S8 validation finale / persistance | ADR-0030 | `94/94 PASS` |
+| domaine courant | ADR-0022 | `48/48 PASS` |
+| identité persistante | ADR-0023 | `58/58 PASS` |
+| changement normalisé | ADR-0024 | `64/64 PASS` |
+| requirement deltas | ADR-0025 | `70/70 PASS` |
+| ExternalReference | ADR-0026 | `76/76 PASS` |
+| lecture unifiée / diagnostics | ADR-0028 | `84/84 PASS` |
+| second provider anti-lock-in | ADR-0029 | `94/94 PASS` |
+| validation finale | ADR-0030 | `94/94 PASS` |
 
 Validation : [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
 
----
+## M3
 
-# Preuves M3
-
-| Slice | ADR | Preuve |
-|---|---|---|
-| M3-S1 temporalité + versions | ADR-0031 | `103/103 PASS` |
-| M3-S2 lifecycle des changements | ADR-0032 | `119/119 PASS` |
-| M3-S3 KnowledgeSnapshot / activation atomique | ADR-0033 | `127/127 PASS` |
-| M3-S4 persistance métier versionnée | ADR-0034 | `134/134 PASS` |
-| M3-S5 application / promotion des deltas | ADR-0035 | `142/142 PASS` |
-| M3-S6 historique / comparaison / rollback / rétention | ADR-0036 | `147/147 PASS` |
+```text
+ADR-0031  103/103 PASS
+ADR-0032  119/119 PASS
+ADR-0033  127/127 PASS
+ADR-0034  134/134 PASS
+ADR-0035  142/142 PASS
+ADR-0036  147/147 PASS
+```
 
 Validation : [`../VALIDATION_M3.md`](../VALIDATION_M3.md).
 
----
+## M4
 
-# Preuves M4
-
-| Slice | ADR | Preuve |
-|---|---|---|
-| M4-S1 domaine `TraceabilityLink` + taxonomie | ADR-0037 | `155/155 PASS` |
-| M4-S2 persistance snapshot-scoped | ADR-0038 | `160/160 PASS` |
-| M4-S3 dérivation déterministe | ADR-0039 | `167/167 PASS` |
-| M4-S4 traversal / path | ADR-0040 | `174/174 PASS` |
-| M4-S5 références externes / unresolved / broken | ADR-0041 | `184/184 PASS` |
-| M4-S6 `trace(requirement)` | ADR-0042 | `189/189 PASS` |
+```text
+ADR-0037  155/155 PASS
+ADR-0038  160/160 PASS
+ADR-0039  167/167 PASS
+ADR-0040  174/174 PASS
+ADR-0041  184/184 PASS
+ADR-0042  189/189 PASS
+```
 
 Validation : [`../VALIDATION_M4.md`](../VALIDATION_M4.md).
 
----
+## M5
 
-# Preuves M5
-
-| Slice | ADR | Preuve |
-|---|---|---|
-| M5-S1 recherche lexicale + pagination | ADR-0043 | `196/196 PASS` |
-| M5-S2 projection métier snapshot-scoped | ADR-0044 | `202/202 PASS` |
-| M5-S3 getters/listes déterministes | ADR-0045 | `210/210 PASS` |
-| M5-S4 trace query view + change context | ADR-0046 | `217/217 PASS` |
-| M5-S5 vues compactes + warnings + JSON canonique | ADR-0047 | `227/227 PASS` |
-| M5-S6 validation finale | — | `227/227 PASS` |
+```text
+ADR-0043  196/196 PASS
+ADR-0044  202/202 PASS
+ADR-0045  210/210 PASS
+ADR-0046  217/217 PASS
+ADR-0047  227/227 PASS
+```
 
 Validation : [`../VALIDATION_M5.md`](../VALIDATION_M5.md).
 
----
+## M6
 
-# Preuves M6
+```text
+ADR-0048  234/234 PASS
+ADR-0049  241/241 PASS
+ADR-0050  248/248 PASS
+ADR-0051  254/254 PASS
+ADR-0052  261/261 PASS
+```
 
-| Slice | ADR | Preuve |
-|---|---|---|
-| M6-S1 couverture requirements + orphelins | ADR-0048 | `234/234 PASS` |
-| M6-S2 couverture tasks + acceptance gap | ADR-0049 | `241/241 PASS` |
-| M6-S3 change completeness + lifecycle blockers | ADR-0050 | `248/248 PASS` |
-| M6-S4 decisions + références externes | ADR-0051 | `254/254 PASS` |
-| M6-S5 rapport agrégé + vue compacte | ADR-0052 | `261/261 PASS` |
-| M6-S6 validation finale | — | `261/261 PASS` |
+Validation : [`../VALIDATION_M6.md`](../VALIDATION_M6.md).
 
-Validation : [`../VALIDATION_M6.md`](../VALIDATION_M6.md).  
-Vue d'exécution : [`../roadmap/M6_EXECUTION.md`](../roadmap/M6_EXECUTION.md).
+## M7
 
----
-
-# Preuves M7
-
-| Incrément | ADR | Preuve |
-|---|---|---|
-| Inventaire SHA-256 + diff conservateur | ADR-0053 | `282/282 PASS` |
-| Persistance sync + archives + fraîcheur + V008 | ADR-0054 | `282/282 PASS` |
-| Watcher local + fallback full rebuild | ADR-0055 | `282/282 PASS` |
-| Validation finale M7 | — | `282/282 PASS`, architecture `139/139` |
+```text
+ADR-0053 / ADR-0054 / ADR-0055
+TOTAL 282/282 PASS
+Architecture 139/139 PASS
+```
 
 Validation : [`../VALIDATION_M7.md`](../VALIDATION_M7.md).  
-Vue d'exécution : [`../roadmap/M7_EXECUTION.md`](../roadmap/M7_EXECUTION.md).  
-Reçu d'intégration : [`../roadmap/M7_INTEGRATION.md`](../roadmap/M7_INTEGRATION.md).
+Intégration : [`../roadmap/M7_INTEGRATION.md`](../roadmap/M7_INTEGRATION.md).
 
----
+## M8
 
-# Preuves M8
+```text
+ADR-0056 / ADR-0057 / ADR-0058
+ChangeAnalysisContractTest 7/7 PASS
+TOTAL 289/289 PASS
+Architecture 146/146 PASS
+```
+
+Validation : [`../VALIDATION_M8.md`](../VALIDATION_M8.md).  
+Intégration : [`../roadmap/M8_INTEGRATION.md`](../roadmap/M8_INTEGRATION.md).
+
+## M9
 
 | Incrément | ADR | Preuve |
 |---|---|---|
-| CURRENT / proposé + warnings | ADR-0056 | `ChangeAnalysisContractTest 7/7 PASS` |
-| DEPENDS_ON + chemins bornés | ADR-0057 | `ChangeAnalysisContractTest 7/7 PASS` |
-| Vue compacte + JSON canonique | ADR-0058 | `ChangeAnalysisContractTest 7/7 PASS` |
-| Validation finale M8 | — | `289/289 PASS`, architecture `146/146` |
+| CLI stable + layout + codes | ADR-0059 | `MorpheusCliTest 4/4`, `MorpheusMainTest 2/2` |
+| Publication full snapshot + rollback sûr | ADR-0060 | `ProjectSnapshotImportContractTest 3/3` |
+| JAR autonome + app-image Windows/Linux | ADR-0061 | ZIP + tar.gz + runtime + smoke human/JSON |
+| Validation finale M9 | — | `298/298 PASS` Windows et Linux, architecture `149/149` |
 
-Validation : [`../VALIDATION_M8.md`](../VALIDATION_M8.md).  
-Vue d'exécution : [`../roadmap/M8_EXECUTION.md`](../roadmap/M8_EXECUTION.md).  
-Reçu d'intégration : [`../roadmap/M8_INTEGRATION.md`](../roadmap/M8_INTEGRATION.md).
-
----
-
-# Preuves M9 — en attente des gates
-
-| Incrément | ADR | Preuve attendue |
-|---|---|---|
-| CLI stable + layout + codes | ADR-0059 | `MorpheusCliTest`, `MorpheusMainTest` |
-| Publication full snapshot + rollback sûr | ADR-0060 | `ProjectSnapshotImportContractTest` |
-| JAR autonome + app-image Windows/Linux | ADR-0061 | scripts `distribution/`, smoke launchers |
-| Validation finale M9 | — | Windows + Linux + Maven complet |
-
+Validation : [`../VALIDATION_M9.md`](../VALIDATION_M9.md).  
 Vue d'exécution : [`../roadmap/M9_EXECUTION.md`](../roadmap/M9_EXECUTION.md).
 
 ---
@@ -282,7 +265,8 @@ CLI sync = conservative FULL_REBUILD
 no fake incremental receipt
 portable app-image contains Java runtime
 installation != user data/config
-Windows + Linux proof before M9 acceptance
+Windows + Linux proof complete
+mvnw/*.sh = LF ; Windows scripts = CRLF
 ```
 
 ## Build
@@ -296,7 +280,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé** : M8.
+Dernier gate **validé** : M9.
 
 ```text
 MORPHEUS Domain          21/21 PASS
@@ -304,15 +288,16 @@ MORPHEUS Application     82/82 PASS
 OpenSpec Provider        26/26 PASS
 Synthetic Provider        7/7 PASS
 SQLite Store              7/7 PASS
-Architecture Tests      146/146 PASS
-TOTAL                   289/289 PASS
+MORPHEUS CLI              6/6 PASS
+Architecture Tests      149/149 PASS
+TOTAL                   298/298 PASS
 Failures                   0
 Errors                     0
 Skipped                    0
 BUILD SUCCESS
-Total time               26.406 s
-Finished 2026-07-24T09:44:51+02:00
 ```
+
+Gate reproduit sur **Windows et Linux/WSL** le 24 juillet 2026.
 
 Warnings connus non bloquants : Xerial SQLite native-access et SLF4J NOP.
 
