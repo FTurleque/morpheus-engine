@@ -12,6 +12,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -151,11 +152,10 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
                     + settings.configurationError().orElse(settings.state().name()));
         }
         Path jar = settings.jarPath().orElseThrow();
-        return new Launch(
-                settings.javaCommand(),
-                List.of("-cp", jar.toString(), MINOS_SERVER_CLASS),
-                settings.processEnvironment(),
-                settings.timeout());
+        List<String> arguments = new ArrayList<>();
+        settings.homeDirectory().ifPresent(home -> arguments.add("-Dminos.home=" + home));
+        arguments.addAll(List.of("-cp", jar.toString(), MINOS_SERVER_CLASS));
+        return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout());
     }
 
     private static String requireText(String value, String name) {
