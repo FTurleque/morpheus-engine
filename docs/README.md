@@ -4,35 +4,75 @@ Cette page est le point d’entrée de la documentation active de MORPHEUS.
 
 MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, publie des snapshots versionnés, expose des requêtes et de la traçabilité, produit des diagnostics qualité, analyse les changements et fournit des contrats d’intégration optionnels pour MINOS, NEXUS et JARVIS.
 
-## Je veux utiliser MORPHEUS
+La documentation utilisateur et développeur contient désormais des diagrammes Mermaid de type **UML class**, **state**, **sequence** et des vues de composants pour expliciter les workflows et les frontières d’architecture directement dans GitHub.
 
-Commencer ici :
+## Parcours utilisateur
 
-- [Guide utilisateur](user/README.md)
-- [Démarrage rapide](user/QUICKSTART.md)
-- [Référence CLI](user/CLI.md)
-- [Intégrations optionnelles](user/INTEGRATIONS.md)
+| Besoin | Document |
+|---|---|
+| comprendre les concepts et garanties | [Guide utilisateur](user/README.md) |
+| installer et exécuter un premier scénario | [Démarrage rapide](user/QUICKSTART.md) |
+| trouver une commande et ses options | [Référence CLI](user/CLI.md) |
+| configurer MINOS, NEXUS ou JARVIS | [Intégrations optionnelles](user/INTEGRATIONS.md) |
+
+Parcours conseillé :
+
+```mermaid
+flowchart LR
+    A[Guide utilisateur] --> B[Démarrage rapide]
+    B --> C[CLI]
+    C --> D[Traçabilité / qualité / analyse]
+    D --> E[Intégrations optionnelles]
+```
 
 Les distributions portables Windows/Linux embarquent leur runtime Java. L’utilisateur final n’a pas besoin d’installer un JDK pour exécuter l’archive portable.
 
-## Je veux développer MORPHEUS
+## Parcours développeur
 
-Commencer ici :
+| Besoin | Document |
+|---|---|
+| importer le projet et comprendre les modules | [Guide développeur](developer/README.md) |
+| comprendre couches, domaine, temporalité et lifecycle | [Architecture](developer/ARCHITECTURE.md) |
+| compiler, tester et packager | [Build, tests et validation](developer/BUILD_AND_TEST.md) |
+| implémenter/consommer le contrat HTTP | [API HTTP](developer/API.md) |
+| implémenter/consommer le serveur MCP | [Serveur MCP](developer/MCP.md) |
+| comprendre les ports MINOS/NEXUS/JARVIS | [Intégrations cross-engine](developer/INTEGRATIONS.md) |
 
-- [Guide développeur](developer/README.md)
-- [Architecture](developer/ARCHITECTURE.md)
-- [Build, tests et validation](developer/BUILD_AND_TEST.md)
-- [API HTTP](developer/API.md)
-- [Serveur MCP](developer/MCP.md)
-- [Intégrations cross-engine](developer/INTEGRATIONS.md)
+Parcours conseillé :
 
-Baseline technique actuelle : Java 21, Maven Wrapper, SQLite, Java MCP SDK 2.0.0 et API HTTP basée sur `jdk.httpserver`.
+```mermaid
+flowchart LR
+    A[Guide développeur] --> B[Architecture]
+    B --> C[Build & tests]
+    B --> D[API]
+    B --> E[MCP]
+    B --> F[Intégrations]
+```
+
+Baseline technique actuelle : Java 21, Maven Wrapper 3.9.16, SQLite, Java MCP SDK 2.0.0 et API HTTP basée sur `jdk.httpserver`.
+
+## Vue rapide du système
+
+```mermaid
+flowchart LR
+    SRC[Sources / workspaces] --> P[Providers]
+    P --> M[MORPHEUS domain/application]
+    M --> S[(Snapshots / SQLite)]
+    S --> Q[Query / Traceability / Quality / Analysis]
+    Q --> CLI[CLI]
+    Q --> MCP[MCP STDIO]
+    Q --> API[HTTP /api/v1]
+    M -->|MCP STDIO| MINOS[MINOS optionnel]
+    M -->|MCP STDIO| NEXUS[NEXUS optionnel]
+    J[JARVIS] -->|HTTP read-only| API
+```
 
 ## Produit et spécification
 
 - [`product/CAHIER_DES_CHARGES.md`](product/CAHIER_DES_CHARGES.md) — cadrage fonctionnel et technique de haut niveau ;
 - [`product/USE_CASES.md`](product/USE_CASES.md) — cas d’usage ;
-- [`product/MVP.md`](product/MVP.md) — périmètre MVP historique.
+- [`product/MVP.md`](product/MVP.md) — périmètre MVP historique ;
+- [`domain/MODEL.md`](domain/MODEL.md) — modèle de domaine de cadrage et historique de conception.
 
 ## Gouvernance et preuves
 
@@ -67,6 +107,16 @@ M14 maintient la frontière suivante :
 MORPHEUS = specification facts + lifecycle rules + transition decisions
 JARVIS   = sequencing + orchestration + action choice
 ```
+
+## Conventions de lecture
+
+Dans la documentation :
+
+- `CURRENT`, `PROPOSED`, `HISTORICAL` désignent la temporalité des connaissances ;
+- `BUILDING` à `RETIRED` désignent le lifecycle technique d’un `KnowledgeSnapshot` ;
+- `DRAFT` à `ARCHIVED`/`ABANDONED` désignent le lifecycle métier d’un `ChangeProposal` ;
+- `ALLOWED`, `BLOCKED`, `UNKNOWN`, `REQUIRES_INPUT` sont des décisions d’évaluation, pas des transitions appliquées ;
+- `persisted=false` indique une vue/observation live ou calculée qui ne modifie pas l’historique publié.
 
 ## Règle de rangement
 
