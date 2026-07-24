@@ -19,6 +19,7 @@
         <module>morpheus-provider-synthetic</module>
         <module>morpheus-store-memory</module>
         <module>morpheus-store-sqlite</module>
+        <module>morpheus-mcp</module>
         <module>morpheus-cli</module>
         <module>morpheus-architecture-tests</module>
     </modules>
@@ -30,6 +31,7 @@
         <junit.version>6.1.0</junit.version>
         <archunit.version>1.4.2</archunit.version>
         <sqlite-jdbc.version>3.53.1.0</sqlite-jdbc.version>
+        <mcp-sdk.version>2.0.0</mcp-sdk.version>
 
         <maven.compiler.plugin.version>3.14.1</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.5.5</maven.surefire.plugin.version>
@@ -42,6 +44,13 @@
                 <groupId>org.junit</groupId>
                 <artifactId>junit-bom</artifactId>
                 <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.modelcontextprotocol.sdk</groupId>
+                <artifactId>mcp-bom</artifactId>
+                <version>${mcp-sdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
