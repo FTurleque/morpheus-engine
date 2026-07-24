@@ -1,6 +1,6 @@
 # ADR-0079 — État d'orchestration agrégé non destructif
 
-- Statut : **Proposée — M14 gate pending**
+- Statut : **Acceptée — M14**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0041, ADR-0047, ADR-0050, ADR-0078
 - Portée : M14 — vue machine UC-16
@@ -11,7 +11,7 @@ UC-16 exige une réponse compacte pour JARVIS : lifecycle, manques, critères no
 
 Le modèle normalisé n'observe pas encore toutes ces dimensions avec la même précision. Une vue d'orchestration doit distinguer absence réelle et information non modélisée.
 
-## Décision proposée
+## Décision
 
 Créer une agrégation read-only :
 
@@ -64,6 +64,18 @@ Les `ExternalReference` snapshot-scoped appartenant au changement et dont l'éta
 ## Temporalité
 
 La vue est une observation du snapshot ACTIVE et n'est jamais persistée comme nouvel état métier.
+
+## Preuve d'acceptation
+
+```text
+JarvisOrchestrationContractTest 5/5 PASS
+MorpheusJarvisOrchestrationApiContractTest 2/2 PASS
+MORPHEUS 357/357 PASS
+JARVIS client 6/6 PASS
+persisted=false conservé
+```
+
+Validation : `docs/VALIDATION_M14.md`.
 
 ## Critères d'acceptation
 
