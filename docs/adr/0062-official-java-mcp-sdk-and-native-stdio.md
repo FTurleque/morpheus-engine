@@ -1,6 +1,6 @@
 # ADR-0062 — Java MCP SDK officiel et transport STDIO natif
 
-- Statut : **Proposée — M10 gate pending**
+- Statut : **Acceptée — M10**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0016, ADR-0017, ADR-0027, ADR-0059, ADR-0061
 - Portée : M10 — serveur MCP local
@@ -50,14 +50,35 @@ runtime diagnostics to stderr only
 - API sync adaptée à des queries SQLite locales ;
 - possibilité d'étendre plus tard vers HTTP sans contaminer le domaine.
 
-## Critères d'acceptation
+## Preuve M10
 
-ADR acceptée lorsque le gate prouve :
+Gate Windows :
 
-1. dépendance SDK résolue avec Java 21 ;
-2. serveur STDIO construit ;
-3. `initialize` réussi ;
-4. `tools/list` réussi ;
-5. `tools/call` réussi ;
-6. input invalide rejeté par schema ;
-7. aucun octet de log applicatif sur stdout hors protocole.
+```text
+MORPHEUS MCP          5/5 PASS
+MORPHEUS CLI         10/10 PASS
+Architecture Tests  149/149 PASS
+TOTAL               307/307 PASS
+BUILD SUCCESS
+```
+
+Le test d'intégration réel couvre :
+
+```text
+initialize
+notifications/initialized
+tools/list
+tools/call
+input depth=99 rejeté par schema
+```
+
+Le packaging final prouve :
+
+```text
+MCP packaging proof: PASS
+jpackage app-image PASS
+launcher smoke PASS
+Windows ZIP PASS
+```
+
+Validation détaillée : `docs/VALIDATION_M10.md`.
