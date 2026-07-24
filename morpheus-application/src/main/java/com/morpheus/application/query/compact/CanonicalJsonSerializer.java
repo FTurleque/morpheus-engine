@@ -141,8 +141,12 @@ public final class CanonicalJsonSerializer {
             appendString(out, component.getName());
             out.append(':');
             try {
-                append(out, component.getAccessor().invoke(record));
-            } catch (IllegalAccessException | InvocationTargetException exception) {
+                var accessor = component.getAccessor();
+                if (!accessor.canAccess(record) && !accessor.trySetAccessible()) {
+                    throw new IllegalAccessException("record accessor is not accessible");
+                }
+                append(out, accessor.invoke(record));
+            } catch (IllegalAccessException | InvocationTargetException | SecurityException exception) {
                 throw new IllegalArgumentException(
                         "cannot read compact record component: " + record.getClass().getName() + "." + component.getName(),
                         exception);
