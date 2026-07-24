@@ -73,13 +73,17 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0053](0053-deterministic-source-inventory-and-incremental-diff.md) | Inventaire de sources SHA-256 et diff incrémental conservateur | **Acceptée — M7** |
 | [ADR-0054](0054-persisted-sync-state-archives-and-freshness.md) | État de synchronisation persisté, archives et fraîcheur | **Acceptée — M7** |
 | [ADR-0055](0055-local-watcher-and-full-rebuild-fallback.md) | Watcher local conservateur et fallback full rebuild | **Acceptée — M7** |
-| [ADR-0056](0056-deterministic-current-proposed-change-analysis.md) | Analyse déterministe CURRENT / proposé sans promotion | **Proposée — M8, preuve Maven en attente** |
-| [ADR-0057](0057-explicit-bounded-dependency-impact-paths.md) | Impacts de dépendance explicites par chemins bornés | **Proposée — M8, preuve Maven en attente** |
-| [ADR-0058](0058-compact-change-analysis-and-canonical-json.md) | Vue compacte d'analyse et JSON canonique | **Proposée — M8, preuve Maven en attente** |
+| [ADR-0056](0056-deterministic-current-proposed-change-analysis.md) | Analyse déterministe CURRENT / proposé sans promotion | **Acceptée — M8** |
+| [ADR-0057](0057-explicit-bounded-dependency-impact-paths.md) | Impacts de dépendance explicites par chemins bornés | **Acceptée — M8** |
+| [ADR-0058](0058-compact-change-analysis-and-canonical-json.md) | Vue compacte d'analyse et JSON canonique | **Acceptée — M8** |
+| [ADR-0059](0059-stable-local-cli-contract.md) | CLI locale stable, scriptable, stdout/stderr et exit codes | **Proposée — M9, gate pending** |
+| [ADR-0060](0060-conservative-full-snapshot-cli-sync.md) | Sync CLI conservateur par full snapshot publié | **Proposée — M9, gate pending** |
+| [ADR-0061](0061-self-contained-jpackage-portable-distribution.md) | Distribution portable autonome via jpackage/jlink | **Proposée — M9, preuves Windows/Linux pending** |
 
 ---
 
 # Preuves M2
+
 | Slice | ADR | Preuve |
 |---|---|---|
 | M2-S1 domaine courant | ADR-0022 | `48/48 PASS` |
@@ -157,6 +161,7 @@ Vue d'exécution : [`../roadmap/M6_EXECUTION.md`](../roadmap/M6_EXECUTION.md).
 ---
 
 # Preuves M7
+
 | Incrément | ADR | Preuve |
 |---|---|---|
 | Inventaire SHA-256 + diff conservateur | ADR-0053 | `282/282 PASS` |
@@ -170,16 +175,31 @@ Reçu d'intégration : [`../roadmap/M7_INTEGRATION.md`](../roadmap/M7_INTEGRATIO
 
 ---
 
-# Preuves M8 — en attente du gate
+# Preuves M8
+
+| Incrément | ADR | Preuve |
+|---|---|---|
+| CURRENT / proposé + warnings | ADR-0056 | `ChangeAnalysisContractTest 7/7 PASS` |
+| DEPENDS_ON + chemins bornés | ADR-0057 | `ChangeAnalysisContractTest 7/7 PASS` |
+| Vue compacte + JSON canonique | ADR-0058 | `ChangeAnalysisContractTest 7/7 PASS` |
+| Validation finale M8 | — | `289/289 PASS`, architecture `146/146` |
+
+Validation : [`../VALIDATION_M8.md`](../VALIDATION_M8.md).  
+Vue d'exécution : [`../roadmap/M8_EXECUTION.md`](../roadmap/M8_EXECUTION.md).  
+Reçu d'intégration : [`../roadmap/M8_INTEGRATION.md`](../roadmap/M8_INTEGRATION.md).
+
+---
+
+# Preuves M9 — en attente des gates
 
 | Incrément | ADR | Preuve attendue |
 |---|---|---|
-| CURRENT / proposé + warnings | ADR-0056 | `ChangeAnalysisContractTest` |
-| DEPENDS_ON + chemins bornés | ADR-0057 | `ChangeAnalysisContractTest` |
-| Vue compacte + JSON canonique | ADR-0058 | `ChangeAnalysisContractTest` |
-| Validation finale M8 | — | `./mvnw clean test` |
+| CLI stable + layout + codes | ADR-0059 | `MorpheusCliTest`, `MorpheusMainTest` |
+| Publication full snapshot + rollback sûr | ADR-0060 | `ProjectSnapshotImportContractTest` |
+| JAR autonome + app-image Windows/Linux | ADR-0061 | scripts `distribution/`, smoke launchers |
+| Validation finale M9 | — | Windows + Linux + Maven complet |
 
-Vue d'exécution : [`../roadmap/M8_EXECUTION.md`](../roadmap/M8_EXECUTION.md).
+Vue d'exécution : [`../roadmap/M9_EXECUTION.md`](../roadmap/M9_EXECUTION.md).
 
 ---
 
@@ -193,6 +213,7 @@ com.morpheus.application -X-> com.morpheus.provider..
 com.morpheus.domain      -X-> SQLite
 com.morpheus.application -X-> SQLite
 com.morpheus.domain      -X-> CLI/MCP/API adapters
+CLI = adapter ; logique métier essentielle dans application/domain
 ```
 
 ## Identité / temporalité
@@ -209,14 +230,10 @@ published history = RETIRED* -> ACTIVE
 ## Qualité M6
 
 ```text
-QualityFinding != diagnostic d'ingestion
-finding = dérivé, non persisté
+QualityFinding = dérivé, non persisté
 DETERMINISTIC != HEURISTIC
-DETERMINISTIC => confidence interdite
-HEURISTIC => confidence obligatoire [0,1]
 Scenario != AcceptanceCriterion
 DesignDecision.decision != justification
-lifecycle non inféré depuis snapshot
 absence de lien != lien inventé
 Memory == SQLite
 SQLite reopen
@@ -233,8 +250,6 @@ move ambigu => FULL_REBUILD
 watcher != source of truth
 OVERFLOW => FULL_REBUILD
 baseline persisted only after success
-archive != suppression historique publié
-invalidation != suppression snapshot
 freshness uses explicit now/maxAge
 Memory == SQLite
 SQLite reopen
@@ -256,6 +271,20 @@ SQLite reopen
 canonical JSON
 ```
 
+## CLI / distribution M9
+
+```text
+stdout=result ; stderr=error
+stable exit codes
+option > MORPHEUS_* > OS default
+single SQLite path per invocation
+CLI sync = conservative FULL_REBUILD
+no fake incremental receipt
+portable app-image contains Java runtime
+installation != user data/config
+Windows + Linux proof before M9 acceptance
+```
+
 ## Build
 
 Gate obligatoire :
@@ -267,21 +296,25 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate validé : M7.
+Dernier gate **validé** : M8.
 
 ```text
-MORPHEUS Application  82/82 PASS
-Architecture Tests   139/139 PASS
-TOTAL                282/282 PASS
-Failures               0
-Errors                 0
-Skipped                0
+MORPHEUS Domain          21/21 PASS
+MORPHEUS Application     82/82 PASS
+OpenSpec Provider        26/26 PASS
+Synthetic Provider        7/7 PASS
+SQLite Store              7/7 PASS
+Architecture Tests      146/146 PASS
+TOTAL                   289/289 PASS
+Failures                   0
+Errors                     0
+Skipped                    0
 BUILD SUCCESS
-Total time           21.141 s
-Finished 2026-07-24T00:22:11+02:00
+Total time               26.406 s
+Finished 2026-07-24T09:44:51+02:00
 ```
 
-Le gate M8 n'est pas encore enregistré. GitHub Actions n'est pas la porte obligatoire. Les warnings JDK native-access Xerial SQLite et SLF4J NOP restent connus et non bloquants.
+Warnings connus non bloquants : Xerial SQLite native-access et SLF4J NOP.
 
 ---
 
