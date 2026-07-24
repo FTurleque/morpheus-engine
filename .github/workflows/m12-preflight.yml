@@ -1,0 +1,21 @@
+name: M12 preflight
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Maven gate
+        shell: pwsh
+        run: .\mvnw.cmd clean test
+      - name: Portable packaging
+        shell: pwsh
+        run: .\distribution\build-portable.ps1
