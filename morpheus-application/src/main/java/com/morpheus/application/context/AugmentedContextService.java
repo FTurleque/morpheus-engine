@@ -65,7 +65,7 @@ public final class AugmentedContextService {
                     .entityVersion().content();
             MorpheusIntentContext intent = requirementIntent(requirement);
             TechnicalContextObservation technical = provider.build(new TechnicalContextRequest(intent.query(), options));
-            return new AugmentedContextResult(snapshot, intent, technical, false);
+            return new AugmentedContextResult(AugmentedSnapshotView.from(snapshot), intent, technical, false);
         });
     }
 
@@ -91,7 +91,8 @@ public final class AugmentedContextService {
                             .map(this::taskLine).toList();
                     MorpheusIntentContext intent = changeIntent(change, requirements, constraints, decisions, tasks);
                     TechnicalContextObservation technical = provider.build(new TechnicalContextRequest(intent.query(), options));
-                    return new AugmentedContextResult(context.snapshot(), intent, technical, false);
+                    return new AugmentedContextResult(
+                            AugmentedSnapshotView.from(context.snapshot()), intent, technical, false);
                 });
     }
 
