@@ -1,15 +1,17 @@
 # Validation M14 — Contrat d'orchestration JARVIS read-only
 
-Statut : **✅ VALIDÉ — prêt à intégrer**
+Statut : **✅ VALIDÉ / INTÉGRÉ**
 
 Date : 24 juillet 2026
 
-Issue MORPHEUS : #66  
-PR MORPHEUS : #67  
-Head MORPHEUS validé : `d44d418ae0f1e528ea09a56cdd8c45647048c740`
+Issue MORPHEUS : #66 — completed  
+PR MORPHEUS : #67 — merged  
+Head MORPHEUS validé : `d44d418ae0f1e528ea09a56cdd8c45647048c740`  
+Merge MORPHEUS : `88e4e4d83c25035b9441e78d0ac8145db83306c4`
 
-Preuve cross-repo JARVIS : issue #92 / PR #93  
-Head JARVIS validé : `58899855bcd3446636c1f274ace8c1bfc8f46930`
+Preuve cross-repo JARVIS : issue #92 — completed / PR #93 — merged  
+Head JARVIS validé : `58899855bcd3446636c1f274ace8c1bfc8f46930`  
+Merge JARVIS : `1bf2612e616f3323814caf60e76525b4808cd400`
 
 ## Question de sortie
 
@@ -204,8 +206,16 @@ ADR-0079 — Acceptée — M14
 ADR-0080 — Acceptée — M14
 ```
 
-## Gouvernance
+## Intégration
 
-M14 est **VALIDÉ**. Les PR #67 (MORPHEUS) et #93 (JARVIS) peuvent passer Ready for review.
+```text
+MORPHEUS PR #67 merged
+merge commit = 88e4e4d83c25035b9441e78d0ac8145db83306c4
 
-La fusion reste soumise à une autorisation explicite du jalon ; aucune fusion n'est incluse dans cette validation.
+JARVIS PR #93 merged
+merge commit = 1bf2612e616f3323814caf60e76525b4808cd400
+```
+
+## Conclusion
+
+M14 est **VALIDÉ / INTÉGRÉ**. MORPHEUS expose les faits et décisions lifecycle read-only ; JARVIS les consomme pour orchestrer sans duplication de règles ni dépendance binaire cross-repo.
