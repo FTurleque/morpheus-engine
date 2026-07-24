@@ -14,7 +14,7 @@ public record TechnicalContextBundle(
         int tokenBudget,
         int estimatedTokens,
         List<TechnicalContextItem> items,
-        List<Map<String, Object>> excluded,
+        List<String> excluded,
         Map<String, Object> metadata) {
 
     public TechnicalContextBundle {
@@ -31,7 +31,7 @@ public record TechnicalContextBundle(
             throw new IllegalArgumentException("estimatedTokens must be between 0 and tokenBudget");
         }
         items = List.copyOf(Objects.requireNonNull(items, "items"));
-        excluded = Objects.requireNonNull(excluded, "excluded").stream().map(Map::copyOf).toList();
+        excluded = List.copyOf(Objects.requireNonNull(excluded, "excluded"));
         metadata = Map.copyOf(Objects.requireNonNull(metadata, "metadata"));
     }
 
