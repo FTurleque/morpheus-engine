@@ -2,7 +2,7 @@
 
 **MORPHEUS** est un moteur d'intelligence des spécifications et de l'intention (*Specification & Intent Intelligence Engine*).
 
-Sa responsabilité est de construire, maintenir et exposer une compréhension structurée, persistante, versionnée et interrogeable de ce qu'un projet **doit devenir** : exigences, changements, contraintes, scénarios, décisions de conception, critères d'acceptation et tâches associées.
+Sa responsabilité est de construire, maintenir et exposer une compréhension structurée, persistante, versionnée et interrogeable de ce qu'un projet **doit devenir** : exigences, changements, contraintes, scénarios, décisions de conception et tâches associées.
 
 MORPHEUS ne remplace ni le code, ni les outils de gestion de projet, ni les agents IA. Il fournit une couche de connaissance dédiée à l'intention et aux spécifications.
 
@@ -31,11 +31,10 @@ MORPHEUS ne remplace ni le code, ni les outils de gestion de projet, ni les agen
 
 Responsabilités :
 
-- **MORPHEUS** comprend l'intention, les exigences, les changements, les contraintes et les critères d'acceptation ;
-- **MINOS** comprend le code, les symboles, les relations, les dépendances et les impacts ;
-- **NEXUS** sélectionne et classe le contexte pertinent ;
-- **JARVIS** orchestre les capacités de l'écosystème ;
-- **Alfred** et **Brainiac** représentent des agents ou profils spécialisés.
+- **MORPHEUS** comprend l'intention, les exigences, les changements, les contraintes, les scénarios et les décisions ;
+- **MINOS** comprend le code, les symboles, les relations et les impacts de code ;
+- **NEXUS** sélectionne, classe et compresse le contexte pertinent ;
+- **JARVIS** orchestre les capacités de l'écosystème.
 
 Chaque brique reste autonome.
 
@@ -44,35 +43,29 @@ Chaque brique reste autonome.
 ```text
 Sources / workspaces
         ↓
-Source discovery
-        ↓
-SpecificationProviderRegistry
-        ↓
-Providers
-        ↓
-SpecificationContentReader
-        ↓
-ProviderReadResult
+Specification providers
         ↓
 Normalisation MORPHEUS
         ↓
 NormalizedProjectContent
         ↓
-KnowledgeSnapshot / versions            ← M3
+KnowledgeSnapshot / SpecificationVersion
         ↓
-SpecificationKnowledgeStore
-   ┌───────┴───────┐
-   ↓               ↓
- Memory          SQLite
+Persistence snapshot-scoped
+   ┌────────┴────────┐
+   ↓                 ↓
+ Memory            SQLite
         ↓
-Query / Search / Traceability / Context
+Query / Search / Traceability / Quality / Change Analysis
         ↓
-CLI / MCP / API
+        CLI                  ← M9
+        ↓
+   MCP / API futurs
 ```
 
-**OpenSpec est le premier provider de référence, pas le domaine de MORPHEUS.**
+**OpenSpec est le provider de référence initial, pas le domaine de MORPHEUS.**
 
-Un second provider synthétique compilé démontre que les mêmes contrats applicatifs peuvent normaliser un autre format sans modifier le domaine.
+Un second provider synthétique démontre l'absence de verrouillage du cœur applicatif sur OpenSpec.
 
 ## Invariants structurants
 
@@ -83,16 +76,14 @@ MORPHEUS :
 - sépare identité, version, locator et référence externe ;
 - utilise UUIDv7 comme format canonique opaque de `DomainIdentity` ;
 - namespace les identités externes par provider ;
-- sélectionne les providers selon leurs capacités effectives ;
-- sépare `probe` et lecture réelle ;
-- distingue explicitement `READ / ABSENT / UNSUPPORTED / FAILED / PARTIAL` ;
-- sépare lecture et écriture ;
+- distingue CURRENT, PROPOSED et HISTORICAL ;
+- publie la connaissance par snapshots cohérents à activation atomique ;
 - ne convertit jamais automatiquement un `Scenario` en `AcceptanceCriterion` ;
-- publie la connaissance par snapshots cohérents à activation atomique observable à partir de M3 ;
-- conserve un backend mémoire de référence pour les tests contractuels ;
-- utilise SQLite derrière `SpecificationKnowledgeStore` ;
-- conserve un modèle conceptuel de graphe sans graph database obligatoire au MVP ;
-- reste découplé de MINOS, NEXUS et JARVIS.
+- conserve les liens non résolus au lieu d'inventer des faits ;
+- garde Memory comme backend de référence contractuelle et SQLite comme backend local persistant ;
+- ne nécessite pas de graph database au MVP ;
+- reste découplé de MINOS, NEXUS et JARVIS ;
+- réserve l'analyse du code à MINOS.
 
 ## Fondation technique
 
@@ -108,191 +99,167 @@ Graph DB             : aucune au MVP
 Server framework     : aucun dans la fondation
 DI framework         : aucun obligatoire
 LLM                  : aucun obligatoire
-Remote CI            : optionnelle, non gate
-Distribution         : native-first / container-supported
+Distribution M9      : native-first / archive portable autonome
 ```
 
 ## État du projet
 
 ```text
-C0 — Cadrage fonctionnel et architectural     ✅ VALIDÉE
-M0 — Faisabilité technique                    ✅ VALIDÉE
-M1 — Découverte des projets et providers      ✅ VALIDÉE
-M2 — Ingestion et modèle normalisé            ✅ VALIDÉE — 8/8
-M3 — État temporel / versions / snapshots     🚀 AUTORISÉE
+C0  Cadrage fonctionnel et architectural       ✅ VALIDÉ
+M0  Faisabilité technique                      ✅ VALIDÉ
+M1  Discovery / providers / store              ✅ VALIDÉ
+M2  Ingestion et modèle normalisé              ✅ VALIDÉ — 94/94
+M3  Temporalité / lifecycle / snapshots        ✅ VALIDÉ / INTÉGRÉ — 147/147
+M4  Traçabilité typée                          ✅ VALIDÉ / INTÉGRÉ — 189/189
+M5  Requêtes et contexte compact               ✅ VALIDÉ / INTÉGRÉ — 227/227
+M6  Qualité / couverture / diagnostics         ✅ VALIDÉ / INTÉGRÉ — 261/261
+M7  Synchronisation incrémentale / fraîcheur   ✅ VALIDÉ / INTÉGRÉ — 282/282
+M8  Analyse des changements                    ✅ VALIDÉ / INTÉGRÉ — 289/289
+M9  CLI stabilisée / distribution locale       🚧 IMPLÉMENTÉE, GATES PENDING
 ```
 
-### Preuves M2
+Dernier gate officiellement validé : **M8**.
 
 ```text
-S1  domaine courant                         48/48 PASS
-S2  identité persistante                    58/58 PASS
-S3  modèle de changement                    64/64 PASS
-S4  requirement deltas                      70/70 PASS
-S5  ExternalReference                       76/76 PASS
-S6  lecture unifiée / partiel / diagnostics 84/84 PASS
-S7  second provider / anti-lock-in           94/94 PASS
-S8  validation finale                        94/94 PASS
-```
-
-Gate final M2 :
-
-```text
-Failures = 0
-Errors   = 0
-Skipped  = 0
+ChangeAnalysisContractTest  7/7 PASS
+Architecture Tests        146/146 PASS
+TOTAL                     289/289 PASS
+Failures                    0
+Errors                      0
+Skipped                     0
 BUILD SUCCESS
+Finished 2026-07-24T09:44:51+02:00
 ```
 
-La preuve de sortie est [`docs/VALIDATION_M2.md`](docs/VALIDATION_M2.md).
-
-## Ce que M2 a stabilisé
+Merge M8 :
 
 ```text
-ProjectSpecification
-Specification
-Requirement
-RequirementDelta
-Scenario
-ChangeProposal
-Constraint
-DesignDecision
-ImplementationTask
-Evidence
-Provenance
-ExternalReference
+6780fb024fe5b8645226f0aacecddb32bcfa7517
 ```
 
-Lecture provider :
+Références :
+
+- [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`docs/VALIDATION_M8.md`](docs/VALIDATION_M8.md)
+- [`docs/roadmap/M8_INTEGRATION.md`](docs/roadmap/M8_INTEGRATION.md)
+- [`docs/roadmap/M9_EXECUTION.md`](docs/roadmap/M9_EXECUTION.md)
+
+## CLI M9
+
+La branche M9 introduit une CLI locale persistante et scriptable.
+
+### Options globales
 
 ```text
-SpecificationProvider.probe()
-        !=
-SpecificationContentReader.read()
+--json
+--data-dir PATH
+--config-dir PATH
+--db PATH
 ```
 
-Résultat explicite :
+### Commandes
 
 ```text
-ProviderReadResult
-├── NormalizedProjectContent?
-├── ReadCategoryReport[]
-└── Diagnostic[]
+help
+version
+paths
+projects list
+projects add --workspace PATH
+sync --project ID [--revision REV]
+sync-status --project ID
+requirements find --project ID [--query TEXT]
+changes list --project ID
+changes get --project ID --change ID
+constraints list --project ID --change ID
+decisions list --project ID --change ID
+tasks list --project ID --change ID
+trace-requirement --project ID --requirement ID
+change-context --project ID --change ID
+analyze-change --project ID --change ID
+quality --project ID
 ```
 
-Preuve anti-lock-in :
+Le launcher officiel M9 exécute `sync` comme **FULL_REBUILD conservateur** tant qu'un exécuteur métier incrémental complet n'est pas disponible. Le planificateur incrémental M7 reste intact dans le cœur.
+
+Documentation : [`docs/CLI.md`](docs/CLI.md).
+
+## Quick start M9
+
+Après construction ou extraction d'une distribution :
 
 ```text
-OpenSpec source ─────┐
-                     ├──> mêmes contrats application
-Synthetic JSON ──────┘     même domaine MORPHEUS
+morpheus projects add --workspace <workspace-openspec>
+# récupérer projectId
+morpheus sync --project <projectId>
+morpheus requirements find --project <projectId> --query session
+morpheus changes list --project <projectId>
+morpheus quality --project <projectId>
 ```
 
-## Frontière M2 → M3
-
-M2 normalise la structure mais ne projette pas encore :
+Pour les scripts :
 
 ```text
-CURRENT / PROPOSED / HISTORICAL
-SpecificationVersion complet
-KnowledgeSnapshot complet
-ChangeLifecycleState complet
-application / promotion des deltas
+morpheus --json projects list
+morpheus --json requirements find --project <projectId> --query session
+morpheus --json change-context --project <projectId> --change <changeId>
 ```
 
-ADR-0030 fixe que les **premières tables métier complètes** sont créées en M3 avec le membership version/snapshot, plutôt que de figer un schéma provisoire à la fin de M2.
+## Distribution M9
 
-Les éléments déjà persistés restent :
+Artefacts cibles :
 
 ```text
-projects
-knowledge snapshot metadata
-entity identity bindings
-migration ledger
+JAR autonome : morpheus-cli-<version>-all.jar
+Windows      : morpheus-<version>-windows-x64.zip
+Linux        : morpheus-<version>-linux-x64.tar.gz
 ```
 
-M3 doit introduire :
+Les archives portables sont générées avec `jpackage --type app-image` et embarquent leur runtime Java.
+
+Scripts :
 
 ```text
-TemporalState
-SpecificationVersion
-KnowledgeSnapshot complet
-snapshot/version membership
-premières migrations métier versionnées
+distribution/build-portable.ps1
+distribution/build-portable.sh
+distribution/build-windows-installer.ps1   # optionnel, WiX requis au build
 ```
 
-## Distribution
+Le répertoire d'installation est séparé des données/config utilisateur afin de permettre upgrade et uninstall sans effacement implicite de SQLite.
 
-ADR-0027 fixe :
+Voir [`distribution/README.md`](distribution/README.md) et [`docs/roadmap/DEPLOYMENT.md`](docs/roadmap/DEPLOYMENT.md).
 
-```text
-Native-first
-Container-supported
-```
+## Validation M9
 
-Trajectoire :
+M9 n'est **pas encore déclaré VALIDÉ**.
 
-```text
-M9  CLI + distribution locale native / portable
-M10 MCP natif stdio, conteneur headless si justifié
-M11 API + image Docker officielle si justifiée
-```
-
-Docker n'est pas requis pour utiliser le CLI local.
-
-Voir [`docs/roadmap/DEPLOYMENT.md`](docs/roadmap/DEPLOYMENT.md).
-
-## Vérification du build
-
-Gate obligatoire du dépôt :
+Gates requis :
 
 Sous Windows :
 
-```text
+```powershell
 .\mvnw.cmd clean test
+.\distribution\build-portable.ps1
 ```
 
-Sous Linux/macOS :
+Sous Linux :
+
+```bash
+./mvnw clean test
+bash distribution/build-portable.sh
+```
+
+Les ADR-0059, ADR-0060 et ADR-0061 restent **Proposées** jusqu'aux preuves reproductibles Windows/Linux.
+
+## Roadmap suivante
+
+Après validation et intégration M9 :
 
 ```text
-./mvnw clean test
+M10 -> serveur MCP, stdio natif prioritaire
+M11 -> API / headless
+M12 -> intégration optionnelle MINOS
+M13 -> intégration optionnelle NEXUS
+M14 -> orchestration JARVIS
 ```
 
-Une CI distante pourra être ajoutée lorsqu'un besoin réel de validation distante, multi-OS, publication ou release automation apparaîtra.
-
-## Documents de référence
-
-### Sources de vérité et validations
-
-- [`docs/CAHIER_DES_CHARGES.md`](docs/CAHIER_DES_CHARGES.md) — source de vérité fonctionnelle et architecturale ;
-- [`docs/VALIDATION_C0.md`](docs/VALIDATION_C0.md) — sortie C0 ;
-- [`docs/VALIDATION_M0.md`](docs/VALIDATION_M0.md) — sortie M0 ;
-- [`docs/VALIDATION_M1.md`](docs/VALIDATION_M1.md) — sortie M1 ;
-- [`docs/VALIDATION_M2.md`](docs/VALIDATION_M2.md) — sortie M2 et autorisation M3 ;
-- [`docs/roadmap/M2_EXECUTION.md`](docs/roadmap/M2_EXECUTION.md) — historique opérationnel M2 ;
-- [`experiments/m0/results/README.md`](experiments/m0/results/README.md) — synthèse des preuves M0.
-
-### Architecture et domaine
-
-- [`docs/ECOSYSTEME.md`](docs/ECOSYSTEME.md) — frontières MORPHEUS / MINOS / NEXUS / JARVIS ;
-- [`docs/architecture/overview.md`](docs/architecture/overview.md) — architecture ;
-- [`docs/domain/MODEL.md`](docs/domain/MODEL.md) — modèle de domaine cible ;
-- [`docs/domain/CHANGE_LIFECYCLE.md`](docs/domain/CHANGE_LIFECYCLE.md) — machine d'état des changements ;
-- [`docs/USE_CASES.md`](docs/USE_CASES.md) — cas d'usage ;
-- [`docs/MVP.md`](docs/MVP.md) — MVP ;
-- [`docs/PLAN.md`](docs/PLAN.md) — plan ;
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — roadmap stratégique ;
-- [`docs/roadmap/DEPLOYMENT.md`](docs/roadmap/DEPLOYMENT.md) — packaging et déploiement.
-
-### Contrats
-
-- [`docs/contracts/SPECIFICATION_PROVIDER.md`](docs/contracts/SPECIFICATION_PROVIDER.md) — provider et capabilities ;
-- [`docs/contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](docs/contracts/SPECIFICATION_KNOWLEDGE_STORE.md) — store de connaissance.
-
-### Recherche et décisions
-
-- [`docs/research/openspec-provider-study.md`](docs/research/openspec-provider-study.md) — OpenSpec ;
-- [`docs/research/M0_EXPERIMENT_MATRIX.md`](docs/research/M0_EXPERIMENT_MATRIX.md) — matrice M0 ;
-- [`docs/research/domain-identity-format.md`](docs/research/domain-identity-format.md) — UUIDv7 ;
-- [`docs/research/production-stack-evaluation.md`](docs/research/production-stack-evaluation.md) — fondation technique ;
-- [`docs/adr/`](docs/adr/) — registre des décisions architecturales.
+La fusion des jalons reste conditionnée par la validation et l'autorisation explicite prévue par la gouvernance du dépôt.
