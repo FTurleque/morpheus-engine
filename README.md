@@ -115,38 +115,46 @@ M5  Requêtes et contexte compact               ✅ VALIDÉ / INTÉGRÉ — 227/
 M6  Qualité / couverture / diagnostics         ✅ VALIDÉ / INTÉGRÉ — 261/261
 M7  Synchronisation incrémentale / fraîcheur   ✅ VALIDÉ / INTÉGRÉ — 282/282
 M8  Analyse des changements                    ✅ VALIDÉ / INTÉGRÉ — 289/289
-M9  CLI stabilisée / distribution locale       🚧 IMPLÉMENTÉE, GATES PENDING
+M9  CLI stabilisée / distribution locale       ✅ VALIDÉ — 298/298 Windows + Linux
 ```
 
-Dernier gate officiellement validé : **M8**.
+Dernier gate officiellement validé : **M9**.
 
 ```text
-ChangeAnalysisContractTest  7/7 PASS
-Architecture Tests        146/146 PASS
-TOTAL                     289/289 PASS
-Failures                    0
-Errors                      0
-Skipped                     0
+MorpheusCliTest                    4/4 PASS
+MorpheusMainTest                   2/2 PASS
+ProjectSnapshotImportContractTest  3/3 PASS
+Architecture Tests              149/149 PASS
+TOTAL                           298/298 PASS
+Failures                           0
+Errors                             0
+Skipped                            0
 BUILD SUCCESS
-Finished 2026-07-24T09:44:51+02:00
 ```
 
-Merge M8 :
+Preuves cross-platform :
 
 ```text
-6780fb024fe5b8645226f0aacecddb32bcfa7517
+Windows  298/298 PASS + app-image + ZIP + runtime + smoke human/JSON
+Linux    298/298 PASS + app-image + tar.gz + runtime + smoke human/JSON
+```
+
+Head exécutable M9 validé :
+
+```text
+3b0fb46486cb28257d87d56084ef6e4fbe4cf7c7
 ```
 
 Références :
 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- [`docs/VALIDATION_M8.md`](docs/VALIDATION_M8.md)
-- [`docs/roadmap/M8_INTEGRATION.md`](docs/roadmap/M8_INTEGRATION.md)
+- [`docs/VALIDATION_M9.md`](docs/VALIDATION_M9.md)
 - [`docs/roadmap/M9_EXECUTION.md`](docs/roadmap/M9_EXECUTION.md)
+- [`distribution/README.md`](distribution/README.md)
 
 ## CLI M9
 
-La branche M9 introduit une CLI locale persistante et scriptable.
+M9 introduit une CLI locale persistante, stable et scriptable.
 
 ### Options globales
 
@@ -206,7 +214,7 @@ morpheus --json change-context --project <projectId> --change <changeId>
 
 ## Distribution M9
 
-Artefacts cibles :
+Artefacts validés :
 
 ```text
 JAR autonome : morpheus-cli-<version>-all.jar
@@ -230,29 +238,29 @@ Voir [`distribution/README.md`](distribution/README.md) et [`docs/roadmap/DEPLOY
 
 ## Validation M9
 
-M9 n'est **pas encore déclaré VALIDÉ**.
+M9 est **VALIDÉ**.
 
-Gates requis :
-
-Sous Windows :
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
+```text
+Windows gate  ✅ 298/298 PASS
+Linux gate    ✅ 298/298 PASS
+Packaging     ✅ Windows ZIP + Linux tar.gz
+Runtime       ✅ Java embarqué
+Smoke         ✅ human + JSON sur les deux plateformes
 ```
 
-Sous Linux :
+ADR acceptées :
 
-```bash
-./mvnw clean test
-bash distribution/build-portable.sh
+```text
+ADR-0059 — contrat CLI local stable
+ADR-0060 — sync CLI full-snapshot conservateur
+ADR-0061 — distribution portable autonome jpackage
 ```
 
-Les ADR-0059, ADR-0060 et ADR-0061 restent **Proposées** jusqu'aux preuves reproductibles Windows/Linux.
+Validation : [`docs/VALIDATION_M9.md`](docs/VALIDATION_M9.md).
 
 ## Roadmap suivante
 
-Après validation et intégration M9 :
+Après intégration M9 :
 
 ```text
 M10 -> serveur MCP, stdio natif prioritaire
