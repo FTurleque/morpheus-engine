@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M11 validés et intégrés ; M12 fonctionnellement complet, gate pending**
+Statut : **C0 à M11 validés et intégrés ; M12 validé, PR #62 prête à intégrer**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -23,7 +23,7 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M9 | CLI stabilisée et distribution locale | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M9.md`, 298/298 Windows + Linux |
 | M10 | Serveur MCP STDIO natif | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M10.md`, 307/307 |
 | M11 | API HTTP headless | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M11.md`, 314/314 + packaged health |
-| **M12** | **MINOS optionnel / intention → code** | **🚧 GATE PENDING** | `roadmap/M12_EXECUTION.md`, projection 331 tests |
+| **M12** | **MINOS optionnel / intention → code** | **✅ VALIDÉ** | `VALIDATION_M12.md`, 331/331 + packaging MINOS optional |
 | M13 | NEXUS | ⏳ PLANIFIÉ | MORPHEUS autonome |
 | M14 | JARVIS | ⏳ PLANIFIÉ | orchestration seulement |
 
@@ -33,9 +33,15 @@ M11 merge :
 e30ed4095700b445fedc4517c22ff447c22238f4
 ```
 
+M12 head validé :
+
+```text
+ca0073a875bcf28114a2945b141fc8c45f88930e
+```
+
 Références actives :
 
-- [`VALIDATION_M11.md`](VALIDATION_M11.md)
+- [`VALIDATION_M12.md`](VALIDATION_M12.md)
 - [`roadmap/M12_EXECUTION.md`](roadmap/M12_EXECUTION.md)
 - [`MINOS.md`](MINOS.md)
 - [`API.md`](API.md)
@@ -157,19 +163,6 @@ SQLite shared CLI/MCP/API
 OpenAPI 3.1
 ```
 
-Surface : projets, sync, specifications, requirements, trace, changes, contexts, lifecycle facts, versions, historique, comparaison, diagnostics.
-
-Invariants :
-
-```text
-API = adapter sibling CLI/MCP
-Scenario != AcceptanceCriterion
-lifecycle absent != inferred
-HTTP sync = FULL_REBUILD conservateur
-failed sync preserves ACTIVE
-no apply/promote/activate/rollback endpoint
-```
-
 Gate :
 
 ```text
@@ -183,13 +176,15 @@ packaged API health  PASS
 Validation : [`VALIDATION_M11.md`](VALIDATION_M11.md).  
 Merge : `e30ed4095700b445fedc4517c22ff447c22238f4`.
 
-## 13. M12 — MINOS 🚧
+## 13. M12 — MINOS ✅ VALIDÉ
 
 Question de sortie :
 
 > **MORPHEUS peut-il résoudre en production une `ExternalReference(system=MINOS, resourceType=SYMBOL, ...)`, enrichir la traçabilité intention → code avec des faits MINOS explicites et révisés, tout en restant totalement utilisable lorsque MINOS est absent, arrêté, incompatible ou sur une autre JVM ?**
 
-Architecture implémentée :
+**Réponse : OUI.**
+
+Architecture validée :
 
 ```text
 MORPHEUS Java 21
@@ -239,33 +234,43 @@ HTTP /projects/{id}/external-references
 HTTP /projects/{id}/external-references/{ref}/resolution
 ```
 
-Optionalité : sans `MORPHEUS_MINOS_JAR`, MORPHEUS reste entièrement fonctionnel et les résolutions retournent `NO_RESOLVER`.
+Sans `MORPHEUS_MINOS_JAR`, MORPHEUS reste entièrement fonctionnel et les résolutions retournent `NO_RESOLVER`.
 
-Preuves implémentées :
+Gate final :
 
 ```text
-generic resolution taxonomy
-Memory + SQLite non-mutating live resolution
-real MINOS MCP STDIO fixture
-exact symbolKey / ambiguity / revision
-real MORPHEUS MCP STDIO M12
-HTTP M12
-CLI standalone M12
-architecture guards
-packaging rejects com/minos/*
-standalone packaged MINOS status = DISABLED
+Domain             21/21 PASS
+Application        84/84 PASS
+OpenSpec           26/26 PASS
+Synthetic           7/7 PASS
+SQLite              7/7 PASS
+MINOS Integration   8/8 PASS
+MCP                 5/5 PASS
+API                 5/5 PASS
+CLI                15/15 PASS
+Architecture      153/153 PASS
+-------------------------------
+TOTAL             331/331 PASS
+Failures             0
+Errors               0
+Skipped              0
+BUILD SUCCESS
 ```
 
-Projection : **331 tests** avant preuve.
+Packaging :
 
-Gate restant :
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
+```text
+MCP/API/MINOS adapter packaging proof: PASS
+Packaged standalone MINOS-optional smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+ZIP Windows = 33,587,925 bytes
 ```
 
-ADR candidates : ADR-0069 à ADR-0072. Elles restent **Proposées** jusqu'au gate.
+ADR acceptées : **ADR-0069 à ADR-0072**.
+
+Validation : [`VALIDATION_M12.md`](VALIDATION_M12.md).  
+PR : **#62 — prête pour review, fusion sur autorisation explicite uniquement**.
 
 ## 14. M13 — NEXUS ⏳
 
