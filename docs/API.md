@@ -1,8 +1,8 @@
-# MORPHEUS API HTTP — M11 + M12 + M13
+# MORPHEUS API HTTP — M11 à M14
 
-Statut : **M11/M12/M13 validés**
+Statut : **M11/M12/M13 validés ; extensions M14 implémentées — gate M14 pending**
 
-MORPHEUS expose un service headless local via une API JSON versionnée. M12 ajoute MINOS ; M13 ajoute l'augmentation live d'une intention MORPHEUS par un contexte technique NEXUS sous budget.
+MORPHEUS expose une API JSON locale versionnée `/api/v1`. M12 ajoute MINOS, M13 NEXUS et M14 un contrat read-only destiné aux orchestrateurs comme JARVIS.
 
 ## Lancement
 
@@ -12,170 +12,151 @@ morpheus api --host 127.0.0.1 --port 8765
 morpheus --db /path/to/morpheus.db api
 ```
 
-Défauts :
-
-```text
-host = 127.0.0.1
-port = 8765
-base = /api/v1
-```
-
-Même SQLite que CLI/MCP. Bind loopback par défaut.
+Défauts : `host=127.0.0.1`, `port=8765`. Même SQLite que CLI/MCP.
 
 ## Architecture
 
 ```text
 Domain / Application
         ↑
-   ┌────┼────┐
-   │    │    │
-  CLI  MCP  API
+   CLI  MCP  API
         ↑
- generic optional ports
-   ├─ MINOS adapter
-   └─ NEXUS adapter
+ generic ports / use cases
 ```
 
-`morpheus-api` ne dépend ni de CLI/MCP ni de `morpheus-integration-minos`/`morpheus-integration-nexus`.
+`morpheus-api` ne dépend ni de CLI/MCP, ni des intégrations MINOS/NEXUS, ni de JARVIS.
 
-## Transport / enveloppes
-
-```text
-JDK 21 jdk.httpserver
-HTTP local
-JSON UTF-8
-Content-Type: application/json; charset=utf-8
-Cache-Control: no-store
-X-Content-Type-Options: nosniff
-```
-
-Succès :
+## Enveloppes
 
 ```json
 {"apiVersion":"v1","data":{}}
 ```
 
-Erreur :
-
 ```json
 {"apiVersion":"v1","error":{"code":"NOT_FOUND","message":"...","details":{}}}
 ```
 
-Codes : `200`, `201`, `400`, `404`, `405`, `409`, `415`, `500`.
+HTTP JSON UTF-8, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
 
-## Surface M11 conservée
+## M11 conservé
 
-```text
-GET /api/v1/
-GET /api/v1/health
-GET /api/v1/version
-GET|POST /api/v1/projects
-GET /api/v1/projects/{projectId}
-POST /api/v1/projects/{projectId}/sync
-GET /api/v1/projects/{projectId}/sync-status
-GET /api/v1/projects/{projectId}/specifications[/{specificationId}][/context]
-GET /api/v1/projects/{projectId}/requirements[/{requirementId}][/trace]
-GET /api/v1/projects/{projectId}/changes[/{changeId}]
-GET /api/v1/projects/{projectId}/changes/{changeId}/constraints
-GET /api/v1/projects/{projectId}/changes/{changeId}/acceptance-criteria
-GET /api/v1/projects/{projectId}/changes/{changeId}/design-decisions
-GET /api/v1/projects/{projectId}/changes/{changeId}/implementation-tasks
-GET /api/v1/projects/{projectId}/changes/{changeId}/context
-GET /api/v1/projects/{projectId}/changes/{changeId}/status
-GET /api/v1/projects/{projectId}/changes/{changeId}/blocking-conditions
-GET /api/v1/projects/{projectId}/versions
-GET /api/v1/projects/{projectId}/versions/{snapshotId}/requirements
-GET /api/v1/projects/{projectId}/versions/compare
-GET /api/v1/projects/{projectId}/diagnostics
-```
-
-## Extensions M12 — MINOS
+Les routes historiques projet/sync/specification/requirement/change/version/diagnostics restent inchangées, notamment :
 
 ```text
-GET /api/v1/integrations/minos/status
-GET /api/v1/projects/{projectId}/external-references?ownerId=<domain-identity>
-GET /api/v1/projects/{projectId}/external-references/{referenceId}/resolution
+GET /projects/{projectId}/changes/{changeId}/status
+GET /projects/{projectId}/changes/{changeId}/blocking-conditions
 ```
 
-La résolution live retourne `stored`, `observed`, `persisted=false` et ne réécrit jamais la référence du snapshot publié.
+Ces routes historiques ne sont pas redéfinies par M14.
 
-## Extensions M13 — NEXUS / contexte augmenté
-
-### Statut
+## M12 — MINOS
 
 ```text
-GET /api/v1/integrations/nexus/status
+GET /integrations/minos/status
+GET /projects/{projectId}/external-references?ownerId=<domain-identity>
+GET /projects/{projectId}/external-references/{referenceId}/resolution
 ```
 
-États : `DISABLED`, `INVALID`, `AVAILABLE`, `UNAVAILABLE`.
+Résolution live : `stored`, `observed`, `persisted=false`.
 
-Le bootstrap HTTP ne lance pas NEXUS.
-
-### Requirement augmenté
+## M13 — NEXUS
 
 ```text
-POST /api/v1/projects/{projectId}/requirements/{requirementId}/augmented-context
+GET  /integrations/nexus/status
+POST /projects/{projectId}/requirements/{requirementId}/augmented-context
+POST /projects/{projectId}/changes/{changeId}/augmented-context
 ```
 
-### Change augmenté
+Le bundle NEXUS reste live et non persisté.
+
+# M14 — contrat d'orchestration JARVIS
+
+## État d'orchestration
 
 ```text
-POST /api/v1/projects/{projectId}/changes/{changeId}/augmented-context
+GET /api/v1/projects/{projectId}/changes/{changeId}/orchestration
 ```
 
-Body strict commun :
+Query optionnelle :
+
+```text
+lifecycleState=<DRAFT|PROPOSED|SPECIFIED|DESIGNED|PLANNED|IMPLEMENTING|VERIFYING|COMPLETED|ARCHIVED|ABANDONED>
+abandonmentReason=<reason>   # uniquement avec ABANDONED
+```
+
+Sans `lifecycleState` :
+
+```text
+lifecycle.state  = absent
+lifecycle.source = UNAVAILABLE
+```
+
+Avec état explicite :
+
+```text
+lifecycle.source = CALLER_SUPPLIED
+```
+
+MORPHEUS n'infère jamais le lifecycle depuis tasks, archives, timestamps ou qualité.
+
+Réponse M14 :
+
+```text
+snapshot
+change
+lifecycle
+observableFacts
+missingArtifacts
+unavailableFacts
+acceptanceCriteria
+applicableConstraints
+blockingConstraints
+unresolvedLinks
+qualityFindings
+nextAllowedTransitions
+transitionEvaluations
+persisted=false
+```
+
+`acceptanceCriteria.status=UNAVAILABLE_IN_NORMALIZED_MODEL` tant qu'aucune projection explicite n'existe. `Scenario` n'est jamais converti en `AcceptanceCriterion`.
+
+`blockingConstraints.status=UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED` : les contraintes applicables sont listées séparément, sans fabriquer un caractère bloquant.
+
+## Évaluation de transition
+
+```text
+POST /api/v1/projects/{projectId}/changes/{changeId}/transition-check
+```
+
+Body strict :
 
 ```json
 {
-  "nexusProject":"morpheus-engine",
-  "tokenBudget":2000,
-  "requestedSources":["FILE","SYMBOL","TEST","DOCUMENTATION"],
-  "constraints":{"language":"java"},
-  "explain":false
+  "fromState":"PROPOSED",
+  "fromAbandonmentReason":null,
+  "targetState":"SPECIFIED",
+  "abandonmentReason":null,
+  "allowBackwardTransitions":false,
+  "allowCompletedReopen":false
 }
 ```
 
-Required : `nexusProject`.
+Required : `fromState`, `targetState`.
+
+Décisions :
 
 ```text
-tokenBudget = 2000 par défaut, borne 1..100000
-requestedSources = [] par défaut
-constraints = {} par défaut
-explain = false par défaut
-sources = FILE|SYMBOL|TEST|DOCUMENTATION|INSTRUCTION|SKILL|GIT
+ALLOWED
+BLOCKED
+UNKNOWN
+REQUIRES_INPUT
 ```
 
-## Sémantique
+`UNKNOWN` signifie qu'au moins un fait requis est `UNAVAILABLE`. Il n'est pas transformé en `BLOCKED`.
 
-```text
-ACTIVE snapshot
- -> MORPHEUS deterministic intent seed
- -> NEXUS build_context | explain_context
- -> augmented response
- -X-> KnowledgeSnapshot mutation
- -X-> ContextBundle persistence
-```
+`REQUIRES_INPUT` couvre une information volontaire manquante, notamment la raison nécessaire pour cibler `ABANDONED`.
 
-Réponse conceptuelle :
-
-```json
-{
-  "apiVersion":"v1",
-  "data":{
-    "snapshot":{"id":"...","state":"ACTIVE"},
-    "intentContext":{"subjectType":"CHANGE","query":"..."},
-    "technicalContext":{
-      "status":{"system":"NEXUS","state":"AVAILABLE"},
-      "bundle":{"tokenBudget":2000,"estimatedTokens":950,"items":[]}
-    },
-    "persisted":false
-  }
-}
-```
-
-MORPHEUS ne reranke, ne fusionne et ne retronque pas le bundle technique. Scores, raisons, exclusions et métadonnées restent attribués à NEXUS.
-
-Sans NEXUS configuré, le même endpoint retourne l'intention MORPHEUS avec `technicalContext.status.state=DISABLED`, bundle absent et HTTP `200`.
+Ce POST est une **évaluation pure** : aucune transition n'est appliquée, aucun snapshot/provider n'est muté.
 
 ## JSON d'entrée
 
@@ -186,12 +167,12 @@ Content-Type application/json
 body <= 65536 octets
 JSON valide
 aucun champ inconnu
-aucun token JSON supplémentaire
+aucun token supplémentaire
 ```
 
 ## Frontières d'écriture
 
-Mutations opérationnelles HTTP autorisées :
+Mutations opérationnelles HTTP autorisées historiquement :
 
 ```text
 register project
@@ -206,24 +187,22 @@ PROMOTE
 ACTIVATE direct
 rollback mutation
 write requirement/change
-persist external-reference resolution
+apply lifecycle transition
+persist external-reference live resolution
 persist NEXUS ContextBundle
 NEXUS project add/index/rebuild
+JARVIS orchestration action
 ```
 
-## Validation M13
-
-Head testé : `a44e8938bfa03e8b8a1039c8271a8865b871ed7d`.
+## Preuve M14 prévue
 
 ```text
-API                          7/7 PASS
-MorpheusAugmentedContextApiContractTest 2/2 PASS
-TOTAL                    346/346 PASS
-Packaged API health smoke    PASS
+API projetée 9 tests
+MorpheusJarvisOrchestrationApiContractTest 2 tests
+TOTAL MORPHEUS projeté 357
+Architecture projetée 160
 ```
 
-Le premier gate a révélé un UUID brut dans la projection du snapshot ; `AugmentedSnapshotView` fournit désormais une représentation JSON stable et le second gate complet est vert.
-
-OpenAPI : [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml).  
-Validation : [`VALIDATION_M13.md`](VALIDATION_M13.md).  
-NEXUS : [`NEXUS.md`](NEXUS.md).
+OpenAPI machine-readable : [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml).  
+Contrat M14 : [`JARVIS.md`](JARVIS.md).  
+Roadmap : [`roadmap/M14_EXECUTION.md`](roadmap/M14_EXECUTION.md).
