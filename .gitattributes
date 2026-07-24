@@ -1,0 +1,9 @@
+# Cross-platform checkout policy for scripts and text files.
+# Unix launchers must remain LF even when the repository is checked out from Windows.
+* text=auto
+
+mvnw text eol=lf
+*.sh text eol=lf
+
+mvnw.cmd text eol=crlf
+*.ps1 text eol=crlf

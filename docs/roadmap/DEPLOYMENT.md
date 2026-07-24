@@ -1,110 +1,299 @@
 # MORPHEUS — Roadmap de distribution et déploiement
 
-Statut : **stratégie acceptée, implémentation différée aux jalons concernés**
+Statut : **stratégie native-first acceptée ; M9 validé sur Windows et Linux**
 
-Décision de référence : [`../adr/0027-native-first-container-supported-distribution.md`](../adr/0027-native-first-container-supported-distribution.md)
+Décisions de référence :
+
+- [`../adr/0027-native-first-container-supported-distribution.md`](../adr/0027-native-first-container-supported-distribution.md)
+- [`../adr/0059-stable-local-cli-contract.md`](../adr/0059-stable-local-cli-contract.md)
+- [`../adr/0060-conservative-full-snapshot-cli-sync.md`](../adr/0060-conservative-full-snapshot-cli-sync.md)
+- [`../adr/0061-self-contained-jpackage-portable-distribution.md`](../adr/0061-self-contained-jpackage-portable-distribution.md)
+
+Les ADR M9 sont **Acceptées** après preuves reproductibles Windows/Linux.
+
+Validation : [`../VALIDATION_M9.md`](../VALIDATION_M9.md).
 
 ---
 
 # 1. Résumé
 
 ```text
-Développeur local     -> native-first
-CLI                    -> native-first
-MCP stdio              -> native-first
-MCP réseau             -> native ou Docker
-API                    -> Docker support officiel
-CI/CD headless         -> Docker ou archive portable
-Écosystème multi-moteur-> Docker Compose possible, jamais obligatoire
+Développeur local      -> native-first
+CLI                     -> native-first, archive autonome
+MCP stdio               -> native-first
+MCP réseau              -> native ou Docker futur
+API                     -> Docker support officiel futur
+CI/CD headless          -> archive portable ou Docker futur
+Écosystème multi-moteur -> Docker Compose possible, jamais obligatoire
 ```
 
 Principe :
 
 > **Même cœur MORPHEUS, plusieurs adapters et plusieurs formats de distribution.**
 
+M9 matérialise la première distribution utilisateur : CLI locale + SQLite + runtime Java embarqué.
+
 ---
 
 # 2. Cibles de distribution
 
-| Cible | Usage principal | Statut cible |
+| Cible | Usage principal | Statut M9 |
 |---|---|---|
-| Installation native Windows | développeur / CLI | **principal** |
-| Distribution portable | CI / utilisateurs avancés | officiel |
-| JAR exécutable | debug / intégration avancée | supporté |
-| Image Docker | headless / MCP réseau / API | officiel |
-| Docker Compose | écosystème multi-services | futur / optionnel |
+| Archive portable Windows x64 | développeur / CLI | **✅ officielle, validée** |
+| Archive portable Linux x64 | développeur / CLI / CI | **✅ officielle, validée** |
+| JAR exécutable autonome | debug / intégration avancée | **✅ validé** |
+| Installateur Windows EXE | confort desktop | **optionnel, dépend de WiX au build** |
+| Image Docker | headless / MCP réseau / API | **futur** |
+| Docker Compose | écosystème multi-services | **futur / optionnel** |
+
+L'archive portable est l'artefact de référence M9 car elle contient le launcher et son runtime et n'impose aucun installateur système à l'utilisateur final.
 
 ---
 
-# 3. M9 — CLI et distribution locale
+# 3. M9 — CLI et distribution locale ✅
 
 ## M9-S1 — CLI stabilisée
 
-Commandes métier prévues dans `ROADMAP.md`.
+Main officiel :
 
-Porte : la CLI appelle uniquement les services applicatifs, sans logique métier propre au packaging.
+```text
+com.morpheus.cli.MorpheusMain
+```
+
+Commandes :
+
+```text
+help
+version
+paths
+projects list
+projects add
+sync
+sync-status
+requirements find
+changes list
+changes get
+constraints list
+decisions list
+tasks list
+trace-requirement
+change-context
+analyze-change
+quality
+```
+
+Contrats :
+
+```text
+human output par défaut
+--json pour scripts/agents
+stdout = résultat
+stderr = erreur
+exit codes stables
+```
+
+La CLI appelle les services applicatifs ; les règles métier restent dans `morpheus-application`.
+
+Documentation : [`../CLI.md`](../CLI.md).
 
 ## M9-S2 — Layout runtime
 
-À définir :
+Priorité :
 
 ```text
-config directory
-data directory
-logs directory
-SQLite location
-workspace registry location
-cache/temp policy
+option CLI > variable MORPHEUS_* > default OS
 ```
 
-Contraintes : Windows et Linux ; chemins configurables ; aucune donnée importante dans un répertoire temporaire.
+Options : `--data-dir`, `--config-dir`, `--db`.
 
-## M9-S3 — Distribution portable
+Variables : `MORPHEUS_DATA_DIR`, `MORPHEUS_CONFIG_DIR`, `MORPHEUS_DB`.
 
-Cible : archive utilisable sans installation système lourde.
-
-À prouver :
+Windows :
 
 ```text
-unpack
-run morpheus
-configure
-sync
-query
+data   = %LOCALAPPDATA%\Morpheus
+config = %APPDATA%\Morpheus
+db     = <data>\morpheus.db
+logs   = <data>\logs
 ```
 
-## M9-S4 — Runtime Java embarqué
-
-Candidats :
+Linux :
 
 ```text
-jlink
-jpackage
+data   = $XDG_DATA_HOME/morpheus ou ~/.local/share/morpheus
+config = $XDG_CONFIG_HOME/morpheus ou ~/.config/morpheus
+db     = <data>/morpheus.db
+logs   = <data>/logs
 ```
 
-Objectif : l'utilisateur final ne doit pas avoir à installer/configurer manuellement Java pour utiliser la distribution standard.
+Avec `--data-dir`, la config par défaut devient `<data>/config`.
 
-## M9-S5 — Installateur Windows
-
-Cible candidate : MSI ou EXE généré par le mécanisme de packaging retenu.
-
-À tester :
+## M9-S3 — Synchronisation exécutable
 
 ```text
-install
-PATH / launcher
-upgrade
-uninstall
-data preservation
+workspace OpenSpec
+ -> NormalizedProjectContent
+ -> ProjectSnapshotImportService
+ -> BUILDING snapshot
+ -> persistence CURRENT + business content + traceability
+ -> validation
+ -> activation atomique
 ```
 
-## M9-S6 — Distribution Linux
+L'ancien snapshot ACTIVE n'est remplacé qu'après validation réussie.
 
-Objectif : distribution raisonnable, sans exiger l'identité parfaite avec l'installateur Windows.
+Le launcher officiel force actuellement `FULL_REBUILD` afin que l'état de synchronisation M7 reflète l'exécution réelle.
+
+```text
+reliability > incremental speed
+receipt mode == real execution mode
+```
+
+## M9-S4 — JAR exécutable autonome
+
+```text
+morpheus-cli-<version>-all.jar
+```
+
+Le shade merge `META-INF/services` afin de conserver les providers de services nécessaires, notamment JDBC SQLite.
+
+Cette forme requiert Java et reste destinée au debug/intégration avancée ; la distribution standard embarque son runtime.
+
+## M9-S5 — Runtime Java embarqué
+
+Choix M9 :
+
+```text
+jpackage --type app-image
+```
+
+Scripts :
+
+```text
+distribution/build-portable.ps1
+distribution/build-portable.sh
+```
+
+Chaque script :
+
+1. construit le JAR autonome ;
+2. crée l'app-image ;
+3. vérifie le launcher ;
+4. exécute `--version` et `--json version` ;
+5. archive l'app-image.
+
+## M9-S6 — Distribution portable Windows ✅
+
+```text
+dist/morpheus-0.1.0-windows-x64.zip
+```
+
+Preuve :
+
+```text
+298/298 PASS
+Architecture 149/149 PASS
+jpackage app-image PASS
+launcher human/JSON PASS
+runtime embarqué PASS
+```
+
+## M9-S7 — Installateur Windows optionnel
+
+```text
+distribution/build-windows-installer.ps1
+```
+
+En JDK 21, WiX est nécessaire pour produire MSI/EXE. Son absence ne bloque pas l'archive portable. Le script effectue un skip explicite lorsque WiX est absent.
+
+## M9-S8 — Distribution portable Linux ✅
+
+```text
+dist/morpheus-0.1.0-linux-x64.tar.gz
+```
+
+Preuve WSL/Ubuntu + OpenJDK/Javac/jpackage 21.0.11 :
+
+```text
+298/298 PASS
+Architecture 149/149 PASS
+jpackage app-image PASS
+launcher human/JSON PASS
+runtime embarqué PASS
+```
+
+Le `tar.gz` autonome est la cible Linux officielle M9. `deb`/`rpm` restent optionnels.
+
+## M9-S9 — Upgrade et uninstall
+
+Invariant :
+
+```text
+installation != data directory
+installation != config directory
+uninstall binary != delete user data
+```
+
+L'upgrade remplace l'app-image/binaire tout en réutilisant le même répertoire SQLite/config.
+
+Documentation opérationnelle : [`../../distribution/README.md`](../../distribution/README.md).
 
 ---
 
-# 4. M10 — MCP
+# 4. Gate M9 — ✅ COMPLET
+
+## Windows
+
+```powershell
+.\mvnw.cmd clean test
+.\distribution\build-portable.ps1
+```
+
+```text
+TOTAL 298/298 PASS
+Architecture 149/149 PASS
+ZIP produit
+launcher --version PASS
+launcher --json version PASS
+runtime Java embarqué
+```
+
+## Linux
+
+```bash
+./mvnw clean test
+./distribution/build-portable.sh
+```
+
+```text
+TOTAL 298/298 PASS
+Architecture 149/149 PASS
+tar.gz produit
+launcher --version PASS
+launcher --json version PASS
+runtime Java embarqué
+```
+
+M9 est **VALIDÉ**.
+
+---
+
+# 5. Portabilité du dépôt
+
+`.gitattributes` fixe les fins de ligne :
+
+```text
+mvnw     LF
+*.sh     LF
+mvnw.cmd CRLF
+*.ps1    CRLF
+```
+
+Le gate Linux de validation a utilisé un export Git vers un filesystem Linux local sous WSL, afin de ne pas dépendre de la représentation CRLF/metadata d'un working tree Windows monté sous `/mnt`.
+
+---
+
+# 6. M10 — MCP
 
 ## M10-S1 — MCP local
 
@@ -114,15 +303,11 @@ Mode privilégié :
 morpheus mcp --stdio
 ```
 
-Usage : IDE/agents locaux.
-
-Aucun Docker obligatoire.
+Usage : IDE/agents locaux. Aucun Docker obligatoire.
 
 ## M10-S2 — MCP réseau
 
 Seulement si le transport et les consommateurs le justifient.
-
-Distribution :
 
 ```text
 native
@@ -134,7 +319,7 @@ La stack réseau ne doit pas contaminer le domaine/application.
 
 ---
 
-# 5. M11 — API et image Docker officielle
+# 7. M11 — API et image Docker officielle
 
 ## M11-S1 — Serveur API
 
@@ -156,8 +341,6 @@ logs exploitables
 
 ## M11-S3 — Volumes
 
-Topologie cible :
-
 ```text
 workspace -> /workspace (read-only lorsque possible)
 data      -> /data
@@ -168,19 +351,19 @@ Test obligatoire : recréer le conteneur sans perdre la connaissance persistée.
 
 ## M11-S4 — Configuration
 
-Priorités candidates :
+La priorité M9 constitue la base :
 
 ```text
 CLI args
 environment variables
-config file
+config file futur si nécessaire
 ```
 
 Les secrets éventuels ne doivent pas être intégrés à l'image.
 
 ---
 
-# 6. Composition écosystème — future
+# 8. Composition écosystème — future
 
 Cible possible :
 
@@ -192,72 +375,36 @@ services:
   jarvis
 ```
 
-Objectifs :
-
-- environnement d'intégration reproductible ;
-- réseau local des moteurs ;
-- volumes séparés ;
-- démarrage indépendant ;
-- aucun moteur requis pour lancer MORPHEUS seul.
-
-Ce compose ne constitue pas une architecture monolithique : il ne fait qu'assembler des services autonomes.
+Objectifs : environnement d'intégration reproductible, réseau local des moteurs, volumes séparés, démarrage indépendant et aucun moteur requis pour lancer MORPHEUS seul.
 
 ---
 
-# 7. CI/CD
+# 9. CI/CD
 
-Docker pourra être utilisé pour :
+Workflow cross-platform versionné :
 
 ```text
-integration tests
-API tests
-release smoke tests
-packaging validation
-headless execution
+.github/workflows/m9-validation.yml
 ```
 
-Mais le gate de développement actuel reste :
+Il reste optionnel. Le gate local constitue la preuve de référence :
 
 ```text
 Windows : .\mvnw.cmd clean test
 Unix    : ./mvnw clean test
 ```
 
-Une image Docker ne devient pas le moyen obligatoire de compiler/tester MORPHEUS.
+Les preuves M9 finales ont été obtenues localement sur Windows et Linux/WSL.
 
 ---
 
-# 8. Critères transverses
-
-Toute distribution doit préserver :
+# 10. Règle de déploiement
 
 ```text
-local-first
-offline core
-SQLite persistence
-provider isolation
-same MORPHEUS domain/application semantics
-no mandatory cloud
-no mandatory MINOS/NEXUS/JARVIS
+native-first
+portable archive is official M9 artifact
+runtime embedded
+user data outside installation
+Docker supported later, never mandatory for local CLI
+merge only after explicit authorization
 ```
-
----
-
-# 9. Ce qui n'est pas décidé aujourd'hui
-
-Les éléments suivants nécessitent encore une preuve à leur jalon :
-
-```text
-jpackage exact configuration
-Windows MSI vs EXE
-Linux package format
-base Docker image
-HTTP framework
-MCP network transport
-ports
-Docker Compose production topology
-release registry / GHCR publication
-update mechanism
-```
-
-Leur absence de décision n'empêche pas le développement du cœur.

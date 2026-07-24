@@ -1,10 +1,10 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M7 validés et intégrés ; M8 prochain**
+Statut : **C0 à M8 validés et intégrés ; M9 validé, intégration portée par PR #56**
 
 Dernière mise à jour : 24 juillet 2026
 
-La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohérentes, tests et réponse explicite à chaque question de sortie.
+La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohérentes, tests reproductibles et réponse explicite à chaque question de sortie.
 
 ---
 
@@ -20,25 +20,21 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M4 | Traçabilité typée | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 189/189 |
 | M5 | Requêtes et contexte compact | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M5.md`, 227/227 |
 | M6 | Qualité, couverture et diagnostics explicables | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M6.md`, 261/261 |
-| **M7** | **Synchronisation incrémentale et fraîcheur** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M7.md`, 282/282, merge `c3c397f4e5a2c97b686c96cfa936e00ac29a52bf` |
-| **M8** | **Analyse des changements** | **⏳ PROCHAIN** | prochain jalon |
-| M9 | CLI stabilisée et distribution native | ⏳ PLANIFIÉ | après cœur fonctionnel |
-| M10 | MCP | ⏳ PLANIFIÉ | stdio natif d'abord |
+| M7 | Synchronisation incrémentale et fraîcheur | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M7.md`, 282/282 |
+| **M8** | **Analyse des changements** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M8.md`, 289/289, merge `6780fb024fe5b8645226f0aacecddb32bcfa7517` |
+| **M9** | **CLI stabilisée et distribution locale** | **✅ VALIDÉ** | `VALIDATION_M9.md`, 298/298 Windows + Linux |
+| M10 | Serveur MCP | ⏳ PLANIFIÉ | stdio natif d'abord |
 | M11 | API / headless | ⏳ PLANIFIÉ | après CLI/MCP |
 | M12 | MINOS | ⏳ PLANIFIÉ | intégration optionnelle |
 | M13 | NEXUS | ⏳ PLANIFIÉ | MORPHEUS autonome |
 | M14 | JARVIS | ⏳ PLANIFIÉ | orchestration seulement |
 
-Références :
+Références actives :
 
-- [`VALIDATION_M3.md`](VALIDATION_M3.md)
-- [`VALIDATION_M4.md`](VALIDATION_M4.md)
-- [`VALIDATION_M5.md`](VALIDATION_M5.md)
-- [`VALIDATION_M6.md`](VALIDATION_M6.md)
-- [`VALIDATION_M7.md`](VALIDATION_M7.md)
-- [`roadmap/M6_EXECUTION.md`](roadmap/M6_EXECUTION.md)
-- [`roadmap/M7_EXECUTION.md`](roadmap/M7_EXECUTION.md)
-- [`roadmap/M7_INTEGRATION.md`](roadmap/M7_INTEGRATION.md)
+- [`VALIDATION_M9.md`](VALIDATION_M9.md)
+- [`roadmap/M9_EXECUTION.md`](roadmap/M9_EXECUTION.md)
+- [`CLI.md`](CLI.md)
+- [`../distribution/README.md`](../distribution/README.md)
 - [`adr/README.md`](adr/README.md)
 
 ---
@@ -157,7 +153,6 @@ Question de sortie :
 find_requirements lexical déterministe
 pagination bornée
 ACTIVE par défaut
-ACTIVE / RETIRED explicites
 CURRENT isolation
 business getters/lists
 trace_requirement
@@ -185,51 +180,21 @@ Question de sortie :
 
 **Réponse : OUI.**
 
-## Progression
-
-| Slice | Contenu | PR | ADR | Gate |
-|---|---|---|---|---|
-| S1 | requirement traceability coverage + orphan requirements | #44 | ADR-0048 | 234/234 |
-| S2 | implementation-task coverage + acceptance capability gap | #45 | ADR-0049 | 241/241 |
-| S3 | change completeness + lifecycle blocking conditions | #46 | ADR-0050 | 248/248 |
-| S4 | decision trace/justification availability + external reference quality | #47 | ADR-0051 | 254/254 |
-| S5 | aggregate quality report + compact exposure | #48 | ADR-0052 | 261/261 |
-| S6 | validation finale | #49 | — | 261/261 |
-
-Merges S1-S5 :
-
-```text
-5b0984ec7777eabb6f2d1417b4c900c08a038947
-916201c724722cf9ace50d44e55d001d8faf383c
-03fd5a86e11f2afc40e3f1ecd5b1b8a1d1d211f7
-ef6975d05d4bfcd994669d27e3a6600bc4ecdc1a
-ab91b6c537c73c586b925dd6367021e2780808aa
-```
-
-Merge final M6 :
-
-```text
-904058251829b0ae39b34cd9da25c2b8918851a6
-```
-
-Capacités validées :
+Capacités :
 
 ```text
 QualityFinding machine-readable
 DETERMINISTIC != HEURISTIC
-heuristic confidence contract
 requirement orphan detection
 requirement traceability coverage
 implementation-task coverage
 acceptance capability gap explicite
 change completeness
-lifecycle facts indisponibles explicites
 lifecycle blockers explicites
 design decision trace
 justification indisponible explicite
 external UNVALIDATED / UNRESOLVED / STALE / BROKEN
 aggregate metrics stables
-findings distincts et canoniquement triés
 compact quality report
 canonical JSON / UTF-8 déterministe
 Memory == SQLite
@@ -238,7 +203,7 @@ ACTIVE / RETIRED policy
 CURRENT isolation
 ```
 
-Frontières confirmées :
+Frontières :
 
 ```text
 Scenario != AcceptanceCriterion
@@ -247,26 +212,13 @@ risks != blockers
 lifecycle non inféré depuis snapshot
 aucun TraceabilityLink inventé
 aucune persistance de QualityFinding/QualityReport
-aucune nouvelle migration M6
 aucun LLM
 aucune recherche sémantique
 aucun ranking/fusion/compression NEXUS
 ```
 
-Gate technique final :
-
-```text
-Architecture tests 134/134 PASS
-TOTAL              261/261 PASS
-Failures             0
-Errors               0
-Skipped              0
-BUILD SUCCESS
-Finished 2026-07-23T23:32:49+02:00
-```
-
-Validation : [`VALIDATION_M6.md`](VALIDATION_M6.md).  
-Vue d'exécution : [`roadmap/M6_EXECUTION.md`](roadmap/M6_EXECUTION.md).
+Gate : **261/261 PASS**.  
+Merge final : `904058251829b0ae39b34cd9da25c2b8918851a6`.
 
 ---
 
@@ -278,31 +230,26 @@ Question de sortie :
 
 **Réponse : OUI.**
 
-Capacités validées :
-
 ```text
 SourcePath canonique relatif
-SHA-256(content) comme fingerprint
+SHA-256(content)
 sourceRevision opaque
 scan complet/incomplet explicite
-mutation pendant hash détectée
 ADDED / MODIFIED / DELETED / MOVED / UNCHANGED
-move uniquement sur match contenu 1:1
+move unique 1:1 seulement
 move ambigu => FULL_REBUILD
-invalidations et refresh sets explicites
+invalidation/refresh explicites
 archives DELETED / MOVED
 SyncStateStore Memory + SQLite
-V008 spécialisée
 prepare / complete / fail
-baseline seulement après succès
-WatchService local récursif
-watcher sans suivi de symlink
+baseline après succès seulement
+WatchService local
 OVERFLOW => FULL_REBUILD
 freshness UNKNOWN / FRESH / STALE / REBUILD_REQUIRED
 SQLite reopen
 ```
 
-Fallbacks explicites :
+Fallbacks :
 
 ```text
 NO_BASELINE
@@ -317,54 +264,189 @@ EXECUTION_FAILED
 FORCED
 ```
 
+Gate : **282/282 PASS**, architecture **139/139**.  
+Merge final : `c3c397f4e5a2c97b686c96cfa936e00ac29a52bf`.
+
+Validation : [`VALIDATION_M7.md`](VALIDATION_M7.md).  
+Exécution : [`roadmap/M7_EXECUTION.md`](roadmap/M7_EXECUTION.md).  
+Intégration : [`roadmap/M7_INTEGRATION.md`](roadmap/M7_INTEGRATION.md).
+
+---
+
+# 9. M8 — Analyse des changements ✅
+
+Question de sortie :
+
+> **MORPHEUS peut-il analyser de façon déterministe l'étendue fonctionnelle et documentaire d'un changement en confrontant la baseline CURRENT au contenu proposé, classifier les exigences ajoutées/modifiées/supprimées, exposer scénarios, contraintes, décisions et tâches associées, puis expliquer les dépendances et impacts transitifs par des chemins de traçabilité bornés, sans analyser le code ni inventer de relations ou de critères d'acceptation ?**
+
+**Réponse : OUI.**
+
+Capacités :
+
+```text
+CURRENT baseline vs ProposedChangeSet
+ADDED / MODIFIED / REMOVED
+SPECIFICATION / KEY / TITLE / STATEMENT / SCENARIOS
+warnings d'incohérence explicites
+Constraint / DesignDecision / ImplementationTask
+Scenario != AcceptanceCriterion
+AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL
+DEPENDS_ON persisted only
+DEPENDENCY / DEPENDENT
+shortest paths bornés
+non-resolved paths visibles
+proposed-only trace gap explicite
+CompactChangeAnalysisView
+operation=analyze_change
+canonical JSON / UTF-8
+Memory == SQLite
+SQLite reopen
+code impact = MINOS
+```
+
 ADR :
 
 ```text
-ADR-0053 — Acceptée
-ADR-0054 — Acceptée
-ADR-0055 — Acceptée
+ADR-0056 — Acceptée
+ADR-0057 — Acceptée
+ADR-0058 — Acceptée
 ```
 
-Gate technique final :
+Gate final :
 
 ```text
-MORPHEUS Application  82/82 PASS
-Architecture Tests   139/139 PASS
-TOTAL                282/282 PASS
-Failures               0
-Errors                 0
-Skipped                0
+ChangeAnalysisContractTest  7/7 PASS
+Architecture Tests        146/146 PASS
+TOTAL                     289/289 PASS
+Failures                    0
+Errors                      0
+Skipped                     0
 BUILD SUCCESS
-Finished 2026-07-24T00:22:11+02:00
+Finished 2026-07-24T09:44:51+02:00
 ```
 
-Merge final M7 :
+Merge final :
 
 ```text
-c3c397f4e5a2c97b686c96cfa936e00ac29a52bf
+6780fb024fe5b8645226f0aacecddb32bcfa7517
 ```
 
-Invariant : **la fiabilité prime ; en cas de doute, full rebuild.**
+Validation : [`VALIDATION_M8.md`](VALIDATION_M8.md).  
+Exécution : [`roadmap/M8_EXECUTION.md`](roadmap/M8_EXECUTION.md).  
+Intégration : [`roadmap/M8_INTEGRATION.md`](roadmap/M8_INTEGRATION.md).
 
-Validation : [`VALIDATION_M7.md`](VALIDATION_M7.md).  
-Vue d'exécution : [`roadmap/M7_EXECUTION.md`](roadmap/M7_EXECUTION.md).  
-Reçu d'intégration : [`roadmap/M7_INTEGRATION.md`](roadmap/M7_INTEGRATION.md).
-
-M7 est **VALIDÉ ET INTÉGRÉ**.
+M8 est **VALIDÉ ET INTÉGRÉ**.
 
 ---
 
-# 9. M8 — Analyse des changements ⏳
+# 10. M9 — CLI stabilisée et distribution locale ✅
 
-Analyser l'étendue fonctionnelle/documentaire d'un changement : current/proposed, exigences ajoutées/modifiées/supprimées, contraintes, décisions, critères, dépendances et chemins explicatifs.
+Question de sortie :
 
-L'analyse du code reste MINOS.
+> **MORPHEUS peut-il être utilisé de façon fiable depuis une CLI locale stable, avec des commandes explicites et scriptables, des codes de sortie déterministes, une configuration de workspace/base de données claire, une archive portable reproductible, et une stratégie de runtime Java embarqué évaluée et prouvée sur Windows et Linux sans déplacer la logique métier dans l'adapter CLI ?**
 
----
+**Réponse : OUI.**
 
-# 10. M9 — CLI stabilisée et distribution locale ⏳
+CLI :
 
-Stabiliser commandes utilisateur, archive portable, runtime Java embarqué à prouver, jlink/jpackage à évaluer, Windows + Linux.
+```text
+MorpheusMain
+MorpheusCli
+CliLayout
+CliRuntime
+CliExitCode
+```
+
+Commandes :
+
+```text
+help / version / paths
+projects add/list
+sync / sync-status
+requirements find
+changes list/get
+constraints list
+decisions list
+tasks list
+trace-requirement
+change-context
+analyze-change
+quality
+```
+
+Contrats :
+
+```text
+human + --json
+stdout=result
+stderr=error
+stable exit codes
+SQLite persistent state
+```
+
+Sync :
+
+```text
+ProjectSnapshotImportService
+ProjectSnapshotImportResult
+OpenSpec -> full snapshot publication
+old ACTIVE kept until validation
+ERROR diagnostic -> FAILED candidate
+official CLI sync -> FULL_REBUILD
+no fake incremental receipt
+```
+
+Distribution :
+
+```text
+shaded executable JAR
+jpackage app-image
+embedded Java runtime
+Windows ZIP
+Linux tar.gz
+Windows EXE installer optional if WiX available
+upgrade/uninstall preserves external data/config by default
+```
+
+Tests ciblés :
+
+```text
+MorpheusCliTest                    4/4 PASS
+MorpheusMainTest                   2/2 PASS
+ProjectSnapshotImportContractTest  3/3 PASS
+```
+
+ADR :
+
+```text
+ADR-0059 — Acceptée
+ADR-0060 — Acceptée
+ADR-0061 — Acceptée
+```
+
+Gate cross-platform final :
+
+```text
+Windows  298/298 PASS | Architecture 149/149 | app-image + ZIP    | smoke human/JSON
+Linux    298/298 PASS | Architecture 149/149 | app-image + tar.gz | smoke human/JSON
+```
+
+Head exécutable validé :
+
+```text
+3b0fb46486cb28257d87d56084ef6e4fbe4cf7c7
+```
+
+Linux a été validé sous WSL/Ubuntu avec OpenJDK/Javac/jpackage 21.0.11 sur filesystem Linux local.
+
+Les deux archives embarquent leur runtime Java ; aucun JDK séparé n'est requis chez l'utilisateur final.
+
+Validation : [`VALIDATION_M9.md`](VALIDATION_M9.md).  
+Exécution : [`roadmap/M9_EXECUTION.md`](roadmap/M9_EXECUTION.md).  
+CLI : [`CLI.md`](CLI.md).  
+Distribution : [`../distribution/README.md`](../distribution/README.md).
+
+M9 est **VALIDÉ**. L'intégration est portée par PR #56 et la fusion reste soumise à autorisation explicite.
 
 ---
 
@@ -427,10 +509,10 @@ MORPHEUS expose états, transitions, blockers, acceptance status, références e
 1. documenter invariant / ADR
 2. implémenter le plus petit vertical slice
 3. ajouter les preuves contractuelles
-4. exécuter .\mvnw.cmd clean test
+4. exécuter le gate local .\mvnw.cmd clean test
 5. accepter l'ADR après preuve
-6. merger sous autorisation explicite
+6. merger uniquement après autorisation explicite
 7. mettre à jour roadmap + issue
 ```
 
-**Prochaine étape : M8 — Analyse des changements.**
+**Prochaine porte : intégrer M9 après autorisation explicite, puis démarrer M10 — Serveur MCP.**

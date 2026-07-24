@@ -15,6 +15,9 @@
 *.sqlite
 *.sqlite3
 
+# Local distribution artifacts
+dist/
+
 # OS
 .DS_Store
 Thumbs.db
