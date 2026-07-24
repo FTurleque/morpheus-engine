@@ -73,11 +73,13 @@ class MorpheusCliTest {
         assertEquals(0, sync.exitCode(), sync.stderr());
         assertTrue(sync.stdout().contains("published=true"));
         assertTrue(sync.stdout().contains("requirements=2"));
+        assertTrue(sync.stdout().contains("mode=FULL_REBUILD"));
 
         Invocation status = invokeWithData(data, "--json", "sync-status", "--project", projectId);
         assertEquals(0, status.exitCode(), status.stderr());
         assertTrue(status.stdout().contains("\"state\":\"FRESH\""));
         assertTrue(status.stdout().contains("\"currentSourceCount\""));
+        assertTrue(status.stdout().contains("\"lastSuccessfulMode\":\"FULL_REBUILD\""));
 
         Invocation requirements = invokeWithData(
                 data, "--json", "requirements", "find", "--project", projectId, "--query", "session");
@@ -137,7 +139,12 @@ class MorpheusCliTest {
         ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
         try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errBytes, true, StandardCharsets.UTF_8)) {
-            int exitCode = new MorpheusCli().run(args, out, err, Map.of(), properties(System.getProperty("os.name"), tempDir.resolve("home")));
+            int exitCode = MorpheusMain.run(
+                    args,
+                    out,
+                    err,
+                    Map.of(),
+                    properties(System.getProperty("os.name"), tempDir.resolve("home")));
             return new Invocation(
                     exitCode,
                     outBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"),
