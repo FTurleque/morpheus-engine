@@ -1,14 +1,17 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.reference.ExternalIntegrationStatus;
+import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
 /** Optional composition object used by CLI/API/MCP without exposing MINOS internals. */
-public final class MinosIntegrationRuntime {
+public final class MinosIntegrationRuntime implements ExternalIntegrationStatusProvider {
     private final MinosIntegrationSettings settings;
     private final ExternalReferenceResolverRegistry resolverRegistry;
 
@@ -32,25 +35,18 @@ public final class MinosIntegrationRuntime {
         return resolverRegistry;
     }
 
-    public Status status() {
+    @Override
+    public ExternalIntegrationStatus status() {
         if (settings.state() == MinosIntegrationSettings.State.DISABLED) {
-            return new Status("DISABLED", false, "MINOS integration is not configured", null,
-                    settings.javaCommand(), settings.homeDirectory().map(Object::toString).orElse(null),
-                    settings.timeout().toSeconds());
+            return status("DISABLED", false, "MINOS integration is not configured");
         }
         if (settings.state() == MinosIntegrationSettings.State.INVALID) {
-            return new Status("INVALID", false, settings.configurationError().orElse("invalid MINOS configuration"),
-                    settings.jarPath().map(Object::toString).orElse(null), settings.javaCommand(),
-                    settings.homeDirectory().map(Object::toString).orElse(null), settings.timeout().toSeconds());
+            return status("INVALID", false, settings.configurationError().orElse("invalid MINOS configuration"));
         }
         try (MinosCodeGateway ignored = new MinosMcpCodeGateway(settings)) {
-            return new Status("AVAILABLE", true, "MINOS MCP server is reachable and compatible",
-                    settings.jarPath().map(Object::toString).orElse(null), settings.javaCommand(),
-                    settings.homeDirectory().map(Object::toString).orElse(null), settings.timeout().toSeconds());
+            return status("AVAILABLE", true, "MINOS MCP server is reachable and compatible");
         } catch (RuntimeException failure) {
-            return new Status("UNAVAILABLE", true, safeMessage(failure),
-                    settings.jarPath().map(Object::toString).orElse(null), settings.javaCommand(),
-                    settings.homeDirectory().map(Object::toString).orElse(null), settings.timeout().toSeconds());
+            return status("UNAVAILABLE", true, safeMessage(failure));
         }
     }
 
@@ -58,18 +54,17 @@ public final class MinosIntegrationRuntime {
         return settings;
     }
 
+    private ExternalIntegrationStatus status(String state, boolean configured, String message) {
+        Map<String, String> details = new LinkedHashMap<>();
+        settings.jarPath().ifPresent(value -> details.put("jarPath", value.toString()));
+        details.put("javaCommand", settings.javaCommand());
+        settings.homeDirectory().ifPresent(value -> details.put("homeDirectory", value.toString()));
+        details.put("timeoutSeconds", Long.toString(settings.timeout().toSeconds()));
+        return new ExternalIntegrationStatus("MINOS", state, configured, message, details);
+    }
+
     private static String safeMessage(RuntimeException failure) {
         String message = failure.getMessage();
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
-    public record Status(
-            String state,
-            boolean configured,
-            String message,
-            String jarPath,
-            String javaCommand,
-            String homeDirectory,
-            long timeoutSeconds) {
     }
 }
