@@ -25,16 +25,35 @@ public record ExternalReferenceResolverResult(
     }
 
     public static ExternalReferenceResolverResult notFound() {
-        return new ExternalReferenceResolverResult(Status.NOT_FOUND, Optional.empty());
+        return empty(Status.NOT_FOUND);
     }
 
     public static ExternalReferenceResolverResult unavailable() {
-        return new ExternalReferenceResolverResult(Status.UNAVAILABLE, Optional.empty());
+        return empty(Status.UNAVAILABLE);
+    }
+
+    public static ExternalReferenceResolverResult ambiguous() {
+        return empty(Status.AMBIGUOUS);
+    }
+
+    public static ExternalReferenceResolverResult revisionMismatch() {
+        return empty(Status.REVISION_MISMATCH);
+    }
+
+    public static ExternalReferenceResolverResult unsupported() {
+        return empty(Status.UNSUPPORTED);
+    }
+
+    private static ExternalReferenceResolverResult empty(Status status) {
+        return new ExternalReferenceResolverResult(status, Optional.empty());
     }
 
     public enum Status {
         FOUND,
         NOT_FOUND,
-        UNAVAILABLE
+        UNAVAILABLE,
+        AMBIGUOUS,
+        REVISION_MISMATCH,
+        UNSUPPORTED
     }
 }
