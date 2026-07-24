@@ -39,9 +39,7 @@ class MorpheusMainTest {
         assertTrue(McpLaunchOptions.isMcpCommand(new String[]{"--db", "state.db", "mcp", "--stdio"}));
         assertFalse(McpLaunchOptions.isMcpCommand(new String[]{"requirements", "find"}));
 
-        Properties properties = new Properties();
-        properties.setProperty("user.home", Path.of("home").toAbsolutePath().toString());
-        properties.setProperty("os.name", "Linux");
+        Properties properties = properties();
         McpLaunchOptions options = McpLaunchOptions.parse(
                 new String[]{"mcp", "--stdio", "--db", "state.db"}, Map.of(), properties);
 
@@ -49,35 +47,69 @@ class MorpheusMainTest {
     }
 
     @Test
-    void officialHelpDocumentsNativeMcpStdioMode() {
-        Properties properties = new Properties();
-        properties.setProperty("user.home", Path.of("home").toAbsolutePath().toString());
-        properties.setProperty("os.name", "Linux");
+    void detectsAndParsesNativeApiCommandWithLoopbackDefaults() {
+        assertTrue(ApiLaunchOptions.isApiCommand(new String[]{"--db", "state.db", "api"}));
+        assertFalse(ApiLaunchOptions.isApiCommand(new String[]{"mcp", "--stdio"}));
+
+        ApiLaunchOptions defaults = ApiLaunchOptions.parse(
+                new String[]{"api", "--db", "state.db"}, Map.of(), properties());
+        assertEquals("127.0.0.1", defaults.host());
+        assertEquals(8765, defaults.port());
+        assertEquals(Path.of("state.db").toAbsolutePath().normalize(), defaults.layout().databasePath());
+
+        ApiLaunchOptions explicit = ApiLaunchOptions.parse(
+                new String[]{"--db=state.db", "api", "--host=localhost", "--port=9876"}, Map.of(), properties());
+        assertEquals("localhost", explicit.host());
+        assertEquals(9876, explicit.port());
+    }
+
+    @Test
+    void officialHelpDocumentsMcpAndHeadlessApiModes() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ByteArrayOutputStream errors = new ByteArrayOutputStream();
 
         int exit;
         try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
-            exit = MorpheusMain.run(new String[]{"help"}, out, err, Map.of(), properties);
+            exit = MorpheusMain.run(new String[]{"help"}, out, err, Map.of(), properties());
         }
 
         assertEquals(CliExitCode.SUCCESS.code(), exit);
-        assertTrue(output.toString(StandardCharsets.UTF_8).contains("mcp --stdio"));
+        String help = output.toString(StandardCharsets.UTF_8);
+        assertTrue(help.contains("mcp --stdio"));
+        assertTrue(help.contains("api [--host HOST] [--port PORT]"));
+        assertTrue(help.contains("/api/v1"));
         assertTrue(errors.toString(StandardCharsets.UTF_8).isEmpty());
     }
 
     @Test
     void rejectsUnsupportedMcpModesAndJsonWrapper() {
-        Properties properties = new Properties();
-        properties.setProperty("user.home", Path.of("home").toAbsolutePath().toString());
-        properties.setProperty("os.name", "Linux");
-
+        Properties properties = properties();
         assertThrows(IllegalArgumentException.class,
                 () -> McpLaunchOptions.parse(new String[]{"mcp"}, Map.of(), properties));
         assertThrows(IllegalArgumentException.class,
                 () -> McpLaunchOptions.parse(new String[]{"mcp", "--http"}, Map.of(), properties));
         assertThrows(IllegalArgumentException.class,
                 () -> McpLaunchOptions.parse(new String[]{"mcp", "--stdio", "--json"}, Map.of(), properties));
+    }
+
+    @Test
+    void rejectsInvalidApiPortJsonAndUnknownArguments() {
+        Properties properties = properties();
+        assertThrows(IllegalArgumentException.class,
+                () -> ApiLaunchOptions.parse(new String[]{"api", "--port", "0"}, Map.of(), properties));
+        assertThrows(IllegalArgumentException.class,
+                () -> ApiLaunchOptions.parse(new String[]{"api", "--port", "70000"}, Map.of(), properties));
+        assertThrows(IllegalArgumentException.class,
+                () -> ApiLaunchOptions.parse(new String[]{"api", "--json"}, Map.of(), properties));
+        assertThrows(IllegalArgumentException.class,
+                () -> ApiLaunchOptions.parse(new String[]{"api", "--tls"}, Map.of(), properties));
+    }
+
+    private Properties properties() {
+        Properties properties = new Properties();
+        properties.setProperty("user.home", Path.of("home").toAbsolutePath().toString());
+        properties.setProperty("os.name", "Linux");
+        return properties;
     }
 }

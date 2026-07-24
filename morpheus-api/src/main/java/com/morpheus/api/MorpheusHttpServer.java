@@ -1,0 +1,567 @@
+package com.morpheus.api;
+
+import com.morpheus.application.history.PublishedHistoryException;
+import com.morpheus.application.query.PageRequest;
+import com.morpheus.application.query.compact.CanonicalJsonSerializer;
+import com.morpheus.application.store.KnowledgeStoreException;
+import com.sun.net.httpserver.Headers;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/** M11 local HTTP server. Routing and HTTP translation only; business behavior stays in application services. */
+public final class MorpheusHttpServer implements AutoCloseable {
+    public static final String API_PREFIX = "/api/v1";
+    public static final String DEFAULT_HOST = "127.0.0.1";
+    public static final int DEFAULT_PORT = 8765;
+    public static final int MAX_REQUEST_BODY_BYTES = 65_536;
+
+    private final HttpServer server;
+    private final ExecutorService executor;
+    private final MorpheusApiService service;
+    private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
+    private final JsonMapper mapper = JsonMapper.builder()
+            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .build();
+
+    private MorpheusHttpServer(HttpServer server, ExecutorService executor, MorpheusApiService service) {
+        this.server = Objects.requireNonNull(server, "server");
+        this.executor = Objects.requireNonNull(executor, "executor");
+        this.service = Objects.requireNonNull(service, "service");
+    }
+
+    public static MorpheusHttpServer start(Path databasePath, String host, int port) {
+        Objects.requireNonNull(databasePath, "databasePath");
+        String normalizedHost = requireHost(host);
+        if (port < 0 || port > 65_535) {
+            throw new IllegalArgumentException("port must be between 0 and 65535");
+        }
+        try {
+            HttpServer httpServer = HttpServer.create(new InetSocketAddress(normalizedHost, port), 0);
+            ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+            MorpheusHttpServer result = new MorpheusHttpServer(
+                    httpServer, executor, new MorpheusApiService(databasePath));
+            httpServer.setExecutor(executor);
+            httpServer.createContext(API_PREFIX, result::handle);
+            httpServer.start();
+            return result;
+        } catch (IOException failure) {
+            throw new IllegalStateException("cannot start MORPHEUS API on " + normalizedHost + ":" + port, failure);
+        }
+    }
+
+    public String host() {
+        return server.getAddress().getAddress().getHostAddress();
+    }
+
+    public int port() {
+        return server.getAddress().getPort();
+    }
+
+    public URI baseUri() {
+        return URI.create("http://" + hostForUri(host()) + ":" + port() + API_PREFIX);
+    }
+
+    @Override
+    public void close() {
+        server.stop(0);
+        executor.shutdownNow();
+    }
+
+    private void handle(HttpExchange exchange) throws IOException {
+        try {
+            RouteResponse response = route(exchange);
+            send(exchange, response.status(), success(response.data()));
+        } catch (ApiFailure failure) {
+            if (failure.status() == 405) {
+                exchange.getResponseHeaders().set("Allow", allowedMethods(exchange.getRequestURI().getPath()));
+            }
+            send(exchange, failure.status(), error(failure.code(), failure.getMessage(), failure.details()));
+        } catch (IllegalArgumentException failure) {
+            send(exchange, 400, error("BAD_REQUEST", safeMessage(failure), Map.of()));
+        } catch (KnowledgeStoreException | PublishedHistoryException | IllegalStateException failure) {
+            send(exchange, 409, error("STATE_CONFLICT", safeMessage(failure), Map.of()));
+        } catch (RuntimeException failure) {
+            send(exchange, 500, error("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of()));
+        } finally {
+            exchange.close();
+        }
+    }
+
+    private RouteResponse route(HttpExchange exchange) {
+        String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
+        List<String> segments = pathSegments(exchange.getRequestURI().getPath());
+        Query query = Query.parse(exchange.getRequestURI().getRawQuery());
+
+        if (segments.isEmpty()) {
+            requireMethod(method, "GET");
+            query.rejectUnknown(Set.of());
+            return ok(Map.of("service", "morpheus", "apiVersion", "v1"));
+        }
+        if (segments.size() == 1 && segments.getFirst().equals("health")) {
+            requireMethod(method, "GET");
+            query.rejectUnknown(Set.of());
+            return ok(service.health());
+        }
+        if (segments.size() == 1 && segments.getFirst().equals("version")) {
+            requireMethod(method, "GET");
+            query.rejectUnknown(Set.of());
+            return ok(service.version());
+        }
+        if (!segments.getFirst().equals("projects")) {
+            throw ApiFailure.notFound("unknown API route: " + exchange.getRequestURI().getPath());
+        }
+
+        if (segments.size() == 1) {
+            query.rejectUnknown(Set.of());
+            if (method.equals("GET")) {
+                return ok(service.listProjects());
+            }
+            if (method.equals("POST")) {
+                ProjectRegistrationRequest request = readRequiredJson(exchange, ProjectRegistrationRequest.class);
+                MorpheusApiService.RegistrationResult result = service.registerProject(request.workspace());
+                return new RouteResponse(result.created() ? 201 : 200, result.project());
+            }
+            throw ApiFailure.methodNotAllowed("projects supports GET and POST");
+        }
+
+        String projectId = segments.get(1);
+        if (segments.size() == 2) {
+            requireMethod(method, "GET");
+            query.rejectUnknown(Set.of());
+            return ok(service.project(projectId));
+        }
+
+        String resource = segments.get(2);
+        return switch (resource) {
+            case "sync" -> routeSync(exchange, method, segments, query, projectId);
+            case "sync-status" -> routeSyncStatus(method, segments, query, projectId);
+            case "specifications" -> routeSpecifications(method, segments, query, projectId);
+            case "requirements" -> routeRequirements(method, segments, query, projectId);
+            case "changes" -> routeChanges(method, segments, query, projectId);
+            case "versions" -> routeVersions(method, segments, query, projectId);
+            case "diagnostics" -> routeDiagnostics(method, segments, query, projectId);
+            default -> throw ApiFailure.notFound("unknown project API resource: " + resource);
+        };
+    }
+
+    private RouteResponse routeSync(
+            HttpExchange exchange,
+            String method,
+            List<String> segments,
+            Query query,
+            String projectId) {
+        requireExactSegments(segments, 3);
+        requireMethod(method, "POST");
+        query.rejectUnknown(Set.of());
+        SyncRequest request = readOptionalJson(exchange, SyncRequest.class, new SyncRequest(null));
+        return ok(service.sync(projectId, Optional.ofNullable(request.revision())));
+    }
+
+    private RouteResponse routeSyncStatus(String method, List<String> segments, Query query, String projectId) {
+        requireExactSegments(segments, 3);
+        requireMethod(method, "GET");
+        query.rejectUnknown(Set.of("maxAgeMinutes"));
+        long maxAge = query.longValue(
+                "maxAgeMinutes", MorpheusApiService.DEFAULT_MAX_AGE_MINUTES, 1, MorpheusApiService.MAX_MAX_AGE_MINUTES);
+        return ok(service.syncStatus(projectId, maxAge));
+    }
+
+    private RouteResponse routeSpecifications(String method, List<String> segments, Query query, String projectId) {
+        requireMethod(method, "GET");
+        if (segments.size() == 3) {
+            PageRequest page = page(query);
+            return ok(service.listSpecifications(projectId, page));
+        }
+        if (segments.size() == 4) {
+            query.rejectUnknown(Set.of());
+            return ok(service.specification(projectId, segments.get(3)));
+        }
+        if (segments.size() == 5 && segments.get(4).equals("context")) {
+            return ok(service.specificationContext(projectId, segments.get(3), page(query)));
+        }
+        throw ApiFailure.notFound("unknown specifications route");
+    }
+
+    private RouteResponse routeRequirements(String method, List<String> segments, Query query, String projectId) {
+        requireMethod(method, "GET");
+        if (segments.size() == 3) {
+            query.rejectUnknown(Set.of("query", "offset", "limit"));
+            PageRequest page = new PageRequest(
+                    query.intValue("offset", 0, 0, Integer.MAX_VALUE),
+                    query.intValue("limit", MorpheusApiService.DEFAULT_LIMIT, 1, MorpheusApiService.MAX_LIMIT));
+            return ok(service.requirements(projectId, query.string("query").orElse(""), page));
+        }
+        if (segments.size() == 4) {
+            query.rejectUnknown(Set.of());
+            return ok(service.requirement(projectId, segments.get(3)));
+        }
+        if (segments.size() == 5 && segments.get(4).equals("trace")) {
+            query.rejectUnknown(Set.of("depth"));
+            int depth = query.intValue("depth", MorpheusApiService.DEFAULT_DEPTH, 1, MorpheusApiService.MAX_DEPTH);
+            return ok(service.traceRequirement(projectId, segments.get(3), depth));
+        }
+        throw ApiFailure.notFound("unknown requirements route");
+    }
+
+    private RouteResponse routeChanges(String method, List<String> segments, Query query, String projectId) {
+        requireMethod(method, "GET");
+        if (segments.size() == 3) {
+            return ok(service.listChanges(projectId, page(query)));
+        }
+        if (segments.size() == 4) {
+            query.rejectUnknown(Set.of());
+            return ok(service.change(projectId, segments.get(3)));
+        }
+        if (segments.size() != 5) {
+            throw ApiFailure.notFound("unknown changes route");
+        }
+
+        String changeId = segments.get(3);
+        String child = segments.get(4);
+        return switch (child) {
+            case "constraints" -> ok(service.constraints(projectId, changeId, page(query)));
+            case "acceptance-criteria" -> {
+                query.rejectUnknown(Set.of());
+                yield ok(service.acceptanceCriteria(projectId, changeId));
+            }
+            case "design-decisions" -> ok(service.designDecisions(projectId, changeId, page(query)));
+            case "implementation-tasks" -> ok(service.implementationTasks(projectId, changeId, page(query)));
+            case "context" -> {
+                query.rejectUnknown(Set.of("depth"));
+                int depth = query.intValue("depth", MorpheusApiService.DEFAULT_DEPTH, 1, MorpheusApiService.MAX_DEPTH);
+                yield ok(service.changeContext(projectId, changeId, depth));
+            }
+            case "status" -> {
+                query.rejectUnknown(Set.of());
+                yield ok(service.changeStatus(projectId, changeId));
+            }
+            case "blocking-conditions" -> {
+                query.rejectUnknown(Set.of());
+                yield ok(service.blockingConditions(projectId, changeId));
+            }
+            default -> throw ApiFailure.notFound("unknown change subresource: " + child);
+        };
+    }
+
+    private RouteResponse routeVersions(String method, List<String> segments, Query query, String projectId) {
+        requireMethod(method, "GET");
+        if (segments.size() == 3) {
+            query.rejectUnknown(Set.of());
+            return ok(service.versions(projectId));
+        }
+        if (segments.size() == 4 && segments.get(3).equals("compare")) {
+            query.rejectUnknown(Set.of("fromSnapshotId", "toSnapshotId"));
+            return ok(service.compareVersions(
+                    projectId,
+                    query.required("fromSnapshotId"),
+                    query.required("toSnapshotId")));
+        }
+        if (segments.size() == 5 && segments.get(4).equals("requirements")) {
+            return ok(service.historicalRequirements(projectId, segments.get(3), page(query)));
+        }
+        throw ApiFailure.notFound("unknown versions route");
+    }
+
+    private RouteResponse routeDiagnostics(String method, List<String> segments, Query query, String projectId) {
+        requireExactSegments(segments, 3);
+        requireMethod(method, "GET");
+        query.rejectUnknown(Set.of());
+        return ok(service.diagnostics(projectId));
+    }
+
+    private PageRequest page(Query query) {
+        query.rejectUnknown(Set.of("offset", "limit"));
+        return new PageRequest(
+                query.intValue("offset", 0, 0, Integer.MAX_VALUE),
+                query.intValue("limit", MorpheusApiService.DEFAULT_LIMIT, 1, MorpheusApiService.MAX_LIMIT));
+    }
+
+    private <T> T readRequiredJson(HttpExchange exchange, Class<T> type) {
+        byte[] body = readBody(exchange);
+        if (body.length == 0) {
+            throw ApiFailure.badRequest("JSON request body is required");
+        }
+        requireJsonContentType(exchange.getRequestHeaders());
+        return decode(body, type);
+    }
+
+    private <T> T readOptionalJson(HttpExchange exchange, Class<T> type, T defaultValue) {
+        byte[] body = readBody(exchange);
+        if (body.length == 0) {
+            return defaultValue;
+        }
+        requireJsonContentType(exchange.getRequestHeaders());
+        return decode(body, type);
+    }
+
+    private byte[] readBody(HttpExchange exchange) {
+        try {
+            byte[] bytes = exchange.getRequestBody().readNBytes(MAX_REQUEST_BODY_BYTES + 1);
+            if (bytes.length > MAX_REQUEST_BODY_BYTES) {
+                throw ApiFailure.badRequest("request body exceeds " + MAX_REQUEST_BODY_BYTES + " bytes");
+            }
+            return bytes;
+        } catch (IOException failure) {
+            throw ApiFailure.badRequest("cannot read request body");
+        }
+    }
+
+    private <T> T decode(byte[] body, Class<T> type) {
+        try {
+            return mapper.readValue(body, type);
+        } catch (Exception failure) {
+            throw ApiFailure.badRequest("invalid JSON request body: " + safeMessage(failure));
+        }
+    }
+
+    private void requireJsonContentType(Headers headers) {
+        String value = headers.getFirst("Content-Type");
+        if (value == null || !value.toLowerCase(Locale.ROOT).startsWith("application/json")) {
+            throw ApiFailure.unsupportedMediaType("Content-Type application/json is required");
+        }
+    }
+
+    private void send(HttpExchange exchange, int status, Object body) throws IOException {
+        byte[] bytes = serializer.toUtf8(body);
+        Headers headers = exchange.getResponseHeaders();
+        headers.set("Content-Type", "application/json; charset=utf-8");
+        headers.set("Cache-Control", "no-store");
+        headers.set("X-Content-Type-Options", "nosniff");
+        exchange.sendResponseHeaders(status, bytes.length);
+        exchange.getResponseBody().write(bytes);
+    }
+
+    private ApiSuccess success(Object data) {
+        return new ApiSuccess("v1", Objects.requireNonNull(data, "data"));
+    }
+
+    private ApiErrorEnvelope error(String code, String message, Map<String, Object> details) {
+        return new ApiErrorEnvelope("v1", new ApiError(code, message, details));
+    }
+
+    private RouteResponse ok(Object data) {
+        return new RouteResponse(200, data);
+    }
+
+    private void requireMethod(String actual, String expected) {
+        if (!actual.equals(expected)) {
+            throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
+        }
+    }
+
+    private void requireExactSegments(List<String> segments, int expected) {
+        if (segments.size() != expected) {
+            throw ApiFailure.notFound("unknown API route");
+        }
+    }
+
+    private List<String> pathSegments(String path) {
+        if (!path.startsWith(API_PREFIX)) {
+            throw ApiFailure.notFound("unknown API route: " + path);
+        }
+        String suffix = path.substring(API_PREFIX.length());
+        if (suffix.isEmpty() || suffix.equals("/")) {
+            return List.of();
+        }
+        String normalized = suffix.startsWith("/") ? suffix.substring(1) : suffix;
+        if (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        if (normalized.isEmpty()) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (String segment : normalized.split("/")) {
+            if (segment.isEmpty()) {
+                throw ApiFailure.notFound("invalid API path");
+            }
+            result.add(urlDecode(segment));
+        }
+        return List.copyOf(result);
+    }
+
+    private String allowedMethods(String path) {
+        List<String> segments;
+        try {
+            segments = pathSegments(path);
+        } catch (RuntimeException ignored) {
+            return "GET";
+        }
+        if (segments.size() == 1 && segments.getFirst().equals("projects")) {
+            return "GET, POST";
+        }
+        if (segments.size() == 3 && segments.getFirst().equals("projects") && segments.get(2).equals("sync")) {
+            return "POST";
+        }
+        return "GET";
+    }
+
+    private static String requireHost(String host) {
+        if (host == null || host.isBlank()) {
+            throw new IllegalArgumentException("host must not be blank");
+        }
+        return host.trim();
+    }
+
+    private static String hostForUri(String host) {
+        return host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
+    }
+
+    private static String safeMessage(Throwable failure) {
+        String message = failure.getMessage();
+        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
+    }
+
+    private static String urlDecode(String value) {
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
+    }
+
+    public record ApiSuccess(String apiVersion, Object data) {
+        public ApiSuccess {
+            Objects.requireNonNull(apiVersion, "apiVersion");
+            Objects.requireNonNull(data, "data");
+        }
+    }
+
+    public record ApiError(String code, String message, Map<String, Object> details) {
+        public ApiError {
+            Objects.requireNonNull(code, "code");
+            Objects.requireNonNull(message, "message");
+            details = Map.copyOf(Objects.requireNonNull(details, "details"));
+        }
+    }
+
+    public record ApiErrorEnvelope(String apiVersion, ApiError error) {
+        public ApiErrorEnvelope {
+            Objects.requireNonNull(apiVersion, "apiVersion");
+            Objects.requireNonNull(error, "error");
+        }
+    }
+
+    private record RouteResponse(int status, Object data) {
+        private RouteResponse {
+            if (status < 200 || status > 299) {
+                throw new IllegalArgumentException("route success status must be 2xx");
+            }
+            Objects.requireNonNull(data, "data");
+        }
+    }
+
+    public record ProjectRegistrationRequest(String workspace) {
+        public ProjectRegistrationRequest {
+            if (workspace == null || workspace.isBlank()) {
+                throw new IllegalArgumentException("workspace is required");
+            }
+            workspace = workspace.trim();
+        }
+    }
+
+    public record SyncRequest(String revision) {
+        public SyncRequest {
+            revision = revision == null ? null : revision.trim();
+            if (revision != null && revision.isEmpty()) {
+                revision = null;
+            }
+        }
+    }
+
+    private record Query(Map<String, String> values) {
+        private Query {
+            values = Map.copyOf(values);
+        }
+
+        static Query parse(String rawQuery) {
+            if (rawQuery == null || rawQuery.isBlank()) {
+                return new Query(Map.of());
+            }
+            Map<String, String> values = new LinkedHashMap<>();
+            for (String part : rawQuery.split("&")) {
+                if (part.isBlank()) {
+                    continue;
+                }
+                int separator = part.indexOf('=');
+                String key = urlDecode(separator < 0 ? part : part.substring(0, separator));
+                String value = urlDecode(separator < 0 ? "" : part.substring(separator + 1));
+                if (key.isBlank()) {
+                    throw ApiFailure.badRequest("query parameter name must not be blank");
+                }
+                if (values.putIfAbsent(key, value) != null) {
+                    throw ApiFailure.badRequest("duplicate query parameter: " + key);
+                }
+            }
+            return new Query(values);
+        }
+
+        Optional<String> string(String name) {
+            return Optional.ofNullable(values.get(name));
+        }
+
+        String required(String name) {
+            String value = values.get(name);
+            if (value == null || value.isBlank()) {
+                throw ApiFailure.badRequest("query parameter is required: " + name);
+            }
+            return value;
+        }
+
+        int intValue(String name, int defaultValue, int minimum, int maximum) {
+            String raw = values.get(name);
+            if (raw == null) {
+                return defaultValue;
+            }
+            try {
+                int value = Integer.parseInt(raw);
+                if (value < minimum || value > maximum) {
+                    throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
+                }
+                return value;
+            } catch (NumberFormatException failure) {
+                throw ApiFailure.badRequest(name + " must be an integer");
+            }
+        }
+
+        long longValue(String name, long defaultValue, long minimum, long maximum) {
+            String raw = values.get(name);
+            if (raw == null) {
+                return defaultValue;
+            }
+            try {
+                long value = Long.parseLong(raw);
+                if (value < minimum || value > maximum) {
+                    throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
+                }
+                return value;
+            } catch (NumberFormatException failure) {
+                throw ApiFailure.badRequest(name + " must be an integer");
+            }
+        }
+
+        void rejectUnknown(Set<String> allowed) {
+            for (String key : values.keySet()) {
+                if (!allowed.contains(key)) {
+                    throw ApiFailure.badRequest("unknown query parameter: " + key);
+                }
+            }
+        }
+    }
+}

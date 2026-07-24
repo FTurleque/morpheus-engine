@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dist = Join-Path $repo $OutputDirectory
-$work = Join-Path $dist ".m10-windows"
+$work = Join-Path $dist ".m11-windows"
 $input = Join-Path $work "input"
 $appImageRoot = Join-Path $work "image"
 
@@ -62,7 +62,68 @@ function Compress-PortableArchiveWithRetry {
     }
 }
 
-Write-Host "Building MORPHEUS CLI + MCP uber-JAR..."
+function Get-FreeLoopbackPort {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    $listener.Start()
+    try {
+        return ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
+    } finally {
+        $listener.Stop()
+    }
+}
+
+function Test-PackagedApiHealth {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Launcher,
+        [Parameter(Mandatory = $true)]
+        [string]$WorkDirectory
+    )
+
+    $port = Get-FreeLoopbackPort
+    $apiData = Join-Path $WorkDirectory "api-smoke-data"
+    $stdout = Join-Path $WorkDirectory "api-smoke.stdout.log"
+    $stderr = Join-Path $WorkDirectory "api-smoke.stderr.log"
+    New-Item $apiData -ItemType Directory -Force | Out-Null
+    Remove-Item $stdout, $stderr -Force -ErrorAction SilentlyContinue
+
+    $process = Start-Process `
+        -FilePath $Launcher `
+        -ArgumentList @("--data-dir", $apiData, "api", "--host", "127.0.0.1", "--port", "$port") `
+        -RedirectStandardOutput $stdout `
+        -RedirectStandardError $stderr `
+        -PassThru
+
+    try {
+        $uri = "http://127.0.0.1:$port/api/v1/health"
+        $response = $null
+        for ($attempt = 1; $attempt -le 60; $attempt++) {
+            if ($process.HasExited) {
+                $diagnostic = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
+                throw "Packaged API exited before health check. stderr=$diagnostic"
+            }
+            try {
+                $response = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+                if ($response.StatusCode -eq 200 -and $response.Content -match '"status":"UP"') {
+                    Write-Host "Packaged API health smoke: PASS ($uri)"
+                    return
+                }
+            } catch {
+                Start-Sleep -Milliseconds 100
+            }
+        }
+        $diagnostic = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
+        throw "Packaged API health smoke timed out. stderr=$diagnostic"
+    } finally {
+        if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        }
+        try { $process.WaitForExit(5000) | Out-Null } catch { }
+        Start-Sleep -Milliseconds 300
+    }
+}
+
+Write-Host "Building MORPHEUS CLI + MCP + API uber-JAR..."
 & $mvnw -pl morpheus-cli -am -DskipTests package
 if ($LASTEXITCODE -ne 0) { throw "Maven package failed with exit code $LASTEXITCODE" }
 
@@ -71,27 +132,30 @@ $jar = Get-ChildItem (Join-Path $repo "morpheus-cli\target") -Filter "morpheus-c
     Select-Object -First 1
 if ($null -eq $jar) { throw "Shaded MORPHEUS CLI JAR not found" }
 
-Write-Host "Verifying MCP classes are embedded in the shaded JAR..."
+Write-Host "Verifying MCP/API classes are embedded in the shaded JAR..."
 $jarEntries = & $jarTool tf $jar.FullName
 if ($LASTEXITCODE -ne 0) { throw "Unable to inspect shaded JAR" }
 $requiredEntries = @(
     "com/morpheus/mcp/MorpheusMcpServer.class",
     "io/modelcontextprotocol/server/McpServer.class",
-    "io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class"
+    "io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class",
+    "com/morpheus/api/MorpheusHttpServer.class",
+    "com/morpheus/api/MorpheusApiService.class",
+    "tools/jackson/databind/json/JsonMapper.class"
 )
 foreach ($entry in $requiredEntries) {
     if ($jarEntries -notcontains $entry) {
-        throw "MCP packaging proof failed; shaded JAR is missing $entry"
+        throw "M11 packaging proof failed; shaded JAR is missing $entry"
     }
 }
-Write-Host "MCP packaging proof: PASS"
+Write-Host "MCP/API packaging proof: PASS"
 
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item $input -ItemType Directory -Force | Out-Null
 New-Item $appImageRoot -ItemType Directory -Force | Out-Null
 Copy-Item $jar.FullName (Join-Path $input "morpheus.jar")
 
-Write-Host "Creating self-contained Windows app-image with embedded runtime..."
+Write-Host "Creating self-contained Windows app-image with embedded runtime + jdk.httpserver..."
 & $jpackage `
     --type app-image `
     --name morpheus `
@@ -100,6 +164,7 @@ Write-Host "Creating self-contained Windows app-image with embedded runtime..."
     --input $input `
     --main-jar "morpheus.jar" `
     --main-class "com.morpheus.cli.MorpheusMain" `
+    --add-modules jdk.httpserver `
     --win-console `
     --dest $appImageRoot
 if ($LASTEXITCODE -ne 0) { throw "jpackage app-image failed with exit code $LASTEXITCODE" }
@@ -118,6 +183,8 @@ if ($jsonVersion -notmatch '"version"') {
 }
 Write-Host $jsonVersion
 
+Test-PackagedApiHealth -Launcher $launcher -WorkDirectory $work
+
 New-Item $dist -ItemType Directory -Force | Out-Null
 $archive = Join-Path $dist "morpheus-$Version-windows-x64.zip"
 Compress-PortableArchiveWithRetry `
@@ -129,4 +196,4 @@ if (-not (Test-Path $archive)) {
 }
 
 Write-Host "Portable Windows distribution: $archive"
-Write-Host "The archive contains its Java runtime and MCP STDIO server; end users do not need a separately installed JDK."
+Write-Host "The archive contains its Java runtime, MCP STDIO server and HTTP API; end users do not need a separately installed JDK."

@@ -1,0 +1,580 @@
+openapi: 3.1.0
+info:
+  title: MORPHEUS Headless API
+  version: 1.0.0
+  description: >-
+    Local-first HTTP adapter for MORPHEUS specification and intent intelligence.
+    The API preserves ACTIVE/CURRENT semantics and does not synthesize missing
+    acceptance criteria or lifecycle states.
+servers:
+  - url: http://127.0.0.1:8765/api/v1
+    description: Default local server
+
+paths:
+  /:
+    get:
+      operationId: getApiRoot
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+  /version:
+    get:
+      operationId: getVersion
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+
+  /projects:
+    get:
+      operationId: listProjects
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+    post:
+      operationId: registerProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectRegistrationRequest'
+      responses:
+        '200':
+          description: Existing project returned idempotently.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '201':
+          description: New project registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+
+  /projects/{projectId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      operationId: getProject
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/sync:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      operationId: syncProject
+      description: >-
+        Executes the official conservative FULL_REBUILD publication pipeline.
+        This is not RequirementDelta APPLY/PROMOTE/ACTIVATE.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+
+  /projects/{projectId}/sync-status:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/MaxAgeMinutes'
+    get:
+      operationId: getSyncStatus
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/specifications:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/Offset'
+      - $ref: '#/components/parameters/Limit'
+    get:
+      operationId: listSpecifications
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/specifications/{specificationId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/SpecificationId'
+    get:
+      operationId: getSpecification
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/specifications/{specificationId}/context:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/SpecificationId'
+      - $ref: '#/components/parameters/Offset'
+      - $ref: '#/components/parameters/Limit'
+    get:
+      operationId: getSpecificationContext
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/requirements:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: query
+        in: query
+        schema:
+          type: string
+          default: ''
+      - $ref: '#/components/parameters/Offset'
+      - $ref: '#/components/parameters/Limit'
+    get:
+      operationId: findRequirements
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/requirements/{requirementId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/RequirementId'
+    get:
+      operationId: getRequirement
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/requirements/{requirementId}/trace:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/RequirementId'
+      - $ref: '#/components/parameters/Depth'
+    get:
+      operationId: traceRequirement
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/changes:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/Offset'
+      - $ref: '#/components/parameters/Limit'
+    get:
+      operationId: listChanges
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/changes/{changeId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ChangeId'
+    get:
+      operationId: getChange
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/changes/{changeId}/constraints:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ChangeId'
+      - $ref: '#/components/parameters/Offset'
+      - $ref: '#/components/parameters/Limit'
+    get:
+      operationId: getConstraints
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/changes/{changeId}/acceptance-criteria:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ChangeId'
+    get:
+      operationId: getAcceptanceCriteria
+      description: >-
+        Returns UNAVAILABLE_IN_NORMALIZED_MODEL with an empty criteria list when
+        explicit AcceptanceCriterion semantics are not persisted. Scenario is never
+        re-labelled as AcceptanceCriterion.
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/changes/{changeId}/design-decisions:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ChangeId'
+      - $ref: '#/components/parameters/Offset'
+      - $ref: '#/components/parameters/Limit'
+    get:
+      operationId: getDesignDecisions
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/changes/{changeId}/implementation-tasks:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ChangeId'
+      - $ref: '#/components/parameters/Offset'
+      - $ref: '#/components/parameters/Limit'
+    get:
+      operationId: getImplementationTasks
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/changes/{changeId}/context:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ChangeId'
+      - $ref: '#/components/parameters/Depth'
+    get:
+      operationId: getChangeContext
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/changes/{changeId}/status:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ChangeId'
+    get:
+      operationId: getChangeStatus
+      description: >-
+        Does not infer an unpersisted lifecycle state. Returns
+        UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT when appropriate.
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/changes/{changeId}/blocking-conditions:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ChangeId'
+    get:
+      operationId: getBlockingConditions
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/versions:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      operationId: listPublishedVersions
+      description: Published lineage only, ordered RETIRED* to ACTIVE.
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/versions/{snapshotId}/requirements:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/SnapshotId'
+      - $ref: '#/components/parameters/Offset'
+      - $ref: '#/components/parameters/Limit'
+    get:
+      operationId: listHistoricalRequirements
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/versions/compare:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: fromSnapshotId
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: toSnapshotId
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    get:
+      operationId: comparePublishedVersions
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+  /projects/{projectId}/diagnostics:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      operationId: getDiagnostics
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/StateConflict'
+
+components:
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    SpecificationId:
+      name: specificationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    RequirementId:
+      name: requirementId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    ChangeId:
+      name: changeId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    SnapshotId:
+      name: snapshotId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    Depth:
+      name: depth
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
+        default: 2
+    MaxAgeMinutes:
+      name: maxAgeMinutes
+      in: query
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        maximum: 525600
+        default: 60
+
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+
+    ProjectRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [workspace]
+      properties:
+        workspace:
+          type: string
+          minLength: 1
+
+    SyncRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        revision:
+          type: [string, 'null']
+
+    SuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, data]
+      properties:
+        apiVersion:
+          const: v1
+        data: {}
+
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, error]
+      properties:
+        apiVersion:
+          const: v1
+        error:
+          $ref: '#/components/schemas/Error'
+
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, details]
+      properties:
+        code:
+          type: string
+          enum:
+            - BAD_REQUEST
+            - NOT_FOUND
+            - METHOD_NOT_ALLOWED
+            - STATE_CONFLICT
+            - UNSUPPORTED_MEDIA_TYPE
+            - INTERNAL_ERROR
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+  responses:
+    Success:
+      description: Successful versioned MORPHEUS response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SuccessEnvelope'
+    BadRequest:
+      description: Invalid path/query/body input.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Addressed MORPHEUS entity does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    StateConflict:
+      description: Known entity exists but required published/runtime state is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    UnsupportedMediaType:
+      description: A JSON body was supplied without application/json.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
