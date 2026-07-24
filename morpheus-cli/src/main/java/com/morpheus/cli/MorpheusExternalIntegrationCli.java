@@ -109,7 +109,7 @@ final class MorpheusExternalIntegrationCli {
         DomainIdentity ownerId = DomainIdentity.parse(options.required("owner"));
         List<ExternalReference> references = service.listActive(projectId, ownerId)
                 .orElseThrow(() -> new IllegalStateException("project has no ACTIVE snapshot: " + projectId));
-        List<Object> items = references.stream().map(this::reference).toList();
+        List<Map<String, Object>> items = references.stream().map(this::reference).toList();
         if (jsonOutput) {
             out.println(json.toJson(Map.of("projectId", projectId.toString(), "ownerId", ownerId.toString(), "items", items)));
         } else if (items.isEmpty()) {
