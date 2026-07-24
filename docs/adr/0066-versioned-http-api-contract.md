@@ -1,6 +1,6 @@
 # ADR-0066 — Contrat HTTP `/api/v1` et erreurs JSON stables
 
-- Statut : **Proposée — M11 gate pending**
+- Statut : **Acceptée — M11**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0043 à ADR-0058, ADR-0059, ADR-0063
 - Portée : M11 — surface API headless
@@ -93,3 +93,22 @@ Un changement incompatible de route, schéma ou sémantique ne peut pas remplace
 6. JSON strict ;
 7. aucun fait métier inventé par le mapper HTTP ;
 8. tests via vrai `HttpClient`.
+
+## Preuve d'acceptation — 24 juillet 2026
+
+Le head `a7daa9bb7eef1799926ea20b9e96606a388a301f` a passé :
+
+```text
+MorpheusApiContractTest                1/1 PASS
+MorpheusApiHistoryContractTest         1/1 PASS
+MorpheusApiProjectSyncIntegrationTest  2/2 PASS
+MORPHEUS API                           4/4 PASS
+TOTAL                                314/314 PASS
+BUILD SUCCESS
+```
+
+Les tests utilisent un vrai `HttpServer` loopback + `java.net.http.HttpClient` et couvrent les enveloppes, content type, méthodes, JSON strict, erreurs 400/404/405/409/415, pagination, sync, historique et reopen SQLite.
+
+La spécification OpenAPI 3.1 est publiée dans `docs/openapi/morpheus-v1.yaml`.
+
+Décision : **ADR-0066 ACCEPTÉE — M11**. Voir `docs/VALIDATION_M11.md`.
