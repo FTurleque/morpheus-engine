@@ -1,5 +1,6 @@
 package com.morpheus.application.analysis;
 
+import com.morpheus.application.quality.AcceptanceCoverageStatus;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.decision.DesignDecision;
@@ -19,7 +20,7 @@ public record ChangeAnalysisResult(
         List<DesignDecision> designDecisions,
         List<ImplementationTask> implementationTasks,
         List<ChangeDependencyImpact> dependencyImpacts,
-        boolean acceptanceCriteriaAvailable,
+        AcceptanceCoverageStatus acceptanceCoverageStatus,
         List<ChangeAnalysisWarning> warnings,
         ChangeAnalysisSummary summary) {
 
@@ -46,6 +47,7 @@ public record ChangeAnalysisResult(
                         .thenComparing(item -> item.impactedEntity().toString())
                         .thenComparingInt(ChangeDependencyImpact::depth))
                 .toList();
+        Objects.requireNonNull(acceptanceCoverageStatus, "acceptanceCoverageStatus");
         warnings = Objects.requireNonNull(warnings, "warnings").stream()
                 .peek(item -> Objects.requireNonNull(item, "warnings item"))
                 .sorted(Comparator.comparing((ChangeAnalysisWarning warning) -> warning.code().name())
