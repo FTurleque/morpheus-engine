@@ -208,7 +208,7 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             int tokenBudget,
             int estimatedTokens,
             List<ItemPayload> items,
-            List<Map<String, Object>> excluded,
+            List<String> excluded,
             Map<String, Object> metadata) {
     }
 
@@ -216,8 +216,8 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             String type,
             String path,
             String symbol,
-            Integer startLine,
-            Integer endLine,
+            int startLine,
+            int endLine,
             String content,
             double score,
             Map<String, Double> scoreComponents,
