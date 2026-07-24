@@ -7,6 +7,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 
 final class ApiTestSupport {
@@ -48,6 +49,29 @@ final class ApiTestSupport {
             return fromModule;
         }
         throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
+    }
+
+    Path copyFixture(String name, Path destination) {
+        Path source = fixture(name);
+        try (var paths = Files.walk(source)) {
+            paths.forEach(path -> {
+                Path relative = source.relativize(path);
+                Path target = destination.resolve(relative);
+                try {
+                    if (Files.isDirectory(path)) {
+                        Files.createDirectories(target);
+                    } else {
+                        Files.createDirectories(target.getParent());
+                        Files.copy(path, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                    }
+                } catch (IOException failure) {
+                    throw new IllegalStateException("cannot copy test fixture entry: " + path, failure);
+                }
+            });
+        } catch (IOException failure) {
+            throw new IllegalStateException("cannot copy test fixture: " + source, failure);
+        }
+        return destination;
     }
 
     String jsonString(String value) {
