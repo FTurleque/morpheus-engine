@@ -79,110 +79,38 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0059](0059-stable-local-cli-contract.md) | CLI locale stable, scriptable, stdout/stderr et exit codes | **Acceptée — M9** |
 | [ADR-0060](0060-conservative-full-snapshot-cli-sync.md) | Sync CLI conservateur par full snapshot publié | **Acceptée — M9** |
 | [ADR-0061](0061-self-contained-jpackage-portable-distribution.md) | Distribution portable autonome via jpackage/jlink | **Acceptée — M9** |
+| [ADR-0062](0062-official-java-mcp-sdk-and-native-stdio.md) | Java MCP SDK officiel + transport STDIO natif | **Acceptée — M10** |
+| [ADR-0063](0063-read-only-mcp-tool-contract.md) | Catalogue MCP read-only et sémantique explicite | **Acceptée — M10** |
+| [ADR-0064](0064-native-launcher-mcp-routing.md) | Routage MCP dans le launcher natif et stdout protocol-clean | **Acceptée — M10** |
 
 ---
 
 # Preuves par jalon
 
-## M2
-
-| Slice | ADR | Preuve |
-|---|---|---|
-| domaine courant | ADR-0022 | `48/48 PASS` |
-| identité persistante | ADR-0023 | `58/58 PASS` |
-| changement normalisé | ADR-0024 | `64/64 PASS` |
-| requirement deltas | ADR-0025 | `70/70 PASS` |
-| ExternalReference | ADR-0026 | `76/76 PASS` |
-| lecture unifiée / diagnostics | ADR-0028 | `84/84 PASS` |
-| second provider anti-lock-in | ADR-0029 | `94/94 PASS` |
-| validation finale | ADR-0030 | `94/94 PASS` |
-
-Validation : [`../VALIDATION_M2.md`](../VALIDATION_M2.md).
-
-## M3
-
 ```text
-ADR-0031  103/103 PASS
-ADR-0032  119/119 PASS
-ADR-0033  127/127 PASS
-ADR-0034  134/134 PASS
-ADR-0035  142/142 PASS
-ADR-0036  147/147 PASS
+M2   94/94 PASS
+M3  147/147 PASS
+M4  189/189 PASS
+M5  227/227 PASS
+M6  261/261 PASS
+M7  282/282 PASS | Architecture 139/139
+M8  289/289 PASS | Architecture 146/146
+M9  298/298 PASS Windows + Linux | Architecture 149/149
+M10 307/307 PASS Windows | Architecture 149/149 | MCP STDIO + packaging PASS
 ```
 
-Validation : [`../VALIDATION_M3.md`](../VALIDATION_M3.md).
-
-## M4
-
-```text
-ADR-0037  155/155 PASS
-ADR-0038  160/160 PASS
-ADR-0039  167/167 PASS
-ADR-0040  174/174 PASS
-ADR-0041  184/184 PASS
-ADR-0042  189/189 PASS
-```
-
-Validation : [`../VALIDATION_M4.md`](../VALIDATION_M4.md).
-
-## M5
-
-```text
-ADR-0043  196/196 PASS
-ADR-0044  202/202 PASS
-ADR-0045  210/210 PASS
-ADR-0046  217/217 PASS
-ADR-0047  227/227 PASS
-```
-
-Validation : [`../VALIDATION_M5.md`](../VALIDATION_M5.md).
-
-## M6
-
-```text
-ADR-0048  234/234 PASS
-ADR-0049  241/241 PASS
-ADR-0050  248/248 PASS
-ADR-0051  254/254 PASS
-ADR-0052  261/261 PASS
-```
-
-Validation : [`../VALIDATION_M6.md`](../VALIDATION_M6.md).
-
-## M7
-
-```text
-ADR-0053 / ADR-0054 / ADR-0055
-TOTAL 282/282 PASS
-Architecture 139/139 PASS
-```
-
-Validation : [`../VALIDATION_M7.md`](../VALIDATION_M7.md).  
-Intégration : [`../roadmap/M7_INTEGRATION.md`](../roadmap/M7_INTEGRATION.md).
-
-## M8
-
-```text
-ADR-0056 / ADR-0057 / ADR-0058
-ChangeAnalysisContractTest 7/7 PASS
-TOTAL 289/289 PASS
-Architecture 146/146 PASS
-```
-
-Validation : [`../VALIDATION_M8.md`](../VALIDATION_M8.md).  
-Intégration : [`../roadmap/M8_INTEGRATION.md`](../roadmap/M8_INTEGRATION.md).
-
-## M9
+## M10
 
 | Incrément | ADR | Preuve |
 |---|---|---|
-| CLI stable + layout + codes | ADR-0059 | `MorpheusCliTest 4/4`, `MorpheusMainTest 2/2` |
-| Publication full snapshot + rollback sûr | ADR-0060 | `ProjectSnapshotImportContractTest 3/3` |
-| JAR autonome + app-image Windows/Linux | ADR-0061 | ZIP + tar.gz + runtime + smoke human/JSON |
-| Validation finale M9 | — | `298/298 PASS` Windows et Linux, architecture `149/149` |
+| SDK officiel + STDIO | ADR-0062 | `MorpheusMcpServerContractTest 1/1`, intégration STDIO réelle |
+| 14 tools read-only + sémantique explicite | ADR-0063 | `MorpheusMcpToolCatalogTest 3/3`, `MorpheusMcpToolServiceTest 1/1` |
+| launcher + distribution MCP | ADR-0064 | `MorpheusMainTest 5/5`, `MorpheusMcpStdioIntegrationTest 1/1`, MCP packaging proof + ZIP |
+| validation finale | — | `307/307 PASS`, architecture `149/149`, ZIP `77275075` octets |
 
-Validation : [`../VALIDATION_M9.md`](../VALIDATION_M9.md).  
-Vue d'exécution : [`../roadmap/M9_EXECUTION.md`](../roadmap/M9_EXECUTION.md).
+Validation : [`../VALIDATION_M10.md`](../VALIDATION_M10.md).  
+Vue d'exécution : [`../roadmap/M10_EXECUTION.md`](../roadmap/M10_EXECUTION.md).  
+Documentation MCP : [`../MCP.md`](../MCP.md).
 
 ---
 
@@ -196,7 +124,9 @@ com.morpheus.application -X-> com.morpheus.provider..
 com.morpheus.domain      -X-> SQLite
 com.morpheus.application -X-> SQLite
 com.morpheus.domain      -X-> CLI/MCP/API adapters
-CLI = adapter ; logique métier essentielle dans application/domain
+com.morpheus.application -X-> CLI/MCP/API adapters
+CLI/MCP/API = adapters
+logique métier essentielle = application/domain
 ```
 
 ## Identité / temporalité
@@ -208,9 +138,10 @@ DomainIdentity != SourceLocator != ExternalReference
 CURRENT / PROPOSED / HISTORICAL explicites
 PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
+APPLY != PROMOTE != ACTIVATE
 ```
 
-## Qualité M6
+## Qualité / analyse
 
 ```text
 QualityFinding = dérivé, non persisté
@@ -218,54 +149,37 @@ DETERMINISTIC != HEURISTIC
 Scenario != AcceptanceCriterion
 DesignDecision.decision != justification
 absence de lien != lien inventé
-Memory == SQLite
-SQLite reopen
-compact quality JSON déterministe
+lifecycle non inféré depuis snapshot
+DEPENDS_ON persisted only
+bounded shortest paths
+code impact analysis = MINOS
 ```
 
-## Synchronisation M7
+## Synchronisation
 
 ```text
 reliability > incremental speed
 fingerprint = SHA-256(content)
-sourceRevision opaque
 move ambigu => FULL_REBUILD
 watcher != source of truth
 OVERFLOW => FULL_REBUILD
 baseline persisted only after success
-freshness uses explicit now/maxAge
-Memory == SQLite
-SQLite reopen
 ```
 
-## Analyse M8
+## CLI / MCP / distribution
 
 ```text
-analysis = derived view
-CURRENT baseline != proposed RequirementDelta
-no promotion during analysis
-Scenario != AcceptanceCriterion
-DEPENDS_ON persisted only
-bounded shortest paths
-proposed-only trace gap explicit
-code impact analysis = MINOS
-Memory == SQLite
-SQLite reopen
-canonical JSON
-```
-
-## CLI / distribution M9
-
-```text
-stdout=result ; stderr=error
-stable exit codes
+stdout=result pour CLI
+stdout=MCP JSON-RPC uniquement en mode MCP
+stable CLI exit codes
 option > MORPHEUS_* > OS default
 single SQLite path per invocation
 CLI sync = conservative FULL_REBUILD
-no fake incremental receipt
+MCP tools = read-only
+no MCP write/promote/activate
 portable app-image contains Java runtime
+MCP SDK embedded in portable artifact
 installation != user data/config
-Windows + Linux proof complete
 mvnw/*.sh = LF ; Windows scripts = CRLF
 ```
 
@@ -280,7 +194,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé** : M9.
+Dernier gate **validé** : M10.
 
 ```text
 MORPHEUS Domain          21/21 PASS
@@ -288,18 +202,17 @@ MORPHEUS Application     82/82 PASS
 OpenSpec Provider        26/26 PASS
 Synthetic Provider        7/7 PASS
 SQLite Store              7/7 PASS
-MORPHEUS CLI              6/6 PASS
+MORPHEUS MCP              5/5 PASS
+MORPHEUS CLI             10/10 PASS
 Architecture Tests      149/149 PASS
-TOTAL                   298/298 PASS
+TOTAL                   307/307 PASS
 Failures                   0
 Errors                     0
 Skipped                    0
 BUILD SUCCESS
 ```
 
-Gate reproduit sur **Windows et Linux/WSL** le 24 juillet 2026.
-
-Warnings connus non bloquants : Xerial SQLite native-access et SLF4J NOP.
+Warnings connus non bloquants : Xerial SQLite native-access, SLF4J NOP et warnings Maven Shade sur ressources/module-info du SDK MCP.
 
 ---
 

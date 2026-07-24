@@ -6,17 +6,22 @@ OUTPUT_DIRECTORY="${2:-dist}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 DIST="$REPO/$OUTPUT_DIRECTORY"
-WORK="$DIST/.m9-linux"
+WORK="$DIST/.m10-linux"
 INPUT="$WORK/input"
 IMAGE_ROOT="$WORK/image"
 
 JPACKAGE="${JAVA_HOME:-}/bin/jpackage"
+JAR_TOOL="${JAVA_HOME:-}/bin/jar"
 if [[ -z "${JAVA_HOME:-}" || ! -x "$JPACKAGE" ]]; then
   echo "jpackage not found under JAVA_HOME=${JAVA_HOME:-<unset>}" >&2
   exit 1
 fi
+if [[ ! -x "$JAR_TOOL" ]]; then
+  echo "jar not found under JAVA_HOME=${JAVA_HOME:-<unset>}" >&2
+  exit 1
+fi
 
-printf '%s\n' "Building MORPHEUS CLI uber-JAR..."
+printf '%s\n' "Building MORPHEUS CLI + MCP uber-JAR..."
 "$REPO/mvnw" -pl morpheus-cli -am -DskipTests package
 
 JAR="$(find "$REPO/morpheus-cli/target" -maxdepth 1 -type f -name 'morpheus-cli-*-all.jar' -print | sort | tail -n 1)"
@@ -24,6 +29,19 @@ if [[ -z "$JAR" ]]; then
   echo "Shaded MORPHEUS CLI JAR not found" >&2
   exit 1
 fi
+
+printf '%s\n' "Verifying MCP classes are embedded in the shaded JAR..."
+JAR_ENTRIES="$($JAR_TOOL tf "$JAR")"
+for entry in \
+  'com/morpheus/mcp/MorpheusMcpServer.class' \
+  'io/modelcontextprotocol/server/McpServer.class' \
+  'io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class'; do
+  if ! grep -Fxq "$entry" <<<"$JAR_ENTRIES"; then
+    echo "MCP packaging proof failed; shaded JAR is missing $entry" >&2
+    exit 1
+  fi
+done
+printf '%s\n' "MCP packaging proof: PASS"
 
 rm -rf "$WORK"
 mkdir -p "$INPUT" "$IMAGE_ROOT" "$DIST"
@@ -60,4 +78,4 @@ rm -f "$ARCHIVE"
 tar -C "$IMAGE_ROOT" -czf "$ARCHIVE" morpheus
 
 printf '%s\n' "Portable Linux distribution: $ARCHIVE"
-printf '%s\n' "The archive contains its Java runtime; end users do not need a separately installed JDK."
+printf '%s\n' "The archive contains its Java runtime and MCP STDIO server; end users do not need a separately installed JDK."

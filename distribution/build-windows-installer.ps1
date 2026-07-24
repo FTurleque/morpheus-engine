@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dist = Join-Path $repo $OutputDirectory
-$appImage = Join-Path $dist ".m9-windows\image\morpheus"
+$appImage = Join-Path $dist ".m10-windows\image\morpheus"
 $jpackage = Join-Path $env:JAVA_HOME "bin\jpackage.exe"
 
 if (-not (Test-Path $jpackage)) {

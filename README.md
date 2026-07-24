@@ -58,9 +58,11 @@ Persistence snapshot-scoped
         ↓
 Query / Search / Traceability / Quality / Change Analysis
         ↓
-        CLI                  ← M9
-        ↓
-   MCP / API futurs
+   ┌────┴────┐
+   ↓         ↓
+  CLI       MCP STDIO
+   ↓         ↓
+ scripts   IDE / agents
 ```
 
 **OpenSpec est le provider de référence initial, pas le domaine de MORPHEUS.**
@@ -78,7 +80,9 @@ MORPHEUS :
 - namespace les identités externes par provider ;
 - distingue CURRENT, PROPOSED et HISTORICAL ;
 - publie la connaissance par snapshots cohérents à activation atomique ;
+- conserve `APPLY`, `PROMOTE` et `ACTIVATE` comme opérations distinctes ;
 - ne convertit jamais automatiquement un `Scenario` en `AcceptanceCriterion` ;
+- ne déduit pas un lifecycle métier absent d'un snapshot publié ;
 - conserve les liens non résolus au lieu d'inventer des faits ;
 - garde Memory comme backend de référence contractuelle et SQLite comme backend local persistant ;
 - ne nécessite pas de graph database au MVP ;
@@ -95,11 +99,13 @@ Build                : Maven 3.9.16 + Maven Wrapper
 Persistent store     : SQLite JDBC 3.53.1.0
 Memory store         : référence des tests contractuels
 DomainIdentity       : UUIDv7
+MCP SDK              : Java MCP SDK officiel 2.0.0
+MCP transport        : STDIO natif
 Graph DB             : aucune au MVP
-Server framework     : aucun dans la fondation
+Server framework     : aucun pour CLI/MCP local
 DI framework         : aucun obligatoire
 LLM                  : aucun obligatoire
-Distribution M9      : native-first / archive portable autonome
+Distribution         : native-first / archive portable autonome
 ```
 
 ## État du projet
@@ -115,46 +121,50 @@ M5  Requêtes et contexte compact               ✅ VALIDÉ / INTÉGRÉ — 227/
 M6  Qualité / couverture / diagnostics         ✅ VALIDÉ / INTÉGRÉ — 261/261
 M7  Synchronisation incrémentale / fraîcheur   ✅ VALIDÉ / INTÉGRÉ — 282/282
 M8  Analyse des changements                    ✅ VALIDÉ / INTÉGRÉ — 289/289
-M9  CLI stabilisée / distribution locale       ✅ VALIDÉ — 298/298 Windows + Linux
+M9  CLI stabilisée / distribution locale       ✅ VALIDÉ / INTÉGRÉ — 298/298 Windows + Linux
+M10 Serveur MCP STDIO natif                    ✅ VALIDÉ — 307/307 + packaging Windows
 ```
 
-Dernier gate officiellement validé : **M9**.
+Dernier gate officiellement validé : **M10**.
 
 ```text
-MorpheusCliTest                    4/4 PASS
-MorpheusMainTest                   2/2 PASS
-ProjectSnapshotImportContractTest  3/3 PASS
-Architecture Tests              149/149 PASS
-TOTAL                           298/298 PASS
-Failures                           0
-Errors                             0
-Skipped                            0
+MORPHEUS Domain          21/21 PASS
+MORPHEUS Application     82/82 PASS
+OpenSpec Provider        26/26 PASS
+Synthetic Provider        7/7 PASS
+SQLite Store              7/7 PASS
+MORPHEUS MCP              5/5 PASS
+MORPHEUS CLI             10/10 PASS
+Architecture Tests      149/149 PASS
+TOTAL                   307/307 PASS
+Failures                   0
+Errors                     0
+Skipped                    0
 BUILD SUCCESS
 ```
 
-Preuves cross-platform :
+Packaging M10 :
 
 ```text
-Windows  298/298 PASS + app-image + ZIP + runtime + smoke human/JSON
-Linux    298/298 PASS + app-image + tar.gz + runtime + smoke human/JSON
-```
-
-Head exécutable M9 validé :
-
-```text
-3b0fb46486cb28257d87d56084ef6e4fbe4cf7c7
+MCP packaging proof      PASS
+jpackage app-image       PASS
+morpheus.exe --version   PASS
+morpheus.exe --json      PASS
+Windows ZIP              PASS — 77275075 bytes
+runtime Java embarqué    PASS
 ```
 
 Références :
 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`docs/VALIDATION_M10.md`](docs/VALIDATION_M10.md)
+- [`docs/roadmap/M10_EXECUTION.md`](docs/roadmap/M10_EXECUTION.md)
+- [`docs/MCP.md`](docs/MCP.md)
 - [`docs/VALIDATION_M9.md`](docs/VALIDATION_M9.md)
-- [`docs/roadmap/M9_EXECUTION.md`](docs/roadmap/M9_EXECUTION.md)
+- [`docs/CLI.md`](docs/CLI.md)
 - [`distribution/README.md`](distribution/README.md)
 
-## CLI M9
-
-M9 introduit une CLI locale persistante, stable et scriptable.
+## CLI
 
 ### Options globales
 
@@ -187,11 +197,61 @@ analyze-change --project ID --change ID
 quality --project ID
 ```
 
-Le launcher officiel M9 exécute `sync` comme **FULL_REBUILD conservateur** tant qu'un exécuteur métier incrémental complet n'est pas disponible. Le planificateur incrémental M7 reste intact dans le cœur.
+Le launcher officiel exécute `sync` comme **FULL_REBUILD conservateur** tant qu'un exécuteur métier incrémental complet n'est pas disponible. Le planificateur incrémental M7 reste intact dans le cœur.
 
 Documentation : [`docs/CLI.md`](docs/CLI.md).
 
-## Quick start M9
+## Serveur MCP M10
+
+Lancement :
+
+```text
+morpheus mcp --stdio
+```
+
+Avec base explicite :
+
+```text
+morpheus --db /path/to/morpheus.db mcp --stdio
+```
+
+Le serveur utilise la même SQLite que la CLI.
+
+Catalogue M10 :
+
+```text
+get_current_specification
+find_requirements
+get_change
+list_changes
+get_constraints
+get_acceptance_criteria
+get_design_decisions
+get_implementation_tasks
+trace_requirement
+get_change_context
+get_specification_context
+get_change_status
+get_blocking_conditions
+get_sync_status
+```
+
+Contrat :
+
+```text
+14 tools read-only
+JSON Schemas stricts
+additionalProperties=false
+stdout = protocole MCP uniquement
+Scenario != AcceptanceCriterion
+lifecycle non inféré
+ACTIVE/CURRENT préservés
+no write/promote/activate
+```
+
+Documentation : [`docs/MCP.md`](docs/MCP.md).
+
+## Quick start
 
 Après construction ou extraction d'une distribution :
 
@@ -204,17 +264,18 @@ morpheus changes list --project <projectId>
 morpheus quality --project <projectId>
 ```
 
-Pour les scripts :
+Pour un client MCP :
 
-```text
-morpheus --json projects list
-morpheus --json requirements find --project <projectId> --query session
-morpheus --json change-context --project <projectId> --change <changeId>
+```json
+{
+  "command": "morpheus",
+  "args": ["--db", "/path/to/morpheus.db", "mcp", "--stdio"]
+}
 ```
 
-## Distribution M9
+## Distribution
 
-Artefacts validés :
+Artefacts :
 
 ```text
 JAR autonome : morpheus-cli-<version>-all.jar
@@ -222,7 +283,7 @@ Windows      : morpheus-<version>-windows-x64.zip
 Linux        : morpheus-<version>-linux-x64.tar.gz
 ```
 
-Les archives portables sont générées avec `jpackage --type app-image` et embarquent leur runtime Java.
+Les archives portables sont générées avec `jpackage --type app-image` et embarquent leur runtime Java. Depuis M10, l'uber-JAR embarque aussi le serveur MCP et ses dépendances.
 
 Scripts :
 
@@ -236,38 +297,24 @@ Le répertoire d'installation est séparé des données/config utilisateur afin 
 
 Voir [`distribution/README.md`](distribution/README.md) et [`docs/roadmap/DEPLOYMENT.md`](docs/roadmap/DEPLOYMENT.md).
 
-## Validation M9
-
-M9 est **VALIDÉ**.
+## Validation M10
 
 ```text
-Windows gate  ✅ 298/298 PASS
-Linux gate    ✅ 298/298 PASS
-Packaging     ✅ Windows ZIP + Linux tar.gz
-Runtime       ✅ Java embarqué
-Smoke         ✅ human + JSON sur les deux plateformes
+Maven gate        ✅ 307/307 PASS
+MCP contract      ✅ 5/5 module MCP
+STDIO integration ✅ initialize / tools/list / tools/call / schema rejection
+Architecture      ✅ 149/149 PASS
+Packaging         ✅ MCP proof + app-image + ZIP
+Runtime           ✅ Java embarqué
+Smoke             ✅ human + JSON
 ```
 
 ADR acceptées :
 
 ```text
-ADR-0059 — contrat CLI local stable
-ADR-0060 — sync CLI full-snapshot conservateur
-ADR-0061 — distribution portable autonome jpackage
+ADR-0062 — Java MCP SDK officiel + STDIO natif
+ADR-0063 — catalogue MCP read-only et sémantique explicite
+ADR-0064 — routage MCP dans le launcher natif
 ```
 
-Validation : [`docs/VALIDATION_M9.md`](docs/VALIDATION_M9.md).
-
-## Roadmap suivante
-
-Après intégration M9 :
-
-```text
-M10 -> serveur MCP, stdio natif prioritaire
-M11 -> API / headless
-M12 -> intégration optionnelle MINOS
-M13 -> intégration optionnelle NEXUS
-M14 -> orchestration JARVIS
-```
-
-La fusion des jalons reste conditionnée par la validation et l'autorisation explicite prévue par la gouvernance du dépôt.
+Validation : [`docs/VALIDATION_M10.md`](docs/VALIDATION_M10.md).
