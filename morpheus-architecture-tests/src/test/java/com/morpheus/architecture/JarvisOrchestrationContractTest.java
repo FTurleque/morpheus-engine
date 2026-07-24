@@ -170,6 +170,7 @@ class JarvisOrchestrationContractTest {
         SpecificationVersionId versionId = SpecificationVersionId.generate();
         SpecificationId specificationId = SpecificationId.generate();
         RequirementId requirementId = RequirementId.generate();
+        ExternalReferenceId externalReferenceId = ExternalReferenceId.generate();
         Evidence evidence = new Evidence(
                 EvidenceId.generate(),
                 SourceLocator.file("openspec/change.md"),
@@ -260,14 +261,14 @@ class JarvisOrchestrationContractTest {
                 TraceabilityLinkId.generate(),
                 new TraceabilityEntityRef(TraceabilityEntityKind.CHANGE, change.id().value()),
                 TraceabilityRelationType.LINKS_TO_TEST,
-                new TraceabilityEntityRef(TraceabilityEntityKind.EXTERNAL, requirementId.value()),
+                new TraceabilityEntityRef(TraceabilityEntityKind.EXTERNAL_REFERENCE, externalReferenceId.value()),
                 TraceabilityLinkOrigin.EXPLICIT,
                 TraceabilityResolutionState.UNRESOLVED,
                 Optional.empty(),
                 Set.of(evidence.id()),
                 T0));
         externalReferences.putReference(snapshotId, ExternalReference.unvalidated(
-                ExternalReferenceId.generate(),
+                externalReferenceId,
                 change.id().value(),
                 new ExternalReferenceTarget(
                         "MINOS",
