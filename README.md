@@ -2,15 +2,11 @@
 
 **MORPHEUS** est un moteur d'intelligence des spécifications et de l'intention (*Specification & Intent Intelligence Engine*).
 
-Sa responsabilité est de construire, maintenir et exposer une compréhension structurée, persistante, versionnée et interrogeable de ce qu'un projet **doit devenir** : exigences, changements, contraintes, scénarios, décisions de conception et tâches associées.
-
-MORPHEUS ne remplace ni le code, ni les outils de gestion de projet, ni les agents IA. Il fournit une couche de connaissance dédiée à l'intention et aux spécifications.
-
-## Question fondamentale
+Sa responsabilité est de construire, maintenir et exposer une compréhension structurée, persistante, versionnée et interrogeable de ce qu'un projet doit devenir : exigences, changements, contraintes, scénarios, décisions de conception et tâches associées.
 
 > **Qu'est-ce qui doit être construit, pourquoi, selon quelles règles, et comment prouver que le résultat correspond à l'intention ?**
 
-## Position dans l'écosystème
+## Écosystème
 
 ```text
                            JARVIS
@@ -26,15 +22,12 @@ MORPHEUS ne remplace ni le code, ni les outils de gestion de projet, ni les agen
           └──────────────────┼──────────────────┘
                              ▼
                      ALFRED / BRAINIAC
-                       Agents / profils IA
 ```
 
-Responsabilités :
-
-- **MORPHEUS** comprend l'intention, les exigences, les changements, les contraintes, les scénarios et les décisions ;
-- **MINOS** comprend le code, les symboles, les relations et les impacts de code ;
-- **NEXUS** sélectionne, classe et compresse le contexte pertinent ;
-- **JARVIS** orchestre les capacités de l'écosystème.
+- MORPHEUS possède l'intention/specification ;
+- MINOS possède l'intelligence de code ;
+- NEXUS possède la sélection/ranking/compression du contexte ;
+- JARVIS orchestre.
 
 Chaque brique reste autonome.
 
@@ -47,65 +40,56 @@ Specification providers
         ↓
 Normalisation MORPHEUS
         ↓
-NormalizedProjectContent
-        ↓
 KnowledgeSnapshot / SpecificationVersion
         ↓
-Persistence snapshot-scoped
-   ┌────────┴────────┐
-   ↓                 ↓
- Memory            SQLite
+Persistence snapshot-scoped (Memory / SQLite)
         ↓
 Query / Search / Traceability / Quality / Change Analysis
         ↓
-   ┌────┴────┐
-   ↓         ↓
-  CLI       MCP STDIO
-   ↓         ↓
- scripts   IDE / agents
+  ┌─────┼─────┐
+  ↓     ↓     ↓
+ CLI   MCP   HTTP API
+              \
+               \ optional ports
+                ↓
+        morpheus-integration-minos
+                ↓ MCP STDIO
+              MINOS
 ```
 
 **OpenSpec est le provider de référence initial, pas le domaine de MORPHEUS.**
 
-Un second provider synthétique démontre l'absence de verrouillage du cœur applicatif sur OpenSpec.
-
 ## Invariants structurants
 
-MORPHEUS :
-
-- possède son propre modèle de domaine ;
-- est local-first et fonctionne sans LLM obligatoire ;
-- sépare identité, version, locator et référence externe ;
-- utilise UUIDv7 comme format canonique opaque de `DomainIdentity` ;
-- namespace les identités externes par provider ;
-- distingue CURRENT, PROPOSED et HISTORICAL ;
-- publie la connaissance par snapshots cohérents à activation atomique ;
-- conserve `APPLY`, `PROMOTE` et `ACTIVATE` comme opérations distinctes ;
-- ne convertit jamais automatiquement un `Scenario` en `AcceptanceCriterion` ;
-- ne déduit pas un lifecycle métier absent d'un snapshot publié ;
-- conserve les liens non résolus au lieu d'inventer des faits ;
-- garde Memory comme backend de référence contractuelle et SQLite comme backend local persistant ;
-- ne nécessite pas de graph database au MVP ;
-- reste découplé de MINOS, NEXUS et JARVIS ;
-- réserve l'analyse du code à MINOS.
+```text
+DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
+SpecificationVersion != KnowledgeSnapshot
+CURRENT / PROPOSED / HISTORICAL explicites
+PROPOSED never leaks into CURRENT
+published history = RETIRED* -> ACTIVE
+APPLY != PROMOTE != ACTIVATE
+Scenario != AcceptanceCriterion
+lifecycle absent != inferred lifecycle
+unresolved reference != invented fact
+MINOS remains optional
+live external resolution != snapshot mutation
+```
 
 ## Fondation technique
 
 ```text
-Language             : Java
-Compatibility        : Java 21 source / bytecode
-Compiler JDK         : Java 21+ avec --release 21
-Build                : Maven 3.9.16 + Maven Wrapper
-Persistent store     : SQLite JDBC 3.53.1.0
-Memory store         : référence des tests contractuels
-DomainIdentity       : UUIDv7
-MCP SDK              : Java MCP SDK officiel 2.0.0
-MCP transport        : STDIO natif
-Graph DB             : aucune au MVP
-Server framework     : aucun pour CLI/MCP local
-DI framework         : aucun obligatoire
-LLM                  : aucun obligatoire
-Distribution         : native-first / archive portable autonome
+Language             Java
+Compatibility        Java 21 source / bytecode
+Compiler             --release 21
+Build                Maven 3.9.16 + Wrapper
+Persistent store     SQLite JDBC 3.53.1.0
+Memory store         contract reference backend
+DomainIdentity       UUIDv7
+MCP SDK              Java MCP SDK 2.0.0
+MCP transport        STDIO
+HTTP server          JDK jdk.httpserver
+Distribution         jpackage portable app-image
+LLM                  none required
 ```
 
 ## État du projet
@@ -121,52 +105,38 @@ M5  Requêtes et contexte compact               ✅ VALIDÉ / INTÉGRÉ — 227/
 M6  Qualité / couverture / diagnostics         ✅ VALIDÉ / INTÉGRÉ — 261/261
 M7  Synchronisation incrémentale / fraîcheur   ✅ VALIDÉ / INTÉGRÉ — 282/282
 M8  Analyse des changements                    ✅ VALIDÉ / INTÉGRÉ — 289/289
-M9  CLI stabilisée / distribution locale       ✅ VALIDÉ / INTÉGRÉ — 298/298 Windows + Linux
-M10 Serveur MCP STDIO natif                    ✅ VALIDÉ — 307/307 + packaging Windows
+M9  CLI / distribution locale                  ✅ VALIDÉ / INTÉGRÉ — 298/298 Windows + Linux
+M10 MCP STDIO natif                            ✅ VALIDÉ / INTÉGRÉ — 307/307
+M11 API HTTP headless                          ✅ VALIDÉ / INTÉGRÉ — 314/314
+M12 MINOS optionnel                            🚧 FONCTIONNELLEMENT COMPLET — gate pending
 ```
 
-Dernier gate officiellement validé : **M10**.
+Dernier jalon officiellement validé et intégré : **M11**.
+
+M11 merge :
 
 ```text
-MORPHEUS Domain          21/21 PASS
-MORPHEUS Application     82/82 PASS
-OpenSpec Provider        26/26 PASS
-Synthetic Provider        7/7 PASS
-SQLite Store              7/7 PASS
-MORPHEUS MCP              5/5 PASS
-MORPHEUS CLI             10/10 PASS
-Architecture Tests      149/149 PASS
-TOTAL                   307/307 PASS
-Failures                   0
-Errors                     0
-Skipped                    0
-BUILD SUCCESS
+e30ed4095700b445fedc4517c22ff447c22238f4
 ```
 
-Packaging M10 :
+M11 gate :
 
 ```text
-MCP packaging proof      PASS
-jpackage app-image       PASS
-morpheus.exe --version   PASS
-morpheus.exe --json      PASS
-Windows ZIP              PASS — 77275075 bytes
-runtime Java embarqué    PASS
+Domain                  21/21 PASS
+Application             82/82 PASS
+OpenSpec                26/26 PASS
+Synthetic                7/7 PASS
+SQLite                   7/7 PASS
+MCP                      5/5 PASS
+API                      4/4 PASS
+CLI                     12/12 PASS
+Architecture           150/150 PASS
+TOTAL                  314/314 PASS
 ```
-
-Références :
-
-- [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- [`docs/VALIDATION_M10.md`](docs/VALIDATION_M10.md)
-- [`docs/roadmap/M10_EXECUTION.md`](docs/roadmap/M10_EXECUTION.md)
-- [`docs/MCP.md`](docs/MCP.md)
-- [`docs/VALIDATION_M9.md`](docs/VALIDATION_M9.md)
-- [`docs/CLI.md`](docs/CLI.md)
-- [`distribution/README.md`](distribution/README.md)
 
 ## CLI
 
-### Options globales
+Options globales :
 
 ```text
 --json
@@ -175,7 +145,7 @@ Références :
 --db PATH
 ```
 
-### Commandes
+Commandes principales :
 
 ```text
 help
@@ -197,11 +167,15 @@ analyze-change --project ID --change ID
 quality --project ID
 ```
 
-Le launcher officiel exécute `sync` comme **FULL_REBUILD conservateur** tant qu'un exécuteur métier incrémental complet n'est pas disponible. Le planificateur incrémental M7 reste intact dans le cœur.
+M12 ajoute :
 
-Documentation : [`docs/CLI.md`](docs/CLI.md).
+```text
+minos-status
+external-references list --project ID --owner ID
+external-references resolve --project ID --reference ID
+```
 
-## Serveur MCP M10
+## MCP
 
 Lancement :
 
@@ -209,112 +183,145 @@ Lancement :
 morpheus mcp --stdio
 ```
 
-Avec base explicite :
+M10 : 14 tools read-only. M12 ajoute sans modifier les contrats historiques :
 
 ```text
-morpheus --db /path/to/morpheus.db mcp --stdio
+list_external_references
+resolve_external_reference
 ```
 
-Le serveur utilise la même SQLite que la CLI.
-
-Catalogue M10 :
-
-```text
-get_current_specification
-find_requirements
-get_change
-list_changes
-get_constraints
-get_acceptance_criteria
-get_design_decisions
-get_implementation_tasks
-trace_requirement
-get_change_context
-get_specification_context
-get_change_status
-get_blocking_conditions
-get_sync_status
-```
-
-Contrat :
-
-```text
-14 tools read-only
-JSON Schemas stricts
-additionalProperties=false
-stdout = protocole MCP uniquement
-Scenario != AcceptanceCriterion
-lifecycle non inféré
-ACTIVE/CURRENT préservés
-no write/promote/activate
-```
+Soit **16 tools** sur le serveur M12.
 
 Documentation : [`docs/MCP.md`](docs/MCP.md).
 
-## Quick start
+## API HTTP
 
-Après construction ou extraction d'une distribution :
+Lancement :
 
 ```text
-morpheus projects add --workspace <workspace-openspec>
-# récupérer projectId
-morpheus sync --project <projectId>
-morpheus requirements find --project <projectId> --query session
-morpheus changes list --project <projectId>
-morpheus quality --project <projectId>
+morpheus api --host 127.0.0.1 --port 8765
 ```
 
-Pour un client MCP :
+Base : `/api/v1`.
 
-```json
-{
-  "command": "morpheus",
-  "args": ["--db", "/path/to/morpheus.db", "mcp", "--stdio"]
-}
+M12 ajoute :
+
+```text
+GET /api/v1/integrations/minos/status
+GET /api/v1/projects/{projectId}/external-references?ownerId=...
+GET /api/v1/projects/{projectId}/external-references/{referenceId}/resolution
 ```
+
+Documentation : [`docs/API.md`](docs/API.md).
+
+## MINOS optionnel — M12
+
+Architecture :
+
+```text
+MORPHEUS Java 21
+  -> MCP client STDIO
+  -> process MINOS Java 24
+```
+
+Aucune dépendance `com.minos.*` dans MORPHEUS.
+
+Coordonnée :
+
+```text
+system       = MINOS
+resourceType = SYMBOL
+project      = projet MINOS
+externalId   = symbolKey exact
+revision     = activeSnapshotId attendu, optionnel
+```
+
+Configuration :
+
+```text
+MORPHEUS_MINOS_JAR
+MORPHEUS_MINOS_JAVA
+MORPHEUS_MINOS_HOME
+MORPHEUS_MINOS_TIMEOUT_SECONDS
+```
+
+Sans configuration, `minos-status=DISABLED` et MORPHEUS reste totalement fonctionnel.
+
+La résolution live retourne `stored`, `observed`, `persisted=false` et ne réécrit jamais le snapshot publié.
+
+Documentation : [`docs/MINOS.md`](docs/MINOS.md).
 
 ## Distribution
 
 Artefacts :
 
 ```text
-JAR autonome : morpheus-cli-<version>-all.jar
-Windows      : morpheus-<version>-windows-x64.zip
-Linux        : morpheus-<version>-linux-x64.tar.gz
+morpheus-cli-<version>-all.jar
+morpheus-<version>-windows-x64.zip
+morpheus-<version>-linux-x64.tar.gz
 ```
 
-Les archives portables sont générées avec `jpackage --type app-image` et embarquent leur runtime Java. Depuis M10, l'uber-JAR embarque aussi le serveur MCP et ses dépendances.
+Les archives embarquent leur runtime Java, MCP et API. M12 embarque le **client/adaptateur** MINOS, jamais MINOS lui-même.
 
 Scripts :
 
 ```text
 distribution/build-portable.ps1
 distribution/build-portable.sh
-distribution/build-windows-installer.ps1   # optionnel, WiX requis au build
+distribution/build-windows-installer.ps1
 ```
 
-Le répertoire d'installation est séparé des données/config utilisateur afin de permettre upgrade et uninstall sans effacement implicite de SQLite.
-
-Voir [`distribution/README.md`](distribution/README.md) et [`docs/roadmap/DEPLOYMENT.md`](docs/roadmap/DEPLOYMENT.md).
-
-## Validation M10
+## Quick start
 
 ```text
-Maven gate        ✅ 307/307 PASS
-MCP contract      ✅ 5/5 module MCP
-STDIO integration ✅ initialize / tools/list / tools/call / schema rejection
-Architecture      ✅ 149/149 PASS
-Packaging         ✅ MCP proof + app-image + ZIP
-Runtime           ✅ Java embarqué
-Smoke             ✅ human + JSON
+morpheus projects add --workspace <workspace-openspec>
+morpheus sync --project <projectId>
+morpheus requirements find --project <projectId> --query session
+morpheus changes list --project <projectId>
+morpheus quality --project <projectId>
 ```
 
-ADR acceptées :
+MCP client :
+
+```json
+{"command":"morpheus","args":["--db","/path/to/morpheus.db","mcp","--stdio"]}
+```
+
+## M12 — gate attendu
+
+Implémentation actuelle :
 
 ```text
-ADR-0062 — Java MCP SDK officiel + STDIO natif
-ADR-0063 — catalogue MCP read-only et sémantique explicite
-ADR-0064 — routage MCP dans le launcher natif
+resolution taxonomy enrichie
+live non-mutating resolution Memory/SQLite
+morpheus-integration-minos
+real MINOS MCP STDIO fixture
+exact symbolKey + revision
+CLI M12
+MCP M12
+HTTP M12
+packaging excludes com/minos/*
+standalone MINOS-disabled smoke
 ```
 
-Validation : [`docs/VALIDATION_M10.md`](docs/VALIDATION_M10.md).
+Projection avant preuve : **331 tests**.
+
+Gate officiel :
+
+```powershell
+.\mvnw.cmd clean test
+.\distribution\build-portable.ps1
+```
+
+M12 ne sera marqué VALIDÉ qu'après ce gate.
+
+## Références
+
+- [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`docs/VALIDATION_M11.md`](docs/VALIDATION_M11.md)
+- [`docs/roadmap/M11_EXECUTION.md`](docs/roadmap/M11_EXECUTION.md)
+- [`docs/roadmap/M12_EXECUTION.md`](docs/roadmap/M12_EXECUTION.md)
+- [`docs/MCP.md`](docs/MCP.md)
+- [`docs/API.md`](docs/API.md)
+- [`docs/MINOS.md`](docs/MINOS.md)
+- [`distribution/README.md`](distribution/README.md)
