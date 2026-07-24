@@ -1,8 +1,10 @@
 # MORPHEUS × JARVIS — M14
 
-Statut : **implémentation fonctionnelle complète — gate local pending**
+Statut : **✅ VALIDÉ**
 
 M14 expose à JARVIS une vue machine des faits MORPHEUS et une évaluation read-only des transitions lifecycle. JARVIS reste l'orchestrateur : MORPHEUS ne choisit ni la prochaine action ni son séquencement.
+
+Validation : [`VALIDATION_M14.md`](VALIDATION_M14.md).
 
 ## Responsabilités
 
@@ -137,7 +139,7 @@ get_change_orchestration_state
 evaluate_change_transition
 ```
 
-Le catalogue M14 vise **20 tools read-only** : 14 M10 + 2 M12 + 2 M13 + 2 M14.
+Le catalogue M14 expose **20 tools read-only** : 14 M10 + 2 M12 + 2 M13 + 2 M14.
 
 ## API HTTP
 
@@ -175,8 +177,9 @@ Dépôt : `FTurleque/jarvis`.
 
 ```text
 Issue #92
-PR #93 (draft)
+PR #93
 branch feature/morpheus-orchestration-client
+head 58899855bcd3446636c1f274ace8c1bfc8f46930
 ```
 
 Le client JARVIS :
@@ -198,33 +201,43 @@ jarvis.morpheus.timeout-seconds=${MORPHEUS_TIMEOUT_SECONDS:3}
 
 Il est fail-open : disabled, mapping absent, MORPHEUS indisponible ou HTTP non-2xx => `Optional.empty()`. Il ne recode aucune règle lifecycle.
 
-## Projection du gate MORPHEUS
-
-Avant exécution :
+Contrats locaux :
 
 ```text
-Domain              21
-Application         87
-OpenSpec             26
-Synthetic             7
-SQLite                7
-MINOS Integration     8
-NEXUS Integration     7
-MCP                    5
-API                    9
-CLI                   20
-Architecture        160
------------------------
-TOTAL attendu       357
+state(changeId, optionalLifecycleState, optionalLifecycleAbandonmentReason)
+
+evaluateTransition(
+  changeId,
+  fromState,
+  optionalFromAbandonmentReason,
+  targetState,
+  optionalTargetAbandonmentReason)
 ```
 
-**357 est une projection, pas une preuve.**
+Les raisons d'abandon observation/source/cible sont conservées et jamais inventées.
 
-Gate autoritatif :
+## Validation
 
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
+MORPHEUS :
+
+```text
+head d44d418ae0f1e528ea09a56cdd8c45647048c740
+357/357 PASS
+Architecture 160/160 PASS
+Packaging Windows PASS
+ZIP 33,702,405 bytes
 ```
 
-ADR-0077 à ADR-0080 restent **Proposées — M14 gate pending**.
+JARVIS :
+
+```text
+head 58899855bcd3446636c1f274ace8c1bfc8f46930
+jarvis-core 536 tests
+Failures 0
+Errors 0
+Skipped 16
+BUILD SUCCESS
+MorpheusOrchestrationClientTest 6/6 PASS
+```
+
+ADR-0077 à ADR-0080 : **Acceptées — M14**.
