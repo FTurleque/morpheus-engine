@@ -1,6 +1,6 @@
 # MORPHEUS API HTTP — M11 à M14
 
-Statut : **M11/M12/M13 validés ; extensions M14 implémentées — gate M14 pending**
+Statut : **M11/M12/M13/M14 validés**
 
 MORPHEUS expose une API JSON locale versionnée `/api/v1`. M12 ajoute MINOS, M13 NEXUS et M14 un contrat read-only destiné aux orchestrateurs comme JARVIS.
 
@@ -194,15 +194,29 @@ NEXUS project add/index/rebuild
 JARVIS orchestration action
 ```
 
-## Preuve M14 prévue
+## Validation M14
+
+Head MORPHEUS validé : `d44d418ae0f1e528ea09a56cdd8c45647048c740`.
 
 ```text
-API projetée 9 tests
-MorpheusJarvisOrchestrationApiContractTest 2 tests
-TOTAL MORPHEUS projeté 357
-Architecture projetée 160
+API                                      9/9 PASS
+MorpheusJarvisOrchestrationApiContractTest 2/2 PASS
+TOTAL MORPHEUS                        357/357 PASS
+Architecture                         160/160 PASS
+Packaging Windows                         PASS
+```
+
+Preuve cross-repo JARVIS sur `58899855bcd3446636c1f274ace8c1bfc8f46930` :
+
+```text
+jarvis-core 536 tests
+0 failure
+0 error
+BUILD SUCCESS
+MorpheusOrchestrationClientTest 6/6 PASS
 ```
 
 OpenAPI machine-readable : [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml).  
+Validation : [`VALIDATION_M14.md`](VALIDATION_M14.md).  
 Contrat M14 : [`JARVIS.md`](JARVIS.md).  
 Roadmap : [`roadmap/M14_EXECUTION.md`](roadmap/M14_EXECUTION.md).
