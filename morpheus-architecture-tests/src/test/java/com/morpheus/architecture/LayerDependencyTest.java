@@ -18,7 +18,8 @@ class LayerDependencyTest {
                         "com.morpheus.provider..",
                         "com.morpheus.store..",
                         "com.morpheus.cli..",
-                        "com.morpheus.mcp..")
+                        "com.morpheus.mcp..",
+                        "com.morpheus.api..")
                 .because("the MORPHEUS domain owns its model and adapters depend inward")
                 .check(classes);
     }
@@ -31,8 +32,20 @@ class LayerDependencyTest {
                         "com.morpheus.provider..",
                         "com.morpheus.store..",
                         "com.morpheus.cli..",
-                        "com.morpheus.mcp..")
+                        "com.morpheus.mcp..",
+                        "com.morpheus.api..")
                 .because("application services define use cases and ports without depending on adapters")
+                .check(classes);
+    }
+
+    @Test
+    void apiAdapterMustNotDependOnCliOrMcpAdapters() {
+        noClasses()
+                .that().resideInAPackage("com.morpheus.api..")
+                .should().dependOnClassesThat().resideInAnyPackage(
+                        "com.morpheus.cli..",
+                        "com.morpheus.mcp..")
+                .because("HTTP, CLI and MCP are sibling adapters")
                 .check(classes);
     }
 }
