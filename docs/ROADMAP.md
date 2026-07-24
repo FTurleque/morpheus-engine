@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M12 validés et intégrés ; M13 fonctionnellement complet, gate local pending**
+Statut : **C0 à M13 validés ; M12 intégré, M13 prêt à intégrer**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -8,7 +8,7 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 
 ## 1. Vue globale
 
-| Jalon | Sujet | Statut | Preuve / prochaine porte |
+| Jalon | Sujet | Statut | Preuve |
 |---|---|---|---|
 | C0 | Cadrage fonctionnel et architectural | ✅ VALIDÉ | `VALIDATION_C0.md` |
 | M0 | Faisabilité technique | ✅ VALIDÉ | `VALIDATION_M0.md` |
@@ -24,7 +24,7 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M10 | Serveur MCP STDIO natif | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M10.md`, 307/307 |
 | M11 | API HTTP headless | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M11.md`, 314/314 + packaged health |
 | M12 | MINOS optionnel / intention → code | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M12.md`, 331/331 + packaging |
-| **M13** | **NEXUS optionnel / intention → contexte technique** | **🚧 GATE PENDING** | `roadmap/M13_EXECUTION.md`, projection 346 tests |
+| **M13** | **NEXUS optionnel / intention → contexte technique** | **✅ VALIDÉ** | `VALIDATION_M13.md`, 346/346 + packaging |
 | M14 | JARVIS | ⏳ PLANIFIÉ | orchestration seulement |
 
 M12 merge :
@@ -35,7 +35,7 @@ M12 merge :
 
 Références actives :
 
-- [`VALIDATION_M12.md`](VALIDATION_M12.md)
+- [`VALIDATION_M13.md`](VALIDATION_M13.md)
 - [`roadmap/M13_EXECUTION.md`](roadmap/M13_EXECUTION.md)
 - [`MINOS.md`](MINOS.md)
 - [`NEXUS.md`](NEXUS.md)
@@ -75,9 +75,10 @@ published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 optional engine absence != MORPHEUS failure
 external live observation != published snapshot mutation
+NEXUS ContextBundle != KnowledgeSnapshot persistence
 ```
 
-## 3. C0 à M11 — Fondations validées ✅
+## 3. Gates validés
 
 ```text
 M2   94/94
@@ -90,9 +91,9 @@ M8  289/289
 M9  298/298 Windows + Linux
 M10 307/307
 M11 314/314
+M12 331/331 | Architecture 153/153 | packaging PASS
+M13 346/346 | Architecture 154/154 | packaging PASS
 ```
-
-M11 fournit la CLI, le serveur MCP STDIO, l'API HTTP locale `/api/v1`, SQLite partagée et la distribution portable autonome.
 
 ## 4. M12 — MINOS ✅ / INTÉGRÉ
 
@@ -102,8 +103,6 @@ Question de sortie :
 
 **Réponse : OUI.**
 
-Architecture :
-
 ```text
 MORPHEUS Java 21
  -> morpheus-integration-minos
@@ -111,41 +110,20 @@ MORPHEUS Java 21
  -> process MINOS Java 24
 ```
 
-Invariants :
-
-```text
-no com.minos.* dependency
-exact symbolKey
-optional activeSnapshotId revision
-live resolution != snapshot mutation
-MINOS absent != MORPHEUS failure
-```
-
-Surfaces :
-
-```text
-CLI  minos-status / external-references list|resolve
-MCP  list_external_references / resolve_external_reference
-HTTP /integrations/minos/status
-HTTP /projects/{id}/external-references
-HTTP /projects/{id}/external-references/{ref}/resolution
-```
-
-Gate : **331/331 PASS**, architecture **153/153**, packaging Windows et smokes optionnels PASS.
-
+Gate : **331/331 PASS**, architecture **153/153**, packaging Windows PASS.  
 ADR : **0069..0072 acceptées**.  
 Validation : [`VALIDATION_M12.md`](VALIDATION_M12.md).  
 Merge : `86dbb1d50e87ce354b7174156e9c8c5717722a17`.
 
-## 5. M13 — NEXUS 🚧
+## 5. M13 — NEXUS ✅ VALIDÉ
 
 Question de sortie :
 
 > **MORPHEUS peut-il déléguer à NEXUS la sélection, le ranking, la fusion et la compression du contexte technique sous budget, à partir d'une intention MORPHEUS explicite, sans recopier ces règles et tout en restant entièrement utilisable lorsque NEXUS est absent ou indisponible ?**
 
-Réponse actuelle : **implémentation OUI ; preuve finale pending**.
+**Réponse : OUI.**
 
-Architecture implémentée :
+Architecture :
 
 ```text
 MORPHEUS Java 21
@@ -160,45 +138,18 @@ Frontière :
 
 ```text
 MORPHEUS = intention structurée
-NEXUS    = sélection / ranking / fusion / compression technique
+NEXUS    = sélection / ranking / fusion / compression / budget technique
 ```
 
-MORPHEUS ne reranke et ne retronque aucun fragment NEXUS.
-
-Mapping :
+Mapping explicite :
 
 ```text
-nexusProject = UUID ou nom unique NEXUS, explicite par appel
+nexusProject = UUID ou nom unique NEXUS
 ```
 
 Aucune création/indexation/rebuild NEXUS déclenchée par MORPHEUS.
 
-Intention :
-
-```text
-REQUIREMENT -> key/title/statement
-CHANGE      -> key/title/intent/scope + affected requirements + constraints + decisions + tasks
-```
-
-Options pass-through :
-
-```text
-tokenBudget 1..100000
-requestedSources FILE|SYMBOL|TEST|DOCUMENTATION|INSTRUCTION|SKILL|GIT
-constraints Map<String,String>
-explain boolean
-```
-
-Résultat :
-
-```text
-ACTIVE snapshot
- -> intentContext
- -> technicalContext observation
- -> persisted=false
-```
-
-Surfaces M13 :
+Surfaces :
 
 ```text
 CLI nexus-status
@@ -210,61 +161,44 @@ HTTP POST /projects/{id}/requirements/{requirementId}/augmented-context
 HTTP POST /projects/{id}/changes/{changeId}/augmented-context
 ```
 
-Serveur MCP M13 : **18 tools read-only**.
+Serveur MCP : **18 tools read-only**.
 
 Optionalité : sans `MORPHEUS_NEXUS_JAR`, NEXUS est `DISABLED`, l'intention MORPHEUS reste disponible et CLI/MCP/API continuent de fonctionner.
 
-Preuves implémentées :
+Gate autoritatif sur `a44e8938bfa03e8b8a1039c8271a8865b871ed7d` :
 
 ```text
-provider-neutral options validation
-NEXUS settings disabled/configured/invalid
-exact pass-through project/budget/sources/constraints/explain
-real NEXUS MCP STDIO fixture
-required tools compatibility check
-NEXUS failure -> UNAVAILABLE observation
-HTTP requirement/change augmentation
-HTTP preserves external score/reasons/exclusions
-CLI nexus-status standalone
-real MORPHEUS MCP STDIO discovers M13 tools
-architecture guards com.nexus.*
-packaging embeds adapter but rejects com/nexus/*
-MINOS + NEXUS standalone disabled smokes
-API packaged health retained
+Domain              21/21 PASS
+Application         87/87 PASS
+OpenSpec             26/26 PASS
+Synthetic             7/7 PASS
+SQLite                7/7 PASS
+MINOS Integration     8/8 PASS
+NEXUS Integration     7/7 PASS
+MCP                    5/5 PASS
+API                    7/7 PASS
+CLI                  17/17 PASS
+Architecture       154/154 PASS
+--------------------------------
+TOTAL              346/346 PASS
 ```
 
-Projection gate avant exécution :
+Packaging Windows :
 
 ```text
-Domain              21
-Application         87
-OpenSpec             26
-Synthetic             7
-SQLite                7
-MINOS Integration     8
-NEXUS Integration     7
-MCP                   5
-API                   7
-CLI                  17
-Architecture        154
------------------------
-TOTAL attendu       346
+MCP/API/MINOS/NEXUS adapter packaging proof: PASS
+Packaged standalone optional-engines smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+ZIP 33,654,379 bytes
 ```
 
-**346 est une projection, pas une preuve.**
-
-Gate restant :
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
-```
-
-ADR candidates : **ADR-0073 à ADR-0076**, toutes proposées jusqu'au gate.
+ADR : **0073..0076 acceptées**.  
+Validation : [`VALIDATION_M13.md`](VALIDATION_M13.md).
 
 ## 6. M14 — JARVIS ⏳
 
-MORPHEUS expose états, transitions, blockers, acceptance status, références et contexte. JARVIS orchestre la séquence d'actions.
+MORPHEUS expose états, transitions, blockers, acceptance status, références et contexte. JARVIS orchestre la séquence d'actions sans devenir propriétaire du domaine MORPHEUS, MINOS ou NEXUS.
 
 ## 7. Règle de pilotage
 
