@@ -28,26 +28,37 @@ Commencer ici :
 
 Baseline technique actuelle : Java 21, Maven Wrapper, SQLite, Java MCP SDK 2.0.0 et API HTTP basée sur `jdk.httpserver`.
 
-## Références et gouvernance
+## Produit et spécification
 
-Ces documents sont importants, mais ne constituent pas le parcours principal utilisateur/développeur :
+- [`product/CAHIER_DES_CHARGES.md`](product/CAHIER_DES_CHARGES.md) — cadrage fonctionnel et technique de haut niveau ;
+- [`product/USE_CASES.md`](product/USE_CASES.md) — cas d’usage ;
+- [`product/MVP.md`](product/MVP.md) — périmètre MVP historique.
 
-- [Roadmap](ROADMAP.md) — état des jalons et preuves de validation ;
+## Gouvernance et preuves
+
+- [`governance/README.md`](governance/README.md) — index de gouvernance ;
+- [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global des jalons ;
+- [`governance/PLAN.md`](governance/PLAN.md) — plan de travail de cadrage ;
+- [`governance/AUDIT_COHERENCE_C0.md`](governance/AUDIT_COHERENCE_C0.md) — audit C0 ;
+- [`validation/`](validation/) — preuves de validation C0 et M0 à M14 ;
 - [`roadmap/`](roadmap/) — plans d’exécution historiques par jalon ;
-- [`adr/`](adr/) — Architecture Decision Records ;
-- `VALIDATION_M*.md` — preuves de gate reproductibles ;
+- [`adr/`](adr/) — Architecture Decision Records.
+
+## Références machine
+
+- [`reference/`](reference/) — index des contrats ;
 - [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml) — contrat OpenAPI machine-readable ;
 - [`../distribution/README.md`](../distribution/README.md) — construction et packaging des distributions.
 
 ## État livré
 
 ```text
-C0 → M14  ✅ validés
-M3 → M14  ✅ intégrés
-M14       ✅ 357/357 PASS
-Architecture 160/160 PASS
-Packaging Windows PASS
-JARVIS cross-repo 536 tests BUILD SUCCESS
+C0 → M14       ✅ validés
+M3 → M14       ✅ intégrés
+M14            ✅ 357/357 PASS
+Architecture   ✅ 160/160 PASS
+Packaging Win  ✅ PASS
+JARVIS         ✅ 536 tests BUILD SUCCESS
 ```
 
 M14 maintient la frontière suivante :
@@ -57,6 +68,6 @@ MORPHEUS = specification facts + lifecycle rules + transition decisions
 JARVIS   = sequencing + orchestration + action choice
 ```
 
-## Compatibilité des anciens liens
+## Règle de rangement
 
-Les anciens chemins `docs/CLI.md`, `docs/API.md`, `docs/MCP.md`, `docs/MINOS.md`, `docs/NEXUS.md` et `docs/JARVIS.md` sont conservés comme pages de redirection documentaire. Les nouveaux documents actifs vivent sous `docs/user/` et `docs/developer/`.
+La racine `docs/` ne contient que ce portail. Les documents sont classés par usage (`user`, `developer`, `product`, `reference`) ou par gouvernance (`governance`, `validation`, `roadmap`, `adr`).
