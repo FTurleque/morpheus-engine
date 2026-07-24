@@ -9,7 +9,7 @@ Les scripts `build-portable.ps1` et `build-portable.sh` :
 1. construisent le JAR CLI autonome `morpheus-cli-*-all.jar` ;
 2. créent une application `jpackage --type app-image` ;
 3. embarquent un runtime Java généré par `jpackage`/`jlink` ;
-4. exécutent `morpheus --version` sur le launcher packagé ;
+4. exécutent `morpheus --version` puis `morpheus --json version` sur le launcher packagé ;
 5. produisent une archive portable.
 
 Cibles :
@@ -32,6 +32,7 @@ Après extraction :
 
 ```powershell
 .\morpheus\morpheus.exe --version
+.\morpheus\morpheus.exe --json version
 .\morpheus\morpheus.exe help
 ```
 
@@ -42,6 +43,35 @@ Installateur optionnel :
 ```
 
 La génération EXE/MSI par `jpackage` dépend des outils natifs Windows requis par le JDK de packaging (WiX pour JDK 21). L'installateur n'est donc pas la seule voie de distribution M9 : l'archive portable reste officielle et ne dépend pas de WiX chez l'utilisateur final.
+
+Le script d'installateur détecte l'absence de WiX avant `jpackage` et termine alors par un skip explicite sans invalider l'app-image portable.
+
+### Preuve Windows — 24 juillet 2026
+
+```text
+clean test                      298/298 PASS
+Architecture Tests             149/149 PASS
+uber-JAR                        BUILD SUCCESS
+jpackage app-image             PASS
+morpheus.exe --version         PASS
+morpheus.exe --json version    PASS
+Windows ZIP                    PASS
+runtime Java embarqué          PASS
+WiX absent                     installateur EXE optionnel SKIPPED proprement
+```
+
+Artefact produit :
+
+```text
+dist/morpheus-0.1.0-windows-x64.zip
+```
+
+Smoke observé :
+
+```text
+MORPHEUS 0.1.0-SNAPSHOT
+{"version":"0.1.0-SNAPSHOT"}
+```
 
 ## Linux
 
@@ -55,10 +85,13 @@ Après extraction :
 
 ```bash
 ./morpheus/bin/morpheus --version
+./morpheus/bin/morpheus --json version
 ./morpheus/bin/morpheus help
 ```
 
 La distribution Linux M9 officielle est l'archive `tar.gz` autonome. Les paquets `deb`/`rpm` restent optionnels car ils dépendent des outils natifs de la distribution de build et n'apportent pas de sémantique MORPHEUS supplémentaire.
+
+Le gate Linux reste à fournir pour la validation cross-platform finale de M9.
 
 ## Layout runtime
 
@@ -114,7 +147,7 @@ La désinstallation du binaire ne doit pas supprimer implicitement la base SQLit
 
 ## Gate M9
 
-Windows :
+Windows — **✅ VALIDÉ le 24 juillet 2026** :
 
 ```powershell
 .\mvnw.cmd clean test
@@ -123,11 +156,11 @@ Windows :
 .\distribution\build-windows-installer.ps1
 ```
 
-Linux :
+Linux — **⏳ PENDING** :
 
 ```bash
 ./mvnw clean test
 ./distribution/build-portable.sh
 ```
 
-Les deux scripts portables doivent produire une archive et réussir le smoke test du launcher embarqué.
+Les deux scripts portables doivent produire une archive et réussir les smoke tests humain et JSON du launcher embarqué. Le gate Windows satisfait cette exigence ; la preuve Linux reste la dernière porte de distribution M9.
