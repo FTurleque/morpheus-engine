@@ -80,10 +80,12 @@ M10    MCP STDIO                                ✅ VALIDÉ / INTÉGRÉ — 307/
 M11    API HTTP                                 ✅ VALIDÉ / INTÉGRÉ — 314/314
 M12    MINOS optionnel                          ✅ VALIDÉ / INTÉGRÉ — 331/331
 M13    NEXUS optionnel                          ✅ VALIDÉ / INTÉGRÉ — 346/346
-M14    JARVIS orchestration contract             🚧 FONCTIONNELLEMENT COMPLET — gate pending
+M14    JARVIS orchestration contract             ✅ VALIDÉ — 357/357
 ```
 
 M14 baseline : `5269fbf8ef5586e0e04a776293dda2bf46786d0d`.
+
+M14 validation : [`docs/VALIDATION_M14.md`](docs/VALIDATION_M14.md).
 
 ## CLI
 
@@ -169,7 +171,9 @@ ALLOWED | BLOCKED | UNKNOWN | REQUIRES_INPUT
 
 Le contrat UC-16 expose les manques déterministes, les faits indisponibles, contraintes applicables, liens non résolus, findings qualité et transitions évaluées, avec `persisted=false`.
 
-Preuve JARVIS cross-repo : issue #92 / PR #93 dans `FTurleque/jarvis`, client HTTP optionnel et fail-open, aucune dépendance `com.morpheus.*`.
+Preuve cross-repo JARVIS : issue #92 / PR #93 dans `FTurleque/jarvis`, client HTTP optionnel et fail-open, aucune dépendance `com.morpheus.*`.
+
+Le client conserve séparément les raisons d'abandon observation/source/cible.
 
 Voir [`docs/JARVIS.md`](docs/JARVIS.md).
 
@@ -191,37 +195,44 @@ morpheus-<version>-linux-x64.tar.gz
 
 Les archives embarquent MORPHEUS et les adapters clients MINOS/NEXUS, jamais MINOS, NEXUS ou JARVIS.
 
-Packaging M14 exige :
+Packaging M14 validé :
 
 ```text
-classes orchestration CLI/MCP/API/application présentes
-aucun com/minos/*
-aucun com/nexus/*
-aucun com/jarvis/*
-change-orchestration visible dans le launcher packagé
-packaged API health
+MCP/API/MINOS/NEXUS/M14 orchestration packaging proof: PASS
+Packaged standalone optional-engines + M14 orchestration smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+ZIP 33,702,405 bytes
 ```
 
 ## Gate M14
 
-Projection avant preuve :
+MORPHEUS sur `d44d418ae0f1e528ea09a56cdd8c45647048c740` :
 
 ```text
-TOTAL attendu 357
-Architecture    160
-API               9
-CLI              20
+TOTAL         357/357 PASS
+Architecture  160/160 PASS
+API              9/9 PASS
+CLI            20/20 PASS
+Packaging          PASS
 ```
 
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
+JARVIS sur `58899855bcd3446636c1f274ace8c1bfc8f46930` :
+
+```text
+jarvis-core 536 tests
+Failures 0
+Errors 0
+Skipped 16
+BUILD SUCCESS
+MorpheusOrchestrationClientTest 6/6 PASS
 ```
 
-**357 reste une projection jusqu'au gate local.**
+ADR-0077..0080 : **Acceptées — M14**.
 
 ## Références
 
+- [`docs/VALIDATION_M14.md`](docs/VALIDATION_M14.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - [`docs/roadmap/M14_EXECUTION.md`](docs/roadmap/M14_EXECUTION.md)
 - [`docs/JARVIS.md`](docs/JARVIS.md)
