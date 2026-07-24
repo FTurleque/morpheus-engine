@@ -1,6 +1,6 @@
 # ADR-0065 — JDK HttpServer pour l'API locale M11
 
-- Statut : **Proposée — M11 gate pending**
+- Statut : **Acceptée — M11**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0014, ADR-0016, ADR-0027, ADR-0061
 - Portée : M11 — transport HTTP local
@@ -60,3 +60,27 @@ afin que le runtime embarqué contienne le module nécessaire.
 5. runtime packagé capable de démarrer l'API ;
 6. aucune dépendance framework serveur externe ;
 7. architecture domain/application inchangée.
+
+## Preuve d'acceptation — 24 juillet 2026
+
+Head testé : `a7daa9bb7eef1799926ea20b9e96606a388a301f`.
+
+```text
+MORPHEUS API          4/4 PASS
+Architecture        150/150 PASS
+TOTAL               314/314 PASS
+BUILD SUCCESS
+```
+
+Le packaging Windows a ensuite prouvé :
+
+```text
+MCP/API packaging proof: PASS
+jpackage app-image + jdk.httpserver: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+```
+
+Le smoke démarre le launcher packagé sur un port loopback éphémère et obtient `200` sur `/api/v1/health`.
+
+Décision : **ADR-0065 ACCEPTÉE — M11**. Voir `docs/VALIDATION_M11.md`.
