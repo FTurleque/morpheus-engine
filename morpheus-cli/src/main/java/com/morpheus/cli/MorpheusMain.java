@@ -2,6 +2,7 @@ package com.morpheus.cli;
 
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
+import com.morpheus.integration.nexus.NexusIntegrationRuntime;
 import com.morpheus.mcp.MorpheusMcpServer;
 
 import java.io.PrintStream;
@@ -37,10 +38,17 @@ public final class MorpheusMain {
             Map<String, String> environment,
             Properties properties) {
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
-        int exitCode = MorpheusExternalIntegrationCli.handles(args)
-                ? new MorpheusExternalIntegrationCli(minos.resolverRegistry(), minos)
-                .run(args, out, err, environment, properties)
-                : new MorpheusCli().run(normalizeForExecution(args), out, err, environment, properties);
+        NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
+        int exitCode;
+        if (MorpheusAugmentedContextCli.handles(args)) {
+            exitCode = new MorpheusAugmentedContextCli(nexus, nexus)
+                    .run(args, out, err, environment, properties);
+        } else if (MorpheusExternalIntegrationCli.handles(args)) {
+            exitCode = new MorpheusExternalIntegrationCli(minos.resolverRegistry(), minos)
+                    .run(args, out, err, environment, properties);
+        } else {
+            exitCode = new MorpheusCli().run(normalizeForExecution(args), out, err, environment, properties);
+        }
         if (exitCode == CliExitCode.SUCCESS.code() && isHelpRequest(args)) {
             out.println();
             out.println("MCP:");
@@ -56,6 +64,12 @@ public final class MorpheusMain {
             out.println("  morpheus [--json] external-references list --project ID --owner ID");
             out.println("  morpheus [--json] external-references resolve --project ID --reference ID");
             out.println("  MINOS is optional; configure MORPHEUS_MINOS_JAR to enable live resolution.");
+            out.println();
+            out.println("NEXUS / augmented context:");
+            out.println("  morpheus [--json] nexus-status");
+            out.println("  morpheus [--json] augmented-context requirement --project ID --requirement ID --nexus-project ID_OR_NAME [--budget N] [--source TYPE] [--constraint k=v] [--explain]");
+            out.println("  morpheus [--json] augmented-context change --project ID --change ID --nexus-project ID_OR_NAME [--budget N] [--source TYPE] [--constraint k=v] [--explain]");
+            out.println("  NEXUS is optional; configure MORPHEUS_NEXUS_JAR to enable live technical context.");
         }
         return exitCode;
     }
@@ -68,7 +82,9 @@ public final class MorpheusMain {
         try {
             McpLaunchOptions options = McpLaunchOptions.parse(args, environment, properties);
             MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
-            return MorpheusMcpServer.run(options.layout().databasePath(), minos.resolverRegistry());
+            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
+            return MorpheusMcpServer.run(
+                    options.layout().databasePath(), minos.resolverRegistry(), nexus);
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS MCP usage error: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
@@ -86,8 +102,14 @@ public final class MorpheusMain {
         try {
             ApiLaunchOptions options = ApiLaunchOptions.parse(args, environment, properties);
             MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
+            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
             try (MorpheusHttpServer server = MorpheusHttpServer.start(
-                    options.layout().databasePath(), options.host(), options.port(), minos.resolverRegistry(), minos)) {
+                    options.layout().databasePath(),
+                    options.host(),
+                    options.port(),
+                    minos.resolverRegistry(),
+                    minos,
+                    nexus)) {
                 err.println("MORPHEUS API listening on " + server.baseUri());
                 try {
                     Thread.currentThread().join();
