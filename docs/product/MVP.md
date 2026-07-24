@@ -279,7 +279,7 @@ Sont différés :
 
 ## 7. Jeux de référence
 
-M0 doit utiliser les datasets définis dans [`research/M0_EXPERIMENT_MATRIX.md`](research/M0_EXPERIMENT_MATRIX.md), notamment :
+M0 doit utiliser les datasets définis dans [`research/M0_EXPERIMENT_MATRIX.md`](../research/M0_EXPERIMENT_MATRIX.md), notamment :
 
 - fixture minimale valide ;
 - multi-spécifications ;
