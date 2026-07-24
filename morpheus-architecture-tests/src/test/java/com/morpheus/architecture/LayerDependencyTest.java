@@ -17,7 +17,8 @@ class LayerDependencyTest {
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "com.morpheus.provider..",
                         "com.morpheus.store..",
-                        "com.morpheus.cli..")
+                        "com.morpheus.cli..",
+                        "com.morpheus.mcp..")
                 .because("the MORPHEUS domain owns its model and adapters depend inward")
                 .check(classes);
     }
@@ -29,7 +30,8 @@ class LayerDependencyTest {
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "com.morpheus.provider..",
                         "com.morpheus.store..",
-                        "com.morpheus.cli..")
+                        "com.morpheus.cli..",
+                        "com.morpheus.mcp..")
                 .because("application services define use cases and ports without depending on adapters")
                 .check(classes);
     }
