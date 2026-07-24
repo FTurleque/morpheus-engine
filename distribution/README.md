@@ -8,7 +8,7 @@ Stratégie : **native-first**, archive portable autonome comme artefact principa
 M9   Windows + Linux validés
 M10  MCP STDIO embarqué validé
 M11  API HTTP + jdk.httpserver embarqués validés
-M12  client/adaptateur MINOS optionnel implémenté — gate pending
+M12  client/adaptateur MINOS optionnel validé
 ```
 
 ## Artefacts
@@ -46,9 +46,9 @@ est détectée dans le shaded JAR.
 
 Le JAR MINOS reste une dépendance runtime externe et optionnelle, configurée via `MORPHEUS_MINOS_JAR`.
 
-## Preuve de contenu
+## Preuve de contenu M12
 
-M12 contrôle notamment :
+Le gate validé a contrôlé notamment :
 
 ```text
 com/morpheus/mcp/MorpheusMcpServer.class
@@ -62,7 +62,7 @@ com/morpheus/integration/minos/MinosIntegrationRuntime.class
 tools/jackson/databind/json/JsonMapper.class
 ```
 
-Attendu :
+Résultat :
 
 ```text
 MCP/API/MINOS adapter packaging proof: PASS
@@ -94,13 +94,28 @@ Le script :
 9. démarre l'API packagée et vérifie `/api/v1/health` ;
 10. produit le ZIP avec retry/backoff.
 
-Smoke standalone M12 attendu :
+Smoke standalone M12 validé :
 
 ```json
-{"configured":false,"details":{"javaCommand":"java","timeoutSeconds":"20"},"message":"MINOS integration is not configured","state":"DISABLED","system":"MINOS"}
+{"system":"MINOS","state":"DISABLED","configured":false,"message":"MINOS integration is not configured","details":{"javaCommand":"java","timeoutSeconds":"20"}}
 ```
 
-Le message exact peut évoluer de manière compatible ; le gate exige au minimum `"state":"DISABLED"`.
+Résultats observés :
+
+```text
+MORPHEUS 0.1.0-SNAPSHOT
+{"version":"0.1.0-SNAPSHOT"}
+Packaged standalone MINOS-optional smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+```
+
+Archive validée :
+
+```text
+N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
+33,587,925 bytes
+```
 
 Installateur optionnel :
 
@@ -136,6 +151,8 @@ MINOS status DISABLED sans configuration
 jdk.httpserver présent dans le runtime packagé
 aucune classe com/minos/*
 ```
+
+La preuve finale M12 de référence est le gate Windows exécuté le 24 juillet 2026.
 
 ## Configuration MINOS runtime
 
@@ -183,7 +200,7 @@ Résultat attendu :
 Real MINOS MCP compatibility smoke: PASS
 ```
 
-Ce smoke ne copie pas MINOS dans MORPHEUS et ne crée aucune dépendance Maven entre les dépôts.
+Ce smoke ne copie pas MINOS dans MORPHEUS et ne crée aucune dépendance Maven entre les dépôts. Il reste une preuve additionnelle ; il n'est pas requis pour le gate autonome M12 déjà validé.
 
 ## Layout runtime MORPHEUS
 
@@ -240,20 +257,20 @@ mvnw.cmd CRLF
 M9  Windows + Linux 298/298 PASS
 M10 Windows         307/307 PASS + MCP packaging
 M11 Windows         314/314 PASS + packaged API health
-M12 attendu         331 tests + MINOS optional packaging proof
+M12 Windows         331/331 PASS + MINOS optional packaging
 ```
 
-## Gate M12
+## Gate M12 validé
 
 ```powershell
 .\mvnw.cmd clean test
 .\distribution\build-portable.ps1
 ```
 
-M12 ne sera validé qu'après preuve de ces deux commandes, complétée idéalement par le smoke de compatibilité contre le vrai JAR MINOS.
+Résultat : **PASS**.
 
 Références :
 
-- [`../docs/VALIDATION_M11.md`](../docs/VALIDATION_M11.md)
+- [`../docs/VALIDATION_M12.md`](../docs/VALIDATION_M12.md)
 - [`../docs/MINOS.md`](../docs/MINOS.md)
 - [`../docs/roadmap/M12_EXECUTION.md`](../docs/roadmap/M12_EXECUTION.md)
