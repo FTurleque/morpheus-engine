@@ -1,4 +1,4 @@
-# MORPHEUS — Distribution locale M9 à M13
+# MORPHEUS — Distribution locale M9 à M14
 
 Stratégie : **native-first**, archive portable autonome comme artefact principal.
 
@@ -8,6 +8,7 @@ M10  MCP STDIO embarqué validé
 M11  API HTTP + jdk.httpserver validés
 M12  adapter MINOS optionnel validé
 M13  adapter NEXUS optionnel validé
+M14  contrat d'orchestration JARVIS implémenté — gate pending
 ```
 
 ## Artefacts
@@ -19,7 +20,7 @@ Linux x64   -> dist/morpheus-<version>-linux-x64.tar.gz
 
 Les archives embarquent leur runtime Java. Aucun JDK séparé n'est requis pour MORPHEUS lui-même.
 
-## Contenu M13
+## Contenu M14
 
 L'uber-JAR embarque :
 
@@ -27,48 +28,65 @@ L'uber-JAR embarque :
 CLI MORPHEUS
 MCP server + MCP client SDK
 HTTP API
+M14 orchestration application services
+M14 CLI/MCP/API adapters
 morpheus-integration-minos
 morpheus-integration-nexus
 Jackson
 SQLite JDBC
 ```
 
-Il n'embarque **ni MINOS ni NEXUS**. Le build échoue si le shaded JAR contient `com/minos/*` ou `com/nexus/*`.
+Il n'embarque **ni MINOS, ni NEXUS, ni JARVIS**.
 
-## Windows — validation M13
+Le build échoue si le shaded JAR contient :
 
-Commande :
+```text
+com/minos/*
+com/nexus/*
+com/jarvis/*
+```
+
+Classes M14 exigées notamment :
+
+```text
+com/morpheus/mcp/MorpheusJarvisOrchestrationMcpTools.class
+com/morpheus/api/MorpheusJarvisOrchestrationApiService.class
+com/morpheus/cli/MorpheusJarvisOrchestrationCli.class
+com/morpheus/application/orchestration/ChangeOrchestrationStateService.class
+com/morpheus/application/orchestration/ChangeTransitionEvaluationService.class
+```
+
+## Windows M14
 
 ```powershell
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
 .\distribution\build-portable.ps1
 ```
 
-Workdir : `dist/.m13-windows`.
+Workdir : `dist/.m14-windows`.
 
-Preuves obtenues :
+Preuves attendues :
 
 ```text
-Maven package: BUILD SUCCESS
-MCP/API/MINOS/NEXUS adapter packaging proof: PASS
+MCP/API/MINOS/NEXUS/M14 orchestration packaging proof: PASS
 jpackage app-image: PASS
-MORPHEUS 0.1.0-SNAPSHOT
-{"version":"0.1.0-SNAPSHOT"}
 MINOS status -> DISABLED sans configuration
 NEXUS status -> DISABLED sans configuration
-Packaged standalone optional-engines smoke: PASS
+change-orchestration présent dans le help packagé
+Packaged standalone optional-engines + M14 orchestration smoke: PASS
 Packaged API health smoke: PASS
 Portable archive creation: PASS
 ```
 
-Archive produite :
+Installateur optionnel :
 
-```text
-N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
-33,654,379 bytes
+```powershell
+.\distribution\build-windows-installer.ps1
 ```
 
-## Linux
+Il réutilise `dist/.m14-windows/image/morpheus`.
+
+## Linux M14
 
 ```bash
 export JAVA_HOME=/path/to/jdk-21
@@ -77,54 +95,47 @@ chmod +x mvnw distribution/build-portable.sh
 ./distribution/build-portable.sh
 ```
 
-Workdir : `dist/.m13-linux`.
+Workdir : `dist/.m14-linux`.
 
-Le script vérifie également :
+Le script vérifie :
 
 ```text
+classes M14 présentes
 MINOS status DISABLED
 NEXUS status DISABLED
+change-orchestration visible
 jdk.httpserver présent
 aucune classe com/minos/*
 aucune classe com/nexus/*
+aucune classe com/jarvis/*
 ```
 
-## Configuration MINOS
+## MINOS / NEXUS
+
+Les configurations M12/M13 restent inchangées :
 
 ```text
-MORPHEUS_MINOS_JAR=<minos-*-all.jar>
-MORPHEUS_MINOS_JAVA=<java-24-or-newer>
-MORPHEUS_MINOS_HOME=<optional>
-MORPHEUS_MINOS_TIMEOUT_SECONDS=<1..120>
+MORPHEUS_MINOS_JAR / MORPHEUS_MINOS_JAVA / MORPHEUS_MINOS_HOME / MORPHEUS_MINOS_TIMEOUT_SECONDS
+MORPHEUS_NEXUS_JAR / MORPHEUS_NEXUS_JAVA / MORPHEUS_NEXUS_HOME / MORPHEUS_NEXUS_TIMEOUT_SECONDS
 ```
 
-Smoke réel complémentaire :
-
-```powershell
-.\distribution\test-minos-compatibility.ps1 `
-  -MinosJar <minos-code-intelligence\target\*-all.jar> `
-  -MinosJava <java-24-or-newer>
-```
-
-## Configuration NEXUS
+Les smokes cross-repo existants restent disponibles :
 
 ```text
-MORPHEUS_NEXUS_JAR=<nexus-mcp-java-*-runner.jar>
-MORPHEUS_NEXUS_JAVA=<java-21-or-newer>
-MORPHEUS_NEXUS_HOME=<optional>
-MORPHEUS_NEXUS_TIMEOUT_SECONDS=<1..120>
+distribution/test-minos-compatibility.ps1
+distribution/test-nexus-compatibility.ps1
 ```
 
-Smoke réel complémentaire :
+## JARVIS M14
 
-```powershell
-.\distribution\test-nexus-compatibility.ps1 `
-  -NexusRunnerJar N:\workspace-dev\nexus-context-engine\adapters\mcp-java\target\nexus-mcp-java-0.1.0-SNAPSHOT-runner.jar `
-  -NexusJava <java-21-or-newer> `
-  -NexusHome <optional>
+JARVIS n'est pas embarqué. La preuve cross-repo utilise HTTP local :
+
+```text
+GET  /api/v1/projects/{projectId}/changes/{changeId}/orchestration
+POST /api/v1/projects/{projectId}/changes/{changeId}/transition-check
 ```
 
-Ces smokes cross-repo ne remplacent pas le gate MORPHEUS et ne faisaient pas partie du gate M13 officiel.
+Dépôt JARVIS : issue #92, PR #93 draft.
 
 ## Layout runtime MORPHEUS
 
@@ -137,25 +148,10 @@ MORPHEUS_CONFIG_DIR
 MORPHEUS_DB
 ```
 
-Windows :
+Windows : `%LOCALAPPDATA%\Morpheus` / `%APPDATA%\Morpheus`.  
+Linux : XDG data/config standards.
 
-```text
-data   = %LOCALAPPDATA%\Morpheus
-config = %APPDATA%\Morpheus
-db     = <data>\morpheus.db
-logs   = <data>\logs
-```
-
-Linux :
-
-```text
-data   = $XDG_DATA_HOME/morpheus ou ~/.local/share/morpheus
-config = $XDG_CONFIG_HOME/morpheus ou ~/.config/morpheus
-db     = <data>/morpheus.db
-logs   = <data>/logs
-```
-
-## Gates historiques
+## Gates historiques et projection
 
 ```text
 M9  298/298 Windows + Linux
@@ -163,13 +159,21 @@ M10 307/307 Windows + MCP packaging
 M11 314/314 Windows + packaged API health
 M12 331/331 Windows + MINOS optional packaging
 M13 346/346 Windows + MINOS/NEXUS optional packaging
+M14 projection 357 tests | Architecture 160 | M14 orchestration packaging pending
 ```
 
-M13 architecture : **154/154 PASS**.
+M14 reste non validé tant que :
+
+```powershell
+.\mvnw.cmd clean test
+.\distribution\build-portable.ps1
+```
+
+n'ont pas produit une preuve verte.
 
 Références :
 
-- [`../docs/VALIDATION_M13.md`](../docs/VALIDATION_M13.md)
-- [`../docs/MINOS.md`](../docs/MINOS.md)
-- [`../docs/NEXUS.md`](../docs/NEXUS.md)
-- [`../docs/roadmap/M13_EXECUTION.md`](../docs/roadmap/M13_EXECUTION.md)
+- [`../docs/JARVIS.md`](../docs/JARVIS.md)
+- [`../docs/roadmap/M14_EXECUTION.md`](../docs/roadmap/M14_EXECUTION.md)
+- [`../docs/API.md`](../docs/API.md)
+- [`../docs/MCP.md`](../docs/MCP.md)
