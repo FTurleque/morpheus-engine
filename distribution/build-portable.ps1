@@ -20,6 +20,48 @@ if (-not (Test-Path $jarTool)) {
     throw "jar.exe not found under JAVA_HOME=$env:JAVA_HOME"
 }
 
+function Compress-PortableArchiveWithRetry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceDirectory,
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationArchive,
+        [int]$MaxAttempts = 8
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        Remove-Item $DestinationArchive -Force -ErrorAction SilentlyContinue
+        try {
+            Compress-Archive `
+                -Path $SourceDirectory `
+                -DestinationPath $DestinationArchive `
+                -CompressionLevel Optimal `
+                -ErrorAction Stop
+
+            if (-not (Test-Path $DestinationArchive)) {
+                throw "Compress-Archive returned without creating $DestinationArchive"
+            }
+            $archiveInfo = Get-Item $DestinationArchive -ErrorAction Stop
+            if ($archiveInfo.Length -le 0) {
+                throw "Compress-Archive created an empty archive: $DestinationArchive"
+            }
+
+            Write-Host "Portable archive creation: PASS (attempt $attempt/$MaxAttempts, $($archiveInfo.Length) bytes)"
+            return
+        } catch {
+            Remove-Item $DestinationArchive -Force -ErrorAction SilentlyContinue
+            if ($attempt -eq $MaxAttempts) {
+                throw "Unable to create portable Windows archive after $MaxAttempts attempts: $($_.Exception.Message)"
+            }
+
+            $delayMilliseconds = 500 * $attempt
+            Write-Warning "Portable archive attempt $attempt/$MaxAttempts failed, likely due to a transient file lock: $($_.Exception.Message)"
+            Write-Host "Retrying archive creation in $delayMilliseconds ms..."
+            Start-Sleep -Milliseconds $delayMilliseconds
+        }
+    }
+}
+
 Write-Host "Building MORPHEUS CLI + MCP uber-JAR..."
 & $mvnw -pl morpheus-cli -am -DskipTests package
 if ($LASTEXITCODE -ne 0) { throw "Maven package failed with exit code $LASTEXITCODE" }
@@ -78,8 +120,13 @@ Write-Host $jsonVersion
 
 New-Item $dist -ItemType Directory -Force | Out-Null
 $archive = Join-Path $dist "morpheus-$Version-windows-x64.zip"
-Remove-Item $archive -Force -ErrorAction SilentlyContinue
-Compress-Archive -Path (Join-Path $appImageRoot "morpheus") -DestinationPath $archive -CompressionLevel Optimal
+Compress-PortableArchiveWithRetry `
+    -SourceDirectory (Join-Path $appImageRoot "morpheus") `
+    -DestinationArchive $archive
+
+if (-not (Test-Path $archive)) {
+    throw "Portable Windows archive is missing after archive creation: $archive"
+}
 
 Write-Host "Portable Windows distribution: $archive"
 Write-Host "The archive contains its Java runtime and MCP STDIO server; end users do not need a separately installed JDK."
