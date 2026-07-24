@@ -1,6 +1,6 @@
 # ADR-0060 — Sync CLI conservateur par publication complète de snapshot
 
-- Statut : **Proposée — M9, gate pending**
+- Statut : **Proposée — gate Windows PASS, validation Linux pending**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0033, ADR-0034, ADR-0039, ADR-0053, ADR-0054, ADR-0055
 - Portée : M9 — ingestion exécutable depuis la CLI
@@ -78,6 +78,21 @@ Les `TraceabilityLinkId` des observations dérivées sont des identités d'occur
 `ProjectSnapshotImportService` appartient à `morpheus-application` parce que la cohérence de publication est une orchestration applicative. La CLI sélectionne la source/provider et rend le reçu, mais ne définit pas les transitions de snapshot.
 
 Ce slice ne promet pas : application partielle des deltas M7, watcher CLI longue durée, merge de sous-graphes ou mutation in-place d'un snapshot.
+
+## Preuve Windows intermédiaire — 24 juillet 2026
+
+```text
+ProjectSnapshotImportContractTest  3/3 PASS
+MorpheusCliTest                     4/4 PASS
+MorpheusMainTest                    2/2 PASS
+Architecture Tests                149/149 PASS
+TOTAL                             298/298 PASS
+BUILD SUCCESS
+```
+
+Le test CLI end-to-end couvre OpenSpec -> sync -> SQLite -> reopen et vérifie que le launcher officiel enregistre `FULL_REBUILD`, cohérent avec l'exécution réelle.
+
+La preuve Linux reste requise avant acceptation finale M9 de cette ADR.
 
 ## Critères d'acceptation
 
