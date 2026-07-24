@@ -20,7 +20,8 @@ class LayerDependencyTest {
                         "com.morpheus.cli..",
                         "com.morpheus.mcp..",
                         "com.morpheus.api..",
-                        "com.morpheus.integration..")
+                        "com.morpheus.integration..",
+                        "com.minos..")
                 .because("the MORPHEUS domain owns its model and adapters depend inward")
                 .check(classes);
     }
@@ -35,7 +36,8 @@ class LayerDependencyTest {
                         "com.morpheus.cli..",
                         "com.morpheus.mcp..",
                         "com.morpheus.api..",
-                        "com.morpheus.integration..")
+                        "com.morpheus.integration..",
+                        "com.minos..")
                 .because("application services define use cases and ports without depending on adapters")
                 .check(classes);
     }
@@ -47,21 +49,23 @@ class LayerDependencyTest {
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "com.morpheus.cli..",
                         "com.morpheus.mcp..",
-                        "com.morpheus.integration..")
+                        "com.morpheus.integration..",
+                        "com.minos..")
                 .because("the M11/M12 HTTP adapter must reuse application contracts rather than other adapters")
                 .check(classes);
     }
 
     @Test
-    void minosIntegrationMustNotDependOnOuterMorpheusAdapters() {
+    void minosIntegrationMustNotDependOnOuterMorpheusAdaptersOrMinosImplementation() {
         noClasses()
                 .that().resideInAPackage("com.morpheus.integration.minos..")
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "com.morpheus.cli..",
                         "com.morpheus.mcp..",
                         "com.morpheus.api..",
-                        "com.morpheus.store..")
-                .because("MINOS integration implements application ports and is composed only from the launcher")
+                        "com.morpheus.store..",
+                        "com.minos..")
+                .because("MINOS integration implements application ports and communicates through MCP STDIO only")
                 .check(classes);
     }
 }
