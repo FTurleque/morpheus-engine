@@ -1,6 +1,6 @@
 # ADR-0069 — Intégration MINOS par MCP STDIO inter-processus
 
-- Statut : **Proposée — M12 gate pending**
+- Statut : **Acceptée — M12**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0007, ADR-0016, ADR-0026, ADR-0041, ADR-0062
 - Portée : M12 — transport cross-engine MORPHEUS / MINOS
@@ -9,7 +9,7 @@
 
 MORPHEUS cible Java 21. MINOS expose depuis son M10 un serveur MCP STDIO validé et son produit courant cible Java 24. Une dépendance binaire directe à `com.minos.*` couplerait les deux dépôts, leurs baselines Java et leurs cycles de livraison.
 
-## Décision proposée
+## Décision
 
 L'intégration M12 utilise un process MINOS externe :
 
@@ -52,3 +52,15 @@ Aucun process MINOS n'est démarré au bootstrap MORPHEUS tant qu'une résolutio
 6. indisponibilité non fatale ;
 7. MORPHEUS démarre et passe ses smokes sans MINOS configuré ;
 8. gate Maven complet vert.
+
+## Preuve M12
+
+```text
+MinosMcpTransportIntegrationTest  1/1 PASS
+MINOS Integration                 8/8 PASS
+Architecture                    153/153 PASS
+Maven total                     331/331 PASS
+Packaging MINOS optional          PASS
+```
+
+Voir `docs/VALIDATION_M12.md`.
