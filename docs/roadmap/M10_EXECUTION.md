@@ -1,6 +1,6 @@
 # M10 — Plan d'exécution détaillé
 
-Statut : **M10 FONCTIONNELLEMENT COMPLET — gate local et packaging pending**
+Statut : **M10 FONCTIONNELLEMENT COMPLET — Maven 307/307 PASS, packaging Windows à revalider**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -14,13 +14,13 @@ M9 gate  = Windows 298/298 + Linux 298/298 PASS
 
 Issue : **#57 — M10 — Serveur MCP stdio natif**  
 Branche : `m10/mcp-server`  
-PR : **#58 — M10 — Serveur MCP stdio natif** (draft jusqu'au gate)
+PR : **#58 — M10 — Serveur MCP stdio natif** (draft jusqu'au gate final)
 
 ## Question de sortie
 
 > **MORPHEUS peut-il exposer ses capacités de lecture d'intention/specification à des agents via un serveur MCP local stdio natif, avec des tools déterministes, des JSON Schemas stricts, des erreurs explicites et aucune logique métier essentielle dans les handlers MCP, tout en restant utilisable sans serveur HTTP, Docker, MINOS, NEXUS ou JARVIS ?**
 
-Réponse actuelle : **implémentation OUI ; preuve exécutable finale pending**.
+Réponse actuelle : **implémentation et gate Maven OUI ; archive portable Windows à revalider après correction du verrou transitoire**.
 
 ## M10-S1 — SDK et transport ✅ implémenté
 
@@ -195,9 +195,32 @@ Linux   -> dist/.m10-linux
 
 L'installateur Windows optionnel est aligné sur l'app-image M10.
 
-## M10-S7 — Tests ✅ implémentés, exécution finale pending
+Le premier gate packaging Windows a prouvé :
 
-Tests ajoutés :
+```text
+uber-JAR BUILD SUCCESS
+MCP packaging proof PASS
+jpackage app-image PASS
+morpheus.exe --version PASS
+morpheus.exe --json version PASS
+```
+
+L'étape `Compress-Archive` a ensuite rencontré un verrou Windows transitoire sur `morpheus.exe`. Le script imprimait à tort la ligne finale de succès malgré l'erreur du module PowerShell Archive. Le correctif `2afcba30c94e842937b0c336a1cf1f16c40fb139` ajoute :
+
+```text
+-ErrorAction Stop
+8 tentatives avec backoff
+suppression du ZIP partiel entre tentatives
+vérification d'existence du ZIP
+vérification taille > 0
+échec explicite après épuisement des tentatives
+```
+
+Le ZIP doit donc être revalidé sur ce correctif.
+
+## M10-S7 — Tests ✅ VALIDÉS WINDOWS
+
+Tests M10 ajoutés :
 
 ```text
 MorpheusMcpToolCatalogTest
@@ -227,6 +250,34 @@ com.morpheus.domain      -> com.morpheus.mcp
 com.morpheus.application -> com.morpheus.mcp
 ```
 
+Gate Windows exécuté sur le head code :
+
+```text
+19d38faf9c1e8b576bfb289d4204ed50e331e6f9
+```
+
+Résultat :
+
+```text
+MORPHEUS Domain          21/21 PASS
+MORPHEUS Application     82/82 PASS
+OpenSpec Provider        26/26 PASS
+Synthetic Provider        7/7 PASS
+SQLite Store              7/7 PASS
+MORPHEUS MCP              5/5 PASS
+MORPHEUS CLI             10/10 PASS
+Architecture Tests      149/149 PASS
+TOTAL                   307/307 PASS
+Failures                   0
+Errors                     0
+Skipped                    0
+BUILD SUCCESS
+Total time               30.934 s
+Finished 2026-07-24T12:38:25+02:00
+```
+
+Warnings observés mais non bloquants : SQLite native-access futur, SLF4J NOP, API MCP dépréciée signalée par javac, et avertissements classiques du Maven Shade Plugin sur ressources/module-info.
+
 ## M10-S8 — Documentation ✅ implémentée
 
 ```text
@@ -237,42 +288,39 @@ docs/adr/0063-read-only-mcp-tool-contract.md
 docs/adr/0064-native-launcher-mcp-routing.md
 ```
 
-## M10-S9 — Gate final ⏳ PENDING
+## M10-S9 — Gate final ⏳ PACKAGING WINDOWS À REVALIDER
 
-Gate local obligatoire, source de vérité :
+Le gate Maven est **PASS 307/307**. Le seul point restant est la création vérifiée du ZIP après le correctif d'archivage.
+
+Commandes :
 
 ```powershell
 cd N:\workspace-dev\morpheus-engine
-git fetch origin
-git switch m10/mcp-server
 git pull --ff-only
-.\mvnw.cmd clean test
-```
-
-Puis preuve distribution :
-
-```powershell
+git rev-parse HEAD
 .\distribution\build-portable.ps1
 ```
 
-Preuves attendues :
+Le head doit contenir au minimum :
 
 ```text
-Maven BUILD SUCCESS
-anciens tests M0-M9 toujours verts
-nouveaux tests MCP verts
-handshake STDIO réel vert
-schema rejection vert
-MCP packaging proof PASS
+2afcba30c94e842937b0c336a1cf1f16c40fb139
+```
+
+Preuves restantes attendues :
+
+```text
+MCP packaging proof: PASS
 jpackage app-image PASS
 launcher --version PASS
 launcher --json version PASS
-Windows ZIP produit
+Portable archive creation: PASS
+Windows ZIP non vide produit
 ```
 
 GitHub Actions M10 reste volontairement `workflow_dispatch` et optionnel.
 
-M10 ne sera marqué **VALIDÉ** qu'après cette preuve reproductible. `VALIDATION_M10.md` ne sera créé qu'après le gate.
+M10 ne sera marqué **VALIDÉ** qu'après cette dernière preuve reproductible. `VALIDATION_M10.md` ne sera créé qu'après le gate packaging.
 
 ## ADR M10
 
@@ -282,7 +330,7 @@ ADR-0063 — Proposée — catalogue MCP read-only et sémantique explicite
 ADR-0064 — Proposée — intégration au launcher natif et stdout protocol-clean
 ```
 
-Les trois ADR restent **Proposées** tant que le gate n'est pas fourni.
+Les trois ADR restent **Proposées** jusqu'à la validation finale du packaging.
 
 ## Hors périmètre M10
 
@@ -301,4 +349,4 @@ orchestration JARVIS
 
 ## Décision de sortie actuelle
 
-**M10 est fonctionnellement complet mais non validé.** La dernière porte est le gate local Maven + packaging portable. La PR #58 reste draft et non fusionnée.
+**M10 est fonctionnellement complet et son gate Maven Windows est validé à 307/307.** La dernière porte est exclusivement le rerun du packaging portable Windows après correction du verrou transitoire. La PR #58 reste draft et non fusionnée.
