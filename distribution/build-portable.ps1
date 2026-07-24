@@ -38,7 +38,7 @@ Write-Host "Creating self-contained Windows app-image with embedded runtime..."
     --description "MORPHEUS Specification & Intent Intelligence Engine" `
     --input $input `
     --main-jar "morpheus.jar" `
-    --main-class "com.morpheus.cli.MorpheusCli" `
+    --main-class "com.morpheus.cli.MorpheusMain" `
     --win-console `
     --dest $appImageRoot
 if ($LASTEXITCODE -ne 0) { throw "jpackage app-image failed with exit code $LASTEXITCODE" }
