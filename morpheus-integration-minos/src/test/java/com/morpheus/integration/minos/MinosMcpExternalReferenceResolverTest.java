@@ -16,22 +16,25 @@ class MinosMcpExternalReferenceResolverTest {
     private static final String KEY = "symbol:RequirementService";
 
     @Test
-    void resolvesOnlyOneExactSymbolKeyAndExportsDeterministicMinosFacts() {
+    void resolvesOnlyOneExactSymbolKeyPreservesCoordinatesAndExportsDeterministicFacts() {
         FakeGateway gateway = new FakeGateway(status(), List.of(
                 symbol("symbol:RequirementServiceHelper", "helper-id"),
                 symbol(KEY, "symbol-id")));
         MinosMcpExternalReferenceResolver resolver = new MinosMcpExternalReferenceResolver(() -> gateway);
+        ExternalReferenceTarget requested = target(Optional.empty());
 
-        ExternalReferenceResolverResult result = resolver.resolve(target(Optional.empty()));
+        ExternalReferenceResolverResult result = resolver.resolve(requested);
 
         assertEquals(ExternalReferenceResolverResult.Status.FOUND, result.status());
         var resolved = result.resolvedTarget().orElseThrow();
-        assertEquals(SNAPSHOT, resolved.target().revision().orElseThrow());
+        assertEquals(requested, resolved.target());
+        assertTrue(resolved.target().revision().isEmpty());
         assertEquals(KEY, resolved.target().externalId());
         assertEquals("symbol-id", resolved.attributes().get("minos.symbolId"));
         assertEquals(KEY, resolved.attributes().get("minos.symbolKey"));
         assertEquals("com.morpheus.RequirementService", resolved.attributes().get("minos.qualifiedName"));
         assertEquals(SNAPSHOT, resolved.attributes().get("minos.activeSnapshotId"));
+        assertEquals("project-123", resolved.attributes().get("minos.projectId"));
     }
 
     @Test
@@ -48,9 +51,14 @@ class MinosMcpExternalReferenceResolverTest {
     }
 
     @Test
-    void revisionMismatchAndUnsupportedResourceTypeAreExplicit() {
+    void matchingRevisionIsPreservedAndMismatchOrUnsupportedTypeAreExplicit() {
         MinosMcpExternalReferenceResolver resolver = new MinosMcpExternalReferenceResolver(
                 () -> new FakeGateway(status(), List.of(symbol(KEY, "id"))));
+
+        ExternalReferenceTarget matching = target(Optional.of(SNAPSHOT));
+        ExternalReferenceResolverResult found = resolver.resolve(matching);
+        assertEquals(ExternalReferenceResolverResult.Status.FOUND, found.status());
+        assertEquals(matching, found.resolvedTarget().orElseThrow().target());
 
         assertEquals(ExternalReferenceResolverResult.Status.REVISION_MISMATCH,
                 resolver.resolve(target(Optional.of("old-snapshot"))).status());
