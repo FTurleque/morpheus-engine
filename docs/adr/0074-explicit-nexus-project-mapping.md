@@ -1,0 +1,57 @@
+# ADR-0074 — Mapping projet NEXUS explicite sans ownership de lifecycle
+
+- Statut : **Acceptée — M13**
+- Date : 24 juillet 2026
+- Dépend de : ADR-0007, ADR-0073
+- Portée : M13 — identité du projet technique NEXUS
+
+## Décision
+
+Chaque demande de contexte M13 transporte explicitement :
+
+```text
+nexusProject = UUID ou nom unique du projet NEXUS
+```
+
+MORPHEUS ne déduit pas ce mapping depuis le chemin workspace, le nom du projet MORPHEUS ou une heuristique.
+
+## Lifecycle
+
+M13 n'appelle aucun workflow NEXUS de mutation :
+
+```text
+project add
+index
+rebuild
+remove
+```
+
+Le registre et l'index NEXUS restent administrés par NEXUS ou par un orchestrateur externe.
+
+## Conséquences
+
+- aucune collision de nom silencieuse ;
+- aucune indexation coûteuse déclenchée par une lecture MORPHEUS ;
+- le même projet MORPHEUS peut viser différents projets NEXUS selon l'appel ;
+- l'absence ou l'état non indexé du projet NEXUS est un fait externe explicite.
+
+## Preuve M13
+
+```text
+TechnicalContextOptionsTest                  3/3 PASS
+NexusMcpTechnicalContextProviderTest          3/3 PASS
+MorpheusAugmentedContextApiContractTest       2/2 PASS
+TOTAL                                      346/346 PASS
+```
+
+Les tests prouvent que `nexusProject` est fourni explicitement, transmis au provider sans heuristique et qu'aucune opération de lifecycle NEXUS n'est requise par l'intégration.
+
+## Critères d'acceptation
+
+1. `nexusProject` obligatoire sur toute construction augmentée ;
+2. aucune heuristique de mapping ;
+3. aucun appel de mutation/indexation NEXUS ;
+4. projet absent retourné comme indisponibilité/erreur externe explicite ;
+5. tests prouvent que seul `list_projects`/`build_context`/`explain_context` est requis.
+
+Tous les critères sont satisfaits par la validation M13.

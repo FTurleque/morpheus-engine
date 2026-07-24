@@ -2,64 +2,37 @@
 
 **MORPHEUS** est un moteur d'intelligence des spécifications et de l'intention (*Specification & Intent Intelligence Engine*).
 
-Sa responsabilité est de construire, maintenir et exposer une compréhension structurée, persistante, versionnée et interrogeable de ce qu'un projet doit devenir : exigences, changements, contraintes, scénarios, décisions de conception et tâches associées.
-
-> **Qu'est-ce qui doit être construit, pourquoi, selon quelles règles, et comment prouver que le résultat correspond à l'intention ?**
+> Qu'est-ce qui doit être construit, pourquoi, selon quelles règles, et comment prouver que le résultat correspond à l'intention ?
 
 ## Écosystème
 
 ```text
-                           JARVIS
-                        Orchestration
-                             │
-          ┌──────────────────┼──────────────────┐
-          │                  │                  │
-          ▼                  ▼                  ▼
-      MORPHEUS              MINOS              NEXUS
-  Spec & Intent             Code              Context
-   Intelligence          Intelligence        Intelligence
-          │                  │                  │
-          └──────────────────┼──────────────────┘
-                             ▼
-                     ALFRED / BRAINIAC
+MORPHEUS = specification / intent
+MINOS    = code intelligence
+NEXUS    = context selection / ranking / fusion / compression
+JARVIS   = orchestration
 ```
 
-- MORPHEUS possède l'intention/specification ;
-- MINOS possède l'intelligence de code ;
-- NEXUS possède la sélection/ranking/compression du contexte ;
-- JARVIS orchestre.
-
-Chaque brique reste autonome.
+Chaque moteur reste autonome.
 
 ## Architecture
 
 ```text
 Sources / workspaces
-        ↓
-Specification providers
-        ↓
-Normalisation MORPHEUS
-        ↓
-KnowledgeSnapshot / SpecificationVersion
-        ↓
-Persistence snapshot-scoped (Memory / SQLite)
-        ↓
-Query / Search / Traceability / Quality / Change Analysis
-        ↓
-  ┌─────┼─────┐
-  ↓     ↓     ↓
- CLI   MCP   HTTP API
-              \
-               \ optional ports
-                ↓
-        morpheus-integration-minos
-                ↓ MCP STDIO
-              MINOS
+ -> providers
+ -> normalisation MORPHEUS
+ -> KnowledgeSnapshot / SpecificationVersion
+ -> Memory / SQLite
+ -> Query / Traceability / Quality / Change Analysis
+ -> CLI | MCP | HTTP API
+              |
+              +-> optional MINOS adapter -> MCP STDIO -> MINOS
+              +-> optional NEXUS adapter -> MCP STDIO -> NEXUS
 ```
 
-**OpenSpec est le provider de référence initial, pas le domaine de MORPHEUS.**
+OpenSpec est le provider de référence initial, pas le domaine MORPHEUS.
 
-## Invariants structurants
+## Invariants
 
 ```text
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
@@ -69,193 +42,122 @@ PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 Scenario != AcceptanceCriterion
-lifecycle absent != inferred lifecycle
-unresolved reference != invented fact
-MINOS remains optional
-live external resolution != snapshot mutation
+optional engine absence != MORPHEUS failure
+live external observation != snapshot mutation
+NEXUS ranking != MORPHEUS ranking
 ```
 
 ## Fondation technique
 
 ```text
-Language             Java
-Compatibility        Java 21 source / bytecode
-Compiler             --release 21
-Build                Maven 3.9.16 + Wrapper
-Persistent store     SQLite JDBC 3.53.1.0
-Memory store         contract reference backend
+Java                 21
+Build                Maven Wrapper
+Persistent store     SQLite
 DomainIdentity       UUIDv7
 MCP SDK              Java MCP SDK 2.0.0
 MCP transport        STDIO
 HTTP server          JDK jdk.httpserver
 Distribution         jpackage portable app-image
-LLM                  none required
+LLM required         no
 ```
 
 ## État du projet
 
 ```text
-C0  Cadrage fonctionnel et architectural       ✅ VALIDÉ
-M0  Faisabilité technique                      ✅ VALIDÉ
-M1  Discovery / providers / store              ✅ VALIDÉ
-M2  Ingestion et modèle normalisé              ✅ VALIDÉ — 94/94
-M3  Temporalité / lifecycle / snapshots        ✅ VALIDÉ / INTÉGRÉ — 147/147
-M4  Traçabilité typée                          ✅ VALIDÉ / INTÉGRÉ — 189/189
-M5  Requêtes et contexte compact               ✅ VALIDÉ / INTÉGRÉ — 227/227
-M6  Qualité / couverture / diagnostics         ✅ VALIDÉ / INTÉGRÉ — 261/261
-M7  Synchronisation incrémentale / fraîcheur   ✅ VALIDÉ / INTÉGRÉ — 282/282
-M8  Analyse des changements                    ✅ VALIDÉ / INTÉGRÉ — 289/289
-M9  CLI / distribution locale                  ✅ VALIDÉ / INTÉGRÉ — 298/298 Windows + Linux
-M10 MCP STDIO natif                            ✅ VALIDÉ / INTÉGRÉ — 307/307
-M11 API HTTP headless                          ✅ VALIDÉ / INTÉGRÉ — 314/314
-M12 MINOS optionnel                            ✅ VALIDÉ — 331/331
+C0-M2  fondation                                ✅ VALIDÉ
+M3     temporalité / lifecycle                  ✅ VALIDÉ / INTÉGRÉ — 147/147
+M4     traçabilité                              ✅ VALIDÉ / INTÉGRÉ — 189/189
+M5     requêtes / contexte compact              ✅ VALIDÉ / INTÉGRÉ — 227/227
+M6     qualité / diagnostics                    ✅ VALIDÉ / INTÉGRÉ — 261/261
+M7     sync incrémentale                        ✅ VALIDÉ / INTÉGRÉ — 282/282
+M8     analyse changements                      ✅ VALIDÉ / INTÉGRÉ — 289/289
+M9     CLI / distribution                       ✅ VALIDÉ / INTÉGRÉ — 298/298
+M10    MCP STDIO                                ✅ VALIDÉ / INTÉGRÉ — 307/307
+M11    API HTTP                                 ✅ VALIDÉ / INTÉGRÉ — 314/314
+M12    MINOS optionnel                          ✅ VALIDÉ / INTÉGRÉ — 331/331
+M13    NEXUS optionnel                          ✅ VALIDÉ — 346/346
 ```
 
-Dernier jalon officiellement intégré : **M11**.  
-Dernier jalon officiellement validé : **M12**.
+M12 merge : `86dbb1d50e87ce354b7174156e9c8c5717722a17`.
 
-M11 merge :
-
-```text
-e30ed4095700b445fedc4517c22ff447c22238f4
-```
-
-M12 head exécuté :
-
-```text
-ca0073a875bcf28114a2945b141fc8c45f88930e
-```
-
-M12 gate :
-
-```text
-Domain             21/21 PASS
-Application        84/84 PASS
-OpenSpec           26/26 PASS
-Synthetic           7/7 PASS
-SQLite              7/7 PASS
-MINOS Integration   8/8 PASS
-MCP                 5/5 PASS
-API                 5/5 PASS
-CLI                15/15 PASS
-Architecture      153/153 PASS
--------------------------------
-TOTAL             331/331 PASS
-```
-
-Packaging M12 :
-
-```text
-MCP/API/MINOS adapter packaging proof: PASS
-Packaged standalone MINOS-optional smoke: PASS
-Packaged API health smoke: PASS
-Portable archive creation: PASS
-Windows ZIP: 33,587,925 bytes
-```
+M13 validation : [`docs/VALIDATION_M13.md`](docs/VALIDATION_M13.md).
 
 ## CLI
-
-Options globales :
-
-```text
---json
---data-dir PATH
---config-dir PATH
---db PATH
-```
 
 Commandes principales :
 
 ```text
-help
-version
-paths
-projects list
-projects add --workspace PATH
-sync --project ID [--revision REV]
-sync-status --project ID
-requirements find --project ID [--query TEXT]
-changes list --project ID
-changes get --project ID --change ID
-constraints list --project ID --change ID
-decisions list --project ID --change ID
-tasks list --project ID --change ID
-trace-requirement --project ID --requirement ID
-change-context --project ID --change ID
-analyze-change --project ID --change ID
-quality --project ID
+projects list | add
+sync / sync-status
+requirements find
+changes list | get
+constraints list
+decisions list
+tasks list
+trace-requirement
+change-context
+analyze-change
+quality
 ```
 
-M12 ajoute :
+M12 :
 
 ```text
 minos-status
-external-references list --project ID --owner ID
-external-references resolve --project ID --reference ID
+external-references list
+external-references resolve
 ```
 
-## MCP
+M13 :
 
-Lancement :
+```text
+nexus-status
+augmented-context requirement --project ID --requirement ID --nexus-project ID_OR_NAME [...]
+augmented-context change --project ID --change ID --nexus-project ID_OR_NAME [...]
+```
+
+Options M13 : `--budget`, `--source`, `--constraint key=value`, `--explain`.
+
+## MCP
 
 ```text
 morpheus mcp --stdio
 ```
 
-M10 : 14 tools read-only. M12 ajoute :
-
 ```text
-list_external_references
-resolve_external_reference
+M10 14 tools read-only
+M12 +2 external-reference tools
+M13 +2 augmented-context tools
+M13 = 18 tools read-only
 ```
 
-Soit **16 tools read-only** sur le serveur M12.
+M13 ajoute :
 
-Documentation : [`docs/MCP.md`](docs/MCP.md).
+```text
+get_augmented_requirement_context
+get_augmented_change_context
+```
+
+Voir [`docs/MCP.md`](docs/MCP.md).
 
 ## API HTTP
 
-Lancement :
-
 ```text
 morpheus api --host 127.0.0.1 --port 8765
+base = /api/v1
 ```
 
-Base : `/api/v1`.
-
-M12 ajoute :
+M13 ajoute :
 
 ```text
-GET /api/v1/integrations/minos/status
-GET /api/v1/projects/{projectId}/external-references?ownerId=...
-GET /api/v1/projects/{projectId}/external-references/{referenceId}/resolution
+GET  /api/v1/integrations/nexus/status
+POST /api/v1/projects/{projectId}/requirements/{requirementId}/augmented-context
+POST /api/v1/projects/{projectId}/changes/{changeId}/augmented-context
 ```
 
-Documentation : [`docs/API.md`](docs/API.md).
+Voir [`docs/API.md`](docs/API.md).
 
 ## MINOS optionnel — M12
-
-Architecture validée :
-
-```text
-MORPHEUS Java 21
-  -> MCP client STDIO
-  -> process MINOS Java 24
-```
-
-Aucune dépendance `com.minos.*` dans MORPHEUS.
-
-Coordonnée :
-
-```text
-system       = MINOS
-resourceType = SYMBOL
-project      = projet MINOS
-externalId   = symbolKey exact
-revision     = activeSnapshotId attendu, optionnel
-```
-
-Configuration :
 
 ```text
 MORPHEUS_MINOS_JAR
@@ -264,15 +166,35 @@ MORPHEUS_MINOS_HOME
 MORPHEUS_MINOS_TIMEOUT_SECONDS
 ```
 
-Sans configuration, `minos-status=DISABLED` et MORPHEUS reste totalement fonctionnel.
+Référence code : `system=MINOS`, `resourceType=SYMBOL`, `externalId=symbolKey exact`, révision optionnelle. Résolution live : `stored`, `observed`, `persisted=false`.
 
-La résolution live retourne `stored`, `observed`, `persisted=false` et ne réécrit jamais le snapshot publié.
+Voir [`docs/MINOS.md`](docs/MINOS.md).
 
-Documentation : [`docs/MINOS.md`](docs/MINOS.md).
+## NEXUS optionnel — M13
+
+```text
+MORPHEUS_NEXUS_JAR
+MORPHEUS_NEXUS_JAVA
+MORPHEUS_NEXUS_HOME
+MORPHEUS_NEXUS_TIMEOUT_SECONDS
+```
+
+Chaque appel fournit explicitement `nexusProject`. MORPHEUS construit seulement l'intention depuis l'ACTIVE ; NEXUS possède la sélection, le ranking, la fusion, la compression et le budget technique. Le `ContextBundle` est live et non persisté (`persisted=false`).
+
+Gate M13 :
+
+```text
+346/346 PASS
+Architecture 154/154 PASS
+NEXUS Integration 7/7 PASS
+API 7/7 PASS
+CLI 17/17 PASS
+Packaging Windows PASS
+```
+
+Voir [`docs/NEXUS.md`](docs/NEXUS.md).
 
 ## Distribution
-
-Artefacts :
 
 ```text
 morpheus-cli-<version>-all.jar
@@ -280,7 +202,17 @@ morpheus-<version>-windows-x64.zip
 morpheus-<version>-linux-x64.tar.gz
 ```
 
-Les archives embarquent leur runtime Java, MCP et API. M12 embarque le **client/adaptateur** MINOS, jamais MINOS lui-même.
+Les archives embarquent les adapters clients MINOS/NEXUS, jamais les moteurs eux-mêmes.
+
+M13 Windows validé :
+
+```text
+MCP/API/MINOS/NEXUS adapter packaging proof: PASS
+Packaged standalone optional-engines smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+ZIP 33,654,379 bytes
+```
 
 Scripts :
 
@@ -289,32 +221,16 @@ distribution/build-portable.ps1
 distribution/build-portable.sh
 distribution/build-windows-installer.ps1
 distribution/test-minos-compatibility.ps1
-```
-
-## Quick start
-
-```text
-morpheus projects add --workspace <workspace-openspec>
-morpheus sync --project <projectId>
-morpheus requirements find --project <projectId> --query session
-morpheus changes list --project <projectId>
-morpheus quality --project <projectId>
-```
-
-MCP client :
-
-```json
-{"command":"morpheus","args":["--db","/path/to/morpheus.db","mcp","--stdio"]}
+distribution/test-nexus-compatibility.ps1
 ```
 
 ## Références
 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- [`docs/VALIDATION_M12.md`](docs/VALIDATION_M12.md)
-- [`docs/roadmap/M12_EXECUTION.md`](docs/roadmap/M12_EXECUTION.md)
+- [`docs/VALIDATION_M13.md`](docs/VALIDATION_M13.md)
+- [`docs/roadmap/M13_EXECUTION.md`](docs/roadmap/M13_EXECUTION.md)
 - [`docs/MCP.md`](docs/MCP.md)
 - [`docs/API.md`](docs/API.md)
 - [`docs/MINOS.md`](docs/MINOS.md)
+- [`docs/NEXUS.md`](docs/NEXUS.md)
 - [`distribution/README.md`](distribution/README.md)
-
-**PR #62 porte M12 validé. Sa fusion reste soumise à une autorisation explicite distincte.**

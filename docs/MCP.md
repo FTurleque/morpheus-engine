@@ -1,6 +1,6 @@
-# MORPHEUS MCP — M10 + M12
+# MORPHEUS MCP — M10 + M12 + M13
 
-Statut : **M10 validé ; extensions M12 implémentées — gate M12 pending**
+Statut : **M10/M12/M13 validés**
 
 MORPHEUS expose un serveur Model Context Protocol natif sur STDIO pour IDE, agents et orchestrateurs locaux.
 
@@ -12,8 +12,6 @@ morpheus --db /path/to/morpheus.db mcp --stdio
 ```
 
 Stockage : même SQLite que CLI/API.
-
-Discipline :
 
 ```text
 stdout = protocole MCP JSON-RPC uniquement
@@ -53,87 +51,96 @@ read-only
 
 ## Extensions M12 — 2 tools read-only
 
-Le serveur porte additivement le catalogue à **16 tools** :
-
 ```text
 list_external_references
 resolve_external_reference
 ```
 
-Le catalogue M10 reste inchangé ; les deux specs M12 sont enregistrées séparément au bootstrap du serveur.
+Le serveur M12 porte le catalogue à **16 tools**. La résolution live retourne `stored`, `observed`, `persisted=false` et ne modifie jamais la référence persistée.
 
-### `list_external_references`
+MINOS reste optionnel. Sans resolver : observation `UNRESOLVED / NO_RESOLVER`, serveur MCP toujours fonctionnel.
 
-Input strict :
+## Extensions M13 — 2 tools read-only
 
-```json
-{"projectId":"<uuid>","ownerId":"<uuid>"}
+Le serveur M13 porte additivement le catalogue à **18 tools** :
+
+```text
+get_augmented_requirement_context
+get_augmented_change_context
 ```
 
-Retourne les références externes persistées pour le propriétaire dans le snapshot ACTIVE.
-
-### `resolve_external_reference`
+### `get_augmented_requirement_context`
 
 Input strict :
-
-```json
-{"projectId":"<uuid>","referenceId":"<uuid>"}
-```
-
-Effectue une observation live via `LiveExternalReferenceResolutionService`.
-
-Sortie conceptuelle :
 
 ```json
 {
-  "snapshotId":"...",
-  "stored":{"resolutionState":"UNVALIDATED"},
-  "observed":{"resolutionState":"RESOLVED"},
+  "projectId":"<morpheus-project-uuid>",
+  "requirementId":"<requirement-uuid>",
+  "nexusProject":"<nexus-name-or-uuid>",
+  "tokenBudget":2000,
+  "requestedSources":["FILE","SYMBOL","TEST"],
+  "constraints":{"language":"java"},
+  "explain":false
+}
+```
+
+MORPHEUS construit uniquement :
+
+```text
+Requirement: <key?> <title>
+Statement: <statement>
+```
+
+Puis délègue sélection/ranking/fusion/compression au `TechnicalContextProvider`.
+
+### `get_augmented_change_context`
+
+Input identique avec `changeId`. Le seed contient les faits du snapshot ACTIVE : change title/intent/scope, requirements affectés, contraintes, décisions et tâches.
+
+### Résultat M13
+
+```json
+{
+  "snapshot":{"id":"...","state":"ACTIVE"},
+  "intentContext":{"subjectType":"REQUIREMENT","query":"..."},
+  "technicalContext":{
+    "status":{"system":"NEXUS","state":"AVAILABLE"},
+    "bundle":{"tokenBudget":2000,"estimatedTokens":900,"items":[]}
+  },
   "persisted":false
 }
 ```
 
-La résolution ne modifie jamais la référence persistée dans le snapshot.
+Les scores, composants de score, raisons, exclusions et métadonnées du bundle sont des faits NEXUS ; MORPHEUS ne les reranke pas.
 
-## MINOS optionnel
-
-Le launcher injecte un `ExternalReferenceResolverRegistry` générique au serveur MCP.
+## NEXUS optionnel
 
 Sans configuration :
 
 ```text
-MINOS resolver absent
-resolve_external_reference -> observation UNRESOLVED / NO_RESOLVER
-MCP server -> reste entièrement fonctionnel
+NEXUS provider = DISABLED
+MORPHEUS intent context = disponible
+technical bundle = absent
+MCP server = entièrement fonctionnel
 ```
 
-Avec `MORPHEUS_MINOS_JAR` valide :
+Avec `MORPHEUS_NEXUS_JAR` valide :
 
 ```text
-resolve_external_reference
-  -> ExternalReferenceResolutionService
-  -> MinosMcpExternalReferenceResolver
-  -> MCP client STDIO
-  -> MINOS minos_index_status + minos_find_symbols
+get_augmented_*_context
+ -> AugmentedContextService
+ -> TechnicalContextProvider
+ -> NexusMcpContextGateway
+ -> MCP STDIO
+ -> NEXUS build_context | explain_context
 ```
 
-Le serveur MORPHEUS ne dépend d'aucun type `com.minos.*`.
-
-## Identité MINOS
-
-```text
-system       = MINOS
-resourceType = SYMBOL
-project      = obligatoire
-externalId   = exact symbolKey
-revision     = activeSnapshotId attendu, optionnel
-```
-
-La recherche MINOS peut être lexicale, mais seul un `symbolKey` exactement égal est résolu.
+MORPHEUS ne dépend d'aucun type `com.nexus.*`.
 
 ## JSON Schemas
 
-Inputs MCP :
+Tous les inputs MCP M10/M12/M13 :
 
 ```text
 type = object
@@ -141,13 +148,15 @@ additionalProperties = false
 required = explicite
 ```
 
-Bornes M10 conservées :
+Bornes :
 
 ```text
-limit          1..100
-depth          1..20
-maxAgeMinutes  1..525600
-offset         >= 0
+M10 limit          1..100
+M10 depth          1..20
+M10 maxAgeMinutes  1..525600
+M10 offset         >= 0
+M13 tokenBudget    1..100000
+M13 sources        FILE | SYMBOL | TEST | DOCUMENTATION | INSTRUCTION | SKILL | GIT
 ```
 
 ## Absence de write tools
@@ -161,26 +170,19 @@ PROMOTE
 ACTIVATE
 rollback
 persist external live resolution
+persist NEXUS ContextBundle
+index/rebuild NEXUS
 ```
 
-## Preuves M12 implémentées
+## Validation M13
 
 ```text
-vrai MINOS MCP STDIO fixture : initialize/list/call
-vrai MORPHEUS MCP STDIO : tools/list + list_external_references + resolve_external_reference
-standalone sans MINOS -> NO_RESOLVER non fatal
-SQLite reference inchangée
+MCP                         5/5 PASS
+MorpheusM13McpStdioIntegrationTest 1/1 PASS
+Architecture            154/154 PASS
+TOTAL                    346/346 PASS
 ```
 
-## Références
+Le vrai subprocess MORPHEUS MCP STDIO découvre les deux tools M13 sans NEXUS installé.
 
-- M10 : [`VALIDATION_M10.md`](VALIDATION_M10.md)
-- M12 : [`MINOS.md`](MINOS.md)
-- roadmap : [`roadmap/M12_EXECUTION.md`](roadmap/M12_EXECUTION.md)
-
-## Gate M12
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
-```
+Références : [`VALIDATION_M13.md`](VALIDATION_M13.md), [`NEXUS.md`](NEXUS.md), [`roadmap/M13_EXECUTION.md`](roadmap/M13_EXECUTION.md).

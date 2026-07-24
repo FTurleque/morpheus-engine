@@ -1,8 +1,8 @@
-# MORPHEUS API HTTP — M11 + M12
+# MORPHEUS API HTTP — M11 + M12 + M13
 
-Statut : **M11 validé ; extensions M12 implémentées — gate M12 pending**
+Statut : **M11/M12/M13 validés**
 
-MORPHEUS expose un service headless local via une API JSON versionnée. M12 ajoute la consultation et la résolution live des références externes MINOS sans modifier les contrats M11 existants.
+MORPHEUS expose un service headless local via une API JSON versionnée. M12 ajoute MINOS ; M13 ajoute l'augmentation live d'une intention MORPHEUS par un contexte technique NEXUS sous budget.
 
 ## Lancement
 
@@ -20,7 +20,7 @@ port = 8765
 base = /api/v1
 ```
 
-Le serveur utilise la même SQLite que CLI/MCP. Le bind par défaut est loopback.
+Même SQLite que CLI/MCP. Bind loopback par défaut.
 
 ## Architecture
 
@@ -31,12 +31,14 @@ Domain / Application
    │    │    │
   CLI  MCP  API
         ↑
- optional composition root -> MINOS adapter
+ generic optional ports
+   ├─ MINOS adapter
+   └─ NEXUS adapter
 ```
 
-`morpheus-api` ne dépend ni de CLI, ni de MCP, ni de `morpheus-integration-minos`. Il reçoit seulement des ports applicatifs génériques.
+`morpheus-api` ne dépend ni de CLI/MCP ni de `morpheus-integration-minos`/`morpheus-integration-nexus`.
 
-## Transport
+## Transport / enveloppes
 
 ```text
 JDK 21 jdk.httpserver
@@ -46,10 +48,6 @@ Content-Type: application/json; charset=utf-8
 Cache-Control: no-store
 X-Content-Type-Options: nosniff
 ```
-
-Aucun Spring, servlet container, Netty, Docker, GraphQL, SSE ou WebSocket n'est requis.
-
-## Enveloppes
 
 Succès :
 
@@ -65,59 +63,19 @@ Erreur :
 
 Codes : `200`, `201`, `400`, `404`, `405`, `409`, `415`, `500`.
 
-## Service
+## Surface M11 conservée
 
 ```text
 GET /api/v1/
 GET /api/v1/health
 GET /api/v1/version
-```
-
-## Projets / synchronisation
-
-```text
-GET  /api/v1/projects
-POST /api/v1/projects
-GET  /api/v1/projects/{projectId}
+GET|POST /api/v1/projects
+GET /api/v1/projects/{projectId}
 POST /api/v1/projects/{projectId}/sync
-GET  /api/v1/projects/{projectId}/sync-status
-```
-
-Enregistrement :
-
-```json
-{"workspace":"N:\\workspace-dev\\my-openspec-project"}
-```
-
-Le sync réutilise le pipeline M7/M9 et publie un **FULL_REBUILD conservateur**. Un échec avant activation conserve l'ancien ACTIVE.
-
-## Spécifications
-
-```text
-GET /api/v1/projects/{projectId}/specifications
-GET /api/v1/projects/{projectId}/specifications/{specificationId}
-GET /api/v1/projects/{projectId}/specifications/{specificationId}/context
-```
-
-Pagination : `offset >= 0`, `1 <= limit <= 100`.
-
-## Requirements
-
-```text
-GET /api/v1/projects/{projectId}/requirements
-GET /api/v1/projects/{projectId}/requirements/{requirementId}
-GET /api/v1/projects/{projectId}/requirements/{requirementId}/trace
-```
-
-Recherche : `query`, `offset`, `limit`. Trace : `depth=1..20`.
-
-Les queries ACTIVE n'exposent que `TemporalState.CURRENT`.
-
-## Changements
-
-```text
-GET /api/v1/projects/{projectId}/changes
-GET /api/v1/projects/{projectId}/changes/{changeId}
+GET /api/v1/projects/{projectId}/sync-status
+GET /api/v1/projects/{projectId}/specifications[/{specificationId}][/context]
+GET /api/v1/projects/{projectId}/requirements[/{requirementId}][/trace]
+GET /api/v1/projects/{projectId}/changes[/{changeId}]
 GET /api/v1/projects/{projectId}/changes/{changeId}/constraints
 GET /api/v1/projects/{projectId}/changes/{changeId}/acceptance-criteria
 GET /api/v1/projects/{projectId}/changes/{changeId}/design-decisions
@@ -125,65 +83,77 @@ GET /api/v1/projects/{projectId}/changes/{changeId}/implementation-tasks
 GET /api/v1/projects/{projectId}/changes/{changeId}/context
 GET /api/v1/projects/{projectId}/changes/{changeId}/status
 GET /api/v1/projects/{projectId}/changes/{changeId}/blocking-conditions
-```
-
-Invariants :
-
-```text
-Scenario != AcceptanceCriterion
-acceptance absente -> UNAVAILABLE_IN_NORMALIZED_MODEL + []
-lifecycle absent -> UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT
-```
-
-## Versions / historique
-
-```text
 GET /api/v1/projects/{projectId}/versions
 GET /api/v1/projects/{projectId}/versions/{snapshotId}/requirements
-GET /api/v1/projects/{projectId}/versions/compare?fromSnapshotId=...&toSnapshotId=...
-```
-
-Contrat M3 : `RETIRED* -> ACTIVE`, candidats non publiés invisibles, comparaison `ADDED/MODIFIED/REMOVED/UNCHANGED`.
-
-## Diagnostics
-
-```text
+GET /api/v1/projects/{projectId}/versions/compare
 GET /api/v1/projects/{projectId}/diagnostics
 ```
 
-Réutilise `QualityReportService` M6.
-
-# Extensions M12 — MINOS / références externes
-
-## Statut d'intégration
+## Extensions M12 — MINOS
 
 ```text
 GET /api/v1/integrations/minos/status
-```
-
-États possibles :
-
-```text
-DISABLED     aucune configuration MINOS
-INVALID      configuration invalide
-AVAILABLE    serveur MINOS MCP joignable et compatible
-UNAVAILABLE  configuré mais process/transport/tools indisponibles
-```
-
-L'appel status peut sonder MINOS ; le démarrage de l'API ne le fait pas.
-
-## Liste de références externes
-
-```text
 GET /api/v1/projects/{projectId}/external-references?ownerId=<domain-identity>
+GET /api/v1/projects/{projectId}/external-references/{referenceId}/resolution
 ```
 
-Retourne les `ExternalReference` persistées dans le snapshot ACTIVE pour le propriétaire demandé.
+La résolution live retourne `stored`, `observed`, `persisted=false` et ne réécrit jamais la référence du snapshot publié.
 
-## Résolution live
+## Extensions M13 — NEXUS / contexte augmenté
+
+### Statut
 
 ```text
-GET /api/v1/projects/{projectId}/external-references/{referenceId}/resolution
+GET /api/v1/integrations/nexus/status
+```
+
+États : `DISABLED`, `INVALID`, `AVAILABLE`, `UNAVAILABLE`.
+
+Le bootstrap HTTP ne lance pas NEXUS.
+
+### Requirement augmenté
+
+```text
+POST /api/v1/projects/{projectId}/requirements/{requirementId}/augmented-context
+```
+
+### Change augmenté
+
+```text
+POST /api/v1/projects/{projectId}/changes/{changeId}/augmented-context
+```
+
+Body strict commun :
+
+```json
+{
+  "nexusProject":"morpheus-engine",
+  "tokenBudget":2000,
+  "requestedSources":["FILE","SYMBOL","TEST","DOCUMENTATION"],
+  "constraints":{"language":"java"},
+  "explain":false
+}
+```
+
+Required : `nexusProject`.
+
+```text
+tokenBudget = 2000 par défaut, borne 1..100000
+requestedSources = [] par défaut
+constraints = {} par défaut
+explain = false par défaut
+sources = FILE|SYMBOL|TEST|DOCUMENTATION|INSTRUCTION|SKILL|GIT
+```
+
+## Sémantique
+
+```text
+ACTIVE snapshot
+ -> MORPHEUS deterministic intent seed
+ -> NEXUS build_context | explain_context
+ -> augmented response
+ -X-> KnowledgeSnapshot mutation
+ -X-> ContextBundle persistence
 ```
 
 Réponse conceptuelle :
@@ -192,42 +162,24 @@ Réponse conceptuelle :
 {
   "apiVersion":"v1",
   "data":{
-    "snapshotId":"...",
-    "stored":{"resolutionState":"UNVALIDATED"},
-    "observed":{"resolutionState":"RESOLVED"},
+    "snapshot":{"id":"...","state":"ACTIVE"},
+    "intentContext":{"subjectType":"CHANGE","query":"..."},
+    "technicalContext":{
+      "status":{"system":"NEXUS","state":"AVAILABLE"},
+      "bundle":{"tokenBudget":2000,"estimatedTokens":950,"items":[]}
+    },
     "persisted":false
   }
 }
 ```
 
-Invariant M12 : **l'observation live ne réécrit jamais la référence du snapshot publié**.
+MORPHEUS ne reranke, ne fusionne et ne retronque pas le bundle technique. Scores, raisons, exclusions et métadonnées restent attribués à NEXUS.
 
-Sans MINOS configuré :
-
-```text
-stored   = référence persistée
-observed = UNRESOLVED / NO_RESOLVER
-persisted = false
-HTTP = 200
-```
-
-## Coordonnée MINOS
-
-```text
-system       = MINOS
-resourceType = SYMBOL
-project      = projet MINOS obligatoire
-externalId   = symbolKey MINOS exact
-revision     = activeSnapshotId attendu, optionnel
-```
-
-Le resolver filtre les résultats de `minos_find_symbols` par égalité exacte de `symbolKey`. Aucun fuzzy matching n'est accepté.
-
-Si `revision` est fournie et diffère de `minos_index_status.activeSnapshotId`, l'observation retourne `TARGET_REVISION_MISMATCH`.
+Sans NEXUS configuré, le même endpoint retourne l'intention MORPHEUS avec `technicalContext.status.state=DISABLED`, bundle absent et HTTP `200`.
 
 ## JSON d'entrée
 
-Les POST avec body exigent :
+Tous les POST avec body exigent :
 
 ```text
 Content-Type application/json
@@ -237,11 +189,9 @@ aucun champ inconnu
 aucun token JSON supplémentaire
 ```
 
-Les query params inconnus sont rejetés.
-
 ## Frontières d'écriture
 
-Mutations opérationnelles autorisées :
+Mutations opérationnelles HTTP autorisées :
 
 ```text
 register project
@@ -256,24 +206,24 @@ PROMOTE
 ACTIVATE direct
 rollback mutation
 write requirement/change
-write external-reference resolution
+persist external-reference resolution
+persist NEXUS ContextBundle
+NEXUS project add/index/rebuild
 ```
 
-## OpenAPI
+## Validation M13
 
-Contrat machine-readable : [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml).
+Head testé : `a44e8938bfa03e8b8a1039c8271a8865b871ed7d`.
 
-## Références
-
-- M11 : [`VALIDATION_M11.md`](VALIDATION_M11.md)
-- M12 MINOS : [`MINOS.md`](MINOS.md)
-- roadmap M12 : [`roadmap/M12_EXECUTION.md`](roadmap/M12_EXECUTION.md)
-
-## Gate M12
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
+```text
+API                          7/7 PASS
+MorpheusAugmentedContextApiContractTest 2/2 PASS
+TOTAL                    346/346 PASS
+Packaged API health smoke    PASS
 ```
 
-Le packaging M12 doit prouver que l'adapter client MINOS est présent, qu'aucune classe `com/minos/*` n'est embarquée, et que MORPHEUS reste fonctionnel avec MINOS `DISABLED`.
+Le premier gate a révélé un UUID brut dans la projection du snapshot ; `AugmentedSnapshotView` fournit désormais une représentation JSON stable et le second gate complet est vert.
+
+OpenAPI : [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml).  
+Validation : [`VALIDATION_M13.md`](VALIDATION_M13.md).  
+NEXUS : [`NEXUS.md`](NEXUS.md).

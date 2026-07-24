@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dist = Join-Path $repo $OutputDirectory
-$work = Join-Path $dist ".m12-windows"
+$work = Join-Path $dist ".m13-windows"
 $input = Join-Path $work "input"
 $appImageRoot = Join-Path $work "image"
 
@@ -81,7 +81,7 @@ function Test-PackagedApiHealth {
     }
 }
 
-Write-Host "Building MORPHEUS CLI + MCP + API + optional MINOS adapter uber-JAR..."
+Write-Host "Building MORPHEUS CLI + MCP + API + optional MINOS/NEXUS adapters uber-JAR..."
 & $mvnw -pl morpheus-cli -am -DskipTests package
 if ($LASTEXITCODE -ne 0) { throw "Maven package failed with exit code $LASTEXITCODE" }
 
@@ -89,7 +89,7 @@ $jar = Get-ChildItem (Join-Path $repo "morpheus-cli\target") -Filter "morpheus-c
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($null -eq $jar) { throw "Shaded MORPHEUS CLI JAR not found" }
 
-Write-Host "Verifying MCP/API/MINOS-adapter classes are embedded in the shaded JAR..."
+Write-Host "Verifying MCP/API/MINOS/NEXUS adapter classes are embedded in the shaded JAR..."
 $jarEntries = & $jarTool tf $jar.FullName
 if ($LASTEXITCODE -ne 0) { throw "Unable to inspect shaded JAR" }
 $requiredEntries = @(
@@ -101,14 +101,19 @@ $requiredEntries = @(
     "com/morpheus/integration/minos/MinosMcpExternalReferenceResolver.class",
     "com/morpheus/integration/minos/MinosMcpCodeGateway.class",
     "com/morpheus/integration/minos/MinosIntegrationRuntime.class",
+    "com/morpheus/integration/nexus/NexusMcpContextGateway.class",
+    "com/morpheus/integration/nexus/NexusMcpTechnicalContextProvider.class",
+    "com/morpheus/integration/nexus/NexusIntegrationRuntime.class",
     "tools/jackson/databind/json/JsonMapper.class"
 )
 foreach ($entry in $requiredEntries) {
-    if ($jarEntries -notcontains $entry) { throw "M12 packaging proof failed; shaded JAR is missing $entry" }
+    if ($jarEntries -notcontains $entry) { throw "M13 packaging proof failed; shaded JAR is missing $entry" }
 }
 $embeddedMinosDomain = $jarEntries | Where-Object { $_ -like "com/minos/*" }
-if ($embeddedMinosDomain) { throw "M12 packaging proof failed; MINOS implementation classes must not be embedded: $($embeddedMinosDomain | Select-Object -First 5)" }
-Write-Host "MCP/API/MINOS adapter packaging proof: PASS"
+if ($embeddedMinosDomain) { throw "M13 packaging proof failed; MINOS implementation classes must not be embedded: $($embeddedMinosDomain | Select-Object -First 5)" }
+$embeddedNexusDomain = $jarEntries | Where-Object { $_ -like "com/nexus/*" }
+if ($embeddedNexusDomain) { throw "M13 packaging proof failed; NEXUS implementation classes must not be embedded: $($embeddedNexusDomain | Select-Object -First 5)" }
+Write-Host "MCP/API/MINOS/NEXUS adapter packaging proof: PASS"
 
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item $input -ItemType Directory -Force | Out-Null
@@ -125,7 +130,7 @@ if ($LASTEXITCODE -ne 0) { throw "jpackage app-image failed with exit code $LAST
 $launcher = Join-Path $appImageRoot "morpheus\morpheus.exe"
 if (-not (Test-Path $launcher)) { throw "Packaged launcher not found: $launcher" }
 
-Write-Host "Smoke testing packaged launcher without MINOS configuration..."
+Write-Host "Smoke testing packaged launcher without MINOS/NEXUS configuration..."
 & $launcher --version
 if ($LASTEXITCODE -ne 0) { throw "Packaged launcher --version smoke test failed with exit code $LASTEXITCODE" }
 $jsonVersion = & $launcher --json version
@@ -137,7 +142,13 @@ if ($LASTEXITCODE -ne 0 -or $minosStatus -notmatch '"state":"DISABLED"') {
     throw "Packaged standalone MINOS status smoke failed: $minosStatus"
 }
 Write-Host $minosStatus
-Write-Host "Packaged standalone MINOS-optional smoke: PASS"
+
+$nexusStatus = & $launcher --json nexus-status
+if ($LASTEXITCODE -ne 0 -or $nexusStatus -notmatch '"state":"DISABLED"') {
+    throw "Packaged standalone NEXUS status smoke failed: $nexusStatus"
+}
+Write-Host $nexusStatus
+Write-Host "Packaged standalone optional-engines smoke: PASS"
 
 Test-PackagedApiHealth -Launcher $launcher -WorkDirectory $work
 
@@ -147,4 +158,4 @@ Compress-PortableArchiveWithRetry -SourceDirectory (Join-Path $appImageRoot "mor
 if (-not (Test-Path $archive)) { throw "Portable Windows archive is missing after archive creation: $archive" }
 
 Write-Host "Portable Windows distribution: $archive"
-Write-Host "The archive contains MORPHEUS, its Java runtime, MCP/API and the optional MINOS client adapter; MINOS itself is not embedded or required."
+Write-Host "The archive contains MORPHEUS, its Java runtime, MCP/API and optional MINOS/NEXUS client adapters; MINOS and NEXUS themselves are not embedded or required."
