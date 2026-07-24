@@ -1,6 +1,6 @@
 # ADR-0061 — Distribution portable autonome via JAR ombré et jpackage app-image
 
-- Statut : **Proposée — M9, preuves Windows/Linux pending**
+- Statut : **Proposée — preuve Windows PASS, preuve Linux pending**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0016, ADR-0017, ADR-0027, ADR-0059
 - Portée : M9 — packaging et runtime local
@@ -47,7 +47,7 @@ application JAR
 runtime Java embarqué
 ```
 
-Chaque build exécute ensuite le launcher packagé avec `--version` avant archivage.
+Chaque build exécute ensuite le launcher packagé avec `--version` et `--json version` avant archivage.
 
 ### Archives
 
@@ -68,7 +68,7 @@ jpackage --type exe --app-image ...
 
 Sur JDK 21, la création d'un installateur Windows nécessite WiX sur la machine de packaging. Cette dépendance concerne le **build de l'installateur**, pas l'exécution par l'utilisateur final.
 
-L'absence de WiX ne bloque pas l'archive portable M9.
+L'absence de WiX ne bloque pas l'archive portable M9. Le script détecte désormais cette absence avant d'appeler `jpackage` et termine par un skip explicite.
 
 ## Linux
 
@@ -95,6 +95,36 @@ maven-shade-plugin 3.6.2
 ```
 
 Ces versions sont compatibles avec la baseline Maven/JDK du projet et sont vérifiées dans la documentation officielle Apache Maven au moment de M9.
+
+## Preuve Windows intermédiaire — 24 juillet 2026
+
+```text
+clean test                      298/298 PASS
+Architecture Tests             149/149 PASS
+uber-JAR                        BUILD SUCCESS
+jpackage app-image             PASS
+morpheus.exe --version         PASS
+morpheus.exe --json version    PASS
+Windows ZIP                    PASS
+runtime Java embarqué          PASS
+WiX                            absent
+installateur EXE optionnel     SKIPPED proprement
+```
+
+Artefact observé :
+
+```text
+dist/morpheus-0.1.0-windows-x64.zip
+```
+
+Sorties smoke :
+
+```text
+MORPHEUS 0.1.0-SNAPSHOT
+{"version":"0.1.0-SNAPSHOT"}
+```
+
+La preuve Linux `app-image + tar.gz + smoke` reste nécessaire avant acceptation de cette ADR.
 
 ## Critères d'acceptation
 
