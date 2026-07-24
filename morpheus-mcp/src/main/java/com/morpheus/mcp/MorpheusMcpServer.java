@@ -1,5 +1,7 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.context.DisabledTechnicalContextProvider;
+import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.store.KnowledgeStoreException;
 import io.modelcontextprotocol.json.McpJsonDefaults;
@@ -23,12 +25,20 @@ public final class MorpheusMcpServer {
     }
 
     public static McpSyncServer build(Path databasePath) {
-        return build(databasePath, new ExternalReferenceResolverRegistry(List.of()));
+        return build(databasePath, new ExternalReferenceResolverRegistry(List.of()), disabledNexus());
     }
 
     public static McpSyncServer build(Path databasePath, ExternalReferenceResolverRegistry resolverRegistry) {
+        return build(databasePath, resolverRegistry, disabledNexus());
+    }
+
+    public static McpSyncServer build(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
+        Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
         MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath);
         StdioServerTransportProvider transport = new StdioServerTransportProvider(McpJsonDefaults.getMapper());
@@ -46,15 +56,26 @@ public final class MorpheusMcpServer {
                 : new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications()) {
             server.addTool(specification);
         }
+        for (McpServerFeatures.SyncToolSpecification specification
+                : new MorpheusAugmentedContextMcpTools(databasePath, technicalContextProvider).specifications()) {
+            server.addTool(specification);
+        }
         return server;
     }
 
     public static int run(Path databasePath) {
-        return run(databasePath, new ExternalReferenceResolverRegistry(List.of()));
+        return run(databasePath, new ExternalReferenceResolverRegistry(List.of()), disabledNexus());
     }
 
     public static int run(Path databasePath, ExternalReferenceResolverRegistry resolverRegistry) {
-        McpSyncServer server = build(databasePath, resolverRegistry);
+        return run(databasePath, resolverRegistry, disabledNexus());
+    }
+
+    public static int run(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider) {
+        McpSyncServer server = build(databasePath, resolverRegistry, technicalContextProvider);
         try {
             Thread.currentThread().join();
             return 0;
@@ -93,6 +114,10 @@ public final class MorpheusMcpServer {
                     .isError(true)
                     .build();
         }
+    }
+
+    private static TechnicalContextProvider disabledNexus() {
+        return new DisabledTechnicalContextProvider("NEXUS", "NEXUS integration is not configured");
     }
 
     private static String safeMessage(RuntimeException failure) {
