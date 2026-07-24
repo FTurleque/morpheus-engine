@@ -1,11 +1,11 @@
 # ADR-0080 — Surfaces d'orchestration et client JARVIS optionnel
 
-- Statut : **Proposée — M14 gate pending**
+- Statut : **Acceptée — M14**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0059, ADR-0063, ADR-0066, ADR-0077, ADR-0078, ADR-0079
 - Portée : M14 — CLI/MCP/HTTP et preuve cross-repo
 
-## Décision proposée
+## Décision
 
 MORPHEUS expose le même use case d'orchestration via trois adapters.
 
@@ -44,6 +44,8 @@ Le dépôt `FTurleque/jarvis` reçoit un client HTTP optionnel qui :
 - échoue ouvert lorsque MORPHEUS est désactivé ou indisponible.
 ```
 
+Les raisons d'abandon observation/source/cible sont transmises explicitement et séparément.
+
 Aucune dépendance Maven entre les deux dépôts.
 
 ## Sécurité de la frontière
@@ -57,6 +59,19 @@ JARVIS orchestration = choix de la prochaine action
 ## Packaging
 
 Aucun runtime JARVIS n'est embarqué dans MORPHEUS. Aucun runtime MORPHEUS n'est embarqué dans JARVIS.
+
+## Preuve d'acceptation
+
+```text
+MORPHEUS 357/357 PASS
+Architecture 160/160 PASS
+Packaging Windows PASS — 33,702,405 bytes
+MCP catalogue 20 tools read-only
+JARVIS jarvis-core: 536 tests, 0 failure, 0 error, 16 skipped
+MorpheusOrchestrationClientTest 6/6 PASS
+```
+
+Validation : `docs/VALIDATION_M14.md`.
 
 ## Critères d'acceptation
 
