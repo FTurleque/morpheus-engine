@@ -1,12 +1,10 @@
 package com.morpheus.application.context;
 
-import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
-
 import java.util.Objects;
 
 /** Live composition result: MORPHEUS intent plus an optional external technical-context observation. */
 public record AugmentedContextResult(
-        KnowledgeSnapshotMetadata snapshot,
+        AugmentedSnapshotView snapshot,
         MorpheusIntentContext intentContext,
         TechnicalContextObservation technicalContext,
         boolean persisted) {
