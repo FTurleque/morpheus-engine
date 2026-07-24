@@ -1,6 +1,6 @@
 # M10 — Plan d'exécution détaillé
 
-Statut : **EN COURS — implémentation MCP**
+Statut : **M10 FONCTIONNELLEMENT COMPLET — gate local et packaging pending**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -13,27 +13,40 @@ M9 gate  = Windows 298/298 + Linux 298/298 PASS
 ```
 
 Issue : **#57 — M10 — Serveur MCP stdio natif**  
-Branche : `m10/mcp-server`
+Branche : `m10/mcp-server`  
+PR : **#58 — M10 — Serveur MCP stdio natif** (draft jusqu'au gate)
 
 ## Question de sortie
 
 > **MORPHEUS peut-il exposer ses capacités de lecture d'intention/specification à des agents via un serveur MCP local stdio natif, avec des tools déterministes, des JSON Schemas stricts, des erreurs explicites et aucune logique métier essentielle dans les handlers MCP, tout en restant utilisable sans serveur HTTP, Docker, MINOS, NEXUS ou JARVIS ?**
 
-Réponse actuelle : **implémentation en cours ; gate pending**.
+Réponse actuelle : **implémentation OUI ; preuve exécutable finale pending**.
 
-## M10-S1 — SDK et transport
+## M10-S1 — SDK et transport ✅ implémenté
 
-Décision candidate : Java MCP SDK officiel `2.0.0`, transport STDIO natif.
+SDK : Java MCP SDK officiel `2.0.0`, via BOM Maven.
+
+```text
+io.modelcontextprotocol.sdk:mcp-bom:2.0.0
+io.modelcontextprotocol.sdk:mcp
+```
+
+Transport :
 
 ```text
 morpheus mcp --stdio
+McpServer.sync
+StdioServerTransportProvider
+validateToolInputs=true
 stdout = protocole MCP uniquement
-stderr = diagnostics runtime uniquement
+stderr = diagnostics launcher/runtime uniquement
 HTTP = hors périmètre M10
 Docker = non requis
 ```
 
-## M10-S2 — Catalogue de tools
+Module : `morpheus-mcp`.
+
+## M10-S2 — Catalogue de tools ✅ implémenté
 
 Catalogue M10 exact :
 
@@ -54,11 +67,20 @@ get_blocking_conditions
 get_sync_status
 ```
 
-Tous les tools M10 sont **read-only**.
+Tous les tools M10 sont **read-only**. Aucun tool de mutation, sync, apply, promote ou activate n'est exposé.
 
-## M10-S3 — Sémantique stricte
+Implémentation :
 
-Les handlers MCP ne doivent pas recréer les règles métier. Ils valident les arguments, appellent les services/ports MORPHEUS existants puis traduisent le résultat en réponse MCP.
+```text
+MorpheusMcpToolCatalog
+MorpheusMcpToolService
+MorpheusMcpRuntime
+MorpheusMcpServer
+```
+
+## M10-S3 — Sémantique stricte ✅ implémenté
+
+Les handlers MCP ne recréent pas les règles métier. Ils valident les arguments, appellent les services/ports MORPHEUS existants puis traduisent le résultat en réponse MCP.
 
 Invariants :
 
@@ -71,74 +93,186 @@ SQLite state shared with CLI
 no promotion / activation / write tool
 ```
 
-`get_acceptance_criteria` doit exposer explicitement `UNAVAILABLE_IN_NORMALIZED_MODEL` lorsque la source ne fournit pas cette sémantique.
+`get_acceptance_criteria` vérifie l'existence du changement puis retourne explicitement :
 
-`get_change_status` doit exposer explicitement l'absence de lifecycle persisté au lieu d'inférer un état.
+```text
+status = UNAVAILABLE_IN_NORMALIZED_MODEL
+criteria = []
+```
 
-## M10-S4 — Schemas MCP
+`get_change_status` retourne explicitement :
+
+```text
+status = UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT
+lifecycleState = UNAVAILABLE
+observableFacts = tri-state facts M6
+```
+
+`get_blocking_conditions` réutilise `ChangeCompletenessService` et conserve séparément `unavailableFacts`.
+
+## M10-S4 — Schemas MCP ✅ implémenté
 
 Chaque tool possède un JSON Schema d'entrée strict :
 
-- `additionalProperties=false` ;
-- identifiants requis selon le tool ;
-- pagination bornée ;
-- profondeur bornée `1..20` ;
-- max-age borné ;
-- validation SDK active avant handler.
+```text
+type = object
+additionalProperties = false
+required = explicite
+limit = 1..100
+depth = 1..20
+maxAgeMinutes = 1..525600
+offset >= 0
+```
 
-## M10-S5 — Requêtes agent-friendly
+La validation SDK est active avant handler. Le service applique les mêmes bornes en défense en profondeur.
 
-Les résultats conservent les identités, snapshot IDs, provenance utile et warnings existants. Les vues complexes M5/M6/M8 restent réutilisées plutôt que dupliquées.
+## M10-S5 — Requêtes agent-friendly ✅ implémenté
 
-`get_specification_context` agrège uniquement des faits du snapshot ACTIVE : spécifications, requirements CURRENT, changements et scénarios associés.
+Les tools réutilisent les services existants :
 
-`get_blocking_conditions` expose des findings de qualité déterministes existants pour le changement et signale séparément toute information lifecycle indisponible.
+```text
+RequirementQueryService
+BusinessContentQueryService
+TraceRequirementQueryService
+ChangeContextQueryService
+ChangeCompletenessService
+SyncFreshnessService
+CompactQueryViewService
+CanonicalJsonSerializer
+```
 
-## M10-S6 — Launcher / distribution
+Nouvelle agrégation applicative :
 
-Le launcher natif M9 devient le point d'entrée commun :
+```text
+SpecificationContextQueryService
+SpecificationContextResult
+```
+
+`get_specification_context` agrège uniquement des faits du snapshot ACTIVE :
+
+```text
+Specification
+CURRENT Requirements paginés
+Scenarios explicitement rattachés aux requirements de la page
+Changes uniquement par AFFECTS persisté vers les requirements de la specification
+```
+
+Aucun lien n'est synthétisé.
+
+## M10-S6 — Launcher / distribution ✅ implémenté
+
+Le launcher natif M9 est le point d'entrée commun :
 
 ```text
 morpheus <CLI command>
 morpheus mcp --stdio
 ```
 
-Les archives Windows/Linux doivent continuer à embarquer le runtime Java et désormais les dépendances MCP nécessaires dans l'uber-JAR.
+`McpLaunchOptions` réutilise `CliLayout` et les priorités M9 :
 
-## M10-S7 — Tests
+```text
+CLI option > MORPHEUS_* > default OS
+```
 
-Preuves minimales :
+`--json` est interdit en mode MCP car stdout appartient au protocole.
+
+Le help du launcher officiel documente `mcp --stdio`.
+
+Le module CLI dépend de `morpheus-mcp`, donc le shaded JAR et les app-images embarquent le serveur. Les scripts de distribution vérifient avant `jpackage` :
+
+```text
+com/morpheus/mcp/MorpheusMcpServer.class
+io/modelcontextprotocol/server/McpServer.class
+io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class
+```
+
+Workdirs :
+
+```text
+Windows -> dist/.m10-windows
+Linux   -> dist/.m10-linux
+```
+
+L'installateur Windows optionnel est aligné sur l'app-image M10.
+
+## M10-S7 — Tests ✅ implémentés, exécution finale pending
+
+Tests ajoutés :
 
 ```text
 MorpheusMcpToolCatalogTest
 MorpheusMcpToolServiceTest
 MorpheusMcpServerContractTest
-MorpheusMain MCP routing test
-Architecture dependency test
+MorpheusMcpStdioIntegrationTest
+MorpheusMainTest étendu
+LayerDependencyTest étendu
 ```
 
-Le gate final doit également inclure un échange MCP STDIO réel :
+`MorpheusMcpToolServiceTest` publie un fixture complet en SQLite et appelle les 14 tools.
+
+Le test STDIO lance un vrai processus Java et couvre :
 
 ```text
 initialize
 notifications/initialized
 tools/list
-tools/call
+tools/call get_sync_status
+trace_requirement depth=99 -> rejet schema avant handler
 ```
 
-Un argument hors schema (ex. `depth=99`) doit être rejeté avant exécution du handler.
+Les tests d'architecture interdisent désormais explicitement :
 
-## M10-S8 — Gate final
+```text
+com.morpheus.domain      -> com.morpheus.mcp
+com.morpheus.application -> com.morpheus.mcp
+```
 
-Gate local obligatoire :
+## M10-S8 — Documentation ✅ implémentée
+
+```text
+docs/MCP.md
+docs/roadmap/M10_EXECUTION.md
+docs/adr/0062-official-java-mcp-sdk-and-native-stdio.md
+docs/adr/0063-read-only-mcp-tool-contract.md
+docs/adr/0064-native-launcher-mcp-routing.md
+```
+
+## M10-S9 — Gate final ⏳ PENDING
+
+Gate local obligatoire, source de vérité :
 
 ```powershell
+cd N:\workspace-dev\morpheus-engine
+git fetch origin
+git switch m10/mcp-server
+git pull --ff-only
 .\mvnw.cmd clean test
 ```
 
-Puis smoke MCP sur le launcher packagé ou le JAR ombré.
+Puis preuve distribution :
 
-M10 ne sera marqué VALIDÉ qu'après preuve reproductible. Les ADR M10 restent Proposées jusque-là.
+```powershell
+.\distribution\build-portable.ps1
+```
+
+Preuves attendues :
+
+```text
+Maven BUILD SUCCESS
+anciens tests M0-M9 toujours verts
+nouveaux tests MCP verts
+handshake STDIO réel vert
+schema rejection vert
+MCP packaging proof PASS
+jpackage app-image PASS
+launcher --version PASS
+launcher --json version PASS
+Windows ZIP produit
+```
+
+GitHub Actions M10 reste volontairement `workflow_dispatch` et optionnel.
+
+M10 ne sera marqué **VALIDÉ** qu'après cette preuve reproductible. `VALIDATION_M10.md` ne sera créé qu'après le gate.
 
 ## ADR M10
 
@@ -147,6 +281,8 @@ ADR-0062 — Proposée — Java MCP SDK officiel + STDIO natif
 ADR-0063 — Proposée — catalogue MCP read-only et sémantique explicite
 ADR-0064 — Proposée — intégration au launcher natif et stdout protocol-clean
 ```
+
+Les trois ADR restent **Proposées** tant que le gate n'est pas fourni.
 
 ## Hors périmètre M10
 
@@ -162,3 +298,7 @@ code intelligence MINOS
 context ranking/compression NEXUS
 orchestration JARVIS
 ```
+
+## Décision de sortie actuelle
+
+**M10 est fonctionnellement complet mais non validé.** La dernière porte est le gate local Maven + packaging portable. La PR #58 reste draft et non fusionnée.
