@@ -88,6 +88,10 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0070](0070-exact-minos-symbol-reference-and-revision.md) | `symbolKey` exact + révision MINOS | **Acceptée — M12** |
 | [ADR-0071](0071-live-external-resolution-without-snapshot-mutation.md) | Résolution live sans mutation de snapshot | **Acceptée — M12** |
 | [ADR-0072](0072-optional-minos-runtime-configuration-and-surfaces.md) | Runtime/surfaces MINOS optionnels | **Acceptée — M12** |
+| [ADR-0073](0073-nexus-mcp-stdio-integration.md) | NEXUS via MCP STDIO inter-processus | **Proposée — M13 gate pending** |
+| [ADR-0074](0074-explicit-nexus-project-mapping.md) | Mapping projet NEXUS explicite | **Proposée — M13 gate pending** |
+| [ADR-0075](0075-morpheus-intent-vs-nexus-technical-context.md) | Intention MORPHEUS distincte du contexte technique NEXUS | **Proposée — M13 gate pending** |
+| [ADR-0076](0076-optional-nexus-runtime-and-surfaces.md) | Runtime/surfaces NEXUS optionnels | **Proposée — M13 gate pending** |
 
 # Preuves par jalon
 
@@ -103,6 +107,7 @@ M9  298/298 PASS Windows + Linux | Architecture 149/149
 M10 307/307 PASS Windows | Architecture 149/149 | MCP STDIO + packaging
 M11 314/314 PASS Windows | Architecture 150/150 | API health packaging
 M12 331/331 PASS Windows | Architecture 153/153 | MINOS optional packaging
+M13 projection 346 tests | Architecture 154 | proof pending
 ```
 
 ## M12
@@ -115,8 +120,19 @@ M12 331/331 PASS Windows | Architecture 153/153 | MINOS optional packaging
 | config + CLI/MCP/API + packaging | ADR-0072 | CLI `15/15`, API `5/5`, MCP `5/5`, packaging/smokes PASS |
 
 Validation : [`../VALIDATION_M12.md`](../VALIDATION_M12.md).  
-Vue : [`../roadmap/M12_EXECUTION.md`](../roadmap/M12_EXECUTION.md).  
 Documentation : [`../MINOS.md`](../MINOS.md).
+
+## M13 — preuves implémentées, exécution pending
+
+| Incrément | ADR | Preuve prévue |
+|---|---|---|
+| MCP NEXUS inter-processus | ADR-0073 | `NexusMcpTransportIntegrationTest`, required-tool check |
+| mapping projet explicite | ADR-0074 | `TechnicalContextOptionsTest`, pass-through provider/API |
+| intent / contexte technique séparés | ADR-0075 | `AugmentedContextService`, API Requirement/Change, `persisted=false` |
+| optionalité + surfaces + packaging | ADR-0076 | settings, CLI, MORPHEUS MCP STDIO, HTTP, package smokes |
+
+Vue : [`../roadmap/M13_EXECUTION.md`](../roadmap/M13_EXECUTION.md).  
+Documentation : [`../NEXUS.md`](../NEXUS.md).
 
 # Contraintes actives principales
 
@@ -126,6 +142,7 @@ Documentation : [`../MINOS.md`](../MINOS.md).
 domain/application -X-> provider/store/cli/mcp/api/integration
 API -X-> CLI/MCP/integration
 MINOS integration -X-> CLI/MCP/API/store/com.minos.*
+NEXUS integration -X-> CLI/MCP/API/store/com.nexus.*
 CLI = composition root
 business rules = application/domain
 ```
@@ -141,6 +158,7 @@ PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 live external observation != persisted snapshot mutation
+NEXUS ContextBundle != KnowledgeSnapshot persistence
 ```
 
 ## Qualité / analyse
@@ -152,6 +170,7 @@ Scenario != AcceptanceCriterion
 absence de lien != lien inventé
 lifecycle non inféré depuis snapshot
 code impact analysis = MINOS
+technical context ranking/compression = NEXUS
 ```
 
 ## Build
@@ -172,6 +191,8 @@ TOTAL         331/331 PASS
 Architecture  153/153 PASS
 Packaging     PASS
 ```
+
+M13 reste une projection : `346 tests`, architecture `154`, packaging pending.
 
 # Principe de validation
 
