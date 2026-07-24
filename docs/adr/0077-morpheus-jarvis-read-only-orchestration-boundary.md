@@ -1,6 +1,6 @@
 # ADR-0077 — Frontière d'orchestration read-only MORPHEUS / JARVIS
 
-- Statut : **Proposée — M14 gate pending**
+- Statut : **Acceptée — M14**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0007, ADR-0032, ADR-0063, ADR-0066
 - Portée : M14 — responsabilité cross-engine
@@ -11,7 +11,7 @@ MORPHEUS connaît l'intention, les règles lifecycle, les contraintes et la qual
 
 Copier la machine d'état MORPHEUS dans JARVIS créerait deux sources de vérité. Faire appeler JARVIS depuis MORPHEUS inverserait les responsabilités.
 
-## Décision proposée
+## Décision
 
 ```text
 MORPHEUS = facts + lifecycle rules + transition decisions
@@ -32,6 +32,18 @@ MORPHEUS déclenche JARVIS
 MORPHEUS écrit le lifecycle provider
 JARVIS recode la machine d'état MORPHEUS
 ```
+
+## Preuve d'acceptation
+
+```text
+MORPHEUS 357/357 PASS
+Architecture 160/160 PASS
+Packaging Windows PASS
+JARVIS jarvis-core 536 tests, 0 failure, 0 error
+MorpheusOrchestrationClientTest 6/6 PASS
+```
+
+Validation : `docs/VALIDATION_M14.md`.
 
 ## Critères d'acceptation
 
