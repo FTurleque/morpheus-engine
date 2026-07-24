@@ -21,6 +21,7 @@
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-store-memory</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-store-sqlite</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-integration-minos</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-integration-nexus</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-mcp</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-api</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-cli</artifactId><version>${project.version}</version><scope>test</scope></dependency>
