@@ -33,8 +33,8 @@ Adapter :
 
 ```text
 MorpheusCli
-CliLayout
 CliRuntime
+CliLayout
 CliExitCode
 ```
 
@@ -291,12 +291,36 @@ WiX absent -> installateur optionnel SKIPPED proprement
 
 ### Linux — ⏳ PENDING
 
+Le gate Linux doit être exécuté **dans un environnement Linux réel** : machine Linux, VM Linux, conteneur adapté au packaging natif, ou shell WSL/WSL2. Exécuter `./mvnw` ou `build-portable.sh` depuis PowerShell ne constitue pas une preuve Linux et ne peut pas produire le launcher Linux attendu.
+
+Depuis Windows avec WSL, entrer d'abord dans le shell Linux :
+
+```powershell
+wsl
+```
+
+Puis, **dans WSL/Linux** :
+
 ```bash
+cd /mnt/n/workspace-dev/morpheus-engine
+
+git fetch origin
+git switch m9/cli-distribution
+git pull --ff-only
+
+java -version
+export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
+
 ./mvnw clean test
 ./distribution/build-portable.sh
+
+./dist/.m9-linux/image/morpheus/bin/morpheus --version
+./dist/.m9-linux/image/morpheus/bin/morpheus --json version
 ```
 
 Preuves attendues : BUILD SUCCESS, mêmes tests, launcher packagé `--version` et `--json version`, tar.gz présent.
+
+Tentative du 24 juillet 2026 à 10:57 : **non retenue comme gate Linux**. Le build `298/298 PASS` a été exécuté sous PowerShell/Windows (chemins `N:\...` et `C:\Users\...`) ; `build-portable.sh` n'a pas créé `dist/.m9-linux/...`, et l'appel du launcher Linux depuis PowerShell a donc échoué avec `CommandNotFoundException`. Cette tentative constitue uniquement une revalidation supplémentaire du code côté Windows.
 
 ## Invariants
 
