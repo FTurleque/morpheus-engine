@@ -29,7 +29,6 @@ Write-Host "Note: jpackage requires WiX to create Windows MSI/EXE installers."
     --app-version $Version `
     --description "MORPHEUS Specification & Intent Intelligence Engine" `
     --app-image $appImage `
-    --win-console `
     --win-dir-chooser `
     --win-menu `
     --win-shortcut `
