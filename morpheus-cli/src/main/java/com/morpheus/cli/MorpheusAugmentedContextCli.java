@@ -84,6 +84,7 @@ final class MorpheusAugmentedContextCli {
         }
         String subject = parsed.tokens().getFirst();
         ContextOptions options = ContextOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+        options.validateSubject(subject);
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
         TechnicalContextOptions technical = options.technical();
 
@@ -214,6 +215,24 @@ final class MorpheusAugmentedContextCli {
                 }
             }
             return result;
+        }
+
+        void validateSubject(String subject) {
+            switch (subject) {
+                case "requirement" -> {
+                    required("requirement");
+                    if (values.containsKey("change")) {
+                        throw new IllegalArgumentException("--change is not valid for augmented-context requirement");
+                    }
+                }
+                case "change" -> {
+                    required("change");
+                    if (values.containsKey("requirement")) {
+                        throw new IllegalArgumentException("--requirement is not valid for augmented-context change");
+                    }
+                }
+                default -> throw new IllegalArgumentException("unknown augmented-context subject: " + subject);
+            }
         }
 
         String required(String key) {
