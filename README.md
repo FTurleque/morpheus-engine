@@ -75,12 +75,15 @@ M9     CLI / distribution                       ✅ VALIDÉ / INTÉGRÉ — 298/
 M10    MCP STDIO                                ✅ VALIDÉ / INTÉGRÉ — 307/307
 M11    API HTTP                                 ✅ VALIDÉ / INTÉGRÉ — 314/314
 M12    MINOS optionnel                          ✅ VALIDÉ / INTÉGRÉ — 331/331
-M13    NEXUS optionnel                          ✅ VALIDÉ — 346/346
+M13    NEXUS optionnel                          ✅ VALIDÉ / INTÉGRÉ — 346/346
 ```
 
-M12 merge : `86dbb1d50e87ce354b7174156e9c8c5717722a17`.
+Merges :
 
-M13 validation : [`docs/VALIDATION_M13.md`](docs/VALIDATION_M13.md).
+```text
+M12 = 86dbb1d50e87ce354b7174156e9c8c5717722a17
+M13 = 2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f
+```
 
 ## CLI
 

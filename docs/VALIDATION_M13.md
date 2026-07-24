@@ -1,12 +1,13 @@
 # Validation M13 — NEXUS optionnel et contexte technique sous budget
 
-Statut : **✅ VALIDÉ**
+Statut : **✅ VALIDÉ / INTÉGRÉ**
 
 Date : 24 juillet 2026
 
-Issue : #63  
-PR : #64  
-Head validé : `a44e8938bfa03e8b8a1039c8271a8865b871ed7d`
+Issue : #63 — completed  
+PR : #64 — merged  
+Head de code validé : `a44e8938bfa03e8b8a1039c8271a8865b871ed7d`  
+Merge commit : `2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f`
 
 ## Question de sortie
 
@@ -192,6 +193,14 @@ ADR-0075 — Séparer l'intention MORPHEUS du contexte technique NEXUS
 ADR-0076 — Runtime et surfaces NEXUS optionnels
 ```
 
+## Intégration
+
+PR #64 a été fusionnée dans `main` le 24 juillet 2026.
+
+```text
+merge commit = 2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f
+```
+
 ## Conclusion
 
-M13 satisfait sa question de sortie : MORPHEUS peut enrichir une intention Requirement/Change avec un contexte technique NEXUS budgété et attribuable, sans dupliquer l'intelligence de contexte NEXUS, sans mutation de snapshot et sans rendre NEXUS obligatoire au fonctionnement de MORPHEUS.
+M13 satisfait sa question de sortie et est intégré : MORPHEUS peut enrichir une intention Requirement/Change avec un contexte technique NEXUS budgété et attribuable, sans dupliquer l'intelligence de contexte NEXUS, sans mutation de snapshot et sans rendre NEXUS obligatoire au fonctionnement de MORPHEUS.
