@@ -1,6 +1,7 @@
 package com.morpheus.application.orchestration;
 
 import com.morpheus.application.quality.QualityFactValue;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.reference.ExternalReferenceResolutionReason;
 import com.morpheus.domain.reference.ExternalReferenceResolutionState;
 
@@ -22,7 +23,8 @@ public record ChangeOrchestrationState(
         AvailabilityView blockingConstraints,
         List<ExternalReferenceView> unresolvedLinks,
         List<QualityFindingView> qualityFindings,
-        List<ChangeTransitionEvaluation> nextTransitions,
+        List<ChangeLifecycleState> nextAllowedTransitions,
+        List<ChangeTransitionEvaluation> transitionEvaluations,
         boolean persisted) {
 
     public ChangeOrchestrationState {
@@ -37,7 +39,8 @@ public record ChangeOrchestrationState(
         Objects.requireNonNull(blockingConstraints, "blockingConstraints");
         unresolvedLinks = List.copyOf(Objects.requireNonNull(unresolvedLinks, "unresolvedLinks"));
         qualityFindings = List.copyOf(Objects.requireNonNull(qualityFindings, "qualityFindings"));
-        nextTransitions = List.copyOf(Objects.requireNonNull(nextTransitions, "nextTransitions"));
+        nextAllowedTransitions = List.copyOf(Objects.requireNonNull(nextAllowedTransitions, "nextAllowedTransitions"));
+        transitionEvaluations = List.copyOf(Objects.requireNonNull(transitionEvaluations, "transitionEvaluations"));
         if (persisted) {
             throw new IllegalArgumentException("M14 orchestration state is a live read-only projection and cannot be persisted");
         }
