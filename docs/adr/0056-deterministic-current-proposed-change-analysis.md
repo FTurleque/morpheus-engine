@@ -1,22 +1,20 @@
 # ADR-0056 — Analyse déterministe CURRENT / proposé des changements
 
-- Statut : **Proposée — M8, preuve Maven en attente**
+- Statut : **Acceptée — M8**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0006, ADR-0025, ADR-0034, ADR-0044, ADR-0049
 - Portée : M8 — analyse fonctionnelle et documentaire des changements
 
 ## Contexte
 
-MORPHEUS possède déjà deux représentations volontairement distinctes :
+MORPHEUS possède deux représentations volontairement distinctes :
 
 ```text
 snapshot publié -> RequirementVersionRecord CURRENT
 lecture provider -> RequirementDelta ADDED / MODIFIED / REMOVED
 ```
 
-Le delta normalisé ne doit ni remplacer silencieusement la baseline ni être promu pour pouvoir être analysé.
-
-M8 doit expliquer l'étendue d'un changement avant promotion, sans modifier l'état publié et sans confondre un scénario avec un critère d'acceptation.
+Le delta normalisé ne doit ni remplacer silencieusement la baseline ni être promu pour pouvoir être analysé. M8 doit expliquer l'étendue d'un changement avant promotion, sans modifier l'état publié et sans confondre un scénario avec un critère d'acceptation.
 
 ## Décision
 
@@ -31,15 +29,7 @@ ChangeAnalysisSummary
 ChangeAnalysisWarning
 ```
 
-`ProposedChangeSet` est extrait d'un `NormalizedProjectContent` pour un `ChangeId`. Il contient uniquement les objets appartenant explicitement au changement :
-
-```text
-ChangeProposal
-RequirementDelta
-Constraint
-DesignDecision
-ImplementationTask
-```
+`ProposedChangeSet` est extrait d'un `NormalizedProjectContent` pour un `ChangeId` et contient uniquement les objets appartenant explicitement au changement : `ChangeProposal`, `RequirementDelta`, `Constraint`, `DesignDecision` et `ImplementationTask`.
 
 L'analyse confronte ce contenu à un snapshot publié :
 
@@ -59,16 +49,10 @@ Chaque `RequirementDelta` produit exactement un `RequirementChangeImpact`.
 
 ```text
 baseline absente -> PRESENCE modifiée
-baseline présente -> warning ADDED_REQUIREMENT_ALREADY_CURRENT
+baseline présente -> ADDED_REQUIREMENT_ALREADY_CURRENT
 ```
 
-Un requirement uniquement proposé ne possède pas encore de nœud publié sur lequel démontrer une traçabilité snapshot-scoped. M8 expose alors :
-
-```text
-PROPOSED_ONLY_REQUIREMENT_TRACEABILITY_UNAVAILABLE
-```
-
-Aucun lien n'est synthétisé.
+Un requirement uniquement proposé ne possède pas encore de nœud publié sur lequel démontrer une traçabilité snapshot-scoped. M8 expose alors `PROPOSED_ONLY_REQUIREMENT_TRACEABILITY_UNAVAILABLE`. Aucun lien n'est synthétisé.
 
 ### MODIFIED
 
@@ -82,28 +66,10 @@ STATEMENT
 SCENARIOS
 ```
 
-Les scénarios sont comparés par leur contenu comportemental normalisé :
+Les scénarios sont comparés par leur contenu comportemental normalisé : titre, préconditions, action et résultat attendu. Leur identité d'occurrence et leur provenance ne transforment pas à elles seules un scénario en changement fonctionnel.
 
-```text
-title
-preconditions
-action
-expectedOutcome
-```
-
-Leur identité d'occurrence et leur provenance ne transforment pas à elles seules un scénario en changement fonctionnel.
-
-Si aucune baseline CURRENT n'existe :
-
-```text
-MODIFIED_REQUIREMENT_BASELINE_MISSING
-```
-
-Si le delta `MODIFIED` ne modifie aucun champ documentaire observable :
-
-```text
-MODIFIED_WITHOUT_DOCUMENTARY_CHANGE
-```
+Sans baseline CURRENT : `MODIFIED_REQUIREMENT_BASELINE_MISSING`.
+Sans changement documentaire observable : `MODIFIED_WITHOUT_DOCUMENTARY_CHANGE`.
 
 ### REMOVED
 
@@ -116,9 +82,7 @@ Le contenu supprimé reste celui de la baseline ; aucun statement absent n'est r
 
 ## Contraintes, décisions et tâches
 
-Les `Constraint`, `DesignDecision` et `ImplementationTask` du `ProposedChangeSet` sont exposés comme faits explicites appartenant au changement.
-
-M8 ne crée pas de relation supplémentaire entre ces objets et les requirements.
+Les `Constraint`, `DesignDecision` et `ImplementationTask` du `ProposedChangeSet` sont exposés comme faits explicites appartenant au changement. M8 ne crée pas de relation supplémentaire entre ces objets et les requirements.
 
 ## Critères d'acceptation
 
@@ -140,7 +104,7 @@ Ce statut signifie que MORPHEUS ne peut pas démontrer cette dimension à partir
 ## Déterminisme
 
 - deltas canoniquement ordonnés ;
-- scénarios CURRENT et proposés ordonnés par `ScenarioId` pour l'exposition ;
+- scénarios CURRENT et proposés ordonnés pour l'exposition ;
 - comparaison des scénarios indépendante de l'ordre source ;
 - warnings structurés et ordonnés ;
 - aucun clock read ;
@@ -160,30 +124,33 @@ La baseline continue d'être lue via les ports existants Memory / SQLite.
 
 ## Frontières
 
-M8 ne fait pas :
+M8 ne fait pas : promotion de `RequirementDelta`, mutation d'un snapshot, conversion `Scenario -> AcceptanceCriterion`, analyse de code, matching sémantique, invention de relations de trace ou persistance du résultat d'analyse. L'analyse de code reste la responsabilité de MINOS.
+
+## Preuve d'acceptation — 24 juillet 2026
+
+Gate local Windows exécuté sur `m8/change-analysis` :
 
 ```text
-promotion de RequirementDelta
-mutation d'un snapshot
-conversion Scenario -> AcceptanceCriterion
-analyse de code
-matching sémantique
-invention de relations de trace
-persistance du résultat d'analyse
+.\mvnw.cmd clean test
+MORPHEUS Domain          21/21 PASS
+MORPHEUS Application     82/82 PASS
+OpenSpec Provider        26/26 PASS
+Synthetic Provider        7/7 PASS
+SQLite Store              7/7 PASS
+Architecture Tests      146/146 PASS
+TOTAL                   289/289 PASS
+Failures                   0
+Errors                     0
+Skipped                    0
+BUILD SUCCESS
+Total time               26.406 s
+Finished 2026-07-24T09:44:51+02:00
 ```
 
-L'analyse de code reste la responsabilité de MINOS.
+`ChangeAnalysisContractTest` : **7/7 PASS**.
 
-## Preuve attendue
+Les preuves couvrent ADDED/MODIFIED/REMOVED, différences documentaires, non-mutation de baseline, incohérences explicites, ACTIVE/RETIRED/READY, `Scenario != AcceptanceCriterion`, Memory == SQLite et reopen SQLite.
 
-L'ADR pourra passer à **Acceptée — M8** lorsque `ChangeAnalysisContractTest` et le gate Maven complet démontreront :
+Warnings connus non bloquants uniquement : Xerial SQLite native-access et SLF4J NOP.
 
-1. ADDED / MODIFIED / REMOVED comparés à la baseline CURRENT ;
-2. différences TITLE / STATEMENT / SCENARIOS détectées sans mutation ;
-3. incohérences de delta exposées par warnings structurés ;
-4. ACTIVE / RETIRED autorisés et READY rejeté ;
-5. absence ACTIVE distincte d'une analyse vide ;
-6. `Scenario != AcceptanceCriterion` préservé ;
-7. parité Memory / SQLite ;
-8. reopen SQLite identique ;
-9. `./mvnw clean test` vert.
+**Décision : Acceptée — M8.**
