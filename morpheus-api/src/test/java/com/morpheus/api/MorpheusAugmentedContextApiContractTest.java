@@ -1,9 +1,20 @@
 package com.morpheus.api;
 
+import com.morpheus.application.context.TechnicalContextBundle;
+import com.morpheus.application.context.TechnicalContextItem;
+import com.morpheus.application.context.TechnicalContextObservation;
+import com.morpheus.application.context.TechnicalContextProvider;
+import com.morpheus.application.context.TechnicalContextRequest;
+import com.morpheus.application.reference.ExternalIntegrationStatus;
+import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
+import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -63,6 +74,89 @@ class MorpheusAugmentedContextApiContractTest {
             ApiTestSupport.Response project = http.get(server, "/projects/" + projectId);
             assertEquals(200, project.status(), project.body());
             assertTrue(project.body().contains(activeSnapshotId), project.body());
+        }
+    }
+
+    @Test
+    void availableProviderReceivesBudgetSourcesConstraintsAndExplainWithoutMorpheusReranking() {
+        Path database = tempDirectory.resolve("m13-pass-through.db");
+        Path fixture = http.fixture("openspec-basic");
+        AtomicReference<TechnicalContextRequest> captured = new AtomicReference<>();
+        ExternalIntegrationStatusProvider minosDisabled = () -> new ExternalIntegrationStatus(
+                "MINOS", "DISABLED", false, "MINOS disabled for M13 test", Map.of());
+        TechnicalContextProvider provider = new TechnicalContextProvider() {
+            @Override
+            public String system() {
+                return "NEXUS";
+            }
+
+            @Override
+            public ExternalIntegrationStatus status() {
+                return new ExternalIntegrationStatus("NEXUS", "AVAILABLE", true, "fixture", Map.of());
+            }
+
+            @Override
+            public TechnicalContextObservation build(TechnicalContextRequest request) {
+                captured.set(request);
+                TechnicalContextBundle bundle = new TechnicalContextBundle(
+                        "nexus-project-id",
+                        request.options().externalProject(),
+                        request.query(),
+                        request.options().explain(),
+                        5,
+                        request.options().tokenBudget(),
+                        222,
+                        List.of(new TechnicalContextItem(
+                                "SYMBOL",
+                                "src/main/java/SessionService.java",
+                                "SessionService",
+                                11,
+                                21,
+                                "class SessionService {}",
+                                0.87654321,
+                                Map.of("lexical", 0.4, "structural", 0.47654321),
+                                List.of("NEXUS-ranked"),
+                                222,
+                                false)),
+                        List.of("generated/Excluded.java"),
+                        Map.of("engine", "NEXUS"));
+                return TechnicalContextObservation.available(status(), bundle);
+            }
+        };
+
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(
+                database,
+                "127.0.0.1",
+                0,
+                new ExternalReferenceResolverRegistry(List.of()),
+                minosDisabled,
+                provider)) {
+            String registrationBody = "{\"workspace\":" + http.jsonString(fixture.toString()) + "}";
+            String projectId = http.field(http.postJson(server, "/projects", registrationBody).body(), "projectId");
+            http.post(server, "/projects/" + projectId + "/sync");
+            String requirementId = http.field(
+                    http.get(server, "/projects/" + projectId + "/requirements?query=session").body(), "id");
+
+            ApiTestSupport.Response response = http.postJson(
+                    server,
+                    "/projects/" + projectId + "/requirements/" + requirementId + "/augmented-context",
+                    "{\"nexusProject\":\"technical-project\",\"tokenBudget\":3456,"
+                            + "\"requestedSources\":[\"TEST\",\"SYMBOL\",\"FILE\"],"
+                            + "\"constraints\":{\"language\":\"java\",\"module\":\"core\"},\"explain\":true}");
+
+            assertEquals(200, response.status(), response.body());
+            assertEquals("technical-project", captured.get().options().externalProject());
+            assertEquals(3456, captured.get().options().tokenBudget());
+            assertEquals(java.util.Set.of("TEST", "SYMBOL", "FILE"), captured.get().options().requestedSources());
+            assertEquals(Map.of("language", "java", "module", "core"), captured.get().options().constraints());
+            assertTrue(captured.get().options().explain());
+            assertTrue(captured.get().query().contains("Requirement:"), captured.get().query());
+            assertTrue(captured.get().query().contains("Statement:"), captured.get().query());
+
+            assertTrue(response.body().contains("0.87654321"), response.body());
+            assertTrue(response.body().contains("NEXUS-ranked"), response.body());
+            assertTrue(response.body().contains("generated/Excluded.java"), response.body());
+            assertTrue(response.body().contains("\"estimatedTokens\":222"), response.body());
         }
     }
 }
