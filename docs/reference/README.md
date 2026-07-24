@@ -28,4 +28,10 @@ Version du contrat OpenAPI actuel : `1.3.0`.
 - [Guide utilisateur](../user/INTEGRATIONS.md)
 - [Contrats développeur](../developer/INTEGRATIONS.md)
 
-Les références historiques détaillées par jalon restent accessibles via les ADR et documents `VALIDATION_M*.md`.
+## Preuves historiques
+
+- [Index des validations](../validation/README.md)
+- [Roadmaps d’exécution](../roadmap/)
+- [Gouvernance](../governance/README.md)
+
+Les preuves détaillées par jalon sont regroupées sous `docs/validation/` et ne polluent plus la racine de `docs/`.
