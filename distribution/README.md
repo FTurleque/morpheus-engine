@@ -7,7 +7,7 @@ M9   Windows + Linux validés
 M10  MCP STDIO embarqué validé
 M11  API HTTP + jdk.httpserver validés
 M12  adapter MINOS optionnel validé
-M13  adapter NEXUS optionnel implémenté — gate pending
+M13  adapter NEXUS optionnel validé
 ```
 
 ## Artefacts
@@ -33,80 +33,40 @@ Jackson
 SQLite JDBC
 ```
 
-Il n'embarque **ni MINOS ni NEXUS**.
+Il n'embarque **ni MINOS ni NEXUS**. Le build échoue si le shaded JAR contient `com/minos/*` ou `com/nexus/*`.
 
-Le build échoue si le shaded JAR contient :
+## Windows — validation M13
 
-```text
-com/minos/*
-com/nexus/*
-```
-
-## Preuve de contenu M13
-
-Classes exigées notamment :
-
-```text
-com/morpheus/mcp/MorpheusMcpServer.class
-io/modelcontextprotocol/server/McpServer.class
-io/modelcontextprotocol/client/McpClient.class
-io/modelcontextprotocol/client/transport/StdioClientTransport.class
-com/morpheus/api/MorpheusHttpServer.class
-com/morpheus/integration/minos/MinosIntegrationRuntime.class
-com/morpheus/integration/nexus/NexusMcpContextGateway.class
-com/morpheus/integration/nexus/NexusMcpTechnicalContextProvider.class
-com/morpheus/integration/nexus/NexusIntegrationRuntime.class
-tools/jackson/databind/json/JsonMapper.class
-```
-
-Attendu :
-
-```text
-MCP/API/MINOS/NEXUS adapter packaging proof: PASS
-```
-
-## Windows
+Commande :
 
 ```powershell
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
 .\distribution\build-portable.ps1
 ```
 
-Workdir :
+Workdir : `dist/.m13-windows`.
+
+Preuves obtenues :
 
 ```text
-dist/.m13-windows
-```
-
-Le script :
-
-1. construit l'uber-JAR ;
-2. prouve la présence des adapters MCP/API/MINOS/NEXUS ;
-3. rejette `com/minos/*` et `com/nexus/*` ;
-4. crée l'app-image via `jpackage` ;
-5. embarque `jdk.httpserver` ;
-6. teste `--version` et `--json version` ;
-7. exige `minos-status=DISABLED` sans configuration ;
-8. exige `nexus-status=DISABLED` sans configuration ;
-9. vérifie `/api/v1/health` sur le launcher packagé ;
-10. crée le ZIP avec retry/backoff.
-
-Attendu :
-
-```text
+Maven package: BUILD SUCCESS
 MCP/API/MINOS/NEXUS adapter packaging proof: PASS
+jpackage app-image: PASS
+MORPHEUS 0.1.0-SNAPSHOT
+{"version":"0.1.0-SNAPSHOT"}
+MINOS status -> DISABLED sans configuration
+NEXUS status -> DISABLED sans configuration
 Packaged standalone optional-engines smoke: PASS
 Packaged API health smoke: PASS
 Portable archive creation: PASS
 ```
 
-Installateur optionnel :
+Archive produite :
 
-```powershell
-.\distribution\build-windows-installer.ps1
+```text
+N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
+33,654,379 bytes
 ```
-
-Workdir : `dist/.m13-windows/image/morpheus`.
 
 ## Linux
 
@@ -119,7 +79,7 @@ chmod +x mvnw distribution/build-portable.sh
 
 Workdir : `dist/.m13-linux`.
 
-Le script Linux vérifie également :
+Le script vérifie également :
 
 ```text
 MINOS status DISABLED
@@ -138,17 +98,13 @@ MORPHEUS_MINOS_HOME=<optional>
 MORPHEUS_MINOS_TIMEOUT_SECONDS=<1..120>
 ```
 
-MORPHEUS lance MINOS à la demande par MCP STDIO.
-
-Smoke réel :
+Smoke réel complémentaire :
 
 ```powershell
 .\distribution\test-minos-compatibility.ps1 `
   -MinosJar <minos-code-intelligence\target\*-all.jar> `
   -MinosJava <java-24-or-newer>
 ```
-
-Attendu : `Real MINOS MCP compatibility smoke: PASS`.
 
 ## Configuration NEXUS
 
@@ -159,9 +115,7 @@ MORPHEUS_NEXUS_HOME=<optional>
 MORPHEUS_NEXUS_TIMEOUT_SECONDS=<1..120>
 ```
 
-MORPHEUS lance le runner NEXUS uniquement pour un status live ou une construction de contexte.
-
-Smoke réel :
+Smoke réel complémentaire :
 
 ```powershell
 .\distribution\test-nexus-compatibility.ps1 `
@@ -170,7 +124,7 @@ Smoke réel :
   -NexusHome <optional>
 ```
 
-Attendu : `Real NEXUS MCP compatibility smoke: PASS`.
+Ces smokes cross-repo ne remplacent pas le gate MORPHEUS et ne faisaient pas partie du gate M13 officiel.
 
 ## Layout runtime MORPHEUS
 
@@ -178,7 +132,6 @@ Attendu : `Real NEXUS MCP compatibility smoke: PASS`.
 --data-dir PATH
 --config-dir PATH
 --db PATH
-
 MORPHEUS_DATA_DIR
 MORPHEUS_CONFIG_DIR
 MORPHEUS_DB
@@ -209,21 +162,14 @@ M9  298/298 Windows + Linux
 M10 307/307 Windows + MCP packaging
 M11 314/314 Windows + packaged API health
 M12 331/331 Windows + MINOS optional packaging
-M13 projection 346 tests + MINOS/NEXUS optional packaging
+M13 346/346 Windows + MINOS/NEXUS optional packaging
 ```
 
-## Gate M13
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
-```
-
-M13 reste non validé jusqu'à preuve de ces deux commandes.
+M13 architecture : **154/154 PASS**.
 
 Références :
 
-- [`../docs/VALIDATION_M12.md`](../docs/VALIDATION_M12.md)
+- [`../docs/VALIDATION_M13.md`](../docs/VALIDATION_M13.md)
 - [`../docs/MINOS.md`](../docs/MINOS.md)
 - [`../docs/NEXUS.md`](../docs/NEXUS.md)
 - [`../docs/roadmap/M13_EXECUTION.md`](../docs/roadmap/M13_EXECUTION.md)
