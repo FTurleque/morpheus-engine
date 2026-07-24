@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M13 validés et intégrés ; M14 fonctionnellement complet, gate local pending**
+Statut : **C0 à M13 validés et intégrés ; M14 validé, prêt à intégrer**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -25,7 +25,7 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M11 | API HTTP headless | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M11.md`, 314/314 |
 | M12 | MINOS optionnel / intention → code | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M12.md`, 331/331 |
 | M13 | NEXUS optionnel / intention → contexte technique | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M13.md`, 346/346 |
-| **M14** | **JARVIS / contrat d'orchestration read-only** | **🚧 GATE PENDING** | `roadmap/M14_EXECUTION.md`, projection 357 tests |
+| **M14** | **JARVIS / contrat d'orchestration read-only** | **✅ VALIDÉ** | `VALIDATION_M14.md`, 357/357 + JARVIS 536 tests |
 
 Merges actifs :
 
@@ -37,6 +37,7 @@ main baseline M14 = 5269fbf8ef5586e0e04a776293dda2bf46786d0d
 
 Références M14 :
 
+- [`VALIDATION_M14.md`](VALIDATION_M14.md)
 - [`roadmap/M14_EXECUTION.md`](roadmap/M14_EXECUTION.md)
 - [`JARVIS.md`](JARVIS.md)
 - [`API.md`](API.md)
@@ -87,6 +88,7 @@ M10 307/307
 M11 314/314
 M12 331/331 | Architecture 153/153 | packaging PASS
 M13 346/346 | Architecture 154/154 | packaging PASS
+M14 357/357 | Architecture 160/160 | packaging PASS | JARVIS 536 tests BUILD SUCCESS
 ```
 
 ## 4. M12 — MINOS ✅ / INTÉGRÉ
@@ -97,13 +99,13 @@ MORPHEUS résout les références code MINOS via MCP STDIO sans dépendance `com
 
 MORPHEUS délègue sélection/ranking/fusion/compression du contexte technique à NEXUS via MCP STDIO sans dépendance `com.nexus.*`. Gate : **346/346**, architecture **154/154**.
 
-## 6. M14 — JARVIS 🚧
+## 6. M14 — JARVIS ✅ VALIDÉ
 
 Question de sortie :
 
 > **MORPHEUS peut-il fournir à JARVIS un contrat machine stable et explicable indiquant l'état observable d'un changement, les faits manquants, les références non résolues, les contraintes applicables et les transitions lifecycle autorisées/bloquées/inconnues, sans devenir lui-même l'orchestrateur ni inventer des faits non observables ?**
 
-Réponse actuelle : **implémentation OUI ; preuve locale finale pending**.
+**Réponse : OUI.**
 
 Frontière :
 
@@ -159,38 +161,47 @@ persisted=false
 
 Acceptance et blocking constraints non modélisés restent explicitement `UNAVAILABLE`; aucun fait n'est inventé.
 
-Preuve cross-repo :
+### Gate MORPHEUS
+
+Head : `d44d418ae0f1e528ea09a56cdd8c45647048c740`.
 
 ```text
-FTurleque/jarvis
-Issue #92
-PR #93 draft
-ChangeOrchestrationProvider
-MorpheusOrchestrationClient
-fail-open, aucun com.morpheus.*
+Domain              21/21 PASS
+Application         87/87 PASS
+OpenSpec             26/26 PASS
+Synthetic             7/7 PASS
+SQLite                7/7 PASS
+MINOS Integration     8/8 PASS
+NEXUS Integration     7/7 PASS
+MCP                    5/5 PASS
+API                    9/9 PASS
+CLI                  20/20 PASS
+Architecture       160/160 PASS
+--------------------------------
+TOTAL              357/357 PASS
 ```
 
-Projection avant exécution :
+Packaging Windows : **PASS**, archive `33,702,405 bytes`.
+
+### Gate JARVIS cross-repo
+
+Head : `58899855bcd3446636c1f274ace8c1bfc8f46930`.
 
 ```text
-Domain              21
-Application         87
-OpenSpec             26
-Synthetic             7
-SQLite                7
-MINOS Integration     8
-NEXUS Integration     7
-MCP                    5
-API                    9
-CLI                   20
-Architecture        160
------------------------
-TOTAL attendu       357
+jarvis-core
+Tests run: 536
+Failures: 0
+Errors: 0
+Skipped: 16
+BUILD SUCCESS
+MorpheusOrchestrationClientTest 6/6 PASS
 ```
 
-**357 est une projection, pas une preuve.**
+Les raisons d'abandon observation/source/cible sont transmises séparément et jamais inventées.
 
-ADR-0077..0080 restent **Proposées — M14 gate pending**.
+ADR-0077..0080 : **Acceptées — M14**.
+
+Validation : [`VALIDATION_M14.md`](VALIDATION_M14.md).
 
 ## 7. Règle de pilotage
 
