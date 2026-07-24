@@ -60,6 +60,10 @@ public final class MorpheusMcpServer {
                 : new MorpheusAugmentedContextMcpTools(databasePath, technicalContextProvider).specifications()) {
             server.addTool(specification);
         }
+        for (McpServerFeatures.SyncToolSpecification specification
+                : new MorpheusJarvisOrchestrationMcpTools(databasePath).specifications()) {
+            server.addTool(specification);
+        }
         return server;
     }
 
