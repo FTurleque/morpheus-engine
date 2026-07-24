@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$MinosJar,
     [string]$MinosJava = "java",
-    [string]$MorpheusLauncher = "dist\.m12-windows\image\morpheus\morpheus.exe",
+    [string]$MorpheusLauncher = "dist\.m13-windows\image\morpheus\morpheus.exe",
     [string]$MinosHome = ""
 )
 
