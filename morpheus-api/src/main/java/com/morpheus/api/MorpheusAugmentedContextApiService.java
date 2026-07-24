@@ -69,7 +69,9 @@ final class MorpheusAugmentedContextApiService {
     }
 
     private TechnicalContextOptions options(AugmentedContextRequest request) {
-        Objects.requireNonNull(request, "request");
+        if (request == null) {
+            throw new IllegalArgumentException("request body must be a JSON object");
+        }
         String nexusProject = request.nexusProject();
         if (nexusProject == null || nexusProject.isBlank()) {
             throw new IllegalArgumentException("nexusProject must not be blank");
