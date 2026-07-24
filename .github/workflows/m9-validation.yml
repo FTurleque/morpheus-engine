@@ -1,12 +1,7 @@
 name: M9 validation
 
 on:
-  push:
-    branches:
-      - m9/cli-distribution
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
