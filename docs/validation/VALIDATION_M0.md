@@ -44,7 +44,7 @@ OUI — ADOPTER AVEC LES CONTRAINTES DOCUMENTÉES
 
 ## 3. Synthèse des expériences
 
-Voir [`../experiments/m0/results/README.md`](../experiments/m0/results/README.md).
+Voir [`../experiments/m0/results/README.md`](../../experiments/m0/results/README.md).
 
 État :
 
