@@ -37,7 +37,7 @@ printf '%s\n' "Creating self-contained Linux app-image with embedded runtime..."
   --description "MORPHEUS Specification & Intent Intelligence Engine" \
   --input "$INPUT" \
   --main-jar morpheus.jar \
-  --main-class com.morpheus.cli.MorpheusCli \
+  --main-class com.morpheus.cli.MorpheusMain \
   --dest "$IMAGE_ROOT"
 
 LAUNCHER="$IMAGE_ROOT/morpheus/bin/morpheus"
