@@ -1,11 +1,11 @@
 # ADR-0070 — Référence MINOS par `symbolKey` exact et révision explicite
 
-- Statut : **Proposée — M12 gate pending**
+- Statut : **Acceptée — M12**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0009, ADR-0026, ADR-0041, ADR-0069
 - Portée : M12 — identité externe MINOS
 
-## Décision proposée
+## Décision
 
 Une cible code MINOS M12 utilise :
 
@@ -57,3 +57,13 @@ est obligatoire avant la résolution. Sinon : `REVISION_MISMATCH`.
 6. révision différente jamais masquée ;
 7. cible résolue conserve snapshot/provenance MINOS ;
 8. aucun fuzzy matching.
+
+## Preuve M12
+
+```text
+MinosMcpExternalReferenceResolverTest  4/4 PASS
+MINOS Integration                      8/8 PASS
+Maven total                          331/331 PASS
+```
+
+Voir `docs/VALIDATION_M12.md`.
