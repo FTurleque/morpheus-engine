@@ -1,6 +1,6 @@
 # ADR-0059 — Contrat CLI local stable, scriptable et explicite
 
-- Statut : **Proposée — M9, gate pending**
+- Statut : **Proposée — gate Windows PASS, validation Linux pending**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0043, ADR-0045, ADR-0046, ADR-0047, ADR-0052, ADR-0058
 - Portée : M9 — surface utilisateur CLI
@@ -117,6 +117,25 @@ Toutes les commandes d'une invocation ouvrent les adapters SQLite nécessaires s
 La CLI ne contient pas : règles de couverture, algorithme de trace, comparaison M8, parsing OpenSpec métier, lifecycle de snapshot ou politique de qualité. Elle orchestre les services existants.
 
 Pas de framework CLI externe en M9 : le parseur volontairement petit évite une nouvelle dépendance runtime et garde un contrat explicite.
+
+## Preuve Windows intermédiaire — 24 juillet 2026
+
+```text
+MorpheusCliTest   4/4 PASS
+MorpheusMainTest  2/2 PASS
+MORPHEUS CLI      6/6 PASS
+TOTAL           298/298 PASS
+BUILD SUCCESS
+```
+
+Le packaging Windows a également exécuté avec succès le launcher packagé en sortie humaine et JSON :
+
+```text
+MORPHEUS 0.1.0-SNAPSHOT
+{"version":"0.1.0-SNAPSHOT"}
+```
+
+La preuve Linux reste requise avant acceptation finale M9 de cette ADR.
 
 ## Critères d'acceptation
 
