@@ -1,6 +1,6 @@
 # M13 — Plan d'exécution détaillé
 
-Statut : **EN COURS**
+Statut : **FONCTIONNELLEMENT COMPLET — gate local pending**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -13,15 +13,22 @@ M12 gate  = 331/331 PASS + packaging Windows MINOS optional
 ```
 
 Issue : **#63 — M13 — Intégration optionnelle NEXUS et contexte technique sous budget**  
-Branche : `m13/nexus-integration`
+Branche : `m13/nexus-integration`  
+PR : **#64 — M13 — intégration optionnelle NEXUS et contexte augmenté** (draft)
 
 ## Question de sortie
 
 > **MORPHEUS peut-il déléguer à NEXUS la sélection, le ranking, la fusion et la compression du contexte technique sous budget, à partir d'une intention MORPHEUS explicite, sans recopier ces règles et tout en restant entièrement utilisable lorsque NEXUS est absent ou indisponible ?**
 
+Réponse actuelle : **implémentation OUI ; preuve locale finale pending**.
+
 ## Source de vérité externe
 
-NEXUS `main` expose déjà un serveur MCP STDIO Java 21 avec le SDK MCP officiel `2.0.0`.
+NEXUS `main` expose un serveur MCP STDIO Java 21, SDK MCP `2.0.0`, dans :
+
+```text
+adapters/mcp-java/target/nexus-mcp-java-0.1.0-SNAPSHOT-runner.jar
+```
 
 Tools M13 requis :
 
@@ -31,7 +38,7 @@ build_context
 explain_context
 ```
 
-Contrat `build_context` NEXUS :
+Contrat `build_context` :
 
 ```text
 project
@@ -41,23 +48,25 @@ requestedSources
 constraints
 ```
 
-La réponse contient le `ContextBundle` déjà classé/sélectionné par NEXUS : `tokenBudget`, `estimatedTokens`, `items`, `excluded`, `metadata`.
+La réponse NEXUS est un `ContextBundle` déjà sélectionné/classé/fusionné sous budget : `tokenBudget`, `estimatedTokens`, `items`, `excluded`, `metadata`.
 
-## M13-S1 — Port applicatif de contexte technique
+## M13-S1 — Port applicatif de contexte technique ✅ implémenté
 
-Introduire un contrat provider-neutral :
+Contrats provider-neutral :
 
 ```text
 TechnicalContextProvider
 TechnicalContextRequest
+TechnicalContextOptions
 TechnicalContextBundle
 TechnicalContextItem
 TechnicalContextObservation
+DisabledTechnicalContextProvider
 ```
 
 Aucun type NEXUS dans application/domain.
 
-## M13-S2 — Intention MORPHEUS déterministe
+## M13-S2 — Intention MORPHEUS déterministe ✅ implémenté
 
 Deux sujets live sur snapshot ACTIVE :
 
@@ -69,27 +78,31 @@ CHANGE
 Requirement seed :
 
 ```text
-key + title + statement
+Requirement: <key?> <title>
+Statement: <statement>
 ```
 
 Change seed :
 
 ```text
-key + title + intent + scope
-+ requirements affectés
-+ contraintes
-+ décisions
-+ tâches
+Change: <key?> <title>
+Intent: <intent>
+Scope: ...
+Affected requirement: ...
+Constraint: ...
+Design decision: ...
+Implementation task: ...
 ```
 
-Le seed est déterministe, borné et sert uniquement de `query` NEXUS. MORPHEUS ne classe aucun fragment technique.
+`MAX_INTENT_QUERY_CHARS = 16000`. La borne porte seulement sur la requête d'intention ; le bundle NEXUS n'est ni reranké ni retronqué.
 
-## M13-S3 — Résultat augmenté non destructif
+## M13-S3 — Résultat augmenté non destructif ✅ implémenté
 
 ```text
 ACTIVE MORPHEUS snapshot
  -> intent context
- -> NEXUS build_context
+ -> TechnicalContextProvider
+ -> NEXUS build_context | explain_context
  -> augmented response
  -X-> snapshot mutation
  -X-> technical-context persistence
@@ -98,13 +111,15 @@ ACTIVE MORPHEUS snapshot
 Réponse :
 
 ```text
-snapshotId
+snapshot
 intentContext
-technicalContextObservation
+technicalContext
 persisted=false
 ```
 
-## M13-S4 — Mapping projet explicite
+`AugmentedContextService` ne possède aucune opération d'écriture.
+
+## M13-S4 — Mapping projet explicite ✅ implémenté
 
 Chaque appel exige :
 
@@ -121,7 +136,7 @@ rebuild NEXUS
 project mapping heuristique
 ```
 
-## M13-S5 — Transport NEXUS MCP STDIO
+## M13-S5 — Transport NEXUS MCP STDIO ✅ implémenté
 
 ```text
 MORPHEUS Java 21
@@ -133,22 +148,22 @@ MORPHEUS Java 21
 
 Aucune dépendance compile-time `com.nexus.*`.
 
-Le client vérifie les trois tools requis avant usage.
+`NexusMcpContextGateway` initialise MCP et refuse un serveur qui n'expose pas les trois tools requis.
 
-## M13-S6 — Budget et sources
+## M13-S6 — Budget / sources / contraintes ✅ implémenté
 
 Pass-through contrôlé :
 
 ```text
-tokenBudget     1..100000
-requestedSources = FILE | SYMBOL | TEST | DOCUMENTATION | INSTRUCTION | SKILL | GIT
-constraints     Map<String,String>
-explain         boolean
+tokenBudget       1..100000, défaut 2000
+requestedSources  FILE | SYMBOL | TEST | DOCUMENTATION | INSTRUCTION | SKILL | GIT
+constraints       Map<String,String>
+explain           boolean
 ```
 
-Aucun quota supplémentaire, reranking ou troncature côté MORPHEUS.
+Aucun quota supplémentaire, reranking, fusion ou troncature technique côté MORPHEUS.
 
-## M13-S7 — Optionalité runtime
+## M13-S7 — Optionalité runtime ✅ implémenté
 
 ```text
 MORPHEUS_NEXUS_JAR
@@ -159,17 +174,21 @@ MORPHEUS_NEXUS_TIMEOUT_SECONDS
 
 Propriétés équivalentes : `morpheus.nexus.*`.
 
-Sans JAR :
+États :
 
 ```text
-NEXUS status = DISABLED
-technical context = absent
-MORPHEUS CLI/MCP/API = disponibles
+DISABLED
+CONFIGURED (settings)
+INVALID
+AVAILABLE
+UNAVAILABLE
 ```
+
+Sans JAR : NEXUS `DISABLED`, bundle absent, MORPHEUS CLI/MCP/API disponibles.
 
 Process absent/incompatible : `UNAVAILABLE`, non fatal.
 
-## M13-S8 — CLI
+## M13-S8 — CLI ✅ implémenté
 
 ```text
 nexus-status
@@ -177,9 +196,9 @@ augmented-context requirement --project ID --requirement ID --nexus-project ID_O
 augmented-context change --project ID --change ID --nexus-project ID_OR_NAME [--budget N] [--source TYPE]* [--constraint k=v]* [--explain]
 ```
 
-Sortie JSON : intention et contexte technique restent séparés.
+Les identifiants de sujet contradictoires sont rejetés. Sortie JSON : intention et contexte technique séparés.
 
-## M13-S9 — MCP MORPHEUS
+## M13-S9 — MCP MORPHEUS ✅ implémenté
 
 Deux tools read-only additifs :
 
@@ -188,9 +207,11 @@ get_augmented_requirement_context
 get_augmented_change_context
 ```
 
-Aucune mutation MORPHEUS/NEXUS.
+Serveur M13 : **18 tools read-only** = 14 M10 + 2 M12 + 2 M13.
 
-## M13-S10 — HTTP API
+Aucune mutation MORPHEUS ou NEXUS.
+
+## M13-S10 — HTTP API ✅ implémenté
 
 ```text
 GET  /api/v1/integrations/nexus/status
@@ -202,58 +223,98 @@ Body strict :
 
 ```json
 {
-  "nexusProject": "name-or-uuid",
-  "tokenBudget": 2000,
-  "requestedSources": ["FILE", "SYMBOL", "TEST", "DOCUMENTATION"],
-  "constraints": {},
-  "explain": false
+  "nexusProject":"name-or-uuid",
+  "tokenBudget":2000,
+  "requestedSources":["FILE","SYMBOL","TEST","DOCUMENTATION"],
+  "constraints":{},
+  "explain":false
 }
 ```
 
-## M13-S11 — Architecture
+Body `null`, champs inconnus, sources inconnues et budget hors bornes sont rejetés en erreur client.
+
+## M13-S11 — Architecture ✅ implémenté
 
 ```text
 domain/application -X-> integration-nexus
 domain/application -X-> com.nexus..
-api/mcp            -X-> integration-nexus
-integration-nexus  -X-> cli/api/mcp/store
-integration-nexus  -X-> com.nexus..
+api                 -X-> integration-nexus
+mcp                 -X-> integration-nexus
+integration-nexus   -X-> cli/api/mcp/store
+integration-nexus   -X-> com.nexus..
 CLI = composition root
 ```
 
-## M13-S12 — Tests
+`morpheus-api` et `morpheus-mcp` reçoivent seulement `TechnicalContextProvider`.
 
-Preuves attendues :
+## M13-S12 — Tests ✅ implémentés, exécution pending
+
+Delta depuis M12 :
 
 ```text
-intent seed REQUIREMENT déterministe
-intent seed CHANGE déterministe
-provider disabled non fatal
-NEXUS settings configured/invalid/disabled
-exact pass-through budget/sources/constraints
-real MCP STDIO subprocess fixture
-required-tool compatibility check
-NEXUS error -> UNAVAILABLE observation
-CLI standalone sans NEXUS
-MORPHEUS MCP STDIO sans NEXUS
-HTTP status + augmented-context sans NEXUS
-no snapshot mutation
-architecture guards
+Application
+  TechnicalContextOptionsTest                         3
+
+NEXUS integration
+  NexusIntegrationSettingsTest                       3
+  NexusMcpTechnicalContextProviderTest                3
+  NexusMcpTransportIntegrationTest                    1
+                                                       = 7
+
+API
+  MorpheusAugmentedContextApiContractTest             2
+
+CLI
+  MorpheusNexusCliTest                                1
+  MorpheusM13McpStdioIntegrationTest                  1
+                                                       = 2
+
+Architecture
+  LayerDependencyTest                                +1
 ```
 
-## M13-S13 — Distribution
-
-Le shaded JAR/portable archive doit contenir :
+Projection :
 
 ```text
-morpheus-integration-nexus
-MCP client SDK
+M12 baseline 331
+M13 delta     15
+----------------
+TOTAL attendu 346
 ```
 
-Et ne doit contenir aucune classe :
+Détail projeté :
 
 ```text
-com/nexus/*
+Domain              21
+Application         87
+OpenSpec             26
+Synthetic             7
+SQLite                7
+MINOS Integration     8
+NEXUS Integration     7
+MCP                   5
+API                   7
+CLI                  17
+Architecture        154
+-----------------------
+TOTAL attendu       346
+```
+
+**346 est une projection, pas une preuve tant que Maven n'a pas été exécuté.**
+
+## M13-S13 — Distribution ✅ implémentée, exécution pending
+
+Windows/Linux :
+
+```text
+workdir .m13-windows / .m13-linux
+morpheus-integration-minos embedded
+morpheus-integration-nexus embedded
+MCP client SDK embedded
+com/minos/* forbidden
+com/nexus/* forbidden
+MINOS/NEXUS eux-mêmes non bundled
+jdk.httpserver retained
 ```
 
 Smokes :
@@ -261,33 +322,58 @@ Smokes :
 ```text
 --version
 --json version
---json minos-status -> DISABLED sans config
---json nexus-status -> DISABLED sans config
-API /health
+--json minos-status -> DISABLED without configuration
+--json nexus-status -> DISABLED without configuration
+packaged API /health
 ```
 
-NEXUS lui-même reste externe et optionnel.
+Installateur optionnel Windows aligné sur `.m13-windows`.
 
-## M13-S14 — Documentation
+Smokes cross-repo disponibles :
+
+```text
+distribution/test-minos-compatibility.ps1
+distribution/test-nexus-compatibility.ps1
+```
+
+## M13-S14 — Documentation ✅ implémenté
 
 ```text
 docs/NEXUS.md
 docs/MCP.md
 docs/API.md
 docs/openapi/morpheus-v1.yaml
+docs/roadmap/M13_EXECUTION.md
 docs/ROADMAP.md
 README.md
 distribution/README.md
+docs/adr/README.md
 ```
 
-## M13-S15 — Gate final
+## M13-S15 — Gate final ⏳
+
+Source de vérité :
 
 ```powershell
 .\mvnw.cmd clean test
 .\distribution\build-portable.ps1
 ```
 
-Un smoke cross-repo réel avec le runner NEXUS pourra compléter la preuve autonome.
+Attendu :
+
+```text
+TOTAL ~346 tests, exact count reported by Maven
+Failures 0
+Errors 0
+Skipped 0
+BUILD SUCCESS
+MCP/API/MINOS/NEXUS adapter packaging proof: PASS
+Packaged standalone optional-engines smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+```
+
+Un smoke contre le vrai runner NEXUS complète utilement la preuve autonome, mais ne remplace pas le gate MORPHEUS.
 
 M13 ne sera `VALIDÉ` qu'après preuve reproductible.
 
