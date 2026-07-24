@@ -9,7 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 /** Production M12 resolver for exact MINOS SYMBOL external references. */
 public final class MinosMcpExternalReferenceResolver implements ExternalReferenceResolver {
@@ -61,14 +60,11 @@ public final class MinosMcpExternalReferenceResolver implements ExternalReferenc
                 return ExternalReferenceResolverResult.ambiguous();
             }
             MinosCodeGateway.Symbol symbol = exact.getFirst();
-            ExternalReferenceTarget canonical = new ExternalReferenceTarget(
-                    SYSTEM,
-                    Optional.of(nullableFallback(status.projectId(), project)),
-                    RESOURCE_TYPE_SYMBOL,
-                    symbol.symbolKey(),
-                    Optional.of(activeSnapshotId));
+
+            // Preserve the persisted coordinate exactly. Canonical MINOS identities/revision belong to
+            // resolved attributes; changing the ExternalReferenceTarget would rewrite historical intent.
             return ExternalReferenceResolverResult.found(new ResolvedExternalTarget(
-                    canonical,
+                    target,
                     attributes(status, symbol, activeSnapshotId)));
         } catch (MinosIntegrationException failure) {
             return ExternalReferenceResolverResult.unavailable();
@@ -102,9 +98,5 @@ public final class MinosMcpExternalReferenceResolver implements ExternalReferenc
         if (value != null && !value.isBlank()) {
             attributes.put(key, value);
         }
-    }
-
-    private String nullableFallback(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
     }
 }
