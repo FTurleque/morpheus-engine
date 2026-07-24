@@ -1,6 +1,6 @@
 # MORPHEUS MCP — M10 à M14
 
-Statut : **M10/M12/M13 validés ; extensions M14 implémentées — gate M14 pending**
+Statut : **M10/M12/M13/M14 validés**
 
 MORPHEUS expose un serveur Model Context Protocol natif sur STDIO pour IDE, agents et orchestrateurs locaux.
 
@@ -62,7 +62,7 @@ Catalogue : **18 tools**. NEXUS reste optionnel et le `ContextBundle` live n'est
 
 # M14 — 2 tools read-only
 
-Catalogue cible : **20 tools read-only**.
+Catalogue validé : **20 tools read-only**.
 
 ```text
 get_change_orchestration_state
@@ -176,7 +176,7 @@ index/rebuild NEXUS
 orchestrate JARVIS actions
 ```
 
-## Preuve M14 implémentée
+## Validation M14
 
 ```text
 MorpheusM14McpStdioIntegrationTest
@@ -186,13 +186,24 @@ MorpheusM14McpStdioIntegrationTest
  -> appelle evaluate_change_transition
 ```
 
-Projection avant gate :
+Gate MORPHEUS sur `d44d418ae0f1e528ea09a56cdd8c45647048c740` :
 
 ```text
-MCP module       5 tests
-CLI module      20 tests (inclut subprocess M14)
-Architecture   160 tests
-TOTAL          357 tests
+MCP             5/5 PASS
+CLI            20/20 PASS
+Architecture 160/160 PASS
+TOTAL         357/357 PASS
+Packaging         PASS
 ```
 
-Références : [`JARVIS.md`](JARVIS.md), [`roadmap/M14_EXECUTION.md`](roadmap/M14_EXECUTION.md).
+Preuve JARVIS sur `58899855bcd3446636c1f274ace8c1bfc8f46930` :
+
+```text
+jarvis-core 536 tests
+0 failure
+0 error
+BUILD SUCCESS
+MorpheusOrchestrationClientTest 6/6 PASS
+```
+
+Références : [`VALIDATION_M14.md`](VALIDATION_M14.md), [`JARVIS.md`](JARVIS.md), [`roadmap/M14_EXECUTION.md`](roadmap/M14_EXECUTION.md).
