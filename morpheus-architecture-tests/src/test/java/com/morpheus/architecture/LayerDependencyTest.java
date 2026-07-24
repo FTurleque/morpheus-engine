@@ -21,7 +21,8 @@ class LayerDependencyTest {
                         "com.morpheus.mcp..",
                         "com.morpheus.api..",
                         "com.morpheus.integration..",
-                        "com.minos..")
+                        "com.minos..",
+                        "com.nexus..")
                 .because("the MORPHEUS domain owns its model and adapters depend inward")
                 .check(classes);
     }
@@ -37,7 +38,8 @@ class LayerDependencyTest {
                         "com.morpheus.mcp..",
                         "com.morpheus.api..",
                         "com.morpheus.integration..",
-                        "com.minos..")
+                        "com.minos..",
+                        "com.nexus..")
                 .because("application services define use cases and ports without depending on adapters")
                 .check(classes);
     }
@@ -50,8 +52,9 @@ class LayerDependencyTest {
                         "com.morpheus.cli..",
                         "com.morpheus.mcp..",
                         "com.morpheus.integration..",
-                        "com.minos..")
-                .because("the M11/M12 HTTP adapter must reuse application contracts rather than other adapters")
+                        "com.minos..",
+                        "com.nexus..")
+                .because("the M11-M13 HTTP adapter must reuse application contracts rather than other adapters")
                 .check(classes);
     }
 
@@ -66,6 +69,20 @@ class LayerDependencyTest {
                         "com.morpheus.store..",
                         "com.minos..")
                 .because("MINOS integration implements application ports and communicates through MCP STDIO only")
+                .check(classes);
+    }
+
+    @Test
+    void nexusIntegrationMustNotDependOnOuterMorpheusAdaptersOrNexusImplementation() {
+        noClasses()
+                .that().resideInAPackage("com.morpheus.integration.nexus..")
+                .should().dependOnClassesThat().resideInAnyPackage(
+                        "com.morpheus.cli..",
+                        "com.morpheus.mcp..",
+                        "com.morpheus.api..",
+                        "com.morpheus.store..",
+                        "com.nexus..")
+                .because("NEXUS integration implements the technical-context port and communicates through MCP STDIO only")
                 .check(classes);
     }
 }
