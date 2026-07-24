@@ -22,10 +22,7 @@ public record RequirementChangeImpact(
     public RequirementChangeImpact {
         Objects.requireNonNull(delta, "delta");
         currentRequirement = Objects.requireNonNull(currentRequirement, "currentRequirement");
-        currentScenarios = Objects.requireNonNull(currentScenarios, "currentScenarios").stream()
-                .peek(item -> Objects.requireNonNull(item, "currentScenarios item"))
-                .sorted(Comparator.comparing(item -> item.id().toString()))
-                .toList();
+        currentScenarios = canonicalScenarios(currentScenarios, "currentScenarios");
         changedFields = Set.copyOf(new TreeSet<>(Objects.requireNonNull(changedFields, "changedFields")));
         warnings = Objects.requireNonNull(warnings, "warnings").stream()
                 .peek(item -> Objects.requireNonNull(item, "warnings item"))
@@ -37,6 +34,13 @@ public record RequirementChangeImpact(
     public List<Scenario> proposedScenarios() {
         return delta.kind() == com.morpheus.domain.requirement.RequirementDeltaKind.REMOVED
                 ? List.of()
-                : delta.scenarios();
+                : canonicalScenarios(delta.scenarios(), "proposedScenarios");
+    }
+
+    private static List<Scenario> canonicalScenarios(List<Scenario> scenarios, String name) {
+        return Objects.requireNonNull(scenarios, name).stream()
+                .peek(item -> Objects.requireNonNull(item, name + " item"))
+                .sorted(Comparator.comparing(item -> item.id().toString()))
+                .toList();
     }
 }
