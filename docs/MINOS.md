@@ -71,7 +71,9 @@ timeoutSeconds = 20
 
 Timeout autorisé : `1..120` secondes.
 
-`MORPHEUS_MINOS_JAR` doit désigner le JAR exécutable/classpath contenant `com.minos.mcp.MinosMcpServer` et ses dépendances.
+`MORPHEUS_MINOS_JAR` doit désigner le JAR ombré/autonome contenant `com.minos.mcp.MinosMcpServer` et ses dépendances, typiquement le `*-all.jar` produit par MINOS.
+
+Lorsque `MORPHEUS_MINOS_HOME` est fourni, MORPHEUS le transmet au process MINOS comme propriété JVM `-Dminos.home=...` avant le classpath.
 
 ## Coordonnée externe
 
@@ -125,6 +127,8 @@ REVISION_MISMATCH
 ```
 
 MORPHEUS ne prétend jamais avoir résolu un symbole contre une autre baseline MINOS que celle demandée.
+
+La coordonnée `ExternalReferenceTarget` stockée reste strictement inchangée pendant la résolution ; le `projectId` et l'`activeSnapshotId` canoniques observés chez MINOS sont exposés dans les attributs résolus.
 
 ## Résolution live
 
@@ -262,11 +266,36 @@ architecture guards
 portable packaging excludes com/minos/*
 ```
 
-## Gate restant
+## Gate MORPHEUS restant
 
 ```powershell
 .\mvnw.cmd clean test
 .\distribution\build-portable.ps1
 ```
 
-Les ADR-0069 à ADR-0072 et ADR-0007 ne seront acceptées qu'après ce gate.
+## Smoke de compatibilité avec le vrai MINOS
+
+Après le gate MORPHEUS, M12 fournit aussi :
+
+```powershell
+.\distribution\test-minos-compatibility.ps1 `
+  -MinosJar <N:\...\minos-code-intelligence\target\...-all.jar> `
+  -MinosJava <java-24-or-newer>
+```
+
+Le script lance le **vrai `MinosMcpServer`** depuis le JAR MINOS, négocie MCP par `minos-status` et exige :
+
+```text
+system = MINOS
+state  = AVAILABLE
+```
+
+Résultat attendu :
+
+```text
+Real MINOS MCP compatibility smoke: PASS
+```
+
+Ce smoke complète le subprocess fixture en vérifiant la compatibilité protocolaire réelle entre les deux dépôts sans introduire de dépendance compile-time.
+
+ADR-0069 à ADR-0072 restent **Proposées** jusqu'aux preuves finales M12. ADR-0007 est déjà **Acceptée — M0** ; M12 lui apporte une preuve cross-engine de production supplémentaire sans modifier son statut historique.
