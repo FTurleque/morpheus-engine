@@ -1,6 +1,6 @@
 # MORPHEUS × MINOS — M12
 
-Statut : **implémentation fonctionnelle complète — gate local pending**
+Statut : **✅ VALIDÉ — 24 juillet 2026**
 
 M12 relie l'intention/specification MORPHEUS à la connaissance de code MINOS sans fusionner leurs domaines ni leurs runtimes.
 
@@ -87,14 +87,6 @@ externalId   = symbolKey MINOS exact obligatoire
 revision     = activeSnapshotId MINOS attendu, optionnel
 ```
 
-Exemple :
-
-```text
-MINOS / SYMBOL / project=morpheus-engine
-externalId=symbol:RequirementService
-revision=019...
-```
-
 Le resolver peut utiliser la recherche lexicale MINOS pour récupérer des candidats, mais n'accepte que :
 
 ```text
@@ -125,8 +117,6 @@ Sinon :
 REVISION_MISMATCH
 -> TARGET_REVISION_MISMATCH
 ```
-
-MORPHEUS ne prétend jamais avoir résolu un symbole contre une autre baseline MINOS que celle demandée.
 
 La coordonnée `ExternalReferenceTarget` stockée reste strictement inchangée pendant la résolution ; le `projectId` et l'`activeSnapshotId` canoniques observés chez MINOS sont exposés dans les attributs résolus.
 
@@ -225,15 +215,7 @@ list_external_references
 resolve_external_reference
 ```
 
-Inputs :
-
-```json
-{"projectId":"<uuid>","ownerId":"<uuid>"}
-```
-
-```json
-{"projectId":"<uuid>","referenceId":"<uuid>"}
-```
+Serveur M12 : **16 tools read-only**.
 
 ## API HTTP
 
@@ -247,35 +229,50 @@ GET /projects/{projectId}/external-references/{referenceId}/resolution
 
 Toutes restent read-only vis-à-vis de la référence externe persistée.
 
-## Preuves M12 implémentées
+## Validation M12
+
+Head exécuté :
 
 ```text
-configuration disabled/configured/invalid
-exact symbolKey
-lexical non-exact rejeté
-ambiguity
-revision mismatch
-unavailable gateway
-real MCP STDIO subprocess fixture
-live resolution Memory non-mutante
-live resolution SQLite + reopen non-mutante
-CLI standalone sans MINOS
-MORPHEUS MCP STDIO sans MINOS
-HTTP status/list/resolve + SQLite unchanged
-architecture guards
-portable packaging excludes com/minos/*
+ca0073a875bcf28114a2945b141fc8c45f88930e
 ```
 
-## Gate MORPHEUS restant
+Gate :
 
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
+```text
+Domain             21/21 PASS
+Application        84/84 PASS
+OpenSpec           26/26 PASS
+Synthetic           7/7 PASS
+SQLite              7/7 PASS
+MINOS Integration   8/8 PASS
+MCP                 5/5 PASS
+API                 5/5 PASS
+CLI                15/15 PASS
+Architecture      153/153 PASS
+-------------------------------
+TOTAL             331/331 PASS
+Failures             0
+Errors               0
+Skipped              0
+BUILD SUCCESS
 ```
+
+Packaging :
+
+```text
+MCP/API/MINOS adapter packaging proof: PASS
+Packaged standalone MINOS-optional smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+Windows ZIP = 33,587,925 bytes
+```
+
+Validation détaillée : [`VALIDATION_M12.md`](VALIDATION_M12.md).
 
 ## Smoke de compatibilité avec le vrai MINOS
 
-Après le gate MORPHEUS, M12 fournit aussi :
+Preuve additionnelle disponible :
 
 ```powershell
 .\distribution\test-minos-compatibility.ps1 `
@@ -283,19 +280,12 @@ Après le gate MORPHEUS, M12 fournit aussi :
   -MinosJava <java-24-or-newer>
 ```
 
-Le script lance le **vrai `MinosMcpServer`** depuis le JAR MINOS, négocie MCP par `minos-status` et exige :
-
-```text
-system = MINOS
-state  = AVAILABLE
-```
-
-Résultat attendu :
+Attendu :
 
 ```text
 Real MINOS MCP compatibility smoke: PASS
 ```
 
-Ce smoke complète le subprocess fixture en vérifiant la compatibilité protocolaire réelle entre les deux dépôts sans introduire de dépendance compile-time.
+Ce smoke vérifie la compatibilité protocolaire réelle entre les deux dépôts. Il complète le subprocess fixture mais n'est pas requis pour le gate autonome M12 déjà validé.
 
-ADR-0069 à ADR-0072 restent **Proposées** jusqu'aux preuves finales M12. ADR-0007 est déjà **Acceptée — M0** ; M12 lui apporte une preuve cross-engine de production supplémentaire sans modifier son statut historique.
+ADR-0069 à ADR-0072 sont **Acceptées — M12**. ADR-0007 reste **Acceptée — M0** et reçoit avec M12 une preuve cross-engine concrète supplémentaire.
