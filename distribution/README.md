@@ -152,6 +152,39 @@ MORPHEUS_MINOS_TIMEOUT_SECONDS=<1..120>
 
 L'adapter lance MINOS à la demande via MCP STDIO ; aucun process MINOS n'est démarré lors d'un simple `--version`, d'un bootstrap CLI ou d'un health API.
 
+Lorsque `MORPHEUS_MINOS_HOME` est défini, il est transmis au process MINOS comme `-Dminos.home=<path>` avant `-cp`.
+
+## Smoke de compatibilité avec le vrai MINOS
+
+Le gate autonome prouve que MORPHEUS reste valide **sans** MINOS. Pour prouver en plus le contrat inter-dépôts réel :
+
+```powershell
+.\distribution\test-minos-compatibility.ps1 `
+  -MinosJar <path-to-minos-code-intelligence\target\*-all.jar> `
+  -MinosJava <java-24-or-newer>
+```
+
+Le script utilise le launcher MORPHEUS M12 packagé par défaut :
+
+```text
+dist/.m12-windows/image/morpheus/morpheus.exe
+```
+
+Il configure temporairement `MORPHEUS_MINOS_*`, démarre réellement `com.minos.mcp.MinosMcpServer` via l'adapter MCP STDIO et exige :
+
+```text
+system = MINOS
+state  = AVAILABLE
+```
+
+Résultat attendu :
+
+```text
+Real MINOS MCP compatibility smoke: PASS
+```
+
+Ce smoke ne copie pas MINOS dans MORPHEUS et ne crée aucune dépendance Maven entre les dépôts.
+
 ## Layout runtime MORPHEUS
 
 Options :
@@ -217,7 +250,7 @@ M12 attendu         331 tests + MINOS optional packaging proof
 .\distribution\build-portable.ps1
 ```
 
-M12 ne sera validé qu'après preuve de ces deux commandes.
+M12 ne sera validé qu'après preuve de ces deux commandes, complétée idéalement par le smoke de compatibilité contre le vrai JAR MINOS.
 
 Références :
 
