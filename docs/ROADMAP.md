@@ -1,14 +1,12 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M9 validés et intégrés ; M10 validé, intégration portée par PR #58**
+Statut : **C0 à M11 validés et intégrés ; M12 fonctionnellement complet, gate pending**
 
 Dernière mise à jour : 24 juillet 2026
 
 La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohérentes, tests reproductibles et réponse explicite à chaque question de sortie.
 
----
-
-# 1. Vue globale
+## 1. Vue globale
 
 | Jalon | Sujet | Statut | Preuve / prochaine porte |
 |---|---|---|---|
@@ -19,29 +17,33 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M3 | Temporalité, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 147/147 |
 | M4 | Traçabilité typée | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 189/189 |
 | M5 | Requêtes et contexte compact | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M5.md`, 227/227 |
-| M6 | Qualité, couverture et diagnostics explicables | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M6.md`, 261/261 |
+| M6 | Qualité, couverture et diagnostics | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M6.md`, 261/261 |
 | M7 | Synchronisation incrémentale et fraîcheur | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M7.md`, 282/282 |
 | M8 | Analyse des changements | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M8.md`, 289/289 |
-| M9 | CLI stabilisée et distribution locale | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M9.md`, 298/298 Windows + Linux, merge `2533f325c6ef55070857a8bf75808648d99da5a2` |
-| **M10** | **Serveur MCP STDIO natif** | **✅ VALIDÉ** | `VALIDATION_M10.md`, 307/307, MCP STDIO réel + Windows ZIP |
-| M11 | API / headless | ⏳ PLANIFIÉ | après intégration M10 |
-| M12 | MINOS | ⏳ PLANIFIÉ | intégration optionnelle |
+| M9 | CLI stabilisée et distribution locale | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M9.md`, 298/298 Windows + Linux |
+| M10 | Serveur MCP STDIO natif | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M10.md`, 307/307 |
+| M11 | API HTTP headless | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M11.md`, 314/314 + packaged health |
+| **M12** | **MINOS optionnel / intention → code** | **🚧 GATE PENDING** | `roadmap/M12_EXECUTION.md`, projection 331 tests |
 | M13 | NEXUS | ⏳ PLANIFIÉ | MORPHEUS autonome |
 | M14 | JARVIS | ⏳ PLANIFIÉ | orchestration seulement |
 
+M11 merge :
+
+```text
+e30ed4095700b445fedc4517c22ff447c22238f4
+```
+
 Références actives :
 
-- [`VALIDATION_M10.md`](VALIDATION_M10.md)
-- [`roadmap/M10_EXECUTION.md`](roadmap/M10_EXECUTION.md)
+- [`VALIDATION_M11.md`](VALIDATION_M11.md)
+- [`roadmap/M12_EXECUTION.md`](roadmap/M12_EXECUTION.md)
+- [`MINOS.md`](MINOS.md)
+- [`API.md`](API.md)
 - [`MCP.md`](MCP.md)
-- [`VALIDATION_M9.md`](VALIDATION_M9.md)
-- [`CLI.md`](CLI.md)
 - [`../distribution/README.md`](../distribution/README.md)
 - [`adr/README.md`](adr/README.md)
 
----
-
-# 2. Principes de séquencement
+## 2. Principes de séquencement
 
 ```text
 Documenter d'abord
@@ -65,53 +67,24 @@ Invariants transverses :
 ```text
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
 SpecificationVersion != KnowledgeSnapshot
-Scenario != AcceptanceCriterion par défaut
+Scenario != AcceptanceCriterion
 provider facts != MORPHEUS domain
-backend details != domain
 PROPOSED never leaks into CURRENT
+published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
+optional engine absence != MORPHEUS failure
 ```
 
----
+## 3. C0 à M2 — Fondation ✅
 
-# 3. C0 à M2 — Fondation ✅
-
-C0 fixe le domaine, les frontières et la stratégie de validation.
-
-M0 prouve provider detection, mapping de domaine, UUIDv7, current reconstruction, lifecycle, snapshots, traceability, Memory/SQLite, recherche lexicale, contexte compact et références externes.
-
-M1 stabilise discovery, provider registry/capabilities, OpenSpec read-only, diagnostics, Memory/SQLite et migrations de fondation.
-
-M2 stabilise le modèle normalisé :
-
-```text
-ProjectSpecification
-Specification
-Requirement
-RequirementDelta
-ChangeProposal
-Constraint
-Scenario
-DesignDecision
-ImplementationTask
-Evidence
-Provenance
-ExternalReference
-```
-
-`AcceptanceCriterion` n'est créé que si une source expose cette sémantique explicitement.
+C0 fixe le domaine, les frontières et la stratégie de validation. M0 prouve la faisabilité. M1 stabilise discovery/providers/store. M2 stabilise le modèle normalisé et les références externes optionnelles.
 
 Gate M2 : **94/94 PASS**.
 
----
-
-# 4. M3 — Temporalité, lifecycle, snapshots et versions ✅
-
-**Réponse de sortie : OUI.**
+## 4. M3 — Temporalité / lifecycle / snapshots ✅
 
 ```text
-CURRENT / PROPOSED / HISTORICAL explicites
-PROPOSED never leaks into CURRENT
+CURRENT / PROPOSED / HISTORICAL
 BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
@@ -119,288 +92,199 @@ APPLY != PROMOTE != ACTIVATE
 
 Gate : **147/147 PASS**.
 
----
-
-# 5. M4 — Traçabilité typée ✅
-
-**Réponse de sortie : OUI.**
+## 5. M4 — Traçabilité typée ✅
 
 ```text
 TraceabilityLink typé et directionnel
 snapshot-scoped persistence
 bounded deterministic traversal
-unresolved/broken references explicites
+unresolved/broken external references
 trace(requirement)
+LINKS_TO_CODE réservé au code externe
 ```
 
 Gate : **189/189 PASS**.
 
----
+## 6. M5 — Requêtes / contexte compact ✅
 
-# 6. M5 — Requêtes et contexte compact ✅
-
-**Réponse de sortie : OUI.**
-
-```text
-find_requirements lexical déterministe
-pagination bornée
-ACTIVE par défaut
-CURRENT isolation
-business getters/lists
-trace_requirement
-get_change_context
-compact DTOs
-canonical JSON byte-déterministe
-Memory == SQLite
-SQLite reopen
-```
+Recherche déterministe, pagination, vues ACTIVE/CURRENT, contexte changement, traçabilité et JSON canonique.
 
 Gate : **227/227 PASS**.
 
----
+## 7. M6 — Qualité / diagnostics ✅
 
-# 7. M6 — Qualité, couverture et diagnostics explicables ✅
-
-**Réponse de sortie : OUI.**
-
-```text
-QualityFinding machine-readable
-DETERMINISTIC != HEURISTIC
-requirement/task coverage
-acceptance capability gap explicite
-change completeness
-lifecycle blockers explicites
-external UNVALIDATED / UNRESOLVED / STALE / BROKEN
-aggregate metrics stables
-compact quality JSON
-```
-
-Frontières :
-
-```text
-Scenario != AcceptanceCriterion
-DesignDecision.decision != justification
-risks != blockers
-lifecycle non inféré depuis snapshot
-aucun TraceabilityLink inventé
-```
+Qualité explicable, couverture requirement/task, gaps acceptance explicites, lifecycle non inféré, qualité références externes.
 
 Gate : **261/261 PASS**.
 
----
+## 8. M7 — Synchronisation / fraîcheur ✅
 
-# 8. M7 — Synchronisation incrémentale et fraîcheur ✅
+Inventaire SHA-256, diff incrémental conservateur, fallback full rebuild, état persisted et freshness.
 
-**Réponse de sortie : OUI.**
+Gate : **282/282 PASS**.
 
-```text
-SHA-256(content)
-ADDED / MODIFIED / DELETED / MOVED / UNCHANGED
-move ambigu => FULL_REBUILD
-SyncStateStore Memory + SQLite
-prepare / complete / fail
-baseline après succès seulement
-WatchService local
-OVERFLOW => FULL_REBUILD
-freshness UNKNOWN / FRESH / STALE / REBUILD_REQUIRED
-```
+## 9. M8 — Analyse des changements ✅
 
-Gate : **282/282 PASS**, architecture **139/139**.
+CURRENT baseline vs proposal, impacts requirement/dependency explicites, pas d'analyse code locale : **code impact = MINOS**.
 
----
+Gate : **289/289 PASS**.
 
-# 9. M8 — Analyse des changements ✅
+## 10. M9 — CLI / distribution ✅
 
-**Réponse de sortie : OUI.**
+CLI stable, sync full snapshot conservateur, SQLite persistante, shaded JAR, jpackage Windows/Linux, runtime Java embarqué.
 
-```text
-CURRENT baseline vs ProposedChangeSet
-ADDED / MODIFIED / REMOVED
-Constraint / DesignDecision / ImplementationTask
-Scenario != AcceptanceCriterion
-AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL
-DEPENDS_ON persisted only
-bounded impact paths
-CompactChangeAnalysisView
-canonical JSON
-code impact = MINOS
-```
+Gate : **298/298 Windows + Linux**.
 
-Gate : **289/289 PASS**, architecture **146/146**.  
-Merge : `6780fb024fe5b8645226f0aacecddb32bcfa7517`.
+## 11. M10 — MCP STDIO ✅
 
----
+14 tools read-only, JSON Schemas stricts, Java MCP SDK 2.0.0, stdout protocol-only.
 
-# 10. M9 — CLI stabilisée et distribution locale ✅
+Gate : **307/307 PASS**.
 
-**Réponse de sortie : OUI.**
-
-```text
-MorpheusMain / MorpheusCli
-human + --json
-stable exit codes
-SQLite persistent state
-OpenSpec -> full snapshot publication
-old ACTIVE kept until validation
-CLI sync -> FULL_REBUILD conservateur
-shaded executable JAR
-jpackage app-image
-embedded Java runtime
-Windows ZIP
-Linux tar.gz
-```
-
-Gate cross-platform :
-
-```text
-Windows  298/298 PASS | Architecture 149/149 | app-image + ZIP
-Linux    298/298 PASS | Architecture 149/149 | app-image + tar.gz
-```
-
-Validation : [`VALIDATION_M9.md`](VALIDATION_M9.md).  
-Merge : `2533f325c6ef55070857a8bf75808648d99da5a2`.
-
-M9 est **VALIDÉ ET INTÉGRÉ**.
-
----
-
-# 11. M10 — Serveur MCP STDIO natif ✅
+## 12. M11 — API HTTP headless ✅ / INTÉGRÉ
 
 Question de sortie :
 
-> **MORPHEUS peut-il exposer ses capacités de lecture d'intention/specification à des agents via un serveur MCP local stdio natif, avec des tools déterministes, des JSON Schemas stricts, des erreurs explicites et aucune logique métier essentielle dans les handlers MCP, tout en restant utilisable sans serveur HTTP, Docker, MINOS, NEXUS ou JARVIS ?**
+> MORPHEUS peut-il fonctionner comme service headless local via une API HTTP versionnée et stable sans déplacer les règles métier hors application/domain ?
 
 **Réponse : OUI.**
 
-Transport / SDK :
-
 ```text
-Java MCP SDK officiel 2.0.0
-McpServer.sync
-StdioServerTransportProvider
-morpheus mcp --stdio
-validateToolInputs=true
-stdout = MCP JSON-RPC uniquement
+morpheus api --host 127.0.0.1 --port 8765
+/api/v1
+JDK jdk.httpserver
+SQLite shared CLI/MCP/API
+OpenAPI 3.1
 ```
 
-Catalogue exact :
+Surface : projets, sync, specifications, requirements, trace, changes, contexts, lifecycle facts, versions, historique, comparaison, diagnostics.
+
+Invariants :
 
 ```text
-get_current_specification
-find_requirements
-get_change
-list_changes
-get_constraints
-get_acceptance_criteria
-get_design_decisions
-get_implementation_tasks
-trace_requirement
-get_change_context
-get_specification_context
-get_change_status
-get_blocking_conditions
-get_sync_status
-```
-
-Contrats :
-
-```text
-all tools read-only
+API = adapter sibling CLI/MCP
 Scenario != AcceptanceCriterion
-get_acceptance_criteria -> UNAVAILABLE_IN_NORMALIZED_MODEL
-lifecycle non inféré
-get_change_status -> UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT
-ACTIVE/CURRENT preserved
-SQLite shared with CLI
-no write/promote/activate tool
+lifecycle absent != inferred
+HTTP sync = FULL_REBUILD conservateur
+failed sync preserves ACTIVE
+no apply/promote/activate/rollback endpoint
 ```
 
-Gate Windows :
+Gate :
 
 ```text
-MORPHEUS MCP              5/5 PASS
-MORPHEUS CLI             10/10 PASS
-Architecture Tests      149/149 PASS
-TOTAL                   307/307 PASS
-BUILD SUCCESS
+API                    4/4 PASS
+CLI                   12/12 PASS
+Architecture         150/150 PASS
+TOTAL                314/314 PASS
+packaged API health  PASS
 ```
 
-Le gate inclut un vrai échange STDIO :
+Validation : [`VALIDATION_M11.md`](VALIDATION_M11.md).  
+Merge : `e30ed4095700b445fedc4517c22ff447c22238f4`.
+
+## 13. M12 — MINOS 🚧
+
+Question de sortie :
+
+> **MORPHEUS peut-il résoudre en production une `ExternalReference(system=MINOS, resourceType=SYMBOL, ...)`, enrichir la traçabilité intention → code avec des faits MINOS explicites et révisés, tout en restant totalement utilisable lorsque MINOS est absent, arrêté, incompatible ou sur une autre JVM ?**
+
+Architecture implémentée :
 
 ```text
-initialize
-notifications/initialized
-tools/list
-tools/call
-invalid schema input rejection
+MORPHEUS Java 21
+ -> morpheus-integration-minos
+ -> MCP client 2.0.0 / STDIO
+ -> process MINOS Java 24
 ```
 
-Packaging final :
+Aucune dépendance compile-time à `com.minos.*`.
+
+Coordonnée exacte :
 
 ```text
-MCP packaging proof: PASS
-jpackage app-image PASS
-morpheus.exe --version PASS
-morpheus.exe --json version PASS
-Portable archive creation: PASS
-Windows ZIP 77275075 bytes
-runtime Java embarqué
+system       = MINOS
+resourceType = SYMBOL
+project      = obligatoire
+externalId   = exact symbolKey
+revision     = activeSnapshotId attendu optionnel
 ```
 
-Validation : [`VALIDATION_M10.md`](VALIDATION_M10.md).  
-Exécution : [`roadmap/M10_EXECUTION.md`](roadmap/M10_EXECUTION.md).  
-MCP : [`MCP.md`](MCP.md).
-
-ADR :
+Sémantique :
 
 ```text
-ADR-0062 — Acceptée
-ADR-0063 — Acceptée
-ADR-0064 — Acceptée
+0 exact  -> NOT_FOUND
+1 exact  -> FOUND
+>1 exact -> AMBIGUOUS
+revision mismatch -> REVISION_MISMATCH
+transport/process failure -> UNAVAILABLE
 ```
 
-M10 est **VALIDÉ**. L'intégration est portée par PR #58 et la fusion reste soumise à autorisation explicite.
+Invariant temporel :
 
----
+```text
+stored reference
+ -> live observation
+ -> response
+ -X-> mutation published snapshot
+```
 
-# 12. M11 — API / headless ⏳
+Surfaces additives :
 
-Périmètre : projets, spécifications, requirements, changements, contraintes, critères disponibles, traçabilité, versions, contexte, synchronisation, diagnostics et DTO stables.
+```text
+CLI  minos-status / external-references list|resolve
+MCP  list_external_references / resolve_external_reference
+HTTP /integrations/minos/status
+HTTP /projects/{id}/external-references
+HTTP /projects/{id}/external-references/{ref}/resolution
+```
 
-M11 ne doit pas dupliquer les règles déjà exposées par CLI/MCP ; l'API reste un adapter.
+Optionalité : sans `MORPHEUS_MINOS_JAR`, MORPHEUS reste entièrement fonctionnel et les résolutions retournent `NO_RESOLVER`.
 
----
+Preuves implémentées :
 
-# 13. M12 — MINOS ⏳
+```text
+generic resolution taxonomy
+Memory + SQLite non-mutating live resolution
+real MINOS MCP STDIO fixture
+exact symbolKey / ambiguity / revision
+real MORPHEUS MCP STDIO M12
+HTTP M12
+CLI standalone M12
+architecture guards
+packaging rejects com/minos/*
+standalone packaged MINOS status = DISABLED
+```
 
-Relier intention et code via `ExternalReference(system=MINOS, ...)`. MINOS reste optionnel.
+Projection : **331 tests** avant preuve.
 
----
+Gate restant :
 
-# 14. M13 — NEXUS ⏳
+```powershell
+.\mvnw.cmd clean test
+.\distribution\build-portable.ps1
+```
+
+ADR candidates : ADR-0069 à ADR-0072. Elles restent **Proposées** jusqu'au gate.
+
+## 14. M13 — NEXUS ⏳
 
 MORPHEUS fournit intention/specification ; NEXUS sélectionne, classe, fusionne et compresse le contexte global.
 
 **MORPHEUS reste utilisable sans NEXUS.**
 
----
-
-# 15. M14 — JARVIS ⏳
+## 15. M14 — JARVIS ⏳
 
 MORPHEUS expose états, transitions, blockers, acceptance status, références et contexte. JARVIS orchestre la séquence d'actions.
 
----
-
-# 16. Règle de pilotage
+## 16. Règle de pilotage
 
 ```text
 1. documenter invariant / ADR
-2. implémenter le plus petit vertical slice
-3. ajouter les preuves contractuelles
-4. exécuter le gate local .\mvnw.cmd clean test
-5. accepter l'ADR après preuve
-6. merger uniquement après autorisation explicite
-7. mettre à jour roadmap + issue
+2. implémenter vertical slice minimal cohérent
+3. tester Memory / SQLite / adapter réel selon le contrat
+4. lancer gate local complet
+5. accepter ADR seulement après preuve
+6. fermer issue / passer PR Ready
+7. merger uniquement après autorisation explicite
 ```
-
-**Prochaine porte : intégrer M10 après autorisation explicite, puis démarrer M11 — API / headless.**
