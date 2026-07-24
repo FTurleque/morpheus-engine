@@ -57,6 +57,20 @@ class MorpheusApiContractTest {
             ApiTestSupport.Response badQuery = http.get(server, "/projects?unexpected=true");
             assertEquals(400, badQuery.status());
             assertTrue(badQuery.body().contains("unknown query parameter"));
+
+            String registration = "{\"workspace\":" + http.jsonString(http.fixture("openspec-basic").toString()) + "}";
+            ApiTestSupport.Response created = http.postJson(server, "/projects", registration);
+            assertEquals(201, created.status(), created.body());
+            String projectId = http.field(created.body(), "projectId");
+
+            ApiTestSupport.Response unpublished = http.get(server, "/projects/" + projectId + "/requirements");
+            assertEquals(409, unpublished.status(), unpublished.body());
+            assertTrue(unpublished.body().contains("\"code\":\"STATE_CONFLICT\""), unpublished.body());
+
+            ApiTestSupport.Response unknownProject = http.get(
+                    server, "/projects/01900000-0000-7000-8000-000000000001/requirements");
+            assertEquals(404, unknownProject.status(), unknownProject.body());
+            assertTrue(unknownProject.body().contains("\"code\":\"NOT_FOUND\""), unknownProject.body());
         }
     }
 }
