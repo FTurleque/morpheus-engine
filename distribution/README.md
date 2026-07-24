@@ -8,7 +8,7 @@ M10  MCP STDIO embarqué validé
 M11  API HTTP + jdk.httpserver validés
 M12  adapter MINOS optionnel validé
 M13  adapter NEXUS optionnel validé
-M14  contrat d'orchestration JARVIS implémenté — gate pending
+M14  contrat d'orchestration JARVIS validé
 ```
 
 ## Artefacts
@@ -56,7 +56,9 @@ com/morpheus/application/orchestration/ChangeOrchestrationStateService.class
 com/morpheus/application/orchestration/ChangeTransitionEvaluationService.class
 ```
 
-## Windows M14
+## Windows M14 — VALIDÉ
+
+Commande :
 
 ```powershell
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
@@ -65,17 +67,24 @@ $env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
 
 Workdir : `dist/.m14-windows`.
 
-Preuves attendues :
+Preuves obtenues :
 
 ```text
 MCP/API/MINOS/NEXUS/M14 orchestration packaging proof: PASS
-jpackage app-image: PASS
+MORPHEUS 0.1.0-SNAPSHOT
 MINOS status -> DISABLED sans configuration
 NEXUS status -> DISABLED sans configuration
-change-orchestration présent dans le help packagé
+change-orchestration présent dans le launcher packagé
 Packaged standalone optional-engines + M14 orchestration smoke: PASS
 Packaged API health smoke: PASS
 Portable archive creation: PASS
+```
+
+Archive produite :
+
+```text
+N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
+33,702,405 bytes
 ```
 
 Installateur optionnel :
@@ -135,7 +144,19 @@ GET  /api/v1/projects/{projectId}/changes/{changeId}/orchestration
 POST /api/v1/projects/{projectId}/changes/{changeId}/transition-check
 ```
 
-Dépôt JARVIS : issue #92, PR #93 draft.
+Dépôt JARVIS : issue #92, PR #93.
+
+Gate cross-repo validé sur :
+
+```text
+head 58899855bcd3446636c1f274ace8c1bfc8f46930
+jarvis-core 536 tests
+Failures 0
+Errors 0
+Skipped 16
+BUILD SUCCESS
+MorpheusOrchestrationClientTest 6/6 PASS
+```
 
 ## Layout runtime MORPHEUS
 
@@ -151,7 +172,7 @@ MORPHEUS_DB
 Windows : `%LOCALAPPDATA%\Morpheus` / `%APPDATA%\Morpheus`.  
 Linux : XDG data/config standards.
 
-## Gates historiques et projection
+## Gates historiques
 
 ```text
 M9  298/298 Windows + Linux
@@ -159,20 +180,21 @@ M10 307/307 Windows + MCP packaging
 M11 314/314 Windows + packaged API health
 M12 331/331 Windows + MINOS optional packaging
 M13 346/346 Windows + MINOS/NEXUS optional packaging
-M14 projection 357 tests | Architecture 160 | M14 orchestration packaging pending
+M14 357/357 Windows + Architecture 160/160 + orchestration packaging PASS
 ```
 
-M14 reste non validé tant que :
+M14 validation :
 
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
+```text
+MORPHEUS 357/357 PASS
+Architecture 160/160 PASS
+Packaging PASS
+JARVIS 536 tests, BUILD SUCCESS
 ```
-
-n'ont pas produit une preuve verte.
 
 Références :
 
+- [`../docs/VALIDATION_M14.md`](../docs/VALIDATION_M14.md)
 - [`../docs/JARVIS.md`](../docs/JARVIS.md)
 - [`../docs/roadmap/M14_EXECUTION.md`](../docs/roadmap/M14_EXECUTION.md)
 - [`../docs/API.md`](../docs/API.md)
