@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M13 validés ; M12 intégré, M13 prêt à intégrer**
+Statut : **C0 à M13 validés et intégrés**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -24,13 +24,14 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M10 | Serveur MCP STDIO natif | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M10.md`, 307/307 |
 | M11 | API HTTP headless | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M11.md`, 314/314 + packaged health |
 | M12 | MINOS optionnel / intention → code | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M12.md`, 331/331 + packaging |
-| **M13** | **NEXUS optionnel / intention → contexte technique** | **✅ VALIDÉ** | `VALIDATION_M13.md`, 346/346 + packaging |
+| **M13** | **NEXUS optionnel / intention → contexte technique** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M13.md`, 346/346 + packaging |
 | M14 | JARVIS | ⏳ PLANIFIÉ | orchestration seulement |
 
-M12 merge :
+Merges :
 
 ```text
-86dbb1d50e87ce354b7174156e9c8c5717722a17
+M12 = 86dbb1d50e87ce354b7174156e9c8c5717722a17
+M13 = 2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f
 ```
 
 Références actives :
@@ -115,7 +116,7 @@ ADR : **0069..0072 acceptées**.
 Validation : [`VALIDATION_M12.md`](VALIDATION_M12.md).  
 Merge : `86dbb1d50e87ce354b7174156e9c8c5717722a17`.
 
-## 5. M13 — NEXUS ✅ VALIDÉ
+## 5. M13 — NEXUS ✅ / INTÉGRÉ
 
 Question de sortie :
 
@@ -194,7 +195,8 @@ ZIP 33,654,379 bytes
 ```
 
 ADR : **0073..0076 acceptées**.  
-Validation : [`VALIDATION_M13.md`](VALIDATION_M13.md).
+Validation : [`VALIDATION_M13.md`](VALIDATION_M13.md).  
+Merge : `2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f`.
 
 ## 6. M14 — JARVIS ⏳
 
