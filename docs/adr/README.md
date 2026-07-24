@@ -88,10 +88,10 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0070](0070-exact-minos-symbol-reference-and-revision.md) | `symbolKey` exact + révision MINOS | **Acceptée — M12** |
 | [ADR-0071](0071-live-external-resolution-without-snapshot-mutation.md) | Résolution live sans mutation de snapshot | **Acceptée — M12** |
 | [ADR-0072](0072-optional-minos-runtime-configuration-and-surfaces.md) | Runtime/surfaces MINOS optionnels | **Acceptée — M12** |
-| [ADR-0073](0073-nexus-mcp-stdio-integration.md) | NEXUS via MCP STDIO inter-processus | **Proposée — M13 gate pending** |
-| [ADR-0074](0074-explicit-nexus-project-mapping.md) | Mapping projet NEXUS explicite | **Proposée — M13 gate pending** |
-| [ADR-0075](0075-morpheus-intent-vs-nexus-technical-context.md) | Intention MORPHEUS distincte du contexte technique NEXUS | **Proposée — M13 gate pending** |
-| [ADR-0076](0076-optional-nexus-runtime-and-surfaces.md) | Runtime/surfaces NEXUS optionnels | **Proposée — M13 gate pending** |
+| [ADR-0073](0073-nexus-mcp-stdio-integration.md) | NEXUS via MCP STDIO inter-processus | **Acceptée — M13** |
+| [ADR-0074](0074-explicit-nexus-project-mapping.md) | Mapping projet NEXUS explicite | **Acceptée — M13** |
+| [ADR-0075](0075-morpheus-intent-vs-nexus-technical-context.md) | Intention MORPHEUS distincte du contexte technique NEXUS | **Acceptée — M13** |
+| [ADR-0076](0076-optional-nexus-runtime-and-surfaces.md) | Runtime/surfaces NEXUS optionnels | **Acceptée — M13** |
 
 # Preuves par jalon
 
@@ -107,7 +107,7 @@ M9  298/298 PASS Windows + Linux | Architecture 149/149
 M10 307/307 PASS Windows | Architecture 149/149 | MCP STDIO + packaging
 M11 314/314 PASS Windows | Architecture 150/150 | API health packaging
 M12 331/331 PASS Windows | Architecture 153/153 | MINOS optional packaging
-M13 projection 346 tests | Architecture 154 | proof pending
+M13 346/346 PASS Windows | Architecture 154/154 | MINOS/NEXUS optional packaging
 ```
 
 ## M12
@@ -119,19 +119,18 @@ M13 projection 346 tests | Architecture 154 | proof pending
 | live non-mutating | ADR-0071 | `LiveExternalReferenceResolutionContractTest 2/2`, Memory + SQLite reopen |
 | config + CLI/MCP/API + packaging | ADR-0072 | CLI `15/15`, API `5/5`, MCP `5/5`, packaging/smokes PASS |
 
-Validation : [`../VALIDATION_M12.md`](../VALIDATION_M12.md).  
-Documentation : [`../MINOS.md`](../MINOS.md).
+Validation : [`../VALIDATION_M12.md`](../VALIDATION_M12.md).
 
-## M13 — preuves implémentées, exécution pending
+## M13
 
-| Incrément | ADR | Preuve prévue |
+| Incrément | ADR | Preuve |
 |---|---|---|
-| MCP NEXUS inter-processus | ADR-0073 | `NexusMcpTransportIntegrationTest`, required-tool check |
-| mapping projet explicite | ADR-0074 | `TechnicalContextOptionsTest`, pass-through provider/API |
-| intent / contexte technique séparés | ADR-0075 | `AugmentedContextService`, API Requirement/Change, `persisted=false` |
-| optionalité + surfaces + packaging | ADR-0076 | settings, CLI, MORPHEUS MCP STDIO, HTTP, package smokes |
+| MCP NEXUS inter-processus | ADR-0073 | `NexusMcpTransportIntegrationTest 1/1`, NEXUS Integration `7/7` |
+| mapping projet explicite | ADR-0074 | `TechnicalContextOptionsTest 3/3`, provider/API pass-through |
+| intent / contexte technique séparés | ADR-0075 | API `7/7`, MCP subprocess M13 `1/1`, `persisted=false` |
+| optionalité + surfaces + packaging | ADR-0076 | CLI `17/17`, Architecture `154/154`, package/smokes PASS |
 
-Vue : [`../roadmap/M13_EXECUTION.md`](../roadmap/M13_EXECUTION.md).  
+Validation : [`../VALIDATION_M13.md`](../VALIDATION_M13.md).  
 Documentation : [`../NEXUS.md`](../NEXUS.md).
 
 # Contraintes actives principales
@@ -184,15 +183,13 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé** : M12.
+Dernier gate **validé** : M13.
 
 ```text
-TOTAL         331/331 PASS
-Architecture  153/153 PASS
+TOTAL         346/346 PASS
+Architecture  154/154 PASS
 Packaging     PASS
 ```
-
-M13 reste une projection : `346 tests`, architecture `154`, packaging pending.
 
 # Principe de validation
 
