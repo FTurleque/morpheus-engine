@@ -35,7 +35,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
                     + settings.configurationError().orElse(settings.state().name()));
         }
         Path jar = settings.jarPath().orElseThrow();
-        ServerParameters.Builder parameters = ServerParameters.builder(settings.javaCommand())
+        var parameters = ServerParameters.builder(settings.javaCommand())
                 .args("-cp", jar.toString(), MINOS_SERVER_CLASS);
         Map<String, String> processEnvironment = settings.processEnvironment();
         if (!processEnvironment.isEmpty()) {
