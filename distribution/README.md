@@ -1,14 +1,13 @@
-# MORPHEUS — Distribution locale M9 à M12
+# MORPHEUS — Distribution locale M9 à M13
 
 Stratégie : **native-first**, archive portable autonome comme artefact principal.
-
-État :
 
 ```text
 M9   Windows + Linux validés
 M10  MCP STDIO embarqué validé
-M11  API HTTP + jdk.httpserver embarqués validés
-M12  client/adaptateur MINOS optionnel validé
+M11  API HTTP + jdk.httpserver validés
+M12  adapter MINOS optionnel validé
+M13  adapter NEXUS optionnel implémenté — gate pending
 ```
 
 ## Artefacts
@@ -18,37 +17,34 @@ Windows x64 -> dist/morpheus-<version>-windows-x64.zip
 Linux x64   -> dist/morpheus-<version>-linux-x64.tar.gz
 ```
 
-Les archives embarquent leur runtime Java ; aucun JDK séparé n'est requis côté utilisateur final.
+Les archives embarquent leur runtime Java. Aucun JDK séparé n'est requis pour MORPHEUS lui-même.
 
-## Contenu M12
+## Contenu M13
 
-L'uber-JAR contient :
+L'uber-JAR embarque :
 
 ```text
 CLI MORPHEUS
-MCP server MORPHEUS
-MCP client SDK
+MCP server + MCP client SDK
 HTTP API
 morpheus-integration-minos
+morpheus-integration-nexus
 Jackson
 SQLite JDBC
 ```
 
-Il **ne contient pas MINOS**.
+Il n'embarque **ni MINOS ni NEXUS**.
 
-Le build échoue si une entrée :
+Le build échoue si le shaded JAR contient :
 
 ```text
 com/minos/*
+com/nexus/*
 ```
 
-est détectée dans le shaded JAR.
+## Preuve de contenu M13
 
-Le JAR MINOS reste une dépendance runtime externe et optionnelle, configurée via `MORPHEUS_MINOS_JAR`.
-
-## Preuve de contenu M12
-
-Le gate validé a contrôlé notamment :
+Classes exigées notamment :
 
 ```text
 com/morpheus/mcp/MorpheusMcpServer.class
@@ -56,16 +52,17 @@ io/modelcontextprotocol/server/McpServer.class
 io/modelcontextprotocol/client/McpClient.class
 io/modelcontextprotocol/client/transport/StdioClientTransport.class
 com/morpheus/api/MorpheusHttpServer.class
-com/morpheus/integration/minos/MinosMcpExternalReferenceResolver.class
-com/morpheus/integration/minos/MinosMcpCodeGateway.class
 com/morpheus/integration/minos/MinosIntegrationRuntime.class
+com/morpheus/integration/nexus/NexusMcpContextGateway.class
+com/morpheus/integration/nexus/NexusMcpTechnicalContextProvider.class
+com/morpheus/integration/nexus/NexusIntegrationRuntime.class
 tools/jackson/databind/json/JsonMapper.class
 ```
 
-Résultat :
+Attendu :
 
 ```text
-MCP/API/MINOS adapter packaging proof: PASS
+MCP/API/MINOS/NEXUS adapter packaging proof: PASS
 ```
 
 ## Windows
@@ -75,46 +72,32 @@ $env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
 .\distribution\build-portable.ps1
 ```
 
-Workdir M12 :
+Workdir :
 
 ```text
-dist/.m12-windows
+dist/.m13-windows
 ```
 
 Le script :
 
 1. construit l'uber-JAR ;
-2. vérifie MCP/API/client MINOS ;
-3. rejette toute classe d'implémentation MINOS ;
+2. prouve la présence des adapters MCP/API/MINOS/NEXUS ;
+3. rejette `com/minos/*` et `com/nexus/*` ;
 4. crée l'app-image via `jpackage` ;
 5. embarque `jdk.httpserver` ;
-6. teste `--version` ;
-7. teste `--json version` ;
-8. teste `--json minos-status` sans configuration MINOS ;
-9. démarre l'API packagée et vérifie `/api/v1/health` ;
-10. produit le ZIP avec retry/backoff.
+6. teste `--version` et `--json version` ;
+7. exige `minos-status=DISABLED` sans configuration ;
+8. exige `nexus-status=DISABLED` sans configuration ;
+9. vérifie `/api/v1/health` sur le launcher packagé ;
+10. crée le ZIP avec retry/backoff.
 
-Smoke standalone M12 validé :
-
-```json
-{"system":"MINOS","state":"DISABLED","configured":false,"message":"MINOS integration is not configured","details":{"javaCommand":"java","timeoutSeconds":"20"}}
-```
-
-Résultats observés :
+Attendu :
 
 ```text
-MORPHEUS 0.1.0-SNAPSHOT
-{"version":"0.1.0-SNAPSHOT"}
-Packaged standalone MINOS-optional smoke: PASS
+MCP/API/MINOS/NEXUS adapter packaging proof: PASS
+Packaged standalone optional-engines smoke: PASS
 Packaged API health smoke: PASS
 Portable archive creation: PASS
-```
-
-Archive validée :
-
-```text
-N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
-33,587,925 bytes
 ```
 
 Installateur optionnel :
@@ -123,13 +106,9 @@ Installateur optionnel :
 .\distribution\build-windows-installer.ps1
 ```
 
-Workdir : `dist/.m12-windows/image/morpheus`.
-
-WiX reste nécessaire uniquement pour produire EXE/MSI ; le ZIP portable reste officiel.
+Workdir : `dist/.m13-windows/image/morpheus`.
 
 ## Linux
-
-Le packaging Linux doit être exécuté depuis Linux/WSL avec filesystem Linux pour constituer une preuve Linux réelle.
 
 ```bash
 export JAVA_HOME=/path/to/jdk-21
@@ -138,83 +117,68 @@ chmod +x mvnw distribution/build-portable.sh
 ./distribution/build-portable.sh
 ```
 
-Workdir M12 :
+Workdir : `dist/.m13-linux`.
+
+Le script Linux vérifie également :
 
 ```text
-dist/.m12-linux
-```
-
-Le script vérifie également :
-
-```text
-MINOS status DISABLED sans configuration
-jdk.httpserver présent dans le runtime packagé
+MINOS status DISABLED
+NEXUS status DISABLED
+jdk.httpserver présent
 aucune classe com/minos/*
+aucune classe com/nexus/*
 ```
 
-La preuve finale M12 de référence est le gate Windows exécuté le 24 juillet 2026.
-
-## Configuration MINOS runtime
-
-L'archive MORPHEUS ne nécessite pas MINOS.
-
-Pour activer l'intégration :
+## Configuration MINOS
 
 ```text
-MORPHEUS_MINOS_JAR=<path-to-minos-uber-jar>
-MORPHEUS_MINOS_JAVA=<optional-java-command>
-MORPHEUS_MINOS_HOME=<optional-minos-home>
+MORPHEUS_MINOS_JAR=<minos-*-all.jar>
+MORPHEUS_MINOS_JAVA=<java-24-or-newer>
+MORPHEUS_MINOS_HOME=<optional>
 MORPHEUS_MINOS_TIMEOUT_SECONDS=<1..120>
 ```
 
-L'adapter lance MINOS à la demande via MCP STDIO ; aucun process MINOS n'est démarré lors d'un simple `--version`, d'un bootstrap CLI ou d'un health API.
+MORPHEUS lance MINOS à la demande par MCP STDIO.
 
-Lorsque `MORPHEUS_MINOS_HOME` est défini, il est transmis au process MINOS comme `-Dminos.home=<path>` avant `-cp`.
-
-## Smoke de compatibilité avec le vrai MINOS
-
-Le gate autonome prouve que MORPHEUS reste valide **sans** MINOS. Pour prouver en plus le contrat inter-dépôts réel :
+Smoke réel :
 
 ```powershell
 .\distribution\test-minos-compatibility.ps1 `
-  -MinosJar <path-to-minos-code-intelligence\target\*-all.jar> `
+  -MinosJar <minos-code-intelligence\target\*-all.jar> `
   -MinosJava <java-24-or-newer>
 ```
 
-Le script utilise le launcher MORPHEUS M12 packagé par défaut :
+Attendu : `Real MINOS MCP compatibility smoke: PASS`.
+
+## Configuration NEXUS
 
 ```text
-dist/.m12-windows/image/morpheus/morpheus.exe
+MORPHEUS_NEXUS_JAR=<nexus-mcp-java-*-runner.jar>
+MORPHEUS_NEXUS_JAVA=<java-21-or-newer>
+MORPHEUS_NEXUS_HOME=<optional>
+MORPHEUS_NEXUS_TIMEOUT_SECONDS=<1..120>
 ```
 
-Il configure temporairement `MORPHEUS_MINOS_*`, démarre réellement `com.minos.mcp.MinosMcpServer` via l'adapter MCP STDIO et exige :
+MORPHEUS lance le runner NEXUS uniquement pour un status live ou une construction de contexte.
 
-```text
-system = MINOS
-state  = AVAILABLE
+Smoke réel :
+
+```powershell
+.\distribution\test-nexus-compatibility.ps1 `
+  -NexusRunnerJar N:\workspace-dev\nexus-context-engine\adapters\mcp-java\target\nexus-mcp-java-0.1.0-SNAPSHOT-runner.jar `
+  -NexusJava <java-21-or-newer> `
+  -NexusHome <optional>
 ```
 
-Résultat attendu :
-
-```text
-Real MINOS MCP compatibility smoke: PASS
-```
-
-Ce smoke ne copie pas MINOS dans MORPHEUS et ne crée aucune dépendance Maven entre les dépôts. Il reste une preuve additionnelle ; il n'est pas requis pour le gate autonome M12 déjà validé.
+Attendu : `Real NEXUS MCP compatibility smoke: PASS`.
 
 ## Layout runtime MORPHEUS
-
-Options :
 
 ```text
 --data-dir PATH
 --config-dir PATH
 --db PATH
-```
 
-Variables :
-
-```text
 MORPHEUS_DATA_DIR
 MORPHEUS_CONFIG_DIR
 MORPHEUS_DB
@@ -238,39 +202,28 @@ db     = <data>/morpheus.db
 logs   = <data>/logs
 ```
 
-L'installation binaire reste séparée des données SQLite/config utilisateur.
-
-## Fins de ligne
-
-`.gitattributes` impose :
-
-```text
-mvnw     LF
-*.sh     LF
-mvnw.cmd CRLF
-*.ps1    CRLF
-```
-
 ## Gates historiques
 
 ```text
-M9  Windows + Linux 298/298 PASS
-M10 Windows         307/307 PASS + MCP packaging
-M11 Windows         314/314 PASS + packaged API health
-M12 Windows         331/331 PASS + MINOS optional packaging
+M9  298/298 Windows + Linux
+M10 307/307 Windows + MCP packaging
+M11 314/314 Windows + packaged API health
+M12 331/331 Windows + MINOS optional packaging
+M13 projection 346 tests + MINOS/NEXUS optional packaging
 ```
 
-## Gate M12 validé
+## Gate M13
 
 ```powershell
 .\mvnw.cmd clean test
 .\distribution\build-portable.ps1
 ```
 
-Résultat : **PASS**.
+M13 reste non validé jusqu'à preuve de ces deux commandes.
 
 Références :
 
 - [`../docs/VALIDATION_M12.md`](../docs/VALIDATION_M12.md)
 - [`../docs/MINOS.md`](../docs/MINOS.md)
-- [`../docs/roadmap/M12_EXECUTION.md`](../docs/roadmap/M12_EXECUTION.md)
+- [`../docs/NEXUS.md`](../docs/NEXUS.md)
+- [`../docs/roadmap/M13_EXECUTION.md`](../docs/roadmap/M13_EXECUTION.md)
