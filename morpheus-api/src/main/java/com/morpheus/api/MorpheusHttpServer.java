@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.application.context.DisabledTechnicalContextProvider;
+import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.history.PublishedHistoryException;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
@@ -41,6 +43,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final ExecutorService executor;
     private final MorpheusApiService service;
     private final MorpheusExternalReferenceApiService externalReferenceService;
+    private final MorpheusAugmentedContextApiService augmentedContextService;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final JsonMapper mapper = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -51,18 +54,20 @@ public final class MorpheusHttpServer implements AutoCloseable {
             HttpServer server,
             ExecutorService executor,
             MorpheusApiService service,
-            MorpheusExternalReferenceApiService externalReferenceService) {
+            MorpheusExternalReferenceApiService externalReferenceService,
+            MorpheusAugmentedContextApiService augmentedContextService) {
         this.server = Objects.requireNonNull(server, "server");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.service = Objects.requireNonNull(service, "service");
         this.externalReferenceService = Objects.requireNonNull(externalReferenceService, "externalReferenceService");
+        this.augmentedContextService = Objects.requireNonNull(augmentedContextService, "augmentedContextService");
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
         ExternalReferenceResolverRegistry resolvers = new ExternalReferenceResolverRegistry(List.of());
-        ExternalIntegrationStatusProvider disabled = () -> new ExternalIntegrationStatus(
+        ExternalIntegrationStatusProvider disabledMinos = () -> new ExternalIntegrationStatus(
                 "MINOS", "DISABLED", false, "MINOS integration is not configured", Map.of());
-        return start(databasePath, host, port, resolvers, disabled);
+        return start(databasePath, host, port, resolvers, disabledMinos, disabledNexus());
     }
 
     public static MorpheusHttpServer start(
@@ -71,9 +76,20 @@ public final class MorpheusHttpServer implements AutoCloseable {
             int port,
             ExternalReferenceResolverRegistry resolverRegistry,
             ExternalIntegrationStatusProvider minosStatus) {
+        return start(databasePath, host, port, resolverRegistry, minosStatus, disabledNexus());
+    }
+
+    public static MorpheusHttpServer start(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(minosStatus, "minosStatus");
+        Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         String normalizedHost = requireHost(host);
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
@@ -85,7 +101,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
                     httpServer,
                     executor,
                     new MorpheusApiService(databasePath),
-                    new MorpheusExternalReferenceApiService(databasePath, resolverRegistry, minosStatus));
+                    new MorpheusExternalReferenceApiService(databasePath, resolverRegistry, minosStatus),
+                    new MorpheusAugmentedContextApiService(databasePath, technicalContextProvider));
             httpServer.setExecutor(executor);
             httpServer.createContext(API_PREFIX, result::handle);
             httpServer.start();
@@ -155,11 +172,14 @@ public final class MorpheusHttpServer implements AutoCloseable {
         }
         if (segments.size() == 3
                 && segments.getFirst().equals("integrations")
-                && segments.get(1).equals("minos")
                 && segments.get(2).equals("status")) {
             requireMethod(method, "GET");
             query.rejectUnknown(Set.of());
-            return ok(externalReferenceService.minosStatus());
+            return switch (segments.get(1)) {
+                case "minos" -> ok(externalReferenceService.minosStatus());
+                case "nexus" -> ok(augmentedContextService.nexusStatus());
+                default -> throw ApiFailure.notFound("unknown integration: " + segments.get(1));
+            };
         }
         if (!segments.getFirst().equals("projects")) {
             throw ApiFailure.notFound("unknown API route: " + exchange.getRequestURI().getPath());
@@ -190,8 +210,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "sync" -> routeSync(exchange, method, segments, query, projectId);
             case "sync-status" -> routeSyncStatus(method, segments, query, projectId);
             case "specifications" -> routeSpecifications(method, segments, query, projectId);
-            case "requirements" -> routeRequirements(method, segments, query, projectId);
-            case "changes" -> routeChanges(method, segments, query, projectId);
+            case "requirements" -> routeRequirements(exchange, method, segments, query, projectId);
+            case "changes" -> routeChanges(exchange, method, segments, query, projectId);
             case "versions" -> routeVersions(method, segments, query, projectId);
             case "diagnostics" -> routeDiagnostics(method, segments, query, projectId);
             case "external-references" -> routeExternalReferences(method, segments, query, projectId);
@@ -237,7 +257,18 @@ public final class MorpheusHttpServer implements AutoCloseable {
         throw ApiFailure.notFound("unknown specifications route");
     }
 
-    private RouteResponse routeRequirements(String method, List<String> segments, Query query, String projectId) {
+    private RouteResponse routeRequirements(
+            HttpExchange exchange,
+            String method,
+            List<String> segments,
+            Query query,
+            String projectId) {
+        if (segments.size() == 5 && segments.get(4).equals("augmented-context")) {
+            requireMethod(method, "POST");
+            query.rejectUnknown(Set.of());
+            AugmentedContextRequest request = readRequiredJson(exchange, AugmentedContextRequest.class);
+            return ok(augmentedContextService.requirement(projectId, segments.get(3), request));
+        }
         requireMethod(method, "GET");
         if (segments.size() == 3) {
             query.rejectUnknown(Set.of("query", "offset", "limit"));
@@ -258,7 +289,18 @@ public final class MorpheusHttpServer implements AutoCloseable {
         throw ApiFailure.notFound("unknown requirements route");
     }
 
-    private RouteResponse routeChanges(String method, List<String> segments, Query query, String projectId) {
+    private RouteResponse routeChanges(
+            HttpExchange exchange,
+            String method,
+            List<String> segments,
+            Query query,
+            String projectId) {
+        if (segments.size() == 5 && segments.get(4).equals("augmented-context")) {
+            requireMethod(method, "POST");
+            query.rejectUnknown(Set.of());
+            AugmentedContextRequest request = readRequiredJson(exchange, AugmentedContextRequest.class);
+            return ok(augmentedContextService.change(projectId, segments.get(3), request));
+        }
         requireMethod(method, "GET");
         if (segments.size() == 3) {
             return ok(service.listChanges(projectId, page(query)));
@@ -465,7 +507,17 @@ public final class MorpheusHttpServer implements AutoCloseable {
         if (segments.size() == 3 && segments.getFirst().equals("projects") && segments.get(2).equals("sync")) {
             return "POST";
         }
+        if (segments.size() == 5
+                && segments.getFirst().equals("projects")
+                && (segments.get(2).equals("requirements") || segments.get(2).equals("changes"))
+                && segments.get(4).equals("augmented-context")) {
+            return "POST";
+        }
         return "GET";
+    }
+
+    private static TechnicalContextProvider disabledNexus() {
+        return new DisabledTechnicalContextProvider("NEXUS", "NEXUS integration is not configured");
     }
 
     private static String requireHost(String host) {
