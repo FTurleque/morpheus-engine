@@ -53,7 +53,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -208,8 +208,9 @@ public final class MorpheusApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         SpecificationId specificationId = SpecificationId.parse(specificationIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+            requireProject(runtime, projectId);
             var result = business(runtime).activeSpecification(projectId, specificationId)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
             Specification item = result.item().orElseThrow(() -> notFound("specification not found: " + specificationId));
             return map("snapshotId", result.snapshot().id().toString(), "specification", specification(item));
         }
@@ -222,10 +223,16 @@ public final class MorpheusApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         SpecificationId specificationId = SpecificationId.parse(specificationIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+            requireProject(runtime, projectId);
+            var specificationResult = business(runtime).activeSpecification(projectId, specificationId)
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
+            if (specificationResult.item().isEmpty()) {
+                throw notFound("specification not found: " + specificationId);
+            }
             var result = new SpecificationContextQueryService(
                     runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
                     .active(projectId, specificationId, pageRequest)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
             return map(
                     "snapshotId", result.snapshot().id().toString(),
                     "specification", specification(result.specification()),
@@ -240,9 +247,10 @@ public final class MorpheusApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         String queryText = query == null ? "" : query.trim();
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+            requireProject(runtime, projectId);
             var result = new RequirementQueryService(runtime.snapshots, runtime.requirements)
                     .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
             return map(
                     "snapshotId", result.snapshot().id().toString(),
                     "query", queryText,
@@ -270,10 +278,11 @@ public final class MorpheusApiService {
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
         requireRange("depth", depth, 1, MAX_DEPTH);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+            activeSnapshot(runtime, projectId);
             var result = new TraceRequirementQueryService(
                     runtime.snapshots, runtime.requirements, runtime.traceability, runtime.externalReferences)
                     .active(projectId, requirementId, depth, Set.of())
-                    .orElseThrow(() -> notFound("requirement or ACTIVE snapshot not found: " + requirementId));
+                    .orElseThrow(() -> notFound("requirement not found: " + requirementId));
             return new CompactQueryViewService(runtime.content).traceRequirement(result);
         }
     }
@@ -281,8 +290,9 @@ public final class MorpheusApiService {
     public Object listChanges(String projectIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+            requireProject(runtime, projectId);
             SnapshotPage<ChangeProposal> result = business(runtime).listActiveChanges(projectId, pageRequest)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
             return page(result, result.items().stream().map(this::change).toList());
         }
     }
@@ -302,7 +312,7 @@ public final class MorpheusApiService {
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<Constraint> result = business(runtime).activeConstraints(projectId, changeId, pageRequest)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
             return page(result, result.items().stream().map(this::constraint).toList());
         }
     }
@@ -327,7 +337,7 @@ public final class MorpheusApiService {
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<DesignDecision> result = business(runtime).activeDesignDecisions(projectId, changeId, pageRequest)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
             return page(result, result.items().stream().map(this::decision).toList());
         }
     }
@@ -338,7 +348,7 @@ public final class MorpheusApiService {
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<ImplementationTask> result = business(runtime).activeImplementationTasks(projectId, changeId, pageRequest)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
             return page(result, result.items().stream().map(this::task).toList());
         }
     }
@@ -348,10 +358,11 @@ public final class MorpheusApiService {
         ChangeId changeId = ChangeId.parse(changeIdValue);
         requireRange("depth", depth, 1, MAX_DEPTH);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+            activeSnapshot(runtime, projectId);
             var result = new ChangeContextQueryService(
                     runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences)
                     .active(projectId, changeId, depth, Set.of())
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
             if (result.change().isEmpty()) {
                 throw notFound("change not found: " + changeId);
             }
@@ -396,10 +407,11 @@ public final class MorpheusApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireProject(runtime, projectId);
-            List<KnowledgeSnapshotMetadata> lineage = new PublishedSnapshotHistoryService(runtime.snapshots).lineage(projectId);
+            PublishedSnapshotHistoryService history = new PublishedSnapshotHistoryService(runtime.snapshots);
+            List<KnowledgeSnapshotMetadata> lineage = history.lineage(projectId);
             return map(
                     "projectId", projectId.toString(),
-                    "retentionPolicy", new PublishedSnapshotHistoryService(runtime.snapshots).retentionPolicy().name(),
+                    "retentionPolicy", history.retentionPolicy().name(),
                     "items", lineage.stream().map(snapshot -> version(runtime, snapshot)).toList());
         }
     }
@@ -451,6 +463,7 @@ public final class MorpheusApiService {
     public Object diagnostics(String projectIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+            activeSnapshot(runtime, projectId);
             QualityReportService service = new QualityReportService(
                     runtime.snapshots,
                     new RequirementQualityService(runtime.snapshots, runtime.requirements, runtime.traceability),
@@ -460,7 +473,7 @@ public final class MorpheusApiService {
                     new DecisionReferenceQualityService(
                             runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences));
             QualityReport report = service.assessActive(projectId)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
             return new CompactQualityReportService().view(report);
         }
     }
@@ -528,6 +541,7 @@ public final class MorpheusApiService {
             ApiRuntime runtime,
             ProjectSpecificationId projectId,
             ChangeId changeId) {
+        requireProject(runtime, projectId);
         var result = business(runtime).activeChange(projectId, changeId)
                 .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
         if (result.item().isEmpty()) {
@@ -537,6 +551,7 @@ public final class MorpheusApiService {
     }
 
     private ChangeCompletenessAssessment completeness(ApiRuntime runtime, ProjectSpecificationId projectId, ChangeId changeId) {
+        activeSnapshot(runtime, projectId);
         var report = new ChangeCompletenessService(
                 runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
                 .assessActive(projectId)
@@ -689,6 +704,7 @@ public final class MorpheusApiService {
                 "items", mapped.subList(from, to));
     }
 
+    /** LinkedHashMap keeps construction stable while the canonical serializer sorts JSON keys. */
     private Map<String, Object> map(Object... entries) {
         if (entries.length % 2 != 0) {
             throw new IllegalArgumentException("map entries must be key/value pairs");
@@ -697,7 +713,9 @@ public final class MorpheusApiService {
         for (int index = 0; index < entries.length; index += 2) {
             result.put((String) entries[index], entries[index + 1]);
         }
-        return Map.copyOf(result);
+        // Unlike Map.copyOf, this deliberately preserves null values used to represent an absent
+        // source/target side in ADDED/REMOVED historical diffs. CanonicalJsonSerializer emits JSON null.
+        return Collections.unmodifiableMap(result);
     }
 
     private void requireRange(String name, long value, long minimum, long maximum) {
