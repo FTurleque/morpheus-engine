@@ -84,10 +84,10 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0066](0066-versioned-http-api-contract.md) | Contrat `/api/v1` | **Acceptée — M11** |
 | [ADR-0067](0067-explicit-conservative-http-sync.md) | Sync HTTP full snapshot conservateur | **Acceptée — M11** |
 | [ADR-0068](0068-native-launcher-headless-api.md) | Launcher/distribution API headless | **Acceptée — M11** |
-| [ADR-0069](0069-minos-mcp-stdio-integration.md) | MINOS via MCP STDIO inter-processus | **Proposée — M12 gate pending** |
-| [ADR-0070](0070-exact-minos-symbol-reference-and-revision.md) | `symbolKey` exact + révision MINOS | **Proposée — M12 gate pending** |
-| [ADR-0071](0071-live-external-resolution-without-snapshot-mutation.md) | Résolution live sans mutation de snapshot | **Proposée — M12 gate pending** |
-| [ADR-0072](0072-optional-minos-runtime-configuration-and-surfaces.md) | Runtime/surfaces MINOS optionnels | **Proposée — M12 gate pending** |
+| [ADR-0069](0069-minos-mcp-stdio-integration.md) | MINOS via MCP STDIO inter-processus | **Acceptée — M12** |
+| [ADR-0070](0070-exact-minos-symbol-reference-and-revision.md) | `symbolKey` exact + révision MINOS | **Acceptée — M12** |
+| [ADR-0071](0071-live-external-resolution-without-snapshot-mutation.md) | Résolution live sans mutation de snapshot | **Acceptée — M12** |
+| [ADR-0072](0072-optional-minos-runtime-configuration-and-surfaces.md) | Runtime/surfaces MINOS optionnels | **Acceptée — M12** |
 
 # Preuves par jalon
 
@@ -102,39 +102,19 @@ M8  289/289 PASS | Architecture 146/146
 M9  298/298 PASS Windows + Linux | Architecture 149/149
 M10 307/307 PASS Windows | Architecture 149/149 | MCP STDIO + packaging
 M11 314/314 PASS Windows | Architecture 150/150 | API health packaging
-M12 projection 331 tests | proof pending
+M12 331/331 PASS Windows | Architecture 153/153 | MINOS optional packaging
 ```
 
-## M10
+## M12
 
 | Incrément | ADR | Preuve |
 |---|---|---|
-| SDK officiel + STDIO | ADR-0062 | MCP server contract + STDIO réel |
-| 14 tools read-only | ADR-0063 | tool catalog/service |
-| launcher/distribution | ADR-0064 | launcher + packaging |
+| MCP cross-engine inter-processus | ADR-0069 | `MinosMcpTransportIntegrationTest 1/1`, MINOS Integration `8/8` |
+| `symbolKey` exact / revision | ADR-0070 | `MinosMcpExternalReferenceResolverTest 4/4` |
+| live non-mutating | ADR-0071 | `LiveExternalReferenceResolutionContractTest 2/2`, Memory + SQLite reopen |
+| config + CLI/MCP/API + packaging | ADR-0072 | CLI `15/15`, API `5/5`, MCP `5/5`, packaging/smokes PASS |
 
-Validation : [`../VALIDATION_M10.md`](../VALIDATION_M10.md).
-
-## M11
-
-| Incrément | ADR | Preuve |
-|---|---|---|
-| HTTP JDK local | ADR-0065 | API tests + packaged health |
-| `/api/v1` stable | ADR-0066 | real HttpClient contract tests |
-| sync conservateur | ADR-0067 | real OpenSpec sync + failed sync preserves ACTIVE |
-| launcher/distribution | ADR-0068 | jpackage + API smoke |
-
-Validation : [`../VALIDATION_M11.md`](../VALIDATION_M11.md).
-
-## M12 — preuves implémentées, non encore exécutées
-
-| Incrément | ADR | Preuve prévue |
-|---|---|---|
-| MCP cross-engine inter-processus | ADR-0069 | `MinosMcpTransportIntegrationTest` |
-| symbolKey exact / revision | ADR-0070 | `MinosMcpExternalReferenceResolverTest` |
-| live non-mutating | ADR-0071 | `LiveExternalReferenceResolutionContractTest` Memory + SQLite reopen |
-| config + CLI/MCP/API + packaging | ADR-0072 | settings, CLI, MCP STDIO, HTTP, package smokes |
-
+Validation : [`../VALIDATION_M12.md`](../VALIDATION_M12.md).  
 Vue : [`../roadmap/M12_EXECUTION.md`](../roadmap/M12_EXECUTION.md).  
 Documentation : [`../MINOS.md`](../MINOS.md).
 
@@ -156,7 +136,7 @@ business rules = application/domain
 DomainIdentity != EntityVersionId
 SpecificationVersion != KnowledgeSnapshot
 DomainIdentity != SourceLocator != ExternalReference
-CURRENT / PROPOSED / HISTORICAL
+CURRENT / PROPOSED / HISTORICAL explicites
 PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
@@ -166,44 +146,41 @@ live external observation != persisted snapshot mutation
 ## Qualité / analyse
 
 ```text
+QualityFinding = dérivé, non persisté
 DETERMINISTIC != HEURISTIC
 Scenario != AcceptanceCriterion
-lifecycle non inféré
 absence de lien != lien inventé
-code intelligence = MINOS
-MINOS absent != MORPHEUS failure
+lifecycle non inféré depuis snapshot
+code impact analysis = MINOS
 ```
 
-## Distribution
+## Build
 
-```text
-portable app-image contains Java runtime
-MCP/API embedded
-M12 MINOS client adapter embedded
-com/minos/* forbidden in MORPHEUS artifact
-MINOS runtime external and optional
-installation != user data/config
-```
-
-# Gate
+Gate obligatoire :
 
 ```text
 Windows : .\mvnw.cmd clean test
 Unix    : ./mvnw clean test
 ```
 
-Dernier gate **validé** : M11 — `314/314 PASS`.
+Baseline : Java `release 21`.
 
-M12 : gate pending ; ne pas accepter ADR-0069..0072 avant preuve.
+Dernier gate **validé** : M12.
+
+```text
+TOTAL         331/331 PASS
+Architecture  153/153 PASS
+Packaging     PASS
+```
 
 # Principe de validation
 
 ```text
-1. documenter invariant / ADR
-2. implémenter le vertical slice
-3. prouver par tests reproductibles
-4. accepter ADR seulement après preuve
-5. exécuter gate Maven complet + packaging
-6. mettre à jour roadmap / issue / PR
+1. documenter l'invariant / ADR
+2. implémenter le plus petit vertical slice
+3. prouver le comportement par tests reproductibles
+4. accepter l'ADR seulement après la preuve
+5. exécuter le gate Maven complet
+6. mettre à jour roadmap + issue après validation
 7. fusionner uniquement après autorisation explicite
 ```
