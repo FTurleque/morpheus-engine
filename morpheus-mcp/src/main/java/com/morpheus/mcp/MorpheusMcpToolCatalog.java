@@ -8,7 +8,7 @@ import java.util.Objects;
 /** Exact M10 read-only MCP tool catalog with strict JSON Schema inputs. */
 public final class MorpheusMcpToolCatalog {
     public static final int DEFAULT_LIMIT = 50;
-    public static final int MAX_LIMIT = 200;
+    public static final int MAX_LIMIT = 100;
     public static final int DEFAULT_DEPTH = 2;
     public static final int MAX_DEPTH = 20;
     public static final long DEFAULT_MAX_AGE_MINUTES = 60L;
