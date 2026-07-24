@@ -6,7 +6,7 @@ OUTPUT_DIRECTORY="${2:-dist}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 DIST="$REPO/$OUTPUT_DIRECTORY"
-WORK="$DIST/.m10-linux"
+WORK="$DIST/.m11-linux"
 INPUT="$WORK/input"
 IMAGE_ROOT="$WORK/image"
 
@@ -21,7 +21,7 @@ if [[ ! -x "$JAR_TOOL" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Building MORPHEUS CLI + MCP uber-JAR..."
+printf '%s\n' "Building MORPHEUS CLI + MCP + API uber-JAR..."
 "$REPO/mvnw" -pl morpheus-cli -am -DskipTests package
 
 JAR="$(find "$REPO/morpheus-cli/target" -maxdepth 1 -type f -name 'morpheus-cli-*-all.jar' -print | sort | tail -n 1)"
@@ -30,24 +30,27 @@ if [[ -z "$JAR" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Verifying MCP classes are embedded in the shaded JAR..."
+printf '%s\n' "Verifying MCP/API classes are embedded in the shaded JAR..."
 JAR_ENTRIES="$($JAR_TOOL tf "$JAR")"
 for entry in \
   'com/morpheus/mcp/MorpheusMcpServer.class' \
   'io/modelcontextprotocol/server/McpServer.class' \
-  'io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class'; do
+  'io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class' \
+  'com/morpheus/api/MorpheusHttpServer.class' \
+  'com/morpheus/api/MorpheusApiService.class' \
+  'tools/jackson/databind/json/JsonMapper.class'; do
   if ! grep -Fxq "$entry" <<<"$JAR_ENTRIES"; then
-    echo "MCP packaging proof failed; shaded JAR is missing $entry" >&2
+    echo "M11 packaging proof failed; shaded JAR is missing $entry" >&2
     exit 1
   fi
 done
-printf '%s\n' "MCP packaging proof: PASS"
+printf '%s\n' "MCP/API packaging proof: PASS"
 
 rm -rf "$WORK"
 mkdir -p "$INPUT" "$IMAGE_ROOT" "$DIST"
 cp "$JAR" "$INPUT/morpheus.jar"
 
-printf '%s\n' "Creating self-contained Linux app-image with embedded runtime..."
+printf '%s\n' "Creating self-contained Linux app-image with embedded runtime + jdk.httpserver..."
 "$JPACKAGE" \
   --type app-image \
   --name morpheus \
@@ -56,6 +59,7 @@ printf '%s\n' "Creating self-contained Linux app-image with embedded runtime..."
   --input "$INPUT" \
   --main-jar morpheus.jar \
   --main-class com.morpheus.cli.MorpheusMain \
+  --add-modules jdk.httpserver \
   --dest "$IMAGE_ROOT"
 
 LAUNCHER="$IMAGE_ROOT/morpheus/bin/morpheus"
@@ -73,9 +77,18 @@ if [[ "$JSON_VERSION" != *'"version"'* ]]; then
 fi
 printf '%s\n' "$JSON_VERSION"
 
+# Verify that the embedded runtime contains the module required by the M11 HTTP adapter.
+if ! "$IMAGE_ROOT/morpheus/lib/runtime/bin/java" --list-modules | grep -Fxq 'jdk.httpserver@21'; then
+  if ! "$IMAGE_ROOT/morpheus/lib/runtime/bin/java" --list-modules | grep -Eq '^jdk\.httpserver@'; then
+    echo "Packaged runtime does not contain jdk.httpserver" >&2
+    exit 1
+  fi
+fi
+printf '%s\n' "Packaged jdk.httpserver module proof: PASS"
+
 ARCHIVE="$DIST/morpheus-$VERSION-linux-x64.tar.gz"
 rm -f "$ARCHIVE"
 tar -C "$IMAGE_ROOT" -czf "$ARCHIVE" morpheus
 
 printf '%s\n' "Portable Linux distribution: $ARCHIVE"
-printf '%s\n' "The archive contains its Java runtime and MCP STDIO server; end users do not need a separately installed JDK."
+printf '%s\n' "The archive contains its Java runtime, MCP STDIO server and HTTP API; end users do not need a separately installed JDK."
