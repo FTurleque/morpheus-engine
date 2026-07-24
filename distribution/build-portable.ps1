@@ -48,7 +48,14 @@ if (-not (Test-Path $launcher)) { throw "Packaged launcher not found: $launcher"
 
 Write-Host "Smoke testing packaged launcher..."
 & $launcher --version
-if ($LASTEXITCODE -ne 0) { throw "Packaged launcher smoke test failed with exit code $LASTEXITCODE" }
+if ($LASTEXITCODE -ne 0) { throw "Packaged launcher --version smoke test failed with exit code $LASTEXITCODE" }
+
+$jsonVersion = & $launcher --json version
+if ($LASTEXITCODE -ne 0) { throw "Packaged launcher --json version smoke test failed with exit code $LASTEXITCODE" }
+if ($jsonVersion -notmatch '"version"') {
+    throw "Packaged launcher --json version did not emit the expected JSON version field: $jsonVersion"
+}
+Write-Host $jsonVersion
 
 New-Item $dist -ItemType Directory -Force | Out-Null
 $archive = Join-Path $dist "morpheus-$Version-windows-x64.zip"
