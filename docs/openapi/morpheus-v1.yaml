@@ -1,10 +1,11 @@
 openapi: 3.1.0
 info:
   title: MORPHEUS Headless API
-  version: 1.1.0
+  version: 1.2.0
   description: >-
-    Local-first MORPHEUS HTTP adapter. M12 adds optional MINOS integration and
-    non-persisting live external-reference resolution while preserving M11 routes.
+    Local-first MORPHEUS HTTP adapter. M12 adds optional MINOS live reference
+    resolution. M13 adds optional NEXUS technical-context augmentation while
+    preserving all M11/M12 routes and snapshot immutability.
 servers:
   - url: http://127.0.0.1:8765/api/v1
     description: Default local server
@@ -20,21 +21,20 @@ paths:
   /integrations/minos/status:
     get:
       operationId: getMinosIntegrationStatus
-      description: Reports DISABLED, INVALID, AVAILABLE or UNAVAILABLE without making MINOS mandatory.
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+  /integrations/nexus/status:
+    get:
+      operationId: getNexusIntegrationStatus
+      description: Reports DISABLED, INVALID, AVAILABLE or UNAVAILABLE without making NEXUS mandatory.
+      responses: {'200': {$ref: '#/components/responses/Success'}}
 
   /projects:
-    get:
-      operationId: listProjects
-      responses: {'200': {$ref: '#/components/responses/Success'}}
+    get: {operationId: listProjects, responses: {'200': {$ref: '#/components/responses/Success'}}}
     post:
       operationId: registerProject
       requestBody:
         required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/ProjectRegistrationRequest'}
+        content: {application/json: {schema: {$ref: '#/components/schemas/ProjectRegistrationRequest'}}}
       responses:
         '200': {$ref: '#/components/responses/Success'}
         '201': {$ref: '#/components/responses/Success'}
@@ -43,22 +43,50 @@ paths:
 
   /projects/{projectId}:
     parameters: [{$ref: '#/components/parameters/ProjectId'}]
-    get:
-      operationId: getProject
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
-        '404': {$ref: '#/components/responses/NotFound'}
-
+    get: {operationId: getProject, responses: {'200': {$ref: '#/components/responses/Success'}, '404': {$ref: '#/components/responses/NotFound'}}}
   /projects/{projectId}/sync:
     parameters: [{$ref: '#/components/parameters/ProjectId'}]
     post:
       operationId: syncProject
-      description: Executes the conservative FULL_REBUILD publication pipeline.
       requestBody:
         required: false
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/SyncRequest'}
+        content: {application/json: {schema: {$ref: '#/components/schemas/SyncRequest'}}}
+      responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}
+  /projects/{projectId}/sync-status:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/MaxAgeMinutes'}]
+    get: {operationId: getSyncStatus, responses: {'200': {$ref: '#/components/responses/Success'}}}
+
+  /projects/{projectId}/specifications:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
+    get: {operationId: listSpecifications, responses: {'200': {$ref: '#/components/responses/Success'}}}
+  /projects/{projectId}/specifications/{specificationId}:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/SpecificationId'}]
+    get: {operationId: getSpecification, responses: {'200': {$ref: '#/components/responses/Success'}}}
+  /projects/{projectId}/specifications/{specificationId}/context:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/SpecificationId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
+    get: {operationId: getSpecificationContext, responses: {'200': {$ref: '#/components/responses/Success'}}}
+
+  /projects/{projectId}/requirements:
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {name: query, in: query, schema: {type: string, default: ''}}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
+    get: {operationId: findRequirements, responses: {'200': {$ref: '#/components/responses/Success'}}}
+  /projects/{projectId}/requirements/{requirementId}:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/RequirementId'}]
+    get: {operationId: getRequirement, responses: {'200': {$ref: '#/components/responses/Success'}}}
+  /projects/{projectId}/requirements/{requirementId}/trace:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/RequirementId'}, {$ref: '#/components/parameters/Depth'}]
+    get: {operationId: traceRequirement, responses: {'200': {$ref: '#/components/responses/Success'}}}
+  /projects/{projectId}/requirements/{requirementId}/augmented-context:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/RequirementId'}]
+    post:
+      operationId: getAugmentedRequirementContext
+      description: Builds live NEXUS technical context from deterministic MORPHEUS requirement intent; no context is persisted.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/AugmentedContextRequest'}}}
       responses:
         '200': {$ref: '#/components/responses/Success'}
         '400': {$ref: '#/components/responses/BadRequest'}
@@ -66,180 +94,77 @@ paths:
         '409': {$ref: '#/components/responses/StateConflict'}
         '415': {$ref: '#/components/responses/UnsupportedMediaType'}
 
-  /projects/{projectId}/sync-status:
-    parameters:
-      - {$ref: '#/components/parameters/ProjectId'}
-      - {$ref: '#/components/parameters/MaxAgeMinutes'}
-    get:
-      operationId: getSyncStatus
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
-        '400': {$ref: '#/components/responses/BadRequest'}
-        '404': {$ref: '#/components/responses/NotFound'}
-
-  /projects/{projectId}/specifications:
-    parameters:
-      - {$ref: '#/components/parameters/ProjectId'}
-      - {$ref: '#/components/parameters/Offset'}
-      - {$ref: '#/components/parameters/Limit'}
-    get:
-      operationId: listSpecifications
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
-        '404': {$ref: '#/components/responses/NotFound'}
-        '409': {$ref: '#/components/responses/StateConflict'}
-
-  /projects/{projectId}/specifications/{specificationId}:
-    parameters:
-      - {$ref: '#/components/parameters/ProjectId'}
-      - {$ref: '#/components/parameters/SpecificationId'}
-    get:
-      operationId: getSpecification
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
-        '404': {$ref: '#/components/responses/NotFound'}
-        '409': {$ref: '#/components/responses/StateConflict'}
-
-  /projects/{projectId}/specifications/{specificationId}/context:
-    parameters:
-      - {$ref: '#/components/parameters/ProjectId'}
-      - {$ref: '#/components/parameters/SpecificationId'}
-      - {$ref: '#/components/parameters/Offset'}
-      - {$ref: '#/components/parameters/Limit'}
-    get:
-      operationId: getSpecificationContext
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
-        '404': {$ref: '#/components/responses/NotFound'}
-        '409': {$ref: '#/components/responses/StateConflict'}
-
-  /projects/{projectId}/requirements:
-    parameters:
-      - {$ref: '#/components/parameters/ProjectId'}
-      - name: query
-        in: query
-        schema: {type: string, default: ''}
-      - {$ref: '#/components/parameters/Offset'}
-      - {$ref: '#/components/parameters/Limit'}
-    get:
-      operationId: findRequirements
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
-        '400': {$ref: '#/components/responses/BadRequest'}
-        '404': {$ref: '#/components/responses/NotFound'}
-        '409': {$ref: '#/components/responses/StateConflict'}
-
-  /projects/{projectId}/requirements/{requirementId}:
-    parameters:
-      - {$ref: '#/components/parameters/ProjectId'}
-      - {$ref: '#/components/parameters/RequirementId'}
-    get:
-      operationId: getRequirement
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
-        '404': {$ref: '#/components/responses/NotFound'}
-        '409': {$ref: '#/components/responses/StateConflict'}
-
-  /projects/{projectId}/requirements/{requirementId}/trace:
-    parameters:
-      - {$ref: '#/components/parameters/ProjectId'}
-      - {$ref: '#/components/parameters/RequirementId'}
-      - {$ref: '#/components/parameters/Depth'}
-    get:
-      operationId: traceRequirement
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
-        '400': {$ref: '#/components/responses/BadRequest'}
-        '404': {$ref: '#/components/responses/NotFound'}
-        '409': {$ref: '#/components/responses/StateConflict'}
-
   /projects/{projectId}/changes:
-    parameters:
-      - {$ref: '#/components/parameters/ProjectId'}
-      - {$ref: '#/components/parameters/Offset'}
-      - {$ref: '#/components/parameters/Limit'}
-    get: {operationId: listChanges, responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}}
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
+    get: {operationId: listChanges, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/changes/{changeId}:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
-    get: {operationId: getChange, responses: {'200': {$ref: '#/components/responses/Success'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/StateConflict'}}}
+    get: {operationId: getChange, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/changes/{changeId}/constraints:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: getConstraints, responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}}
+    get: {operationId: getConstraints, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/changes/{changeId}/acceptance-criteria:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
-    get:
-      operationId: getAcceptanceCriteria
-      description: Scenario is never relabelled as AcceptanceCriterion.
-      responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}
+    get: {operationId: getAcceptanceCriteria, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/changes/{changeId}/design-decisions:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: getDesignDecisions, responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}}
+    get: {operationId: getDesignDecisions, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/changes/{changeId}/implementation-tasks:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: getImplementationTasks, responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}}
+    get: {operationId: getImplementationTasks, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/changes/{changeId}/context:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}, {$ref: '#/components/parameters/Depth'}]
-    get: {operationId: getChangeContext, responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}}
+    get: {operationId: getChangeContext, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/changes/{changeId}/status:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
-    get:
-      operationId: getChangeStatus
-      description: Never infers an unpersisted lifecycle state.
-      responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}
+    get: {operationId: getChangeStatus, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/changes/{changeId}/blocking-conditions:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
-    get: {operationId: getBlockingConditions, responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}}
+    get: {operationId: getBlockingConditions, responses: {'200': {$ref: '#/components/responses/Success'}}}
+  /projects/{projectId}/changes/{changeId}/augmented-context:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
+    post:
+      operationId: getAugmentedChangeContext
+      description: Builds live NEXUS technical context from deterministic MORPHEUS change intent; no context is persisted.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/AugmentedContextRequest'}}}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
 
   /projects/{projectId}/versions:
     parameters: [{$ref: '#/components/parameters/ProjectId'}]
-    get: {operationId: listPublishedVersions, responses: {'200': {$ref: '#/components/responses/Success'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    get: {operationId: listPublishedVersions, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/versions/{snapshotId}/requirements:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/SnapshotId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: listHistoricalRequirements, responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}}
+    get: {operationId: listHistoricalRequirements, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/versions/compare:
     parameters:
       - {$ref: '#/components/parameters/ProjectId'}
       - {name: fromSnapshotId, in: query, required: true, schema: {$ref: '#/components/schemas/Uuid'}}
       - {name: toSnapshotId, in: query, required: true, schema: {$ref: '#/components/schemas/Uuid'}}
-    get: {operationId: comparePublishedVersions, responses: {'200': {$ref: '#/components/responses/Success'}, '400': {$ref: '#/components/responses/BadRequest'}, '409': {$ref: '#/components/responses/StateConflict'}}}
-
+    get: {operationId: comparePublishedVersions, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/diagnostics:
     parameters: [{$ref: '#/components/parameters/ProjectId'}]
-    get: {operationId: getDiagnostics, responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}}
+    get: {operationId: getDiagnostics, responses: {'200': {$ref: '#/components/responses/Success'}}}
 
   /projects/{projectId}/external-references:
     parameters:
       - {$ref: '#/components/parameters/ProjectId'}
-      - name: ownerId
-        in: query
-        required: true
-        schema: {$ref: '#/components/schemas/Uuid'}
-    get:
-      operationId: listExternalReferences
-      description: Lists stored snapshot-scoped external references for one owner.
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
-        '400': {$ref: '#/components/responses/BadRequest'}
-        '404': {$ref: '#/components/responses/NotFound'}
-        '409': {$ref: '#/components/responses/StateConflict'}
-
+      - {name: ownerId, in: query, required: true, schema: {$ref: '#/components/schemas/Uuid'}}
+    get: {operationId: listExternalReferences, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/external-references/{referenceId}/resolution:
     parameters:
       - {$ref: '#/components/parameters/ProjectId'}
-      - name: referenceId
-        in: path
-        required: true
-        schema: {$ref: '#/components/schemas/Uuid'}
+      - {name: referenceId, in: path, required: true, schema: {$ref: '#/components/schemas/Uuid'}}
     get:
       operationId: resolveExternalReferenceLive
-      description: >-
-        Resolves the stored reference as a live observation. The result contains
-        stored and observed views plus persisted=false; the published snapshot is not mutated.
-      responses:
-        '200': {$ref: '#/components/responses/Success'}
-        '400': {$ref: '#/components/responses/BadRequest'}
-        '404': {$ref: '#/components/responses/NotFound'}
-        '409': {$ref: '#/components/responses/StateConflict'}
+      description: Returns stored and live observed reference views with persisted=false.
+      responses: {'200': {$ref: '#/components/responses/Success'}}
 
 components:
   parameters:
@@ -264,6 +189,19 @@ components:
       type: object
       additionalProperties: false
       properties: {revision: {type: [string, 'null']}}
+    AugmentedContextRequest:
+      type: object
+      additionalProperties: false
+      required: [nexusProject]
+      properties:
+        nexusProject: {type: string, minLength: 1}
+        tokenBudget: {type: integer, minimum: 1, maximum: 100000, default: 2000}
+        requestedSources:
+          type: array
+          uniqueItems: true
+          items: {type: string, enum: [FILE, SYMBOL, TEST, DOCUMENTATION, INSTRUCTION, SKILL, GIT]}
+        constraints: {type: object, additionalProperties: {type: string}}
+        explain: {type: boolean, default: false}
     SuccessEnvelope:
       type: object
       additionalProperties: false
