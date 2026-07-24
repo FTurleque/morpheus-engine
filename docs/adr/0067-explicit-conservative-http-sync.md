@@ -1,6 +1,6 @@
 # ADR-0067 — Synchronisation HTTP explicite par full snapshot conservateur
 
-- Statut : **Proposée — M11 gate pending**
+- Statut : **Acceptée — M11**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0053, ADR-0054, ADR-0055, ADR-0060
 - Portée : M11 — mutation headless de synchronisation
@@ -67,3 +67,26 @@ L'activation reste celle encapsulée dans `ProjectSnapshotImportService`, après
 6. queries HTTP lisent la nouvelle baseline après reopen ;
 7. échec de sync ne remplace pas l'ACTIVE précédent ;
 8. aucun faux receipt incrémental.
+
+## Preuve d'acceptation — 24 juillet 2026
+
+`MorpheusApiProjectSyncIntegrationTest` passe **2/2** sur le head `a7daa9bb7eef1799926ea20b9e96606a388a301f`.
+
+Le premier scénario prouve :
+
+```text
+register -> FULL_REBUILD sync -> query -> close SQLite -> reopen -> query
+```
+
+Le second publie une baseline, rend ensuite le workspace OpenSpec invalide, force un nouveau sync et vérifie :
+
+```text
+failed sync
+-> previous ACTIVE unchanged
+-> no extra RETIRED snapshot
+-> previous requirements still readable
+```
+
+Gate complet : **314/314 PASS**, aucune failure/error/skipped.
+
+Décision : **ADR-0067 ACCEPTÉE — M11**. Voir `docs/VALIDATION_M11.md`.
