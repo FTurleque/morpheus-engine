@@ -95,9 +95,6 @@ public final class SpecificationContextQueryService {
                 .sorted(SCENARIO_ORDER)
                 .toList();
 
-        Set<com.morpheus.domain.identity.DomainIdentity> allRequirementIdentities = allRequirements.stream()
-                .map(requirement -> requirement.id().value())
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         Set<com.morpheus.domain.identity.DomainIdentity> affectedChangeIdentities = new HashSet<>();
         for (Requirement requirement : allRequirements) {
             TraceabilityEntityRef requirementRef = new TraceabilityEntityRef(
@@ -113,10 +110,6 @@ public final class SpecificationContextQueryService {
                 .sorted(CHANGE_ORDER)
                 .toList();
 
-        // Keep the complete specification-level relationship set while bounding requirement/scenario payloads.
-        if (allRequirementIdentities.isEmpty() && !changes.isEmpty()) {
-            throw new KnowledgeStoreException("AFFECTS relationship resolved without a CURRENT specification requirement");
-        }
         return new SpecificationContextResult(snapshot, specification, requirementPage, scenarios, changes);
     }
 }
