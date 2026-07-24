@@ -236,14 +236,16 @@ Client MORPHEUS 6/6 PASS
 **Point d’entrée : [docs/README.md](docs/README.md)**
 
 ```text
-docs/user/       utilisation, quickstart, CLI, intégrations
-docs/developer/  architecture, build/tests, API, MCP, intégrations
-docs/reference/  index des contrats machine
-docs/governance/ index roadmap / ADR / validations
-docs/adr/        décisions d’architecture
-docs/roadmap/    exécution historique des jalons
-docs/openapi/    OpenAPI machine-readable
+docs/user/        utilisation, quickstart, CLI, intégrations
+docs/developer/   architecture, build/tests, API, MCP, intégrations
+docs/product/     cahier des charges, cas d’usage, MVP
+docs/reference/   index des contrats machine
+docs/governance/  roadmap, plan et audit
+docs/validation/  preuves C0 et M0 à M14
+docs/adr/         décisions d’architecture
+docs/roadmap/     exécution historique des jalons
+docs/openapi/     OpenAPI machine-readable
 ```
 
-Roadmap : [docs/ROADMAP.md](docs/ROADMAP.md).  
-Validation M14 : [docs/VALIDATION_M14.md](docs/VALIDATION_M14.md).
+Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
+Validation M14 : [docs/validation/VALIDATION_M14.md](docs/validation/VALIDATION_M14.md).
