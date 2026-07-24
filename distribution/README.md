@@ -75,13 +75,43 @@ MORPHEUS 0.1.0-SNAPSHOT
 
 ## Linux
 
+Le packaging Linux doit être lancé **depuis un shell Linux**. Le fait d'appeler `./mvnw` ou `./distribution/build-portable.sh` depuis PowerShell ne transforme pas l'exécution en build Linux et ne constitue pas une preuve cross-platform.
+
+Sur une machine Linux :
+
 ```bash
 export JAVA_HOME=/path/to/jdk-21
 chmod +x mvnw distribution/build-portable.sh
-distribution/build-portable.sh
+./mvnw clean test
+./distribution/build-portable.sh
 ```
 
-Après extraction :
+Depuis Windows, WSL/WSL2 peut fournir l'environnement Linux de validation. Entrer d'abord dans WSL :
+
+```powershell
+wsl
+```
+
+Puis, dans le shell WSL/Linux :
+
+```bash
+cd /mnt/n/workspace-dev/morpheus-engine
+
+git fetch origin
+git switch m9/cli-distribution
+git pull --ff-only
+
+java -version
+export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
+
+./mvnw clean test
+./distribution/build-portable.sh
+
+./dist/.m9-linux/image/morpheus/bin/morpheus --version
+./dist/.m9-linux/image/morpheus/bin/morpheus --json version
+```
+
+Après extraction de l'archive Linux :
 
 ```bash
 ./morpheus/bin/morpheus --version
@@ -92,6 +122,10 @@ Après extraction :
 La distribution Linux M9 officielle est l'archive `tar.gz` autonome. Les paquets `deb`/`rpm` restent optionnels car ils dépendent des outils natifs de la distribution de build et n'apportent pas de sémantique MORPHEUS supplémentaire.
 
 Le gate Linux reste à fournir pour la validation cross-platform finale de M9.
+
+### Tentative PowerShell du 24 juillet 2026 — non retenue comme gate Linux
+
+Le `clean test` a bien produit `298/298 PASS`, mais les chemins d'exécution (`N:\workspace-dev\...`, `C:\Users\...`) montrent qu'il s'agissait encore de la JVM Windows. `build-portable.sh` n'a pas produit `dist/.m9-linux/...`, et le launcher Linux était donc absent. Cette tentative est comptée comme revalidation Windows supplémentaire, pas comme preuve Linux.
 
 ## Layout runtime
 
