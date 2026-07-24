@@ -2,6 +2,8 @@
 
 M9 retient une stratégie **native-first** avec une archive portable autonome comme artefact principal.
 
+Statut M9 : **✅ VALIDÉ Windows + Linux — 24 juillet 2026**.
+
 ## Artefact principal
 
 Les scripts `build-portable.ps1` et `build-portable.sh` :
@@ -42,7 +44,7 @@ Installateur optionnel :
 .\distribution\build-windows-installer.ps1
 ```
 
-La génération EXE/MSI par `jpackage` dépend des outils natifs Windows requis par le JDK de packaging (WiX pour JDK 21). L'installateur n'est donc pas la seule voie de distribution M9 : l'archive portable reste officielle et ne dépend pas de WiX chez l'utilisateur final.
+La génération EXE/MSI par `jpackage` dépend des outils natifs Windows requis par le JDK de packaging (WiX pour JDK 21). L'archive portable reste officielle et ne dépend pas de WiX chez l'utilisateur final.
 
 Le script d'installateur détecte l'absence de WiX avant `jpackage` et termine alors par un skip explicite sans invalider l'app-image portable.
 
@@ -75,9 +77,9 @@ MORPHEUS 0.1.0-SNAPSHOT
 
 ## Linux
 
-Le packaging Linux doit être lancé **depuis un shell Linux**. Le fait d'appeler `./mvnw` ou `./distribution/build-portable.sh` depuis PowerShell ne transforme pas l'exécution en build Linux et ne constitue pas une preuve cross-platform.
+Le packaging Linux doit être lancé **depuis un shell Linux**. Exécuter `./mvnw` ou `build-portable.sh` depuis PowerShell ne constitue pas une preuve Linux.
 
-Sur une machine Linux :
+Sur une machine Linux/WSL :
 
 ```bash
 export JAVA_HOME=/path/to/jdk-21
@@ -86,32 +88,7 @@ chmod +x mvnw distribution/build-portable.sh
 ./distribution/build-portable.sh
 ```
 
-Depuis Windows, WSL/WSL2 peut fournir l'environnement Linux de validation. Entrer d'abord dans WSL :
-
-```powershell
-wsl
-```
-
-Puis, dans le shell WSL/Linux :
-
-```bash
-cd /mnt/n/workspace-dev/morpheus-engine
-
-git fetch origin
-git switch m9/cli-distribution
-git pull --ff-only
-
-java -version
-export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
-
-./mvnw clean test
-./distribution/build-portable.sh
-
-./dist/.m9-linux/image/morpheus/bin/morpheus --version
-./dist/.m9-linux/image/morpheus/bin/morpheus --json version
-```
-
-Après extraction de l'archive Linux :
+Après extraction :
 
 ```bash
 ./morpheus/bin/morpheus --version
@@ -121,11 +98,62 @@ Après extraction de l'archive Linux :
 
 La distribution Linux M9 officielle est l'archive `tar.gz` autonome. Les paquets `deb`/`rpm` restent optionnels car ils dépendent des outils natifs de la distribution de build et n'apportent pas de sémantique MORPHEUS supplémentaire.
 
-Le gate Linux reste à fournir pour la validation cross-platform finale de M9.
+### Preuve Linux — 24 juillet 2026
 
-### Tentative PowerShell du 24 juillet 2026 — non retenue comme gate Linux
+Environnement observé :
 
-Le `clean test` a bien produit `298/298 PASS`, mais les chemins d'exécution (`N:\workspace-dev\...`, `C:\Users\...`) montrent qu'il s'agissait encore de la JVM Windows. `build-portable.sh` n'a pas produit `dist/.m9-linux/...`, et le launcher Linux était donc absent. Cette tentative est comptée comme revalidation Windows supplémentaire, pas comme preuve Linux.
+```text
+WSL / Ubuntu
+OpenJDK 21.0.11
+javac   21.0.11
+jpackage 21.0.11
+filesystem Linux local
+```
+
+Gate :
+
+```text
+clean test                      298/298 PASS
+Architecture Tests             149/149 PASS
+uber-JAR                        BUILD SUCCESS
+jpackage app-image             PASS
+morpheus --version             PASS
+morpheus --json version        PASS
+Linux tar.gz                   PASS
+runtime Java embarqué          PASS
+```
+
+Artefact produit :
+
+```text
+dist/morpheus-0.1.0-linux-x64.tar.gz
+```
+
+Smoke observé :
+
+```text
+MORPHEUS 0.1.0-SNAPSHOT
+{"version":"0.1.0-SNAPSHOT"}
+```
+
+Le script confirme :
+
+```text
+The archive contains its Java runtime; end users do not need a separately installed JDK.
+```
+
+## Fins de ligne cross-platform
+
+`.gitattributes` impose :
+
+```text
+mvnw     LF
+*.sh     LF
+mvnw.cmd CRLF
+*.ps1    CRLF
+```
+
+Cette règle prévient les erreurs `bash\r` dans les environnements Unix/WSL.
 
 ## Layout runtime
 
@@ -179,22 +207,12 @@ L'état MORPHEUS (SQLite/config) est par défaut **hors du répertoire d'install
 
 La désinstallation du binaire ne doit pas supprimer implicitement la base SQLite utilisateur. La suppression des données est une action explicite séparée.
 
-## Gate M9
+## Gate M9 — ✅ COMPLET
 
-Windows — **✅ VALIDÉ le 24 juillet 2026** :
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
-# facultatif si WiX est installé :
-.\distribution\build-windows-installer.ps1
+```text
+Windows  298/298 PASS + app-image + ZIP + smoke human/JSON
+Linux    298/298 PASS + app-image + tar.gz + smoke human/JSON
+Runtime  embarqué sur les deux plateformes
 ```
 
-Linux — **⏳ PENDING** :
-
-```bash
-./mvnw clean test
-./distribution/build-portable.sh
-```
-
-Les deux scripts portables doivent produire une archive et réussir les smoke tests humain et JSON du launcher embarqué. Le gate Windows satisfait cette exigence ; la preuve Linux reste la dernière porte de distribution M9.
+Validation complète : [`../docs/VALIDATION_M9.md`](../docs/VALIDATION_M9.md).
