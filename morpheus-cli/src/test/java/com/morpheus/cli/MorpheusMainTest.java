@@ -64,7 +64,7 @@ class MorpheusMainTest {
     }
 
     @Test
-    void officialHelpDocumentsMcpAndHeadlessApiModes() {
+    void officialHelpDocumentsMcpHeadlessApiAndOptionalMinosModes() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ByteArrayOutputStream errors = new ByteArrayOutputStream();
 
@@ -79,6 +79,9 @@ class MorpheusMainTest {
         assertTrue(help.contains("mcp --stdio"));
         assertTrue(help.contains("api [--host HOST] [--port PORT]"));
         assertTrue(help.contains("/api/v1"));
+        assertTrue(help.contains("minos-status"));
+        assertTrue(help.contains("external-references list"));
+        assertTrue(help.contains("MORPHEUS_MINOS_JAR"));
         assertTrue(errors.toString(StandardCharsets.UTF_8).isEmpty());
     }
 

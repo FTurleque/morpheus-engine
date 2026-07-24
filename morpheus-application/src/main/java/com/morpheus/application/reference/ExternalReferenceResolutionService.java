@@ -36,23 +36,39 @@ public final class ExternalReferenceResolutionService {
                     ExternalReferenceResolutionReason.RESOLVED,
                     result.resolvedTarget(),
                     clock.instant());
-            case NOT_FOUND -> reference.transition(
-                    wasPreviouslyResolved(reference)
-                            ? ExternalReferenceResolutionState.STALE
-                            : ExternalReferenceResolutionState.UNRESOLVED,
-                    wasPreviouslyResolved(reference)
-                            ? ExternalReferenceResolutionReason.TARGET_REMOVED
-                            : ExternalReferenceResolutionReason.TARGET_NOT_FOUND,
-                    Optional.empty(),
-                    clock.instant());
-            case UNAVAILABLE -> reference.transition(
-                    wasPreviouslyResolved(reference)
-                            ? ExternalReferenceResolutionState.STALE
-                            : ExternalReferenceResolutionState.UNRESOLVED,
+            case NOT_FOUND -> transitionUnresolvedOrStale(
+                    reference,
+                    ExternalReferenceResolutionReason.TARGET_NOT_FOUND,
+                    ExternalReferenceResolutionReason.TARGET_REMOVED);
+            case UNAVAILABLE -> transitionUnresolvedOrStale(
+                    reference,
                     ExternalReferenceResolutionReason.TARGET_UNAVAILABLE,
-                    Optional.empty(),
-                    clock.instant());
+                    ExternalReferenceResolutionReason.TARGET_UNAVAILABLE);
+            case AMBIGUOUS -> transitionUnresolvedOrStale(
+                    reference,
+                    ExternalReferenceResolutionReason.TARGET_AMBIGUOUS,
+                    ExternalReferenceResolutionReason.TARGET_AMBIGUOUS);
+            case REVISION_MISMATCH -> transitionUnresolvedOrStale(
+                    reference,
+                    ExternalReferenceResolutionReason.TARGET_REVISION_MISMATCH,
+                    ExternalReferenceResolutionReason.TARGET_REVISION_MISMATCH);
+            case UNSUPPORTED -> transitionUnresolvedOrStale(
+                    reference,
+                    ExternalReferenceResolutionReason.TARGET_TYPE_UNSUPPORTED,
+                    ExternalReferenceResolutionReason.TARGET_TYPE_UNSUPPORTED);
         };
+    }
+
+    private ExternalReference transitionUnresolvedOrStale(
+            ExternalReference reference,
+            ExternalReferenceResolutionReason unresolvedReason,
+            ExternalReferenceResolutionReason staleReason) {
+        boolean previouslyResolved = wasPreviouslyResolved(reference);
+        return reference.transition(
+                previouslyResolved ? ExternalReferenceResolutionState.STALE : ExternalReferenceResolutionState.UNRESOLVED,
+                previouslyResolved ? staleReason : unresolvedReason,
+                Optional.empty(),
+                clock.instant());
     }
 
     private boolean wasPreviouslyResolved(ExternalReference reference) {

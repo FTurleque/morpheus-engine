@@ -1,40 +1,72 @@
-# MORPHEUS — Distribution locale M9/M10
+# MORPHEUS — Distribution locale M9 à M12
 
-M9 retient une stratégie **native-first** avec une archive portable autonome comme artefact principal. M10 conserve cette stratégie et embarque désormais le serveur MCP STDIO et le Java MCP SDK dans le même artefact.
+Stratégie : **native-first**, archive portable autonome comme artefact principal.
 
-Statut : **✅ M9 VALIDÉ Windows + Linux ; M10 VALIDÉ Windows avec MCP embarqué — 24 juillet 2026**.
+État :
 
-## Artefacts principaux
+```text
+M9   Windows + Linux validés
+M10  MCP STDIO embarqué validé
+M11  API HTTP + jdk.httpserver embarqués validés
+M12  client/adaptateur MINOS optionnel validé
+```
 
-Les scripts `build-portable.ps1` et `build-portable.sh` :
-
-1. construisent le JAR CLI autonome `morpheus-cli-*-all.jar` ;
-2. vérifient que le serveur MCP et ses classes SDK sont réellement présents dans l'uber-JAR ;
-3. créent une application `jpackage --type app-image` ;
-4. embarquent un runtime Java généré par `jpackage`/`jlink` ;
-5. exécutent `morpheus --version` puis `morpheus --json version` sur le launcher packagé ;
-6. produisent une archive portable.
-
-Cibles :
+## Artefacts
 
 ```text
 Windows x64 -> dist/morpheus-<version>-windows-x64.zip
 Linux x64   -> dist/morpheus-<version>-linux-x64.tar.gz
 ```
 
-L'utilisateur final n'a pas besoin d'installer/configurer manuellement un JDK.
+Les archives embarquent leur runtime Java ; aucun JDK séparé n'est requis côté utilisateur final.
 
-## Preuve MCP dans l'artefact
+## Contenu M12
 
-Depuis M10, les scripts contrôlent avant `jpackage` :
+L'uber-JAR contient :
+
+```text
+CLI MORPHEUS
+MCP server MORPHEUS
+MCP client SDK
+HTTP API
+morpheus-integration-minos
+Jackson
+SQLite JDBC
+```
+
+Il **ne contient pas MINOS**.
+
+Le build échoue si une entrée :
+
+```text
+com/minos/*
+```
+
+est détectée dans le shaded JAR.
+
+Le JAR MINOS reste une dépendance runtime externe et optionnelle, configurée via `MORPHEUS_MINOS_JAR`.
+
+## Preuve de contenu M12
+
+Le gate validé a contrôlé notamment :
 
 ```text
 com/morpheus/mcp/MorpheusMcpServer.class
 io/modelcontextprotocol/server/McpServer.class
-io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class
+io/modelcontextprotocol/client/McpClient.class
+io/modelcontextprotocol/client/transport/StdioClientTransport.class
+com/morpheus/api/MorpheusHttpServer.class
+com/morpheus/integration/minos/MinosMcpExternalReferenceResolver.class
+com/morpheus/integration/minos/MinosMcpCodeGateway.class
+com/morpheus/integration/minos/MinosIntegrationRuntime.class
+tools/jackson/databind/json/JsonMapper.class
 ```
 
-Le build échoue si une de ces classes manque.
+Résultat :
+
+```text
+MCP/API/MINOS adapter packaging proof: PASS
+```
 
 ## Windows
 
@@ -43,13 +75,46 @@ $env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
 .\distribution\build-portable.ps1
 ```
 
-Après extraction :
+Workdir M12 :
 
-```powershell
-.\morpheus\morpheus.exe --version
-.\morpheus\morpheus.exe --json version
-.\morpheus\morpheus.exe help
-.\morpheus\morpheus.exe mcp --stdio
+```text
+dist/.m12-windows
+```
+
+Le script :
+
+1. construit l'uber-JAR ;
+2. vérifie MCP/API/client MINOS ;
+3. rejette toute classe d'implémentation MINOS ;
+4. crée l'app-image via `jpackage` ;
+5. embarque `jdk.httpserver` ;
+6. teste `--version` ;
+7. teste `--json version` ;
+8. teste `--json minos-status` sans configuration MINOS ;
+9. démarre l'API packagée et vérifie `/api/v1/health` ;
+10. produit le ZIP avec retry/backoff.
+
+Smoke standalone M12 validé :
+
+```json
+{"system":"MINOS","state":"DISABLED","configured":false,"message":"MINOS integration is not configured","details":{"javaCommand":"java","timeoutSeconds":"20"}}
+```
+
+Résultats observés :
+
+```text
+MORPHEUS 0.1.0-SNAPSHOT
+{"version":"0.1.0-SNAPSHOT"}
+Packaged standalone MINOS-optional smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+```
+
+Archive validée :
+
+```text
+N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
+33,587,925 bytes
 ```
 
 Installateur optionnel :
@@ -58,72 +123,13 @@ Installateur optionnel :
 .\distribution\build-windows-installer.ps1
 ```
 
-La génération EXE/MSI par `jpackage` dépend des outils natifs Windows requis par le JDK de packaging (WiX pour JDK 21). L'archive portable reste officielle et ne dépend pas de WiX chez l'utilisateur final.
+Workdir : `dist/.m12-windows/image/morpheus`.
 
-### Preuve Windows M9
-
-```text
-clean test                      298/298 PASS
-Architecture Tests             149/149 PASS
-uber-JAR                        BUILD SUCCESS
-jpackage app-image             PASS
-morpheus.exe --version         PASS
-morpheus.exe --json version    PASS
-Windows ZIP                    PASS
-runtime Java embarqué          PASS
-```
-
-### Preuve Windows M10
-
-Gate Java :
-
-```text
-MORPHEUS MCP                    5/5 PASS
-MORPHEUS CLI                  10/10 PASS
-Architecture Tests           149/149 PASS
-TOTAL                        307/307 PASS
-BUILD SUCCESS
-```
-
-Packaging :
-
-```text
-uber-JAR                        BUILD SUCCESS
-MCP packaging proof            PASS
-jpackage app-image             PASS
-morpheus.exe --version         PASS
-morpheus.exe --json version    PASS
-Portable archive creation      PASS (attempt 1/8)
-Windows ZIP                    PASS — 77275075 bytes
-runtime Java embarqué          PASS
-```
-
-Artefact validé M10 :
-
-```text
-dist/morpheus-0.1.0-windows-x64.zip
-```
-
-Smoke observé :
-
-```text
-MORPHEUS 0.1.0-SNAPSHOT
-{"version":"0.1.0-SNAPSHOT"}
-```
-
-Le script Windows utilise un archivage robuste :
-
-```text
-Compress-Archive -ErrorAction Stop
-jusqu'à 8 tentatives avec backoff
-suppression des ZIP partiels
-vérification existence + taille > 0
-fail-fast après dernière tentative
-```
+WiX reste nécessaire uniquement pour produire EXE/MSI ; le ZIP portable reste officiel.
 
 ## Linux
 
-Le packaging Linux doit être lancé **depuis un shell Linux**. Exécuter `./mvnw` ou `build-portable.sh` depuis PowerShell ne constitue pas une preuve Linux.
+Le packaging Linux doit être exécuté depuis Linux/WSL avec filesystem Linux pour constituer une preuve Linux réelle.
 
 ```bash
 export JAVA_HOME=/path/to/jdk-21
@@ -132,64 +138,73 @@ chmod +x mvnw distribution/build-portable.sh
 ./distribution/build-portable.sh
 ```
 
-Après extraction :
-
-```bash
-./morpheus/bin/morpheus --version
-./morpheus/bin/morpheus --json version
-./morpheus/bin/morpheus help
-./morpheus/bin/morpheus mcp --stdio
-```
-
-La distribution Linux officielle reste l'archive `tar.gz` autonome. Les paquets `deb`/`rpm` restent optionnels.
-
-### Preuve Linux M9
-
-Environnement : WSL/Ubuntu, OpenJDK/Javac/jpackage 21.0.11, filesystem Linux local.
+Workdir M12 :
 
 ```text
-clean test                      298/298 PASS
-Architecture Tests             149/149 PASS
-uber-JAR                        BUILD SUCCESS
-jpackage app-image             PASS
-morpheus --version             PASS
-morpheus --json version        PASS
-Linux tar.gz                   PASS
-runtime Java embarqué          PASS
+dist/.m12-linux
 ```
 
-Artefact :
+Le script vérifie également :
 
 ```text
-dist/morpheus-0.1.0-linux-x64.tar.gz
+MINOS status DISABLED sans configuration
+jdk.httpserver présent dans le runtime packagé
+aucune classe com/minos/*
 ```
 
-Le script Linux M10 utilise le même shaded JAR et vérifie les mêmes classes MCP avant `jpackage`.
+La preuve finale M12 de référence est le gate Windows exécuté le 24 juillet 2026.
 
-## Fins de ligne cross-platform
+## Configuration MINOS runtime
 
-`.gitattributes` impose :
+L'archive MORPHEUS ne nécessite pas MINOS.
+
+Pour activer l'intégration :
 
 ```text
-mvnw     LF
-*.sh     LF
-mvnw.cmd CRLF
-*.ps1    CRLF
+MORPHEUS_MINOS_JAR=<path-to-minos-uber-jar>
+MORPHEUS_MINOS_JAVA=<optional-java-command>
+MORPHEUS_MINOS_HOME=<optional-minos-home>
+MORPHEUS_MINOS_TIMEOUT_SECONDS=<1..120>
 ```
 
-Cette règle prévient les erreurs `bash\r` dans les environnements Unix/WSL.
+L'adapter lance MINOS à la demande via MCP STDIO ; aucun process MINOS n'est démarré lors d'un simple `--version`, d'un bootstrap CLI ou d'un health API.
 
-## Layout runtime
+Lorsque `MORPHEUS_MINOS_HOME` est défini, il est transmis au process MINOS comme `-Dminos.home=<path>` avant `-cp`.
 
-La CLI et le serveur MCP séparent l'installation de l'état utilisateur.
+## Smoke de compatibilité avec le vrai MINOS
 
-Priorité de configuration :
+Le gate autonome prouve que MORPHEUS reste valide **sans** MINOS. Pour prouver en plus le contrat inter-dépôts réel :
+
+```powershell
+.\distribution\test-minos-compatibility.ps1 `
+  -MinosJar <path-to-minos-code-intelligence\target\*-all.jar> `
+  -MinosJava <java-24-or-newer>
+```
+
+Le script utilise le launcher MORPHEUS M12 packagé par défaut :
 
 ```text
-CLI option > MORPHEUS_* environment > OS default
+dist/.m12-windows/image/morpheus/morpheus.exe
 ```
 
-Options globales :
+Il configure temporairement `MORPHEUS_MINOS_*`, démarre réellement `com.minos.mcp.MinosMcpServer` via l'adapter MCP STDIO et exige :
+
+```text
+system = MINOS
+state  = AVAILABLE
+```
+
+Résultat attendu :
+
+```text
+Real MINOS MCP compatibility smoke: PASS
+```
+
+Ce smoke ne copie pas MINOS dans MORPHEUS et ne crée aucune dépendance Maven entre les dépôts. Il reste une preuve additionnelle ; il n'est pas requis pour le gate autonome M12 déjà validé.
+
+## Layout runtime MORPHEUS
+
+Options :
 
 ```text
 --data-dir PATH
@@ -205,7 +220,7 @@ MORPHEUS_CONFIG_DIR
 MORPHEUS_DB
 ```
 
-Defaults Windows :
+Windows :
 
 ```text
 data   = %LOCALAPPDATA%\Morpheus
@@ -214,7 +229,7 @@ db     = <data>\morpheus.db
 logs   = <data>\logs
 ```
 
-Defaults Linux :
+Linux :
 
 ```text
 data   = $XDG_DATA_HOME/morpheus ou ~/.local/share/morpheus
@@ -223,27 +238,39 @@ db     = <data>/morpheus.db
 logs   = <data>/logs
 ```
 
-Avec `--data-dir`, la config par défaut devient `<data>/config`, ce qui permet un mode entièrement portable.
+L'installation binaire reste séparée des données SQLite/config utilisateur.
 
-Le serveur MCP utilise exactement la même résolution de base SQLite que la CLI.
+## Fins de ligne
 
-## Upgrade / uninstall
-
-L'état MORPHEUS (SQLite/config) est par défaut **hors du répertoire d'installation**. Une mise à jour consiste donc à remplacer l'app-image/archive ou installer une nouvelle version tout en conservant le répertoire de données.
-
-La désinstallation du binaire ne doit pas supprimer implicitement la base SQLite utilisateur. La suppression des données est une action explicite séparée.
-
-## Gates
+`.gitattributes` impose :
 
 ```text
-M9 Windows  298/298 PASS + app-image + ZIP
-M9 Linux    298/298 PASS + app-image + tar.gz
-M10 Windows 307/307 PASS + MCP proof + app-image + ZIP
-Runtime     Java embarqué
+mvnw     LF
+*.sh     LF
+mvnw.cmd CRLF
+*.ps1    CRLF
 ```
 
-Validations :
+## Gates historiques
 
-- [`../docs/VALIDATION_M9.md`](../docs/VALIDATION_M9.md)
-- [`../docs/VALIDATION_M10.md`](../docs/VALIDATION_M10.md)
-- [`../docs/MCP.md`](../docs/MCP.md)
+```text
+M9  Windows + Linux 298/298 PASS
+M10 Windows         307/307 PASS + MCP packaging
+M11 Windows         314/314 PASS + packaged API health
+M12 Windows         331/331 PASS + MINOS optional packaging
+```
+
+## Gate M12 validé
+
+```powershell
+.\mvnw.cmd clean test
+.\distribution\build-portable.ps1
+```
+
+Résultat : **PASS**.
+
+Références :
+
+- [`../docs/VALIDATION_M12.md`](../docs/VALIDATION_M12.md)
+- [`../docs/MINOS.md`](../docs/MINOS.md)
+- [`../docs/roadmap/M12_EXECUTION.md`](../docs/roadmap/M12_EXECUTION.md)

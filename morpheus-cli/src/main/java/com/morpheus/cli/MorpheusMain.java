@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.api.MorpheusHttpServer;
+import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.mcp.MorpheusMcpServer;
 
 import java.io.PrintStream;
@@ -10,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-/** Official native MORPHEUS launcher for CLI, MCP STDIO and the M11 headless HTTP API. */
+/** Official native MORPHEUS launcher for CLI, MCP STDIO and the headless HTTP API. */
 public final class MorpheusMain {
     private MorpheusMain() {
     }
@@ -35,7 +36,11 @@ public final class MorpheusMain {
             PrintStream err,
             Map<String, String> environment,
             Properties properties) {
-        int exitCode = new MorpheusCli().run(normalizeForExecution(args), out, err, environment, properties);
+        MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
+        int exitCode = MorpheusExternalIntegrationCli.handles(args)
+                ? new MorpheusExternalIntegrationCli(minos.resolverRegistry(), minos)
+                .run(args, out, err, environment, properties)
+                : new MorpheusCli().run(normalizeForExecution(args), out, err, environment, properties);
         if (exitCode == CliExitCode.SUCCESS.code() && isHelpRequest(args)) {
             out.println();
             out.println("MCP:");
@@ -45,6 +50,12 @@ public final class MorpheusMain {
             out.println("API:");
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]");
             out.println("  Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println();
+            out.println("MINOS / external references:");
+            out.println("  morpheus [--json] minos-status");
+            out.println("  morpheus [--json] external-references list --project ID --owner ID");
+            out.println("  morpheus [--json] external-references resolve --project ID --reference ID");
+            out.println("  MINOS is optional; configure MORPHEUS_MINOS_JAR to enable live resolution.");
         }
         return exitCode;
     }
@@ -56,7 +67,8 @@ public final class MorpheusMain {
             Properties properties) {
         try {
             McpLaunchOptions options = McpLaunchOptions.parse(args, environment, properties);
-            return MorpheusMcpServer.run(options.layout().databasePath());
+            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
+            return MorpheusMcpServer.run(options.layout().databasePath(), minos.resolverRegistry());
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS MCP usage error: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
@@ -73,8 +85,9 @@ public final class MorpheusMain {
             Properties properties) {
         try {
             ApiLaunchOptions options = ApiLaunchOptions.parse(args, environment, properties);
+            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
             try (MorpheusHttpServer server = MorpheusHttpServer.start(
-                    options.layout().databasePath(), options.host(), options.port())) {
+                    options.layout().databasePath(), options.host(), options.port(), minos.resolverRegistry(), minos)) {
                 err.println("MORPHEUS API listening on " + server.baseUri());
                 try {
                     Thread.currentThread().join();

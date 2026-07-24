@@ -6,14 +6,14 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dist = Join-Path $repo $OutputDirectory
-$appImage = Join-Path $dist ".m11-windows\image\morpheus"
+$appImage = Join-Path $dist ".m12-windows\image\morpheus"
 $jpackage = Join-Path $env:JAVA_HOME "bin\jpackage.exe"
 
 if (-not (Test-Path $jpackage)) {
     throw "jpackage.exe not found under JAVA_HOME=$env:JAVA_HOME"
 }
 if (-not (Test-Path $appImage)) {
-    Write-Host "Portable M11 app-image not found; building it first..."
+    Write-Host "Portable M12 app-image not found; building it first..."
     & (Join-Path $PSScriptRoot "build-portable.ps1") -Version $Version -OutputDirectory $OutputDirectory
     if ($LASTEXITCODE -ne 0) { throw "Portable build failed with exit code $LASTEXITCODE" }
 }
@@ -40,7 +40,7 @@ if ($hasWixModern) {
     Write-Host "WiX v3 tools detected: candle=$($candle.Source), light=$($light.Source)"
 }
 
-Write-Host "Building Windows EXE installer from the validated M11 app-image..."
+Write-Host "Building Windows EXE installer from the validated M12 app-image..."
 & $jpackage `
     --type exe `
     --name morpheus `
@@ -54,5 +54,5 @@ Write-Host "Building Windows EXE installer from the validated M11 app-image..."
 if ($LASTEXITCODE -ne 0) { throw "jpackage Windows installer failed with exit code $LASTEXITCODE" }
 
 Write-Host "Windows installer output: $installerDir"
-Write-Host "The installer contains the same CLI/MCP/API runtime as the validated M11 app-image."
+Write-Host "The installer contains MORPHEUS CLI/MCP/API plus the optional MINOS client adapter; MINOS itself is not bundled."
 Write-Host "MORPHEUS data remains outside the installation directory, so uninstall/reinstall does not intentionally delete the SQLite data directory."

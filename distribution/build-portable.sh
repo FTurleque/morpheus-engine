@@ -6,7 +6,7 @@ OUTPUT_DIRECTORY="${2:-dist}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 DIST="$REPO/$OUTPUT_DIRECTORY"
-WORK="$DIST/.m11-linux"
+WORK="$DIST/.m12-linux"
 INPUT="$WORK/input"
 IMAGE_ROOT="$WORK/image"
 
@@ -21,7 +21,7 @@ if [[ ! -x "$JAR_TOOL" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Building MORPHEUS CLI + MCP + API uber-JAR..."
+printf '%s\n' "Building MORPHEUS CLI + MCP + API + optional MINOS adapter uber-JAR..."
 "$REPO/mvnw" -pl morpheus-cli -am -DskipTests package
 
 JAR="$(find "$REPO/morpheus-cli/target" -maxdepth 1 -type f -name 'morpheus-cli-*-all.jar' -print | sort | tail -n 1)"
@@ -30,21 +30,28 @@ if [[ -z "$JAR" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Verifying MCP/API classes are embedded in the shaded JAR..."
+printf '%s\n' "Verifying MCP/API/MINOS-adapter classes are embedded in the shaded JAR..."
 JAR_ENTRIES="$($JAR_TOOL tf "$JAR")"
 for entry in \
   'com/morpheus/mcp/MorpheusMcpServer.class' \
   'io/modelcontextprotocol/server/McpServer.class' \
-  'io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class' \
+  'io/modelcontextprotocol/client/McpClient.class' \
+  'io/modelcontextprotocol/client/transport/StdioClientTransport.class' \
   'com/morpheus/api/MorpheusHttpServer.class' \
-  'com/morpheus/api/MorpheusApiService.class' \
+  'com/morpheus/integration/minos/MinosMcpExternalReferenceResolver.class' \
+  'com/morpheus/integration/minos/MinosMcpCodeGateway.class' \
+  'com/morpheus/integration/minos/MinosIntegrationRuntime.class' \
   'tools/jackson/databind/json/JsonMapper.class'; do
   if ! grep -Fxq "$entry" <<<"$JAR_ENTRIES"; then
-    echo "M11 packaging proof failed; shaded JAR is missing $entry" >&2
+    echo "M12 packaging proof failed; shaded JAR is missing $entry" >&2
     exit 1
   fi
 done
-printf '%s\n' "MCP/API packaging proof: PASS"
+if grep -Eq '^com/minos/' <<<"$JAR_ENTRIES"; then
+  echo "M12 packaging proof failed; MINOS implementation classes must not be embedded" >&2
+  exit 1
+fi
+printf '%s\n' "MCP/API/MINOS adapter packaging proof: PASS"
 
 rm -rf "$WORK"
 mkdir -p "$INPUT" "$IMAGE_ROOT" "$DIST"
@@ -68,7 +75,7 @@ if [[ ! -x "$LAUNCHER" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Smoke testing packaged launcher..."
+printf '%s\n' "Smoke testing packaged launcher without MINOS configuration..."
 "$LAUNCHER" --version
 JSON_VERSION="$("$LAUNCHER" --json version)"
 if [[ "$JSON_VERSION" != *'"version"'* ]]; then
@@ -76,13 +83,17 @@ if [[ "$JSON_VERSION" != *'"version"'* ]]; then
   exit 1
 fi
 printf '%s\n' "$JSON_VERSION"
+MINOS_STATUS="$("$LAUNCHER" --json minos-status)"
+if [[ "$MINOS_STATUS" != *'"state":"DISABLED"'* ]]; then
+  echo "Packaged standalone MINOS status smoke failed: $MINOS_STATUS" >&2
+  exit 1
+fi
+printf '%s\n' "$MINOS_STATUS"
+printf '%s\n' "Packaged standalone MINOS-optional smoke: PASS"
 
-# Verify that the embedded runtime contains the module required by the M11 HTTP adapter.
-if ! "$IMAGE_ROOT/morpheus/lib/runtime/bin/java" --list-modules | grep -Fxq 'jdk.httpserver@21'; then
-  if ! "$IMAGE_ROOT/morpheus/lib/runtime/bin/java" --list-modules | grep -Eq '^jdk\.httpserver@'; then
-    echo "Packaged runtime does not contain jdk.httpserver" >&2
-    exit 1
-  fi
+if ! "$IMAGE_ROOT/morpheus/lib/runtime/bin/java" --list-modules | grep -Eq '^jdk\.httpserver@'; then
+  echo "Packaged runtime does not contain jdk.httpserver" >&2
+  exit 1
 fi
 printf '%s\n' "Packaged jdk.httpserver module proof: PASS"
 
@@ -91,4 +102,4 @@ rm -f "$ARCHIVE"
 tar -C "$IMAGE_ROOT" -czf "$ARCHIVE" morpheus
 
 printf '%s\n' "Portable Linux distribution: $ARCHIVE"
-printf '%s\n' "The archive contains its Java runtime, MCP STDIO server and HTTP API; end users do not need a separately installed JDK."
+printf '%s\n' "The archive contains MORPHEUS, its Java runtime, MCP/API and the optional MINOS client adapter; MINOS itself is not embedded or required."

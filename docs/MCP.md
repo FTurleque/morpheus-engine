@@ -1,56 +1,28 @@
-# MORPHEUS MCP — M10
+# MORPHEUS MCP — M10 + M12
 
-Statut : **✅ VALIDÉ — 24 juillet 2026**
+Statut : **M10 validé ; extensions M12 implémentées — gate M12 pending**
 
-MORPHEUS expose un serveur **Model Context Protocol natif sur STDIO**, destiné aux IDE, agents et orchestrateurs locaux.
+MORPHEUS expose un serveur Model Context Protocol natif sur STDIO pour IDE, agents et orchestrateurs locaux.
 
 ## Lancement
 
 ```text
 morpheus mcp --stdio
-```
-
-Options de stockage partagées avec la CLI :
-
-```text
 morpheus --db /path/to/morpheus.db mcp --stdio
-morpheus --data-dir /path/to/data mcp --stdio
 ```
 
-Variables équivalentes :
+Stockage : même SQLite que CLI/API.
 
-```text
-MORPHEUS_DATA_DIR
-MORPHEUS_CONFIG_DIR
-MORPHEUS_DB
-```
-
-Le serveur ouvre la **même base SQLite** que la CLI. Les tools M10 sont read-only.
-
-## Discipline STDIO
+Discipline :
 
 ```text
 stdout = protocole MCP JSON-RPC uniquement
-stderr = diagnostics de démarrage/runtime uniquement
+stderr = diagnostics runtime uniquement
 ```
 
-Il n'y a ni banner, ni help, ni log applicatif volontaire sur stdout.
+SDK : Java MCP SDK officiel `2.0.0`, `McpServer.sync`, `StdioServerTransportProvider`, `validateToolInputs=true`.
 
-M10 n'expose pas de transport HTTP/SSE et ne requiert ni Docker ni framework serveur.
-
-## Protocole / SDK
-
-Implémentation : Java MCP SDK officiel `2.0.0`.
-
-```text
-McpServer.sync
-StdioServerTransportProvider
-validateToolInputs=true
-```
-
-Le serveur négocie MCP via `initialize`, expose la capability `tools`, valide les arguments selon JSON Schema avant le handler et conserve la sémantique métier dans `morpheus-application` / `morpheus-domain`.
-
-## Catalogue M10
+## Catalogue historique M10 — 14 tools
 
 ```text
 get_current_specification
@@ -69,194 +41,146 @@ get_blocking_conditions
 get_sync_status
 ```
 
-Aucun tool d'écriture, de synchronisation mutante, de promotion ou d'activation n'est exposé.
-
-## Contrats principaux
-
-### `get_current_specification`
-
-```json
-{"projectId":"<uuid>"}
-```
-
-Retourne le snapshot ACTIVE, la version de spécification, les spécifications normalisées et les compteurs de contenu CURRENT.
-
-### `find_requirements`
-
-```json
-{"projectId":"<uuid>","query":"session timeout","offset":0,"limit":50}
-```
-
-Recherche lexicale déterministe sur les requirements CURRENT du snapshot ACTIVE.
-
-### Changements et contenu associé
+Contrats conservés :
 
 ```text
-get_change
-list_changes
-get_constraints
-get_design_decisions
-get_implementation_tasks
+Scenario != AcceptanceCriterion
+acceptance absente -> UNAVAILABLE_IN_NORMALIZED_MODEL
+lifecycle absent -> UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT
+queries snapshot-scoped / CURRENT
+read-only
 ```
 
-Tous ces tools restent snapshot-scoped et read-only.
+## Extensions M12 — 2 tools read-only
 
-### `get_acceptance_criteria`
-
-```json
-{"projectId":"<uuid>","changeId":"<uuid>"}
-```
-
-Le modèle normalisé M10 ne persiste pas d'`AcceptanceCriterion` explicite :
+Le serveur porte additivement le catalogue à **16 tools** :
 
 ```text
-status = UNAVAILABLE_IN_NORMALIZED_MODEL
-criteria = []
+list_external_references
+resolve_external_reference
 ```
 
-**Un `Scenario` n'est jamais converti en `AcceptanceCriterion`.**
+Le catalogue M10 reste inchangé ; les deux specs M12 sont enregistrées séparément au bootstrap du serveur.
 
-### `trace_requirement`
+### `list_external_references`
+
+Input strict :
 
 ```json
-{"projectId":"<uuid>","requirementId":"<uuid>","depth":2}
+{"projectId":"<uuid>","ownerId":"<uuid>"}
 ```
 
-Réutilise le contrat de traçabilité M4/M5. `depth` est borné de `1` à `20`.
+Retourne les références externes persistées pour le propriétaire dans le snapshot ACTIVE.
 
-### `get_change_context`
+### `resolve_external_reference`
+
+Input strict :
 
 ```json
-{"projectId":"<uuid>","changeId":"<uuid>","depth":2}
+{"projectId":"<uuid>","referenceId":"<uuid>"}
 ```
 
-Réutilise le contexte compact M5 sur le snapshot ACTIVE.
+Effectue une observation live via `LiveExternalReferenceResolutionService`.
 
-### `get_specification_context`
+Sortie conceptuelle :
 
 ```json
-{"projectId":"<uuid>","specificationId":"<uuid>","offset":0,"limit":50}
+{
+  "snapshotId":"...",
+  "stored":{"resolutionState":"UNVALIDATED"},
+  "observed":{"resolutionState":"RESOLVED"},
+  "persisted":false
+}
 ```
 
-Agrège sans inventer de relation :
+La résolution ne modifie jamais la référence persistée dans le snapshot.
+
+## MINOS optionnel
+
+Le launcher injecte un `ExternalReferenceResolverRegistry` générique au serveur MCP.
+
+Sans configuration :
 
 ```text
-Specification
-CURRENT Requirements
-Scenarios rattachés aux requirements de la page
-Changes reliés aux requirements de la specification par AFFECTS persisté
+MINOS resolver absent
+resolve_external_reference -> observation UNRESOLVED / NO_RESOLVER
+MCP server -> reste entièrement fonctionnel
 ```
 
-### `get_change_status`
-
-```json
-{"projectId":"<uuid>","changeId":"<uuid>"}
-```
-
-Le snapshot métier publié ne persiste pas un `ChangeLifecycle` explicite :
+Avec `MORPHEUS_MINOS_JAR` valide :
 
 ```text
-status = UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT
-lifecycleState = UNAVAILABLE
-observableFacts = tri-state facts M6
+resolve_external_reference
+  -> ExternalReferenceResolutionService
+  -> MinosMcpExternalReferenceResolver
+  -> MCP client STDIO
+  -> MINOS minos_index_status + minos_find_symbols
 ```
 
-Aucun état lifecycle n'est inféré.
+Le serveur MORPHEUS ne dépend d'aucun type `com.minos.*`.
 
-### `get_blocking_conditions`
+## Identité MINOS
 
-Retourne les facts observables et findings déterministes de complétude existants. Les facts absents restent listés dans `unavailableFacts`.
-
-### `get_sync_status`
-
-```json
-{"projectId":"<uuid>","maxAgeMinutes":60}
+```text
+system       = MINOS
+resourceType = SYMBOL
+project      = obligatoire
+externalId   = exact symbolKey
+revision     = activeSnapshotId attendu, optionnel
 ```
 
-Retourne la fraîcheur M7 : `UNKNOWN`, `FRESH`, `STALE` ou `REBUILD_REQUIRED` avec les métadonnées persistées.
+La recherche MINOS peut être lexicale, mais seul un `symbolKey` exactement égal est résolu.
 
 ## JSON Schemas
 
-Tous les inputs sont stricts :
+Inputs MCP :
 
 ```text
 type = object
 additionalProperties = false
 required = explicite
+```
+
+Bornes M10 conservées :
+
+```text
 limit          1..100
 depth          1..20
 maxAgeMinutes  1..525600
 offset         >= 0
 ```
 
-Le SDK valide les arguments avant le handler MCP.
+## Absence de write tools
 
-## Exemple client MCP
-
-```json
-{
-  "command": "morpheus",
-  "args": ["--db", "/path/to/morpheus.db", "mcp", "--stdio"]
-}
-```
-
-Le chemin exact et la forme du fichier de configuration dépendent du client MCP utilisé.
-
-## Frontières M10
+Toujours aucun tool pour :
 
 ```text
-Streamable HTTP
-SSE
-OAuth réseau
-write tools
-sync mutation via MCP
-RequirementDelta apply/promote/activate via MCP
-Docker obligatoire
-MINOS code intelligence
-NEXUS ranking/compression
-JARVIS orchestration
+sync mutation
+RequirementDelta apply
+PROMOTE
+ACTIVATE
+rollback
+persist external live resolution
 ```
 
-## Validation M10
-
-Gate Maven :
+## Preuves M12 implémentées
 
 ```text
-MORPHEUS MCP              5/5 PASS
-MORPHEUS CLI             10/10 PASS
-Architecture Tests      149/149 PASS
-TOTAL                   307/307 PASS
-BUILD SUCCESS
+vrai MINOS MCP STDIO fixture : initialize/list/call
+vrai MORPHEUS MCP STDIO : tools/list + list_external_references + resolve_external_reference
+standalone sans MINOS -> NO_RESOLVER non fatal
+SQLite reference inchangée
 ```
 
-Preuve STDIO automatisée réelle :
+## Références
 
-```text
-initialize
-notifications/initialized
-tools/list
-tools/call
-schema rejection avant handler
+- M10 : [`VALIDATION_M10.md`](VALIDATION_M10.md)
+- M12 : [`MINOS.md`](MINOS.md)
+- roadmap : [`roadmap/M12_EXECUTION.md`](roadmap/M12_EXECUTION.md)
+
+## Gate M12
+
+```powershell
+.\mvnw.cmd clean test
+.\distribution\build-portable.ps1
 ```
-
-Packaging Windows :
-
-```text
-MCP packaging proof: PASS
-jpackage app-image PASS
-morpheus.exe --version PASS
-morpheus.exe --json version PASS
-Portable archive creation: PASS
-Windows ZIP: PASS — 77275075 bytes
-runtime Java embarqué: PASS
-```
-
-Le shaded JAR vérifié contient :
-
-```text
-com/morpheus/mcp/MorpheusMcpServer.class
-io/modelcontextprotocol/server/McpServer.class
-io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class
-```
-
-Validation complète : [`VALIDATION_M10.md`](VALIDATION_M10.md).

@@ -19,6 +19,7 @@
         <module>morpheus-provider-synthetic</module>
         <module>morpheus-store-memory</module>
         <module>morpheus-store-sqlite</module>
+        <module>morpheus-integration-minos</module>
         <module>morpheus-mcp</module>
         <module>morpheus-api</module>
         <module>morpheus-cli</module>

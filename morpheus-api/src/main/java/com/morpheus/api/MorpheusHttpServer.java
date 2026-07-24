@@ -3,6 +3,9 @@ package com.morpheus.api;
 import com.morpheus.application.history.PublishedHistoryException;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
+import com.morpheus.application.reference.ExternalIntegrationStatus;
+import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
+import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
@@ -27,7 +30,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** M11 local HTTP server. Routing and HTTP translation only; business behavior stays in application services. */
+/** Local HTTP server. Routing and HTTP translation only; business behavior stays in application services. */
 public final class MorpheusHttpServer implements AutoCloseable {
     public static final String API_PREFIX = "/api/v1";
     public static final String DEFAULT_HOST = "127.0.0.1";
@@ -37,20 +40,40 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final HttpServer server;
     private final ExecutorService executor;
     private final MorpheusApiService service;
+    private final MorpheusExternalReferenceApiService externalReferenceService;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final JsonMapper mapper = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .build();
 
-    private MorpheusHttpServer(HttpServer server, ExecutorService executor, MorpheusApiService service) {
+    private MorpheusHttpServer(
+            HttpServer server,
+            ExecutorService executor,
+            MorpheusApiService service,
+            MorpheusExternalReferenceApiService externalReferenceService) {
         this.server = Objects.requireNonNull(server, "server");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.service = Objects.requireNonNull(service, "service");
+        this.externalReferenceService = Objects.requireNonNull(externalReferenceService, "externalReferenceService");
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
+        ExternalReferenceResolverRegistry resolvers = new ExternalReferenceResolverRegistry(List.of());
+        ExternalIntegrationStatusProvider disabled = () -> new ExternalIntegrationStatus(
+                "MINOS", "DISABLED", false, "MINOS integration is not configured", Map.of());
+        return start(databasePath, host, port, resolvers, disabled);
+    }
+
+    public static MorpheusHttpServer start(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus) {
         Objects.requireNonNull(databasePath, "databasePath");
+        Objects.requireNonNull(resolverRegistry, "resolverRegistry");
+        Objects.requireNonNull(minosStatus, "minosStatus");
         String normalizedHost = requireHost(host);
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
@@ -59,7 +82,10 @@ public final class MorpheusHttpServer implements AutoCloseable {
             HttpServer httpServer = HttpServer.create(new InetSocketAddress(normalizedHost, port), 0);
             ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
             MorpheusHttpServer result = new MorpheusHttpServer(
-                    httpServer, executor, new MorpheusApiService(databasePath));
+                    httpServer,
+                    executor,
+                    new MorpheusApiService(databasePath),
+                    new MorpheusExternalReferenceApiService(databasePath, resolverRegistry, minosStatus));
             httpServer.setExecutor(executor);
             httpServer.createContext(API_PREFIX, result::handle);
             httpServer.start();
@@ -127,6 +153,14 @@ public final class MorpheusHttpServer implements AutoCloseable {
             query.rejectUnknown(Set.of());
             return ok(service.version());
         }
+        if (segments.size() == 3
+                && segments.getFirst().equals("integrations")
+                && segments.get(1).equals("minos")
+                && segments.get(2).equals("status")) {
+            requireMethod(method, "GET");
+            query.rejectUnknown(Set.of());
+            return ok(externalReferenceService.minosStatus());
+        }
         if (!segments.getFirst().equals("projects")) {
             throw ApiFailure.notFound("unknown API route: " + exchange.getRequestURI().getPath());
         }
@@ -160,6 +194,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "changes" -> routeChanges(method, segments, query, projectId);
             case "versions" -> routeVersions(method, segments, query, projectId);
             case "diagnostics" -> routeDiagnostics(method, segments, query, projectId);
+            case "external-references" -> routeExternalReferences(method, segments, query, projectId);
             default -> throw ApiFailure.notFound("unknown project API resource: " + resource);
         };
     }
@@ -287,6 +322,23 @@ public final class MorpheusHttpServer implements AutoCloseable {
         requireMethod(method, "GET");
         query.rejectUnknown(Set.of());
         return ok(service.diagnostics(projectId));
+    }
+
+    private RouteResponse routeExternalReferences(
+            String method,
+            List<String> segments,
+            Query query,
+            String projectId) {
+        requireMethod(method, "GET");
+        if (segments.size() == 3) {
+            query.rejectUnknown(Set.of("ownerId"));
+            return ok(externalReferenceService.list(projectId, query.required("ownerId")));
+        }
+        if (segments.size() == 5 && segments.get(4).equals("resolution")) {
+            query.rejectUnknown(Set.of());
+            return ok(externalReferenceService.resolve(projectId, segments.get(3)));
+        }
+        throw ApiFailure.notFound("unknown external-references route");
     }
 
     private PageRequest page(Query query) {
