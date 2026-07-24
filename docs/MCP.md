@@ -1,18 +1,16 @@
 # MORPHEUS MCP — M10
 
-Statut : **implémentation fonctionnelle complète — gate local pending**
+Statut : **✅ VALIDÉ — 24 juillet 2026**
 
-MORPHEUS expose en M10 un serveur **Model Context Protocol natif sur STDIO**, destiné aux IDE, agents et orchestrateurs locaux.
+MORPHEUS expose un serveur **Model Context Protocol natif sur STDIO**, destiné aux IDE, agents et orchestrateurs locaux.
 
 ## Lancement
-
-Depuis une distribution portable M10 :
 
 ```text
 morpheus mcp --stdio
 ```
 
-Les options globales de stockage M9 restent disponibles :
+Options de stockage partagées avec la CLI :
 
 ```text
 morpheus --db /path/to/morpheus.db mcp --stdio
@@ -31,8 +29,6 @@ Le serveur ouvre la **même base SQLite** que la CLI. Les tools M10 sont read-on
 
 ## Discipline STDIO
 
-En mode MCP :
-
 ```text
 stdout = protocole MCP JSON-RPC uniquement
 stderr = diagnostics de démarrage/runtime uniquement
@@ -46,13 +42,13 @@ M10 n'expose pas de transport HTTP/SSE et ne requiert ni Docker ni framework ser
 
 Implémentation : Java MCP SDK officiel `2.0.0`.
 
-Le serveur :
+```text
+McpServer.sync
+StdioServerTransportProvider
+validateToolInputs=true
+```
 
-- négocie MCP via `initialize` ;
-- expose la capability `tools` ;
-- valide les arguments selon JSON Schema avant le handler ;
-- utilise un transport STDIO natif ;
-- conserve la sémantique métier dans `morpheus-application` / `morpheus-domain`.
+Le serveur négocie MCP via `initialize`, expose la capability `tools`, valide les arguments selon JSON Schema avant le handler et conserve la sémantique métier dans `morpheus-application` / `morpheus-domain`.
 
 ## Catalogue M10
 
@@ -73,9 +69,9 @@ get_blocking_conditions
 get_sync_status
 ```
 
-Aucun tool d'écriture, de promotion ou d'activation n'est exposé en M10.
+Aucun tool d'écriture, de synchronisation mutante, de promotion ou d'activation n'est exposé.
 
-## Arguments
+## Contrats principaux
 
 ### `get_current_specification`
 
@@ -83,42 +79,27 @@ Aucun tool d'écriture, de promotion ou d'activation n'est exposé en M10.
 {"projectId":"<uuid>"}
 ```
 
-Retourne le snapshot ACTIVE, la version de spécification, les spécifications normalisées et des compteurs de contenu CURRENT.
+Retourne le snapshot ACTIVE, la version de spécification, les spécifications normalisées et les compteurs de contenu CURRENT.
 
 ### `find_requirements`
 
 ```json
-{
-  "projectId":"<uuid>",
-  "query":"session timeout",
-  "offset":0,
-  "limit":50
-}
+{"projectId":"<uuid>","query":"session timeout","offset":0,"limit":50}
 ```
 
 Recherche lexicale déterministe sur les requirements CURRENT du snapshot ACTIVE.
 
-Bornes : `offset >= 0`, `1 <= limit <= 100`.
+### Changements et contenu associé
 
-### `get_change`
-
-```json
-{"projectId":"<uuid>","changeId":"<uuid>"}
+```text
+get_change
+list_changes
+get_constraints
+get_design_decisions
+get_implementation_tasks
 ```
 
-Retourne un `ChangeProposal` normalisé explicitement présent dans le snapshot ACTIVE.
-
-### `list_changes`
-
-```json
-{"projectId":"<uuid>","offset":0,"limit":50}
-```
-
-### `get_constraints`
-
-```json
-{"projectId":"<uuid>","changeId":"<uuid>","offset":0,"limit":50}
-```
+Tous ces tools restent snapshot-scoped et read-only.
 
 ### `get_acceptance_criteria`
 
@@ -126,7 +107,7 @@ Retourne un `ChangeProposal` normalisé explicitement présent dans le snapshot 
 {"projectId":"<uuid>","changeId":"<uuid>"}
 ```
 
-Le modèle normalisé M10 ne persiste pas d'`AcceptanceCriterion` explicite. Le résultat est donc volontairement :
+Le modèle normalisé M10 ne persiste pas d'`AcceptanceCriterion` explicite :
 
 ```text
 status = UNAVAILABLE_IN_NORMALIZED_MODEL
@@ -134,18 +115,6 @@ criteria = []
 ```
 
 **Un `Scenario` n'est jamais converti en `AcceptanceCriterion`.**
-
-### `get_design_decisions`
-
-```json
-{"projectId":"<uuid>","changeId":"<uuid>","offset":0,"limit":50}
-```
-
-### `get_implementation_tasks`
-
-```json
-{"projectId":"<uuid>","changeId":"<uuid>","offset":0,"limit":50}
-```
 
 ### `trace_requirement`
 
@@ -166,15 +135,10 @@ Réutilise le contexte compact M5 sur le snapshot ACTIVE.
 ### `get_specification_context`
 
 ```json
-{
-  "projectId":"<uuid>",
-  "specificationId":"<uuid>",
-  "offset":0,
-  "limit":50
-}
+{"projectId":"<uuid>","specificationId":"<uuid>","offset":0,"limit":50}
 ```
 
-Agrège, sans inventer de relation :
+Agrège sans inventer de relation :
 
 ```text
 Specification
@@ -189,7 +153,7 @@ Changes reliés aux requirements de la specification par AFFECTS persisté
 {"projectId":"<uuid>","changeId":"<uuid>"}
 ```
 
-Le snapshot métier publié ne persiste pas un `ChangeLifecycle` explicite. MORPHEUS retourne donc :
+Le snapshot métier publié ne persiste pas un `ChangeLifecycle` explicite :
 
 ```text
 status = UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT
@@ -201,10 +165,6 @@ Aucun état lifecycle n'est inféré.
 
 ### `get_blocking_conditions`
 
-```json
-{"projectId":"<uuid>","changeId":"<uuid>"}
-```
-
 Retourne les facts observables et findings déterministes de complétude existants. Les facts absents restent listés dans `unavailableFacts`.
 
 ### `get_sync_status`
@@ -213,21 +173,16 @@ Retourne les facts observables et findings déterministes de complétude existan
 {"projectId":"<uuid>","maxAgeMinutes":60}
 ```
 
-Retourne la fraîcheur M7 : `UNKNOWN`, `FRESH`, `STALE` ou `REBUILD_REQUIRED`, avec les métadonnées de synchronisation persistées.
+Retourne la fraîcheur M7 : `UNKNOWN`, `FRESH`, `STALE` ou `REBUILD_REQUIRED` avec les métadonnées persistées.
 
 ## JSON Schemas
 
-Tous les inputs sont des objets stricts :
+Tous les inputs sont stricts :
 
 ```text
 type = object
 additionalProperties = false
 required = explicite
-```
-
-Bornes principales :
-
-```text
 limit          1..100
 depth          1..20
 maxAgeMinutes  1..525600
@@ -236,9 +191,7 @@ offset         >= 0
 
 Le SDK valide les arguments avant le handler MCP.
 
-## Exemple de configuration d'un client MCP local
-
-Le client doit lancer le binaire MORPHEUS en mode STDIO, par exemple :
+## Exemple client MCP
 
 ```json
 {
@@ -250,8 +203,6 @@ Le client doit lancer le binaire MORPHEUS en mode STDIO, par exemple :
 Le chemin exact et la forme du fichier de configuration dépendent du client MCP utilisé.
 
 ## Frontières M10
-
-Hors périmètre :
 
 ```text
 Streamable HTTP
@@ -266,15 +217,19 @@ NEXUS ranking/compression
 JARVIS orchestration
 ```
 
-## Validation
+## Validation M10
 
-Gate local :
+Gate Maven :
 
-```powershell
-.\mvnw.cmd clean test
+```text
+MORPHEUS MCP              5/5 PASS
+MORPHEUS CLI             10/10 PASS
+Architecture Tests      149/149 PASS
+TOTAL                   307/307 PASS
+BUILD SUCCESS
 ```
 
-Preuve STDIO automatisée attendue dans le gate :
+Preuve STDIO automatisée réelle :
 
 ```text
 initialize
@@ -284,13 +239,19 @@ tools/call
 schema rejection avant handler
 ```
 
-Packaging :
+Packaging Windows :
 
-```powershell
-.\distribution\build-portable.ps1
+```text
+MCP packaging proof: PASS
+jpackage app-image PASS
+morpheus.exe --version PASS
+morpheus.exe --json version PASS
+Portable archive creation: PASS
+Windows ZIP: PASS — 77275075 bytes
+runtime Java embarqué: PASS
 ```
 
-Le script vérifie que l'uber-JAR contient :
+Le shaded JAR vérifié contient :
 
 ```text
 com/morpheus/mcp/MorpheusMcpServer.class
@@ -298,4 +259,4 @@ io/modelcontextprotocol/server/McpServer.class
 io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class
 ```
 
-avant de produire l'app-image autonome.
+Validation complète : [`VALIDATION_M10.md`](VALIDATION_M10.md).
