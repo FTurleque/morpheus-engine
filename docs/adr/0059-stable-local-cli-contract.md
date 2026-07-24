@@ -1,6 +1,6 @@
 # ADR-0059 — Contrat CLI local stable, scriptable et explicite
 
-- Statut : **Proposée — gate Windows PASS, validation Linux pending**
+- Statut : **Acceptée — M9**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0043, ADR-0045, ADR-0046, ADR-0047, ADR-0052, ADR-0058
 - Portée : M9 — surface utilisateur CLI
@@ -55,8 +55,6 @@ quality --project ID
 Par défaut : sortie humaine stable et compacte.
 
 Avec `--json` : DTOs/records déterministes sérialisés avec `CanonicalJsonSerializer` ou les vues compactes M5/M6/M8 existantes.
-
-Discipline :
 
 ```text
 stdout = résultat normal
@@ -118,7 +116,9 @@ La CLI ne contient pas : règles de couverture, algorithme de trace, comparaison
 
 Pas de framework CLI externe en M9 : le parseur volontairement petit évite une nouvelle dépendance runtime et garde un contrat explicite.
 
-## Preuve Windows intermédiaire — 24 juillet 2026
+## Preuves finales — 24 juillet 2026
+
+Windows :
 
 ```text
 MorpheusCliTest   4/4 PASS
@@ -128,18 +128,28 @@ TOTAL           298/298 PASS
 BUILD SUCCESS
 ```
 
-Le packaging Windows a également exécuté avec succès le launcher packagé en sortie humaine et JSON :
+Linux/WSL :
+
+```text
+MorpheusCliTest   4/4 PASS
+MorpheusMainTest  2/2 PASS
+MORPHEUS CLI      6/6 PASS
+TOTAL           298/298 PASS
+BUILD SUCCESS
+```
+
+Les launchers packagés ont également réussi en sortie humaine et JSON sur Windows et Linux :
 
 ```text
 MORPHEUS 0.1.0-SNAPSHOT
 {"version":"0.1.0-SNAPSHOT"}
 ```
 
-La preuve Linux reste requise avant acceptation finale M9 de cette ADR.
+Validation complète : [`../VALIDATION_M9.md`](../VALIDATION_M9.md).
 
 ## Critères d'acceptation
 
-ADR acceptée lorsque le gate prouve :
+Les critères suivants sont satisfaits :
 
 1. help/version ;
 2. codes de sortie ;
@@ -152,4 +162,6 @@ ADR acceptée lorsque le gate prouve :
 9. analyse M8 ;
 10. qualité M6 ;
 11. `--json` ;
-12. build complet vert.
+12. builds complets Windows et Linux verts.
+
+**Décision : ADR-0059 acceptée.**
