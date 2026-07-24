@@ -17,9 +17,12 @@ class MinosMcpTransportIntegrationTest {
                 "bin",
                 System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win") ? "java.exe" : "java")
                 .toString();
+        String testClasspath = System.getProperty(
+                "surefire.test.class.path",
+                System.getProperty("java.class.path"));
         List<String> arguments = List.of(
                 "-cp",
-                System.getProperty("java.class.path"),
+                testClasspath,
                 FixtureMinosMcpServer.class.getName());
 
         try (MinosMcpCodeGateway gateway = new MinosMcpCodeGateway(
