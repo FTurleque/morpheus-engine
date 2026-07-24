@@ -166,4 +166,4 @@ M14 357/357 Windows + Architecture 160/160 + orchestration packaging PASS
 - [Configuration des intégrations](../docs/user/INTEGRATIONS.md)
 - [Build et tests développeur](../docs/developer/BUILD_AND_TEST.md)
 - [Architecture](../docs/developer/ARCHITECTURE.md)
-- [Validation M14](../docs/VALIDATION_M14.md)
+- [Validation M14](../docs/validation/VALIDATION_M14.md)

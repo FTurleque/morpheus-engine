@@ -10,22 +10,22 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 
 | Jalon | Sujet | Statut | Preuve / prochaine porte |
 |---|---|---|---|
-| C0 | Cadrage fonctionnel et architectural | ✅ VALIDÉ | `VALIDATION_C0.md` |
-| M0 | Faisabilité technique | ✅ VALIDÉ | `VALIDATION_M0.md` |
-| M1 | Discovery, providers et fondation store | ✅ VALIDÉ | `VALIDATION_M1.md`, 42/42 |
-| M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | `VALIDATION_M2.md`, 94/94 |
-| M3 | Temporalité, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M3.md`, 147/147 |
-| M4 | Traçabilité typée | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M4.md`, 189/189 |
-| M5 | Requêtes et contexte compact | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M5.md`, 227/227 |
-| M6 | Qualité, couverture et diagnostics | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M6.md`, 261/261 |
-| M7 | Synchronisation incrémentale et fraîcheur | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M7.md`, 282/282 |
-| M8 | Analyse des changements | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M8.md`, 289/289 |
-| M9 | CLI stabilisée et distribution locale | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M9.md`, 298/298 Windows + Linux |
-| M10 | Serveur MCP STDIO natif | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M10.md`, 307/307 |
-| M11 | API HTTP headless | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M11.md`, 314/314 |
-| M12 | MINOS optionnel / intention → code | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M12.md`, 331/331 |
-| M13 | NEXUS optionnel / intention → contexte technique | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M13.md`, 346/346 |
-| **M14** | **JARVIS / contrat d'orchestration read-only** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M14.md`, 357/357 + JARVIS 536 tests |
+| C0 | Cadrage fonctionnel et architectural | ✅ VALIDÉ | [`VALIDATION_C0.md`](../validation/VALIDATION_C0.md) |
+| M0 | Faisabilité technique | ✅ VALIDÉ | [`VALIDATION_M0.md`](../validation/VALIDATION_M0.md) |
+| M1 | Discovery, providers et fondation store | ✅ VALIDÉ | [`VALIDATION_M1.md`](../validation/VALIDATION_M1.md), 42/42 |
+| M2 | Ingestion et modèle normalisé | ✅ VALIDÉ | [`VALIDATION_M2.md`](../validation/VALIDATION_M2.md), 94/94 |
+| M3 | Temporalité, lifecycle, snapshots, versions | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M3.md`](../validation/VALIDATION_M3.md), 147/147 |
+| M4 | Traçabilité typée | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M4.md`](../validation/VALIDATION_M4.md), 189/189 |
+| M5 | Requêtes et contexte compact | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M5.md`](../validation/VALIDATION_M5.md), 227/227 |
+| M6 | Qualité, couverture et diagnostics | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M6.md`](../validation/VALIDATION_M6.md), 261/261 |
+| M7 | Synchronisation incrémentale et fraîcheur | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M7.md`](../validation/VALIDATION_M7.md), 282/282 |
+| M8 | Analyse des changements | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M8.md`](../validation/VALIDATION_M8.md), 289/289 |
+| M9 | CLI stabilisée et distribution locale | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M9.md`](../validation/VALIDATION_M9.md), 298/298 Windows + Linux |
+| M10 | Serveur MCP STDIO natif | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M10.md`](../validation/VALIDATION_M10.md), 307/307 |
+| M11 | API HTTP headless | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M11.md`](../validation/VALIDATION_M11.md), 314/314 |
+| M12 | MINOS optionnel / intention → code | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M12.md`](../validation/VALIDATION_M12.md), 331/331 |
+| M13 | NEXUS optionnel / intention → contexte technique | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M13.md`](../validation/VALIDATION_M13.md), 346/346 |
+| **M14** | **JARVIS / contrat d'orchestration read-only** | **✅ VALIDÉ / INTÉGRÉ** | [`VALIDATION_M14.md`](../validation/VALIDATION_M14.md), 357/357 + JARVIS 536 tests |
 
 Merges actifs :
 
@@ -38,14 +38,14 @@ M14 JARVIS   = 1bf2612e616f3323814caf60e76525b4808cd400
 
 Références M14 :
 
-- [`VALIDATION_M14.md`](VALIDATION_M14.md)
-- [`roadmap/M14_EXECUTION.md`](roadmap/M14_EXECUTION.md)
-- [`JARVIS.md`](JARVIS.md)
-- [`API.md`](API.md)
-- [`MCP.md`](MCP.md)
-- [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml)
-- [`../distribution/README.md`](../distribution/README.md)
-- [`adr/README.md`](adr/README.md)
+- [`VALIDATION_M14.md`](../validation/VALIDATION_M14.md)
+- [`M14_EXECUTION.md`](../roadmap/M14_EXECUTION.md)
+- [Intégration JARVIS](../developer/INTEGRATIONS.md#jarvis)
+- [API HTTP](../developer/API.md)
+- [MCP](../developer/MCP.md)
+- [`morpheus-v1.yaml`](../openapi/morpheus-v1.yaml)
+- [`distribution/README.md`](../../distribution/README.md)
+- [`adr/README.md`](../adr/README.md)
 
 ## 2. Responsabilités
 
@@ -202,7 +202,7 @@ Les raisons d'abandon observation/source/cible sont transmises séparément et j
 
 ADR-0077..0080 : **Acceptées — M14**.
 
-Validation : [`VALIDATION_M14.md`](VALIDATION_M14.md).
+Validation : [`VALIDATION_M14.md`](../validation/VALIDATION_M14.md).
 
 Intégration :
 

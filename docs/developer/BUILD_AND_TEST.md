@@ -140,4 +140,4 @@ Pour une modification technique :
 7. mettre à jour roadmap/validation ;
 8. fusionner uniquement selon la gouvernance du dépôt.
 
-Historique des preuves : [`../ROADMAP.md`](../ROADMAP.md) et `../VALIDATION_M*.md`.
+Historique des preuves : [`../governance/ROADMAP.md`](../governance/ROADMAP.md) et [`../validation/`](../validation/).
