@@ -11,6 +11,7 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,22 +30,27 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             .build();
 
     public MinosMcpCodeGateway(MinosIntegrationSettings settings) {
-        Objects.requireNonNull(settings, "settings");
-        if (!settings.enabled()) {
-            throw new MinosIntegrationException("MINOS integration is not configured: "
-                    + settings.configurationError().orElse(settings.state().name()));
-        }
-        Path jar = settings.jarPath().orElseThrow();
-        var parameters = ServerParameters.builder(settings.javaCommand())
-                .args("-cp", jar.toString(), MINOS_SERVER_CLASS);
-        Map<String, String> processEnvironment = settings.processEnvironment();
-        if (!processEnvironment.isEmpty()) {
-            parameters.env(processEnvironment);
-        }
+        this(launch(Objects.requireNonNull(settings, "settings")));
+    }
+
+    MinosMcpCodeGateway(
+            String command,
+            List<String> arguments,
+            Map<String, String> environment,
+            Duration timeout) {
+        this(new Launch(command, arguments, environment, timeout));
+    }
+
+    private MinosMcpCodeGateway(Launch launch) {
         try {
+            var parameters = ServerParameters.builder(launch.command())
+                    .args(launch.arguments().toArray(String[]::new));
+            if (!launch.environment().isEmpty()) {
+                parameters.env(launch.environment());
+            }
             StdioClientTransport transport = new StdioClientTransport(parameters.build(), McpJsonDefaults.getMapper());
             this.client = McpClient.sync(transport)
-                    .requestTimeout(settings.timeout())
+                    .requestTimeout(launch.timeout())
                     .build();
             client.initialize();
             Set<String> available = client.listTools().tools().stream()
@@ -139,11 +145,33 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         return textContent.text() == null ? "" : textContent.text();
     }
 
+    private static Launch launch(MinosIntegrationSettings settings) {
+        if (!settings.enabled()) {
+            throw new MinosIntegrationException("MINOS integration is not configured: "
+                    + settings.configurationError().orElse(settings.state().name()));
+        }
+        Path jar = settings.jarPath().orElseThrow();
+        return new Launch(
+                settings.javaCommand(),
+                List.of("-cp", jar.toString(), MINOS_SERVER_CLASS),
+                settings.processEnvironment(),
+                settings.timeout());
+    }
+
     private static String requireText(String value, String name) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return value.trim();
+    }
+
+    private record Launch(String command, List<String> arguments, Map<String, String> environment, Duration timeout) {
+        private Launch {
+            command = requireText(command, "command");
+            arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
+            environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));
+            Objects.requireNonNull(timeout, "timeout");
+        }
     }
 
     private record IndexStatusPayload(
