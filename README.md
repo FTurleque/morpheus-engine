@@ -75,10 +75,12 @@ M9     CLI / distribution                       ✅ VALIDÉ / INTÉGRÉ — 298/
 M10    MCP STDIO                                ✅ VALIDÉ / INTÉGRÉ — 307/307
 M11    API HTTP                                 ✅ VALIDÉ / INTÉGRÉ — 314/314
 M12    MINOS optionnel                          ✅ VALIDÉ / INTÉGRÉ — 331/331
-M13    NEXUS optionnel                          🚧 FONCTIONNELLEMENT COMPLET — gate pending
+M13    NEXUS optionnel                          ✅ VALIDÉ — 346/346
 ```
 
 M12 merge : `86dbb1d50e87ce354b7174156e9c8c5717722a17`.
+
+M13 validation : [`docs/VALIDATION_M13.md`](docs/VALIDATION_M13.md).
 
 ## CLI
 
@@ -157,8 +159,6 @@ Voir [`docs/API.md`](docs/API.md).
 
 ## MINOS optionnel — M12
 
-Configuration :
-
 ```text
 MORPHEUS_MINOS_JAR
 MORPHEUS_MINOS_JAVA
@@ -172,8 +172,6 @@ Voir [`docs/MINOS.md`](docs/MINOS.md).
 
 ## NEXUS optionnel — M13
 
-Configuration :
-
 ```text
 MORPHEUS_NEXUS_JAR
 MORPHEUS_NEXUS_JAVA
@@ -182,6 +180,17 @@ MORPHEUS_NEXUS_TIMEOUT_SECONDS
 ```
 
 Chaque appel fournit explicitement `nexusProject`. MORPHEUS construit seulement l'intention depuis l'ACTIVE ; NEXUS possède la sélection, le ranking, la fusion, la compression et le budget technique. Le `ContextBundle` est live et non persisté (`persisted=false`).
+
+Gate M13 :
+
+```text
+346/346 PASS
+Architecture 154/154 PASS
+NEXUS Integration 7/7 PASS
+API 7/7 PASS
+CLI 17/17 PASS
+Packaging Windows PASS
+```
 
 Voir [`docs/NEXUS.md`](docs/NEXUS.md).
 
@@ -195,6 +204,16 @@ morpheus-<version>-linux-x64.tar.gz
 
 Les archives embarquent les adapters clients MINOS/NEXUS, jamais les moteurs eux-mêmes.
 
+M13 Windows validé :
+
+```text
+MCP/API/MINOS/NEXUS adapter packaging proof: PASS
+Packaged standalone optional-engines smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+ZIP 33,654,379 bytes
+```
+
 Scripts :
 
 ```text
@@ -205,26 +224,13 @@ distribution/test-minos-compatibility.ps1
 distribution/test-nexus-compatibility.ps1
 ```
 
-## Gate M13
-
-Projection avant preuve : **346 tests**.
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
-```
-
-M13 ne sera marqué `VALIDÉ` qu'après ce gate.
-
 ## Références
 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- [`docs/VALIDATION_M12.md`](docs/VALIDATION_M12.md)
+- [`docs/VALIDATION_M13.md`](docs/VALIDATION_M13.md)
 - [`docs/roadmap/M13_EXECUTION.md`](docs/roadmap/M13_EXECUTION.md)
 - [`docs/MCP.md`](docs/MCP.md)
 - [`docs/API.md`](docs/API.md)
 - [`docs/MINOS.md`](docs/MINOS.md)
 - [`docs/NEXUS.md`](docs/NEXUS.md)
 - [`distribution/README.md`](distribution/README.md)
-
-**PR #64 porte M13 fonctionnellement complet. Elle reste draft et non fusionnée jusqu'au gate final.**
