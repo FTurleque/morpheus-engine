@@ -1,6 +1,6 @@
 # M12 — Plan d'exécution détaillé
 
-Statut : **FONCTIONNELLEMENT COMPLET — gate local pending**
+Statut : **✅ VALIDÉ — intégration optionnelle MINOS et résolution code**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -14,30 +14,23 @@ M11 gate  = 314/314 PASS + API HTTP packagée
 
 Issue : **#61 — M12 — Intégration optionnelle MINOS et résolution code**  
 Branche : `m12/minos-integration`  
-PR : **#62 — M12 — intégration optionnelle MINOS et résolution code** (draft)
+PR : **#62 — M12 — intégration optionnelle MINOS et résolution code**
 
 ## Question de sortie
 
 > **MORPHEUS peut-il résoudre en production une `ExternalReference(system=MINOS, resourceType=SYMBOL, ...)`, enrichir la traçabilité intention → code avec des faits MINOS explicites et révisés, tout en restant totalement utilisable lorsque MINOS est absent, arrêté, incompatible ou sur une autre JVM ?**
 
-Réponse actuelle : **implémentation OUI ; preuve locale finale pending**.
+Réponse : **OUI — preuve locale finale reproductible obtenue.**
 
-## M12-S1 — Contrat cross-engine ✅ implémenté
+## M12-S1 — Contrat cross-engine ✅
 
-MORPHEUS réutilise :
+MORPHEUS réutilise ses contrats `ExternalReference`, resolver/store et traçabilité. MINOS reste un système externe.
 
 ```text
-ExternalReference
-ExternalReferenceResolver
-ExternalReferenceResolutionService
-ExternalReferenceStore
-ExternalTraceabilityQueryService
-LINKS_TO_CODE
+domain/application -X-> com.minos..
 ```
 
-MINOS reste externe. Aucun type `com.minos.*` n'entre dans domain/application.
-
-## M12-S2 — Transport MINOS MCP STDIO ✅ implémenté
+## M12-S2 — Transport MINOS MCP STDIO ✅
 
 ```text
 MORPHEUS Java 21
@@ -54,11 +47,9 @@ minos_index_status
 minos_find_symbols
 ```
 
-`MinosMcpCodeGateway` initialise un vrai client MCP, vérifie les deux tools et applique un timeout borné.
+Preuve : `MinosMcpTransportIntegrationTest` **1/1 PASS** avec vrai subprocess MCP fixture.
 
-Preuve implémentée : `MinosMcpTransportIntegrationTest` démarre un vrai subprocess MCP fixture et appelle les deux tools.
-
-## M12-S3 — Coordonnée MINOS exacte ✅ implémenté
+## M12-S3 — Coordonnée MINOS exacte ✅
 
 ```text
 system       = MINOS
@@ -68,14 +59,6 @@ externalId   = symbolKey MINOS exact
 revision     = activeSnapshotId attendu optionnel
 ```
 
-Le resolver peut récupérer des candidats lexicalement, mais seul :
-
-```text
-candidate.symbolKey.equals(externalId)
-```
-
-est admissible.
-
 ```text
 0 exact  -> NOT_FOUND
 1 exact  -> FOUND
@@ -84,19 +67,17 @@ est admissible.
 
 Aucun fuzzy matching.
 
-## M12-S4 — Révision / stale ✅ implémenté
-
-`minos_index_status.activeSnapshotId` est observé avant la recherche.
+## M12-S4 — Révision / stale ✅
 
 ```text
-revision absente                    -> résolution sur ACTIVE MINOS observé
-revision == activeSnapshotId        -> autorisée
-revision != activeSnapshotId        -> REVISION_MISMATCH
+revision absente             -> ACTIVE MINOS observé
+revision == activeSnapshotId -> résolution autorisée
+revision != activeSnapshotId -> REVISION_MISMATCH
 ```
 
-Aucune résolution n'est prétendue contre une autre baseline que celle explicitement demandée.
+Aucune résolution n'est prétendue contre une baseline différente de celle demandée.
 
-## M12-S5 — Taxonomie de résolution enrichie ✅ implémenté
+## M12-S5 — Taxonomie de résolution ✅
 
 Resolver :
 
@@ -109,7 +90,7 @@ REVISION_MISMATCH
 UNSUPPORTED
 ```
 
-Raisons :
+Raisons MORPHEUS :
 
 ```text
 RESOLVED
@@ -122,40 +103,28 @@ TARGET_TYPE_UNSUPPORTED
 NO_RESOLVER
 ```
 
-Une référence déjà résolue devient `STALE` lors d'une observation négative ultérieure ; une référence jamais résolue reste `UNRESOLVED`.
-
-## M12-S6 — Résolution live sans mutation ✅ implémenté
-
-Invariant ADR-0041 : même snapshot + même `ExternalReferenceId` + valeur différente = collision.
-
-M12 introduit :
-
-```text
-LiveExternalReferenceResolutionService
-LiveExternalReferenceResolutionResult
-```
-
-Flux :
+## M12-S6 — Résolution live sans mutation ✅
 
 ```text
 stored reference
   -> resolve live
   -> observed copy
   -> response
-  -X-> putReference(snapshot, changedReference)
+  -X-> mutation du snapshot publié
 ```
 
-Le service applicatif ne possède aucune opération d'écriture.
+`LiveExternalReferenceResolutionService` n'expose aucune écriture.
 
 Preuves :
 
 ```text
-Memory: observed RESOLVED, stored UNVALIDATED unchanged
-SQLite: même preuve
-SQLite reopen: stored reference identique
+Memory        -> stored unchanged
+SQLite        -> stored unchanged
+SQLite reopen -> stored unchanged
+persisted     -> false
 ```
 
-## M12-S7 — Faits MINOS contrôlés ✅ implémenté
+## M12-S7 — Faits MINOS contrôlés ✅
 
 ```text
 minos.projectId
@@ -173,9 +142,9 @@ minos.providerVersion
 minos.indexRunId
 ```
 
-Pas de copie du code source complet.
+Le code source complet n'est pas copié dans MORPHEUS.
 
-## M12-S8 — Configuration optionnelle ✅ implémenté
+## M12-S8 — Configuration optionnelle ✅
 
 ```text
 MORPHEUS_MINOS_JAR
@@ -186,21 +155,9 @@ MORPHEUS_MINOS_TIMEOUT_SECONDS
 
 Propriétés Java `morpheus.minos.*` prioritaires sur l'environnement.
 
-États :
+Sans JAR : intégration `DISABLED`, aucun resolver MINOS, `NO_RESOLVER` normal.
 
-```text
-DISABLED
-CONFIGURED (settings)
-INVALID
-AVAILABLE (status runtime)
-UNAVAILABLE (status runtime)
-```
-
-Sans JAR : aucun resolver MINOS n'est enregistré.
-
-MINOS n'est jamais démarré lors d'un simple bootstrap MORPHEUS ; le process n'est ouvert qu'à la demande d'une résolution/status live.
-
-## M12-S9 — CLI ✅ implémenté
+## M12-S9 — CLI ✅
 
 ```text
 minos-status
@@ -216,11 +173,11 @@ observed
 persisted=false
 ```
 
-Preuve standalone sans MINOS : `NO_RESOLVER`, SQLite inchangée.
+Module CLI final : **15/15 PASS**.
 
-## M12-S10 — MCP ✅ implémenté
+## M12-S10 — MCP ✅
 
-Le catalogue M10 de 14 tools reste inchangé. Deux tools additifs sont enregistrés :
+Les 14 tools M10 restent inchangés et deux tools read-only sont ajoutés :
 
 ```text
 list_external_references
@@ -229,9 +186,9 @@ resolve_external_reference
 
 Serveur M12 : **16 tools read-only**.
 
-Preuve : vrai process `MorpheusMain ... mcp --stdio`, initialize, tools/list, tools/call des deux tools M12, sans MINOS installé.
+Vrai process MORPHEUS MCP STDIO validé sans MINOS installé.
 
-## M12-S11 — HTTP API ✅ implémenté
+## M12-S11 — HTTP API ✅
 
 Routes additives `/api/v1` :
 
@@ -243,9 +200,9 @@ GET /projects/{projectId}/external-references/{referenceId}/resolution
 
 `morpheus-api` ne dépend pas de `morpheus-integration-minos` ; le launcher injecte des ports applicatifs génériques.
 
-Preuve : vrai HttpServer loopback, status/list/resolve, stored UNVALIDATED + observed RESOLVED + `persisted=false`, SQLite inchangée.
+Module API final : **5/5 PASS**.
 
-## M12-S12 — Architecture ✅ implémenté
+## M12-S12 — Architecture ✅
 
 Nouveau module :
 
@@ -253,130 +210,112 @@ Nouveau module :
 morpheus-integration-minos
 ```
 
-Guards :
+Guards validés :
 
 ```text
 domain/application -X-> integration-minos
 domain/application -X-> com.minos..
-api                 -X-> integration-minos
-integration-minos   -X-> cli/api/mcp/store
-integration-minos   -X-> com.minos..
+api                -X-> integration-minos
+integration-minos  -X-> cli/api/mcp/store
+integration-minos  -X-> com.minos..
 CLI = composition root
 ```
 
-Le module MINOS dépend des contrats application/domain, du MCP SDK et de Jackson ; jamais de l'implémentation MINOS.
+Architecture : **153/153 PASS**.
 
-## M12-S13 — Documentation ✅ implémenté
+## M12-S13 — Documentation ✅
 
 ```text
+docs/VALIDATION_M12.md
 docs/MINOS.md
 docs/API.md
 docs/MCP.md
 docs/openapi/morpheus-v1.yaml
 docs/roadmap/M12_EXECUTION.md
 docs/ROADMAP.md
+docs/adr/0069-minos-mcp-stdio-integration.md
+docs/adr/0070-exact-minos-symbol-reference-and-revision.md
+docs/adr/0071-live-external-resolution-without-snapshot-mutation.md
+docs/adr/0072-optional-minos-runtime-configuration-and-surfaces.md
 README.md
 distribution/README.md
 ```
 
-## M12-S14 — Tests ✅ implémentés, exécution pending
+## M12-S14 — Tests ✅
 
-Delta de tests attendu depuis M11 :
-
-```text
-Application
-  ExternalReferenceResolutionServiceTest        +2
-
-MINOS integration module
-  MinosIntegrationSettingsTest                   3
-  MinosMcpExternalReferenceResolverTest          4
-  MinosMcpTransportIntegrationTest               1
-                                                   = 8
-
-API
-  MorpheusExternalReferenceApiContractTest       1
-
-CLI
-  MorpheusMinosCliTest                           2
-  MorpheusM12McpStdioIntegrationTest             1
-                                                   = 3
-
-Architecture
-  LiveExternalReferenceResolutionContractTest    2
-  LayerDependencyTest                            +1
-                                                   = 3
-```
-
-Projection :
+Head Java/packaging testé :
 
 ```text
-M11 baseline 314
-M12 delta     17
-----------------
-TOTAL attendu 331
+ca0073a875bcf28114a2945b141fc8c45f88930e
 ```
 
-**331 est une projection, pas une preuve tant que Maven n'a pas été exécuté.**
-
-## M12-S15 — Distribution ✅ implémentée, exécution pending
-
-Windows/Linux :
+Résultat final :
 
 ```text
-workdir .m12-windows / .m12-linux
-morpheus-integration-minos embedded
-MCP client embedded
-com/minos/* explicitly forbidden
-MINOS itself not bundled
-jdk.httpserver retained
+Domain             21/21 PASS
+Application        84/84 PASS
+OpenSpec           26/26 PASS
+Synthetic           7/7 PASS
+SQLite              7/7 PASS
+MINOS Integration   8/8 PASS
+MCP                 5/5 PASS
+API                 5/5 PASS
+CLI                15/15 PASS
+Architecture      153/153 PASS
+-------------------------------
+TOTAL             331/331 PASS
+Failures             0
+Errors               0
+Skipped              0
+BUILD SUCCESS
 ```
 
-Smokes M12 :
+## M12-S15 — Distribution ✅
+
+Windows :
 
 ```text
---version
---json version
---json minos-status -> DISABLED without configuration
-packaged API /health
+MCP/API/MINOS adapter packaging proof: PASS
+MORPHEUS 0.1.0-SNAPSHOT
+{"version":"0.1.0-SNAPSHOT"}
+MINOS state=DISABLED sans configuration
+Packaged standalone MINOS-optional smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
 ```
 
-Installateur optionnel Windows aligné sur `.m12-windows`.
+Archive :
 
-## M12-S16 — Gate final ⏳
+```text
+N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
+33,587,925 bytes
+```
 
-Source de vérité :
+Le ZIP embarque MORPHEUS, son runtime Java, MCP/API et le client/adaptateur MINOS. **MINOS lui-même n'est pas embarqué ni requis.**
+
+## M12-S16 — Gate final ✅
+
+Commandes exécutées :
 
 ```powershell
 .\mvnw.cmd clean test
 .\distribution\build-portable.ps1
 ```
 
-Attendu :
+Résultat : **PASS**.
+
+Le smoke cross-repo `distribution/test-minos-compatibility.ps1` contre un vrai JAR MINOS reste une preuve additionnelle utile, mais n'est pas requis pour le gate autonome M12.
+
+## ADR
 
 ```text
-TOTAL ~331 tests, exact count reported by Maven
-Failures 0
-Errors 0
-Skipped 0
-BUILD SUCCESS
-MCP/API/MINOS adapter packaging proof: PASS
-Packaged standalone MINOS-optional smoke: PASS
-Packaged API health smoke: PASS
-Portable archive creation: PASS
+ADR-0069 — Acceptée — M12 — MCP STDIO inter-processus
+ADR-0070 — Acceptée — M12 — symbolKey exact + révision explicite
+ADR-0071 — Acceptée — M12 — résolution live sans mutation du snapshot publié
+ADR-0072 — Acceptée — M12 — configuration/surfaces MINOS optionnelles
 ```
 
-M12 ne sera `VALIDÉ` qu'après preuve reproductible.
-
-## ADR candidates
-
-```text
-ADR-0069 — Proposée — intégration MINOS par MCP STDIO inter-processus
-ADR-0070 — Proposée — symbolKey exact + révision explicite
-ADR-0071 — Proposée — résolution live sans mutation de snapshot publié
-ADR-0072 — Proposée — configuration/surfaces MINOS optionnelles
-```
-
-ADR-0007 est **déjà Acceptée — M0**. M12 vise à fournir sa première preuve de production cross-engine réelle ; son statut historique n'est pas réécrit.
+ADR-0007 est déjà **Acceptée — M0** ; M12 lui apporte une preuve cross-engine concrète sans réécrire son statut historique.
 
 ## Hors périmètre M12
 
@@ -391,3 +330,9 @@ source code complet copié dans MORPHEUS
 NEXUS ranking/compression
 JARVIS orchestration
 ```
+
+## Décision finale
+
+**M12 est VALIDÉ.**
+
+La PR #62 peut être passée en Ready for review et l'issue #61 clôturée. La fusion reste soumise à une autorisation explicite distincte.
