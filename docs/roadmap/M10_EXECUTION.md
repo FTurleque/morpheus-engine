@@ -1,6 +1,6 @@
 # M10 — Plan d'exécution détaillé
 
-Statut : **M10 FONCTIONNELLEMENT COMPLET — Maven 307/307 PASS, packaging Windows à revalider**
+Statut : **✅ VALIDÉ — serveur MCP STDIO natif**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -14,41 +14,37 @@ M9 gate  = Windows 298/298 + Linux 298/298 PASS
 
 Issue : **#57 — M10 — Serveur MCP stdio natif**  
 Branche : `m10/mcp-server`  
-PR : **#58 — M10 — Serveur MCP stdio natif** (draft jusqu'au gate final)
+PR : **#58 — M10 — Serveur MCP stdio natif**
 
 ## Question de sortie
 
 > **MORPHEUS peut-il exposer ses capacités de lecture d'intention/specification à des agents via un serveur MCP local stdio natif, avec des tools déterministes, des JSON Schemas stricts, des erreurs explicites et aucune logique métier essentielle dans les handlers MCP, tout en restant utilisable sans serveur HTTP, Docker, MINOS, NEXUS ou JARVIS ?**
 
-Réponse actuelle : **implémentation et gate Maven OUI ; archive portable Windows à revalider après correction du verrou transitoire**.
+**Réponse : OUI.**
 
-## M10-S1 — SDK et transport ✅ implémenté
-
-SDK : Java MCP SDK officiel `2.0.0`, via BOM Maven.
+## M10-S1 — SDK et transport ✅
 
 ```text
 io.modelcontextprotocol.sdk:mcp-bom:2.0.0
-io.modelcontextprotocol.sdk:mcp
-```
-
-Transport :
-
-```text
-morpheus mcp --stdio
+io.modelcontextprotocol.sdk:mcp:2.0.0
 McpServer.sync
 StdioServerTransportProvider
 validateToolInputs=true
+morpheus mcp --stdio
+```
+
+Contrat de flux :
+
+```text
 stdout = protocole MCP uniquement
 stderr = diagnostics launcher/runtime uniquement
-HTTP = hors périmètre M10
+HTTP/SSE = hors périmètre M10
 Docker = non requis
 ```
 
-Module : `morpheus-mcp`.
+## M10-S2 — Catalogue exact ✅
 
-## M10-S2 — Catalogue de tools ✅ implémenté
-
-Catalogue M10 exact :
+Quatorze tools read-only :
 
 ```text
 get_current_specification
@@ -67,40 +63,26 @@ get_blocking_conditions
 get_sync_status
 ```
 
-Tous les tools M10 sont **read-only**. Aucun tool de mutation, sync, apply, promote ou activate n'est exposé.
+Aucun tool de mutation, sync, apply, promote ou activate.
 
-Implémentation :
-
-```text
-MorpheusMcpToolCatalog
-MorpheusMcpToolService
-MorpheusMcpRuntime
-MorpheusMcpServer
-```
-
-## M10-S3 — Sémantique stricte ✅ implémenté
-
-Les handlers MCP ne recréent pas les règles métier. Ils valident les arguments, appellent les services/ports MORPHEUS existants puis traduisent le résultat en réponse MCP.
-
-Invariants :
+## M10-S3 — Sémantique stricte ✅
 
 ```text
 Scenario != AcceptanceCriterion
-lifecycle non inféré depuis snapshot
 absence != fait inventé
+lifecycle non inféré depuis snapshot
 CURRENT/ACTIVE policy preserved
 SQLite state shared with CLI
-no promotion / activation / write tool
 ```
 
-`get_acceptance_criteria` vérifie l'existence du changement puis retourne explicitement :
+`get_acceptance_criteria` :
 
 ```text
 status = UNAVAILABLE_IN_NORMALIZED_MODEL
 criteria = []
 ```
 
-`get_change_status` retourne explicitement :
+`get_change_status` :
 
 ```text
 status = UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT
@@ -108,27 +90,25 @@ lifecycleState = UNAVAILABLE
 observableFacts = tri-state facts M6
 ```
 
-`get_blocking_conditions` réutilise `ChangeCompletenessService` et conserve séparément `unavailableFacts`.
+`get_blocking_conditions` réutilise `ChangeCompletenessService` et conserve `unavailableFacts`.
 
-## M10-S4 — Schemas MCP ✅ implémenté
-
-Chaque tool possède un JSON Schema d'entrée strict :
+## M10-S4 — JSON Schemas ✅
 
 ```text
 type = object
 additionalProperties = false
 required = explicite
-limit = 1..100
-depth = 1..20
-maxAgeMinutes = 1..525600
-offset >= 0
+limit          1..100
+depth          1..20
+maxAgeMinutes  1..525600
+offset         >= 0
 ```
 
-La validation SDK est active avant handler. Le service applique les mêmes bornes en défense en profondeur.
+Validation SDK avant handler + défense en profondeur dans le service.
 
-## M10-S5 — Requêtes agent-friendly ✅ implémenté
+## M10-S5 — Requêtes agent-friendly ✅
 
-Les tools réutilisent les services existants :
+Réutilisation des services existants :
 
 ```text
 RequirementQueryService
@@ -141,44 +121,38 @@ CompactQueryViewService
 CanonicalJsonSerializer
 ```
 
-Nouvelle agrégation applicative :
+Nouvelle agrégation application :
 
 ```text
 SpecificationContextQueryService
 SpecificationContextResult
 ```
 
-`get_specification_context` agrège uniquement des faits du snapshot ACTIVE :
+`get_specification_context` expose uniquement :
 
 ```text
-Specification
-CURRENT Requirements paginés
-Scenarios explicitement rattachés aux requirements de la page
-Changes uniquement par AFFECTS persisté vers les requirements de la specification
+Specification du snapshot ACTIVE
+Requirements CURRENT paginés
+Scenarios explicitement rattachés
+Changes reliés par AFFECTS persisté
 ```
 
-Aucun lien n'est synthétisé.
-
-## M10-S6 — Launcher / distribution ✅ implémenté
-
-Le launcher natif M9 est le point d'entrée commun :
+## M10-S6 — Launcher / distribution ✅
 
 ```text
 morpheus <CLI command>
 morpheus mcp --stdio
 ```
 
-`McpLaunchOptions` réutilise `CliLayout` et les priorités M9 :
+`McpLaunchOptions` réutilise `CliLayout` :
 
 ```text
-CLI option > MORPHEUS_* > default OS
+CLI option > MORPHEUS_* > OS default
 ```
 
-`--json` est interdit en mode MCP car stdout appartient au protocole.
+`--json` est interdit en mode MCP.
 
-Le help du launcher officiel documente `mcp --stdio`.
-
-Le module CLI dépend de `morpheus-mcp`, donc le shaded JAR et les app-images embarquent le serveur. Les scripts de distribution vérifient avant `jpackage` :
+Le shaded JAR doit contenir avant `jpackage` :
 
 ```text
 com/morpheus/mcp/MorpheusMcpServer.class
@@ -186,77 +160,42 @@ io/modelcontextprotocol/server/McpServer.class
 io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class
 ```
 
-Workdirs :
+## M10-S7 — Tests ✅
+
+Tests M10 :
 
 ```text
-Windows -> dist/.m10-windows
-Linux   -> dist/.m10-linux
+MorpheusMcpServerContractTest       1/1 PASS
+MorpheusMcpToolCatalogTest          3/3 PASS
+MorpheusMcpToolServiceTest          1/1 PASS
+MorpheusMcpStdioIntegrationTest     1/1 PASS
+MorpheusMainTest                    5/5 PASS
 ```
 
-L'installateur Windows optionnel est aligné sur l'app-image M10.
-
-Le premier gate packaging Windows a prouvé :
-
-```text
-uber-JAR BUILD SUCCESS
-MCP packaging proof PASS
-jpackage app-image PASS
-morpheus.exe --version PASS
-morpheus.exe --json version PASS
-```
-
-L'étape `Compress-Archive` a ensuite rencontré un verrou Windows transitoire sur `morpheus.exe`. Le script imprimait à tort la ligne finale de succès malgré l'erreur du module PowerShell Archive. Le correctif `2afcba30c94e842937b0c336a1cf1f16c40fb139` ajoute :
-
-```text
--ErrorAction Stop
-8 tentatives avec backoff
-suppression du ZIP partiel entre tentatives
-vérification d'existence du ZIP
-vérification taille > 0
-échec explicite après épuisement des tentatives
-```
-
-Le ZIP doit donc être revalidé sur ce correctif.
-
-## M10-S7 — Tests ✅ VALIDÉS WINDOWS
-
-Tests M10 ajoutés :
-
-```text
-MorpheusMcpToolCatalogTest
-MorpheusMcpToolServiceTest
-MorpheusMcpServerContractTest
-MorpheusMcpStdioIntegrationTest
-MorpheusMainTest étendu
-LayerDependencyTest étendu
-```
-
-`MorpheusMcpToolServiceTest` publie un fixture complet en SQLite et appelle les 14 tools.
-
-Le test STDIO lance un vrai processus Java et couvre :
+Le test STDIO réel couvre :
 
 ```text
 initialize
 notifications/initialized
 tools/list
-tools/call get_sync_status
-trace_requirement depth=99 -> rejet schema avant handler
+tools/call
+invalid depth=99 -> schema rejection avant handler
 ```
 
-Les tests d'architecture interdisent désormais explicitement :
+Architecture :
 
 ```text
-com.morpheus.domain      -> com.morpheus.mcp
-com.morpheus.application -> com.morpheus.mcp
+com.morpheus.domain      -/-> com.morpheus.mcp
+com.morpheus.application -/-> com.morpheus.mcp
 ```
 
-Gate Windows exécuté sur le head code :
+## M10-S8 — Gate Maven ✅ PASS
+
+Head Java testé :
 
 ```text
 19d38faf9c1e8b576bfb289d4204ed50e331e6f9
 ```
-
-Résultat :
 
 ```text
 MORPHEUS Domain          21/21 PASS
@@ -276,11 +215,59 @@ Total time               30.934 s
 Finished 2026-07-24T12:38:25+02:00
 ```
 
-Warnings observés mais non bloquants : SQLite native-access futur, SLF4J NOP, API MCP dépréciée signalée par javac, et avertissements classiques du Maven Shade Plugin sur ressources/module-info.
+## M10-S9 — Packaging Windows ✅ PASS
 
-## M10-S8 — Documentation ✅ implémentée
+Head packagé :
 
 ```text
+042c5483889d63438bf78bf98346d62f0309210e
+```
+
+Le delta depuis le head Java ne modifie que :
+
+```text
+distribution/build-portable.ps1
+docs/roadmap/M10_EXECUTION.md
+```
+
+Preuves :
+
+```text
+uber-JAR BUILD SUCCESS
+MCP packaging proof: PASS
+jpackage app-image PASS
+morpheus.exe --version PASS
+morpheus.exe --json version PASS
+Portable archive creation: PASS (attempt 1/8, 77275075 bytes)
+Windows ZIP PASS
+runtime Java embarqué PASS
+```
+
+Artefact :
+
+```text
+N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
+```
+
+Smoke :
+
+```text
+MORPHEUS 0.1.0-SNAPSHOT
+{"version":"0.1.0-SNAPSHOT"}
+```
+
+## ADR M10 ✅
+
+```text
+ADR-0062 — Acceptée — Java MCP SDK officiel + STDIO natif
+ADR-0063 — Acceptée — catalogue MCP read-only et sémantique explicite
+ADR-0064 — Acceptée — intégration au launcher natif et stdout protocol-clean
+```
+
+## Documentation
+
+```text
+docs/VALIDATION_M10.md
 docs/MCP.md
 docs/roadmap/M10_EXECUTION.md
 docs/adr/0062-official-java-mcp-sdk-and-native-stdio.md
@@ -288,51 +275,7 @@ docs/adr/0063-read-only-mcp-tool-contract.md
 docs/adr/0064-native-launcher-mcp-routing.md
 ```
 
-## M10-S9 — Gate final ⏳ PACKAGING WINDOWS À REVALIDER
-
-Le gate Maven est **PASS 307/307**. Le seul point restant est la création vérifiée du ZIP après le correctif d'archivage.
-
-Commandes :
-
-```powershell
-cd N:\workspace-dev\morpheus-engine
-git pull --ff-only
-git rev-parse HEAD
-.\distribution\build-portable.ps1
-```
-
-Le head doit contenir au minimum :
-
-```text
-2afcba30c94e842937b0c336a1cf1f16c40fb139
-```
-
-Preuves restantes attendues :
-
-```text
-MCP packaging proof: PASS
-jpackage app-image PASS
-launcher --version PASS
-launcher --json version PASS
-Portable archive creation: PASS
-Windows ZIP non vide produit
-```
-
-GitHub Actions M10 reste volontairement `workflow_dispatch` et optionnel.
-
-M10 ne sera marqué **VALIDÉ** qu'après cette dernière preuve reproductible. `VALIDATION_M10.md` ne sera créé qu'après le gate packaging.
-
-## ADR M10
-
-```text
-ADR-0062 — Proposée — Java MCP SDK officiel + STDIO natif
-ADR-0063 — Proposée — catalogue MCP read-only et sémantique explicite
-ADR-0064 — Proposée — intégration au launcher natif et stdout protocol-clean
-```
-
-Les trois ADR restent **Proposées** jusqu'à la validation finale du packaging.
-
-## Hors périmètre M10
+## Hors périmètre confirmé
 
 ```text
 Streamable HTTP
@@ -342,11 +285,11 @@ Docker obligatoire
 write tools
 sync mutation via MCP
 RequirementDelta apply/promote/activate via MCP
-code intelligence MINOS
-context ranking/compression NEXUS
-orchestration JARVIS
+MINOS
+NEXUS
+JARVIS
 ```
 
-## Décision de sortie actuelle
+## Décision de sortie
 
-**M10 est fonctionnellement complet et son gate Maven Windows est validé à 307/307.** La dernière porte est exclusivement le rerun du packaging portable Windows après correction du verrou transitoire. La PR #58 reste draft et non fusionnée.
+**M10 est VALIDÉ.** La PR #58 peut quitter le mode draft. Sa fusion reste soumise à autorisation explicite.
