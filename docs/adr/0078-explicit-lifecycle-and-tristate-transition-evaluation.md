@@ -1,6 +1,6 @@
 # ADR-0078 — Lifecycle explicite et évaluation de transition tri-state
 
-- Statut : **Proposée — M14 gate pending**
+- Statut : **Acceptée — M14**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0013, ADR-0032, ADR-0050
 - Portée : M14 — état lifecycle et décision de transition
@@ -11,7 +11,7 @@ Le snapshot publié expose aujourd'hui des faits de complétude partiellement ob
 
 Convertir `UNAVAILABLE` en `false` produirait un faux blocage. Déduire un lifecycle depuis les tâches, chemins ou archives violerait ADR-0032.
 
-## Décision proposée
+## Décision
 
 Le lifecycle d'une requête M14 est :
 
@@ -45,6 +45,20 @@ Lorsque tous les faits requis sont connus, la décision délègue à `ChangeLife
 ## Politique
 
 Les retours arrière sont désactivés par défaut. `allowBackwardTransitions` et `allowCompletedReopen` doivent être explicitement fournis pour une évaluation qui les autorise.
+
+Les raisons d'abandon source et cible sont transportées séparément par le client JARVIS et ne sont jamais inventées.
+
+## Preuve d'acceptation
+
+```text
+JarvisOrchestrationContractTest 5/5 PASS
+MORPHEUS 357/357 PASS
+Architecture 160/160 PASS
+JARVIS MorpheusOrchestrationClientTest 6/6 PASS
+JARVIS jarvis-core BUILD SUCCESS
+```
+
+Validation : `docs/VALIDATION_M14.md`.
 
 ## Critères d'acceptation
 
