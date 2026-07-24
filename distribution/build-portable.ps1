@@ -6,17 +6,21 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dist = Join-Path $repo $OutputDirectory
-$work = Join-Path $dist ".m9-windows"
+$work = Join-Path $dist ".m10-windows"
 $input = Join-Path $work "input"
 $appImageRoot = Join-Path $work "image"
 
 $mvnw = Join-Path $repo "mvnw.cmd"
 $jpackage = Join-Path $env:JAVA_HOME "bin\jpackage.exe"
+$jarTool = Join-Path $env:JAVA_HOME "bin\jar.exe"
 if (-not (Test-Path $jpackage)) {
     throw "jpackage.exe not found under JAVA_HOME=$env:JAVA_HOME"
 }
+if (-not (Test-Path $jarTool)) {
+    throw "jar.exe not found under JAVA_HOME=$env:JAVA_HOME"
+}
 
-Write-Host "Building MORPHEUS CLI uber-JAR..."
+Write-Host "Building MORPHEUS CLI + MCP uber-JAR..."
 & $mvnw -pl morpheus-cli -am -DskipTests package
 if ($LASTEXITCODE -ne 0) { throw "Maven package failed with exit code $LASTEXITCODE" }
 
@@ -24,6 +28,21 @@ $jar = Get-ChildItem (Join-Path $repo "morpheus-cli\target") -Filter "morpheus-c
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 if ($null -eq $jar) { throw "Shaded MORPHEUS CLI JAR not found" }
+
+Write-Host "Verifying MCP classes are embedded in the shaded JAR..."
+$jarEntries = & $jarTool tf $jar.FullName
+if ($LASTEXITCODE -ne 0) { throw "Unable to inspect shaded JAR" }
+$requiredEntries = @(
+    "com/morpheus/mcp/MorpheusMcpServer.class",
+    "io/modelcontextprotocol/server/McpServer.class",
+    "io/modelcontextprotocol/server/transport/StdioServerTransportProvider.class"
+)
+foreach ($entry in $requiredEntries) {
+    if ($jarEntries -notcontains $entry) {
+        throw "MCP packaging proof failed; shaded JAR is missing $entry"
+    }
+}
+Write-Host "MCP packaging proof: PASS"
 
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item $input -ItemType Directory -Force | Out-Null
@@ -63,4 +82,4 @@ Remove-Item $archive -Force -ErrorAction SilentlyContinue
 Compress-Archive -Path (Join-Path $appImageRoot "morpheus") -DestinationPath $archive -CompressionLevel Optimal
 
 Write-Host "Portable Windows distribution: $archive"
-Write-Host "The archive contains its Java runtime; end users do not need a separately installed JDK."
+Write-Host "The archive contains its Java runtime and MCP STDIO server; end users do not need a separately installed JDK."
