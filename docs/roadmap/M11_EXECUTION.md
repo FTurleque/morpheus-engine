@@ -1,6 +1,6 @@
 # M11 — Plan d'exécution détaillé
 
-Statut : **M11 FONCTIONNELLEMENT COMPLET — gate local et packaging pending**
+Statut : **✅ M11 VALIDÉ — intégration portée par PR #60**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -9,33 +9,31 @@ Dernière mise à jour : 24 juillet 2026
 ```text
 C0 à M10 validés et intégrés
 M10 merge = cfa327e61ee9a843e3891c5600b73f50faa71f50
-M10 gate  = 307/307 PASS + MCP STDIO + Windows ZIP
+M11 tested head = a7daa9bb7eef1799926ea20b9e96606a388a301f
 ```
 
 Issue : **#59 — M11 — API HTTP headless locale**  
 Branche : `m11/api-headless`  
-PR : **#60 — M11 — API HTTP headless locale** (draft jusqu'au gate)
+PR : **#60 — M11 — API HTTP headless locale**
 
 ## Question de sortie
 
 > **MORPHEUS peut-il fonctionner comme service headless local via une API HTTP versionnée et stable, couvrant projets, spécifications, requirements, changements, contraintes, critères disponibles, traçabilité, versions, contexte, synchronisation et diagnostics, sans déplacer les règles métier hors de `morpheus-application` / `morpheus-domain` ?**
 
-Réponse actuelle : **implémentation OUI ; preuve exécutable finale pending**.
+**Réponse : OUI.**
 
-## M11-S1 — Transport HTTP local ✅ implémenté
-
-Transport : module JDK 21 `jdk.httpserver`, sans framework serveur externe.
+## M11-S1 — Transport HTTP local ✅
 
 ```text
 morpheus api --host 127.0.0.1 --port 8765
 prefix = /api/v1
-content-type = application/json; charset=utf-8
+transport = JDK 21 jdk.httpserver
 bind par défaut = loopback
 ```
 
 `MorpheusHttpServer` utilise `HttpServer` et un executor de virtual threads. Les tests utilisent un vrai bind `127.0.0.1:0`.
 
-## M11-S2 — Contrat HTTP v1 ✅ implémenté
+## M11-S2 — Contrat HTTP v1 ✅
 
 Succès :
 
@@ -49,7 +47,7 @@ Erreur :
 {"apiVersion":"v1","error":{"code":"NOT_FOUND","message":"...","details":{}}}
 ```
 
-Codes implémentés :
+Codes validés :
 
 ```text
 200 OK
@@ -64,7 +62,7 @@ Codes implémentés :
 
 Les réponses ajoutent `Cache-Control: no-store` et `X-Content-Type-Options: nosniff`. Aucune stacktrace n'est exposée.
 
-## M11-S3 — Service / projets / sync ✅ implémenté
+## M11-S3 — Projets / synchronisation ✅
 
 ```text
 GET  /api/v1/health
@@ -76,9 +74,7 @@ POST /api/v1/projects/{projectId}/sync
 GET  /api/v1/projects/{projectId}/sync-status
 ```
 
-Enregistrement projet idempotent par `SourceLocator` racine.
-
-Pipeline sync :
+Pipeline de sync réutilisé :
 
 ```text
 LocalSourceInventoryScanner
@@ -88,11 +84,9 @@ OpenSpecProjectContentReader
 ProjectSnapshotImportService
 ```
 
-La mutation HTTP utilise `SyncPlan.Trigger.manual().forced()` et publie donc volontairement **FULL_REBUILD**. Aucun receipt incrémental fictif.
+La mutation HTTP force **FULL_REBUILD conservateur**. Un test prouve qu'un sync défaillant après publication conserve l'ACTIVE précédent et n'ajoute aucun RETIRED fictif.
 
-Un test dédié corrompt un workspace après une première publication et vérifie qu'un sync en échec laisse l'ACTIVE précédent intact et n'ajoute aucun snapshot RETIRED.
-
-## M11-S4 — Spécifications / requirements / contexte ✅ implémenté
+## M11-S4 — Spécifications / requirements / contexte ✅
 
 ```text
 GET /api/v1/projects/{projectId}/specifications
@@ -103,17 +97,9 @@ GET /api/v1/projects/{projectId}/requirements/{requirementId}
 GET /api/v1/projects/{projectId}/requirements/{requirementId}/trace
 ```
 
-Bornes :
+Bornes : `offset >= 0`, `1 <= limit <= 100`, `1 <= depth <= 20`.
 
-```text
-offset >= 0
-1 <= limit <= 100
-1 <= depth <= 20
-```
-
-Un projet absent retourne 404 ; un projet connu sans ACTIVE retourne 409 sur une query publiée.
-
-## M11-S5 — Changements ✅ implémenté
+## M11-S5 — Changements ✅
 
 ```text
 GET /api/v1/projects/{projectId}/changes
@@ -131,85 +117,47 @@ Invariants :
 
 ```text
 Scenario != AcceptanceCriterion
-acceptance absent -> UNAVAILABLE_IN_NORMALIZED_MODEL + criteria=[]
+acceptance absente -> UNAVAILABLE_IN_NORMALIZED_MODEL + []
 lifecycle non persisté -> UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT
 ```
 
-Les services M5/M6/M10 sont réutilisés ; le router HTTP ne recrée pas les règles métier.
-
-## M11-S6 — Versions / historique publié ✅ implémenté
+## M11-S6 — Versions / historique publié ✅
 
 ```text
 GET /api/v1/projects/{projectId}/versions
 GET /api/v1/projects/{projectId}/versions/{snapshotId}/requirements
-GET /api/v1/projects/{projectId}/versions/compare?fromSnapshotId=...&toSnapshotId=...
+GET /api/v1/projects/{projectId}/versions/compare
 ```
 
-Services M3 réutilisés :
+Réutilise M3 :
 
 ```text
 PublishedSnapshotHistoryService
 HistoricalRequirementQueryService
 RequirementSnapshotComparisonService
-```
-
-Contrats :
-
-```text
-published history = RETIRED* -> ACTIVE
-candidate snapshots never leak
-historical query = explicit ACTIVE/RETIRED snapshot
-comparison = ADDED/MODIFIED/REMOVED/UNCHANGED
+RETIRED* -> ACTIVE
+ADDED / MODIFIED / REMOVED / UNCHANGED
 ADDED source=null
 REMOVED target=null
 ```
 
-Aucun endpoint de rollback/apply/promote/activate.
+Aucun candidat non publié n'est exposé.
 
-## M11-S7 — Diagnostics ✅ implémenté
+## M11-S7 — Diagnostics ✅
 
 ```text
 GET /api/v1/projects/{projectId}/diagnostics
 ```
 
-Réutilise :
+Réutilise le rapport qualité M6 et sa vue compacte.
 
-```text
-QualityReportService
-RequirementQualityService
-TaskQualityService
-AcceptanceQualityService
-ChangeCompletenessService
-DecisionReferenceQualityService
-CompactQualityReportService
-```
+## M11-S8 — DTO / JSON ✅
 
-## M11-S8 — DTO / JSON ✅ implémenté
-
-Jackson 3.0.3 est aligné sur la stack déjà embarquée avec MCP :
-
-```text
-tools.jackson:jackson-bom:3.0.3
-tools.jackson.core:jackson-databind:3.0.3
-JsonMapper.builder()
-FAIL_ON_UNKNOWN_PROPERTIES
-FAIL_ON_TRAILING_TOKENS
-```
+Entrées JSON : Jackson 3.0.3, champs inconnus et trailing tokens rejetés, body limité à 65536 octets, `application/json` obligatoire lorsqu'un body est présent.
 
 Sorties : enveloppes M11 + `CanonicalJsonSerializer`.
 
-Entrées :
-
-```text
-unknown JSON fields rejected
-trailing JSON tokens rejected
-missing required fields rejected
-body <= 65536 bytes
-Content-Type application/json required lorsqu'un body est présent
-unknown query parameters rejected
-```
-
-## M11-S9 — Architecture ✅ implémentée
+## M11-S9 — Architecture ✅
 
 ```text
 morpheus-domain      -X-> morpheus-api
@@ -218,9 +166,9 @@ morpheus-api         -X-> morpheus-cli
 morpheus-api         -X-> morpheus-mcp
 ```
 
-ArchUnit étendu et `morpheus-api` ajouté au classpath d'architecture.
+L'API reste un adapter sibling de CLI/MCP.
 
-## M11-S10 — Launcher / distribution ✅ implémenté
+## M11-S10 — Launcher / distribution ✅
 
 Launcher unique :
 
@@ -230,128 +178,94 @@ morpheus mcp --stdio
 morpheus api --host 127.0.0.1 --port 8765
 ```
 
-`ApiLaunchOptions` réutilise `CliLayout` et les options M9 :
+Packaging :
 
 ```text
---data-dir
---config-dir
---db
-MORPHEUS_DATA_DIR
-MORPHEUS_CONFIG_DIR
-MORPHEUS_DB
-```
-
-`--json` est rejeté en mode serveur API.
-
-Packaging Windows/Linux :
-
-```text
-workdirs .m11-windows / .m11-linux
-MCP/API classes vérifiées dans l'uber-JAR
-Jackson JsonMapper vérifié dans l'uber-JAR
+morpheus-api + Jackson dans shaded JAR
 jpackage --add-modules jdk.httpserver
-runtime jdk.httpserver vérifié sur Linux
-Windows packaged GET /api/v1/health smoke
+workdirs .m11-windows / .m11-linux
+Windows packaged GET /api/v1/health smoke réel
 ```
 
-L'installateur Windows optionnel pointe sur l'app-image M11.
-
-## M11-S11 — Documentation ✅ implémentée
+## M11-S11 — Documentation ✅
 
 ```text
 docs/API.md
 docs/openapi/morpheus-v1.yaml
+docs/VALIDATION_M11.md
 docs/roadmap/M11_EXECUTION.md
-docs/adr/0065-jdk-httpserver-local-api.md
-docs/adr/0066-versioned-http-api-contract.md
-docs/adr/0067-explicit-conservative-http-sync.md
-docs/adr/0068-native-launcher-headless-api.md
 ```
 
-OpenAPI 3.1 décrit l'intégralité de `/api/v1`.
+OpenAPI 3.1 décrit la surface `/api/v1`.
 
-## M11-S12 — Tests ✅ implémentés, exécution finale pending
+## M11-S12 — Tests ✅
 
 ```text
-MorpheusApiContractTest
-MorpheusApiProjectSyncIntegrationTest
-  - workflow complet + SQLite reopen
-  - failed sync preserves ACTIVE
-MorpheusApiHistoryContractTest
-MorpheusMainTest étendu API
-LayerDependencyTest étendu API
+MorpheusApiContractTest                1/1 PASS
+MorpheusApiHistoryContractTest         1/1 PASS
+MorpheusApiProjectSyncIntegrationTest  2/2 PASS
+MorpheusMainTest                       7/7 PASS
+LayerDependencyTest                    3/3 PASS
 ```
 
-Les tests démarrent un vrai serveur loopback et utilisent `java.net.http.HttpClient`.
+Les tests API utilisent un vrai serveur loopback et `java.net.http.HttpClient`.
 
-Preuves codées :
+## M11-S13 — Gate final ✅
 
-```text
-health/version
-stable JSON envelope + content-type
-400/404/405/409/415
-strict JSON + query params
-project registration idempotent
-OpenSpec HTTP sync -> FULL_REBUILD
-failed sync preserves ACTIVE
-SQLite reopen
-requirements/specifications/changes
-trace/context/acceptance/lifecycle/blockers
-quality diagnostics
-published history + historical requirements + compare
-launcher parsing/help
-architecture boundaries
-```
-
-Total projet attendu si tous les tests passent : **314 tests** (projection, non preuve).
-
-## M11-S13 — Gate final ⏳ PENDING
-
-Gate local obligatoire, source de vérité :
+Commande officielle :
 
 ```powershell
-cd N:\workspace-dev\morpheus-engine
-git fetch origin
-git switch m11/api-headless
-git pull --ff-only
 .\mvnw.cmd clean test
 ```
 
-Puis :
-
-```powershell
-.\distribution\build-portable.ps1
-```
-
-Preuves attendues :
+Résultat :
 
 ```text
-Maven BUILD SUCCESS
-anciens tests M0-M10 verts
-nouveau module MORPHEUS API vert
-HTTP integration réelle verte
-architecture verte
-MCP/API packaging proof: PASS
-jpackage app-image + jdk.httpserver PASS
-launcher human/JSON PASS
-Packaged API health smoke: PASS
-Windows ZIP non vide
+MORPHEUS Domain          21/21 PASS
+MORPHEUS Application     82/82 PASS
+OpenSpec Provider        26/26 PASS
+Synthetic Provider        7/7 PASS
+SQLite Store              7/7 PASS
+MORPHEUS MCP              5/5 PASS
+MORPHEUS API              4/4 PASS
+MORPHEUS CLI             12/12 PASS
+Architecture Tests      150/150 PASS
+-----------------------------------------------
+TOTAL                   314/314 PASS
+Failures                   0
+Errors                     0
+Skipped                    0
+BUILD SUCCESS
+Total time               49.750 s
+Finished                 2026-07-24T14:14:06+02:00
 ```
 
-GitHub Actions M11 reste `workflow_dispatch` et optionnel.
+Packaging :
 
-M11 ne sera marqué **VALIDÉ** qu'après preuve reproductible. `VALIDATION_M11.md` ne sera créé qu'après le gate.
+```text
+uber-JAR BUILD SUCCESS
+MCP/API packaging proof: PASS
+jpackage app-image + jdk.httpserver: PASS
+morpheus.exe --version: PASS
+morpheus.exe --json version: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS (attempt 1/8, 33533017 bytes)
+```
+
+Artefact :
+
+```text
+N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
+```
 
 ## ADR M11
 
 ```text
-ADR-0065 — Proposée — JDK HttpServer pour l'API locale M11
-ADR-0066 — Proposée — contrat HTTP /api/v1 et erreurs JSON stables
-ADR-0067 — Proposée — sync HTTP explicite par full snapshot conservateur
-ADR-0068 — Proposée — launcher/distribution headless avec jdk.httpserver embarqué
+ADR-0065 — ✅ Acceptée — M11
+ADR-0066 — ✅ Acceptée — M11
+ADR-0067 — ✅ Acceptée — M11
+ADR-0068 — ✅ Acceptée — M11
 ```
-
-Les ADR restent **Proposées** tant que le gate n'est pas fourni.
 
 ## Hors périmètre confirmé
 
@@ -366,6 +280,15 @@ rollback mutation via HTTP
 MINOS/NEXUS/JARVIS obligatoire
 ```
 
-## Décision de sortie actuelle
+## Décision finale
 
-**M11 est fonctionnellement complet mais non validé.** La dernière porte est le gate local Maven + packaging portable. La PR #60 reste draft et non fusionnée.
+```text
+M11 = VALIDÉ
+question de sortie = OUI
+314/314 PASS
+Architecture = 150/150 PASS
+portable Windows = PASS
+packaged API health = PASS
+```
+
+La fusion de PR #60 a été explicitement autorisée par l'utilisateur.
