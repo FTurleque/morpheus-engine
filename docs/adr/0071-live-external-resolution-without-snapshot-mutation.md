@@ -1,6 +1,6 @@
 # ADR-0071 — Résolution externe live sans mutation d'un snapshot publié
 
-- Statut : **Proposée — M12 gate pending**
+- Statut : **Acceptée — M12**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0026, ADR-0033, ADR-0041
 - Portée : M12 — observation live d'une référence externe
@@ -9,7 +9,7 @@
 
 `ExternalReferenceStore` est snapshot-scoped. ADR-0041 impose l'immutabilité logique d'une même référence dans un snapshot : une valeur différente sous le même `ExternalReferenceId` est une collision. Un `TraceabilityLink` conserve aussi sa résolution au moment de l'observation.
 
-## Décision proposée
+## Décision
 
 M12 sépare :
 
@@ -45,3 +45,13 @@ ACTIVE snapshot reference
 5. aucun `TraceabilityLink` existant muté ;
 6. comportement identique avec MINOS indisponible ;
 7. tests contractuels Memory/SQLite.
+
+## Preuve M12
+
+```text
+LiveExternalReferenceResolutionContractTest  2/2 PASS
+Architecture                                153/153 PASS
+Maven total                                 331/331 PASS
+```
+
+Les preuves Memory, SQLite et reopen SQLite sont détaillées dans `docs/VALIDATION_M12.md`.
