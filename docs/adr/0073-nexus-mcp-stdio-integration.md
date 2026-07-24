@@ -1,6 +1,6 @@
 # ADR-0073 — Intégration NEXUS par MCP STDIO inter-processus
 
-- Statut : **Proposée — M13 gate pending**
+- Statut : **Acceptée — M13**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0007, ADR-0016, ADR-0062, ADR-0075
 - Portée : M13 — transport MORPHEUS / NEXUS
@@ -9,7 +9,7 @@
 
 NEXUS possède déjà un serveur MCP STDIO Java 21 validé qui expose son moteur de contexte via `build_context` et `explain_context`. Une dépendance binaire `com.nexus.*` créerait un couplage de build et de release inutile entre les deux moteurs.
 
-## Décision proposée
+## Décision
 
 M13 utilise un process NEXUS externe :
 
@@ -41,6 +41,18 @@ MORPHEUS              -> reste utilisable
 
 Le process NEXUS n'est lancé qu'à la demande d'un status live ou d'une construction de contexte.
 
+## Preuve M13
+
+```text
+NexusMcpTransportIntegrationTest 1/1 PASS
+NEXUS Integration              7/7 PASS
+Architecture                 154/154 PASS
+TOTAL                        346/346 PASS
+Packaging standalone             PASS
+```
+
+Le test d'intégration utilise un vrai subprocess MCP STDIO et vérifie les trois tools requis. Le packaging prouve que l'adapter est embarqué sans aucune classe `com/nexus/*`.
+
 ## Critères d'acceptation
 
 1. aucune dépendance compile-time `com.nexus.*` ;
@@ -51,3 +63,5 @@ Le process NEXUS n'est lancé qu'à la demande d'un status live ou d'une constru
 6. indisponibilité non fatale ;
 7. MORPHEUS démarre sans NEXUS configuré ;
 8. gate Maven complet vert.
+
+Tous les critères sont satisfaits par la validation M13.
