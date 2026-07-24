@@ -18,11 +18,29 @@ if (-not (Test-Path $appImage)) {
     if ($LASTEXITCODE -ne 0) { throw "Portable build failed with exit code $LASTEXITCODE" }
 }
 
+$wix = Get-Command wix.exe -ErrorAction SilentlyContinue
+$candle = Get-Command candle.exe -ErrorAction SilentlyContinue
+$light = Get-Command light.exe -ErrorAction SilentlyContinue
+$hasWixModern = $null -ne $wix
+$hasWix3 = $null -ne $candle -and $null -ne $light
+
+if (-not $hasWixModern -and -not $hasWix3) {
+    Write-Warning "WiX was not found on PATH. Windows EXE/MSI packaging is optional and will be skipped."
+    Write-Host "Portable app-image remains valid: $appImage"
+    Write-Host "Install WiX and rerun this script when an EXE installer is required."
+    return
+}
+
 $installerDir = Join-Path $dist "installer"
 New-Item $installerDir -ItemType Directory -Force | Out-Null
 
+if ($hasWixModern) {
+    Write-Host "WiX detected: $($wix.Source)"
+} else {
+    Write-Host "WiX v3 tools detected: candle=$($candle.Source), light=$($light.Source)"
+}
+
 Write-Host "Building Windows EXE installer from the validated app-image..."
-Write-Host "Note: jpackage requires WiX to create Windows MSI/EXE installers."
 & $jpackage `
     --type exe `
     --name morpheus `
