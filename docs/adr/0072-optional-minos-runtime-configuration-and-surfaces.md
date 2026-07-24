@@ -1,11 +1,11 @@
 # ADR-0072 — Configuration runtime et surfaces MINOS optionnelles
 
-- Statut : **Proposée — M12 gate pending**
+- Statut : **Acceptée — M12**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0059, ADR-0063, ADR-0066, ADR-0069
 - Portée : M12 — configuration et exposition MINOS
 
-## Décision proposée
+## Décision
 
 MINOS est activé uniquement par configuration runtime :
 
@@ -74,3 +74,18 @@ MINOS process       -> composant optionnel externe
 5. `--version`, MCP et API M11 fonctionnent sans MINOS ;
 6. shaded JAR contient l'adapter mais pas `com.minos.*` ;
 7. packaging portable vert sans MINOS installé/configuré.
+
+## Preuve M12
+
+```text
+Maven total                                  331/331 PASS
+MORPHEUS CLI                                  15/15 PASS
+MORPHEUS API                                   5/5 PASS
+MORPHEUS MCP                                   5/5 PASS
+MCP/API/MINOS adapter packaging proof          PASS
+Packaged standalone MINOS-optional smoke       PASS
+Packaged API health smoke                      PASS
+Portable archive creation                      PASS
+```
+
+Voir `docs/VALIDATION_M12.md`.
