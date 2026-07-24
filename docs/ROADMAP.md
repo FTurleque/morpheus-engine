@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M13 validés et intégrés ; M14 validé, prêt à intégrer**
+Statut : **C0 à M14 validés et intégrés**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -25,14 +25,15 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M11 | API HTTP headless | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M11.md`, 314/314 |
 | M12 | MINOS optionnel / intention → code | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M12.md`, 331/331 |
 | M13 | NEXUS optionnel / intention → contexte technique | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M13.md`, 346/346 |
-| **M14** | **JARVIS / contrat d'orchestration read-only** | **✅ VALIDÉ** | `VALIDATION_M14.md`, 357/357 + JARVIS 536 tests |
+| **M14** | **JARVIS / contrat d'orchestration read-only** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M14.md`, 357/357 + JARVIS 536 tests |
 
 Merges actifs :
 
 ```text
 M12 = 86dbb1d50e87ce354b7174156e9c8c5717722a17
 M13 = 2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f
-main baseline M14 = 5269fbf8ef5586e0e04a776293dda2bf46786d0d
+M14 MORPHEUS = 88e4e4d83c25035b9441e78d0ac8145db83306c4
+M14 JARVIS   = 1bf2612e616f3323814caf60e76525b4808cd400
 ```
 
 Références M14 :
@@ -99,7 +100,7 @@ MORPHEUS résout les références code MINOS via MCP STDIO sans dépendance `com
 
 MORPHEUS délègue sélection/ranking/fusion/compression du contexte technique à NEXUS via MCP STDIO sans dépendance `com.nexus.*`. Gate : **346/346**, architecture **154/154**.
 
-## 6. M14 — JARVIS ✅ VALIDÉ
+## 6. M14 — JARVIS ✅ / INTÉGRÉ
 
 Question de sortie :
 
@@ -202,6 +203,13 @@ Les raisons d'abandon observation/source/cible sont transmises séparément et j
 ADR-0077..0080 : **Acceptées — M14**.
 
 Validation : [`VALIDATION_M14.md`](VALIDATION_M14.md).
+
+Intégration :
+
+```text
+MORPHEUS PR #67 merged -> 88e4e4d83c25035b9441e78d0ac8145db83306c4
+JARVIS   PR #93 merged -> 1bf2612e616f3323814caf60e76525b4808cd400
+```
 
 ## 7. Règle de pilotage
 
