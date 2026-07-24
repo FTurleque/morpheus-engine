@@ -29,7 +29,14 @@ public final class MorpheusMain {
             PrintStream err,
             Map<String, String> environment,
             Properties properties) {
-        return new MorpheusCli().run(normalizeForExecution(args), out, err, environment, properties);
+        int exitCode = new MorpheusCli().run(normalizeForExecution(args), out, err, environment, properties);
+        if (exitCode == CliExitCode.SUCCESS.code() && isHelpRequest(args)) {
+            out.println();
+            out.println("MCP:");
+            out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] mcp --stdio");
+            out.println("  STDIO mode reserves stdout for the MCP protocol; --json is not valid in MCP mode.");
+        }
+        return exitCode;
     }
 
     static int runMcp(
@@ -70,6 +77,21 @@ public final class MorpheusMain {
             return token.equals("sync");
         }
         return false;
+    }
+
+    private static boolean isHelpRequest(String[] args) {
+        for (int index = 0; index < args.length; index++) {
+            String token = args[index];
+            if (token.equals("--json")) {
+                continue;
+            }
+            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
+                index++;
+                continue;
+            }
+            return token.equals("help") || token.equals("--help") || token.equals("-h");
+        }
+        return true;
     }
 
     private static String safeMessage(RuntimeException failure) {
