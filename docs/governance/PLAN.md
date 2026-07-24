@@ -4,7 +4,7 @@ Statut : **Brouillon de cadrage**
 
 Date : 22 juillet 2026
 
-La source de vérité fonctionnelle est [`CAHIER_DES_CHARGES.md`](CAHIER_DES_CHARGES.md).
+La source de vérité fonctionnelle est [`CAHIER_DES_CHARGES.md`](../product/CAHIER_DES_CHARGES.md).
 
 > **Documenter d'abord, décider ensuite, implémenter en dernier.**
 
