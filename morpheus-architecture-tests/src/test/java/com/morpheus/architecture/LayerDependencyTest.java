@@ -22,7 +22,8 @@ class LayerDependencyTest {
                         "com.morpheus.api..",
                         "com.morpheus.integration..",
                         "com.minos..",
-                        "com.nexus..")
+                        "com.nexus..",
+                        "com.jarvis..")
                 .because("the MORPHEUS domain owns its model and adapters depend inward")
                 .check(classes);
     }
@@ -39,7 +40,8 @@ class LayerDependencyTest {
                         "com.morpheus.api..",
                         "com.morpheus.integration..",
                         "com.minos..",
-                        "com.nexus..")
+                        "com.nexus..",
+                        "com.jarvis..")
                 .because("application services define use cases and ports without depending on adapters")
                 .check(classes);
     }
@@ -53,8 +55,9 @@ class LayerDependencyTest {
                         "com.morpheus.mcp..",
                         "com.morpheus.integration..",
                         "com.minos..",
-                        "com.nexus..")
-                .because("the M11-M13 HTTP adapter must reuse application contracts rather than other adapters")
+                        "com.nexus..",
+                        "com.jarvis..")
+                .because("the M11-M14 HTTP adapter must reuse application contracts rather than other adapters")
                 .check(classes);
     }
 
@@ -67,7 +70,8 @@ class LayerDependencyTest {
                         "com.morpheus.mcp..",
                         "com.morpheus.api..",
                         "com.morpheus.store..",
-                        "com.minos..")
+                        "com.minos..",
+                        "com.jarvis..")
                 .because("MINOS integration implements application ports and communicates through MCP STDIO only")
                 .check(classes);
     }
@@ -81,8 +85,18 @@ class LayerDependencyTest {
                         "com.morpheus.mcp..",
                         "com.morpheus.api..",
                         "com.morpheus.store..",
-                        "com.nexus..")
+                        "com.nexus..",
+                        "com.jarvis..")
                 .because("NEXUS integration implements the technical-context port and communicates through MCP STDIO only")
+                .check(classes);
+    }
+
+    @Test
+    void morpheusMustNotDependOnJarvisImplementation() {
+        noClasses()
+                .that().resideInAPackage("com.morpheus..")
+                .should().dependOnClassesThat().resideInAPackage("com.jarvis..")
+                .because("M14 exposes a read-only machine contract; JARVIS consumes it without becoming a MORPHEUS dependency")
                 .check(classes);
     }
 }
