@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.store.KnowledgeStoreException;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.server.McpServer;
@@ -22,7 +23,12 @@ public final class MorpheusMcpServer {
     }
 
     public static McpSyncServer build(Path databasePath) {
+        return build(databasePath, new ExternalReferenceResolverRegistry(List.of()));
+    }
+
+    public static McpSyncServer build(Path databasePath, ExternalReferenceResolverRegistry resolverRegistry) {
         Objects.requireNonNull(databasePath, "databasePath");
+        Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
         MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath);
         StdioServerTransportProvider transport = new StdioServerTransportProvider(McpJsonDefaults.getMapper());
@@ -36,11 +42,19 @@ public final class MorpheusMcpServer {
         for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
             server.addTool(tool(definition, service));
         }
+        for (McpServerFeatures.SyncToolSpecification specification
+                : new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications()) {
+            server.addTool(specification);
+        }
         return server;
     }
 
     public static int run(Path databasePath) {
-        McpSyncServer server = build(databasePath);
+        return run(databasePath, new ExternalReferenceResolverRegistry(List.of()));
+    }
+
+    public static int run(Path databasePath, ExternalReferenceResolverRegistry resolverRegistry) {
+        McpSyncServer server = build(databasePath, resolverRegistry);
         try {
             Thread.currentThread().join();
             return 0;
