@@ -1,9 +1,6 @@
 name: M10 MCP preflight
 
 on:
-  push:
-    branches:
-      - m10/mcp-server
   workflow_dispatch:
 
 jobs:
