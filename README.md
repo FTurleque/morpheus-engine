@@ -108,10 +108,11 @@ M8  Analyse des changements                    ✅ VALIDÉ / INTÉGRÉ — 289/2
 M9  CLI / distribution locale                  ✅ VALIDÉ / INTÉGRÉ — 298/298 Windows + Linux
 M10 MCP STDIO natif                            ✅ VALIDÉ / INTÉGRÉ — 307/307
 M11 API HTTP headless                          ✅ VALIDÉ / INTÉGRÉ — 314/314
-M12 MINOS optionnel                            🚧 FONCTIONNELLEMENT COMPLET — gate pending
+M12 MINOS optionnel                            ✅ VALIDÉ — 331/331
 ```
 
-Dernier jalon officiellement validé et intégré : **M11**.
+Dernier jalon officiellement intégré : **M11**.  
+Dernier jalon officiellement validé : **M12**.
 
 M11 merge :
 
@@ -119,19 +120,37 @@ M11 merge :
 e30ed4095700b445fedc4517c22ff447c22238f4
 ```
 
-M11 gate :
+M12 head exécuté :
 
 ```text
-Domain                  21/21 PASS
-Application             82/82 PASS
-OpenSpec                26/26 PASS
-Synthetic                7/7 PASS
-SQLite                   7/7 PASS
-MCP                      5/5 PASS
-API                      4/4 PASS
-CLI                     12/12 PASS
-Architecture           150/150 PASS
-TOTAL                  314/314 PASS
+ca0073a875bcf28114a2945b141fc8c45f88930e
+```
+
+M12 gate :
+
+```text
+Domain             21/21 PASS
+Application        84/84 PASS
+OpenSpec           26/26 PASS
+Synthetic           7/7 PASS
+SQLite              7/7 PASS
+MINOS Integration   8/8 PASS
+MCP                 5/5 PASS
+API                 5/5 PASS
+CLI                15/15 PASS
+Architecture      153/153 PASS
+-------------------------------
+TOTAL             331/331 PASS
+```
+
+Packaging M12 :
+
+```text
+MCP/API/MINOS adapter packaging proof: PASS
+Packaged standalone MINOS-optional smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+Windows ZIP: 33,587,925 bytes
 ```
 
 ## CLI
@@ -183,14 +202,14 @@ Lancement :
 morpheus mcp --stdio
 ```
 
-M10 : 14 tools read-only. M12 ajoute sans modifier les contrats historiques :
+M10 : 14 tools read-only. M12 ajoute :
 
 ```text
 list_external_references
 resolve_external_reference
 ```
 
-Soit **16 tools** sur le serveur M12.
+Soit **16 tools read-only** sur le serveur M12.
 
 Documentation : [`docs/MCP.md`](docs/MCP.md).
 
@@ -216,7 +235,7 @@ Documentation : [`docs/API.md`](docs/API.md).
 
 ## MINOS optionnel — M12
 
-Architecture :
+Architecture validée :
 
 ```text
 MORPHEUS Java 21
@@ -269,6 +288,7 @@ Scripts :
 distribution/build-portable.ps1
 distribution/build-portable.sh
 distribution/build-windows-installer.ps1
+distribution/test-minos-compatibility.ps1
 ```
 
 ## Quick start
@@ -287,41 +307,14 @@ MCP client :
 {"command":"morpheus","args":["--db","/path/to/morpheus.db","mcp","--stdio"]}
 ```
 
-## M12 — gate attendu
-
-Implémentation actuelle :
-
-```text
-resolution taxonomy enrichie
-live non-mutating resolution Memory/SQLite
-morpheus-integration-minos
-real MINOS MCP STDIO fixture
-exact symbolKey + revision
-CLI M12
-MCP M12
-HTTP M12
-packaging excludes com/minos/*
-standalone MINOS-disabled smoke
-```
-
-Projection avant preuve : **331 tests**.
-
-Gate officiel :
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
-```
-
-M12 ne sera marqué VALIDÉ qu'après ce gate.
-
 ## Références
 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- [`docs/VALIDATION_M11.md`](docs/VALIDATION_M11.md)
-- [`docs/roadmap/M11_EXECUTION.md`](docs/roadmap/M11_EXECUTION.md)
+- [`docs/VALIDATION_M12.md`](docs/VALIDATION_M12.md)
 - [`docs/roadmap/M12_EXECUTION.md`](docs/roadmap/M12_EXECUTION.md)
 - [`docs/MCP.md`](docs/MCP.md)
 - [`docs/API.md`](docs/API.md)
 - [`docs/MINOS.md`](docs/MINOS.md)
 - [`distribution/README.md`](distribution/README.md)
+
+**PR #62 porte M12 validé. Sa fusion reste soumise à une autorisation explicite distincte.**
