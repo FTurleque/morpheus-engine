@@ -44,6 +44,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusApiService service;
     private final MorpheusExternalReferenceApiService externalReferenceService;
     private final MorpheusAugmentedContextApiService augmentedContextService;
+    private final MorpheusJarvisOrchestrationApiService jarvisOrchestrationService;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final JsonMapper mapper = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -55,12 +56,14 @@ public final class MorpheusHttpServer implements AutoCloseable {
             ExecutorService executor,
             MorpheusApiService service,
             MorpheusExternalReferenceApiService externalReferenceService,
-            MorpheusAugmentedContextApiService augmentedContextService) {
+            MorpheusAugmentedContextApiService augmentedContextService,
+            MorpheusJarvisOrchestrationApiService jarvisOrchestrationService) {
         this.server = Objects.requireNonNull(server, "server");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.service = Objects.requireNonNull(service, "service");
         this.externalReferenceService = Objects.requireNonNull(externalReferenceService, "externalReferenceService");
         this.augmentedContextService = Objects.requireNonNull(augmentedContextService, "augmentedContextService");
+        this.jarvisOrchestrationService = Objects.requireNonNull(jarvisOrchestrationService, "jarvisOrchestrationService");
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -102,7 +105,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
                     executor,
                     new MorpheusApiService(databasePath),
                     new MorpheusExternalReferenceApiService(databasePath, resolverRegistry, minosStatus),
-                    new MorpheusAugmentedContextApiService(databasePath, technicalContextProvider));
+                    new MorpheusAugmentedContextApiService(databasePath, technicalContextProvider),
+                    new MorpheusJarvisOrchestrationApiService(databasePath));
             httpServer.setExecutor(executor);
             httpServer.createContext(API_PREFIX, result::handle);
             httpServer.start();
@@ -301,6 +305,12 @@ public final class MorpheusHttpServer implements AutoCloseable {
             AugmentedContextRequest request = readRequiredJson(exchange, AugmentedContextRequest.class);
             return ok(augmentedContextService.change(projectId, segments.get(3), request));
         }
+        if (segments.size() == 5 && segments.get(4).equals("transition-check")) {
+            requireMethod(method, "POST");
+            query.rejectUnknown(Set.of());
+            TransitionCheckRequest request = readRequiredJson(exchange, TransitionCheckRequest.class);
+            return ok(jarvisOrchestrationService.transition(projectId, segments.get(3), request));
+        }
         requireMethod(method, "GET");
         if (segments.size() == 3) {
             return ok(service.listChanges(projectId, page(query)));
@@ -335,6 +345,14 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "blocking-conditions" -> {
                 query.rejectUnknown(Set.of());
                 yield ok(service.blockingConditions(projectId, changeId));
+            }
+            case "orchestration" -> {
+                query.rejectUnknown(Set.of("lifecycleState", "abandonmentReason"));
+                yield ok(jarvisOrchestrationService.state(
+                        projectId,
+                        changeId,
+                        query.string("lifecycleState").map(String::trim).filter(value -> !value.isEmpty()),
+                        query.string("abandonmentReason").map(String::trim).filter(value -> !value.isEmpty())));
             }
             default -> throw ApiFailure.notFound("unknown change subresource: " + child);
         };
@@ -510,7 +528,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         if (segments.size() == 5
                 && segments.getFirst().equals("projects")
                 && (segments.get(2).equals("requirements") || segments.get(2).equals("changes"))
-                && segments.get(4).equals("augmented-context")) {
+                && (segments.get(4).equals("augmented-context") || segments.get(4).equals("transition-check"))) {
             return "POST";
         }
         return "GET";
