@@ -48,6 +48,12 @@ fi
 
 printf '%s\n' "Smoke testing packaged launcher..."
 "$LAUNCHER" --version
+JSON_VERSION="$("$LAUNCHER" --json version)"
+if [[ "$JSON_VERSION" != *'"version"'* ]]; then
+  echo "Packaged launcher --json version did not emit the expected JSON version field: $JSON_VERSION" >&2
+  exit 1
+fi
+printf '%s\n' "$JSON_VERSION"
 
 ARCHIVE="$DIST/morpheus-$VERSION-linux-x64.tar.gz"
 rm -f "$ARCHIVE"
