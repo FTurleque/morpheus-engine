@@ -1,8 +1,10 @@
 # MORPHEUS × NEXUS — M13
 
-Statut : **implémentation fonctionnelle complète — gate local pending**
+Statut : **✅ VALIDÉ**
 
 M13 relie l'intention structurée MORPHEUS au moteur de contexte NEXUS sans recopier le ranking, la fusion, la sélection ou la compression technique.
+
+Validation : [`VALIDATION_M13.md`](VALIDATION_M13.md).
 
 ## Responsabilités
 
@@ -35,8 +37,6 @@ MORPHEUS n'importe aucune classe `com.nexus.*`. Le runner NEXUS n'est jamais emb
 
 ## Configuration
 
-Variables d'environnement :
-
 ```text
 MORPHEUS_NEXUS_JAR
 MORPHEUS_NEXUS_JAVA
@@ -55,8 +55,6 @@ morpheus.nexus.timeoutSeconds
 
 Priorité : propriété Java > environnement > défaut.
 
-Défauts :
-
 ```text
 java = java
 timeoutSeconds = 20
@@ -64,7 +62,7 @@ timeoutSeconds = 20
 
 Timeout autorisé : `1..120` secondes.
 
-`MORPHEUS_NEXUS_JAR` doit désigner le `*-runner.jar` NEXUS. Lorsque `MORPHEUS_NEXUS_HOME` est défini, MORPHEUS le transmet comme `-Dnexus.home=<path>` avant `-jar`.
+`MORPHEUS_NEXUS_JAR` désigne le `*-runner.jar` NEXUS. `MORPHEUS_NEXUS_HOME` est transmis comme `-Dnexus.home=<path>` avant `-jar`.
 
 ## Optionalité
 
@@ -92,18 +90,14 @@ M13 ne déduit jamais le projet NEXUS depuis un chemin ou un nom MORPHEUS et n'a
 
 ## Intention MORPHEUS
 
-### Requirement
-
-Seed déterministe :
+Requirement :
 
 ```text
 Requirement: <key?> <title>
 Statement: <statement>
 ```
 
-### Change
-
-Seed déterministe :
+Change :
 
 ```text
 Change: <key?> <title>
@@ -137,18 +131,7 @@ technicalContext
 persisted=false
 ```
 
-Le bundle technique conserve :
-
-```text
-projectId / projectName
-query / explain / durationMs
-tokenBudget / estimatedTokens
-items:
-  type / path / symbol / startLine / endLine / content
-  score / scoreComponents / reasons / estimatedTokens / truncated
-excluded
-metadata
-```
+Le bundle conserve `projectId`, `projectName`, query, budget, `estimatedTokens`, items, scores, composants de score, raisons, exclusions et metadata.
 
 Aucune persistance du bundle NEXUS dans `KnowledgeSnapshot`.
 
@@ -156,29 +139,18 @@ Aucune persistance du bundle NEXUS dans `KnowledgeSnapshot`.
 
 ```text
 morpheus --json nexus-status
-
-morpheus --json augmented-context requirement \
-  --project <morpheus-project-id> \
-  --requirement <requirement-id> \
-  --nexus-project <name-or-uuid> \
-  [--budget 2000] [--source FILE] [--constraint language=java] [--explain]
-
-morpheus --json augmented-context change \
-  --project <morpheus-project-id> \
-  --change <change-id> \
-  --nexus-project <name-or-uuid> [...]
+morpheus --json augmented-context requirement --project <id> --requirement <id> --nexus-project <name-or-uuid> [...]
+morpheus --json augmented-context change --project <id> --change <id> --nexus-project <name-or-uuid> [...]
 ```
 
 ## MCP MORPHEUS
-
-Deux tools read-only additifs :
 
 ```text
 get_augmented_requirement_context
 get_augmented_change_context
 ```
 
-Le serveur M13 expose donc 18 tools : 14 M10 + 2 M12 + 2 M13.
+Le serveur M13 expose **18 tools read-only** : 14 M10 + 2 M12 + 2 M13.
 
 ## API HTTP
 
@@ -188,58 +160,32 @@ POST /api/v1/projects/{projectId}/requirements/{requirementId}/augmented-context
 POST /api/v1/projects/{projectId}/changes/{changeId}/augmented-context
 ```
 
-Body :
+## Preuves validées
 
-```json
-{
-  "nexusProject":"morpheus-engine",
-  "tokenBudget":2000,
-  "requestedSources":["FILE","SYMBOL","TEST"],
-  "constraints":{"language":"java"},
-  "explain":false
-}
-```
-
-## Preuves implémentées
+Head testé : `a44e8938bfa03e8b8a1039c8271a8865b871ed7d`.
 
 ```text
-settings disabled/configured/invalid
-provider pass-through exact
-provider unavailable non fatal
-real MCP STDIO subprocess fixture
-required NEXUS tools verified
-exact NEXUS ContextBundle projection
-HTTP Requirement + Change augmentation
-HTTP pass-through preserves NEXUS score/reasons
-CLI nexus-status standalone
-real MORPHEUS MCP STDIO discovers M13 tools
-architecture guards com.nexus.*
-portable packaging excludes com/nexus/*
-standalone packaged nexus-status = DISABLED
+TOTAL              346/346 PASS
+Architecture       154/154 PASS
+NEXUS Integration     7/7 PASS
+API                    7/7 PASS
+CLI                  17/17 PASS
+Failures                 0
+Errors                   0
+Skipped                  0
+BUILD SUCCESS
 ```
 
-## Smoke avec le vrai NEXUS
-
-Après packaging MORPHEUS :
-
-```powershell
-.\distribution\test-nexus-compatibility.ps1 `
-  -NexusRunnerJar N:\workspace-dev\nexus-context-engine\adapters\mcp-java\target\nexus-mcp-java-0.1.0-SNAPSHOT-runner.jar `
-  -NexusJava <java-21-or-newer> `
-  -NexusHome <optional-nexus-home>
-```
-
-Attendu :
+Packaging Windows :
 
 ```text
-Real NEXUS MCP compatibility smoke: PASS
+MCP/API/MINOS/NEXUS adapter packaging proof: PASS
+Packaged standalone optional-engines smoke: PASS
+Packaged API health smoke: PASS
+Portable archive creation: PASS
+ZIP 33,654,379 bytes
 ```
 
-## Gate M13 restant
+Le smoke `distribution/test-nexus-compatibility.ps1` contre un vrai runner NEXUS reste disponible comme preuve cross-repo complémentaire ; il n'était pas requis par le gate M13 officiel.
 
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
-```
-
-ADR-0073 à ADR-0076 restent **Proposées** jusqu'à ces preuves.
+ADR-0073 à ADR-0076 : **Acceptées — M13**.
