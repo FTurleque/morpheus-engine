@@ -2,8 +2,6 @@ package com.morpheus.application.orchestration;
 
 import com.morpheus.application.quality.QualityFactValue;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
-import com.morpheus.domain.reference.ExternalReferenceResolutionReason;
-import com.morpheus.domain.reference.ExternalReferenceResolutionState;
 
 import java.util.List;
 import java.util.Map;
@@ -21,7 +19,7 @@ public record ChangeOrchestrationState(
         AvailabilityView acceptanceCriteria,
         List<ConstraintView> applicableConstraints,
         AvailabilityView blockingConstraints,
-        List<ExternalReferenceView> unresolvedLinks,
+        List<UnresolvedLinkView> unresolvedLinks,
         List<QualityFindingView> qualityFindings,
         List<ChangeLifecycleState> nextAllowedTransitions,
         List<ChangeTransitionEvaluation> transitionEvaluations,
@@ -81,24 +79,21 @@ public record ChangeOrchestrationState(
         }
     }
 
-    public record ExternalReferenceView(
+    /** Unified unresolved link projection covering both MORPHEUS traceability and external references. */
+    public record UnresolvedLinkView(
+            String kind,
             String id,
-            String system,
-            Optional<String> project,
-            String resourceType,
-            String externalId,
-            Optional<String> revision,
-            ExternalReferenceResolutionState resolutionState,
-            ExternalReferenceResolutionReason resolutionReason) {
-        public ExternalReferenceView {
+            String relation,
+            String target,
+            String resolution,
+            String reason) {
+        public UnresolvedLinkView {
+            kind = requireNonBlank(kind, "kind");
             id = requireNonBlank(id, "id");
-            system = requireNonBlank(system, "system");
-            project = Objects.requireNonNull(project, "project");
-            resourceType = requireNonBlank(resourceType, "resourceType");
-            externalId = requireNonBlank(externalId, "externalId");
-            revision = Objects.requireNonNull(revision, "revision");
-            Objects.requireNonNull(resolutionState, "resolutionState");
-            Objects.requireNonNull(resolutionReason, "resolutionReason");
+            relation = requireNonBlank(relation, "relation");
+            target = requireNonBlank(target, "target");
+            resolution = requireNonBlank(resolution, "resolution");
+            reason = requireNonBlank(reason, "reason");
         }
     }
 
