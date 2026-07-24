@@ -1,6 +1,6 @@
 # MORPHEUS MCP — M10 + M12 + M13
 
-Statut : **M10/M12 validés ; extensions M13 implémentées — gate M13 pending**
+Statut : **M10/M12/M13 validés**
 
 MORPHEUS expose un serveur Model Context Protocol natif sur STDIO pour IDE, agents et orchestrateurs locaux.
 
@@ -58,18 +58,6 @@ resolve_external_reference
 
 Le serveur M12 porte le catalogue à **16 tools**. La résolution live retourne `stored`, `observed`, `persisted=false` et ne modifie jamais la référence persistée.
 
-### `list_external_references`
-
-```json
-{"projectId":"<uuid>","ownerId":"<uuid>"}
-```
-
-### `resolve_external_reference`
-
-```json
-{"projectId":"<uuid>","referenceId":"<uuid>"}
-```
-
 MINOS reste optionnel. Sans resolver : observation `UNRESOLVED / NO_RESOLVER`, serveur MCP toujours fonctionnel.
 
 ## Extensions M13 — 2 tools read-only
@@ -80,8 +68,6 @@ Le serveur M13 porte additivement le catalogue à **18 tools** :
 get_augmented_requirement_context
 get_augmented_change_context
 ```
-
-Les deux tools sont enregistrés séparément du catalogue historique M10 et des tools M12.
 
 ### `get_augmented_requirement_context`
 
@@ -99,8 +85,6 @@ Input strict :
 }
 ```
 
-Required : `projectId`, `requirementId`, `nexusProject`.
-
 MORPHEUS construit uniquement :
 
 ```text
@@ -108,25 +92,13 @@ Requirement: <key?> <title>
 Statement: <statement>
 ```
 
-Puis délègue la sélection/ranking/fusion/compression au `TechnicalContextProvider`.
+Puis délègue sélection/ranking/fusion/compression au `TechnicalContextProvider`.
 
 ### `get_augmented_change_context`
 
-Input identique, avec `changeId` à la place de `requirementId`.
-
-Le seed MORPHEUS contient uniquement les faits du snapshot ACTIVE :
-
-```text
-change title / intent / scope
-affected requirements
-constraints
-design decisions
-implementation tasks
-```
+Input identique avec `changeId`. Le seed contient les faits du snapshot ACTIVE : change title/intent/scope, requirements affectés, contraintes, décisions et tâches.
 
 ### Résultat M13
-
-Conceptuellement :
 
 ```json
 {
@@ -134,21 +106,15 @@ Conceptuellement :
   "intentContext":{"subjectType":"REQUIREMENT","query":"..."},
   "technicalContext":{
     "status":{"system":"NEXUS","state":"AVAILABLE"},
-    "bundle":{
-      "tokenBudget":2000,
-      "estimatedTokens":900,
-      "items":[]
-    }
+    "bundle":{"tokenBudget":2000,"estimatedTokens":900,"items":[]}
   },
   "persisted":false
 }
 ```
 
-Les scores, `scoreComponents`, raisons, exclusions et métadonnées du bundle sont des faits NEXUS ; MORPHEUS ne les reranke pas.
+Les scores, composants de score, raisons, exclusions et métadonnées du bundle sont des faits NEXUS ; MORPHEUS ne les reranke pas.
 
 ## NEXUS optionnel
-
-Le launcher injecte un `TechnicalContextProvider` générique au serveur MCP.
 
 Sans configuration :
 
@@ -208,26 +174,15 @@ persist NEXUS ContextBundle
 index/rebuild NEXUS
 ```
 
-## Preuves M13 implémentées
+## Validation M13
 
 ```text
-vrai NEXUS MCP STDIO fixture : initialize/list/call
-vrai MORPHEUS MCP STDIO : découverte des 2 tools M13
-provider NEXUS absent -> non fatal
-HTTP/CLI utilisent le même port applicatif
-architecture interdit com.nexus.*
+MCP                         5/5 PASS
+MorpheusM13McpStdioIntegrationTest 1/1 PASS
+Architecture            154/154 PASS
+TOTAL                    346/346 PASS
 ```
 
-## Références
+Le vrai subprocess MORPHEUS MCP STDIO découvre les deux tools M13 sans NEXUS installé.
 
-- M10 : [`VALIDATION_M10.md`](VALIDATION_M10.md)
-- M12 : [`MINOS.md`](MINOS.md)
-- M13 : [`NEXUS.md`](NEXUS.md)
-- roadmap M13 : [`roadmap/M13_EXECUTION.md`](roadmap/M13_EXECUTION.md)
-
-## Gate M13
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
-```
+Références : [`VALIDATION_M13.md`](VALIDATION_M13.md), [`NEXUS.md`](NEXUS.md), [`roadmap/M13_EXECUTION.md`](roadmap/M13_EXECUTION.md).
