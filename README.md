@@ -7,10 +7,10 @@
 ## Écosystème
 
 ```text
-MORPHEUS = specification / intent
+MORPHEUS = specification / intent / lifecycle rules
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
-JARVIS   = orchestration
+JARVIS   = orchestration / sequencing
 ```
 
 Chaque moteur reste autonome.
@@ -28,6 +28,7 @@ Sources / workspaces
               |
               +-> optional MINOS adapter -> MCP STDIO -> MINOS
               +-> optional NEXUS adapter -> MCP STDIO -> NEXUS
+              +-> read-only orchestration contract <- HTTP <- JARVIS
 ```
 
 OpenSpec est le provider de référence initial, pas le domaine MORPHEUS.
@@ -45,6 +46,9 @@ Scenario != AcceptanceCriterion
 optional engine absence != MORPHEUS failure
 live external observation != snapshot mutation
 NEXUS ranking != MORPHEUS ranking
+lifecycle unavailable != lifecycle inferred
+transition evaluation != lifecycle mutation
+MORPHEUS facts/rules != JARVIS action sequencing
 ```
 
 ## Fondation technique
@@ -76,50 +80,35 @@ M10    MCP STDIO                                ✅ VALIDÉ / INTÉGRÉ — 307/
 M11    API HTTP                                 ✅ VALIDÉ / INTÉGRÉ — 314/314
 M12    MINOS optionnel                          ✅ VALIDÉ / INTÉGRÉ — 331/331
 M13    NEXUS optionnel                          ✅ VALIDÉ / INTÉGRÉ — 346/346
+M14    JARVIS orchestration contract             🚧 FONCTIONNELLEMENT COMPLET — gate pending
 ```
 
-Merges :
-
-```text
-M12 = 86dbb1d50e87ce354b7174156e9c8c5717722a17
-M13 = 2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f
-```
+M14 baseline : `5269fbf8ef5586e0e04a776293dda2bf46786d0d`.
 
 ## CLI
-
-Commandes principales :
-
-```text
-projects list | add
-sync / sync-status
-requirements find
-changes list | get
-constraints list
-decisions list
-tasks list
-trace-requirement
-change-context
-analyze-change
-quality
-```
 
 M12 :
 
 ```text
 minos-status
-external-references list
-external-references resolve
+external-references list|resolve
 ```
 
 M13 :
 
 ```text
 nexus-status
-augmented-context requirement --project ID --requirement ID --nexus-project ID_OR_NAME [...]
-augmented-context change --project ID --change ID --nexus-project ID_OR_NAME [...]
+augmented-context requirement|change
 ```
 
-Options M13 : `--budget`, `--source`, `--constraint key=value`, `--explain`.
+M14 :
+
+```text
+change-orchestration state --project ID --change ID [--lifecycle STATE] [...]
+change-orchestration transition-check --project ID --change ID --from STATE --to STATE [...]
+```
+
+M14 est read-only : aucune commande n'applique une transition.
 
 ## MCP
 
@@ -131,17 +120,16 @@ morpheus mcp --stdio
 M10 14 tools read-only
 M12 +2 external-reference tools
 M13 +2 augmented-context tools
-M13 = 18 tools read-only
+M14 +2 orchestration tools
+M14 = 20 tools read-only
 ```
 
-M13 ajoute :
+M14 ajoute :
 
 ```text
-get_augmented_requirement_context
-get_augmented_change_context
+get_change_orchestration_state
+evaluate_change_transition
 ```
-
-Voir [`docs/MCP.md`](docs/MCP.md).
 
 ## API HTTP
 
@@ -150,54 +138,50 @@ morpheus api --host 127.0.0.1 --port 8765
 base = /api/v1
 ```
 
-M13 ajoute :
+M14 ajoute :
 
 ```text
-GET  /api/v1/integrations/nexus/status
-POST /api/v1/projects/{projectId}/requirements/{requirementId}/augmented-context
-POST /api/v1/projects/{projectId}/changes/{changeId}/augmented-context
+GET  /api/v1/projects/{projectId}/changes/{changeId}/orchestration
+POST /api/v1/projects/{projectId}/changes/{changeId}/transition-check
 ```
 
-Voir [`docs/API.md`](docs/API.md).
+Le POST est une évaluation pure, pas une mutation.
+
+## JARVIS — M14
+
+```text
+MORPHEUS = facts + lifecycle rules + transition decisions
+JARVIS   = sequencing + orchestration + action choice
+```
+
+Lifecycle :
+
+```text
+absent -> source=UNAVAILABLE
+fourni -> source=CALLER_SUPPLIED
+```
+
+Décisions :
+
+```text
+ALLOWED | BLOCKED | UNKNOWN | REQUIRES_INPUT
+```
+
+Le contrat UC-16 expose les manques déterministes, les faits indisponibles, contraintes applicables, liens non résolus, findings qualité et transitions évaluées, avec `persisted=false`.
+
+Preuve JARVIS cross-repo : issue #92 / PR #93 dans `FTurleque/jarvis`, client HTTP optionnel et fail-open, aucune dépendance `com.morpheus.*`.
+
+Voir [`docs/JARVIS.md`](docs/JARVIS.md).
 
 ## MINOS optionnel — M12
-
-```text
-MORPHEUS_MINOS_JAR
-MORPHEUS_MINOS_JAVA
-MORPHEUS_MINOS_HOME
-MORPHEUS_MINOS_TIMEOUT_SECONDS
-```
-
-Référence code : `system=MINOS`, `resourceType=SYMBOL`, `externalId=symbolKey exact`, révision optionnelle. Résolution live : `stored`, `observed`, `persisted=false`.
 
 Voir [`docs/MINOS.md`](docs/MINOS.md).
 
 ## NEXUS optionnel — M13
 
-```text
-MORPHEUS_NEXUS_JAR
-MORPHEUS_NEXUS_JAVA
-MORPHEUS_NEXUS_HOME
-MORPHEUS_NEXUS_TIMEOUT_SECONDS
-```
-
-Chaque appel fournit explicitement `nexusProject`. MORPHEUS construit seulement l'intention depuis l'ACTIVE ; NEXUS possède la sélection, le ranking, la fusion, la compression et le budget technique. Le `ContextBundle` est live et non persisté (`persisted=false`).
-
-Gate M13 :
-
-```text
-346/346 PASS
-Architecture 154/154 PASS
-NEXUS Integration 7/7 PASS
-API 7/7 PASS
-CLI 17/17 PASS
-Packaging Windows PASS
-```
-
 Voir [`docs/NEXUS.md`](docs/NEXUS.md).
 
-## Distribution
+## Distribution M14
 
 ```text
 morpheus-cli-<version>-all.jar
@@ -205,35 +189,43 @@ morpheus-<version>-windows-x64.zip
 morpheus-<version>-linux-x64.tar.gz
 ```
 
-Les archives embarquent les adapters clients MINOS/NEXUS, jamais les moteurs eux-mêmes.
+Les archives embarquent MORPHEUS et les adapters clients MINOS/NEXUS, jamais MINOS, NEXUS ou JARVIS.
 
-M13 Windows validé :
-
-```text
-MCP/API/MINOS/NEXUS adapter packaging proof: PASS
-Packaged standalone optional-engines smoke: PASS
-Packaged API health smoke: PASS
-Portable archive creation: PASS
-ZIP 33,654,379 bytes
-```
-
-Scripts :
+Packaging M14 exige :
 
 ```text
-distribution/build-portable.ps1
-distribution/build-portable.sh
-distribution/build-windows-installer.ps1
-distribution/test-minos-compatibility.ps1
-distribution/test-nexus-compatibility.ps1
+classes orchestration CLI/MCP/API/application présentes
+aucun com/minos/*
+aucun com/nexus/*
+aucun com/jarvis/*
+change-orchestration visible dans le launcher packagé
+packaged API health
 ```
+
+## Gate M14
+
+Projection avant preuve :
+
+```text
+TOTAL attendu 357
+Architecture    160
+API               9
+CLI              20
+```
+
+```powershell
+.\mvnw.cmd clean test
+.\distribution\build-portable.ps1
+```
+
+**357 reste une projection jusqu'au gate local.**
 
 ## Références
 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- [`docs/VALIDATION_M13.md`](docs/VALIDATION_M13.md)
-- [`docs/roadmap/M13_EXECUTION.md`](docs/roadmap/M13_EXECUTION.md)
+- [`docs/roadmap/M14_EXECUTION.md`](docs/roadmap/M14_EXECUTION.md)
+- [`docs/JARVIS.md`](docs/JARVIS.md)
 - [`docs/MCP.md`](docs/MCP.md)
 - [`docs/API.md`](docs/API.md)
-- [`docs/MINOS.md`](docs/MINOS.md)
-- [`docs/NEXUS.md`](docs/NEXUS.md)
+- [`docs/openapi/morpheus-v1.yaml`](docs/openapi/morpheus-v1.yaml)
 - [`distribution/README.md`](distribution/README.md)
