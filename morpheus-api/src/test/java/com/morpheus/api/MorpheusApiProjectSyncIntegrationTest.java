@@ -3,6 +3,9 @@ package com.morpheus.api;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -118,6 +121,54 @@ class MorpheusApiProjectSyncIntegrationTest {
                     reopened, "/projects/" + projectId + "/requirements/" + requirementId);
             assertEquals(200, requirement.status(), requirement.body());
             assertTrue(requirement.body().contains(requirementId), requirement.body());
+        }
+    }
+
+    @Test
+    void failedSyncNeverReplacesPreviouslyPublishedActiveSnapshot() throws IOException {
+        Path database = tempDirectory.resolve("failure-preservation.db");
+        Path workspace = http.copyFixture("openspec-basic", tempDirectory.resolve("mutable-openspec"));
+
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            String registrationBody = "{\"workspace\":" + http.jsonString(workspace.toString()) + "}";
+            ApiTestSupport.Response created = http.postJson(server, "/projects", registrationBody);
+            assertEquals(201, created.status(), created.body());
+            String projectId = http.field(created.body(), "projectId");
+
+            ApiTestSupport.Response firstSync = http.postJson(
+                    server, "/projects/" + projectId + "/sync", "{\"revision\":\"good\"}");
+            assertEquals(200, firstSync.status(), firstSync.body());
+            String activeSnapshotId = http.field(firstSync.body(), "snapshotId");
+
+            Path specificationFile;
+            try (var files = Files.walk(workspace.resolve("openspec/specs"))) {
+                specificationFile = files
+                        .filter(Files::isRegularFile)
+                        .filter(path -> path.getFileName().toString().endsWith(".md"))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("mutable fixture contains no specification markdown"));
+            }
+            Files.writeString(
+                    specificationFile,
+                    "# Broken specification\n\n### Requirement: Missing statement\n",
+                    StandardCharsets.UTF_8);
+
+            ApiTestSupport.Response failed = http.postJson(
+                    server, "/projects/" + projectId + "/sync", "{\"revision\":\"broken\"}");
+            assertTrue(failed.status() >= 400, failed.body());
+
+            ApiTestSupport.Response projectAfterFailure = http.get(server, "/projects/" + projectId);
+            assertEquals(200, projectAfterFailure.status(), projectAfterFailure.body());
+            assertTrue(projectAfterFailure.body().contains(activeSnapshotId), projectAfterFailure.body());
+
+            ApiTestSupport.Response requirements = http.get(server, "/projects/" + projectId + "/requirements");
+            assertEquals(200, requirements.status(), requirements.body());
+            assertTrue(requirements.body().contains("\"totalMatches\":2"), requirements.body());
+
+            ApiTestSupport.Response versions = http.get(server, "/projects/" + projectId + "/versions");
+            assertEquals(200, versions.status(), versions.body());
+            assertTrue(versions.body().contains(activeSnapshotId), versions.body());
+            assertTrue(!versions.body().contains("\"snapshotState\":\"RETIRED\""), versions.body());
         }
     }
 }
