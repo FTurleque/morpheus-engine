@@ -42,10 +42,13 @@ class MorpheusM12McpStdioIntegrationTest {
         KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.generate();
         DomainIdentity ownerId = DomainIdentity.generate();
         ExternalReference reference = seed(database, projectId, snapshotId, ownerId);
+        String testClasspath = System.getProperty(
+                "surefire.test.class.path",
+                System.getProperty("java.class.path"));
 
         Process process = new ProcessBuilder(
                 javaExecutable().toString(),
-                "-cp", System.getProperty("java.class.path"),
+                "-cp", testClasspath,
                 MorpheusMain.class.getName(),
                 "--db", database.toString(),
                 "mcp", "--stdio")
