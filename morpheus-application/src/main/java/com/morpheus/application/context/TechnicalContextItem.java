@@ -9,8 +9,8 @@ public record TechnicalContextItem(
         String type,
         String path,
         String symbol,
-        Integer startLine,
-        Integer endLine,
+        int startLine,
+        int endLine,
         String content,
         double score,
         Map<String, Double> scoreComponents,
@@ -24,6 +24,15 @@ public record TechnicalContextItem(
         content = Objects.requireNonNullElse(content, "");
         scoreComponents = Map.copyOf(Objects.requireNonNull(scoreComponents, "scoreComponents"));
         reasons = List.copyOf(Objects.requireNonNull(reasons, "reasons"));
+        if (startLine < 0 || endLine < 0) {
+            throw new IllegalArgumentException("line numbers must not be negative");
+        }
+        if ((startLine == 0) != (endLine == 0)) {
+            throw new IllegalArgumentException("startLine and endLine must both be zero or both be positive");
+        }
+        if (startLine > 0 && endLine < startLine) {
+            throw new IllegalArgumentException("endLine must be >= startLine");
+        }
         if (estimatedTokens < 0) {
             throw new IllegalArgumentException("estimatedTokens must be >= 0");
         }
