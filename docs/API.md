@@ -1,6 +1,6 @@
 # MORPHEUS API HTTP — M11 + M12 + M13
 
-Statut : **M11/M12 validés ; extensions M13 implémentées — gate M13 pending**
+Statut : **M11/M12/M13 validés**
 
 MORPHEUS expose un service headless local via une API JSON versionnée. M12 ajoute MINOS ; M13 ajoute l'augmentation live d'une intention MORPHEUS par un contexte technique NEXUS sous budget.
 
@@ -69,23 +69,13 @@ Codes : `200`, `201`, `400`, `404`, `405`, `409`, `415`, `500`.
 GET /api/v1/
 GET /api/v1/health
 GET /api/v1/version
-
-GET  /api/v1/projects
-POST /api/v1/projects
-GET  /api/v1/projects/{projectId}
+GET|POST /api/v1/projects
+GET /api/v1/projects/{projectId}
 POST /api/v1/projects/{projectId}/sync
-GET  /api/v1/projects/{projectId}/sync-status
-
-GET /api/v1/projects/{projectId}/specifications
-GET /api/v1/projects/{projectId}/specifications/{specificationId}
-GET /api/v1/projects/{projectId}/specifications/{specificationId}/context
-
-GET /api/v1/projects/{projectId}/requirements
-GET /api/v1/projects/{projectId}/requirements/{requirementId}
-GET /api/v1/projects/{projectId}/requirements/{requirementId}/trace
-
-GET /api/v1/projects/{projectId}/changes
-GET /api/v1/projects/{projectId}/changes/{changeId}
+GET /api/v1/projects/{projectId}/sync-status
+GET /api/v1/projects/{projectId}/specifications[/{specificationId}][/context]
+GET /api/v1/projects/{projectId}/requirements[/{requirementId}][/trace]
+GET /api/v1/projects/{projectId}/changes[/{changeId}]
 GET /api/v1/projects/{projectId}/changes/{changeId}/constraints
 GET /api/v1/projects/{projectId}/changes/{changeId}/acceptance-criteria
 GET /api/v1/projects/{projectId}/changes/{changeId}/design-decisions
@@ -93,16 +83,13 @@ GET /api/v1/projects/{projectId}/changes/{changeId}/implementation-tasks
 GET /api/v1/projects/{projectId}/changes/{changeId}/context
 GET /api/v1/projects/{projectId}/changes/{changeId}/status
 GET /api/v1/projects/{projectId}/changes/{changeId}/blocking-conditions
-
 GET /api/v1/projects/{projectId}/versions
 GET /api/v1/projects/{projectId}/versions/{snapshotId}/requirements
 GET /api/v1/projects/{projectId}/versions/compare
 GET /api/v1/projects/{projectId}/diagnostics
 ```
 
-Invariants M11 : API = adapter, CURRENT/ACTIVE explicites, failed sync conserve ACTIVE, aucun endpoint APPLY/PROMOTE/ACTIVATE/rollback.
-
-# Extensions M12 — MINOS
+## Extensions M12 — MINOS
 
 ```text
 GET /api/v1/integrations/minos/status
@@ -112,32 +99,25 @@ GET /api/v1/projects/{projectId}/external-references/{referenceId}/resolution
 
 La résolution live retourne `stored`, `observed`, `persisted=false` et ne réécrit jamais la référence du snapshot publié.
 
-# Extensions M13 — NEXUS / contexte augmenté
+## Extensions M13 — NEXUS / contexte augmenté
 
-## Statut
+### Statut
 
 ```text
 GET /api/v1/integrations/nexus/status
 ```
 
-États :
-
-```text
-DISABLED     aucune configuration NEXUS
-INVALID      configuration invalide
-AVAILABLE    runner MCP joignable et tools compatibles
-UNAVAILABLE  configuré mais process/transport/tools indisponibles
-```
+États : `DISABLED`, `INVALID`, `AVAILABLE`, `UNAVAILABLE`.
 
 Le bootstrap HTTP ne lance pas NEXUS.
 
-## Requirement augmenté
+### Requirement augmenté
 
 ```text
 POST /api/v1/projects/{projectId}/requirements/{requirementId}/augmented-context
 ```
 
-## Change augmenté
+### Change augmenté
 
 ```text
 POST /api/v1/projects/{projectId}/changes/{changeId}/augmented-context
@@ -157,16 +137,13 @@ Body strict commun :
 
 Required : `nexusProject`.
 
-Défauts :
-
 ```text
-tokenBudget = 2000
-requestedSources = []
-constraints = {}
-explain = false
+tokenBudget = 2000 par défaut, borne 1..100000
+requestedSources = [] par défaut
+constraints = {} par défaut
+explain = false par défaut
+sources = FILE|SYMBOL|TEST|DOCUMENTATION|INSTRUCTION|SKILL|GIT
 ```
-
-Bornes : `tokenBudget=1..100000` ; sources contrôlées `FILE|SYMBOL|TEST|DOCUMENTATION|INSTRUCTION|SKILL|GIT`.
 
 ## Sémantique
 
@@ -212,8 +189,6 @@ aucun champ inconnu
 aucun token JSON supplémentaire
 ```
 
-Les query params inconnus sont rejetés.
-
 ## Frontières d'écriture
 
 Mutations opérationnelles HTTP autorisées :
@@ -236,20 +211,19 @@ persist NEXUS ContextBundle
 NEXUS project add/index/rebuild
 ```
 
-## OpenAPI
+## Validation M13
 
-Contrat machine-readable : [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml).
+Head testé : `a44e8938bfa03e8b8a1039c8271a8865b871ed7d`.
 
-## Références
-
-- M11 : [`VALIDATION_M11.md`](VALIDATION_M11.md)
-- M12 : [`MINOS.md`](MINOS.md)
-- M13 : [`NEXUS.md`](NEXUS.md)
-- roadmap M13 : [`roadmap/M13_EXECUTION.md`](roadmap/M13_EXECUTION.md)
-
-## Gate M13
-
-```powershell
-.\mvnw.cmd clean test
-.\distribution\build-portable.ps1
+```text
+API                          7/7 PASS
+MorpheusAugmentedContextApiContractTest 2/2 PASS
+TOTAL                    346/346 PASS
+Packaged API health smoke    PASS
 ```
+
+Le premier gate a révélé un UUID brut dans la projection du snapshot ; `AugmentedSnapshotView` fournit désormais une représentation JSON stable et le second gate complet est vert.
+
+OpenAPI : [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml).  
+Validation : [`VALIDATION_M13.md`](VALIDATION_M13.md).  
+NEXUS : [`NEXUS.md`](NEXUS.md).
