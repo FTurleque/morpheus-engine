@@ -83,8 +83,8 @@ MORPHEUS facts/rules != JARVIS action sequencing
 
 ## Sources de vérité
 
-- `docs/ROADMAP.md` : état des jalons ;
-- `docs/adr/` : décisions d’architecture ;
-- `docs/VALIDATION_M*.md` : preuves de gate ;
-- `docs/openapi/morpheus-v1.yaml` : contrat API machine-readable ;
+- [`docs/governance/ROADMAP.md`](../governance/ROADMAP.md) : état des jalons ;
+- [`docs/adr/`](../adr/) : décisions d’architecture ;
+- [`docs/validation/`](../validation/) : preuves de gate C0 et M0 à M14 ;
+- [`docs/openapi/morpheus-v1.yaml`](../openapi/morpheus-v1.yaml) : contrat API machine-readable ;
 - tests d’architecture : règles exécutables de dépendance.
