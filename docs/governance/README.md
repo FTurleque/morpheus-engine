@@ -2,9 +2,11 @@
 
 Les documents de ce groupe servent à piloter et auditer le projet. Ils ne sont pas le parcours principal pour utiliser ou développer MORPHEUS au quotidien.
 
-## Roadmap
+## Pilotage
 
-- [`../ROADMAP.md`](../ROADMAP.md) — état global et gates validés ;
+- [`ROADMAP.md`](ROADMAP.md) — état global et gates validés ;
+- [`PLAN.md`](PLAN.md) — plan de travail de cadrage ;
+- [`AUDIT_COHERENCE_C0.md`](AUDIT_COHERENCE_C0.md) — audit de cohérence C0 ;
 - [`../roadmap/`](../roadmap/) — plans d’exécution détaillés par jalon.
 
 La roadmap opérationnelle d’un jalon reste la source de vérité pendant son exécution.
@@ -18,7 +20,16 @@ Une ADR dépendante d’une hypothèse technique ne doit être acceptée qu’ap
 
 ## Validations
 
-Les fichiers `../VALIDATION_M*.md` enregistrent :
+Les preuves de gates sont regroupées dans [`../validation/`](../validation/) :
+
+```text
+VALIDATION_C0.md
+VALIDATION_M0.md
+...
+VALIDATION_M14.md
+```
+
+Elles enregistrent notamment :
 
 - le SHA réellement testé ;
 - les commandes exécutées ;
@@ -34,4 +45,5 @@ Pour le contenu maintenu comme documentation courante :
 
 - [utilisateur](../user/README.md) ;
 - [développeur](../developer/README.md) ;
+- [produit](../product/) ;
 - [références](../reference/README.md).
