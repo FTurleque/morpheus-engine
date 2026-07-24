@@ -1,6 +1,6 @@
 # M8 — Plan d'exécution détaillé
 
-Statut : **IMPLÉMENTATION FONCTIONNELLE COMPLÈTE — GATE MAVEN À EXÉCUTER**
+Statut : **M8 VALIDÉ — PR #54 prête à intégration**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -13,17 +13,24 @@ M7 final gate  = 282/282 PASS
 ```
 
 Issue : **#53 — M8 — Analyse des changements**  
+PR : **#54 — M8 — Analyse déterministe des changements**  
 Branche : `m8/change-analysis`
+
+Head exécutable testé :
+
+```text
+2fad890f3db956b548f4c96643b955e6b9971c36
+```
 
 ## Question de sortie
 
 > **MORPHEUS peut-il analyser de façon déterministe l'étendue fonctionnelle et documentaire d'un changement en confrontant la baseline CURRENT au contenu proposé, classifier les exigences ajoutées/modifiées/supprimées, exposer scénarios, contraintes, décisions et tâches associées, puis expliquer les dépendances et impacts transitifs par des chemins de traçabilité bornés, sans analyser le code ni inventer de relations ou de critères d'acceptation ?**
 
-Réponse technique à confirmer par le gate : **implémentation présente ; validation Maven non encore enregistrée**.
+**Réponse : OUI.**
 
-## M8-S1 — Entrée proposée et comparaison CURRENT / proposé
+## M8-S1 — CURRENT / proposé
 
-Contrats introduits :
+Contrats :
 
 ```text
 ProposedChangeSet
@@ -36,213 +43,130 @@ ChangeAnalysisResult
 ChangeAnalysisService
 ```
 
-### Entrée
-
-`ProposedChangeSet` sélectionne, pour un `ChangeId` :
+Règles :
 
 ```text
-ChangeProposal
-RequirementDelta*
-Constraint*
-DesignDecision*
-ImplementationTask*
+analyzeActive   -> ACTIVE
+analyzeSnapshot -> ACTIVE ou RETIRED
+READY/BUILDING/VALIDATING/FAILED -> rejet
+cross-project -> rejet
+analysis != promotion
+published snapshot = read-only
 ```
 
-à partir d'un `NormalizedProjectContent` ou par construction typée directe.
+Impacts :
+
+```text
+ADDED    -> PRESENCE
+MODIFIED -> SPECIFICATION / KEY / TITLE / STATEMENT / SCENARIOS
+REMOVED  -> PRESENCE
+```
+
+Les incohérences restent visibles par warnings structurés ; aucune baseline absente n'est inventée.
+
+## M8-S2 — Scope et acceptance gap
+
+Le résultat expose les `Constraint`, `DesignDecision` et `ImplementationTask` explicitement rattachés au changement.
 
 Invariant :
 
 ```text
-une seule occurrence de RequirementDelta par RequirementId dans un ProposedChangeSet
-chaque objet appartient au même ChangeId
-```
-
-### Baseline
-
-```text
-analyzeActive  -> snapshot ACTIVE du projet
-analyzeSnapshot -> ACTIVE ou RETIRED explicite
-READY/BUILDING/VALIDATING/FAILED -> rejet
-cross-project -> rejet
-```
-
-L'analyse ne promeut pas le contenu proposé et ne modifie jamais le snapshot publié.
-
-### ADDED / MODIFIED / REMOVED
-
-```text
-ADDED    -> PRESENCE ; baseline déjà présente => warning
-MODIFIED -> compare SPECIFICATION / KEY / TITLE / STATEMENT / SCENARIOS
-REMOVED  -> PRESENCE ; baseline absente => warning
-```
-
-Les scénarios sont comparés sémantiquement sur leurs champs comportementaux normalisés et exposés séparément en CURRENT et proposé.
-
-## M8-S2 — Scope du changement et acceptance gap
-
-Le résultat expose directement les faits normalisés du changement :
-
-```text
-constraints
-designDecisions
-implementationTasks
-```
-
-Aucune relation supplémentaire n'est créée.
-
-Invariant M6 conservé :
-
-```text
 Scenario != AcceptanceCriterion
-```
-
-Statut exposé :
-
-```text
 AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL
-ChangeAnalysisWarningCode.ACCEPTANCE_CRITERIA_UNAVAILABLE
 ```
 
-## M8-S3 — Dépendances et chemins explicatifs
+Aucun critère d'acceptation synthétique n'est créé.
 
-Contrats :
-
-```text
-DependencyImpactDirection
-ChangeDependencyImpact
-```
-
-Expansion autorisée :
+## M8-S3 — Dépendances et chemins
 
 ```text
 relation = DEPENDS_ON uniquement
 OUTGOING -> DEPENDENCY
 INCOMING -> DEPENDENT
 maxDepth > 0
-```
-
-Chaque impact conserve un `TraceabilityPath` obtenu par le service M4 existant.
-
-```text
 shortest bounded path
 persisted links only
-no invented edge
 ```
 
-Un chemin contenant un lien non `RESOLVED` reste visible et produit :
+Un chemin non `RESOLVED` reste visible et produit `TRACEABILITY_PATH_PARTIALLY_RESOLVED`. Un requirement uniquement proposé n'est pas injecté artificiellement dans le graphe publié.
 
-```text
-TRACEABILITY_PATH_PARTIALLY_RESOLVED
-```
-
-Un requirement uniquement proposé n'est pas projeté artificiellement dans le graphe publié :
-
-```text
-PROPOSED_ONLY_REQUIREMENT_TRACEABILITY_UNAVAILABLE
-```
-
-## M8-S4 — Vue compacte et JSON canonique
-
-Contrats :
+## M8-S4 — Vue compacte
 
 ```text
 CompactChangeAnalysisView
 CompactChangeAnalysisViewService
-```
-
-Métadonnées :
-
-```text
 schemaVersion = 1
 operation = analyze_change
+CanonicalJsonSerializer réutilisé
 ```
 
-Le service réutilise `CanonicalJsonSerializer` et les DTOs compacts M5 existants.
+La vue expose baseline, changement, résumé, impacts requirement, scénarios CURRENT/proposés, contraintes, décisions, tâches, dependency paths, acceptance status et warnings structurés.
 
-La vue expose :
+## M8-S5 — Preuves
 
-```text
-baseline snapshot
-change
-summary
-requirement impacts
-CURRENT/proposed scenarios
-constraints
-decisions
-tasks
-dependency paths
-acceptance status
-structured warnings
-```
+`ChangeAnalysisContractTest` : **7/7 PASS**.
 
-Pour un chemin entrant, `PathStepView.from/into` conserve le sens de traversée explicatif tandis que `TraceLinkView` conserve le sens métier réellement persisté.
+Cas prouvés :
 
-## M8-S5 — Preuves contractuelles implémentées
-
-Test ajouté :
-
-```text
-ChangeAnalysisContractTest
-```
-
-Cas déclarés :
-
-1. comparaison CURRENT / proposé sans mutation de baseline ;
+1. CURRENT / proposé sans mutation ;
 2. ADDED / MODIFIED / REMOVED ;
-3. TITLE / STATEMENT / SCENARIOS modifiés ;
-4. requirement uniquement proposé sans trace inventée ;
-5. dépendances directes et transitives ;
+3. TITLE / STATEMENT / SCENARIOS ;
+4. proposed-only sans trace inventée ;
+5. dépendances directes/transitives ;
 6. dépendants entrants ;
-7. `maxDepth` strict et borné ;
-8. chemins `DEPENDS_ON` uniquement ;
-9. warning pour chemin non résolu ;
-10. résumé agrégé déterministe ;
+7. profondeur bornée ;
+8. `DEPENDS_ON` uniquement ;
+9. chemin non résolu explicite ;
+10. résumé déterministe ;
 11. incohérences de delta explicites ;
 12. ACTIVE / RETIRED / READY ;
 13. cross-project rejeté ;
 14. Memory == SQLite ;
 15. SQLite reopen ;
 16. vue compacte stable ;
-17. JSON et UTF-8 byte-déterministes ;
+17. JSON/UTF-8 byte-déterministes ;
 18. acceptance coverage explicitement indisponible.
 
 ## ADR M8
 
 ```text
-ADR-0056 — CURRENT / proposé déterministe
-ADR-0057 — impacts DEPENDS_ON par chemins bornés
-ADR-0058 — vue compacte + JSON canonique
+ADR-0056 — Acceptée — CURRENT / proposé déterministe
+ADR-0057 — Acceptée — DEPENDS_ON par chemins bornés
+ADR-0058 — Acceptée — vue compacte + JSON canonique
 ```
 
-Statut actuel : **Proposées — preuve Maven en attente**.
+## Gate final officiel
 
-Elles ne doivent être acceptées qu'après gate reproductible.
-
-## Hors périmètre
+Exécuté localement sous Windows :
 
 ```text
-analyse AST
-call graph
-symbol references
-SCIP
-impact de code
-fuzzy matching
-semantic matching
-LLM
-promotion des deltas
-mutation du snapshot
-nouvelle persistance
-nouvelle migration SQLite
-nouveau type AcceptanceCriterion
-conversion Scenario -> AcceptanceCriterion
-CLI M9
-MCP M10
-API M11
+.\mvnw.cmd clean test
+
+MORPHEUS Domain          21/21 PASS
+MORPHEUS Application     82/82 PASS
+OpenSpec Provider        26/26 PASS
+Synthetic Provider        7/7 PASS
+SQLite Store              7/7 PASS
+Architecture Tests      146/146 PASS
+
+TOTAL                   289/289 PASS
+Failures                   0
+Errors                     0
+Skipped                    0
+BUILD SUCCESS
+Total time               26.406 s
+Finished 2026-07-24T09:44:51+02:00
 ```
 
-L'impact de code appartient à **MINOS**.
+Memory Store et CLI n'ont actuellement aucun test propre ; leurs modules passent le reactor sans erreur.
 
-## Invariants M8
+Warnings connus non bloquants : Xerial SQLite native-access et SLF4J NOP.
+
+## Audit post-gate
+
+Après le head exécutable testé `2fad890f...`, les commits ajoutés pour la clôture sont exclusivement documentaires (acceptation ADR, validation et état M8). Aucun artefact exécutable n'est modifié après le gate.
+
+## Invariants finaux
 
 ```text
 analysis = derived view
@@ -263,31 +187,6 @@ canonical JSON
 code impact = MINOS
 ```
 
-## Gate obligatoire restant
+## Clôture
 
-Le connecteur GitHub utilisé pour cette implémentation ne fournit pas de runtime Maven du dépôt et l'environnement d'exécution de cette session n'a ni accès réseau à GitHub ni `gh` installé. Aucun résultat de test n'est donc fabriqué.
-
-Commande officielle à exécuter sur le checkout Windows :
-
-```text
-N:\workspace-dev\morpheus-engine
-.\mvnw.cmd clean test
-```
-
-Équivalent Unix :
-
-```text
-./mvnw clean test
-```
-
-À la réception d'un gate vert, la clôture M8 doit :
-
-```text
-1. enregistrer les comptes de tests exacts
-2. passer ADR-0056/57/58 à Acceptée — M8
-3. créer VALIDATION_M8.md
-4. mettre à jour docs/ROADMAP.md
-5. mettre à jour l'issue #53
-6. rendre la PR prête à review
-7. fusionner seulement après autorisation explicite
-```
+M8 satisfait sa question de sortie et est **VALIDÉ**. L'intégration est portée par la PR #54 ; après merge, M9 — CLI stabilisée et distribution locale — devient le jalon actif.
