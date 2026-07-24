@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M8 validés et intégrés ; M9 en cours — implémentation fonctionnelle complète, gates Windows/Linux pending**
+Statut : **C0 à M8 validés et intégrés ; M9 validé, intégration portée par PR #56**
 
 Dernière mise à jour : 24 juillet 2026
 
@@ -22,7 +22,7 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M6 | Qualité, couverture et diagnostics explicables | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M6.md`, 261/261 |
 | M7 | Synchronisation incrémentale et fraîcheur | ✅ VALIDÉ / INTÉGRÉ | `VALIDATION_M7.md`, 282/282 |
 | **M8** | **Analyse des changements** | **✅ VALIDÉ / INTÉGRÉ** | `VALIDATION_M8.md`, 289/289, merge `6780fb024fe5b8645226f0aacecddb32bcfa7517` |
-| **M9** | **CLI stabilisée et distribution locale** | **🚧 EN COURS** | implémentation complète ; gates Windows/Linux + packaging pending |
+| **M9** | **CLI stabilisée et distribution locale** | **✅ VALIDÉ** | `VALIDATION_M9.md`, 298/298 Windows + Linux |
 | M10 | Serveur MCP | ⏳ PLANIFIÉ | stdio natif d'abord |
 | M11 | API / headless | ⏳ PLANIFIÉ | après CLI/MCP |
 | M12 | MINOS | ⏳ PLANIFIÉ | intégration optionnelle |
@@ -31,9 +31,7 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 
 Références actives :
 
-- [`VALIDATION_M8.md`](VALIDATION_M8.md)
-- [`roadmap/M8_EXECUTION.md`](roadmap/M8_EXECUTION.md)
-- [`roadmap/M8_INTEGRATION.md`](roadmap/M8_INTEGRATION.md)
+- [`VALIDATION_M9.md`](VALIDATION_M9.md)
 - [`roadmap/M9_EXECUTION.md`](roadmap/M9_EXECUTION.md)
 - [`CLI.md`](CLI.md)
 - [`../distribution/README.md`](../distribution/README.md)
@@ -341,13 +339,13 @@ M8 est **VALIDÉ ET INTÉGRÉ**.
 
 ---
 
-# 10. M9 — CLI stabilisée et distribution locale 🚧
+# 10. M9 — CLI stabilisée et distribution locale ✅
 
 Question de sortie :
 
 > **MORPHEUS peut-il être utilisé de façon fiable depuis une CLI locale stable, avec des commandes explicites et scriptables, des codes de sortie déterministes, une configuration de workspace/base de données claire, une archive portable reproductible, et une stratégie de runtime Java embarqué évaluée et prouvée sur Windows et Linux sans déplacer la logique métier dans l'adapter CLI ?**
 
-## Implémentation actuelle
+**Réponse : OUI.**
 
 CLI :
 
@@ -410,41 +408,45 @@ Windows EXE installer optional if WiX available
 upgrade/uninstall preserves external data/config by default
 ```
 
-Tests ajoutés :
+Tests ciblés :
 
 ```text
-MorpheusCliTest
-MorpheusMainTest
-ProjectSnapshotImportContractTest
+MorpheusCliTest                    4/4 PASS
+MorpheusMainTest                   2/2 PASS
+ProjectSnapshotImportContractTest  3/3 PASS
 ```
 
-ADR proposées :
+ADR :
 
 ```text
-ADR-0059 — CLI stable
-ADR-0060 — full snapshot CLI sync
-ADR-0061 — self-contained jpackage distribution
+ADR-0059 — Acceptée
+ADR-0060 — Acceptée
+ADR-0061 — Acceptée
 ```
 
-## Validation restante
-
-M9 est **fonctionnellement complet mais non validé**.
-
-Gates requis :
+Gate cross-platform final :
 
 ```text
-Windows : .\mvnw.cmd clean test
-          .\distribution\build-portable.ps1
-
-Linux   : ./mvnw clean test
-          ./distribution/build-portable.sh
+Windows  298/298 PASS | Architecture 149/149 | app-image + ZIP    | smoke human/JSON
+Linux    298/298 PASS | Architecture 149/149 | app-image + tar.gz | smoke human/JSON
 ```
 
-La PR doit rester draft et les ADR M9 restent Proposées jusqu'aux preuves.
+Head exécutable validé :
 
+```text
+3b0fb46486cb28257d87d56084ef6e4fbe4cf7c7
+```
+
+Linux a été validé sous WSL/Ubuntu avec OpenJDK/Javac/jpackage 21.0.11 sur filesystem Linux local.
+
+Les deux archives embarquent leur runtime Java ; aucun JDK séparé n'est requis chez l'utilisateur final.
+
+Validation : [`VALIDATION_M9.md`](VALIDATION_M9.md).  
 Exécution : [`roadmap/M9_EXECUTION.md`](roadmap/M9_EXECUTION.md).  
 CLI : [`CLI.md`](CLI.md).  
 Distribution : [`../distribution/README.md`](../distribution/README.md).
+
+M9 est **VALIDÉ**. L'intégration est portée par PR #56 et la fusion reste soumise à autorisation explicite.
 
 ---
 
@@ -513,4 +515,4 @@ MORPHEUS expose états, transitions, blockers, acceptance status, références e
 7. mettre à jour roadmap + issue
 ```
 
-**Prochaine porte : valider M9 sur Windows et Linux, puis accepter ADR-0059/0060/0061.**
+**Prochaine porte : intégrer M9 après autorisation explicite, puis démarrer M10 — Serveur MCP.**
