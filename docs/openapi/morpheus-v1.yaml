@@ -1,11 +1,12 @@
 openapi: 3.1.0
 info:
   title: MORPHEUS Headless API
-  version: 1.2.0
+  version: 1.3.0
   description: >-
     Local-first MORPHEUS HTTP adapter. M12 adds optional MINOS live reference
-    resolution. M13 adds optional NEXUS technical-context augmentation while
-    preserving all M11/M12 routes and snapshot immutability.
+    resolution. M13 adds optional NEXUS technical-context augmentation. M14 adds
+    a read-only JARVIS orchestration contract exposing explicit lifecycle facts
+    and transition evaluations without mutating snapshots or provider state.
 servers:
   - url: http://127.0.0.1:8765/api/v1
     description: Default local server
@@ -121,6 +122,36 @@ paths:
   /projects/{projectId}/changes/{changeId}/blocking-conditions:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
     get: {operationId: getBlockingConditions, responses: {'200': {$ref: '#/components/responses/Success'}}}
+  /projects/{projectId}/changes/{changeId}/orchestration:
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
+      - {name: lifecycleState, in: query, required: false, schema: {$ref: '#/components/schemas/LifecycleState'}}
+      - {name: abandonmentReason, in: query, required: false, schema: {$ref: '#/components/schemas/AbandonmentReason'}}
+    get:
+      operationId: getChangeOrchestrationState
+      description: >-
+        Returns the live read-only UC-16 orchestration projection. Lifecycle is never inferred;
+        lifecycleState is considered CALLER_SUPPLIED when present and otherwise UNAVAILABLE.
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+  /projects/{projectId}/changes/{changeId}/transition-check:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
+    post:
+      operationId: evaluateChangeTransition
+      description: Evaluates a MORPHEUS lifecycle transition without persisting or applying it.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/TransitionCheckRequest'}}}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
   /projects/{projectId}/changes/{changeId}/augmented-context:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
     post:
@@ -180,6 +211,12 @@ components:
 
   schemas:
     Uuid: {type: string, format: uuid}
+    LifecycleState:
+      type: string
+      enum: [DRAFT, PROPOSED, SPECIFIED, DESIGNED, PLANNED, IMPLEMENTING, VERIFYING, COMPLETED, ARCHIVED, ABANDONED]
+    AbandonmentReason:
+      type: string
+      enum: [REJECTED, OBSOLETE, DUPLICATE, NOT_FEASIBLE, NO_LONGER_NEEDED, SUPERSEDED_BY_OTHER_CHANGE, UNKNOWN]
     ProjectRegistrationRequest:
       type: object
       additionalProperties: false
@@ -202,6 +239,17 @@ components:
           items: {type: string, enum: [FILE, SYMBOL, TEST, DOCUMENTATION, INSTRUCTION, SKILL, GIT]}
         constraints: {type: object, additionalProperties: {type: string}}
         explain: {type: boolean, default: false}
+    TransitionCheckRequest:
+      type: object
+      additionalProperties: false
+      required: [fromState, targetState]
+      properties:
+        fromState: {$ref: '#/components/schemas/LifecycleState'}
+        fromAbandonmentReason: {anyOf: [{$ref: '#/components/schemas/AbandonmentReason'}, {type: 'null'}]}
+        targetState: {$ref: '#/components/schemas/LifecycleState'}
+        abandonmentReason: {anyOf: [{$ref: '#/components/schemas/AbandonmentReason'}, {type: 'null'}]}
+        allowBackwardTransitions: {type: [boolean, 'null'], default: false}
+        allowCompletedReopen: {type: [boolean, 'null'], default: false}
     SuccessEnvelope:
       type: object
       additionalProperties: false
