@@ -6,6 +6,8 @@ MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il n
 
 La documentation utilisateur et développeur contient désormais des diagrammes Mermaid de type **UML class**, **state**, **sequence** et des vues de composants pour expliciter les workflows et les frontières d’architecture directement dans GitHub.
 
+La distinction entre documentation active, décisions normatives et preuves historiques est définie dans [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md).
+
 ## Parcours utilisateur
 
 | Besoin | Document |
@@ -69,20 +71,24 @@ flowchart LR
 
 ## Produit et spécification
 
-- [`product/CAHIER_DES_CHARGES.md`](product/CAHIER_DES_CHARGES.md) — cadrage fonctionnel et technique de haut niveau ;
-- [`product/USE_CASES.md`](product/USE_CASES.md) — cas d’usage ;
+- [`product/CAHIER_DES_CHARGES.md`](product/CAHIER_DES_CHARGES.md) — baseline fonctionnelle et technique de haut niveau validée en C0 ;
+- [`product/USE_CASES.md`](product/USE_CASES.md) — cas d’usage issus du cadrage C0 ;
 - [`product/MVP.md`](product/MVP.md) — périmètre MVP historique ;
 - [`domain/MODEL.md`](domain/MODEL.md) — modèle de domaine de cadrage et historique de conception.
+
+Ces documents de cadrage expliquent l’intention fondatrice. Les contrats et états courants plus récents sont décrits par le code, les ADR acceptées, les références machine et les roadmaps actives.
 
 ## Gouvernance et preuves
 
 - [`governance/README.md`](governance/README.md) — index de gouvernance ;
-- [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global des jalons et synthèse post-M14 ;
+- [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité et statut des familles documentaires ;
+- [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global courant des jalons et synthèse post-M14 ;
+- [`roadmap/README.md`](roadmap/README.md) — index des plans historiques et actifs ;
 - [`roadmap/POST_M14_EXECUTION.md`](roadmap/POST_M14_EXECUTION.md) — roadmap détaillée D0 + M15→M20 ;
-- [`governance/PLAN.md`](governance/PLAN.md) — plan de travail de cadrage ;
+- [`roadmap/D0_EXECUTION.md`](roadmap/D0_EXECUTION.md) — exécution de la réconciliation documentaire ;
+- [`governance/PLAN.md`](governance/PLAN.md) — plan de cadrage C0/M0 historique ;
 - [`governance/AUDIT_COHERENCE_C0.md`](governance/AUDIT_COHERENCE_C0.md) — audit C0 ;
 - [`validation/`](validation/) — preuves de validation C0 et M0 à M14 ;
-- [`roadmap/`](roadmap/) — plans d’exécution historiques et futurs par jalon ;
 - [`adr/`](adr/) — Architecture Decision Records.
 
 ## Références machine
@@ -94,14 +100,13 @@ flowchart LR
 ## État livré et suite planifiée
 
 ```text
-C0 → M14       ✅ validés
-M3 → M14       ✅ intégrés
+C0 → M14       ✅ validés et intégrés
 M14            ✅ 357/357 PASS
 Architecture   ✅ 160/160 PASS
 Packaging Win  ✅ PASS
 JARVIS         ✅ 536 tests BUILD SUCCESS
 
-D0             ⏳ réconciliation documentaire
+D0             🚧 réconciliation documentaire
 M15            ⏳ acceptance / verification / evidence
 M16            ⏳ constraint semantics
 M17            ⏳ controlled write operations
@@ -127,8 +132,9 @@ Dans la documentation :
 - `BUILDING` à `RETIRED` désignent le lifecycle technique d’un `KnowledgeSnapshot` ;
 - `DRAFT` à `ARCHIVED`/`ABANDONED` désignent le lifecycle métier d’un `ChangeProposal` ;
 - `ALLOWED`, `BLOCKED`, `UNKNOWN`, `REQUIRES_INPUT` sont des décisions d’évaluation, pas des transitions appliquées ;
-- `persisted=false` indique une vue/observation live ou calculée qui ne modifie pas l’historique publié.
+- `persisted=false` indique une vue/observation live ou calculée qui ne modifie pas l’historique publié ;
+- une instruction de merge dans un plan M0→M14 est une preuve historique, pas l’état actuel du dépôt.
 
 ## Règle de rangement
 
-La racine `docs/` ne contient que ce portail. Les documents sont classés par usage (`user`, `developer`, `product`, `reference`) ou par gouvernance (`governance`, `validation`, `roadmap`, `adr`).
+Le portail actif est `docs/README.md`. Les documents maintenus sont classés par usage (`user`, `developer`, `product`, `reference`) ou par gouvernance (`governance`, `validation`, `roadmap`, `adr`). Les reliquats de cadrage C0 conservés ailleurs sous `docs/` sont historiques et ne constituent pas l’état courant du produit.
