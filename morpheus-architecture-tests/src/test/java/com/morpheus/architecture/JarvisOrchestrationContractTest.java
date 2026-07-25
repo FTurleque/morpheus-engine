@@ -79,10 +79,11 @@ class JarvisOrchestrationContractTest {
         assertTrue(result.nextAllowedTransitions().isEmpty());
         assertTrue(result.transitionEvaluations().isEmpty());
         assertEquals(QualityFactValue.TRUE, result.observableFacts().get("requirementsIdentified"));
-        assertEquals(QualityFactValue.UNAVAILABLE, result.observableFacts().get("acceptanceCriteriaDefined"));
-        assertFalse(result.missingArtifacts().contains("acceptanceCriteria"));
-        assertTrue(result.unavailableFacts().contains("acceptanceCriteriaDefined"));
-        assertEquals("UNAVAILABLE_IN_NORMALIZED_MODEL", result.acceptanceCriteria().status());
+        assertEquals(QualityFactValue.FALSE, result.observableFacts().get("acceptanceCriteriaDefined"));
+        assertTrue(result.missingArtifacts().contains("acceptanceCriteria"));
+        assertFalse(result.unavailableFacts().contains("acceptanceCriteriaDefined"));
+        assertEquals("AVAILABLE", result.acceptanceCriteria().status());
+        assertEquals(0, result.acceptanceCriteria().observedCount());
         assertEquals("UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED", result.blockingConstraints().status());
         assertFalse(result.persisted());
         assertTrue(fixture.completedTask().completed(), "completed task must not become lifecycle state");
@@ -125,7 +126,7 @@ class JarvisOrchestrationContractTest {
     }
 
     @Test
-    void proposedToSpecifiedIsUnknownInsteadOfBlockedWhenRequiredFactsAreUnavailable() {
+    void proposedToSpecifiedRemainsUnknownOnlyForFactsStillUnavailableInM15() {
         Fixture fixture = seed();
 
         var evaluation = fixture.transitionService().evaluateActive(
@@ -137,8 +138,7 @@ class JarvisOrchestrationContractTest {
                 .orElseThrow();
 
         assertEquals(ChangeTransitionEvaluationState.UNKNOWN, evaluation.state());
-        assertEquals(List.of("criticalConstraintsKnown", "acceptanceCriteriaDefined"),
-                evaluation.unavailableRequiredFacts());
+        assertEquals(List.of("criticalConstraintsKnown"), evaluation.unavailableRequiredFacts());
         assertTrue(evaluation.blockers().isEmpty());
     }
 
@@ -175,29 +175,29 @@ class JarvisOrchestrationContractTest {
                 EvidenceId.generate(),
                 SourceLocator.file("openspec/change.md"),
                 Optional.empty(),
-                Optional.of("sha256:m14"));
+                Optional.of("sha256:m15"));
         Provenance provenance = new Provenance(
-                new ProviderId("m14-fixture"),
+                new ProviderId("m15-fixture"),
                 Optional.of("1"),
                 SourceLocator.file("openspec/change.md"),
-                Optional.of("m14"),
-                Optional.of("revision-m14"),
+                Optional.of("m15"),
+                Optional.of("revision-m15"),
                 evidence.id());
         Specification specification = new Specification(
-                specificationId, projectId, "m14", "M14", Optional.empty(), provenance);
+                specificationId, projectId, "m15", "M15", Optional.empty(), provenance);
         Requirement requirement = new Requirement(
                 requirementId,
                 specificationId,
-                Optional.of("REQ-M14"),
-                "M14 orchestration",
-                "JARVIS consumes explicit MORPHEUS lifecycle facts",
+                Optional.of("REQ-M15"),
+                "M15 orchestration",
+                "JARVIS consumes explicit MORPHEUS acceptance availability facts",
                 provenance);
         ChangeProposal change = new ChangeProposal(
                 ChangeId.generate(),
                 projectId,
-                Optional.of("m14-orchestration"),
-                "Expose orchestration state",
-                "Expose facts without orchestrating actions",
+                Optional.of("m15-orchestration"),
+                "Expose acceptance availability",
+                "Expose acceptance facts without inventing blocking semantics",
                 List.of("Read-only surface"),
                 List.of(),
                 List.of(),
@@ -205,20 +205,20 @@ class JarvisOrchestrationContractTest {
         Constraint constraint = new Constraint(
                 ConstraintId.generate(), change.id(), "Preserve auditability", provenance);
         ImplementationTask completedTask = new ImplementationTask(
-                TaskId.generate(), change.id(), Optional.of("TASK-M14-1"), "Implement API", true, provenance);
+                TaskId.generate(), change.id(), Optional.of("TASK-M15-1"), "Implement API", true, provenance);
 
         MemorySpecificationKnowledgeStore core = new MemorySpecificationKnowledgeStore();
         MemorySnapshotBusinessContentStore content = new MemorySnapshotBusinessContentStore(core, core);
         MemoryTraceabilityStore traceability = new MemoryTraceabilityStore(core);
         MemoryExternalReferenceStore externalReferences = new MemoryExternalReferenceStore(core);
 
-        core.putProject(new ProjectStoreEntry(projectId, SourceLocator.file("workspace-m14")));
+        core.putProject(new ProjectStoreEntry(projectId, SourceLocator.file("workspace-m15")));
         core.putSpecificationVersion(new SpecificationVersion(
                 versionId,
                 projectId,
                 Optional.of(1L),
                 Optional.of("provider-v1"),
-                Optional.of("revision-m14"),
+                Optional.of("revision-m15"),
                 T0,
                 Optional.empty()));
         core.putSnapshot(new KnowledgeSnapshotMetadata(
@@ -226,7 +226,7 @@ class JarvisOrchestrationContractTest {
                 projectId,
                 Optional.empty(),
                 KnowledgeSnapshotState.READY,
-                Optional.of("revision-m14"),
+                Optional.of("revision-m15"),
                 T0));
         core.bindSnapshotVersion(new SnapshotSpecificationVersionBinding(snapshotId, versionId));
         core.putRequirementVersion(new RequirementVersionRecord(
