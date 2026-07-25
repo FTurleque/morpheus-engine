@@ -4,11 +4,13 @@ import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SnapshotBusinessContent;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
+import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.decision.DesignDecision;
 import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
@@ -27,6 +29,7 @@ public final class BusinessContentQueryService {
     private static final Comparator<Constraint> CONSTRAINT_ORDER = Comparator.comparing(Constraint::id);
     private static final Comparator<DesignDecision> DECISION_ORDER = Comparator.comparing(DesignDecision::id);
     private static final Comparator<ImplementationTask> TASK_ORDER = Comparator.comparing(ImplementationTask::id);
+    private static final Comparator<AcceptanceCriterion> ACCEPTANCE_ORDER = Comparator.comparing(AcceptanceCriterion::id);
 
     private final SpecificationKnowledgeStore snapshotStore;
     private final SnapshotBusinessContentStore contentStore;
@@ -146,6 +149,44 @@ public final class BusinessContentQueryService {
         return implementationTasks(requirePublished(snapshotId), changeId, pageRequest);
     }
 
+    public Optional<SnapshotPage<AcceptanceCriterion>> activeAcceptanceCriteria(
+            ProjectSpecificationId projectId,
+            PageRequest pageRequest) {
+        Objects.requireNonNull(projectId, "projectId");
+        Objects.requireNonNull(pageRequest, "pageRequest");
+        return snapshotStore.activeSnapshot(projectId)
+                .map(snapshot -> acceptanceCriteria(snapshot, pageRequest));
+    }
+
+    public SnapshotPage<AcceptanceCriterion> snapshotAcceptanceCriteria(
+            KnowledgeSnapshotId snapshotId,
+            PageRequest pageRequest) {
+        Objects.requireNonNull(pageRequest, "pageRequest");
+        return acceptanceCriteria(requirePublished(snapshotId), pageRequest);
+    }
+
+    public Optional<SnapshotPage<AcceptanceCriterion>> activeAcceptanceCriteriaForChange(
+            ProjectSpecificationId projectId,
+            ChangeId changeId,
+            PageRequest pageRequest) {
+        Objects.requireNonNull(projectId, "projectId");
+        Objects.requireNonNull(changeId, "changeId");
+        Objects.requireNonNull(pageRequest, "pageRequest");
+        return snapshotStore.activeSnapshot(projectId)
+                .map(snapshot -> acceptanceCriteriaForChange(snapshot, changeId, pageRequest));
+    }
+
+    public Optional<SnapshotPage<AcceptanceCriterion>> activeAcceptanceCriteriaForRequirement(
+            ProjectSpecificationId projectId,
+            RequirementId requirementId,
+            PageRequest pageRequest) {
+        Objects.requireNonNull(projectId, "projectId");
+        Objects.requireNonNull(requirementId, "requirementId");
+        Objects.requireNonNull(pageRequest, "pageRequest");
+        return snapshotStore.activeSnapshot(projectId)
+                .map(snapshot -> acceptanceCriteriaForRequirement(snapshot, requirementId, pageRequest));
+    }
+
     private SnapshotItemResult<Specification> specification(
             KnowledgeSnapshotMetadata snapshot,
             SpecificationId specificationId) {
@@ -167,10 +208,7 @@ public final class BusinessContentQueryService {
     private SnapshotPage<ChangeProposal> changes(
             KnowledgeSnapshotMetadata snapshot,
             PageRequest pageRequest) {
-        List<ChangeProposal> matches = content(snapshot).changes().stream()
-                .sorted(CHANGE_ORDER)
-                .toList();
-        return page(snapshot, matches, pageRequest);
+        return page(snapshot, content(snapshot).changes().stream().sorted(CHANGE_ORDER).toList(), pageRequest);
     }
 
     private SnapshotPage<Constraint> constraints(
@@ -202,6 +240,34 @@ public final class BusinessContentQueryService {
         List<ImplementationTask> matches = content(snapshot).tasks().stream()
                 .filter(candidate -> candidate.changeId().equals(changeId))
                 .sorted(TASK_ORDER)
+                .toList();
+        return page(snapshot, matches, pageRequest);
+    }
+
+    private SnapshotPage<AcceptanceCriterion> acceptanceCriteria(
+            KnowledgeSnapshotMetadata snapshot,
+            PageRequest pageRequest) {
+        return page(snapshot, content(snapshot).acceptanceCriteria().stream().sorted(ACCEPTANCE_ORDER).toList(), pageRequest);
+    }
+
+    private SnapshotPage<AcceptanceCriterion> acceptanceCriteriaForChange(
+            KnowledgeSnapshotMetadata snapshot,
+            ChangeId changeId,
+            PageRequest pageRequest) {
+        List<AcceptanceCriterion> matches = content(snapshot).acceptanceCriteria().stream()
+                .filter(candidate -> candidate.changeId().filter(changeId::equals).isPresent())
+                .sorted(ACCEPTANCE_ORDER)
+                .toList();
+        return page(snapshot, matches, pageRequest);
+    }
+
+    private SnapshotPage<AcceptanceCriterion> acceptanceCriteriaForRequirement(
+            KnowledgeSnapshotMetadata snapshot,
+            RequirementId requirementId,
+            PageRequest pageRequest) {
+        List<AcceptanceCriterion> matches = content(snapshot).acceptanceCriteria().stream()
+                .filter(candidate -> candidate.requirementId().filter(requirementId::equals).isPresent())
+                .sorted(ACCEPTANCE_ORDER)
                 .toList();
         return page(snapshot, matches, pageRequest);
     }
