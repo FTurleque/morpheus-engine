@@ -1,10 +1,12 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M14 validés et intégrés**
+Statut : **C0 à M14 validés et intégrés — roadmap post-M14 planifiée**
 
-Dernière mise à jour : 24 juillet 2026
+Dernière mise à jour : 26 juillet 2026
 
 La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohérentes, tests reproductibles et réponse explicite à chaque question de sortie.
+
+La baseline C0→M14 est acquise. La suite officielle est définie dans [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).
 
 ## 1. Vue globale
 
@@ -27,7 +29,21 @@ La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohére
 | M13 | NEXUS optionnel / intention → contexte technique | ✅ VALIDÉ / INTÉGRÉ | [`VALIDATION_M13.md`](../validation/VALIDATION_M13.md), 346/346 |
 | **M14** | **JARVIS / contrat d'orchestration read-only** | **✅ VALIDÉ / INTÉGRÉ** | [`VALIDATION_M14.md`](../validation/VALIDATION_M14.md), 357/357 + JARVIS 536 tests |
 
-Merges actifs :
+### Roadmap post-M14
+
+| Étape | Sujet | Statut | Porte |
+|---|---|---|---|
+| **D0** | Réconciliation documentaire post-M14 | ⏳ PLANIFIÉ | documentation active alignée avec la baseline livrée |
+| **M15** | Acceptance Criteria, Verification & Evidence | ⏳ PLANIFIÉ | intention vérifiable, preuves et couverture explicites |
+| **M16** | Constraint Semantics & Policy Enforcement | ⏳ PLANIFIÉ | contraintes bloquantes explicables sans `UNKNOWN -> BLOCKED` |
+| **M17** | Controlled Lifecycle & Write Operations | ⏳ PLANIFIÉ | mutations opt-in, CAS, conflits, audit, permissions |
+| **M18** | Real Providers & Multi-Provider Composition | ⏳ PLANIFIÉ | deuxième provider réel + composition/provenance/conflits |
+| **M19** | Production Hardening, Scale & Operability | ⏳ PLANIFIÉ | performances, robustesse et observabilité mesurées |
+| **M20** | Release Engineering, Installation PROD & MORPHEUS 1.0 | ⏳ PLANIFIÉ | setup Windows, releases, checksums, upgrade/uninstall, Linux |
+
+Plan détaillé : [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).
+
+Merges actifs de la baseline :
 
 ```text
 M12 = 86dbb1d50e87ce354b7174156e9c8c5717722a17
@@ -211,7 +227,67 @@ MORPHEUS PR #67 merged -> 88e4e4d83c25035b9441e78d0ac8145db83306c4
 JARVIS   PR #93 merged -> 1bf2612e616f3323814caf60e76525b4808cd400
 ```
 
-## 7. Règle de pilotage
+## 7. Direction post-M14
+
+La plateforme technique fondamentale est désormais acquise : stockage, snapshots, traçabilité, requêtes, diagnostics, synchronisation, analyse, CLI, MCP, HTTP et intégrations MINOS/NEXUS/JARVIS.
+
+Le cycle suivant privilégie donc la profondeur sémantique :
+
+```text
+D0   documentation reconciliation
+M15  acceptance / verification / evidence
+M16  constraint semantics / blocking policy
+M17  controlled write / lifecycle mutations
+M18  real providers / multi-provider composition
+M19  production hardening / scale / operability
+M20  release engineering / PROD installation / 1.0
+```
+
+Principes de séquencement :
+
+```text
+rich business semantics before write operations
+write invariants before provider composition
+provider composition before large-scale qualification
+large-scale qualification before stable product release
+```
+
+### Standard d'installation cible M20
+
+Le parcours Windows utilisateur normal doit être aligné avec le standard MINOS :
+
+```text
+GitHub Release
+  -> MORPHEUS-<version>-windows-x64-setup.exe
+  -> %LOCALAPPDATA%\Programs\MORPHEUS
+  -> PATH utilisateur optionnel
+  -> morpheus.cmd
+```
+
+Données séparées :
+
+```text
+%LOCALAPPDATA%\MORPHEUS\data
+%LOCALAPPDATA%\MORPHEUS\config
+%LOCALAPPDATA%\MORPHEUS\logs
+```
+
+Le ZIP portable reste supporté pour l'automatisation, le diagnostic et les usages portables. Le mode utilisateur normal ne doit plus recommander `C:\Tools\Morpheus` comme emplacement d'installation produit.
+
+Artefacts cible :
+
+```text
+MORPHEUS-<version>-windows-x64-setup.exe
+MORPHEUS-<version>-windows-x64-setup.exe.sha256
+morpheus-<version>-windows-x64.zip
+morpheus-<version>-windows-x64.zip.sha256
+morpheus-<version>-linux-x64.tar.gz
+morpheus-<version>-linux-x64.tar.gz.sha256
+```
+
+Détails et gates : [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).
+
+## 8. Règle de pilotage
 
 ```text
 1. documenter invariant / ADR
