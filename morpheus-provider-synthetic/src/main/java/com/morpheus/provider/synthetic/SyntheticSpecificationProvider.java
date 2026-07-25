@@ -21,7 +21,7 @@ import java.util.Optional;
 /** Verification-only provider used to prove MORPHEUS is not locked to OpenSpec. */
 public final class SyntheticSpecificationProvider implements SpecificationProvider {
     public static final ProviderId ID = new ProviderId("synthetic-json");
-    public static final String PROVIDER_VERSION = "m2-s7-v1";
+    public static final String PROVIDER_VERSION = "m15-s2-v1";
     public static final String SCHEMA = "morpheus-synthetic";
     public static final String SOURCE_FILE = "morpheus-spec.json";
 
@@ -30,7 +30,8 @@ public final class SyntheticSpecificationProvider implements SpecificationProvid
             ProviderCapability.READ_CURRENT_SPECIFICATIONS,
             ProviderCapability.READ_CHANGES,
             ProviderCapability.READ_REQUIREMENTS,
-            ProviderCapability.READ_SCENARIOS);
+            ProviderCapability.READ_SCENARIOS,
+            ProviderCapability.READ_ACCEPTANCE_CRITERIA);
 
     @Override
     public ProviderId id() {
