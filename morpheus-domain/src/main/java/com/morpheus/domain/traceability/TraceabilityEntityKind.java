@@ -11,5 +11,6 @@ public enum TraceabilityEntityKind {
     CONSTRAINT,
     DESIGN_DECISION,
     IMPLEMENTATION_TASK,
+    ACCEPTANCE_CRITERION,
     EXTERNAL_REFERENCE
 }
