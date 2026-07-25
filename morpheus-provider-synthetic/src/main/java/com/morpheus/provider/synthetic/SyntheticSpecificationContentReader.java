@@ -8,6 +8,9 @@ import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
 import com.morpheus.application.read.SpecificationContentReader;
+import com.morpheus.domain.acceptance.AcceptanceCriterion;
+import com.morpheus.domain.acceptance.AcceptanceCriterionId;
+import com.morpheus.domain.acceptance.VerificationStatus;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.diagnostic.Diagnostic;
@@ -41,7 +44,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Normalizes the verification-only synthetic JSON source through the public M2 read contract. */
+/** Normalizes the verification-only synthetic JSON source through the public read contract. */
 public final class SyntheticSpecificationContentReader implements SpecificationContentReader {
     private final SyntheticSpecificationProvider provider;
 
@@ -103,6 +106,8 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                     List.of(),
                     List.of(),
                     List.of(),
+                    List.of(),
+                    normalization.acceptanceCriteria(),
                     normalization.evidence(),
                     diagnostics);
             return new ProviderReadResult(providerId(), Optional.of(content), reports, diagnostics);
@@ -126,10 +131,11 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             Map<String, Object> payload,
             String sourceText,
             ProviderReadRequest request,
-            EntityIdentityResolver identities) {
+            EntityIdentityResolver identities) throws IOException {
         SourceLocator source = SourceLocator.file(SyntheticSpecificationProvider.SOURCE_FILE);
         int sourceLines = Math.max(1, sourceText.lines().toList().size());
         List<Evidence> evidence = new ArrayList<>();
+        List<AcceptanceCriterion> acceptanceCriteria = new ArrayList<>();
 
         Map<String, Object> current = object(payload, "current");
         Map<String, Object> specificationSource = object(current, "specification");
@@ -183,6 +189,20 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                         semantics.expectedOutcome(),
                         provenance(scenarioExternalId, source, scenarioEvidence.id())));
             }
+
+            for (Object rawCriterion : optionalArray(requirementSource, "acceptance_criteria")) {
+                acceptanceCriteria.add(acceptanceCriterion(
+                        object(rawCriterion, "acceptance criterion"),
+                        Optional.of(requirementId),
+                        Optional.empty(),
+                        requirementExternalId,
+                        source,
+                        sourceText,
+                        sourceLines,
+                        request.workspaceRoot(),
+                        identities,
+                        evidence));
+            }
         }
 
         List<ChangeProposal> changes = new ArrayList<>();
@@ -205,6 +225,20 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                     strings(proposal, "out_of_scope"),
                     strings(proposal, "risks"),
                     provenance(changeExternalId, source, changeEvidence.id())));
+
+            for (Object rawCriterion : optionalArray(changeSource, "acceptance_criteria")) {
+                acceptanceCriteria.add(acceptanceCriterion(
+                        object(rawCriterion, "acceptance criterion"),
+                        Optional.empty(),
+                        Optional.of(changeId),
+                        changeExternalId,
+                        source,
+                        sourceText,
+                        sourceLines,
+                        request.workspaceRoot(),
+                        identities,
+                        evidence));
+            }
         }
 
         String displayName = request.workspaceRoot().getFileName() == null
@@ -221,7 +255,88 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                 requirements,
                 scenarios,
                 changes,
+                acceptanceCriteria,
                 evidence);
+    }
+
+    private AcceptanceCriterion acceptanceCriterion(
+            Map<String, Object> criterionSource,
+            Optional<RequirementId> requirementId,
+            Optional<ChangeId> changeId,
+            String ownerExternalId,
+            SourceLocator source,
+            String sourceText,
+            int sourceLines,
+            Path workspaceRoot,
+            EntityIdentityResolver identities,
+            List<Evidence> evidence) throws IOException {
+        String key = string(criterionSource, "key");
+        String criterionExternalId = "acceptance-criterion:" + ownerExternalId + "/" + key;
+        Evidence criterionEvidence = evidence(
+                identities,
+                criterionExternalId,
+                source,
+                sourceText,
+                sourceLines);
+        evidence.add(criterionEvidence);
+
+        List<EvidenceId> verificationEvidenceIds = new ArrayList<>();
+        for (Object rawVerificationEvidence : optionalArray(criterionSource, "verification_evidence")) {
+            Map<String, Object> verificationEvidence = object(rawVerificationEvidence, "verification evidence");
+            String relativePath = string(verificationEvidence, "source");
+            Evidence item = fileEvidence(
+                    workspaceRoot,
+                    relativePath,
+                    identities,
+                    criterionExternalId + "/verification/" + relativePath);
+            evidence.add(item);
+            verificationEvidenceIds.add(item.id());
+        }
+
+        VerificationStatus status;
+        try {
+            status = VerificationStatus.valueOf(string(criterionSource, "verification_status").toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                    "unsupported verification_status for acceptance criterion " + key,
+                    exception);
+        }
+
+        AcceptanceCriterionId criterionId = new AcceptanceCriterionId(identities.resolve(
+                providerId(), "acceptance-criterion", criterionExternalId));
+        return new AcceptanceCriterion(
+                criterionId,
+                requirementId,
+                changeId,
+                string(criterionSource, "title"),
+                string(criterionSource, "condition"),
+                status,
+                verificationEvidenceIds,
+                provenance(criterionExternalId, source, criterionEvidence.id()));
+    }
+
+    private Evidence fileEvidence(
+            Path workspaceRoot,
+            String relativePath,
+            EntityIdentityResolver identities,
+            String externalId) throws IOException {
+        Path normalizedRoot = workspaceRoot.toAbsolutePath().normalize();
+        Path file = normalizedRoot.resolve(relativePath).normalize();
+        if (!file.startsWith(normalizedRoot)) {
+            throw new IllegalArgumentException("verification evidence escapes workspace: " + relativePath);
+        }
+        if (!Files.isRegularFile(file)) {
+            throw new IllegalArgumentException("verification evidence file does not exist: " + relativePath);
+        }
+        String text = Files.readString(file, StandardCharsets.UTF_8);
+        int lines = Math.max(1, text.lines().toList().size());
+        EvidenceId evidenceId = new EvidenceId(identities.resolve(
+                providerId(), "evidence", "evidence:" + externalId));
+        return new Evidence(
+                evidenceId,
+                SourceLocator.file(relativePath),
+                Optional.of(new SourceRange(1, lines)),
+                Optional.of(sha256(text)));
     }
 
     private ReadCategoryReport report(
@@ -229,12 +344,18 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             Normalization normalization,
             List<Diagnostic> diagnostics) {
         return switch (category) {
-            case CURRENT_SPECIFICATIONS -> ReadCategoryReport.of(category, ReadCategoryStatus.READ, normalization.specifications().size());
-            case REQUIREMENTS -> ReadCategoryReport.of(category, ReadCategoryStatus.READ, normalization.requirements().size());
-            case SCENARIOS -> ReadCategoryReport.of(category, ReadCategoryStatus.READ, normalization.scenarios().size());
+            case CURRENT_SPECIFICATIONS -> ReadCategoryReport.of(
+                    category, ReadCategoryStatus.READ, normalization.specifications().size());
+            case REQUIREMENTS -> ReadCategoryReport.of(
+                    category, ReadCategoryStatus.READ, normalization.requirements().size());
+            case SCENARIOS -> ReadCategoryReport.of(
+                    category, ReadCategoryStatus.READ, normalization.scenarios().size());
             case CHANGES -> normalization.changes().isEmpty()
                     ? ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0)
                     : ReadCategoryReport.of(category, ReadCategoryStatus.READ, normalization.changes().size());
+            case ACCEPTANCE_CRITERIA -> normalization.acceptanceCriteria().isEmpty()
+                    ? ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0)
+                    : ReadCategoryReport.of(category, ReadCategoryStatus.READ, normalization.acceptanceCriteria().size());
             default -> unsupported(category, diagnostics);
         };
     }
@@ -360,6 +481,17 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
         return List.copyOf(list);
     }
 
+    private List<Object> optionalArray(Map<String, Object> source, String key) {
+        Object value = source.get(key);
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> list)) {
+            throw new IllegalArgumentException(key + " must be an array");
+        }
+        return List.copyOf(list);
+    }
+
     private List<String> strings(Map<String, Object> source, String key) {
         return array(source, key).stream().map(value -> {
             if (!(value instanceof String text)) {
@@ -389,12 +521,14 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             List<Requirement> requirements,
             List<Scenario> scenarios,
             List<ChangeProposal> changes,
+            List<AcceptanceCriterion> acceptanceCriteria,
             List<Evidence> evidence) {
         private Normalization {
             specifications = List.copyOf(specifications);
             requirements = List.copyOf(requirements);
             scenarios = List.copyOf(scenarios);
             changes = List.copyOf(changes);
+            acceptanceCriteria = List.copyOf(acceptanceCriteria);
             evidence = List.copyOf(evidence);
         }
     }
