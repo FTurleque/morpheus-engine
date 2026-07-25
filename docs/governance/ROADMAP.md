@@ -1,12 +1,12 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M14 validés et intégrés — roadmap post-M14 planifiée**
+Statut : **C0 à M14 validés et intégrés — D0 validé techniquement, PR #75 requise avant M15**
 
 Dernière mise à jour : 26 juillet 2026
 
 La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohérentes, tests reproductibles et réponse explicite à chaque question de sortie.
 
-La baseline C0→M14 est acquise. La suite officielle est définie dans [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).
+La baseline C0→M14 est acquise. La suite officielle est définie dans [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md). La politique documentaire post-M14 est [`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md).
 
 ## 1. Vue globale
 
@@ -33,15 +33,16 @@ La baseline C0→M14 est acquise. La suite officielle est définie dans [`POST_M
 
 | Étape | Sujet | Statut | Porte |
 |---|---|---|---|
-| **D0** | Réconciliation documentaire post-M14 | ⏳ PLANIFIÉ | documentation active alignée avec la baseline livrée |
-| **M15** | Acceptance Criteria, Verification & Evidence | ⏳ PLANIFIÉ | intention vérifiable, preuves et couverture explicites |
+| **D0** | Réconciliation documentaire post-M14 | **✅ VALIDÉ TECHNIQUEMENT — PR #75** | [`VALIDATION_D0.md`](../validation/VALIDATION_D0.md), merge requis avant M15 |
+| **M15** | Acceptance Criteria, Verification & Evidence | ⏳ AUTORISÉ APRÈS MERGE D0 | intention vérifiable, preuves et couverture explicites |
 | **M16** | Constraint Semantics & Policy Enforcement | ⏳ PLANIFIÉ | contraintes bloquantes explicables sans `UNKNOWN -> BLOCKED` |
 | **M17** | Controlled Lifecycle & Write Operations | ⏳ PLANIFIÉ | mutations opt-in, CAS, conflits, audit, permissions |
 | **M18** | Real Providers & Multi-Provider Composition | ⏳ PLANIFIÉ | deuxième provider réel + composition/provenance/conflits |
 | **M19** | Production Hardening, Scale & Operability | ⏳ PLANIFIÉ | performances, robustesse et observabilité mesurées |
 | **M20** | Release Engineering, Installation PROD & MORPHEUS 1.0 | ⏳ PLANIFIÉ | setup Windows, releases, checksums, upgrade/uninstall, Linux |
 
-Plan détaillé : [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).
+Plan détaillé : [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).  
+Exécution D0 : [`D0_EXECUTION.md`](../roadmap/D0_EXECUTION.md).
 
 Merges actifs de la baseline :
 
@@ -106,6 +107,7 @@ M11 314/314
 M12 331/331 | Architecture 153/153 | packaging PASS
 M13 346/346 | Architecture 154/154 | packaging PASS
 M14 357/357 | Architecture 160/160 | packaging PASS | JARVIS 536 tests BUILD SUCCESS
+D0  documentation authority PASS | primary links PASS | historical evidence preserved
 ```
 
 ## 4. M12 — MINOS ✅ / INTÉGRÉ
@@ -231,10 +233,12 @@ JARVIS   PR #93 merged -> 1bf2612e616f3323814caf60e76525b4808cd400
 
 La plateforme technique fondamentale est désormais acquise : stockage, snapshots, traçabilité, requêtes, diagnostics, synchronisation, analyse, CLI, MCP, HTTP et intégrations MINOS/NEXUS/JARVIS.
 
-Le cycle suivant privilégie donc la profondeur sémantique :
+D0 a produit une politique documentaire explicite et a réconcilié le cadrage C0 avec la baseline livrée. **M15 peut démarrer après intégration de la PR #75.**
+
+Le cycle suivant privilégie la profondeur sémantique :
 
 ```text
-D0   documentation reconciliation
+D0   documentation reconciliation        ✅ gate vert / PR #75
 M15  acceptance / verification / evidence
 M16  constraint semantics / blocking policy
 M17  controlled write / lifecycle mutations

@@ -1,12 +1,12 @@
 # MORPHEUS — Roadmap post-M14
 
-Statut : **PLANIFIÉE — exécution non démarrée**
+Statut : **ACTIVE — D0 gate vert / PR #75 ; M15 autorisé après intégration D0**
 
 Dernière mise à jour : 26 juillet 2026
 
 Cette roadmap prolonge la baseline **C0 à M14 validée et intégrée**. Elle ne réécrit pas l'historique des jalons déjà livrés : elle définit les prochaines étapes nécessaires pour approfondir la sémantique métier, sécuriser les mutations, ouvrir réellement le multi-provider, durcir l'exploitation et transformer le packaging existant en distribution produit installable.
 
-La roadmap globale reste [`../governance/ROADMAP.md`](../governance/ROADMAP.md). Pendant l'exécution d'un jalon post-M14, son plan détaillé deviendra la source de vérité opérationnelle conformément aux règles de gouvernance existantes.
+La roadmap globale reste [`../governance/ROADMAP.md`](../governance/ROADMAP.md). Pendant l'exécution d'un jalon post-M14, son plan détaillé devient la source de vérité opérationnelle conformément aux règles de gouvernance existantes. D0 est détaillé dans [`D0_EXECUTION.md`](D0_EXECUTION.md) et la politique documentaire dans [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
 
 ---
 
@@ -98,36 +98,40 @@ SATISFACTION EXPLICABLE
 
 # D0 — Réconciliation documentaire post-M14
 
-Statut : **À FAIRE AVANT M15**
+Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #75 à intégrer avant M15**
 
 ## Objectif
 
 Aligner toute la documentation active sur l'état réel du dépôt avant de reprendre les développements fonctionnels.
 
-## Travaux
+## Travaux réalisés
 
-- corriger les plans historiques qui parlent encore d'un merge futur alors que les PR correspondantes sont intégrées ;
-- mettre à jour le statut du cahier des charges C0 encore présenté comme brouillon pré-implémentation ;
-- distinguer clairement documents historiques et documentation normative active ;
-- vérifier les liens après le rangement de `docs/` ;
-- publier cette roadmap post-M14 depuis les index de gouvernance ;
-- documenter clairement que C0→M14 constitue la baseline livrée ;
-- conserver les preuves exactes des gates sans réécriture historique des résultats.
+- ✅ les plans/validations M0→M14 sont explicitement classés comme preuves historiques ; leurs instructions de merge ne décrivent plus l'état courant ;
+- ✅ le cahier des charges C0 est reclassé en baseline validée et ses liens déplacés sont réparés ;
+- ✅ la distinction documentation active / ADR normative / preuve historique est formalisée ;
+- ✅ les liens des parcours utilisateur, développeur, machine et distribution ont été vérifiés ;
+- ✅ cette roadmap est publiée depuis les index de gouvernance et de documentation ;
+- ✅ C0→M14 est documenté comme baseline livrée et intégrée ;
+- ✅ les SHA, compteurs de tests, dates et décisions historiques des gates sont conservés sans réécriture.
 
 ## Gate D0
 
 ```text
-aucun document actif ne présente M3..M14 comme non intégrés
-cahier des charges aligné avec la baseline livrée
-roadmap post-M14 référencée depuis la gouvernance
-aucun lien documentaire cassé sur les parcours principaux
+aucun document actif ne présente M3..M14 comme non intégrés          PASS
+cahier des charges aligné avec la baseline livrée                    PASS
+roadmap post-M14 référencée depuis la gouvernance                    PASS
+aucun lien documentaire cassé sur les parcours principaux           PASS
+preuves historiques de gates conservées sans réécriture              PASS
 ```
+
+Preuve : [`../validation/VALIDATION_D0.md`](../validation/VALIDATION_D0.md).  
+Issue : **#74**. PR : **#75**.
 
 ---
 
 # M15 — Acceptance Criteria, Verification & Evidence
 
-Statut : **PLANIFIÉ**
+Statut : **AUTORISÉ APRÈS MERGE D0**
 
 ## Question de sortie
 
@@ -697,9 +701,9 @@ Cible de version : **MORPHEUS 1.0** après validation de l'ensemble des gates po
 # 3. Ordre d'exécution proposé
 
 ```text
-D0   Documentation reconciliation
+D0   Documentation reconciliation                       ✅ gate vert / PR #75
  ↓
-M15  Acceptance / Verification / Evidence
+M15  Acceptance / Verification / Evidence               ⏳ après merge D0
  ↓
 M16  Constraint semantics / blocking policy
  ↓
@@ -761,8 +765,8 @@ Pour chaque jalon :
 
 ```text
 C0-M14  = plateforme MVP / intégrations fondamentales          ✅ acquis
-D0      = documentation réconciliée                            ⏳
-M15     = intention vérifiable et prouvable                    ⏳
+D0      = documentation réconciliée                            ✅ gate vert / PR #75
+M15     = intention vérifiable et prouvable                    ⏳ après merge D0
 M16     = contraintes exécutables/explicables                  ⏳
 M17     = mutations contrôlées                                 ⏳
 M18     = multi-provider réel                                  ⏳
