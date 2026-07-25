@@ -7,12 +7,15 @@ Cette section indexe les contrats machine et les références stables.
 - [Guide développeur API](../developer/API.md)
 - [OpenAPI 3.1 — `morpheus-v1.yaml`](../openapi/morpheus-v1.yaml)
 
-Version du contrat OpenAPI actuel : `1.3.0`.
+Version du contrat OpenAPI actuel sur M15 : `1.4.0`.
+
+M15 ajoute au contrat machine les critères d’acceptation first-class avec état de vérification explicite et preuves associées, sans convertir les scénarios ou la simple présence d’un test en faits d’acceptation.
 
 ## MCP
 
 - [Guide développeur MCP](../developer/MCP.md)
-- catalogue actuel : **20 tools read-only**.
+- catalogue actuel : **20 tools read-only** ;
+- `get_acceptance_criteria` expose désormais les critères persistés et leurs états de vérification sans ajouter un nouveau tool.
 
 ## CLI
 
