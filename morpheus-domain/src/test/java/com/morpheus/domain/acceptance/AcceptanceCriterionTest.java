@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -46,6 +47,7 @@ class AcceptanceCriterionTest {
         assertEquals("The user is asked to authenticate again", criterion.condition());
         assertEquals(VerificationStatus.UNKNOWN, criterion.verificationStatus());
         assertTrue(criterion.verificationEvidenceIds().isEmpty());
+        assertEquals(provenance.evidenceId(), criterion.provenance().evidenceId());
     }
 
     @Test
@@ -104,6 +106,7 @@ class AcceptanceCriterionTest {
         EvidenceId second = EvidenceId.generate();
         List<EvidenceId> expected = new ArrayList<>(List.of(first, second));
         expected.sort(EvidenceId::compareTo);
+        Provenance provenance = provenance();
 
         AcceptanceCriterion criterion = new AcceptanceCriterion(
                 AcceptanceCriterionId.generate(),
@@ -113,11 +116,12 @@ class AcceptanceCriterionTest {
                 "The migrated data matches the source data",
                 VerificationStatus.VERIFIED,
                 List.of(second, first),
-                provenance());
+                provenance);
 
         assertEquals(expected, criterion.verificationEvidenceIds());
-        assertTrue(!criterion.verificationEvidenceIds().contains(criterion.provenance().evidenceId())
-                || expected.contains(criterion.provenance().evidenceId()));
+        assertEquals(provenance.evidenceId(), criterion.provenance().evidenceId());
+        assertNotEquals(provenance.evidenceId(), first);
+        assertNotEquals(provenance.evidenceId(), second);
     }
 
     @Test
