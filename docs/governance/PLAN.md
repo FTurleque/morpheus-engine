@@ -1,12 +1,15 @@
 # Plan de travail — MORPHEUS
 
-Statut : **Brouillon de cadrage**
+Statut : **HISTORIQUE — plan de cadrage C0 / faisabilité M0 exécuté**
 
-Date : 22 juillet 2026
+Date de cadrage : 22 juillet 2026  
+Contextualisation D0 : 26 juillet 2026
 
-La source de vérité fonctionnelle est [`CAHIER_DES_CHARGES.md`](../product/CAHIER_DES_CHARGES.md).
+Ce document conserve le plan de travail utilisé pour C0 et M0. Il n'est plus la roadmap opérationnelle courante : **C0 à M14 sont validés et intégrés**. Pour l'état actuel, consulter [`ROADMAP.md`](ROADMAP.md) et [`../roadmap/POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).
 
-> **Documenter d'abord, décider ensuite, implémenter en dernier.**
+La baseline fonctionnelle C0 est [`CAHIER_DES_CHARGES.md`](../product/CAHIER_DES_CHARGES.md). La politique d'interprétation des documents historiques est [`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md).
+
+> **Règle de travail historique C0 : documenter d'abord, décider ensuite, implémenter en dernier.**
 
 ---
 
