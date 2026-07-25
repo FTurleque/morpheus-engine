@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** Exact M10 read-only MCP tool catalog with strict JSON Schema inputs. */
+/** Exact read-only MCP tool catalog with strict JSON Schema inputs. */
 public final class MorpheusMcpToolCatalog {
     public static final int DEFAULT_LIMIT = 50;
     public static final int MAX_LIMIT = 100;
@@ -34,8 +34,11 @@ public final class MorpheusMcpToolCatalog {
                     schema(required("projectId", "changeId"), props(
                             "projectId", stringId(), "changeId", stringId(),
                             "offset", integer(0, 1_000_000), "limit", integer(1, MAX_LIMIT)))),
-            tool("get_acceptance_criteria", "Return explicit acceptance-criterion capability status for one change; never converts scenarios into criteria.",
-                    schema(required("projectId", "changeId"), props("projectId", stringId(), "changeId", stringId()))),
+            tool("get_acceptance_criteria",
+                    "List explicit persisted acceptance criteria for one change with verification status and evidence; never converts scenarios or test presence into acceptance facts.",
+                    schema(required("projectId", "changeId"), props(
+                            "projectId", stringId(), "changeId", stringId(),
+                            "offset", integer(0, 1_000_000), "limit", integer(1, MAX_LIMIT)))),
             tool("get_design_decisions", "List design decisions explicitly attached to one change.",
                     schema(required("projectId", "changeId"), props(
                             "projectId", stringId(), "changeId", stringId(),
