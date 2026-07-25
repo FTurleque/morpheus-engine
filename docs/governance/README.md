@@ -4,12 +4,15 @@ Les documents de ce groupe servent à piloter et auditer le projet. Ils ne sont 
 
 ## Pilotage
 
-- [`ROADMAP.md`](ROADMAP.md) — état global et gates validés ;
+- [`ROADMAP.md`](ROADMAP.md) — état global, baseline C0→M14 et jalons post-M14 ;
+- [`../roadmap/POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md) — roadmap détaillée D0 + M15→M20 ;
 - [`PLAN.md`](PLAN.md) — plan de travail de cadrage ;
 - [`AUDIT_COHERENCE_C0.md`](AUDIT_COHERENCE_C0.md) — audit de cohérence C0 ;
 - [`../roadmap/`](../roadmap/) — plans d’exécution détaillés par jalon.
 
 La roadmap opérationnelle d’un jalon reste la source de vérité pendant son exécution.
+
+Baseline livrée : **C0 à M14 validés et intégrés**. Suite planifiée : réconciliation documentaire, acceptance/verification/evidence, sémantique des contraintes, mutations contrôlées, multi-provider réel, hardening/scale et release engineering avec installation PROD.
 
 ## Architecture Decision Records
 
