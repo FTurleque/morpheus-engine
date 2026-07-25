@@ -1,14 +1,15 @@
 # Cahier des charges — MORPHEUS
 
-Statut : **Brouillon de cadrage — à valider avant toute implémentation fonctionnelle**
+Statut : **BASELINE C0 VALIDÉE — document de cadrage historique**
 
-Date : 22 juillet 2026
+Date de cadrage : 22 juillet 2026  
+Contextualisation D0 : 26 juillet 2026
 
-Ce document constitue la **source de vérité fonctionnelle et technique de haut niveau** de MORPHEUS pendant la phase C0.
+Ce document constitue la **baseline fonctionnelle et technique de haut niveau validée pendant C0**. La baseline C0→M14 est désormais validée et intégrée ; l'état courant des jalons est porté par [`../governance/ROADMAP.md`](../governance/ROADMAP.md) et la trajectoire post-M14 par [`../roadmap/POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).
 
-Les documents de domaine, contrats et ADR détaillent certaines décisions mais ne peuvent contredire ce cahier des charges sans mise à jour explicite de celui-ci.
+Le vocabulaire prospectif conservé ci-dessous (`candidat`, `à terme`, `il faudra valider`, questions ouvertes C0) décrit le cadrage au moment où il a été établi. Les ADR acceptées, contrats machine, validations et roadmaps ultérieures peuvent le raffiner explicitement sans réécrire cette preuve historique. Voir [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
 
-> **Règle de travail : documenter d'abord, décider ensuite, implémenter en dernier.**
+> **Règle de travail historique C0 : documenter d'abord, décider ensuite, implémenter en dernier.**
 
 ---
 
@@ -407,7 +408,7 @@ TraceabilityLink
 ExternalReference
 ```
 
-Le modèle détaillé est documenté dans [`domain/MODEL.md`](domain/MODEL.md).
+Le modèle détaillé est documenté dans [`../domain/MODEL.md`](../domain/MODEL.md).
 
 ## 6.1 ProjectSpecification
 
@@ -521,7 +522,7 @@ Aucun type du système externe ne doit traverser la frontière du domaine.
 
 # 7. Cycle de vie candidat d'un changement
 
-La machine d'état candidate est documentée dans [`domain/CHANGE_LIFECYCLE.md`](domain/CHANGE_LIFECYCLE.md).
+La machine d'état candidate est documentée dans [`../domain/CHANGE_LIFECYCLE.md`](../domain/CHANGE_LIFECYCLE.md).
 
 Cycle nominal :
 
@@ -595,13 +596,13 @@ OpenSpec Markdown     Autres
     JARVIS    NEXUS    autres
 ```
 
-L'architecture détaillée est décrite dans [`architecture/overview.md`](architecture/overview.md).
+L'architecture détaillée est décrite dans [`../architecture/overview.md`](../architecture/overview.md).
 
 ---
 
 # 9. SpecificationProvider
 
-Le contrat conceptuel est documenté dans [`contracts/SPECIFICATION_PROVIDER.md`](contracts/SPECIFICATION_PROVIDER.md).
+Le contrat conceptuel est documenté dans [`../contracts/SPECIFICATION_PROVIDER.md`](../contracts/SPECIFICATION_PROVIDER.md).
 
 Le provider doit décrire ses capacités effectives.
 
@@ -666,7 +667,7 @@ Il faudra valider :
 - la capacité à reconstruire l'état courant ;
 - la capacité à mapper le cycle de vie sans perte critique.
 
-L'étude dédiée est [`research/openspec-provider-study.md`](research/openspec-provider-study.md).
+L'étude dédiée est [`../research/openspec-provider-study.md`](../research/openspec-provider-study.md).
 
 ---
 
@@ -674,7 +675,7 @@ L'étude dédiée est [`research/openspec-provider-study.md`](research/openspec-
 
 MORPHEUS doit posséder son abstraction de stockage.
 
-Le contrat conceptuel est documenté dans [`contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](contracts/SPECIFICATION_KNOWLEDGE_STORE.md).
+Le contrat conceptuel est documenté dans [`../contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](../contracts/SPECIFICATION_KNOWLEDGE_STORE.md).
 
 Familles de capacités attendues :
 
@@ -924,7 +925,7 @@ Les critères C0/M0 doivent mesurer :
 - capacité à utiliser un backend mémoire ;
 - capacité à reconstruire le store depuis les sources.
 
-La matrice d'expérimentation est [`research/M0_EXPERIMENT_MATRIX.md`](research/M0_EXPERIMENT_MATRIX.md).
+La matrice d'expérimentation est [`../research/M0_EXPERIMENT_MATRIX.md`](../research/M0_EXPERIMENT_MATRIX.md).
 
 ---
 
@@ -932,14 +933,14 @@ La matrice d'expérimentation est [`research/M0_EXPERIMENT_MATRIX.md`](research/
 
 Sous réserve de validation C0, les documents suivants précisent ce cahier des charges :
 
-- [`domain/MODEL.md`](domain/MODEL.md) — concepts et invariants du domaine ;
-- [`domain/CHANGE_LIFECYCLE.md`](domain/CHANGE_LIFECYCLE.md) — machine d'état candidate ;
+- [`../domain/MODEL.md`](../domain/MODEL.md) — concepts et invariants du domaine ;
+- [`../domain/CHANGE_LIFECYCLE.md`](../domain/CHANGE_LIFECYCLE.md) — machine d'état candidate ;
 - [`USE_CASES.md`](USE_CASES.md) — cas d'usage et priorités ;
-- [`contracts/SPECIFICATION_PROVIDER.md`](contracts/SPECIFICATION_PROVIDER.md) — contrat provider ;
-- [`contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](contracts/SPECIFICATION_KNOWLEDGE_STORE.md) — contrat de store ;
-- [`research/openspec-provider-study.md`](research/openspec-provider-study.md) — étude provider de référence ;
-- [`research/M0_EXPERIMENT_MATRIX.md`](research/M0_EXPERIMENT_MATRIX.md) — plan de preuves M0 ;
-- [`adr/`](adr/) — décisions structurantes proposées.
+- [`../contracts/SPECIFICATION_PROVIDER.md`](../contracts/SPECIFICATION_PROVIDER.md) — contrat provider ;
+- [`../contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](../contracts/SPECIFICATION_KNOWLEDGE_STORE.md) — contrat de store ;
+- [`../research/openspec-provider-study.md`](../research/openspec-provider-study.md) — étude provider de référence ;
+- [`../research/M0_EXPERIMENT_MATRIX.md`](../research/M0_EXPERIMENT_MATRIX.md) — plan de preuves M0 ;
+- [`../adr/`](../adr/) — décisions structurantes proposées.
 
 En cas de divergence, la contradiction doit être résolue explicitement ; elle ne doit pas rester implicite dans le dépôt.
 
