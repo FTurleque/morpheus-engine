@@ -77,11 +77,12 @@ flowchart LR
 ## Gouvernance et preuves
 
 - [`governance/README.md`](governance/README.md) — index de gouvernance ;
-- [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global des jalons ;
+- [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global des jalons et synthèse post-M14 ;
+- [`roadmap/POST_M14_EXECUTION.md`](roadmap/POST_M14_EXECUTION.md) — roadmap détaillée D0 + M15→M20 ;
 - [`governance/PLAN.md`](governance/PLAN.md) — plan de travail de cadrage ;
 - [`governance/AUDIT_COHERENCE_C0.md`](governance/AUDIT_COHERENCE_C0.md) — audit C0 ;
 - [`validation/`](validation/) — preuves de validation C0 et M0 à M14 ;
-- [`roadmap/`](roadmap/) — plans d’exécution historiques par jalon ;
+- [`roadmap/`](roadmap/) — plans d’exécution historiques et futurs par jalon ;
 - [`adr/`](adr/) — Architecture Decision Records.
 
 ## Références machine
@@ -90,7 +91,7 @@ flowchart LR
 - [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml) — contrat OpenAPI machine-readable ;
 - [`../distribution/README.md`](../distribution/README.md) — construction et packaging des distributions.
 
-## État livré
+## État livré et suite planifiée
 
 ```text
 C0 → M14       ✅ validés
@@ -99,6 +100,14 @@ M14            ✅ 357/357 PASS
 Architecture   ✅ 160/160 PASS
 Packaging Win  ✅ PASS
 JARVIS         ✅ 536 tests BUILD SUCCESS
+
+D0             ⏳ réconciliation documentaire
+M15            ⏳ acceptance / verification / evidence
+M16            ⏳ constraint semantics
+M17            ⏳ controlled write operations
+M18            ⏳ real multi-provider
+M19            ⏳ production hardening / scale
+M20            ⏳ release engineering / installation PROD / 1.0
 ```
 
 M14 maintient la frontière suivante :
@@ -107,6 +116,8 @@ M14 maintient la frontière suivante :
 MORPHEUS = specification facts + lifecycle rules + transition decisions
 JARVIS   = sequencing + orchestration + action choice
 ```
+
+La cible M20 aligne l’installation Windows sur le standard produit retenu pour MINOS : setup par utilisateur sous `%LOCALAPPDATA%\Programs\MORPHEUS`, données séparées sous `%LOCALAPPDATA%\MORPHEUS`, PATH optionnel, checksums et GitHub Releases. Le ZIP portable reste supporté pour l’automatisation et le diagnostic.
 
 ## Conventions de lecture
 
