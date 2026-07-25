@@ -219,6 +219,7 @@ M11    API HTTP                                ✅ VALIDÉ / INTÉGRÉ — 314/3
 M12    MINOS optionnel                         ✅ VALIDÉ / INTÉGRÉ — 331/331
 M13    NEXUS optionnel                         ✅ VALIDÉ / INTÉGRÉ — 346/346
 M14    JARVIS orchestration contract           ✅ VALIDÉ / INTÉGRÉ — 357/357
+D0     réconciliation documentaire             🚧 EN COURS
 ```
 
 Gate M14 de référence :
@@ -231,6 +232,8 @@ JARVIS          536 tests BUILD SUCCESS
 Client MORPHEUS 6/6 PASS
 ```
 
+Roadmap post-M14 : **D0 → M15 → M16 → M17 → M18 → M19 → M20**. Voir [la roadmap détaillée](docs/roadmap/POST_M14_EXECUTION.md).
+
 ## Documentation
 
 **Point d’entrée : [docs/README.md](docs/README.md)**
@@ -238,14 +241,15 @@ Client MORPHEUS 6/6 PASS
 ```text
 docs/user/        utilisation, quickstart, CLI, intégrations
 docs/developer/   architecture, build/tests, API, MCP, intégrations
-docs/product/     cahier des charges, cas d’usage, MVP
+docs/product/     baseline C0, cas d’usage, MVP historique
 docs/reference/   index des contrats machine
-docs/governance/  roadmap, plan et audit
-docs/validation/  preuves C0 et M0 à M14
+docs/governance/  roadmap courante, politique documentaire, audit
+docs/validation/  preuves historiques C0 et M0 à M14
 docs/adr/         décisions d’architecture
-docs/roadmap/     exécution historique des jalons
+docs/roadmap/     plans historiques M0→M14 + exécution post-M14
 docs/openapi/     OpenAPI machine-readable
 ```
 
 Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
+Politique documentaire : [docs/governance/DOCUMENTATION_STATUS.md](docs/governance/DOCUMENTATION_STATUS.md).  
 Validation M14 : [docs/validation/VALIDATION_M14.md](docs/validation/VALIDATION_M14.md).
