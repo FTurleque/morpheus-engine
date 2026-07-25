@@ -92,7 +92,7 @@ public final class ChangeCompletenessService {
         int currentRequirementCount = traceabilityStore
                 .outgoing(snapshot.id(), changeRef, Set.of(TraceabilityRelationType.AFFECTS))
                 .stream()
-                .map(TraceabilityLink::target)
+                .map(link -> link.target())
                 .filter(target -> target.kind() == TraceabilityEntityKind.REQUIREMENT)
                 .map(TraceabilityEntityRef::identity)
                 .filter(currentRequirementIdentities::contains)
