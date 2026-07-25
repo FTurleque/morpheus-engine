@@ -1,10 +1,12 @@
 # D0 — Réconciliation documentaire post-M14
 
-Statut : **🚧 EN COURS**
+Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #75 à intégrer avant M15**
 
 Dernière mise à jour : 26 juillet 2026
 
-Issue : **#74**
+Issue : **#74**  
+PR : **#75**  
+Validation : [`../validation/VALIDATION_D0.md`](../validation/VALIDATION_D0.md)
 
 ## 1. Objectif
 
@@ -46,74 +48,85 @@ Les instructions de merge présentes dans des plans/validations historiques rest
 
 ## 4. Travaux D0
 
-### D0-S1 — Politique et index
+### D0-S1 — Politique et index ✅
 
 - [x] créer `docs/governance/DOCUMENTATION_STATUS.md` ;
 - [x] créer `docs/roadmap/README.md` ;
 - [x] créer ce plan D0 ;
-- [ ] référencer ces documents depuis les portails actifs.
+- [x] référencer ces documents depuis les portails actifs.
 
-### D0-S2 — Cadrage C0
+### D0-S2 — Cadrage C0 ✅
 
-- [ ] remplacer le statut pré-implémentation du cahier des charges par une baseline C0 validée ;
-- [ ] reclasser `docs/governance/PLAN.md` comme plan historique C0/M0 ;
-- [ ] conserver le contenu de cadrage sans le présenter comme une roadmap courante.
+- [x] remplacer le statut pré-implémentation du cahier des charges par une baseline C0 validée ;
+- [x] reclasser `docs/governance/PLAN.md` comme plan historique C0/M0 ;
+- [x] conserver le contenu de cadrage sans le présenter comme une roadmap courante ;
+- [x] réparer les liens relatifs du cahier déplacés lors du rangement de `docs/`.
 
-### D0-S3 — Historique des jalons
+### D0-S3 — Historique des jalons ✅
 
-- [ ] documenter explicitement que `M*_EXECUTION.md` et `VALIDATION_M*.md` sont des preuves historiques ;
-- [ ] ne pas modifier les SHA, compteurs de tests ou décisions de gate ;
-- [ ] faire prévaloir la roadmap globale lorsqu’un texte historique parle encore d’une fusion future.
+- [x] documenter explicitement que `M*_EXECUTION.md` et `VALIDATION_M*.md` sont des preuves historiques ;
+- [x] ne pas modifier les SHA, compteurs de tests ou décisions de gate ;
+- [x] faire prévaloir la roadmap globale lorsqu’un texte historique parle encore d’une fusion future.
 
-### D0-S4 — Liens et parcours principaux
+### D0-S4 — Liens et parcours principaux ✅
 
-Vérifier l’existence des cibles utilisées par :
-
-```text
-README.md
-docs/README.md
-docs/governance/README.md
-docs/user/README.md
-docs/developer/README.md
-```
-
-Portails critiques :
+Cibles vérifiées :
 
 ```text
-docs/user/QUICKSTART.md
-docs/user/CLI.md
-docs/user/INTEGRATIONS.md
-docs/developer/ARCHITECTURE.md
-docs/developer/BUILD_AND_TEST.md
-docs/developer/API.md
-docs/developer/MCP.md
-docs/developer/INTEGRATIONS.md
-docs/reference/README.md
-docs/openapi/morpheus-v1.yaml
-distribution/README.md
+README.md                              PASS
+docs/README.md                         PASS
+docs/governance/README.md              PASS
+docs/user/README.md                    PASS
+docs/user/QUICKSTART.md                PASS
+docs/user/CLI.md                       PASS
+docs/user/INTEGRATIONS.md              PASS
+docs/developer/README.md               PASS
+docs/developer/ARCHITECTURE.md         PASS
+docs/developer/BUILD_AND_TEST.md       PASS
+docs/developer/API.md                  PASS
+docs/developer/MCP.md                  PASS
+docs/developer/INTEGRATIONS.md         PASS
+docs/reference/README.md               PASS
+docs/openapi/morpheus-v1.yaml          PASS
+distribution/README.md                 PASS
 ```
 
-### D0-S5 — Clôture
+Cibles réparées du cahier :
 
-- [ ] mettre à jour `docs/governance/ROADMAP.md` ;
-- [ ] mettre à jour `POST_M14_EXECUTION.md` ;
-- [ ] créer `docs/validation/VALIDATION_D0.md` ;
-- [ ] fermer l’issue #74 après merge ;
-- [ ] autoriser M15.
+```text
+docs/domain/MODEL.md                              PASS
+docs/domain/CHANGE_LIFECYCLE.md                   PASS
+docs/contracts/SPECIFICATION_PROVIDER.md          PASS
+docs/contracts/SPECIFICATION_KNOWLEDGE_STORE.md   PASS
+docs/architecture/overview.md                     PASS
+docs/research/openspec-provider-study.md           PASS
+docs/research/M0_EXPERIMENT_MATRIX.md             PASS
+```
+
+### D0-S5 — Clôture ✅ gate / ⏳ intégration
+
+- [x] mettre à jour `docs/governance/ROADMAP.md` ;
+- [x] mettre à jour `POST_M14_EXECUTION.md` ;
+- [x] créer `docs/validation/VALIDATION_D0.md` ;
+- [x] préparer M15 comme prochain jalon autorisé après merge ;
+- [ ] merger la PR #75 après autorisation explicite ;
+- [ ] fermer l’issue #74 après merge.
 
 ## 5. Gate D0
 
 ```text
-aucun document actif ne présente M3..M14 comme non intégrés
-cahier des charges aligné avec la baseline livrée
-roadmap post-M14 référencée depuis la gouvernance
-aucun lien documentaire cassé sur les parcours principaux
-preuves historiques de gates conservées sans réécriture
+aucun document actif ne présente M3..M14 comme non intégrés          PASS
+cahier des charges aligné avec la baseline livrée                    PASS
+roadmap post-M14 référencée depuis la gouvernance                    PASS
+aucun lien documentaire cassé sur les parcours principaux           PASS
+preuves historiques de gates conservées sans réécriture              PASS
 ```
+
+**Réponse D0 : OUI.**
 
 ## 6. Suite
 
-Après validation et intégration de D0 :
+Après intégration de la PR #75 :
 
 ```text
 M15 — Acceptance Criteria, Verification & Evidence
