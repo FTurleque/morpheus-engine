@@ -1,19 +1,24 @@
 # Architecture MORPHEUS
 
-Cette page décrit l’architecture logique et technique active après M14. Elle précise le sens des dépendances, le modèle temporel, le lifecycle des snapshots et des changements, le chemin des requêtes ainsi que les frontières MINOS/NEXUS/JARVIS.
+Cette page décrit l’architecture logique et technique active après **M18**. Elle précise le sens des dépendances, la temporalité, les lifecycles, la composition multi-provider et les frontières MINOS/NEXUS/JARVIS.
 
 ## 1. Vue système
 
-MORPHEUS reçoit des sources de spécification, les normalise dans un modèle indépendant du provider, publie des snapshots versionnés, puis expose des services de requête, traçabilité, qualité, analyse et orchestration read-only.
+MORPHEUS reçoit des sources de spécification, les normalise dans un modèle indépendant des providers, compose les contributions compatibles, publie des snapshots versionnés puis expose requêtes, traçabilité, qualité, analyse, orchestration read-only et mutation lifecycle contrôlée.
 
 ```mermaid
 flowchart LR
-    SRC[Sources / workspaces] --> PROVIDERS[Providers]
-    PROVIDERS --> NORM[Normalisation MORPHEUS]
-    NORM --> APP[Services applicatifs]
+    SRC[Sources / workspaces] --> OPEN[OpenSpec]
+    SRC --> MD[Structured Markdown]
+    OPEN --> C[ProviderContribution]
+    MD --> C
+    C --> COMP[MultiProviderCompositionService]
+    COMP --> APP[Services applicatifs]
     APP --> DOMAIN[Domain model]
     APP --> SNAP[KnowledgeSnapshot / SpecificationVersion]
+    COMP --> CST[(Composition state / conflicts)]
     SNAP --> STORE[(Memory / SQLite)]
+    CST --> STORE
 
     CLI[CLI] --> APP
     MCP[MCP STDIO] --> APP
@@ -23,564 +28,232 @@ flowchart LR
     APP -->|port| NEXUS[NEXUS adapter]
     MINOS -->|MCP STDIO| MINOSRT[MINOS process]
     NEXUS -->|MCP STDIO| NEXUSRT[NEXUS process]
-    JARVIS[JARVIS] -->|HTTP read-only| API
+    JARVIS[JARVIS] -->|HTTP local| API
 ```
 
-OpenSpec est le provider de référence initial, mais il ne définit pas le domaine MORPHEUS.
+OpenSpec et Structured Markdown sont deux providers réels validés en M18. Aucun format provider ne définit le domaine MORPHEUS.
 
 ## 2. Architecture en couches
-
-Le cœur suit une architecture hexagonale/ports-adapters simple :
 
 ```text
 adapters -> application -> domain
 ```
 
-```mermaid
-flowchart TB
-    subgraph Adapters
-        CLI
-        API
-        MCP
-        OPENSPEC[OpenSpec provider]
-        SQLITE[SQLite store]
-        MEMORY[Memory store]
-        MINOS[MINOS integration]
-        NEXUS[NEXUS integration]
-    end
+Règles exécutables :
 
-    subgraph Application
-        USECASES[Use cases / services]
-        PORTS[Ports]
-        LIFECYCLE[Lifecycle rules orchestration]
-    end
-
-    subgraph Domain
-        MODEL[Entities / value objects]
-        INVARIANTS[Domain invariants]
-    end
-
-    CLI --> USECASES
-    API --> USECASES
-    MCP --> USECASES
-    OPENSPEC --> PORTS
-    SQLITE --> PORTS
-    MEMORY --> PORTS
-    MINOS --> PORTS
-    NEXUS --> PORTS
-    USECASES --> PORTS
-    USECASES --> MODEL
-    LIFECYCLE --> MODEL
-    PORTS --> MODEL
-    MODEL --> INVARIANTS
+```text
+domain -X-> providers/stores/CLI/MCP/API/integrations
+application -X-> provider/store/transport implementations
+provider-specific types -X-> domain/application
+API -X-> CLI/MCP/integrations
+MORPHEUS -X-> com.jarvis.*
+MINOS adapter -X-> com.minos.*
+NEXUS adapter -X-> com.nexus.*
 ```
 
-### Règles exécutables principales
-
-- `com.morpheus.domain..` ne dépend d’aucun provider, store, CLI, MCP, API, intégration ou implémentation externe ;
-- `com.morpheus.application..` définit use cases et ports sans dépendre des adapters ;
-- l’API HTTP reste un sibling de CLI/MCP ;
-- les intégrations MINOS/NEXUS implémentent des ports applicatifs ;
-- aucune classe MORPHEUS ne dépend de `com.jarvis.*` ;
-- les adapters externes ne doivent pas déplacer dans leur couche des règles qui changent le sens métier.
-
-Ces règles sont contrôlées dans `morpheus-architecture-tests` avec ArchUnit.
+Les règles sont contrôlées par `morpheus-architecture-tests` ; dernière preuve M18 : **170/170 PASS**.
 
 ## 3. Modules Maven
 
-```mermaid
-flowchart TB
-    D[morpheus-domain]
-    A[morpheus-application]
-    P1[morpheus-provider-openspec]
-    P2[morpheus-provider-synthetic]
-    S1[morpheus-store-memory]
-    S2[morpheus-store-sqlite]
-    I1[morpheus-integration-minos]
-    I2[morpheus-integration-nexus]
-    MCP[morpheus-mcp]
-    API[morpheus-api]
-    CLI[morpheus-cli]
-    T[morpheus-architecture-tests]
-
-    A --> D
-    P1 --> A
-    P2 --> A
-    S1 --> A
-    S2 --> A
-    I1 --> A
-    I2 --> A
-    MCP --> A
-    API --> A
-    CLI --> A
-    CLI --> P1
-    CLI --> S2
-    CLI --> I1
-    CLI --> I2
-    CLI --> MCP
-    CLI --> API
-    T -. vérifie .-> D
-    T -. vérifie .-> A
-    T -. vérifie .-> API
+```text
+morpheus-domain
+morpheus-application
+morpheus-provider-openspec
+morpheus-provider-markdown
+morpheus-provider-synthetic
+morpheus-store-memory
+morpheus-store-sqlite
+morpheus-integration-minos
+morpheus-integration-nexus
+morpheus-mcp
+morpheus-api
+morpheus-cli
+morpheus-architecture-tests
 ```
 
-Le parent Maven agrège les modules ; `morpheus-cli` joue le rôle de composition root pour le launcher officiel.
+Le reactor M18 a validé **14/14 modules SUCCESS**. `morpheus-cli` reste le composition root du launcher officiel.
 
-## 4. Domaine : identités et objets principaux
-
-MORPHEUS distingue systématiquement identité logique, version, emplacement source et référence externe.
+## 4. Identités
 
 ```text
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
+SpecificationVersion != KnowledgeSnapshot
+provider identifier != DomainIdentity
+source path != identity
 ```
 
-Vue UML conceptuelle :
+L’identité logique ne se déduit ni de l’ordre de lecture, ni du chemin, ni d’une similarité textuelle.
 
-```mermaid
-classDiagram
-    class ProjectSpecification {
-      +ProjectSpecificationId id
-      +ProjectKey key
-      +String displayName
-    }
-
-    class Specification {
-      +SpecificationId id
-      +TemporalState temporalState
-      +SpecificationVersionId versionId
-    }
-
-    class Requirement {
-      +RequirementId id
-      +String title
-      +String statement
-      +TemporalState temporalState
-    }
-
-    class ChangeProposal {
-      +ChangeId id
-      +String title
-      +ChangeLifecycleState lifecycleState
-    }
-
-    class Constraint {
-      +ConstraintId id
-      +String statement
-    }
-
-    class AcceptanceCriterion {
-      +AcceptanceCriterionId id
-      +String statement
-    }
-
-    class DesignDecision {
-      +DesignDecisionId id
-      +String decision
-    }
-
-    class ImplementationTask {
-      +TaskId id
-      +String description
-    }
-
-    class TraceabilityLink {
-      +TraceabilityLinkId id
-      +TraceabilityRelationType type
-      +ResolutionState resolution
-    }
-
-    class ExternalReference {
-      +String system
-      +String resourceType
-      +String externalId
-      +String version
-    }
-
-    class SpecificationVersion {
-      +SpecificationVersionId id
-      +String sourceRevision
-    }
-
-    class KnowledgeSnapshot {
-      +KnowledgeSnapshotId id
-      +KnowledgeSnapshotState state
-    }
-
-    ProjectSpecification "1" --> "0..*" Specification
-    ProjectSpecification "1" --> "0..*" ChangeProposal
-    Specification "1" --> "0..*" Requirement
-    ChangeProposal "1" --> "0..*" Constraint
-    ChangeProposal "1" --> "0..*" AcceptanceCriterion
-    ChangeProposal "1" --> "0..*" DesignDecision
-    ChangeProposal "1" --> "0..*" ImplementationTask
-    ProjectSpecification "1" --> "0..*" SpecificationVersion
-    ProjectSpecification "1" --> "0..*" KnowledgeSnapshot
-    TraceabilityLink --> Requirement
-    TraceabilityLink --> ChangeProposal
-    Requirement --> ExternalReference
-    ChangeProposal --> ExternalReference
-```
-
-Ce diagramme exprime les responsabilités conceptuelles ; il ne remplace pas les types Java ni les ADR.
-
-## 5. Temporalité : CURRENT / PROPOSED / HISTORICAL
-
-L’état temporel décrit la position d’une information par rapport à la référence publiée.
-
-```mermaid
-stateDiagram-v2
-    [*] --> CURRENT
-    [*] --> PROPOSED
-    CURRENT --> HISTORICAL: publication d'une nouvelle référence
-    PROPOSED --> CURRENT: promotion explicite + activation
-```
-
-Règles :
-
-- une proposition ne fuit jamais implicitement dans `CURRENT` ;
-- une lecture de changement proposé ne modifie pas la référence ;
-- une analyse n’est pas une promotion ;
-- l’historique publié n’est pas réécrit.
-
-## 6. SpecificationVersion et KnowledgeSnapshot
-
-Ces concepts répondent à des questions différentes :
-
-- `SpecificationVersion` : identité/version logique de la spécification ;
-- `KnowledgeSnapshot` : ensemble cohérent de connaissances persistées avec un lifecycle technique.
-
-```mermaid
-classDiagram
-    class SpecificationVersion {
-      +SpecificationVersionId id
-      +ProjectSpecificationId projectId
-      +String sourceRevision
-      +SpecificationVersionId predecessor
-    }
-
-    class KnowledgeSnapshot {
-      +KnowledgeSnapshotId id
-      +KnowledgeSnapshotState state
-      +SpecificationVersionId specificationVersionId
-    }
-
-    SpecificationVersion "1" <-- "1" KnowledgeSnapshot : référence
-```
-
-`SpecificationVersion != KnowledgeSnapshot` reste un invariant explicite.
-
-## 7. Lifecycle d’un KnowledgeSnapshot
-
-États réels du domaine snapshot :
+## 5. Temporalité
 
 ```text
-BUILDING | VALIDATING | READY | ACTIVE | FAILED | RETIRED
+CURRENT | PROPOSED | HISTORICAL
 ```
 
-```mermaid
-stateDiagram-v2
-    [*] --> BUILDING
-    BUILDING --> VALIDATING
-    VALIDATING --> READY: validation réussie
-    VALIDATING --> FAILED: validation échouée
-    READY --> ACTIVE: activation atomique
-    ACTIVE --> RETIRED: un nouveau snapshot devient ACTIVE
-    FAILED --> [*]
-    RETIRED --> [*]
+```text
+PROPOSED never leaks into CURRENT
+published history = RETIRED* -> ACTIVE
+APPLY != PROMOTE != ACTIVATE
 ```
 
-La publication doit respecter une propriété conservatrice : un candidat échoué ne détrône jamais l’ancien `ACTIVE`.
+Une analyse, une requête, une résolution externe ou une évaluation lifecycle ne déclenche aucune promotion implicite.
 
-## 8. Synchronisation publiée
+## 6. KnowledgeSnapshot lifecycle
 
-La synchronisation officielle suit une reconstruction complète conservatrice.
-
-```mermaid
-sequenceDiagram
-    actor Caller
-    participant Surface as CLI / API
-    participant Registry as Project registry
-    participant Provider as Provider
-    participant App as Synchronisation application
-    participant Store as Snapshot store
-
-    Caller->>Surface: sync(projectId, revision?)
-    Surface->>Registry: résoudre projet/workspace
-    Registry-->>Surface: configuration projet
-    Surface->>Provider: découvrir + lire source
-    Provider-->>App: modèle normalisé
-    App->>Store: créer BUILDING
-    App->>Store: persister contenu candidat
-    App->>Store: passer VALIDATING
-    App->>App: valider invariants
-    alt valide
-        App->>Store: READY
-        App->>Store: activation atomique
-        Note over Store: ancien ACTIVE -> RETIRED
-        App-->>Surface: succès + nouveau snapshot
-    else invalide
-        App->>Store: FAILED
-        Note over Store: ancien ACTIVE inchangé
-        App-->>Surface: erreur classifiée
-    end
-    Surface-->>Caller: résultat
+```text
+BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
+                     \-> FAILED
 ```
 
-Une synchronisation n’est pas une simple copie de fichiers : elle reconstruit un modèle normalisé cohérent avant publication.
+Propriété conservatrice : un candidat échoué ne détrône jamais l’ancien `ACTIVE`. M19 renforcera cette propriété sous interruption, corruption, verrouillage et concurrence.
 
-## 9. RequirementDelta : APPLY, PROMOTE, ACTIVATE
+## 7. Composition multi-provider — M18
 
-La chaîne de mutation est explicitement séparée :
+Architecture validée :
+
+```text
+OpenSpec                 Structured Markdown
+   \                         /
+    -> normalized ProviderContribution
+                |
+    MultiProviderCompositionService
+                |
+     explicit precedence policy
+                |
+ composed content + CompositionConflict*
+                |
+      Memory / SQLite V012
+```
+
+Invariants :
+
+```text
+provider ownership is explicit
+same logical entity may have multiple provider observations
+precedence != provenance erasure
+conflict != silent last-write-wins
+ambiguous continuity must be surfaced
+optional provider absence != project failure when optional
+provider-specific types never leak into domain/application
+```
+
+La priorité choisit un candidat principal lorsque nécessaire ; elle ne supprime jamais les observations non sélectionnées. Les conflits de contenu, ownership, type/identité et absence-vs-présence sont des faits explicites.
+
+## 8. RequirementDelta
 
 ```text
 APPLY != PROMOTE != ACTIVATE
 ```
 
-```mermaid
-sequenceDiagram
-    participant Delta as RequirementDelta
-    participant Proposed as Projection PROPOSED
-    participant Current as Projection CURRENT
-    participant Snapshot as Snapshot publication
+Les opérations restent distinctes : appliquer un delta sur une projection proposée, promouvoir explicitement, puis publier/activer selon les invariants de snapshot.
 
-    Delta->>Proposed: APPLY
-    Note over Proposed: modifie la proposition ciblée
-    Proposed->>Current: PROMOTE explicite
-    Note over Current: changement de projection contrôlé
-    Current->>Snapshot: ACTIVATE via publication
-    Note over Snapshot: rend le résultat référence active
-```
+## 9. Change lifecycle et mutation contrôlée — M14→M17
 
-Une analyse, requête, résolution externe ou évaluation lifecycle ne déclenche implicitement aucune de ces étapes.
-
-## 10. Lifecycle d’un ChangeProposal
-
-La machine déterministe est `ChangeLifecycleStateMachine`.
-
-```mermaid
-stateDiagram-v2
-    [*] --> DRAFT
-    DRAFT --> PROPOSED
-    PROPOSED --> SPECIFIED: requirementsIdentified && criticalConstraintsKnown && acceptanceCriteriaDefined
-    SPECIFIED --> DESIGNED: designRequired && designDecisionsAvailable
-    SPECIFIED --> PLANNED: !designRequired && planPresent
-    DESIGNED --> PLANNED: planPresent
-    PLANNED --> IMPLEMENTING: !knownBlocker
-    IMPLEMENTING --> VERIFYING
-    VERIFYING --> COMPLETED: aucun critère bloquant failed/unverified
-    COMPLETED --> ARCHIVED
-
-    DRAFT --> ABANDONED: raison requise
-    PROPOSED --> ABANDONED: raison requise
-    SPECIFIED --> ABANDONED: raison requise
-    DESIGNED --> ABANDONED: raison requise
-    PLANNED --> ABANDONED: raison requise
-    IMPLEMENTING --> ABANDONED: raison requise
-    VERIFYING --> ABANDONED: raison requise
-    ABANDONED --> PROPOSED
-```
-
-Transitions arrière canoniques possibles sous politique explicite :
+Évaluation read-only :
 
 ```text
-SPECIFIED     -> PROPOSED
-DESIGNED      -> SPECIFIED
-PLANNED       -> DESIGNED
-IMPLEMENTING  -> PLANNED
-VERIFYING     -> IMPLEMENTING
-COMPLETED     -> VERIFYING
+ALLOWED | BLOCKED | UNKNOWN | REQUIRES_INPUT
 ```
 
-Elles exigent `allowBackwardTransitions=true`. `COMPLETED -> VERIFYING` exige en plus `allowCompletedReopen=true`.
-
-`ARCHIVED` ne peut pas être rouvert par cette machine.
-
-## 11. Évaluation de transition vs mutation
-
-Le contrat M14 expose seulement une décision read-only :
-
-```mermaid
-sequenceDiagram
-    participant C as Client/JARVIS
-    participant O as ChangeOrchestrationStateService
-    participant E as ChangeTransitionEvaluationService
-    participant SM as ChangeLifecycleStateMachine
-
-    C->>O: lire faits observables
-    O-->>C: lifecycle/faits/manques
-    C->>E: evaluate(from, target, policy)
-    E->>SM: évaluer avec faits connus
-    SM-->>E: allowed/blocked
-    E-->>C: ALLOWED/BLOCKED/UNKNOWN/REQUIRES_INPUT
-    Note over C,SM: aucune transition n'est appliquée
-```
-
-`UNKNOWN` est important : un fait indisponible ne doit jamais être converti en `false` pour fabriquer une décision.
-
-## 12. Traçabilité
-
-`TraceabilityLink` est un concept de premier ordre. MORPHEUS conserve des liens observables, persistés ou déterministement dérivables selon les contrats validés.
+Mutation M17 distincte :
 
 ```text
-absence de lien != lien inventé
-DETERMINISTIC != HEURISTIC
+WRITE_CHANGE capability
++ confirmation
++ expectedRevision / CAS
++ idempotency
++ transition réellement ALLOWED
++ audit append-only
+```
+
+```text
+transition evaluation != lifecycle mutation
+READ_CHANGES != WRITE_CHANGE
+ALLOWED != applied
+published snapshot != operational lifecycle state
+stale revision != overwrite
+idempotent retry != duplicate mutation/audit
+```
+
+JARVIS choisit et séquence l’action ; MORPHEUS évalue les règles et peut appliquer une commande explicite autorisée.
+
+## 10. Acceptance, evidence et contraintes — M15/M16
+
+```text
 Scenario != AcceptanceCriterion
+AcceptanceCriterion != Test
+Test existence != VERIFIED
+Evidence != assertion
+UNKNOWN != FAILED
+UNKNOWN != BLOCKED
+applicable != blocking
+warning != blocker
+severity != blocking policy
 ```
 
-```mermaid
-classDiagram
-    class TraceabilityLink {
-      +EntityRef source
-      +TraceabilityRelationType type
-      +EntityRef target
-      +ResolutionState resolution
-      +LinkOrigin origin
-      +Confidence confidence
-    }
-    class Evidence {
-      +SourceReference source
-      +SourceLocator locator
-      +String excerptHash
-    }
-    class EntityRef
+## 11. MINOS
 
-    TraceabilityLink --> EntityRef : source
-    TraceabilityLink --> EntityRef : target
-    TraceabilityLink --> Evidence : justifié par
-```
-
-Les diagnostics qualité et vues de contexte dérivent de ces faits ; ils ne mutent pas les snapshots.
-
-## 13. Chemin d’une query
-
-```mermaid
-sequenceDiagram
-    actor Caller
-    participant Adapter as CLI / MCP / API
-    participant Query as Application query service
-    participant Repo as Repository port
-    participant Store as SQLite/Memory
-
-    Caller->>Adapter: requête + projectId
-    Adapter->>Query: commande structurée
-    Query->>Repo: lire snapshot ACTIVE
-    Repo->>Store: requête persistée
-    Store-->>Repo: entités snapshot-scoped
-    Repo-->>Query: modèle domaine/application
-    Query-->>Adapter: vue compacte
-    Adapter-->>Caller: texte ou JSON
-```
-
-Les queries sont snapshot-scoped ; elles ne lisent pas directement le workspace source.
-
-## 14. MINOS
-
-```mermaid
-sequenceDiagram
-    participant App as MORPHEUS application
-    participant Port as ExternalReferenceResolver
-    participant Adapter as morpheus-integration-minos
-    participant Minos as MINOS process
-
-    App->>Port: resolve(reference)
-    Port->>Adapter: appel adapter
-    Adapter->>Minos: MCP STDIO
-    Minos-->>Adapter: observation
-    Adapter-->>Port: résultat typé
-    Port-->>App: FOUND/NOT_FOUND/UNAVAILABLE/...
-```
-
-Contraintes :
-
-- aucune dépendance `com.minos.*` ;
-- MINOS n’est pas embarqué ;
-- matching d’identité exact sur `symbolKey` ;
-- observation live séparée de la référence persistée ;
-- `persisted=false` pour la résolution live.
-
-## 15. NEXUS
-
-```mermaid
-sequenceDiagram
-    participant App as MORPHEUS application
-    participant Port as TechnicalContextProvider
-    participant Adapter as morpheus-integration-nexus
-    participant Nexus as NEXUS MCP runner
-
-    App->>App: construire MorpheusIntentContext
-    App->>Port: request(context, budget, filters)
-    Port->>Adapter: appel adapter
-    Adapter->>Nexus: MCP STDIO
-    Nexus->>Nexus: select/rank/fuse/compress
-    Nexus-->>Adapter: ContextBundle
-    Adapter-->>App: ContextBundle persisted=false
-```
-
-Frontière :
+MINOS possède l’intelligence de code. MORPHEUS ne dépend pas de `com.minos.*` et traduit les observations MCP STDIO en résultats provider-neutral de référence externe.
 
 ```text
-MORPHEUS = intention structurée
-NEXUS    = sélection / ranking / fusion / compression / budget
+live external observation != published snapshot mutation
 ```
 
-MORPHEUS ne reranke pas le bundle et ne le persiste pas dans `KnowledgeSnapshot`.
+## 12. NEXUS
 
-## 16. JARVIS
-
-```mermaid
-sequenceDiagram
-    participant J as JARVIS
-    participant API as MORPHEUS HTTP API
-    participant O as Orchestration service
-    participant E as Transition evaluation
-
-    J->>API: GET orchestration
-    API->>O: construire état observable
-    O-->>API: facts + missing/unavailable
-    API-->>J: JSON read-only
-    J->>API: POST transition-check
-    API->>E: évaluer
-    E-->>API: décision
-    API-->>J: ALLOWED/BLOCKED/UNKNOWN/REQUIRES_INPUT
-    Note over J: choisit la prochaine action
-```
-
-Frontière :
+NEXUS possède sélection, ranking, fusion, compression et budget du contexte technique.
 
 ```text
-MORPHEUS = specification facts + lifecycle rules + transition decisions
+MORPHEUS intent != NEXUS ContextBundle
+NEXUS ContextBundle != KnowledgeSnapshot persistence
+```
+
+## 13. JARVIS
+
+```text
+MORPHEUS = specification facts
+           + intent
+           + lifecycle rules
+           + controlled state invariants
+           + provider composition facts
 JARVIS   = sequencing + orchestration + action choice
 ```
 
-MORPHEUS n’applique pas de transition à la demande de ce contrat et ne choisit pas l’action suivante.
+Routes d’orchestration read-only :
 
-## 17. Composition root
+```text
+GET  /api/v1/projects/{projectId}/changes/{changeId}/orchestration
+POST /api/v1/projects/{projectId}/changes/{changeId}/transition-check
+```
 
-`morpheus-cli` porte le launcher officiel `MorpheusMain`. Il compose :
+Mutation contrôlée distincte :
 
-- SQLite ;
-- providers ;
-- intégrations MINOS/NEXUS optionnelles ;
-- serveur MCP ;
-- serveur HTTP ;
-- surfaces CLI.
+```text
+POST /api/v1/projects/{projectId}/changes/{changeId}/lifecycle-transitions
+```
 
-La composition root peut connaître les implémentations concrètes pour les assembler, mais ne doit pas héberger de nouvelle règle métier.
+`MORPHEUS rules != JARVIS action sequencing`.
 
-## 18. Comment décider où ajouter du code ?
+## 14. Surfaces M18
 
-| Besoin | Couche/module |
-|---|---|
-| nouvelle valeur/invariant métier pur | `morpheus-domain` |
-| nouveau use case ou règle d’orchestration métier | `morpheus-application` |
-| lire un nouveau format source | nouveau/ancien `morpheus-provider-*` |
-| nouvelle persistance | `morpheus-store-*` via port applicatif |
-| nouvelle surface HTTP | `morpheus-api` |
-| nouveau tool MCP | `morpheus-mcp` |
-| nouvelle commande et wiring | `morpheus-cli` |
-| appel à un moteur externe | `morpheus-integration-*` via port |
-| interdiction de dépendance | `morpheus-architecture-tests` |
+```text
+CLI  composition sync | status | conflicts
+MCP  get_composition_status | list_composition_conflicts
+HTTP GET /api/v1/projects/{projectId}/composition
+HTTP GET /api/v1/projects/{projectId}/composition/conflicts
+OpenAPI 1.7.0
+SQLite V012
+```
 
-## 19. Décisions d’architecture
+## 15. Baseline validée
 
-Voir [`../adr/README.md`](../adr/README.md). Les ADR restent la source de vérité pour le **pourquoi** des choix ; cette page décrit leur architecture résultante.
+```text
+M18             ✅ VALIDÉ / INTÉGRÉ — PR #86
+Code validé     7e8caacff567f51354fcb88bd7505a6d135071c0
+Merge           30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+Tests           418/418 PASS
+Architecture    170/170 PASS
+Packaging       Windows + smokes + API health PASS
+```
+
+M19 — **Production Hardening, Scale & Operability** — est le prochain jalon. Sa porte de sortie porte sur le déterminisme, l’observabilité et l’exploitabilité à l’échelle avec budgets mesurés.
