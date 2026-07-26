@@ -1,6 +1,9 @@
 name: M19 validation
 
 on:
+  push:
+    branches:
+      - m19/production-hardening-scale-operability
   pull_request:
   workflow_dispatch:
 
