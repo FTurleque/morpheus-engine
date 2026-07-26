@@ -1,12 +1,13 @@
 # M16 — Constraint Semantics & Policy Enforcement
 
-Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #79 Ready**
+Statut : **✅ VALIDÉ / INTÉGRÉ — PR #79**
 
 Dernière mise à jour : 26 juillet 2026
 
-Issue : **#78**  
-Branche : `m16/constraint-semantics-policy`  
-PR : **#79 — Ready**
+Issue : **#78 — closed / completed**  
+PR : **#79 — merged**  
+Merge : `97308005a63854c7cb08dc19cd3cdb02ac739404`  
+Head de code validé : `f349c5f4701665e649d985426d35b5e6a6060e32`
 
 ## 1. Question de sortie
 
@@ -148,7 +149,7 @@ Aucun texte, mot-clé ou niveau de sévérité n'est interprété comme une poli
 - ✅ archive portable créée ;
 - ✅ `VALIDATION_M16.md` ;
 - ✅ ADR-0082 acceptée ;
-- ✅ PR #79 autorisée à passer Ready.
+- ✅ PR #79 mergée dans `main`.
 
 ## 6. Gate M16
 
@@ -178,17 +179,17 @@ dist/morpheus-0.1.0-windows-x64.zip
 33,767,379 bytes
 ```
 
-## 7. Validation
+## 7. Validation et intégration
 
 Preuve autoritative : [`../validation/VALIDATION_M16.md`](../validation/VALIDATION_M16.md).
 
 ```text
-M16       VALIDÉ TECHNIQUEMENT
-ADR-0082  Acceptée — M16
-PR #79    Ready, non mergée
-M17       prochain après intégration M16
+M16       ✅ VALIDÉ / INTÉGRÉ
+ADR-0082  ✅ Acceptée — M16
+PR #79    ✅ MERGED
+Merge     97308005a63854c7cb08dc19cd3cdb02ac739404
 ```
 
 ## 8. Gouvernance
 
-La branche/PR M16 reste isolée de `main` jusqu'à intégration. Aucun merge sans autorisation explicite distincte.
+M16 est intégré à `main`. La preuve technique reste attachée au head de code testé `f349c5f4701665e649d985426d35b5e6a6060e32`; les commits de clôture post-gate sont documentaires uniquement.
