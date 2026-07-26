@@ -3,46 +3,36 @@
 MORPHEUS fonctionne sans MINOS, NEXUS ni JARVIS. Chaque intégration enrichit une capacité précise sans déplacer la propriété du domaine.
 
 ```text
-MORPHEUS = specification / intent / lifecycle rules
+MORPHEUS = specification facts + intent + lifecycle rules + controlled state invariants + provider composition facts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
-JARVIS   = orchestration / sequencing
-```
-
-```mermaid
-flowchart LR
-    M[MORPHEUS]
-    MINOS[MINOS]
-    NEXUS[NEXUS]
-    J[JARVIS]
-
-    M -->|MCP STDIO| MINOS
-    M -->|MCP STDIO| NEXUS
-    J -->|HTTP local /api/v1| M
+JARVIS   = sequencing / orchestration / action choice
 ```
 
 ## 1. Principe d’optionalité
 
-Une intégration externe est toujours traitée comme une capacité additionnelle :
+Une intégration externe est une capacité additionnelle :
 
 - elle ne doit pas empêcher les requêtes MORPHEUS natives ;
 - elle ne doit pas réécrire un snapshot publié à partir d’une observation live ;
-- son indisponibilité doit rester distinguable d’un résultat négatif métier ;
+- son indisponibilité reste distincte d’un résultat négatif métier ;
 - les données d’un moteur externe restent la propriété de ce moteur.
 
-| Intégration | Transport | Activée par défaut | En cas d’absence |
-|---|---|---:|---|
-| MINOS | MCP STDIO inter-processus | non | résolution code indisponible seulement |
-| NEXUS | MCP STDIO inter-processus | non | contexte technique absent seulement |
-| JARVIS | HTTP local | non côté client JARVIS | orchestration continue en fail-open côté JARVIS |
+```text
+optional engine absence != MORPHEUS failure
+```
 
-# 2. MINOS
+Cette règle est distincte de l’optionalité des providers M18 :
 
-MINOS permet à MORPHEUS de résoudre des `ExternalReference` vers des symboles de code.
+```text
+optional provider absence != project failure when optional
+```
 
-## 2.1 Configuration
+## 2. MINOS
 
-Variables d’environnement :
+MINOS permet à MORPHEUS de résoudre des `ExternalReference` vers des symboles de code via MCP STDIO.
+
+Configuration :
 
 ```text
 MORPHEUS_MINOS_JAR
@@ -51,35 +41,13 @@ MORPHEUS_MINOS_HOME
 MORPHEUS_MINOS_TIMEOUT_SECONDS
 ```
 
-Le minimum est `MORPHEUS_MINOS_JAR`, qui pointe vers le JAR autonome `*-all.jar` de MINOS.
-
-Exemple PowerShell :
-
-```powershell
-$env:MORPHEUS_MINOS_JAR = 'N:\workspace-dev\minos-code-intelligence\target\minos-code-intelligence-0.1.0-SNAPSHOT-all.jar'
-```
-
-`MORPHEUS_MINOS_JAVA` permet d’imposer l’exécutable Java utilisé pour lancer le processus externe. `MORPHEUS_MINOS_HOME` fixe son répertoire de travail lorsque nécessaire. Le timeout contrôle la durée maximale d’un échange.
-
-## 2.2 Vérifier l’état
+État :
 
 ```bash
 morpheus --json minos-status
 ```
 
-Sans configuration : `DISABLED`.
-
-Un processus MINOS indisponible ne rend pas MORPHEUS indisponible.
-
-## 2.3 Lister et résoudre une référence
-
-```bash
-morpheus --json external-references list \
-  --project <projectId> \
-  --owner <domainIdentity>
-```
-
-Puis :
+Résolution :
 
 ```bash
 morpheus --json external-references resolve \
@@ -87,29 +55,7 @@ morpheus --json external-references resolve \
   --reference <externalReferenceId>
 ```
 
-```mermaid
-sequenceDiagram
-    actor U as Utilisateur
-    participant M as MORPHEUS
-    participant R as Référence persistée
-    participant X as MINOS
-
-    U->>M: resolve externalReferenceId
-    M->>R: lire ExternalReference
-    M->>X: résolution MCP STDIO
-    alt symbole trouvé
-        X-->>M: observation FOUND
-        M-->>U: référence + observation, persisted=false
-    else indisponible / absent / ambigu
-        X-->>M: statut explicite
-        M-->>U: statut traduit
-    end
-    Note over M,R: aucun snapshot publié n'est réécrit
-```
-
-## 2.4 Résultats possibles
-
-Selon le contrat MINOS, une résolution peut notamment produire :
+Résultats possibles :
 
 ```text
 FOUND
@@ -120,13 +66,13 @@ REVISION_MISMATCH
 UNSUPPORTED
 ```
 
-`NOT_FOUND` n’est pas équivalent à `UNAVAILABLE` : le premier signifie qu’une recherche a pu être effectuée sans trouver le symbole ; le second signifie que la résolution n’a pas pu être obtenue.
+`NOT_FOUND != UNAVAILABLE`. Une observation live expose `persisted=false` et ne réécrit pas le snapshot.
 
-# 3. NEXUS
+## 3. NEXUS
 
 NEXUS construit un contexte technique sous budget à partir d’une intention MORPHEUS.
 
-## 3.1 Configuration
+Configuration :
 
 ```text
 MORPHEUS_NEXUS_JAR
@@ -135,31 +81,13 @@ MORPHEUS_NEXUS_HOME
 MORPHEUS_NEXUS_TIMEOUT_SECONDS
 ```
 
-`MORPHEUS_NEXUS_JAR` pointe vers le runner Java NEXUS, typiquement :
-
-```text
-adapters/mcp-java/target/nexus-mcp-java-0.1.0-SNAPSHOT-runner.jar
-```
-
-Vérifier :
+État :
 
 ```bash
 morpheus --json nexus-status
 ```
 
-Sans configuration : `DISABLED`.
-
-## 3.2 Mapping du projet
-
-Chaque requête NEXUS exige un mapping explicite :
-
-```text
---nexus-project <UUID-ou-nom-unique>
-```
-
-MORPHEUS ne déduit pas ce projet NEXUS à partir du chemin du workspace et ne lance pas lui-même `project add`, index ou rebuild côté NEXUS.
-
-## 3.3 Construire un contexte pour un change
+Exemple change :
 
 ```bash
 morpheus --json augmented-context change \
@@ -169,169 +97,110 @@ morpheus --json augmented-context change \
   --budget 2000
 ```
 
-Pour un requirement :
-
-```bash
-morpheus --json augmented-context requirement \
-  --project <projectId> \
-  --requirement <requirementId> \
-  --nexus-project <id-or-name> \
-  --budget 2000
-```
-
-Sources filtrables :
-
-```text
-FILE | SYMBOL | TEST | DOCUMENTATION | INSTRUCTION | SKILL | GIT
-```
-
-```mermaid
-sequenceDiagram
-    actor U as Utilisateur
-    participant M as MORPHEUS
-    participant N as NEXUS
-
-    U->>M: augmented-context(changeId, nexusProject, budget)
-    M->>M: construire MorpheusIntentContext
-    M->>N: demande MCP + contraintes/budget
-    N->>N: sélectionner / ranker / fusionner / compresser
-    N-->>M: ContextBundle
-    M-->>U: ContextBundle, persisted=false
-    Note over M: MORPHEUS ne reranke pas le bundle
-```
-
-La frontière est volontairement stricte :
+Frontière :
 
 ```text
 MORPHEUS = construction de l'intention déterministe
 NEXUS    = sélection / ranking / fusion / compression / budget technique
 ```
 
-Le `ContextBundle` retourné reste live et `persisted=false`.
+Le `ContextBundle` reste live et `persisted=false`.
 
-# 4. JARVIS
+## 4. JARVIS
 
-JARVIS consomme le contrat HTTP read-only de MORPHEUS pour orchestrer des actions sans importer le domaine MORPHEUS.
+JARVIS consomme les faits et décisions MORPHEUS via l’API HTTP locale. MORPHEUS ne lance pas JARVIS et ne dépend pas de `com.jarvis.*`.
 
-## 4.1 Côté MORPHEUS
-
-Démarrer l’API :
-
-```bash
-morpheus api --host 127.0.0.1 --port 8765
-```
-
-Les routes d’orchestration M14 sont :
+Routes read-only :
 
 ```text
 GET  /api/v1/projects/{projectId}/changes/{changeId}/orchestration
 POST /api/v1/projects/{projectId}/changes/{changeId}/transition-check
 ```
 
-Le `POST` évalue une transition ; il ne l’applique pas.
-
-## 4.2 Côté JARVIS
-
-Configuration validée dans le client JARVIS :
+La décision d’évaluation reste :
 
 ```text
-MORPHEUS_ENABLED=true
-MORPHEUS_URL=http://127.0.0.1:8765
-MORPHEUS_PROJECT_ID=<projectId>
-MORPHEUS_TIMEOUT_SECONDS=3
+ALLOWED | BLOCKED | UNKNOWN | REQUIRES_INPUT
 ```
 
-## 4.3 Séparation des responsabilités
+Une décision `ALLOWED` n’applique aucune transition.
 
-```mermaid
-sequenceDiagram
-    participant J as JARVIS
-    participant M as MORPHEUS API
-    participant L as Lifecycle rules
+M17 ajoute une commande distincte de mutation contrôlée :
 
-    J->>M: GET orchestration state
-    M-->>J: faits + contraintes + lifecycle observable
-    J->>M: POST transition-check
-    M->>L: évaluer la transition
-    L-->>M: ALLOWED/BLOCKED/UNKNOWN/REQUIRES_INPUT
-    M-->>J: décision read-only
-    Note over J: JARVIS choisit l'action suivante
-    Note over M: MORPHEUS n'applique pas la transition
+```text
+POST /api/v1/projects/{projectId}/changes/{changeId}/lifecycle-transitions
+```
+
+Elle exige notamment :
+
+```text
+WRITE_CHANGE
+confirmation
+expectedRevision / CAS
+idempotencyKey
+transition réellement ALLOWED
+audit
 ```
 
 ```text
-MORPHEUS = facts + lifecycle rules + transition decisions
-JARVIS   = sequencing + orchestration + action choice
+transition evaluation != lifecycle mutation
+READ_CHANGES != WRITE_CHANGE
+ALLOWED != applied
+MORPHEUS rules != JARVIS action sequencing
 ```
 
-Le client JARVIS validé est fail-open : si MORPHEUS est désactivé, non configuré, indisponible ou répond avec un contrat incompatible, le provider retourne une absence de contexte plutôt que de faire tomber JARVIS.
+JARVIS choisit l’action et son ordre ; MORPHEUS protège les invariants et applique seulement une commande explicite autorisée.
 
-# 5. Lifecycle et décisions JARVIS
+## 5. Composition provider M18 et intégrations externes
 
-États possibles :
+La composition M18 n’est pas une fusion de responsabilités MINOS/NEXUS/JARVIS. Elle compose des **faits de spécification normalisés** issus de providers MORPHEUS tels qu’OpenSpec et Structured Markdown.
 
 ```text
-DRAFT | PROPOSED | SPECIFIED | DESIGNED | PLANNED
-IMPLEMENTING | VERIFYING | COMPLETED | ARCHIVED | ABANDONED
+OpenSpec + Structured Markdown
+        ↓
+ProviderContribution
+        ↓
+MultiProviderCompositionService
 ```
 
-Décisions :
+Invariants :
 
 ```text
-ALLOWED
-BLOCKED
-UNKNOWN
-REQUIRES_INPUT
+provider identifier != DomainIdentity
+source path != identity
+precedence != provenance erasure
+conflict != silent last-write-wins
+ambiguous continuity must be surfaced
 ```
 
-Sans lifecycle explicitement fourni au contrat d’orchestration :
+MINOS demeure code intelligence, NEXUS contexte technique, JARVIS orchestration.
+
+## 6. Diagnostic
+
+### MINOS/NEXUS reste `DISABLED`
+
+Vérifier que la variable `*_JAR` est visible dans le même processus qui lance MORPHEUS.
+
+### Processus externe présent mais appel en erreur
+
+Vérifier chemin du JAR, Java, répertoire `*_HOME`, timeout, compatibilité MCP et `stderr` MORPHEUS.
+
+### Résultat live différent du snapshot
+
+C’est possible et volontaire : l’observation externe live ne remplace pas l’état publié.
+
+### JARVIS ne reçoit aucun contexte
+
+Vérifier l’API MORPHEUS, `MORPHEUS_URL`, `MORPHEUS_PROJECT_ID`, le même `--db`/layout et `/api/v1/health`.
+
+## 7. Baseline
 
 ```text
-lifecycle.state  = absent
-lifecycle.source = UNAVAILABLE
+M18             ✅ VALIDÉ / INTÉGRÉ — PR #86
+OpenAPI         1.7.0
+MCP             22 read-only + 1 write
+Code validé     7e8caacff567f51354fcb88bd7505a6d135071c0
+Merge           30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
 ```
 
-MORPHEUS ne déduit pas le lifecycle depuis les tâches, timestamps, chemins d’archive ou diagnostics qualité.
-
-# 6. Diagnostic des intégrations
-
-## MINOS/NEXUS reste `DISABLED`
-
-Vérifier que la variable `*_JAR` est visible dans **le même processus** qui lance MORPHEUS.
-
-PowerShell :
-
-```powershell
-$env:MORPHEUS_MINOS_JAR
-$env:MORPHEUS_NEXUS_JAR
-```
-
-## Le processus externe existe mais la requête échoue
-
-Vérifier :
-
-- le chemin du JAR ;
-- l’exécutable Java choisi ;
-- le répertoire `*_HOME` ;
-- le timeout ;
-- la compatibilité du contrat MCP ;
-- `stderr` du processus MORPHEUS.
-
-## Le résultat live diffère du snapshot
-
-C’est possible et volontaire. La référence persistée décrit l’état publié ; l’observation externe live décrit ce que le moteur externe observe au moment de l’appel.
-
-## JARVIS ne reçoit aucun contexte MORPHEUS
-
-Vérifier dans cet ordre :
-
-1. `MORPHEUS_ENABLED=true` côté JARVIS ;
-2. API MORPHEUS démarrée ;
-3. `MORPHEUS_URL` correct ;
-4. `MORPHEUS_PROJECT_ID` présent dans la base de l’API ;
-5. même `--db`/layout que celui utilisé pour la synchronisation ;
-6. disponibilité de la route `/api/v1/health`.
-
-# 7. Documentation développeur
-
-Les ports, adapters, contrats et invariants de dépendances sont détaillés dans [Intégrations développeur](../developer/INTEGRATIONS.md).
+Les ports, adapters et invariants de dépendance sont détaillés dans [Intégrations développeur](../developer/INTEGRATIONS.md).
