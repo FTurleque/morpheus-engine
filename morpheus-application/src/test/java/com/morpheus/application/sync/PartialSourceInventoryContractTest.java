@@ -36,7 +36,7 @@ class PartialSourceInventoryContractTest {
         assertTrue(result.inventory().isEmpty(), "an incomplete scan must not expose a publishable inventory");
         assertFalse(result.failures().isEmpty());
         assertTrue(result.failures().stream().anyMatch(failure ->
-                        failure.location().orElse("").replace('\\', '/').endsWith("missing")
+                        failure.source().orElse("").replace('\\', '/').endsWith("missing")
                                 && failure.message().contains("does not exist")),
                 () -> "missing source root must remain explicit: " + result.failures());
     }

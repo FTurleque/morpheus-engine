@@ -68,7 +68,7 @@ retention incremental growth    <= 128 MiB
 
 Aucun seuil ne peut être relevé après observation d'un échec simplement pour rendre le gate vert.
 
-## 4. Gates implémentés — non encore prouvés
+## 4. Gates implémentés — tests ciblés verts, gate final non encore prouvé
 
 ### Performance / capacité
 
@@ -108,6 +108,8 @@ bounded SQLite lock + stable DATABASE_LOCKED classification
 concurrent successor activation -> one winner
 concurrent readers -> previous or new complete ACTIVE only
 pre-M18/V011-like schema -> V012 migration reapplied
+all public SQLite adapters -> one hardened local connection factory
+SQLite persistent journal owner-only; WAL/SHM absent; NORMAL locking / memory temp store
 ```
 
 ### Observabilité / sécurité locale
@@ -124,9 +126,11 @@ source scan timing
 provider/external timing execution helper
 health != readiness
 readiness performs a real local store operation
+HTTP /health, /readiness and /metrics routes are wired and contract-tested
 ignored directory policy
 symlink non-following by default
 owner-only POSIX/ACL hardening when supported
+pre-existing user parent permissions are preserved
 ```
 
 ## 5. Validateurs
@@ -144,22 +148,22 @@ Linux :
 scripts/validate-m19.sh
 ```
 
-Workflow :
-
-```text
-.github/workflows/m19-validation.yml
-```
+Le Maven Wrapper et les validateurs locaux sont les seules sources de preuve M19. La tentative `.github/workflows/m19-validation.yml` a été supprimée : GitHub Actions n'est ni requise ni autoritative pour ce jalon.
 
 Le validateur Windows est la commande canonique de validation locale utilisateur. Il exécute :
 
 ```text
 workspace / SHA
+clean workspace + exact-head stability
+reference environment manifest and eligibility
 toolchain
 mvnw.cmd clean test
-M19 robustness contracts
+complete M19 robustness/security/operability contracts
 M19 performance gates under -Xmx768m
 Windows portable packaging + smokes
+packaged health/readiness/local metrics smokes
 packaged launcher --json version warmup + 5 measures
+Surefire and architecture totals
 PASS/FAIL summary
 failure-summary automatique
 ```
@@ -172,7 +176,6 @@ Le validateur Linux exécute le protocole logique équivalent. Un PASS Windows n
 Final M19 code SHA     PENDING
 Windows validation     NOT RUN / MISSING
 Linux validation       NOT RUN / MISSING
-GitHub Actions proof   NOT OBSERVED
 Packaging M19          NOT PROVEN
 Benchmarks M19         NOT RUN
 Failures/errors        UNKNOWN UNTIL GATE

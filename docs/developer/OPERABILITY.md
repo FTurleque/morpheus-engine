@@ -32,9 +32,15 @@ store accessible   -> READY
 store unavailable  -> NOT_READY + DATABASE_NOT_READY
 ```
 
-Le endpoint HTTP historique `/health` conserve sa sémantique de liveness. M19 n'annonce pas de nouvelle route HTTP readiness tant qu'une telle route n'est pas effectivement enregistrée dans `MorpheusHttpServer`.
+Les routes HTTP locales réellement enregistrées dans `MorpheusHttpServer` sont :
 
-Le module API expose déjà la projection transport-neutral :
+```text
+GET /api/v1/health      liveness UP
+GET /api/v1/readiness   vraie sonde SQLite READY / NOT_READY (HTTP 503)
+GET /api/v1/metrics     compteurs et timings process-local
+```
+
+Le module API expose les mêmes projections transport-neutral :
 
 ```text
 MorpheusOperabilityApiService.health()
@@ -107,7 +113,7 @@ Les benchmarks M19 utilisent en plus un protocole p95 reproductible séparé ; l
 
 ## Recovery
 
-`RuntimeSnapshotRecovery` est le hook explicite de composition root.
+`RuntimeSnapshotRecovery` est le hook explicite de composition root, exécuté au démarrage des runtimes CLI, API et MCP.
 
 Il ne s'exécute pas implicitement lors d'une simple lecture SQLite.
 
@@ -160,7 +166,17 @@ Windows ACL     owner-only
 
 Les chemins symboliques sont refusés.
 
-`SqliteSpecificationKnowledgeStore` applique le hardening au chemin SQLite principal. Les autres entry points SQLite restent sous audit M19 jusqu'au gate final ; aucun document ne doit annoncer un hardening global avant cette vérification.
+Les neuf adapters SQLite publics passent par `SqliteDatabaseSecurity`. Le factory refuse les chemins symboliques/non réguliers, durcit le fichier principal et ne remplace pas les ACL d'un parent utilisateur préexistant. Les PRAGMA locales imposent notamment :
+
+```text
+foreign_keys = ON
+busy_timeout = 5000
+temp_store = MEMORY
+locking_mode = NORMAL
+journal_mode = PERSIST
+```
+
+Un probe sans donnée crée une fois le rollback journal `-journal`, puis ce fichier réutilisable est durci owner-only avant toute donnée métier. Les sidecars symboliques ou non réguliers sont refusés. Le contrat exécutable vérifie ses permissions pendant et après une transaction ainsi que l'absence de WAL/SHM. Les gates de taille incluent le fichier principal et les sidecars présents.
 
 ## Diagnostics SQLite
 

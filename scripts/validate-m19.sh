@@ -13,6 +13,8 @@ mkdir -p "$LOG_ROOT"
 CURRENT_STAGE=""
 CURRENT_LOG=""
 VALIDATION_SHA=""
+FULL_TEST_SUMMARY=""
+ARCHITECTURE_TEST_SUMMARY=""
 declare -a RESULTS=()
 
 section() {
@@ -51,13 +53,37 @@ final_summary() {
     [[ -n "$VALIDATION_SHA" ]] && echo "SHA:       $VALIDATION_SHA"
     echo "Result:    $outcome"
     echo "Windows proof: NOT EXECUTED BY THIS LINUX VALIDATOR"
+    [[ -n "$FULL_TEST_SUMMARY" ]] && echo "Full reactor tests: $FULL_TEST_SUMMARY"
+    [[ -n "$ARCHITECTURE_TEST_SUMMARY" ]] && echo "Architecture tests: $ARCHITECTURE_TEST_SUMMARY"
     echo
     for entry in "${RESULTS[@]:-}"; do
       IFS='|' read -r name result <<< "$entry"
       printf '%-34s %s\n' "$name" "$result"
     done
+    if grep -Rh 'M19_METRIC' "$LOG_ROOT" --include='*.log' >/dev/null 2>&1; then
+      echo
+      echo "Measured M19 metrics:"
+      grep -Rh 'M19_METRIC' "$LOG_ROOT" --include='*.log' | sort -u
+    fi
   } | tee "$summary"
   echo "Summary file: $summary"
+}
+
+surefire_totals() {
+  python3 - "$1" <<'PY'
+import pathlib
+import sys
+import xml.etree.ElementTree as ET
+
+root = pathlib.Path(sys.argv[1])
+totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0, "suites": 0}
+for report in root.rglob("target/surefire-reports/TEST-*.xml"):
+    suite = ET.parse(report).getroot()
+    for key in ("tests", "failures", "errors", "skipped"):
+        totals[key] += int(suite.attrib.get(key, "0"))
+    totals["suites"] += 1
+print("; ".join(f"{key}: {value}" for key, value in totals.items()))
+PY
 }
 
 run_stage() {
@@ -142,20 +168,65 @@ VALIDATION_SHA=$(git rev-parse HEAD)
 echo "Workspace: $REPO_ROOT"
 echo "Branch:    $(git branch --show-current)"
 echo "SHA:       $VALIDATION_SHA"
-echo "Dirty:     $([[ -n $(git status --porcelain) ]] && echo true || echo false)"
+WORKSPACE_STATUS="$(git status --porcelain)"
+echo "Dirty:     $([[ -n "$WORKSPACE_STATUS" ]] && echo true || echo false)"
+if [[ -n "$WORKSPACE_STATUS" ]]; then
+  printf '%s\n' "$WORKSPACE_STATUS"
+  echo "Exact-head validation requires a clean Git workspace" >&2
+  exit 1
+fi
 record "Workspace / SHA" "PASS"
+
+section "Reference environment"
+LOGICAL_PROCESSORS="$(getconf _NPROCESSORS_ONLN)"
+VISIBLE_RAM_KIB="$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)"
+VISIBLE_RAM_GIB="$(python3 - "$VISIBLE_RAM_KIB" <<'PY'
+import sys
+print(f"{int(sys.argv[1]) / 1024 / 1024:.1f}")
+PY
+)"
+FILESYSTEM_TYPE="$(findmnt -n -o FSTYPE --target "$REPO_ROOT")"
+FILESYSTEM_SOURCE="$(findmnt -n -o SOURCE --target "$REPO_ROOT")"
+{
+  echo "OS:                 $(uname -sr)"
+  echo "Architecture:       $(uname -m)"
+  echo "Logical processors: $LOGICAL_PROCESSORS"
+  echo "Visible RAM GiB:    $VISIBLE_RAM_GIB"
+  echo "Workspace fs:       $FILESYSTEM_TYPE"
+  echo "Workspace source:   $FILESYSTEM_SOURCE"
+  echo "DB fixture fs:      $FILESYSTEM_TYPE (under workspace target/)"
+} | tee "$LOG_ROOT/01-reference-environment.log"
+(( LOGICAL_PROCESSORS >= 4 )) || { echo "Reference environment requires at least 4 logical processors" >&2; exit 1; }
+python3 - "$VISIBLE_RAM_GIB" <<'PY'
+import sys
+if float(sys.argv[1]) < 8.0:
+    raise SystemExit("Reference environment requires at least 8 GiB visible RAM")
+PY
+case "$FILESYSTEM_TYPE" in
+  nfs*|cifs|smb*|fuse.sshfs) echo "Workspace filesystem is not local: $FILESYSTEM_TYPE" >&2; exit 1 ;;
+esac
+record "Reference environment" "PASS"
 
 section "Toolchain"
 command -v java >/dev/null
+if [[ -z "${JAVA_HOME:-}" ]]; then
+  JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
+  export JAVA_HOME
+fi
+echo "JAVA_HOME: $JAVA_HOME"
 java -version 2>&1 | tee "$LOG_ROOT/01-java-version.log"
 chmod +x ./mvnw distribution/build-portable.sh
 ./mvnw --version 2>&1 | tee "$LOG_ROOT/01-maven-version.log"
 record "Toolchain" "PASS"
 
 run_stage "Full Maven reactor" "02-full-reactor.log" ./mvnw clean test
+FULL_TEST_SUMMARY="$(surefire_totals "$REPO_ROOT")"
+ARCHITECTURE_TEST_SUMMARY="$(surefire_totals "$REPO_ROOT/morpheus-architecture-tests")"
+echo "M19_TESTS full=$FULL_TEST_SUMMARY"
+echo "M19_TESTS architecture=$ARCHITECTURE_TEST_SUMMARY"
 run_stage "M19 robustness contracts" "03-robustness.log" ./mvnw \
   -Dsurefire.failIfNoSpecifiedTests=false \
-  -Dtest=LocalSourceInventorySecurityTest,OperationalObservabilityContractTest,LocalWritePermissionHardenerTest,SqliteConcurrencyHardeningTest,SnapshotRecoveryContractTest \
+  -Dtest=LocalSourceInventorySecurityTest,PartialSourceInventoryContractTest,OperationalObservabilityContractTest,OperationalExecutionTest,SensitiveValueRedactorCrossPlatformTest,LocalWritePermissionHardenerTest,ExternalLinkPolicyTest,SqliteLocalSecurityContractTest,SqliteConcurrencyHardeningTest,SqliteConcurrentReaderContractTest,SqliteMigrationCompatibilityM19Test,SnapshotRecoveryContractTest,RuntimeSnapshotRecoveryContractTest,FailedPublishRecoveryContractTest,LocalOperabilityContractTest,MorpheusApiRuntimeRecoveryContractTest \
   test
 run_stage "M19 performance gates" "04-performance-gates.log" ./mvnw \
   -pl morpheus-architecture-tests -am \
@@ -165,6 +236,14 @@ run_stage "M19 performance gates" "04-performance-gates.log" ./mvnw \
   test
 run_stage "Linux portable packaging + smokes" "05-packaging.log" bash distribution/build-portable.sh
 startup_gate
+
+section "Exact-head stability"
+ENDING_SHA="$(git rev-parse HEAD)"
+ENDING_STATUS="$(git status --porcelain)"
+[[ "$ENDING_SHA" == "$VALIDATION_SHA" ]] || { echo "HEAD changed during validation: $VALIDATION_SHA -> $ENDING_SHA" >&2; exit 1; }
+[[ -z "$ENDING_STATUS" ]] || { printf '%s\n' "$ENDING_STATUS"; echo "Workspace changed during validation" >&2; exit 1; }
+echo "Stable SHA: $ENDING_SHA"
+record "Exact-head stability" "PASS"
 
 trap - EXIT
 final_summary PASS

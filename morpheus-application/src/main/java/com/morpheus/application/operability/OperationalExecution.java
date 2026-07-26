@@ -14,6 +14,7 @@ public final class OperationalExecution {
     public <T> T providerRead(String providerId, ThrowingSupplier<T> operation) {
         return execute(
                 "provider.read",
+                OperationalEventCode.PROVIDER_READ_STARTED,
                 OperationalEventCode.PROVIDER_READ_COMPLETED,
                 OperationalEventCode.PROVIDER_READ_FAILED,
                 Map.of("providerId", requireIdentifier(providerId, "providerId")),
@@ -23,6 +24,7 @@ public final class OperationalExecution {
     public <T> T externalCall(String integration, String operationName, ThrowingSupplier<T> operation) {
         return execute(
                 "external." + requireMetricSegment(integration),
+                OperationalEventCode.EXTERNAL_CALL_STARTED,
                 OperationalEventCode.EXTERNAL_CALL_COMPLETED,
                 OperationalEventCode.EXTERNAL_CALL_FAILED,
                 Map.of(
@@ -33,12 +35,13 @@ public final class OperationalExecution {
 
     private <T> T execute(
             String metricName,
+            OperationalEventCode startCode,
             OperationalEventCode successCode,
             OperationalEventCode failureCode,
             Map<String, String> attributes,
             ThrowingSupplier<T> operation) {
         Objects.requireNonNull(operation, "operation");
-        OperationalRecorder.Operation recorded = recorder.begin(metricName, successCode, attributes);
+        OperationalRecorder.Operation recorded = recorder.begin(metricName, startCode, attributes);
         try {
             T result = operation.get();
             recorded.success(successCode, Map.of("outcome", "success"));
@@ -65,7 +68,10 @@ public final class OperationalExecution {
         String normalized = requireIdentifier(value, "integration")
                 .toLowerCase(java.util.Locale.ROOT)
                 .replaceAll("[^a-z0-9]+", "_");
-        return normalized.isEmpty() ? "unknown" : normalized;
+        return switch (normalized) {
+            case "minos", "nexus", "technical_context" -> normalized;
+            default -> "other";
+        };
     }
 
     @FunctionalInterface

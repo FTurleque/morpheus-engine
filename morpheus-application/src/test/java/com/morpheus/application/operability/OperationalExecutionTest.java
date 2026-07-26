@@ -47,4 +47,17 @@ class OperationalExecutionTest {
         assertTrue(events.stream().noneMatch(event -> event.attributes().values().stream()
                 .anyMatch(value -> value.contains("provider-result") || value.contains("external-result"))));
     }
+
+    @Test
+    void unknownExternalIntegrationNamesShareOneBoundedMetricSegment() {
+        OperationalMetrics metrics = new OperationalMetrics();
+        OperationalExecution execution = new OperationalExecution(
+                new OperationalRecorder(OperationalEventSink.noop(), metrics));
+
+        execution.externalCall("tenant-dynamic-1", "query", () -> "one");
+        execution.externalCall("tenant-dynamic-2", "query", () -> "two");
+
+        assertEquals(2L, metrics.snapshot().counters().get("external.other.success"));
+        assertEquals(1, metrics.snapshot().timings().size());
+    }
 }

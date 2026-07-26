@@ -6,6 +6,7 @@ import com.morpheus.application.operability.OperationalRecorder;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /** Adds local publication timing/diagnostics without changing ProjectSnapshotImportService semantics. */
 public final class ObservedProjectSnapshotPublisher {
@@ -21,7 +22,7 @@ public final class ObservedProjectSnapshotPublisher {
 
     public ProjectSnapshotImportResult publishFull(
             NormalizedProjectContent content,
-            String sourceRevision,
+            Optional<String> sourceRevision,
             Instant createdAt) {
         Objects.requireNonNull(content, "content");
         Objects.requireNonNull(sourceRevision, "sourceRevision");

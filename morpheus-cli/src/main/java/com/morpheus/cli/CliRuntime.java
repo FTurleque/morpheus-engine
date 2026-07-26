@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
 import com.morpheus.store.sqlite.SqliteCompositionStateStore;
 import com.morpheus.store.sqlite.SqliteEntityIdentityStore;
@@ -11,6 +12,7 @@ import com.morpheus.store.sqlite.SqliteTraceabilityStore;
 import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Objects;
 
 /** Owns the SQLite adapter set used by one CLI invocation. */
@@ -28,6 +30,7 @@ final class CliRuntime implements AutoCloseable {
     CliRuntime(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
         snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
+        new RuntimeSnapshotRecovery(snapshots).recoverAll(Instant.now());
         requirements = new SqliteVersionedRequirementStore(databasePath);
         content = new SqliteSnapshotBusinessContentStore(databasePath);
         traceability = new SqliteTraceabilityStore(databasePath);

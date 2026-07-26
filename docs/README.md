@@ -97,7 +97,7 @@ Ces documents de cadrage expliquent l’intention fondatrice. Les contrats et é
 ## Références machine
 
 - [`reference/`](reference/) — index des contrats ;
-- [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml) — contrat OpenAPI machine-readable 1.7.0 ;
+- [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml) — contrat OpenAPI machine-readable candidat M19 1.8.0 ;
 - [`../distribution/README.md`](../distribution/README.md) — construction et packaging des distributions.
 
 ## État livré et suite planifiée

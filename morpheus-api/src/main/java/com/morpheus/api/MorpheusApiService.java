@@ -6,6 +6,8 @@ import com.morpheus.application.history.RequirementSnapshotComparisonService;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
+import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
@@ -148,11 +150,13 @@ public final class MorpheusApiService {
                         workspace,
                         projectId,
                         new PersistentEntityIdentityResolver(runtime.identities));
-                ProjectSnapshotImportResult imported = new ProjectSnapshotImportService(
-                        runtime.snapshots,
-                        runtime.requirements,
-                        runtime.content,
-                        runtime.traceability)
+                ProjectSnapshotImportResult imported = new ObservedProjectSnapshotPublisher(
+                        new ProjectSnapshotImportService(
+                                runtime.snapshots,
+                                runtime.requirements,
+                                runtime.content,
+                                runtime.traceability),
+                        LocalOperationalRuntime.recorder())
                         .publishFull(normalized, normalizedRevision, Instant.now());
                 syncService.complete(plan, Instant.now());
                 return map(

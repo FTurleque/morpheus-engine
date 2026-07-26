@@ -3,7 +3,7 @@ package com.morpheus.architecture.m19;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
-import com.morpheus.application.traceability.PersistentTraceabilityLinkIdentityResolver;
+import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -25,6 +25,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.DriverManager;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +53,8 @@ class M19FullPublishPerformanceGate {
         // Warmup is isolated so the measured retention database still contains exactly five published snapshots.
         Path warmupDatabase = tempDir.resolve("full-publish-warmup.db");
         try (Stores warmup = Stores.open(warmupDatabase)) {
-            ProjectSnapshotImportResult result = warmup.publisher().publishFull(content, "warmup", T0.minusSeconds(1));
+            ProjectSnapshotImportResult result = warmup.publisher().publishFull(
+                    content, Optional.of("warmup"), T0.minusSeconds(1));
             assertCounts(result, warmup);
         }
 
@@ -66,7 +68,7 @@ class M19FullPublishPerformanceGate {
                 long started = System.nanoTime();
                 ProjectSnapshotImportResult result = stores.publisher().publishFull(
                         content,
-                        "revision-large-%d".formatted(index),
+                        Optional.of("revision-large-%d".formatted(index)),
                         T0.plusSeconds(index));
                 publishSamples.add(System.nanoTime() - started);
 
@@ -78,7 +80,7 @@ class M19FullPublishPerformanceGate {
                 assertEquals(index, stores.snapshots().listSnapshots(projectId).stream()
                         .filter(snapshot -> snapshot.state() == com.morpheus.domain.snapshot.KnowledgeSnapshotState.RETIRED)
                         .count());
-                databaseSizes.add(Files.size(database));
+                databaseSizes.add(sqliteFootprint(database));
                 System.out.println("M19_METRIC sqlite_size_after_snapshot_" + (index + 1) + "_bytes="
                         + databaseSizes.getLast());
             }
@@ -120,7 +122,33 @@ class M19FullPublishPerformanceGate {
         assertEquals(M19LargeFixtureSupport.GATE_REQUIREMENTS,
                 stores.requirements().listRequirementVersions(result.snapshot().id()).size());
         assertEquals(M19LargeFixtureSupport.GATE_TRACEABILITY_LINKS,
-                stores.traceability().listLinks(result.snapshot().id()).size());
+                persistedTraceabilityLinkCount(stores.database(), result.snapshot().id()));
+    }
+
+    private long persistedTraceabilityLinkCount(
+            Path database,
+            com.morpheus.domain.snapshot.KnowledgeSnapshotId snapshotId) {
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath().normalize());
+             var statement = connection.prepareStatement(
+                     "SELECT COUNT(*) FROM snapshot_traceability_links WHERE snapshot_id = ?")) {
+            statement.setString(1, snapshotId.toString());
+            try (var result = statement.executeQuery()) {
+                return result.next() ? result.getLong(1) : 0L;
+            }
+        } catch (java.sql.SQLException failure) {
+            throw new IllegalStateException("Cannot count persisted M19 traceability links", failure);
+        }
+    }
+
+    private long sqliteFootprint(Path database) throws java.io.IOException {
+        long total = 0L;
+        for (String suffix : List.of("", "-journal", "-wal", "-shm")) {
+            Path entry = Path.of(database + suffix);
+            if (Files.isRegularFile(entry)) {
+                total += Files.size(entry);
+            }
+        }
+        return total;
     }
 
     private NormalizedProjectContent largeContent() {
@@ -142,6 +170,8 @@ class M19FullPublishPerformanceGate {
                 provenance(providerId, 1941, 1, "specification.md", "SPEC-M19-PUBLISH"));
 
         List<Requirement> requirements = new ArrayList<>(M19LargeFixtureSupport.GATE_REQUIREMENTS);
+        List<Evidence> evidence = new ArrayList<>(M19LargeFixtureSupport.GATE_TRACEABILITY_LINKS + 1);
+        evidence.add(evidence(1941, 1, "specification.md"));
         for (int index = 0; index < M19LargeFixtureSupport.GATE_REQUIREMENTS; index++) {
             String key = "REQ-%05d".formatted(index);
             requirements.add(new Requirement(
@@ -151,6 +181,7 @@ class M19FullPublishPerformanceGate {
                     "Requirement %05d".formatted(index),
                     "The M19 full-publish requirement %05d shall remain deterministic at scale.".formatted(index),
                     provenance(providerId, 1943, index, "requirements/%s.md".formatted(key), key)));
+            evidence.add(evidence(1943, index, "requirements/%s.md".formatted(key)));
         }
 
         List<Scenario> scenarios = new ArrayList<>(SCENARIOS);
@@ -162,15 +193,15 @@ class M19FullPublishPerformanceGate {
                     "Scenario %05d".formatted(index),
                     List.of("the deterministic M19 fixture is loaded"),
                     "the scenario %05d is evaluated".formatted(index),
-                    "requirement %s remains traceable".formatted(requirement.externalKey().orElseThrow()),
+                    "requirement %s remains traceable".formatted(requirement.key().orElseThrow()),
                     provenance(providerId, 1945, index, "scenarios/scenario-%05d.md".formatted(index), "SCN-%05d".formatted(index))));
+            evidence.add(evidence(1945, index, "scenarios/scenario-%05d.md".formatted(index)));
         }
 
         return new NormalizedProjectContent(
                 project,
                 List.of(specification),
                 requirements,
-                List.of(),
                 scenarios,
                 List.of(),
                 List.of(),
@@ -178,8 +209,16 @@ class M19FullPublishPerformanceGate {
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of(),
+                evidence,
                 List.of());
+    }
+
+    private Evidence evidence(long namespace, long ordinal, String source) {
+        return new Evidence(
+                new EvidenceId(M19LargeFixtureSupport.deterministicIdentity(namespace, ordinal)),
+                SourceLocator.file(source),
+                Optional.empty(),
+                Optional.empty());
     }
 
     private Provenance provenance(
@@ -198,6 +237,7 @@ class M19FullPublishPerformanceGate {
     }
 
     private record Stores(
+            Path database,
             SqliteSpecificationKnowledgeStore snapshots,
             SqliteVersionedRequirementStore requirements,
             SqliteSnapshotBusinessContentStore businessContent,
@@ -213,9 +253,8 @@ class M19FullPublishPerformanceGate {
                     snapshots,
                     requirements,
                     business,
-                    traceability,
-                    new PersistentTraceabilityLinkIdentityResolver(traceability));
-            return new Stores(snapshots, requirements, business, traceability, publisher);
+                    traceability);
+            return new Stores(database, snapshots, requirements, business, traceability, publisher);
         }
 
         @Override

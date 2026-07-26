@@ -4,12 +4,12 @@ MORPHEUS expose une API JSON locale versionnée. Cette page documente la surface
 
 ```text
 OpenAPI 3.1.0
-API contract version 1.7.0
+API contract version 1.8.0
 base /api/v1
 server par défaut http://127.0.0.1:8765/api/v1
 ```
 
-La version d’URL reste `/api/v1` : les évolutions M12→M18 sont additives et versionnées dans le document OpenAPI.
+La version d’URL reste `/api/v1` : les évolutions M12→M19 sont additives et versionnées dans le document OpenAPI.
 
 ## 1. Démarrage
 
@@ -25,6 +25,8 @@ Vérification minimale :
 
 ```bash
 curl http://127.0.0.1:8765/api/v1/health
+curl http://127.0.0.1:8765/api/v1/readiness
+curl http://127.0.0.1:8765/api/v1/metrics
 curl http://127.0.0.1:8765/api/v1/version
 ```
 
@@ -82,8 +84,12 @@ Un client dépend de `apiVersion`, des champs documentés et des codes d’erreu
 ```text
 GET /api/v1/
 GET /api/v1/health
+GET /api/v1/readiness
+GET /api/v1/metrics
 GET /api/v1/version
 ```
+
+`health` prouve seulement la liveness. `readiness` sonde réellement SQLite et répond HTTP `503` avec `NOT_READY` si cette dépendance locale est indisponible. `metrics` expose uniquement des compteurs et agrégats de durée process-local, sans télémétrie réseau obligatoire.
 
 ## 5. Projets et synchronisation
 
@@ -365,7 +371,7 @@ API health smoke   PASS
 ```
 
 Code testé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
-OpenAPI : **1.7.0**.  
+OpenAPI M18 : **1.7.0**. Le candidat M19 ajoute séparément le contrat **1.8.0** et reste pré-gate jusqu'à sa qualification.
 Preuve : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
 
 ## 18. Voir aussi

@@ -9,7 +9,7 @@ import java.util.Optional;
 
 /** Local-first operability projection shared by transports. */
 public final class LocalOperabilityService {
-    private final SpecificationKnowledgeStore store;
+    private final ReadinessProbe readinessProbe;
     private final OperationalMetrics metrics;
     private final OperationalEventSink eventSink;
 
@@ -17,7 +17,14 @@ public final class LocalOperabilityService {
             SpecificationKnowledgeStore store,
             OperationalMetrics metrics,
             OperationalEventSink eventSink) {
-        this.store = Objects.requireNonNull(store, "store");
+        this(() -> Objects.requireNonNull(store, "store").listProjects().size(), metrics, eventSink);
+    }
+
+    public LocalOperabilityService(
+            ReadinessProbe readinessProbe,
+            OperationalMetrics metrics,
+            OperationalEventSink eventSink) {
+        this.readinessProbe = Objects.requireNonNull(readinessProbe, "readinessProbe");
         this.metrics = Objects.requireNonNull(metrics, "metrics");
         this.eventSink = Objects.requireNonNull(eventSink, "eventSink");
     }
@@ -31,7 +38,7 @@ public final class LocalOperabilityService {
     public Readiness readiness() {
         Instant checkedAt = Instant.now();
         try {
-            int projectCount = store.listProjects().size();
+            int projectCount = readinessProbe.projectCount();
             eventSink.emit(new OperationalEvent(
                     checkedAt,
                     OperationalEventLevel.INFO,
@@ -53,6 +60,15 @@ public final class LocalOperabilityService {
 
     public Snapshot snapshot() {
         return new Snapshot(health(), readiness(), metrics.snapshot());
+    }
+
+    public OperationalMetrics.Snapshot metrics() {
+        return metrics.snapshot();
+    }
+
+    @FunctionalInterface
+    public interface ReadinessProbe {
+        int projectCount();
     }
 
     public record Health(String status, Instant checkedAt) {

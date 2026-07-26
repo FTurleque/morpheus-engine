@@ -11,11 +11,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -108,20 +106,13 @@ class SqliteMigrationCompatibilityM19Test {
     }
 
     private long findV012MigrationRowId(Connection connection, String migrationTable) throws Exception {
-        String sql = "SELECT rowid, * FROM " + quoteIdentifier(migrationTable) + " ORDER BY rowid";
-        try (Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(sql)) {
-            ResultSetMetaData metadata = result.getMetaData();
-            while (result.next()) {
-                StringBuilder row = new StringBuilder();
-                for (int column = 2; column <= metadata.getColumnCount(); column++) {
-                    Object value = result.getObject(column);
-                    if (value != null) {
-                        row.append(value).append('|');
-                    }
-                }
-                String normalized = row.toString().toLowerCase(Locale.ROOT);
-                if (normalized.contains("v012") || normalized.contains("multi_provider_composition")) {
+        String sql = "SELECT rowid FROM " + quoteIdentifier(migrationTable)
+                + " WHERE version = ? AND name = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, 12);
+            statement.setString(2, "multi-provider-composition");
+            try (ResultSet result = statement.executeQuery()) {
+                if (result.next()) {
                     return result.getLong(1);
                 }
             }

@@ -9,7 +9,7 @@ Windows x64 -> dist/morpheus-<version>-windows-x64.zip
 Linux x64   -> dist/morpheus-<version>-linux-x64.tar.gz
 ```
 
-Les archives embarquent leur runtime Java. Aucun JDK séparé n'est requis pour exécuter MORPHEUS depuis une distribution portable.
+Les archives embarquent leur runtime Java, notamment `jdk.httpserver` et `java.sql` pour l'API locale et SQLite. Aucun JDK séparé n'est requis pour exécuter MORPHEUS depuis une distribution portable.
 
 ## Contenu M18
 
@@ -121,7 +121,7 @@ MORPHEUS_NEXUS_TIMEOUT_SECONDS
 
 JARVIS n'est jamais embarqué. Il consomme les contrats HTTP MORPHEUS et reste propriétaire de l'orchestration.
 
-## Surfaces M18 packagées
+## Surfaces M18 + candidat M19 packagées
 
 ```text
 CLI  composition sync/status/conflicts
@@ -129,7 +129,9 @@ MCP  get_composition_status
 MCP  list_composition_conflicts
 HTTP GET /api/v1/projects/{projectId}/composition
 HTTP GET /api/v1/projects/{projectId}/composition/conflicts
-OpenAPI 1.7.0
+HTTP GET /api/v1/readiness
+HTTP GET /api/v1/metrics
+OpenAPI candidat 1.8.0
 SQLite V012
 ```
 

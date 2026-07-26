@@ -20,11 +20,8 @@ import com.morpheus.domain.version.EntityVersionId;
 import com.morpheus.domain.version.SpecificationVersion;
 import com.morpheus.domain.version.SpecificationVersionId;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -42,18 +39,13 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
 
     public SqliteVersionedRequirementStore(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        Path absolutePath = databasePath.toAbsolutePath().normalize();
         Connection opened = null;
         try {
-            Path parent = absolutePath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            opened = DriverManager.getConnection("jdbc:sqlite:" + absolutePath);
+            opened = SqliteDatabaseSecurity.open(databasePath);
             configure(opened);
             new SqliteSchemaManager().migrate(opened);
             this.connection = opened;
-        } catch (SQLException | IOException | RuntimeException exception) {
+        } catch (SQLException | RuntimeException exception) {
             closeQuietly(opened);
             if (exception instanceof KnowledgeStoreException knowledgeStoreException) {
                 throw knowledgeStoreException;
@@ -220,6 +212,30 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
             }
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot store requirement version " + record.entityVersion().id(), exception);
+        }
+    }
+
+    @Override
+    public synchronized void putRequirementVersions(List<RequirementVersionRecord> records) {
+        ensureOpen();
+        List<RequirementVersionRecord> batch = List.copyOf(Objects.requireNonNull(records, "records"));
+        if (batch.isEmpty()) {
+            return;
+        }
+        try {
+            boolean previousAutoCommit = connection.getAutoCommit();
+            try {
+                connection.setAutoCommit(false);
+                batch.forEach(this::putRequirementVersion);
+                connection.commit();
+            } catch (SQLException | RuntimeException failure) {
+                rollbackQuietly();
+                throw failure;
+            } finally {
+                restoreAutoCommit(previousAutoCommit);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot store requirement version batch", exception);
         }
     }
 
@@ -417,6 +433,22 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
             connection.close();
         } catch (SQLException ignored) {
             // Initialization is already failing.
+        }
+    }
+
+    private void rollbackQuietly() {
+        try {
+            connection.rollback();
+        } catch (SQLException ignored) {
+            // Preserve the original batch failure.
+        }
+    }
+
+    private void restoreAutoCommit(boolean autoCommit) {
+        try {
+            connection.setAutoCommit(autoCommit);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode", exception);
         }
     }
 }

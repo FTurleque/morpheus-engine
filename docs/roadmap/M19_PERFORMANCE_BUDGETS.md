@@ -126,7 +126,7 @@ Windows PASS != Linux PASS
 Linux PASS != inferred from Windows
 ```
 
-Le validateur Windows enregistre la preuve Windows. Une workflow ou exécution Linux séparée doit enregistrer la preuve Linux. Si elle n'existe pas, l'état reste explicitement `LINUX PROOF MISSING`.
+Le validateur Windows enregistre la preuve Windows. Une exécution séparée de `scripts/validate-m19.sh` doit enregistrer la preuve Linux. Si elle n'existe pas, l'état reste explicitement `LINUX PROOF MISSING`.
 
 ## 8. Politique anti-déplacement des seuils
 

@@ -10,7 +10,9 @@ import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
+import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.application.store.KnowledgeStoreException;
+import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -23,6 +25,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,6 +52,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusJarvisOrchestrationApiService jarvisOrchestrationService;
     private final MorpheusControlledLifecycleApiService controlledLifecycleService;
     private final MorpheusCompositionApiService compositionService;
+    private final MorpheusOperabilityApiService operabilityService;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final JsonMapper mapper = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -63,7 +67,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
             MorpheusAugmentedContextApiService augmentedContextService,
             MorpheusJarvisOrchestrationApiService jarvisOrchestrationService,
             MorpheusControlledLifecycleApiService controlledLifecycleService,
-            MorpheusCompositionApiService compositionService) {
+            MorpheusCompositionApiService compositionService,
+            MorpheusOperabilityApiService operabilityService) {
         this.server = Objects.requireNonNull(server, "server");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.service = Objects.requireNonNull(service, "service");
@@ -72,6 +77,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.jarvisOrchestrationService = Objects.requireNonNull(jarvisOrchestrationService, "jarvisOrchestrationService");
         this.controlledLifecycleService = Objects.requireNonNull(controlledLifecycleService, "controlledLifecycleService");
         this.compositionService = Objects.requireNonNull(compositionService, "compositionService");
+        this.operabilityService = Objects.requireNonNull(operabilityService, "operabilityService");
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -117,6 +123,9 @@ public final class MorpheusHttpServer implements AutoCloseable {
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
         }
+        try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(databasePath)) {
+            new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
+        }
         try {
             HttpServer httpServer = HttpServer.create(new InetSocketAddress(normalizedHost, port), 0);
             ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -128,7 +137,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
                     new MorpheusAugmentedContextApiService(databasePath, technicalContextProvider),
                     new MorpheusJarvisOrchestrationApiService(databasePath),
                     new MorpheusControlledLifecycleApiService(databasePath, writeCapabilityResolver),
-                    new MorpheusCompositionApiService(databasePath));
+                    new MorpheusCompositionApiService(databasePath),
+                    new MorpheusOperabilityApiService(databasePath));
             httpServer.setExecutor(executor);
             httpServer.createContext(API_PREFIX, result::handle);
             httpServer.start();
@@ -190,6 +200,17 @@ public final class MorpheusHttpServer implements AutoCloseable {
             requireMethod(method, "GET");
             query.rejectUnknown(Set.of());
             return ok(service.health());
+        }
+        if (segments.size() == 1 && segments.getFirst().equals("readiness")) {
+            requireMethod(method, "GET");
+            query.rejectUnknown(Set.of());
+            MorpheusOperabilityApiService.ReadinessView readiness = operabilityService.readiness();
+            return new RouteResponse("READY".equals(readiness.status()) ? 200 : 503, readiness);
+        }
+        if (segments.size() == 1 && segments.getFirst().equals("metrics")) {
+            requireMethod(method, "GET");
+            query.rejectUnknown(Set.of());
+            return ok(operabilityService.metrics());
         }
         if (segments.size() == 1 && segments.getFirst().equals("version")) {
             requireMethod(method, "GET");
@@ -637,8 +658,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private record RouteResponse(int status, Object data) {
         private RouteResponse {
-            if (status < 200 || status > 299) {
-                throw new IllegalArgumentException("route success status must be 2xx");
+            if (status < 200 || status > 599) {
+                throw new IllegalArgumentException("route status must be between 200 and 599");
             }
             Objects.requireNonNull(data, "data");
         }

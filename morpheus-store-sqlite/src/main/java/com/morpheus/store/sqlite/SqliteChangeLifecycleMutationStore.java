@@ -17,11 +17,8 @@ import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -39,18 +36,13 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
 
     public SqliteChangeLifecycleMutationStore(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        Path absolutePath = databasePath.toAbsolutePath().normalize();
         Connection opened = null;
         try {
-            Path parent = absolutePath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            opened = DriverManager.getConnection("jdbc:sqlite:" + absolutePath);
+            opened = SqliteDatabaseSecurity.open(databasePath);
             configure(opened);
             new SqliteSchemaManager().migrate(opened);
             connection = opened;
-        } catch (SQLException | IOException | RuntimeException exception) {
+        } catch (SQLException | RuntimeException exception) {
             closeQuietly(opened);
             if (exception instanceof KnowledgeStoreException knowledgeStoreException) {
                 throw knowledgeStoreException;

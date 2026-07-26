@@ -21,6 +21,11 @@ public interface VersionedRequirementStore {
 
     void putRequirementVersion(RequirementVersionRecord record);
 
+    /** Persists one logical batch; adapters may override to provide an atomic optimized transaction. */
+    default void putRequirementVersions(List<RequirementVersionRecord> records) {
+        List.copyOf(records).forEach(this::putRequirementVersion);
+    }
+
     Optional<RequirementVersionRecord> findRequirementVersion(EntityVersionId entityVersionId);
 
     List<RequirementVersionRecord> listRequirementVersions(KnowledgeSnapshotId snapshotId);

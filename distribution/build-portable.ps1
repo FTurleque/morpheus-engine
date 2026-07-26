@@ -6,15 +6,17 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dist = Join-Path $repo $OutputDirectory
-$work = Join-Path $dist ".m18-windows"
+$work = Join-Path $dist ".m19-windows"
 $input = Join-Path $work "input"
 $appImageRoot = Join-Path $work "image"
 
 $mvnw = Join-Path $repo "mvnw.cmd"
 $jpackage = Join-Path $env:JAVA_HOME "bin\jpackage.exe"
 $jarTool = Join-Path $env:JAVA_HOME "bin\jar.exe"
+$jimageTool = Join-Path $env:JAVA_HOME "bin\jimage.exe"
 if (-not (Test-Path $jpackage)) { throw "jpackage.exe not found under JAVA_HOME=$env:JAVA_HOME" }
 if (-not (Test-Path $jarTool)) { throw "jar.exe not found under JAVA_HOME=$env:JAVA_HOME" }
+if (-not (Test-Path $jimageTool)) { throw "jimage.exe not found under JAVA_HOME=$env:JAVA_HOME" }
 
 function Compress-PortableArchiveWithRetry {
     param([Parameter(Mandatory = $true)][string]$SourceDirectory,
@@ -45,7 +47,7 @@ function Get-FreeLoopbackPort {
     try { return ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port } finally { $listener.Stop() }
 }
 
-function Test-PackagedApiHealth {
+function Test-PackagedApiOperability {
     param([Parameter(Mandatory = $true)][string]$Launcher,
           [Parameter(Mandatory = $true)][string]$WorkDirectory)
     $port = Get-FreeLoopbackPort
@@ -56,24 +58,32 @@ function Test-PackagedApiHealth {
     Remove-Item $stdout, $stderr -Force -ErrorAction SilentlyContinue
     $process = Start-Process -FilePath $Launcher `
         -ArgumentList @("--data-dir", $apiData, "api", "--host", "127.0.0.1", "--port", "$port") `
-        -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+        -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
     try {
-        $uri = "http://127.0.0.1:$port/api/v1/health"
+        $healthUri = "http://127.0.0.1:$port/api/v1/health"
+        $readinessUri = "http://127.0.0.1:$port/api/v1/readiness"
+        $metricsUri = "http://127.0.0.1:$port/api/v1/metrics"
         for ($attempt = 1; $attempt -le 60; $attempt++) {
             if ($process.HasExited) {
                 $diagnostic = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
                 throw "Packaged API exited before health check. stderr=$diagnostic"
             }
             try {
-                $response = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-                if ($response.StatusCode -eq 200 -and $response.Content -match '"status":"UP"') {
-                    Write-Host "Packaged API health smoke: PASS ($uri)"
+                $health = Invoke-WebRequest -Uri $healthUri -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+                $readiness = Invoke-WebRequest -Uri $readinessUri -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+                $metrics = Invoke-WebRequest -Uri $metricsUri -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+                if ($health.StatusCode -eq 200 -and $health.Content -match '"status":"UP"' `
+                        -and $readiness.StatusCode -eq 200 -and $readiness.Content -match '"status":"READY"' `
+                        -and $metrics.StatusCode -eq 200 -and $metrics.Content -match '"counters"') {
+                    Write-Host "Packaged API health smoke: PASS ($healthUri)"
+                    Write-Host "Packaged API readiness smoke: PASS ($readinessUri)"
+                    Write-Host "Packaged API local metrics smoke: PASS ($metricsUri)"
                     return
                 }
             } catch { Start-Sleep -Milliseconds 100 }
         }
         $diagnostic = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
-        throw "Packaged API health smoke timed out. stderr=$diagnostic"
+        throw "Packaged API operability smoke timed out. stderr=$diagnostic"
     } finally {
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
         try { $process.WaitForExit(5000) | Out-Null } catch { }
@@ -81,7 +91,7 @@ function Test-PackagedApiHealth {
     }
 }
 
-Write-Host "Building MORPHEUS CLI + MCP + API + optional MINOS/NEXUS adapters + M14-M18 contracts uber-JAR..."
+Write-Host "Building MORPHEUS CLI + MCP + API + optional MINOS/NEXUS adapters + M14-M19 contracts uber-JAR..."
 & $mvnw -pl morpheus-cli -am -DskipTests package
 if ($LASTEXITCODE -ne 0) { throw "Maven package failed with exit code $LASTEXITCODE" }
 
@@ -89,7 +99,7 @@ $jar = Get-ChildItem (Join-Path $repo "morpheus-cli\target") -Filter "morpheus-c
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($null -eq $jar) { throw "Shaded MORPHEUS CLI JAR not found" }
 
-Write-Host "Verifying MCP/API/MINOS/NEXUS/M14-M18 classes, provider Markdown and V012 migration are embedded in the shaded JAR..."
+Write-Host "Verifying MCP/API/MINOS/NEXUS/M14-M19 classes, provider Markdown and V012 migration are embedded in the shaded JAR..."
 $jarEntries = & $jarTool tf $jar.FullName
 if ($LASTEXITCODE -ne 0) { throw "Unable to inspect shaded JAR" }
 $requiredEntries = @(
@@ -104,6 +114,7 @@ $requiredEntries = @(
     "com/morpheus/api/MorpheusJarvisOrchestrationApiService.class",
     "com/morpheus/api/MorpheusControlledLifecycleApiService.class",
     "com/morpheus/api/MorpheusCompositionApiService.class",
+    "com/morpheus/api/MorpheusOperabilityApiService.class",
     "com/morpheus/cli/MorpheusJarvisOrchestrationCli.class",
     "com/morpheus/cli/MorpheusControlledLifecycleCli.class",
     "com/morpheus/cli/MorpheusCompositionCli.class",
@@ -127,26 +138,26 @@ $requiredEntries = @(
     "tools/jackson/databind/json/JsonMapper.class"
 )
 foreach ($entry in $requiredEntries) {
-    if ($jarEntries -notcontains $entry) { throw "M18 packaging proof failed; shaded JAR is missing $entry" }
+    if ($jarEntries -notcontains $entry) { throw "M19 packaging proof failed; shaded JAR is missing $entry" }
 }
 $embeddedMinosDomain = $jarEntries | Where-Object { $_ -like "com/minos/*" }
-if ($embeddedMinosDomain) { throw "M18 packaging proof failed; MINOS implementation classes must not be embedded: $($embeddedMinosDomain | Select-Object -First 5)" }
+if ($embeddedMinosDomain) { throw "M19 packaging proof failed; MINOS implementation classes must not be embedded: $($embeddedMinosDomain | Select-Object -First 5)" }
 $embeddedNexusDomain = $jarEntries | Where-Object { $_ -like "com/nexus/*" }
-if ($embeddedNexusDomain) { throw "M18 packaging proof failed; NEXUS implementation classes must not be embedded: $($embeddedNexusDomain | Select-Object -First 5)" }
+if ($embeddedNexusDomain) { throw "M19 packaging proof failed; NEXUS implementation classes must not be embedded: $($embeddedNexusDomain | Select-Object -First 5)" }
 $embeddedJarvisDomain = $jarEntries | Where-Object { $_ -like "com/jarvis/*" }
-if ($embeddedJarvisDomain) { throw "M18 packaging proof failed; JARVIS implementation classes must not be embedded: $($embeddedJarvisDomain | Select-Object -First 5)" }
-Write-Host "MCP/API/MINOS/NEXUS/M14-M18 packaging proof: PASS"
+if ($embeddedJarvisDomain) { throw "M19 packaging proof failed; JARVIS implementation classes must not be embedded: $($embeddedJarvisDomain | Select-Object -First 5)" }
+Write-Host "MCP/API/MINOS/NEXUS/M14-M19 packaging proof: PASS"
 
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item $input -ItemType Directory -Force | Out-Null
 New-Item $appImageRoot -ItemType Directory -Force | Out-Null
 Copy-Item $jar.FullName (Join-Path $input "morpheus.jar")
 
-Write-Host "Creating self-contained Windows app-image with embedded runtime + jdk.httpserver..."
+Write-Host "Creating self-contained Windows app-image with embedded runtime + jdk.httpserver + java.sql..."
 & $jpackage --type app-image --name morpheus --app-version $Version `
     --description "MORPHEUS Specification & Intent Intelligence Engine" `
     --input $input --main-jar "morpheus.jar" --main-class "com.morpheus.cli.MorpheusMain" `
-    --add-modules jdk.httpserver --win-console --dest $appImageRoot
+    --add-modules jdk.httpserver,java.sql --win-console --dest $appImageRoot
 if ($LASTEXITCODE -ne 0) { throw "jpackage app-image failed with exit code $LASTEXITCODE" }
 
 $launcher = Join-Path $appImageRoot "morpheus\morpheus.exe"
@@ -173,11 +184,20 @@ Write-Host $nexusStatus
 
 $help = (& $launcher help) -join "`n"
 if ($LASTEXITCODE -ne 0 -or $help -notmatch 'change-orchestration' -or $help -notmatch 'lifecycle apply' -or $help -notmatch 'composition sync') {
-    throw "Packaged M14/M17/M18 CLI help smoke failed: $help"
+    throw "Packaged M14-M19 CLI help smoke failed: $help"
 }
-Write-Host "Packaged standalone optional-engines + M14 read-only + M17 controlled-write + M18 composition surface smoke: PASS"
+Write-Host "Packaged standalone optional-engines + M14-M19 CLI surface smoke: PASS"
 
-Test-PackagedApiHealth -Launcher $launcher -WorkDirectory $work
+Test-PackagedApiOperability -Launcher $launcher -WorkDirectory $work
+
+$packagedModuleImage = Join-Path $appImageRoot "morpheus\runtime\lib\modules"
+$packagedModules = & $jimageTool list $packagedModuleImage
+if ($LASTEXITCODE -ne 0 `
+        -or -not ($packagedModules -match '^Module: jdk\.httpserver$') `
+        -or -not ($packagedModules -match '^Module: java\.sql$')) {
+    throw "Packaged runtime must contain jdk.httpserver and java.sql"
+}
+Write-Host "Packaged jdk.httpserver + java.sql module proof: PASS"
 
 New-Item $dist -ItemType Directory -Force | Out-Null
 $archive = Join-Path $dist "morpheus-$Version-windows-x64.zip"
@@ -185,4 +205,4 @@ Compress-PortableArchiveWithRetry -SourceDirectory (Join-Path $appImageRoot "mor
 if (-not (Test-Path $archive)) { throw "Portable Windows archive is missing after archive creation: $archive" }
 
 Write-Host "Portable Windows distribution: $archive"
-Write-Host "The archive contains MORPHEUS, its Java runtime, MCP/API, optional MINOS/NEXUS client adapters, the M14 read-only orchestration contract, M17 controlled lifecycle mutation and M18 provider-neutral multi-provider composition surfaces. MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."
+Write-Host "The archive contains MORPHEUS, its Java runtime, MCP/API, optional MINOS/NEXUS client adapters, M14 read-only orchestration, M17 controlled lifecycle mutation, M18 composition and M19 local operability surfaces. MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."

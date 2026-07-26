@@ -1,6 +1,5 @@
 package com.morpheus.store.sqlite;
 
-import com.morpheus.application.security.LocalWritePermissionHardener;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.SnapshotConflictException;
@@ -11,10 +10,8 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.domain.source.SourceLocator;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -41,17 +38,9 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
         if (busyTimeoutMillis <= 0 || busyTimeoutMillis > 60_000) {
             throw new IllegalArgumentException("busyTimeoutMillis must be between 1 and 60000");
         }
-        Path absolutePath = databasePath.toAbsolutePath().normalize();
         Connection opened = null;
         try {
-            LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
-            Path parent = absolutePath.getParent();
-            if (parent != null) {
-                hardener.hardenDirectory(parent);
-            }
-            opened = DriverManager.getConnection("jdbc:sqlite:" + absolutePath);
-            hardener.hardenFile(absolutePath);
-            configure(opened, busyTimeoutMillis);
+            opened = SqliteDatabaseSecurity.open(databasePath, busyTimeoutMillis);
             new SqliteSchemaManager().migrate(opened);
             this.connection = opened;
         } catch (SQLException | RuntimeException exception) {
@@ -414,13 +403,6 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     private void rejectPublishedTargetState(KnowledgeSnapshotState targetState) {
         if (targetState == KnowledgeSnapshotState.ACTIVE || targetState == KnowledgeSnapshotState.RETIRED) {
             throw new SnapshotConflictException("ACTIVE/RETIRED states are owned by snapshot activation");
-        }
-    }
-
-    private void configure(Connection connection, int busyTimeoutMillis) throws SQLException {
-        try (Statement statement = connection.createStatement()) {
-            statement.execute("PRAGMA foreign_keys = ON");
-            statement.execute("PRAGMA busy_timeout = " + busyTimeoutMillis);
         }
     }
 

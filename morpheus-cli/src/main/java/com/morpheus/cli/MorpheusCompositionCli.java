@@ -8,6 +8,8 @@ import com.morpheus.application.composition.MultiProviderReadService;
 import com.morpheus.application.composition.ProviderCompositionSource;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
+import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -95,11 +97,13 @@ final class MorpheusCompositionCli {
                     new MultiProviderCompositionService())
                     .read(ProviderReadRequest.all(workspace, projectId), identityResolver, sources);
 
-            var imported = new ProjectSnapshotImportService(
-                    runtime.snapshots,
-                    runtime.requirements,
-                    runtime.content,
-                    runtime.traceability)
+            var imported = new ObservedProjectSnapshotPublisher(
+                    new ProjectSnapshotImportService(
+                            runtime.snapshots,
+                            runtime.requirements,
+                            runtime.content,
+                            runtime.traceability),
+                    LocalOperationalRuntime.recorder())
                     .publishFull(result.content(), options.optional("revision"), Instant.now());
             CompositionSnapshotState state = CompositionSnapshotState.from(imported.snapshot().id(), result);
             runtime.compositions.save(state);

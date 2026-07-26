@@ -2,11 +2,12 @@
 
 Statut : **🚧 EN COURS — Issue #88**
 
-Dernière mise à jour : 26 juillet 2026
+Dernière mise à jour : 27 juillet 2026
 
 Branche : `m19/production-hardening-scale-operability`  
 Base fonctionnelle : M18 merge `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`  
-Base documentaire : head réconcilié PR #87, en attente d'autorisation de merge.
+Base réconciliée : `main@2853318cba7a067a430dbd719d619529fdf85edf`, PR #90 intégrée.
+Historique M19 : 67 commits propres à M19 transplantés sur cette base, équivalence vérifiée par `git range-diff`.
 
 ## 1. Question de sortie
 
@@ -95,10 +96,11 @@ Livrables :
 
 - [x] budgets figés ;
 - [x] ADR-0085 proposée ;
-- [ ] deterministic large fixture generator ;
-- [ ] fixture manifest checksum contract ;
-- [ ] benchmark harness ;
-- [ ] M19 performance gate tests.
+- [x] deterministic large fixture generator ;
+- [x] fixture manifest checksum contract ;
+- [x] benchmark harness ;
+- [x] M19 performance gate tests ;
+- [ ] mesures du gate final exact-head.
 
 ## 6. M19-S2 — Scale sync/query ⏳
 
@@ -121,10 +123,11 @@ incremental planning does not silently alter full-rebuild semantics
 trace traversal remains depth-bounded
 ```
 
-- [ ] benchmark current paths ;
-- [ ] optimize only if a frozen budget requires it ;
-- [ ] add index/query improvements without changing semantics ;
-- [ ] size/growth measurements.
+- [x] benchmark current paths ;
+- [x] preserve deterministic semantics in scale gates ;
+- [x] query/store paths exercised at frozen scale ;
+- [x] size/growth measurement gates implemented ;
+- [ ] final measured results on the exact code SHA.
 
 ## 7. M19-S3 — Robustness / recovery / concurrency ⏳
 
@@ -141,11 +144,12 @@ migration compatibility -> previous schema upgrades safely
 rebuild from sources -> recover authoritative published state
 ```
 
-- [ ] candidate recovery ;
-- [ ] interrupted sync tests ;
-- [ ] DB lock timeout/diagnostic ;
-- [ ] concurrent reader/command tests ;
-- [ ] migration/rebuild tests.
+- [x] candidate recovery ;
+- [x] interrupted sync tests ;
+- [x] DB lock timeout/diagnostic ;
+- [x] concurrent reader/command tests ;
+- [x] migration/rebuild tests ;
+- [x] recovery wired in CLI, API and MCP composition roots.
 
 ## 8. M19-S4 — Local-first observability ⏳
 
@@ -161,12 +165,12 @@ external integration timing
 no mandatory external telemetry
 ```
 
-- [ ] operational event contract ;
-- [ ] local structured sink ;
-- [ ] metrics snapshot ;
-- [ ] readiness endpoint/semantics ;
-- [ ] timing instrumentation ;
-- [ ] tests.
+- [x] operational event contract ;
+- [x] local structured sink ;
+- [x] metrics snapshot ;
+- [x] HTTP readiness and metrics routes with real local dependency probe ;
+- [x] sync/provider/composition/external timing instrumentation ;
+- [x] bounded-cardinality and transport contract tests.
 
 ## 9. M19-S5 — Local security ⏳
 
@@ -180,17 +184,20 @@ external link non-following by default
 write permission hardening
 ```
 
-- [ ] redactor ;
-- [ ] ignored-source policy ;
-- [ ] symlink tests ;
-- [ ] DB/file permissions where platform supports it ;
-- [ ] tests proving safe defaults.
+- [x] redactor ;
+- [x] ignored-source policy ;
+- [x] symlink tests ;
+- [x] all public SQLite entry points hardened without destructive parent ACL rewrite ;
+- [x] SQLite PERSIST journal owner-only, WAL/SHM absence and PRAGMA contract ;
+- [x] tests proving safe defaults.
 
 ## 10. M19-S6 — Cross-platform reproducibility ⏳
 
+- [x] Windows validator implemented ;
+- [x] Linux validator implemented ;
+- [x] platform/environment manifest in each validator ;
 - [ ] Windows validator proof ;
-- [ ] Linux workflow/validator proof ;
-- [ ] platform/environment manifest ;
+- [ ] Linux validator proof if a usable Linux runtime exists ;
 - [ ] explicit `MISSING` state if Linux proof unavailable.
 
 ## 11. M19-S7 — Final gate ⏳
@@ -199,6 +206,7 @@ Expected files :
 
 ```text
 scripts/validate-m19.ps1
+scripts/validate-m19.sh
 validate-m19.cmd
 docs/validation/VALIDATION_M19.md
 ```
@@ -215,7 +223,11 @@ Windows packaging
 packaged smokes
 summary PASS/FAIL
 first-failure summary
+exact-head workspace stability
+separate Windows/Linux evidence
 ```
+
+La source de vérité est le Maven Wrapper et l'exécution locale reproductible des validateurs. GitHub Actions n'est pas une preuve autoritative M19.
 
 PR becomes Ready only after the final gate is green on the exact code SHA. Post-gate commits, if any, must be documentary only and explicitly audited.
 

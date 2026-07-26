@@ -8,6 +8,7 @@ import com.morpheus.application.composition.ProviderContribution;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.store.ProjectStoreEntry;
+import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -97,25 +98,25 @@ class M19CompositionPerformanceGate {
             compositionState.save(CompositionSnapshotState.from(snapshotId, expected));
 
             CompositionQueryService queries = new CompositionQueryService(snapshots, compositionState);
-            var expectedStatus = queries.status(projectId).orElseThrow();
-            var expectedConflicts = queries.conflicts(projectId).orElseThrow();
+            var expectedStatus = queries.findActive(projectId).orElseThrow();
+            var expectedConflicts = expectedStatus.conflicts();
             assertEquals(SHARED_CONFLICTING_REQUIREMENTS, expectedStatus.conflicts().size());
             assertEquals(SHARED_CONFLICTING_REQUIREMENTS, expectedConflicts.size());
 
             for (int index = 0; index < WARMUP_ITERATIONS; index++) {
-                assertEquals(expectedStatus, queries.status(projectId).orElseThrow());
-                assertEquals(expectedConflicts, queries.conflicts(projectId).orElseThrow());
+                assertEquals(expectedStatus, queries.findActive(projectId).orElseThrow());
+                assertEquals(expectedConflicts, queries.findActive(projectId).orElseThrow().conflicts());
             }
 
             List<Long> statusSamples = new ArrayList<>(MEASURED_ITERATIONS);
             List<Long> conflictSamples = new ArrayList<>(MEASURED_ITERATIONS);
             for (int index = 0; index < MEASURED_ITERATIONS; index++) {
                 long statusStarted = System.nanoTime();
-                assertEquals(expectedStatus, queries.status(projectId).orElseThrow());
+                assertEquals(expectedStatus, queries.findActive(projectId).orElseThrow());
                 statusSamples.add(System.nanoTime() - statusStarted);
 
                 long conflictsStarted = System.nanoTime();
-                assertEquals(expectedConflicts, queries.conflicts(projectId).orElseThrow());
+                assertEquals(expectedConflicts, queries.findActive(projectId).orElseThrow().conflicts());
                 conflictSamples.add(System.nanoTime() - conflictsStarted);
             }
 
@@ -151,6 +152,8 @@ class M19CompositionPerformanceGate {
                 provenance(providerId, namespace, 1, "specification.md", "SPEC-M19"));
 
         List<Requirement> requirements = new ArrayList<>(REQUIREMENTS_PER_PROVIDER);
+        List<Evidence> evidence = new ArrayList<>(REQUIREMENTS_PER_PROVIDER + 1);
+        evidence.add(evidence(namespace, 1, "specification.md"));
         for (int index = 0; index < REQUIREMENTS_PER_PROVIDER; index++) {
             boolean shared = index < SHARED_CONFLICTING_REQUIREMENTS;
             String key = secondary && !shared
@@ -166,6 +169,7 @@ class M19CompositionPerformanceGate {
                     "Requirement %05d".formatted(index),
                     statement,
                     provenance(providerId, namespace, 20_000L + index, "requirements/%s.md".formatted(key), key)));
+            evidence.add(evidence(namespace, 20_000L + index, "requirements/%s.md".formatted(key)));
         }
 
         NormalizedProjectContent content = new NormalizedProjectContent(
@@ -179,14 +183,21 @@ class M19CompositionPerformanceGate {
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of(),
-                List.of(),
+                evidence,
                 List.of());
         return new ProviderContribution(
                 providerId,
                 priority,
                 true,
                 new ProviderReadResult(providerId, Optional.of(content), List.of(), List.of()));
+    }
+
+    private Evidence evidence(long namespace, long ordinal, String source) {
+        return new Evidence(
+                new EvidenceId(M19LargeFixtureSupport.deterministicIdentity(namespace + 100, ordinal)),
+                SourceLocator.file(source),
+                Optional.empty(),
+                Optional.empty());
     }
 
     private Provenance provenance(

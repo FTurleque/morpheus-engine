@@ -17,6 +17,8 @@ public final class SensitiveValueRedactor {
 
     private static final Pattern INLINE_SECRET = Pattern.compile(
             "(?i)(token|password|secret|api[_-]?key|authorization|credential)\\s*[=:]\\s*([^\\s,;&]+)");
+    private static final Pattern WINDOWS_DRIVE_ABSOLUTE = Pattern.compile("(?i)^[a-z]:[\\\\/].*");
+    private static final Pattern UNC_ABSOLUTE = Pattern.compile("^(?:\\\\\\\\|//)[^\\\\/]+[\\\\/][^\\\\/]+.*");
 
     public Map<String, String> redact(Map<String, String> attributes) {
         Objects.requireNonNull(attributes, "attributes");
@@ -64,6 +66,10 @@ public final class SensitiveValueRedactor {
     }
 
     private boolean isAbsolutePath(String value) {
+        if (value.startsWith("/") || WINDOWS_DRIVE_ABSOLUTE.matcher(value).matches()
+                || UNC_ABSOLUTE.matcher(value).matches()) {
+            return true;
+        }
         try {
             return Path.of(value).isAbsolute();
         } catch (InvalidPathException ignored) {

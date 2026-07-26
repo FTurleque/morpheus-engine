@@ -1,6 +1,9 @@
 package com.morpheus.application.sync;
 
 import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalEventCode;
+import com.morpheus.application.operability.OperationalRecorder;
 
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
@@ -24,13 +27,19 @@ import java.util.Set;
 /** Local-first scanner. Watcher events may trigger it, but this content scan remains the source of truth. */
 public final class LocalSourceInventoryScanner {
     private final SourceScanPolicy policy;
+    private final OperationalRecorder recorder;
 
     public LocalSourceInventoryScanner() {
-        this(SourceScanPolicy.safeDefaults());
+        this(SourceScanPolicy.safeDefaults(), LocalOperationalRuntime.recorder());
     }
 
     public LocalSourceInventoryScanner(SourceScanPolicy policy) {
+        this(policy, LocalOperationalRuntime.recorder());
+    }
+
+    public LocalSourceInventoryScanner(SourceScanPolicy policy, OperationalRecorder recorder) {
         this.policy = Objects.requireNonNull(policy, "policy");
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     public SourceScanPolicy policy() {
@@ -43,8 +52,41 @@ public final class LocalSourceInventoryScanner {
             Optional<String> sourceRevision,
             Instant capturedAt,
             Collection<Path> sourceRoots) {
+        OperationalRecorder.Operation operation = recorder.begin(
+                "source.scan",
+                OperationalEventCode.SYNC_STARTED,
+                Map.of("projectId", Objects.requireNonNull(projectId, "projectId").toString()));
+        try {
+            SourceInventoryScanResult result = scanInternal(
+                    workspaceRoot, projectId, sourceRevision, capturedAt, sourceRoots);
+            if (result.complete()) {
+                int sourceCount = result.inventory().orElseThrow().entries().size();
+                recorder.metrics().add("source.scan.file_count", sourceCount);
+                operation.success(
+                        OperationalEventCode.SYNC_COMPLETED,
+                        Map.of("sourceCount", Integer.toString(sourceCount)));
+            } else {
+                recorder.metrics().add("source.scan.failure_count", result.failures().size());
+                operation.warning(
+                        OperationalEventCode.SYNC_FAILED,
+                        Map.of("failureCount", Integer.toString(result.failures().size())));
+            }
+            return result;
+        } catch (RuntimeException failure) {
+            operation.failure(
+                    OperationalEventCode.SYNC_FAILED,
+                    Map.of("errorType", failure.getClass().getSimpleName()));
+            throw failure;
+        }
+    }
+
+    private SourceInventoryScanResult scanInternal(
+            Path workspaceRoot,
+            ProjectSpecificationId projectId,
+            Optional<String> sourceRevision,
+            Instant capturedAt,
+            Collection<Path> sourceRoots) {
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
-        Objects.requireNonNull(projectId, "projectId");
         Objects.requireNonNull(sourceRevision, "sourceRevision");
         Objects.requireNonNull(capturedAt, "capturedAt");
         Objects.requireNonNull(sourceRoots, "sourceRoots");

@@ -8,6 +8,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
+import java.util.EnumSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,5 +54,42 @@ class LocalWritePermissionHardenerTest {
         }
 
         assertThrows(LocalWritePermissionHardener.LocalWritePermissionException.class, () -> hardener.hardenFile(link));
+    }
+
+    @Test
+    void preservesPreexistingParentPermissions() throws Exception {
+        LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
+        Path existing = tempDir.resolve("user-owned-parent");
+        Files.createDirectory(existing);
+
+        PosixFileAttributeView posix = Files.getFileAttributeView(
+                existing, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        Set<PosixFilePermission> before = null;
+        if (posix != null) {
+            before = EnumSet.of(
+                    PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE,
+                    PosixFilePermission.OWNER_EXECUTE,
+                    PosixFilePermission.GROUP_READ,
+                    PosixFilePermission.GROUP_EXECUTE);
+            Files.setPosixFilePermissions(existing, before);
+        }
+
+        assertEquals(
+                LocalWritePermissionHardener.Result.PREEXISTING_PRESERVED,
+                hardener.hardenDirectory(existing));
+        if (before != null) {
+            assertEquals(before, Files.getPosixFilePermissions(existing, LinkOption.NOFOLLOW_LINKS));
+        }
+    }
+
+    @Test
+    void refusesNonRegularFileTargets() throws Exception {
+        Path directory = tempDir.resolve("not-a-file");
+        Files.createDirectory(directory);
+
+        assertThrows(
+                LocalWritePermissionHardener.LocalWritePermissionException.class,
+                () -> new LocalWritePermissionHardener().hardenFile(directory));
     }
 }

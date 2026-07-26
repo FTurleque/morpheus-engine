@@ -1,6 +1,7 @@
 package com.morpheus.store.sqlite;
 
 import com.morpheus.application.snapshot.SnapshotLifecycleService;
+import com.morpheus.application.operability.OperationalEventCode;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -59,6 +60,10 @@ class SqliteConcurrencyHardeningTest {
             assertTrue(elapsed.compareTo(Duration.ofSeconds(2)) < 0,
                     () -> "SQLite lock failure exceeded bounded test window: " + elapsed);
             assertNotNull(failure.getCause(), "locked SQLite write must preserve the JDBC cause");
+            assertEquals(
+                    Optional.of(OperationalEventCode.DATABASE_LOCKED),
+                    new SqliteFailureClassifier().classify(failure),
+                    "locked SQLite must expose the stable DATABASE_LOCKED diagnostic");
 
             try (Statement statement = locker.createStatement()) {
                 statement.execute("ROLLBACK");

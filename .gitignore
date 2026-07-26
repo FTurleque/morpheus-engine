@@ -17,6 +17,7 @@
 
 # Local distribution artifacts
 dist/
+validation-output/
 
 # OS
 .DS_Store
