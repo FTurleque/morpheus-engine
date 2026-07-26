@@ -29,6 +29,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MultiProviderCompositionContractTest {
@@ -115,6 +116,23 @@ class MultiProviderCompositionContractTest {
                 .filter(item -> item.providerId().value().equals("optional-missing"))
                 .noneMatch(item -> item.available()));
         assertFalse(result.content().requirements().isEmpty());
+    }
+
+    @Test
+    void unavailableRequiredProviderFailsExplicitly() {
+        Path workspace = fixture("openspec-basic");
+        MultiProviderReadService service = new MultiProviderReadService(
+                List.of(new OpenSpecSpecificationContentReader()),
+                new MultiProviderCompositionService());
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class, () -> service.read(
+                ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
+                new StableIdentityResolver(),
+                List.of(
+                        new ProviderCompositionSource(OpenSpecSpecificationProvider.ID, 100, true),
+                        new ProviderCompositionSource(new ProviderId("required-missing"), 90, true))));
+
+        assertTrue(failure.getMessage().contains("required provider contribution is unavailable"));
     }
 
     private Path fixture(String name) {
