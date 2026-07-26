@@ -166,6 +166,30 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
+    public synchronized List<KnowledgeSnapshotMetadata> listSnapshots(ProjectSpecificationId projectId) {
+        ensureOpen();
+        Objects.requireNonNull(projectId, "projectId");
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT id, predecessor_id, state, source_revision, created_at
+                FROM knowledge_snapshots
+                WHERE project_id = ?
+                ORDER BY created_at, id
+                """)) {
+            statement.setString(1, projectId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                List<KnowledgeSnapshotMetadata> snapshots = new ArrayList<>();
+                while (result.next()) {
+                    KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.parse(result.getString("id"));
+                    snapshots.add(mapSnapshot(snapshotId, projectId, result));
+                }
+                return List.copyOf(snapshots);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot list snapshots for project " + projectId, exception);
+        }
+    }
+
+    @Override
     public synchronized Optional<KnowledgeSnapshotMetadata> activeSnapshot(ProjectSpecificationId projectId) {
         ensureOpen();
         try {
