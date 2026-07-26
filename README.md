@@ -227,7 +227,7 @@ Packaging Windows :
 .\distribution\build-portable.ps1
 ```
 
-Gate M17 mono-commande Windows :
+Dernier gate de jalon mono-commande Windows :
 
 ```powershell
 .\validate-m17.cmd
@@ -242,18 +242,19 @@ C0-M14  plateforme et intégrations fondamentales    ✅ VALIDÉ / INTÉGRÉ
 D0      réconciliation documentaire                 ✅ VALIDÉ / INTÉGRÉ
 M15     acceptance / verification / evidence        ✅ VALIDÉ / INTÉGRÉ — 371/371
 M16     constraint semantics / blocking policy      ✅ VALIDÉ / INTÉGRÉ — 393/393
-M17     controlled lifecycle / write operations     🚧 EN COURS — PR #81 Draft
-M18     real providers / multi-provider             ⏳ PLANIFIÉ
+M17     controlled lifecycle / write operations     ✅ VALIDÉ / INTÉGRÉ — 410/410
+M18     real providers / multi-provider             ⏭ PROCHAIN
 M19     production hardening / scale                ⏳ PLANIFIÉ
 M20     release engineering / PROD / 1.0            ⏳ PLANIFIÉ
 ```
 
-Dernier gate intégré de référence : **M16**.
+Dernier gate intégré de référence : **M17**.
 
 ```text
-MORPHEUS        393/393 PASS
-Architecture    161/161 PASS
+MORPHEUS        410/410 PASS
+Architecture    167/167 PASS
 Packaging       Windows + smokes PASS
+M17 merge       02bdb38669efc85af17343d15e689743362d2e12
 ```
 
 Roadmap post-M14 : **D0 → M15 → M16 → M17 → M18 → M19 → M20**. Voir [la roadmap détaillée](docs/roadmap/POST_M14_EXECUTION.md).
@@ -276,4 +277,4 @@ docs/openapi/     OpenAPI machine-readable
 
 Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
 Politique documentaire : [docs/governance/DOCUMENTATION_STATUS.md](docs/governance/DOCUMENTATION_STATUS.md).  
-Dernière validation intégrée : [docs/validation/VALIDATION_M16.md](docs/validation/VALIDATION_M16.md).
+Dernière validation intégrée : [docs/validation/VALIDATION_M17.md](docs/validation/VALIDATION_M17.md).
