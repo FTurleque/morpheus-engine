@@ -34,7 +34,24 @@ jobs:
         run: chmod +x mvnw
 
       - name: Run full Maven reactor
-        run: ./mvnw -B -ntp clean test
+        shell: bash
+        run: |
+          mkdir -p .ci-logs
+          set -o pipefail
+          {
+            java -version
+            ./mvnw --version
+            ./mvnw -B -ntp clean test
+          } 2>&1 | tee .ci-logs/linux-maven.log
+
+      - name: Upload Linux validation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-maven-log
+          path: .ci-logs/linux-maven.log
+          if-no-files-found: warn
+          retention-days: 7
 
   windows-validation:
     name: Windows — M17 full validation
@@ -52,5 +69,19 @@ jobs:
           cache: maven
 
       - name: Run M17 validator
-        shell: cmd
-        run: validate-m17.cmd -SkipUpdate
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path .ci-logs | Out-Null
+          & .\validate-m17.cmd -SkipUpdate *> .ci-logs\windows-validation.log
+          $exitCode = $LASTEXITCODE
+          Get-Content .ci-logs\windows-validation.log
+          exit $exitCode
+
+      - name: Upload Windows validation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-m17-validation-log
+          path: .ci-logs/windows-validation.log
+          if-no-files-found: warn
+          retention-days: 7
