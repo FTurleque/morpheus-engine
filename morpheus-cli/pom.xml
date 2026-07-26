@@ -26,6 +26,12 @@
         </dependency>
         <dependency>
             <groupId>io.github.fturleque</groupId>
+            <artifactId>morpheus-provider-synthetic</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.github.fturleque</groupId>
             <artifactId>morpheus-store-memory</artifactId>
             <version>${project.version}</version>
         </dependency>
