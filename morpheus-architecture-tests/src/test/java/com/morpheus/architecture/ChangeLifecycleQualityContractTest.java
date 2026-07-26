@@ -118,7 +118,7 @@ class ChangeLifecycleQualityContractTest {
         assertEquals(QualityFactValue.TRUE, observable.lifecycleFacts().designDecisionsAvailable());
         assertEquals(QualityFactValue.TRUE, observable.lifecycleFacts().planPresent());
         assertEquals(QualityFactValue.UNAVAILABLE, observable.lifecycleFacts().criticalConstraintsKnown());
-        assertEquals(QualityFactValue.UNAVAILABLE, observable.lifecycleFacts().acceptanceCriteriaDefined());
+        assertEquals(QualityFactValue.FALSE, observable.lifecycleFacts().acceptanceCriteriaDefined());
         assertEquals(QualityFactValue.UNAVAILABLE, observable.lifecycleFacts().designRequired());
         assertEquals(QualityFactValue.UNAVAILABLE, observable.lifecycleFacts().knownBlocker());
         assertFalse(fixture.observableChange().risks().isEmpty());
@@ -157,11 +157,9 @@ class ChangeLifecycleQualityContractTest {
                 "requirementsIdentified",
                 "criticalConstraintsKnown",
                 "acceptanceCriteriaDefined"), result.requiredFacts());
-        assertEquals(List.of(
-                "criticalConstraintsKnown",
-                "acceptanceCriteriaDefined"), result.unavailableRequiredFacts());
+        assertEquals(List.of("criticalConstraintsKnown"), result.unavailableRequiredFacts());
         assertTrue(result.decision().isEmpty());
-        assertEquals(2, result.findings().size());
+        assertEquals(1, result.findings().size());
         assertTrue(result.findings().stream().allMatch(finding ->
                 finding.code() == QualityFindingCode.LIFECYCLE_REQUIRED_FACT_UNAVAILABLE));
     }
