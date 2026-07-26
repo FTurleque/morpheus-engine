@@ -1,10 +1,10 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — politique documentaire post-M14**
+Statut : **ACTIF — politique documentaire post-M17**
 
 Dernière mise à jour : 26 juillet 2026
 
-Ce document définit comment interpréter la documentation MORPHEUS après l’intégration de C0 à M14. Il évite de confondre l’état courant du produit avec les traces d’exécution et de décision conservées pour l’audit.
+Ce document définit comment interpréter la documentation MORPHEUS après l’intégration de C0 à M17. Il évite de confondre l’état courant du produit avec les traces d’exécution et de décision conservées pour l’audit.
 
 ## 1. Hiérarchie d’autorité
 
@@ -51,7 +51,7 @@ docs/openapi/
 docs/governance/ROADMAP.md
 docs/governance/DOCUMENTATION_STATUS.md
 docs/roadmap/POST_M14_EXECUTION.md
-plan du jalon post-M14 en cours
+plan du jalon actif (M18 lorsqu'il est ouvert)
 ```
 
 Un document actif ne doit pas présenter un jalon déjà intégré comme encore en attente de merge.
@@ -70,6 +70,8 @@ docs/contracts/                    contrats conceptuels de cadrage
 docs/architecture/                 architecture de cadrage historique
 docs/governance/PLAN.md            plan C0/M0 historique
 ```
+
+Les plans d’exécution peuvent recevoir une **note ou section d’intégration finale** (PR mergée, merge commit, jalon suivant) tant que les faits historiques du gate ne sont pas altérés.
 
 Les formulations telles que :
 
@@ -100,14 +102,15 @@ Il ne remplace pas les ADR, contrats machine, roadmaps et validations plus réce
 
 ## 5. Règle de non-réécriture des preuves
 
-D0 ne réécrit pas rétroactivement les résultats des gates M0→M14.
+Les réconciliations documentaires ne réécrivent pas rétroactivement les résultats des gates.
 
 On peut corriger :
 
 - un lien cassé ;
 - un statut documentaire ambigu ;
 - un index ;
-- une note de contextualisation.
+- une note de contextualisation ;
+- l’état d’intégration final d’un plan de jalon.
 
 On ne doit pas altérer :
 
@@ -120,21 +123,22 @@ On ne doit pas altérer :
 ## 6. Baseline actuelle
 
 ```text
-C0 → M14       ✅ validés et intégrés
-M14            ✅ 357/357 PASS
-Architecture   ✅ 160/160 PASS
-Packaging Win  ✅ PASS
-JARVIS         ✅ 536 tests BUILD SUCCESS
+C0 → M17       ✅ validés et intégrés
+M15            ✅ 371/371 PASS | Architecture 157/157
+M16            ✅ 393/393 PASS | Architecture 161/161
+M17            ✅ 410/410 PASS | Architecture 167/167
+Packaging Win  ✅ PASS au gate M17
+M17 merge      ✅ 02bdb38669efc85af17343d15e689743362d2e12
 ```
 
-La trajectoire suivante est définie par `POST_M14_EXECUTION.md` :
+La trajectoire active définie par `POST_M14_EXECUTION.md` est :
 
 ```text
-D0   Documentation reconciliation
-M15  Acceptance / Verification / Evidence
-M16  Constraint semantics / blocking policy
-M17  Controlled write / lifecycle mutations
-M18  Real providers / multi-provider composition
-M19  Production hardening / scale / operability
-M20  Release engineering / installation PROD / MORPHEUS 1.0
+D0   Documentation reconciliation                 ✅ intégré
+M15  Acceptance / Verification / Evidence         ✅ intégré
+M16  Constraint semantics / blocking policy       ✅ intégré
+M17  Controlled write / lifecycle mutations       ✅ intégré
+M18  Real providers / multi-provider composition  ⏭ prochain
+M19  Production hardening / scale / operability   ⏳
+M20  Release engineering / installation PROD / MORPHEUS 1.0 ⏳
 ```
