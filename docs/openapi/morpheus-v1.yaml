@@ -1,31 +1,34 @@
 openapi: 3.1.0
 info:
   title: MORPHEUS Headless API
-  version: 1.6.0
+  version: 1.7.0
   description: >-
     Local-first MORPHEUS HTTP adapter. M12 adds optional MINOS live reference
     resolution. M13 adds optional NEXUS technical-context augmentation. M14 adds
-    a read-only JARVIS orchestration contract exposing explicit lifecycle facts
-    and transition evaluations without mutating snapshots or provider state.
-    M15 adds first-class persisted acceptance criteria with explicit verification
-    status and verification evidence without converting scenarios or test presence
-    into implicit acceptance facts. M16 adds provider-neutral constraint applicability,
-    severity, satisfaction and explicit blocking policy. Constraint text or severity
-    never implies blocking, and UNKNOWN remains distinct from BLOCKED and ALLOWED.
-    M17 adds an explicit side-effecting lifecycle mutation endpoint separated from
-    transition evaluation. Mutations require WRITE_CHANGE capability, confirmation,
-    optimistic expectedRevision/CAS, idempotency and durable audit semantics.
+    a read-only JARVIS orchestration contract. M15 adds first-class persisted
+    acceptance criteria. M16 adds explicit provider-neutral constraint semantics
+    and blocking policy. M17 adds controlled lifecycle mutation with capability,
+    confirmation, optimistic CAS, idempotency and audit. M18 adds provider-neutral
+    multi-provider composition state with deterministic precedence, preserved
+    provenance and explicit queryable conflicts. Provider-specific source types
+    never appear in the public composition contract.
 servers:
   - url: http://127.0.0.1:8765/api/v1
     description: Default local server
 
 paths:
   /:
-    get: {operationId: getApiRoot, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    get:
+      operationId: getApiRoot
+      responses: {'200': {$ref: '#/components/responses/Success'}}
   /health:
-    get: {operationId: getHealth, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    get:
+      operationId: getHealth
+      responses: {'200': {$ref: '#/components/responses/Success'}}
   /version:
-    get: {operationId: getVersion, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    get:
+      operationId: getVersion
+      responses: {'200': {$ref: '#/components/responses/Success'}}
 
   /integrations/minos/status:
     get:
@@ -34,16 +37,20 @@ paths:
   /integrations/nexus/status:
     get:
       operationId: getNexusIntegrationStatus
-      description: Reports DISABLED, INVALID, AVAILABLE or UNAVAILABLE without making NEXUS mandatory.
+      description: Reports integration availability without making NEXUS mandatory.
       responses: {'200': {$ref: '#/components/responses/Success'}}
 
   /projects:
-    get: {operationId: listProjects, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    get:
+      operationId: listProjects
+      responses: {'200': {$ref: '#/components/responses/Success'}}
     post:
       operationId: registerProject
       requestBody:
         required: true
-        content: {application/json: {schema: {$ref: '#/components/schemas/ProjectRegistrationRequest'}}}
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProjectRegistrationRequest'}
       responses:
         '200': {$ref: '#/components/responses/Success'}
         '201': {$ref: '#/components/responses/Success'}
@@ -52,28 +59,95 @@ paths:
 
   /projects/{projectId}:
     parameters: [{$ref: '#/components/parameters/ProjectId'}]
-    get: {operationId: getProject, responses: {'200': {$ref: '#/components/responses/Success'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    get:
+      operationId: getProject
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
   /projects/{projectId}/sync:
     parameters: [{$ref: '#/components/parameters/ProjectId'}]
     post:
       operationId: syncProject
       requestBody:
         required: false
-        content: {application/json: {schema: {$ref: '#/components/schemas/SyncRequest'}}}
-      responses: {'200': {$ref: '#/components/responses/Success'}, '409': {$ref: '#/components/responses/StateConflict'}}
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SyncRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+
   /projects/{projectId}/sync-status:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/MaxAgeMinutes'}]
-    get: {operationId: getSyncStatus, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/MaxAgeMinutes'}
+    get:
+      operationId: getSyncStatus
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
+  /projects/{projectId}/composition:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}]
+    get:
+      operationId: getCompositionStatus
+      description: >-
+        Returns persisted composition metadata attached to the ACTIVE snapshot,
+        including primary provider, provider participation and explicit conflicts.
+        Precedence selects a candidate but never erases alternative observations.
+      responses:
+        '200':
+          description: Snapshot-scoped provider-neutral composition state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CompositionStatusSuccessEnvelope'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+
+  /projects/{projectId}/composition/conflicts:
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
+    get:
+      operationId: listCompositionConflicts
+      description: >-
+        Lists explicit provider-neutral composition conflicts. Every candidate
+        retains provider id, priority, source locator and evidence id.
+      responses:
+        '200':
+          description: Paginated explicit composition conflicts.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CompositionConflictPageSuccessEnvelope'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/StateConflict'}
 
   /projects/{projectId}/specifications:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: listSpecifications, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
+    get:
+      operationId: listSpecifications
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/specifications/{specificationId}:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/SpecificationId'}]
-    get: {operationId: getSpecification, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/SpecificationId'}
+    get:
+      operationId: getSpecification
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/specifications/{specificationId}/context:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/SpecificationId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: getSpecificationContext, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/SpecificationId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
+    get:
+      operationId: getSpecificationContext
+      responses: {'200': {$ref: '#/components/responses/Success'}}
 
   /projects/{projectId}/requirements:
     parameters:
@@ -81,21 +155,38 @@ paths:
       - {name: query, in: query, schema: {type: string, default: ''}}
       - {$ref: '#/components/parameters/Offset'}
       - {$ref: '#/components/parameters/Limit'}
-    get: {operationId: findRequirements, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    get:
+      operationId: findRequirements
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/requirements/{requirementId}:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/RequirementId'}]
-    get: {operationId: getRequirement, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/RequirementId'}
+    get:
+      operationId: getRequirement
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/requirements/{requirementId}/trace:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/RequirementId'}, {$ref: '#/components/parameters/Depth'}]
-    get: {operationId: traceRequirement, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/RequirementId'}
+      - {$ref: '#/components/parameters/Depth'}
+    get:
+      operationId: traceRequirement
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/requirements/{requirementId}/augmented-context:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/RequirementId'}]
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/RequirementId'}
     post:
       operationId: getAugmentedRequirementContext
-      description: Builds live NEXUS technical context from deterministic MORPHEUS requirement intent; no context is persisted.
       requestBody:
         required: true
-        content: {application/json: {schema: {$ref: '#/components/schemas/AugmentedContextRequest'}}}
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AugmentedContextRequest'}
       responses:
         '200': {$ref: '#/components/responses/Success'}
         '400': {$ref: '#/components/responses/BadRequest'}
@@ -104,28 +195,38 @@ paths:
         '415': {$ref: '#/components/responses/UnsupportedMediaType'}
 
   /projects/{projectId}/changes:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: listChanges, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
+    get:
+      operationId: listChanges
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/changes/{changeId}:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
-    get: {operationId: getChange, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
+    get:
+      operationId: getChange
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/changes/{changeId}/constraints:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
     get:
       operationId: getConstraints
-      description: >-
-        Returns the stable compact persisted constraint list. Target-specific M16 policy
-        evaluation is exposed through orchestration and transition-check; no blocking
-        decision is inferred from this compact list alone.
       responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/changes/{changeId}/acceptance-criteria:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
     get:
       operationId: getAcceptanceCriteria
-      description: >-
-        Returns persisted explicit AcceptanceCriterion entities attached to the change.
-        Scenario objects are never converted into criteria and test presence never implies VERIFIED.
-        The response is bounded to the first 100 criteria and exposes hasMore when additional rows exist.
       responses:
         '200':
           description: Persisted acceptance criteria and explicit verification state.
@@ -134,21 +235,52 @@ paths:
               schema: {$ref: '#/components/schemas/AcceptanceCriteriaSuccessEnvelope'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/StateConflict'}
+
   /projects/{projectId}/changes/{changeId}/design-decisions:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: getDesignDecisions, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
+    get:
+      operationId: getDesignDecisions
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/changes/{changeId}/implementation-tasks:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: getImplementationTasks, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
+    get:
+      operationId: getImplementationTasks
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/changes/{changeId}/context:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}, {$ref: '#/components/parameters/Depth'}]
-    get: {operationId: getChangeContext, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
+      - {$ref: '#/components/parameters/Depth'}
+    get:
+      operationId: getChangeContext
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/changes/{changeId}/status:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
-    get: {operationId: getChangeStatus, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
+    get:
+      operationId: getChangeStatus
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/changes/{changeId}/blocking-conditions:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
-    get: {operationId: getBlockingConditions, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
+    get:
+      operationId: getBlockingConditions
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/changes/{changeId}/orchestration:
     parameters:
       - {$ref: '#/components/parameters/ProjectId'}
@@ -157,35 +289,27 @@ paths:
       - {name: abandonmentReason, in: query, required: false, schema: {$ref: '#/components/schemas/AbandonmentReason'}}
     get:
       operationId: getChangeOrchestrationState
-      description: >-
-        Returns the live read-only orchestration projection. Lifecycle is never inferred;
-        lifecycleState is CALLER_SUPPLIED when present and otherwise UNAVAILABLE. M15
-        exposes acceptance criteria without inventing blocking semantics. M16 exposes
-        explicit constraint applicability, severity, satisfaction, blocking policy and
-        supporting evidence. blockingConstraints is AVAILABLE only when the blocking fact
-        is known, PARTIALLY_AVAILABLE when mixed, and UNKNOWN when policy semantics are
-        unavailable. UNKNOWN is never counted as a blocker.
       responses:
         '200': {$ref: '#/components/responses/Success'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/StateConflict'}
+
   /projects/{projectId}/changes/{changeId}/transition-check:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
     post:
       operationId: evaluateChangeTransition
-      description: >-
-        Pure read-only evaluation. MORPHEUS evaluates structural lifecycle rules and then
-        explicit M16 constraint policy. Only an applicable, violated constraint whose
-        BLOCK_WHEN_VIOLATED policy explicitly targets the requested lifecycle state can
-        add BLOCKING_CONSTRAINT. Unknown policy facts yield UNKNOWN, never BLOCKED or ALLOWED.
-        This endpoint never applies the transition; use lifecycle-transitions for explicit M17 writes.
+      description: Pure read-only lifecycle and M16 constraint-policy evaluation; never applies a transition.
       requestBody:
         required: true
-        content: {application/json: {schema: {$ref: '#/components/schemas/TransitionCheckRequest'}}}
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TransitionCheckRequest'}
       responses:
         '200':
-          description: Explainable lifecycle and constraint-policy decision; no mutation is applied.
+          description: Explainable transition evaluation.
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ChangeTransitionEvaluationSuccessEnvelope'}
@@ -193,21 +317,24 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/StateConflict'}
         '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
   /projects/{projectId}/changes/{changeId}/lifecycle-transitions:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
     post:
       operationId: applyChangeLifecycleTransition
       description: >-
-        Explicit M17 side-effect boundary. A request is applied only after WRITE_CHANGE
-        authorization, explicit confirmation, expectedRevision/CAS and the existing
-        M14-M16 transition evaluation. Reusing the same idempotencyKey with the same
-        logical command returns ALREADY_APPLIED without a second mutation or audit record.
+        Explicit M17 side-effect boundary requiring WRITE_CHANGE authorization,
+        explicit confirmation, expectedRevision/CAS and idempotency.
       requestBody:
         required: true
-        content: {application/json: {schema: {$ref: '#/components/schemas/LifecycleMutationRequest'}}}
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LifecycleMutationRequest'}
       responses:
         '200':
-          description: Structured mutation outcome. Domain outcomes such as NOT_AUTHORIZED, REQUIRES_CONFIRMATION, CONFLICT and REJECTED are returned as data without implying transport failure.
+          description: Structured lifecycle mutation outcome.
           content:
             application/json:
               schema: {$ref: '#/components/schemas/LifecycleMutationSuccessEnvelope'}
@@ -215,14 +342,18 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/StateConflict'}
         '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
   /projects/{projectId}/changes/{changeId}/augmented-context:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/ChangeId'}
     post:
       operationId: getAugmentedChangeContext
-      description: Builds live NEXUS technical context from deterministic MORPHEUS change intent; no context is persisted.
       requestBody:
         required: true
-        content: {application/json: {schema: {$ref: '#/components/schemas/AugmentedContextRequest'}}}
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AugmentedContextRequest'}
       responses:
         '200': {$ref: '#/components/responses/Success'}
         '400': {$ref: '#/components/responses/BadRequest'}
@@ -232,32 +363,49 @@ paths:
 
   /projects/{projectId}/versions:
     parameters: [{$ref: '#/components/parameters/ProjectId'}]
-    get: {operationId: listPublishedVersions, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    get:
+      operationId: listPublishedVersions
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/versions/{snapshotId}/requirements:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/SnapshotId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: listHistoricalRequirements, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/SnapshotId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
+    get:
+      operationId: listHistoricalRequirements
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/versions/compare:
     parameters:
       - {$ref: '#/components/parameters/ProjectId'}
       - {name: fromSnapshotId, in: query, required: true, schema: {$ref: '#/components/schemas/Uuid'}}
       - {name: toSnapshotId, in: query, required: true, schema: {$ref: '#/components/schemas/Uuid'}}
-    get: {operationId: comparePublishedVersions, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    get:
+      operationId: comparePublishedVersions
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/diagnostics:
     parameters: [{$ref: '#/components/parameters/ProjectId'}]
-    get: {operationId: getDiagnostics, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    get:
+      operationId: getDiagnostics
+      responses: {'200': {$ref: '#/components/responses/Success'}}
 
   /projects/{projectId}/external-references:
     parameters:
       - {$ref: '#/components/parameters/ProjectId'}
       - {name: ownerId, in: query, required: true, schema: {$ref: '#/components/schemas/Uuid'}}
-    get: {operationId: listExternalReferences, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    get:
+      operationId: listExternalReferences
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects/{projectId}/external-references/{referenceId}/resolution:
     parameters:
       - {$ref: '#/components/parameters/ProjectId'}
       - {name: referenceId, in: path, required: true, schema: {$ref: '#/components/schemas/Uuid'}}
     get:
       operationId: resolveExternalReferenceLive
-      description: Returns stored and live observed reference views with persisted=false.
       responses: {'200': {$ref: '#/components/responses/Success'}}
 
 components:
@@ -274,17 +422,106 @@ components:
 
   schemas:
     Uuid: {type: string, format: uuid}
+
+    CompositionProvider:
+      type: object
+      additionalProperties: false
+      required: [providerId, priority, required, available, diagnosticCount]
+      properties:
+        providerId: {type: string, minLength: 1}
+        priority: {type: integer}
+        required: {type: boolean}
+        available: {type: boolean}
+        diagnosticCount: {type: integer, minimum: 0}
+
+    CompositionCandidate:
+      type: object
+      additionalProperties: false
+      required: [providerId, priority, value, source, evidenceId]
+      properties:
+        providerId: {type: string, minLength: 1}
+        priority: {type: integer}
+        value: {type: string, minLength: 1}
+        source: {type: string, minLength: 1}
+        evidenceId: {type: string, minLength: 1}
+
+    CompositionConflict:
+      type: object
+      additionalProperties: false
+      required: [entityType, logicalKey, field, resolution, selectedProviderId, reason, candidates]
+      properties:
+        entityType: {type: string, enum: [SPECIFICATION, REQUIREMENT, CHANGE]}
+        logicalKey: {type: string, minLength: 1}
+        field: {type: string, minLength: 1}
+        resolution: {type: string, enum: [SELECTED_BY_PRECEDENCE, UNRESOLVED]}
+        selectedProviderId:
+          anyOf:
+            - {type: string, minLength: 1}
+            - {type: 'null'}
+        reason: {type: string, minLength: 1}
+        candidates:
+          type: array
+          minItems: 2
+          items: {$ref: '#/components/schemas/CompositionCandidate'}
+
+    CompositionStatus:
+      type: object
+      additionalProperties: false
+      required: [snapshotId, primaryProviderId, providers, conflicts]
+      properties:
+        snapshotId: {$ref: '#/components/schemas/Uuid'}
+        primaryProviderId: {type: string, minLength: 1}
+        providers:
+          type: array
+          minItems: 1
+          items: {$ref: '#/components/schemas/CompositionProvider'}
+        conflicts:
+          type: array
+          items: {$ref: '#/components/schemas/CompositionConflict'}
+
+    CompositionConflictPage:
+      type: object
+      additionalProperties: false
+      required: [snapshotId, primaryProviderId, offset, limit, totalMatches, hasMore, items]
+      properties:
+        snapshotId: {$ref: '#/components/schemas/Uuid'}
+        primaryProviderId: {type: string, minLength: 1}
+        offset: {type: integer, minimum: 0}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        totalMatches: {type: integer, minimum: 0}
+        hasMore: {type: boolean}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/CompositionConflict'}
+
+    CompositionStatusSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, data]
+      properties:
+        apiVersion: {const: v1}
+        data: {$ref: '#/components/schemas/CompositionStatus'}
+
+    CompositionConflictPageSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, data]
+      properties:
+        apiVersion: {const: v1}
+        data: {$ref: '#/components/schemas/CompositionConflictPage'}
+
     VerificationStatus:
       type: string
       enum: [NOT_VERIFIED, PARTIALLY_VERIFIED, VERIFIED, FAILED, UNKNOWN]
+
     AcceptanceCriterion:
       type: object
       additionalProperties: false
       required: [id, requirementId, changeId, title, condition, verificationStatus, verificationEvidenceIds, sourceEvidenceId]
       properties:
         id: {$ref: '#/components/schemas/Uuid'}
-        requirementId: {type: string, description: Empty string when the criterion is not requirement-scoped.}
-        changeId: {type: string, description: Empty string when the criterion is not change-scoped.}
+        requirementId: {type: string}
+        changeId: {type: string}
         title: {type: string, minLength: 1}
         condition: {type: string, minLength: 1}
         verificationStatus: {$ref: '#/components/schemas/VerificationStatus'}
@@ -293,6 +530,7 @@ components:
           uniqueItems: true
           items: {$ref: '#/components/schemas/Uuid'}
         sourceEvidenceId: {$ref: '#/components/schemas/Uuid'}
+
     AcceptanceCriteriaPage:
       type: object
       additionalProperties: false
@@ -306,6 +544,7 @@ components:
         items:
           type: array
           items: {$ref: '#/components/schemas/AcceptanceCriterion'}
+
     AcceptanceCriteriaSuccessEnvelope:
       type: object
       additionalProperties: false
@@ -313,6 +552,7 @@ components:
       properties:
         apiVersion: {const: v1}
         data: {$ref: '#/components/schemas/AcceptanceCriteriaPage'}
+
     ConstraintApplicability:
       type: string
       enum: [APPLICABLE, NOT_APPLICABLE, UNKNOWN]
@@ -328,6 +568,7 @@ components:
     ConstraintEvaluationState:
       type: string
       enum: [NOT_APPLICABLE, NON_BLOCKING, BLOCKING, UNKNOWN]
+
     ConstraintBlockingPolicy:
       type: object
       additionalProperties: false
@@ -338,21 +579,11 @@ components:
           type: array
           uniqueItems: true
           items: {$ref: '#/components/schemas/LifecycleState'}
+
     ConstraintEvaluation:
       type: object
       additionalProperties: false
-      required:
-        - constraintId
-        - changeId
-        - targetState
-        - state
-        - applicability
-        - severity
-        - satisfaction
-        - blockingPolicy
-        - reason
-        - supportingEvidenceIds
-        - sourceEvidenceId
+      required: [constraintId, changeId, targetState, state, applicability, severity, satisfaction, blockingPolicy, reason, supportingEvidenceIds, sourceEvidenceId]
       properties:
         constraintId: {$ref: '#/components/schemas/Uuid'}
         changeId: {$ref: '#/components/schemas/Uuid'}
@@ -368,40 +599,28 @@ components:
           uniqueItems: true
           items: {$ref: '#/components/schemas/Uuid'}
         sourceEvidenceId: {$ref: '#/components/schemas/Uuid'}
+
     ChangeTransitionEvaluationState:
       type: string
       enum: [ALLOWED, BLOCKED, UNKNOWN, REQUIRES_INPUT]
+
     ChangeTransitionEvaluation:
       type: object
       additionalProperties: false
-      required:
-        - fromState
-        - targetState
-        - state
-        - blockers
-        - requiredFacts
-        - unavailableRequiredFacts
-        - factSource
-        - reason
-        - constraintEvaluations
+      required: [fromState, targetState, state, blockers, requiredFacts, unavailableRequiredFacts, factSource, reason, constraintEvaluations]
       properties:
         fromState: {$ref: '#/components/schemas/LifecycleState'}
         targetState: {$ref: '#/components/schemas/LifecycleState'}
         state: {$ref: '#/components/schemas/ChangeTransitionEvaluationState'}
-        blockers:
-          type: array
-          items: {type: string}
-        requiredFacts:
-          type: array
-          items: {type: string}
-        unavailableRequiredFacts:
-          type: array
-          items: {type: string}
+        blockers: {type: array, items: {type: string}}
+        requiredFacts: {type: array, items: {type: string}}
+        unavailableRequiredFacts: {type: array, items: {type: string}}
         factSource: {type: string, minLength: 1}
         reason: {type: string, minLength: 1}
         constraintEvaluations:
           type: array
           items: {$ref: '#/components/schemas/ConstraintEvaluation'}
+
     ChangeTransitionEvaluationSuccessEnvelope:
       type: object
       additionalProperties: false
@@ -409,15 +628,19 @@ components:
       properties:
         apiVersion: {const: v1}
         data: {$ref: '#/components/schemas/ChangeTransitionEvaluation'}
+
     LifecycleState:
       type: string
       enum: [DRAFT, PROPOSED, SPECIFIED, DESIGNED, PLANNED, IMPLEMENTING, VERIFYING, COMPLETED, ARCHIVED, ABANDONED]
+
     AbandonmentReason:
       type: string
       enum: [REJECTED, OBSOLETE, DUPLICATE, NOT_FEASIBLE, NO_LONGER_NEEDED, SUPERSEDED_BY_OTHER_CHANGE, UNKNOWN]
+
     LifecycleMutationResultState:
       type: string
       enum: [APPLIED, ALREADY_APPLIED, CONFLICT, NOT_AUTHORIZED, REQUIRES_CONFIRMATION, REJECTED]
+
     LifecycleMutationRequest:
       type: object
       additionalProperties: false
@@ -430,6 +653,7 @@ components:
         abandonmentReason: {anyOf: [{$ref: '#/components/schemas/AbandonmentReason'}, {type: 'null'}]}
         actor: {type: string, minLength: 1}
         confirmed: {type: boolean}
+
     OperationalLifecycleState:
       type: object
       additionalProperties: false
@@ -442,6 +666,7 @@ components:
         revision: {type: integer, format: int64, minimum: 0}
         updatedAt: {type: [string, 'null'], format: date-time}
         lastMutationId: {anyOf: [{$ref: '#/components/schemas/Uuid'}, {type: 'null'}]}
+
     LifecycleMutationAudit:
       type: object
       additionalProperties: false
@@ -460,6 +685,7 @@ components:
         providerId: {type: string, minLength: 1}
         reason: {type: string, minLength: 1}
         appliedAt: {type: string, format: date-time}
+
     LifecycleMutationResult:
       type: object
       additionalProperties: false
@@ -469,6 +695,7 @@ components:
         lifecycleState: {anyOf: [{$ref: '#/components/schemas/OperationalLifecycleState'}, {type: 'null'}]}
         audit: {anyOf: [{$ref: '#/components/schemas/LifecycleMutationAudit'}, {type: 'null'}]}
         reason: {type: string, minLength: 1}
+
     LifecycleMutationSuccessEnvelope:
       type: object
       additionalProperties: false
@@ -476,15 +703,20 @@ components:
       properties:
         apiVersion: {const: v1}
         data: {$ref: '#/components/schemas/LifecycleMutationResult'}
+
     ProjectRegistrationRequest:
       type: object
       additionalProperties: false
       required: [workspace]
-      properties: {workspace: {type: string, minLength: 1}}
+      properties:
+        workspace: {type: string, minLength: 1}
+
     SyncRequest:
       type: object
       additionalProperties: false
-      properties: {revision: {type: [string, 'null']}}
+      properties:
+        revision: {type: [string, 'null']}
+
     AugmentedContextRequest:
       type: object
       additionalProperties: false
@@ -498,6 +730,7 @@ components:
           items: {type: string, enum: [FILE, SYMBOL, TEST, DOCUMENTATION, INSTRUCTION, SKILL, GIT]}
         constraints: {type: object, additionalProperties: {type: string}}
         explain: {type: boolean, default: false}
+
     TransitionCheckRequest:
       type: object
       additionalProperties: false
@@ -509,11 +742,15 @@ components:
         abandonmentReason: {anyOf: [{$ref: '#/components/schemas/AbandonmentReason'}, {type: 'null'}]}
         allowBackwardTransitions: {type: [boolean, 'null'], default: false}
         allowCompletedReopen: {type: [boolean, 'null'], default: false}
+
     SuccessEnvelope:
       type: object
       additionalProperties: false
       required: [apiVersion, data]
-      properties: {apiVersion: {const: v1}, data: {}}
+      properties:
+        apiVersion: {const: v1}
+        data: {}
+
     ErrorEnvelope:
       type: object
       additionalProperties: false
@@ -521,6 +758,7 @@ components:
       properties:
         apiVersion: {const: v1}
         error: {$ref: '#/components/schemas/Error'}
+
     Error:
       type: object
       additionalProperties: false
@@ -535,16 +773,26 @@ components:
   responses:
     Success:
       description: Successful versioned MORPHEUS response.
-      content: {application/json: {schema: {$ref: '#/components/schemas/SuccessEnvelope'}}}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/SuccessEnvelope'}
     BadRequest:
       description: Invalid path/query/body input.
-      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     NotFound:
       description: Addressed MORPHEUS entity does not exist.
-      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     StateConflict:
       description: Known entity exists but required published/runtime state is unavailable.
-      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     UnsupportedMediaType:
       description: JSON body supplied without application/json.
-      content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
