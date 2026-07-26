@@ -22,6 +22,34 @@ function Write-Stage([string]$Title) {
     Write-Host ('=' * 78) -ForegroundColor Cyan
 }
 
+function Resolve-PowerShellHost {
+    $candidates = @()
+
+    if ($PSHOME) {
+        $candidates += (Join-Path $PSHOME 'powershell.exe')
+        $candidates += (Join-Path $PSHOME 'pwsh.exe')
+    }
+
+    if ($env:SystemRoot) {
+        $candidates += (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')
+    }
+
+    foreach ($candidate in $candidates | Select-Object -Unique) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+            return $candidate
+        }
+    }
+
+    foreach ($name in @('pwsh.exe', 'powershell.exe')) {
+        $command = Get-Command $name -ErrorAction SilentlyContinue
+        if ($null -ne $command) {
+            return $command.Source
+        }
+    }
+
+    throw 'No PowerShell host could be resolved for the packaging step.'
+}
+
 function Invoke-NativeLogged {
     param(
         [Parameter(Mandatory = $true)][string]$Label,
@@ -85,9 +113,11 @@ try {
         -LogFile $MavenLog
 
     if (-not $SkipPackaging) {
+        $powerShellHost = Resolve-PowerShellHost
+        Write-Host "Packaging PowerShell host: $powerShellHost"
         Invoke-NativeLogged `
             -Label 'Windows portable packaging + smokes' `
-            -Command 'powershell.exe' `
+            -Command $powerShellHost `
             -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '.\distribution\build-portable.ps1') `
             -LogFile $PackagingLog
     }
