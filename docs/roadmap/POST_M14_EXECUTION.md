@@ -1,12 +1,12 @@
 # MORPHEUS — Roadmap post-M14
 
-Statut : **ACTIVE — D0/M15 intégrés ; M16 validé techniquement / PR #79 Ready ; M17 prochain après intégration M16**
+Statut : **ACTIVE — D0 et M15→M17 validés/intégrés ; M18 prochain jalon**
 
 Dernière mise à jour : 26 juillet 2026
 
-Cette roadmap prolonge la baseline **C0 à M14 validée et intégrée**. Elle ne réécrit pas l'historique des jalons déjà livrés : elle définit les prochaines étapes nécessaires pour approfondir la sémantique métier, sécuriser les mutations, ouvrir réellement le multi-provider, durcir l'exploitation et transformer le packaging existant en distribution produit installable.
+Cette roadmap prolonge la baseline **C0 à M14 validée et intégrée**. Elle ne réécrit pas les preuves historiques : elle décrit l’état courant du cycle post-M14 et les prochaines étapes.
 
-La roadmap globale reste [`../governance/ROADMAP.md`](../governance/ROADMAP.md). Pendant l'exécution d'un jalon post-M14, son plan détaillé devient la source de vérité opérationnelle. D0 est détaillé dans [`D0_EXECUTION.md`](D0_EXECUTION.md), M15 dans [`M15_EXECUTION.md`](M15_EXECUTION.md), M16 dans [`M16_EXECUTION.md`](M16_EXECUTION.md), et la politique documentaire dans [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
+La roadmap globale reste [`../governance/ROADMAP.md`](../governance/ROADMAP.md). La politique documentaire est [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
 
 ---
 
@@ -15,10 +15,6 @@ La roadmap globale reste [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
 ```text
 C0 -> M14   ✅ validés et intégrés
 D0          ✅ intégré
-M14         357/357 PASS
-Architecture M14 160/160 PASS
-Packaging   Windows PASS
-JARVIS      536 tests BUILD SUCCESS
 
 M15         ✅ validé / intégré
 M15 merge   c37134439844cb088adff855c339a259bb908b6a
@@ -26,15 +22,22 @@ M15 tests   371/371 PASS
 Architecture M15 157/157 PASS
 Packaging M15 Windows + smokes PASS
 
-M16         ✅ validé techniquement
+M16         ✅ validé / intégré
+M16 merge   97308005a63854c7cb08dc19cd3cdb02ac739404
 M16 code    f349c5f4701665e649d985426d35b5e6a6060e32
 M16 tests   393/393 PASS
 Architecture M16 161/161 PASS
 Packaging M16 Windows + smokes PASS
-PR #79      Ready, non mergée
+
+M17         ✅ validé / intégré
+M17 merge   02bdb38669efc85af17343d15e689743362d2e12
+M17 code    87d2c0238f90aeb17dab5fed04f1c83a1b548f15
+M17 tests   410/410 PASS
+Architecture M17 167/167 PASS
+Packaging M17 Windows + smokes PASS
 ```
 
-Capacités disponibles après M16 :
+Capacités disponibles après M17 :
 
 ```text
 Domain model
@@ -53,20 +56,23 @@ Explicit ConstraintApplicability / Severity / Satisfaction
 Explicit ConstraintBlockingPolicy
 Explainable ConstraintEvaluation
 Lifecycle BLOCKING_CONSTRAINT decisions
+Controlled lifecycle mutation command
+WRITE_CHANGE capability negotiation
+expected revision / CAS
+idempotency key + duplicate suppression
+audit append-only + SQLite reopen
+CLI / MCP / HTTP controlled-write surfaces
 CLI / MCP / HTTP acceptance + constraint-policy surfaces
-CLI
-MCP STDIO
-HTTP API
 MINOS optional integration
 NEXUS optional integration
-JARVIS read-only orchestration contract
+JARVIS orchestration boundary preserved
 Portable Windows/Linux packaging
 ```
 
 Frontières à préserver :
 
 ```text
-MORPHEUS = specification facts + intent + lifecycle rules + transition decisions
+MORPHEUS = specification facts + intent + lifecycle rules + controlled state invariants
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = sequencing / orchestration / action choice
@@ -89,6 +95,11 @@ warning != blocker
 severity != blocking policy
 constraint text != executable policy
 transition evaluation != lifecycle mutation
+READ_CHANGES != WRITE_CHANGE
+ALLOWED != applied
+published snapshot != operational lifecycle state
+stale revision != overwrite
+idempotent retry != duplicate mutation/audit
 optional engine absence != MORPHEUS failure
 live external observation != published snapshot mutation
 ```
@@ -97,17 +108,9 @@ live external observation != published snapshot mutation
 
 ## 2. Progression post-M14
 
-Le constat M14 était :
+M15 ferme le gap acceptance :
 
 ```text
-acceptanceCriteria.status = UNAVAILABLE_IN_NORMALIZED_MODEL
-blockingConstraints.status = UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED
-```
-
-M15 ferme le premier gap :
-
-```text
-acceptanceCriteria.status = AVAILABLE
 AcceptanceCriterion first-class
 VerificationStatus first-class
 verification evidence explicit
@@ -115,7 +118,7 @@ coverage calculable
 CLI / MCP / HTTP cohérents
 ```
 
-M16 ferme le second gap sans convertir l'absence d'information en interdiction :
+M16 ferme le gap de politique de contraintes :
 
 ```text
 ConstraintApplicability explicit
@@ -126,6 +129,21 @@ ConstraintEvaluation explainable
 blockingConstraints.status = AVAILABLE | PARTIALLY_AVAILABLE | UNKNOWN
 UNKNOWN != BLOCKED
 warning != blocker
+```
+
+M17 introduit les mutations contrôlées sans confondre décision et effet :
+
+```text
+read-only evaluation
+      !=
+explicit mutation command
+
+WRITE_CHANGE required
+confirmation required by policy
+expected revision / CAS
+idempotency
+append-only audit
+published snapshots remain immutable
 ```
 
 La boucle cible reste :
@@ -152,18 +170,6 @@ SATISFACTION EXPLICABLE
 
 Statut : **✅ VALIDÉ / INTÉGRÉ — PR #75**
 
-Objectif : aligner la documentation active sur l'état réel du dépôt avant le cycle post-M14.
-
-Gate :
-
-```text
-aucun document actif ne présente M3..M14 comme non intégrés          PASS
-cahier des charges aligné avec la baseline livrée                    PASS
-roadmap post-M14 référencée depuis la gouvernance                    PASS
-aucun lien documentaire cassé sur les parcours principaux           PASS
-preuves historiques de gates conservées sans réécriture              PASS
-```
-
 Preuve : [`../validation/VALIDATION_D0.md`](../validation/VALIDATION_D0.md).  
 Issue : **#74**. PR : **#75**. Merge : `ec75d3963422d6281f2904c5ebd547124db92ad6`.
 
@@ -179,64 +185,23 @@ Statut : **✅ VALIDÉ / INTÉGRÉ — PR #77**
 
 **Réponse : OUI.**
 
-## Résultat
-
 ```text
-AcceptanceCriterion first-class
-VerificationStatus first-class
-Evidence reused as verification material
-Requirement -> AcceptanceCriterion
-ChangeProposal -> AcceptanceCriterion
-AcceptanceCriterion -> Evidence
-verification provenance separated from verification evidence
-coverage / uncovered criteria
-unverified / partially verified / verified / failed / unknown
-CLI / MCP / HTTP surfaces
-change-orchestration acceptance availability
+TOTAL 371/371 PASS
+Architecture 157/157 PASS
+Packaging Windows + smokes PASS
 ```
 
-Les références test externes ne sont jamais inventées : `AcceptanceCriterion -> ExternalReference(test)` ne sera créé que lorsqu'une source/provider fournit explicitement cette relation.
-
-## Invariants
-
-```text
-Scenario != AcceptanceCriterion
-AcceptanceCriterion != Test
-Test existence != VERIFIED
-Evidence != assertion
-missing evidence != FAILED
-UNKNOWN != FAILED
-verification state must be explicit or demonstrably derived by policy
-```
-
-## Gate M15
-
-```text
-acceptanceCriteria.status != UNAVAILABLE_IN_NORMALIZED_MODEL     PASS
-critères persistés et requêtables                                PASS
-preuves traçables et explicables                                 PASS
-aucune conversion Scenario -> AcceptanceCriterion implicite      PASS
-verification UNKNOWN conservé lorsque les faits manquent         PASS
-Memory == SQLite                                                 PASS
-SQLite close/reopen                                              PASS
-CLI / MCP / HTTP                                                 PASS
-TOTAL 371/371                                                    PASS
-Architecture 157/157                                             PASS
-Packaging Windows + smokes                                      PASS
-```
-
-Head de code validé : `9e6450a099157cfdfcd11cc29dfb986ef7701247`.
-
+Head de code validé : `9e6450a099157cfdfcd11cc29dfb986ef7701247`.  
 Preuve : [`../validation/VALIDATION_M15.md`](../validation/VALIDATION_M15.md).  
 Plan : [`M15_EXECUTION.md`](M15_EXECUTION.md).  
 ADR : ADR-0081 **Acceptée — M15**.  
-Merge : PR #77 -> `c37134439844cb088adff855c339a259bb908b6a`.
+Merge : `c37134439844cb088adff855c339a259bb908b6a`.
 
 ---
 
 # M16 — Constraint Semantics & Policy Enforcement
 
-Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #79 Ready**
+Statut : **✅ VALIDÉ / INTÉGRÉ — PR #79**
 
 ## Question de sortie
 
@@ -244,133 +209,69 @@ Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #79 Ready**
 
 **Réponse : OUI.**
 
-## Résultat
-
 ```text
-ConstraintApplicability = APPLICABLE | NOT_APPLICABLE | UNKNOWN
-ConstraintSeverity = INFO | WARNING | ERROR | CRITICAL | UNKNOWN
-ConstraintSatisfaction = SATISFIED | VIOLATED | UNKNOWN
-ConstraintBlockingPolicy = NON_BLOCKING | BLOCK_WHEN_VIOLATED | UNKNOWN
-ConstraintEvaluation = NOT_APPLICABLE | NON_BLOCKING | BLOCKING | UNKNOWN
-supporting evidence explicit
-SQLite V010 persistence
-Memory == SQLite
-SQLite reopen identical
-BLOCKING_CONSTRAINT lifecycle reason
-blockingConstraints AVAILABLE | PARTIALLY_AVAILABLE | UNKNOWN
-CLI / MCP / HTTP / OpenAPI 1.5.0
+TOTAL 393/393 PASS
+Architecture 161/161 PASS
+Packaging Windows + smokes PASS
 ```
 
-## Invariants
-
-```text
-applicable != blocking
-warning != blocker
-severity != blocking policy
-UNKNOWN != BLOCKED
-constraint text != executable policy
-policy decision must expose provenance and reason
-```
-
-## Gate M16
-
-```text
-blockingConstraints.status != UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED     PASS
-transition decisions explain every blocking constraint                      PASS
-UNAVAILABLE remains distinct from false / allowed                           PASS
-no provider-specific policy type leaks into domain                          PASS
-Memory == SQLite                                                            PASS
-SQLite close/reopen identical                                               PASS
-CLI/MCP/HTTP coherent                                                       PASS
-TOTAL 393/393                                                               PASS
-Architecture 161/161                                                        PASS
-Packaging Windows + smokes                                                  PASS
-```
-
-Head de code validé : `f349c5f4701665e649d985426d35b5e6a6060e32`.
-
+Head de code validé : `f349c5f4701665e649d985426d35b5e6a6060e32`.  
 Preuve : [`../validation/VALIDATION_M16.md`](../validation/VALIDATION_M16.md).  
 Plan : [`M16_EXECUTION.md`](M16_EXECUTION.md).  
-ADR : ADR-0082 **Acceptée — M16**.
-
-La PR #79 doit être intégrée avant d'ouvrir M17.
+ADR : ADR-0082 **Acceptée — M16**.  
+Merge : `97308005a63854c7cb08dc19cd3cdb02ac739404`.
 
 ---
 
 # M17 — Controlled Lifecycle & Write Operations
 
-Statut : **PROCHAIN APRÈS MERGE M16**
+Statut : **✅ VALIDÉ / INTÉGRÉ — PR #81**
 
 ## Question de sortie
 
 > MORPHEUS peut-il appliquer une mutation explicitement autorisée avec contrôle de concurrence, permission, confirmation et audit, tout en restant distinct de JARVIS qui choisit et séquence les actions ?
 
-## Objectif
+**Réponse : OUI.**
 
-Passer du contrat M14 d'évaluation read-only à des mutations contrôlées, opt-in et auditables.
-
-## Flux cible
+Résultat :
 
 ```text
-JARVIS / caller chooses action
-          ↓
-MORPHEUS evaluates transition
-          ↓
-authorization / capability
-          ↓
-confirmation / required input
-          ↓
-expected version / CAS
-          ↓
-apply mutation
-          ↓
-audit trail + evidence
-          ↓
-new observable state
+ChangeLifecycleMutationCommand
+ChangeLifecycleOperationalState
+ChangeLifecycleMutationStore
+Memory + SQLite V011
+WRITE_CHANGE capability
+confirmation policy
+expected revision / CAS
+idempotency
+append-only audit
+CLI lifecycle apply
+MCP apply_change_lifecycle_transition
+HTTP POST .../lifecycle-transitions
+OpenAPI 1.6.0
 ```
 
-## Capacités envisagées
+Gate :
 
 ```text
-WRITE_CHANGE
-WRITE_TASK_STATE
-ARCHIVE_CHANGE
-controlled lifecycle transition
-provider write capability discovery
-optimistic concurrency / expected version
-conflict reporting
-idempotency key
-structured audit record
-explicit confirmation policy
+TOTAL 410/410 PASS
+Architecture 167/167 PASS
+Failures 0 / Errors 0 / Skipped 0
+Packaging Windows + smokes PASS
+Portable ZIP 33,839,272 bytes
 ```
 
-## Invariants
-
-```text
-read capability != write capability
-ALLOWED != applied
-JARVIS owns sequencing
-MORPHEUS owns state invariants
-no implicit overwrite
-no mutation without explicit provider capability
-no mutation without conflict policy
-```
-
-## Gate M17
-
-```text
-read-only mode remains fully supported
-write paths are opt-in
-concurrent stale mutation rejected deterministically
-mutation audit survives restart
-MCP/API mutation surface separated from evaluation surface
-```
+Head de code validé : `87d2c0238f90aeb17dab5fed04f1c83a1b548f15`.  
+Preuve : [`../validation/VALIDATION_M17.md`](../validation/VALIDATION_M17.md).  
+Plan : [`M17_EXECUTION.md`](M17_EXECUTION.md).  
+ADR : ADR-0083 **Acceptée — M17**.  
+Merge : `02bdb38669efc85af17343d15e689743362d2e12`.
 
 ---
 
 # M18 — Real Providers & Multi-Provider Composition
 
-Statut : **PLANIFIÉ**
+Statut : **⏭ PROCHAIN JALON**
 
 ## Question de sortie
 
@@ -749,11 +650,11 @@ D0   Documentation reconciliation                        ✅ intégré
  ↓
 M15  Acceptance / Verification / Evidence                ✅ intégré
  ↓
-M16  Constraint semantics / blocking policy              ✅ validé techniquement / PR #79 Ready
- ↓ merge #79
-M17  Controlled write / lifecycle mutations              ⏳ prochain
+M16  Constraint semantics / blocking policy              ✅ intégré
  ↓
-M18  Real providers / multi-provider composition
+M17  Controlled write / lifecycle mutations              ✅ intégré
+ ↓
+M18  Real providers / multi-provider composition         ⏭ prochain
  ↓
 M19  Production hardening / scale / operability
  ↓
@@ -763,8 +664,8 @@ M20  Release engineering / PROD installation / 1.0
 La séquence est volontaire :
 
 - M15/M16 approfondissent la vérité métier avant d'autoriser des écritures ;
-- M17 n'introduit les mutations qu'une fois les règles de décision suffisamment riches ;
-- M18 étend les sources après stabilisation des contrats métier ;
+- M17 sécurise les mutations avant la composition de providers ;
+- M18 étend les sources après stabilisation des contrats métier et write ;
 - M19 mesure et durcit le système avant la release stable ;
 - M20 transforme une application techniquement packagée en produit installable et distribuable.
 
@@ -779,6 +680,7 @@ MORPHEUS must not become JARVIS orchestration
 MORPHEUS must not infer unavailable lifecycle facts
 MORPHEUS must not silently merge provider conflicts
 MORPHEUS must not turn read capability into write capability
+MORPHEUS must not apply ALLOWED decisions implicitly
 MORPHEUS must not delete persistent knowledge on program uninstall
 ```
 
@@ -800,7 +702,8 @@ Pour chaque jalon :
 9. accepter les ADR seulement après preuve
 10. passer la PR Ready seulement après gate vert
 11. merger uniquement après autorisation explicite
-12. mettre à jour ROADMAP.md et les index
+12. réconcilier ROADMAP.md / POST_M14_EXECUTION.md / index après merge
+13. supprimer les branches de jalon devenues obsolètes
 ```
 
 ---
@@ -811,11 +714,11 @@ Pour chaque jalon :
 C0-M14  = plateforme MVP / intégrations fondamentales          ✅ acquis
 D0      = documentation réconciliée                            ✅ intégré
 M15     = intention vérifiable et prouvable                    ✅ intégré
-M16     = contraintes exécutables/explicables                  ✅ validé techniquement / PR #79 Ready
-M17     = mutations contrôlées                                 ⏳ prochain après merge M16
-M18     = multi-provider réel                                  ⏳
+M16     = contraintes exécutables/explicables                  ✅ intégré
+M17     = mutations contrôlées                                 ✅ intégré
+M18     = multi-provider réel                                  ⏭ prochain
 M19     = exploitation à l'échelle                             ⏳
 M20     = distribution produit / installation PROD / 1.0      ⏳
 ```
 
-La priorité post-M14 reste : **approfondir la sémantique de l'intention avant d'élargir davantage les surfaces techniques**.
+La priorité immédiate est désormais **M18 — valider un deuxième provider réel et une composition multi-provider explicable sans verrouillage de format**.
