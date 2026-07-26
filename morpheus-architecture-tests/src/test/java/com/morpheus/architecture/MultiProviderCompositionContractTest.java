@@ -1,5 +1,6 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.composition.CompositionEntityType;
 import com.morpheus.application.composition.CompositionResolution;
 import com.morpheus.application.composition.CompositionSnapshotState;
 import com.morpheus.application.composition.MultiProviderCompositionService;
@@ -59,10 +60,23 @@ class MultiProviderCompositionContractTest {
         assertTrue(result.contributions().stream().allMatch(item -> item.available()));
         assertTrue(result.content().requirements().size() >= 4);
         assertTrue(result.conflicts().stream().anyMatch(conflict ->
-                conflict.logicalKey().equals("auth-session/session-expiration")
+                conflict.entityType() == CompositionEntityType.REQUIREMENT
+                        && conflict.logicalKey().equals("auth-session/session-expiration")
                         && conflict.field().equals("statement")
                         && conflict.resolution() == CompositionResolution.SELECTED_BY_PRECEDENCE
                         && conflict.selectedProviderId().orElseThrow().equals(OpenSpecSpecificationProvider.ID)));
+        assertTrue(result.conflicts().stream().anyMatch(conflict ->
+                conflict.entityType() == CompositionEntityType.REQUIREMENT
+                        && conflict.logicalKey().equals("auth-session/session-expiration")
+                        && conflict.field().equals("ownerSpecification")
+                        && conflict.candidates().stream().map(item -> item.value()).toList().containsAll(
+                                List.of("auth-session", "auth-security"))));
+        assertTrue(result.conflicts().stream().anyMatch(conflict ->
+                conflict.entityType() == CompositionEntityType.IDENTITY
+                        && conflict.logicalKey().equals("auth-session/session-expiration")
+                        && conflict.field().equals("entityType")
+                        && conflict.candidates().stream().map(item -> item.value()).toList().containsAll(
+                                List.of("REQUIREMENT", "CHANGE"))));
         assertFalse(result.conflicts().stream().anyMatch(conflict -> conflict.candidates().size() < 2));
 
         KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.generate();
