@@ -66,6 +66,7 @@ function Invoke-NativeLogged {
     # redirected into the success stream. Java/SQLite legitimately emit warnings on stderr.
     # For native processes, the process exit code is the authoritative PASS/FAIL signal.
     $previousErrorActionPreference = $ErrorActionPreference
+    $exitCode = -1
     try {
         $ErrorActionPreference = 'Continue'
         & $Command @Arguments 2>&1 |
