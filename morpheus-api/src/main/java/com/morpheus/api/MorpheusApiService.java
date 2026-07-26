@@ -33,6 +33,7 @@ import com.morpheus.application.sync.LocalSourceInventoryScanner;
 import com.morpheus.application.sync.SyncFreshness;
 import com.morpheus.application.sync.SyncFreshnessService;
 import com.morpheus.application.sync.SyncPlan;
+import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -321,13 +322,11 @@ public final class MorpheusApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            var result = requireChange(runtime, projectId, changeId);
-            return map(
-                    "snapshotId", result.snapshot().id().toString(),
-                    "changeId", changeId.toString(),
-                    "status", "UNAVAILABLE_IN_NORMALIZED_MODEL",
-                    "criteria", List.of(),
-                    "reason", "No explicit AcceptanceCriterion projection is persisted; MORPHEUS never converts Scenario into AcceptanceCriterion.");
+            requireChange(runtime, projectId, changeId);
+            SnapshotPage<AcceptanceCriterion> result = business(runtime)
+                    .activeAcceptanceCriteriaForChange(projectId, changeId, PageRequest.first(MAX_LIMIT))
+                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
+            return page(result, result.items().stream().map(this::acceptanceCriterion).toList());
         }
     }
 
@@ -621,6 +620,18 @@ public final class MorpheusApiService {
 
     private Object constraint(Constraint item) {
         return map("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
+    }
+
+    private Object acceptanceCriterion(AcceptanceCriterion item) {
+        return map(
+                "id", item.id().toString(),
+                "requirementId", item.requirementId().map(Object::toString).orElse(""),
+                "changeId", item.changeId().map(Object::toString).orElse(""),
+                "title", item.title(),
+                "condition", item.condition(),
+                "verificationStatus", item.verificationStatus().name(),
+                "verificationEvidenceIds", item.verificationEvidenceIds().stream().map(Object::toString).toList(),
+                "sourceEvidenceId", item.provenance().evidenceId().toString());
     }
 
     private Object decision(DesignDecision item) {

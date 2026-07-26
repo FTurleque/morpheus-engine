@@ -1,5 +1,7 @@
 package com.morpheus.application.ingestion;
 
+import com.morpheus.domain.acceptance.AcceptanceCriterion;
+import com.morpheus.domain.acceptance.AcceptanceCriterionId;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -25,7 +27,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-/** Coherent provider-neutral content produced by one M2 normalization pass. */
+/** Coherent provider-neutral content produced by one normalization pass. */
 public record NormalizedProjectContent(
         ProjectSpecification project,
         List<Specification> specifications,
@@ -36,6 +38,7 @@ public record NormalizedProjectContent(
         List<Constraint> constraints,
         List<DesignDecision> designDecisions,
         List<ImplementationTask> tasks,
+        List<AcceptanceCriterion> acceptanceCriteria,
         List<Evidence> evidence,
         List<Diagnostic> diagnostics) {
 
@@ -46,7 +49,19 @@ public record NormalizedProjectContent(
             List<Scenario> scenarios,
             List<Evidence> evidence,
             List<Diagnostic> diagnostics) {
-        this(project, specifications, requirements, scenarios, List.of(), List.of(), List.of(), List.of(), List.of(), evidence, diagnostics);
+        this(
+                project,
+                specifications,
+                requirements,
+                scenarios,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                evidence,
+                diagnostics);
     }
 
     public NormalizedProjectContent(
@@ -60,7 +75,47 @@ public record NormalizedProjectContent(
             List<ImplementationTask> tasks,
             List<Evidence> evidence,
             List<Diagnostic> diagnostics) {
-        this(project, specifications, requirements, scenarios, changes, List.of(), constraints, designDecisions, tasks, evidence, diagnostics);
+        this(
+                project,
+                specifications,
+                requirements,
+                scenarios,
+                changes,
+                List.of(),
+                constraints,
+                designDecisions,
+                tasks,
+                List.of(),
+                evidence,
+                diagnostics);
+    }
+
+    /** Compatibility constructor for pre-M15 callers that already supplied requirement deltas explicitly. */
+    public NormalizedProjectContent(
+            ProjectSpecification project,
+            List<Specification> specifications,
+            List<Requirement> requirements,
+            List<Scenario> scenarios,
+            List<ChangeProposal> changes,
+            List<RequirementDelta> requirementDeltas,
+            List<Constraint> constraints,
+            List<DesignDecision> designDecisions,
+            List<ImplementationTask> tasks,
+            List<Evidence> evidence,
+            List<Diagnostic> diagnostics) {
+        this(
+                project,
+                specifications,
+                requirements,
+                scenarios,
+                changes,
+                requirementDeltas,
+                constraints,
+                designDecisions,
+                tasks,
+                List.of(),
+                evidence,
+                diagnostics);
     }
 
     public NormalizedProjectContent {
@@ -73,6 +128,7 @@ public record NormalizedProjectContent(
         constraints = List.copyOf(Objects.requireNonNull(constraints, "constraints"));
         designDecisions = List.copyOf(Objects.requireNonNull(designDecisions, "designDecisions"));
         tasks = List.copyOf(Objects.requireNonNull(tasks, "tasks"));
+        acceptanceCriteria = List.copyOf(Objects.requireNonNull(acceptanceCriteria, "acceptanceCriteria"));
         evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
         diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
 
@@ -144,6 +200,17 @@ public record NormalizedProjectContent(
             }
         }
 
+        Set<AcceptanceCriterionId> acceptanceCriterionIds = new HashSet<>();
+        for (AcceptanceCriterion criterion : acceptanceCriteria) {
+            criterion.requirementId().ifPresent(requirementId -> requireKnownRequirement(
+                    requirementId, requirementIds, "acceptance criterion", criterion.id()));
+            criterion.changeId().ifPresent(changeId -> requireKnownChange(
+                    changeId, changeIds, "acceptance criterion", criterion.id()));
+            if (!acceptanceCriterionIds.add(criterion.id())) {
+                throw new IllegalArgumentException("duplicate acceptance criterion identity: " + criterion.id());
+            }
+        }
+
         Set<EvidenceId> evidenceIds = new HashSet<>();
         evidence.forEach(item -> {
             if (!evidenceIds.add(item.id())) {
@@ -162,11 +229,25 @@ public record NormalizedProjectContent(
         constraints.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         designDecisions.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         tasks.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
+        acceptanceCriteria.forEach(item -> {
+            requireEvidence(item.provenance().evidenceId(), evidenceIds);
+            item.verificationEvidenceIds().forEach(evidenceId -> requireEvidence(evidenceId, evidenceIds));
+        });
     }
 
     private static void requireKnownChange(ChangeId changeId, Set<ChangeId> changeIds, String type, Object id) {
         if (!changeIds.contains(changeId)) {
             throw new IllegalArgumentException(type + " references unknown change: " + id);
+        }
+    }
+
+    private static void requireKnownRequirement(
+            RequirementId requirementId,
+            Set<RequirementId> requirementIds,
+            String type,
+            Object id) {
+        if (!requirementIds.contains(requirementId)) {
+            throw new IllegalArgumentException(type + " references unknown requirement: " + id);
         }
     }
 

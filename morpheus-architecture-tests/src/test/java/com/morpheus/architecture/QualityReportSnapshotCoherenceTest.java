@@ -34,7 +34,11 @@ class QualityReportSnapshotCoherenceTest {
                 new RequirementTraceabilityCoverage(second, 0, 0, 0, 1.0, List.of());
         TaskRequirementCoverage tasks = new TaskRequirementCoverage(first, 0, 0, 0, 1.0, List.of());
         AcceptanceCoverageAssessment acceptance = new AcceptanceCoverageAssessment(
-                first, AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL, List.of());
+                first,
+                AcceptanceCoverageStatus.NO_CRITERIA,
+                0, 0, 0, 0, 0, 0,
+                1.0,
+                List.of());
         ChangeCompletenessReport changes = new ChangeCompletenessReport(first, List.of());
         DecisionReferenceQualityReport decisions = new DecisionReferenceQualityReport(
                 first, List.of(), List.of(), List.of());
@@ -42,7 +46,7 @@ class QualityReportSnapshotCoherenceTest {
                 0,
                 0, 0, 0, 1.0,
                 0, 0, 0, 1.0,
-                AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL,
+                AcceptanceCoverageStatus.NO_CRITERIA,
                 0, 0, 0,
                 Map.of(), Map.of(), Map.of());
 

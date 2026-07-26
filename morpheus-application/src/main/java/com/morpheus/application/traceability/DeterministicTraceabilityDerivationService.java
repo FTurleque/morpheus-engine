@@ -1,6 +1,7 @@
 package com.morpheus.application.traceability;
 
 import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.scenario.Scenario;
@@ -77,6 +78,8 @@ public final class DeterministicTraceabilityDerivationService {
             delta.scenarios().forEach(scenario -> deriveScenario(evidenceByKey, scenario));
         });
 
+        content.acceptanceCriteria().forEach(criterion -> deriveAcceptanceCriterion(evidenceByKey, criterion));
+
         List<TraceabilityLink> links = new ArrayList<>(evidenceByKey.size());
         Map<TraceabilityLinkId, TraceabilityDerivationKey> keyByLinkId = new HashMap<>();
 
@@ -86,7 +89,6 @@ public final class DeterministicTraceabilityDerivationService {
                     "identityResolver returned null Optional");
             TraceabilityLinkId linkId = resolved.orElseThrow(() ->
                     new IllegalArgumentException("missing traceability link identity for derivation key: " + key));
-
             TraceabilityDerivationKey existingKey = keyByLinkId.putIfAbsent(linkId, key);
             if (existingKey != null && !existingKey.equals(key)) {
                 throw new IllegalArgumentException(
@@ -104,7 +106,6 @@ public final class DeterministicTraceabilityDerivationService {
                     evidenceIds,
                     observedAt));
         });
-
         return List.copyOf(links);
     }
 
@@ -119,6 +120,41 @@ public final class DeterministicTraceabilityDerivationService {
                         TraceabilityRelationType.REFINES,
                         ref(TraceabilityEntityKind.REQUIREMENT, requirementId.value())),
                 scenario.provenance().evidenceId()));
+    }
+
+    private void deriveAcceptanceCriterion(
+            Map<TraceabilityDerivationKey, Set<EvidenceId>> evidenceByKey,
+            AcceptanceCriterion criterion) {
+        TraceabilityEntityRef criterionRef = ref(
+                TraceabilityEntityKind.ACCEPTANCE_CRITERION,
+                criterion.id().value());
+
+        criterion.requirementId().ifPresent(requirementId -> addFact(
+                evidenceByKey,
+                new TraceabilityDerivationKey(
+                        criterionRef,
+                        ref(TraceabilityEntityKind.REQUIREMENT, requirementId.value()),
+                        TraceabilityRelationType.VERIFIED_BY,
+                        criterionRef),
+                criterion.provenance().evidenceId()));
+
+        criterion.changeId().ifPresent(changeId -> addFact(
+                evidenceByKey,
+                new TraceabilityDerivationKey(
+                        criterionRef,
+                        ref(TraceabilityEntityKind.CHANGE, changeId.value()),
+                        TraceabilityRelationType.VERIFIED_BY,
+                        criterionRef),
+                criterion.provenance().evidenceId()));
+
+        criterion.verificationEvidenceIds().forEach(evidenceId -> addFact(
+                evidenceByKey,
+                new TraceabilityDerivationKey(
+                        ref(TraceabilityEntityKind.EVIDENCE, evidenceId.value()),
+                        criterionRef,
+                        TraceabilityRelationType.VERIFIED_BY,
+                        ref(TraceabilityEntityKind.EVIDENCE, evidenceId.value())),
+                evidenceId));
     }
 
     private void addFact(

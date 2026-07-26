@@ -33,7 +33,8 @@ class MorpheusJarvisOrchestrationApiContractTest {
             assertTrue(unavailable.body().contains("\"source\":\"UNAVAILABLE\""), unavailable.body());
             assertTrue(unavailable.body().contains("\"state\":null"), unavailable.body());
             assertTrue(unavailable.body().contains("\"nextAllowedTransitions\":[]"), unavailable.body());
-            assertTrue(unavailable.body().contains("UNAVAILABLE_IN_NORMALIZED_MODEL"), unavailable.body());
+            assertTrue(unavailable.body().contains("\"acceptanceCriteria\":{\"status\":\"AVAILABLE\""), unavailable.body());
+            assertTrue(unavailable.body().contains("\"observedCount\":0"), unavailable.body());
             assertTrue(unavailable.body().contains("UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED"), unavailable.body());
             assertTrue(unavailable.body().contains("\"persisted\":false"), unavailable.body());
             assertTrue(unavailable.body().contains(snapshotId), unavailable.body());

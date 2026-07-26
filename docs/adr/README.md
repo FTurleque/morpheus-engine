@@ -96,6 +96,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0078](0078-explicit-lifecycle-and-tristate-transition-evaluation.md) | Lifecycle explicite et transition tri-state | **Acceptée — M14** |
 | [ADR-0079](0079-nondestructive-change-orchestration-state.md) | État d'orchestration agrégé non destructif | **Acceptée — M14** |
 | [ADR-0080](0080-jarvis-orchestration-surfaces-and-optional-client.md) | Surfaces M14 et client JARVIS optionnel | **Acceptée — M14** |
+| [ADR-0081](0081-first-class-acceptance-verification-evidence.md) | `AcceptanceCriterion`, `VerificationStatus` et preuves de vérification first-class | **Acceptée — M15** |
 
 # Preuves par jalon
 
@@ -113,6 +114,7 @@ M11 314/314 PASS Windows | Architecture 150/150 | API health packaging
 M12 331/331 PASS Windows | Architecture 153/153 | MINOS optional packaging
 M13 346/346 PASS Windows | Architecture 154/154 | MINOS/NEXUS optional packaging
 M14 357/357 PASS Windows | Architecture 160/160 | JARVIS orchestration packaging | JARVIS 536 tests BUILD SUCCESS
+M15 371/371 PASS Windows | Architecture 157/157 | acceptance CLI/MCP/HTTP | packaging + smokes PASS
 ```
 
 ## M12
@@ -122,9 +124,9 @@ M14 357/357 PASS Windows | Architecture 160/160 | JARVIS orchestration packaging
 | MCP cross-engine inter-processus | ADR-0069 | `MinosMcpTransportIntegrationTest 1/1`, MINOS Integration `8/8` |
 | `symbolKey` exact / revision | ADR-0070 | `MinosMcpExternalReferenceResolverTest 4/4` |
 | live non-mutating | ADR-0071 | `LiveExternalReferenceResolutionContractTest 2/2`, Memory + SQLite reopen |
-| config + CLI/MCP/API + packaging | ADR-0072 | CLI `15/15`, API `5/5`, MCP `5/5`, packaging/smokes PASS |
+| config + CLI/MCP/API + packaging | ADR-0072 | surfaces MINOS + packaging/smokes PASS |
 
-Validation : [`../VALIDATION_M12.md`](../VALIDATION_M12.md).
+Validation : [`../validation/VALIDATION_M12.md`](../validation/VALIDATION_M12.md).
 
 ## M13
 
@@ -132,11 +134,10 @@ Validation : [`../VALIDATION_M12.md`](../VALIDATION_M12.md).
 |---|---|---|
 | MCP NEXUS inter-processus | ADR-0073 | `NexusMcpTransportIntegrationTest 1/1`, NEXUS Integration `7/7` |
 | mapping projet explicite | ADR-0074 | `TechnicalContextOptionsTest 3/3`, provider/API pass-through |
-| intent / contexte technique séparés | ADR-0075 | API `7/7`, MCP subprocess M13 `1/1`, `persisted=false` |
-| optionalité + surfaces + packaging | ADR-0076 | CLI `17/17`, Architecture `154/154`, package/smokes PASS |
+| intent / contexte technique séparés | ADR-0075 | API/MCP, `persisted=false` |
+| optionalité + surfaces + packaging | ADR-0076 | Architecture `154/154`, package/smokes PASS |
 
-Validation : [`../VALIDATION_M13.md`](../VALIDATION_M13.md).  
-Documentation : [`../NEXUS.md`](../NEXUS.md).
+Validation : [`../validation/VALIDATION_M13.md`](../validation/VALIDATION_M13.md).
 
 ## M14
 
@@ -149,8 +150,19 @@ Documentation : [`../NEXUS.md`](../NEXUS.md).
 
 Gate cross-repo JARVIS : `536 tests`, `0 failure`, `0 error`, `BUILD SUCCESS`.
 
-Validation : [`../VALIDATION_M14.md`](../VALIDATION_M14.md).  
-Documentation : [`../JARVIS.md`](../JARVIS.md).
+Validation : [`../validation/VALIDATION_M14.md`](../validation/VALIDATION_M14.md).
+
+## M15
+
+| Incrément | ADR | Preuve |
+|---|---|---|
+| modèle acceptance/verificaton | ADR-0081 | `AcceptanceCriterionTest 8/8`, Domain `29/29` |
+| persistance / reopen | ADR-0081 | SQLite `7/7`, `SnapshotBusinessContentPersistenceTest 6/6` |
+| traçabilité / qualité | ADR-0081 | `AcceptanceTraceabilityDerivationTest 2/2`, contrats architecture PASS |
+| surfaces CLI/MCP/HTTP | ADR-0081 | CLI `22/22`, MCP `5/5`, API `9/9` |
+| gate final | ADR-0081 | `371/371`, Architecture `157/157`, packaging + smokes PASS |
+
+Validation : [`../validation/VALIDATION_M15.md`](../validation/VALIDATION_M15.md).
 
 # Contraintes actives principales
 
@@ -189,6 +201,10 @@ transition evaluation != lifecycle mutation
 QualityFinding = dérivé, non persisté
 DETERMINISTIC != HEURISTIC
 Scenario != AcceptanceCriterion
+AcceptanceCriterion != Test
+Test existence != VERIFIED
+Evidence != assertion
+UNKNOWN != FAILED
 absence de lien != lien inventé
 lifecycle non inféré depuis snapshot
 UNKNOWN lifecycle fact != FALSE
@@ -209,13 +225,12 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé** : M14.
+Dernier gate **validé** : M15.
 
 ```text
-TOTAL         357/357 PASS
-Architecture  160/160 PASS
+TOTAL         371/371 PASS
+Architecture  157/157 PASS
 Packaging     PASS
-JARVIS        536 tests | 0 failure | 0 error | BUILD SUCCESS
 ```
 
 # Principe de validation

@@ -44,10 +44,8 @@ import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -261,11 +259,23 @@ class BusinessContentQueryContractTest {
 
     @Test
     void acceptanceCriteriaAreNotSynthesizedFromScenarios() {
-        boolean queryMethodExists = Arrays.stream(BusinessContentQueryService.class.getDeclaredMethods())
-                .map(Method::getName)
-                .anyMatch(name -> name.toLowerCase().contains("acceptance"));
-        assertFalse(queryMethodExists);
-        assertThrows(ClassNotFoundException.class, () -> Class.forName("com.morpheus.domain.acceptance.AcceptanceCriterion"));
+        Fixture fixture = fixture();
+        assertFalse(fixture.content().scenarios().isEmpty());
+        assertTrue(fixture.content().acceptanceCriteria().isEmpty());
+
+        MemorySpecificationKnowledgeStore core = new MemorySpecificationKnowledgeStore();
+        MemorySnapshotBusinessContentStore content = new MemorySnapshotBusinessContentStore(core, core);
+        seedPublished(core, core, content, fixture);
+
+        BusinessContentQueryService query = new BusinessContentQueryService(core, content);
+        var allAcceptance = query.activeAcceptanceCriteria(fixture.projectId(), new PageRequest(0, 100)).orElseThrow();
+        var changeAcceptance = query.activeAcceptanceCriteriaForChange(
+                fixture.projectId(), fixture.primaryChangeId(), new PageRequest(0, 100)).orElseThrow();
+
+        assertTrue(allAcceptance.items().isEmpty());
+        assertEquals(0, allAcceptance.totalMatches());
+        assertTrue(changeAcceptance.items().isEmpty());
+        assertEquals(0, changeAcceptance.totalMatches());
     }
 
     private void seedPublished(

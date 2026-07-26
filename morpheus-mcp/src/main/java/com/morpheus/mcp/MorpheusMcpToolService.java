@@ -17,6 +17,7 @@ import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.sync.SyncFreshness;
 import com.morpheus.application.sync.SyncFreshnessService;
+import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -95,7 +96,8 @@ public final class MorpheusMcpToolService {
                 "specifications", content.specifications().stream().map(this::specification).toList(),
                 "requirementCount", currentRequirementCount,
                 "scenarioCount", content.scenarios().size(),
-                "changeCount", content.changes().size());
+                "changeCount", content.changes().size(),
+                "acceptanceCriterionCount", content.acceptanceCriteria().size());
     }
 
     private Object findRequirements(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
@@ -141,13 +143,11 @@ public final class MorpheusMcpToolService {
     private Object acceptanceCriteria(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
         ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
-        var resolved = requireChange(runtime, projectId, changeId);
-        return map(
-                "snapshotId", resolved.snapshot().id().toString(),
-                "changeId", changeId.toString(),
-                "status", "UNAVAILABLE_IN_NORMALIZED_MODEL",
-                "criteria", List.of(),
-                "reason", "No explicit AcceptanceCriterion projection is persisted; MORPHEUS never converts Scenario into AcceptanceCriterion.");
+        requireChange(runtime, projectId, changeId);
+        SnapshotPage<AcceptanceCriterion> result = business(runtime)
+                .activeAcceptanceCriteriaForChange(projectId, changeId, page(arguments))
+                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+        return page(result, result.items().stream().map(this::acceptanceCriterion).toList());
     }
 
     private Object decisions(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
@@ -388,6 +388,18 @@ public final class MorpheusMcpToolService {
 
     private Object constraint(Constraint item) {
         return map("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
+    }
+
+    private Object acceptanceCriterion(AcceptanceCriterion item) {
+        return map(
+                "id", item.id().toString(),
+                "requirementId", item.requirementId().map(Object::toString).orElse(""),
+                "changeId", item.changeId().map(Object::toString).orElse(""),
+                "title", item.title(),
+                "condition", item.condition(),
+                "verificationStatus", item.verificationStatus().name(),
+                "verificationEvidenceIds", item.verificationEvidenceIds().stream().map(Object::toString).toList(),
+                "sourceEvidenceId", item.provenance().evidenceId().toString());
     }
 
     private Object decision(DesignDecision item) {

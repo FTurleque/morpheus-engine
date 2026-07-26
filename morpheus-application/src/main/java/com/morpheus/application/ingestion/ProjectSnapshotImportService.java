@@ -112,6 +112,7 @@ public final class ProjectSnapshotImportService {
                 content.constraints(),
                 content.designDecisions(),
                 content.tasks(),
+                content.acceptanceCriteria(),
                 content.evidence()));
 
         var links = traceabilityDerivation.derive(

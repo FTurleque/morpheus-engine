@@ -109,11 +109,14 @@ public final class ChangeCompletenessService {
         int implementationTaskCount = (int) content.tasks().stream()
                 .filter(item -> item.changeId().equals(change.id()))
                 .count();
+        int acceptanceCriterionCount = (int) content.acceptanceCriteria().stream()
+                .filter(item -> item.changeId().filter(change.id()::equals).isPresent())
+                .count();
 
         ChangeLifecycleFactAssessment facts = new ChangeLifecycleFactAssessment(
                 QualityFactValue.of(currentRequirementCount > 0),
                 QualityFactValue.UNAVAILABLE,
-                QualityFactValue.UNAVAILABLE,
+                QualityFactValue.of(acceptanceCriterionCount > 0),
                 QualityFactValue.UNAVAILABLE,
                 QualityFactValue.of(designDecisionCount > 0),
                 implementationTaskCount > 0 ? QualityFactValue.TRUE : QualityFactValue.UNAVAILABLE,

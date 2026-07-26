@@ -7,6 +7,9 @@ import com.morpheus.application.store.SnapshotBusinessContentStore;
 import com.morpheus.application.store.SnapshotSpecificationVersionBinding;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.application.store.VersionedRequirementStore;
+import com.morpheus.domain.acceptance.AcceptanceCriterion;
+import com.morpheus.domain.acceptance.AcceptanceCriterionId;
+import com.morpheus.domain.acceptance.VerificationStatus;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -77,6 +80,13 @@ class SnapshotBusinessContentPersistenceTest {
 
         assertEquals(fixture.content(), memoryResult);
         assertEquals(memoryResult, sqliteResult);
+        assertEquals(2, sqliteResult.acceptanceCriteria().size());
+        assertEquals(
+                List.of(VerificationStatus.NOT_VERIFIED, VerificationStatus.VERIFIED),
+                sqliteResult.acceptanceCriteria().stream()
+                        .map(AcceptanceCriterion::verificationStatus)
+                        .sorted()
+                        .toList());
     }
 
     @Test
@@ -88,7 +98,8 @@ class SnapshotBusinessContentPersistenceTest {
         MemorySpecificationKnowledgeStore memoryCore = new MemorySpecificationKnowledgeStore();
         MemorySnapshotBusinessContentStore memoryContent = new MemorySnapshotBusinessContentStore(memoryCore, memoryCore);
         seed(memoryCore, memoryCore, fixture);
-        memoryCore.putSpecificationVersion(specificationVersion(foreignVersion, fixture.projectId(), 2L, Optional.of(fixture.versionId())));
+        memoryCore.putSpecificationVersion(specificationVersion(
+                foreignVersion, fixture.projectId(), 2L, Optional.of(fixture.versionId())));
         verifyOwnershipFailures(memoryContent, fixture, foreignProject, foreignVersion);
 
         Path database = tempDir.resolve("ownership.db");
@@ -96,7 +107,8 @@ class SnapshotBusinessContentPersistenceTest {
              var versions = new SqliteVersionedRequirementStore(database);
              var content = new SqliteSnapshotBusinessContentStore(database)) {
             seed(snapshots, versions, fixture);
-            versions.putSpecificationVersion(specificationVersion(foreignVersion, fixture.projectId(), 2L, Optional.of(fixture.versionId())));
+            versions.putSpecificationVersion(specificationVersion(
+                    foreignVersion, fixture.projectId(), 2L, Optional.of(fixture.versionId())));
             verifyOwnershipFailures(content, fixture, foreignProject, foreignVersion);
         }
     }
@@ -109,19 +121,34 @@ class SnapshotBusinessContentPersistenceTest {
         assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
                 fixture.snapshotId(), fixture.versionId(),
                 List.of(content.specifications().get(0), content.specifications().get(0)),
-                content.scenarios(), content.changes(), content.constraints(), content.designDecisions(), content.tasks(), content.evidence()));
+                content.scenarios(), content.changes(), content.constraints(), content.designDecisions(), content.tasks(),
+                content.acceptanceCriteria(), content.evidence()));
 
         Constraint broken = new Constraint(
                 ConstraintId.generate(), ChangeId.generate(), "must remain auditable", content.constraints().get(0).provenance());
         assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
                 fixture.snapshotId(), fixture.versionId(), content.specifications(), content.scenarios(), content.changes(),
-                List.of(broken), content.designDecisions(), content.tasks(), content.evidence()));
+                List.of(broken), content.designDecisions(), content.tasks(), content.acceptanceCriteria(), content.evidence()));
 
         Specification unknownEvidence = new Specification(
                 SpecificationId.generate(), fixture.projectId(), "unknown-evidence", "Unknown evidence", Optional.empty(),
                 provenance(EvidenceId.generate(), "specs/unknown.md", "SPEC-UNKNOWN"));
         assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
-                fixture.snapshotId(), fixture.versionId(), List.of(unknownEvidence), List.of(), List.of(), List.of(), List.of(), List.of(), content.evidence()));
+                fixture.snapshotId(), fixture.versionId(), List.of(unknownEvidence), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(), content.evidence()));
+
+        AcceptanceCriterion brokenVerificationEvidence = new AcceptanceCriterion(
+                AcceptanceCriterionId.generate(),
+                Optional.of(fixture.requirementId()),
+                Optional.empty(),
+                "Broken evidence",
+                "Verification proof must exist in the snapshot evidence set",
+                VerificationStatus.VERIFIED,
+                List.of(EvidenceId.generate()),
+                content.acceptanceCriteria().getFirst().provenance());
+        assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
+                fixture.snapshotId(), fixture.versionId(), content.specifications(), content.scenarios(), content.changes(),
+                content.constraints(), content.designDecisions(), content.tasks(), List.of(brokenVerificationEvidence), content.evidence()));
     }
 
     @Test
@@ -143,7 +170,7 @@ class SnapshotBusinessContentPersistenceTest {
     }
 
     @Test
-    void orderedListsAndScenarioRequirementReferenceArePreserved() {
+    void orderedListsScenarioRequirementAndVerificationEvidenceArePreserved() {
         Fixture fixture = fixture();
         Path database = tempDir.resolve("ordered.db");
         try (var snapshots = new SqliteSpecificationKnowledgeStore(database);
@@ -161,6 +188,13 @@ class SnapshotBusinessContentPersistenceTest {
             assertEquals(List.of("billing", "api"), change.scope());
             assertEquals(List.of("reporting", "mobile"), change.outOfScope());
             assertEquals(List.of("migration", "compatibility"), change.risks());
+
+            AcceptanceCriterion verified = result.acceptanceCriteria().stream()
+                    .filter(item -> item.verificationStatus() == VerificationStatus.VERIFIED)
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals(Optional.of(fixture.requirementId()), verified.requirementId());
+            assertEquals(List.of(fixture.verificationEvidenceId()), verified.verificationEvidenceIds());
         }
     }
 
@@ -177,7 +211,9 @@ class SnapshotBusinessContentPersistenceTest {
         }
 
         try (var reopened = new SqliteSnapshotBusinessContentStore(database)) {
-            assertEquals(fixture.content(), reopened.findSnapshotContent(fixture.snapshotId()).orElseThrow());
+            SnapshotBusinessContent reopenedContent = reopened.findSnapshotContent(fixture.snapshotId()).orElseThrow();
+            assertEquals(fixture.content(), reopenedContent);
+            assertEquals(2, reopenedContent.acceptanceCriteria().size());
             assertTrue(reopened.findSnapshotContent(KnowledgeSnapshotId.generate()).isEmpty());
         }
     }
@@ -234,6 +270,7 @@ class SnapshotBusinessContentPersistenceTest {
                 base.constraints(),
                 base.designDecisions(),
                 base.tasks(),
+                base.acceptanceCriteria(),
                 base.evidence());
     }
 
@@ -249,7 +286,8 @@ class SnapshotBusinessContentPersistenceTest {
                 KnowledgeSnapshotState.READY,
                 Optional.of("revision-1"),
                 T0));
-        versions.putSpecificationVersion(specificationVersion(fixture.versionId(), fixture.projectId(), 1L, Optional.empty()));
+        versions.putSpecificationVersion(specificationVersion(
+                fixture.versionId(), fixture.projectId(), 1L, Optional.empty()));
         versions.bindSnapshotVersion(new SnapshotSpecificationVersionBinding(fixture.snapshotId(), fixture.versionId()));
     }
 
@@ -278,6 +316,11 @@ class SnapshotBusinessContentPersistenceTest {
                 SourceLocator.file("specs/billing.md"),
                 Optional.of(new SourceRange(10, 18)),
                 Optional.of("sha256:billing"));
+        Evidence verificationEvidence = new Evidence(
+                EvidenceId.generate(),
+                SourceLocator.file("tests/billing-retention.txt"),
+                Optional.of(new SourceRange(1, 3)),
+                Optional.of("sha256:billing-test"));
         Provenance provenance = provenance(evidence.id(), "specs/billing.md", "SOURCE-1");
         Specification specification = new Specification(
                 SpecificationId.generate(), projectId, "billing", "Billing", Optional.of("Billing rules"), provenance);
@@ -305,6 +348,24 @@ class SnapshotBusinessContentPersistenceTest {
                 DesignDecisionId.generate(), change.id(), "Use explicit state", "Persist explicit state transitions", provenance);
         ImplementationTask task = new ImplementationTask(
                 TaskId.generate(), change.id(), Optional.of("TASK-BILLING"), "Implement billing state", false, provenance);
+        AcceptanceCriterion verified = new AcceptanceCriterion(
+                AcceptanceCriterionId.generate(),
+                Optional.of(requirementId),
+                Optional.empty(),
+                "Retention period honored",
+                "Invoices remain available for the configured legal period",
+                VerificationStatus.VERIFIED,
+                List.of(verificationEvidence.id()),
+                provenance);
+        AcceptanceCriterion notVerified = new AcceptanceCriterion(
+                AcceptanceCriterionId.generate(),
+                Optional.empty(),
+                Optional.of(change.id()),
+                "New flow is verified",
+                "The hardened billing flow passes acceptance verification",
+                VerificationStatus.NOT_VERIFIED,
+                List.of(),
+                provenance);
 
         SnapshotBusinessContent content = new SnapshotBusinessContent(
                 snapshotId,
@@ -315,8 +376,15 @@ class SnapshotBusinessContentPersistenceTest {
                 List.of(constraint),
                 List.of(decision),
                 List.of(task),
-                List.of(evidence));
-        return new Fixture(projectId, snapshotId, versionId, requirementId, content);
+                List.of(verified, notVerified),
+                List.of(evidence, verificationEvidence));
+        return new Fixture(
+                projectId,
+                snapshotId,
+                versionId,
+                requirementId,
+                verificationEvidence.id(),
+                content);
     }
 
     private static Provenance provenance(EvidenceId evidenceId, String path, String externalId) {
@@ -334,6 +402,7 @@ class SnapshotBusinessContentPersistenceTest {
             KnowledgeSnapshotId snapshotId,
             SpecificationVersionId versionId,
             RequirementId requirementId,
+            EvidenceId verificationEvidenceId,
             SnapshotBusinessContent content) {
     }
 }

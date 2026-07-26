@@ -86,6 +86,9 @@ public final class ChangeOrchestrationStateService {
         List<Constraint> constraints = content.constraints().stream()
                 .filter(item -> item.changeId().equals(changeId))
                 .toList();
+        long acceptanceCriterionCount = content.acceptanceCriteria().stream()
+                .filter(item -> item.changeId().filter(changeId::equals).isPresent())
+                .count();
         List<ChangeOrchestrationState.UnresolvedLinkView> unresolvedLinks = unresolvedLinks(active, changeId);
         List<ChangeTransitionEvaluation> evaluations = transitionEvaluations(projectId, changeId, lifecycle);
         List<ChangeLifecycleState> allowed = evaluations.stream()
@@ -101,9 +104,11 @@ public final class ChangeOrchestrationStateService {
                 missingArtifacts(assessment.lifecycleFacts()),
                 assessment.lifecycleFacts().unavailableFacts(),
                 new ChangeOrchestrationState.AvailabilityView(
-                        "UNAVAILABLE_IN_NORMALIZED_MODEL",
-                        "No explicit AcceptanceCriterion projection is persisted; Scenario is never converted into AcceptanceCriterion",
-                        0),
+                        "AVAILABLE",
+                        acceptanceCriterionCount == 0
+                                ? "No explicit acceptance criterion is attached to this change in the published snapshot"
+                                : "Explicit acceptance criteria are persisted and queryable; verification state does not imply blocking semantics",
+                        Math.toIntExact(acceptanceCriterionCount)),
                 constraints.stream().map(this::constraint).toList(),
                 new ChangeOrchestrationState.AvailabilityView(
                         "UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED",

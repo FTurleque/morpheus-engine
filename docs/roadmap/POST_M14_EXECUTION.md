@@ -1,26 +1,33 @@
 # MORPHEUS — Roadmap post-M14
 
-Statut : **ACTIVE — D0 gate vert / PR #75 ; M15 autorisé après intégration D0**
+Statut : **ACTIVE — D0 intégré ; M15 validé techniquement / PR #77 Ready ; M16 prochain après intégration M15**
 
 Dernière mise à jour : 26 juillet 2026
 
 Cette roadmap prolonge la baseline **C0 à M14 validée et intégrée**. Elle ne réécrit pas l'historique des jalons déjà livrés : elle définit les prochaines étapes nécessaires pour approfondir la sémantique métier, sécuriser les mutations, ouvrir réellement le multi-provider, durcir l'exploitation et transformer le packaging existant en distribution produit installable.
 
-La roadmap globale reste [`../governance/ROADMAP.md`](../governance/ROADMAP.md). Pendant l'exécution d'un jalon post-M14, son plan détaillé devient la source de vérité opérationnelle conformément aux règles de gouvernance existantes. D0 est détaillé dans [`D0_EXECUTION.md`](D0_EXECUTION.md) et la politique documentaire dans [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
+La roadmap globale reste [`../governance/ROADMAP.md`](../governance/ROADMAP.md). Pendant l'exécution d'un jalon post-M14, son plan détaillé devient la source de vérité opérationnelle. D0 est détaillé dans [`D0_EXECUTION.md`](D0_EXECUTION.md), M15 dans [`M15_EXECUTION.md`](M15_EXECUTION.md), et la politique documentaire dans [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
 
 ---
 
 ## 1. Baseline acquise
 
 ```text
-C0  -> M14  ✅ validés et intégrés
-M14          357/357 PASS
-Architecture 160/160 PASS
-Packaging    Windows PASS
-JARVIS       536 tests BUILD SUCCESS
+C0 -> M14   ✅ validés et intégrés
+D0          ✅ intégré
+M14         357/357 PASS
+Architecture M14 160/160 PASS
+Packaging   Windows PASS
+JARVIS      536 tests BUILD SUCCESS
+
+M15         ✅ validé techniquement
+M15 tests   371/371 PASS
+Architecture M15 157/157 PASS
+Packaging M15 Windows + smokes PASS
+PR #77      Ready, non mergée
 ```
 
-Capacités déjà disponibles :
+Capacités disponibles après M15 :
 
 ```text
 Domain model
@@ -32,6 +39,10 @@ Business queries + compact context
 Quality diagnostics
 Incremental synchronization / freshness
 Change analysis
+AcceptanceCriterion + VerificationStatus + Evidence semantics
+Acceptance verification coverage
+Acceptance traceability
+CLI / MCP / HTTP acceptance surfaces
 CLI
 MCP STDIO
 HTTP API
@@ -56,6 +67,10 @@ Invariants structurants :
 PROPOSED never leaks into CURRENT
 APPLY != PROMOTE != ACTIVATE
 Scenario != AcceptanceCriterion
+AcceptanceCriterion != Test
+Test existence != VERIFIED
+Evidence != assertion
+UNKNOWN != FAILED
 lifecycle unavailable != lifecycle inferred
 UNKNOWN != BLOCKED
 transition evaluation != lifecycle mutation
@@ -65,18 +80,33 @@ live external observation != published snapshot mutation
 
 ---
 
-## 2. Constat post-M14
+## 2. Progression post-M14
 
-MORPHEUS dispose désormais d'une plateforme technique complète, mais sa profondeur sémantique reste volontairement incomplète sur plusieurs points révélés explicitement par M14 :
+Le constat M14 était :
 
 ```text
 acceptanceCriteria.status = UNAVAILABLE_IN_NORMALIZED_MODEL
 blockingConstraints.status = UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED
 ```
 
-Le prochain cycle doit donc privilégier la **richesse et la preuve de l'intention** plutôt que l'ajout de nouvelles surfaces techniques.
+M15 ferme le premier gap :
 
-La priorité n'est pas d'ajouter encore des endpoints, mais de fermer la boucle :
+```text
+acceptanceCriteria.status = AVAILABLE
+AcceptanceCriterion first-class
+VerificationStatus first-class
+verification evidence explicit
+coverage calculable
+CLI / MCP / HTTP cohérents
+```
+
+Le prochain gap prioritaire est donc désormais :
+
+```text
+blockingConstraints.status = UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED
+```
+
+La boucle cible reste :
 
 ```text
 INTENTION
@@ -98,23 +128,11 @@ SATISFACTION EXPLICABLE
 
 # D0 — Réconciliation documentaire post-M14
 
-Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #75 à intégrer avant M15**
+Statut : **✅ VALIDÉ / INTÉGRÉ — PR #75**
 
-## Objectif
+Objectif : aligner la documentation active sur l'état réel du dépôt avant le cycle post-M14.
 
-Aligner toute la documentation active sur l'état réel du dépôt avant de reprendre les développements fonctionnels.
-
-## Travaux réalisés
-
-- ✅ les plans/validations M0→M14 sont explicitement classés comme preuves historiques ; leurs instructions de merge ne décrivent plus l'état courant ;
-- ✅ le cahier des charges C0 est reclassé en baseline validée et ses liens déplacés sont réparés ;
-- ✅ la distinction documentation active / ADR normative / preuve historique est formalisée ;
-- ✅ les liens des parcours utilisateur, développeur, machine et distribution ont été vérifiés ;
-- ✅ cette roadmap est publiée depuis les index de gouvernance et de documentation ;
-- ✅ C0→M14 est documenté comme baseline livrée et intégrée ;
-- ✅ les SHA, compteurs de tests, dates et décisions historiques des gates sont conservés sans réécriture.
-
-## Gate D0
+Gate :
 
 ```text
 aucun document actif ne présente M3..M14 comme non intégrés          PASS
@@ -125,36 +143,37 @@ preuves historiques de gates conservées sans réécriture              PASS
 ```
 
 Preuve : [`../validation/VALIDATION_D0.md`](../validation/VALIDATION_D0.md).  
-Issue : **#74**. PR : **#75**.
+Issue : **#74**. PR : **#75**. Merge : `ec75d3963422d6281f2904c5ebd547124db92ad6`.
 
 ---
 
 # M15 — Acceptance Criteria, Verification & Evidence
 
-Statut : **AUTORISÉ APRÈS MERGE D0**
+Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #77 Ready**
 
 ## Question de sortie
 
 > MORPHEUS peut-il représenter explicitement ce qui doit être vérifié, l'état réel de cette vérification et les preuves associées, sans confondre scénario, test, critère d'acceptation et preuve ?
 
-## Objectif
+**Réponse : OUI.**
 
-Faire de `AcceptanceCriterion`, `VerificationStatus` et `Evidence` des concepts réellement exploitables de bout en bout.
-
-## Portée cible
+## Résultat
 
 ```text
 AcceptanceCriterion first-class
 VerificationStatus first-class
-Evidence first-class
+Evidence reused as verification material
 Requirement -> AcceptanceCriterion
 ChangeProposal -> AcceptanceCriterion
-AcceptanceCriterion -> ExternalReference(test)
 AcceptanceCriterion -> Evidence
-verification provenance
+verification provenance separated from verification evidence
 coverage / uncovered criteria
 unverified / partially verified / verified / failed / unknown
+CLI / MCP / HTTP surfaces
+change-orchestration acceptance availability
 ```
+
+Les références test externes ne sont jamais inventées : `AcceptanceCriterion -> ExternalReference(test)` ne sera créé que lorsqu'une source/provider fournit explicitement cette relation.
 
 ## Invariants
 
@@ -168,34 +187,35 @@ UNKNOWN != FAILED
 verification state must be explicit or demonstrably derived by policy
 ```
 
-## Slices envisagés
-
-1. modèle canonique `AcceptanceCriterion` ;
-2. modèle `Evidence` et provenance ;
-3. projection provider OpenSpec sans heuristique silencieuse ;
-4. persistance versionnée / snapshot-scoped ;
-5. traçabilité Requirement / Change / Criterion / Evidence ;
-6. service de couverture ;
-7. diagnostics `uncovered` / `unverified` ;
-8. vues CLI / MCP / HTTP compactes ;
-9. intégration dans `change-orchestration` sans inventer d'état ;
-10. validation Memory + SQLite + reopen + packaging.
-
 ## Gate M15
 
 ```text
-acceptanceCriteria.status != UNAVAILABLE_IN_NORMALIZED_MODEL
-critères persistés et requêtables
-preuves traçables et explicables
-aucune conversion Scenario -> AcceptanceCriterion implicite
-verification UNKNOWN conservé lorsque les faits manquent
+acceptanceCriteria.status != UNAVAILABLE_IN_NORMALIZED_MODEL     PASS
+critères persistés et requêtables                                PASS
+preuves traçables et explicables                                 PASS
+aucune conversion Scenario -> AcceptanceCriterion implicite      PASS
+verification UNKNOWN conservé lorsque les faits manquent         PASS
+Memory == SQLite                                                 PASS
+SQLite close/reopen                                              PASS
+CLI / MCP / HTTP                                                 PASS
+TOTAL 371/371                                                    PASS
+Architecture 157/157                                             PASS
+Packaging Windows + smokes                                      PASS
 ```
+
+Head de code validé : `9e6450a099157cfdfcd11cc29dfb986ef7701247`.
+
+Preuve : [`../validation/VALIDATION_M15.md`](../validation/VALIDATION_M15.md).  
+Plan : [`M15_EXECUTION.md`](M15_EXECUTION.md).  
+ADR : ADR-0081 **Acceptée — M15**.
+
+La PR #77 doit être intégrée avant d'ouvrir M16.
 
 ---
 
 # M16 — Constraint Semantics & Policy Enforcement
 
-Statut : **PLANIFIÉ**
+Statut : **PROCHAIN APRÈS MERGE M15**
 
 ## Question de sortie
 
@@ -412,8 +432,6 @@ Statut : **PLANIFIÉ**
 
 Transformer les garanties fonctionnelles en garanties d'exploitation.
 
-## Axes
-
 ### Performance et capacité
 
 ```text
@@ -465,7 +483,7 @@ write permission hardening
 
 ## Gate M19
 
-Les seuils chiffrés seront fixés avant implémentation du jalon puis prouvés par benchmark reproductible Windows/Linux.
+Les seuils chiffrés seront fixés avant implémentation puis prouvés par benchmark reproductible Windows/Linux.
 
 ```text
 performance budgets documented
@@ -515,9 +533,9 @@ Installation programme :
 
 ```text
 %LOCALAPPDATA%\Programs\MORPHEUS\
-├── app\                    runtime Java + morpheus.exe
+├── app\
 ├── lib\
-├── integration\            intégrations MCP éventuelles
+├── integration\
 ├── morpheus.cmd
 ├── morpheus-mcp.cmd
 ├── VERSION
@@ -561,11 +579,9 @@ morpheus.cmd projects list
 morpheus.cmd doctor
 ```
 
-Un alias/launcher `morpheus` pourra être fourni si le packaging Windows le permet sans ambiguïté.
-
 ## 20.3 MCP utilisateur
 
-À l'image du standard MINOS, une intégration MCP native peut être proposée de manière **opt-in**, jamais silencieuse :
+Une intégration MCP native peut être proposée de manière **opt-in**, jamais silencieuse :
 
 ```text
 ☐ GitHub Copilot — JetBrains / IntelliJ
@@ -633,7 +649,7 @@ Le dépôt ne doit plus rester indéfiniment en `0.1.0-SNAPSHOT` lorsque la rele
 
 ## 20.6 Diagnostic produit
 
-Ajouter une commande de diagnostic homogène avec l'écosystème :
+Ajouter :
 
 ```powershell
 morpheus.cmd doctor
@@ -698,14 +714,14 @@ Cible de version : **MORPHEUS 1.0** après validation de l'ensemble des gates po
 
 ---
 
-# 3. Ordre d'exécution proposé
+# 3. Ordre d'exécution
 
 ```text
-D0   Documentation reconciliation                       ✅ gate vert / PR #75
+D0   Documentation reconciliation                       ✅ intégré
  ↓
-M15  Acceptance / Verification / Evidence               ⏳ après merge D0
- ↓
-M16  Constraint semantics / blocking policy
+M15  Acceptance / Verification / Evidence               ✅ validé techniquement / PR #77 Ready
+ ↓ merge #77
+M16  Constraint semantics / blocking policy             ⏳ prochain
  ↓
 M17  Controlled write / lifecycle mutations
  ↓
@@ -765,13 +781,13 @@ Pour chaque jalon :
 
 ```text
 C0-M14  = plateforme MVP / intégrations fondamentales          ✅ acquis
-D0      = documentation réconciliée                            ✅ gate vert / PR #75
-M15     = intention vérifiable et prouvable                    ⏳ après merge D0
-M16     = contraintes exécutables/explicables                  ⏳
+D0      = documentation réconciliée                            ✅ intégré
+M15     = intention vérifiable et prouvable                    ✅ validé techniquement / PR #77 Ready
+M16     = contraintes exécutables/explicables                  ⏳ prochain après merge M15
 M17     = mutations contrôlées                                 ⏳
 M18     = multi-provider réel                                  ⏳
 M19     = exploitation à l'échelle                             ⏳
 M20     = distribution produit / installation PROD / 1.0      ⏳
 ```
 
-La priorité post-M14 reste la suivante : **approfondir la sémantique de l'intention avant d'élargir davantage les surfaces techniques**.
+La priorité post-M14 reste : **approfondir la sémantique de l'intention avant d'élargir davantage les surfaces techniques**.

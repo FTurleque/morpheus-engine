@@ -1,5 +1,6 @@
 package com.morpheus.application.store;
 
+import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -28,7 +29,32 @@ public record SnapshotBusinessContent(
         List<Constraint> constraints,
         List<DesignDecision> designDecisions,
         List<ImplementationTask> tasks,
+        List<AcceptanceCriterion> acceptanceCriteria,
         List<Evidence> evidence) {
+
+    /** Compatibility constructor for pre-M15 callers. */
+    public SnapshotBusinessContent(
+            KnowledgeSnapshotId snapshotId,
+            SpecificationVersionId specificationVersionId,
+            List<Specification> specifications,
+            List<Scenario> scenarios,
+            List<ChangeProposal> changes,
+            List<Constraint> constraints,
+            List<DesignDecision> designDecisions,
+            List<ImplementationTask> tasks,
+            List<Evidence> evidence) {
+        this(
+                snapshotId,
+                specificationVersionId,
+                specifications,
+                scenarios,
+                changes,
+                constraints,
+                designDecisions,
+                tasks,
+                List.of(),
+                evidence);
+    }
 
     public SnapshotBusinessContent {
         Objects.requireNonNull(snapshotId, "snapshotId");
@@ -39,6 +65,8 @@ public record SnapshotBusinessContent(
         constraints = canonical(constraints, item -> item.id().toString(), "constraints");
         designDecisions = canonical(designDecisions, item -> item.id().toString(), "designDecisions");
         tasks = canonical(tasks, item -> item.id().toString(), "tasks");
+        acceptanceCriteria = canonical(
+                acceptanceCriteria, item -> item.id().toString(), "acceptanceCriteria");
         evidence = canonical(evidence, item -> item.id().toString(), "evidence");
 
         Set<EvidenceId> evidenceIds = new HashSet<>();
@@ -49,12 +77,18 @@ public record SnapshotBusinessContent(
         constraints.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         designDecisions.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         tasks.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
+        acceptanceCriteria.forEach(item -> {
+            requireEvidence(item.provenance().evidenceId(), evidenceIds);
+            item.verificationEvidenceIds().forEach(evidenceId -> requireEvidence(evidenceId, evidenceIds));
+        });
 
         Set<ChangeId> changeIds = new HashSet<>();
         changes.forEach(item -> changeIds.add(item.id()));
         constraints.forEach(item -> requireKnownChange(item.changeId(), changeIds, "constraint", item.id()));
         designDecisions.forEach(item -> requireKnownChange(item.changeId(), changeIds, "design decision", item.id()));
         tasks.forEach(item -> requireKnownChange(item.changeId(), changeIds, "task", item.id()));
+        acceptanceCriteria.forEach(item -> item.changeId().ifPresent(changeId ->
+                requireKnownChange(changeId, changeIds, "acceptance criterion", item.id())));
     }
 
     private static <T> List<T> canonical(

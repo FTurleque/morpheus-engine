@@ -45,7 +45,7 @@ class MorpheusMcpToolServiceTest {
     Path tempDirectory;
 
     @Test
-    void executesEntireReadOnlyM10CatalogWithoutInventingUnavailableSemantics() {
+    void executesEntireReadOnlyCatalogWithoutInventingUnavailableSemantics() {
         Path database = tempDirectory.resolve("morpheus.db");
         Fixture fixture = publish(database);
         MorpheusMcpToolService service = new MorpheusMcpToolService(database);
@@ -59,8 +59,10 @@ class MorpheusMcpToolServiceTest {
         assertContains(service.execute("get_constraints", Map.of("projectId", projectId, "changeId", changeId)), fixture.constraint.statement());
 
         String acceptance = service.execute("get_acceptance_criteria", Map.of("projectId", projectId, "changeId", changeId));
-        assertContains(acceptance, "UNAVAILABLE_IN_NORMALIZED_MODEL");
-        assertContains(acceptance, "\"criteria\":[]");
+        assertContains(acceptance, "\"totalMatches\":0");
+        assertContains(acceptance, "\"items\":[]");
+        assertContains(acceptance, "\"hasMore\":false");
+        assertFalse(acceptance.contains("UNAVAILABLE_IN_NORMALIZED_MODEL"));
         assertFalse(acceptance.contains(fixture.scenario.expectedOutcome()), "scenario must never be relabeled as acceptance criterion");
 
         assertContains(service.execute("get_design_decisions", Map.of("projectId", projectId, "changeId", changeId)), fixture.decision.title());
@@ -98,9 +100,9 @@ class MorpheusMcpToolServiceTest {
         SourceLocator source = SourceLocator.file("openspec/specs/auth/spec.md");
         Evidence evidence = new Evidence(EvidenceId.generate(), source, Optional.empty(), Optional.empty());
         Provenance provenance = new Provenance(
-                new ProviderId("m10-test"), Optional.of("1.0"), source,
+                new ProviderId("m15-test"), Optional.of("1.0"), source,
                 Optional.of("fixture"), Optional.empty(), evidence.id());
-        ProjectSpecification project = new ProjectSpecification(projectId, "M10 fixture", SourceLocator.file("workspace"));
+        ProjectSpecification project = new ProjectSpecification(projectId, "M15 fixture", SourceLocator.file("workspace"));
         Specification specification = new Specification(
                 specificationId, projectId, "auth", "Authentication", Optional.of("Authentication behavior"), provenance);
         Requirement requirement = new Requirement(
@@ -136,7 +138,7 @@ class MorpheusMcpToolServiceTest {
              SqliteSnapshotBusinessContentStore businessContent = new SqliteSnapshotBusinessContentStore(database);
              SqliteTraceabilityStore traceability = new SqliteTraceabilityStore(database)) {
             new ProjectSnapshotImportService(snapshots, requirements, businessContent, traceability)
-                    .publishFull(content, Optional.of("m10-test"), Instant.parse("2026-07-24T10:00:00Z"));
+                    .publishFull(content, Optional.of("m15-test"), Instant.parse("2026-07-26T10:00:00Z"));
         }
         return new Fixture(project, specification, requirement, scenario, change, constraint, decision, task);
     }

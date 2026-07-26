@@ -1,0 +1,3 @@
+billing-retention verification
+status=passed
+assertion=configured legal retention period is preserved

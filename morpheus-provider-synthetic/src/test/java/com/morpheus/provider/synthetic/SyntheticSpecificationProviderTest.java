@@ -30,7 +30,7 @@ class SyntheticSpecificationProviderTest {
         assertTrue(result.capabilities().contains(ProviderCapability.READ_REQUIREMENTS));
         assertTrue(result.capabilities().contains(ProviderCapability.READ_SCENARIOS));
         assertTrue(result.capabilities().contains(ProviderCapability.READ_CHANGES));
-        assertFalse(result.capabilities().contains(ProviderCapability.READ_ACCEPTANCE_CRITERIA));
+        assertTrue(result.capabilities().contains(ProviderCapability.READ_ACCEPTANCE_CRITERIA));
     }
 
     @Test

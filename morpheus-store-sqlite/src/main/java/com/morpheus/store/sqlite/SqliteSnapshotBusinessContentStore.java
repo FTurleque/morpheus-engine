@@ -3,6 +3,9 @@ package com.morpheus.store.sqlite;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SnapshotBusinessContent;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
+import com.morpheus.domain.acceptance.AcceptanceCriterion;
+import com.morpheus.domain.acceptance.AcceptanceCriterionId;
+import com.morpheus.domain.acceptance.VerificationStatus;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -40,7 +43,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** SQLite adapter for the M5-S2 snapshot-owned non-Requirement business-content projection. */
+/** SQLite adapter for snapshot-owned non-Requirement business-content projection. */
 public final class SqliteSnapshotBusinessContentStore implements SnapshotBusinessContentStore, AutoCloseable {
     private final Connection connection;
     private boolean closed;
@@ -101,6 +104,7 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
                 insertConstraints(content);
                 insertDesignDecisions(content);
                 insertTasks(content);
+                insertAcceptanceCriteria(content);
                 connection.commit();
             } catch (SQLException | RuntimeException exception) {
                 rollbackQuietly();
@@ -159,6 +163,7 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
                 readConstraints(snapshotId),
                 readDesignDecisions(snapshotId),
                 readTasks(snapshotId),
+                readAcceptanceCriteria(snapshotId),
                 readEvidence(snapshotId)));
     }
 
@@ -238,7 +243,12 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
             statement.executeBatch();
         }
         for (Scenario scenario : content.scenarios()) {
-            insertOrderedValues("snapshot_scenario_preconditions", "scenario_id", content.snapshotId(), scenario.id().toString(), scenario.preconditions());
+            insertOrderedValues(
+                    "snapshot_scenario_preconditions",
+                    "scenario_id",
+                    content.snapshotId(),
+                    scenario.id().toString(),
+                    scenario.preconditions());
         }
     }
 
@@ -262,9 +272,24 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
             statement.executeBatch();
         }
         for (ChangeProposal change : content.changes()) {
-            insertOrderedValues("snapshot_change_scope", "change_id", content.snapshotId(), change.id().toString(), change.scope());
-            insertOrderedValues("snapshot_change_out_of_scope", "change_id", content.snapshotId(), change.id().toString(), change.outOfScope());
-            insertOrderedValues("snapshot_change_risks", "change_id", content.snapshotId(), change.id().toString(), change.risks());
+            insertOrderedValues(
+                    "snapshot_change_scope",
+                    "change_id",
+                    content.snapshotId(),
+                    change.id().toString(),
+                    change.scope());
+            insertOrderedValues(
+                    "snapshot_change_out_of_scope",
+                    "change_id",
+                    content.snapshotId(),
+                    change.id().toString(),
+                    change.outOfScope());
+            insertOrderedValues(
+                    "snapshot_change_risks",
+                    "change_id",
+                    content.snapshotId(),
+                    change.id().toString(),
+                    change.risks());
         }
     }
 
@@ -328,6 +353,46 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
         }
     }
 
+    private void insertAcceptanceCriteria(SnapshotBusinessContent content) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                INSERT INTO snapshot_acceptance_criteria(
+                    snapshot_id, acceptance_criterion_id, requirement_id, change_id,
+                    title, condition_text, verification_status,
+                    provider_id, provider_version, source_scheme, source_value, external_id, source_revision, evidence_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """)) {
+            for (AcceptanceCriterion criterion : content.acceptanceCriteria()) {
+                statement.setString(1, content.snapshotId().toString());
+                statement.setString(2, criterion.id().toString());
+                statement.setString(3, criterion.requirementId().map(RequirementId::toString).orElse(null));
+                statement.setString(4, criterion.changeId().map(ChangeId::toString).orElse(null));
+                statement.setString(5, criterion.title());
+                statement.setString(6, criterion.condition());
+                statement.setString(7, criterion.verificationStatus().name());
+                bindProvenance(statement, 8, criterion.provenance());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }
+
+        try (PreparedStatement statement = connection.prepareStatement("""
+                INSERT INTO snapshot_acceptance_verification_evidence(
+                    snapshot_id, acceptance_criterion_id, evidence_id, ordinal
+                ) VALUES (?, ?, ?, ?)
+                """)) {
+            for (AcceptanceCriterion criterion : content.acceptanceCriteria()) {
+                for (int index = 0; index < criterion.verificationEvidenceIds().size(); index++) {
+                    statement.setString(1, content.snapshotId().toString());
+                    statement.setString(2, criterion.id().toString());
+                    statement.setString(3, criterion.verificationEvidenceIds().get(index).toString());
+                    statement.setInt(4, index);
+                    statement.addBatch();
+                }
+            }
+            statement.executeBatch();
+        }
+    }
+
     private List<Evidence> readEvidence(KnowledgeSnapshotId snapshotId) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT * FROM snapshot_evidence WHERE snapshot_id = ? ORDER BY evidence_id")) {
@@ -338,7 +403,9 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
                     int start = result.getInt("range_start_line");
                     boolean noRange = result.wasNull();
                     int end = result.getInt("range_end_line");
-                    Optional<SourceRange> range = noRange ? Optional.empty() : Optional.of(new SourceRange(start, end));
+                    Optional<SourceRange> range = noRange
+                            ? Optional.empty()
+                            : Optional.of(new SourceRange(start, end));
                     items.add(new Evidence(
                             EvidenceId.parse(result.getString("evidence_id")),
                             new SourceLocator(result.getString("source_scheme"), result.getString("source_value")),
@@ -381,9 +448,15 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
                     ScenarioId scenarioId = ScenarioId.parse(result.getString("scenario_id"));
                     items.add(new Scenario(
                             scenarioId,
-                            requirementId == null ? Optional.empty() : Optional.of(RequirementId.parse(requirementId)),
+                            requirementId == null
+                                    ? Optional.empty()
+                                    : Optional.of(RequirementId.parse(requirementId)),
                             result.getString("title"),
-                            readOrderedValues("snapshot_scenario_preconditions", "scenario_id", snapshotId, scenarioId.toString()),
+                            readOrderedValues(
+                                    "snapshot_scenario_preconditions",
+                                    "scenario_id",
+                                    snapshotId,
+                                    scenarioId.toString()),
                             result.getString("action"),
                             result.getString("expected_outcome"),
                             mapProvenance(result)));
@@ -407,9 +480,12 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
                             Optional.ofNullable(result.getString("change_key")),
                             result.getString("title"),
                             result.getString("intent"),
-                            readOrderedValues("snapshot_change_scope", "change_id", snapshotId, changeId.toString()),
-                            readOrderedValues("snapshot_change_out_of_scope", "change_id", snapshotId, changeId.toString()),
-                            readOrderedValues("snapshot_change_risks", "change_id", snapshotId, changeId.toString()),
+                            readOrderedValues(
+                                    "snapshot_change_scope", "change_id", snapshotId, changeId.toString()),
+                            readOrderedValues(
+                                    "snapshot_change_out_of_scope", "change_id", snapshotId, changeId.toString()),
+                            readOrderedValues(
+                                    "snapshot_change_risks", "change_id", snapshotId, changeId.toString()),
                             mapProvenance(result)));
                 }
                 return List.copyOf(items);
@@ -474,13 +550,65 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
         }
     }
 
+    private List<AcceptanceCriterion> readAcceptanceCriteria(KnowledgeSnapshotId snapshotId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT * FROM snapshot_acceptance_criteria WHERE snapshot_id = ? ORDER BY acceptance_criterion_id")) {
+            statement.setString(1, snapshotId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                List<AcceptanceCriterion> items = new ArrayList<>();
+                while (result.next()) {
+                    String requirementId = result.getString("requirement_id");
+                    String changeId = result.getString("change_id");
+                    AcceptanceCriterionId criterionId = AcceptanceCriterionId.parse(
+                            result.getString("acceptance_criterion_id"));
+                    items.add(new AcceptanceCriterion(
+                            criterionId,
+                            requirementId == null
+                                    ? Optional.empty()
+                                    : Optional.of(RequirementId.parse(requirementId)),
+                            changeId == null
+                                    ? Optional.empty()
+                                    : Optional.of(ChangeId.parse(changeId)),
+                            result.getString("title"),
+                            result.getString("condition_text"),
+                            VerificationStatus.valueOf(result.getString("verification_status")),
+                            readAcceptanceVerificationEvidence(snapshotId, criterionId),
+                            mapProvenance(result)));
+                }
+                return List.copyOf(items);
+            }
+        }
+    }
+
+    private List<EvidenceId> readAcceptanceVerificationEvidence(
+            KnowledgeSnapshotId snapshotId,
+            AcceptanceCriterionId criterionId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT evidence_id
+                FROM snapshot_acceptance_verification_evidence
+                WHERE snapshot_id = ? AND acceptance_criterion_id = ?
+                ORDER BY ordinal
+                """)) {
+            statement.setString(1, snapshotId.toString());
+            statement.setString(2, criterionId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                List<EvidenceId> evidenceIds = new ArrayList<>();
+                while (result.next()) {
+                    evidenceIds.add(EvidenceId.parse(result.getString("evidence_id")));
+                }
+                return List.copyOf(evidenceIds);
+            }
+        }
+    }
+
     private void insertOrderedValues(
             String table,
             String ownerColumn,
             KnowledgeSnapshotId snapshotId,
             String ownerId,
             List<String> values) throws SQLException {
-        String sql = "INSERT INTO " + table + "(snapshot_id, " + ownerColumn + ", ordinal, value) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO " + table
+                + "(snapshot_id, " + ownerColumn + ", ordinal, value) VALUES (?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             for (int index = 0; index < values.size(); index++) {
                 statement.setString(1, snapshotId.toString());
@@ -498,7 +626,8 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
             String ownerColumn,
             KnowledgeSnapshotId snapshotId,
             String ownerId) throws SQLException {
-        String sql = "SELECT value FROM " + table + " WHERE snapshot_id = ? AND " + ownerColumn + " = ? ORDER BY ordinal";
+        String sql = "SELECT value FROM " + table
+                + " WHERE snapshot_id = ? AND " + ownerColumn + " = ? ORDER BY ordinal";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, snapshotId.toString());
             statement.setString(2, ownerId);

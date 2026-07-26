@@ -36,7 +36,7 @@ class SqliteSchemaMigrationTest {
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(8, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(9, new SqliteSchemaManager().currentVersion(connection));
             List<String> expectedTables = List.of(
                     "schema_migrations",
                     "projects",
@@ -63,11 +63,12 @@ class SqliteSchemaMigrationTest {
                     "snapshot_constraints",
                     "snapshot_design_decisions",
                     "snapshot_implementation_tasks",
+                    "snapshot_acceptance_criteria",
+                    "snapshot_acceptance_verification_evidence",
                     "sync_state",
                     "sync_inventory_entries",
                     "sync_source_archives");
             expectedTables.forEach(table -> assertTrue(tableExistsUnchecked(connection, table), "missing table " + table));
-
             assertTrue(indexExists(connection, "uq_projects_root"));
             assertTrue(indexExists(connection, "idx_entity_identity_bindings_domain_identity"));
             assertTrue(indexExists(connection, "uq_requirement_versions_current_snapshot_identity"));
@@ -81,6 +82,9 @@ class SqliteSchemaMigrationTest {
             assertTrue(indexExists(connection, "idx_snapshot_constraints_change"));
             assertTrue(indexExists(connection, "idx_snapshot_design_decisions_change"));
             assertTrue(indexExists(connection, "idx_snapshot_implementation_tasks_change"));
+            assertTrue(indexExists(connection, "idx_snapshot_acceptance_requirement"));
+            assertTrue(indexExists(connection, "idx_snapshot_acceptance_change"));
+            assertTrue(indexExists(connection, "idx_snapshot_acceptance_status"));
             assertTrue(indexExists(connection, "idx_sync_inventory_entries_project"));
             assertTrue(indexExists(connection, "idx_sync_source_archives_project_time"));
 
@@ -94,7 +98,7 @@ class SqliteSchemaMigrationTest {
     }
 
     @Test
-    void migrationReplayIsIdempotentAndLedgerContainsEightImmutableEntries() throws Exception {
+    void migrationReplayIsIdempotentAndLedgerContainsNineImmutableEntries() throws Exception {
         Path database = tempDir.resolve("replay.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // First application.
@@ -108,7 +112,7 @@ class SqliteSchemaMigrationTest {
              ResultSet result = statement.executeQuery(
                      "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum FROM schema_migrations")) {
             assertTrue(result.next());
-            assertEquals(8, result.getInt("count"));
+            assertEquals(9, result.getInt("count"));
             assertEquals(64, result.getInt("min_checksum"));
             assertEquals(64, result.getInt("max_checksum"));
         }

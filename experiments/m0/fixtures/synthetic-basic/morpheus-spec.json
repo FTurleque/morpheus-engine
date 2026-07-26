@@ -6,6 +6,7 @@
     "READ_CHANGES",
     "READ_REQUIREMENTS",
     "READ_SCENARIOS",
+    "READ_ACCEPTANCE_CRITERIA",
     "READ_DESIGN_DECISIONS",
     "READ_IMPLEMENTATION_TASKS"
   ],
@@ -34,6 +35,17 @@
             "provenance": {"path": "morpheus-spec.json", "line": 1}
           }
         ],
+        "acceptance_criteria": [
+          {
+            "key": "configured-period-honored",
+            "title": "Configured retention period is honored",
+            "condition": "An invoice remains available for the configured legal retention period.",
+            "verification_status": "VERIFIED",
+            "verification_evidence": [
+              {"source": "tests/billing-retention.txt"}
+            ]
+          }
+        ],
         "provenance": {"path": "morpheus-spec.json", "line": 1}
       }
     ]
@@ -51,6 +63,15 @@
           "risks": [],
           "provenance": {"path": "morpheus-spec.json", "line": 1}
         },
+        "acceptance_criteria": [
+          {
+            "key": "extended-period-applied",
+            "title": "Extended period is applied",
+            "condition": "A configured extended retention period is used for newly evaluated invoices.",
+            "verification_status": "NOT_VERIFIED",
+            "verification_evidence": []
+          }
+        ],
         "design_decisions": [],
         "tasks": [],
         "requirements": [],

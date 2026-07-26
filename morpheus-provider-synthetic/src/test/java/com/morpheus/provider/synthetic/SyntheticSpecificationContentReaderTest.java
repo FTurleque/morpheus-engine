@@ -4,6 +4,7 @@ import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryStatus;
+import com.morpheus.domain.acceptance.VerificationStatus;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,8 @@ class SyntheticSpecificationContentReaderTest {
         assertEquals(1, content.requirements().size());
         assertEquals(1, content.scenarios().size());
         assertEquals(1, content.changes().size());
-        assertEquals(4, content.evidence().size());
+        assertEquals(2, content.acceptanceCriteria().size());
+        assertEquals(7, content.evidence().size());
 
         var specification = content.specifications().getFirst();
         assertEquals("billing", specification.key());
@@ -58,6 +60,33 @@ class SyntheticSpecificationContentReaderTest {
         assertEquals("extend-retention", change.key().orElseThrow());
         assertEquals("Extend retention", change.title());
         assertEquals("Extend retention", change.intent());
+
+        var requirementCriterion = content.acceptanceCriteria().stream()
+                .filter(criterion -> criterion.requirementId().isPresent())
+                .findFirst()
+                .orElseThrow();
+        assertEquals(requirement.id(), requirementCriterion.requirementId().orElseThrow());
+        assertTrue(requirementCriterion.changeId().isEmpty());
+        assertEquals(VerificationStatus.VERIFIED, requirementCriterion.verificationStatus());
+        assertEquals(1, requirementCriterion.verificationEvidenceIds().size());
+        assertEquals("tests/billing-retention.txt", content.evidence().stream()
+                .filter(item -> item.id().equals(requirementCriterion.verificationEvidenceIds().getFirst()))
+                .findFirst()
+                .orElseThrow()
+                .source()
+                .value());
+
+        var changeCriterion = content.acceptanceCriteria().stream()
+                .filter(criterion -> criterion.changeId().isPresent())
+                .findFirst()
+                .orElseThrow();
+        assertEquals(change.id(), changeCriterion.changeId().orElseThrow());
+        assertTrue(changeCriterion.requirementId().isEmpty());
+        assertEquals(VerificationStatus.NOT_VERIFIED, changeCriterion.verificationStatus());
+        assertTrue(changeCriterion.verificationEvidenceIds().isEmpty());
+
+        assertFalse(content.acceptanceCriteria().stream()
+                .anyMatch(criterion -> criterion.title().equals(scenario.title())));
     }
 
     @Test
@@ -70,7 +99,8 @@ class SyntheticSpecificationContentReaderTest {
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.REQUIREMENTS).orElseThrow().status());
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.SCENARIOS).orElseThrow().status());
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.CHANGES).orElseThrow().status());
-        assertEquals(ReadCategoryStatus.UNSUPPORTED, result.report(ReadCategory.ACCEPTANCE_CRITERIA).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.ACCEPTANCE_CRITERIA).orElseThrow().status());
+        assertEquals(2, result.report(ReadCategory.ACCEPTANCE_CRITERIA).orElseThrow().itemCount());
         assertEquals(ReadCategoryStatus.UNSUPPORTED, result.report(ReadCategory.EXTERNAL_REFERENCES).orElseThrow().status());
         assertEquals(ReadCategoryStatus.UNSUPPORTED, result.report(ReadCategory.ARCHIVES).orElseThrow().status());
     }
@@ -81,12 +111,11 @@ class SyntheticSpecificationContentReaderTest {
                 fixture("synthetic-basic"),
                 ProjectSpecificationId.generate(),
                 EnumSet.of(ReadCategory.REQUIREMENTS, ReadCategory.ACCEPTANCE_CRITERIA));
-
         var result = reader.read(request, new InMemoryResolver());
 
         assertEquals(2, result.categoryReports().size());
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.REQUIREMENTS).orElseThrow().status());
-        assertEquals(ReadCategoryStatus.UNSUPPORTED, result.report(ReadCategory.ACCEPTANCE_CRITERIA).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.ACCEPTANCE_CRITERIA).orElseThrow().status());
         assertFalse(result.report(ReadCategory.SCENARIOS).isPresent());
     }
 
@@ -104,6 +133,10 @@ class SyntheticSpecificationContentReaderTest {
         assertEquals(first.requirements().getFirst().id(), second.requirements().getFirst().id());
         assertEquals(first.scenarios().getFirst().id(), second.scenarios().getFirst().id());
         assertEquals(first.changes().getFirst().id(), second.changes().getFirst().id());
+        assertEquals(first.acceptanceCriteria().getFirst().id(), second.acceptanceCriteria().getFirst().id());
+        assertEquals(
+                first.acceptanceCriteria().getFirst().verificationEvidenceIds(),
+                second.acceptanceCriteria().getFirst().verificationEvidenceIds());
     }
 
     private Path fixture(String name) {

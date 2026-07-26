@@ -1,5 +1,8 @@
 package com.morpheus.application.ingestion;
 
+import com.morpheus.domain.acceptance.AcceptanceCriterion;
+import com.morpheus.domain.acceptance.AcceptanceCriterionId;
+import com.morpheus.domain.acceptance.VerificationStatus;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -170,6 +173,96 @@ class NormalizedProjectContentTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                List.of(fixture.evidence),
+                List.of()));
+    }
+
+    @Test
+    void acceptsAcceptanceCriterionReferencingKnownRequirementChangeAndEvidence() {
+        Fixture fixture = fixture();
+        ChangeProposal change = change(fixture);
+        Evidence verificationEvidence = new Evidence(
+                EvidenceId.generate(),
+                SourceLocator.file("tests/session-expiration.txt"),
+                Optional.empty(),
+                Optional.empty());
+        AcceptanceCriterion criterion = new AcceptanceCriterion(
+                AcceptanceCriterionId.generate(),
+                Optional.of(fixture.requirement.id()),
+                Optional.of(change.id()),
+                "Inactive sessions expire",
+                "An inactive session is rejected after the configured timeout",
+                VerificationStatus.VERIFIED,
+                List.of(verificationEvidence.id()),
+                fixture.provenance);
+
+        assertDoesNotThrow(() -> new NormalizedProjectContent(
+                fixture.project,
+                List.of(fixture.specification),
+                List.of(fixture.requirement),
+                List.of(),
+                List.of(change),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(criterion),
+                List.of(fixture.evidence, verificationEvidence),
+                List.of()));
+    }
+
+    @Test
+    void rejectsAcceptanceCriterionReferencingUnknownRequirement() {
+        Fixture fixture = fixture();
+        AcceptanceCriterion criterion = new AcceptanceCriterion(
+                AcceptanceCriterionId.generate(),
+                Optional.of(RequirementId.generate()),
+                Optional.empty(),
+                "Unknown owner",
+                "The owner must exist in the normalized graph",
+                VerificationStatus.UNKNOWN,
+                List.of(),
+                fixture.provenance);
+
+        assertThrows(IllegalArgumentException.class, () -> new NormalizedProjectContent(
+                fixture.project,
+                List.of(fixture.specification),
+                List.of(fixture.requirement),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(criterion),
+                List.of(fixture.evidence),
+                List.of()));
+    }
+
+    @Test
+    void rejectsAcceptanceCriterionReferencingUnknownVerificationEvidence() {
+        Fixture fixture = fixture();
+        AcceptanceCriterion criterion = new AcceptanceCriterion(
+                AcceptanceCriterionId.generate(),
+                Optional.of(fixture.requirement.id()),
+                Optional.empty(),
+                "Verified criterion",
+                "Verification evidence must belong to the same normalized graph",
+                VerificationStatus.VERIFIED,
+                List.of(EvidenceId.generate()),
+                fixture.provenance);
+
+        assertThrows(IllegalArgumentException.class, () -> new NormalizedProjectContent(
+                fixture.project,
+                List.of(fixture.specification),
+                List.of(fixture.requirement),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(criterion),
                 List.of(fixture.evidence),
                 List.of()));
     }

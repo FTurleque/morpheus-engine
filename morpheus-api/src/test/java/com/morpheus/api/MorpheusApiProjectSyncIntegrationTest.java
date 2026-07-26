@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusApiProjectSyncIntegrationTest {
@@ -90,8 +91,10 @@ class MorpheusApiProjectSyncIntegrationTest {
             ApiTestSupport.Response acceptance = http.get(
                     server, "/projects/" + projectId + "/changes/" + changeId + "/acceptance-criteria");
             assertEquals(200, acceptance.status(), acceptance.body());
-            assertTrue(acceptance.body().contains("UNAVAILABLE_IN_NORMALIZED_MODEL"), acceptance.body());
-            assertTrue(acceptance.body().contains("\"criteria\":[]"), acceptance.body());
+            assertTrue(acceptance.body().contains("\"totalMatches\":0"), acceptance.body());
+            assertTrue(acceptance.body().contains("\"items\":[]"), acceptance.body());
+            assertTrue(acceptance.body().contains("\"hasMore\":false"), acceptance.body());
+            assertFalse(acceptance.body().contains("UNAVAILABLE_IN_NORMALIZED_MODEL"), acceptance.body());
 
             ApiTestSupport.Response context = http.get(
                     server, "/projects/" + projectId + "/changes/" + changeId + "/context?depth=2");
