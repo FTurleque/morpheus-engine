@@ -1,185 +1,179 @@
 # Guide utilisateur MORPHEUS
 
-MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il transforme une source de spécification en un modèle normalisé, versionné et interrogeable, puis expose ce modèle par trois surfaces : CLI, MCP STDIO et API HTTP locale.
-
-Ce guide explique **ce que MORPHEUS manipule**, **dans quel ordre l’utiliser**, **ce qu’il garantit** et **quelle surface choisir**.
+MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il transforme une ou plusieurs sources de spécification en un modèle normalisé, versionné, composable et interrogeable, puis expose ce modèle par CLI, MCP STDIO et API HTTP locale.
 
 ## 1. À quoi sert MORPHEUS ?
 
-MORPHEUS répond notamment aux questions suivantes :
+MORPHEUS permet notamment de savoir :
 
-- quelles exigences sont actuellement publiées pour ce projet ?
-- quels changements sont proposés sans encore appartenir à l’état courant ?
-- quelles contraintes, décisions et tâches sont liées à un changement ?
-- d’où vient une information et à quoi est-elle reliée ?
-- qu’est-ce qui a changé entre deux snapshots publiés ?
-- la spécification présente-t-elle des informations manquantes ou incohérentes ?
-- une transition de lifecycle serait-elle autorisée compte tenu des faits disponibles ?
-- quelles références de code MINOS ou quel contexte NEXUS sont disponibles en complément ?
+- quelles exigences sont actuellement publiées ;
+- quels changements restent proposés ;
+- quelles contraintes, décisions, critères d’acceptation et tâches sont liés ;
+- d’où vient une information et à quoi elle est reliée ;
+- quels providers ont contribué à une vue et selon quelle priorité ;
+- quels conflits de composition existent entre sources ;
+- ce qui a changé entre snapshots ;
+- si une transition lifecycle est autorisée compte tenu des faits disponibles ;
+- quelles références MINOS ou quel contexte NEXUS sont disponibles en complément.
 
-MORPHEUS ne remplace ni Git, ni un tracker de tickets, ni MINOS, ni NEXUS, ni JARVIS. Il reste propriétaire de la **spécification**, de l’**intention**, de la **temporalité** et des **règles de lifecycle**.
+MORPHEUS ne remplace ni Git, ni un tracker, ni MINOS, ni NEXUS, ni JARVIS.
 
-## 2. Les trois surfaces d’utilisation
+```text
+MORPHEUS = specification facts + intent + lifecycle rules
+           + controlled state invariants + provider composition facts
+MINOS    = code intelligence
+NEXUS    = context selection / ranking / fusion / compression
+JARVIS   = sequencing / orchestration / action choice
+```
 
-| Surface | Usage principal | Transport | Écriture protocolaire |
+## 2. Les trois surfaces
+
+| Surface | Usage principal | Transport | Écriture contrôlée |
 |---|---|---|---|
-| CLI | humain, scripts, administration locale | processus local | oui pour l’enregistrement projet et la synchronisation |
-| MCP | IDE, agents, orchestrateurs compatibles MCP | STDIO / JSON-RPC | catalogue métier read-only |
-| API HTTP | intégration locale JSON | HTTP `/api/v1` | limitée à l’enregistrement projet et à la synchronisation |
+| CLI | humain, scripts, administration locale | processus local | projet/sync + lifecycle write explicite |
+| MCP | IDE, agents, orchestrateurs | STDIO / JSON-RPC | **22 read-only + 1 write explicite** |
+| API HTTP | intégration locale JSON | HTTP `/api/v1` | projet/sync + lifecycle write explicite |
+
+Les trois surfaces utilisent les mêmes services applicatifs ; elles ne réimplémentent pas les règles métier.
+
+## 3. Projet, snapshot et providers
+
+Un projet MORPHEUS pointe vers un workspace. M18 valide deux providers réels :
+
+```text
+OpenSpec
+Structured Markdown
+```
+
+Une synchronisation normale construit un snapshot candidat. Une composition M18 peut agréger plusieurs contributions provider-neutral en conservant provenance, priorité et conflits explicites.
 
 ```mermaid
 flowchart LR
-    U[Utilisateur / script] --> CLI[CLI MORPHEUS]
-    A[IDE / agent MCP] --> MCP[Serveur MCP STDIO]
-    C[Client local] --> API[API HTTP /api/v1]
-
-    CLI --> APP[Services applicatifs]
-    MCP --> APP
-    API --> APP
-    APP --> DB[(SQLite)]
-    APP --> SNAP[Snapshots publiés]
+    SRC[Sources] --> P[Providers]
+    P --> N[Normalisation]
+    N --> C[Composition M18]
+    C --> S[KnowledgeSnapshot]
+    S --> DB[(Memory / SQLite)]
+    DB --> Q[CLI / MCP / HTTP]
 ```
 
-Les trois surfaces utilisent le même moteur. Elles ne réimplémentent pas les règles métier.
+## 4. Temporalité et lifecycle
 
-## 3. Modèle mental minimal
-
-### 3.1 Projet, version et snapshot
-
-Un projet enregistré dans MORPHEUS pointe vers un workspace. Une synchronisation lit ce workspace via un provider, normalise son contenu et construit un nouveau snapshot candidat.
-
-```mermaid
-sequenceDiagram
-    actor User as Utilisateur
-    participant CLI as MORPHEUS CLI
-    participant P as Provider
-    participant A as Application
-    participant S as SQLite
-
-    User->>CLI: projects add --workspace ...
-    CLI->>S: enregistrer le projet
-    User->>CLI: sync --project <id>
-    CLI->>P: lire la source
-    P-->>A: modèle normalisé
-    A->>S: construire snapshot candidat
-    A->>A: valider
-    alt validation réussie
-        A->>S: activer atomiquement le candidat
-        A->>S: retirer l'ancien ACTIVE
-    else validation échouée
-        A->>S: marquer le candidat FAILED
-        Note over S: l'ancien ACTIVE reste disponible
-    end
+```text
+CURRENT     état publié de référence
+PROPOSED    intention non encore publiée
+HISTORICAL  état publié antérieur
 ```
 
-Une `SpecificationVersion` identifie une version logique de la spécification. Un `KnowledgeSnapshot` représente l’ensemble cohérent des connaissances persistées et publiables. Ces deux notions sont liées, mais **ne sont pas interchangeables**.
+`SpecificationVersion != KnowledgeSnapshot`.
 
-### 3.2 CURRENT, PROPOSED et HISTORICAL
+Le lifecycle métier d’un changement est une dimension distincte :
 
-MORPHEUS distingue explicitement trois états temporels :
-
-```mermaid
-stateDiagram-v2
-    [*] --> CURRENT
-    [*] --> PROPOSED
-    CURRENT --> HISTORICAL: publication d'une version suivante
-    PROPOSED --> CURRENT: promotion explicite puis activation
+```text
+DRAFT -> PROPOSED -> SPECIFIED -> DESIGNED/PLANNED
+      -> IMPLEMENTING -> VERIFYING -> COMPLETED -> ARCHIVED
+      -> ABANDONED selon transitions autorisées
 ```
 
-- `CURRENT` : état publié de référence ;
-- `PROPOSED` : intention de modification qui ne doit pas contaminer implicitement `CURRENT` ;
-- `HISTORICAL` : état publié antérieur conservé pour comparaison et audit.
+Une évaluation peut être :
 
-### 3.3 ChangeProposal et lifecycle
-
-Un changement peut porter des requirements, contraintes, décisions, critères d’acceptation et tâches. Son **lifecycle** est distinct de son état temporel.
-
-```mermaid
-stateDiagram-v2
-    [*] --> DRAFT
-    DRAFT --> PROPOSED
-    PROPOSED --> SPECIFIED
-    SPECIFIED --> DESIGNED
-    SPECIFIED --> PLANNED
-    DESIGNED --> PLANNED
-    PLANNED --> IMPLEMENTING
-    IMPLEMENTING --> VERIFYING
-    VERIFYING --> COMPLETED
-    COMPLETED --> ARCHIVED
-
-    DRAFT --> ABANDONED
-    PROPOSED --> ABANDONED
-    SPECIFIED --> ABANDONED
-    DESIGNED --> ABANDONED
-    PLANNED --> ABANDONED
-    IMPLEMENTING --> ABANDONED
-    VERIFYING --> ABANDONED
-    ABANDONED --> PROPOSED: reprise explicite
+```text
+ALLOWED
+BLOCKED
+UNKNOWN
+REQUIRES_INPUT
 ```
-
-Certaines transitions dépendent de faits connus : exigences identifiées, contraintes critiques connues, critères d’acceptation définis, plan présent, absence de bloqueur, etc. Une évaluation peut donc être `ALLOWED`, `BLOCKED`, `UNKNOWN` ou `REQUIRES_INPUT`.
 
 **Évaluer une transition ne l’applique jamais.**
 
-## 4. Parcours recommandé
+## 5. Parcours recommandé
 
-1. Installer ou extraire la distribution portable.
-2. Enregistrer le workspace avec `projects add`.
-3. Synchroniser avec `sync`.
-4. Vérifier `sync-status`.
-5. Rechercher requirements et changements.
-6. Explorer la traçabilité, le contexte et les diagnostics qualité.
-7. Utiliser l’API ou MCP si un outil doit consommer MORPHEUS.
-8. Activer MINOS ou NEXUS uniquement si le besoin existe.
-9. Exposer le contrat d’orchestration à JARVIS uniquement si JARVIS doit consommer les faits et décisions de transition.
+1. extraire la distribution ;
+2. `projects add` ;
+3. `sync` ;
+4. vérifier `sync-status` ;
+5. si plusieurs providers sont présents, exécuter `composition sync` ;
+6. examiner `composition status` et `composition conflicts` ;
+7. interroger requirements, changes, traçabilité et qualité ;
+8. utiliser HTTP/MCP si un outil consomme MORPHEUS ;
+9. activer MINOS/NEXUS uniquement si nécessaire ;
+10. appliquer un lifecycle uniquement via la commande write explicite et ses garde-fous.
 
-Le parcours exécutable est détaillé dans [Démarrage rapide](QUICKSTART.md).
+Voir [Démarrage rapide](QUICKSTART.md).
 
-## 5. Choisir la bonne commande
+## 6. Commandes principales
 
 | Besoin | Commande |
 |---|---|
 | enregistrer un workspace | `projects add` |
 | lister les projets | `projects list` |
-| reconstruire/publier un snapshot | `sync` |
+| reconstruire/publier | `sync` |
 | contrôler la fraîcheur | `sync-status` |
+| composer les providers | `composition sync` |
+| voir l’état de composition | `composition status` |
+| voir les conflits | `composition conflicts` |
 | chercher une exigence | `requirements find` |
 | lister/lire les changements | `changes list`, `changes get` |
-| lire contraintes/décisions/tâches | `constraints`, `decisions`, `tasks` |
-| explorer les liens d’une exigence | `trace-requirement` |
-| construire le contexte d’un changement | `change-context` |
-| analyser un changement proposé | `analyze-change` |
-| diagnostiquer la qualité | `quality` |
-| résoudre une référence de code | `external-references resolve` |
-| demander un contexte technique NEXUS | `augmented-context` |
-| observer l’état d’orchestration | `change-orchestration state` |
-| évaluer une transition | `change-orchestration transition-check` |
+| critères d’acceptation | `acceptance-criteria list` |
+| contraintes | `constraints list/evaluate` |
+| traçabilité | `trace-requirement` |
+| contexte d’un changement | `change-context` |
+| analyser un changement | `analyze-change` |
+| qualité | `quality` |
+| référence code | `external-references resolve` |
+| contexte NEXUS | `augmented-context` |
+| observer lifecycle | `change-orchestration state` |
+| évaluer transition | `change-orchestration transition-check` |
+| appliquer transition | `lifecycle apply` |
 
 Référence détaillée : [CLI](CLI.md).
 
-## 6. Ce que MORPHEUS garantit
+## 7. Composition M18
 
-Les invariants suivants sont structurants :
+```text
+provider identifier != DomainIdentity
+source path != identity
+provider ownership is explicit
+same logical entity may have multiple provider observations
+precedence != provenance erasure
+ambiguous continuity must be surfaced
+conflict != silent last-write-wins
+optional provider absence != project failure when optional
+```
+
+Une priorité choisit un résultat ; elle n’efface pas la provenance ni l’existence des candidats concurrents.
+
+## 8. Garanties structurantes
 
 ```text
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
 SpecificationVersion != KnowledgeSnapshot
-CURRENT / PROPOSED / HISTORICAL sont explicites
-PROPOSED ne fuit jamais implicitement dans CURRENT
+PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 Scenario != AcceptanceCriterion
-absence d'un moteur optionnel != panne MORPHEUS
-observation externe live != mutation d'un snapshot publié
-lifecycle indisponible != lifecycle inféré
-évaluation d'une transition != application d'une transition
+AcceptanceCriterion != Test
+Test existence != VERIFIED
+Evidence != assertion
+UNKNOWN != FAILED
+UNKNOWN != BLOCKED
+applicable != blocking
+warning != blocker
+severity != blocking policy
+transition evaluation != lifecycle mutation
+READ_CHANGES != WRITE_CHANGE
+ALLOWED != applied
+published snapshot != operational lifecycle state
+stale revision != overwrite
+idempotent retry != duplicate mutation/audit
+optional engine absence != MORPHEUS failure
 ```
 
-Conséquence pratique : MORPHEUS préfère retourner une information `UNAVAILABLE`, `UNKNOWN` ou absente plutôt que d’inventer un fait métier.
+MORPHEUS préfère `UNAVAILABLE`/`UNKNOWN` à un fait inventé.
 
-## 7. Stockage local et chemins
+## 9. Stockage local
 
-MORPHEUS utilise SQLite par défaut. Les chemins peuvent être contrôlés par options ou variables d’environnement :
+SQLite est le store persistant par défaut.
 
 ```text
 --data-dir PATH       MORPHEUS_DATA_DIR
@@ -187,87 +181,57 @@ MORPHEUS utilise SQLite par défaut. Les chemins peuvent être contrôlés par o
 --db PATH             MORPHEUS_DB
 ```
 
-Defaults de plateforme :
+Utiliser `morpheus paths` pour afficher les chemins résolus.
 
-```text
-Windows  data   %LOCALAPPDATA%\Morpheus
-         config %APPDATA%\Morpheus
-Linux    répertoires XDG data/config
-```
+CLI, API et MCP partagent les mêmes données seulement s’ils utilisent le même layout ou `--db`.
 
-Utiliser `morpheus paths` pour afficher les chemins effectivement résolus par le launcher.
+M18 utilise SQLite **V012** pour l’état de composition.
 
-### Partage de la même base
-
-La CLI, l’API et le serveur MCP voient les mêmes données **uniquement s’ils résolvent le même layout ou le même `--db`**.
-
-Exemple :
+## 10. JSON et automatisation
 
 ```bash
-morpheus --db /tmp/demo.db sync --project <projectId>
-morpheus --db /tmp/demo.db api
-morpheus --db /tmp/demo.db mcp --stdio
-```
-
-## 8. Sorties humaines et JSON
-
-Sans `--json`, la CLI privilégie une sortie lisible par un humain.
-
-Avec `--json`, `stdout` devient contractuel pour les scripts :
-
-```bash
-morpheus --json requirements find --project <projectId> --query "session"
+morpheus --json composition status --project <projectId>
 ```
 
 Pour automatiser :
 
-- parser le JSON ;
 - vérifier le code de sortie ;
+- parser le JSON de `stdout` ;
 - ne pas dépendre du texte humain de `stderr` ;
-- ne pas utiliser `--json` avec `morpheus mcp --stdio`, car `stdout` est réservé à JSON-RPC MCP.
+- ne pas utiliser `--json` avec `morpheus mcp --stdio`.
 
-## 9. Intégrations optionnelles
-
-```mermaid
-flowchart LR
-    M[MORPHEUS] -->|MCP STDIO| MINOS[MINOS\ncode intelligence]
-    M -->|MCP STDIO| NEXUS[NEXUS\ntechnical context]
-    J[JARVIS\norchestration] -->|HTTP local read-only| M
-```
+## 11. Intégrations optionnelles
 
 | Intégration | Apport | Si absente |
 |---|---|---|
-| MINOS | résolution de références vers le code | seule la résolution code est indisponible |
-| NEXUS | sélection d’un contexte technique sous budget | seul le contexte augmenté est indisponible |
-| JARVIS | orchestration à partir des faits/règles MORPHEUS | MORPHEUS reste autonome |
+| MINOS | résolution vers le code | seule la résolution code est indisponible |
+| NEXUS | contexte technique sous budget | seul le contexte augmenté est indisponible |
+| JARVIS | séquencement/orchestration | MORPHEUS reste autonome |
 
-MINOS, NEXUS et JARVIS ne sont pas embarqués dans la distribution MORPHEUS. Voir [Intégrations optionnelles](INTEGRATIONS.md).
+MINOS, NEXUS et JARVIS ne sont pas embarqués comme moteurs dans MORPHEUS.
 
-## 10. Erreurs fréquentes
+## 12. Contrats M18
 
-### `NOT_FOUND`
-
-Le projet, snapshot ou identifiant métier demandé n’existe pas dans la base utilisée. Vérifier :
-
-```bash
-morpheus paths
-morpheus projects list
-morpheus sync-status --project <projectId>
+```text
+OpenAPI 3.1.0 / contract 1.7.0
+MCP 22 read-only + 1 write explicite
+CLI composition sync/status/conflicts
+HTTP GET .../composition
+HTTP GET .../composition/conflicts
+SQLite V012
 ```
 
-### `STATE_ERROR`
+## 13. Baseline validée
 
-L’état persisté ou la synchronisation demandée n’est pas compatible avec l’opération. Ne pas supprimer la base avant d’avoir vérifié le projet, le snapshot actif et la sortie JSON.
+```text
+code M18 validé  7e8caacff567f51354fcb88bd7505a6d135071c0
+merge M18        30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+tests            418/418 PASS
+architecture     170/170 PASS
+packaging Win    PASS
+```
 
-### MINOS/NEXUS `DISABLED`
-
-Ce n’est pas une erreur MORPHEUS : l’intégration n’est simplement pas configurée.
-
-### Le résultat semble ancien
-
-Contrôler `sync-status`, puis relancer une synchronisation explicite. Les requêtes lisent le snapshot publié ; elles ne rescannent pas automatiquement le workspace.
-
-## 11. Documentation associée
+## 14. Documentation associée
 
 - [Démarrage rapide](QUICKSTART.md)
 - [Référence CLI](CLI.md)
@@ -275,4 +239,5 @@ Contrôler `sync-status`, puis relancer une synchronisation explicite. Les requ�
 - [Architecture développeur](../developer/ARCHITECTURE.md)
 - [API HTTP](../developer/API.md)
 - [Serveur MCP](../developer/MCP.md)
+- [Validation M18](../validation/VALIDATION_M18.md)
 - [Portail de documentation](../README.md)
