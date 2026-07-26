@@ -40,7 +40,7 @@ public record ChangeOrchestrationState(
         nextAllowedTransitions = List.copyOf(Objects.requireNonNull(nextAllowedTransitions, "nextAllowedTransitions"));
         transitionEvaluations = List.copyOf(Objects.requireNonNull(transitionEvaluations, "transitionEvaluations"));
         if (persisted) {
-            throw new IllegalArgumentException("M14 orchestration state is a live read-only projection and cannot be persisted");
+            throw new IllegalArgumentException("orchestration state is a live read-only projection and cannot be persisted");
         }
     }
 
@@ -72,10 +72,32 @@ public record ChangeOrchestrationState(
         }
     }
 
-    public record ConstraintView(String id, String statement) {
+    public record ConstraintView(
+            String id,
+            String statement,
+            String applicability,
+            String severity,
+            String satisfaction,
+            String blockingMode,
+            List<String> blockingTargets,
+            List<String> supportingEvidenceIds,
+            String sourceEvidenceId) {
+
+        /** Compatibility constructor for pre-M16 tests/callers. */
+        public ConstraintView(String id, String statement) {
+            this(id, statement, "UNKNOWN", "UNKNOWN", "UNKNOWN", "UNKNOWN", List.of(), List.of(), "UNKNOWN");
+        }
+
         public ConstraintView {
             id = requireNonBlank(id, "id");
             statement = requireNonBlank(statement, "statement");
+            applicability = requireNonBlank(applicability, "applicability");
+            severity = requireNonBlank(severity, "severity");
+            satisfaction = requireNonBlank(satisfaction, "satisfaction");
+            blockingMode = requireNonBlank(blockingMode, "blockingMode");
+            blockingTargets = List.copyOf(Objects.requireNonNull(blockingTargets, "blockingTargets"));
+            supportingEvidenceIds = List.copyOf(Objects.requireNonNull(supportingEvidenceIds, "supportingEvidenceIds"));
+            sourceEvidenceId = requireNonBlank(sourceEvidenceId, "sourceEvidenceId");
         }
     }
 
