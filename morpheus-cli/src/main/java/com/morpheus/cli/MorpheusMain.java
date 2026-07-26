@@ -40,7 +40,9 @@ public final class MorpheusMain {
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
         int exitCode;
-        if (MorpheusAcceptanceCriteriaCli.handles(args)) {
+        if (MorpheusConstraintSemanticsCli.handles(args)) {
+            exitCode = new MorpheusConstraintSemanticsCli().run(args, out, err, environment, properties);
+        } else if (MorpheusAcceptanceCriteriaCli.handles(args)) {
             exitCode = new MorpheusAcceptanceCriteriaCli().run(args, out, err, environment, properties);
         } else if (MorpheusJarvisOrchestrationCli.handles(args)) {
             exitCode = new MorpheusJarvisOrchestrationCli().run(args, out, err, environment, properties);
@@ -66,6 +68,10 @@ public final class MorpheusMain {
             out.println("Acceptance criteria / verification:");
             out.println("  morpheus [--json] acceptance-criteria list --project ID [--change ID | --requirement ID] [--offset N] [--limit N]");
             out.println("  Criteria are explicit snapshot facts; scenarios and tests are never converted into criteria implicitly.");
+            out.println();
+            out.println("Constraint semantics / policy:");
+            out.println("  morpheus [--json] constraints evaluate --project ID --change ID --target STATE [--offset N] [--limit N]");
+            out.println("  Constraint text and severity never imply blocking; UNKNOWN remains distinct from BLOCKED.");
             out.println();
             out.println("MINOS / external references:");
             out.println("  morpheus [--json] minos-status");
