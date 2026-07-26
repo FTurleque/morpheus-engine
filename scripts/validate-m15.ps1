@@ -61,8 +61,28 @@ function Invoke-NativeLogged {
     )
 
     Write-Stage $Label
-    & $Command @Arguments 2>&1 | Tee-Object -FilePath $LogFile
-    $exitCode = $LASTEXITCODE
+
+    # Windows PowerShell can surface native stderr records as PowerShell errors when stderr is
+    # redirected into the success stream. Java/SQLite legitimately emit warnings on stderr.
+    # For native processes, the process exit code is the authoritative PASS/FAIL signal.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $Command @Arguments 2>&1 |
+            ForEach-Object {
+                if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                    $_.ToString()
+                } else {
+                    $_
+                }
+            } |
+            Tee-Object -FilePath $LogFile
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
     if ($exitCode -ne 0) {
         throw "$Label failed with exit code $exitCode. Log: $LogFile"
     }
