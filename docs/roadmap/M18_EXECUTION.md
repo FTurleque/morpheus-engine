@@ -1,16 +1,18 @@
 # M18 — Real Providers & Multi-Provider Composition
 
-Statut : **🚧 S1→S6 CODÉS — S7 GATE FINAL À EXÉCUTER**
+Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #86 prête à intégrer**
 
 Dernière mise à jour : 26 juillet 2026
 
 Issue : **#85**  
-PR : **#86 — Draft**  
+PR : **#86**  
 Branche : `m18/multi-provider-composition`
 
 ## 1. Question de sortie
 
 > **MORPHEUS peut-il construire une vue cohérente à partir de plusieurs providers réels en conservant identité, provenance, priorité et conflits sans devenir dépendant d'un format particulier ?**
+
+**Réponse : OUI.**
 
 ## 2. Baseline d'entrée
 
@@ -62,7 +64,7 @@ La composition intervient après la normalisation provider et avant la publicati
 
 ## 5. Slices
 
-### M18-S1 — Domaine / contrats ✅ CODED
+### M18-S1 — Domaine / contrats ✅
 
 - [x] `ProviderContribution` canonique et provider-neutral ;
 - [x] provenance d'observation explicite ;
@@ -70,7 +72,7 @@ La composition intervient après la normalisation provider et avant la publicati
 - [x] `CompositionConflict` + type/champ/candidats/résolution ;
 - [x] diagnostics et résultat de composition déterministes.
 
-### M18-S2 — Deuxième provider réel ✅ CODED
+### M18-S2 — Deuxième provider réel ✅
 
 - [x] module `morpheus-provider-markdown` ;
 - [x] discovery/probe d'un workspace Markdown structuré ;
@@ -79,7 +81,7 @@ La composition intervient après la normalisation provider et avant la publicati
 - [x] diagnostics d'entrée invalides/partiels ;
 - [x] aucun type Markdown hors adapter.
 
-### M18-S3 — Composition multi-provider ✅ CODED
+### M18-S3 — Composition multi-provider ✅
 
 - [x] sélection explicite de plusieurs providers compatibles ;
 - [x] ordre de priorité stable ;
@@ -88,7 +90,7 @@ La composition intervient après la normalisation provider et avant la publicati
 - [x] absence d'un provider optionnel non fatale ;
 - [x] absence d'un provider requis échoue explicitement.
 
-### M18-S4 — Identité / conflits ✅ CODED
+### M18-S4 — Identité / conflits ✅
 
 - [x] identités provider-scoped conservées ;
 - [x] continuité/rapprochement uniquement par clé logique explicite ;
@@ -99,7 +101,7 @@ La composition intervient après la normalisation provider et avant la publicati
 - [x] ambiguïté conservée et requêtable ;
 - [x] provenance de chaque candidat conservée.
 
-### M18-S5 — Persistance ✅ CODED
+### M18-S5 — Persistance ✅
 
 - [x] store Memory ;
 - [x] SQLite V012 ;
@@ -108,7 +110,7 @@ La composition intervient après la normalisation provider et avant la publicati
 - [x] état de composition snapshot-scoped ;
 - [x] transaction SQLite restaure son mode auto-commit même en erreur.
 
-### M18-S6 — Surfaces ✅ CODED
+### M18-S6 — Surfaces ✅
 
 - [x] CLI `composition sync/status/conflicts` ;
 - [x] MCP read-only `get_composition_status` / `list_composition_conflicts` ;
@@ -118,42 +120,51 @@ La composition intervient après la normalisation provider et avant la publicati
 - [x] packaging du provider Markdown, des surfaces M18 et de V012 ;
 - [x] `validate-m18.cmd` + diagnostic automatique du premier échec.
 
-### M18-S7 — Gate ⏳ À EXÉCUTER SUR LE HEAD FINAL
+### M18-S7 — Gate ✅ VALIDÉ
 
-- [ ] deux providers réels validés ;
-- [ ] même projet multi-provider ;
-- [ ] conflits contenu/ownership/type explicites et requêtables ;
-- [ ] Memory == SQLite ;
-- [ ] SQLite close/reopen ;
-- [ ] reactor Maven complet ;
-- [ ] packaging Windows + smokes ;
-- [ ] `VALIDATION_M18.md` ;
-- [ ] ADR-0084 acceptée après preuve.
+- [x] deux providers réels validés ;
+- [x] même projet multi-provider ;
+- [x] conflits contenu/ownership/type explicites et requêtables ;
+- [x] Memory == SQLite ;
+- [x] SQLite close/reopen ;
+- [x] reactor Maven complet ;
+- [x] packaging Windows + smokes ;
+- [x] `VALIDATION_M18.md` ;
+- [x] ADR-0084 acceptée après preuve.
 
-## 6. Pré-gate déjà obtenu
+## 6. Gate M18 final
 
-Un premier `mvnw.cmd clean test` Windows sur le SHA `da7b3e0723351a2692cc9996e0bbbe41b3ec05ed` a produit :
+Head de code testé :
 
 ```text
-14/14 modules SUCCESS
-Architecture 169/169 PASS
-BUILD SUCCESS
+7e8caacff567f51354fcb88bd7505a6d135071c0
 ```
 
-Ce run est **pré-gate uniquement** : il a été supersédé par les commits S6 MCP/HTTP/OpenAPI/packaging et le hardening S4. Il ne peut pas autoriser la fusion du head final.
-
-## 7. Gate M18 final
+Résultat :
 
 ```text
-at least two real providers validated                          PENDING
-same project can consume multiple providers                    PENDING
-conflicts are explicit and queryable                           PENDING
-reopen SQLite preserves provider provenance                    PENDING
-no provider-specific types leak into domain/application        PENDING
-full Maven reactor PASS                                        PENDING
-Windows packaging + smokes PASS                                PENDING
+at least two real providers validated                          PASS
+same project can consume multiple providers                    PASS
+conflicts are explicit and queryable                           PASS
+reopen SQLite preserves provider provenance                    PASS
+no provider-specific types leak into domain/application        PASS
+full Maven reactor                                             PASS
+Windows packaging + smokes                                     PASS
+
+TOTAL tests                                                    418/418 PASS
+Architecture                                                   170/170 PASS
+Failures / Errors / Skipped                                    0 / 0 / 0
+Portable ZIP                                                   33,919,431 bytes
 ```
 
 Commande canonique : `validate-m18.cmd`.
 
-Aucun PASS final n'est revendiqué avant exécution réelle du gate sur le head final de code. La PR #86 reste Draft jusque-là.
+Preuve : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
+
+## 7. Traçabilité post-gate
+
+Le code et les artefacts exécutables ont été validés sur `7e8caacff567f51354fcb88bd7505a6d135071c0`.
+
+Les commits postérieurs au gate sont réservés à la clôture documentaire M18 : validation, statut ADR et plan. Ils ne modifient ni runtime, ni tests, ni migration, ni build.
+
+La PR #86 peut être passée Ready puis intégrée si son diff post-gate reste exclusivement documentaire.
