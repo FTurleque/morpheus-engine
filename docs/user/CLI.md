@@ -1,6 +1,6 @@
 # Référence CLI MORPHEUS
 
-Cette page décrit la CLI officielle de MORPHEUS dans la baseline post-M16 et la surface M17 en cours de validation. Elle complète le [démarrage rapide](QUICKSTART.md) par une référence opérationnelle des commandes, options, identités et codes de sortie.
+Cette page décrit la CLI officielle de MORPHEUS sur la baseline **M18 validée et intégrée**. Elle complète le [démarrage rapide](QUICKSTART.md) par une référence opérationnelle des commandes, options, identités et codes de sortie.
 
 ## 1. Invocation
 
@@ -25,17 +25,7 @@ Dans les exemples, `morpheus` désigne le launcher correspondant à la plateform
 morpheus [options-globales] <commande> [sous-commande] [options]
 ```
 
-Exemples :
-
-```bash
-morpheus projects list
-morpheus --json projects list
-morpheus --db /tmp/demo.db sync --project <projectId>
-```
-
-Les options globales doivent être placées avant la commande pour éviter toute ambiguïté.
-
-## 3. Options globales
+Options globales :
 
 | Option | Rôle |
 |---|---|
@@ -52,9 +42,9 @@ MORPHEUS_CONFIG_DIR
 MORPHEUS_DB
 ```
 
-`--json` rend `stdout` scriptable. Les erreurs et diagnostics restent sur `stderr` et le code de sortie reste contractuel.
+Les options globales doivent précéder la commande.
 
-## 4. Commandes utilitaires
+## 3. Utilitaires
 
 ```bash
 morpheus help
@@ -64,24 +54,20 @@ morpheus paths
 morpheus --json version
 ```
 
-`paths` permet de vérifier le layout réellement utilisé avant de diagnostiquer une base apparemment vide.
+## 4. Identités
 
-## 5. Identités utilisées par la CLI
+MORPHEUS ne confond pas chemin local et identité métier :
 
-MORPHEUS ne confond pas chemin local et identité métier.
-
-```mermaid
-flowchart LR
-    W[workspace path] -->|projects add| P[projectId MORPHEUS]
-    P --> S[snapshotId]
-    P --> R[requirementId]
-    P --> C[changeId]
-    C --> E[externalReferenceId]
+```text
+workspace path != projectId
+DomainIdentity != EntityVersionId
+DomainIdentity != SourceLocator != ExternalReference
+provider identifier != DomainIdentity
 ```
 
-Après `projects add`, conserver le `projectId`. Les commandes métier utilisent les identifiants MORPHEUS retournés par les requêtes précédentes.
+Après `projects add`, conserver le `projectId` retourné.
 
-## 6. Projets
+## 5. Projets
 
 ```bash
 morpheus projects list
@@ -89,9 +75,9 @@ morpheus --json projects list
 morpheus projects add --workspace /path/to/project
 ```
 
-L’enregistrement crée/résout l’identité locale du projet ; il ne publie pas encore de snapshot métier.
+L’enregistrement ne publie pas encore de snapshot.
 
-## 7. Synchronisation
+## 6. Synchronisation publiée
 
 ```bash
 morpheus sync --project <projectId>
@@ -99,24 +85,57 @@ morpheus sync --project <projectId> --revision <revision>
 morpheus sync-status --project <projectId>
 ```
 
-Le launcher officiel produit une reconstruction complète conservatrice lorsqu’une synchronisation publiée doit être produite. Une requête métier suivante lit le snapshot publié ; elle ne rescannera pas implicitement le workspace.
+Une synchronisation publiée est conservatrice : un candidat défaillant ne remplace pas l’ancien snapshot `ACTIVE`.
+
+## 7. M18 — composition multi-provider
+
+Commandes officielles exactes :
+
+```bash
+morpheus composition sync --project <projectId>
+morpheus composition sync --project <projectId> --revision <revision>
+morpheus composition status --project <projectId>
+morpheus composition conflicts --project <projectId>
+```
+
+Mode JSON :
+
+```bash
+morpheus --json composition status --project <projectId>
+morpheus --json composition conflicts --project <projectId>
+```
+
+`composition sync` construit la vue à partir des providers réels compatibles. M18 valide **OpenSpec + Structured Markdown** dans un même projet.
+
+La composition conserve toutes les observations nécessaires et rend explicites :
+
+```text
+provider ownership
+source precedence
+provenance
+content conflicts
+ownership conflicts
+type / identity conflicts
+ambiguous continuity
+```
+
+Invariants :
+
+```text
+provider identifier != DomainIdentity
+source path != identity
+precedence != provenance erasure
+conflict != silent last-write-wins
+optional provider absence != project failure when optional
+```
+
+L’état de composition est persisté en Memory / SQLite V012 et reste snapshot-scoped.
 
 ## 8. Requirements
 
-Recherche lexicale déterministe :
-
 ```bash
-morpheus requirements find \
-  --project <projectId> \
-  --query "texte"
-```
-
-Version JSON :
-
-```bash
-morpheus --json requirements find \
-  --project <projectId> \
-  --query "session"
+morpheus requirements find --project <projectId> --query "texte"
+morpheus --json requirements find --project <projectId> --query "session"
 ```
 
 Pagination lorsque disponible :
@@ -126,18 +145,17 @@ Pagination lorsque disponible :
 --limit N   # 1..100
 ```
 
-## 9. Changements et artefacts associés
+## 9. Changements et artefacts
 
 ```bash
 morpheus changes list --project <projectId>
 morpheus changes get --project <projectId> --change <changeId>
-
 morpheus constraints list --project <projectId> --change <changeId>
 morpheus decisions list --project <projectId> --change <changeId>
 morpheus tasks list --project <projectId> --change <changeId>
 ```
 
-Ne pas assimiler un `Scenario` à un `AcceptanceCriterion`.
+`Scenario != AcceptanceCriterion`.
 
 ## 10. Acceptance Criteria — M15
 
@@ -147,34 +165,17 @@ morpheus acceptance-criteria list --project <projectId> --change <changeId>
 morpheus acceptance-criteria list --project <projectId> --requirement <requirementId>
 ```
 
-Options :
-
-```text
---offset N
---limit N
---json
-```
-
-MORPHEUS expose uniquement les critères explicitement normalisés. La présence d’un scénario ou d’un test ne synthétise ni critère ni statut `VERIFIED`.
+MORPHEUS n’infère jamais `VERIFIED` de la simple présence d’un test.
 
 ## 11. Contraintes — M16
 
-Lister les contraintes :
-
 ```bash
 morpheus constraints list --project <projectId> --change <changeId>
-```
-
-Évaluer la sémantique pour une cible lifecycle :
-
-```bash
 morpheus --json constraints evaluate \
   --project <projectId> \
   --change <changeId> \
   --target VERIFYING
 ```
-
-La décision respecte :
 
 ```text
 applicable != blocking
@@ -183,20 +184,14 @@ UNKNOWN != BLOCKED
 constraint text != executable policy
 ```
 
-## 12. Traçabilité
+## 12. Traçabilité et analyse
 
 ```bash
 morpheus trace-requirement \
   --project <projectId> \
   --requirement <requirementId> \
   --depth 2
-```
 
-Une absence de lien n’est pas remplacée par une relation supposée.
-
-## 13. Contexte et analyse de changement
-
-```bash
 morpheus change-context \
   --project <projectId> \
   --change <changeId> \
@@ -208,15 +203,13 @@ morpheus analyze-change \
   --depth 2
 ```
 
-L’analyse confronte le contenu `PROPOSED` au `CURRENT` sans promotion implicite.
-
 ```text
 ANALYZE != APPLY
 ANALYZE != PROMOTE
 ANALYZE != ACTIVATE
 ```
 
-## 14. Qualité
+## 13. Qualité
 
 ```bash
 morpheus quality --project <projectId>
@@ -224,7 +217,7 @@ morpheus quality --project <projectId>
 
 Les diagnostics sont dérivés et ne mutent pas le snapshot publié.
 
-## 15. MINOS — références de code
+## 14. MINOS — références de code
 
 ```bash
 morpheus --json minos-status
@@ -232,29 +225,19 @@ morpheus --json external-references list --project <projectId> --owner <domainId
 morpheus --json external-references resolve --project <projectId> --reference <externalReferenceId>
 ```
 
-Sans configuration, MINOS est `DISABLED`. La résolution live ne réécrit pas l’historique publié.
+MINOS reste optionnel. Une résolution live ne réécrit pas l’historique publié.
 
-## 16. NEXUS — contexte technique augmenté
-
-État :
+## 15. NEXUS — contexte technique augmenté
 
 ```bash
 morpheus --json nexus-status
-```
 
-Requirement :
-
-```bash
 morpheus --json augmented-context requirement \
   --project <projectId> \
   --requirement <requirementId> \
   --nexus-project <id-or-name> \
   [--budget N] [--source TYPE] [--constraint k=v] [--explain]
-```
 
-Change :
-
-```bash
 morpheus --json augmented-context change \
   --project <projectId> \
   --change <changeId> \
@@ -268,11 +251,11 @@ Sources admises :
 FILE | SYMBOL | TEST | DOCUMENTATION | INSTRUCTION | SKILL | GIT
 ```
 
-MORPHEUS construit l’intention ; NEXUS reste propriétaire de la sélection, du ranking, de la fusion, de la compression et du budget technique. Le `ContextBundle` retourné est live et `persisted=false`.
+NEXUS reste propriétaire de la sélection, du ranking, de la fusion, de la compression et du budget technique.
 
-## 17. JARVIS — contrat d’orchestration read-only
+## 16. JARVIS — orchestration read-only
 
-### Observer un changement
+Observer :
 
 ```bash
 morpheus --json change-orchestration state \
@@ -282,9 +265,7 @@ morpheus --json change-orchestration state \
   [--abandonment-reason <reason>]
 ```
 
-Si aucun lifecycle n’est fourni, MORPHEUS ne l’infère pas : sa source reste `UNAVAILABLE`.
-
-### Évaluer une transition
+Évaluer :
 
 ```bash
 morpheus --json change-orchestration transition-check \
@@ -301,17 +282,15 @@ morpheus --json change-orchestration transition-check \
 Décisions :
 
 ```text
-ALLOWED         transition autorisée avec les faits connus
-BLOCKED         transition interdite avec les faits connus
-UNKNOWN         au moins un fait nécessaire est indisponible
-REQUIRES_INPUT  donnée explicite requise absente
+ALLOWED
+BLOCKED
+UNKNOWN
+REQUIRES_INPUT
 ```
 
-Cette commande **n’applique aucune transition**.
+Cette commande ne mute rien.
 
-## 18. M17 — appliquer une transition lifecycle contrôlée
-
-Surface séparée :
+## 17. M17 — appliquer une transition lifecycle contrôlée
 
 ```bash
 morpheus --json lifecycle apply \
@@ -324,24 +303,10 @@ morpheus --json lifecycle apply \
   --confirm
 ```
 
-Pour abandonner :
-
-```bash
-morpheus --json lifecycle apply \
-  --project <projectId> \
-  --change <changeId> \
-  --expected-revision <revision> \
-  --to ABANDONED \
-  --abandonment-reason NO_LONGER_NEEDED \
-  --idempotency-key <stable-key> \
-  --actor <actor> \
-  --confirm
-```
-
-### Garde-fous obligatoires
+Garde-fous :
 
 ```text
-read capability != write capability
+READ_CHANGES != WRITE_CHANGE
 ALLOWED != applied
 WRITE_CHANGE explicite
 confirmation explicite
@@ -351,9 +316,7 @@ transition M14-M16 réellement ALLOWED
 audit persistant
 ```
 
-L’absence d’état opérationnel correspond à `DRAFT` / révision `0`. La première mutation appliquée crée la révision `1`.
-
-### Résultats JSON
+Résultats :
 
 ```text
 APPLIED
@@ -364,115 +327,67 @@ REQUIRES_CONFIRMATION
 REJECTED
 ```
 
-`ALREADY_APPLIED` est un retry idempotent : il ne crée ni seconde révision ni second audit.
+`ALREADY_APPLIED` ne crée ni seconde révision ni second audit.
 
-`CONFLICT` indique notamment une révision stale ou la réutilisation incohérente d’une `idempotencyKey`.
-
-`NOT_AUTHORIZED` signifie qu’aucun provider détecté n’annonce explicitement `WRITE_CHANGE`. Une capacité `READ_CHANGES` ne suffit jamais.
-
-### État opérationnel != snapshot
-
-```text
-KnowledgeSnapshot                 connaissance publiée immuable
-ChangeLifecycleOperationalState   état mutable contrôlé par CAS
-```
-
-Une transition lifecycle M17 ne réécrit donc pas l’historique publié.
-
-## 19. API HTTP et MCP
+## 18. API HTTP et MCP
 
 ```bash
 morpheus api [--host HOST] [--port PORT]
 morpheus mcp --stdio
 ```
 
-Defaults API : `127.0.0.1:8765`, base `/api/v1`.
+Defaults API : `127.0.0.1:8765`, base `/api/v1`, contrat OpenAPI **1.7.0**.
 
-Surfaces lifecycle :
+Surfaces M18 :
 
 ```text
-CLI  change-orchestration transition-check   read-only
-CLI  lifecycle apply                         write
-HTTP POST .../transition-check               read-only
-HTTP POST .../lifecycle-transitions          write
-MCP  evaluate_change_transition              read-only
-MCP  apply_change_lifecycle_transition       write
+CLI  composition sync/status/conflicts
+HTTP GET .../composition
+HTTP GET .../composition/conflicts
+MCP  get_composition_status
+MCP  list_composition_conflicts
 ```
+
+Catalogue MCP M18 : **22 tools read-only + 1 tool write explicite**.
 
 En mode MCP, `--json` n’est pas applicable : `stdout` est réservé au protocole MCP.
 
-## 20. Codes de sortie
+## 19. Codes de sortie
 
 | Code | Nom | Signification | Action typique |
 |---:|---|---|---|
-| 0 | `SUCCESS` | commande réussie ; pour M17 `APPLIED` ou `ALREADY_APPLIED` | consommer la sortie |
+| 0 | `SUCCESS` | commande réussie | consommer la sortie |
 | 2 | `USAGE` | option, identité ou argument invalide | corriger l’appel |
 | 3 | `NOT_FOUND` | projet, snapshot ou entité absente | vérifier DB, projet, sync et identifiants |
-| 4 | `STATE_ERROR` | état incompatible ou résultat M17 non appliqué | inspecter le JSON (`CONFLICT`, `NOT_AUTHORIZED`, etc.) |
-| 5 | `IO_ERROR` | erreur d’I/O classifiée par l’adapter | vérifier chemins, droits, processus externe |
-| 10 | `INTERNAL_ERROR` | erreur inattendue | conserver stderr et contexte pour diagnostic |
+| 4 | `STATE_ERROR` | état incompatible ou résultat métier non applicable | inspecter le JSON |
+| 5 | `IO_ERROR` | erreur d’I/O classifiée | vérifier chemins, droits, processus externe |
+| 10 | `INTERNAL_ERROR` | erreur inattendue | conserver stderr et contexte |
 
-## 21. Patron de script robuste
-
-Lecture :
+## 20. Patron PowerShell robuste
 
 ```powershell
-$result = & morpheus --json requirements find --project $projectId --query "session"
+$result = & morpheus --json composition status --project $projectId
 if ($LASTEXITCODE -ne 0) {
     throw "MORPHEUS failed with exit code $LASTEXITCODE"
 }
 $data = $result | ConvertFrom-Json
 ```
 
-Mutation M17 :
-
-```powershell
-$result = & morpheus --json lifecycle apply `
-    --project $projectId `
-    --change $changeId `
-    --expected-revision $revision `
-    --to PROPOSED `
-    --idempotency-key $key `
-    --actor "jarvis" `
-    --confirm
-
-$data = $result | ConvertFrom-Json
-if ($data.state -notin @("APPLIED", "ALREADY_APPLIED")) {
-    throw "Lifecycle mutation not applied: $($data.state) - $($data.reason)"
-}
-```
-
 Le contrat d’automatisation est : **code de sortie + JSON structuré**, pas la formulation humaine des messages.
 
-## 22. Scénarios complets
+## 21. Validation M18
 
-### Projet → sync → recherche
-
-```bash
-morpheus projects add --workspace /path/to/project
-morpheus projects list
-morpheus sync --project <projectId>
-morpheus sync-status --project <projectId>
-morpheus requirements find --project <projectId> --query "session"
+```text
+CLI              29/29 PASS
+TOTAL            418/418 PASS
+Architecture     170/170 PASS
+Packaging/smokes PASS
 ```
 
-### Changement → évaluation → application explicite
+Code réellement testé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
+Merge M18 : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
 
-```bash
-morpheus changes list --project <projectId>
-morpheus --json change-orchestration transition-check \
-  --project <projectId> --change <changeId> --from DRAFT --to PROPOSED
-
-# uniquement après choix explicite de l'action
-morpheus --json lifecycle apply \
-  --project <projectId> --change <changeId> \
-  --expected-revision 0 --to PROPOSED \
-  --idempotency-key <stable-key> --actor <actor> --confirm
-```
-
-Le premier appel ne mute rien. Le second est le seul side-effect boundary.
-
-## 23. Voir aussi
+## 22. Voir aussi
 
 - [Guide utilisateur](README.md)
 - [Démarrage rapide](QUICKSTART.md)
@@ -480,3 +395,4 @@ Le premier appel ne mute rien. Le second est le seul side-effect boundary.
 - [API HTTP](../developer/API.md)
 - [MCP](../developer/MCP.md)
 - [ADR-0083](../adr/0083-controlled-lifecycle-write-operations.md)
+- [ADR-0084](../adr/0084-provider-neutral-multi-provider-composition.md)

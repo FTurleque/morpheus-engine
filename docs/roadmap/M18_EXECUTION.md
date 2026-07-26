@@ -1,12 +1,13 @@
 # M18 — Real Providers & Multi-Provider Composition
 
-Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #86 prête à intégrer**
+Statut : **✅ VALIDÉ / INTÉGRÉ — PR #86**
 
 Dernière mise à jour : 26 juillet 2026
 
-Issue : **#85**  
-PR : **#86**  
-Branche : `m18/multi-provider-composition`
+Issue : **#85 — CLOSED / completed**  
+PR : **#86 — MERGED**  
+Branche historique : `m18/multi-provider-composition`  
+Merge : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`
 
 ## 1. Question de sortie
 
@@ -134,7 +135,7 @@ La composition intervient après la normalisation provider et avant la publicati
 
 ## 6. Gate M18 final
 
-Head de code testé :
+Head de code réellement testé :
 
 ```text
 7e8caacff567f51354fcb88bd7505a6d135071c0
@@ -161,10 +162,30 @@ Commande canonique : `validate-m18.cmd`.
 
 Preuve : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
 
-## 7. Traçabilité post-gate
+## 7. Traçabilité post-gate et intégration
 
 Le code et les artefacts exécutables ont été validés sur `7e8caacff567f51354fcb88bd7505a6d135071c0`.
 
-Les commits postérieurs au gate sont réservés à la clôture documentaire M18 : validation, statut ADR et plan. Ils ne modifient ni runtime, ni tests, ni migration, ni build.
+Les commits postérieurs au gate, jusqu'au head de PR `eea54fa966d7a08848b784b697e35180169eca47`, sont exclusivement documentaires :
 
-La PR #86 peut être passée Ready puis intégrée si son diff post-gate reste exclusivement documentaire.
+```text
+docs/validation/VALIDATION_M18.md
+docs/adr/0084-provider-neutral-multi-provider-composition.md
+docs/roadmap/M18_EXECUTION.md
+```
+
+Aucun runtime, test, migration, build ou packaging n'a changé après le gate.
+
+État GitHub final :
+
+```text
+Issue #85       CLOSED / completed
+PR #86          MERGED
+merge commit    30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+```
+
+Cette section est une information **post-merge** ; elle n'altère pas la preuve historique du gate M18.
+
+## 8. Suite
+
+M18 est terminé et intégré. Le prochain jalon est **M19 — Production Hardening, Scale & Operability**.

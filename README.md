@@ -7,6 +7,9 @@
 ## Ce que MORPHEUS fournit
 
 - ingestion et normalisation de spécifications ;
+- providers réels OpenSpec et Structured Markdown ;
+- composition multi-provider déterministe, provider-neutral et explicable ;
+- provenance, précédence et conflits conservés explicitement ;
 - snapshots versionnés et séparation `CURRENT / PROPOSED / HISTORICAL` ;
 - recherche de requirements et requêtes métier ;
 - traçabilité déterministe ;
@@ -15,7 +18,7 @@
 - critères d’acceptation, vérification et evidence explicites ;
 - sémantique explicite des contraintes et décisions lifecycle explicables ;
 - CLI locale scriptable ;
-- serveur MCP STDIO avec **20 tools read-only + 1 tool write M17 explicite** ;
+- serveur MCP STDIO avec **22 tools read-only + 1 tool write explicite** ;
 - API HTTP locale `/api/v1` ;
 - première mutation lifecycle contrôlée par capability, confirmation, CAS, idempotency et audit ;
 - intégrations optionnelles MINOS, NEXUS et JARVIS.
@@ -26,6 +29,7 @@ MORPHEUS ne nécessite aucun LLM pour son cœur fonctionnel.
 
 ```text
 MORPHEUS = specification / intent / lifecycle rules / controlled state invariants
+           + provider composition facts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = orchestration / sequencing / action choice
@@ -35,8 +39,10 @@ Chaque moteur reste autonome.
 
 ```text
 Sources / workspaces
- -> providers
- -> normalisation MORPHEUS
+ -> providers réels OpenSpec | Structured Markdown
+ -> normalisation provider-neutral
+ -> ProviderContribution
+ -> composition déterministe / provenance / conflits
  -> KnowledgeSnapshot / SpecificationVersion
  -> Memory | SQLite
  -> Query / Traceability / Quality / Change Analysis
@@ -44,7 +50,7 @@ Sources / workspaces
                |
                +-> MINOS optionnel via MCP STDIO
                +-> NEXUS optionnel via MCP STDIO
-               +-> contrat read-only <- HTTP <- JARVIS
+               +-> contrat d’orchestration read-only <- HTTP <- JARVIS
                +-> lifecycle write explicite (M17, capability-gated)
 ```
 
@@ -71,6 +77,8 @@ Parcours complet : **[Démarrage rapide](docs/user/QUICKSTART.md)**.
 ```bash
 morpheus projects add --workspace /path/to/project
 morpheus sync --project <projectId>
+morpheus composition sync --project <projectId>
+morpheus composition status --project <projectId>
 morpheus requirements find --project <projectId> --query "session"
 morpheus changes list --project <projectId>
 ```
@@ -88,6 +96,7 @@ morpheus --json requirements find --project <projectId> --query "session"
 ```text
 projects
 sync / sync-status
+composition sync / status / conflicts
 requirements
 changes / constraints / acceptance-criteria / decisions / tasks
 trace-requirement
@@ -111,11 +120,11 @@ morpheus mcp --stdio
 Catalogue actuel :
 
 ```text
-20 tools read-only
+22 tools read-only
 + 1 tool write explicite : apply_change_lifecycle_transition
 ```
 
-Le tool write n’est jamais activé par une simple capacité de lecture : il exige `WRITE_CHANGE`, confirmation, `expectedRevision`, `idempotencyKey` et audit.
+M18 ajoute notamment `get_composition_status` et `list_composition_conflicts`. Le tool write n’est jamais activé par une simple capacité de lecture : il exige `WRITE_CHANGE`, confirmation, `expectedRevision`, `idempotencyKey` et audit.
 
 Référence : [docs/developer/MCP.md](docs/developer/MCP.md).
 
@@ -128,10 +137,17 @@ morpheus api --host 127.0.0.1 --port 8765
 ```text
 base             = /api/v1
 OpenAPI          = 3.1.0
-contract version = 1.6.0
+contract version = 1.7.0
 ```
 
-Évaluation et mutation sont séparées :
+M18 expose :
+
+```text
+GET /api/v1/projects/{projectId}/composition
+GET /api/v1/projects/{projectId}/composition/conflicts
+```
+
+Évaluation et mutation lifecycle restent séparées :
 
 ```text
 POST .../transition-check       read-only
@@ -173,16 +189,29 @@ published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 Scenario != AcceptanceCriterion
 AcceptanceCriterion != Test
+Test existence != VERIFIED
+Evidence != assertion
 UNKNOWN != FAILED
 UNKNOWN != BLOCKED
+applicable != blocking
+warning != blocker
+severity != blocking policy
 optional engine absence != MORPHEUS failure
+optional provider absence != project failure when optional
 live external observation != snapshot mutation
 lifecycle unavailable != lifecycle inferred
 transition evaluation != lifecycle mutation
-read capability != write capability
+READ_CHANGES != WRITE_CHANGE
 ALLOWED != applied
 published snapshot != operational lifecycle state
-no implicit overwrite
+stale revision != overwrite
+idempotent retry != duplicate mutation/audit
+provider identifier != DomainIdentity
+source path != identity
+precedence != provenance erasure
+conflict != silent last-write-wins
+ambiguous continuity must be surfaced
+MORPHEUS rules != JARVIS action sequencing
 ```
 
 ## Fondation technique
@@ -204,6 +233,7 @@ Modules Maven :
 morpheus-domain
 morpheus-application
 morpheus-provider-openspec
+morpheus-provider-markdown
 morpheus-provider-synthetic
 morpheus-store-memory
 morpheus-store-sqlite
@@ -230,7 +260,7 @@ Packaging Windows :
 Dernier gate de jalon mono-commande Windows :
 
 ```powershell
-.\validate-m17.cmd
+.\validate-m18.cmd
 ```
 
 Documentation développeur : [docs/developer/README.md](docs/developer/README.md).
@@ -243,18 +273,20 @@ D0      réconciliation documentaire                 ✅ VALIDÉ / INTÉGRÉ
 M15     acceptance / verification / evidence        ✅ VALIDÉ / INTÉGRÉ — 371/371
 M16     constraint semantics / blocking policy      ✅ VALIDÉ / INTÉGRÉ — 393/393
 M17     controlled lifecycle / write operations     ✅ VALIDÉ / INTÉGRÉ — 410/410
-M18     real providers / multi-provider             ⏭ PROCHAIN
-M19     production hardening / scale                ⏳ PLANIFIÉ
+M18     real providers / multi-provider             ✅ VALIDÉ / INTÉGRÉ — PR #86 — 418/418
+M19     production hardening / scale / operability  ⏭ PROCHAIN JALON
 M20     release engineering / PROD / 1.0            ⏳ PLANIFIÉ
 ```
 
-Dernier gate intégré de référence : **M17**.
+Dernier gate intégré de référence : **M18**.
 
 ```text
-MORPHEUS        410/410 PASS
-Architecture    167/167 PASS
-Packaging       Windows + smokes PASS
-M17 merge       02bdb38669efc85af17343d15e689743362d2e12
+Code validé      7e8caacff567f51354fcb88bd7505a6d135071c0
+Merge M18        30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+MORPHEUS         418/418 PASS
+Architecture     170/170 PASS
+Packaging        Windows + smokes PASS
+Portable ZIP     33 919 431 octets
 ```
 
 Roadmap post-M14 : **D0 → M15 → M16 → M17 → M18 → M19 → M20**. Voir [la roadmap détaillée](docs/roadmap/POST_M14_EXECUTION.md).
@@ -277,4 +309,4 @@ docs/openapi/     OpenAPI machine-readable
 
 Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
 Politique documentaire : [docs/governance/DOCUMENTATION_STATUS.md](docs/governance/DOCUMENTATION_STATUS.md).  
-Dernière validation intégrée : [docs/validation/VALIDATION_M17.md](docs/validation/VALIDATION_M17.md).
+Dernière validation intégrée : [docs/validation/VALIDATION_M18.md](docs/validation/VALIDATION_M18.md).

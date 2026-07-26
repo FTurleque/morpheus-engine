@@ -3,104 +3,24 @@
 MORPHEUS reste autonome. Les intégrations externes implémentent des ports explicites et ne transfèrent pas la propriété du domaine.
 
 ```text
-MORPHEUS = specification / intent / lifecycle rules
+MORPHEUS = specification facts + intent + lifecycle rules
+           + controlled state invariants + provider composition facts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
-JARVIS   = orchestration / sequencing
+JARVIS   = sequencing / orchestration / action choice
 ```
 
-## 1. Règle d’architecture commune
+## 1. Règle commune
 
-Une intégration suit le même patron :
+Le domaine et l’application MORPHEUS ne dépendent jamais des classes MINOS, NEXUS ou JARVIS. Une observation externe live ne devient pas silencieusement une donnée persistée. L’absence d’un moteur optionnel reste distincte d’un échec MORPHEUS.
 
-```mermaid
-flowchart LR
-    APP[morpheus-application] --> PORT[Port applicatif]
-    PORT --> ADAPTER[morpheus-integration-* ou HTTP adapter]
-    ADAPTER --> EXT[Moteur externe]
-```
+Les providers M18 OpenSpec et Structured Markdown sont des adapters MORPHEUS ; ils ne sont pas des moteurs cross-engine.
 
-Le domaine et l’application ne doivent pas dépendre des classes du moteur externe. Le contrat est traduit à la frontière de l’adapter.
+## 2. MINOS
 
-Conséquences :
+MINOS résout une `ExternalReference` vers l’état observé du code indexé.
 
-- les modèles `com.minos.*`, `com.nexus.*` et `com.jarvis.*` ne deviennent pas des types du domaine MORPHEUS ;
-- l’indisponibilité d’un moteur externe reste un état explicite ;
-- une observation live ne devient pas silencieusement une donnée persistée ;
-- les adapters ne réimplémentent pas les responsabilités du moteur distant.
-
-# 2. MINOS
-
-## 2.1 Responsabilité
-
-MINOS résout une référence de code MORPHEUS vers l’état observé du code indexé.
-
-```mermaid
-classDiagram
-    class ExternalReference {
-      +system
-      +resourceType
-      +externalId
-      +version
-    }
-    class ExternalReferenceResolver {
-      <<port>>
-      +resolve(reference)
-    }
-    class MinosExternalReferenceResolver {
-      <<adapter>>
-    }
-    class ExternalReferenceResolution {
-      +status
-      +persisted=false
-    }
-
-    ExternalReferenceResolver <|.. MinosExternalReferenceResolver
-    ExternalReferenceResolver --> ExternalReference
-    ExternalReferenceResolver --> ExternalReferenceResolution
-```
-
-## 2.2 Flux runtime
-
-```mermaid
-sequenceDiagram
-    participant App as MORPHEUS application
-    participant Port as ExternalReferenceResolver
-    participant Adapter as morpheus-integration-minos
-    participant Client as Java MCP client
-    participant Minos as MINOS process
-
-    App->>Port: resolve(ExternalReference)
-    Port->>Adapter: implémentation
-    Adapter->>Client: requête de résolution
-    Client->>Minos: JSON-RPC MCP / STDIO
-    Minos-->>Client: résultat
-    Client-->>Adapter: réponse typée
-    Adapter-->>Port: FOUND / NOT_FOUND / ...
-    Port-->>App: observation live
-```
-
-## 2.3 Contraintes
-
-```text
-aucune dépendance com.minos.*
-MINOS non embarqué
-matching exact sur symbolKey
-révision optionnelle comparée à activeSnapshotId MINOS
-observation live séparée de la référence persistée
-persisted=false pour la résolution live
-```
-
-Configuration :
-
-```text
-MORPHEUS_MINOS_JAR
-MORPHEUS_MINOS_JAVA
-MORPHEUS_MINOS_HOME
-MORPHEUS_MINOS_TIMEOUT_SECONDS
-```
-
-## 2.4 Résultats resolver
+Contrats importants :
 
 ```text
 FOUND
@@ -111,95 +31,31 @@ REVISION_MISMATCH
 UNSUPPORTED
 ```
 
-Sémantique :
+`NOT_FOUND != UNAVAILABLE`.
 
-| Statut | Sens |
-|---|---|
-| `FOUND` | identité externe résolue sans ambiguïté |
-| `NOT_FOUND` | moteur disponible, symbole absent |
-| `UNAVAILABLE` | résolution impossible à obtenir |
-| `AMBIGUOUS` | plusieurs candidats incompatibles avec une résolution sûre |
-| `REVISION_MISMATCH` | révision attendue et snapshot MINOS incompatibles |
-| `UNSUPPORTED` | type/système de référence non géré par cet adapter |
+La résolution reste live, `persisted=false`, et ne réécrit pas un snapshot publié.
 
-`NOT_FOUND != UNAVAILABLE` est une distinction fonctionnelle, pas seulement technique.
+Configuration :
 
-## 2.5 Persistance
-
-```mermaid
-flowchart LR
-    REF[ExternalReference persistée] --> RES[Résolution live]
-    RES --> VIEW[Réponse]
-    RES -. interdit .-> SNAP[Réécriture snapshot]
+```text
+MORPHEUS_MINOS_JAR
+MORPHEUS_MINOS_JAVA
+MORPHEUS_MINOS_HOME
+MORPHEUS_MINOS_TIMEOUT_SECONDS
 ```
 
-MORPHEUS traduit les états MINOS sans réécrire rétroactivement les snapshots publiés.
+## 3. NEXUS
 
-# 3. NEXUS
-
-## 3.1 Responsabilité
-
-MORPHEUS produit une intention structurée ; NEXUS choisit le contexte technique sous contraintes et budget.
-
-```mermaid
-classDiagram
-    class MorpheusIntentContext {
-      +projectId
-      +scope
-      +intent
-      +constraints
-    }
-    class TechnicalContextProvider {
-      <<port>>
-      +getContext(intent, request)
-    }
-    class NexusTechnicalContextProvider {
-      <<adapter>>
-    }
-    class ContextBundle {
-      +persisted=false
-    }
-
-    TechnicalContextProvider <|.. NexusTechnicalContextProvider
-    TechnicalContextProvider --> MorpheusIntentContext
-    TechnicalContextProvider --> ContextBundle
-```
-
-## 3.2 Flux runtime
-
-```mermaid
-sequenceDiagram
-    participant App as MORPHEUS application
-    participant Port as TechnicalContextProvider
-    participant Adapter as morpheus-integration-nexus
-    participant Client as Java MCP client
-    participant Nexus as NEXUS MCP runner
-
-    App->>App: construire MorpheusIntentContext
-    App->>Port: getContext(intent, budget, filters)
-    Port->>Adapter: implémentation
-    Adapter->>Client: appel MCP
-    Client->>Nexus: JSON-RPC / STDIO
-    Nexus->>Nexus: sélectionner / ranker / fusionner / compresser
-    Nexus-->>Client: ContextBundle
-    Client-->>Adapter: réponse
-    Adapter-->>App: ContextBundle persisted=false
-```
-
-## 3.3 Frontière de responsabilité
+MORPHEUS produit une intention structurée ; NEXUS construit le contexte technique sous contraintes et budget.
 
 ```text
 MORPHEUS = construction de l’intention déterministe
 NEXUS    = sélection / ranking / fusion / compression / budget technique
 ```
 
-MORPHEUS ne doit pas :
+MORPHEUS ne reranke pas le `ContextBundle`, ne le fusionne pas une seconde fois et ne le persiste pas dans `KnowledgeSnapshot`.
 
-- reranker le `ContextBundle` ;
-- réappliquer un budget technique déjà traité par NEXUS ;
-- fusionner une seconde fois les résultats ;
-- persister le bundle dans `KnowledgeSnapshot` ;
-- administrer implicitement les projets NEXUS.
+Le mapping projet NEXUS est explicite. Le bundle reste `persisted=false`.
 
 Configuration :
 
@@ -210,108 +66,18 @@ MORPHEUS_NEXUS_HOME
 MORPHEUS_NEXUS_TIMEOUT_SECONDS
 ```
 
-## 3.4 Mapping projet explicite
+## 4. JARVIS
 
-Chaque requête exige :
+JARVIS consomme les faits et décisions MORPHEUS mais reste propriétaire du choix et du séquencement des actions.
 
-```text
-nexusProject = UUID ou nom unique du projet NEXUS
-```
-
-Pas d’inférence depuis un chemin local. MORPHEUS ne lance pas `project add`, index ou rebuild côté NEXUS.
-
-Cette décision évite de confondre l’identité d’un `ProjectSpecification` MORPHEUS avec l’identité d’un projet NEXUS.
-
-# 4. JARVIS
-
-## 4.1 Direction de dépendance
-
-Contrairement à MINOS/NEXUS, MORPHEUS ne lance pas JARVIS. C’est JARVIS qui consomme l’API HTTP MORPHEUS.
-
-```mermaid
-flowchart LR
-    J[JARVIS] -->|HTTP JSON local| API[morpheus-api]
-    API --> O[ChangeOrchestrationStateService]
-    API --> E[ChangeTransitionEvaluationService]
-    O --> APP[morpheus-application]
-    E --> SM[ChangeLifecycleStateMachine]
-```
-
-Il n’existe aucune dépendance `com.jarvis.*` côté MORPHEUS.
-
-## 4.2 Frontière métier
-
-```text
-MORPHEUS = facts + lifecycle rules + transition decisions
-JARVIS   = sequencing + orchestration + action choice
-```
-
-MORPHEUS répond à :
-
-- quels faits sont observables ?
-- quels artefacts sont manquants ?
-- quelles contraintes sont bloquantes ?
-- quelles transitions seraient autorisées ?
-- quelle est la décision d’évaluation ?
-
-JARVIS décide :
-
-- quelle action exécuter ;
-- dans quel ordre ;
-- quel agent/outillage mobiliser ;
-- quand réinterroger MORPHEUS.
-
-## 4.3 API d’orchestration
+### Évaluation read-only
 
 ```text
 GET  /api/v1/projects/{projectId}/changes/{changeId}/orchestration
 POST /api/v1/projects/{projectId}/changes/{changeId}/transition-check
 ```
 
-Le POST calcule une décision mais n’applique aucune transition.
-
-```mermaid
-sequenceDiagram
-    participant J as JARVIS
-    participant API as MORPHEUS API
-    participant O as OrchestrationStateService
-    participant E as TransitionEvaluationService
-    participant SM as LifecycleStateMachine
-
-    J->>API: GET orchestration
-    API->>O: build state
-    O-->>API: facts + unavailable + blockers
-    API-->>J: état read-only
-
-    J->>API: POST transition-check
-    API->>E: evaluate
-    E->>SM: evaluate known facts
-    SM-->>E: domain decision
-    E-->>API: tri-state/needs-input decision
-    API-->>J: résultat
-    Note over J: JARVIS choisit ensuite l'action
-```
-
-## 4.4 Lifecycle explicite
-
-```text
-lifecycle absent  -> source=UNAVAILABLE
-lifecycle fourni  -> source=CALLER_SUPPLIED
-```
-
-Un état n’est jamais inféré depuis :
-
-```text
-tasks
-timestamps
-chemins d’archive
-quality findings
-présence d’un test
-```
-
-Cette règle évite de transformer des indices en faits.
-
-## 4.5 Décisions
+Le `transition-check` retourne :
 
 ```text
 ALLOWED
@@ -320,132 +86,129 @@ UNKNOWN
 REQUIRES_INPUT
 ```
 
-Le pipeline logique est :
+Il n’applique aucune transition.
 
-```mermaid
-flowchart TD
-    F[Faits requis] --> K{Tous connus ?}
-    K -->|non| U[UNKNOWN]
-    K -->|oui| I{Input explicite manquant ?}
-    I -->|oui| R[REQUIRES_INPUT]
-    I -->|non| M[ChangeLifecycleStateMachine]
-    M -->|autorise| A[ALLOWED]
-    M -->|bloque| B[BLOCKED]
-```
+### Controlled write M17
 
-`UNAVAILABLE` n’est jamais converti en `false` pour fabriquer une décision.
-
-## 4.6 Raisons d’abandon
-
-Les raisons d’abandon observation/source/cible sont distinctes :
+La mutation est un endpoint distinct :
 
 ```text
-abandonmentReason
-fromAbandonmentReason
-target abandonmentReason
+POST /api/v1/projects/{projectId}/changes/{changeId}/lifecycle-transitions
 ```
 
-Une transition vers `ABANDONED` exige une raison explicite. Une reprise depuis `ABANDONED` retourne vers `PROPOSED` selon la machine actuelle.
-
-## 4.7 Client JARVIS validé
-
-Configuration :
+Elle exige :
 
 ```text
-jarvis.morpheus.enabled=${MORPHEUS_ENABLED:false}
-jarvis.morpheus.url=${MORPHEUS_URL:http://127.0.0.1:8765}
-jarvis.morpheus.project-id=${MORPHEUS_PROJECT_ID:}
-jarvis.morpheus.timeout-seconds=${MORPHEUS_TIMEOUT_SECONDS:3}
+WRITE_CHANGE capability
+confirmation explicite
+expectedRevision / CAS
+idempotencyKey
+transition réellement ALLOWED
+audit append-only
 ```
 
-Le client est fail-open et retourne une absence de contexte si MORPHEUS est désactivé, mal configuré, indisponible ou répond avec un contrat incompatible.
+Résultats :
 
-# 5. Matrice de propriété des données
+```text
+APPLIED
+ALREADY_APPLIED
+CONFLICT
+NOT_AUTHORIZED
+REQUIRES_CONFIRMATION
+REJECTED
+```
 
-| Donnée/capacité | Propriétaire | MORPHEUS persiste ? |
+Invariants :
+
+```text
+transition evaluation != lifecycle mutation
+READ_CHANGES != WRITE_CHANGE
+ALLOWED != applied
+published snapshot != operational lifecycle state
+stale revision != overwrite
+idempotent retry != duplicate mutation/audit
+MORPHEUS rules != JARVIS action sequencing
+```
+
+JARVIS choisit qu’une action soit tentée ; MORPHEUS vérifie ses invariants puis applique éventuellement son propre état opérationnel.
+
+## 5. Composition provider M18
+
+La composition MORPHEUS est distincte du ranking/fusion NEXUS et de l’orchestration JARVIS.
+
+```text
+OpenSpec + Structured Markdown
+        ↓
+ProviderContribution
+        ↓
+MultiProviderCompositionService
+        ↓
+CompositionSnapshotState
+        ↓
+Memory / SQLite V012
+```
+
+Invariants :
+
+```text
+provider identifier != DomainIdentity
+source path != identity
+precedence != provenance erasure
+conflict != silent last-write-wins
+ambiguous continuity must be surfaced
+optional provider absence != project failure when optional
+```
+
+## 6. Propriété des données
+
+| Donnée/capacité | Propriétaire | Persistée MORPHEUS ? |
 |---|---|---:|
 | requirement normalisé | MORPHEUS | oui |
-| traceability link MORPHEUS | MORPHEUS | oui |
+| traceability link | MORPHEUS | oui |
+| état de composition/provider provenance | MORPHEUS | oui, snapshot-scoped |
 | ExternalReference | MORPHEUS | oui |
-| observation actuelle d’un symbole MINOS | MINOS | non |
+| observation symbole MINOS | MINOS | non |
 | ContextBundle NEXUS | NEXUS | non |
-| décision de transition MORPHEUS | MORPHEUS (calcul) | non via contrat M14 |
+| décision de transition | MORPHEUS | calculée |
+| lifecycle operational state/audit | MORPHEUS | oui si commande appliquée |
 | choix de l’action suivante | JARVIS | non |
 
-# 6. Failure semantics
+## 7. Failure semantics
 
-Une intégration robuste doit préserver quatre catégories :
-
-```mermaid
-flowchart LR
-    CALL[Appel externe] --> OK[Succès métier]
-    CALL --> NEG[Résultat métier négatif]
-    CALL --> UN[Indisponible]
-    CALL --> BAD[Contrat invalide/incompatible]
-```
+Conserver distinctement : succès métier, résultat négatif, indisponibilité et contrat invalide/incompatible.
 
 Exemples :
 
-- MINOS `NOT_FOUND` = résultat métier négatif ;
-- MINOS `UNAVAILABLE` = moteur/résolution indisponible ;
-- NEXUS absent = contexte technique indisponible seulement ;
-- client JARVIS incompatible = absence de contexte côté JARVIS en mode fail-open.
+- MINOS `NOT_FOUND` est un résultat métier négatif ;
+- MINOS `UNAVAILABLE` signifie résolution indisponible ;
+- NEXUS absent signifie contexte technique indisponible seulement ;
+- provider optionnel absent n’est pas un échec projet ;
+- `NOT_AUTHORIZED` indique l’absence de `WRITE_CHANGE`, pas une panne transport ;
+- un conflit provider est un fait explicite à exposer.
 
-Ne jamais écraser ces catégories en simple booléen.
+## 8. Règles d’architecture
 
-# 7. Règles d’architecture exécutables
+Les tests d’architecture interdisent les dépendances inverses vers les adapters et moteurs externes, ainsi que la fuite des types provider dans le domaine/application.
 
-Les tests ArchUnit imposent notamment :
+Gate M18 : **Architecture 170/170 PASS**.
 
-```text
-domain -X-> provider/store/cli/mcp/api/integration
-application -X-> provider/store/cli/mcp/api/integration
-api -X-> cli/mcp/integration
-MINOS adapter -X-> com.minos.*
-NEXUS adapter -X-> com.nexus.*
-MORPHEUS -X-> com.jarvis.*
-```
-
-Lors de l’ajout d’une nouvelle intégration, ajouter aussi les règles empêchant les dépendances inverses non souhaitées.
-
-# 8. Ajouter une nouvelle intégration
-
-Checklist :
-
-1. définir précisément la responsabilité du moteur externe ;
-2. définir un port applicatif en termes MORPHEUS ;
-3. garder le modèle externe dans l’adapter ;
-4. définir les statuts d’indisponibilité/ambiguïté ;
-5. décider explicitement ce qui est persisté ou live ;
-6. implémenter l’adapter ;
-7. ajouter tests unitaires et contrat/subprocess si pertinent ;
-8. ajouter règle ArchUnit ;
-9. documenter configuration et failure semantics ;
-10. ajouter smoke cross-repo seulement en complément du gate autonome.
-
-# 9. Tests et smokes
-
-M14 a validé :
+## 9. Validation actuelle
 
 ```text
-MINOS Integration 8/8 PASS
-NEXUS Integration 7/7 PASS
-Architecture 160/160 PASS
-JARVIS MorpheusOrchestrationClientTest 6/6 PASS
+MINOS Integration      8/8 PASS
+NEXUS Integration      7/7 PASS
+M18 TOTAL            418/418 PASS
+Architecture         170/170 PASS
+Packaging/smokes      PASS
 ```
 
-Smokes complémentaires :
+Code M18 testé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
+Merge M18 : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
 
-```text
-distribution/test-minos-compatibility.ps1
-distribution/test-nexus-compatibility.ps1
-```
-
-Ils prouvent une compatibilité réelle avec les runtimes externes sans transformer ces runtimes en prérequis du gate autonome MORPHEUS.
-
-# 10. Voir aussi
+## 10. Voir aussi
 
 - [Architecture](ARCHITECTURE.md)
 - [API HTTP](API.md)
 - [MCP](MCP.md)
 - [Guide utilisateur des intégrations](../user/INTEGRATIONS.md)
+- [ADR-0084](../adr/0084-provider-neutral-multi-provider-composition.md)

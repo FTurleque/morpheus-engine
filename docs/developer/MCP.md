@@ -2,14 +2,21 @@
 
 MORPHEUS expose un serveur Model Context Protocol natif sur STDIO pour IDE, agents et orchestrateurs locaux.
 
-La surface actuelle sépare explicitement :
+Baseline M18 :
 
 ```text
-20 tools read-only historiques
-+ 1 tool write M17 explicite
+22 tools read-only
++ 1 tool write explicite
 ```
 
-Le tool write ne transforme jamais une lecture ou une décision `ALLOWED` en mutation implicite.
+M18 ajoute deux tools read-only de composition :
+
+```text
+get_composition_status
+list_composition_conflicts
+```
+
+Le seul tool write reste `apply_change_lifecycle_transition`. Une lecture ou une décision `ALLOWED` ne devient jamais une mutation implicite.
 
 ## 1. Lancement
 
@@ -40,7 +47,7 @@ flowchart LR
     APP --> STORE[(SQLite / ports)]
 ```
 
-Le module MCP adapte des appels JSON-RPC vers les mêmes services applicatifs que la CLI et l’API. Les règles d’autorisation, CAS, idempotency et lifecycle restent dans l’application/store, jamais dans le transport MCP.
+Le module MCP adapte des appels JSON-RPC vers les mêmes services applicatifs que la CLI et l’API. Les règles d’autorisation, CAS, idempotency, lifecycle et composition restent dans l’application/store, jamais dans le transport MCP.
 
 ## 3. Cycle d’une session
 
@@ -61,9 +68,9 @@ sequenceDiagram
     Server-->>Client: tool result
 ```
 
-Les erreurs de schéma doivent être rejetées avant d’appeler le service métier.
+Les erreurs de schéma sont rejetées avant d’appeler le service métier.
 
-## 4. Catalogue read-only — 20 tools
+## 4. Catalogue read-only — 22 tools
 
 ### Spécification et requêtes
 
@@ -105,14 +112,80 @@ get_change_orchestration_state
 evaluate_change_transition
 ```
 
-Ces 20 tools conservent leur contrat read-only historique.
-
-## 5. Tool write M17 — `apply_change_lifecycle_transition`
-
-Ce tool est volontairement séparé du catalogue read-only :
+### M18 / composition multi-provider
 
 ```text
-evaluate_change_transition       = décision, aucun effet
+get_composition_status
+list_composition_conflicts
+```
+
+Ces 22 tools sont read-only.
+
+## 5. M18 — `get_composition_status`
+
+Ce tool expose l’état de composition provider-neutral du projet et du snapshot publié concerné.
+
+Input conceptuel :
+
+```json
+{
+  "projectId": "<morpheus-project-uuid>"
+}
+```
+
+La projection conserve notamment :
+
+```text
+providers observés
+provider identifiers
+priorités explicites
+snapshot scope
+état de composition
+provenance disponible
+compte de conflits
+```
+
+Le client ne doit jamais utiliser un chemin source comme `DomainIdentity`.
+
+## 6. M18 — `list_composition_conflicts`
+
+Input conceptuel :
+
+```json
+{
+  "projectId": "<morpheus-project-uuid>"
+}
+```
+
+Les conflits restent explicites et requêtables :
+
+```text
+content conflict
+ownership conflict
+type / identity conflict
+absence vs value conflict
+ambiguous continuity
+```
+
+Pour chaque candidat, MORPHEUS conserve la provenance et la priorité pertinentes. La résolution ne signifie jamais effacement silencieux des candidats non retenus.
+
+Invariants :
+
+```text
+provider identifier != DomainIdentity
+source path != identity
+precedence != provenance erasure
+conflict != silent last-write-wins
+ambiguous continuity must be surfaced
+optional provider absence != project failure when optional
+```
+
+## 7. Tool write — `apply_change_lifecycle_transition`
+
+Ce tool reste volontairement séparé du catalogue read-only :
+
+```text
+evaluate_change_transition        = décision, aucun effet
 apply_change_lifecycle_transition = commande explicite avec effet potentiel
 ```
 
@@ -166,19 +239,9 @@ REQUIRES_CONFIRMATION
 REJECTED
 ```
 
-Ces états sont des résultats métier et ne sont pas transformés artificiellement en panne JSON-RPC.
+`READ_CHANGES != WRITE_CHANGE`. Les overloads historiques utilisent un resolver deny-by-default. Sans provider write-capable, la commande retourne `NOT_AUTHORIZED` et n’écrit ni état ni audit.
 
-### Capability write
-
-```text
-READ_CHANGES != WRITE_CHANGE
-```
-
-Le serveur n’autorise pas une mutation parce qu’un provider sait lire les changements. Un `ChangeWriteCapabilityResolver` doit observer explicitement `WRITE_CHANGE` pour le projet.
-
-Les overloads MCP historiques utilisent un resolver deny-by-default. Le launcher officiel injecte son resolver de providers. Si aucun provider embarqué/détecté n’annonce `WRITE_CHANGE`, le résultat est `NOT_AUTHORIZED` et aucun audit/état n’est écrit.
-
-### CAS
+### CAS et idempotency
 
 L’absence d’état opérationnel correspond à :
 
@@ -187,19 +250,11 @@ state    = DRAFT
 revision = 0
 ```
 
-La première mutation réussie produit la révision `1`, puis chaque application incrémente la révision exactement une fois. Une commande avec une révision attendue obsolète retourne `CONFLICT`.
+La première mutation réussie produit la révision `1`. Une révision attendue obsolète retourne `CONFLICT`.
 
-### Idempotency
+Une même `idempotencyKey` avec la même empreinte logique retourne `ALREADY_APPLIED` sans seconde mutation ni second audit. Réutiliser la même clé pour une autre commande logique produit `CONFLICT`.
 
-Une même `idempotencyKey` et la même empreinte logique retournent :
-
-```text
-ALREADY_APPLIED
-```
-
-avec l’audit initial et sans seconde mutation. Réutiliser la même clé pour une commande logique différente produit `CONFLICT`.
-
-## 6. Comment choisir un tool
+## 8. Comment choisir un tool
 
 ```mermaid
 flowchart TD
@@ -210,133 +265,48 @@ flowchart TD
     T -->|code MINOS| M[external reference tools]
     T -->|contexte technique| N[augmented context tools]
     T -->|observer/évaluer lifecycle| O[orchestration state / transition evaluation]
+    T -->|composition providers| P[composition status / conflicts]
     T -->|appliquer explicitement| W[apply_change_lifecycle_transition]
 ```
 
-Un client ne doit appeler le tool write qu’après avoir choisi l’action. MORPHEUS valide et applique l’état ; JARVIS reste propriétaire du sequencing et du choix d’action.
+JARVIS reste propriétaire du sequencing et du choix d’action. MORPHEUS applique uniquement une commande explicitement autorisée.
 
-## 7. Sémantique conservatrice
+## 9. Snapshot-scoping et composition
+
+Les tools read-only lisent les connaissances publiées via les services applicatifs ; ils ne rescannent pas implicitement le workspace à chaque appel.
 
 ```text
+KnowledgeSnapshot                    published knowledge
+CompositionState                     snapshot-scoped provider facts
+ChangeLifecycleOperationalState      mutable CAS-controlled state
+```
+
+Ces trois notions sont distinctes.
+
+M18 persiste l’état de composition via Memory et SQLite V012 ; le reopen SQLite conserve providers, priorités, conflits, candidats et provenance.
+
+## 10. Sémantique conservatrice
+
+```text
+DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
+SpecificationVersion != KnowledgeSnapshot
 Scenario != AcceptanceCriterion
+AcceptanceCriterion != Test
+Test existence != VERIFIED
+Evidence != assertion
 UNKNOWN != FAILED
 UNKNOWN != BLOCKED
 lifecycle absent -> indisponible, jamais inféré
 constraint text != executable policy
-queries snapshot-scoped / CURRENT
 transition evaluation != lifecycle mutation
-read capability != write capability
+READ_CHANGES != WRITE_CHANGE
 ALLOWED != applied
+provider identifier != DomainIdentity
+precedence != provenance erasure
+conflict != silent last-write-wins
 ```
 
-Un fait non observable reste `UNAVAILABLE`/`UNKNOWN`. Un handler MCP ne doit pas transformer cette absence en faux fait métier.
-
-## 8. Snapshot-scoping et état opérationnel
-
-Les tools read-only lisent les connaissances publiées via les services applicatifs. Ils ne rescannent pas directement le workspace à chaque appel.
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant MCP
-    participant App
-    participant Snapshot as ACTIVE snapshot
-
-    Client->>MCP: tools/call(find_requirements)
-    MCP->>App: find(projectId, query)
-    App->>Snapshot: lire état publié
-    Snapshot-->>App: requirements
-    App-->>MCP: vue compacte
-    MCP-->>Client: JSON result
-```
-
-Le lifecycle mutable M17 est **opérationnel** et séparé du snapshot publié :
-
-```text
-KnowledgeSnapshot / SnapshotBusinessContent  immutable published knowledge
-ChangeLifecycleOperationalState              mutable CAS-controlled state
-```
-
-Une mutation lifecycle ne réécrit donc pas l’historique publié.
-
-## 9. `get_change_orchestration_state`
-
-Input :
-
-```json
-{
-  "projectId": "<morpheus-project-uuid>",
-  "changeId": "<change-uuid>",
-  "lifecycleState": "DRAFT",
-  "abandonmentReason": null
-}
-```
-
-`lifecycleState` est optionnel. Sans valeur :
-
-```text
-lifecycle.state  = absent
-lifecycle.source = UNAVAILABLE
-```
-
-La réponse expose notamment :
-
-```text
-snapshot
-change
-lifecycle
-observableFacts
-missingArtifacts
-unavailableFacts
-acceptanceCriteria
-applicableConstraints
-blockingConstraints
-unresolvedLinks
-qualityFindings
-nextAllowedTransitions
-transitionEvaluations
-persisted=false
-```
-
-Cette vue reste read-only.
-
-## 10. `evaluate_change_transition`
-
-Input conceptuel :
-
-```json
-{
-  "projectId": "<morpheus-project-uuid>",
-  "changeId": "<change-uuid>",
-  "fromState": "PROPOSED",
-  "targetState": "SPECIFIED"
-}
-```
-
-Résultat :
-
-```text
-ALLOWED         faits requis connus + transition autorisée
-BLOCKED         faits requis connus + transition bloquée
-UNKNOWN         au moins un fait requis indisponible
-REQUIRES_INPUT  information explicite manquante
-```
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant MCP
-    participant Eval as ChangeTransitionEvaluationService
-    participant Mut as ControlledChangeLifecycleMutationService
-
-    Client->>MCP: evaluate_change_transition(args)
-    MCP->>Eval: evaluate(...)
-    Eval-->>MCP: ALLOWED/BLOCKED/UNKNOWN/REQUIRES_INPUT
-    Note over MCP,Eval: aucun effet
-    Client->>MCP: apply_change_lifecycle_transition(command)
-    MCP->>Mut: apply(command)
-    Mut-->>MCP: APPLIED/.../CONFLICT
-```
+Un fait non observable reste `UNAVAILABLE`/`UNKNOWN`. Un handler MCP ne synthétise jamais un fait métier pour combler une absence.
 
 ## 11. JSON Schemas
 
@@ -350,15 +320,19 @@ required = explicite
 
 Cette politique est particulièrement importante pour les writes : un champ mal orthographié ne doit jamais être ignoré en donnant l’illusion qu’un contrôle de concurrence ou de confirmation a été appliqué.
 
-## 12. Frontières
+## 12. Validation M18
+
+Le gate M18 réellement exécuté a validé :
 
 ```text
-MCP transport != business policy
-MORPHEUS lifecycle invariants != JARVIS sequencing
-published snapshot != operational lifecycle state
-ALLOWED != applied
-idempotent retry != second audit
+MCP tests          6/6 PASS
+TOTAL              418/418 PASS
+Architecture       170/170 PASS
+Packaging/smokes   PASS
 ```
+
+Code testé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
+Preuve : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
 
 ## 13. Voir aussi
 
@@ -367,4 +341,5 @@ idempotent retry != second audit
 - [Intégrations](INTEGRATIONS.md)
 - [Référence CLI](../user/CLI.md)
 - [OpenAPI](../openapi/morpheus-v1.yaml)
-- [ADR-0083](../adr/0083-controlled-lifecycle-write-operations.md)
+- [ADR-0083 — controlled lifecycle write](../adr/0083-controlled-lifecycle-write-operations.md)
+- [ADR-0084 — multi-provider composition](../adr/0084-provider-neutral-multi-provider-composition.md)

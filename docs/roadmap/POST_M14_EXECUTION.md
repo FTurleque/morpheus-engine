@@ -1,6 +1,6 @@
 # MORPHEUS — Roadmap post-M14
 
-Statut : **ACTIVE — D0 et M15→M17 validés/intégrés ; M18 prochain jalon**
+Statut : **ACTIVE — D0 et M15→M18 validés/intégrés ; M19 prochain jalon**
 
 Dernière mise à jour : 26 juillet 2026
 
@@ -35,9 +35,18 @@ M17 code    87d2c0238f90aeb17dab5fed04f1c83a1b548f15
 M17 tests   410/410 PASS
 Architecture M17 167/167 PASS
 Packaging M17 Windows + smokes PASS
+
+M18         ✅ validé / intégré
+M18 issue   #85 CLOSED / completed
+M18 PR      #86 MERGED
+M18 code    7e8caacff567f51354fcb88bd7505a6d135071c0
+M18 merge   30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+M18 tests   418/418 PASS
+Architecture M18 170/170 PASS
+Packaging M18 Windows + smokes PASS
 ```
 
-Capacités disponibles après M17 :
+Capacités disponibles après M18 :
 
 ```text
 Domain model
@@ -62,124 +71,97 @@ expected revision / CAS
 idempotency key + duplicate suppression
 audit append-only + SQLite reopen
 CLI / MCP / HTTP controlled-write surfaces
-CLI / MCP / HTTP acceptance + constraint-policy surfaces
 MINOS optional integration
 NEXUS optional integration
 JARVIS orchestration boundary preserved
+OpenSpec real provider
+Structured Markdown real provider
+ProviderContribution provider-neutral
+MultiProviderCompositionService
+explicit precedence + preserved provenance + explicit conflicts
+Memory / SQLite V012 composition persistence
+CLI / MCP / HTTP composition surfaces
+OpenAPI 1.7.0
 Portable Windows/Linux packaging
 ```
 
 Frontières à préserver :
 
 ```text
-MORPHEUS = specification facts + intent + lifecycle rules + controlled state invariants
+MORPHEUS = specification facts
+           + intent
+           + lifecycle rules
+           + controlled state invariants
+           + provider composition facts
+
 MINOS    = code intelligence
-NEXUS    = context selection / ranking / fusion / compression
-JARVIS   = sequencing / orchestration / action choice
+
+NEXUS    = context selection
+           + ranking
+           + fusion
+           + compression
+
+JARVIS   = sequencing
+           + orchestration
+           + action choice
 ```
 
 Invariants structurants :
 
 ```text
+DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
+SpecificationVersion != KnowledgeSnapshot
+
 PROPOSED never leaks into CURRENT
+published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
+
 Scenario != AcceptanceCriterion
 AcceptanceCriterion != Test
 Test existence != VERIFIED
 Evidence != assertion
+
 UNKNOWN != FAILED
-lifecycle unavailable != lifecycle inferred
 UNKNOWN != BLOCKED
 applicable != blocking
 warning != blocker
 severity != blocking policy
 constraint text != executable policy
+
 transition evaluation != lifecycle mutation
 READ_CHANGES != WRITE_CHANGE
 ALLOWED != applied
 published snapshot != operational lifecycle state
 stale revision != overwrite
 idempotent retry != duplicate mutation/audit
+
+provider identifier != DomainIdentity
+source path != identity
+precedence != provenance erasure
+conflict != silent last-write-wins
+ambiguous continuity must be surfaced
+optional provider absence != project failure when optional
+
 optional engine absence != MORPHEUS failure
 live external observation != published snapshot mutation
+MORPHEUS rules != JARVIS action sequencing
 ```
 
 ---
 
 ## 2. Progression post-M14
 
-M15 ferme le gap acceptance :
+### D0 — Réconciliation documentaire post-M14
 
-```text
-AcceptanceCriterion first-class
-VerificationStatus first-class
-verification evidence explicit
-coverage calculable
-CLI / MCP / HTTP cohérents
-```
-
-M16 ferme le gap de politique de contraintes :
-
-```text
-ConstraintApplicability explicit
-ConstraintSeverity explicit
-ConstraintSatisfaction explicit
-ConstraintBlockingPolicy explicit
-ConstraintEvaluation explainable
-blockingConstraints.status = AVAILABLE | PARTIALLY_AVAILABLE | UNKNOWN
-UNKNOWN != BLOCKED
-warning != blocker
-```
-
-M17 introduit les mutations contrôlées sans confondre décision et effet :
-
-```text
-read-only evaluation
-      !=
-explicit mutation command
-
-WRITE_CHANGE required
-confirmation required by policy
-expected revision / CAS
-idempotency
-append-only audit
-published snapshots remain immutable
-```
-
-La boucle cible reste :
-
-```text
-INTENTION
-   ↓
-REQUIREMENT
-   ↓
-CHANGE
-   ↓
-IMPLEMENTATION
-   ↓
-VERIFICATION
-   ↓
-EVIDENCE
-   ↓
-SATISFACTION EXPLICABLE
-```
-
----
-
-# D0 — Réconciliation documentaire post-M14
-
-Statut : **✅ VALIDÉ / INTÉGRÉ — PR #75**
-
+Statut : **✅ VALIDÉ / INTÉGRÉ — PR #75**  
 Preuve : [`../validation/VALIDATION_D0.md`](../validation/VALIDATION_D0.md).  
 Issue : **#74**. PR : **#75**. Merge : `ec75d3963422d6281f2904c5ebd547124db92ad6`.
 
----
-
-# M15 — Acceptance Criteria, Verification & Evidence
+### M15 — Acceptance Criteria, Verification & Evidence
 
 Statut : **✅ VALIDÉ / INTÉGRÉ — PR #77**
 
-## Question de sortie
+Question de sortie :
 
 > MORPHEUS peut-il représenter explicitement ce qui doit être vérifié, l'état réel de cette vérification et les preuves associées, sans confondre scénario, test, critère d'acceptation et preuve ?
 
@@ -191,19 +173,17 @@ Architecture 157/157 PASS
 Packaging Windows + smokes PASS
 ```
 
-Head de code validé : `9e6450a099157cfdfcd11cc29dfb986ef7701247`.  
+Head validé : `9e6450a099157cfdfcd11cc29dfb986ef7701247`.  
 Preuve : [`../validation/VALIDATION_M15.md`](../validation/VALIDATION_M15.md).  
 Plan : [`M15_EXECUTION.md`](M15_EXECUTION.md).  
-ADR : ADR-0081 **Acceptée — M15**.  
+ADR-0081 : **Acceptée — M15**.  
 Merge : `c37134439844cb088adff855c339a259bb908b6a`.
 
----
-
-# M16 — Constraint Semantics & Policy Enforcement
+### M16 — Constraint Semantics & Policy Enforcement
 
 Statut : **✅ VALIDÉ / INTÉGRÉ — PR #79**
 
-## Question de sortie
+Question de sortie :
 
 > MORPHEUS peut-il déterminer de façon explicable quelles contraintes sont applicables et lesquelles bloquent réellement une action ou une transition, sans convertir une absence d'information en interdiction ?
 
@@ -215,25 +195,21 @@ Architecture 161/161 PASS
 Packaging Windows + smokes PASS
 ```
 
-Head de code validé : `f349c5f4701665e649d985426d35b5e6a6060e32`.  
+Head validé : `f349c5f4701665e649d985426d35b5e6a6060e32`.  
 Preuve : [`../validation/VALIDATION_M16.md`](../validation/VALIDATION_M16.md).  
 Plan : [`M16_EXECUTION.md`](M16_EXECUTION.md).  
-ADR : ADR-0082 **Acceptée — M16**.  
+ADR-0082 : **Acceptée — M16**.  
 Merge : `97308005a63854c7cb08dc19cd3cdb02ac739404`.
 
----
-
-# M17 — Controlled Lifecycle & Write Operations
+### M17 — Controlled Lifecycle & Write Operations
 
 Statut : **✅ VALIDÉ / INTÉGRÉ — PR #81**
 
-## Question de sortie
+Question de sortie :
 
 > MORPHEUS peut-il appliquer une mutation explicitement autorisée avec contrôle de concurrence, permission, confirmation et audit, tout en restant distinct de JARVIS qui choisit et séquence les actions ?
 
 **Réponse : OUI.**
-
-Résultat :
 
 ```text
 ChangeLifecycleMutationCommand
@@ -251,8 +227,6 @@ HTTP POST .../lifecycle-transitions
 OpenAPI 1.6.0
 ```
 
-Gate :
-
 ```text
 TOTAL 410/410 PASS
 Architecture 167/167 PASS
@@ -261,107 +235,129 @@ Packaging Windows + smokes PASS
 Portable ZIP 33,839,272 bytes
 ```
 
-Head de code validé : `87d2c0238f90aeb17dab5fed04f1c83a1b548f15`.  
+Head validé : `87d2c0238f90aeb17dab5fed04f1c83a1b548f15`.  
 Preuve : [`../validation/VALIDATION_M17.md`](../validation/VALIDATION_M17.md).  
 Plan : [`M17_EXECUTION.md`](M17_EXECUTION.md).  
-ADR : ADR-0083 **Acceptée — M17**.  
+ADR-0083 : **Acceptée — M17**.  
 Merge : `02bdb38669efc85af17343d15e689743362d2e12`.
 
----
+### M18 — Real Providers & Multi-Provider Composition
 
-# M18 — Real Providers & Multi-Provider Composition
+Statut : **✅ VALIDÉ / INTÉGRÉ — PR #86**
 
-Statut : **⏭ PROCHAIN JALON**
-
-## Question de sortie
+Question de sortie :
 
 > MORPHEUS peut-il construire une vue cohérente à partir de plusieurs providers réels en conservant identité, provenance, priorité et conflits sans devenir dépendant d'un format particulier ?
 
-## Objectif
+**Réponse : OUI.**
 
-Passer de la preuve anti-lock-in `OpenSpec + Synthetic` à une vraie composition multi-provider utilisable.
-
-## Étape 1 — deuxième provider réel
-
-Priorité recommandée : **Markdown structuré générique**.
-
-Candidats suivants :
+Architecture livrée :
 
 ```text
-GitHub Issues
-GitLab Issues
-Jira
-ADR repositories
-Git sources / metadata
-other structured specification formats
-```
-
-## Étape 2 — composition
-
-```text
-OpenSpec
-   +
-Structured Markdown / ADR
-   +
-Issue provider
-   +
-future providers
+OpenSpec réel
++
+Structured Markdown réel
         ↓
-identity reconciliation
+ProviderContribution
         ↓
-precedence + provenance + conflicts
+MultiProviderCompositionService
         ↓
-coherent KnowledgeSnapshot
+precedence explicite
+provenance conservée
+conflits explicites
+        ↓
+Memory / SQLite V012
+        ↓
+CLI / MCP / HTTP
 ```
 
-## Sémantique nécessaire
+Surfaces :
 
 ```text
-provider ownership
-source precedence
-identity continuity
-cross-provider ExternalReference
-conflict detection
-conflict explanation
-confidence / resolution
-composition diagnostics
+CLI:
+composition sync
+composition status
+composition conflicts
+
+MCP:
+get_composition_status
+list_composition_conflicts
+
+HTTP:
+GET /api/v1/projects/{projectId}/composition
+GET /api/v1/projects/{projectId}/composition/conflicts
+
+OpenAPI 1.7.0
+SQLite V012
 ```
 
-## Invariants
+Gate réel :
 
 ```text
-provider identifier != DomainIdentity
-source path != identity
-ambiguous continuity must be surfaced
-conflict != silent last-write-wins
-provider absence != project failure when optional
+code validé     7e8caacff567f51354fcb88bd7505a6d135071c0
+TOTAL           418/418 PASS
+Architecture    170/170 PASS
+Failures        0
+Errors          0
+Skipped         0
+Reactor         14/14 modules SUCCESS
+Packaging Win   PASS
+Packaged smokes PASS
+API health      PASS
+Portable ZIP    33,919,431 bytes
 ```
 
-## Gate M18
+Preuve : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).  
+Plan : [`M18_EXECUTION.md`](M18_EXECUTION.md).  
+ADR-0084 : **Acceptée — M18**.  
+Issue #85 : **CLOSED / completed**.  
+PR #86 : **MERGED**.  
+Merge : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
 
-```text
-at least two real providers validated
-same project can consume multiple providers
-conflicts are explicit and queryable
-reopen SQLite preserves provider provenance
-no provider-specific types leak into domain/application contracts
-```
+Le SHA testé et le merge commit sont volontairement distincts : les commits post-gate de M18 étaient documentaires uniquement.
 
 ---
 
 # M19 — Production Hardening, Scale & Operability
 
-Statut : **PLANIFIÉ**
+Statut : **⏭ PROCHAIN JALON**
+
+Issue : **#91**.
 
 ## Question de sortie
 
-> MORPHEUS reste-t-il déterministe, observable et exploitable sur des dépôts réalistes de grande taille, avec des limites et performances mesurées plutôt que supposées ?
+> **MORPHEUS reste-t-il déterministe, observable et exploitable sur des dépôts réalistes de grande taille, avec des limites et performances mesurées plutôt que supposées ?**
+
+Cette question est la porte de sortie non négociable de M19.
 
 ## Objectif
 
-Transformer les garanties fonctionnelles en garanties d'exploitation.
+Transformer les garanties fonctionnelles en garanties d'exploitation, sans déplacer les responsabilités de MORPHEUS vers MINOS, NEXUS ou JARVIS.
 
-### Performance et capacité
+## M19-S0 — Budgets et protocole avant optimisation
+
+Avant toute optimisation, fixer et versionner :
+
+```text
+fixture sizes
+requirement counts
+traceability graph sizes
+incremental sync latency budgets
+query latency budgets
+startup time budget
+memory budget
+SQLite size / growth budget
+history retention cost budget
+benchmark warmup / repetitions
+machine/environment metadata
+PASS / FAIL interpretation
+```
+
+**Les seuils ne doivent pas être choisis après observation des performances.**
+
+## M19-S1/S2 — Performance et capacité
+
+Prouver sur des fixtures reproductibles :
 
 ```text
 large repository fixtures
@@ -375,7 +371,11 @@ SQLite size / growth
 history retention cost
 ```
 
-### Robustesse
+Les résultats Windows et Linux doivent être distingués. Un environnement non exécuté n’est jamais déclaré PASS.
+
+## M19-S3/S4/S5 — Robustesse
+
+Contrats et tests réels :
 
 ```text
 corrupt / partial sources
@@ -388,7 +388,19 @@ migration compatibility
 rebuild from sources
 ```
 
-### Observabilité
+Invariant critique :
+
+```text
+failure during BUILDING/VALIDATING
+        !=
+partial ACTIVE exposure
+```
+
+Un ancien `ACTIVE` valide reste publié tant qu’un nouveau candidat n’a pas atteint une activation atomique valide.
+
+## M19-S6/S7 — Observabilité
+
+Évaluer puis compléter :
 
 ```text
 structured logs
@@ -400,7 +412,11 @@ provider timing
 external integration timing
 ```
 
-### Sécurité locale
+Observabilité **locale-first** : aucune télémétrie externe obligatoire n’est introduite.
+
+## M19-S8 — Sécurité locale
+
+Règles vérifiables :
 
 ```text
 secret/path redaction
@@ -410,17 +426,48 @@ external link non-following by default
 write permission hardening
 ```
 
-## Gate M19
+Pas de durcissement cosmétique : chaque règle importante doit avoir un contrat et un test.
 
-Les seuils chiffrés seront fixés avant implémentation puis prouvés par benchmark reproductible Windows/Linux.
+## M19-S9 — Validation finale
+
+Créer :
 
 ```text
-performance budgets documented
+scripts/validate-m19.ps1
+validate-m19.cmd
+docs/validation/VALIDATION_M19.md
+```
+
+Le validateur mono-commande doit couvrir :
+
+```text
+workspace / SHA
+toolchain
+clean test reactor complet
+benchmarks/gates M19 reproductibles
+tests de robustesse
+packaging Windows
+smokes
+résumé PASS/FAIL
+failure-summary automatique
+```
+
+Gate M19 :
+
+```text
+performance budgets documented before optimization
 large-fixture gates reproducible
 no partial ACTIVE exposure under failure
 migration/recovery scenarios validated
-operational diagnostics documented
+structured operational diagnostics validated
+security-local contracts validated
+Windows evidence explicit
+Linux evidence explicit or explicitly missing
+full Maven reactor PASS
+packaging + smokes PASS
 ```
+
+La PR M19 reste Draft jusqu’au gate final vert sur le SHA final de code. Les éventuels commits post-gate doivent être documentaires uniquement et leur diff explicitement vérifié.
 
 ---
 
@@ -432,15 +479,7 @@ Statut : **PLANIFIÉ**
 
 > MORPHEUS peut-il être installé, mis à jour, diagnostiqué et désinstallé comme un produit Windows/Linux sans Git, Maven ou JDK utilisateur, tout en préservant les données et en conservant le ZIP portable pour l'automatisation ?
 
-## Objectif
-
-Faire du packaging existant une véritable distribution produit et aligner l'expérience Windows sur le standard retenu pour MINOS.
-
-## 20.1 Standard Windows recommandé
-
-Le mode utilisateur normal ne doit plus être documenté comme une extraction manuelle dans `C:\Tools\Morpheus`.
-
-Cible :
+## Cible Windows
 
 ```text
 GitHub Release MORPHEUS
@@ -449,37 +488,16 @@ MORPHEUS-<version>-windows-x64-setup.exe
         +
 MORPHEUS-<version>-windows-x64-setup.exe.sha256
         ↓
-verify SHA-256
-        ↓
-setup.exe
-        ↓
 %LOCALAPPDATA%\Programs\MORPHEUS
-        ↓
-CLI + MCP + API + PATH utilisateur optionnel
-```
-
-Installation programme :
-
-```text
-%LOCALAPPDATA%\Programs\MORPHEUS\
-├── app\
-├── lib\
-├── integration\
-├── morpheus.cmd
-├── morpheus-mcp.cmd
-├── VERSION
-└── uninstaller
 ```
 
 Données persistantes séparées :
 
 ```text
-%LOCALAPPDATA%\MORPHEUS\
-├── data\
-│   └── morpheus.db
-├── config\
-├── logs\
-└── backups\
+%LOCALAPPDATA%\MORPHEUS\data
+%LOCALAPPDATA%\MORPHEUS\config
+%LOCALAPPDATA%\MORPHEUS\logs
+%LOCALAPPDATA%\MORPHEUS\backups
 ```
 
 Principe :
@@ -489,139 +507,22 @@ programme != data
 update/uninstall program != delete knowledge store
 ```
 
-L'installation utilisateur doit normalement fonctionner sans élévation administrateur.
+Le ZIP portable reste supporté pour automation, CI, diagnostic, portable usage et versions side-by-side.
 
-## 20.2 PATH et launchers
-
-Le setup doit proposer explicitement :
-
-```text
-☐ Ajouter MORPHEUS au PATH de l'utilisateur
-```
-
-Cible :
-
-```powershell
-morpheus.cmd --version
-morpheus.cmd paths
-morpheus.cmd projects list
-morpheus.cmd doctor
-```
-
-## 20.3 MCP utilisateur
-
-Une intégration MCP native peut être proposée de manière **opt-in**, jamais silencieuse :
-
-```text
-☐ GitHub Copilot — JetBrains / IntelliJ
-☐ GitHub Copilot CLI
-☐ Claude Code
-☐ Claude Desktop
-☐ OpenAI Codex
-```
-
-Règles obligatoires :
-
-```text
-no overwrite of unmanaged existing MCP entry
-backup before modification
-preserve unrelated client configuration
-managed integration registry
-selective uninstall
-```
-
-## 20.4 Portable toujours supporté
-
-Le ZIP reste une distribution de premier ordre pour :
-
-```text
-automation
-CI
-diagnostics
-portable usage
-multiple versions side-by-side
-advanced users
-```
-
-Artefacts Windows :
+Artefacts cibles :
 
 ```text
 MORPHEUS-<version>-windows-x64-setup.exe
 MORPHEUS-<version>-windows-x64-setup.exe.sha256
 morpheus-<version>-windows-x64.zip
 morpheus-<version>-windows-x64.zip.sha256
-```
-
-Artefacts Linux :
-
-```text
 morpheus-<version>-linux-x64.tar.gz
 morpheus-<version>-linux-x64.tar.gz.sha256
 ```
 
-Le runtime Java reste embarqué : aucun JDK n'est requis pour l'utilisateur final.
+Le runtime Java reste embarqué ; aucun JDK n’est requis pour l’utilisateur final.
 
-## 20.5 Release GitHub
-
-Une release stable doit être reproductible depuis un tag et publier automatiquement :
-
-```text
-binaries
-checksums
-release notes
-CHANGELOG
-version metadata
-SBOM if retained by release policy
-```
-
-Le dépôt ne doit plus rester indéfiniment en `0.1.0-SNAPSHOT` lorsque la release stable est déclarée.
-
-## 20.6 Diagnostic produit
-
-Ajouter :
-
-```powershell
-morpheus.cmd doctor
-```
-
-Elle doit distinguer :
-
-```text
-MORPHEUS embedded runtime
-program installation
-write access to data/config/log paths
-SQLite store health
-optional MINOS state
-optional NEXUS state
-MCP/API readiness
-external dependencies actually required by configured providers
-```
-
-## 20.7 Cohérence écosystème
-
-Convention cible Windows :
-
-```text
-%LOCALAPPDATA%\Programs\
-├── MINOS\
-├── MORPHEUS\
-├── NEXUS\
-└── JARVIS\
-```
-
-Données :
-
-```text
-%LOCALAPPDATA%\
-├── MINOS\
-├── MORPHEUS\
-├── NEXUS\
-└── JARVIS\
-```
-
-Cette convention n'impose aucune dépendance runtime entre moteurs ; elle uniformise uniquement l'expérience d'installation et d'exploitation.
-
-## Gate M20
+Gate M20 :
 
 ```text
 Windows setup installation PASS
@@ -639,7 +540,7 @@ GitHub release from tag reproducible
 release documentation complete
 ```
 
-Cible de version : **MORPHEUS 1.0** après validation de l'ensemble des gates post-M14 retenues pour la release.
+Cible : **MORPHEUS 1.0**.
 
 ---
 
@@ -654,11 +555,11 @@ M16  Constraint semantics / blocking policy              ✅ intégré
  ↓
 M17  Controlled write / lifecycle mutations              ✅ intégré
  ↓
-M18  Real providers / multi-provider composition         ⏭ prochain
+M18  Real providers / multi-provider composition         ✅ intégré
  ↓
-M19  Production hardening / scale / operability
+M19  Production hardening / scale / operability          ⏭ prochain
  ↓
-M20  Release engineering / PROD installation / 1.0
+M20  Release engineering / PROD installation / 1.0       ⏳ planifié
 ```
 
 La séquence est volontaire :
@@ -716,9 +617,9 @@ D0      = documentation réconciliée                            ✅ intégré
 M15     = intention vérifiable et prouvable                    ✅ intégré
 M16     = contraintes exécutables/explicables                  ✅ intégré
 M17     = mutations contrôlées                                 ✅ intégré
-M18     = multi-provider réel                                  ⏭ prochain
-M19     = exploitation à l'échelle                             ⏳
+M18     = multi-provider réel                                  ✅ intégré
+M19     = exploitation à l'échelle                             ⏭ prochain
 M20     = distribution produit / installation PROD / 1.0      ⏳
 ```
 
-La priorité immédiate est désormais **M18 — valider un deuxième provider réel et une composition multi-provider explicable sans verrouillage de format**.
+La priorité immédiate est désormais **M19 — mesurer, durcir et rendre exploitable MORPHEUS à l’échelle sans abandonner le déterminisme ni les frontières d’architecture**.
