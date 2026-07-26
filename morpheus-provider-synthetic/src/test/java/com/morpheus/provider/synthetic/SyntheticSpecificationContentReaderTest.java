@@ -5,6 +5,10 @@ import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryStatus;
 import com.morpheus.domain.acceptance.VerificationStatus;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
+import com.morpheus.domain.constraint.ConstraintBlockingMode;
+import com.morpheus.domain.constraint.ConstraintSatisfaction;
+import com.morpheus.domain.constraint.ConstraintSeverity;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -38,8 +42,9 @@ class SyntheticSpecificationContentReaderTest {
         assertEquals(1, content.requirements().size());
         assertEquals(1, content.scenarios().size());
         assertEquals(1, content.changes().size());
+        assertEquals(2, content.constraints().size());
         assertEquals(2, content.acceptanceCriteria().size());
-        assertEquals(7, content.evidence().size());
+        assertEquals(11, content.evidence().size());
 
         var specification = content.specifications().getFirst();
         assertEquals("billing", specification.key());
@@ -60,6 +65,27 @@ class SyntheticSpecificationContentReaderTest {
         assertEquals("extend-retention", change.key().orElseThrow());
         assertEquals("Extend retention", change.title());
         assertEquals("Extend retention", change.intent());
+
+        var blocking = content.constraints().stream()
+                .filter(item -> item.blockingPolicy().mode() == ConstraintBlockingMode.BLOCK_WHEN_VIOLATED)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(change.id(), blocking.changeId());
+        assertEquals(ConstraintSeverity.CRITICAL, blocking.severity());
+        assertEquals(ConstraintSatisfaction.VIOLATED, blocking.satisfaction());
+        assertEquals(java.util.List.of(ChangeLifecycleState.VERIFYING), blocking.blockingPolicy().targetStates());
+        assertEquals(1, blocking.supportingEvidenceIds().size());
+        assertEquals("reviews/security-review.txt", content.evidence().stream()
+                .filter(item -> item.id().equals(blocking.supportingEvidenceIds().getFirst()))
+                .findFirst().orElseThrow().source().value());
+
+        var warning = content.constraints().stream()
+                .filter(item -> item.severity() == ConstraintSeverity.WARNING)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(ConstraintBlockingMode.NON_BLOCKING, warning.blockingPolicy().mode());
+        assertEquals(ConstraintSatisfaction.VIOLATED, warning.satisfaction());
+        assertTrue(warning.blockingPolicy().targetStates().isEmpty());
 
         var requirementCriterion = content.acceptanceCriteria().stream()
                 .filter(criterion -> criterion.requirementId().isPresent())
@@ -99,6 +125,8 @@ class SyntheticSpecificationContentReaderTest {
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.REQUIREMENTS).orElseThrow().status());
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.SCENARIOS).orElseThrow().status());
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.CHANGES).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.CONSTRAINTS).orElseThrow().status());
+        assertEquals(2, result.report(ReadCategory.CONSTRAINTS).orElseThrow().itemCount());
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.ACCEPTANCE_CRITERIA).orElseThrow().status());
         assertEquals(2, result.report(ReadCategory.ACCEPTANCE_CRITERIA).orElseThrow().itemCount());
         assertEquals(ReadCategoryStatus.UNSUPPORTED, result.report(ReadCategory.EXTERNAL_REFERENCES).orElseThrow().status());
@@ -110,11 +138,12 @@ class SyntheticSpecificationContentReaderTest {
         var request = new ProviderReadRequest(
                 fixture("synthetic-basic"),
                 ProjectSpecificationId.generate(),
-                EnumSet.of(ReadCategory.REQUIREMENTS, ReadCategory.ACCEPTANCE_CRITERIA));
+                EnumSet.of(ReadCategory.REQUIREMENTS, ReadCategory.CONSTRAINTS, ReadCategory.ACCEPTANCE_CRITERIA));
         var result = reader.read(request, new InMemoryResolver());
 
-        assertEquals(2, result.categoryReports().size());
+        assertEquals(3, result.categoryReports().size());
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.REQUIREMENTS).orElseThrow().status());
+        assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.CONSTRAINTS).orElseThrow().status());
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.ACCEPTANCE_CRITERIA).orElseThrow().status());
         assertFalse(result.report(ReadCategory.SCENARIOS).isPresent());
     }
@@ -133,6 +162,7 @@ class SyntheticSpecificationContentReaderTest {
         assertEquals(first.requirements().getFirst().id(), second.requirements().getFirst().id());
         assertEquals(first.scenarios().getFirst().id(), second.scenarios().getFirst().id());
         assertEquals(first.changes().getFirst().id(), second.changes().getFirst().id());
+        assertEquals(first.constraints(), second.constraints());
         assertEquals(first.acceptanceCriteria().getFirst().id(), second.acceptanceCriteria().getFirst().id());
         assertEquals(
                 first.acceptanceCriteria().getFirst().verificationEvidenceIds(),

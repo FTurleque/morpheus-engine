@@ -15,8 +15,8 @@ class MorpheusJarvisOrchestrationApiContractTest {
     private final ApiTestSupport http = new ApiTestSupport();
 
     @Test
-    void orchestrationStateKeepsLifecycleUnavailableUnlessCallerSuppliesIt() {
-        Path database = tempDirectory.resolve("m14-api-state.db");
+    void orchestrationStateKeepsLifecycleAndLegacyConstraintPolicyUnavailableUnlessCallerSuppliesLifecycle() {
+        Path database = tempDirectory.resolve("m16-api-state.db");
         Path fixture = http.fixture("openspec-basic");
 
         try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
@@ -34,8 +34,10 @@ class MorpheusJarvisOrchestrationApiContractTest {
             assertTrue(unavailable.body().contains("\"state\":null"), unavailable.body());
             assertTrue(unavailable.body().contains("\"nextAllowedTransitions\":[]"), unavailable.body());
             assertTrue(unavailable.body().contains("\"acceptanceCriteria\":{\"status\":\"AVAILABLE\""), unavailable.body());
+            assertTrue(unavailable.body().contains("\"blockingConstraints\":{\"status\":\"UNKNOWN\""), unavailable.body());
             assertTrue(unavailable.body().contains("\"observedCount\":0"), unavailable.body());
-            assertTrue(unavailable.body().contains("UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED"), unavailable.body());
+            assertTrue(unavailable.body().contains("blockingConstraints"), unavailable.body());
+            assertTrue(!unavailable.body().contains("UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED"), unavailable.body());
             assertTrue(unavailable.body().contains("\"persisted\":false"), unavailable.body());
             assertTrue(unavailable.body().contains(snapshotId), unavailable.body());
 
@@ -46,13 +48,14 @@ class MorpheusJarvisOrchestrationApiContractTest {
             assertEquals(200, explicit.status(), explicit.body());
             assertTrue(explicit.body().contains("\"source\":\"CALLER_SUPPLIED\""), explicit.body());
             assertTrue(explicit.body().contains("\"state\":\"DRAFT\""), explicit.body());
-            assertTrue(explicit.body().contains("\"nextAllowedTransitions\":[\"PROPOSED\""), explicit.body());
+            assertTrue(explicit.body().contains("\"nextAllowedTransitions\":[]"), explicit.body());
+            assertTrue(explicit.body().contains("\"constraintEvaluations\""), explicit.body());
         }
     }
 
     @Test
-    void transitionCheckDistinguishesAllowedUnknownAndRequiresInputWithoutMutation() {
-        Path database = tempDirectory.resolve("m14-api-transition.db");
+    void transitionCheckKeepsUnknownDistinctFromBlockedAndRequiresInputWithoutMutation() {
+        Path database = tempDirectory.resolve("m16-api-transition.db");
         Path fixture = http.fixture("openspec-basic");
 
         try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
@@ -63,16 +66,19 @@ class MorpheusJarvisOrchestrationApiContractTest {
             String changeId = http.field(http.get(server, "/projects/" + projectId + "/changes").body(), "id");
             String route = "/projects/" + projectId + "/changes/" + changeId + "/transition-check";
 
-            ApiTestSupport.Response allowed = http.postJson(
+            ApiTestSupport.Response unknownPolicy = http.postJson(
                     server, route, "{\"fromState\":\"DRAFT\",\"targetState\":\"PROPOSED\"}");
-            assertEquals(200, allowed.status(), allowed.body());
-            assertTrue(allowed.body().contains("\"state\":\"ALLOWED\""), allowed.body());
+            assertEquals(200, unknownPolicy.status(), unknownPolicy.body());
+            assertTrue(unknownPolicy.body().contains("\"state\":\"UNKNOWN\""), unknownPolicy.body());
+            assertTrue(unknownPolicy.body().contains("blockingConstraints"), unknownPolicy.body());
+            assertTrue(unknownPolicy.body().contains("\"constraintEvaluations\""), unknownPolicy.body());
+            assertTrue(!unknownPolicy.body().contains("BLOCKING_CONSTRAINT"), unknownPolicy.body());
 
-            ApiTestSupport.Response unknown = http.postJson(
+            ApiTestSupport.Response unknownFacts = http.postJson(
                     server, route, "{\"fromState\":\"PROPOSED\",\"targetState\":\"SPECIFIED\"}");
-            assertEquals(200, unknown.status(), unknown.body());
-            assertTrue(unknown.body().contains("\"state\":\"UNKNOWN\""), unknown.body());
-            assertTrue(unknown.body().contains("acceptanceCriteriaDefined"), unknown.body());
+            assertEquals(200, unknownFacts.status(), unknownFacts.body());
+            assertTrue(unknownFacts.body().contains("\"state\":\"UNKNOWN\""), unknownFacts.body());
+            assertTrue(unknownFacts.body().contains("acceptanceCriteriaDefined"), unknownFacts.body());
 
             ApiTestSupport.Response requiresInput = http.postJson(
                     server, route, "{\"fromState\":\"DRAFT\",\"targetState\":\"ABANDONED\"}");

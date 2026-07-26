@@ -19,7 +19,7 @@ class MorpheusJarvisOrchestrationCliTest {
     Path tempDirectory;
 
     @Test
-    void stateCommandKeepsLifecycleUnavailableUnlessExplicitlySupplied() {
+    void stateCommandKeepsLifecycleAndLegacyConstraintPolicyUnavailableUnlessExplicitlySupplied() {
         Seed seed = seed(tempDirectory.resolve("state-data"));
 
         Invocation unavailable = invokeWithData(
@@ -29,6 +29,9 @@ class MorpheusJarvisOrchestrationCliTest {
         assertTrue(unavailable.stdout().contains("\"source\":\"UNAVAILABLE\""), unavailable.stdout());
         assertTrue(unavailable.stdout().contains("\"state\":null"), unavailable.stdout());
         assertTrue(unavailable.stdout().contains("\"nextAllowedTransitions\":[]"), unavailable.stdout());
+        assertTrue(unavailable.stdout().contains("\"blockingConstraints\":{\"status\":\"UNKNOWN\""), unavailable.stdout());
+        assertTrue(unavailable.stdout().contains("\"observedCount\":0"), unavailable.stdout());
+        assertTrue(unavailable.stdout().contains("blockingConstraints"), unavailable.stdout());
         assertTrue(unavailable.stdout().contains("\"persisted\":false"), unavailable.stdout());
 
         Invocation draft = invokeWithData(
@@ -36,27 +39,32 @@ class MorpheusJarvisOrchestrationCliTest {
                 "--project", seed.projectId(), "--change", seed.changeId(), "--lifecycle", "DRAFT");
         assertEquals(0, draft.exitCode(), draft.stderr());
         assertTrue(draft.stdout().contains("\"source\":\"CALLER_SUPPLIED\""), draft.stdout());
-        assertTrue(draft.stdout().contains("\"nextAllowedTransitions\":[\"PROPOSED\""), draft.stdout());
+        assertTrue(draft.stdout().contains("\"state\":\"DRAFT\""), draft.stdout());
+        assertTrue(draft.stdout().contains("\"nextAllowedTransitions\":[]"), draft.stdout());
+        assertTrue(draft.stdout().contains("\"constraintEvaluations\""), draft.stdout());
     }
 
     @Test
-    void transitionCheckReportsAllowedUnknownAndRequiresInput() {
+    void transitionCheckKeepsUnknownDistinctFromBlockedAndRequiresInput() {
         Seed seed = seed(tempDirectory.resolve("transition-data"));
 
-        Invocation allowed = invokeWithData(
+        Invocation unknownPolicy = invokeWithData(
                 seed.data(), "--json", "change-orchestration", "transition-check",
                 "--project", seed.projectId(), "--change", seed.changeId(),
                 "--from", "DRAFT", "--to", "PROPOSED");
-        assertEquals(0, allowed.exitCode(), allowed.stderr());
-        assertTrue(allowed.stdout().contains("\"state\":\"ALLOWED\""), allowed.stdout());
+        assertEquals(0, unknownPolicy.exitCode(), unknownPolicy.stderr());
+        assertTrue(unknownPolicy.stdout().contains("\"state\":\"UNKNOWN\""), unknownPolicy.stdout());
+        assertTrue(unknownPolicy.stdout().contains("blockingConstraints"), unknownPolicy.stdout());
+        assertTrue(unknownPolicy.stdout().contains("\"constraintEvaluations\""), unknownPolicy.stdout());
+        assertTrue(!unknownPolicy.stdout().contains("BLOCKING_CONSTRAINT"), unknownPolicy.stdout());
 
-        Invocation unknown = invokeWithData(
+        Invocation unknownFacts = invokeWithData(
                 seed.data(), "--json", "change-orchestration", "transition-check",
                 "--project", seed.projectId(), "--change", seed.changeId(),
                 "--from", "PROPOSED", "--to", "SPECIFIED");
-        assertEquals(0, unknown.exitCode(), unknown.stderr());
-        assertTrue(unknown.stdout().contains("\"state\":\"UNKNOWN\""), unknown.stdout());
-        assertTrue(unknown.stdout().contains("acceptanceCriteriaDefined"), unknown.stdout());
+        assertEquals(0, unknownFacts.exitCode(), unknownFacts.stderr());
+        assertTrue(unknownFacts.stdout().contains("\"state\":\"UNKNOWN\""), unknownFacts.stdout());
+        assertTrue(unknownFacts.stdout().contains("acceptanceCriteriaDefined"), unknownFacts.stdout());
 
         Invocation requiresInput = invokeWithData(
                 seed.data(), "--json", "change-orchestration", "transition-check",

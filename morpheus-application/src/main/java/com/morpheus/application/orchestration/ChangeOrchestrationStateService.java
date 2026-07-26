@@ -18,6 +18,10 @@ import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycle;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.constraint.Constraint;
+import com.morpheus.domain.constraint.ConstraintApplicability;
+import com.morpheus.domain.constraint.ConstraintBlockingMode;
+import com.morpheus.domain.constraint.ConstraintSatisfaction;
+import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.reference.ExternalReference;
 import com.morpheus.domain.reference.ExternalReferenceResolutionState;
@@ -85,10 +89,12 @@ public final class ChangeOrchestrationStateService {
 
         List<Constraint> constraints = content.constraints().stream()
                 .filter(item -> item.changeId().equals(changeId))
+                .sorted(Comparator.comparing(item -> item.id().toString()))
                 .toList();
         long acceptanceCriterionCount = content.acceptanceCriteria().stream()
                 .filter(item -> item.changeId().filter(changeId::equals).isPresent())
                 .count();
+        ChangeOrchestrationState.AvailabilityView blockingAvailability = blockingAvailability(constraints);
         List<ChangeOrchestrationState.UnresolvedLinkView> unresolvedLinks = unresolvedLinks(active, changeId);
         List<ChangeTransitionEvaluation> evaluations = transitionEvaluations(projectId, changeId, lifecycle);
         List<ChangeLifecycleState> allowed = evaluations.stream()
@@ -102,7 +108,7 @@ public final class ChangeOrchestrationStateService {
                 lifecycle,
                 observableFacts(assessment.lifecycleFacts()),
                 missingArtifacts(assessment.lifecycleFacts()),
-                assessment.lifecycleFacts().unavailableFacts(),
+                unavailableFacts(assessment.lifecycleFacts(), blockingAvailability),
                 new ChangeOrchestrationState.AvailabilityView(
                         "AVAILABLE",
                         acceptanceCriterionCount == 0
@@ -110,15 +116,59 @@ public final class ChangeOrchestrationStateService {
                                 : "Explicit acceptance criteria are persisted and queryable; verification state does not imply blocking semantics",
                         Math.toIntExact(acceptanceCriterionCount)),
                 constraints.stream().map(this::constraint).toList(),
-                new ChangeOrchestrationState.AvailabilityView(
-                        "UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED",
-                        "MORPHEUS can expose applicable constraints but does not label a constraint as blocking without explicit semantics",
-                        0),
+                blockingAvailability,
                 unresolvedLinks,
                 assessment.findings().stream().map(this::finding).toList(),
                 allowed,
                 evaluations,
                 false));
+    }
+
+    private ChangeOrchestrationState.AvailabilityView blockingAvailability(List<Constraint> constraints) {
+        if (constraints.isEmpty()) {
+            return new ChangeOrchestrationState.AvailabilityView(
+                    "AVAILABLE", "No constraint is attached to this change", 0);
+        }
+        long blocking = constraints.stream().filter(this::currentlyBlockingByExplicitPolicy).count();
+        long unknown = constraints.stream().filter(item -> !blockingKnowledgeKnown(item)).count();
+        if (unknown == 0) {
+            return new ChangeOrchestrationState.AvailabilityView(
+                    "AVAILABLE",
+                    "All constraint blocking semantics are explicit; observedCount is the number of currently violated explicit blocking policies",
+                    Math.toIntExact(blocking));
+        }
+        if (unknown < constraints.size()) {
+            return new ChangeOrchestrationState.AvailabilityView(
+                    "PARTIALLY_AVAILABLE",
+                    "Some constraints have explicit blocking semantics while others remain unknown; UNKNOWN is not treated as blocking",
+                    Math.toIntExact(blocking));
+        }
+        return new ChangeOrchestrationState.AvailabilityView(
+                "UNKNOWN",
+                "Constraint blocking semantics are not explicit for this change; UNKNOWN is not treated as blocking",
+                0);
+    }
+
+    private boolean blockingKnowledgeKnown(Constraint constraint) {
+        if (constraint.applicability() == ConstraintApplicability.NOT_APPLICABLE) {
+            return true;
+        }
+        if (constraint.applicability() == ConstraintApplicability.UNKNOWN) {
+            return false;
+        }
+        if (constraint.blockingPolicy().mode() == ConstraintBlockingMode.UNKNOWN) {
+            return false;
+        }
+        if (constraint.blockingPolicy().mode() == ConstraintBlockingMode.NON_BLOCKING) {
+            return true;
+        }
+        return constraint.satisfaction() != ConstraintSatisfaction.UNKNOWN;
+    }
+
+    private boolean currentlyBlockingByExplicitPolicy(Constraint constraint) {
+        return constraint.applicability() == ConstraintApplicability.APPLICABLE
+                && constraint.blockingPolicy().mode() == ConstraintBlockingMode.BLOCK_WHEN_VIOLATED
+                && constraint.satisfaction() == ConstraintSatisfaction.VIOLATED;
     }
 
     private List<ChangeTransitionEvaluation> transitionEvaluations(
@@ -183,6 +233,16 @@ public final class ChangeOrchestrationStateService {
         return Map.copyOf(values);
     }
 
+    private List<String> unavailableFacts(
+            ChangeLifecycleFactAssessment facts,
+            ChangeOrchestrationState.AvailabilityView blockingAvailability) {
+        List<String> unavailable = new ArrayList<>(facts.unavailableFacts());
+        if (!"AVAILABLE".equals(blockingAvailability.status())) {
+            unavailable.add("blockingConstraints");
+        }
+        return List.copyOf(unavailable.stream().distinct().sorted().toList());
+    }
+
     private List<String> missingArtifacts(ChangeLifecycleFactAssessment facts) {
         List<String> missing = new ArrayList<>();
         if (facts.requirementsIdentified() == QualityFactValue.FALSE) {
@@ -219,7 +279,15 @@ public final class ChangeOrchestrationStateService {
 
     private ChangeOrchestrationState.ConstraintView constraint(Constraint constraint) {
         return new ChangeOrchestrationState.ConstraintView(
-                constraint.id().toString(), constraint.statement());
+                constraint.id().toString(),
+                constraint.statement(),
+                constraint.applicability().name(),
+                constraint.severity().name(),
+                constraint.satisfaction().name(),
+                constraint.blockingPolicy().mode().name(),
+                constraint.blockingPolicy().targetStates().stream().map(Enum::name).toList(),
+                constraint.supportingEvidenceIds().stream().map(EvidenceId::toString).toList(),
+                constraint.provenance().evidenceId().toString());
     }
 
     private ChangeOrchestrationState.UnresolvedLinkView traceabilityLink(TraceabilityLink link) {

@@ -26,7 +26,8 @@ final class SqliteSchemaManager {
             new Migration(6, "snapshot-external-reference-persistence", "/db/migration/V006__snapshot_external_reference_persistence.sql"),
             new Migration(7, "snapshot-business-content-projection", "/db/migration/V007__snapshot_business_content_projection.sql"),
             new Migration(8, "sync-state-and-source-inventory", "/db/migration/V008__sync_state_and_source_inventory.sql"),
-            new Migration(9, "snapshot-acceptance-criteria", "/db/migration/V009__snapshot_acceptance_criteria.sql"));
+            new Migration(9, "snapshot-acceptance-criteria", "/db/migration/V009__snapshot_acceptance_criteria.sql"),
+            new Migration(10, "constraint-semantics", "/db/migration/V010__constraint_semantics.sql"));
 
     void migrate(Connection connection) {
         final boolean previousAutoCommit;

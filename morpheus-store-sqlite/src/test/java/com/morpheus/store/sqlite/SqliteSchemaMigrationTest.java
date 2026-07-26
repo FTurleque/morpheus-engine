@@ -36,7 +36,7 @@ class SqliteSchemaMigrationTest {
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(9, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(10, new SqliteSchemaManager().currentVersion(connection));
             List<String> expectedTables = List.of(
                     "schema_migrations",
                     "projects",
@@ -61,6 +61,8 @@ class SqliteSchemaMigrationTest {
                     "snapshot_change_out_of_scope",
                     "snapshot_change_risks",
                     "snapshot_constraints",
+                    "snapshot_constraint_blocking_targets",
+                    "snapshot_constraint_supporting_evidence",
                     "snapshot_design_decisions",
                     "snapshot_implementation_tasks",
                     "snapshot_acceptance_criteria",
@@ -80,6 +82,8 @@ class SqliteSchemaMigrationTest {
             assertTrue(indexExists(connection, "idx_snapshot_scenarios_snapshot"));
             assertTrue(indexExists(connection, "idx_snapshot_changes_snapshot"));
             assertTrue(indexExists(connection, "idx_snapshot_constraints_change"));
+            assertTrue(indexExists(connection, "idx_snapshot_constraint_blocking_targets"));
+            assertTrue(indexExists(connection, "idx_snapshot_constraint_supporting_evidence"));
             assertTrue(indexExists(connection, "idx_snapshot_design_decisions_change"));
             assertTrue(indexExists(connection, "idx_snapshot_implementation_tasks_change"));
             assertTrue(indexExists(connection, "idx_snapshot_acceptance_requirement"));
@@ -87,6 +91,9 @@ class SqliteSchemaMigrationTest {
             assertTrue(indexExists(connection, "idx_snapshot_acceptance_status"));
             assertTrue(indexExists(connection, "idx_sync_inventory_entries_project"));
             assertTrue(indexExists(connection, "idx_sync_source_archives_project_time"));
+            assertEquals(
+                    List.of("UNKNOWN"),
+                    defaultValues(connection, "snapshot_constraints", "applicability"));
 
             for (String table : expectedTables) {
                 if (!table.equals("schema_migrations")) {
@@ -98,7 +105,7 @@ class SqliteSchemaMigrationTest {
     }
 
     @Test
-    void migrationReplayIsIdempotentAndLedgerContainsNineImmutableEntries() throws Exception {
+    void migrationReplayIsIdempotentAndLedgerContainsTenImmutableEntries() throws Exception {
         Path database = tempDir.resolve("replay.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // First application.
@@ -112,7 +119,7 @@ class SqliteSchemaMigrationTest {
              ResultSet result = statement.executeQuery(
                      "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum FROM schema_migrations")) {
             assertTrue(result.next());
-            assertEquals(9, result.getInt("count"));
+            assertEquals(10, result.getInt("count"));
             assertEquals(64, result.getInt("min_checksum"));
             assertEquals(64, result.getInt("max_checksum"));
         }
@@ -202,6 +209,20 @@ class SqliteSchemaMigrationTest {
                 names.add(result.getString("name"));
             }
             return names;
+        }
+    }
+
+    private List<String> defaultValues(java.sql.Connection connection, String tableName, String columnName) throws Exception {
+        List<String> values = new ArrayList<>();
+        try (var statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("PRAGMA table_info(" + tableName + ")")) {
+            while (result.next()) {
+                if (columnName.equals(result.getString("name"))) {
+                    String value = result.getString("dflt_value");
+                    values.add(value == null ? "" : value.replace("'", ""));
+                }
+            }
+            return values;
         }
     }
 }

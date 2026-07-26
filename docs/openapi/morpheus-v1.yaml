@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MORPHEUS Headless API
-  version: 1.4.0
+  version: 1.5.0
   description: >-
     Local-first MORPHEUS HTTP adapter. M12 adds optional MINOS live reference
     resolution. M13 adds optional NEXUS technical-context augmentation. M14 adds
@@ -9,7 +9,9 @@ info:
     and transition evaluations without mutating snapshots or provider state.
     M15 adds first-class persisted acceptance criteria with explicit verification
     status and verification evidence without converting scenarios or test presence
-    into implicit acceptance facts.
+    into implicit acceptance facts. M16 adds provider-neutral constraint applicability,
+    severity, satisfaction and explicit blocking policy. Constraint text or severity
+    never implies blocking, and UNKNOWN remains distinct from BLOCKED and ALLOWED.
 servers:
   - url: http://127.0.0.1:8765/api/v1
     description: Default local server
@@ -106,7 +108,13 @@ paths:
     get: {operationId: getChange, responses: {'200': {$ref: '#/components/responses/Success'}}}
   /projects/{projectId}/changes/{changeId}/constraints:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}, {$ref: '#/components/parameters/Offset'}, {$ref: '#/components/parameters/Limit'}]
-    get: {operationId: getConstraints, responses: {'200': {$ref: '#/components/responses/Success'}}}
+    get:
+      operationId: getConstraints
+      description: >-
+        Returns the stable compact persisted constraint list. Target-specific M16 policy
+        evaluation is exposed through orchestration and transition-check; no blocking
+        decision is inferred from this compact list alone.
+      responses: {'200': {$ref: '#/components/responses/Success'}}
   /projects/{projectId}/changes/{changeId}/acceptance-criteria:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
     get:
@@ -147,10 +155,13 @@ paths:
     get:
       operationId: getChangeOrchestrationState
       description: >-
-        Returns the live read-only UC-16 orchestration projection. Lifecycle is never inferred;
-        lifecycleState is considered CALLER_SUPPLIED when present and otherwise UNAVAILABLE.
-        M15 exposes acceptanceCriteria as AVAILABLE with an observed count when criteria are persisted,
-        but does not infer blocking semantics from their verification state.
+        Returns the live read-only orchestration projection. Lifecycle is never inferred;
+        lifecycleState is CALLER_SUPPLIED when present and otherwise UNAVAILABLE. M15
+        exposes acceptance criteria without inventing blocking semantics. M16 exposes
+        explicit constraint applicability, severity, satisfaction, blocking policy and
+        supporting evidence. blockingConstraints is AVAILABLE only when the blocking fact
+        is known, PARTIALLY_AVAILABLE when mixed, and UNKNOWN when policy semantics are
+        unavailable. UNKNOWN is never counted as a blocker.
       responses:
         '200': {$ref: '#/components/responses/Success'}
         '400': {$ref: '#/components/responses/BadRequest'}
@@ -160,12 +171,20 @@ paths:
     parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
     post:
       operationId: evaluateChangeTransition
-      description: Evaluates a MORPHEUS lifecycle transition without persisting or applying it.
+      description: >-
+        Pure read-only evaluation. MORPHEUS evaluates structural lifecycle rules and then
+        explicit M16 constraint policy. Only an applicable, violated constraint whose
+        BLOCK_WHEN_VIOLATED policy explicitly targets the requested lifecycle state can
+        add BLOCKING_CONSTRAINT. Unknown policy facts yield UNKNOWN, never BLOCKED or ALLOWED.
       requestBody:
         required: true
         content: {application/json: {schema: {$ref: '#/components/schemas/TransitionCheckRequest'}}}
       responses:
-        '200': {$ref: '#/components/responses/Success'}
+        '200':
+          description: Explainable lifecycle and constraint-policy decision; no mutation is applied.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChangeTransitionEvaluationSuccessEnvelope'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/StateConflict'}
@@ -268,6 +287,102 @@ components:
       properties:
         apiVersion: {const: v1}
         data: {$ref: '#/components/schemas/AcceptanceCriteriaPage'}
+    ConstraintApplicability:
+      type: string
+      enum: [APPLICABLE, NOT_APPLICABLE, UNKNOWN]
+    ConstraintSeverity:
+      type: string
+      enum: [INFO, WARNING, ERROR, CRITICAL, UNKNOWN]
+    ConstraintSatisfaction:
+      type: string
+      enum: [SATISFIED, VIOLATED, UNKNOWN]
+    ConstraintBlockingMode:
+      type: string
+      enum: [NON_BLOCKING, BLOCK_WHEN_VIOLATED, UNKNOWN]
+    ConstraintEvaluationState:
+      type: string
+      enum: [NOT_APPLICABLE, NON_BLOCKING, BLOCKING, UNKNOWN]
+    ConstraintBlockingPolicy:
+      type: object
+      additionalProperties: false
+      required: [mode, targetStates]
+      properties:
+        mode: {$ref: '#/components/schemas/ConstraintBlockingMode'}
+        targetStates:
+          type: array
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/LifecycleState'}
+    ConstraintEvaluation:
+      type: object
+      additionalProperties: false
+      required:
+        - constraintId
+        - changeId
+        - targetState
+        - state
+        - applicability
+        - severity
+        - satisfaction
+        - blockingPolicy
+        - reason
+        - supportingEvidenceIds
+        - sourceEvidenceId
+      properties:
+        constraintId: {$ref: '#/components/schemas/Uuid'}
+        changeId: {$ref: '#/components/schemas/Uuid'}
+        targetState: {$ref: '#/components/schemas/LifecycleState'}
+        state: {$ref: '#/components/schemas/ConstraintEvaluationState'}
+        applicability: {$ref: '#/components/schemas/ConstraintApplicability'}
+        severity: {$ref: '#/components/schemas/ConstraintSeverity'}
+        satisfaction: {$ref: '#/components/schemas/ConstraintSatisfaction'}
+        blockingPolicy: {$ref: '#/components/schemas/ConstraintBlockingPolicy'}
+        reason: {type: string, minLength: 1}
+        supportingEvidenceIds:
+          type: array
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/Uuid'}
+        sourceEvidenceId: {$ref: '#/components/schemas/Uuid'}
+    ChangeTransitionEvaluationState:
+      type: string
+      enum: [ALLOWED, BLOCKED, UNKNOWN, REQUIRES_INPUT]
+    ChangeTransitionEvaluation:
+      type: object
+      additionalProperties: false
+      required:
+        - fromState
+        - targetState
+        - state
+        - blockers
+        - requiredFacts
+        - unavailableRequiredFacts
+        - factSource
+        - reason
+        - constraintEvaluations
+      properties:
+        fromState: {$ref: '#/components/schemas/LifecycleState'}
+        targetState: {$ref: '#/components/schemas/LifecycleState'}
+        state: {$ref: '#/components/schemas/ChangeTransitionEvaluationState'}
+        blockers:
+          type: array
+          items: {type: string}
+        requiredFacts:
+          type: array
+          items: {type: string}
+        unavailableRequiredFacts:
+          type: array
+          items: {type: string}
+        factSource: {type: string, minLength: 1}
+        reason: {type: string, minLength: 1}
+        constraintEvaluations:
+          type: array
+          items: {$ref: '#/components/schemas/ConstraintEvaluation'}
+    ChangeTransitionEvaluationSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, data]
+      properties:
+        apiVersion: {const: v1}
+        data: {$ref: '#/components/schemas/ChangeTransitionEvaluation'}
     LifecycleState:
       type: string
       enum: [DRAFT, PROPOSED, SPECIFIED, DESIGNED, PLANNED, IMPLEMENTING, VERIFYING, COMPLETED, ARCHIVED, ABANDONED]

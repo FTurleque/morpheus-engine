@@ -1,5 +1,6 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.lifecycle.ChangeLifecycleBlocker;
 import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.orchestration.ChangeLifecycleObservation;
 import com.morpheus.application.orchestration.ChangeLifecycleObservationSource;
@@ -17,7 +18,12 @@ import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycle;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.constraint.Constraint;
+import com.morpheus.domain.constraint.ConstraintApplicability;
+import com.morpheus.domain.constraint.ConstraintBlockingPolicy;
+import com.morpheus.domain.constraint.ConstraintEvaluationState;
 import com.morpheus.domain.constraint.ConstraintId;
+import com.morpheus.domain.constraint.ConstraintSatisfaction;
+import com.morpheus.domain.constraint.ConstraintSeverity;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -55,6 +61,7 @@ import com.morpheus.store.memory.MemoryTraceabilityStore;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -67,8 +74,8 @@ class JarvisOrchestrationContractTest {
     private static final Instant T0 = Instant.parse("2026-07-24T16:00:00Z");
 
     @Test
-    void stateNeverInfersLifecycleAndSeparatesMissingFromUnavailableFacts() {
-        Fixture fixture = seed();
+    void stateNeverInfersLifecycleAndKeepsUnknownConstraintSemanticsExplicit() {
+        Fixture fixture = seed(ConstraintMode.UNKNOWN);
 
         ChangeOrchestrationState result = fixture.stateService().active(
                         fixture.projectId(), fixture.change().id(), ChangeLifecycleObservation.unavailable())
@@ -79,34 +86,63 @@ class JarvisOrchestrationContractTest {
         assertTrue(result.nextAllowedTransitions().isEmpty());
         assertTrue(result.transitionEvaluations().isEmpty());
         assertEquals(QualityFactValue.TRUE, result.observableFacts().get("requirementsIdentified"));
+        assertEquals(QualityFactValue.UNAVAILABLE, result.observableFacts().get("criticalConstraintsKnown"));
         assertEquals(QualityFactValue.FALSE, result.observableFacts().get("acceptanceCriteriaDefined"));
         assertTrue(result.missingArtifacts().contains("acceptanceCriteria"));
         assertFalse(result.unavailableFacts().contains("acceptanceCriteriaDefined"));
+        assertTrue(result.unavailableFacts().contains("blockingConstraints"));
         assertEquals("AVAILABLE", result.acceptanceCriteria().status());
         assertEquals(0, result.acceptanceCriteria().observedCount());
-        assertEquals("UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED", result.blockingConstraints().status());
+        assertEquals("UNKNOWN", result.blockingConstraints().status());
         assertFalse(result.persisted());
         assertTrue(fixture.completedTask().completed(), "completed task must not become lifecycle state");
     }
 
     @Test
-    void stateExposesApplicableConstraintsAndBothKindsOfUnresolvedLinks() {
-        Fixture fixture = seed();
+    void stateExposesConstraintPolicySeverityAndEvidence() {
+        Fixture fixture = seed(ConstraintMode.BLOCKING_VERIFYING);
 
         ChangeOrchestrationState result = fixture.stateService().active(
                         fixture.projectId(), fixture.change().id(), ChangeLifecycleObservation.unavailable())
                 .orElseThrow();
 
         assertEquals(1, result.applicableConstraints().size());
-        assertEquals("Preserve auditability", result.applicableConstraints().getFirst().statement());
+        var constraint = result.applicableConstraints().getFirst();
+        assertEquals("Preserve auditability", constraint.statement());
+        assertEquals("APPLICABLE", constraint.applicability());
+        assertEquals("CRITICAL", constraint.severity());
+        assertEquals("VIOLATED", constraint.satisfaction());
+        assertEquals("BLOCK_WHEN_VIOLATED", constraint.blockingMode());
+        assertEquals(List.of("VERIFYING"), constraint.blockingTargets());
+        assertEquals(1, constraint.supportingEvidenceIds().size());
+        assertEquals("AVAILABLE", result.blockingConstraints().status());
+        assertEquals(1, result.blockingConstraints().observedCount());
         assertEquals(2, result.unresolvedLinks().size());
         assertEquals(List.of("EXTERNAL_REFERENCE", "TRACEABILITY"),
                 result.unresolvedLinks().stream().map(ChangeOrchestrationState.UnresolvedLinkView::kind).toList());
     }
 
     @Test
-    void draftToProposedIsAllowedAndReportedAsNextAllowedTransition() {
-        Fixture fixture = seed();
+    void unknownConstraintNeverBecomesBlockedOrSilentlyAllowed() {
+        Fixture fixture = seed(ConstraintMode.UNKNOWN);
+
+        var evaluation = fixture.transitionService().evaluateActive(
+                        fixture.projectId(),
+                        ChangeLifecycle.of(fixture.change().id(), ChangeLifecycleState.DRAFT),
+                        ChangeLifecycleState.PROPOSED,
+                        ChangeLifecyclePolicy.forwardOnly(),
+                        Optional.empty())
+                .orElseThrow();
+
+        assertEquals(ChangeTransitionEvaluationState.UNKNOWN, evaluation.state());
+        assertTrue(evaluation.blockers().isEmpty());
+        assertEquals(List.of("blockingConstraints"), evaluation.unavailableRequiredFacts());
+        assertEquals(ConstraintEvaluationState.UNKNOWN, evaluation.constraintEvaluations().getFirst().state());
+    }
+
+    @Test
+    void explicitNonBlockingConstraintKeepsAllowedTransitionAllowed() {
+        Fixture fixture = seed(ConstraintMode.NON_BLOCKING);
         ChangeLifecycleObservation lifecycle = ChangeLifecycleObservation.callerSupplied(
                 ChangeLifecycleState.DRAFT, Optional.empty());
 
@@ -122,29 +158,32 @@ class JarvisOrchestrationContractTest {
                 .orElseThrow();
 
         assertEquals(ChangeTransitionEvaluationState.ALLOWED, evaluation.state());
+        assertEquals(ConstraintEvaluationState.NON_BLOCKING, evaluation.constraintEvaluations().getFirst().state());
         assertTrue(state.nextAllowedTransitions().contains(ChangeLifecycleState.PROPOSED));
     }
 
     @Test
-    void proposedToSpecifiedRemainsUnknownOnlyForFactsStillUnavailableInM15() {
-        Fixture fixture = seed();
+    void targetedViolatedConstraintBlocksAndExplainsTransition() {
+        Fixture fixture = seed(ConstraintMode.BLOCKING_VERIFYING);
 
         var evaluation = fixture.transitionService().evaluateActive(
                         fixture.projectId(),
-                        ChangeLifecycle.of(fixture.change().id(), ChangeLifecycleState.PROPOSED),
-                        ChangeLifecycleState.SPECIFIED,
+                        ChangeLifecycle.of(fixture.change().id(), ChangeLifecycleState.IMPLEMENTING),
+                        ChangeLifecycleState.VERIFYING,
                         ChangeLifecyclePolicy.forwardOnly(),
                         Optional.empty())
                 .orElseThrow();
 
-        assertEquals(ChangeTransitionEvaluationState.UNKNOWN, evaluation.state());
-        assertEquals(List.of("criticalConstraintsKnown"), evaluation.unavailableRequiredFacts());
-        assertTrue(evaluation.blockers().isEmpty());
+        assertEquals(ChangeTransitionEvaluationState.BLOCKED, evaluation.state());
+        assertTrue(evaluation.blockers().contains(ChangeLifecycleBlocker.BLOCKING_CONSTRAINT));
+        assertEquals(ConstraintEvaluationState.BLOCKING, evaluation.constraintEvaluations().getFirst().state());
+        assertTrue(evaluation.constraintEvaluations().getFirst().reason().contains("VERIFYING"));
+        assertEquals(1, evaluation.constraintEvaluations().getFirst().supportingEvidenceIds().size());
     }
 
     @Test
     void abandonmentWithoutReasonRequiresInputRatherThanMutatingOrGuessing() {
-        Fixture fixture = seed();
+        Fixture fixture = seed(ConstraintMode.NON_BLOCKING);
 
         var evaluation = fixture.transitionService().evaluateActive(
                         fixture.projectId(),
@@ -164,7 +203,7 @@ class JarvisOrchestrationContractTest {
                         .orElseThrow().lifecycle().state().orElseThrow());
     }
 
-    private Fixture seed() {
+    private Fixture seed(ConstraintMode mode) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.generate();
         SpecificationVersionId versionId = SpecificationVersionId.generate();
@@ -175,50 +214,54 @@ class JarvisOrchestrationContractTest {
                 EvidenceId.generate(),
                 SourceLocator.file("openspec/change.md"),
                 Optional.empty(),
-                Optional.of("sha256:m15"));
+                Optional.of("sha256:m16"));
+        Evidence supportingEvidence = new Evidence(
+                EvidenceId.generate(),
+                SourceLocator.file("reviews/auditability.txt"),
+                Optional.empty(),
+                Optional.of("sha256:auditability"));
         Provenance provenance = new Provenance(
-                new ProviderId("m15-fixture"),
+                new ProviderId("m16-fixture"),
                 Optional.of("1"),
                 SourceLocator.file("openspec/change.md"),
-                Optional.of("m15"),
-                Optional.of("revision-m15"),
+                Optional.of("m16"),
+                Optional.of("revision-m16"),
                 evidence.id());
         Specification specification = new Specification(
-                specificationId, projectId, "m15", "M15", Optional.empty(), provenance);
+                specificationId, projectId, "m16", "M16", Optional.empty(), provenance);
         Requirement requirement = new Requirement(
                 requirementId,
                 specificationId,
-                Optional.of("REQ-M15"),
-                "M15 orchestration",
-                "JARVIS consumes explicit MORPHEUS acceptance availability facts",
+                Optional.of("REQ-M16"),
+                "M16 orchestration",
+                "JARVIS consumes explicit MORPHEUS constraint policy decisions",
                 provenance);
         ChangeProposal change = new ChangeProposal(
                 ChangeId.generate(),
                 projectId,
-                Optional.of("m15-orchestration"),
-                "Expose acceptance availability",
-                "Expose acceptance facts without inventing blocking semantics",
+                Optional.of("m16-orchestration"),
+                "Expose constraint policy",
+                "Expose constraint facts without inventing blocking semantics",
                 List.of("Read-only surface"),
                 List.of(),
                 List.of(),
                 provenance);
-        Constraint constraint = new Constraint(
-                ConstraintId.generate(), change.id(), "Preserve auditability", provenance);
+        Constraint constraint = constraint(mode, change.id(), provenance, supportingEvidence.id());
         ImplementationTask completedTask = new ImplementationTask(
-                TaskId.generate(), change.id(), Optional.of("TASK-M15-1"), "Implement API", true, provenance);
+                TaskId.generate(), change.id(), Optional.of("TASK-M16-1"), "Implement API", true, provenance);
 
         MemorySpecificationKnowledgeStore core = new MemorySpecificationKnowledgeStore();
         MemorySnapshotBusinessContentStore content = new MemorySnapshotBusinessContentStore(core, core);
         MemoryTraceabilityStore traceability = new MemoryTraceabilityStore(core);
         MemoryExternalReferenceStore externalReferences = new MemoryExternalReferenceStore(core);
 
-        core.putProject(new ProjectStoreEntry(projectId, SourceLocator.file("workspace-m15")));
+        core.putProject(new ProjectStoreEntry(projectId, SourceLocator.file("workspace-m16")));
         core.putSpecificationVersion(new SpecificationVersion(
                 versionId,
                 projectId,
                 Optional.of(1L),
                 Optional.of("provider-v1"),
-                Optional.of("revision-m15"),
+                Optional.of("revision-m16"),
                 T0,
                 Optional.empty()));
         core.putSnapshot(new KnowledgeSnapshotMetadata(
@@ -226,7 +269,7 @@ class JarvisOrchestrationContractTest {
                 projectId,
                 Optional.empty(),
                 KnowledgeSnapshotState.READY,
-                Optional.of("revision-m15"),
+                Optional.of("revision-m16"),
                 T0));
         core.bindSnapshotVersion(new SnapshotSpecificationVersionBinding(snapshotId, versionId));
         core.putRequirementVersion(new RequirementVersionRecord(
@@ -237,6 +280,11 @@ class JarvisOrchestrationContractTest {
                         versionId,
                         TemporalState.CURRENT,
                         requirement)));
+        List<Evidence> evidenceList = new ArrayList<>();
+        evidenceList.add(evidence);
+        if (!constraint.supportingEvidenceIds().isEmpty()) {
+            evidenceList.add(supportingEvidence);
+        }
         content.putSnapshotContent(new SnapshotBusinessContent(
                 snapshotId,
                 versionId,
@@ -246,7 +294,7 @@ class JarvisOrchestrationContractTest {
                 List.of(constraint),
                 List.of(),
                 List.of(completedTask),
-                List.of(evidence)));
+                evidenceList));
         traceability.putLink(snapshotId, new TraceabilityLink(
                 TraceabilityLinkId.generate(),
                 new TraceabilityEntityRef(TraceabilityEntityKind.CHANGE, change.id().value()),
@@ -285,6 +333,43 @@ class JarvisOrchestrationContractTest {
                 completedTask,
                 new ChangeOrchestrationStateService(core, content, core, traceability, externalReferences),
                 new ChangeTransitionEvaluationService(core, content, core, traceability));
+    }
+
+    private Constraint constraint(
+            ConstraintMode mode,
+            ChangeId changeId,
+            Provenance provenance,
+            EvidenceId supportingEvidenceId) {
+        return switch (mode) {
+            case UNKNOWN -> new Constraint(
+                    ConstraintId.generate(), changeId, "Preserve auditability", provenance);
+            case NON_BLOCKING -> new Constraint(
+                    ConstraintId.generate(),
+                    changeId,
+                    "Preserve auditability",
+                    ConstraintApplicability.APPLICABLE,
+                    ConstraintSeverity.WARNING,
+                    ConstraintSatisfaction.VIOLATED,
+                    ConstraintBlockingPolicy.nonBlocking(),
+                    List.of(supportingEvidenceId),
+                    provenance);
+            case BLOCKING_VERIFYING -> new Constraint(
+                    ConstraintId.generate(),
+                    changeId,
+                    "Preserve auditability",
+                    ConstraintApplicability.APPLICABLE,
+                    ConstraintSeverity.CRITICAL,
+                    ConstraintSatisfaction.VIOLATED,
+                    ConstraintBlockingPolicy.blockWhenViolated(List.of(ChangeLifecycleState.VERIFYING)),
+                    List.of(supportingEvidenceId),
+                    provenance);
+        };
+    }
+
+    private enum ConstraintMode {
+        UNKNOWN,
+        NON_BLOCKING,
+        BLOCKING_VERIFYING
     }
 
     private record Fixture(
