@@ -19,8 +19,7 @@ public record ConstraintEvaluationView(
         ConstraintApplicability applicability,
         ConstraintSeverity severity,
         ConstraintSatisfaction satisfaction,
-        String blockingMode,
-        List<String> blockingTargets,
+        BlockingPolicyView blockingPolicy,
         String reason,
         List<String> supportingEvidenceIds,
         String sourceEvidenceId) {
@@ -33,8 +32,7 @@ public record ConstraintEvaluationView(
         Objects.requireNonNull(applicability, "applicability");
         Objects.requireNonNull(severity, "severity");
         Objects.requireNonNull(satisfaction, "satisfaction");
-        blockingMode = requireNonBlank(blockingMode, "blockingMode");
-        blockingTargets = List.copyOf(Objects.requireNonNull(blockingTargets, "blockingTargets"));
+        Objects.requireNonNull(blockingPolicy, "blockingPolicy");
         reason = requireNonBlank(reason, "reason");
         supportingEvidenceIds = List.copyOf(Objects.requireNonNull(supportingEvidenceIds, "supportingEvidenceIds"));
         sourceEvidenceId = requireNonBlank(sourceEvidenceId, "sourceEvidenceId");
@@ -50,17 +48,25 @@ public record ConstraintEvaluationView(
                 evaluation.applicability(),
                 evaluation.severity(),
                 evaluation.satisfaction(),
-                evaluation.blockingPolicy().mode().name(),
-                evaluation.blockingPolicy().lifecycleTargets().stream()
-                        .map(Enum::name)
-                        .sorted()
-                        .toList(),
+                new BlockingPolicyView(
+                        evaluation.blockingPolicy().mode().name(),
+                        evaluation.blockingPolicy().targetStates().stream()
+                                .map(Enum::name)
+                                .sorted()
+                                .toList()),
                 evaluation.reason(),
                 evaluation.supportingEvidenceIds().stream()
                         .map(Object::toString)
                         .sorted()
                         .toList(),
                 evaluation.sourceEvidenceId().toString());
+    }
+
+    public record BlockingPolicyView(String mode, List<String> targetStates) {
+        public BlockingPolicyView {
+            mode = requireNonBlank(mode, "mode");
+            targetStates = List.copyOf(Objects.requireNonNull(targetStates, "targetStates"));
+        }
     }
 
     private static String requireNonBlank(String value, String name) {
