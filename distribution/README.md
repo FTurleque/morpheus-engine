@@ -1,6 +1,6 @@
 # MORPHEUS — Distribution locale
 
-Stratégie : **native-first**, archive portable autonome comme artefact principal.
+Stratégie actuelle : **native-first**, archive portable autonome comme artefact principal. La transformation en installation produit stable est planifiée pour M20.
 
 ## Artefacts
 
@@ -11,7 +11,7 @@ Linux x64   -> dist/morpheus-<version>-linux-x64.tar.gz
 
 Les archives embarquent leur runtime Java. Aucun JDK séparé n'est requis pour exécuter MORPHEUS depuis une distribution portable.
 
-## Contenu
+## Contenu M18
 
 L'uber-JAR et l'app-image embarquent :
 
@@ -20,74 +20,60 @@ CLI MORPHEUS
 serveur MCP
 API HTTP
 services applicatifs
+provider OpenSpec
+provider Structured Markdown
 adapters MINOS/NEXUS optionnels
+SQLite JDBC + migrations jusqu'à V012
 Jackson
-SQLite JDBC
 ```
 
 Ils n'embarquent **ni MINOS, ni NEXUS, ni JARVIS**.
 
-Le build échoue si le shaded JAR contient :
-
-```text
-com/minos/*
-com/nexus/*
-com/jarvis/*
-```
+Le build vérifie l'absence d'implémentations externes embarquées.
 
 ## Windows
 
-Prérequis de build : JDK 21 avec `jpackage`.
+Prérequis de build : JDK compatible avec `jpackage` et baseline Java 21.
 
 ```powershell
-$env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
 .\distribution\build-portable.ps1
 ```
 
-Le script :
-
-1. construit et teste MORPHEUS ;
-2. vérifie le contenu de l'uber-JAR ;
-3. produit un `jpackage --type app-image` ;
-4. smoke-teste le launcher ;
-5. vérifie MINOS/NEXUS désactivés sans configuration ;
-6. vérifie `change-orchestration` ;
-7. smoke-teste l'API packagée ;
-8. crée le ZIP portable.
-
-Workdir courant : `dist/.m14-windows`.
-
-Preuve M14 obtenue :
+Le packaging M18 vérifie notamment :
 
 ```text
-MCP/API/MINOS/NEXUS/M14 orchestration packaging proof: PASS
-MORPHEUS 0.1.0-SNAPSHOT
-MINOS status -> DISABLED sans configuration
-NEXUS status -> DISABLED sans configuration
-Packaged standalone optional-engines + M14 orchestration smoke: PASS
+classes CLI / MCP / API
+provider Structured Markdown
+SQLite V012
+MINOS/NEXUS optionnels
+M14 orchestration read-only
+M17 controlled lifecycle write
+M18 composition surfaces
+API health
+portable archive
+```
+
+### Gate M18 réellement validé
+
+```text
+MCP/API/MINOS/NEXUS/M14-M18 classes + provider Markdown + V012 embedded: PASS
+Packaged standalone optional-engines + M14 read-only + M17 controlled-write + M18 composition surface smoke: PASS
 Packaged API health smoke: PASS
 Portable archive creation: PASS
 ```
 
-Archive M14 validée :
+Archive validée :
 
 ```text
 dist/morpheus-0.1.0-windows-x64.zip
-33,702,405 bytes
+33,919,431 bytes
 ```
 
-### Installateur Windows optionnel
-
-```powershell
-.\distribution\build-windows-installer.ps1
-```
-
-Il réutilise l'app-image construite par le packaging portable. Les prérequis éventuels d'un installateur natif restent distincts de l'archive ZIP portable.
+Code réellement testé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.
 
 ## Linux
 
 ```bash
-export JAVA_HOME=/path/to/jdk-21
 chmod +x mvnw distribution/build-portable.sh
 ./distribution/build-portable.sh
 ```
@@ -98,11 +84,9 @@ Artefact :
 dist/morpheus-<version>-linux-x64.tar.gz
 ```
 
-Le script vérifie les classes attendues, `jdk.httpserver`, le launcher et l'absence d'implémentations MINOS/NEXUS/JARVIS embarquées.
+Une preuve de packaging Windows ne constitue jamais une preuve Linux. Les qualifications M19 devront enregistrer séparément les résultats réellement exécutés sur chaque OS.
 
 ## Configuration runtime
-
-Overrides globaux :
 
 ```text
 --data-dir PATH
@@ -113,12 +97,7 @@ MORPHEUS_CONFIG_DIR
 MORPHEUS_DB
 ```
 
-Defaults :
-
-```text
-Windows  %LOCALAPPDATA%\Morpheus / %APPDATA%\Morpheus
-Linux    standards XDG data/config
-```
+Utiliser `morpheus paths` pour afficher le layout effectivement résolu.
 
 ## Intégrations optionnelles
 
@@ -140,16 +119,21 @@ MORPHEUS_NEXUS_HOME
 MORPHEUS_NEXUS_TIMEOUT_SECONDS
 ```
 
-Smokes cross-repo complémentaires :
+JARVIS n'est jamais embarqué. Il consomme les contrats HTTP MORPHEUS et reste propriétaire de l'orchestration.
+
+## Surfaces M18 packagées
 
 ```text
-distribution/test-minos-compatibility.ps1
-distribution/test-nexus-compatibility.ps1
+CLI  composition sync/status/conflicts
+MCP  get_composition_status
+MCP  list_composition_conflicts
+HTTP GET /api/v1/projects/{projectId}/composition
+HTTP GET /api/v1/projects/{projectId}/composition/conflicts
+OpenAPI 1.7.0
+SQLite V012
 ```
 
-JARVIS n'est jamais embarqué. Il consomme le contrat HTTP local MORPHEUS.
-
-## Gates historiques
+## Gates historiques récents
 
 ```text
 M9  298/298 Windows + Linux
@@ -158,7 +142,19 @@ M11 314/314 Windows + packaged API health
 M12 331/331 Windows + MINOS optional packaging
 M13 346/346 Windows + MINOS/NEXUS optional packaging
 M14 357/357 Windows + Architecture 160/160 + orchestration packaging PASS
+M15 371/371 Windows + Architecture 157/157 + packaging/smokes PASS
+M16 393/393 Windows + Architecture 161/161 + packaging/smokes PASS
+M17 410/410 Windows + Architecture 167/167 + packaging/smokes PASS
+M18 418/418 Windows + Architecture 170/170 + packaging/smokes PASS
 ```
+
+## Validation mono-commande M18
+
+```powershell
+.\validate-m18.cmd
+```
+
+Preuve : [VALIDATION_M18.md](../docs/validation/VALIDATION_M18.md).
 
 ## Documentation
 
@@ -166,4 +162,4 @@ M14 357/357 Windows + Architecture 160/160 + orchestration packaging PASS
 - [Configuration des intégrations](../docs/user/INTEGRATIONS.md)
 - [Build et tests développeur](../docs/developer/BUILD_AND_TEST.md)
 - [Architecture](../docs/developer/ARCHITECTURE.md)
-- [Validation M14](../docs/validation/VALIDATION_M14.md)
+- [Validation M18](../docs/validation/VALIDATION_M18.md)
