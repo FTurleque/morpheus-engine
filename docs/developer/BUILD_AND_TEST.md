@@ -14,51 +14,29 @@ compiler release = 21
 
 Le dépôt fournit un Maven Wrapper configuré sur Maven 3.9.16. Utiliser le wrapper plutôt qu’un Maven système.
 
-### Vérification Windows
+### Windows
 
 ```powershell
 java -version
 .\mvnw.cmd --version
 ```
 
-### Vérification Unix/Linux
+### Unix/Linux
 
 ```bash
 java -version
 ./mvnw --version
 ```
 
-Le JDK qui exécute Maven doit satisfaire la règle Enforcer Java.
+## 2. Reactor Maven
 
-## 2. Import IntelliJ IDEA
-
-MORPHEUS est un projet Maven multi-module. Après ouverture du dépôt, le `pom.xml` racine doit être chargé comme projet Maven.
-
-Symptôme d’un mauvais import :
-
-```text
-Project Structure > Modules
-└── morpheus-engine
-```
-
-alors que les répertoires `morpheus-domain`, `morpheus-api`, etc. apparaissent comme de simples dossiers.
-
-Correction :
-
-1. clic droit sur `pom.xml` racine ;
-2. **Add as Maven Project** / **Load Maven Project** ;
-3. recharger le projet Maven.
-
-Résultat attendu : les modules du reactor apparaissent individuellement dans IntelliJ et leurs `src/main/java` / `src/test/java` sont reconnus comme source roots.
-
-## 3. Reactor Maven
-
-Le parent agrège :
+Le parent agrège 14 modules :
 
 ```text
 morpheus-domain
 morpheus-application
 morpheus-provider-openspec
+morpheus-provider-markdown
 morpheus-provider-synthetic
 morpheus-store-memory
 morpheus-store-sqlite
@@ -68,145 +46,121 @@ morpheus-mcp
 morpheus-api
 morpheus-cli
 morpheus-architecture-tests
++ parent reactor
 ```
 
-```mermaid
-flowchart LR
-    P[pom.xml parent] --> D[domain]
-    P --> A[application]
-    P --> PR[providers]
-    P --> ST[stores]
-    P --> IN[intégrations]
-    P --> MCP[mcp]
-    P --> API[api]
-    P --> CLI[cli]
-    P --> AT[architecture-tests]
-```
+Le gate M18 a validé **14/14 modules Maven SUCCESS**.
 
-## 4. Gate local autoritatif
+## 3. Gate local Maven
 
-### Windows
+Windows :
 
 ```powershell
 .\mvnw.cmd clean test
 ```
 
-### Unix / Linux
+Unix/Linux :
 
 ```bash
 ./mvnw clean test
 ```
 
-Ce gate repart d’un `target/` propre et exécute le reactor complet. Il doit être lancé avant de déclarer une modification technique validée.
+Ce gate repart d’un `target/` propre et exécute le reactor complet.
 
-## 5. Gate M14 de référence
+## 4. Dernier gate intégré — M18
 
-Le dernier gate fonctionnel complet validé avant intégration de M14 a produit :
+Validateur canonique Windows :
+
+```powershell
+.\validate-m18.cmd
+```
+
+Head de code réellement exécuté :
 
 ```text
-Domain              21/21 PASS
-Application         87/87 PASS
-OpenSpec             26/26 PASS
-Synthetic             7/7 PASS
-SQLite                7/7 PASS
-MINOS Integration     8/8 PASS
-NEXUS Integration     7/7 PASS
-MCP                    5/5 PASS
-API                    9/9 PASS
-CLI                  20/20 PASS
-Architecture       160/160 PASS
---------------------------------
-TOTAL              357/357 PASS
-Failures                 0
-Errors                   0
-Skipped                  0
+7e8caacff567f51354fcb88bd7505a6d135071c0
+```
+
+Résultats :
+
+```text
+Domain                         40/40 PASS
+Application                  104/104 PASS
+OpenSpec                       26/26 PASS
+Structured Markdown             2/2 PASS
+Synthetic                        7/7 PASS
+SQLite                           7/7 PASS
+MINOS Integration                8/8 PASS
+NEXUS Integration                7/7 PASS
+MCP                              6/6 PASS
+API                            12/12 PASS
+CLI                            29/29 PASS
+Architecture                 170/170 PASS
+---------------------------------------
+TOTAL                        418/418 PASS
+Failures                           0
+Errors                             0
+Skipped                            0
 BUILD SUCCESS
 ```
 
-Cette valeur est une preuve historique M14. Le nombre total de tests peut évoluer ; le critère courant est l’absence d’échec sur le gate réellement exécuté.
+Packaging M18 :
 
-## 6. Tests ciblés
+```text
+Windows portable packaging   PASS
+Packaged smokes              PASS
+API health smoke             PASS
+Portable ZIP                 33,919,431 bytes
+```
 
-### Un module seul
+PR #86 a ensuite été fusionnée :
+
+```text
+merge 30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+```
+
+Le SHA de code testé et le merge commit restent volontairement distincts. Voir [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
+
+## 5. Tests ciblés
+
+Un module seul :
 
 ```powershell
 .\mvnw.cmd -pl morpheus-domain test
 .\mvnw.cmd -pl morpheus-application test
+.\mvnw.cmd -pl morpheus-provider-markdown test
 .\mvnw.cmd -pl morpheus-api test
 .\mvnw.cmd -pl morpheus-mcp test
 .\mvnw.cmd -pl morpheus-architecture-tests test
 ```
 
-### Module + dépendances nécessaires
+Module + dépendances :
 
 ```powershell
 .\mvnw.cmd -pl morpheus-api -am test
 ```
 
-`-am` signifie *also make* : Maven construit les dépendances du reactor requises par le module sélectionné.
+`-am` signifie *also make*.
 
-### Plusieurs modules
+Les tests ciblés accélèrent la boucle locale, mais ne remplacent pas `clean test` ni le validateur de jalon avant validation finale.
 
-```powershell
-.\mvnw.cmd -pl morpheus-domain,morpheus-application,morpheus-api -am test
-```
+## 6. Compilation sans tests
 
-Les tests ciblés accélèrent la boucle locale, mais ne remplacent pas `clean test` avant validation finale.
-
-## 7. Ordre de test recommandé selon le changement
-
-```mermaid
-flowchart TD
-    C[Modification] --> U[Tests unitaires ciblés]
-    U --> M[Test module -pl]
-    M --> D{Dépendances touchées ?}
-    D -->|oui| AM[-pl ... -am test]
-    D -->|non| FULL[clean test]
-    AM --> FULL
-    FULL --> PKG{Packaging concerné ?}
-    PKG -->|oui| P[build-portable + smokes]
-    PKG -->|non| DONE[preuve enregistrable]
-    P --> DONE
-```
-
-Exemples :
-
-| Changement | Tests minimaux avant gate complet |
-|---|---|
-| value object domaine | `-pl morpheus-domain test` |
-| lifecycle/application | `-pl morpheus-application -am test` |
-| endpoint HTTP | `-pl morpheus-api -am test` |
-| tool MCP | `-pl morpheus-mcp -am test` |
-| intégration MINOS | `-pl morpheus-integration-minos -am test` |
-| frontière de dépendance | `-pl morpheus-architecture-tests -am test` |
-
-## 8. Compilation sans tests
-
-Pour diagnostiquer rapidement un problème de compilation :
+Diagnostic rapide :
 
 ```powershell
 .\mvnw.cmd -DskipTests compile
 ```
 
-Pour un module :
+Module ciblé :
 
 ```powershell
 .\mvnw.cmd -pl morpheus-api -am -DskipTests compile
 ```
 
-Ne pas utiliser cette commande comme preuve de validation fonctionnelle.
+Cette commande n’est pas une preuve fonctionnelle.
 
-## 9. Packaging Maven
-
-Le packaging Maven standard peut être exécuté avec :
-
-```powershell
-.\mvnw.cmd clean package
-```
-
-Le launcher développeur peut ensuite utiliser l’uber-JAR produit par `morpheus-cli` lorsque le profil/build correspondant l’a généré.
-
-## 10. Packaging portable Windows
+## 7. Packaging portable Windows
 
 ```powershell
 .\distribution\build-portable.ps1
@@ -218,18 +172,11 @@ Artefact :
 dist/morpheus-<version>-windows-x64.zip
 ```
 
-Le script :
+Le script construit l’uber-JAR, produit un `jpackage app-image`, embarque le runtime Java, construit l’archive portable et exécute les smokes prévus.
 
-1. construit le projet ;
-2. produit l’uber-JAR ;
-3. construit un `jpackage app-image` ;
-4. embarque le runtime Java ;
-5. construit l’archive portable ;
-6. exécute les smokes prévus par le packaging.
+Le packaging M18 vérifie notamment la présence des surfaces M14→M18, du provider Structured Markdown et de la migration SQLite V012.
 
-L’utilisateur final n’a donc pas besoin d’installer un JDK.
-
-## 11. Packaging portable Linux
+## 8. Packaging portable Linux
 
 ```bash
 chmod +x mvnw distribution/build-portable.sh
@@ -242,11 +189,13 @@ Artefact :
 dist/morpheus-<version>-linux-x64.tar.gz
 ```
 
-## 12. Contraintes de packaging
+Une preuve Windows ne constitue pas une preuve Linux. Les validations cross-platform doivent nommer explicitement la plateforme réellement exécutée.
+
+## 9. Contraintes de packaging
 
 La distribution MORPHEUS peut embarquer les **adapters clients** MINOS/NEXUS, mais jamais leurs implémentations ni JARVIS.
 
-Le packaging vérifie notamment l’absence de :
+Le packaging vérifie l’absence de :
 
 ```text
 com/minos/*
@@ -254,31 +203,9 @@ com/nexus/*
 com/jarvis/*
 ```
 
-Cette règle protège l’autonomie des moteurs et évite qu’une intégration optionnelle devienne une dépendance cachée.
+Il vérifie aussi que les classes de composition M18 et `db/migration/V012__multi_provider_composition.sql` sont présentes dans l’artefact attendu.
 
-## 13. Smokes cross-repo complémentaires
-
-```text
-distribution/test-minos-compatibility.ps1
-distribution/test-nexus-compatibility.ps1
-```
-
-Ils servent à prouver la compatibilité avec de vrais runtimes externes. Ils ne remplacent pas le gate autonome MORPHEUS.
-
-```mermaid
-sequenceDiagram
-    participant Build as Build MORPHEUS
-    participant Dist as Distribution
-    participant Ext as Runtime externe
-
-    Build->>Build: clean test
-    Build->>Dist: construire archive portable
-    Dist->>Dist: smoke launcher/API
-    Dist->>Ext: smoke compatibilité optionnel
-    Ext-->>Dist: contrat compatible
-```
-
-## 14. Tests d’architecture
+## 10. Tests d’architecture
 
 `morpheus-architecture-tests` utilise ArchUnit pour transformer certaines frontières en règles exécutables.
 
@@ -291,66 +218,75 @@ api -X-> cli/mcp/integration
 MORPHEUS -X-> com.jarvis.*
 MINOS adapter -X-> com.minos.*
 NEXUS adapter -X-> com.nexus.*
+provider-specific types -X-> domain/application
 ```
 
-Un échec ArchUnit n’est pas un problème cosmétique : il indique qu’une frontière décidée a été traversée.
+Dernière preuve : **170/170 PASS** au gate M18.
 
-## 15. Diagnostiquer un build qui échoue
+## 11. SQLite et migrations
+
+M18 porte la migration :
+
+```text
+V012__multi_provider_composition.sql
+```
+
+Avant validation d’un changement de persistance :
+
+- vérifier l’ordre des migrations ;
+- tester création depuis zéro ;
+- tester upgrade depuis la baseline précédente lorsque pertinent ;
+- tester close/reopen ;
+- vérifier transactions et restauration de `autoCommit` en erreur ;
+- ne jamais exposer un état publié partiellement construit.
+
+## 12. Diagnostiquer un build qui échoue
 
 ### Enforcer Java/Maven
-
-Symptôme : échec avant compilation.
-
-Vérifier :
 
 ```powershell
 java -version
 .\mvnw.cmd --version
 ```
 
-### Un module compile dans IntelliJ mais pas Maven
-
-Maven est la source de vérité du build. Vérifier que l’IDE a bien importé le `pom.xml` racine comme projet Maven et que le JDK du Maven Runner correspond au JDK attendu.
-
-### Une dépendance inter-module est introuvable
-
-Utiliser `-am` pendant le test ciblé :
+### Dépendance inter-module introuvable
 
 ```powershell
 .\mvnw.cmd -pl morpheus-api -am test
 ```
 
-### Tests passants ciblés mais gate complet rouge
+### IntelliJ vert, Maven rouge
 
-Le changement a probablement un impact cross-module ou architectural. Corriger le gate complet ; ne pas valider sur la seule base des tests ciblés.
+Maven est la source de vérité. Recharger le `pom.xml` racine comme projet Maven et vérifier le JDK du Maven Runner.
 
-## 16. Warnings connus
+### Tests ciblés verts, reactor rouge
 
-Les validations M12-M14 ont observé des warnings non bloquants liés notamment à l’accès natif SQLite et à l’absence de provider SLF4J dans certains tests.
+Corriger le reactor complet ; ne pas valider sur la seule base des tests ciblés.
 
-Règle : un warning nouveau doit être évalué. Il ne doit jamais être classé automatiquement comme « historique » sans comparaison.
+## 13. Warnings connus
 
-## 17. Règle de preuve
+Le gate M18 a observé des warnings non bloquants concernant :
+
+- accès natif SQLite sous Java 24 ;
+- absence de provider SLF4J ;
+- APIs dépréciées dans certaines fixtures MCP ;
+- ressources/classes chevauchantes lors du shading.
+
+Un warning nouveau doit être évalué ; il ne doit pas être classé automatiquement comme historique.
+
+## 14. Règle de preuve
 
 Pour une modification technique :
 
 1. documenter l’invariant ou la décision ;
-2. implémenter ;
-3. exécuter les tests ciblés utiles ;
-4. exécuter le gate complet ;
-5. enregistrer le SHA réellement testé ;
-6. accepter l’ADR seulement après preuve lorsqu’elle dépend d’une hypothèse ;
-7. mettre à jour roadmap/validation lorsque la gouvernance le demande ;
-8. fusionner uniquement selon la gouvernance du dépôt.
+2. définir le contrat ;
+3. implémenter ;
+4. exécuter les tests ciblés utiles ;
+5. auditer signatures Maven, dépendances, migrations et scripts ;
+6. exécuter le gate complet ;
+7. exécuter packaging/smokes lorsque concernés ;
+8. enregistrer le SHA réellement testé ;
+9. accepter l’ADR seulement après preuve lorsqu’elle dépend d’une hypothèse ;
+10. fusionner uniquement selon la gouvernance du dépôt.
 
-```mermaid
-flowchart LR
-    DOC[Documenter] --> DEC[Décider]
-    DEC --> IMP[Implémenter]
-    IMP --> TEST[Tester]
-    TEST --> PROVE[Prouver]
-    PROVE --> VALID[Valider]
-    VALID --> MERGE[Fusionner]
-```
-
-Historique des preuves : [`../governance/ROADMAP.md`](../governance/ROADMAP.md) et [`../validation/`](../validation/).
+Historique : [`../governance/ROADMAP.md`](../governance/ROADMAP.md) et [`../validation/`](../validation/).
