@@ -1,12 +1,12 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M15 + D0 intégrés — M16 validé techniquement, PR #79 prête à intégrer**
+Statut : **C0 à M17 + D0 validés et intégrés — M18 prochain jalon**
 
 Dernière mise à jour : 26 juillet 2026
 
 La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohérentes, tests reproductibles et réponse explicite à chaque question de sortie.
 
-La baseline C0→M15 est acquise. La suite officielle est définie dans [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md). La politique documentaire post-M14 est [`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md).
+La baseline C0→M17 est acquise. La suite officielle reste définie dans [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md). La politique documentaire post-M14 est [`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md).
 
 ## 1. Vue globale
 
@@ -35,16 +35,17 @@ La baseline C0→M15 est acquise. La suite officielle est définie dans [`POST_M
 |---|---|---|---|
 | **D0** | Réconciliation documentaire post-M14 | **✅ VALIDÉ / INTÉGRÉ — PR #75** | [`VALIDATION_D0.md`](../validation/VALIDATION_D0.md) |
 | **M15** | Acceptance Criteria, Verification & Evidence | **✅ VALIDÉ / INTÉGRÉ — PR #77** | [`VALIDATION_M15.md`](../validation/VALIDATION_M15.md), 371/371 + packaging PASS |
-| **M16** | Constraint Semantics & Policy Enforcement | **✅ VALIDÉ TECHNIQUEMENT — PR #79 READY** | [`VALIDATION_M16.md`](../validation/VALIDATION_M16.md), 393/393 + Architecture 161/161 + packaging PASS |
-| **M17** | Controlled Lifecycle & Write Operations | ⏳ PROCHAIN APRÈS INTÉGRATION M16 | mutations opt-in, CAS, conflits, audit, permissions |
-| **M18** | Real Providers & Multi-Provider Composition | ⏳ PLANIFIÉ | deuxième provider réel + composition/provenance/conflits |
+| **M16** | Constraint Semantics & Policy Enforcement | **✅ VALIDÉ / INTÉGRÉ — PR #79** | [`VALIDATION_M16.md`](../validation/VALIDATION_M16.md), 393/393 + Architecture 161/161 + packaging PASS |
+| **M17** | Controlled Lifecycle & Write Operations | **✅ VALIDÉ / INTÉGRÉ — PR #81** | [`VALIDATION_M17.md`](../validation/VALIDATION_M17.md), 410/410 + Architecture 167/167 + packaging PASS |
+| **M18** | Real Providers & Multi-Provider Composition | **⏭ PROCHAIN** | deuxième provider réel + composition/provenance/conflits |
 | **M19** | Production Hardening, Scale & Operability | ⏳ PLANIFIÉ | performances, robustesse et observabilité mesurées |
 | **M20** | Release Engineering, Installation PROD & MORPHEUS 1.0 | ⏳ PLANIFIÉ | setup Windows, releases, checksums, upgrade/uninstall, Linux |
 
 Plan détaillé : [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).  
 Exécution D0 : [`D0_EXECUTION.md`](../roadmap/D0_EXECUTION.md).  
 Exécution M15 : [`M15_EXECUTION.md`](../roadmap/M15_EXECUTION.md).  
-Exécution M16 : [`M16_EXECUTION.md`](../roadmap/M16_EXECUTION.md).
+Exécution M16 : [`M16_EXECUTION.md`](../roadmap/M16_EXECUTION.md).  
+Exécution M17 : [`M17_EXECUTION.md`](../roadmap/M17_EXECUTION.md).
 
 Merges actifs de la baseline :
 
@@ -53,12 +54,16 @@ M12 = 86dbb1d50e87ce354b7174156e9c8c5717722a17
 M13 = 2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f
 M14 MORPHEUS = 88e4e4d83c25035b9441e78d0ac8145db83306c4
 M14 JARVIS   = 1bf2612e616f3323814caf60e76525b4808cd400
-D0 = ec75d3963422d6281f2904c5ebd547124db92ad6
+D0  = ec75d3963422d6281f2904c5ebd547124db92ad6
 M15 = c37134439844cb088adff855c339a259bb908b6a
+M16 = 97308005a63854c7cb08dc19cd3cdb02ac739404
+M17 = 02bdb38669efc85af17343d15e689743362d2e12
 ```
 
 Références actives :
 
+- [`VALIDATION_M17.md`](../validation/VALIDATION_M17.md)
+- [`M17_EXECUTION.md`](../roadmap/M17_EXECUTION.md)
 - [`VALIDATION_M16.md`](../validation/VALIDATION_M16.md)
 - [`M16_EXECUTION.md`](../roadmap/M16_EXECUTION.md)
 - [`VALIDATION_M15.md`](../validation/VALIDATION_M15.md)
@@ -74,7 +79,7 @@ Références actives :
 ## 2. Responsabilités
 
 ```text
-MORPHEUS owns specification facts + lifecycle rules
+MORPHEUS owns specification facts + lifecycle rules + controlled state invariants
 MINOS owns code intelligence
 NEXUS owns context selection/ranking/fusion/compression
 JARVIS owns orchestration and action sequencing
@@ -102,6 +107,11 @@ UNKNOWN != BLOCKED
 applicable != blocking
 warning != blocker
 severity != blocking policy
+READ_CHANGES != WRITE_CHANGE
+ALLOWED != applied
+published snapshot != operational lifecycle state
+stale revision != overwrite
+idempotent retry != duplicate mutation/audit
 MORPHEUS rules != JARVIS action sequencing
 ```
 
@@ -124,6 +134,7 @@ M14 357/357 | Architecture 160/160 | packaging PASS | JARVIS 536 tests BUILD SUC
 D0  documentation authority PASS | primary links PASS | historical evidence preserved
 M15 371/371 | Architecture 157/157 | packaging + smokes PASS
 M16 393/393 | Architecture 161/161 | packaging + smokes PASS
+M17 410/410 | Architecture 167/167 | packaging + smokes PASS
 ```
 
 ## 4. M12 — MINOS ✅ / INTÉGRÉ
@@ -165,7 +176,7 @@ UNKNOWN
 REQUIRES_INPUT
 ```
 
-Surface :
+Surface M14 :
 
 ```text
 CLI  change-orchestration state|transition-check
@@ -249,14 +260,14 @@ JARVIS   PR #93 merged -> 1bf2612e616f3323814caf60e76525b4808cd400
 
 La plateforme technique fondamentale est acquise : stockage, snapshots, traçabilité, requêtes, diagnostics, synchronisation, analyse, CLI, MCP, HTTP et intégrations MINOS/NEXUS/JARVIS.
 
-D0 et M15 sont intégrés. M16 est maintenant **validé techniquement** sur `f349c5f4701665e649d985426d35b5e6a6060e32`; sa PR #79 doit être intégrée avant d'ouvrir M17.
+D0 puis M15, M16 et M17 sont désormais **validés et intégrés**. Le prochain jalon est M18 — **Real Providers & Multi-Provider Composition**.
 
 ```text
-D0   documentation reconciliation          ✅ intégré
-M15  acceptance / verification / evidence  ✅ intégré
-M16  constraint semantics / blocking policy ✅ validé techniquement / PR #79 Ready
-M17  controlled write / lifecycle mutations ⏳ prochain après merge M16
-M18  real providers / multi-provider composition
+D0   documentation reconciliation           ✅ intégré
+M15  acceptance / verification / evidence   ✅ intégré
+M16  constraint semantics / blocking policy ✅ intégré
+M17  controlled write / lifecycle mutations ✅ intégré
+M18  real providers / multi-provider composition ⏭ prochain
 M19  production hardening / scale / operability
 M20  release engineering / PROD installation / 1.0
 ```
@@ -315,4 +326,6 @@ Détails et gates : [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).
 5. accepter ADR seulement après preuve
 6. fermer issue / passer PR Ready
 7. merger uniquement après autorisation explicite
+8. réconcilier les roadmaps actives après merge
+9. supprimer les branches de jalon devenues obsolètes
 ```
