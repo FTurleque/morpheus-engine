@@ -1,10 +1,10 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — politique documentaire post-M17**
+Statut : **ACTIF — politique documentaire post-M18**
 
 Dernière mise à jour : 26 juillet 2026
 
-Ce document définit comment interpréter la documentation MORPHEUS après l’intégration de C0 à M17. Il évite de confondre l’état courant du produit avec les traces d’exécution et de décision conservées pour l’audit.
+Ce document définit comment interpréter la documentation MORPHEUS après l’intégration de C0 à M18. Il évite de confondre l’état courant du produit avec les traces d’exécution et de décision conservées pour l’audit.
 
 ## 1. Hiérarchie d’autorité
 
@@ -51,7 +51,7 @@ docs/openapi/
 docs/governance/ROADMAP.md
 docs/governance/DOCUMENTATION_STATUS.md
 docs/roadmap/POST_M14_EXECUTION.md
-plan du jalon actif (M18 lorsqu'il est ouvert)
+plan du jalon actif (M19 lorsqu'il est ouvert)
 ```
 
 Un document actif ne doit pas présenter un jalon déjà intégré comme encore en attente de merge.
@@ -120,15 +120,26 @@ On ne doit pas altérer :
 - la décision qui était en attente au moment du gate ;
 - la preuve technique enregistrée.
 
+Pour M18, cette distinction est explicite :
+
+```text
+code réellement testé = 7e8caacff567f51354fcb88bd7505a6d135071c0
+merge ultérieur       = 30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+```
+
+La preuve `VALIDATION_M18.md` conserve le contexte du gate et ajoute séparément l’information d’intégration postérieure.
+
 ## 6. Baseline actuelle
 
 ```text
-C0 → M17       ✅ validés et intégrés
+C0 → M18       ✅ validés et intégrés
 M15            ✅ 371/371 PASS | Architecture 157/157
 M16            ✅ 393/393 PASS | Architecture 161/161
 M17            ✅ 410/410 PASS | Architecture 167/167
-Packaging Win  ✅ PASS au gate M17
-M17 merge      ✅ 02bdb38669efc85af17343d15e689743362d2e12
+M18            ✅ 418/418 PASS | Architecture 170/170
+Packaging Win  ✅ PASS au gate M18
+M18 code       ✅ 7e8caacff567f51354fcb88bd7505a6d135071c0
+M18 merge      ✅ 30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
 ```
 
 La trajectoire active définie par `POST_M14_EXECUTION.md` est :
@@ -138,7 +149,9 @@ D0   Documentation reconciliation                 ✅ intégré
 M15  Acceptance / Verification / Evidence         ✅ intégré
 M16  Constraint semantics / blocking policy       ✅ intégré
 M17  Controlled write / lifecycle mutations       ✅ intégré
-M18  Real providers / multi-provider composition  ⏭ prochain
-M19  Production hardening / scale / operability   ⏳
+M18  Real providers / multi-provider composition  ✅ intégré
+M19  Production hardening / scale / operability   ⏭ prochain
 M20  Release engineering / installation PROD / MORPHEUS 1.0 ⏳
 ```
+
+M19 devient le prochain jalon actif après intégration de la présente réconciliation documentaire.
