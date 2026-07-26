@@ -8,12 +8,14 @@ Set-StrictMode -Version Latest
 
 $Branch = 'm15/acceptance-verification-evidence'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$LogRoot = Join-Path $RepoRoot 'target\validation\m15'
+Set-Location $RepoRoot
+
+# Validation logs must live outside target/: `mvn clean` deletes target while Tee-Object
+# keeps the Maven log open. Keeping logs under .git avoids both Maven cleanup and Git dirtiness.
+$LogRoot = Join-Path $RepoRoot '.git\morpheus-validation\m15'
 $MavenLog = Join-Path $LogRoot 'maven-clean-test.log'
 $PackagingLog = Join-Path $LogRoot 'windows-packaging.log'
-
 New-Item -ItemType Directory -Force -Path $LogRoot | Out-Null
-Set-Location $RepoRoot
 
 function Write-Stage([string]$Title) {
     Write-Host ''
@@ -99,6 +101,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve tested SHA.' }
     Write-Host "Branch : $Branch"
     Write-Host "SHA    : $testedSha"
+    Write-Host "Logs   : $LogRoot"
 
     Write-Stage 'Toolchain'
     java -version
@@ -107,7 +110,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Maven Wrapper validation failed.' }
 
     Invoke-NativeLogged `
-        -Label 'Full Maven reactor — clean test' `
+        -Label 'Full Maven reactor - clean test' `
         -Command '.\mvnw.cmd' `
         -Arguments @('clean', 'test') `
         -LogFile $MavenLog
