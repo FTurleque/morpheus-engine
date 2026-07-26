@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dist = Join-Path $repo $OutputDirectory
-$work = Join-Path $dist ".m14-windows"
+$work = Join-Path $dist ".m18-windows"
 $input = Join-Path $work "input"
 $appImageRoot = Join-Path $work "image"
 
@@ -81,7 +81,7 @@ function Test-PackagedApiHealth {
     }
 }
 
-Write-Host "Building MORPHEUS CLI + MCP + API + optional MINOS/NEXUS adapters + M14-M17 contracts uber-JAR..."
+Write-Host "Building MORPHEUS CLI + MCP + API + optional MINOS/NEXUS adapters + M14-M18 contracts uber-JAR..."
 & $mvnw -pl morpheus-cli -am -DskipTests package
 if ($LASTEXITCODE -ne 0) { throw "Maven package failed with exit code $LASTEXITCODE" }
 
@@ -89,26 +89,35 @@ $jar = Get-ChildItem (Join-Path $repo "morpheus-cli\target") -Filter "morpheus-c
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($null -eq $jar) { throw "Shaded MORPHEUS CLI JAR not found" }
 
-Write-Host "Verifying MCP/API/MINOS/NEXUS/M14-M17 classes and V011 migration are embedded in the shaded JAR..."
+Write-Host "Verifying MCP/API/MINOS/NEXUS/M14-M18 classes, provider Markdown and V012 migration are embedded in the shaded JAR..."
 $jarEntries = & $jarTool tf $jar.FullName
 if ($LASTEXITCODE -ne 0) { throw "Unable to inspect shaded JAR" }
 $requiredEntries = @(
     "com/morpheus/mcp/MorpheusMcpServer.class",
     "com/morpheus/mcp/MorpheusJarvisOrchestrationMcpTools.class",
     "com/morpheus/mcp/MorpheusControlledLifecycleMcpTools.class",
+    "com/morpheus/mcp/MorpheusCompositionMcpTools.class",
     "io/modelcontextprotocol/server/McpServer.class",
     "io/modelcontextprotocol/client/McpClient.class",
     "io/modelcontextprotocol/client/transport/StdioClientTransport.class",
     "com/morpheus/api/MorpheusHttpServer.class",
     "com/morpheus/api/MorpheusJarvisOrchestrationApiService.class",
     "com/morpheus/api/MorpheusControlledLifecycleApiService.class",
+    "com/morpheus/api/MorpheusCompositionApiService.class",
     "com/morpheus/cli/MorpheusJarvisOrchestrationCli.class",
     "com/morpheus/cli/MorpheusControlledLifecycleCli.class",
+    "com/morpheus/cli/MorpheusCompositionCli.class",
     "com/morpheus/application/orchestration/ChangeOrchestrationStateService.class",
     "com/morpheus/application/orchestration/ChangeTransitionEvaluationService.class",
     "com/morpheus/application/lifecycle/mutation/ControlledChangeLifecycleMutationService.class",
+    "com/morpheus/application/composition/MultiProviderCompositionService.class",
+    "com/morpheus/application/composition/CompositionQueryService.class",
+    "com/morpheus/provider/markdown/StructuredMarkdownSpecificationProvider.class",
+    "com/morpheus/provider/markdown/StructuredMarkdownSpecificationContentReader.class",
     "com/morpheus/store/sqlite/SqliteChangeLifecycleMutationStore.class",
+    "com/morpheus/store/sqlite/SqliteCompositionStateStore.class",
     "db/migration/V011__controlled_lifecycle_mutations.sql",
+    "db/migration/V012__multi_provider_composition.sql",
     "com/morpheus/integration/minos/MinosMcpExternalReferenceResolver.class",
     "com/morpheus/integration/minos/MinosMcpCodeGateway.class",
     "com/morpheus/integration/minos/MinosIntegrationRuntime.class",
@@ -118,15 +127,15 @@ $requiredEntries = @(
     "tools/jackson/databind/json/JsonMapper.class"
 )
 foreach ($entry in $requiredEntries) {
-    if ($jarEntries -notcontains $entry) { throw "M17 packaging proof failed; shaded JAR is missing $entry" }
+    if ($jarEntries -notcontains $entry) { throw "M18 packaging proof failed; shaded JAR is missing $entry" }
 }
 $embeddedMinosDomain = $jarEntries | Where-Object { $_ -like "com/minos/*" }
-if ($embeddedMinosDomain) { throw "M17 packaging proof failed; MINOS implementation classes must not be embedded: $($embeddedMinosDomain | Select-Object -First 5)" }
+if ($embeddedMinosDomain) { throw "M18 packaging proof failed; MINOS implementation classes must not be embedded: $($embeddedMinosDomain | Select-Object -First 5)" }
 $embeddedNexusDomain = $jarEntries | Where-Object { $_ -like "com/nexus/*" }
-if ($embeddedNexusDomain) { throw "M17 packaging proof failed; NEXUS implementation classes must not be embedded: $($embeddedNexusDomain | Select-Object -First 5)" }
+if ($embeddedNexusDomain) { throw "M18 packaging proof failed; NEXUS implementation classes must not be embedded: $($embeddedNexusDomain | Select-Object -First 5)" }
 $embeddedJarvisDomain = $jarEntries | Where-Object { $_ -like "com/jarvis/*" }
-if ($embeddedJarvisDomain) { throw "M17 packaging proof failed; JARVIS implementation classes must not be embedded: $($embeddedJarvisDomain | Select-Object -First 5)" }
-Write-Host "MCP/API/MINOS/NEXUS/M14-M17 packaging proof: PASS"
+if ($embeddedJarvisDomain) { throw "M18 packaging proof failed; JARVIS implementation classes must not be embedded: $($embeddedJarvisDomain | Select-Object -First 5)" }
+Write-Host "MCP/API/MINOS/NEXUS/M14-M18 packaging proof: PASS"
 
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item $input -ItemType Directory -Force | Out-Null
@@ -163,10 +172,10 @@ if ($LASTEXITCODE -ne 0 -or $nexusStatus -notmatch '"state":"DISABLED"') {
 Write-Host $nexusStatus
 
 $help = (& $launcher help) -join "`n"
-if ($LASTEXITCODE -ne 0 -or $help -notmatch 'change-orchestration' -or $help -notmatch 'lifecycle apply') {
-    throw "Packaged M14/M17 CLI help smoke failed: $help"
+if ($LASTEXITCODE -ne 0 -or $help -notmatch 'change-orchestration' -or $help -notmatch 'lifecycle apply' -or $help -notmatch 'composition sync') {
+    throw "Packaged M14/M17/M18 CLI help smoke failed: $help"
 }
-Write-Host "Packaged standalone optional-engines + M14 read-only + M17 controlled-write surface smoke: PASS"
+Write-Host "Packaged standalone optional-engines + M14 read-only + M17 controlled-write + M18 composition surface smoke: PASS"
 
 Test-PackagedApiHealth -Launcher $launcher -WorkDirectory $work
 
@@ -176,4 +185,4 @@ Compress-PortableArchiveWithRetry -SourceDirectory (Join-Path $appImageRoot "mor
 if (-not (Test-Path $archive)) { throw "Portable Windows archive is missing after archive creation: $archive" }
 
 Write-Host "Portable Windows distribution: $archive"
-Write-Host "The archive contains MORPHEUS, its Java runtime, MCP/API, optional MINOS/NEXUS client adapters, the M14 read-only orchestration contract and the M17 controlled lifecycle mutation surface. MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."
+Write-Host "The archive contains MORPHEUS, its Java runtime, MCP/API, optional MINOS/NEXUS client adapters, the M14 read-only orchestration contract, M17 controlled lifecycle mutation and M18 provider-neutral multi-provider composition surfaces. MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."
