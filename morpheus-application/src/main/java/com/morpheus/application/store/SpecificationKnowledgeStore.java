@@ -9,12 +9,7 @@ import com.morpheus.domain.source.SourceLocator;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Technology-neutral storage port.
- *
- * <p>The port owns project registration and the observable lifecycle of knowledge-snapshot metadata.
- * Business entity persistence is introduced separately once version/snapshot membership is explicit.</p>
- */
+/** Technology-neutral storage port for projects and knowledge snapshot lifecycle metadata. */
 public interface SpecificationKnowledgeStore {
     void putProject(ProjectStoreEntry project);
 
@@ -28,12 +23,10 @@ public interface SpecificationKnowledgeStore {
 
     Optional<KnowledgeSnapshotMetadata> findSnapshot(KnowledgeSnapshotId snapshotId);
 
+    List<KnowledgeSnapshotMetadata> listSnapshots(ProjectSpecificationId projectId);
+
     Optional<KnowledgeSnapshotMetadata> activeSnapshot(ProjectSpecificationId projectId);
 
-    /**
-     * Atomically moves one non-published snapshot from an expected technical state to another.
-     * ACTIVE and RETIRED remain exclusively owned by {@link #activateSnapshot}.
-     */
     KnowledgeSnapshotMetadata transitionSnapshotState(
             KnowledgeSnapshotId snapshotId,
             KnowledgeSnapshotState expectedState,
