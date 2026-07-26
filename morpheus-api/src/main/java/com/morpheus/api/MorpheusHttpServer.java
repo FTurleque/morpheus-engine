@@ -48,6 +48,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusAugmentedContextApiService augmentedContextService;
     private final MorpheusJarvisOrchestrationApiService jarvisOrchestrationService;
     private final MorpheusControlledLifecycleApiService controlledLifecycleService;
+    private final MorpheusCompositionApiService compositionService;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final JsonMapper mapper = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -61,7 +62,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
             MorpheusExternalReferenceApiService externalReferenceService,
             MorpheusAugmentedContextApiService augmentedContextService,
             MorpheusJarvisOrchestrationApiService jarvisOrchestrationService,
-            MorpheusControlledLifecycleApiService controlledLifecycleService) {
+            MorpheusControlledLifecycleApiService controlledLifecycleService,
+            MorpheusCompositionApiService compositionService) {
         this.server = Objects.requireNonNull(server, "server");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.service = Objects.requireNonNull(service, "service");
@@ -69,6 +71,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.augmentedContextService = Objects.requireNonNull(augmentedContextService, "augmentedContextService");
         this.jarvisOrchestrationService = Objects.requireNonNull(jarvisOrchestrationService, "jarvisOrchestrationService");
         this.controlledLifecycleService = Objects.requireNonNull(controlledLifecycleService, "controlledLifecycleService");
+        this.compositionService = Objects.requireNonNull(compositionService, "compositionService");
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -124,7 +127,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
                     new MorpheusExternalReferenceApiService(databasePath, resolverRegistry, minosStatus),
                     new MorpheusAugmentedContextApiService(databasePath, technicalContextProvider),
                     new MorpheusJarvisOrchestrationApiService(databasePath),
-                    new MorpheusControlledLifecycleApiService(databasePath, writeCapabilityResolver));
+                    new MorpheusControlledLifecycleApiService(databasePath, writeCapabilityResolver),
+                    new MorpheusCompositionApiService(databasePath));
             httpServer.setExecutor(executor);
             httpServer.createContext(API_PREFIX, result::handle);
             httpServer.start();
@@ -231,6 +235,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return switch (resource) {
             case "sync" -> routeSync(exchange, method, segments, query, projectId);
             case "sync-status" -> routeSyncStatus(method, segments, query, projectId);
+            case "composition" -> routeComposition(method, segments, query, projectId);
             case "specifications" -> routeSpecifications(method, segments, query, projectId);
             case "requirements" -> routeRequirements(exchange, method, segments, query, projectId);
             case "changes" -> routeChanges(exchange, method, segments, query, projectId);
@@ -261,6 +266,25 @@ public final class MorpheusHttpServer implements AutoCloseable {
         long maxAge = query.longValue(
                 "maxAgeMinutes", MorpheusApiService.DEFAULT_MAX_AGE_MINUTES, 1, MorpheusApiService.MAX_MAX_AGE_MINUTES);
         return ok(service.syncStatus(projectId, maxAge));
+    }
+
+    private RouteResponse routeComposition(String method, List<String> segments, Query query, String projectId) {
+        requireMethod(method, "GET");
+        if (segments.size() == 3) {
+            query.rejectUnknown(Set.of());
+            return ok(compositionService.status(projectId));
+        }
+        if (segments.size() == 4 && segments.get(3).equals("conflicts")) {
+            query.rejectUnknown(Set.of("offset", "limit"));
+            int offset = query.intValue("offset", 0, 0, Integer.MAX_VALUE);
+            int limit = query.intValue(
+                    "limit",
+                    MorpheusCompositionApiService.DEFAULT_LIMIT,
+                    1,
+                    MorpheusCompositionApiService.MAX_LIMIT);
+            return ok(compositionService.conflicts(projectId, offset, limit));
+        }
+        throw ApiFailure.notFound("unknown composition route");
     }
 
     private RouteResponse routeSpecifications(String method, List<String> segments, Query query, String projectId) {
