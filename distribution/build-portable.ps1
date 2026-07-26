@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dist = Join-Path $repo $OutputDirectory
-$work = Join-Path $dist ".m17-windows"
+$work = Join-Path $dist ".m14-windows"
 $input = Join-Path $work "input"
 $appImageRoot = Join-Path $work "image"
 
@@ -89,7 +89,7 @@ $jar = Get-ChildItem (Join-Path $repo "morpheus-cli\target") -Filter "morpheus-c
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($null -eq $jar) { throw "Shaded MORPHEUS CLI JAR not found" }
 
-Write-Host "Verifying MCP/API/MINOS/NEXUS/M14-M17 classes are embedded in the shaded JAR..."
+Write-Host "Verifying MCP/API/MINOS/NEXUS/M14-M17 classes and V011 migration are embedded in the shaded JAR..."
 $jarEntries = & $jarTool tf $jar.FullName
 if ($LASTEXITCODE -ne 0) { throw "Unable to inspect shaded JAR" }
 $requiredEntries = @(
@@ -108,6 +108,7 @@ $requiredEntries = @(
     "com/morpheus/application/orchestration/ChangeTransitionEvaluationService.class",
     "com/morpheus/application/lifecycle/mutation/ControlledChangeLifecycleMutationService.class",
     "com/morpheus/store/sqlite/SqliteChangeLifecycleMutationStore.class",
+    "db/migration/V011__controlled_lifecycle_mutations.sql",
     "com/morpheus/integration/minos/MinosMcpExternalReferenceResolver.class",
     "com/morpheus/integration/minos/MinosMcpCodeGateway.class",
     "com/morpheus/integration/minos/MinosIntegrationRuntime.class",
