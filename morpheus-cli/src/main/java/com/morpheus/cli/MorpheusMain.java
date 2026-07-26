@@ -40,7 +40,9 @@ public final class MorpheusMain {
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
         int exitCode;
-        if (MorpheusControlledLifecycleCli.handles(args)) {
+        if (MorpheusCompositionCli.handles(args)) {
+            exitCode = new MorpheusCompositionCli().run(args, out, err, environment, properties);
+        } else if (MorpheusControlledLifecycleCli.handles(args)) {
             exitCode = new MorpheusControlledLifecycleCli().run(args, out, err, environment, properties);
         } else if (MorpheusConstraintSemanticsCli.handles(args)) {
             exitCode = new MorpheusConstraintSemanticsCli().run(args, out, err, environment, properties);
@@ -66,6 +68,12 @@ public final class MorpheusMain {
             out.println("API:");
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]");
             out.println("  Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println();
+            out.println("Multi-provider composition (M18):");
+            out.println("  morpheus [--json] composition sync --project ID [--revision REV]");
+            out.println("  morpheus [--json] composition status --project ID");
+            out.println("  morpheus [--json] composition conflicts --project ID");
+            out.println("  Composition preserves all provider observations and exposes precedence/conflicts explicitly.");
             out.println();
             out.println("Controlled lifecycle mutations (write, opt-in):");
             out.println("  morpheus [--json] lifecycle apply --project ID --change ID --expected-revision N --to STATE --idempotency-key KEY --actor NAME --confirm [--abandonment-reason REASON]");

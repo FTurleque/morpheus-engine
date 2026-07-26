@@ -6,6 +6,7 @@ import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.SpecificationContentReader;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.provider.markdown.StructuredMarkdownSpecificationContentReader;
 import com.morpheus.provider.openspec.OpenSpecSpecificationContentReader;
 import com.morpheus.provider.synthetic.SyntheticSpecificationContentReader;
 import org.junit.jupiter.api.Test;
@@ -26,24 +27,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProviderAntiLockInTest {
     @Test
-    void openSpecAndSyntheticImplementTheSameApplicationReadPort() {
+    void openSpecSyntheticAndStructuredMarkdownImplementTheSameApplicationReadPort() {
         assertInstanceOf(SpecificationContentReader.class, new OpenSpecSpecificationContentReader());
         assertInstanceOf(SpecificationContentReader.class, new SyntheticSpecificationContentReader());
+        assertInstanceOf(SpecificationContentReader.class, new StructuredMarkdownSpecificationContentReader());
     }
 
     @Test
-    void oneProviderNeutralConsumerReadsBothFormats() {
+    void oneProviderNeutralConsumerReadsAllThreeFormats() {
         Summary openSpec = summarize(new OpenSpecSpecificationContentReader(), fixture("openspec-basic"));
         Summary synthetic = summarize(new SyntheticSpecificationContentReader(), fixture("synthetic-basic"));
+        Summary markdown = summarize(new StructuredMarkdownSpecificationContentReader(), fixture("openspec-basic"));
 
         assertEquals(Set.of(ReadCategory.values()), openSpec.reportedCategories());
         assertEquals(Set.of(ReadCategory.values()), synthetic.reportedCategories());
+        assertEquals(Set.of(ReadCategory.values()), markdown.reportedCategories());
         assertEquals(1, openSpec.specificationCount());
         assertEquals(1, synthetic.specificationCount());
+        assertEquals(2, markdown.specificationCount());
         assertTrue(openSpec.requirementCount() > 0);
         assertTrue(synthetic.requirementCount() > 0);
+        assertTrue(markdown.requirementCount() > 0);
         assertTrue(openSpec.scenarioCount() > 0);
         assertTrue(synthetic.scenarioCount() > 0);
+        assertTrue(markdown.changeCount() > 0);
         assertTrue(openSpec.changeCount() > 0);
         assertTrue(synthetic.changeCount() > 0);
     }

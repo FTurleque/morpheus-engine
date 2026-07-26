@@ -17,6 +17,7 @@
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-domain</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-application</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-openspec</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-markdown</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-synthetic</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-store-memory</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-store-sqlite</artifactId><version>${project.version}</version><scope>test</scope></dependency>
