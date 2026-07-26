@@ -79,6 +79,9 @@ public final class ChangeTransitionEvaluationService {
         List<ConstraintEvaluation> unknown = constraintEvaluations.stream()
                 .filter(item -> item.state() == ConstraintEvaluationState.UNKNOWN)
                 .toList();
+        List<ConstraintEvaluationView> constraintViews = constraintEvaluations.stream()
+                .map(ConstraintEvaluationView::from)
+                .toList();
 
         if (!blocking.isEmpty()) {
             List<ChangeLifecycleBlocker> blockers = new ArrayList<>();
@@ -100,7 +103,7 @@ public final class ChangeTransitionEvaluationService {
                     assessment.unavailableRequiredFacts(),
                     assessment.factSource().name(),
                     "Transition is blocked by explicit constraint policy: " + ids,
-                    constraintEvaluations);
+                    constraintViews);
         }
 
         if (assessment.decision().isEmpty()) {
@@ -117,7 +120,7 @@ public final class ChangeTransitionEvaluationService {
                     !unknown.isEmpty()
                             ? "Required lifecycle facts and constraint blocking semantics are unavailable"
                             : "Required lifecycle facts are unavailable in the normalized snapshot",
-                    constraintEvaluations);
+                    constraintViews);
         }
 
         var decision = assessment.decision().orElseThrow();
@@ -137,7 +140,7 @@ public final class ChangeTransitionEvaluationService {
                     List.of(),
                     assessment.factSource().name(),
                     reason,
-                    constraintEvaluations);
+                    constraintViews);
         }
 
         if (!unknown.isEmpty()) {
@@ -150,7 +153,7 @@ public final class ChangeTransitionEvaluationService {
                     List.of("blockingConstraints"),
                     assessment.factSource().name(),
                     "Transition cannot be asserted ALLOWED because constraint blocking semantics are unknown",
-                    constraintEvaluations);
+                    constraintViews);
         }
 
         return new ChangeTransitionEvaluation(
@@ -162,7 +165,7 @@ public final class ChangeTransitionEvaluationService {
                 List.of(),
                 assessment.factSource().name(),
                 "Transition is allowed by MORPHEUS lifecycle and explicit constraint rules",
-                constraintEvaluations);
+                constraintViews);
     }
 
     private List<ConstraintEvaluation> constraintEvaluations(ChangeLifecycleQualityAssessment assessment) {
