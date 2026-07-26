@@ -1,6 +1,6 @@
 # Démarrage rapide MORPHEUS
 
-Ce guide conduit un utilisateur depuis une distribution fraîche jusqu’à une première interrogation de la spécification, puis montre comment exposer les mêmes données par HTTP ou MCP.
+Ce guide conduit un utilisateur depuis une distribution fraîche jusqu’à une première interrogation de la spécification, puis montre le chemin multi-provider M18 et les surfaces HTTP/MCP.
 
 ## 1. Extraire et lancer la distribution
 
@@ -29,39 +29,39 @@ Dans la suite, `morpheus` désigne le launcher de la plateforme.
 
 ## 2. Vérifier les chemins utilisés
 
-Avant le premier projet, vérifier où MORPHEUS stockera sa base et sa configuration :
-
 ```bash
 morpheus paths
 ```
 
-Pour isoler un test, il est possible d’utiliser une base explicite :
+Base explicite pour un test :
 
 ```bash
 morpheus --db /path/to/demo-morpheus.db paths
-```
-
-Sous PowerShell :
-
-```powershell
-morpheus --db "$env:TEMP\demo-morpheus.db" paths
 ```
 
 Toutes les commandes d’un même scénario doivent utiliser la même base si `--db` est précisé.
 
 ## 3. Préparer un workspace compatible
 
-MORPHEUS découvre le provider à partir du workspace. OpenSpec est le provider de référence initial.
+MORPHEUS découvre les providers à partir du workspace. La baseline M18 valide deux providers réels :
 
-Le workspace doit donc contenir une structure reconnue par un provider installé. L’enregistrement du projet ne signifie pas encore que le contenu a été publié : la publication est réalisée par `sync`.
+```text
+OpenSpec
+Structured Markdown
+```
+
+Un projet peut exploiter un seul provider ou plusieurs providers compatibles. Les adapters normalisent leurs lectures avant la composition MORPHEUS.
 
 ```mermaid
 flowchart LR
-    W[Workspace] --> D[Découverte provider]
+    W[Workspace] --> D[Découverte providers]
     D --> R[Projet enregistré]
-    R --> S[Synchronisation]
+    R --> S[Sync publiée]
+    D --> C[Composition multi-provider]
     S --> A[Snapshot ACTIVE]
+    C --> CS[Composition state/conflicts]
     A --> Q[Requêtes]
+    CS --> Q
 ```
 
 ## 4. Enregistrer le projet
@@ -72,19 +72,11 @@ morpheus projects add --workspace /path/to/project
 
 La commande retourne un `projectId` MORPHEUS stable dans la base locale.
 
-Lister les projets :
-
 ```bash
 morpheus projects list
 ```
 
-Pour un script :
-
-```bash
-morpheus --json projects list
-```
-
-Conserver le `projectId` : les commandes métier utilisent cette identité plutôt que le chemin du workspace.
+Conserver le `projectId` : le chemin du workspace n’est pas l’identité métier.
 
 ## 5. Synchroniser et publier
 
@@ -98,7 +90,7 @@ Révision source optionnelle :
 morpheus sync --project <projectId> --revision <revision>
 ```
 
-Le launcher officiel utilise une reconstruction complète conservatrice pour produire une synchronisation publiée. Un snapshot candidat ne remplace l’`ACTIVE` qu’après validation réussie.
+Le launcher utilise une reconstruction complète conservatrice pour produire une synchronisation publiée. Un snapshot candidat ne remplace l’`ACTIVE` qu’après validation réussie.
 
 ```mermaid
 stateDiagram-v2
@@ -108,21 +100,62 @@ stateDiagram-v2
     VALIDATING --> FAILED: validation KO
     READY --> ACTIVE: activation atomique
     ACTIVE --> RETIRED: un nouveau snapshot devient ACTIVE
-    FAILED --> [*]
-    RETIRED --> [*]
 ```
 
-Le point important est opérationnel : **si la construction ou la validation du candidat échoue, l’ancien snapshot `ACTIVE` reste la référence publiée**.
-
-Vérifier l’état :
+**Si la construction ou la validation du candidat échoue, l’ancien snapshot `ACTIVE` reste la référence publiée.**
 
 ```bash
 morpheus sync-status --project <projectId>
 ```
 
-## 6. Faire les premières requêtes
+## 6. Composer plusieurs providers — M18
 
-### Chercher des requirements
+Pour construire l’état de composition :
+
+```bash
+morpheus composition sync --project <projectId>
+```
+
+Avec révision explicite :
+
+```bash
+morpheus composition sync --project <projectId> --revision <revision>
+```
+
+Lire l’état :
+
+```bash
+morpheus composition status --project <projectId>
+```
+
+Inspecter les conflits :
+
+```bash
+morpheus composition conflicts --project <projectId>
+```
+
+Mode JSON :
+
+```bash
+morpheus --json composition status --project <projectId>
+morpheus --json composition conflicts --project <projectId>
+```
+
+La composition respecte :
+
+```text
+provider identifier != DomainIdentity
+source path != identity
+precedence != provenance erasure
+conflict != silent last-write-wins
+ambiguous continuity must be surfaced
+```
+
+Un provider optionnel absent ne fait pas échouer le projet si la politique de composition autorise son absence. Un provider requis absent échoue explicitement.
+
+## 7. Faire les premières requêtes
+
+Chercher des requirements :
 
 ```bash
 morpheus requirements find \
@@ -130,98 +163,124 @@ morpheus requirements find \
   --query "session"
 ```
 
-### Lister les changements
+Lister les changements :
 
 ```bash
 morpheus changes list --project <projectId>
 ```
 
-### Lire un changement
+Lire un changement :
 
 ```bash
-morpheus changes get \
-  --project <projectId> \
-  --change <changeId>
+morpheus changes get --project <projectId> --change <changeId>
 ```
 
-### Explorer les artefacts d’un changement
+Artefacts associés :
 
 ```bash
 morpheus constraints list --project <projectId> --change <changeId>
-morpheus decisions list   --project <projectId> --change <changeId>
-morpheus tasks list       --project <projectId> --change <changeId>
+morpheus acceptance-criteria list --project <projectId> --change <changeId>
+morpheus decisions list --project <projectId> --change <changeId>
+morpheus tasks list --project <projectId> --change <changeId>
 ```
 
-Les commandes de listes/recherches acceptent `--offset` et `--limit` lorsque la surface le prévoit ; la limite maximale est 100.
-
-## 7. Explorer la traçabilité et le contexte
-
-### Requirement
+## 8. Explorer traçabilité, contexte et qualité
 
 ```bash
-morpheus trace-requirement \
-  --project <projectId> \
-  --requirement <requirementId> \
-  --depth 2
-```
-
-### Change
-
-```bash
-morpheus change-context \
-  --project <projectId> \
-  --change <changeId> \
-  --depth 2
-```
-
-La profondeur contrôle l’expansion de la vue. MORPHEUS n’invente pas de relation pour combler une absence de lien.
-
-## 8. Analyser un changement proposé
-
-```bash
-morpheus analyze-change \
-  --project <projectId> \
-  --change <changeId> \
-  --depth 2
-```
-
-L’analyse confronte le contenu proposé à l’état `CURRENT`. Elle ne promeut ni n’active le changement.
-
-```mermaid
-sequenceDiagram
-    actor U as Utilisateur
-    participant M as MORPHEUS
-    participant C as Snapshot CURRENT
-    participant P as Contenu PROPOSED
-
-    U->>M: analyze-change(changeId)
-    M->>C: lire la référence publiée
-    M->>P: lire le changement proposé
-    M-->>U: impact / contexte / diagnostics
-    Note over M: aucune promotion implicite
-```
-
-## 9. Diagnostiquer la qualité
-
-```bash
+morpheus trace-requirement --project <projectId> --requirement <requirementId> --depth 2
+morpheus change-context --project <projectId> --change <changeId> --depth 2
+morpheus analyze-change --project <projectId> --change <changeId> --depth 2
 morpheus quality --project <projectId>
 ```
 
-Les diagnostics sont des vues dérivées. Ils n’écrivent pas dans le snapshot publié.
+MORPHEUS n’invente pas de relation pour combler une absence et n’effectue aucune promotion implicite depuis une analyse.
 
-## 10. Passer en mode JSON pour les scripts
+## 9. Évaluer puis appliquer explicitement un lifecycle
+
+Évaluation read-only :
 
 ```bash
-morpheus --json requirements find \
+morpheus --json change-orchestration transition-check \
   --project <projectId> \
-  --query "session"
+  --change <changeId> \
+  --from DRAFT \
+  --to PROPOSED
+```
+
+Une décision `ALLOWED` n’applique rien.
+
+Mutation M17 distincte :
+
+```bash
+morpheus --json lifecycle apply \
+  --project <projectId> \
+  --change <changeId> \
+  --expected-revision 0 \
+  --to PROPOSED \
+  --idempotency-key demo-1 \
+  --actor user \
+  --confirm
+```
+
+```text
+READ_CHANGES != WRITE_CHANGE
+ALLOWED != applied
+```
+
+## 10. Démarrer l’API HTTP
+
+```bash
+morpheus api --host 127.0.0.1 --port 8765
+```
+
+Test minimal :
+
+```bash
+curl http://127.0.0.1:8765/api/v1/health
+```
+
+Composition M18 :
+
+```bash
+curl http://127.0.0.1:8765/api/v1/projects/<projectId>/composition
+curl http://127.0.0.1:8765/api/v1/projects/<projectId>/composition/conflicts
+```
+
+OpenAPI contract : **1.7.0**.
+
+## 11. Démarrer MCP STDIO
+
+```bash
+morpheus mcp --stdio
+```
+
+Catalogue M18 :
+
+```text
+22 tools read-only
++ 1 tool write M17 explicite
+```
+
+Composition :
+
+```text
+get_composition_status
+list_composition_conflicts
+```
+
+Le protocole MCP utilise `stdout` pour JSON-RPC ; les diagnostics vont sur `stderr`.
+
+## 12. Mode JSON et codes de sortie
+
+```bash
+morpheus --json requirements find --project <projectId> --query "session"
 ```
 
 Règle d’automatisation :
 
 1. lire le code de sortie ;
 2. parser le JSON de `stdout` ;
-3. utiliser `stderr` pour le diagnostic humain uniquement.
+3. utiliser `stderr` pour le diagnostic humain.
 
 Codes principaux :
 
@@ -234,154 +293,15 @@ Codes principaux :
 | 5 | erreur I/O classifiée |
 | 10 | erreur interne inattendue |
 
-## 11. Démarrer l’API HTTP
-
-```bash
-morpheus api
-```
-
-Defaults :
+## 13. Baseline actuelle
 
 ```text
-host = 127.0.0.1
-port = 8765
-base = /api/v1
+M18             ✅ VALIDÉ / INTÉGRÉ — PR #86
+Code validé     7e8caacff567f51354fcb88bd7505a6d135071c0
+Merge           30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+Tests           418/418 PASS
+Architecture    170/170 PASS
+Packaging       Windows + smokes + API health PASS
 ```
 
-Démarrage explicite :
-
-```bash
-morpheus api --host 127.0.0.1 --port 8765
-```
-
-Test minimal :
-
-```bash
-curl http://127.0.0.1:8765/api/v1/health
-curl http://127.0.0.1:8765/api/v1/version
-```
-
-Utiliser la même option `--db` que lors de la synchronisation si le scénario emploie une base personnalisée :
-
-```bash
-morpheus --db /path/to/demo-morpheus.db api
-```
-
-Référence : [API HTTP](../developer/API.md).
-
-## 12. Démarrer le serveur MCP
-
-```bash
-morpheus mcp --stdio
-```
-
-En mode MCP :
-
-```text
-stdin/stdout = protocole JSON-RPC MCP
-stderr       = diagnostics
-```
-
-Ne pas ajouter `--json` : `stdout` doit rester réservé au protocole.
-
-Le serveur expose actuellement 20 tools métier read-only. Référence : [Serveur MCP](../developer/MCP.md).
-
-## 13. Activer MINOS si une référence de code doit être résolue
-
-Configurer le JAR autonome MINOS :
-
-```powershell
-$env:MORPHEUS_MINOS_JAR = 'N:\workspace-dev\minos-code-intelligence\target\minos-code-intelligence-0.1.0-SNAPSHOT-all.jar'
-```
-
-Puis :
-
-```bash
-morpheus --json minos-status
-```
-
-Résolution :
-
-```bash
-morpheus --json external-references resolve \
-  --project <projectId> \
-  --reference <externalReferenceId>
-```
-
-Une résolution live ne réécrit pas le snapshot.
-
-## 14. Activer NEXUS pour obtenir un contexte technique
-
-Configurer `MORPHEUS_NEXUS_JAR`, puis vérifier :
-
-```bash
-morpheus --json nexus-status
-```
-
-Exemple :
-
-```bash
-morpheus --json augmented-context change \
-  --project <projectId> \
-  --change <changeId> \
-  --nexus-project <id-or-name> \
-  --budget 2000
-```
-
-Le contexte retourné reste live et non persisté.
-
-## 15. Observer le contrat d’orchestration JARVIS
-
-État observable :
-
-```bash
-morpheus --json change-orchestration state \
-  --project <projectId> \
-  --change <changeId>
-```
-
-Évaluation de transition :
-
-```bash
-morpheus --json change-orchestration transition-check \
-  --project <projectId> \
-  --change <changeId> \
-  --from PROPOSED \
-  --to SPECIFIED
-```
-
-Une réponse `ALLOWED` signifie que la transition est autorisée compte tenu des faits fournis/observables. **Elle ne signifie pas que la transition a été appliquée.**
-
-## 16. Diagnostic rapide
-
-### Le projet n’apparaît pas
-
-```bash
-morpheus paths
-morpheus projects list
-```
-
-Vérifier que toutes les commandes utilisent le même `--db` ou le même `--data-dir`.
-
-### Les requêtes retournent `NOT_FOUND`
-
-Vérifier qu’une synchronisation a réussi :
-
-```bash
-morpheus sync-status --project <projectId>
-```
-
-### MINOS ou NEXUS est `DISABLED`
-
-C’est un état normal lorsque l’intégration n’est pas configurée. MORPHEUS reste utilisable.
-
-### Une transition retourne `UNKNOWN`
-
-Un ou plusieurs faits nécessaires ne sont pas observables. MORPHEUS ne les infère pas artificiellement.
-
-## 17. Étapes suivantes
-
-- [Guide utilisateur](README.md)
-- [Référence CLI](CLI.md)
-- [Intégrations optionnelles](INTEGRATIONS.md)
-- [Architecture](../developer/ARCHITECTURE.md)
+Pour le détail des commandes : [Référence CLI](CLI.md).
