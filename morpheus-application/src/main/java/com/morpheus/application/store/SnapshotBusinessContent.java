@@ -74,7 +74,10 @@ public record SnapshotBusinessContent(
         specifications.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         scenarios.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         changes.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
-        constraints.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
+        constraints.forEach(item -> {
+            requireEvidence(item.provenance().evidenceId(), evidenceIds);
+            item.supportingEvidenceIds().forEach(evidenceId -> requireEvidence(evidenceId, evidenceIds));
+        });
         designDecisions.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         tasks.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         acceptanceCriteria.forEach(item -> {
