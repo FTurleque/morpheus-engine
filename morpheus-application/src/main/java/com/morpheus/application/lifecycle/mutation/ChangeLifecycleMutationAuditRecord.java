@@ -48,6 +48,9 @@ public record ChangeLifecycleMutationAuditRecord(
         if (!toRevision.equals(fromRevision.next())) {
             throw new IllegalArgumentException("audit toRevision must equal fromRevision + 1");
         }
+        if (targetState == ChangeLifecycleState.ABANDONED && targetAbandonmentReason.isEmpty()) {
+            throw new IllegalArgumentException("ABANDONED audit record requires an abandonment reason");
+        }
         if (targetState != ChangeLifecycleState.ABANDONED && targetAbandonmentReason.isPresent()) {
             throw new IllegalArgumentException("abandonment reason is only valid for ABANDONED target state");
         }
