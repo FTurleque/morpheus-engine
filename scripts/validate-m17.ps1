@@ -14,7 +14,9 @@ Set-Location $RepoRoot
 $LogRoot = Join-Path $RepoRoot '.git\morpheus-validation\m17'
 $MavenLog = Join-Path $LogRoot 'maven-clean-test.log'
 $PackagingLog = Join-Path $LogRoot 'windows-packaging.log'
+$FailureSummary = Join-Path $LogRoot 'failure-summary.log'
 New-Item -ItemType Directory -Force -Path $LogRoot | Out-Null
+Remove-Item -LiteralPath $FailureSummary -Force -ErrorAction SilentlyContinue
 
 function Write-Stage([string]$Title) {
     Write-Host ''
@@ -44,6 +46,35 @@ function Resolve-PowerShellHost {
         }
     }
     throw 'No PowerShell host could be resolved for the packaging step.'
+}
+
+function Write-FailureSummary {
+    param(
+        [Parameter(Mandatory = $true)][string]$Label,
+        [Parameter(Mandatory = $true)][string]$LogFile,
+        [Parameter(Mandatory = $true)][int]$ExitCode
+    )
+
+    $summary = @(
+        "M17 validation failure",
+        "Stage    : $Label",
+        "Exit code: $ExitCode",
+        "Log      : $LogFile",
+        '',
+        'Last log lines:'
+    )
+    if (Test-Path -LiteralPath $LogFile) {
+        $summary += @(Get-Content -LiteralPath $LogFile -Tail 120)
+    } else {
+        $summary += '<log file was not created>'
+    }
+    $summary | Set-Content -LiteralPath $FailureSummary -Encoding UTF8
+
+    Write-Host ''
+    Write-Host 'Failure summary:' -ForegroundColor Yellow
+    $summary | ForEach-Object { Write-Host $_ }
+    Write-Host ''
+    Write-Host "Saved summary: $FailureSummary" -ForegroundColor Yellow
 }
 
 function Invoke-NativeLogged {
@@ -76,7 +107,8 @@ function Invoke-NativeLogged {
     }
 
     if ($exitCode -ne 0) {
-        throw "$Label failed with exit code $exitCode. Log: $LogFile"
+        Write-FailureSummary -Label $Label -LogFile $LogFile -ExitCode $exitCode
+        throw "$Label failed with exit code $exitCode. Summary: $FailureSummary"
     }
 }
 
@@ -152,7 +184,10 @@ catch {
     Write-Stage 'RESULT'
     Write-Host 'M17 VALIDATION FAILED' -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
+    if (Test-Path -LiteralPath $FailureSummary) {
+        Write-Host "Failure summary: $FailureSummary" -ForegroundColor Yellow
+    }
     Write-Host ''
-    Write-Host 'Fix the reported failure, then rerun the SAME command.' -ForegroundColor Yellow
+    Write-Host 'The first failing stage is already summarized above; no second diagnostic command is required.' -ForegroundColor Yellow
     exit 1
 }
