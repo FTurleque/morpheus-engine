@@ -133,7 +133,7 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
                 }
                 if (findAuditByMutationIdInternal(attempt.mutationId()).isPresent()) {
                     connection.rollback();
-                    return conflict(currentState(attempt), "Mutation id already exists");
+                    return conflict(Optional.of(currentState(attempt)), "Mutation id already exists");
                 }
 
                 ChangeLifecycleOperationalState current = currentState(attempt);
