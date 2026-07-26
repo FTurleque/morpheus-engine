@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M14 validés et intégrés — D0 validé techniquement, PR #75 requise avant M15**
+Statut : **C0 à M14 + D0 intégrés — M15 validé techniquement, PR #77 prête à intégrer**
 
 Dernière mise à jour : 26 juillet 2026
 
@@ -33,16 +33,17 @@ La baseline C0→M14 est acquise. La suite officielle est définie dans [`POST_M
 
 | Étape | Sujet | Statut | Porte |
 |---|---|---|---|
-| **D0** | Réconciliation documentaire post-M14 | **✅ VALIDÉ TECHNIQUEMENT — PR #75** | [`VALIDATION_D0.md`](../validation/VALIDATION_D0.md), merge requis avant M15 |
-| **M15** | Acceptance Criteria, Verification & Evidence | ⏳ AUTORISÉ APRÈS MERGE D0 | intention vérifiable, preuves et couverture explicites |
-| **M16** | Constraint Semantics & Policy Enforcement | ⏳ PLANIFIÉ | contraintes bloquantes explicables sans `UNKNOWN -> BLOCKED` |
+| **D0** | Réconciliation documentaire post-M14 | **✅ VALIDÉ / INTÉGRÉ — PR #75** | [`VALIDATION_D0.md`](../validation/VALIDATION_D0.md) |
+| **M15** | Acceptance Criteria, Verification & Evidence | **✅ VALIDÉ TECHNIQUEMENT — PR #77 READY** | [`VALIDATION_M15.md`](../validation/VALIDATION_M15.md), 371/371 + packaging PASS |
+| **M16** | Constraint Semantics & Policy Enforcement | ⏳ PROCHAIN APRÈS INTÉGRATION M15 | contraintes bloquantes explicables sans `UNKNOWN -> BLOCKED` |
 | **M17** | Controlled Lifecycle & Write Operations | ⏳ PLANIFIÉ | mutations opt-in, CAS, conflits, audit, permissions |
 | **M18** | Real Providers & Multi-Provider Composition | ⏳ PLANIFIÉ | deuxième provider réel + composition/provenance/conflits |
 | **M19** | Production Hardening, Scale & Operability | ⏳ PLANIFIÉ | performances, robustesse et observabilité mesurées |
 | **M20** | Release Engineering, Installation PROD & MORPHEUS 1.0 | ⏳ PLANIFIÉ | setup Windows, releases, checksums, upgrade/uninstall, Linux |
 
 Plan détaillé : [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md).  
-Exécution D0 : [`D0_EXECUTION.md`](../roadmap/D0_EXECUTION.md).
+Exécution D0 : [`D0_EXECUTION.md`](../roadmap/D0_EXECUTION.md).  
+Exécution M15 : [`M15_EXECUTION.md`](../roadmap/M15_EXECUTION.md).
 
 Merges actifs de la baseline :
 
@@ -51,12 +52,14 @@ M12 = 86dbb1d50e87ce354b7174156e9c8c5717722a17
 M13 = 2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f
 M14 MORPHEUS = 88e4e4d83c25035b9441e78d0ac8145db83306c4
 M14 JARVIS   = 1bf2612e616f3323814caf60e76525b4808cd400
+D0 = ec75d3963422d6281f2904c5ebd547124db92ad6
 ```
 
-Références M14 :
+Références actives :
 
+- [`VALIDATION_M15.md`](../validation/VALIDATION_M15.md)
+- [`M15_EXECUTION.md`](../roadmap/M15_EXECUTION.md)
 - [`VALIDATION_M14.md`](../validation/VALIDATION_M14.md)
-- [`M14_EXECUTION.md`](../roadmap/M14_EXECUTION.md)
 - [Intégration JARVIS](../developer/INTEGRATIONS.md#jarvis)
 - [API HTTP](../developer/API.md)
 - [MCP](../developer/MCP.md)
@@ -79,6 +82,10 @@ Invariants :
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
 SpecificationVersion != KnowledgeSnapshot
 Scenario != AcceptanceCriterion
+AcceptanceCriterion != Test
+Test existence != VERIFIED
+Evidence != assertion
+UNKNOWN != FAILED
 PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
@@ -108,6 +115,7 @@ M12 331/331 | Architecture 153/153 | packaging PASS
 M13 346/346 | Architecture 154/154 | packaging PASS
 M14 357/357 | Architecture 160/160 | packaging PASS | JARVIS 536 tests BUILD SUCCESS
 D0  documentation authority PASS | primary links PASS | historical evidence preserved
+M15 371/371 | Architecture 157/157 | packaging + smokes PASS
 ```
 
 ## 4. M12 — MINOS ✅ / INTÉGRÉ
@@ -231,16 +239,14 @@ JARVIS   PR #93 merged -> 1bf2612e616f3323814caf60e76525b4808cd400
 
 ## 7. Direction post-M14
 
-La plateforme technique fondamentale est désormais acquise : stockage, snapshots, traçabilité, requêtes, diagnostics, synchronisation, analyse, CLI, MCP, HTTP et intégrations MINOS/NEXUS/JARVIS.
+La plateforme technique fondamentale est acquise : stockage, snapshots, traçabilité, requêtes, diagnostics, synchronisation, analyse, CLI, MCP, HTTP et intégrations MINOS/NEXUS/JARVIS.
 
-D0 a produit une politique documentaire explicite et a réconcilié le cadrage C0 avec la baseline livrée. **M15 peut démarrer après intégration de la PR #75.**
-
-Le cycle suivant privilégie la profondeur sémantique :
+D0 est intégré et M15 est maintenant **validé techniquement**. Sa PR #77 doit être intégrée avant d'ouvrir M16 afin que la sémantique des contraintes s'appuie sur le modèle d'acceptance réellement publié.
 
 ```text
-D0   documentation reconciliation        ✅ gate vert / PR #75
-M15  acceptance / verification / evidence
-M16  constraint semantics / blocking policy
+D0   documentation reconciliation        ✅ intégré
+M15  acceptance / verification / evidence ✅ validé techniquement / PR #77 Ready
+M16  constraint semantics / blocking policy ⏳ prochain après merge M15
 M17  controlled write / lifecycle mutations
 M18  real providers / multi-provider composition
 M19  production hardening / scale / operability
