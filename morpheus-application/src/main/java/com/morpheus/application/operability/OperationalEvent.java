@@ -1,6 +1,8 @@
 package com.morpheus.application.operability;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -24,6 +26,6 @@ public record OperationalEvent(
             }
             canonical.put(key.trim(), Objects.requireNonNull(value, "operational event attribute value"));
         });
-        attributes = Map.copyOf(canonical);
+        attributes = Collections.unmodifiableMap(new LinkedHashMap<>(canonical));
     }
 }
