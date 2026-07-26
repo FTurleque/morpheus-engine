@@ -1,11 +1,12 @@
 # M16 — Constraint Semantics & Policy Enforcement
 
-Statut : **🚧 EN COURS — issue #78 / ADR-0082 proposée**
+Statut : **🚧 EN COURS — S1→S6 codées ; gate réel S7 restant**
 
 Dernière mise à jour : 26 juillet 2026
 
 Issue : **#78**  
-Branche : `m16/constraint-semantics-policy`
+Branche : `m16/constraint-semantics-policy`  
+PR : **#79 — Draft**
 
 ## 1. Question de sortie
 
@@ -34,7 +35,7 @@ base lifecycle rules remain MORPHEUS-owned
 JARVIS still owns sequencing / action choice
 ```
 
-## 4. Modèle cible
+## 4. Modèle M16
 
 ```text
 Constraint
@@ -55,83 +56,117 @@ ConstraintEvaluation
 └── UNKNOWN
 ```
 
+La règle de blocage est volontairement stricte :
+
+```text
+APPLICABLE
++ BLOCK_WHEN_VIOLATED
++ target lifecycle explicite
++ VIOLATED avec evidence
+= BLOCKING
+```
+
+Aucun texte, mot-clé ou niveau de sévérité n'est interprété comme une politique exécutable.
+
 ## 5. Slices
 
-### M16-S1 — Domaine canonique
+### M16-S1 — Domaine canonique ✅ CODED
 
-- `ConstraintApplicability` ;
-- `ConstraintSeverity` ;
-- `ConstraintSatisfaction` ;
-- `ConstraintBlockingMode` + `ConstraintBlockingPolicy` ;
-- `ConstraintEvaluationState` + `ConstraintEvaluation` ;
-- extension compatible de `Constraint` ;
-- invariants evidence/policy.
+- ✅ `ConstraintApplicability` ;
+- ✅ `ConstraintSeverity` ;
+- ✅ `ConstraintSatisfaction` ;
+- ✅ `ConstraintBlockingMode` + `ConstraintBlockingPolicy` ;
+- ✅ `ConstraintEvaluationState` + `ConstraintEvaluation` ;
+- ✅ extension rétrocompatible de `Constraint` ;
+- ✅ contraintes legacy => sémantique `UNKNOWN` ;
+- ✅ supporting evidence obligatoire pour `SATISFIED` / `VIOLATED` ;
+- ✅ `warning != blocker`, `UNKNOWN != BLOCKED` couverts par tests.
 
-### M16-S2 — Normalisation et persistance
+### M16-S2 — Normalisation et persistance ✅ CODED
 
-- contraintes historiques/OpenSpec => sémantique `UNKNOWN`, jamais inférée ;
-- Synthetic provider => contraintes M16 explicites ;
-- validation des supporting evidence ;
-- SQLite V010 ;
-- Memory == SQLite ;
-- close/reopen identique.
+- ✅ contraintes historiques/OpenSpec => sémantique `UNKNOWN`, jamais inférée ;
+- ✅ Synthetic provider => contraintes M16 explicites ;
+- ✅ fixture : CRITICAL violée réellement bloquante + WARNING violée non bloquante ;
+- ✅ supporting evidence explicite et validée ;
+- ✅ SQLite V010 : colonnes sémantiques + lifecycle targets + evidence ;
+- ✅ contrat Memory == SQLite écrit ;
+- ✅ contrat SQLite close/reopen écrit.
 
-### M16-S3 — Evaluation déterministe
+### M16-S3 — Evaluation déterministe ✅ CODED
 
-- service provider-neutral ;
-- target lifecycle explicite ;
-- `warning != blocker` ;
-- `UNKNOWN != BLOCKED` ;
-- raisons et evidence exposées.
+- ✅ `ConstraintPolicyEvaluationService` provider-neutral ;
+- ✅ target lifecycle explicite ;
+- ✅ `NOT_APPLICABLE`, `NON_BLOCKING`, `BLOCKING`, `UNKNOWN` ;
+- ✅ aucune heuristique texte/sévérité ;
+- ✅ raison, source evidence et supporting evidence exposées ;
+- ✅ `ConstraintEvaluationQueryService` snapshot-scoped et paginé.
 
-### M16-S4 — Orchestration
+### M16-S4 — Orchestration ✅ CODED
 
-- `applicableConstraints` enrichies ;
-- `blockingConstraints` réellement évaluées ;
-- statut `AVAILABLE`, `PARTIALLY_AVAILABLE` ou `UNKNOWN` selon les faits ;
-- chaque blocker expose sa raison/provenance ;
-- aucune mutation.
+- ✅ `applicableConstraints` expose applicabilité/sévérité/satisfaction/policy/evidence ;
+- ✅ `blockingConstraints` n'utilise plus `UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED` ;
+- ✅ statut `AVAILABLE`, `PARTIALLY_AVAILABLE` ou `UNKNOWN` selon les faits ;
+- ✅ unknown n'est jamais compté comme blocker ;
+- ✅ chaque `ChangeTransitionEvaluation` transporte les `constraintEvaluations` ;
+- ✅ aucune mutation/persistance d'état d'orchestration.
 
-### M16-S5 — Lifecycle
+### M16-S5 — Lifecycle ✅ CODED
 
-- les règles M3 sont évaluées en premier ;
-- un blocker de contrainte explicite peut bloquer une transition autrement autorisée ;
-- une contrainte `UNKNOWN` ne bloque jamais ;
-- l'indisponibilité reste distincte de `ALLOWED`.
+- ✅ machine lifecycle M3 conservée comme règle structurelle ;
+- ✅ politique M16 évaluée après les faits/règles lifecycle ;
+- ✅ blocker explicite => `BLOCKING_CONSTRAINT` + `BLOCKED` ;
+- ✅ policy/satisfaction inconnue => `UNKNOWN`, jamais `BLOCKED` ni `ALLOWED` ;
+- ✅ `REQUIRES_INPUT` structurel conservé ;
+- ✅ `knownBlocker` dérivé uniquement d'une politique explicite pour la cible pertinente.
 
-### M16-S6 — Surfaces
+### M16-S6 — Surfaces ✅ CODED
 
-- query/application view ;
-- CLI `constraints evaluate` ;
-- MCP lecture/évaluation sans mutation ;
-- HTTP GET constraint evaluations ;
-- OpenAPI mis à jour ;
-- contrat JARVIS enrichi sans changer la frontière.
+- ✅ query/application : `ConstraintEvaluationQueryService` ;
+- ✅ CLI : `constraints evaluate --project ID --change ID --target STATE` ;
+- ✅ MCP : catalogue read-only inchangé ; `get_change_orchestration_state` + `evaluate_change_transition` transportent la sémantique M16 ;
+- ✅ transport MCP STDIO M16 couvert par test dédié ;
+- ✅ HTTP : routes existantes `/orchestration` + `/transition-check` enrichies, sans endpoint redondant ;
+- ✅ contrat HTTP positif couvert avec fixture M16 explicite ;
+- ✅ OpenAPI **1.5.0** documente les enums/policy/evaluations M16 ;
+- ✅ contrat JARVIS enrichi sans changer la frontière MORPHEUS/JARVIS.
 
-### M16-S7 — Gate
+### M16-S7 — Gate 🚧
 
-- tests domaine/application/providers/store ;
-- architecture ;
-- reactor complet ;
-- packaging Windows + smokes ;
-- `VALIDATION_M16.md` ;
-- ADR-0082 acceptée seulement après preuve ;
-- PR Ready seulement après gate.
+- ✅ tests domaine/application/providers/store écrits ;
+- ✅ tests architecture Memory/SQLite/reopen écrits ;
+- ✅ tests CLI/API/MCP transport écrits ;
+- ✅ `validate-m16.cmd` + `scripts/validate-m16.ps1` ajoutés ;
+- ⏳ reactor Maven complet réel ;
+- ⏳ corrections de tout échec réel ;
+- ⏳ packaging Windows + smokes ;
+- ⏳ `VALIDATION_M16.md` avec SHA/compteurs exacts ;
+- ⏳ ADR-0082 acceptée seulement après preuve ;
+- ⏳ PR #79 Ready seulement après gate.
 
 ## 6. Gate M16
 
 ```text
-blockingConstraints.status != UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED
-transition decisions explain every blocking constraint
-UNAVAILABLE remains distinct from false / allowed
-no provider-specific policy type leaks into domain
-Memory == SQLite
-SQLite close/reopen identical
-CLI/MCP/HTTP coherent
-full Maven reactor PASS
-Windows packaging PASS
+blockingConstraints.status != UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED     CODED
+transition decisions explain every blocking constraint                      CODED
+UNAVAILABLE remains distinct from false / allowed                           CODED
+no provider-specific policy type leaks into domain                          CODED
+Memory == SQLite                                                            TEST WRITTEN
+SQLite close/reopen identical                                               TEST WRITTEN
+CLI/MCP/HTTP coherent                                                       TESTS WRITTEN
+full Maven reactor PASS                                                     NOT RUN
+Windows packaging PASS                                                      NOT RUN
 ```
 
-## 7. Gouvernance
+## 7. Validation
+
+Aucun PASS final n'est revendiqué avant exécution réelle du Maven Wrapper et du packaging Windows sur le head courant.
+
+```text
+PR #79    reste Draft
+ADR-0082  reste Proposée
+M16       reste EN COURS
+```
+
+## 8. Gouvernance
 
 La branche/PR M16 reste isolée de `main` jusqu'au gate complet. Aucun merge sans autorisation explicite distincte.
