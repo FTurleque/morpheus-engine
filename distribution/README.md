@@ -20,6 +20,9 @@ CLI MORPHEUS
 serveur MCP
 API HTTP
 services applicatifs
+provider OpenSpec
+provider Structured Markdown
+persistance SQLite V012
 adapters MINOS/NEXUS optionnels
 Jackson
 SQLite JDBC
@@ -37,44 +40,48 @@ com/jarvis/*
 
 ## Windows
 
-Prérequis de build : JDK 21 avec `jpackage`.
+Prérequis de build : JDK 21+ avec `jpackage`.
 
 ```powershell
-$env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
 .\distribution\build-portable.ps1
 ```
 
-Le script :
+Le script M18 :
 
-1. construit et teste MORPHEUS ;
+1. construit MORPHEUS ;
 2. vérifie le contenu de l'uber-JAR ;
-3. produit un `jpackage --type app-image` ;
-4. smoke-teste le launcher ;
-5. vérifie MINOS/NEXUS désactivés sans configuration ;
-6. vérifie `change-orchestration` ;
-7. smoke-teste l'API packagée ;
-8. crée le ZIP portable.
+3. vérifie les classes MCP/API/M14→M18 ;
+4. vérifie le provider Structured Markdown et SQLite V012 ;
+5. produit un `jpackage --type app-image` ;
+6. smoke-teste le launcher et les intégrations optionnelles désactivées ;
+7. smoke-teste les surfaces M14/M17/M18 ;
+8. smoke-teste l'API packagée ;
+9. crée le ZIP portable.
 
-Workdir courant : `dist/.m14-windows`.
-
-Preuve M14 obtenue :
+Workdir M18 :
 
 ```text
-MCP/API/MINOS/NEXUS/M14 orchestration packaging proof: PASS
-MORPHEUS 0.1.0-SNAPSHOT
-MINOS status -> DISABLED sans configuration
-NEXUS status -> DISABLED sans configuration
-Packaged standalone optional-engines + M14 orchestration smoke: PASS
+dist/.m18-windows
+```
+
+Preuve M18 réelle :
+
+```text
+MCP/API/MINOS/NEXUS/M14-M18 classes + provider Markdown + V012 embedded: PASS
+Packaged standalone optional-engines + M14 read-only + M17 controlled-write + M18 composition smoke: PASS
 Packaged API health smoke: PASS
 Portable archive creation: PASS
 ```
 
-Archive M14 validée :
+Archive validée :
 
 ```text
 dist/morpheus-0.1.0-windows-x64.zip
-33,702,405 bytes
+33,919,431 bytes
 ```
+
+Code réellement gated : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
+Merge M18 ultérieur : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
 
 ### Installateur Windows optionnel
 
@@ -82,12 +89,12 @@ dist/morpheus-0.1.0-windows-x64.zip
 .\distribution\build-windows-installer.ps1
 ```
 
-Il réutilise l'app-image construite par le packaging portable. Les prérequis éventuels d'un installateur natif restent distincts de l'archive ZIP portable.
+L'installateur et le chantier de release/installation PROD complet restent dans la cible M20. Le ZIP portable reste l'artefact validé actuel.
 
 ## Linux
 
 ```bash
-export JAVA_HOME=/path/to/jdk-21
+export JAVA_HOME=/path/to/jdk
 chmod +x mvnw distribution/build-portable.sh
 ./distribution/build-portable.sh
 ```
@@ -99,6 +106,8 @@ dist/morpheus-<version>-linux-x64.tar.gz
 ```
 
 Le script vérifie les classes attendues, `jdk.httpserver`, le launcher et l'absence d'implémentations MINOS/NEXUS/JARVIS embarquées.
+
+**La preuve Windows M18 ne constitue pas une preuve Linux M18.** Les validations M19 devront enregistrer séparément la plateforme réellement exécutée.
 
 ## Configuration runtime
 
@@ -158,6 +167,10 @@ M11 314/314 Windows + packaged API health
 M12 331/331 Windows + MINOS optional packaging
 M13 346/346 Windows + MINOS/NEXUS optional packaging
 M14 357/357 Windows + Architecture 160/160 + orchestration packaging PASS
+M15 371/371 Windows + Architecture 157/157 + packaging/smokes PASS
+M16 393/393 Windows + Architecture 161/161 + packaging/smokes PASS
+M17 410/410 Windows + Architecture 167/167 + controlled-write packaging/smokes PASS
+M18 418/418 Windows + Architecture 170/170 + composition packaging/smokes/API health PASS
 ```
 
 ## Documentation
@@ -166,4 +179,4 @@ M14 357/357 Windows + Architecture 160/160 + orchestration packaging PASS
 - [Configuration des intégrations](../docs/user/INTEGRATIONS.md)
 - [Build et tests développeur](../docs/developer/BUILD_AND_TEST.md)
 - [Architecture](../docs/developer/ARCHITECTURE.md)
-- [Validation M14](../docs/validation/VALIDATION_M14.md)
+- [Validation M18](../docs/validation/VALIDATION_M18.md)
