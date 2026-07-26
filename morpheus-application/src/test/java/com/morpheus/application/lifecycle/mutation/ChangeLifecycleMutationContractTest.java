@@ -108,4 +108,44 @@ class ChangeLifecycleMutationContractTest {
                 "invalid",
                 T0));
     }
+
+    @Test
+    void appliedAbandonmentPersistenceRequiresExplicitReason() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        ChangeId changeId = ChangeId.generate();
+        ChangeLifecycleMutationId mutationId = ChangeLifecycleMutationId.generate();
+        ChangeLifecycleIdempotencyKey key = new ChangeLifecycleIdempotencyKey("abandoned-missing-reason");
+        ProviderId providerId = new ProviderId("fixture");
+
+        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationAttempt(
+                mutationId,
+                key,
+                "fingerprint",
+                projectId,
+                changeId,
+                ChangeLifecycleState.DRAFT,
+                ChangeLifecycleState.ABANDONED,
+                Optional.empty(),
+                ChangeLifecycleRevision.initial(),
+                "test",
+                providerId,
+                "allowed",
+                T0));
+
+        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationAuditRecord(
+                mutationId,
+                key,
+                "fingerprint",
+                projectId,
+                changeId,
+                ChangeLifecycleState.DRAFT,
+                ChangeLifecycleState.ABANDONED,
+                Optional.empty(),
+                ChangeLifecycleRevision.initial(),
+                new ChangeLifecycleRevision(1),
+                "test",
+                providerId,
+                "allowed",
+                T0));
+    }
 }
