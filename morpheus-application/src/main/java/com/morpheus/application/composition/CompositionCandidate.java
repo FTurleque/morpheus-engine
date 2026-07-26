@@ -4,7 +4,7 @@ import com.morpheus.domain.provider.ProviderId;
 
 import java.util.Objects;
 
-/** JSON-safe provider observation retained in a composition conflict. */
+/** JSON-safe provider observation retained in a composition conflict. Empty value is a valid observed absence. */
 public record CompositionCandidate(
         ProviderId providerId,
         int priority,
@@ -14,7 +14,7 @@ public record CompositionCandidate(
 
     public CompositionCandidate {
         Objects.requireNonNull(providerId, "providerId");
-        value = requireNonBlank(value, "value");
+        value = Objects.requireNonNull(value, "value");
         source = requireNonBlank(source, "source");
         evidenceId = requireNonBlank(evidenceId, "evidenceId");
     }
