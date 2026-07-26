@@ -116,6 +116,15 @@ public final class MemorySpecificationKnowledgeStore
     }
 
     @Override
+    public synchronized List<KnowledgeSnapshotMetadata> listSnapshots(ProjectSpecificationId projectId) {
+        return snapshots.values().stream()
+                .filter(snapshot -> snapshot.projectId().equals(projectId))
+                .sorted(java.util.Comparator.comparing(KnowledgeSnapshotMetadata::createdAt)
+                        .thenComparing(KnowledgeSnapshotMetadata::id))
+                .toList();
+    }
+
+    @Override
     public synchronized Optional<KnowledgeSnapshotMetadata> activeSnapshot(ProjectSpecificationId projectId) {
         return snapshots.values().stream()
                 .filter(snapshot -> snapshot.projectId().equals(projectId))
