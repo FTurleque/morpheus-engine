@@ -1,10 +1,11 @@
 # M18 — Real Providers & Multi-Provider Composition
 
-Statut : **🚧 EN COURS — PR Draft**
+Statut : **🚧 S1→S6 CODÉS — S7 GATE FINAL À EXÉCUTER**
 
 Dernière mise à jour : 26 juillet 2026
 
 Issue : **#85**  
+PR : **#86 — Draft**  
 Branche : `m18/multi-provider-composition`
 
 ## 1. Question de sortie
@@ -37,7 +38,7 @@ composition must be deterministic and explainable
 provider-specific types never leak into domain/application contracts
 ```
 
-## 4. Architecture cible
+## 4. Architecture réalisée
 
 ```text
 OpenSpec provider            Structured Markdown provider
@@ -61,68 +62,87 @@ La composition intervient après la normalisation provider et avant la publicati
 
 ## 5. Slices
 
-### M18-S1 — Domaine / contrats
+### M18-S1 — Domaine / contrats ✅ CODED
 
-- [ ] `ProviderContribution` canonique et provider-neutral ;
-- [ ] provenance d'observation explicite ;
-- [ ] priorité source explicite ;
-- [ ] `CompositionConflict` + type/champ/candidats/résolution ;
-- [ ] diagnostics et résultat de composition déterministes.
+- [x] `ProviderContribution` canonique et provider-neutral ;
+- [x] provenance d'observation explicite ;
+- [x] priorité source explicite ;
+- [x] `CompositionConflict` + type/champ/candidats/résolution ;
+- [x] diagnostics et résultat de composition déterministes.
 
-### M18-S2 — Deuxième provider réel
+### M18-S2 — Deuxième provider réel ✅ CODED
 
-- [ ] module `morpheus-provider-markdown` ;
-- [ ] discovery/probe d'un workspace Markdown structuré ;
-- [ ] lecture réelle de requirements, changes, constraints, decisions, tasks et acceptance criteria ;
-- [ ] provenance exacte fichier/section ;
-- [ ] diagnostics d'entrée invalides/partiels ;
-- [ ] aucun type Markdown hors adapter.
+- [x] module `morpheus-provider-markdown` ;
+- [x] discovery/probe d'un workspace Markdown structuré ;
+- [x] lecture réelle de requirements, changes, constraints, decisions, tasks et acceptance criteria ;
+- [x] provenance exacte fichier/plage de lignes + hash ;
+- [x] diagnostics d'entrée invalides/partiels ;
+- [x] aucun type Markdown hors adapter.
 
-### M18-S3 — Composition multi-provider
+### M18-S3 — Composition multi-provider ✅ CODED
 
-- [ ] sélection explicite de plusieurs providers compatibles ;
-- [ ] ordre de priorité stable ;
-- [ ] rapprochement par clé logique provider-neutral ;
-- [ ] agrégation sans last-write-wins silencieux ;
-- [ ] absence d'un provider optionnel non fatale.
+- [x] sélection explicite de plusieurs providers compatibles ;
+- [x] ordre de priorité stable ;
+- [x] rapprochement par clé logique provider-neutral ;
+- [x] agrégation sans last-write-wins silencieux ;
+- [x] absence d'un provider optionnel non fatale ;
+- [x] absence d'un provider requis échoue explicitement.
 
-### M18-S4 — Identité / conflits
+### M18-S4 — Identité / conflits ✅ CODED
 
-- [ ] continuité d'identité explicable ;
-- [ ] conflit de contenu explicite ;
-- [ ] conflit de type/ownership explicite ;
-- [ ] ambiguïté conservée et requêtable ;
-- [ ] provenance de chaque candidat conservée.
+- [x] identités provider-scoped conservées ;
+- [x] continuité/rapprochement uniquement par clé logique explicite ;
+- [x] conflit de contenu explicite ;
+- [x] conflit d'ownership explicite ;
+- [x] conflit de type/identité explicite ;
+- [x] absence vs valeur présente représentable comme conflit ;
+- [x] ambiguïté conservée et requêtable ;
+- [x] provenance de chaque candidat conservée.
 
-### M18-S5 — Persistance
+### M18-S5 — Persistance ✅ CODED
 
-- [ ] store Memory ;
-- [ ] SQLite V012 ;
-- [ ] reopen exact ;
-- [ ] provenance/priorité/conflits persistés ;
-- [ ] état de composition snapshot-scoped.
+- [x] store Memory ;
+- [x] SQLite V012 ;
+- [x] reopen exact ;
+- [x] provenance/priorité/conflits persistés ;
+- [x] état de composition snapshot-scoped ;
+- [x] transaction SQLite restaure son mode auto-commit même en erreur.
 
-### M18-S6 — Surfaces
+### M18-S6 — Surfaces ✅ CODED
 
-- [ ] CLI composition status/conflicts ;
-- [ ] MCP read-only composition tools ;
-- [ ] HTTP composition endpoints ;
-- [ ] OpenAPI 1.7.0 ;
-- [ ] packaging du provider Markdown et de V012.
+- [x] CLI `composition sync/status/conflicts` ;
+- [x] MCP read-only `get_composition_status` / `list_composition_conflicts` ;
+- [x] HTTP `GET /projects/{projectId}/composition` ;
+- [x] HTTP `GET /projects/{projectId}/composition/conflicts` ;
+- [x] OpenAPI 1.7.0 ;
+- [x] packaging du provider Markdown, des surfaces M18 et de V012 ;
+- [x] `validate-m18.cmd` + diagnostic automatique du premier échec.
 
-### M18-S7 — Gate
+### M18-S7 — Gate ⏳ À EXÉCUTER SUR LE HEAD FINAL
 
 - [ ] deux providers réels validés ;
 - [ ] même projet multi-provider ;
-- [ ] conflits explicites/requêtables ;
+- [ ] conflits contenu/ownership/type explicites et requêtables ;
 - [ ] Memory == SQLite ;
 - [ ] SQLite close/reopen ;
 - [ ] reactor Maven complet ;
 - [ ] packaging Windows + smokes ;
 - [ ] `VALIDATION_M18.md` ;
-- [ ] ADR M18 acceptées après preuve.
+- [ ] ADR-0084 acceptée après preuve.
 
-## 6. Gate M18
+## 6. Pré-gate déjà obtenu
+
+Un premier `mvnw.cmd clean test` Windows sur le SHA `da7b3e0723351a2692cc9996e0bbbe41b3ec05ed` a produit :
+
+```text
+14/14 modules SUCCESS
+Architecture 169/169 PASS
+BUILD SUCCESS
+```
+
+Ce run est **pré-gate uniquement** : il a été supersédé par les commits S6 MCP/HTTP/OpenAPI/packaging et le hardening S4. Il ne peut pas autoriser la fusion du head final.
+
+## 7. Gate M18 final
 
 ```text
 at least two real providers validated                          PENDING
@@ -134,4 +154,6 @@ full Maven reactor PASS                                        PENDING
 Windows packaging + smokes PASS                                PENDING
 ```
 
-Aucun PASS n'est revendiqué avant exécution réelle du gate sur le head final de code.
+Commande canonique : `validate-m18.cmd`.
+
+Aucun PASS final n'est revendiqué avant exécution réelle du gate sur le head final de code. La PR #86 reste Draft jusque-là.
