@@ -15,6 +15,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  runner-smoke:
+    name: Runner — basic shell smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify hosted runner execution
+        run: |
+          echo "runner=$RUNNER_OS"
+          uname -a
+
   linux-tests:
     name: Linux — Maven clean test
     runs-on: ubuntu-latest
