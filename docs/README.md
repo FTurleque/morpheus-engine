@@ -2,7 +2,7 @@
 
 Cette page est le point d’entrée de la documentation active de MORPHEUS.
 
-MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, publie des snapshots versionnés, expose des requêtes et de la traçabilité, produit des diagnostics qualité, analyse les changements, applique des mutations lifecycle explicitement contrôlées et fournit des contrats d’intégration optionnels pour MINOS, NEXUS et JARVIS.
+MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose plusieurs providers réels de façon déterministe et explicable, publie des snapshots versionnés, expose des requêtes et de la traçabilité, produit des diagnostics qualité, analyse les changements, applique des mutations lifecycle explicitement contrôlées et fournit des contrats d’intégration optionnels pour MINOS, NEXUS et JARVIS.
 
 La documentation utilisateur et développeur contient des diagrammes Mermaid de type **UML class**, **state**, **sequence** et des vues de composants pour expliciter les workflows et les frontières d’architecture directement dans GitHub.
 
@@ -58,7 +58,8 @@ Baseline technique actuelle : Java 21, Maven Wrapper 3.9.16, SQLite, Java MCP SD
 ```mermaid
 flowchart LR
     SRC[Sources / workspaces] --> P[Providers]
-    P --> M[MORPHEUS domain/application]
+    P --> C[ProviderContribution]
+    C --> M[Composition provider-neutral MORPHEUS]
     M --> S[(Snapshots / SQLite)]
     S --> Q[Query / Traceability / Quality / Analysis]
     Q --> CLI[CLI]
@@ -86,10 +87,10 @@ Ces documents de cadrage expliquent l’intention fondatrice. Les contrats et é
 - [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global courant des jalons et synthèse post-M14 ;
 - [`roadmap/README.md`](roadmap/README.md) — index des plans historiques et actifs ;
 - [`roadmap/POST_M14_EXECUTION.md`](roadmap/POST_M14_EXECUTION.md) — roadmap détaillée D0 + M15→M20 ;
-- [`roadmap/M17_EXECUTION.md`](roadmap/M17_EXECUTION.md) — dernier jalon intégré ;
+- [`roadmap/M18_EXECUTION.md`](roadmap/M18_EXECUTION.md) — dernier jalon intégré ;
 - [`governance/PLAN.md`](governance/PLAN.md) — plan de cadrage C0/M0 historique ;
 - [`governance/AUDIT_COHERENCE_C0.md`](governance/AUDIT_COHERENCE_C0.md) — audit C0 ;
-- [`validation/`](validation/) — preuves de validation C0 et M0 à M17 ;
+- [`validation/`](validation/) — preuves de validation C0 et M0 à M18 ;
 - [`adr/`](adr/) — Architecture Decision Records.
 
 ## Références machine
@@ -106,24 +107,26 @@ D0             ✅ validé / intégré
 M15            ✅ validé / intégré — 371/371
 M16            ✅ validé / intégré — 393/393
 M17            ✅ validé / intégré — 410/410
-Architecture   ✅ 167/167 PASS au gate M17
-Packaging Win  ✅ PASS au gate M17
+M18            ✅ validé / intégré — PR #86 — 418/418
+Architecture   ✅ 170/170 PASS au gate M18
+Packaging Win  ✅ PASS au gate M18
+Code M18       ✅ 7e8caacff567f51354fcb88bd7505a6d135071c0
+Merge M18      ✅ 30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
 
-M18            ⏭ real providers / multi-provider — prochain
-M19            ⏳ production hardening / scale
+M19            ⏭ production hardening / scale / operability — prochain
 M20            ⏳ release engineering / installation PROD / 1.0
 ```
 
 Frontière actuelle :
 
 ```text
-MORPHEUS = specification facts + lifecycle rules + controlled state invariants
+MORPHEUS = specification facts + intent + lifecycle rules + controlled state invariants + provider composition facts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = sequencing + orchestration + action choice
 ```
 
-M17 ajoute une écriture lifecycle explicite sans modifier cette frontière : `ALLOWED != applied`, `READ_CHANGES != WRITE_CHANGE`, CAS/idempotency/audit sont obligatoires.
+M17 ajoute une écriture lifecycle explicite sans modifier cette frontière : `ALLOWED != applied`, `READ_CHANGES != WRITE_CHANGE`, CAS/idempotency/audit sont obligatoires. M18 ajoute la composition multi-provider sans confondre priorité, provenance et identité : `provider identifier != DomainIdentity`, `precedence != provenance erasure`, `conflict != silent last-write-wins`.
 
 La cible M20 aligne l’installation Windows sur le standard produit retenu pour MINOS : setup par utilisateur sous `%LOCALAPPDATA%\Programs\MORPHEUS`, données séparées sous `%LOCALAPPDATA%\MORPHEUS`, PATH optionnel, checksums et GitHub Releases. Le ZIP portable reste supporté pour l’automatisation et le diagnostic.
 
