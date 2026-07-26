@@ -29,8 +29,8 @@ class MorpheusJarvisOrchestrationCliTest {
         assertTrue(unavailable.stdout().contains("\"source\":\"UNAVAILABLE\""), unavailable.stdout());
         assertTrue(unavailable.stdout().contains("\"state\":null"), unavailable.stdout());
         assertTrue(unavailable.stdout().contains("\"nextAllowedTransitions\":[]"), unavailable.stdout());
-        assertTrue(unavailable.stdout().contains("\"blockingConstraints\":{\"observedCount\":0"), unavailable.stdout());
-        assertTrue(unavailable.stdout().contains("\"status\":\"UNKNOWN\""), unavailable.stdout());
+        assertTrue(unavailable.stdout().contains("\"blockingConstraints\":{\"status\":\"UNKNOWN\""), unavailable.stdout());
+        assertTrue(unavailable.stdout().contains("\"observedCount\":0"), unavailable.stdout());
         assertTrue(unavailable.stdout().contains("blockingConstraints"), unavailable.stdout());
         assertTrue(unavailable.stdout().contains("\"persisted\":false"), unavailable.stdout());
 
