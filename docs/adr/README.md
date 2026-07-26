@@ -97,6 +97,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0079](0079-nondestructive-change-orchestration-state.md) | État d'orchestration agrégé non destructif | **Acceptée — M14** |
 | [ADR-0080](0080-jarvis-orchestration-surfaces-and-optional-client.md) | Surfaces M14 et client JARVIS optionnel | **Acceptée — M14** |
 | [ADR-0081](0081-first-class-acceptance-verification-evidence.md) | `AcceptanceCriterion`, `VerificationStatus` et preuves de vérification first-class | **Acceptée — M15** |
+| [ADR-0082](0082-explicit-constraint-semantics-and-blocking-policy.md) | Sémantique explicite des contraintes et politique de blocage | **Acceptée — M16** |
 
 # Preuves par jalon
 
@@ -115,6 +116,7 @@ M12 331/331 PASS Windows | Architecture 153/153 | MINOS optional packaging
 M13 346/346 PASS Windows | Architecture 154/154 | MINOS/NEXUS optional packaging
 M14 357/357 PASS Windows | Architecture 160/160 | JARVIS orchestration packaging | JARVIS 536 tests BUILD SUCCESS
 M15 371/371 PASS Windows | Architecture 157/157 | acceptance CLI/MCP/HTTP | packaging + smokes PASS
+M16 393/393 PASS Windows | Architecture 161/161 | constraint policy CLI/MCP/HTTP | packaging + smokes PASS
 ```
 
 ## M12
@@ -144,9 +146,9 @@ Validation : [`../validation/VALIDATION_M13.md`](../validation/VALIDATION_M13.md
 | Incrément | ADR | Preuve |
 |---|---|---|
 | frontière MORPHEUS/JARVIS | ADR-0077 | `LayerDependencyTest`, client JARVIS sans `com.morpheus.*`, HTTP JSON local |
-| lifecycle explicite / tri-state | ADR-0078 | `JarvisOrchestrationContractTest 5/5`, API/CLI transition-check |
-| agrégation UC-16 non destructive | ADR-0079 | missing vs unavailable, unresolved links, `persisted=false`, API `2/2` |
-| surfaces + client optionnel | ADR-0080 | CLI `20/20`, API `9/9`, MCP subprocess M14, packaging PASS, JARVIS client `6/6` |
+| lifecycle explicite / tri-state | ADR-0078 | `JarvisOrchestrationContractTest`, API/CLI transition-check |
+| agrégation UC-16 non destructive | ADR-0079 | missing vs unavailable, unresolved links, `persisted=false` |
+| surfaces + client optionnel | ADR-0080 | CLI/API/MCP subprocess M14, packaging PASS, JARVIS client `6/6` |
 
 Gate cross-repo JARVIS : `536 tests`, `0 failure`, `0 error`, `BUILD SUCCESS`.
 
@@ -163,6 +165,19 @@ Validation : [`../validation/VALIDATION_M14.md`](../validation/VALIDATION_M14.md
 | gate final | ADR-0081 | `371/371`, Architecture `157/157`, packaging + smokes PASS |
 
 Validation : [`../validation/VALIDATION_M15.md`](../validation/VALIDATION_M15.md).
+
+## M16
+
+| Incrément | ADR | Preuve |
+|---|---|---|
+| sémantique canonique | ADR-0082 | `ConstraintSemanticsTest 8/8`, Domain `37/37` |
+| évaluation déterministe | ADR-0082 | `ConstraintPolicyEvaluationServiceTest 6/6`, `UNKNOWN != BLOCKED` |
+| persistance / reopen | ADR-0082 | `ConstraintSemanticsPersistenceContractTest 3/3`, SQLite `7/7` |
+| orchestration / lifecycle | ADR-0082 | `JarvisOrchestrationContractTest 6/6`, `BLOCKING_CONSTRAINT` explicable |
+| surfaces CLI/MCP/HTTP | ADR-0082 | CLI `25/25`, MCP `5/5`, API `10/10`, MCP STDIO M16 |
+| gate final | ADR-0082 | `393/393`, Architecture `161/161`, packaging + smokes PASS |
+
+Validation : [`../validation/VALIDATION_M16.md`](../validation/VALIDATION_M16.md).
 
 # Contraintes actives principales
 
@@ -208,7 +223,9 @@ UNKNOWN != FAILED
 absence de lien != lien inventé
 lifecycle non inféré depuis snapshot
 UNKNOWN lifecycle fact != FALSE
-blocking constraint non modélisée != blocker inventé
+constraint semantics UNKNOWN != blocker inventé
+warning != blocker
+severity != blocking policy
 code impact analysis = MINOS
 technical context ranking/compression = NEXUS
 orchestration sequencing = JARVIS
@@ -225,11 +242,11 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé** : M15.
+Dernier gate **validé** : M16.
 
 ```text
-TOTAL         371/371 PASS
-Architecture  157/157 PASS
+TOTAL         393/393 PASS
+Architecture  161/161 PASS
 Packaging     PASS
 ```
 
