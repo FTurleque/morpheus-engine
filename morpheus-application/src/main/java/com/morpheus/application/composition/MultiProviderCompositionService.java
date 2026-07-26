@@ -6,6 +6,7 @@ import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.specification.Specification;
+import com.morpheus.domain.specification.SpecificationId;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -110,16 +111,52 @@ public final class MultiProviderCompositionService {
 
     private List<CompositionConflict> detectConflicts(List<ProviderContribution> contributions) {
         Map<ObservationKey, List<Observation>> observations = new LinkedHashMap<>();
+        Map<ObservationKey, List<Observation>> identityObservations = new LinkedHashMap<>();
+
         for (ProviderContribution contribution : contributions) {
             NormalizedProjectContent content = contribution.content().orElseThrow();
-            content.specifications().forEach(item -> observeSpecification(observations, contribution, item));
-            content.requirements().forEach(item -> observeRequirement(observations, contribution, item));
-            content.changes().forEach(item -> observeChange(observations, contribution, item));
+            Map<SpecificationId, String> specificationKeys = new LinkedHashMap<>();
+            content.specifications().forEach(item -> specificationKeys.put(item.id(), item.key()));
+
+            content.specifications().forEach(item -> {
+                observeSpecification(observations, contribution, item);
+                observeIdentity(identityObservations, contribution, item.provenance(), item.key(), CompositionEntityType.SPECIFICATION);
+            });
+            content.requirements().forEach(item -> {
+                observeRequirement(
+                        observations,
+                        contribution,
+                        item,
+                        specificationKeys.getOrDefault(item.specificationId(), item.specificationId().toString()));
+                observeIdentity(
+                        identityObservations,
+                        contribution,
+                        item.provenance(),
+                        logicalKey(item.key(), item.provenance(), item.id().toString()),
+                        CompositionEntityType.REQUIREMENT);
+            });
+            content.changes().forEach(item -> {
+                observeChange(observations, contribution, item);
+                observeIdentity(
+                        identityObservations,
+                        contribution,
+                        item.provenance(),
+                        logicalKey(item.key(), item.provenance(), item.id().toString()),
+                        CompositionEntityType.CHANGE);
+            });
         }
 
-        return observations.entrySet().stream()
+        List<CompositionConflict> result = new ArrayList<>();
+        observations.entrySet().stream()
                 .filter(entry -> entry.getValue().stream().map(Observation::value).distinct().count() > 1)
                 .map(entry -> conflict(entry.getKey(), entry.getValue()))
+                .forEach(result::add);
+        identityObservations.entrySet().stream()
+                .filter(entry -> entry.getValue().stream().map(Observation::value).distinct().count() > 1)
+                .map(entry -> conflict(entry.getKey(), entry.getValue()))
+                .forEach(result::add);
+
+        return result.stream()
                 .sorted(Comparator.comparing((CompositionConflict item) -> item.entityType().name())
                         .thenComparing(CompositionConflict::logicalKey)
                         .thenComparing(CompositionConflict::field))
@@ -139,10 +176,12 @@ public final class MultiProviderCompositionService {
     private void observeRequirement(
             Map<ObservationKey, List<Observation>> target,
             ProviderContribution contribution,
-            Requirement item) {
+            Requirement item,
+            String ownerSpecificationKey) {
         String key = logicalKey(item.key(), item.provenance(), item.id().toString());
         add(target, contribution, item.provenance(), CompositionEntityType.REQUIREMENT, key, "title", item.title());
         add(target, contribution, item.provenance(), CompositionEntityType.REQUIREMENT, key, "statement", item.statement());
+        add(target, contribution, item.provenance(), CompositionEntityType.REQUIREMENT, key, "ownerSpecification", ownerSpecificationKey);
     }
 
     private void observeChange(
@@ -155,6 +194,22 @@ public final class MultiProviderCompositionService {
         add(target, contribution, item.provenance(), CompositionEntityType.CHANGE, key, "scope", String.join("\n", item.scope()));
         add(target, contribution, item.provenance(), CompositionEntityType.CHANGE, key, "outOfScope", String.join("\n", item.outOfScope()));
         add(target, contribution, item.provenance(), CompositionEntityType.CHANGE, key, "risks", String.join("\n", item.risks()));
+    }
+
+    private void observeIdentity(
+            Map<ObservationKey, List<Observation>> target,
+            ProviderContribution contribution,
+            Provenance provenance,
+            String logicalKey,
+            CompositionEntityType observedType) {
+        add(
+                target,
+                contribution,
+                provenance,
+                CompositionEntityType.IDENTITY,
+                logicalKey,
+                "entityType",
+                observedType.name());
     }
 
     private String logicalKey(Optional<String> explicitKey, Provenance provenance, String fallback) {
