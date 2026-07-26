@@ -1,8 +1,10 @@
 # Validation M18 — Real Providers & Multi-Provider Composition
 
-Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #86 prête à intégrer**
+Statut au moment du gate : **✅ VALIDÉ TECHNIQUEMENT — PR #86 prête à intégrer**
 
-Date : 26 juillet 2026
+État GitHub postérieur au gate : **✅ PR #86 MERGED / issue #85 CLOSED**
+
+Date du gate : 26 juillet 2026
 
 Issue : #85  
 PR : #86  
@@ -211,8 +213,20 @@ Le validateur met à jour la branche, contrôle la toolchain, exécute le reacto
 
 ADR-0084 — **Acceptée — M18** après preuve du présent gate.
 
-## Conclusion
+## Conclusion enregistrée au gate
 
 M18 est **VALIDÉ TECHNIQUEMENT** sur le head de code `7e8caacff567f51354fcb88bd7505a6d135071c0`.
 
-Les commits de clôture postérieurs à ce SHA sont documentaires uniquement et ne modifient ni runtime, ni tests, ni migration, ni build. La PR #86 peut être intégrée.
+Les commits de clôture postérieurs à ce SHA sont documentaires uniquement et ne modifient ni runtime, ni tests, ni migration, ni build. Au moment où cette preuve a été produite, la PR #86 pouvait être intégrée.
+
+## État post-merge — ajout de réconciliation
+
+Cette section a été ajoutée après le gate afin de distinguer explicitement la preuve historique de l'état GitHub ultérieur :
+
+```text
+PR #86        MERGED
+Issue #85     CLOSED / completed
+Merge commit  30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+```
+
+Le merge ne change ni le SHA effectivement testé (`7e8caacff567f51354fcb88bd7505a6d135071c0`) ni les résultats enregistrés ci-dessus. M18 est désormais **VALIDÉ / INTÉGRÉ** ; M19 est le jalon suivant.
