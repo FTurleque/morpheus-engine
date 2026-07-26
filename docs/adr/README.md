@@ -99,6 +99,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0081](0081-first-class-acceptance-verification-evidence.md) | `AcceptanceCriterion`, `VerificationStatus` et preuves de vérification first-class | **Acceptée — M15** |
 | [ADR-0082](0082-explicit-constraint-semantics-and-blocking-policy.md) | Sémantique explicite des contraintes et politique de blocage | **Acceptée — M16** |
 | [ADR-0083](0083-controlled-lifecycle-write-operations.md) | Mutations lifecycle contrôlées, CAS, idempotency et audit | **Acceptée — M17** |
+| [ADR-0084](0084-provider-neutral-multi-provider-composition.md) | Composition multi-provider provider-neutral, déterministe et explicable | **Acceptée — M18** |
 
 # Preuves par jalon
 
@@ -119,80 +120,24 @@ M14 357/357 PASS Windows | Architecture 160/160 | JARVIS orchestration packaging
 M15 371/371 PASS Windows | Architecture 157/157 | acceptance CLI/MCP/HTTP | packaging + smokes PASS
 M16 393/393 PASS Windows | Architecture 161/161 | constraint policy CLI/MCP/HTTP | packaging + smokes PASS
 M17 410/410 PASS Windows | Architecture 167/167 | controlled lifecycle write CLI/MCP/HTTP | packaging + smokes PASS
+M18 418/418 PASS Windows | Architecture 170/170 | real multi-provider composition | packaging + smokes + API health PASS
 ```
 
-## M12
+## M18
 
 | Incrément | ADR | Preuve |
 |---|---|---|
-| MCP cross-engine inter-processus | ADR-0069 | `MinosMcpTransportIntegrationTest 1/1`, MINOS Integration `8/8` |
-| `symbolKey` exact / revision | ADR-0070 | `MinosMcpExternalReferenceResolverTest 4/4` |
-| live non-mutating | ADR-0071 | `LiveExternalReferenceResolutionContractTest 2/2`, Memory + SQLite reopen |
-| config + CLI/MCP/API + packaging | ADR-0072 | surfaces MINOS + packaging/smokes PASS |
+| contribution/provenance provider-neutral | ADR-0084 | Domain/Application contracts + Architecture `170/170` |
+| Structured Markdown réel | ADR-0084 | provider Markdown `2/2`, packaging embedded |
+| composition déterministe | ADR-0084 | OpenSpec + Markdown, precedence stable, no silent LWW |
+| conflits / identité | ADR-0084 | contenu, ownership, type/identity, absence-vs-present |
+| persistance | ADR-0084 | Memory/SQLite V012 parity + reopen |
+| surfaces CLI/MCP/HTTP | ADR-0084 | CLI `29/29`, MCP `6/6`, API `12/12`, OpenAPI 1.7.0 |
+| gate final | ADR-0084 | `418/418`, Architecture `170/170`, packaging/smokes/API health PASS |
 
-Validation : [`../validation/VALIDATION_M12.md`](../validation/VALIDATION_M12.md).
-
-## M13
-
-| Incrément | ADR | Preuve |
-|---|---|---|
-| MCP NEXUS inter-processus | ADR-0073 | `NexusMcpTransportIntegrationTest 1/1`, NEXUS Integration `7/7` |
-| mapping projet explicite | ADR-0074 | `TechnicalContextOptionsTest 3/3`, provider/API pass-through |
-| intent / contexte technique séparés | ADR-0075 | API/MCP, `persisted=false` |
-| optionalité + surfaces + packaging | ADR-0076 | Architecture `154/154`, package/smokes PASS |
-
-Validation : [`../validation/VALIDATION_M13.md`](../validation/VALIDATION_M13.md).
-
-## M14
-
-| Incrément | ADR | Preuve |
-|---|---|---|
-| frontière MORPHEUS/JARVIS | ADR-0077 | `LayerDependencyTest`, client JARVIS sans `com.morpheus.*`, HTTP JSON local |
-| lifecycle explicite / tri-state | ADR-0078 | `JarvisOrchestrationContractTest`, API/CLI transition-check |
-| agrégation UC-16 non destructive | ADR-0079 | missing vs unavailable, unresolved links, `persisted=false` |
-| surfaces + client optionnel | ADR-0080 | CLI/API/MCP subprocess M14, packaging PASS, JARVIS client `6/6` |
-
-Gate cross-repo JARVIS : `536 tests`, `0 failure`, `0 error`, `BUILD SUCCESS`.
-
-Validation : [`../validation/VALIDATION_M14.md`](../validation/VALIDATION_M14.md).
-
-## M15
-
-| Incrément | ADR | Preuve |
-|---|---|---|
-| modèle acceptance/verificaton | ADR-0081 | `AcceptanceCriterionTest 8/8`, Domain `29/29` |
-| persistance / reopen | ADR-0081 | SQLite `7/7`, `SnapshotBusinessContentPersistenceTest 6/6` |
-| traçabilité / qualité | ADR-0081 | `AcceptanceTraceabilityDerivationTest 2/2`, contrats architecture PASS |
-| surfaces CLI/MCP/HTTP | ADR-0081 | CLI `22/22`, MCP `5/5`, API `9/9` |
-| gate final | ADR-0081 | `371/371`, Architecture `157/157`, packaging + smokes PASS |
-
-Validation : [`../validation/VALIDATION_M15.md`](../validation/VALIDATION_M15.md).
-
-## M16
-
-| Incrément | ADR | Preuve |
-|---|---|---|
-| sémantique canonique | ADR-0082 | `ConstraintSemanticsTest 8/8`, Domain `37/37` |
-| évaluation déterministe | ADR-0082 | `ConstraintPolicyEvaluationServiceTest 6/6`, `UNKNOWN != BLOCKED` |
-| persistance / reopen | ADR-0082 | `ConstraintSemanticsPersistenceContractTest 3/3`, SQLite `7/7` |
-| orchestration / lifecycle | ADR-0082 | `JarvisOrchestrationContractTest 6/6`, `BLOCKING_CONSTRAINT` explicable |
-| surfaces CLI/MCP/HTTP | ADR-0082 | CLI `25/25`, MCP `5/5`, API `10/10`, MCP STDIO M16 |
-| gate final | ADR-0082 | `393/393`, Architecture `161/161`, packaging + smokes PASS |
-
-Validation : [`../validation/VALIDATION_M16.md`](../validation/VALIDATION_M16.md).
-
-## M17
-
-| Incrément | ADR | Preuve |
-|---|---|---|
-| modèle mutation / révision / idempotency | ADR-0083 | Domain `40/40`, Application `104/104` |
-| CAS + persistance | ADR-0083 | Memory/SQLite contracts, SQLite V011, close/reopen PASS |
-| capability / confirmation | ADR-0083 | `WRITE_CHANGE` explicite, OpenSpec deny, Synthetic preuve positive |
-| idempotency / audit | ADR-0083 | retry `ALREADY_APPLIED`, stale writer `CONFLICT`, audit append-only |
-| surfaces CLI/MCP/HTTP | ADR-0083 | CLI `28/28`, MCP `5/5`, API `11/11`, MCP STDIO M17 |
-| gate final | ADR-0083 | `410/410`, Architecture `167/167`, packaging + smokes PASS |
-
-Validation : [`../validation/VALIDATION_M17.md`](../validation/VALIDATION_M17.md).
+Validation : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).  
+Code validé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
+Merge PR #86 : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
 
 # Contraintes actives principales
 
@@ -207,9 +152,10 @@ MORPHEUS -X-> com.jarvis.*
 JARVIS cross-repo -X-> com.morpheus.*
 CLI = composition root
 business rules = application/domain
+provider-specific types never leak into domain/application
 ```
 
-## Identité / temporalité
+## Identité / temporalité / composition
 
 ```text
 DomainIdentity != EntityVersionId
@@ -225,6 +171,11 @@ lifecycle unavailable != lifecycle inferred
 transition evaluation != lifecycle mutation
 published snapshot != operational lifecycle state
 stale revision != overwrite
+provider identifier != DomainIdentity
+source path != identity
+precedence != provenance erasure
+conflict != silent last-write-wins
+ambiguous continuity must be surfaced
 ```
 
 ## Qualité / analyse / mutation
@@ -237,9 +188,9 @@ AcceptanceCriterion != Test
 Test existence != VERIFIED
 Evidence != assertion
 UNKNOWN != FAILED
+UNKNOWN != BLOCKED
 absence de lien != lien inventé
 lifecycle non inféré depuis snapshot
-UNKNOWN lifecycle fact != FALSE
 constraint semantics UNKNOWN != blocker inventé
 warning != blocker
 severity != blocking policy
@@ -262,11 +213,11 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé** : M17.
+Dernier gate **validé** : M18.
 
 ```text
-TOTAL         410/410 PASS
-Architecture  167/167 PASS
+TOTAL         418/418 PASS
+Architecture  170/170 PASS
 Packaging     PASS
 ```
 
