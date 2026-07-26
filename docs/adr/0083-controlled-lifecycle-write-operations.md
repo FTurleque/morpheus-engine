@@ -1,6 +1,6 @@
 # ADR-0083 — Mutations lifecycle contrôlées, CAS, idempotency et audit
 
-- Statut : **Proposée — M17**
+- Statut : **Acceptée — M17**
 - Date : 26 juillet 2026
 - Dépend de : ADR-0008, ADR-0011, ADR-0032, ADR-0033, ADR-0050, ADR-0077, ADR-0078, ADR-0079, ADR-0082
 - Portée : M17 — Controlled Lifecycle & Write Operations
@@ -120,6 +120,8 @@ appliedAt
 
 L'audit survit au redémarrage SQLite.
 
+Une cible `ABANDONED` exige explicitement une `ChangeAbandonmentReason` dans la tentative persistée et dans l'audit.
+
 ### 10. Surfaces séparées
 
 Les surfaces de mutation sont distinctes des surfaces d'évaluation M14-M16. Les outils/handlers read-only historiques restent read-only.
@@ -141,21 +143,30 @@ Rejeté : `read capability != write capability`.
 ### Réessayer sans idempotency
 Rejeté : risque de double mutation / double audit.
 
-## Validation avant acceptation
+## Validation d'acceptation
 
-ADR-0083 ne passe en **Acceptée — M17** qu'après preuve :
+ADR-0083 est acceptée après preuve réelle sur Windows 10 du head de code :
 
 ```text
-ALLOWED evaluation alone does not mutate
-explicit WRITE_CHANGE capability required
-confirmation policy enforced
-stale expected revision rejected
-idempotent retry returns original result
-idempotency-key mismatch rejected
-Memory == SQLite
-SQLite close/reopen preserves lifecycle + audit
-read-only surfaces regressions PASS
-mutation MCP/API surfaces separated
-full Maven gate PASS
-Windows packaging + smokes PASS
+87d2c0238f90aeb17dab5fed04f1c83a1b548f15
 ```
+
+Gate :
+
+```text
+ALLOWED evaluation alone does not mutate                  PASS
+explicit WRITE_CHANGE capability required                 PASS
+confirmation policy enforced                              PASS
+stale expected revision rejected                          PASS
+idempotent retry returns original result                  PASS
+idempotency-key mismatch rejected                         PASS
+Memory == SQLite                                          PASS
+SQLite close/reopen preserves lifecycle + audit           PASS
+read-only surfaces regressions                            PASS
+mutation MCP/API surfaces separated                       PASS
+full Maven gate                                           410/410 PASS
+Architecture                                              167/167 PASS
+Windows packaging + smokes                                PASS
+```
+
+Preuve : [`../validation/VALIDATION_M17.md`](../validation/VALIDATION_M17.md).
