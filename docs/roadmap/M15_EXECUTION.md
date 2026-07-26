@@ -1,43 +1,43 @@
 # M15 — Acceptance Criteria, Verification & Evidence
 
-Statut : **🚧 EN COURS — S1→S5 codées, S6/S7 en consolidation ; gate Maven non exécuté**
+Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #77 prête à intégrer**
 
 Dernière mise à jour : 26 juillet 2026
 
 Issue : **#76**  
 Branche : `m15/acceptance-verification-evidence`  
-PR : **#77 — Draft**
+PR : **#77**
+
+Head de code validé : `9e6450a099157cfdfcd11cc29dfb986ef7701247`
+
+Preuve : [`../validation/VALIDATION_M15.md`](../validation/VALIDATION_M15.md)
 
 ## 1. Question de sortie
 
 > **MORPHEUS peut-il représenter explicitement ce qui doit être vérifié, l'état réel de cette vérification et les preuves associées, sans confondre scénario, test, critère d'acceptation et preuve ?**
+
+**Réponse : OUI.**
 
 ## 2. Baseline d'entrée
 
 ```text
 C0 → M14       ✅ validés et intégrés
 D0             ✅ intégré — PR #75
-main           ec75d3963422d6281f2904c5ebd547124db92ad6
+main entrée    ec75d3963422d6281f2904c5ebd547124db92ad6
 M14            357/357 PASS
 Architecture   160/160 PASS
 Packaging Win  PASS
 ```
 
-## 3. Constat de départ
+## 3. Résultat M15
 
-La baseline possédait déjà :
+M15 ferme l'ancien gap :
 
 ```text
-ReadCategory.ACCEPTANCE_CRITERIA
-ProviderCapability.READ_ACCEPTANCE_CRITERIA
-Evidence / EvidenceId
-Provenance
-SnapshotBusinessContent
-AcceptanceQualityService
 AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL
 ```
 
-M15 introduit maintenant sur la branche :
+avec un modèle réellement exploitable de bout en bout :
 
 ```text
 AcceptanceCriterion production type
@@ -48,7 +48,7 @@ acceptance criteria in SnapshotBusinessContent
 snapshot-scoped SQLite persistence V009
 traceability kinds ACCEPTANCE_CRITERION + EVIDENCE
 real acceptance verification coverage
-business query + MCP + HTTP surfaces
+business query + CLI + MCP + HTTP surfaces
 change-orchestration availability projection
 OpenAPI contract 1.4.0
 ```
@@ -69,7 +69,7 @@ provider-specific acceptance types never leak into domain
 
 Un `AcceptanceCriterion` peut être rattaché à un requirement, à un change, ou aux deux lorsque la source fournit explicitement ces deux relations. Au moins un rattachement métier est obligatoire.
 
-## 5. Modèle implémenté
+## 5. Modèle validé
 
 ```text
 AcceptanceCriterion
@@ -83,7 +83,7 @@ AcceptanceCriterion
 └── Provenance
 ```
 
-`Provenance.evidenceId` prouve l'origine du critère lui-même. `verificationEvidenceIds` prouve séparément l'état de vérification lorsqu'un état positif/négatif est affirmé.
+`Provenance.evidenceId` prouve l'origine du critère. `verificationEvidenceIds` prouve séparément l'état de vérification lorsqu'un état positif/négatif est affirmé.
 
 ### VerificationStatus
 
@@ -102,17 +102,9 @@ UNKNOWN / NOT_VERIFIED -> verificationEvidenceIds may be empty
 PARTIALLY_VERIFIED / VERIFIED / FAILED -> at least one verification evidence required
 ```
 
-## 6. Slices
+## 6. Slices livrées
 
-Légende :
-
-```text
-✅ codé sur la branche
-🟡 codé mais preuve Maven/gate encore requise
-⏳ restant
-```
-
-### M15-S1 — Domaine canonique 🟡
+### M15-S1 — Domaine canonique ✅
 
 - ✅ `AcceptanceCriterionId` MORPHEUS-owned ;
 - ✅ `VerificationStatus` ;
@@ -120,117 +112,122 @@ Légende :
 - ✅ rattachement requirement/change explicite ;
 - ✅ séparation provenance du critère / preuves de vérification ;
 - ✅ `TraceabilityEntityKind.ACCEPTANCE_CRITERION` et `EVIDENCE` ;
-- ✅ tests domaine des invariants écrits ;
-- ⏳ ADR-0081 reste **Proposée** jusqu'au gate réel.
+- ✅ invariants domaine testés ;
+- ✅ ADR-0081 acceptée après preuve.
 
-### M15-S2 — Normalisation et providers 🟡
+### M15-S2 — Normalisation et providers ✅
 
 - ✅ critères ajoutés à `NormalizedProjectContent` ;
-- ✅ IDs requirement/change/evidence vérifiés ;
+- ✅ IDs requirement/change/evidence validés ;
 - ✅ Synthetic provider étendu avec `acceptance_criteria` explicite ;
 - ✅ fixture avec `VERIFIED` + preuve et `NOT_VERIFIED` sans preuve ;
 - ✅ aucune conversion `Scenario -> AcceptanceCriterion` ;
 - ✅ OpenSpec reste honnêtement `UNSUPPORTED` tant que son format implémenté n'expose pas de structure acceptance explicite ;
 - ✅ `UNKNOWN`/`NOT_VERIFIED` ne fabriquent aucune preuve.
 
-### M15-S3 — Snapshot et persistance 🟡
+### M15-S3 — Snapshot et persistance ✅
 
 - ✅ critères ajoutés à `SnapshotBusinessContent` ;
-- ✅ Memory store compatible via projection immuable ;
+- ✅ Memory store compatible ;
 - ✅ migration SQLite `V009__snapshot_acceptance_criteria.sql` ;
-- ✅ tables critères + relation vers preuves de vérification ;
+- ✅ tables critères + relation vers preuves ;
 - ✅ lecture/écriture déterministe SQLite ;
-- ✅ tests Memory==SQLite et close/reopen écrits ;
-- ⏳ exécution réelle des tests requise.
+- ✅ Memory == SQLite ;
+- ✅ SQLite close/reopen préserve critères, statuts et preuves.
 
-### M15-S4 — Traçabilité 🟡
+### M15-S4 — Traçabilité ✅
 
 - ✅ `Requirement -> AcceptanceCriterion` via `VERIFIED_BY` lorsque le rattachement est explicite ;
 - ✅ `ChangeProposal -> AcceptanceCriterion` via `VERIFIED_BY` lorsque le rattachement est explicite ;
-- ✅ `AcceptanceCriterion -> Evidence` uniquement pour `verificationEvidenceIds` explicites ;
-- ✅ aucun lien de preuve fabriqué depuis le texte ou la provenance du critère ;
-- ✅ traversal existant reste générique pour les nouveaux kinds ;
-- ⏳ `AcceptanceCriterion -> ExternalReference(test)` reste à traiter lorsqu'un provider/source fournit une référence test explicite.
+- ✅ `AcceptanceCriterion -> Evidence` uniquement pour les preuves explicites ;
+- ✅ aucun lien fabriqué depuis le texte, un scénario ou la provenance du critère ;
+- ✅ traversal existant compatible avec les nouveaux kinds.
 
-### M15-S5 — Quality / coverage 🟡
+`AcceptanceCriterion -> ExternalReference(test)` reste volontairement absent tant qu'aucun provider/source ne fournit une référence test explicite. L'existence d'un test n'est jamais assimilée à `VERIFIED`.
+
+### M15-S5 — Quality / coverage ✅
 
 - ✅ `EVALUATED` / `NO_CRITERIA` distingués de l'ancien `UNAVAILABLE_IN_NORMALIZED_MODEL` ;
 - ✅ total criteria ;
 - ✅ verified / partially verified / failed / not verified / unknown ;
 - ✅ ratio `VERIFIED / total` ;
-- ✅ findings dédiés par état non pleinement vérifié ;
+- ✅ findings dédiés ;
 - ✅ `UNKNOWN != FAILED` ;
 - ✅ zéro critère = modèle disponible mais vide (`NO_CRITERIA`) ;
-- ✅ `ChangeCompletenessService.acceptanceCriteriaDefined` devient TRUE/FALSE observable ;
-- ⏳ tests d'agrégat M6 historiques actifs à finir d'aligner sur les nouveaux compteurs.
+- ✅ `ChangeCompletenessService.acceptanceCriteriaDefined` = TRUE/FALSE observable ;
+- ✅ contrats M6 historiques actifs migrés.
 
-### M15-S6 — Requêtes et surfaces 🚧
+### M15-S6 — Requêtes et surfaces ✅
 
 - ✅ `BusinessContentQueryService` : global / par change / par requirement ;
-- ✅ MCP `get_acceptance_criteria` utilise le modèle réel, tool count inchangé ;
-- ✅ HTTP route existante `/acceptance-criteria` utilise le modèle réel ;
+- ✅ CLI `acceptance-criteria list --project ID [--change ID | --requirement ID] [--offset N] [--limit N]` ;
+- ✅ JSON canonique CLI ;
+- ✅ MCP `get_acceptance_criteria` sur le modèle réel, tool count inchangé ;
+- ✅ HTTP `/acceptance-criteria` sur le modèle réel ;
 - ✅ OpenAPI **1.4.0** avec `AcceptanceCriterion` et `VerificationStatus` ;
-- ✅ tests MCP/API ancien `UNAVAILABLE` migrés vers page vide disponible ;
-- ✅ mapping JSON expose `verificationStatus`, `verificationEvidenceIds`, `sourceEvidenceId` ;
-- ⏳ CLI dédiée acceptance à ajouter sans réécriture risquée du gros routeur CLI ;
-- ⏳ docs utilisateur/développeur finales à aligner après stabilisation du gate ;
-- ⏳ confirmer JSON canonique par tests exécutés.
+- ✅ mapping expose `verificationStatus`, `verificationEvidenceIds`, `sourceEvidenceId`.
 
-### M15-S7 — Orchestration et gate final 🚧
+### M15-S7 — Orchestration et gate final ✅
 
 - ✅ `change-orchestration.acceptanceCriteria.status = AVAILABLE` ;
 - ✅ `observedCount` réel par change ;
 - ✅ absence de critère = fait observable FALSE / artefact manquant, pas `UNAVAILABLE` ;
 - ✅ aucune sémantique de blocker inventée : `blockingAcceptanceCriterion*` reste indisponible jusqu'à M16 ;
-- ✅ test JARVIS actif réécrit pour ne plus attendre l'ancien gap M14 ;
-- 🟡 Memory == SQLite : test écrit, non exécuté ;
-- 🟡 SQLite reopen : test écrit, non exécuté ;
-- ⏳ full Maven gate ;
-- ⏳ packaging Windows ;
-- ⏳ `VALIDATION_M15.md` ;
-- ⏳ mise à jour roadmap globale / ADR index après preuve ;
-- ⏳ ADR-0081 à accepter seulement après preuve reproductible.
+- ✅ Maven reactor complet ;
+- ✅ packaging Windows + smokes ;
+- ✅ `VALIDATION_M15.md` ;
+- ✅ ADR-0081 acceptée.
 
 ## 7. Gate M15
 
 ```text
-acceptanceCriteria.status != UNAVAILABLE_IN_NORMALIZED_MODEL     CODED
-critères persistés et requêtables                                CODED
-preuves de vérification traçables et explicables                 CODED
-aucune conversion Scenario -> AcceptanceCriterion implicite      CODED
-Test existence != VERIFIED                                       CODED
-UNKNOWN conservé lorsque les faits manquent                      CODED
-Memory == SQLite                                                 TEST WRITTEN / NOT RUN
-SQLite close/reopen identique                                    TEST WRITTEN / NOT RUN
-CLI/MCP/HTTP cohérents                                           MCP+HTTP CODED / CLI PENDING
-change-orchestration utilise le modèle réel                      CODED
-full Maven gate                                                  NOT RUN
-packaging Windows PASS                                           NOT RUN
+acceptanceCriteria.status != UNAVAILABLE_IN_NORMALIZED_MODEL     PASS
+critères persistés et requêtables                                PASS
+preuves de vérification traçables et explicables                 PASS
+aucune conversion Scenario -> AcceptanceCriterion implicite      PASS
+Test existence != VERIFIED                                       PASS
+UNKNOWN conservé lorsque les faits manquent                      PASS
+Memory == SQLite                                                 PASS
+SQLite close/reopen identique                                    PASS
+CLI/MCP/HTTP cohérents                                           PASS
+change-orchestration utilise le modèle réel                      PASS
+full Maven gate                                                  PASS
+packaging Windows                                                PASS
 ```
 
-## 8. État de validation
-
-Aucun workflow GitHub Actions n'est attaché au head de la PR #77. MORPHEUS conserve donc sa règle de preuve : **aucun PASS n'est revendiqué sans exécution réelle du Maven Wrapper / packaging**.
-
-En conséquence :
+## 8. Résultat de validation
 
 ```text
-PR #77    reste Draft
-ADR-0081  reste Proposée
-M15       reste EN COURS
-main      inchangé
+Domain               29/29 PASS
+Application          94/94 PASS
+OpenSpec              26/26 PASS
+Synthetic              7/7 PASS
+SQLite                 7/7 PASS
+MINOS Integration      8/8 PASS
+NEXUS Integration      7/7 PASS
+MCP                     5/5 PASS
+API                     9/9 PASS
+CLI                   22/22 PASS
+Architecture        157/157 PASS
+---------------------------------
+TOTAL               371/371 PASS
+Failures                  0
+Errors                    0
+Skipped                   0
+BUILD SUCCESS
+Packaging Windows       PASS
 ```
 
-## 9. Ordre de clôture restant
+Archive : `dist/morpheus-0.1.0-windows-x64.zip` — `33,729,071` bytes.
+
+## 9. Décision de clôture
 
 ```text
-1. finir compatibilité tests d'agrégat + CLI
-2. aligner docs actives / contrat 1.4.0
-3. exécuter .\mvnw.cmd clean test
-4. corriger tout échec réel
-5. exécuter packaging Windows
-6. créer VALIDATION_M15.md avec SHA/compteurs exacts
-7. accepter ADR-0081
-8. passer PR #77 Ready
-9. merger uniquement après autorisation explicite
+M15       VALIDÉ TECHNIQUEMENT
+ADR-0081  ACCEPTÉE — M15
+PR #77    peut passer Ready
+Issue #76 reste ouverte jusqu'à intégration
+main      inchangé tant que PR #77 n'est pas mergée
 ```
+
+La fusion de la PR #77 reste interdite sans autorisation explicite distincte.
