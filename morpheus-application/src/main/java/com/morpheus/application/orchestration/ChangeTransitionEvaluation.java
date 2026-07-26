@@ -2,7 +2,6 @@ package com.morpheus.application.orchestration;
 
 import com.morpheus.application.lifecycle.ChangeLifecycleBlocker;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
-import com.morpheus.domain.constraint.ConstraintEvaluation;
 import com.morpheus.domain.constraint.ConstraintEvaluationState;
 
 import java.util.List;
@@ -18,7 +17,7 @@ public record ChangeTransitionEvaluation(
         List<String> unavailableRequiredFacts,
         String factSource,
         String reason,
-        List<ConstraintEvaluation> constraintEvaluations) {
+        List<ConstraintEvaluationView> constraintEvaluations) {
 
     /** Compatibility constructor for pre-M16 callers. */
     public ChangeTransitionEvaluation(
