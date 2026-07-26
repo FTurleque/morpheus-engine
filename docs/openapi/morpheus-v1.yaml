@@ -441,7 +441,7 @@ components:
       properties:
         providerId: {type: string, minLength: 1}
         priority: {type: integer}
-        value: {type: string, minLength: 1}
+        value: {type: string}
         source: {type: string, minLength: 1}
         evidenceId: {type: string, minLength: 1}
 
@@ -450,10 +450,10 @@ components:
       additionalProperties: false
       required: [entityType, logicalKey, field, resolution, selectedProviderId, reason, candidates]
       properties:
-        entityType: {type: string, enum: [SPECIFICATION, REQUIREMENT, CHANGE]}
+        entityType: {type: string, enum: [SPECIFICATION, REQUIREMENT, CHANGE, IDENTITY]}
         logicalKey: {type: string, minLength: 1}
         field: {type: string, minLength: 1}
-        resolution: {type: string, enum: [SELECTED_BY_PRECEDENCE, UNRESOLVED]}
+        resolution: {type: string, enum: [IDENTICAL, SELECTED_BY_PRECEDENCE, UNRESOLVED]}
         selectedProviderId:
           anyOf:
             - {type: string, minLength: 1}
