@@ -5,6 +5,7 @@
     "READ_CURRENT_SPECIFICATIONS",
     "READ_CHANGES",
     "READ_REQUIREMENTS",
+    "READ_CONSTRAINTS",
     "READ_SCENARIOS",
     "READ_ACCEPTANCE_CRITERIA",
     "READ_DESIGN_DECISIONS",
@@ -75,7 +76,36 @@
         "design_decisions": [],
         "tasks": [],
         "requirements": [],
-        "constraints": []
+        "constraints": [
+          {
+            "key": "security-review",
+            "statement": "Security review must pass before verification.",
+            "applicability": "APPLICABLE",
+            "severity": "CRITICAL",
+            "satisfaction": "VIOLATED",
+            "blocking_policy": {
+              "mode": "BLOCK_WHEN_VIOLATED",
+              "targets": ["VERIFYING"]
+            },
+            "supporting_evidence": [
+              {"source": "reviews/security-review.txt"}
+            ]
+          },
+          {
+            "key": "documentation-warning",
+            "statement": "Documentation should be refreshed before verification.",
+            "applicability": "APPLICABLE",
+            "severity": "WARNING",
+            "satisfaction": "VIOLATED",
+            "blocking_policy": {
+              "mode": "NON_BLOCKING",
+              "targets": []
+            },
+            "supporting_evidence": [
+              {"source": "reviews/documentation.txt"}
+            ]
+          }
+        ]
       }
     ]
   },
