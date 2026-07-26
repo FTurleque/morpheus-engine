@@ -43,6 +43,13 @@ public record ChangeLifecycleMutationAttempt(
         Objects.requireNonNull(providerId, "providerId");
         reason = requireNonBlank(reason, "reason");
         Objects.requireNonNull(appliedAt, "appliedAt");
+
+        if (targetState == ChangeLifecycleState.ABANDONED && targetAbandonmentReason.isEmpty()) {
+            throw new IllegalArgumentException("ABANDONED persistence attempt requires an abandonment reason");
+        }
+        if (targetState != ChangeLifecycleState.ABANDONED && targetAbandonmentReason.isPresent()) {
+            throw new IllegalArgumentException("abandonment reason is only valid for ABANDONED target state");
+        }
     }
 
     private static String requireNonBlank(String value, String name) {
