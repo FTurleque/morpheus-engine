@@ -24,6 +24,7 @@ $script:StartedAt = Get-Date
 $script:FullTestSummary = $null
 $script:ArchitectureTestSummary = $null
 $script:StartupMetrics = [System.Collections.Generic.List[string]]::new()
+$script:PowerShellExecutable = (Get-Process -Id $PID).Path
 
 function Write-Section([string]$Title) {
     Write-Host ''
@@ -53,8 +54,16 @@ function Invoke-LoggedStage {
     Write-Host ('Log:     ' + $script:CurrentLog)
 
     $started = Get-Date
-    & $FilePath @Arguments 2>&1 | Tee-Object -FilePath $script:CurrentLog
-    $exitCode = $LASTEXITCODE
+    $savedErrorActionPreference = $ErrorActionPreference
+    try {
+        # Windows PowerShell 5.1 surfaces ordinary native stderr as NativeCommandError.
+        # Preserve the bytes in the stage log and let the process exit code decide success.
+        $ErrorActionPreference = 'Continue'
+        & $FilePath @Arguments 2>&1 | Tee-Object -FilePath $script:CurrentLog
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $savedErrorActionPreference
+    }
     $elapsed = (Get-Date) - $started
     if ($exitCode -ne 0) {
         $script:Results[$Name] = "FAIL ($exitCode)"
@@ -152,8 +161,15 @@ function Invoke-PortableStartupGate {
         throw 'morpheus.exe was not found in the extracted portable archive'
     }
 
-    $warmupOutput = & $launcher.FullName --json version 2>&1
-    if ($LASTEXITCODE -ne 0) {
+    $savedErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $warmupOutput = & $launcher.FullName --json version 2>&1
+        $warmupExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $savedErrorActionPreference
+    }
+    if ($warmupExitCode -ne 0) {
         $warmupOutput | Set-Content -Encoding UTF8 $script:CurrentLog
         throw 'Packaged launcher warmup failed'
     }
@@ -162,8 +178,13 @@ function Invoke-PortableStartupGate {
     $allOutput = [System.Collections.Generic.List[string]]::new()
     for ($index = 1; $index -le 5; $index++) {
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
-        $output = & $launcher.FullName --json version 2>&1
-        $exitCode = $LASTEXITCODE
+        try {
+            $ErrorActionPreference = 'Continue'
+            $output = & $launcher.FullName --json version 2>&1
+            $exitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $savedErrorActionPreference
+        }
         $watch.Stop()
         foreach ($line in $output) { $allOutput.Add([string]$line) }
         if ($exitCode -ne 0) {
@@ -274,10 +295,18 @@ try {
 
     Write-Section 'Toolchain'
     Assert-Tool 'java'
-    & java -version 2>&1 | Tee-Object -FilePath (Join-Path $logRoot '01-java-version.log')
-    if ($LASTEXITCODE -ne 0) { throw 'java -version failed' }
-    & (Join-Path $repoRoot 'mvnw.cmd') --version 2>&1 | Tee-Object -FilePath (Join-Path $logRoot '01-maven-version.log')
-    if ($LASTEXITCODE -ne 0) { throw 'Maven Wrapper --version failed' }
+    $savedErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & java -version 2>&1 | Tee-Object -FilePath (Join-Path $logRoot '01-java-version.log')
+        $javaExitCode = $LASTEXITCODE
+        & (Join-Path $repoRoot 'mvnw.cmd') --version 2>&1 | Tee-Object -FilePath (Join-Path $logRoot '01-maven-version.log')
+        $mavenExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $savedErrorActionPreference
+    }
+    if ($javaExitCode -ne 0) { throw 'java -version failed' }
+    if ($mavenExitCode -ne 0) { throw 'Maven Wrapper --version failed' }
     $script:Results['Toolchain'] = 'PASS'
 
     Invoke-LoggedStage -Name 'Full Maven reactor' -FilePath (Join-Path $repoRoot 'mvnw.cmd') `
@@ -312,7 +341,7 @@ try {
     }
 
     if (-not $SkipPackaging) {
-        Invoke-LoggedStage -Name 'Windows portable packaging + smokes' -FilePath 'powershell.exe' `
+        Invoke-LoggedStage -Name 'Windows portable packaging + smokes' -FilePath $script:PowerShellExecutable `
             -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $repoRoot 'distribution\build-portable.ps1')) `
             -LogName '05-packaging.log'
         Invoke-PortableStartupGate
