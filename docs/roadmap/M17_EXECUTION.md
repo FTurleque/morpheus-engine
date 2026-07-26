@@ -1,16 +1,19 @@
 # M17 — Controlled Lifecycle & Write Operations
 
-Statut : **🚧 EN COURS — S1→S6 codées ; gate réel S7 restant**
+Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #81 prête à intégrer**
 
 Dernière mise à jour : 26 juillet 2026
 
 Issue : **#80**  
 Branche : `m17/controlled-lifecycle-write-operations`  
-PR : **#81 — Draft**
+PR : **#81 — Ready**  
+Head de code validé : `87d2c0238f90aeb17dab5fed04f1c83a1b548f15`
 
 ## 1. Question de sortie
 
 > **MORPHEUS peut-il appliquer une mutation explicitement autorisée avec contrôle de concurrence, permission, confirmation et audit, tout en restant distinct de JARVIS qui choisit et séquence les actions ?**
+
+**Réponse : OUI.**
 
 ## 2. Baseline d'entrée
 
@@ -22,7 +25,7 @@ Architecture    161/161 PASS
 Packaging Win   PASS
 ```
 
-## 3. Invariants
+## 3. Invariants validés
 
 ```text
 read capability != write capability
@@ -34,8 +37,10 @@ no mutation without explicit provider capability
 no mutation without conflict policy
 no mutation without explicit confirmation when required
 idempotent retry != duplicate mutation
+idempotent retry != duplicate audit
 audit survives restart
 published snapshot != operational lifecycle state
+ABANDONED mutation != missing abandonment reason
 ```
 
 ## 4. Architecture retenue
@@ -64,109 +69,117 @@ new operational lifecycle state
 
 L'état lifecycle mutable est séparé des snapshots publiés. Une transition ne réécrit jamais `KnowledgeSnapshot` ni `SnapshotBusinessContent`.
 
-L'audit append-only constitue la preuve persistée de l'application de la mutation : identité, clé d'idempotency, empreinte de commande, from/to, révisions, acteur, provider autorisant l'écriture, raison et timestamp. M17 n'invente pas une nouvelle relation métier `Audit -> Evidence` qui ne serait pas portée par une source normalisée.
+L'audit append-only constitue la preuve persistée de l'application : identité, clé d'idempotency, empreinte de commande, from/to, révisions, acteur, provider autorisant l'écriture, raison et timestamp.
 
 ## 5. Slices
 
-### M17-S1 — Domaine / contrats ✅ CODED
-- ✅ `ChangeLifecycleMutationId` + `ChangeLifecycleIdempotencyKey` ;
-- ✅ `ChangeLifecycleRevision` monotone ;
-- ✅ `ChangeLifecycleMutationCommand` explicite ;
-- ✅ résultat `APPLIED | ALREADY_APPLIED | CONFLICT | NOT_AUTHORIZED | REQUIRES_CONFIRMATION | REJECTED` ;
-- ✅ `ChangeLifecycleMutationAuditRecord` structuré ;
-- ✅ projection JSON-safe `ChangeLifecycleMutationResultView`.
+### M17-S1 — Domaine / contrats ✅
+- `ChangeLifecycleMutationId` + `ChangeLifecycleIdempotencyKey` ;
+- `ChangeLifecycleRevision` monotone ;
+- `ChangeLifecycleMutationCommand` explicite ;
+- résultats `APPLIED | ALREADY_APPLIED | CONFLICT | NOT_AUTHORIZED | REQUIRES_CONFIRMATION | REJECTED` ;
+- `ChangeLifecycleMutationAuditRecord` structuré ;
+- projection JSON-safe `ChangeLifecycleMutationResultView`.
 
-### M17-S2 — Store / CAS ✅ CODED
-- ✅ `ChangeLifecycleMutationStore` ;
-- ✅ état initial virtuel `DRAFT / revision 0` ;
-- ✅ Memory ;
-- ✅ SQLite migration V011 ;
-- ✅ création initiale + compare-and-set ;
-- ✅ `UPDATE ... WHERE revision = expected AND state = expected` ;
-- ✅ stale expected revision rejetée ;
-- ✅ état lifecycle opérationnel séparé des snapshots.
+### M17-S2 — Store / CAS ✅
+- `ChangeLifecycleMutationStore` ;
+- état initial virtuel `DRAFT / revision 0` ;
+- Memory + SQLite ;
+- migration **V011** ;
+- compare-and-set sur revision/state ;
+- stale expected revision rejetée ;
+- lifecycle opérationnel séparé des snapshots.
 
-### M17-S3 — Idempotency / audit ✅ CODED
-- ✅ idempotency key unique par projet ;
-- ✅ empreinte logique SHA-256 indépendante du `mutationId` et du timestamp de retry ;
-- ✅ même commande => `ALREADY_APPLIED` sans second audit ;
-- ✅ réutilisation incohérente de key => `CONFLICT` ;
-- ✅ mutation-id collision => `CONFLICT` ;
-- ✅ audit append-only persisté avec la même transaction que l'état.
+### M17-S3 — Idempotency / audit ✅
+- idempotency key unique par projet ;
+- empreinte logique stable ;
+- même commande => `ALREADY_APPLIED` sans second audit ;
+- key incohérente => `CONFLICT` ;
+- mutation-id collision => `CONFLICT` ;
+- audit append-only atomique avec l'état ;
+- audit conservé après close/reopen SQLite.
 
-### M17-S4 — Autorisation / confirmation ✅ CODED
-- ✅ `WRITE_CHANGE` distinct des capacités read ;
-- ✅ `RegisteredProjectWriteCapabilityResolver` sur le root réellement enregistré ;
-- ✅ zéro provider write => deny ;
-- ✅ plusieurs providers write => deny ambigu, aucune sélection silencieuse ;
-- ✅ OpenSpec reste read-only ;
-- ✅ Synthetic fournit la preuve positive `WRITE_CHANGE` ;
-- ✅ confirmation explicite requise par `ChangeLifecycleMutationPolicy.strict()` ;
-- ✅ adapters historiques deny-by-default lorsqu'aucun resolver write n'est injecté.
+### M17-S4 — Autorisation / confirmation ✅
+- `WRITE_CHANGE` distinct des capacités read ;
+- `RegisteredProjectWriteCapabilityResolver` ;
+- zéro provider write => deny ;
+- plusieurs providers write => deny ambigu ;
+- OpenSpec reste read-only ;
+- Synthetic fournit la preuve positive `WRITE_CHANGE` ;
+- confirmation explicite requise par la policy stricte ;
+- adapters historiques deny-by-default sans resolver write.
 
-### M17-S5 — Application contrôlée ✅ CODED
-- ✅ ordre des guards : idempotency → capability → confirmation → revision → evaluation → CAS ;
-- ✅ réutilise `ChangeTransitionEvaluationService` M14-M16 avant mutation ;
-- ✅ `ALLOWED` seul ne mute jamais ;
-- ✅ toute décision différente de `ALLOWED` => `REJECTED`, sans audit ;
-- ✅ abandonment reason reste explicite ;
-- ✅ reason de décision + acteur + provider conservés dans l'audit ;
-- ✅ une retry idempotente est résolue avant contrôle stale/evaluation.
+### M17-S5 — Application contrôlée ✅
+- ordre des guards : idempotency → capability → confirmation → revision → evaluation → CAS ;
+- réutilisation de `ChangeTransitionEvaluationService` ;
+- `ALLOWED` seul ne mute jamais ;
+- toute décision différente de `ALLOWED` => `REJECTED`, sans audit ;
+- abandonment reason explicite ;
+- actor/provider/reason persistés dans l'audit ;
+- retry idempotente résolue avant stale/evaluation.
 
-### M17-S6 — Surfaces ✅ CODED
-- ✅ CLI write séparée : `lifecycle apply` ;
-- ✅ CLI exige expected revision, idempotency key, actor et `--confirm` ;
-- ✅ MCP : 20 tools read-only historiques conservés + 1 tool write séparé `apply_change_lifecycle_transition` ;
-- ✅ HTTP : `POST .../lifecycle-transitions` séparé de `POST .../transition-check` ;
-- ✅ OpenAPI **1.6.0** ;
-- ✅ réponses exposent revision/audit/idempotency ;
-- ✅ composition root injecte le resolver write ;
-- ✅ README + docs CLI/MCP/API alignées ;
-- ✅ packaging exige les classes M17 et smoke la présence de `lifecycle apply` sans exécuter d'écriture.
+### M17-S6 — Surfaces ✅
+- CLI : `lifecycle apply` ;
+- MCP : 20 tools read-only + `apply_change_lifecycle_transition` write explicite ;
+- HTTP : `POST .../lifecycle-transitions` distinct de `POST .../transition-check` ;
+- OpenAPI **1.6.0** ;
+- revision/audit/idempotency exposés ;
+- composition root injecte le resolver write ;
+- README + docs CLI/MCP/API alignées ;
+- packaging exige classes M17 + migration V011 + surface CLI.
 
-### M17-S7 — Gate 🚧
-- ✅ tests domain/application écrits ;
-- ✅ contrats Memory/SQLite écrits ;
-- ✅ SQLite close/reopen écrit ;
-- ✅ concurrence stale CAS écrite ;
-- ✅ idempotent retry écrit ;
-- ✅ read-only evaluation sans mutation écrite ;
-- ✅ décision BLOCKED => mutation REJECTED sans audit écrite ;
-- ✅ CLI/API/MCP STDIO écrits ;
-- ✅ `validate-m17.cmd` + `scripts/validate-m17.ps1` ;
-- ⏳ reactor Maven complet réel ;
-- ⏳ correction de tout échec réel ;
-- ⏳ packaging Windows + smokes réel ;
-- ⏳ `VALIDATION_M17.md` avec SHA/compteurs exacts ;
-- ⏳ ADR-0083 acceptée seulement après preuve ;
-- ⏳ PR #81 Ready seulement après gate.
+### M17-S7 — Gate ✅ VALIDÉ
+- tests domain/application : PASS ;
+- contrats Memory/SQLite : PASS ;
+- SQLite close/reopen : PASS ;
+- concurrence stale CAS : PASS ;
+- idempotent retry : PASS ;
+- read-only evaluation sans mutation : PASS ;
+- décision non-ALLOWED => `REJECTED` sans audit : PASS ;
+- CLI/API/MCP STDIO : PASS ;
+- reactor Maven complet : **410/410 PASS** ;
+- Architecture : **167/167 PASS** ;
+- packaging Windows + smokes : **PASS** ;
+- `VALIDATION_M17.md` créée ;
+- ADR-0083 : **Acceptée — M17**.
 
-## 6. Gate M17
+## 6. Gate autoritatif
 
 ```text
-read-only mode remains fully supported                     TESTS WRITTEN
-write paths are opt-in                                     TESTS WRITTEN
-ALLOWED evaluation never mutates by itself                 TEST WRITTEN
-non-ALLOWED evaluation cannot be applied                   TEST WRITTEN
-concurrent stale mutation rejected deterministically       TEST WRITTEN
-idempotent retry does not duplicate audit/mutation         TEST WRITTEN
-mutation audit survives restart                            TEST WRITTEN
-no mutation without explicit WRITE_CHANGE capability       TESTS WRITTEN
-MCP/API mutation surface separated from evaluation         TESTS WRITTEN
-full Maven reactor PASS                                     NOT RUN
-Windows packaging + smokes PASS                             NOT RUN
+Domain               40/40 PASS
+Application        104/104 PASS
+OpenSpec             26/26 PASS
+Synthetic              7/7 PASS
+SQLite                 7/7 PASS
+MINOS Integration      8/8 PASS
+NEXUS Integration      7/7 PASS
+MCP                     5/5 PASS
+API                   11/11 PASS
+CLI                   28/28 PASS
+Architecture        167/167 PASS
+---------------------------------
+TOTAL               410/410 PASS
+Failures                  0
+Errors                    0
+Skipped                   0
+BUILD SUCCESS
 ```
 
-## 7. Validation
-
-Aucun PASS final n'est revendiqué avant exécution réelle du Maven Wrapper et du packaging Windows sur le head courant.
+Packaging :
 
 ```text
-PR #81    reste Draft
-ADR-0083  reste Proposée
-M17       reste EN COURS
+M14-M17 classes + V011 embedded                         PASS
+standalone optional engines + M17 controlled-write     PASS
+API health                                              PASS
+portable ZIP                                            PASS
 ```
 
-## 8. Gouvernance
+Archive : `dist/morpheus-0.1.0-windows-x64.zip` — **33,839,272 bytes**.
 
-La branche/PR M17 reste isolée de `main` jusqu'au gate complet. Aucun merge sans autorisation explicite distincte.
+Environnement : Windows 10 amd64, OpenJDK 24.0.1, Maven 3.9.16, target Java 21.
+
+Preuve : [`../validation/VALIDATION_M17.md`](../validation/VALIDATION_M17.md).
+
+## 7. Gouvernance
+
+M17 est techniquement validé. Les commits postérieurs au SHA de code validé sont documentaires uniquement. La PR #81 peut être intégrée ; l'issue #80 est clôturée après merge.
