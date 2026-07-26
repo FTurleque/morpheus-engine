@@ -40,9 +40,9 @@ Chaque moteur reste autonome.
 ```text
 Sources / workspaces
  -> providers réels OpenSpec | Structured Markdown
+ -> normalisation provider-neutral
  -> ProviderContribution
  -> composition déterministe / provenance / conflits
- -> normalisation MORPHEUS
  -> KnowledgeSnapshot / SpecificationVersion
  -> Memory | SQLite
  -> Query / Traceability / Quality / Change Analysis
@@ -50,7 +50,7 @@ Sources / workspaces
                |
                +-> MINOS optionnel via MCP STDIO
                +-> NEXUS optionnel via MCP STDIO
-               +-> contrat read-only <- HTTP <- JARVIS
+               +-> contrat d’orchestration read-only <- HTTP <- JARVIS
                +-> lifecycle write explicite (M17, capability-gated)
 ```
 
@@ -189,22 +189,29 @@ published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 Scenario != AcceptanceCriterion
 AcceptanceCriterion != Test
+Test existence != VERIFIED
+Evidence != assertion
 UNKNOWN != FAILED
 UNKNOWN != BLOCKED
+applicable != blocking
+warning != blocker
+severity != blocking policy
 optional engine absence != MORPHEUS failure
 optional provider absence != project failure when optional
 live external observation != snapshot mutation
 lifecycle unavailable != lifecycle inferred
 transition evaluation != lifecycle mutation
-read capability != write capability
+READ_CHANGES != WRITE_CHANGE
 ALLOWED != applied
 published snapshot != operational lifecycle state
-no implicit overwrite
+stale revision != overwrite
+idempotent retry != duplicate mutation/audit
 provider identifier != DomainIdentity
 source path != identity
 precedence != provenance erasure
 conflict != silent last-write-wins
 ambiguous continuity must be surfaced
+MORPHEUS rules != JARVIS action sequencing
 ```
 
 ## Fondation technique
@@ -226,7 +233,7 @@ Modules Maven :
 morpheus-domain
 morpheus-application
 morpheus-provider-openspec
-morpheus-provider-structured-markdown
+morpheus-provider-markdown
 morpheus-provider-synthetic
 morpheus-store-memory
 morpheus-store-sqlite
