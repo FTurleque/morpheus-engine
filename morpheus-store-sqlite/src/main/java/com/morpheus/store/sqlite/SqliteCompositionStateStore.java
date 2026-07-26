@@ -56,21 +56,26 @@ public final class SqliteCompositionStateStore implements CompositionStateStore,
     public synchronized void save(CompositionSnapshotState state) {
         ensureOpen();
         Objects.requireNonNull(state, "state");
-        boolean previousAutoCommit;
+        final boolean previousAutoCommit;
         try {
             previousAutoCommit = connection.getAutoCommit();
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot inspect SQLite auto-commit mode", exception);
+        }
+        try {
             connection.setAutoCommit(false);
             deleteExisting(state.snapshotId());
             insertSnapshot(state);
             insertProviders(state);
             insertConflicts(state);
             connection.commit();
-            connection.setAutoCommit(previousAutoCommit);
         } catch (SQLException | RuntimeException exception) {
             rollbackQuietly();
             throw exception instanceof KnowledgeStoreException knowledgeStoreException
                     ? knowledgeStoreException
                     : new KnowledgeStoreException("Cannot save composition state for " + state.snapshotId(), exception);
+        } finally {
+            restoreAutoCommit(previousAutoCommit);
         }
     }
 
@@ -276,6 +281,14 @@ public final class SqliteCompositionStateStore implements CompositionStateStore,
             connection.rollback();
         } catch (SQLException ignored) {
             // Preserve original failure.
+        }
+    }
+
+    private void restoreAutoCommit(boolean autoCommit) {
+        try {
+            connection.setAutoCommit(autoCommit);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode after composition save", exception);
         }
     }
 
