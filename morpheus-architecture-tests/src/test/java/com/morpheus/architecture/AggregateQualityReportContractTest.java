@@ -104,17 +104,17 @@ class AggregateQualityReportContractTest {
         }
 
         assertEquals(memory, sqlite);
-        assertEquals(AcceptanceCoverageStatus.NO_CRITERIA, memory.acceptanceCoverage().status());
+        assertEquals(AcceptanceCoverageStatus.NO_CRITERIA, memory.acceptance().status());
         assertEquals(AcceptanceCoverageStatus.NO_CRITERIA, memory.metrics().acceptanceCoverageStatus());
-        assertEquals(0, memory.acceptanceCoverage().totalCriteria());
-        assertEquals(1.0, memory.acceptanceCoverage().verifiedCoverageRatio());
-        assertTrue(memory.acceptanceCoverage().findings().isEmpty());
+        assertEquals(0, memory.acceptance().totalCriteria());
+        assertEquals(1.0, memory.acceptance().verifiedCoverageRatio());
+        assertTrue(memory.acceptance().findings().isEmpty());
         assertFalse(memory.findings().stream().anyMatch(finding ->
                 finding.code() == QualityFindingCode.ACCEPTANCE_COVERAGE_UNAVAILABLE));
-        assertEquals(1, memory.metrics().totalCurrentRequirements());
-        assertEquals(1, memory.metrics().linkedCurrentRequirements());
-        assertEquals(1, memory.metrics().totalImplementationTasks());
-        assertEquals(1, memory.metrics().coveredImplementationTasks());
+        assertEquals(1, memory.metrics().totalRequirements());
+        assertEquals(1, memory.metrics().linkedRequirements());
+        assertEquals(1, memory.metrics().totalTasks());
+        assertEquals(1, memory.metrics().coveredTasks());
         assertEquals(1, memory.metrics().totalChanges());
         assertEquals(
                 memory.findings().stream().sorted().toList(),
@@ -147,7 +147,7 @@ class AggregateQualityReportContractTest {
                     .assessActive(fixture.projectId())
                     .orElseThrow();
             assertEquals(before, after);
-            assertEquals(AcceptanceCoverageStatus.NO_CRITERIA, after.acceptanceCoverage().status());
+            assertEquals(AcceptanceCoverageStatus.NO_CRITERIA, after.acceptance().status());
         }
     }
 
