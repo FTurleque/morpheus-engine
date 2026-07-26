@@ -109,7 +109,10 @@ public final class MorpheusMain {
             MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
             NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
             return MorpheusMcpServer.run(
-                    options.layout().databasePath(), minos.resolverRegistry(), nexus);
+                    options.layout().databasePath(),
+                    minos.resolverRegistry(),
+                    nexus,
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()));
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS MCP usage error: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
@@ -134,7 +137,8 @@ public final class MorpheusMain {
                     options.port(),
                     minos.resolverRegistry(),
                     minos,
-                    nexus)) {
+                    nexus,
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()))) {
                 err.println("MORPHEUS API listening on " + server.baseUri());
                 try {
                     Thread.currentThread().join();
