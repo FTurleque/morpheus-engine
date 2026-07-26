@@ -1,6 +1,20 @@
 @echo off
 setlocal
-set "SCRIPT_DIR=%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\validate-m19.ps1" %*
-set "EXIT_CODE=%ERRORLEVEL%"
-endlocal & exit /b %EXIT_CODE%
+cd /d "%~dp0"
+
+set "WINPS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+
+if exist "%WINPS%" (
+    "%WINPS%" -NoProfile -ExecutionPolicy Bypass -File ".\scripts\validate-m19.ps1" %*
+    exit /b %ERRORLEVEL%
+)
+
+where pwsh.exe >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    pwsh.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\validate-m19.ps1" %*
+    exit /b %ERRORLEVEL%
+)
+
+echo ERROR: no PowerShell host found.
+echo Checked: %WINPS% and pwsh.exe on PATH.
+exit /b 9009
