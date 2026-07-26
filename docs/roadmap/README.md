@@ -6,26 +6,34 @@ Ce répertoire conserve les plans d’exécution des jalons MORPHEUS.
 
 La source de vérité globale est [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
 
-La trajectoire active après M14 est [`POST_M14_EXECUTION.md`](POST_M14_EXECUTION.md).
+La trajectoire active post-M14 est [`POST_M14_EXECUTION.md`](POST_M14_EXECUTION.md).
 
-Le jalon documentaire en cours est [`D0_EXECUTION.md`](D0_EXECUTION.md).
-
-## Plans historiques C0→M14
-
-Les fichiers `M*_EXECUTION.md` correspondant aux jalons déjà livrés sont des **archives d’exécution**. Ils conservent volontairement l’état exact du gate au moment de leur rédaction : branche, PR, SHA, tests, décision de passage Ready et autorisation de merge.
-
-Par conséquent, une phrase historique telle que :
+État courant :
 
 ```text
-la PR reste non mergée jusqu’au signal explicite
+D0   ✅ intégré
+M15  ✅ intégré
+M16  ✅ intégré
+M17  ✅ intégré
+M18  ⏭ prochain jalon
 ```
 
-ne signifie pas que la PR est encore ouverte aujourd’hui.
+Les plans détaillés des jalons livrés restent disponibles comme historique d’exécution :
+
+- [`D0_EXECUTION.md`](D0_EXECUTION.md)
+- [`M15_EXECUTION.md`](M15_EXECUTION.md)
+- [`M16_EXECUTION.md`](M16_EXECUTION.md)
+- [`M17_EXECUTION.md`](M17_EXECUTION.md)
+
+## Plans historiques C0→M17
+
+Les fichiers `M*_EXECUTION.md` correspondant aux jalons déjà livrés sont des **archives d’exécution enrichies par leur état d’intégration final**. Ils conservent les SHA de code testés, les gates, les décisions ADR et les merges associés.
 
 Pour l’état actuel :
 
 ```text
-C0 → M14 = validés et intégrés
+C0 → M17 = validés et intégrés
+M18      = prochain
 ```
 
 Consulter [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
@@ -34,6 +42,8 @@ Consulter [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
 
 La distinction entre documentation active, ADR normatives et preuves historiques est définie dans [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
 
+Les fichiers `VALIDATION_M*.md` restent des **preuves historiques autoritatives** : ils ne sont pas réécrits pour simuler un état post-merge. Les roadmaps et index actifs, eux, doivent refléter l’état GitHub courant.
+
 ## Ordre de lecture recommandé
 
 ```text
@@ -41,7 +51,7 @@ ROADMAP globale
     ↓
 POST_M14_EXECUTION
     ↓
-plan du jalon actif
+plan du prochain jalon (M18)
     ↓
 VALIDATION du jalon lorsque le gate est atteint
 ```
