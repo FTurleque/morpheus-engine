@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
 import com.morpheus.store.sqlite.SqliteEntityIdentityStore;
 import com.morpheus.store.sqlite.SqliteExternalReferenceStore;
 import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
@@ -20,6 +21,7 @@ final class CliRuntime implements AutoCloseable {
     final SqliteExternalReferenceStore externalReferences;
     final SqliteEntityIdentityStore identities;
     final SqliteSyncStateStore syncState;
+    final SqliteChangeLifecycleMutationStore lifecycleMutations;
 
     CliRuntime(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
@@ -30,11 +32,13 @@ final class CliRuntime implements AutoCloseable {
         externalReferences = new SqliteExternalReferenceStore(databasePath);
         identities = new SqliteEntityIdentityStore(databasePath);
         syncState = new SqliteSyncStateStore(databasePath);
+        lifecycleMutations = new SqliteChangeLifecycleMutationStore(databasePath);
     }
 
     @Override
     public void close() {
         RuntimeException failure = null;
+        failure = close(lifecycleMutations, failure);
         failure = close(syncState, failure);
         failure = close(identities, failure);
         failure = close(externalReferences, failure);
