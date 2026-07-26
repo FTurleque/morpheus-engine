@@ -32,8 +32,8 @@ class MorpheusConstraintSemanticsApiContractTest {
                     "/projects/" + seed.projectId() + "/changes/" + seed.changeId()
                             + "/orchestration?lifecycleState=IMPLEMENTING");
             assertEquals(200, state.status(), state.body());
-            assertTrue(state.body().contains("\"blockingConstraints\":{\"observedCount\":1"), state.body());
-            assertTrue(state.body().contains("\"status\":\"AVAILABLE\""), state.body());
+            assertTrue(state.body().contains("\"blockingConstraints\":{\"status\":\"AVAILABLE\""), state.body());
+            assertTrue(state.body().contains("\"observedCount\":1"), state.body());
             assertTrue(state.body().contains("\"severity\":\"CRITICAL\""), state.body());
             assertTrue(state.body().contains("\"severity\":\"WARNING\""), state.body());
             assertTrue(state.body().contains("\"blockingMode\":\"BLOCK_WHEN_VIOLATED\""), state.body());
