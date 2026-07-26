@@ -1,6 +1,6 @@
 # ADR-0082 — Sémantique explicite des contraintes et politique de blocage
 
-- Statut : **Proposée — M16**
+- Statut : **Acceptée — M16**
 - Date : 26 juillet 2026
 - Dépend de : ADR-0001, ADR-0005, ADR-0032, ADR-0044, ADR-0050, ADR-0078, ADR-0079, ADR-0081
 - Portée : M16 — Constraint Semantics & Policy Enforcement
@@ -15,7 +15,7 @@ blockingConstraints.status = UNAVAILABLE_BLOCKING_SEMANTICS_NOT_MODELED
 
 Cette indisponibilité est volontaire : le texte d'une contrainte ne doit jamais être interprété comme une politique exécutable.
 
-M16 doit fermer ce gap sans casser :
+M16 ferme ce gap sans casser :
 
 ```text
 applicable != blocking
@@ -155,7 +155,7 @@ constraint -> blocking lifecycle targets
 constraint -> supporting evidence
 ```
 
-Memory et SQLite doivent produire la même projection après reopen.
+Memory et SQLite produisent la même projection après reopen.
 
 ## Lifecycle / orchestration
 
@@ -187,9 +187,15 @@ Rejeté : cela convertirait `UNKNOWN` en `false`.
 
 Rejeté : MORPHEUS conserve un modèle provider-neutral.
 
-## Validation avant acceptation
+## Validation d'acceptation
 
-ADR-0082 ne passe en **Acceptée — M16** qu'après preuve :
+Gate M16 exécuté sur :
+
+```text
+f349c5f4701665e649d985426d35b5e6a6060e32
+```
+
+Résultats :
 
 ```text
 constraint semantic invariants PASS
@@ -197,9 +203,14 @@ UNKNOWN != BLOCKED PASS
 warning != blocker PASS
 Memory == SQLite PASS
 SQLite close/reopen PASS
-orchestration blockingConstraints AVAILABLE/UNKNOWN explicite
-transition explanation includes every blocking constraint
-CLI/MCP/HTTP coherent
-full Maven gate PASS
-Windows packaging PASS
+orchestration blockingConstraints AVAILABLE/UNKNOWN explicite PASS
+transition explanation includes every blocking constraint PASS
+CLI/MCP/HTTP coherent PASS
+full Maven gate 393/393 PASS
+Architecture 161/161 PASS
+Windows packaging + smokes PASS
 ```
+
+Preuve : [`../validation/VALIDATION_M16.md`](../validation/VALIDATION_M16.md).
+
+ADR-0082 est donc **Acceptée — M16**.
