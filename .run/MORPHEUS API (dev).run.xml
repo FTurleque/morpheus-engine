@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="MORPHEUS API (dev)" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.morpheus.cli.MorpheusMain" />
+    <module name="morpheus-cli" />
+    <option name="PROGRAM_PARAMETERS" value="--data-dir &quot;$PROJECT_DIR$/target/morpheus-dev/data&quot; --config-dir &quot;$PROJECT_DIR$/target/morpheus-dev/config&quot; api --host 127.0.0.1 --port 8765" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
