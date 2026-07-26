@@ -2,7 +2,7 @@
 
 Cette page est le point d’entrée de la documentation active de MORPHEUS.
 
-MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, publie des snapshots versionnés, expose des requêtes et de la traçabilité, produit des diagnostics qualité, analyse les changements, applique des mutations lifecycle explicitement contrôlées et fournit des contrats d’intégration optionnels pour MINOS, NEXUS et JARVIS.
+MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose plusieurs providers réels sans effacer provenance ni conflits, publie des snapshots versionnés, expose des requêtes et de la traçabilité, produit des diagnostics qualité, analyse les changements, applique des mutations lifecycle explicitement contrôlées et fournit des contrats d’intégration optionnels pour MINOS, NEXUS et JARVIS.
 
 La documentation utilisateur et développeur contient des diagrammes Mermaid de type **UML class**, **state**, **sequence** et des vues de composants pour expliciter les workflows et les frontières d’architecture directement dans GitHub.
 
@@ -23,7 +23,7 @@ Parcours conseillé :
 flowchart LR
     A[Guide utilisateur] --> B[Démarrage rapide]
     B --> C[CLI]
-    C --> D[Traçabilité / qualité / analyse]
+    C --> D[Composition / traçabilité / qualité / analyse]
     D --> E[Intégrations optionnelles]
 ```
 
@@ -57,9 +57,11 @@ Baseline technique actuelle : Java 21, Maven Wrapper 3.9.16, SQLite, Java MCP SD
 
 ```mermaid
 flowchart LR
-    SRC[Sources / workspaces] --> P[Providers]
-    P --> M[MORPHEUS domain/application]
-    M --> S[(Snapshots / SQLite)]
+    O[OpenSpec] --> PC[ProviderContribution]
+    MD[Structured Markdown] --> PC
+    PC --> C[Composition déterministe]
+    C --> M[MORPHEUS domain/application]
+    M --> S[(Snapshots / Memory / SQLite V012)]
     S --> Q[Query / Traceability / Quality / Analysis]
     Q --> CLI[CLI]
     Q --> MCP[MCP STDIO]
@@ -86,16 +88,16 @@ Ces documents de cadrage expliquent l’intention fondatrice. Les contrats et é
 - [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global courant des jalons et synthèse post-M14 ;
 - [`roadmap/README.md`](roadmap/README.md) — index des plans historiques et actifs ;
 - [`roadmap/POST_M14_EXECUTION.md`](roadmap/POST_M14_EXECUTION.md) — roadmap détaillée D0 + M15→M20 ;
-- [`roadmap/M17_EXECUTION.md`](roadmap/M17_EXECUTION.md) — dernier jalon intégré ;
+- [`roadmap/M18_EXECUTION.md`](roadmap/M18_EXECUTION.md) — dernier jalon intégré ;
 - [`governance/PLAN.md`](governance/PLAN.md) — plan de cadrage C0/M0 historique ;
 - [`governance/AUDIT_COHERENCE_C0.md`](governance/AUDIT_COHERENCE_C0.md) — audit C0 ;
-- [`validation/`](validation/) — preuves de validation C0 et M0 à M17 ;
+- [`validation/`](validation/) — preuves de validation C0 et M0 à M18 ;
 - [`adr/`](adr/) — Architecture Decision Records.
 
 ## Références machine
 
 - [`reference/`](reference/) — index des contrats ;
-- [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml) — contrat OpenAPI machine-readable ;
+- [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml) — contrat OpenAPI machine-readable 1.7.0 ;
 - [`../distribution/README.md`](../distribution/README.md) — construction et packaging des distributions.
 
 ## État livré et suite planifiée
@@ -106,24 +108,37 @@ D0             ✅ validé / intégré
 M15            ✅ validé / intégré — 371/371
 M16            ✅ validé / intégré — 393/393
 M17            ✅ validé / intégré — 410/410
-Architecture   ✅ 167/167 PASS au gate M17
-Packaging Win  ✅ PASS au gate M17
+M18            ✅ validé / intégré — PR #86 — 418/418
+Architecture   ✅ 170/170 PASS au gate M18
+Packaging Win  ✅ PASS au gate M18
 
-M18            ⏭ real providers / multi-provider — prochain
-M19            ⏳ production hardening / scale
+M19            ⏭ production hardening / scale / operability — prochain jalon
 M20            ⏳ release engineering / installation PROD / 1.0
+```
+
+Référence M18 :
+
+```text
+code validé = 7e8caacff567f51354fcb88bd7505a6d135071c0
+merge       = 30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+tests       = 418/418 PASS
+architecture= 170/170 PASS
+packaging   = PASS
 ```
 
 Frontière actuelle :
 
 ```text
-MORPHEUS = specification facts + lifecycle rules + controlled state invariants
+MORPHEUS = specification facts + intent + lifecycle rules
+           + controlled state invariants + provider composition facts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = sequencing + orchestration + action choice
 ```
 
 M17 ajoute une écriture lifecycle explicite sans modifier cette frontière : `ALLOWED != applied`, `READ_CHANGES != WRITE_CHANGE`, CAS/idempotency/audit sont obligatoires.
+
+M18 ajoute deux providers réels et une composition provider-neutral : `provider identifier != DomainIdentity`, `source path != identity`, `precedence != provenance erasure`, `conflict != silent last-write-wins`.
 
 La cible M20 aligne l’installation Windows sur le standard produit retenu pour MINOS : setup par utilisateur sous `%LOCALAPPDATA%\Programs\MORPHEUS`, données séparées sous `%LOCALAPPDATA%\MORPHEUS`, PATH optionnel, checksums et GitHub Releases. Le ZIP portable reste supporté pour l’automatisation et le diagnostic.
 
