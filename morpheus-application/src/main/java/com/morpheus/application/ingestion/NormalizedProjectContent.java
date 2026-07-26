@@ -226,7 +226,10 @@ public record NormalizedProjectContent(
             requireEvidence(item.provenance().evidenceId(), evidenceIds);
             item.scenarios().forEach(scenario -> requireEvidence(scenario.provenance().evidenceId(), evidenceIds));
         });
-        constraints.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
+        constraints.forEach(item -> {
+            requireEvidence(item.provenance().evidenceId(), evidenceIds);
+            item.supportingEvidenceIds().forEach(evidenceId -> requireEvidence(evidenceId, evidenceIds));
+        });
         designDecisions.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         tasks.forEach(item -> requireEvidence(item.provenance().evidenceId(), evidenceIds));
         acceptanceCriteria.forEach(item -> {
