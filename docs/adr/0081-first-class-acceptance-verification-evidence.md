@@ -1,9 +1,9 @@
 # ADR-0081 — AcceptanceCriterion et VerificationStatus first-class
 
-- Statut : **Proposée — M15-S1**
+- Statut : **Acceptée — M15**
 - Date : 26 juillet 2026
 - Dépend de : ADR-0001, ADR-0005, ADR-0009, ADR-0031, ADR-0044, ADR-0049, ADR-0079
-- Portée : M15-S1, modèle canonique d'acceptance et de vérification
+- Portée : M15, modèle canonique d'acceptance, vérification, preuve et surfaces associées
 
 ## Contexte
 
@@ -13,9 +13,9 @@ Depuis M6, MORPHEUS expose explicitement :
 AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL
 ```
 
-car aucun type production `AcceptanceCriterion` n'existe encore. Cette décision a volontairement empêché la conversion silencieuse d'un `Scenario` en critère d'acceptation.
+car aucun type production `AcceptanceCriterion` n'existait encore. Cette décision a volontairement empêché la conversion silencieuse d'un `Scenario` en critère d'acceptation.
 
-M15 doit fermer ce gap sans casser les invariants acquis :
+M15 ferme ce gap sans casser les invariants acquis :
 
 ```text
 Scenario != AcceptanceCriterion
@@ -128,21 +128,30 @@ Ajouter :
 
 ```text
 TraceabilityEntityKind.ACCEPTANCE_CRITERION
+TraceabilityEntityKind.EVIDENCE
 ```
 
-Les relations exactes sont introduites dans M15-S4. S1 ne doit pas encore synthétiser de `TraceabilityLink`.
+Les relations M15 sont dérivées uniquement à partir des rattachements structurels explicites :
+
+```text
+Requirement          VERIFIED_BY AcceptanceCriterion
+ChangeProposal       VERIFIED_BY AcceptanceCriterion
+AcceptanceCriterion  VERIFIED_BY Evidence
+```
+
+Le dernier lien ne concerne que les `verificationEvidenceIds`, jamais la seule provenance source du critère.
 
 ## Compatibilité M6
 
 ADR-0049 reste historiquement correcte : au moment de M6, aucun `AcceptanceCriterion` production n'existait.
 
-M15 remplacera progressivement le comportement :
+M15 remplace le comportement :
 
 ```text
 UNAVAILABLE_IN_NORMALIZED_MODEL
 ```
 
-par une vraie évaluation de couverture seulement après normalisation et persistance des critères.
+par une vraie évaluation de couverture lorsque le modèle est disponible. Zéro critère devient `NO_CRITERIA`, et non « modèle indisponible ».
 
 ## Alternatives rejetées
 
@@ -156,7 +165,7 @@ Rejeté : un test est un artefact externe, pas la condition d'acceptation elle-m
 
 ### Créer VerificationEvidence séparé de Evidence
 
-Rejeté pour S1 : le concept `Evidence` est déjà provider-neutral et adapté à la provenance de matériaux sources. La distinction nécessaire est portée par la relation au critère, pas par un doublon de type.
+Rejeté : le concept `Evidence` est déjà provider-neutral et adapté à la provenance de matériaux sources. La distinction nécessaire est portée par la relation au critère, pas par un doublon de type.
 
 ### Booléen verified
 
@@ -170,23 +179,42 @@ Positives :
 - état de vérification explicite ;
 - séparation définition/preuve ;
 - pas d'inférence silencieuse depuis scénarios/tests ;
-- base stable pour persistance, qualité, orchestration et surfaces machine.
+- persistance Memory/SQLite snapshot-scoped ;
+- traçabilité Requirement/Change/Criterion/Evidence ;
+- couverture et diagnostics réellement calculables ;
+- surfaces CLI/MCP/HTTP cohérentes ;
+- orchestration capable d'observer les critères sans inventer les blockers de M16.
 
 Coûts :
 
-- nouvelle entité à normaliser et persister ;
-- migration SQLite requise en S3 ;
-- dérivation de traçabilité à étendre ;
-- adaptation des compact views/API/MCP/CLI en S6.
+- nouvelle entité normalisée et persistée ;
+- migration SQLite V009 ;
+- extension des vues et contrats machine ;
+- les providers sans structure acceptance explicite restent `UNSUPPORTED` plutôt que d'utiliser une heuristique.
 
-## Validation requise avant acceptation
+## Validation d'acceptation
 
-ADR-0081 ne passe en **Acceptée — M15** qu'après preuve S1 :
+Preuve : [`../validation/VALIDATION_M15.md`](../validation/VALIDATION_M15.md).
+
+Head de code validé :
+
+```text
+9e6450a099157cfdfcd11cc29dfb986ef7701247
+```
+
+Gate :
 
 ```text
 AcceptanceCriterion invariants PASS
 VerificationStatus invariants PASS
 AcceptanceCriterionId round-trip PASS
 TraceabilityEntityKind integration PASS
-full relevant domain/application compilation PASS
+Memory / SQLite persistence + reopen PASS
+CLI / MCP / HTTP surfaces PASS
+Architecture 157/157 PASS
+TOTAL 371/371 PASS
+Packaging Windows + smokes PASS
+BUILD SUCCESS
 ```
+
+ADR-0081 est donc **Acceptée — M15**.
