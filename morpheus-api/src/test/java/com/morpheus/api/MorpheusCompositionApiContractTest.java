@@ -84,7 +84,7 @@ class MorpheusCompositionApiContractTest {
                     CompositionResolution.SELECTED_BY_PRECEDENCE,
                     Optional.of(openspec),
                     "OpenSpec has higher configured precedence");
-            runtime.compositions.put(new CompositionSnapshotState(
+            runtime.compositions.save(new CompositionSnapshotState(
                     imported.snapshot().id(),
                     openspec,
                     List.of(
