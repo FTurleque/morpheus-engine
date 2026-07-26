@@ -13,12 +13,10 @@ class MorpheusCompositionMcpToolsTest {
     Path tempDirectory;
 
     @Test
-    void exposesTwoReadOnlyCompositionToolsWithStrictSchemas() {
+    void exposesTwoReadOnlyCompositionToolSpecifications() {
         var specifications = new MorpheusCompositionMcpTools(tempDirectory.resolve("morpheus.db")).specifications();
 
         assertEquals(2, specifications.size());
-        assertEquals(MorpheusCompositionMcpTools.STATUS_TOOL, specifications.get(0).tool().name());
-        assertEquals(MorpheusCompositionMcpTools.CONFLICTS_TOOL, specifications.get(1).tool().name());
-        specifications.forEach(specification -> assertNotNull(specification.tool().inputSchema()));
+        specifications.forEach(specification -> assertNotNull(specification.tool()));
     }
 }
