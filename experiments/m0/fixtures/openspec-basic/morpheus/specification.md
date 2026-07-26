@@ -5,7 +5,6 @@ This file intentionally overlaps with the OpenSpec fixture to prove M18 conflict
 ```morpheus specification
 key=auth-session
 title=Authentication Session Specification
-description=Structured Markdown view of authentication sessions.
 ```
 
 ```morpheus specification
