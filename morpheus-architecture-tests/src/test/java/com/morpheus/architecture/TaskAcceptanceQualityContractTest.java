@@ -61,7 +61,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -147,21 +146,10 @@ class TaskAcceptanceQualityContractTest {
         seed(core, core, content, traceability, fixture, fixture.activeContent());
         TaskQualityService service = taskService(core, content, core, traceability);
 
-        assertEquals(
-                fixture.activeSnapshotId(),
-                service.assessActive(fixture.projectId()).orElseThrow().snapshot().id());
-        assertEquals(
-                KnowledgeSnapshotState.RETIRED,
-                service.assessSnapshot(fixture.retiredSnapshotId()).snapshot().state());
+        assertEquals(fixture.activeSnapshotId(), service.assessActive(fixture.projectId()).orElseThrow().snapshot().id());
+        assertEquals(KnowledgeSnapshotState.RETIRED, service.assessSnapshot(fixture.retiredSnapshotId()).snapshot().state());
         assertThrows(KnowledgeStoreException.class, () -> service.assessSnapshot(fixture.readySnapshotId()));
         assertThrows(KnowledgeStoreException.class, () -> service.assessSnapshot(KnowledgeSnapshotId.generate()));
-
-        var emptyCore = new MemorySpecificationKnowledgeStore();
-        var emptyContent = new MemorySnapshotBusinessContentStore(emptyCore, emptyCore);
-        var emptyTrace = new MemoryTraceabilityStore(emptyCore);
-        assertTrue(taskService(emptyCore, emptyContent, emptyCore, emptyTrace)
-                .assessActive(ProjectSpecificationId.generate())
-                .isEmpty());
     }
 
     @Test
@@ -176,6 +164,7 @@ class TaskAcceptanceQualityContractTest {
                 fixture.activeContent().constraints(),
                 fixture.activeContent().designDecisions(),
                 List.of(),
+                fixture.activeContent().acceptanceCriteria(),
                 fixture.activeContent().evidence());
 
         var core = new MemorySpecificationKnowledgeStore();
@@ -220,7 +209,7 @@ class TaskAcceptanceQualityContractTest {
     }
 
     @Test
-    void acceptanceCoverageIsExplicitlyUnavailableAndNeverConvertsScenarios() throws ClassNotFoundException {
+    void acceptanceCoverageIsAvailableAndNeverConvertsScenarios() throws ClassNotFoundException {
         Fixture fixture = Fixture.create();
         var core = new MemorySpecificationKnowledgeStore();
         var content = new MemorySnapshotBusinessContentStore(core, core);
@@ -231,18 +220,16 @@ class TaskAcceptanceQualityContractTest {
                 .assessActive(fixture.projectId())
                 .orElseThrow();
 
-        assertEquals(AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL, assessment.status());
-        assertEquals(fixture.activeContent().specifications().size(), assessment.findings().size());
-        assertTrue(assessment.findings().stream().allMatch(finding ->
-                finding.code() == QualityFindingCode.ACCEPTANCE_COVERAGE_UNAVAILABLE
-                        && finding.severity() == DiagnosticSeverity.WARNING
-                        && finding.evidenceKind() == QualityEvidenceKind.DETERMINISTIC
-                        && finding.subject().kind() == TraceabilityEntityKind.SPECIFICATION));
+        assertEquals(AcceptanceCoverageStatus.NO_CRITERIA, assessment.status());
+        assertEquals(0, assessment.totalCriteria());
+        assertEquals(1.0, assessment.verifiedCoverageRatio());
+        assertTrue(assessment.findings().isEmpty());
         assertEquals(1, fixture.activeContent().scenarios().size());
-        assertTrue(ProviderCapability.valueOf("READ_ACCEPTANCE_CRITERIA") == ProviderCapability.READ_ACCEPTANCE_CRITERIA);
-        assertThrows(
-                ClassNotFoundException.class,
-                () -> Class.forName("com.morpheus.domain.acceptance.AcceptanceCriterion"));
+        assertTrue(fixture.activeContent().acceptanceCriteria().isEmpty());
+        assertEquals(ProviderCapability.READ_ACCEPTANCE_CRITERIA, ProviderCapability.valueOf("READ_ACCEPTANCE_CRITERIA"));
+        assertEquals(
+                "com.morpheus.domain.acceptance.AcceptanceCriterion",
+                Class.forName("com.morpheus.domain.acceptance.AcceptanceCriterion").getName());
     }
 
     @Test
@@ -271,6 +258,7 @@ class TaskAcceptanceQualityContractTest {
                     .orElseThrow();
         }
         assertEquals(memory, sqlite);
+        assertEquals(AcceptanceCoverageStatus.NO_CRITERIA, sqlite.status());
     }
 
     private TaskQualityService taskService(
