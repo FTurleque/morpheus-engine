@@ -1,12 +1,13 @@
 # M18 — Real Providers & Multi-Provider Composition
 
-Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #86 prête à intégrer**
+Statut : **✅ VALIDÉ / INTÉGRÉ — PR #86**
 
 Dernière mise à jour : 26 juillet 2026
 
-Issue : **#85**  
-PR : **#86**  
-Branche : `m18/multi-provider-composition`
+Issue : **#85 — CLOSED / completed**  
+PR : **#86 — MERGED**  
+Branche historique : `m18/multi-provider-composition`  
+Merge : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`
 
 ## 1. Question de sortie
 
@@ -165,6 +166,18 @@ Preuve : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
 
 Le code et les artefacts exécutables ont été validés sur `7e8caacff567f51354fcb88bd7505a6d135071c0`.
 
-Les commits postérieurs au gate sont réservés à la clôture documentaire M18 : validation, statut ADR et plan. Ils ne modifient ni runtime, ni tests, ni migration, ni build.
+Les trois commits postérieurs au gate dans la PR #86 sont documentaires uniquement : validation, statut ADR et plan. Ils ne modifient ni runtime, ni tests, ni migration, ni build.
 
-La PR #86 peut être passée Ready puis intégrée si son diff post-gate reste exclusivement documentaire.
+## 8. Intégration finale
+
+Après le gate et les commits documentaires de clôture :
+
+```text
+PR #86        MERGED
+Issue #85     CLOSED / completed
+Merge commit  30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+```
+
+Cette section décrit l'état GitHub **postérieur au gate**. Elle ne modifie pas le fait historique que le code exécuté par `validate-m18.cmd` était `7e8caacff567f51354fcb88bd7505a6d135071c0`.
+
+Jalon suivant : **M19 — Production Hardening, Scale & Operability**.
