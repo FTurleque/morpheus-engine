@@ -8,8 +8,14 @@ import com.morpheus.domain.acceptance.AcceptanceCriterionId;
 import com.morpheus.domain.acceptance.VerificationStatus;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.constraint.Constraint;
+import com.morpheus.domain.constraint.ConstraintApplicability;
+import com.morpheus.domain.constraint.ConstraintBlockingMode;
+import com.morpheus.domain.constraint.ConstraintBlockingPolicy;
 import com.morpheus.domain.constraint.ConstraintId;
+import com.morpheus.domain.constraint.ConstraintSatisfaction;
+import com.morpheus.domain.constraint.ConstraintSeverity;
 import com.morpheus.domain.decision.DesignDecision;
 import com.morpheus.domain.decision.DesignDecisionId;
 import com.morpheus.domain.evidence.Evidence;
@@ -297,18 +303,37 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
         try (PreparedStatement statement = connection.prepareStatement("""
                 INSERT INTO snapshot_constraints(
                     snapshot_id, constraint_id, change_id, statement,
+                    applicability, severity, satisfaction, blocking_mode,
                     provider_id, provider_version, source_scheme, source_value, external_id, source_revision, evidence_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             for (Constraint constraint : content.constraints()) {
                 statement.setString(1, content.snapshotId().toString());
                 statement.setString(2, constraint.id().toString());
                 statement.setString(3, constraint.changeId().toString());
                 statement.setString(4, constraint.statement());
-                bindProvenance(statement, 5, constraint.provenance());
+                statement.setString(5, constraint.applicability().name());
+                statement.setString(6, constraint.severity().name());
+                statement.setString(7, constraint.satisfaction().name());
+                statement.setString(8, constraint.blockingPolicy().mode().name());
+                bindProvenance(statement, 9, constraint.provenance());
                 statement.addBatch();
             }
             statement.executeBatch();
+        }
+        for (Constraint constraint : content.constraints()) {
+            insertOrderedValues(
+                    "snapshot_constraint_blocking_targets",
+                    "constraint_id",
+                    content.snapshotId(),
+                    constraint.id().toString(),
+                    constraint.blockingPolicy().targetStates().stream().map(Enum::name).toList());
+            insertOrderedValues(
+                    "snapshot_constraint_supporting_evidence",
+                    "constraint_id",
+                    content.snapshotId(),
+                    constraint.id().toString(),
+                    constraint.supportingEvidenceIds().stream().map(EvidenceId::toString).toList());
         }
     }
 
@@ -500,10 +525,32 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
             try (ResultSet result = statement.executeQuery()) {
                 List<Constraint> items = new ArrayList<>();
                 while (result.next()) {
+                    ConstraintId constraintId = ConstraintId.parse(result.getString("constraint_id"));
+                    List<ChangeLifecycleState> targets = readOrderedValues(
+                                    "snapshot_constraint_blocking_targets",
+                                    "constraint_id",
+                                    snapshotId,
+                                    constraintId.toString()).stream()
+                            .map(ChangeLifecycleState::valueOf)
+                            .toList();
+                    List<EvidenceId> supportingEvidence = readOrderedValues(
+                                    "snapshot_constraint_supporting_evidence",
+                                    "constraint_id",
+                                    snapshotId,
+                                    constraintId.toString()).stream()
+                            .map(EvidenceId::parse)
+                            .toList();
                     items.add(new Constraint(
-                            ConstraintId.parse(result.getString("constraint_id")),
+                            constraintId,
                             ChangeId.parse(result.getString("change_id")),
                             result.getString("statement"),
+                            ConstraintApplicability.valueOf(result.getString("applicability")),
+                            ConstraintSeverity.valueOf(result.getString("severity")),
+                            ConstraintSatisfaction.valueOf(result.getString("satisfaction")),
+                            new ConstraintBlockingPolicy(
+                                    ConstraintBlockingMode.valueOf(result.getString("blocking_mode")),
+                                    targets),
+                            supportingEvidence,
                             mapProvenance(result)));
                 }
                 return List.copyOf(items);
