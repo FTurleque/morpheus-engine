@@ -98,6 +98,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0080](0080-jarvis-orchestration-surfaces-and-optional-client.md) | Surfaces M14 et client JARVIS optionnel | **Acceptée — M14** |
 | [ADR-0081](0081-first-class-acceptance-verification-evidence.md) | `AcceptanceCriterion`, `VerificationStatus` et preuves de vérification first-class | **Acceptée — M15** |
 | [ADR-0082](0082-explicit-constraint-semantics-and-blocking-policy.md) | Sémantique explicite des contraintes et politique de blocage | **Acceptée — M16** |
+| [ADR-0083](0083-controlled-lifecycle-write-operations.md) | Mutations lifecycle contrôlées, CAS, idempotency et audit | **Acceptée — M17** |
 
 # Preuves par jalon
 
@@ -117,6 +118,7 @@ M13 346/346 PASS Windows | Architecture 154/154 | MINOS/NEXUS optional packaging
 M14 357/357 PASS Windows | Architecture 160/160 | JARVIS orchestration packaging | JARVIS 536 tests BUILD SUCCESS
 M15 371/371 PASS Windows | Architecture 157/157 | acceptance CLI/MCP/HTTP | packaging + smokes PASS
 M16 393/393 PASS Windows | Architecture 161/161 | constraint policy CLI/MCP/HTTP | packaging + smokes PASS
+M17 410/410 PASS Windows | Architecture 167/167 | controlled lifecycle write CLI/MCP/HTTP | packaging + smokes PASS
 ```
 
 ## M12
@@ -179,6 +181,19 @@ Validation : [`../validation/VALIDATION_M15.md`](../validation/VALIDATION_M15.md
 
 Validation : [`../validation/VALIDATION_M16.md`](../validation/VALIDATION_M16.md).
 
+## M17
+
+| Incrément | ADR | Preuve |
+|---|---|---|
+| modèle mutation / révision / idempotency | ADR-0083 | Domain `40/40`, Application `104/104` |
+| CAS + persistance | ADR-0083 | Memory/SQLite contracts, SQLite V011, close/reopen PASS |
+| capability / confirmation | ADR-0083 | `WRITE_CHANGE` explicite, OpenSpec deny, Synthetic preuve positive |
+| idempotency / audit | ADR-0083 | retry `ALREADY_APPLIED`, stale writer `CONFLICT`, audit append-only |
+| surfaces CLI/MCP/HTTP | ADR-0083 | CLI `28/28`, MCP `5/5`, API `11/11`, MCP STDIO M17 |
+| gate final | ADR-0083 | `410/410`, Architecture `167/167`, packaging + smokes PASS |
+
+Validation : [`../validation/VALIDATION_M17.md`](../validation/VALIDATION_M17.md).
+
 # Contraintes actives principales
 
 ## Architecture
@@ -208,9 +223,11 @@ live external observation != persisted snapshot mutation
 NEXUS ContextBundle != KnowledgeSnapshot persistence
 lifecycle unavailable != lifecycle inferred
 transition evaluation != lifecycle mutation
+published snapshot != operational lifecycle state
+stale revision != overwrite
 ```
 
-## Qualité / analyse
+## Qualité / analyse / mutation
 
 ```text
 QualityFinding = dérivé, non persisté
@@ -226,6 +243,9 @@ UNKNOWN lifecycle fact != FALSE
 constraint semantics UNKNOWN != blocker inventé
 warning != blocker
 severity != blocking policy
+READ_CHANGES != WRITE_CHANGE
+ALLOWED != applied
+idempotent retry != duplicate mutation/audit
 code impact analysis = MINOS
 technical context ranking/compression = NEXUS
 orchestration sequencing = JARVIS
@@ -242,11 +262,11 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé** : M16.
+Dernier gate **validé** : M17.
 
 ```text
-TOTAL         393/393 PASS
-Architecture  161/161 PASS
+TOTAL         410/410 PASS
+Architecture  167/167 PASS
 Packaging     PASS
 ```
 
@@ -260,4 +280,5 @@ Packaging     PASS
 5. exécuter le gate Maven complet
 6. mettre à jour roadmap + issue après validation
 7. fusionner uniquement après autorisation explicite
+8. réconcilier les roadmaps/index après merge
 ```
