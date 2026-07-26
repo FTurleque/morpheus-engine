@@ -1,5 +1,6 @@
 package com.morpheus.application.quality;
 
+import com.morpheus.application.constraint.ConstraintPolicyEvaluationService;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.store.SnapshotBusinessContent;
@@ -8,6 +9,11 @@ import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.application.store.TraceabilityStore;
 import com.morpheus.application.store.VersionedRequirementStore;
 import com.morpheus.domain.change.ChangeProposal;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
+import com.morpheus.domain.constraint.Constraint;
+import com.morpheus.domain.constraint.ConstraintApplicability;
+import com.morpheus.domain.constraint.ConstraintEvaluationState;
+import com.morpheus.domain.constraint.ConstraintSeverity;
 import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -37,6 +43,7 @@ public final class ChangeCompletenessService {
     private final SnapshotBusinessContentStore contentStore;
     private final VersionedRequirementStore requirementStore;
     private final TraceabilityStore traceabilityStore;
+    private final ConstraintPolicyEvaluationService constraintPolicy = new ConstraintPolicyEvaluationService();
 
     public ChangeCompletenessService(
             SpecificationKnowledgeStore snapshotStore,
@@ -100,9 +107,11 @@ public final class ChangeCompletenessService {
                 .toList()
                 .size();
 
-        int constraintCount = (int) content.constraints().stream()
+        List<Constraint> changeConstraints = content.constraints().stream()
                 .filter(item -> item.changeId().equals(change.id()))
-                .count();
+                .sorted(Comparator.comparing(item -> item.id().toString()))
+                .toList();
+        int constraintCount = changeConstraints.size();
         int designDecisionCount = (int) content.designDecisions().stream()
                 .filter(item -> item.changeId().equals(change.id()))
                 .count();
@@ -113,14 +122,32 @@ public final class ChangeCompletenessService {
                 .filter(item -> item.changeId().filter(change.id()::equals).isPresent())
                 .count();
 
+        QualityFactValue criticalConstraintsKnown = changeConstraints.stream()
+                .allMatch(item -> item.applicability() != ConstraintApplicability.UNKNOWN
+                        && item.severity() != ConstraintSeverity.UNKNOWN)
+                ? QualityFactValue.TRUE
+                : QualityFactValue.UNAVAILABLE;
+
+        var implementationEvaluations = changeConstraints.stream()
+                .map(item -> constraintPolicy.evaluate(item, ChangeLifecycleState.IMPLEMENTING))
+                .toList();
+        QualityFactValue knownBlocker;
+        if (implementationEvaluations.stream().anyMatch(item -> item.state() == ConstraintEvaluationState.BLOCKING)) {
+            knownBlocker = QualityFactValue.TRUE;
+        } else if (implementationEvaluations.stream().anyMatch(item -> item.state() == ConstraintEvaluationState.UNKNOWN)) {
+            knownBlocker = QualityFactValue.UNAVAILABLE;
+        } else {
+            knownBlocker = QualityFactValue.FALSE;
+        }
+
         ChangeLifecycleFactAssessment facts = new ChangeLifecycleFactAssessment(
                 QualityFactValue.of(currentRequirementCount > 0),
-                QualityFactValue.UNAVAILABLE,
+                criticalConstraintsKnown,
                 QualityFactValue.of(acceptanceCriterionCount > 0),
                 QualityFactValue.UNAVAILABLE,
                 QualityFactValue.of(designDecisionCount > 0),
                 implementationTaskCount > 0 ? QualityFactValue.TRUE : QualityFactValue.UNAVAILABLE,
-                QualityFactValue.UNAVAILABLE,
+                knownBlocker,
                 QualityFactValue.UNAVAILABLE,
                 QualityFactValue.UNAVAILABLE);
 
