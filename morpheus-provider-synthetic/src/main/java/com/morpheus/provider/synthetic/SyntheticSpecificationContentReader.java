@@ -13,6 +13,7 @@ import com.morpheus.domain.acceptance.AcceptanceCriterionId;
 import com.morpheus.domain.acceptance.VerificationStatus;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
+import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.evidence.Evidence;
@@ -47,6 +48,7 @@ import java.util.Optional;
 /** Normalizes the verification-only synthetic JSON source through the public read contract. */
 public final class SyntheticSpecificationContentReader implements SpecificationContentReader {
     private final SyntheticSpecificationProvider provider;
+    private final SyntheticConstraintSemanticsReader constraintReader = new SyntheticConstraintSemanticsReader();
 
     public SyntheticSpecificationContentReader() {
         this(new SyntheticSpecificationProvider());
@@ -104,7 +106,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                     normalization.scenarios(),
                     normalization.changes(),
                     List.of(),
-                    List.of(),
+                    normalization.constraints(),
                     List.of(),
                     List.of(),
                     normalization.acceptanceCriteria(),
@@ -136,6 +138,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
         int sourceLines = Math.max(1, sourceText.lines().toList().size());
         List<Evidence> evidence = new ArrayList<>();
         List<AcceptanceCriterion> acceptanceCriteria = new ArrayList<>();
+        List<Constraint> constraints = new ArrayList<>();
 
         Map<String, Object> current = object(payload, "current");
         Map<String, Object> specificationSource = object(current, "specification");
@@ -226,6 +229,17 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                     strings(proposal, "risks"),
                     provenance(changeExternalId, source, changeEvidence.id())));
 
+            constraints.addAll(constraintReader.read(
+                    optionalArray(changeSource, "constraints"),
+                    changeId,
+                    changeExternalId,
+                    request.workspaceRoot(),
+                    source,
+                    sourceText,
+                    sourceLines,
+                    identities,
+                    evidence));
+
             for (Object rawCriterion : optionalArray(changeSource, "acceptance_criteria")) {
                 acceptanceCriteria.add(acceptanceCriterion(
                         object(rawCriterion, "acceptance criterion"),
@@ -255,6 +269,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                 requirements,
                 scenarios,
                 changes,
+                constraints,
                 acceptanceCriteria,
                 evidence);
     }
@@ -353,6 +368,9 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             case CHANGES -> normalization.changes().isEmpty()
                     ? ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0)
                     : ReadCategoryReport.of(category, ReadCategoryStatus.READ, normalization.changes().size());
+            case CONSTRAINTS -> normalization.constraints().isEmpty()
+                    ? ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0)
+                    : ReadCategoryReport.of(category, ReadCategoryStatus.READ, normalization.constraints().size());
             case ACCEPTANCE_CRITERIA -> normalization.acceptanceCriteria().isEmpty()
                     ? ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0)
                     : ReadCategoryReport.of(category, ReadCategoryStatus.READ, normalization.acceptanceCriteria().size());
@@ -521,6 +539,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             List<Requirement> requirements,
             List<Scenario> scenarios,
             List<ChangeProposal> changes,
+            List<Constraint> constraints,
             List<AcceptanceCriterion> acceptanceCriteria,
             List<Evidence> evidence) {
         private Normalization {
@@ -528,6 +547,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             requirements = List.copyOf(requirements);
             scenarios = List.copyOf(scenarios);
             changes = List.copyOf(changes);
+            constraints = List.copyOf(constraints);
             acceptanceCriteria = List.copyOf(acceptanceCriteria);
             evidence = List.copyOf(evidence);
         }
