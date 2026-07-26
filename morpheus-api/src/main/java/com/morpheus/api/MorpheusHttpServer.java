@@ -3,6 +3,8 @@ package com.morpheus.api;
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.history.PublishedHistoryException;
+import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
+import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
@@ -45,6 +47,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusExternalReferenceApiService externalReferenceService;
     private final MorpheusAugmentedContextApiService augmentedContextService;
     private final MorpheusJarvisOrchestrationApiService jarvisOrchestrationService;
+    private final MorpheusControlledLifecycleApiService controlledLifecycleService;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final JsonMapper mapper = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -57,20 +60,22 @@ public final class MorpheusHttpServer implements AutoCloseable {
             MorpheusApiService service,
             MorpheusExternalReferenceApiService externalReferenceService,
             MorpheusAugmentedContextApiService augmentedContextService,
-            MorpheusJarvisOrchestrationApiService jarvisOrchestrationService) {
+            MorpheusJarvisOrchestrationApiService jarvisOrchestrationService,
+            MorpheusControlledLifecycleApiService controlledLifecycleService) {
         this.server = Objects.requireNonNull(server, "server");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.service = Objects.requireNonNull(service, "service");
         this.externalReferenceService = Objects.requireNonNull(externalReferenceService, "externalReferenceService");
         this.augmentedContextService = Objects.requireNonNull(augmentedContextService, "augmentedContextService");
         this.jarvisOrchestrationService = Objects.requireNonNull(jarvisOrchestrationService, "jarvisOrchestrationService");
+        this.controlledLifecycleService = Objects.requireNonNull(controlledLifecycleService, "controlledLifecycleService");
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
         ExternalReferenceResolverRegistry resolvers = new ExternalReferenceResolverRegistry(List.of());
         ExternalIntegrationStatusProvider disabledMinos = () -> new ExternalIntegrationStatus(
                 "MINOS", "DISABLED", false, "MINOS integration is not configured", Map.of());
-        return start(databasePath, host, port, resolvers, disabledMinos, disabledNexus());
+        return start(databasePath, host, port, resolvers, disabledMinos, disabledNexus(), deniedWrites());
     }
 
     public static MorpheusHttpServer start(
@@ -79,7 +84,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             int port,
             ExternalReferenceResolverRegistry resolverRegistry,
             ExternalIntegrationStatusProvider minosStatus) {
-        return start(databasePath, host, port, resolverRegistry, minosStatus, disabledNexus());
+        return start(databasePath, host, port, resolverRegistry, minosStatus, disabledNexus(), deniedWrites());
     }
 
     public static MorpheusHttpServer start(
@@ -89,10 +94,22 @@ public final class MorpheusHttpServer implements AutoCloseable {
             ExternalReferenceResolverRegistry resolverRegistry,
             ExternalIntegrationStatusProvider minosStatus,
             TechnicalContextProvider technicalContextProvider) {
+        return start(databasePath, host, port, resolverRegistry, minosStatus, technicalContextProvider, deniedWrites());
+    }
+
+    public static MorpheusHttpServer start(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(minosStatus, "minosStatus");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
+        Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
         String normalizedHost = requireHost(host);
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
@@ -106,7 +123,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
                     new MorpheusApiService(databasePath),
                     new MorpheusExternalReferenceApiService(databasePath, resolverRegistry, minosStatus),
                     new MorpheusAugmentedContextApiService(databasePath, technicalContextProvider),
-                    new MorpheusJarvisOrchestrationApiService(databasePath));
+                    new MorpheusJarvisOrchestrationApiService(databasePath),
+                    new MorpheusControlledLifecycleApiService(databasePath, writeCapabilityResolver));
             httpServer.setExecutor(executor);
             httpServer.createContext(API_PREFIX, result::handle);
             httpServer.start();
@@ -310,6 +328,12 @@ public final class MorpheusHttpServer implements AutoCloseable {
             query.rejectUnknown(Set.of());
             TransitionCheckRequest request = readRequiredJson(exchange, TransitionCheckRequest.class);
             return ok(jarvisOrchestrationService.transition(projectId, segments.get(3), request));
+        }
+        if (segments.size() == 5 && segments.get(4).equals("lifecycle-transitions")) {
+            requireMethod(method, "POST");
+            query.rejectUnknown(Set.of());
+            LifecycleMutationRequest request = readRequiredJson(exchange, LifecycleMutationRequest.class);
+            return ok(controlledLifecycleService.apply(projectId, segments.get(3), request));
         }
         requireMethod(method, "GET");
         if (segments.size() == 3) {
@@ -528,7 +552,9 @@ public final class MorpheusHttpServer implements AutoCloseable {
         if (segments.size() == 5
                 && segments.getFirst().equals("projects")
                 && (segments.get(2).equals("requirements") || segments.get(2).equals("changes"))
-                && (segments.get(4).equals("augmented-context") || segments.get(4).equals("transition-check"))) {
+                && (segments.get(4).equals("augmented-context")
+                    || segments.get(4).equals("transition-check")
+                    || segments.get(4).equals("lifecycle-transitions"))) {
             return "POST";
         }
         return "GET";
@@ -536,6 +562,11 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private static TechnicalContextProvider disabledNexus() {
         return new DisabledTechnicalContextProvider("NEXUS", "NEXUS integration is not configured");
+    }
+
+    private static ChangeWriteCapabilityResolver deniedWrites() {
+        return projectId -> ChangeWriteCapabilityObservation.denied(
+                "No WRITE_CHANGE provider capability resolver is configured for this HTTP server");
     }
 
     private static String requireHost(String host) {
