@@ -15,7 +15,19 @@ D0   ✅ intégré
 M15  ✅ intégré
 M16  ✅ intégré
 M17  ✅ intégré
-M18  ⏭ prochain jalon
+M18  ✅ validé / intégré — PR #86
+M19  ⏭ prochain jalon
+M20  ⏳ planifié
+```
+
+Référence M18 :
+
+```text
+code validé = 7e8caacff567f51354fcb88bd7505a6d135071c0
+merge       = 30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+tests       = 418/418 PASS
+architecture= 170/170 PASS
+packaging   = PASS
 ```
 
 Les plans détaillés des jalons livrés restent disponibles comme historique d’exécution :
@@ -24,16 +36,17 @@ Les plans détaillés des jalons livrés restent disponibles comme historique d�
 - [`M15_EXECUTION.md`](M15_EXECUTION.md)
 - [`M16_EXECUTION.md`](M16_EXECUTION.md)
 - [`M17_EXECUTION.md`](M17_EXECUTION.md)
+- [`M18_EXECUTION.md`](M18_EXECUTION.md)
 
-## Plans historiques C0→M17
+## Plans historiques C0→M18
 
 Les fichiers `M*_EXECUTION.md` correspondant aux jalons déjà livrés sont des **archives d’exécution enrichies par leur état d’intégration final**. Ils conservent les SHA de code testés, les gates, les décisions ADR et les merges associés.
 
 Pour l’état actuel :
 
 ```text
-C0 → M17 = validés et intégrés
-M18      = prochain
+C0 → M18 = validés et intégrés
+M19      = prochain
 ```
 
 Consulter [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
@@ -42,7 +55,7 @@ Consulter [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
 
 La distinction entre documentation active, ADR normatives et preuves historiques est définie dans [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
 
-Les fichiers `VALIDATION_M*.md` restent des **preuves historiques autoritatives** : ils ne sont pas réécrits pour simuler un état post-merge. Les roadmaps et index actifs, eux, doivent refléter l’état GitHub courant.
+Les fichiers `VALIDATION_M*.md` restent des **preuves historiques autoritatives** : leur résultat de gate n’est pas réécrit pour simuler un état post-merge. Une note post-merge peut être ajoutée explicitement, sans altérer la chronologie. Les roadmaps et index actifs doivent refléter l’état GitHub courant.
 
 ## Ordre de lecture recommandé
 
@@ -51,7 +64,7 @@ ROADMAP globale
     ↓
 POST_M14_EXECUTION
     ↓
-plan du prochain jalon (M18)
+M19_EXECUTION — prochain jalon
     ↓
-VALIDATION du jalon lorsque le gate est atteint
+VALIDATION_M19 lorsque le gate est atteint
 ```
