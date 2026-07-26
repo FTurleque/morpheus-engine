@@ -23,7 +23,13 @@ public interface SpecificationKnowledgeStore {
 
     Optional<KnowledgeSnapshotMetadata> findSnapshot(KnowledgeSnapshotId snapshotId);
 
-    List<KnowledgeSnapshotMetadata> listSnapshots(ProjectSpecificationId projectId);
+    /**
+     * Lists all technical and published snapshots for one project. Adapters used for recovery must override this
+     * method and return a deterministic order.
+     */
+    default List<KnowledgeSnapshotMetadata> listSnapshots(ProjectSpecificationId projectId) {
+        throw new UnsupportedOperationException("snapshot listing is not supported by this store adapter");
+    }
 
     Optional<KnowledgeSnapshotMetadata> activeSnapshot(ProjectSpecificationId projectId);
 
