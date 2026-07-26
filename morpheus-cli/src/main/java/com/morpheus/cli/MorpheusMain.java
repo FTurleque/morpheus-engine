@@ -40,7 +40,9 @@ public final class MorpheusMain {
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
         int exitCode;
-        if (MorpheusJarvisOrchestrationCli.handles(args)) {
+        if (MorpheusAcceptanceCriteriaCli.handles(args)) {
+            exitCode = new MorpheusAcceptanceCriteriaCli().run(args, out, err, environment, properties);
+        } else if (MorpheusJarvisOrchestrationCli.handles(args)) {
             exitCode = new MorpheusJarvisOrchestrationCli().run(args, out, err, environment, properties);
         } else if (MorpheusAugmentedContextCli.handles(args)) {
             exitCode = new MorpheusAugmentedContextCli(nexus, nexus)
@@ -60,6 +62,10 @@ public final class MorpheusMain {
             out.println("API:");
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]");
             out.println("  Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println();
+            out.println("Acceptance criteria / verification:");
+            out.println("  morpheus [--json] acceptance-criteria list --project ID [--change ID | --requirement ID] [--offset N] [--limit N]");
+            out.println("  Criteria are explicit snapshot facts; scenarios and tests are never converted into criteria implicitly.");
             out.println();
             out.println("MINOS / external references:");
             out.println("  morpheus [--json] minos-status");
