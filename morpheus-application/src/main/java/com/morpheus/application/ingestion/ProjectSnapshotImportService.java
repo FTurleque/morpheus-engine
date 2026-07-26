@@ -1,5 +1,8 @@
 package com.morpheus.application.ingestion;
 
+import com.morpheus.application.composition.ComposedProjectContent;
+import com.morpheus.application.composition.ProviderCompositionReport;
+import com.morpheus.application.composition.ProviderCompositionReportStore;
 import com.morpheus.application.snapshot.SnapshotLifecycleService;
 import com.morpheus.application.snapshot.SnapshotValidationResult;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -40,6 +43,7 @@ public final class ProjectSnapshotImportService {
     private final VersionedRequirementStore requirementStore;
     private final SnapshotBusinessContentStore contentStore;
     private final TraceabilityStore traceabilityStore;
+    private final Optional<ProviderCompositionReportStore> compositionReportStore;
     private final SnapshotLifecycleService lifecycle;
     private final DeterministicTraceabilityDerivationService traceabilityDerivation;
 
@@ -48,10 +52,30 @@ public final class ProjectSnapshotImportService {
             VersionedRequirementStore requirementStore,
             SnapshotBusinessContentStore contentStore,
             TraceabilityStore traceabilityStore) {
+        this(snapshotStore, requirementStore, contentStore, traceabilityStore, Optional.empty());
+    }
+
+    public ProjectSnapshotImportService(
+            SpecificationKnowledgeStore snapshotStore,
+            VersionedRequirementStore requirementStore,
+            SnapshotBusinessContentStore contentStore,
+            TraceabilityStore traceabilityStore,
+            ProviderCompositionReportStore compositionReportStore) {
+        this(snapshotStore, requirementStore, contentStore, traceabilityStore, Optional.of(
+                Objects.requireNonNull(compositionReportStore, "compositionReportStore")));
+    }
+
+    private ProjectSnapshotImportService(
+            SpecificationKnowledgeStore snapshotStore,
+            VersionedRequirementStore requirementStore,
+            SnapshotBusinessContentStore contentStore,
+            TraceabilityStore traceabilityStore,
+            Optional<ProviderCompositionReportStore> compositionReportStore) {
         this.snapshotStore = Objects.requireNonNull(snapshotStore, "snapshotStore");
         this.requirementStore = Objects.requireNonNull(requirementStore, "requirementStore");
         this.contentStore = Objects.requireNonNull(contentStore, "contentStore");
         this.traceabilityStore = Objects.requireNonNull(traceabilityStore, "traceabilityStore");
+        this.compositionReportStore = Objects.requireNonNull(compositionReportStore, "compositionReportStore");
         this.lifecycle = new SnapshotLifecycleService(snapshotStore);
         this.traceabilityDerivation = new DeterministicTraceabilityDerivationService();
     }
@@ -60,7 +84,28 @@ public final class ProjectSnapshotImportService {
             NormalizedProjectContent content,
             Optional<String> sourceRevision,
             Instant publishedAt) {
+        return publishFullInternal(content, Optional.empty(), sourceRevision, publishedAt);
+    }
+
+    public ProjectSnapshotImportResult publishFull(
+            ComposedProjectContent composedContent,
+            Optional<String> sourceRevision,
+            Instant publishedAt) {
+        Objects.requireNonNull(composedContent, "composedContent");
+        if (compositionReportStore.isEmpty()) {
+            throw new KnowledgeStoreException("provider composition report store is required for composed publication");
+        }
+        return publishFullInternal(
+                composedContent.content(), Optional.of(composedContent.report()), sourceRevision, publishedAt);
+    }
+
+    private ProjectSnapshotImportResult publishFullInternal(
+            NormalizedProjectContent content,
+            Optional<ProviderCompositionReport> compositionReport,
+            Optional<String> sourceRevision,
+            Instant publishedAt) {
         Objects.requireNonNull(content, "content");
+        compositionReport = Objects.requireNonNull(compositionReport, "compositionReport");
         sourceRevision = normalize(sourceRevision);
         Objects.requireNonNull(publishedAt, "publishedAt");
 
@@ -120,6 +165,8 @@ public final class ProjectSnapshotImportService {
                 ignored -> Optional.of(TraceabilityLinkId.generate()),
                 publishedAt);
         links.forEach(link -> traceabilityStore.putLink(candidate.id(), link));
+
+        compositionReport.ifPresent(report -> compositionReportStore.orElseThrow().put(candidate.id(), report));
 
         KnowledgeSnapshotMetadata validated = lifecycle.validate(candidate.id(), ignored -> validation(content.diagnostics()));
         if (validated.state() != KnowledgeSnapshotState.READY) {
