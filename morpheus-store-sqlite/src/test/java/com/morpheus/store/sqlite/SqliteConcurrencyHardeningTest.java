@@ -3,7 +3,6 @@ package com.morpheus.store.sqlite;
 import com.morpheus.application.snapshot.SnapshotLifecycleService;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
-import com.morpheus.application.store.SnapshotConflictException;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
@@ -104,9 +103,7 @@ class SqliteConcurrencyHardeningTest {
         }
 
         long successes = outcomes.stream().filter(KnowledgeSnapshotMetadata.class::isInstance).count();
-        long explicitFailures = outcomes.stream()
-                .filter(outcome -> outcome instanceof SnapshotConflictException || outcome instanceof KnowledgeStoreException)
-                .count();
+        long explicitFailures = outcomes.stream().filter(KnowledgeStoreException.class::isInstance).count();
         assertEquals(1L, successes, () -> "exactly one successor must activate, outcomes=" + outcomes);
         assertEquals(1L, explicitFailures, () -> "losing command must fail explicitly, outcomes=" + outcomes);
 
@@ -155,7 +152,7 @@ class SqliteConcurrencyHardeningTest {
                 return;
             }
             outcomes.add(store.activateSnapshot(candidateId, store.findSnapshot(candidateId).orElseThrow().predecessorId()));
-        } catch (SnapshotConflictException | KnowledgeStoreException expected) {
+        } catch (KnowledgeStoreException expected) {
             outcomes.add(expected);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
