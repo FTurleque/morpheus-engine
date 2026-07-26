@@ -2,6 +2,7 @@ package com.morpheus.application.operability;
 
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -21,7 +22,7 @@ public final class SensitiveValueRedactor {
         Objects.requireNonNull(attributes, "attributes");
         LinkedHashMap<String, String> result = new LinkedHashMap<>();
         attributes.forEach((key, value) -> result.put(key, redact(key, value)));
-        return Map.copyOf(result);
+        return Collections.unmodifiableMap(result);
     }
 
     public String redact(String key, String value) {
