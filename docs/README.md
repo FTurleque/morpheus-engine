@@ -2,9 +2,9 @@
 
 Cette page est le point d’entrée de la documentation active de MORPHEUS.
 
-MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, publie des snapshots versionnés, expose des requêtes et de la traçabilité, produit des diagnostics qualité, analyse les changements et fournit des contrats d’intégration optionnels pour MINOS, NEXUS et JARVIS.
+MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, publie des snapshots versionnés, expose des requêtes et de la traçabilité, produit des diagnostics qualité, analyse les changements, applique des mutations lifecycle explicitement contrôlées et fournit des contrats d’intégration optionnels pour MINOS, NEXUS et JARVIS.
 
-La documentation utilisateur et développeur contient désormais des diagrammes Mermaid de type **UML class**, **state**, **sequence** et des vues de composants pour expliciter les workflows et les frontières d’architecture directement dans GitHub.
+La documentation utilisateur et développeur contient des diagrammes Mermaid de type **UML class**, **state**, **sequence** et des vues de composants pour expliciter les workflows et les frontières d’architecture directement dans GitHub.
 
 La distinction entre documentation active, décisions normatives et preuves historiques est définie dans [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md).
 
@@ -64,9 +64,10 @@ flowchart LR
     Q --> CLI[CLI]
     Q --> MCP[MCP STDIO]
     Q --> API[HTTP /api/v1]
+    M --> W[Controlled lifecycle write]
     M -->|MCP STDIO| MINOS[MINOS optionnel]
     M -->|MCP STDIO| NEXUS[NEXUS optionnel]
-    J[JARVIS] -->|HTTP read-only| API
+    J[JARVIS] -->|facts + decisions| API
 ```
 
 ## Produit et spécification
@@ -85,10 +86,10 @@ Ces documents de cadrage expliquent l’intention fondatrice. Les contrats et é
 - [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global courant des jalons et synthèse post-M14 ;
 - [`roadmap/README.md`](roadmap/README.md) — index des plans historiques et actifs ;
 - [`roadmap/POST_M14_EXECUTION.md`](roadmap/POST_M14_EXECUTION.md) — roadmap détaillée D0 + M15→M20 ;
-- [`roadmap/D0_EXECUTION.md`](roadmap/D0_EXECUTION.md) — exécution de la réconciliation documentaire ;
+- [`roadmap/M17_EXECUTION.md`](roadmap/M17_EXECUTION.md) — dernier jalon intégré ;
 - [`governance/PLAN.md`](governance/PLAN.md) — plan de cadrage C0/M0 historique ;
 - [`governance/AUDIT_COHERENCE_C0.md`](governance/AUDIT_COHERENCE_C0.md) — audit C0 ;
-- [`validation/`](validation/) — preuves de validation C0 et M0 à M14 ;
+- [`validation/`](validation/) — preuves de validation C0 et M0 à M17 ;
 - [`adr/`](adr/) — Architecture Decision Records.
 
 ## Références machine
@@ -101,26 +102,28 @@ Ces documents de cadrage expliquent l’intention fondatrice. Les contrats et é
 
 ```text
 C0 → M14       ✅ validés et intégrés
-M14            ✅ 357/357 PASS
-Architecture   ✅ 160/160 PASS
-Packaging Win  ✅ PASS
-JARVIS         ✅ 536 tests BUILD SUCCESS
+D0             ✅ validé / intégré
+M15            ✅ validé / intégré — 371/371
+M16            ✅ validé / intégré — 393/393
+M17            ✅ validé / intégré — 410/410
+Architecture   ✅ 167/167 PASS au gate M17
+Packaging Win  ✅ PASS au gate M17
 
-D0             🚧 réconciliation documentaire
-M15            ⏳ acceptance / verification / evidence
-M16            ⏳ constraint semantics
-M17            ⏳ controlled write operations
-M18            ⏳ real multi-provider
+M18            ⏭ real providers / multi-provider — prochain
 M19            ⏳ production hardening / scale
 M20            ⏳ release engineering / installation PROD / 1.0
 ```
 
-M14 maintient la frontière suivante :
+Frontière actuelle :
 
 ```text
-MORPHEUS = specification facts + lifecycle rules + transition decisions
+MORPHEUS = specification facts + lifecycle rules + controlled state invariants
+MINOS    = code intelligence
+NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = sequencing + orchestration + action choice
 ```
+
+M17 ajoute une écriture lifecycle explicite sans modifier cette frontière : `ALLOWED != applied`, `READ_CHANGES != WRITE_CHANGE`, CAS/idempotency/audit sont obligatoires.
 
 La cible M20 aligne l’installation Windows sur le standard produit retenu pour MINOS : setup par utilisateur sous `%LOCALAPPDATA%\Programs\MORPHEUS`, données séparées sous `%LOCALAPPDATA%\MORPHEUS`, PATH optionnel, checksums et GitHub Releases. Le ZIP portable reste supporté pour l’automatisation et le diagnostic.
 
@@ -133,7 +136,7 @@ Dans la documentation :
 - `DRAFT` à `ARCHIVED`/`ABANDONED` désignent le lifecycle métier d’un `ChangeProposal` ;
 - `ALLOWED`, `BLOCKED`, `UNKNOWN`, `REQUIRES_INPUT` sont des décisions d’évaluation, pas des transitions appliquées ;
 - `persisted=false` indique une vue/observation live ou calculée qui ne modifie pas l’historique publié ;
-- une instruction de merge dans un plan M0→M14 est une preuve historique, pas l’état actuel du dépôt.
+- une preuve `VALIDATION_M*.md` conserve le SHA et le gate réellement exécutés, tandis que les roadmaps actives reflètent l’état GitHub courant.
 
 ## Règle de rangement
 

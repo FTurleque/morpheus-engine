@@ -1,12 +1,12 @@
 # M17 — Controlled Lifecycle & Write Operations
 
-Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #81 prête à intégrer**
+Statut : **✅ VALIDÉ / INTÉGRÉ — PR #81**
 
 Dernière mise à jour : 26 juillet 2026
 
-Issue : **#80**  
-Branche : `m17/controlled-lifecycle-write-operations`  
-PR : **#81 — Ready**  
+Issue : **#80 — closed / completed**  
+PR : **#81 — merged**  
+Merge : `02bdb38669efc85af17343d15e689743362d2e12`  
 Head de code validé : `87d2c0238f90aeb17dab5fed04f1c83a1b548f15`
 
 ## 1. Question de sortie
@@ -141,7 +141,8 @@ L'audit append-only constitue la preuve persistée de l'application : identité,
 - Architecture : **167/167 PASS** ;
 - packaging Windows + smokes : **PASS** ;
 - `VALIDATION_M17.md` créée ;
-- ADR-0083 : **Acceptée — M17**.
+- ADR-0083 : **Acceptée — M17** ;
+- PR #81 mergée dans `main`.
 
 ## 6. Gate autoritatif
 
@@ -180,6 +181,16 @@ Environnement : Windows 10 amd64, OpenJDK 24.0.1, Maven 3.9.16, target Java 21.
 
 Preuve : [`../validation/VALIDATION_M17.md`](../validation/VALIDATION_M17.md).
 
-## 7. Gouvernance
+## 7. Validation et intégration
 
-M17 est techniquement validé. Les commits postérieurs au SHA de code validé sont documentaires uniquement. La PR #81 peut être intégrée ; l'issue #80 est clôturée après merge.
+```text
+M17       ✅ VALIDÉ / INTÉGRÉ
+ADR-0083  ✅ Acceptée — M17
+PR #81    ✅ MERGED
+Merge     02bdb38669efc85af17343d15e689743362d2e12
+M18       ⏭ prochain jalon
+```
+
+## 8. Gouvernance
+
+M17 est intégré à `main`. Le head de code autoritatif reste `87d2c0238f90aeb17dab5fed04f1c83a1b548f15`; les commits postérieurs au gate sont exclusivement documentaires.
