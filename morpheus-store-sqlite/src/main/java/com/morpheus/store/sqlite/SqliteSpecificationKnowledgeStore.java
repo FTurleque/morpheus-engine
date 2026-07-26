@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.security.LocalWritePermissionHardener;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.SnapshotConflictException;
@@ -11,7 +12,6 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.domain.source.SourceLocator;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -27,23 +27,34 @@ import java.util.Optional;
 
 /** SQLite adapter for the MORPHEUS knowledge-store foundation. */
 public final class SqliteSpecificationKnowledgeStore implements SpecificationKnowledgeStore, AutoCloseable {
+    static final int DEFAULT_BUSY_TIMEOUT_MILLIS = 5_000;
+
     private final Connection connection;
     private boolean closed;
 
     public SqliteSpecificationKnowledgeStore(Path databasePath) {
+        this(databasePath, DEFAULT_BUSY_TIMEOUT_MILLIS);
+    }
+
+    SqliteSpecificationKnowledgeStore(Path databasePath, int busyTimeoutMillis) {
         Objects.requireNonNull(databasePath, "databasePath");
+        if (busyTimeoutMillis <= 0 || busyTimeoutMillis > 60_000) {
+            throw new IllegalArgumentException("busyTimeoutMillis must be between 1 and 60000");
+        }
         Path absolutePath = databasePath.toAbsolutePath().normalize();
         Connection opened = null;
         try {
+            LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
             Path parent = absolutePath.getParent();
             if (parent != null) {
-                Files.createDirectories(parent);
+                hardener.hardenDirectory(parent);
             }
             opened = DriverManager.getConnection("jdbc:sqlite:" + absolutePath);
-            configure(opened);
+            hardener.hardenFile(absolutePath);
+            configure(opened, busyTimeoutMillis);
             new SqliteSchemaManager().migrate(opened);
             this.connection = opened;
-        } catch (SQLException | IOException | RuntimeException exception) {
+        } catch (SQLException | RuntimeException exception) {
             closeQuietly(opened);
             if (exception instanceof KnowledgeStoreException knowledgeStoreException) {
                 throw knowledgeStoreException;
@@ -406,10 +417,10 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
         }
     }
 
-    private void configure(Connection connection) throws SQLException {
+    private void configure(Connection connection, int busyTimeoutMillis) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("PRAGMA foreign_keys = ON");
-            statement.execute("PRAGMA busy_timeout = 5000");
+            statement.execute("PRAGMA busy_timeout = " + busyTimeoutMillis);
         }
     }
 
