@@ -4,10 +4,12 @@ MORPHEUS expose une API JSON locale versionnée. Cette page documente la surface
 
 ```text
 OpenAPI 3.1.0
-API version 1.3.0
+API contract version 1.6.0
 base /api/v1
 server par défaut http://127.0.0.1:8765/api/v1
 ```
+
+La version d’URL reste `/api/v1` : les évolutions M12→M17 sont additives et versionnées dans le document OpenAPI.
 
 ## 1. Démarrage
 
@@ -39,7 +41,7 @@ flowchart TB
     PORTS --> SQL[morpheus-store-sqlite]
 ```
 
-L’API ne dépend ni de `morpheus-cli`, ni de `morpheus-mcp`, ni des implémentations externes MINOS/NEXUS/JARVIS.
+L’API ne dépend ni de `morpheus-cli`, ni de `morpheus-mcp`, ni des implémentations externes MINOS/NEXUS/JARVIS. Le resolver de capacité write est injecté par le composition root.
 
 ## 3. Cycle d’une requête
 
@@ -52,14 +54,14 @@ sequenceDiagram
 
     Client->>HTTP: requête /api/v1/...
     HTTP->>HTTP: valider méthode/path/body
-    HTTP->>App: commande/requête structurée
+    HTTP->>App: requête/commande structurée
     App->>Store: lire/écrire via ports
     Store-->>App: modèle persisté
     App-->>HTTP: résultat applicatif
     HTTP-->>Client: JSON versionné
 ```
 
-La surface HTTP traduit le protocole et les erreurs ; elle ne doit pas réimplémenter les règles métier.
+La surface HTTP traduit le protocole et les erreurs ; elle ne réimplémente pas les règles métier.
 
 ## 4. Enveloppes JSON
 
@@ -72,7 +74,7 @@ Succès :
 }
 ```
 
-Erreur :
+Erreur transport/protocole :
 
 ```json
 {
@@ -95,6 +97,8 @@ X-Content-Type-Options   nosniff
 
 Un client doit dépendre de `apiVersion`, des champs documentés et des codes d’erreur, pas du texte libre du message.
 
+Les résultats métier d’une mutation (`CONFLICT`, `NOT_AUTHORIZED`, etc.) sont retournés dans `data.state` : ils ne sont pas artificiellement transformés en erreur HTTP tant que la requête est valide et que le service a pu l’évaluer.
+
 ## 5. Endpoints système
 
 ```text
@@ -102,8 +106,6 @@ GET /api/v1/
 GET /api/v1/health
 GET /api/v1/version
 ```
-
-Utilisation typique : healthcheck local, détection de version et vérification préalable d’un client.
 
 ## 6. Projets et synchronisation
 
@@ -115,9 +117,7 @@ POST /api/v1/projects/{projectId}/sync
 GET  /api/v1/projects/{projectId}/sync-status
 ```
 
-Les mutations opérationnelles HTTP exposées restent limitées à l’enregistrement projet et à la synchronisation.
-
-### Séquence de synchronisation
+La synchronisation publie des snapshots. Elle est distincte de l’état lifecycle opérationnel M17.
 
 ```mermaid
 sequenceDiagram
@@ -135,11 +135,9 @@ sequenceDiagram
         App->>Store: READY -> ACTIVE
         Store->>Store: ancien ACTIVE -> RETIRED
         App-->>API: nouveau snapshot
-        API-->>Client: succès JSON
     else invalide
         App->>Store: FAILED
         Note over Store: ancien ACTIVE conservé
-        API-->>Client: erreur classifiée
     end
 ```
 
@@ -182,7 +180,7 @@ Contexte NEXUS live :
 POST /api/v1/projects/{projectId}/changes/{changeId}/augmented-context
 ```
 
-`Scenario` et `AcceptanceCriterion` restent deux concepts distincts. Une route de critères d’acceptation ne synthétise pas des critères à partir de scénarios.
+`Scenario` et `AcceptanceCriterion` restent deux concepts distincts. Les contraintes M16 exposent leur sémantique explicite ; aucun texte ou niveau de sévérité n’est transformé implicitement en blocker.
 
 ## 9. Orchestration JARVIS read-only
 
@@ -241,20 +239,144 @@ sequenceDiagram
     actor J as Client/JARVIS
     participant API
     participant E as TransitionEvaluationService
-    participant SM as ChangeLifecycleStateMachine
 
     J->>API: POST transition-check
     API->>E: request + faits observables
-    E->>SM: evaluate(...)
-    SM-->>E: décision métier connue
     E-->>API: ALLOWED/BLOCKED/UNKNOWN/REQUIRES_INPUT
     API-->>J: JSON
-    Note over API,SM: aucune mutation du lifecycle
+    Note over API,E: aucune mutation du lifecycle
 ```
 
-Le POST est une évaluation pure : aucune transition, aucun provider et aucun snapshot ne sont mutés.
+Le POST `transition-check` reste une évaluation pure. **`ALLOWED != applied`.**
 
-## 10. Versions, historique et diagnostics
+## 10. M17 — mutation lifecycle contrôlée
+
+Endpoint distinct :
+
+```text
+POST /api/v1/projects/{projectId}/changes/{changeId}/lifecycle-transitions
+```
+
+Exemple de body :
+
+```json
+{
+  "mutationId": null,
+  "idempotencyKey": "release-42-change-7-proposed",
+  "expectedRevision": 0,
+  "targetState": "PROPOSED",
+  "abandonmentReason": null,
+  "actor": "jarvis",
+  "confirmed": true
+}
+```
+
+Required :
+
+```text
+idempotencyKey
+expectedRevision
+targetState
+actor
+confirmed
+```
+
+`mutationId` est optionnel ; MORPHEUS en génère un lorsqu’il est absent.
+
+### 10.1 Garde-fous
+
+L’ordre applicatif est :
+
+```text
+idempotency
+  ↓
+WRITE_CHANGE capability
+  ↓
+confirmation explicite
+  ↓
+expectedRevision / CAS
+  ↓
+transition evaluation M14-M16
+  ↓
+state + audit atomiques
+```
+
+Une décision `ALLOWED` ne contourne aucun de ces contrôles.
+
+### 10.2 État opérationnel
+
+L’état lifecycle mutable n’est pas stocké dans `KnowledgeSnapshot` :
+
+```text
+published snapshot                  immutable
+ChangeLifecycleOperationalState     mutable / CAS-controlled
+```
+
+État initial virtuel :
+
+```text
+state    DRAFT
+revision 0
+```
+
+Après première mutation réussie : révision `1`. Chaque mutation suivante incrémente exactement une fois.
+
+### 10.3 Résultats
+
+```text
+APPLIED               mutation appliquée + audit
+ALREADY_APPLIED       retry idempotente, aucun second audit
+CONFLICT              revision stale ou idempotency incohérente
+NOT_AUTHORIZED        WRITE_CHANGE indisponible
+REQUIRES_CONFIRMATION confirmation explicite absente
+REJECTED              décision lifecycle/contraintes non ALLOWED
+```
+
+Exemple de réponse :
+
+```json
+{
+  "apiVersion": "v1",
+  "data": {
+    "state": "APPLIED",
+    "lifecycleState": {
+      "projectId": "...",
+      "changeId": "...",
+      "lifecycleState": "PROPOSED",
+      "abandonmentReason": null,
+      "revision": 1,
+      "updatedAt": "2026-07-26T15:00:00Z",
+      "lastMutationId": "..."
+    },
+    "audit": {
+      "mutationId": "...",
+      "idempotencyKey": "release-42-change-7-proposed",
+      "projectId": "...",
+      "changeId": "...",
+      "fromState": "DRAFT",
+      "targetState": "PROPOSED",
+      "targetAbandonmentReason": null,
+      "fromRevision": 0,
+      "toRevision": 1,
+      "actor": "jarvis",
+      "providerId": "...",
+      "reason": "...",
+      "appliedAt": "..."
+    },
+    "reason": "Lifecycle mutation applied"
+  }
+}
+```
+
+### 10.4 Capability provider
+
+```text
+READ_CHANGES != WRITE_CHANGE
+```
+
+Le resolver doit observer explicitement `WRITE_CHANGE`. Les overloads API historiques sont deny-by-default. Le launcher officiel injecte la découverte des providers embarqués ; en l’absence de provider write-capable la requête est valide mais retourne `NOT_AUTHORIZED`, sans mutation ni audit.
+
+## 11. Versions, historique et diagnostics
 
 ```text
 GET /api/v1/projects/{projectId}/versions
@@ -263,9 +385,9 @@ GET /api/v1/projects/{projectId}/versions/compare
 GET /api/v1/projects/{projectId}/diagnostics
 ```
 
-La comparaison porte sur des versions/snapshots publiés. L’historique est conservé ; il n’est pas réécrit pour refléter une observation plus récente.
+L’historique publié n’est pas réécrit par une mutation lifecycle opérationnelle.
 
-## 11. MINOS
+## 12. MINOS
 
 ```text
 GET /api/v1/integrations/minos/status
@@ -275,22 +397,7 @@ GET /api/v1/projects/{projectId}/external-references/{referenceId}/resolution
 
 La résolution live expose une observation avec `persisted=false` et ne réécrit pas l’historique publié.
 
-```mermaid
-sequenceDiagram
-    actor Client
-    participant API
-    participant App
-    participant Minos as MINOS process
-
-    Client->>API: GET .../resolution
-    API->>App: resolve(referenceId)
-    App->>Minos: MCP STDIO
-    Minos-->>App: observation
-    App-->>API: référence + observation
-    API-->>Client: persisted=false
-```
-
-## 12. NEXUS
+## 13. NEXUS
 
 ```text
 GET  /api/v1/integrations/nexus/status
@@ -300,7 +407,7 @@ POST /api/v1/projects/{projectId}/changes/{changeId}/augmented-context
 
 Le `ContextBundle` NEXUS reste live et non persisté. MORPHEUS transmet une intention structurée mais ne réimplémente pas le ranking/fusion/compression de NEXUS.
 
-## 13. Validation des bodies
+## 14. Validation des bodies
 
 Les POST JSON imposent :
 
@@ -312,28 +419,32 @@ champs connus uniquement
 aucun token supplémentaire
 ```
 
-Les bodies sont volontairement stricts pour éviter qu’un client pense qu’un champ ignoré a été pris en compte.
+Cette règle est essentielle aux mutations : un client ne doit jamais penser qu’un `expectedRevision`, `confirmed` ou autre garde-fou mal orthographié a été pris en compte.
 
-## 14. Frontière d’écriture
+## 15. Frontière d’écriture
 
-L’API n’expose pas de mutation pour :
+M17 ajoute **uniquement** la transition lifecycle opérationnelle contrôlée. L’API n’expose toujours pas de mutation pour :
 
 ```text
 RequirementDelta APPLY
 PROMOTE
 ACTIVATE direct
 rollback mutation
-write requirement/change
-apply lifecycle transition
+write requirement/change content
 persist external-reference live resolution
 persist NEXUS ContextBundle
 NEXUS project add/index/rebuild
 JARVIS orchestration action
 ```
 
-Cette frontière est centrale : l’API peut **évaluer**, **observer** et **synchroniser**, mais elle ne transforme pas les contrats read-only en mutations implicites.
+La frontière reste :
 
-## 15. Erreurs côté client
+```text
+JARVIS chooses/sequences
+MORPHEUS validates state invariants and may apply an explicit authorized command
+```
+
+## 16. Erreurs côté client
 
 Un client doit traiter distinctement :
 
@@ -341,13 +452,16 @@ Un client doit traiter distinctement :
 |---|---|
 | argument/body invalide | corriger la requête |
 | `NOT_FOUND` | identité inexistante dans la base/snapshot ciblé |
-| état incompatible | opération impossible dans l’état courant |
+| erreur HTTP `STATE_CONFLICT` | précondition de lecture/runtime non satisfaisable |
+| `data.state=CONFLICT` | conflit métier/CAS/idempotency d’une commande valide |
+| `data.state=NOT_AUTHORIZED` | aucun provider n’expose explicitement `WRITE_CHANGE` |
+| `data.state=REQUIRES_CONFIRMATION` | confirmer explicitement avant retry |
 | intégration indisponible | capacité optionnelle non disponible, pas panne globale |
 | erreur interne | conserver réponse + logs pour diagnostic |
 
-Ne pas convertir `UNAVAILABLE` ou `UNKNOWN` en `false` dans un client métier.
+Ne pas convertir `UNAVAILABLE` ou `UNKNOWN` en `false`, ni `ALLOWED` en mutation implicite.
 
-## 16. Exemple de client local
+## 17. Exemple de client local
 
 Health :
 
@@ -355,29 +469,35 @@ Health :
 curl -s http://127.0.0.1:8765/api/v1/health
 ```
 
-Liste des projets :
+Évaluation read-only :
 
 ```bash
-curl -s http://127.0.0.1:8765/api/v1/projects
+curl -s -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"fromState":"DRAFT","targetState":"PROPOSED"}' \
+  http://127.0.0.1:8765/api/v1/projects/<projectId>/changes/<changeId>/transition-check
 ```
 
-État d’un changement :
+Mutation explicite :
 
 ```bash
-curl -s \
-  http://127.0.0.1:8765/api/v1/projects/<projectId>/changes/<changeId>/orchestration
+curl -s -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"idempotencyKey":"demo-1","expectedRevision":0,"targetState":"PROPOSED","actor":"user","confirmed":true}' \
+  http://127.0.0.1:8765/api/v1/projects/<projectId>/changes/<changeId>/lifecycle-transitions
 ```
 
 Pour les bodies exacts, statuts HTTP et schémas de réponse, le fichier OpenAPI est la source de vérité machine.
 
-## 17. Tests de contrat
+## 18. Tests de contrat
 
-La preuve M14 inclut `morpheus-api` **9/9 PASS**, dont le contrat d’orchestration JARVIS. Le nombre est une preuve historique du jalon ; les tests futurs peuvent augmenter.
+Les comptes de tests historiques restent documentés dans `docs/validation/`. Le gate M17 ajoutera la preuve de séparation evaluation/write, capability, confirmation, CAS, idempotency, reopen SQLite et transport HTTP réel.
 
-## 18. Voir aussi
+## 19. Voir aussi
 
 - [Architecture](ARCHITECTURE.md)
 - [Serveur MCP](MCP.md)
 - [Intégrations](INTEGRATIONS.md)
 - [OpenAPI](../openapi/morpheus-v1.yaml)
-- [Guide utilisateur](../user/README.md)
+- [Référence CLI](../user/CLI.md)
+- [ADR-0083](../adr/0083-controlled-lifecycle-write-operations.md)

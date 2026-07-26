@@ -12,9 +12,12 @@
 - traçabilité déterministe ;
 - diagnostics qualité ;
 - analyse de changements proposés ;
+- critères d’acceptation, vérification et evidence explicites ;
+- sémantique explicite des contraintes et décisions lifecycle explicables ;
 - CLI locale scriptable ;
-- serveur MCP STDIO read-only ;
+- serveur MCP STDIO avec **20 tools read-only + 1 tool write M17 explicite** ;
 - API HTTP locale `/api/v1` ;
+- première mutation lifecycle contrôlée par capability, confirmation, CAS, idempotency et audit ;
 - intégrations optionnelles MINOS, NEXUS et JARVIS.
 
 MORPHEUS ne nécessite aucun LLM pour son cœur fonctionnel.
@@ -22,10 +25,10 @@ MORPHEUS ne nécessite aucun LLM pour son cœur fonctionnel.
 ## Écosystème
 
 ```text
-MORPHEUS = specification / intent / lifecycle rules
+MORPHEUS = specification / intent / lifecycle rules / controlled state invariants
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
-JARVIS   = orchestration / sequencing
+JARVIS   = orchestration / sequencing / action choice
 ```
 
 Chaque moteur reste autonome.
@@ -38,10 +41,11 @@ Sources / workspaces
  -> Memory | SQLite
  -> Query / Traceability / Quality / Change Analysis
  -> CLI | MCP | HTTP API
-              |
-              +-> MINOS optionnel via MCP STDIO
-              +-> NEXUS optionnel via MCP STDIO
-              +-> contrat read-only <- HTTP <- JARVIS
+               |
+               +-> MINOS optionnel via MCP STDIO
+               +-> NEXUS optionnel via MCP STDIO
+               +-> contrat read-only <- HTTP <- JARVIS
+               +-> lifecycle write explicite (M17, capability-gated)
 ```
 
 ## Démarrage
@@ -85,14 +89,15 @@ morpheus --json requirements find --project <projectId> --query "session"
 projects
 sync / sync-status
 requirements
-changes / constraints / decisions / tasks
+changes / constraints / acceptance-criteria / decisions / tasks
 trace-requirement
 change-context
 analyze-change
 quality
 minos-status / external-references
 nexus-status / augmented-context
-change-orchestration
+change-orchestration                 read-only evaluation
+lifecycle apply                      explicit controlled write
 ```
 
 Référence : [docs/user/CLI.md](docs/user/CLI.md).
@@ -103,7 +108,14 @@ Référence : [docs/user/CLI.md](docs/user/CLI.md).
 morpheus mcp --stdio
 ```
 
-Catalogue actuel : **20 tools read-only**.
+Catalogue actuel :
+
+```text
+20 tools read-only
++ 1 tool write explicite : apply_change_lifecycle_transition
+```
+
+Le tool write n’est jamais activé par une simple capacité de lecture : il exige `WRITE_CHANGE`, confirmation, `expectedRevision`, `idempotencyKey` et audit.
 
 Référence : [docs/developer/MCP.md](docs/developer/MCP.md).
 
@@ -114,9 +126,16 @@ morpheus api --host 127.0.0.1 --port 8765
 ```
 
 ```text
-base = /api/v1
-OpenAPI = 3.1.0
-contract version = 1.3.0
+base             = /api/v1
+OpenAPI          = 3.1.0
+contract version = 1.6.0
+```
+
+Évaluation et mutation sont séparées :
+
+```text
+POST .../transition-check       read-only
+POST .../lifecycle-transitions  controlled write
 ```
 
 Référence : [docs/developer/API.md](docs/developer/API.md).
@@ -133,14 +152,14 @@ Construit du contexte technique à partir d’une intention MORPHEUS. NEXUS rest
 
 ### JARVIS
 
-Consomme un contrat HTTP read-only :
+Consomme les faits et décisions MORPHEUS :
 
 ```text
-MORPHEUS = facts + lifecycle rules + transition decisions
+MORPHEUS = facts + lifecycle rules + transition decisions + controlled state invariants
 JARVIS   = sequencing + orchestration + action choice
 ```
 
-MORPHEUS évalue les transitions mais ne les applique pas via ce contrat.
+JARVIS choisit l’action. Une décision `ALLOWED` ne constitue jamais une mutation ; la mutation M17 requiert une commande distincte et tous ses garde-fous.
 
 Guide : [docs/user/INTEGRATIONS.md](docs/user/INTEGRATIONS.md).
 
@@ -153,10 +172,17 @@ PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 Scenario != AcceptanceCriterion
+AcceptanceCriterion != Test
+UNKNOWN != FAILED
+UNKNOWN != BLOCKED
 optional engine absence != MORPHEUS failure
 live external observation != snapshot mutation
 lifecycle unavailable != lifecycle inferred
 transition evaluation != lifecycle mutation
+read capability != write capability
+ALLOWED != applied
+published snapshot != operational lifecycle state
+no implicit overwrite
 ```
 
 ## Fondation technique
@@ -201,35 +227,33 @@ Packaging Windows :
 .\distribution\build-portable.ps1
 ```
 
+Gate M17 mono-commande Windows :
+
+```powershell
+.\validate-m17.cmd
+```
+
 Documentation développeur : [docs/developer/README.md](docs/developer/README.md).
 
 ## État du projet
 
 ```text
-C0-M2  fondation                               ✅ VALIDÉ
-M3     temporalité / lifecycle                 ✅ VALIDÉ / INTÉGRÉ — 147/147
-M4     traçabilité                             ✅ VALIDÉ / INTÉGRÉ — 189/189
-M5     requêtes / contexte compact             ✅ VALIDÉ / INTÉGRÉ — 227/227
-M6     qualité / diagnostics                   ✅ VALIDÉ / INTÉGRÉ — 261/261
-M7     sync incrémentale                       ✅ VALIDÉ / INTÉGRÉ — 282/282
-M8     analyse changements                     ✅ VALIDÉ / INTÉGRÉ — 289/289
-M9     CLI / distribution                      ✅ VALIDÉ / INTÉGRÉ — 298/298
-M10    MCP STDIO                               ✅ VALIDÉ / INTÉGRÉ — 307/307
-M11    API HTTP                                ✅ VALIDÉ / INTÉGRÉ — 314/314
-M12    MINOS optionnel                         ✅ VALIDÉ / INTÉGRÉ — 331/331
-M13    NEXUS optionnel                         ✅ VALIDÉ / INTÉGRÉ — 346/346
-M14    JARVIS orchestration contract           ✅ VALIDÉ / INTÉGRÉ — 357/357
-D0     réconciliation documentaire             🚧 EN COURS
+C0-M14  plateforme et intégrations fondamentales    ✅ VALIDÉ / INTÉGRÉ
+D0      réconciliation documentaire                 ✅ VALIDÉ / INTÉGRÉ
+M15     acceptance / verification / evidence        ✅ VALIDÉ / INTÉGRÉ — 371/371
+M16     constraint semantics / blocking policy      ✅ VALIDÉ / INTÉGRÉ — 393/393
+M17     controlled lifecycle / write operations     🚧 EN COURS — PR #81 Draft
+M18     real providers / multi-provider             ⏳ PLANIFIÉ
+M19     production hardening / scale                ⏳ PLANIFIÉ
+M20     release engineering / PROD / 1.0            ⏳ PLANIFIÉ
 ```
 
-Gate M14 de référence :
+Dernier gate intégré de référence : **M16**.
 
 ```text
-MORPHEUS        357/357 PASS
-Architecture    160/160 PASS
-Packaging       PASS
-JARVIS          536 tests BUILD SUCCESS
-Client MORPHEUS 6/6 PASS
+MORPHEUS        393/393 PASS
+Architecture    161/161 PASS
+Packaging       Windows + smokes PASS
 ```
 
 Roadmap post-M14 : **D0 → M15 → M16 → M17 → M18 → M19 → M20**. Voir [la roadmap détaillée](docs/roadmap/POST_M14_EXECUTION.md).
@@ -244,12 +268,12 @@ docs/developer/   architecture, build/tests, API, MCP, intégrations
 docs/product/     baseline C0, cas d’usage, MVP historique
 docs/reference/   index des contrats machine
 docs/governance/  roadmap courante, politique documentaire, audit
-docs/validation/  preuves historiques C0 et M0 à M14
+docs/validation/  preuves historiques des gates
 docs/adr/         décisions d’architecture
-docs/roadmap/     plans historiques M0→M14 + exécution post-M14
+docs/roadmap/     plans historiques + exécution post-M14
 docs/openapi/     OpenAPI machine-readable
 ```
 
 Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
 Politique documentaire : [docs/governance/DOCUMENTATION_STATUS.md](docs/governance/DOCUMENTATION_STATUS.md).  
-Validation M14 : [docs/validation/VALIDATION_M14.md](docs/validation/VALIDATION_M14.md).
+Dernière validation intégrée : [docs/validation/VALIDATION_M16.md](docs/validation/VALIDATION_M16.md).

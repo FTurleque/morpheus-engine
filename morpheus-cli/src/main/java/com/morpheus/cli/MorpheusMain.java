@@ -40,7 +40,9 @@ public final class MorpheusMain {
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
         int exitCode;
-        if (MorpheusConstraintSemanticsCli.handles(args)) {
+        if (MorpheusControlledLifecycleCli.handles(args)) {
+            exitCode = new MorpheusControlledLifecycleCli().run(args, out, err, environment, properties);
+        } else if (MorpheusConstraintSemanticsCli.handles(args)) {
             exitCode = new MorpheusConstraintSemanticsCli().run(args, out, err, environment, properties);
         } else if (MorpheusAcceptanceCriteriaCli.handles(args)) {
             exitCode = new MorpheusAcceptanceCriteriaCli().run(args, out, err, environment, properties);
@@ -64,6 +66,10 @@ public final class MorpheusMain {
             out.println("API:");
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]");
             out.println("  Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println();
+            out.println("Controlled lifecycle mutations (write, opt-in):");
+            out.println("  morpheus [--json] lifecycle apply --project ID --change ID --expected-revision N --to STATE --idempotency-key KEY --actor NAME --confirm [--abandonment-reason REASON]");
+            out.println("  Evaluation remains read-only; WRITE_CHANGE capability, confirmation and CAS are mandatory for mutation.");
             out.println();
             out.println("Acceptance criteria / verification:");
             out.println("  morpheus [--json] acceptance-criteria list --project ID [--change ID | --requirement ID] [--offset N] [--limit N]");
@@ -103,7 +109,10 @@ public final class MorpheusMain {
             MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
             NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
             return MorpheusMcpServer.run(
-                    options.layout().databasePath(), minos.resolverRegistry(), nexus);
+                    options.layout().databasePath(),
+                    minos.resolverRegistry(),
+                    nexus,
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()));
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS MCP usage error: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
@@ -128,7 +137,8 @@ public final class MorpheusMain {
                     options.port(),
                     minos.resolverRegistry(),
                     minos,
-                    nexus)) {
+                    nexus,
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()))) {
                 err.println("MORPHEUS API listening on " + server.baseUri());
                 try {
                     Thread.currentThread().join();

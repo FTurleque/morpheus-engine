@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MORPHEUS Headless API
-  version: 1.5.0
+  version: 1.6.0
   description: >-
     Local-first MORPHEUS HTTP adapter. M12 adds optional MINOS live reference
     resolution. M13 adds optional NEXUS technical-context augmentation. M14 adds
@@ -12,6 +12,9 @@ info:
     into implicit acceptance facts. M16 adds provider-neutral constraint applicability,
     severity, satisfaction and explicit blocking policy. Constraint text or severity
     never implies blocking, and UNKNOWN remains distinct from BLOCKED and ALLOWED.
+    M17 adds an explicit side-effecting lifecycle mutation endpoint separated from
+    transition evaluation. Mutations require WRITE_CHANGE capability, confirmation,
+    optimistic expectedRevision/CAS, idempotency and durable audit semantics.
 servers:
   - url: http://127.0.0.1:8765/api/v1
     description: Default local server
@@ -176,6 +179,7 @@ paths:
         explicit M16 constraint policy. Only an applicable, violated constraint whose
         BLOCK_WHEN_VIOLATED policy explicitly targets the requested lifecycle state can
         add BLOCKING_CONSTRAINT. Unknown policy facts yield UNKNOWN, never BLOCKED or ALLOWED.
+        This endpoint never applies the transition; use lifecycle-transitions for explicit M17 writes.
       requestBody:
         required: true
         content: {application/json: {schema: {$ref: '#/components/schemas/TransitionCheckRequest'}}}
@@ -185,6 +189,28 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ChangeTransitionEvaluationSuccessEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+  /projects/{projectId}/changes/{changeId}/lifecycle-transitions:
+    parameters: [{$ref: '#/components/parameters/ProjectId'}, {$ref: '#/components/parameters/ChangeId'}]
+    post:
+      operationId: applyChangeLifecycleTransition
+      description: >-
+        Explicit M17 side-effect boundary. A request is applied only after WRITE_CHANGE
+        authorization, explicit confirmation, expectedRevision/CAS and the existing
+        M14-M16 transition evaluation. Reusing the same idempotencyKey with the same
+        logical command returns ALREADY_APPLIED without a second mutation or audit record.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/LifecycleMutationRequest'}}}
+      responses:
+        '200':
+          description: Structured mutation outcome. Domain outcomes such as NOT_AUTHORIZED, REQUIRES_CONFIRMATION, CONFLICT and REJECTED are returned as data without implying transport failure.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LifecycleMutationSuccessEnvelope'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/StateConflict'}
@@ -389,6 +415,67 @@ components:
     AbandonmentReason:
       type: string
       enum: [REJECTED, OBSOLETE, DUPLICATE, NOT_FEASIBLE, NO_LONGER_NEEDED, SUPERSEDED_BY_OTHER_CHANGE, UNKNOWN]
+    LifecycleMutationResultState:
+      type: string
+      enum: [APPLIED, ALREADY_APPLIED, CONFLICT, NOT_AUTHORIZED, REQUIRES_CONFIRMATION, REJECTED]
+    LifecycleMutationRequest:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, expectedRevision, targetState, actor, confirmed]
+      properties:
+        mutationId: {anyOf: [{$ref: '#/components/schemas/Uuid'}, {type: 'null'}]}
+        idempotencyKey: {type: string, minLength: 1, maxLength: 200}
+        expectedRevision: {type: integer, format: int64, minimum: 0}
+        targetState: {$ref: '#/components/schemas/LifecycleState'}
+        abandonmentReason: {anyOf: [{$ref: '#/components/schemas/AbandonmentReason'}, {type: 'null'}]}
+        actor: {type: string, minLength: 1}
+        confirmed: {type: boolean}
+    OperationalLifecycleState:
+      type: object
+      additionalProperties: false
+      required: [projectId, changeId, lifecycleState, abandonmentReason, revision, updatedAt, lastMutationId]
+      properties:
+        projectId: {$ref: '#/components/schemas/Uuid'}
+        changeId: {$ref: '#/components/schemas/Uuid'}
+        lifecycleState: {$ref: '#/components/schemas/LifecycleState'}
+        abandonmentReason: {anyOf: [{$ref: '#/components/schemas/AbandonmentReason'}, {type: 'null'}]}
+        revision: {type: integer, format: int64, minimum: 0}
+        updatedAt: {type: [string, 'null'], format: date-time}
+        lastMutationId: {anyOf: [{$ref: '#/components/schemas/Uuid'}, {type: 'null'}]}
+    LifecycleMutationAudit:
+      type: object
+      additionalProperties: false
+      required: [mutationId, idempotencyKey, projectId, changeId, fromState, targetState, targetAbandonmentReason, fromRevision, toRevision, actor, providerId, reason, appliedAt]
+      properties:
+        mutationId: {$ref: '#/components/schemas/Uuid'}
+        idempotencyKey: {type: string, minLength: 1}
+        projectId: {$ref: '#/components/schemas/Uuid'}
+        changeId: {$ref: '#/components/schemas/Uuid'}
+        fromState: {$ref: '#/components/schemas/LifecycleState'}
+        targetState: {$ref: '#/components/schemas/LifecycleState'}
+        targetAbandonmentReason: {anyOf: [{$ref: '#/components/schemas/AbandonmentReason'}, {type: 'null'}]}
+        fromRevision: {type: integer, format: int64, minimum: 0}
+        toRevision: {type: integer, format: int64, minimum: 1}
+        actor: {type: string, minLength: 1}
+        providerId: {type: string, minLength: 1}
+        reason: {type: string, minLength: 1}
+        appliedAt: {type: string, format: date-time}
+    LifecycleMutationResult:
+      type: object
+      additionalProperties: false
+      required: [state, lifecycleState, audit, reason]
+      properties:
+        state: {$ref: '#/components/schemas/LifecycleMutationResultState'}
+        lifecycleState: {anyOf: [{$ref: '#/components/schemas/OperationalLifecycleState'}, {type: 'null'}]}
+        audit: {anyOf: [{$ref: '#/components/schemas/LifecycleMutationAudit'}, {type: 'null'}]}
+        reason: {type: string, minLength: 1}
+    LifecycleMutationSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, data]
+      properties:
+        apiVersion: {const: v1}
+        data: {$ref: '#/components/schemas/LifecycleMutationResult'}
     ProjectRegistrationRequest:
       type: object
       additionalProperties: false

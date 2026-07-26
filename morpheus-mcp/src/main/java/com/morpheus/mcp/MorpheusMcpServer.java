@@ -2,6 +2,8 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.context.TechnicalContextProvider;
+import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
+import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.store.KnowledgeStoreException;
 import io.modelcontextprotocol.json.McpJsonDefaults;
@@ -25,20 +27,29 @@ public final class MorpheusMcpServer {
     }
 
     public static McpSyncServer build(Path databasePath) {
-        return build(databasePath, new ExternalReferenceResolverRegistry(List.of()), disabledNexus());
+        return build(databasePath, new ExternalReferenceResolverRegistry(List.of()), disabledNexus(), deniedWrites());
     }
 
     public static McpSyncServer build(Path databasePath, ExternalReferenceResolverRegistry resolverRegistry) {
-        return build(databasePath, resolverRegistry, disabledNexus());
+        return build(databasePath, resolverRegistry, disabledNexus(), deniedWrites());
     }
 
     public static McpSyncServer build(
             Path databasePath,
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider) {
+        return build(databasePath, resolverRegistry, technicalContextProvider, deniedWrites());
+    }
+
+    public static McpSyncServer build(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
+        Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
         MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
         MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath);
         StdioServerTransportProvider transport = new StdioServerTransportProvider(McpJsonDefaults.getMapper());
@@ -64,22 +75,34 @@ public final class MorpheusMcpServer {
                 : new MorpheusJarvisOrchestrationMcpTools(databasePath).specifications()) {
             server.addTool(specification);
         }
+        for (McpServerFeatures.SyncToolSpecification specification
+                : new MorpheusControlledLifecycleMcpTools(databasePath, writeCapabilityResolver).specifications()) {
+            server.addTool(specification);
+        }
         return server;
     }
 
     public static int run(Path databasePath) {
-        return run(databasePath, new ExternalReferenceResolverRegistry(List.of()), disabledNexus());
+        return run(databasePath, new ExternalReferenceResolverRegistry(List.of()), disabledNexus(), deniedWrites());
     }
 
     public static int run(Path databasePath, ExternalReferenceResolverRegistry resolverRegistry) {
-        return run(databasePath, resolverRegistry, disabledNexus());
+        return run(databasePath, resolverRegistry, disabledNexus(), deniedWrites());
     }
 
     public static int run(
             Path databasePath,
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider) {
-        McpSyncServer server = build(databasePath, resolverRegistry, technicalContextProvider);
+        return run(databasePath, resolverRegistry, technicalContextProvider, deniedWrites());
+    }
+
+    public static int run(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver) {
+        McpSyncServer server = build(databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver);
         try {
             Thread.currentThread().join();
             return 0;
@@ -122,6 +145,11 @@ public final class MorpheusMcpServer {
 
     private static TechnicalContextProvider disabledNexus() {
         return new DisabledTechnicalContextProvider("NEXUS", "NEXUS integration is not configured");
+    }
+
+    private static ChangeWriteCapabilityResolver deniedWrites() {
+        return projectId -> ChangeWriteCapabilityObservation.denied(
+                "No WRITE_CHANGE provider capability resolver is configured for this MCP server");
     }
 
     private static String safeMessage(RuntimeException failure) {
