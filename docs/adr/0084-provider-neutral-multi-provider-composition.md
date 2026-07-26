@@ -1,6 +1,6 @@
 # ADR-0084 — Composition multi-provider provider-neutral, déterministe et explicable
 
-Statut : **Proposée — M18**
+Statut : **Acceptée — M18**
 
 Date : 26 juillet 2026
 
@@ -62,6 +62,8 @@ Toute divergence sur un champ canonique produit un `CompositionConflict` explici
 - priorité ;
 - résolution (`SELECTED_BY_PRECEDENCE`, `UNRESOLVED`, `IDENTICAL`).
 
+Les conflits de contenu, d'ownership et de type/identité sont représentés explicitement. Une valeur absente face à une valeur présente reste une observation valide et requêtable.
+
 Il n'existe aucun last-write-wins silencieux.
 
 ### Optionalité
@@ -70,7 +72,7 @@ Un provider optionnel absent ou non compatible produit un diagnostic de composit
 
 ### Persistance
 
-L'état de composition est snapshot-scoped et persisté séparément du contenu provider. Memory et SQLite doivent conserver contributions observées, provenance, priorité et conflits. SQLite V012 porte cette persistance.
+L'état de composition est snapshot-scoped et persisté séparément du contenu provider. Memory et SQLite conservent contributions observées, provenance, priorité et conflits. SQLite V012 porte cette persistance.
 
 ### Frontières
 
@@ -118,14 +120,26 @@ Rejeté : couplage direct entre adapters et impossibilité d'étendre proprement
 
 Rejeté en M18 : heuristique non démontrable et ambiguïtés silencieuses.
 
-## Preuve attendue
+## Preuve obtenue
 
-L'ADR ne devient **Acceptée — M18** qu'après preuve de :
+ADR acceptée après validation M18 sur le head de code :
 
-- OpenSpec + Markdown structurés dans le même projet ;
-- conflits déterministes et requêtables ;
-- optionalité non fatale ;
-- Memory == SQLite et reopen ;
-- surfaces CLI/MCP/HTTP cohérentes ;
+```text
+7e8caacff567f51354fcb88bd7505a6d135071c0
+```
+
+Le gate reproductible `validate-m18.cmd` a prouvé :
+
+- OpenSpec + Structured Markdown dans le même projet ;
+- conflits de contenu, ownership et type/identité déterministes et requêtables ;
+- optionalité non fatale et provider requis absent explicitement rejeté ;
+- Memory == SQLite et close/reopen exact ;
+- provenance et priorité persistées ;
+- CLI/MCP/HTTP cohérents ;
+- OpenAPI 1.7.0 ;
 - architecture sans fuite de types provider ;
-- gate Maven et packaging Windows verts.
+- **418/418 tests PASS**, dont **170/170 Architecture** ;
+- packaging Windows + smokes **PASS** ;
+- archive portable `morpheus-0.1.0-windows-x64.zip` de **33,919,431 octets**.
+
+Preuve détaillée : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
