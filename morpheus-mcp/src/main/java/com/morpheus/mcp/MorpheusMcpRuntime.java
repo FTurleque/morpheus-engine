@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
 import com.morpheus.store.sqlite.SqliteExternalReferenceStore;
 import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
 import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
@@ -18,6 +19,7 @@ final class MorpheusMcpRuntime implements AutoCloseable {
     final SqliteTraceabilityStore traceability;
     final SqliteExternalReferenceStore externalReferences;
     final SqliteSyncStateStore syncState;
+    final SqliteChangeLifecycleMutationStore lifecycleMutations;
 
     MorpheusMcpRuntime(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
@@ -27,11 +29,13 @@ final class MorpheusMcpRuntime implements AutoCloseable {
         traceability = new SqliteTraceabilityStore(databasePath);
         externalReferences = new SqliteExternalReferenceStore(databasePath);
         syncState = new SqliteSyncStateStore(databasePath);
+        lifecycleMutations = new SqliteChangeLifecycleMutationStore(databasePath);
     }
 
     @Override
     public void close() {
         RuntimeException failure = null;
+        failure = close(lifecycleMutations, failure);
         failure = close(syncState, failure);
         failure = close(externalReferences, failure);
         failure = close(traceability, failure);
