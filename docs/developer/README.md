@@ -1,6 +1,6 @@
 # Guide développeur MORPHEUS
 
-Cette documentation décrit l’état du code après intégration de M14. Elle sert de point d’entrée pour importer le projet, comprendre le découpage Maven, modifier le domaine sans casser les frontières d’architecture et exécuter les gates de validation.
+Cette documentation décrit l’état du code après intégration de **M18**. Elle sert de point d’entrée pour importer le projet, comprendre le découpage Maven, préserver les frontières d’architecture et exécuter les gates de validation.
 
 ## 1. Prérequis
 
@@ -10,7 +10,7 @@ Maven  3.9.16+ via Maven Wrapper
 Git
 ```
 
-Le build parent compile avec `release=21`. Utiliser le wrapper du dépôt afin d’éviter les écarts de version Maven.
+Le build parent compile avec `release=21`.
 
 ### Windows
 
@@ -24,27 +24,20 @@ Le build parent compile avec `release=21`. Utiliser le wrapper du dépôt afin d
 ./mvnw --version
 ```
 
-## 2. Importer correctement le projet dans IntelliJ IDEA
+## 2. Import IntelliJ IDEA
 
-MORPHEUS est un **projet Maven multi-module**. Le `pom.xml` racine doit être reconnu comme projet Maven par l’IDE.
+MORPHEUS est un projet Maven multi-module. Le `pom.xml` racine doit être chargé comme projet Maven.
 
-Si IntelliJ ouvre le dépôt comme un simple projet Java et n’affiche qu’un module `morpheus-engine` :
+Ne pas créer les sous-modules manuellement : ils sont définis par le reactor Maven.
 
-1. clic droit sur le `pom.xml` racine ;
-2. choisir **Add as Maven Project** / **Load Maven Project** selon la version de l’IDE ;
-3. recharger Maven.
-
-Ne pas créer les sous-modules manuellement dans `Project Structure` : ils sont déclarés par le reactor Maven et doivent être importés depuis ce modèle.
-
-Résultat attendu dans l’IDE : `morpheus-domain`, `morpheus-application`, `morpheus-api`, `morpheus-cli`, etc. apparaissent comme modules distincts avec leurs source roots Maven.
-
-## 3. Vue du dépôt
+## 3. Vue du dépôt M18
 
 ```text
 morpheus-engine/
 ├── morpheus-domain/
 ├── morpheus-application/
 ├── morpheus-provider-openspec/
+├── morpheus-provider-markdown/
 ├── morpheus-provider-synthetic/
 ├── morpheus-store-memory/
 ├── morpheus-store-sqlite/
@@ -60,6 +53,8 @@ morpheus-engine/
 └── pom.xml
 ```
 
+Le reactor M18 compte **14 modules Maven SUCCESS** au gate final.
+
 ## 4. Architecture des modules
 
 ```mermaid
@@ -67,6 +62,7 @@ flowchart TB
     DOMAIN[morpheus-domain]
     APP[morpheus-application]
     OPEN[morpheus-provider-openspec]
+    MD[morpheus-provider-markdown]
     SYN[morpheus-provider-synthetic]
     MEM[morpheus-store-memory]
     SQL[morpheus-store-sqlite]
@@ -79,90 +75,99 @@ flowchart TB
 
     APP --> DOMAIN
     OPEN --> APP
-    OPEN --> DOMAIN
+    MD --> APP
     SYN --> APP
-    SYN --> DOMAIN
     MEM --> APP
-    MEM --> DOMAIN
     SQL --> APP
-    SQL --> DOMAIN
     MINOS --> APP
     NEXUS --> APP
     MCP --> APP
     API --> APP
     CLI --> APP
     CLI --> OPEN
+    CLI --> MD
     CLI --> SQL
-    CLI --> MINOS
-    CLI --> NEXUS
-    CLI --> MCP
-    CLI --> API
     ARCH -. vérifie .-> DOMAIN
     ARCH -. vérifie .-> APP
-    ARCH -. vérifie .-> API
 ```
 
-Le principe directeur est :
+Principe :
 
 ```text
 adapters -> application -> domain
 ```
 
-Le domaine ne connaît aucun adapter.
+Le domaine ne connaît aucun adapter ni type spécifique à OpenSpec/Markdown.
 
-## 5. Responsabilité de chaque module
+## 5. Responsabilités
 
 | Module | Responsabilité | À ne pas y mettre |
 |---|---|---|
 | `morpheus-domain` | modèle métier, value objects, invariants purs | SQLite, HTTP, CLI, MCP, provider-specific |
-| `morpheus-application` | use cases, ports, services applicatifs, lifecycle | dépendances vers adapters |
-| `morpheus-provider-openspec` | découverte/lecture/normalisation OpenSpec | règles métier MORPHEUS spécifiques au transport |
-| `morpheus-provider-synthetic` | provider contrôlé pour tests/scénarios | comportement production implicite |
-| `morpheus-store-memory` | implémentation en mémoire des ports de persistance | règles métier |
-| `morpheus-store-sqlite` | persistance SQLite versionnée | logique de décision métier |
-| `morpheus-integration-minos` | client MINOS via MCP STDIO | dépendance compile-time à `com.minos.*` |
-| `morpheus-integration-nexus` | client NEXUS via MCP STDIO | ranking/fusion/budget NEXUS réimplémentés |
-| `morpheus-mcp` | adapter serveur MCP read-only | mutation métier cachée |
-| `morpheus-api` | adapter HTTP `/api/v1` | dépendance vers CLI/MCP |
-| `morpheus-cli` | composition root, launcher et UX CLI | règles métier nouvelles |
-| `morpheus-architecture-tests` | contrats ArchUnit et cross-module | code de production |
+| `morpheus-application` | use cases, ports, lifecycle, composition provider-neutral | dépendances vers adapters |
+| `morpheus-provider-openspec` | découverte/lecture/normalisation OpenSpec | règles métier provider-neutral |
+| `morpheus-provider-markdown` | discovery/lecture Markdown structuré réel | types Markdown dans domain/application |
+| `morpheus-provider-synthetic` | provider contrôlé pour tests | preuve de deuxième provider réel production |
+| `morpheus-store-memory` | implémentation mémoire des ports | règles métier |
+| `morpheus-store-sqlite` | persistance versionnée, V012 M18 | logique de décision métier |
+| `morpheus-integration-minos` | client MINOS via MCP STDIO | dépendance `com.minos.*` |
+| `morpheus-integration-nexus` | client NEXUS via MCP STDIO | ranking/fusion/compression NEXUS |
+| `morpheus-mcp` | adapter serveur MCP, 22 read-only + 1 write | politique métier cachée |
+| `morpheus-api` | adapter HTTP `/api/v1`, OpenAPI 1.7.0 | dépendance CLI/MCP |
+| `morpheus-cli` | composition root, launcher et UX | règles métier nouvelles |
+| `morpheus-architecture-tests` | contrats ArchUnit/cross-module | code de production |
 
 ## 6. Chemin d’une requête
-
-Une commande, un tool MCP et un endpoint HTTP doivent converger vers les mêmes services applicatifs.
 
 ```mermaid
 sequenceDiagram
     participant X as CLI / MCP / HTTP
-    participant A as Application service
+    participant A as Application
     participant P as Port
     participant S as Adapter/store
     participant D as Domain
 
     X->>A: requête normalisée
-    A->>D: appliquer invariants / règles
-    A->>P: lire/écrire via port
+    A->>D: invariants / règles
+    A->>P: port
     P->>S: implémentation technique
-    S-->>P: données
-    P-->>A: modèle applicatif
+    S-->>A: données
     A-->>X: résultat
 ```
 
-Une règle qui change le sens métier d’une opération appartient au domaine ou à l’application, pas à la surface qui l’expose.
+Une règle qui change le sens métier appartient au domaine/application, pas à la surface.
 
-## 7. Lire le code dans le bon ordre
+## 7. Composition multi-provider M18
 
-Pour comprendre le système sans parcourir tout le dépôt :
+```text
+OpenSpec                 Structured Markdown
+   |                              |
+   +------ normalized reads ------+
+                  |
+        ProviderContribution
+                  |
+   MultiProviderCompositionService
+                  |
+      precedence + provenance
+        + explicit conflicts
+                  |
+        Memory / SQLite V012
+```
 
-1. `morpheus-domain` — identités, temporalité, snapshot, change lifecycle ;
-2. `morpheus-application` — services de synchronisation, query, traceability, quality, orchestration ;
-3. un store (`memory` puis `sqlite`) ;
-4. `morpheus-cli` pour voir la composition ;
-5. `morpheus-api` ou `morpheus-mcp` pour les adapters publics ;
-6. intégrations MINOS/NEXUS ;
-7. `morpheus-architecture-tests` pour les frontières exécutables.
+Invariants :
 
-## 8. Invariants à préserver
+```text
+provider identifier != DomainIdentity
+source path != identity
+provider ownership is explicit
+precedence != provenance erasure
+conflict != silent last-write-wins
+ambiguous continuity must be surfaced
+optional provider absence != project failure when optional
+provider-specific types never leak into domain/application contracts
+```
+
+## 8. Invariants globaux
 
 ```text
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
@@ -172,141 +177,117 @@ PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 Scenario != AcceptanceCriterion
-optional engine absence != MORPHEUS failure
-live external observation != snapshot mutation
-lifecycle unavailable != lifecycle inferred
+AcceptanceCriterion != Test
+Test existence != VERIFIED
+Evidence != assertion
+UNKNOWN != FAILED
+UNKNOWN != BLOCKED
+applicable != blocking
+warning != blocker
+severity != blocking policy
 transition evaluation != lifecycle mutation
+READ_CHANGES != WRITE_CHANGE
+ALLOWED != applied
+published snapshot != operational lifecycle state
+stale revision != overwrite
+idempotent retry != duplicate mutation/audit
+optional engine absence != MORPHEUS failure
 MORPHEUS facts/rules != JARVIS action sequencing
 ```
 
-Ces invariants sont plus importants qu’un choix local d’implémentation. Un changement qui semble pratique mais les brouille doit être reconsidéré ou documenté par ADR.
-
-## 9. Temporalité et lifecycle : ne pas les mélanger
-
-`TemporalState` répond à **où se situe cette information dans l’histoire publiée/proposée ?**
+## 9. Temporalité, snapshot et lifecycle
 
 ```text
-CURRENT | PROPOSED | HISTORICAL
+TemporalState             CURRENT | PROPOSED | HISTORICAL
+KnowledgeSnapshot         BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
+ChangeLifecycleState      DRAFT ... COMPLETED / ARCHIVED / ABANDONED
+Operational lifecycle     mutable, revisioned, CAS-controlled
 ```
 
-`ChangeLifecycleState` répond à **où en est ce changement dans son processus métier ?**
+Ces dimensions restent distinctes.
+
+Un candidat de snapshot échoué ne remplace jamais un `ACTIVE` valide.
+
+## 10. Workflow de contribution
 
 ```text
-DRAFT | PROPOSED | SPECIFIED | DESIGNED | PLANNED
-IMPLEMENTING | VERIFYING | COMPLETED | ARCHIVED | ABANDONED
+1. identifier l’invariant et la source de vérité
+2. documenter/ADR si nécessaire
+3. implémenter le vertical slice
+4. ajouter les tests ciblés
+5. exécuter les tests module + dépendances
+6. exécuter le reactor complet
+7. packager/smoker lorsque concerné
+8. enregistrer le SHA réellement testé
+9. accepter l’ADR seulement après preuve
+10. merger uniquement après autorisation explicite
 ```
 
-Ces dimensions sont orthogonales.
+## 11. Commandes essentielles
 
-## 10. Snapshot lifecycle
-
-Le lifecycle technique d’un snapshot est distinct du lifecycle d’un changement.
-
-```mermaid
-stateDiagram-v2
-    [*] --> BUILDING
-    BUILDING --> VALIDATING
-    VALIDATING --> READY: valide
-    VALIDATING --> FAILED: invalide
-    READY --> ACTIVE: activation atomique
-    ACTIVE --> RETIRED: remplacement par un nouveau ACTIVE
-```
-
-Une publication ne doit jamais laisser le projet sans snapshot `ACTIVE` valide à cause d’un candidat échoué.
-
-## 11. Change lifecycle
-
-La machine déterministe est portée par `ChangeLifecycleStateMachine` dans l’application.
-
-```mermaid
-stateDiagram-v2
-    [*] --> DRAFT
-    DRAFT --> PROPOSED
-    PROPOSED --> SPECIFIED: requirements + constraints + acceptance connus
-    SPECIFIED --> DESIGNED: design requis et disponible
-    SPECIFIED --> PLANNED: design non requis + plan présent
-    DESIGNED --> PLANNED: plan présent
-    PLANNED --> IMPLEMENTING: pas de blocker connu
-    IMPLEMENTING --> VERIFYING
-    VERIFYING --> COMPLETED: critères bloquants satisfaits/vérifiés
-    COMPLETED --> ARCHIVED
-    DRAFT --> ABANDONED
-    PROPOSED --> ABANDONED
-    SPECIFIED --> ABANDONED
-    DESIGNED --> ABANDONED
-    PLANNED --> ABANDONED
-    IMPLEMENTING --> ABANDONED
-    VERIFYING --> ABANDONED
-    ABANDONED --> PROPOSED
-```
-
-Les transitions arrière existent uniquement sous politique explicite. La réouverture de `COMPLETED` possède en plus son propre contrôle.
-
-## 12. Workflow de contribution
-
-```text
-document first
-then decide
-then implement
-prove before validate
-merge after explicit authorization
-```
-
-Pratiquement :
-
-1. identifier l’invariant et la source de vérité ;
-2. créer/mettre à jour l’ADR si une décision d’architecture est nécessaire ;
-3. modifier le domaine/application avant les adapters lorsque la règle est métier ;
-4. ajouter les tests ciblés ;
-5. exécuter le module concerné ;
-6. exécuter le reactor complet ;
-7. mettre à jour documentation et preuves ;
-8. ne déclarer le travail validé qu’après le gate réellement exécuté.
-
-Lorsqu’une décision dépend d’une hypothèse technique, l’ADR reste proposée jusqu’à obtention d’une preuve reproductible.
-
-## 13. Commandes de développement essentielles
-
-Gate complet :
+Gate développeur :
 
 ```powershell
 .\mvnw.cmd clean test
 ```
 
-Module ciblé avec dépendances :
+Module ciblé :
 
 ```powershell
 .\mvnw.cmd -pl morpheus-api -am test
 ```
 
-Packaging portable Windows :
+Packaging Windows :
 
 ```powershell
 .\distribution\build-portable.ps1
 ```
 
-Détails : [Build, tests et validation](BUILD_AND_TEST.md).
+Dernier validateur de jalon intégré :
 
-## 14. Où documenter une modification ?
+```powershell
+.\validate-m18.cmd
+```
+
+## 12. Gate M18 de référence
+
+```text
+TOTAL              418/418 PASS
+Architecture       170/170 PASS
+Failures                 0
+Errors                   0
+Skipped                  0
+Reactor            14/14 modules SUCCESS
+Packaging Windows        PASS
+Packaged smokes          PASS
+API health smoke         PASS
+```
+
+Code testé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
+Merge : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
+
+## 13. Où documenter une modification ?
 
 | Modification | Documentation attendue |
 |---|---|
-| invariant métier | guide d’architecture + tests + éventuellement ADR |
+| invariant métier | architecture + tests + éventuellement ADR |
+| nouveau provider | architecture + provider contract + tests + ADR si nécessaire |
 | nouveau contrat HTTP | `API.md` + OpenAPI + tests de contrat |
 | nouveau tool MCP | `MCP.md` + JSON Schema + tests subprocess |
-| nouvelle intégration | `INTEGRATIONS.md` + frontière de responsabilité + smoke |
-| changement de packaging | `BUILD_AND_TEST.md` + `distribution/README.md` |
-| nouveau jalon | roadmap/validation selon gouvernance |
+| nouvelle intégration | `INTEGRATIONS.md` + frontière + smoke |
+| packaging | `BUILD_AND_TEST.md` + `distribution/README.md` |
+| nouveau jalon | roadmap + validation + ADR/index |
 
-## 15. Sources de vérité
+## 14. Sources de vérité
 
-- [`docs/governance/ROADMAP.md`](../governance/ROADMAP.md) : état des jalons ;
-- [`docs/adr/`](../adr/) : décisions d’architecture ;
-- [`docs/validation/`](../validation/) : preuves de gate C0 et M0 à M14 ;
-- [`docs/openapi/morpheus-v1.yaml`](../openapi/morpheus-v1.yaml) : contrat API machine-readable ;
-- tests d’architecture : règles exécutables de dépendance.
+- [`../governance/ROADMAP.md`](../governance/ROADMAP.md) — état courant ;
+- [`../roadmap/POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md) — trajectoire M15→M20 ;
+- [`../adr/`](../adr/) — décisions ;
+- [`../validation/`](../validation/) — preuves C0→M18 ;
+- [`../openapi/morpheus-v1.yaml`](../openapi/morpheus-v1.yaml) — contrat API machine ;
+- tests d’architecture — frontières exécutables.
 
-## 16. Lire ensuite
+## 15. Lire ensuite
 
 - [Architecture détaillée](ARCHITECTURE.md)
 - [Build, tests et validation](BUILD_AND_TEST.md)
