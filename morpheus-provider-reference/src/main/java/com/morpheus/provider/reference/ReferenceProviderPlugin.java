@@ -1,6 +1,7 @@
 package com.morpheus.provider.reference;
 
 import com.morpheus.application.provider.SpecificationProvider;
+import com.morpheus.application.read.SpecificationContentReader;
 import com.morpheus.sdk.provider.MorpheusProviderPlugin;
 import com.morpheus.sdk.provider.ProviderPluginMetadata;
 import com.morpheus.sdk.provider.ProviderSdk;
@@ -25,5 +26,10 @@ public final class ReferenceProviderPlugin implements MorpheusProviderPlugin {
     @Override
     public SpecificationProvider createProvider() {
         return new ReferenceSpecificationProvider();
+    }
+
+    @Override
+    public SpecificationContentReader createContentReader() {
+        return new ReferenceSpecificationContentReader();
     }
 }
