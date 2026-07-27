@@ -313,14 +313,24 @@ try {
         throw 'Full Maven reactor contains failures/errors/skipped tests'
     }
 
+    $script:CurrentStage = 'Installer contract'
+    $script:CurrentLog = $null
     Assert-InstallerContract
 
+    $script:CurrentStage = 'Validation tag preparation'
+    $script:CurrentLog = $null
     $shortSha = $script:ValidationSha.Substring(0, 12)
     $script:ValidationTag = "m20-validation-$shortSha"
-    if ((git tag --list $script:ValidationTag).Trim()) { git tag -d $script:ValidationTag | Out-Null }
+    $existingValidationTags = @(git tag --list $script:ValidationTag)
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect local validation tags' }
+    if ($existingValidationTags.Count -gt 0) {
+        git tag -d $script:ValidationTag | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Unable to delete stale local validation tag $($script:ValidationTag)" }
+    }
     git tag $script:ValidationTag $script:ValidationSha
     if ($LASTEXITCODE -ne 0) { throw 'Unable to create local validation tag' }
     $script:TagCreated = $true
+    $script:Results['Validation tag preparation'] = 'PASS'
 
     $releaseScript = Join-Path $repo 'distribution\build-release.ps1'
     Invoke-LoggedStage -Name 'Tagged Windows release build' -FilePath $script:PowerShellExecutable `
