@@ -41,8 +41,8 @@ Uninstall      PASS
 Checksums      PASS Windows + Linux
 ```
 
-Preuve : [`VALIDATION_M20.md`](../validation/VALIDATION_M20.md).  
-Plan : [`M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md).  
+Preuve : [`VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
+Plan : [`M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md).
 ADR-0088 : **Acceptée — M20**.
 
 ## 2. Capacités acquises au niveau 1.0
