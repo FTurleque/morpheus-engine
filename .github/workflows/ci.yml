@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   verify:
-    name: verify (${{ matrix.os }})
+    name: exact-head (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -36,30 +36,20 @@ jobs:
           cache: maven
           check-latest: false
 
-      - name: Enable Maven Wrapper on Linux
+      - name: Enable executable scripts on Linux
         if: runner.os == 'Linux'
         shell: bash
         run: chmod +x mvnw scripts/*.sh distribution/*.sh
 
-      - name: Verify full reactor on Linux
+      - name: Run one-command M21 gate on Linux
         if: runner.os == 'Linux'
         shell: bash
-        run: ./mvnw -B -ntp -Dstyle.color=never clean verify
+        run: ./scripts/validate-m21.sh 1.0.0
 
-      - name: Verify full reactor on Windows
+      - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: .\mvnw.cmd -B -ntp -Dstyle.color=never clean verify
-
-      - name: Write Linux provenance
-        if: runner.os == 'Linux' && success()
-        shell: bash
-        run: ./scripts/write-build-provenance.sh
-
-      - name: Write Windows provenance
-        if: runner.os == 'Windows' && success()
-        shell: pwsh
-        run: .\scripts\write-build-provenance.ps1
+        shell: cmd
+        run: validate-m21.cmd -Version 1.0.0
 
       - name: Upload M21 integrity evidence
         if: always()
@@ -73,3 +63,6 @@ jobs:
             **/target/site/jacoco/jacoco.xml
             morpheus-architecture-tests/target/m21-coverage-summary.txt
             target/m21-supply-chain/**
+            validation-output/m21/validation-summary.txt
+            validation-output/m21/api.stdout.log
+            validation-output/m21/api.stderr.log
