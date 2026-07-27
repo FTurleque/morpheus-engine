@@ -1,6 +1,6 @@
 # ADR-0089 — Production integrity and public-surface convergence
 
-Statut : **Proposée — M21**
+Statut : **Acceptée — M21**
 
 Date : 27 juillet 2026
 
@@ -92,14 +92,19 @@ Rejeté : introduit une dépendance réseau cachée et rompt le caractère local
 
 Rejeté : `update discovery != automatic update` ; une mutation de programme exige un flux séparé et explicitement autorisé.
 
-## Validation requise avant Acceptée
+## Validation d’acceptation
 
-- reactor complet Windows + Linux ;
-- tests et architecture >= baseline M20 ;
-- JaCoCo aggregate au-dessus des floors ;
-- tests de convergence CLI/MCP/HTTP ;
-- tests de cohérence documentaire ;
-- SBOM généré ;
-- provenance/checksums vérifiés ;
-- tests update `file:` et HTTP explicite ;
-- preuve qu’aucun check réseau n’est exécuté au démarrage.
+Les conditions d’acceptation ont été démontrées sur le même head exécutable `239d99657fbf193761767f382489dd637e642fe9` :
+
+- reactor complet Windows + Linux : **14/14 SUCCESS** ;
+- tests : **473/473 PASS** sur les gates M21 ;
+- architecture : **187/187 PASS** ;
+- JaCoCo : **46,2800 % lignes / 41,2734 % branches Windows**, **46,2430 % lignes / 41,2734 % branches Linux** ;
+- convergence CLI/MCP/HTTP et cohérence documentaire : **PASS** ;
+- CycloneDX JSON/XML + provenance : **PASS** ;
+- packaging `jpackage` + portable Windows/Linux : **PASS** ;
+- update discovery explicite `file:`/HTTP : **PASS** ;
+- aucune vérification réseau implicite au démarrage : couverte par contrat/tests ;
+- `postGateExecutableDelta=NONE` sur Windows et Linux.
+
+Preuve : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).
