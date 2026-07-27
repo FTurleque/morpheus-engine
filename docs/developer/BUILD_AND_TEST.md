@@ -1,6 +1,6 @@
 # Build, tests et validation
 
-Ce guide décrit l’environnement de développement, le reactor Maven, les tests ciblés, le gate autoritatif, le packaging portable et la manière de diagnostiquer un build local sur la baseline **M18 intégrée**.
+Ce guide décrit l’environnement de développement, le reactor Maven, les gates autoritatifs et le packaging sur la baseline **M20 / MORPHEUS 1.0.0 intégrée**.
 
 ## 1. Toolchain
 
@@ -14,21 +14,21 @@ compiler release = 21
 
 Le dépôt fournit Maven Wrapper 3.9.16.
 
-### Windows
+Windows :
 
 ```powershell
 java -version
 .\mvnw.cmd --version
 ```
 
-### Unix/Linux
+Linux :
 
 ```bash
 java -version
 ./mvnw --version
 ```
 
-## 2. Reactor Maven M18
+## 2. Reactor Maven
 
 ```text
 morpheus-domain
@@ -46,90 +46,99 @@ morpheus-cli
 morpheus-architecture-tests
 ```
 
-Le gate M18 rapporte **14/14 modules Maven SUCCESS** dans le reactor complet, parent inclus.
+Le gate M20 rapporte **14/14 modules SUCCESS**, parent inclus.
 
 ## 3. Gate local développeur
 
-### Windows
+Windows :
 
 ```powershell
 .\mvnw.cmd clean test
 ```
 
-### Unix/Linux
+Linux :
 
 ```bash
 ./mvnw clean test
 ```
 
-Ce gate repart d’un `target/` propre. Les tests ciblés ne le remplacent pas pour une validation finale.
+Les tests ciblés ne remplacent jamais le reactor complet pour une qualification finale.
 
-## 4. Validateur M18 mono-commande
+## 4. Validateurs M20
 
 Windows :
 
 ```powershell
-.\validate-m18.cmd
+.\validate-m20.cmd
 ```
 
-Le validateur M18 contrôle notamment :
+Le gate couvre notamment :
 
 ```text
-workspace / SHA
-toolchain
+workspace / SHA / version
 clean test reactor complet
 architecture tests
-packaging Windows
-packaged smokes
-API health smoke
-failure summary automatique
+installer contract
+release tag exact
+portable ZIP + SHA-256
+setup EXE + SHA-256
+release manifest
+install per-user
+PATH option
+runtime sans JDK utilisateur
+API health/readiness/metrics
+upgrade preservation
+uninstall preservation
+reinstall preservation
+exact-head stability
 ```
 
-Preuve : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
+Linux :
 
-## 5. Gate M18 autoritatif
+```bash
+bash scripts/validate-m20.sh
+```
 
-Head de code réellement testé :
+Le gate couvre :
 
 ```text
-7e8caacff567f51354fcb88bd7505a6d135071c0
+workspace / SHA / version
+clean test reactor complet
+architecture tests
+release tag exact
+portable tar.gz + SHA-256
+release manifest
+runtime sans JDK utilisateur
+XDG data/config/state
+SQLite smoke
+MINOS/NEXUS opt-in defaults
+exact-head stability
 ```
 
-Résultats :
+Preuve : [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
+
+## 5. Gate M20 autoritatif
 
 ```text
-Domain                         40/40 PASS
-Application                  104/104 PASS
-OpenSpec                       26/26 PASS
-Structured Markdown             2/2 PASS
-Synthetic                        7/7 PASS
-SQLite                           7/7 PASS
-MINOS Integration                8/8 PASS
-NEXUS Integration                7/7 PASS
-MCP                              6/6 PASS
-API                            12/12 PASS
-CLI                            29/29 PASS
-Architecture                 170/170 PASS
----------------------------------------
-TOTAL                        418/418 PASS
-Failures                           0
-Errors                             0
-Skipped                            0
-BUILD SUCCESS
+Code qualifié   9199ed43c4bd8596a97db055eeff17ae31399eb8
+Version         1.0.0
+Windows         PASS
+Linux ext4      PASS via WSL2
+Tests           454/454 PASS
+Architecture    182/182 PASS
+Failures        0
+Errors          0
+Skipped         0
+Reactor         14/14 SUCCESS
 ```
 
-Packaging :
+Le merge ultérieur M20 est :
 
 ```text
-Windows packaging     PASS
-Packaged smokes       PASS
-API health smoke      PASS
-Portable ZIP          33,919,431 bytes
+75d0b82ab0c960692db2fee1ced146fa6547fd4a
 ```
 
-L’environnement de ce gate était Windows 10 amd64, OpenJDK 24.0.1, Maven Wrapper 3.9.16, compilation `release 21`.
-
-Le merge ultérieur M18 est `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`. Il ne remplace pas le SHA réellement exécuté par le gate.
+Le SHA de merge ne remplace pas le SHA réellement exécuté par les gates.
 
 ## 6. Tests ciblés
 
@@ -161,11 +170,9 @@ Plusieurs modules :
 ```text
 modification
   ↓
-tests unitaires ciblés
+tests ciblés
   ↓
-module -pl
-  ↓
--pl ... -am si dépendances
+module -pl / -am
   ↓
 clean test reactor complet
   ↓
@@ -173,20 +180,8 @@ architecture
   ↓
 packaging/smokes si concernés
   ↓
-preuve enregistrable
+preuve enregistrable exact-head
 ```
-
-Exemples :
-
-| Changement | Tests ciblés avant gate complet |
-|---|---|
-| value object domaine | `-pl morpheus-domain test` |
-| composition application | `-pl morpheus-application -am test` |
-| provider Markdown | `-pl morpheus-provider-markdown -am test` |
-| SQLite/migration | `-pl morpheus-store-sqlite -am test` |
-| endpoint HTTP | `-pl morpheus-api -am test` |
-| tool MCP | `-pl morpheus-mcp -am test` |
-| frontière | `-pl morpheus-architecture-tests -am test` |
 
 ## 8. Compilation sans tests
 
@@ -199,50 +194,69 @@ Diagnostic uniquement :
 
 Ce n’est pas une preuve fonctionnelle.
 
-## 9. Packaging portable Windows
+## 9. Packaging Windows
+
+Portable :
 
 ```powershell
-.\distribution\build-portable.ps1
+.\distribution\build-portable.ps1 -Version 1.0.0
 ```
 
-Artefact :
+Setup :
+
+```powershell
+.\distribution\build-installer.ps1 -Version 1.0.0
+```
+
+Release depuis un tag exact :
+
+```powershell
+.\distribution\build-release.ps1 -Version 1.0.0 -ExpectedTag v1.0.0
+```
+
+Artefacts :
 
 ```text
-dist/morpheus-<version>-windows-x64.zip
+MORPHEUS-1.0.0-windows-x64-setup.exe
+MORPHEUS-1.0.0-windows-x64-setup.exe.sha256
+morpheus-1.0.0-windows-x64.zip
+morpheus-1.0.0-windows-x64.zip.sha256
 ```
 
-Le packaging embarque le runtime Java, CLI/MCP/API, le provider Structured Markdown et les migrations jusqu’à V012.
+## 10. Packaging Linux
 
-L’utilisateur final n’a pas besoin de JDK.
-
-## 10. Packaging portable Linux
+Portable :
 
 ```bash
-chmod +x mvnw distribution/build-portable.sh
-./distribution/build-portable.sh
+bash distribution/build-portable.sh 1.0.0
 ```
 
-Artefact :
+Release depuis un tag exact :
+
+```bash
+bash distribution/build-release.sh 1.0.0 v1.0.0
+```
+
+Artefacts :
 
 ```text
-dist/morpheus-<version>-linux-x64.tar.gz
+morpheus-1.0.0-linux-x64.tar.gz
+morpheus-1.0.0-linux-x64.tar.gz.sha256
 ```
 
-**Une preuve Windows ne constitue pas une preuve Linux.** Toute qualification M19 devra distinguer les deux environnements.
+Une preuve Windows ne constitue jamais une preuve Linux.
 
 ## 11. Contraintes de packaging
 
-La distribution peut embarquer les adapters clients MINOS/NEXUS, mais jamais leurs implémentations ni JARVIS.
-
-Absences obligatoires :
+Les distributions peuvent embarquer les adapters clients MINOS/NEXUS, mais jamais leurs implémentations ni JARVIS.
 
 ```text
-com/minos/*
-com/nexus/*
-com/jarvis/*
+com/minos/*   absent
+com/nexus/*   absent
+com/jarvis/*  absent
 ```
 
-Le provider Markdown MORPHEUS, lui, fait partie du runtime M18.
+Le runtime Java est embarqué ; aucun JDK utilisateur n’est requis.
 
 ## 12. Tests d’architecture
 
@@ -258,54 +272,18 @@ MINOS adapter -X-> com.minos.*
 NEXUS adapter -X-> com.nexus.*
 ```
 
-Dernier gate : **170/170 PASS**.
+Gate M20 : **182/182 PASS Windows + Linux**.
 
-## 13. SQLite et migrations
+## 13. Consolidation D1
 
-M18 introduit **V012** pour l’état de composition multi-provider.
-
-Avant validation d’une modification SQLite :
+D1 est documentaire uniquement. Son gate local doit prouver :
 
 ```text
-migration forward compatible
-store Memory/SQLite contract parity
-transaction boundaries correctes
-close/reopen exact
-no partial published ACTIVE state
+diff limité à README.md + docs/**
+git diff --check PASS
+full Maven reactor PASS
+architecture PASS
+workspace propre
 ```
 
-M18 valide notamment la restauration du mode auto-commit après erreur de sauvegarde de composition.
-
-## 14. Warnings connus
-
-Le gate M18 a observé des warnings non bloquants concernant :
-
-```text
-accès natif SQLite sous Java 24
-absence de provider SLF4J
-APIs dépréciées dans certaines fixtures MCP
-ressources/classes chevauchantes lors du shading
-```
-
-Un warning nouveau doit être évalué ; il ne devient pas « historique » par défaut.
-
-## 15. Règle de preuve
-
-```text
-1. documenter invariant / contrat
-2. implémenter
-3. tests ciblés
-4. reactor complet
-5. architecture
-6. packaging/smokes si concernés
-7. enregistrer le SHA réellement testé
-8. accepter ADR seulement après preuve
-9. mettre à jour roadmap/validation
-10. merger uniquement selon la gouvernance
-```
-
-Historique : [`../governance/ROADMAP.md`](../governance/ROADMAP.md) et [`../validation/`](../validation/).
-
-## 16. M19
-
-M19 introduira `scripts/validate-m19.ps1` et `validate-m19.cmd` avec benchmarks/gates reproductibles, robustesse, packaging et failure summary. Les budgets devront être fixés avant optimisation et les preuves Windows/Linux resteront explicitement séparées.
+Preuve en cours : [`../validation/VALIDATION_D1.md`](../validation/VALIDATION_D1.md).
