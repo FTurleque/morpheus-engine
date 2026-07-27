@@ -1,5 +1,11 @@
 package com.morpheus.architecture.m22;
 
+import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.read.ProviderReadRequest;
+import com.morpheus.application.read.ReadCategory;
+import com.morpheus.application.read.ReadCategoryStatus;
+import com.morpheus.domain.identity.DomainIdentity;
+import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderCapability;
 import com.morpheus.sdk.provider.MorpheusProviderPlugin;
 import com.morpheus.sdk.provider.ProviderPluginActivation;
@@ -13,6 +19,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -24,7 +32,7 @@ class ProviderPluginPlatformContractTest {
     Path tempDirectory;
 
     @Test
-    void externalReferenceJarIsDiscoveredActivatedInDedicatedLoaderAndProbed() throws Exception {
+    void externalReferenceJarIsDiscoveredActivatedInDedicatedLoaderProbedAndRead() throws Exception {
         Path root = repoRoot();
         Path referenceJar = root.resolve("morpheus-provider-reference/target/morpheus-provider-reference-1.0.0.jar");
         assertTrue(Files.isRegularFile(referenceJar), "reference provider JAR must be built before architecture tests");
@@ -50,6 +58,18 @@ class ProviderPluginPlatformContractTest {
             assertTrue(probe.supported(), probe.diagnostics().toString());
             assertEquals("reference-plugin", probe.providerId().value());
             assertTrue(probe.capabilities().contains(ProviderCapability.DISCOVER_PROJECT));
+            assertTrue(probe.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS));
+
+            ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+            var read = activation.contentReader().read(
+                    new ProviderReadRequest(workspace, projectId, Set.of(ReadCategory.CURRENT_SPECIFICATIONS)),
+                    stableResolver());
+            assertEquals("reference-plugin", read.providerId().value());
+            assertEquals(1, read.content().orElseThrow().specifications().size());
+            assertEquals("reference-current", read.content().orElseThrow().specifications().getFirst().key());
+            assertEquals(
+                    ReadCategoryStatus.READ,
+                    read.report(ReadCategory.CURRENT_SPECIFICATIONS).orElseThrow().status());
         }
     }
 
@@ -58,11 +78,17 @@ class ProviderPluginPlatformContractTest {
         Path root = repoRoot();
         String domain = readTree(root.resolve("morpheus-domain/src/main/java"));
         String application = readTree(root.resolve("morpheus-application/src/main/java"));
+        String domainPom = Files.readString(root.resolve("morpheus-domain/pom.xml"));
+        String applicationPom = Files.readString(root.resolve("morpheus-application/pom.xml"));
 
         assertFalse(domain.contains("com.morpheus.sdk.provider"));
         assertFalse(domain.contains("com.morpheus.provider.reference"));
         assertFalse(application.contains("com.morpheus.sdk.provider"));
         assertFalse(application.contains("com.morpheus.provider.reference"));
+        assertFalse(domainPom.contains("morpheus-provider-sdk"));
+        assertFalse(applicationPom.contains("morpheus-provider-sdk"));
+        assertFalse(domainPom.contains("morpheus-provider-reference"));
+        assertFalse(applicationPom.contains("morpheus-provider-reference"));
     }
 
     @Test
@@ -81,6 +107,13 @@ class ProviderPluginPlatformContractTest {
         assertTrue(mcp.contains("discover_provider_plugins"));
         assertTrue(mcp.contains("probe_provider_plugin"));
         assertTrue(http.contains("segments.getFirst().equals(\"provider-plugins\")"));
+    }
+
+    private static EntityIdentityResolver stableResolver() {
+        var identities = new ConcurrentHashMap<String, DomainIdentity>();
+        return (providerId, entityType, externalId) -> identities.computeIfAbsent(
+                providerId.value() + ":" + entityType + ":" + externalId,
+                ignored -> DomainIdentity.generate());
     }
 
     private String readTree(Path root) throws IOException {
