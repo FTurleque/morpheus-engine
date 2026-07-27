@@ -1,5 +1,6 @@
 package com.morpheus.application.product;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -21,6 +22,7 @@ import java.util.Properties;
  */
 public final class UpdateDiscoveryService {
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
+    public static final int MAX_MANIFEST_BYTES = 64 * 1024;
 
     private final HttpClient httpClient;
     private final Duration timeout;
@@ -75,7 +77,7 @@ public final class UpdateDiscoveryService {
 
     private Properties readFile(URI uri) {
         try (InputStream input = Files.newInputStream(Path.of(uri))) {
-            return load(input);
+            return loadBounded(input, uri);
         } catch (IOException failure) {
             throw new IllegalArgumentException("cannot read update manifest: " + uri, failure);
         }
@@ -95,7 +97,7 @@ public final class UpdateDiscoveryService {
                         "update manifest request failed with HTTP " + response.statusCode() + ": " + uri);
             }
             try (InputStream body = response.body()) {
-                return load(body);
+                return loadBounded(body, uri);
             }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
@@ -105,9 +107,16 @@ public final class UpdateDiscoveryService {
         }
     }
 
-    private static Properties load(InputStream input) throws IOException {
+    private static Properties loadBounded(InputStream input, URI source) throws IOException {
+        byte[] payload = input.readNBytes(MAX_MANIFEST_BYTES + 1);
+        if (payload.length > MAX_MANIFEST_BYTES) {
+            throw new IllegalArgumentException(
+                    "update manifest exceeds " + MAX_MANIFEST_BYTES + " bytes: " + source);
+        }
         Properties properties = new Properties();
-        properties.load(new InputStreamReader(input, StandardCharsets.UTF_8));
+        try (InputStreamReader reader = new InputStreamReader(new ByteArrayInputStream(payload), StandardCharsets.UTF_8)) {
+            properties.load(reader);
+        }
         return properties;
     }
 
@@ -131,20 +140,69 @@ public final class UpdateDiscoveryService {
                 return compared;
             }
         }
-        if (a.preRelease == b.preRelease) {
+        if (a.preRelease == null && b.preRelease == null) {
             return 0;
         }
-        return a.preRelease ? -1 : 1;
+        if (a.preRelease == null) {
+            return 1;
+        }
+        if (b.preRelease == null) {
+            return -1;
+        }
+        return comparePreRelease(a.preRelease, b.preRelease);
     }
 
-    private record ParsedVersion(int[] parts, boolean preRelease) {
+    private static int comparePreRelease(String left, String right) {
+        String[] a = left.split("\\.");
+        String[] b = right.split("\\.");
+        int common = Math.min(a.length, b.length);
+        for (int index = 0; index < common; index++) {
+            String av = a[index];
+            String bv = b[index];
+            boolean an = av.matches("\\d+");
+            boolean bn = bv.matches("\\d+");
+            int compared;
+            if (an && bn) {
+                compared = compareNumericIdentifier(av, bv);
+            } else if (an != bn) {
+                compared = an ? -1 : 1;
+            } else {
+                compared = av.compareTo(bv);
+            }
+            if (compared != 0) {
+                return compared;
+            }
+        }
+        return Integer.compare(a.length, b.length);
+    }
+
+    private static int compareNumericIdentifier(String left, String right) {
+        String a = stripLeadingZeroes(left);
+        String b = stripLeadingZeroes(right);
+        int length = Integer.compare(a.length(), b.length());
+        return length != 0 ? length : a.compareTo(b);
+    }
+
+    private static String stripLeadingZeroes(String value) {
+        int index = 0;
+        while (index < value.length() - 1 && value.charAt(index) == '0') {
+            index++;
+        }
+        return value.substring(index);
+    }
+
+    private record ParsedVersion(int[] parts, String preRelease) {
         static ParsedVersion parse(String value) {
             Objects.requireNonNull(value, "value");
             String normalized = value.trim();
             if (normalized.equals(ProductMetadata.DEVELOPMENT_VERSION)) {
-                return new ParsedVersion(new int[]{0, 0, 0}, true);
+                return new ParsedVersion(new int[]{0, 0, 0}, "development");
             }
-            String[] releaseAndSuffix = normalized.split("-", 2);
+            if (normalized.isEmpty()) {
+                throw new IllegalArgumentException("version must not be blank");
+            }
+            String withoutBuildMetadata = normalized.split("\\+", 2)[0];
+            String[] releaseAndSuffix = withoutBuildMetadata.split("-", 2);
             String[] rawParts = releaseAndSuffix[0].split("\\.");
             if (rawParts.length == 0) {
                 throw new IllegalArgumentException("invalid version: " + value);
@@ -160,7 +218,11 @@ public final class UpdateDiscoveryService {
                     throw new IllegalArgumentException("version parts must be non-negative: " + value);
                 }
             }
-            return new ParsedVersion(parts, releaseAndSuffix.length == 2);
+            String preRelease = releaseAndSuffix.length == 2 ? releaseAndSuffix[1] : null;
+            if (preRelease != null && (preRelease.isBlank() || !preRelease.matches("[0-9A-Za-z.-]+"))) {
+                throw new IllegalArgumentException("invalid prerelease version: " + value);
+            }
+            return new ParsedVersion(parts, preRelease);
         }
     }
 }
