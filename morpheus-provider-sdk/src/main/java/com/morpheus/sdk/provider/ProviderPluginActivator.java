@@ -1,6 +1,7 @@
 package com.morpheus.sdk.provider;
 
 import com.morpheus.application.provider.SpecificationProvider;
+import com.morpheus.application.read.SpecificationContentReader;
 
 import java.net.MalformedURLException;
 import java.net.URLClassLoader;
@@ -49,7 +50,15 @@ public final class ProviderPluginActivator {
                 throw new IllegalStateException(
                         "provider id mismatch: manifest=" + manifestMetadata.providerId() + " runtime=" + provider.id());
             }
-            return new ProviderPluginActivation(candidate, plugin, provider, loader);
+
+            SpecificationContentReader contentReader = Objects.requireNonNull(
+                    plugin.createContentReader(), "plugin content reader");
+            if (!manifestMetadata.providerId().equals(contentReader.providerId())) {
+                throw new IllegalStateException(
+                        "content reader provider id mismatch: manifest=" + manifestMetadata.providerId()
+                                + " runtime=" + contentReader.providerId());
+            }
+            return new ProviderPluginActivation(candidate, plugin, provider, contentReader, loader);
         } catch (ServiceConfigurationError | RuntimeException failure) {
             try {
                 loader.close();
