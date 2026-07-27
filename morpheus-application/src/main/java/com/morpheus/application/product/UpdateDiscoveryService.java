@@ -1,0 +1,228 @@
+package com.morpheus.application.product;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Properties;
+
+/**
+ * Explicit read-only update discovery. Construction performs no I/O; callers must invoke {@link #check(URI)} with a
+ * concrete manifest URI. The service never downloads or installs the advertised artifact.
+ */
+public final class UpdateDiscoveryService {
+    public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
+    public static final int MAX_MANIFEST_BYTES = 64 * 1024;
+
+    private final HttpClient httpClient;
+    private final Duration timeout;
+
+    public UpdateDiscoveryService() {
+        this(HttpClient.newBuilder()
+                .connectTimeout(DEFAULT_TIMEOUT)
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build(), DEFAULT_TIMEOUT);
+    }
+
+    UpdateDiscoveryService(HttpClient httpClient, Duration timeout) {
+        this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
+        this.timeout = Objects.requireNonNull(timeout, "timeout");
+        if (timeout.isZero() || timeout.isNegative()) {
+            throw new IllegalArgumentException("timeout must be positive");
+        }
+    }
+
+    public UpdateCheckResult check(URI manifestUri) {
+        Objects.requireNonNull(manifestUri, "manifestUri");
+        if (!manifestUri.isAbsolute()) {
+            throw new IllegalArgumentException("manifestUri must be absolute");
+        }
+        UpdateManifest manifest = readManifest(manifestUri);
+        String currentVersion = ProductMetadata.version();
+        boolean available = compareVersions(manifest.version(), currentVersion) > 0;
+        return new UpdateCheckResult(
+                currentVersion,
+                manifest.version(),
+                manifest.channel(),
+                manifest.artifactUri(),
+                manifest.sha256(),
+                manifestUri,
+                available);
+    }
+
+    UpdateManifest readManifest(URI manifestUri) {
+        String scheme = manifestUri.getScheme().toLowerCase(Locale.ROOT);
+        Properties properties = switch (scheme) {
+            case "file" -> readFile(manifestUri);
+            case "http", "https" -> readHttp(manifestUri);
+            default -> throw new IllegalArgumentException(
+                    "unsupported update manifest scheme: " + scheme + " (expected file, http or https)");
+        };
+        return new UpdateManifest(
+                required(properties, "version"),
+                required(properties, "channel"),
+                URI.create(required(properties, "artifactUri")),
+                required(properties, "sha256"));
+    }
+
+    private Properties readFile(URI uri) {
+        try (InputStream input = Files.newInputStream(Path.of(uri))) {
+            return loadBounded(input, uri);
+        } catch (IOException failure) {
+            throw new IllegalArgumentException("cannot read update manifest: " + uri, failure);
+        }
+    }
+
+    private Properties readHttp(URI uri) {
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .GET()
+                .timeout(timeout)
+                .header("Accept", "text/plain, text/x-java-properties")
+                .build();
+        try {
+            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                response.body().close();
+                throw new IllegalArgumentException(
+                        "update manifest request failed with HTTP " + response.statusCode() + ": " + uri);
+            }
+            try (InputStream body = response.body()) {
+                return loadBounded(body, uri);
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("update manifest request interrupted: " + uri, interrupted);
+        } catch (IOException failure) {
+            throw new IllegalArgumentException("cannot fetch update manifest: " + uri, failure);
+        }
+    }
+
+    private static Properties loadBounded(InputStream input, URI source) throws IOException {
+        byte[] payload = input.readNBytes(MAX_MANIFEST_BYTES + 1);
+        if (payload.length > MAX_MANIFEST_BYTES) {
+            throw new IllegalArgumentException(
+                    "update manifest exceeds " + MAX_MANIFEST_BYTES + " bytes: " + source);
+        }
+        Properties properties = new Properties();
+        try (InputStreamReader reader = new InputStreamReader(new ByteArrayInputStream(payload), StandardCharsets.UTF_8)) {
+            properties.load(reader);
+        }
+        return properties;
+    }
+
+    private static String required(Properties properties, String key) {
+        String value = properties.getProperty(key);
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("missing update manifest property: " + key);
+        }
+        return value.trim();
+    }
+
+    static int compareVersions(String left, String right) {
+        ParsedVersion a = ParsedVersion.parse(left);
+        ParsedVersion b = ParsedVersion.parse(right);
+        int max = Math.max(a.parts.length, b.parts.length);
+        for (int index = 0; index < max; index++) {
+            int av = index < a.parts.length ? a.parts[index] : 0;
+            int bv = index < b.parts.length ? b.parts[index] : 0;
+            int compared = Integer.compare(av, bv);
+            if (compared != 0) {
+                return compared;
+            }
+        }
+        if (a.preRelease == null && b.preRelease == null) {
+            return 0;
+        }
+        if (a.preRelease == null) {
+            return 1;
+        }
+        if (b.preRelease == null) {
+            return -1;
+        }
+        return comparePreRelease(a.preRelease, b.preRelease);
+    }
+
+    private static int comparePreRelease(String left, String right) {
+        String[] a = left.split("\\.");
+        String[] b = right.split("\\.");
+        int common = Math.min(a.length, b.length);
+        for (int index = 0; index < common; index++) {
+            String av = a[index];
+            String bv = b[index];
+            boolean an = av.matches("\\d+");
+            boolean bn = bv.matches("\\d+");
+            int compared;
+            if (an && bn) {
+                compared = compareNumericIdentifier(av, bv);
+            } else if (an != bn) {
+                compared = an ? -1 : 1;
+            } else {
+                compared = av.compareTo(bv);
+            }
+            if (compared != 0) {
+                return compared;
+            }
+        }
+        return Integer.compare(a.length, b.length);
+    }
+
+    private static int compareNumericIdentifier(String left, String right) {
+        String a = stripLeadingZeroes(left);
+        String b = stripLeadingZeroes(right);
+        int length = Integer.compare(a.length(), b.length());
+        return length != 0 ? length : a.compareTo(b);
+    }
+
+    private static String stripLeadingZeroes(String value) {
+        int index = 0;
+        while (index < value.length() - 1 && value.charAt(index) == '0') {
+            index++;
+        }
+        return value.substring(index);
+    }
+
+    private record ParsedVersion(int[] parts, String preRelease) {
+        static ParsedVersion parse(String value) {
+            Objects.requireNonNull(value, "value");
+            String normalized = value.trim();
+            if (normalized.equals(ProductMetadata.DEVELOPMENT_VERSION)) {
+                return new ParsedVersion(new int[]{0, 0, 0}, "development");
+            }
+            if (normalized.isEmpty()) {
+                throw new IllegalArgumentException("version must not be blank");
+            }
+            String withoutBuildMetadata = normalized.split("\\+", 2)[0];
+            String[] releaseAndSuffix = withoutBuildMetadata.split("-", 2);
+            String[] rawParts = releaseAndSuffix[0].split("\\.");
+            if (rawParts.length == 0) {
+                throw new IllegalArgumentException("invalid version: " + value);
+            }
+            int[] parts = new int[rawParts.length];
+            for (int index = 0; index < rawParts.length; index++) {
+                try {
+                    parts[index] = Integer.parseInt(rawParts[index]);
+                } catch (NumberFormatException failure) {
+                    throw new IllegalArgumentException("invalid numeric version: " + value, failure);
+                }
+                if (parts[index] < 0) {
+                    throw new IllegalArgumentException("version parts must be non-negative: " + value);
+                }
+            }
+            String preRelease = releaseAndSuffix.length == 2 ? releaseAndSuffix[1] : null;
+            if (preRelease != null && (preRelease.isBlank() || !preRelease.matches("[0-9A-Za-z.-]+"))) {
+                throw new IllegalArgumentException("invalid prerelease version: " + value);
+            }
+            return new ParsedVersion(parts, preRelease);
+        }
+    }
+}

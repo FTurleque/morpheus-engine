@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M20 + D0 + D1 validés et intégrés — MORPHEUS 1.0.0 publié — M21 prochain jalon**
+Statut : **C0 à M20 + D0 + D1 intégrés — MORPHEUS 1.0.0 publié — M21 techniquement validé Windows + Linux, PR #99 prête pour merge**
 
 Dernière mise à jour : 27 juillet 2026
 
@@ -21,9 +21,10 @@ M19           ✅ validé et intégré
 M20           ✅ validé et intégré
 D1            ✅ validé et intégré
 R1            ✅ MORPHEUS 1.0.0 publié
+M21           ✅ techniquement validé Windows + Linux — PR #99 à merger
 ```
 
-Référence M20 :
+### Référence M20
 
 ```text
 Issue          #92 CLOSED / completed
@@ -43,7 +44,7 @@ Uninstall      PASS
 Checksums      PASS Windows + Linux
 ```
 
-Référence D1 / release :
+### Référence D1 / release
 
 ```text
 Issue D1       #94 CLOSED / completed
@@ -58,17 +59,34 @@ Draft          false
 Prerelease     false
 ```
 
+### Référence M21 qualifiée
+
+```text
+Issue              #98
+PR                 #99
+Head exécutable    239d99657fbf193761767f382489dd637e642fe9
+Windows reactor    14/14 SUCCESS
+Linux reactor      14/14 SUCCESS
+Tests              473 PASS
+Architecture       187 PASS
+Windows JaCoCo     46.2800% line / 41.2734% branch
+Linux JaCoCo       46.2430% line / 41.2734% branch
+CycloneDX          PASS JSON/XML
+Provenance         PASS Windows + Linux
+Portable           PASS Windows + Linux
+CLI/MCP/HTTP       convergence PASS
+Executable delta   NONE Windows + Linux
+ADR-0089           Acceptée — M21
+```
+
 Preuves :
 
 - [`VALIDATION_M20.md`](../validation/VALIDATION_M20.md) ;
 - [`VALIDATION_D1.md`](../validation/VALIDATION_D1.md) ;
-- [`VALIDATION_R1.md`](../validation/VALIDATION_R1.md).
+- [`VALIDATION_R1.md`](../validation/VALIDATION_R1.md) ;
+- [`VALIDATION_M21.md`](../validation/VALIDATION_M21.md).
 
-Plan M20 : [`M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md).
-
-ADR-0088 : **Acceptée — M20**.
-
-## 2. Capacités acquises au niveau 1.0
+## 2. Capacités acquises
 
 ```text
 modèle de domaine provider-neutral
@@ -97,6 +115,12 @@ archives portables Windows/Linux
 runtime Java embarqué
 release builders exact-tag + SHA-256 + manifests
 GitHub Release stable v1.0.0
+CI durable Windows/Linux
+JaCoCo quality floors
+public surface manifest READ/WRITE
+CycloneDX + build provenance
+product metadata/version convergence
+explicit read-only update discovery
 ```
 
 ## 3. Responsabilités non négociables
@@ -139,6 +163,10 @@ conflict != silent last-write-wins
 optional provider absence != project failure when optional
 optional engine absence != MORPHEUS failure
 MORPHEUS rules != JARVIS action sequencing
+surface parity != same transport shape
+update discovery != automatic update
+checksum != signature
+facts != inference
 ```
 
 ## 4. Publication MORPHEUS 1.0.0
@@ -157,35 +185,23 @@ GitHub Release         PASS
 assets                 8/8 uploaded
 ```
 
-Artefacts publiés :
-
-```text
-MORPHEUS-1.0.0-windows-x64-setup.exe
-MORPHEUS-1.0.0-windows-x64-setup.exe.sha256
-morpheus-1.0.0-windows-x64.zip
-morpheus-1.0.0-windows-x64.zip.sha256
-morpheus-1.0.0-linux-x64.tar.gz
-morpheus-1.0.0-linux-x64.tar.gz.sha256
-morpheus-1.0.0-windows-x64-release-manifest.json
-morpheus-1.0.0-linux-x64-release-manifest.json
-```
-
-M20 intégré reste distinct de R1 publié : la qualification technique et l’acte de publication ont des preuves séparées.
+M20 intégré reste distinct de R1 publié : qualification technique et publication ont des preuves séparées.
 
 ## 5. Trajectoire active 1.x
 
-### DONE
+### DONE / QUALIFIED
 
 | Sujet | Statut | Résultat |
 |---|---|---|
 | **D1** | ✅ TERMINÉ / INTÉGRÉ — #94 / PR #95 | Baseline documentaire 1.x consolidée |
 | **R1** | ✅ PUBLIÉ — #96 | Tag `v1.0.0` + GitHub Release + 8 assets |
+| **M21** | ✅ TECHNIQUEMENT VALIDÉ — #98 / PR #99 | Production Integrity & Surface Convergence, Windows + Linux exact-head PASS |
 
 ### NOW
 
-| Jalon | Statut | But |
+| Sujet | Statut | Action |
 |---|---|---|
-| **M21** | ⏭ PROCHAIN JALON | Production Integrity & Surface Convergence |
+| **M21 integration** | ⏳ PR #99 READY | Merge uniquement après autorisation explicite du propriétaire |
 
 ### NEXT
 
@@ -205,42 +221,12 @@ M20 intégré reste distinct de R1 publié : la qualification technique et l’a
 
 Détail : [`POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
-## 6. M21 — Production Integrity & Surface Convergence
+## 6. M21 — résultat de sortie
 
-Question de sortie proposée :
+Question :
 
 > MORPHEUS 1.x possède-t-il une baseline de production durable où build, qualité, contrats publics, documentation et chaîne de release convergent sans divergence silencieuse entre CLI, MCP et HTTP ?
 
-Axes prévus :
+**Réponse : oui.** La preuve Windows + Linux est portée par `VALIDATION_M21.md` sur le même head exécutable `239d99657fbf193761767f382489dd637e642fe9`. Les commits de consolidation postérieurs sont docs-only.
 
-```text
-CI reproductible et durable
-quality gates / coverage
-nettoyage Maven / dépendances / warnings
-convergence CLI / MCP / HTTP
-documentation single-source-of-truth
-SBOM / provenance / signatures / trust policy
-update channel / version discovery sans auto-mutation
-qualification exact-head Windows + Linux
-```
-
-M21 ne doit pas introduire de logique métier nouvelle avant d’avoir stabilisé ces surfaces et gates.
-
-## 7. Règle de pilotage
-
-```text
-1. issue canonique
-2. plan Mxx_EXECUTION avec NOW / NEXT / LATER et slices
-3. question de sortie + invariants
-4. ADR avant décision structurante
-5. vertical slices
-6. tests backend/adapters réels pertinents
-7. gate exact-head
-8. VALIDATION_Mxx avec SHA et résultats réels
-9. ADR acceptée seulement après preuve
-10. PR Ready seulement après gate vert
-11. merge uniquement après autorisation explicite
-12. réconciliation roadmap/index après merge
-```
-
-Les preuves de validation restent historiques. Les roadmaps actives reflètent l’état GitHub courant sans réécrire la chronologie des gates.
+La PR #99 peut être intégrée sans nouvelle qualification tant qu’aucun fichier exécutable, build, contrat machine ou script de validation n’est modifié. Toute modification de cette nature invaliderait la preuve et imposerait une nouvelle qualification cross-platform.

@@ -37,6 +37,9 @@ public final class MorpheusMain {
             PrintStream err,
             Map<String, String> environment,
             Properties properties) {
+        if (MorpheusProductCli.handles(args)) {
+            return new MorpheusProductCli().run(args, out, err);
+        }
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
         int exitCode;
@@ -68,6 +71,12 @@ public final class MorpheusMain {
             out.println("API:");
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]");
             out.println("  Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println();
+            out.println("Product integrity (M21):");
+            out.println("  morpheus [--json] version");
+            out.println("  morpheus [--json] product-info");
+            out.println("  morpheus [--json] update-check --manifest URI_OR_PATH");
+            out.println("  Update discovery is explicit and read-only: no startup network call, download, or automatic install.");
             out.println();
             out.println("Multi-provider composition (M18):");
             out.println("  morpheus [--json] composition sync --project ID [--revision REV]");
