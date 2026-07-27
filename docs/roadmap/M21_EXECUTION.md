@@ -1,16 +1,16 @@
 # M21 — Production Integrity & Surface Convergence
 
-Statut : **IMPLÉMENTÉ — QUALIFICATION EXACT-HEAD BLOQUÉE PAR LE DÉMARRAGE DES RUNNERS GITHUB ACTIONS** — issue #98 — PR #99 — branche `m21/production-integrity-surface-convergence`
+Statut : **IMPLÉMENTÉ — WINDOWS EXACT-HEAD PASS ; QUALIFICATION LINUX BLOQUÉE PAR LE DÉMARRAGE DES RUNNERS GITHUB ACTIONS** — issue #98 — PR #99 — branche `m21/production-integrity-surface-convergence`
 
 Baseline : `main@83ad1dfc264a4797130ebd61353ce0e78552d88c` — MORPHEUS 1.0.0 publié.
 
-Dernier head exécutable candidat avant consolidation documentaire : `a7508fbfc22f0a0b65b1e3a9095769e7d410e340`.
+Head exécutable qualifié Windows : `239d99657fbf193761767f382489dd637e642fe9`.
 
 ## Question de sortie
 
 > MORPHEUS 1.x possède-t-il une baseline de production durable où build, qualité, contrats publics, documentation et chaîne de release convergent sans divergence silencieuse entre CLI, MCP et HTTP ?
 
-Réponse : **pas encore démontrée**. Les slices S0→S7 sont implémentées. S8 reste ouverte car les jobs GitHub Actions Windows et Ubuntu sont créés puis échouent avant tout step, sans log exécutable ; aucun résultat Maven/JaCoCo/packaging ne peut donc être présenté comme PASS.
+Réponse : **démontrée sur Windows, pas encore sur Linux**. Les slices S0→S7 sont implémentées et le gate Windows exact-head est intégralement PASS. S8 reste ouverte uniquement parce que le job Ubuntu GitHub Actions est créé puis échoue avant tout step, sans log exécutable ; aucun résultat Linux Maven/JaCoCo/packaging ne peut donc être présenté comme PASS.
 
 ## Invariants
 
@@ -74,7 +74,8 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 - [x] gate aggregate branch >= 20% ;
 - [x] résumé machine lisible `m21-coverage-summary.txt` ;
 - [x] parser XML compatible avec le DOCTYPE JaCoCo tout en bloquant le chargement DTD externe ;
-- [ ] seuils réellement franchis sur Windows/Linux — **à prouver en S8**.
+- [x] seuils réellement franchis sur Windows — **46,2800 % lignes / 41,2734 % branches** ;
+- [ ] seuils réellement franchis sur Linux — **à prouver en S8**.
 
 ## M21-S3 — Maven / reproductibilité
 
@@ -84,7 +85,8 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 - [x] `dependency:analyze-only` lié à `verify` en diagnostic non destructif ;
 - [x] warnings de dépendances visibles sans faux gate implicite ;
 - [x] JaCoCo 0.8.15 ;
-- [ ] résultat réel du reactor — **à prouver en S8**.
+- [x] reactor Windows réel — **14/14 PASS** ;
+- [ ] reactor Linux réel — **à prouver en S8**.
 
 ## M21-S4 — convergence CLI / MCP / HTTP
 
@@ -94,7 +96,8 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 - [x] version produit dérivée des métadonnées de build ;
 - [x] tests empêchant une divergence silencieuse ;
 - [x] sérialisation canonique des URI de release ;
-- [ ] convergence packaged CLI/MCP/HTTP réellement exécutée — **à prouver en S8**.
+- [x] convergence packaged CLI/MCP/HTTP réellement exécutée sur Windows ;
+- [ ] convergence packaged réellement exécutée sur Linux.
 
 ## M21-S5 — documentation single-source-of-truth
 
@@ -112,7 +115,8 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 - [x] politique de confiance documentée ;
 - [x] signature cryptographique séparée des checksums et non simulée en l’absence de clé ;
 - [x] runtime portable enrichi avec `java.net.http` requis par M21 ;
-- [ ] SBOM/provenance/package réellement produits sur les deux OS — **à prouver en S8**.
+- [x] SBOM/provenance/package réellement produits sur Windows ;
+- [ ] SBOM/provenance/package réellement produits sur Linux.
 
 ## M21-S7 — update channel / version discovery
 
@@ -128,7 +132,7 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 - [x] MCP `check_product_update` ;
 - [x] HTTP `EXPLICITLY_NOT_EXPOSED` explicitement documenté pour ne pas créer un fetcher SSRF arbitraire.
 
-# BLOCKED — gate final
+# PARTIAL — gate final
 
 ## M21-S8 — qualification exact-head
 
@@ -144,27 +148,48 @@ Commandes canoniques :
 
 Le même gate est appelé par `.github/workflows/ci.yml`.
 
-- [ ] `git diff --check` ;
-- [ ] Windows exact-head PASS ;
+- [x] `git diff --check` ;
+- [x] Windows exact-head PASS — `239d99657fbf193761767f382489dd637e642fe9` ;
 - [ ] Linux exact-head PASS ;
-- [ ] reactor complet PASS ;
-- [ ] tests >= baseline ;
-- [ ] architecture >= baseline ;
-- [ ] coverage gate PASS ;
-- [ ] public surfaces gate PASS ;
-- [ ] SBOM/provenance PASS ;
-- [ ] packaging/smokes pertinents PASS ;
-- [x] `VALIDATION_M21.md` créée avec état factuel du blocage ;
-- [ ] `VALIDATION_M21.md` convertie en preuve PASS avec SHA réel ;
-- [ ] ADR-0089 acceptée seulement après preuve ;
-- [ ] PR Ready seulement après gate vert ;
+- [x] reactor complet PASS Windows — 14/14 ;
+- [x] tests >= baseline — 473 >= 454 ;
+- [x] architecture >= baseline — 187 >= 182 ;
+- [x] coverage gate PASS Windows — 46,2800 % lignes / 41,2734 % branches ;
+- [x] public surfaces gate PASS Windows ;
+- [x] SBOM/provenance PASS Windows ;
+- [x] packaging/smokes Windows PASS ;
+- [x] `VALIDATION_M21.md` contient la preuve Windows exact-head ;
+- [ ] `VALIDATION_M21.md` convertie en preuve Windows + Linux complète ;
+- [ ] ADR-0089 acceptée seulement après preuve Windows + Linux ;
+- [ ] PR Ready seulement après gate Windows + Linux vert ;
 - [ ] merge uniquement après autorisation explicite du propriétaire.
+
+## Preuve Windows acquise
+
+Le gate local Windows a terminé par :
+
+```text
+M21 VALIDATION PASS
+sha=239d99657fbf193761767f382489dd637e642fe9
+baseRef=origin/main
+version=1.0.0
+tests=473
+architectureTests=187
+lineCoverage=0.462800
+branchCoverage=0.412734
+sbom=PASS
+provenance=PASS
+portable=True
+postGateExecutableDelta=NONE
+```
+
+Il a également validé le shaded JAR, le runtime `jpackage`, les modules `jdk.httpserver` / `java.sql` / `java.net.http`, les smokes CLI, `product-info`, update/API, health/readiness/metrics/version et l’archive portable Windows.
 
 ## Blocage GitHub Actions observé
 
-Le run `30298669189` du candidat exécutable `a7508fbfc22f0a0b65b1e3a9095769e7d410e340` crée bien les deux jobs `exact-head (windows-latest)` et `exact-head (ubuntu-latest)`, mais chacun termine `failure` avec `steps: None` et sans URL de logs de job. Les changements de versions `actions/checkout/setup-java/upload-artifact`, le checkout explicite du SHA de tête et une relance manuelle n’ont pas modifié ce comportement. Ce symptôme est donc classé **runner startup / infrastructure**, et non `Maven FAIL`.
+Le run `30302997998` sur le head exécutable Windows qualifié `239d99657fbf193761767f382489dd637e642fe9` crée bien les deux jobs `exact-head (windows-latest)` et `exact-head (ubuntu-latest)`, mais chacun termine `failure` avec `steps: None` et sans URL de logs de job. Les changements de versions `actions/checkout/setup-java/upload-artifact`, le checkout explicite du SHA de tête et une relance manuelle n’ont pas modifié ce comportement. Ce symptôme est donc classé **runner startup / infrastructure**, et non `Maven FAIL`.
 
-Aucun PASS Windows/Linux ne sera déclaré tant qu’un des validateurs ci-dessus n’aura pas réellement exécuté le reactor et les smokes.
+Windows dispose désormais d’une preuve locale complète. **Aucun PASS Linux ne sera déclaré tant que le validateur Linux n’aura pas réellement exécuté le reactor et les smokes.**
 
 ## Fichiers M21
 
