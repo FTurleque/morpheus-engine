@@ -4,8 +4,8 @@ Statut : **À QUALIFIER — implémentation S0→S8 présente ; aucun PASS exact
 
 Date : 27 juillet 2026
 
-Issue : #100  
-PR : #101 — temporairement fermée pour respecter le gel CI avant août  
+Issue : #100
+PR : #101 — temporairement fermée pour respecter le gel CI avant août
 Branche : `m22/provider-sdk-plugin-platform`
 
 Baseline : `main@b26833701b028ea3d09388ed87188fb1945b559d` après M21.
