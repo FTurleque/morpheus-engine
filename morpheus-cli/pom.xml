@@ -21,6 +21,11 @@
         </dependency>
         <dependency>
             <groupId>io.github.fturleque</groupId>
+            <artifactId>morpheus-provider-sdk</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.fturleque</groupId>
             <artifactId>morpheus-provider-openspec</artifactId>
             <version>${project.version}</version>
         </dependency>
