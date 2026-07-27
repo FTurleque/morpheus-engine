@@ -3,6 +3,7 @@ set -euo pipefail
 
 VERSION="${1:-1.0.0}"
 SKIP_PORTABLE="${MORPHEUS_M21_SKIP_PORTABLE:-false}"
+BASE_REF="${MORPHEUS_M21_BASE_REF:-origin/main}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
@@ -16,8 +17,15 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   git status --short --untracked-files=no >&2
   exit 1
 fi
-
-git diff --check
+if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
+  BASE_REF=main
+fi
+if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
+  echo "M21 base ref not found: ${MORPHEUS_M21_BASE_REF:-origin/main} (fallback main also missing)" >&2
+  exit 1
+fi
+printf '%s\n' "M21 diff base: $BASE_REF"
+git diff --check "$BASE_REF...HEAD"
 ./mvnw -B -ntp -Dstyle.color=never clean verify
 
 read -r TESTS FAILURES ERRORS ARCH_TESTS < <(python3 - "$REPO" <<'PY'
@@ -178,6 +186,7 @@ fi
 cat > "$OUTPUT/validation-summary.txt" <<EOF
 M21 VALIDATION PASS
 sha=$VALIDATION_SHA
+baseRef=$BASE_REF
 version=$VERSION
 tests=$TESTS
 architectureTests=$ARCH_TESTS
