@@ -44,19 +44,52 @@ class MorpheusCliTest {
     }
 
     @Test
-    void layoutUsesCrossPlatformDefaultsAndExplicitDataKeepsPortableStateTogether() {
-        Properties linux = properties("Linux", tempDir.resolve("home"));
+    void layoutUsesProductionDefaultsAndExplicitDataKeepsPortableStateTogether() {
+        Path home = tempDir.resolve("home");
+        Properties linux = properties("Linux", home);
         CliLayout defaultLinux = CliLayout.resolve(
                 java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(), Map.of(), linux);
         assertTrue(defaultLinux.dataDirectory().endsWith(Path.of(".local", "share", "morpheus")));
         assertTrue(defaultLinux.configDirectory().endsWith(Path.of(".config", "morpheus")));
+        assertTrue(defaultLinux.logsDirectory().endsWith(Path.of(".local", "state", "morpheus", "logs")));
+        assertTrue(defaultLinux.backupsDirectory().endsWith(Path.of(".local", "state", "morpheus", "backups")));
+
+        Path localAppData = tempDir.resolve("LocalAppData");
+        Properties windows = properties("Windows 10", home);
+        CliLayout defaultWindows = CliLayout.resolve(
+                java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(),
+                Map.of("LOCALAPPDATA", localAppData.toString()), windows);
+        Path productRoot = localAppData.resolve("MORPHEUS").toAbsolutePath().normalize();
+        assertEquals(productRoot.resolve("data"), defaultWindows.dataDirectory());
+        assertEquals(productRoot.resolve("config"), defaultWindows.configDirectory());
+        assertEquals(productRoot.resolve("logs"), defaultWindows.logsDirectory());
+        assertEquals(productRoot.resolve("backups"), defaultWindows.backupsDirectory());
+        assertEquals(productRoot.resolve("data").resolve("morpheus.db"), defaultWindows.databasePath());
 
         Path portable = tempDir.resolve("portable-data");
         CliLayout explicit = CliLayout.resolve(
                 java.util.Optional.of(portable), java.util.Optional.empty(), java.util.Optional.empty(), Map.of(), linux);
         assertEquals(portable.toAbsolutePath().normalize(), explicit.dataDirectory());
         assertEquals(portable.resolve("config").toAbsolutePath().normalize(), explicit.configDirectory());
+        assertEquals(portable.resolve("logs").toAbsolutePath().normalize(), explicit.logsDirectory());
+        assertEquals(portable.resolve("backups").toAbsolutePath().normalize(), explicit.backupsDirectory());
         assertEquals(portable.resolve("morpheus.db").toAbsolutePath().normalize(), explicit.databasePath());
+    }
+
+    @Test
+    void layoutHonorsXdgAndExplicitEnvironmentOverrides() {
+        Path home = tempDir.resolve("xdg-home");
+        Properties linux = properties("Linux", home);
+        Map<String, String> environment = Map.of(
+                "XDG_DATA_HOME", tempDir.resolve("xdg-data").toString(),
+                "XDG_CONFIG_HOME", tempDir.resolve("xdg-config").toString(),
+                "XDG_STATE_HOME", tempDir.resolve("xdg-state").toString());
+        CliLayout layout = CliLayout.resolve(
+                java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(), environment, linux);
+        assertEquals(tempDir.resolve("xdg-data/morpheus").toAbsolutePath().normalize(), layout.dataDirectory());
+        assertEquals(tempDir.resolve("xdg-config/morpheus").toAbsolutePath().normalize(), layout.configDirectory());
+        assertEquals(tempDir.resolve("xdg-state/morpheus/logs").toAbsolutePath().normalize(), layout.logsDirectory());
+        assertEquals(tempDir.resolve("xdg-state/morpheus/backups").toAbsolutePath().normalize(), layout.backupsDirectory());
     }
 
     @Test
