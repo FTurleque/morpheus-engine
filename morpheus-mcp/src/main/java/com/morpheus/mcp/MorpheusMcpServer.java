@@ -4,6 +4,7 @@ import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -24,7 +25,7 @@ import java.util.Objects;
 /** Native STDIO MCP adapter. Stdout is owned exclusively by the MCP transport. */
 public final class MorpheusMcpServer {
     public static final String SERVER_NAME = "morpheus";
-    public static final String SERVER_VERSION = "0.1.0-SNAPSHOT";
+    public static final String SERVER_VERSION = ProductMetadata.version();
 
     private MorpheusMcpServer() {
     }
@@ -68,6 +69,9 @@ public final class MorpheusMcpServer {
 
         for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
             server.addTool(tool(definition, service));
+        }
+        for (McpServerFeatures.SyncToolSpecification specification : new MorpheusProductMcpTools().specifications()) {
+            server.addTool(specification);
         }
         for (McpServerFeatures.SyncToolSpecification specification
                 : new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications()) {
