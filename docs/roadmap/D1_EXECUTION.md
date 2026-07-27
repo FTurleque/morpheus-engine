@@ -1,6 +1,6 @@
 # D1 — Consolidation post-M20 & roadmap MORPHEUS 1.x
 
-Statut : **IMPLÉMENTATION DOCUMENTAIRE TERMINÉE — preuve locale PENDING — issue #94**
+Statut : **IMPLÉMENTATION DOCUMENTAIRE TERMINÉE — preuve locale PENDING — issue #94 / PR #95 Draft**
 
 Baseline : `main@75d0b82ab0c960692db2fee1ced146fa6547fd4a` (merge M20).
 
@@ -26,13 +26,13 @@ merge requires explicit authorization
 - [x] D1-S2 — réconcilier `README.md` et `docs/README.md`
 - [x] D1-S3 — réconcilier `docs/governance/ROADMAP.md` et `docs/roadmap/README.md`
 - [x] D1-S4 — réconcilier `docs/developer/ARCHITECTURE.md`, `BUILD_AND_TEST.md` et index ADR
-- [x] D1-S5 — créer preuve `VALIDATION_D1.md` et préparer commande mono-ligne locale
+- [x] D1-S5 — créer preuve `VALIDATION_D1.md`, ouvrir PR #95 Draft et préparer commande mono-ligne locale
 
 ## NEXT
 
 - [ ] D1-S6 — exécuter preuve locale réelle sur le head D1
 - [ ] D1-S7 — enregistrer SHA/résultat et vérifier delta documentaire
-- [ ] D1-S8 — passer la PR Ready
+- [ ] D1-S8 — passer la PR #95 Ready
 
 ## LATER
 
