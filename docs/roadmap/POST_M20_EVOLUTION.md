@@ -1,23 +1,29 @@
 # MORPHEUS — Roadmap d’évolution post-M20
 
-Statut : **ACTIVE — MORPHEUS 1.0 baseline intégrée ; D1 en cours ; M21 prochain jalon**
+Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; D1 intégré ; M21 prochain jalon**
 
 Dernière mise à jour : 27 juillet 2026
 
-Cette roadmap commence après l’intégration de M20 et devient la trajectoire active de MORPHEUS 1.x. La trajectoire [`POST_M14_EXECUTION.md`](POST_M14_EXECUTION.md) est conservée comme historique D0→M20.
+Cette roadmap commence après l’intégration de M20 et porte la trajectoire active de MORPHEUS 1.x. La trajectoire [`POST_M14_EXECUTION.md`](POST_M14_EXECUTION.md) est conservée comme historique D0→M20.
 
 ## Baseline acquise
 
 ```text
 C0 → M20      ✅ validés et intégrés
+D1            ✅ validé et intégré
 M20 code      9199ed43c4bd8596a97db055eeff17ae31399eb8
 M20 merge     75d0b82ab0c960692db2fee1ced146fa6547fd4a
+D1 merge      51f6a120f3461c8d8c24323f3db8211d28d6cb42
 M20 tests     454/454 PASS Windows + Linux
 Architecture  182/182 PASS Windows + Linux
 MORPHEUS      1.0.0
+v1.0.0        ✅ tag stable publié
+GitHub Release ✅ MORPHEUS 1.0.0 — 8/8 assets
 ```
 
-La publication opérationnelle du tag stable `v1.0.0` et de la GitHub Release est un acte de release distinct de la preuve M20 : M20 est intégré, mais la release publique/stable doit encore être créée depuis le commit intégré exact.
+La publication opérationnelle est terminée via R1. Le tag `v1.0.0` pointe exactement sur `51f6a120f3461c8d8c24323f3db8211d28d6cb42`, identique au merge D1 final et au SHA de release retenu.
+
+Preuve : [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md).
 
 ## Invariants post-1.0
 
@@ -45,29 +51,36 @@ MORPHEUS != NEXUS
 MORPHEUS != JARVIS
 ```
 
-# NOW
+# DONE
 
 ## R1 — Publication officielle MORPHEUS 1.0.0
 
 Type : **release operation**, pas nouveau jalon fonctionnel.
 
-Objectif : publier les artefacts déjà qualifiés depuis le commit intégré exact, avec tag `v1.0.0`, checksums et notes de release.
+Statut : **TERMINÉ / PUBLIÉ** — issue #96.
 
-Gate :
+Résultat :
 
 ```text
-main exact SHA selected
-v1.0.0 points exactly to release SHA
-Windows setup + checksum published
-Windows portable + checksum published
-Linux portable + checksum published
-release manifest(s) published
-installation documentation linked
+release SHA exact      51f6a120f3461c8d8c24323f3db8211d28d6cb42
+tag stable             v1.0.0
+Windows setup          PASS / published
+Windows portable       PASS / published
+Linux portable         PASS / published
+SHA-256                PASS / published
+release manifests      PASS / published
+GitHub Release         stable / 8 assets
 ```
+
+Gate : **PASS**.
 
 ## D1 — Consolidation post-M20
 
-Issue : **#94**.
+Issue : **#94 CLOSED / completed**.
+
+PR : **#95 MERGED**.
+
+Merge : `51f6a120f3461c8d8c24323f3db8211d28d6cb42`.
 
 Objectif : figer MORPHEUS 1.0 comme baseline documentaire active et ouvrir la trajectoire 1.x sans réécrire les preuves historiques.
 
@@ -82,7 +95,9 @@ POST_M14_EXECUTION conservée historique
 VALIDATION_D1 avec preuve locale
 ```
 
-Exit criteria : delta documentaire uniquement, `git diff --check` PASS, reactor complet PASS, PR Ready après preuve réelle.
+Exit criteria : **PASS** — delta documentaire uniquement, `git diff --check` PASS, reactor complet PASS, PR mergée après autorisation explicite.
+
+# NOW
 
 ## M21 — Production Integrity & Surface Convergence
 
@@ -223,14 +238,14 @@ no implicit lifecycle/write mutation
 
 Invariants : `facts != inference`, `inference != evidence`, `confidence != truth`, aucune inférence ne remplace un fait publié.
 
-# Ordre proposé
+# Ordre actif
 
 ```text
 M20 integrated
    ↓
-R1  publish 1.0.0
+D1 consolidated
    ↓
-D1  consolidate 1.0 baseline
+R1 v1.0.0 published
    ↓
 M21 production integrity / surface convergence
    ↓

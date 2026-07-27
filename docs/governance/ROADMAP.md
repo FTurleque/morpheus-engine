@@ -1,14 +1,14 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M20 + D0 validés et intégrés — D1 en cours — M21 prochain jalon**
+Statut : **C0 à M20 + D0 + D1 validés et intégrés — MORPHEUS 1.0.0 publié — M21 prochain jalon**
 
 Dernière mise à jour : 27 juillet 2026
 
 MORPHEUS est piloté par des preuves : contrats stables, ADR cohérentes, tests reproductibles, SHA exacts et réponse explicite à chaque question de sortie.
 
-La trajectoire active 1.x est [`POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md). La trajectoire [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md) est désormais historique et couvre D0 + M15→M20.
+La trajectoire active 1.x est [`POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md). La trajectoire [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md) est historique et couvre D0 + M15→M20.
 
-## 1. Baseline intégrée
+## 1. Baseline intégrée et publiée
 
 ```text
 C0 → M14      ✅ validés et intégrés
@@ -19,6 +19,8 @@ M17           ✅ validé et intégré
 M18           ✅ validé et intégré
 M19           ✅ validé et intégré
 M20           ✅ validé et intégré
+D1            ✅ validé et intégré
+R1            ✅ MORPHEUS 1.0.0 publié
 ```
 
 Référence M20 :
@@ -27,7 +29,7 @@ Référence M20 :
 Issue          #92 CLOSED / completed
 PR             #93 MERGED
 Code qualifié  9199ed43c4bd8596a97db055eeff17ae31399eb8
-Merge          75d0b82ab0c960692db2fee1ced146fa6547fd4a
+Merge M20      75d0b82ab0c960692db2fee1ced146fa6547fd4a
 Version        1.0.0
 Tests          454/454 PASS Windows + Linux
 Architecture   182/182 PASS Windows + Linux
@@ -41,8 +43,29 @@ Uninstall      PASS
 Checksums      PASS Windows + Linux
 ```
 
-Preuve : [`VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
-Plan : [`M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md).
+Référence D1 / release :
+
+```text
+Issue D1       #94 CLOSED / completed
+PR D1          #95 MERGED
+Merge D1       51f6a120f3461c8d8c24323f3db8211d28d6cb42
+Issue R1       #96
+Release SHA    51f6a120f3461c8d8c24323f3db8211d28d6cb42
+Tag stable     v1.0.0
+GitHub Release MORPHEUS 1.0.0
+Assets         8/8 uploaded
+Draft          false
+Prerelease     false
+```
+
+Preuves :
+
+- [`VALIDATION_M20.md`](../validation/VALIDATION_M20.md) ;
+- [`VALIDATION_D1.md`](../validation/VALIDATION_D1.md) ;
+- [`VALIDATION_R1.md`](../validation/VALIDATION_R1.md).
+
+Plan M20 : [`M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md).
+
 ADR-0088 : **Acceptée — M20**.
 
 ## 2. Capacités acquises au niveau 1.0
@@ -73,6 +96,7 @@ setup Windows per-user
 archives portables Windows/Linux
 runtime Java embarqué
 release builders exact-tag + SHA-256 + manifests
+GitHub Release stable v1.0.0
 ```
 
 ## 3. Responsabilités non négociables
@@ -119,25 +143,48 @@ MORPHEUS rules != JARVIS action sequencing
 
 ## 4. Publication MORPHEUS 1.0.0
 
-M20 prouve que les artefacts peuvent être construits, installés et exécutés. La publication GitHub officielle reste une opération distincte :
+R1 est terminée. La publication officielle respecte le contrat M20 :
 
 ```text
-R1 = créer tag stable v1.0.0 sur le commit intégré retenu
-     + reconstruire depuis ce tag exact
-     + publier setup/ZIP/tar.gz + checksums + manifests
-     + publier release notes
+release SHA exact      51f6a120f3461c8d8c24323f3db8211d28d6cb42
+tag stable             v1.0.0
+Windows exact-tag      PASS
+Linux exact-tag        PASS
+SHA-256 staged         PASS
+manifests exact-tag    PASS
+GitHub tag exact SHA   PASS
+GitHub Release         PASS
+assets                 8/8 uploaded
 ```
 
-M20 intégré != GitHub Release déjà publiée.
+Artefacts publiés :
+
+```text
+MORPHEUS-1.0.0-windows-x64-setup.exe
+MORPHEUS-1.0.0-windows-x64-setup.exe.sha256
+morpheus-1.0.0-windows-x64.zip
+morpheus-1.0.0-windows-x64.zip.sha256
+morpheus-1.0.0-linux-x64.tar.gz
+morpheus-1.0.0-linux-x64.tar.gz.sha256
+morpheus-1.0.0-windows-x64-release-manifest.json
+morpheus-1.0.0-linux-x64-release-manifest.json
+```
+
+M20 intégré reste distinct de R1 publié : la qualification technique et l’acte de publication ont des preuves séparées.
 
 ## 5. Trajectoire active 1.x
 
+### DONE
+
+| Sujet | Statut | Résultat |
+|---|---|---|
+| **D1** | ✅ TERMINÉ / INTÉGRÉ — #94 / PR #95 | Baseline documentaire 1.x consolidée |
+| **R1** | ✅ PUBLIÉ — #96 | Tag `v1.0.0` + GitHub Release + 8 assets |
+
 ### NOW
 
-| Sujet | Statut | But |
+| Jalon | Statut | But |
 |---|---|---|
-| **R1** | ⏭ À FAIRE | Publication officielle MORPHEUS `v1.0.0` |
-| **D1** | 🚧 EN COURS — #94 | Consolidation post-M20 et bascule vers roadmap 1.x |
 | **M21** | ⏭ PROCHAIN JALON | Production Integrity & Surface Convergence |
 
 ### NEXT

@@ -6,19 +6,23 @@
 
 ## État produit
 
-**MORPHEUS 1.0.0 / M20 est validé et intégré.**
+**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.**
 
 ```text
 M20 issue       #92 CLOSED / completed
 M20 PR          #93 MERGED
 Code qualifié   9199ed43c4bd8596a97db055eeff17ae31399eb8
-Merge           75d0b82ab0c960692db2fee1ced146fa6547fd4a
+M20 merge       75d0b82ab0c960692db2fee1ced146fa6547fd4a
+D1 merge        51f6a120f3461c8d8c24323f3db8211d28d6cb42
+Release SHA     51f6a120f3461c8d8c24323f3db8211d28d6cb42
+Tag stable      v1.0.0
+GitHub Release  MORPHEUS 1.0.0 — 8/8 assets
 Tests           454/454 PASS Windows + Linux
 Architecture    182/182 PASS Windows + Linux
 Reactor         14/14 SUCCESS
 ```
 
-La publication GitHub stable `v1.0.0` reste une opération de release distincte de l’intégration M20.
+Preuve de publication : [docs/validation/VALIDATION_R1.md](docs/validation/VALIDATION_R1.md).
 
 ## Ce que MORPHEUS fournit
 
@@ -58,6 +62,8 @@ Chaque moteur reste autonome.
 ## Installation et démarrage
 
 Documentation : **[Installation MORPHEUS 1.0](docs/user/INSTALLATION.md)**.
+
+Release stable : **`v1.0.0`**.
 
 ### Windows installé
 
@@ -227,16 +233,18 @@ Gate M20 Linux :
 bash scripts/validate-m20.sh
 ```
 
-Preuve : [docs/validation/VALIDATION_M20.md](docs/validation/VALIDATION_M20.md).
+Preuve technique M20 : [docs/validation/VALIDATION_M20.md](docs/validation/VALIDATION_M20.md).
 
 ## Roadmap 1.x
 
 Trajectoire active : **[POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md)**.
 
 ```text
+DONE
+  R1   publication officielle v1.0.0 ✅
+  D1   consolidation post-M20 ✅
+
 NOW
-  R1   publication officielle v1.0.0
-  D1   consolidation post-M20 — issue #94
   M21  Production Integrity & Surface Convergence
 
 NEXT
@@ -257,5 +265,11 @@ M27 reste optionnel : `facts != inference` et aucun LLM n’est requis dans le c
 **Point d’entrée : [docs/README.md](docs/README.md)**.
 
 Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).
+
 Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).
-Dernière validation intégrée : [docs/validation/VALIDATION_M20.md](docs/validation/VALIDATION_M20.md).
+
+Preuves 1.0 :
+
+- [VALIDATION_M20](docs/validation/VALIDATION_M20.md) ;
+- [VALIDATION_D1](docs/validation/VALIDATION_D1.md) ;
+- [VALIDATION_R1](docs/validation/VALIDATION_R1.md).

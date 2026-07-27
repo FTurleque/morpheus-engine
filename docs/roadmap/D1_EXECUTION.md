@@ -1,10 +1,16 @@
 # D1 — Consolidation post-M20 & roadmap MORPHEUS 1.x
 
-Statut : **TERMINÉ / VALIDÉ — PR #95 prête à revue — merge non autorisé**
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**
 
 Baseline : `main@75d0b82ab0c960692db2fee1ced146fa6547fd4a` (merge M20).
 
 SHA D1 réellement qualifié : `d079460cdceffbc4f37a80417d797b762f56629b`.
+
+Head documentaire final PR #95 : `d54d72f46ecd1dc691a7af7b28a7f42ab8c2942f`.
+
+Merge D1 : `51f6a120f3461c8d8c24323f3db8211d28d6cb42`.
+
+Issue #94 : **CLOSED / completed**. PR #95 : **MERGED**.
 
 ## Question de sortie
 
@@ -34,6 +40,7 @@ merge requires explicit authorization
 - [x] D1-S6 — exécuter preuve locale réelle sur le head D1 corrigé
 - [x] D1-S7 — enregistrer SHA/résultat et vérifier delta documentaire
 - [x] D1-S8 — qualifier la PR #95 pour passage Ready
+- [x] D1-S9 — merger #95 après autorisation explicite et fermer #94
 
 ## Gate D1
 
@@ -52,18 +59,20 @@ workspace clean after test     PASS
 
 La première tentative sur `2ca77219355d91c7e72bb5e8c054e78d5aa2c032` avait correctement échoué avant Maven sur 7 trailing whitespaces. Ceux-ci ont été corrigés avant la qualification finale.
 
+Deux commits documentaires ont ensuite inscrit la preuve et l’état final. Le compare GitHub a confirmé l’absence de delta exécutable entre le SHA qualifié et le head final de PR.
+
 ## Preuve
 
 Voir [`../validation/VALIDATION_D1.md`](../validation/VALIDATION_D1.md).
 
-Les commits post-gate servent uniquement à inscrire la preuve et l’état final de D1. Avant passage Ready, le compare GitHub doit confirmer que `d079460c... -> head PR` reste strictement documentaire.
+La preuve historique conserve le SHA réellement testé. Le présent plan, document actif, reflète l’état GitHub final après merge.
 
 ## Suite
 
 ```text
-PR #95 Ready après contrôle post-gate
-merge uniquement après autorisation explicite
-#94 se ferme via merge de #95
-R1 publication officielle v1.0.0 après D1 intégré
-M21 Production Integrity & Surface Convergence ensuite
+D1  intégré via PR #95 / merge 51f6a120f3461c8d8c24323f3db8211d28d6cb42
+R1  publication officielle v1.0.0 ✅
+M21 Production Integrity & Surface Convergence — prochain jalon
 ```
+
+Preuve R1 : [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md).
