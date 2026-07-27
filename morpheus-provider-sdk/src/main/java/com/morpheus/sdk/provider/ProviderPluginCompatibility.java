@@ -2,6 +2,7 @@ package com.morpheus.sdk.provider;
 
 import com.morpheus.application.product.ProductMetadata;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -103,7 +104,43 @@ public final class ProviderPluginCompatibility {
             if (other.prerelease.isEmpty()) {
                 return -1;
             }
-            return prerelease.compareTo(other.prerelease);
+            String[] left = prerelease.split("\\.");
+            String[] right = other.prerelease.split("\\.");
+            int common = Math.min(left.length, right.length);
+            for (int index = 0; index < common; index++) {
+                int identifier = comparePrereleaseIdentifier(left[index], right[index]);
+                if (identifier != 0) {
+                    return identifier;
+                }
+            }
+            return Integer.compare(left.length, right.length);
+        }
+
+        private static int comparePrereleaseIdentifier(String left, String right) {
+            boolean leftNumeric = isNumeric(left);
+            boolean rightNumeric = isNumeric(right);
+            if (leftNumeric && rightNumeric) {
+                return new BigInteger(left).compareTo(new BigInteger(right));
+            }
+            if (leftNumeric) {
+                return -1;
+            }
+            if (rightNumeric) {
+                return 1;
+            }
+            return left.compareTo(right);
+        }
+
+        private static boolean isNumeric(String value) {
+            if (value.isEmpty()) {
+                return false;
+            }
+            for (int index = 0; index < value.length(); index++) {
+                if (!Character.isDigit(value.charAt(index))) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 }
