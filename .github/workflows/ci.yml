@@ -42,21 +42,21 @@ jobs:
         shell: bash
         run: chmod +x mvnw scripts/*.sh distribution/*.sh
 
-      - name: Run one-command M22 gate on Linux
+      - name: Run one-command M21 gate on Linux
         if: runner.os == 'Linux'
         shell: bash
-        run: ./scripts/validate-m22.sh 1.0.0
+        run: ./scripts/validate-m21.sh 1.0.0
 
-      - name: Run one-command M22 gate on Windows
+      - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
         shell: cmd
-        run: validate-m22.cmd -Version 1.0.0
+        run: validate-m21.cmd -Version 1.0.0
 
-      - name: Upload M22 integrity evidence
+      - name: Upload M21 integrity evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m22-integrity-${{ runner.os }}
+          name: m21-integrity-${{ runner.os }}
           if-no-files-found: warn
           retention-days: 14
           path: |
@@ -64,7 +64,6 @@ jobs:
             **/target/site/jacoco/jacoco.xml
             morpheus-architecture-tests/target/m21-coverage-summary.txt
             target/m21-supply-chain/**
-            validation-output/m22/validation-summary.txt
-            validation-output/m22/shaded-entries.txt
-            validation-output/m22/api.stdout.log
-            validation-output/m22/api.stderr.log
+            validation-output/m21/validation-summary.txt
+            validation-output/m21/api.stdout.log
+            validation-output/m21/api.stderr.log
