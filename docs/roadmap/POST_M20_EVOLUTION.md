@@ -1,6 +1,6 @@
 # MORPHEUS — Roadmap d’évolution post-M20
 
-Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 techniquement validé Windows + Linux ; PR #99 prête pour merge sous autorisation explicite**
+Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 validé et intégré ; M22 jalon actif**
 
 Dernière mise à jour : 27 juillet 2026
 
@@ -11,19 +11,23 @@ Cette roadmap commence après l’intégration de M20 et porte la trajectoire ac
 ```text
 C0 → M20      ✅ validés et intégrés
 D1            ✅ validé et intégré
+M21           ✅ validé et intégré
 M20 code      9199ed43c4bd8596a97db055eeff17ae31399eb8
 M20 merge     75d0b82ab0c960692db2fee1ced146fa6547fd4a
 D1 merge      51f6a120f3461c8d8c24323f3db8211d28d6cb42
-M20 tests     454/454 PASS Windows + Linux
-Architecture  182/182 PASS Windows + Linux
+M21 code      239d99657fbf193761767f382489dd637e642fe9
+M21 merge     2fdce6601a07628c315fe03932750cd8ece3d777
+M21 tests     473 PASS Windows + Linux
+Architecture  187 PASS Windows + Linux
 MORPHEUS      1.0.0
 v1.0.0        ✅ tag stable publié
 GitHub Release ✅ MORPHEUS 1.0.0 — 8/8 assets
 ```
 
-La publication opérationnelle est terminée via R1. Le tag `v1.0.0` pointe exactement sur `51f6a120f3461c8d8c24323f3db8211d28d6cb42`, identique au merge D1 final et au SHA de release retenu.
+Preuves :
 
-Preuve : [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md).
+- [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md) ;
+- [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).
 
 ## Invariants post-1.0
 
@@ -44,6 +48,8 @@ UNKNOWN != BLOCKED
 precedence != provenance erasure
 conflict != silent last-write-wins
 provider plugin != domain dependency
+optional provider absence != project failure
+incompatible provider != silently loaded provider
 cross-project identity != source path
 remote mode != mandatory cloud dependency
 MORPHEUS != MINOS
@@ -58,8 +64,6 @@ checksum != signature
 
 ## R1 — Publication officielle MORPHEUS 1.0.0
 
-Type : **release operation**, pas nouveau jalon fonctionnel.
-
 Statut : **TERMINÉ / PUBLIÉ** — issue #96.
 
 ```text
@@ -73,25 +77,21 @@ release manifests      PASS / published
 GitHub Release         stable / 8 assets
 ```
 
-Gate : **PASS**.
-
 ## D1 — Consolidation post-M20
 
 Issue : **#94 CLOSED / completed**.  
 PR : **#95 MERGED**.  
 Merge : `51f6a120f3461c8d8c24323f3db8211d28d6cb42`.
 
-Objectif : figer MORPHEUS 1.0 comme baseline documentaire active et ouvrir la trajectoire 1.x sans réécrire les preuves historiques.
-
 Exit criteria : **PASS**.
 
 ## M21 — Production Integrity & Surface Convergence
 
-Statut technique : **S0→S8 PASS — Windows + Linux exact-head**.  
-Issue : **#98**.  
-PR : **#99**, prête pour review/merge ; merge soumis à autorisation explicite du propriétaire.
+Issue : **#98 CLOSED / completed**.  
+PR : **#99 MERGED**.  
+Merge : `2fdce6601a07628c315fe03932750cd8ece3d777`.
 
-Head exécutable qualifié :
+Head exécutable qualifié Windows + Linux :
 
 ```text
 239d99657fbf193761767f382489dd637e642fe9
@@ -122,32 +122,43 @@ Plan : [`M21_EXECUTION.md`](M21_EXECUTION.md).
 
 # NOW
 
-## M21 — intégration finale
-
-Le travail technique est terminé. L’unique étape restante est l’acte de gouvernance : **merge de la PR #99 après autorisation explicite du propriétaire**. Aucun nouveau code M21 ne doit être ajouté entre la preuve cross-platform et le merge ; toute correction indispensable exécutable invaliderait le head qualifié et exigerait une nouvelle qualification Windows + Linux.
-
-# NEXT
-
 ## M22 — Provider SDK & Plugin Discovery Platform
 
 Question de sortie :
 
 > Peut-on ajouter un provider MORPHEUS réel sans modifier le core ni introduire de dépendance provider-specific dans domain/application ?
 
-Livrables attendus :
+Livrables obligatoires :
 
 ```text
-Provider SDK public/stable
-plugin metadata + compatibility contract
-discovery explicite
-capability negotiation
-isolation classloader/process à décider par ADR
-provider diagnostics
-reference provider template
-contract test kit
+M22-S0  cadrage + ADR avant implémentation
+M22-S1  Provider SDK public/stable et provider-neutral
+M22-S2  plugin metadata + compatibility contract
+M22-S3  discovery explicite et déterministe
+M22-S4  capability negotiation et diagnostics
+M22-S5  isolation classloader/process décidée et appliquée
+M22-S6  reference provider template
+M22-S7  provider contract test kit
+M22-S8  surfaces CLI/MCP/HTTP de diagnostic/discovery sans auto-chargement implicite
+M22-S9  packaging + documentation + qualification Windows/Linux exact-head
 ```
 
-Invariants : `provider plugin != domain dependency`, absence d’un plugin optionnel non fatale, version incompatible explicite.
+Invariants :
+
+```text
+provider plugin != domain dependency
+plugin discovery != plugin activation
+optional provider absence != project failure
+incompatible provider != silently loaded provider
+provider metadata != executable trust
+plugin failure != core crash
+capability declaration != capability implementation proof
+local-first remains default
+```
+
+Exit criteria : provider externe de référence découvrable sans modification du core, compatibilité explicite, diagnostic déterministe, tests de contrat réutilisables, absence de dépendance provider-specific dans domain/application, qualification complète Windows + Linux et `post-gate executable delta = NONE`.
+
+# NEXT
 
 ## M23 — Multi-project / Portfolio Specification Intelligence
 
