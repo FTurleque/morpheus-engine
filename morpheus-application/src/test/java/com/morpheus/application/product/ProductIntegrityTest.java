@@ -61,6 +61,18 @@ class ProductIntegrityTest {
     }
 
     @Test
+    void oversizedManifestIsRejectedBeforeParsing() throws IOException {
+        Path manifest = tempDir.resolve("oversized.properties");
+        Files.writeString(manifest, "x".repeat(UpdateDiscoveryService.MAX_MANIFEST_BYTES + 1));
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> new UpdateDiscoveryService().check(manifest.toUri()));
+
+        assertTrue(failure.getMessage().contains("exceeds " + UpdateDiscoveryService.MAX_MANIFEST_BYTES));
+    }
+
+    @Test
     void unsupportedManifestSchemesAreRejectedBeforeAnyIo() {
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
@@ -75,9 +87,13 @@ class ProductIntegrityTest {
     }
 
     @Test
-    void semanticComparisonTreatsReleaseAsNewerThanPrerelease() {
+    void semanticComparisonOrdersReleasePrereleaseAndBuildMetadata() {
         assertTrue(UpdateDiscoveryService.compareVersions("1.1.0", "1.0.9") > 0);
-        assertTrue(UpdateDiscoveryService.compareVersions("1.0.0", "1.0.0-rc1") > 0);
+        assertTrue(UpdateDiscoveryService.compareVersions("1.0.0", "1.0.0-rc.2") > 0);
+        assertTrue(UpdateDiscoveryService.compareVersions("1.0.0-rc.2", "1.0.0-rc.1") > 0);
+        assertTrue(UpdateDiscoveryService.compareVersions("1.0.0-rc.10", "1.0.0-rc.2") > 0);
+        assertTrue(UpdateDiscoveryService.compareVersions("1.0.0-beta", "1.0.0-2") > 0);
         assertEquals(0, UpdateDiscoveryService.compareVersions("1.0", "1.0.0"));
+        assertEquals(0, UpdateDiscoveryService.compareVersions("1.0.0+build.7", "1.0.0+build.8"));
     }
 }
