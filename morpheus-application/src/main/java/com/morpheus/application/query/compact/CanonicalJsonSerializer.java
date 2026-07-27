@@ -3,6 +3,7 @@ package com.morpheus.application.query.compact;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.RecordComponent;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Map;
@@ -34,6 +35,10 @@ public final class CanonicalJsonSerializer {
         }
         if (value instanceof String string) {
             appendString(out, string);
+            return;
+        }
+        if (value instanceof URI uri) {
+            appendString(out, uri.toASCIIString());
             return;
         }
         if (value instanceof Character character) {
