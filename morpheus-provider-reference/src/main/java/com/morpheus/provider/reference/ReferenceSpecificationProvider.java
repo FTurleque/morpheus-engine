@@ -57,7 +57,9 @@ public final class ReferenceSpecificationProvider implements SpecificationProvid
                 Optional.of("morpheus-reference"),
                 Optional.of("1"),
                 Optional.of(SourceLocator.file(MARKER_FILE)),
-                ProviderCapabilitySet.of(ProviderCapability.DISCOVER_PROJECT),
+                ProviderCapabilitySet.of(
+                        ProviderCapability.DISCOVER_PROJECT,
+                        ProviderCapability.READ_CURRENT_SPECIFICATIONS),
                 false,
                 List.of());
     }
