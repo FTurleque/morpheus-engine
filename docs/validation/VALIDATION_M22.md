@@ -5,7 +5,7 @@ Statut : **À QUALIFIER — implémentation S0→S8 présente ; aucun PASS exact
 Date : 27 juillet 2026
 
 Issue : #100  
-PR : #101  
+PR : #101 — temporairement fermée pour respecter le gel CI avant août  
 Branche : `m22/provider-sdk-plugin-platform`
 
 Baseline : `main@b26833701b028ea3d09388ed87188fb1945b559d` après M21.
@@ -14,7 +14,7 @@ Baseline : `main@b26833701b028ea3d09388ed87188fb1945b559d` après M21.
 
 > Peut-on ajouter un provider MORPHEUS réel sans modifier le core ni introduire de dépendance provider-specific dans domain/application ?
 
-Réponse technique candidate : **oui par design et tests ajoutés, mais la réponse ne devient une preuve M22 qu’après gates exact-head Windows + Linux réels**.
+Réponse technique candidate : **oui par architecture et contrats ajoutés, y compris une vraie lecture normalisée du JAR externe ; la réponse ne devient une preuve M22 qu’après gates exact-head Windows + Linux réels**.
 
 ## Contrats à prouver
 
@@ -25,11 +25,14 @@ discovery                       explicit / metadata-only / zero classloading
 activation                      explicit / compatible candidate only
 classloader                     dedicated URLClassLoader per JAR
 ServiceLoader                   exactly one MorpheusProviderPlugin
-manifest/runtime/provider id    coherent
+manifest/plugin/provider/reader id coherent
 optional directory absent       non-fatal
 duplicate plugin.id             explicit ambiguity
 plugin failure                  bounded diagnostic, no core crash
+probe                           SpecificationProvider.probe
+normalized read                 SpecificationContentReader.read
 reference provider              external to launcher
+reference capabilities          DISCOVER_PROJECT + READ_CURRENT_SPECIFICATIONS
 CLI/MCP/HTTP                    explicit discovery + probe
 baseline tests                  >= 473
 architecture                    >= 187
@@ -54,7 +57,15 @@ Linux :
 ./scripts/validate-m22.sh 1.0.0
 ```
 
-Chaque gate exécute le reactor complet puis vérifie en plus :
+Chaque gate exécute le reactor complet. Les tests d’architecture doivent en particulier démontrer un vrai JAR externe :
+
+1. metadata discovery sans classloading ;
+2. activation dans un classloader dédié ;
+3. probe `SUPPORTED` avec `READ_CURRENT_SPECIFICATIONS` ;
+4. lecture réelle via `SpecificationContentReader` produisant du contenu normalisé ;
+5. absence de dépendance SDK/plugin dans `domain` et `application`.
+
+Le gate packaging vérifie en plus :
 
 1. `ProviderPluginService` présent dans le shaded/runtime MORPHEUS ;
 2. `ReferenceProviderPlugin` absent du launcher ;
@@ -64,16 +75,15 @@ Chaque gate exécute le reactor complet puis vérifie en plus :
 6. route HTTP packagée discovery => même candidat ;
 7. HEAD inchangé et aucun delta tracké post-gate.
 
-## GitHub Actions
+## Gel CI avant août
 
-Run M22 observé : `30308835899`.
+Conformément à la consigne du propriétaire, **aucune qualification M22 GitHub Actions n’est utilisée avant août**.
 
-```text
-exact-head (windows-latest)  failure | steps=None | logs_url=None
-exact-head (ubuntu-latest)   failure | steps=None | logs_url=None
-```
+- `.github/workflows/ci.yml` ne porte aucun delta M22 par rapport à `main` ;
+- PR #101 est temporairement fermée pour empêcher de nouveaux déclenchements `pull_request` pendant la qualification ;
+- les seules preuves acceptables à ce stade sont les deux validateurs locaux exact-head.
 
-Les jobs ont échoué avant tout step. Aucun log Maven, compilation, test, JaCoCo ou packaging n’existe pour ce run. Il reste classé **runner startup / infrastructure unavailable**, et n’est pas interprété comme un échec du code M22.
+Aucun run GitHub Actions observé pendant l’implémentation n’est retenu comme preuve M22.
 
 ## Preuves non encore acquises
 
@@ -81,8 +91,8 @@ Les jobs ont échoué avant tout step. Aucun log Maven, compilation, test, JaCoC
 Windows exact-head  NOT EXECUTED / NOT PROVEN
 Linux exact-head    NOT EXECUTED / NOT PROVEN
 ADR-0090            PROPOSED
-PR #101              DRAFT
+PR #101              TEMPORARILY CLOSED — CI FREEZE
 Merge                NOT ELIGIBLE
 ```
 
-Ce document sera complété uniquement avec les sorties réelles des deux validateurs.
+Ce document sera complété uniquement avec les sorties réelles des deux validateurs. Les consolidations OpenAPI/index/roadmap postérieures devront rester docs-only afin de préserver le SHA exécutable qualifié.
