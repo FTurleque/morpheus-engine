@@ -256,6 +256,6 @@ M27 reste optionnel : `facts != inference` et aucun LLM n’est requis dans le c
 
 **Point d’entrée : [docs/README.md](docs/README.md)**.
 
-Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
-Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).  
+Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).
+Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).
 Dernière validation intégrée : [docs/validation/VALIDATION_M20.md](docs/validation/VALIDATION_M20.md).
