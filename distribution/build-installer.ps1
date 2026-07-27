@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $dist = Join-Path $repo $OutputDirectory
-$portableWork = Join-Path $dist '.m19-windows'
+$portableWork = Join-Path $dist '.m20-windows'
 $appImage = Join-Path $portableWork 'image\morpheus'
 $iss = Join-Path $PSScriptRoot 'windows\MORPHEUS.iss'
 
