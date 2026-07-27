@@ -1,12 +1,16 @@
 # M21 — Production Integrity & Surface Convergence
 
-Statut : **EN COURS** — issue #98 — branche `m21/production-integrity-surface-convergence`
+Statut : **IMPLÉMENTÉ — QUALIFICATION EXACT-HEAD BLOQUÉE PAR LE DÉMARRAGE DES RUNNERS GITHUB ACTIONS** — issue #98 — PR #99 — branche `m21/production-integrity-surface-convergence`
 
 Baseline : `main@83ad1dfc264a4797130ebd61353ce0e78552d88c` — MORPHEUS 1.0.0 publié.
+
+Dernier head exécutable candidat avant consolidation documentaire : `2fb5dffd639e14ac5bce3779a58880a408080c75`.
 
 ## Question de sortie
 
 > MORPHEUS 1.x possède-t-il une baseline de production durable où build, qualité, contrats publics, documentation et chaîne de release convergent sans divergence silencieuse entre CLI, MCP et HTTP ?
+
+Réponse : **pas encore démontrée**. Les slices S0→S7 sont implémentées. S8 reste ouverte car les jobs GitHub Actions Windows et Ubuntu sont créés puis échouent avant tout step, sans log exécutable ; aucun résultat Maven/JaCoCo/packaging ne peut donc être présenté comme PASS.
 
 ## Invariants
 
@@ -16,6 +20,7 @@ read surface != write capability
 release metadata != runtime business state
 update discovery != automatic update
 security metadata != hidden network dependency
+checksum != signature
 local-first remains default
 no mandatory LLM in core
 facts != inference
@@ -43,7 +48,7 @@ post-gate executable delta   NONE
 
 Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas des objectifs de couverture finaux. Ils doivent être relevés dans les jalons ultérieurs à partir de tendances réelles.
 
-# NOW
+# DONE — implémentation
 
 ## M21-S0 — cadrage / ADR
 
@@ -54,65 +59,84 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 
 ## M21-S1 — CI durable
 
-- [ ] workflow générique `ci.yml`, sans nom de milestone ;
-- [ ] matrice Windows/Linux + JDK 21 ;
-- [ ] Maven Wrapper ;
-- [ ] reactor complet `verify` ;
-- [ ] artefacts couverture/SBOM/provenance publiés.
+- [x] workflow générique `.github/workflows/ci.yml`, sans nom de milestone ;
+- [x] matrice Windows/Linux + JDK 21 ;
+- [x] Maven Wrapper ;
+- [x] gate unique exact-head par OS ;
+- [x] publication configurée des artefacts couverture/SBOM/provenance ;
+- [ ] exécution effective des steps GitHub-hosted — **BLOQUÉE INFRASTRUCTURE**.
 
 ## M21-S2 — couverture / quality gates
 
-- [ ] instrumentation JaCoCo sur le reactor ;
-- [ ] rapports XML/HTML par module ;
-- [ ] gate aggregate line >= 25% ;
-- [ ] gate aggregate branch >= 20% ;
-- [ ] résumé machine lisible pour tendance.
+- [x] instrumentation JaCoCo sur le reactor ;
+- [x] rapports XML/HTML par module ;
+- [x] gate aggregate line >= 25% ;
+- [x] gate aggregate branch >= 20% ;
+- [x] résumé machine lisible `m21-coverage-summary.txt` ;
+- [ ] seuils réellement franchis sur Windows/Linux — **à prouver en S8**.
 
 ## M21-S3 — Maven / reproductibilité
 
-- [ ] versions plugins centralisées ;
-- [ ] `project.build.outputTimestamp` stable ;
-- [ ] manifestes JAR avec version produit ;
-- [ ] analyse de dépendances non destructive ;
-- [ ] aucun warning nouveau transformé silencieusement en dette invisible.
-
-# NEXT
+- [x] versions plugins structurants centralisées ;
+- [x] `project.build.outputTimestamp` stable ;
+- [x] manifestes JAR avec version produit ;
+- [x] `dependency:analyze-only` lié à `verify` en diagnostic non destructif ;
+- [x] warnings de dépendances visibles sans faux gate implicite ;
+- [ ] résultat réel du reactor — **à prouver en S8**.
 
 ## M21-S4 — convergence CLI / MCP / HTTP
 
-- [ ] manifeste machine `contracts/public-surfaces.tsv` ;
-- [ ] capability intent explicite READ/WRITE ;
-- [ ] asymétries de transport explicites ;
-- [ ] version produit convergente ;
-- [ ] tests empêchant une divergence silencieuse.
+- [x] manifeste machine `contracts/public-surfaces.tsv` ;
+- [x] capability intent explicite READ/WRITE ;
+- [x] asymétries de transport explicites ;
+- [x] version produit dérivée des métadonnées de build ;
+- [x] tests empêchant une divergence silencieuse ;
+- [x] sérialisation canonique des URI de release ;
+- [ ] convergence packaged CLI/MCP/HTTP réellement exécutée — **à prouver en S8**.
 
 ## M21-S5 — documentation single-source-of-truth
 
-- [ ] `docs/reference/PUBLIC_SURFACES.md` pointe sur le manifeste ;
-- [ ] `docs/developer/PRODUCTION_INTEGRITY.md` documente les gates ;
-- [ ] test de cohérence documentation/version/surfaces ;
-- [ ] absence de duplication normative non contrôlée.
+- [x] `docs/reference/PUBLIC_SURFACES.md` pointe sur le manifeste ;
+- [x] `docs/developer/PRODUCTION_INTEGRITY.md` documente les gates ;
+- [x] test de cohérence documentation/version/surfaces ;
+- [x] absence de duplication normative volontaire : le TSV reste source machine.
 
 ## M21-S6 — supply chain
 
-- [ ] CycloneDX SBOM ;
-- [ ] provenance de build explicite ;
-- [ ] SHA-256 des artefacts de release ;
-- [ ] politique de confiance documentée ;
-- [ ] signature cryptographique séparée des checksums et non simulée en l’absence de clé.
+- [x] CycloneDX aggregate JSON/XML configuré ;
+- [x] provenance de build explicite Windows/Linux ;
+- [x] SHA-256 des artefacts de release hérité et conservé du contrat M20 ;
+- [x] politique de confiance documentée ;
+- [x] signature cryptographique séparée des checksums et non simulée en l’absence de clé ;
+- [x] runtime portable enrichi avec `java.net.http` requis par M21 ;
+- [ ] SBOM/provenance/package réellement produits sur les deux OS — **à prouver en S8**.
 
 ## M21-S7 — update channel / version discovery
 
-- [ ] métadonnées produit centralisées ;
-- [ ] manifest update explicite ;
-- [ ] source `file:`, `http:` ou `https:` uniquement sur invocation ;
-- [ ] aucune requête réseau au démarrage ;
-- [ ] aucune installation/mutation automatique ;
-- [ ] surfaces CLI/MCP/HTTP alignées sur le même service read-only.
+- [x] métadonnées produit centralisées dans `ProductMetadata` ;
+- [x] manifest update explicite ;
+- [x] source `file:`, `http:` ou `https:` uniquement sur invocation ;
+- [x] aucune requête réseau au démarrage par contrat + test de sites de construction ;
+- [x] aucune installation/mutation automatique ;
+- [x] CLI `update-check` ;
+- [x] MCP `check_product_update` ;
+- [x] HTTP `EXPLICITLY_NOT_EXPOSED` explicitement documenté pour ne pas créer un fetcher SSRF arbitraire.
 
-# LATER — gate final
+# BLOCKED — gate final
 
 ## M21-S8 — qualification exact-head
+
+Commandes canoniques :
+
+```powershell
+.\validate-m21.cmd -Version 1.0.0
+```
+
+```bash
+./scripts/validate-m21.sh 1.0.0
+```
+
+Le même gate est appelé par `.github/workflows/ci.yml`.
 
 - [ ] `git diff --check` ;
 - [ ] Windows exact-head PASS ;
@@ -124,12 +148,19 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 - [ ] public surfaces gate PASS ;
 - [ ] SBOM/provenance PASS ;
 - [ ] packaging/smokes pertinents PASS ;
-- [ ] `VALIDATION_M21.md` finalisée avec SHA réel ;
+- [x] `VALIDATION_M21.md` créée avec état factuel du blocage ;
+- [ ] `VALIDATION_M21.md` convertie en preuve PASS avec SHA réel ;
 - [ ] ADR-0089 acceptée seulement après preuve ;
 - [ ] PR Ready seulement après gate vert ;
 - [ ] merge uniquement après autorisation explicite du propriétaire.
 
-## Fichiers attendus
+## Blocage GitHub Actions observé
+
+Les runs M21 les plus récents créent bien les deux jobs `exact-head (windows-latest)` et `exact-head (ubuntu-latest)`, mais chacun termine `failure` avec `steps: None` et sans URL de logs de job. Les changements de versions `actions/checkout/setup-java/upload-artifact` et le checkout explicite du SHA de tête n’ont pas modifié ce comportement. Ce symptôme est donc classé **runner startup / infrastructure**, et non `Maven FAIL`.
+
+Aucun PASS Windows/Linux ne sera déclaré tant qu’un des validateurs ci-dessus n’aura pas réellement exécuté le reactor et les smokes.
+
+## Fichiers M21
 
 ```text
 .github/workflows/ci.yml
@@ -139,4 +170,9 @@ docs/developer/PRODUCTION_INTEGRITY.md
 docs/reference/PUBLIC_SURFACES.md
 docs/roadmap/M21_EXECUTION.md
 docs/validation/VALIDATION_M21.md
+scripts/validate-m21.ps1
+scripts/validate-m21.sh
+scripts/write-build-provenance.ps1
+scripts/write-build-provenance.sh
+validate-m21.cmd
 ```
