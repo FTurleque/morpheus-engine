@@ -4,7 +4,7 @@ Cette page est le point d’entrée de la documentation active de MORPHEUS.
 
 MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose plusieurs providers réels sans effacer provenance ni conflits, publie des snapshots versionnés, expose des requêtes et de la traçabilité, produit des diagnostics qualité, analyse les changements, applique des mutations lifecycle explicitement contrôlées et fournit des contrats d’intégration optionnels pour MINOS, NEXUS et JARVIS.
 
-La baseline active est **MORPHEUS 1.0.0 / M20 intégré**.
+La baseline active est **MORPHEUS 1.0.0**, officiellement publiée sous le tag stable `v1.0.0`.
 
 ## Baseline 1.0
 
@@ -12,7 +12,11 @@ La baseline active est **MORPHEUS 1.0.0 / M20 intégré**.
 M20 issue       #92 CLOSED / completed
 M20 PR          #93 MERGED
 Code qualifié   9199ed43c4bd8596a97db055eeff17ae31399eb8
-Merge           75d0b82ab0c960692db2fee1ced146fa6547fd4a
+M20 merge       75d0b82ab0c960692db2fee1ced146fa6547fd4a
+D1 merge        51f6a120f3461c8d8c24323f3db8211d28d6cb42
+Release SHA     51f6a120f3461c8d8c24323f3db8211d28d6cb42
+Tag stable      v1.0.0
+GitHub Release  MORPHEUS 1.0.0 — 8/8 assets
 Tests           454/454 PASS Windows + Linux
 Architecture    182/182 PASS Windows + Linux
 Reactor         14/14 SUCCESS
@@ -22,7 +26,11 @@ Portable Linux  PASS
 No-user-JDK     PASS Windows + Linux
 ```
 
-Preuve : [`validation/VALIDATION_M20.md`](validation/VALIDATION_M20.md).
+Preuves :
+
+- [`validation/VALIDATION_M20.md`](validation/VALIDATION_M20.md) — qualification technique M20 ;
+- [`validation/VALIDATION_D1.md`](validation/VALIDATION_D1.md) — consolidation documentaire post-M20 ;
+- [`validation/VALIDATION_R1.md`](validation/VALIDATION_R1.md) — publication officielle `v1.0.0`.
 
 ## Parcours utilisateur
 
@@ -82,9 +90,10 @@ Ces documents expliquent l’intention fondatrice. L’état courant est porté 
 - [`governance/ROADMAP.md`](governance/ROADMAP.md) — roadmap globale courante ;
 - [`roadmap/POST_M20_EVOLUTION.md`](roadmap/POST_M20_EVOLUTION.md) — trajectoire active MORPHEUS 1.x ;
 - [`roadmap/POST_M14_EXECUTION.md`](roadmap/POST_M14_EXECUTION.md) — trajectoire historique D0 + M15→M20 ;
-- [`roadmap/D1_EXECUTION.md`](roadmap/D1_EXECUTION.md) — consolidation post-M20 ;
+- [`roadmap/D1_EXECUTION.md`](roadmap/D1_EXECUTION.md) — consolidation post-M20 intégrée ;
 - [`validation/VALIDATION_M20.md`](validation/VALIDATION_M20.md) — preuve M20 Windows + Linux ;
-- [`validation/VALIDATION_D1.md`](validation/VALIDATION_D1.md) — preuve D1 en cours ;
+- [`validation/VALIDATION_D1.md`](validation/VALIDATION_D1.md) — preuve D1 ;
+- [`validation/VALIDATION_R1.md`](validation/VALIDATION_R1.md) — preuve de publication officielle 1.0.0 ;
 - [`adr/`](adr/) — Architecture Decision Records ;
 - [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité documentaire.
 
@@ -98,8 +107,8 @@ Ces documents expliquent l’intention fondatrice. L’état courant est porté 
 
 ```text
 C0 → M20       ✅ VALIDÉS / INTÉGRÉS
-D1             🚧 consolidation post-M20 — issue #94
-R1             ⏭ publication officielle v1.0.0
+D1             ✅ VALIDÉ / INTÉGRÉ
+R1             ✅ v1.0.0 + GitHub Release publiées
 M21            ⏭ Production Integrity & Surface Convergence
 M22 → M24      NEXT
 M25 → M27      LATER
