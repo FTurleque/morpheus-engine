@@ -2,21 +2,6 @@
 setlocal
 cd /d "%~dp0"
 
-if defined MORPHEUS_ISCC if exist "%MORPHEUS_ISCC%" goto powershell_host
-if exist "%ProgramFiles%\Inno Setup 7\ISCC.exe" goto powershell_host
-if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe" goto powershell_host
-if exist "%ProgramFiles(x86)%\Inno Setup 7\ISCC.exe" goto powershell_host
-if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" goto powershell_host
-where ISCC.exe >nul 2>&1
-if %ERRORLEVEL% EQU 0 goto powershell_host
-
-echo ERROR: Inno Setup compiler ISCC.exe was not found.
-echo M20 requires Inno Setup 7 or 6 only as a Windows build dependency.
-echo Install it with: winget install --id JRSoftware.InnoSetup -e
-echo Or set MORPHEUS_ISCC to the full path of ISCC.exe.
-exit /b 9009
-
-:powershell_host
 set "WINPS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 if exist "%WINPS%" goto run_winps
 
