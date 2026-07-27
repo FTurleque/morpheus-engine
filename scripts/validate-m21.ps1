@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Version = '1.0.0',
+    [string]$BaseRef = 'origin/main',
     [switch]$SkipPortable
 )
 
@@ -92,7 +93,16 @@ if ($initialTracked.Count -ne 0) {
     throw "M21 exact-head gate requires no tracked workspace delta before validation:`n$($initialTracked -join "`n")"
 }
 
-Invoke-Native 'git diff --check' { git diff --check }
+git rev-parse --verify "$BaseRef`^{commit}" *> $null
+if ($LASTEXITCODE -ne 0) {
+    $BaseRef = 'main'
+    git rev-parse --verify "$BaseRef`^{commit}" *> $null
+    if ($LASTEXITCODE -ne 0) {
+        throw 'M21 base ref not found: origin/main (fallback main also missing)'
+    }
+}
+Write-Host "M21 diff base: $BaseRef"
+Invoke-Native 'git diff --check' { git diff --check "$BaseRef...HEAD" }
 Invoke-Native 'Maven clean verify' { .\mvnw.cmd -B -ntp -Dstyle.color=never clean verify }
 
 $totals = Get-SurefireTotals $repo
@@ -172,6 +182,7 @@ if ($finalTracked.Count -ne 0) {
 $summary = @(
     'M21 VALIDATION PASS'
     "sha=$validationSha"
+    "baseRef=$BaseRef"
     "version=$Version"
     "tests=$($totals.Tests)"
     "architectureTests=$($architecture.Tests)"
