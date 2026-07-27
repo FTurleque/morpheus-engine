@@ -150,8 +150,8 @@ Uninstall       PASS
 Checksums       PASS Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md).  
-Plan : [`../roadmap/M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md).  
+Validation : [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
+Plan : [`../roadmap/M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md).
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
 # Contraintes actives principales
