@@ -4,8 +4,8 @@ Statut : **BLOQUÉE — aucune preuve exact-head Windows/Linux exécutable dispo
 
 Date : 27 juillet 2026
 
-Issue : #98  
-PR : #99  
+Issue : #98
+PR : #99
 Branche : `m21/production-integrity-surface-convergence`
 
 Baseline M20 : `83ad1dfc264a4797130ebd61353ce0e78552d88c` (`main`, MORPHEUS 1.0.0 publié).
