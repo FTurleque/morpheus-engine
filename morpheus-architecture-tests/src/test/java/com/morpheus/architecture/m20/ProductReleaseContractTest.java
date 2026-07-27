@@ -92,8 +92,9 @@ class ProductReleaseContractTest {
         assertTrue(linuxRelease.contains("userJdkRequired"));
 
         assertTrue(installerBuilder.contains("ensure-inno-setup.ps1"));
-        assertTrue(bootstrap.contains("innosetup-7.0.2-x64.exe"));
-        assertTrue(bootstrap.contains("releases/download/is-7_0_2"));
+        assertTrue(bootstrap.contains("$innoVersion = '7.0.2'"));
+        assertTrue(bootstrap.contains("$assetName = \"innosetup-$innoVersion-x64.exe\""));
+        assertTrue(bootstrap.contains("releases/download/is-7_0_2/$assetName"));
         assertTrue(bootstrap.contains("Get-AuthenticodeSignature"));
         assertTrue(bootstrap.contains("Pyrsys B\\.V\\."));
         assertTrue(bootstrap.contains("/PORTABLE=1"));
