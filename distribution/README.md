@@ -59,18 +59,23 @@ Prérequis de build :
 ```text
 JDK avec jpackage
 Maven Wrapper du dépôt
-Inno Setup 7 ou 6 (ISCC.exe)
+PowerShell
 ```
 
-Inno Setup est une dépendance **de build uniquement**.
+Le setup MORPHEUS est compilé avec Inno Setup. Si `ISCC.exe` n’est ni installé ni fourni par `MORPHEUS_ISCC`, `build-installer.ps1` exécute automatiquement `distribution/ensure-inno-setup.ps1` :
 
-Installation possible du compilateur :
-
-```powershell
-winget install --id JRSoftware.InnoSetup -e
+```text
+version épinglée : Inno Setup 7.0.2 x64
+source            : release GitHub immuable officielle JRSoftware
+vérification      : signature Authenticode valide
+éditeur attendu   : Pyrsys B.V.
+mode              : portable / current-user
+emplacement       : validation-output/m20/tooling
 ```
 
-Un chemin explicite peut être fourni via :
+Ce bootstrap ne dépend pas de `winget`, ne requiert pas de droits administrateur et n’installe pas de dépendance système persistante. Inno Setup reste une dépendance **de build uniquement** ; les utilisateurs de MORPHEUS n’en ont jamais besoin.
+
+Un compilateur déjà présent reste prioritaire. Un chemin explicite peut être fourni via :
 
 ```text
 MORPHEUS_ISCC=C:\...\ISCC.exe
@@ -181,26 +186,28 @@ XDG_CONFIG_HOME
 XDG_STATE_HOME
 ```
 
-`morpheus paths` affiche les principaux chemins effectivement résolus.
+`morpheus paths` affiche le layout effectivement résolu.
 
-## Validation M20
+## Gate M20
 
-Windows, gate complet :
+Windows :
 
 ```powershell
 .\validate-m20.cmd
 ```
 
-Le scénario couvre Maven, construction depuis tag exact, checksums, installation, PATH, exécution sans JDK utilisateur, API, upgrade, uninstall, conservation des données et réinstallation.
-
 Linux :
 
 ```bash
-bash scripts/validate-m20.sh 1.0.0
+bash scripts/validate-m20.sh
 ```
 
 Les résultats Windows et Linux sont enregistrés séparément. Un environnement non exécuté n’est jamais déclaré PASS.
 
-Preuve : [`../docs/validation/VALIDATION_M20.md`](../docs/validation/VALIDATION_M20.md).
+## Documentation
 
-Documentation utilisateur : [`../docs/user/INSTALLATION.md`](../docs/user/INSTALLATION.md).
+- [Installation / upgrade / uninstall 1.0](../docs/user/INSTALLATION.md)
+- [Démarrage rapide](../docs/user/QUICKSTART.md)
+- [Configuration des intégrations](../docs/user/INTEGRATIONS.md)
+- [Build et tests développeur](../docs/developer/BUILD_AND_TEST.md)
+- [Validation M20](../docs/validation/VALIDATION_M20.md)
