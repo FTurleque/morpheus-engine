@@ -24,8 +24,20 @@ try {
 
     $clean = ((git status --porcelain --untracked-files=no | Measure-Object).Count -eq 0).ToString().ToLowerInvariant()
     if ($LASTEXITCODE -ne 0) { throw "Cannot inspect tracked git workspace status" }
-    $java = ((& java -version 2>&1 | Select-Object -First 1).ToString() -replace '[\r\n=]', ' ').Trim()
-    $maven = ((& .\mvnw.cmd -v | Select-Object -First 1).ToString() -replace '[\r\n=]', ' ').Trim()
+
+    # java -version writes its normal version banner to stderr. Windows PowerShell 5.1
+    # converts redirected native stderr into ErrorRecord instances when
+    # ErrorActionPreference=Stop, so capture both Java and Maven through cmd.exe.
+    $javaOutput = @(& $env:ComSpec /d /c "java -version 2>&1")
+    if ($LASTEXITCODE -ne 0) { throw "Cannot resolve Java version (exit $LASTEXITCODE)" }
+    if ($javaOutput.Count -eq 0) { throw "Java version output is empty" }
+    $java = ($javaOutput[0].ToString() -replace '[\r\n=]', ' ').Trim()
+
+    $mavenOutput = @(& $env:ComSpec /d /c "mvnw.cmd -v 2>&1")
+    if ($LASTEXITCODE -ne 0) { throw "Cannot resolve Maven Wrapper version (exit $LASTEXITCODE)" }
+    if ($mavenOutput.Count -eq 0) { throw "Maven Wrapper version output is empty" }
+    $maven = ($mavenOutput[0].ToString() -replace '[\r\n=]', ' ').Trim()
+
     $sbom = Join-Path $repoRoot "target/m21-supply-chain/morpheus-sbom.json"
     $sbomSha256 = if (Test-Path $sbom) { (Get-FileHash -Algorithm SHA256 $sbom).Hash.ToLowerInvariant() } else { "missing" }
     $generatedAt = [DateTimeOffset]::UtcNow.ToString("o")
