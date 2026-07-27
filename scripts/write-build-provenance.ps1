@@ -11,12 +11,19 @@ try {
     if (-not $match.Success) { throw "Cannot resolve product version from pom.xml" }
     $version = $match.Groups[1].Value.Trim()
     $gitSha = (git rev-parse HEAD).Trim()
-    $gitRef = (git describe --tags --exact-match HEAD 2>$null)
+    if ($LASTEXITCODE -ne 0) { throw "Cannot resolve git HEAD" }
+
+    $gitRef = (git tag --points-at HEAD | Select-Object -First 1)
+    if ($LASTEXITCODE -ne 0) { throw "Cannot inspect tags pointing at git HEAD" }
+    if ($gitRef) { $gitRef = $gitRef.ToString().Trim() }
     if (-not $gitRef) {
         $gitRef = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { (git branch --show-current).Trim() }
+        if ($LASTEXITCODE -ne 0) { throw "Cannot resolve current git branch" }
     }
     if (-not $gitRef) { $gitRef = "detached" }
-    $clean = ((git status --porcelain | Measure-Object).Count -eq 0).ToString().ToLowerInvariant()
+
+    $clean = ((git status --porcelain --untracked-files=no | Measure-Object).Count -eq 0).ToString().ToLowerInvariant()
+    if ($LASTEXITCODE -ne 0) { throw "Cannot inspect tracked git workspace status" }
     $java = ((& java -version 2>&1 | Select-Object -First 1).ToString() -replace '[\r\n=]', ' ').Trim()
     $maven = ((& .\mvnw.cmd -v | Select-Object -First 1).ToString() -replace '[\r\n=]', ' ').Trim()
     $sbom = Join-Path $repoRoot "target/m21-supply-chain/morpheus-sbom.json"
