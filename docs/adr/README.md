@@ -157,7 +157,7 @@ Validation : [`../validation/VALIDATION_M17.md`](../validation/VALIDATION_M17.md
 
 Validation : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).  
 Plan : [`../roadmap/M18_EXECUTION.md`](../roadmap/M18_EXECUTION.md).  
-Code validé : `7e8caacff567f51354fcbf03fc0363e47768bb127ba`.  
+Code validé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
 Merge PR #86 : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
 
 ## M20
