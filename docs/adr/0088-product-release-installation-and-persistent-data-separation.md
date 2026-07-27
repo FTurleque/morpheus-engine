@@ -1,12 +1,12 @@
 # ADR-0088 — Product release, installation and persistent-data separation
 
-Statut : **Proposée — M20**
+Statut : **Acceptée — M20**
 
 Date : 2026-07-27
 
 ## Contexte
 
-M19 qualifie MORPHEUS comme application exploitable, mais les distributions restent principalement des archives portables. M20 doit transformer cette capacité technique en contrat produit stable pour MORPHEUS 1.0.
+M19 qualifie MORPHEUS comme application exploitable, mais les distributions restent principalement des archives portables. M20 transforme cette capacité technique en contrat produit stable pour MORPHEUS 1.0.
 
 Le risque principal est de coupler le cycle de vie du programme au knowledge store : une mise à jour ou une désinstallation ne doit jamais effacer implicitement les données persistantes.
 
@@ -85,17 +85,27 @@ GitHub Actions n’est pas la preuve autoritative de M20 ; les validateurs locau
 - les intégrations MINOS/NEXUS restent externes, opt-in et réversibles ;
 - un outil d’assemblage d’installeur Windows est une dépendance de build uniquement.
 
-## Validation avant acceptation
+## Preuve d’acceptation
 
-L’ADR ne passe à **Acceptée** qu’après preuve réelle :
+ADR-0088 est acceptée après exécution réelle des gates M20 Windows et Linux sur le même SHA de code :
 
 ```text
-setup install PASS
-PATH option PASS
-no-JDK runtime PASS
-upgrade preservation PASS
-uninstall preservation PASS
-Windows/Linux portable PASS
-checksums verified PASS
-full reactor PASS
+code SHA       9199ed43c4bd8596a97db055eeff17ae31399eb8
+version        1.0.0
+Windows        PASS
+Linux ext4     PASS via WSL2
+reactor        14/14 SUCCESS
+Tests          454/454 PASS
+Architecture   182/182 PASS
+setup install  PASS
+PATH option    PASS
+no-JDK runtime PASS Windows + Linux
+upgrade        PASS
+uninstall      PASS
+portable Win   PASS
+portable Linux PASS
+checksums      PASS Windows + Linux
+exact tag/SHA  PASS Windows + Linux
 ```
+
+Preuve détaillée : [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
