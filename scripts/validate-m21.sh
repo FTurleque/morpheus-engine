@@ -26,7 +26,7 @@ if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
 fi
 printf '%s\n' "M21 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
-./mvnw -B -ntp -Dstyle.color=never clean verify
+./mvnw clean verify
 
 read -r TESTS FAILURES ERRORS ARCH_TESTS < <(python3 - "$REPO" <<'PY'
 import pathlib
