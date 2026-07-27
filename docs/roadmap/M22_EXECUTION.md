@@ -1,8 +1,9 @@
 # M22 — Provider SDK & Plugin Discovery Platform
 
-Statut : **EN COURS — S0 cadré, ADR-0090 proposée**
+Statut : **S0→S8 IMPLÉMENTÉS — S9 qualification exact-head à exécuter — ADR-0090 proposée — PR #101 Draft**
 
 Issue : #100  
+PR : #101  
 Branche : `m22/provider-sdk-plugin-platform`
 
 Baseline : `main@b26833701b028ea3d09388ed87188fb1945b559d` après merge M21 `2fdce6601a07628c315fe03932750cd8ece3d777`.
@@ -34,13 +35,14 @@ SDK API                      v1
 plugin scan                  non-recursive, *.jar only
 plugin count                 <= 256 per explicit discovery
 plugin jar size              <= 64 MiB
+metadata size                <= 16 KiB
 metadata entry               META-INF/morpheus-provider.properties
 discovery                    zero plugin classloading
 activation                   explicit only
 classloader                  one URLClassLoader per activated JAR
 ServiceLoader implementations exactly 1
 provider id                  manifest == plugin metadata == provider.id
-full reactor                 >= M21 14 modules + M22 modules
+duplicate plugin.id          explicit ambiguity; never first-match silently
 baseline tests               >= 473 PASS
 architecture                 >= 187 PASS
 JaCoCo line                  >= 25%
@@ -60,74 +62,98 @@ post-gate executable delta   NONE
 
 ### M22-S1 — Provider SDK
 
-- [ ] module `morpheus-provider-sdk` ;
-- [ ] `MorpheusProviderPlugin` ;
-- [ ] métadonnées immuables ;
-- [ ] version SDK stable `1` ;
-- [ ] aucune dépendance inverse depuis domain/application.
+- [x] module `morpheus-provider-sdk` ;
+- [x] `MorpheusProviderPlugin` ;
+- [x] métadonnées immuables ;
+- [x] version SDK stable `1` ;
+- [x] aucune dépendance inverse depuis domain/application, couverte par architecture test.
 
 ### M22-S2 — metadata / compatibility
 
-- [ ] parser properties borné ;
-- [ ] validation identifiants/versions ;
-- [ ] intervalle de version MORPHEUS ;
-- [ ] statuts compatibles/incompatibles explicites.
+- [x] parser properties borné ;
+- [x] validation identifiants/versions ;
+- [x] intervalle de version MORPHEUS min/max ;
+- [x] statuts `COMPATIBLE` / `INCOMPATIBLE` / `INVALID` ;
+- [x] mismatch SDK/version couvert par tests.
 
 ### M22-S3 — discovery
 
-- [ ] scan explicite non récursif ;
-- [ ] ordre déterministe ;
-- [ ] zéro classloading pendant discovery ;
-- [ ] plugin absent = liste vide, pas erreur projet ;
-- [ ] erreurs par JAR isolées en diagnostics.
+- [x] scan explicite non récursif ;
+- [x] ordre déterministe ;
+- [x] zéro classloading pendant discovery ;
+- [x] plugin directory absent = liste vide + diagnostic, pas erreur projet ;
+- [x] erreurs par JAR isolées en diagnostics ;
+- [x] bornes 256 JAR / 64 MiB / metadata 16 KiB.
 
 ### M22-S4 — activation / capability negotiation
 
-- [ ] activation explicite ;
-- [ ] URLClassLoader dédié par JAR ;
-- [ ] ServiceLoader exactement un plugin ;
-- [ ] contrôle métadonnées/provider id ;
-- [ ] probe + capabilities issus du provider réel.
+- [x] activation explicite ;
+- [x] `URLClassLoader` dédié par JAR ;
+- [x] `ServiceLoader` exactement un plugin ;
+- [x] contrôle manifeste == metadata runtime == provider id ;
+- [x] metadata mismatch rejeté par test ;
+- [x] duplicate `plugin.id` rejeté explicitement (`PLUGIN_ID_AMBIGUOUS`) ;
+- [x] probe + capabilities issus du provider réel ;
+- [x] failure/linkage bornés en diagnostic `PLUGIN_ACTIVATION_OR_PROBE_FAILED`.
 
 ### M22-S5 — isolation
 
-- [ ] isolation classloader appliquée ;
-- [ ] fermeture explicite ;
-- [ ] aucune prétention de sandbox sécurité ;
-- [ ] process isolation différée et documentée.
+- [x] isolation classloader appliquée ;
+- [x] fermeture explicite via `ProviderPluginActivation.close()` ;
+- [x] aucune prétention de sandbox sécurité ;
+- [x] process isolation différée et documentée dans ADR-0090.
 
 ### M22-S6 — reference provider template
 
-- [ ] module externe `morpheus-provider-reference` ;
-- [ ] manifeste plugin ;
-- [ ] service descriptor ;
-- [ ] fixture minimale supportée ;
-- [ ] non embarqué comme provider built-in du launcher.
+- [x] module externe `morpheus-provider-reference` ;
+- [x] manifeste plugin ;
+- [x] service descriptor ;
+- [x] fixture minimale `morpheus-reference.spec` ;
+- [x] provider expose réellement `DISCOVER_PROJECT` ;
+- [x] non déclaré comme dépendance du launcher.
 
 ### M22-S7 — contract test kit
 
-- [ ] module `morpheus-provider-testkit` ;
-- [ ] assertions metadata/provider ;
-- [ ] determinism probe ;
-- [ ] capability sanity ;
-- [ ] exemple utilisé par provider de référence.
+- [x] module `morpheus-provider-testkit` ;
+- [x] assertions metadata/provider ;
+- [x] déterminisme du probe ;
+- [x] cohérence ID/version/remote/capabilities ;
+- [x] test kit consommé par le provider de référence.
 
 ### M22-S8 — surfaces publiques
 
-- [ ] CLI discovery/probe ;
-- [ ] MCP discovery/probe ;
-- [ ] HTTP discovery/probe ;
-- [ ] manifeste public M21 mis à jour ;
-- [ ] aucune découverte automatique au startup.
+- [x] CLI `provider-plugins discover/probe` ;
+- [x] MCP `discover_provider_plugins` / `probe_provider_plugin` ;
+- [x] HTTP `/api/v1/provider-plugins/discover` / `probe` ;
+- [x] `contracts/public-surfaces.tsv` mis à jour ;
+- [x] tests CLI/MCP/HTTP ;
+- [x] aucune découverte automatique au startup ;
+- [x] discovery séparée de l’activation/probe.
 
 ### M22-S9 — packaging / qualification
 
-- [ ] documentation SDK/auteur provider ;
-- [ ] architecture tests anti-couplage ;
-- [ ] intégration JAR de référence via vrai discovery/activation ;
-- [ ] packaging contient SDK, pas provider référence intégré ;
+- [x] documentation auteur `docs/developer/PROVIDER_SDK.md` ;
+- [x] documentation utilisateur `docs/user/PROVIDER_PLUGINS.md` ;
+- [x] architecture tests anti-couplage + vrai JAR externe ;
+- [x] validateurs exact-head Windows/Linux créés ;
+- [x] gate vérifie SDK packagé et provider de référence absent du launcher ;
+- [x] gate exécute discovery + activation + probe du JAR externe ;
 - [ ] Windows exact-head PASS ;
 - [ ] Linux exact-head PASS ;
-- [ ] `VALIDATION_M22.md` ;
+- [ ] `VALIDATION_M22.md` convertie en preuve finale ;
 - [ ] ADR-0090 acceptée après preuve ;
 - [ ] PR Ready puis merge après gates.
+
+## CI GitHub-hosted
+
+Le premier run M22 `30308835899` a reproduit l’incident d’infrastructure déjà observé en M21 : les jobs `windows-latest` et `ubuntu-latest` terminent `failure` avant tout step, avec `steps=None` et sans logs de job. Ce run n’est ni un PASS ni un échec Maven/M22.
+
+Qualification canonique :
+
+```powershell
+.\validate-m22.cmd -Version 1.0.0
+```
+
+```bash
+./scripts/validate-m22.sh 1.0.0
+```
