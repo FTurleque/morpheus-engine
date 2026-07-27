@@ -13,12 +13,12 @@ if [[ -z "$VERSION" ]]; then
 fi
 
 GIT_SHA="$(git rev-parse HEAD)"
-GIT_REF="$(git describe --tags --exact-match HEAD 2>/dev/null || true)"
+GIT_REF="$(git tag --points-at HEAD | head -n 1)"
 if [[ -z "$GIT_REF" ]]; then
   GIT_REF="${GITHUB_REF_NAME:-$(git branch --show-current)}"
 fi
 GIT_REF="${GIT_REF:-detached}"
-if [[ -z "$(git status --porcelain)" ]]; then WORKSPACE_CLEAN=true; else WORKSPACE_CLEAN=false; fi
+if [[ -z "$(git status --porcelain --untracked-files=no)" ]]; then WORKSPACE_CLEAN=true; else WORKSPACE_CLEAN=false; fi
 JAVA_VERSION="$(java -version 2>&1 | head -n 1 | tr '\r\n=' '   ' | xargs)"
 MAVEN_VERSION="$(./mvnw -v | head -n 1 | tr '\r\n=' '   ' | xargs)"
 SBOM="target/m21-supply-chain/morpheus-sbom.json"
