@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-0.1.0}"
+VERSION="${1:-1.0.0}"
 OUTPUT_DIRECTORY="${2:-dist}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 DIST="$REPO/$OUTPUT_DIRECTORY"
-WORK="$DIST/.m19-linux"
+WORK="$DIST/.m20-linux"
 INPUT="$WORK/input"
 IMAGE_ROOT="$WORK/image"
 
@@ -26,7 +26,7 @@ if [[ ! -x "$JIMAGE_TOOL" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Building MORPHEUS CLI + MCP + API + optional MINOS/NEXUS adapters + M14-M19 contracts uber-JAR..."
+printf '%s\n' "Building MORPHEUS 1.0 CLI + MCP + API + optional MINOS/NEXUS adapters + M14-M20 contracts uber-JAR..."
 "$REPO/mvnw" -pl morpheus-cli -am -DskipTests package
 
 JAR="$(find "$REPO/morpheus-cli/target" -maxdepth 1 -type f -name 'morpheus-cli-*-all.jar' -print | sort | tail -n 1)"
@@ -35,7 +35,7 @@ if [[ -z "$JAR" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Verifying MCP/API/MINOS/NEXUS/M14-M19 classes are embedded in the shaded JAR..."
+printf '%s\n' "Verifying MCP/API/MINOS/NEXUS/M14-M20 classes are embedded in the shaded JAR..."
 JAR_ENTRIES="$($JAR_TOOL tf "$JAR")"
 for entry in \
   'com/morpheus/mcp/MorpheusMcpServer.class' \
@@ -57,23 +57,23 @@ for entry in \
   'com/morpheus/integration/nexus/NexusIntegrationRuntime.class' \
   'tools/jackson/databind/json/JsonMapper.class'; do
   if ! grep -Fxq "$entry" <<<"$JAR_ENTRIES"; then
-    echo "M19 packaging proof failed; shaded JAR is missing $entry" >&2
+    echo "M20 packaging proof failed; shaded JAR is missing $entry" >&2
     exit 1
   fi
 done
 if grep -Eq '^com/minos/' <<<"$JAR_ENTRIES"; then
-  echo "M14 packaging proof failed; MINOS implementation classes must not be embedded" >&2
+  echo "M20 packaging proof failed; MINOS implementation classes must not be embedded" >&2
   exit 1
 fi
 if grep -Eq '^com/nexus/' <<<"$JAR_ENTRIES"; then
-  echo "M14 packaging proof failed; NEXUS implementation classes must not be embedded" >&2
+  echo "M20 packaging proof failed; NEXUS implementation classes must not be embedded" >&2
   exit 1
 fi
 if grep -Eq '^com/jarvis/' <<<"$JAR_ENTRIES"; then
-  echo "M14 packaging proof failed; JARVIS implementation classes must not be embedded" >&2
+  echo "M20 packaging proof failed; JARVIS implementation classes must not be embedded" >&2
   exit 1
 fi
-printf '%s\n' "MCP/API/MINOS/NEXUS/M14-M19 packaging proof: PASS"
+printf '%s\n' "MCP/API/MINOS/NEXUS/M14-M20 packaging proof: PASS"
 
 rm -rf "$WORK"
 mkdir -p "$INPUT" "$IMAGE_ROOT" "$DIST"
@@ -89,6 +89,7 @@ printf '%s\n' "Creating self-contained Linux app-image with embedded runtime + j
   --main-jar morpheus.jar \
   --main-class com.morpheus.cli.MorpheusMain \
   --add-modules jdk.httpserver,java.sql \
+  --java-options "--enable-native-access=ALL-UNNAMED" \
   --dest "$IMAGE_ROOT"
 
 LAUNCHER="$IMAGE_ROOT/morpheus/bin/morpheus"
@@ -100,10 +101,14 @@ fi
 printf '%s\n' "Smoke testing packaged launcher without MINOS/NEXUS/JARVIS configuration..."
 "$LAUNCHER" --version
 JSON_VERSION="$("$LAUNCHER" --json version)"
-if [[ "$JSON_VERSION" != *'"version"'* ]]; then
-  echo "Packaged launcher --json version did not emit the expected JSON version field: $JSON_VERSION" >&2
-  exit 1
-fi
+python3 - "$JSON_VERSION" "$VERSION" <<'PY'
+import json
+import sys
+payload = json.loads(sys.argv[1])
+expected = sys.argv[2]
+if payload.get("version") != expected:
+    raise SystemExit(f"packaged version mismatch: {payload!r}, expected={expected}")
+PY
 printf '%s\n' "$JSON_VERSION"
 MINOS_STATUS="$("$LAUNCHER" --json minos-status)"
 if [[ "$MINOS_STATUS" != *'"state":"DISABLED"'* ]]; then
@@ -119,10 +124,10 @@ fi
 printf '%s\n' "$NEXUS_STATUS"
 HELP="$($LAUNCHER help)"
 if [[ "$HELP" != *'change-orchestration'* ]]; then
-  echo "Packaged M14-M19 CLI help smoke failed" >&2
+  echo "Packaged M14-M20 CLI help smoke failed" >&2
   exit 1
 fi
-printf '%s\n' "Packaged standalone optional-engines + M14-M19 CLI surface smoke: PASS"
+printf '%s\n' "Packaged standalone optional-engines + M14-M20 CLI surface smoke: PASS"
 
 test_packaged_api_operability() (
   local launcher="$1"
@@ -195,4 +200,4 @@ rm -f "$ARCHIVE"
 tar -C "$IMAGE_ROOT" -czf "$ARCHIVE" morpheus
 
 printf '%s\n' "Portable Linux distribution: $ARCHIVE"
-printf '%s\n' "The archive contains MORPHEUS, its Java runtime, MCP/API, optional MINOS/NEXUS client adapters and M14-M19 contracts including local operability; MINOS, NEXUS and JARVIS are not embedded or required."
+printf '%s\n' "The archive contains MORPHEUS $VERSION, its Java runtime, MCP/API, optional MINOS/NEXUS client adapters and M14-M20 contracts; MINOS, NEXUS and JARVIS are not embedded or required."

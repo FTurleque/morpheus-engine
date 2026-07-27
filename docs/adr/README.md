@@ -103,6 +103,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0085](0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md) | Budgets pré-déclarés et fixtures larges déterministes | **Acceptée — M19** |
 | [ADR-0086](0086-failure-atomic-snapshot-recovery-and-bounded-sqlite-concurrency.md) | Recovery failure-atomic et concurrence SQLite bornée | **Acceptée — M19** |
 | [ADR-0087](0087-local-first-operability-and-secure-diagnostic-defaults.md) | Opérabilité local-first et diagnostics sûrs par défaut | **Acceptée — M19** |
+| [ADR-0088](0088-product-release-installation-and-persistent-data-separation.md) | Release produit, installation et séparation programme/données persistantes | **Acceptée — M20** |
 
 # Preuves par jalon
 
@@ -117,8 +118,6 @@ M8  289/289 PASS | Architecture 146/146
 M9  298/298 PASS Windows + Linux | Architecture 149/149
 M10 307/307 PASS Windows | Architecture 149/149 | MCP STDIO + packaging
 M11 314/314 PASS Windows | Architecture 150/150 | API health packaging
-M18 418/418 PASS Windows | Architecture 170/170 | packaging + smokes
-M19 449/449 PASS Windows + Linux | Architecture 178/178 | 14/14 modules | budgets + packaging + smokes
 M12 331/331 PASS Windows | Architecture 153/153 | MINOS optional packaging
 M13 346/346 PASS Windows | Architecture 154/154 | MINOS/NEXUS optional packaging
 M14 357/357 PASS Windows | Architecture 160/160 | JARVIS orchestration packaging | JARVIS 536 tests BUILD SUCCESS
@@ -126,6 +125,8 @@ M15 371/371 PASS Windows | Architecture 157/157 | acceptance CLI/MCP/HTTP | pack
 M16 393/393 PASS Windows | Architecture 161/161 | constraint policy CLI/MCP/HTTP | packaging + smokes PASS
 M17 410/410 PASS Windows | Architecture 167/167 | controlled lifecycle write CLI/MCP/HTTP | packaging + smokes PASS
 M18 418/418 PASS Windows | Architecture 170/170 | multi-provider composition CLI/MCP/HTTP | packaging + smokes PASS
+M19 449/449 PASS Windows + Linux | Architecture 178/178 | 14/14 modules | budgets + packaging + smokes
+M20 454/454 PASS Windows + Linux | Architecture 182/182 | 14/14 modules | setup + portable + no-JDK + upgrade/uninstall
 ```
 
 ## M15
@@ -158,6 +159,28 @@ Validation : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md
 Plan : [`../roadmap/M18_EXECUTION.md`](../roadmap/M18_EXECUTION.md).  
 Code validé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
 Merge PR #86 : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
+
+## M20
+
+ADR-0088 fige le contrat produit 1.0 : installation Windows per-user, séparation programme/données, upgrade/uninstall conservateurs, runtime embarqué, archives portables Windows/Linux, SHA-256 obligatoires et release liée à un tag exact.
+
+```text
+Code SHA      9199ed43c4bd8596a97db055eeff17ae31399eb8
+Windows       PASS
+Linux ext4    PASS via WSL2
+TOTAL         454/454 PASS
+Architecture  182/182 PASS
+Reactor       14/14 SUCCESS
+Setup         PASS
+Portable      PASS Windows + Linux
+No-user-JDK   PASS Windows + Linux
+Upgrade       PASS
+Uninstall     PASS
+Checksums     PASS Windows + Linux
+```
+
+Validation : [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md).  
+Plan : [`../roadmap/M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md).
 
 # Contraintes actives principales
 
@@ -231,15 +254,15 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé techniquement** : M19, PR #89 non mergée. Dernier jalon intégré : M18.
+Dernier gate **validé techniquement** : M20, PR #93 non mergée.
 
 ```text
-Code SHA      dca27db969b426ad43941ccb8cee7e926efb931b
-TOTAL         449/449 PASS Windows + Linux
-Architecture  178/178 PASS Windows + Linux
+Code SHA      9199ed43c4bd8596a97db055eeff17ae31399eb8
+TOTAL         454/454 PASS Windows + Linux
+Architecture  182/182 PASS Windows + Linux
 Reactor       14/14 SUCCESS
-Budgets       PASS
 Packaging     PASS Windows + Linux
+Installation  PASS Windows
 ```
 
 # Principe de validation
@@ -255,4 +278,4 @@ Packaging     PASS Windows + Linux
 8. réconcilier les roadmaps/index après merge
 ```
 
-M19 est techniquement qualifié ; sa PR #89 attend revue et autorisation explicite de merge. M20 ne démarre qu'après cette intégration.
+M20 est techniquement qualifié ; la PR #93 peut être Ready après contrôle du delta documentaire post-gate. Son merge reste soumis à l'autorisation explicite du propriétaire.

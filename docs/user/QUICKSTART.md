@@ -1,34 +1,75 @@
-# Démarrage rapide MORPHEUS
+# Démarrage rapide MORPHEUS 1.0
 
-Ce guide conduit un utilisateur depuis une distribution fraîche jusqu’à une première interrogation de la spécification, puis montre la composition multi-provider M18 et les surfaces HTTP/MCP.
+Ce guide conduit un utilisateur depuis l’installation jusqu’à une première interrogation de spécification, puis présente les principales surfaces de composition, lifecycle, HTTP et MCP.
 
-## 1. Extraire et lancer la distribution
+## 1. Installer ou extraire MORPHEUS
 
-La distribution portable embarque son runtime Java : aucun JDK n’est requis pour l’utilisateur final.
+La distribution embarque son runtime Java : aucun JDK, Maven ou Git n’est requis chez l’utilisateur final.
 
-### Windows
+### Windows — recommandé
 
-Après extraction de `morpheus-<version>-windows-x64.zip` :
+Installer :
+
+```text
+MORPHEUS-1.0.0-windows-x64-setup.exe
+```
+
+Le setup est per-user et installe par défaut dans :
+
+```text
+%LOCALAPPDATA%\Programs\MORPHEUS
+```
+
+L’option d’ajout au `PATH` utilisateur est explicite et décochée par défaut.
+
+Sans PATH :
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\MORPHEUS\morpheus.exe" --version
+```
+
+Avec PATH :
+
+```powershell
+morpheus --version
+morpheus help
+```
+
+### Windows — portable
+
+Après extraction de `morpheus-1.0.0-windows-x64.zip` :
 
 ```powershell
 .\morpheus\morpheus.exe --version
 .\morpheus\morpheus.exe help
 ```
 
-### Linux
+### Linux x64
 
 ```bash
-chmod +x ./morpheus/bin/morpheus
+sha256sum -c morpheus-1.0.0-linux-x64.tar.gz.sha256
+tar -xzf morpheus-1.0.0-linux-x64.tar.gz
 ./morpheus/bin/morpheus --version
 ./morpheus/bin/morpheus help
 ```
 
 Dans la suite, `morpheus` désigne le launcher de la plateforme.
 
+Guide installation/upgrade/uninstall complet : [`INSTALLATION.md`](INSTALLATION.md).
+
 ## 2. Vérifier les chemins
 
 ```bash
 morpheus paths
+```
+
+Sous Windows, le state PROD par défaut est séparé du programme :
+
+```text
+%LOCALAPPDATA%\MORPHEUS\data
+%LOCALAPPDATA%\MORPHEUS\config
+%LOCALAPPDATA%\MORPHEUS\logs
+%LOCALAPPDATA%\MORPHEUS\backups
 ```
 
 Base explicite pour un test :
@@ -41,7 +82,7 @@ Toutes les commandes d’un même scénario doivent utiliser la même base si `-
 
 ## 3. Préparer un workspace compatible
 
-M18 valide deux providers réels :
+Deux providers réels sont supportés dans la composition M18+ :
 
 ```text
 OpenSpec
@@ -81,58 +122,17 @@ Révision source optionnelle :
 morpheus sync --project <projectId> --revision <revision>
 ```
 
-Un snapshot candidat ne remplace l’`ACTIVE` qu’après validation réussie.
+Un snapshot candidat ne remplace l’`ACTIVE` qu’après validation réussie. Si le candidat échoue, l’ancien `ACTIVE` reste publié.
 
-```mermaid
-stateDiagram-v2
-    [*] --> BUILDING
-    BUILDING --> VALIDATING
-    VALIDATING --> READY: validation OK
-    VALIDATING --> FAILED: validation KO
-    READY --> ACTIVE: activation atomique
-    ACTIVE --> RETIRED: nouveau snapshot ACTIVE
-```
-
-Si le candidat échoue, l’ancien `ACTIVE` reste publié.
-
-## 6. Composer plusieurs providers — M18
-
-Pour un projet contenant plusieurs sources reconnues :
+## 6. Composer plusieurs providers
 
 ```bash
 morpheus composition sync --project <projectId>
-```
-
-Avec révision explicite :
-
-```bash
-morpheus composition sync --project <projectId> --revision <revision>
-```
-
-État de composition :
-
-```bash
 morpheus --json composition status --project <projectId>
-```
-
-Conflits :
-
-```bash
 morpheus --json composition conflicts --project <projectId>
 ```
 
-La composition M18 conserve :
-
-```text
-provider ownership
-provider-scoped identity
-source precedence
-provenance
-candidats non sélectionnés
-conflits explicites
-```
-
-Elle ne fait jamais de last-write-wins silencieux.
+La composition conserve ownership, identité provider-scoped, precedence, provenance, candidats non sélectionnés et conflits explicites.
 
 ```text
 provider identifier != DomainIdentity
@@ -168,21 +168,9 @@ morpheus tasks list --project <projectId> --change <changeId>
 ## 8. Traçabilité, analyse et qualité
 
 ```bash
-morpheus trace-requirement \
-  --project <projectId> \
-  --requirement <requirementId> \
-  --depth 2
-
-morpheus change-context \
-  --project <projectId> \
-  --change <changeId> \
-  --depth 2
-
-morpheus analyze-change \
-  --project <projectId> \
-  --change <changeId> \
-  --depth 2
-
+morpheus trace-requirement --project <projectId> --requirement <requirementId> --depth 2
+morpheus change-context --project <projectId> --change <changeId> --depth 2
+morpheus analyze-change --project <projectId> --change <changeId> --depth 2
 morpheus quality --project <projectId>
 ```
 
@@ -199,8 +187,6 @@ morpheus --json change-orchestration transition-check \
   --from DRAFT \
   --to PROPOSED
 ```
-
-Une réponse `ALLOWED` ne signifie pas qu’une mutation a eu lieu.
 
 Application contrôlée :
 
@@ -226,13 +212,7 @@ ALLOWED != applied
 morpheus --json requirements find --project <projectId> --query "session"
 ```
 
-Pour automatiser :
-
-1. lire le code de sortie ;
-2. parser le JSON de `stdout` ;
-3. utiliser `stderr` pour le diagnostic humain.
-
-Codes principaux :
+Pour automatiser : lire le code de sortie, parser le JSON de `stdout`, utiliser `stderr` pour le diagnostic humain.
 
 | Code | Sens |
 |---:|---|
@@ -249,7 +229,7 @@ Codes principaux :
 morpheus api --host 127.0.0.1 --port 8765
 ```
 
-Test :
+Tests :
 
 ```bash
 curl http://127.0.0.1:8765/api/v1/health
@@ -258,109 +238,13 @@ curl http://127.0.0.1:8765/api/v1/metrics
 curl http://127.0.0.1:8765/api/v1/version
 ```
 
-Baseline M18 : **OpenAPI 3.1.0 / contract version 1.7.0**.
+## 12. Vérifier les intégrations optionnelles
 
-Candidat M19 en qualification : **contract version 1.8.0**, avec readiness SQLite réelle et métriques process-local.
-
-Composition HTTP :
-
-```text
-GET /api/v1/projects/{projectId}/composition
-GET /api/v1/projects/{projectId}/composition/conflicts
-```
-
-Référence : [API HTTP](../developer/API.md).
-
-## 12. Démarrer le serveur MCP
-
-```bash
-morpheus mcp --stdio
-```
-
-```text
-stdin/stdout = protocole JSON-RPC MCP
-stderr       = diagnostics
-```
-
-Ne pas ajouter `--json`.
-
-Catalogue M18 :
-
-```text
-22 tools read-only
-+ 1 tool write explicite
-```
-
-Tools de composition :
-
-```text
-get_composition_status
-list_composition_conflicts
-```
-
-Référence : [Serveur MCP](../developer/MCP.md).
-
-## 13. MINOS optionnel
-
-Configurer le JAR MINOS si nécessaire, puis :
+Sans configuration externe :
 
 ```bash
 morpheus --json minos-status
-morpheus --json external-references resolve \
-  --project <projectId> \
-  --reference <externalReferenceId>
-```
-
-Une résolution live ne réécrit pas le snapshot.
-
-## 14. NEXUS optionnel
-
-```bash
 morpheus --json nexus-status
-morpheus --json augmented-context change \
-  --project <projectId> \
-  --change <changeId> \
-  --nexus-project <id-or-name> \
-  --budget 2000
 ```
 
-Le contexte retourné reste live et non persisté.
-
-## 15. Diagnostic rapide
-
-Le projet n’apparaît pas :
-
-```bash
-morpheus paths
-morpheus projects list
-```
-
-Les requêtes retournent `NOT_FOUND` :
-
-```bash
-morpheus sync-status --project <projectId>
-```
-
-MINOS ou NEXUS est `DISABLED` : c’est normal si l’intégration optionnelle n’est pas configurée.
-
-Une transition retourne `UNKNOWN` : un fait nécessaire n’est pas observable et MORPHEUS refuse de l’inventer.
-
-Un conflit de composition apparaît : inspecter `composition conflicts`; ne pas remplacer le conflit par une priorité implicite côté client.
-
-## 16. Baseline validée
-
-```text
-M18 code validé  7e8caacff567f51354fcb88bd7505a6d135071c0
-M18 merge        30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
-Tests            418/418 PASS
-Architecture     170/170 PASS
-Packaging Win    PASS
-```
-
-## 17. Étapes suivantes
-
-- [Guide utilisateur](README.md)
-- [Référence CLI](CLI.md)
-- [Intégrations optionnelles](INTEGRATIONS.md)
-- [Architecture](../developer/ARCHITECTURE.md)
-- [Validation M18](../validation/VALIDATION_M18.md)
+Les deux doivent rester `DISABLED`. Les adapters sont présents, mais MINOS et NEXUS ne sont ni embarqués ni requis par MORPHEUS.
