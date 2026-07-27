@@ -1,6 +1,10 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.provider.SpecificationProvider;
+import com.morpheus.application.read.ProviderReadRequest;
+import com.morpheus.application.read.ProviderReadResult;
+import com.morpheus.application.read.SpecificationContentReader;
 import com.morpheus.domain.provider.ProviderCapabilitySet;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.provider.ProviderProbeResult;
@@ -46,6 +50,21 @@ public final class TestMismatchedProviderPlugin implements MorpheusProviderPlugi
                 return new ProviderProbeResult(
                         id(), version(), ProviderProbeStatus.UNSUPPORTED,
                         Optional.empty(), Optional.empty(), ProviderCapabilitySet.of(), false, List.of());
+            }
+        };
+    }
+
+    @Override
+    public SpecificationContentReader createContentReader() {
+        return new SpecificationContentReader() {
+            @Override
+            public ProviderId providerId() {
+                return new ProviderId("runtime-provider");
+            }
+
+            @Override
+            public ProviderReadResult read(ProviderReadRequest request, EntityIdentityResolver identityResolver) {
+                throw new UnsupportedOperationException("mismatch fixture is never read");
             }
         };
     }
