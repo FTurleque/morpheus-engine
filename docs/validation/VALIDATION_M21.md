@@ -1,6 +1,6 @@
 # VALIDATION M21 — Production Integrity & Surface Convergence
 
-Statut : **BLOQUÉE — aucune preuve exact-head Windows/Linux exécutable disponible**
+Statut : **PARTIELLEMENT VALIDÉE — Windows exact-head PASS ; Linux bloqué avant exécution par l’infrastructure GitHub Actions**
 
 Date : 27 juillet 2026
 
@@ -10,34 +10,80 @@ Branche : `m21/production-integrity-surface-convergence`
 
 Baseline M20 : `83ad1dfc264a4797130ebd61353ce0e78552d88c` (`main`, MORPHEUS 1.0.0 publié).
 
-Dernier head exécutable candidat avant consolidation documentaire :
+Head exécutable qualifié Windows :
 
 ```text
-a7508fbfc22f0a0b65b1e3a9095769e7d410e340
+239d99657fbf193761767f382489dd637e642fe9
 ```
 
 ## Verdict
 
 ```text
 M21 implementation S0-S7     IMPLEMENTED
-M21 exact-head gate S8       BLOCKED
-Windows reactor              NOT EXECUTED / NOT PROVEN
+M21 exact-head gate S8       PARTIAL
+Windows reactor              PASS — 14/14
 Linux reactor                NOT EXECUTED / NOT PROVEN
-Tests >= 454                 NOT PROVEN
-Architecture >= 182          NOT PROVEN
-JaCoCo line >= 25%           NOT PROVEN
-JaCoCo branch >= 20%         NOT PROVEN
-CycloneDX SBOM               CONFIGURED / NOT PROVEN
-Build provenance             CONFIGURED / NOT PROVEN
-Portable Windows             NOT PROVEN
+Tests >= 454                 PASS — 473
+Architecture >= 182          PASS — 187
+JaCoCo line >= 25%           PASS — 46.2800%
+JaCoCo branch >= 20%         PASS — 41.2734%
+CycloneDX SBOM               PASS — JSON/XML
+Build provenance             PASS
+Portable Windows             PASS
 Portable Linux               NOT PROVEN
-CLI/MCP/HTTP convergence     IMPLEMENTED / RUNTIME PROOF PENDING
+CLI/MCP/HTTP convergence     PASS ON WINDOWS PACKAGED RUNTIME
 ADR-0089                     PROPOSED
 PR #99                       DRAFT
 Merge                        NOT AUTHORIZED / NOT ELIGIBLE
 ```
 
-M21 **ne peut pas être déclaré terminé ni vert** sur cette preuve.
+M21 **ne peut pas encore être déclaré terminé** : la preuve Windows est complète, mais la qualification Linux exigée par les budgets M21 n’a pas exécuté un seul step sur GitHub Actions.
+
+## Preuve Windows exact-head
+
+Commande canonique exécutée localement sur Windows :
+
+```powershell
+.\validate-m21.cmd -Version 1.0.0
+```
+
+Résultat exact :
+
+```text
+M21 VALIDATION PASS
+sha=239d99657fbf193761767f382489dd637e642fe9
+baseRef=origin/main
+version=1.0.0
+tests=473
+architectureTests=187
+lineCoverage=0.462800
+branchCoverage=0.412734
+sbom=PASS
+provenance=PASS
+portable=True
+postGateExecutableDelta=NONE
+```
+
+Le gate Windows a réellement exécuté et validé :
+
+- `git diff --check` ;
+- reactor Maven complet 14/14 ;
+- 473 tests ;
+- 187 tests d’architecture ;
+- JaCoCo lignes 46,28 % et branches 41,2734 % ;
+- CycloneDX JSON/XML ;
+- provenance de build ;
+- packaging shaded JAR ;
+- `jpackage` Windows autonome ;
+- version CLI `1.0.0` ;
+- `product-info` ;
+- MINOS/NEXUS optionnels et désactivés sans configuration ;
+- smoke CLI M14→M21 ;
+- API packagée health/readiness/metrics/version ;
+- runtime embarqué contenant `jdk.httpserver`, `java.sql`, `java.net.http` ;
+- archive `morpheus-1.0.0-windows-x64.zip` ;
+- convergence CLI/update/API ;
+- absence de delta exécutable post-gate.
 
 ## Ce qui est implémenté
 
@@ -121,7 +167,7 @@ exact HEAD unchanged
 tracked workspace unchanged
 ```
 
-## GitHub Actions — blocage observé
+## GitHub Actions — blocage Linux observé
 
 Plusieurs runs M21 ont été déclenchés pendant l’implémentation. Le symptôme est stable : les jobs de matrice sont créés puis terminent `failure` **avant tout step**. Le connecteur GitHub retourne `steps: None` et aucune URL de logs de job.
 
@@ -136,12 +182,13 @@ Runs observés, entre autres :
 30298020147  failure + rerun failure before steps
 30298106004  failure
 30298669189  failure
+30302997998  failure
 ```
 
-Dernier run observé sur le candidat exécutable `a7508fbfc22f0a0b65b1e3a9095769e7d410e340` :
+Run observé sur le head Windows qualifié `239d99657fbf193761767f382489dd637e642fe9` :
 
 ```text
-run 30298669189
+run 30302997998
 exact-head (windows-latest)  failure | steps=None | logs_url=None
 exact-head (ubuntu-latest)   failure | steps=None | logs_url=None
 ```
@@ -156,36 +203,42 @@ Le résultat reste identique. L’incident est donc enregistré comme **runner s
 
 ## Audit statique complémentaire avant gel
 
-L’audit M21 a identifié et corrigé avant le gel documentaire :
+L’audit M21 a identifié et corrigé avant la qualification Windows :
 
 ```text
-URI canonical JSON support         FIXED
-java.net.http jpackage module      FIXED
-JaCoCo external DTD parser issue   FIXED
-branch-wide git diff --check       FIXED
-update manifest size bound         FIXED (64 KiB)
-prerelease ordering                FIXED / TESTED IN SOURCE
-JaCoCo stable version              0.8.15
+URI canonical JSON support              FIXED
+java.net.http jpackage module           FIXED
+JaCoCo external DTD parser issue        FIXED
+branch-wide git diff --check            FIXED
+update manifest size bound              FIXED (64 KiB)
+prerelease ordering                     FIXED / TESTED
+public-surfaces TSV shape               FIXED / TESTED
+Windows Maven gate invocation           FIXED
+Windows provenance no-tag handling      FIXED
+Windows native stderr handling          FIXED
+JaCoCo stable version                   0.8.15
 ```
 
-Ces corrections réduisent les risques évidents, mais **un audit statique ne remplace pas une compilation ni un gate exact-head**.
+Ces corrections sont maintenant couvertes par le PASS Windows exact-head. Elles ne constituent toutefois pas une preuve Linux.
 
 ## Condition de déblocage
 
-La preuve M21 devient éligible uniquement après exécution complète du gate sur :
+La preuve M21 devient complète uniquement après :
 
 ```text
-Windows exact-head  PASS
-Linux exact-head    PASS
+Windows exact-head  PASS — acquis sur 239d99657fbf193761767f382489dd637e642fe9
+Linux exact-head    PASS — restant
 ```
 
 À ce moment seulement :
 
-1. reporter les compteurs réels et SHA exacts dans ce document ;
+1. reporter le SHA Linux et ses compteurs réels dans ce document ;
 2. vérifier `post-gate executable delta = NONE` ;
 3. passer ADR-0089 de `Proposée` à `Acceptée — M21` ;
 4. passer PR #99 de Draft à Ready ;
 5. demander/appliquer l’autorisation de merge conformément à la gouvernance.
+
+Toute consolidation documentaire postérieure au SHA Windows qualifié doit rester **docs-only** ; elle ne remplace pas le SHA exécutable prouvé.
 
 ## Intégrité de la preuve
 
@@ -194,9 +247,9 @@ facts != inference
 workflow exists != workflow passed
 job created != job executed
 configured gate != successful gate
-static audit != compilation proof
+Windows PASS != Linux PASS
 checksum != signature
 update discovery != automatic update
 ```
 
-Cette validation est volontairement **incomplète et honnête** : elle décrit précisément ce qui est implémenté et ce qui n’a pas pu être exécuté.
+Cette validation est volontairement factuelle : **Windows est prouvé vert ; Linux reste non exécuté à cause du démarrage des runners GitHub Actions**.
