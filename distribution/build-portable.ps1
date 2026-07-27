@@ -1,12 +1,12 @@
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "1.0.0",
     [string]$OutputDirectory = "dist"
 )
 
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dist = Join-Path $repo $OutputDirectory
-$work = Join-Path $dist ".m19-windows"
+$work = Join-Path $dist ".m20-windows"
 $input = Join-Path $work "input"
 $appImageRoot = Join-Path $work "image"
 
@@ -91,7 +91,7 @@ function Test-PackagedApiOperability {
     }
 }
 
-Write-Host "Building MORPHEUS CLI + MCP + API + optional MINOS/NEXUS adapters + M14-M19 contracts uber-JAR..."
+Write-Host "Building MORPHEUS 1.0 CLI + MCP + API + optional MINOS/NEXUS adapters + M14-M20 contracts uber-JAR..."
 & $mvnw -pl morpheus-cli -am -DskipTests package
 if ($LASTEXITCODE -ne 0) { throw "Maven package failed with exit code $LASTEXITCODE" }
 
@@ -99,7 +99,7 @@ $jar = Get-ChildItem (Join-Path $repo "morpheus-cli\target") -Filter "morpheus-c
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($null -eq $jar) { throw "Shaded MORPHEUS CLI JAR not found" }
 
-Write-Host "Verifying MCP/API/MINOS/NEXUS/M14-M19 classes, provider Markdown and V012 migration are embedded in the shaded JAR..."
+Write-Host "Verifying MCP/API/MINOS/NEXUS/M14-M20 classes, provider Markdown and V012 migration are embedded in the shaded JAR..."
 $jarEntries = & $jarTool tf $jar.FullName
 if ($LASTEXITCODE -ne 0) { throw "Unable to inspect shaded JAR" }
 $requiredEntries = @(
@@ -138,15 +138,15 @@ $requiredEntries = @(
     "tools/jackson/databind/json/JsonMapper.class"
 )
 foreach ($entry in $requiredEntries) {
-    if ($jarEntries -notcontains $entry) { throw "M19 packaging proof failed; shaded JAR is missing $entry" }
+    if ($jarEntries -notcontains $entry) { throw "M20 packaging proof failed; shaded JAR is missing $entry" }
 }
 $embeddedMinosDomain = $jarEntries | Where-Object { $_ -like "com/minos/*" }
-if ($embeddedMinosDomain) { throw "M19 packaging proof failed; MINOS implementation classes must not be embedded: $($embeddedMinosDomain | Select-Object -First 5)" }
+if ($embeddedMinosDomain) { throw "M20 packaging proof failed; MINOS implementation classes must not be embedded: $($embeddedMinosDomain | Select-Object -First 5)" }
 $embeddedNexusDomain = $jarEntries | Where-Object { $_ -like "com/nexus/*" }
-if ($embeddedNexusDomain) { throw "M19 packaging proof failed; NEXUS implementation classes must not be embedded: $($embeddedNexusDomain | Select-Object -First 5)" }
+if ($embeddedNexusDomain) { throw "M20 packaging proof failed; NEXUS implementation classes must not be embedded: $($embeddedNexusDomain | Select-Object -First 5)" }
 $embeddedJarvisDomain = $jarEntries | Where-Object { $_ -like "com/jarvis/*" }
-if ($embeddedJarvisDomain) { throw "M19 packaging proof failed; JARVIS implementation classes must not be embedded: $($embeddedJarvisDomain | Select-Object -First 5)" }
-Write-Host "MCP/API/MINOS/NEXUS/M14-M19 packaging proof: PASS"
+if ($embeddedJarvisDomain) { throw "M20 packaging proof failed; JARVIS implementation classes must not be embedded: $($embeddedJarvisDomain | Select-Object -First 5)" }
+Write-Host "MCP/API/MINOS/NEXUS/M14-M20 packaging proof: PASS"
 
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item $input -ItemType Directory -Force | Out-Null
@@ -166,9 +166,13 @@ if (-not (Test-Path $launcher)) { throw "Packaged launcher not found: $launcher"
 Write-Host "Smoke testing packaged launcher without MINOS/NEXUS/JARVIS or write-capable provider configuration..."
 & $launcher --version
 if ($LASTEXITCODE -ne 0) { throw "Packaged launcher --version smoke test failed with exit code $LASTEXITCODE" }
-$jsonVersion = & $launcher --json version
-if ($LASTEXITCODE -ne 0 -or $jsonVersion -notmatch '"version"') { throw "Packaged launcher JSON version smoke failed: $jsonVersion" }
-Write-Host $jsonVersion
+$jsonVersionText = (& $launcher --json version) -join "`n"
+if ($LASTEXITCODE -ne 0) { throw "Packaged launcher JSON version smoke failed: $jsonVersionText" }
+$jsonVersion = $jsonVersionText | ConvertFrom-Json
+if ([string]$jsonVersion.version -ne $Version) {
+    throw "Packaged launcher version is $($jsonVersion.version); expected $Version"
+}
+Write-Host $jsonVersionText
 
 $minosStatus = & $launcher --json minos-status
 if ($LASTEXITCODE -ne 0 -or $minosStatus -notmatch '"state":"DISABLED"') {
@@ -184,9 +188,9 @@ Write-Host $nexusStatus
 
 $help = (& $launcher help) -join "`n"
 if ($LASTEXITCODE -ne 0 -or $help -notmatch 'change-orchestration' -or $help -notmatch 'lifecycle apply' -or $help -notmatch 'composition sync') {
-    throw "Packaged M14-M19 CLI help smoke failed: $help"
+    throw "Packaged M14-M20 CLI help smoke failed: $help"
 }
-Write-Host "Packaged standalone optional-engines + M14-M19 CLI surface smoke: PASS"
+Write-Host "Packaged standalone optional-engines + M14-M20 CLI surface smoke: PASS"
 
 Test-PackagedApiOperability -Launcher $launcher -WorkDirectory $work
 
@@ -205,4 +209,4 @@ Compress-PortableArchiveWithRetry -SourceDirectory (Join-Path $appImageRoot "mor
 if (-not (Test-Path $archive)) { throw "Portable Windows archive is missing after archive creation: $archive" }
 
 Write-Host "Portable Windows distribution: $archive"
-Write-Host "The archive contains MORPHEUS, its Java runtime, MCP/API, optional MINOS/NEXUS client adapters, M14 read-only orchestration, M17 controlled lifecycle mutation, M18 composition and M19 local operability surfaces. MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."
+Write-Host "The archive contains MORPHEUS $Version, its Java runtime, MCP/API, optional MINOS/NEXUS client adapters and M14-M20 contracts. MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."
