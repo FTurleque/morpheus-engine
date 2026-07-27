@@ -100,6 +100,9 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0082](0082-explicit-constraint-semantics-and-blocking-policy.md) | Sémantique explicite des contraintes et politique de blocage | **Acceptée — M16** |
 | [ADR-0083](0083-controlled-lifecycle-write-operations.md) | Mutations lifecycle contrôlées, CAS, idempotency et audit | **Acceptée — M17** |
 | [ADR-0084](0084-provider-neutral-multi-provider-composition.md) | Composition multi-provider provider-neutral, déterministe et explicable | **Acceptée — M18** |
+| [ADR-0085](0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md) | Budgets pré-déclarés et fixtures larges déterministes | **Acceptée — M19** |
+| [ADR-0086](0086-failure-atomic-snapshot-recovery-and-bounded-sqlite-concurrency.md) | Recovery failure-atomic et concurrence SQLite bornée | **Acceptée — M19** |
+| [ADR-0087](0087-local-first-operability-and-secure-diagnostic-defaults.md) | Opérabilité local-first et diagnostics sûrs par défaut | **Acceptée — M19** |
 
 # Preuves par jalon
 
@@ -114,6 +117,8 @@ M8  289/289 PASS | Architecture 146/146
 M9  298/298 PASS Windows + Linux | Architecture 149/149
 M10 307/307 PASS Windows | Architecture 149/149 | MCP STDIO + packaging
 M11 314/314 PASS Windows | Architecture 150/150 | API health packaging
+M18 418/418 PASS Windows | Architecture 170/170 | packaging + smokes
+M19 449/449 PASS Windows + Linux | Architecture 178/178 | 14/14 modules | budgets + packaging + smokes
 M12 331/331 PASS Windows | Architecture 153/153 | MINOS optional packaging
 M13 346/346 PASS Windows | Architecture 154/154 | MINOS/NEXUS optional packaging
 M14 357/357 PASS Windows | Architecture 160/160 | JARVIS orchestration packaging | JARVIS 536 tests BUILD SUCCESS
@@ -226,12 +231,15 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé** : M18.
+Dernier gate **validé techniquement** : M19, PR #89 non mergée. Dernier jalon intégré : M18.
 
 ```text
-TOTAL         418/418 PASS
-Architecture  170/170 PASS
-Packaging     PASS
+Code SHA      dca27db969b426ad43941ccb8cee7e926efb931b
+TOTAL         449/449 PASS Windows + Linux
+Architecture  178/178 PASS Windows + Linux
+Reactor       14/14 SUCCESS
+Budgets       PASS
+Packaging     PASS Windows + Linux
 ```
 
 # Principe de validation
@@ -247,4 +255,4 @@ Packaging     PASS
 8. réconcilier les roadmaps/index après merge
 ```
 
-Le prochain jalon est **M19 — Production Hardening, Scale & Operability**.
+M19 est techniquement qualifié ; sa PR #89 attend revue et autorisation explicite de merge. M20 ne démarre qu'après cette intégration.

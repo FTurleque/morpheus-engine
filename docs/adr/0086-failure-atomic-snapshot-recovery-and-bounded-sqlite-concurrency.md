@@ -1,6 +1,6 @@
 # ADR-0086 — Recovery failure-atomic des snapshots et concurrence SQLite bornée
 
-Statut : **Proposée — M19**
+Statut : **Acceptée — M19**
 
 Date : 26 juillet 2026
 
@@ -8,7 +8,7 @@ Date : 26 juillet 2026
 
 Les snapshots MORPHEUS sont construits avant activation et l'activation SQLite est transactionnelle. M19 doit rendre explicites les garanties en cas d'interruption, de candidat invalide, de concurrence entre commandes, de lecteurs simultanés et de base verrouillée.
 
-## Décision proposée
+## Décision
 
 1. Un état publié est observable uniquement via un snapshot `ACTIVE` complet.
 2. Un candidat `BUILDING` ou `VALIDATING` laissé par une interruption peut être récupéré vers `FAILED` uniquement s'il est plus ancien qu'un cutoff explicite.
@@ -49,14 +49,13 @@ stale recovery != overwrite of fresh concurrent work
 - un candidat récent réellement abandonné n'est pas récupéré avant expiration du cutoff ;
 - le lock multi-processus reste soumis aux primitives SQLite/filesystem de la plateforme.
 
-## Preuve requise avant acceptation
+## Preuve d'acceptation
 
-ADR-0086 ne pourra devenir **Acceptée — M19** qu'après preuve sur le SHA final de :
+Le SHA de code `dca27db969b426ad43941ccb8cee7e926efb931b` a passé les gates Windows et Linux enregistrés dans `docs/validation/VALIDATION_M19.md`, notamment :
 
 - recovery Memory + SQLite + reopen ;
-- failed candidate puis rebuild valide ;
-- lecteurs concurrents ;
-- commandes concurrentes ;
-- lock SQLite borné et reprise ;
-- migration compatible ;
-- gate complet M19.
+- candidat échoué puis rebuild valide avec ancien `ACTIVE` préservé ;
+- recovery stale `BUILDING`/`VALIDATING` sans mutation d'un `ACTIVE`/`RETIRED` ;
+- lecteurs concurrents et activation concurrente à gagnant unique ;
+- lock SQLite borné, diagnostic stable et reprise après libération ;
+- migration compatible et gate complet M19.

@@ -196,16 +196,17 @@ Les tests peuvent utiliser une durée plus courte pour prouver la borne sans ral
 
 ## Preuve
 
-La preuve autoritative sera enregistrée dans :
+La preuve autoritative est enregistrée dans :
 
 ```text
 docs/validation/VALIDATION_M19.md
 ```
 
-Tant que le gate final n'a pas été exécuté :
-
 ```text
-Windows proof = MISSING
-Linux proof   = MISSING
-M19 result    = NOT VALIDATED
+Code SHA      = dca27db969b426ad43941ccb8cee7e926efb931b
+Windows proof = PASS
+Linux proof   = PASS sur ext4 / WSL2
+M19 result    = VALIDATED TECHNICALLY / NOT MERGED
 ```
+
+Les deux plateformes ont exécuté 449/449 tests, 178/178 tests d'architecture, 14/14 modules et les budgets gelés sans failure, error ou skipped. La PR #89 reste non mergée.

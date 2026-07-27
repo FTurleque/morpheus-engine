@@ -1,6 +1,6 @@
 # ADR-0085 — Budgets de performance pré-déclarés et fixtures larges déterministes
 
-Statut : **Proposée — M19**
+Statut : **Acceptée — M19**
 
 Date : 26 juillet 2026
 
@@ -8,7 +8,7 @@ Date : 26 juillet 2026
 
 MORPHEUS entre en M19 avec une couverture fonctionnelle forte mais sans contrat de capacité explicite. Définir les seuils après optimisation créerait un biais de validation et ne permettrait pas de distinguer une régression d'une simple variation de machine.
 
-## Décision proposée
+## Décision
 
 1. Les volumes et seuils M19 sont versionnés avant toute optimisation dans `docs/roadmap/M19_PERFORMANCE_BUDGETS.md`.
 2. Les fixtures de volume sont générées déterministiquement depuis un seed et un manifeste stable.
@@ -43,11 +43,11 @@ Windows proof != Linux proof
 performance failure != permission to move threshold
 ```
 
-## Preuve requise avant acceptation
+## Preuve d'acceptation
 
-ADR-0085 ne pourra passer `Acceptée — M19` qu'après :
+Le SHA de code `dca27db969b426ad43941ccb8cee7e926efb931b` a passé les validateurs locaux Windows et Linux avec la même fixture logique, les budgets inchangés et les métriques enregistrées dans `docs/validation/VALIDATION_M19.md`.
 
-- générateur/manifest de fixture testé ;
+- générateur et manifeste de fixture testés ;
 - harness de benchmark reproductible ;
-- validator M19 exécutant les gates ;
-- résultats enregistrés sur le SHA réellement testé.
+- 449/449 tests et 178/178 tests d'architecture sur les deux plateformes ;
+- tous les budgets temporels, mémoire et SQLite respectés.

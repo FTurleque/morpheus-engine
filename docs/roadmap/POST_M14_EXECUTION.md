@@ -1,8 +1,8 @@
 # MORPHEUS — Roadmap post-M14
 
-Statut : **ACTIVE — D0 et M15→M18 validés/intégrés ; M19 prochain jalon**
+Statut : **ACTIVE — D0 et M15→M18 validés/intégrés ; M19 qualifié techniquement, non mergé**
 
-Dernière mise à jour : 26 juillet 2026
+Dernière mise à jour : 27 juillet 2026
 
 Cette roadmap prolonge la baseline **C0 à M14 validée et intégrée**. Elle ne réécrit pas les preuves historiques : elle décrit l’état courant du cycle post-M14 et les prochaines étapes.
 
@@ -320,15 +320,17 @@ Le SHA testé et le merge commit sont volontairement distincts : les commits pos
 
 # M19 — Production Hardening, Scale & Operability
 
-Statut : **⏭ PROCHAIN JALON**
+Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #89 NON MERGÉE**
 
-Issue : **#91**.
+Issue : **#88**.
+
+PR : **#89**.
 
 ## Question de sortie
 
 > **MORPHEUS reste-t-il déterministe, observable et exploitable sur des dépôts réalistes de grande taille, avec des limites et performances mesurées plutôt que supposées ?**
 
-Cette question est la porte de sortie non négociable de M19.
+**Réponse : OUI**, sur le profil gelé `M19-LARGE-GATE-1`, avec preuves Windows et Linux au SHA de code exact `dca27db969b426ad43941ccb8cee7e926efb931b`.
 
 ## Objectif
 
@@ -469,6 +471,21 @@ packaging + smokes PASS
 
 La PR M19 reste Draft jusqu’au gate final vert sur le SHA final de code. Les éventuels commits post-gate doivent être documentaires uniquement et leur diff explicitement vérifié.
 
+Preuve finale acquise :
+
+```text
+code SHA        dca27db969b426ad43941ccb8cee7e926efb931b
+Windows         PASS
+Linux ext4/WSL2 PASS
+tests           449/449 PASS sur chaque plateforme
+architecture    178/178 PASS sur chaque plateforme
+reactor         14/14 SUCCESS
+budgets         PASS, seuils gelés inchangés
+packaging       PASS Windows + Linux
+```
+
+La preuve détaillée est `docs/validation/VALIDATION_M19.md`. La PR #89 peut devenir Ready après contrôle final du diff ; aucun merge n'est autorisé sans décision explicite du propriétaire.
+
 ---
 
 # M20 — Release Engineering, Installation PROD & MORPHEUS 1.0
@@ -557,7 +574,7 @@ M17  Controlled write / lifecycle mutations              ✅ intégré
  ↓
 M18  Real providers / multi-provider composition         ✅ intégré
  ↓
-M19  Production hardening / scale / operability          ⏭ prochain
+M19  Production hardening / scale / operability          ✅ qualifié, non mergé
  ↓
 M20  Release engineering / PROD installation / 1.0       ⏳ planifié
 ```
@@ -618,8 +635,8 @@ M15     = intention vérifiable et prouvable                    ✅ intégré
 M16     = contraintes exécutables/explicables                  ✅ intégré
 M17     = mutations contrôlées                                 ✅ intégré
 M18     = multi-provider réel                                  ✅ intégré
-M19     = exploitation à l'échelle                             ⏭ prochain
-M20     = distribution produit / installation PROD / 1.0      ⏳
+M19     = exploitation à l'échelle                             ✅ qualifié, PR #89 non mergée
+M20     = distribution produit / installation PROD / 1.0      ⏳ après merge M19
 ```
 
-La priorité immédiate est désormais **M19 — mesurer, durcir et rendre exploitable MORPHEUS à l’échelle sans abandonner le déterminisme ni les frontières d’architecture**.
+La priorité immédiate est la **revue et l'intégration autorisée de M19**. M20 ne démarre pas avant ce merge.

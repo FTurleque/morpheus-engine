@@ -1,6 +1,6 @@
 # ADR-0087 — Opérabilité local-first et diagnostics sûrs par défaut
 
-Statut : **Proposée — M19**
+Statut : **Acceptée — M19**
 
 Date : 26 juillet 2026
 
@@ -8,7 +8,7 @@ Date : 26 juillet 2026
 
 MORPHEUS possède des diagnostics métier mais M19 exige des garanties d'exploitation : logs structurés, codes stables, compteurs/timings, distinction health/readiness et absence de fuite de secrets ou chemins sensibles. Cette observabilité ne doit pas introduire de télémétrie externe obligatoire.
 
-## Décision proposée
+## Décision
 
 1. Les événements opérationnels ont un code machine-readable stable, un niveau et des attributs canoniques.
 2. Le port `OperationalEventSink` appartient à l'application ; aucun backend réseau n'est imposé.
@@ -51,15 +51,14 @@ MORPHEUS operability != JARVIS orchestration
 - les attributs opérationnels doivent rester bornés et ne pas devenir un dump de contenu métier ;
 - ACL/POSIX sont dépendants des capacités du filesystem et doivent être testés de manière portable.
 
-## Preuve requise avant acceptation
+## Preuve d'acceptation
 
-ADR-0087 ne pourra devenir **Acceptée — M19** qu'après preuve du SHA final couvrant :
+Le SHA de code `dca27db969b426ad43941ccb8cee7e926efb931b` a passé séparément les gates Windows et Linux enregistrés dans `docs/validation/VALIDATION_M19.md`, avec preuve de :
 
-- redaction secrets/paths ;
-- logs structurés locaux ;
-- compteurs/timings ;
-- health/readiness distincts ;
-- timings sync/provider/external ;
-- ignored paths et liens non suivis ;
-- hardening d'écriture ;
-- gate Windows réel et preuve Linux séparée si disponible.
+- redaction secrets/chemins avant écriture et logs structurés locaux ;
+- compteurs et timings process-local à cardinalité bornée ;
+- health/readiness distincts, readiness sondant réellement le store local ;
+- timings sync/provider/composition/intégrations externes ;
+- chemins ignorés, liens non suivis et source root symbolique refusée ;
+- hardening owner-only des écritures et sidecars SQLite lorsque supporté ;
+- absence de télémétrie externe obligatoire.

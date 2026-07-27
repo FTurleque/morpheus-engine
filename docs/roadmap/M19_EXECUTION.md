@@ -1,6 +1,6 @@
 # M19 — Production Hardening, Scale & Operability
 
-Statut : **🚧 EN COURS — Issue #88**
+Statut : **✅ VALIDÉ TECHNIQUEMENT — Issue #88 / PR #89 — NON MERGÉ**
 
 Dernière mise à jour : 27 juillet 2026
 
@@ -13,7 +13,7 @@ Historique M19 : 67 commits propres à M19 transplantés sur cette base, équiva
 
 > **MORPHEUS reste-t-il déterministe, observable et exploitable sur des dépôts réalistes de grande taille, avec des limites et performances mesurées plutôt que supposées ?**
 
-Cette question reste la porte de sortie de M19.
+**Réponse : OUI**, sur le profil gelé `M19-LARGE-GATE-1`, avec preuves Windows et Linux réelles sur le SHA de code exact `dca27db969b426ad43941ccb8cee7e926efb931b`.
 
 ## 2. Méthode
 
@@ -80,9 +80,9 @@ SQLite 5-snapshot size          <= 512 MiB
 retention incremental growth    <= 128 MiB
 ```
 
-ADR-0085 : **Proposée — M19**.
+ADR-0085 : **Acceptée — M19**.
 
-## 5. M19-S1 — Performance budgets & deterministic fixtures 🚧
+## 5. M19-S1 — Performance budgets & deterministic fixtures ✅
 
 Contrats :
 
@@ -95,14 +95,14 @@ budgets immutable after optimization starts unless contract change is explicit
 Livrables :
 
 - [x] budgets figés ;
-- [x] ADR-0085 proposée ;
+- [x] ADR-0085 acceptée après preuve ;
 - [x] deterministic large fixture generator ;
 - [x] fixture manifest checksum contract ;
 - [x] benchmark harness ;
 - [x] M19 performance gate tests ;
-- [ ] mesures du gate final exact-head.
+- [x] mesures du gate final exact-head.
 
-## 6. M19-S2 — Scale sync/query ⏳
+## 6. M19-S2 — Scale sync/query ✅
 
 Inspecté avant implémentation :
 
@@ -127,9 +127,9 @@ trace traversal remains depth-bounded
 - [x] preserve deterministic semantics in scale gates ;
 - [x] query/store paths exercised at frozen scale ;
 - [x] size/growth measurement gates implemented ;
-- [ ] final measured results on the exact code SHA.
+- [x] final measured results on the exact code SHA.
 
-## 7. M19-S3 — Robustness / recovery / concurrency ⏳
+## 7. M19-S3 — Robustness / recovery / concurrency ✅
 
 Contrats obligatoires :
 
@@ -151,7 +151,7 @@ rebuild from sources -> recover authoritative published state
 - [x] migration/rebuild tests ;
 - [x] recovery wired in CLI, API and MCP composition roots.
 
-## 8. M19-S4 — Local-first observability ⏳
+## 8. M19-S4 — Local-first observability ✅
 
 Cible :
 
@@ -172,7 +172,7 @@ no mandatory external telemetry
 - [x] sync/provider/composition/external timing instrumentation ;
 - [x] bounded-cardinality and transport contract tests.
 
-## 9. M19-S5 — Local security ⏳
+## 9. M19-S5 — Local security ✅
 
 Contrats :
 
@@ -191,16 +191,16 @@ write permission hardening
 - [x] SQLite PERSIST journal owner-only, WAL/SHM absence and PRAGMA contract ;
 - [x] tests proving safe defaults.
 
-## 10. M19-S6 — Cross-platform reproducibility ⏳
+## 10. M19-S6 — Cross-platform reproducibility ✅
 
 - [x] Windows validator implemented ;
 - [x] Linux validator implemented ;
 - [x] platform/environment manifest in each validator ;
-- [ ] Windows validator proof ;
-- [ ] Linux validator proof if a usable Linux runtime exists ;
-- [ ] explicit `MISSING` state if Linux proof unavailable.
+- [x] Windows validator proof on `dca27db969b426ad43941ccb8cee7e926efb931b` ;
+- [x] Linux validator proof on the same SHA from a clean ext4 clone ;
+- [x] Windows and Linux environments recorded separately.
 
-## 11. M19-S7 — Final gate ⏳
+## 11. M19-S7 — Final gate ✅
 
 Expected files :
 
@@ -231,6 +231,25 @@ La source de vérité est le Maven Wrapper et l'exécution locale reproductible 
 
 PR becomes Ready only after the final gate is green on the exact code SHA. Post-gate commits, if any, must be documentary only and explicitly audited.
 
+Final proof:
+
+```text
+Code SHA                dca27db969b426ad43941ccb8cee7e926efb931b
+Windows                 PASS
+Linux ext4 / WSL2       PASS
+Tests                   449/449 PASS, 0 failure, 0 error, 0 skipped
+Architecture            178/178 PASS
+Reactor                 14/14 SUCCESS, BUILD SUCCESS
+Budgets                 PASS, frozen thresholds unchanged
+Packaging/smokes        PASS Windows + Linux
+Packaged startup p95    159.6 ms Windows / 290.6 ms Linux
+SQLite final size       251,360,832 B Windows / 251,687,960 B Linux
+SQLite growth           50,811,080 B Windows / 50,958,464 B Linux
+SQLite reopen p95       7 ms Windows / 2 ms Linux
+```
+
+Les résultats détaillés et la chronologie des tentatives sont enregistrés dans `docs/validation/VALIDATION_M19.md`. L'essai WSL initial sur le montage `9p` n'est pas compté comme preuve ; seul le gate complet ext4 au SHA exact est un PASS Linux.
+
 ## 12. Non-negotiable boundaries
 
 ```text
@@ -243,5 +262,7 @@ JARVIS   = sequencing + orchestration + action choice
 All M0→M18 identity, temporal, acceptance, constraint, lifecycle, idempotency and multi-provider invariants remain active.
 
 ## 13. Merge governance
+
+M19 est techniquement terminé. La PR #89 est destinée à devenir Ready après le contrôle final du diff, mais reste non mergée et l'issue #88 reste ouverte jusqu'à l'intégration.
 
 **No merge of M19 without explicit user authorization.**

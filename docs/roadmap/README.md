@@ -16,8 +16,8 @@ M15  ✅ intégré
 M16  ✅ intégré
 M17  ✅ intégré
 M18  ✅ validé / intégré — PR #86
-M19  ⏭ prochain jalon
-M20  ⏳ planifié
+M19  ✅ validé techniquement — PR #89 non mergée
+M20  ⏳ planifié, bloqué jusqu'au merge M19
 ```
 
 Référence M18 :
@@ -37,6 +37,7 @@ Les plans détaillés des jalons livrés restent disponibles comme historique d�
 - [`M16_EXECUTION.md`](M16_EXECUTION.md)
 - [`M17_EXECUTION.md`](M17_EXECUTION.md)
 - [`M18_EXECUTION.md`](M18_EXECUTION.md)
+- [`M19_EXECUTION.md`](M19_EXECUTION.md) — qualifié techniquement, non intégré
 
 ## Plans historiques C0→M18
 
@@ -46,7 +47,8 @@ Pour l’état actuel :
 
 ```text
 C0 → M18 = validés et intégrés
-M19      = prochain
+M19      = qualifié techniquement, PR #89 non mergée
+M20      = après merge M19
 ```
 
 Consulter [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
@@ -64,7 +66,7 @@ ROADMAP globale
     ↓
 POST_M14_EXECUTION
     ↓
-M19_EXECUTION — prochain jalon
+M19_EXECUTION — exécution techniquement terminée
     ↓
-VALIDATION_M19 lorsque le gate est atteint
+VALIDATION_M19 — preuves Windows + Linux exact-head
 ```
