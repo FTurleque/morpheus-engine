@@ -63,6 +63,18 @@ class ProviderPluginDiscoveryTest {
                 .anyMatch(d -> d.code().equals("PLUGIN_ACTIVATION_OR_PROBE_FAILED")));
     }
 
+    @Test
+    void duplicatePluginIdIsRejectedInsteadOfSelectingFirstJarSilently() throws Exception {
+        writeMetadataOnlyJar(directory.resolve("a-duplicate.jar"), metadata("duplicate-plugin", 1, "1.0.0"));
+        writeMetadataOnlyJar(directory.resolve("b-duplicate.jar"), metadata("duplicate-plugin", 1, "1.0.0"));
+
+        ProviderPluginProbeOutcome outcome = new ProviderPluginService()
+                .probe(directory, "duplicate-plugin", directory);
+
+        assertFalse(outcome.success());
+        assertTrue(outcome.diagnostics().stream().anyMatch(d -> d.code().equals("PLUGIN_ID_AMBIGUOUS")));
+    }
+
     private static Properties metadata(String pluginId, int sdkApiVersion, String minimumVersion) {
         Properties properties = new Properties();
         properties.setProperty("plugin.id", pluginId);
