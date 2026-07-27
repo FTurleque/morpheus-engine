@@ -40,7 +40,7 @@ class ProductionIntegrityContractTest {
         assertTrue(entries.size() >= 6, "M21 convergence manifest must cover the critical public capabilities");
 
         String manifest = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
-        assertTrue(manifest.contains("product.version\tREAD\tversion|get_product_info\tGET /api/v1/version"));
+        assertTrue(manifest.contains("product.version\tREAD\tversion\tget_product_info\tGET /api/v1/version"));
         assertTrue(manifest.contains("product.update-discovery\tREAD\tupdate-check --manifest\tcheck_product_update\tEXPLICITLY_NOT_EXPOSED"));
         assertTrue(manifest.contains("lifecycle.apply\tWRITE"));
 
