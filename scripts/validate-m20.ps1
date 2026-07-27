@@ -25,6 +25,7 @@ $script:ValidationTag = $null
 $script:TagCreated = $false
 $script:FullTestSummary = $null
 $script:ArchitectureTestSummary = $null
+$script:PowerShellExecutable = (Get-Process -Id $PID).Path
 
 function Write-Section([string]$Title) {
     Write-Host ''
@@ -73,6 +74,8 @@ function Invoke-LoggedStage {
     $script:CurrentStage = $Name
     $script:CurrentLog = Join-Path $logRoot $LogName
     Write-Section $Name
+    Write-Host ('Command: ' + $FilePath + ' ' + ($Arguments -join ' '))
+    Write-Host ('Log:     ' + $script:CurrentLog)
     $started = Get-Date
     $exitCode = Invoke-NativeProcessToLog -FilePath $FilePath -Arguments $Arguments -LogPath $script:CurrentLog
     if ($exitCode -ne 0) {
@@ -114,7 +117,7 @@ function Assert-InstallerContract {
     $iss = Join-Path $repo 'distribution\windows\MORPHEUS.iss'
     $text = Get-Content -LiteralPath $iss -Raw
     $required = @(
-        'DefaultDirName={localappdata}\\Programs\\MORPHEUS',
+        'DefaultDirName={localappdata}\Programs\MORPHEUS',
         'PrivilegesRequired=lowest',
         'Name: "addtopath"',
         'AppId={{4D0DC052-2FD6-49F5-88F4-E32C9B1EB67A}'
@@ -129,9 +132,8 @@ function Assert-InstallerContract {
 }
 
 function Invoke-Setup([string]$SetupPath, [string]$Target, [bool]$AddToPath) {
-    $tasks = if ($AddToPath) { 'addtopath' } else { '' }
-    $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$Target`"")
-    if ($AddToPath) { $arguments += "/TASKS=`"$tasks`"" }
+    $taskArgument = if ($AddToPath) { '/TASKS="addtopath"' } else { '/TASKS=""' }
+    $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$Target`"", $taskArgument)
     $process = Start-Process -FilePath $SetupPath -ArgumentList $arguments -Wait -PassThru
     if ($process.ExitCode -ne 0) { throw "Setup failed with exit code $($process.ExitCode)" }
 }
@@ -142,14 +144,18 @@ function Invoke-Uninstall([string]$Target) {
     $process = Start-Process -FilePath $uninstaller.FullName `
         -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
     if ($process.ExitCode -ne 0) { throw "Uninstall failed with exit code $($process.ExitCode)" }
-    Start-Sleep -Milliseconds 500
+    Start-Sleep -Milliseconds 750
+}
+
+function Normalize-PathEntry([string]$Value) {
+    return $Value.Trim().TrimEnd('\')
 }
 
 function UserPathContains([string]$Entry) {
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
     if ($null -eq $userPath) { return $false }
-    $normalized = $Entry.TrimEnd('\')
-    return @($userPath -split ';' | ForEach-Object { $_.Trim().TrimEnd('\') }) -contains $normalized
+    $target = Normalize-PathEntry $Entry
+    return @($userPath -split ';' | ForEach-Object { Normalize-PathEntry $_ }) -contains $target
 }
 
 function Invoke-InstalledNoJdkSmoke([string]$Launcher) {
@@ -161,27 +167,38 @@ function Invoke-InstalledNoJdkSmoke([string]$Launcher) {
         $env:Path = "$env:SystemRoot\System32;$env:SystemRoot"
         $env:LOCALAPPDATA = $validationLocalAppData
 
-        $versionOutput = (& $Launcher --json version 2>&1) -join "`n"
-        if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch '"version":"1\.0\.0"') {
-            throw "Installed no-JDK version smoke failed: $versionOutput"
-        }
-        $pathsOutput = (& $Launcher --json paths 2>&1) -join "`n"
-        if ($LASTEXITCODE -ne 0 -or $pathsOutput -notmatch [regex]::Escape((Join-Path $stateRoot 'data'))) {
-            throw "Installed PROD data-layout smoke failed: $pathsOutput"
-        }
-        if ($pathsOutput -notmatch [regex]::Escape((Join-Path $stateRoot 'config')) -or
-            $pathsOutput -notmatch [regex]::Escape((Join-Path $stateRoot 'logs'))) {
-            throw "Installed PROD config/log layout smoke failed: $pathsOutput"
+        $versionText = (& $Launcher --json version 2>&1) -join "`n"
+        if ($LASTEXITCODE -ne 0) { throw "Installed no-JDK version smoke failed: $versionText" }
+        $versionView = $versionText | ConvertFrom-Json
+        if ([string]$versionView.version -ne $Version) {
+            throw "Installed version is $($versionView.version); expected $Version"
         }
 
-        $minos = (& $Launcher --json minos-status 2>&1) -join "`n"
-        if ($LASTEXITCODE -ne 0 -or $minos -notmatch '"state":"DISABLED"') {
-            throw "Installed MINOS opt-in smoke failed: $minos"
+        $pathsText = (& $Launcher --json paths 2>&1) -join "`n"
+        if ($LASTEXITCODE -ne 0) { throw "Installed paths smoke failed: $pathsText" }
+        $paths = $pathsText | ConvertFrom-Json
+        $expectedData = (Join-Path $stateRoot 'data')
+        $expectedConfig = (Join-Path $stateRoot 'config')
+        $expectedLogs = (Join-Path $stateRoot 'logs')
+        if ([IO.Path]::GetFullPath([string]$paths.dataDirectory) -ne [IO.Path]::GetFullPath($expectedData)) {
+            throw "Unexpected PROD data path: $($paths.dataDirectory) expected=$expectedData"
         }
-        $nexus = (& $Launcher --json nexus-status 2>&1) -join "`n"
-        if ($LASTEXITCODE -ne 0 -or $nexus -notmatch '"state":"DISABLED"') {
-            throw "Installed NEXUS opt-in smoke failed: $nexus"
+        if ([IO.Path]::GetFullPath([string]$paths.configDirectory) -ne [IO.Path]::GetFullPath($expectedConfig)) {
+            throw "Unexpected PROD config path: $($paths.configDirectory) expected=$expectedConfig"
         }
+        if ([IO.Path]::GetFullPath([string]$paths.logsDirectory) -ne [IO.Path]::GetFullPath($expectedLogs)) {
+            throw "Unexpected PROD logs path: $($paths.logsDirectory) expected=$expectedLogs"
+        }
+
+        $minosText = (& $Launcher --json minos-status 2>&1) -join "`n"
+        if ($LASTEXITCODE -ne 0) { throw "Installed MINOS status failed: $minosText" }
+        $minos = $minosText | ConvertFrom-Json
+        if ([string]$minos.state -ne 'DISABLED') { throw "MINOS must be opt-in: $minosText" }
+
+        $nexusText = (& $Launcher --json nexus-status 2>&1) -join "`n"
+        if ($LASTEXITCODE -ne 0) { throw "Installed NEXUS status failed: $nexusText" }
+        $nexus = $nexusText | ConvertFrom-Json
+        if ([string]$nexus.state -ne 'DISABLED') { throw "NEXUS must be opt-in: $nexusText" }
 
         $projects = (& $Launcher --json projects list 2>&1) -join "`n"
         if ($LASTEXITCODE -ne 0) { throw "Installed SQLite creation smoke failed: $projects" }
@@ -209,14 +226,15 @@ function Test-InstalledApi([string]$Launcher) {
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
     try {
         for ($attempt = 1; $attempt -le 60; $attempt++) {
-            if ($process.HasExited) { throw 'Installed API exited before becoming ready' }
+            if ($process.HasExited) {
+                $diagnostic = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { '' }
+                throw "Installed API exited before becoming ready: $diagnostic"
+            }
             try {
                 $health = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/v1/health" -UseBasicParsing -TimeoutSec 2
                 $ready = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/v1/readiness" -UseBasicParsing -TimeoutSec 2
                 $metrics = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/v1/metrics" -UseBasicParsing -TimeoutSec 2
-                if ($health.StatusCode -eq 200 -and $ready.StatusCode -eq 200 -and $metrics.StatusCode -eq 200) {
-                    return
-                }
+                if ($health.StatusCode -eq 200 -and $ready.StatusCode -eq 200 -and $metrics.StatusCode -eq 200) { return }
             } catch { Start-Sleep -Milliseconds 100 }
         }
         throw 'Installed API health/readiness/metrics timed out'
@@ -228,16 +246,15 @@ function Test-InstalledApi([string]$Launcher) {
 
 function Write-FailureSummary([System.Exception]$Failure) {
     $path = Join-Path $outputRoot 'failure-summary.txt'
-    $lines = @(
-        'M20 VALIDATION FAILURE',
-        ('Timestamp: ' + (Get-Date).ToString('o')),
-        ('SHA:       ' + $script:ValidationSha),
-        ('Stage:     ' + $script:CurrentStage),
-        ('Error:     ' + $Failure.Message)
-    )
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add('M20 VALIDATION FAILURE')
+    $lines.Add(('Timestamp: ' + (Get-Date).ToString('o')))
+    if ($script:ValidationSha) { $lines.Add(('SHA:       ' + $script:ValidationSha)) }
+    if ($script:CurrentStage) { $lines.Add(('Stage:     ' + $script:CurrentStage)) }
+    $lines.Add(('Error:     ' + $Failure.Message))
     if ($script:CurrentLog -and (Test-Path -LiteralPath $script:CurrentLog)) {
-        $lines += 'Relevant log tail:'
-        $lines += @(Get-Content -LiteralPath $script:CurrentLog -Tail 100)
+        $lines.Add('Relevant log tail:')
+        foreach ($line in (Get-Content -LiteralPath $script:CurrentLog -Tail 100)) { $lines.Add($line) }
     }
     $lines | Set-Content -LiteralPath $path -Encoding utf8
     $lines | ForEach-Object { Write-Host $_ }
@@ -254,9 +271,9 @@ function Write-Summary([bool]$Success) {
     $lines.Add(('Result:    ' + $(if ($Success) { 'PASS' } else { 'FAIL' })))
     $lines.Add('Linux proof: NOT EXECUTED BY THIS WINDOWS VALIDATOR')
     if ($script:FullTestSummary) {
-        $lines.Add(('Full reactor tests: {0}; failures: {1}; errors: {2}; skipped: {3}' -f
-            $script:FullTestSummary.Tests, $script:FullTestSummary.Failures,
-            $script:FullTestSummary.Errors, $script:FullTestSummary.Skipped))
+        $lines.Add(('Full reactor tests: {0}; failures: {1}; errors: {2}; skipped: {3}; suites: {4}' -f
+            $script:FullTestSummary.Tests, $script:FullTestSummary.Failures, $script:FullTestSummary.Errors,
+            $script:FullTestSummary.Skipped, $script:FullTestSummary.Suites))
     }
     if ($script:ArchitectureTestSummary) {
         $lines.Add(('Architecture tests: {0}; failures: {1}; errors: {2}; skipped: {3}' -f
@@ -300,8 +317,7 @@ try {
 
     $shortSha = $script:ValidationSha.Substring(0, 12)
     $script:ValidationTag = "m20-validation-$shortSha"
-    $existingTag = (git tag --list $script:ValidationTag).Trim()
-    if ($existingTag) { git tag -d $script:ValidationTag | Out-Null }
+    if ((git tag --list $script:ValidationTag).Trim()) { git tag -d $script:ValidationTag | Out-Null }
     git tag $script:ValidationTag $script:ValidationSha
     if ($LASTEXITCODE -ne 0) { throw 'Unable to create local validation tag' }
     $script:TagCreated = $true
@@ -328,7 +344,7 @@ try {
     Remove-Item -LiteralPath $installRoot -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $validationLocalAppData -Recurse -Force -ErrorAction SilentlyContinue
 
-    Write-Section 'Windows install + no-JDK smoke'
+    Write-Section 'Windows install + PATH + no-JDK + API'
     Invoke-Setup -SetupPath $setup -Target $installRoot -AddToPath $true
     $launcher = Join-Path $installRoot 'morpheus.exe'
     if (-not (Test-Path -LiteralPath $launcher)) { throw "Installed launcher missing: $launcher" }
@@ -365,7 +381,6 @@ try {
         throw 'Reinstall did not preserve existing data/config'
     }
     $script:Results['Reinstall reuses persistent state'] = 'PASS'
-
     Invoke-Uninstall -Target $installRoot
 
     Write-Section 'Exact-head stability'
