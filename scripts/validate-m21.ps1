@@ -103,7 +103,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "M21 diff base: $BaseRef"
 Invoke-Native 'git diff --check' { git diff --check "$BaseRef...HEAD" }
-Invoke-Native 'Maven clean verify' { & .\mvnw.cmd '-B' '-ntp' '-Dstyle.color=never' 'clean' 'verify' }
+Invoke-Native 'Maven clean verify' { & .\mvnw.cmd 'clean' 'verify' }
 
 $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) {
