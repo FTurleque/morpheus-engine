@@ -75,6 +75,9 @@ class ProductReleaseContractTest {
         String linuxRelease = Files.readString(root.resolve("distribution/build-release.sh"));
         String installerBuilder = Files.readString(root.resolve("distribution/build-installer.ps1"));
         String bootstrap = Files.readString(root.resolve("distribution/ensure-inno-setup.ps1"));
+        String windowsPortable = Files.readString(root.resolve("distribution/build-portable.ps1"));
+        String linuxPortable = Files.readString(root.resolve("distribution/build-portable.sh"));
+        String cliPom = Files.readString(root.resolve("morpheus-cli/pom.xml"));
 
         assertTrue(installer.contains("DefaultDirName={localappdata}\\Programs\\MORPHEUS"));
         assertTrue(installer.contains("PrivilegesRequired=lowest"));
@@ -99,6 +102,10 @@ class ProductReleaseContractTest {
         assertTrue(bootstrap.contains("Pyrsys B\\.V\\."));
         assertTrue(bootstrap.contains("/PORTABLE=1"));
         assertTrue(bootstrap.contains("/CURRENTUSER"));
+
+        assertTrue(cliPom.contains("<artifactId>slf4j-nop</artifactId>"));
+        assertTrue(windowsPortable.contains("--enable-native-access=ALL-UNNAMED"));
+        assertTrue(linuxPortable.contains("--enable-native-access=ALL-UNNAMED"));
     }
 
     private Path repoRoot() {
