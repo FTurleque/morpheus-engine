@@ -19,20 +19,23 @@ function Resolve-Iscc {
         return (Resolve-Path -LiteralPath $env:MORPHEUS_ISCC).Path
     }
 
-    $candidates = @(
-        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
-        (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
-    ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+    $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+    $candidates = foreach ($root in $roots) {
+        foreach ($major in 7, 6) {
+            $candidate = Join-Path $root "Inno Setup $major\ISCC.exe"
+            if (Test-Path -LiteralPath $candidate) { $candidate }
+        }
+    }
 
-    if ($candidates.Count -gt 0) {
-        return (Resolve-Path -LiteralPath $candidates[0]).Path
+    if (@($candidates).Count -gt 0) {
+        return (Resolve-Path -LiteralPath @($candidates)[0]).Path
     }
 
     $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
 
     throw @'
-Inno Setup 6 compiler (ISCC.exe) was not found.
+Inno Setup compiler (ISCC.exe, version 7 or 6) was not found.
 Install the build dependency with:
   winget install --id JRSoftware.InnoSetup -e
 or set MORPHEUS_ISCC to the full path of ISCC.exe.
