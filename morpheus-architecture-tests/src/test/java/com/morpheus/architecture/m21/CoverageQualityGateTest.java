@@ -3,6 +3,7 @@ package com.morpheus.architecture.m21;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+import org.xml.sax.InputSource;
 
 class CoverageQualityGateTest {
     private static final double MIN_LINE_RATIO = 0.25d;
@@ -62,11 +64,13 @@ class CoverageQualityGateTest {
 
     private org.w3c.dom.Document parse(Path report) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         factory.setExpandEntityReferences(false);
-        return factory.newDocumentBuilder().parse(report.toFile());
+        var builder = factory.newDocumentBuilder();
+        builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+        return builder.parse(report.toFile());
     }
 
     private List<Path> jacocoReports(Path root) throws IOException {
