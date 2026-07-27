@@ -15,6 +15,9 @@
     <modules>
         <module>morpheus-domain</module>
         <module>morpheus-application</module>
+        <module>morpheus-provider-sdk</module>
+        <module>morpheus-provider-testkit</module>
+        <module>morpheus-provider-reference</module>
         <module>morpheus-provider-openspec</module>
         <module>morpheus-provider-markdown</module>
         <module>morpheus-provider-synthetic</module>
@@ -172,8 +175,7 @@
                         <phase>verify</phase>
                         <goals>
                             <goal>report</goal>
-                        </goals>
-                    </execution>
+                        </execution>
                 </executions>
             </plugin>
 
