@@ -104,6 +104,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0086](0086-failure-atomic-snapshot-recovery-and-bounded-sqlite-concurrency.md) | Recovery failure-atomic et concurrence SQLite bornée | **Acceptée — M19** |
 | [ADR-0087](0087-local-first-operability-and-secure-diagnostic-defaults.md) | Opérabilité local-first et diagnostics sûrs par défaut | **Acceptée — M19** |
 | [ADR-0088](0088-product-release-installation-and-persistent-data-separation.md) | Release produit, installation et séparation programme/données persistantes | **Acceptée — M20** |
+| [ADR-0089](0089-production-integrity-surface-convergence.md) | Intégrité de production, qualité/supply-chain et convergence des surfaces publiques | **Acceptée — M21** |
 
 # Preuves par jalon
 
@@ -127,31 +128,29 @@ M17 410/410 PASS Windows | Architecture 167/167
 M18 418/418 PASS Windows | Architecture 170/170
 M19 449/449 PASS Windows + Linux | Architecture 178/178
 M20 454/454 PASS Windows + Linux | Architecture 182/182
+M21 473 PASS Windows + Linux | Architecture 187 | JaCoCo floors PASS | Portable PASS
 ```
 
-## Baseline M20
+## Baseline M21 qualifiée
 
-ADR-0088 fige le contrat produit 1.0 : installation Windows per-user, séparation programme/données, upgrade/uninstall conservateurs, runtime embarqué, archives portables Windows/Linux, SHA-256 et release liée à un tag exact.
+ADR-0089 fige la baseline de production post-1.0 : CI durable, couverture mesurée, manifeste public de surfaces, version produit convergente, CycloneDX/provenance et update discovery explicite sans auto-mutation.
 
 ```text
-Code qualifié   9199ed43c4bd8596a97db055eeff17ae31399eb8
-Merge PR #93    75d0b82ab0c960692db2fee1ced146fa6547fd4a
-Version         1.0.0
-Windows         PASS
-Linux ext4      PASS via WSL2
-TOTAL           454/454 PASS
-Architecture    182/182 PASS
-Reactor         14/14 SUCCESS
-Setup           PASS
-Portable        PASS Windows + Linux
-No-user-JDK     PASS Windows + Linux
-Upgrade         PASS
-Uninstall       PASS
-Checksums       PASS Windows + Linux
+Code qualifié   239d99657fbf193761767f382489dd637e642fe9
+Version          1.0.0
+Windows          PASS
+Linux WSL2       PASS
+Tests            473 PASS
+Architecture     187 PASS
+Reactor          14/14 SUCCESS Windows + Linux
+Coverage         PASS Windows + Linux
+SBOM/provenance  PASS Windows + Linux
+Portable         PASS Windows + Linux
+Executable delta NONE Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
-Plan : [`../roadmap/M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md).
+Validation : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).  
+Plan : [`../roadmap/M21_EXECUTION.md`](../roadmap/M21_EXECUTION.md).  
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
 # Contraintes actives principales
@@ -173,6 +172,9 @@ ALLOWED != applied
 UNKNOWN != BLOCKED
 precedence != provenance erasure
 conflict != silent last-write-wins
+surface parity != same transport shape
+update discovery != automatic update
+checksum != signature
 ```
 
 # Build
@@ -186,7 +188,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate intégré : **M20**.
+Dernier gate techniquement qualifié : **M21**.
 
 # Principe de validation
 
