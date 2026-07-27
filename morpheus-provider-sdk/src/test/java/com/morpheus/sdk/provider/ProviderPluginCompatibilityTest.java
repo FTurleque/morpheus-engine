@@ -39,6 +39,16 @@ class ProviderPluginCompatibilityTest {
         assertTrue(compatibility.evaluate(metadata("1.0.0-rc.1", Optional.of("1.0.0")), "1.0.0").compatible());
     }
 
+    @Test
+    void numericPrereleaseIdentifiersUseNumericOrdering() {
+        assertTrue(compatibility.evaluate(
+                metadata("1.0.0-rc.2", Optional.of("1.0.0-rc.10")),
+                "1.0.0-rc.10").compatible());
+        assertFalse(compatibility.evaluate(
+                metadata("1.0.0-rc.10", Optional.empty()),
+                "1.0.0-rc.2").compatible());
+    }
+
     private static ProviderPluginMetadata metadata(String minimum, Optional<String> maximum) {
         return new ProviderPluginMetadata(
                 "compatibility-test",
