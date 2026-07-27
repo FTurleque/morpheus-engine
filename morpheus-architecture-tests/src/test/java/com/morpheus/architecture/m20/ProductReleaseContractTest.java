@@ -68,11 +68,13 @@ class ProductReleaseContractTest {
     }
 
     @Test
-    void releaseScriptsEnforcePerUserInstallExactTagAndChecksums() throws IOException {
+    void releaseScriptsEnforcePerUserInstallExactTagChecksumsAndVerifiedToolBootstrap() throws IOException {
         Path root = repoRoot();
         String installer = Files.readString(root.resolve("distribution/windows/MORPHEUS.iss"));
         String windowsRelease = Files.readString(root.resolve("distribution/build-release.ps1"));
         String linuxRelease = Files.readString(root.resolve("distribution/build-release.sh"));
+        String installerBuilder = Files.readString(root.resolve("distribution/build-installer.ps1"));
+        String bootstrap = Files.readString(root.resolve("distribution/ensure-inno-setup.ps1"));
 
         assertTrue(installer.contains("DefaultDirName={localappdata}\\Programs\\MORPHEUS"));
         assertTrue(installer.contains("PrivilegesRequired=lowest"));
@@ -88,6 +90,14 @@ class ProductReleaseContractTest {
         assertTrue(linuxRelease.contains("points to $TAG_SHA, but HEAD is $HEAD_SHA"));
         assertTrue(linuxRelease.contains("sha256sum -c"));
         assertTrue(linuxRelease.contains("userJdkRequired"));
+
+        assertTrue(installerBuilder.contains("ensure-inno-setup.ps1"));
+        assertTrue(bootstrap.contains("innosetup-7.0.2-x64.exe"));
+        assertTrue(bootstrap.contains("releases/download/is-7_0_2"));
+        assertTrue(bootstrap.contains("Get-AuthenticodeSignature"));
+        assertTrue(bootstrap.contains("Pyrsys B\\.V\\."));
+        assertTrue(bootstrap.contains("/PORTABLE=1"));
+        assertTrue(bootstrap.contains("/CURRENTUSER"));
     }
 
     private Path repoRoot() {
