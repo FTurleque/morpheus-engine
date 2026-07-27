@@ -13,7 +13,7 @@ Baseline M20 : `83ad1dfc264a4797130ebd61353ce0e78552d88c` (`main`, MORPHEUS 1.0.
 Dernier head exécutable candidat avant consolidation documentaire :
 
 ```text
-2fb5dffd639e14ac5bce3779a58880a408080c75
+a7508fbfc22f0a0b65b1e3a9095769e7d410e340
 ```
 
 ## Verdict
@@ -46,12 +46,14 @@ M21 **ne peut pas être déclaré terminé ni vert** sur cette preuve.
 - CI générique `.github/workflows/ci.yml` ;
 - matrice `windows-latest` / `ubuntu-latest`, Java 21 ;
 - validateurs exact-head uniques Windows/Linux ;
-- JaCoCo reactor + floor aggregate 25% lignes / 20% branches ;
+- JaCoCo 0.8.15 reactor + floor aggregate 25% lignes / 20% branches ;
+- parser de rapports compatible avec le DOCTYPE JaCoCo tout en bloquant les DTD externes ;
 - résumé machine `m21-coverage-summary.txt` ;
 - `maven-dependency-plugin:analyze-only` en diagnostic non bloquant ;
 - `project.build.outputTimestamp` ;
 - manifests JAR versionnés ;
-- versions de plugins structurants centralisées.
+- versions de plugins structurants centralisées ;
+- `git diff --check` porte sur le delta complet `base...HEAD`, pas seulement sur le worktree courant.
 
 ### Convergence des surfaces
 
@@ -78,7 +80,9 @@ M21 **ne peut pas être déclaré terminé ni vert** sur cette preuve.
 - manifeste explicite : `version`, `channel`, `artifactUri`, `sha256` ;
 - `file:`, `http:`, `https:` ;
 - pas de redirection HTTP implicite ;
-- pas d’I/O lors de la construction du service ;
+- manifeste plafonné à 64 Kio ;
+- comparaison version/prerelease et build metadata testée ;
+- pas d’I/O réseau implicite au démarrage ;
 - invocation explicite CLI/MCP seulement ;
 - aucun download/install/replace ;
 - aucun auto-update ;
@@ -101,7 +105,7 @@ Linux :
 Chaque gate doit exécuter réellement :
 
 ```text
-git diff --check
+git diff --check base...HEAD
 full Maven clean verify
 Surefire total >= 454
 architecture >= 182
@@ -121,7 +125,7 @@ tracked workspace unchanged
 
 Plusieurs runs M21 ont été déclenchés pendant l’implémentation. Le symptôme est stable : les jobs de matrice sont créés puis terminent `failure` **avant tout step**. Le connecteur GitHub retourne `steps: None` et aucune URL de logs de job.
 
-Runs observés :
+Runs observés, entre autres :
 
 ```text
 30296855276  failure
@@ -129,22 +133,42 @@ Runs observés :
 30297510547  failure
 30297658567  failure
 30297801921  failure
+30298020147  failure + rerun failure before steps
+30298106004  failure
+30298669189  failure
 ```
 
-Dernier run observé sur le candidat `2fb5dffd639e14ac5bce3779a58880a408080c75` :
+Dernier run observé sur le candidat exécutable `a7508fbfc22f0a0b65b1e3a9095769e7d410e340` :
 
 ```text
-run 30297801921
+run 30298669189
 exact-head (windows-latest)  failure | steps=None | logs_url=None
 exact-head (ubuntu-latest)   failure | steps=None | logs_url=None
 ```
 
-Des essais ont déjà éliminé deux causes de workflow simples :
+Des essais ont déjà éliminé plusieurs causes de workflow simples :
 
 - retour aux actions `checkout/setup-java/upload-artifact` v4, cohérentes avec les workflows historiques du dépôt ;
-- checkout explicite de `${{ github.event.pull_request.head.sha || github.sha }}` au lieu du merge-ref de PR.
+- checkout explicite de `${{ github.event.pull_request.head.sha || github.sha }}` au lieu du merge-ref de PR ;
+- relance manuelle des jobs échoués.
 
 Le résultat reste identique. L’incident est donc enregistré comme **runner startup / infrastructure unavailable**. Aucun message Maven, test, JaCoCo ou packaging n’a été produit par ces jobs.
+
+## Audit statique complémentaire avant gel
+
+L’audit M21 a identifié et corrigé avant le gel documentaire :
+
+```text
+URI canonical JSON support         FIXED
+java.net.http jpackage module      FIXED
+JaCoCo external DTD parser issue   FIXED
+branch-wide git diff --check       FIXED
+update manifest size bound         FIXED (64 KiB)
+prerelease ordering                FIXED / TESTED IN SOURCE
+JaCoCo stable version              0.8.15
+```
+
+Ces corrections réduisent les risques évidents, mais **un audit statique ne remplace pas une compilation ni un gate exact-head**.
 
 ## Condition de déblocage
 
@@ -170,6 +194,7 @@ facts != inference
 workflow exists != workflow passed
 job created != job executed
 configured gate != successful gate
+static audit != compilation proof
 checksum != signature
 update discovery != automatic update
 ```
