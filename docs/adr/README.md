@@ -116,134 +116,66 @@ M6  261/261 PASS
 M7  282/282 PASS | Architecture 139/139
 M8  289/289 PASS | Architecture 146/146
 M9  298/298 PASS Windows + Linux | Architecture 149/149
-M10 307/307 PASS Windows | Architecture 149/149 | MCP STDIO + packaging
-M11 314/314 PASS Windows | Architecture 150/150 | API health packaging
-M12 331/331 PASS Windows | Architecture 153/153 | MINOS optional packaging
-M13 346/346 PASS Windows | Architecture 154/154 | MINOS/NEXUS optional packaging
-M14 357/357 PASS Windows | Architecture 160/160 | JARVIS orchestration packaging | JARVIS 536 tests BUILD SUCCESS
-M15 371/371 PASS Windows | Architecture 157/157 | acceptance CLI/MCP/HTTP | packaging + smokes PASS
-M16 393/393 PASS Windows | Architecture 161/161 | constraint policy CLI/MCP/HTTP | packaging + smokes PASS
-M17 410/410 PASS Windows | Architecture 167/167 | controlled lifecycle write CLI/MCP/HTTP | packaging + smokes PASS
-M18 418/418 PASS Windows | Architecture 170/170 | multi-provider composition CLI/MCP/HTTP | packaging + smokes PASS
-M19 449/449 PASS Windows + Linux | Architecture 178/178 | 14/14 modules | budgets + packaging + smokes
-M20 454/454 PASS Windows + Linux | Architecture 182/182 | 14/14 modules | setup + portable + no-JDK + upgrade/uninstall
+M10 307/307 PASS Windows | Architecture 149/149
+M11 314/314 PASS Windows | Architecture 150/150
+M12 331/331 PASS Windows | Architecture 153/153
+M13 346/346 PASS Windows | Architecture 154/154
+M14 357/357 PASS Windows | Architecture 160/160 | JARVIS 536 tests
+M15 371/371 PASS Windows | Architecture 157/157
+M16 393/393 PASS Windows | Architecture 161/161
+M17 410/410 PASS Windows | Architecture 167/167
+M18 418/418 PASS Windows | Architecture 170/170
+M19 449/449 PASS Windows + Linux | Architecture 178/178
+M20 454/454 PASS Windows + Linux | Architecture 182/182
 ```
 
-## M15
+## Baseline M20
 
-ADR-0081 porte le modèle acceptance/verification/evidence, sa persistance, sa traçabilité et ses surfaces.  
-Validation : [`../validation/VALIDATION_M15.md`](../validation/VALIDATION_M15.md).
-
-## M16
-
-ADR-0082 porte la sémantique canonique des contraintes, l'évaluation déterministe, la persistance et la politique de blocage.  
-Validation : [`../validation/VALIDATION_M16.md`](../validation/VALIDATION_M16.md).
-
-## M17
-
-ADR-0083 porte la mutation lifecycle contrôlée : `WRITE_CHANGE`, confirmation, CAS, idempotency, audit, Memory/SQLite V011 et surfaces CLI/MCP/HTTP.  
-Validation : [`../validation/VALIDATION_M17.md`](../validation/VALIDATION_M17.md).
-
-## M18
-
-| Incrément | ADR | Preuve |
-|---|---|---|
-| composition provider-neutral | ADR-0084 | `ProviderContribution`, `MultiProviderCompositionService`, conflits explicites |
-| deuxième provider réel | ADR-0084 | OpenSpec + Structured Markdown dans le même projet |
-| provenance / priorité / conflits | ADR-0084 | candidats et provenance conservés, pas de last-write-wins silencieux |
-| persistance | ADR-0084 | Memory + SQLite V012, reopen exact |
-| surfaces | ADR-0084 | CLI `composition *`, MCP `get_composition_status` / `list_composition_conflicts`, HTTP composition |
-| gate final | ADR-0084 | `418/418`, Architecture `170/170`, packaging + smokes PASS |
-
-Validation : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).  
-Plan : [`../roadmap/M18_EXECUTION.md`](../roadmap/M18_EXECUTION.md).  
-Code validé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
-Merge PR #86 : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
-
-## M20
-
-ADR-0088 fige le contrat produit 1.0 : installation Windows per-user, séparation programme/données, upgrade/uninstall conservateurs, runtime embarqué, archives portables Windows/Linux, SHA-256 obligatoires et release liée à un tag exact.
+ADR-0088 fige le contrat produit 1.0 : installation Windows per-user, séparation programme/données, upgrade/uninstall conservateurs, runtime embarqué, archives portables Windows/Linux, SHA-256 et release liée à un tag exact.
 
 ```text
-Code SHA      9199ed43c4bd8596a97db055eeff17ae31399eb8
-Windows       PASS
-Linux ext4    PASS via WSL2
-TOTAL         454/454 PASS
-Architecture  182/182 PASS
-Reactor       14/14 SUCCESS
-Setup         PASS
-Portable      PASS Windows + Linux
-No-user-JDK   PASS Windows + Linux
-Upgrade       PASS
-Uninstall     PASS
-Checksums     PASS Windows + Linux
+Code qualifié   9199ed43c4bd8596a97db055eeff17ae31399eb8
+Merge PR #93    75d0b82ab0c960692db2fee1ced146fa6547fd4a
+Version         1.0.0
+Windows         PASS
+Linux ext4      PASS via WSL2
+TOTAL           454/454 PASS
+Architecture    182/182 PASS
+Reactor         14/14 SUCCESS
+Setup           PASS
+Portable        PASS Windows + Linux
+No-user-JDK     PASS Windows + Linux
+Upgrade         PASS
+Uninstall       PASS
+Checksums       PASS Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md).  
+Validation : [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
 Plan : [`../roadmap/M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md).
+Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
 # Contraintes actives principales
-
-## Architecture
 
 ```text
 domain/application -X-> provider/store/cli/mcp/api/integration
 API -X-> CLI/MCP/integration
-MINOS integration -X-> CLI/MCP/API/store/com.minos.*
-NEXUS integration -X-> CLI/MCP/API/store/com.nexus.*
+MINOS integration -X-> com.minos.*
+NEXUS integration -X-> com.nexus.*
 MORPHEUS -X-> com.jarvis.*
-JARVIS cross-repo -X-> com.morpheus.*
 provider-specific types -X-> domain/application contracts
-CLI = composition root
-business rules = application/domain
-```
-
-## Identité / temporalité / composition
-
-```text
-DomainIdentity != EntityVersionId
+DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
 SpecificationVersion != KnowledgeSnapshot
-DomainIdentity != SourceLocator != ExternalReference
-CURRENT / PROPOSED / HISTORICAL explicites
 PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
-live external observation != persisted snapshot mutation
-NEXUS ContextBundle != KnowledgeSnapshot persistence
-lifecycle unavailable != lifecycle inferred
-transition evaluation != lifecycle mutation
-published snapshot != operational lifecycle state
-stale revision != overwrite
-provider identifier != DomainIdentity
-source path != identity
-precedence != provenance erasure
-conflict != silent last-write-wins
-ambiguous continuity must be surfaced
-```
-
-## Qualité / analyse / mutation
-
-```text
-QualityFinding = dérivé, non persisté
-DETERMINISTIC != HEURISTIC
-Scenario != AcceptanceCriterion
-AcceptanceCriterion != Test
-Test existence != VERIFIED
-Evidence != assertion
-UNKNOWN != FAILED
-absence de lien != lien inventé
-UNKNOWN != BLOCKED
-warning != blocker
-severity != blocking policy
 READ_CHANGES != WRITE_CHANGE
 ALLOWED != applied
-idempotent retry != duplicate mutation/audit
-code impact analysis = MINOS
-technical context ranking/compression = NEXUS
-orchestration sequencing = JARVIS
+UNKNOWN != BLOCKED
+precedence != provenance erasure
+conflict != silent last-write-wins
 ```
 
-## Build
+# Build
 
 Gate développeur :
 
@@ -254,16 +186,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate **validé techniquement** : M20, PR #93 non mergée.
-
-```text
-Code SHA      9199ed43c4bd8596a97db055eeff17ae31399eb8
-TOTAL         454/454 PASS Windows + Linux
-Architecture  182/182 PASS Windows + Linux
-Reactor       14/14 SUCCESS
-Packaging     PASS Windows + Linux
-Installation  PASS Windows
-```
+Dernier gate intégré : **M20**.
 
 # Principe de validation
 
@@ -272,10 +195,8 @@ Installation  PASS Windows
 2. implémenter le plus petit vertical slice
 3. prouver le comportement par tests reproductibles
 4. accepter l'ADR seulement après la preuve
-5. exécuter le gate Maven complet
+5. exécuter le gate complet
 6. mettre à jour roadmap + issue après validation
 7. fusionner uniquement après autorisation explicite
-8. réconcilier les roadmaps/index après merge
+8. réconcilier roadmaps/index après merge
 ```
-
-M20 est techniquement qualifié ; la PR #93 peut être Ready après contrôle du delta documentaire post-gate. Son merge reste soumis à l'autorisation explicite du propriétaire.
