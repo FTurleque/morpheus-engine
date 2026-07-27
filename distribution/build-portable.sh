@@ -89,6 +89,7 @@ printf '%s\n' "Creating self-contained Linux app-image with embedded runtime + j
   --main-jar morpheus.jar \
   --main-class com.morpheus.cli.MorpheusMain \
   --add-modules jdk.httpserver,java.sql \
+  --java-options "--enable-native-access=ALL-UNNAMED" \
   --dest "$IMAGE_ROOT"
 
 LAUNCHER="$IMAGE_ROOT/morpheus/bin/morpheus"
