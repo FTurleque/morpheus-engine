@@ -37,6 +37,9 @@ public final class MorpheusMain {
             PrintStream err,
             Map<String, String> environment,
             Properties properties) {
+        if (MorpheusProviderPluginCli.handles(args)) {
+            return new MorpheusProviderPluginCli().run(args, out, err);
+        }
         if (MorpheusProductCli.handles(args)) {
             return new MorpheusProductCli().run(args, out, err);
         }
@@ -71,6 +74,11 @@ public final class MorpheusMain {
             out.println("API:");
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]");
             out.println("  Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println();
+            out.println("Provider plugins (M22, explicit only):");
+            out.println("  morpheus [--json] provider-plugins discover --directory PATH");
+            out.println("  morpheus [--json] provider-plugins probe --directory PATH --plugin ID --workspace PATH");
+            out.println("  Discovery reads JAR metadata only; probe performs explicit compatible-plugin activation.");
             out.println();
             out.println("Product integrity (M21):");
             out.println("  morpheus [--json] version");
