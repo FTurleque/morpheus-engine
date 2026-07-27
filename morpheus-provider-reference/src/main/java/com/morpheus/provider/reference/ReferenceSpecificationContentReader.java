@@ -83,7 +83,7 @@ public final class ReferenceSpecificationContentReader implements SpecificationC
                 List.of());
 
         List<ReadCategoryReport> reports = request.requestedCategories().stream()
-                .sorted(Comparator.comparingInt(Enum::ordinal))
+                .sorted(Comparator.comparingInt(ReadCategory::ordinal))
                 .map(category -> report(category, present))
                 .toList();
 
