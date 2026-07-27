@@ -2,8 +2,8 @@
 
 Statut : **S0→S8 IMPLÉMENTÉS — S9 qualification locale exact-head à exécuter — ADR-0090 proposée — PR #101 temporairement fermée pour respecter le gel CI avant août**
 
-Issue : #100  
-PR : #101 — temporairement fermée, branche active  
+Issue : #100
+PR : #101 — temporairement fermée, branche active
 Branche : `m22/provider-sdk-plugin-platform`
 
 Baseline : `main@b26833701b028ea3d09388ed87188fb1945b559d` après merge M21 `2fdce6601a07628c315fe03932750cd8ece3d777`.
