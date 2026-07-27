@@ -32,10 +32,10 @@ public final class ProviderPluginService {
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         String requestedPluginId = requireText(pluginId, "pluginId");
         ProviderPluginDiscoveryResult result = discovery.discover(pluginDirectory);
-        Optional<ProviderPluginCandidate> candidate = result.candidates().stream()
+        List<ProviderPluginCandidate> matches = result.candidates().stream()
                 .filter(item -> item.metadata().map(metadata -> metadata.pluginId().equals(requestedPluginId)).orElse(false))
-                .findFirst();
-        if (candidate.isEmpty()) {
+                .toList();
+        if (matches.isEmpty()) {
             List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(result.diagnostics());
             diagnostics.add(ProviderPluginDiagnostic.error(
                     "PLUGIN_NOT_FOUND",
@@ -43,8 +43,26 @@ public final class ProviderPluginService {
                     Map.of("pluginId", requestedPluginId, "directory", result.directory().toString())));
             return new ProviderPluginProbeOutcome(requestedPluginId, "", Optional.empty(), Optional.empty(), diagnostics);
         }
+        if (matches.size() > 1) {
+            return new ProviderPluginProbeOutcome(
+                    requestedPluginId,
+                    "",
+                    Optional.empty(),
+                    Optional.empty(),
+                    List.of(ProviderPluginDiagnostic.error(
+                            "PLUGIN_ID_AMBIGUOUS",
+                            "Multiple provider plugin JARs declare the requested plugin id; no plugin was activated",
+                            Map.of(
+                                    "pluginId", requestedPluginId,
+                                    "matches", Integer.toString(matches.size()),
+                                    "jars", matches.stream()
+                                            .map(candidate -> candidate.jarPath().getFileName().toString())
+                                            .sorted()
+                                            .reduce((left, right) -> left + "," + right)
+                                            .orElse("")))));
+        }
 
-        ProviderPluginCandidate selected = candidate.get();
+        ProviderPluginCandidate selected = matches.getFirst();
         if (!selected.compatible()) {
             return new ProviderPluginProbeOutcome(
                     requestedPluginId,
