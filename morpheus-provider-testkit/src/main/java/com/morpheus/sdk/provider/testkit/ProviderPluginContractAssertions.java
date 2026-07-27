@@ -1,6 +1,7 @@
 package com.morpheus.sdk.provider.testkit;
 
 import com.morpheus.application.provider.SpecificationProvider;
+import com.morpheus.application.read.SpecificationContentReader;
 import com.morpheus.domain.provider.ProviderProbeResult;
 import com.morpheus.sdk.provider.MorpheusProviderPlugin;
 import com.morpheus.sdk.provider.ProviderPluginMetadata;
@@ -30,6 +31,12 @@ public final class ProviderPluginContractAssertions {
             fail("provider.version() must not be blank");
         }
 
+        SpecificationContentReader contentReader = require(
+                plugin.createContentReader(), "plugin.createContentReader() returned null");
+        if (!metadata.providerId().equals(contentReader.providerId())) {
+            fail("plugin metadata provider id does not match contentReader.providerId()");
+        }
+
         ProviderProbeResult first = require(provider.probe(workspace), "provider.probe() returned null");
         ProviderProbeResult second = require(provider.probe(workspace), "provider.probe() returned null on repeated probe");
         if (!first.equals(second)) {
@@ -45,7 +52,7 @@ public final class ProviderPluginContractAssertions {
             fail("probe remote flag does not match provider.remote()");
         }
 
-        return new ContractSnapshot(metadata, first);
+        return new ContractSnapshot(metadata, first, contentReader);
     }
 
     private static <T> T require(T value, String message) {
@@ -59,10 +66,14 @@ public final class ProviderPluginContractAssertions {
         throw new AssertionError(message);
     }
 
-    public record ContractSnapshot(ProviderPluginMetadata metadata, ProviderProbeResult supportedProbe) {
+    public record ContractSnapshot(
+            ProviderPluginMetadata metadata,
+            ProviderProbeResult supportedProbe,
+            SpecificationContentReader contentReader) {
         public ContractSnapshot {
             Objects.requireNonNull(metadata, "metadata");
             Objects.requireNonNull(supportedProbe, "supportedProbe");
+            Objects.requireNonNull(contentReader, "contentReader");
         }
     }
 }
