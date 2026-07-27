@@ -39,6 +39,34 @@ function Get-CommandLine([string]$FilePath, [string[]]$Arguments) {
     }) -join ' ')).Trim()
 }
 
+function Invoke-NativeProcessToLog {
+    param(
+        [Parameter(Mandatory)][string]$FilePath,
+        [Parameter(Mandatory)][string[]]$Arguments,
+        [Parameter(Mandatory)][string]$LogPath
+    )
+
+    $stderrPath = $LogPath + '.stderr'
+    Remove-Item -LiteralPath $LogPath, $stderrPath -Force -ErrorAction SilentlyContinue
+    try {
+        # Start-Process keeps native stderr as raw text. Direct invocation in
+        # Windows PowerShell 5.1 wraps every stderr line in NativeCommandError.
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments `
+            -WorkingDirectory $repoRoot -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput $LogPath -RedirectStandardError $stderrPath
+        $stdoutLines = @(Get-Content -LiteralPath $LogPath -ErrorAction SilentlyContinue)
+        $stderrLines = @(Get-Content -LiteralPath $stderrPath -ErrorAction SilentlyContinue)
+        if ($stderrLines.Count -gt 0) {
+            Add-Content -LiteralPath $LogPath -Value $stderrLines
+        }
+        $stdoutLines | ForEach-Object { Write-Host $_ }
+        $stderrLines | ForEach-Object { Write-Host $_ }
+        return [int]$process.ExitCode
+    } finally {
+        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Invoke-LoggedStage {
     param(
         [Parameter(Mandatory)][string]$Name,
@@ -54,16 +82,7 @@ function Invoke-LoggedStage {
     Write-Host ('Log:     ' + $script:CurrentLog)
 
     $started = Get-Date
-    $savedErrorActionPreference = $ErrorActionPreference
-    try {
-        # Windows PowerShell 5.1 surfaces ordinary native stderr as NativeCommandError.
-        # Preserve the bytes in the stage log and let the process exit code decide success.
-        $ErrorActionPreference = 'Continue'
-        & $FilePath @Arguments 2>&1 | Tee-Object -FilePath $script:CurrentLog
-        $exitCode = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $savedErrorActionPreference
-    }
+    $exitCode = Invoke-NativeProcessToLog -FilePath $FilePath -Arguments $Arguments -LogPath $script:CurrentLog
     $elapsed = (Get-Date) - $started
     if ($exitCode -ne 0) {
         $script:Results[$Name] = "FAIL ($exitCode)"
@@ -295,16 +314,10 @@ try {
 
     Write-Section 'Toolchain'
     Assert-Tool 'java'
-    $savedErrorActionPreference = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = 'Continue'
-        & java -version 2>&1 | Tee-Object -FilePath (Join-Path $logRoot '01-java-version.log')
-        $javaExitCode = $LASTEXITCODE
-        & (Join-Path $repoRoot 'mvnw.cmd') --version 2>&1 | Tee-Object -FilePath (Join-Path $logRoot '01-maven-version.log')
-        $mavenExitCode = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $savedErrorActionPreference
-    }
+    $javaExitCode = Invoke-NativeProcessToLog -FilePath 'java' -Arguments @('-version') `
+        -LogPath (Join-Path $logRoot '01-java-version.log')
+    $mavenExitCode = Invoke-NativeProcessToLog -FilePath (Join-Path $repoRoot 'mvnw.cmd') -Arguments @('--version') `
+        -LogPath (Join-Path $logRoot '01-maven-version.log')
     if ($javaExitCode -ne 0) { throw 'java -version failed' }
     if ($mavenExitCode -ne 0) { throw 'Maven Wrapper --version failed' }
     $script:Results['Toolchain'] = 'PASS'
