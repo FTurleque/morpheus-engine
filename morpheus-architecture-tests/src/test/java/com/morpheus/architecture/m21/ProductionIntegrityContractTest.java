@@ -63,6 +63,28 @@ class ProductionIntegrityContractTest {
     }
 
     @Test
+    void updateDiscoveryHasNoImplicitStartupEntryPoint() throws IOException {
+        Path root = repoRoot();
+        Path productionRoot = root.resolve("morpheus-application/src/main/java").getParent().getParent().getParent().getParent();
+        List<Path> constructionSites = new ArrayList<>();
+        try (var files = Files.walk(root)) {
+            for (Path file : files
+                    .filter(path -> path.toString().contains("src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .toList()) {
+                if (Files.readString(file).contains("new UpdateDiscoveryService()")) {
+                    constructionSites.add(root.relativize(file));
+                }
+            }
+        }
+
+        assertEquals(2, constructionSites.size(), "update discovery must only be constructed by explicit CLI/MCP operations");
+        assertTrue(constructionSites.contains(Path.of("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java")));
+        assertTrue(constructionSites.contains(Path.of("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProductMcpTools.java")));
+        assertTrue(Files.isDirectory(productionRoot), "repository production source tree must remain discoverable");
+    }
+
+    @Test
     void documentationReferencesMachineContractInsteadOfRedefiningIt() throws IOException {
         Path root = repoRoot();
         String publicSurfaces = Files.readString(root.resolve("docs/reference/PUBLIC_SURFACES.md"));
