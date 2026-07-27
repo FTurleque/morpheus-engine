@@ -1,6 +1,6 @@
 # MORPHEUS — Roadmap d’évolution post-M20
 
-Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; D1 intégré ; M21 prochain jalon**
+Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 techniquement validé Windows + Linux ; PR #99 prête pour merge sous autorisation explicite**
 
 Dernière mise à jour : 27 juillet 2026
 
@@ -49,6 +49,9 @@ remote mode != mandatory cloud dependency
 MORPHEUS != MINOS
 MORPHEUS != NEXUS
 MORPHEUS != JARVIS
+surface parity != same transport shape
+update discovery != automatic update
+checksum != signature
 ```
 
 # DONE
@@ -58,8 +61,6 @@ MORPHEUS != JARVIS
 Type : **release operation**, pas nouveau jalon fonctionnel.
 
 Statut : **TERMINÉ / PUBLIÉ** — issue #96.
-
-Résultat :
 
 ```text
 release SHA exact      51f6a120f3461c8d8c24323f3db8211d28d6cb42
@@ -76,60 +77,54 @@ Gate : **PASS**.
 
 ## D1 — Consolidation post-M20
 
-Issue : **#94 CLOSED / completed**.
-
-PR : **#95 MERGED**.
-
+Issue : **#94 CLOSED / completed**.  
+PR : **#95 MERGED**.  
 Merge : `51f6a120f3461c8d8c24323f3db8211d28d6cb42`.
 
 Objectif : figer MORPHEUS 1.0 comme baseline documentaire active et ouvrir la trajectoire 1.x sans réécrire les preuves historiques.
 
-Livrables :
-
-```text
-README / docs portal réconciliés
-architecture/build docs alignées M20
-ROADMAP globale alignée
-POST_M20_EVOLUTION active
-POST_M14_EXECUTION conservée historique
-VALIDATION_D1 avec preuve locale
-```
-
-Exit criteria : **PASS** — delta documentaire uniquement, `git diff --check` PASS, reactor complet PASS, PR mergée après autorisation explicite.
-
-# NOW
+Exit criteria : **PASS**.
 
 ## M21 — Production Integrity & Surface Convergence
+
+Statut technique : **S0→S8 PASS — Windows + Linux exact-head**.  
+Issue : **#98**.  
+PR : **#99**, prête pour review/merge ; merge soumis à autorisation explicite du propriétaire.
+
+Head exécutable qualifié :
+
+```text
+239d99657fbf193761767f382489dd637e642fe9
+```
 
 Question de sortie :
 
 > MORPHEUS 1.x possède-t-il une baseline de production durable où build, qualité, contrats publics, documentation et chaîne de release convergent sans divergence silencieuse entre CLI, MCP et HTTP ?
 
-Axes :
+Réponse : **oui, démontré sur Windows et Linux**.
 
 ```text
-M21-S0  budgets/gates et ADR avant changement
-M21-S1  CI reproductible et durable, sans logique de milestone temporaire
-M21-S2  JaCoCo / quality gates / tendances de couverture
-M21-S3  nettoyage Maven, dépendances, warnings et reproducible-build hygiene
-M21-S4  convergence contractuelle CLI / MCP / HTTP
-M21-S5  documentation single-source-of-truth + tests de cohérence
-M21-S6  SBOM, provenance de build, signatures/checksums et trust policy
-M21-S7  update channel / version discovery sans auto-mutation implicite
-M21-S8  qualification Windows + Linux exact-head
+Windows reactor      14/14 SUCCESS
+Linux reactor        14/14 SUCCESS
+Tests                473 PASS
+Architecture         187 PASS
+Windows coverage     46.2800% line / 41.2734% branch
+Linux coverage       46.2430% line / 41.2734% branch
+CycloneDX/provenance PASS Windows + Linux
+Portable             PASS Windows + Linux
+CLI/MCP/HTTP          convergence PASS
+Executable delta     NONE Windows + Linux
+ADR-0089              Acceptée — M21
 ```
 
-Contraintes :
+Preuve : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).  
+Plan : [`M21_EXECUTION.md`](M21_EXECUTION.md).
 
-```text
-surface parity != same transport shape
-read surface != write capability
-release metadata != runtime business state
-update discovery != automatic update
-security metadata != hidden network dependency
-```
+# NOW
 
-Exit criteria : gate production intégral Windows/Linux, contrats publics cohérents, dette build/documentation mesurée et bornée, supply-chain vérifiable.
+## M21 — intégration finale
+
+Le travail technique est terminé. L’unique étape restante est l’acte de gouvernance : **merge de la PR #99 après autorisation explicite du propriétaire**. Aucun nouveau code M21 ne doit être ajouté entre la preuve cross-platform et le merge ; toute correction indispensable exécutable invaliderait le head qualifié et exigerait une nouvelle qualification Windows + Linux.
 
 # NEXT
 
@@ -220,65 +215,8 @@ Invariants : local mode reste first-class ; remote mode est opt-in ; authz read 
 
 Question de sortie :
 
-> MORPHEUS peut-il proposer des hypothèses ou synthèses assistées tout en distinguant strictement faits déterministes, inférences et preuves ?
+> MORPHEUS peut-il enrichir ses réponses par des inférences assistées sans mélanger faits publiés, heuristiques et suggestions ?
 
-Ce jalon est **optionnel** et ne change pas le principe `no mandatory LLM in core`.
+Axes : evidence envelopes, explicit confidence, provenance, optional reasoning adapters, no silent fact mutation.
 
-Livrables candidats :
-
-```text
-InferenceObservation / Hypothesis model
-source/evidence links
-confidence + model/provider metadata
-explicit deterministic vs inferred views
-human confirmation boundary
-optional adapter interface
-no implicit lifecycle/write mutation
-```
-
-Invariants : `facts != inference`, `inference != evidence`, `confidence != truth`, aucune inférence ne remplace un fait publié.
-
-# Ordre actif
-
-```text
-M20 integrated
-   ↓
-D1 consolidated
-   ↓
-R1 v1.0.0 published
-   ↓
-M21 production integrity / surface convergence
-   ↓
-M22 provider SDK / plugins
-   ↓
-M23 portfolio intelligence
-   ↓
-M24 query DSL / saved views / reporting
-   ↓
-M25 policy packs
-   ↓
-M26 optional team/remote
-   ↓
-M27 optional assisted reasoning
-```
-
-L’ordre M22→M24 peut être réévalué après M21 avec des preuves d’usage réelles. M25→M27 restent volontairement plus lointains et ne doivent pas être détaillés en implémentation avant le cadrage du jalon concerné.
-
-# Règle de pilotage 1.x
-
-Pour chaque jalon M21+ :
-
-```text
-1. issue canonique
-2. plan Mxx_EXECUTION avec NOW/NEXT/LATER et slices
-3. question de sortie + invariants
-4. ADR avant changement structurant
-5. vertical slices
-6. tests backend/adapters réels pertinents
-7. gate exact-head Windows/Linux selon scope
-8. VALIDATION_Mxx avec SHA et résultats réels
-9. ADR acceptée seulement après preuve
-10. PR Ready seulement après gate vert
-11. merge uniquement après autorisation explicite
-12. réconciliation roadmap/index après merge
-```
+Invariants : `facts != inference`, inference never overwrites published facts, assisted reasoning remains optional.
