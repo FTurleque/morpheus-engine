@@ -12,11 +12,12 @@ external provider JAR
         v
 morpheus-provider-sdk
         |
-        v
-SpecificationProvider (application port)
+        +--> SpecificationProvider       -> probe / capabilities
+        |
+        +--> SpecificationContentReader  -> normalized reads
         |
         v
-provider-neutral domain contracts
+provider-neutral application/domain contracts
 ```
 
 Invariants :
@@ -26,11 +27,12 @@ provider plugin != domain dependency
 plugin discovery != plugin activation
 provider metadata != executable trust
 capability declaration != capability implementation proof
+probe != read
 classloader isolation != security sandbox
 plugin failure != core crash
 ```
 
-`morpheus-domain` et `morpheus-application` ne dépendent jamais du SDK. Le SDK dépend du port provider-neutral existant afin qu’un plugin puisse produire un `SpecificationProvider`.
+`morpheus-domain` et `morpheus-application` ne dépendent jamais du SDK. Le SDK dépend au contraire des ports provider-neutral existants afin qu’un plugin puisse fournir un probe et une lecture normalisée sans type métier provider-specific dans le core.
 
 ## 1. Dépendance Maven
 
@@ -54,10 +56,17 @@ Implémenter :
 public interface MorpheusProviderPlugin {
     ProviderPluginMetadata metadata();
     SpecificationProvider createProvider();
+    SpecificationContentReader createContentReader();
 }
 ```
 
-Le `SpecificationProvider` retourné reste le port provider-neutral historique : identité, version, remote/local et `probe(Path)`.
+Les deux ports sont volontairement distincts :
+
+```text
+SpecificationProvider.probe() != SpecificationContentReader.read()
+```
+
+Le `SpecificationProvider` porte l’identité, la version, le caractère local/remote et le `probe(Path)`. Le `SpecificationContentReader` produit un `ProviderReadResult` normalisé à partir d’un `ProviderReadRequest` et d’un `EntityIdentityResolver` fournis par le host.
 
 ## 3. Métadonnées déclaratives obligatoires
 
@@ -81,7 +90,7 @@ morpheus.minVersion=1.0.0
 Contraintes M22 :
 
 - `plugin.id` stable, minuscule, borné à 128 caractères ;
-- `provider.id` doit correspondre au provider réellement créé ;
+- `provider.id` doit correspondre au provider **et** au content reader réellement créés ;
 - `plugin.version`, min/max MORPHEUS utilisent une version `x.y.z` avec prerelease/build optionnels ;
 - `sdk.apiVersion` doit être exactement `1` pour M22.
 
@@ -121,6 +130,8 @@ discover != activate
 
 Un répertoire absent d’extensions optionnelles produit une liste vide + diagnostic, pas une panne projet.
 
+Deux JARs déclarant le même `plugin.id` ne sont jamais départagés silencieusement : le probe retourne `PLUGIN_ID_AMBIGUOUS` et n’active aucun des deux.
+
 ## 6. Compatibilité
 
 Avant activation :
@@ -130,6 +141,8 @@ sdk.apiVersion == runtime API version
 morpheus.minVersion <= runtime
 runtime <= morpheus.maxVersion, si max déclaré
 ```
+
+La comparaison respecte l’ordre SemVer utile au contrat, y compris l’ordre numérique des identifiants de prerelease (`rc.10 > rc.2`).
 
 Un plugin incompatible reste visible avec ses diagnostics mais n’est pas activé.
 
@@ -143,30 +156,50 @@ L’activation vérifie :
 exactement 1 service
 manifest metadata == plugin.metadata()
 manifest provider.id == provider.id()
+manifest provider.id == contentReader.providerId()
 ```
 
-Le handle `ProviderPluginActivation` est `AutoCloseable` et ferme son classloader.
+Le handle `ProviderPluginActivation` expose le `SpecificationProvider` et le `SpecificationContentReader`. Il est `AutoCloseable` et ferme son classloader.
 
 Cette isolation évite que les dépendances propres à deux plugins soient mélangées. Elle **n’est pas un sandbox de sécurité**. Exécuter du code non fiable demanderait une frontière process/OS distincte, différée au-delà de M22.
 
-## 8. Capabilities
+## 8. Probe, capabilities et lecture
 
-Les métadonnées plugin ne déclarent pas une capacité métier comme un fait acquis. La vérité opérationnelle vient du :
+Les métadonnées plugin ne déclarent pas une capacité métier comme un fait acquis. La vérité opérationnelle commence par :
 
 ```java
 ProviderProbeResult probe(Path workspaceRoot)
 ```
 
-et de son `ProviderCapabilitySet`.
+et son `ProviderCapabilitySet`.
+
+Une capacité de lecture observée n’est cependant pas le contenu lui-même. Le host appelle ensuite :
+
+```java
+ProviderReadResult read(
+    ProviderReadRequest request,
+    EntityIdentityResolver identityResolver)
+```
+
+sur le `SpecificationContentReader`.
 
 Ainsi :
 
 ```text
 compatibility != supported workspace
 metadata != capability proof
+probe != read
 ```
 
-## 9. Test kit
+Le reader doit respecter les catégories explicitement demandées, retourner des `ReadCategoryReport` complets et produire du `NormalizedProjectContent` provider-neutral.
+
+## 9. Identités et provenance
+
+Un plugin ne doit pas fabriquer une identité MORPHEUS à partir d’un simple chemin. Le host transmet un `EntityIdentityResolver`. Le provider l’utilise avec son `ProviderId`, le type d’entité et son identifiant externe stable.
+
+Pour les données normalisées, la provenance doit conserver le `ProviderId`, la source et l’évidence réellement observée. Le template M22 montre ce flux avec une `Specification`, une `Evidence` et une `Provenance`.
+
+## 10. Test kit
 
 `morpheus-provider-testkit` fournit `ProviderPluginContractAssertions.verify(...)`.
 
@@ -174,13 +207,14 @@ Il vérifie notamment :
 
 - version SDK ;
 - cohérence metadata/provider ID ;
+- cohérence metadata/content-reader ID ;
 - version provider non vide ;
 - probe déterministe sur workspace inchangé ;
 - cohérence provider ID/version/remote entre provider et probe.
 
-Le provider `morpheus-provider-reference` consomme réellement ce test kit.
+Le provider `morpheus-provider-reference` consomme réellement ce test kit, puis son propre test exécute également une lecture normalisée.
 
-## 10. Provider de référence
+## 11. Provider de référence
 
 Le template M22 :
 
@@ -189,15 +223,23 @@ morpheus-provider-reference/
   pom.xml
   src/main/java/.../ReferenceProviderPlugin.java
   src/main/java/.../ReferenceSpecificationProvider.java
+  src/main/java/.../ReferenceSpecificationContentReader.java
   src/main/resources/META-INF/morpheus-provider.properties
   src/main/resources/META-INF/services/com.morpheus.sdk.provider.MorpheusProviderPlugin
 ```
 
-Il reconnaît un workspace contenant `morpheus-reference.spec` et expose `DISCOVER_PROJECT`.
+Il reconnaît un workspace contenant `morpheus-reference.spec` et expose :
+
+```text
+DISCOVER_PROJECT
+READ_CURRENT_SPECIFICATIONS
+```
+
+Sa lecture produit réellement une specification `reference-current` ainsi que son evidence/provenance normalisées.
 
 Ce module est construit par le reactor à des fins de preuve/template, mais **n’est pas une dépendance du CLI/runtime MORPHEUS**.
 
-## 11. Surfaces de diagnostic
+## 12. Surfaces de diagnostic
 
 CLI :
 
@@ -222,7 +264,9 @@ GET /api/v1/provider-plugins/probe?directory=...&pluginId=...&workspace=...
 
 Aucune de ces opérations n’est appelée au démarrage.
 
-## 12. Gate M22
+Ces surfaces exposent discovery/probe. Elles ne remplacent pas implicitement le flux `sync` historique. L’utilisation du `SpecificationContentReader` par un workflow métier est une décision explicite du host.
+
+## 13. Gate M22
 
 Windows :
 
@@ -236,6 +280,8 @@ Linux :
 ./scripts/validate-m22.sh 1.0.0
 ```
 
-Le gate exige notamment que le SDK soit dans le runtime packagé, que `ReferenceProviderPlugin` n’y soit pas, puis copie le JAR de référence comme véritable plugin externe et exécute discovery + activation + probe.
+Le reactor/architecture gate charge le JAR externe, exécute son probe puis son `SpecificationContentReader`. Le packaging gate exige que le SDK soit dans le runtime packagé, que `ReferenceProviderPlugin` n’y soit pas, puis copie le JAR de référence comme véritable plugin externe et exécute discovery + activation + probe.
+
+Avant août, la qualification M22 est locale exact-head uniquement ; le workflow GitHub Actions n’est pas utilisé comme preuve.
 
 ADR : [`../adr/0090-provider-sdk-plugin-discovery-platform.md`](../adr/0090-provider-sdk-plugin-discovery-platform.md).
