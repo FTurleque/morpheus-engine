@@ -4,7 +4,7 @@ Statut : **IMPLÉMENTÉ — QUALIFICATION EXACT-HEAD BLOQUÉE PAR LE DÉMARRAGE 
 
 Baseline : `main@83ad1dfc264a4797130ebd61353ce0e78552d88c` — MORPHEUS 1.0.0 publié.
 
-Dernier head exécutable candidat avant consolidation documentaire : `2fb5dffd639e14ac5bce3779a58880a408080c75`.
+Dernier head exécutable candidat avant consolidation documentaire : `a7508fbfc22f0a0b65b1e3a9095769e7d410e340`.
 
 ## Question de sortie
 
@@ -73,6 +73,7 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 - [x] gate aggregate line >= 25% ;
 - [x] gate aggregate branch >= 20% ;
 - [x] résumé machine lisible `m21-coverage-summary.txt` ;
+- [x] parser XML compatible avec le DOCTYPE JaCoCo tout en bloquant le chargement DTD externe ;
 - [ ] seuils réellement franchis sur Windows/Linux — **à prouver en S8**.
 
 ## M21-S3 — Maven / reproductibilité
@@ -82,6 +83,7 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 - [x] manifestes JAR avec version produit ;
 - [x] `dependency:analyze-only` lié à `verify` en diagnostic non destructif ;
 - [x] warnings de dépendances visibles sans faux gate implicite ;
+- [x] JaCoCo 0.8.15 ;
 - [ ] résultat réel du reactor — **à prouver en S8**.
 
 ## M21-S4 — convergence CLI / MCP / HTTP
@@ -98,6 +100,7 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 
 - [x] `docs/reference/PUBLIC_SURFACES.md` pointe sur le manifeste ;
 - [x] `docs/developer/PRODUCTION_INTEGRITY.md` documente les gates ;
+- [x] `docs/user/PRODUCT_INTEGRITY.md` documente les surfaces produit utilisateur ;
 - [x] test de cohérence documentation/version/surfaces ;
 - [x] absence de duplication normative volontaire : le TSV reste source machine.
 
@@ -117,6 +120,9 @@ Les seuils JaCoCo M21 sont des **floors de non-régression instrumentale**, pas 
 - [x] manifest update explicite ;
 - [x] source `file:`, `http:` ou `https:` uniquement sur invocation ;
 - [x] aucune requête réseau au démarrage par contrat + test de sites de construction ;
+- [x] aucune redirection HTTP implicite ;
+- [x] manifeste borné à 64 Kio ;
+- [x] comparaison version/prerelease et build metadata testée ;
 - [x] aucune installation/mutation automatique ;
 - [x] CLI `update-check` ;
 - [x] MCP `check_product_update` ;
@@ -156,7 +162,7 @@ Le même gate est appelé par `.github/workflows/ci.yml`.
 
 ## Blocage GitHub Actions observé
 
-Les runs M21 les plus récents créent bien les deux jobs `exact-head (windows-latest)` et `exact-head (ubuntu-latest)`, mais chacun termine `failure` avec `steps: None` et sans URL de logs de job. Les changements de versions `actions/checkout/setup-java/upload-artifact` et le checkout explicite du SHA de tête n’ont pas modifié ce comportement. Ce symptôme est donc classé **runner startup / infrastructure**, et non `Maven FAIL`.
+Le run `30298669189` du candidat exécutable `a7508fbfc22f0a0b65b1e3a9095769e7d410e340` crée bien les deux jobs `exact-head (windows-latest)` et `exact-head (ubuntu-latest)`, mais chacun termine `failure` avec `steps: None` et sans URL de logs de job. Les changements de versions `actions/checkout/setup-java/upload-artifact`, le checkout explicite du SHA de tête et une relance manuelle n’ont pas modifié ce comportement. Ce symptôme est donc classé **runner startup / infrastructure**, et non `Maven FAIL`.
 
 Aucun PASS Windows/Linux ne sera déclaré tant qu’un des validateurs ci-dessus n’aura pas réellement exécuté le reactor et les smokes.
 
@@ -169,6 +175,7 @@ docs/adr/0089-production-integrity-surface-convergence.md
 docs/developer/PRODUCTION_INTEGRITY.md
 docs/reference/PUBLIC_SURFACES.md
 docs/roadmap/M21_EXECUTION.md
+docs/user/PRODUCT_INTEGRITY.md
 docs/validation/VALIDATION_M21.md
 scripts/validate-m21.ps1
 scripts/validate-m21.sh
