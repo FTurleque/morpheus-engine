@@ -1,12 +1,12 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M18 + D0 validés et intégrés — M19 qualifié techniquement, non mergé**
+Statut : **C0 à M19 + D0 validés et intégrés — M20 validé techniquement, PR #93 non mergée**
 
 Dernière mise à jour : 27 juillet 2026
 
 La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohérentes, tests reproductibles et réponse explicite à chaque question de sortie.
 
-La baseline C0→M18 est acquise. M19 a passé ses gates Windows et Linux sur le même SHA de code exact ; la PR #89 attend revue et autorisation de merge. La suite officielle est définie dans [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md). La politique documentaire est [`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md).
+La baseline C0→M19 est acquise. M20 a passé ses gates Windows et Linux sur le même SHA de code exact ; la PR #93 est prête à être revue après contrôle du delta documentaire post-gate et reste soumise à une autorisation explicite de merge. La trajectoire post-M14 est détaillée dans [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md). La politique documentaire est [`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md).
 
 ## 1. Vue globale
 
@@ -32,60 +32,37 @@ La baseline C0→M18 est acquise. M19 a passé ses gates Windows et Linux sur le
 | M15 | Acceptance Criteria, Verification & Evidence | ✅ VALIDÉ / INTÉGRÉ — PR #77 | 371/371 + packaging PASS |
 | M16 | Constraint Semantics & Policy Enforcement | ✅ VALIDÉ / INTÉGRÉ — PR #79 | 393/393 + Architecture 161/161 + packaging PASS |
 | M17 | Controlled Lifecycle & Write Operations | ✅ VALIDÉ / INTÉGRÉ — PR #81 | 410/410 + Architecture 167/167 + packaging PASS |
-| **M18** | **Real Providers & Multi-Provider Composition** | **✅ VALIDÉ / INTÉGRÉ — PR #86** | **418/418 + Architecture 170/170 + packaging PASS** |
-| **M19** | **Production Hardening, Scale & Operability** | **✅ VALIDÉ TECHNIQUEMENT — PR #89 NON MERGÉE** | **449/449 + Architecture 178/178 + Windows/Linux + budgets + packaging PASS** |
-| M20 | Release Engineering, Installation PROD & MORPHEUS 1.0 | ⏳ PLANIFIÉ / BLOQUÉ | démarre après merge M19 ; setup/release/upgrade/uninstall/Linux |
+| M18 | Real Providers & Multi-Provider Composition | ✅ VALIDÉ / INTÉGRÉ — PR #86 | 418/418 + Architecture 170/170 + packaging PASS |
+| M19 | Production Hardening, Scale & Operability | ✅ VALIDÉ / INTÉGRÉ — PR #89 | 449/449 + Architecture 178/178 + Windows/Linux + budgets + packaging PASS |
+| **M20** | **Release Engineering, Installation PROD & MORPHEUS 1.0** | **✅ VALIDÉ TECHNIQUEMENT — PR #93 NON MERGÉE** | **454/454 + Architecture 182/182 + Windows/Linux + setup/portable/no-JDK/upgrade/uninstall PASS** |
 
-Plans :
+Plans et preuves récentes :
 
 - [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md) — trajectoire stratégique post-M14 ;
-- [`M18_EXECUTION.md`](../roadmap/M18_EXECUTION.md) — exécution M18 terminée ;
-- [`M19_EXECUTION.md`](../roadmap/M19_EXECUTION.md) — exécution M19 techniquement terminée ;
-- [`VALIDATION_M19.md`](../validation/VALIDATION_M19.md) — preuves exact-head Windows et Linux.
+- [`M18_EXECUTION.md`](../roadmap/M18_EXECUTION.md) / [`VALIDATION_M18.md`](../validation/VALIDATION_M18.md) ;
+- [`M19_EXECUTION.md`](../roadmap/M19_EXECUTION.md) / [`VALIDATION_M19.md`](../validation/VALIDATION_M19.md) ;
+- [`M20_EXECUTION.md`](../roadmap/M20_EXECUTION.md) / [`VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
 
-## 2. Baseline M18 autoritative
+## 2. Baseline intégrée jusqu’à M19
 
 ```text
 M18 issue       #85 CLOSED / completed
 M18 PR          #86 MERGED
-code validé     7e8caacff567f51354fcb88bd7505a6d135071c0
-merge           30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
-tests           418/418 PASS
-architecture    170/170 PASS
-failures        0
-errors          0
-skipped         0
-reactor         14/14 modules SUCCESS
-packaging Win   PASS
-packaged smokes PASS
-API health      PASS
-portable ZIP    33,919,431 bytes
-OpenAPI         1.7.0
-SQLite          V012
+M18 code        7e8caacff567f51354fcb88bd7505a6d135071c0
+M18 merge       30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+M18 tests       418/418 PASS
+M18 architecture 170/170 PASS
+
+M19 issue       #88 CLOSED / completed
+M19 PR          #89 MERGED
+M19 merge       762b6dedd0760f8e08722ef5ee5dcf5057309574
+M19 Windows     PASS
+M19 Linux       PASS ext4 / WSL2
+M19 tests       449/449 PASS
+M19 architecture 178/178 PASS
+M19 reactor     14/14 SUCCESS
+M19 packaging   PASS Windows + Linux
 ```
-
-Providers réels validés dans le même projet :
-
-```text
-OpenSpec
-+
-Structured Markdown
-        ↓
-ProviderContribution
-        ↓
-MultiProviderCompositionService
-        ↓
-precedence explicite
-provenance conservée
-conflits explicites
-        ↓
-Memory / SQLite V012
-        ↓
-CLI / MCP / HTTP
-```
-
-Preuve : [`VALIDATION_M18.md`](../validation/VALIDATION_M18.md).  
-ADR : [`ADR-0084`](../adr/0084-provider-neutral-multi-provider-composition.md) — **Acceptée — M18**.
 
 ## 3. Merges actifs de la baseline
 
@@ -99,6 +76,7 @@ M15 = c37134439844cb088adff855c339a259bb908b6a
 M16 = 97308005a63854c7cb08dc19cd3cdb02ac739404
 M17 = 02bdb38669efc85af17343d15e689743362d2e12
 M18 = 30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+M19 = 762b6dedd0760f8e08722ef5ee5dcf5057309574
 ```
 
 ## 4. Responsabilités non négociables
@@ -159,6 +137,11 @@ optional provider absence != project failure when optional
 
 optional engine absence != MORPHEUS failure
 MORPHEUS rules != JARVIS action sequencing
+
+programme != données persistantes
+update programme != reset knowledge store
+uninstall programme != delete knowledge store
+runtime utilisateur != JDK utilisateur
 ```
 
 ## 6. Gates validés récents
@@ -171,42 +154,45 @@ M16 393/393 | Architecture 161/161 | packaging + smokes PASS
 M17 410/410 | Architecture 167/167 | packaging + smokes PASS
 M18 418/418 | Architecture 170/170 | packaging + smokes PASS
 M19 449/449 | Architecture 178/178 | Windows + Linux | budgets + packaging + smokes PASS
+M20 454/454 | Architecture 182/182 | Windows + Linux | setup + portable + no-JDK + upgrade/uninstall PASS
 ```
 
-## 7. Jalon qualifié — M19
+## 7. Jalon qualifié — M20
 
 Question de sortie :
 
-> **MORPHEUS reste-t-il déterministe, observable et exploitable sur des dépôts réalistes de grande taille, avec des limites et performances mesurées plutôt que supposées ?**
+> **MORPHEUS peut-il être installé, mis à jour, diagnostiqué et désinstallé comme un produit Windows/Linux sans Git, Maven ou JDK utilisateur, tout en préservant les données et en conservant les archives portables pour l’automatisation ?**
 
-Verdict : **OUI**, pour le profil gelé et les environnements enregistrés dans la preuve M19.
+Verdict : **OUI**, pour MORPHEUS 1.0.0 et les environnements enregistrés dans la preuve M20.
 
 ```text
-Code SHA       dca27db969b426ad43941ccb8cee7e926efb931b
+Code SHA       9199ed43c4bd8596a97db055eeff17ae31399eb8
 Windows        PASS
 Linux          PASS sur ext4 / WSL2
-Tests          449/449 PASS, 0 failure/error/skipped
-Architecture   178/178 PASS
+Tests          454/454 PASS, 0 failure/error/skipped
+Architecture   182/182 PASS
 Reactor        14/14 SUCCESS
-Budgets        PASS, seuils inchangés
-Packaging      PASS Windows + Linux
+Setup Windows  PASS
+Portable Win   PASS
+Portable Linux PASS
+SHA-256        PASS Windows + Linux
+No-user-JDK    PASS Windows + Linux
+PATH           PASS
+Upgrade        PASS
+Uninstall      PASS
+Exact tag/SHA  PASS Windows + Linux
 ```
 
-Axes prouvés :
+La preuve Linux provient d’une exécution Linux réelle sur le même SHA de code que Windows ; elle n’est pas inférée du gate Windows.
 
-```text
-performance / capacité
-robustesse
-observabilité locale-first
-sécurité locale
-reproductibilité Windows / Linux
-```
+ADR : [`ADR-0088`](../adr/0088-product-release-installation-and-persistent-data-separation.md) — **Acceptée — M20**.  
+Preuve : [`VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
 
-Les budgets de performance et capacité ont été fixés **avant** toute optimisation. Le PASS Linux provient d'une exécution Linux réelle sur le même SHA de code ; il n'est pas inféré du gate Windows.
+## 8. État de publication 1.0
 
-## 8. Direction M20
+M20 est techniquement terminé. Les commits post-gate servent uniquement à enregistrer les preuves et réconcilier la documentation. Avant passage de #93 en Ready, le diff entre `9199ed43c4bd8596a97db055eeff17ae31399eb8` et le head final doit confirmer l’absence de delta exécutable.
 
-Après le merge explicitement autorisé de M19, M20 transformera le packaging existant en distribution produit : installation Windows par utilisateur, programme/données séparés, checksums, GitHub Releases, upgrade/uninstall et distribution Linux. M20 n'est pas démarré.
+La création du tag stable `v1.0.0` et de la GitHub Release appartient à la phase d’intégration/publication après merge autorisé ; elle ne doit pas précéder la décision explicite du propriétaire.
 
 ## 9. Règle de pilotage
 
