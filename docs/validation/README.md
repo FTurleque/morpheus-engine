@@ -24,6 +24,7 @@ VALIDATION_M15.md
 VALIDATION_M16.md
 VALIDATION_M17.md
 VALIDATION_M18.md
+VALIDATION_M19.md
 ```
 
 Chaque document conserve les décisions, SHA testés, commandes et gates connus au moment de la validation. Ils constituent des **preuves historiques** ; la documentation utilisateur et développeur active vit respectivement dans [`../user/`](../user/) et [`../developer/`](../developer/).
@@ -37,3 +38,18 @@ PR              = #86 MERGED
 ```
 
 La preuve [`VALIDATION_M18.md`](VALIDATION_M18.md) distingue explicitement le gate exécuté sur le SHA de code validé de l’intégration GitHub intervenue ensuite.
+
+Dernier jalon techniquement qualifié : **M19 — non mergé**, SHA de code exact `dca27db969b426ad43941ccb8cee7e926efb931b`.
+
+```text
+Windows         PASS
+Linux ext4/WSL2 PASS
+Tests           449/449 PASS sur chaque plateforme
+Architecture    178/178 PASS sur chaque plateforme
+Reactor         14/14 SUCCESS
+Budgets         PASS, seuils gelés inchangés
+Packaging       PASS Windows + Linux
+PR              #89, en attente de revue/merge
+```
+
+La preuve détaillée est [`VALIDATION_M19.md`](VALIDATION_M19.md). M19 n'est pas présenté comme intégré avant le merge explicitement autorisé.

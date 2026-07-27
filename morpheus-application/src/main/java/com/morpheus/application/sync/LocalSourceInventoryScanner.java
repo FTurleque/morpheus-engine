@@ -1,8 +1,12 @@
 package com.morpheus.application.sync;
 
 import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalEventCode;
+import com.morpheus.application.operability.OperationalRecorder;
 
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -12,14 +16,35 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /** Local-first scanner. Watcher events may trigger it, but this content scan remains the source of truth. */
 public final class LocalSourceInventoryScanner {
+    private final SourceScanPolicy policy;
+    private final OperationalRecorder recorder;
+
+    public LocalSourceInventoryScanner() {
+        this(SourceScanPolicy.safeDefaults(), LocalOperationalRuntime.recorder());
+    }
+
+    public LocalSourceInventoryScanner(SourceScanPolicy policy) {
+        this(policy, LocalOperationalRuntime.recorder());
+    }
+
+    public LocalSourceInventoryScanner(SourceScanPolicy policy, OperationalRecorder recorder) {
+        this.policy = Objects.requireNonNull(policy, "policy");
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
+
+    public SourceScanPolicy policy() {
+        return policy;
+    }
 
     public SourceInventoryScanResult scan(
             Path workspaceRoot,
@@ -27,8 +52,41 @@ public final class LocalSourceInventoryScanner {
             Optional<String> sourceRevision,
             Instant capturedAt,
             Collection<Path> sourceRoots) {
+        OperationalRecorder.Operation operation = recorder.begin(
+                "source.scan",
+                OperationalEventCode.SYNC_STARTED,
+                Map.of("projectId", Objects.requireNonNull(projectId, "projectId").toString()));
+        try {
+            SourceInventoryScanResult result = scanInternal(
+                    workspaceRoot, projectId, sourceRevision, capturedAt, sourceRoots);
+            if (result.complete()) {
+                int sourceCount = result.inventory().orElseThrow().entries().size();
+                recorder.metrics().add("source.scan.file_count", sourceCount);
+                operation.success(
+                        OperationalEventCode.SYNC_COMPLETED,
+                        Map.of("sourceCount", Integer.toString(sourceCount)));
+            } else {
+                recorder.metrics().add("source.scan.failure_count", result.failures().size());
+                operation.warning(
+                        OperationalEventCode.SYNC_FAILED,
+                        Map.of("failureCount", Integer.toString(result.failures().size())));
+            }
+            return result;
+        } catch (RuntimeException failure) {
+            operation.failure(
+                    OperationalEventCode.SYNC_FAILED,
+                    Map.of("errorType", failure.getClass().getSimpleName()));
+            throw failure;
+        }
+    }
+
+    private SourceInventoryScanResult scanInternal(
+            Path workspaceRoot,
+            ProjectSpecificationId projectId,
+            Optional<String> sourceRevision,
+            Instant capturedAt,
+            Collection<Path> sourceRoots) {
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
-        Objects.requireNonNull(projectId, "projectId");
         Objects.requireNonNull(sourceRevision, "sourceRevision");
         Objects.requireNonNull(capturedAt, "capturedAt");
         Objects.requireNonNull(sourceRoots, "sourceRoots");
@@ -44,18 +102,41 @@ public final class LocalSourceInventoryScanner {
 
         Map<SourcePath, SourceInventory.Entry> entries = new LinkedHashMap<>();
         List<SourceInventoryScanResult.Failure> failures = new ArrayList<>();
+        Set<FileVisitOption> visitOptions = policy.followSymbolicLinks()
+                ? EnumSet.of(FileVisitOption.FOLLOW_LINKS)
+                : EnumSet.noneOf(FileVisitOption.class);
 
         for (Path root : roots) {
-            if (!Files.exists(root)) {
+            if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) {
                 failures.add(new SourceInventoryScanResult.Failure(
                         Optional.of(display(workspace, root)),
                         "source root does not exist"));
                 continue;
             }
+            if (!policy.followSymbolicLinks() && Files.isSymbolicLink(root)) {
+                failures.add(new SourceInventoryScanResult.Failure(
+                        Optional.of(display(workspace, root)),
+                        "symbolic-link source root is not followed by the active scan policy"));
+                continue;
+            }
             try {
-                Files.walkFileTree(root, new SimpleFileVisitor<>() {
+                Files.walkFileTree(root, visitOptions, Integer.MAX_VALUE, new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attrs) {
+                        if (policy.ignoresDirectory(directory)) {
+                            return FileVisitResult.SKIP_SUBTREE;
+                        }
+                        if (!policy.followSymbolicLinks() && Files.isSymbolicLink(directory)) {
+                            return FileVisitResult.SKIP_SUBTREE;
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                        if (!policy.followSymbolicLinks() && (attrs.isSymbolicLink() || Files.isSymbolicLink(file))) {
+                            return FileVisitResult.CONTINUE;
+                        }
                         if (!attrs.isRegularFile()) {
                             return FileVisitResult.CONTINUE;
                         }

@@ -1,6 +1,6 @@
 # Guide développeur MORPHEUS
 
-Cette documentation décrit l’état du code après intégration de **M18**. Elle sert de point d’entrée pour importer le projet, comprendre le découpage Maven, préserver les frontières d’architecture et exécuter les gates de validation.
+Cette documentation décrit la baseline **M18 intégrée** et le candidat **M19 en cours de qualification**. Elle sert de point d’entrée pour importer le projet, comprendre le découpage Maven, préserver les frontières d’architecture et exécuter les gates de validation.
 
 ## 1. Prérequis
 
@@ -113,7 +113,7 @@ Le domaine ne connaît aucun adapter ni type spécifique à OpenSpec/Markdown.
 | `morpheus-integration-minos` | client MINOS via MCP STDIO | dépendance `com.minos.*` |
 | `morpheus-integration-nexus` | client NEXUS via MCP STDIO | ranking/fusion/compression NEXUS |
 | `morpheus-mcp` | adapter serveur MCP, 22 read-only + 1 write | politique métier cachée |
-| `morpheus-api` | adapter HTTP `/api/v1`, OpenAPI 1.7.0 | dépendance CLI/MCP |
+| `morpheus-api` | adapter HTTP `/api/v1`, OpenAPI candidat 1.8.0 | dépendance CLI/MCP |
 | `morpheus-cli` | composition root, launcher et UX | règles métier nouvelles |
 | `morpheus-architecture-tests` | contrats ArchUnit/cross-module | code de production |
 
@@ -247,6 +247,12 @@ Dernier validateur de jalon intégré :
 
 ```powershell
 .\validate-m18.cmd
+```
+
+Validateur canonique du candidat M19 :
+
+```powershell
+.\validate-m19.cmd
 ```
 
 ## 12. Gate M18 de référence

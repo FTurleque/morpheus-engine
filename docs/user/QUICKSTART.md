@@ -253,10 +253,14 @@ Test :
 
 ```bash
 curl http://127.0.0.1:8765/api/v1/health
+curl http://127.0.0.1:8765/api/v1/readiness
+curl http://127.0.0.1:8765/api/v1/metrics
 curl http://127.0.0.1:8765/api/v1/version
 ```
 
 Baseline M18 : **OpenAPI 3.1.0 / contract version 1.7.0**.
+
+Candidat M19 en qualification : **contract version 1.8.0**, avec readiness SQLite réelle et métriques process-local.
 
 Composition HTTP :
 

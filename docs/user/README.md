@@ -210,14 +210,16 @@ Pour automatiser :
 
 MINOS, NEXUS et JARVIS ne sont pas embarqués comme moteurs dans MORPHEUS.
 
-## 12. Contrats M18
+## 12. Contrats M18 + surfaces M19 en qualification
 
 ```text
-OpenAPI 3.1.0 / contract 1.7.0
+OpenAPI 3.1.0 / contract candidat 1.8.0
 MCP 22 read-only + 1 write explicite
 CLI composition sync/status/conflicts
 HTTP GET .../composition
 HTTP GET .../composition/conflicts
+HTTP GET /api/v1/readiness
+HTTP GET /api/v1/metrics
 SQLite V012
 ```
 

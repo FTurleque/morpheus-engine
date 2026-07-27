@@ -1,6 +1,8 @@
 package com.morpheus.application.context;
 
 import com.morpheus.application.query.ChangeContextQueryService;
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.application.store.ExternalReferenceStore;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
@@ -31,6 +33,7 @@ public final class AugmentedContextService {
     private final VersionedRequirementStore requirementStore;
     private final ChangeContextQueryService changeContextService;
     private final TechnicalContextProvider provider;
+    private final OperationalExecution execution;
 
     public AugmentedContextService(
             SpecificationKnowledgeStore snapshotStore,
@@ -39,6 +42,18 @@ public final class AugmentedContextService {
             TraceabilityStore traceabilityStore,
             ExternalReferenceStore externalReferenceStore,
             TechnicalContextProvider provider) {
+        this(snapshotStore, contentStore, requirementStore, traceabilityStore, externalReferenceStore,
+                provider, new OperationalExecution(LocalOperationalRuntime.recorder()));
+    }
+
+    public AugmentedContextService(
+            SpecificationKnowledgeStore snapshotStore,
+            SnapshotBusinessContentStore contentStore,
+            VersionedRequirementStore requirementStore,
+            TraceabilityStore traceabilityStore,
+            ExternalReferenceStore externalReferenceStore,
+            TechnicalContextProvider provider,
+            OperationalExecution execution) {
         this.snapshotStore = Objects.requireNonNull(snapshotStore, "snapshotStore");
         this.requirementStore = Objects.requireNonNull(requirementStore, "requirementStore");
         this.changeContextService = new ChangeContextQueryService(
@@ -48,6 +63,7 @@ public final class AugmentedContextService {
                 Objects.requireNonNull(traceabilityStore, "traceabilityStore"),
                 Objects.requireNonNull(externalReferenceStore, "externalReferenceStore"));
         this.provider = Objects.requireNonNull(provider, "provider");
+        this.execution = Objects.requireNonNull(execution, "execution");
     }
 
     public Optional<AugmentedContextResult> requirement(
@@ -64,7 +80,7 @@ public final class AugmentedContextService {
                             "requirement not found in ACTIVE snapshot: " + requirementId))
                     .entityVersion().content();
             MorpheusIntentContext intent = requirementIntent(requirement);
-            TechnicalContextObservation technical = provider.build(new TechnicalContextRequest(intent.query(), options));
+            TechnicalContextObservation technical = buildTechnicalContext(intent, options);
             return new AugmentedContextResult(AugmentedSnapshotView.from(snapshot), intent, technical, false);
         });
     }
@@ -90,7 +106,7 @@ public final class AugmentedContextService {
                     List<String> tasks = context.implementationTasks().stream()
                             .map(this::taskLine).toList();
                     MorpheusIntentContext intent = changeIntent(change, requirements, constraints, decisions, tasks);
-                    TechnicalContextObservation technical = provider.build(new TechnicalContextRequest(intent.query(), options));
+                    TechnicalContextObservation technical = buildTechnicalContext(intent, options);
                     return new AugmentedContextResult(
                             AugmentedSnapshotView.from(context.snapshot()), intent, technical, false);
                 });
@@ -108,6 +124,15 @@ public final class AugmentedContextService {
                 requirement.title(),
                 requirement.statement(),
                 List.of(), List.of(), List.of(), List.of(), List.of(), query);
+    }
+
+    private TechnicalContextObservation buildTechnicalContext(
+            MorpheusIntentContext intent,
+            TechnicalContextOptions options) {
+        return execution.externalCall(
+                "technical-context",
+                "build",
+                () -> provider.build(new TechnicalContextRequest(intent.query(), options)));
     }
 
     private MorpheusIntentContext changeIntent(

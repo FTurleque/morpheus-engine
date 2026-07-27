@@ -89,51 +89,57 @@ public final class ProjectSnapshotImportService {
 
         requirementStore.putSpecificationVersion(version);
         lifecycle.registerBuilding(candidate);
-        requirementStore.bindSnapshotVersion(new SnapshotSpecificationVersionBinding(candidate.id(), version.id()));
+        try {
+            requirementStore.bindSnapshotVersion(new SnapshotSpecificationVersionBinding(candidate.id(), version.id()));
 
-        List<RequirementVersionRecord> requirements = content.requirements().stream()
-                .map(requirement -> new RequirementVersionRecord(
-                        candidate.id(),
-                        new EntityVersion<>(
-                                EntityVersionId.generate(),
-                                requirement.id().value(),
-                                version.id(),
-                                TemporalState.CURRENT,
-                                requirement)))
-                .toList();
-        requirements.forEach(requirementStore::putRequirementVersion);
+            List<RequirementVersionRecord> requirements = content.requirements().stream()
+                    .map(requirement -> new RequirementVersionRecord(
+                            candidate.id(),
+                            new EntityVersion<>(
+                                    EntityVersionId.generate(),
+                                    requirement.id().value(),
+                                    version.id(),
+                                    TemporalState.CURRENT,
+                                    requirement)))
+                    .toList();
+            requirementStore.putRequirementVersions(requirements);
 
-        contentStore.putSnapshotContent(new SnapshotBusinessContent(
-                candidate.id(),
-                version.id(),
-                content.specifications(),
-                content.scenarios(),
-                content.changes(),
-                content.constraints(),
-                content.designDecisions(),
-                content.tasks(),
-                content.acceptanceCriteria(),
-                content.evidence()));
+            contentStore.putSnapshotContent(new SnapshotBusinessContent(
+                    candidate.id(),
+                    version.id(),
+                    content.specifications(),
+                    content.scenarios(),
+                    content.changes(),
+                    content.constraints(),
+                    content.designDecisions(),
+                    content.tasks(),
+                    content.acceptanceCriteria(),
+                    content.evidence()));
 
-        var links = traceabilityDerivation.derive(
-                content,
-                ignored -> Optional.of(TraceabilityLinkId.generate()),
-                publishedAt);
-        links.forEach(link -> traceabilityStore.putLink(candidate.id(), link));
+            var links = traceabilityDerivation.derive(
+                    content,
+                    ignored -> Optional.of(TraceabilityLinkId.generate()),
+                    publishedAt);
+            traceabilityStore.putLinks(candidate.id(), links);
 
-        KnowledgeSnapshotMetadata validated = lifecycle.validate(candidate.id(), ignored -> validation(content.diagnostics()));
-        if (validated.state() != KnowledgeSnapshotState.READY) {
-            throw new KnowledgeStoreException(
-                    "normalized content contains blocking diagnostics; candidate snapshot is " + validated.state());
+            KnowledgeSnapshotMetadata validated = lifecycle.validate(
+                    candidate.id(), ignored -> validation(content.diagnostics()));
+            if (validated.state() != KnowledgeSnapshotState.READY) {
+                throw new KnowledgeStoreException(
+                        "normalized content contains blocking diagnostics; candidate snapshot is " + validated.state());
+            }
+            KnowledgeSnapshotMetadata active = lifecycle.activate(candidate.id());
+
+            return new ProjectSnapshotImportResult(
+                    active,
+                    version,
+                    requirements.size(),
+                    links.size(),
+                    content.diagnostics());
+        } catch (RuntimeException failure) {
+            markCandidateFailed(candidate.id(), failure);
+            throw failure;
         }
-        KnowledgeSnapshotMetadata active = lifecycle.activate(candidate.id());
-
-        return new ProjectSnapshotImportResult(
-                active,
-                version,
-                requirements.size(),
-                links.size(),
-                content.diagnostics());
     }
 
     private SnapshotValidationResult validation(List<Diagnostic> diagnostics) {
@@ -164,5 +170,19 @@ public final class ProjectSnapshotImportService {
 
     private Optional<String> normalize(Optional<String> value) {
         return Objects.requireNonNull(value, "sourceRevision").map(String::trim).filter(candidate -> !candidate.isEmpty());
+    }
+
+    private void markCandidateFailed(KnowledgeSnapshotId snapshotId, RuntimeException originalFailure) {
+        try {
+            snapshotStore.findSnapshot(snapshotId).ifPresent(snapshot -> {
+                if (snapshot.state() == KnowledgeSnapshotState.BUILDING
+                        || snapshot.state() == KnowledgeSnapshotState.VALIDATING) {
+                    snapshotStore.transitionSnapshotState(
+                            snapshotId, snapshot.state(), KnowledgeSnapshotState.FAILED);
+                }
+            });
+        } catch (RuntimeException stateFailure) {
+            originalFailure.addSuppressed(stateFailure);
+        }
     }
 }

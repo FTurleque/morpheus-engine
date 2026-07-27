@@ -14,11 +14,8 @@ import com.morpheus.domain.traceability.TraceabilityLinkOrigin;
 import com.morpheus.domain.traceability.TraceabilityRelationType;
 import com.morpheus.domain.traceability.TraceabilityResolutionState;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -38,18 +35,13 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
 
     public SqliteTraceabilityStore(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        Path absolutePath = databasePath.toAbsolutePath().normalize();
         Connection opened = null;
         try {
-            Path parent = absolutePath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            opened = DriverManager.getConnection("jdbc:sqlite:" + absolutePath);
+            opened = SqliteDatabaseSecurity.open(databasePath);
             configure(opened);
             new SqliteSchemaManager().migrate(opened);
             this.connection = opened;
-        } catch (SQLException | IOException | RuntimeException exception) {
+        } catch (SQLException | RuntimeException exception) {
             closeQuietly(opened);
             if (exception instanceof KnowledgeStoreException knowledgeStoreException) {
                 throw knowledgeStoreException;
@@ -65,24 +57,10 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
         Objects.requireNonNull(link, "link");
         try {
             requireSnapshot(snapshotId);
-            Optional<TraceabilityLink> existing = findDefinitionInternal(link.id());
-            if (existing.isPresent() && !existing.orElseThrow().equals(link)) {
-                throw new KnowledgeStoreException("traceability link identity collision: " + link.id());
-            }
-
             boolean previousAutoCommit = connection.getAutoCommit();
             try {
                 connection.setAutoCommit(false);
-                if (existing.isEmpty()) {
-                    insertDefinition(link);
-                    insertEvidence(link);
-                }
-                try (PreparedStatement statement = connection.prepareStatement(
-                        "INSERT OR IGNORE INTO snapshot_traceability_links(snapshot_id, link_id) VALUES (?, ?)")) {
-                    statement.setString(1, snapshotId.toString());
-                    statement.setString(2, link.id().toString());
-                    statement.executeUpdate();
-                }
+                putLinkInternal(snapshotId, link);
                 connection.commit();
             } catch (SQLException | RuntimeException exception) {
                 rollbackQuietly();
@@ -92,6 +70,34 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
             }
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot store traceability link " + link.id(), exception);
+        }
+    }
+
+    @Override
+    public synchronized void putLinks(KnowledgeSnapshotId snapshotId, List<TraceabilityLink> links) {
+        ensureOpen();
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        List<TraceabilityLink> batch = List.copyOf(Objects.requireNonNull(links, "links"));
+        if (batch.isEmpty()) {
+            return;
+        }
+        try {
+            requireSnapshot(snapshotId);
+            boolean previousAutoCommit = connection.getAutoCommit();
+            try {
+                connection.setAutoCommit(false);
+                for (TraceabilityLink link : batch) {
+                    putLinkInternal(snapshotId, link);
+                }
+                connection.commit();
+            } catch (SQLException | RuntimeException failure) {
+                rollbackQuietly();
+                throw failure;
+            } finally {
+                restoreAutoCommit(previousAutoCommit);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot store traceability link batch", exception);
         }
     }
 
@@ -220,6 +226,24 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
                 statement.addBatch();
             }
             statement.executeBatch();
+        }
+    }
+
+    private void putLinkInternal(KnowledgeSnapshotId snapshotId, TraceabilityLink link) throws SQLException {
+        Objects.requireNonNull(link, "link");
+        Optional<TraceabilityLink> existing = findDefinitionInternal(link.id());
+        if (existing.isPresent() && !existing.orElseThrow().equals(link)) {
+            throw new KnowledgeStoreException("traceability link identity collision: " + link.id());
+        }
+        if (existing.isEmpty()) {
+            insertDefinition(link);
+            insertEvidence(link);
+        }
+        try (PreparedStatement statement = connection.prepareStatement(
+                "INSERT OR IGNORE INTO snapshot_traceability_links(snapshot_id, link_id) VALUES (?, ?)")) {
+            statement.setString(1, snapshotId.toString());
+            statement.setString(2, link.id().toString());
+            statement.executeUpdate();
         }
     }
 

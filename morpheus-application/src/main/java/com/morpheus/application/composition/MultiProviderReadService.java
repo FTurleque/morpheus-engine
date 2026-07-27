@@ -1,6 +1,8 @@
 package com.morpheus.application.composition;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ReadCategoryReport;
@@ -21,12 +23,22 @@ import java.util.Optional;
 public final class MultiProviderReadService {
     private final Map<ProviderId, SpecificationContentReader> readers;
     private final MultiProviderCompositionService compositionService;
+    private final ObservedProviderContributionLoader observedLoader;
 
     public MultiProviderReadService(
             Collection<? extends SpecificationContentReader> readers,
             MultiProviderCompositionService compositionService) {
+        this(readers, compositionService, new OperationalExecution(LocalOperationalRuntime.recorder()));
+    }
+
+    public MultiProviderReadService(
+            Collection<? extends SpecificationContentReader> readers,
+            MultiProviderCompositionService compositionService,
+            OperationalExecution execution) {
         Objects.requireNonNull(readers, "readers");
         this.compositionService = Objects.requireNonNull(compositionService, "compositionService");
+        this.observedLoader = new ObservedProviderContributionLoader(
+                Objects.requireNonNull(execution, "execution"));
         Map<ProviderId, SpecificationContentReader> indexed = new LinkedHashMap<>();
         for (SpecificationContentReader reader : readers) {
             Objects.requireNonNull(reader, "reader");
@@ -59,10 +71,15 @@ public final class MultiProviderReadService {
             EntityIdentityResolver identityResolver,
             ProviderCompositionSource source) {
         SpecificationContentReader reader = readers.get(source.providerId());
-        ProviderReadResult result = reader == null
-                ? unavailable(request, source)
-                : reader.read(request, identityResolver);
-        return new ProviderContribution(source.providerId(), source.priority(), source.required(), result);
+        if (reader == null) {
+            return new ProviderContribution(
+                    source.providerId(), source.priority(), source.required(), unavailable(request, source));
+        }
+        return observedLoader.load(
+                source.providerId(),
+                source.priority(),
+                source.required(),
+                () -> reader.read(request, identityResolver));
     }
 
     private ProviderReadResult unavailable(ProviderReadRequest request, ProviderCompositionSource source) {

@@ -306,7 +306,10 @@ list_composition_conflicts
 
 ```text
 OpenAPI 3.1.0
-contract 1.7.0
+contract candidat 1.8.0
+GET /api/v1/health
+GET /api/v1/readiness
+GET /api/v1/metrics
 GET /api/v1/projects/{projectId}/composition
 GET /api/v1/projects/{projectId}/composition/conflicts
 ```

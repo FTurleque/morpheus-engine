@@ -1,13 +1,13 @@
 # Références MORPHEUS
 
-Cette section indexe les contrats machine et les références stables de la baseline **M18 intégrée**.
+Cette section indexe les contrats machine et les références stables de la baseline **M18 intégrée**, complétées par les surfaces du candidat **M19 en cours de qualification**.
 
 ## API HTTP
 
 - [Guide développeur API](../developer/API.md)
 - [OpenAPI 3.1 — `morpheus-v1.yaml`](../openapi/morpheus-v1.yaml)
 
-Version du contrat OpenAPI actuel : **`1.7.0`**.
+Version du contrat OpenAPI candidat M19 : **`1.8.0`**.
 
 M18 ajoute au contrat machine les projections provider-neutral de composition :
 
@@ -17,6 +17,13 @@ GET /api/v1/projects/{projectId}/composition/conflicts
 ```
 
 Les évolutions précédentes restent additives : acceptance/verification/evidence M15, constraint policy M16 et controlled lifecycle write M17.
+
+M19 ajoute les projections d'opérabilité locales réellement câblées :
+
+```text
+GET /api/v1/readiness
+GET /api/v1/metrics
+```
 
 ## MCP
 

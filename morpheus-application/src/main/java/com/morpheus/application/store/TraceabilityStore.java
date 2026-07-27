@@ -14,6 +14,11 @@ import java.util.Set;
 public interface TraceabilityStore {
     void putLink(KnowledgeSnapshotId snapshotId, TraceabilityLink link);
 
+    /** Persists one snapshot-scoped batch; adapters may override without changing link semantics. */
+    default void putLinks(KnowledgeSnapshotId snapshotId, List<TraceabilityLink> links) {
+        List.copyOf(links).forEach(link -> putLink(snapshotId, link));
+    }
+
     Optional<TraceabilityLink> findLink(KnowledgeSnapshotId snapshotId, TraceabilityLinkId linkId);
 
     List<TraceabilityLink> outgoing(

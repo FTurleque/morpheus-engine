@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MORPHEUS Headless API
-  version: 1.7.0
+  version: 1.8.0
   description: >-
     Local-first MORPHEUS HTTP adapter. M12 adds optional MINOS live reference
     resolution. M13 adds optional NEXUS technical-context augmentation. M14 adds
@@ -10,7 +10,8 @@ info:
     and blocking policy. M17 adds controlled lifecycle mutation with capability,
     confirmation, optimistic CAS, idempotency and audit. M18 adds provider-neutral
     multi-provider composition state with deterministic precedence, preserved
-    provenance and explicit queryable conflicts. Provider-specific source types
+    provenance and explicit queryable conflicts. M19 adds local readiness and
+    process-local metrics projections without mandatory external telemetry. Provider-specific source types
     never appear in the public composition contract.
 servers:
   - url: http://127.0.0.1:8765/api/v1
@@ -24,6 +25,18 @@ paths:
   /health:
     get:
       operationId: getHealth
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+  /readiness:
+    get:
+      operationId: getReadiness
+      description: Probes the required local SQLite knowledge store; distinct from process liveness.
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '503': {$ref: '#/components/responses/Success'}
+  /metrics:
+    get:
+      operationId: getLocalMetrics
+      description: Returns bounded process-local counters and duration aggregates without external telemetry.
       responses: {'200': {$ref: '#/components/responses/Success'}}
   /version:
     get:

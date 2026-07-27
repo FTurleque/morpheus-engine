@@ -10,11 +10,8 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.domain.source.SourceLocator;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -27,23 +24,26 @@ import java.util.Optional;
 
 /** SQLite adapter for the MORPHEUS knowledge-store foundation. */
 public final class SqliteSpecificationKnowledgeStore implements SpecificationKnowledgeStore, AutoCloseable {
+    static final int DEFAULT_BUSY_TIMEOUT_MILLIS = 5_000;
+
     private final Connection connection;
     private boolean closed;
 
     public SqliteSpecificationKnowledgeStore(Path databasePath) {
+        this(databasePath, DEFAULT_BUSY_TIMEOUT_MILLIS);
+    }
+
+    SqliteSpecificationKnowledgeStore(Path databasePath, int busyTimeoutMillis) {
         Objects.requireNonNull(databasePath, "databasePath");
-        Path absolutePath = databasePath.toAbsolutePath().normalize();
+        if (busyTimeoutMillis <= 0 || busyTimeoutMillis > 60_000) {
+            throw new IllegalArgumentException("busyTimeoutMillis must be between 1 and 60000");
+        }
         Connection opened = null;
         try {
-            Path parent = absolutePath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            opened = DriverManager.getConnection("jdbc:sqlite:" + absolutePath);
-            configure(opened);
+            opened = SqliteDatabaseSecurity.open(databasePath, busyTimeoutMillis);
             new SqliteSchemaManager().migrate(opened);
             this.connection = opened;
-        } catch (SQLException | IOException | RuntimeException exception) {
+        } catch (SQLException | RuntimeException exception) {
             closeQuietly(opened);
             if (exception instanceof KnowledgeStoreException knowledgeStoreException) {
                 throw knowledgeStoreException;
@@ -162,6 +162,30 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
             return findSnapshotInternal(snapshotId);
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot read snapshot " + snapshotId, exception);
+        }
+    }
+
+    @Override
+    public synchronized List<KnowledgeSnapshotMetadata> listSnapshots(ProjectSpecificationId projectId) {
+        ensureOpen();
+        Objects.requireNonNull(projectId, "projectId");
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT id, predecessor_id, state, source_revision, created_at
+                FROM knowledge_snapshots
+                WHERE project_id = ?
+                ORDER BY created_at, id
+                """)) {
+            statement.setString(1, projectId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                List<KnowledgeSnapshotMetadata> snapshots = new ArrayList<>();
+                while (result.next()) {
+                    KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.parse(result.getString("id"));
+                    snapshots.add(mapSnapshot(snapshotId, projectId, result));
+                }
+                return List.copyOf(snapshots);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot list snapshots for project " + projectId, exception);
         }
     }
 
@@ -379,13 +403,6 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     private void rejectPublishedTargetState(KnowledgeSnapshotState targetState) {
         if (targetState == KnowledgeSnapshotState.ACTIVE || targetState == KnowledgeSnapshotState.RETIRED) {
             throw new SnapshotConflictException("ACTIVE/RETIRED states are owned by snapshot activation");
-        }
-    }
-
-    private void configure(Connection connection) throws SQLException {
-        try (Statement statement = connection.createStatement()) {
-            statement.execute("PRAGMA foreign_keys = ON");
-            statement.execute("PRAGMA busy_timeout = 5000");
         }
     }
 

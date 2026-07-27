@@ -336,7 +336,7 @@ morpheus api [--host HOST] [--port PORT]
 morpheus mcp --stdio
 ```
 
-Defaults API : `127.0.0.1:8765`, base `/api/v1`, contrat OpenAPI **1.7.0**.
+Defaults API : `127.0.0.1:8765`, base `/api/v1`, contrat OpenAPI candidat M19 **1.8.0**.
 
 Surfaces M18 :
 
@@ -346,6 +346,8 @@ HTTP GET .../composition
 HTTP GET .../composition/conflicts
 MCP  get_composition_status
 MCP  list_composition_conflicts
+HTTP GET /api/v1/readiness
+HTTP GET /api/v1/metrics
 ```
 
 Catalogue MCP M18 : **22 tools read-only + 1 tool write explicite**.

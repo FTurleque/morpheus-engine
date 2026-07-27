@@ -3,6 +3,7 @@ package com.morpheus.api;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,6 +28,15 @@ class MorpheusApiContractTest {
             ApiTestSupport.Response health = http.get(server, "/health");
             assertEquals(200, health.status());
             assertTrue(health.body().contains("\"status\":\"UP\""));
+
+            ApiTestSupport.Response readiness = http.get(server, "/readiness");
+            assertEquals(200, readiness.status(), readiness.body());
+            assertTrue(readiness.body().contains("\"status\":\"READY\""), readiness.body());
+
+            ApiTestSupport.Response metrics = http.get(server, "/metrics");
+            assertEquals(200, metrics.status(), metrics.body());
+            assertTrue(metrics.body().contains("\"counters\""), metrics.body());
+            assertTrue(metrics.body().contains("\"timings\""), metrics.body());
 
             ApiTestSupport.Response version = http.get(server, "/version");
             assertEquals(200, version.status());
@@ -71,6 +81,24 @@ class MorpheusApiContractTest {
                     server, "/projects/01900000-0000-7000-8000-000000000001/requirements");
             assertEquals(404, unknownProject.status(), unknownProject.body());
             assertTrue(unknownProject.body().contains("\"code\":\"NOT_FOUND\""), unknownProject.body());
+        }
+    }
+
+    @Test
+    void reportsNotReadyWithServiceUnavailableWhenTheLocalDatabaseCannotBeOpened() throws Exception {
+        Path database = tempDirectory.resolve("not-ready.db");
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            Files.delete(database);
+            Files.createDirectory(database);
+
+            ApiTestSupport.Response health = http.get(server, "/health");
+            assertEquals(200, health.status(), health.body());
+            assertTrue(health.body().contains("\"status\":\"UP\""), health.body());
+
+            ApiTestSupport.Response readiness = http.get(server, "/readiness");
+            assertEquals(503, readiness.status(), readiness.body());
+            assertTrue(readiness.body().contains("\"status\":\"NOT_READY\""), readiness.body());
+            assertTrue(readiness.body().contains("\"diagnosticCode\":\"DATABASE_NOT_READY\""), readiness.body());
         }
     }
 }

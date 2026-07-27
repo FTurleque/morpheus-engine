@@ -1,5 +1,7 @@
 package com.morpheus.application.reference;
 
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.domain.reference.ExternalReference;
 import com.morpheus.domain.reference.ExternalReferenceResolutionReason;
 import com.morpheus.domain.reference.ExternalReferenceResolutionState;
@@ -12,10 +14,19 @@ import java.util.Optional;
 public final class ExternalReferenceResolutionService {
     private final ExternalReferenceResolverRegistry registry;
     private final Clock clock;
+    private final OperationalExecution execution;
 
     public ExternalReferenceResolutionService(ExternalReferenceResolverRegistry registry, Clock clock) {
+        this(registry, clock, new OperationalExecution(LocalOperationalRuntime.recorder()));
+    }
+
+    public ExternalReferenceResolutionService(
+            ExternalReferenceResolverRegistry registry,
+            Clock clock,
+            OperationalExecution execution) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.execution = Objects.requireNonNull(execution, "execution");
     }
 
     public ExternalReference resolve(ExternalReference reference) {
@@ -29,7 +40,10 @@ public final class ExternalReferenceResolutionService {
                     clock.instant());
         }
 
-        ExternalReferenceResolverResult result = resolver.orElseThrow().resolve(reference.target());
+        ExternalReferenceResolverResult result = execution.externalCall(
+                reference.target().system(),
+                "resolve",
+                () -> resolver.orElseThrow().resolve(reference.target()));
         return switch (result.status()) {
             case FOUND -> reference.transition(
                     ExternalReferenceResolutionState.RESOLVED,

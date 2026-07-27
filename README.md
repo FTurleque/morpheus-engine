@@ -260,7 +260,7 @@ Packaging Windows :
 Dernier gate de jalon mono-commande Windows :
 
 ```powershell
-.\validate-m18.cmd
+.\validate-m19.cmd
 ```
 
 Documentation développeur : [docs/developer/README.md](docs/developer/README.md).
@@ -274,8 +274,8 @@ M15     acceptance / verification / evidence        ✅ VALIDÉ / INTÉGRÉ — 
 M16     constraint semantics / blocking policy      ✅ VALIDÉ / INTÉGRÉ — 393/393
 M17     controlled lifecycle / write operations     ✅ VALIDÉ / INTÉGRÉ — 410/410
 M18     real providers / multi-provider             ✅ VALIDÉ / INTÉGRÉ — PR #86 — 418/418
-M19     production hardening / scale / operability  ⏭ PROCHAIN JALON
-M20     release engineering / PROD / 1.0            ⏳ PLANIFIÉ
+M19     production hardening / scale / operability  ✅ VALIDÉ TECHNIQUEMENT — PR #89 NON MERGÉE — 449/449
+M20     release engineering / PROD / 1.0            ⏳ APRÈS MERGE M19
 ```
 
 Dernier gate intégré de référence : **M18**.
@@ -287,6 +287,17 @@ MORPHEUS         418/418 PASS
 Architecture     170/170 PASS
 Packaging        Windows + smokes PASS
 Portable ZIP     33 919 431 octets
+```
+
+Dernier gate techniquement qualifié : **M19**, SHA de code exact `dca27db969b426ad43941ccb8cee7e926efb931b`.
+
+```text
+MORPHEUS         449/449 PASS Windows + Linux
+Architecture     178/178 PASS Windows + Linux
+Reactor          14/14 SUCCESS
+Budgets          PASS, seuils gelés inchangés
+Packaging        Windows + Linux + smokes PASS
+PR               #89, non mergée
 ```
 
 Roadmap post-M14 : **D0 → M15 → M16 → M17 → M18 → M19 → M20**. Voir [la roadmap détaillée](docs/roadmap/POST_M14_EXECUTION.md).

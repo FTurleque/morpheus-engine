@@ -1,12 +1,12 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M18 + D0 validés et intégrés — M19 prochain jalon**
+Statut : **C0 à M18 + D0 validés et intégrés — M19 qualifié techniquement, non mergé**
 
-Dernière mise à jour : 26 juillet 2026
+Dernière mise à jour : 27 juillet 2026
 
 La roadmap MORPHEUS est pilotée par des preuves : contrats stables, ADR cohérentes, tests reproductibles et réponse explicite à chaque question de sortie.
 
-La baseline C0→M18 est acquise. La suite officielle est définie dans [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md). La politique documentaire est [`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md).
+La baseline C0→M18 est acquise. M19 a passé ses gates Windows et Linux sur le même SHA de code exact ; la PR #89 attend revue et autorisation de merge. La suite officielle est définie dans [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md). La politique documentaire est [`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md).
 
 ## 1. Vue globale
 
@@ -33,14 +33,15 @@ La baseline C0→M18 est acquise. La suite officielle est définie dans [`POST_M
 | M16 | Constraint Semantics & Policy Enforcement | ✅ VALIDÉ / INTÉGRÉ — PR #79 | 393/393 + Architecture 161/161 + packaging PASS |
 | M17 | Controlled Lifecycle & Write Operations | ✅ VALIDÉ / INTÉGRÉ — PR #81 | 410/410 + Architecture 167/167 + packaging PASS |
 | **M18** | **Real Providers & Multi-Provider Composition** | **✅ VALIDÉ / INTÉGRÉ — PR #86** | **418/418 + Architecture 170/170 + packaging PASS** |
-| **M19** | **Production Hardening, Scale & Operability** | **⏭ PROCHAIN** | performances, robustesse, observabilité et sécurité locale mesurées |
-| M20 | Release Engineering, Installation PROD & MORPHEUS 1.0 | ⏳ PLANIFIÉ | setup/release/upgrade/uninstall/Linux |
+| **M19** | **Production Hardening, Scale & Operability** | **✅ VALIDÉ TECHNIQUEMENT — PR #89 NON MERGÉE** | **449/449 + Architecture 178/178 + Windows/Linux + budgets + packaging PASS** |
+| M20 | Release Engineering, Installation PROD & MORPHEUS 1.0 | ⏳ PLANIFIÉ / BLOQUÉ | démarre après merge M19 ; setup/release/upgrade/uninstall/Linux |
 
 Plans :
 
 - [`POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md) — trajectoire stratégique post-M14 ;
 - [`M18_EXECUTION.md`](../roadmap/M18_EXECUTION.md) — exécution M18 terminée ;
-- futur `M19_EXECUTION.md` — source opérationnelle de M19 une fois le jalon démarré.
+- [`M19_EXECUTION.md`](../roadmap/M19_EXECUTION.md) — exécution M19 techniquement terminée ;
+- [`VALIDATION_M19.md`](../validation/VALIDATION_M19.md) — preuves exact-head Windows et Linux.
 
 ## 2. Baseline M18 autoritative
 
@@ -169,15 +170,29 @@ M15 371/371 | Architecture 157/157 | packaging + smokes PASS
 M16 393/393 | Architecture 161/161 | packaging + smokes PASS
 M17 410/410 | Architecture 167/167 | packaging + smokes PASS
 M18 418/418 | Architecture 170/170 | packaging + smokes PASS
+M19 449/449 | Architecture 178/178 | Windows + Linux | budgets + packaging + smokes PASS
 ```
 
-## 7. Prochain jalon — M19
+## 7. Jalon qualifié — M19
 
 Question de sortie :
 
 > **MORPHEUS reste-t-il déterministe, observable et exploitable sur des dépôts réalistes de grande taille, avec des limites et performances mesurées plutôt que supposées ?**
 
-Axes :
+Verdict : **OUI**, pour le profil gelé et les environnements enregistrés dans la preuve M19.
+
+```text
+Code SHA       dca27db969b426ad43941ccb8cee7e926efb931b
+Windows        PASS
+Linux          PASS sur ext4 / WSL2
+Tests          449/449 PASS, 0 failure/error/skipped
+Architecture   178/178 PASS
+Reactor        14/14 SUCCESS
+Budgets        PASS, seuils inchangés
+Packaging      PASS Windows + Linux
+```
+
+Axes prouvés :
 
 ```text
 performance / capacité
@@ -187,11 +202,11 @@ sécurité locale
 reproductibilité Windows / Linux
 ```
 
-Les budgets de performance et capacité doivent être fixés **avant** toute optimisation. Aucun PASS Linux ne peut être revendiqué sans exécution Linux réelle.
+Les budgets de performance et capacité ont été fixés **avant** toute optimisation. Le PASS Linux provient d'une exécution Linux réelle sur le même SHA de code ; il n'est pas inféré du gate Windows.
 
 ## 8. Direction M20
 
-Après M19, M20 transforme le packaging existant en distribution produit : installation Windows par utilisateur, programme/données séparés, checksums, GitHub Releases, upgrade/uninstall et distribution Linux.
+Après le merge explicitement autorisé de M19, M20 transformera le packaging existant en distribution produit : installation Windows par utilisateur, programme/données séparés, checksums, GitHub Releases, upgrade/uninstall et distribution Linux. M20 n'est pas démarré.
 
 ## 9. Règle de pilotage
 

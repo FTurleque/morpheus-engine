@@ -89,15 +89,16 @@ Ces documents de cadrage expliquent l’intention fondatrice. Les contrats et é
 - [`roadmap/README.md`](roadmap/README.md) — index des plans historiques et actifs ;
 - [`roadmap/POST_M14_EXECUTION.md`](roadmap/POST_M14_EXECUTION.md) — roadmap détaillée D0 + M15→M20 ;
 - [`roadmap/M18_EXECUTION.md`](roadmap/M18_EXECUTION.md) — dernier jalon intégré ;
+- [`roadmap/M19_EXECUTION.md`](roadmap/M19_EXECUTION.md) — dernier jalon techniquement qualifié, non mergé ;
 - [`governance/PLAN.md`](governance/PLAN.md) — plan de cadrage C0/M0 historique ;
 - [`governance/AUDIT_COHERENCE_C0.md`](governance/AUDIT_COHERENCE_C0.md) — audit C0 ;
-- [`validation/`](validation/) — preuves de validation C0 et M0 à M18 ;
+- [`validation/`](validation/) — preuves de validation C0 et M0 à M19 ;
 - [`adr/`](adr/) — Architecture Decision Records.
 
 ## Références machine
 
 - [`reference/`](reference/) — index des contrats ;
-- [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml) — contrat OpenAPI machine-readable 1.7.0 ;
+- [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml) — contrat OpenAPI machine-readable M19 1.8.0 ;
 - [`../distribution/README.md`](../distribution/README.md) — construction et packaging des distributions.
 
 ## État livré et suite planifiée
@@ -112,8 +113,19 @@ M18            ✅ validé / intégré — PR #86 — 418/418
 Architecture   ✅ 170/170 PASS au gate M18
 Packaging Win  ✅ PASS au gate M18
 
-M19            ⏭ production hardening / scale / operability — prochain jalon
-M20            ⏳ release engineering / installation PROD / 1.0
+M19            ✅ production hardening / scale / operability — qualifié, PR #89 non mergée
+M20            ⏳ release engineering / installation PROD / 1.0 — après merge M19
+```
+
+Référence M19 :
+
+```text
+code validé = dca27db969b426ad43941ccb8cee7e926efb931b
+tests       = 449/449 PASS Windows + Linux
+architecture= 178/178 PASS Windows + Linux
+reactor     = 14/14 SUCCESS
+budgets     = PASS
+packaging   = PASS Windows + Linux
 ```
 
 Référence M18 :

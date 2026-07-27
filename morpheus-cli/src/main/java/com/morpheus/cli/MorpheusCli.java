@@ -6,6 +6,8 @@ import com.morpheus.application.analysis.compact.CompactChangeAnalysisViewServic
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
+import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessService;
 import com.morpheus.application.quality.DecisionReferenceQualityService;
@@ -247,11 +249,13 @@ public final class MorpheusCli {
             try {
                 var identityResolver = new PersistentEntityIdentityResolver(runtime.identities);
                 var normalized = new OpenSpecProjectContentReader().read(workspace, projectId, identityResolver);
-                ProjectSnapshotImportResult imported = new ProjectSnapshotImportService(
-                        runtime.snapshots,
-                        runtime.requirements,
-                        runtime.content,
-                        runtime.traceability)
+                ProjectSnapshotImportResult imported = new ObservedProjectSnapshotPublisher(
+                        new ProjectSnapshotImportService(
+                                runtime.snapshots,
+                                runtime.requirements,
+                                runtime.content,
+                                runtime.traceability),
+                        LocalOperationalRuntime.recorder())
                         .publishFull(normalized, revision, Instant.now());
                 syncService.complete(plan, Instant.now());
                 SyncView view = new SyncView(
