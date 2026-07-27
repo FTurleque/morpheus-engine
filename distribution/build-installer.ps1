@@ -34,13 +34,21 @@ function Resolve-Iscc {
     $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
 
-    throw @'
-Inno Setup compiler (ISCC.exe, version 7 or 6) was not found.
-Install the build dependency with:
-  winget install --id JRSoftware.InnoSetup -e
-or set MORPHEUS_ISCC to the full path of ISCC.exe.
-This dependency is required only to build the Windows setup; MORPHEUS end users do not need it.
-'@
+    $bootstrap = Join-Path $PSScriptRoot 'ensure-inno-setup.ps1'
+    if (-not (Test-Path -LiteralPath $bootstrap)) {
+        throw "Inno Setup compiler is missing and bootstrap script was not found: $bootstrap"
+    }
+    Write-Host 'ISCC.exe not found locally; bootstrapping pinned, Authenticode-verified Inno Setup 7.0.2...'
+    $resolved = @(& $bootstrap)
+    if ($LASTEXITCODE -ne 0 -or $resolved.Count -eq 0) {
+        throw 'Inno Setup bootstrap failed'
+    }
+    $path = [string]$resolved[-1]
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Inno Setup bootstrap returned an invalid compiler path: $path"
+    }
+    $env:MORPHEUS_ISCC = (Resolve-Path -LiteralPath $path).Path
+    return $env:MORPHEUS_ISCC
 }
 
 function Write-And-VerifySha256([string]$Path) {
