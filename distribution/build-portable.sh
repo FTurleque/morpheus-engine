@@ -12,12 +12,17 @@ IMAGE_ROOT="$WORK/image"
 
 JPACKAGE="${JAVA_HOME:-}/bin/jpackage"
 JAR_TOOL="${JAVA_HOME:-}/bin/jar"
+JIMAGE_TOOL="${JAVA_HOME:-}/bin/jimage"
 if [[ -z "${JAVA_HOME:-}" || ! -x "$JPACKAGE" ]]; then
   echo "jpackage not found under JAVA_HOME=${JAVA_HOME:-<unset>}" >&2
   exit 1
 fi
 if [[ ! -x "$JAR_TOOL" ]]; then
   echo "jar not found under JAVA_HOME=${JAVA_HOME:-<unset>}" >&2
+  exit 1
+fi
+if [[ ! -x "$JIMAGE_TOOL" ]]; then
+  echo "jimage not found under JAVA_HOME=${JAVA_HOME:-<unset>}" >&2
   exit 1
 fi
 
@@ -178,8 +183,8 @@ PY
 
 test_packaged_api_operability "$LAUNCHER" "$WORK"
 
-PACKAGED_MODULES="$("$IMAGE_ROOT/morpheus/lib/runtime/bin/java" --list-modules)"
-if ! grep -Eq '^jdk\.httpserver@' <<<"$PACKAGED_MODULES" || ! grep -Eq '^java\.sql@' <<<"$PACKAGED_MODULES"; then
+PACKAGED_MODULES="$("$JIMAGE_TOOL" list "$IMAGE_ROOT/morpheus/lib/runtime/lib/modules")"
+if ! grep -Fxq 'Module: jdk.httpserver' <<<"$PACKAGED_MODULES" || ! grep -Fxq 'Module: java.sql' <<<"$PACKAGED_MODULES"; then
   echo "Packaged runtime does not contain jdk.httpserver and java.sql" >&2
   exit 1
 fi
