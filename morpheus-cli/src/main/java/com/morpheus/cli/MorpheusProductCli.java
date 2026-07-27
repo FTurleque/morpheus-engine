@@ -155,6 +155,9 @@ final class MorpheusProductCli {
         if (value.isEmpty()) {
             throw new IllegalArgumentException("manifest must not be blank");
         }
+        if (value.matches("^[A-Za-z]:[\\\\/].*")) {
+            return Path.of(value).toAbsolutePath().normalize().toUri();
+        }
         URI parsed = URI.create(value);
         if (parsed.isAbsolute()) {
             return parsed;
