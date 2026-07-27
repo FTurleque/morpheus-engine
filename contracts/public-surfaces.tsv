@@ -1,6 +1,6 @@
 # MORPHEUS M21 public convergence manifest
 # capability	intent	cli	mcp	http	notes
-product.version	READ	version|get_product_info	GET /api/v1/version	Build-derived ProductMetadata; no business-state dependency
+product.version	READ	version	get_product_info	GET /api/v1/version	Build-derived ProductMetadata; no business-state dependency
 product.update-discovery	READ	update-check --manifest	check_product_update	EXPLICITLY_NOT_EXPOSED	HTTP omission is deliberate to avoid turning a local API into a generic SSRF surface; caller supplies URI only through CLI/MCP
 composition.status	READ	composition status	get_composition_status	GET /api/v1/projects/{projectId}/composition	Same semantic status; transport shape may differ
 composition.conflicts	READ	composition conflicts	list_composition_conflicts	GET /api/v1/projects/{projectId}/composition/conflicts	Conflicts remain explicit; no silent last-write-wins
