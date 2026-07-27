@@ -1,103 +1,140 @@
-# MORPHEUS — Distribution locale
+# MORPHEUS — Distribution et release 1.0
 
-Stratégie actuelle : **native-first**, archive portable autonome comme artefact principal. La transformation en installation produit stable est planifiée pour M20.
+M20 transforme le packaging portable historique en contrat de release produit : **setup Windows + archives portables Windows/Linux + runtime Java embarqué + SHA-256 + manifest lié au SHA Git**.
 
-## Artefacts
+La preuve autoritative reste locale via les validateurs M20 ; GitHub Actions n’est pas le gate du jalon.
+
+## Artefacts 1.0
 
 ```text
-Windows x64 -> dist/morpheus-<version>-windows-x64.zip
-Linux x64   -> dist/morpheus-<version>-linux-x64.tar.gz
+Windows setup
+  dist/MORPHEUS-1.0.0-windows-x64-setup.exe
+  dist/MORPHEUS-1.0.0-windows-x64-setup.exe.sha256
+
+Windows portable
+  dist/morpheus-1.0.0-windows-x64.zip
+  dist/morpheus-1.0.0-windows-x64.zip.sha256
+
+Linux portable
+  dist/morpheus-1.0.0-linux-x64.tar.gz
+  dist/morpheus-1.0.0-linux-x64.tar.gz.sha256
 ```
 
-Les archives embarquent leur runtime Java, notamment `jdk.httpserver` et `java.sql` pour l'API locale et SQLite. Aucun JDK séparé n'est requis pour exécuter MORPHEUS depuis une distribution portable.
+Les distributions embarquent leur runtime Java, dont `jdk.httpserver` et `java.sql`. Aucun JDK utilisateur n’est requis pour exécuter MORPHEUS.
 
-## Contenu M18
+## Windows setup
 
-L'uber-JAR et l'app-image embarquent :
+Le setup est défini par :
+
+```text
+distribution/windows/MORPHEUS.iss
+```
+
+Contrat :
+
+```text
+per-user
+PrivilegesRequired=lowest
+%LOCALAPPDATA%\Programs\MORPHEUS
+AppId stable
+PATH utilisateur optionnel et décoché par défaut
+uninstall programme uniquement
+```
+
+L’état persistant vit hors du répertoire programme :
+
+```text
+%LOCALAPPDATA%\MORPHEUS\data
+%LOCALAPPDATA%\MORPHEUS\config
+%LOCALAPPDATA%\MORPHEUS\logs
+%LOCALAPPDATA%\MORPHEUS\backups
+```
+
+Le setup ne contient aucune règle de suppression de ce state root lors de l’uninstall.
+
+## Build Windows
+
+Prérequis de build :
+
+```text
+JDK avec jpackage
+Maven Wrapper du dépôt
+Inno Setup 7 ou 6 (ISCC.exe)
+```
+
+Inno Setup est une dépendance **de build uniquement**.
+
+Installation possible du compilateur :
+
+```powershell
+winget install --id JRSoftware.InnoSetup -e
+```
+
+Un chemin explicite peut être fourni via :
+
+```text
+MORPHEUS_ISCC=C:\...\ISCC.exe
+```
+
+### Archive portable seule
+
+```powershell
+.\distribution\build-portable.ps1 -Version 1.0.0
+```
+
+### Setup Windows
+
+```powershell
+.\distribution\build-installer.ps1 -Version 1.0.0
+```
+
+### Release Windows depuis un tag exact
+
+```powershell
+.\distribution\build-release.ps1 -Version 1.0.0 -ExpectedTag v1.0.0
+```
+
+`build-release.ps1` :
+
+1. refuse un workspace sale ;
+2. exige que le tag attendu pointe exactement sur `HEAD` ;
+3. construit le ZIP portable ;
+4. construit le setup ;
+5. écrit et revérifie les SHA-256 ;
+6. produit `morpheus-1.0.0-windows-x64-release-manifest.json` avec version, tag, SHA Git, tailles et hashes.
+
+## Build Linux
+
+```bash
+bash distribution/build-portable.sh 1.0.0
+```
+
+Release depuis le tag exact :
+
+```bash
+bash distribution/build-release.sh 1.0.0 v1.0.0
+```
+
+La chaîne Linux produit le tar.gz, son `.sha256`, vérifie le checksum et écrit le manifest Linux associé au SHA Git exact.
+
+## Contenu packagé
+
+Le JAR ombré et l’app-image embarquent :
 
 ```text
 CLI MORPHEUS
 serveur MCP
 API HTTP
-services applicatifs
+services application/domain
 provider OpenSpec
 provider Structured Markdown
 adapters MINOS/NEXUS optionnels
-SQLite JDBC + migrations jusqu'à V012
+store SQLite + migrations
 Jackson
+runtime Java minimal
 ```
 
-Ils n'embarquent **ni MINOS, ni NEXUS, ni JARVIS**.
-
-Le build vérifie l'absence d'implémentations externes embarquées.
-
-## Windows
-
-Prérequis de build : JDK compatible avec `jpackage` et baseline Java 21.
-
-```powershell
-.\distribution\build-portable.ps1
-```
-
-Le packaging M18 vérifie notamment :
-
-```text
-classes CLI / MCP / API
-provider Structured Markdown
-SQLite V012
-MINOS/NEXUS optionnels
-M14 orchestration read-only
-M17 controlled lifecycle write
-M18 composition surfaces
-API health
-portable archive
-```
-
-### Gate M18 réellement validé
-
-```text
-MCP/API/MINOS/NEXUS/M14-M18 classes + provider Markdown + V012 embedded: PASS
-Packaged standalone optional-engines + M14 read-only + M17 controlled-write + M18 composition surface smoke: PASS
-Packaged API health smoke: PASS
-Portable archive creation: PASS
-```
-
-Archive validée :
-
-```text
-dist/morpheus-0.1.0-windows-x64.zip
-33,919,431 bytes
-```
-
-Code réellement testé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.
-
-## Linux
-
-```bash
-chmod +x mvnw distribution/build-portable.sh
-./distribution/build-portable.sh
-```
-
-Artefact :
-
-```text
-dist/morpheus-<version>-linux-x64.tar.gz
-```
-
-Une preuve de packaging Windows ne constitue jamais une preuve Linux. Les qualifications M19 devront enregistrer séparément les résultats réellement exécutés sur chaque OS.
-
-## Configuration runtime
-
-```text
---data-dir PATH
---config-dir PATH
---db PATH
-MORPHEUS_DATA_DIR
-MORPHEUS_CONFIG_DIR
-MORPHEUS_DB
-```
-
-Utiliser `morpheus paths` pour afficher le layout effectivement résolu.
+Ils n’embarquent **ni l’implémentation MINOS, ni l’implémentation NEXUS, ni JARVIS**.
 
 ## Intégrations optionnelles
 
@@ -119,49 +156,51 @@ MORPHEUS_NEXUS_HOME
 MORPHEUS_NEXUS_TIMEOUT_SECONDS
 ```
 
-JARVIS n'est jamais embarqué. Il consomme les contrats HTTP MORPHEUS et reste propriétaire de l'orchestration.
+Sans configuration, les deux intégrations restent `DISABLED`. JARVIS n’est jamais embarqué.
 
-## Surfaces M18 + candidat M19 packagées
+## Runtime layout
 
-```text
-CLI  composition sync/status/conflicts
-MCP  get_composition_status
-MCP  list_composition_conflicts
-HTTP GET /api/v1/projects/{projectId}/composition
-HTTP GET /api/v1/projects/{projectId}/composition/conflicts
-HTTP GET /api/v1/readiness
-HTTP GET /api/v1/metrics
-OpenAPI candidat 1.8.0
-SQLite V012
-```
-
-## Gates historiques récents
+Overrides MORPHEUS :
 
 ```text
-M9  298/298 Windows + Linux
-M10 307/307 Windows + MCP packaging
-M11 314/314 Windows + packaged API health
-M12 331/331 Windows + MINOS optional packaging
-M13 346/346 Windows + MINOS/NEXUS optional packaging
-M14 357/357 Windows + Architecture 160/160 + orchestration packaging PASS
-M15 371/371 Windows + Architecture 157/157 + packaging/smokes PASS
-M16 393/393 Windows + Architecture 161/161 + packaging/smokes PASS
-M17 410/410 Windows + Architecture 167/167 + packaging/smokes PASS
-M18 418/418 Windows + Architecture 170/170 + packaging/smokes PASS
+--data-dir PATH
+--config-dir PATH
+--db PATH
+MORPHEUS_DATA_DIR
+MORPHEUS_CONFIG_DIR
+MORPHEUS_LOGS_DIR
+MORPHEUS_BACKUPS_DIR
+MORPHEUS_DB
 ```
 
-## Validation mono-commande M18
+Linux respecte également :
+
+```text
+XDG_DATA_HOME
+XDG_CONFIG_HOME
+XDG_STATE_HOME
+```
+
+`morpheus paths` affiche les principaux chemins effectivement résolus.
+
+## Validation M20
+
+Windows, gate complet :
 
 ```powershell
-.\validate-m18.cmd
+.\validate-m20.cmd
 ```
 
-Preuve : [VALIDATION_M18.md](../docs/validation/VALIDATION_M18.md).
+Le scénario couvre Maven, construction depuis tag exact, checksums, installation, PATH, exécution sans JDK utilisateur, API, upgrade, uninstall, conservation des données et réinstallation.
 
-## Documentation
+Linux :
 
-- [Démarrage rapide utilisateur](../docs/user/QUICKSTART.md)
-- [Configuration des intégrations](../docs/user/INTEGRATIONS.md)
-- [Build et tests développeur](../docs/developer/BUILD_AND_TEST.md)
-- [Architecture](../docs/developer/ARCHITECTURE.md)
-- [Validation M18](../docs/validation/VALIDATION_M18.md)
+```bash
+bash scripts/validate-m20.sh 1.0.0
+```
+
+Les résultats Windows et Linux sont enregistrés séparément. Un environnement non exécuté n’est jamais déclaré PASS.
+
+Preuve : [`../docs/validation/VALIDATION_M20.md`](../docs/validation/VALIDATION_M20.md).
+
+Documentation utilisateur : [`../docs/user/INSTALLATION.md`](../docs/user/INSTALLATION.md).
