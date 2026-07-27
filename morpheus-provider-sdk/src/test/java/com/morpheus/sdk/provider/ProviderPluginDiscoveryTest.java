@@ -3,7 +3,7 @@ package com.morpheus.sdk.provider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.ByteArrayOutputStream;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Properties;
@@ -74,11 +74,12 @@ class ProviderPluginDiscoveryTest {
     }
 
     private static void writeMetadataOnlyJar(Path path, Properties properties) throws Exception {
-        ByteArrayOutputStream metadata = new ByteArrayOutputStream();
-        properties.store(new java.io.OutputStreamWriter(metadata, StandardCharsets.UTF_8), null);
+        StringWriter metadata = new StringWriter();
+        properties.store(metadata, null);
+        byte[] bytes = metadata.toString().getBytes(StandardCharsets.UTF_8);
         try (JarOutputStream jar = new JarOutputStream(java.nio.file.Files.newOutputStream(path))) {
             jar.putNextEntry(new JarEntry(ProviderSdk.METADATA_PATH));
-            jar.write(metadata.toByteArray());
+            jar.write(bytes);
             jar.closeEntry();
         }
     }
