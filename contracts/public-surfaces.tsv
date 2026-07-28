@@ -16,3 +16,13 @@ composition.status	READ	composition status	get_composition_status	GET /api/v1/pr
 composition.conflicts	READ	composition conflicts	list_composition_conflicts	GET /api/v1/projects/{projectId}/composition/conflicts	Conflicts remain explicit; no silent last-write-wins
 lifecycle.apply	WRITE	lifecycle apply	apply_change_lifecycle_transition	POST /api/v1/projects/{projectId}/changes/{changeId}/lifecycle-transitions	WRITE_CHANGE, confirmation and CAS remain mandatory
 acceptance.criteria	READ	acceptance-criteria list	get_acceptance_criteria	GET /api/v1/projects/{projectId}/changes/{changeId}/acceptance-criteria	Explicit persisted criteria only
+query.execute	READ	query execute	execute_query	POST /api/v1/queries/execute	Provider-neutral bounded query; project/portfolio scope and deterministic ordering are application semantics
+saved-view.create	WRITE	views create	create_saved_view	POST /api/v1/saved-views	Configuration persistence only; stores a versioned query definition and never mutates published domain truth
+saved-view.list	READ	views list	list_saved_views	GET /api/v1/saved-views	Lists active definitions for one explicit project or portfolio scope
+saved-view.get	READ	views get	get_saved_view	GET /api/v1/saved-views/{id}	Stable identity is independent from mutable name
+saved-view.versions	READ	views versions	list_saved_view_versions	GET /api/v1/saved-views/{id}/versions	Immutable definition revision history
+saved-view.update	WRITE	views update	update_saved_view	PUT /api/v1/saved-views/{id}	Configuration CAS using expected revision; stale writers fail explicitly
+saved-view.archive	WRITE	views archive	archive_saved_view	POST /api/v1/saved-views/{id}/archive	Configuration mutation only; archive is versioned and non-destructive
+saved-view.execute	READ	views execute	execute_saved_view	POST /api/v1/saved-views/{id}/execute	Executes the stored query definition against current published truth; saved view is not materialized truth
+query.export	READ	export query	export_query	POST /api/v1/exports	Read-only bounded canonical JSON/CSV/Markdown export; no domain mutation
+saved-view.export	READ	export view	export_saved_view	POST /api/v1/saved-views/{id}/export	Read-only export of the active saved-view definition; no saved-view or domain mutation
