@@ -105,6 +105,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0087](0087-local-first-operability-and-secure-diagnostic-defaults.md) | Opérabilité local-first et diagnostics sûrs par défaut | **Acceptée — M19** |
 | [ADR-0088](0088-product-release-installation-and-persistent-data-separation.md) | Release produit, installation et séparation programme/données persistantes | **Acceptée — M20** |
 | [ADR-0089](0089-production-integrity-surface-convergence.md) | Intégrité de production, qualité/supply-chain et convergence des surfaces publiques | **Acceptée — M21** |
+| [ADR-0090](0090-provider-sdk-plugin-discovery-platform.md) | Provider SDK v1, discovery sans exécution, activation isolée et lecture normalisée | **Acceptée — M22** |
 
 # Preuves par jalon
 
@@ -129,28 +130,30 @@ M18 418/418 PASS Windows | Architecture 170/170
 M19 449/449 PASS Windows + Linux | Architecture 178/178
 M20 454/454 PASS Windows + Linux | Architecture 182/182
 M21 473 PASS Windows + Linux | Architecture 187 | JaCoCo floors PASS | Portable PASS
+M22 494 PASS Windows + Linux | Architecture 190 | SDK API 1 | External provider PASS | Portable PASS
 ```
 
-## Baseline M21 qualifiée
+## Baseline M22 qualifiée
 
-ADR-0089 fige la baseline de production post-1.0 : CI durable, couverture mesurée, manifeste public de surfaces, version produit convergente, CycloneDX/provenance et update discovery explicite sans auto-mutation.
+ADR-0090 ajoute une extension provider externe sans dépendance inverse vers le core et sans découverte implicite au démarrage.
 
 ```text
-Code qualifié   239d99657fbf193761767f382489dd637e642fe9
+Code qualifié   e42bc31384831e56592b11a3509b49a3fdf61773
 Version          1.0.0
 Windows          PASS
 Linux WSL2       PASS
-Tests            473 PASS
-Architecture     187 PASS
-Reactor          14/14 SUCCESS Windows + Linux
+Tests            494 PASS
+Architecture     190 PASS
+SDK API          1
+External plugin  PASS
 Coverage         PASS Windows + Linux
 SBOM/provenance  PASS Windows + Linux
 Portable         PASS Windows + Linux
 Executable delta NONE Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).  
-Plan : [`../roadmap/M21_EXECUTION.md`](../roadmap/M21_EXECUTION.md).  
+Validation : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).  
+Plan : [`../roadmap/M22_EXECUTION.md`](../roadmap/M22_EXECUTION.md).  
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
 # Contraintes actives principales
@@ -162,6 +165,10 @@ MINOS integration -X-> com.minos.*
 NEXUS integration -X-> com.nexus.*
 MORPHEUS -X-> com.jarvis.*
 provider-specific types -X-> domain/application contracts
+provider plugin != domain dependency
+plugin discovery != plugin activation
+probe != read
+classloader isolation != security sandbox
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
 SpecificationVersion != KnowledgeSnapshot
 PROPOSED never leaks into CURRENT
@@ -188,7 +195,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate techniquement qualifié : **M21**.
+Dernier gate techniquement qualifié : **M22**.
 
 # Principe de validation
 
