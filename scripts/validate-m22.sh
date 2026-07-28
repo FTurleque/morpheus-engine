@@ -86,8 +86,7 @@ if [[ ! -f "$SBOM_JSON" || ! -f "$SBOM_XML" ]]; then
   echo 'CycloneDX JSON/XML SBOM is missing' >&2
   exit 1
 fi
-chmod +x scripts/write-build-provenance.sh distribution/build-portable.sh
-./scripts/write-build-provenance.sh
+bash scripts/write-build-provenance.sh
 if [[ ! -f "$REPO/target/m21-supply-chain/build-provenance.properties" ]]; then
   echo 'Build provenance is missing' >&2
   exit 1
@@ -101,7 +100,7 @@ if [[ ! -f "$REFERENCE_JAR" ]]; then
 fi
 
 if [[ "$SKIP_PORTABLE" != true ]]; then
-  ./distribution/build-portable.sh "$VERSION" 'validation-output/m22/dist'
+  bash distribution/build-portable.sh "$VERSION" 'validation-output/m22/dist'
   LAUNCHER="$REPO/validation-output/m22/dist/.m20-linux/image/morpheus/bin/morpheus"
   if [[ ! -x "$LAUNCHER" ]]; then
     echo "Packaged launcher not found: $LAUNCHER" >&2
