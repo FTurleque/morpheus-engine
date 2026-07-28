@@ -31,6 +31,7 @@ VALIDATION_R1.md
 VALIDATION_M21.md
 VALIDATION_M22.md
 VALIDATION_M23.md
+VALIDATION_M24.md
 ```
 
 Chaque document conserve les décisions, SHA testés, commandes et gates connus au moment de la validation. Ils constituent des **preuves historiques** ; la documentation utilisateur et développeur active vit respectivement dans [`../user/`](../user/) et [`../developer/`](../developer/).
@@ -46,48 +47,48 @@ D1 / release SHA    51f6a120f3461c8d8c24323f3db8211d28d6cb42
 Tag                 v1.0.0
 Tests M20           454/454 PASS Windows + Linux
 Architecture        182/182 PASS Windows + Linux
-Reactor             14/14 SUCCESS
 GitHub Release      MORPHEUS 1.0.0 — 8/8 assets
 ```
 
 Preuves : [`VALIDATION_M20.md`](VALIDATION_M20.md), [`VALIDATION_D1.md`](VALIDATION_D1.md), [`VALIDATION_R1.md`](VALIDATION_R1.md).
 
-## M22 intégré
-
-M22 — Provider SDK & Plugin Discovery Platform a été qualifié sur Windows/Linux puis intégré via PR #101.
+## Évolutions 1.x intégrées avant M24
 
 ```text
-Head exécutable     e42bc31384831e56592b11a3509b49a3fdf61773
-Merge               67c587057e287d57b0733f9e425a57b26cc38ae4
-Tests               494 PASS Windows + Linux
-Architecture        190 PASS Windows + Linux
-ADR-0090            Acceptée — M22
+M21  473 PASS Windows + Linux | Architecture 187
+M22  494 PASS Windows + Linux | Architecture 190
+M23  507 PASS Windows + Linux | Architecture 195
 ```
 
-Preuve : [`VALIDATION_M22.md`](VALIDATION_M22.md).
+Preuves : [`VALIDATION_M21.md`](VALIDATION_M21.md), [`VALIDATION_M22.md`](VALIDATION_M22.md), [`VALIDATION_M23.md`](VALIDATION_M23.md).
 
 ## Dernier jalon techniquement qualifié
 
-**M23 — Multi-project / Portfolio Specification Intelligence** est validé sur Windows et Linux sur le même head exécutable :
+**M24 — Query DSL, Saved Views & Export/Reporting** est qualifié sur Windows et Linux sur le même SHA exécutable :
 
 ```text
-Head exécutable       04a906e9d5858292ed0f0f1bec65246fef91ed63
+Head exécutable       be69e47da0ae209d2246df9c67bc08caeafb2bb0
 Windows               PASS
 Linux WSL2            PASS
-Tests                 507 PASS
-Architecture          195 PASS
-Windows JaCoCo        46.7034% lignes / 40.9099% branches
-Linux JaCoCo          46.6979% lignes / 40.9099% branches
-Portfolio identity    PASS
-Cross-project refs    PASS
-Bounded traversal     PASS
-SQLite V013           PASS
+Tests                 543 PASS
+Architecture          221 PASS
+Windows JaCoCo        44.2936% lignes / 38.1166% branches
+Linux JaCoCo          44.3037% lignes / 38.1166% branches
+Query DSL             PASS
+Saved views           PASS
+SQLite V014           PASS
+Canonical JSON        PASS
+CSV                    PASS
+Markdown               PASS
+Query/export budgets  PASS
 CycloneDX/provenance  PASS Windows + Linux
 Portable              PASS Windows + Linux
 Convergence           CLI/MCP/HTTP PASS
 Executable delta      NONE Windows + Linux
-ADR-0091              Acceptée — M23
-PR                     #104
+ADR-0092              Acceptée — M24
+PR                     #106
 ```
 
-La preuve détaillée est [`VALIDATION_M23.md`](VALIDATION_M23.md). Le SHA exécutable qualifié reste distinct des commits documentaires de consolidation ajoutés ensuite.
+La preuve détaillée est [`VALIDATION_M24.md`](VALIDATION_M24.md).
+
+Le SHA exécutable qualifié reste distinct des commits documentaires de consolidation ajoutés ensuite. Une modification de code/POM/contrat runtime/packaging/validator exige un nouveau gate exact-head Windows + Linux.
