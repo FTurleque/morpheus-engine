@@ -1,10 +1,10 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — politique documentaire post-M18**
+Statut : **ACTIF — politique documentaire MORPHEUS 1.x post-M23**
 
-Dernière mise à jour : 26 juillet 2026
+Dernière mise à jour : 28 juillet 2026
 
-Ce document définit comment interpréter la documentation MORPHEUS après l’intégration de C0 à M18. Il évite de confondre l’état courant du produit avec les traces d’exécution et de décision conservées pour l’audit.
+Ce document définit comment interpréter la documentation MORPHEUS après l’intégration de C0 à M23, D0/D1 et la publication R1. Il évite de confondre l’état courant du produit, les évolutions 1.x et les traces historiques d’exécution conservées pour l’audit.
 
 ## 1. Hiérarchie d’autorité
 
@@ -13,16 +13,19 @@ Pour connaître l’état courant du projet :
 ```text
 docs/governance/ROADMAP.md
         ↓
-docs/roadmap/POST_M14_EXECUTION.md
+docs/roadmap/POST_M20_EVOLUTION.md
         ↓
 plan d’exécution du jalon actuellement actif
 ```
+
+M24 est le prochain jalon actif après l’intégration de M23.
 
 Pour les contrats effectivement exposés :
 
 ```text
 code + tests de contrat
         ↓
+contracts/public-surfaces.tsv
 docs/reference/
 docs/openapi/
 docs/developer/
@@ -50,11 +53,22 @@ docs/reference/
 docs/openapi/
 docs/governance/ROADMAP.md
 docs/governance/DOCUMENTATION_STATUS.md
-docs/roadmap/POST_M14_EXECUTION.md
-plan du jalon actif (M19 lorsqu'il est ouvert)
+docs/roadmap/POST_M20_EVOLUTION.md
+plan du jalon actif (M24 lorsqu'il est ouvert)
 ```
 
 Un document actif ne doit pas présenter un jalon déjà intégré comme encore en attente de merge.
+
+Pour M23, les points d’entrée spécifiques sont :
+
+```text
+docs/roadmap/M23_EXECUTION.md
+docs/validation/VALIDATION_M23.md
+docs/adr/0091-multi-project-portfolio-intelligence.md
+docs/user/PORTFOLIOS.md
+docs/developer/PORTFOLIO_INTELLIGENCE.md
+docs/openapi/morpheus-v1-portfolio-m23.yaml
+```
 
 ## 3. Baselines et preuves historiques
 
@@ -86,7 +100,7 @@ peuvent apparaître dans une preuve historique parce qu’elles décrivent le ga
 
 L’état courant d’intégration est toujours celui de `docs/governance/ROADMAP.md`.
 
-## 4. Cahier des charges C0
+## 4. Cahier des charges C0 et version produit
 
 `docs/product/CAHIER_DES_CHARGES.md` constitue la **baseline fonctionnelle et technique de haut niveau validée en C0**.
 
@@ -99,6 +113,8 @@ Il reste utile pour :
 - la compréhension de l’intention initiale.
 
 Il ne remplace pas les ADR, contrats machine, roadmaps et validations plus récents lorsqu’ils ont explicitement raffiné une décision après C0.
+
+La version officiellement publiée reste `v1.0.0`. Les jalons M21→M23 sont des évolutions 1.x validées et intégrées sur cette baseline produit ; leur intégration ne réécrit pas rétroactivement la preuve R1.
 
 ## 5. Règle de non-réécriture des preuves
 
@@ -120,38 +136,42 @@ On ne doit pas altérer :
 - la décision qui était en attente au moment du gate ;
 - la preuve technique enregistrée.
 
-Pour M18, cette distinction est explicite :
+Pour M23 :
 
 ```text
-code réellement testé = 7e8caacff567f51354fcb88bd7505a6d135071c0
-merge ultérieur       = 30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+code réellement testé Windows + Linux = 04a906e9d5858292ed0f0f1bec65246fef91ed63
+PR head documentaire mergé            = 4f6bd7b4c66694fa7afc39a776a1e3622b73bd99
+merge M23                              = 88355b69c493677c8689eecad214fb00d283359b
 ```
 
-La preuve `VALIDATION_M18.md` conserve le contexte du gate et ajoute séparément l’information d’intégration postérieure.
+La preuve `VALIDATION_M23.md` conserve le SHA exécutable qualifié ; les mises à jour post-gate et post-merge sont documentaires uniquement.
 
 ## 6. Baseline actuelle
 
 ```text
-C0 → M18       ✅ validés et intégrés
-M15            ✅ 371/371 PASS | Architecture 157/157
-M16            ✅ 393/393 PASS | Architecture 161/161
-M17            ✅ 410/410 PASS | Architecture 167/167
-M18            ✅ 418/418 PASS | Architecture 170/170
-Packaging Win  ✅ PASS au gate M18
-M18 code       ✅ 7e8caacff567f51354fcb88bd7505a6d135071c0
-M18 merge      ✅ 30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
+C0 → M20       ✅ validés et intégrés
+D0 + D1        ✅ validés et intégrés
+R1             ✅ MORPHEUS 1.0.0 publié
+M21            ✅ validé et intégré
+M22            ✅ validé et intégré
+M23            ✅ validé et intégré
+M23 tests      ✅ 507 PASS Windows + Linux
+Architecture   ✅ 195 PASS Windows + Linux
+M23 executable ✅ 04a906e9d5858292ed0f0f1bec65246fef91ed63
+M23 merge      ✅ 88355b69c493677c8689eecad214fb00d283359b
+ADR-0091       ✅ Acceptée — M23
 ```
 
-La trajectoire active définie par `POST_M14_EXECUTION.md` est :
+La trajectoire active définie par `POST_M20_EVOLUTION.md` est :
 
 ```text
-D0   Documentation reconciliation                 ✅ intégré
-M15  Acceptance / Verification / Evidence         ✅ intégré
-M16  Constraint semantics / blocking policy       ✅ intégré
-M17  Controlled write / lifecycle mutations       ✅ intégré
-M18  Real providers / multi-provider composition  ✅ intégré
-M19  Production hardening / scale / operability   ⏭ prochain
-M20  Release engineering / installation PROD / MORPHEUS 1.0 ⏳
+M21  Production Integrity & Surface Convergence          ✅ intégré
+M22  Provider SDK & Plugin Discovery Platform            ✅ intégré
+M23  Multi-project / Portfolio Specification Intelligence ✅ intégré
+M24  Query DSL, Saved Views & Export/Reporting           ⏭ prochain jalon actif
+M25  Policy Packs & Governance Automation                ⏳
+M26  Optional Team/Remote Server Mode                     ⏳
+M27  Evidence-backed Assisted Reasoning                   ⏳
 ```
 
-M19 devient le prochain jalon actif après intégration de la présente réconciliation documentaire.
+M24 devient le prochain jalon actif après l’intégration M23.
