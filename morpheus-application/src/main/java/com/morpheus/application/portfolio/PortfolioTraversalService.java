@@ -91,9 +91,7 @@ public final class PortfolioTraversalService {
             }
         }
 
-        Map<PortfolioEntityRef, Integer> orderedDepths = new TreeMap<>();
-        orderedDepths.putAll(depthByNode);
-        return new PortfolioTraversalResult(start, orderedDepths, List.copyOf(links.values()), truncation);
+        return new PortfolioTraversalResult(start, depthByNode, List.copyOf(links.values()), truncation);
     }
 
     private List<Neighbor> neighbors(
