@@ -69,7 +69,7 @@ class MorpheusQueryApiContractTest {
                       "name":"Security",
                       "scopeKind":"PROJECT",
                       "scopeId":"%s",
-                      "query":{"entity":"change","filter":"title startsWith sec"}
+                      "query":{"entity":"change","filter":"title starts-with sec"}
                     }
                     """.formatted(project));
             String id = firstUuid(created.body());
@@ -78,7 +78,7 @@ class MorpheusQueryApiContractTest {
                     {
                       "expectedRevision":1,
                       "name":"Security current",
-                      "query":{"entity":"change","filter":"title endsWith ity"}
+                      "query":{"entity":"change","filter":"title ends-with ity"}
                     }
                     """);
             HttpResponse<String> stale = putJson(URI.create(root + "/" + id), """
