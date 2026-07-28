@@ -87,16 +87,16 @@ GitHub Release         stable / 8 assets
 
 ## D1 — Consolidation post-M20
 
-Issue : **#94 CLOSED / completed**.  
-PR : **#95 MERGED**.  
+Issue : **#94 CLOSED / completed**.
+PR : **#95 MERGED**.
 Merge : `51f6a120f3461c8d8c24323f3db8211d28d6cb42`.
 
 Exit criteria : **PASS**.
 
 ## M21 — Production Integrity & Surface Convergence
 
-Issue : **#98 CLOSED / completed**.  
-PR : **#99 MERGED**.  
+Issue : **#98 CLOSED / completed**.
+PR : **#99 MERGED**.
 Merge : `2fdce6601a07628c315fe03932750cd8ece3d777`.
 
 Head exécutable qualifié Windows + Linux :
@@ -125,7 +125,7 @@ Executable delta     NONE Windows + Linux
 ADR-0089              Acceptée — M21
 ```
 
-Preuve : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).  
+Preuve : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).
 Plan : [`M21_EXECUTION.md`](M21_EXECUTION.md).
 
 ## M22 — Provider SDK & Plugin Discovery Platform
@@ -163,7 +163,7 @@ Executable delta       NONE Windows + Linux
 ADR-0090               Acceptée — M22
 ```
 
-Preuve : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).  
+Preuve : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
 Plan : [`M22_EXECUTION.md`](M22_EXECUTION.md).
 
 L’intégration GitHub reste différée jusqu’à la fin du gel CI demandé ; aucune requalification n’est nécessaire tant que les changements supplémentaires restent documentaires uniquement.
