@@ -46,7 +46,9 @@ public final class MorpheusMain {
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
         int exitCode;
-        if (MorpheusPortfolioCli.handles(args)) {
+        if (MorpheusQueryCli.handles(args)) {
+            exitCode = new MorpheusQueryCli().run(args, out, err, environment, properties);
+        } else if (MorpheusPortfolioCli.handles(args)) {
             exitCode = new MorpheusPortfolioCli().run(args, out, err, environment, properties);
         } else if (MorpheusCompositionCli.handles(args)) {
             exitCode = new MorpheusCompositionCli().run(args, out, err, environment, properties);
@@ -76,6 +78,17 @@ public final class MorpheusMain {
             out.println("API:");
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]");
             out.println("  Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println();
+            out.println("Query DSL / saved views / reporting (M24):");
+            out.println("  morpheus [--json] query execute (--project ID | --portfolio ID) --entity TYPE [--filter DSL] [--sort field:asc,...] [--fields a,b] [--offset N] [--limit N]");
+            out.println("  morpheus [--json] views create --name NAME (--project ID | --portfolio ID) --entity TYPE [query options]");
+            out.println("  morpheus [--json] views list (--project ID | --portfolio ID)");
+            out.println("  morpheus [--json] views get|versions|execute --id ID");
+            out.println("  morpheus [--json] views update --id ID --expected-revision N --name NAME --entity TYPE [query options]");
+            out.println("  morpheus [--json] views archive --id ID --expected-revision N");
+            out.println("  morpheus export query --format json|csv|markdown (--project ID | --portfolio ID) --entity TYPE [query options]");
+            out.println("  morpheus export view --format json|csv|markdown --id ID");
+            out.println("  Filter DSL examples: title contains \"security\" ; and(title contains login,providerId in [openspec,markdown])");
             out.println();
             out.println("Portfolio intelligence (M23):");
             out.println("  morpheus [--json] portfolio create --name NAME");

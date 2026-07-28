@@ -147,6 +147,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
                     new MorpheusOperabilityApiService(databasePath));
             httpServer.setExecutor(executor);
             httpServer.createContext(API_PREFIX, result::handle);
+            MorpheusQueryHttpRoutes.register(httpServer, databasePath);
             httpServer.start();
             return result;
         } catch (IOException failure) {

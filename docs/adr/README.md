@@ -107,6 +107,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0089](0089-production-integrity-surface-convergence.md) | Intégrité de production, qualité/supply-chain et convergence des surfaces publiques | **Acceptée — M21** |
 | [ADR-0090](0090-provider-sdk-plugin-discovery-platform.md) | Provider SDK v1, discovery sans exécution, activation isolée et lecture normalisée | **Acceptée — M22** |
 | [ADR-0091](0091-multi-project-portfolio-intelligence.md) | Portfolio multi-projets provider-neutral, références explicables et traversal bornée | **Acceptée — M23** |
+| [ADR-0092](0092-provider-neutral-query-dsl-saved-views-reporting.md) | Query DSL provider-neutral, saved views versionnées et reporting déterministe | **Acceptée — M24** |
 
 # Preuves par jalon
 
@@ -133,31 +134,34 @@ M20 454/454 PASS Windows + Linux | Architecture 182/182
 M21 473 PASS Windows + Linux | Architecture 187 | JaCoCo floors PASS | Portable PASS
 M22 494 PASS Windows + Linux | Architecture 190 | SDK API 1 | External provider PASS | Portable PASS
 M23 507 PASS Windows + Linux | Architecture 195 | Portfolio convergence PASS | Portable PASS
+M24 543 PASS Windows + Linux | Architecture 221 | Query/view/export convergence PASS | Portable PASS
 ```
 
-## Baseline M23 qualifiée
+## Baseline M24 qualifiée
 
-ADR-0091 ajoute une frontière de portfolio provider-neutral sans dériver l'identité de chemins, repositories ou providers.
+ADR-0092 ajoute un langage de requête provider-neutral borné, des saved views versionnées avec CAS et des exports déterministes read-only.
 
 ```text
-Code qualifié      04a906e9d5858292ed0f0f1bec65246fef91ed63
-Version             1.0.0
-Windows             PASS
-Linux WSL2          PASS
-Tests               507 PASS
-Architecture        195 PASS
-Portfolio identity  PASS
-Cross-project refs  PASS
-Bounded traversal   PASS
-SQLite V013         PASS
-Coverage            PASS Windows + Linux
-SBOM/provenance     PASS Windows + Linux
-Portable            PASS Windows + Linux
-Executable delta    NONE Windows + Linux
+Code qualifié       be69e47da0ae209d2246df9c67bc08caeafb2bb0
+Version              1.0.0
+Windows              PASS
+Linux WSL2           PASS
+Tests                543 PASS
+Architecture         221 PASS
+Query DSL            PASS
+Saved views          PASS
+SQLite V014          PASS
+JSON/CSV/Markdown    PASS
+Budgets              PASS
+CLI/MCP/HTTP         convergence PASS
+Coverage             PASS Windows + Linux
+SBOM/provenance      PASS Windows + Linux
+Portable             PASS Windows + Linux
+Executable delta     NONE Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md).  
-Plan : [`../roadmap/M23_EXECUTION.md`](../roadmap/M23_EXECUTION.md).  
+Validation : [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).  
+Plan : [`../roadmap/M24_EXECUTION.md`](../roadmap/M24_EXECUTION.md).  
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
 # Contraintes actives principales
@@ -188,6 +192,10 @@ project identity != workspace path
 portfolio membership != source ownership
 cross-project reference != traceability proof
 traversal is bounded and explainable
+DSL != SQL passthrough
+saved view != materialized truth
+export != mutation
+bounded query != silently truncated semantics
 surface parity != same transport shape
 update discovery != automatic update
 checksum != signature
@@ -204,7 +212,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate techniquement qualifié : **M23**.
+Dernier gate techniquement qualifié : **M24**.
 
 # Principe de validation
 
@@ -215,6 +223,6 @@ Dernier gate techniquement qualifié : **M23**.
 4. accepter l'ADR seulement après la preuve
 5. exécuter le gate complet
 6. mettre à jour roadmap + issue après validation
-7. fusionner uniquement après autorisation explicite
+7. fusionner uniquement après respect des gates
 8. réconcilier roadmaps/index après merge
 ```
