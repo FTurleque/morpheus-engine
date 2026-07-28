@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,9 +26,12 @@ class MorpheusPortfolioMcpToolsTest {
 
     @Test
     void serverCatalogContainsPortfolioTools() {
-        try (var server = MorpheusMcpServer.build(temporaryDirectory.resolve("morpheus.db"))) {
+        var server = MorpheusMcpServer.build(temporaryDirectory.resolve("morpheus.db"));
+        try {
             // Construction validates schemas, unique names and complete registration.
             assertTrue(server != null);
+        } finally {
+            server.close();
         }
     }
 }
