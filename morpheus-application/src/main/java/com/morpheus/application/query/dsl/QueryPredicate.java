@@ -12,6 +12,7 @@ public record QueryPredicate(String field, QueryOperator operator, List<String> 
             throw new IllegalArgumentException("field must not be blank");
         }
         Objects.requireNonNull(operator, "operator");
+        operator = operator.canonical();
         Objects.requireNonNull(values, "values");
         values = values.stream()
                 .map(value -> Objects.requireNonNull(value, "predicate value"))
