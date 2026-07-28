@@ -7,18 +7,6 @@ public enum QueryOperator {
     CONTAINS,
     STARTS_WITH,
     ENDS_WITH,
-    /** Parser alias for startsWith; QueryPredicate canonicalizes it to STARTS_WITH. */
-    STARTSWITH,
-    /** Parser alias for endsWith; QueryPredicate canonicalizes it to ENDS_WITH. */
-    ENDSWITH,
     IN,
-    EXISTS;
-
-    public QueryOperator canonical() {
-        return switch (this) {
-            case STARTSWITH -> STARTS_WITH;
-            case ENDSWITH -> ENDS_WITH;
-            default -> this;
-        };
-    }
+    EXISTS
 }
