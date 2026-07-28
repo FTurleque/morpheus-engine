@@ -47,7 +47,7 @@ class MorpheusQueryCliTest {
                 "--name", "Security",
                 "--project", project.toString(),
                 "--entity", "change",
-                "--filter", "title startsWith sec");
+                "--filter", "title starts-with sec");
         assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
         String id = firstUuid(created.out());
 
@@ -57,7 +57,7 @@ class MorpheusQueryCliTest {
                 "--expected-revision", "1",
                 "--name", "Security current",
                 "--entity", "change",
-                "--filter", "title endsWith ity");
+                "--filter", "title ends-with ity");
         Result stale = run(
                 "--json", "views", "update",
                 "--id", id,
