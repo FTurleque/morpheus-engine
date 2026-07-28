@@ -1,18 +1,20 @@
 # M24 — Query DSL, Saved Views & Export/Reporting
 
-Statut : **QUALIFIÉ WINDOWS + LINUX — consolidation docs-only et intégration en cours**
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**
 
-Issue : #105 — **OPEN jusqu’au merge**
-PR : #106 — **DRAFT jusqu’à fin de consolidation**
+Issue : #105 — **CLOSED / completed**
+PR : #106 — **MERGED**
 Branche : `m24/query-dsl-saved-views-reporting`
 Baseline : `main@f70eaa1ad58633ee59874ab44f70963ab51152c6`
 SHA exécutable qualifié : `be69e47da0ae209d2246df9c67bc08caeafb2bb0`
+Head PR documentaire : `863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58`
+Merge M24 : `2b483ded10c783fff22c25035db89475c5c9fdaf`
 
 ## Question de sortie
 
 > Les utilisateurs peuvent-ils exprimer, sauvegarder et exporter des vues métier complexes sans dépendre d’un transport ou d’un format provider particulier ?
 
-**Réponse : oui, démontré sur Windows et Linux sur le même SHA exécutable.**
+**Réponse : oui, démontré sur Windows et Linux puis intégré dans `main`.**
 
 ## Invariants
 
@@ -131,7 +133,7 @@ Contrats machine : `contracts/public-surfaces.tsv` et `docs/openapi/morpheus-v1-
 - [x] branche M24 exacte depuis `main@f70eaa1...`
 - [x] roadmap opérationnelle M24
 - [x] ADR-0092 créée puis acceptée après preuve
-- [x] PR #106 Draft ouverte
+- [x] PR #106 Draft puis Ready
 
 ### M24-S1 — AST provider-neutral / validation / budgets
 
@@ -224,10 +226,10 @@ Contrats machine : `contracts/public-surfaces.tsv` et `docs/openapi/morpheus-v1-
 - [x] preuve `docs/validation/VALIDATION_M24.md`
 - [x] ADR-0092 Acceptée après preuve
 - [x] consolidation post-gate strictement docs-only
-- [ ] PR #106 Ready + merge avec expected head
-- [ ] issue #105 CLOSED/completed après merge
-- [ ] réconciliation post-merge docs-only
-- [ ] M25 devient NOW
+- [x] PR #106 Ready + merge avec expected head
+- [x] issue #105 CLOSED/completed après merge
+- [x] réconciliation post-merge docs-only
+- [x] M25 devient NOW
 
 ## Qualification exacte
 
@@ -261,6 +263,18 @@ Les deux plateformes ont également confirmé : Query DSL, saved views, JSON/CSV
 
 Preuve complète : [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).
 
-## Règle post-gate
+## Intégration
 
-Le SHA `be69e47da0ae209d2246df9c67bc08caeafb2bb0` est le SHA **exécutable** qualifié. Les commits de consolidation qui suivent doivent rester exclusivement documentaires. Avant le merge, le compare `be69e47d... -> PR head` doit confirmer qu’aucun fichier exécutable ou contractuel n’a changé.
+Le compare `be69e47d... -> 863c2fa8...` a confirmé que tous les commits après qualification étaient exclusivement sous `docs/`. Le merge a ensuite été exécuté avec `expected_head_sha=863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58`.
+
+```text
+Executable SHA   be69e47da0ae209d2246df9c67bc08caeafb2bb0
+PR head          863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58
+Merge            2b483ded10c783fff22c25035db89475c5c9fdaf
+Issue            #105 CLOSED / completed
+PR               #106 MERGED
+ADR              ADR-0092 Acceptée — M24
+Next             M25 — Policy Packs & Governance Automation
+```
+
+Aucun GitHub Actions / CI n’a été utilisé comme gate M24 en juillet 2026.
