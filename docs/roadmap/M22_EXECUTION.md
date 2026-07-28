@@ -1,6 +1,6 @@
 # M22 — Provider SDK & Plugin Discovery Platform
 
-Statut : **S0→S8 IMPLÉMENTÉS — S9 qualification locale exact-head à exécuter — ADR-0090 proposée — PR #101 temporairement fermée pour respecter le gel CI avant août**
+Statut : **TECHNIQUEMENT TERMINÉ / QUALIFIÉ — S0→S9 PASS — ADR-0090 acceptée — intégration différée pendant le gel CI avant août**
 
 Issue : #100
 PR : #101 — temporairement fermée, branche active
@@ -8,9 +8,17 @@ Branche : `m22/provider-sdk-plugin-platform`
 
 Baseline : `main@b26833701b028ea3d09388ed87188fb1945b559d` après merge M21 `2fdce6601a07628c315fe03932750cd8ece3d777`.
 
+Head exécutable qualifié Windows + Linux :
+
+```text
+e42bc31384831e56592b11a3509b49a3fdf61773
+```
+
 ## Question de sortie
 
 > Peut-on ajouter un provider MORPHEUS réel sans modifier le core ni introduire de dépendance provider-specific dans domain/application ?
+
+**Oui.** La preuve M22 couvre découverte sans exécution, compatibilité, activation isolée, capability negotiation et lecture normalisée réelle d’un JAR provider externe.
 
 ## Invariants
 
@@ -146,29 +154,42 @@ CI                           frozen until August; not M22 evidence
 - [x] documentation utilisateur `docs/user/PROVIDER_PLUGINS.md` ;
 - [x] architecture tests anti-couplage + vrai JAR externe + normalized read ;
 - [x] validateurs exact-head Windows/Linux créés ;
-- [x] script Linux réellement exécutable dans Git ;
+- [x] validateur Linux mode-neutral ;
 - [x] gate vérifie SDK packagé et provider de référence absent du launcher ;
 - [x] gate exécute discovery + activation + probe du JAR externe ;
-- [ ] Windows exact-head PASS ;
-- [ ] Linux exact-head PASS ;
-- [ ] `VALIDATION_M22.md` convertie en preuve finale ;
-- [ ] ADR-0090 acceptée après preuve ;
-- [ ] consolidation docs-only OpenAPI/index/roadmap après gel du SHA exécutable ;
+- [x] Windows exact-head PASS sur `e42bc31384831e56592b11a3509b49a3fdf61773` ;
+- [x] Linux exact-head PASS sur le même SHA ;
+- [x] Windows : 494 tests / 190 architecture / 47.0508% line / 41.8839% branch ;
+- [x] Linux : 494 tests / 190 architecture / 47.0389% line / 41.8839% branch ;
+- [x] SBOM/provenance PASS Windows + Linux ;
+- [x] portable Windows + Linux PASS ;
+- [x] `postGateExecutableDelta=NONE` Windows + Linux ;
+- [x] `VALIDATION_M22.md` convertie en preuve finale ;
+- [x] ADR-0090 acceptée après preuve ;
+- [x] consolidation documentaire finale engagée sur un head séparé du SHA exécutable ;
 - [ ] réouverture PR #101 après fin du gel CI ;
-- [ ] merge uniquement après éligibilité et autorisation explicite.
+- [ ] merge après réouverture, sans modification exécutable supplémentaire.
 
-## Qualification avant août
+## Qualification finale
 
-Conformément au gel CI demandé, **GitHub Actions n’est pas un gate M22 avant août**. Le workflow du dépôt reste identique à `main` et la PR #101 est temporairement fermée afin d’éviter de nouveaux déclenchements automatiques `pull_request` pendant la qualification.
-
-Les seules preuves M22 autorisées maintenant sont les gates locaux exact-head :
-
-```powershell
-.\validate-m22.cmd -Version 1.0.0
+```text
+Executable SHA        e42bc31384831e56592b11a3509b49a3fdf61773
+Windows               PASS
+Linux WSL2            PASS
+Tests                 494 PASS
+Architecture          190 PASS
+SDK API               1
+External provider     PASS
+SBOM/provenance       PASS Windows + Linux
+Portable              PASS Windows + Linux
+Executable delta      NONE Windows + Linux
+ADR-0090              Acceptée — M22
 ```
 
-```bash
-./scripts/validate-m22.sh 1.0.0
-```
+Preuve : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
 
-La PR pourra être rouverte après la fin du gel CI, sans modifier le SHA exécutable qualifié autrement que par une consolidation documentaire explicitement séparée.
+## Gel CI avant août
+
+GitHub Actions n’est pas utilisé comme preuve M22 avant août. Le workflow du dépôt reste identique à `main` et la PR #101 reste temporairement fermée afin d’éviter des déclenchements `pull_request` pendant le gel demandé.
+
+La branche peut recevoir uniquement la consolidation documentaire finale. Toute modification ultérieure de code, POM, packaging, contrat runtime ou validateur invaliderait le SHA exécutable qualifié et imposerait une nouvelle qualification Windows + Linux.
