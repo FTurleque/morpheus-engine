@@ -1,8 +1,8 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M20 + D0 + D1 intégrés — MORPHEUS 1.0.0 publié — M21 techniquement validé Windows + Linux, PR #99 prête pour merge**
+Statut : **C0 à M21 + D0 + D1 intégrés — MORPHEUS 1.0.0 publié — M22 techniquement validé Windows + Linux, intégration différée pendant le gel CI avant août**
 
-Dernière mise à jour : 27 juillet 2026
+Dernière mise à jour : 28 juillet 2026
 
 MORPHEUS est piloté par des preuves : contrats stables, ADR cohérentes, tests reproductibles, SHA exacts et réponse explicite à chaque question de sortie.
 
@@ -21,7 +21,8 @@ M19           ✅ validé et intégré
 M20           ✅ validé et intégré
 D1            ✅ validé et intégré
 R1            ✅ MORPHEUS 1.0.0 publié
-M21           ✅ techniquement validé Windows + Linux — PR #99 à merger
+M21           ✅ validé et intégré
+M22           ✅ techniquement validé Windows + Linux — intégration différée par gel CI
 ```
 
 ### Référence M20
@@ -59,18 +60,15 @@ Draft          false
 Prerelease     false
 ```
 
-### Référence M21 qualifiée
+### Référence M21 intégrée
 
 ```text
-Issue              #98
-PR                 #99
+Issue              #98 CLOSED
+PR                 #99 MERGED
+Merge              2fdce6601a07628c315fe03932750cd8ece3d777
 Head exécutable    239d99657fbf193761767f382489dd637e642fe9
-Windows reactor    14/14 SUCCESS
-Linux reactor      14/14 SUCCESS
-Tests              473 PASS
-Architecture       187 PASS
-Windows JaCoCo     46.2800% line / 41.2734% branch
-Linux JaCoCo       46.2430% line / 41.2734% branch
+Tests              473 PASS Windows + Linux
+Architecture       187 PASS Windows + Linux
 CycloneDX          PASS JSON/XML
 Provenance         PASS Windows + Linux
 Portable           PASS Windows + Linux
@@ -79,12 +77,35 @@ Executable delta   NONE Windows + Linux
 ADR-0089           Acceptée — M21
 ```
 
+### Référence M22 qualifiée
+
+```text
+Issue              #100 OPEN
+PR                 #101 CLOSED temporairement — gel CI
+Head exécutable    e42bc31384831e56592b11a3509b49a3fdf61773
+Windows reactor    17/17 SUCCESS
+Linux reactor      17/17 SUCCESS
+Tests              494 PASS Windows + Linux
+Architecture       190 PASS Windows + Linux
+Windows JaCoCo     47.0508% line / 41.8839% branch
+Linux JaCoCo       47.0389% line / 41.8839% branch
+SDK API            1
+External provider  PASS
+CycloneDX          PASS JSON/XML
+Provenance         PASS Windows + Linux
+Portable           PASS Windows + Linux
+CLI/MCP/HTTP       provider platform convergence PASS
+Executable delta   NONE Windows + Linux
+ADR-0090           Acceptée — M22
+```
+
 Preuves :
 
 - [`VALIDATION_M20.md`](../validation/VALIDATION_M20.md) ;
 - [`VALIDATION_D1.md`](../validation/VALIDATION_D1.md) ;
 - [`VALIDATION_R1.md`](../validation/VALIDATION_R1.md) ;
-- [`VALIDATION_M21.md`](../validation/VALIDATION_M21.md).
+- [`VALIDATION_M21.md`](../validation/VALIDATION_M21.md) ;
+- [`VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
 
 ## 2. Capacités acquises
 
@@ -105,6 +126,11 @@ constraint semantics + blocking policy
 controlled lifecycle write + CAS/idempotency/audit
 OpenSpec + Structured Markdown providers réels
 composition multi-provider + provenance + conflits
+Provider SDK v1
+plugin discovery metadata-only sans classloading
+activation explicite dans classloader dédié
+capability probe distinct de normalized read
+provider externe de référence + test kit
 MINOS optionnel
 NEXUS optionnel
 JARVIS orchestration boundary
@@ -160,6 +186,11 @@ stale revision != overwrite
 idempotent retry != duplicate mutation/audit
 precedence != provenance erasure
 conflict != silent last-write-wins
+provider plugin != domain dependency
+plugin discovery != plugin activation
+capability declaration != capability implementation proof
+probe != read
+classloader isolation != security sandbox
 optional provider absence != project failure when optional
 optional engine absence != MORPHEUS failure
 MORPHEUS rules != JARVIS action sequencing
@@ -195,19 +226,19 @@ M20 intégré reste distinct de R1 publié : qualification technique et publicat
 |---|---|---|
 | **D1** | ✅ TERMINÉ / INTÉGRÉ — #94 / PR #95 | Baseline documentaire 1.x consolidée |
 | **R1** | ✅ PUBLIÉ — #96 | Tag `v1.0.0` + GitHub Release + 8 assets |
-| **M21** | ✅ TECHNIQUEMENT VALIDÉ — #98 / PR #99 | Production Integrity & Surface Convergence, Windows + Linux exact-head PASS |
+| **M21** | ✅ TERMINÉ / INTÉGRÉ — #98 / PR #99 | Production Integrity & Surface Convergence |
+| **M22** | ✅ TECHNIQUEMENT QUALIFIÉ — #100 / PR #101 | Provider SDK & Plugin Discovery Platform, Windows + Linux exact-head PASS |
 
 ### NOW
 
 | Sujet | Statut | Action |
 |---|---|---|
-| **M21 integration** | ⏳ PR #99 READY | Merge uniquement après autorisation explicite du propriétaire |
+| **M22 integration** | ⏸ GEL CI AVANT AOÛT | Réouvrir puis intégrer PR #101 sans delta exécutable supplémentaire |
 
 ### NEXT
 
 | Jalon | Sujet | Question centrale |
 |---|---|---|
-| **M22** | Provider SDK & Plugin Discovery Platform | Ajouter des providers sans modifier le core ? |
 | **M23** | Multi-project / Portfolio Specification Intelligence | Raisonner entre projets sans confondre identité et source ? |
 | **M24** | Query DSL, Saved Views & Export/Reporting | Exprimer et partager des vues complexes provider-neutral ? |
 
@@ -221,12 +252,24 @@ M20 intégré reste distinct de R1 publié : qualification technique et publicat
 
 Détail : [`POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
-## 6. M21 — résultat de sortie
+## 6. M22 — résultat de sortie
 
 Question :
 
-> MORPHEUS 1.x possède-t-il une baseline de production durable où build, qualité, contrats publics, documentation et chaîne de release convergent sans divergence silencieuse entre CLI, MCP et HTTP ?
+> Peut-on ajouter un provider MORPHEUS réel sans modifier le core ni introduire de dépendance provider-specific dans domain/application ?
 
-**Réponse : oui.** La preuve Windows + Linux est portée par `VALIDATION_M21.md` sur le même head exécutable `239d99657fbf193761767f382489dd637e642fe9`. Les commits de consolidation postérieurs sont docs-only.
+**Réponse : oui.** La preuve Windows + Linux est portée par `VALIDATION_M22.md` sur le même head exécutable `e42bc31384831e56592b11a3509b49a3fdf61773`.
 
-La PR #99 peut être intégrée sans nouvelle qualification tant qu’aucun fichier exécutable, build, contrat machine ou script de validation n’est modifié. Toute modification de cette nature invaliderait la preuve et imposerait une nouvelle qualification cross-platform.
+M22 démontre :
+
+- découverte des métadonnées sans exécuter le plugin ;
+- compatibilité SDK/MORPHEUS explicite ;
+- activation explicite et isolée par JAR ;
+- probe de capacités provider-neutral ;
+- lecture normalisée distincte du probe ;
+- vrai provider externe de référence ;
+- test kit réutilisable ;
+- surfaces CLI/MCP/HTTP explicites ;
+- packaging Windows/Linux sans provider externe embarqué.
+
+Les commits de consolidation postérieurs sont documentaires et restent distincts du SHA exécutable qualifié.

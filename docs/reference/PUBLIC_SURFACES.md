@@ -1,6 +1,6 @@
-# Public surfaces — contract de convergence M21
+# Public surfaces — contrat de convergence MORPHEUS 1.x
 
-La source machine lisible de la convergence des surfaces publiques M21 est :
+La source machine lisible de la convergence des surfaces publiques est :
 
 [`../../contracts/public-surfaces.tsv`](../../contracts/public-surfaces.tsv)
 
@@ -22,6 +22,40 @@ Le manifeste indique pour chaque capability critique :
 - sa forme CLI ;
 - son outil MCP ;
 - sa route HTTP ou une omission explicitement justifiée.
+
+## M22 — Provider plugins
+
+M22 ajoute deux capabilities READ explicites sur les trois transports :
+
+```text
+provider.plugins.discover
+  CLI   provider-plugins discover
+  MCP   discover_provider_plugins
+  HTTP  GET /api/v1/provider-plugins/discover
+
+provider.plugins.probe
+  CLI   provider-plugins probe
+  MCP   probe_provider_plugin
+  HTTP  GET /api/v1/provider-plugins/probe
+```
+
+Elles n’ont pas la même portée d’exécution :
+
+```text
+discovery = lecture bornée de META-INF/morpheus-provider.properties
+probe     = activation explicite d’un plugin compatible + provider.probe(workspace)
+```
+
+Invariants :
+
+```text
+plugin discovery != plugin activation
+provider metadata != executable trust
+capability declaration != capability implementation proof
+plugin failure != core crash
+```
+
+Aucun répertoire de plugins n’est inspecté au démarrage CLI/MCP/HTTP.
 
 ## Asymétrie déclarée : update discovery
 

@@ -73,6 +73,9 @@ public final class MorpheusMcpServer {
         for (McpServerFeatures.SyncToolSpecification specification : new MorpheusProductMcpTools().specifications()) {
             server.addTool(specification);
         }
+        for (McpServerFeatures.SyncToolSpecification specification : new MorpheusProviderPluginMcpTools().specifications()) {
+            server.addTool(specification);
+        }
         for (McpServerFeatures.SyncToolSpecification specification
                 : new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications()) {
             server.addTool(specification);

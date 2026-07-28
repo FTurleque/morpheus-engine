@@ -26,7 +26,7 @@ if [[ ! -x "$JIMAGE_TOOL" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Building MORPHEUS 1.0 CLI + MCP + API + optional MINOS/NEXUS adapters + M14-M21 contracts uber-JAR..."
+printf '%s\n' "Building MORPHEUS 1.0 CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M22 contracts uber-JAR..."
 "$REPO/mvnw" -pl morpheus-cli -am -DskipTests package
 
 JAR="$(find "$REPO/morpheus-cli/target" -maxdepth 1 -type f -name 'morpheus-cli-*-all.jar' -print | sort | tail -n 1)"
@@ -35,20 +35,25 @@ if [[ -z "$JAR" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Verifying MCP/API/MINOS/NEXUS/M14-M21 classes are embedded in the shaded JAR..."
+printf '%s\n' "Verifying MCP/API/provider-SDK/MINOS/NEXUS/M14-M22 classes are embedded in the shaded JAR..."
 JAR_ENTRIES="$($JAR_TOOL tf "$JAR")"
 for entry in \
   'com/morpheus/mcp/MorpheusMcpServer.class' \
   'com/morpheus/mcp/MorpheusJarvisOrchestrationMcpTools.class' \
   'com/morpheus/mcp/MorpheusProductMcpTools.class' \
+  'com/morpheus/mcp/MorpheusProviderPluginMcpTools.class' \
   'io/modelcontextprotocol/server/McpServer.class' \
   'io/modelcontextprotocol/client/McpClient.class' \
   'io/modelcontextprotocol/client/transport/StdioClientTransport.class' \
   'com/morpheus/api/MorpheusHttpServer.class' \
   'com/morpheus/api/MorpheusOperabilityApiService.class' \
   'com/morpheus/api/MorpheusJarvisOrchestrationApiService.class' \
+  'com/morpheus/api/MorpheusProviderPluginApiService.class' \
   'com/morpheus/cli/MorpheusJarvisOrchestrationCli.class' \
   'com/morpheus/cli/MorpheusProductCli.class' \
+  'com/morpheus/cli/MorpheusProviderPluginCli.class' \
+  'com/morpheus/sdk/provider/MorpheusProviderPlugin.class' \
+  'com/morpheus/sdk/provider/ProviderPluginService.class' \
   'com/morpheus/application/product/ProductMetadata.class' \
   'com/morpheus/application/product/UpdateDiscoveryService.class' \
   'com/morpheus/application/orchestration/ChangeOrchestrationStateService.class' \
@@ -61,23 +66,27 @@ for entry in \
   'com/morpheus/integration/nexus/NexusIntegrationRuntime.class' \
   'tools/jackson/databind/json/JsonMapper.class'; do
   if ! grep -Fxq "$entry" <<<"$JAR_ENTRIES"; then
-    echo "M21 packaging proof failed; shaded JAR is missing $entry" >&2
+    echo "M22 packaging proof failed; shaded JAR is missing $entry" >&2
     exit 1
   fi
 done
 if grep -Eq '^com/minos/' <<<"$JAR_ENTRIES"; then
-  echo "M21 packaging proof failed; MINOS implementation classes must not be embedded" >&2
+  echo "M22 packaging proof failed; MINOS implementation classes must not be embedded" >&2
   exit 1
 fi
 if grep -Eq '^com/nexus/' <<<"$JAR_ENTRIES"; then
-  echo "M21 packaging proof failed; NEXUS implementation classes must not be embedded" >&2
+  echo "M22 packaging proof failed; NEXUS implementation classes must not be embedded" >&2
   exit 1
 fi
 if grep -Eq '^com/jarvis/' <<<"$JAR_ENTRIES"; then
-  echo "M21 packaging proof failed; JARVIS implementation classes must not be embedded" >&2
+  echo "M22 packaging proof failed; JARVIS implementation classes must not be embedded" >&2
   exit 1
 fi
-printf '%s\n' "MCP/API/MINOS/NEXUS/M14-M21 packaging proof: PASS"
+if grep -Eq '^com/morpheus/provider/reference/' <<<"$JAR_ENTRIES"; then
+  echo "M22 packaging proof failed; the reference provider plugin must remain external to the MORPHEUS launcher" >&2
+  exit 1
+fi
+printf '%s\n' "MCP/API/provider-SDK/MINOS/NEXUS/M14-M22 packaging proof: PASS"
 
 rm -rf "$WORK"
 mkdir -p "$INPUT" "$IMAGE_ROOT" "$DIST"
@@ -102,7 +111,7 @@ if [[ ! -x "$LAUNCHER" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Smoke testing packaged launcher without MINOS/NEXUS/JARVIS configuration..."
+printf '%s\n' "Smoke testing packaged launcher without MINOS/NEXUS/JARVIS or external provider-plugin configuration..."
 "$LAUNCHER" --version
 JSON_VERSION="$("$LAUNCHER" --json version)"
 python3 - "$JSON_VERSION" "$VERSION" <<'PY'
@@ -133,11 +142,11 @@ if [[ "$NEXUS_STATUS" != *'"state":"DISABLED"'* ]]; then
 fi
 printf '%s\n' "$NEXUS_STATUS"
 HELP="$($LAUNCHER help)"
-if [[ "$HELP" != *'change-orchestration'* || "$HELP" != *'update-check'* ]]; then
-  echo "Packaged M14-M21 CLI help smoke failed" >&2
+if [[ "$HELP" != *'change-orchestration'* || "$HELP" != *'update-check'* || "$HELP" != *'provider-plugins'* ]]; then
+  echo "Packaged M14-M22 CLI help smoke failed" >&2
   exit 1
 fi
-printf '%s\n' "Packaged standalone optional-engines + M14-M21 CLI surface smoke: PASS"
+printf '%s\n' "Packaged standalone optional-engines + provider SDK + M14-M22 CLI surface smoke: PASS"
 
 test_packaged_api_operability() (
   local launcher="$1"
@@ -211,4 +220,4 @@ rm -f "$ARCHIVE"
 tar -C "$IMAGE_ROOT" -czf "$ARCHIVE" morpheus
 
 printf '%s\n' "Portable Linux distribution: $ARCHIVE"
-printf '%s\n' "The archive contains MORPHEUS $VERSION, its Java runtime, MCP/API, optional MINOS/NEXUS client adapters and M14-M21 contracts; MINOS, NEXUS and JARVIS are not embedded or required."
+printf '%s\n' "The archive contains MORPHEUS $VERSION, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters and M14-M22 contracts; external provider plugins, MINOS, NEXUS and JARVIS are not embedded or required."

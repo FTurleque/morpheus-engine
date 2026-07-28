@@ -1,8 +1,8 @@
 # MORPHEUS — Roadmap d’évolution post-M20
 
-Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 validé et intégré ; M22 jalon actif**
+Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 intégré ; M22 techniquement qualifié Windows + Linux ; M23 prochain jalon après intégration M22**
 
-Dernière mise à jour : 27 juillet 2026
+Dernière mise à jour : 28 juillet 2026
 
 Cette roadmap commence après l’intégration de M20 et porte la trajectoire active de MORPHEUS 1.x. La trajectoire [`POST_M14_EXECUTION.md`](POST_M14_EXECUTION.md) est conservée comme historique D0→M20.
 
@@ -12,13 +12,16 @@ Cette roadmap commence après l’intégration de M20 et porte la trajectoire ac
 C0 → M20      ✅ validés et intégrés
 D1            ✅ validé et intégré
 M21           ✅ validé et intégré
+M22           ✅ techniquement qualifié Windows + Linux — intégration différée pendant gel CI
 M20 code      9199ed43c4bd8596a97db055eeff17ae31399eb8
 M20 merge     75d0b82ab0c960692db2fee1ced146fa6547fd4a
 D1 merge      51f6a120f3461c8d8c24323f3db8211d28d6cb42
 M21 code      239d99657fbf193761767f382489dd637e642fe9
 M21 merge     2fdce6601a07628c315fe03932750cd8ece3d777
+M22 code      e42bc31384831e56592b11a3509b49a3fdf61773
 M21 tests     473 PASS Windows + Linux
-Architecture  187 PASS Windows + Linux
+M22 tests     494 PASS Windows + Linux
+Architecture  190 PASS M22 Windows + Linux
 MORPHEUS      1.0.0
 v1.0.0        ✅ tag stable publié
 GitHub Release ✅ MORPHEUS 1.0.0 — 8/8 assets
@@ -27,7 +30,8 @@ GitHub Release ✅ MORPHEUS 1.0.0 — 8/8 assets
 Preuves :
 
 - [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md) ;
-- [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).
+- [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md) ;
+- [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
 
 ## Invariants post-1.0
 
@@ -48,8 +52,12 @@ UNKNOWN != BLOCKED
 precedence != provenance erasure
 conflict != silent last-write-wins
 provider plugin != domain dependency
+plugin discovery != plugin activation
+capability declaration != capability implementation proof
+probe != read
 optional provider absence != project failure
 incompatible provider != silently loaded provider
+classloader isolation != security sandbox
 cross-project identity != source path
 remote mode != mandatory cloud dependency
 MORPHEUS != MINOS
@@ -79,16 +87,16 @@ GitHub Release         stable / 8 assets
 
 ## D1 — Consolidation post-M20
 
-Issue : **#94 CLOSED / completed**.  
-PR : **#95 MERGED**.  
+Issue : **#94 CLOSED / completed**.
+PR : **#95 MERGED**.
 Merge : `51f6a120f3461c8d8c24323f3db8211d28d6cb42`.
 
 Exit criteria : **PASS**.
 
 ## M21 — Production Integrity & Surface Convergence
 
-Issue : **#98 CLOSED / completed**.  
-PR : **#99 MERGED**.  
+Issue : **#98 CLOSED / completed**.
+PR : **#99 MERGED**.
 Merge : `2fdce6601a07628c315fe03932750cd8ece3d777`.
 
 Head exécutable qualifié Windows + Linux :
@@ -117,46 +125,54 @@ Executable delta     NONE Windows + Linux
 ADR-0089              Acceptée — M21
 ```
 
-Preuve : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).  
+Preuve : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).
 Plan : [`M21_EXECUTION.md`](M21_EXECUTION.md).
 
-# NOW
-
 ## M22 — Provider SDK & Plugin Discovery Platform
+
+Statut : **TECHNIQUEMENT TERMINÉ / QUALIFIÉ** — issue #100 ; PR #101 temporairement fermée pendant le gel CI avant août.
+
+Head exécutable qualifié Windows + Linux :
+
+```text
+e42bc31384831e56592b11a3509b49a3fdf61773
+```
 
 Question de sortie :
 
 > Peut-on ajouter un provider MORPHEUS réel sans modifier le core ni introduire de dépendance provider-specific dans domain/application ?
 
-Livrables obligatoires :
+Réponse : **oui, démontré sur Windows et Linux**.
 
 ```text
-M22-S0  cadrage + ADR avant implémentation
-M22-S1  Provider SDK public/stable et provider-neutral
-M22-S2  plugin metadata + compatibility contract
-M22-S3  discovery explicite et déterministe
-M22-S4  capability negotiation et diagnostics
-M22-S5  isolation classloader/process décidée et appliquée
-M22-S6  reference provider template
-M22-S7  provider contract test kit
-M22-S8  surfaces CLI/MCP/HTTP de diagnostic/discovery sans auto-chargement implicite
-M22-S9  packaging + documentation + qualification Windows/Linux exact-head
+SDK API               1
+Discovery             metadata-only / zero classloading
+Activation            explicite / URLClassLoader dédié
+Probe                  SpecificationProvider
+Read                   SpecificationContentReader
+Reference provider     vrai JAR externe
+Capabilities           DISCOVER_PROJECT + READ_CURRENT_SPECIFICATIONS
+Tests                  494 PASS Windows + Linux
+Architecture           190 PASS Windows + Linux
+Windows coverage       47.0508% line / 41.8839% branch
+Linux coverage         47.0389% line / 41.8839% branch
+CycloneDX/provenance   PASS Windows + Linux
+Portable               PASS Windows + Linux
+CLI/MCP/HTTP           provider platform convergence PASS
+Executable delta       NONE Windows + Linux
+ADR-0090               Acceptée — M22
 ```
 
-Invariants :
+Preuve : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
+Plan : [`M22_EXECUTION.md`](M22_EXECUTION.md).
 
-```text
-provider plugin != domain dependency
-plugin discovery != plugin activation
-optional provider absence != project failure
-incompatible provider != silently loaded provider
-provider metadata != executable trust
-plugin failure != core crash
-capability declaration != capability implementation proof
-local-first remains default
-```
+L’intégration GitHub reste différée jusqu’à la fin du gel CI demandé ; aucune requalification n’est nécessaire tant que les changements supplémentaires restent documentaires uniquement.
 
-Exit criteria : provider externe de référence découvrable sans modification du core, compatibilité explicite, diagnostic déterministe, tests de contrat réutilisables, absence de dépendance provider-specific dans domain/application, qualification complète Windows + Linux et `post-gate executable delta = NONE`.
+# NOW
+
+## M22 — intégration différée par gel CI
+
+La partie technique M22 est terminée. La seule action restante avant de démarrer M23 est la réouverture puis l’intégration de PR #101 après la fin du gel CI, sans changement exécutable supplémentaire.
 
 # NEXT
 
