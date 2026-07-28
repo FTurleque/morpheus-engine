@@ -1,25 +1,26 @@
 # ADR-0092 — Provider-neutral query DSL, saved views and reporting
 
-Statut : **Proposée — M24**
+Statut : **Acceptée — M24**
 
 Date : 28 juillet 2026
 
 ## Contexte
 
-MORPHEUS possède déjà des requêtes déterministes ciblées (requirements, contenu métier, qualité, analyse, portfolio) et un JSON canonique transport-safe. Ces contrats restent cependant spécialisés par use case. M24 doit permettre à un utilisateur de décrire une vue métier complexe, la sauvegarder et l'exporter sans transformer SQL, SQLite, un provider ou un transport en langage métier.
+MORPHEUS possédait déjà des requêtes déterministes spécialisées, un JSON canonique transport-safe et, depuis M23, un scope portfolio. M24 devait permettre d'exprimer une vue métier complexe, la sauvegarder et l'exporter sans transformer SQL, SQLite, un provider ou un transport en langage métier.
 
-M23 ajoute le scope portfolio et impose de conserver l'identité projet de chaque élément. M24 doit étendre cette capacité sans créer un moteur concurrent aux services applicatifs existants.
+## Décision
 
-## Décision proposée
-
-M24 introduit un AST provider-neutral borné dans la couche application, composé de types explicites :
+M24 introduit dans la couche application un AST provider-neutral borné :
 
 ```text
 QueryDefinition
 QueryScope
 QueryEntityType
 QueryFilter
-QueryPredicate
+  QueryPredicate
+  QueryAnd
+  QueryOr
+  QueryNot
 QueryOperator
 QuerySort
 QuerySortDirection
@@ -41,17 +42,19 @@ stable sort != storage/provider iteration order
 portfolio query result preserves ProjectSpecificationId
 ```
 
-### Scope
+## Scope
 
-Une requête est explicitement project-scoped ou portfolio-scoped. Le scope est exprimé par `ProjectSpecificationId` ou `PortfolioId`, jamais par workspace, repository, provider ou table.
+Une requête est explicitement project-scoped ou portfolio-scoped. Le scope est `ProjectSpecificationId` ou `PortfolioId`, jamais un workspace, repository, provider ou nom de table.
 
-### Entités et champs
+## Entités et champs
 
-Le DSL n'autorise que des `QueryEntityType` et champs déclarés par un registre applicatif fermé. Les champs transport/SQL ne sont pas adressables. Chaque champ déclare son type logique et les opérateurs autorisés.
+Le DSL n'autorise que des `QueryEntityType` et champs déclarés par `QuerySchemaRegistry`. Chaque champ possède un type logique et une liste fermée d'opérateurs autorisés.
 
-### Filtres
+Les noms SQL, détails de stockage, chemins provider et structures transport ne sont pas adressables.
 
-Le premier contrat supporte uniquement les opérateurs justifiés et déterministes :
+## Filtres
+
+Opérateurs :
 
 ```text
 EQ
@@ -68,23 +71,19 @@ NOT
 
 Les combinaisons champ/opérateur/type incompatibles produisent un diagnostic explicite et empêchent l'exécution.
 
-Absence/null est distincte de chaîne vide. `EXISTS` teste la présence ; les autres opérateurs ne transforment pas silencieusement une valeur absente en valeur vide.
+Absence/null est distincte de chaîne vide. `EXISTS` teste la présence sans coercition implicite.
 
-### Tri
+## Tri
 
-Chaque tri demandé est stable. Un tie-break canonique par identité métier est toujours ajouté conceptuellement lorsque les clés demandées ne suffisent pas. Aucun résultat observable ne dépend de l'ordre SQLite, d'un `HashMap`, de l'ordre provider ou d'un UUID généré au moment de l'exécution.
+Le tri observable est stable. Un tie-break canonique par `projectId` puis `entityId` complète les clés demandées lorsque nécessaire. Aucun résultat ne dépend de l'ordre SQLite, provider ou `HashMap`.
 
-### Projection
+## Projection et pagination
 
-La projection limite les champs transport-safe retournés. Les champs d'identité nécessaires à l'interprétation du résultat restent présents selon le scope : identité d'entité et, pour un résultat portfolio, `ProjectSpecificationId`.
+La projection limite les champs transport-safe mais préserve les identités nécessaires à l'interprétation. Un résultat portfolio conserve son `ProjectSpecificationId`.
 
-### Pagination
-
-M24 conserve une pagination offset/limit bornée et expose `totalMatches` et `hasMore`. Une page dépassant le budget est rejetée explicitement.
+La pagination offset/limit expose `totalMatches` et `hasMore`. Une page hors budget est rejetée explicitement.
 
 ## Budgets
-
-Budgets initiaux M24 :
 
 ```text
 encoded query expression   <= 16 KiB
@@ -100,17 +99,19 @@ saved views per scope      <= 250
 saved-view name            <= 160 chars
 ```
 
-Les budgets sont centralisés, testés et exposés dans les diagnostics/schémas publics. Un dépassement ne produit jamais un résultat partiel présenté comme complet.
+Les budgets sont centralisés dans `QueryBudgets`, testés et exposés par les contrats publics pertinents. Un dépassement ne produit jamais un résultat partiel présenté comme complet.
 
 ## Saved views
 
-M24 introduit une saved view first-class :
+M24 introduit :
 
 ```text
 SavedViewId
 SavedViewDefinition
 SavedViewVersion
+SavedViewStatus
 SavedViewStore
+SavedViewService
 ```
 
 Invariant :
@@ -119,29 +120,41 @@ Invariant :
 saved view != materialized truth
 ```
 
-Une saved view stocke la définition de requête et ses métadonnées, jamais une copie autoritative du résultat.
+Une saved view stocke la définition de requête et ses métadonnées, jamais une copie autoritative du résultat. `SavedViewId` est stable et indépendant du nom.
 
-`SavedViewId` est stable et indépendant du nom. Les mises à jour utilisent une révision attendue/CAS ; une révision obsolète échoue explicitement et ne peut pas être transformée en last-write-wins silencieux. L'historique de versions reste lisible selon le port de persistence.
+Les updates utilisent `expectedRevision`/CAS. Une révision obsolète échoue explicitement ; aucun last-write-wins silencieux n'est autorisé. L'historique des versions reste lisible.
 
-## Persistence
+## Persistance
 
-`SavedViewStore` est un port application implémenté par Memory et SQLite. SQLite reçoit une migration additive V014 si V013 reste la dernière migration au moment de l'implémentation. Aucune migration historique n'est réécrite.
+`SavedViewStore` est un port application implémenté par Memory et SQLite.
+
+SQLite ajoute uniquement la migration additive :
+
+```text
+V014__saved_views.sql
+```
+
+Aucune migration historique n'est réécrite.
+
+`QueryDefinitionCodec` encode la définition de façon déterministe pour SQLite sans Java serialization ni JSON arbitraire.
 
 ## Export et reporting
 
-Les exports consomment un `QueryResult` validé et sont read-only :
+Les exports sont read-only :
 
 ```text
 export != mutation
 ```
 
-JSON : projections transport-safe puis `CanonicalJsonSerializer`, conformément à ADR-0047. Les objets domaine ne sont pas sérialisés directement.
+Formats :
 
-CSV : UTF-8, ordre de colonnes explicite, quoting/escaping/newlines déterministes, lignes dans l'ordre du résultat.
+```text
+JSON      projections transport-safe + CanonicalJsonSerializer
+CSV       UTF-8, colonnes/quoting/escaping/newlines déterministes
+Markdown  table stable et testable
+```
 
-Markdown : table déterministe, lisible et suffisamment stable pour snapshots/tests. Aucun LLM ou template libre n'intervient.
-
-Les exports respectent les budgets de lignes et d'octets et ne déclenchent aucune mutation métier ou de saved view.
+Les budgets de lignes et d'octets sont vérifiés explicitement.
 
 ## Surfaces
 
@@ -153,32 +166,40 @@ Invariant :
 surface parity != same transport shape
 ```
 
-Les formes CLI/JSON/HTTP peuvent différer, mais validation, budgets, scope, saved-view CAS, tri et exports sont définis une seule fois dans application.
+Les représentations transport peuvent différer ; validation, budgets, scope, CAS, tri et export restent définis dans application.
 
-## Conséquences attendues
+## Conséquences
 
-Positives : langage métier stable et provider-neutral, vues partageables sans matérialisation autoritative, exports déterministes, budgets explicites, convergence des surfaces.
+Positives : langage métier stable et provider-neutral, vues partageables sans matérialisation autoritative, exports déterministes, budgets explicites et convergence des surfaces.
 
-Coûts : registre de champs explicite à maintenir, store/versioning supplémentaires, migration SQLite, contrats de transport et tests de déterminisme plus nombreux.
+Coûts : registre de champs explicite à maintenir, store/versioning supplémentaire, migration SQLite et tests de déterminisme plus nombreux.
 
-## Validation requise avant acceptation
+## Validation acquise
 
-Cette ADR reste **Proposée** jusqu'à preuve du même SHA exécutable sur Windows et Linux avec :
+L'acceptation repose sur la double qualification exact-head Windows + Linux du même SHA exécutable :
 
 ```text
-query DSL contract PASS
-saved-view versioning/CAS PASS
-Memory/SQLite parity PASS
-SQLite V014 PASS
-canonical JSON export PASS
-CSV export PASS
-Markdown export PASS
-query/export budgets PASS
-CLI/MCP/HTTP convergence PASS
-architecture contract PASS
-SBOM/provenance PASS
-portable Windows/Linux PASS
-postGateExecutableDelta=NONE
+be69e47da0ae209d2246df9c67bc08caeafb2bb0
 ```
 
-Preuve finale attendue : `docs/validation/VALIDATION_M24.md`.
+Résultats :
+
+```text
+Windows tests              543 PASS
+Linux tests                543 PASS
+Architecture               221 PASS Windows + Linux
+query DSL contract         PASS
+saved-view versioning/CAS  PASS
+Memory/SQLite parity       PASS
+SQLite V014                PASS
+canonical JSON export      PASS
+CSV export                 PASS
+Markdown export            PASS
+query/export budgets       PASS
+CLI/MCP/HTTP convergence   PASS
+SBOM/provenance            PASS Windows + Linux
+portable                   PASS Windows + Linux
+postGateExecutableDelta    NONE
+```
+
+Preuve normative de qualification : [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).
