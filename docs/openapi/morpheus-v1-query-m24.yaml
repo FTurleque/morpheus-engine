@@ -1,0 +1,288 @@
+openapi: 3.1.0
+info:
+  title: MORPHEUS M24 Query DSL, Saved Views & Reporting API
+  version: 1.0.0-m24
+  description: >-
+    Machine-readable M24 supplement for provider-neutral bounded queries, versioned
+    saved query definitions and read-only canonical JSON/CSV/Markdown reporting.
+    The DSL is not SQL, saved views are not materialized truth, and exports never mutate state.
+servers:
+  - url: http://127.0.0.1:8765/api/v1
+    description: Default local MORPHEUS server
+paths:
+  /queries/execute:
+    post:
+      operationId: executeQuery
+      description: Execute one bounded project- or portfolio-scoped provider-neutral query.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ScopedQueryRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+  /saved-views:
+    get:
+      operationId: listSavedViews
+      parameters:
+        - {$ref: '#/components/parameters/ScopeKind'}
+        - {$ref: '#/components/parameters/ScopeId'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+    post:
+      operationId: createSavedView
+      description: Persist a versioned query definition; result rows are never materialized as truth.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateSavedViewRequest'}
+      responses:
+        '201': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+  /saved-views/{savedViewId}:
+    parameters:
+      - {$ref: '#/components/parameters/SavedViewId'}
+    get:
+      operationId: getSavedView
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+    put:
+      operationId: updateSavedView
+      description: Compare-and-set update using expectedRevision; stale writers fail explicitly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdateSavedViewRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/RevisionConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+  /saved-views/{savedViewId}/versions:
+    parameters:
+      - {$ref: '#/components/parameters/SavedViewId'}
+    get:
+      operationId: listSavedViewVersions
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+
+  /saved-views/{savedViewId}/execute:
+    parameters:
+      - {$ref: '#/components/parameters/SavedViewId'}
+    post:
+      operationId: executeSavedView
+      description: Execute the current stored definition against current published truth.
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+
+  /saved-views/{savedViewId}/archive:
+    parameters:
+      - {$ref: '#/components/parameters/SavedViewId'}
+    post:
+      operationId: archiveSavedView
+      description: Versioned configuration mutation; does not delete history or mutate published domain truth.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RevisionRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/RevisionConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+  /exports:
+    post:
+      operationId: exportQuery
+      description: >-
+        Read-only export of the complete filtered/sorted bounded view. Interactive pagination
+        does not silently truncate the export. Row and byte budgets fail explicitly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ExportRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Export'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+  /saved-views/{savedViewId}/export:
+    parameters:
+      - {$ref: '#/components/parameters/SavedViewId'}
+    post:
+      operationId: exportSavedView
+      description: Read-only export of one active saved-view definition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ExportSavedViewRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Export'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+components:
+  parameters:
+    SavedViewId:
+      name: savedViewId
+      in: path
+      required: true
+      schema: {$ref: '#/components/schemas/Uuid'}
+    ScopeKind:
+      name: scopeKind
+      in: query
+      required: true
+      schema: {$ref: '#/components/schemas/ScopeKind'}
+    ScopeId:
+      name: scopeId
+      in: query
+      required: true
+      schema: {$ref: '#/components/schemas/Uuid'}
+
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+
+    ScopeKind:
+      type: string
+      enum: [PROJECT, PORTFOLIO]
+
+    QueryRequest:
+      type: object
+      additionalProperties: false
+      required: [entity]
+      properties:
+        entity:
+          type: string
+          minLength: 1
+          description: Provider-neutral QueryEntityType, case-insensitive at the transport boundary.
+        filter:
+          type: [string, 'null']
+          maxLength: 16384
+          description: >-
+            Bounded M24 DSL expression, for example
+            and(title contains "security",providerId in [openspec,markdown]). Never SQL.
+        sort:
+          type: [string, 'null']
+          description: Comma-separated field:asc or field:desc ordering keys; maximum 8 fields.
+        fields:
+          type: [string, 'null']
+          description: Ordered comma-separated projection; maximum 32 fields. Required identities remain explicit.
+        offset:
+          type: [integer, 'null']
+          minimum: 0
+          default: 0
+        limit:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 500
+          default: 100
+
+    ScopedQueryRequest:
+      type: object
+      additionalProperties: false
+      required: [scopeKind, scopeId, query]
+      properties:
+        scopeKind: {$ref: '#/components/schemas/ScopeKind'}
+        scopeId: {$ref: '#/components/schemas/Uuid'}
+        query: {$ref: '#/components/schemas/QueryRequest'}
+
+    CreateSavedViewRequest:
+      type: object
+      additionalProperties: false
+      required: [name, scopeKind, scopeId, query]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 160}
+        scopeKind: {$ref: '#/components/schemas/ScopeKind'}
+        scopeId: {$ref: '#/components/schemas/Uuid'}
+        query: {$ref: '#/components/schemas/QueryRequest'}
+
+    UpdateSavedViewRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision, name, query]
+      properties:
+        expectedRevision: {type: integer, minimum: 1}
+        name: {type: string, minLength: 1, maxLength: 160}
+        query: {$ref: '#/components/schemas/QueryRequest'}
+
+    RevisionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision]
+      properties:
+        expectedRevision: {type: integer, minimum: 1}
+
+    ExportFormat:
+      type: string
+      enum: [JSON, CSV, MARKDOWN]
+
+    ExportRequest:
+      type: object
+      additionalProperties: false
+      required: [scopeKind, scopeId, format, query]
+      properties:
+        scopeKind: {$ref: '#/components/schemas/ScopeKind'}
+        scopeId: {$ref: '#/components/schemas/Uuid'}
+        format: {$ref: '#/components/schemas/ExportFormat'}
+        query: {$ref: '#/components/schemas/QueryRequest'}
+
+    ExportSavedViewRequest:
+      type: object
+      additionalProperties: false
+      required: [format]
+      properties:
+        format: {$ref: '#/components/schemas/ExportFormat'}
+
+  responses:
+    Success:
+      description: Successful MORPHEUS M24 JSON response using transport-safe projections.
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [apiVersion, data]
+            properties:
+              apiVersion: {const: v1}
+              data: {}
+
+    Export:
+      description: Complete bounded read-only report. No partial-success truncation semantics exist.
+      content:
+        application/json:
+          schema: {type: object}
+        text/csv:
+          schema: {type: string}
+        text/markdown:
+          schema: {type: string}
+
+    BadRequest:
+      description: Invalid DSL, field/operator/type combination, request shape or query/export budget.
+    RevisionConflict:
+      description: Stale expectedRevision; silent last-write-wins is forbidden.
+    StateConflict:
+      description: Persistent-store or published-state conflict.
+    UnsupportedMediaType:
+      description: Request body is not application/json.
