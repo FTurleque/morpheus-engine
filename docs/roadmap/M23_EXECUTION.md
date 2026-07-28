@@ -1,9 +1,10 @@
 # M23 — Multi-project / Portfolio Specification Intelligence
 
-Statut : **TECHNIQUEMENT TERMINÉ / QUALIFIÉ — Windows + Linux exact-head PASS — intégration PR #104 en cours**
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ — Windows + Linux exact-head PASS**
 
-Issue : #103  
-PR : #104  
+Issue : #103 — **CLOSED / completed**  
+PR : #104 — **MERGED**  
+Merge : `88355b69c493677c8689eecad214fb00d283359b`  
 Branche : `m23/portfolio-specification-intelligence`  
 Baseline : `main@67c587057e287d57b0733f9e425a57b26cc38ae4` après merge M22.
 
@@ -13,13 +14,13 @@ Head exécutable qualifié Windows + Linux :
 04a906e9d5858292ed0f0f1bec65246fef91ed63
 ```
 
-Les commits postérieurs sont strictement documentaires. Toute modification exécutable invaliderait les gates acquis.
+Les 11 commits postérieurs au SHA exécutable qualifié et antérieurs au merge étaient strictement documentaires. Toute future modification exécutable relève d'un nouveau jalon et de ses propres gates.
 
 ## Question de sortie
 
 > MORPHEUS peut-il raisonner sur plusieurs projets sans confondre identité métier, workspace, repository et source provider ?
 
-**Réponse : oui, démontré sur Windows et Linux.**
+**Réponse : oui, démontré sur Windows et Linux puis intégré dans `main`.**
 
 ## Invariants
 
@@ -111,7 +112,7 @@ revision length            512
 - [x] index ADR / validation / documentation réconciliés
 - [x] roadmaps active et gouvernance réconciliées
 
-### M23-S9 — qualification
+### M23-S9 — qualification / intégration
 - [x] tests >= baseline M22
 - [x] architecture >= baseline M22
 - [x] JaCoCo gates
@@ -122,6 +123,10 @@ revision length            512
 - [x] `postGateExecutableDelta=NONE` Windows + Linux
 - [x] ADR-0091 Acceptée
 - [x] consolidation docs-only
+- [x] PR #104 Ready
+- [x] PR #104 merged
+- [x] issue #103 closed / completed
+- [x] `main` contient le merge M23
 
 ## Preuve Windows exact-head
 
@@ -168,17 +173,29 @@ postGateExecutableDelta=NONE
 M23 LINUX EXIT CODE: 0
 ```
 
+## Intégration GitHub
+
+```text
+PR                    #104 MERGED
+PR head               4f6bd7b4c66694fa7afc39a776a1e3622b73bd99
+M23 merge             88355b69c493677c8689eecad214fb00d283359b
+Issue                 #103 CLOSED / completed
+Executable qualified  04a906e9d5858292ed0f0f1bec65246fef91ed63
+Post-gate delta       docs-only
+```
+
 ## Sortie
 
 ```text
-Executable qualified SHA  04a906e9d5858292ed0f0f1bec65246fef91ed63
-Windows                    PASS
-Linux                      PASS
-Tests                      507 PASS
-Architecture               195 PASS
-ADR-0091                   Acceptée — M23
-Post-gate changes          docs-only
-Next milestone             M24 — Query DSL, Saved Views & Export/Reporting
+M23                         ✅ TERMINÉ / VALIDÉ / INTÉGRÉ
+Executable qualified SHA    04a906e9d5858292ed0f0f1bec65246fef91ed63
+Merge SHA                   88355b69c493677c8689eecad214fb00d283359b
+Windows                     PASS
+Linux                       PASS
+Tests                       507 PASS
+Architecture                195 PASS
+ADR-0091                    Acceptée — M23
+Next milestone              M24 — Query DSL, Saved Views & Export/Reporting
 ```
 
 Preuve détaillée : [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md).
