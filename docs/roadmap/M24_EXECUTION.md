@@ -1,15 +1,18 @@
 # M24 — Query DSL, Saved Views & Export/Reporting
 
-Statut : **EN COURS — M24-S0 cadré ; implémentation active**
+Statut : **QUALIFIÉ WINDOWS + LINUX — consolidation docs-only et intégration en cours**
 
-Issue : #105 — **OPEN**
-PR : #106 — **DRAFT**
+Issue : #105 — **OPEN jusqu’au merge**
+PR : #106 — **DRAFT jusqu’à fin de consolidation**
 Branche : `m24/query-dsl-saved-views-reporting`
-Baseline : `main@f70eaa1ad58633ee59874ab44f70963ab51152c6`.
+Baseline : `main@f70eaa1ad58633ee59874ab44f70963ab51152c6`
+SHA exécutable qualifié : `be69e47da0ae209d2246df9c67bc08caeafb2bb0`
 
 ## Question de sortie
 
 > Les utilisateurs peuvent-ils exprimer, sauvegarder et exporter des vues métier complexes sans dépendre d’un transport ou d’un format provider particulier ?
+
+**Réponse : oui, démontré sur Windows et Linux sur le même SHA exécutable.**
 
 ## Invariants
 
@@ -28,8 +31,6 @@ local-first remains default
 
 ## Budgets M24
 
-Budgets pré-déclarés ; tout dépassement est une erreur explicite, jamais une troncature sémantique silencieuse.
-
 ```text
 max encoded query expression   16 KiB
 max AST nodes                  128
@@ -44,191 +45,222 @@ max saved views per scope      250
 max saved-view name            160 chars
 ```
 
-Ces valeurs sont des garde-fous de plateforme. Le gate M24 vérifie qu'elles sont centralisées, documentées et appliquées de manière cohérente sur les surfaces.
+Tout dépassement est une erreur explicite, jamais une troncature sémantique silencieuse.
 
-## Contrat de DSL ciblé
-
-Le modèle reste volontairement borné :
+## Contrat livré
 
 ```text
 QueryDefinition
 QueryScope
+  ProjectQueryScope
+  PortfolioQueryScope
 QueryEntityType
 QueryFilter
-  - Predicate
-  - And
-  - Or
-  - Not
+  QueryPredicate
+  QueryAnd
+  QueryOr
+  QueryNot
 QueryOperator
-  - EQ
-  - NEQ
-  - CONTAINS
-  - STARTS_WITH
-  - ENDS_WITH
-  - IN
-  - EXISTS
 QuerySort
-QuerySortDirection
 QueryProjection
 QueryPage
 QueryResult
 QueryDiagnostic
 ```
 
-Le DSL travaille uniquement sur des champs métier explicitement enregistrés par `QueryEntityType`. Aucun fragment SQL, nom de table/colonne, chemin provider ou syntaxe transport ne devient un concept métier.
-
-## Scopes
-
-```text
-project-scoped   = ProjectSpecificationId explicite
-portfolio-scoped = PortfolioId explicite ; chaque ligne conserve ProjectSpecificationId
-```
-
-Le scope fait partie de la requête et des saved views. Il n'est jamais inféré d'un chemin de workspace ou d'une URL de repository.
+Le DSL n’expose aucun fragment SQL, nom de table/colonne, chemin provider ou structure transport.
 
 ## Saved views
 
-Une saved view stocke une définition de requête versionnée, pas ses résultats.
-
 ```text
-SavedViewId                identité stable indépendante du nom
-SavedViewDefinition        id + name + scope + query + revision + timestamps
-SavedViewVersion           historique immuable des révisions
-SavedViewStore             port application
+SavedViewId
+SavedViewDefinition
+SavedViewVersion
+SavedViewStatus
+SavedViewStore
+SavedViewService
 ```
 
-Mise à jour : CAS sur `expectedRevision`; une révision obsolète échoue explicitement.
+Les vues sont versionnées, utilisent CAS via `expectedRevision`, conservent une identité indépendante du nom et stockent une définition de requête, jamais une vérité matérialisée.
 
-## Exports
+Persistence : Memory + SQLite additive V014.
+
+## Export/reporting
 
 ```text
-JSON      canonical via projections transport-safe / ADR-0047
-CSV       UTF-8, header/order/escaping/newlines déterministes
-Markdown  table stable, lisible, testable
+JSON      canonical, transport-safe
+CSV       UTF-8, quoting/escaping déterministes
+Markdown  table stable et testable
 ```
 
-L'export consomme un `QueryResult` déjà validé et ne possède aucun port de mutation.
+Les exports sont read-only et bornés en lignes/octets.
+
+## Surfaces
+
+CLI :
+
+```text
+query execute
+views create/list/get/versions/update/archive/execute
+export query/view
+```
+
+MCP : 10 tools M24, schémas stricts.
+
+HTTP :
+
+```text
+POST /api/v1/queries/execute
+GET/POST /api/v1/saved-views
+GET/PUT /api/v1/saved-views/{id}
+GET  /api/v1/saved-views/{id}/versions
+POST /api/v1/saved-views/{id}/execute
+POST /api/v1/saved-views/{id}/archive
+POST /api/v1/saved-views/{id}/export
+POST /api/v1/exports
+```
+
+Contrats machine : `contracts/public-surfaces.tsv` et `docs/openapi/morpheus-v1-query-m24.yaml`.
 
 ## Slices
 
 ### M24-S0 — cadrage / ADR / traçage GitHub
+
 - [x] ré-audit baseline M23/M24
 - [x] issue #105
 - [x] branche M24 exacte depuis `main@f70eaa1...`
 - [x] roadmap opérationnelle M24
-- [x] ADR-0092 proposée
-- [x] PR Draft ouverte
+- [x] ADR-0092 créée puis acceptée après preuve
+- [x] PR #106 Draft ouverte
 
 ### M24-S1 — AST provider-neutral / validation / budgets
-- [ ] modèle explicite du DSL
-- [ ] registre de champs métier typés
-- [ ] diagnostics structurés
-- [ ] validation opérateur/type
-- [ ] budgets AST/expression/page/sort/projection
-- [ ] tests invalid field/operator/type/nesting/budgets
+
+- [x] modèle explicite du DSL
+- [x] registre de champs métier typés
+- [x] diagnostics structurés
+- [x] validation opérateur/type
+- [x] budgets expression/AST/page/sort/projection/export/views
+- [x] tests invalid field/operator/type/nesting/budgets
 
 ### M24-S2 — moteur de requête déterministe
-- [ ] project-scoped query sur snapshots publiés
-- [ ] portfolio-scoped query sur projets membres
-- [ ] filtering booléen
-- [ ] stable sorting + tie-break identité
-- [ ] projection
-- [ ] pagination `offset/limit/totalMatches/hasMore`
-- [ ] identité projet préservée en portfolio
-- [ ] fixtures dont l'ordre physique ne masque pas les défauts
+
+- [x] project-scoped query sur snapshots publiés
+- [x] portfolio-scoped query sur projets membres
+- [x] filtering booléen
+- [x] stable sorting + tie-break identité
+- [x] projection
+- [x] pagination `offset/limit/totalMatches/hasMore`
+- [x] identité projet préservée en portfolio
+- [x] fixtures dont l’ordre physique ne masque pas les défauts
+- [x] absent/null distinct de chaîne vide
 
 ### M24-S3 — saved views / versioning
-- [ ] `SavedViewId`
-- [ ] définition + metadata + versions
-- [ ] create/get/list/update/execute
-- [ ] CAS `expectedRevision`
-- [ ] même nom != même identité
-- [ ] query invalide rejetée avant persistance
+
+- [x] `SavedViewId`
+- [x] définition + metadata + versions
+- [x] create/get/list/update/archive/execute
+- [x] CAS `expectedRevision`
+- [x] même nom != même identité
+- [x] query invalide rejetée avant persistance
+- [x] archive versionnée
 
 ### M24-S4 — Memory persistence
-- [ ] port `SavedViewStore`
-- [ ] implémentation Memory
-- [ ] ordre déterministe
-- [ ] historique des versions
-- [ ] parité comportementale
+
+- [x] port `SavedViewStore`
+- [x] implémentation Memory
+- [x] ordre déterministe
+- [x] historique des versions
+- [x] parité comportementale
 
 ### M24-S5 — SQLite V014
-- [ ] migration additive V014
-- [ ] `SqliteSavedViewStore`
-- [ ] round-trip/reopen/version preservation
-- [ ] migration depuis V013
-- [ ] aucune modification rétroactive de migration
+
+- [x] migration additive V014
+- [x] `SqliteSavedViewStore`
+- [x] round-trip/reopen/version preservation
+- [x] migration depuis V013
+- [x] aucune modification rétroactive de migration
 
 ### M24-S6 — export / reporting
-- [ ] canonical JSON stable
-- [ ] CSV stable et échappé
-- [ ] Markdown stable
-- [ ] empty result
-- [ ] project identity portfolio conservée
-- [ ] budgets rows/bytes
-- [ ] export strictement read-only
+
+- [x] canonical JSON stable
+- [x] CSV stable et échappé
+- [x] Markdown stable
+- [x] empty result
+- [x] project identity portfolio conservée
+- [x] budgets rows/bytes
+- [x] export strictement read-only
 
 ### M24-S7 — surfaces publiques
-- [ ] CLI query/views/export
-- [ ] MCP tools + JSON schemas stricts
-- [ ] HTTP `/api/v1` routes cohérentes
-- [ ] OpenAPI M24
-- [ ] `contracts/public-surfaces.tsv`
-- [ ] même services applicatifs / mêmes règles métier
+
+- [x] CLI query/views/export
+- [x] MCP tools + JSON schemas stricts
+- [x] HTTP `/api/v1` routes cohérentes
+- [x] OpenAPI M24
+- [x] `contracts/public-surfaces.tsv`
+- [x] mêmes services applicatifs / mêmes règles métier
 
 ### M24-S8 — architecture / packaging / documentation / validator
-- [ ] `QueryDslContractTest` ou contrat équivalent
-- [ ] frontières domain/application/adapters
-- [ ] DSL != SQL
-- [ ] saved view != materialized truth
-- [ ] export != mutation
-- [ ] packaging Windows/Linux
-- [ ] `validate-m24.cmd`
-- [ ] `scripts/validate-m24.ps1`
-- [ ] `scripts/validate-m24.sh`
-- [ ] docs utilisateur/développeur/OpenAPI/index
+
+- [x] contrats Query DSL / execution / saved views / export
+- [x] frontières domain/application/adapters
+- [x] DSL != SQL
+- [x] saved view != materialized truth
+- [x] export != mutation
+- [x] packaging Windows/Linux
+- [x] `validate-m24.cmd`
+- [x] `scripts/validate-m24.ps1`
+- [x] `scripts/validate-m24.sh`
+- [x] guide utilisateur M24
+- [x] guide développeur M24
+- [x] OpenAPI + manifeste public qualifiés avant gate
 
 ### M24-S9 — qualification / intégration
-- [ ] Windows exact-head PASS
-- [ ] Linux exact-head PASS sur le même SHA exécutable
-- [ ] tests/architecture/coverage réels enregistrés
-- [ ] SBOM/provenance/portable PASS
-- [ ] `postGateExecutableDelta=NONE`
-- [ ] preuve `docs/validation/VALIDATION_M24.md`
-- [ ] ADR-0092 Acceptée seulement après preuve
-- [ ] consolidation post-gate docs-only
-- [ ] PR Ready + merge avec expected head
+
+- [x] Windows exact-head PASS
+- [x] Linux exact-head PASS sur le même SHA exécutable
+- [x] tests/architecture/coverage réels enregistrés
+- [x] SBOM/provenance/portable PASS
+- [x] `postGateExecutableDelta=NONE`
+- [x] preuve `docs/validation/VALIDATION_M24.md`
+- [x] ADR-0092 Acceptée après preuve
+- [x] consolidation post-gate strictement docs-only
+- [ ] PR #106 Ready + merge avec expected head
 - [ ] issue #105 CLOSED/completed après merge
 - [ ] réconciliation post-merge docs-only
 - [ ] M25 devient NOW
 
-## Qualification canonique
+## Qualification exacte
 
-Jusqu'en août 2026, GitHub Actions n'est pas un gate M24.
-
-Windows et Linux doivent produire un bloc machine-readable issu des logs réels :
+Windows :
 
 ```text
 M24 VALIDATION PASS
-sha=<exact-head>
-baseRef=origin/main
-version=1.0.0
-tests=<actual>
-architectureTests=<actual>
-lineCoverage=<actual>
-branchCoverage=<actual>
-queryDsl=PASS
-savedViews=PASS
-canonicalJsonExport=PASS
-csvExport=PASS
-markdownExport=PASS
-queryBudgets=PASS
-surfaceConvergence=PASS
-sqliteV014=PASS
-sbom=PASS
-provenance=PASS
+sha=be69e47da0ae209d2246df9c67bc08caeafb2bb0
+tests=543
+architectureTests=221
+lineCoverage=0.442936
+branchCoverage=0.381166
 portable=True
 postGateExecutableDelta=NONE
 ```
 
-Aucun nombre n'est prérempli ou inventé.
+Linux / WSL2 :
+
+```text
+M24 VALIDATION PASS
+sha=be69e47da0ae209d2246df9c67bc08caeafb2bb0
+tests=543
+architectureTests=221
+lineCoverage=0.443037
+branchCoverage=0.381166
+portable=true
+postGateExecutableDelta=NONE
+```
+
+Les deux plateformes ont également confirmé : Query DSL, saved views, JSON/CSV/Markdown, budgets, convergence CLI/MCP/HTTP, SQLite V014, SBOM et provenance PASS.
+
+Preuve complète : [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).
+
+## Règle post-gate
+
+Le SHA `be69e47da0ae209d2246df9c67bc08caeafb2bb0` est le SHA **exécutable** qualifié. Les commits de consolidation qui suivent doivent rester exclusivement documentaires. Avant le merge, le compare `be69e47d... -> PR head` doit confirmer qu’aucun fichier exécutable ou contractuel n’a changé.
