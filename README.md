@@ -6,28 +6,28 @@
 
 ## État produit
 
-**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.**
+**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.** Les évolutions 1.x M21, M22 et M23 sont également validées et intégrées sur cette baseline produit.
 
 ```text
-M20 issue       #92 CLOSED / completed
-M20 PR          #93 MERGED
-Code qualifié   9199ed43c4bd8596a97db055eeff17ae31399eb8
-M20 merge       75d0b82ab0c960692db2fee1ced146fa6547fd4a
-D1 merge        51f6a120f3461c8d8c24323f3db8211d28d6cb42
-Release SHA     51f6a120f3461c8d8c24323f3db8211d28d6cb42
-Tag stable      v1.0.0
-GitHub Release  MORPHEUS 1.0.0 — 8/8 assets
-Tests           454/454 PASS Windows + Linux
-Architecture    182/182 PASS Windows + Linux
-Reactor         14/14 SUCCESS
+Release stable    v1.0.0
+M20 merge         75d0b82ab0c960692db2fee1ced146fa6547fd4a
+D1 / release SHA  51f6a120f3461c8d8c24323f3db8211d28d6cb42
+M21 merge         2fdce6601a07628c315fe03932750cd8ece3d777
+M22 merge         67c587057e287d57b0733f9e425a57b26cc38ae4
+M23 executable    04a906e9d5858292ed0f0f1bec65246fef91ed63
+M23 merge         88355b69c493677c8689eecad214fb00d283359b
+M23 tests         507 PASS Windows + Linux
+M23 architecture  195 PASS Windows + Linux
 ```
 
-Preuve de publication : [docs/validation/VALIDATION_R1.md](docs/validation/VALIDATION_R1.md).
+Preuve de publication : [docs/validation/VALIDATION_R1.md](docs/validation/VALIDATION_R1.md).  
+Dernière preuve technique : [docs/validation/VALIDATION_M23.md](docs/validation/VALIDATION_M23.md).
 
 ## Ce que MORPHEUS fournit
 
 - ingestion et normalisation de spécifications ;
 - providers réels OpenSpec et Structured Markdown ;
+- Provider SDK et plugins externes explicitement découvrables/activables ;
 - composition multi-provider provider-neutral et explicable ;
 - provenance, précédence et conflits conservés ;
 - snapshots versionnés et séparation `CURRENT / PROPOSED / HISTORICAL` ;
@@ -38,6 +38,7 @@ Preuve de publication : [docs/validation/VALIDATION_R1.md](docs/validation/VALID
 - critères d’acceptation, vérification et evidence explicites ;
 - sémantique explicite des contraintes ;
 - lifecycle contrôlé avec capability, confirmation, CAS, idempotency et audit ;
+- **portfolio multi-projets provider-neutral**, références inter-projets et traversal bornée ;
 - CLI locale scriptable ;
 - serveur MCP STDIO ;
 - API HTTP locale `/api/v1` ;
@@ -51,7 +52,9 @@ MORPHEUS ne nécessite aucun LLM pour son cœur fonctionnel.
 
 ```text
 MORPHEUS = specification facts / intent / lifecycle rules
-           + controlled state invariants + provider composition facts
+           + controlled state invariants
+           + provider composition facts
+           + portfolio specification facts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = orchestration / sequencing / action choice
@@ -115,6 +118,19 @@ Mode JSON :
 morpheus --json requirements find --project <projectId> --query "session"
 ```
 
+## Premier portfolio M23
+
+```bash
+morpheus portfolio create --name "Platform"
+morpheus portfolio add-project \
+  --portfolio <portfolioId> \
+  --project <projectId> \
+  --name "Billing"
+morpheus portfolio overview --portfolio <portfolioId>
+```
+
+Guide : [docs/user/PORTFOLIOS.md](docs/user/PORTFOLIOS.md).
+
 ## Surfaces
 
 ### CLI
@@ -123,6 +139,9 @@ morpheus --json requirements find --project <projectId> --query "session"
 projects
 sync / sync-status
 composition sync / status / conflicts
+provider-plugins discover / probe
+portfolio create / add-project / missing / freshness
+portfolio add-reference / list / overview / members / references / conflicts / traverse
 requirements
 changes / constraints / acceptance-criteria / decisions / tasks
 trace-requirement
@@ -143,6 +162,19 @@ Référence : [docs/user/CLI.md](docs/user/CLI.md).
 morpheus mcp --stdio
 ```
 
+M23 expose notamment :
+
+```text
+create_portfolio
+register_portfolio_project
+mark_portfolio_project_missing
+observe_portfolio_freshness
+add_cross_project_reference
+get_portfolio_overview
+list_portfolio_references
+traverse_portfolio
+```
+
 La lecture et l’écriture restent séparées : le write lifecycle exige `WRITE_CHANGE`, confirmation, `expectedRevision`, `idempotencyKey` et audit.
 
 Référence : [docs/developer/MCP.md](docs/developer/MCP.md).
@@ -153,9 +185,12 @@ Référence : [docs/developer/MCP.md](docs/developer/MCP.md).
 morpheus api --host 127.0.0.1 --port 8765
 ```
 
-Base : `/api/v1`.
+Base : `/api/v1`. Les routes M23 sont sous `/api/v1/portfolios`.
 
-Référence : [docs/developer/API.md](docs/developer/API.md).
+Références :
+
+- [docs/developer/API.md](docs/developer/API.md) ;
+- [docs/openapi/morpheus-v1-portfolio-m23.yaml](docs/openapi/morpheus-v1-portfolio-m23.yaml).
 
 ## Invariants importants
 
@@ -179,6 +214,18 @@ stale revision != overwrite
 idempotent retry != duplicate mutation/audit
 precedence != provenance erasure
 conflict != silent last-write-wins
+provider plugin != domain dependency
+plugin discovery != plugin activation
+probe != read
+cross-project identity != source path
+project identity != workspace path
+project identity != repository URL
+project identity != provider identifier
+absence of one project != identity deletion
+portfolio membership != source ownership
+cross-project reference != traceability proof
+traversal is bounded and explainable
+freshness != full destructive rescan
 optional engine absence != MORPHEUS failure
 optional provider absence != project failure when optional
 MORPHEUS rules != JARVIS action sequencing
@@ -202,6 +249,9 @@ Modules Maven :
 ```text
 morpheus-domain
 morpheus-application
+morpheus-provider-sdk
+morpheus-provider-testkit
+morpheus-provider-reference
 morpheus-provider-openspec
 morpheus-provider-markdown
 morpheus-provider-synthetic
@@ -221,19 +271,19 @@ morpheus-architecture-tests
 .\mvnw.cmd clean test
 ```
 
-Gate M20 Windows :
+Dernier gate de jalon Windows :
 
 ```powershell
-.\validate-m20.cmd
+.\validate-m23.cmd
 ```
 
-Gate M20 Linux :
+Dernier gate de jalon Linux :
 
 ```bash
-bash scripts/validate-m20.sh
+bash ./scripts/validate-m23.sh 1.0.0
 ```
 
-Preuve technique M20 : [docs/validation/VALIDATION_M20.md](docs/validation/VALIDATION_M20.md).
+Preuve technique : [docs/validation/VALIDATION_M23.md](docs/validation/VALIDATION_M23.md).
 
 ## Roadmap 1.x
 
@@ -243,13 +293,11 @@ Trajectoire active : **[POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.m
 DONE
   R1   publication officielle v1.0.0 ✅
   D1   consolidation post-M20 ✅
+  M21  Production Integrity & Surface Convergence ✅
+  M22  Provider SDK & Plugin Discovery Platform ✅
+  M23  Multi-project / Portfolio Specification Intelligence ✅
 
 NOW
-  M21  Production Integrity & Surface Convergence
-
-NEXT
-  M22  Provider SDK & Plugin Discovery Platform
-  M23  Multi-project / Portfolio Specification Intelligence
   M24  Query DSL, Saved Views & Export/Reporting
 
 LATER
@@ -264,12 +312,14 @@ M27 reste optionnel : `facts != inference` et aucun LLM n’est requis dans le c
 
 **Point d’entrée : [docs/README.md](docs/README.md)**.
 
-Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).
+Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
+Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).  
+Portfolio M23 : [docs/user/PORTFOLIOS.md](docs/user/PORTFOLIOS.md).  
+Architecture M23 : [docs/developer/PORTFOLIO_INTELLIGENCE.md](docs/developer/PORTFOLIO_INTELLIGENCE.md).
 
-Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).
+Preuves récentes :
 
-Preuves 1.0 :
-
-- [VALIDATION_M20](docs/validation/VALIDATION_M20.md) ;
-- [VALIDATION_D1](docs/validation/VALIDATION_D1.md) ;
-- [VALIDATION_R1](docs/validation/VALIDATION_R1.md).
+- [VALIDATION_R1](docs/validation/VALIDATION_R1.md) ;
+- [VALIDATION_M21](docs/validation/VALIDATION_M21.md) ;
+- [VALIDATION_M22](docs/validation/VALIDATION_M22.md) ;
+- [VALIDATION_M23](docs/validation/VALIDATION_M23.md).
