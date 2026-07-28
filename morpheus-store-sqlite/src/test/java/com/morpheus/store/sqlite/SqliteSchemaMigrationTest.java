@@ -36,7 +36,7 @@ class SqliteSchemaMigrationTest {
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(12, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(13, new SqliteSchemaManager().currentVersion(connection));
             List<String> expectedTables = List.of(
                     "schema_migrations",
                     "projects",
@@ -75,7 +75,11 @@ class SqliteSchemaMigrationTest {
                     "composition_snapshot_state",
                     "composition_provider_state",
                     "composition_conflict",
-                    "composition_conflict_candidate");
+                    "composition_conflict_candidate",
+                    "portfolios",
+                    "portfolio_memberships",
+                    "portfolio_cross_project_references",
+                    "portfolio_freshness");
             expectedTables.forEach(table -> assertTrue(tableExistsUnchecked(connection, table), "missing table " + table));
             assertTrue(indexExists(connection, "uq_projects_root"));
             assertTrue(indexExists(connection, "idx_entity_identity_bindings_domain_identity"));
@@ -99,6 +103,9 @@ class SqliteSchemaMigrationTest {
             assertTrue(indexExists(connection, "idx_sync_source_archives_project_time"));
             assertTrue(indexExists(connection, "idx_change_lifecycle_audit_change"));
             assertTrue(indexExists(connection, "composition_conflict_unique"));
+            assertTrue(indexExists(connection, "idx_portfolio_memberships_project"));
+            assertTrue(indexExists(connection, "idx_portfolio_reference_source"));
+            assertTrue(indexExists(connection, "idx_portfolio_reference_target"));
             assertEquals(
                     List.of("UNKNOWN"),
                     defaultValues(connection, "snapshot_constraints", "applicability"));
@@ -113,7 +120,7 @@ class SqliteSchemaMigrationTest {
     }
 
     @Test
-    void migrationReplayIsIdempotentAndLedgerContainsTwelveImmutableEntries() throws Exception {
+    void migrationReplayIsIdempotentAndLedgerContainsThirteenImmutableEntries() throws Exception {
         Path database = tempDir.resolve("replay.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // First application.
@@ -127,7 +134,7 @@ class SqliteSchemaMigrationTest {
              ResultSet result = statement.executeQuery(
                      "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum FROM schema_migrations")) {
             assertTrue(result.next());
-            assertEquals(12, result.getInt("count"));
+            assertEquals(13, result.getInt("count"));
             assertEquals(64, result.getInt("min_checksum"));
             assertEquals(64, result.getInt("max_checksum"));
         }

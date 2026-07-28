@@ -46,7 +46,9 @@ public final class MorpheusMain {
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
         int exitCode;
-        if (MorpheusCompositionCli.handles(args)) {
+        if (MorpheusPortfolioCli.handles(args)) {
+            exitCode = new MorpheusPortfolioCli().run(args, out, err, environment, properties);
+        } else if (MorpheusCompositionCli.handles(args)) {
             exitCode = new MorpheusCompositionCli().run(args, out, err, environment, properties);
         } else if (MorpheusControlledLifecycleCli.handles(args)) {
             exitCode = new MorpheusControlledLifecycleCli().run(args, out, err, environment, properties);
@@ -74,6 +76,14 @@ public final class MorpheusMain {
             out.println("API:");
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]");
             out.println("  Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println();
+            out.println("Portfolio intelligence (M23):");
+            out.println("  morpheus [--json] portfolio create --name NAME");
+            out.println("  morpheus [--json] portfolio add-project --portfolio ID --project ID --name NAME [--workspace PATH] [--repository SCHEME:VALUE] [--providers a,b]");
+            out.println("  morpheus [--json] portfolio overview --portfolio ID");
+            out.println("  morpheus [--json] portfolio references --portfolio ID [--project ID] [--offset N] [--limit N]");
+            out.println("  morpheus [--json] portfolio traverse --portfolio ID --start-project ID --start-type TYPE --start-id ID [--direction BOTH] [--depth N] [--nodes N] [--links N]");
+            out.println("  Project identity remains distinct from workspace, repository and provider observations.");
             out.println();
             out.println("Provider plugins (M22, explicit only):");
             out.println("  morpheus [--json] provider-plugins discover --directory PATH");

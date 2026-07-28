@@ -1,0 +1,330 @@
+openapi: 3.1.0
+info:
+  title: MORPHEUS M23 Portfolio API
+  version: 1.0.0-m23
+  description: >-
+    Machine-readable M23 supplement for the local-first MORPHEUS /api/v1 portfolio
+    routes. Portfolio and project identities are provider-neutral and never derived
+    from workspace paths, repository URLs or provider identifiers.
+servers:
+  - url: http://127.0.0.1:8765/api/v1
+    description: Default local MORPHEUS server
+paths:
+  /portfolios:
+    get:
+      operationId: listPortfolios
+      parameters:
+        - {$ref: '#/components/parameters/Offset'}
+        - {$ref: '#/components/parameters/Limit'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+    post:
+      operationId: createPortfolio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreatePortfolioRequest'}
+      responses:
+        '201': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+  /portfolios/{portfolioId}:
+    parameters:
+      - {$ref: '#/components/parameters/PortfolioId'}
+    get:
+      operationId: getPortfolioOverview
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+
+  /portfolios/{portfolioId}/members:
+    parameters:
+      - {$ref: '#/components/parameters/PortfolioId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
+    get:
+      operationId: listPortfolioMembers
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+
+  /portfolios/{portfolioId}/projects:
+    parameters:
+      - {$ref: '#/components/parameters/PortfolioId'}
+    post:
+      operationId: registerPortfolioProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RegisterProjectRequest'}
+      responses:
+        '201': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+  /portfolios/{portfolioId}/projects/{projectId}/missing:
+    parameters:
+      - {$ref: '#/components/parameters/PortfolioId'}
+      - {$ref: '#/components/parameters/ProjectId'}
+    post:
+      operationId: markPortfolioProjectMissing
+      description: Marks the membership missing without deleting project identity or historical references.
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+
+  /portfolios/{portfolioId}/projects/{projectId}/freshness:
+    parameters:
+      - {$ref: '#/components/parameters/PortfolioId'}
+      - {$ref: '#/components/parameters/ProjectId'}
+    post:
+      operationId: observePortfolioFreshness
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FreshnessRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+  /portfolios/{portfolioId}/references:
+    parameters:
+      - {$ref: '#/components/parameters/PortfolioId'}
+    get:
+      operationId: listPortfolioReferences
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          description: Optional project scope; omitted means portfolio scope.
+          schema: {$ref: '#/components/schemas/Uuid'}
+        - {$ref: '#/components/parameters/Offset'}
+        - {$ref: '#/components/parameters/Limit'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+    post:
+      operationId: addCrossProjectReference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CrossProjectReferenceRequest'}
+      responses:
+        '201': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+  /portfolios/{portfolioId}/conflicts:
+    parameters:
+      - {$ref: '#/components/parameters/PortfolioId'}
+    get:
+      operationId: listPortfolioConflicts
+      description: Returns explicit contradictory reference observations; no silent last-write-wins.
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+
+  /portfolios/{portfolioId}/traverse:
+    parameters:
+      - {$ref: '#/components/parameters/PortfolioId'}
+    post:
+      operationId: traversePortfolio
+      description: >-
+        Deterministic BFS traversal with explicit depth, node and link budgets.
+        Node order is BFS discovery order. Truncation is explicit and explainable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TraversalRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Success'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/StateConflict'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+
+components:
+  parameters:
+    PortfolioId:
+      name: portfolioId
+      in: path
+      required: true
+      schema: {$ref: '#/components/schemas/Uuid'}
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema: {$ref: '#/components/schemas/Uuid'}
+    Offset:
+      name: offset
+      in: query
+      schema: {type: integer, minimum: 0, default: 0}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 500, default: 100}
+
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+
+    CreatePortfolioRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1}
+
+    RegisterProjectRequest:
+      type: object
+      additionalProperties: false
+      required: [projectId, name]
+      properties:
+        projectId: {$ref: '#/components/schemas/Uuid'}
+        name: {type: string, minLength: 1}
+        workspace: {type: [string, 'null']}
+        repository:
+          type: [string, 'null']
+          description: Source locator encoded as scheme:value.
+        providers:
+          type: [string, 'null']
+          description: Comma-separated provider identifiers.
+
+    FreshnessRequest:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state:
+          type: string
+          minLength: 1
+          description: PortfolioFreshnessState enum value, case-insensitive at the HTTP adapter boundary.
+        revision: {type: [string, 'null']}
+        explanation: {type: [string, 'null']}
+
+    CrossProjectReferenceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - sourceProjectId
+        - sourceType
+        - sourceId
+        - targetProjectId
+        - targetType
+        - targetId
+        - relation
+        - providerId
+      properties:
+        sourceProjectId: {$ref: '#/components/schemas/Uuid'}
+        sourceType: {type: string, minLength: 1, maxLength: 128}
+        sourceId: {$ref: '#/components/schemas/Uuid'}
+        targetProjectId: {$ref: '#/components/schemas/Uuid'}
+        targetType: {type: string, minLength: 1, maxLength: 128}
+        targetId: {$ref: '#/components/schemas/Uuid'}
+        relation: {type: string, minLength: 1, maxLength: 128}
+        providerId: {type: string, minLength: 1}
+        sourceLocator:
+          type: [string, 'null']
+          description: Optional source locator encoded as scheme:value.
+        evidenceId:
+          anyOf:
+            - {$ref: '#/components/schemas/Uuid'}
+            - {type: 'null'}
+
+    TraversalRequest:
+      type: object
+      additionalProperties: false
+      required: [startProjectId, startType, startId]
+      properties:
+        startProjectId: {$ref: '#/components/schemas/Uuid'}
+        startType: {type: string, minLength: 1, maxLength: 128}
+        startId: {$ref: '#/components/schemas/Uuid'}
+        direction:
+          type: [string, 'null']
+          enum: [OUTBOUND, INBOUND, BOTH, null]
+          default: BOTH
+        maxDepth: {type: [integer, 'null'], minimum: 1, maximum: 8, default: 4}
+        maxNodes: {type: [integer, 'null'], minimum: 1, maximum: 1000, default: 250}
+        maxLinks: {type: [integer, 'null'], minimum: 1, maximum: 5000, default: 1000}
+
+    EntityRefView:
+      type: object
+      additionalProperties: false
+      required: [projectId, entityType, entityId]
+      properties:
+        projectId: {$ref: '#/components/schemas/Uuid'}
+        entityType: {type: string}
+        entityId: {$ref: '#/components/schemas/Uuid'}
+
+    ReferenceView:
+      type: object
+      additionalProperties: false
+      required: [id, portfolioId, source, target, relation, providerId, sourceLocator, evidenceId, observedAt]
+      properties:
+        id: {$ref: '#/components/schemas/Uuid'}
+        portfolioId: {$ref: '#/components/schemas/Uuid'}
+        source: {$ref: '#/components/schemas/EntityRefView'}
+        target: {$ref: '#/components/schemas/EntityRefView'}
+        relation: {type: string}
+        providerId: {type: string}
+        sourceLocator: {type: [string, 'null']}
+        evidenceId:
+          anyOf:
+            - {$ref: '#/components/schemas/Uuid'}
+            - {type: 'null'}
+        observedAt: {type: string, format: date-time}
+
+    TraversalNodeView:
+      type: object
+      additionalProperties: false
+      required: [node, depth]
+      properties:
+        node: {$ref: '#/components/schemas/EntityRefView'}
+        depth: {type: integer, minimum: 0}
+
+    TraversalView:
+      type: object
+      additionalProperties: false
+      required: [start, nodes, links, truncationReason, truncated]
+      properties:
+        start: {$ref: '#/components/schemas/EntityRefView'}
+        nodes:
+          type: array
+          description: Deterministic BFS discovery order.
+          items: {$ref: '#/components/schemas/TraversalNodeView'}
+        links:
+          type: array
+          items: {$ref: '#/components/schemas/ReferenceView'}
+        truncationReason: {type: [string, 'null']}
+        truncated: {type: boolean}
+
+  responses:
+    Success:
+      description: Successful MORPHEUS portfolio response. Public domain identities and timestamps are transport-safe strings.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [apiVersion, data]
+            properties:
+              apiVersion: {const: v1}
+              data: {}
+    BadRequest:
+      description: Invalid path/query/body or portfolio contract violation.
+    StateConflict:
+      description: Portfolio state or persistent-store conflict.
+    UnsupportedMediaType:
+      description: Request body is not application/json.

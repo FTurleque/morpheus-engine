@@ -5,6 +5,8 @@ import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.history.PublishedHistoryException;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.portfolio.PortfolioQueryService;
+import com.morpheus.application.portfolio.PortfolioTraversalService;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
@@ -52,6 +54,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusJarvisOrchestrationApiService jarvisOrchestrationService;
     private final MorpheusControlledLifecycleApiService controlledLifecycleService;
     private final MorpheusCompositionApiService compositionService;
+    private final MorpheusPortfolioApiService portfolioService;
     private final MorpheusOperabilityApiService operabilityService;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final JsonMapper mapper = JsonMapper.builder()
@@ -68,6 +71,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             MorpheusJarvisOrchestrationApiService jarvisOrchestrationService,
             MorpheusControlledLifecycleApiService controlledLifecycleService,
             MorpheusCompositionApiService compositionService,
+            MorpheusPortfolioApiService portfolioService,
             MorpheusOperabilityApiService operabilityService) {
         this.server = Objects.requireNonNull(server, "server");
         this.executor = Objects.requireNonNull(executor, "executor");
@@ -77,6 +81,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.jarvisOrchestrationService = Objects.requireNonNull(jarvisOrchestrationService, "jarvisOrchestrationService");
         this.controlledLifecycleService = Objects.requireNonNull(controlledLifecycleService, "controlledLifecycleService");
         this.compositionService = Objects.requireNonNull(compositionService, "compositionService");
+        this.portfolioService = Objects.requireNonNull(portfolioService, "portfolioService");
         this.operabilityService = Objects.requireNonNull(operabilityService, "operabilityService");
     }
 
@@ -138,6 +143,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
                     new MorpheusJarvisOrchestrationApiService(databasePath),
                     new MorpheusControlledLifecycleApiService(databasePath, writeCapabilityResolver),
                     new MorpheusCompositionApiService(databasePath),
+                    new MorpheusPortfolioApiService(databasePath),
                     new MorpheusOperabilityApiService(databasePath));
             httpServer.setExecutor(executor);
             httpServer.createContext(API_PREFIX, result::handle);
@@ -235,6 +241,9 @@ public final class MorpheusHttpServer implements AutoCloseable {
                 default -> throw ApiFailure.notFound("unknown provider-plugin route");
             };
         }
+        if (segments.getFirst().equals("portfolios")) {
+            return routePortfolios(exchange, method, segments, query);
+        }
         if (segments.size() == 3
                 && segments.getFirst().equals("integrations")
                 && segments.get(2).equals("status")) {
@@ -283,6 +292,102 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "external-references" -> routeExternalReferences(method, segments, query, projectId);
             default -> throw ApiFailure.notFound("unknown project API resource: " + resource);
         };
+    }
+
+    private RouteResponse routePortfolios(
+            HttpExchange exchange,
+            String method,
+            List<String> segments,
+            Query query) {
+        if (segments.size() == 1) {
+            if (method.equals("GET")) {
+                query.rejectUnknown(Set.of("offset", "limit"));
+                return ok(portfolioService.list(
+                        query.intValue("offset", 0, 0, Integer.MAX_VALUE),
+                        query.intValue("limit", 100, 1, PortfolioQueryService.MAX_PAGE_SIZE)));
+            }
+            if (method.equals("POST")) {
+                query.rejectUnknown(Set.of());
+                Object created = portfolioService.create(
+                        readRequiredJson(exchange, MorpheusPortfolioApiService.CreatePortfolioRequest.class));
+                return new RouteResponse(201, created);
+            }
+            throw ApiFailure.methodNotAllowed("portfolios supports GET and POST");
+        }
+
+        String portfolioId = segments.get(1);
+        if (segments.size() == 2) {
+            requireMethod(method, "GET");
+            query.rejectUnknown(Set.of());
+            return ok(portfolioService.overview(portfolioId));
+        }
+
+        String resource = segments.get(2);
+        if (resource.equals("members")) {
+            requireExactSegments(segments, 3);
+            requireMethod(method, "GET");
+            query.rejectUnknown(Set.of("offset", "limit"));
+            return ok(portfolioService.members(
+                    portfolioId,
+                    query.intValue("offset", 0, 0, Integer.MAX_VALUE),
+                    query.intValue("limit", 100, 1, PortfolioQueryService.MAX_PAGE_SIZE)));
+        }
+        if (resource.equals("projects")) {
+            if (segments.size() == 3) {
+                requireMethod(method, "POST");
+                query.rejectUnknown(Set.of());
+                return new RouteResponse(201, portfolioService.registerProject(
+                        portfolioId,
+                        readRequiredJson(exchange, MorpheusPortfolioApiService.RegisterProjectRequest.class)));
+            }
+            if (segments.size() == 5 && segments.get(4).equals("missing")) {
+                requireMethod(method, "POST");
+                query.rejectUnknown(Set.of());
+                return ok(portfolioService.markMissing(portfolioId, segments.get(3)));
+            }
+            if (segments.size() == 5 && segments.get(4).equals("freshness")) {
+                requireMethod(method, "POST");
+                query.rejectUnknown(Set.of());
+                return ok(portfolioService.observeFreshness(
+                        portfolioId,
+                        segments.get(3),
+                        readRequiredJson(exchange, MorpheusPortfolioApiService.FreshnessRequest.class)));
+            }
+            throw ApiFailure.notFound("unknown portfolio projects route");
+        }
+        if (resource.equals("references")) {
+            requireExactSegments(segments, 3);
+            if (method.equals("GET")) {
+                query.rejectUnknown(Set.of("projectId", "offset", "limit"));
+                return ok(portfolioService.references(
+                        portfolioId,
+                        query.string("projectId").map(String::trim).filter(value -> !value.isEmpty()),
+                        query.intValue("offset", 0, 0, Integer.MAX_VALUE),
+                        query.intValue("limit", 100, 1, PortfolioQueryService.MAX_PAGE_SIZE)));
+            }
+            if (method.equals("POST")) {
+                query.rejectUnknown(Set.of());
+                return new RouteResponse(201, portfolioService.addReference(
+                        portfolioId,
+                        readRequiredJson(exchange, MorpheusPortfolioApiService.CrossProjectReferenceRequest.class)));
+            }
+            throw ApiFailure.methodNotAllowed("portfolio references supports GET and POST");
+        }
+        if (resource.equals("conflicts")) {
+            requireExactSegments(segments, 3);
+            requireMethod(method, "GET");
+            query.rejectUnknown(Set.of());
+            return ok(portfolioService.conflicts(portfolioId));
+        }
+        if (resource.equals("traverse")) {
+            requireExactSegments(segments, 3);
+            requireMethod(method, "POST");
+            query.rejectUnknown(Set.of());
+            return ok(portfolioService.traverse(
+                    portfolioId,
+                    readRequiredJson(exchange, MorpheusPortfolioApiService.TraversalRequest.class)));
+        }
+        throw ApiFailure.notFound("unknown portfolio API resource: " + resource);
     }
 
     private RouteResponse routeSync(
@@ -606,8 +711,22 @@ public final class MorpheusHttpServer implements AutoCloseable {
         } catch (RuntimeException ignored) {
             return "GET";
         }
-        if (segments.size() == 1 && segments.getFirst().equals("projects")) {
+        if (segments.size() == 1 && (segments.getFirst().equals("projects") || segments.getFirst().equals("portfolios"))) {
             return "GET, POST";
+        }
+        if (segments.getFirst().equals("portfolios")) {
+            if (segments.size() == 3
+                    && (segments.get(2).equals("projects") || segments.get(2).equals("references"))) {
+                return "GET, POST";
+            }
+            if (segments.size() == 3 && segments.get(2).equals("traverse")) {
+                return "POST";
+            }
+            if (segments.size() == 5
+                    && segments.get(2).equals("projects")
+                    && (segments.get(4).equals("missing") || segments.get(4).equals("freshness"))) {
+                return "POST";
+            }
         }
         if (segments.size() == 3 && segments.getFirst().equals("projects") && segments.get(2).equals("sync")) {
             return "POST";
