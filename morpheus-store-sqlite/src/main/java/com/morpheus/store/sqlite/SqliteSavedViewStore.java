@@ -299,9 +299,14 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     private <T> T transaction(SqlWork<T> work, String message) {
-        boolean previousAutoCommit;
+        final boolean previousAutoCommit;
         try {
             previousAutoCommit = connection.getAutoCommit();
+        } catch (SQLException failure) {
+            throw new KnowledgeStoreException("Cannot inspect SQLite auto-commit mode", failure);
+        }
+
+        try {
             connection.setAutoCommit(false);
             T value = work.run();
             connection.commit();
@@ -315,7 +320,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
         } finally {
             try {
                 if (!connection.isClosed()) {
-                    connection.setAutoCommit(true);
+                    connection.setAutoCommit(previousAutoCommit);
                 }
             } catch (SQLException failure) {
                 throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode", failure);
