@@ -4,7 +4,7 @@ Cette page est le point d’entrée de la documentation active de MORPHEUS.
 
 MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose plusieurs providers réels sans effacer provenance ni conflits, publie des snapshots versionnés, expose des requêtes et de la traçabilité, applique des mutations lifecycle explicitement contrôlées et, depuis M23, raisonne sur des portfolios multi-projets sans confondre identité métier et localisation technique.
 
-La version produit publiée reste **MORPHEUS 1.0.0** sous le tag stable `v1.0.0`. Les jalons 1.x post-release M21→M23 sont des évolutions qualifiées sur cette baseline produit.
+La version produit publiée reste **MORPHEUS 1.0.0** sous le tag stable `v1.0.0`. Les jalons M21→M23 sont des évolutions 1.x qualifiées et intégrées sur cette baseline produit.
 
 ## Baseline et dernier jalon
 
@@ -12,11 +12,13 @@ La version produit publiée reste **MORPHEUS 1.0.0** sous le tag stable `v1.0.0`
 M20 / R1         ✅ MORPHEUS 1.0.0 publié
 M21              ✅ validé / intégré
 M22              ✅ validé / intégré
-M23              ✅ qualifié Windows + Linux — PR #104 en intégration
+M23              ✅ validé / intégré
 M22 merge        67c587057e287d57b0733f9e425a57b26cc38ae4
 M23 executable   04a906e9d5858292ed0f0f1bec65246fef91ed63
+M23 merge        88355b69c493677c8689eecad214fb00d283359b
 M23 tests        507 PASS Windows + Linux
 M23 architecture 195 PASS Windows + Linux
+NEXT              M24 — Query DSL, Saved Views & Export/Reporting
 ```
 
 Preuves principales :
@@ -92,7 +94,7 @@ Ces documents expliquent l’intention fondatrice. L’état courant est porté 
 
 - [`governance/ROADMAP.md`](governance/ROADMAP.md) — roadmap globale courante ;
 - [`roadmap/POST_M20_EVOLUTION.md`](roadmap/POST_M20_EVOLUTION.md) — trajectoire active MORPHEUS 1.x ;
-- [`roadmap/M23_EXECUTION.md`](roadmap/M23_EXECUTION.md) — exécution M23 ;
+- [`roadmap/M23_EXECUTION.md`](roadmap/M23_EXECUTION.md) — exécution M23 terminée ;
 - [`validation/README.md`](validation/README.md) — index des preuves ;
 - [`adr/README.md`](adr/README.md) — index des ADR ;
 - [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité documentaire.
@@ -108,10 +110,9 @@ Ces documents expliquent l’intention fondatrice. L’état courant est porté 
 ## État livré et suite
 
 ```text
-C0 → M22       ✅ VALIDÉS / INTÉGRÉS
+C0 → M23       ✅ VALIDÉS / INTÉGRÉS
 D0 + D1        ✅ VALIDÉS / INTÉGRÉS
 R1             ✅ v1.0.0 + GitHub Release publiée
-M23            ✅ QUALIFIÉ Windows + Linux — intégration finale
 M24            ⏭ Query DSL, Saved Views & Export/Reporting
 M25 → M27      LATER
 ```
