@@ -29,6 +29,7 @@ VALIDATION_M20.md
 VALIDATION_D1.md
 VALIDATION_R1.md
 VALIDATION_M21.md
+VALIDATION_M22.md
 ```
 
 Chaque document conserve les décisions, SHA testés, commandes et gates connus au moment de la validation. Ils constituent des **preuves historiques** ; la documentation utilisateur et développeur active vit respectivement dans [`../user/`](../user/) et [`../developer/`](../developer/).
@@ -52,24 +53,25 @@ Preuves : [`VALIDATION_M20.md`](VALIDATION_M20.md), [`VALIDATION_D1.md`](VALIDAT
 
 ## Dernier jalon techniquement qualifié
 
-**M21 — Production Integrity & Surface Convergence** est techniquement validé sur Windows et Linux, sur le même head exécutable :
+**M22 — Provider SDK & Plugin Discovery Platform** est techniquement validé sur Windows et Linux, sur le même head exécutable :
 
 ```text
-Head exécutable     239d99657fbf193761767f382489dd637e642fe9
+Head exécutable     e42bc31384831e56592b11a3509b49a3fdf61773
 Windows             PASS
 Linux WSL2          PASS
-Tests               473 PASS
-Architecture        187 PASS
-Windows JaCoCo      46.2800% lignes / 41.2734% branches
-Linux JaCoCo        46.2430% lignes / 41.2734% branches
-Reactor             14/14 SUCCESS Windows + Linux
+Tests               494 PASS
+Architecture        190 PASS
+Windows JaCoCo      47.0508% lignes / 41.8839% branches
+Linux JaCoCo        47.0389% lignes / 41.8839% branches
+SDK API             1
+External provider   PASS
 CycloneDX           PASS JSON/XML
 Provenance          PASS Windows + Linux
 Portable            PASS Windows + Linux
 Convergence         CLI/MCP/HTTP PASS
 Executable delta    NONE Windows + Linux
-ADR-0089            Acceptée — M21
-PR                   #99 — prête pour review, merge sous autorisation explicite
+ADR-0090            Acceptée — M22
+PR                   #101 — temporairement fermée pendant gel CI
 ```
 
-La preuve détaillée est [`VALIDATION_M21.md`](VALIDATION_M21.md). Le SHA exécutable qualifié reste distinct des commits documentaires de consolidation ajoutés ensuite.
+La preuve détaillée est [`VALIDATION_M22.md`](VALIDATION_M22.md). Le SHA exécutable qualifié reste distinct des commits documentaires de consolidation ajoutés ensuite.
