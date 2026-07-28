@@ -2,9 +2,9 @@
 
 Statut : **EN COURS — M24-S0 cadré ; implémentation active**
 
-Issue : #105 — **OPEN**  
-PR : à créer en Draft  
-Branche : `m24/query-dsl-saved-views-reporting`  
+Issue : #105 — **OPEN**
+PR : #106 — **DRAFT**
+Branche : `m24/query-dsl-saved-views-reporting`
 Baseline : `main@f70eaa1ad58633ee59874ab44f70963ab51152c6`.
 
 ## Question de sortie
@@ -117,7 +117,7 @@ L'export consomme un `QueryResult` déjà validé et ne possède aucun port de m
 - [x] branche M24 exacte depuis `main@f70eaa1...`
 - [x] roadmap opérationnelle M24
 - [x] ADR-0092 proposée
-- [ ] PR Draft ouverte
+- [x] PR Draft ouverte
 
 ### M24-S1 — AST provider-neutral / validation / budgets
 - [ ] modèle explicite du DSL
