@@ -8,6 +8,17 @@ MORPHEUS est piloté par des preuves : contrats stables, ADR cohérentes, tests 
 
 La trajectoire active 1.x est [`POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
+## Politique de branches active
+
+À partir de M25, la branche d'intégration de travail est **`develop`**.
+
+```text
+feature / milestone branch -> develop
+main                       -> branche de stabilisation / livraison, non utilisée pour le travail courant
+```
+
+Les nouveaux jalons, leurs branches et leurs pull requests doivent être basés sur `develop` et cibler `develop`, sauf décision explicite contraire du propriétaire du dépôt. Le merge historique de M24 dans `main` reste un fait d'historique ; `develop` a été fast-forwardée sur l'état M24 réconcilié avant le démarrage de M25.
+
 ## 1. Baseline intégrée et publiée
 
 ```text
@@ -31,6 +42,7 @@ M23 merge          88355b69c493677c8689eecad214fb00d283359b
 M24 executable     be69e47da0ae209d2246df9c67bc08caeafb2bb0
 M24 PR head        863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58
 M24 merge          2b483ded10c783fff22c25035db89475c5c9fdaf
+develop baseline   0e37d85fc7efe9843094416898b6fbdbc45b7da4
 Version            1.0.0
 Tag stable         v1.0.0
 ```
@@ -194,4 +206,4 @@ Question :
 
 **Réponse : oui.** M24 prouve sur le même SHA exécutable Windows/Linux un AST provider-neutral, des scopes projet/portfolio, un ordre stable, des saved views versionnées avec CAS, Memory/SQLite V014, des exports JSON/CSV/Markdown bornés et une convergence CLI/MCP/HTTP.
 
-**Prochain jalon : M25 — Policy Packs & Governance Automation.**
+**Prochain jalon : M25 — Policy Packs & Governance Automation, basé sur `develop`.**
