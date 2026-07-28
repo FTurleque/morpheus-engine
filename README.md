@@ -6,7 +6,7 @@
 
 ## État produit
 
-**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.** Les évolutions 1.x M21, M22 et M23 sont également validées et intégrées sur cette baseline produit.
+**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.** Les évolutions 1.x M21 à M24 sont également validées et intégrées sur cette baseline produit.
 
 ```text
 Release stable    v1.0.0
@@ -14,14 +14,16 @@ M20 merge         75d0b82ab0c960692db2fee1ced146fa6547fd4a
 D1 / release SHA  51f6a120f3461c8d8c24323f3db8211d28d6cb42
 M21 merge         2fdce6601a07628c315fe03932750cd8ece3d777
 M22 merge         67c587057e287d57b0733f9e425a57b26cc38ae4
-M23 executable    04a906e9d5858292ed0f0f1bec65246fef91ed63
 M23 merge         88355b69c493677c8689eecad214fb00d283359b
-M23 tests         507 PASS Windows + Linux
-M23 architecture  195 PASS Windows + Linux
+M24 executable    be69e47da0ae209d2246df9c67bc08caeafb2bb0
+M24 PR head       863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58
+M24 merge         2b483ded10c783fff22c25035db89475c5c9fdaf
+M24 tests         543 PASS Windows + Linux
+M24 architecture  221 PASS Windows + Linux
 ```
 
 Preuve de publication : [docs/validation/VALIDATION_R1.md](docs/validation/VALIDATION_R1.md).  
-Dernière preuve technique : [docs/validation/VALIDATION_M23.md](docs/validation/VALIDATION_M23.md).
+Dernière preuve technique : [docs/validation/VALIDATION_M24.md](docs/validation/VALIDATION_M24.md).
 
 ## Ce que MORPHEUS fournit
 
@@ -31,14 +33,14 @@ Dernière preuve technique : [docs/validation/VALIDATION_M23.md](docs/validation
 - composition multi-provider provider-neutral et explicable ;
 - provenance, précédence et conflits conservés ;
 - snapshots versionnés et séparation `CURRENT / PROPOSED / HISTORICAL` ;
-- recherche de requirements et requêtes métier ;
-- traçabilité déterministe ;
-- diagnostics qualité ;
-- analyse de changements proposés ;
+- recherche de requirements, requêtes métier, traçabilité et qualité ;
 - critères d’acceptation, vérification et evidence explicites ;
 - sémantique explicite des contraintes ;
 - lifecycle contrôlé avec capability, confirmation, CAS, idempotency et audit ;
-- **portfolio multi-projets provider-neutral**, références inter-projets et traversal bornée ;
+- portfolio multi-projets provider-neutral, références inter-projets et traversal bornée ;
+- **Query DSL provider-neutral borné** ;
+- **saved views versionnées avec CAS** ;
+- **exports JSON canonique, CSV et Markdown déterministes/read-only** ;
 - CLI locale scriptable ;
 - serveur MCP STDIO ;
 - API HTTP locale `/api/v1` ;
@@ -55,6 +57,7 @@ MORPHEUS = specification facts / intent / lifecycle rules
            + controlled state invariants
            + provider composition facts
            + portfolio specification facts
+           + provider-neutral query/view/reporting contracts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = orchestration / sequencing / action choice
@@ -68,32 +71,13 @@ Documentation : **[Installation MORPHEUS 1.0](docs/user/INSTALLATION.md)**.
 
 Release stable : **`v1.0.0`**.
 
-### Windows installé
-
-Programme par défaut :
-
-```text
-%LOCALAPPDATA%\Programs\MORPHEUS
-```
-
-État persistant :
-
-```text
-%LOCALAPPDATA%\MORPHEUS\data
-%LOCALAPPDATA%\MORPHEUS\config
-%LOCALAPPDATA%\MORPHEUS\logs
-%LOCALAPPDATA%\MORPHEUS\backups
-```
-
-### Portable
-
-Windows :
+Windows portable :
 
 ```powershell
 .\morpheus\morpheus.exe help
 ```
 
-Linux :
+Linux portable :
 
 ```bash
 ./morpheus/bin/morpheus help
@@ -106,91 +90,89 @@ Les distributions embarquent leur runtime Java ; aucun JDK utilisateur n’est r
 ```bash
 morpheus projects add --workspace /path/to/project
 morpheus sync --project <projectId>
-morpheus composition sync --project <projectId>
-morpheus composition status --project <projectId>
 morpheus requirements find --project <projectId> --query "session"
-morpheus changes list --project <projectId>
 ```
 
-Mode JSON :
-
-```bash
-morpheus --json requirements find --project <projectId> --query "session"
-```
-
-## Premier portfolio M23
+## Portfolio
 
 ```bash
 morpheus portfolio create --name "Platform"
-morpheus portfolio add-project \
-  --portfolio <portfolioId> \
-  --project <projectId> \
-  --name "Billing"
+morpheus portfolio add-project --portfolio <portfolioId> --project <projectId> --name "Billing"
 morpheus portfolio overview --portfolio <portfolioId>
 ```
 
 Guide : [docs/user/PORTFOLIOS.md](docs/user/PORTFOLIOS.md).
 
-## Surfaces
+## Query DSL / Saved Views / Reporting
 
-### CLI
-
-```text
-projects
-sync / sync-status
-composition sync / status / conflicts
-provider-plugins discover / probe
-portfolio create / add-project / missing / freshness
-portfolio add-reference / list / overview / members / references / conflicts / traverse
-requirements
-changes / constraints / acceptance-criteria / decisions / tasks
-trace-requirement
-change-context
-analyze-change
-quality
-minos-status / external-references
-nexus-status / augmented-context
-change-orchestration
-lifecycle apply
-```
-
-Référence : [docs/user/CLI.md](docs/user/CLI.md).
-
-### MCP STDIO
+Exécuter une requête projet :
 
 ```bash
-morpheus mcp --stdio
+morpheus query execute \
+  --project <projectId> \
+  --entity requirement \
+  --filter 'title contains "session"' \
+  --sort title:asc \
+  --limit 50
 ```
 
-M23 expose notamment :
-
-```text
-create_portfolio
-register_portfolio_project
-mark_portfolio_project_missing
-observe_portfolio_freshness
-add_cross_project_reference
-get_portfolio_overview
-list_portfolio_references
-traverse_portfolio
-```
-
-La lecture et l’écriture restent séparées : le write lifecycle exige `WRITE_CHANGE`, confirmation, `expectedRevision`, `idempotencyKey` et audit.
-
-Référence : [docs/developer/MCP.md](docs/developer/MCP.md).
-
-### API HTTP
+Créer une saved view :
 
 ```bash
-morpheus api --host 127.0.0.1 --port 8765
+morpheus views create \
+  --name "Current requirements" \
+  --project <projectId> \
+  --entity requirement \
+  --filter 'status eq CURRENT'
 ```
 
-Base : `/api/v1`. Les routes M23 sont sous `/api/v1/portfolios`.
+Exporter :
 
-Références :
+```bash
+morpheus export view --id <savedViewId> --format csv
+```
 
-- [docs/developer/API.md](docs/developer/API.md) ;
-- [docs/openapi/morpheus-v1-portfolio-m23.yaml](docs/openapi/morpheus-v1-portfolio-m23.yaml).
+Guide complet : [docs/user/QUERY_VIEWS_REPORTING.md](docs/user/QUERY_VIEWS_REPORTING.md).
+
+## Surfaces M24
+
+CLI :
+
+```text
+query execute
+views create/list/get/versions/update/archive/execute
+export query/view
+```
+
+MCP :
+
+```text
+execute_query
+create_saved_view
+list_saved_views
+get_saved_view
+list_saved_view_versions
+update_saved_view
+archive_saved_view
+execute_saved_view
+export_query
+export_saved_view
+```
+
+HTTP :
+
+```text
+POST /api/v1/queries/execute
+GET/POST /api/v1/saved-views
+GET/PUT /api/v1/saved-views/{id}
+GET /api/v1/saved-views/{id}/versions
+POST /api/v1/saved-views/{id}/execute
+POST /api/v1/saved-views/{id}/archive
+POST /api/v1/saved-views/{id}/export
+POST /api/v1/exports
+```
+
+OpenAPI : [docs/openapi/morpheus-v1-query-m24.yaml](docs/openapi/morpheus-v1-query-m24.yaml).
 
 ## Invariants importants
 
@@ -209,26 +191,24 @@ UNKNOWN != FAILED
 UNKNOWN != BLOCKED
 READ_CHANGES != WRITE_CHANGE
 ALLOWED != applied
-published snapshot != operational lifecycle state
 stale revision != overwrite
 idempotent retry != duplicate mutation/audit
 precedence != provenance erasure
 conflict != silent last-write-wins
 provider plugin != domain dependency
 plugin discovery != plugin activation
-probe != read
 cross-project identity != source path
 project identity != workspace path
-project identity != repository URL
-project identity != provider identifier
-absence of one project != identity deletion
 portfolio membership != source ownership
 cross-project reference != traceability proof
 traversal is bounded and explainable
-freshness != full destructive rescan
+DSL != SQL passthrough
+saved view != materialized truth
+export != mutation
+bounded query != silently truncated semantics
+portfolio result preserves ProjectSpecificationId
+surface parity != same transport shape
 optional engine absence != MORPHEUS failure
-optional provider absence != project failure when optional
-MORPHEUS rules != JARVIS action sequencing
 ```
 
 ## Fondation technique
@@ -271,19 +251,19 @@ morpheus-architecture-tests
 .\mvnw.cmd clean test
 ```
 
-Dernier gate de jalon Windows :
+Gate M24 Windows :
 
 ```powershell
-.\validate-m23.cmd
+.\validate-m24.cmd 1.0.0
 ```
 
-Dernier gate de jalon Linux :
+Gate M24 Linux :
 
 ```bash
-bash ./scripts/validate-m23.sh 1.0.0
+bash ./scripts/validate-m24.sh 1.0.0
 ```
 
-Preuve technique : [docs/validation/VALIDATION_M23.md](docs/validation/VALIDATION_M23.md).
+Preuve technique : [docs/validation/VALIDATION_M24.md](docs/validation/VALIDATION_M24.md).
 
 ## Roadmap 1.x
 
@@ -296,12 +276,12 @@ DONE
   M21  Production Integrity & Surface Convergence ✅
   M22  Provider SDK & Plugin Discovery Platform ✅
   M23  Multi-project / Portfolio Specification Intelligence ✅
+  M24  Query DSL, Saved Views & Export/Reporting ✅
 
 NOW
-  M24  Query DSL, Saved Views & Export/Reporting
+  M25  Policy Packs & Governance Automation
 
 LATER
-  M25  Policy Packs & Governance Automation
   M26  Optional Team/Remote Server Mode
   M27  Evidence-backed Assisted Reasoning
 ```
@@ -314,12 +294,5 @@ M27 reste optionnel : `facts != inference` et aucun LLM n’est requis dans le c
 
 Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
 Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).  
-Portfolio M23 : [docs/user/PORTFOLIOS.md](docs/user/PORTFOLIOS.md).  
-Architecture M23 : [docs/developer/PORTFOLIO_INTELLIGENCE.md](docs/developer/PORTFOLIO_INTELLIGENCE.md).
-
-Preuves récentes :
-
-- [VALIDATION_R1](docs/validation/VALIDATION_R1.md) ;
-- [VALIDATION_M21](docs/validation/VALIDATION_M21.md) ;
-- [VALIDATION_M22](docs/validation/VALIDATION_M22.md) ;
-- [VALIDATION_M23](docs/validation/VALIDATION_M23.md).
+Queries / Saved Views / Reporting : [docs/user/QUERY_VIEWS_REPORTING.md](docs/user/QUERY_VIEWS_REPORTING.md).  
+Architecture Query Platform : [docs/developer/QUERY_PLATFORM.md](docs/developer/QUERY_PLATFORM.md).
