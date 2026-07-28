@@ -4,11 +4,11 @@ import com.morpheus.domain.portfolio.CrossProjectReference;
 import com.morpheus.domain.portfolio.PortfolioEntityRef;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.TreeMap;
 
 public record PortfolioTraversalResult(
         PortfolioEntityRef start,
@@ -18,7 +18,7 @@ public record PortfolioTraversalResult(
     public PortfolioTraversalResult {
         Objects.requireNonNull(start, "start");
         depthByNode = Collections.unmodifiableMap(
-                new TreeMap<>(Objects.requireNonNull(depthByNode, "depthByNode")));
+                new LinkedHashMap<>(Objects.requireNonNull(depthByNode, "depthByNode")));
         links = Objects.requireNonNull(links, "links").stream().sorted().toList();
         truncationReason = Objects.requireNonNull(truncationReason, "truncationReason");
         if (!depthByNode.containsKey(start) || depthByNode.get(start) != 0) {
