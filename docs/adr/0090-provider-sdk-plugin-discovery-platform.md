@@ -1,8 +1,9 @@
 # ADR-0090 — Provider SDK and explicit plugin discovery platform
 
-Statut : **Proposée — M22**
+Statut : **Acceptée — M22**
 
-Date : 27 juillet 2026
+Date : 27 juillet 2026  
+Acceptée : 28 juillet 2026 après qualification Windows + Linux exact-head sur `e42bc31384831e56592b11a3509b49a3fdf61773`.
 
 ## Contexte
 
@@ -144,17 +145,22 @@ Coûts :
 - le host doit décider explicitement quand utiliser un reader plugin ;
 - classloader in-process insuffisant pour traiter du code non fiable.
 
-## Validation requise avant Acceptée
+## Validation acquise
 
-- reactor complet avec les nouveaux modules ;
-- tests discovery sans activation ;
-- tests compatibilité valide/invalide et SemVer ;
-- activation ServiceLoader d’un JAR de référence externe ;
-- mismatch manifeste/provider/reader rejeté ;
-- ambiguïté duplicate `plugin.id` rejetée ;
-- capability probe/negotiation démontré ;
-- lecture provider-neutral réelle du JAR externe démontrée ;
-- absence de dépendance SDK/plugin dans `domain` et `application` ;
-- CLI/MCP/HTTP explicites ;
-- packaging MORPHEUS sans embarquer le provider de référence comme provider intégré ;
-- qualification Windows + Linux exact-head locale conformément au gel CI avant août.
+- reactor complet avec les nouveaux modules : **PASS Windows + Linux** ;
+- tests discovery sans activation : **PASS** ;
+- tests compatibilité valide/invalide et SemVer : **PASS** ;
+- activation ServiceLoader d’un JAR de référence externe : **PASS** ;
+- mismatch manifeste/provider/reader rejeté : **PASS** ;
+- ambiguïté duplicate `plugin.id` rejetée : **PASS** ;
+- capability probe/negotiation démontré : **PASS** ;
+- lecture provider-neutral réelle du JAR externe démontrée : **PASS** ;
+- absence de dépendance SDK/plugin dans `domain` et `application` : **PASS** ;
+- CLI/MCP/HTTP explicites : **PASS** ;
+- packaging MORPHEUS sans embarquer le provider de référence comme provider intégré : **PASS Windows + Linux** ;
+- qualification Windows + Linux exact-head locale : **PASS sur `e42bc31384831e56592b11a3509b49a3fdf61773`** ;
+- tests : **494 PASS** ;
+- architecture : **190 PASS** ;
+- `postGateExecutableDelta=NONE` : **PASS Windows + Linux**.
+
+Preuve : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
