@@ -6,6 +6,19 @@ Dernière mise à jour : 28 juillet 2026
 
 Cette roadmap commence après l’intégration de M20 et porte la trajectoire active de MORPHEUS 1.x. La trajectoire [`POST_M14_EXECUTION.md`](POST_M14_EXECUTION.md) est conservée comme historique D0→M20.
 
+## Branche d’intégration active
+
+À partir de M25, la trajectoire 1.x reprend sur **`develop`** :
+
+```text
+baseline develop M25  0e37d85fc7efe9843094416898b6fbdbc45b7da4
+milestone branches     depuis develop
+milestone PR targets   develop
+main                   branche de stabilisation / livraison, hors travail courant
+```
+
+Le merge M24 dans `main` est conservé comme fait historique. `develop` a été fast-forwardée jusqu’à l’état M24 réconcilié avant toute ouverture de M25. Aucun nouveau travail de jalon ne doit être basé sur `main` sans décision explicite du propriétaire.
+
 ## Baseline acquise
 
 ```text
@@ -186,7 +199,7 @@ Question de sortie :
 
 > Les utilisateurs peuvent-ils exprimer, sauvegarder et exporter des vues métier complexes sans dépendre d’un transport ou d’un format provider particulier ?
 
-Réponse : **oui, démontré sur Windows et Linux puis intégré dans `main`.**
+Réponse : **oui, démontré sur Windows et Linux puis intégré dans `main`**. Cet historique est désormais également présent dans `develop`, qui redevient la branche d’intégration active à partir de M25.
 
 ```text
 Query DSL                provider-neutral / typé / borné
@@ -218,6 +231,8 @@ Plan final : [`M24_EXECUTION.md`](M24_EXECUTION.md).
 # NOW
 
 ## M25 — Policy Packs & Governance Automation
+
+**Branche de base : `develop`. Toute branche M25 doit partir de `develop` et toute PR M25 doit cibler `develop`.**
 
 Question de sortie :
 
