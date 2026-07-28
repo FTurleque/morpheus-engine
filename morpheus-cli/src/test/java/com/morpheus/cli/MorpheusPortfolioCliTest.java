@@ -53,7 +53,11 @@ class MorpheusPortfolioCliTest {
 
     @Test
     void traversalRequiresExplicitStartIdentity() {
-        Result result = run("portfolio", "traverse", "--portfolio", "missing");
+        Result created = run("--json", "portfolio", "create", "--name", "Traversal");
+        assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
+        String portfolioId = firstUuid(created.out());
+
+        Result result = run("portfolio", "traverse", "--portfolio", portfolioId);
 
         assertEquals(CliExitCode.USAGE.code(), result.exitCode());
         assertTrue(result.err().contains("--start-project is required"), result.err());
