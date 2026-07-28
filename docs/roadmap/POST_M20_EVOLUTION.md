@@ -1,6 +1,6 @@
 # MORPHEUS — Roadmap d’évolution post-M20
 
-Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 et M22 intégrés ; M23 qualifié Windows + Linux, intégration en cours ; M24 prochain jalon**
+Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21, M22 et M23 intégrés ; M24 prochain jalon actif**
 
 Dernière mise à jour : 28 juillet 2026
 
@@ -14,11 +14,12 @@ D1            ✅ validé et intégré
 R1            ✅ MORPHEUS 1.0.0 publié
 M21           ✅ validé et intégré
 M22           ✅ validé et intégré
-M23           ✅ qualifié Windows + Linux — PR #104 en intégration
+M23           ✅ validé et intégré
 M20 merge     75d0b82ab0c960692db2fee1ced146fa6547fd4a
 D1 merge      51f6a120f3461c8d8c24323f3db8211d28d6cb42
 M21 merge     2fdce6601a07628c315fe03932750cd8ece3d777
 M22 merge     67c587057e287d57b0733f9e425a57b26cc38ae4
+M23 merge     88355b69c493677c8689eecad214fb00d283359b
 M23 code      04a906e9d5858292ed0f0f1bec65246fef91ed63
 M23 tests     507 PASS Windows + Linux
 Architecture  195 PASS M23 Windows + Linux
@@ -124,11 +125,7 @@ Issue : **#100 CLOSED / completed**.
 PR : **#101 MERGED**.  
 Merge : `67c587057e287d57b0733f9e425a57b26cc38ae4`.
 
-Head exécutable qualifié Windows + Linux :
-
-```text
-e42bc31384831e56592b11a3509b49a3fdf61773
-```
+Head exécutable qualifié Windows + Linux : `e42bc31384831e56592b11a3509b49a3fdf61773`.
 
 Question de sortie :
 
@@ -153,14 +150,13 @@ ADR-0090               Acceptée — M22
 
 Preuve : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
 
-# NOW
-
 ## M23 — Multi-project / Portfolio Specification Intelligence
 
-Statut : **TECHNIQUEMENT TERMINÉ / QUALIFIÉ Windows + Linux — PR #104 en intégration**.
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
 
-Issue : #103.  
-PR : #104.  
+Issue : **#103 CLOSED / completed**.  
+PR : **#104 MERGED**.  
+Merge : `88355b69c493677c8689eecad214fb00d283359b`.  
 Baseline : `main@67c587057e287d57b0733f9e425a57b26cc38ae4`.
 
 Head exécutable qualifié Windows + Linux :
@@ -173,7 +169,7 @@ Question de sortie :
 
 > MORPHEUS peut-il raisonner sur plusieurs projets sans confondre identité métier, workspace, repository et source provider ?
 
-Réponse : **oui, démontré sur Windows et Linux**.
+Réponse : **oui, démontré sur Windows et Linux puis intégré dans `main`**.
 
 ```text
 Portfolio registry       provider-neutral
@@ -198,11 +194,9 @@ ADR-0091                 Acceptée — M23
 ```
 
 Preuve : [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md).  
-Plan : [`M23_EXECUTION.md`](M23_EXECUTION.md).
+Plan final : [`M23_EXECUTION.md`](M23_EXECUTION.md).
 
-Les commits post-gate restent strictement documentaires ; le SHA exécutable qualifié demeure `04a906e9d5858292ed0f0f1bec65246fef91ed63`.
-
-# NEXT
+# NOW
 
 ## M24 — Query DSL, Saved Views & Export/Reporting
 
