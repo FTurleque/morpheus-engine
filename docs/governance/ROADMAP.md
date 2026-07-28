@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M22 + D0 + D1 intégrés — MORPHEUS 1.0.0 publié — M23 qualifié Windows + Linux et en intégration — M24 prochain jalon**
+Statut : **C0 à M23 + D0 + D1 intégrés — MORPHEUS 1.0.0 publié — M24 prochain jalon actif**
 
 Dernière mise à jour : 28 juillet 2026
 
@@ -23,7 +23,7 @@ D1            ✅ validé et intégré
 R1            ✅ MORPHEUS 1.0.0 publié
 M21           ✅ validé et intégré
 M22           ✅ validé et intégré
-M23           ✅ qualifié Windows + Linux — PR #104 en intégration
+M23           ✅ validé et intégré
 ```
 
 ### Références d’intégration
@@ -33,6 +33,7 @@ M20 merge          75d0b82ab0c960692db2fee1ced146fa6547fd4a
 D1 / release SHA   51f6a120f3461c8d8c24323f3db8211d28d6cb42
 M21 merge          2fdce6601a07628c315fe03932750cd8ece3d777
 M22 merge          67c587057e287d57b0733f9e425a57b26cc38ae4
+M23 merge          88355b69c493677c8689eecad214fb00d283359b
 M23 executable     04a906e9d5858292ed0f0f1bec65246fef91ed63
 Version            1.0.0
 Tag stable         v1.0.0
@@ -72,11 +73,12 @@ Executable delta   NONE Windows + Linux
 ADR-0090           Acceptée — M22
 ```
 
-### Référence M23 qualifiée
+### Référence M23 intégrée
 
 ```text
-Issue              #103 OPEN jusqu'au merge
-PR                 #104 OPEN pendant consolidation/merge
+Issue              #103 CLOSED / completed
+PR                 #104 MERGED
+Merge              88355b69c493677c8689eecad214fb00d283359b
 Baseline           main@67c587057e287d57b0733f9e425a57b26cc38ae4
 Head exécutable    04a906e9d5858292ed0f0f1bec65246fef91ed63
 Windows reactor    17/17 SUCCESS
@@ -218,7 +220,7 @@ facts != inference
 
 ## 4. Trajectoire active 1.x
 
-### DONE / QUALIFIED
+### DONE
 
 | Sujet | Statut | Résultat |
 |---|---|---|
@@ -226,15 +228,9 @@ facts != inference
 | **R1** | ✅ PUBLIÉ — #96 | Tag `v1.0.0` + GitHub Release + 8 assets |
 | **M21** | ✅ TERMINÉ / INTÉGRÉ — #98 / PR #99 | Production Integrity & Surface Convergence |
 | **M22** | ✅ TERMINÉ / INTÉGRÉ — #100 / PR #101 | Provider SDK & Plugin Discovery Platform |
-| **M23** | ✅ TECHNIQUEMENT QUALIFIÉ — #103 / PR #104 | Portfolio Intelligence, Windows + Linux exact-head PASS |
+| **M23** | ✅ TERMINÉ / INTÉGRÉ — #103 / PR #104 | Multi-project / Portfolio Specification Intelligence |
 
 ### NOW
-
-| Sujet | Statut | Action |
-|---|---|---|
-| **M23 integration** | 🔄 FINALISATION | Consolidation docs-only, merge #104, fermeture #103 |
-
-### NEXT
 
 | Jalon | Sujet | Question centrale |
 |---|---|---|
@@ -256,7 +252,7 @@ Question :
 
 > MORPHEUS peut-il raisonner sur plusieurs projets sans confondre identité métier, workspace, repository et source provider ?
 
-**Réponse : oui.** La preuve Windows + Linux est portée par `VALIDATION_M23.md` sur le même head exécutable `04a906e9d5858292ed0f0f1bec65246fef91ed63`.
+**Réponse : oui.** La preuve Windows + Linux est portée par `VALIDATION_M23.md` sur le même head exécutable `04a906e9d5858292ed0f0f1bec65246fef91ed63`, puis intégrée par le merge `88355b69c493677c8689eecad214fb00d283359b`.
 
 M23 démontre :
 
@@ -272,4 +268,4 @@ M23 démontre :
 - convergence CLI/MCP/HTTP ;
 - packaging Windows/Linux sur le même SHA exécutable.
 
-Les commits de consolidation postérieurs sont documentaires et restent distincts du SHA exécutable qualifié.
+**Prochain jalon : M24 — Query DSL, Saved Views & Export/Reporting.**
