@@ -9,10 +9,12 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,19 +39,38 @@ class PortfolioPublicViewsTest {
     @Test
     void traversalDepthMapIsProjectedToOrderedNodeList() {
         ProjectSpecificationId project = new ProjectSpecificationId(
-                id("01890f7a-36d4-7c1e-8000-000000000002"));
+                id("01890f7a-36d4-7c1e-8000-000000000010"));
         PortfolioEntityRef start = new PortfolioEntityRef(
                 project,
                 "requirement",
                 id("01890f7a-36d4-7c1e-8000-000000000003"));
+        PortfolioEntityRef second = new PortfolioEntityRef(
+                project,
+                "specification",
+                id("01890f7a-36d4-7c1e-8000-000000000001"));
+        PortfolioEntityRef third = new PortfolioEntityRef(
+                project,
+                "specification",
+                id("01890f7a-36d4-7c1e-8000-000000000002"));
+        Map<PortfolioEntityRef, Integer> depths = new LinkedHashMap<>();
+        depths.put(start, 0);
+        depths.put(second, 1);
+        depths.put(third, 2);
         PortfolioTraversalResult traversal = new PortfolioTraversalResult(
                 start,
-                Map.of(start, 0),
+                depths,
                 List.of(),
                 Optional.empty());
 
-        String encoded = json.toJson(PortfolioPublicViews.traversal(traversal));
+        PortfolioPublicViews.TraversalView view = PortfolioPublicViews.traversal(traversal);
+        assertEquals(
+                List.of(
+                        "01890f7a-36d4-7c1e-8000-000000000003",
+                        "01890f7a-36d4-7c1e-8000-000000000001",
+                        "01890f7a-36d4-7c1e-8000-000000000002"),
+                view.nodes().stream().map(item -> item.node().entityId()).toList());
 
+        String encoded = json.toJson(view);
         assertTrue(encoded.contains("\"nodes\":[{\"node\":"), encoded);
         assertTrue(encoded.contains("\"depth\":0"), encoded);
         assertFalse(encoded.contains("depthByNode"), encoded);
