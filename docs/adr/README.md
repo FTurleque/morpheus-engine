@@ -152,8 +152,8 @@ Portable         PASS Windows + Linux
 Executable delta NONE Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).  
-Plan : [`../roadmap/M22_EXECUTION.md`](../roadmap/M22_EXECUTION.md).  
+Validation : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
+Plan : [`../roadmap/M22_EXECUTION.md`](../roadmap/M22_EXECUTION.md).
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
 # Contraintes actives principales
