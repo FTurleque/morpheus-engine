@@ -122,14 +122,12 @@ class PortfolioIntelligenceContractTest {
         memory.registry().observeFreshness(
                 memory.portfolioId(), memory.projectA(), PortfolioFreshnessState.FRESH,
                 Optional.of("rev-42"), Optional.of("incremental"));
-
         try (SqlitePortfolioStore sqliteStore = new SqlitePortfolioStore(temporaryDirectory.resolve("portfolio.db"))) {
             Fixture sqlite = fixture(sqliteStore);
             sqlite.addReference(sqlite.entityA(), sqlite.entityB(), "DEPENDS_ON", "provider-a");
             sqlite.registry().observeFreshness(
                     sqlite.portfolioId(), sqlite.projectA(), PortfolioFreshnessState.FRESH,
                     Optional.of("rev-42"), Optional.of("incremental"));
-
             assertEquals(3, sqlite.query().overview(sqlite.portfolioId()).memberships().size());
             assertEquals(1, sqlite.query().overview(sqlite.portfolioId()).referenceCount());
             assertEquals("rev-42", sqlite.query().overview(sqlite.portfolioId()).freshness().getFirst()
@@ -143,9 +141,9 @@ class PortfolioIntelligenceContractTest {
         PortfolioQueryService query = new PortfolioQueryService(store);
         PortfolioTraversalService traversal = new PortfolioTraversalService(store);
         var portfolio = registry.create("M23 Portfolio");
-        ProjectSpecificationId projectA = ProjectSpecificationId.generate();
-        ProjectSpecificationId projectB = ProjectSpecificationId.generate();
-        ProjectSpecificationId projectC = ProjectSpecificationId.generate();
+        ProjectSpecificationId projectA = ProjectSpecificationId.parse("01890f7a-36d4-7c1e-8000-000000000003");
+        ProjectSpecificationId projectB = ProjectSpecificationId.parse("01890f7a-36d4-7c1e-8000-000000000001");
+        ProjectSpecificationId projectC = ProjectSpecificationId.parse("01890f7a-36d4-7c1e-8000-000000000002");
         register(registry, portfolio.id(), projectA, "A");
         register(registry, portfolio.id(), projectB, "B");
         register(registry, portfolio.id(), projectC, "C");
