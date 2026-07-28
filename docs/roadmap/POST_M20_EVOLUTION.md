@@ -1,6 +1,6 @@
 # MORPHEUS — Roadmap d’évolution post-M20
 
-Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 intégré ; M22 techniquement qualifié Windows + Linux ; M23 prochain jalon après intégration M22**
+Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 et M22 intégrés ; M23 qualifié Windows + Linux, intégration en cours ; M24 prochain jalon**
 
 Dernière mise à jour : 28 juillet 2026
 
@@ -11,27 +11,27 @@ Cette roadmap commence après l’intégration de M20 et porte la trajectoire ac
 ```text
 C0 → M20      ✅ validés et intégrés
 D1            ✅ validé et intégré
+R1            ✅ MORPHEUS 1.0.0 publié
 M21           ✅ validé et intégré
-M22           ✅ techniquement qualifié Windows + Linux — intégration différée pendant gel CI
-M20 code      9199ed43c4bd8596a97db055eeff17ae31399eb8
+M22           ✅ validé et intégré
+M23           ✅ qualifié Windows + Linux — PR #104 en intégration
 M20 merge     75d0b82ab0c960692db2fee1ced146fa6547fd4a
 D1 merge      51f6a120f3461c8d8c24323f3db8211d28d6cb42
-M21 code      239d99657fbf193761767f382489dd637e642fe9
 M21 merge     2fdce6601a07628c315fe03932750cd8ece3d777
-M22 code      e42bc31384831e56592b11a3509b49a3fdf61773
-M21 tests     473 PASS Windows + Linux
-M22 tests     494 PASS Windows + Linux
-Architecture  190 PASS M22 Windows + Linux
+M22 merge     67c587057e287d57b0733f9e425a57b26cc38ae4
+M23 code      04a906e9d5858292ed0f0f1bec65246fef91ed63
+M23 tests     507 PASS Windows + Linux
+Architecture  195 PASS M23 Windows + Linux
 MORPHEUS      1.0.0
 v1.0.0        ✅ tag stable publié
-GitHub Release ✅ MORPHEUS 1.0.0 — 8/8 assets
 ```
 
 Preuves :
 
 - [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md) ;
 - [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md) ;
-- [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
+- [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md) ;
+- [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md).
 
 ## Invariants post-1.0
 
@@ -59,6 +59,13 @@ optional provider absence != project failure
 incompatible provider != silently loaded provider
 classloader isolation != security sandbox
 cross-project identity != source path
+project identity != workspace path
+project identity != repository URL
+absence of one project != identity deletion
+portfolio membership != source ownership
+cross-project reference != traceability proof
+traversal is bounded and explainable
+freshness != full destructive rescan
 remote mode != mandatory cloud dependency
 MORPHEUS != MINOS
 MORPHEUS != NEXUS
@@ -87,50 +94,35 @@ GitHub Release         stable / 8 assets
 
 ## D1 — Consolidation post-M20
 
-Issue : **#94 CLOSED / completed**.
-PR : **#95 MERGED**.
+Issue : **#94 CLOSED / completed**.  
+PR : **#95 MERGED**.  
 Merge : `51f6a120f3461c8d8c24323f3db8211d28d6cb42`.
-
-Exit criteria : **PASS**.
 
 ## M21 — Production Integrity & Surface Convergence
 
-Issue : **#98 CLOSED / completed**.
-PR : **#99 MERGED**.
+Issue : **#98 CLOSED / completed**.  
+PR : **#99 MERGED**.  
 Merge : `2fdce6601a07628c315fe03932750cd8ece3d777`.
 
-Head exécutable qualifié Windows + Linux :
+Head exécutable qualifié : `239d99657fbf193761767f382489dd637e642fe9`.
 
 ```text
-239d99657fbf193761767f382489dd637e642fe9
-```
-
-Question de sortie :
-
-> MORPHEUS 1.x possède-t-il une baseline de production durable où build, qualité, contrats publics, documentation et chaîne de release convergent sans divergence silencieuse entre CLI, MCP et HTTP ?
-
-Réponse : **oui, démontré sur Windows et Linux**.
-
-```text
-Windows reactor      14/14 SUCCESS
-Linux reactor        14/14 SUCCESS
-Tests                473 PASS
-Architecture         187 PASS
-Windows coverage     46.2800% line / 41.2734% branch
-Linux coverage       46.2430% line / 41.2734% branch
+Tests                473 PASS Windows + Linux
+Architecture         187 PASS Windows + Linux
 CycloneDX/provenance PASS Windows + Linux
 Portable             PASS Windows + Linux
-CLI/MCP/HTTP          convergence PASS
+CLI/MCP/HTTP         convergence PASS
 Executable delta     NONE Windows + Linux
-ADR-0089              Acceptée — M21
+ADR-0089             Acceptée — M21
 ```
 
 Preuve : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).
-Plan : [`M21_EXECUTION.md`](M21_EXECUTION.md).
 
 ## M22 — Provider SDK & Plugin Discovery Platform
 
-Statut : **TECHNIQUEMENT TERMINÉ / QUALIFIÉ** — issue #100 ; PR #101 temporairement fermée pendant le gel CI avant août.
+Issue : **#100 CLOSED / completed**.  
+PR : **#101 MERGED**.  
+Merge : `67c587057e287d57b0733f9e425a57b26cc38ae4`.
 
 Head exécutable qualifié Windows + Linux :
 
@@ -151,50 +143,66 @@ Activation            explicite / URLClassLoader dédié
 Probe                  SpecificationProvider
 Read                   SpecificationContentReader
 Reference provider     vrai JAR externe
-Capabilities           DISCOVER_PROJECT + READ_CURRENT_SPECIFICATIONS
 Tests                  494 PASS Windows + Linux
 Architecture           190 PASS Windows + Linux
-Windows coverage       47.0508% line / 41.8839% branch
-Linux coverage         47.0389% line / 41.8839% branch
 CycloneDX/provenance   PASS Windows + Linux
 Portable               PASS Windows + Linux
-CLI/MCP/HTTP           provider platform convergence PASS
 Executable delta       NONE Windows + Linux
 ADR-0090               Acceptée — M22
 ```
 
 Preuve : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
-Plan : [`M22_EXECUTION.md`](M22_EXECUTION.md).
-
-L’intégration GitHub reste différée jusqu’à la fin du gel CI demandé ; aucune requalification n’est nécessaire tant que les changements supplémentaires restent documentaires uniquement.
 
 # NOW
 
-## M22 — intégration différée par gel CI
-
-La partie technique M22 est terminée. La seule action restante avant de démarrer M23 est la réouverture puis l’intégration de PR #101 après la fin du gel CI, sans changement exécutable supplémentaire.
-
-# NEXT
-
 ## M23 — Multi-project / Portfolio Specification Intelligence
+
+Statut : **TECHNIQUEMENT TERMINÉ / QUALIFIÉ Windows + Linux — PR #104 en intégration**.
+
+Issue : #103.  
+PR : #104.  
+Baseline : `main@67c587057e287d57b0733f9e425a57b26cc38ae4`.
+
+Head exécutable qualifié Windows + Linux :
+
+```text
+04a906e9d5858292ed0f0f1bec65246fef91ed63
+```
 
 Question de sortie :
 
 > MORPHEUS peut-il raisonner sur plusieurs projets sans confondre identité métier, workspace, repository et source provider ?
 
-Livrables attendus :
+Réponse : **oui, démontré sur Windows et Linux**.
 
 ```text
-portfolio registry
-cross-project references
-project-scoped + portfolio-scoped queries
-cross-project traceability
-conflict/provenance preservation
-bounded traversal
-incremental portfolio freshness
+Portfolio registry       provider-neutral
+Project identity         indépendante workspace/repository/provider
+Missing project          non destructif
+Cross-project references provenance/evidence préservées
+Conflicts                explicites, sans silent last-write-wins
+Queries                  project-scoped + portfolio-scoped
+Traversal                BFS déterministe, bornée, explicable
+Traversal order          ordre de découverte BFS préservé
+Freshness                incrémentale par projet
+Persistence              Memory + SQLite V013
+CLI/MCP/HTTP             convergence PASS
+Tests                    507 PASS Windows + Linux
+Architecture             195 PASS Windows + Linux
+Windows coverage         46.7034% line / 40.9099% branch
+Linux coverage           46.6979% line / 40.9099% branch
+CycloneDX/provenance     PASS Windows + Linux
+Portable                 PASS Windows + Linux
+Executable delta         NONE Windows + Linux
+ADR-0091                 Acceptée — M23
 ```
 
-Invariants : `cross-project identity != source path`, absence d’un projet != suppression d’identité, traversal bornée et explicable.
+Preuve : [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md).  
+Plan : [`M23_EXECUTION.md`](M23_EXECUTION.md).
+
+Les commits post-gate restent strictement documentaires ; le SHA exécutable qualifié demeure `04a906e9d5858292ed0f0f1bec65246fef91ed63`.
+
+# NEXT
 
 ## M24 — Query DSL, Saved Views & Export/Reporting
 
@@ -214,15 +222,13 @@ CLI/MCP/HTTP parity
 query budgets
 ```
 
-Invariants : DSL != SQL passthrough, saved view != materialized truth, export != mutation.
+Invariants : `DSL != SQL passthrough`, `saved view != materialized truth`, `export != mutation`.
 
 # LATER
 
 ## M25 — Policy Packs & Governance Automation
 
-Question de sortie :
-
-> Les règles de qualité, contraintes et lifecycle peuvent-elles être distribuées comme des politiques versionnées, explicables et auditables sans transformer du texte libre en interdiction implicite ?
+Question : les règles de qualité, contraintes et lifecycle peuvent-elles être distribuées comme politiques versionnées, explicables et auditables ?
 
 Axes : policy packs, versioning, applicability, severity, blocking policy, provenance, dry-run, audit.
 
@@ -230,9 +236,7 @@ Invariants : `constraint text != executable policy`, `UNKNOWN != BLOCKED`, polic
 
 ## M26 — Optional Team/Remote Server Mode
 
-Question de sortie :
-
-> MORPHEUS peut-il être utilisé par une équipe via un mode serveur optionnel sans casser le fonctionnement local-first ni imposer un cloud ?
+Question : MORPHEUS peut-il être utilisé par une équipe via un mode serveur optionnel sans casser le fonctionnement local-first ?
 
 Axes : authentication, authorization, concurrency, remote API hardening, multi-client state, backups, migration, observability.
 
@@ -240,9 +244,7 @@ Invariants : local mode reste first-class ; remote mode est opt-in ; authz read 
 
 ## M27 — Evidence-backed Assisted Reasoning
 
-Question de sortie :
-
-> MORPHEUS peut-il enrichir ses réponses par des inférences assistées sans mélanger faits publiés, heuristiques et suggestions ?
+Question : MORPHEUS peut-il enrichir ses réponses par des inférences assistées sans mélanger faits publiés, heuristiques et suggestions ?
 
 Axes : evidence envelopes, explicit confidence, provenance, optional reasoning adapters, no silent fact mutation.
 
