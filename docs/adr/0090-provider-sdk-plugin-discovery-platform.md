@@ -2,7 +2,7 @@
 
 Statut : **Acceptée — M22**
 
-Date : 27 juillet 2026  
+Date : 27 juillet 2026
 Acceptée : 28 juillet 2026 après qualification Windows + Linux exact-head sur `e42bc31384831e56592b11a3509b49a3fdf61773`.
 
 ## Contexte
