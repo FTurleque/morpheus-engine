@@ -1,8 +1,8 @@
 # VALIDATION M22 — Provider SDK & Plugin Discovery Platform
 
-Statut : **À QUALIFIER — implémentation S0→S8 présente ; aucun PASS exact-head déclaré avant exécution locale Windows + Linux**
+Statut : **PASS — qualification Windows + Linux exact-head acquise sur le même SHA exécutable**
 
-Date : 27 juillet 2026
+Date : 28 juillet 2026
 
 Issue : #100
 PR : #101 — temporairement fermée pour respecter le gel CI avant août
@@ -10,13 +10,19 @@ Branche : `m22/provider-sdk-plugin-platform`
 
 Baseline : `main@b26833701b028ea3d09388ed87188fb1945b559d` après M21.
 
+Head exécutable qualifié Windows + Linux :
+
+```text
+e42bc31384831e56592b11a3509b49a3fdf61773
+```
+
 ## Question de sortie
 
 > Peut-on ajouter un provider MORPHEUS réel sans modifier le core ni introduire de dépendance provider-specific dans domain/application ?
 
-Réponse technique candidate : **oui par architecture et contrats ajoutés, y compris une vraie lecture normalisée du JAR externe ; la réponse ne devient une preuve M22 qu’après gates exact-head Windows + Linux réels**.
+**Réponse : oui.** M22 démontre un JAR provider externe découvrable sans exécution de code, compatible explicitement, activé uniquement à la demande dans un classloader dédié, sondé par `SpecificationProvider`, puis lu réellement via `SpecificationContentReader` pour produire du contenu provider-neutral normalisé.
 
-## Contrats à prouver
+## Contrats prouvés
 
 ```text
 SDK API                         1
@@ -43,7 +49,7 @@ Linux portable                  PASS
 post-gate executable delta      NONE
 ```
 
-## Gate canonique
+## Gates canoniques exécutés
 
 Windows :
 
@@ -51,48 +57,130 @@ Windows :
 .\validate-m22.cmd -Version 1.0.0
 ```
 
-Linux :
+Linux WSL2 :
 
 ```bash
-./scripts/validate-m22.sh 1.0.0
+bash ./scripts/validate-m22.sh 1.0.0
 ```
 
-Chaque gate exécute le reactor complet. Les tests d’architecture doivent en particulier démontrer un vrai JAR externe :
+Les deux gates ont démarré et terminé sur :
 
-1. metadata discovery sans classloading ;
-2. activation dans un classloader dédié ;
+```text
+e42bc31384831e56592b11a3509b49a3fdf61773
+```
+
+## Preuve Windows
+
+```text
+M22 VALIDATION PASS
+sha=e42bc31384831e56592b11a3509b49a3fdf61773
+baseRef=origin/main
+version=1.0.0
+tests=494
+architectureTests=190
+lineCoverage=0.470508
+branchCoverage=0.418839
+sdkApiVersion=1
+externalReferenceProvider=PASS
+sbom=PASS
+provenance=PASS
+portable=True
+postGateExecutableDelta=NONE
+```
+
+Preuves complémentaires Windows :
+
+- reactor 17/17 SUCCESS ;
+- `git diff --check` PASS ;
+- provider SDK présent dans le runtime packagé ;
+- `ReferenceProviderPlugin` absent du launcher puis copié comme vrai plugin externe ;
+- discovery + activation isolée + probe `SUPPORTED` PASS ;
+- CLI/MCP/HTTP provider platform convergence PASS ;
+- API packagée version/discovery PASS ;
+- archive `morpheus-1.0.0-windows-x64.zip` créée ;
+- workspace tracké inchangé après gate.
+
+## Preuve Linux WSL2
+
+```text
+M22 VALIDATION PASS
+sha=e42bc31384831e56592b11a3509b49a3fdf61773
+baseRef=origin/main
+version=1.0.0
+tests=494
+architectureTests=190
+lineCoverage=0.470389
+branchCoverage=0.418839
+sdkApiVersion=1
+externalReferenceProvider=PASS
+sbom=PASS
+provenance=PASS
+portable=true
+postGateExecutableDelta=NONE
+```
+
+Le wrapper de qualification a ensuite confirmé :
+
+```text
+M22 LINUX EXIT CODE: 0
+```
+
+Preuves complémentaires Linux :
+
+- OpenJDK 21.0.11 ;
+- reactor 17/17 SUCCESS ;
+- provider SDK présent dans le runtime packagé ;
+- provider de référence non embarqué, chargé comme JAR externe ;
+- discovery + activation isolée + probe PASS ;
+- CLI/MCP/HTTP provider platform convergence PASS ;
+- API health/readiness/metrics/version PASS ;
+- runtime `jdk.httpserver + java.sql + java.net.http` PASS ;
+- archive `morpheus-1.0.0-linux-x64.tar.gz` créée ;
+- `git status --short` vide après le gate ;
+- HEAD toujours exactement `e42bc31384831e56592b11a3509b49a3fdf61773`.
+
+## Preuve architecture du vrai provider externe
+
+Les tests d’architecture démontrent :
+
+1. découverte du manifeste sans classloading ;
+2. activation dans un `URLClassLoader` dédié ;
 3. probe `SUPPORTED` avec `READ_CURRENT_SPECIFICATIONS` ;
-4. lecture réelle via `SpecificationContentReader` produisant du contenu normalisé ;
-5. absence de dépendance SDK/plugin dans `domain` et `application`.
+4. lecture réelle via `SpecificationContentReader` ;
+5. production d’une `Specification`, d’une `Evidence` et d’une `Provenance` normalisées ;
+6. absence de dépendance SDK/plugin dans `morpheus-domain` et `morpheus-application`.
 
-Le gate packaging vérifie en plus :
+Ainsi :
 
-1. `ProviderPluginService` présent dans le shaded/runtime MORPHEUS ;
-2. `ReferenceProviderPlugin` absent du launcher ;
-3. copie du JAR `morpheus-provider-reference` dans un répertoire externe ;
-4. discovery packagée => exactement un candidat compatible ;
-5. activation + probe packagés => `reference-plugin`, `SUPPORTED` ;
-6. route HTTP packagée discovery => même candidat ;
-7. HEAD inchangé et aucun delta tracké post-gate.
+```text
+plugin discovery != plugin activation
+capability declaration != capability implementation proof
+probe != read
+provider plugin != domain dependency
+```
 
 ## Gel CI avant août
 
-Conformément à la consigne du propriétaire, **aucune qualification M22 GitHub Actions n’est utilisée avant août**.
+Conformément à la consigne du propriétaire, GitHub Actions n’est pas utilisé comme preuve M22 avant août.
 
 - `.github/workflows/ci.yml` ne porte aucun delta M22 par rapport à `main` ;
-- PR #101 est temporairement fermée pour empêcher de nouveaux déclenchements `pull_request` pendant la qualification ;
-- les seules preuves acceptables à ce stade sont les deux validateurs locaux exact-head.
+- PR #101 reste temporairement fermée afin d’éviter de nouveaux déclenchements `pull_request` ;
+- les preuves de sortie M22 sont les deux gates locaux exact-head ci-dessus.
 
-Aucun run GitHub Actions observé pendant l’implémentation n’est retenu comme preuve M22.
-
-## Preuves non encore acquises
+## Conclusion
 
 ```text
-Windows exact-head  NOT EXECUTED / NOT PROVEN
-Linux exact-head    NOT EXECUTED / NOT PROVEN
-ADR-0090            PROPOSED
-PR #101              TEMPORARILY CLOSED — CI FREEZE
-Merge                NOT ELIGIBLE
+Windows exact-head  PASS
+Linux exact-head    PASS
+Executable SHA      e42bc31384831e56592b11a3509b49a3fdf61773
+Tests               494 PASS
+Architecture        190 PASS
+SDK API             1
+External provider   PASS
+SBOM/provenance     PASS Windows + Linux
+Portable            PASS Windows + Linux
+Executable delta    NONE Windows + Linux
+ADR-0090            ACCEPTED — M22
 ```
 
-Ce document sera complété uniquement avec les sorties réelles des deux validateurs. Les consolidations OpenAPI/index/roadmap postérieures devront rester docs-only afin de préserver le SHA exécutable qualifié.
+Les commits ultérieurs de consolidation documentaire doivent rester distincts du SHA exécutable qualifié. Toute modification de code produit, POM, contrat runtime, packaging ou validateur invaliderait cette preuve et imposerait une nouvelle qualification Windows + Linux.
