@@ -22,7 +22,7 @@ class MorpheusPortfolioCliTest {
     void createsPortfolioRegistersProjectsAndReturnsOverview() {
         Result created = run("--json", "portfolio", "create", "--name", "Platform");
         assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
-        String portfolioId = field(created.out(), "id");
+        String portfolioId = firstUuid(created.out());
 
         ProjectSpecificationId first = ProjectSpecificationId.generate();
         ProjectSpecificationId second = ProjectSpecificationId.generate();
@@ -73,14 +73,14 @@ class MorpheusPortfolioCliTest {
         return new Result(exit, output.toString(StandardCharsets.UTF_8), errors.toString(StandardCharsets.UTF_8));
     }
 
-    private String field(String json, String field) {
-        String marker = "\"" + field + "\":\"";
-        int start = json.indexOf(marker);
-        if (start < 0) {
-            throw new AssertionError("missing field " + field + " in " + json);
+    private String firstUuid(String json) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
+                .matcher(json);
+        if (!matcher.find()) {
+            throw new AssertionError("UUIDv7 not found in " + json);
         }
-        start += marker.length();
-        return json.substring(start, json.indexOf('"', start));
+        return matcher.group();
     }
 
     private record Result(int exitCode, String out, String err) {
