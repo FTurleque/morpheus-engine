@@ -148,8 +148,9 @@ final class MorpheusQueryCli {
             }
             default -> throw new IllegalArgumentException("unknown export action: " + action);
         };
-        out.print(runtime.exports.export(definition, format).content());
-        if (!runtime.exports.export(definition, format).content().endsWith("\n")) {
+        var export = runtime.exports.export(definition, format);
+        out.print(export.content());
+        if (!export.content().endsWith("\n")) {
             out.println();
         }
         return CliExitCode.SUCCESS.code();
