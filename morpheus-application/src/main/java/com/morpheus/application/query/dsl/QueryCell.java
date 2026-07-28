@@ -5,7 +5,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Transport-neutral projected values for one registered query field. */
+/** Transport-neutral projected values for one registered query field. Empty text remains distinct from absence. */
 public record QueryCell(String field, List<String> values) {
     public QueryCell {
         Objects.requireNonNull(field, "field");
@@ -16,8 +16,6 @@ public record QueryCell(String field, List<String> values) {
         Objects.requireNonNull(values, "values");
         values = values.stream()
                 .map(value -> Objects.requireNonNull(value, "cell value"))
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
                 .toList();
     }
 
