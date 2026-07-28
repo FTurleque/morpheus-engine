@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.portfolio.PortfolioPublicViews;
 import com.morpheus.application.portfolio.PortfolioQueryService;
 import com.morpheus.application.portfolio.PortfolioRegistryService;
 import com.morpheus.application.portfolio.PortfolioTraversalDirection;
@@ -113,7 +114,7 @@ final class MorpheusPortfolioCli {
 
     private void write(Object value, boolean jsonOutput, PrintStream out) {
         if (jsonOutput) {
-            out.println(json.toJson(value));
+            out.println(json.toJson(PortfolioPublicViews.project(value)));
         } else {
             out.println(value);
         }
