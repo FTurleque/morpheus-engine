@@ -4,6 +4,14 @@ product.version	READ	version	get_product_info	GET /api/v1/version	Build-derived 
 product.update-discovery	READ	update-check --manifest	check_product_update	EXPLICITLY_NOT_EXPOSED	HTTP omission is deliberate to avoid turning a local API into a generic SSRF surface; caller supplies URI only through CLI/MCP
 provider.plugins.discover	READ	provider-plugins discover	discover_provider_plugins	GET /api/v1/provider-plugins/discover	Metadata-only explicit directory scan; no plugin classloading or startup scan
 provider.plugins.probe	READ	provider-plugins probe	probe_provider_plugin	GET /api/v1/provider-plugins/probe	Explicit compatible-plugin activation + workspace probe; plugin failures remain diagnostics
+portfolio.create	WRITE	portfolio create	create_portfolio	POST /api/v1/portfolios	Creates a stable MORPHEUS portfolio identity; never derived from a path or repository URL
+portfolio.project-register	WRITE	portfolio add-project	register_portfolio_project	POST /api/v1/portfolios/{portfolioId}/projects	Membership is keyed by PortfolioId + ProjectSpecificationId; locations/providers are observations
+portfolio.project-missing	WRITE	portfolio missing	mark_portfolio_project_missing	POST /api/v1/portfolios/{portfolioId}/projects/{projectId}/missing	Missing is non-destructive and retains identity, references and prior revision
+portfolio.freshness	WRITE	portfolio freshness	observe_portfolio_freshness	POST /api/v1/portfolios/{portfolioId}/projects/{projectId}/freshness	Incremental project-scoped freshness observation
+portfolio.reference-add	WRITE	portfolio add-reference	add_cross_project_reference	POST /api/v1/portfolios/{portfolioId}/references	Preserves provider, source locator and evidence; no silent last-write-wins
+portfolio.overview	READ	portfolio overview	get_portfolio_overview	GET /api/v1/portfolios/{portfolioId}	Returns members, freshness, conflict count and reference count
+portfolio.references	READ	portfolio references	list_portfolio_references	GET /api/v1/portfolios/{portfolioId}/references	Project-scoped or portfolio-scoped; every item preserves ProjectSpecificationId
+portfolio.traverse	READ	portfolio traverse	traverse_portfolio	POST /api/v1/portfolios/{portfolioId}/traverse	Read-only traversal request with explicit depth/node/link budgets and truncation reason
 composition.status	READ	composition status	get_composition_status	GET /api/v1/projects/{projectId}/composition	Same semantic status; transport shape may differ
 composition.conflicts	READ	composition conflicts	list_composition_conflicts	GET /api/v1/projects/{projectId}/composition/conflicts	Conflicts remain explicit; no silent last-write-wins
 lifecycle.apply	WRITE	lifecycle apply	apply_change_lifecycle_transition	POST /api/v1/projects/{projectId}/changes/{changeId}/lifecycle-transitions	WRITE_CHANGE, confirmation and CAS remain mandatory
