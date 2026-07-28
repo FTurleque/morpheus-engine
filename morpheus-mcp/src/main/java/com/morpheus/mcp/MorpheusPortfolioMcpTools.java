@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.portfolio.PortfolioPublicViews;
 import com.morpheus.application.portfolio.PortfolioQueryService;
 import com.morpheus.application.portfolio.PortfolioRegistryService;
 import com.morpheus.application.portfolio.PortfolioTraversalDirection;
@@ -141,7 +142,7 @@ final class MorpheusPortfolioMcpTools {
                     default -> throw new IllegalArgumentException("unknown M23 MCP tool: " + toolName);
                 };
                 return McpSchema.CallToolResult.builder()
-                        .content(List.of(new McpSchema.TextContent(json.toJson(result))))
+                        .content(List.of(new McpSchema.TextContent(json.toJson(PortfolioPublicViews.project(result)))))
                         .build();
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
