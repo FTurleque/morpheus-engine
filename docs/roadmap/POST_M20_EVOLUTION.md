@@ -1,6 +1,6 @@
 # MORPHEUS — Roadmap d’évolution post-M20
 
-Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21, M22 et M23 intégrés ; M24 prochain jalon actif**
+Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 à M24 intégrés ; M25 prochain jalon actif**
 
 Dernière mise à jour : 28 juillet 2026
 
@@ -15,14 +15,16 @@ R1            ✅ MORPHEUS 1.0.0 publié
 M21           ✅ validé et intégré
 M22           ✅ validé et intégré
 M23           ✅ validé et intégré
+M24           ✅ validé et intégré
 M20 merge     75d0b82ab0c960692db2fee1ced146fa6547fd4a
 D1 merge      51f6a120f3461c8d8c24323f3db8211d28d6cb42
 M21 merge     2fdce6601a07628c315fe03932750cd8ece3d777
 M22 merge     67c587057e287d57b0733f9e425a57b26cc38ae4
 M23 merge     88355b69c493677c8689eecad214fb00d283359b
-M23 code      04a906e9d5858292ed0f0f1bec65246fef91ed63
-M23 tests     507 PASS Windows + Linux
-Architecture  195 PASS M23 Windows + Linux
+M24 merge     2b483ded10c783fff22c25035db89475c5c9fdaf
+M24 code      be69e47da0ae209d2246df9c67bc08caeafb2bb0
+M24 tests     543 PASS Windows + Linux
+Architecture  221 PASS M24 Windows + Linux
 MORPHEUS      1.0.0
 v1.0.0        ✅ tag stable publié
 ```
@@ -32,7 +34,8 @@ Preuves :
 - [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md) ;
 - [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md) ;
 - [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md) ;
-- [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md).
+- [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md) ;
+- [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).
 
 ## Invariants post-1.0
 
@@ -54,11 +57,7 @@ precedence != provenance erasure
 conflict != silent last-write-wins
 provider plugin != domain dependency
 plugin discovery != plugin activation
-capability declaration != capability implementation proof
 probe != read
-optional provider absence != project failure
-incompatible provider != silently loaded provider
-classloader isolation != security sandbox
 cross-project identity != source path
 project identity != workspace path
 project identity != repository URL
@@ -67,11 +66,16 @@ portfolio membership != source ownership
 cross-project reference != traceability proof
 traversal is bounded and explainable
 freshness != full destructive rescan
+DSL != SQL passthrough
+saved view != materialized truth
+export != mutation
+bounded query != silently truncated semantics
+stale saved-view revision != silent overwrite
+surface parity != same transport shape
 remote mode != mandatory cloud dependency
 MORPHEUS != MINOS
 MORPHEUS != NEXUS
 MORPHEUS != JARVIS
-surface parity != same transport shape
 update discovery != automatic update
 checksum != signature
 ```
@@ -103,8 +107,7 @@ Merge : `51f6a120f3461c8d8c24323f3db8211d28d6cb42`.
 
 Issue : **#98 CLOSED / completed**.  
 PR : **#99 MERGED**.  
-Merge : `2fdce6601a07628c315fe03932750cd8ece3d777`.
-
+Merge : `2fdce6601a07628c315fe03932750cd8ece3d777`.  
 Head exécutable qualifié : `239d99657fbf193761767f382489dd637e642fe9`.
 
 ```text
@@ -117,29 +120,16 @@ Executable delta     NONE Windows + Linux
 ADR-0089             Acceptée — M21
 ```
 
-Preuve : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).
-
 ## M22 — Provider SDK & Plugin Discovery Platform
 
 Issue : **#100 CLOSED / completed**.  
 PR : **#101 MERGED**.  
-Merge : `67c587057e287d57b0733f9e425a57b26cc38ae4`.
-
-Head exécutable qualifié Windows + Linux : `e42bc31384831e56592b11a3509b49a3fdf61773`.
-
-Question de sortie :
-
-> Peut-on ajouter un provider MORPHEUS réel sans modifier le core ni introduire de dépendance provider-specific dans domain/application ?
-
-Réponse : **oui, démontré sur Windows et Linux**.
+Merge : `67c587057e287d57b0733f9e425a57b26cc38ae4`.  
+Head exécutable qualifié : `e42bc31384831e56592b11a3509b49a3fdf61773`.
 
 ```text
 SDK API               1
-Discovery             metadata-only / zero classloading
-Activation            explicite / URLClassLoader dédié
-Probe                  SpecificationProvider
-Read                   SpecificationContentReader
-Reference provider     vrai JAR externe
+External provider     PASS
 Tests                  494 PASS Windows + Linux
 Architecture           190 PASS Windows + Linux
 CycloneDX/provenance   PASS Windows + Linux
@@ -148,85 +138,118 @@ Executable delta       NONE Windows + Linux
 ADR-0090               Acceptée — M22
 ```
 
-Preuve : [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md).
-
 ## M23 — Multi-project / Portfolio Specification Intelligence
-
-Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
 
 Issue : **#103 CLOSED / completed**.  
 PR : **#104 MERGED**.  
 Merge : `88355b69c493677c8689eecad214fb00d283359b`.  
-Baseline : `main@67c587057e287d57b0733f9e425a57b26cc38ae4`.
-
-Head exécutable qualifié Windows + Linux :
-
-```text
-04a906e9d5858292ed0f0f1bec65246fef91ed63
-```
-
-Question de sortie :
-
-> MORPHEUS peut-il raisonner sur plusieurs projets sans confondre identité métier, workspace, repository et source provider ?
-
-Réponse : **oui, démontré sur Windows et Linux puis intégré dans `main`**.
+Head exécutable qualifié : `04a906e9d5858292ed0f0f1bec65246fef91ed63`.
 
 ```text
 Portfolio registry       provider-neutral
 Project identity         indépendante workspace/repository/provider
-Missing project          non destructif
 Cross-project references provenance/evidence préservées
-Conflicts                explicites, sans silent last-write-wins
 Queries                  project-scoped + portfolio-scoped
 Traversal                BFS déterministe, bornée, explicable
-Traversal order          ordre de découverte BFS préservé
-Freshness                incrémentale par projet
 Persistence              Memory + SQLite V013
-CLI/MCP/HTTP             convergence PASS
 Tests                    507 PASS Windows + Linux
 Architecture             195 PASS Windows + Linux
-Windows coverage         46.7034% line / 40.9099% branch
-Linux coverage           46.6979% line / 40.9099% branch
+CLI/MCP/HTTP             convergence PASS
 CycloneDX/provenance     PASS Windows + Linux
 Portable                 PASS Windows + Linux
 Executable delta         NONE Windows + Linux
 ADR-0091                 Acceptée — M23
 ```
 
-Preuve : [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md).  
-Plan final : [`M23_EXECUTION.md`](M23_EXECUTION.md).
-
-# NOW
-
 ## M24 — Query DSL, Saved Views & Export/Reporting
+
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
+
+Issue : **#105 CLOSED / completed**.  
+PR : **#106 MERGED**.  
+Merge : `2b483ded10c783fff22c25035db89475c5c9fdaf`.  
+Baseline : `main@f70eaa1ad58633ee59874ab44f70963ab51152c6`.
+
+Head exécutable qualifié Windows + Linux :
+
+```text
+be69e47da0ae209d2246df9c67bc08caeafb2bb0
+```
+
+Head PR après consolidation docs-only :
+
+```text
+863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58
+```
 
 Question de sortie :
 
 > Les utilisateurs peuvent-ils exprimer, sauvegarder et exporter des vues métier complexes sans dépendre d’un transport ou d’un format provider particulier ?
 
-Livrables attendus :
+Réponse : **oui, démontré sur Windows et Linux puis intégré dans `main`.**
 
 ```text
-provider-neutral query DSL
-filter/sort/projection/pagination
-saved views versionnées
-canonical JSON export
-CSV/Markdown reporting
-CLI/MCP/HTTP parity
-query budgets
+Query DSL                provider-neutral / typé / borné
+Scopes                   project + portfolio explicites
+Filter/sort/projection   PASS
+Pagination               offset/limit/totalMatches/hasMore
+Stable ordering          identity tie-break PASS
+Null semantics           absent/null != empty
+Saved views              versionnées + CAS
+Persistence              Memory + SQLite V014
+Canonical JSON           PASS
+CSV                      PASS
+Markdown                 PASS
+Query/export budgets     PASS
+CLI/MCP/HTTP             convergence PASS
+Tests                    543 PASS Windows + Linux
+Architecture             221 PASS Windows + Linux
+Windows coverage         44.2936% line / 38.1166% branch
+Linux coverage           44.3037% line / 38.1166% branch
+CycloneDX/provenance     PASS Windows + Linux
+Portable                 PASS Windows + Linux
+Executable delta         NONE Windows + Linux
+ADR-0092                 Acceptée — M24
 ```
 
-Invariants : `DSL != SQL passthrough`, `saved view != materialized truth`, `export != mutation`.
+Preuve : [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).  
+Plan final : [`M24_EXECUTION.md`](M24_EXECUTION.md).
 
-# LATER
+# NOW
 
 ## M25 — Policy Packs & Governance Automation
 
-Question : les règles de qualité, contraintes et lifecycle peuvent-elles être distribuées comme politiques versionnées, explicables et auditables ?
+Question de sortie :
 
-Axes : policy packs, versioning, applicability, severity, blocking policy, provenance, dry-run, audit.
+> Les règles de qualité, contraintes et lifecycle peuvent-elles être distribuées comme politiques versionnées, explicables et auditables ?
 
-Invariants : `constraint text != executable policy`, `UNKNOWN != BLOCKED`, policy recommendation != applied mutation.
+Axes :
+
+```text
+policy packs
+policy identity + versioning
+applicability
+severity
+blocking policy
+override/provenance
+dry-run
+explainability
+audit
+CLI/MCP/HTTP convergence
+```
+
+Invariants :
+
+```text
+constraint text != executable policy
+UNKNOWN != BLOCKED
+policy recommendation != applied mutation
+policy version != mutable latest
+policy override != provenance erasure
+dry-run != mutation
+```
+
+# LATER
 
 ## M26 — Optional Team/Remote Server Mode
 
