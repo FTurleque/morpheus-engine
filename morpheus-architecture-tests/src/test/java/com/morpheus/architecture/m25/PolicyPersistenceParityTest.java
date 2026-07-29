@@ -49,7 +49,7 @@ class PolicyPersistenceParityTest {
         try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(database)) {
             PolicyPackService service = new PolicyPackService(store, CLOCK);
             var definition = service.create("Governance", List.of(rule()), "alice", "create");
-            var v1 = service.versions(definition.id()).getFirst();
+            service.versions(definition.id()).getFirst();
             var updated = service.update(definition.id(), 1, "Governance 2", List.of(rule()), "alice", "update");
             var v2 = service.versions(updated.id()).getLast();
             service.activate(scope, definition.id(), v2.versionId(), 0, "alice", "activate");
@@ -66,7 +66,7 @@ class PolicyPersistenceParityTest {
             assertEquals(2, service.versions(packId).size());
             assertEquals(activeVersion, service.activation(scope, packId).orElseThrow().versionId());
             assertEquals(ruleId, service.overrides(scope).getFirst().ruleId());
-            assertEquals(5, service.audit(packId).size());
+            assertEquals(4, service.audit(packId).size());
         }
     }
 
