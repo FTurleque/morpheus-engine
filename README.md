@@ -182,7 +182,7 @@ policy pack create/list/get/versions/update
 policy activate/deactivate/activations
 policy override put/list/remove
 policy evaluate
-gpolicy dry-run
+policy dry-run
 policy audit
 ```
 
