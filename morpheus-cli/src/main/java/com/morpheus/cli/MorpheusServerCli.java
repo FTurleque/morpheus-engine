@@ -96,14 +96,14 @@ final class MorpheusServerCli {
                 .orElse(parsed.layout().backupsDirectory());
         SqliteServerMaintenance.BackupVerification backup =
                 maintenance.createBackup(parsed.layout().databasePath(), output);
-        print(parsed.json(), out, backup);
+        print(parsed.json(), out, backupView(backup));
         return CliExitCode.SUCCESS.code();
     }
 
     private int backupVerify(Parsed parsed, PrintStream out) {
         Map<String, String> options = options(parsed.command(), 3, Set.of("file"));
         SqliteServerMaintenance.BackupVerification backup = maintenance.verify(Path.of(required(options, "file")));
-        print(parsed.json(), out, backup);
+        print(parsed.json(), out, backupView(backup));
         return CliExitCode.SUCCESS.code();
     }
 
@@ -114,8 +114,18 @@ final class MorpheusServerCli {
         }
         SqliteServerMaintenance.BackupVerification restored = maintenance.restoreOffline(
                 Path.of(required(options, "file")), parsed.layout().databasePath(), true);
-        print(parsed.json(), out, restored);
+        print(parsed.json(), out, backupView(restored));
         return CliExitCode.SUCCESS.code();
+    }
+
+    private Map<String, Object> backupView(SqliteServerMaintenance.BackupVerification backup) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("path", backup.path().toString());
+        view.put("bytes", backup.bytes());
+        view.put("sha256", backup.sha256());
+        view.put("schemaVersion", backup.schemaVersion());
+        view.put("integrityOk", backup.integrityOk());
+        return view;
     }
 
     private Parsed parse(String[] args, Map<String, String> environment, Properties properties) {
