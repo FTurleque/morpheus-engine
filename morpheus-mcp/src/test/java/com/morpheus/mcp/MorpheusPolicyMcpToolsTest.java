@@ -58,6 +58,7 @@ class MorpheusPolicyMcpToolsTest {
         assertEquals(PolicyBudgets.MAX_RULES_PER_PACK, rules.get("maxItems"));
 
         Set<String> propertyNames = propertyNames(create);
+        assertTrue(propertyNames.contains("description"));
         assertFalse(propertyNames.contains("sql"));
         assertFalse(propertyNames.contains("script"));
         assertFalse(propertyNames.contains("classname"));
@@ -96,6 +97,6 @@ class MorpheusPolicyMcpToolsTest {
     private Map<String, Object> stringKeyMap(Map<?, ?> raw) {
         return raw.entrySet().stream()
                 .filter(entry -> entry.getKey() instanceof String)
-                .collect(Collectors.toMap(entry -> (String) entry.getKey(), Map.Entry::getValue));
+                .collect(Collectors.toMap(entry -> (String) entry.getKey(), entry -> entry.getValue()));
     }
 }
