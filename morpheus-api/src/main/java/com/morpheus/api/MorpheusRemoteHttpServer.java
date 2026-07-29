@@ -29,6 +29,7 @@ import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -191,7 +192,11 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         runtime.totalRequests.increment();
         if (!concurrency.tryAcquire()) {
             runtime.throttledRequests.increment();
-            sendJson(exchange, 429, error("TOO_MANY_REQUESTS", "remote request concurrency limit reached"));
+            try {
+                sendJson(exchange, 429, error("TOO_MANY_REQUESTS", "remote request concurrency limit reached"));
+            } finally {
+                exchange.close();
+            }
             return;
         }
         runtime.activeRequests.incrementAndGet();
@@ -214,7 +219,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 requireMethod(exchange, "POST");
                 requireEmptyBody(exchange);
                 SqliteServerMaintenance.BackupVerification backup = maintenance.createBackup(databasePath, backupDirectory);
-                sendJson(exchange, 201, success(backup));
+                sendJson(exchange, 201, success(backupView(backup)));
                 return;
             }
             proxy(exchange);
@@ -331,6 +336,16 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         }
     }
 
+    private Map<String, Object> backupView(SqliteServerMaintenance.BackupVerification backup) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("path", backup.path().toString());
+        view.put("bytes", backup.bytes());
+        view.put("sha256", backup.sha256());
+        view.put("schemaVersion", backup.schemaVersion());
+        view.put("integrityOk", backup.integrityOk());
+        return Map.copyOf(view);
+    }
+
     private Map<String, Object> success(Object data) {
         return Map.of("apiVersion", "v1", "data", data);
     }
@@ -423,19 +438,20 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
 
         private Map<String, Object> status(String host, int port) {
             long uptimeSeconds = Math.max(0, Duration.between(startedAt, Instant.now()).toSeconds());
-            return Map.of(
-                    "mode", "REMOTE",
-                    "transport", "HTTPS",
-                    "host", host,
-                    "port", port,
-                    "startedAt", startedAt.toString(),
-                    "uptimeSeconds", uptimeSeconds,
-                    "activeRequests", activeRequests.get(),
-                    "maxConcurrentRequests", maxConcurrentRequests,
-                    "totalRequests", totalRequests.sum(),
-                    "authenticationFailures", authenticationFailures.sum(),
-                    "authorizationFailures", authorizationFailures.sum(),
-                    "throttledRequests", throttledRequests.sum());
+            Map<String, Object> status = new LinkedHashMap<>();
+            status.put("mode", "REMOTE");
+            status.put("transport", "HTTPS");
+            status.put("host", host);
+            status.put("port", port);
+            status.put("startedAt", startedAt.toString());
+            status.put("uptimeSeconds", uptimeSeconds);
+            status.put("activeRequests", activeRequests.get());
+            status.put("maxConcurrentRequests", maxConcurrentRequests);
+            status.put("totalRequests", totalRequests.sum());
+            status.put("authenticationFailures", authenticationFailures.sum());
+            status.put("authorizationFailures", authorizationFailures.sum());
+            status.put("throttledRequests", throttledRequests.sum());
+            return Map.copyOf(status);
         }
     }
 }
