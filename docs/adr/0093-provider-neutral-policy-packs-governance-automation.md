@@ -1,6 +1,6 @@
 # ADR-0093 — Provider-neutral policy packs and governance automation
 
-Statut : **Proposée — M25**
+Statut : **Acceptée — M25**
 
 Date : 29 juillet 2026
 
@@ -8,7 +8,7 @@ Date : 29 juillet 2026
 
 MORPHEUS possède déjà des règles métier explicites pour les contraintes (M16), l'évaluation de transitions et les mutations lifecycle contrôlées (M14/M17), des diagnostics qualité et un moteur Query DSL provider-neutral (M24). Ces capacités sont toutefois codées comme contrats applicatifs individuels. M25 doit permettre de distribuer et versionner des ensembles de politiques de gouvernance sans introduire un deuxième moteur de vérité ni rendre du texte, SQL ou code arbitraire exécutable.
 
-## Décision proposée
+## Décision
 
 M25 introduit des `PolicyPack` provider-neutral dans application/domain avec versions immuables, activation explicite, overrides auditables et évaluation read-only.
 
@@ -29,11 +29,11 @@ pack activation != domain truth mutation
 ## Identité et version
 
 ```text
-PolicyPackId       identité stable du pack
+PolicyPackId        identité stable du pack
 PolicyPackVersionId identité immuable d'une version
-PolicyRuleId       identité stable de règle dans le pack
-revision           CAS de la configuration courante du pack
-versionNumber      numéro monotone immuable de version publiée
+PolicyRuleId        identité stable de règle dans le pack
+revision            CAS de la configuration courante du pack
+versionNumber       numéro monotone immuable de version publiée
 ```
 
 Le nom d'un pack n'est pas son identité. Une mise à jour crée une nouvelle version ; elle ne modifie jamais le contenu d'une version historique.
@@ -126,30 +126,35 @@ Port `PolicyPackStore`, adapters Memory + SQLite. Migration additive V015 avec v
 
 CLI, MCP et HTTP exposent les mêmes intentions applicatives de registry/versioning/activation/override/evaluation/audit. La parité d'intention n'impose pas la même forme transport.
 
-## Conséquences attendues
+## Conséquences
 
 Positives : politiques partageables et versionnées, explication/reproductibilité, réutilisation des sémantiques existantes, séparation forte recommandation/mutation, dry-run sûr.
 
 Coûts : nouveau modèle de configuration, store/versioning/audit, registre fermé de métriques/kinds, migration SQLite et surfaces supplémentaires.
 
-## Validation requise avant acceptation
+## Validation d'acceptation
 
-Cette ADR reste **Proposée** jusqu'à preuve Windows + Linux du même SHA exécutable :
+L'ADR est acceptée après qualification Windows + Linux/WSL du même SHA exact :
 
 ```text
-policy identity/version immutability PASS
-rule validation/budgets PASS
-constraint/lifecycle composition PASS
-UNKNOWN preservation PASS
-override provenance PASS
-dry-run no mutation PASS
-Memory/SQLite parity PASS
-SQLite V015 PASS
-CLI/MCP/HTTP convergence PASS
-architecture contract PASS
-SBOM/provenance PASS
-portable Windows/Linux PASS
-postGateExecutableDelta=NONE
+Qualified SHA                         a392604fc9e8d00f4021351ab5ba53f8488ab920
+policy identity/version immutability  PASS
+rule validation/budgets               PASS
+constraint/lifecycle composition      PASS
+UNKNOWN preservation                  PASS
+override provenance                   PASS
+dry-run no mutation                   PASS
+Memory/SQLite parity                  PASS
+SQLite V015                           PASS
+CLI/MCP/HTTP convergence              PASS
+architecture contract                 PASS — 231 tests Windows + Linux
+product tests                         PASS — 565 Windows + Linux
+Windows coverage                      0.429925 / 0.363983
+Linux coverage                        0.429945 / 0.363983
+SBOM/provenance                       PASS Windows + Linux
+portable Windows/Linux                PASS
+postGateExecutableDelta               NONE
+GitHub Actions / CI                    NOT USED — July 2026
 ```
 
-Preuve finale attendue : `docs/validation/VALIDATION_M25.md`.
+Preuve finale : [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).
