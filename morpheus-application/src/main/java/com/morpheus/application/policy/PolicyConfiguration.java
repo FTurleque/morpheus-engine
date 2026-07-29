@@ -38,6 +38,7 @@ public final class PolicyConfiguration {
 
     public record Override(
             PolicyScope scope,
+            PolicyIds.PackId packId,
             PolicyIds.RuleId ruleId,
             OverrideMode mode,
             String reason,
@@ -46,6 +47,7 @@ public final class PolicyConfiguration {
             Instant updatedAt) implements Comparable<Override> {
         public Override {
             Objects.requireNonNull(scope, "scope");
+            Objects.requireNonNull(packId, "packId");
             Objects.requireNonNull(ruleId, "ruleId");
             Objects.requireNonNull(mode, "mode");
             reason = nonBlank(reason, "reason");
@@ -59,7 +61,11 @@ public final class PolicyConfiguration {
         @Override
         public int compareTo(Override other) {
             int scopeCompare = scopeKey(scope).compareTo(scopeKey(other.scope));
-            return scopeCompare != 0 ? scopeCompare : ruleId.compareTo(other.ruleId);
+            if (scopeCompare != 0) {
+                return scopeCompare;
+            }
+            int packCompare = packId.compareTo(other.packId);
+            return packCompare != 0 ? packCompare : ruleId.compareTo(other.ruleId);
         }
     }
 
