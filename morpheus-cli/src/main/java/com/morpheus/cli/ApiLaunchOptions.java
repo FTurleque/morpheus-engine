@@ -2,6 +2,8 @@ package com.morpheus.cli;
 
 import com.morpheus.api.MorpheusHttpServer;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,6 +96,7 @@ record ApiLaunchOptions(CliLayout layout, String host, int port) {
         if (!unknown.isEmpty()) {
             throw new IllegalArgumentException("unknown API launcher arguments: " + unknown);
         }
+        requireLoopback(host);
         return new ApiLaunchOptions(
                 CliLayout.resolve(data, config, database, environment, properties),
                 host,
@@ -116,6 +119,23 @@ record ApiLaunchOptions(CliLayout layout, String host, int port) {
             return value;
         } catch (NumberFormatException failure) {
             throw new IllegalArgumentException("--port must be an integer", failure);
+        }
+    }
+
+    private static void requireLoopback(String host) {
+        try {
+            InetAddress[] addresses = InetAddress.getAllByName(host);
+            if (addresses.length == 0) {
+                throw new IllegalArgumentException("local API host did not resolve");
+            }
+            for (InetAddress address : addresses) {
+                if (!address.isLoopbackAddress()) {
+                    throw new IllegalArgumentException(
+                            "non-loopback API bind requires explicit `api --remote` with TLS and authentication");
+                }
+            }
+        } catch (UnknownHostException failure) {
+            throw new IllegalArgumentException("cannot resolve local API host", failure);
         }
     }
 }
