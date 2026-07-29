@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M25 + D0 + D1 intégrés — MORPHEUS 1.0.0 publié — M26 prochain jalon actif**
+Statut : **C0 à M26 + D0 + D1 intégrés — MORPHEUS 1.0.0 publié — M27 prochain jalon actif**
 
 Dernière mise à jour : 29 juillet 2026
 
@@ -30,6 +30,7 @@ M22           ✅ validé et intégré
 M23           ✅ validé et intégré
 M24           ✅ validé et intégré
 M25           ✅ validé et intégré
+M26           ✅ validé et intégré
 ```
 
 Références :
@@ -45,40 +46,44 @@ M24 merge          2b483ded10c783fff22c25035db89475c5c9fdaf
 M25 exact head     a392604fc9e8d00f4021351ab5ba53f8488ab920
 M25 PR head        9239be641992f40a46f228e09cf6b34ad1cbb1a4
 M25 merge          62bf0ea37f732116e821df7d98ae89d36c6dd75d
+M26 exact head     bf481b24054c4577144b4cb2ede2bdbc4d9974a2
+M26 PR head        36378842e3ef41e379ade17f869b0939d052bbbc
+M26 merge          49016a18c844a78ec864235c544d82d487da7c8a
 Version            1.0.0
 Tag stable         v1.0.0
 ```
 
-## 2. Référence M25 intégrée
+## 2. Référence M26 intégrée
 
 ```text
-Issue                #107 CLOSED / completed
-PR                   #108 MERGED dans develop
-Baseline             develop@5cdb26405fb9ae768964a24016fef89bdca97e88
-Head exact qualifié  a392604fc9e8d00f4021351ab5ba53f8488ab920
-Head PR docs-only    9239be641992f40a46f228e09cf6b34ad1cbb1a4
-Merge                62bf0ea37f732116e821df7d98ae89d36c6dd75d
+Issue                #109 CLOSED / completed
+PR                   #110 MERGED dans develop
+Baseline             develop@619237f5273d83ed70728c58e0b97f85803cb167
+Head exact qualifié  bf481b24054c4577144b4cb2ede2bdbc4d9974a2
+Head PR docs-only    36378842e3ef41e379ade17f869b0939d052bbbc
+Merge                49016a18c844a78ec864235c544d82d487da7c8a
 Windows reactor      17/17 SUCCESS
 Linux reactor        17/17 SUCCESS
-Tests                565 PASS Windows + Linux
-Architecture         231 PASS Windows + Linux
-Windows JaCoCo       42.9925% line / 36.3983% branch
-Linux JaCoCo         42.9945% line / 36.3983% branch
-Policy packs         PASS
-Versioning / CAS     PASS
-Overrides            PASS + provenance conservée
-Dry-run              PASS / read-only
-SQLite V015          PASS
+Tests                579 PASS Windows + Linux
+Architecture         234 PASS Windows + Linux
+Windows JaCoCo       44.3507% line / 37.8842% branch
+Linux JaCoCo         44.3527% line / 37.8842% branch
+Local-first          PASS
+TLS/auth/RBAC        PASS
+Bounded concurrency  PASS / HTTP 429
+Secret disclosure    NONE
+Backup/restore       PASS
+SQLite               V015
 CycloneDX            PASS JSON/XML
 Provenance           PASS Windows + Linux
 Portable             PASS Windows + Linux
-CLI/MCP/HTTP         policy convergence PASS
+Surface convergence  PASS
 Executable delta     NONE Windows + Linux
-ADR-0093             Acceptée — M25
+ADR-0094             Acceptée — M26
 CI / GitHub Actions  non utilisé — juillet 2026
 ```
 
-Preuve : [`VALIDATION_M25.md`](../validation/VALIDATION_M25.md).
+Preuve : [`VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
 
 ## 3. Capacités acquises
 
@@ -117,6 +122,13 @@ policy overrides + provenance + CAS
 policy dry-run read-only
 policy audit append-only
 Memory + SQLite V015 policies
+local-first API loopback
+optional remote HTTPS server
+Bearer auth + hash-only credential persistence
+READ / WRITE / ADMIN RBAC
+bounded remote concurrency + HTTP 429
+remote observability without secrets
+SQLite backup / verify / offline restore
 CLI / MCP STDIO / HTTP API
 setup Windows per-user
 archives portables Windows/Linux
@@ -136,6 +148,7 @@ MORPHEUS = specification facts
            + portfolio specification facts
            + provider-neutral query/view/reporting contracts
            + provider-neutral governance policy contracts
+           + optional remote/team access boundary
 
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
@@ -184,6 +197,17 @@ policy override != provenance erasure
 dry-run != mutation
 policy evaluation != lifecycle mutation
 pack activation != domain truth mutation
+local mode remains first-class
+remote mode is opt-in
+non-loopback bind requires remote mode
+remote mode requires TLS + authentication
+authentication != authorization
+READ != WRITE != ADMIN
+token plaintext != persisted credential
+backup != live restore
+restore != implicit migration
+server state != provider source of truth
+multi-client concurrency != unbounded concurrency
 surface parity != same transport shape
 facts != inference
 ```
@@ -201,27 +225,22 @@ facts != inference
 | **M23** | ✅ TERMINÉ / INTÉGRÉ — #103 / PR #104 | Multi-project / Portfolio Specification Intelligence |
 | **M24** | ✅ TERMINÉ / INTÉGRÉ — #105 / PR #106 | Query DSL, Saved Views & Export/Reporting |
 | **M25** | ✅ TERMINÉ / INTÉGRÉ — #107 / PR #108 | Policy Packs & Governance Automation |
+| **M26** | ✅ TERMINÉ / INTÉGRÉ — #109 / PR #110 | Optional Team/Remote Server Mode |
 
 ### NOW
 
 | Jalon | Sujet | Question centrale |
 |---|---|---|
-| **M26** | Optional Team/Remote Server Mode | Usage équipe sans abandonner local-first ? |
-
-### LATER
-
-| Jalon | Sujet | Direction |
-|---|---|---|
-| **M27** | Evidence-backed Assisted Reasoning | Inférences optionnelles séparées des faits |
+| **M27** | Evidence-backed Assisted Reasoning | Inférences optionnelles séparées des faits publiés ? |
 
 Détail : [`POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
-## 6. Résultat de sortie M25
+## 6. Résultat de sortie M26
 
 Question :
 
-> Les règles de qualité, contraintes et lifecycle peuvent-elles être distribuées comme politiques versionnées, explicables et auditables sans transformer recommandations en mutations silencieuses ?
+> MORPHEUS peut-il être utilisé par une équipe via un mode serveur optionnel sans casser le fonctionnement local-first ?
 
-**Réponse : oui.** M25 prouve sur le même SHA exact Windows/Linux des policy packs provider-neutral, des versions immuables, activations et overrides CAS/audités, `UNKNOWN` préservé, dry-run read-only, Memory/SQLite V015 et une convergence CLI/MCP/HTTP.
+**Réponse : oui.** M26 prouve sur le même SHA exact Windows/Linux que le mode local reste first-class, tandis que le mode remote opt-in impose HTTPS + authentification + RBAC, borne la concurrence avec 429, ne divulgue aucun secret et fournit backup/restore SQLite explicites avec restore offline seulement.
 
-**Prochain jalon : M26 — Optional Team/Remote Server Mode, basé sur `develop`.**
+**Prochain jalon : M27 — Evidence-backed Assisted Reasoning, basé sur `develop`.**
