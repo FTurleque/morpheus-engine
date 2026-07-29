@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.api.MorpheusHttpServer;
+import com.morpheus.api.MorpheusRemoteHttpServer;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
 import com.morpheus.mcp.MorpheusMcpServer;
@@ -12,14 +13,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-/** Official native MORPHEUS launcher for CLI, MCP STDIO and the headless HTTP API. */
+/** Official native MORPHEUS launcher for CLI, MCP STDIO and local/remote HTTP API modes. */
 public final class MorpheusMain {
     private MorpheusMain() {
     }
 
     public static void main(String[] args) {
         int exitCode;
-        if (ApiLaunchOptions.isApiCommand(args)) {
+        if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
+            exitCode = runRemoteApi(args, System.err, System.getenv(), System.getProperties());
+        } else if (ApiLaunchOptions.isApiCommand(args)) {
             exitCode = runApi(args, System.err, System.getenv(), System.getProperties());
         } else if (McpLaunchOptions.isMcpCommand(args)) {
             exitCode = runMcp(args, System.err, System.getenv(), System.getProperties());
@@ -42,6 +45,9 @@ public final class MorpheusMain {
         }
         if (MorpheusProductCli.handles(args)) {
             return new MorpheusProductCli().run(args, out, err);
+        }
+        if (MorpheusServerCli.handles(args)) {
+            return new MorpheusServerCli().run(args, out, err, environment, properties);
         }
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
@@ -77,9 +83,18 @@ public final class MorpheusMain {
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] mcp --stdio");
             out.println("  STDIO mode reserves stdout for the MCP protocol; --json is not valid in MCP mode.");
             out.println();
-            out.println("API:");
+            out.println("API local:");
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]");
-            out.println("  Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println("  Local mode is loopback-only. Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println();
+            out.println("Team / remote server (M26, opt-in):");
+            out.println("  morpheus [layout] api --remote --host HOST --port PORT --tls-keystore FILE [--auth-file FILE] [--max-concurrent N]");
+            out.println("  Remote mode is HTTPS-only and requires MORPHEUS_SERVER_TLS_PASSWORD; auth defaults to <config>/remote-auth.txt.");
+            out.println("  morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN [--auth-file FILE]");
+            out.println("  morpheus [layout] server backup create [--output-dir PATH]");
+            out.println("  morpheus [layout] server backup verify --file PATH");
+            out.println("  morpheus [layout] server restore --file PATH --confirm");
+            out.println("  Restore is offline-only; stop the remote server first. Tokens are printed once and only SHA-256 hashes are persisted.");
             out.println();
             out.println("Policy packs / governance automation (M25):");
             out.println("  morpheus [--json] policy pack create --name NAME --rules RULES --actor NAME --reason TEXT");
@@ -204,13 +219,7 @@ public final class MorpheusMain {
                     nexus,
                     new CliProjectWriteCapabilityResolver(options.layout().databasePath()))) {
                 err.println("MORPHEUS API listening on " + server.baseUri());
-                try {
-                    Thread.currentThread().join();
-                    return CliExitCode.SUCCESS.code();
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    return CliExitCode.SUCCESS.code();
-                }
+                return waitUntilInterrupted();
             }
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS API usage error: " + safeMessage(failure));
@@ -218,6 +227,50 @@ public final class MorpheusMain {
         } catch (RuntimeException failure) {
             err.println("MORPHEUS API startup error: " + safeMessage(failure));
             return CliExitCode.INTERNAL_ERROR.code();
+        }
+    }
+
+    static int runRemoteApi(
+            String[] args,
+            PrintStream err,
+            Map<String, String> environment,
+            Properties properties) {
+        try {
+            RemoteApiLaunchOptions options = RemoteApiLaunchOptions.parse(args, environment, properties);
+            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
+            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
+            try (MorpheusRemoteHttpServer server = MorpheusRemoteHttpServer.start(
+                    options.layout().databasePath(),
+                    options.layout().backupsDirectory(),
+                    options.host(),
+                    options.port(),
+                    options.authFile(),
+                    options.tlsKeyStore(),
+                    options.tlsPasswordChars(),
+                    options.maxConcurrentRequests(),
+                    minos.resolverRegistry(),
+                    minos,
+                    nexus,
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()))) {
+                err.println("MORPHEUS remote HTTPS API listening on " + server.baseUri());
+                return waitUntilInterrupted();
+            }
+        } catch (IllegalArgumentException failure) {
+            err.println("MORPHEUS remote API usage error: " + safeMessage(failure));
+            return CliExitCode.USAGE.code();
+        } catch (RuntimeException failure) {
+            err.println("MORPHEUS remote API startup error: " + safeMessage(failure));
+            return CliExitCode.INTERNAL_ERROR.code();
+        }
+    }
+
+    private static int waitUntilInterrupted() {
+        try {
+            Thread.currentThread().join();
+            return CliExitCode.SUCCESS.code();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return CliExitCode.SUCCESS.code();
         }
     }
 
