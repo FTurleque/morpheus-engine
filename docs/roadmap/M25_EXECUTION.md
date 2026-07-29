@@ -1,9 +1,10 @@
 # M25 — Policy Packs & Governance Automation
 
-Statut : **QUALIFIÉ — M25-S0→S9 techniquement terminés ; intégration finale #108 vers `develop` en cours**
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ — M25-S0→S9 DONE**
 
-Issue : #107 — **OPEN jusqu'au merge**  
-PR : #108 — **à rendre Ready puis merger vers `develop`**  
+Issue : #107 — **CLOSED / completed**  
+PR : #108 — **MERGED dans `develop`**  
+Merge : `62bf0ea37f732116e821df7d98ae89d36c6dd75d`  
 Branche : `m25/policy-packs-governance-automation`  
 Baseline : `develop@5cdb26405fb9ae768964a24016fef89bdca97e88`
 
@@ -13,13 +14,19 @@ Head exact qualifié Windows + Linux/WSL :
 a392604fc9e8d00f4021351ab5ba53f8488ab920
 ```
 
+Head PR documentaire post-gate :
+
+```text
+9239be641992f40a46f228e09cf6b34ad1cbb1a4
+```
+
 Preuve : [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).
 
 ## Question de sortie
 
 > Les règles de qualité, contraintes et lifecycle peuvent-elles être distribuées comme politiques versionnées, explicables et auditables sans transformer recommandations, texte libre ou dry-run en mutation silencieuse ?
 
-**Réponse : oui, démontré sur Windows et Linux/WSL sur le même SHA exact.**
+**Réponse : oui, démontré sur Windows et Linux/WSL sur le même SHA exact puis intégré dans `develop`.**
 
 ## Principes
 
@@ -276,9 +283,9 @@ CLI, MCP et HTTP restent des adapters vers les mêmes services applicatifs.
 - [x] `postGateExecutableDelta=NONE`
 - [x] ADR-0093 **Acceptée — M25**
 - [x] preuve `VALIDATION_M25.md`
-- [ ] PR #108 Ready puis merge dans `develop`
-- [ ] issue #107 CLOSED / completed
-- [ ] réconciliation post-merge : M25 DONE / M26 NOW
+- [x] PR #108 Ready puis merge dans `develop`
+- [x] issue #107 CLOSED / completed
+- [x] réconciliation post-merge : M25 DONE / M26 NOW
 
 ## Qualification exacte
 
@@ -314,8 +321,17 @@ Les deux gates incluent `policyPacks`, `policyVersioning`, `policyOverrides`, `p
 2. Le packaging Linux exigeait `JAVA_HOME` alors que WSL disposait du JDK sans variable exportée. `a392604f...` dérive `JAVA_HOME` depuis `java` dans le harness M25.
 3. Après ces corrections, Windows et Linux/WSL ont été rejoués intégralement sur `a392604f...` et ont tous deux terminé avec `M25 VALIDATION PASS`.
 
-## Règle post-gate
+## Intégration
 
-À partir du SHA qualifié `a392604f...`, les changements de consolidation doivent rester exclusivement documentaires. Toute modification de code produit, POM, contrat runtime, migration, OpenAPI, packaging, manifeste public ou validateur invaliderait la qualification et imposerait un nouveau replay Windows + Linux.
+```text
+Qualified exact head   a392604fc9e8d00f4021351ab5ba53f8488ab920
+Post-gate PR head      9239be641992f40a46f228e09cf6b34ad1cbb1a4
+Merge develop          62bf0ea37f732116e821df7d98ae89d36c6dd75d
+Issue                   #107 CLOSED / completed
+PR                      #108 MERGED
+Next                    M26 — Optional Team/Remote Server Mode
+```
+
+Entre le SHA qualifié et le head PR final, seuls quatre fichiers `docs/**` ont changé. Aucun delta exécutable n'a été introduit après qualification.
 
 En juillet 2026, **aucune GitHub Actions / CI n'est utilisée comme preuve M25**.
