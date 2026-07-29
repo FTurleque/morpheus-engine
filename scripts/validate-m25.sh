@@ -11,6 +11,18 @@ OUTPUT="$REPO/validation-output/m25"
 mkdir -p "$OUTPUT"
 VALIDATION_SHA="$(git rev-parse HEAD)"
 
+if [[ -z "${JAVA_HOME:-}" ]]; then
+  JAVA_BIN="$(command -v java || true)"
+  if [[ -n "$JAVA_BIN" ]]; then
+    JAVA_BIN="$(readlink -f "$JAVA_BIN")"
+    DISCOVERED_JAVA_HOME="$(cd "$(dirname "$JAVA_BIN")/.." && pwd)"
+    if [[ -x "$DISCOVERED_JAVA_HOME/bin/java" ]]; then
+      export JAVA_HOME="$DISCOVERED_JAVA_HOME"
+      printf '%s\n' "M25 discovered JAVA_HOME=$JAVA_HOME"
+    fi
+  fi
+fi
+
 printf '%s\n' "M25 exact-head validation SHA: $VALIDATION_SHA"
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   echo 'M25 exact-head gate requires no tracked workspace delta before validation' >&2
