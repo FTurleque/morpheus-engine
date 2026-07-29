@@ -186,9 +186,6 @@ public final class PolicyPackService {
         }
         Instant now = clock.instant();
         PolicyConfiguration.Override replacement = new PolicyConfiguration.Override(
-                scope, packId, ruleId, mode, expectedRevision + 1, actor, expectedRevision + 1, now);
-        // Rebuild to keep constructor parameter order explicit and avoid reason/revision ambiguity.
-        replacement = new PolicyConfiguration.Override(
                 scope, packId, ruleId, mode, reason, actor, expectedRevision + 1, now);
         return store.compareAndSetOverride(scope, packId, ruleId, expectedRevision, replacement, audit(
                 PolicyConfiguration.AuditAction.PUT_OVERRIDE,
