@@ -2,9 +2,9 @@
 
 Statut : **EN COURS — M26-S0→S7 implémentés ; S8 préparé ; S9 qualification restante**
 
-Issue : #109 — **OPEN**  
-PR : #110 — **DRAFT vers `develop`**  
-Branche : `m26/optional-team-remote-server-mode`  
+Issue : #109 — **OPEN**
+PR : #110 — **DRAFT vers `develop`**
+Branche : `m26/optional-team-remote-server-mode`
 Baseline : `develop@619237f5273d83ed70728c58e0b97f85803cb167`
 
 ## Question de sortie
