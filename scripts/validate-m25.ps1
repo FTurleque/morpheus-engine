@@ -74,11 +74,13 @@ function Assert-PackagedM25([string]$Launcher) {
     if ($updated -notmatch '"revision":2') { throw "Policy revision did not advance: $updated" }
 
     $staleOut = Join-Path $outputRoot 'stale.stdout.log'; $staleErr = Join-Path $outputRoot 'stale.stderr.log'
-    $stale = Start-Process -FilePath $Launcher -ArgumentList @(
+    $staleArgs = @(
         '--data-dir', $data, 'policy', 'pack', 'update', '--id', $packId, '--expected-revision', '1',
         '--name', 'stale', '--rules', "$ruleId|No findings|QUALITY_THRESHOLD|BLOCKER|FINDINGS|LTE|0",
-        '--actor', 'gate', '--reason', 'stale') -RedirectStandardOutput $staleOut -RedirectStandardError $staleErr -WindowStyle Hidden -Wait -PassThru
-    if ($stale.ExitCode -eq 0) { throw 'Stale policy CAS unexpectedly succeeded' }
+        '--actor', 'gate', '--reason', 'stale')
+    & $Launcher @staleArgs 1> $staleOut 2> $staleErr
+    $staleExitCode = $LASTEXITCODE
+    if ($staleExitCode -eq 0) { throw 'Stale policy CAS unexpectedly succeeded' }
     $staleError = if (Test-Path $staleErr) { Get-Content $staleErr -Raw } else { '' }
     if ($staleError -notmatch 'stale policy pack revision') { throw "Stale policy diagnostic mismatch: $staleError" }
 
