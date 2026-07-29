@@ -1,9 +1,9 @@
 # M25 — Policy Packs & Governance Automation
 
-Statut : **EN COURS — M25-S0 cadré**
+Statut : **EN COURS — M25-S0→S8 implémentés ; qualification S9 à exécuter**
 
 Issue : #107 — **OPEN**
-PR : à ouvrir en Draft vers `develop`
+PR : #108 — **DRAFT vers `develop`**
 Branche : `m25/policy-packs-governance-automation`
 Baseline : `develop@5cdb26405fb9ae768964a24016fef89bdca97e88`
 
@@ -28,29 +28,26 @@ surface parity != same transport shape
 
 M25 ne crée pas de langage de script ni de moteur d'exécution arbitraire. Les policy packs décrivent des règles déclaratives bornées qui composent des sémantiques déjà possédées par MORPHEUS : qualité, contraintes, lifecycle et requêtes normalisées.
 
-## Modèle cible
+## Modèle livré
 
 ```text
-PolicyPackId
-PolicyPackVersionId
-PolicyRuleId
-PolicyPackDefinition
-PolicyPackVersion
+PolicyIds.PackId
+PolicyIds.VersionId
+PolicyIds.RuleId
+PolicyPack.Definition
+PolicyPack.Version
 PolicyRule
-PolicyRuleKind
 PolicyScope
-PolicySeverity
-PolicyDecision
 PolicyEvaluation
-PolicyOverride
-PolicyAuditRecord
+PolicyConfiguration.Override
+PolicyConfiguration.AuditRecord
 ```
 
 Une identité de pack reste stable pendant que ses versions sont immuables. Une activation sélectionne explicitement une version ; elle ne réécrit jamais une version historique.
 
 ## Types de règles M25
 
-Le premier contrat reste fermé et typé :
+Le contrat est fermé et typé :
 
 ```text
 CONSTRAINT_GUARD
@@ -59,7 +56,7 @@ QUALITY_THRESHOLD
 QUERY_ASSERTION
 ```
 
-- `CONSTRAINT_GUARD` consomme les évaluations M16 et peut exiger qu'aucune contrainte explicitement BLOCKING ne soit observée pour une cible lifecycle donnée.
+- `CONSTRAINT_GUARD` consomme les évaluations M16 et observe les contraintes explicitement BLOCKING/UNKNOWN pour une cible lifecycle déclarée.
 - `LIFECYCLE_GUARD` consomme l'évaluation de transition M14/M17 sans appliquer de mutation.
 - `QUALITY_THRESHOLD` applique un seuil explicite à une métrique qualité déclarée.
 - `QUERY_ASSERTION` consomme le moteur Query DSL M24 et compare `totalMatches` à un opérateur/seuil borné.
@@ -101,13 +98,14 @@ UNKNOWN
 Un override est une configuration first-class :
 
 ```text
-ruleId
 scope
+packId
+ruleId
 mode        DISABLE | FORCE_WARN | FORCE_BLOCK
 reason
 actor
-createdAt
 revision
+updatedAt
 ```
 
 L'override conserve toujours la décision d'origine dans l'explication. `FORCE_BLOCK` est une décision de gouvernance explicite, pas une transformation de UNKNOWN par défaut.
@@ -122,7 +120,7 @@ Le dry-run :
 - n'active aucun pack ;
 - ne modifie aucun lifecycle ;
 - ne publie aucun snapshot ;
-- n'écrit aucun résultat métier.
+- n'écrit aucun résultat métier ni audit de configuration.
 
 ## Budgets M25
 
@@ -132,19 +130,16 @@ active packs per scope      <= 32
 overrides per scope         <= 256
 pack name                   <= 160 chars
 rule description            <= 512 chars
-query assertion page size   <= M24 QueryBudgets.MAX_PAGE_SIZE
 dry-run evaluations         <= 4096 rules
 ```
 
-Tout dépassement échoue explicitement avant exécution partielle silencieuse.
+Les `QUERY_ASSERTION` réutilisent les budgets du Query DSL M24. Tout dépassement échoue explicitement avant exécution partielle silencieuse.
 
 ## Persistance
 
 Port application `PolicyPackStore` avec adapters Memory et SQLite.
 
 SQLite : migration additive `V015__policy_packs.sql` après V014. Aucune migration historique n'est réécrite.
-
-Tables cibles :
 
 ```text
 policy_packs
@@ -186,72 +181,75 @@ CLI, MCP et HTTP restent des adapters vers les mêmes services applicatifs.
 - [x] branche depuis develop
 - [x] roadmap opérationnelle M25
 - [x] ADR-0093 proposée
-- [ ] Draft PR ouverte vers develop
+- [x] Draft PR #108 ouverte vers `develop`
 
 ### M25-S1 — modèle et validation
 
-- [ ] identité pack/version/rule
-- [ ] scope projet/portfolio
-- [ ] kinds fermés et payloads typés
-- [ ] budgets
-- [ ] validation déterministe
+- [x] identité pack/version/rule
+- [x] scope projet/portfolio
+- [x] kinds fermés et payloads typés
+- [x] budgets
+- [x] validation déterministe
 
 ### M25-S2 — évaluation et explainability
 
-- [ ] décisions PASS/WARN/BLOCK/UNKNOWN
-- [ ] applicability
-- [ ] constraint/lifecycle integration read-only
-- [ ] quality threshold
-- [ ] query assertion M24
-- [ ] résultat canonique et ordonné
+- [x] décisions PASS/WARN/BLOCK/UNKNOWN
+- [x] applicability APPLICABLE/NOT_APPLICABLE/UNKNOWN
+- [x] constraint/lifecycle integration read-only
+- [x] quality threshold
+- [x] query assertion M24
+- [x] résultat transport-safe, canonique et ordonné
 
 ### M25-S3 — overrides / precedence / conflicts
 
-- [ ] override first-class
-- [ ] raison/acteur obligatoires
-- [ ] décision originale conservée
-- [ ] ordre stable
-- [ ] conflits explicites
+- [x] override first-class `scope + packId + ruleId`
+- [x] raison/acteur obligatoires
+- [x] décision originale conservée séparément de la décision effective
+- [x] ordre stable
+- [x] stale revisions / conflits explicites
 
 ### M25-S4 — registry/versioning/Memory
 
-- [ ] create/update/version history
-- [ ] CAS revision
-- [ ] activate/deactivate explicit version
-- [ ] Memory parity contract
-- [ ] audit config
+- [x] create/update/version history
+- [x] CAS revision
+- [x] activate/deactivate explicit version
+- [x] Memory contract
+- [x] audit config append-only
 
 ### M25-S5 — SQLite V015
 
-- [ ] migration additive
-- [ ] SqlitePolicyPackStore
-- [ ] reopen
-- [ ] parity Memory/SQLite
-- [ ] transactions/autocommit restoration
+- [x] migration additive
+- [x] `SqlitePolicyPackStore`
+- [x] reopen
+- [x] parity Memory/SQLite
+- [x] transactions/autocommit restoration
+- [x] codec versionné déterministe, sans Java serialization
 
 ### M25-S6 — governance dry-run
 
-- [ ] dry-run read-only
-- [ ] deterministic report
-- [ ] no mutation proof
-- [ ] budget proof
+- [x] dry-run read-only
+- [x] deterministic report
+- [x] no mutation proof
+- [x] UNKNOWN preservation
+- [x] budget proof
 
 ### M25-S7 — CLI/MCP/HTTP
 
-- [ ] CLI policy commands
-- [ ] MCP strict schemas
-- [ ] HTTP routes + strict JSON
-- [ ] OpenAPI M25
-- [ ] public-surfaces manifest
+- [x] CLI policy commands
+- [x] MCP 12 tools + schemas stricts
+- [x] HTTP routes + strict JSON
+- [x] OpenAPI M25
+- [x] public-surfaces manifest
 
 ### M25-S8 — architecture / packaging / docs / validator
 
-- [ ] architecture contracts
-- [ ] packaged class/migration proof
-- [ ] user/developer docs
-- [ ] `validate-m25.cmd`
-- [ ] `scripts/validate-m25.ps1`
-- [ ] `scripts/validate-m25.sh`
+- [x] architecture contracts
+- [x] packaged class/migration proof dans validateurs
+- [x] guide utilisateur `POLICY_PACKS.md`
+- [x] architecture développeur `POLICY_PLATFORM.md`
+- [x] `validate-m25.cmd`
+- [x] `scripts/validate-m25.ps1`
+- [x] `scripts/validate-m25.sh`
 
 ### M25-S9 — qualification / intégration
 
@@ -267,6 +265,36 @@ CLI, MCP et HTTP restent des adapters vers les mêmes services applicatifs.
 - [ ] PR Ready puis merge dans `develop`
 - [ ] issue #107 CLOSED / completed
 - [ ] M26 passe NOW
+
+## Tests M25 dédiés
+
+```text
+PolicyPackContractTest
+PolicyPersistenceParityTest
+PolicyCodecAndBudgetContractTest
+PolicyPlatformArchitectureTest
+MorpheusPolicyCliTest
+MorpheusPolicyMcpToolsTest
+MorpheusPolicyApiContractTest
+```
+
+Ils verrouillent identité/versioning/CAS, UNKNOWN, overrides, dry-run no-write, codec/budgets, Memory/SQLite V015/reopen et convergence de surfaces.
+
+## Gate canonique
+
+Windows :
+
+```powershell
+.\validate-m25.cmd 1.0.0
+```
+
+Linux :
+
+```bash
+bash ./scripts/validate-m25.sh 1.0.0
+```
+
+Les deux doivent exécuter exactement le même SHA de code.
 
 ## Règle de qualification
 
