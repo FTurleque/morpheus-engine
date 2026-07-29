@@ -1,6 +1,6 @@
 # MORPHEUS — Roadmap d’évolution post-M20
 
-Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 à M25 intégrés ; M26 prochain jalon actif**
+Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 à M26 intégrés ; M27 prochain jalon actif**
 
 Dernière mise à jour : 29 juillet 2026
 
@@ -29,6 +29,7 @@ M22           ✅ validé et intégré
 M23           ✅ validé et intégré
 M24           ✅ validé et intégré
 M25           ✅ validé et intégré
+M26           ✅ validé et intégré
 M20 merge     75d0b82ab0c960692db2fee1ced146fa6547fd4a
 D1 merge      51f6a120f3461c8d8c24323f3db8211d28d6cb42
 M21 merge     2fdce6601a07628c315fe03932750cd8ece3d777
@@ -40,7 +41,11 @@ M25 code      a392604fc9e8d00f4021351ab5ba53f8488ab920
 M25 PR head   9239be641992f40a46f228e09cf6b34ad1cbb1a4
 M25 merge     62bf0ea37f732116e821df7d98ae89d36c6dd75d
 M25 tests     565 PASS Windows + Linux
-Architecture  231 PASS M25 Windows + Linux
+M26 code      bf481b24054c4577144b4cb2ede2bdbc4d9974a2
+M26 PR head   36378842e3ef41e379ade17f869b0939d052bbbc
+M26 merge     49016a18c844a78ec864235c544d82d487da7c8a
+M26 tests     579 PASS Windows + Linux
+Architecture  234 PASS M26 Windows + Linux
 MORPHEUS      1.0.0
 v1.0.0        ✅ tag stable publié
 ```
@@ -52,7 +57,8 @@ Preuves :
 - [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md) ;
 - [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md) ;
 - [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md) ;
-- [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).
+- [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md) ;
+- [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
 
 ## Invariants post-1.0
 
@@ -97,7 +103,19 @@ dry-run != mutation
 policy evaluation != lifecycle mutation
 pack activation != domain truth mutation
 surface parity != same transport shape
-remote mode != mandatory cloud dependency
+local mode remains first-class
+remote mode is opt-in
+non-loopback bind requires remote mode
+remote mode requires TLS + authentication
+plaintext bearer over remote HTTP is forbidden
+authentication != authorization
+READ != WRITE != ADMIN
+token plaintext != persisted credential
+backup != live restore
+restore != implicit migration
+server state != provider source of truth
+multi-client concurrency != unbounded concurrency
+metrics != secret disclosure
 MORPHEUS != MINOS
 MORPHEUS != NEXUS
 MORPHEUS != JARVIS
@@ -262,17 +280,52 @@ CI / GitHub Actions       non utilisé — juillet 2026
 Preuve : [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).  
 Plan final : [`M25_EXECUTION.md`](M25_EXECUTION.md).
 
-# NOW
-
 ## M26 — Optional Team/Remote Server Mode
 
-Question : MORPHEUS peut-il être utilisé par une équipe via un mode serveur optionnel sans casser le fonctionnement local-first ?
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
 
-Axes : authentication, authorization, concurrency, remote API hardening, multi-client state, backups, migration, observability.
+Issue : **#109 CLOSED / completed**.  
+PR : **#110 MERGED dans `develop`**.  
+Merge : `49016a18c844a78ec864235c544d82d487da7c8a`.  
+Head exact qualifié Windows + Linux/WSL : `bf481b24054c4577144b4cb2ede2bdbc4d9974a2`.  
+Head PR post-gate docs-only : `36378842e3ef41e379ade17f869b0939d052bbbc`.
 
-Invariants : local mode reste first-class ; remote mode est opt-in ; authz read != authz write ; server state != source-of-truth provider.
+Question de sortie :
 
-# LATER
+> MORPHEUS peut-il être utilisé par une équipe via un mode serveur optionnel sans casser le fonctionnement local-first ?
+
+Réponse : **oui, démontré sur Windows et Linux/WSL puis intégré dans `develop`**.
+
+```text
+Local mode                first-class / loopback-only
+Remote mode               explicit opt-in
+Transport                 HTTPS TLS 1.3/1.2 + PKCS12
+Authentication            Bearer / token hash-only persistence
+Authorization             READ < WRITE < ADMIN
+Concurrency               bounded 1..512 + HTTP 429
+HTTPS backlog             distinct et borné
+Security headers          PASS / no implicit CORS
+Secret non-disclosure     PASS
+Observability             process-local counters
+Backup                    VACUUM INTO + integrity + schema + SHA-256
+Restore                   offline only + confirm + server lease
+Schema                    SQLite V015 / future schema rejected
+Control plane MCP         intentionally absent
+Tests                     579 PASS Windows + Linux
+Architecture              234 PASS Windows + Linux
+Windows coverage          44.3507% line / 37.8842% branch
+Linux coverage            44.3527% line / 37.8842% branch
+CycloneDX/provenance      PASS Windows + Linux
+Portable                  PASS Windows + Linux
+Executable delta          NONE Windows + Linux
+ADR-0094                  Acceptée — M26
+CI / GitHub Actions       non utilisé — juillet 2026
+```
+
+Preuve : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).  
+Plan final : [`M26_EXECUTION.md`](M26_EXECUTION.md).
+
+# NOW
 
 ## M27 — Evidence-backed Assisted Reasoning
 
