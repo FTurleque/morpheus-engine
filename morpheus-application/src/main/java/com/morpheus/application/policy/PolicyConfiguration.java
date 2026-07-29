@@ -29,7 +29,7 @@ public final class PolicyConfiguration {
             Objects.requireNonNull(updatedAt, "updatedAt");
         }
 
-        @Override
+        @java.lang.Override
         public int compareTo(Activation other) {
             int scopeCompare = scopeKey(scope).compareTo(scopeKey(other.scope));
             return scopeCompare != 0 ? scopeCompare : packId.compareTo(other.packId);
@@ -58,7 +58,7 @@ public final class PolicyConfiguration {
             Objects.requireNonNull(updatedAt, "updatedAt");
         }
 
-        @Override
+        @java.lang.Override
         public int compareTo(Override other) {
             int scopeCompare = scopeKey(scope).compareTo(scopeKey(other.scope));
             if (scopeCompare != 0) {
@@ -106,7 +106,7 @@ public final class PolicyConfiguration {
             Objects.requireNonNull(at, "at");
         }
 
-        @Override
+        @java.lang.Override
         public int compareTo(AuditRecord other) {
             int atCompare = at.compareTo(other.at);
             return atCompare != 0 ? atCompare : id.compareTo(other.id);
