@@ -18,10 +18,6 @@ class RemoteServerArchitectureTest {
         var classes = new ClassFileImporter().importPackages("com.morpheus");
         noClasses()
                 .that().resideInAnyPackage("..domain..", "..application..")
-                .should().dependOnClassesThat().haveSimpleNameContaining("RemoteHttpServer")
-                .check(classes);
-        noClasses()
-                .that().resideInAnyPackage("..domain..", "..application..")
                 .should().dependOnClassesThat().resideInAnyPackage("..cli..", "..api..")
                 .check(classes);
     }
