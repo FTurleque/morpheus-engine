@@ -1,0 +1,185 @@
+openapi: 3.1.0
+info:
+  title: MORPHEUS Remote Server M26 Supplement
+  version: 1.0.0-m26
+  description: >-
+    M26 opt-in HTTPS remote/team server additions. Existing /api/v1 business routes remain the
+    same semantic API but, in remote mode, are fronted by TLS, Bearer authentication and RBAC.
+servers:
+  - url: https://127.0.0.1:8765/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /server/status:
+    get:
+      operationId: getRemoteServerStatus
+      summary: Read process-local remote server status
+      responses:
+        '200':
+          description: Remote server status without credentials or business payloads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerStatusEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /server/backups:
+    post:
+      operationId: createRemoteServerBackup
+      summary: Create and verify a coherent SQLite backup
+      description: Requires ADMIN. Restore is intentionally not exposed through HTTP.
+      responses:
+        '201':
+          description: Backup created, integrity checked and schema checked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-256-bit-token
+      description: >-
+        Bearer token generated locally by `server identity create`. Only SHA-256(token) is persisted.
+  responses:
+    Unauthenticated:
+      description: Missing or invalid Bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Authenticated principal lacks the required READ/WRITE/ADMIN role
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    TooManyRequests:
+      description: Explicit M26 concurrent request budget reached
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ServerStatusEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, data]
+      properties:
+        apiVersion:
+          const: v1
+        data:
+          $ref: '#/components/schemas/ServerStatus'
+    ServerStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - transport
+        - host
+        - port
+        - startedAt
+        - uptimeSeconds
+        - activeRequests
+        - maxConcurrentRequests
+        - totalRequests
+        - authenticationFailures
+        - authorizationFailures
+        - throttledRequests
+      properties:
+        mode:
+          const: REMOTE
+        transport:
+          const: HTTPS
+        host:
+          type: string
+          minLength: 1
+          maxLength: 255
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        startedAt:
+          type: string
+          format: date-time
+        uptimeSeconds:
+          type: integer
+          minimum: 0
+        activeRequests:
+          type: integer
+          minimum: 0
+        maxConcurrentRequests:
+          type: integer
+          minimum: 1
+          maximum: 512
+        totalRequests:
+          type: integer
+          minimum: 0
+        authenticationFailures:
+          type: integer
+          minimum: 0
+        authorizationFailures:
+          type: integer
+          minimum: 0
+        throttledRequests:
+          type: integer
+          minimum: 0
+    BackupEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, data]
+      properties:
+        apiVersion:
+          const: v1
+        data:
+          $ref: '#/components/schemas/BackupVerification'
+    BackupVerification:
+      type: object
+      additionalProperties: false
+      required: [path, bytes, sha256, schemaVersion, integrityOk]
+      properties:
+        path:
+          type: string
+          minLength: 1
+        bytes:
+          type: integer
+          minimum: 1
+        sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        schemaVersion:
+          type: integer
+          minimum: 1
+          maximum: 15
+        integrityOk:
+          const: true
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, error]
+      properties:
+        apiVersion:
+          const: v1
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, details]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object

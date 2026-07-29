@@ -33,8 +33,15 @@ policy.pack.versions	READ	policy pack versions	list_policy_pack_versions	GET /ap
 policy.pack.update	WRITE	policy pack update	update_policy_pack	PUT /api/v1/policy-packs/{id}	CAS configuration update creates a new immutable version; stale writers fail
 policy.pack.activate	WRITE	policy activate	activate_policy_pack	POST /api/v1/policy-packs/{id}/activate	Explicitly selects an immutable version for project/portfolio scope; not a domain truth mutation
 policy.pack.deactivate	WRITE	policy deactivate	deactivate_policy_pack	POST /api/v1/policy-packs/{id}/deactivate	CAS configuration change only
+policy.activation.list	READ	policy activations	list_policy_activations	GET /api/v1/policy-activations	Lists explicit version activations for one scope
 policy.override.put	WRITE	policy override put	put_policy_override	PUT /api/v1/policy-packs/{id}/overrides/{ruleId}	Explicit reason/actor + CAS; original policy decision/provenance remains observable
 policy.override.list	READ	policy override list	list_policy_overrides	GET /api/v1/policy-overrides	Scope-explicit governance configuration view
+policy.override.remove	WRITE	policy override remove	remove_policy_override	POST /api/v1/policy-overrides/remove	Explicit audited removal restores source decision semantics
 policy.evaluate	READ	policy evaluate	evaluate_policies	POST /api/v1/policies/evaluate	Read-only deterministic evaluation; UNKNOWN is not implicitly BLOCKED
 policy.dry-run	READ	policy dry-run	dry_run_policy_pack	POST /api/v1/policies/dry-run	Evaluates an immutable version without activation, lifecycle mutation or published-state write
 policy.audit	READ	policy audit	get_policy_audit	GET /api/v1/policy-packs/{id}/audit	Append-only audit of policy configuration changes, distinct from lifecycle mutation audit
+server.status	READ	EXPLICITLY_REMOTE_ONLY	EXPLICITLY_NOT_EXPOSED	GET /api/v1/server/status	Remote runtime status after Bearer auth; no credential material or provider truth
+server.identity.create	WRITE	server identity create	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Provisioning is local-only; generated token is printed once and only SHA-256 is persisted
+server.backup.create	WRITE	server backup create	EXPLICITLY_NOT_EXPOSED	POST /api/v1/server/backups	Remote HTTP requires ADMIN; SQLite coherent backup + integrity/schema verification
+server.backup.verify	READ	server backup verify	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Verification is local and read-only; rejects future schema
+server.restore	WRITE	server restore --confirm	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_OFFLINE_ONLY	Restore is deliberately absent from remote HTTP/MCP and fails while server lease is held
