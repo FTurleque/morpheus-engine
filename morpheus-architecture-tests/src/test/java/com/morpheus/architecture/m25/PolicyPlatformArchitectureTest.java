@@ -70,7 +70,7 @@ class PolicyPlatformArchitectureTest {
         assertTrue(openApi.contains("/policies/evaluate:"));
         assertTrue(openApi.contains("/policies/dry-run:"));
         assertTrue(openApi.contains("additionalProperties: false"));
-        assertTrue(openApi.contains("maximum: 128"));
+        assertTrue(openApi.contains("maxItems: 128"));
         assertFalse(openApi.toLowerCase().contains("sql passthrough"));
         assertFalse(openApi.toLowerCase().contains("script source"));
     }
