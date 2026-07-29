@@ -6,7 +6,7 @@
 
 ## État produit
 
-**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.** Les évolutions 1.x M21 à M24 sont également validées et intégrées sur cette baseline produit.
+**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.** Les évolutions 1.x M21 à M25 sont également validées et intégrées sur cette baseline produit.
 
 ```text
 Release stable    v1.0.0
@@ -16,14 +16,16 @@ M21 merge         2fdce6601a07628c315fe03932750cd8ece3d777
 M22 merge         67c587057e287d57b0733f9e425a57b26cc38ae4
 M23 merge         88355b69c493677c8689eecad214fb00d283359b
 M24 executable    be69e47da0ae209d2246df9c67bc08caeafb2bb0
-M24 PR head       863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58
 M24 merge         2b483ded10c783fff22c25035db89475c5c9fdaf
-M24 tests         543 PASS Windows + Linux
-M24 architecture  221 PASS Windows + Linux
+M25 exact head    a392604fc9e8d00f4021351ab5ba53f8488ab920
+M25 PR head       9239be641992f40a46f228e09cf6b34ad1cbb1a4
+M25 merge         62bf0ea37f732116e821df7d98ae89d36c6dd75d
+M25 tests         565 PASS Windows + Linux
+M25 architecture  231 PASS Windows + Linux
 ```
 
 Preuve de publication : [docs/validation/VALIDATION_R1.md](docs/validation/VALIDATION_R1.md).  
-Dernière preuve technique : [docs/validation/VALIDATION_M24.md](docs/validation/VALIDATION_M24.md).
+Dernière preuve technique : [docs/validation/VALIDATION_M25.md](docs/validation/VALIDATION_M25.md).
 
 ## Ce que MORPHEUS fournit
 
@@ -38,9 +40,13 @@ Dernière preuve technique : [docs/validation/VALIDATION_M24.md](docs/validation
 - sémantique explicite des contraintes ;
 - lifecycle contrôlé avec capability, confirmation, CAS, idempotency et audit ;
 - portfolio multi-projets provider-neutral, références inter-projets et traversal bornée ;
-- **Query DSL provider-neutral borné** ;
-- **saved views versionnées avec CAS** ;
-- **exports JSON canonique, CSV et Markdown déterministes/read-only** ;
+- Query DSL provider-neutral borné ;
+- saved views versionnées avec CAS ;
+- exports JSON canonique, CSV et Markdown déterministes/read-only ;
+- **Policy Packs provider-neutral versionnés** ;
+- **activations et overrides explicites avec CAS et provenance** ;
+- **dry-run de gouvernance strictement read-only** ;
+- **audit append-only des configurations de policy** ;
 - CLI locale scriptable ;
 - serveur MCP STDIO ;
 - API HTTP locale `/api/v1` ;
@@ -58,6 +64,7 @@ MORPHEUS = specification facts / intent / lifecycle rules
            + provider composition facts
            + portfolio specification facts
            + provider-neutral query/view/reporting contracts
+           + provider-neutral governance policy contracts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = orchestration / sequencing / action choice
@@ -134,45 +141,90 @@ morpheus export view --id <savedViewId> --format csv
 
 Guide complet : [docs/user/QUERY_VIEWS_REPORTING.md](docs/user/QUERY_VIEWS_REPORTING.md).
 
-## Surfaces M24
+## Policy Packs / Governance Automation
+
+Créer un pack :
+
+```bash
+morpheus policy pack create \
+  --name "Release governance" \
+  --rules 'new|No findings|QUALITY_THRESHOLD|BLOCKER|FINDINGS|LTE|0' \
+  --actor operator \
+  --reason baseline
+```
+
+Activer explicitement une version :
+
+```bash
+morpheus policy activate \
+  --id <policyPackId> \
+  --version <versionId> \
+  --project <projectId> \
+  --expected-revision 0 \
+  --actor operator \
+  --reason enable
+```
+
+Tester sans mutation :
+
+```bash
+morpheus policy dry-run --id <policyPackId> --version <versionId> --project <projectId>
+```
+
+Guide : [docs/user/POLICY_PACKS.md](docs/user/POLICY_PACKS.md).
+
+## Surfaces M25
 
 CLI :
 
 ```text
-query execute
-views create/list/get/versions/update/archive/execute
-export query/view
+policy pack create/list/get/versions/update
+policy activate/deactivate/activations
+policy override put/list/remove
+policy evaluate
+gpolicy dry-run
+policy audit
 ```
 
 MCP :
 
 ```text
-execute_query
-create_saved_view
-list_saved_views
-get_saved_view
-list_saved_view_versions
-update_saved_view
-archive_saved_view
-execute_saved_view
-export_query
-export_saved_view
+create_policy_pack
+list_policy_packs
+get_policy_pack
+list_policy_pack_versions
+update_policy_pack
+activate_policy_pack
+deactivate_policy_pack
+list_policy_activations
+put_policy_override
+list_policy_overrides
+remove_policy_override
+evaluate_policies
+dry_run_policy_pack
+get_policy_audit
 ```
 
 HTTP :
 
 ```text
-POST /api/v1/queries/execute
-GET/POST /api/v1/saved-views
-GET/PUT /api/v1/saved-views/{id}
-GET /api/v1/saved-views/{id}/versions
-POST /api/v1/saved-views/{id}/execute
-POST /api/v1/saved-views/{id}/archive
-POST /api/v1/saved-views/{id}/export
-POST /api/v1/exports
+POST /api/v1/policy-packs
+GET  /api/v1/policy-packs
+GET  /api/v1/policy-packs/{id}
+PUT  /api/v1/policy-packs/{id}
+GET  /api/v1/policy-packs/{id}/versions
+POST /api/v1/policy-packs/{id}/activate
+POST /api/v1/policy-packs/{id}/deactivate
+PUT  /api/v1/policy-packs/{id}/overrides/{ruleId}
+GET  /api/v1/policy-packs/{id}/audit
+GET  /api/v1/policy-overrides
+GET  /api/v1/policy-activations
+POST /api/v1/policy-overrides/remove
+POST /api/v1/policies/evaluate
+POST /api/v1/policies/dry-run
 ```
 
-OpenAPI : [docs/openapi/morpheus-v1-query-m24.yaml](docs/openapi/morpheus-v1-query-m24.yaml).
+OpenAPI : [docs/openapi/morpheus-v1-policy-m25.yaml](docs/openapi/morpheus-v1-policy-m25.yaml).
 
 ## Invariants importants
 
@@ -206,6 +258,14 @@ DSL != SQL passthrough
 saved view != materialized truth
 export != mutation
 bounded query != silently truncated semantics
+constraint text != executable policy
+severity != blocking policy
+policy recommendation != applied mutation
+policy version != mutable latest
+policy override != provenance erasure
+dry-run != mutation
+policy evaluation != lifecycle mutation
+pack activation != domain truth mutation
 portfolio result preserves ProjectSpecificationId
 surface parity != same transport shape
 optional engine absence != MORPHEUS failure
@@ -251,19 +311,19 @@ morpheus-architecture-tests
 .\mvnw.cmd clean test
 ```
 
-Gate M24 Windows :
+Gate M25 Windows :
 
 ```powershell
-.\validate-m24.cmd 1.0.0
+.\validate-m25.cmd 1.0.0
 ```
 
-Gate M24 Linux :
+Gate M25 Linux :
 
 ```bash
-bash ./scripts/validate-m24.sh 1.0.0
+bash ./scripts/validate-m25.sh 1.0.0
 ```
 
-Preuve technique : [docs/validation/VALIDATION_M24.md](docs/validation/VALIDATION_M24.md).
+Preuve technique : [docs/validation/VALIDATION_M25.md](docs/validation/VALIDATION_M25.md).
 
 ## Roadmap 1.x
 
@@ -277,12 +337,12 @@ DONE
   M22  Provider SDK & Plugin Discovery Platform ✅
   M23  Multi-project / Portfolio Specification Intelligence ✅
   M24  Query DSL, Saved Views & Export/Reporting ✅
+  M25  Policy Packs & Governance Automation ✅
 
 NOW
-  M25  Policy Packs & Governance Automation
+  M26  Optional Team/Remote Server Mode
 
 LATER
-  M26  Optional Team/Remote Server Mode
   M27  Evidence-backed Assisted Reasoning
 ```
 
@@ -294,5 +354,5 @@ M27 reste optionnel : `facts != inference` et aucun LLM n’est requis dans le c
 
 Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
 Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).  
-Queries / Saved Views / Reporting : [docs/user/QUERY_VIEWS_REPORTING.md](docs/user/QUERY_VIEWS_REPORTING.md).  
-Architecture Query Platform : [docs/developer/QUERY_PLATFORM.md](docs/developer/QUERY_PLATFORM.md).
+Policy Packs : [docs/user/POLICY_PACKS.md](docs/user/POLICY_PACKS.md).  
+Architecture Policy Platform : [docs/developer/POLICY_PLATFORM.md](docs/developer/POLICY_PLATFORM.md).
