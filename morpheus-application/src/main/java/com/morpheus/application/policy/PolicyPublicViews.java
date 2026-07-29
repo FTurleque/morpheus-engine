@@ -84,16 +84,16 @@ public final class PolicyPublicViews {
         return switch (value) {
             case PolicyRule.ConstraintGuard c -> new ConfigView(
                     Optional.of(c.changeId().toString()), Optional.empty(), Optional.of(c.targetState().name()),
-                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
             case PolicyRule.LifecycleGuard c -> new ConfigView(
                     Optional.of(c.changeId().toString()), Optional.of(c.sourceState().name()), Optional.of(c.targetState().name()),
-                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
             case PolicyRule.QualityThreshold c -> new ConfigView(
                     Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(c.metric().name()),
-                    Optional.of(c.comparison().name()), Optional.of(c.threshold()), Optional.empty(), Optional.empty(), Optional.empty());
+                    Optional.of(c.comparison().name()), Optional.of(c.threshold()), Optional.empty(), Optional.empty());
             case PolicyRule.QueryAssertion c -> new ConfigView(
                     Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(c.comparison().name()),
-                    Optional.empty(), Optional.of(c.expectedCount()), Optional.of(QueryPublicViews.query(c.query())), Optional.empty());
+                    Optional.empty(), Optional.of(c.expectedCount()), Optional.of(QueryPublicViews.query(c.query())));
         };
     }
 
@@ -122,8 +122,7 @@ public final class PolicyPublicViews {
             Optional<String> comparison,
             Optional<Double> threshold,
             Optional<Long> expectedCount,
-            Optional<QueryPublicViews.QueryDefinitionView> query,
-            Optional<String> reserved) {}
+            Optional<QueryPublicViews.QueryDefinitionView> query) {}
     public record ActivationView(ScopeView scope, String packId, String versionId, long revision, String actor, String updatedAt) {}
     public record OverrideView(ScopeView scope, String packId, String ruleId, String mode, String reason, String actor, long revision, String updatedAt) {}
     public record AuditView(
