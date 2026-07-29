@@ -139,7 +139,11 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                     minosStatus,
                     technicalContextProvider,
                     writeCapabilityResolver);
-            HttpsServer https = HttpsServer.create(new InetSocketAddress(normalizedHost, port), maxConcurrentRequests);
+            // Keep the TCP accept queue distinct from the application concurrency budget. This lets accepted
+            // excess requests reach the semaphore and receive a deterministic HTTP 429 instead of being refused
+            // at the socket layer when a deliberately small maxConcurrentRequests value is configured.
+            int listenBacklog = Math.max(DEFAULT_MAX_CONCURRENT_REQUESTS, maxConcurrentRequests);
+            HttpsServer https = HttpsServer.create(new InetSocketAddress(normalizedHost, port), listenBacklog);
             https.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
                 @Override
                 public void configure(HttpsParameters parameters) {
