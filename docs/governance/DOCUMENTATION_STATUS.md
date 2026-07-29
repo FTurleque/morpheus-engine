@@ -1,8 +1,8 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — MORPHEUS 1.x post-M24**
+Statut : **ACTIF — MORPHEUS 1.x post-M25**
 
-Dernière mise à jour : 28 juillet 2026
+Dernière mise à jour : 29 juillet 2026
 
 ## Hiérarchie d’autorité
 
@@ -14,7 +14,7 @@ docs/roadmap/POST_M20_EVOLUTION.md
 plan d’exécution du jalon actif
 ```
 
-M24 est intégré. **M25 — Policy Packs & Governance Automation** est le jalon actif.
+M25 est intégré. **M26 — Optional Team/Remote Server Mode** est le prochain jalon actif.
 
 Pour les contrats exposés :
 
@@ -43,15 +43,15 @@ docs/governance/DOCUMENTATION_STATUS.md
 docs/roadmap/POST_M20_EVOLUTION.md
 ```
 
-Points d’entrée M24 :
+Points d’entrée M25 :
 
 ```text
-docs/roadmap/M24_EXECUTION.md
-docs/validation/VALIDATION_M24.md
-docs/adr/0092-provider-neutral-query-dsl-saved-views-reporting.md
-docs/user/QUERY_VIEWS_REPORTING.md
-docs/developer/QUERY_PLATFORM.md
-docs/openapi/morpheus-v1-query-m24.yaml
+docs/roadmap/M25_EXECUTION.md
+docs/validation/VALIDATION_M25.md
+docs/adr/0093-provider-neutral-policy-packs-governance-automation.md
+docs/user/POLICY_PACKS.md
+docs/developer/POLICY_PLATFORM.md
+docs/openapi/morpheus-v1-policy-m25.yaml
 contracts/public-surfaces.tsv
 ```
 
@@ -59,18 +59,24 @@ contracts/public-surfaces.tsv
 
 Les fichiers `docs/validation/VALIDATION_*.md` conservent les SHA, nombres de tests, couvertures et résultats réellement observés. Une réconciliation documentaire ne réécrit jamais ces faits.
 
-Pour M24 :
+Pour M25 :
 
 ```text
-Executable SHA   be69e47da0ae209d2246df9c67bc08caeafb2bb0
-PR head          863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58
-Merge            2b483ded10c783fff22c25035db89475c5c9fdaf
-Tests            543 PASS Windows + Linux
-Architecture     221 PASS Windows + Linux
-ADR-0092         Acceptée — M24
+Exact-head qualifié  a392604fc9e8d00f4021351ab5ba53f8488ab920
+PR docs head         9239be641992f40a46f228e09cf6b34ad1cbb1a4
+Merge develop        62bf0ea37f732116e821df7d98ae89d36c6dd75d
+Tests                565 PASS Windows + Linux
+Architecture         231 PASS Windows + Linux
+Windows coverage     42.9925% / 36.3983%
+Linux coverage       42.9945% / 36.3983%
+SQLite               V015 PASS
+Policy convergence   CLI/MCP/HTTP PASS
+Portable             PASS Windows + Linux
+Executable delta     NONE après qualification
+ADR-0093             Acceptée — M25
 ```
 
-Le compare entre le SHA exécutable qualifié et le head PR a confirmé que tous les commits post-gate étaient exclusivement documentaires.
+Le compare entre le SHA exact qualifié et le head PR a confirmé que tous les commits post-gate avant merge étaient exclusivement documentaires.
 
 ## Baseline actuelle
 
@@ -82,11 +88,11 @@ M21            ✅ validé et intégré
 M22            ✅ validé et intégré
 M23            ✅ validé et intégré
 M24            ✅ validé et intégré
-M25            ⏭ NOW
-M26            ⏳ LATER
+M25            ✅ validé et intégré
+M26            ⏭ NOW
 M27            ⏳ LATER
 ```
 
-La version officiellement publiée reste `v1.0.0`. M21→M24 sont des évolutions 1.x intégrées sur cette baseline.
+La version officiellement publiée reste `v1.0.0`. M21→M25 sont des évolutions 1.x intégrées sur cette baseline.
 
-Aucune GitHub Actions / CI n’a servi de gate M24 en juillet 2026 ; la preuve de référence est la double qualification locale Windows + Linux exact-head.
+Aucune GitHub Actions / CI n’a servi de gate M25 en juillet 2026 ; la preuve de référence est la double qualification locale Windows + Linux/WSL exact-head.
