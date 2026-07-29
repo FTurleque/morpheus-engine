@@ -6,7 +6,7 @@
 
 ## État produit
 
-**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.** Les évolutions 1.x M21 à M25 sont également validées et intégrées sur cette baseline produit.
+**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.** Les évolutions 1.x M21 à M26 sont également validées et intégrées sur cette baseline produit.
 
 ```text
 Release stable    v1.0.0
@@ -18,14 +18,16 @@ M23 merge         88355b69c493677c8689eecad214fb00d283359b
 M24 executable    be69e47da0ae209d2246df9c67bc08caeafb2bb0
 M24 merge         2b483ded10c783fff22c25035db89475c5c9fdaf
 M25 exact head    a392604fc9e8d00f4021351ab5ba53f8488ab920
-M25 PR head       9239be641992f40a46f228e09cf6b34ad1cbb1a4
 M25 merge         62bf0ea37f732116e821df7d98ae89d36c6dd75d
-M25 tests         565 PASS Windows + Linux
-M25 architecture  231 PASS Windows + Linux
+M26 exact head    bf481b24054c4577144b4cb2ede2bdbc4d9974a2
+M26 PR head       36378842e3ef41e379ade17f869b0939d052bbbc
+M26 merge         49016a18c844a78ec864235c544d82d487da7c8a
+M26 tests         579 PASS Windows + Linux
+M26 architecture  234 PASS Windows + Linux
 ```
 
 Preuve de publication : [docs/validation/VALIDATION_R1.md](docs/validation/VALIDATION_R1.md).  
-Dernière preuve technique : [docs/validation/VALIDATION_M25.md](docs/validation/VALIDATION_M25.md).
+Dernière preuve technique : [docs/validation/VALIDATION_M26.md](docs/validation/VALIDATION_M26.md).
 
 ## Ce que MORPHEUS fournit
 
@@ -43,13 +45,18 @@ Dernière preuve technique : [docs/validation/VALIDATION_M25.md](docs/validation
 - Query DSL provider-neutral borné ;
 - saved views versionnées avec CAS ;
 - exports JSON canonique, CSV et Markdown déterministes/read-only ;
-- **Policy Packs provider-neutral versionnés** ;
-- **activations et overrides explicites avec CAS et provenance** ;
-- **dry-run de gouvernance strictement read-only** ;
-- **audit append-only des configurations de policy** ;
+- Policy Packs provider-neutral versionnés ;
+- activations et overrides explicites avec CAS et provenance ;
+- dry-run de gouvernance strictement read-only ;
+- audit append-only des configurations de policy ;
 - CLI locale scriptable ;
 - serveur MCP STDIO ;
 - API HTTP locale `/api/v1` ;
+- **mode serveur d’équipe remote optionnel en HTTPS** ;
+- **Bearer authentication avec persistence hash-only** ;
+- **RBAC READ / WRITE / ADMIN** ;
+- **concurrence remote bornée avec HTTP 429** ;
+- **backup SQLite cohérent et restore offline explicite** ;
 - intégrations optionnelles MINOS, NEXUS et JARVIS ;
 - setup Windows per-user ;
 - distributions portables Windows/Linux avec runtime Java embarqué.
@@ -65,6 +72,7 @@ MORPHEUS = specification facts / intent / lifecycle rules
            + portfolio specification facts
            + provider-neutral query/view/reporting contracts
            + provider-neutral governance policy contracts
+           + optional remote/team access boundary
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = orchestration / sequencing / action choice
@@ -112,8 +120,6 @@ Guide : [docs/user/PORTFOLIOS.md](docs/user/PORTFOLIOS.md).
 
 ## Query DSL / Saved Views / Reporting
 
-Exécuter une requête projet :
-
 ```bash
 morpheus query execute \
   --project <projectId> \
@@ -143,8 +149,6 @@ Guide complet : [docs/user/QUERY_VIEWS_REPORTING.md](docs/user/QUERY_VIEWS_REPOR
 
 ## Policy Packs / Governance Automation
 
-Créer un pack :
-
 ```bash
 morpheus policy pack create \
   --name "Release governance" \
@@ -173,58 +177,46 @@ morpheus policy dry-run --id <policyPackId> --version <versionId> --project <pro
 
 Guide : [docs/user/POLICY_PACKS.md](docs/user/POLICY_PACKS.md).
 
-## Surfaces M25
+## Team / Remote Server Mode — M26
 
-CLI :
+Le mode local reste le comportement par défaut. Un bind non-loopback n’est jamais obtenu implicitement.
 
-```text
-policy pack create/list/get/versions/update
-policy activate/deactivate/activations
-policy override put/list/remove
-policy evaluate
-policy dry-run
-policy audit
-```
-
-MCP :
+Le mode remote est explicitement activé par `api --remote` et exige :
 
 ```text
-create_policy_pack
-list_policy_packs
-get_policy_pack
-list_policy_pack_versions
-update_policy_pack
-activate_policy_pack
-deactivate_policy_pack
-list_policy_activations
-put_policy_override
-list_policy_overrides
-remove_policy_override
-evaluate_policies
-dry_run_policy_pack
-get_policy_audit
+HTTPS
+PKCS12 keystore
+TLS 1.3 / TLS 1.2
+Bearer authentication
+READ / WRITE / ADMIN RBAC
 ```
 
-HTTP :
+Les tokens sont générés avec 256 bits d’entropie et seul leur SHA-256 est persisté.
+
+Surfaces serveur M26 :
 
 ```text
-POST /api/v1/policy-packs
-GET  /api/v1/policy-packs
-GET  /api/v1/policy-packs/{id}
-PUT  /api/v1/policy-packs/{id}
-GET  /api/v1/policy-packs/{id}/versions
-POST /api/v1/policy-packs/{id}/activate
-POST /api/v1/policy-packs/{id}/deactivate
-PUT  /api/v1/policy-packs/{id}/overrides/{ruleId}
-GET  /api/v1/policy-packs/{id}/audit
-GET  /api/v1/policy-overrides
-GET  /api/v1/policy-activations
-POST /api/v1/policy-overrides/remove
-POST /api/v1/policies/evaluate
-POST /api/v1/policies/dry-run
+GET  /api/v1/server/status        READ
+POST /api/v1/server/backups       ADMIN
+GET  /api/v1/metrics              ADMIN
 ```
 
-OpenAPI : [docs/openapi/morpheus-v1-policy-m25.yaml](docs/openapi/morpheus-v1-policy-m25.yaml).
+Maintenance locale :
+
+```text
+server identity create
+server backup create
+server backup verify
+server restore --confirm
+```
+
+Le provisioning d’identité et le restore sont volontairement absents du control plane HTTP/MCP. Le restore est **offline uniquement**.
+
+La concurrence applicative est bornée (`1..512`, défaut `64`) et la saturation retourne HTTP `429`. Le listen backlog HTTPS est distinct de cette limite applicative afin de ne pas transformer la saturation en refus TCP prématuré.
+
+Guide utilisateur : [docs/user/TEAM_REMOTE_SERVER.md](docs/user/TEAM_REMOTE_SERVER.md).  
+Architecture : [docs/developer/REMOTE_SERVER_PLATFORM.md](docs/developer/REMOTE_SERVER_PLATFORM.md).  
+OpenAPI : [docs/openapi/morpheus-v1-remote-m26.yaml](docs/openapi/morpheus-v1-remote-m26.yaml).
 
 ## Invariants importants
 
@@ -266,7 +258,17 @@ policy override != provenance erasure
 dry-run != mutation
 policy evaluation != lifecycle mutation
 pack activation != domain truth mutation
-portfolio result preserves ProjectSpecificationId
+local mode remains first-class
+remote mode is opt-in
+non-loopback bind requires remote mode
+remote mode requires TLS + authentication
+authentication != authorization
+READ != WRITE != ADMIN
+token plaintext != persisted credential
+backup != live restore
+restore != implicit migration
+server state != provider source of truth
+multi-client concurrency != unbounded concurrency
 surface parity != same transport shape
 optional engine absence != MORPHEUS failure
 ```
@@ -280,7 +282,8 @@ Persistent store     SQLite
 DomainIdentity       UUIDv7
 MCP SDK              Java MCP SDK 2.0.0
 MCP transport        STDIO
-HTTP server          JDK jdk.httpserver
+HTTP local           JDK jdk.httpserver
+Remote HTTPS         JDK HttpsServer, opt-in
 Distribution         jpackage + Inno Setup Windows
 ```
 
@@ -311,19 +314,19 @@ morpheus-architecture-tests
 .\mvnw.cmd clean test
 ```
 
-Gate M25 Windows :
+Gate M26 Windows :
 
 ```powershell
-.\validate-m25.cmd 1.0.0
+.\validate-m26.cmd 1.0.0
 ```
 
-Gate M25 Linux :
+Gate M26 Linux :
 
 ```bash
-bash ./scripts/validate-m25.sh 1.0.0
+bash ./scripts/validate-m26.sh 1.0.0
 ```
 
-Preuve technique : [docs/validation/VALIDATION_M25.md](docs/validation/VALIDATION_M25.md).
+Preuve technique : [docs/validation/VALIDATION_M26.md](docs/validation/VALIDATION_M26.md).
 
 ## Roadmap 1.x
 
@@ -338,11 +341,9 @@ DONE
   M23  Multi-project / Portfolio Specification Intelligence ✅
   M24  Query DSL, Saved Views & Export/Reporting ✅
   M25  Policy Packs & Governance Automation ✅
+  M26  Optional Team/Remote Server Mode ✅
 
 NOW
-  M26  Optional Team/Remote Server Mode
-
-LATER
   M27  Evidence-backed Assisted Reasoning
 ```
 
@@ -354,5 +355,5 @@ M27 reste optionnel : `facts != inference` et aucun LLM n’est requis dans le c
 
 Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
 Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).  
-Policy Packs : [docs/user/POLICY_PACKS.md](docs/user/POLICY_PACKS.md).  
-Architecture Policy Platform : [docs/developer/POLICY_PLATFORM.md](docs/developer/POLICY_PLATFORM.md).
+Team/Remote Server : [docs/user/TEAM_REMOTE_SERVER.md](docs/user/TEAM_REMOTE_SERVER.md).  
+Architecture Remote : [docs/developer/REMOTE_SERVER_PLATFORM.md](docs/developer/REMOTE_SERVER_PLATFORM.md).
