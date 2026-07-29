@@ -1,15 +1,18 @@
 # M26 — Optional Team / Remote Server Mode
 
-Statut : **EN COURS — M26-S0→S7 implémentés ; S8 préparé ; S9 qualification restante**
+Statut : **QUALIFIÉ — Windows + Linux/WSL exact-head PASS ; intégration finale restante**
 
 Issue : #109 — **OPEN**
 PR : #110 — **DRAFT vers `develop`**
 Branche : `m26/optional-team-remote-server-mode`
 Baseline : `develop@619237f5273d83ed70728c58e0b97f85803cb167`
+Head exact qualifié : `bf481b24054c4577144b4cb2ede2bdbc4d9974a2`
 
 ## Question de sortie
 
 > MORPHEUS peut-il être utilisé par une équipe via un mode serveur optionnel sans casser le fonctionnement local-first ?
+
+Réponse : **oui, démontré sur Windows et Linux/WSL sur le même SHA exact**.
 
 ## Invariants
 
@@ -66,6 +69,7 @@ surface parity != same transport shape
 ### M26-S3 — concurrence multi-client / observabilité
 
 - [x] limite de concurrence explicite 1..512
+- [x] backlog HTTPS distinct de la concurrence applicative
 - [x] HTTP 429 sur saturation
 - [x] active/total/auth/forbidden/throttled counters
 - [x] uptime/start time
@@ -129,32 +133,59 @@ surface parity != same transport shape
 - [x] `validate-m26.cmd`
 - [x] `scripts/validate-m26.ps1`
 - [x] `scripts/validate-m26.sh`
-- [ ] ADR index — consolidation après double preuve
-- [ ] packaged TLS/server classes proof — à exécuter S9
-- [ ] SBOM/provenance/portable — à exécuter S9
+- [x] ADR index / preuve de validation préparés après double preuve
+- [x] packaged TLS/server classes proof
+- [x] SBOM/provenance/portable
 
 ### M26-S9 — qualification / intégration
 
-- [ ] Windows exact-head PASS
-- [ ] Linux/WSL exact-head PASS même SHA
-- [ ] tests >= 565
-- [ ] architecture >= 231
-- [ ] JaCoCo floors PASS
-- [ ] remote TLS/auth/RBAC PASS
-- [ ] bounded concurrency/429 PASS
-- [ ] secret non-disclosure PASS
-- [ ] backup/restore + schema compatibility PASS
-- [ ] portable Windows/Linux PASS
-- [ ] `postGateExecutableDelta=NONE`
-- [ ] ADR-0094 Acceptée
+- [x] Windows exact-head PASS
+- [x] Linux/WSL exact-head PASS même SHA
+- [x] tests >= 565 — **579 PASS**
+- [x] architecture >= 231 — **234 PASS**
+- [x] JaCoCo floors PASS
+- [x] remote TLS/auth/RBAC PASS
+- [x] bounded concurrency/429 PASS
+- [x] secret non-disclosure PASS
+- [x] backup/restore + schema compatibility PASS
+- [x] portable Windows/Linux PASS
+- [x] `postGateExecutableDelta=NONE` dans les deux gates
+- [x] ADR-0094 Acceptée
 - [ ] PR Ready puis merge dans `develop`
 - [ ] issue #109 CLOSED / completed
 - [ ] réconciliation post-merge : M26 DONE / M27 NOW
+
+## Preuve exacte
+
+```text
+qualified SHA       bf481b24054c4577144b4cb2ede2bdbc4d9974a2
+Windows tests       579 PASS
+Linux tests         579 PASS
+Windows architecture 234 PASS
+Linux architecture   234 PASS
+Windows coverage    0.443507 line / 0.378842 branch
+Linux coverage      0.443527 line / 0.378842 branch
+localFirst          PASS
+remoteTlsAuthRbac   PASS
+boundedConcurrency  PASS
+secretNonDisclosure PASS
+backupRestore       PASS
+schemaCompatibility PASS
+surfaceConvergence  PASS
+sqliteV015          PASS
+sbom/provenance     PASS Windows + Linux
+portable            PASS Windows + Linux
+executable delta    NONE Windows + Linux
+CI                   NOT USED — July 2026
+```
+
+Preuve détaillée : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
 
 ## Budgets M26
 
 ```text
 max concurrent requests       64 default / 1..512
+HTTPS listen backlog          distinct et borné
 max auth identities           256
 principal length              1..128 chars
 auth file                     <= 256 KiB
@@ -190,8 +221,8 @@ Linux / WSL :
 bash ./scripts/validate-m26.sh 1.0.0
 ```
 
-Les deux gates doivent exécuter exactement le même SHA. Toute modification de code/POM/runtime/migration/OpenAPI/packaging/validator après un PASS invalide ce PASS et impose un replay Windows + Linux.
+Les deux gates ont exécuté exactement le même SHA `bf481b24054c4577144b4cb2ede2bdbc4d9974a2`.
 
-Les consolidations après double PASS devront être exclusivement documentaires avant merge.
+Toute modification de code/POM/runtime/migration/OpenAPI/packaging/validator après ce PASS invaliderait la qualification. Les consolidations post-gate sont exclusivement documentaires.
 
 En juillet 2026, **aucune GitHub Actions / CI n’est utilisée comme preuve M26**.
