@@ -33,6 +33,7 @@ VALIDATION_M22.md
 VALIDATION_M23.md
 VALIDATION_M24.md
 VALIDATION_M25.md
+VALIDATION_M26.md
 ```
 
 Chaque document conserve les décisions, SHA testés, commandes et gates connus au moment de la validation. Ils constituent des **preuves historiques** ; la documentation utilisateur et développeur active vit respectivement dans [`../user/`](../user/) et [`../developer/`](../developer/).
@@ -53,44 +54,45 @@ GitHub Release      MORPHEUS 1.0.0 — 8/8 assets
 
 Preuves : [`VALIDATION_M20.md`](VALIDATION_M20.md), [`VALIDATION_D1.md`](VALIDATION_D1.md), [`VALIDATION_R1.md`](VALIDATION_R1.md).
 
-## Évolutions 1.x intégrées avant M25
+## Évolutions 1.x intégrées avant M26
 
 ```text
 M21  473 PASS Windows + Linux | Architecture 187
 M22  494 PASS Windows + Linux | Architecture 190
 M23  507 PASS Windows + Linux | Architecture 195
 M24  543 PASS Windows + Linux | Architecture 221
+M25  565 PASS Windows + Linux | Architecture 231
 ```
 
-Preuves : [`VALIDATION_M21.md`](VALIDATION_M21.md), [`VALIDATION_M22.md`](VALIDATION_M22.md), [`VALIDATION_M23.md`](VALIDATION_M23.md), [`VALIDATION_M24.md`](VALIDATION_M24.md).
+Preuves : [`VALIDATION_M21.md`](VALIDATION_M21.md), [`VALIDATION_M22.md`](VALIDATION_M22.md), [`VALIDATION_M23.md`](VALIDATION_M23.md), [`VALIDATION_M24.md`](VALIDATION_M24.md), [`VALIDATION_M25.md`](VALIDATION_M25.md).
 
 ## Dernier jalon techniquement qualifié
 
-**M25 — Policy Packs & Governance Automation** est qualifié sur Windows et Linux/WSL sur le même SHA exact :
+**M26 — Optional Team / Remote Server Mode** est qualifié sur Windows et Linux/WSL sur le même SHA exact :
 
 ```text
-Head exact qualifié     a392604fc9e8d00f4021351ab5ba53f8488ab920
+Head exact qualifié     bf481b24054c4577144b4cb2ede2bdbc4d9974a2
 Windows                 PASS
 Linux / WSL             PASS
-Tests                   565 PASS Windows + Linux
-Architecture            231 PASS Windows + Linux
-Windows JaCoCo          42.9925% lignes / 36.3983% branches
-Linux JaCoCo            42.9945% lignes / 36.3983% branches
-Policy packs            PASS
-Versioning / CAS        PASS
-Overrides / provenance  PASS
-Dry-run                 PASS
-Explainability          PASS
-SQLite V015             PASS
+Tests                   579 PASS Windows + Linux
+Architecture            234 PASS Windows + Linux
+Windows JaCoCo          44.3507% lignes / 37.8842% branches
+Linux JaCoCo            44.3527% lignes / 37.8842% branches
+Local-first             PASS
+Remote TLS/auth/RBAC    PASS
+Bounded concurrency     PASS / HTTP 429
+Secret non-disclosure   PASS
+Backup/restore          PASS
+Schema compatibility    PASS / SQLite V015
 CycloneDX/provenance    PASS Windows + Linux
 Portable                PASS Windows + Linux
-Convergence             CLI/MCP/HTTP PASS
+Surface convergence     PASS
 Executable delta        NONE Windows + Linux
-ADR-0093                Acceptée — M25
-PR                       #108 vers develop
+ADR-0094                Acceptée — M26
+PR                      #110 vers develop
 CI / GitHub Actions     non utilisé — juillet 2026
 ```
 
-La preuve détaillée est [`VALIDATION_M25.md`](VALIDATION_M25.md).
+La preuve détaillée est [`VALIDATION_M26.md`](VALIDATION_M26.md).
 
 Le SHA exact qualifié reste distinct des commits documentaires de consolidation ajoutés ensuite. Une modification de code/POM/contrat runtime/OpenAPI/packaging/validator exige un nouveau gate exact-head Windows + Linux.
