@@ -1,6 +1,5 @@
 package com.morpheus.cli;
 
-import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.policy.DefaultPolicyFactResolver;
 import com.morpheus.application.policy.PolicyConfiguration;
@@ -103,6 +102,10 @@ final class MorpheusPolicyCli {
                         scope(options), pack(options), PolicyIds.VersionId.parse(options.required("version")), revisionAllowZero(options),
                         options.required("actor"), options.required("reason")));
             }
+            case "activations" -> {
+                options.rejectUnknown(Set.of("project", "portfolio"));
+                yield PolicyPublicViews.activations(runtime.registry.activations(scope(options)));
+            }
             case "deactivate" -> {
                 options.rejectUnknown(Set.of("id", "project", "portfolio", "expected-revision", "actor", "reason"));
                 runtime.registry.deactivate(scope(options), pack(options), revision(options),
@@ -119,6 +122,13 @@ final class MorpheusPolicyCli {
             case "override-list" -> {
                 options.rejectUnknown(Set.of("project", "portfolio"));
                 yield PolicyPublicViews.overrides(runtime.registry.overrides(scope(options)));
+            }
+            case "override-remove" -> {
+                options.rejectUnknown(Set.of("id", "rule", "project", "portfolio", "expected-revision", "actor", "reason"));
+                runtime.registry.removeOverride(
+                        scope(options), pack(options), PolicyIds.RuleId.parse(options.required("rule")), revision(options),
+                        options.required("actor"), options.required("reason"));
+                yield Map.of("removed", true);
             }
             case "evaluate" -> {
                 options.rejectUnknown(Set.of("id", "project", "portfolio"));
