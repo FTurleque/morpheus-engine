@@ -78,8 +78,14 @@ function Assert-PackagedM25([string]$Launcher) {
         '--data-dir', $data, 'policy', 'pack', 'update', '--id', $packId, '--expected-revision', '1',
         '--name', 'stale', '--rules', "$ruleId|No findings|QUALITY_THRESHOLD|BLOCKER|FINDINGS|LTE|0",
         '--actor', 'gate', '--reason', 'stale')
-    & $Launcher @staleArgs 1> $staleOut 2> $staleErr
-    $staleExitCode = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $Launcher @staleArgs 1> $staleOut 2> $staleErr
+        $staleExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     if ($staleExitCode -eq 0) { throw 'Stale policy CAS unexpectedly succeeded' }
     $staleError = if (Test-Path $staleErr) { Get-Content $staleErr -Raw } else { '' }
     if ($staleError -notmatch 'stale policy pack revision') { throw "Stale policy diagnostic mismatch: $staleError" }
