@@ -1,15 +1,25 @@
 # M25 — Policy Packs & Governance Automation
 
-Statut : **EN COURS — M25-S0→S8 implémentés ; qualification S9 à exécuter**
+Statut : **QUALIFIÉ — M25-S0→S9 techniquement terminés ; intégration finale #108 vers `develop` en cours**
 
-Issue : #107 — **OPEN**
-PR : #108 — **DRAFT vers `develop`**
-Branche : `m25/policy-packs-governance-automation`
+Issue : #107 — **OPEN jusqu'au merge**  
+PR : #108 — **à rendre Ready puis merger vers `develop`**  
+Branche : `m25/policy-packs-governance-automation`  
 Baseline : `develop@5cdb26405fb9ae768964a24016fef89bdca97e88`
+
+Head exact qualifié Windows + Linux/WSL :
+
+```text
+a392604fc9e8d00f4021351ab5ba53f8488ab920
+```
+
+Preuve : [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).
 
 ## Question de sortie
 
 > Les règles de qualité, contraintes et lifecycle peuvent-elles être distribuées comme politiques versionnées, explicables et auditables sans transformer recommandations, texte libre ou dry-run en mutation silencieuse ?
+
+**Réponse : oui, démontré sur Windows et Linux/WSL sur le même SHA exact.**
 
 ## Principes
 
@@ -47,8 +57,6 @@ Une identité de pack reste stable pendant que ses versions sont immuables. Une 
 
 ## Types de règles M25
 
-Le contrat est fermé et typé :
-
 ```text
 CONSTRAINT_GUARD
 LIFECYCLE_GUARD
@@ -56,25 +64,21 @@ QUALITY_THRESHOLD
 QUERY_ASSERTION
 ```
 
-- `CONSTRAINT_GUARD` consomme les évaluations M16 et observe les contraintes explicitement BLOCKING/UNKNOWN pour une cible lifecycle déclarée.
-- `LIFECYCLE_GUARD` consomme l'évaluation de transition M14/M17 sans appliquer de mutation.
-- `QUALITY_THRESHOLD` applique un seuil explicite à une métrique qualité déclarée.
-- `QUERY_ASSERTION` consomme le moteur Query DSL M24 et compare `totalMatches` à un opérateur/seuil borné.
+- `CONSTRAINT_GUARD` consomme les évaluations M16 et n'analyse jamais du texte libre comme code ;
+- `LIFECYCLE_GUARD` consomme l'évaluation de transition M14/M17 sans appliquer de mutation ;
+- `QUALITY_THRESHOLD` compare une métrique fermée à un seuil explicite ;
+- `QUERY_ASSERTION` réutilise le Query DSL M24 et ses budgets.
 
-Aucun type ne compile ni n'interprète du code, du SQL ou du texte de contrainte.
+## Scope, applicability et décision
 
-## Scope
-
-Un pack est activé explicitement sur un scope :
+Scopes :
 
 ```text
 PROJECT(ProjectSpecificationId)
 PORTFOLIO(PortfolioId)
 ```
 
-L'identité du scope ne provient jamais d'un workspace, repository, provider ou chemin.
-
-## Applicability et décision
+Applicability :
 
 ```text
 APPLICABLE
@@ -82,7 +86,7 @@ NOT_APPLICABLE
 UNKNOWN
 ```
 
-Décision d'une règle :
+Décisions :
 
 ```text
 PASS
@@ -91,7 +95,7 @@ BLOCK
 UNKNOWN
 ```
 
-`UNKNOWN` reste une information de manque de preuve et n'est jamais convertie implicitement en `BLOCK`.
+`UNKNOWN` reste un manque de preuve et n'est jamais converti implicitement en `BLOCK`.
 
 ## Overrides
 
@@ -108,19 +112,19 @@ revision
 updatedAt
 ```
 
-L'override conserve toujours la décision d'origine dans l'explication. `FORCE_BLOCK` est une décision de gouvernance explicite, pas une transformation de UNKNOWN par défaut.
+La décision originale reste présente dans l'explication même lorsque la décision effective est modifiée par gouvernance.
 
 ## Dry-run
 
 Le dry-run :
 
 - lit l'état publié courant ;
-- exécute les règles applicables ;
+- évalue une version de pack ;
 - produit décisions, raisons, provenance et evidence ;
 - n'active aucun pack ;
 - ne modifie aucun lifecycle ;
 - ne publie aucun snapshot ;
-- n'écrit aucun résultat métier ni audit de configuration.
+- n'écrit aucun résultat métier ni audit de mutation.
 
 ## Budgets M25
 
@@ -133,13 +137,17 @@ rule description            <= 512 chars
 dry-run evaluations         <= 4096 rules
 ```
 
-Les `QUERY_ASSERTION` réutilisent les budgets du Query DSL M24. Tout dépassement échoue explicitement avant exécution partielle silencieuse.
-
 ## Persistance
 
-Port application `PolicyPackStore` avec adapters Memory et SQLite.
+Port application `PolicyPackStore`, adapters Memory et SQLite.
 
-SQLite : migration additive `V015__policy_packs.sql` après V014. Aucune migration historique n'est réécrite.
+Migration additive :
+
+```text
+V015__policy_packs.sql
+```
+
+Tables :
 
 ```text
 policy_packs
@@ -149,24 +157,26 @@ policy_overrides
 policy_audit
 ```
 
-Les versions de pack et l'audit sont append-only. Activation et overrides utilisent CAS/révision explicite.
+Versions et audit sont append-only. Activations et overrides utilisent CAS/révision explicite.
 
-## Surfaces
+## Surfaces publiques
 
 Intentions convergentes :
 
 ```text
 policy.pack.create
-policy.pack.get
 policy.pack.list
+policy.pack.get
 policy.pack.versions
 policy.pack.update
 policy.pack.activate
 policy.pack.deactivate
+policy.activation.list
 policy.override.put
 policy.override.list
-policy.dry-run
+policy.override.remove
 policy.evaluate
+policy.dry-run
 policy.audit
 ```
 
@@ -178,9 +188,9 @@ CLI, MCP et HTTP restent des adapters vers les mêmes services applicatifs.
 
 - [x] baseline `develop@5cdb264...`
 - [x] issue #107
-- [x] branche depuis develop
+- [x] branche depuis `develop`
 - [x] roadmap opérationnelle M25
-- [x] ADR-0093 proposée
+- [x] ADR-0093 créée
 - [x] Draft PR #108 ouverte vers `develop`
 
 ### M25-S1 — modèle et validation
@@ -236,7 +246,7 @@ CLI, MCP et HTTP restent des adapters vers les mêmes services applicatifs.
 ### M25-S7 — CLI/MCP/HTTP
 
 - [x] CLI policy commands
-- [x] MCP 12 tools + schemas stricts
+- [x] MCP tools + schemas stricts
 - [x] HTTP routes + strict JSON
 - [x] OpenAPI M25
 - [x] public-surfaces manifest
@@ -244,7 +254,7 @@ CLI, MCP et HTTP restent des adapters vers les mêmes services applicatifs.
 ### M25-S8 — architecture / packaging / docs / validator
 
 - [x] architecture contracts
-- [x] packaged class/migration proof dans validateurs
+- [x] packaged class/migration proof
 - [x] guide utilisateur `POLICY_PACKS.md`
 - [x] architecture développeur `POLICY_PLATFORM.md`
 - [x] `validate-m25.cmd`
@@ -253,51 +263,59 @@ CLI, MCP et HTTP restent des adapters vers les mêmes services applicatifs.
 
 ### M25-S9 — qualification / intégration
 
-- [ ] Windows exact-head PASS
-- [ ] Linux exact-head PASS même SHA
-- [ ] 543 tests M24 minimum sans régression
-- [ ] 221 architecture minimum sans régression
-- [ ] JaCoCo floors PASS
-- [ ] SBOM/provenance PASS
-- [ ] portable Windows/Linux PASS
-- [ ] `postGateExecutableDelta=NONE`
-- [ ] ADR-0093 Acceptée
-- [ ] PR Ready puis merge dans `develop`
+- [x] Windows exact-head PASS
+- [x] Linux/WSL exact-head PASS même SHA
+- [x] 565 tests Windows + Linux
+- [x] 231 architecture Windows + Linux
+- [x] JaCoCo floors PASS
+- [x] SBOM/provenance PASS
+- [x] portable Windows/Linux PASS
+- [x] policy versioning/CAS/dry-run/override explainability PASS
+- [x] CLI/MCP/HTTP convergence PASS
+- [x] SQLite V015 PASS
+- [x] `postGateExecutableDelta=NONE`
+- [x] ADR-0093 **Acceptée — M25**
+- [x] preuve `VALIDATION_M25.md`
+- [ ] PR #108 Ready puis merge dans `develop`
 - [ ] issue #107 CLOSED / completed
-- [ ] M26 passe NOW
+- [ ] réconciliation post-merge : M25 DONE / M26 NOW
 
-## Tests M25 dédiés
-
-```text
-PolicyPackContractTest
-PolicyPersistenceParityTest
-PolicyCodecAndBudgetContractTest
-PolicyPlatformArchitectureTest
-MorpheusPolicyCliTest
-MorpheusPolicyMcpToolsTest
-MorpheusPolicyApiContractTest
-```
-
-Ils verrouillent identité/versioning/CAS, UNKNOWN, overrides, dry-run no-write, codec/budgets, Memory/SQLite V015/reopen et convergence de surfaces.
-
-## Gate canonique
+## Qualification exacte
 
 Windows :
 
-```powershell
-.\validate-m25.cmd 1.0.0
+```text
+sha=a392604fc9e8d00f4021351ab5ba53f8488ab920
+tests=565
+architectureTests=231
+lineCoverage=0.429925
+branchCoverage=0.363983
+portable=True
+postGateExecutableDelta=NONE
 ```
 
-Linux :
+Linux / WSL :
 
-```bash
-bash ./scripts/validate-m25.sh 1.0.0
+```text
+sha=a392604fc9e8d00f4021351ab5ba53f8488ab920
+tests=565
+architectureTests=231
+lineCoverage=0.429945
+branchCoverage=0.363983
+portable=true
+postGateExecutableDelta=NONE
 ```
 
-Les deux doivent exécuter exactement le même SHA de code.
+Les deux gates incluent `policyPacks`, `policyVersioning`, `policyOverrides`, `policyDryRun`, `policyExplainability`, `surfaceConvergence`, `sqliteV015`, `sbom` et `provenance` à `PASS`.
 
-## Règle de qualification
+## Incidents utiles découverts pendant S9
 
-Toute modification après un PASS de code produit, POM, contrat runtime, migration, manifeste public, OpenAPI, packaging ou validateur invalide le PASS et impose un nouveau replay Windows + Linux du même SHA. Les consolidations post-gate doivent être documentaires uniquement.
+1. WSL a exposé une race réelle au démarrage MCP : le serveur pouvait devenir visible avant l'enregistrement complet des tools. `71e6eb7c...` assemble désormais tous les tools avant `.build()`.
+2. Le packaging Linux exigeait `JAVA_HOME` alors que WSL disposait du JDK sans variable exportée. `a392604f...` dérive `JAVA_HOME` depuis `java` dans le harness M25.
+3. Après ces corrections, Windows et Linux/WSL ont été rejoués intégralement sur `a392604f...` et ont tous deux terminé avec `M25 VALIDATION PASS`.
 
-En juillet 2026, GitHub Actions / CI n'est pas utilisé comme preuve M25.
+## Règle post-gate
+
+À partir du SHA qualifié `a392604f...`, les changements de consolidation doivent rester exclusivement documentaires. Toute modification de code produit, POM, contrat runtime, migration, OpenAPI, packaging, manifeste public ou validateur invaliderait la qualification et imposerait un nouveau replay Windows + Linux.
+
+En juillet 2026, **aucune GitHub Actions / CI n'est utilisée comme preuve M25**.
