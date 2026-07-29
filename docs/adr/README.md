@@ -109,6 +109,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0091](0091-multi-project-portfolio-intelligence.md) | Portfolio multi-projets provider-neutral, références explicables et traversal bornée | **Acceptée — M23** |
 | [ADR-0092](0092-provider-neutral-query-dsl-saved-views-reporting.md) | Query DSL provider-neutral, saved views versionnées et reporting déterministe | **Acceptée — M24** |
 | [ADR-0093](0093-provider-neutral-policy-packs-governance-automation.md) | Policy packs provider-neutral, versions immuables, overrides explicables et dry-run read-only | **Acceptée — M25** |
+| [ADR-0094](0094-optional-team-remote-server-mode.md) | Mode serveur remote optionnel, TLS/auth/RBAC, concurrence bornée et maintenance SQLite offline | **Acceptée — M26** |
 
 # Preuves par jalon
 
@@ -137,33 +138,34 @@ M22 494 PASS Windows + Linux | Architecture 190 | SDK API 1 | External provider 
 M23 507 PASS Windows + Linux | Architecture 195 | Portfolio convergence PASS | Portable PASS
 M24 543 PASS Windows + Linux | Architecture 221 | Query/view/export convergence PASS | Portable PASS
 M25 565 PASS Windows + Linux | Architecture 231 | Policy governance convergence PASS | Portable PASS
+M26 579 PASS Windows + Linux | Architecture 234 | Remote TLS/auth/RBAC + 429 + backup/restore PASS | Portable PASS
 ```
 
-## Baseline M25 qualifiée
+## Baseline M26 qualifiée
 
-ADR-0093 ajoute des policy packs provider-neutral, des versions immuables, des activations et overrides explicites avec CAS, un dry-run read-only, un audit append-only et une convergence CLI/MCP/HTTP.
+ADR-0094 ajoute un mode serveur remote strictement opt-in, en conservant le mode local first-class et loopback-only. L'exposition remote exige TLS et authentification, applique READ/WRITE/ADMIN, borne la concurrence, ne divulgue aucun secret et fournit backup/restore SQLite explicites avec restore offline seulement.
 
 ```text
-Code exact qualifié   a392604fc9e8d00f4021351ab5ba53f8488ab920
+Code exact qualifié   bf481b24054c4577144b4cb2ede2bdbc4d9974a2
 Version               1.0.0
 Windows               PASS
 Linux WSL             PASS
-Tests                 565 PASS
-Architecture          231 PASS
-Policy packs          PASS
-Versioning / CAS      PASS
-Overrides             PASS
-Dry-run               PASS
-SQLite V015           PASS
-CLI/MCP/HTTP          convergence PASS
+Tests                 579 PASS
+Architecture          234 PASS
+Local-first           PASS
+TLS/auth/RBAC         PASS
+Bounded concurrency   PASS / HTTP 429
+Secret disclosure     NONE
+Backup/restore        PASS
+Schema                V015 compatible
 Coverage              PASS Windows + Linux
 SBOM/provenance       PASS Windows + Linux
 Portable              PASS Windows + Linux
 Executable delta      NONE Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).  
-Plan : [`../roadmap/M25_EXECUTION.md`](../roadmap/M25_EXECUTION.md).  
+Validation : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).  
+Plan : [`../roadmap/M26_EXECUTION.md`](../roadmap/M26_EXECUTION.md).  
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
 # Contraintes actives principales
@@ -205,6 +207,16 @@ policy version != mutable latest
 policy override != provenance erasure
 dry-run != mutation
 policy evaluation != lifecycle mutation
+local mode remains first-class
+remote mode is opt-in
+non-loopback bind requires remote mode
+remote mode requires TLS + authentication
+authentication != authorization
+READ != WRITE != ADMIN
+token plaintext != persisted credential
+backup != live restore
+restore != implicit migration
+server state != provider source of truth
 surface parity != same transport shape
 update discovery != automatic update
 checksum != signature
@@ -221,7 +233,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate techniquement qualifié : **M25**.
+Dernier gate techniquement qualifié : **M26**.
 
 # Principe de validation
 
