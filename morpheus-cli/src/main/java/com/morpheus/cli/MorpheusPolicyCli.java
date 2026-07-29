@@ -132,11 +132,13 @@ final class MorpheusPolicyCli {
             }
             case "evaluate" -> {
                 options.rejectUnknown(Set.of("id", "project", "portfolio"));
-                PolicyScope scope = scope(options);
-                yield options.optional("id")
-                        .map(PolicyIds.PackId::parse)
-                        .map(id -> PolicyPublicViews.report(runtime.evaluation.evaluatePack(scope, id)))
-                        .orElseGet(() -> PolicyPublicViews.governance(runtime.evaluation.evaluate(scope)));
+                PolicyScope evaluationScope = scope(options);
+                Optional<String> packId = options.optional("id");
+                if (packId.isPresent()) {
+                    yield PolicyPublicViews.report(runtime.evaluation.evaluatePack(
+                            evaluationScope, PolicyIds.PackId.parse(packId.orElseThrow())));
+                }
+                yield PolicyPublicViews.governance(runtime.evaluation.evaluate(evaluationScope));
             }
             case "dry-run" -> {
                 options.rejectUnknown(Set.of("id", "version", "project", "portfolio"));
