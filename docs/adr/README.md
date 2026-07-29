@@ -108,6 +108,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0090](0090-provider-sdk-plugin-discovery-platform.md) | Provider SDK v1, discovery sans exécution, activation isolée et lecture normalisée | **Acceptée — M22** |
 | [ADR-0091](0091-multi-project-portfolio-intelligence.md) | Portfolio multi-projets provider-neutral, références explicables et traversal bornée | **Acceptée — M23** |
 | [ADR-0092](0092-provider-neutral-query-dsl-saved-views-reporting.md) | Query DSL provider-neutral, saved views versionnées et reporting déterministe | **Acceptée — M24** |
+| [ADR-0093](0093-provider-neutral-policy-packs-governance-automation.md) | Policy packs provider-neutral, versions immuables, overrides explicables et dry-run read-only | **Acceptée — M25** |
 
 # Preuves par jalon
 
@@ -135,33 +136,34 @@ M21 473 PASS Windows + Linux | Architecture 187 | JaCoCo floors PASS | Portable 
 M22 494 PASS Windows + Linux | Architecture 190 | SDK API 1 | External provider PASS | Portable PASS
 M23 507 PASS Windows + Linux | Architecture 195 | Portfolio convergence PASS | Portable PASS
 M24 543 PASS Windows + Linux | Architecture 221 | Query/view/export convergence PASS | Portable PASS
+M25 565 PASS Windows + Linux | Architecture 231 | Policy governance convergence PASS | Portable PASS
 ```
 
-## Baseline M24 qualifiée
+## Baseline M25 qualifiée
 
-ADR-0092 ajoute un langage de requête provider-neutral borné, des saved views versionnées avec CAS et des exports déterministes read-only.
+ADR-0093 ajoute des policy packs provider-neutral, des versions immuables, des activations et overrides explicites avec CAS, un dry-run read-only, un audit append-only et une convergence CLI/MCP/HTTP.
 
 ```text
-Code qualifié       be69e47da0ae209d2246df9c67bc08caeafb2bb0
-Version              1.0.0
-Windows              PASS
-Linux WSL2           PASS
-Tests                543 PASS
-Architecture         221 PASS
-Query DSL            PASS
-Saved views          PASS
-SQLite V014          PASS
-JSON/CSV/Markdown    PASS
-Budgets              PASS
-CLI/MCP/HTTP         convergence PASS
-Coverage             PASS Windows + Linux
-SBOM/provenance      PASS Windows + Linux
-Portable             PASS Windows + Linux
-Executable delta     NONE Windows + Linux
+Code exact qualifié   a392604fc9e8d00f4021351ab5ba53f8488ab920
+Version               1.0.0
+Windows               PASS
+Linux WSL             PASS
+Tests                 565 PASS
+Architecture          231 PASS
+Policy packs          PASS
+Versioning / CAS      PASS
+Overrides             PASS
+Dry-run               PASS
+SQLite V015           PASS
+CLI/MCP/HTTP          convergence PASS
+Coverage              PASS Windows + Linux
+SBOM/provenance       PASS Windows + Linux
+Portable              PASS Windows + Linux
+Executable delta      NONE Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).  
-Plan : [`../roadmap/M24_EXECUTION.md`](../roadmap/M24_EXECUTION.md).  
+Validation : [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).  
+Plan : [`../roadmap/M25_EXECUTION.md`](../roadmap/M25_EXECUTION.md).  
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
 # Contraintes actives principales
@@ -196,6 +198,13 @@ DSL != SQL passthrough
 saved view != materialized truth
 export != mutation
 bounded query != silently truncated semantics
+constraint text != executable policy
+severity != blocking policy
+policy recommendation != applied mutation
+policy version != mutable latest
+policy override != provenance erasure
+dry-run != mutation
+policy evaluation != lifecycle mutation
 surface parity != same transport shape
 update discovery != automatic update
 checksum != signature
@@ -212,7 +221,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate techniquement qualifié : **M24**.
+Dernier gate techniquement qualifié : **M25**.
 
 # Principe de validation
 
