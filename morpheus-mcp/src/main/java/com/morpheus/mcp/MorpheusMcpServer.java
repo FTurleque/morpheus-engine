@@ -18,6 +18,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,51 +61,29 @@ public final class MorpheusMcpServer {
         MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
         MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath);
         StdioServerTransportProvider transport = new StdioServerTransportProvider(McpJsonDefaults.getMapper());
+        List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
 
-        McpSyncServer server = McpServer.sync(transport)
+        for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
+            tools.add(tool(definition, service));
+        }
+        tools.addAll(new MorpheusProductMcpTools().specifications());
+        tools.addAll(new MorpheusProviderPluginMcpTools().specifications());
+        tools.addAll(new MorpheusPortfolioMcpTools(databasePath).specifications());
+        tools.addAll(new MorpheusQueryMcpTools(databasePath).specifications());
+        tools.addAll(new MorpheusPolicyMcpTools(databasePath).specifications());
+        tools.addAll(new MorpheusPolicyMcpManagementTools(databasePath).specifications());
+        tools.addAll(new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications());
+        tools.addAll(new MorpheusAugmentedContextMcpTools(databasePath, technicalContextProvider).specifications());
+        tools.addAll(new MorpheusJarvisOrchestrationMcpTools(databasePath).specifications());
+        tools.addAll(new MorpheusCompositionMcpTools(databasePath).specifications());
+        tools.addAll(new MorpheusControlledLifecycleMcpTools(databasePath, writeCapabilityResolver).specifications());
+
+        return McpServer.sync(transport)
                 .serverInfo(SERVER_NAME, SERVER_VERSION)
                 .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
                 .validateToolInputs(true)
+                .tools(tools)
                 .build();
-
-        for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
-            server.addTool(tool(definition, service));
-        }
-        for (McpServerFeatures.SyncToolSpecification specification : new MorpheusProductMcpTools().specifications()) {
-            server.addTool(specification);
-        }
-        for (McpServerFeatures.SyncToolSpecification specification : new MorpheusProviderPluginMcpTools().specifications()) {
-            server.addTool(specification);
-        }
-        for (McpServerFeatures.SyncToolSpecification specification
-                : new MorpheusPortfolioMcpTools(databasePath).specifications()) {
-            server.addTool(specification);
-        }
-        for (McpServerFeatures.SyncToolSpecification specification
-                : new MorpheusQueryMcpTools(databasePath).specifications()) {
-            server.addTool(specification);
-        }
-        for (McpServerFeatures.SyncToolSpecification specification
-                : new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications()) {
-            server.addTool(specification);
-        }
-        for (McpServerFeatures.SyncToolSpecification specification
-                : new MorpheusAugmentedContextMcpTools(databasePath, technicalContextProvider).specifications()) {
-            server.addTool(specification);
-        }
-        for (McpServerFeatures.SyncToolSpecification specification
-                : new MorpheusJarvisOrchestrationMcpTools(databasePath).specifications()) {
-            server.addTool(specification);
-        }
-        for (McpServerFeatures.SyncToolSpecification specification
-                : new MorpheusCompositionMcpTools(databasePath).specifications()) {
-            server.addTool(specification);
-        }
-        for (McpServerFeatures.SyncToolSpecification specification
-                : new MorpheusControlledLifecycleMcpTools(databasePath, writeCapabilityResolver).specifications()) {
-            server.addTool(specification);
-        }
-        return server;
     }
 
     public static int run(Path databasePath) {
