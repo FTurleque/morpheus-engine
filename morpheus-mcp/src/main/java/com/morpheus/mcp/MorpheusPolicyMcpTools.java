@@ -122,10 +122,15 @@ final class MorpheusPolicyMcpTools {
                             longValue(arguments, "expectedRevision", 0, Long.MAX_VALUE),
                             requiredString(arguments, "actor"), requiredString(arguments, "reason")));
                     case LIST_OVERRIDES -> PolicyPublicViews.overrides(runtime.registry.overrides(scope(arguments)));
-                    case EVALUATE -> optionalString(arguments, "id")
-                            .map(PolicyIds.PackId::parse)
-                            .map(id -> PolicyPublicViews.report(runtime.evaluation.evaluatePack(scope(arguments), id)))
-                            .orElseGet(() -> PolicyPublicViews.governance(runtime.evaluation.evaluate(scope(arguments))));
+                    case EVALUATE -> {
+                        PolicyScope evaluationScope = scope(arguments);
+                        Optional<String> packId = optionalString(arguments, "id");
+                        if (packId.isPresent()) {
+                            yield PolicyPublicViews.report(runtime.evaluation.evaluatePack(
+                                    evaluationScope, PolicyIds.PackId.parse(packId.orElseThrow())));
+                        }
+                        yield PolicyPublicViews.governance(runtime.evaluation.evaluate(evaluationScope));
+                    }
                     case DRY_RUN -> PolicyPublicViews.report(runtime.evaluation.dryRun(
                             scope(arguments), pack(arguments), PolicyIds.VersionId.parse(requiredString(arguments, "versionId"))));
                     case AUDIT -> PolicyPublicViews.audit(runtime.registry.audit(pack(arguments)));
