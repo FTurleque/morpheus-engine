@@ -58,12 +58,12 @@ function Assert-PackagedM25([string]$Launcher) {
 
     $created = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'policy', 'pack', 'create',
         '--name', 'M25 Gate Pack', '--rules', $rule, '--actor', 'gate', '--reason', 'baseline')
-    $createdIds = Get-Uuids $created
+    $createdIds = @(Get-Uuids $created)
     if ($createdIds.Count -lt 1) { throw "Policy pack ID not found: $created" }
     $packId = $createdIds[0]
 
     $versions = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'policy', 'pack', 'versions', '--id', $packId)
-    $ids = Get-Uuids $versions
+    $ids = @(Get-Uuids $versions)
     if ($ids.Count -lt 3) { throw "Policy version/rule IDs not found: $versions" }
     $versionId = $ids[1]; $ruleId = $ids[2]
 
