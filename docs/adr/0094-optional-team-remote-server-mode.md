@@ -1,6 +1,6 @@
 # ADR-0094 — Optional team / remote server mode
 
-Statut : **Proposée — M26**
+Statut : **Acceptée — M26**
 
 Date : 29 juillet 2026
 
@@ -62,6 +62,8 @@ L’autorisation est fail-closed. Une route inconnue n’obtient jamais WRITE/AD
 
 Le serveur remote applique une limite explicite de requêtes concurrentes. Une surcharge produit HTTP `429` et ne met pas en file une quantité non bornée de travail. SQLite conserve ses transactions, busy timeout et CAS existants ; M26 n’introduit pas de last-write-wins silencieux.
 
+Le listen backlog HTTPS est distinct de la limite de concurrence applicative afin qu’une saturation soit observée et rejetée par le contrôle applicatif plutôt que par un refus TCP prématuré. Les deux budgets restent bornés.
+
 ## Observabilité
 
 Compteurs process-local uniquement :
@@ -102,27 +104,30 @@ Positives : exposition réseau explicite et fail-closed, usage équipe possible,
 
 Coûts : configuration TLS/auth supplémentaire, maintenance d’un fichier d’identités, nouvelles surfaces de maintenance et tests multiplateformes.
 
-## Validation requise avant acceptation
+## Validation d’acceptation
 
-ADR-0094 reste **Proposée** jusqu’à preuve Windows + Linux/WSL sur le même SHA exact :
+ADR-0094 est acceptée après qualification Windows + Linux/WSL sur le même SHA exact :
 
 ```text
-local loopback compatibility PASS
-non-loopback local rejection PASS
-remote TLS startup PASS
-missing TLS/auth fail-closed PASS
-Bearer authentication PASS
-READ/WRITE/ADMIN authorization PASS
-secret non-disclosure PASS
-bounded concurrency / 429 PASS
-backup + integrity verification PASS
-offline restore PASS
-schema compatibility PASS
-server observability PASS
-architecture/security contracts PASS
-SBOM/provenance PASS
-portable Windows/Linux PASS
-postGateExecutableDelta=NONE
+qualified SHA                         bf481b24054c4577144b4cb2ede2bdbc4d9974a2
+local loopback compatibility          PASS
+non-loopback local rejection          PASS
+remote TLS startup                    PASS
+missing TLS/auth fail-closed          PASS
+Bearer authentication                 PASS
+READ/WRITE/ADMIN authorization        PASS
+secret non-disclosure                 PASS
+bounded concurrency / 429             PASS
+backup + integrity verification       PASS
+offline restore                       PASS
+schema compatibility                  PASS
+server observability                  PASS
+architecture/security contracts       PASS
+SBOM/provenance                       PASS Windows + Linux
+portable                              PASS Windows + Linux
+postGateExecutableDelta               NONE Windows + Linux
 ```
+
+Preuve : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
 
 En juillet 2026, aucune GitHub Actions / CI n’est utilisée comme preuve M26.
