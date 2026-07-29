@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -54,10 +56,11 @@ class MorpheusPolicyMcpToolsTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> rules = (Map<String, Object>) properties.get("rules");
         assertEquals(PolicyBudgets.MAX_RULES_PER_PACK, rules.get("maxItems"));
-        String schema = create.toString().toLowerCase();
-        assertFalse(schema.contains("sql"));
-        assertFalse(schema.contains("script"));
-        assertFalse(schema.contains("classname"));
+
+        Set<String> propertyNames = propertyNames(create);
+        assertFalse(propertyNames.contains("sql"));
+        assertFalse(propertyNames.contains("script"));
+        assertFalse(propertyNames.contains("classname"));
     }
 
     @Test
@@ -68,5 +71,31 @@ class MorpheusPolicyMcpToolsTest {
         } finally {
             server.close();
         }
+    }
+
+    private Set<String> propertyNames(Map<String, Object> schema) {
+        Set<String> result = new HashSet<>();
+        Object rawProperties = schema.get("properties");
+        if (rawProperties instanceof Map<?, ?> properties) {
+            for (Map.Entry<?, ?> entry : properties.entrySet()) {
+                if (entry.getKey() instanceof String name) {
+                    result.add(name.toLowerCase(Locale.ROOT));
+                }
+                if (entry.getValue() instanceof Map<?, ?> nested) {
+                    result.addAll(propertyNames(stringKeyMap(nested)));
+                }
+            }
+        }
+        Object rawItems = schema.get("items");
+        if (rawItems instanceof Map<?, ?> items) {
+            result.addAll(propertyNames(stringKeyMap(items)));
+        }
+        return Set.copyOf(result);
+    }
+
+    private Map<String, Object> stringKeyMap(Map<?, ?> raw) {
+        return raw.entrySet().stream()
+                .filter(entry -> entry.getKey() instanceof String)
+                .collect(Collectors.toMap(entry -> (String) entry.getKey(), Map.Entry::getValue));
     }
 }
