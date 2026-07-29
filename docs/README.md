@@ -2,9 +2,9 @@
 
 Cette page est le point d’entrée de la documentation active de MORPHEUS.
 
-MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose plusieurs providers réels sans effacer provenance ni conflits, publie des snapshots versionnés, expose requêtes/traçabilité/qualité, applique des mutations lifecycle explicitement contrôlées, raisonne sur des portfolios multi-projets et, depuis M24, fournit un Query DSL provider-neutral, des saved views versionnées et des exports déterministes.
+MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose plusieurs providers réels sans effacer provenance ni conflits, publie des snapshots versionnés, expose requêtes/traçabilité/qualité, applique des mutations lifecycle explicitement contrôlées, raisonne sur des portfolios multi-projets, fournit un Query DSL provider-neutral avec saved views/exports et, depuis M25, distribue des Policy Packs versionnés, explicables et auditables.
 
-La version produit publiée reste **MORPHEUS 1.0.0** sous le tag stable `v1.0.0`. Les jalons M21→M24 sont des évolutions 1.x qualifiées et intégrées sur cette baseline produit.
+La version produit publiée reste **MORPHEUS 1.0.0** sous le tag stable `v1.0.0`. Les jalons M21→M25 sont des évolutions 1.x qualifiées et intégrées sur cette baseline produit.
 
 ## Baseline et dernier jalon
 
@@ -14,12 +14,13 @@ M21              ✅ validé / intégré
 M22              ✅ validé / intégré
 M23              ✅ validé / intégré
 M24              ✅ validé / intégré
-M24 executable   be69e47da0ae209d2246df9c67bc08caeafb2bb0
-M24 PR head      863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58
-M24 merge        2b483ded10c783fff22c25035db89475c5c9fdaf
-M24 tests        543 PASS Windows + Linux
-M24 architecture 221 PASS Windows + Linux
-NOW              M25 — Policy Packs & Governance Automation
+M25              ✅ validé / intégré
+M25 exact head   a392604fc9e8d00f4021351ab5ba53f8488ab920
+M25 PR head      9239be641992f40a46f228e09cf6b34ad1cbb1a4
+M25 merge        62bf0ea37f732116e821df7d98ae89d36c6dd75d
+M25 tests        565 PASS Windows + Linux
+M25 architecture 231 PASS Windows + Linux
+NOW              M26 — Optional Team/Remote Server Mode
 ```
 
 Preuves principales :
@@ -28,7 +29,8 @@ Preuves principales :
 - [`validation/VALIDATION_M21.md`](validation/VALIDATION_M21.md) — production integrity ;
 - [`validation/VALIDATION_M22.md`](validation/VALIDATION_M22.md) — Provider SDK & Plugin Discovery ;
 - [`validation/VALIDATION_M23.md`](validation/VALIDATION_M23.md) — Portfolio Specification Intelligence ;
-- [`validation/VALIDATION_M24.md`](validation/VALIDATION_M24.md) — Query DSL, Saved Views & Reporting.
+- [`validation/VALIDATION_M24.md`](validation/VALIDATION_M24.md) — Query DSL, Saved Views & Reporting ;
+- [`validation/VALIDATION_M25.md`](validation/VALIDATION_M25.md) — Policy Packs & Governance Automation.
 
 ## Parcours utilisateur
 
@@ -41,6 +43,7 @@ Preuves principales :
 | utiliser les plugins provider | [Plugins provider](user/PROVIDER_PLUGINS.md) |
 | raisonner sur plusieurs projets | [Portfolios multi-projets](user/PORTFOLIOS.md) |
 | requêtes, saved views et exports | [Query DSL, Saved Views & Reporting](user/QUERY_VIEWS_REPORTING.md) |
+| policy packs et gouvernance | [Policy Packs](user/POLICY_PACKS.md) |
 | configurer MINOS, NEXUS ou JARVIS | [Intégrations optionnelles](user/INTEGRATIONS.md) |
 
 Les distributions Windows/Linux embarquent leur runtime Java. L’utilisateur final n’a pas besoin d’installer un JDK.
@@ -54,6 +57,7 @@ Les distributions Windows/Linux embarquent leur runtime Java. L’utilisateur fi
 | compiler, tester et packager | [Build, tests et validation](developer/BUILD_AND_TEST.md) |
 | comprendre M23 | [Portfolio Specification Intelligence](developer/PORTFOLIO_INTELLIGENCE.md) |
 | comprendre M24 | [Query Platform](developer/QUERY_PLATFORM.md) |
+| comprendre M25 | [Policy Platform](developer/POLICY_PLATFORM.md) |
 | contrat HTTP | [API HTTP](developer/API.md) |
 | serveur MCP | [Serveur MCP](developer/MCP.md) |
 | ports MINOS/NEXUS/JARVIS | [Intégrations cross-engine](developer/INTEGRATIONS.md) |
@@ -75,12 +79,17 @@ flowchart LR
     P --> PS[(Portfolio Memory / SQLite V013)]
     S --> D[Query DSL / Saved Views / Exports]
     D --> SV[(Saved Views Memory / SQLite V014)]
+    S --> G[Policy Packs / Governance]
+    G --> PG[(Policies Memory / SQLite V015)]
     Q --> CLI[CLI]
     D --> CLI
+    G --> CLI
     Q --> MCP[MCP STDIO]
     D --> MCP
+    G --> MCP
     Q --> API[HTTP /api/v1]
     D --> API
+    G --> API
     M --> W[Controlled lifecycle write]
     M -->|MCP STDIO| MINOS[MINOS optionnel]
     M -->|MCP STDIO| NEXUS[NEXUS optionnel]
@@ -91,7 +100,7 @@ flowchart LR
 
 - [`governance/ROADMAP.md`](governance/ROADMAP.md) — roadmap globale courante ;
 - [`roadmap/POST_M20_EVOLUTION.md`](roadmap/POST_M20_EVOLUTION.md) — trajectoire active MORPHEUS 1.x ;
-- [`roadmap/M24_EXECUTION.md`](roadmap/M24_EXECUTION.md) — exécution M24 terminée ;
+- [`roadmap/M25_EXECUTION.md`](roadmap/M25_EXECUTION.md) — exécution M25 terminée ;
 - [`validation/README.md`](validation/README.md) — index des preuves ;
 - [`adr/README.md`](adr/README.md) — index des ADR ;
 - [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité documentaire.
@@ -102,17 +111,18 @@ flowchart LR
 - [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml) — contrat OpenAPI v1 historique/cumulatif ;
 - [`openapi/morpheus-v1-portfolio-m23.yaml`](openapi/morpheus-v1-portfolio-m23.yaml) — supplément portfolio M23 ;
 - [`openapi/morpheus-v1-query-m24.yaml`](openapi/morpheus-v1-query-m24.yaml) — supplément Query DSL / Saved Views / Export M24 ;
+- [`openapi/morpheus-v1-policy-m25.yaml`](openapi/morpheus-v1-policy-m25.yaml) — supplément Policy Packs / Governance M25 ;
 - [`../contracts/public-surfaces.tsv`](../contracts/public-surfaces.tsv) — manifeste de surfaces publiques ;
 - [`../distribution/README.md`](../distribution/README.md) — release et distributions 1.0.
 
 ## État livré et suite
 
 ```text
-C0 → M24       ✅ VALIDÉS / INTÉGRÉS
+C0 → M25       ✅ VALIDÉS / INTÉGRÉS
 D0 + D1        ✅ VALIDÉS / INTÉGRÉS
 R1             ✅ v1.0.0 + GitHub Release publiée
-M25            ⏭ Policy Packs & Governance Automation
-M26 → M27      LATER
+M26            ⏭ Optional Team/Remote Server Mode
+M27            LATER
 ```
 
 ## Frontières
@@ -122,6 +132,7 @@ MORPHEUS = specification facts + intent + lifecycle rules
            + controlled state invariants + provider composition facts
            + portfolio specification facts
            + provider-neutral query/view/reporting contracts
+           + provider-neutral governance policy contracts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = sequencing + orchestration + action choice
@@ -145,6 +156,13 @@ DSL != SQL passthrough
 saved view != materialized truth
 export != mutation
 bounded query != silently truncated semantics
+constraint text != executable policy
+policy recommendation != applied mutation
+policy version != mutable latest
+policy override != provenance erasure
+dry-run != mutation
+policy evaluation != lifecycle mutation
+surface parity != same transport shape
 ```
 
-Les preuves `VALIDATION_*.md` conservent le SHA et le gate réellement exécutés. Les commits de consolidation documentaire post-gate et post-merge restent distincts du SHA exécutable qualifié.
+Les preuves `VALIDATION_*.md` conservent le SHA et le gate réellement exécutés. Les commits de consolidation documentaire post-gate et post-merge restent distincts du SHA exact qualifié.
