@@ -43,6 +43,7 @@ final class MorpheusPolicyHttpRoutes {
         server.createContext(PACK_CONTEXT, routes::handlePacks);
         server.createContext(POLICY_CONTEXT, routes::handlePolicies);
         server.createContext(OVERRIDE_CONTEXT, routes::handleOverrides);
+        MorpheusPolicyManagementHttpRoutes.register(server, databasePath);
     }
 
     private void handlePacks(HttpExchange exchange) throws IOException {
@@ -184,7 +185,9 @@ final class MorpheusPolicyHttpRoutes {
 
     private void requireMethod(HttpExchange exchange, String expected) {
         String actual = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
-        if (!actual.equals(expected)) throw new HttpFailure(405, "METHOD_NOT_ALLOWED", "expected HTTP " + expected + " but received " + actual);
+        if (!actual.equals(expected)) {
+            throw new HttpFailure(405, "METHOD_NOT_ALLOWED", "expected HTTP " + expected + " but received " + actual);
+        }
     }
 
     private void rejectQueryParameters(HttpExchange exchange) {
@@ -219,7 +222,7 @@ final class MorpheusPolicyHttpRoutes {
 
     private String allowed(String path) {
         if (path.equals(PACK_CONTEXT)) return "GET, POST";
-        if (path.startsWith(PACK_CONTEXT + "/") && suffixSegments(path, PACK_CONTEXT).size() == 1) return "GET, PUT";
+        if (path.startsWith(PACK_CONTEXT + "/") && path.split("/").length == 5) return "GET, PUT";
         if (path.equals(OVERRIDE_CONTEXT)) return "GET";
         return "POST";
     }
@@ -237,16 +240,23 @@ final class MorpheusPolicyHttpRoutes {
     private static final class HttpFailure extends RuntimeException {
         private final int status;
         private final String code;
+
         private HttpFailure(int status, String code, String message) {
-            super(message); this.status = status; this.code = code;
+            super(message);
+            this.status = status;
+            this.code = code;
         }
     }
 
     @FunctionalInterface
-    private interface Handler { Response route(); }
+    private interface Handler {
+        Response route();
+    }
 
     private record Query(Map<String, String> values) {
-        private Query { values = Map.copyOf(values); }
+        private Query {
+            values = Map.copyOf(values);
+        }
 
         static Query parse(String raw) {
             if (raw == null || raw.isBlank()) return new Query(Map.of());
@@ -256,15 +266,15 @@ final class MorpheusPolicyHttpRoutes {
                 String key = URLDecoder.decode(separator < 0 ? part : part.substring(0, separator), StandardCharsets.UTF_8);
                 String value = URLDecoder.decode(separator < 0 ? "" : part.substring(separator + 1), StandardCharsets.UTF_8);
                 if (key.isBlank() || values.putIfAbsent(key, value) != null) {
-                    throw new HttpFailure(400, "BAD_REQUEST", "invalid or duplicate query parameter");
+                    throw new HttpFailure(400, "BAD_REQUEST", "invalid or duplicate query parameter: " + key);
                 }
             }
             return new Query(values);
         }
 
-        String required(String key) {
-            String value = values.get(key);
-            if (value == null || value.isBlank()) throw new HttpFailure(400, "BAD_REQUEST", "missing query parameter: " + key);
+        String required(String name) {
+            String value = values.get(name);
+            if (value == null || value.isBlank()) throw new HttpFailure(400, "BAD_REQUEST", "query parameter is required: " + name);
             return value;
         }
 
