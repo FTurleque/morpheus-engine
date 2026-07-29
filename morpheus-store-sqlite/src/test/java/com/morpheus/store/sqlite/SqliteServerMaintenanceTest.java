@@ -5,6 +5,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.sql.DriverManager;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -54,5 +56,31 @@ class SqliteServerMaintenanceTest {
             assertThrows(IllegalStateException.class,
                     () -> maintenance.restoreOffline(backup.path(), database, true));
         }
+    }
+
+    @Test
+    void futureSchemaBackupIsRejectedInsteadOfBeingDowngraded() throws Exception {
+        Path database = temp.resolve("morpheus.db");
+        try (SqliteSpecificationKnowledgeStore ignored = new SqliteSpecificationKnowledgeStore(database)) {
+            // initialize
+        }
+        SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
+        Path future = temp.resolve("future.db");
+        Files.copy(maintenance.createBackup(database, temp.resolve("backups")).path(), future,
+                StandardCopyOption.REPLACE_EXISTING);
+
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + future);
+             var statement = connection.prepareStatement(
+                     "INSERT INTO schema_migrations(version, name, checksum, applied_at) VALUES (?, ?, ?, ?)")) {
+            statement.setInt(1, SqliteServerMaintenance.SUPPORTED_SCHEMA_VERSION + 1);
+            statement.setString(2, "future-test");
+            statement.setString(3, "future-checksum");
+            statement.setString(4, "2026-07-29T00:00:00Z");
+            statement.executeUpdate();
+        }
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> maintenance.verify(future));
+        assertTrue(failure.getMessage().contains("newer than supported"));
     }
 }
