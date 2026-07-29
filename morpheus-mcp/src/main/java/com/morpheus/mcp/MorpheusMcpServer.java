@@ -85,6 +85,10 @@ public final class MorpheusMcpServer {
             server.addTool(specification);
         }
         for (McpServerFeatures.SyncToolSpecification specification
+                : new MorpheusPolicyMcpTools(databasePath).specifications()) {
+            server.addTool(specification);
+        }
+        for (McpServerFeatures.SyncToolSpecification specification
                 : new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications()) {
             server.addTool(specification);
         }
