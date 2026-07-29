@@ -46,7 +46,9 @@ public final class MorpheusMain {
         MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
         int exitCode;
-        if (MorpheusQueryCli.handles(args)) {
+        if (MorpheusPolicyCli.handles(args)) {
+            exitCode = new MorpheusPolicyCli().run(args, out, err, environment, properties);
+        } else if (MorpheusQueryCli.handles(args)) {
             exitCode = new MorpheusQueryCli().run(args, out, err, environment, properties);
         } else if (MorpheusPortfolioCli.handles(args)) {
             exitCode = new MorpheusPortfolioCli().run(args, out, err, environment, properties);
@@ -78,6 +80,20 @@ public final class MorpheusMain {
             out.println("API:");
             out.println("  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]");
             out.println("  Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
+            out.println();
+            out.println("Policy packs / governance automation (M25):");
+            out.println("  morpheus [--json] policy pack create --name NAME --rules RULES --actor NAME --reason TEXT");
+            out.println("  morpheus [--json] policy pack list|get|versions [--id ID]");
+            out.println("  morpheus [--json] policy pack update --id ID --expected-revision N --name NAME --rules RULES --actor NAME --reason TEXT");
+            out.println("  morpheus [--json] policy activate --id ID --version ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
+            out.println("  morpheus [--json] policy deactivate --id ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
+            out.println("  morpheus [--json] policy override put --id ID --rule ID --mode DISABLE|FORCE_WARN|FORCE_BLOCK (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
+            out.println("  morpheus [--json] policy override list (--project ID | --portfolio ID)");
+            out.println("  morpheus [--json] policy evaluate (--project ID | --portfolio ID) [--id ID]");
+            out.println("  morpheus [--json] policy dry-run --id ID --version ID (--project ID | --portfolio ID)");
+            out.println("  morpheus [--json] policy audit --id ID");
+            out.println("  Rule grammar: id-or-new|description|KIND|SEVERITY|fields ; multiple rules separated by ';;'.");
+            out.println("  Policy evaluation and dry-run are read-only; lifecycle mutations remain a distinct controlled operation.");
             out.println();
             out.println("Query DSL / saved views / reporting (M24):");
             out.println("  morpheus [--json] query execute (--project ID | --portfolio ID) --entity TYPE [--filter DSL] [--sort field:asc,...] [--fields a,b] [--offset N] [--limit N]");
