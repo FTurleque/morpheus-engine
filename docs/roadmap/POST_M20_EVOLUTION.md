@@ -1,23 +1,22 @@
 # MORPHEUS — Roadmap d’évolution post-M20
 
-Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 à M24 intégrés ; M25 prochain jalon actif**
+Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 à M25 intégrés ; M26 prochain jalon actif**
 
-Dernière mise à jour : 28 juillet 2026
+Dernière mise à jour : 29 juillet 2026
 
 Cette roadmap commence après l’intégration de M20 et porte la trajectoire active de MORPHEUS 1.x. La trajectoire [`POST_M14_EXECUTION.md`](POST_M14_EXECUTION.md) est conservée comme historique D0→M20.
 
 ## Branche d’intégration active
 
-À partir de M25, la trajectoire 1.x reprend sur **`develop`** :
+La trajectoire 1.x travaille sur **`develop`** :
 
 ```text
-baseline develop M25  0e37d85fc7efe9843094416898b6fbdbc45b7da4
 milestone branches     depuis develop
 milestone PR targets   develop
 main                   branche de stabilisation / livraison, hors travail courant
 ```
 
-Le merge M24 dans `main` est conservé comme fait historique. `develop` a été fast-forwardée jusqu’à l’état M24 réconcilié avant toute ouverture de M25. Aucun nouveau travail de jalon ne doit être basé sur `main` sans décision explicite du propriétaire.
+Le merge M24 dans `main` est conservé comme fait historique. Depuis M25, les nouveaux jalons repartent de `develop` et ciblent `develop`, sauf décision explicite contraire du propriétaire.
 
 ## Baseline acquise
 
@@ -29,6 +28,7 @@ M21           ✅ validé et intégré
 M22           ✅ validé et intégré
 M23           ✅ validé et intégré
 M24           ✅ validé et intégré
+M25           ✅ validé et intégré
 M20 merge     75d0b82ab0c960692db2fee1ced146fa6547fd4a
 D1 merge      51f6a120f3461c8d8c24323f3db8211d28d6cb42
 M21 merge     2fdce6601a07628c315fe03932750cd8ece3d777
@@ -36,8 +36,11 @@ M22 merge     67c587057e287d57b0733f9e425a57b26cc38ae4
 M23 merge     88355b69c493677c8689eecad214fb00d283359b
 M24 merge     2b483ded10c783fff22c25035db89475c5c9fdaf
 M24 code      be69e47da0ae209d2246df9c67bc08caeafb2bb0
-M24 tests     543 PASS Windows + Linux
-Architecture  221 PASS M24 Windows + Linux
+M25 code      a392604fc9e8d00f4021351ab5ba53f8488ab920
+M25 PR head   9239be641992f40a46f228e09cf6b34ad1cbb1a4
+M25 merge     62bf0ea37f732116e821df7d98ae89d36c6dd75d
+M25 tests     565 PASS Windows + Linux
+Architecture  231 PASS M25 Windows + Linux
 MORPHEUS      1.0.0
 v1.0.0        ✅ tag stable publié
 ```
@@ -48,7 +51,8 @@ Preuves :
 - [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md) ;
 - [`../validation/VALIDATION_M22.md`](../validation/VALIDATION_M22.md) ;
 - [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md) ;
-- [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).
+- [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md) ;
+- [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).
 
 ## Invariants post-1.0
 
@@ -84,6 +88,14 @@ saved view != materialized truth
 export != mutation
 bounded query != silently truncated semantics
 stale saved-view revision != silent overwrite
+constraint text != executable policy
+severity != blocking policy
+policy recommendation != applied mutation
+policy version != mutable latest
+policy override != provenance erasure
+dry-run != mutation
+policy evaluation != lifecycle mutation
+pack activation != domain truth mutation
 surface parity != same transport shape
 remote mode != mandatory cloud dependency
 MORPHEUS != MINOS
@@ -181,25 +193,7 @@ Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
 Issue : **#105 CLOSED / completed**.  
 PR : **#106 MERGED**.  
 Merge : `2b483ded10c783fff22c25035db89475c5c9fdaf`.  
-Baseline : `main@f70eaa1ad58633ee59874ab44f70963ab51152c6`.
-
-Head exécutable qualifié Windows + Linux :
-
-```text
-be69e47da0ae209d2246df9c67bc08caeafb2bb0
-```
-
-Head PR après consolidation docs-only :
-
-```text
-863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58
-```
-
-Question de sortie :
-
-> Les utilisateurs peuvent-ils exprimer, sauvegarder et exporter des vues métier complexes sans dépendre d’un transport ou d’un format provider particulier ?
-
-Réponse : **oui, démontré sur Windows et Linux puis intégré dans `main`**. Cet historique est désormais également présent dans `develop`, qui redevient la branche d’intégration active à partir de M25.
+Head exécutable qualifié : `be69e47da0ae209d2246df9c67bc08caeafb2bb0`.
 
 ```text
 Query DSL                provider-neutral / typé / borné
@@ -228,43 +222,47 @@ ADR-0092                 Acceptée — M24
 Preuve : [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).  
 Plan final : [`M24_EXECUTION.md`](M24_EXECUTION.md).
 
-# NOW
-
 ## M25 — Policy Packs & Governance Automation
 
-**Branche de base : `develop`. Toute branche M25 doit partir de `develop` et toute PR M25 doit cibler `develop`.**
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
+
+Issue : **#107 CLOSED / completed**.  
+PR : **#108 MERGED dans `develop`**.  
+Merge : `62bf0ea37f732116e821df7d98ae89d36c6dd75d`.  
+Head exact qualifié Windows + Linux/WSL : `a392604fc9e8d00f4021351ab5ba53f8488ab920`.  
+Head PR post-gate docs-only : `9239be641992f40a46f228e09cf6b34ad1cbb1a4`.
 
 Question de sortie :
 
-> Les règles de qualité, contraintes et lifecycle peuvent-elles être distribuées comme politiques versionnées, explicables et auditables ?
+> Les règles de qualité, contraintes et lifecycle peuvent-elles être distribuées comme politiques versionnées, explicables et auditables sans transformer recommandations, texte libre ou dry-run en mutation silencieuse ?
 
-Axes :
-
-```text
-policy packs
-policy identity + versioning
-applicability
-severity
-blocking policy
-override/provenance
-dry-run
-explainability
-audit
-CLI/MCP/HTTP convergence
-```
-
-Invariants :
+Réponse : **oui, démontré sur Windows et Linux/WSL puis intégré dans `develop`**.
 
 ```text
-constraint text != executable policy
-UNKNOWN != BLOCKED
-policy recommendation != applied mutation
-policy version != mutable latest
-policy override != provenance erasure
-dry-run != mutation
+Policy packs              provider-neutral / versions immuables
+Scopes                    project + portfolio
+Applicability             APPLICABLE / NOT_APPLICABLE / UNKNOWN
+Decisions                 PASS / WARN / BLOCK / UNKNOWN
+Overrides                 CAS + provenance conservée
+Dry-run                   read-only PASS
+Audit                     append-only
+Persistence               Memory + SQLite V015
+CLI/MCP/HTTP              convergence PASS
+Tests                     565 PASS Windows + Linux
+Architecture              231 PASS Windows + Linux
+Windows coverage          42.9925% line / 36.3983% branch
+Linux coverage            42.9945% line / 36.3983% branch
+CycloneDX/provenance      PASS Windows + Linux
+Portable                  PASS Windows + Linux
+Executable delta          NONE Windows + Linux
+ADR-0093                  Acceptée — M25
+CI / GitHub Actions       non utilisé — juillet 2026
 ```
 
-# LATER
+Preuve : [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).  
+Plan final : [`M25_EXECUTION.md`](M25_EXECUTION.md).
+
+# NOW
 
 ## M26 — Optional Team/Remote Server Mode
 
@@ -273,6 +271,8 @@ Question : MORPHEUS peut-il être utilisé par une équipe via un mode serveur o
 Axes : authentication, authorization, concurrency, remote API hardening, multi-client state, backups, migration, observability.
 
 Invariants : local mode reste first-class ; remote mode est opt-in ; authz read != authz write ; server state != source-of-truth provider.
+
+# LATER
 
 ## M27 — Evidence-backed Assisted Reasoning
 
