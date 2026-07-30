@@ -168,7 +168,7 @@ no silent mutation                       PASS
 CLI / MCP / HTTP convergence             PASS
 remote READ classification               PASS
 budgets                                  PASS
-tests >= 598                             PASS
+tests >= 602                             PASS
 architecture tests >= 238                PASS
 coverage thresholds                      PASS
 SBOM / provenance                        PASS
