@@ -146,6 +146,7 @@ La découverte est fault-isolated :
 
 - provider invalide : ignoré ;
 - constructeur provider en panne : ignoré ;
+- description provider en panne : ignorée dans le catalogue ;
 - identifiant dupliqué : premier provider conservé ;
 - aucun provider externe : fonctionnement normal.
 
@@ -177,6 +178,7 @@ Il montre le contrat, pas une vérité métier universelle.
 ### CLI
 
 ```powershell
+morpheus reason --help
 morpheus --json reason adapters
 morpheus --json reason analyze `
   --question "Can remote mode be enabled safely?" `
@@ -209,7 +211,7 @@ GET  /api/v1/reasoning/adapters
 POST /api/v1/reasoning/analyze
 ```
 
-Le body HTTP est limité à 65 536 octets. La façade remote classe l’analyse en READ.
+Le body HTTP est limité à 65 536 octets. La façade remote classe l’analyse en READ et le test TLS/RBAC exécute réellement cette route avec une identité READ.
 
 ## 8. Persistance et transactions
 
@@ -249,7 +251,7 @@ Chaque adaptateur doit couvrir :
 - absence de mutation ;
 - déterminisme si revendiqué.
 
-Les tests M27 de plateforme couvrent en plus la convergence des surfaces, les schémas stricts, l’isolation des providers et les frontières ArchUnit/source.
+Les tests M27 de plateforme couvrent en plus la convergence des surfaces, les schémas stricts, l’isolation des providers, les entrées HTTP nulles, le RBAC remote et les frontières ArchUnit/source.
 
 ## 11. Qualification
 
@@ -264,7 +266,7 @@ bash ./scripts/validate-m27.sh 1.0.0
 Minimums :
 
 ```text
-598 tests
+602 tests
 238 architecture tests
 42% line coverage
 35% branch coverage
