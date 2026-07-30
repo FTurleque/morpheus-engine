@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -17,10 +18,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProductReleaseContractTest {
 
     @Test
-    void productVersionIsFrozenAtOneDotZeroDotZero() throws IOException {
-        String pom = Files.readString(repoRoot().resolve("pom.xml"));
-        assertTrue(pom.contains("<version>1.0.0</version>"));
-        assertFalse(pom.contains("<version>0.1.0-SNAPSHOT</version>"));
+    void productVersionIsFrozenAtOneDotOneDotZeroAcrossTheReactor() throws IOException {
+        Path root = repoRoot();
+        List<Path> poms;
+        try (var paths = Files.walk(root)) {
+            poms = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().equals("pom.xml"))
+                    .filter(path -> !path.toString().contains("target"))
+                    .sorted()
+                    .toList();
+        }
+
+        assertEquals(17, poms.size(), "Unexpected Maven reactor POM count");
+        for (Path pomPath : poms) {
+            String pom = Files.readString(pomPath);
+            assertTrue(pom.contains("<version>1.1.0</version>"),
+                    () -> "MORPHEUS 1.1.0 version missing from " + root.relativize(pomPath));
+            assertFalse(pom.contains("<version>1.0.0</version>"),
+                    () -> "Stale MORPHEUS 1.0.0 version remains in " + root.relativize(pomPath));
+            assertFalse(pom.contains("<version>0.1.0-SNAPSHOT</version>"),
+                    () -> "Snapshot version remains in " + root.relativize(pomPath));
+        }
     }
 
     @Test
