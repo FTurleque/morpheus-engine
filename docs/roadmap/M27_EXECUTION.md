@@ -4,7 +4,7 @@ Statut : **IMPLÉMENTATION TERMINÉE SUR BRANCHE — QUALIFICATION EXACT-HEAD À
 
 Issue : **#111**  
 Branche : **`m27-evidence-assisted-reasoning`**  
-Cible PR : **`develop`**  
+PR : **#112 DRAFT vers `develop`**  
 Baseline : **`c1eb1e74afe92db8b4a9250b678ce7d0d5c99ca7`**
 
 ## 1. Question de sortie
@@ -190,11 +190,13 @@ mvnw clean verify
 Minimums M27 :
 
 ```text
-tests                >= 598
+tests                >= 602
 architecture tests   >= 238
 line coverage        >= 42%
 branch coverage      >= 35%
 ```
+
+Le seuil de 602 correspond aux 579 tests M26 et aux 23 tests M27 ajoutés. Il empêche une qualification qui ignorerait une partie des nouveaux contrats.
 
 ### 7.2 Contrats fonctionnels
 
@@ -261,10 +263,11 @@ issue                       #111 OPEN
 application contracts       IMPLEMENTED
 CLI/MCP/HTTP                 IMPLEMENTED
 architecture tests          IMPLEMENTED
+static Java 21 checks       CORE + CLI PASS (non substitutifs aux gates)
 Windows exact-head          NOT RUN
 Linux/WSL exact-head        NOT RUN
-PR                          NOT YET OPENED
+PR                          #112 OPEN / DRAFT
 merge                       BLOCKED BY LOCAL GATES
 ```
 
-Aucun PASS n’est déclaré sans log concret.
+Aucun PASS de qualification n’est déclaré sans log concret.
