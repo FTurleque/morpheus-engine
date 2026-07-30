@@ -1,6 +1,6 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — R2 / MORPHEUS 1.1.0 EN PRÉPARATION**
+Statut : **ACTIF — MORPHEUS 1.1.0 PUBLIÉ — R3 / 1.2.0 PLANIFIÉ**
 
 Dernière mise à jour : 30 juillet 2026
 
@@ -16,13 +16,11 @@ docs/roadmap/R2_EXECUTION.md
 docs/validation/VALIDATION_R2.md
 ```
 
-M27 est validé et intégré dans `develop`. R2 est la consolidation de release active sur `r2-release-1.1.0`, issue #113 et PR draft #114 vers `main`.
-
-La seule release stable publiée reste `v1.0.0`. MORPHEUS 1.1.0 est une candidate non publiée tant que `VALIDATION_R2.md` ne contient pas les preuves exact-head réelles et que la GitHub Release n'existe pas.
+R2 est terminé. MORPHEUS 1.1.0 est la release stable publiée. Le chantier suivant est R3 / 1.2.0, suivi dans l’issue GitHub #115.
 
 ## Contrats exposés
 
-Ordre d'autorité :
+Ordre d’autorité :
 
 ```text
 code + tests
@@ -33,7 +31,7 @@ docs/developer/
 docs/user/
 ```
 
-Pour une décision d'architecture, l'ADR acceptée fait autorité tant qu'elle n'est pas remplacée. Pour une release, le code qualifié, le tag exact, les manifestes et la preuve de validation font autorité sur les textes promotionnels.
+Pour une décision d’architecture, l’ADR acceptée fait autorité tant qu’elle n’est pas remplacée. Pour une release, le code qualifié, le tag exact, les manifestes et la preuve de validation font autorité sur les textes promotionnels.
 
 ## Documentation active
 
@@ -52,63 +50,75 @@ docs/validation/VALIDATION_R2.md
 docs/release/RELEASE_NOTES_1.1.0.md
 ```
 
-## Points d’entrée R2
+## Release stable publiée
 
 ```text
-Issue GitHub                            #113
-PR draft                               #114
-Branche                                r2-release-1.1.0
+Version                1.1.0
+Tag                    v1.1.0
+Tag target             31506029ded1101f0571edeb0d79c59bbf3f68c6
+Qualified exact head   31212087ee5fab3c88b269d56f7f21402f31b683
+PR                     #114 MERGED
+Issue                  #113 CLOSED / completed
+GitHub Release         stable
+Assets                 8/8 uploaded
+Published parity       8/8 PASS
+Published at           2026-07-30T14:13:17Z
+```
+
+La release 1.1.0 couvre M21 à M27, notamment :
+
+```text
+provider plugins
+portfolio multi-projets
+Query DSL / saved views / reporting
+Policy Packs
+serveur remote HTTPS optionnel
+RBAC READ / WRITE / ADMIN
+backup / restore SQLite
+assisted reasoning fondé sur preuves
+CLI / MCP STDIO / HTTP
+packaging portable Windows/Linux
+setup Windows per-user
+CycloneDX + provenance
+```
+
+## Preuves R2
+
+```text
+Windows tests          603 PASS
+Linux/WSL tests        603 PASS
+Windows architecture   238 PASS
+Linux/WSL architecture 238 PASS
+same SHA               PASS
+post-gate executable   NONE
+exact-tag Windows      PASS
+exact-tag Linux        PASS
+published assets       8/8 PASS
+```
+
+Références :
+
+```text
 docs/roadmap/R2_EXECUTION.md
 docs/validation/VALIDATION_R2.md
 docs/release/RELEASE_NOTES_1.1.0.md
 docs/user/UPGRADE_1_1.md
-validate-r2.cmd
-scripts/validate-r2.ps1
-scripts/validate-r2.sh
 ```
 
-## Preuves historiques
-
-Les fichiers `docs/validation/VALIDATION_*.md` conservent les SHA, nombres de tests, couvertures et résultats réellement observés. Une réconciliation documentaire ne réécrit jamais ces faits.
-
-Dernier jalon qualifié :
+## Chantier actif suivant
 
 ```text
-M27 exact-head         f97307c878125550693699124ca717f64f305a3a
-M27 PR docs head       026c1d5f8671cd7b879fa89d51af8e83a5f06272
-M27 merge develop      f8810803bd5ae7d57c4858e1e384c6a0132e1a45
-Develop réconcilié     bccc118dda6fd818cf801750187afa4ad10b96e4
-Tests                  602 PASS Windows + Linux
-Architecture           238 PASS Windows + Linux
-Windows coverage       45.2226% / 38.4456%
-Linux coverage         45.2246% / 38.4456%
-Executable delta       NONE après qualification
-ADR-0095               Acceptée — M27
+R3                     MORPHEUS 1.2.0
+Issue                  #115
+Objet                  MCP Client Integration & Installer Wiring
+Clients                Copilot JetBrains / Copilot CLI
+                       Claude Code / Claude Desktop
+                       OpenAI Codex
+Transport              MCP STDIO natif
+Docker requis          NON
 ```
 
-Release stable publiée :
-
-```text
-Version                1.0.0
-Tag                    v1.0.0
-Release SHA            51f6a120f3461c8d8c24323f3db8211d28d6cb42
-GitHub Release         stable / 8 assets
-```
-
-## Baseline R2
-
-```text
-main                   0e37d85fc7efe9843094416898b6fbdbc45b7da4
-develop                bccc118dda6fd818cf801750187afa4ad10b96e4
-release branch base    bccc118dda6fd818cf801750187afa4ad10b96e4
-target version         1.1.0
-target tag             v1.1.0
-qualification SHA      NOT SET
-Windows gate           NOT RUN
-Linux/WSL gate         NOT RUN
-merge main             NOT AUTHORIZED
-release publication    NOT AUTHORIZED
-```
+Le câblage client doit rester opt-in, sauvegarder les configurations tierces, préserver les entrées étrangères et permettre une désinstallation conservatrice.
 
 ## Baseline fonctionnelle
 
@@ -120,14 +130,15 @@ M21            ✅ validé et intégré
 M22            ✅ validé et intégré
 M23            ✅ validé et intégré
 M24            ✅ validé et intégré
-M25            ✅ validé et intégré dans develop
-M26            ✅ validé et intégré dans develop
-M27            ✅ validé et intégré dans develop
-R2             🚧 release 1.1.0 en préparation
+M25            ✅ validé et intégré
+M26            ✅ validé et intégré
+M27            ✅ validé et intégré
+R2             ✅ MORPHEUS 1.1.0 publié
+R3             ⏭ MORPHEUS 1.2.0 planifié
 ```
 
 ## Politique CI — juillet 2026
 
-Aucune GitHub Actions / CI ne sert de gate R2 avant août 2026. Les preuves autoritatives sont les sorties locales Windows + Linux/WSL exact-head sur le même SHA.
+Aucune GitHub Actions / CI ne sert de gate avant août 2026. Les preuves autoritatives restent les sorties locales Windows et Linux/WSL exact-head sur le même SHA.
 
-Aucun document ne doit annoncer `v1.1.0` comme publiée avant le tag exact, les builds exact-tag, les huit assets et la GitHub Release stable effectivement vérifiés.
+Aucun document ne doit déplacer ni réécrire le tag `v1.1.0`. Toute évolution fonctionnelle postérieure appartient à une nouvelle version.
