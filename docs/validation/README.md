@@ -22,7 +22,6 @@ Chaque document conserve les décisions, SHA, commandes et résultats réellemen
 MORPHEUS **1.1.0** a été consolidé via R2.
 
 ```text
-qualified exact head   31212087ee5fab3c88b269d56f7f21402f31b683
 main merge             31506029ded1101f0571edeb0d79c59bbf3f68c6
 tag                    v1.1.0
 Windows tests          603 PASS
@@ -46,36 +45,28 @@ M25  565 tests | architecture 231
 M26  579 tests | architecture 234
 M27  602 tests | architecture 238
 R2   603 tests | architecture 238
+M28  608 tests | architecture 243
 ```
 
-## Jalon actif
-
-**M28 — MCP Client Integration & Installer Wiring** est implémenté sur :
+## M28 — qualification complète
 
 ```text
 baseline               8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 branch                 m28-mcp-client-integration
 issue                  #115
-qualified exact head   NOT SET
-Windows result         NOT RUN
-Linux/WSL result       NOT RUN
+PR                     #116
+qualified exact head   58adfeb13b79808da12830f2d0b0b24ec46f67e6
+Windows result         PASS
+Linux/WSL result       PASS
+same executable SHA    PASS
+review threads         0
+blocking reviews       0
+merge                  AUTHORIZED
 ```
 
-Structure de preuve : [`VALIDATION_M28.md`](VALIDATION_M28.md).
+Preuve : [`VALIDATION_M28.md`](VALIDATION_M28.md).
 
-Windows :
-
-```powershell
-.\validate-m28.cmd -Version 1.1.0 -BaseRef origin/develop
-```
-
-Linux/WSL :
-
-```bash
-MORPHEUS_M28_BASE_REF=origin/develop bash ./scripts/validate-m28.sh 1.1.0
-```
-
-## Ce que M28 doit prouver
+M28 prouve :
 
 ```text
 reactor non-regression
@@ -94,11 +85,11 @@ Docker required = false
 post-gate executable delta = NONE
 ```
 
-Le gate Linux valide le reactor, les contrats statiques et le packaging Linux. Les mutations de profils clients Windows sont qualifiées sur Windows uniquement.
+Le gate Linux valide le reactor, les contrats statiques et le packaging Linux. Les mutations de profils clients sont qualifiées sur Windows uniquement.
 
 ## Politique de gate
 
-Toute modification de code, packaging, contrat runtime ou validateur exige un nouveau gate Windows + Linux/WSL sur le même SHA exact. Après qualification, seul un delta exclusivement documentaire peut être accepté sans réexécution, après comparaison explicite.
+Toute modification de code, packaging, contrat runtime ou validateur exige un nouveau gate Windows + Linux/WSL sur le même SHA exact. Après qualification, seul un delta exclusivement documentaire est accepté sans réexécution, après comparaison explicite.
 
 En juillet 2026 :
 
