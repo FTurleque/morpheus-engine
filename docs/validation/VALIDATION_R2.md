@@ -1,8 +1,8 @@
 # R2 — Validation MORPHEUS 1.1.0
 
-Statut : **CANDIDATE UPDATED — WINDOWS GATE FAILED — RERUN REQUIRED — AUCUN PASS DÉCLARÉ**
+Statut : **WINDOWS + LINUX/WSL EXACT-HEAD PASS — MERGE AUTORISABLE APRÈS CONTRÔLES PR**
 
-Date d'ouverture : 30 juillet 2026
+Date : 30 juillet 2026
 
 ```text
 Issue                   #113 OPEN
@@ -11,6 +11,7 @@ Branch                  r2-release-1.1.0
 Main baseline           0e37d85fc7efe9843094416898b6fbdbc45b7da4
 Develop baseline        bccc118dda6fd818cf801750187afa4ad10b96e4
 Executable candidate    c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1
+Qualified exact head    31212087ee5fab3c88b269d56f7f21402f31b683
 Target version          1.1.0
 Target tag              v1.1.0
 Stable published tag    v1.0.0
@@ -18,7 +19,7 @@ Stable published tag    v1.0.0
 
 Plan : [`../roadmap/R2_EXECUTION.md`](../roadmap/R2_EXECUTION.md).
 
-## 1. Périmètre candidat observé
+## 1. Périmètre qualifié
 
 La comparaison `develop...c206e1b` donne :
 
@@ -29,37 +30,28 @@ behind           0
 changed files    38
 ```
 
-Le delta candidat comprend :
+Le candidat comprend :
 
 - le reactor Maven complet en 1.1.0 ;
-- les builders portable/installer/release en 1.1.0 ;
+- les builders portable, installer et release en 1.1.0 ;
 - le test de cohérence des 17 POM ;
 - le test d'upgrade SQLite V012→V015 ;
 - les validateurs R2 Windows et Linux/WSL ;
-- les preuves packagées M25/M26 et la preuve M27 héritée ;
+- les preuves packagées M25, M26 et M27 ;
 - les scénarios application et CLI de découverte de mise à jour indépendants de la version courante ;
-- le contrat M22 de plugin externe résolvant le JAR de référence depuis `ProductMetadata.version()` ;
+- le contrat M22 de plugin externe résolvant le JAR depuis `ProductMetadata.version()` ;
 - les notes de version, le guide d'upgrade et la gouvernance R2.
 
 Aucun fichier `.github/workflows` n'est modifié.
 
-## 2. Préparation
+Le delta `c206e1b...31212087` contient uniquement les deux fichiers documentaires R2 :
 
-- [x] M25, M26 et M27 intégrés dans `develop` ;
-- [x] issue #113 et PR draft #114 créées ;
-- [x] 17 POM et builders de distribution préparés en 1.1.0 ;
-- [x] fixture d'upgrade V012→V015 et contrôles d'idempotence codés ;
-- [x] validateurs Windows/Linux préparés ;
-- [x] quatre tentatives Windows observées et conservées ;
-- [x] deux scénarios d'update-check rendus indépendants de la version courante ;
-- [x] chemin du JAR de plugin externe rendu indépendant de la version courante ;
-- [ ] nouveau candidat `c206e1b...` contrôlé sous Windows ;
-- [ ] workspace Linux/WSL exact-head contrôlé ;
-- [ ] SHA identique réellement qualifié sur les deux plateformes.
+```text
+docs/roadmap/R2_EXECUTION.md
+docs/validation/VALIDATION_R2.md
+```
 
-Les coches de préparation ne valent pas PASS du gate complet.
-
-## 3. Commandes canoniques
+## 2. Commandes canoniques exécutées
 
 Windows :
 
@@ -73,197 +65,161 @@ Linux/WSL :
 bash ./scripts/validate-r2.sh 1.1.0
 ```
 
-Build exact-tag Windows, uniquement après autorisation du tag :
-
-```powershell
-.\distribution\build-release.ps1 -Version 1.1.0 -ExpectedTag v1.1.0
-```
-
-Build exact-tag Linux, uniquement après autorisation du tag :
-
-```bash
-bash ./distribution/build-release.sh 1.1.0 v1.1.0
-```
-
-## 4. Qualification Windows
-
-Statut : **FAILED — CORRECTIF POUSSÉ — RERUN REQUIRED**
-
-### Tentative 1 — `3db57b33960ef16af9f3b6e49fc247e3bf843efb`
+Les deux commandes ont qualifié exactement :
 
 ```text
-versionCoherence         PASS — 1.1.0 across 17 POMs
-git diff --check         FAIL
-cause                    trailing whitespace in docs/governance/ROADMAP.md
-maven                    NOT STARTED
-result                   FAIL
+31212087ee5fab3c88b269d56f7f21402f31b683
 ```
 
-Correction documentaire : `c500d70ec7ee0ad2acfcbd4c4a49346c7c93f975`.
+## 3. Qualification Windows
 
-### Tentative 2 — `c500d70ec7ee0ad2acfcbd4c4a49346c7c93f975`
+Statut : **PASS**
 
 ```text
+sha                      31212087ee5fab3c88b269d56f7f21402f31b683
 versionCoherence         PASS — 1.1.0 across 17 POMs
 git diff --check         PASS
-reactor root             SUCCESS
-morpheus-domain          SUCCESS — 40 tests PASS
-morpheus-application     FAILURE
-application tests        137 run / 1 failure / 0 error / 0 skipped
-failing test             ProductIntegrityTest.explicitFileManifestCanReportANewerVersion
-cause                    manifest 1.0.1 no longer newer than current 1.1.0
-remaining modules        SKIPPED
-result                   FAIL
+reactor                  PASS — 17/17 modules SUCCESS
+tests                    PASS — 603 / 603
+architectureTests        PASS — 238 / 238
+lineCoverage             PASS — 0.452226
+branchCoverage           PASS — 0.384456
+sqliteV012ToV015Upgrade  PASS
+policyPacks              PASS
+remoteServer             PASS
+assistedReasoning        PASS
+surfaceConvergence       PASS
+packagedM25M26           PASS
+packagedM27              PASS
+sbom                     PASS
+provenance               PASS
+portableWindows          PASS — 37,639,254 bytes
+installerWindows         PASS — setup + SHA-256
+postGateExecutableDelta  NONE
+result                   R2 VALIDATION PASS
 ```
 
-Correctif exécutable : `aef3ed8a65397e7ca2fa5aa6abdf41237025605a`.
-
-### Tentative 3 — `24e3b0b66cb80388ffb687fd470237174e083121`
+Le bootstrap Inno Setup 7.0.2 a été vérifié par signature Authenticode avant compilation. Les artefacts de validation suivants ont été produits :
 
 ```text
+validation-output/m27/dist/morpheus-1.1.0-windows-x64.zip
+validation-output/m27/dist/MORPHEUS-1.1.0-windows-x64-setup.exe
+validation-output/m27/dist/MORPHEUS-1.1.0-windows-x64-setup.exe.sha256
+```
+
+## 4. Qualification Linux/WSL
+
+Statut : **PASS**
+
+```text
+sha                      31212087ee5fab3c88b269d56f7f21402f31b683
 versionCoherence         PASS — 1.1.0 across 17 POMs
 git diff --check         PASS
-reactor modules          15 SUCCESS / CLI FAILURE / architecture SKIPPED
-tests observed           365 run through the CLI module / 1 failure
-morpheus-application     SUCCESS — 137 tests PASS
-store-sqlite             SUCCESS — 18 tests PASS
-sqliteV012ToV015Upgrade  PASS — R2UpgradeCompatibilityTest
-morpheus-mcp             SUCCESS — 22 tests PASS
-morpheus-api             SUCCESS — 32 tests PASS
-morpheus-cli             FAILURE — 53 tests / 1 failure
-failing test             MorpheusProductCliTest.updateCheckIsExplicitAndDoesNotApplyAnything
-cause                    CLI test manifest remained fixed at 1.0.1
-architectureTests        NOT RUN
-packaging gates          NOT REACHED
-result                   FAIL
+reactor                  PASS — 17/17 modules SUCCESS
+tests                    PASS — 603 / 603
+architectureTests        PASS — 238 / 238
+lineCoverage             PASS — 0.452246
+branchCoverage           PASS — 0.384456
+sqliteV012ToV015Upgrade  PASS
+policyPacks              PASS
+remoteServer             PASS
+assistedReasoning        PASS
+surfaceConvergence       PASS
+packagedM25M26           PASS
+packagedM27              PASS
+sbom                     PASS
+provenance               PASS
+portableLinux            PASS
+installer                NOT_APPLICABLE
+postGateExecutableDelta  NONE
+result                   R2 VALIDATION PASS
 ```
 
-Correctif exécutable : `43dc9cfb78b8b40276b3eee8a05ec828660f88b4`.
-
-### Tentative 4 — `34b8955a74270ded0b5464196a45eff746085168`
+Artefact de validation produit :
 
 ```text
-versionCoherence         PASS — 1.1.0 across 17 POMs
-git diff --check         PASS
-reactor modules          16 SUCCESS / architecture FAILURE
-tests                    603 run / 1 failure / 0 error / 0 skipped
-morpheus-domain          SUCCESS — 40 tests PASS
-morpheus-application     SUCCESS — 137 tests PASS
-provider-sdk             SUCCESS — 11 tests PASS
-provider-reference       SUCCESS — 2 tests PASS
-provider-openspec        SUCCESS — 26 tests PASS
-provider-markdown        SUCCESS — 2 tests PASS
-provider-synthetic       SUCCESS — 7 tests PASS
-store-sqlite             SUCCESS — 18 tests PASS
-sqliteV012ToV015Upgrade  PASS — R2UpgradeCompatibilityTest
-integration-minos        SUCCESS — 8 tests PASS
-integration-nexus        SUCCESS — 7 tests PASS
-morpheus-mcp             SUCCESS — 22 tests PASS
-morpheus-api             SUCCESS — 32 tests PASS
-morpheus-cli             SUCCESS — 53 tests PASS
-architectureTests        238 run / 1 failure / 0 error / 0 skipped
-failing test             ProviderPluginPlatformContractTest.externalReferenceJarIsDiscoveredActivatedInDedicatedLoaderProbedAndRead
-cause                    contract expected morpheus-provider-reference-1.0.0.jar while reactor built 1.1.0
-coverage                 generated during reactor but final gate not reached
-packaging gates          NOT REACHED
-result                   FAIL
+validation-output/m27/dist/morpheus-1.1.0-linux-x64.tar.gz
 ```
 
-Le JAR de référence `morpheus-provider-reference-1.1.0.jar` a bien été construit par le module précédent. L'échec concernait uniquement le chemin figé dans le contrat M22.
-
-Correctif exécutable : `c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1`.
-
-Le contrat compose désormais le nom du JAR depuis `ProductMetadata.version()`. Surefire fournit cette valeur via `morpheus.project.version=${project.version}`. La recherche du dépôt ne trouve aucun autre chemin exécutable `1.0.0.jar` figé.
-
-### État à requalifier
+## 5. Parité cross-platform
 
 ```text
-sha                      c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1 candidate executable
-reactor                  NOT RUN on current candidate
-tests                    NOT RUN on current candidate
-architectureTests        NOT RUN on current candidate
-lineCoverage             NOT RUN on current candidate
-branchCoverage           NOT RUN on current candidate
-versionCoherence         NOT RUN on current candidate
-sqliteV012ToV015Upgrade  NOT RUN on current candidate
-policyPacks              NOT RUN on current candidate
-remoteServer             NOT RUN on current candidate
-assistedReasoning        NOT RUN on current candidate
-surfaceConvergence       NOT RUN on current candidate
-packagedM25M26           NOT RUN on current candidate
-packagedM27              NOT RUN on current candidate
-sbom                     NOT QUALIFIED
-provenance               NOT RUN
-portable                 NOT RUN
-installer                NOT RUN
-postGateExecutableDelta  NOT RUN
+Windows SHA              31212087ee5fab3c88b269d56f7f21402f31b683
+Linux/WSL SHA            31212087ee5fab3c88b269d56f7f21402f31b683
+same SHA                 PASS
+Windows tests            603 PASS
+Linux/WSL tests          603 PASS
+Windows architecture     238 PASS
+Linux/WSL architecture   238 PASS
+branch coverage          0.384456 on both platforms
+post-gate delta          NONE on both platforms
 ```
 
-## 5. Qualification Linux/WSL
+La faible différence de couverture ligne (`0.452226` Windows, `0.452246` Linux/WSL) reste au-dessus du seuil M27 et n'affecte aucun gate.
 
-Statut : **NOT RUN**
+## 6. Upgrade SQLite 1.0.0 → 1.1.0
+
+`R2UpgradeCompatibilityTest` est PASS sur les deux plateformes et couvre :
+
+- la baseline V001→V012 ;
+- l'application unique de V013, V014 et V015 ;
+- la préservation des identités et snapshots publiés ;
+- l'immutabilité des noms et checksums historiques ;
+- le redémarrage idempotent.
 
 ```text
-sha                      c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1 candidate executable
-reactor                  NOT RUN
-tests                    NOT RUN
-architectureTests        NOT RUN
-lineCoverage             NOT RUN
-branchCoverage           NOT RUN
-versionCoherence         NOT RUN
-sqliteV012ToV015Upgrade  NOT RUN
-policyPacks              NOT RUN
-remoteServer             NOT RUN
-assistedReasoning        NOT RUN
-surfaceConvergence       NOT RUN
-packagedM25M26           NOT RUN
-packagedM27              NOT RUN
-sbom                     NOT RUN
-provenance               NOT RUN
-portable                 NOT RUN
-postGateExecutableDelta  NOT RUN
+Windows                 PASS
+Linux/WSL               PASS
+qualified SHA           31212087ee5fab3c88b269d56f7f21402f31b683
 ```
 
-## 6. Upgrade SQLite observé
+## 7. Incidents Windows conservés
 
-Les tentatives 3 et 4 ont exécuté `R2UpgradeCompatibilityTest` avec :
+Les quatre premières tentatives restent enregistrées comme **FAIL** :
+
+1. `3db57b3...` — `git diff --check` rejeté par des espaces de fin de ligne ;
+2. `c500d70...` — manifeste application figé à `1.0.1` ;
+3. `24e3b0b...` — manifeste CLI figé à `1.0.1` ;
+4. `34b8955...` — chemin du JAR provider figé à `morpheus-provider-reference-1.0.0.jar`.
+
+Corrections exécutables successives :
 
 ```text
-tests       1
-failures    0
-errors      0
-skipped     0
-result      PASS on superseded Windows SHAs
+aef3ed8a65397e7ca2fa5aa6abdf41237025605a
+43dc9cfb78b8b40276b3eee8a05ec828660f88b4
+c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1
 ```
 
-Le scénario couvre V001→V012, l'application unique de V013/V014/V015, la préservation des identités et snapshots publiés, l'immutabilité des checksums et le redémarrage idempotent. Ces succès partiels ne qualifient pas le gate Windows complet et devront être reproduits sur le nouveau candidat exact.
+La cinquième tentative Windows et la première tentative Linux/WSL sont les seules preuves PASS finales.
 
-## 7. Workspace et artefacts historiques locaux
+## 8. Workspace local
 
-Les tentatives Windows ont observé le répertoire non suivi :
+Le répertoire non suivi suivant a été observé sur le workspace partagé :
 
 ```text
 dist-r1/
 ```
 
-Le gate exact-head R2 ignore les fichiers non suivis et cet élément n'a causé aucun échec Maven. Les builds exact-tag exigent toutefois un workspace totalement propre ; `dist-r1/` devra être déplacé ou supprimé avant la publication.
+Il n'a pas affecté les gates exact-head, qui contrôlent les deltas suivis. Les builds exact-tag exigent un workspace intégralement propre ; ce répertoire devra être déplacé ou supprimé avant la construction des artefacts de publication.
 
-## 8. Exact-tag et artefacts
+## 9. Exact-tag et artefacts de publication
 
-Statut : **BLOCKED — merge et tag non autorisés**
+Statut : **AUTORISABLE APRÈS MERGE ET CRÉATION DU TAG — NON ENCORE EXÉCUTÉ**
 
 | Asset | Bytes | SHA-256 | Statut |
 |---|---:|---|---|
-| `MORPHEUS-1.1.0-windows-x64-setup.exe` | — | — | NOT BUILT |
-| `MORPHEUS-1.1.0-windows-x64-setup.exe.sha256` | — | — | NOT BUILT |
-| `morpheus-1.1.0-windows-x64.zip` | — | — | NOT BUILT |
-| `morpheus-1.1.0-windows-x64.zip.sha256` | — | — | NOT BUILT |
-| `morpheus-1.1.0-linux-x64.tar.gz` | — | — | NOT BUILT |
-| `morpheus-1.1.0-linux-x64.tar.gz.sha256` | — | — | NOT BUILT |
+| `MORPHEUS-1.1.0-windows-x64-setup.exe` | — | — | exact-tag NOT BUILT |
+| `MORPHEUS-1.1.0-windows-x64-setup.exe.sha256` | — | — | exact-tag NOT BUILT |
+| `morpheus-1.1.0-windows-x64.zip` | — | — | exact-tag NOT BUILT |
+| `morpheus-1.1.0-windows-x64.zip.sha256` | — | — | exact-tag NOT BUILT |
+| `morpheus-1.1.0-linux-x64.tar.gz` | — | — | exact-tag NOT BUILT |
+| `morpheus-1.1.0-linux-x64.tar.gz.sha256` | — | — | exact-tag NOT BUILT |
 | Windows release manifest | — | — | NOT BUILT |
 | Linux release manifest | — | — | NOT BUILT |
 
-## 9. GitHub Release
+Les artefacts créés pendant les gates prouvent le packaging, mais ne remplacent pas les builds exact-tag de publication.
+
+## 10. GitHub Release
 
 ```text
 tagName       v1.1.0
@@ -273,36 +229,22 @@ assets        expected 8/8
 status        NOT CREATED
 ```
 
-## 10. Chronologie factuelle
-
-```text
-2026-07-30  main/develop audit completed
-2026-07-30  duplicate issue #102 closed
-2026-07-30  R2 issue #113 and draft PR #114 created
-2026-07-30  Maven reactor and distribution defaults moved to 1.1.0
-2026-07-30  V012 -> V015 compatibility test and R2 validators added
-2026-07-30  attempt 1 failed git diff --check; corrected at c500d70...
-2026-07-30  attempt 2 failed ProductIntegrityTest; corrected at aef3ed8...
-2026-07-30  attempt 3 reached 15 successful modules, then failed MorpheusProductCliTest; corrected at 43dc9cf...
-2026-07-30  attempt 4 executed 603 tests and reached architecture, then failed on a hard-coded 1.0.0 plugin JAR path
-2026-07-30  provider plugin architecture contract corrected at c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1
-```
-
 ## 11. Résultat courant
 
 ```text
 executable candidate              c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1
-Windows exact-head gate           FAILED / RERUN REQUIRED
-Linux exact-head gate             NOT RUN
-same SHA cross-platform           NOT PROVEN
-upgrade 1.0.0 -> 1.1.0            PARTIAL PASS on superseded SHAs / rerun required
-post-gate executable delta        NOT PROVEN
-PR ready                          NO / DRAFT
-merge main                        NOT AUTHORIZED
-tag v1.1.0                        NOT AUTHORIZED
+qualified exact head              31212087ee5fab3c88b269d56f7f21402f31b683
+Windows exact-head gate           PASS
+Linux/WSL exact-head gate         PASS
+same SHA cross-platform           PASS
+upgrade 1.0.0 -> 1.1.0            PASS Windows + Linux/WSL
+post-gate executable delta        NONE on both platforms
+PR ready                          PENDING DOCUMENTARY RECONCILIATION / REVIEW CHECK
+merge main                        AUTHORIZABLE AFTER FINAL PR CHECKS
+tag v1.1.0                        NOT CREATED
 exact-tag builds                  NOT RUN
 GitHub Release                    NOT CREATED
-Result                            R2 IN PROGRESS
+Result                            R2 QUALIFIED — DELIVERY PENDING
 ```
 
-**Chaque valeur PASS finale devra provenir de sorties réellement observées sur le nouveau head exact. Les quatre échecs précédents restent conservés comme faits de qualification.**
+**Les preuves de qualification fonctionnelle sont complètes sur le même SHA exact. Les opérations restantes concernent la consolidation documentaire, la revue PR, le merge, le tag, les builds exact-tag et la publication.**
