@@ -6,9 +6,9 @@ Ce répertoire conserve les plans des jalons, consolidations et releases MORPHEU
 
 La source de vérité globale est [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
 
-Plan actif :
+Jalon qualifié en attente d’intégration :
 
-- [`M28_EXECUTION.md`](M28_EXECUTION.md) — MCP Client Integration & Installer Wiring, issue #115.
+- [`M28_EXECUTION.md`](M28_EXECUTION.md) — MCP Client Integration & Installer Wiring, issue #115, PR #116.
 
 Dernière release terminée :
 
@@ -22,7 +22,7 @@ D0 + D1       ✅ validés et intégrés
 R1            ✅ MORPHEUS 1.0.0 publié
 M21 → M27     ✅ validés et intégrés
 R2            ✅ MORPHEUS 1.1.0 publié
-M28           🚧 intégration clients MCP
+M28           ✅ qualifié Windows + Linux/WSL
 ```
 
 ```text
@@ -30,20 +30,19 @@ stable tag             v1.1.0
 stable release commit  31506029ded1101f0571edeb0d79c59bbf3f68c6
 post-release baseline  8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 develop baseline M28   8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+M28 executable head    58adfeb13b79808da12830f2d0b0b24ec46f67e6
 M28 branch             m28-mcp-client-integration
 M28 issue              #115
+M28 PR                 #116
 ```
 
-## NOW / BLOCKED / LATER
+## NOW / LATER
 
 ```text
 NOW
-  M28  câblage MCP Copilot / Claude / Codex
-
-BLOCKED UNTIL EXACT-HEAD QUALIFICATION
-  PR Ready
-  merge vers develop
-  clôture issue #115
+  merge M28 vers develop
+  réconciliation post-merge
+  fermeture issue #115
 
 LATER
   consolidation release 1.2.0
@@ -80,24 +79,20 @@ LATER
 - R1 — MORPHEUS 1.0.0, preuve [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md)
 - [`R2_EXECUTION.md`](R2_EXECUTION.md) — MORPHEUS 1.1.0, preuve [`../validation/VALIDATION_R2.md`](../validation/VALIDATION_R2.md)
 
-## Commandes M28
+## Qualification M28
 
-Windows :
-
-```powershell
-.\validate-m28.cmd -Version 1.1.0 -BaseRef origin/develop
+```text
+Windows exact-head      PASS
+Linux/WSL exact-head    PASS
+same executable SHA     PASS
+qualified SHA           58adfeb13b79808da12830f2d0b0b24ec46f67e6
+review threads          0
+blocking reviews        0
+merge                   AUTHORIZED
 ```
-
-Linux/WSL :
-
-```bash
-MORPHEUS_M28_BASE_REF=origin/develop bash ./scripts/validate-m28.sh 1.1.0
-```
-
-Les deux plateformes doivent qualifier le même SHA exact.
 
 ## Politique documentaire
 
-Les plans terminés restent des archives factuelles. Les fichiers `VALIDATION_*.md` ne sont jamais réécrits pour fabriquer rétroactivement un PASS.
+Les plans terminés restent des archives factuelles. Les preuves ne sont jamais réécrites pour fabriquer rétroactivement un PASS.
 
 En juillet 2026, GitHub Actions n’est pas utilisé comme gate. Les sorties locales Windows + Linux/WSL exact-head sont autoritatives.
