@@ -1,178 +1,192 @@
 # R2 — Stabilisation et publication MORPHEUS 1.1.0
 
-Statut : **EN COURS — CADRAGE ET PR DRAFT OUVERTS, QUALIFICATION NON EXÉCUTÉE**
+Statut : **PRÉPARATION TECHNIQUE TERMINÉE — QUALIFICATION EXACT-HEAD NON EXÉCUTÉE**
 
 Dernière mise à jour : 30 juillet 2026
 
-Issue : **#113**  
-PR draft : **#114**  
-Branche : **`r2-release-1.1.0`**
+```text
+Issue                  #113 OPEN
+PR                     #114 DRAFT vers main
+Branch                 r2-release-1.1.0
+Release baseline       develop@bccc118dda6fd818cf801750187afa4ad10b96e4
+Executable candidate   cde78c8172d720a01254f7463f4ff60d09a8b677
+Target version         1.1.0
+Target tag             v1.1.0
+```
 
 ## 1. Question de sortie
 
 > Les évolutions M21 à M27 peuvent-elles être consolidées dans `main` et publiées comme MORPHEUS 1.1.0 avec des artefacts reproductibles, une qualification exacte Windows/Linux et une traçabilité complète de release ?
 
-Aucune réponse positive n'est autorisée avant la totalité des gates Windows, Linux/WSL, packaging, exact-tag et publication.
+**Réponse courante : non démontrée.** Aucun PASS, merge, tag ou publication n'est autorisé avant les sorties réelles Windows et Linux/WSL sur le même SHA exact.
 
-## 2. Baseline autoritative
+## 2. Baseline
 
 ```text
 main                    0e37d85fc7efe9843094416898b6fbdbc45b7da4
 develop                 bccc118dda6fd818cf801750187afa4ad10b96e4
-release branch          r2-release-1.1.0
-release branch baseline bccc118dda6fd818cf801750187afa4ad10b96e4
 main...develop          188 commits ahead / 0 behind
-current release         v1.0.0
-current Maven version   1.0.0
-target release          v1.1.0
-target Maven version    1.1.0
+release branch base     bccc118dda6fd818cf801750187afa4ad10b96e4
+R2 executable candidate cde78c8172d720a01254f7463f4ff60d09a8b677
+develop...candidate     38 commits / 35 changed files
+published release       v1.0.0
+candidate release       v1.1.0
 ```
 
-Le dernier SHA de code M27 qualifié est :
+M27 reste le dernier jalon déjà qualifié :
 
 ```text
-f97307c878125550693699124ca717f64f305a3a
+qualified code SHA      f97307c878125550693699124ca717f64f305a3a
+tests                   602 PASS Windows + Linux
+architecture            238 PASS Windows + Linux
 ```
 
-La réconciliation post-M27 a conduit `develop` à :
+R2 modifie les POM, les contrats de version, le packaging, les validateurs et les tests. Une nouvelle qualification est donc obligatoire.
+
+## 3. Invariants
 
 ```text
-bccc118dda6fd818cf801750187afa4ad10b96e4
-```
-
-Le delta M27 qualifié vers `develop` est exclusivement documentaire. R2 introduit cependant un changement exécutable de version et doit donc être qualifié sur son propre SHA exact.
-
-## 3. Périmètre
-
-### Inclus
-
-- promotion contrôlée de M25, M26 et M27 vers `main` ;
-- version Maven et packaging `1.1.0` ;
-- compatibilité des données et migrations SQLite V001→V015 ;
-- upgrade depuis une installation et une base `1.0.0` ;
-- setup Windows per-user ;
-- portable Windows x64 ;
-- portable Linux x64 ;
-- runtime Java embarqué ;
-- hashes SHA-256 ;
-- manifestes de release exacts ;
-- CycloneDX JSON/XML ;
-- provenance de build ;
-- smoke tests packagés des surfaces M25/M26/M27 ;
-- notes de version et guide d'upgrade ;
-- tag `v1.1.0` et GitHub Release stable ;
-- réconciliation documentaire post-merge et post-release.
-
-### Exclus
-
-- nouveau jalon fonctionnel M28 ;
-- changement opportuniste des workflows GitHub Actions en juillet 2026 ;
-- auto-update ;
-- signature de code non cadrée ;
-- service cloud obligatoire ;
-- LLM obligatoire ;
-- migration implicite ou destructive des données.
-
-## 4. Invariants
-
-```text
-release tag != branche de développement
+release tag != development branch
 qualified SHA == packaged SHA
 Windows qualified SHA == Linux qualified SHA
 post-gate executable delta == NONE
 main is stabilization / delivery branch
 develop remains integration branch
-release branch starts from develop exact head
-upgrade preserves domain identities and published facts
-migration is explicit and bounded
+upgrade preserves identities and published facts
+migration history remains immutable
 facts != inference
-inference never overwrites published facts
 local mode remains first-class
 remote mode remains opt-in
 checksum != signature
 release publication != automatic update
 ```
 
-## 5. Slices
+## 4. Préparation réalisée
 
-### R2-S0 — Cadrage et gouvernance
+### R2-S0 — Gouvernance
 
-- [x] audit de l'écart `main...develop` ;
-- [x] fermeture de l'issue dupliquée #102 ;
-- [x] création de l'issue #113 ;
-- [x] création de `r2-release-1.1.0` depuis `develop@bccc118d...` ;
-- [x] ouverture de la PR draft #114 vers `main` ;
-- [x] plan d'exécution R2 ;
-- [ ] index documentaire mis à jour.
+- [x] audit de `main`, `develop`, issues et PR ;
+- [x] issue obsolète #102 fermée comme doublon de #103 ;
+- [x] issue R2 #113 créée et assignée ;
+- [x] branche `r2-release-1.1.0` créée depuis le head exact de `develop` ;
+- [x] PR draft #114 ouverte vers `main` ;
+- [x] roadmaps, statut documentaire et index réconciliés ;
+- [x] politique CI de juillet préservée ;
+- [x] aucun fichier `.github/workflows` modifié.
 
-### R2-S1 — Version produit 1.1.0
+### R2-S1 — Version 1.1.0
 
-- [ ] root POM en `1.1.0` ;
-- [ ] tous les parent POM en `1.1.0` ;
-- [ ] valeurs par défaut des scripts de distribution en `1.1.0` ;
-- [ ] tests de contrat produit mis à jour sans affaiblissement ;
-- [ ] aucune référence active incohérente `1.0.0` dans le packaging ;
-- [ ] la documentation historique R1 reste inchangée.
+- [x] POM racine en `1.1.0` ;
+- [x] seize POM enfants alignés sur le parent `1.1.0` ;
+- [x] test de contrat exigeant exactement 17 POM cohérents ;
+- [x] rejet explicite de toute version reactor `1.0.0` résiduelle ;
+- [x] builders portable, installer et release Windows/Linux par défaut en `1.1.0` ;
+- [x] version passée explicitement aux outils de packaging ;
+- [ ] cohérence réellement exécutée sous Windows ;
+- [ ] cohérence réellement exécutée sous Linux/WSL.
 
-### R2-S2 — Upgrade et compatibilité
+### R2-S2 — Upgrade SQLite
 
-- [ ] création d'une base représentative avec MORPHEUS 1.0.0 ;
-- [ ] ouverture et migration sous 1.1.0 ;
-- [ ] V001→V015 appliquées une seule fois ;
-- [ ] identités, snapshots, historiques et audit préservés ;
-- [ ] policy packs et données remote compatibles ;
-- [ ] backup avant upgrade documenté ;
-- [ ] rollback applicatif documenté sans rollback destructif de schéma.
+- [x] fixture de base compatible avec la baseline 1.0.0/V012 ;
+- [x] migrations V001→V012 appliquées avec noms et checksums canoniques ;
+- [x] projet et snapshot ACTIVE représentatifs insérés ;
+- [x] test prévu pour appliquer V013, V014 et V015 ;
+- [x] vérification prévue de la préservation des identités et de l'historique ;
+- [x] vérification prévue de l'immutabilité des checksums V001→V012 ;
+- [x] vérification prévue du replay idempotent ;
+- [x] backup et rollback offline documentés ;
+- [ ] scénario réellement exécuté sous Windows ;
+- [ ] scénario réellement exécuté sous Linux/WSL.
 
-### R2-S3 — Gate exact-head Windows
+### R2-S3 — Packaging
 
-Commande canonique :
+- [x] defaults des builders actifs en `1.1.0` ;
+- [x] runtime Java embarqué conservé ;
+- [x] smokes version/product-info/API conservés ;
+- [x] preuve packagée M25 Policy Packs ajoutée au gate R2 ;
+- [x] preuve packagée M26 remote/server ajoutée au gate R2 ;
+- [x] preuve packagée M27 reasoning héritée du gate M27 ;
+- [x] setup Windows et checksum intégrés au gate R2 ;
+- [x] scripts exact-tag et manifestes réutilisés ;
+- [ ] distributions réellement construites sous Windows et Linux ;
+- [ ] setup Windows réellement construit ;
+- [ ] hashes et manifestes exact-tag réellement produits.
+
+### R2-S4 — Documentation de release
+
+- [x] notes de version candidates M21→M27 ;
+- [x] guide d'upgrade 1.0.0→1.1.0 ;
+- [x] procédure de backup/restore offline ;
+- [x] distinction candidate / release stable explicite ;
+- [x] `v1.0.0` reste la seule release annoncée comme publiée ;
+- [ ] valeurs finales de qualification et d'artefacts à injecter après observation.
+
+## 5. Gates exact-head
+
+### Windows
 
 ```powershell
 .\validate-r2.cmd -Version 1.1.0
 ```
 
-Attendus : reactor 17/17, tests >= 602, architecture >= 238, couverture >= seuils M27, surfaces M25–M27, SQLite V015, portable, setup, SBOM, provenance et smokes packagés.
+Le gate doit produire au minimum :
 
-### R2-S4 — Gate exact-head Linux/WSL
+```text
+reactor 17/17 SUCCESS
+tests >= 603
+architecture >= 238
+coverage >= M27 thresholds
+SQLite V012 -> V015 upgrade PASS
+Policy Packs PASS
+remote TLS/auth/RBAC/backup PASS
+assisted reasoning facts/claims/no-mutation PASS
+CLI/MCP/HTTP convergence PASS
+packaged M25/M26/M27 PASS
+Windows portable PASS
+Windows setup + SHA-256 PASS
+CycloneDX/provenance PASS
+postGateExecutableDelta=NONE
+```
 
-Commande canonique :
+### Linux/WSL
 
 ```bash
-./scripts/validate-r2.sh 1.1.0
+bash ./scripts/validate-r2.sh 1.1.0
 ```
 
 Le SHA doit être strictement identique au SHA Windows.
 
-### R2-S5 — Consolidation post-gate
+## 6. Consolidation post-gate
 
-- [ ] ADR/plan/validation finalisés ;
-- [ ] release notes et guide d'upgrade finalisés ;
-- [ ] delta depuis le SHA qualifié exclusivement documentaire ;
-- [ ] PR #114 mise à jour avec preuves exactes ;
-- [ ] aucun thread de review bloquant ;
-- [ ] PR marquée Ready uniquement après ces contrôles.
+Après les deux PASS réels :
 
-### R2-S6 — Merge et exact-tag
+- [ ] inscrire les sorties exactes dans `VALIDATION_R2.md` ;
+- [ ] accepter uniquement des commits documentaires ;
+- [ ] comparer le SHA qualifié au head PR final ;
+- [ ] exiger `postGateExecutableDelta=NONE` ;
+- [ ] vérifier les review threads ;
+- [ ] marquer la PR Ready.
 
-- [ ] merge dans `main` avec `expected_head_sha` ;
-- [ ] contrôle du SHA de merge ;
-- [ ] absence de delta exécutable inattendu ;
-- [ ] tag stable `v1.1.0` créé sur le SHA autorisé ;
-- [ ] compare tag/SHA = identical.
+## 7. Merge, tag et publication
 
-### R2-S7 — Builds exact-tag et publication
+Le merge dans `main` reste interdit tant que la qualification n'est pas complète.
 
-Windows :
+Après autorisation :
+
+- [ ] merge de #114 avec `expected_head_sha` ;
+- [ ] contrôle du SHA de merge/stabilisation ;
+- [ ] création de `v1.1.0` sur le SHA autorisé ;
+- [ ] compare tag/SHA identique ;
+- [ ] build exact-tag Windows :
 
 ```powershell
 .\distribution\build-release.ps1 -Version 1.1.0 -ExpectedTag v1.1.0
 ```
 
-Linux :
+- [ ] build exact-tag Linux :
 
 ```bash
-./distribution/build-release.sh 1.1.0 v1.1.0
+bash ./distribution/build-release.sh 1.1.0 v1.1.0
 ```
 
 Assets attendus :
@@ -188,76 +202,34 @@ morpheus-1.1.0-windows-x64-release-manifest.json
 morpheus-1.1.0-linux-x64-release-manifest.json
 ```
 
-- [ ] tous les hashes rehachés après staging ;
-- [ ] manifestes `version/tag/gitSha` identiques ;
 - [ ] GitHub Release stable, non draft, non prerelease ;
 - [ ] 8/8 assets publiés ;
-- [ ] digests GitHub comparés aux preuves locales.
+- [ ] digests GitHub comparés aux preuves locales ;
+- [ ] documentation post-release réconciliée ;
+- [ ] issue #113 fermée `completed`.
 
-### R2-S8 — Réconciliation post-release
-
-- [ ] `README.md` ;
-- [ ] portail documentation ;
-- [ ] roadmap gouvernance ;
-- [ ] statut documentaire ;
-- [ ] index validation ;
-- [ ] installation et upgrade ;
-- [ ] issue #113 fermée `completed` ;
-- [ ] PR #114 et release référencées ;
-- [ ] prochain jalon explicitement non défini ou cadré séparément.
-
-## 6. Politique CI de juillet 2026
-
-Jusqu'au 31 juillet 2026 inclus :
+## 8. Politique CI — juillet 2026
 
 ```text
 GitHub Actions is not a release gate
 no workflow rerun
-no manual workflow dispatch
+no workflow_dispatch
 no opportunistic .github/workflows change
 local Windows + Linux/WSL exact-head logs are authoritative
 ```
 
-La modernisation de la CI commence au plus tôt en août et constitue un chantier séparé.
-
-## 7. Gates de décision
-
-### Autoriser la mise Ready de la PR
-
-Uniquement si :
+## 9. État courant
 
 ```text
-Windows PASS
-Linux/WSL PASS
-same exact SHA
-version 1.1.0 coherent
-upgrade PASS
-packaging PASS
-SBOM/provenance PASS
-post-gate executable delta NONE
-validation evidence complete
+Preparation                    COMPLETE
+Executable candidate           cde78c8172d720a01254f7463f4ff60d09a8b677
+Windows exact-head             NOT RUN
+Linux/WSL exact-head           NOT RUN
+same SHA cross-platform        NOT PROVEN
+merge main                     NOT AUTHORIZED
+tag v1.1.0                     NOT AUTHORIZED
+GitHub Release                 NOT CREATED
+Result                         R2 IN PROGRESS
 ```
 
-### Autoriser le merge
-
-Uniquement si les gates précédents restent vrais et qu'aucun thread de review n'est bloquant.
-
-### Autoriser le tag et la publication
-
-Uniquement après merge/stabilisation sur `main`, compare exact du SHA autorisé, puis builds exact-tag réussis sur Windows et Linux.
-
-## 8. État courant
-
-```text
-R2-S0  🚧 presque terminé
-R2-S1  ⏳ à implémenter
-R2-S2  ⏳ à implémenter
-R2-S3  ⏳ non exécuté
-R2-S4  ⏳ non exécuté
-R2-S5  ⏳ bloqué par qualification
-R2-S6  ⏳ bloqué par qualification
-R2-S7  ⏳ bloqué par merge/tag
-R2-S8  ⏳ bloqué par publication
-```
-
-**Aucun PASS R2, merge, tag ou release 1.1.0 n'est déclaré à ce stade.**
+**Aucun PASS R2 n'est déclaré à ce stade.**
