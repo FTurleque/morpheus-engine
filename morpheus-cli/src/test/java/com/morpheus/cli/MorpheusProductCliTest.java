@@ -36,17 +36,19 @@ class MorpheusProductCliTest {
 
     @Test
     void updateCheckIsExplicitAndDoesNotApplyAnything() throws Exception {
+        String availableVersion = nextPatchVersion(ProductMetadata.version());
         Path manifest = tempDir.resolve("stable.properties");
         Files.writeString(manifest, String.join("\n",
-                "version=1.0.1",
+                "version=" + availableVersion,
                 "channel=stable",
-                "artifactUri=https://example.invalid/morpheus-1.0.1.zip",
+                "artifactUri=https://example.invalid/morpheus-" + availableVersion + ".zip",
                 "sha256=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
                 ""));
 
         Result result = run("update-check", "--manifest", manifest.toString());
 
         assertEquals(CliExitCode.SUCCESS.code(), result.exitCode());
+        assertTrue(result.out().contains("availableVersion=" + availableVersion));
         assertTrue(result.out().contains("updateAvailable=true"));
         assertTrue(result.out().contains("action=none"));
         assertTrue(result.err().isEmpty());
@@ -67,6 +69,16 @@ class MorpheusProductCliTest {
                 exit,
                 output.toString(StandardCharsets.UTF_8),
                 errors.toString(StandardCharsets.UTF_8));
+    }
+
+    private String nextPatchVersion(String version) {
+        String core = version.split("[+-]", 2)[0];
+        String[] parts = core.split("\\.");
+        if (parts.length != 3) {
+            throw new IllegalArgumentException("Expected semantic product version, got " + version);
+        }
+        int patch = Integer.parseInt(parts[2]);
+        return parts[0] + "." + parts[1] + "." + (patch + 1);
     }
 
     private record Result(int exitCode, String out, String err) {

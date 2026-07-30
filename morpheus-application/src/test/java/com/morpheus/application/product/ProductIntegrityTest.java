@@ -29,18 +29,19 @@ class ProductIntegrityTest {
 
     @Test
     void explicitFileManifestCanReportANewerVersion() throws IOException {
+        String availableVersion = nextPatchVersion(ProductMetadata.version());
         Path manifest = tempDir.resolve("stable.properties");
         Files.writeString(manifest, String.join("\n",
-                "version=1.0.1",
+                "version=" + availableVersion,
                 "channel=stable",
-                "artifactUri=https://example.invalid/morpheus-1.0.1.zip",
+                "artifactUri=https://example.invalid/morpheus-" + availableVersion + ".zip",
                 "sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 ""));
 
         UpdateCheckResult result = new UpdateDiscoveryService().check(manifest.toUri());
 
         assertEquals(ProductMetadata.version(), result.currentVersion());
-        assertEquals("1.0.1", result.availableVersion());
+        assertEquals(availableVersion, result.availableVersion());
         assertEquals("stable", result.channel());
         assertTrue(result.updateAvailable());
     }
@@ -68,7 +69,6 @@ class ProductIntegrityTest {
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
                 () -> new UpdateDiscoveryService().check(manifest.toUri()));
-
         assertTrue(failure.getMessage().contains("exceeds " + UpdateDiscoveryService.MAX_MANIFEST_BYTES));
     }
 
@@ -95,5 +95,15 @@ class ProductIntegrityTest {
         assertTrue(UpdateDiscoveryService.compareVersions("1.0.0-beta", "1.0.0-2") > 0);
         assertEquals(0, UpdateDiscoveryService.compareVersions("1.0", "1.0.0"));
         assertEquals(0, UpdateDiscoveryService.compareVersions("1.0.0+build.7", "1.0.0+build.8"));
+    }
+
+    private String nextPatchVersion(String version) {
+        String core = version.split("[+-]", 2)[0];
+        String[] parts = core.split("\\.");
+        if (parts.length != 3) {
+            throw new IllegalArgumentException("Expected semantic product version, got " + version);
+        }
+        int patch = Integer.parseInt(parts[2]);
+        return parts[0] + "." + parts[1] + "." + (patch + 1);
     }
 }

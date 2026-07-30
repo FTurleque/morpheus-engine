@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-1.0.0}"
+VERSION="${1:-1.1.0}"
 OUTPUT_DIRECTORY="${2:-dist}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -26,7 +26,7 @@ if [[ ! -x "$JIMAGE_TOOL" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Building MORPHEUS 1.0 CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M22 contracts uber-JAR..."
+printf '%s\n' "Building MORPHEUS $VERSION CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M27 contracts uber-JAR..."
 "$REPO/mvnw" -pl morpheus-cli -am -DskipTests package
 
 JAR="$(find "$REPO/morpheus-cli/target" -maxdepth 1 -type f -name 'morpheus-cli-*-all.jar' -print | sort | tail -n 1)"
@@ -35,7 +35,7 @@ if [[ -z "$JAR" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Verifying MCP/API/provider-SDK/MINOS/NEXUS/M14-M22 classes are embedded in the shaded JAR..."
+printf '%s\n' "Verifying baseline MCP/API/provider-SDK/MINOS/NEXUS classes are embedded in the shaded JAR..."
 JAR_ENTRIES="$($JAR_TOOL tf "$JAR")"
 for entry in \
   'com/morpheus/mcp/MorpheusMcpServer.class' \
@@ -66,27 +66,27 @@ for entry in \
   'com/morpheus/integration/nexus/NexusIntegrationRuntime.class' \
   'tools/jackson/databind/json/JsonMapper.class'; do
   if ! grep -Fxq "$entry" <<<"$JAR_ENTRIES"; then
-    echo "M22 packaging proof failed; shaded JAR is missing $entry" >&2
+    echo "Baseline packaging proof failed; shaded JAR is missing $entry" >&2
     exit 1
   fi
 done
 if grep -Eq '^com/minos/' <<<"$JAR_ENTRIES"; then
-  echo "M22 packaging proof failed; MINOS implementation classes must not be embedded" >&2
+  echo "Packaging proof failed; MINOS implementation classes must not be embedded" >&2
   exit 1
 fi
 if grep -Eq '^com/nexus/' <<<"$JAR_ENTRIES"; then
-  echo "M22 packaging proof failed; NEXUS implementation classes must not be embedded" >&2
+  echo "Packaging proof failed; NEXUS implementation classes must not be embedded" >&2
   exit 1
 fi
 if grep -Eq '^com/jarvis/' <<<"$JAR_ENTRIES"; then
-  echo "M22 packaging proof failed; JARVIS implementation classes must not be embedded" >&2
+  echo "Packaging proof failed; JARVIS implementation classes must not be embedded" >&2
   exit 1
 fi
 if grep -Eq '^com/morpheus/provider/reference/' <<<"$JAR_ENTRIES"; then
-  echo "M22 packaging proof failed; the reference provider plugin must remain external to the MORPHEUS launcher" >&2
+  echo "Packaging proof failed; the reference provider plugin must remain external to the MORPHEUS launcher" >&2
   exit 1
 fi
-printf '%s\n' "MCP/API/provider-SDK/MINOS/NEXUS/M14-M22 packaging proof: PASS"
+printf '%s\n' "Baseline MCP/API/provider-SDK/MINOS/NEXUS packaging proof: PASS"
 
 rm -rf "$WORK"
 mkdir -p "$INPUT" "$IMAGE_ROOT" "$DIST"
@@ -125,7 +125,7 @@ PY
 printf '%s\n' "$JSON_VERSION"
 PRODUCT_INFO="$("$LAUNCHER" --json product-info)"
 if [[ "$PRODUCT_INFO" != *'"updateChannel":"stable"'* ]]; then
-  echo "Packaged M21 product-info smoke failed: $PRODUCT_INFO" >&2
+  echo "Packaged product-info smoke failed: $PRODUCT_INFO" >&2
   exit 1
 fi
 printf '%s\n' "$PRODUCT_INFO"
@@ -143,10 +143,10 @@ fi
 printf '%s\n' "$NEXUS_STATUS"
 HELP="$($LAUNCHER help)"
 if [[ "$HELP" != *'change-orchestration'* || "$HELP" != *'update-check'* || "$HELP" != *'provider-plugins'* ]]; then
-  echo "Packaged M14-M22 CLI help smoke failed" >&2
+  echo "Packaged baseline CLI help smoke failed" >&2
   exit 1
 fi
-printf '%s\n' "Packaged standalone optional-engines + provider SDK + M14-M22 CLI surface smoke: PASS"
+printf '%s\n' "Packaged standalone optional-engines + provider SDK + CLI baseline smoke: PASS"
 
 test_packaged_api_operability() (
   local launcher="$1"
@@ -220,4 +220,4 @@ rm -f "$ARCHIVE"
 tar -C "$IMAGE_ROOT" -czf "$ARCHIVE" morpheus
 
 printf '%s\n' "Portable Linux distribution: $ARCHIVE"
-printf '%s\n' "The archive contains MORPHEUS $VERSION, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters and M14-M22 contracts; external provider plugins, MINOS, NEXUS and JARVIS are not embedded or required."
+printf '%s\n' "The archive contains MORPHEUS $VERSION, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters and M14-M27 contracts; external provider plugins, MINOS, NEXUS and JARVIS are not embedded or required."

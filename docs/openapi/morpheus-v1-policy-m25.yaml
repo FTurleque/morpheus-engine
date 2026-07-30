@@ -1,0 +1,309 @@
+openapi: 3.1.0
+info:
+  title: MORPHEUS M25 Policy Packs & Governance Automation
+  version: 1.0.0
+  description: >-
+    Provider-neutral, versioned and auditable policy configuration. Policy evaluation and dry-run are read-only;
+    lifecycle mutation remains a distinct controlled operation.
+servers:
+  - url: http://127.0.0.1:8765/api/v1
+paths:
+  /policy-packs:
+    get:
+      operationId: listPolicyPacks
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+    post:
+      operationId: createPolicyPack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePolicyPackRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /policy-packs/{policyPackId}:
+    parameters:
+      - $ref: '#/components/parameters/PolicyPackId'
+    get:
+      operationId: getPolicyPack
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    put:
+      operationId: updatePolicyPack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePolicyPackRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /policy-packs/{policyPackId}/versions:
+    parameters:
+      - $ref: '#/components/parameters/PolicyPackId'
+    get:
+      operationId: listPolicyPackVersions
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /policy-packs/{policyPackId}/activate:
+    parameters:
+      - $ref: '#/components/parameters/PolicyPackId'
+    post:
+      operationId: activatePolicyPack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActivationRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /policy-packs/{policyPackId}/deactivate:
+    parameters:
+      - $ref: '#/components/parameters/PolicyPackId'
+    post:
+      operationId: deactivatePolicyPack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeactivationRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /policy-packs/{policyPackId}/overrides/{ruleId}:
+    parameters:
+      - $ref: '#/components/parameters/PolicyPackId'
+      - name: ruleId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1 }
+    put:
+      operationId: putPolicyOverride
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OverrideRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /policy-overrides:
+    get:
+      operationId: listPolicyOverrides
+      parameters:
+        - $ref: '#/components/parameters/ScopeKindQuery'
+        - $ref: '#/components/parameters/ScopeIdQuery'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /policies/evaluate:
+    post:
+      operationId: evaluatePolicies
+      description: Read-only deterministic evaluation of active policy versions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EvaluateRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /policies/dry-run:
+    post:
+      operationId: dryRunPolicyPack
+      description: Read-only evaluation of one immutable version without activation or lifecycle mutation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DryRunRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /policy-packs/{policyPackId}/audit:
+    parameters:
+      - $ref: '#/components/parameters/PolicyPackId'
+    get:
+      operationId: getPolicyAudit
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+components:
+  parameters:
+    PolicyPackId:
+      name: policyPackId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    ScopeKindQuery:
+      name: scopeKind
+      in: query
+      required: true
+      schema: { $ref: '#/components/schemas/ScopeKind' }
+    ScopeIdQuery:
+      name: scopeId
+      in: query
+      required: true
+      schema: { type: string, minLength: 1 }
+  schemas:
+    ScopeKind:
+      type: string
+      enum: [PROJECT, PORTFOLIO]
+    ScopeFields:
+      type: object
+      additionalProperties: false
+      required: [scopeKind, scopeId]
+      properties:
+        scopeKind: { $ref: '#/components/schemas/ScopeKind' }
+        scopeId: { type: string, minLength: 1 }
+    PolicyRule:
+      type: object
+      additionalProperties: false
+      required: [description, kind, severity]
+      properties:
+        id: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1, maxLength: 512 }
+        kind:
+          type: string
+          enum: [CONSTRAINT_GUARD, LIFECYCLE_GUARD, QUALITY_THRESHOLD, QUERY_ASSERTION]
+        severity:
+          type: string
+          enum: [INFO, WARNING, BLOCKER]
+        changeId: { type: string, minLength: 1 }
+        sourceState: { type: string, minLength: 1 }
+        targetState: { type: string, minLength: 1 }
+        qualityMetric:
+          type: string
+          enum: [FINDINGS, ORPHAN_REQUIREMENTS, UNCOVERED_TASKS, REQUIREMENT_COVERAGE_PERCENT, TASK_COVERAGE_PERCENT, CHANGES, DECISIONS, EXTERNAL_REFERENCES]
+        comparison:
+          type: string
+          enum: [EQ, NE, LT, LTE, GT, GTE]
+        threshold: { type: number }
+        queryDefinition:
+          type: string
+          minLength: 1
+          description: Deterministic M24 QueryDefinitionCodec representation, never SQL.
+        expectedCount: { type: integer, minimum: 0 }
+    CreatePolicyPackRequest:
+      type: object
+      additionalProperties: false
+      required: [name, rules, actor, reason]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        rules:
+          type: array
+          minItems: 1
+          maxItems: 128
+          items: { $ref: '#/components/schemas/PolicyRule' }
+        actor: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 1 }
+    UpdatePolicyPackRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision, name, rules, actor, reason]
+      properties:
+        expectedRevision: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 160 }
+        rules:
+          type: array
+          minItems: 1
+          maxItems: 128
+          items: { $ref: '#/components/schemas/PolicyRule' }
+        actor: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 1 }
+    ActivationRequest:
+      type: object
+      additionalProperties: false
+      required: [versionId, scopeKind, scopeId, expectedRevision, actor, reason]
+      properties:
+        versionId: { type: string, minLength: 1 }
+        scopeKind: { $ref: '#/components/schemas/ScopeKind' }
+        scopeId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 0 }
+        actor: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 1 }
+    DeactivationRequest:
+      type: object
+      additionalProperties: false
+      required: [scopeKind, scopeId, expectedRevision, actor, reason]
+      properties:
+        scopeKind: { $ref: '#/components/schemas/ScopeKind' }
+        scopeId: { type: string, minLength: 1 }
+        expectedRevision: { type: integer, minimum: 1 }
+        actor: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 1 }
+    OverrideRequest:
+      type: object
+      additionalProperties: false
+      required: [scopeKind, scopeId, mode, expectedRevision, actor, reason]
+      properties:
+        scopeKind: { $ref: '#/components/schemas/ScopeKind' }
+        scopeId: { type: string, minLength: 1 }
+        mode:
+          type: string
+          enum: [DISABLE, FORCE_WARN, FORCE_BLOCK]
+        expectedRevision: { type: integer, minimum: 0 }
+        actor: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 1 }
+    EvaluateRequest:
+      type: object
+      additionalProperties: false
+      required: [scopeKind, scopeId]
+      properties:
+        scopeKind: { $ref: '#/components/schemas/ScopeKind' }
+        scopeId: { type: string, minLength: 1 }
+        id: { type: string, minLength: 1 }
+    DryRunRequest:
+      type: object
+      additionalProperties: false
+      required: [scopeKind, scopeId, id, versionId]
+      properties:
+        scopeKind: { $ref: '#/components/schemas/ScopeKind' }
+        scopeId: { type: string, minLength: 1 }
+        id: { type: string, minLength: 1 }
+        versionId: { type: string, minLength: 1 }
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, error]
+      properties:
+        apiVersion: { type: string, const: v1 }
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, details]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object }
+  responses:
+    Success:
+      description: Successful MORPHEUS v1 response.
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [apiVersion, data]
+            properties:
+              apiVersion: { type: string, const: v1 }
+              data: {}
+    BadRequest:
+      description: Invalid or unsupported policy request.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: Stale CAS revision or incompatible persisted state.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }

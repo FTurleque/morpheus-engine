@@ -1,0 +1,215 @@
+package com.morpheus.cli;
+
+import com.morpheus.api.MorpheusRemoteIdentityFile;
+import com.morpheus.api.MorpheusRemoteRole;
+import com.morpheus.application.query.compact.CanonicalJsonSerializer;
+import com.morpheus.store.sqlite.SqliteServerMaintenance;
+
+import java.io.PrintStream;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
+
+/** M26 local administrative CLI for remote identities and SQLite backup/restore. */
+final class MorpheusServerCli {
+    private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
+    private final SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
+
+    static boolean handles(String[] args) {
+        for (int index = 0; index < args.length; index++) {
+            String token = args[index];
+            if (token.equals("--json")) continue;
+            if (isLayoutOption(token)) {
+                if (!token.contains("=")) index++;
+                continue;
+            }
+            return token.equals("server");
+        }
+        return false;
+    }
+
+    int run(
+            String[] args,
+            PrintStream out,
+            PrintStream err,
+            Map<String, String> environment,
+            Properties properties) {
+        try {
+            Parsed parsed = parse(args, environment, properties);
+            List<String> command = parsed.command();
+            if (command.size() >= 3 && command.get(1).equals("identity") && command.get(2).equals("create")) {
+                return identityCreate(parsed, out);
+            }
+            if (command.size() >= 3 && command.get(1).equals("backup") && command.get(2).equals("create")) {
+                return backupCreate(parsed, out);
+            }
+            if (command.size() >= 3 && command.get(1).equals("backup") && command.get(2).equals("verify")) {
+                return backupVerify(parsed, out);
+            }
+            if (command.size() >= 2 && command.get(1).equals("restore")) {
+                return restore(parsed, out);
+            }
+            throw new IllegalArgumentException(
+                    "server command must be identity create, backup create, backup verify, or restore");
+        } catch (IllegalArgumentException failure) {
+            err.println("MORPHEUS server usage error: " + safeMessage(failure));
+            return CliExitCode.USAGE.code();
+        } catch (RuntimeException failure) {
+            err.println("MORPHEUS server error: " + safeMessage(failure));
+            return CliExitCode.INTERNAL_ERROR.code();
+        }
+    }
+
+    private int identityCreate(Parsed parsed, PrintStream out) {
+        Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "role", "auth-file"));
+        String principal = required(options, "principal");
+        MorpheusRemoteRole role;
+        try {
+            role = MorpheusRemoteRole.valueOf(required(options, "role").toUpperCase());
+        } catch (IllegalArgumentException failure) {
+            throw new IllegalArgumentException("--role must be READ, WRITE, or ADMIN", failure);
+        }
+        Path authFile = Optional.ofNullable(options.get("auth-file"))
+                .map(Path::of)
+                .orElse(parsed.layout().configDirectory().resolve("remote-auth.txt"));
+        MorpheusRemoteIdentityFile.GeneratedCredential credential =
+                MorpheusRemoteIdentityFile.create(authFile, principal, role);
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("principal", credential.principal());
+        view.put("role", credential.role().name());
+        view.put("token", credential.token());
+        view.put("authFile", authFile.toAbsolutePath().normalize().toString());
+        view.put("tokenPersistence", "NOT_PERSISTED_PRINTED_ONCE");
+        print(parsed.json(), out, view);
+        return CliExitCode.SUCCESS.code();
+    }
+
+    private int backupCreate(Parsed parsed, PrintStream out) {
+        Map<String, String> options = options(parsed.command(), 3, Set.of("output-dir"));
+        Path output = Optional.ofNullable(options.get("output-dir"))
+                .map(Path::of)
+                .orElse(parsed.layout().backupsDirectory());
+        SqliteServerMaintenance.BackupVerification backup =
+                maintenance.createBackup(parsed.layout().databasePath(), output);
+        print(parsed.json(), out, backupView(backup));
+        return CliExitCode.SUCCESS.code();
+    }
+
+    private int backupVerify(Parsed parsed, PrintStream out) {
+        Map<String, String> options = options(parsed.command(), 3, Set.of("file"));
+        SqliteServerMaintenance.BackupVerification backup = maintenance.verify(Path.of(required(options, "file")));
+        print(parsed.json(), out, backupView(backup));
+        return CliExitCode.SUCCESS.code();
+    }
+
+    private int restore(Parsed parsed, PrintStream out) {
+        Map<String, String> options = options(parsed.command(), 2, Set.of("file", "confirm"));
+        if (!"true".equals(options.get("confirm"))) {
+            throw new IllegalArgumentException("server restore requires explicit --confirm");
+        }
+        SqliteServerMaintenance.BackupVerification restored = maintenance.restoreOffline(
+                Path.of(required(options, "file")), parsed.layout().databasePath(), true);
+        print(parsed.json(), out, backupView(restored));
+        return CliExitCode.SUCCESS.code();
+    }
+
+    private Map<String, Object> backupView(SqliteServerMaintenance.BackupVerification backup) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("path", backup.path().toString());
+        view.put("bytes", backup.bytes());
+        view.put("sha256", backup.sha256());
+        view.put("schemaVersion", backup.schemaVersion());
+        view.put("integrityOk", backup.integrityOk());
+        return view;
+    }
+
+    private Parsed parse(String[] args, Map<String, String> environment, Properties properties) {
+        Optional<Path> data = Optional.empty();
+        Optional<Path> config = Optional.empty();
+        Optional<Path> database = Optional.empty();
+        boolean json = false;
+        List<String> command = new ArrayList<>();
+        for (int index = 0; index < args.length; index++) {
+            String token = args[index];
+            if (token.equals("--json")) {
+                json = true;
+                continue;
+            }
+            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
+                if (index + 1 >= args.length) throw new IllegalArgumentException(token + " requires a value");
+                Path value = Path.of(args[++index]);
+                if (token.equals("--data-dir")) data = Optional.of(value);
+                if (token.equals("--config-dir")) config = Optional.of(value);
+                if (token.equals("--db")) database = Optional.of(value);
+                continue;
+            }
+            if (token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=")) {
+                int separator = token.indexOf('=');
+                Path value = Path.of(token.substring(separator + 1));
+                String option = token.substring(0, separator);
+                if (option.equals("--data-dir")) data = Optional.of(value);
+                if (option.equals("--config-dir")) config = Optional.of(value);
+                if (option.equals("--db")) database = Optional.of(value);
+                continue;
+            }
+            command.add(token);
+        }
+        if (command.isEmpty() || !command.getFirst().equals("server")) {
+            throw new IllegalArgumentException("server command is required");
+        }
+        return new Parsed(CliLayout.resolve(data, config, database, environment, properties), json, List.copyOf(command));
+    }
+
+    private Map<String, String> options(List<String> command, int start, Set<String> allowed) {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (int index = start; index < command.size(); index++) {
+            String token = command.get(index);
+            if (!token.startsWith("--")) throw new IllegalArgumentException("unexpected server argument: " + token);
+            String name = token.substring(2);
+            if (!allowed.contains(name)) throw new IllegalArgumentException("unknown server option: --" + name);
+            if (name.equals("confirm")) {
+                if (result.put(name, "true") != null) throw new IllegalArgumentException("duplicate --confirm");
+                continue;
+            }
+            if (index + 1 >= command.size()) throw new IllegalArgumentException(token + " requires a value");
+            String value = command.get(++index);
+            if (value.startsWith("--")) throw new IllegalArgumentException(token + " requires a value");
+            if (result.put(name, value) != null) throw new IllegalArgumentException("duplicate " + token);
+        }
+        return result;
+    }
+
+    private void print(boolean json, PrintStream out, Object value) {
+        if (json) {
+            out.println(serializer.toJson(value));
+        } else if (value instanceof Map<?, ?> map) {
+            map.forEach((key, item) -> out.println(key + "=" + item));
+        } else {
+            out.println(serializer.toJson(value));
+        }
+    }
+
+    private static String required(Map<String, String> options, String name) {
+        String value = options.get(name);
+        if (value == null || value.isBlank()) throw new IllegalArgumentException("--" + name + " is required");
+        return value.trim();
+    }
+
+    private static boolean isLayoutOption(String token) {
+        return token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")
+                || token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=");
+    }
+
+    private static String safeMessage(RuntimeException failure) {
+        String message = failure.getMessage();
+        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
+    }
+
+    private record Parsed(CliLayout layout, boolean json, List<String> command) {
+    }
+}

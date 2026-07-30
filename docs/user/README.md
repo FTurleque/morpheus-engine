@@ -1,14 +1,15 @@
 # Guide utilisateur MORPHEUS
 
-MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il transforme une ou plusieurs sources de spécification en un modèle normalisé, versionné, composable et interrogeable, puis expose ce modèle par CLI, MCP STDIO et API HTTP locale.
+MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il transforme une ou plusieurs sources de spécification en un modèle normalisé, versionné, composable et interrogeable, puis expose ce modèle par CLI, MCP STDIO et API HTTP locale. Depuis M26, un mode serveur d’équipe **remote explicitement opt-in** peut exposer l’API via HTTPS avec authentification et RBAC, sans changer le fonctionnement local par défaut.
 
-Baseline documentée : **M24 validé et intégré**, avec qualification Windows + Linux sur MORPHEUS `1.0.0`.
+Baseline documentée : **M26 validé et intégré**, qualification Windows + Linux/WSL sur MORPHEUS `1.0.0`.
 
 ```text
-M24 executable  be69e47da0ae209d2246df9c67bc08caeafb2bb0
-M24 merge       2b483ded10c783fff22c25035db89475c5c9fdaf
-Tests           543 PASS Windows + Linux
-Architecture    221 PASS Windows + Linux
+M26 qualified     bf481b24054c4577144b4cb2ede2bdbc4d9974a2
+M26 PR head       36378842e3ef41e379ade17f869b0939d052bbbc
+M26 merge         49016a18c844a78ec864235c544d82d487da7c8a
+Tests             579 PASS Windows + Linux
+Architecture      234 PASS Windows + Linux
 ```
 
 ## 1. À quoi sert MORPHEUS ?
@@ -24,11 +25,13 @@ MORPHEUS permet notamment de savoir :
 - quels plugins provider externes sont découvrables et compatibles ;
 - quels projets appartiennent à un portfolio sans confondre identité et localisation ;
 - quelles références relient des entités de projets différents ;
-- jusqu’où une traversal inter-projets bornée peut aller ;
 - comment interroger un projet ou portfolio avec un DSL provider-neutral ;
 - comment sauvegarder une requête sous forme de saved view versionnée ;
 - comment exporter un résultat en JSON canonique, CSV ou Markdown ;
+- comment appliquer des Policy Packs versionnés et expliquer leurs décisions ;
+- comment évaluer une gouvernance en dry-run sans mutation ;
 - si une transition lifecycle est autorisée compte tenu des faits disponibles ;
+- comment exposer MORPHEUS à une équipe via un serveur HTTPS optionnel ;
 - quelles références MINOS ou quel contexte NEXUS sont disponibles en complément.
 
 MORPHEUS ne remplace ni Git, ni un tracker, ni MINOS, ni NEXUS, ni JARVIS.
@@ -39,36 +42,27 @@ MORPHEUS = specification facts + intent + lifecycle rules
            + provider composition facts
            + portfolio specification facts
            + provider-neutral query/view/reporting contracts
+           + provider-neutral governance policy contracts
+           + optional remote/team access boundary
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = sequencing / orchestration / action choice
 ```
 
-## 2. Les trois surfaces
+## 2. Surfaces
 
 | Surface | Usage principal | Transport | Écriture contrôlée |
 |---|---|---|---|
-| CLI | humain, scripts, administration locale | processus local | projet/sync + portfolio registry + saved-view config + lifecycle write explicite |
-| MCP | IDE, agents, orchestrateurs | STDIO / JSON-RPC | portfolio registry + saved-view config + lifecycle write explicite |
-| API HTTP | intégration locale | HTTP `/api/v1` | projet/sync + portfolio registry + saved-view config + lifecycle write explicite |
+| CLI | humain, scripts, administration locale | processus local | oui, explicite |
+| MCP | IDE, agents, orchestrateurs | STDIO / JSON-RPC | oui selon tools/capabilities |
+| API locale | intégration locale | HTTP `/api/v1`, loopback | oui selon routes |
+| API remote M26 | équipe / clients réseau | HTTPS `/api/v1` | RBAC READ/WRITE/ADMIN |
 
-Les trois surfaces utilisent les mêmes services applicatifs ; elles ne réimplémentent pas les règles métier.
-
-M24 ajoute notamment :
-
-```text
-CLI   query / views / export
-MCP   execute_query + saved-view + export tools
-HTTP  /api/v1/queries/execute
-HTTP  /api/v1/saved-views
-HTTP  /api/v1/exports
-```
+Les surfaces utilisent les mêmes services applicatifs ; elles ne réimplémentent pas les règles métier.
 
 ## 3. Projet, snapshot, providers et portfolio
 
 Un `ProjectSpecificationId` est l’identité métier stable d’un projet MORPHEUS. Il n’est pas dérivé du workspace, du repository ou d’un identifiant provider.
-
-Un portfolio ajoute une frontière multi-projets :
 
 ```text
 PortfolioId
@@ -83,38 +77,14 @@ PortfolioId
 
 Un projet temporairement absent peut être marqué `MISSING` sans perdre son identité ni ses références historiques.
 
-Guide complet : [Portfolios multi-projets](PORTFOLIOS.md).
+Guide : [Portfolios multi-projets](PORTFOLIOS.md).
 
 ## 4. Query DSL, Saved Views & Reporting
-
-M24 introduit un langage de requête métier fermé et borné.
 
 ```text
 DSL != SQL passthrough
 saved view != materialized truth
 export != mutation
-```
-
-Scopes :
-
-```text
-project   -> ProjectSpecificationId
-portfolio -> PortfolioId
-```
-
-Opérateurs :
-
-```text
-eq
-neq
-contains
-starts-with
-ends-with
-in
-exists
-and(...)
-or(...)
-not(...)
 ```
 
 Exemple :
@@ -144,11 +114,63 @@ Export :
 morpheus export view --id <savedViewId> --format csv
 ```
 
-Guide complet : [Query DSL, Saved Views & Reporting](QUERY_VIEWS_REPORTING.md).
+Guide : [Query DSL, Saved Views & Reporting](QUERY_VIEWS_REPORTING.md).
 
-## 5. Providers et plugins externes
+## 5. Policy Packs / Governance
 
-MORPHEUS prend en charge les providers intégrés OpenSpec et Structured Markdown, ainsi qu’un mécanisme pour charger des providers externes compatibles via le Provider SDK.
+M25 ajoute des Policy Packs provider-neutral, versionnés et auditables.
+
+```text
+constraint text != executable policy
+severity != blocking policy
+policy recommendation != applied mutation
+policy version != mutable latest
+policy override != provenance erasure
+dry-run != mutation
+```
+
+Guide : [Policy Packs](POLICY_PACKS.md).
+
+## 6. Team / Remote Server Mode
+
+Le mode **LOCAL** reste la baseline produit : loopback uniquement, sans authentification imposée.
+
+Le mode **REMOTE** est opt-in et exige :
+
+```text
+HTTPS
+PKCS12
+TLSv1.3 / TLSv1.2
+Bearer authentication
+READ / WRITE / ADMIN
+```
+
+Les tokens sont générés avec 256 bits d’entropie et seul `sha256(token)` est persisté.
+
+Surfaces serveur :
+
+```text
+GET  /api/v1/server/status   READ
+POST /api/v1/server/backups  ADMIN
+GET  /api/v1/metrics         ADMIN
+```
+
+Maintenance locale :
+
+```text
+server identity create
+server backup create
+server backup verify
+server restore --confirm
+```
+
+Le restore est **offline uniquement** et le provisioning d’identité n’est pas exposé en HTTP/MCP.
+
+La concurrence remote est bornée ; une saturation applicative retourne HTTP `429`.
+
+Guide complet : [Team / Remote Server](TEAM_REMOTE_SERVER.md).
+
+## 7. Providers et plugins externes
 
 ```text
 discover != activate
@@ -159,7 +181,7 @@ classloader isolation != security sandbox
 
 Voir [Plugins provider](PROVIDER_PLUGINS.md).
 
-## 6. Temporalité et lifecycle
+## 8. Temporalité et lifecycle
 
 ```text
 CURRENT     état publié de référence
@@ -173,7 +195,7 @@ Une évaluation lifecycle peut être `ALLOWED`, `BLOCKED`, `UNKNOWN` ou `REQUIRE
 
 **Évaluer une transition ne l’applique jamais.**
 
-## 7. Parcours recommandé
+## 9. Parcours recommandé
 
 1. installer ou extraire MORPHEUS ;
 2. `projects add` ;
@@ -182,16 +204,16 @@ Une évaluation lifecycle peut être `ALLOWED`, `BLOCKED`, `UNKNOWN` ou `REQUIRE
 5. composer les providers si nécessaire ;
 6. examiner les conflits ;
 7. interroger requirements, changes, traçabilité et qualité ;
-8. créer un portfolio pour raisonner sur plusieurs projets ;
-9. utiliser `query execute` pour les vues ad hoc ;
-10. créer une saved view lorsque la requête doit être réutilisée ;
-11. exporter en JSON/CSV/Markdown lorsque nécessaire ;
-12. utiliser HTTP/MCP si un outil consomme MORPHEUS ;
-13. appliquer un lifecycle uniquement via la commande write explicite et ses garde-fous.
+8. créer un portfolio si plusieurs projets doivent être corrélés ;
+9. utiliser Query DSL / saved views / exports ;
+10. activer des Policy Packs si une gouvernance explicite est nécessaire ;
+11. utiliser HTTP/MCP si un outil consomme MORPHEUS ;
+12. n’activer `api --remote` que pour un usage équipe explicite avec TLS/auth configurés ;
+13. appliquer un lifecycle uniquement via l’opération write explicite et ses garde-fous.
 
 Voir [Démarrage rapide](QUICKSTART.md).
 
-## 8. Commandes principales
+## 10. Commandes principales
 
 | Besoin | Commande |
 |---|---|
@@ -206,19 +228,18 @@ Voir [Démarrage rapide](QUICKSTART.md).
 | vue portfolio | `portfolio overview` |
 | traversal inter-projets | `portfolio traverse` |
 | requête générique | `query execute` |
-| créer/lire/versionner une vue | `views create/get/versions/update` |
-| archiver/exécuter une vue | `views archive/execute` |
-| exporter une requête | `export query` |
-| exporter une vue | `export view` |
-| chercher une exigence | `requirements find` |
-| traçabilité | `trace-requirement` |
-| analyser un changement | `analyze-change` |
-| qualité | `quality` |
+| saved views | `views create/get/versions/update/archive/execute` |
+| exporter | `export query/view` |
+| policy packs | `policy pack ...` |
+| dry-run policy | `policy dry-run` |
+| créer une identité remote | `server identity create` |
+| backup | `server backup create/verify` |
+| restore offline | `server restore --confirm` |
 | appliquer transition | `lifecycle apply` |
 
 Référence détaillée : [CLI](CLI.md).
 
-## 9. Garanties structurantes
+## 11. Garanties structurantes
 
 ```text
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
@@ -226,33 +247,37 @@ SpecificationVersion != KnowledgeSnapshot
 PROPOSED never leaks into CURRENT
 published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
-Scenario != AcceptanceCriterion
-AcceptanceCriterion != Test
-Evidence != assertion
 UNKNOWN != FAILED
 UNKNOWN != BLOCKED
 READ_CHANGES != WRITE_CHANGE
 ALLOWED != applied
-stale revision != overwrite
 precedence != provenance erasure
 conflict != silent last-write-wins
 provider plugin != domain dependency
-plugin discovery != plugin activation
 cross-project identity != source path
-project identity != workspace path
 portfolio membership != source ownership
-cross-project reference != traceability proof
 traversal is bounded and explainable
 DSL != SQL passthrough
 saved view != materialized truth
 export != mutation
-bounded query != silently truncated semantics
-portfolio result preserves ProjectSpecificationId
+constraint text != executable policy
+policy recommendation != applied mutation
+dry-run != mutation
+local mode remains first-class
+remote mode is opt-in
+non-loopback bind requires remote mode
+remote mode requires TLS + authentication
+authentication != authorization
+READ != WRITE != ADMIN
+token plaintext != persisted credential
+backup != live restore
+restore != implicit migration
+server state != provider source of truth
 ```
 
 MORPHEUS préfère `UNAVAILABLE`/`UNKNOWN` à un fait inventé.
 
-## 10. Stockage local
+## 12. Stockage local
 
 SQLite est le store persistant par défaut.
 
@@ -262,20 +287,9 @@ SQLite est le store persistant par défaut.
 --db PATH             MORPHEUS_DB
 ```
 
-M23 ajoute SQLite V013 pour le portfolio. M24 ajoute SQLite V014 pour les saved views.
+M23 ajoute V013 portfolio, M24 V014 saved views et M25 V015 policy packs. M26 n’ajoute pas de V016 : la configuration remote reste distincte de la vérité métier.
 
-## 11. JSON et automatisation
-
-Pour automatiser :
-
-- vérifier le code de sortie ;
-- parser le JSON de `stdout` ;
-- ne pas dépendre du texte humain de `stderr` ;
-- ne pas utiliser `--json` avec `morpheus mcp --stdio`.
-
-Les vues publiques convertissent explicitement identités et timestamps en valeurs transport-safe avant sérialisation.
-
-## 12. Intégrations optionnelles
+## 13. Intégrations optionnelles
 
 | Intégration | Apport | Si absente |
 |---|---|---|
@@ -283,35 +297,38 @@ Les vues publiques convertissent explicitement identités et timestamps en valeu
 | NEXUS | contexte technique sous budget | seul le contexte augmenté est indisponible |
 | JARVIS | séquencement/orchestration | MORPHEUS reste autonome |
 
-## 13. Baseline M24 intégrée
+## 14. Baseline M26 intégrée
 
 ```text
-code M24 qualifié     be69e47da0ae209d2246df9c67bc08caeafb2bb0
-PR head docs-only     863c2fa8f1fd7dcb40ef437c7fe6b8da016c0f58
-merge M24             2b483ded10c783fff22c25035db89475c5c9fdaf
+code M26 qualifié     bf481b24054c4577144b4cb2ede2bdbc4d9974a2
+PR head docs-only     36378842e3ef41e379ade17f869b0939d052bbbc
+merge M26             49016a18c844a78ec864235c544d82d487da7c8a
 version               1.0.0
-tests                 543 PASS Windows + Linux
-architecture          221 PASS Windows + Linux
-Query DSL             PASS
-Saved views           PASS
-SQLite V014           PASS
-JSON/CSV/Markdown     PASS
+tests                 579 PASS Windows + Linux
+architecture          234 PASS Windows + Linux
+TLS/auth/RBAC         PASS
+bounded concurrency   PASS / HTTP 429
+secret disclosure     NONE
+backup/restore        PASS
+SQLite                V015
 packaging Win/Linux   PASS
 SBOM/provenance       PASS Windows + Linux
 executable delta      NONE Windows + Linux
 ```
 
-## 14. Documentation associée
+## 15. Documentation associée
 
 - [Démarrage rapide](QUICKSTART.md)
 - [Référence CLI](CLI.md)
 - [Portfolios multi-projets](PORTFOLIOS.md)
 - [Query DSL, Saved Views & Reporting](QUERY_VIEWS_REPORTING.md)
+- [Policy Packs](POLICY_PACKS.md)
+- [Team / Remote Server](TEAM_REMOTE_SERVER.md)
 - [Plugins provider](PROVIDER_PLUGINS.md)
 - [Intégrations optionnelles](INTEGRATIONS.md)
 - [Architecture développeur](../developer/ARCHITECTURE.md)
-- [Query Platform — développeur](../developer/QUERY_PLATFORM.md)
+- [Remote Server Platform — développeur](../developer/REMOTE_SERVER_PLATFORM.md)
 - [API HTTP](../developer/API.md)
 - [Serveur MCP](../developer/MCP.md)
-- [Validation M24](../validation/VALIDATION_M24.md)
+- [Validation M26](../validation/VALIDATION_M26.md)
 - [Portail de documentation](../README.md)

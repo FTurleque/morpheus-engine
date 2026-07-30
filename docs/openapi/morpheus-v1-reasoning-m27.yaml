@@ -1,0 +1,251 @@
+openapi: 3.1.0
+info:
+  title: MORPHEUS Evidence-backed Assisted Reasoning API
+  version: 1.0.0
+  description: >-
+    Read-only optional assisted reasoning. Published facts remain structurally separate from
+    inferences, heuristics and suggestions. No route mutates specification truth.
+servers:
+  - url: http://127.0.0.1:8765/api/v1
+paths:
+  /reasoning/adapters:
+    get:
+      operationId: listReasoningAdapters
+      summary: List optional reasoning adapters without activating them
+      responses:
+        '200':
+          description: Available adapter descriptors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdapterListEnvelope'
+  /reasoning/analyze:
+    post:
+      operationId: reasonWithEvidence
+      summary: Produce explicit evidence-backed assisted claims
+      description: >-
+        adapterIds is explicit. Omitting it or passing an empty array returns facts only.
+        The operation never applies, promotes, activates or mutates specification state.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasoningRequest'
+      responses:
+        '200':
+          description: Facts and assisted claims remain separated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReasoningResultEnvelope'
+        '400':
+          description: Strict schema, evidence, confidence or adapter validation failure
+components:
+  schemas:
+    AdapterDescriptor:
+      type: object
+      additionalProperties: false
+      required: [id, description]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description:
+          type: string
+          minLength: 1
+    AdapterListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, data]
+      properties:
+        apiVersion:
+          const: v1
+        data:
+          type: array
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/AdapterDescriptor'
+    Evidence:
+      type: object
+      additionalProperties: false
+      required: [id, kind, subject, statement]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        kind:
+          type: string
+          enum: [PUBLISHED_FACT, SOURCE_EXCERPT, POLICY_RESULT, EXTERNAL_CONTEXT, OBSERVATION]
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 512
+        statement:
+          type: string
+          minLength: 1
+          maxLength: 16384
+        provenance:
+          type: object
+          maxProperties: 32
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 2048
+    ReasoningRequest:
+      type: object
+      additionalProperties: false
+      required: [question]
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 8192
+        evidence:
+          type: array
+          maxItems: 256
+          items:
+            $ref: '#/components/schemas/Evidence'
+        adapterIds:
+          type: array
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+        parameters:
+          type: object
+          maxProperties: 32
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 2048
+        maxClaims:
+          type: integer
+          minimum: 1
+          maximum: 256
+          default: 256
+    Confidence:
+      type: object
+      additionalProperties: false
+      required: [score, band]
+      properties:
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        band:
+          type: string
+          enum: [VERY_LOW, LOW, MEDIUM, HIGH, VERY_HIGH]
+    Claim:
+      type: object
+      additionalProperties: false
+      required: [id, kind, statement, confidence, evidenceIds, adapterId, provenance]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        kind:
+          type: string
+          enum: [INFERENCE, HEURISTIC, SUGGESTION]
+        statement:
+          type: string
+          minLength: 1
+          maxLength: 16384
+        confidence:
+          $ref: '#/components/schemas/Confidence'
+        evidenceIds:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+        adapterId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        provenance:
+          type: object
+          maxProperties: 32
+          additionalProperties:
+            type: string
+    AdapterExecution:
+      type: object
+      additionalProperties: false
+      required: [adapterId, status, acceptedClaims, message, metadata]
+      properties:
+        adapterId:
+          type: string
+        status:
+          type: string
+          enum: [SUCCEEDED, FAILED]
+        acceptedClaims:
+          type: integer
+          minimum: 0
+          maximum: 256
+        message:
+          type: string
+        metadata:
+          type: object
+          maxProperties: 32
+          additionalProperties:
+            type: string
+    ReasoningResult:
+      type: object
+      additionalProperties: false
+      required: [question, evidence, facts, inferences, heuristics, suggestions, executions, assisted, mutated]
+      properties:
+        question:
+          type: string
+        evidence:
+          type: array
+          maxItems: 256
+          items:
+            $ref: '#/components/schemas/Evidence'
+        facts:
+          type: array
+          maxItems: 256
+          description: Contains only evidence whose kind is PUBLISHED_FACT.
+          items:
+            $ref: '#/components/schemas/Evidence'
+        inferences:
+          type: array
+          maxItems: 256
+          items:
+            $ref: '#/components/schemas/Claim'
+        heuristics:
+          type: array
+          maxItems: 256
+          items:
+            $ref: '#/components/schemas/Claim'
+        suggestions:
+          type: array
+          maxItems: 256
+          items:
+            $ref: '#/components/schemas/Claim'
+        executions:
+          type: array
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/AdapterExecution'
+        assisted:
+          type: boolean
+        mutated:
+          type: boolean
+          const: false
+    ReasoningResultEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, data]
+      properties:
+        apiVersion:
+          const: v1
+        data:
+          $ref: '#/components/schemas/ReasoningResult'

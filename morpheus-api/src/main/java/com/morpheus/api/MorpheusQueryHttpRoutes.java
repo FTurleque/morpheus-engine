@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Isolated M24 HTTP routing contexts so legacy /api/v1 routes remain untouched. */
+/** Isolated M24/M25 extension routing contexts so legacy /api/v1 routes remain untouched. */
 final class MorpheusQueryHttpRoutes {
     private static final String QUERY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/queries";
     private static final String VIEW_CONTEXT = MorpheusHttpServer.API_PREFIX + "/saved-views";
@@ -47,6 +47,8 @@ final class MorpheusQueryHttpRoutes {
         server.createContext(QUERY_CONTEXT, routes::handleQueries);
         server.createContext(VIEW_CONTEXT, routes::handleSavedViews);
         server.createContext(EXPORT_CONTEXT, routes::handleExports);
+        MorpheusPolicyHttpRoutes.register(server, databasePath);
+        MorpheusReasoningHttpRoutes.register(server);
     }
 
     private void handleQueries(HttpExchange exchange) throws IOException {

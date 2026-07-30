@@ -26,3 +26,24 @@ saved-view.archive	WRITE	views archive	archive_saved_view	POST /api/v1/saved-vie
 saved-view.execute	READ	views execute	execute_saved_view	POST /api/v1/saved-views/{id}/execute	Executes the stored query definition against current published truth; saved view is not materialized truth
 query.export	READ	export query	export_query	POST /api/v1/exports	Read-only bounded canonical JSON/CSV/Markdown export; no domain mutation
 saved-view.export	READ	export view	export_saved_view	POST /api/v1/saved-views/{id}/export	Read-only export of the active saved-view definition; no saved-view or domain mutation
+policy.pack.create	WRITE	policy pack create	create_policy_pack	POST /api/v1/policy-packs	Creates configuration identity + immutable v1; never mutates published specification truth
+policy.pack.list	READ	policy pack list	list_policy_packs	GET /api/v1/policy-packs	Lists registry metadata only
+policy.pack.get	READ	policy pack get	get_policy_pack	GET /api/v1/policy-packs/{id}	Stable PolicyPackId is independent from mutable display name
+policy.pack.versions	READ	policy pack versions	list_policy_pack_versions	GET /api/v1/policy-packs/{id}/versions	Immutable append-only policy version history
+policy.pack.update	WRITE	policy pack update	update_policy_pack	PUT /api/v1/policy-packs/{id}	CAS configuration update creates a new immutable version; stale writers fail
+policy.pack.activate	WRITE	policy activate	activate_policy_pack	POST /api/v1/policy-packs/{id}/activate	Explicitly selects an immutable version for project/portfolio scope; not a domain truth mutation
+policy.pack.deactivate	WRITE	policy deactivate	deactivate_policy_pack	POST /api/v1/policy-packs/{id}/deactivate	CAS configuration change only
+policy.activation.list	READ	policy activations	list_policy_activations	GET /api/v1/policy-activations	Lists explicit version activations for one scope
+policy.override.put	WRITE	policy override put	put_policy_override	PUT /api/v1/policy-packs/{id}/overrides/{ruleId}	Explicit reason/actor + CAS; original policy decision/provenance remains observable
+policy.override.list	READ	policy override list	list_policy_overrides	GET /api/v1/policy-overrides	Scope-explicit governance configuration view
+policy.override.remove	WRITE	policy override remove	remove_policy_override	POST /api/v1/policy-overrides/remove	Explicit audited removal restores source decision semantics
+policy.evaluate	READ	policy evaluate	evaluate_policies	POST /api/v1/policies/evaluate	Read-only deterministic evaluation; UNKNOWN is not implicitly BLOCKED
+policy.dry-run	READ	policy dry-run	dry_run_policy_pack	POST /api/v1/policies/dry-run	Evaluates an immutable version without activation, lifecycle mutation or published-state write
+policy.audit	READ	policy audit	get_policy_audit	GET /api/v1/policy-packs/{id}/audit	Append-only audit of policy configuration changes, distinct from lifecycle mutation audit
+reasoning.adapters	READ	reason adapters	list_reasoning_adapters	GET /api/v1/reasoning/adapters	Passive discovery only; listing never activates adapters or performs network access
+reasoning.analyze	READ	reason analyze	reason_with_evidence	POST /api/v1/reasoning/analyze	Facts remain separate from explicit-confidence inference/heuristic/suggestion claims; execution is read-only and adapters are explicitly selected
+server.status	READ	EXPLICITLY_REMOTE_ONLY	EXPLICITLY_NOT_EXPOSED	GET /api/v1/server/status	Remote runtime status after Bearer auth; no credential material or provider truth
+server.identity.create	WRITE	server identity create	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Provisioning is local-only; generated token is printed once and only SHA-256 is persisted
+server.backup.create	WRITE	server backup create	EXPLICITLY_NOT_EXPOSED	POST /api/v1/server/backups	Remote HTTP requires ADMIN; SQLite coherent backup + integrity/schema verification
+server.backup.verify	READ	server backup verify	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Verification is local and read-only; rejects future schema
+server.restore	WRITE	server restore --confirm	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_OFFLINE_ONLY	Restore is deliberately absent from remote HTTP/MCP and fails while server lease is held

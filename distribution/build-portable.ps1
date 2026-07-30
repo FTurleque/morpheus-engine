@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "1.1.0",
     [string]$OutputDirectory = "dist"
 )
 
@@ -93,7 +93,7 @@ function Test-PackagedApiOperability {
     }
 }
 
-Write-Host "Building MORPHEUS 1.0 CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M22 contracts uber-JAR..."
+Write-Host "Building MORPHEUS $Version CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M27 contracts uber-JAR..."
 & $mvnw -pl morpheus-cli -am -DskipTests package
 if ($LASTEXITCODE -ne 0) { throw "Maven package failed with exit code $LASTEXITCODE" }
 
@@ -101,7 +101,7 @@ $jar = Get-ChildItem (Join-Path $repo "morpheus-cli\target") -Filter "morpheus-c
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($null -eq $jar) { throw "Shaded MORPHEUS CLI JAR not found" }
 
-Write-Host "Verifying MCP/API/provider-SDK/MINOS/NEXUS/M14-M22 classes, provider Markdown and V012 migration are embedded in the shaded JAR..."
+Write-Host "Verifying baseline MCP/API/provider-SDK/MINOS/NEXUS classes are embedded in the shaded JAR..."
 $jarEntries = & $jarTool tf $jar.FullName
 if ($LASTEXITCODE -ne 0) { throw "Unable to inspect shaded JAR" }
 $requiredEntries = @(
@@ -149,17 +149,17 @@ $requiredEntries = @(
     "tools/jackson/databind/json/JsonMapper.class"
 )
 foreach ($entry in $requiredEntries) {
-    if ($jarEntries -notcontains $entry) { throw "M22 packaging proof failed; shaded JAR is missing $entry" }
+    if ($jarEntries -notcontains $entry) { throw "Baseline packaging proof failed; shaded JAR is missing $entry" }
 }
 $embeddedMinosDomain = $jarEntries | Where-Object { $_ -like "com/minos/*" }
-if ($embeddedMinosDomain) { throw "M22 packaging proof failed; MINOS implementation classes must not be embedded: $($embeddedMinosDomain | Select-Object -First 5)" }
+if ($embeddedMinosDomain) { throw "Packaging proof failed; MINOS implementation classes must not be embedded: $($embeddedMinosDomain | Select-Object -First 5)" }
 $embeddedNexusDomain = $jarEntries | Where-Object { $_ -like "com/nexus/*" }
-if ($embeddedNexusDomain) { throw "M22 packaging proof failed; NEXUS implementation classes must not be embedded: $($embeddedNexusDomain | Select-Object -First 5)" }
+if ($embeddedNexusDomain) { throw "Packaging proof failed; NEXUS implementation classes must not be embedded: $($embeddedNexusDomain | Select-Object -First 5)" }
 $embeddedJarvisDomain = $jarEntries | Where-Object { $_ -like "com/jarvis/*" }
-if ($embeddedJarvisDomain) { throw "M22 packaging proof failed; JARVIS implementation classes must not be embedded: $($embeddedJarvisDomain | Select-Object -First 5)" }
+if ($embeddedJarvisDomain) { throw "Packaging proof failed; JARVIS implementation classes must not be embedded: $($embeddedJarvisDomain | Select-Object -First 5)" }
 $embeddedReferenceProvider = $jarEntries | Where-Object { $_ -like "com/morpheus/provider/reference/*" }
-if ($embeddedReferenceProvider) { throw "M22 packaging proof failed; reference provider plugin must remain external: $($embeddedReferenceProvider | Select-Object -First 5)" }
-Write-Host "MCP/API/provider-SDK/MINOS/NEXUS/M14-M22 packaging proof: PASS"
+if ($embeddedReferenceProvider) { throw "Packaging proof failed; reference provider plugin must remain external: $($embeddedReferenceProvider | Select-Object -First 5)" }
+Write-Host "Baseline MCP/API/provider-SDK/MINOS/NEXUS packaging proof: PASS"
 
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item $input -ItemType Directory -Force | Out-Null
@@ -214,9 +214,9 @@ if ($LASTEXITCODE -ne 0 `
         -or $help -notmatch 'composition sync' `
         -or $help -notmatch 'update-check' `
         -or $help -notmatch 'provider-plugins') {
-    throw "Packaged M14-M22 CLI help smoke failed: $help"
+    throw "Packaged baseline CLI help smoke failed: $help"
 }
-Write-Host "Packaged standalone optional-engines + provider SDK + M14-M22 CLI surface smoke: PASS"
+Write-Host "Packaged standalone optional-engines + provider SDK + CLI baseline smoke: PASS"
 
 Test-PackagedApiOperability -Launcher $launcher -WorkDirectory $work
 
@@ -237,4 +237,4 @@ Compress-PortableArchiveWithRetry -SourceDirectory (Join-Path $appImageRoot "mor
 if (-not (Test-Path $archive)) { throw "Portable Windows archive is missing after archive creation: $archive" }
 
 Write-Host "Portable Windows distribution: $archive"
-Write-Host "The archive contains MORPHEUS $Version, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters and M14-M22 contracts. External provider plugins, MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."
+Write-Host "The archive contains MORPHEUS $Version, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters and M14-M27 contracts. External provider plugins, MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."
