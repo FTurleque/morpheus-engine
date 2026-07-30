@@ -1,17 +1,18 @@
 # M28 — Validation MCP Client Integration & Installer Wiring
 
-Statut : **IMPLÉMENTATION TERMINÉE — QUALIFICATION EXACT-HEAD À EXÉCUTER**
+Statut : **IMPLÉMENTATION TERMINÉE — CORRECTION WRAPPER WINDOWS — QUALIFICATION EXACT-HEAD À REJOUER**
 
 Date : 30 juillet 2026
 
 ```text
 Issue                  #115 OPEN
+PR                     #116 DRAFT
 Branch                 m28-mcp-client-integration
 Baseline               8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 Stable release         v1.1.0
 Target release         1.2.0
 Qualified exact head   NOT SET
-Windows result         NOT RUN
+Windows result         ATTEMPT 1 FAILED BEFORE GATE — RERUN REQUIRED
 Linux/WSL result       NOT RUN
 ```
 
@@ -84,9 +85,42 @@ state-driven uninstall             required
 
 ## 4. Qualification Windows
 
-Statut : **NOT RUN**
+Statut : **ATTEMPT 1 FAILED BEFORE GATE — CORRECTION APPLIQUÉE — RERUN REQUIRED**
 
-À renseigner après exécution réelle :
+### Tentative 1
+
+```text
+Date                      2026-07-30
+SHA                       3acfef278c2e238b53517a1338305c807466a1ef
+Workspace tracked delta   NONE
+Launcher                  validate-m28.cmd
+Exit code                 9009
+Failure                   powershell.exe not resolved by cmd.exe through PATH
+Gate entered              NO
+Tests executed            NO
+Qualification result      NOT PRODUCED
+```
+
+Diagnostic observé :
+
+```text
+'powershell.exe' n'est pas reconnu en tant que commande interne ou externe
+M28 validation FAILED with exit code 9009
+```
+
+Cause : le wrapper invoquait `powershell.exe` par nom simple. Le shell utilisateur pouvait exécuter PowerShell, mais `cmd.exe` ne trouvait pas `powershell.exe` dans son `PATH`.
+
+Correction :
+
+```text
+primary   %SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe
+32-bit    %SystemRoot%\Sysnative\WindowsPowerShell\v1.0\powershell.exe
+fallback  pwsh.exe resolved through where
+```
+
+Un contrat d’architecture interdit désormais le retour à une invocation `powershell.exe` dépendante du `PATH`.
+
+### Résultat exact-head à renseigner après relance
 
 ```text
 sha                       —
@@ -106,7 +140,7 @@ invalidJsonProtection     —
 portableWindows           —
 installerWindows          —
 postGateExecutableDelta   —
-result                    NOT RUN
+result                    NOT RUN AFTER FIX
 ```
 
 ## 5. Qualification Linux/WSL
@@ -151,11 +185,13 @@ Le câblage client ne modifie pas les autorisations métier. `apply_change_lifec
 
 ```text
 implementation                COMPLETE
-Windows exact-head            NOT RUN
+Windows attempt 1             FAILED BEFORE GATE / exit 9009
+Windows wrapper correction    COMPLETE
+Windows exact-head after fix  NOT RUN
 Linux/WSL exact-head          NOT RUN
 same SHA                      NOT PROVEN
 post-gate executable delta    NOT PROVEN
-PR                            NOT OPEN
+PR                            #116 DRAFT
 merge                         NOT AUTHORIZED
 Result                        M28 IMPLEMENTED — QUALIFICATION PENDING
 ```
