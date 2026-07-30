@@ -35,12 +35,20 @@ UsePreviousTasks=yes
 
 [Tasks]
 Name: "addtopath"; Description: "Ajouter MORPHEUS au PATH utilisateur"; GroupDescription: "Intégration système :"; Flags: unchecked
+Name: "mcp_copilot_jetbrains"; Description: "GitHub Copilot — JetBrains / IntelliJ"; GroupDescription: "Connecter le MCP natif MORPHEUS à :"; Flags: unchecked
+Name: "mcp_copilot_cli"; Description: "GitHub Copilot CLI"; GroupDescription: "Connecter le MCP natif MORPHEUS à :"; Flags: unchecked
+Name: "mcp_claude_code"; Description: "Claude Code"; GroupDescription: "Connecter le MCP natif MORPHEUS à :"; Flags: unchecked
+Name: "mcp_claude_desktop"; Description: "Claude Desktop"; GroupDescription: "Connecter le MCP natif MORPHEUS à :"; Flags: unchecked
+Name: "mcp_codex"; Description: "OpenAI Codex"; GroupDescription: "Connecter le MCP natif MORPHEUS à :"; Flags: unchecked
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\MORPHEUS"; Filename: "{app}\morpheus.exe"
+
+[UninstallRun]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\integration\configure-mcp-clients.ps1"" -InstallRoot ""{app}"" -Action Uninstall"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "RemoveMorpheusNativeMcpClients"
 
 [Code]
 function NormalizePathEntry(Value: String): String;
@@ -111,10 +119,62 @@ begin
   RegWriteExpandStringValue(HKCU, 'Environment', 'Path', SearchValue);
 end;
 
+function NativeMcpClientSelected(): Boolean;
+begin
+  Result :=
+    WizardIsTaskSelected('mcp_copilot_jetbrains') or
+    WizardIsTaskSelected('mcp_copilot_cli') or
+    WizardIsTaskSelected('mcp_claude_code') or
+    WizardIsTaskSelected('mcp_claude_desktop') or
+    WizardIsTaskSelected('mcp_codex');
+end;
+
+procedure ConfigureNativeMcpClients;
+var
+  ResultCode: Integer;
+  Parameters: String;
+  PowerShell: String;
+begin
+  if not NativeMcpClientSelected() then
+    exit;
+
+  PowerShell := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
+  Parameters :=
+    '-NoProfile -ExecutionPolicy Bypass -File "' +
+    ExpandConstant('{app}\integration\configure-mcp-clients-setup.ps1') +
+    '" -InstallRoot "' + ExpandConstant('{app}') + '"';
+
+  if WizardIsTaskSelected('mcp_copilot_jetbrains') then
+    Parameters := Parameters + ' -CopilotJetBrains';
+  if WizardIsTaskSelected('mcp_copilot_cli') then
+    Parameters := Parameters + ' -CopilotCli';
+  if WizardIsTaskSelected('mcp_claude_code') then
+    Parameters := Parameters + ' -ClaudeCode';
+  if WizardIsTaskSelected('mcp_claude_desktop') then
+    Parameters := Parameters + ' -ClaudeDesktop';
+  if WizardIsTaskSelected('mcp_codex') then
+    Parameters := Parameters + ' -Codex';
+
+  if (not Exec(PowerShell, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or
+     (ResultCode <> 0) then
+  begin
+    MsgBox(
+      'MORPHEUS est installé, mais une ou plusieurs intégrations MCP natives n''ont pas pu être configurées.' + #13#10 + #13#10 +
+      'La CLI et le serveur MCP natif restent utilisables directement.' + #13#10 +
+      'Diagnostic : %LOCALAPPDATA%\MORPHEUS\mcp-clients.log',
+      mbError,
+      MB_OK);
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and WizardIsTaskSelected('addtopath') then
-    AddUserPath(ExpandConstant('{app}'));
+  if CurStep = ssPostInstall then
+  begin
+    if WizardIsTaskSelected('addtopath') then
+      AddUserPath(ExpandConstant('{app}'));
+    ConfigureNativeMcpClients;
+  end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
