@@ -1,99 +1,54 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M27 + D0 + D1 intégrés — MORPHEUS 1.1.0 publié — R3 / 1.2.0 planifié**
+Statut : **MORPHEUS 1.1.0 publié — M28 intégré — R3 / 1.2.0 actif**
 
 Dernière mise à jour : 30 juillet 2026
 
-MORPHEUS est piloté par des preuves : contrats stables, ADR cohérentes, tests reproductibles, SHA exacts et réponse explicite à chaque question de sortie.
-
-La trajectoire fonctionnelle 1.x reste décrite dans [`POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md). La preuve de publication 1.1.0 est [`VALIDATION_R2.md`](../validation/VALIDATION_R2.md). Le chantier suivant est l’issue GitHub #115.
+MORPHEUS est piloté par des preuves : contrats stables, tests reproductibles, SHA exacts et réponse explicite à chaque question de sortie.
 
 ## 1. Politique de branches
-
-La branche d’intégration de travail est **`develop`**.
 
 ```text
 feature / milestone branch -> develop
 release branch             -> main après qualification
+develop                    -> intégration
 main                       -> stabilisation / livraison
 ```
 
-Les nouveaux jalons fonctionnels partent de `develop` et ciblent `develop`. Une branche de release consolide ensuite une version qualifiée vers `main`.
-
-## 2. Baseline intégrée et publiée
+## 2. Baseline
 
 ```text
 C0 → M20      ✅ validés et intégrés
 D0 + D1       ✅ validés et intégrés
 R1            ✅ MORPHEUS 1.0.0 publié
-M21           ✅ validé et intégré
-M22           ✅ validé et intégré
-M23           ✅ validé et intégré
-M24           ✅ validé et intégré
-M25           ✅ validé et intégré
-M26           ✅ validé et intégré
-M27           ✅ validé et intégré
+M21 → M27     ✅ validés et intégrés
 R2            ✅ MORPHEUS 1.1.0 publié
-R3            ⏭ MORPHEUS 1.2.0 — intégration clients MCP
+M28           ✅ validé et intégré dans develop
+R3            🚧 stabilisation et publication 1.2.0
 ```
-
-Références :
 
 ```text
-M20 merge          75d0b82ab0c960692db2fee1ced146fa6547fd4a
-D1 / release SHA   51f6a120f3461c8d8c24323f3db8211d28d6cb42
-M21 merge          2fdce6601a07628c315fe03932750cd8ece3d777
-M22 merge          67c587057e287d57b0733f9e425a57b26cc38ae4
-M23 merge          88355b69c493677c8689eecad214fb00d283359b
-M24 merge          2b483ded10c783fff22c25035db89475c5c9fdaf
-M25 merge          62bf0ea37f732116e821df7d98ae89d36c6dd75d
-M26 merge          49016a18c844a78ec864235c544d82d487da7c8a
-M27 exact head     f97307c878125550693699124ca717f64f305a3a
-M27 merge          f8810803bd5ae7d57c4858e1e384c6a0132e1a45
-R2 qualified head  31212087ee5fab3c88b269d56f7f21402f31b683
-R2 merge main      31506029ded1101f0571edeb0d79c59bbf3f68c6
-stable version     1.1.0
-stable tag         v1.1.0
-GitHub Release     stable / 8 assets
+stable version          1.1.0
+stable tag              v1.1.0
+release commit          31506029ded1101f0571edeb0d79c59bbf3f68c6
+post-release main       8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+develop post-M28        2080c99895115464dafefb6515541666c5d972d8
+M28 executable head     58adfeb13b79808da12830f2d0b0b24ec46f67e6
+M28 merge commit        1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
+R3 branch               r3-release-1.2.0
+R3 issue                #117 OPEN
+R3 target               1.2.0 / v1.2.0
 ```
 
-## 3. R2 — MORPHEUS 1.1.0
+## 3. M28 — MCP Client Integration & Installer Wiring
 
 Question de sortie :
 
-> Les évolutions M21 à M27 peuvent-elles être consolidées dans `main` et publiées comme MORPHEUS 1.1.0 avec des artefacts reproductibles, une qualification exacte Windows/Linux et une traçabilité complète de release ?
+> Un utilisateur peut-il connecter explicitement le serveur MCP STDIO natif de MORPHEUS à Copilot, Claude et Codex, sans Docker obligatoire, sans écraser une configuration tierce et avec une désinstallation conservatrice ?
 
-Réponse : **OUI — R2 COMPLETE**.
+Réponse : **OUI — COMPLETE / VALIDATED / INTEGRATED**.
 
-```text
-Issue                  #113 CLOSED / completed
-PR                     #114 MERGED
-Qualified exact head   31212087ee5fab3c88b269d56f7f21402f31b683
-Main merge commit      31506029ded1101f0571edeb0d79c59bbf3f68c6
-Tag                    v1.1.0
-Windows gate           603 tests / 238 architecture PASS
-Linux/WSL gate         603 tests / 238 architecture PASS
-same SHA               PASS
-post-gate executable   NONE
-exact-tag builds       PASS Windows + Linux
-GitHub Release         stable / 8 assets
-published parity       8/8 PASS
-```
-
-Références :
-
-- plan final : [`R2_EXECUTION.md`](../roadmap/R2_EXECUTION.md) ;
-- preuve : [`VALIDATION_R2.md`](../validation/VALIDATION_R2.md) ;
-- notes : [`RELEASE_NOTES_1.1.0.md`](../release/RELEASE_NOTES_1.1.0.md) ;
-- upgrade : [`UPGRADE_1_1.md`](../user/UPGRADE_1_1.md).
-
-## 4. R3 — MORPHEUS 1.2.0
-
-Issue : **#115 — MCP Client Integration & Installer Wiring**.
-
-Objectif : connecter explicitement le serveur MCP STDIO natif de MORPHEUS aux principaux clients IA, sans Docker obligatoire et sans écraser leurs configurations existantes.
-
-Clients cibles :
+Clients :
 
 ```text
 GitHub Copilot — JetBrains / IntelliJ
@@ -103,111 +58,115 @@ Claude Desktop
 OpenAI Codex
 ```
 
-Périmètre prévu :
+Périmètre livré :
 
 ```text
-integration/configure-mcp-clients.ps1
-fusion JSON conservatrice
-backup avant écriture
-registre de propriété des entrées gérées
-installation/désinstallation réversibles
-cases opt-in dans le setup Windows
-support distribution ZIP
-configuration Linux documentée
-tests profils utilisateurs temporaires
-diagnostic et logs
-catalogue MCP M25-M27 actualisé
-qualification Windows + Linux/WSL exact-head
+native MCP command       morpheus mcp --stdio
+JSON merge               Copilot JetBrains + Claude Desktop
+CLI registration         Copilot CLI + Claude Code + Codex
+backup before write      required
+ownership registry       required
+foreign entry overwrite  prohibited
+modified entry removal   prohibited
+setup tasks              explicit opt-in / unchecked
+portable packaging       Windows + Linux
+Docker required          false
 ```
 
-Invariants R3 :
+Preuves :
 
 ```text
-MCP local native-first
-Docker not required
-third-party configuration is explicit opt-in
-existing foreign `morpheus` entry is never overwritten
-manual user changes are preserved
-stdout remains MCP JSON-RPC only
-stderr remains diagnostics only
-READ != WRITE
-no implicit mutation
+Windows exact-head       PASS @ 58adfeb13b79808da12830f2d0b0b24ec46f67e6
+Linux/WSL exact-head     PASS @ 58adfeb13b79808da12830f2d0b0b24ec46f67e6
+Tests                    608 PASS sur les deux plateformes
+Architecture             243 PASS sur les deux plateformes
+Windows portable         PASS
+Windows installer        PASS
+Linux portable           PASS
+Same executable SHA      PASS
+Post-gate executable     NONE
+ADR-0096                 ACCEPTÉE
+PR #116                  MERGED
+Issue #115               CLOSED / completed
 ```
 
-## 5. Capacités acquises
+Références :
+
+- [`../roadmap/M28_EXECUTION.md`](../roadmap/M28_EXECUTION.md)
+- [`../validation/VALIDATION_M28.md`](../validation/VALIDATION_M28.md)
+- [`../user/MCP_CLIENTS.md`](../user/MCP_CLIENTS.md)
+- [`../developer/MCP.md`](../developer/MCP.md)
+
+## 4. R3 — Stabilisation et publication MORPHEUS 1.2.0
+
+Question de sortie :
+
+> M28 peut-il être consolidé dans `main` et publié comme MORPHEUS 1.2.0 avec une version cohérente, une qualification exacte Windows/Linux et huit assets vérifiés après publication ?
+
+Réponse actuelle : **NON DÉMONTRÉE — gates R3 non exécutés**.
 
 ```text
-modèle de domaine provider-neutral
-identité persistante stable
-CURRENT / PROPOSED / HISTORICAL
-KnowledgeSnapshot + SpecificationVersion
-RequirementDelta apply/promote/activate explicites
-traçabilité typée + traversal bornée
-synchronisation incrémentale + freshness
-change analysis
-acceptance / verification / evidence
-controlled lifecycle write + CAS/idempotency/audit
-composition multi-provider + provenance + conflits
-Provider SDK v1 + plugins externes
-portfolio multi-projets + références inter-projets
-Query DSL + saved views + reporting
-Policy Packs + overrides + dry-run + audit
-serveur remote HTTPS optionnel
-Bearer auth hash-only + RBAC READ/WRITE/ADMIN
-backup / verify / restore offline SQLite
-reasoning fondé sur preuves
-faits séparés des inférences et suggestions
-CLI / MCP STDIO / HTTP API
-setup Windows per-user
-archives portables Windows/Linux avec runtime Java
-CycloneDX + provenance de build
+issue                     #117 OPEN
+branch                    r3-release-1.2.0
+main baseline             8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+develop baseline          2080c99895115464dafefb6515541666c5d972d8
+reactor target            1.2.0 across 17 POMs
+tag target                v1.2.0
+Windows exact-head        NOT RUN
+Linux/WSL exact-head      NOT RUN
+merge main                NOT AUTHORIZED
+exact-tag builds          NOT RUN
+GitHub Release            NOT PUBLISHED
 ```
 
-## 6. Responsabilités et invariants
+Étapes :
 
 ```text
-MORPHEUS = specification facts
-           + intent
-           + lifecycle rules
-           + controlled state invariants
-           + provider composition facts
-           + portfolio specification facts
-           + provider-neutral query/view/reporting contracts
-           + provider-neutral governance policy contracts
-           + optional remote/team access boundary
-           + evidence-backed assisted claims separated from published facts
-
-MINOS    = code intelligence
-NEXUS    = context selection / ranking / fusion / compression
-JARVIS   = sequencing / orchestration / action choice
+prepare release branch and version coherence
+qualify exact same SHA on Windows and Linux/WSL
+prove post-gate executable delta = NONE
+merge release branch into main
+create immutable v1.2.0 tag
+build Windows and Linux from exact tag
+publish eight GitHub Release assets
+redownload and compare all SHA-256
+reconcile documentation and close #117
 ```
 
+Références :
+
+- [`../roadmap/R3_EXECUTION.md`](../roadmap/R3_EXECUTION.md)
+- [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md)
+- [`../release/RELEASE_NOTES_1.2.0.md`](../release/RELEASE_NOTES_1.2.0.md)
+- [`../user/UPGRADE_1_2.md`](../user/UPGRADE_1_2.md)
+
+## 5. Invariants
+
 ```text
-DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
+DomainIdentity != source path
 SpecificationVersion != KnowledgeSnapshot
-provider identifier != DomainIdentity
-source path != identity
 PROPOSED never leaks into CURRENT
-APPLY != PROMOTE != ACTIVATE
-Evidence != assertion
-UNKNOWN != FAILED
-UNKNOWN != BLOCKED
-READ_CHANGES != WRITE_CHANGE
+READ != WRITE
 ALLOWED != applied
-stale revision != overwrite
-idempotent retry != duplicate mutation/audit
-precedence != provenance erasure
-conflict != silent last-write-wins
-provider plugin != domain dependency
-dry-run != mutation
-local mode remains first-class
-remote mode is opt-in
-authentication != authorization
 facts != inference
-inference != suggestion
-reasoning execution != lifecycle mutation
+reasoning != mutation
+MCP local remains native-first
+Docker is not required
+third-party client modification is opt-in
+foreign `morpheus` entry is never overwritten
+manual client changes are preserved
+uninstall is state-driven
+stable tag is immutable
+release tag target == exact main release commit
 ```
 
-## 7. Politique CI — juillet 2026
+## 6. Politique CI — juillet 2026
 
-Aucune GitHub Actions / CI ne sert de gate avant août 2026. Les qualifications locales Windows et Linux/WSL sur le même SHA exact restent la source de vérité.
+```text
+GitHub Actions is not a gate
+no workflow inspection
+no workflow rerun
+no workflow dispatch
+no opportunistic .github/workflows changes
+local Windows + Linux/WSL exact-head logs are authoritative
+```

@@ -1,22 +1,17 @@
 # Serveur MCP MORPHEUS
 
-MORPHEUS expose un serveur Model Context Protocol natif sur STDIO pour IDE, agents et orchestrateurs locaux.
-
-Baseline M18 :
+MORPHEUS expose un serveur **Model Context Protocol natif sur STDIO** pour IDE, agents et orchestrateurs locaux. M28 ajoute le câblage opt-in vers Copilot, Claude et Codex sans introduire Docker, serveur web ou logique métier dans la couche d’intégration.
 
 ```text
-22 tools read-only
-+ 1 tool write explicite
+client MCP
+   |
+   | JSON-RPC over stdin/stdout
+   v
+morpheus mcp --stdio
+   |
+   v
+morpheus-mcp -> application -> domain / stores / providers
 ```
-
-M18 ajoute deux tools read-only de composition :
-
-```text
-get_composition_status
-list_composition_conflicts
-```
-
-Le seul tool write reste `apply_change_lifecycle_transition`. Une lecture ou une décision `ALLOWED` ne devient jamais une mutation implicite.
 
 ## 1. Lancement
 
@@ -31,23 +26,34 @@ Contrat transport :
 SDK        Java MCP SDK 2.0.0
 transport  STDIO
 stdout     JSON-RPC MCP uniquement
-stderr     diagnostics
+stderr     diagnostics uniquement
 inputs     JSON Schemas stricts
+server     morpheus
 ```
 
-`--json` n’est pas utilisé en mode MCP : `stdout` appartient au protocole.
+`--json` n’est pas utilisé en mode MCP : stdout appartient exclusivement au protocole.
 
-## 2. Position dans l’architecture
+## 2. Composition du serveur
 
-```mermaid
-flowchart LR
-    IDE[IDE / agent / orchestrateur] -->|JSON-RPC STDIO| MCP[morpheus-mcp]
-    MCP --> APP[morpheus-application]
-    APP --> DOMAIN[morpheus-domain]
-    APP --> STORE[(SQLite / ports)]
+`MorpheusMcpServer` assemble les familles de tools suivantes :
+
+```text
+MorpheusMcpToolCatalog                 spécification / requirements / changes
+MorpheusProductMcpTools                version et informations produit
+MorpheusProviderPluginMcpTools         découverte et inspection plugins
+MorpheusPortfolioMcpTools              portfolios et références inter-projets
+MorpheusQueryMcpTools                  Query DSL / saved views / exports
+MorpheusPolicyMcpTools                 évaluations et dry-run policies
+MorpheusPolicyMcpManagementTools       gestion explicite des Policy Packs
+MorpheusReasoningMcpTools              reasoning fondé sur preuves
+MorpheusExternalReferenceMcpTools      résolution MINOS optionnelle
+MorpheusAugmentedContextMcpTools       contexte NEXUS optionnel
+MorpheusJarvisOrchestrationMcpTools    état et évaluation orchestration
+MorpheusCompositionMcpTools            composition multi-provider
+MorpheusControlledLifecycleMcpTools    mutation lifecycle contrôlée
 ```
 
-Le module MCP adapte des appels JSON-RPC vers les mêmes services applicatifs que la CLI et l’API. Les règles d’autorisation, CAS, idempotency, lifecycle et composition restent dans l’application/store, jamais dans le transport MCP.
+Le serveur publie la capability `tools`, active `validateToolInputs=true` et construit les handlers sur les mêmes services applicatifs que la CLI et l’API.
 
 ## 3. Cycle d’une session
 
@@ -63,283 +69,295 @@ sequenceDiagram
     Server-->>Client: catalogue + schemas
     Client->>Server: tools/call(name, arguments)
     Server->>Server: validation JSON Schema
-    Server->>App: requête/commande typée
+    Server->>App: requête ou commande typée
     App-->>Server: résultat métier
     Server-->>Client: tool result
 ```
 
-Les erreurs de schéma sont rejetées avant d’appeler le service métier.
+Les erreurs de schéma sont rejetées avant l’appel applicatif. Les erreurs métier attendues deviennent des résultats MCP en erreur sans exposer de stack trace sur stdout.
 
-## 4. Catalogue read-only — 22 tools
+## 4. Lecture, gestion et mutation
 
-### Spécification et requêtes
-
-| Tool | Rôle |
-|---|---|
-| `get_current_specification` | lire la spécification courante |
-| `find_requirements` | rechercher des requirements |
-| `get_change` | lire un changement |
-| `list_changes` | lister les changements |
-| `get_constraints` | lire les contraintes d’un changement |
-| `get_acceptance_criteria` | lire les critères d’acceptation |
-| `get_design_decisions` | lire les décisions de conception |
-| `get_implementation_tasks` | lire les tâches d’implémentation |
-| `trace_requirement` | développer la traçabilité d’un requirement |
-| `get_change_context` | produire une vue de contexte d’un change |
-| `get_specification_context` | produire une vue de contexte de spécification |
-| `get_change_status` | lire le statut dérivé disponible |
-| `get_blocking_conditions` | lire les conditions bloquantes |
-| `get_sync_status` | lire l’état de synchronisation |
-
-### MINOS
+La majorité des tools sont read-only. Certaines surfaces administratives ou lifecycle sont explicitement mutantes, mais aucune lecture ne se transforme implicitement en écriture.
 
 ```text
-list_external_references
-resolve_external_reference
+READ != WRITE
+ALLOWED != applied
+policy evaluation != policy mutation
+reasoning != lifecycle mutation
+saved view query != materialized truth
+export != mutation
 ```
 
-### NEXUS
+Le tool `apply_change_lifecycle_transition` conserve les garde-fous :
 
 ```text
-get_augmented_requirement_context
-get_augmented_change_context
+WRITE_CHANGE capability explicite
+confirmation requise
+expectedRevision / CAS
+idempotencyKey
+validation lifecycle
+state + audit atomiques
 ```
 
-### JARVIS / orchestration read-only
+Sans resolver `WRITE_CHANGE`, le serveur utilise une politique deny-by-default.
+
+## 5. Frontières d’architecture
 
 ```text
-get_change_orchestration_state
-evaluate_change_transition
+transport MCP  -> adapter seulement
+application    -> use cases et autorisations
+store          -> atomicité, CAS, idempotence, audit
+provider       -> faits et capabilities
+core métier    -> indépendant du packaging et du client MCP
 ```
-
-### M18 / composition multi-provider
-
-```text
-get_composition_status
-list_composition_conflicts
-```
-
-Ces 22 tools sont read-only.
-
-## 5. M18 — `get_composition_status`
-
-Ce tool expose l’état de composition provider-neutral du projet et du snapshot publié concerné.
-
-Input conceptuel :
-
-```json
-{
-  "projectId": "<morpheus-project-uuid>"
-}
-```
-
-La projection conserve notamment :
-
-```text
-providers observés
-provider identifiers
-priorités explicites
-snapshot scope
-état de composition
-provenance disponible
-compte de conflits
-```
-
-Le client ne doit jamais utiliser un chemin source comme `DomainIdentity`.
-
-## 6. M18 — `list_composition_conflicts`
-
-Input conceptuel :
-
-```json
-{
-  "projectId": "<morpheus-project-uuid>"
-}
-```
-
-Les conflits restent explicites et requêtables :
-
-```text
-content conflict
-ownership conflict
-type / identity conflict
-absence vs value conflict
-ambiguous continuity
-```
-
-Pour chaque candidat, MORPHEUS conserve la provenance et la priorité pertinentes. La résolution ne signifie jamais effacement silencieux des candidats non retenus.
 
 Invariants :
 
 ```text
-provider identifier != DomainIdentity
-source path != identity
-precedence != provenance erasure
-conflict != silent last-write-wins
-ambiguous continuity must be surfaced
-optional provider absence != project failure when optional
+MCP request type -X-> domain model
+client config type -X-> application model
+stdout diagnostics -X-> MCP transport
+provider-specific type -X-> domain identity
+transport choice -X-> business rule
 ```
 
-## 7. Tool write — `apply_change_lifecycle_transition`
+## 6. Câblage clients M28
 
-Ce tool reste volontairement séparé du catalogue read-only :
+M28 fournit dans les distributions :
 
 ```text
-evaluate_change_transition        = décision, aucun effet
-apply_change_lifecycle_transition = commande explicite avec effet potentiel
+integration/configure-mcp-clients.ps1
+integration/configure-mcp-clients-setup.ps1
+integration/README.md
 ```
 
-Input :
+Clients Windows pris en charge :
+
+```text
+GitHub Copilot — JetBrains / IntelliJ
+GitHub Copilot CLI
+Claude Code
+Claude Desktop
+OpenAI Codex
+```
+
+Définition commune :
 
 ```json
 {
-  "projectId": "<morpheus-project-uuid>",
-  "changeId": "<change-uuid>",
-  "mutationId": "<uuid-optionnel>",
-  "idempotencyKey": "caller-stable-key",
-  "expectedRevision": 0,
-  "targetState": "PROPOSED",
-  "abandonmentReason": null,
-  "actor": "jarvis-or-user",
-  "confirmed": true
+  "command": "<install-root>\\morpheus.exe",
+  "args": ["mcp", "--stdio"],
+  "env": {
+    "MORPHEUS_DATA_DIR": "<persistent-data-root>",
+    "MORPHEUS_CONFIG_DIR": "<persistent-config-root>"
+  }
 }
 ```
 
-Required :
+Le gestionnaire est **Windows-only** pour les mutations automatiques de profils. La distribution Linux embarque le guide et le gestionnaire pour parité documentaire, mais la configuration des clients Linux reste manuelle.
+
+## 7. Clients JSON
+
+### Copilot JetBrains
 
 ```text
-projectId
-changeId
-idempotencyKey
-expectedRevision
-targetState
-actor
-confirmed
+path       %LOCALAPPDATA%\github-copilot\intellij\mcp.json
+container  servers
+entry      morpheus
 ```
 
-Garde-fous applicatifs :
+### Claude Desktop
 
 ```text
-1. idempotency
-2. WRITE_CHANGE capability explicite
-3. confirmation
-4. expectedRevision / CAS
-5. transition evaluation M14-M16
-6. state + audit atomiques
+path       %APPDATA%\Claude\claude_desktop_config.json
+container  mcpServers
+entry      morpheus
 ```
 
-Résultats métier :
+Le merge :
+
+- préserve les propriétés racine ;
+- préserve les autres serveurs ;
+- écrit en UTF-8 sans BOM ;
+- utilise une indentation stable de deux espaces ;
+- sauvegarde le fichier existant avant modification ;
+- rejette un JSON invalide avant toute écriture.
+
+## 8. Clients CLI
+
+Les clients sont pilotés par leurs commandes officielles `mcp add`, `mcp get` et `mcp remove`.
 
 ```text
-APPLIED
-ALREADY_APPLIED
-CONFLICT
-NOT_AUTHORIZED
-REQUIRES_CONFIRMATION
-REJECTED
+Copilot CLI  copilot mcp ...
+Claude Code  claude mcp ... --scope user
+Codex        codex mcp ...
 ```
 
-`READ_CHANGES != WRITE_CHANGE`. Les overloads historiques utilisent un resolver deny-by-default. Sans provider write-capable, la commande retourne `NOT_AUTHORIZED` et n’écrit ni état ni audit.
+Chaque invocation :
 
-### CAS et idempotency
+- s’exécute dans un processus non interactif distinct ;
+- possède un timeout borné ;
+- capture stdout et stderr ;
+- termine l’arbre de processus en cas de timeout ;
+- route un launcher `.ps1` via `pwsh` pour éviter les incompatibilités Windows PowerShell 5.1.
 
-L’absence d’état opérationnel correspond à :
+## 9. Propriété des entrées
+
+Le registre persistant est :
 
 ```text
-state    = DRAFT
-revision = 0
+%LOCALAPPDATA%\MORPHEUS\mcp-client-integrations.json
 ```
 
-La première mutation réussie produit la révision `1`. Une révision attendue obsolète retourne `CONFLICT`.
-
-Une même `idempotencyKey` avec la même empreinte logique retourne `ALREADY_APPLIED` sans seconde mutation ni second audit. Réutiliser la même clé pour une autre commande logique produit `CONFLICT`.
-
-## 8. Comment choisir un tool
-
-```mermaid
-flowchart TD
-    Q[Besoin client] --> T{Type de besoin}
-    T -->|spécification/requirement| S[get_current_specification / find_requirements]
-    T -->|change| C[get_change / list_changes / context]
-    T -->|traçabilité| R[trace_requirement]
-    T -->|code MINOS| M[external reference tools]
-    T -->|contexte technique| N[augmented context tools]
-    T -->|observer/évaluer lifecycle| O[orchestration state / transition evaluation]
-    T -->|composition providers| P[composition status / conflicts]
-    T -->|appliquer explicitement| W[apply_change_lifecycle_transition]
-```
-
-JARVIS reste propriétaire du sequencing et du choix d’action. MORPHEUS applique uniquement une commande explicitement autorisée.
-
-## 9. Snapshot-scoping et composition
-
-Les tools read-only lisent les connaissances publiées via les services applicatifs ; ils ne rescannent pas implicitement le workspace à chaque appel.
+Deux propriétés sont distinguées :
 
 ```text
-KnowledgeSnapshot                    published knowledge
-CompositionState                     snapshot-scoped provider facts
-ChangeLifecycleOperationalState      mutable CAS-controlled state
+managed      entrée créée par MORPHEUS
+preexisting  entrée déjà présente et exactement compatible
 ```
 
-Ces trois notions sont distinctes.
-
-M18 persiste l’état de composition via Memory et SQLite V012 ; le reopen SQLite conserve providers, priorités, conflits, candidats et provenance.
-
-## 10. Sémantique conservatrice
+La configuration stocke notamment :
 
 ```text
-DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
-SpecificationVersion != KnowledgeSnapshot
-Scenario != AcceptanceCriterion
-AcceptanceCriterion != Test
-Test existence != VERIFIED
-Evidence != assertion
-UNKNOWN != FAILED
-UNKNOWN != BLOCKED
-lifecycle absent -> indisponible, jamais inféré
-constraint text != executable policy
-transition evaluation != lifecycle mutation
-READ_CHANGES != WRITE_CHANGE
-ALLOWED != applied
-provider identifier != DomainIdentity
-precedence != provenance erasure
-conflict != silent last-write-wins
+client id
+kind json|cli
+ownership
+command
+persistent roots
+config path ou CLI
+arguments de probe/remove
+horodatage
 ```
 
-Un fait non observable reste `UNAVAILABLE`/`UNKNOWN`. Un handler MCP ne synthétise jamais un fait métier pour combler une absence.
+Ce registre est une preuve de propriété technique, pas une source de vérité métier.
 
-## 11. JSON Schemas
+## 10. Installation conservatrice
 
-Les inputs sont stricts :
+Règles d’upsert :
 
 ```text
-type = object
-additionalProperties = false
-required = explicite
+entrée absente                    création + ownership=managed
+entrée compatible préexistante   suivi ownership=preexisting
+entrée étrangère incompatible    aucune écriture
+entrée managed inchangée         idempotence
+entrée managed modifiée          conservation utilisateur
+JSON invalide                    échec avant écriture
+client CLI absent                warning ou échec strict
 ```
 
-Cette politique est particulièrement importante pour les writes : un champ mal orthographié ne doit jamais être ignoré en donnant l’illusion qu’un contrôle de concurrence ou de confirmation a été appliqué.
+Le mode `-Strict` transforme les avertissements en échecs, notamment pour les tests et le wrapper setup.
 
-## 12. Validation M18
+## 11. Désinstallation conservatrice
 
-Le gate M18 réellement exécuté a validé :
+La désinstallation est exclusivement pilotée par le registre :
 
 ```text
-MCP tests          6/6 PASS
-TOTAL              418/418 PASS
-Architecture       170/170 PASS
-Packaging/smokes   PASS
+ownership=preexisting        jamais supprimé
+managed + forme identique    supprimé
+managed + forme modifiée     préservé
+entrée déjà absente          état nettoyé
+client CLI indisponible      aucune suppression aveugle
 ```
 
-Code testé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
-Preuve : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
+L’installateur appelle le gestionnaire avec `-Action Uninstall` avant de supprimer les fichiers de programme.
 
-## 13. Voir aussi
+Les données MORPHEUS, la base SQLite, les backups et le registre vivent hors du répertoire d’installation.
 
-- [API HTTP](API.md)
-- [Architecture](ARCHITECTURE.md)
-- [Intégrations](INTEGRATIONS.md)
-- [Référence CLI](../user/CLI.md)
-- [OpenAPI](../openapi/morpheus-v1.yaml)
-- [ADR-0083 — controlled lifecycle write](../adr/0083-controlled-lifecycle-write-operations.md)
-- [ADR-0084 — multi-provider composition](../adr/0084-provider-neutral-multi-provider-composition.md)
+## 12. Installer Windows
+
+Les cinq tâches Inno Setup sont opt-in et décochées :
+
+```text
+mcp_copilot_jetbrains
+mcp_copilot_cli
+mcp_claude_code
+mcp_claude_desktop
+mcp_codex
+```
+
+Après copie des fichiers, `configure-mcp-clients-setup.ps1` :
+
+1. appelle le gestionnaire ;
+2. relit le registre ;
+3. vérifie que chaque intégration sélectionnée est présente ;
+4. échoue explicitement si une sélection n’a pas été configurée.
+
+Un échec de câblage n’altère pas le binaire MORPHEUS : la CLI et le serveur MCP natif restent lançables directement.
+
+## 13. Packaging
+
+Windows :
+
+```text
+<app-image>/morpheus.exe
+<app-image>/integration/configure-mcp-clients.ps1
+<app-image>/integration/configure-mcp-clients-setup.ps1
+<app-image>/integration/README.md
+```
+
+Linux :
+
+```text
+<app-image>/bin/morpheus
+<app-image>/integration/*
+```
+
+Les builders vérifient explicitement la présence de la couche M28 avant de produire les archives.
+
+## 14. Qualification
+
+Windows :
+
+```powershell
+.\validate-m28.cmd -Version 1.1.0 -BaseRef origin/develop
+```
+
+Le gate couvre notamment :
+
+```text
+cinq faux clients
+merge JSON
+arguments et environnement CLI
+UTF-8 sans BOM
+idempotence
+backups
+protection entrée étrangère
+protection entrée modifiée
+uninstall state-driven
+JSON invalide
+portable Windows
+setup Windows
+```
+
+Linux/WSL :
+
+```bash
+MORPHEUS_M28_BASE_REF=origin/develop bash ./scripts/validate-m28.sh 1.1.0
+```
+
+Le gate Linux couvre les contrats statiques, la non-régression reactor et le packaging Linux. Les écritures de profils Windows ne sont pas simulées comme une preuve Linux équivalente.
+
+## 15. Sécurité
+
+```text
+client integration is opt-in
+no secret in MCP schemas
+no token added by M28
+no Docker requirement
+no network listener added
+stdout remains JSON-RPC only
+third-party config is backed up
+foreign entry is not overwritten
+manual user changes are preserved
+write capability is not escalated
+```
+
+## 16. Références
+
+- [Guide utilisateurs MCP](../user/MCP_CLIENTS.md)
+- [Plan M28](../roadmap/M28_EXECUTION.md)
+- [Validation M28](../validation/VALIDATION_M28.md)
+- [ADR-0062 — MCP SDK et STDIO](../adr/0062-official-java-mcp-sdk-and-native-stdio.md)
+- [CLI](../user/CLI.md)
+- [Intégrations](../user/INTEGRATIONS.md)

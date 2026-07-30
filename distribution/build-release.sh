@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-1.1.0}"
+VERSION="${1:-1.2.0}"
 EXPECTED_TAG="${2:-v$VERSION}"
 OUTPUT_DIRECTORY="${3:-dist}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

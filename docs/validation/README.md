@@ -11,91 +11,123 @@ VALIDATION_D0.md
 VALIDATION_M15.md → VALIDATION_M20.md
 VALIDATION_D1.md
 VALIDATION_R1.md
-VALIDATION_M21.md → VALIDATION_M27.md
+VALIDATION_M21.md → VALIDATION_M28.md
 VALIDATION_R2.md
+VALIDATION_R3.md
 ```
 
-Chaque document conserve les décisions, SHA testés, commandes et gates réellement connus au moment de la validation. Ces fichiers constituent des **preuves historiques** ; ils ne sont jamais réécrits pour fabriquer rétroactivement un PASS, un merge ou une publication.
+Chaque document conserve les décisions, SHA, commandes et résultats réellement observés. Une preuve historique n’est jamais réécrite pour fabriquer un PASS.
 
-## Baseline publiée
+## Baseline stable publiée
 
-MORPHEUS **1.0.0** a été qualifié via M20 puis consolidé et publié via D1/R1.
+MORPHEUS **1.1.0** a été consolidé via R2.
 
 ```text
-M20 code qualifié  9199ed43c4bd8596a97db055eeff17ae31399eb8
-M20 merge           75d0b82ab0c960692db2fee1ced146fa6547fd4a
-D1 / release SHA    51f6a120f3461c8d8c24323f3db8211d28d6cb42
-Tag                 v1.0.0
-Tests M20           454 PASS Windows + Linux
-Architecture        182 PASS Windows + Linux
-GitHub Release      MORPHEUS 1.0.0 — 8/8 assets
+main merge             31506029ded1101f0571edeb0d79c59bbf3f68c6
+tag                    v1.1.0
+Windows tests          603 PASS
+Linux/WSL tests        603 PASS
+architecture           238 PASS sur les deux plateformes
+exact-tag builds       PASS Windows + Linux
+GitHub Release         stable / 8 assets
+published parity       8/8 PASS
 ```
 
-Preuves : [`VALIDATION_M20.md`](VALIDATION_M20.md), [`VALIDATION_D1.md`](VALIDATION_D1.md), [`VALIDATION_R1.md`](VALIDATION_R1.md).
+Preuve : [`VALIDATION_R2.md`](VALIDATION_R2.md).
 
-## Évolutions 1.x intégrées
+## Évolutions 1.x qualifiées
 
 ```text
-M21  473 PASS Windows + Linux | Architecture 187
-M22  494 PASS Windows + Linux | Architecture 190
-M23  507 PASS Windows + Linux | Architecture 195
-M24  543 PASS Windows + Linux | Architecture 221
-M25  565 PASS Windows + Linux | Architecture 231
-M26  579 PASS Windows + Linux | Architecture 234
-M27  602 PASS Windows + Linux | Architecture 238
+M21  473 tests | architecture 187
+M22  494 tests | architecture 190
+M23  507 tests | architecture 195
+M24  543 tests | architecture 221
+M25  565 tests | architecture 231
+M26  579 tests | architecture 234
+M27  602 tests | architecture 238
+R2   603 tests | architecture 238
+M28  608 tests | architecture 243
 ```
 
-Preuves : [`VALIDATION_M21.md`](VALIDATION_M21.md), [`VALIDATION_M22.md`](VALIDATION_M22.md), [`VALIDATION_M23.md`](VALIDATION_M23.md), [`VALIDATION_M24.md`](VALIDATION_M24.md), [`VALIDATION_M25.md`](VALIDATION_M25.md), [`VALIDATION_M26.md`](VALIDATION_M26.md), [`VALIDATION_M27.md`](VALIDATION_M27.md).
-
-## Dernier jalon techniquement qualifié
-
-**M27 — Evidence-backed Assisted Reasoning** est qualifié sous Windows et Linux/WSL sur le même SHA exact puis intégré dans `develop` :
+## M28 — qualification intégrée
 
 ```text
-Head exact qualifié     f97307c878125550693699124ca717f64f305a3a
-Head PR docs-only       026c1d5f8671cd7b879fa89d51af8e83a5f06272
-Merge                   f8810803bd5ae7d57c4858e1e384c6a0132e1a45
-Develop réconcilié      bccc118dda6fd818cf801750187afa4ad10b96e4
-Tests                   602 PASS Windows + Linux
-Architecture            238 PASS Windows + Linux
-Windows JaCoCo          45.2226% lignes / 38.4456% branches
-Linux JaCoCo            45.2246% lignes / 38.4456% branches
-Executable delta        NONE après qualification
-ADR-0095                Acceptée — M27
-PR                      #112 MERGED vers develop
-Issue                   #111 CLOSED / completed
+baseline               8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+qualified exact head   58adfeb13b79808da12830f2d0b0b24ec46f67e6
+Windows result         PASS
+Linux/WSL result       PASS
+same executable SHA    PASS
+PR                     #116 MERGED
+merge commit           1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
+issue                  #115 CLOSED / completed
 ```
 
-La preuve détaillée est [`VALIDATION_M27.md`](VALIDATION_M27.md).
+Preuve : [`VALIDATION_M28.md`](VALIDATION_M28.md).
 
-## Release candidate active
-
-**R2 — MORPHEUS 1.1.0** est en préparation sur `r2-release-1.1.0`.
+M28 prouve :
 
 ```text
-Issue                   #113 OPEN
-PR                      #114 DRAFT vers main
-Release baseline        develop@bccc118dda6fd818cf801750187afa4ad10b96e4
-Target version          1.1.0
-Target tag              v1.1.0
-Windows gate            NOT RUN
-Linux/WSL gate          NOT RUN
-Merge main              NOT AUTHORIZED
-Tag / GitHub Release    NOT CREATED
+reactor non-regression
+same SHA Windows/Linux
+five client integrations
+JSON merge preservation
+CLI registration
+idempotency
+foreign entry preservation
+modified entry preservation
+state-driven uninstall
+invalid JSON protection
+portable Windows/Linux packaging
+Windows setup wiring
+Docker required = false
+post-gate executable delta = NONE
 ```
 
-La structure de preuve active est [`VALIDATION_R2.md`](VALIDATION_R2.md). Elle ne déclare aucun PASS avant réception des sorties réelles des validateurs exact-head :
+## R3 — candidate MORPHEUS 1.2.0
 
-```powershell
-.\validate-r2.cmd -Version 1.1.0
+```text
+issue                  #117 OPEN
+PR                     #118 DRAFT
+branch                 r3-release-1.2.0
+main baseline          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+develop baseline       2080c99895115464dafefb6515541666c5d972d8
+target version         1.2.0
+target tag             v1.2.0
+Windows result         NOT RUN
+Linux/WSL result       NOT RUN
+same executable SHA    NOT RUN
+GitHub Release         NOT PUBLISHED
 ```
 
-```bash
-bash ./scripts/validate-r2.sh 1.1.0
+R3 doit prouver :
+
+```text
+17 POM version parity at 1.2.0
+M28 client integration retained
+Windows portable + installer
+Linux portable
+SBOM + provenance
+no SQLite migration delta
+no GitHub Actions workflow delta
+same exact SHA Windows/Linux
+post-gate executable delta = NONE
+exact-tag Windows/Linux builds
+published parity 8/8
 ```
+
+Preuve active : [`VALIDATION_R3.md`](VALIDATION_R3.md).
 
 ## Politique de gate
 
-Une modification de code, POM, contrat runtime, migration, OpenAPI, packaging ou validateur exige un nouveau gate Windows + Linux/WSL sur le même SHA exact. Les commits post-gate doivent être comparés au SHA qualifié ; seul un delta exclusivement documentaire peut être accepté sans réexécution.
+Toute modification de code, packaging, contrat runtime ou validateur exige un nouveau gate Windows + Linux/WSL sur le même SHA exact. Après qualification, seul un delta exclusivement documentaire est accepté sans réexécution, après comparaison explicite.
 
-En juillet 2026, GitHub Actions n'est pas utilisé comme gate R2. Les preuves locales exact-head restent autoritatives.
+En juillet 2026 :
+
+```text
+no GitHub Actions gate
+no workflow inspection
+no workflow rerun
+no workflow dispatch
+no .github/workflows modification
+local exact-head logs are authoritative
+```

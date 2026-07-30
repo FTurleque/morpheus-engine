@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-1.1.0}"
+VERSION="${1:-1.2.0}"
 OUTPUT_DIRECTORY="${2:-dist}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -26,7 +26,7 @@ if [[ ! -x "$JIMAGE_TOOL" ]]; then
   exit 1
 fi
 
-printf '%s\n' "Building MORPHEUS $VERSION CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M27 contracts uber-JAR..."
+printf '%s\n' "Building MORPHEUS $VERSION CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M28 contracts uber-JAR..."
 "$REPO/mvnw" -pl morpheus-cli -am -DskipTests package
 
 JAR="$(find "$REPO/morpheus-cli/target" -maxdepth 1 -type f -name 'morpheus-cli-*-all.jar' -print | sort | tail -n 1)"
@@ -110,6 +110,21 @@ if [[ ! -x "$LAUNCHER" ]]; then
   echo "Packaged launcher not found: $LAUNCHER" >&2
   exit 1
 fi
+
+INTEGRATION_SOURCE="$REPO/integration"
+INTEGRATION_TARGET="$IMAGE_ROOT/morpheus/integration"
+if [[ ! -f "$INTEGRATION_SOURCE/configure-mcp-clients.ps1" || \
+      ! -f "$INTEGRATION_SOURCE/configure-mcp-clients-setup.ps1" || \
+      ! -f "$INTEGRATION_SOURCE/README.md" ]]; then
+  echo "M28 MCP client integration files are missing under $INTEGRATION_SOURCE" >&2
+  exit 1
+fi
+cp -R "$INTEGRATION_SOURCE" "$INTEGRATION_TARGET"
+if [[ ! -f "$INTEGRATION_TARGET/README.md" ]]; then
+  echo "M28 MCP client integration packaging proof failed" >&2
+  exit 1
+fi
+printf '%s\n' "Packaged MCP client integration guidance: PASS"
 
 printf '%s\n' "Smoke testing packaged launcher without MINOS/NEXUS/JARVIS or external provider-plugin configuration..."
 "$LAUNCHER" --version
@@ -220,4 +235,4 @@ rm -f "$ARCHIVE"
 tar -C "$IMAGE_ROOT" -czf "$ARCHIVE" morpheus
 
 printf '%s\n' "Portable Linux distribution: $ARCHIVE"
-printf '%s\n' "The archive contains MORPHEUS $VERSION, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters and M14-M27 contracts; external provider plugins, MINOS, NEXUS and JARVIS are not embedded or required."
+printf '%s\n' "The archive contains MORPHEUS $VERSION, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters, M14-M28 contracts and MCP client integration guidance; external provider plugins, MINOS, NEXUS and JARVIS are not embedded or required."

@@ -92,9 +92,9 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   PACKAGED_M25_M26=PASS
 fi
 
-grep -Fq '<version>1.1.0</version>' "$REPO/pom.xml" || { echo 'Root POM is not 1.1.0' >&2; exit 1; }
-grep -Fq "[string]\$Version = '1.1.0'" "$REPO/distribution/build-release.ps1" || { echo 'Windows release default version is incoherent' >&2; exit 1; }
-grep -Fq 'VERSION="${1:-1.1.0}"' "$REPO/distribution/build-release.sh" || { echo 'Linux release default version is incoherent' >&2; exit 1; }
+grep -Fq "<version>$VERSION</version>" "$REPO/pom.xml" || { echo "Root POM is not $VERSION" >&2; exit 1; }
+grep -Fq "[string]\$Version = '$VERSION'" "$REPO/distribution/build-release.ps1" || { echo 'Windows release default version is incoherent' >&2; exit 1; }
+grep -Fq 'VERSION="${1:-'"$VERSION"'}"' "$REPO/distribution/build-release.sh" || { echo 'Linux release default version is incoherent' >&2; exit 1; }
 printf '%s\n' 'Release script default versions: PASS'
 
 CURRENT_SHA="$(git rev-parse HEAD)"
