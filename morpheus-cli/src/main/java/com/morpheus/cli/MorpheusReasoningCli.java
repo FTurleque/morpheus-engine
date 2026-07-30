@@ -39,6 +39,7 @@ final class MorpheusReasoningCli {
         try {
             Parsed parsed = parse(args);
             return switch (parsed.action()) {
+                case "help", "--help" -> help(out);
                 case "adapters" -> listAdapters(parsed.jsonOutput(), out);
                 case "analyze" -> analyze(parsed, out);
                 default -> throw new IllegalArgumentException("unknown reason action: " + parsed.action());
@@ -50,6 +51,16 @@ final class MorpheusReasoningCli {
             err.println("MORPHEUS assisted-reasoning error: " + safeMessage(failure));
             return CliExitCode.STATE_ERROR.code();
         }
+    }
+
+    private int help(PrintStream out) {
+        out.println("Evidence-backed assisted reasoning (M27, read-only):");
+        out.println("  morpheus [--json] reason adapters");
+        out.println("  morpheus [--json] reason analyze --question TEXT [--evidence SPEC] [--adapter ID] [--param k=v] [--max-claims N]");
+        out.println("  evidence SPEC = id|kind|subject|statement[|key=value,key=value]");
+        out.println("  kinds = PUBLISHED_FACT|SOURCE_EXCERPT|POLICY_RESULT|EXTERNAL_CONTEXT|OBSERVATION");
+        out.println("  No --adapter means facts-only. Reasoning never mutates or promotes specification truth.");
+        return CliExitCode.SUCCESS.code();
     }
 
     private int listAdapters(boolean jsonOutput, PrintStream out) {
@@ -153,12 +164,12 @@ final class MorpheusReasoningCli {
             throw new IllegalArgumentException("expected reason command");
         }
         if (action.isEmpty()) {
-            throw new IllegalArgumentException("reason requires analyze or adapters");
+            throw new IllegalArgumentException("reason requires help, analyze or adapters");
         }
-        if (action.equals("adapters")) {
+        if (action.equals("adapters") || action.equals("help") || action.equals("--help")) {
             if (!options.isEmpty() || !evidence.isEmpty() || !adapters.isEmpty() || !parameters.isEmpty()
                     || maxClaims != ReasoningContracts.MAX_CLAIMS) {
-                throw new IllegalArgumentException("reason adapters does not accept analysis options");
+                throw new IllegalArgumentException("reason " + action + " does not accept analysis options");
             }
         } else if (!action.equals("analyze")) {
             throw new IllegalArgumentException("unknown reason action: " + action);
