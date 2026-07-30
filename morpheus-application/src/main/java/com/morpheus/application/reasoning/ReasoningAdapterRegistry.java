@@ -58,10 +58,15 @@ public final class ReasoningAdapterRegistry {
     }
 
     public List<Descriptor> descriptors() {
-        return adapters.values().stream()
-                .map(adapter -> new Descriptor(adapter.id(), adapter.description()))
-                .sorted(Comparator.comparing(Descriptor::id))
-                .toList();
+        List<Descriptor> result = new ArrayList<>();
+        for (ReasoningAdapter adapter : adapters.values()) {
+            try {
+                result.add(new Descriptor(adapter.id(), adapter.description()));
+            } catch (ServiceConfigurationError | RuntimeException failure) {
+                // A broken optional descriptor cannot make the adapter catalog unavailable.
+            }
+        }
+        return result.stream().sorted(Comparator.comparing(Descriptor::id)).toList();
     }
 
     public List<ReasoningAdapter> select(List<String> adapterIds) {
