@@ -77,7 +77,7 @@ foreach ($relative in $requiredDocs) {
 }
 
 $versionChecks = @(
-    @{ Path = 'distribution\build-portable.ps1'; Token = "[string]`$Version = \"$Version\"" },
+    @{ Path = 'distribution\build-portable.ps1'; Token = "[string]`$Version = `"$Version`"" },
     @{ Path = 'distribution\build-installer.ps1'; Token = "[string]`$Version = '$Version'" },
     @{ Path = 'distribution\build-release.ps1'; Token = "[string]`$Version = '$Version'" },
     @{ Path = 'distribution\build-portable.sh'; Token = 'VERSION="${1:-' + $Version + '}"' },
