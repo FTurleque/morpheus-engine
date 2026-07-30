@@ -1,6 +1,6 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — MORPHEUS 1.1.0 PUBLIÉ — R3 / 1.2.0 PLANIFIÉ**
+Statut : **ACTIF — MORPHEUS 1.1.0 PUBLIÉ — M28 EN QUALIFICATION**
 
 Dernière mise à jour : 30 juillet 2026
 
@@ -9,14 +9,14 @@ Dernière mise à jour : 30 juillet 2026
 ```text
 docs/governance/ROADMAP.md
         ↓
-docs/roadmap/POST_M20_EVOLUTION.md
+docs/roadmap/M28_EXECUTION.md
         ↓
-docs/roadmap/R2_EXECUTION.md
+docs/validation/VALIDATION_M28.md
         ↓
-docs/validation/VALIDATION_R2.md
+code + tests + logs exact-head
 ```
 
-R2 est terminé. MORPHEUS 1.1.0 est la release stable publiée. Le chantier suivant est R3 / 1.2.0, suivi dans l’issue GitHub #115.
+R2 est terminé et 1.1.0 reste la release stable publiée. M28 est le jalon actif suivi par l’issue #115.
 
 ## Contrats exposés
 
@@ -31,23 +31,22 @@ docs/developer/
 docs/user/
 ```
 
-Pour une décision d’architecture, l’ADR acceptée fait autorité tant qu’elle n’est pas remplacée. Pour une release, le code qualifié, le tag exact, les manifestes et la preuve de validation font autorité sur les textes promotionnels.
+Pour une release, le tag exact, les manifestes et les preuves de validation font autorité. Pour M28, aucun document ne peut déclarer PASS avant les logs locaux Windows et Linux/WSL sur le même SHA.
 
 ## Documentation active
 
 ```text
 README.md
 docs/README.md
-docs/user/
-docs/developer/
-docs/reference/
-docs/openapi/
+docs/user/README.md
+docs/user/MCP_CLIENTS.md
+docs/developer/README.md
+docs/developer/MCP.md
 docs/governance/ROADMAP.md
 docs/governance/DOCUMENTATION_STATUS.md
-docs/roadmap/POST_M20_EVOLUTION.md
-docs/roadmap/R2_EXECUTION.md
-docs/validation/VALIDATION_R2.md
-docs/release/RELEASE_NOTES_1.1.0.md
+docs/roadmap/M28_EXECUTION.md
+docs/validation/VALIDATION_M28.md
+integration/README.md
 ```
 
 ## Release stable publiée
@@ -65,60 +64,70 @@ Published parity       8/8 PASS
 Published at           2026-07-30T14:13:17Z
 ```
 
-La release 1.1.0 couvre M21 à M27, notamment :
+## Chantier actif M28
 
 ```text
-provider plugins
-portfolio multi-projets
-Query DSL / saved views / reporting
-Policy Packs
-serveur remote HTTPS optionnel
-RBAC READ / WRITE / ADMIN
-backup / restore SQLite
-assisted reasoning fondé sur preuves
-CLI / MCP STDIO / HTTP
-packaging portable Windows/Linux
-setup Windows per-user
-CycloneDX + provenance
-```
-
-## Preuves R2
-
-```text
-Windows tests          603 PASS
-Linux/WSL tests        603 PASS
-Windows architecture   238 PASS
-Linux/WSL architecture 238 PASS
-same SHA               PASS
-post-gate executable   NONE
-exact-tag Windows      PASS
-exact-tag Linux        PASS
-published assets       8/8 PASS
-```
-
-Références :
-
-```text
-docs/roadmap/R2_EXECUTION.md
-docs/validation/VALIDATION_R2.md
-docs/release/RELEASE_NOTES_1.1.0.md
-docs/user/UPGRADE_1_1.md
-```
-
-## Chantier actif suivant
-
-```text
-R3                     MORPHEUS 1.2.0
 Issue                  #115
-Objet                  MCP Client Integration & Installer Wiring
-Clients                Copilot JetBrains / Copilot CLI
-                       Claude Code / Claude Desktop
-                       OpenAI Codex
+Branch                 m28-mcp-client-integration
+Baseline main          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+Baseline develop       8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+Object                 MCP Client Integration & Installer Wiring
+Target release         1.2.0
 Transport              MCP STDIO natif
-Docker requis          NON
+Docker required        false
 ```
 
-Le câblage client doit rester opt-in, sauvegarder les configurations tierces, préserver les entrées étrangères et permettre une désinstallation conservatrice.
+Implémentation documentée :
+
+```text
+integration/configure-mcp-clients.ps1
+integration/configure-mcp-clients-setup.ps1
+scripts/verify-m28-mcp-client-integration.ps1
+scripts/validate-m28.ps1
+scripts/validate-m28.sh
+validate-m28.cmd
+distribution/windows/MORPHEUS.iss
+docs/user/MCP_CLIENTS.md
+docs/developer/MCP.md
+```
+
+Clients :
+
+```text
+Copilot JetBrains / IntelliJ
+Copilot CLI
+Claude Code
+Claude Desktop
+OpenAI Codex
+```
+
+## Garanties documentées
+
+```text
+client configuration is explicit opt-in
+backup before JSON write
+unrelated JSON content is preserved
+foreign `morpheus` entry is not overwritten
+compatible preexisting entry is never removed
+managed modified entry is preserved
+uninstall is state-driven
+native CLI command timeout is bounded
+stdout remains MCP JSON-RPC only
+Docker is not required
+```
+
+## État de preuve
+
+```text
+implementation          COMPLETE
+documentation           COMPLETE
+Windows exact-head      NOT RUN
+Linux/WSL exact-head    NOT RUN
+same SHA                NOT PROVEN
+post-gate delta         NOT PROVEN
+PR                      NOT OPEN
+merge                   NOT AUTHORIZED
+```
 
 ## Baseline fonctionnelle
 
@@ -126,19 +135,13 @@ Le câblage client doit rester opt-in, sauvegarder les configurations tierces, p
 C0 → M20       ✅ validés et intégrés
 D0 + D1        ✅ validés et intégrés
 R1             ✅ MORPHEUS 1.0.0 publié
-M21            ✅ validé et intégré
-M22            ✅ validé et intégré
-M23            ✅ validé et intégré
-M24            ✅ validé et intégré
-M25            ✅ validé et intégré
-M26            ✅ validé et intégré
-M27            ✅ validé et intégré
+M21 → M27      ✅ validés et intégrés
 R2             ✅ MORPHEUS 1.1.0 publié
-R3             ⏭ MORPHEUS 1.2.0 planifié
+M28            🚧 implémenté, qualification en attente
 ```
 
 ## Politique CI — juillet 2026
 
-Aucune GitHub Actions / CI ne sert de gate avant août 2026. Les preuves autoritatives restent les sorties locales Windows et Linux/WSL exact-head sur le même SHA.
+Aucune GitHub Actions / CI ne sert de gate. Les preuves autoritatives sont les sorties locales Windows et Linux/WSL exact-head sur le même SHA.
 
-Aucun document ne doit déplacer ni réécrire le tag `v1.1.0`. Toute évolution fonctionnelle postérieure appartient à une nouvelle version.
+Aucun document ne doit déplacer le tag `v1.1.0`, déclarer prématurément M28 PASS ou annoncer `v1.2.0` comme publiée avant une phase de release dédiée.
