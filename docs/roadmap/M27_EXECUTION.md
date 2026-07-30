@@ -1,18 +1,20 @@
 # M27 — Evidence-backed Assisted Reasoning — plan d’exécution
 
-Statut : **QUALIFIÉ WINDOWS + LINUX/WSL — PRÊT POUR INTÉGRATION**
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ DANS `develop`**
 
-Issue : **#111**
+Issue : **#111 CLOSED / completed**
 Branche : **`m27-evidence-assisted-reasoning`**
-PR : **#112 vers `develop`**
+PR : **#112 MERGED dans `develop`**
 Baseline : **`c1eb1e74afe92db8b4a9250b678ce7d0d5c99ca7`**
 SHA exact qualifié : **`f97307c878125550693699124ca717f64f305a3a`**
+Head PR post-gate docs-only : **`026c1d5f8671cd7b879fa89d51af8e83a5f06272`**
+Merge : **`f8810803bd5ae7d57c4858e1e384c6a0132e1a45`**
 
 ## 1. Question de sortie
 
 > MORPHEUS peut-il enrichir ses réponses par des inférences assistées sans mélanger faits publiés, heuristiques et suggestions ?
 
-Réponse : **oui, démontré sur Windows et Linux/WSL sur le même SHA exact**.
+Réponse : **oui, démontré sur Windows et Linux/WSL sur le même SHA exact puis intégré dans `develop`**.
 
 ## 2. Invariants
 
@@ -102,7 +104,7 @@ Statut : **TERMINÉ / VALIDÉ**.
 
 ### M27-S6 — Qualification et intégration
 
-Statut : **QUALIFICATION TERMINÉE — INTÉGRATION AUTORISÉE**.
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
 
 Gates exécutés :
 
@@ -112,6 +114,16 @@ Linux    bash ./scripts/validate-m27.sh 1.0.0     PASS
 ```
 
 Les deux gates ont visé `f97307c878125550693699124ca717f64f305a3a` et produit `postGateExecutableDelta=NONE`.
+
+Les trois commits ajoutés après le SHA qualifié et avant le merge n’ont modifié que :
+
+```text
+docs/adr/0095-evidence-backed-assisted-reasoning.md
+docs/roadmap/M27_EXECUTION.md
+docs/validation/VALIDATION_M27.md
+```
+
+La PR #112 a ensuite été fusionnée dans `develop` avec contrôle `expected_head_sha=026c1d5f8671cd7b879fa89d51af8e83a5f06272`.
 
 ## 4. Modèle fonctionnel
 
@@ -229,31 +241,35 @@ Smokes validés :
 
 ## 9. Gates de merge
 
-État :
+```text
+Windows exact-head                    PASS
+Linux/WSL exact-head                  PASS
+Même SHA                              PASS
+Tests / architecture / coverage       PASS
+ADR-0095                              ACCEPTED
+VALIDATION_M27.md                     FINAL
+Review threads                        NONE
+Post-gate executable delta            NONE
+PR #112                               MERGED
+Merge commit                          f8810803bd5ae7d57c4858e1e384c6a0132e1a45
+Post-merge reconciliation             DONE
+Issue #111                            CLOSED / completed
+```
 
-1. Windows PASS sur SHA exact — **OK** ;
-2. Linux/WSL PASS sur le même SHA — **OK** ;
-3. tests et coverage relevés — **OK** ;
-4. ADR-0095 acceptée — **OK** ;
-5. `VALIDATION_M27.md` finalisé — **OK** ;
-6. review threads résolus — **OK, aucun thread** ;
-7. delta exécutable post-gate nul — **à confirmer après commits docs-only** ;
-8. merge vers `develop` avec `expected_head_sha` — **autorisé après confirmation** ;
-9. issue #111 fermée après merge et réconciliation documentaire.
-
-## 10. État de preuve
+## 10. État final
 
 ```text
-implementation branch       PRESENT
-issue                       #111 OPEN jusqu’au merge
-application contracts       QUALIFIED
-CLI/MCP/HTTP                 QUALIFIED
+implementation branch       DELIVERED
+application contracts       QUALIFIED / INTEGRATED
+CLI/MCP/HTTP                 QUALIFIED / INTEGRATED
 architecture tests          238 PASS Windows + Linux
 Windows exact-head          PASS
 Linux/WSL exact-head        PASS
 qualified SHA               f97307c878125550693699124ca717f64f305a3a
-PR                          #112 READY FOR MERGE après contrôle docs-only
-merge                       AUTHORIZED après contrôle docs-only
+PR head docs-only           026c1d5f8671cd7b879fa89d51af8e83a5f06272
+merge                       f8810803bd5ae7d57c4858e1e384c6a0132e1a45
+PR                          #112 MERGED
+issue                       #111 CLOSED / completed
 ```
 
-Aucun PASS n’est déclaré sans log concret. Les commits post-gate sont documentaires uniquement ; toute modification exécutable invaliderait les deux qualifications.
+M27 est terminé, validé et intégré. Toute évolution future de promotion ou mutation des résultats de raisonnement devra faire l’objet d’un jalon et d’une décision d’architecture distincts.
