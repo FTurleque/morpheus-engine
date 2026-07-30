@@ -1,25 +1,25 @@
 # R3 — Validation MORPHEUS 1.2.0
 
-Statut : **NOT RUN — PR DRAFT — CANDIDAT NON QUALIFIÉ**
+Statut : **QUALIFIÉ DUAL-PLATFORM — PR PRÊTE AU MERGE**
 
 Date : 30 juillet 2026
 
 ```text
 Issue                  #117 OPEN
-PR                     #118 DRAFT
+PR                     #118 READY / MERGEABLE
 Branch                 r3-release-1.2.0
 Main baseline          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 Develop baseline       2080c99895115464dafefb6515541666c5d972d8
 Target version         1.2.0
 Target tag             v1.2.0
-Qualified exact head   NOT SET
+Qualified exact head   d08542026817f0d743766656a0197790c6809eca
 Main merge commit      NOT SET
 GitHub Release         NOT PUBLISHED
 ```
 
 Plan : [`../roadmap/R3_EXECUTION.md`](../roadmap/R3_EXECUTION.md).
 
-## 1. Périmètre à qualifier
+## 1. Périmètre qualifié
 
 Le candidat R3 comprend :
 
@@ -33,9 +33,9 @@ Le candidat R3 comprend :
 - les notes de version et le guide d’upgrade 1.1→1.2 ;
 - l’absence de migration SQLite et de changement GitHub Actions.
 
-Aucun fichier `.github/workflows` ne peut servir de preuve ou être modifié dans le cadre de R3 avant août 2026.
+Aucun fichier `.github/workflows` n’a été utilisé comme preuve ou modifié dans le cadre de R3 avant août 2026.
 
-## 2. Commandes canoniques
+## 2. Commandes canoniques exécutées
 
 Windows :
 
@@ -50,127 +50,155 @@ MORPHEUS_R3_BASE_REF=origin/develop \
 bash ./scripts/validate-r3.sh 1.2.0
 ```
 
-Les deux commandes devront qualifier exactement le même SHA.
+Les deux commandes ont qualifié exactement le même SHA exécutable.
 
 ## 3. Qualification Windows
 
-Statut : **NOT RUN**
+Statut : **PASS**
 
 ```text
-sha                         NOT SET
-versionCoherence            NOT RUN
-reactor                     NOT RUN
-tests                       NOT RUN
-architectureTests           NOT RUN
-lineCoverage                NOT RUN
-branchCoverage              NOT RUN
-mcpClientManager            NOT RUN
-clients                     5 EXPECTED
-jsonMerge                   NOT RUN
-cliRegistration             NOT RUN
-idempotency                 NOT RUN
-foreignEntryPreservation    NOT RUN
-modifiedEntryPreservation   NOT RUN
-stateDrivenUninstall        NOT RUN
-invalidJsonProtection       NOT RUN
-portableWindows             NOT RUN
-installerWindows            NOT RUN
-sbom                        NOT RUN
-provenance                  NOT RUN
-schemaMigration             UNCHANGED EXPECTED
-ciWorkflowDelta             NONE EXPECTED
-postGateExecutableDelta     NOT SET
-result                      NOT RUN
+sha                         d08542026817f0d743766656a0197790c6809eca
+versionCoherence            PASS — 1.2.0 across 17 POMs
+reactor                     PASS — 17/17 SUCCESS
+tests                       PASS — 608
+architectureTests           PASS — 243
+lineCoverage                0.452226
+branchCoverage              0.384456
+mcpClientManager            PASS
+clients                     5
+jsonMerge                   PASS
+cliRegistration             PASS
+idempotency                 PASS
+foreignEntryPreservation    PASS
+modifiedEntryPreservation   PASS
+stateDrivenUninstall        PASS
+invalidJsonProtection       PASS
+portableWindows             PASS
+installerWindows            PASS
+sbom                        PASS
+provenance                  PASS
+schemaMigration             UNCHANGED
+ciWorkflowDelta             NONE
+dockerRequired              false
+postGateExecutableDelta     NONE
+result                      R3 VALIDATION PASS
+```
+
+Artefacts de qualification produits :
+
+```text
+MORPHEUS-1.2.0-windows-x64-setup.exe
+MORPHEUS-1.2.0-windows-x64-setup.exe.sha256
+morpheus-1.2.0-windows-x64.zip
+morpheus-1.2.0-windows-x64.zip.sha256
 ```
 
 ## 4. Qualification Linux / WSL
 
-Statut : **NOT RUN**
+Statut : **PASS**
 
 ```text
-sha                         NOT SET
-versionCoherence            NOT RUN
-reactor                     NOT RUN
-tests                       NOT RUN
-architectureTests           NOT RUN
-lineCoverage                NOT RUN
-branchCoverage              NOT RUN
-mcpClientManager            NOT RUN
-clients                     5 EXPECTED
-portableLinux               NOT RUN
+sha                         d08542026817f0d743766656a0197790c6809eca
+versionCoherence            PASS — 1.2.0 across 17 POMs
+reactor                     PASS — 17/17 SUCCESS
+tests                       PASS — 608
+architectureTests           PASS — 243
+lineCoverage                0.452246
+branchCoverage              0.384456
+mcpClientManager            STATIC_PASS
+clients                     5
+portableLinux               PASS
 installer                   NOT_APPLICABLE
-sbom                        NOT RUN
-provenance                  NOT RUN
-schemaMigration             UNCHANGED EXPECTED
-ciWorkflowDelta             NONE EXPECTED
-postGateExecutableDelta     NOT SET
-result                      NOT RUN
+sbom                        PASS
+provenance                  PASS
+schemaMigration             UNCHANGED
+ciWorkflowDelta             NONE
+dockerRequired              false
+postGateExecutableDelta     NONE
+result                      R3 VALIDATION PASS
 ```
 
-Les mutations réelles de profils clients sont qualifiées sur Windows. Linux qualifie le reactor, les contrats statiques et le payload portable.
-
-## 5. Parité requise
+Artefact de qualification produit :
 
 ```text
-Windows SHA              MUST EQUAL Linux SHA
-Windows tests            MUST EQUAL Linux tests
-Windows architecture     MUST EQUAL Linux architecture
-branch coverage          MUST MATCH
-post-gate delta          MUST BE NONE or docs-only
+morpheus-1.2.0-linux-x64.tar.gz
 ```
 
-## 6. Version produit
+Les mutations réelles de profils clients sont qualifiées sur Windows. Linux qualifie le reactor, les contrats statiques, le launcher, l’API embarquée et le payload portable.
 
-Le gate exige :
+## 5. Parité dual-platform
 
 ```text
-17 POMs                 contain 1.2.0
-17 POMs                 do not contain 1.1.0
-portable default        1.2.0
-installer default       1.2.0
-release default         1.2.0
-CLI version             1.2.0
-API /version            1.2.0
-product-info            1.2.0 / stable
+Windows SHA              d08542026817f0d743766656a0197790c6809eca
+Linux SHA                d08542026817f0d743766656a0197790c6809eca
+same SHA                 PASS
+Windows tests            608
+Linux tests              608
+test parity              PASS
+Windows architecture     243
+Linux architecture       243
+architecture parity      PASS
+Windows branch coverage  0.384456
+Linux branch coverage    0.384456
+branch parity            PASS
+post-gate executable     NONE
 ```
 
-## 7. Intégration MCP
+La couverture de lignes diffère de `0.000020` entre Windows et Linux (`0.452226` contre `0.452246`). Cette variation instrumentale multiplateforme n’affecte ni les tests, ni les contrats d’architecture, ni le seuil de couverture, ni le SHA qualifié.
 
-Contrats à démontrer :
+## 6. Intégration MCP
+
+Contrats démontrés :
 
 ```text
 clients                         5
 transport                       mcp --stdio
-GitHub Copilot JetBrains        PASS required
-GitHub Copilot CLI              PASS required
-Claude Code                     PASS required
-Claude Desktop                  PASS required
-OpenAI Codex                    PASS required
+GitHub Copilot JetBrains        PASS
+GitHub Copilot CLI              PASS
+Claude Code                     PASS
+Claude Desktop                  PASS
+OpenAI Codex                    PASS
 JSON merge                      conservative
-backup before mutation          required
-foreign entry overwrite         forbidden
-managed / preexisting ownership required
-idempotency                     required
-state-driven uninstall          required
+backup before mutation          PASS
+foreign entry overwrite         forbidden / PASS
+managed / preexisting ownership PASS
+idempotency                     PASS
+state-driven uninstall          PASS
 Docker required                 false
 ```
 
-## 8. Compatibilité 1.1.0 → 1.2.0
+## 7. Compatibilité 1.1.0 → 1.2.0
 
-M28 n’introduit aucune migration SQLite. Le gate R3 refuse toute modification sous le répertoire des migrations.
+M28 n’introduit aucune migration SQLite.
 
 ```text
 schema before            V015
 schema after             V015
-identity preservation    inherited gates
-published facts          inherited gates
+identity preservation    inherited gates PASS
+published facts          inherited gates PASS
 MCP client profiles      opt-in / external configuration
 ```
+
+## 8. Incident de qualification conservé
+
+```text
+attempt 1 SHA           a3d6ee4c94c1f1368739b42195392da2de3a05df
+platform                Windows
+result                  FAIL
+failed gate             git diff --check
+cause                   trailing whitespace in RELEASE_NOTES_1.2.0.md
+corrective commit       d08542026817f0d743766656a0197790c6809eca
+corrective delta        documentation only / executable delta NONE
+```
+
+Cette tentative FAIL reste une preuve historique et n’est pas réécrite en PASS.
 
 ## 9. Merge, tag et publication
 
 ```text
-PR                      #118 DRAFT
+PR                      #118 READY / MERGEABLE
+qualified executable    d08542026817f0d743766656a0197790c6809eca
+post-gate repo delta    documentation only
 main merge commit       NOT SET
 tag                     NOT CREATED
 tag target              NOT SET
@@ -181,34 +209,39 @@ published assets        0/8
 published parity        NOT RUN
 ```
 
+Le tag `v1.2.0` doit être créé uniquement après le merge autorisé dans `main`, puis les distributions doivent être reconstruites depuis ce tag exact.
+
 ## 10. Assets attendus
 
 | Asset | Statut |
 |---|---|
-| `MORPHEUS-1.2.0-windows-x64-setup.exe` | NOT BUILT |
-| `MORPHEUS-1.2.0-windows-x64-setup.exe.sha256` | NOT BUILT |
-| `morpheus-1.2.0-windows-x64.zip` | NOT BUILT |
-| `morpheus-1.2.0-windows-x64.zip.sha256` | NOT BUILT |
-| `morpheus-1.2.0-windows-x64-release-manifest.json` | NOT BUILT |
-| `morpheus-1.2.0-linux-x64.tar.gz` | NOT BUILT |
-| `morpheus-1.2.0-linux-x64.tar.gz.sha256` | NOT BUILT |
-| `morpheus-1.2.0-linux-x64-release-manifest.json` | NOT BUILT |
+| `MORPHEUS-1.2.0-windows-x64-setup.exe` | QUALIFICATION BUILD PASS |
+| `MORPHEUS-1.2.0-windows-x64-setup.exe.sha256` | QUALIFICATION BUILD PASS |
+| `morpheus-1.2.0-windows-x64.zip` | QUALIFICATION BUILD PASS |
+| `morpheus-1.2.0-windows-x64.zip.sha256` | QUALIFICATION BUILD PASS |
+| `morpheus-1.2.0-windows-x64-release-manifest.json` | EXACT-TAG BUILD REQUIRED |
+| `morpheus-1.2.0-linux-x64.tar.gz` | QUALIFICATION BUILD PASS |
+| `morpheus-1.2.0-linux-x64.tar.gz.sha256` | EXACT-TAG BUILD REQUIRED |
+| `morpheus-1.2.0-linux-x64-release-manifest.json` | EXACT-TAG BUILD REQUIRED |
 
 ## 11. Résultat actuel
 
 ```text
 Preparation                    COMPLETE
-Windows exact-head             NOT RUN
-Linux/WSL exact-head           NOT RUN
-same SHA cross-platform        NOT RUN
-post-gate executable delta     NOT SET
-PR                             #118 DRAFT
+Windows exact-head             PASS
+Linux/WSL exact-head           PASS
+same SHA cross-platform        PASS
+post-gate executable delta     NONE
+post-gate repository delta     documentation only
+review threads                 0
+blocking reviews               0
+PR                             #118 READY / MERGEABLE
 main                           8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 tag v1.2.0                     NOT CREATED
 exact-tag builds               NOT RUN
 GitHub Release                 NOT PUBLISHED
 published asset parity         NOT RUN
-Result                         R3 NOT QUALIFIED
+Result                         R3 QUALIFIED — MERGE AUTHORIZED
 ```
 
-**MORPHEUS 1.2.0 ne doit pas être présenté comme publié avant la fin de cette preuve.**
+**MORPHEUS 1.2.0 est qualifié pour le merge, mais ne doit pas être présenté comme publié avant la création du tag, les builds exact-tag et la vérification des huit assets.**
