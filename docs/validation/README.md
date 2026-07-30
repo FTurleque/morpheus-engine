@@ -87,6 +87,7 @@ post-gate executable delta = NONE
 
 ```text
 issue                  #117 OPEN
+PR                     #118 DRAFT
 branch                 r3-release-1.2.0
 main baseline          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 develop baseline       2080c99895115464dafefb6515541666c5d972d8
@@ -95,7 +96,6 @@ target tag             v1.2.0
 Windows result         NOT RUN
 Linux/WSL result       NOT RUN
 same executable SHA    NOT RUN
-PR                     NOT CREATED
 GitHub Release         NOT PUBLISHED
 ```
 
