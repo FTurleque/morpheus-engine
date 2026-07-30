@@ -72,7 +72,7 @@ class MorpheusReasoningApiContractTest {
     }
 
     @Test
-    void rejectsUnknownPropertiesAndUnknownAdaptersExplicitly() throws Exception {
+    void rejectsUnknownPropertiesUnknownAdaptersAndNullValuesExplicitly() throws Exception {
         try (MorpheusHttpServer server = MorpheusHttpServer.start(
                 temporaryDirectory.resolve("invalid.db"), "127.0.0.1", 0)) {
             URI uri = URI.create(server.baseUri() + "/reasoning/analyze");
@@ -80,11 +80,19 @@ class MorpheusReasoningApiContractTest {
                     "{\"question\":\"Q\",\"script\":\"return true\"}");
             HttpResponse<String> unknownAdapter = postJson(uri,
                     "{\"question\":\"Q\",\"adapterIds\":[\"missing-adapter\"]}");
+            HttpResponse<String> nullEvidence = postJson(uri,
+                    "{\"question\":\"Q\",\"evidence\":[null]}");
+            HttpResponse<String> nullParameter = postJson(uri,
+                    "{\"question\":\"Q\",\"parameters\":{\"mode\":null}}");
 
             assertEquals(400, unknownProperty.statusCode(), unknownProperty.body());
             assertTrue(unknownProperty.body().contains("BAD_REQUEST"), unknownProperty.body());
             assertEquals(400, unknownAdapter.statusCode(), unknownAdapter.body());
             assertTrue(unknownAdapter.body().contains("REASONING_VALIDATION"), unknownAdapter.body());
+            assertEquals(400, nullEvidence.statusCode(), nullEvidence.body());
+            assertTrue(nullEvidence.body().contains("REASONING_VALIDATION"), nullEvidence.body());
+            assertEquals(400, nullParameter.statusCode(), nullParameter.body());
+            assertTrue(nullParameter.body().contains("REASONING_VALIDATION"), nullParameter.body());
         }
     }
 
