@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -142,7 +143,7 @@ class R2UpgradeCompatibilityTest {
 
             snapshot.setString(1, "snapshot-r2");
             snapshot.setString(2, "project-r2");
-            snapshot.setString(3, null);
+            snapshot.setNull(3, Types.VARCHAR);
             snapshot.setString(4, "ACTIVE");
             snapshot.setString(5, "release-1.0.0");
             snapshot.setString(6, "2026-07-27T00:00:00Z");
