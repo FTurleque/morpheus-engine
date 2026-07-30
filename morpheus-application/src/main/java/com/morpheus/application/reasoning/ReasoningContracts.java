@@ -201,12 +201,24 @@ public final class ReasoningContracts {
             heuristics = immutableObjects(heuristics, "heuristics", 0, MAX_CLAIMS);
             suggestions = immutableObjects(suggestions, "suggestions", 0, MAX_CLAIMS);
             executions = immutableObjects(executions, "executions", 0, MAX_ADAPTERS);
-            if (facts.stream().anyMatch(item -> item.kind() != EvidenceKind.PUBLISHED_FACT)) {
-                throw new IllegalArgumentException("facts must contain only PUBLISHED_FACT evidence");
+            List<Evidence> expectedFacts = evidence.stream()
+                    .filter(item -> item.kind() == EvidenceKind.PUBLISHED_FACT)
+                    .toList();
+            if (!facts.equals(expectedFacts)) {
+                throw new IllegalArgumentException("facts must exactly match PUBLISHED_FACT evidence");
             }
             requireClaimKind(inferences, ClaimKind.INFERENCE, "inferences");
             requireClaimKind(heuristics, ClaimKind.HEURISTIC, "heuristics");
             requireClaimKind(suggestions, ClaimKind.SUGGESTION, "suggestions");
+            Set<String> evidenceIds = new LinkedHashSet<>();
+            for (Evidence item : evidence) {
+                if (!evidenceIds.add(item.id())) {
+                    throw new IllegalArgumentException("duplicate evidence id in result: " + item.id());
+                }
+            }
+            requireKnownEvidence(inferences, evidenceIds);
+            requireKnownEvidence(heuristics, evidenceIds);
+            requireKnownEvidence(suggestions, evidenceIds);
             boolean hasClaims = !inferences.isEmpty() || !heuristics.isEmpty() || !suggestions.isEmpty();
             if (assisted != hasClaims) {
                 throw new IllegalArgumentException("assisted must reflect the presence of accepted assisted claims");
@@ -220,6 +232,17 @@ public final class ReasoningContracts {
     private static void requireClaimKind(List<Claim> claims, ClaimKind expected, String name) {
         if (claims.stream().anyMatch(claim -> claim.kind() != expected)) {
             throw new IllegalArgumentException(name + " contains a claim with a different kind");
+        }
+    }
+
+    private static void requireKnownEvidence(List<Claim> claims, Set<String> evidenceIds) {
+        for (Claim claim : claims) {
+            for (String evidenceId : claim.evidenceIds()) {
+                if (!evidenceIds.contains(evidenceId)) {
+                    throw new IllegalArgumentException(
+                            "claim " + claim.id() + " cites unknown result evidence: " + evidenceId);
+                }
+            }
         }
     }
 
@@ -289,9 +312,13 @@ public final class ReasoningContracts {
             throw new IllegalArgumentException(name + " exceeds " + maximum + " entries");
         }
         Map<String, String> result = new LinkedHashMap<>();
-        source.forEach((key, value) -> result.put(
-                required(key, name + " key", 128),
-                required(value, name + " value", 2_048)));
+        source.forEach((key, value) -> {
+            String normalizedKey = required(key, name + " key", 128);
+            String normalizedValue = required(value, name + " value", 2_048);
+            if (result.putIfAbsent(normalizedKey, normalizedValue) != null) {
+                throw new IllegalArgumentException(name + " contains duplicate normalized key: " + normalizedKey);
+            }
+        });
         return Map.copyOf(result);
     }
 }
