@@ -1,6 +1,6 @@
 # R2 — Stabilisation et publication MORPHEUS 1.1.0
 
-Statut : **PRÉPARATION TECHNIQUE TERMINÉE — QUALIFICATION EXACT-HEAD NON EXÉCUTÉE**
+Statut : **PRÉPARATION TECHNIQUE TERMINÉE — WINDOWS GATE FAILED — CORRECTIF POUSSÉ — REQUALIFICATION REQUISE**
 
 Dernière mise à jour : 30 juillet 2026
 
@@ -9,7 +9,7 @@ Issue                  #113 OPEN
 PR                     #114 DRAFT vers main
 Branch                 r2-release-1.1.0
 Release baseline       develop@bccc118dda6fd818cf801750187afa4ad10b96e4
-Executable candidate   cde78c8172d720a01254f7463f4ff60d09a8b677
+Executable candidate   aef3ed8a65397e7ca2fa5aa6abdf41237025605a
 Target version         1.1.0
 Target tag             v1.1.0
 ```
@@ -27,8 +27,8 @@ main                    0e37d85fc7efe9843094416898b6fbdbc45b7da4
 develop                 bccc118dda6fd818cf801750187afa4ad10b96e4
 main...develop          188 commits ahead / 0 behind
 release branch base     bccc118dda6fd818cf801750187afa4ad10b96e4
-R2 executable candidate cde78c8172d720a01254f7463f4ff60d09a8b677
-develop...candidate     38 commits / 35 changed files
+R2 executable candidate aef3ed8a65397e7ca2fa5aa6abdf41237025605a
+develop...candidate     42 commits / 36 changed files
 published release       v1.0.0
 candidate release       v1.1.0
 ```
@@ -41,7 +41,7 @@ tests                   602 PASS Windows + Linux
 architecture            238 PASS Windows + Linux
 ```
 
-R2 modifie les POM, les contrats de version, le packaging, les validateurs et les tests. Une nouvelle qualification est donc obligatoire.
+R2 modifie les POM, les contrats de version, le packaging, les validateurs et les tests. Une nouvelle qualification complète reste obligatoire.
 
 ## 3. Invariants
 
@@ -82,7 +82,7 @@ release publication != automatic update
 - [x] rejet explicite de toute version reactor `1.0.0` résiduelle ;
 - [x] builders portable, installer et release Windows/Linux par défaut en `1.1.0` ;
 - [x] version passée explicitement aux outils de packaging ;
-- [ ] cohérence réellement exécutée sous Windows ;
+- [x] cohérence des 17 POM observée PASS sur les deux tentatives Windows ;
 - [ ] cohérence réellement exécutée sous Linux/WSL.
 
 ### R2-S2 — Upgrade SQLite
@@ -95,7 +95,7 @@ release publication != automatic update
 - [x] vérification prévue de l'immutabilité des checksums V001→V012 ;
 - [x] vérification prévue du replay idempotent ;
 - [x] backup et rollback offline documentés ;
-- [ ] scénario réellement exécuté sous Windows ;
+- [ ] scénario exécuté jusqu'à son terme sous Windows ;
 - [ ] scénario réellement exécuté sous Linux/WSL.
 
 ### R2-S3 — Packaging
@@ -119,9 +119,31 @@ release publication != automatic update
 - [x] procédure de backup/restore offline ;
 - [x] distinction candidate / release stable explicite ;
 - [x] `v1.0.0` reste la seule release annoncée comme publiée ;
+- [x] deux échecs Windows enregistrés factuellement ;
 - [ ] valeurs finales de qualification et d'artefacts à injecter après observation.
 
-## 5. Gates exact-head
+## 5. Incidents de qualification Windows
+
+### Tentative 1 — `3db57b33960ef16af9f3b6e49fc247e3bf843efb`
+
+`git diff --check` a rejeté trois espaces de fin de ligne dans `docs/governance/ROADMAP.md`. Maven n'a pas démarré. Correction documentaire : `c500d70ec7ee0ad2acfcbd4c4a49346c7c93f975`.
+
+### Tentative 2 — `c500d70ec7ee0ad2acfcbd4c4a49346c7c93f975`
+
+Le contrôle de version et `git diff --check` ont réussi. Le root reactor et `morpheus-domain` ont réussi, puis `morpheus-application` a échoué sur :
+
+```text
+ProductIntegrityTest.explicitFileManifestCanReportANewerVersion
+expected updateAvailable=true, observed false
+```
+
+Cause : le test annonçait `1.0.1`, qui n'est plus supérieur à la version courante `1.1.0`.
+
+Correctif : `aef3ed8a65397e7ca2fa5aa6abdf41237025605a`. Le manifeste de test dérive désormais la prochaine version patch depuis `ProductMetadata.version()`.
+
+Ces tentatives restent **FAIL**. Elles ne sont pas transformées en PASS par le correctif.
+
+## 6. Gates exact-head
 
 ### Windows
 
@@ -156,7 +178,7 @@ bash ./scripts/validate-r2.sh 1.1.0
 
 Le SHA doit être strictement identique au SHA Windows.
 
-## 6. Consolidation post-gate
+## 7. Consolidation post-gate
 
 Après les deux PASS réels :
 
@@ -167,7 +189,7 @@ Après les deux PASS réels :
 - [ ] vérifier les review threads ;
 - [ ] marquer la PR Ready.
 
-## 7. Merge, tag et publication
+## 8. Merge, tag et publication
 
 Le merge dans `main` reste interdit tant que la qualification n'est pas complète.
 
@@ -208,7 +230,11 @@ morpheus-1.1.0-linux-x64-release-manifest.json
 - [ ] documentation post-release réconciliée ;
 - [ ] issue #113 fermée `completed`.
 
-## 8. Politique CI — juillet 2026
+## 9. Workspace local
+
+Le répertoire non suivi `dist-r1/` n'a pas causé l'échec : le gate R2 contrôle les deltas suivis. Les scripts exact-tag exigent cependant un workspace intégralement propre ; ce répertoire devra être déplacé ou supprimé avant la publication.
+
+## 10. Politique CI — juillet 2026
 
 ```text
 GitHub Actions is not a release gate
@@ -218,12 +244,12 @@ no opportunistic .github/workflows change
 local Windows + Linux/WSL exact-head logs are authoritative
 ```
 
-## 9. État courant
+## 11. État courant
 
 ```text
 Preparation                    COMPLETE
-Executable candidate           cde78c8172d720a01254f7463f4ff60d09a8b677
-Windows exact-head             NOT RUN
+Executable candidate           aef3ed8a65397e7ca2fa5aa6abdf41237025605a
+Windows exact-head             FAILED / RERUN REQUIRED
 Linux/WSL exact-head           NOT RUN
 same SHA cross-platform        NOT PROVEN
 merge main                     NOT AUTHORIZED
