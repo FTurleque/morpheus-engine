@@ -166,16 +166,16 @@ Portable              PASS Windows + Linux
 Executable delta      NONE Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).  
-Plan : [`../roadmap/M26_EXECUTION.md`](../roadmap/M26_EXECUTION.md).  
+Validation : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
+Plan : [`../roadmap/M26_EXECUTION.md`](../roadmap/M26_EXECUTION.md).
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
 ## Décision M27 proposée
 
 ADR-0095 introduit une enveloppe d’évidence, des claims séparées `INFERENCE` / `HEURISTIC` / `SUGGESTION`, une confiance bornée, une provenance obligatoire et des adaptateurs optionnels explicitement sélectionnés. Elle reste proposée jusqu’aux doubles gates exact-head.
 
-Validation en cours : [`../validation/VALIDATION_M27.md`](../validation/VALIDATION_M27.md).  
-Plan : [`../roadmap/M27_EXECUTION.md`](../roadmap/M27_EXECUTION.md).  
+Validation en cours : [`../validation/VALIDATION_M27.md`](../validation/VALIDATION_M27.md).
+Plan : [`../roadmap/M27_EXECUTION.md`](../roadmap/M27_EXECUTION.md).
 PR : **#112 OPEN / DRAFT**.
 
 # Contraintes actives principales
