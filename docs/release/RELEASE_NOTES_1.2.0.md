@@ -146,6 +146,6 @@ exact-tag builds         REQUIRED
 published parity         8/8 REQUIRED
 ```
 
-Preuve de release : [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md).  
-Plan : [`../roadmap/R3_EXECUTION.md`](../roadmap/R3_EXECUTION.md).  
+Preuve de release : [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md).
+Plan : [`../roadmap/R3_EXECUTION.md`](../roadmap/R3_EXECUTION.md).
 Guide d’upgrade : [`../user/UPGRADE_1_2.md`](../user/UPGRADE_1_2.md).
