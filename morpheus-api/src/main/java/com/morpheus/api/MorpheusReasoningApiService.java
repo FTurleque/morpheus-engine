@@ -29,22 +29,31 @@ final class MorpheusReasoningApiService {
     }
 
     Object analyze(ReasoningRequest request) {
-        Objects.requireNonNull(request, "request");
-        List<Evidence> evidence = new ArrayList<>();
-        for (EvidenceRequest item : request.evidenceOrEmpty()) {
-            evidence.add(new Evidence(
-                    item.id(),
-                    evidenceKind(item.kind()),
-                    item.subject(),
-                    item.statement(),
-                    item.provenanceOrEmpty()));
+        if (request == null) {
+            throw new IllegalArgumentException("reasoning request is required");
         }
-        return service.execute(new Request(
-                request.question(),
-                List.copyOf(evidence),
-                request.adapterIdsOrEmpty(),
-                request.parametersOrEmpty(),
-                request.maxClaimsOrDefault()));
+        try {
+            List<Evidence> evidence = new ArrayList<>();
+            for (EvidenceRequest item : request.evidenceOrEmpty()) {
+                if (item == null) {
+                    throw new IllegalArgumentException("evidence entries must not be null");
+                }
+                evidence.add(new Evidence(
+                        item.id(),
+                        evidenceKind(item.kind()),
+                        item.subject(),
+                        item.statement(),
+                        item.provenanceOrEmpty()));
+            }
+            return service.execute(new Request(
+                    request.question(),
+                    List.copyOf(evidence),
+                    request.adapterIdsOrEmpty(),
+                    request.parametersOrEmpty(),
+                    request.maxClaimsOrDefault()));
+        } catch (NullPointerException failure) {
+            throw new IllegalArgumentException("reasoning request contains a null value", failure);
+        }
     }
 
     private static EvidenceKind evidenceKind(String raw) {
