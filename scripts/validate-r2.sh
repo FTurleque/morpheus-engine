@@ -94,7 +94,7 @@ fi
 
 grep -Fq "<version>$VERSION</version>" "$REPO/pom.xml" || { echo "Root POM is not $VERSION" >&2; exit 1; }
 grep -Fq "[string]\$Version = '$VERSION'" "$REPO/distribution/build-release.ps1" || { echo 'Windows release default version is incoherent' >&2; exit 1; }
-grep -Fq "VERSION=\"\${1:-$VERSION}\"" "$REPO/distribution/build-release.sh" || { echo 'Linux release default version is incoherent' >&2; exit 1; }
+grep -Fq 'VERSION="${1:-'"$VERSION"'}"' "$REPO/distribution/build-release.sh" || { echo 'Linux release default version is incoherent' >&2; exit 1; }
 printf '%s\n' 'Release script default versions: PASS'
 
 CURRENT_SHA="$(git rev-parse HEAD)"
