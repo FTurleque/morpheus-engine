@@ -49,9 +49,9 @@ print(all_tests[0], all_tests[1], all_tests[2], arch[0])
 PY
 )
 if (( FAILURES != 0 || ERRORS != 0 )); then echo "Surefire failures=$FAILURES errors=$ERRORS" >&2; exit 1; fi
-if (( TESTS < 598 )); then echo "M27 M26-baseline regression: $TESTS < 598" >&2; exit 1; fi
+if (( TESTS < 602 )); then echo "M27 complete test floor regression: $TESTS < 602" >&2; exit 1; fi
 if (( ARCH_TESTS < 238 )); then echo "M27 architecture baseline regression: $ARCH_TESTS < 238" >&2; exit 1; fi
-printf '%s\n' "Tests: PASS ($TESTS, M27 minimum >= 598)"
+printf '%s\n' "Tests: PASS ($TESTS, M27 minimum >= 602)"
 printf '%s\n' "Architecture: PASS ($ARCH_TESTS, M27 minimum >= 238)"
 
 COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
