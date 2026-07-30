@@ -6,7 +6,7 @@
 
 ## État produit
 
-**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.** Les évolutions 1.x M21 à M26 sont également validées et intégrées sur cette baseline produit.
+**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.** Les évolutions 1.x M21 à M27 sont également validées et intégrées sur cette baseline produit.
 
 ```text
 Release stable    v1.0.0
@@ -15,19 +15,18 @@ D1 / release SHA  51f6a120f3461c8d8c24323f3db8211d28d6cb42
 M21 merge         2fdce6601a07628c315fe03932750cd8ece3d777
 M22 merge         67c587057e287d57b0733f9e425a57b26cc38ae4
 M23 merge         88355b69c493677c8689eecad214fb00d283359b
-M24 executable    be69e47da0ae209d2246df9c67bc08caeafb2bb0
 M24 merge         2b483ded10c783fff22c25035db89475c5c9fdaf
-M25 exact head    a392604fc9e8d00f4021351ab5ba53f8488ab920
 M25 merge         62bf0ea37f732116e821df7d98ae89d36c6dd75d
-M26 exact head    bf481b24054c4577144b4cb2ede2bdbc4d9974a2
-M26 PR head       36378842e3ef41e379ade17f869b0939d052bbbc
 M26 merge         49016a18c844a78ec864235c544d82d487da7c8a
-M26 tests         579 PASS Windows + Linux
-M26 architecture  234 PASS Windows + Linux
+M27 exact head    f97307c878125550693699124ca717f64f305a3a
+M27 PR head       026c1d5f8671cd7b879fa89d51af8e83a5f06272
+M27 merge         f8810803bd5ae7d57c4858e1e384c6a0132e1a45
+M27 tests         602 PASS Windows + Linux
+M27 architecture  238 PASS Windows + Linux
 ```
 
-Preuve de publication : [docs/validation/VALIDATION_R1.md](docs/validation/VALIDATION_R1.md).  
-Dernière preuve technique : [docs/validation/VALIDATION_M26.md](docs/validation/VALIDATION_M26.md).
+Preuve de publication : [docs/validation/VALIDATION_R1.md](docs/validation/VALIDATION_R1.md).
+Dernière preuve technique : [docs/validation/VALIDATION_M27.md](docs/validation/VALIDATION_M27.md).
 
 ## Ce que MORPHEUS fournit
 
@@ -49,19 +48,25 @@ Dernière preuve technique : [docs/validation/VALIDATION_M26.md](docs/validation
 - activations et overrides explicites avec CAS et provenance ;
 - dry-run de gouvernance strictement read-only ;
 - audit append-only des configurations de policy ;
+- **analyse assistée fondée sur des preuves** ;
+- **faits publiés séparés des inférences, heuristiques et suggestions** ;
+- **confiance explicite et bornée** ;
+- **adaptateurs de raisonnement optionnels et fault-isolated** ;
+- **mode facts-only sans adaptateur** ;
+- **aucune mutation implicite : `mutated=false`** ;
 - CLI locale scriptable ;
 - serveur MCP STDIO ;
 - API HTTP locale `/api/v1` ;
-- **mode serveur d’équipe remote optionnel en HTTPS** ;
-- **Bearer authentication avec persistence hash-only** ;
-- **RBAC READ / WRITE / ADMIN** ;
-- **concurrence remote bornée avec HTTP 429** ;
-- **backup SQLite cohérent et restore offline explicite** ;
+- mode serveur d’équipe remote optionnel en HTTPS ;
+- Bearer authentication avec persistence hash-only ;
+- RBAC READ / WRITE / ADMIN ;
+- concurrence remote bornée avec HTTP 429 ;
+- backup SQLite cohérent et restore offline explicite ;
 - intégrations optionnelles MINOS, NEXUS et JARVIS ;
 - setup Windows per-user ;
 - distributions portables Windows/Linux avec runtime Java embarqué.
 
-MORPHEUS ne nécessite aucun LLM pour son cœur fonctionnel.
+MORPHEUS ne nécessite aucun LLM pour son cœur fonctionnel ni pour l’adaptateur M27 de référence.
 
 ## Écosystème
 
@@ -73,6 +78,7 @@ MORPHEUS = specification facts / intent / lifecycle rules
            + provider-neutral query/view/reporting contracts
            + provider-neutral governance policy contracts
            + optional remote/team access boundary
+           + evidence-backed assisted claims separated from published facts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = orchestration / sequencing / action choice
@@ -129,8 +135,6 @@ morpheus query execute \
   --limit 50
 ```
 
-Créer une saved view :
-
 ```bash
 morpheus views create \
   --name "Current requirements" \
@@ -138,8 +142,6 @@ morpheus views create \
   --entity requirement \
   --filter 'status eq CURRENT'
 ```
-
-Exporter :
 
 ```bash
 morpheus export view --id <savedViewId> --format csv
@@ -157,8 +159,6 @@ morpheus policy pack create \
   --reason baseline
 ```
 
-Activer explicitement une version :
-
 ```bash
 morpheus policy activate \
   --id <policyPackId> \
@@ -168,8 +168,6 @@ morpheus policy activate \
   --actor operator \
   --reason enable
 ```
-
-Tester sans mutation :
 
 ```bash
 morpheus policy dry-run --id <policyPackId> --version <versionId> --project <projectId>
@@ -191,32 +189,64 @@ Bearer authentication
 READ / WRITE / ADMIN RBAC
 ```
 
-Les tokens sont générés avec 256 bits d’entropie et seul leur SHA-256 est persisté.
+Les tokens sont générés avec 256 bits d’entropie et seul leur SHA-256 est persisté. Le restore est **offline uniquement**.
 
-Surfaces serveur M26 :
-
-```text
-GET  /api/v1/server/status        READ
-POST /api/v1/server/backups       ADMIN
-GET  /api/v1/metrics              ADMIN
-```
-
-Maintenance locale :
-
-```text
-server identity create
-server backup create
-server backup verify
-server restore --confirm
-```
-
-Le provisioning d’identité et le restore sont volontairement absents du control plane HTTP/MCP. Le restore est **offline uniquement**.
-
-La concurrence applicative est bornée (`1..512`, défaut `64`) et la saturation retourne HTTP `429`. Le listen backlog HTTPS est distinct de cette limite applicative afin de ne pas transformer la saturation en refus TCP prématuré.
-
-Guide utilisateur : [docs/user/TEAM_REMOTE_SERVER.md](docs/user/TEAM_REMOTE_SERVER.md).  
-Architecture : [docs/developer/REMOTE_SERVER_PLATFORM.md](docs/developer/REMOTE_SERVER_PLATFORM.md).  
+Guide utilisateur : [docs/user/TEAM_REMOTE_SERVER.md](docs/user/TEAM_REMOTE_SERVER.md).
+Architecture : [docs/developer/REMOTE_SERVER_PLATFORM.md](docs/developer/REMOTE_SERVER_PLATFORM.md).
 OpenAPI : [docs/openapi/morpheus-v1-remote-m26.yaml](docs/openapi/morpheus-v1-remote-m26.yaml).
+
+## Evidence-backed Assisted Reasoning — M27
+
+Lister les adaptateurs :
+
+```bash
+morpheus reason adapters
+```
+
+Mode facts-only :
+
+```bash
+morpheus reason analyze \
+  --question "What is published?" \
+  --evidence 'fact-1|PUBLISHED_FACT|requirement:req-1|Session timeout is 30 minutes'
+```
+
+Analyse assistée explicitement sélectionnée :
+
+```bash
+morpheus reason analyze \
+  --question "What should be reviewed?" \
+  --evidence 'fact-1|PUBLISHED_FACT|requirement:req-1|Session timeout is 30 minutes' \
+  --evidence 'obs-1|OBSERVATION|runtime|Timeout failures increased' \
+  --adapter builtin-evidence-synthesis-v1
+```
+
+Surfaces :
+
+```text
+CLI   reason adapters / reason analyze
+MCP   list_reasoning_adapters / reason_with_evidence
+HTTP  GET /api/v1/reasoning/adapters
+HTTP  POST /api/v1/reasoning/analyze
+```
+
+Garanties :
+
+```text
+facts != inference
+inference != suggestion
+heuristic != published fact
+confidence is explicit and bounded
+adapter discovery != adapter execution
+adapter absence != MORPHEUS failure
+adapter failure != fact loss
+reasoning execution != lifecycle mutation
+mutated=false
+```
+
+Guide utilisateur : [docs/user/ASSISTED_REASONING.md](docs/user/ASSISTED_REASONING.md).
+Architecture : [docs/developer/ASSISTED_REASONING.md](docs/developer/ASSISTED_REASONING.md).
+OpenAPI : [docs/openapi/morpheus-v1-reasoning-m27.yaml](docs/openapi/morpheus-v1-reasoning-m27.yaml).
 
 ## Invariants importants
 
@@ -269,6 +299,15 @@ backup != live restore
 restore != implicit migration
 server state != provider source of truth
 multi-client concurrency != unbounded concurrency
+facts != inference
+inference != suggestion
+heuristic != published fact
+confidence is explicit and bounded
+adapter discovery != adapter execution
+adapter absence != MORPHEUS failure
+adapter failure != fact loss
+reasoning execution != lifecycle mutation
+reasoning execution != policy override
 surface parity != same transport shape
 optional engine absence != MORPHEUS failure
 ```
@@ -314,23 +353,23 @@ morpheus-architecture-tests
 .\mvnw.cmd clean test
 ```
 
-Gate M26 Windows :
+Gate M27 Windows :
 
 ```powershell
-.\validate-m26.cmd 1.0.0
+.\validate-m27.cmd 1.0.0
 ```
 
-Gate M26 Linux :
+Gate M27 Linux :
 
 ```bash
-bash ./scripts/validate-m26.sh 1.0.0
+bash ./scripts/validate-m27.sh 1.0.0
 ```
 
-Preuve technique : [docs/validation/VALIDATION_M26.md](docs/validation/VALIDATION_M26.md).
+Preuve technique : [docs/validation/VALIDATION_M27.md](docs/validation/VALIDATION_M27.md).
 
 ## Roadmap 1.x
 
-Trajectoire active : **[POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md)**.
+Trajectoire : **[POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md)**.
 
 ```text
 DONE
@@ -342,18 +381,17 @@ DONE
   M24  Query DSL, Saved Views & Export/Reporting ✅
   M25  Policy Packs & Governance Automation ✅
   M26  Optional Team/Remote Server Mode ✅
+  M27  Evidence-backed Assisted Reasoning ✅
 
 NOW
-  M27  Evidence-backed Assisted Reasoning
+  aucun jalon post-M27 défini
 ```
-
-M27 reste optionnel : `facts != inference` et aucun LLM n’est requis dans le core.
 
 ## Documentation
 
 **Point d’entrée : [docs/README.md](docs/README.md)**.
 
-Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).  
-Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).  
-Team/Remote Server : [docs/user/TEAM_REMOTE_SERVER.md](docs/user/TEAM_REMOTE_SERVER.md).  
-Architecture Remote : [docs/developer/REMOTE_SERVER_PLATFORM.md](docs/developer/REMOTE_SERVER_PLATFORM.md).
+Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).
+Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).
+Assisted Reasoning : [docs/user/ASSISTED_REASONING.md](docs/user/ASSISTED_REASONING.md).
+Architecture M27 : [docs/developer/ASSISTED_REASONING.md](docs/developer/ASSISTED_REASONING.md).
