@@ -1,6 +1,6 @@
 # M28 — Validation MCP Client Integration & Installer Wiring
 
-Statut : **IMPLÉMENTATION TERMINÉE — CORRECTION WRAPPER WINDOWS — QUALIFICATION EXACT-HEAD À REJOUER**
+Statut : **WINDOWS EXACT-HEAD PASS — LINUX/WSL EXACT-HEAD REQUIS**
 
 Date : 30 juillet 2026
 
@@ -11,14 +11,15 @@ Branch                 m28-mcp-client-integration
 Baseline               8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 Stable release         v1.1.0
 Target release         1.2.0
-Qualified exact head   NOT SET
-Windows result         ATTEMPT 1 FAILED BEFORE GATE — RERUN REQUIRED
+Candidate exact head   58adfeb13b79808da12830f2d0b0b24ec46f67e6
+Windows result         PASS
 Linux/WSL result       NOT RUN
+Dual-platform result   NOT YET PROVEN
 ```
 
 Plan : [`../roadmap/M28_EXECUTION.md`](../roadmap/M28_EXECUTION.md).
 
-## 1. Périmètre
+## 1. Périmètre qualifié
 
 M28 ajoute :
 
@@ -85,9 +86,9 @@ state-driven uninstall             required
 
 ## 4. Qualification Windows
 
-Statut : **ATTEMPT 1 FAILED BEFORE GATE — CORRECTION APPLIQUÉE — RERUN REQUIRED**
+Statut : **PASS**
 
-### Tentative 1
+### Tentative 1 — échec avant entrée dans le gate
 
 ```text
 Date                      2026-07-30
@@ -101,53 +102,60 @@ Tests executed            NO
 Qualification result      NOT PRODUCED
 ```
 
-Diagnostic observé :
+Le wrapper a ensuite été corrigé pour résoudre Windows PowerShell par chemin système absolu, avec prise en charge de `Sysnative` et fallback `pwsh.exe`. Un contrat d’architecture interdit désormais le retour à une invocation dépendante du `PATH`.
+
+### Tentative 2 — qualification exact-head
 
 ```text
-'powershell.exe' n'est pas reconnu en tant que commande interne ou externe
-M28 validation FAILED with exit code 9009
+Date                       2026-07-30
+SHA                        58adfeb13b79808da12830f2d0b0b24ec46f67e6
+Base ref                   origin/develop
+Version                    1.1.0
+Workspace tracked delta    NONE avant gate
+Reactor                    17/17 SUCCESS
+Build                      SUCCESS
+Tests                      608 PASS
+Architecture tests         243 PASS
+Line coverage              0.452226
+Branch coverage            0.384456
+MCP client manager         PASS
+Clients                    5
+JSON merge                 PASS
+CLI registration           PASS
+Idempotency                PASS
+Foreign entry preservation PASS
+Modified entry preservation PASS
+State-driven uninstall     PASS
+Invalid JSON protection    PASS
+Portable Windows           PASS
+Installer Windows          PASS
+Docker required            false
+Post-gate executable delta NONE
+Result                     M28 VALIDATION PASS
 ```
 
-Cause : le wrapper invoquait `powershell.exe` par nom simple. Le shell utilisateur pouvait exécuter PowerShell, mais `cmd.exe` ne trouvait pas `powershell.exe` dans son `PATH`.
-
-Correction :
+Preuves de packaging observées :
 
 ```text
-primary   %SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe
-32-bit    %SystemRoot%\Sysnative\WindowsPowerShell\v1.0\powershell.exe
-fallback  pwsh.exe resolved through where
+M28 Windows portable integration payload    PASS
+M28 Windows setup integration wiring         PASS
+MORPHEUS-1.1.0-windows-x64-setup.exe         BUILT
+morpheus-1.1.0-windows-x64.zip               BUILT
 ```
 
-Un contrat d’architecture interdit désormais le retour à une invocation `powershell.exe` dépendante du `PATH`.
-
-### Résultat exact-head à renseigner après relance
-
-```text
-sha                       —
-reactor                   —
-tests                     —
-architectureTests         —
-lineCoverage              —
-branchCoverage            —
-clients                   5 expected
-jsonMerge                 —
-cliRegistration           —
-idempotency               —
-foreignEntryPreservation  —
-modifiedEntryPreservation —
-stateDrivenUninstall      —
-invalidJsonProtection     —
-portableWindows           —
-installerWindows          —
-postGateExecutableDelta   —
-result                    NOT RUN AFTER FIX
-```
+Les avertissements Maven de dépendances, shading, API dépréciée et accès natif SQLite sont non bloquants pour ce gate : ils ne produisent ni failure ni error et le reactor conclut `BUILD SUCCESS`.
 
 ## 5. Qualification Linux/WSL
 
 Statut : **NOT RUN**
 
-À renseigner après exécution réelle :
+Le gate Linux/WSL doit qualifier exactement :
+
+```text
+58adfeb13b79808da12830f2d0b0b24ec46f67e6
+```
+
+Résultat à renseigner :
 
 ```text
 sha                       —
@@ -164,7 +172,7 @@ postGateExecutableDelta   —
 result                    NOT RUN
 ```
 
-Les modifications de profils clients réels sont Windows-only. Linux valide la non-régression, les contrats statiques et le packaging.
+Les modifications de profils clients réels sont Windows-only. Linux valide la non-régression, les contrats statiques et le packaging portable Linux.
 
 ## 6. Revue de sécurité
 
@@ -187,13 +195,13 @@ Le câblage client ne modifie pas les autorisations métier. `apply_change_lifec
 implementation                COMPLETE
 Windows attempt 1             FAILED BEFORE GATE / exit 9009
 Windows wrapper correction    COMPLETE
-Windows exact-head after fix  NOT RUN
+Windows exact-head after fix  PASS
 Linux/WSL exact-head          NOT RUN
-same SHA                      NOT PROVEN
-post-gate executable delta    NOT PROVEN
+same SHA                      NOT YET PROVEN
+Windows post-gate delta       NONE
 PR                            #116 DRAFT
 merge                         NOT AUTHORIZED
-Result                        M28 IMPLEMENTED — QUALIFICATION PENDING
+Result                        WINDOWS QUALIFIED — LINUX/WSL PENDING
 ```
 
-Aucun PASS ne doit être déclaré avant les deux logs exact-head réels.
+M28 ne peut être déclaré entièrement PASS, la PR ne peut devenir Ready et le merge reste interdit avant un gate Linux/WSL PASS sur le même SHA exact.
