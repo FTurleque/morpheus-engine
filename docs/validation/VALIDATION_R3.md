@@ -1,12 +1,12 @@
 # R3 — Validation MORPHEUS 1.2.0
 
-Statut : **NOT RUN — CANDIDAT NON QUALIFIÉ**
+Statut : **NOT RUN — PR DRAFT — CANDIDAT NON QUALIFIÉ**
 
 Date : 30 juillet 2026
 
 ```text
 Issue                  #117 OPEN
-PR                     NOT CREATED
+PR                     #118 DRAFT
 Branch                 r3-release-1.2.0
 Main baseline          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 Develop baseline       2080c99895115464dafefb6515541666c5d972d8
@@ -170,7 +170,7 @@ MCP client profiles      opt-in / external configuration
 ## 9. Merge, tag et publication
 
 ```text
-PR                      NOT CREATED
+PR                      #118 DRAFT
 main merge commit       NOT SET
 tag                     NOT CREATED
 tag target              NOT SET
@@ -197,12 +197,12 @@ published parity        NOT RUN
 ## 11. Résultat actuel
 
 ```text
-Preparation                    IN PROGRESS
+Preparation                    COMPLETE
 Windows exact-head             NOT RUN
 Linux/WSL exact-head           NOT RUN
 same SHA cross-platform        NOT RUN
 post-gate executable delta     NOT SET
-PR                             NOT CREATED
+PR                             #118 DRAFT
 main                           8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 tag v1.2.0                     NOT CREATED
 exact-tag builds               NOT RUN
