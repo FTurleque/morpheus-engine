@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **MORPHEUS 1.1.0 publié — M28 qualifié — intégration dans develop autorisée**
+Statut : **MORPHEUS 1.1.0 publié — M28 terminé et intégré — préparation 1.2.0 suivante**
 
 Dernière mise à jour : 30 juillet 2026
 
@@ -23,7 +23,7 @@ D0 + D1       ✅ validés et intégrés
 R1            ✅ MORPHEUS 1.0.0 publié
 M21 → M27     ✅ validés et intégrés
 R2            ✅ MORPHEUS 1.1.0 publié
-M28           ✅ qualifié Windows + Linux/WSL, merge autorisé
+M28           ✅ validé et intégré dans develop
 ```
 
 ```text
@@ -33,9 +33,9 @@ release commit          31506029ded1101f0571edeb0d79c59bbf3f68c6
 post-release main       8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 develop M28 baseline    8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 M28 executable head     58adfeb13b79808da12830f2d0b0b24ec46f67e6
-M28 branch              m28-mcp-client-integration
-M28 issue               #115
-M28 PR                  #116
+M28 merge commit        1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
+M28 issue               #115 CLOSED / completed
+M28 PR                  #116 MERGED
 ```
 
 ## 3. M28 — MCP Client Integration & Installer Wiring
@@ -44,7 +44,7 @@ Question de sortie :
 
 > Un utilisateur peut-il connecter explicitement le serveur MCP STDIO natif de MORPHEUS à Copilot, Claude et Codex, sans Docker obligatoire, sans écraser une configuration tierce et avec une désinstallation conservatrice ?
 
-Réponse : **OUI — PASS**.
+Réponse : **OUI — COMPLETE**.
 
 Clients :
 
@@ -56,7 +56,7 @@ Claude Desktop
 OpenAI Codex
 ```
 
-Périmètre :
+Périmètre livré :
 
 ```text
 native MCP command       morpheus mcp --stdio
@@ -84,8 +84,8 @@ Linux portable           PASS
 Same executable SHA      PASS
 Post-gate executable     NONE
 ADR-0096                 ACCEPTÉE
-Review threads           0
-Blocking reviews         0
+PR #116                  MERGED
+Issue #115               CLOSED / completed
 ```
 
 Références :
@@ -97,7 +97,7 @@ Références :
 
 ## 4. Suite produit
 
-Après intégration M28 dans `develop`, une phase de consolidation 1.2.0 devra :
+La prochaine phase doit consolider la release 1.2.0 :
 
 ```text
 bump reactor 1.1.0 -> 1.2.0
