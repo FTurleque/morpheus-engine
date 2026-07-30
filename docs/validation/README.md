@@ -13,6 +13,7 @@ VALIDATION_D1.md
 VALIDATION_R1.md
 VALIDATION_M21.md → VALIDATION_M28.md
 VALIDATION_R2.md
+VALIDATION_R3.md
 ```
 
 Chaque document conserve les décisions, SHA, commandes et résultats réellement observés. Une preuve historique n’est jamais réécrite pour fabriquer un PASS.
@@ -82,6 +83,40 @@ Docker required = false
 post-gate executable delta = NONE
 ```
 
+## R3 — candidate MORPHEUS 1.2.0
+
+```text
+issue                  #117 OPEN
+branch                 r3-release-1.2.0
+main baseline          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+develop baseline       2080c99895115464dafefb6515541666c5d972d8
+target version         1.2.0
+target tag             v1.2.0
+Windows result         NOT RUN
+Linux/WSL result       NOT RUN
+same executable SHA    NOT RUN
+PR                     NOT CREATED
+GitHub Release         NOT PUBLISHED
+```
+
+R3 doit prouver :
+
+```text
+17 POM version parity at 1.2.0
+M28 client integration retained
+Windows portable + installer
+Linux portable
+SBOM + provenance
+no SQLite migration delta
+no GitHub Actions workflow delta
+same exact SHA Windows/Linux
+post-gate executable delta = NONE
+exact-tag Windows/Linux builds
+published parity 8/8
+```
+
+Preuve active : [`VALIDATION_R3.md`](VALIDATION_R3.md).
+
 ## Politique de gate
 
 Toute modification de code, packaging, contrat runtime ou validateur exige un nouveau gate Windows + Linux/WSL sur le même SHA exact. Après qualification, seul un delta exclusivement documentaire est accepté sans réexécution, après comparaison explicite.
@@ -90,6 +125,7 @@ En juillet 2026 :
 
 ```text
 no GitHub Actions gate
+no workflow inspection
 no workflow rerun
 no workflow dispatch
 no .github/workflows modification
