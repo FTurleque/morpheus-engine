@@ -71,6 +71,17 @@ class McpClientIntegrationArchitectureTest {
     }
 
     @Test
+    void windowsValidationWrapperDoesNotDependOnPowerShellBeingInPath() throws IOException {
+        String wrapper = Files.readString(repoRoot().resolve("validate-m28.cmd"));
+
+        assertTrue(wrapper.contains("%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"));
+        assertTrue(wrapper.contains("%SystemRoot%\\Sysnative\\WindowsPowerShell\\v1.0\\powershell.exe"));
+        assertTrue(wrapper.contains("where pwsh.exe"));
+        assertTrue(wrapper.contains("\"%POWERSHELL_EXE%\" -NoLogo -NoProfile"));
+        assertFalse(wrapper.contains("\npowershell.exe -NoLogo"));
+    }
+
+    @Test
     void validationAndUserDocumentationArePartOfTheContract() {
         Path root = repoRoot();
         assertTrue(Files.isRegularFile(root.resolve("scripts/verify-m28-mcp-client-integration.ps1")));
