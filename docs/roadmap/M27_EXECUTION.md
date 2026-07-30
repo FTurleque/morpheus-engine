@@ -2,9 +2,9 @@
 
 Statut : **IMPLÉMENTATION TERMINÉE SUR BRANCHE — QUALIFICATION EXACT-HEAD À EXÉCUTER**
 
-Issue : **#111**  
-Branche : **`m27-evidence-assisted-reasoning`**  
-PR : **#112 DRAFT vers `develop`**  
+Issue : **#111**
+Branche : **`m27-evidence-assisted-reasoning`**
+PR : **#112 DRAFT vers `develop`**
 Baseline : **`c1eb1e74afe92db8b4a9250b678ce7d0d5c99ca7`**
 
 ## 1. Question de sortie
