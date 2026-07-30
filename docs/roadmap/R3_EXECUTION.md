@@ -1,18 +1,18 @@
 # R3 — Stabilisation et publication MORPHEUS 1.2.0
 
-Statut : **EN COURS — PR DRAFT — QUALIFICATION REQUISE**
+Statut : **QUALIFIÉ — PR PRÊTE AU MERGE**
 
 Dernière mise à jour : 30 juillet 2026
 
 ```text
 Issue                  #117 OPEN
-PR                     #118 DRAFT
+PR                     #118 READY / MERGEABLE
 Branch                 r3-release-1.2.0
 Main baseline          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 Develop baseline       2080c99895115464dafefb6515541666c5d972d8
 Target version         1.2.0
 Target tag             v1.2.0
-Qualified exact head   NOT SET
+Qualified exact head   d08542026817f0d743766656a0197790c6809eca
 Main merge commit      NOT SET
 GitHub Release         NOT PUBLISHED
 ```
@@ -21,7 +21,7 @@ GitHub Release         NOT PUBLISHED
 
 > M28 peut-il être consolidé dans `main` et publié comme MORPHEUS 1.2.0 avec une version cohérente, une qualification exacte Windows/Linux, des intégrations MCP conservatrices et huit assets reproductibles vérifiés après publication ?
 
-Réponse actuelle : **NON DÉMONTRÉE — gates R3 non exécutés**.
+Réponse actuelle : **OUI POUR LE MERGE — PUBLICATION ENCORE À EXÉCUTER**.
 
 ## 2. Baseline
 
@@ -39,11 +39,11 @@ Le delta fonctionnel correspond à M28 — MCP Client Integration & Installer Wi
 MCP transport                   native STDIO
 launcher                        morpheus.exe mcp --stdio
 clients                         5
-GitHub Copilot JetBrains        supported
-GitHub Copilot CLI              supported
-Claude Code                     supported
-Claude Desktop                  supported
-OpenAI Codex                    supported
+GitHub Copilot JetBrains        supported / qualified
+GitHub Copilot CLI              supported / qualified
+Claude Code                     supported / qualified
+Claude Desktop                  supported / qualified
+OpenAI Codex                    supported / qualified
 JSON merge                      conservative
 foreign entry overwrite         forbidden
 ownership                       managed / preexisting
@@ -66,9 +66,11 @@ SQLite migration                none
 - [x] créer le guide d’upgrade 1.1→1.2 ;
 - [x] créer la preuve R3 ;
 - [x] ouvrir la PR draft #118 vers `main` ;
-- [ ] qualifier Windows exact-head ;
-- [ ] qualifier Linux/WSL exact-head sur le même SHA ;
-- [ ] finaliser la preuve et démontrer le delta post-gate ;
+- [x] qualifier Windows exact-head ;
+- [x] qualifier Linux/WSL exact-head sur le même SHA ;
+- [x] démontrer `postGateExecutableDelta=NONE` ;
+- [x] vérifier les reviews et threads bloquants ;
+- [x] réconcilier la preuve dual-platform avec un delta docs-only ;
 - [ ] passer la PR Ready ;
 - [ ] merger dans `main` avec contrôle du head ;
 - [ ] créer le tag `v1.2.0` sur le merge autorisé ;
@@ -84,42 +86,65 @@ SQLite migration                none
 
 ```text
 command                  .\validate-r3.cmd -Version 1.2.0 -BaseRef origin/develop
-status                   NOT RUN
-SHA                      NOT SET
-reactor                  NOT RUN
-tests                    NOT RUN
-architecture             NOT RUN
-M28 client manager       NOT RUN
-portable                 NOT RUN
-installer                NOT RUN
-SBOM / provenance        NOT RUN
+status                   PASS
+SHA                      d08542026817f0d743766656a0197790c6809eca
+reactor                  17/17 SUCCESS
+tests                    608 PASS
+architecture             243 PASS
+line coverage            0.452226
+branch coverage          0.384456
+M28 client manager       PASS
+clients                  5
+portable                 PASS
+installer                PASS
+SBOM / provenance        PASS
+post-gate executable     NONE
 ```
 
 ### Linux / WSL
 
 ```text
 command                  MORPHEUS_R3_BASE_REF=origin/develop bash ./scripts/validate-r3.sh 1.2.0
-status                   NOT RUN
-SHA                      NOT SET
-reactor                  NOT RUN
-tests                    NOT RUN
-architecture             NOT RUN
-M28 static contract      NOT RUN
-portable                 NOT RUN
-SBOM / provenance        NOT RUN
+status                   PASS
+SHA                      d08542026817f0d743766656a0197790c6809eca
+reactor                  17/17 SUCCESS
+tests                    608 PASS
+architecture             243 PASS
+line coverage            0.452246
+branch coverage          0.384456
+M28 static contract      PASS
+clients                  5
+portable                 PASS
+installer                NOT_APPLICABLE
+SBOM / provenance        PASS
+post-gate executable     NONE
+```
+
+### Parité
+
+```text
+same SHA                 PASS
+same tests               PASS — 608
+same architecture        PASS — 243
+same branch coverage     PASS — 0.384456
+line coverage threshold  PASS on both platforms
+repository post-gate     documentation only
 ```
 
 ## 6. Politique de merge
 
-Le merge vers `main` est interdit tant que :
+Tous les gates de merge sont satisfaits :
 
-- Windows et Linux/WSL n’ont pas qualifié le même SHA exact ;
-- le reactor n’est pas intégralement en 1.2.0 ;
-- les tests M28 ne sont pas verts ;
-- les distributions portables ne sont pas produites ;
-- l’installateur Windows n’est pas produit ;
-- le delta post-gate n’est pas `NONE` ou strictement documentaire ;
-- les reviews ou threads bloquants ne sont pas résolus.
+- Windows et Linux/WSL ont qualifié le même SHA exact ;
+- le reactor est intégralement en 1.2.0 ;
+- les tests M28 sont verts ;
+- les distributions portables Windows et Linux sont produites ;
+- l’installateur Windows est produit ;
+- le delta exécutable post-gate est `NONE` ;
+- le delta de réconciliation post-gate est strictement documentaire ;
+- aucun thread de review ni review bloquante n’est présent.
+
+La PR #118 peut être passée Ready et mergée dans `main` avec contrôle du head.
 
 ## 7. Tag et publication
 
@@ -137,6 +162,8 @@ morpheus-1.2.0-linux-x64.tar.gz
 morpheus-1.2.0-linux-x64.tar.gz.sha256
 morpheus-1.2.0-linux-x64-release-manifest.json
 ```
+
+Après publication, les huit assets devront être retéléchargés et comparés aux artefacts locaux par SHA-256.
 
 ## 8. Politique CI — juillet 2026
 
