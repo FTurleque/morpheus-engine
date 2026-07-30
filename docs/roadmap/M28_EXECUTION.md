@@ -1,14 +1,14 @@
 # M28 — MCP Client Integration & Installer Wiring
 
-Statut : **TERMINÉ — DOUBLE QUALIFICATION EXACT-HEAD PASS — MERGE AUTORISÉ**
+Statut : **TERMINÉ — VALIDÉ — INTÉGRÉ DANS DEVELOP**
 
 Dernière mise à jour : 30 juillet 2026
 
 ```text
-Issue                  #115
-PR                     #116 READY -> develop
+Issue                  #115 CLOSED / completed
+PR                     #116 MERGED
+Merge commit           1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
 Branch                 m28-mcp-client-integration
-Baseline main          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 Baseline develop       8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 Executable head        58adfeb13b79808da12830f2d0b0b24ec46f67e6
 Stable release         v1.1.0
@@ -40,79 +40,53 @@ foreign entry overwrite     interdit
 modified managed entry      préservée
 ```
 
-## 3. Sous-étapes
+## 3. Livraison
 
 ### M28-S1 — Gouvernance et baseline
 
-- [x] issue #115 cadrée M28 ;
-- [x] audit `main` / `develop` ;
-- [x] réconciliation fast-forward de `develop` ;
-- [x] branche `m28-mcp-client-integration` créée ;
-- [x] politique sans CI juillet 2026 conservée.
+- [x] issue #115 cadrée ;
+- [x] audit et réconciliation `main` / `develop` ;
+- [x] branche créée depuis `develop` réconciliée ;
+- [x] politique sans CI juillet 2026 respectée.
 
 ### M28-S2 — Gestionnaire d’intégration
 
-- [x] `integration/configure-mcp-clients.ps1` ;
-- [x] Copilot JetBrains JSON ;
-- [x] Claude Desktop JSON ;
-- [x] Copilot CLI ;
-- [x] Claude Code ;
-- [x] Codex ;
-- [x] sauvegardes avant écriture ;
-- [x] JSON UTF-8 sans BOM ;
-- [x] fusion préservant propriétés et serveurs existants ;
-- [x] refus d’écraser une entrée étrangère ;
-- [x] idempotence ;
-- [x] registre de propriété ;
-- [x] journal d’audit ;
-- [x] timeout borné des clients CLI ;
-- [x] désinstallation state-driven ;
-- [x] conservation des entrées modifiées.
+- [x] cinq clients MCP pris en charge ;
+- [x] backups, UTF-8 sans BOM et fusion JSON conservatrice ;
+- [x] ownership `managed` / `preexisting` ;
+- [x] idempotence, timeout borné et logs ;
+- [x] entrées étrangères ou modifiées préservées ;
+- [x] désinstallation state-driven.
 
 ### M28-S3 — Setup et distributions
 
-- [x] cinq tâches Inno Setup opt-in et décochées ;
-- [x] wrapper de vérification setup ;
-- [x] désinstallation conservatrice avant suppression des fichiers ;
+- [x] cinq tâches Inno Setup opt-in ;
+- [x] désinstallation conservatrice ;
 - [x] gestionnaire embarqué dans le ZIP Windows ;
-- [x] gestionnaire et guide embarqués dans le TAR.GZ Linux ;
-- [x] aucune dépendance Docker introduite.
+- [x] guide et scripts embarqués dans le TAR.GZ Linux ;
+- [x] aucune dépendance Docker.
 
-### M28-S4 — Tests et contrats
+### M28-S4 — Tests, documentation et architecture
 
-- [x] qualification PowerShell avec faux clients ;
-- [x] préservation des propriétés JSON ;
-- [x] enregistrement des cinq clients ;
-- [x] idempotence ;
-- [x] entrée étrangère préservée ;
-- [x] entrée gérée modifiée préservée ;
-- [x] désinstallation state-driven ;
-- [x] JSON invalide protégé ;
+- [x] tests PowerShell avec faux profils et faux clients ;
 - [x] contrat d’architecture M28 ;
-- [x] gate Windows `validate-m28.cmd` ;
-- [x] gate Linux `scripts/validate-m28.sh`.
+- [x] guides utilisateur, développeur et embarqué ;
+- [x] ADR-0096 acceptée ;
+- [x] index et gouvernance réconciliés.
 
-### M28-S5 — Documentation
+### M28-S5 — Qualification et intégration
 
-- [x] guide utilisateur `docs/user/MCP_CLIENTS.md` ;
-- [x] guide embarqué `integration/README.md` ;
-- [x] mise à jour `docs/developer/MCP.md` ;
-- [x] index user/developer/roadmap/validation ;
-- [x] roadmap et statut documentaire globaux ;
-- [x] ADR-0096 acceptée.
-
-### M28-S6 — Qualification et livraison
-
-- [x] gate exact-head Windows ;
-- [x] gate exact-head Linux/WSL sur le même SHA exécutable ;
-- [x] résultats Windows et Linux inscrits dans `VALIDATION_M28.md` ;
-- [x] PR #116 vers `develop` ;
-- [x] review threads contrôlés : 0 ;
-- [x] reviews bloquantes contrôlées : 0 ;
-- [x] PR passée Ready après double qualification ;
-- [x] merge autorisé par les gates ;
-- [ ] merge effectué ;
-- [ ] issue #115 fermée `completed` après réconciliation post-merge.
+- [x] Windows exact-head PASS ;
+- [x] Linux/WSL exact-head PASS sur le même SHA ;
+- [x] 608 tests et 243 tests d’architecture sur les deux plateformes ;
+- [x] portable Windows + setup PASS ;
+- [x] portable Linux PASS ;
+- [x] review threads : 0 ;
+- [x] reviews bloquantes : 0 ;
+- [x] PR #116 Ready ;
+- [x] PR #116 mergée dans `develop` ;
+- [x] réconciliation post-merge ;
+- [x] issue #115 fermée `completed`.
 
 ## 4. Clients cibles
 
@@ -124,23 +98,7 @@ Claude Code               claude mcp add/get/remove --scope user
 OpenAI Codex              codex mcp add/get/remove
 ```
 
-## 5. Propriété et désinstallation
-
-```text
-ownership=managed      créée par MORPHEUS
-ownership=preexisting  déjà présente et compatible
-```
-
-```text
-preexisting compatible  suivi mais jamais supprimé
-foreign incompatible    non écrasé, non revendiqué
-managed unchanged       supprimable
-managed modified        préservé
-missing client entry    état nettoyé
-missing client binary   avertissement, aucune suppression aveugle
-```
-
-## 6. Qualification observée
+## 5. Qualification observée
 
 ```text
 Qualified executable SHA  58adfeb13b79808da12830f2d0b0b24ec46f67e6
@@ -157,11 +115,10 @@ Conservative integration   PASS
 Same executable SHA        PASS
 Post-gate executable delta NONE
 Docker required            false
+Merge commit               1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
 ```
 
-La première tentative Windows sur `3acfef...` avait échoué avant le gate avec l’exit `9009`. Le wrapper a été corrigé puis qualifié sur Windows et Linux/WSL au SHA `58adfeb...`.
-
-## 7. Politique CI — juillet 2026
+## 6. Politique CI — juillet 2026
 
 ```text
 no GitHub Actions gate
@@ -171,7 +128,7 @@ no .github/workflows modification
 local Windows + Linux/WSL exact-head logs are authoritative
 ```
 
-## 8. État courant
+## 7. Résultat final
 
 ```text
 implementation          COMPLETE
@@ -179,7 +136,7 @@ Windows exact-head      PASS
 Linux exact-head        PASS
 same executable SHA     PASS
 ADR-0096                ACCEPTED
-PR                      #116 READY / mergeable
-merge                   AUTHORIZED
-result                  M28 COMPLETE — MERGE PENDING
+PR #116                 MERGED
+issue #115              CLOSED / completed
+result                  M28 COMPLETE / VALIDATED / INTEGRATED
 ```
