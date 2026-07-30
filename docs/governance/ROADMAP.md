@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **MORPHEUS 1.1.0 publié — M28 intégré — R3 / 1.2.0 actif**
+Statut : **MORPHEUS 1.2.0 PUBLIÉ — R3 TERMINÉ**
 
 Dernière mise à jour : 30 juillet 2026
 
@@ -23,21 +23,23 @@ D0 + D1       ✅ validés et intégrés
 R1            ✅ MORPHEUS 1.0.0 publié
 M21 → M27     ✅ validés et intégrés
 R2            ✅ MORPHEUS 1.1.0 publié
-M28           ✅ validé et intégré dans develop
-R3            🚧 stabilisation et publication 1.2.0
+M28           ✅ validé, intégré et livré dans 1.2.0
+R3            ✅ MORPHEUS 1.2.0 publié
 ```
 
 ```text
-stable version          1.1.0
-stable tag              v1.1.0
-release commit          31506029ded1101f0571edeb0d79c59bbf3f68c6
-post-release main       8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
-develop post-M28        2080c99895115464dafefb6515541666c5d972d8
-M28 executable head     58adfeb13b79808da12830f2d0b0b24ec46f67e6
-M28 merge commit        1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
-R3 branch               r3-release-1.2.0
-R3 issue                #117 OPEN
-R3 target               1.2.0 / v1.2.0
+stable version              1.2.0
+stable tag                  v1.2.0
+stable release commit       3ad9ebf030b58df97482e21e272c24feae6b9d86
+qualified executable SHA    d08542026817f0d743766656a0197790c6809eca
+final PR head               a2023d96dd0c4ad6d1f7a658bf3e7b4f8390e1bb
+R3 PR                       #118 MERGED
+R3 issue                    #117 CLOSED / completed
+published assets            8/8
+published parity            8/8 PASS
+previous stable version     1.1.0
+previous stable tag         v1.1.0
+previous release commit     31506029ded1101f0571edeb0d79c59bbf3f68c6
 ```
 
 ## 3. M28 — MCP Client Integration & Installer Wiring
@@ -46,7 +48,7 @@ Question de sortie :
 
 > Un utilisateur peut-il connecter explicitement le serveur MCP STDIO natif de MORPHEUS à Copilot, Claude et Codex, sans Docker obligatoire, sans écraser une configuration tierce et avec une désinstallation conservatrice ?
 
-Réponse : **OUI — COMPLETE / VALIDATED / INTEGRATED**.
+Réponse : **OUI — COMPLETE / VALIDATED / INTEGRATED / RELEASED**.
 
 Clients :
 
@@ -88,6 +90,7 @@ Post-gate executable     NONE
 ADR-0096                 ACCEPTÉE
 PR #116                  MERGED
 Issue #115               CLOSED / completed
+Release                  MORPHEUS 1.2.0
 ```
 
 Références :
@@ -97,40 +100,28 @@ Références :
 - [`../user/MCP_CLIENTS.md`](../user/MCP_CLIENTS.md)
 - [`../developer/MCP.md`](../developer/MCP.md)
 
-## 4. R3 — Stabilisation et publication MORPHEUS 1.2.0
+## 4. R3 — MORPHEUS 1.2.0
 
 Question de sortie :
 
 > M28 peut-il être consolidé dans `main` et publié comme MORPHEUS 1.2.0 avec une version cohérente, une qualification exacte Windows/Linux et huit assets vérifiés après publication ?
 
-Réponse actuelle : **NON DÉMONTRÉE — gates R3 non exécutés**.
+Réponse finale : **OUI — COMPLETE / VALIDATED / PUBLISHED**.
 
 ```text
-issue                     #117 OPEN
-branch                    r3-release-1.2.0
-main baseline             8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
-develop baseline          2080c99895115464dafefb6515541666c5d972d8
-reactor target            1.2.0 across 17 POMs
-tag target                v1.2.0
-Windows exact-head        NOT RUN
-Linux/WSL exact-head      NOT RUN
-merge main                NOT AUTHORIZED
-exact-tag builds          NOT RUN
-GitHub Release            NOT PUBLISHED
-```
-
-Étapes :
-
-```text
-prepare release branch and version coherence
-qualify exact same SHA on Windows and Linux/WSL
-prove post-gate executable delta = NONE
-merge release branch into main
-create immutable v1.2.0 tag
-build Windows and Linux from exact tag
-publish eight GitHub Release assets
-redownload and compare all SHA-256
-reconcile documentation and close #117
+issue                     #117 CLOSED / completed
+PR                        #118 MERGED
+qualified executable      d08542026817f0d743766656a0197790c6809eca
+main release commit       3ad9ebf030b58df97482e21e272c24feae6b9d86
+tag                       v1.2.0
+Windows exact-head        PASS
+Linux/WSL exact-head      PASS
+same executable SHA       PASS
+exact-tag Windows         PASS
+exact-tag Linux           PASS
+GitHub Release            PUBLISHED / stable / latest
+published assets          8/8
+published parity          8/8 PASS
 ```
 
 Références :
@@ -158,6 +149,7 @@ manual client changes are preserved
 uninstall is state-driven
 stable tag is immutable
 release tag target == exact main release commit
+published assets == exact-tag assets
 ```
 
 ## 6. Politique CI — juillet 2026
@@ -170,3 +162,5 @@ no workflow dispatch
 no opportunistic .github/workflows changes
 local Windows + Linux/WSL exact-head logs are authoritative
 ```
+
+**La prochaine phase produit doit partir de `develop` après synchronisation avec la baseline stable 1.2.0.**
