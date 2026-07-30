@@ -1,17 +1,18 @@
 # M27 — Evidence-backed Assisted Reasoning — plan d’exécution
 
-Statut : **IMPLÉMENTATION TERMINÉE SUR BRANCHE — QUALIFICATION EXACT-HEAD À EXÉCUTER**
+Statut : **QUALIFIÉ WINDOWS + LINUX/WSL — PRÊT POUR INTÉGRATION**
 
 Issue : **#111**
 Branche : **`m27-evidence-assisted-reasoning`**
-PR : **#112 DRAFT vers `develop`**
+PR : **#112 vers `develop`**
 Baseline : **`c1eb1e74afe92db8b4a9250b678ce7d0d5c99ca7`**
+SHA exact qualifié : **`f97307c878125550693699124ca717f64f305a3a`**
 
 ## 1. Question de sortie
 
 > MORPHEUS peut-il enrichir ses réponses par des inférences assistées sans mélanger faits publiés, heuristiques et suggestions ?
 
-La réponse ne peut être déclarée positive qu’après qualification Windows + Linux/WSL sur un même SHA exact et absence de delta exécutable post-gate.
+Réponse : **oui, démontré sur Windows et Linux/WSL sur le même SHA exact**.
 
 ## 2. Invariants
 
@@ -34,7 +35,7 @@ reasoning adapter != mandatory LLM
 
 ### M27-S1 — Contrats d’évidence et de claims
 
-Statut : **IMPLÉMENTÉ**.
+Statut : **TERMINÉ / VALIDÉ**.
 
 - catégories d’évidence fermées ;
 - claims limitées à `INFERENCE`, `HEURISTIC`, `SUGGESTION` ;
@@ -46,7 +47,7 @@ Statut : **IMPLÉMENTÉ**.
 
 ### M27-S2 — SPI et orchestration optionnelle
 
-Statut : **IMPLÉMENTÉ**.
+Statut : **TERMINÉ / VALIDÉ**.
 
 - `ReasoningAdapter` provider-neutral ;
 - registre immuable ;
@@ -58,7 +59,7 @@ Statut : **IMPLÉMENTÉ**.
 
 ### M27-S3 — Adaptateur déterministe de référence
 
-Statut : **IMPLÉMENTÉ**.
+Statut : **TERMINÉ / VALIDÉ**.
 
 `builtin-evidence-synthesis-v1` :
 
@@ -71,7 +72,7 @@ Statut : **IMPLÉMENTÉ**.
 
 ### M27-S4 — Surfaces publiques
 
-Statut : **IMPLÉMENTÉ**.
+Statut : **TERMINÉ / VALIDÉ**.
 
 ```text
 CLI   reason adapters
@@ -90,27 +91,27 @@ HTTP  POST /api/v1/reasoning/analyze
 
 ### M27-S5 — Contrats, architecture et documentation
 
-Statut : **IMPLÉMENTÉ**.
+Statut : **TERMINÉ / VALIDÉ**.
 
 - convergence `contracts/public-surfaces.tsv` ;
 - OpenAPI M27 ;
-- ADR-0095 ;
+- ADR-0095 acceptée ;
 - documentation développeur et utilisateur ;
 - tests d’architecture M27 ;
 - scripts exact-head Windows + Linux.
 
 ### M27-S6 — Qualification et intégration
 
-Statut : **EN ATTENTE D’EXÉCUTION LOCALE**.
+Statut : **QUALIFICATION TERMINÉE — INTÉGRATION AUTORISÉE**.
 
-Gates :
+Gates exécutés :
 
 ```text
-Windows  .\validate-m27.cmd 1.0.0
-Linux    bash ./scripts/validate-m27.sh 1.0.0
+Windows  .\validate-m27.cmd 1.0.0                 PASS
+Linux    bash ./scripts/validate-m27.sh 1.0.0     PASS
 ```
 
-Les deux doivent viser le même SHA et produire `postGateExecutableDelta=NONE`.
+Les deux gates ont visé `f97307c878125550693699124ca717f64f305a3a` et produit `postGateExecutableDelta=NONE`.
 
 ## 4. Modèle fonctionnel
 
@@ -178,42 +179,36 @@ MAX_STATEMENT_CHARS        16384
 HTTP request bytes         65536
 ```
 
-## 7. Plan de qualification
-
-### 7.1 Gate reactor
+## 7. Qualification finale
 
 ```text
-git diff --check develop...HEAD
-mvnw clean verify
+SHA exact qualifié          f97307c878125550693699124ca717f64f305a3a
+Version                     1.0.0
+Windows                     PASS
+Linux / WSL                 PASS
+Tests                       602 PASS sur chaque plateforme
+Architecture                238 PASS sur chaque plateforme
+Windows line / branch       45.2226% / 38.4456%
+Linux line / branch         45.2246% / 38.4456%
+Facts-only                  PASS
+Assisted reasoning          PASS
+Adapter failure isolation   PASS
+No silent mutation          PASS
+CLI/MCP/HTTP convergence    PASS
+Remote READ RBAC            PASS
+CycloneDX/provenance        PASS Windows + Linux
+Portable                    PASS Windows + Linux
+Packaged reasoning smokes   PASS Windows + Linux
+Executable delta            NONE Windows + Linux
+ADR-0095                    Acceptée — M27
+CI / GitHub Actions         non utilisé — juillet 2026
 ```
 
-Minimums M27 :
+Preuve : [`../validation/VALIDATION_M27.md`](../validation/VALIDATION_M27.md).
 
-```text
-tests                >= 602
-architecture tests   >= 238
-line coverage        >= 42%
-branch coverage      >= 35%
-```
+## 8. Packaging validé
 
-Le seuil de 602 correspond aux 579 tests M26 et aux 23 tests M27 ajoutés. Il empêche une qualification qui ignorerait une partie des nouveaux contrats.
-
-### 7.2 Contrats fonctionnels
-
-- facts-only avec `adapterIds=[]` ;
-- claims classées par nature ;
-- confiance bornée et bande cohérente ;
-- citation inconnue rejetée ;
-- duplicate evidence rejeté ;
-- panne adapter isolée ;
-- sortie `mutated=false` ;
-- provider optionnel invalide sans panne de MORPHEUS ;
-- budget claims global ;
-- schémas stricts CLI/MCP/HTTP.
-
-### 7.3 Packaging
-
-Le shaded JAR et le portable doivent contenir :
+Le shaded JAR et les distributions portables contiennent :
 
 ```text
 ReasoningContracts
@@ -225,49 +220,40 @@ MorpheusReasoningHttpRoutes
 MorpheusReasoningMcpTools
 ```
 
-Smokes :
+Smokes validés :
 
 - `reason adapters` trouve l’adaptateur builtin ;
 - facts-only retourne un fait, zéro inférence, `assisted=false`, `mutated=false` ;
-- analyse explicite retourne au moins une inference et une heuristic sourcées ;
+- analyse explicite retourne des claims sourcées ;
 - score de confiance dans `[0,1]`.
 
-### 7.4 Supply chain
+## 9. Gates de merge
 
-- CycloneDX JSON/XML ;
-- build provenance ;
-- portable Windows ;
-- portable Linux ;
-- aucun changement CI/GitHub Actions en juillet 2026.
+État :
 
-## 8. Gates de merge
+1. Windows PASS sur SHA exact — **OK** ;
+2. Linux/WSL PASS sur le même SHA — **OK** ;
+3. tests et coverage relevés — **OK** ;
+4. ADR-0095 acceptée — **OK** ;
+5. `VALIDATION_M27.md` finalisé — **OK** ;
+6. review threads résolus — **OK, aucun thread** ;
+7. delta exécutable post-gate nul — **à confirmer après commits docs-only** ;
+8. merge vers `develop` avec `expected_head_sha` — **autorisé après confirmation** ;
+9. issue #111 fermée après merge et réconciliation documentaire.
 
-La PR M27 ne peut être mergée que si :
-
-1. Windows PASS sur SHA exact ;
-2. Linux/WSL PASS sur le même SHA ;
-3. nombre de tests et coverage relevés ;
-4. ADR-0095 acceptée avec les preuves réelles ;
-5. `VALIDATION_M27.md` finalisé ;
-6. PR non draft et review threads résolus ;
-7. HEAD inchangé depuis les gates ;
-8. delta exécutable post-gate nul ;
-9. merge vers `develop` avec `expected_head_sha` ;
-10. issue #111 fermée seulement après merge et réconciliation documentaire.
-
-## 9. État de preuve actuel
+## 10. État de preuve
 
 ```text
 implementation branch       PRESENT
-issue                       #111 OPEN
-application contracts       IMPLEMENTED
-CLI/MCP/HTTP                 IMPLEMENTED
-architecture tests          IMPLEMENTED
-static Java 21 checks       CORE + CLI PASS (non substitutifs aux gates)
-Windows exact-head          NOT RUN
-Linux/WSL exact-head        NOT RUN
-PR                          #112 OPEN / DRAFT
-merge                       BLOCKED BY LOCAL GATES
+issue                       #111 OPEN jusqu’au merge
+application contracts       QUALIFIED
+CLI/MCP/HTTP                 QUALIFIED
+architecture tests          238 PASS Windows + Linux
+Windows exact-head          PASS
+Linux/WSL exact-head        PASS
+qualified SHA               f97307c878125550693699124ca717f64f305a3a
+PR                          #112 READY FOR MERGE après contrôle docs-only
+merge                       AUTHORIZED après contrôle docs-only
 ```
 
-Aucun PASS de qualification n’est déclaré sans log concret.
+Aucun PASS n’est déclaré sans log concret. Les commits post-gate sont documentaires uniquement ; toute modification exécutable invaliderait les deux qualifications.
