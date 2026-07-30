@@ -3,7 +3,6 @@ package com.morpheus.application.reasoning;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,22 +41,13 @@ public final class ReasoningAdapterRegistry {
     public static ReasoningAdapterRegistry standard() {
         Map<String, ReasoningAdapter> discovered = new LinkedHashMap<>();
         addOptional(discovered, new EvidenceSynthesisReasoningAdapter());
-        Iterator<ServiceLoader.Provider<ReasoningAdapter>> providers;
+        List<ServiceLoader.Provider<ReasoningAdapter>> providers;
         try {
-            providers = ServiceLoader.load(ReasoningAdapter.class).stream().iterator();
+            providers = ServiceLoader.load(ReasoningAdapter.class).stream().toList();
         } catch (ServiceConfigurationError failure) {
             return new ReasoningAdapterRegistry(discovered.values());
         }
-        while (true) {
-            ServiceLoader.Provider<ReasoningAdapter> provider;
-            try {
-                if (!providers.hasNext()) {
-                    break;
-                }
-                provider = providers.next();
-            } catch (ServiceConfigurationError failure) {
-                continue;
-            }
+        for (ServiceLoader.Provider<ReasoningAdapter> provider : providers) {
             try {
                 addOptional(discovered, provider.get());
             } catch (ServiceConfigurationError | RuntimeException failure) {
