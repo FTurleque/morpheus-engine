@@ -1,6 +1,6 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — MORPHEUS 1.1.0 PUBLIÉ — M28 QUALIFIÉ**
+Statut : **ACTIF — MORPHEUS 1.1.0 PUBLIÉ — M28 TERMINÉ ET INTÉGRÉ**
 
 Dernière mise à jour : 30 juillet 2026
 
@@ -16,7 +16,7 @@ docs/validation/VALIDATION_M28.md
 code + tests + logs exact-head
 ```
 
-R2 est terminé et 1.1.0 reste la release stable publiée. M28 a passé les gates Windows et Linux/WSL sur le même SHA exécutable.
+R2 est terminé et 1.1.0 reste la release stable publiée. M28 est validé et intégré dans `develop`.
 
 ## Documentation active
 
@@ -48,31 +48,16 @@ Published parity       8/8 PASS
 Published at           2026-07-30T14:13:17Z
 ```
 
-## M28
+## M28 intégré
 
 ```text
-Issue                  #115
-PR                     #116
-Branch                 m28-mcp-client-integration
-Baseline develop       8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+Issue                  #115 CLOSED / completed
+PR                     #116 MERGED
+Merge commit           1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
 Qualified exact head   58adfeb13b79808da12830f2d0b0b24ec46f67e6
 Target release         1.2.0
 Transport              MCP STDIO natif
 Docker required        false
-```
-
-Implémentation documentée :
-
-```text
-integration/configure-mcp-clients.ps1
-integration/configure-mcp-clients-setup.ps1
-scripts/verify-m28-mcp-client-integration.ps1
-scripts/validate-m28.ps1
-scripts/validate-m28.sh
-validate-m28.cmd
-distribution/windows/MORPHEUS.iss
-docs/user/MCP_CLIENTS.md
-docs/developer/MCP.md
 ```
 
 Clients :
@@ -85,7 +70,7 @@ Claude Desktop
 OpenAI Codex
 ```
 
-## Garanties
+Garanties :
 
 ```text
 client configuration is explicit opt-in
@@ -110,10 +95,8 @@ Linux/WSL exact-head    PASS
 same executable SHA     PASS
 post-gate executable    NONE
 ADR-0096                ACCEPTED
-review threads          0
-blocking reviews        0
-PR                      READY / MERGEABLE
-merge                   AUTHORIZED
+PR #116                 MERGED
+issue #115              CLOSED / completed
 ```
 
 ## Baseline fonctionnelle
@@ -124,11 +107,13 @@ D0 + D1        ✅ validés et intégrés
 R1             ✅ MORPHEUS 1.0.0 publié
 M21 → M27      ✅ validés et intégrés
 R2             ✅ MORPHEUS 1.1.0 publié
-M28            ✅ qualifié, merge vers develop autorisé
+M28            ✅ validé et intégré
 ```
+
+## Suite
+
+La prochaine phase porte sur la consolidation et la publication de MORPHEUS 1.2.0. Le tag `v1.1.0` reste immuable.
 
 ## Politique CI — juillet 2026
 
 Aucune GitHub Actions / CI ne sert de gate. Les preuves autoritatives sont les sorties locales Windows et Linux/WSL exact-head sur le même SHA.
-
-Le tag `v1.1.0` reste immuable. `v1.2.0` ne sera annoncé comme publié qu’après une phase de consolidation release dédiée.
