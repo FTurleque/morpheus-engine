@@ -1,12 +1,12 @@
 # R3 — Stabilisation et publication MORPHEUS 1.2.0
 
-Statut : **EN COURS — CANDIDAT DE RELEASE EN PRÉPARATION**
+Statut : **EN COURS — PR DRAFT — QUALIFICATION REQUISE**
 
 Dernière mise à jour : 30 juillet 2026
 
 ```text
 Issue                  #117 OPEN
-PR                     NOT CREATED
+PR                     #118 DRAFT
 Branch                 r3-release-1.2.0
 Main baseline          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 Develop baseline       2080c99895115464dafefb6515541666c5d972d8
@@ -65,7 +65,7 @@ SQLite migration                none
 - [x] créer les notes de version 1.2.0 ;
 - [x] créer le guide d’upgrade 1.1→1.2 ;
 - [x] créer la preuve R3 ;
-- [ ] ouvrir la PR draft vers `main` ;
+- [x] ouvrir la PR draft #118 vers `main` ;
 - [ ] qualifier Windows exact-head ;
 - [ ] qualifier Linux/WSL exact-head sur le même SHA ;
 - [ ] finaliser la preuve et démontrer le delta post-gate ;
