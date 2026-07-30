@@ -35,6 +35,45 @@ function Assert-ReactorVersion([string]$ExpectedVersion) {
     Write-Host "Maven reactor version: PASS ($ExpectedVersion across 17 POMs)"
 }
 
+function Assert-PackagedM25M26 {
+    $launcher = Join-Path $repo 'validation-output\m27\dist\.m20-windows\image\morpheus\morpheus.exe'
+    if (-not (Test-Path -LiteralPath $launcher)) { throw "R2 packaged launcher is missing: $launcher" }
+
+    $jarTool = Join-Path $env:JAVA_HOME 'bin\jar.exe'
+    if (-not (Test-Path -LiteralPath $jarTool)) { throw "jar tool not found under JAVA_HOME=$env:JAVA_HOME" }
+    $shadedJar = Get-ChildItem (Join-Path $repo 'morpheus-cli\target') -Filter 'morpheus-cli-*-all.jar' |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($null -eq $shadedJar) { throw 'Shaded MORPHEUS CLI JAR not found' }
+    $entries = & $jarTool tf $shadedJar.FullName
+    Assert-NativeSuccess 'Inspect shaded MORPHEUS JAR'
+
+    foreach ($entry in @(
+        'com/morpheus/application/policy/PolicyPackService.class',
+        'com/morpheus/application/policy/PolicyEvaluationService.class',
+        'com/morpheus/store/sqlite/SqlitePolicyPackStore.class',
+        'com/morpheus/cli/MorpheusPolicyCli.class',
+        'com/morpheus/mcp/MorpheusPolicyMcpTools.class',
+        'com/morpheus/api/MorpheusPolicyApiService.class',
+        'com/morpheus/api/MorpheusPolicyHttpRoutes.class',
+        'db/migration/V015__policy_packs.sql',
+        'com/morpheus/api/MorpheusRemoteHttpServer.class',
+        'com/morpheus/api/MorpheusRemoteIdentityFile.class',
+        'com/morpheus/api/MorpheusRemoteRole.class',
+        'com/morpheus/store/sqlite/SqliteServerMaintenance.class',
+        'com/morpheus/cli/RemoteApiLaunchOptions.class',
+        'com/morpheus/cli/MorpheusServerCli.class')) {
+        if ($entries -notcontains $entry) { throw "R2 packaged runtime is missing $entry" }
+    }
+
+    $help = (& $launcher help) -join "`n"
+    if ($LASTEXITCODE -ne 0 `
+            -or $help -notmatch 'Policy packs / governance automation \(M25\)' `
+            -or $help -notmatch 'Team / remote server \(M26, opt-in\)') {
+        throw "R2 packaged M25/M26 CLI help smoke failed: $help"
+    }
+    Write-Host 'Packaged M25 policy + M26 remote classes, migration and CLI surfaces: PASS'
+}
+
 Write-Host "R2 exact-head validation SHA: $validationSha"
 $initialTracked = @(git status --porcelain --untracked-files=no)
 if ($initialTracked.Count -ne 0) {
@@ -53,6 +92,12 @@ if ([int]$upgrade.testsuite.tests -lt 1 -or [int]$upgrade.testsuite.failures -ne
     throw "R2 upgrade compatibility test failed: tests=$($upgrade.testsuite.tests) failures=$($upgrade.testsuite.failures) errors=$($upgrade.testsuite.errors)"
 }
 Write-Host 'SQLite V012 -> V015 upgrade compatibility: PASS'
+
+$packagedM25M26 = 'SKIPPED'
+if (-not $SkipPortable) {
+    Assert-PackagedM25M26
+    $packagedM25M26 = 'PASS'
+}
 
 $portableBuilt = -not $SkipPortable
 $installerBuilt = $false
@@ -114,6 +159,7 @@ $summary = @(
     'remoteServer=PASS',
     'assistedReasoning=PASS',
     'surfaceConvergence=PASS',
+    "packagedM25M26=$packagedM25M26",
     'sbom=PASS',
     'provenance=PASS',
     "portable=$portableBuilt",
