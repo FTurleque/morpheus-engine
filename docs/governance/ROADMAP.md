@@ -1,8 +1,8 @@
 # Feuille de route — MORPHEUS
 
-Statut : **C0 à M26 + D0 + D1 intégrés — MORPHEUS 1.0.0 publié — M27 prochain jalon actif**
+Statut : **C0 à M27 + D0 + D1 intégrés — MORPHEUS 1.0.0 publié — prochain jalon à cadrer**
 
-Dernière mise à jour : 29 juillet 2026
+Dernière mise à jour : 30 juillet 2026
 
 MORPHEUS est piloté par des preuves : contrats stables, ADR cohérentes, tests reproductibles, SHA exacts et réponse explicite à chaque question de sortie.
 
@@ -31,6 +31,7 @@ M23           ✅ validé et intégré
 M24           ✅ validé et intégré
 M25           ✅ validé et intégré
 M26           ✅ validé et intégré
+M27           ✅ validé et intégré
 ```
 
 Références :
@@ -49,41 +50,45 @@ M25 merge          62bf0ea37f732116e821df7d98ae89d36c6dd75d
 M26 exact head     bf481b24054c4577144b4cb2ede2bdbc4d9974a2
 M26 PR head        36378842e3ef41e379ade17f869b0939d052bbbc
 M26 merge          49016a18c844a78ec864235c544d82d487da7c8a
+M27 exact head     f97307c878125550693699124ca717f64f305a3a
+M27 PR head        026c1d5f8671cd7b879fa89d51af8e83a5f06272
+M27 merge          f8810803bd5ae7d57c4858e1e384c6a0132e1a45
 Version            1.0.0
 Tag stable         v1.0.0
 ```
 
-## 2. Référence M26 intégrée
+## 2. Référence M27 intégrée
 
 ```text
-Issue                #109 CLOSED / completed
-PR                   #110 MERGED dans develop
-Baseline             develop@619237f5273d83ed70728c58e0b97f85803cb167
-Head exact qualifié  bf481b24054c4577144b4cb2ede2bdbc4d9974a2
-Head PR docs-only    36378842e3ef41e379ade17f869b0939d052bbbc
-Merge                49016a18c844a78ec864235c544d82d487da7c8a
+Issue                #111 CLOSED / completed
+PR                   #112 MERGED dans develop
+Baseline             develop@c1eb1e74afe92db8b4a9250b678ce7d0d5c99ca7
+Head exact qualifié  f97307c878125550693699124ca717f64f305a3a
+Head PR docs-only    026c1d5f8671cd7b879fa89d51af8e83a5f06272
+Merge                f8810803bd5ae7d57c4858e1e384c6a0132e1a45
 Windows reactor      17/17 SUCCESS
 Linux reactor        17/17 SUCCESS
-Tests                579 PASS Windows + Linux
-Architecture         234 PASS Windows + Linux
-Windows JaCoCo       44.3507% line / 37.8842% branch
-Linux JaCoCo         44.3527% line / 37.8842% branch
-Local-first          PASS
-TLS/auth/RBAC        PASS
-Bounded concurrency  PASS / HTTP 429
-Secret disclosure    NONE
-Backup/restore       PASS
-SQLite               V015
+Tests                602 PASS Windows + Linux
+Architecture         238 PASS Windows + Linux
+Windows JaCoCo       45.2226% line / 38.4456% branch
+Linux JaCoCo         45.2246% line / 38.4456% branch
+Facts / claims       séparation PASS
+Confidence           bornée + explicite PASS
+Evidence             citations + provenance PASS
+Adapters             optionnels + fault isolation PASS
+No silent mutation   PASS / mutated=false
+CLI/MCP/HTTP         convergence PASS
+Remote READ RBAC     PASS
 CycloneDX            PASS JSON/XML
 Provenance           PASS Windows + Linux
 Portable             PASS Windows + Linux
-Surface convergence  PASS
+Packaged smokes      PASS Windows + Linux
 Executable delta     NONE Windows + Linux
-ADR-0094             Acceptée — M26
+ADR-0095             Acceptée — M27
 CI / GitHub Actions  non utilisé — juillet 2026
 ```
 
-Preuve : [`VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
+Preuve : [`VALIDATION_M27.md`](../validation/VALIDATION_M27.md).
 
 ## 3. Capacités acquises
 
@@ -129,6 +134,14 @@ READ / WRITE / ADMIN RBAC
 bounded remote concurrency + HTTP 429
 remote observability without secrets
 SQLite backup / verify / offline restore
+evidence envelopes provider-neutral
+PUBLISHED_FACT séparé des claims
+INFERENCE / HEURISTIC / SUGGESTION séparées
+confidence explicite et bornée
+reasoning adapters optionnels
+adaptateur local déterministe sans LLM
+failure isolation sans perte des faits
+reasoning read-only / mutated=false
 CLI / MCP STDIO / HTTP API
 setup Windows per-user
 archives portables Windows/Linux
@@ -149,6 +162,7 @@ MORPHEUS = specification facts
            + provider-neutral query/view/reporting contracts
            + provider-neutral governance policy contracts
            + optional remote/team access boundary
+           + evidence-backed assisted claims separated from published facts
 
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
@@ -210,6 +224,14 @@ server state != provider source of truth
 multi-client concurrency != unbounded concurrency
 surface parity != same transport shape
 facts != inference
+inference != suggestion
+heuristic != published fact
+confidence is explicit and bounded
+adapter discovery != adapter execution
+adapter absence != MORPHEUS failure
+adapter failure != fact loss
+reasoning execution != lifecycle mutation
+reasoning execution != policy override
 ```
 
 ## 5. Trajectoire active 1.x
@@ -226,21 +248,20 @@ facts != inference
 | **M24** | ✅ TERMINÉ / INTÉGRÉ — #105 / PR #106 | Query DSL, Saved Views & Export/Reporting |
 | **M25** | ✅ TERMINÉ / INTÉGRÉ — #107 / PR #108 | Policy Packs & Governance Automation |
 | **M26** | ✅ TERMINÉ / INTÉGRÉ — #109 / PR #110 | Optional Team/Remote Server Mode |
+| **M27** | ✅ TERMINÉ / INTÉGRÉ — #111 / PR #112 | Evidence-backed Assisted Reasoning |
 
 ### NOW
 
-| Jalon | Sujet | Question centrale |
-|---|---|---|
-| **M27** | Evidence-backed Assisted Reasoning | Inférences optionnelles séparées des faits publiés ? |
+Aucun jalon post-M27 n’est déclaré actif. Le prochain jalon doit être cadré explicitement depuis `develop`.
 
 Détail : [`POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
-## 6. Résultat de sortie M26
+## 6. Résultat de sortie M27
 
 Question :
 
-> MORPHEUS peut-il être utilisé par une équipe via un mode serveur optionnel sans casser le fonctionnement local-first ?
+> MORPHEUS peut-il enrichir ses réponses par des inférences assistées sans mélanger faits publiés, heuristiques et suggestions ?
 
-**Réponse : oui.** M26 prouve sur le même SHA exact Windows/Linux que le mode local reste first-class, tandis que le mode remote opt-in impose HTTPS + authentification + RBAC, borne la concurrence avec 429, ne divulgue aucun secret et fournit backup/restore SQLite explicites avec restore offline seulement.
+**Réponse : oui.** M27 prouve sur le même SHA exact Windows/Linux que les faits publiés restent distincts des inférences, heuristiques et suggestions ; que la confiance et la provenance sont explicites ; que les adaptateurs sont optionnels et fault-isolated ; et que l’exécution reste strictement read-only avec `mutated=false`.
 
-**Prochain jalon : M27 — Evidence-backed Assisted Reasoning, basé sur `develop`.**
+**Prochain jalon : non défini. Toute nouvelle trajectoire doit repartir de `develop` avec une issue et des gates explicites.**
