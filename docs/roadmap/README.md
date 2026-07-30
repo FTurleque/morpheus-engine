@@ -1,14 +1,18 @@
 # Plans d’exécution MORPHEUS
 
-Ce répertoire conserve les plans d’exécution des jalons, consolidations et releases MORPHEUS.
+Ce répertoire conserve les plans des jalons, consolidations et releases MORPHEUS.
 
 ## Autorité
 
-La source de vérité globale est [`../governance/ROADMAP.md`](../governance/ROADMAP.md). La trajectoire post-1.0 reste [`POST_M20_EVOLUTION.md`](POST_M20_EVOLUTION.md).
+La source de vérité globale est [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
 
-Le plan actif de stabilisation est :
+Plan actif :
 
-- [`R2_EXECUTION.md`](R2_EXECUTION.md) — MORPHEUS 1.1.0, issue #113, PR draft #114.
+- [`M28_EXECUTION.md`](M28_EXECUTION.md) — MCP Client Integration & Installer Wiring, issue #115.
+
+Dernière release terminée :
+
+- [`R2_EXECUTION.md`](R2_EXECUTION.md) — MORPHEUS 1.1.0 publié.
 
 ## Baseline actuelle
 
@@ -16,41 +20,35 @@ Le plan actif de stabilisation est :
 C0 → M20      ✅ validés et intégrés
 D0 + D1       ✅ validés et intégrés
 R1            ✅ MORPHEUS 1.0.0 publié
-M21           ✅ validé et intégré
-M22           ✅ validé et intégré
-M23           ✅ validé et intégré
-M24           ✅ validé et intégré
-M25           ✅ validé et intégré dans develop
-M26           ✅ validé et intégré dans develop
-M27           ✅ validé et intégré dans develop
-R2            🚧 stabilisation et publication 1.1.0 en cours
+M21 → M27     ✅ validés et intégrés
+R2            ✅ MORPHEUS 1.1.0 publié
+M28           🚧 intégration clients MCP
 ```
 
 ```text
-main                    0e37d85fc7efe9843094416898b6fbdbc45b7da4
-develop                 bccc118dda6fd818cf801750187afa4ad10b96e4
-release branch          r2-release-1.1.0
-published version       1.0.0
-target version          1.1.0
-published tag           v1.0.0
-target tag              v1.1.0
+stable tag             v1.1.0
+stable release commit  31506029ded1101f0571edeb0d79c59bbf3f68c6
+post-release baseline  8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+develop baseline M28   8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+M28 branch             m28-mcp-client-integration
+M28 issue              #115
 ```
 
 ## NOW / BLOCKED / LATER
 
 ```text
 NOW
-  R2   stabilisation develop -> main et préparation MORPHEUS 1.1.0
+  M28  câblage MCP Copilot / Claude / Codex
 
 BLOCKED UNTIL EXACT-HEAD QUALIFICATION
-  merge PR #114
-  tag v1.1.0
-  exact-tag builds
-  GitHub Release 1.1.0
+  PR Ready
+  merge vers develop
+  clôture issue #115
 
 LATER
-  modernisation CI à partir d'août 2026
-  prochain jalon fonctionnel à cadrer séparément
+  consolidation release 1.2.0
+  tag v1.2.0 et artefacts exact-tag
+  modernisation CI à partir d’août 2026
 ```
 
 ## Plans d’exécution
@@ -75,30 +73,31 @@ LATER
 - [`M25_EXECUTION.md`](M25_EXECUTION.md)
 - [`M26_EXECUTION.md`](M26_EXECUTION.md)
 - [`M27_EXECUTION.md`](M27_EXECUTION.md)
+- [`M28_EXECUTION.md`](M28_EXECUTION.md)
 
 ### Releases
 
-- R1 — publication officielle 1.0.0, preuve dans [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md)
-- [`R2_EXECUTION.md`](R2_EXECUTION.md) — candidate 1.1.0, preuve en construction dans [`../validation/VALIDATION_R2.md`](../validation/VALIDATION_R2.md)
+- R1 — MORPHEUS 1.0.0, preuve [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md)
+- [`R2_EXECUTION.md`](R2_EXECUTION.md) — MORPHEUS 1.1.0, preuve [`../validation/VALIDATION_R2.md`](../validation/VALIDATION_R2.md)
 
-## Commandes R2
+## Commandes M28
 
 Windows :
 
 ```powershell
-.\validate-r2.cmd -Version 1.1.0
+.\validate-m28.cmd -Version 1.1.0 -BaseRef origin/develop
 ```
 
 Linux/WSL :
 
 ```bash
-bash ./scripts/validate-r2.sh 1.1.0
+MORPHEUS_M28_BASE_REF=origin/develop bash ./scripts/validate-m28.sh 1.1.0
 ```
 
-Les deux plateformes doivent qualifier le même SHA exact. Les builds de release exact-tag restent interdits avant merge et création autorisée de `v1.1.0`.
+Les deux plateformes doivent qualifier le même SHA exact.
 
 ## Politique documentaire
 
-Les plans terminés restent des archives enrichies par leur état d’intégration final. Les fichiers `VALIDATION_*.md` conservent les faits observés au moment des gates ; ils ne sont jamais réécrits pour fabriquer rétroactivement un PASS, un merge ou une publication.
+Les plans terminés restent des archives factuelles. Les fichiers `VALIDATION_*.md` ne sont jamais réécrits pour fabriquer rétroactivement un PASS.
 
-En juillet 2026, GitHub Actions n'est pas utilisé comme gate R2 et `.github/workflows` n'est pas modifié opportunément. Les sorties locales Windows + Linux/WSL exact-head sont autoritatives.
+En juillet 2026, GitHub Actions n’est pas utilisé comme gate. Les sorties locales Windows + Linux/WSL exact-head sont autoritatives.
