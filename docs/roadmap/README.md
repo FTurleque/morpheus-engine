@@ -6,17 +6,13 @@ Ce répertoire conserve les plans des jalons, consolidations et releases MORPHEU
 
 La source de vérité globale est [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
 
-Phase active :
+Dernière release terminée :
 
-- [`R3_EXECUTION.md`](R3_EXECUTION.md) — stabilisation et publication MORPHEUS 1.2.0, issue #117, PR draft #118.
+- [`R3_EXECUTION.md`](R3_EXECUTION.md) — MORPHEUS 1.2.0 publié, issue #117 fermée, PR #118 mergée, parité publiée 8/8 PASS.
 
 Dernier jalon terminé :
 
-- [`M28_EXECUTION.md`](M28_EXECUTION.md) — MCP Client Integration & Installer Wiring, issue #115 fermée, PR #116 mergée.
-
-Dernière release terminée :
-
-- [`R2_EXECUTION.md`](R2_EXECUTION.md) — MORPHEUS 1.1.0 publié.
+- [`M28_EXECUTION.md`](M28_EXECUTION.md) — MCP Client Integration & Installer Wiring, issue #115 fermée, PR #116 mergée, livré dans MORPHEUS 1.2.0.
 
 ## Baseline actuelle
 
@@ -24,38 +20,34 @@ Dernière release terminée :
 C0 → M20      ✅ validés et intégrés
 D0 + D1       ✅ validés et intégrés
 R1            ✅ MORPHEUS 1.0.0 publié
-M21 → M28     ✅ validés et intégrés
+M21 → M27     ✅ validés et intégrés
 R2            ✅ MORPHEUS 1.1.0 publié
-R3            🚧 MORPHEUS 1.2.0 en préparation
+M28           ✅ validé, intégré et livré dans 1.2.0
+R3            ✅ MORPHEUS 1.2.0 publié
 ```
 
 ```text
-stable tag             v1.1.0
-stable release commit  31506029ded1101f0571edb0d79c59bbf3f68c6
-main post-release      8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
-develop post-M28       2080c99895115464dafefb6515541666c5d972d8
-M28 executable head    58adfeb13b79808da12830f2d0b0b24ec46f67e6
-M28 merge commit       1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
-R3 branch              r3-release-1.2.0
-R3 issue               #117 OPEN
-R3 PR                  #118 DRAFT
-R3 target              1.2.0 / v1.2.0
+stable version           1.2.0
+stable tag               v1.2.0
+stable release commit    3ad9ebf030b58df97482e21e272c24feae6b9d86
+qualified executable     d08542026817f0d743766656a0197790c6809eca
+R3 PR                    #118 MERGED
+R3 issue                 #117 CLOSED / completed
+published assets         8/8
+published parity         8/8 PASS
+previous stable tag      v1.1.0
 ```
 
 ## NOW / LATER
 
 ```text
 NOW
-  draft release PR #118
-  Windows exact-head qualification
-  Linux/WSL exact-head qualification on the same SHA
+  synchronize develop with the stable 1.2.0 baseline before new product work
+  select the next milestone from the governance roadmap
 
 LATER
-  merge toward main after all gates
-  immutable v1.2.0 tag
-  exact-tag Windows/Linux builds
-  GitHub Release with eight verified assets
-  post-publication reconciliation
+  future product milestones from develop
+  future release branch toward main after dual-platform qualification
   CI modernization from August 2026
 ```
 
@@ -87,31 +79,24 @@ LATER
 
 - R1 — MORPHEUS 1.0.0, preuve [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md)
 - [`R2_EXECUTION.md`](R2_EXECUTION.md) — MORPHEUS 1.1.0, preuve [`../validation/VALIDATION_R2.md`](../validation/VALIDATION_R2.md)
-- [`R3_EXECUTION.md`](R3_EXECUTION.md) — MORPHEUS 1.2.0 candidate, preuve [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md)
+- [`R3_EXECUTION.md`](R3_EXECUTION.md) — MORPHEUS 1.2.0, preuve [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md)
 
-## Qualification M28
+## Qualification R3
 
 ```text
 Windows exact-head      PASS
 Linux/WSL exact-head    PASS
 same executable SHA     PASS
-qualified SHA           58adfeb13b79808da12830f2d0b0b24ec46f67e6
-PR #116                 MERGED
-issue #115              CLOSED / completed
-```
-
-## Qualification R3
-
-```text
-Windows exact-head      NOT RUN
-Linux/WSL exact-head    NOT RUN
-same executable SHA     NOT RUN
-qualified SHA           NOT SET
-PR #118                 DRAFT
-issue #117              OPEN
-release                 NOT PUBLISHED
+qualified SHA           d08542026817f0d743766656a0197790c6809eca
+main release commit     3ad9ebf030b58df97482e21e272c24feae6b9d86
+tag                     v1.2.0
+exact-tag builds        PASS Windows + Linux
+PR #118                 MERGED
+issue #117              CLOSED / completed
+release                 PUBLISHED / stable / latest
+published parity        8/8 PASS
 ```
 
 ## Politique documentaire
 
-Les plans terminés restent des archives factuelles. En juillet 2026, GitHub Actions n’est pas utilisé comme gate ; les sorties locales Windows + Linux/WSL exact-head sont autoritatives.
+Les plans terminés restent des archives factuelles. En juillet 2026, GitHub Actions n’est pas utilisé comme gate ; les sorties locales Windows + Linux/WSL exact-head, les builds exact-tag et les contrôles de parité publiés sont autoritatifs.
