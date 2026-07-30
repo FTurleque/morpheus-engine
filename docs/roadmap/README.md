@@ -6,9 +6,9 @@ Ce répertoire conserve les plans des jalons, consolidations et releases MORPHEU
 
 La source de vérité globale est [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
 
-Jalon qualifié en attente d’intégration :
+Dernier jalon terminé :
 
-- [`M28_EXECUTION.md`](M28_EXECUTION.md) — MCP Client Integration & Installer Wiring, issue #115, PR #116.
+- [`M28_EXECUTION.md`](M28_EXECUTION.md) — MCP Client Integration & Installer Wiring, issue #115 fermée, PR #116 mergée.
 
 Dernière release terminée :
 
@@ -20,33 +20,30 @@ Dernière release terminée :
 C0 → M20      ✅ validés et intégrés
 D0 + D1       ✅ validés et intégrés
 R1            ✅ MORPHEUS 1.0.0 publié
-M21 → M27     ✅ validés et intégrés
+M21 → M28     ✅ validés et intégrés
 R2            ✅ MORPHEUS 1.1.0 publié
-M28           ✅ qualifié Windows + Linux/WSL
 ```
 
 ```text
 stable tag             v1.1.0
 stable release commit  31506029ded1101f0571edeb0d79c59bbf3f68c6
-post-release baseline  8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
-develop baseline M28   8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 M28 executable head    58adfeb13b79808da12830f2d0b0b24ec46f67e6
-M28 branch             m28-mcp-client-integration
-M28 issue              #115
-M28 PR                 #116
+M28 merge commit       1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
+M28 issue              #115 CLOSED / completed
+M28 PR                 #116 MERGED
 ```
 
 ## NOW / LATER
 
 ```text
 NOW
-  merge M28 vers develop
-  réconciliation post-merge
-  fermeture issue #115
+  cadrage de la consolidation release 1.2.0
 
 LATER
-  consolidation release 1.2.0
+  qualification release candidate Windows + Linux
+  merge vers main
   tag v1.2.0 et artefacts exact-tag
+  publication GitHub Release 1.2.0
   modernisation CI à partir d’août 2026
 ```
 
@@ -86,13 +83,10 @@ Windows exact-head      PASS
 Linux/WSL exact-head    PASS
 same executable SHA     PASS
 qualified SHA           58adfeb13b79808da12830f2d0b0b24ec46f67e6
-review threads          0
-blocking reviews        0
-merge                   AUTHORIZED
+PR #116                 MERGED
+issue #115              CLOSED / completed
 ```
 
 ## Politique documentaire
 
-Les plans terminés restent des archives factuelles. Les preuves ne sont jamais réécrites pour fabriquer rétroactivement un PASS.
-
-En juillet 2026, GitHub Actions n’est pas utilisé comme gate. Les sorties locales Windows + Linux/WSL exact-head sont autoritatives.
+Les plans terminés restent des archives factuelles. En juillet 2026, GitHub Actions n’est pas utilisé comme gate ; les sorties locales Windows + Linux/WSL exact-head sont autoritatives.
