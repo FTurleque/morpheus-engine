@@ -19,7 +19,8 @@ final class MorpheusProductCli {
 
     static boolean handles(String[] args) {
         String command = command(args);
-        return command.equals("version")
+        return command.equals("reason")
+                || command.equals("version")
                 || command.equals("--version")
                 || command.equals("product-info")
                 || command.equals("update-check");
@@ -29,6 +30,9 @@ final class MorpheusProductCli {
         Objects.requireNonNull(args, "args");
         Objects.requireNonNull(out, "out");
         Objects.requireNonNull(err, "err");
+        if (command(args).equals("reason")) {
+            return new MorpheusReasoningCli().run(args, out, err);
+        }
         try {
             Parsed parsed = parse(args);
             return switch (parsed.command()) {
