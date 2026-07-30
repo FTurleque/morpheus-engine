@@ -1,13 +1,13 @@
 # M28 — Validation MCP Client Integration & Installer Wiring
 
-Statut : **DUAL-PLATFORM EXACT-HEAD PASS — MERGE AUTORISÉ**
+Statut : **DUAL-PLATFORM PASS — MERGED INTO DEVELOP**
 
 Date : 30 juillet 2026
 
 ```text
-Issue                  #115 OPEN
-PR                     #116 DRAFT -> READY
-Branch                 m28-mcp-client-integration
+Issue                  #115 CLOSED / completed
+PR                     #116 MERGED
+Merge commit           1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
 Baseline               8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 Stable release         v1.1.0
 Target release         1.2.0
@@ -17,13 +17,9 @@ Linux/WSL result       PASS
 Dual-platform result   PASS
 ```
 
-Plan : [`../roadmap/M28_EXECUTION.md`](../roadmap/M28_EXECUTION.md).
-
 ## 1. Périmètre qualifié
 
-M28 ajoute un gestionnaire Windows opt-in pour cinq clients MCP, une fusion JSON conservatrice, l’enregistrement CLI, un registre de propriété persistant, des backups, une désinstallation state-driven, le packaging Windows/Linux, les tâches optionnelles de l’installateur et la documentation associée.
-
-Clients qualifiés :
+M28 livre un gestionnaire Windows opt-in pour cinq clients MCP, une fusion JSON conservatrice, l’enregistrement CLI, un registre de propriété persistant, des backups, une désinstallation state-driven, le packaging Windows/Linux, les tâches optionnelles de l’installateur et la documentation associée.
 
 ```text
 GitHub Copilot — JetBrains / IntelliJ
@@ -33,31 +29,12 @@ Claude Desktop
 OpenAI Codex
 ```
 
-Contrat commun :
+## 2. Qualification Windows
 
 ```text
-server name               morpheus
-command Windows           <install-root>\morpheus.exe
-command Linux             <install-root>/bin/morpheus
-args                      mcp --stdio
-env                       MORPHEUS_DATA_DIR + MORPHEUS_CONFIG_DIR
-Docker required           false
-```
-
-## 2. Incident Windows initial
-
-La première tentative sur `3acfef278c2e238b53517a1338305c807466a1ef` a échoué avant entrée dans le gate avec `exit=9009`, car `powershell.exe` était résolu via le `PATH` de `cmd.exe`.
-
-Le wrapper utilise désormais le chemin système Windows PowerShell, prend en charge `Sysnative` et utilise `pwsh.exe` uniquement en fallback. Un contrat d’architecture verrouille cette résolution.
-
-## 3. Qualification Windows
-
-```text
-Date                        2026-07-30
 SHA                         58adfeb13b79808da12830f2d0b0b24ec46f67e6
 Base ref                    origin/develop
 Version                     1.1.0
-Workspace tracked delta     NONE avant gate
 Reactor                     17/17 SUCCESS
 Build                       SUCCESS
 Tests                       608 PASS
@@ -80,23 +57,12 @@ Post-gate executable delta  NONE
 Result                      M28 VALIDATION PASS
 ```
 
-Preuves de packaging :
+## 3. Qualification Linux/WSL
 
 ```text
-M28 Windows portable integration payload    PASS
-M28 Windows setup integration wiring         PASS
-MORPHEUS-1.1.0-windows-x64-setup.exe         BUILT
-morpheus-1.1.0-windows-x64.zip               BUILT
-```
-
-## 4. Qualification Linux/WSL
-
-```text
-Date                        2026-07-30
 SHA                         58adfeb13b79808da12830f2d0b0b24ec46f67e6
 Base ref                    origin/develop
 Version                     1.1.0
-Workspace tracked delta     NONE avant gate
 Java                        OpenJDK 21.0.11
 Reactor                     17/17 SUCCESS
 Build                       SUCCESS
@@ -115,15 +81,7 @@ Post-gate executable delta  NONE
 Result                      M28 VALIDATION PASS
 ```
 
-Preuves de packaging :
-
-```text
-M28 Linux portable integration payload       PASS
-morpheus-1.1.0-linux-x64.tar.gz               BUILT
-MCP client integration guidance               PASS
-```
-
-## 5. Parité exact-head
+## 4. Parité exact-head
 
 Windows et Linux/WSL ont qualifié exactement :
 
@@ -131,16 +89,21 @@ Windows et Linux/WSL ont qualifié exactement :
 58adfeb13b79808da12830f2d0b0b24ec46f67e6
 ```
 
-Après le gate Windows, seuls des documents de roadmap et de validation ont été modifiés. Aucun code, script, POM, packaging, contrat runtime ou validateur n’a changé. Le gate Linux a été exécuté sur le même SHA exécutable qualifié.
+Après le gate Windows, le delta jusqu’au head de PR est resté exclusivement documentaire. Aucun code, script, POM, packaging, contrat runtime ou validateur n’a changé.
 
 ```text
 same executable SHA          PASS
-Windows post-gate delta      documentation only
-Linux post-gate delta        NONE
-requalification required     NO
+post-gate executable delta   NONE
+review threads               0
+blocking reviews             0
+ADR-0096                     ACCEPTED
 ```
 
-## 6. Revue de sécurité
+## 5. Incident initial corrigé
+
+La première tentative Windows sur `3acfef278c2e238b53517a1338305c807466a1ef` a échoué avant entrée dans le gate avec `exit=9009`, car `powershell.exe` dépendait du `PATH` de `cmd.exe`. Le wrapper utilise désormais le chemin système Windows PowerShell, `Sysnative` et un fallback `pwsh.exe`; un contrat d’architecture verrouille ce comportement.
+
+## 6. Sécurité
 
 ```text
 stdout MCP                    JSON-RPC uniquement
@@ -153,9 +116,7 @@ write capability escalation   none
 Docker dependency             none
 ```
 
-Le câblage client ne modifie pas les autorisations métier. Les mutations de lifecycle restent soumises à `WRITE_CHANGE`, confirmation, CAS, idempotency et audit.
-
-## 7. Décision
+## 7. Décision finale
 
 ```text
 implementation                COMPLETE
@@ -163,12 +124,10 @@ Windows exact-head            PASS
 Linux/WSL exact-head          PASS
 same executable SHA           PASS
 post-gate executable delta    NONE
-review threads                0
-blocking reviews              0
-ADR-0096                      ACCEPTÉE
-PR                            #116 READY / MERGEABLE
-merge                         AUTHORIZED
-Result                        M28 COMPLETE — DUAL-PLATFORM PASS
+PR #116                       MERGED
+merge commit                  1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
+issue #115                    CLOSED / completed
+Result                        M28 COMPLETE / VALIDATED / INTEGRATED
 ```
 
-Les avertissements Maven de dépendances, shading, API dépréciée et accès natif SQLite sont non bloquants : aucun test ni module n’échoue et les deux reactors concluent `BUILD SUCCESS`.
+Les avertissements Maven de dépendances, shading, API dépréciée et accès natif SQLite sont non bloquants : les deux reactors concluent `BUILD SUCCESS` et aucun test n’échoue.
