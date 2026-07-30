@@ -1,14 +1,16 @@
 # M28 — MCP Client Integration & Installer Wiring
 
-Statut : **IMPLÉMENTATION EN COURS — QUALIFICATION EXACT-HEAD À EXÉCUTER**
+Statut : **IMPLÉMENTATION TERMINÉE — WINDOWS PASS — LINUX/WSL REQUIS**
 
 Dernière mise à jour : 30 juillet 2026
 
 ```text
 Issue                  #115
+PR                     #116 DRAFT
 Branch                 m28-mcp-client-integration
 Baseline main          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 Baseline develop       8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
+Executable head        58adfeb13b79808da12830f2d0b0b24ec46f67e6
 Stable release         v1.1.0
 Target product release 1.2.0
 Docker required        false
@@ -18,7 +20,7 @@ Docker required        false
 
 > Un utilisateur peut-il installer MORPHEUS puis connecter explicitement son serveur MCP STDIO natif à Copilot, Claude et Codex, sans écraser de configuration tierce et avec une désinstallation conservatrice ?
 
-La réponse ne peut être **PASS** qu’après qualification Windows et Linux/WSL sur le même SHA exact.
+La réponse ne peut être **PASS** qu’après qualification Windows et Linux/WSL du même contenu exécutable exact.
 
 ## 2. Baseline
 
@@ -108,17 +110,20 @@ modified managed entry      préservée
 
 - [x] guide utilisateur `docs/user/MCP_CLIENTS.md` ;
 - [x] guide embarqué `integration/README.md` ;
-- [ ] mise à jour `docs/developer/MCP.md` ;
-- [ ] index user/developer/roadmap/validation ;
-- [ ] roadmap et statut documentaire globaux.
+- [x] mise à jour `docs/developer/MCP.md` ;
+- [x] index user/developer/roadmap/validation ;
+- [x] roadmap et statut documentaire globaux ;
+- [x] ADR-0096 proposée.
 
 ### M28-S6 — Qualification et livraison
 
-- [ ] gate exact-head Windows ;
-- [ ] gate exact-head Linux/WSL sur le même SHA ;
-- [ ] résultats réels inscrits dans `VALIDATION_M28.md` ;
-- [ ] PR vers `develop` ;
+- [x] gate exact-head Windows ;
+- [ ] gate exact-head Linux/WSL sur le même SHA exécutable ;
+- [x] résultat Windows inscrit dans `VALIDATION_M28.md` ;
+- [ ] résultat Linux inscrit dans `VALIDATION_M28.md` ;
+- [x] PR #116 vers `develop` ouverte en draft ;
 - [ ] review threads contrôlés ;
+- [ ] PR passée Ready après double qualification ;
 - [ ] merge seulement si tous les gates passent ;
 - [ ] issue #115 fermée `completed` après merge et réconciliation.
 
@@ -152,23 +157,42 @@ missing client entry    état nettoyé
 missing client binary   avertissement, aucune suppression aveugle
 ```
 
-## 7. Gates
+## 7. Gate Windows observé
 
-Windows :
-
-```powershell
-.\validate-m28.cmd -Version 1.1.0 -BaseRef origin/develop
+```text
+SHA                        58adfeb13b79808da12830f2d0b0b24ec46f67e6
+Build                      SUCCESS
+Tests                      608 PASS
+Architecture tests         243 PASS
+Coverage lines             0.452226
+Coverage branches          0.384456
+MCP manager                PASS
+Five clients               PASS
+Portable Windows           PASS
+Installer Windows          PASS
+Post-gate executable delta NONE
+Result                     M28 VALIDATION PASS
 ```
 
-Linux/WSL :
+La première tentative sur `3acfef...` avait échoué avant le gate avec l’exit `9009`; le wrapper Windows a été corrigé et verrouillé par test avant cette qualification réussie.
+
+## 8. Gate Linux/WSL restant
+
+Le gate Linux doit être exécuté sur le SHA exécutable Windows qualifié :
+
+```text
+58adfeb13b79808da12830f2d0b0b24ec46f67e6
+```
+
+Commande :
 
 ```bash
 MORPHEUS_M28_BASE_REF=origin/develop bash ./scripts/validate-m28.sh 1.1.0
 ```
 
-Le gate Linux valide les contrats statiques, le reactor hérité et le packaging Linux. Les mutations réelles des profils clients Windows sont qualifiées uniquement sur Windows.
+Il valide les contrats statiques, le reactor hérité et le packaging Linux. Les mutations réelles des profils clients Windows restent qualifiées uniquement sur Windows.
 
-## 8. Politique CI — juillet 2026
+## 9. Politique CI — juillet 2026
 
 ```text
 no GitHub Actions gate
@@ -178,14 +202,14 @@ no .github/workflows modification
 local Windows + Linux/WSL exact-head logs are authoritative
 ```
 
-## 9. État courant
+## 10. État courant
 
 ```text
-implementation          COMPLETE except documentation indexes
-Windows exact-head      NOT RUN
+implementation          COMPLETE
+Windows exact-head      PASS @ 58adfeb13b79808da12830f2d0b0b24ec46f67e6
 Linux exact-head        NOT RUN
-same SHA                NOT PROVEN
-PR                      NOT OPEN
+same executable SHA     NOT YET PROVEN
+PR                      #116 DRAFT / mergeable
 merge                   NOT AUTHORIZED
-result                  M28 IMPLEMENTED — QUALIFICATION PENDING
+result                  WINDOWS QUALIFIED — LINUX/WSL PENDING
 ```
