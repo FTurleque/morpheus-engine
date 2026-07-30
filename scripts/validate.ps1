@@ -31,14 +31,7 @@ if (-not (Test-Path -LiteralPath $delegate -PathType Leaf)) {
 }
 
 & $delegate @args
-$delegateSucceeded = $?
-$delegateExitCode = $LASTEXITCODE
-
-if ($null -ne $delegateExitCode) {
-    exit [int]$delegateExitCode
-}
-
-if (-not $delegateSucceeded) {
+if (-not $?) {
     exit 1
 }
 
