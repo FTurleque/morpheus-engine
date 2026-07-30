@@ -8,7 +8,7 @@ La source de vérité globale est [`../governance/ROADMAP.md`](../governance/ROA
 
 Phase active :
 
-- [`R3_EXECUTION.md`](R3_EXECUTION.md) — stabilisation et publication MORPHEUS 1.2.0, issue #117.
+- [`R3_EXECUTION.md`](R3_EXECUTION.md) — stabilisation et publication MORPHEUS 1.2.0, issue #117, PR draft #118.
 
 Dernier jalon terminé :
 
@@ -31,13 +31,14 @@ R3            🚧 MORPHEUS 1.2.0 en préparation
 
 ```text
 stable tag             v1.1.0
-stable release commit  31506029ded1101f0571edeb0d79c59bbf3f68c6
+stable release commit  31506029ded1101f0571edb0d79c59bbf3f68c6
 main post-release      8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 develop post-M28       2080c99895115464dafefb6515541666c5d972d8
 M28 executable head    58adfeb13b79808da12830f2d0b0b24ec46f67e6
 M28 merge commit       1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
 R3 branch              r3-release-1.2.0
 R3 issue               #117 OPEN
+R3 PR                  #118 DRAFT
 R3 target              1.2.0 / v1.2.0
 ```
 
@@ -45,8 +46,7 @@ R3 target              1.2.0 / v1.2.0
 
 ```text
 NOW
-  version 1.2.0 coherence
-  draft release PR toward main
+  draft release PR #118
   Windows exact-head qualification
   Linux/WSL exact-head qualification on the same SHA
 
@@ -107,7 +107,7 @@ Windows exact-head      NOT RUN
 Linux/WSL exact-head    NOT RUN
 same executable SHA     NOT RUN
 qualified SHA           NOT SET
-PR                      NOT CREATED
+PR #118                 DRAFT
 issue #117              OPEN
 release                 NOT PUBLISHED
 ```
