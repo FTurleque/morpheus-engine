@@ -2,11 +2,11 @@
 
 Cette page est le point d’entrée de la documentation active de MORPHEUS.
 
-MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose plusieurs providers réels sans effacer provenance ni conflits, publie des snapshots versionnés, expose requêtes/traçabilité/qualité, applique des mutations lifecycle explicitement contrôlées, raisonne sur des portfolios multi-projets, fournit un Query DSL provider-neutral avec saved views/exports, distribue des Policy Packs versionnés, explicables et auditables, peut exposer un mode serveur d’équipe optionnel avec HTTPS/auth/RBAC et introduit avec M27 une analyse assistée fondée sur des preuves qui conserve strictement faits, inférences, heuristiques et suggestions séparés.
+MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose plusieurs providers réels sans effacer provenance ni conflits, publie des snapshots versionnés, expose requêtes/traçabilité/qualité, applique des mutations lifecycle explicitement contrôlées, raisonne sur des portfolios multi-projets, fournit un Query DSL provider-neutral avec saved views/exports, distribue des Policy Packs versionnés, explicables et auditables, peut exposer un mode serveur d’équipe optionnel avec HTTPS/auth/RBAC et propose une analyse assistée fondée sur des preuves qui conserve strictement faits, inférences, heuristiques et suggestions séparés.
 
-La version produit publiée reste **MORPHEUS 1.0.0** sous le tag stable `v1.0.0`. Les jalons M21→M26 sont qualifiés et intégrés. M27 est implémenté sur branche mais ne sera déclaré validé qu’après gates Windows + Linux/WSL exact-head.
+La version produit publiée reste **MORPHEUS 1.0.0** sous le tag stable `v1.0.0`. Les jalons M21→M27 sont qualifiés et intégrés dans `develop`.
 
-## Baseline et jalon actif
+## Baseline intégrée
 
 ```text
 M20 / R1         ✅ MORPHEUS 1.0.0 publié
@@ -16,13 +16,12 @@ M23              ✅ validé / intégré
 M24              ✅ validé / intégré
 M25              ✅ validé / intégré
 M26              ✅ validé / intégré
-M26 exact head   bf481b24054c4577144b4cb2ede2bdbc4d9974a2
-M26 merge        49016a18c844a78ec864235c544d82d487da7c8a
-M26 tests        579 PASS Windows + Linux
-M26 architecture 234 PASS Windows + Linux
-M27              🚧 implémenté / qualification locale requise
-M27 issue        #111
-M27 branch       m27-evidence-assisted-reasoning
+M27              ✅ validé / intégré
+M27 exact head   f97307c878125550693699124ca717f64f305a3a
+M27 PR head      026c1d5f8671cd7b879fa89d51af8e83a5f06272
+M27 merge        f8810803bd5ae7d57c4858e1e384c6a0132e1a45
+M27 tests        602 PASS Windows + Linux
+M27 architecture 238 PASS Windows + Linux
 ```
 
 Preuves qualifiées principales :
@@ -33,9 +32,8 @@ Preuves qualifiées principales :
 - [`validation/VALIDATION_M23.md`](validation/VALIDATION_M23.md) — Portfolio Specification Intelligence ;
 - [`validation/VALIDATION_M24.md`](validation/VALIDATION_M24.md) — Query DSL, Saved Views & Reporting ;
 - [`validation/VALIDATION_M25.md`](validation/VALIDATION_M25.md) — Policy Packs & Governance Automation ;
-- [`validation/VALIDATION_M26.md`](validation/VALIDATION_M26.md) — Optional Team / Remote Server Mode.
-
-M27 : [`roadmap/M27_EXECUTION.md`](roadmap/M27_EXECUTION.md) décrit les gates encore à exécuter ; aucun PASS M27 n’est anticipé.
+- [`validation/VALIDATION_M26.md`](validation/VALIDATION_M26.md) — Optional Team / Remote Server Mode ;
+- [`validation/VALIDATION_M27.md`](validation/VALIDATION_M27.md) — Evidence-backed Assisted Reasoning.
 
 ## Parcours utilisateur
 
@@ -118,11 +116,11 @@ flowchart LR
 ## Gouvernance et preuves
 
 - [`governance/ROADMAP.md`](governance/ROADMAP.md) — roadmap globale courante ;
-- [`roadmap/POST_M20_EVOLUTION.md`](roadmap/POST_M20_EVOLUTION.md) — trajectoire active MORPHEUS 1.x ;
-- [`roadmap/M27_EXECUTION.md`](roadmap/M27_EXECUTION.md) — exécution et gates M27 ;
+- [`roadmap/POST_M20_EVOLUTION.md`](roadmap/POST_M20_EVOLUTION.md) — trajectoire MORPHEUS 1.x ;
+- [`roadmap/M27_EXECUTION.md`](roadmap/M27_EXECUTION.md) — plan final M27 ;
 - [`validation/README.md`](validation/README.md) — index des preuves qualifiées ;
 - [`adr/README.md`](adr/README.md) — index des ADR ;
-- [`adr/0095-evidence-backed-assisted-reasoning.md`](adr/0095-evidence-backed-assisted-reasoning.md) — décision M27 proposée ;
+- [`adr/0095-evidence-backed-assisted-reasoning.md`](adr/0095-evidence-backed-assisted-reasoning.md) — décision M27 acceptée ;
 - [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité documentaire.
 
 ## Références machine
@@ -137,13 +135,13 @@ flowchart LR
 - [`../contracts/public-surfaces.tsv`](../contracts/public-surfaces.tsv) — manifeste de surfaces publiques ;
 - [`../distribution/README.md`](../distribution/README.md) — release et distributions 1.0.
 
-## État livré et suite
+## État livré
 
 ```text
-C0 → M26       ✅ VALIDÉS / INTÉGRÉS
+C0 → M27       ✅ VALIDÉS / INTÉGRÉS
 D0 + D1        ✅ VALIDÉS / INTÉGRÉS
 R1             ✅ v1.0.0 + GitHub Release publiée
-M27            🚧 IMPLÉMENTÉ / GATES WINDOWS + LINUX À EXÉCUTER
+Prochain jalon ⏳ NON DÉFINI
 ```
 
 ## Frontières
@@ -195,9 +193,11 @@ restore != implicit migration
 server state != provider source of truth
 facts != inference
 inference != suggestion
+heuristic != published fact
 confidence is explicit and bounded
 adapter discovery != adapter execution
 adapter absence != MORPHEUS failure
+adapter failure != fact loss
 reasoning execution != mutation
 surface parity != same transport shape
 ```
