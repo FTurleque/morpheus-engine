@@ -110,7 +110,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0092](0092-provider-neutral-query-dsl-saved-views-reporting.md) | Query DSL provider-neutral, saved views versionnées et reporting déterministe | **Acceptée — M24** |
 | [ADR-0093](0093-provider-neutral-policy-packs-governance-automation.md) | Policy packs provider-neutral, versions immuables, overrides explicables et dry-run read-only | **Acceptée — M25** |
 | [ADR-0094](0094-optional-team-remote-server-mode.md) | Mode serveur remote optionnel, TLS/auth/RBAC, concurrence bornée et maintenance SQLite offline | **Acceptée — M26** |
-| [ADR-0095](0095-evidence-backed-assisted-reasoning.md) | Analyse assistée fondée sur des preuves, confiance explicite et séparation facts/claims | **Proposée — M27** |
+| [ADR-0095](0095-evidence-backed-assisted-reasoning.md) | Analyse assistée fondée sur des preuves, confiance explicite et séparation facts/claims | **Acceptée — M27** |
 
 # Preuves par jalon
 
@@ -134,67 +134,55 @@ M17 410/410 PASS Windows | Architecture 167/167
 M18 418/418 PASS Windows | Architecture 170/170
 M19 449/449 PASS Windows + Linux | Architecture 178/178
 M20 454/454 PASS Windows + Linux | Architecture 182/182
-M21 473 PASS Windows + Linux | Architecture 187 | JaCoCo floors PASS | Portable PASS
-M22 494 PASS Windows + Linux | Architecture 190 | SDK API 1 | External provider PASS | Portable PASS
-M23 507 PASS Windows + Linux | Architecture 195 | Portfolio convergence PASS | Portable PASS
-M24 543 PASS Windows + Linux | Architecture 221 | Query/view/export convergence PASS | Portable PASS
-M25 565 PASS Windows + Linux | Architecture 231 | Policy governance convergence PASS | Portable PASS
-M26 579 PASS Windows + Linux | Architecture 234 | Remote TLS/auth/RBAC + 429 + backup/restore PASS | Portable PASS
-M27 NOT QUALIFIED | Expected >=602 tests | Architecture >=238 | Windows + Linux gates NOT RUN
+M21 473 PASS Windows + Linux | Architecture 187 | Portable PASS
+M22 494 PASS Windows + Linux | Architecture 190 | SDK API 1 | Portable PASS
+M23 507 PASS Windows + Linux | Architecture 195 | Portfolio convergence PASS
+M24 543 PASS Windows + Linux | Architecture 221 | Query/view/export convergence PASS
+M25 565 PASS Windows + Linux | Architecture 231 | Policy governance convergence PASS
+M26 579 PASS Windows + Linux | Architecture 234 | Remote TLS/auth/RBAC PASS
+M27 602 PASS Windows + Linux | Architecture 238 | Evidence-backed reasoning PASS
 ```
 
-## Baseline M26 qualifiée
+## Dernière décision qualifiée
 
-ADR-0094 ajoute un mode serveur remote strictement opt-in, en conservant le mode local first-class et loopback-only. L'exposition remote exige TLS et authentification, applique READ/WRITE/ADMIN, borne la concurrence, ne divulgue aucun secret et fournit backup/restore SQLite explicites avec restore offline seulement.
+ADR-0095 est acceptée après qualification Windows + Linux/WSL sur le même SHA exact :
 
 ```text
-Code exact qualifié   bf481b24054c4577144b4cb2ede2bdbc4d9974a2
+Code exact qualifié   f97307c878125550693699124ca717f64f305a3a
+Head PR docs-only     026c1d5f8671cd7b879fa89d51af8e83a5f06272
+Merge                 f8810803bd5ae7d57c4858e1e384c6a0132e1a45
 Version               1.0.0
 Windows               PASS
 Linux WSL             PASS
-Tests                 579 PASS
-Architecture          234 PASS
-Local-first           PASS
-TLS/auth/RBAC         PASS
-Bounded concurrency   PASS / HTTP 429
-Secret disclosure     NONE
-Backup/restore        PASS
-Schema                V015 compatible
+Tests                 602 PASS
+Architecture          238 PASS
 Coverage              PASS Windows + Linux
+Facts / claims        séparation PASS
+Confidence            explicite et bornée PASS
+Evidence/provenance   PASS
+Adapters              optionnels + fault isolation PASS
+Mutation              NONE / mutated=false
+CLI/MCP/HTTP          convergence PASS
+Remote READ RBAC      PASS
 SBOM/provenance       PASS Windows + Linux
 Portable              PASS Windows + Linux
 Executable delta      NONE Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
-Plan : [`../roadmap/M26_EXECUTION.md`](../roadmap/M26_EXECUTION.md).
+Validation : [`../validation/VALIDATION_M27.md`](../validation/VALIDATION_M27.md).
+Plan final : [`../roadmap/M27_EXECUTION.md`](../roadmap/M27_EXECUTION.md).
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
-
-## Décision M27 proposée
-
-ADR-0095 introduit une enveloppe d’évidence, des claims séparées `INFERENCE` / `HEURISTIC` / `SUGGESTION`, une confiance bornée, une provenance obligatoire et des adaptateurs optionnels explicitement sélectionnés. Elle reste proposée jusqu’aux doubles gates exact-head.
-
-Validation en cours : [`../validation/VALIDATION_M27.md`](../validation/VALIDATION_M27.md).
-Plan : [`../roadmap/M27_EXECUTION.md`](../roadmap/M27_EXECUTION.md).
-PR : **#112 OPEN / DRAFT**.
 
 # Contraintes actives principales
 
 ```text
 domain/application -X-> provider/store/cli/mcp/api/integration
 API -X-> CLI/MCP/integration
-MINOS integration -X-> com.minos.*
-NEXUS integration -X-> com.nexus.*
-MORPHEUS -X-> com.jarvis.*
 provider-specific types -X-> domain/application contracts
-provider plugin != domain dependency
 plugin discovery != plugin activation
-probe != read
-classloader isolation != security sandbox
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
 SpecificationVersion != KnowledgeSnapshot
 PROPOSED never leaks into CURRENT
-published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 READ_CHANGES != WRITE_CHANGE
 ALLOWED != applied
@@ -202,31 +190,20 @@ UNKNOWN != BLOCKED
 precedence != provenance erasure
 conflict != silent last-write-wins
 cross-project identity != source path
-project identity != workspace path
 portfolio membership != source ownership
-cross-project reference != traceability proof
 traversal is bounded and explainable
 DSL != SQL passthrough
 saved view != materialized truth
 export != mutation
-bounded query != silently truncated semantics
 constraint text != executable policy
-severity != blocking policy
 policy recommendation != applied mutation
-policy version != mutable latest
-policy override != provenance erasure
 dry-run != mutation
-policy evaluation != lifecycle mutation
 local mode remains first-class
 remote mode is opt-in
-non-loopback bind requires remote mode
 remote mode requires TLS + authentication
 authentication != authorization
 READ != WRITE != ADMIN
-token plaintext != persisted credential
 backup != live restore
-restore != implicit migration
-server state != provider source of truth
 facts != inference
 inference != suggestion
 heuristic != published fact
@@ -238,13 +215,9 @@ adapter failure != fact loss
 reasoning execution != lifecycle mutation
 reasoning execution != policy override
 surface parity != same transport shape
-update discovery != automatic update
-checksum != signature
 ```
 
 # Build
-
-Gate développeur :
 
 ```text
 Windows : .\mvnw.cmd clean test
@@ -253,7 +226,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate techniquement qualifié : **M26**. M27 reste candidat jusqu’aux qualifications Windows + Linux/WSL.
+Dernier gate techniquement qualifié : **M27**.
 
 # Principe de validation
 
