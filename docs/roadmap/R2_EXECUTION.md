@@ -9,7 +9,7 @@ Issue                  #113 OPEN
 PR                     #114 DRAFT vers main
 Branch                 r2-release-1.1.0
 Release baseline       develop@bccc118dda6fd818cf801750187afa4ad10b96e4
-Executable candidate   aef3ed8a65397e7ca2fa5aa6abdf41237025605a
+Executable candidate   43dc9cfb78b8b40276b3eee8a05ec828660f88b4
 Target version         1.1.0
 Target tag             v1.1.0
 ```
@@ -27,8 +27,8 @@ main                    0e37d85fc7efe9843094416898b6fbdbc45b7da4
 develop                 bccc118dda6fd818cf801750187afa4ad10b96e4
 main...develop          188 commits ahead / 0 behind
 release branch base     bccc118dda6fd818cf801750187afa4ad10b96e4
-R2 executable candidate aef3ed8a65397e7ca2fa5aa6abdf41237025605a
-develop...candidate     42 commits / 36 changed files
+R2 executable candidate 43dc9cfb78b8b40276b3eee8a05ec828660f88b4
+develop...candidate     45 commits / 37 changed files
 published release       v1.0.0
 candidate release       v1.1.0
 ```
@@ -76,38 +76,33 @@ release publication != automatic update
 
 ### R2-S1 — Version 1.1.0
 
-- [x] POM racine en `1.1.0` ;
-- [x] seize POM enfants alignés sur le parent `1.1.0` ;
+- [x] POM racine et seize POM enfants alignés en `1.1.0` ;
 - [x] test de contrat exigeant exactement 17 POM cohérents ;
 - [x] rejet explicite de toute version reactor `1.0.0` résiduelle ;
-- [x] builders portable, installer et release Windows/Linux par défaut en `1.1.0` ;
-- [x] version passée explicitement aux outils de packaging ;
-- [x] cohérence des 17 POM observée PASS sur les deux tentatives Windows ;
+- [x] builders portable, installer et release Windows/Linux en `1.1.0` ;
+- [x] cohérence des 17 POM observée PASS sur les trois tentatives Windows ;
+- [x] scénarios application et CLI d'update-check rendus indépendants de la version courante ;
 - [ ] cohérence réellement exécutée sous Linux/WSL.
 
 ### R2-S2 — Upgrade SQLite
 
-- [x] fixture de base compatible avec la baseline 1.0.0/V012 ;
+- [x] fixture compatible avec la baseline 1.0.0/V012 ;
 - [x] migrations V001→V012 appliquées avec noms et checksums canoniques ;
 - [x] projet et snapshot ACTIVE représentatifs insérés ;
-- [x] test prévu pour appliquer V013, V014 et V015 ;
-- [x] vérification prévue de la préservation des identités et de l'historique ;
-- [x] vérification prévue de l'immutabilité des checksums V001→V012 ;
-- [x] vérification prévue du replay idempotent ;
-- [x] backup et rollback offline documentés ;
-- [ ] scénario exécuté jusqu'à son terme sous Windows ;
-- [ ] scénario réellement exécuté sous Linux/WSL.
+- [x] application de V013, V014 et V015 couverte ;
+- [x] préservation des identités, historique et checksums couverte ;
+- [x] replay idempotent couvert ;
+- [x] tentative 3 : `R2UpgradeCompatibilityTest` PASS sur `24e3b0b...` ;
+- [ ] scénario reproduit sur le nouveau candidat Windows ;
+- [ ] scénario exécuté sous Linux/WSL.
 
 ### R2-S3 — Packaging
 
 - [x] defaults des builders actifs en `1.1.0` ;
 - [x] runtime Java embarqué conservé ;
 - [x] smokes version/product-info/API conservés ;
-- [x] preuve packagée M25 Policy Packs ajoutée au gate R2 ;
-- [x] preuve packagée M26 remote/server ajoutée au gate R2 ;
-- [x] preuve packagée M27 reasoning héritée du gate M27 ;
-- [x] setup Windows et checksum intégrés au gate R2 ;
-- [x] scripts exact-tag et manifestes réutilisés ;
+- [x] preuves packagées M25, M26 et M27 intégrées au gate ;
+- [x] setup Windows et checksum intégrés ;
 - [ ] distributions réellement construites sous Windows et Linux ;
 - [ ] setup Windows réellement construit ;
 - [ ] hashes et manifestes exact-tag réellement produits.
@@ -118,30 +113,31 @@ release publication != automatic update
 - [x] guide d'upgrade 1.0.0→1.1.0 ;
 - [x] procédure de backup/restore offline ;
 - [x] distinction candidate / release stable explicite ;
-- [x] `v1.0.0` reste la seule release annoncée comme publiée ;
-- [x] deux échecs Windows enregistrés factuellement ;
+- [x] les trois échecs Windows enregistrés factuellement ;
 - [ ] valeurs finales de qualification et d'artefacts à injecter après observation.
 
 ## 5. Incidents de qualification Windows
 
 ### Tentative 1 — `3db57b33960ef16af9f3b6e49fc247e3bf843efb`
 
-`git diff --check` a rejeté trois espaces de fin de ligne dans `docs/governance/ROADMAP.md`. Maven n'a pas démarré. Correction documentaire : `c500d70ec7ee0ad2acfcbd4c4a49346c7c93f975`.
+`git diff --check` a rejeté trois espaces de fin de ligne dans `docs/governance/ROADMAP.md`. Maven n'a pas démarré. Correction : `c500d70ec7ee0ad2acfcbd4c4a49346c7c93f975`.
 
 ### Tentative 2 — `c500d70ec7ee0ad2acfcbd4c4a49346c7c93f975`
 
-Le contrôle de version et `git diff --check` ont réussi. Le root reactor et `morpheus-domain` ont réussi, puis `morpheus-application` a échoué sur :
+Le root reactor et `morpheus-domain` ont réussi, puis `morpheus-application` a échoué sur `ProductIntegrityTest.explicitFileManifestCanReportANewerVersion`. Le manifeste figé à `1.0.1` n'était plus supérieur à `1.1.0`. Correction : `aef3ed8a65397e7ca2fa5aa6abdf41237025605a`.
+
+### Tentative 3 — `24e3b0b66cb80388ffb687fd470237174e083121`
+
+Le gate a atteint 15 modules SUCCESS sur 17. L'application, SQLite, MCP et API ont réussi ; `R2UpgradeCompatibilityTest` a prouvé l'upgrade V012→V015. Le module CLI a ensuite échoué sur :
 
 ```text
-ProductIntegrityTest.explicitFileManifestCanReportANewerVersion
+MorpheusProductCliTest.updateCheckIsExplicitAndDoesNotApplyAnything
 expected updateAvailable=true, observed false
 ```
 
-Cause : le test annonçait `1.0.1`, qui n'est plus supérieur à la version courante `1.1.0`.
+Cause : le second manifeste de test était encore figé à `1.0.1`. L'architecture et le packaging n'ont pas été exécutés. Correction : `43dc9cfb78b8b40276b3eee8a05ec828660f88b4`.
 
-Correctif : `aef3ed8a65397e7ca2fa5aa6abdf41237025605a`. Le manifeste de test dérive désormais la prochaine version patch depuis `ProductMetadata.version()`.
-
-Ces tentatives restent **FAIL**. Elles ne sont pas transformées en PASS par le correctif.
+Les deux tests d'update-check dérivent désormais la prochaine version patch depuis `ProductMetadata.version()`. Les trois tentatives restent **FAIL** et ne sont pas transformées en PASS par les correctifs.
 
 ## 6. Gates exact-head
 
@@ -198,41 +194,15 @@ Après autorisation :
 - [ ] merge de #114 avec `expected_head_sha` ;
 - [ ] contrôle du SHA de merge/stabilisation ;
 - [ ] création de `v1.1.0` sur le SHA autorisé ;
-- [ ] compare tag/SHA identique ;
-- [ ] build exact-tag Windows :
-
-```powershell
-.\distribution\build-release.ps1 -Version 1.1.0 -ExpectedTag v1.1.0
-```
-
-- [ ] build exact-tag Linux :
-
-```bash
-bash ./distribution/build-release.sh 1.1.0 v1.1.0
-```
-
-Assets attendus :
-
-```text
-MORPHEUS-1.1.0-windows-x64-setup.exe
-MORPHEUS-1.1.0-windows-x64-setup.exe.sha256
-morpheus-1.1.0-windows-x64.zip
-morpheus-1.1.0-windows-x64.zip.sha256
-morpheus-1.1.0-linux-x64.tar.gz
-morpheus-1.1.0-linux-x64.tar.gz.sha256
-morpheus-1.1.0-windows-x64-release-manifest.json
-morpheus-1.1.0-linux-x64-release-manifest.json
-```
-
-- [ ] GitHub Release stable, non draft, non prerelease ;
-- [ ] 8/8 assets publiés ;
-- [ ] digests GitHub comparés aux preuves locales ;
+- [ ] build exact-tag Windows et Linux ;
+- [ ] publication des huit assets ;
+- [ ] comparaison des digests GitHub aux preuves locales ;
 - [ ] documentation post-release réconciliée ;
 - [ ] issue #113 fermée `completed`.
 
 ## 9. Workspace local
 
-Le répertoire non suivi `dist-r1/` n'a pas causé l'échec : le gate R2 contrôle les deltas suivis. Les scripts exact-tag exigent cependant un workspace intégralement propre ; ce répertoire devra être déplacé ou supprimé avant la publication.
+Le répertoire non suivi `dist-r1/` n'a causé aucun des échecs : le gate R2 contrôle les deltas suivis. Les scripts exact-tag exigent cependant un workspace intégralement propre ; ce répertoire devra être déplacé ou supprimé avant la publication.
 
 ## 10. Politique CI — juillet 2026
 
@@ -248,7 +218,7 @@ local Windows + Linux/WSL exact-head logs are authoritative
 
 ```text
 Preparation                    COMPLETE
-Executable candidate           aef3ed8a65397e7ca2fa5aa6abdf41237025605a
+Executable candidate           43dc9cfb78b8b40276b3eee8a05ec828660f88b4
 Windows exact-head             FAILED / RERUN REQUIRED
 Linux/WSL exact-head           NOT RUN
 same SHA cross-platform        NOT PROVEN
