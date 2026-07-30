@@ -110,6 +110,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0092](0092-provider-neutral-query-dsl-saved-views-reporting.md) | Query DSL provider-neutral, saved views versionnées et reporting déterministe | **Acceptée — M24** |
 | [ADR-0093](0093-provider-neutral-policy-packs-governance-automation.md) | Policy packs provider-neutral, versions immuables, overrides explicables et dry-run read-only | **Acceptée — M25** |
 | [ADR-0094](0094-optional-team-remote-server-mode.md) | Mode serveur remote optionnel, TLS/auth/RBAC, concurrence bornée et maintenance SQLite offline | **Acceptée — M26** |
+| [ADR-0095](0095-evidence-backed-assisted-reasoning.md) | Analyse assistée fondée sur des preuves, confiance explicite et séparation facts/claims | **Proposée — M27** |
 
 # Preuves par jalon
 
@@ -139,6 +140,7 @@ M23 507 PASS Windows + Linux | Architecture 195 | Portfolio convergence PASS | P
 M24 543 PASS Windows + Linux | Architecture 221 | Query/view/export convergence PASS | Portable PASS
 M25 565 PASS Windows + Linux | Architecture 231 | Policy governance convergence PASS | Portable PASS
 M26 579 PASS Windows + Linux | Architecture 234 | Remote TLS/auth/RBAC + 429 + backup/restore PASS | Portable PASS
+M27 NOT QUALIFIED | Expected >=602 tests | Architecture >=238 | Windows + Linux gates NOT RUN
 ```
 
 ## Baseline M26 qualifiée
@@ -164,9 +166,17 @@ Portable              PASS Windows + Linux
 Executable delta      NONE Windows + Linux
 ```
 
-Validation : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).  
-Plan : [`../roadmap/M26_EXECUTION.md`](../roadmap/M26_EXECUTION.md).  
+Validation : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
+Plan : [`../roadmap/M26_EXECUTION.md`](../roadmap/M26_EXECUTION.md).
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
+
+## Décision M27 proposée
+
+ADR-0095 introduit une enveloppe d’évidence, des claims séparées `INFERENCE` / `HEURISTIC` / `SUGGESTION`, une confiance bornée, une provenance obligatoire et des adaptateurs optionnels explicitement sélectionnés. Elle reste proposée jusqu’aux doubles gates exact-head.
+
+Validation en cours : [`../validation/VALIDATION_M27.md`](../validation/VALIDATION_M27.md).
+Plan : [`../roadmap/M27_EXECUTION.md`](../roadmap/M27_EXECUTION.md).
+PR : **#112 OPEN / DRAFT**.
 
 # Contraintes actives principales
 
@@ -217,6 +227,16 @@ token plaintext != persisted credential
 backup != live restore
 restore != implicit migration
 server state != provider source of truth
+facts != inference
+inference != suggestion
+heuristic != published fact
+confidence is explicit and bounded
+assisted output cites evidence
+adapter discovery != adapter execution
+adapter absence != MORPHEUS failure
+adapter failure != fact loss
+reasoning execution != lifecycle mutation
+reasoning execution != policy override
 surface parity != same transport shape
 update discovery != automatic update
 checksum != signature
@@ -233,7 +253,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate techniquement qualifié : **M26**.
+Dernier gate techniquement qualifié : **M26**. M27 reste candidat jusqu’aux qualifications Windows + Linux/WSL.
 
 # Principe de validation
 

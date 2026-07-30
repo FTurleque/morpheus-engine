@@ -2,11 +2,11 @@
 
 Cette page est le point d’entrée de la documentation active de MORPHEUS.
 
-MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose plusieurs providers réels sans effacer provenance ni conflits, publie des snapshots versionnés, expose requêtes/traçabilité/qualité, applique des mutations lifecycle explicitement contrôlées, raisonne sur des portfolios multi-projets, fournit un Query DSL provider-neutral avec saved views/exports, distribue des Policy Packs versionnés, explicables et auditables et, depuis M26, peut exposer un mode serveur d’équipe optionnel avec HTTPS, authentification, RBAC et concurrence bornée sans abandonner le fonctionnement local-first.
+MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose plusieurs providers réels sans effacer provenance ni conflits, publie des snapshots versionnés, expose requêtes/traçabilité/qualité, applique des mutations lifecycle explicitement contrôlées, raisonne sur des portfolios multi-projets, fournit un Query DSL provider-neutral avec saved views/exports, distribue des Policy Packs versionnés, explicables et auditables, peut exposer un mode serveur d’équipe optionnel avec HTTPS/auth/RBAC et introduit avec M27 une analyse assistée fondée sur des preuves qui conserve strictement faits, inférences, heuristiques et suggestions séparés.
 
-La version produit publiée reste **MORPHEUS 1.0.0** sous le tag stable `v1.0.0`. Les jalons M21→M26 sont des évolutions 1.x qualifiées et intégrées sur cette baseline produit.
+La version produit publiée reste **MORPHEUS 1.0.0** sous le tag stable `v1.0.0`. Les jalons M21→M26 sont qualifiés et intégrés. M27 est implémenté sur branche mais ne sera déclaré validé qu’après gates Windows + Linux/WSL exact-head.
 
-## Baseline et dernier jalon
+## Baseline et jalon actif
 
 ```text
 M20 / R1         ✅ MORPHEUS 1.0.0 publié
@@ -17,14 +17,15 @@ M24              ✅ validé / intégré
 M25              ✅ validé / intégré
 M26              ✅ validé / intégré
 M26 exact head   bf481b24054c4577144b4cb2ede2bdbc4d9974a2
-M26 PR head      36378842e3ef41e379ade17f869b0939d052bbbc
 M26 merge        49016a18c844a78ec864235c544d82d487da7c8a
 M26 tests        579 PASS Windows + Linux
 M26 architecture 234 PASS Windows + Linux
-NOW              M27 — Evidence-backed Assisted Reasoning
+M27              🚧 implémenté / qualification locale requise
+M27 issue        #111
+M27 branch       m27-evidence-assisted-reasoning
 ```
 
-Preuves principales :
+Preuves qualifiées principales :
 
 - [`validation/VALIDATION_R1.md`](validation/VALIDATION_R1.md) — publication officielle `v1.0.0` ;
 - [`validation/VALIDATION_M21.md`](validation/VALIDATION_M21.md) — production integrity ;
@@ -33,6 +34,8 @@ Preuves principales :
 - [`validation/VALIDATION_M24.md`](validation/VALIDATION_M24.md) — Query DSL, Saved Views & Reporting ;
 - [`validation/VALIDATION_M25.md`](validation/VALIDATION_M25.md) — Policy Packs & Governance Automation ;
 - [`validation/VALIDATION_M26.md`](validation/VALIDATION_M26.md) — Optional Team / Remote Server Mode.
+
+M27 : [`roadmap/M27_EXECUTION.md`](roadmap/M27_EXECUTION.md) décrit les gates encore à exécuter ; aucun PASS M27 n’est anticipé.
 
 ## Parcours utilisateur
 
@@ -47,6 +50,7 @@ Preuves principales :
 | requêtes, saved views et exports | [Query DSL, Saved Views & Reporting](user/QUERY_VIEWS_REPORTING.md) |
 | policy packs et gouvernance | [Policy Packs](user/POLICY_PACKS.md) |
 | utiliser le mode équipe / serveur remote | [Team / Remote Server](user/TEAM_REMOTE_SERVER.md) |
+| produire des inférences assistées sans modifier les faits | [Assisted Reasoning](user/ASSISTED_REASONING.md) |
 | configurer MINOS, NEXUS ou JARVIS | [Intégrations optionnelles](user/INTEGRATIONS.md) |
 
 Les distributions Windows/Linux embarquent leur runtime Java. L’utilisateur final n’a pas besoin d’installer un JDK.
@@ -62,6 +66,7 @@ Les distributions Windows/Linux embarquent leur runtime Java. L’utilisateur fi
 | comprendre M24 | [Query Platform](developer/QUERY_PLATFORM.md) |
 | comprendre M25 | [Policy Platform](developer/POLICY_PLATFORM.md) |
 | comprendre M26 | [Remote Server Platform](developer/REMOTE_SERVER_PLATFORM.md) |
+| comprendre M27 | [Evidence-backed Assisted Reasoning](developer/ASSISTED_REASONING.md) |
 | contrat HTTP | [API HTTP](developer/API.md) |
 | serveur MCP | [Serveur MCP](developer/MCP.md) |
 | ports MINOS/NEXUS/JARVIS | [Intégrations cross-engine](developer/INTEGRATIONS.md) |
@@ -85,15 +90,22 @@ flowchart LR
     D --> SV[(Saved Views Memory / SQLite V014)]
     S --> G[Policy Packs / Governance]
     G --> PG[(Policies Memory / SQLite V015)]
+    S --> E[Evidence envelopes]
+    E --> AR[Optional reasoning adapters]
+    AR --> RC[Inference / Heuristic / Suggestion claims]
+    RC --> NM[mutated=false]
     Q --> CLI[CLI]
     D --> CLI
     G --> CLI
+    AR --> CLI
     Q --> MCP[MCP STDIO]
     D --> MCP
     G --> MCP
+    AR --> MCP
     Q --> API[HTTP local /api/v1]
     D --> API
     G --> API
+    AR --> API
     API --> R[Remote HTTPS opt-in]
     R --> A[Bearer auth + RBAC + 429]
     R --> B[Backup / status admin]
@@ -107,9 +119,10 @@ flowchart LR
 
 - [`governance/ROADMAP.md`](governance/ROADMAP.md) — roadmap globale courante ;
 - [`roadmap/POST_M20_EVOLUTION.md`](roadmap/POST_M20_EVOLUTION.md) — trajectoire active MORPHEUS 1.x ;
-- [`roadmap/M26_EXECUTION.md`](roadmap/M26_EXECUTION.md) — exécution M26 terminée ;
-- [`validation/README.md`](validation/README.md) — index des preuves ;
+- [`roadmap/M27_EXECUTION.md`](roadmap/M27_EXECUTION.md) — exécution et gates M27 ;
+- [`validation/README.md`](validation/README.md) — index des preuves qualifiées ;
 - [`adr/README.md`](adr/README.md) — index des ADR ;
+- [`adr/0095-evidence-backed-assisted-reasoning.md`](adr/0095-evidence-backed-assisted-reasoning.md) — décision M27 proposée ;
 - [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité documentaire.
 
 ## Références machine
@@ -120,6 +133,7 @@ flowchart LR
 - [`openapi/morpheus-v1-query-m24.yaml`](openapi/morpheus-v1-query-m24.yaml) — supplément Query DSL / Saved Views / Export M24 ;
 - [`openapi/morpheus-v1-policy-m25.yaml`](openapi/morpheus-v1-policy-m25.yaml) — supplément Policy Packs / Governance M25 ;
 - [`openapi/morpheus-v1-remote-m26.yaml`](openapi/morpheus-v1-remote-m26.yaml) — supplément Team / Remote Server M26 ;
+- [`openapi/morpheus-v1-reasoning-m27.yaml`](openapi/morpheus-v1-reasoning-m27.yaml) — supplément Evidence-backed Assisted Reasoning M27 ;
 - [`../contracts/public-surfaces.tsv`](../contracts/public-surfaces.tsv) — manifeste de surfaces publiques ;
 - [`../distribution/README.md`](../distribution/README.md) — release et distributions 1.0.
 
@@ -129,7 +143,7 @@ flowchart LR
 C0 → M26       ✅ VALIDÉS / INTÉGRÉS
 D0 + D1        ✅ VALIDÉS / INTÉGRÉS
 R1             ✅ v1.0.0 + GitHub Release publiée
-M27            ⏭ Evidence-backed Assisted Reasoning
+M27            🚧 IMPLÉMENTÉ / GATES WINDOWS + LINUX À EXÉCUTER
 ```
 
 ## Frontières
@@ -141,6 +155,7 @@ MORPHEUS = specification facts + intent + lifecycle rules
            + provider-neutral query/view/reporting contracts
            + provider-neutral governance policy contracts
            + optional remote/team access boundary
+           + evidence-backed assisted claims separated from published facts
 MINOS    = code intelligence
 NEXUS    = context selection / ranking / fusion / compression
 JARVIS   = sequencing + orchestration + action choice
@@ -178,6 +193,12 @@ READ != WRITE != ADMIN
 backup != live restore
 restore != implicit migration
 server state != provider source of truth
+facts != inference
+inference != suggestion
+confidence is explicit and bounded
+adapter discovery != adapter execution
+adapter absence != MORPHEUS failure
+reasoning execution != mutation
 surface parity != same transport shape
 ```
 

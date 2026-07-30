@@ -40,6 +40,8 @@ policy.override.remove	WRITE	policy override remove	remove_policy_override	POST 
 policy.evaluate	READ	policy evaluate	evaluate_policies	POST /api/v1/policies/evaluate	Read-only deterministic evaluation; UNKNOWN is not implicitly BLOCKED
 policy.dry-run	READ	policy dry-run	dry_run_policy_pack	POST /api/v1/policies/dry-run	Evaluates an immutable version without activation, lifecycle mutation or published-state write
 policy.audit	READ	policy audit	get_policy_audit	GET /api/v1/policy-packs/{id}/audit	Append-only audit of policy configuration changes, distinct from lifecycle mutation audit
+reasoning.adapters	READ	reason adapters	list_reasoning_adapters	GET /api/v1/reasoning/adapters	Passive discovery only; listing never activates adapters or performs network access
+reasoning.analyze	READ	reason analyze	reason_with_evidence	POST /api/v1/reasoning/analyze	Facts remain separate from explicit-confidence inference/heuristic/suggestion claims; execution is read-only and adapters are explicitly selected
 server.status	READ	EXPLICITLY_REMOTE_ONLY	EXPLICITLY_NOT_EXPOSED	GET /api/v1/server/status	Remote runtime status after Bearer auth; no credential material or provider truth
 server.identity.create	WRITE	server identity create	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Provisioning is local-only; generated token is printed once and only SHA-256 is persisted
 server.backup.create	WRITE	server backup create	EXPLICITLY_NOT_EXPOSED	POST /api/v1/server/backups	Remote HTTP requires ADMIN; SQLite coherent backup + integrity/schema verification

@@ -88,6 +88,21 @@ class MorpheusRemoteHttpServerTest {
             assertEquals("DENY", health.headers().firstValue("X-Frame-Options").orElseThrow());
             assertFalse(health.headers().firstValue("Access-Control-Allow-Origin").isPresent());
 
+            HttpResponse<String> readReasoning = send(
+                    client,
+                    base.resolve("/api/v1/reasoning/analyze"),
+                    "POST",
+                    read.token(),
+                    """
+                    {"question":"What remains authoritative?","evidence":[
+                      {"id":"fact-1","kind":"PUBLISHED_FACT","subject":"history",
+                       "statement":"Published history remains authoritative","provenance":{"source":"remote-test"}}
+                    ],"adapterIds":[]}
+                    """);
+            assertEquals(200, readReasoning.statusCode(), readReasoning.body());
+            assertTrue(readReasoning.body().contains("\"assisted\":false"), readReasoning.body());
+            assertTrue(readReasoning.body().contains("\"mutated\":false"), readReasoning.body());
+
             HttpResponse<String> readCannotWrite = send(client, base.resolve("/api/v1/projects"), "POST", read.token(), "{}");
             assertEquals(403, readCannotWrite.statusCode());
 
