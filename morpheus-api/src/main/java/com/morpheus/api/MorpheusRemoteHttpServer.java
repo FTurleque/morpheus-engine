@@ -283,6 +283,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 || path.equals(prefix + "/exports")
                 || path.equals(prefix + "/policies/evaluate")
                 || path.equals(prefix + "/policies/dry-run")
+                || path.equals(prefix + "/reasoning/analyze")
                 || path.endsWith("/transition-check")
                 || path.endsWith("/augmented-context")
                 || path.endsWith("/execute") && path.contains("/saved-views/")
