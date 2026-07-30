@@ -1,6 +1,6 @@
 # R2 — Validation MORPHEUS 1.1.0
 
-Statut : **CANDIDATE FROZEN — GATES NOT RUN — AUCUN PASS DÉCLARÉ**
+Statut : **CANDIDATE UPDATED — WINDOWS GATE FAILED — RERUN REQUIRED — AUCUN PASS DÉCLARÉ**
 
 Date d'ouverture : 30 juillet 2026
 
@@ -10,7 +10,7 @@ PR                      #114 DRAFT vers main
 Branch                  r2-release-1.1.0
 Main baseline           0e37d85fc7efe9843094416898b6fbdbc45b7da4
 Develop baseline        bccc118dda6fd818cf801750187afa4ad10b96e4
-Executable candidate    cde78c8172d720a01254f7463f4ff60d09a8b677
+Executable candidate    aef3ed8a65397e7ca2fa5aa6abdf41237025605a
 Target version          1.1.0
 Target tag              v1.1.0
 Stable published tag    v1.0.0
@@ -20,13 +20,13 @@ Plan : [`../roadmap/R2_EXECUTION.md`](../roadmap/R2_EXECUTION.md).
 
 ## 1. Périmètre candidat observé
 
-La comparaison `develop...cde78c8` donne :
+La comparaison `develop...aef3ed8` donne :
 
 ```text
 status           ahead
-commits          38
+commits          42
 behind           0
-changed files    35
+changed files    36
 ```
 
 Le delta candidat comprend :
@@ -37,6 +37,7 @@ Le delta candidat comprend :
 - le test d'upgrade SQLite V012→V015 ;
 - les validateurs R2 Windows et Linux/WSL ;
 - les preuves packagées M25/M26 et la preuve M27 héritée ;
+- le correctif du scénario de découverte de mise à jour pour dériver une version patch réellement supérieure à la version courante ;
 - les notes de version et le guide d'upgrade ;
 - la gouvernance et les index R2.
 
@@ -54,11 +55,13 @@ Aucun fichier `.github/workflows` n'est modifié.
 - [x] contrôles de préservation et d'idempotence codés ;
 - [x] validateurs Windows/Linux préparés ;
 - [x] documentation candidate préparée ;
-- [ ] workspace Windows exact-head contrôlé ;
+- [x] première tentative Windows observée sur `3db57b3...` ;
+- [x] seconde tentative Windows observée sur `c500d70...` ;
+- [ ] nouveau candidat `aef3ed8...` contrôlé sous Windows ;
 - [ ] workspace Linux/WSL exact-head contrôlé ;
 - [ ] SHA identique réellement qualifié sur les deux plateformes.
 
-Les coches de préparation attestent de la présence du code ou de la documentation, **pas de leur réussite d'exécution**.
+Les coches de préparation attestent de la présence du code, de la documentation ou d'une exécution observée. Elles ne valent pas PASS du gate complet.
 
 ## 3. Commandes canoniques
 
@@ -88,16 +91,49 @@ bash ./distribution/build-release.sh 1.1.0 v1.1.0
 
 ## 4. Qualification Windows
 
-Statut : **NOT RUN**
+Statut : **FAILED — CORRECTIF POUSSÉ — RERUN REQUIRED**
+
+### Tentative 1 — `3db57b33960ef16af9f3b6e49fc247e3bf843efb`
 
 ```text
-sha                      cde78c8172d720a01254f7463f4ff60d09a8b677 candidate only
-reactor                  NOT RUN
-tests                    NOT RUN
+versionCoherence         PASS — 1.1.0 across 17 POMs
+git diff --check         FAIL
+cause                    trailing whitespace in docs/governance/ROADMAP.md
+maven                    NOT STARTED
+result                   FAIL
+```
+
+Correction documentaire : `c500d70ec7ee0ad2acfcbd4c4a49346c7c93f975`.
+
+### Tentative 2 — `c500d70ec7ee0ad2acfcbd4c4a49346c7c93f975`
+
+```text
+versionCoherence         PASS — 1.1.0 across 17 POMs
+git diff --check         PASS
+reactor root             SUCCESS
+morpheus-domain          SUCCESS — 40 tests PASS
+morpheus-application     FAILURE
+application tests        137 run / 1 failure / 0 error / 0 skipped
+failing test             ProductIntegrityTest.explicitFileManifestCanReportANewerVersion
+cause                    test manifest announced 1.0.1, no longer newer than current 1.1.0
+remaining modules        SKIPPED
+result                   FAIL
+```
+
+Correctif exécutable : `aef3ed8a65397e7ca2fa5aa6abdf41237025605a`.
+
+Le test calcule désormais une version patch supérieure à `ProductMetadata.version()` au lieu de figer `1.0.1`. Pour `1.1.0`, le manifeste de test annonce `1.1.1`.
+
+### État à requalifier
+
+```text
+sha                      aef3ed8a65397e7ca2fa5aa6abdf41237025605a candidate executable
+reactor                  NOT RUN on current candidate
+tests                    NOT RUN on current candidate
 architectureTests        NOT RUN
 lineCoverage             NOT RUN
 branchCoverage           NOT RUN
-versionCoherence         NOT RUN
+versionCoherence         NOT RUN on current candidate
 sqliteV012ToV015Upgrade  NOT RUN
 policyPacks              NOT RUN
 remoteServer             NOT RUN
@@ -117,7 +153,7 @@ postGateExecutableDelta  NOT RUN
 Statut : **NOT RUN**
 
 ```text
-sha                      cde78c8172d720a01254f7463f4ff60d09a8b677 candidate only
+sha                      aef3ed8a65397e7ca2fa5aa6abdf41237025605a candidate executable
 reactor                  NOT RUN
 tests                    NOT RUN
 architectureTests        NOT RUN
@@ -155,9 +191,19 @@ restart 1.1.0 without migration replay
 preserve one project and one snapshot without duplication
 ```
 
-Statut observé : **CODED / NOT RUN**.
+Statut observé : **CODED / NOT RUN TO COMPLETION**.
 
-## 7. Exact-tag et artefacts
+## 7. Workspace et artefacts historiques locaux
+
+La seconde tentative a observé un répertoire non suivi :
+
+```text
+dist-r1/
+```
+
+Le gate exact-head R2 ignore volontairement les fichiers non suivis et cet élément n'a pas causé l'échec Maven. En revanche, les builds exact-tag imposent un workspace totalement propre via `git status --porcelain`. `dist-r1/` devra donc être déplacé ou supprimé avant les builds de publication.
+
+## 8. Exact-tag et artefacts
 
 Statut : **BLOCKED — merge et tag non autorisés**
 
@@ -180,7 +226,7 @@ tag     = v1.1.0
 gitSha  = exact authorized release SHA
 ```
 
-## 8. GitHub Release
+## 9. GitHub Release
 
 ```text
 tagName       v1.1.0
@@ -190,7 +236,7 @@ assets        expected 8/8
 status        NOT CREATED
 ```
 
-## 9. Chronologie factuelle
+## 10. Chronologie factuelle
 
 ```text
 2026-07-30  main/develop audit completed
@@ -202,18 +248,20 @@ status        NOT CREATED
 2026-07-30  V012 -> V015 compatibility test added
 2026-07-30  Windows/Linux R2 validators added
 2026-07-30  packaged M25/M26 coverage added; M27 inherited
-2026-07-30  executable candidate frozen at cde78c8172d720a01254f7463f4ff60d09a8b677
-2026-07-30  subsequent allowed work restricted to documentation
+2026-07-30  first Windows attempt failed git diff --check on three trailing spaces
+2026-07-30  whitespace corrected at c500d70ec7ee0ad2acfcbd4c4a49346c7c93f975
+2026-07-30  second Windows attempt passed version/diff gates then failed ProductIntegrityTest
+2026-07-30  update-discovery test corrected at aef3ed8a65397e7ca2fa5aa6abdf41237025605a
 ```
 
-## 10. Résultat courant
+## 11. Résultat courant
 
 ```text
-executable candidate              cde78c8172d720a01254f7463f4ff60d09a8b677
-Windows exact-head gate           NOT RUN
+executable candidate              aef3ed8a65397e7ca2fa5aa6abdf41237025605a
+Windows exact-head gate           FAILED / RERUN REQUIRED
 Linux exact-head gate             NOT RUN
 same SHA cross-platform           NOT PROVEN
-upgrade 1.0.0 -> 1.1.0            NOT RUN
+upgrade 1.0.0 -> 1.1.0            NOT RUN TO COMPLETION
 post-gate executable delta        NOT PROVEN
 PR ready                          NO / DRAFT
 merge main                        NOT AUTHORIZED
@@ -223,4 +271,4 @@ GitHub Release                    NOT CREATED
 Result                            R2 IN PROGRESS
 ```
 
-**Chaque valeur PASS devra provenir de sorties réellement observées. Ce document ne transforme pas un candidat en release qualifiée.**
+**Chaque valeur PASS devra provenir de sorties réellement observées sur le nouveau head exact. Les échecs précédents restent conservés comme faits de qualification.**
