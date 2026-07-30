@@ -1,60 +1,61 @@
 # Plans d’exécution MORPHEUS
 
-Ce répertoire conserve les plans d’exécution des jalons MORPHEUS.
+Ce répertoire conserve les plans d’exécution des jalons, consolidations et releases MORPHEUS.
 
-## État courant
+## Autorité
 
-La source de vérité globale est [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
+La source de vérité globale est [`../governance/ROADMAP.md`](../governance/ROADMAP.md). La trajectoire post-1.0 reste [`POST_M20_EVOLUTION.md`](POST_M20_EVOLUTION.md).
 
-La trajectoire **active** après MORPHEUS 1.0 est :
+Le plan actif de stabilisation est :
 
-- [`POST_M20_EVOLUTION.md`](POST_M20_EVOLUTION.md)
+- [`R2_EXECUTION.md`](R2_EXECUTION.md) — MORPHEUS 1.1.0, issue #113, PR draft #114.
 
-La trajectoire précédente est conservée comme historique :
-
-- [`POST_M14_EXECUTION.md`](POST_M14_EXECUTION.md) — D0 + M15→M20, cycle terminé.
-
-Baseline :
+## Baseline actuelle
 
 ```text
 C0 → M20      ✅ validés et intégrés
-D1            ✅ validé et intégré
-M20 code      9199ed43c4bd8596a97db055eeff17ae31399eb8
-M20 merge     75d0b82ab0c960692db2fee1ced146fa6547fd4a
-D1 merge      51f6a120f3461c8d8c24323f3db8211d28d6cb42
-M20 tests     454/454 PASS Windows + Linux
-Architecture  182/182 PASS Windows + Linux
-MORPHEUS      1.0.0
-v1.0.0        ✅ publié
-GitHub Release ✅ publiée — 8/8 assets
+D0 + D1       ✅ validés et intégrés
+R1            ✅ MORPHEUS 1.0.0 publié
+M21           ✅ validé et intégré
+M22           ✅ validé et intégré
+M23           ✅ validé et intégré
+M24           ✅ validé et intégré
+M25           ✅ validé et intégré dans develop
+M26           ✅ validé et intégré dans develop
+M27           ✅ validé et intégré dans develop
+R2            🚧 stabilisation et publication 1.1.0 en cours
 ```
-
-## NOW / NEXT / LATER
 
 ```text
-DONE
-  R1   publication officielle v1.0.0 ✅
-  D1   consolidation post-M20 (#94) ✅
-
-NOW
-  M21  Production Integrity & Surface Convergence
-
-NEXT
-  M22  Provider SDK & Plugin Discovery Platform
-  M23  Multi-project / Portfolio Specification Intelligence
-  M24  Query DSL, Saved Views & Export/Reporting
-
-LATER
-  M25  Policy Packs & Governance Automation
-  M26  Optional Team/Remote Server Mode
-  M27  Evidence-backed Assisted Reasoning
+main                    0e37d85fc7efe9843094416898b6fbdbc45b7da4
+develop                 bccc118dda6fd818cf801750187afa4ad10b96e4
+release branch          r2-release-1.1.0
+published version       1.0.0
+target version          1.1.0
+published tag           v1.0.0
+target tag              v1.1.0
 ```
 
-Le détail, les invariants, questions de sortie et exit criteria sont dans [`POST_M20_EVOLUTION.md`](POST_M20_EVOLUTION.md).
+## NOW / BLOCKED / LATER
+
+```text
+NOW
+  R2   stabilisation develop -> main et préparation MORPHEUS 1.1.0
+
+BLOCKED UNTIL EXACT-HEAD QUALIFICATION
+  merge PR #114
+  tag v1.1.0
+  exact-tag builds
+  GitHub Release 1.1.0
+
+LATER
+  modernisation CI à partir d'août 2026
+  prochain jalon fonctionnel à cadrer séparément
+```
 
 ## Plans d’exécution
 
-Plans conservés :
+### Cycle initial et 1.0
 
 - [`D0_EXECUTION.md`](D0_EXECUTION.md)
 - [`M15_EXECUTION.md`](M15_EXECUTION.md)
@@ -63,36 +64,41 @@ Plans conservés :
 - [`M18_EXECUTION.md`](M18_EXECUTION.md)
 - [`M19_EXECUTION.md`](M19_EXECUTION.md)
 - [`M20_EXECUTION.md`](M20_EXECUTION.md)
-- [`D1_EXECUTION.md`](D1_EXECUTION.md) — consolidation post-M20 terminée et intégrée.
+- [`D1_EXECUTION.md`](D1_EXECUTION.md)
 
-Le plan `M21_EXECUTION.md` sera créé au lancement de M21.
+### Évolutions 1.x
 
-Les plans terminés restent des **archives d’exécution enrichies par leur état d’intégration final**. Ils conservent les SHA testés, gates, ADR et merges associés.
+- [`M21_EXECUTION.md`](M21_EXECUTION.md)
+- [`M22_EXECUTION.md`](M22_EXECUTION.md)
+- [`M23_EXECUTION.md`](M23_EXECUTION.md)
+- [`M24_EXECUTION.md`](M24_EXECUTION.md)
+- [`M25_EXECUTION.md`](M25_EXECUTION.md)
+- [`M26_EXECUTION.md`](M26_EXECUTION.md)
+- [`M27_EXECUTION.md`](M27_EXECUTION.md)
 
-## Preuves de release
+### Releases
 
-- [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md) — qualification technique M20 Windows + Linux ;
-- [`../validation/VALIDATION_D1.md`](../validation/VALIDATION_D1.md) — consolidation documentaire D1 ;
-- [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md) — publication officielle `v1.0.0` et GitHub Release.
+- R1 — publication officielle 1.0.0, preuve dans [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md)
+- [`R2_EXECUTION.md`](R2_EXECUTION.md) — candidate 1.1.0, preuve en construction dans [`../validation/VALIDATION_R2.md`](../validation/VALIDATION_R2.md)
+
+## Commandes R2
+
+Windows :
+
+```powershell
+.\validate-r2.cmd -Version 1.1.0
+```
+
+Linux/WSL :
+
+```bash
+bash ./scripts/validate-r2.sh 1.1.0
+```
+
+Les deux plateformes doivent qualifier le même SHA exact. Les builds de release exact-tag restent interdits avant merge et création autorisée de `v1.1.0`.
 
 ## Politique documentaire
 
-La distinction entre documentation active, ADR normatives et preuves historiques est définie dans [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
+Les plans terminés restent des archives enrichies par leur état d’intégration final. Les fichiers `VALIDATION_*.md` conservent les faits observés au moment des gates ; ils ne sont jamais réécrits pour fabriquer rétroactivement un PASS, un merge ou une publication.
 
-Les fichiers `VALIDATION_M*.md` et `VALIDATION_R*.md` restent des preuves historiques autoritatives : ils ne sont jamais réécrits pour faire croire qu’un merge ou une publication existait au moment d’un gate antérieur. Les roadmaps et index actifs, eux, reflètent l’état GitHub courant.
-
-## Ordre de lecture recommandé
-
-```text
-ROADMAP globale
-    ↓
-POST_M20_EVOLUTION — trajectoire active 1.x
-    ↓
-M21_EXECUTION — à créer au lancement de M21
-
-Preuves 1.0 :
-VALIDATION_M20 → VALIDATION_D1 → VALIDATION_R1
-
-Historique :
-POST_M14_EXECUTION → M15…M20
-```
+En juillet 2026, GitHub Actions n'est pas utilisé comme gate R2 et `.github/workflows` n'est pas modifié opportunément. Les sorties locales Windows + Linux/WSL exact-head sont autoritatives.
