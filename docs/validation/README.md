@@ -48,20 +48,17 @@ R2   603 tests | architecture 238
 M28  608 tests | architecture 243
 ```
 
-## M28 — qualification complète
+## M28 — qualification intégrée
 
 ```text
 baseline               8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
-branch                 m28-mcp-client-integration
-issue                  #115
-PR                     #116
 qualified exact head   58adfeb13b79808da12830f2d0b0b24ec46f67e6
 Windows result         PASS
 Linux/WSL result       PASS
 same executable SHA    PASS
-review threads         0
-blocking reviews       0
-merge                  AUTHORIZED
+PR                     #116 MERGED
+merge commit           1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
+issue                  #115 CLOSED / completed
 ```
 
 Preuve : [`VALIDATION_M28.md`](VALIDATION_M28.md).
@@ -84,8 +81,6 @@ Windows setup wiring
 Docker required = false
 post-gate executable delta = NONE
 ```
-
-Le gate Linux valide le reactor, les contrats statiques et le packaging Linux. Les mutations de profils clients sont qualifiées sur Windows uniquement.
 
 ## Politique de gate
 
