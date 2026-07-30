@@ -1,6 +1,6 @@
 # ADR-0095 — Evidence-backed assisted reasoning
 
-Statut : **Proposée — M27, acceptation conditionnée à la qualification exact-head**
+Statut : **Acceptée — M27**
 
 Date : 30 juillet 2026
 
@@ -154,26 +154,33 @@ Positives : séparation machine-verifiable des faits et inférences, confiance e
 
 Coûts : format de requête plus strict, obligation de fournir des preuves identifiées, validation supplémentaire des sorties d’adaptateurs, absence volontaire de mémoire conversationnelle ou de promotion automatique.
 
-## Critères d’acceptation
+## Qualification
 
-ADR-0095 ne devient **Acceptée — M27** qu’après qualification Windows + Linux/WSL sur le même SHA exact :
+La décision est acceptée après double qualification locale Windows + Linux/WSL sur le même SHA exact :
 
 ```text
-facts / claims separation                PASS
-confidence bounds + bands                PASS
-evidence citations + provenance          PASS
-facts-only without selected adapter      PASS
-adapter failure isolation                PASS
-no silent mutation                       PASS
-CLI / MCP / HTTP convergence             PASS
-remote READ classification               PASS
-budgets                                  PASS
-tests >= 602                             PASS
-architecture tests >= 238                PASS
-coverage thresholds                      PASS
-SBOM / provenance                        PASS
-portable Windows + Linux                 PASS
-postGateExecutableDelta                  NONE
+SHA exact qualifié                         f97307c878125550693699124ca717f64f305a3a
+Windows                                    PASS
+Linux / WSL                                PASS
+Tests                                      602 PASS sur chaque plateforme
+Architecture                               238 PASS sur chaque plateforme
+Windows line / branch                      45.2226% / 38.4456%
+Linux line / branch                        45.2246% / 38.4456%
+Facts / claims separation                  PASS
+Confidence bounds + bands                  PASS
+Evidence citations + provenance            PASS
+Facts-only without selected adapter        PASS
+Adapter failure isolation                  PASS
+No silent mutation                         PASS
+CLI / MCP / HTTP convergence               PASS
+Remote READ classification                 PASS
+Budgets                                    PASS
+SBOM / provenance                          PASS Windows + Linux
+Portable                                   PASS Windows + Linux
+Packaged reasoning smokes                  PASS Windows + Linux
+postGateExecutableDelta                    NONE Windows + Linux
 ```
+
+Les preuves détaillées sont conservées dans [`../validation/VALIDATION_M27.md`](../validation/VALIDATION_M27.md).
 
 En juillet 2026, aucune GitHub Actions / CI ne constitue une preuve M27.
