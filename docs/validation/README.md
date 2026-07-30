@@ -20,17 +20,34 @@ Chaque document conserve les décisions, SHA, commandes et résultats réellemen
 
 ## Baseline stable publiée
 
-MORPHEUS **1.1.0** a été consolidé via R2.
+MORPHEUS **1.2.0** a été consolidé via R3.
 
 ```text
-main merge             31506029ded1101f0571edeb0d79c59bbf3f68c6
-tag                    v1.1.0
-Windows tests          603 PASS
-Linux/WSL tests        603 PASS
-architecture           238 PASS sur les deux plateformes
-exact-tag builds       PASS Windows + Linux
-GitHub Release         stable / 8 assets
-published parity       8/8 PASS
+qualified executable    d08542026817f0d743766656a0197790c6809eca
+main release commit     3ad9ebf030b58df97482e21e272c24feae6b9d86
+tag                     v1.2.0
+Windows tests           608 PASS
+Linux/WSL tests         608 PASS
+architecture            243 PASS sur les deux plateformes
+same SHA                PASS
+exact-tag builds        PASS Windows + Linux
+GitHub Release          stable / latest / 8 assets
+published parity        8/8 PASS
+PR                      #118 MERGED
+issue                   #117 CLOSED / completed
+```
+
+Preuve : [`VALIDATION_R3.md`](VALIDATION_R3.md).
+
+## Release stable précédente
+
+```text
+version                 1.1.0
+tag                     v1.1.0
+release commit          31506029ded1101f0571edeb0d79c59bbf3f68c6
+Windows/Linux tests     603 / 603 PASS
+architecture            238 PASS sur les deux plateformes
+published parity        8/8 PASS
 ```
 
 Preuve : [`VALIDATION_R2.md`](VALIDATION_R2.md).
@@ -47,12 +64,12 @@ M26  579 tests | architecture 234
 M27  602 tests | architecture 238
 R2   603 tests | architecture 238
 M28  608 tests | architecture 243
+R3   608 tests | architecture 243
 ```
 
-## M28 — qualification intégrée
+## M28 — qualification intégrée et publiée
 
 ```text
-baseline               8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
 qualified exact head   58adfeb13b79808da12830f2d0b0b24ec46f67e6
 Windows result         PASS
 Linux/WSL result       PASS
@@ -60,6 +77,7 @@ same executable SHA    PASS
 PR                     #116 MERGED
 merge commit           1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
 issue                  #115 CLOSED / completed
+release                MORPHEUS 1.2.0
 ```
 
 Preuve : [`VALIDATION_M28.md`](VALIDATION_M28.md).
@@ -83,23 +101,26 @@ Docker required = false
 post-gate executable delta = NONE
 ```
 
-## R3 — candidate MORPHEUS 1.2.0
+## R3 — MORPHEUS 1.2.0 publié
 
 ```text
-issue                  #117 OPEN
-PR                     #118 DRAFT
-branch                 r3-release-1.2.0
-main baseline          8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
-develop baseline       2080c99895115464dafefb6515541666c5d972d8
-target version         1.2.0
-target tag             v1.2.0
-Windows result         NOT RUN
-Linux/WSL result       NOT RUN
-same executable SHA    NOT RUN
-GitHub Release         NOT PUBLISHED
+issue                  #117 CLOSED / completed
+PR                     #118 MERGED
+qualified executable   d08542026817f0d743766656a0197790c6809eca
+main release commit    3ad9ebf030b58df97482e21e272c24feae6b9d86
+tag                    v1.2.0
+Windows result         PASS
+Linux/WSL result       PASS
+same executable SHA    PASS
+reactor version        PASS — 1.2.0 across 17 POMs
+exact-tag Windows      PASS
+exact-tag Linux        PASS
+GitHub Release         PUBLISHED / stable / latest
+published assets       8/8
+published parity       8/8 PASS
 ```
 
-R3 doit prouver :
+R3 prouve :
 
 ```text
 17 POM version parity at 1.2.0
@@ -111,11 +132,12 @@ no SQLite migration delta
 no GitHub Actions workflow delta
 same exact SHA Windows/Linux
 post-gate executable delta = NONE
+immutable tag on exact main release commit
 exact-tag Windows/Linux builds
 published parity 8/8
 ```
 
-Preuve active : [`VALIDATION_R3.md`](VALIDATION_R3.md).
+Preuve finale : [`VALIDATION_R3.md`](VALIDATION_R3.md).
 
 ## Politique de gate
 
@@ -130,4 +152,6 @@ no workflow rerun
 no workflow dispatch
 no .github/workflows modification
 local exact-head logs are authoritative
+exact-tag builds are authoritative for release assets
+published byte-for-byte parity is required
 ```
