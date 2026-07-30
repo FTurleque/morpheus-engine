@@ -34,9 +34,12 @@ VALIDATION_M23.md
 VALIDATION_M24.md
 VALIDATION_M25.md
 VALIDATION_M26.md
+VALIDATION_M27.md  (NON QUALIFIÉ — dossier de gate en cours)
 ```
 
 Chaque document conserve les décisions, SHA testés, commandes et gates connus au moment de la validation. Ils constituent des **preuves historiques** ; la documentation utilisateur et développeur active vit respectivement dans [`../user/`](../user/) et [`../developer/`](../developer/).
+
+Un dossier marqué **NON QUALIFIÉ** décrit les preuves attendues et ne constitue pas une validation historique.
 
 ## Baseline publiée
 
@@ -94,5 +97,22 @@ CI / GitHub Actions     non utilisé — juillet 2026
 ```
 
 La preuve détaillée est [`VALIDATION_M26.md`](VALIDATION_M26.md).
+
+## Jalon M27 en qualification
+
+**M27 — Evidence-backed Assisted Reasoning** est implémenté sur la PR draft #112, mais n’est pas qualifié :
+
+```text
+Issue                    #111 OPEN
+PR                       #112 OPEN / DRAFT
+Tests attendus           >= 602
+Architecture attendue    >= 238
+Windows exact-head       NOT RUN
+Linux / WSL exact-head   NOT RUN
+ADR-0095                 PROPOSÉE
+Merge                    BLOCKED
+```
+
+Le dossier de gate est [`VALIDATION_M27.md`](VALIDATION_M27.md). Il ne deviendra une preuve historique qu’après double qualification locale sur le même SHA et réconciliation des valeurs réelles.
 
 Le SHA exact qualifié reste distinct des commits documentaires de consolidation ajoutés ensuite. Une modification de code/POM/contrat runtime/OpenAPI/packaging/validator exige un nouveau gate exact-head Windows + Linux.
