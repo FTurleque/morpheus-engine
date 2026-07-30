@@ -55,10 +55,10 @@ Invoke-Native 'Maven clean verify' { & .\mvnw.cmd 'clean' 'verify' }
 
 $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) { throw "Surefire failures=$($totals.Failures) errors=$($totals.Errors)" }
-if ($totals.Tests -lt 598) { throw "M27 M26-baseline regression: $($totals.Tests) < 598" }
+if ($totals.Tests -lt 602) { throw "M27 complete test floor regression: $($totals.Tests) < 602" }
 $architecture = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
 if ($architecture.Tests -lt 238) { throw "M27 architecture baseline regression: $($architecture.Tests) < 238" }
-Write-Host "Tests: PASS ($($totals.Tests), M27 minimum >= 598)"
+Write-Host "Tests: PASS ($($totals.Tests), M27 minimum >= 602)"
 Write-Host "Architecture: PASS ($($architecture.Tests), M27 minimum >= 238)"
 
 $coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
