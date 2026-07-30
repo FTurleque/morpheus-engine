@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProductReleaseContractTest {
 
     @Test
-    void productVersionIsFrozenAtOneDotOneDotZeroAcrossTheReactor() throws IOException {
+    void productVersionIsFrozenAtOneDotTwoDotZeroAcrossTheReactor() throws IOException {
         Path root = repoRoot();
         List<Path> poms;
         try (var paths = Files.walk(root)) {
@@ -33,8 +33,10 @@ class ProductReleaseContractTest {
         assertEquals(17, poms.size(), "Unexpected Maven reactor POM count");
         for (Path pomPath : poms) {
             String pom = Files.readString(pomPath);
-            assertTrue(pom.contains("<version>1.1.0</version>"),
-                    () -> "MORPHEUS 1.1.0 version missing from " + root.relativize(pomPath));
+            assertTrue(pom.contains("<version>1.2.0</version>"),
+                    () -> "MORPHEUS 1.2.0 version missing from " + root.relativize(pomPath));
+            assertFalse(pom.contains("<version>1.1.0</version>"),
+                    () -> "Stale MORPHEUS 1.1.0 version remains in " + root.relativize(pomPath));
             assertFalse(pom.contains("<version>1.0.0</version>"),
                     () -> "Stale MORPHEUS 1.0.0 version remains in " + root.relativize(pomPath));
             assertFalse(pom.contains("<version>0.1.0-SNAPSHOT</version>"),
