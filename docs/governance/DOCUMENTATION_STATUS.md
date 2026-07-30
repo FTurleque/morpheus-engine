@@ -1,8 +1,8 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — MORPHEUS 1.x post-M26**
+Statut : **ACTIF — MORPHEUS 1.x post-M27**
 
-Dernière mise à jour : 29 juillet 2026
+Dernière mise à jour : 30 juillet 2026
 
 ## Hiérarchie d’autorité
 
@@ -11,10 +11,10 @@ docs/governance/ROADMAP.md
         ↓
 docs/roadmap/POST_M20_EVOLUTION.md
         ↓
-plan d’exécution du jalon actif
+plan d’exécution du jalon actif ou dernier plan final intégré
 ```
 
-M26 est intégré. **M27 — Evidence-backed Assisted Reasoning** est le prochain jalon actif.
+M27 est validé et intégré. Aucun jalon post-M27 n’est actuellement déclaré actif.
 
 Pour les contrats exposés :
 
@@ -43,15 +43,15 @@ docs/governance/DOCUMENTATION_STATUS.md
 docs/roadmap/POST_M20_EVOLUTION.md
 ```
 
-Points d’entrée M26 :
+Points d’entrée M27 :
 
 ```text
-docs/roadmap/M26_EXECUTION.md
-docs/validation/VALIDATION_M26.md
-docs/adr/0094-optional-team-remote-server-mode.md
-docs/user/TEAM_REMOTE_SERVER.md
-docs/developer/REMOTE_SERVER_PLATFORM.md
-docs/openapi/morpheus-v1-remote-m26.yaml
+docs/roadmap/M27_EXECUTION.md
+docs/validation/VALIDATION_M27.md
+docs/adr/0095-evidence-backed-assisted-reasoning.md
+docs/user/ASSISTED_REASONING.md
+docs/developer/ASSISTED_REASONING.md
+docs/openapi/morpheus-v1-reasoning-m27.yaml
 contracts/public-surfaces.tsv
 ```
 
@@ -59,25 +59,27 @@ contracts/public-surfaces.tsv
 
 Les fichiers `docs/validation/VALIDATION_*.md` conservent les SHA, nombres de tests, couvertures et résultats réellement observés. Une réconciliation documentaire ne réécrit jamais ces faits.
 
-Pour M26 :
+Pour M27 :
 
 ```text
-Exact-head qualifié  bf481b24054c4577144b4cb2ede2bdbc4d9974a2
-PR docs head         36378842e3ef41e379ade17f869b0939d052bbbc
-Merge develop        49016a18c844a78ec864235c544d82d487da7c8a
-Tests                579 PASS Windows + Linux
-Architecture         234 PASS Windows + Linux
-Windows coverage     44.3507% / 37.8842%
-Linux coverage       44.3527% / 37.8842%
-Local-first          PASS
-TLS/auth/RBAC        PASS
-Bounded concurrency  PASS / HTTP 429
-Secret disclosure    NONE
-Backup/restore       PASS
-SQLite               V015
+Exact-head qualifié  f97307c878125550693699124ca717f64f305a3a
+PR docs head         026c1d5f8671cd7b879fa89d51af8e83a5f06272
+Merge develop        f8810803bd5ae7d57c4858e1e384c6a0132e1a45
+Tests                602 PASS Windows + Linux
+Architecture         238 PASS Windows + Linux
+Windows coverage     45.2226% / 38.4456%
+Linux coverage       45.2246% / 38.4456%
+Facts / claims       séparation PASS
+Confidence           explicite et bornée PASS
+Evidence             citations + provenance PASS
+Adapters             optionnels + fault isolation PASS
+No silent mutation   PASS / mutated=false
+CLI/MCP/HTTP         convergence PASS
+Remote READ RBAC     PASS
 Portable             PASS Windows + Linux
+SBOM/provenance      PASS Windows + Linux
 Executable delta     NONE après qualification
-ADR-0094             Acceptée — M26
+ADR-0095             Acceptée — M27
 ```
 
 Le compare entre le SHA exact qualifié et le head PR a confirmé que tous les commits post-gate avant merge étaient exclusivement documentaires.
@@ -94,9 +96,10 @@ M23            ✅ validé et intégré
 M24            ✅ validé et intégré
 M25            ✅ validé et intégré
 M26            ✅ validé et intégré
-M27            ⏭ NOW
+M27            ✅ validé et intégré
+Prochain jalon ⏳ non défini
 ```
 
-La version officiellement publiée reste `v1.0.0`. M21→M26 sont des évolutions 1.x intégrées sur cette baseline.
+La version officiellement publiée reste `v1.0.0`. M21→M27 sont des évolutions 1.x intégrées sur cette baseline.
 
-Aucune GitHub Actions / CI n’a servi de gate M26 en juillet 2026 ; la preuve de référence est la double qualification locale Windows + Linux/WSL exact-head.
+Aucune GitHub Actions / CI n’a servi de gate M27 en juillet 2026 ; la preuve de référence est la double qualification locale Windows + Linux/WSL exact-head.
