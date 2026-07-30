@@ -1,8 +1,8 @@
 # MORPHEUS — Roadmap d’évolution post-M20
 
-Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 à M26 intégrés ; M27 prochain jalon actif**
+Statut : **ACTIVE — MORPHEUS 1.0.0 publié ; M21 à M27 validés et intégrés ; prochain jalon à cadrer**
 
-Dernière mise à jour : 29 juillet 2026
+Dernière mise à jour : 30 juillet 2026
 
 Cette roadmap commence après l’intégration de M20 et porte la trajectoire active de MORPHEUS 1.x. La trajectoire [`POST_M14_EXECUTION.md`](POST_M14_EXECUTION.md) est conservée comme historique D0→M20.
 
@@ -30,6 +30,7 @@ M23           ✅ validé et intégré
 M24           ✅ validé et intégré
 M25           ✅ validé et intégré
 M26           ✅ validé et intégré
+M27           ✅ validé et intégré
 M20 merge     75d0b82ab0c960692db2fee1ced146fa6547fd4a
 D1 merge      51f6a120f3461c8d8c24323f3db8211d28d6cb42
 M21 merge     2fdce6601a07628c315fe03932750cd8ece3d777
@@ -45,7 +46,11 @@ M26 code      bf481b24054c4577144b4cb2ede2bdbc4d9974a2
 M26 PR head   36378842e3ef41e379ade17f869b0939d052bbbc
 M26 merge     49016a18c844a78ec864235c544d82d487da7c8a
 M26 tests     579 PASS Windows + Linux
-Architecture  234 PASS M26 Windows + Linux
+M27 code      f97307c878125550693699124ca717f64f305a3a
+M27 PR head   026c1d5f8671cd7b879fa89d51af8e83a5f06272
+M27 merge     f8810803bd5ae7d57c4858e1e384c6a0132e1a45
+M27 tests     602 PASS Windows + Linux
+Architecture  238 PASS M27 Windows + Linux
 MORPHEUS      1.0.0
 v1.0.0        ✅ tag stable publié
 ```
@@ -58,7 +63,8 @@ Preuves :
 - [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md) ;
 - [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md) ;
 - [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md) ;
-- [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
+- [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md) ;
+- [`../validation/VALIDATION_M27.md`](../validation/VALIDATION_M27.md).
 
 ## Invariants post-1.0
 
@@ -66,7 +72,16 @@ Preuves :
 local-first remains default
 no mandatory LLM in core
 facts != inference
+inference != suggestion
+heuristic != published fact
 inference never overwrites published facts
+confidence is explicit and bounded
+assisted output cites evidence
+adapter discovery != adapter execution
+adapter absence != MORPHEUS failure
+adapter failure != fact loss
+reasoning execution != lifecycle mutation
+reasoning execution != policy override
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
 provider identifier != DomainIdentity
 source path != identity
@@ -142,15 +157,15 @@ GitHub Release         stable / 8 assets
 
 ## D1 — Consolidation post-M20
 
-Issue : **#94 CLOSED / completed**.  
-PR : **#95 MERGED**.  
+Issue : **#94 CLOSED / completed**.
+PR : **#95 MERGED**.
 Merge : `51f6a120f3461c8d8c24323f3db8211d28d6cb42`.
 
 ## M21 — Production Integrity & Surface Convergence
 
-Issue : **#98 CLOSED / completed**.  
-PR : **#99 MERGED**.  
-Merge : `2fdce6601a07628c315fe03932750cd8ece3d777`.  
+Issue : **#98 CLOSED / completed**.
+PR : **#99 MERGED**.
+Merge : `2fdce6601a07628c315fe03932750cd8ece3d777`.
 Head exécutable qualifié : `239d99657fbf193761767f382489dd637e642fe9`.
 
 ```text
@@ -165,9 +180,9 @@ ADR-0089             Acceptée — M21
 
 ## M22 — Provider SDK & Plugin Discovery Platform
 
-Issue : **#100 CLOSED / completed**.  
-PR : **#101 MERGED**.  
-Merge : `67c587057e287d57b0733f9e425a57b26cc38ae4`.  
+Issue : **#100 CLOSED / completed**.
+PR : **#101 MERGED**.
+Merge : `67c587057e287d57b0733f9e425a57b26cc38ae4`.
 Head exécutable qualifié : `e42bc31384831e56592b11a3509b49a3fdf61773`.
 
 ```text
@@ -183,9 +198,9 @@ ADR-0090               Acceptée — M22
 
 ## M23 — Multi-project / Portfolio Specification Intelligence
 
-Issue : **#103 CLOSED / completed**.  
-PR : **#104 MERGED**.  
-Merge : `88355b69c493677c8689eecad214fb00d283359b`.  
+Issue : **#103 CLOSED / completed**.
+PR : **#104 MERGED**.
+Merge : `88355b69c493677c8689eecad214fb00d283359b`.
 Head exécutable qualifié : `04a906e9d5858292ed0f0f1bec65246fef91ed63`.
 
 ```text
@@ -208,9 +223,9 @@ ADR-0091                 Acceptée — M23
 
 Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
 
-Issue : **#105 CLOSED / completed**.  
-PR : **#106 MERGED**.  
-Merge : `2b483ded10c783fff22c25035db89475c5c9fdaf`.  
+Issue : **#105 CLOSED / completed**.
+PR : **#106 MERGED**.
+Merge : `2b483ded10c783fff22c25035db89475c5c9fdaf`.
 Head exécutable qualifié : `be69e47da0ae209d2246df9c67bc08caeafb2bb0`.
 
 ```text
@@ -237,17 +252,17 @@ Executable delta         NONE Windows + Linux
 ADR-0092                 Acceptée — M24
 ```
 
-Preuve : [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).  
+Preuve : [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).
 Plan final : [`M24_EXECUTION.md`](M24_EXECUTION.md).
 
 ## M25 — Policy Packs & Governance Automation
 
 Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
 
-Issue : **#107 CLOSED / completed**.  
-PR : **#108 MERGED dans `develop`**.  
-Merge : `62bf0ea37f732116e821df7d98ae89d36c6dd75d`.  
-Head exact qualifié Windows + Linux/WSL : `a392604fc9e8d00f4021351ab5ba53f8488ab920`.  
+Issue : **#107 CLOSED / completed**.
+PR : **#108 MERGED dans `develop`**.
+Merge : `62bf0ea37f732116e821df7d98ae89d36c6dd75d`.
+Head exact qualifié Windows + Linux/WSL : `a392604fc9e8d00f4021351ab5ba53f8488ab920`.
 Head PR post-gate docs-only : `9239be641992f40a46f228e09cf6b34ad1cbb1a4`.
 
 Question de sortie :
@@ -277,17 +292,17 @@ ADR-0093                  Acceptée — M25
 CI / GitHub Actions       non utilisé — juillet 2026
 ```
 
-Preuve : [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).  
+Preuve : [`../validation/VALIDATION_M25.md`](../validation/VALIDATION_M25.md).
 Plan final : [`M25_EXECUTION.md`](M25_EXECUTION.md).
 
 ## M26 — Optional Team/Remote Server Mode
 
 Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
 
-Issue : **#109 CLOSED / completed**.  
-PR : **#110 MERGED dans `develop`**.  
-Merge : `49016a18c844a78ec864235c544d82d487da7c8a`.  
-Head exact qualifié Windows + Linux/WSL : `bf481b24054c4577144b4cb2ede2bdbc4d9974a2`.  
+Issue : **#109 CLOSED / completed**.
+PR : **#110 MERGED dans `develop`**.
+Merge : `49016a18c844a78ec864235c544d82d487da7c8a`.
+Head exact qualifié Windows + Linux/WSL : `bf481b24054c4577144b4cb2ede2bdbc4d9974a2`.
 Head PR post-gate docs-only : `36378842e3ef41e379ade17f869b0939d052bbbc`.
 
 Question de sortie :
@@ -322,15 +337,52 @@ ADR-0094                  Acceptée — M26
 CI / GitHub Actions       non utilisé — juillet 2026
 ```
 
-Preuve : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).  
+Preuve : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
 Plan final : [`M26_EXECUTION.md`](M26_EXECUTION.md).
-
-# NOW
 
 ## M27 — Evidence-backed Assisted Reasoning
 
-Question : MORPHEUS peut-il enrichir ses réponses par des inférences assistées sans mélanger faits publiés, heuristiques et suggestions ?
+Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ**.
 
-Axes : evidence envelopes, explicit confidence, provenance, optional reasoning adapters, no silent fact mutation.
+Issue : **#111 CLOSED / completed**.
+PR : **#112 MERGED dans `develop`**.
+Merge : `f8810803bd5ae7d57c4858e1e384c6a0132e1a45`.
+Head exact qualifié Windows + Linux/WSL : `f97307c878125550693699124ca717f64f305a3a`.
+Head PR post-gate docs-only : `026c1d5f8671cd7b879fa89d51af8e83a5f06272`.
 
-Invariants : `facts != inference`, inference never overwrites published facts, assisted reasoning remains optional.
+Question de sortie :
+
+> MORPHEUS peut-il enrichir ses réponses par des inférences assistées sans mélanger faits publiés, heuristiques et suggestions ?
+
+Réponse : **oui, démontré sur Windows et Linux/WSL puis intégré dans `develop`**.
+
+```text
+Evidence envelope          catégories fermées + provenance
+Facts                      exact PUBLISHED_FACT subset
+Claims                     INFERENCE / HEURISTIC / SUGGESTION
+Confidence                 score borné + bande cohérente
+Adapters                   optionnels / sélection explicite
+Builtin adapter            local / déterministe / sans réseau ni LLM
+Failure isolation          faits conservés / claims rejetées atomiquement
+Mutation                   NONE / mutated=false
+Persistence               aucune table ni migration nouvelle
+CLI/MCP/HTTP              convergence PASS
+Remote READ RBAC          PASS
+Tests                     602 PASS Windows + Linux
+Architecture              238 PASS Windows + Linux
+Windows coverage          45.2226% line / 38.4456% branch
+Linux coverage            45.2246% line / 38.4456% branch
+CycloneDX/provenance      PASS Windows + Linux
+Portable                  PASS Windows + Linux
+Packaged reasoning        PASS Windows + Linux
+Executable delta          NONE Windows + Linux
+ADR-0095                  Acceptée — M27
+CI / GitHub Actions       non utilisé — juillet 2026
+```
+
+Preuve : [`../validation/VALIDATION_M27.md`](../validation/VALIDATION_M27.md).
+Plan final : [`M27_EXECUTION.md`](M27_EXECUTION.md).
+
+# NOW
+
+Aucun jalon post-M27 n’est déclaré actif dans cette roadmap. Le prochain jalon doit être cadré explicitement depuis `develop`, avec issue, question de sortie, invariants, gates et branche dédiée.
