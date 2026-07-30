@@ -55,6 +55,43 @@ if tests < 1 or failures or errors:
 print('SQLite V012 -> V015 upgrade compatibility: PASS')
 PY
 
+PACKAGED_M25_M26=SKIPPED
+if [[ "$SKIP_PORTABLE" != true ]]; then
+  LAUNCHER="$REPO/validation-output/m27/dist/.m20-linux/image/morpheus/bin/morpheus"
+  [[ -x "$LAUNCHER" ]] || { echo "R2 packaged launcher is missing: $LAUNCHER" >&2; exit 1; }
+
+  JAR_TOOL="${JAVA_HOME:-}/bin/jar"
+  if [[ ! -x "$JAR_TOOL" ]]; then JAR_TOOL="$(command -v jar || true)"; fi
+  [[ -x "$JAR_TOOL" ]] || { echo 'jar tool is unavailable' >&2; exit 1; }
+  SHADED_JAR="$(find "$REPO/morpheus-cli/target" -maxdepth 1 -type f -name 'morpheus-cli-*-all.jar' -print | sort | tail -n 1)"
+  [[ -n "$SHADED_JAR" ]] || { echo 'Shaded MORPHEUS CLI JAR not found' >&2; exit 1; }
+  "$JAR_TOOL" tf "$SHADED_JAR" > "$OUTPUT/shaded-entries.txt"
+
+  for entry in \
+    'com/morpheus/application/policy/PolicyPackService.class' \
+    'com/morpheus/application/policy/PolicyEvaluationService.class' \
+    'com/morpheus/store/sqlite/SqlitePolicyPackStore.class' \
+    'com/morpheus/cli/MorpheusPolicyCli.class' \
+    'com/morpheus/mcp/MorpheusPolicyMcpTools.class' \
+    'com/morpheus/api/MorpheusPolicyApiService.class' \
+    'com/morpheus/api/MorpheusPolicyHttpRoutes.class' \
+    'db/migration/V015__policy_packs.sql' \
+    'com/morpheus/api/MorpheusRemoteHttpServer.class' \
+    'com/morpheus/api/MorpheusRemoteIdentityFile.class' \
+    'com/morpheus/api/MorpheusRemoteRole.class' \
+    'com/morpheus/store/sqlite/SqliteServerMaintenance.class' \
+    'com/morpheus/cli/RemoteApiLaunchOptions.class' \
+    'com/morpheus/cli/MorpheusServerCli.class'; do
+    grep -Fxq "$entry" "$OUTPUT/shaded-entries.txt" || { echo "R2 packaged runtime is missing $entry" >&2; exit 1; }
+  done
+
+  HELP="$($LAUNCHER help)"
+  [[ "$HELP" == *'Policy packs / governance automation (M25)'* ]] || { echo 'Packaged M25 help surface is missing' >&2; exit 1; }
+  [[ "$HELP" == *'Team / remote server (M26, opt-in)'* ]] || { echo 'Packaged M26 help surface is missing' >&2; exit 1; }
+  printf '%s\n' 'Packaged M25 policy + M26 remote classes, migration and CLI surfaces: PASS'
+  PACKAGED_M25_M26=PASS
+fi
+
 grep -Fq '<version>1.1.0</version>' "$REPO/pom.xml" || { echo 'Root POM is not 1.1.0' >&2; exit 1; }
 grep -Fq "[string]\$Version = '1.1.0'" "$REPO/distribution/build-release.ps1" || { echo 'Windows release default version is incoherent' >&2; exit 1; }
 grep -Fq 'VERSION="${1:-1.1.0}"' "$REPO/distribution/build-release.sh" || { echo 'Linux release default version is incoherent' >&2; exit 1; }
@@ -87,6 +124,7 @@ policyPacks=PASS
 remoteServer=PASS
 assistedReasoning=PASS
 surfaceConvergence=PASS
+packagedM25M26=$PACKAGED_M25_M26
 sbom=PASS
 provenance=PASS
 portable=$([[ "$SKIP_PORTABLE" == true ]] && echo false || echo true)
