@@ -149,9 +149,9 @@ Commandes prévues :
 bash ./scripts/validate-r2.sh 1.1.0
 ```
 
-Plan : [`R2_EXECUTION.md`](../roadmap/R2_EXECUTION.md).  
-Preuve en construction : [`VALIDATION_R2.md`](../validation/VALIDATION_R2.md).  
-Notes candidates : [`RELEASE_NOTES_1.1.0.md`](../release/RELEASE_NOTES_1.1.0.md).  
+Plan : [`R2_EXECUTION.md`](../roadmap/R2_EXECUTION.md).
+Preuve en construction : [`VALIDATION_R2.md`](../validation/VALIDATION_R2.md).
+Notes candidates : [`RELEASE_NOTES_1.1.0.md`](../release/RELEASE_NOTES_1.1.0.md).
 Upgrade : [`UPGRADE_1_1.md`](../user/UPGRADE_1_1.md).
 
 ## 5. Capacités acquises
