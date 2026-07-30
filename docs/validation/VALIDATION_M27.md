@@ -1,12 +1,12 @@
 # Validation M27 — Evidence-backed Assisted Reasoning
 
-Statut : **NON QUALIFIÉ — GATES LOCAUX À EXÉCUTER**
+Statut : **QUALIFIÉ — WINDOWS + LINUX/WSL PASS SUR LE MÊME SHA EXACT**
 
-Date de cadrage : 30 juillet 2026
+Date de qualification : 30 juillet 2026
 
 ## 1. Portée
 
-M27 doit démontrer que MORPHEUS peut enrichir une réponse par des claims assistées sans confondre :
+M27 démontre que MORPHEUS peut enrichir une réponse par des claims assistées sans confondre :
 
 ```text
 published facts
@@ -15,25 +15,26 @@ heuristics
 suggestions
 ```
 
-La preuve doit aussi démontrer : confiance explicite, citations d’évidence, provenance, adaptateurs optionnels, isolation des erreurs, absence de mutation et convergence CLI/MCP/HTTP.
+La preuve couvre également la confiance explicite, les citations d’évidence, la provenance, les adaptateurs optionnels, l’isolation des erreurs, l’absence de mutation et la convergence CLI/MCP/HTTP.
 
-## 2. Baseline
+## 2. Baseline et candidat qualifié
 
 ```text
-repository          FTurleque/morpheus-engine
-integration branch  develop
-baseline SHA        c1eb1e74afe92db8b4a9250b678ce7d0d5c99ca7
-M26 qualified SHA   bf481b24054c4577144b4cb2ede2bdbc4d9974a2
-M26 merge           49016a18c844a78ec864235c544d82d487da7c8a
-M26 tests           579 PASS Windows + Linux/WSL
-M26 architecture    234 PASS Windows + Linux/WSL
-M27 added tests     23
-M27 issue           #111
-M27 branch          m27-evidence-assisted-reasoning
-M27 PR              #112 DRAFT
+repository              FTurleque/morpheus-engine
+integration branch      develop
+baseline SHA            c1eb1e74afe92db8b4a9250b678ce7d0d5c99ca7
+M26 qualified SHA       bf481b24054c4577144b4cb2ede2bdbc4d9974a2
+M26 merge               49016a18c844a78ec864235c544d82d487da7c8a
+M27 issue               #111
+M27 branch              m27-evidence-assisted-reasoning
+M27 PR                  #112
+M27 qualified SHA       f97307c878125550693699124ca717f64f305a3a
+version                 1.0.0
 ```
 
-## 3. Commandes autoritatives
+Les qualifications Windows et Linux/WSL ont toutes deux démarré et terminé sur ce même SHA exact.
+
+## 3. Commandes autoritatives exécutées
 
 Windows :
 
@@ -47,9 +48,9 @@ Linux/WSL :
 bash ./scripts/validate-m27.sh 1.0.0
 ```
 
-Aucun workflow GitHub Actions n’est utilisé comme gate en juillet 2026.
+Aucun workflow GitHub Actions n’a été utilisé comme gate en juillet 2026.
 
-## 4. Minimums
+## 4. Seuils
 
 ```text
 tests                >= 602
@@ -59,37 +60,38 @@ branch coverage      >= 35%
 portable             Windows + Linux
 SBOM/provenance      Windows + Linux
 exact head           même SHA
-post-gate delta      NONE
+post-gate executable NONE
 ```
 
-Le seuil de 602 correspond aux 579 tests M26 plus les 23 tests M27. Il est volontairement strict afin qu’aucune famille de contrats M27 ne puisse disparaître sans faire échouer le gate.
+Le seuil de 602 correspond aux 579 tests M26 plus les 23 tests M27.
 
-## 5. Matrice de preuve
+## 5. Résultats exact-head
 
-| Gate | Windows | Linux/WSL | Preuve attendue |
-|---|---:|---:|---|
-| `git diff --check` | NOT RUN | NOT RUN | aucune erreur |
-| reactor `clean verify` | NOT RUN | NOT RUN | zéro failure/error |
-| tests >= 602 | NOT RUN | NOT RUN | total Surefire |
-| architecture >= 238 | NOT RUN | NOT RUN | module architecture |
-| line >= 42% | NOT RUN | NOT RUN | summary JaCoCo |
-| branch >= 35% | NOT RUN | NOT RUN | summary JaCoCo |
-| facts/inference separation | NOT RUN | NOT RUN | tests + portable smoke |
-| confidence bounds/bands | NOT RUN | NOT RUN | tests + portable smoke |
-| evidence citations/provenance | NOT RUN | NOT RUN | tests + portable smoke |
-| facts-only without adapter | NOT RUN | NOT RUN | `assisted=false` |
-| adapter fault isolation | NOT RUN | NOT RUN | facts retained / FAILED execution |
-| no silent mutation | NOT RUN | NOT RUN | `mutated=false` |
-| CLI/MCP/HTTP convergence | NOT RUN | NOT RUN | manifest + OpenAPI + tests |
-| remote READ RBAC | NOT RUN | NOT RUN | HTTPS test with READ identity |
-| shaded runtime classes | NOT RUN | NOT RUN | JAR entries |
-| portable launcher | NOT RUN | NOT RUN | packaged smokes |
-| CycloneDX JSON/XML | NOT RUN | NOT RUN | generated files |
-| build provenance | NOT RUN | NOT RUN | generated properties |
-| HEAD unchanged | NOT RUN | NOT RUN | exact SHA |
-| executable delta | NOT RUN | NOT RUN | NONE |
+| Gate | Windows | Linux/WSL |
+|---|---:|---:|
+| `git diff --check` | PASS | PASS |
+| reactor `clean verify` | PASS | PASS |
+| tests | 602 PASS | 602 PASS |
+| architecture | 238 PASS | 238 PASS |
+| line coverage | 45.2226% PASS | 45.2246% PASS |
+| branch coverage | 38.4456% PASS | 38.4456% PASS |
+| facts/inference separation | PASS | PASS |
+| confidence bounds/bands | PASS | PASS |
+| evidence citations/provenance | PASS | PASS |
+| facts-only without adapter | PASS | PASS |
+| adapter fault isolation | PASS | PASS |
+| no silent mutation | PASS | PASS |
+| CLI/MCP/HTTP convergence | PASS | PASS |
+| remote READ RBAC | PASS | PASS |
+| shaded runtime classes | PASS | PASS |
+| portable launcher | PASS | PASS |
+| packaged reasoning smokes | PASS | PASS |
+| CycloneDX JSON/XML | PASS | PASS |
+| build provenance | PASS | PASS |
+| HEAD exact | `f97307c...` | `f97307c...` |
+| post-gate executable delta | NONE | NONE |
 
-## 6. Contrats à vérifier
+## 6. Contrats prouvés
 
 ### Facts-only
 
@@ -126,9 +128,9 @@ facts                  => retained
 lifecycle/store write  => none
 ```
 
-## 7. Packaging attendu
+## 7. Packaging
 
-Le shaded JAR et le portable doivent contenir au minimum :
+Le shaded JAR et les distributions portables contiennent les classes M27 requises :
 
 ```text
 com/morpheus/application/reasoning/ReasoningContracts.class
@@ -140,54 +142,49 @@ com/morpheus/api/MorpheusReasoningHttpRoutes.class
 com/morpheus/mcp/MorpheusReasoningMcpTools.class
 ```
 
-## 8. Contrôles statiques déjà réalisés
-
-Ces contrôles ne remplacent pas les gates Maven du dépôt :
+Artefacts produits :
 
 ```text
-Java 21 core compile + facts-only/assisted smoke   PASS
-Java 21 CLI compile + assisted smoke               PASS
-full Maven reactor                                 NOT RUN
-coverage / SBOM / portable                         NOT RUN
+Windows  validation-output/m27/dist/morpheus-1.0.0-windows-x64.zip
+Linux    validation-output/m27/dist/morpheus-1.0.0-linux-x64.tar.gz
+SBOM     target/m21-supply-chain/morpheus-sbom.xml
+SBOM     target/m21-supply-chain/morpheus-sbom.json
+Provenance target/m21-supply-chain/build-provenance.properties
 ```
 
-Ils démontrent uniquement l’absence d’erreur de syntaxe du noyau et du CLI dans les chemins contrôlés.
+Les smokes packagés ont validé le mode facts-only et le raisonnement assisté explicitement sélectionné sur les deux plateformes.
 
-## 9. Emplacements de logs
+## 8. Relevé de qualification
 
 ```text
-validation-output/m27/validation-summary.txt
-validation-output/m27/dist/
-validation-output/m27/shaded-entries.txt
+qualified SHA                f97307c878125550693699124ca717f64f305a3a
+Windows qualification        PASS — 30 juillet 2026 vers 12:20 CEST
+Linux/WSL qualification      PASS — 30 juillet 2026 vers 12:37 CEST
+Windows tests                602 PASS
+Linux tests                  602 PASS
+Windows architecture         238 PASS
+Linux architecture           238 PASS
+Windows line/branch          0.452226 / 0.384456
+Linux line/branch            0.452246 / 0.384456
+portable                     PASS Windows + Linux
+SBOM/provenance              PASS Windows + Linux
+surface convergence          PASS Windows + Linux
+remote READ RBAC             PASS Windows + Linux
+postGateExecutableDelta      NONE Windows + Linux
 ```
 
-## 10. Relevé exact-head
+## 9. Avertissements non bloquants
 
-À remplir uniquement après exécution réelle :
+Les builds ont émis les avertissements historiques relatifs à l’analyse des dépendances Maven, aux ressources/classes chevauchées du shaded JAR, aux API dépréciées et à l’accès natif SQLite. Aucun avertissement n’a produit de failure, error ou échec de gate.
+
+## 10. Décision
 
 ```text
-qualified SHA           NOT SET
-Windows date/time       NOT SET
-Linux/WSL date/time     NOT SET
-Windows tests           NOT SET
-Linux tests             NOT SET
-Windows architecture    NOT SET
-Linux architecture      NOT SET
-Windows line/branch     NOT SET
-Linux line/branch       NOT SET
-portable                NOT SET
-SBOM/provenance         NOT SET
-postGateExecutableDelta NOT SET
+M27 qualification   PASS
+ADR-0095            ACCEPTED — M27
+PR #112             READY FOR REVIEW / MERGE
+PR merge             AUTHORIZED après vérification docs-only post-gate
+issue #111 closure   après merge + réconciliation documentaire
 ```
 
-## 11. Décision
-
-```text
-M27 qualification   BLOCKED
-ADR-0095            PROPOSED
-PR #112             OPEN / DRAFT
-PR merge             FORBIDDEN UNTIL BOTH LOCAL GATES PASS
-issue #111 closure   FORBIDDEN UNTIL MERGE + RECONCILIATION
-```
-
-Ce document doit être remplacé par les valeurs et logs réels, sans extrapolation, après les deux gates exact-head.
+Les commits documentaires ajoutés après `f97307c878125550693699124ca717f64f305a3a` ne peuvent modifier ni code, ni POM, ni contrat runtime, ni OpenAPI, ni packaging, ni scripts de validation. La comparaison finale doit confirmer `postGateExecutableDelta=NONE`.
