@@ -72,6 +72,7 @@ public final class MorpheusMcpServer {
         tools.addAll(new MorpheusQueryMcpTools(databasePath).specifications());
         tools.addAll(new MorpheusPolicyMcpTools(databasePath).specifications());
         tools.addAll(new MorpheusPolicyMcpManagementTools(databasePath).specifications());
+        tools.addAll(new MorpheusReasoningMcpTools().specifications());
         tools.addAll(new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications());
         tools.addAll(new MorpheusAugmentedContextMcpTools(databasePath, technicalContextProvider).specifications());
         tools.addAll(new MorpheusJarvisOrchestrationMcpTools(databasePath).specifications());
