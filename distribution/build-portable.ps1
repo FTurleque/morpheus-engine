@@ -93,7 +93,7 @@ function Test-PackagedApiOperability {
     }
 }
 
-Write-Host "Building MORPHEUS $Version CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M27 contracts uber-JAR..."
+Write-Host "Building MORPHEUS $Version CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M28 contracts uber-JAR..."
 & $mvnw -pl morpheus-cli -am -DskipTests package
 if ($LASTEXITCODE -ne 0) { throw "Maven package failed with exit code $LASTEXITCODE" }
 
@@ -176,6 +176,21 @@ if ($LASTEXITCODE -ne 0) { throw "jpackage app-image failed with exit code $LAST
 $launcher = Join-Path $appImageRoot "morpheus\morpheus.exe"
 if (-not (Test-Path $launcher)) { throw "Packaged launcher not found: $launcher" }
 
+$integrationSource = Join-Path $repo 'integration'
+$integrationTarget = Join-Path $appImageRoot 'morpheus\integration'
+$integrationManager = Join-Path $integrationSource 'configure-mcp-clients.ps1'
+$integrationSetup = Join-Path $integrationSource 'configure-mcp-clients-setup.ps1'
+if (-not (Test-Path -LiteralPath $integrationManager) -or -not (Test-Path -LiteralPath $integrationSetup)) {
+    throw "M28 MCP client integration scripts are missing under $integrationSource"
+}
+Copy-Item -LiteralPath $integrationSource -Destination $integrationTarget -Recurse -Force
+if (-not (Test-Path -LiteralPath (Join-Path $integrationTarget 'configure-mcp-clients.ps1')) `
+        -or -not (Test-Path -LiteralPath (Join-Path $integrationTarget 'configure-mcp-clients-setup.ps1')) `
+        -or -not (Test-Path -LiteralPath (Join-Path $integrationTarget 'README.md'))) {
+    throw 'M28 MCP client integration packaging proof failed'
+}
+Write-Host 'Packaged MCP client integration manager: PASS'
+
 Write-Host "Smoke testing packaged launcher without MINOS/NEXUS/JARVIS, write-capable provider or external provider-plugin configuration..."
 & $launcher --version
 if ($LASTEXITCODE -ne 0) { throw "Packaged launcher --version smoke test failed with exit code $LASTEXITCODE" }
@@ -237,4 +252,4 @@ Compress-PortableArchiveWithRetry -SourceDirectory (Join-Path $appImageRoot "mor
 if (-not (Test-Path $archive)) { throw "Portable Windows archive is missing after archive creation: $archive" }
 
 Write-Host "Portable Windows distribution: $archive"
-Write-Host "The archive contains MORPHEUS $Version, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters and M14-M27 contracts. External provider plugins, MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."
+Write-Host "The archive contains MORPHEUS $Version, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters, M14-M28 contracts and the opt-in MCP client integration manager. External provider plugins, MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."
