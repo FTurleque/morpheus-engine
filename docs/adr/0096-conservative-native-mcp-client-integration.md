@@ -1,31 +1,20 @@
 # ADR-0096 — Intégration conservatrice des clients MCP natifs
 
-- Statut : **Proposée — M28, acceptation conditionnée aux gates Windows + Linux/WSL**
+- Statut : **Acceptée — M28**
 - Date : 30 juillet 2026
 - Dépend de : ADR-0027, ADR-0061, ADR-0062, ADR-0064, ADR-0088
 - Portée : M28 — configuration clients MCP, setup Windows, distributions portables
+- Qualification : Windows + Linux/WSL PASS sur `58adfeb13b79808da12830f2d0b0b24ec46f67e6`
 
 ## 1. Contexte
 
-MORPHEUS expose déjà un serveur MCP local sur STDIO :
+MORPHEUS expose un serveur MCP local sur STDIO :
 
 ```text
 morpheus mcp --stdio
 ```
 
-Le serveur est utilisable par tout client compatible, mais une configuration manuelle exige de connaître le launcher, les arguments, les répertoires persistants et le format propre à chaque client.
-
-Les clients cibles sont :
-
-```text
-GitHub Copilot — JetBrains / IntelliJ
-GitHub Copilot CLI
-Claude Code
-Claude Desktop
-OpenAI Codex
-```
-
-Modifier automatiquement leurs profils présente des risques : écrasement d’autres serveurs, appropriation abusive d’une entrée existante, suppression d’une modification utilisateur ou blocage du setup lorsqu’un client optionnel est absent.
+Les clients cibles sont GitHub Copilot JetBrains, GitHub Copilot CLI, Claude Code, Claude Desktop et OpenAI Codex. Leur configuration automatique présente des risques d’écrasement, d’appropriation abusive d’une entrée existante ou de suppression d’une modification utilisateur.
 
 ## 2. Décision
 
@@ -40,13 +29,13 @@ uninstall is state-driven
 manual changes are preserved
 ```
 
-Le gestionnaire Windows distribué est :
+Gestionnaire :
 
 ```text
 integration/configure-mcp-clients.ps1
 ```
 
-Le wrapper de setup est :
+Wrapper setup :
 
 ```text
 integration/configure-mcp-clients-setup.ps1
@@ -65,7 +54,7 @@ integration/configure-mcp-clients-setup.ps1
 }
 ```
 
-Tous les clients doivent utiliser les mêmes racines persistantes.
+Tous les clients utilisent les mêmes racines persistantes.
 
 ## 4. Clients JSON
 
@@ -74,13 +63,7 @@ Copilot JetBrains  servers.morpheus
 Claude Desktop     mcpServers.morpheus
 ```
 
-Avant écriture :
-
-1. le JSON est lu et validé ;
-2. une sauvegarde est créée si le fichier existe ;
-3. les autres propriétés et serveurs sont conservés ;
-4. la sortie est écrite en UTF-8 sans BOM ;
-5. un JSON invalide est rejeté sans modification.
+Avant écriture, le JSON est validé, sauvegardé, fusionné en conservant les propriétés et serveurs tiers, puis écrit en UTF-8 sans BOM. Un JSON invalide est rejeté sans modification.
 
 ## 5. Clients CLI
 
@@ -90,20 +73,11 @@ Claude Code  claude mcp add/get/remove --scope user
 Codex        codex mcp add/get/remove
 ```
 
-Les commandes sont exécutées :
-
-```text
-non-interactively
-with bounded timeout
-with stdout/stderr capture
-with process-tree termination on timeout
-```
-
-Un launcher `.ps1` est routé par `pwsh`, jamais exécuté implicitement dans Windows PowerShell 5.1.
+Les commandes sont non interactives, bornées par timeout, capturent stdout/stderr et terminent l’arbre de processus en cas de dépassement.
 
 ## 6. Modèle de propriété
 
-Le registre persistant est :
+Registre persistant :
 
 ```text
 %LOCALAPPDATA%\MORPHEUS\mcp-client-integrations.json
@@ -145,17 +119,11 @@ Aucune recherche globale par nom ne remplace ce mécanisme.
 
 ## 9. Setup Windows
 
-Le setup expose cinq tâches indépendantes et décochées par défaut.
-
-Le wrapper vérifie après exécution que chaque sélection apparaît dans le registre. Un échec de câblage est signalé explicitement ; le binaire MORPHEUS reste utilisable directement.
-
-L’uninstall appelle le gestionnaire avant la suppression des fichiers de programme.
+Le setup expose cinq tâches indépendantes et décochées par défaut. Le wrapper vérifie que chaque sélection apparaît dans le registre. L’uninstall appelle le gestionnaire avant suppression des fichiers de programme.
 
 ## 10. Linux
 
-M28 n’automatise pas la mutation des profils Linux. Le TAR.GZ contient le guide et les scripts pour parité de distribution, mais la configuration est documentée manuellement.
-
-Cette asymétrie est explicite :
+M28 n’automatise pas la mutation des profils Linux. Le TAR.GZ contient le guide et les scripts pour parité de distribution.
 
 ```text
 Windows client profile mutation  qualified on Windows
@@ -164,82 +132,46 @@ Linux packaging/static contract  qualified on Linux
 
 ## 11. Sécurité
 
-M28 n’ajoute :
-
-```text
-aucun listener réseau
-aucun secret
-aucun token
-aucune capability WRITE
-aucune dépendance Docker
-aucune mutation métier
-```
-
-Le tool lifecycle write conserve ses contrôles applicatifs existants.
+M28 n’ajoute aucun listener réseau, secret, token, capability WRITE, dépendance Docker ni mutation métier. Les contrôles applicatifs existants restent inchangés.
 
 ## 12. Alternatives rejetées
 
-### Écrasement simple des fichiers JSON
-
-Rejeté : détruit les serveurs/propriétés tierces.
-
-### Suppression par nom à l’uninstall
-
-Rejeté : le nom ne prouve pas la propriété.
-
-### Docker comme point d’entrée MCP local
-
-Rejeté : contraire à la stratégie native-first et inutile pour STDIO local.
-
-### Configuration automatique sans opt-in
-
-Rejeté : mutation silencieuse de produits tiers.
-
-### Une configuration universelle pour tous les clients
-
-Rejeté : les formats et commandes restent client-specific.
+- écrasement simple des fichiers JSON : détruit les données tierces ;
+- suppression par nom : le nom ne prouve pas la propriété ;
+- Docker comme point d’entrée local : contraire à native-first ;
+- configuration automatique sans opt-in : mutation silencieuse ;
+- configuration universelle : formats clients incompatibles.
 
 ## 13. Conséquences
 
-Avantages :
+Avantages : réduction des erreurs manuelles, conservation des configurations tierces, rollback, audit et cohérence des racines MORPHEUS.
 
-- expérience d’installation cohérente avec MINOS ;
-- réduction des erreurs manuelles ;
-- conservation des configurations tierces ;
-- rollback et audit opérationnels ;
-- même base MORPHEUS vue par tous les clients.
+Coûts : maintenance du script PowerShell, tests avec faux clients et adaptation aux commandes propres à chaque client.
 
-Coûts :
+## 14. Validation observée
 
-- script PowerShell significatif ;
-- tests avec faux clients ;
-- maintenance des commandes propres aux clients ;
-- automatisation Linux différée.
-
-## 14. Validation requise
-
-Windows doit prouver :
+Windows :
 
 ```text
-five clients
-JSON merge
-CLI registration
-idempotency
-backups
-foreign entry preservation
-modified entry preservation
-state-driven uninstall
-invalid JSON protection
-portable + setup packaging
+five clients                 PASS
+JSON merge                   PASS
+CLI registration             PASS
+idempotency                  PASS
+backups                      PASS
+foreign entry preservation   PASS
+modified entry preservation  PASS
+state-driven uninstall       PASS
+invalid JSON protection      PASS
+portable + setup packaging   PASS
 ```
 
-Linux/WSL doit prouver :
+Linux/WSL :
 
 ```text
-reactor non-regression
-static contracts
-portable packaging
-same exact SHA
+reactor non-regression       PASS
+static contracts             PASS
+portable packaging           PASS
+same exact executable SHA    PASS
 ```
 
-L’ADR ne passe à **Acceptée — M28** qu’après inscription des deux preuves dans `VALIDATION_M28.md`.
+Les deux plateformes ont qualifié `58adfeb13b79808da12830f2d0b0b24ec46f67e6`. La décision est donc acceptée.
