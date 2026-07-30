@@ -1,6 +1,7 @@
 package com.morpheus.architecture.m22;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryStatus;
@@ -34,7 +35,10 @@ class ProviderPluginPlatformContractTest {
     @Test
     void externalReferenceJarIsDiscoveredActivatedInDedicatedLoaderProbedAndRead() throws Exception {
         Path root = repoRoot();
-        Path referenceJar = root.resolve("morpheus-provider-reference/target/morpheus-provider-reference-1.0.0.jar");
+        Path referenceJar = root.resolve(
+                "morpheus-provider-reference/target/morpheus-provider-reference-"
+                        + ProductMetadata.version()
+                        + ".jar");
         assertTrue(Files.isRegularFile(referenceJar), "reference provider JAR must be built before architecture tests");
 
         Path pluginDirectory = Files.createDirectory(tempDirectory.resolve("plugins"));
