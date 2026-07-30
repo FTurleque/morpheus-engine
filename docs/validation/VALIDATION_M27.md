@@ -27,8 +27,10 @@ M26 qualified SHA   bf481b24054c4577144b4cb2ede2bdbc4d9974a2
 M26 merge           49016a18c844a78ec864235c544d82d487da7c8a
 M26 tests           579 PASS Windows + Linux/WSL
 M26 architecture    234 PASS Windows + Linux/WSL
+M27 added tests     23
 M27 issue           #111
 M27 branch          m27-evidence-assisted-reasoning
+M27 PR              #112 DRAFT
 ```
 
 ## 3. Commandes autoritatives
@@ -50,7 +52,7 @@ Aucun workflow GitHub Actions n’est utilisé comme gate en juillet 2026.
 ## 4. Minimums
 
 ```text
-tests                >= 598
+tests                >= 602
 architecture tests   >= 238
 line coverage        >= 42%
 branch coverage      >= 35%
@@ -60,13 +62,15 @@ exact head           même SHA
 post-gate delta      NONE
 ```
 
+Le seuil de 602 correspond aux 579 tests M26 plus les 23 tests M27. Il est volontairement strict afin qu’aucune famille de contrats M27 ne puisse disparaître sans faire échouer le gate.
+
 ## 5. Matrice de preuve
 
 | Gate | Windows | Linux/WSL | Preuve attendue |
 |---|---:|---:|---|
 | `git diff --check` | NOT RUN | NOT RUN | aucune erreur |
 | reactor `clean verify` | NOT RUN | NOT RUN | zéro failure/error |
-| tests >= 598 | NOT RUN | NOT RUN | total Surefire |
+| tests >= 602 | NOT RUN | NOT RUN | total Surefire |
 | architecture >= 238 | NOT RUN | NOT RUN | module architecture |
 | line >= 42% | NOT RUN | NOT RUN | summary JaCoCo |
 | branch >= 35% | NOT RUN | NOT RUN | summary JaCoCo |
@@ -77,7 +81,7 @@ post-gate delta      NONE
 | adapter fault isolation | NOT RUN | NOT RUN | facts retained / FAILED execution |
 | no silent mutation | NOT RUN | NOT RUN | `mutated=false` |
 | CLI/MCP/HTTP convergence | NOT RUN | NOT RUN | manifest + OpenAPI + tests |
-| remote READ RBAC | NOT RUN | NOT RUN | architecture/security contract |
+| remote READ RBAC | NOT RUN | NOT RUN | HTTPS test with READ identity |
 | shaded runtime classes | NOT RUN | NOT RUN | JAR entries |
 | portable launcher | NOT RUN | NOT RUN | packaged smokes |
 | CycloneDX JSON/XML | NOT RUN | NOT RUN | generated files |
@@ -136,7 +140,20 @@ com/morpheus/api/MorpheusReasoningHttpRoutes.class
 com/morpheus/mcp/MorpheusReasoningMcpTools.class
 ```
 
-## 8. Emplacements de logs
+## 8. Contrôles statiques déjà réalisés
+
+Ces contrôles ne remplacent pas les gates Maven du dépôt :
+
+```text
+Java 21 core compile + facts-only/assisted smoke   PASS
+Java 21 CLI compile + assisted smoke               PASS
+full Maven reactor                                 NOT RUN
+coverage / SBOM / portable                         NOT RUN
+```
+
+Ils démontrent uniquement l’absence d’erreur de syntaxe du noyau et du CLI dans les chemins contrôlés.
+
+## 9. Emplacements de logs
 
 ```text
 validation-output/m27/validation-summary.txt
@@ -144,32 +161,33 @@ validation-output/m27/dist/
 validation-output/m27/shaded-entries.txt
 ```
 
-## 9. Relevé exact-head
+## 10. Relevé exact-head
 
 À remplir uniquement après exécution réelle :
 
 ```text
-qualified SHA          NOT SET
-Windows date/time      NOT SET
-Linux/WSL date/time    NOT SET
-Windows tests          NOT SET
-Linux tests            NOT SET
-Windows architecture   NOT SET
-Linux architecture     NOT SET
-Windows line/branch    NOT SET
-Linux line/branch      NOT SET
-portable               NOT SET
-SBOM/provenance        NOT SET
+qualified SHA           NOT SET
+Windows date/time       NOT SET
+Linux/WSL date/time     NOT SET
+Windows tests           NOT SET
+Linux tests             NOT SET
+Windows architecture    NOT SET
+Linux architecture      NOT SET
+Windows line/branch     NOT SET
+Linux line/branch       NOT SET
+portable                NOT SET
+SBOM/provenance         NOT SET
 postGateExecutableDelta NOT SET
 ```
 
-## 10. Décision
+## 11. Décision
 
 ```text
 M27 qualification   BLOCKED
 ADR-0095            PROPOSED
+PR #112             OPEN / DRAFT
 PR merge             FORBIDDEN UNTIL BOTH LOCAL GATES PASS
-issue #111 closure  FORBIDDEN UNTIL MERGE + RECONCILIATION
+issue #111 closure   FORBIDDEN UNTIL MERGE + RECONCILIATION
 ```
 
 Ce document doit être remplacé par les valeurs et logs réels, sans extrapolation, après les deux gates exact-head.
