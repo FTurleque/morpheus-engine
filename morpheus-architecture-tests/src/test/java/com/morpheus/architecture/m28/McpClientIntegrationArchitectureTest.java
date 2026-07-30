@@ -71,19 +71,23 @@ class McpClientIntegrationArchitectureTest {
     }
 
     @Test
-    void windowsValidationWrapperDoesNotDependOnPowerShellBeingInPath() throws IOException {
-        String wrapper = Files.readString(repoRoot().resolve("validate-m28.cmd"));
+    void windowsValidationDispatcherDoesNotDependOnPowerShellBeingInPath() throws IOException {
+        String wrapper = Files.readString(repoRoot().resolve("scripts/validate.cmd"));
 
         assertTrue(wrapper.contains("%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"));
         assertTrue(wrapper.contains("%SystemRoot%\\Sysnative\\WindowsPowerShell\\v1.0\\powershell.exe"));
         assertTrue(wrapper.contains("where pwsh.exe"));
         assertTrue(wrapper.contains("\"%POWERSHELL_EXE%\" -NoLogo -NoProfile"));
+        assertTrue(wrapper.contains("scripts\\validate.ps1"));
         assertFalse(wrapper.contains("\npowershell.exe -NoLogo"));
     }
 
     @Test
     void validationAndUserDocumentationArePartOfTheContract() {
         Path root = repoRoot();
+        assertTrue(Files.isRegularFile(root.resolve("scripts/validate.cmd")));
+        assertTrue(Files.isRegularFile(root.resolve("scripts/validate.ps1")));
+        assertTrue(Files.isRegularFile(root.resolve("scripts/README.md")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/verify-m28-mcp-client-integration.ps1")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-m28.ps1")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-m28.sh")));
