@@ -9,7 +9,7 @@ Issue                  #113 OPEN
 PR                     #114 DRAFT vers main
 Branch                 r2-release-1.1.0
 Release baseline       develop@bccc118dda6fd818cf801750187afa4ad10b96e4
-Executable candidate   43dc9cfb78b8b40276b3eee8a05ec828660f88b4
+Executable candidate   c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1
 Target version         1.1.0
 Target tag             v1.1.0
 ```
@@ -27,8 +27,8 @@ main                    0e37d85fc7efe9843094416898b6fbdbc45b7da4
 develop                 bccc118dda6fd818cf801750187afa4ad10b96e4
 main...develop          188 commits ahead / 0 behind
 release branch base     bccc118dda6fd818cf801750187afa4ad10b96e4
-R2 executable candidate 43dc9cfb78b8b40276b3eee8a05ec828660f88b4
-develop...candidate     45 commits / 37 changed files
+R2 executable candidate c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1
+develop...candidate     48 commits / 38 changed files
 published release       v1.0.0
 candidate release       v1.1.0
 ```
@@ -80,8 +80,9 @@ release publication != automatic update
 - [x] test de contrat exigeant exactement 17 POM cohérents ;
 - [x] rejet explicite de toute version reactor `1.0.0` résiduelle ;
 - [x] builders portable, installer et release Windows/Linux en `1.1.0` ;
-- [x] cohérence des 17 POM observée PASS sur les trois tentatives Windows ;
+- [x] cohérence des 17 POM observée PASS sur les quatre tentatives Windows ;
 - [x] scénarios application et CLI d'update-check rendus indépendants de la version courante ;
+- [x] chemin du JAR de plugin externe M22 rendu indépendant de la version courante ;
 - [ ] cohérence réellement exécutée sous Linux/WSL.
 
 ### R2-S2 — Upgrade SQLite
@@ -92,7 +93,7 @@ release publication != automatic update
 - [x] application de V013, V014 et V015 couverte ;
 - [x] préservation des identités, historique et checksums couverte ;
 - [x] replay idempotent couvert ;
-- [x] tentative 3 : `R2UpgradeCompatibilityTest` PASS sur `24e3b0b...` ;
+- [x] tentatives 3 et 4 : `R2UpgradeCompatibilityTest` PASS sur des SHA désormais remplacés ;
 - [ ] scénario reproduit sur le nouveau candidat Windows ;
 - [ ] scénario exécuté sous Linux/WSL.
 
@@ -113,7 +114,7 @@ release publication != automatic update
 - [x] guide d'upgrade 1.0.0→1.1.0 ;
 - [x] procédure de backup/restore offline ;
 - [x] distinction candidate / release stable explicite ;
-- [x] les trois échecs Windows enregistrés factuellement ;
+- [x] les quatre échecs Windows enregistrés factuellement ;
 - [ ] valeurs finales de qualification et d'artefacts à injecter après observation.
 
 ## 5. Incidents de qualification Windows
@@ -128,16 +129,26 @@ Le root reactor et `morpheus-domain` ont réussi, puis `morpheus-application` a 
 
 ### Tentative 3 — `24e3b0b66cb80388ffb687fd470237174e083121`
 
-Le gate a atteint 15 modules SUCCESS sur 17. L'application, SQLite, MCP et API ont réussi ; `R2UpgradeCompatibilityTest` a prouvé l'upgrade V012→V015. Le module CLI a ensuite échoué sur :
+Le gate a atteint 15 modules SUCCESS sur 17. L'application, SQLite, MCP et API ont réussi ; `R2UpgradeCompatibilityTest` a prouvé l'upgrade V012→V015. Le module CLI a échoué sur un second manifeste figé à `1.0.1`. L'architecture et le packaging n'ont pas été exécutés. Correction : `43dc9cfb78b8b40276b3eee8a05ec828660f88b4`.
+
+### Tentative 4 — `34b8955a74270ded0b5464196a45eff746085168`
+
+Le gate a exécuté **603 tests** et atteint le dernier module :
 
 ```text
-MorpheusProductCliTest.updateCheckIsExplicitAndDoesNotApplyAnything
-expected updateAvailable=true, observed false
+reactor                 16 SUCCESS / architecture FAILURE
+non-architecture tests  365 PASS
+architecture tests      238 run / 1 failure
+failing contract        ProviderPluginPlatformContractTest.externalReferenceJarIsDiscoveredActivatedInDedicatedLoaderProbedAndRead
+expected path           morpheus-provider-reference-1.0.0.jar
+built path              morpheus-provider-reference-1.1.0.jar
 ```
 
-Cause : le second manifeste de test était encore figé à `1.0.1`. L'architecture et le packaging n'ont pas été exécutés. Correction : `43dc9cfb78b8b40276b3eee8a05ec828660f88b4`.
+Le CLI est désormais entièrement PASS avec 53 tests. L'upgrade V012→V015 est également PASS sur cette tentative. Le packaging n'a pas été exécuté puisque Maven a échoué dans les tests d'architecture.
 
-Les deux tests d'update-check dérivent désormais la prochaine version patch depuis `ProductMetadata.version()`. Les trois tentatives restent **FAIL** et ne sont pas transformées en PASS par les correctifs.
+Correction : `c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1`. Le contrat M22 compose désormais le nom du JAR depuis `ProductMetadata.version()`, alimenté par `${project.version}` dans Surefire.
+
+Les quatre tentatives restent **FAIL** et ne sont pas transformées en PASS par les correctifs.
 
 ## 6. Gates exact-head
 
@@ -218,7 +229,7 @@ local Windows + Linux/WSL exact-head logs are authoritative
 
 ```text
 Preparation                    COMPLETE
-Executable candidate           43dc9cfb78b8b40276b3eee8a05ec828660f88b4
+Executable candidate           c206e1bdb8e98df2e6d74f1fb3b151e0bba812e1
 Windows exact-head             FAILED / RERUN REQUIRED
 Linux/WSL exact-head           NOT RUN
 same SHA cross-platform        NOT PROVEN
