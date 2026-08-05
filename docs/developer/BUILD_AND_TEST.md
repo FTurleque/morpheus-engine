@@ -126,8 +126,8 @@ git diff --check
 versions de dépendances D2
 clean verify
 Surefire failures/errors = 0
-baseline tests >= 608
-baseline architecture >= 243
+baseline tests >= 613
+baseline architecture >= 247
 coverage >= 40% / 35%
 dependency hygiene bloquante
 CycloneDX SBOM
@@ -136,6 +136,8 @@ portable platform-native
 product-info packagé = 1.2.0
 workspace tracked clean en sortie
 ```
+
+Les floors 613 / 247 incluent explicitement le test de régression Jackson D2 et les quatre contrats d’architecture D2 ; ils empêchent le gate de réussir si ces nouveaux tests ne sont pas exécutés.
 
 Windows et Linux/WSL doivent qualifier exactement le même SHA.
 
