@@ -42,7 +42,7 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(Files.isRegularFile(root.resolve(
                 "morpheus-api/src/test/java/com/morpheus/api/JacksonSecurityRegressionTest.java")));
 
-        try (var files = Files.walk(root, 8)) {
+        try (var files = Files.walk(root, 16)) {
             for (Path source : files.filter(path -> path.toString().endsWith(".java"))
                     .filter(path -> path.toString().contains("src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
                     .toList()) {
