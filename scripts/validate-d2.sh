@@ -38,7 +38,6 @@ printf '%s\n' 'D2 no-CI scope: PASS (.github/workflows delta NONE)'
 python3 - "$REPO" "$VERSION" <<'PY'
 import pathlib
 import sys
-import xml.etree.ElementTree as ET
 root = pathlib.Path(sys.argv[1])
 version = sys.argv[2]
 poms = sorted(p for p in root.rglob('pom.xml') if 'target' not in p.parts)
@@ -86,12 +85,12 @@ if (( FAILURES != 0 || ERRORS != 0 )); then
   echo "D2 Surefire failures=$FAILURES errors=$ERRORS" >&2
   exit 1
 fi
-if (( TESTS < 608 )); then
-  echo "D2 test baseline regression: $TESTS < 608" >&2
+if (( TESTS < 613 )); then
+  echo "D2 test baseline regression: $TESTS < 613" >&2
   exit 1
 fi
-if (( ARCH_TESTS < 243 )); then
-  echo "D2 architecture baseline regression: $ARCH_TESTS < 243" >&2
+if (( ARCH_TESTS < 247 )); then
+  echo "D2 architecture baseline regression: $ARCH_TESTS < 247" >&2
   exit 1
 fi
 printf '%s\n' "D2 tests: PASS ($TESTS tests, architecture=$ARCH_TESTS, skipped=$SKIPPED)"
