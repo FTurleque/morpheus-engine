@@ -1,22 +1,28 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — MORPHEUS 1.2.0 PUBLIÉ — R3 TERMINÉ**
+Statut : **ACTIF — MORPHEUS 1.2.0 PUBLIÉ — D2 EN COURS**
 
-Dernière mise à jour : 30 juillet 2026
+Dernière mise à jour : 5 août 2026
 
 ## Hiérarchie d’autorité
 
 ```text
 docs/governance/ROADMAP.md
         ↓
-docs/roadmap/R3_EXECUTION.md
+docs/roadmap/D2_EXECUTION.md
         ↓
-docs/validation/VALIDATION_R3.md
+docs/validation/VALIDATION_D2.md
         ↓
-code + tests + logs exact-head + artefacts exact-tag publiés
+code + tests + logs exact-head locaux Windows/Linux
 ```
 
-R3 est terminé. MORPHEUS 1.2.0 est la release stable publiée et remplace 1.1.0 comme baseline produit.
+Pour la release stable déjà publiée :
+
+```text
+docs/validation/VALIDATION_R3.md
+        ↓
+v1.2.0 + exact-tag assets publiés
+```
 
 ## Documentation active
 
@@ -24,19 +30,24 @@ R3 est terminé. MORPHEUS 1.2.0 est la release stable publiée et remplace 1.1.0
 README.md
 docs/README.md
 docs/user/README.md
+docs/user/INSTALLATION.md
 docs/user/MCP_CLIENTS.md
 docs/user/UPGRADE_1_2.md
 docs/developer/README.md
+docs/developer/BUILD_AND_TEST.md
 docs/developer/MCP.md
+distribution/README.md
 docs/governance/ROADMAP.md
 docs/governance/DOCUMENTATION_STATUS.md
-docs/roadmap/M28_EXECUTION.md
-docs/roadmap/R3_EXECUTION.md
-docs/validation/VALIDATION_M28.md
+docs/roadmap/D2_EXECUTION.md
+docs/validation/VALIDATION_D2.md
 docs/validation/VALIDATION_R3.md
 docs/release/RELEASE_NOTES_1.2.0.md
 integration/README.md
+scripts/README.md
 ```
+
+Les plans et preuves des jalons terminés restent des archives factuelles et ne sont pas réécrits pour adopter les commandes modernes.
 
 ## Release stable publiée
 
@@ -45,7 +56,6 @@ Version                    1.2.0
 Tag                        v1.2.0
 Tag target                 3ad9ebf030b58df97482e21e272c24feae6b9d86
 Qualified executable SHA   d08542026817f0d743766656a0197790c6809eca
-Final PR head              a2023d96dd0c4ad6d1f7a658bf3e7b4f8390e1bb
 PR                         #118 MERGED
 Issue                      #117 CLOSED / completed
 GitHub Release             stable / latest
@@ -55,83 +65,64 @@ Exact-tag Windows          PASS
 Exact-tag Linux            PASS
 ```
 
-Release précédente :
+## D2 actif
 
 ```text
-Version                    1.1.0
-Tag                        v1.1.0
-Release commit             31506029ded1101f0571edeb0d79c59bbf3f68c6
-PR                         #114 MERGED
-Issue                      #113 CLOSED / completed
-Published parity           8/8 PASS
+Issue                      #120 OPEN
+Branch                     d2-post-r3-hardening
+Goal                       post-R3 repository hardening
+Stable product version     remains 1.2.0
+CI                         NOT USED
+Windows local gate         REQUIRED
+Linux/WSL local gate       REQUIRED
+Same exact SHA             REQUIRED
 ```
 
-## M28 livré dans 1.2.0
+Hardening prévu/implémenté sur la branche :
 
 ```text
-Issue                      #115 CLOSED / completed
-PR                         #116 MERGED
-Merge commit               1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
-Qualified exact head       58adfeb13b79808da12830f2d0b0b24ec46f67e6
-Release                    MORPHEUS 1.2.0
-Transport                  MCP STDIO natif
-Docker required            false
+Jackson                    3.1.5 LTS
+sqlite-jdbc                3.53.2.0
+OWASP Dependency-Check     local explicit scan
+coverage floors            40% lines / 35% branches
+dependency hygiene         blocking
+active docs                reconciled to 1.2.0
 ```
 
-Clients :
+## Autorité des commandes Windows
+
+Le dispatcher actif est :
+
+```powershell
+.\scripts\validate.cmd <target> [arguments]
+```
+
+Pour D2 :
+
+```powershell
+.\scripts\validate.cmd d2 -Version 1.2.0 -BaseRef origin/develop
+```
+
+Les anciens wrappers `validate-*.cmd` à la racine ne font plus partie de la documentation active.
+
+## Politique D2 — aucune CI
 
 ```text
-Copilot JetBrains / IntelliJ
-Copilot CLI
-Claude Code
-Claude Desktop
-OpenAI Codex
+GitHub Actions inspection    NOT USED
+workflow rerun/dispatch      NOT USED
+.github/workflows mutation   FORBIDDEN
+CI status as proof           FORBIDDEN
 ```
 
-Garanties :
+Les preuves D2 seront uniquement les sorties exact-head locales Windows + Linux/WSL sur le même SHA.
+
+## État fonctionnel
 
 ```text
-client configuration is explicit opt-in
-backup before JSON write
-unrelated JSON content is preserved
-foreign `morpheus` entry is not overwritten
-compatible preexisting entry is never removed
-managed modified entry is preserved
-uninstall is state-driven
-native CLI command timeout is bounded
-stdout remains MCP JSON-RPC only
-Docker is not required
+C0 → M28       ✅ validés / intégrés
+D0 + D1        ✅ validés / intégrés
+R1             ✅ 1.0.0 publié
+R2             ✅ 1.1.0 publié
+R3             ✅ 1.2.0 publié
+D2             🚧 implementation / local qualification pending
 ```
-
-## Preuve R3 finale
-
-```text
-Windows exact-head          PASS
-Linux/WSL exact-head        PASS
-same executable SHA         PASS
-reactor                     17/17 SUCCESS
-tests                       608 PASS sur les deux plateformes
-architecture                243 PASS sur les deux plateformes
-post-gate executable delta  NONE
-main merge                  PASS
-immutable tag               PASS
-exact-tag builds            PASS Windows + Linux
-published assets            8/8
-published parity            8/8 PASS
-```
-
-## Baseline fonctionnelle
-
-```text
-C0 → M20       ✅ validés et intégrés
-D0 + D1        ✅ validés et intégrés
-R1             ✅ MORPHEUS 1.0.0 publié
-M21 → M27      ✅ validés et intégrés
-R2             ✅ MORPHEUS 1.1.0 publié
-M28            ✅ validé, intégré et livré dans 1.2.0
-R3             ✅ MORPHEUS 1.2.0 publié
-```
-
-## Politique CI — juillet 2026
-
-Aucune GitHub Actions / CI n’a servi de gate. Aucun workflow n’a été inspecté, relancé, déclenché ou modifié pour R3. Les preuves autoritatives sont les sorties locales Windows et Linux/WSL exact-head, les builds exact-tag et la parité publiée des huit assets.
