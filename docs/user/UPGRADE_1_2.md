@@ -1,6 +1,6 @@
 # Mise à niveau vers MORPHEUS 1.2.0
 
-Statut : **CANDIDATE — publication 1.2.0 non encore effectuée**
+Statut : **ACTIVE — MORPHEUS 1.2.0 PUBLIÉ**
 
 Ce guide couvre la mise à niveau depuis MORPHEUS 1.1.0 vers MORPHEUS 1.2.0.
 
@@ -16,11 +16,13 @@ SQLite schema        -> V015 inchangé
 MCP client wiring    -> opt-in
 ```
 
+La release 1.2.0 a été publiée le 30 juillet 2026 et ses huit assets ont été vérifiés byte-for-byte lors de R3.
+
 ## Avant la mise à niveau
 
 1. Arrêter les processus MORPHEUS en cours.
 2. Conserver une copie de la base et de la configuration si une sauvegarde supplémentaire est souhaitée.
-3. Fermer les clients MCP ciblés avant leur configuration : IntelliJ, Copilot CLI, Claude Code, Claude Desktop ou Codex.
+3. Fermer les clients MCP ciblés avant leur configuration.
 4. Vérifier le SHA-256 de l’asset téléchargé.
 
 ## Windows — installateur
@@ -31,19 +33,19 @@ Lancer :
 MORPHEUS-1.2.0-windows-x64-setup.exe
 ```
 
-L’installateur met à niveau le programme sous :
+Installation programme :
 
 ```text
 %LOCALAPPDATA%\Programs\MORPHEUS
 ```
 
-Les données restent sous :
+État persistant :
 
 ```text
 %LOCALAPPDATA%\MORPHEUS
 ```
 
-Les cinq intégrations MCP sont proposées comme options indépendantes et décochées par défaut. Sélectionner uniquement les clients à configurer.
+Les cinq intégrations MCP sont proposées comme options indépendantes et décochées par défaut.
 
 ## Windows — archive portable
 
@@ -59,41 +61,24 @@ Le gestionnaire est disponible sous :
 integration\configure-mcp-clients.ps1
 ```
 
-Consulter d’abord :
-
-```text
-integration\README.md
-docs\user\MCP_CLIENTS.md
-```
-
 ## Linux / WSL
-
-Extraire :
 
 ```bash
 tar -xzf morpheus-1.2.0-linux-x64.tar.gz
+./morpheus/bin/morpheus --version
 ```
 
-Le launcher reste autonome avec son runtime Java embarqué. Les données et configurations utilisent les racines XDG existantes.
+Le launcher est autonome avec runtime Java embarqué. Les données/configurations conservent les racines XDG existantes.
 
-Le gestionnaire PowerShell est embarqué comme référence commune. Son utilisation nécessite PowerShell lorsque la configuration automatique d’un client compatible est souhaitée ; la configuration manuelle reste documentée dans `docs/user/MCP_CLIENTS.md`.
+## Configurer un client MCP
 
-## Configurer un client MCP après installation
-
-Le serveur lancé par les clients est :
+Serveur :
 
 ```text
-morpheus.exe mcp --stdio
+morpheus mcp --stdio
 ```
 
-Le gestionnaire peut définir :
-
-```text
-MORPHEUS_DATA_DIR
-MORPHEUS_CONFIG_DIR
-```
-
-Le processus est conservateur :
+Le processus de configuration est conservateur :
 
 - sauvegarde avant écriture ;
 - préservation des autres entrées ;
@@ -101,6 +86,8 @@ Le processus est conservateur :
 - idempotence ;
 - registre de propriété ;
 - désinstallation state-driven.
+
+Voir [MCP_CLIENTS.md](MCP_CLIENTS.md).
 
 ## Vérifications après mise à niveau
 
@@ -110,40 +97,21 @@ morpheus --json product-info
 morpheus help
 ```
 
-La version attendue est :
+Version attendue :
 
 ```text
 1.2.0
 ```
 
-Pour vérifier le serveur MCP sans client graphique, utiliser le smoke ou la procédure de diagnostic décrite dans `MCP_CLIENTS.md`.
-
-## Désinstallation des intégrations MCP
-
-La suppression des intégrations est distincte de la suppression des données MORPHEUS.
-
-Le gestionnaire retire uniquement une entrée encore conforme à celle qu’il a créée. Une entrée modifiée ou préexistante est conservée et signalée.
-
 ## Retour à 1.1.0
 
-Le schéma SQLite étant inchangé à V015, les données 1.2.0 restent structurellement compatibles avec 1.1.0. Toutefois, avant tout retour arrière :
+Le schéma SQLite étant inchangé à V015, les données restent structurellement compatibles. Avant un rollback programme : sauvegarder la base/configuration, retirer ou adapter les intégrations MCP pointant vers le binaire 1.2.0, réinstaller 1.1.0 puis vérifier les launchers enregistrés.
 
-- retirer ou adapter les intégrations MCP qui pointent vers le binaire 1.2.0 ;
-- sauvegarder la base et les profils ;
-- réinstaller 1.1.0 ;
-- vérifier les launchers enregistrés dans chaque client.
+Un rollback programme n’est jamais un rollback logique de snapshot MORPHEUS.
 
-Un rollback du programme ne doit jamais être confondu avec un rollback logique de snapshot MORPHEUS.
+## D2 post-release
 
-## Points inchangés
-
-- aucune dépendance Docker ;
-- API HTTP locale inchangée ;
-- serveur remote HTTPS toujours opt-in ;
-- Policy Packs, portfolios et saved views conservés ;
-- backups/restores existants conservés ;
-- MINOS et NEXUS restent optionnels ;
-- aucun client MCP n’est configuré silencieusement.
+Le travail D2 effectué après R3 ne modifie pas le tag stable `v1.2.0`. Il durcit la future baseline de développement et doit être qualifié localement Windows + Linux/WSL avant intégration dans `develop`.
 
 ## Références
 
@@ -151,3 +119,4 @@ Un rollback du programme ne doit jamais être confondu avec un rollback logique 
 - [`INSTALLATION.md`](INSTALLATION.md)
 - [`../release/RELEASE_NOTES_1.2.0.md`](../release/RELEASE_NOTES_1.2.0.md)
 - [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md)
+- [`../roadmap/D2_EXECUTION.md`](../roadmap/D2_EXECUTION.md)

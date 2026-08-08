@@ -6,13 +6,17 @@ Ce répertoire conserve les plans des jalons, consolidations et releases MORPHEU
 
 La source de vérité globale est [`../governance/ROADMAP.md`](../governance/ROADMAP.md).
 
+Plan actif :
+
+- [`D2_EXECUTION.md`](D2_EXECUTION.md) — Post-R3 Repository Hardening, issue #120, qualification locale Windows + Linux/WSL sans CI.
+
 Dernière release terminée :
 
 - [`R3_EXECUTION.md`](R3_EXECUTION.md) — MORPHEUS 1.2.0 publié, issue #117 fermée, PR #118 mergée, parité publiée 8/8 PASS.
 
-Dernier jalon terminé :
+Dernier jalon fonctionnel terminé :
 
-- [`M28_EXECUTION.md`](M28_EXECUTION.md) — MCP Client Integration & Installer Wiring, issue #115 fermée, PR #116 mergée, livré dans MORPHEUS 1.2.0.
+- [`M28_EXECUTION.md`](M28_EXECUTION.md) — MCP Client Integration & Installer Wiring, livré dans MORPHEUS 1.2.0.
 
 ## Baseline actuelle
 
@@ -22,8 +26,9 @@ D0 + D1       ✅ validés et intégrés
 R1            ✅ MORPHEUS 1.0.0 publié
 M21 → M27     ✅ validés et intégrés
 R2            ✅ MORPHEUS 1.1.0 publié
-M28           ✅ validé, intégré et livré dans 1.2.0
+M28           ✅ validé / livré dans 1.2.0
 R3            ✅ MORPHEUS 1.2.0 publié
+D2            🚧 Post-R3 Repository Hardening
 ```
 
 ```text
@@ -31,38 +36,42 @@ stable version           1.2.0
 stable tag               v1.2.0
 stable release commit    3ad9ebf030b58df97482e21e272c24feae6b9d86
 qualified executable     d08542026817f0d743766656a0197790c6809eca
-R3 PR                    #118 MERGED
-R3 issue                 #117 CLOSED / completed
 published assets         8/8
 published parity         8/8 PASS
-previous stable tag      v1.1.0
+D2 issue                 #120
+D2 branch                d2-post-r3-hardening
 ```
 
-## NOW / LATER
+## NOW
 
 ```text
-NOW
-  synchronize develop with the stable 1.2.0 baseline before new product work
-  select the next milestone from the governance roadmap
-
-LATER
-  future product milestones from develop
-  future release branch toward main after dual-platform qualification
-  CI modernization from August 2026
+D2
+  dependency security hardening
+  JSON security regression
+  quality ratchet
+  active documentation reconciliation
+  exact-head Windows local qualification
+  exact-head Linux/WSL local qualification
+  same exact SHA
+  no CI
 ```
 
-## Plans d’exécution
+## Plans
 
-### Cycle initial et 1.0
+### Consolidations
 
 - [`D0_EXECUTION.md`](D0_EXECUTION.md)
+- [`D1_EXECUTION.md`](D1_EXECUTION.md)
+- [`D2_EXECUTION.md`](D2_EXECUTION.md)
+
+### Cycle initial / 1.0
+
 - [`M15_EXECUTION.md`](M15_EXECUTION.md)
 - [`M16_EXECUTION.md`](M16_EXECUTION.md)
 - [`M17_EXECUTION.md`](M17_EXECUTION.md)
 - [`M18_EXECUTION.md`](M18_EXECUTION.md)
 - [`M19_EXECUTION.md`](M19_EXECUTION.md)
 - [`M20_EXECUTION.md`](M20_EXECUTION.md)
-- [`D1_EXECUTION.md`](D1_EXECUTION.md)
 
 ### Évolutions 1.x
 
@@ -77,26 +86,22 @@ LATER
 
 ### Releases
 
-- R1 — MORPHEUS 1.0.0, preuve [`../validation/VALIDATION_R1.md`](../validation/VALIDATION_R1.md)
-- [`R2_EXECUTION.md`](R2_EXECUTION.md) — MORPHEUS 1.1.0, preuve [`../validation/VALIDATION_R2.md`](../validation/VALIDATION_R2.md)
-- [`R3_EXECUTION.md`](R3_EXECUTION.md) — MORPHEUS 1.2.0, preuve [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md)
+- R1 — MORPHEUS 1.0.0
+- [`R2_EXECUTION.md`](R2_EXECUTION.md) — MORPHEUS 1.1.0
+- [`R3_EXECUTION.md`](R3_EXECUTION.md) — MORPHEUS 1.2.0
 
-## Qualification R3
+## Qualification D2
 
-```text
-Windows exact-head      PASS
-Linux/WSL exact-head    PASS
-same executable SHA     PASS
-qualified SHA           d08542026817f0d743766656a0197790c6809eca
-main release commit     3ad9ebf030b58df97482e21e272c24feae6b9d86
-tag                     v1.2.0
-exact-tag builds        PASS Windows + Linux
-PR #118                 MERGED
-issue #117              CLOSED / completed
-release                 PUBLISHED / stable / latest
-published parity        8/8 PASS
+Windows :
+
+```powershell
+.\scripts\validate.cmd d2 -Version 1.2.0 -BaseRef origin/develop
 ```
 
-## Politique documentaire
+Linux/WSL :
 
-Les plans terminés restent des archives factuelles. En juillet 2026, GitHub Actions n’est pas utilisé comme gate ; les sorties locales Windows + Linux/WSL exact-head, les builds exact-tag et les contrôles de parité publiés sont autoritatifs.
+```bash
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.0
+```
+
+Les deux sorties doivent qualifier le même SHA. D2 interdit tout delta `.github/workflows/**` et n’utilise aucun résultat CI.

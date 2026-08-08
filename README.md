@@ -6,102 +6,63 @@
 
 ## État produit
 
-**MORPHEUS 1.0.0 est validé, intégré et officiellement publié.** Les évolutions 1.x M21 à M27 sont également validées et intégrées sur cette baseline produit.
+**MORPHEUS 1.2.0 est la release stable publiée.**
 
 ```text
-Release stable    v1.0.0
-M20 merge         75d0b82ab0c960692db2fee1ced146fa6547fd4a
-D1 / release SHA  51f6a120f3461c8d8c24323f3db8211d28d6cb42
-M21 merge         2fdce6601a07628c315fe03932750cd8ece3d777
-M22 merge         67c587057e287d57b0733f9e425a57b26cc38ae4
-M23 merge         88355b69c493677c8689eecad214fb00d283359b
-M24 merge         2b483ded10c783fff22c25035db89475c5c9fdaf
-M25 merge         62bf0ea37f732116e821df7d98ae89d36c6dd75d
-M26 merge         49016a18c844a78ec864235c544d82d487da7c8a
-M27 exact head    f97307c878125550693699124ca717f64f305a3a
-M27 PR head       026c1d5f8671cd7b879fa89d51af8e83a5f06272
-M27 merge         f8810803bd5ae7d57c4858e1e384c6a0132e1a45
-M27 tests         602 PASS Windows + Linux
-M27 architecture  238 PASS Windows + Linux
+Stable version      1.2.0
+Stable tag          v1.2.0
+Release commit      3ad9ebf030b58df97482e21e272c24feae6b9d86
+R3                  COMPLETE / VALIDATED / PUBLISHED
+Published assets    8/8 parity PASS
+Post-R3             D2 — Repository Hardening en cours
+D2 issue            #120
 ```
 
-Preuve de publication : [docs/validation/VALIDATION_R1.md](docs/validation/VALIDATION_R1.md).
-Dernière preuve technique : [docs/validation/VALIDATION_M27.md](docs/validation/VALIDATION_M27.md).
+Preuve de release : [`docs/validation/VALIDATION_R3.md`](docs/validation/VALIDATION_R3.md).
+Plan D2 : [`docs/roadmap/D2_EXECUTION.md`](docs/roadmap/D2_EXECUTION.md).
 
-## Ce que MORPHEUS fournit
+## Capacités
+
+MORPHEUS fournit notamment :
 
 - ingestion et normalisation de spécifications ;
-- providers réels OpenSpec et Structured Markdown ;
+- providers OpenSpec et Structured Markdown ;
 - Provider SDK et plugins externes explicitement découvrables/activables ;
-- composition multi-provider provider-neutral et explicable ;
-- provenance, précédence et conflits conservés ;
+- composition multi-provider déterministe avec provenance et conflits conservés ;
 - snapshots versionnés et séparation `CURRENT / PROPOSED / HISTORICAL` ;
-- recherche de requirements, requêtes métier, traçabilité et qualité ;
-- critères d’acceptation, vérification et evidence explicites ;
-- sémantique explicite des contraintes ;
-- lifecycle contrôlé avec capability, confirmation, CAS, idempotency et audit ;
-- portfolio multi-projets provider-neutral, références inter-projets et traversal bornée ;
-- Query DSL provider-neutral borné ;
-- saved views versionnées avec CAS ;
-- exports JSON canonique, CSV et Markdown déterministes/read-only ;
-- Policy Packs provider-neutral versionnés ;
-- activations et overrides explicites avec CAS et provenance ;
-- dry-run de gouvernance strictement read-only ;
-- audit append-only des configurations de policy ;
-- **analyse assistée fondée sur des preuves** ;
-- **faits publiés séparés des inférences, heuristiques et suggestions** ;
-- **confiance explicite et bornée** ;
-- **adaptateurs de raisonnement optionnels et fault-isolated** ;
-- **mode facts-only sans adaptateur** ;
-- **aucune mutation implicite : `mutated=false`** ;
+- recherche, traçabilité, qualité et analyse de changes ;
+- critères d’acceptation, contraintes et lifecycle contrôlé ;
+- portfolios multi-projets et références inter-projets ;
+- Query DSL provider-neutral, saved views et exports JSON/CSV/Markdown ;
+- Policy Packs versionnés, activations, overrides, dry-run et audit ;
+- reasoning assisté fondé sur des preuves avec faits/inférences/suggestions séparés ;
 - CLI locale scriptable ;
-- serveur MCP STDIO ;
+- serveur MCP STDIO natif ;
 - API HTTP locale `/api/v1` ;
-- mode serveur d’équipe remote optionnel en HTTPS ;
-- Bearer authentication avec persistence hash-only ;
-- RBAC READ / WRITE / ADMIN ;
-- concurrence remote bornée avec HTTP 429 ;
-- backup SQLite cohérent et restore offline explicite ;
-- intégrations optionnelles MINOS, NEXUS et JARVIS ;
-- setup Windows per-user ;
-- distributions portables Windows/Linux avec runtime Java embarqué.
+- serveur d’équipe HTTPS opt-in avec Bearer auth, RBAC et concurrence bornée ;
+- backup SQLite cohérent et restore offline ;
+- intégrations optionnelles MINOS et NEXUS ;
+- câblage MCP opt-in pour Copilot, Claude et Codex ;
+- setup Windows per-user et distributions Windows/Linux avec runtime Java embarqué.
 
-MORPHEUS ne nécessite aucun LLM pour son cœur fonctionnel ni pour l’adaptateur M27 de référence.
+Docker n’est pas requis pour le MCP natif ni pour l’exécution locale de MORPHEUS.
 
-## Écosystème
+## Installation
 
-```text
-MORPHEUS = specification facts / intent / lifecycle rules
-           + controlled state invariants
-           + provider composition facts
-           + portfolio specification facts
-           + provider-neutral query/view/reporting contracts
-           + provider-neutral governance policy contracts
-           + optional remote/team access boundary
-           + evidence-backed assisted claims separated from published facts
-MINOS    = code intelligence
-NEXUS    = context selection / ranking / fusion / compression
-JARVIS   = orchestration / sequencing / action choice
-```
+Documentation active : [`docs/user/INSTALLATION.md`](docs/user/INSTALLATION.md).
 
-Chaque moteur reste autonome.
-
-## Installation et démarrage
-
-Documentation : **[Installation MORPHEUS 1.0](docs/user/INSTALLATION.md)**.
-
-Release stable : **`v1.0.0`**.
-
-Windows portable :
+Windows :
 
 ```powershell
-.\morpheus\morpheus.exe help
+MORPHEUS-1.2.0-windows-x64-setup.exe
+morpheus --version
 ```
 
-Linux portable :
+Linux :
 
 ```bash
-./morpheus/bin/morpheus help
+tar -xzf morpheus-1.2.0-linux-x64.tar.gz
+./morpheus/bin/morpheus --version
 ```
 
 Les distributions embarquent leur runtime Java ; aucun JDK utilisateur n’est requis.
@@ -110,153 +71,47 @@ Les distributions embarquent leur runtime Java ; aucun JDK utilisateur n’est r
 
 ```bash
 morpheus projects add --workspace /path/to/project
+morpheus projects list
 morpheus sync --project <projectId>
 morpheus requirements find --project <projectId> --query "session"
 ```
 
-## Portfolio
-
-```bash
-morpheus portfolio create --name "Platform"
-morpheus portfolio add-project --portfolio <portfolioId> --project <projectId> --name "Billing"
-morpheus portfolio overview --portfolio <portfolioId>
-```
-
-Guide : [docs/user/PORTFOLIOS.md](docs/user/PORTFOLIOS.md).
-
-## Query DSL / Saved Views / Reporting
-
-```bash
-morpheus query execute \
-  --project <projectId> \
-  --entity requirement \
-  --filter 'title contains "session"' \
-  --sort title:asc \
-  --limit 50
-```
-
-```bash
-morpheus views create \
-  --name "Current requirements" \
-  --project <projectId> \
-  --entity requirement \
-  --filter 'status eq CURRENT'
-```
-
-```bash
-morpheus export view --id <savedViewId> --format csv
-```
-
-Guide complet : [docs/user/QUERY_VIEWS_REPORTING.md](docs/user/QUERY_VIEWS_REPORTING.md).
-
-## Policy Packs / Governance Automation
-
-```bash
-morpheus policy pack create \
-  --name "Release governance" \
-  --rules 'new|No findings|QUALITY_THRESHOLD|BLOCKER|FINDINGS|LTE|0' \
-  --actor operator \
-  --reason baseline
-```
-
-```bash
-morpheus policy activate \
-  --id <policyPackId> \
-  --version <versionId> \
-  --project <projectId> \
-  --expected-revision 0 \
-  --actor operator \
-  --reason enable
-```
-
-```bash
-morpheus policy dry-run --id <policyPackId> --version <versionId> --project <projectId>
-```
-
-Guide : [docs/user/POLICY_PACKS.md](docs/user/POLICY_PACKS.md).
-
-## Team / Remote Server Mode — M26
-
-Le mode local reste le comportement par défaut. Un bind non-loopback n’est jamais obtenu implicitement.
-
-Le mode remote est explicitement activé par `api --remote` et exige :
+## MCP
 
 ```text
-HTTPS
-PKCS12 keystore
-TLS 1.3 / TLS 1.2
-Bearer authentication
-READ / WRITE / ADMIN RBAC
+morpheus mcp --stdio
 ```
 
-Les tokens sont générés avec 256 bits d’entropie et seul leur SHA-256 est persisté. Le restore est **offline uniquement**.
-
-Guide utilisateur : [docs/user/TEAM_REMOTE_SERVER.md](docs/user/TEAM_REMOTE_SERVER.md).
-Architecture : [docs/developer/REMOTE_SERVER_PLATFORM.md](docs/developer/REMOTE_SERVER_PLATFORM.md).
-OpenAPI : [docs/openapi/morpheus-v1-remote-m26.yaml](docs/openapi/morpheus-v1-remote-m26.yaml).
-
-## Evidence-backed Assisted Reasoning — M27
-
-Lister les adaptateurs :
-
-```bash
-morpheus reason adapters
-```
-
-Mode facts-only :
-
-```bash
-morpheus reason analyze \
-  --question "What is published?" \
-  --evidence 'fact-1|PUBLISHED_FACT|requirement:req-1|Session timeout is 30 minutes'
-```
-
-Analyse assistée explicitement sélectionnée :
-
-```bash
-morpheus reason analyze \
-  --question "What should be reviewed?" \
-  --evidence 'fact-1|PUBLISHED_FACT|requirement:req-1|Session timeout is 30 minutes' \
-  --evidence 'obs-1|OBSERVATION|runtime|Timeout failures increased' \
-  --adapter builtin-evidence-synthesis-v1
-```
-
-Surfaces :
+Clients documentés :
 
 ```text
-CLI   reason adapters / reason analyze
-MCP   list_reasoning_adapters / reason_with_evidence
-HTTP  GET /api/v1/reasoning/adapters
-HTTP  POST /api/v1/reasoning/analyze
+GitHub Copilot — JetBrains / IntelliJ
+GitHub Copilot CLI
+Claude Code
+Claude Desktop
+OpenAI Codex
 ```
 
-Garanties :
+Guide : [`docs/user/MCP_CLIENTS.md`](docs/user/MCP_CLIENTS.md).
+
+## Surfaces publiques
+
+Les contrats de convergence CLI/MCP/HTTP sont suivis dans [`contracts/public-surfaces.tsv`](contracts/public-surfaces.tsv).
 
 ```text
-facts != inference
-inference != suggestion
-heuristic != published fact
-confidence is explicit and bounded
-adapter discovery != adapter execution
-adapter absence != MORPHEUS failure
-adapter failure != fact loss
-reasoning execution != lifecycle mutation
-mutated=false
+CLI   humain / scripts / administration locale
+MCP   IDE / agents / orchestrateurs via STDIO
+HTTP  API locale loopback et façade remote HTTPS opt-in
 ```
 
-Guide utilisateur : [docs/user/ASSISTED_REASONING.md](docs/user/ASSISTED_REASONING.md).
-Architecture : [docs/developer/ASSISTED_REASONING.md](docs/developer/ASSISTED_REASONING.md).
-OpenAPI : [docs/openapi/morpheus-v1-reasoning-m27.yaml](docs/openapi/morpheus-v1-reasoning-m27.yaml).
+Les omissions de surface sont explicites : par exemple le restore reste offline-only et le provisioning d’identité remote reste local-only.
 
-## Invariants importants
+## Invariants structurants
 
 ```text
 DomainIdentity != EntityVersionId != SourceLocator != ExternalReference
 SpecificationVersion != KnowledgeSnapshot
-provider identifier != DomainIdentity
-source path != identity
 PROPOSED never leaks into CURRENT
-published history = RETIRED* -> ACTIVE
 APPLY != PROMOTE != ACTIVATE
 Scenario != AcceptanceCriterion
 AcceptanceCriterion != Test
@@ -266,64 +121,42 @@ UNKNOWN != BLOCKED
 READ_CHANGES != WRITE_CHANGE
 ALLOWED != applied
 stale revision != overwrite
-idempotent retry != duplicate mutation/audit
 precedence != provenance erasure
 conflict != silent last-write-wins
 provider plugin != domain dependency
-plugin discovery != plugin activation
 cross-project identity != source path
-project identity != workspace path
 portfolio membership != source ownership
-cross-project reference != traceability proof
-traversal is bounded and explainable
 DSL != SQL passthrough
 saved view != materialized truth
 export != mutation
-bounded query != silently truncated semantics
 constraint text != executable policy
-severity != blocking policy
 policy recommendation != applied mutation
-policy version != mutable latest
-policy override != provenance erasure
 dry-run != mutation
-policy evaluation != lifecycle mutation
-pack activation != domain truth mutation
 local mode remains first-class
 remote mode is opt-in
-non-loopback bind requires remote mode
-remote mode requires TLS + authentication
 authentication != authorization
 READ != WRITE != ADMIN
 token plaintext != persisted credential
 backup != live restore
-restore != implicit migration
-server state != provider source of truth
-multi-client concurrency != unbounded concurrency
 facts != inference
 inference != suggestion
-heuristic != published fact
-confidence is explicit and bounded
-adapter discovery != adapter execution
-adapter absence != MORPHEUS failure
-adapter failure != fact loss
-reasoning execution != lifecycle mutation
-reasoning execution != policy override
-surface parity != same transport shape
-optional engine absence != MORPHEUS failure
+reasoning execution != mutation
+Docker required for native MCP = false
 ```
 
 ## Fondation technique
 
 ```text
-Java                 21
-Build                Maven Wrapper 3.9.16
-Persistent store     SQLite
-DomainIdentity       UUIDv7
-MCP SDK              Java MCP SDK 2.0.0
-MCP transport        STDIO
-HTTP local           JDK jdk.httpserver
-Remote HTTPS         JDK HttpsServer, opt-in
-Distribution         jpackage + Inno Setup Windows
+Java                  21
+Build                 Maven Wrapper 3.9.16
+Version produit       1.2.0
+Persistent store      SQLite
+SQLite JDBC           3.53.2.0 (D2 branch)
+Jackson               3.1.5 LTS (D2 branch)
+MCP SDK               Java MCP SDK 2.0.0
+HTTP local            JDK jdk.httpserver
+Remote HTTPS          JDK HttpsServer, opt-in
+Distribution          jpackage + Inno Setup Windows
 ```
 
 Modules Maven :
@@ -349,49 +182,51 @@ morpheus-architecture-tests
 
 ## Build développeur
 
-```powershell
-.\mvnw.cmd clean test
-```
-
-Gate M27 Windows :
+Le gate Maven canonique est :
 
 ```powershell
-.\validate-m27.cmd 1.0.0
+.\mvnw.cmd clean verify
 ```
-
-Gate M27 Linux :
 
 ```bash
-bash ./scripts/validate-m27.sh 1.0.0
+./mvnw clean verify
 ```
 
-Preuve technique : [docs/validation/VALIDATION_M27.md](docs/validation/VALIDATION_M27.md).
+D2 ajoute un gate local complet :
 
-## Roadmap 1.x
+```powershell
+.\scripts\validate.cmd d2 -Version 1.2.0 -BaseRef origin/develop
+```
 
-Trajectoire : **[POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md)**.
+```bash
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.0
+```
+
+**D2 n’utilise aucune CI** : aucun workflow GitHub Actions n’est inspecté, modifié, relancé ou utilisé comme preuve.
+
+## Qualité D2
+
+Sur la branche D2 :
 
 ```text
-DONE
-  R1   publication officielle v1.0.0 ✅
-  D1   consolidation post-M20 ✅
-  M21  Production Integrity & Surface Convergence ✅
-  M22  Provider SDK & Plugin Discovery Platform ✅
-  M23  Multi-project / Portfolio Specification Intelligence ✅
-  M24  Query DSL, Saved Views & Export/Reporting ✅
-  M25  Policy Packs & Governance Automation ✅
-  M26  Optional Team/Remote Server Mode ✅
-  M27  Evidence-backed Assisted Reasoning ✅
-
-NOW
-  aucun jalon post-M27 défini
+Jackson                3.1.5 LTS
+sqlite-jdbc            3.53.2.0
+OWASP Dependency-Check 12.2.2, scan local explicite
+Dependency hygiene     failOnWarning=true
+JaCoCo line floor      40%
+JaCoCo branch floor    35%
 ```
+
+La qualification D2 n’est considérée acquise qu’après Windows + Linux/WSL sur le même SHA exact. Voir [`docs/validation/VALIDATION_D2.md`](docs/validation/VALIDATION_D2.md).
 
 ## Documentation
 
-**Point d’entrée : [docs/README.md](docs/README.md)**.
+Point d’entrée : [`docs/README.md`](docs/README.md).
 
-Roadmap : [docs/governance/ROADMAP.md](docs/governance/ROADMAP.md).
-Roadmap 1.x : [docs/roadmap/POST_M20_EVOLUTION.md](docs/roadmap/POST_M20_EVOLUTION.md).
-Assisted Reasoning : [docs/user/ASSISTED_REASONING.md](docs/user/ASSISTED_REASONING.md).
-Architecture M27 : [docs/developer/ASSISTED_REASONING.md](docs/developer/ASSISTED_REASONING.md).
+- roadmap globale : [`docs/governance/ROADMAP.md`](docs/governance/ROADMAP.md) ;
+- état documentaire : [`docs/governance/DOCUMENTATION_STATUS.md`](docs/governance/DOCUMENTATION_STATUS.md) ;
+- release 1.2.0 : [`docs/release/RELEASE_NOTES_1.2.0.md`](docs/release/RELEASE_NOTES_1.2.0.md) ;
+- installation : [`docs/user/INSTALLATION.md`](docs/user/INSTALLATION.md) ;
+- clients MCP : [`docs/user/MCP_CLIENTS.md`](docs/user/MCP_CLIENTS.md) ;
+- build/test : [`docs/developer/BUILD_AND_TEST.md`](docs/developer/BUILD_AND_TEST.md) ;
+- D2 : [`docs/roadmap/D2_EXECUTION.md`](docs/roadmap/D2_EXECUTION.md).
