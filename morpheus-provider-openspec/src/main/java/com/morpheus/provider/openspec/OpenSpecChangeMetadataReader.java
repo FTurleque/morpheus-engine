@@ -1,6 +1,7 @@
 package com.morpheus.provider.openspec;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
@@ -109,7 +110,7 @@ public final class OpenSpecChangeMetadataReader {
             throw new IllegalArgumentException("OpenSpec change has no proposal.md: " + changeKey);
         }
 
-        List<String> proposalLines = readAllLines(proposalFile);
+        List<String> proposalLines = readAllLines(workspaceRoot, proposalFile);
         SourceLocator proposalSource = locator(workspaceRoot, proposalFile);
         String changeExternalId = "change:" + changeKey;
         String title = proposalTitle(proposalLines);
@@ -173,7 +174,7 @@ public final class OpenSpecChangeMetadataReader {
         if (!Files.isRegularFile(designFile)) {
             return;
         }
-        List<String> lines = readAllLines(designFile);
+        List<String> lines = readAllLines(workspaceRoot, designFile);
         SourceLocator source = locator(workspaceRoot, designFile);
         List<Integer> headings = headingIndexes(lines, DECISION_HEADING);
         for (int index = 0; index < headings.size(); index++) {
@@ -212,7 +213,7 @@ public final class OpenSpecChangeMetadataReader {
         if (!Files.isRegularFile(tasksFile)) {
             return;
         }
-        List<String> lines = readAllLines(tasksFile);
+        List<String> lines = readAllLines(workspaceRoot, tasksFile);
         SourceLocator source = locator(workspaceRoot, tasksFile);
         int ordinal = 0;
         for (int index = 0; index < lines.size(); index++) {
@@ -359,9 +360,12 @@ public final class OpenSpecChangeMetadataReader {
                 Optional.of(sha256(excerpt)));
     }
 
-    private List<String> readAllLines(Path source) {
+    private List<String> readAllLines(Path workspaceRoot, Path source) {
         try {
-            return Files.readAllLines(source, StandardCharsets.UTF_8);
+            return SafeWorkspaceFileResolver.rootedAt(workspaceRoot)
+                    .readUtf8(workspaceRoot.relativize(source))
+                    .lines()
+                    .toList();
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot read OpenSpec source " + source, exception);
         }

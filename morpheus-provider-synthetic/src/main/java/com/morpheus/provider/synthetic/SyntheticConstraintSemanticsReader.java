@@ -1,6 +1,7 @@
 package com.morpheus.provider.synthetic;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.constraint.Constraint;
@@ -18,7 +19,6 @@ import com.morpheus.domain.source.SourceLocator;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -115,15 +115,7 @@ final class SyntheticConstraintSemanticsReader {
             String relativePath,
             EntityIdentityResolver identities,
             String externalId) throws IOException {
-        Path root = workspaceRoot.toAbsolutePath().normalize();
-        Path file = root.resolve(relativePath).normalize();
-        if (!file.startsWith(root)) {
-            throw new IllegalArgumentException("constraint evidence escapes workspace: " + relativePath);
-        }
-        if (!Files.isRegularFile(file)) {
-            throw new IllegalArgumentException("constraint evidence file does not exist: " + relativePath);
-        }
-        String text = Files.readString(file, StandardCharsets.UTF_8);
+        String text = SafeWorkspaceFileResolver.rootedAt(workspaceRoot).readUtf8(Path.of(relativePath));
         int lines = Math.max(1, text.lines().toList().size());
         return new Evidence(
                 new EvidenceId(identities.resolve(

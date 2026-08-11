@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.api.AllowedWorkspaceRoots;
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.api.MorpheusRemoteHttpServer;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
@@ -88,8 +89,8 @@ public final class MorpheusMain {
             out.println("  Local mode is loopback-only. Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.");
             out.println();
             out.println("Team / remote server (M26, opt-in):");
-            out.println("  morpheus [layout] api --remote --host HOST --port PORT --tls-keystore FILE [--auth-file FILE] [--max-concurrent N]");
-            out.println("  Remote mode is HTTPS-only and requires MORPHEUS_SERVER_TLS_PASSWORD; auth defaults to <config>/remote-auth.txt.");
+            out.println("  morpheus [layout] api --remote --host HOST --port PORT --tls-keystore FILE --workspace-root PATH [--workspace-root PATH ...] [--auth-file FILE] [--max-concurrent N] [--provider-plugin-dir PATH]");
+            out.println("  Remote mode is HTTPS-only and requires MORPHEUS_SERVER_TLS_PASSWORD plus at least one server-owned workspace root.");
             out.println("  morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN [--auth-file FILE]");
             out.println("  morpheus [layout] server backup create [--output-dir PATH]");
             out.println("  morpheus [layout] server backup verify --file PATH");
@@ -242,6 +243,8 @@ public final class MorpheusMain {
             try (MorpheusRemoteHttpServer server = MorpheusRemoteHttpServer.start(
                     options.layout().databasePath(),
                     options.layout().backupsDirectory(),
+                    options.providerPluginDirectory(),
+                    AllowedWorkspaceRoots.of(options.allowedWorkspaceRoots()),
                     options.host(),
                     options.port(),
                     options.authFile(),

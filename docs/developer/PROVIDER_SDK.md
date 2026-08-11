@@ -193,6 +193,15 @@ probe != read
 
 Le reader doit respecter les catégories explicitement demandées, retourner des `ReadCategoryReport` complets et produire du `NormalizedProjectContent` provider-neutral.
 
+Toute lecture d'un fichier relatif au workspace passe par
+`SafeWorkspaceFileResolver`. Cette frontière partagée refuse les chemins absolus,
+les composants `..`, les symlinks et junctions, vérifie le confinement du real
+path et revalide l'identité du fichier après lecture. Les providers ne doivent
+pas réimplémenter ce contrôle avec un simple `normalize().startsWith(...)` ni
+utiliser directement les méthodes de lecture `Files.*` sur un chemin fourni par
+le contenu du workspace. Le locator et la provenance restent relatifs au
+workspace, même si la primitive lit le chemin canonique.
+
 ## 9. Identités et provenance
 
 Un plugin ne doit pas fabriquer une identité MORPHEUS à partir d’un simple chemin. Le host transmet un `EntityIdentityResolver`. Le provider l’utilise avec son `ProviderId`, le type d’entité et son identifiant externe stable.
