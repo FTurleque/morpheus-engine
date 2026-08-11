@@ -24,6 +24,16 @@ class SafeWorkspaceFileResolverTest {
     }
 
     @Test
+    void boundedReadAcceptsExactBytesAndRejectsTheNextByte() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace"));
+        Files.writeString(workspace.resolve("spec.md"), "€");
+
+        SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
+        assertEquals("€", resolver.readUtf8(Path.of("spec.md"), 3));
+        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("spec.md"), 2));
+    }
+
+    @Test
     void rejectsTraversalOutsideWorkspace() throws Exception {
         Path workspace = Files.createDirectory(temp.resolve("workspace"));
         Files.writeString(temp.resolve("secret.txt"), "secret");

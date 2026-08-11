@@ -56,6 +56,15 @@ class SyntheticJsonParserSecurityTest {
     }
 
     @Test
+    void countsUtf8BytesRatherThanUtf16Characters() {
+        String oversized = "{\"value\":\"" + "€".repeat(SyntheticJsonParser.MAX_INPUT_BYTES / 3) + "\"}";
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> SyntheticJsonParser.parseObject(oversized));
+        assertTrue(failure.getMessage().contains("UTF-8 bytes"));
+    }
+
+    @Test
     void rejectsNonFiniteNumbers() {
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,

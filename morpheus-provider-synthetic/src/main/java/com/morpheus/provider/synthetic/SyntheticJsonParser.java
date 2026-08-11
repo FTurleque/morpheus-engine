@@ -1,6 +1,5 @@
 package com.morpheus.provider.synthetic;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,11 +19,36 @@ final class SyntheticJsonParser {
 
     private SyntheticJsonParser(String input) {
         this.input = Objects.requireNonNull(input, "input");
-        int utf8Bytes = input.getBytes(StandardCharsets.UTF_8).length;
-        if (utf8Bytes > MAX_INPUT_BYTES) {
+        if (exceedsUtf8ByteLimit(input, MAX_INPUT_BYTES)) {
             throw new IllegalArgumentException(
                     "synthetic JSON exceeds maximum input size of " + MAX_INPUT_BYTES + " UTF-8 bytes");
         }
+    }
+
+    /** Counts UTF-8 bytes without allocating a second byte array and stops as soon as the limit is exceeded. */
+    private static boolean exceedsUtf8ByteLimit(String value, int limit) {
+        int bytes = 0;
+        for (int offset = 0; offset < value.length(); offset++) {
+            char current = value.charAt(offset);
+            if (current <= 0x7f) {
+                bytes++;
+            } else if (current <= 0x7ff) {
+                bytes += 2;
+            } else if (Character.isHighSurrogate(current)
+                    && offset + 1 < value.length()
+                    && Character.isLowSurrogate(value.charAt(offset + 1))) {
+                bytes += 4;
+                offset++;
+            } else if (Character.isSurrogate(current)) {
+                bytes++;
+            } else {
+                bytes += 3;
+            }
+            if (bytes > limit) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static Map<String, Object> parseObject(String input) {

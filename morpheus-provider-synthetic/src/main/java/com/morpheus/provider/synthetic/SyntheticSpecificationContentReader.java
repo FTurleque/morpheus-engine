@@ -89,7 +89,9 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
 
         try {
             SafeWorkspaceFileResolver files = SafeWorkspaceFileResolver.rootedAt(root);
-            String sourceText = files.readUtf8(Path.of(SyntheticSpecificationProvider.SOURCE_FILE));
+            String sourceText = files.readUtf8(
+                    Path.of(SyntheticSpecificationProvider.SOURCE_FILE),
+                    SyntheticJsonParser.MAX_INPUT_BYTES);
             Map<String, Object> payload = SyntheticJsonParser.parseObject(sourceText);
             Normalization normalization = normalize(payload, sourceText, request, identityResolver);
 

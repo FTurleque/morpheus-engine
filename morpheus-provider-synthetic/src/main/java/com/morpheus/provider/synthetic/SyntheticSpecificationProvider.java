@@ -68,7 +68,8 @@ public final class SyntheticSpecificationProvider implements SpecificationProvid
         }
 
         try {
-            String sourceText = SafeWorkspaceFileResolver.rootedAt(root).readUtf8(Path.of(SOURCE_FILE));
+            String sourceText = SafeWorkspaceFileResolver.rootedAt(root)
+                    .readUtf8(Path.of(SOURCE_FILE), SyntheticJsonParser.MAX_INPUT_BYTES);
             Map<String, Object> payload = SyntheticJsonParser.parseObject(sourceText);
             Object formatVersion = payload.get("format_version");
             if (formatVersion == null) {
