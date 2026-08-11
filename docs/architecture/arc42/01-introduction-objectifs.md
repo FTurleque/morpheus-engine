@@ -1,26 +1,26 @@
 # §1 — Introduction et objectifs
 
-> **Sources** : `docs/architecture/overview.md`, `docs/developer/ARCHITECTURE.md`,
-> `docs/adr/README.md` (section invariants), `pom.xml` (version 1.2.0),
-> `docs/README.md` (entrée documentation).
+> **Sources actives** : `pom.xml`, `docs/adr/`, `docs/governance/`,
+> `docs/validation/`, `contracts/public-surfaces.tsv` et code du HEAD `develop`.
+> Les documents de conception plus anciens sont utilisés comme contexte
+> historique lorsqu'ils restent cohérents avec ces sources.
 
 ---
 
 ## 1.1 Résumé du système
 
-**MORPHEUS ENGINE** (v1.2.0) est un moteur local-first d'intelligence des
-spécifications logicielles. Il ingère des workspaces de projets depuis des
-sources hétérogènes (fichiers Markdown structurés, specs OpenAPI, providers
-tiers), puis produit une représentation normalisée, versionnée, traçable et
-interrogeable de l'intention d'un projet.
+**MORPHEUS ENGINE 1.2.0** est un moteur local-first d'intelligence des
+spécifications logicielles. Il ingère des workspaces au moyen de providers
+explicites — notamment **OpenSpec** et **Structured Markdown** — puis produit
+une représentation normalisée, versionnée, traçable et interrogeable de
+l'intention d'un projet.
 
-Il est distribué comme binaire autonome (JVM embarquée via jpackage) et expose
-trois surfaces d'accès complémentaires : une interface CLI interactive, un
-serveur MCP STDIO pour les clients d'IA, et une API HTTP locale. Un mode
-serveur distant est disponible en option, avec TLS et RBAC.
+Il est distribué avec un runtime Java embarqué et expose trois surfaces
+principales : CLI, serveur MCP STDIO et API HTTP `/api/v1`. Un mode serveur
+d'équipe HTTPS est disponible en option, avec authentification Bearer et RBAC.
 
-Le système ne dépend d'aucun LLM en fonctionnement nominal, d'aucun service
-cloud, et d'aucun provider particulier.
+Le cœur fonctionnel ne requiert ni LLM, ni service cloud, ni provider externe
+obligatoire. MINOS et NEXUS restent des intégrations optionnelles et isolées.
 
 ---
 
@@ -28,13 +28,13 @@ cloud, et d'aucun provider particulier.
 
 | # | Objectif | Priorité |
 |---|----------|----------|
-| OM-1 | Permettre à un développeur de comprendre l'état courant, proposé et historique des spécifications d'un projet sans interprétation manuelle | Critique |
-| OM-2 | Fournir une traçabilité vérifiable entre exigences, changements, tâches et décisions | Critique |
-| OM-3 | Automatiser les contrôles de gouvernance via des policy packs | Haute |
+| OM-1 | Comprendre les états CURRENT, PROPOSED et HISTORICAL des spécifications sans fusion silencieuse | Critique |
+| OM-2 | Fournir une traçabilité vérifiable entre exigences, changements, tâches, décisions et preuves | Critique |
+| OM-3 | Automatiser les contrôles de gouvernance via des Policy Packs | Haute |
 | OM-4 | Permettre l'analyse multi-projets via des portfolios | Haute |
-| OM-5 | S'intégrer comme source de contexte enrichi pour les agents IA (MCP) sans leur déléguer la vérité des faits | Haute |
-| OM-6 | Fonctionner sur poste développeur Windows et Linux sans infrastructure cloud | Critique |
-| OM-7 | Supporter des plugins provider externes sans modification du moteur | Moyenne |
+| OM-5 | Exposer des faits et du contexte aux agents IA sans leur déléguer la vérité publiée | Haute |
+| OM-6 | Fonctionner sur Windows et Linux sans infrastructure cloud obligatoire | Critique |
+| OM-7 | Supporter des providers externes via le Provider SDK sans modifier le cœur | Moyenne |
 
 ---
 
@@ -42,24 +42,22 @@ cloud, et d'aucun provider particulier.
 
 | Partie prenante | Rôle | Intérêts architecturaux |
 |-----------------|------|------------------------|
-| Développeurs individuels | Utilisateurs CLI et MCP | CLI ergonomique, latence faible, fonctionnement hors-ligne |
-| Équipes (mode remote) | Utilisateurs du serveur partagé | Authentification, RBAC, backups, multi-utilisateurs |
-| Agents IA (JARVIS, clients MCP) | Consommateurs MCP STDIO et HTTP API | Stabilité des surfaces, surface parity CLI/MCP/HTTP |
-| MINOS ENGINE | Fournisseur de code intelligence | Contrat MCP STDIO, tolérance aux pannes |
-| NEXUS ENGINE | Fournisseur de context selection | Contrat MCP STDIO, tolérance aux pannes |
-| Auteur du système (F. Turleque) | Architecte, développeur principal | Maintenabilité, testabilité, roadmap M28+ |
-| Contributeurs de providers | Développeurs de plugins | SDK stable, documentation PROVIDER_SDK |
+| Développeurs individuels | Utilisateurs CLI et MCP | Ergonomie, déterminisme, fonctionnement local |
+| Équipes (mode remote) | Utilisateurs du serveur partagé | Authentification, RBAC, concurrence et backups |
+| Clients et agents MCP | Consommateurs des tools MORPHEUS | Stabilité des contrats et convergence des surfaces |
+| MINOS ENGINE | Fournisseur optionnel de code intelligence | Contrat MCP STDIO et isolation des pannes |
+| NEXUS ENGINE | Fournisseur optionnel de sélection de contexte | Contrat MCP STDIO et isolation des pannes |
+| Mainteneur MORPHEUS | Architecture, développement et releases | Maintenabilité, sécurité, testabilité et évolutivité |
+| Auteurs de providers | Développeurs de plugins | SDK stable, activation explicite et testkit |
 
 ---
 
 ## 1.4 Objectifs qualité prioritaires
 
-Les cinq objectifs qualité structurants, par ordre de priorité décroissante :
-
 | Rang | Qualité | Justification |
 |------|---------|---------------|
-| 1 | **Exactitude** — les faits produits sont vérifiables et jamais inventés | Toute inférence est explicitement marquée ; politique « heuristic != published fact » (ADR-0004) |
-| 2 | **Maintenabilité** — isolation en couches, gates CI, SBOM, tests d'architecture | Architecture en couches enforced par ArchUnit ; 96 ADR ; 731 fichiers Java |
-| 3 | **Portabilité** — fonctionnement sur Windows et Linux sans infrastructure externe | JVM embarquée, SQLite local, distribution native-first (ADR-0027) |
-| 4 | **Extensibilité** — ajout de providers et d'intégrations sans modifier le cœur | Port-adapter pattern ; SDK provider externe (ADR-0090) |
-| 5 | **Résilience** — les défaillances des systèmes externes ne dégradent pas la disponibilité des faits locaux | Absence d'intégrations obligatoires ; adapter failure != fact loss (invariant ADR README) |
+| 1 | **Exactitude** | Les faits publiés restent séparés des inférences, heuristiques et suggestions ; provenance et evidence sont conservées. |
+| 2 | **Maintenabilité** | Frontières de couches testées, ADR versionnés, SBOM et gates reproductibles. |
+| 3 | **Sécurité** | Validation des entrées, confinement filesystem, durcissement SQLite/JSON et intégrations externes opt-in. |
+| 4 | **Portabilité** | Java 21, runtime embarqué, SQLite local et distribution native-first Windows/Linux. |
+| 5 | **Extensibilité / résilience** | Providers et intégrations derrière des ports ; l'absence ou la panne d'un adaptateur optionnel ne détruit pas les faits locaux. |
