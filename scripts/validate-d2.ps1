@@ -73,7 +73,9 @@ foreach ($token in @(
     '<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>',
     '<failOnWarning>true</failOnWarning>',
     '<id>d2-security</id>',
-    '<failBuildOnCVSS>7.0</failBuildOnCVSS>')) {
+    '<failBuildOnCVSS>7.0</failBuildOnCVSS>',
+    '<failBuildOnUnusedSuppressionRule>true</failBuildOnUnusedSuppressionRule>',
+    'config/dependency-check-suppressions.xml')) {
     if (-not $pom.Contains($token)) { throw "D2 dependency/quality token missing from pom.xml: $token" }
 }
 Write-Host 'D2 dependency baseline: PASS'

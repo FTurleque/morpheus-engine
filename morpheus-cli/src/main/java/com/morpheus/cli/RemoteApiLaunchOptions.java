@@ -2,12 +2,14 @@ package com.morpheus.cli;
 
 import com.morpheus.api.MorpheusRemoteHttpServer;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 /** Parses only the explicit `api --remote` M26 launch path, leaving legacy local API parsing unchanged. */
 record RemoteApiLaunchOptions(
@@ -17,7 +19,13 @@ record RemoteApiLaunchOptions(
         Path authFile,
         Path tlsKeyStore,
         String tlsPassword,
-        int maxConcurrentRequests) {
+        int maxConcurrentRequests,
+        Path providerPluginDirectory,
+        List<Path> allowedWorkspaceRoots) {
+
+    RemoteApiLaunchOptions {
+        allowedWorkspaceRoots = List.copyOf(allowedWorkspaceRoots);
+    }
 
     static boolean isRemoteApiCommand(String[] args) {
         boolean api = false;
@@ -38,6 +46,8 @@ record RemoteApiLaunchOptions(
         Optional<Path> database = Optional.empty();
         Optional<Path> explicitAuthFile = Optional.empty();
         Optional<Path> explicitKeyStore = Optional.empty();
+        Optional<Path> explicitProviderPluginDirectory = Optional.empty();
+        List<Path> explicitWorkspaceRoots = new ArrayList<>();
         String host = "127.0.0.1";
         int port = 8765;
         int maxConcurrent = MorpheusRemoteHttpServer.DEFAULT_MAX_CONCURRENT_REQUESTS;
@@ -71,6 +81,8 @@ record RemoteApiLaunchOptions(
                     case "--db" -> database = Optional.of(Path.of(value));
                     case "--auth-file" -> explicitAuthFile = Optional.of(Path.of(value));
                     case "--tls-keystore" -> explicitKeyStore = Optional.of(Path.of(value));
+                    case "--provider-plugin-dir" -> explicitProviderPluginDirectory = Optional.of(Path.of(value));
+                    case "--workspace-root" -> explicitWorkspaceRoots.add(Path.of(value));
                     case "--max-concurrent" -> {
                         maxConcurrent = parseConcurrency(value);
                         maxConcurrentExplicit = true;
@@ -95,6 +107,8 @@ record RemoteApiLaunchOptions(
                     case "--db" -> database = Optional.of(Path.of(value));
                     case "--auth-file" -> explicitAuthFile = Optional.of(Path.of(value));
                     case "--tls-keystore" -> explicitKeyStore = Optional.of(Path.of(value));
+                    case "--provider-plugin-dir" -> explicitProviderPluginDirectory = Optional.of(Path.of(value));
+                    case "--workspace-root" -> explicitWorkspaceRoots.add(Path.of(value));
                     case "--max-concurrent" -> {
                         maxConcurrent = parseConcurrency(value);
                         maxConcurrentExplicit = true;
@@ -121,6 +135,15 @@ record RemoteApiLaunchOptions(
                 .orElseThrow(() -> new IllegalArgumentException(
                         "remote mode requires --tls-keystore or MORPHEUS_SERVER_TLS_KEYSTORE"))
                 .toAbsolutePath().normalize();
+        Path providerPluginDirectory = explicitProviderPluginDirectory
+                .or(() -> envPath(environment, "MORPHEUS_SERVER_PROVIDER_PLUGIN_DIR"))
+                .or(() -> propertyPath(properties, "morpheus.server.providerPluginDirectory"))
+                .orElse(layout.configDirectory().resolve("provider-plugins"))
+                .toAbsolutePath().normalize();
+        List<Path> allowedWorkspaceRoots = resolveWorkspaceRoots(
+                explicitWorkspaceRoots,
+                environment,
+                properties);
         String password = nonBlank(environment.get("MORPHEUS_SERVER_TLS_PASSWORD"))
                 .or(() -> nonBlank(properties.getProperty("morpheus.server.tls.password")))
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -130,7 +153,16 @@ record RemoteApiLaunchOptions(
                     .or(() -> nonBlank(properties.getProperty("morpheus.server.maxConcurrent")));
             if (configured.isPresent()) maxConcurrent = parseConcurrency(configured.orElseThrow());
         }
-        return new RemoteApiLaunchOptions(layout, host, port, authFile, keyStore, password, maxConcurrent);
+        return new RemoteApiLaunchOptions(
+                layout,
+                host,
+                port,
+                authFile,
+                keyStore,
+                password,
+                maxConcurrent,
+                providerPluginDirectory,
+                allowedWorkspaceRoots);
     }
 
     char[] tlsPasswordChars() {
@@ -141,7 +173,28 @@ record RemoteApiLaunchOptions(
         return token.equals("--host") || token.equals("--port")
                 || token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")
                 || token.equals("--auth-file") || token.equals("--tls-keystore")
+                || token.equals("--provider-plugin-dir") || token.equals("--workspace-root")
                 || token.equals("--max-concurrent");
+    }
+
+    private static List<Path> resolveWorkspaceRoots(
+            List<Path> explicit,
+            Map<String, String> environment,
+            Properties properties) {
+        List<Path> configured = new ArrayList<>(explicit);
+        if (configured.isEmpty()) {
+            String raw = nonBlank(environment.get("MORPHEUS_SERVER_WORKSPACE_ROOTS"))
+                    .or(() -> nonBlank(properties.getProperty("morpheus.server.workspaceRoots")))
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "remote mode requires at least one --workspace-root or MORPHEUS_SERVER_WORKSPACE_ROOTS"));
+            for (String item : raw.split(Pattern.quote(File.pathSeparator))) {
+                if (!item.isBlank()) configured.add(Path.of(item.trim()));
+            }
+        }
+        if (configured.isEmpty()) {
+            throw new IllegalArgumentException("remote workspace roots must not be empty");
+        }
+        return configured.stream().map(path -> path.toAbsolutePath().normalize()).distinct().toList();
     }
 
     private static int parsePort(String raw) {

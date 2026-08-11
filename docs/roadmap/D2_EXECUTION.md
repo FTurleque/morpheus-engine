@@ -55,8 +55,11 @@ runtime/test scope        test scope excluded from SCA
 HIGH/CRITICAL threshold   failBuildOnCVSS >= 7.0
 scan error                FAIL
 report                    ALL sous target/d2-security
-suppression               aucune suppression silencieuse
+suppression               une association CPE interne explicitement triée
+unused suppression        FAIL
 ```
+
+La règle versionnée cible uniquement le package interne `io.github.fturleque:morpheus-store-sqlite:1.2.0`, que Dependency-Check confond avec SQLite 1.2.0. Elle ne masque pas le driver réel `org.xerial:sqlite-jdbc:3.53.2.0`, qui reste entièrement analysé.
 
 ## 4. D2-S2 — JSON security regression
 
