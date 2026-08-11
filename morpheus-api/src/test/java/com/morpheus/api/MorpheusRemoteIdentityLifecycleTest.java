@@ -3,9 +3,15 @@ package com.morpheus.api;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,6 +36,11 @@ class MorpheusRemoteIdentityLifecycleTest {
         assertFalse(persisted.contains(admin.token()));
         assertFalse(persisted.contains(reader.token()));
         assertFalse(persisted.contains(rotated.token()));
+        assertEquals(List.of(
+                        MorpheusRemoteIdentityFile.Mutation.CREATE,
+                        MorpheusRemoteIdentityFile.Mutation.CREATE,
+                        MorpheusRemoteIdentityFile.Mutation.ROTATE),
+                MorpheusRemoteIdentityFile.audit(auth).stream().map(MorpheusRemoteIdentityFile.AuditRecord::mutation).toList());
     }
 
     @Test
@@ -59,5 +70,46 @@ class MorpheusRemoteIdentityLifecycleTest {
         var afterRevoke = MorpheusRemoteIdentityFile.load(auth);
         assertTrue(MorpheusRemoteIdentityFile.authenticate(afterRevoke, adminOne.token()).isEmpty());
         assertEquals(2, afterRevoke.size());
+    }
+
+    @Test
+    void concurrentMutationsKeepACompleteParseableSnapshotAndAudit() throws Exception {
+        Path auth = temp.resolve("concurrent-auth.txt");
+        MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
+        try (var executor = Executors.newFixedThreadPool(8)) {
+            for (int index = 0; index < 32; index++) {
+                int identity = index;
+                executor.submit(() -> MorpheusRemoteIdentityFile.create(
+                        auth, "reader-" + identity, MorpheusRemoteRole.READ));
+            }
+            executor.shutdown();
+            assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
+        }
+
+        assertEquals(33, MorpheusRemoteIdentityFile.load(auth).size());
+        assertEquals(33, MorpheusRemoteIdentityFile.audit(auth).size());
+        assertEquals(33, MorpheusRemoteIdentityFile.load(auth).stream().map(i -> i.principal()).distinct().count());
+    }
+
+    @Test
+    void rejectedOversizedAtomicRewriteLeavesOriginalSnapshotUntouched() throws Exception {
+        Path auth = temp.resolve("full-auth.txt");
+        String principal = "a".repeat(128);
+        MorpheusRemoteIdentityFile.create(auth, principal, MorpheusRemoteRole.ADMIN);
+        List<String> seed = Files.readAllLines(auth, StandardCharsets.UTF_8);
+        String auditLine = seed.stream().filter(line -> line.startsWith("# audit|")).findFirst().orElseThrow();
+        List<String> full = new ArrayList<>(seed);
+        while (String.join(System.lineSeparator(), full).getBytes(StandardCharsets.UTF_8).length
+                + auditLine.getBytes(StandardCharsets.UTF_8).length
+                + System.lineSeparator().getBytes(StandardCharsets.UTF_8).length
+                <= MorpheusRemoteIdentityFile.MAX_FILE_BYTES) {
+            full.add(auditLine);
+        }
+        Files.writeString(auth, String.join(System.lineSeparator(), full) + System.lineSeparator());
+        byte[] before = Files.readAllBytes(auth);
+
+        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.rotate(auth, principal));
+        assertArrayEquals(before, Files.readAllBytes(auth));
+        assertEquals(1, MorpheusRemoteIdentityFile.load(auth).size());
     }
 }
