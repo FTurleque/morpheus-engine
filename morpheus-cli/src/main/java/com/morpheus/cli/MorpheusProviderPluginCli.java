@@ -69,10 +69,12 @@ final class MorpheusProviderPluginCli {
     }
 
     private int probe(Parsed parsed, PrintStream out) {
-        ProviderPluginProbeOutcome outcome = service.probe(
-                Path.of(parsed.required("directory")),
-                parsed.required("plugin"),
-                Path.of(parsed.required("workspace")));
+        Path directory = Path.of(parsed.required("directory"));
+        String plugin = parsed.required("plugin");
+        Path workspace = Path.of(parsed.required("workspace"));
+        ProviderPluginProbeOutcome outcome = parsed.optional("sha256")
+                .map(pin -> service.probe(directory, plugin, workspace, pin))
+                .orElseGet(() -> service.probe(directory, plugin, workspace));
         if (parsed.json()) {
             out.println(json.toJson(outcome));
         } else {
@@ -115,7 +117,8 @@ final class MorpheusProviderPluginCli {
                 action = token;
                 continue;
             }
-            if (token.equals("--directory") || token.equals("--plugin") || token.equals("--workspace")) {
+            if (token.equals("--directory") || token.equals("--plugin")
+                    || token.equals("--workspace") || token.equals("--sha256")) {
                 int valueIndex = requireValue(tokens, index, token);
                 options.put(token.substring(2), tokens.get(valueIndex));
                 index = valueIndex;
@@ -135,7 +138,8 @@ final class MorpheusProviderPluginCli {
         if (action.equals("probe") && (!options.containsKey("plugin") || !options.containsKey("workspace"))) {
             throw new IllegalArgumentException("probe requires --plugin ID and --workspace PATH");
         }
-        if (action.equals("discover") && (options.containsKey("plugin") || options.containsKey("workspace"))) {
+        if (action.equals("discover")
+                && (options.containsKey("plugin") || options.containsKey("workspace") || options.containsKey("sha256"))) {
             throw new IllegalArgumentException("discover accepts only --directory PATH");
         }
         return new Parsed(json, action, Map.copyOf(options));
@@ -176,6 +180,10 @@ final class MorpheusProviderPluginCli {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
             return value;
+        }
+
+        java.util.Optional<String> optional(String name) {
+            return java.util.Optional.ofNullable(options.get(name));
         }
     }
 }

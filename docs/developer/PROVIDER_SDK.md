@@ -193,6 +193,28 @@ probe != read
 
 Le reader doit respecter les catégories explicitement demandées, retourner des `ReadCategoryReport` complets et produire du `NormalizedProjectContent` provider-neutral.
 
+Toute lecture d'un fichier relatif au workspace passe par
+`SafeWorkspaceFileResolver`. Cette frontière partagée refuse les chemins absolus,
+les composants `..`, les symlinks et junctions, vérifie le confinement du real
+path et revalide l'identité du fichier après lecture. Les providers ne doivent
+pas réimplémenter ce contrôle avec un simple `normalize().startsWith(...)` ni
+utiliser directement les méthodes de lecture `Files.*` sur un chemin fourni par
+le contenu du workspace. Le locator et la provenance restent relatifs au
+workspace, même si la primitive lit le chemin canonique.
+
+Chaque tentative d’ingestion ouvre en plus une session `ProviderIngestionBudget` partagée par tous les
+lecteurs du provider. Les limites par défaut, vérifiées avant publication du snapshot, sont :
+
+- 1 Mio par document ;
+- 2 000 fichiers et 32 Mio cumulés ;
+- 100 000 lignes, 100 000 blocs et 100 000 entités ;
+- 512 Kio par fragment d’évidence.
+
+La borne par document est appliquée pendant la lecture bornée, avant matérialisation d’une entrée non
+contrôlée. Les compteurs de corpus sont cumulatifs sur toute la tentative : fractionner une charge en de
+nombreux petits fichiers ne contourne donc ni le nombre de fichiers ni le volume agrégé. Un dépassement
+produit un échec déterministe et le provider ne publie aucun snapshot partiel.
+
 ## 9. Identités et provenance
 
 Un plugin ne doit pas fabriquer une identité MORPHEUS à partir d’un simple chemin. Le host transmet un `EntityIdentityResolver`. Le provider l’utilise avec son `ProviderId`, le type d’entité et son identifiant externe stable.
@@ -245,7 +267,7 @@ CLI :
 
 ```text
 morpheus --json provider-plugins discover --directory <plugins>
-morpheus --json provider-plugins probe --directory <plugins> --plugin <pluginId> --workspace <workspace>
+morpheus --json provider-plugins probe --directory <plugins> --plugin <pluginId> --workspace <workspace> --sha256 <digest>
 ```
 
 MCP :
@@ -254,6 +276,20 @@ MCP :
 discover_provider_plugins
 probe_provider_plugin
 ```
+
+Le paramètre optionnel `sha256` (CLI, API ou MCP) active une politique `trusted-only` pour cette
+activation. Le digest est lié au `pluginId` demandé et vérifié avant la création du `URLClassLoader` ;
+une valeur absente sur une surface qui l'exige, mal formée ou différente doit être traitée comme un refus et
+aucun code du plugin n'est exécuté. Le mode sans pin reste disponible uniquement pour les usages locaux
+historiques explicitement non approuvés.
+
+Rotation : qualifier le nouveau JAR hors processus, calculer son SHA-256 depuis une source de confiance,
+remplacer le JAR et le pin ensemble, puis lancer `discover` et `probe --sha256`. Le nom du JAR et les
+métadonnées déclaratives ne constituent jamais une preuve d'intégrité.
+
+Le provider Synthetic de vérification borne en outre son JSON à 1 MiB UTF-8, 64 niveaux, 100 000 nœuds et
+65 536 caractères par chaîne. Les dépassements deviennent un diagnostic `INVALID_SOURCE` ; ils ne doivent
+jamais remonter sous forme de `StackOverflowError` ou provoquer une allocation d'un second buffer d'entrée.
 
 HTTP local :
 

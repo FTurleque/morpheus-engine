@@ -232,22 +232,13 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
             KnowledgeSnapshotId snapshotId,
             Optional<KnowledgeSnapshotId> expectedActiveSnapshotId) {
         ensureOpen();
-        boolean previousAutoCommit;
-        try {
-            previousAutoCommit = connection.getAutoCommit();
-            connection.setAutoCommit(false);
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot begin SQLite snapshot activation", exception);
-        }
-
-        try {
+        return SqliteTransactionRunner.run(connection, "SQLite snapshot activation failed", ignored -> {
             KnowledgeSnapshotMetadata target = findSnapshotInternal(snapshotId)
                     .orElseThrow(() -> new KnowledgeStoreException("snapshot not found: " + snapshotId));
             Optional<KnowledgeSnapshotMetadata> active = activeSnapshotInternal(target.projectId());
 
             if (target.state() == KnowledgeSnapshotState.ACTIVE) {
                 if (active.map(KnowledgeSnapshotMetadata::id).equals(Optional.of(snapshotId))) {
-                    connection.commit();
                     return target;
                 }
                 throw new SnapshotConflictException(
@@ -271,17 +262,8 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
             }
             updateSnapshotState(snapshotId, KnowledgeSnapshotState.ACTIVE);
 
-            connection.commit();
             return target.withState(KnowledgeSnapshotState.ACTIVE);
-        } catch (SQLException exception) {
-            rollbackQuietly();
-            throw new KnowledgeStoreException("SQLite snapshot activation failed", exception);
-        } catch (RuntimeException exception) {
-            rollbackQuietly();
-            throw exception;
-        } finally {
-            restoreAutoCommit(previousAutoCommit);
-        }
+        });
     }
 
     @Override
@@ -409,22 +391,6 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     private void ensureOpen() {
         if (closed) {
             throw new KnowledgeStoreException("SQLite knowledge store is closed");
-        }
-    }
-
-    private void rollbackQuietly() {
-        try {
-            connection.rollback();
-        } catch (SQLException ignored) {
-            // Preserve the original activation error.
-        }
-    }
-
-    private void restoreAutoCommit(boolean autoCommit) {
-        try {
-            connection.setAutoCommit(autoCommit);
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode", exception);
         }
     }
 

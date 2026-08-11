@@ -91,9 +91,8 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
                 return;
             }
 
-            boolean previousAutoCommit = connection.getAutoCommit();
-            try {
-                connection.setAutoCommit(false);
+            SqliteTransactionRunner.runVoid(connection,
+                    "Cannot store snapshot business content " + content.snapshotId(), ignored -> {
                 insertManifest(content);
                 insertEvidence(content);
                 insertSpecifications(content);
@@ -103,13 +102,7 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
                 insertDesignDecisions(content);
                 insertTasks(content);
                 insertAcceptanceCriteria(content);
-                connection.commit();
-            } catch (SQLException | RuntimeException exception) {
-                rollbackQuietly();
-                throw exception;
-            } finally {
-                connection.setAutoCommit(previousAutoCommit);
-            }
+            });
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot store snapshot business content " + content.snapshotId(), exception);
         }
@@ -742,14 +735,6 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
         try (Statement statement = connection.createStatement()) {
             statement.execute("PRAGMA foreign_keys = ON");
             statement.execute("PRAGMA busy_timeout = 5000");
-        }
-    }
-
-    private void rollbackQuietly() {
-        try {
-            connection.rollback();
-        } catch (SQLException ignored) {
-            // Preserve the original storage error.
         }
     }
 

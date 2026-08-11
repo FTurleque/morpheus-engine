@@ -19,9 +19,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -59,6 +62,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final SqliteServerMaintenance maintenance;
     private final Path databasePath;
     private final Path backupDirectory;
+    private final Path providerPluginDirectory;
+    private final AllowedWorkspaceRoots allowedWorkspaceRoots;
     private final List<MorpheusRemoteIdentityFile.Identity> identities;
     private final Semaphore concurrency;
     private final RuntimeState runtime;
@@ -73,6 +78,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             SqliteServerMaintenance maintenance,
             Path databasePath,
             Path backupDirectory,
+            Path providerPluginDirectory,
+            AllowedWorkspaceRoots allowedWorkspaceRoots,
             List<MorpheusRemoteIdentityFile.Identity> identities,
             int maxConcurrentRequests) {
         this.server = server;
@@ -82,6 +89,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.maintenance = maintenance;
         this.databasePath = databasePath.toAbsolutePath().normalize();
         this.backupDirectory = backupDirectory.toAbsolutePath().normalize();
+        this.providerPluginDirectory = providerPluginDirectory.toAbsolutePath().normalize();
+        this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
         this.identities = identities;
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
         this.runtime = new RuntimeState(maxConcurrentRequests);
@@ -94,6 +103,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     public static MorpheusRemoteHttpServer start(
             Path databasePath,
             Path backupDirectory,
+            Path providerPluginDirectory,
+            AllowedWorkspaceRoots allowedWorkspaceRoots,
             String host,
             int port,
             Path authFile,
@@ -106,6 +117,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(backupDirectory, "backupDirectory");
+        Objects.requireNonNull(providerPluginDirectory, "providerPluginDirectory");
+        Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(minosStatus, "minosStatus");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
@@ -131,14 +144,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         MorpheusHttpServer local = null;
         ExecutorService executor = null;
         try {
-            local = MorpheusHttpServer.start(
+            local = MorpheusHttpServer.startRemote(
                     databasePath,
                     MorpheusHttpServer.DEFAULT_HOST,
                     0,
                     resolverRegistry,
                     minosStatus,
                     technicalContextProvider,
-                    writeCapabilityResolver);
+                    writeCapabilityResolver,
+                    allowedWorkspaceRoots);
             // Keep the TCP accept queue distinct from the application concurrency budget. This lets accepted
             // excess requests reach the semaphore and receive a deterministic HTTP 429 instead of being refused
             // at the socket layer when a deliberately small maxConcurrentRequests value is configured.
@@ -155,7 +169,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             executor = Executors.newVirtualThreadPerTaskExecutor();
             MorpheusRemoteHttpServer result = new MorpheusRemoteHttpServer(
                     https, executor, local, lease, maintenance, databasePath, backupDirectory,
-                    identities, maxConcurrentRequests);
+                    providerPluginDirectory, allowedWorkspaceRoots, identities, maxConcurrentRequests);
             https.setExecutor(executor);
             https.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
             https.start();
@@ -269,6 +283,18 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         if (path.equals(prefix + "/metrics")) return MorpheusRemoteRole.ADMIN;
         if (path.equals(prefix + "/server/backups")) return MorpheusRemoteRole.ADMIN;
         if (path.equals(prefix + "/server/status")) return MorpheusRemoteRole.READ;
+        if (path.equals(prefix + "/provider-plugins/discover")) {
+            if (!method.equals("GET")) {
+                throw new RemoteFailure(405, "METHOD_NOT_ALLOWED", "provider-plugin discovery requires GET");
+            }
+            return MorpheusRemoteRole.READ;
+        }
+        if (path.equals(prefix + "/provider-plugins/probe")) {
+            if (!method.equals("POST")) {
+                throw new RemoteFailure(405, "METHOD_NOT_ALLOWED", "provider-plugin probe requires POST");
+            }
+            return MorpheusRemoteRole.ADMIN;
+        }
         if (method.equals("GET") || method.equals("HEAD")) return MorpheusRemoteRole.READ;
         if (method.equals("POST") && isReadOnlyPost(path)) return MorpheusRemoteRole.READ;
         if (method.equals("POST") || method.equals("PUT") || method.equals("PATCH") || method.equals("DELETE")) {
@@ -293,14 +319,20 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
 
     private void proxy(HttpExchange exchange) throws IOException {
         byte[] requestBody = readBoundedBody(exchange);
-        URI target = localTarget(exchange.getRequestURI());
+        URI requestUri = exchange.getRequestURI();
+        boolean providerProbe = requestUri.getPath().equals(MorpheusHttpServer.API_PREFIX + "/provider-plugins/probe");
+        if (providerProbe && requestBody.length != 0) {
+            throw new RemoteFailure(400, "BAD_REQUEST", "provider-plugin probe request body must be empty");
+        }
+        URI target = localTarget(requestUri);
         HttpRequest.Builder request = HttpRequest.newBuilder(target)
                 .timeout(Duration.ofSeconds(60));
         String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
         if (contentType != null) request.header("Content-Type", contentType);
         String accept = exchange.getRequestHeaders().getFirst("Accept");
         if (accept != null) request.header("Accept", accept);
-        request.method(exchange.getRequestMethod(), requestBody.length == 0
+        String upstreamMethod = providerProbe ? "GET" : exchange.getRequestMethod();
+        request.method(upstreamMethod, requestBody.length == 0
                 ? HttpRequest.BodyPublishers.noBody()
                 : HttpRequest.BodyPublishers.ofByteArray(requestBody));
         try {
@@ -317,8 +349,58 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
 
     private URI localTarget(URI requestUri) {
         String suffix = requestUri.getRawPath();
-        if (requestUri.getRawQuery() != null) suffix += "?" + requestUri.getRawQuery();
+        if (isProviderPluginPath(requestUri.getPath())) {
+            Map<String, String> query = parseQuery(requestUri.getRawQuery());
+            if (query.containsKey("directory")) {
+                throw new RemoteFailure(
+                        400,
+                        "SERVER_CONFIGURED_PLUGIN_DIRECTORY",
+                        "provider-plugin directory is configured by the remote server and must not be supplied by the client");
+            }
+            Map<String, String> upstream = new LinkedHashMap<>(query);
+            upstream.put("directory", providerPluginDirectory.toString());
+            if (requestUri.getPath().endsWith("/probe")) {
+                upstream.put("workspace", allowedWorkspaceRoots
+                        .requireAllowedDirectory(query.get("workspace"))
+                        .toString());
+            }
+            suffix += "?" + encodeQuery(upstream);
+        } else if (requestUri.getRawQuery() != null) {
+            suffix += "?" + requestUri.getRawQuery();
+        }
         return URI.create("http://127.0.0.1:" + localServer.port() + suffix);
+    }
+
+    private static boolean isProviderPluginPath(String path) {
+        String prefix = MorpheusHttpServer.API_PREFIX + "/provider-plugins/";
+        return path.equals(prefix + "discover") || path.equals(prefix + "probe");
+    }
+
+    private static Map<String, String> parseQuery(String rawQuery) {
+        if (rawQuery == null || rawQuery.isBlank()) return Map.of();
+        Map<String, String> result = new LinkedHashMap<>();
+        for (String part : rawQuery.split("&")) {
+            if (part.isBlank()) continue;
+            int separator = part.indexOf('=');
+            String key = URLDecoder.decode(separator < 0 ? part : part.substring(0, separator), StandardCharsets.UTF_8);
+            String value = URLDecoder.decode(separator < 0 ? "" : part.substring(separator + 1), StandardCharsets.UTF_8);
+            if (key.isBlank()) throw new RemoteFailure(400, "BAD_REQUEST", "query parameter name must not be blank");
+            if (result.putIfAbsent(key, value) != null) {
+                throw new RemoteFailure(400, "BAD_REQUEST", "duplicate query parameter: " + key);
+            }
+        }
+        return Map.copyOf(result);
+    }
+
+    private static String encodeQuery(Map<String, String> query) {
+        StringBuilder result = new StringBuilder();
+        for (Map.Entry<String, String> entry : query.entrySet()) {
+            if (!result.isEmpty()) result.append('&');
+            result.append(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8));
+            result.append('=');
+            result.append(URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
+        }
+        return result.toString();
     }
 
     private byte[] readBoundedBody(HttpExchange exchange) throws IOException {

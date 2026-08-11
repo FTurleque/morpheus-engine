@@ -299,41 +299,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     private <T> T transaction(SqlWork<T> work, String message) {
-        final boolean previousAutoCommit;
-        try {
-            previousAutoCommit = connection.getAutoCommit();
-        } catch (SQLException failure) {
-            throw new KnowledgeStoreException("Cannot inspect SQLite auto-commit mode", failure);
-        }
-
-        try {
-            connection.setAutoCommit(false);
-            T value = work.run();
-            connection.commit();
-            return value;
-        } catch (SQLException | RuntimeException failure) {
-            rollbackQuietly();
-            if (failure instanceof RuntimeException runtimeException) {
-                throw runtimeException;
-            }
-            throw new KnowledgeStoreException(message, failure);
-        } finally {
-            try {
-                if (!connection.isClosed()) {
-                    connection.setAutoCommit(previousAutoCommit);
-                }
-            } catch (SQLException failure) {
-                throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode", failure);
-            }
-        }
-    }
-
-    private void rollbackQuietly() {
-        try {
-            connection.rollback();
-        } catch (SQLException ignored) {
-            // Preserve the original failure.
-        }
+        return SqliteTransactionRunner.run(connection, message, ignored -> work.run());
     }
 
     private void ensureOpen() {

@@ -17,4 +17,8 @@ final class MorpheusProviderPluginApiService {
     ProviderPluginProbeOutcome probe(String directory, String pluginId, String workspace) {
         return service.probe(Path.of(directory), pluginId, Path.of(workspace));
     }
+
+    ProviderPluginProbeOutcome probe(String directory, String pluginId, String workspace, String expectedSha256) {
+        return service.probe(Path.of(directory), pluginId, Path.of(workspace), expectedSha256);
+    }
 }

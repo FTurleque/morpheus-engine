@@ -12,6 +12,7 @@ import com.morpheus.domain.constraint.ConstraintSeverity;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,7 +25,51 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SyntheticSpecificationContentReaderTest {
+    @TempDir
+    Path temp;
+
     private final SyntheticSpecificationContentReader reader = new SyntheticSpecificationContentReader();
+
+    @Test
+    void rejectsSourceSymlinkThatEscapesWorkspace() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace"));
+        Path outside = Files.writeString(temp.resolve("outside.json"), "{\"format_version\":1}");
+        Path source = workspace.resolve(SyntheticSpecificationProvider.SOURCE_FILE);
+        try {
+            Files.createSymbolicLink(source, outside);
+        } catch (UnsupportedOperationException | java.io.IOException | SecurityException unsupported) {
+            return;
+        }
+
+        assertEquals(
+                com.morpheus.domain.provider.ProviderProbeStatus.INVALID,
+                new SyntheticSpecificationProvider().probe(workspace).status());
+        var result = reader.read(
+                ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
+                new InMemoryResolver());
+        assertTrue(result.content().isEmpty());
+        assertFalse(result.diagnostics().isEmpty());
+    }
+
+    @Test
+    void rejectsOversizedEvidenceWithoutPublishingContent() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("oversized-evidence"));
+        Files.copy(
+                fixture("synthetic-basic").resolve(SyntheticSpecificationProvider.SOURCE_FILE),
+                workspace.resolve(SyntheticSpecificationProvider.SOURCE_FILE));
+        Files.createDirectories(workspace.resolve("reviews"));
+        Files.createDirectories(workspace.resolve("tests"));
+        Files.writeString(workspace.resolve("reviews/security-review.txt"), "x".repeat((512 * 1024) + 1));
+        Files.writeString(workspace.resolve("reviews/documentation.txt"), "documented");
+        Files.writeString(workspace.resolve("tests/billing-retention.txt"), "verified");
+
+        var result = reader.read(
+                ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
+                new InMemoryResolver());
+
+        assertTrue(result.content().isEmpty());
+        assertFalse(result.diagnostics().isEmpty());
+    }
 
     @Test
     void normalizesSyntheticFixtureThroughPublicReadContract() {

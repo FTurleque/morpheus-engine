@@ -83,6 +83,8 @@ report format    ALL
 output            target/d2-security
 ```
 
+La seule suppression locale est versionnée dans `config/dependency-check-suppressions.xml`. Elle retire l'association CPE erronée entre le module interne `io.github.fturleque:morpheus-store-sqlite:1.2.0` et SQLite 1.2.0 ; le véritable driver `org.xerial:sqlite-jdbc:3.53.2.0` reste analysé. Le scan échoue aussi si cette règle devient inutilisée, afin d'empêcher une suppression obsolète ou élargie silencieusement.
+
 Cette étape est volontairement hors du `clean verify` développeur ordinaire car elle requiert un accès réseau aux données de vulnérabilité.
 
 ## Gate D2 Windows
