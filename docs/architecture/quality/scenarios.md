@@ -1,216 +1,229 @@
 # Scénarios de qualité — MORPHEUS ENGINE
 
-> Ce fichier développe les scénarios de qualité définis en §10.
-> Il suit le format arc42 : stimulus, environnement, réponse, mesure, seuil,
-> vérification, propriétaire.
+> Complément de [§10](../arc42/10-exigences-qualite.md).
+> Baseline : MORPHEUS 1.2.0 — `develop` post-D2.
 >
-> Les scénarios validés par des tests automatisés sont marqués ✅.
-> Les scénarios sans seuil documenté sont marqués ⚠ Hypothèse à valider.
+> Un scénario est marqué **qualifié** uniquement lorsqu'une preuve exécutable ou
+> une validation identifiée existe. Les objectifs sans seuil mesuré restent des
+> candidats et ne sont pas transformés en garanties.
 
 ---
 
 ## Exactitude
 
-### Q-EX-01 — Aucun fait inventé ✅
+### Q-AC-01 — CURRENT / PROPOSED restent séparés — qualifié
 
 | Champ | Valeur |
 |-------|--------|
-| **Stimulus** | Query sur snapshot ACTIVE après sync sans modification du workspace |
-| **Environnement** | Mode local, processus JVM actif |
-| **Réponse** | Données identiques aux fichiers source |
-| **Mesure** | Divergence entre sortie MORPHEUS et source |
-| **Seuil** | 0 divergence |
-| **Vérification** | `MorpheusApiContractTest`, invariants ADR |
-| **Propriétaire** | Architecte système |
+| Stimulus | Construction ou lecture d'un état PROPOSED pendant qu'un snapshot CURRENT est publié |
+| Environnement | Stores mémoire ou SQLite selon le test |
+| Réponse | Les lectures CURRENT n'exposent aucun fait PROPOSED |
+| Mesure | Fuites temporelles |
+| Seuil | 0 |
+| Preuve | Tests temporal/snapshot et invariants de validation |
 
-### Q-EX-02 — PROPOSED ne fuit pas dans CURRENT ✅
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | Snapshot BUILDING en parallèle d'un snapshot ACTIVE |
-| **Environnement** | Mode local, SQLite WAL |
-| **Réponse** | Query CURRENT ne retourne aucune donnée PROPOSED |
-| **Mesure** | Résultat CURRENT ∩ données PROPOSED = ∅ |
-| **Seuil** | 0 fuite |
-| **Vérification** | `ChangeLifecycleTest`, isolation snapshot SQLite |
-| **Propriétaire** | Architecte système |
-
-### Q-EX-03 — Surface parity CLI/MCP/HTTP ⚠ Hypothèse à valider
+### Q-AC-02 — Facts / claims restent distingués — qualifié M27
 
 | Champ | Valeur |
 |-------|--------|
-| **Stimulus** | La même requête est émise sur CLI, MCP et HTTP |
-| **Environnement** | Même snapshot ACTIVE, même projet |
-| **Réponse** | Les trois surfaces retournent des données sémantiquement équivalentes |
-| **Mesure** | Différences sémantiques entre les trois réponses |
-| **Seuil** | 0 différence sémantique |
-| **Vérification** | `contracts/public-surfaces.tsv` ; tests de contrat croisés — à implémenter |
-| **Propriétaire** | Architecte surfaces |
+| Stimulus | Une analyse assistée produit faits, inférences ou suggestions |
+| Réponse | Nature, confiance, evidence et provenance restent explicites |
+| Mesure | Claim présenté comme fait sans statut/preuve conforme |
+| Seuil | 0 |
+| Preuve | ADR-0095 et validation M27 |
 
----
-
-## Maintenabilité
-
-### Q-MA-01 — Isolation des couches ArchUnit ✅
+### Q-AC-03 — Convergence des surfaces
 
 | Champ | Valeur |
 |-------|--------|
-| **Stimulus** | Tentative d'ajout d'une dépendance domain → adapter |
-| **Environnement** | `mvnw verify` |
-| **Réponse** | Build échoue avec violation ArchUnit |
-| **Mesure** | Nombre de violations ArchUnit dans `main` |
-| **Seuil** | 0 |
-| **Vérification** | `LayerDependencyTest` dans `morpheus-architecture-tests` |
-| **Propriétaire** | CI |
+| Stimulus | Une capacité publique existe sur une surface |
+| Réponse | Son exposition attendue est explicitement suivie pour CLI, MCP et HTTP |
+| Mesure | Écart non documenté au contrat de surfaces |
+| Seuil | 0 écart silencieux |
+| Preuve | `contracts/public-surfaces.tsv` + tests d'architecture/surfaces |
 
-### Q-MA-02 — Gate CI de milestone ✅
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | PR vers `main` avec changements fonctionnels |
-| **Environnement** | GitHub Actions matrix ubuntu + windows |
-| **Réponse** | Pipeline bloque la fusion si un test du gate échoue |
-| **Mesure** | Taux de réussite gate CI sur `main` |
-| **Seuil** | 100 % |
-| **Vérification** | `.github/workflows/ci.yml` |
-| **Propriétaire** | CI |
-
-### Q-MA-03 — Durée de build CI ⚠ Hypothèse à valider
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | Push sur une PR |
-| **Environnement** | GitHub Actions |
-| **Réponse** | Build complet terminé en moins de N minutes |
-| **Mesure** | Durée totale du pipeline CI |
-| **Seuil** | Non documenté — **à définir** |
-| **Vérification** | Historique des runs GitHub Actions |
-| **Propriétaire** | CI |
-
----
-
-## Portabilité
-
-### Q-PO-01 — Démarrage sans JDK ✅
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | Installation depuis archive ZIP sur Windows sans JDK dans PATH |
-| **Environnement** | Windows 10 ; archive portable jpackage |
-| **Réponse** | `morpheus --version` répond correctement |
-| **Mesure** | Code de sortie = 0 |
-| **Seuil** | 100 % des installations portables |
-| **Vérification** | `distribution/build-portable.ps1` ; test de smoke post-build |
-| **Propriétaire** | Équipe distribution |
-
-### Q-PO-02 — CI cross-platform ✅
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | Build CI déclenché |
-| **Environnement** | ubuntu-latest + windows-latest |
-| **Réponse** | 0 test échouant sur chaque plateforme |
-| **Mesure** | Nombre de tests échouant |
-| **Seuil** | 0 |
-| **Vérification** | `.github/workflows/ci.yml` |
-| **Propriétaire** | CI |
-
-### Q-PO-03 — Support macOS ⚠ Hypothèse à valider
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | Utilisation sur macOS (Apple Silicon ou Intel) |
-| **Environnement** | macOS ; JVM embarquée |
-| **Réponse** | Fonctionnement identique à Linux |
-| **Mesure** | Tests passants sur macos-latest |
-| **Seuil** | 0 test échouant |
-| **Vérification** | Ajout de `macos-latest` à la matrice CI — **non implémenté** |
-| **Propriétaire** | CI |
-
----
-
-## Extensibilité
-
-### Q-EX-SDK-01 — Ajout de provider externe ✅ (partiel)
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | Développeur tiers implémente le `morpheus-provider-sdk` |
-| **Environnement** | Aucune modification des modules `domain` ou `application` |
-| **Réponse** | Provider découvert et exposé via les trois surfaces |
-| **Mesure** | Lignes modifiées dans `morpheus-domain` ou `morpheus-application` |
-| **Seuil** | 0 |
-| **Vérification** | `morpheus-provider-testkit` ; `morpheus-provider-reference` |
-| **Propriétaire** | Architecte SDK |
-
----
-
-## Résilience
-
-### Q-RE-01 — MINOS indisponible ✅
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | Timeout MCP STDIO vers MINOS (processus absent) |
-| **Environnement** | Mode local |
-| **Réponse** | Réponse structurée avec `codeContextAvailable=false` et `warning` ; pas de crash |
-| **Mesure** | Nombre de réponses non structurées en mode dégradé |
-| **Seuil** | 0 |
-| **Vérification** | Tests `morpheus-integration-minos` ; `MinosIntegrationException` |
-| **Propriétaire** | Architecte intégrations |
-
-### Q-RE-02 — Crash pendant sync ✅
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | Processus JVM tué pendant écriture d'un snapshot BUILDING |
-| **Environnement** | SQLite WAL |
-| **Réponse** | Snapshot ACTIVE précédent intact ; snapshot BUILDING absent ou en état FAILED |
-| **Mesure** | Nombre de snapshots ACTIVE corrompus après crash |
-| **Seuil** | 0 |
-| **Vérification** | `SqliteConcurrencyHardeningTest` |
-| **Propriétaire** | Architecte stockage |
-
----
-
-## Performance
-
-### Q-PE-01 — Latence de sync ⚠ Hypothèse à valider
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | Sync d'un projet de taille standard (N fichiers) |
-| **Environnement** | Mode local ; SQLite WAL ; SSD |
-| **Réponse** | Sync terminée en moins de X secondes |
-| **Mesure** | Durée de la commande `morpheus sync` |
-| **Seuil** | **Non documenté** — à extraire des gates M19 dans `morpheus-architecture-tests/m19/` |
-| **Vérification** | Gates M19 |
-| **Propriétaire** | Architecte performance |
-
-### Q-PE-02 — Latence de démarrage JVM ⚠ Hypothèse à valider
-
-| Champ | Valeur |
-|-------|--------|
-| **Stimulus** | Lancement de `morpheus --version` |
-| **Environnement** | Distribution portable ; JVM embarquée |
-| **Réponse** | Réponse en moins de X ms |
-| **Mesure** | Temps entre lancement du processus et affichage de la version |
-| **Seuil** | **Non documenté** — attendu < 2 s (hypothèse) |
-| **Vérification** | Test de smoke post-distribution |
-| **Propriétaire** | Équipe distribution |
+La convergence est **sémantique** ; elle n'exige pas des payloads ou transports
+bit-à-bit identiques.
 
 ---
 
 ## Sécurité
 
-### Q-SE-01 — Isolation filesystem ⚠ Hypothèse à valider
+### Q-SE-01 — Confinement des workspaces — qualifié D2
 
 | Champ | Valeur |
 |-------|--------|
-| **Stimulus** | Commande `morpheus sync` sur un projet dont le workspace est déclaré |
-| **Environnement** | Mode local |
-| **Réponse** | MORPHEUS ne lit que les fichiers dans le workspace déclaré |
-| **Mesure** | Accès filesystem hors workspace |
-| **Seuil** | 0 accès hors workspace |
-| **Vérification** | Revue de code du `WorkspaceRootResolver` et des providers — **pas de test automatisé identifié** |
-| **Propriétaire** | Architecte sécurité |
+| Stimulus | Résolution d'un chemin ou workspace hors des racines autorisées |
+| Réponse | Refus avant lecture du contenu hors périmètre |
+| Mesure | Accès accepté hors racine |
+| Seuil | 0 |
+| Preuve | `AllowedWorkspaceRootsTest`, `SafeWorkspaceFileResolverTest` |
+
+### Q-SE-02 — Ingestion bornée — qualifié D2
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Un provider dépasse une limite de taille/volume définie |
+| Réponse | Échec explicite et borné |
+| Mesure | Ingestion acceptée au-delà du budget |
+| Seuil | 0 |
+| Preuve | `ProviderIngestionBudgetTest` et tests providers associés |
+
+### Q-SE-03 — JSON hostile / profondeur excessive — qualifié D2
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Payload JSON pathologique ou dépassant les limites prévues |
+| Réponse | Parsing refusé sans comportement non borné |
+| Mesure | Payload hostile accepté contrairement au contrat |
+| Seuil | 0 |
+| Preuve | `JacksonSecurityRegressionTest` et tests JSON providers |
+
+### Q-SE-04 — Intégrité des plugins externes — qualifié D2
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Activation d'un JAR provider externe |
+| Réponse | L'intégrité attendue est vérifiée avant utilisation selon le contrat |
+| Mesure | JAR invalide accepté |
+| Seuil | 0 |
+| Preuve | `ExternalJarIntegrityTest` |
+
+---
+
+## Maintenabilité
+
+### Q-MA-01 — Isolation des couches — qualifié
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Une dépendance interdite est introduite entre couches/modules |
+| Environnement | `morpheus-architecture-tests` |
+| Réponse | La qualification échoue |
+| Mesure | Violations non détectées |
+| Seuil | 0 |
+| Preuve | Tests ArchUnit / architecture |
+
+### Q-MA-02 — Dependency hygiene — qualifié D2
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Une dépendance Maven déclarée/utilisée devient incohérente |
+| Réponse | `verify` échoue sur l'analyse bloquante |
+| Mesure | Warnings de dependency analysis ignorés |
+| Seuil | 0 |
+| Preuve | `maven-dependency-plugin:analyze-only`, `failOnWarning=true` |
+
+### Q-MA-03 — Qualification publique exact-head
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Une pull request déclenche MORPHEUS CI |
+| Environnement | Ubuntu + Windows |
+| Réponse | Les jobs qualifient le head exact de la PR |
+| Mesure | Différence entre SHA attendu et SHA qualifié / job en échec |
+| Seuil | 0 |
+| Preuve | `.github/workflows/ci.yml` et metadata GitHub Actions |
+
+Le workflow actuel appelle `validate-m21` avec la version 1.2.0. Le numéro M21
+est celui du gate durable d'intégrité ; il ne représente pas le dernier
+milestone fonctionnel livré.
+
+---
+
+## Portabilité
+
+### Q-PO-01 — Runtime embarqué — qualifié R3
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Lancement d'un artefact publié sans JDK utilisateur |
+| Environnement | Windows ou Linux selon l'artefact |
+| Réponse | MORPHEUS s'exécute avec le runtime embarqué |
+| Mesure | Smoke test de l'artefact |
+| Seuil | PASS pour les artefacts publiés |
+| Preuve | `docs/validation/VALIDATION_R3.md` |
+
+### Q-PO-02 — Parité des artefacts publiés — qualifié R3
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Publication de la release 1.2.0 |
+| Réponse | Les artefacts publiés correspondent aux artefacts qualifiés |
+| Mesure | Parité des assets / checksums |
+| Seuil | PASS |
+| Preuve | Validation R3 et manifests de release |
+
+### Q-PO-03 — macOS — non qualifié
+
+macOS n'est pas une plateforme publiée/qualifiée par la baseline actuelle. Il
+n'existe donc pas de seuil de compatibilité à annoncer ici.
+
+---
+
+## Extensibilité
+
+### Q-EX-01 — Provider externe isolé — qualifié par le SDK
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Développement d'un provider externe compatible |
+| Réponse | Le provider reste derrière les contrats du SDK sans contamination des couches internes |
+| Mesure | Violation d'architecture ou de contrat SDK |
+| Seuil | 0 |
+| Preuve | `morpheus-provider-testkit`, provider de référence, tests d'architecture |
+
+### Q-EX-02 — Configuration MCP conservatrice — qualifié M28
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Installation/configuration d'un client MCP |
+| Réponse | Modification opt-in ; entrée étrangère non écrasée ; uninstall state-driven |
+| Mesure | Écrasement/suppression d'une configuration non possédée |
+| Seuil | 0 |
+| Preuve | ADR-0096 et validation M28 |
+
+---
+
+## Résilience
+
+### Q-RE-01 — Adaptateur externe indisponible
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | MINOS ou NEXUS ne répond pas |
+| Réponse | MORPHEUS conserve les faits locaux et expose l'indisponibilité explicitement |
+| Mesure | Perte de faits locaux liée à l'adaptateur |
+| Seuil | 0 |
+| Preuve | Suites de tests des intégrations + invariants cross-engine |
+
+### Q-RE-02 — Concurrence / atomicité SQLite
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Accès concurrents ou échec pendant une opération persistante |
+| Réponse | Pas de publication partielle ni corruption silencieuse |
+| Mesure | État incohérent observable |
+| Seuil | 0 |
+| Preuve | Tests de transaction/concurrence SQLite et architecture M19/D2 |
+
+---
+
+## Performance
+
+Les scénarios performance doivent utiliser les budgets et fixtures déjà
+versionnés dans les tests M19. Cette documentation ne fournit pas de valeurs
+inventées telles que « démarrage < 2 s » ou « sync < X s ».
+
+Pour tout nouveau SLO :
+
+```text
+fixture représentative
++ métrique définie
++ seuil versionné
++ test reproductible
++ preuve Windows/Linux si cross-platform
+```
+
+Sans ces cinq éléments, la valeur reste une hypothèse et non une exigence
+qualifiée.
