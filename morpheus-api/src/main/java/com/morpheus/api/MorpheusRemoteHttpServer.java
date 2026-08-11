@@ -63,6 +63,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final Path databasePath;
     private final Path backupDirectory;
     private final Path providerPluginDirectory;
+    private final AllowedWorkspaceRoots allowedWorkspaceRoots;
     private final List<MorpheusRemoteIdentityFile.Identity> identities;
     private final Semaphore concurrency;
     private final RuntimeState runtime;
@@ -78,6 +79,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             Path databasePath,
             Path backupDirectory,
             Path providerPluginDirectory,
+            AllowedWorkspaceRoots allowedWorkspaceRoots,
             List<MorpheusRemoteIdentityFile.Identity> identities,
             int maxConcurrentRequests) {
         this.server = server;
@@ -88,6 +90,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.databasePath = databasePath.toAbsolutePath().normalize();
         this.backupDirectory = backupDirectory.toAbsolutePath().normalize();
         this.providerPluginDirectory = providerPluginDirectory.toAbsolutePath().normalize();
+        this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
         this.identities = identities;
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
         this.runtime = new RuntimeState(maxConcurrentRequests);
@@ -101,6 +104,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             Path databasePath,
             Path backupDirectory,
             Path providerPluginDirectory,
+            AllowedWorkspaceRoots allowedWorkspaceRoots,
             String host,
             int port,
             Path authFile,
@@ -114,6 +118,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(backupDirectory, "backupDirectory");
         Objects.requireNonNull(providerPluginDirectory, "providerPluginDirectory");
+        Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(minosStatus, "minosStatus");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
@@ -139,14 +144,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         MorpheusHttpServer local = null;
         ExecutorService executor = null;
         try {
-            local = MorpheusHttpServer.start(
+            local = MorpheusHttpServer.startRemote(
                     databasePath,
                     MorpheusHttpServer.DEFAULT_HOST,
                     0,
                     resolverRegistry,
                     minosStatus,
                     technicalContextProvider,
-                    writeCapabilityResolver);
+                    writeCapabilityResolver,
+                    allowedWorkspaceRoots);
             // Keep the TCP accept queue distinct from the application concurrency budget. This lets accepted
             // excess requests reach the semaphore and receive a deterministic HTTP 429 instead of being refused
             // at the socket layer when a deliberately small maxConcurrentRequests value is configured.
@@ -163,7 +169,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             executor = Executors.newVirtualThreadPerTaskExecutor();
             MorpheusRemoteHttpServer result = new MorpheusRemoteHttpServer(
                     https, executor, local, lease, maintenance, databasePath, backupDirectory,
-                    providerPluginDirectory, identities, maxConcurrentRequests);
+                    providerPluginDirectory, allowedWorkspaceRoots, identities, maxConcurrentRequests);
             https.setExecutor(executor);
             https.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
             https.start();
@@ -353,6 +359,11 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             }
             Map<String, String> upstream = new LinkedHashMap<>(query);
             upstream.put("directory", providerPluginDirectory.toString());
+            if (requestUri.getPath().endsWith("/probe")) {
+                upstream.put("workspace", allowedWorkspaceRoots
+                        .requireAllowedDirectory(query.get("workspace"))
+                        .toString());
+            }
             suffix += "?" + encodeQuery(upstream);
         } else if (requestUri.getRawQuery() != null) {
             suffix += "?" + requestUri.getRawQuery();
