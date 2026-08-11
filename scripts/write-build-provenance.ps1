@@ -4,6 +4,21 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+function Get-Sha256([string]$Path) {
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            return ([System.BitConverter]::ToString($sha256.ComputeHash($stream)) -replace '-', '').ToLowerInvariant()
+        } finally {
+            $sha256.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 Push-Location $repoRoot
 try {
     $pom = Get-Content -Raw "pom.xml"
@@ -39,7 +54,7 @@ try {
     $maven = ($mavenOutput[0].ToString() -replace '[\r\n=]', ' ').Trim()
 
     $sbom = Join-Path $repoRoot "target/m21-supply-chain/morpheus-sbom.json"
-    $sbomSha256 = if (Test-Path $sbom) { (Get-FileHash -Algorithm SHA256 $sbom).Hash.ToLowerInvariant() } else { "missing" }
+    $sbomSha256 = if (Test-Path $sbom) { Get-Sha256 $sbom } else { "missing" }
     $generatedAt = [DateTimeOffset]::UtcNow.ToString("o")
 
     $output = Join-Path $repoRoot $OutputPath

@@ -138,4 +138,28 @@ class StructuredMarkdownSpecificationContentReaderTest {
         assertTrue(result.content().isEmpty());
         assertFalse(result.diagnostics().isEmpty());
     }
+
+    @Test
+    void rejectsSourceSymlinkThatEscapesWorkspace() throws Exception {
+        Path source = workspace.resolve(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
+        Files.createDirectories(source.getParent());
+        Path outside = Files.writeString(workspace.getParent().resolve("outside-markdown.md"), "# outside");
+        if (!createSymlink(source, outside)) return;
+
+        assertEquals(ProviderProbeStatus.INVALID, new StructuredMarkdownSpecificationProvider().probe(workspace).status());
+        EntityIdentityResolver identities = (providerId, entityType, externalId) -> DomainIdentity.generate();
+        var result = new StructuredMarkdownSpecificationContentReader()
+                .read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()), identities);
+        assertTrue(result.content().isEmpty());
+        assertFalse(result.diagnostics().isEmpty());
+    }
+
+    private boolean createSymlink(Path link, Path target) {
+        try {
+            Files.createSymbolicLink(link, target);
+            return true;
+        } catch (UnsupportedOperationException | java.io.IOException | SecurityException unsupported) {
+            return false;
+        }
+    }
 }

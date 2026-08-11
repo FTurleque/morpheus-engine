@@ -1,6 +1,7 @@
 package com.morpheus.provider.synthetic;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
@@ -33,7 +34,6 @@ import com.morpheus.domain.specification.SpecificationId;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -87,9 +87,11 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                     diagnostics);
         }
 
-        Path sourceFile = root.resolve(SyntheticSpecificationProvider.SOURCE_FILE);
         try {
-            String sourceText = Files.readString(sourceFile, StandardCharsets.UTF_8);
+            SafeWorkspaceFileResolver files = SafeWorkspaceFileResolver.rootedAt(root);
+            String sourceText = files.readUtf8(
+                    Path.of(SyntheticSpecificationProvider.SOURCE_FILE),
+                    SyntheticJsonParser.MAX_INPUT_BYTES);
             Map<String, Object> payload = SyntheticJsonParser.parseObject(sourceText);
             Normalization normalization = normalize(payload, sourceText, request, identityResolver);
 
@@ -117,7 +119,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             Diagnostic diagnostic = Diagnostic.error(
                     DiagnosticCode.INVALID_SOURCE,
                     "Synthetic source read failed: " + exception.getMessage(),
-                    Map.of("source", sourceFile.toString()));
+                    Map.of("source", SyntheticSpecificationProvider.SOURCE_FILE));
             return new ProviderReadResult(
                     providerId(),
                     Optional.empty(),
@@ -335,15 +337,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             String relativePath,
             EntityIdentityResolver identities,
             String externalId) throws IOException {
-        Path normalizedRoot = workspaceRoot.toAbsolutePath().normalize();
-        Path file = normalizedRoot.resolve(relativePath).normalize();
-        if (!file.startsWith(normalizedRoot)) {
-            throw new IllegalArgumentException("verification evidence escapes workspace: " + relativePath);
-        }
-        if (!Files.isRegularFile(file)) {
-            throw new IllegalArgumentException("verification evidence file does not exist: " + relativePath);
-        }
-        String text = Files.readString(file, StandardCharsets.UTF_8);
+        String text = SafeWorkspaceFileResolver.rootedAt(workspaceRoot).readUtf8(Path.of(relativePath));
         int lines = Math.max(1, text.lines().toList().size());
         EvidenceId evidenceId = new EvidenceId(identities.resolve(
                 providerId(), "evidence", "evidence:" + externalId));

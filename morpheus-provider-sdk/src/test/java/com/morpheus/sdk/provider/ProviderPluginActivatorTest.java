@@ -5,6 +5,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 import java.util.jar.JarEntry;
@@ -46,5 +47,31 @@ class ProviderPluginActivatorTest {
                 () -> new ProviderPluginActivator().activate(candidate));
         assertTrue(failure.getMessage().contains("activation failed"));
         assertTrue(failure.getCause().getMessage().contains("runtime metadata does not match"));
+    }
+
+    @Test
+    void rejectsDigestMismatchBeforeCreatingPluginClassLoader() throws Exception {
+        Path jar = directory.resolve("pinned.jar");
+        Properties properties = new Properties();
+        properties.setProperty("plugin.id", "manifest-plugin");
+        properties.setProperty("provider.id", "manifest-provider");
+        properties.setProperty("plugin.version", "1.0.0");
+        properties.setProperty("sdk.apiVersion", "1");
+        properties.setProperty("morpheus.minVersion", "1.0.0");
+
+        StringWriter metadata = new StringWriter();
+        properties.store(metadata, null);
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+            output.putNextEntry(new JarEntry(ProviderSdk.METADATA_PATH));
+            output.write(metadata.toString().getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+
+        ProviderPluginCandidate candidate = new ProviderPluginDiscovery().discover(directory).candidates().getFirst();
+        assertTrue(candidate.compatible());
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> new ProviderPluginActivator().activate(candidate, "0".repeat(64)));
+        assertTrue(failure.getMessage().contains("integrity mismatch"));
     }
 }

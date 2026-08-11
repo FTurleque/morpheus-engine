@@ -119,11 +119,52 @@ public final class MorpheusHttpServer implements AutoCloseable {
             ExternalIntegrationStatusProvider minosStatus,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
+        return startConfigured(
+                databasePath,
+                host,
+                port,
+                resolverRegistry,
+                minosStatus,
+                technicalContextProvider,
+                writeCapabilityResolver,
+                Optional.empty());
+    }
+
+    static MorpheusHttpServer startRemote(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            AllowedWorkspaceRoots allowedWorkspaceRoots) {
+        return startConfigured(
+                databasePath,
+                host,
+                port,
+                resolverRegistry,
+                minosStatus,
+                technicalContextProvider,
+                writeCapabilityResolver,
+                Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")));
+    }
+
+    private static MorpheusHttpServer startConfigured(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(minosStatus, "minosStatus");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
+        Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
         String normalizedHost = requireHost(host);
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
@@ -137,7 +178,9 @@ public final class MorpheusHttpServer implements AutoCloseable {
             MorpheusHttpServer result = new MorpheusHttpServer(
                     httpServer,
                     executor,
-                    new MorpheusApiService(databasePath),
+                    allowedWorkspaceRoots
+                            .map(policy -> new MorpheusApiService(databasePath, policy))
+                            .orElseGet(() -> new MorpheusApiService(databasePath)),
                     new MorpheusExternalReferenceApiService(databasePath, resolverRegistry, minosStatus),
                     new MorpheusAugmentedContextApiService(databasePath, technicalContextProvider),
                     new MorpheusJarvisOrchestrationApiService(databasePath),
@@ -233,11 +276,13 @@ public final class MorpheusHttpServer implements AutoCloseable {
                     yield ok(plugins.discover(query.required("directory")));
                 }
                 case "probe" -> {
-                    query.rejectUnknown(Set.of("directory", "pluginId", "workspace"));
-                    yield ok(plugins.probe(
-                            query.required("directory"),
-                            query.required("pluginId"),
-                            query.required("workspace")));
+                    query.rejectUnknown(Set.of("directory", "pluginId", "workspace", "sha256"));
+                    String directory = query.required("directory");
+                    String pluginId = query.required("pluginId");
+                    String workspace = query.required("workspace");
+                    yield ok(query.string("sha256")
+                            .map(pin -> plugins.probe(directory, pluginId, workspace, pin))
+                            .orElseGet(() -> plugins.probe(directory, pluginId, workspace)));
                 }
                 default -> throw ApiFailure.notFound("unknown provider-plugin route");
             };
