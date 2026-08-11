@@ -12,9 +12,11 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
@@ -57,6 +59,7 @@ class MorpheusRemoteHttpServerTest {
         assertFalse(persistedAuth.contains(admin.token()));
 
         Path keyStore = createKeyStore();
+        Path providerPluginDirectory = temp.resolve("provider-plugins");
         HttpClient client = trustedClient();
         var minos = (com.morpheus.application.reference.ExternalIntegrationStatusProvider) () ->
                 new ExternalIntegrationStatus("MINOS", "DISABLED", false, "test", Map.of());
@@ -65,6 +68,7 @@ class MorpheusRemoteHttpServerTest {
         try (MorpheusRemoteHttpServer server = MorpheusRemoteHttpServer.start(
                 database,
                 temp.resolve("backups"),
+                providerPluginDirectory,
                 "127.0.0.1",
                 0,
                 auth,
@@ -111,6 +115,30 @@ class MorpheusRemoteHttpServerTest {
 
             HttpResponse<String> writerCannotReadAdminMetrics = send(client, base.resolve("/api/v1/metrics"), "GET", write.token(), null);
             assertEquals(403, writerCannotReadAdminMetrics.statusCode());
+
+            String workspace = URLEncoder.encode(temp.toString(), StandardCharsets.UTF_8);
+            URI probe = URI.create(base + "/provider-plugins/probe?pluginId=missing&workspace=" + workspace);
+            HttpResponse<String> readCannotProbePlugin = send(client, probe, "POST", read.token(), null);
+            assertEquals(403, readCannotProbePlugin.statusCode());
+            HttpResponse<String> writeCannotProbePlugin = send(client, probe, "POST", write.token(), null);
+            assertEquals(403, writeCannotProbePlugin.statusCode());
+            HttpResponse<String> adminCannotProbeWithGet = send(client, probe, "GET", admin.token(), null);
+            assertEquals(405, adminCannotProbeWithGet.statusCode());
+
+            URI clientSelectedDirectory = URI.create(
+                    probe + "&directory=" + URLEncoder.encode(temp.resolve("attacker-plugins").toString(), StandardCharsets.UTF_8));
+            HttpResponse<String> adminCannotSelectPluginRoot = send(
+                    client, clientSelectedDirectory, "POST", admin.token(), null);
+            assertEquals(400, adminCannotSelectPluginRoot.statusCode());
+            assertTrue(adminCannotSelectPluginRoot.body().contains("SERVER_CONFIGURED_PLUGIN_DIRECTORY"));
+
+            HttpResponse<String> discovery = send(
+                    client,
+                    URI.create(base + "/provider-plugins/discover"),
+                    "GET",
+                    read.token(),
+                    null);
+            assertEquals(200, discovery.statusCode(), discovery.body());
 
             HttpResponse<String> metrics = send(client, base.resolve("/api/v1/metrics"), "GET", admin.token(), null);
             assertEquals(200, metrics.statusCode());
