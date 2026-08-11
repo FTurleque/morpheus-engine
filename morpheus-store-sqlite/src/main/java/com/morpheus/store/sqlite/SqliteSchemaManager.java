@@ -105,7 +105,7 @@ final class SqliteSchemaManager {
         }
     }
 
-    private void executeScript(Connection connection, String script) throws SQLException {
+    void executeScript(Connection connection, String script) throws SQLException {
         for (String sql : SqliteSqlStatements.split(script)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute(sql);

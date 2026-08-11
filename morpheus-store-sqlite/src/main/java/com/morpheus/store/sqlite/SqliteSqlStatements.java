@@ -137,10 +137,13 @@ final class SqliteSqlStatements {
             if (completed != null) updateTriggerBlocks(completed, triggerBlocks);
         }
         if (singleQuote || doubleQuote || backtick || bracket || blockComment) {
-            throw new IllegalArgumentException("unterminated quoted value, identifier, or block comment in SQLite migration");
+            throw syntaxError(
+                    script,
+                    "unterminated quoted value, identifier, or block comment",
+                    script.length());
         }
         if (trigger && !triggerBlocks.isEmpty()) {
-            throw new IllegalArgumentException("unterminated CREATE TRIGGER body in SQLite migration");
+            throw syntaxError(script, "unterminated CREATE TRIGGER body", script.length());
         }
         addStatement(statements, current);
         return List.copyOf(statements);
@@ -175,5 +178,20 @@ final class SqliteSqlStatements {
     private static void addStatement(List<String> statements, StringBuilder current) {
         String sql = current.toString().trim();
         if (!sql.isEmpty() && !sql.equals(";")) statements.add(sql);
+    }
+
+    private static IllegalArgumentException syntaxError(String script, String reason, int offset) {
+        int line = 1;
+        int column = 1;
+        for (int index = 0; index < offset; index++) {
+            if (script.charAt(index) == '\n') {
+                line++;
+                column = 1;
+            } else {
+                column++;
+            }
+        }
+        return new IllegalArgumentException(
+                reason + " in SQLite migration at line " + line + ", column " + column);
     }
 }
