@@ -9,6 +9,7 @@ flowchart LR
     C[Remote client] -->|HTTPS + Bearer| R[MorpheusRemoteHttpServer]
     R --> A[Auth file SHA-256]
     R --> RBAC[READ / WRITE / ADMIN]
+    R --> ROOTS[AllowedWorkspaceRoots]
     R --> LIMIT[Semaphore bounded concurrency]
     R -->|no Authorization forwarded| L[MorpheusHttpServer loopback : ephemeral port]
     L --> APP[Existing application services]
@@ -38,7 +39,11 @@ Cette composition préserve les contrats M11-M25 et rend la sécurité remote v�
 
 ### LOCAL
 
-`ApiLaunchOptions` valide que chaque adresse résolue par `--host` est loopback. Un bind réseau échoue avant le démarrage.
+`LoopbackHostPolicy` est appliquée à la fois par `ApiLaunchOptions` et directement par
+`MorpheusHttpServer.start()`. Chaque adresse résolue doit être loopback, puis le serveur lie le socket à
+l’adresse déjà validée sans seconde résolution DNS. Un caller Java direct ne peut donc pas contourner
+l’invariant. Seule la façade `MorpheusRemoteHttpServer`, avec TLS et authentification, peut écouter sur une
+adresse non-loopback.
 
 ### REMOTE
 
@@ -51,6 +56,7 @@ Le démarrage exige :
 - keystore PKCS12 valide et non symbolique ;
 - mot de passe TLS via environnement/propriété ;
 - limite de concurrence 1..512.
+- au moins une racine workspace serveur existante et canonique.
 
 ## Authentication
 
@@ -95,6 +101,20 @@ Classification remote :
 Les POST read-only incluent Query DSL, exports, policy evaluate/dry-run, transition-check, augmented context, saved-view execute/export et external-reference resolve.
 
 Une route inconnue n’obtient jamais ADMIN.
+
+## Autorité filesystem des workspaces
+
+`AllowedWorkspaceRoots` sépare le rôle métier `WRITE` des droits OS du compte
+serveur. La configuration vient de `--workspace-root` (répétable),
+`MORPHEUS_SERVER_WORKSPACE_ROOTS` ou `morpheus.server.workspaceRoots`; aucune
+requête ne peut modifier cette allowlist.
+
+L’enregistrement canonicalise et persiste le real path autorisé. Les opérations
+ultérieures, notamment `sync`, réappliquent la politique au chemin persisté afin
+qu’un ancien projet hors racine ou un répertoire remplacé par un lien soit
+refusé. La décision exige à la fois confinement lexical, absence de composant
+symbolique et confinement du real path. Le mode local conserve son comportement
+historique sans politique remote.
 
 ## TLS
 

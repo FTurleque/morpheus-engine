@@ -10,6 +10,7 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NexusIntegrationSettingsTest {
@@ -58,5 +59,42 @@ class NexusIntegrationSettingsTest {
         properties.setProperty(NexusIntegrationSettings.TIMEOUT_PROPERTY, "999");
         NexusIntegrationSettings invalidTimeout = NexusIntegrationSettings.resolve(Map.of(), properties);
         assertEquals(NexusIntegrationSettings.State.INVALID, invalidTimeout.state());
+    }
+
+    @Test
+    void pinnedJarIsReverifiedImmediatelyBeforeLaunch() throws Exception {
+        Path jar = tempDirectory.resolve("nexus.jar");
+        Files.writeString(jar, "trusted-content");
+        Properties properties = new Properties();
+        properties.setProperty(NexusIntegrationSettings.JAR_PROPERTY, jar.toString());
+        properties.setProperty(
+                NexusIntegrationSettings.JAR_SHA256_PROPERTY,
+                com.morpheus.application.security.ExternalJarIntegrity.sha256(jar));
+
+        NexusIntegrationSettings settings = NexusIntegrationSettings.resolve(Map.of(), properties);
+        assertEquals(NexusIntegrationSettings.State.CONFIGURED, settings.state());
+        assertTrue(settings.jarSha256().isPresent());
+
+        Files.writeString(jar, "substituted-content");
+        NexusIntegrationException failure = assertThrows(
+                NexusIntegrationException.class,
+                () -> new NexusMcpContextGateway(settings));
+        assertTrue(failure.getMessage().contains("immediately before launch"));
+    }
+
+    @Test
+    void pinWithoutJarOrMalformedPinFailsClosed() throws Exception {
+        NexusIntegrationSettings missingJar = NexusIntegrationSettings.resolve(
+                Map.of(NexusIntegrationSettings.JAR_SHA256_ENV, "0".repeat(64)),
+                new Properties());
+        assertEquals(NexusIntegrationSettings.State.INVALID, missingJar.state());
+
+        Path jar = Files.createFile(tempDirectory.resolve("malformed.jar"));
+        NexusIntegrationSettings malformed = NexusIntegrationSettings.resolve(
+                Map.of(
+                        NexusIntegrationSettings.JAR_ENV, jar.toString(),
+                        NexusIntegrationSettings.JAR_SHA256_ENV, "not-a-digest"),
+                new Properties());
+        assertEquals(NexusIntegrationSettings.State.INVALID, malformed.state());
     }
 }

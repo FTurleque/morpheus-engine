@@ -1,5 +1,6 @@
 package com.morpheus.integration.nexus;
 
+import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.application.context.TechnicalContextBundle;
 import com.morpheus.application.context.TechnicalContextItem;
 import com.morpheus.application.context.TechnicalContextRequest;
@@ -167,6 +168,12 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
                     + settings.configurationError().orElse(settings.state().name()));
         }
         Path jar = settings.jarPath().orElseThrow();
+        try {
+            settings.jarSha256().ifPresent(pin -> ExternalJarIntegrity.verifySha256(jar, pin));
+        } catch (IllegalArgumentException integrityFailure) {
+            throw new NexusIntegrationException(
+                    "NEXUS JAR integrity verification failed immediately before launch", integrityFailure);
+        }
         List<String> arguments = new ArrayList<>();
         settings.homeDirectory().ifPresent(home -> arguments.add("-Dnexus.home=" + home));
         arguments.addAll(List.of("-jar", jar.toString()));

@@ -1,6 +1,7 @@
 package com.morpheus.provider.synthetic;
 
 import com.morpheus.application.provider.SpecificationProvider;
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.provider.ProviderCapability;
@@ -11,7 +12,6 @@ import com.morpheus.domain.provider.ProviderProbeStatus;
 import com.morpheus.domain.source.SourceLocator;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -68,7 +68,9 @@ public final class SyntheticSpecificationProvider implements SpecificationProvid
         }
 
         try {
-            Map<String, Object> payload = SyntheticJsonParser.parseObject(Files.readString(source, StandardCharsets.UTF_8));
+            String sourceText = SafeWorkspaceFileResolver.rootedAt(root)
+                    .readUtf8(Path.of(SOURCE_FILE), SyntheticJsonParser.MAX_INPUT_BYTES);
+            Map<String, Object> payload = SyntheticJsonParser.parseObject(sourceText);
             Object formatVersion = payload.get("format_version");
             if (formatVersion == null) {
                 return invalid(source, "Synthetic source has no format_version");

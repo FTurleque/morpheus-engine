@@ -35,6 +35,19 @@ class MorpheusProviderPluginCliTest {
         assertTrue(result.err().contains("probe requires --plugin ID and --workspace PATH"));
     }
 
+    @Test
+    void probeRejectsMalformedTrustedOnlyPinBeforeDiscovery() {
+        Result result = run(
+                "provider-plugins", "probe",
+                "--directory", tempDir.toString(),
+                "--plugin", "example",
+                "--workspace", tempDir.toString(),
+                "--sha256", "invalid");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode());
+        assertTrue(result.err().contains("64 hexadecimal characters"));
+    }
+
     private Result run(String... args) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ByteArrayOutputStream errors = new ByteArrayOutputStream();
