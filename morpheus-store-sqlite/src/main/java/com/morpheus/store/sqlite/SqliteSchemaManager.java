@@ -35,7 +35,9 @@ final class SqliteSchemaManager {
             new Migration(15, "policy-packs", "/db/migration/V015__policy_packs.sql"));
 
     void migrate(Connection connection) {
+        if (SqliteConnectionScope.schemaReadyIfActive()) return;
         final boolean previousAutoCommit;
+        boolean migrated = false;
         try {
             previousAutoCommit = connection.getAutoCommit();
         } catch (SQLException exception) {
@@ -51,6 +53,7 @@ final class SqliteSchemaManager {
             }
 
             connection.commit();
+            migrated = true;
         } catch (SQLException exception) {
             rollbackQuietly(connection);
             throw new KnowledgeStoreException("SQLite schema migration failed", exception);
@@ -60,6 +63,7 @@ final class SqliteSchemaManager {
         } finally {
             restoreAutoCommit(connection, previousAutoCommit);
         }
+        if (migrated) SqliteConnectionScope.markSchemaReadyIfActive();
     }
 
     int currentVersion(Connection connection) {
