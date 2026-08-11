@@ -1,85 +1,76 @@
 # Registre des risques et de la dette — MORPHEUS ENGINE
 
-> Synthèse du §11 sous forme de tableaux de suivi.
-> Mise à jour : 2026-08-06.
+> Synthèse opérationnelle de [§11](../arc42/11-risques-dette.md).
+> Baseline : MORPHEUS 1.2.0 — `develop` post-D2.
+> Mise à jour : **2026-08-11**.
 >
-> **Probabilité** : 1 faible · 2 moyen · 3 élevé
-> **Impact** : 1 faible · 2 moyen · 3 élevé
-> **Exposition** = probabilité × impact
+> **P** = probabilité, **I** = impact, **E** = exposition = P × I ; échelle 1 à 3.
 
 ---
 
-## Risques techniques — classés par exposition décroissante
+## Risques techniques
 
-| ID | Risque | P | I | E | Mitigation actuelle | Propriétaire | Révision |
-|----|--------|:-:|:-:|:-:|---------------------|-------------|---------|
-| RT-02 | SQLite concurrence en mode remote multi-écrivains | 2 | 3 | **6** | WAL + tests concurrence ; ADR-0018 prévoit substitution | Architecte stockage | Si mode remote évolue |
-| RT-03 | Migrations SQLite forward-only — pas de rollback schéma | 2 | 3 | **6** | Backups avant migration ; `SqliteSchemaManager` bloque sur mismatch | Architecte stockage | Permanent |
-| RT-10 | Rollback applicatif avec base déjà migrée | 2 | 3 | **6** | Backup obligatoire avant installation ; procédure §7 | Équipe distribution | Permanent |
-| RT-01 | `jdk.httpserver` — limite de performance sous charge remote | 2 | 2 | **4** | ADR-0065 permet la substitution | Architecte | Post-M28 |
-| RT-04 | MCP SDK 2.0.0 — API jeune, risque breaking change | 2 | 2 | **4** | BOM isolé ; tests de contrat MCP | Architecte MCP | Chaque release SDK |
-| RT-08 | `slf4j-nop` — diagnostic difficile en production | 2 | 2 | **4** | Endpoints health/metrics ; contrainte MCP | Architecte observabilité | Permanent |
-| RT-09 | Tests de performance sans seuil documenté | 2 | 2 | **4** | Gates M19 présents mais seuils non extraits | Architecte qualité | Court terme |
-| RT-06 | Absence de macOS en matrice CI | 2 | 1 | **2** | Linux coverage considéré suffisant (hypothèse) | CI | Prochaine roadmap |
-| RT-05 | Compatibilité binaire provider SDK non testée sur tiers | 1 | 2 | **2** | Provider testkit + provider référence | Architecte SDK | Post-ADR-0090 |
-| RT-07 | Authentification remote limitée à Bearer token | 1 | 2 | **2** | ADR-0094 signale la contrainte ; ADR-0098 anticipé | Architecte sécurité | Selon demande |
-
----
-
-## Dette technique — classée par priorité
-
-| ID | Dette | Domaine | Priorité | Impact si non traité |
-|----|-------|---------|----------|---------------------|
-| DT-04 | Pas de tests d'injection SQL explicites | Sécurité | **Haute** | Vulnérabilité potentielle stores SQLite |
-| DT-01 | SQLite unique backend — substitution non implémentée | Architecture | **Haute** | Blocage si scalabilité nécessaire |
-| DT-02 | Scénarios de qualité sans seuils de performance | Documentation | **Moyenne** | Impossibilité de prouver les objectifs perf |
-| DT-06 | `slf4j-nop` — pas d'option debug sans recompilation | Observabilité | **Moyenne** | Diagnostic difficile en cas de bug silencieux |
-| DT-07 | Distribution macOS non testée en CI | Distribution | **Moyenne** | Utilisateurs macOS non supportés officiellement |
-| DT-08 | Gates post-M21 non intégrés dans `ci.yml` | CI/CD | **Moyenne** | Régression possible sur milestones avancés |
-| DT-03 | ADR-0063 à 0082 non listés individuellement dans §9 | Documentation | **Faible** | Complétude documentation d'architecture |
-| DT-05 | Pas de cache Maven documenté dans CI | Build | **Faible** | Feedback CI potentiellement lent |
+| ID | Risque | P | I | E | Mitigation actuelle | Révision |
+|----|--------|:-:|:-:|:-:|---------------------|----------|
+| RT-01 | Concurrence SQLite si le mode remote devient fortement multi-écrivain | 2 | 3 | **6** | WAL, transactions bornées, tests de concurrence, backups | Si le profil d'usage remote évolue |
+| RT-02 | Rollback applicatif après migration de schéma | 2 | 3 | **6** | Migrations forward-only, checksums, backup/restore offline | À chaque évolution de schéma |
+| RT-03 | Limites de `jdk.httpserver` sous forte charge | 2 | 2 | **4** | Mesurer avant substitution ; mode remote borné | Lors de load tests représentatifs |
+| RT-04 | Breaking change MCP SDK / clients MCP | 2 | 2 | **4** | Version épinglée, tests de contrat, configuration native conservatrice | À chaque upgrade MCP |
+| RT-05 | Provider externe malformé ou non fiable | 2 | 2 | **4** | Activation explicite, JAR integrity, budgets d'ingestion, testkit | À chaque évolution du Provider SDK |
+| RT-06 | Diagnostic runtime limité par le logging silencieux | 2 | 2 | **4** | Health/metrics, erreurs structurées, validation ; préserver stdout MCP | Permanent |
+| RT-09 | Drift documentaire entre sources historiques et HEAD | 2 | 2 | **4** | Hiérarchie des sources et réconciliation documentaire | À chaque release/hardening |
+| RT-07 | Auth remote sans SSO/LDAP | 1 | 2 | **2** | Bearer auth + RBAC explicitement bornés | Si besoin entreprise démontré |
+| RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement dans la baseline actuelle | Si support macOS décidé |
 
 ---
 
-## Incohérences détectées — plan de résolution
+## Dette technique / documentaire
 
-| ID | Incohérence | Gravité | Action | Responsable |
-|----|-------------|---------|--------|------------|
-| IC-01 | `ci.yml` exécute gate M21 alors que M27 est qualifié | **Élevée** | Mettre à jour `ci.yml` pour exécuter `validate-m27.sh/.cmd` | CI |
-| IC-02 | `docs/architecture/overview.md` porte statut « Proposition C0 » | **Moyenne** | Mettre à jour le statut de `overview.md` à « Acceptée — M27 » | Architecte |
-| IC-03 | Seuils de performance gates M19 non surfacés en documentation | **Faible** | Extraire et documenter dans §10 / `quality/scenarios.md` | Architecte qualité |
-
----
-
-## Plan de migration priorisé
-
-### Court terme (avant M28)
-
-1. **[IC-01]** Mettre à jour `.github/workflows/ci.yml` — remplacer `validate-m21` par `validate-m27` (ou le dernier gate qualifié).
-2. **[IC-02]** Mettre à jour `docs/architecture/overview.md` — changer le statut de « Proposition C0 » à « Acceptée — M27 ».
-3. **[RT-09 / DT-02]** Extraire les seuils de performance des tests `morpheus-architecture-tests/m19/` et les documenter dans `quality/scenarios.md`.
-
-### Moyen terme (post-M28)
-
-4. **[DT-04]** Revue de code ciblée sur `morpheus-store-sqlite` — vérifier les requêtes paramétrées (injection SQL).
-5. **[DT-06]** Envisager un mode debug optionnel activable via `MORPHEUS_LOG_LEVEL` sans impacter le mode MCP.
-6. **[DT-08]** Intégrer les gates M22–M27 dans `.github/workflows/ci.yml`.
-7. **[RT-06 / DT-07]** Ajouter `macos-latest` à la matrice CI (si usage macOS avéré).
-
-### Long terme (selon roadmap)
-
-8. **[DT-01 / RT-02]** Formaliser ADR-0097 — backend de stockage alternatif (PostgreSQL ou DuckDB).
-9. **[RT-07]** Formaliser ADR-0098 — authentification SSO/LDAP pour le mode remote entreprise.
-10. **[RT-01]** Évaluer le remplacement de `jdk.httpserver` si les tests de charge mode remote révèlent des limites.
+| ID | Dette | Domaine | Priorité | Action |
+|----|-------|---------|----------|--------|
+| DT-01 | Documents historiques encore présentés avec des baselines C0/M20/M27 | Documentation | **Haute** | Les qualifier comme historiques ou les réconcilier dans des PR dédiées |
+| DT-02 | `docs/adr/README.md` n'indexe pas encore ADR-0096 | ADR | **Moyenne** | Réconcilier l'index sans modifier l'ADR accepté |
+| DT-03 | Seuils de performance M19 peu visibles depuis la documentation d'architecture | Qualité | **Moyenne** | Relier les scénarios qualité aux tests/gates autoritatifs |
+| DT-04 | SQLite reste l'unique backend persistant | Architecture | **Faible à moyenne** | N'engager un backend alternatif qu'après besoin et ADR dédiés |
+| DT-05 | Distribution macOS absente | Distribution | **Faible** | Décision produit avant ajout du packaging/CI |
 
 ---
 
-## Contrôles CI recommandés
+## État CI à ne pas interpréter comme dette
 
-| Contrôle | Outil | Priorité |
-|----------|-------|----------|
-| Mise à jour automatique du gate de validation dans `ci.yml` lors de chaque milestone | Script Maven / hook GitHub | **Haute** |
-| Vérification que `docs/adr/README.md` contient un ADR pour toute décision structurante | Revue de PR | **Haute** |
-| Test de smoke cross-platform sur macOS | GitHub Actions `macos-latest` | **Moyenne** |
-| Analyse de dépendances vulnérables (OWASP Dependency Check ou équivalent) | Plugin Maven | **Moyenne** |
-| Vérification du SBOM CycloneDX — aucune dépendance avec licence incompatible | `cyclonedx-maven-plugin` + filtre | **Faible** |
+Le workflow public exact-head utilise actuellement :
+
+```text
+Ubuntu  -> bash ./scripts/validate-m21.sh 1.2.0
+Windows -> scripts\validate.cmd m21 -Version 1.2.0
+```
+
+C'est l'état attendu de la baseline d'intégrité publique. Le nom **M21** désigne
+le gate durable d'intégrité/surface-convergence ; il ne signifie pas que les
+fonctionnalités M22 à M28 sont absentes ou non qualifiées. Les gates spécialisés
+restent dans leurs preuves de milestones.
+
+---
+
+## Incohérences documentaires connues
+
+| ID | Incohérence | Gravité | Traitement recommandé |
+|----|-------------|---------|-----------------------|
+| IC-01 | `docs/adr/README.md` s'arrête à ADR-0095 alors qu'ADR-0096 est présent et accepté | **Moyenne** | Mettre à jour l'index ADR dans un changement dédié |
+| IC-02 | `docs/architecture/overview.md` conserve son statut de proposition C0 | **Faible si qualifié comme historique** | Ne pas le promouvoir artificiellement ; utiliser les ADR/code/validations récents comme sources actives |
+| IC-03 | Certains documents développeur restent ancrés sur la baseline 1.0.0/M20 | **Moyenne** | Réconciliation documentaire progressive, sans réécrire l'historique des preuves |
+
+---
+
+## Principes de traitement
+
+1. Corriger immédiatement toute documentation active qui affirme une version,
+   un provider, un gate ou une architecture faux.
+2. Conserver les documents de validation historiques immuables lorsque leur
+   rôle est de prouver un milestone passé.
+3. Ne pas inventer ADR-0097/0098 ou une roadmap technique à partir d'un risque :
+   créer l'ADR seulement après besoin démontré.
+4. Ne pas remplacer automatiquement le gate CI M21 par le numéro du dernier
+   milestone fonctionnel.
+5. Toute évolution sécurité, stockage, remote ou packaging doit conserver des
+   preuves exact-head reproductibles.
