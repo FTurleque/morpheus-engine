@@ -15,11 +15,11 @@ import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
 class CoverageQualityGateTest {
-    private static final double MIN_LINE_RATIO = 0.25d;
-    private static final double MIN_BRANCH_RATIO = 0.20d;
+    private static final double MIN_LINE_RATIO = 0.40d;
+    private static final double MIN_BRANCH_RATIO = 0.35d;
 
     @Test
-    void reactorCoverageStaysAboveM21Floors() throws Exception {
+    void reactorCoverageStaysAboveCurrentFloors() throws Exception {
         Path root = repoRoot();
         List<Path> reports = jacocoReports(root);
         assertTrue(reports.size() >= 8, "expected JaCoCo reports from the tested reactor modules, got " + reports.size());
@@ -57,9 +57,9 @@ class CoverageQualityGateTest {
                 MIN_LINE_RATIO, MIN_BRANCH_RATIO));
 
         assertTrue(lineRatio >= MIN_LINE_RATIO,
-                () -> "aggregate JaCoCo line coverage " + lineRatio + " is below M21 floor " + MIN_LINE_RATIO);
+                () -> "aggregate JaCoCo line coverage " + lineRatio + " is below current floor " + MIN_LINE_RATIO);
         assertTrue(branchRatio >= MIN_BRANCH_RATIO,
-                () -> "aggregate JaCoCo branch coverage " + branchRatio + " is below M21 floor " + MIN_BRANCH_RATIO);
+                () -> "aggregate JaCoCo branch coverage " + branchRatio + " is below current floor " + MIN_BRANCH_RATIO);
     }
 
     private org.w3c.dom.Document parse(Path report) throws Exception {

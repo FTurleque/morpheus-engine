@@ -1,38 +1,26 @@
 # Build, tests et validation
 
-Ce guide décrit l’environnement de développement, le reactor Maven, les gates autoritatifs et le packaging sur la baseline **M20 / MORPHEUS 1.0.0 intégrée**.
+Ce guide décrit l’environnement de développement et les gates actifs sur la baseline **MORPHEUS 1.2.0** avec le hardening D2 en cours.
 
-## 1. Toolchain
-
-Le parent Maven impose :
+## Toolchain
 
 ```text
 Java >= 21
 Maven >= 3.9.16 et < 4.0.0
 compiler release = 21
+Maven Wrapper = 3.9.16
 ```
 
-Le dépôt fournit Maven Wrapper 3.9.16.
+## Reactor Maven
 
-Windows :
-
-```powershell
-java -version
-.\mvnw.cmd --version
-```
-
-Linux :
-
-```bash
-java -version
-./mvnw --version
-```
-
-## 2. Reactor Maven
+Le dépôt contient 16 modules enfants, soit 17 projets Maven parent inclus :
 
 ```text
 morpheus-domain
 morpheus-application
+morpheus-provider-sdk
+morpheus-provider-testkit
+morpheus-provider-reference
 morpheus-provider-openspec
 morpheus-provider-markdown
 morpheus-provider-synthetic
@@ -46,244 +34,174 @@ morpheus-cli
 morpheus-architecture-tests
 ```
 
-Le gate M20 rapporte **14/14 modules SUCCESS**, parent inclus.
-
-## 3. Gate local développeur
+## Gate Maven canonique
 
 Windows :
 
 ```powershell
-.\mvnw.cmd clean test
+.\mvnw.cmd clean verify
 ```
 
 Linux :
 
 ```bash
-./mvnw clean test
+./mvnw clean verify
 ```
 
-Les tests ciblés ne remplacent jamais le reactor complet pour une qualification finale.
+`clean test` est utile pour le diagnostic mais n’est pas la qualification finale : les tests d’architecture dépendent des JARs et rapports produits à `package`/`verify`.
 
-## 4. Validateurs M20
+## Qualité D2
 
-Windows :
+```text
+JaCoCo line floor          40%
+JaCoCo branch floor        35%
+maven dependency analyze  failOnWarning=true
+CycloneDX SBOM             JSON + XML
+Jackson                    3.1.5 LTS
+sqlite-jdbc                3.53.2.0
+```
+
+La preuve R3 était d’environ 45.2% lignes / 38.45% branches. D2 fixe des floors de non-régression à 40% / 35%.
+
+## SCA local D2
+
+OWASP Dependency-Check est épinglé à `12.2.2` dans le profil Maven `d2-security`.
+
+Le gate D2 lance :
+
+```text
+org.owasp:dependency-check-maven:12.2.2:aggregate
+```
+
+Politique :
+
+```text
+CVSS >= 7.0     FAIL
+scan error       FAIL
+test scope       skipped
+report format    ALL
+output            target/d2-security
+```
+
+La seule suppression locale est versionnée dans `config/dependency-check-suppressions.xml`. Elle retire l'association CPE erronée entre le module interne `io.github.fturleque:morpheus-store-sqlite:1.2.0` et SQLite 1.2.0 ; le véritable driver `org.xerial:sqlite-jdbc:3.53.2.0` reste analysé. Le scan échoue aussi si cette règle devient inutilisée, afin d'empêcher une suppression obsolète ou élargie silencieusement.
+
+Cette étape est volontairement hors du `clean verify` développeur ordinaire car elle requiert un accès réseau aux données de vulnérabilité.
+
+## Gate D2 Windows
 
 ```powershell
-.\validate-m20.cmd
+.\scripts\validate.cmd d2 -Version 1.2.0 -BaseRef origin/develop
 ```
 
-Le gate couvre notamment :
+Options de diagnostic uniquement :
 
-```text
-workspace / SHA / version
-clean test reactor complet
-architecture tests
-installer contract
-release tag exact
-portable ZIP + SHA-256
-setup EXE + SHA-256
-release manifest
-install per-user
-PATH option
-runtime sans JDK utilisateur
-API health/readiness/metrics
-upgrade preservation
-uninstall preservation
-reinstall preservation
-exact-head stability
+```powershell
+-SkipSecurityScan
+-SkipPortable
 ```
 
-Linux :
+Une qualification finale D2 ne doit pas utiliser ces skips.
+
+## Gate D2 Linux / WSL
 
 ```bash
-bash scripts/validate-m20.sh
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.0
 ```
 
-Le gate couvre :
+Variables de diagnostic :
 
 ```text
-workspace / SHA / version
-clean test reactor complet
-architecture tests
-release tag exact
-portable tar.gz + SHA-256
-release manifest
-runtime sans JDK utilisateur
-XDG data/config/state
-SQLite smoke
-MINOS/NEXUS opt-in defaults
-exact-head stability
+MORPHEUS_D2_SKIP_SECURITY_SCAN=true
+MORPHEUS_D2_SKIP_PORTABLE=true
 ```
 
-Preuve : [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
+Une qualification finale ne doit pas les activer.
 
-## 5. Gate M20 autoritatif
+## Ce que D2 prouve
 
 ```text
-Code qualifié   9199ed43c4bd8596a97db055eeff17ae31399eb8
-Version         1.0.0
-Windows         PASS
-Linux ext4      PASS via WSL2
-Tests           454/454 PASS
-Architecture    182/182 PASS
-Failures        0
-Errors          0
-Skipped         0
-Reactor         14/14 SUCCESS
+workspace tracked clean
+HEAD exact et stable
+git diff --check
+.github/workflows delta NONE
+17 POMs en 1.2.0
+versions de dépendances D2
+clean verify
+Surefire failures/errors = 0
+baseline tests >= 613
+baseline architecture >= 247
+coverage >= 40% / 35%
+dependency hygiene bloquante
+CycloneDX SBOM
+SCA local HIGH/CRITICAL
+portable platform-native
+product-info packagé = 1.2.0
+workspace tracked clean en sortie
 ```
 
-Le merge ultérieur M20 est :
+Les floors 613 / 247 incluent explicitement le test de régression Jackson D2 et les quatre contrats d’architecture D2 ; ils empêchent le gate de réussir si ces nouveaux tests ne sont pas exécutés.
+
+Windows et Linux/WSL doivent qualifier exactement le même SHA.
+
+## Politique CI D2
+
+**Aucune CI.**
 
 ```text
-75d0b82ab0c960692db2fee1ced146fa6547fd4a
+GitHub Actions inspection    non utilisée
+workflow rerun/dispatch      non utilisé
+.github/workflows changes    interdits
+CI result as gate            interdit
 ```
 
-Le SHA de merge ne remplace pas le SHA réellement exécuté par les gates.
+Les sorties locales des validateurs D2 sont les seules preuves du jalon.
 
-## 6. Tests ciblés
+## Tests ciblés
 
-Module seul :
+Exemples :
 
 ```powershell
 .\mvnw.cmd -pl morpheus-domain test
-.\mvnw.cmd -pl morpheus-application test
-.\mvnw.cmd -pl morpheus-provider-markdown test
-.\mvnw.cmd -pl morpheus-api test
-.\mvnw.cmd -pl morpheus-mcp test
-.\mvnw.cmd -pl morpheus-architecture-tests test
-```
-
-Module + dépendances :
-
-```powershell
 .\mvnw.cmd -pl morpheus-api -am test
+.\mvnw.cmd -pl morpheus-architecture-tests -am verify
 ```
 
-Plusieurs modules :
-
-```powershell
-.\mvnw.cmd -pl morpheus-domain,morpheus-application,morpheus-api -am test
-```
-
-## 7. Ordre de test recommandé
+Le test de sécurité Jackson D2 est dans :
 
 ```text
-modification
-  ↓
-tests ciblés
-  ↓
-module -pl / -am
-  ↓
-clean test reactor complet
-  ↓
-architecture
-  ↓
-packaging/smokes si concernés
-  ↓
-preuve enregistrable exact-head
+morpheus-api/src/test/java/com/morpheus/api/JacksonSecurityRegressionTest.java
 ```
 
-## 8. Compilation sans tests
-
-Diagnostic uniquement :
-
-```powershell
-.\mvnw.cmd -DskipTests compile
-.\mvnw.cmd -pl morpheus-api -am -DskipTests compile
-```
-
-Ce n’est pas une preuve fonctionnelle.
-
-## 9. Packaging Windows
-
-Portable :
-
-```powershell
-.\distribution\build-portable.ps1 -Version 1.0.0
-```
-
-Setup :
-
-```powershell
-.\distribution\build-installer.ps1 -Version 1.0.0
-```
-
-Release depuis un tag exact :
-
-```powershell
-.\distribution\build-release.ps1 -Version 1.0.0 -ExpectedTag v1.0.0
-```
-
-Artefacts :
+Le contrat repository D2 est dans :
 
 ```text
-MORPHEUS-1.0.0-windows-x64-setup.exe
-MORPHEUS-1.0.0-windows-x64-setup.exe.sha256
-morpheus-1.0.0-windows-x64.zip
-morpheus-1.0.0-windows-x64.zip.sha256
+morpheus-architecture-tests/src/test/java/com/morpheus/architecture/d2/D2RepositoryHardeningArchitectureTest.java
 ```
 
-## 10. Packaging Linux
+## Packaging
 
-Portable :
+Windows portable :
+
+```powershell
+.\distribution\build-portable.ps1 -Version 1.2.0
+```
+
+Windows setup :
+
+```powershell
+.\distribution\build-installer.ps1 -Version 1.2.0
+```
+
+Linux portable :
 
 ```bash
-bash distribution/build-portable.sh 1.0.0
+bash distribution/build-portable.sh 1.2.0
 ```
 
-Release depuis un tag exact :
+La release stable publiée reste `v1.2.0`; D2 ne déplace ni ne recrée ce tag.
 
-```bash
-bash distribution/build-release.sh 1.0.0 v1.0.0
-```
+## Preuves
 
-Artefacts :
-
-```text
-morpheus-1.0.0-linux-x64.tar.gz
-morpheus-1.0.0-linux-x64.tar.gz.sha256
-```
-
-Une preuve Windows ne constitue jamais une preuve Linux.
-
-## 11. Contraintes de packaging
-
-Les distributions peuvent embarquer les adapters clients MINOS/NEXUS, mais jamais leurs implémentations ni JARVIS.
-
-```text
-com/minos/*   absent
-com/nexus/*   absent
-com/jarvis/*  absent
-```
-
-Le runtime Java est embarqué ; aucun JDK utilisateur n’est requis.
-
-## 12. Tests d’architecture
-
-`morpheus-architecture-tests` protège notamment :
-
-```text
-domain -X-> adapters
-application -X-> adapters
-provider-specific types -X-> domain/application contracts
-api -X-> cli/mcp/integration
-MORPHEUS -X-> com.jarvis.*
-MINOS adapter -X-> com.minos.*
-NEXUS adapter -X-> com.nexus.*
-```
-
-Gate M20 : **182/182 PASS Windows + Linux**.
-
-## 13. Consolidation D1
-
-D1 est documentaire uniquement. Son gate local doit prouver :
-
-```text
-diff limité à README.md + docs/**
-git diff --check PASS
-full Maven reactor PASS
-architecture PASS
-workspace propre
-```
-
-Preuve en cours : [`../validation/VALIDATION_D1.md`](../validation/VALIDATION_D1.md).
+- R3 : [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md)
+- D2 : [`../validation/VALIDATION_D2.md`](../validation/VALIDATION_D2.md)
+- plan D2 : [`../roadmap/D2_EXECUTION.md`](../roadmap/D2_EXECUTION.md)
