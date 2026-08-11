@@ -25,6 +25,9 @@ class AllowedWorkspaceRootsTest {
         assertEquals(allowed.toRealPath(), roots.requireAllowedDirectory(allowed));
         assertEquals(child.toRealPath(), roots.requireAllowedDirectory(child));
         assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(outside));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> roots.requireAllowedDirectory(child.resolve("..").resolve("sub")));
     }
 
     @Test
@@ -36,6 +39,35 @@ class AllowedWorkspaceRootsTest {
 
         AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
         assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(link));
+    }
+
+    @Test
+    void rejectsSymlinkAliasOutsideRootEvenWhenItTargetsAllowedDirectory() throws Exception {
+        Path allowed = Files.createDirectory(temp.resolve("allowed"));
+        Path project = Files.createDirectory(allowed.resolve("project"));
+        Path alias = temp.resolve("outside-alias");
+        if (!createSymlink(alias, project)) return;
+
+        AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
+        assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(alias));
+    }
+
+    @Test
+    void rejectsWindowsJunctionInsideRoot() throws Exception {
+        if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) return;
+        Path allowed = Files.createDirectory(temp.resolve("allowed"));
+        Path target = Files.createDirectory(temp.resolve("junction-target"));
+        Path junction = allowed.resolve("junction");
+        Process process = new ProcessBuilder(
+                "cmd.exe", "/d", "/c", "mklink", "/J", junction.toString(), target.toString())
+                .redirectErrorStream(true)
+                .start();
+        int exitCode = process.waitFor();
+        String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(0, exitCode, output);
+
+        AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
+        assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(junction));
     }
 
     @Test

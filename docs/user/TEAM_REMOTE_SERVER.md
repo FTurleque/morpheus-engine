@@ -91,7 +91,8 @@ Un token perdu doit être remplacé par une nouvelle identité/credential ; MORP
 morpheus api --remote \
   --host 0.0.0.0 \
   --port 8765 \
-  --tls-keystore /secure/morpheus-server.p12
+  --tls-keystore /secure/morpheus-server.p12 \
+  --workspace-root /srv/morpheus/workspaces
 ```
 
 Options utiles :
@@ -99,6 +100,7 @@ Options utiles :
 ```text
 --auth-file PATH         fichier d'identités, défaut <config-dir>/remote-auth.txt
 --max-concurrent N       1..512, défaut 64
+--workspace-root PATH    racine workspace autorisée, option répétable
 ```
 
 Variables :
@@ -108,9 +110,20 @@ MORPHEUS_SERVER_TLS_PASSWORD       obligatoire
 MORPHEUS_SERVER_TLS_KEYSTORE       alternative à --tls-keystore
 MORPHEUS_SERVER_AUTH_FILE          alternative à --auth-file
 MORPHEUS_SERVER_MAX_CONCURRENT     limite de concurrence
+MORPHEUS_SERVER_WORKSPACE_ROOTS    racines séparées par le séparateur de chemins OS
 ```
 
-Le mode remote refuse de démarrer sans keystore, mot de passe TLS ou identité ADMIN.
+La propriété protégée équivalente est `morpheus.server.workspaceRoots`. Les
+racines sont configurées uniquement au démarrage du serveur. Elles doivent
+exister, être des répertoires réels et ne pas être des liens symboliques. Le
+mode remote refuse de démarrer sans racine valide, keystore, mot de passe TLS
+ou identité ADMIN.
+
+Un rôle `WRITE` peut enregistrer ou synchroniser uniquement la racine exacte
+ou un descendant réel de cette allowlist. MORPHEUS refuse les traversals,
+sorties de racine et chemins utilisant un symlink/junction. La même politique
+est réappliquée aux workspaces déjà persistés avant chaque synchronisation.
+Les erreurs remote ne renvoient pas les chemins serveur refusés.
 
 À l’inverse, le mode local :
 

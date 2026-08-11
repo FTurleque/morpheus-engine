@@ -119,11 +119,52 @@ public final class MorpheusHttpServer implements AutoCloseable {
             ExternalIntegrationStatusProvider minosStatus,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
+        return startConfigured(
+                databasePath,
+                host,
+                port,
+                resolverRegistry,
+                minosStatus,
+                technicalContextProvider,
+                writeCapabilityResolver,
+                Optional.empty());
+    }
+
+    static MorpheusHttpServer startRemote(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            AllowedWorkspaceRoots allowedWorkspaceRoots) {
+        return startConfigured(
+                databasePath,
+                host,
+                port,
+                resolverRegistry,
+                minosStatus,
+                technicalContextProvider,
+                writeCapabilityResolver,
+                Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")));
+    }
+
+    private static MorpheusHttpServer startConfigured(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(minosStatus, "minosStatus");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
+        Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
         String normalizedHost = requireHost(host);
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
@@ -137,7 +178,9 @@ public final class MorpheusHttpServer implements AutoCloseable {
             MorpheusHttpServer result = new MorpheusHttpServer(
                     httpServer,
                     executor,
-                    new MorpheusApiService(databasePath),
+                    allowedWorkspaceRoots
+                            .map(policy -> new MorpheusApiService(databasePath, policy))
+                            .orElseGet(() -> new MorpheusApiService(databasePath)),
                     new MorpheusExternalReferenceApiService(databasePath, resolverRegistry, minosStatus),
                     new MorpheusAugmentedContextApiService(databasePath, technicalContextProvider),
                     new MorpheusJarvisOrchestrationApiService(databasePath),

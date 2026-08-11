@@ -40,15 +40,24 @@ public final class AllowedWorkspaceRoots {
 
     public Path requireAllowedDirectory(Path requested) {
         Objects.requireNonNull(requested, "requested");
+        for (Path component : requested) {
+            if (component.toString().equals("..")) {
+                throw new IllegalArgumentException("workspace traversal is not allowed");
+            }
+        }
         Path lexical = requested.toAbsolutePath().normalize();
         if (Files.isSymbolicLink(lexical) || !Files.isDirectory(lexical, LinkOption.NOFOLLOW_LINKS)) {
             throw new IllegalArgumentException("workspace must be an existing real directory");
         }
         try {
-            rejectSymbolicAncestorsInsideAllowedRoot(lexical);
+            Path lexicalRoot = roots.stream()
+                    .filter(lexical::startsWith)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "workspace is outside the server-configured allowed roots"));
+            rejectSymbolicAncestors(lexicalRoot, lexical);
             Path real = lexical.toRealPath();
-            boolean allowed = roots.stream().anyMatch(real::startsWith);
-            if (!allowed) {
+            if (!real.startsWith(lexicalRoot)) {
                 throw new IllegalArgumentException("workspace is outside the server-configured allowed roots");
             }
             return real;
@@ -61,26 +70,26 @@ public final class AllowedWorkspaceRoots {
         if (requested == null || requested.isBlank()) {
             throw new IllegalArgumentException("workspace is required");
         }
-        return requireAllowedDirectory(Path.of(requested.trim()));
+        try {
+            return requireAllowedDirectory(Path.of(requested.trim()));
+        } catch (java.nio.file.InvalidPathException failure) {
+            throw new IllegalArgumentException("workspace is not a valid path", failure);
+        }
     }
 
     public List<Path> roots() {
         return roots;
     }
 
-    private void rejectSymbolicAncestorsInsideAllowedRoot(Path candidate) throws IOException {
-        for (Path root : roots) {
-            Path lexicalRoot = root.toAbsolutePath().normalize();
-            if (!candidate.startsWith(lexicalRoot)) continue;
-            Path current = lexicalRoot;
-            for (Path component : lexicalRoot.relativize(candidate)) {
-                current = current.resolve(component);
-                if (Files.isSymbolicLink(current)) {
-                    throw new IllegalArgumentException("symbolic workspace path is not allowed");
-                }
+    private void rejectSymbolicAncestors(Path root, Path candidate) throws IOException {
+        Path current = root;
+        for (Path component : root.relativize(candidate)) {
+            current = current.resolve(component);
+            Path noFollow = current.toRealPath(LinkOption.NOFOLLOW_LINKS);
+            Path followed = current.toRealPath();
+            if (Files.isSymbolicLink(current) || !noFollow.equals(followed)) {
+                throw new IllegalArgumentException("symbolic workspace path is not allowed");
             }
-            return;
         }
-        // A lexical path outside all roots may still resolve through platform aliases; real-path containment below decides it.
     }
 }
