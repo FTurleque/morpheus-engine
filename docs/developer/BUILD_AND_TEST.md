@@ -1,6 +1,6 @@
 # Build, tests et validation
 
-Ce guide décrit l’environnement de développement et les gates actifs sur la baseline **MORPHEUS 1.2.0** avec le hardening D2 en cours.
+Ce guide décrit l’environnement de développement et les gates actifs sur la baseline **MORPHEUS 1.2.0** après D2.
 
 ## Toolchain
 
@@ -50,18 +50,31 @@ Linux :
 
 `clean test` est utile pour le diagnostic mais n’est pas la qualification finale : les tests d’architecture dépendent des JARs et rapports produits à `package`/`verify`.
 
-## Qualité D2
+## Qualité et ratchet JaCoCo
 
 ```text
-JaCoCo line floor          40%
-JaCoCo branch floor        35%
-maven dependency analyze  failOnWarning=true
-CycloneDX SBOM             JSON + XML
-Jackson                    3.1.5 LTS
-sqlite-jdbc                3.53.2.0
+JaCoCo line ratchet        47%
+JaCoCo branch ratchet      40%
+D2 absolute line floor     40%
+D2 absolute branch floor   35%
+maven dependency analyze   failOnWarning=true
+CycloneDX SBOM              JSON + XML
+Jackson                     3.1.5 LTS
+sqlite-jdbc                 3.53.2.0
 ```
 
-La preuve R3 était d’environ 45.2% lignes / 38.45% branches. D2 fixe des floors de non-régression à 40% / 35%.
+MRA-12 remplace le simple floor D2 par un ratchet anti-régression. La baseline de référence a été mesurée sur le HEAD exact qualifié après MRA-11 : **47,2781% lignes / 40,4547% branches**. Les seuils exécutables sont volontairement arrondis vers le bas au point de pourcentage entier, soit **47% / 40%**, afin de conserver une petite marge déterministe sans autoriser un retour vers les anciens floors 40% / 35%.
+
+Règle d’évolution :
+
+1. une baisse sous 47% lignes ou 40% branches fait échouer le gate ;
+2. les floors D2 40% / 35% restent des minima absolus et ne peuvent jamais affaiblir le ratchet ;
+3. une amélioration de couverture ne relève le ratchet qu’après qualification du même SHA exact sur Windows et Linux ;
+4. le nouveau ratchet est obtenu en arrondissant vers le bas la baseline qualifiée au point de pourcentage entier ;
+5. le ratchet n’est jamais abaissé automatiquement : une baisse nécessite une décision d’audit explicite et motivée ;
+6. la couverture ne justifie pas des tests artificiels : les tests doivent conserver une valeur fonctionnelle, de contrat, de sécurité ou d’architecture indépendante du chiffre.
+
+`CoverageQualityGateTest` écrit dans `morpheus-architecture-tests/target/m21-coverage-summary.txt` la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2. Un test de régression démontre explicitement qu’une couverture qui aurait satisfait les anciens floors D2 peut désormais être rejetée.
 
 ## SCA local D2
 
@@ -117,7 +130,7 @@ MORPHEUS_D2_SKIP_PORTABLE=true
 
 Une qualification finale ne doit pas les activer.
 
-## Ce que D2 prouve
+## Ce que D2 et le ratchet MRA-12 prouvent
 
 ```text
 workspace tracked clean
@@ -130,7 +143,8 @@ clean verify
 Surefire failures/errors = 0
 baseline tests >= 613
 baseline architecture >= 247
-coverage >= 40% / 35%
+coverage >= 47% / 40%
+absolute D2 floor >= 40% / 35%
 dependency hygiene bloquante
 CycloneDX SBOM
 SCA local HIGH/CRITICAL
@@ -145,16 +159,7 @@ Windows et Linux/WSL doivent qualifier exactement le même SHA.
 
 ## Politique CI D2
 
-**Aucune CI.**
-
-```text
-GitHub Actions inspection    non utilisée
-workflow rerun/dispatch      non utilisé
-.github/workflows changes    interdits
-CI result as gate            interdit
-```
-
-Les sorties locales des validateurs D2 sont les seules preuves du jalon.
+La qualification historique D2 reste fondée sur ses preuves locales. La CI publique actuelle exécute le gate durable M21 sur Windows et Linux pour les PR et protège notamment le ratchet de couverture.
 
 ## Tests ciblés
 
@@ -198,7 +203,7 @@ Linux portable :
 bash distribution/build-portable.sh 1.2.0
 ```
 
-La release stable publiée reste `v1.2.0`; D2 ne déplace ni ne recrée ce tag.
+La release stable publiée reste `v1.2.0`; D2/MRA ne déplacent ni ne recréent ce tag.
 
 ## Preuves
 
