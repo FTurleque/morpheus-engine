@@ -33,6 +33,10 @@ class RemoteServerArchitectureTest {
                 "morpheus-cli/src/main/java/com/morpheus/cli/RemoteApiLaunchOptions.java"));
         String localOptions = Files.readString(root.resolve(
                 "morpheus-cli/src/main/java/com/morpheus/cli/ApiLaunchOptions.java"));
+        String localServer = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String loopbackPolicy = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/LoopbackHostPolicy.java"));
 
         assertTrue(server.contains("HttpsServer"));
         assertTrue(server.contains("PKCS12"));
@@ -53,8 +57,10 @@ class RemoteServerArchitectureTest {
 
         assertTrue(remoteOptions.contains("MORPHEUS_SERVER_TLS_PASSWORD"));
         assertFalse(remoteOptions.contains("--tls-password"));
-        assertTrue(localOptions.contains("isLoopbackAddress"));
-        assertTrue(localOptions.contains("requires explicit `api --remote`"));
+        assertTrue(localOptions.contains("LoopbackHostPolicy.requireLoopback"));
+        assertTrue(localServer.contains("LoopbackHostPolicy.requireLoopbackAddress"));
+        assertTrue(loopbackPolicy.contains("isLoopbackAddress"));
+        assertTrue(loopbackPolicy.contains("requires explicit remote mode"));
     }
 
     @Test

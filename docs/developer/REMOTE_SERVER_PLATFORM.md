@@ -39,7 +39,11 @@ Cette composition préserve les contrats M11-M25 et rend la sécurité remote v�
 
 ### LOCAL
 
-`ApiLaunchOptions` valide que chaque adresse résolue par `--host` est loopback. Un bind réseau échoue avant le démarrage.
+`LoopbackHostPolicy` est appliquée à la fois par `ApiLaunchOptions` et directement par
+`MorpheusHttpServer.start()`. Chaque adresse résolue doit être loopback, puis le serveur lie le socket à
+l’adresse déjà validée sans seconde résolution DNS. Un caller Java direct ne peut donc pas contourner
+l’invariant. Seule la façade `MorpheusRemoteHttpServer`, avec TLS et authentification, peut écouter sur une
+adresse non-loopback.
 
 ### REMOTE
 
