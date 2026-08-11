@@ -55,6 +55,8 @@ for token in (
     '<failOnWarning>true</failOnWarning>',
     '<id>d2-security</id>',
     '<failBuildOnCVSS>7.0</failBuildOnCVSS>',
+    '<failBuildOnUnusedSuppressionRule>true</failBuildOnUnusedSuppressionRule>',
+    'config/dependency-check-suppressions.xml',
 ):
     if token not in root_pom:
         raise SystemExit(f'D2 dependency/quality token missing from pom.xml: {token}')

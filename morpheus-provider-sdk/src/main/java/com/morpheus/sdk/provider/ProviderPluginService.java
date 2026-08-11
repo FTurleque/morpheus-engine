@@ -28,6 +28,20 @@ public final class ProviderPluginService {
     }
 
     public ProviderPluginProbeOutcome probe(Path pluginDirectory, String pluginId, Path workspaceRoot) {
+        return probe(pluginDirectory, pluginId, workspaceRoot, Optional.empty());
+    }
+
+    public ProviderPluginProbeOutcome probe(
+            Path pluginDirectory, String pluginId, Path workspaceRoot, String expectedSha256) {
+        return probe(
+                pluginDirectory,
+                pluginId,
+                workspaceRoot,
+                Optional.of(com.morpheus.application.security.ExternalJarIntegrity.normalizeSha256(expectedSha256)));
+    }
+
+    private ProviderPluginProbeOutcome probe(
+            Path pluginDirectory, String pluginId, Path workspaceRoot, Optional<String> expectedSha256) {
         Objects.requireNonNull(pluginDirectory, "pluginDirectory");
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         String requestedPluginId = requireText(pluginId, "pluginId");
@@ -72,7 +86,9 @@ public final class ProviderPluginService {
                     selected.diagnostics());
         }
 
-        try (ProviderPluginActivation activation = activator.activate(selected)) {
+        try (ProviderPluginActivation activation = expectedSha256.isPresent()
+                ? activator.activate(selected, expectedSha256.orElseThrow())
+                : activator.activate(selected)) {
             ProviderProbeResult probe = Objects.requireNonNull(
                     activation.provider().probe(workspaceRoot.toAbsolutePath().normalize()),
                     "provider probe result");
@@ -82,6 +98,18 @@ public final class ProviderPluginService {
                     selected.metadata(),
                     Optional.of(probe),
                     selected.diagnostics());
+        } catch (IllegalArgumentException integrityFailure) {
+            List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
+            diagnostics.add(ProviderPluginDiagnostic.error(
+                    "PLUGIN_INTEGRITY_VERIFICATION_FAILED",
+                    "Provider plugin was rejected before activation because its SHA-256 pin did not match",
+                    Map.of("pluginId", requestedPluginId, "reason", safeMessage(integrityFailure))));
+            return new ProviderPluginProbeOutcome(
+                    requestedPluginId,
+                    selected.jarPath().toString(),
+                    selected.metadata(),
+                    Optional.empty(),
+                    diagnostics);
         } catch (RuntimeException | LinkageError failure) {
             List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
             diagnostics.add(ProviderPluginDiagnostic.error(

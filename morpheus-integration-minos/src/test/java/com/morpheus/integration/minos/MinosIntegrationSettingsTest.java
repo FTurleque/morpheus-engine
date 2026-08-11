@@ -10,6 +10,7 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MinosIntegrationSettingsTest {
@@ -59,5 +60,42 @@ class MinosIntegrationSettingsTest {
         properties.setProperty(MinosIntegrationSettings.TIMEOUT_PROPERTY, "999");
         MinosIntegrationSettings invalidTimeout = MinosIntegrationSettings.resolve(Map.of(), properties);
         assertEquals(MinosIntegrationSettings.State.INVALID, invalidTimeout.state());
+    }
+
+    @Test
+    void pinnedJarIsReverifiedImmediatelyBeforeLaunch() throws Exception {
+        Path jar = tempDirectory.resolve("minos.jar");
+        Files.writeString(jar, "trusted-content");
+        Properties properties = new Properties();
+        properties.setProperty(MinosIntegrationSettings.JAR_PROPERTY, jar.toString());
+        properties.setProperty(
+                MinosIntegrationSettings.JAR_SHA256_PROPERTY,
+                com.morpheus.application.security.ExternalJarIntegrity.sha256(jar));
+
+        MinosIntegrationSettings settings = MinosIntegrationSettings.resolve(Map.of(), properties);
+        assertEquals(MinosIntegrationSettings.State.CONFIGURED, settings.state());
+        assertTrue(settings.jarSha256().isPresent());
+
+        Files.writeString(jar, "substituted-content");
+        MinosIntegrationException failure = assertThrows(
+                MinosIntegrationException.class,
+                () -> new MinosMcpCodeGateway(settings));
+        assertTrue(failure.getMessage().contains("immediately before launch"));
+    }
+
+    @Test
+    void pinWithoutJarOrMalformedPinFailsClosed() throws Exception {
+        MinosIntegrationSettings missingJar = MinosIntegrationSettings.resolve(
+                Map.of(MinosIntegrationSettings.JAR_SHA256_ENV, "0".repeat(64)),
+                new Properties());
+        assertEquals(MinosIntegrationSettings.State.INVALID, missingJar.state());
+
+        Path jar = Files.createFile(tempDirectory.resolve("malformed.jar"));
+        MinosIntegrationSettings malformed = MinosIntegrationSettings.resolve(
+                Map.of(
+                        MinosIntegrationSettings.JAR_ENV, jar.toString(),
+                        MinosIntegrationSettings.JAR_SHA256_ENV, "not-a-digest"),
+                new Properties());
+        assertEquals(MinosIntegrationSettings.State.INVALID, malformed.state());
     }
 }
