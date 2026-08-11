@@ -1,17 +1,30 @@
 package com.morpheus.provider.synthetic;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /** Small dependency-free JSON parser scoped to the verification-only synthetic provider. */
 final class SyntheticJsonParser {
+    static final int MAX_INPUT_BYTES = 1_048_576;
+    static final int MAX_DEPTH = 64;
+    static final int MAX_NODES = 100_000;
+    static final int MAX_STRING_CHARS = 65_536;
+
     private final String input;
     private int index;
+    private int nodes;
 
     private SyntheticJsonParser(String input) {
-        this.input = input;
+        this.input = Objects.requireNonNull(input, "input");
+        int utf8Bytes = input.getBytes(StandardCharsets.UTF_8).length;
+        if (utf8Bytes > MAX_INPUT_BYTES) {
+            throw new IllegalArgumentException(
+                    "synthetic JSON exceeds maximum input size of " + MAX_INPUT_BYTES + " UTF-8 bytes");
+        }
     }
 
     static Map<String, Object> parseObject(String input) {
@@ -26,7 +39,7 @@ final class SyntheticJsonParser {
 
     private Object parseDocument() {
         skipWhitespace();
-        Object value = parseValue();
+        Object value = parseValue(1);
         skipWhitespace();
         if (index != input.length()) {
             throw error("unexpected trailing content");
@@ -34,14 +47,15 @@ final class SyntheticJsonParser {
         return value;
     }
 
-    private Object parseValue() {
+    private Object parseValue(int depth) {
+        guardNode(depth);
         skipWhitespace();
         if (index >= input.length()) {
             throw error("unexpected end of input");
         }
         return switch (input.charAt(index)) {
-            case '{' -> parseObjectValue();
-            case '[' -> parseArray();
+            case '{' -> parseObjectValue(depth);
+            case '[' -> parseArray(depth);
             case '"' -> parseString();
             case 't' -> parseLiteral("true", Boolean.TRUE);
             case 'f' -> parseLiteral("false", Boolean.FALSE);
@@ -50,7 +64,7 @@ final class SyntheticJsonParser {
         };
     }
 
-    private Map<String, Object> parseObjectValue() {
+    private Map<String, Object> parseObjectValue(int depth) {
         expect('{');
         Map<String, Object> result = new LinkedHashMap<>();
         skipWhitespace();
@@ -63,7 +77,7 @@ final class SyntheticJsonParser {
             String key = parseString();
             skipWhitespace();
             expect(':');
-            Object value = parseValue();
+            Object value = parseValue(depth + 1);
             result.put(key, value);
             skipWhitespace();
             if (peek('}')) {
@@ -74,7 +88,7 @@ final class SyntheticJsonParser {
         }
     }
 
-    private List<Object> parseArray() {
+    private List<Object> parseArray(int depth) {
         expect('[');
         List<Object> result = new ArrayList<>();
         skipWhitespace();
@@ -83,7 +97,7 @@ final class SyntheticJsonParser {
             return result;
         }
         while (true) {
-            result.add(parseValue());
+            result.add(parseValue(depth + 1));
             skipWhitespace();
             if (peek(']')) {
                 index++;
@@ -102,7 +116,7 @@ final class SyntheticJsonParser {
                 return result.toString();
             }
             if (current != '\\') {
-                result.append(current);
+                appendStringChar(result, current);
                 continue;
             }
             if (index >= input.length()) {
@@ -110,17 +124,24 @@ final class SyntheticJsonParser {
             }
             char escaped = input.charAt(index++);
             switch (escaped) {
-                case '"', '\\', '/' -> result.append(escaped);
-                case 'b' -> result.append('\b');
-                case 'f' -> result.append('\f');
-                case 'n' -> result.append('\n');
-                case 'r' -> result.append('\r');
-                case 't' -> result.append('\t');
-                case 'u' -> result.append(parseUnicodeEscape());
+                case '"', '\\', '/' -> appendStringChar(result, escaped);
+                case 'b' -> appendStringChar(result, '\b');
+                case 'f' -> appendStringChar(result, '\f');
+                case 'n' -> appendStringChar(result, '\n');
+                case 'r' -> appendStringChar(result, '\r');
+                case 't' -> appendStringChar(result, '\t');
+                case 'u' -> appendStringChar(result, parseUnicodeEscape());
                 default -> throw error("unsupported escape sequence: \\" + escaped);
             }
         }
         throw error("unterminated string");
+    }
+
+    private void appendStringChar(StringBuilder result, char value) {
+        if (result.length() >= MAX_STRING_CHARS) {
+            throw error("synthetic JSON string exceeds maximum length of " + MAX_STRING_CHARS + " characters");
+        }
+        result.append(value);
     }
 
     private char parseUnicodeEscape() {
@@ -167,7 +188,12 @@ final class SyntheticJsonParser {
         }
         String token = input.substring(start, index);
         try {
-            return decimal ? Double.parseDouble(token) : Long.parseLong(token);
+            if (decimal) {
+                double value = Double.parseDouble(token);
+                if (!Double.isFinite(value)) throw error("JSON number must be finite");
+                return value;
+            }
+            return Long.parseLong(token);
         } catch (NumberFormatException exception) {
             throw error("invalid number: " + token);
         }
@@ -179,6 +205,16 @@ final class SyntheticJsonParser {
         }
         index += literal.length();
         return value;
+    }
+
+    private void guardNode(int depth) {
+        if (depth > MAX_DEPTH) {
+            throw error("synthetic JSON exceeds maximum nesting depth of " + MAX_DEPTH);
+        }
+        nodes++;
+        if (nodes > MAX_NODES) {
+            throw error("synthetic JSON exceeds maximum node count of " + MAX_NODES);
+        }
     }
 
     private void skipWhitespace() {
