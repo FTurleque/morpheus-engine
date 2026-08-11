@@ -37,20 +37,15 @@ jobs:
           cache: maven
           check-latest: false
 
-      - name: Enable executable scripts on Linux
-        if: runner.os == 'Linux'
-        shell: bash
-        run: chmod +x mvnw scripts/*.sh distribution/*.sh
-
       - name: Run one-command M21 gate on Linux
         if: runner.os == 'Linux'
         shell: bash
-        run: ./scripts/validate-m21.sh 1.0.0
+        run: bash ./scripts/validate-m21.sh 1.2.0
 
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
         shell: cmd
-        run: validate-m21.cmd -Version 1.0.0
+        run: scripts\validate.cmd m21 -Version 1.2.0
 
       - name: Upload M21 integrity evidence
         if: always()
