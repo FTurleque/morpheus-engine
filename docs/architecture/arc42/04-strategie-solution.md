@@ -1,92 +1,121 @@
 # §4 — Stratégie de solution
 
-> **Sources** : `docs/developer/ARCHITECTURE.md`, `docs/architecture/overview.md`,
-> `docs/adr/README.md`, ADR-0001 à ADR-0027, `morpheus-architecture-tests/`.
+> **Sources actives** : `pom.xml`, `docs/adr/`, `contracts/public-surfaces.tsv`,
+> `morpheus-architecture-tests/` et code du HEAD `develop`.
 
 ---
 
 ## 4.1 Principes architecturaux
 
-| # | Principe | Formulation | ADR de référence |
-|---|----------|-------------|-----------------|
-| P-1 | **Local-first** | Le système est pleinement fonctionnel sans réseau, sans LLM, sans service cloud | ADR-0004 |
-| P-2 | **Port-adapter** | Le domaine ne dépend d'aucune technologie d'infrastructure ; les stores et providers sont des adaptateurs derrière des ports | ADR-0001, ADR-0003 |
-| P-3 | **Read-first** | Les providers lisent ; l'écriture est une capacité optionnelle déclarée et négociée | ADR-0008, ADR-0011 |
-| P-4 | **Exactitude avant quantité** | Aucun fait n'est produit sans source vérifiable ; les inférences sont explicitement étiquetées | ADR-0004 |
-| P-5 | **Identité stable** | `DomainIdentity` (UUIDv7 opaque) est indépendante de la version, du locator et de la référence externe | ADR-0009, ADR-0015 |
-| P-6 | **Snapshots atomiques** | L'activation d'un snapshot est atomique ; pas de vue partielle | ADR-0012, ADR-0033 |
-| P-7 | **Surface parity** | CLI, MCP et HTTP exposent les mêmes capacités (vérifiable via `contracts/public-surfaces.tsv`) | ADR-0059 |
-| P-8 | **Validation avant acceptation** | Un ADR n'est accepté qu'après preuve par tests reproductibles | Convention ADR |
-| P-9 | **Migrations explicites** | Le schéma SQLite évolue via migrations versionnées et vérifiées par SHA-256 ; jamais de ALTER implicite | ADR-0021 |
-| P-10 | **Résilience aux intégrations** | La panne d'un adaptateur externe (MINOS, NEXUS) ne dégrade pas la disponibilité des faits locaux | ADR-0007, invariants ADR |
+| # | Principe | Formulation | Référence |
+|---|----------|-------------|-----------|
+| P-1 | **Local-first** | Le cœur fonctionne sans réseau, LLM ni service cloud obligatoire | ADR-0004 |
+| P-2 | **Ports & Adapters** | Domaine et application possèdent leurs contrats ; les technologies restent aux frontières | ADR-0001, ADR-0003 |
+| P-3 | **Read-first / controlled write** | Une capacité de lecture n'implique jamais une capacité d'écriture ; toute mutation est explicite et contrôlée | ADR-0008, ADR-0083 |
+| P-4 | **Facts before inference** | Faits, inférences, heuristiques et suggestions ne sont jamais confondus | ADR-0004, ADR-0095 |
+| P-5 | **Identité stable** | `DomainIdentity` est indépendante de la version, du locator et des références externes | ADR-0009, ADR-0015 |
+| P-6 | **Snapshots atomiques** | Un snapshot publié est cohérent ; une activation partielle n'est pas observable | ADR-0012, ADR-0033 |
+| P-7 | **Convergence des surfaces** | Les capacités publiques sont suivies entre CLI, MCP et HTTP sans imposer une forme de transport identique | `contracts/public-surfaces.tsv` |
+| P-8 | **Migrations vérifiables** | Les migrations SQLite sont versionnées, checksummées et appliquées explicitement | ADR-0021 |
+| P-9 | **Intégrations optionnelles** | MINOS et NEXUS sont isolés derrière des ports et ne sont pas requis pour les faits locaux | ADR-0007 |
+| P-10 | **Native MCP conservateur** | Le câblage des clients MCP est opt-in et n'écrase pas une configuration étrangère | ADR-0096 |
 
 ---
 
-## 4.2 Style de décomposition
+## 4.2 Décomposition
 
-Le système est décomposé en **architecture en couches hexagonale** (Ports & Adapters) avec 16 modules Maven :
+MORPHEUS 1.2.0 est un reactor Maven de **16 modules** :
 
+```text
+Adapters / surfaces
+  morpheus-cli
+  morpheus-api
+  morpheus-mcp
+
+Adapters / providers
+  morpheus-provider-sdk
+  morpheus-provider-testkit
+  morpheus-provider-reference
+  morpheus-provider-openspec
+  morpheus-provider-markdown
+  morpheus-provider-synthetic
+
+Adapters / stores
+  morpheus-store-memory
+  morpheus-store-sqlite
+
+Adapters / integrations
+  morpheus-integration-minos
+  morpheus-integration-nexus
+
+Application
+  morpheus-application
+
+Domain
+  morpheus-domain
+
+Architecture qualification
+  morpheus-architecture-tests
 ```
-[ Couche Adaptateurs ]
-    CLI        ← morpheus-cli
-    HTTP API   ← morpheus-api
-    MCP STDIO  ← morpheus-mcp
-    Providers  ← morpheus-provider-*
-    Stores     ← morpheus-store-*
-    Intégrations ← morpheus-integration-*
 
-[ Couche Application ]
-    Services, orchestration, ports  ← morpheus-application
+Sens de dépendance essentiel :
 
-[ Couche Domaine ]
-    Modèle pur, value objects, state machines  ← morpheus-domain
+```text
+adapters -> application -> domain
 ```
 
-Les règles de dépendance sont **enforced automatiquement** par ArchUnit dans
-`morpheus-architecture-tests` à chaque build.
+Les frontières sont vérifiées par les tests d'architecture ; les types
+provider-specific et infrastructure-specific ne doivent pas contaminer les
+contrats métier.
 
 ---
 
-## 4.3 Technologies structurantes
+## 4.3 Technologies structurantes — baseline 1.2.0
 
-| Technologie | Rôle | Version | ADR |
-|-------------|------|---------|-----|
-| Java 21 | Langage et plateforme d'exécution | 21 (LTS) | ADR-0016 |
-| Maven | Build, reactor multi-module, gestion des dépendances | 3.9.16 (Wrapper) | ADR-0017 |
-| SQLite via `sqlite-jdbc` | Stockage persistant embarqué | 3.53.1.0 | ADR-0018 |
-| `jdk.httpserver` | Serveur HTTP local | JDK built-in | ADR-0065 |
-| `io.modelcontextprotocol.sdk:mcp` | Protocole MCP STDIO | 2.0.0 | ADR-0062 |
-| Jackson (BOM 3.0.3) | Sérialisation JSON | 3.0.3 | — |
-| JUnit Jupiter | Tests unitaires | 6.1.0 | — |
-| ArchUnit | Tests d'architecture | 1.4.2 | — |
-| JaCoCo | Couverture de code | 0.8.15 | — |
-| CycloneDX | Génération de SBOM | 2.9.2 | — |
-| jpackage | Distribution native portable | JDK built-in | ADR-0061 |
-| Inno Setup | Installateur Windows | 7.0.2 | ADR-0027 |
-| GitHub Actions | CI/CD | — | — |
+| Technologie | Rôle | Version / baseline |
+|-------------|------|--------------------|
+| Java | Runtime et langage | 21 |
+| Maven Wrapper | Build multi-module | 3.9.16 |
+| SQLite JDBC | Persistance embarquée | 3.53.2.0 |
+| Jackson | Sérialisation / parsing JSON | BOM 3.1.5 |
+| MCP SDK Java | MCP STDIO | 2.0.0 |
+| JUnit Jupiter | Tests | 6.1.0 |
+| ArchUnit | Tests d'architecture | 1.4.2 |
+| JaCoCo | Couverture | 0.8.15 |
+| CycloneDX | SBOM | 2.9.2 |
+| OWASP Dependency-Check | SCA locale | 12.2.2 |
+| `jdk.httpserver` | HTTP local/remote | fourni par le JDK |
+| jpackage | Distribution avec runtime embarqué | fourni par le JDK |
+
+Les versions autoritatives restent celles de `pom.xml` ; cette table décrit la
+baseline au moment de la réconciliation documentaire.
 
 ---
 
 ## 4.4 Mécanismes liés aux objectifs qualité
 
-| Objectif qualité | Mécanisme(s) | Vérification |
-|-----------------|--------------|--------------|
-| Exactitude | Séparation CURRENT/PROPOSED/HISTORICAL ; snapshots atomiques ; faits tracés | Tests de contrat `morpheus-architecture-tests` |
-| Maintenabilité | Couches ArchUnit ; 96 ADR ; SBOM CycloneDX ; tests par milestone | Gate CI `validate-mN` |
-| Portabilité | jpackage (JVM embarquée) ; SQLite local ; pas de dépendances cloud | CI matrix Ubuntu + Windows |
-| Extensibilité | Port-adapter ; SDK provider externe (`morpheus-provider-sdk`) ; capability negotiation (ADR-0011) | `morpheus-provider-testkit` |
-| Résilience | Adaptateurs optionnels ; séparation processus externe (STDIO) ; isolation SQLite WAL | Tests `SqliteConcurrencyHardeningTest` |
+| Objectif | Mécanismes | Vérification |
+|----------|------------|--------------|
+| Exactitude | états temporels séparés, provenance, evidence, snapshots atomiques | tests domaine/application/architecture |
+| Sécurité | validation bornée, workspace confinement, SCA, contrôle des JAR externes | D2 + tests de régression sécurité |
+| Maintenabilité | modules explicites, ADR, ArchUnit, dependency hygiene | build Maven + tests d'architecture |
+| Portabilité | Java 21, runtime embarqué, SQLite local | qualification Windows + Linux |
+| Extensibilité | Provider SDK, ports d'intégration, capability negotiation | provider testkit + tests d'intégration |
+| Résilience | adaptateurs optionnels, isolation processus, transactions SQLite | tests de panne/concurrence |
 
 ---
 
-## 4.5 Liens vers les ADR structurants
+## 4.5 ADR structurants
 
 | Décision | ADR |
 |----------|-----|
-| Domaine indépendant | [ADR-0001](../../../adr/0001-morpheus-owned-domain.md) |
-| Local-first sans LLM | [ADR-0004](../../../adr/0004-local-first-no-llm-core.md) |
-| Architecture hexagonale / port-adapter | [ADR-0001](../../../adr/0001-morpheus-owned-domain.md), [ADR-0003](../../../adr/0003-specification-knowledge-store.md) |
-| SQLite derrière port | [ADR-0018](../../../adr/0018-sqlite-initial-persistent-store.md) |
-| MCP STDIO natif | [ADR-0062](../../../adr/0062-official-java-mcp-sdk-and-native-stdio.md) |
-| Distribution native-first | [ADR-0027](../../../adr/0027-native-first-container-supported-distribution.md) |
-| SDK provider externe | [ADR-0090](../../../adr/0090-provider-sdk-plugin-discovery-platform.md) |
+| Domaine MORPHEUS indépendant | [ADR-0001](../../adr/0001-morpheus-owned-domain.md) |
+| Local-first sans LLM obligatoire | [ADR-0004](../../adr/0004-local-first-no-llm-core.md) |
+| Store derrière port | [ADR-0003](../../adr/0003-specification-knowledge-store.md) |
+| SQLite initial | [ADR-0018](../../adr/0018-sqlite-initial-persistent-store.md) |
+| Distribution native-first | [ADR-0027](../../adr/0027-native-first-container-supported-distribution.md) |
+| MCP STDIO officiel | [ADR-0062](../../adr/0062-official-java-mcp-sdk-and-native-stdio.md) |
+| Provider SDK | [ADR-0090](../../adr/0090-provider-sdk-plugin-discovery-platform.md) |
+| Remote server optionnel | [ADR-0094](../../adr/0094-optional-team-remote-server-mode.md) |
+| Reasoning fondé sur preuves | [ADR-0095](../../adr/0095-evidence-backed-assisted-reasoning.md) |
+| Intégration native des clients MCP | [ADR-0096](../../adr/0096-conservative-native-mcp-client-integration.md) |
