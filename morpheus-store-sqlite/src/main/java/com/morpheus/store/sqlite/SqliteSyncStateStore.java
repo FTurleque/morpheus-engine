@@ -183,23 +183,12 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
         });
         requireProject(inventory.projectId());
 
-        try {
-            boolean previousAutoCommit = connection.getAutoCommit();
-            try {
-                connection.setAutoCommit(false);
+        SqliteTransactionRunner.runVoid(connection,
+                "Cannot commit synchronization state for " + inventory.projectId(), ignored -> {
                 upsertSuccessfulState(inventory, mode, attemptedAt, completedAt, lastObservedChangeAt);
                 replaceInventory(inventory);
                 insertArchives(newArchives);
-                connection.commit();
-            } catch (SQLException | RuntimeException exception) {
-                rollbackQuietly();
-                throw exception;
-            } finally {
-                connection.setAutoCommit(previousAutoCommit);
-            }
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot commit synchronization state for " + inventory.projectId(), exception);
-        }
+        });
     }
 
     @Override
@@ -337,14 +326,6 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     private void ensureOpen() {
         if (closed) {
             throw new KnowledgeStoreException("SQLite synchronization state store is closed");
-        }
-    }
-
-    private void rollbackQuietly() {
-        try {
-            connection.rollback();
-        } catch (SQLException ignored) {
-            // Preserve original error.
         }
     }
 

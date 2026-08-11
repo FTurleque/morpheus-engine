@@ -149,6 +149,12 @@ stores consultés. `SqliteConnectionScope.diagnostics()` expose les compteurs pr
 `peak` sans chemin de base ni donnée métier. Un scope ne peut pas être imbriqué, changer de base/timeout, traverser un
 thread ou survivre à l’opération qui le possède.
 
+Les blocs transactionnels des stores et du gestionnaire de schéma délèguent à `SqliteTransactionRunner`. Le runner
+emprunte la connexion sans jamais la fermer, possède la transition d’auto-commit, le commit/rollback et la restauration
+du mode précédent. Une erreur métier ou SQL reste toujours la cause primaire ; les échecs de rollback et de restauration
+sont rattachés comme exceptions `suppressed`. Si le travail réussit mais que la restauration échoue, cette erreur de
+cleanup est remontée explicitement.
+
 ## Runtime status
 
 `/api/v1/server/status` expose :
