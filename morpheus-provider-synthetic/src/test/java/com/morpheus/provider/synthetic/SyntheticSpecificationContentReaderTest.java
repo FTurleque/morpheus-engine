@@ -52,6 +52,26 @@ class SyntheticSpecificationContentReaderTest {
     }
 
     @Test
+    void rejectsOversizedEvidenceWithoutPublishingContent() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("oversized-evidence"));
+        Files.copy(
+                fixture("synthetic-basic").resolve(SyntheticSpecificationProvider.SOURCE_FILE),
+                workspace.resolve(SyntheticSpecificationProvider.SOURCE_FILE));
+        Files.createDirectories(workspace.resolve("reviews"));
+        Files.createDirectories(workspace.resolve("tests"));
+        Files.writeString(workspace.resolve("reviews/security-review.txt"), "x".repeat((512 * 1024) + 1));
+        Files.writeString(workspace.resolve("reviews/documentation.txt"), "documented");
+        Files.writeString(workspace.resolve("tests/billing-retention.txt"), "verified");
+
+        var result = reader.read(
+                ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
+                new InMemoryResolver());
+
+        assertTrue(result.content().isEmpty());
+        assertFalse(result.diagnostics().isEmpty());
+    }
+
+    @Test
     void normalizesSyntheticFixtureThroughPublicReadContract() {
         Path root = fixture("synthetic-basic");
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();

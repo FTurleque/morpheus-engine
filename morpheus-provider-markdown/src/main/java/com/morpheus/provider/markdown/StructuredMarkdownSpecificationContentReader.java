@@ -5,6 +5,7 @@ import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
+import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
@@ -83,8 +84,9 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
 
         try {
             SafeWorkspaceFileResolver files = SafeWorkspaceFileResolver.rootedAt(request.workspaceRoot());
-            String sourceText = files.readUtf8(Path.of(StructuredMarkdownSpecificationProvider.SOURCE_FILE));
-            Normalization normalized = normalize(request, identities, sourceText);
+            ProviderIngestionBudget.Session budget = ProviderIngestionBudget.DEFAULT.open(files);
+            String sourceText = budget.readDocument(Path.of(StructuredMarkdownSpecificationProvider.SOURCE_FILE));
+            Normalization normalized = normalize(request, identities, sourceText, budget);
             List<ReadCategoryReport> reports = request.requestedCategories().stream()
                     .sorted()
                     .map(category -> report(category, normalized))
@@ -127,8 +129,10 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
     private Normalization normalize(
             ProviderReadRequest request,
             EntityIdentityResolver identities,
-            String sourceText) throws IOException {
+            String sourceText,
+            ProviderIngestionBudget.Session budget) throws IOException {
         List<StructuredMarkdownBlockParser.Block> blocks = parser.parse(sourceText);
+        budget.addBlocks(blocks.size(), StructuredMarkdownSpecificationProvider.SOURCE_FILE);
         SourceLocator source = SourceLocator.file(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
         Normalization result = new Normalization();
         String displayName = request.workspaceRoot().getFileName() == null
@@ -137,6 +141,7 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
         result.project = new ProjectSpecification(request.projectId(), displayName, source);
 
         for (StructuredMarkdownBlockParser.Block block : blocks) {
+            budget.addEvidenceFragment(block.raw(), StructuredMarkdownSpecificationProvider.SOURCE_FILE);
             String externalId = block.type() + ":" + block.required("key");
             Evidence evidence = blockEvidence(identities, externalId, source, block);
             result.evidence.add(evidence);
@@ -169,12 +174,23 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
                 case "constraint" -> addConstraint(identities, parsed, result);
                 case "decision" -> addDecision(identities, parsed, result);
                 case "task" -> addTask(identities, parsed, result);
-                case "acceptance" -> addAcceptance(request.workspaceRoot(), identities, parsed, result);
+                case "acceptance" -> addAcceptance(identities, parsed, result, budget);
                 case "specification", "requirement", "scenario", "change" -> { }
                 default -> throw new IllegalArgumentException(
                         "unsupported morpheus block type '" + parsed.block.type() + "' at line " + parsed.block.startLine());
             }
         }
+        budget.addEntities(
+                result.specifications.size()
+                        + result.requirements.size()
+                        + result.scenarios.size()
+                        + result.changes.size()
+                        + result.constraints.size()
+                        + result.decisions.size()
+                        + result.tasks.size()
+                        + result.acceptanceCriteria.size()
+                        + result.evidence.size(),
+                StructuredMarkdownSpecificationProvider.SOURCE_FILE);
         return result;
     }
 
@@ -282,10 +298,10 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
     }
 
     private void addAcceptance(
-            Path workspaceRoot,
             EntityIdentityResolver identities,
             ParsedBlock parsed,
-            Normalization result) throws IOException {
+            Normalization result,
+            ProviderIngestionBudget.Session budget) throws IOException {
         String ownerType = parsed.block.required("owner_type").toLowerCase(Locale.ROOT);
         String ownerKey = parsed.block.required("owner_key");
         Optional<RequirementId> requirementId = Optional.empty();
@@ -300,7 +316,7 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
 
         List<EvidenceId> verificationEvidence = new ArrayList<>();
         for (String relativePath : parsed.block.list("verification_evidence")) {
-            Evidence evidence = fileEvidence(workspaceRoot, identities, parsed.externalId, relativePath);
+            Evidence evidence = fileEvidence(budget, identities, parsed.externalId, relativePath);
             result.evidence.add(evidence);
             verificationEvidence.add(evidence.id());
         }
@@ -338,11 +354,11 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
     }
 
     private Evidence fileEvidence(
-            Path workspaceRoot,
+            ProviderIngestionBudget.Session budget,
             EntityIdentityResolver identities,
             String ownerExternalId,
             String relativePath) throws IOException {
-        String text = SafeWorkspaceFileResolver.rootedAt(workspaceRoot).readUtf8(Path.of(relativePath));
+        String text = budget.readEvidence(Path.of(relativePath));
         int lines = Math.max(1, text.lines().toList().size());
         EvidenceId id = new EvidenceId(identities.resolve(
                 providerId(), "evidence", "evidence:" + ownerExternalId + "/" + relativePath));

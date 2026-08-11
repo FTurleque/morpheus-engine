@@ -154,6 +154,20 @@ class StructuredMarkdownSpecificationContentReaderTest {
         assertFalse(result.diagnostics().isEmpty());
     }
 
+    @Test
+    void rejectsOversizedDocumentWithoutPublishingContent() throws Exception {
+        Path source = workspace.resolve(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, "x".repeat((1024 * 1024) + 1));
+
+        EntityIdentityResolver identities = (providerId, entityType, externalId) -> DomainIdentity.generate();
+        var result = new StructuredMarkdownSpecificationContentReader()
+                .read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()), identities);
+
+        assertTrue(result.content().isEmpty());
+        assertFalse(result.diagnostics().isEmpty());
+    }
+
     private boolean createSymlink(Path link, Path target) {
         try {
             Files.createSymbolicLink(link, target);

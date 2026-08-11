@@ -5,6 +5,7 @@ import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
+import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
@@ -89,11 +90,10 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
 
         try {
             SafeWorkspaceFileResolver files = SafeWorkspaceFileResolver.rootedAt(root);
-            String sourceText = files.readUtf8(
-                    Path.of(SyntheticSpecificationProvider.SOURCE_FILE),
-                    SyntheticJsonParser.MAX_INPUT_BYTES);
+            ProviderIngestionBudget.Session budget = ProviderIngestionBudget.DEFAULT.open(files);
+            String sourceText = budget.readDocument(Path.of(SyntheticSpecificationProvider.SOURCE_FILE));
             Map<String, Object> payload = SyntheticJsonParser.parseObject(sourceText);
-            Normalization normalization = normalize(payload, sourceText, request, identityResolver);
+            Normalization normalization = normalize(payload, sourceText, request, identityResolver, budget);
 
             List<Diagnostic> diagnostics = new ArrayList<>();
             List<ReadCategoryReport> reports = new ArrayList<>();
@@ -135,7 +135,8 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             Map<String, Object> payload,
             String sourceText,
             ProviderReadRequest request,
-            EntityIdentityResolver identities) throws IOException {
+            EntityIdentityResolver identities,
+            ProviderIngestionBudget.Session budget) throws IOException {
         SourceLocator source = SourceLocator.file(SyntheticSpecificationProvider.SOURCE_FILE);
         int sourceLines = Math.max(1, sourceText.lines().toList().size());
         List<Evidence> evidence = new ArrayList<>();
@@ -204,7 +205,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                         source,
                         sourceText,
                         sourceLines,
-                        request.workspaceRoot(),
+                        budget,
                         identities,
                         evidence));
             }
@@ -235,7 +236,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                     optionalArray(changeSource, "constraints"),
                     changeId,
                     changeExternalId,
-                    request.workspaceRoot(),
+                    budget,
                     source,
                     sourceText,
                     sourceLines,
@@ -251,7 +252,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                         source,
                         sourceText,
                         sourceLines,
-                        request.workspaceRoot(),
+                        budget,
                         identities,
                         evidence));
             }
@@ -265,6 +266,10 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                 displayName,
                 SourceLocator.file(request.workspaceRoot().toString()));
 
+        budget.addEntities(
+                1L + requirements.size() + scenarios.size() + changes.size()
+                        + constraints.size() + acceptanceCriteria.size() + evidence.size(),
+                SyntheticSpecificationProvider.SOURCE_FILE);
         return new Normalization(
                 project,
                 List.of(specification),
@@ -284,7 +289,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             SourceLocator source,
             String sourceText,
             int sourceLines,
-            Path workspaceRoot,
+            ProviderIngestionBudget.Session budget,
             EntityIdentityResolver identities,
             List<Evidence> evidence) throws IOException {
         String key = string(criterionSource, "key");
@@ -302,7 +307,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             Map<String, Object> verificationEvidence = object(rawVerificationEvidence, "verification evidence");
             String relativePath = string(verificationEvidence, "source");
             Evidence item = fileEvidence(
-                    workspaceRoot,
+                    budget,
                     relativePath,
                     identities,
                     criterionExternalId + "/verification/" + relativePath);
@@ -333,11 +338,11 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
     }
 
     private Evidence fileEvidence(
-            Path workspaceRoot,
+            ProviderIngestionBudget.Session budget,
             String relativePath,
             EntityIdentityResolver identities,
             String externalId) throws IOException {
-        String text = SafeWorkspaceFileResolver.rootedAt(workspaceRoot).readUtf8(Path.of(relativePath));
+        String text = budget.readEvidence(Path.of(relativePath));
         int lines = Math.max(1, text.lines().toList().size());
         EvidenceId evidenceId = new EvidenceId(identities.resolve(
                 providerId(), "evidence", "evidence:" + externalId));

@@ -202,6 +202,19 @@ utiliser directement les méthodes de lecture `Files.*` sur un chemin fourni par
 le contenu du workspace. Le locator et la provenance restent relatifs au
 workspace, même si la primitive lit le chemin canonique.
 
+Chaque tentative d’ingestion ouvre en plus une session `ProviderIngestionBudget` partagée par tous les
+lecteurs du provider. Les limites par défaut, vérifiées avant publication du snapshot, sont :
+
+- 1 Mio par document ;
+- 2 000 fichiers et 32 Mio cumulés ;
+- 100 000 lignes, 100 000 blocs et 100 000 entités ;
+- 512 Kio par fragment d’évidence.
+
+La borne par document est appliquée pendant la lecture bornée, avant matérialisation d’une entrée non
+contrôlée. Les compteurs de corpus sont cumulatifs sur toute la tentative : fractionner une charge en de
+nombreux petits fichiers ne contourne donc ni le nombre de fichiers ni le volume agrégé. Un dépassement
+produit un échec déterministe et le provider ne publie aucun snapshot partiel.
+
 ## 9. Identités et provenance
 
 Un plugin ne doit pas fabriquer une identité MORPHEUS à partir d’un simple chemin. Le host transmet un `EntityIdentityResolver`. Le provider l’utilise avec son `ProviderId`, le type d’entité et son identifiant externe stable.
