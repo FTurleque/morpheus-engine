@@ -254,7 +254,7 @@ CLI :
 
 ```text
 morpheus --json provider-plugins discover --directory <plugins>
-morpheus --json provider-plugins probe --directory <plugins> --plugin <pluginId> --workspace <workspace>
+morpheus --json provider-plugins probe --directory <plugins> --plugin <pluginId> --workspace <workspace> --sha256 <digest>
 ```
 
 MCP :
@@ -263,6 +263,16 @@ MCP :
 discover_provider_plugins
 probe_provider_plugin
 ```
+
+Le paramètre optionnel `sha256` (CLI, API ou MCP) active une politique `trusted-only` pour cette
+activation. Le digest est lié au `pluginId` demandé et vérifié avant la création du `URLClassLoader` ;
+une valeur absente sur une surface qui l'exige, mal formée ou différente doit être traitée comme un refus et
+aucun code du plugin n'est exécuté. Le mode sans pin reste disponible uniquement pour les usages locaux
+historiques explicitement non approuvés.
+
+Rotation : qualifier le nouveau JAR hors processus, calculer son SHA-256 depuis une source de confiance,
+remplacer le JAR et le pin ensemble, puis lancer `discover` et `probe --sha256`. Le nom du JAR et les
+métadonnées déclaratives ne constituent jamais une preuve d'intégrité.
 
 HTTP local :
 
