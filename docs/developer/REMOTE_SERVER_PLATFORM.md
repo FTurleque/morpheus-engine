@@ -211,6 +211,18 @@ Le remote server garde le même file lock pendant toute sa durée de vie. Une re
 
 `SUPPORTED_SCHEMA_VERSION = 15`. Un backup `> 15` est rejeté. Un backup `<= 15` est accepté ; les migrations normales restent l’unique mécanisme d’upgrade lors de l’ouverture suivante.
 
+### Format des migrations SQLite
+
+Les ressources `db/migration/VNNN__*.sql` peuvent contenir plusieurs instructions. Leur découpage reconnaît les
+littéraux SQL, les identifiants quotés (`"..."`, `` `...` ``, `[...]`), les commentaires de ligne/bloc et les corps
+`CREATE TRIGGER ... BEGIN ... END`. Un point-virgule dans l’une de ces constructions n’est donc jamais interprété
+comme une fin d’instruction. Les expressions `CASE ... END` imbriquées dans un trigger sont également prises en
+charge.
+
+Une chaîne, un identifiant, un commentaire de bloc ou un corps de trigger non terminé est rejeté avec sa position
+ligne/colonne. L’ensemble du script et l’écriture correspondante dans `schema_migrations` s’exécutent dans la même
+transaction : toute erreur SQL annule les instructions précédentes et n’avance pas la version du schéma.
+
 ## Surface publique
 
 M26 ajoute :
