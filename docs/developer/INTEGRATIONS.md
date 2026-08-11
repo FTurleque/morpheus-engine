@@ -39,6 +39,7 @@ Configuration :
 
 ```text
 MORPHEUS_MINOS_JAR
+MORPHEUS_MINOS_JAR_SHA256
 MORPHEUS_MINOS_JAVA
 MORPHEUS_MINOS_HOME
 MORPHEUS_MINOS_TIMEOUT_SECONDS
@@ -61,10 +62,23 @@ Configuration :
 
 ```text
 MORPHEUS_NEXUS_JAR
+MORPHEUS_NEXUS_JAR_SHA256
 MORPHEUS_NEXUS_JAVA
 MORPHEUS_NEXUS_HOME
 MORPHEUS_NEXUS_TIMEOUT_SECONDS
 ```
+
+## Intégrité des JAR externes
+
+Les variables `MORPHEUS_MINOS_JAR_SHA256` et `MORPHEUS_NEXUS_JAR_SHA256` activent le mode
+`trusted-only` pour l'intégration correspondante. Le pin doit contenir exactement les 64 caractères
+hexadécimaux du SHA-256 du JAR. MORPHEUS vérifie le digest à la résolution de la configuration puis de nouveau
+immédiatement avant chaque lancement ; une valeur absente de chemin, mal formée ou différente désactive
+l'intégration sans exécuter le binaire.
+
+Pour mettre à jour un JAR : déposer le nouveau binaire, calculer son SHA-256 avec un outil de confiance,
+mettre à jour le chemin et le pin dans la même opération de configuration, redémarrer MORPHEUS puis contrôler
+le statut de l'intégration. Ne jamais déduire la confiance du nom de fichier ou de son manifeste.
 
 ## 4. JARVIS
 

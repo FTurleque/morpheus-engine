@@ -276,11 +276,13 @@ public final class MorpheusHttpServer implements AutoCloseable {
                     yield ok(plugins.discover(query.required("directory")));
                 }
                 case "probe" -> {
-                    query.rejectUnknown(Set.of("directory", "pluginId", "workspace"));
-                    yield ok(plugins.probe(
-                            query.required("directory"),
-                            query.required("pluginId"),
-                            query.required("workspace")));
+                    query.rejectUnknown(Set.of("directory", "pluginId", "workspace", "sha256"));
+                    String directory = query.required("directory");
+                    String pluginId = query.required("pluginId");
+                    String workspace = query.required("workspace");
+                    yield ok(query.string("sha256")
+                            .map(pin -> plugins.probe(directory, pluginId, workspace, pin))
+                            .orElseGet(() -> plugins.probe(directory, pluginId, workspace)));
                 }
                 default -> throw ApiFailure.notFound("unknown provider-plugin route");
             };

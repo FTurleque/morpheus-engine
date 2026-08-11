@@ -17,6 +17,7 @@ public record MinosIntegrationSettings(
         String javaCommand,
         Optional<Path> homeDirectory,
         Duration timeout,
+        Optional<String> jarSha256,
         Optional<String> configurationError) {
 
     public static final String JAR_PROPERTY = "morpheus.minos.jar";
@@ -34,11 +35,22 @@ public record MinosIntegrationSettings(
     public static final int DEFAULT_TIMEOUT_SECONDS = 20;
     public static final int MAX_TIMEOUT_SECONDS = 120;
 
+    public MinosIntegrationSettings(
+            Optional<Path> jarPath,
+            String javaCommand,
+            Optional<Path> homeDirectory,
+            Duration timeout,
+            Optional<String> configurationError) {
+        this(jarPath, javaCommand, homeDirectory, timeout, Optional.empty(), configurationError);
+    }
+
     public MinosIntegrationSettings {
         jarPath = Objects.requireNonNull(jarPath, "jarPath").map(MinosIntegrationSettings::normalize);
         javaCommand = requireNonBlank(javaCommand, "javaCommand");
         homeDirectory = Objects.requireNonNull(homeDirectory, "homeDirectory").map(MinosIntegrationSettings::normalize);
         Objects.requireNonNull(timeout, "timeout");
+        jarSha256 = Objects.requireNonNull(jarSha256, "jarSha256")
+                .map(ExternalJarIntegrity::normalizeSha256);
         configurationError = Objects.requireNonNull(configurationError, "configurationError")
                 .map(String::trim).filter(value -> !value.isEmpty());
         long seconds = timeout.toSeconds();
@@ -60,6 +72,7 @@ public record MinosIntegrationSettings(
 
         Optional<String> error = Optional.empty();
         Optional<Path> jar = Optional.empty();
+        Optional<String> jarSha256 = Optional.empty();
         Optional<Path> home = Optional.empty();
         int timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
 
@@ -71,6 +84,7 @@ public record MinosIntegrationSettings(
                 } else if (rawJarSha256 != null) {
                     try {
                         jar = Optional.of(ExternalJarIntegrity.verifySha256(candidate, rawJarSha256));
+                        jarSha256 = Optional.of(ExternalJarIntegrity.normalizeSha256(rawJarSha256));
                     } catch (IllegalArgumentException integrityFailure) {
                         error = Optional.of("MINOS JAR integrity verification failed: " + integrityFailure.getMessage());
                     }
@@ -103,7 +117,8 @@ public record MinosIntegrationSettings(
             timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
         }
 
-        return new MinosIntegrationSettings(jar, javaCommand, home, Duration.ofSeconds(timeoutSeconds), error);
+        return new MinosIntegrationSettings(
+                jar, javaCommand, home, Duration.ofSeconds(timeoutSeconds), jarSha256, error);
     }
 
     public State state() {

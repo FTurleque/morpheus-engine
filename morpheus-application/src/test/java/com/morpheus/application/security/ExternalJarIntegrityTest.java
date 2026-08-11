@@ -28,4 +28,22 @@ class ExternalJarIntegrityTest {
     void rejectsMalformedPin() {
         assertThrows(IllegalArgumentException.class, () -> ExternalJarIntegrity.normalizeSha256("abc"));
     }
+
+    @Test
+    void rejectsMissingAndSymbolicFilesBeforeHashing() throws Exception {
+        Path missing = temp.resolve("missing.jar");
+        assertThrows(IllegalArgumentException.class, () -> ExternalJarIntegrity.verifySha256(missing, "0".repeat(64)));
+
+        Path target = temp.resolve("target.jar");
+        Files.writeString(target, "trusted-content");
+        Path link = temp.resolve("linked.jar");
+        try {
+            Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | java.io.IOException failure) {
+            return;
+        }
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ExternalJarIntegrity.verifySha256(link, ExternalJarIntegrity.sha256(target)));
+    }
 }

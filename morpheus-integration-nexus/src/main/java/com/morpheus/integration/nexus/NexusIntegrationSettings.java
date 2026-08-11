@@ -17,6 +17,7 @@ public record NexusIntegrationSettings(
         String javaCommand,
         Optional<Path> homeDirectory,
         Duration timeout,
+        Optional<String> jarSha256,
         Optional<String> configurationError) {
 
     public static final String JAR_PROPERTY = "morpheus.nexus.jar";
@@ -34,11 +35,22 @@ public record NexusIntegrationSettings(
     public static final int DEFAULT_TIMEOUT_SECONDS = 20;
     public static final int MAX_TIMEOUT_SECONDS = 120;
 
+    public NexusIntegrationSettings(
+            Optional<Path> jarPath,
+            String javaCommand,
+            Optional<Path> homeDirectory,
+            Duration timeout,
+            Optional<String> configurationError) {
+        this(jarPath, javaCommand, homeDirectory, timeout, Optional.empty(), configurationError);
+    }
+
     public NexusIntegrationSettings {
         jarPath = Objects.requireNonNull(jarPath, "jarPath").map(NexusIntegrationSettings::normalize);
         javaCommand = requireText(javaCommand, "javaCommand");
         homeDirectory = Objects.requireNonNull(homeDirectory, "homeDirectory").map(NexusIntegrationSettings::normalize);
         Objects.requireNonNull(timeout, "timeout");
+        jarSha256 = Objects.requireNonNull(jarSha256, "jarSha256")
+                .map(ExternalJarIntegrity::normalizeSha256);
         configurationError = Objects.requireNonNull(configurationError, "configurationError")
                 .map(String::trim).filter(value -> !value.isEmpty());
         long seconds = timeout.toSeconds();
@@ -59,6 +71,7 @@ public record NexusIntegrationSettings(
 
         Optional<String> error = Optional.empty();
         Optional<Path> jar = Optional.empty();
+        Optional<String> jarSha256 = Optional.empty();
         Optional<Path> home = Optional.empty();
         int timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
         try {
@@ -69,6 +82,7 @@ public record NexusIntegrationSettings(
                 } else if (rawJarSha256 != null) {
                     try {
                         jar = Optional.of(ExternalJarIntegrity.verifySha256(candidate, rawJarSha256));
+                        jarSha256 = Optional.of(ExternalJarIntegrity.normalizeSha256(rawJarSha256));
                     } catch (IllegalArgumentException integrityFailure) {
                         error = Optional.of("NEXUS JAR integrity verification failed: " + integrityFailure.getMessage());
                     }
@@ -97,7 +111,8 @@ public record NexusIntegrationSettings(
         } catch (RuntimeException failure) {
             error = Optional.of("invalid NEXUS timeout: " + rawTimeout);
         }
-        return new NexusIntegrationSettings(jar, javaCommand, home, Duration.ofSeconds(timeoutSeconds), error);
+        return new NexusIntegrationSettings(
+                jar, javaCommand, home, Duration.ofSeconds(timeoutSeconds), jarSha256, error);
     }
 
     public State state() {
