@@ -17,11 +17,15 @@ class ProductIntegrityTest {
     Path tempDir;
 
     @Test
-    void productMetadataUsesBuildVersionWhenProvidedByMaven() {
-        String mavenVersion = System.getProperty("morpheus.project.version");
+    void productMetadataUsesCanonicalBuildVersionContract() {
+        assertEquals("morpheus.project.version", ProductMetadata.PROJECT_VERSION_PROPERTY);
+        assertEquals("development", ProductMetadata.DEVELOPMENT_VERSION);
+        String mavenVersion = System.getProperty(ProductMetadata.PROJECT_VERSION_PROPERTY);
         if (mavenVersion != null && !mavenVersion.isBlank()) {
             assertEquals(mavenVersion, ProductMetadata.version());
+            assertFalse(ProductMetadata.developmentRuntime());
         }
+        assertFalse("0.1.0-SNAPSHOT".equals(ProductMetadata.version()));
         assertEquals("MORPHEUS", ProductMetadata.current().name());
         assertEquals("v1", ProductMetadata.current().apiVersion());
         assertEquals("stable", ProductMetadata.current().updateChannel());

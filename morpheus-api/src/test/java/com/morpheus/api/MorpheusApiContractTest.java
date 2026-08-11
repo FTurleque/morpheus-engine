@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.product.ProductMetadata;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -23,7 +24,7 @@ class MorpheusApiContractTest {
             ApiTestSupport.Response root = http.get(server, "/");
             assertEquals(200, root.status());
             assertTrue(root.contentType().startsWith("application/json"));
-            assertTrue(root.body().contains("\"apiVersion\":\"v1\""));
+            assertTrue(root.body().contains("\"apiVersion\":\"" + ProductMetadata.API_VERSION + "\""));
 
             ApiTestSupport.Response health = http.get(server, "/health");
             assertEquals(200, health.status());
@@ -40,7 +41,7 @@ class MorpheusApiContractTest {
 
             ApiTestSupport.Response version = http.get(server, "/version");
             assertEquals(200, version.status());
-            assertTrue(version.body().contains("0.1.0-SNAPSHOT"));
+            assertTrue(version.body().contains("\"version\":\"" + ProductMetadata.version() + "\""), version.body());
 
             ApiTestSupport.Response projects = http.get(server, "/projects");
             assertEquals(200, projects.status());
