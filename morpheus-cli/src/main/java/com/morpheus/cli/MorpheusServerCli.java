@@ -42,8 +42,16 @@ final class MorpheusServerCli {
         try {
             Parsed parsed = parse(args, environment, properties);
             List<String> command = parsed.command();
-            if (command.size() >= 3 && command.get(1).equals("identity") && command.get(2).equals("create")) {
-                return identityCreate(parsed, out);
+            if (command.size() >= 3 && command.get(1).equals("identity")) {
+                return switch (command.get(2)) {
+                    case "create" -> identityCreate(parsed, out);
+                    case "list" -> identityList(parsed, out);
+                    case "revoke" -> identityRevoke(parsed, out);
+                    case "rotate" -> identityRotate(parsed, out);
+                    case "role" -> identityRole(parsed, out);
+                    default -> throw new IllegalArgumentException(
+                            "server identity command must be create, list, revoke, rotate, or role");
+                };
             }
             if (command.size() >= 3 && command.get(1).equals("backup") && command.get(2).equals("create")) {
                 return backupCreate(parsed, out);
@@ -55,7 +63,7 @@ final class MorpheusServerCli {
                 return restore(parsed, out);
             }
             throw new IllegalArgumentException(
-                    "server command must be identity create, backup create, backup verify, or restore");
+                    "server command must be identity create|list|revoke|rotate|role, backup create, backup verify, or restore");
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS server usage error: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
@@ -68,23 +76,61 @@ final class MorpheusServerCli {
     private int identityCreate(Parsed parsed, PrintStream out) {
         Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "role", "auth-file"));
         String principal = required(options, "principal");
-        MorpheusRemoteRole role;
-        try {
-            role = MorpheusRemoteRole.valueOf(required(options, "role").toUpperCase());
-        } catch (IllegalArgumentException failure) {
-            throw new IllegalArgumentException("--role must be READ, WRITE, or ADMIN", failure);
-        }
-        Path authFile = Optional.ofNullable(options.get("auth-file"))
-                .map(Path::of)
-                .orElse(parsed.layout().configDirectory().resolve("remote-auth.txt"));
+        MorpheusRemoteRole role = role(required(options, "role"));
+        Path authFile = authFile(parsed, options);
         MorpheusRemoteIdentityFile.GeneratedCredential credential =
                 MorpheusRemoteIdentityFile.create(authFile, principal, role);
+        print(parsed.json(), out, credentialView(credential, authFile));
+        return CliExitCode.SUCCESS.code();
+    }
+
+    private int identityList(Parsed parsed, PrintStream out) {
+        Map<String, String> options = options(parsed.command(), 3, Set.of("auth-file"));
+        Path authFile = authFile(parsed, options);
+        List<Map<String, Object>> identities = MorpheusRemoteIdentityFile.load(authFile).stream()
+                .map(identity -> Map.<String, Object>of(
+                        "principal", identity.principal(),
+                        "role", identity.role().name()))
+                .toList();
         Map<String, Object> view = new LinkedHashMap<>();
-        view.put("principal", credential.principal());
-        view.put("role", credential.role().name());
-        view.put("token", credential.token());
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
-        view.put("tokenPersistence", "NOT_PERSISTED_PRINTED_ONCE");
+        view.put("identities", identities);
+        view.put("tokenMaterialExposed", false);
+        view.put("reloadPolicy", "RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION");
+        print(parsed.json(), out, view);
+        return CliExitCode.SUCCESS.code();
+    }
+
+    private int identityRevoke(Parsed parsed, PrintStream out) {
+        Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "auth-file"));
+        String principal = required(options, "principal");
+        Path authFile = authFile(parsed, options);
+        MorpheusRemoteIdentityFile.revoke(authFile, principal);
+        print(parsed.json(), out, mutationView("REVOKED", principal, authFile));
+        return CliExitCode.SUCCESS.code();
+    }
+
+    private int identityRotate(Parsed parsed, PrintStream out) {
+        Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "auth-file"));
+        String principal = required(options, "principal");
+        Path authFile = authFile(parsed, options);
+        MorpheusRemoteIdentityFile.GeneratedCredential credential =
+                MorpheusRemoteIdentityFile.rotate(authFile, principal);
+        Map<String, Object> view = credentialView(credential, authFile);
+        view.put("mutation", "ROTATED");
+        view.put("oldToken", "INVALID_AFTER_REMOTE_SERVER_RESTART");
+        print(parsed.json(), out, view);
+        return CliExitCode.SUCCESS.code();
+    }
+
+    private int identityRole(Parsed parsed, PrintStream out) {
+        Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "role", "auth-file"));
+        String principal = required(options, "principal");
+        MorpheusRemoteRole role = role(required(options, "role"));
+        Path authFile = authFile(parsed, options);
+        MorpheusRemoteIdentityFile.changeRole(authFile, principal, role);
+        Map<String, Object> view = mutationView("ROLE_CHANGED", principal, authFile);
+        view.put("role", role.name());
         print(parsed.json(), out, view);
         return CliExitCode.SUCCESS.code();
     }
@@ -116,6 +162,42 @@ final class MorpheusServerCli {
                 Path.of(required(options, "file")), parsed.layout().databasePath(), true);
         print(parsed.json(), out, backupView(restored));
         return CliExitCode.SUCCESS.code();
+    }
+
+    private Map<String, Object> credentialView(
+            MorpheusRemoteIdentityFile.GeneratedCredential credential,
+            Path authFile) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("principal", credential.principal());
+        view.put("role", credential.role().name());
+        view.put("token", credential.token());
+        view.put("authFile", authFile.toAbsolutePath().normalize().toString());
+        view.put("tokenPersistence", "NOT_PERSISTED_PRINTED_ONCE");
+        view.put("reloadPolicy", "RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION");
+        return view;
+    }
+
+    private Map<String, Object> mutationView(String mutation, String principal, Path authFile) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("mutation", mutation);
+        view.put("principal", principal);
+        view.put("authFile", authFile.toAbsolutePath().normalize().toString());
+        view.put("reloadPolicy", "RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION");
+        return view;
+    }
+
+    private Path authFile(Parsed parsed, Map<String, String> options) {
+        return Optional.ofNullable(options.get("auth-file"))
+                .map(Path::of)
+                .orElse(parsed.layout().configDirectory().resolve("remote-auth.txt"));
+    }
+
+    private MorpheusRemoteRole role(String value) {
+        try {
+            return MorpheusRemoteRole.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException failure) {
+            throw new IllegalArgumentException("--role must be READ, WRITE, or ADMIN", failure);
+        }
     }
 
     private Map<String, Object> backupView(SqliteServerMaintenance.BackupVerification backup) {

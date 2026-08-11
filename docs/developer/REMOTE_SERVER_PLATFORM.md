@@ -9,6 +9,7 @@ flowchart LR
     C[Remote client] -->|HTTPS + Bearer| R[MorpheusRemoteHttpServer]
     R --> A[Auth file SHA-256]
     R --> RBAC[READ / WRITE / ADMIN]
+    R --> ROOTS[AllowedWorkspaceRoots]
     R --> LIMIT[Semaphore bounded concurrency]
     R -->|no Authorization forwarded| L[MorpheusHttpServer loopback : ephemeral port]
     L --> APP[Existing application services]
@@ -38,7 +39,11 @@ Cette composition préserve les contrats M11-M25 et rend la sécurité remote v�
 
 ### LOCAL
 
-`ApiLaunchOptions` valide que chaque adresse résolue par `--host` est loopback. Un bind réseau échoue avant le démarrage.
+`LoopbackHostPolicy` est appliquée à la fois par `ApiLaunchOptions` et directement par
+`MorpheusHttpServer.start()`. Chaque adresse résolue doit être loopback, puis le serveur lie le socket à
+l’adresse déjà validée sans seconde résolution DNS. Un caller Java direct ne peut donc pas contourner
+l’invariant. Seule la façade `MorpheusRemoteHttpServer`, avec TLS et authentification, peut écouter sur une
+adresse non-loopback.
 
 ### REMOTE
 
@@ -51,6 +56,7 @@ Le démarrage exige :
 - keystore PKCS12 valide et non symbolique ;
 - mot de passe TLS via environnement/propriété ;
 - limite de concurrence 1..512.
+- au moins une racine workspace serveur existante et canonique.
 
 ## Authentication
 
@@ -96,6 +102,20 @@ Les POST read-only incluent Query DSL, exports, policy evaluate/dry-run, transit
 
 Une route inconnue n’obtient jamais ADMIN.
 
+## Autorité filesystem des workspaces
+
+`AllowedWorkspaceRoots` sépare le rôle métier `WRITE` des droits OS du compte
+serveur. La configuration vient de `--workspace-root` (répétable),
+`MORPHEUS_SERVER_WORKSPACE_ROOTS` ou `morpheus.server.workspaceRoots`; aucune
+requête ne peut modifier cette allowlist.
+
+L’enregistrement canonicalise et persiste le real path autorisé. Les opérations
+ultérieures, notamment `sync`, réappliquent la politique au chemin persisté afin
+qu’un ancien projet hors racine ou un répertoire remplacé par un lien soit
+refusé. La décision exige à la fois confinement lexical, absence de composant
+symbolique et confinement du real path. Le mode local conserve son comportement
+historique sans politique remote.
+
 ## TLS
 
 Implémentation JDK uniquement :
@@ -115,6 +135,19 @@ Le mot de passe du keystore est cloné pour l’initialisation puis le tableau t
 Le frontal utilise un `Semaphore` équitable. `tryAcquire()` est non bloquant : lorsque le budget est atteint, la requête reçoit `429`.
 
 Le modèle n’ajoute pas une queue applicative non bornée. Les invariants SQLite/CAS existants restent responsables des conflits métier.
+
+### Session SQLite par opération API
+
+Chaque opération locale ou remote qui construit `ApiRuntime` possède un `SqliteConnectionScope` thread-confined.
+Les neuf stores du runtime empruntent neuf connexions logiques, mais partagent exactement une connexion physique.
+La vérification/migration du schéma est exécutée une seule fois dans ce scope ; la fermeture des stores ne ferme que
+leurs handles logiques, puis `ApiRuntime.close()` ferme la connexion physique propriétaire. Hors scope, les stores
+conservent leur cycle de vie historique autonome.
+
+La pression est donc bornée à une connexion physique SQLite par opération API active, indépendamment du nombre de
+stores consultés. `SqliteConnectionScope.diagnostics()` expose les compteurs process `opened`, `closed`, `active` et
+`peak` sans chemin de base ni donnée métier. Un scope ne peut pas être imbriqué, changer de base/timeout, traverser un
+thread ou survivre à l’opération qui le possède.
 
 ## Runtime status
 

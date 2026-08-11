@@ -5,6 +5,7 @@ import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,6 +15,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpenSpecCurrentSpecificationReaderTest {
@@ -108,6 +110,25 @@ class OpenSpecCurrentSpecificationReaderTest {
         assertNotEquals(specification, requirement);
         assertFalse(specification.toString().contains("auth-session"));
         assertFalse(requirement.toString().contains("session-expiration"));
+    }
+
+    @Test
+    void rejectsSpecificationSymlinkThatEscapesWorkspace(@TempDir Path temp) throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace"));
+        Files.createDirectories(workspace.resolve("openspec/specs/example"));
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Path outside = Files.writeString(temp.resolve("outside-spec.md"), "# Outside specification\n");
+        Path source = workspace.resolve("openspec/specs/example/spec.md");
+        try {
+            Files.createSymbolicLink(source, outside);
+        } catch (UnsupportedOperationException | java.io.IOException | SecurityException unsupported) {
+            return;
+        }
+
+        assertThrows(IllegalArgumentException.class, () -> new OpenSpecCurrentSpecificationReader().read(
+                workspace,
+                ProjectSpecificationId.generate(),
+                new StableTestIdentityResolver()));
     }
 
     private Path fixture(String name) {

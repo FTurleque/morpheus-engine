@@ -2,6 +2,7 @@ package com.morpheus.provider.openspec;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
@@ -42,9 +43,11 @@ public final class OpenSpecProjectContentReader {
             Path workspaceRoot,
             ProjectSpecificationId projectId,
             EntityIdentityResolver identityResolver) {
-        var current = currentReader.read(workspaceRoot, projectId, identityResolver);
-        var changes = changeReader.read(workspaceRoot, projectId, identityResolver);
-        var deltas = requirementDeltaReader.read(workspaceRoot, identityResolver);
+        Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
+        ProviderIngestionBudget.Session budget = OpenSpecIngestionBudgets.open(root);
+        var current = currentReader.read(root, projectId, identityResolver, budget);
+        var changes = changeReader.read(root, projectId, identityResolver, budget);
+        var deltas = requirementDeltaReader.read(root, identityResolver, budget);
 
         if (!current.project().equals(changes.project())) {
             throw new IllegalStateException("OpenSpec readers produced inconsistent project descriptors");
