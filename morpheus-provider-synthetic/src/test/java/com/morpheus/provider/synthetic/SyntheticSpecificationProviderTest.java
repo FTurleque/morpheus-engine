@@ -53,6 +53,35 @@ class SyntheticSpecificationProviderTest {
         assertEquals(DiagnosticCode.INVALID_SOURCE, result.diagnostics().getFirst().code());
     }
 
+    @Test
+    void reportsHostileDepthAsBoundedInvalidSource(@TempDir Path tempDir) throws IOException {
+        String hostile = "{\"value\":"
+                + "[".repeat(SyntheticJsonParser.MAX_DEPTH)
+                + "0"
+                + "]".repeat(SyntheticJsonParser.MAX_DEPTH)
+                + "}";
+        Files.writeString(tempDir.resolve(SyntheticSpecificationProvider.SOURCE_FILE), hostile);
+
+        var result = provider.probe(tempDir);
+
+        assertEquals(ProviderProbeStatus.INVALID, result.status());
+        assertEquals(DiagnosticCode.INVALID_SOURCE, result.diagnostics().getFirst().code());
+        assertTrue(result.diagnostics().getFirst().message().contains("maximum nesting depth"));
+    }
+
+    @Test
+    void rejectsOversizedFileAtTheBoundedWorkspaceRead(@TempDir Path tempDir) throws IOException {
+        Files.writeString(
+                tempDir.resolve(SyntheticSpecificationProvider.SOURCE_FILE),
+                " ".repeat(SyntheticJsonParser.MAX_INPUT_BYTES + 1));
+
+        var result = provider.probe(tempDir);
+
+        assertEquals(ProviderProbeStatus.INVALID, result.status());
+        assertEquals(DiagnosticCode.INVALID_SOURCE, result.diagnostics().getFirst().code());
+        assertTrue(result.diagnostics().getFirst().message().contains("maximum input size"));
+    }
+
     private Path fixture(String name) {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
         while (current != null) {

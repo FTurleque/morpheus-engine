@@ -274,6 +274,10 @@ Rotation : qualifier le nouveau JAR hors processus, calculer son SHA-256 depuis 
 remplacer le JAR et le pin ensemble, puis lancer `discover` et `probe --sha256`. Le nom du JAR et les
 métadonnées déclaratives ne constituent jamais une preuve d'intégrité.
 
+Le provider Synthetic de vérification borne en outre son JSON à 1 MiB UTF-8, 64 niveaux, 100 000 nœuds et
+65 536 caractères par chaîne. Les dépassements deviennent un diagnostic `INVALID_SOURCE` ; ils ne doivent
+jamais remonter sous forme de `StackOverflowError` ou provoquer une allocation d'un second buffer d'entrée.
+
 HTTP local :
 
 ```text

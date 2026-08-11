@@ -52,17 +52,36 @@ public final class SafeWorkspaceFileResolver {
     }
 
     public String readUtf8(Path relativePath) throws IOException {
+        return readUtf8(relativePath, Integer.MAX_VALUE);
+    }
+
+    /** Reads a confined UTF-8 file while refusing more than {@code maxBytes} before buffering the excess. */
+    public String readUtf8(Path relativePath, int maxBytes) throws IOException {
+        if (maxBytes < 1) {
+            throw new IllegalArgumentException("maxBytes must be positive");
+        }
         Path file = requireRegularFile(relativePath);
         BasicFileAttributes before = Files.readAttributes(
                 file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (before.size() > maxBytes) {
+            throw inputLimitExceeded(relativePath, maxBytes);
+        }
         byte[] content;
         try (var channel = Files.newByteChannel(
                 file, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS);
              var output = new ByteArrayOutputStream()) {
             ByteBuffer buffer = ByteBuffer.allocate(8192);
-            while (channel.read(buffer) >= 0) {
-                buffer.flip();
-                output.write(buffer.array(), 0, buffer.remaining());
+            int total = 0;
+            int read;
+            while ((read = channel.read(buffer)) != -1) {
+                if (read == 0) {
+                    continue;
+                }
+                if (total > maxBytes - read) {
+                    throw inputLimitExceeded(relativePath, maxBytes);
+                }
+                output.write(buffer.array(), 0, read);
+                total += read;
                 buffer.clear();
             }
             content = output.toByteArray();
@@ -75,6 +94,11 @@ public final class SafeWorkspaceFileResolver {
             throw new IllegalArgumentException("workspace file changed identity during read: " + relativePath);
         }
         return new String(content, StandardCharsets.UTF_8);
+    }
+
+    private IllegalArgumentException inputLimitExceeded(Path relativePath, int maxBytes) {
+        return new IllegalArgumentException(
+                "workspace file exceeds maximum input size of " + maxBytes + " bytes: " + relativePath);
     }
 
     public Path lexicalRoot() {
