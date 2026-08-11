@@ -1,20 +1,19 @@
 # Documentation d'architecture — MORPHEUS ENGINE
 
-> Documentation produite selon le cadre **arc42** (v8), le modèle **C4** et les
-> conventions **ADR Markdown**. Tous les diagrammes sont en **Mermaid** avec
-> stéréotypes UML explicites.
+> Documentation structurée selon **arc42**, complétée par des vues **C4**, des
+> diagrammes Mermaid et des références vers les ADR du projet.
 >
-> Version du système documenté : **1.2.0** (Java 21, Maven multi-module)
-> Gate qualifié : **M27**
-> Date de production : 2026-08-06
+> Baseline produit documentée : **MORPHEUS 1.2.0** — Java 21 — Maven multi-module.
+> État de référence : `develop` post-R3 / post-D2, avec hardening MRA poursuivi séparément.
+> Dernière réconciliation : **2026-08-11**.
 
 ---
 
 ## Structure
 
-```
+```text
 docs/architecture/
-├── README.md                        ← ce fichier — index et navigation
+├── README.md
 ├── arc42/
 │   ├── 01-introduction-objectifs.md
 │   ├── 02-contraintes.md
@@ -29,13 +28,12 @@ docs/architecture/
 │   ├── 11-risques-dette.md
 │   └── 12-glossaire.md
 ├── adr/
-│   ├── README.md                    ← index et mode d'emploi des nouveaux ADR
-│   └── template.md                  ← gabarit ADR
-├── diagrams/                        ← sources Mermaid exportables (vide — diagrammes inline dans arc42)
+│   ├── README.md
+│   └── template.md
 ├── quality/
-│   └── scenarios.md                 ← scénarios d'utilité architecturale (arc42 §10)
+│   └── scenarios.md
 └── risks/
-    └── register.md                  ← registre des risques et de la dette (arc42 §11)
+    └── register.md
 ```
 
 ---
@@ -45,36 +43,40 @@ docs/architecture/
 | Section | Contenu | Diagrammes |
 |---------|---------|-----------|
 | [§1 Introduction](arc42/01-introduction-objectifs.md) | Objectifs, parties prenantes | — |
-| [§2 Contraintes](arc42/02-contraintes.md) | Métier, techniques, organisationnelles | — |
-| [§3 Contexte](arc42/03-contexte-perimetre.md) | Frontière système, acteurs | C4 Context |
-| [§4 Stratégie](arc42/04-strategie-solution.md) | Principes, technologies | — |
-| [§5 Vue blocs](arc42/05-vue-blocs.md) | Modules, couches, interfaces | C4 Container, C4 Component |
-| [§6 Vue exécution](arc42/06-vue-execution.md) | Scénarios runtime | Sequence diagrams |
-| [§7 Vue déploiement](arc42/07-vue-deploiement.md) | Nœuds, artefacts, distribution | Deployment diagram |
+| [§2 Contraintes](arc42/02-contraintes.md) | Contraintes métier, techniques et organisationnelles | — |
+| [§3 Contexte](arc42/03-contexte-perimetre.md) | Frontière système, acteurs et systèmes externes | C4 Context |
+| [§4 Stratégie](arc42/04-strategie-solution.md) | Principes et technologies structurantes | — |
+| [§5 Vue blocs](arc42/05-vue-blocs.md) | Modules, couches et interfaces | C4 Container / Component, UML |
+| [§6 Vue exécution](arc42/06-vue-execution.md) | Scénarios runtime | Séquences |
+| [§7 Vue déploiement](arc42/07-vue-deploiement.md) | Nœuds, artefacts et distribution | Déploiement |
 | [§8 Concepts transverses](arc42/08-concepts-transverses.md) | Sécurité, données, observabilité | — |
-| [§9 Décisions](arc42/09-decisions.md) | Index des 96 ADR | — |
-| [§10 Qualité](arc42/10-exigences-qualite.md) | Arbre de qualité, scénarios | — |
-| [§11 Risques et dette](arc42/11-risques-dette.md) | Registre priorisé | — |
-| [§12 Glossaire](arc42/12-glossaire.md) | Termes, acronymes | — |
+| [§9 Décisions](arc42/09-decisions.md) | Décisions structurantes et registre ADR | — |
+| [§10 Qualité](arc42/10-exigences-qualite.md) | Arbre de qualité et scénarios | — |
+| [§11 Risques et dette](arc42/11-risques-dette.md) | Risques et dette technique | — |
+| [§12 Glossaire](arc42/12-glossaire.md) | Termes et acronymes | — |
 
-### ADR internes à cette documentation
+### Registre ADR principal
 
-> Les 96 ADR du projet se trouvent dans [`../../adr/`](../../adr/).
-> Le répertoire [`adr/`](adr/) ci-dessous contient uniquement le gabarit
-> et l'index de navigation de la présente documentation d'architecture.
+Les décisions architecturales du produit sont conservées dans [`../adr/`](../adr/).
+Le sous-répertoire [`adr/`](adr/) de cette documentation ne remplace pas ce
+registre : il contient uniquement un index documentaire et un gabarit.
 
 ---
 
-## Sources d'observation
+## Sources de vérité utilisées
 
 | Source | Chemin | Rôle |
 |--------|--------|------|
-| Manifests Maven | `pom.xml`, `morpheus-*/pom.xml` | Stack, versions, modules |
-| Documentation développeur | `docs/developer/` | Architecture logique, API, MCP |
-| ADR existants | `docs/adr/` (ADR-0001 à ADR-0096) | Décisions architecturales |
-| Migrations SQLite | `morpheus-store-sqlite/src/main/resources/db/migration/` | Schéma de données |
-| OpenAPI | `docs/openapi/morpheus-v1.yaml` et variations | Contrat HTTP |
-| Scripts de distribution | `distribution/` | Packaging et release |
-| Pipelines CI | `.github/workflows/` | Gates automatisés |
-| Contrats de surfaces | `contracts/public-surfaces.tsv` | Surfaces publiques |
-| Tests d'architecture | `morpheus-architecture-tests/` | Règles ArchUnit |
+| Build et versions | `pom.xml`, `morpheus-*/pom.xml` | Modules, Java et versions de dépendances |
+| ADR produit | `docs/adr/` | Décisions architecturales acceptées |
+| Roadmap / validations | `docs/governance/`, `docs/roadmap/`, `docs/validation/` | État des milestones et preuves |
+| Contrats HTTP | `docs/openapi/` | Surface HTTP `/api/v1` |
+| Contrats de surfaces | `contracts/public-surfaces.tsv` | Convergence CLI / MCP / HTTP |
+| Migrations SQLite | `morpheus-store-sqlite/src/main/resources/db/migration/` | Schéma persistant |
+| Tests d'architecture | `morpheus-architecture-tests/` | Invariants exécutables |
+| Pipelines | `.github/workflows/` | Qualification publique exact-head |
+| Distribution | `distribution/` | Packaging et installation |
+
+`docs/architecture/overview.md` et certains documents historiques restent des
+sources de conception antérieures. Lorsqu'ils divergent du code, des ADR ou des
+preuves de validation plus récentes, ces dernières priment.
