@@ -1,6 +1,7 @@
 package com.morpheus.provider.markdown;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
@@ -38,7 +39,6 @@ import com.morpheus.domain.task.TaskId;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -81,9 +81,9 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
             return unavailable(request, probe.diagnostics());
         }
 
-        Path sourceFile = request.workspaceRoot().resolve(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
         try {
-            String sourceText = Files.readString(sourceFile, StandardCharsets.UTF_8);
+            SafeWorkspaceFileResolver files = SafeWorkspaceFileResolver.rootedAt(request.workspaceRoot());
+            String sourceText = files.readUtf8(Path.of(StructuredMarkdownSpecificationProvider.SOURCE_FILE));
             Normalization normalized = normalize(request, identities, sourceText);
             List<ReadCategoryReport> reports = request.requestedCategories().stream()
                     .sorted()
@@ -342,15 +342,7 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
             EntityIdentityResolver identities,
             String ownerExternalId,
             String relativePath) throws IOException {
-        Path root = workspaceRoot.toAbsolutePath().normalize();
-        Path file = root.resolve(relativePath).normalize();
-        if (!file.startsWith(root)) {
-            throw new IllegalArgumentException("verification evidence escapes workspace: " + relativePath);
-        }
-        if (!Files.isRegularFile(file)) {
-            throw new IllegalArgumentException("verification evidence file does not exist: " + relativePath);
-        }
-        String text = Files.readString(file, StandardCharsets.UTF_8);
+        String text = SafeWorkspaceFileResolver.rootedAt(workspaceRoot).readUtf8(Path.of(relativePath));
         int lines = Math.max(1, text.lines().toList().size());
         EvidenceId id = new EvidenceId(identities.resolve(
                 providerId(), "evidence", "evidence:" + ownerExternalId + "/" + relativePath));

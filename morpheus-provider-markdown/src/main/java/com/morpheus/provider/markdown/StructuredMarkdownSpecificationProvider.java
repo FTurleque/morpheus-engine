@@ -1,6 +1,7 @@
 package com.morpheus.provider.markdown;
 
 import com.morpheus.application.provider.SpecificationProvider;
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.provider.ProviderCapability;
@@ -49,6 +50,15 @@ public final class StructuredMarkdownSpecificationProvider implements Specificat
             Diagnostic diagnostic = Diagnostic.error(
                     DiagnosticCode.INVALID_SOURCE,
                     "Structured Markdown source is not a readable regular file",
+                    Map.of("provider", ID.value(), "source", SOURCE_FILE));
+            return result(ProviderProbeStatus.INVALID, ProviderCapabilitySet.of(), List.of(diagnostic));
+        }
+        try {
+            SafeWorkspaceFileResolver.rootedAt(workspaceRoot).requireRegularFile(Path.of(SOURCE_FILE));
+        } catch (java.io.IOException | IllegalArgumentException exception) {
+            Diagnostic diagnostic = Diagnostic.error(
+                    DiagnosticCode.INVALID_SOURCE,
+                    "Structured Markdown source is not safely confined to the workspace",
                     Map.of("provider", ID.value(), "source", SOURCE_FILE));
             return result(ProviderProbeStatus.INVALID, ProviderCapabilitySet.of(), List.of(diagnostic));
         }

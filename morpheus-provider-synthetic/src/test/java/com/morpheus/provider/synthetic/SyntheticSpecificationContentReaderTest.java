@@ -12,6 +12,7 @@ import com.morpheus.domain.constraint.ConstraintSeverity;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,7 +25,31 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SyntheticSpecificationContentReaderTest {
+    @TempDir
+    Path temp;
+
     private final SyntheticSpecificationContentReader reader = new SyntheticSpecificationContentReader();
+
+    @Test
+    void rejectsSourceSymlinkThatEscapesWorkspace() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace"));
+        Path outside = Files.writeString(temp.resolve("outside.json"), "{\"format_version\":1}");
+        Path source = workspace.resolve(SyntheticSpecificationProvider.SOURCE_FILE);
+        try {
+            Files.createSymbolicLink(source, outside);
+        } catch (UnsupportedOperationException | java.io.IOException | SecurityException unsupported) {
+            return;
+        }
+
+        assertEquals(
+                com.morpheus.domain.provider.ProviderProbeStatus.INVALID,
+                new SyntheticSpecificationProvider().probe(workspace).status());
+        var result = reader.read(
+                ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
+                new InMemoryResolver());
+        assertTrue(result.content().isEmpty());
+        assertFalse(result.diagnostics().isEmpty());
+    }
 
     @Test
     void normalizesSyntheticFixtureThroughPublicReadContract() {
