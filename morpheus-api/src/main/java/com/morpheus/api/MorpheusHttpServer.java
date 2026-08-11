@@ -165,15 +165,16 @@ public final class MorpheusHttpServer implements AutoCloseable {
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
         Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
-        String normalizedHost = requireHost(host);
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
         }
+        var bindAddress = LoopbackHostPolicy.requireLoopbackAddress(host);
+        String normalizedHost = bindAddress.getHostAddress();
         try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(databasePath)) {
             new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
         }
         try {
-            HttpServer httpServer = HttpServer.create(new InetSocketAddress(normalizedHost, port), 0);
+            HttpServer httpServer = HttpServer.create(new InetSocketAddress(bindAddress, port), 0);
             ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
             MorpheusHttpServer result = new MorpheusHttpServer(
                     httpServer,
@@ -795,13 +796,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private static ChangeWriteCapabilityResolver deniedWrites() {
         return projectId -> ChangeWriteCapabilityObservation.denied(
                 "No WRITE_CHANGE provider capability resolver is configured for this HTTP server");
-    }
-
-    private static String requireHost(String host) {
-        if (host == null || host.isBlank()) {
-            throw new IllegalArgumentException("host must not be blank");
-        }
-        return host.trim();
     }
 
     private static String hostForUri(String host) {
