@@ -1,10 +1,14 @@
 package com.morpheus.application.files;
 
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 
 /**
@@ -49,13 +53,28 @@ public final class SafeWorkspaceFileResolver {
 
     public String readUtf8(Path relativePath) throws IOException {
         Path file = requireRegularFile(relativePath);
-        String content = Files.readString(file, StandardCharsets.UTF_8);
-        // Detect a path swap that changes canonical containment while the read is in progress.
+        BasicFileAttributes before = Files.readAttributes(
+                file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        byte[] content;
+        try (var channel = Files.newByteChannel(
+                file, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS);
+             var output = new ByteArrayOutputStream()) {
+            ByteBuffer buffer = ByteBuffer.allocate(8192);
+            while (channel.read(buffer) >= 0) {
+                buffer.flip();
+                output.write(buffer.array(), 0, buffer.remaining());
+                buffer.clear();
+            }
+            content = output.toByteArray();
+        }
+        // Detect replacement or mutation while the read was in progress.
         Path after = requireRegularFile(relativePath);
-        if (!after.equals(file)) {
+        BasicFileAttributes afterAttributes = Files.readAttributes(
+                after, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (!after.equals(file) || !sameIdentity(before, afterAttributes)) {
             throw new IllegalArgumentException("workspace file changed identity during read: " + relativePath);
         }
-        return content;
+        return new String(content, StandardCharsets.UTF_8);
     }
 
     public Path lexicalRoot() {
@@ -71,6 +90,11 @@ public final class SafeWorkspaceFileResolver {
         if (relativePath.isAbsolute()) {
             throw new IllegalArgumentException("workspace-relative path must not be absolute: " + relativePath);
         }
+        for (Path component : relativePath) {
+            if (component.toString().equals("..")) {
+                throw new IllegalArgumentException("workspace traversal is not allowed: " + relativePath);
+            }
+        }
         Path lexical = lexicalRoot.resolve(relativePath).normalize();
         if (!lexical.startsWith(lexicalRoot)) {
             throw new IllegalArgumentException("path escapes workspace: " + relativePath);
@@ -83,7 +107,9 @@ public final class SafeWorkspaceFileResolver {
         Path current = lexicalRoot;
         for (Path component : relative) {
             current = current.resolve(component);
-            if (Files.isSymbolicLink(current)) {
+            Path noFollow = current.toRealPath(LinkOption.NOFOLLOW_LINKS);
+            Path followed = current.toRealPath();
+            if (Files.isSymbolicLink(current) || !noFollow.equals(followed)) {
                 throw new IllegalArgumentException("symbolic workspace path is not allowed: " + relative);
             }
         }
@@ -95,5 +121,14 @@ public final class SafeWorkspaceFileResolver {
             throw new IllegalArgumentException("canonical path escapes workspace: " + relativePath);
         }
         return real;
+    }
+
+    private boolean sameIdentity(BasicFileAttributes before, BasicFileAttributes after) {
+        if (before.fileKey() != null && after.fileKey() != null
+                && !before.fileKey().equals(after.fileKey())) {
+            return false;
+        }
+        return before.size() == after.size()
+                && before.lastModifiedTime().equals(after.lastModifiedTime());
     }
 }

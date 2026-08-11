@@ -1,6 +1,7 @@
 package com.morpheus.provider.openspec;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.evidence.Evidence;
@@ -101,7 +102,7 @@ public final class OpenSpecRequirementDeltaReader {
             EntityIdentityResolver identities,
             List<RequirementDelta> deltas,
             List<Evidence> evidence) {
-        List<String> lines = readAllLines(specificationFile);
+        List<String> lines = readAllLines(workspaceRoot, specificationFile);
         String specificationKey = specificationKey(specsRoot, specificationFile);
         SourceLocator source = SourceLocator.file(workspaceRoot.relativize(specificationFile).toString());
         RequirementDeltaKind currentKind = null;
@@ -382,9 +383,12 @@ public final class OpenSpecRequirementDeltaReader {
                 Optional.of(sha256(excerpt)));
     }
 
-    private List<String> readAllLines(Path source) {
+    private List<String> readAllLines(Path workspaceRoot, Path source) {
         try {
-            return Files.readAllLines(source, StandardCharsets.UTF_8);
+            return SafeWorkspaceFileResolver.rootedAt(workspaceRoot)
+                    .readUtf8(workspaceRoot.relativize(source))
+                    .lines()
+                    .toList();
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot read OpenSpec source " + source, exception);
         }

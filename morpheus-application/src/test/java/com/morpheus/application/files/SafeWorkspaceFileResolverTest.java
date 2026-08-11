@@ -30,6 +30,7 @@ class SafeWorkspaceFileResolverTest {
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
         assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("../secret.txt")));
+        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("nested/../spec.md")));
     }
 
     @Test
@@ -54,6 +55,37 @@ class SafeWorkspaceFileResolverTest {
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
         assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("linked/spec.md")));
+    }
+
+    @Test
+    void rejectsSymlinkAncestorEvenWhenTargetRemainsInsideWorkspace() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace"));
+        Path target = Files.createDirectory(workspace.resolve("target"));
+        Files.writeString(target.resolve("spec.md"), "safe-but-aliased");
+        Path link = workspace.resolve("linked");
+        if (!createSymlink(link, target)) return;
+
+        SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
+        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("linked/spec.md")));
+    }
+
+    @Test
+    void rejectsWindowsJunctionAncestor() throws Exception {
+        if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) return;
+        Path workspace = Files.createDirectory(temp.resolve("workspace"));
+        Path target = Files.createDirectory(temp.resolve("junction-target"));
+        Files.writeString(target.resolve("spec.md"), "secret");
+        Path junction = workspace.resolve("junction");
+        Process process = new ProcessBuilder(
+                "cmd.exe", "/d", "/c", "mklink", "/J", junction.toString(), target.toString())
+                .redirectErrorStream(true)
+                .start();
+        int exitCode = process.waitFor();
+        String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(0, exitCode, output);
+
+        SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
+        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("junction/spec.md")));
     }
 
     private boolean createSymlink(Path link, Path target) {

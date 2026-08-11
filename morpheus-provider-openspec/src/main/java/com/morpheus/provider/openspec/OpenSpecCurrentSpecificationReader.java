@@ -1,6 +1,7 @@
 package com.morpheus.provider.openspec;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
@@ -118,7 +119,7 @@ public final class OpenSpecCurrentSpecificationReader {
             List<Requirement> requirements,
             List<Scenario> scenarios,
             List<Evidence> evidence) {
-        List<String> lines = readAllLines(specificationFile);
+        List<String> lines = readAllLines(workspaceRoot, specificationFile);
         if (lines.isEmpty()) {
             throw new IllegalArgumentException("OpenSpec specification is empty: " + specificationFile);
         }
@@ -365,9 +366,12 @@ public final class OpenSpecCurrentSpecificationReader {
         }
     }
 
-    private List<String> readAllLines(Path source) {
+    private List<String> readAllLines(Path workspaceRoot, Path source) {
         try {
-            return Files.readAllLines(source, StandardCharsets.UTF_8);
+            return SafeWorkspaceFileResolver.rootedAt(workspaceRoot)
+                    .readUtf8(workspaceRoot.relativize(source))
+                    .lines()
+                    .toList();
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot read OpenSpec source " + source, exception);
         }
