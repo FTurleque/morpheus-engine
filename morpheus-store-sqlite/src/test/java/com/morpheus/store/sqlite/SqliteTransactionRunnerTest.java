@@ -17,7 +17,7 @@ class SqliteTransactionRunnerTest {
 
     @Test
     void primaryRuntimeFailureSurvivesRollbackAndCleanupFailures() {
-        Connection connection = connection(false, true, true);
+        Connection connection = connection(true, true, true);
         IllegalStateException primary = new IllegalStateException("primary");
 
         IllegalStateException thrown = assertThrows(IllegalStateException.class, () ->
@@ -47,9 +47,23 @@ class SqliteTransactionRunnerTest {
 
     @Test
     void cleanupFailureAfterSuccessIsReported() {
-        Connection connection = connection(false, false, true);
+        Connection connection = connection(true, false, true);
         assertThrows(KnowledgeStoreException.class, () ->
                 SqliteTransactionRunner.runVoid(connection, "store failed", ignored -> { }));
+    }
+
+    @Test
+    void primaryBusinessFailureSurvivesSuccessfulRollback() {
+        Connection connection = connection(true, false, false);
+        IllegalArgumentException primary = new IllegalArgumentException("business-primary");
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () ->
+                SqliteTransactionRunner.runVoid(connection, "store failed", ignored -> {
+                    throw primary;
+                }));
+
+        assertEquals(primary, thrown);
+        assertEquals(0, thrown.getSuppressed().length);
     }
 
     @Test

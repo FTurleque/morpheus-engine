@@ -52,8 +52,8 @@ final class SqliteTransactionRunner {
     private static void rollbackSuppressing(Connection connection, RuntimeException primary) {
         try {
             connection.rollback();
-        } catch (SQLException rollbackFailure) {
-            primary.addSuppressed(rollbackFailure);
+        } catch (SQLException | RuntimeException rollbackFailure) {
+            suppress(primary, rollbackFailure);
         }
     }
 
@@ -63,13 +63,18 @@ final class SqliteTransactionRunner {
             RuntimeException primary) {
         try {
             connection.setAutoCommit(previousAutoCommit);
-        } catch (SQLException cleanupFailure) {
+        } catch (SQLException | RuntimeException cleanupFailure) {
             if (primary != null) {
-                primary.addSuppressed(cleanupFailure);
+                suppress(primary, cleanupFailure);
                 return;
             }
+            if (cleanupFailure instanceof RuntimeException runtimeFailure) throw runtimeFailure;
             throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode", cleanupFailure);
         }
+    }
+
+    private static void suppress(RuntimeException primary, Throwable secondary) {
+        if (primary != secondary) primary.addSuppressed(secondary);
     }
 
     @FunctionalInterface

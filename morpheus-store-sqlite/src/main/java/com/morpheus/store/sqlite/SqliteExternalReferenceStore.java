@@ -68,19 +68,12 @@ public final class SqliteExternalReferenceStore implements ExternalReferenceStor
                 return;
             }
 
-            boolean previousAutoCommit = connection.getAutoCommit();
-            try {
-                connection.setAutoCommit(false);
+            SqliteTransactionRunner.runVoid(connection,
+                    "Cannot store external reference " + reference.id(), ignored -> {
                 insertReference(snapshotId, reference);
                 insertResolvedAttributes(snapshotId, reference);
                 insertHistory(snapshotId, reference);
-                connection.commit();
-            } catch (SQLException | RuntimeException exception) {
-                rollbackQuietly();
-                throw exception;
-            } finally {
-                restoreAutoCommit(previousAutoCommit);
-            }
+            });
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot store external reference " + reference.id(), exception);
         }
@@ -375,22 +368,6 @@ public final class SqliteExternalReferenceStore implements ExternalReferenceStor
     private void ensureOpen() {
         if (closed) {
             throw new KnowledgeStoreException("SQLite external reference store is closed");
-        }
-    }
-
-    private void rollbackQuietly() {
-        try {
-            connection.rollback();
-        } catch (SQLException ignored) {
-            // Preserve the original persistence error.
-        }
-    }
-
-    private void restoreAutoCommit(boolean autoCommit) {
-        try {
-            connection.setAutoCommit(autoCommit);
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode", exception);
         }
     }
 

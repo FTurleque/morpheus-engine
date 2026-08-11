@@ -113,29 +113,23 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
         requireProject(attempt.projectId());
 
         try {
-            boolean previousAutoCommit = connection.getAutoCommit();
-            try {
-                connection.setAutoCommit(false);
-
+            return SqliteTransactionRunner.run(connection,
+                    "Cannot apply lifecycle mutation for " + attempt.changeId(), ignored -> {
                 Optional<ChangeLifecycleMutationAuditRecord> existing =
                         findAuditByIdempotencyInternal(attempt.projectId(), attempt.idempotencyKey());
                 if (existing.isPresent()) {
-                    connection.rollback();
                     return existingResult(attempt, existing.orElseThrow());
                 }
                 if (findAuditByMutationIdInternal(attempt.mutationId()).isPresent()) {
-                    connection.rollback();
                     return conflict(Optional.of(currentState(attempt)), "Mutation id already exists");
                 }
 
                 ChangeLifecycleOperationalState current = currentState(attempt);
                 if (!current.revision().equals(attempt.expectedRevision())) {
-                    connection.rollback();
                     return conflict(Optional.of(current),
                             "Expected revision " + attempt.expectedRevision() + " does not match " + current.revision());
                 }
                 if (current.lifecycle().state() != attempt.fromState()) {
-                    connection.rollback();
                     return conflict(Optional.of(current),
                             "Expected lifecycle state " + attempt.fromState() + " does not match " + current.lifecycle().state());
                 }
@@ -145,33 +139,29 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
                         ? insertInitialState(attempt, next)
                         : updateExistingState(attempt, next);
                 if (changed != 1) {
-                    connection.rollback();
                     return collisionResult(attempt, "Lifecycle CAS lost to another writer");
                 }
 
                 ChangeLifecycleMutationAuditRecord audit = audit(attempt, current, next);
                 insertAudit(audit);
-                connection.commit();
                 return new ChangeLifecycleMutationPersistenceResult(
                         ChangeLifecycleMutationPersistenceState.APPLIED,
                         Optional.of(next),
                         Optional.of(audit),
                         "Lifecycle mutation applied");
-            } catch (SQLException exception) {
-                rollbackQuietly();
-                ChangeLifecycleMutationPersistenceResult collision = collisionResult(attempt, exception.getMessage());
-                if (collision.state() == ChangeLifecycleMutationPersistenceState.ALREADY_APPLIED) {
-                    return collision;
+            });
+        } catch (KnowledgeStoreException failure) {
+            if (failure.getCause() instanceof SQLException exception && failure.getSuppressed().length == 0) {
+                try {
+                    ChangeLifecycleMutationPersistenceResult collision = collisionResult(attempt, exception.getMessage());
+                    if (collision.state() == ChangeLifecycleMutationPersistenceState.ALREADY_APPLIED) {
+                        return collision;
+                    }
+                } catch (RuntimeException recoveryFailure) {
+                    if (recoveryFailure != failure) failure.addSuppressed(recoveryFailure);
                 }
-                throw exception;
-            } catch (RuntimeException exception) {
-                rollbackQuietly();
-                throw exception;
-            } finally {
-                connection.setAutoCommit(previousAutoCommit);
             }
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot apply lifecycle mutation for " + attempt.changeId(), exception);
+            throw failure;
         }
     }
 
@@ -455,14 +445,6 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
     private void ensureOpen() {
         if (closed) {
             throw new KnowledgeStoreException("SQLite lifecycle mutation store is closed");
-        }
-    }
-
-    private void rollbackQuietly() {
-        try {
-            connection.rollback();
-        } catch (SQLException ignored) {
-            // Preserve original error.
         }
     }
 
