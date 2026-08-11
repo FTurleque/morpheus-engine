@@ -1,6 +1,8 @@
 package com.morpheus.provider.openspec;
 
 import com.morpheus.application.provider.SpecificationProvider;
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
+import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.provider.ProviderCapability;
@@ -11,7 +13,6 @@ import com.morpheus.domain.provider.ProviderProbeStatus;
 import com.morpheus.domain.source.SourceLocator;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumSet;
@@ -48,6 +49,10 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
 
     @Override
     public ProviderProbeResult probe(Path workspaceRoot) {
+        return probe(workspaceRoot, null);
+    }
+
+    ProviderProbeResult probe(Path workspaceRoot, ProviderIngestionBudget.Session budget) {
         Path root = workspaceRoot.toAbsolutePath().normalize();
         Path openspecRoot = root.resolve("openspec");
         Path config = openspecRoot.resolve("config.yaml");
@@ -67,8 +72,14 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
 
         final Optional<String> schema;
         try {
-            schema = readSchema(config);
-        } catch (IOException exception) {
+            Path relativeConfig = Path.of("openspec/config.yaml");
+            String configText = budget == null
+                    ? SafeWorkspaceFileResolver.rootedAt(root).readUtf8(
+                            relativeConfig,
+                            Math.toIntExact(ProviderIngestionBudget.DEFAULT.maxDocumentBytes()))
+                    : budget.readDocument(relativeConfig);
+            schema = readSchema(configText);
+        } catch (IOException | IllegalArgumentException exception) {
             return invalid(config, "OpenSpec config.yaml could not be read.");
         }
 
@@ -124,14 +135,12 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
         return ProviderCapabilitySet.copyOf(capabilities);
     }
 
-    private Optional<String> readSchema(Path config) throws IOException {
-        try (var lines = Files.lines(config, StandardCharsets.UTF_8)) {
-            return lines
-                    .map(SCHEMA_PATTERN::matcher)
-                    .filter(Matcher::find)
-                    .map(matcher -> matcher.group(1).trim())
-                    .findFirst();
-        }
+    private Optional<String> readSchema(String configText) {
+        return configText.lines()
+                .map(SCHEMA_PATTERN::matcher)
+                .filter(Matcher::find)
+                .map(matcher -> matcher.group(1).trim())
+                .findFirst();
     }
 
     private ProviderProbeResult invalid(Path source, String message) {

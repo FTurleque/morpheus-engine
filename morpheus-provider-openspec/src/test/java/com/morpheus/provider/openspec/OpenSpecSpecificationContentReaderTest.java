@@ -149,6 +149,44 @@ class OpenSpecSpecificationContentReaderTest {
                 diagnostic -> diagnostic.code() == DiagnosticCode.UNSUPPORTED_PROVIDER_SCHEMA));
     }
 
+    @Test
+    void budgetFailureDiscardsAlreadyNormalizedGroups(@TempDir Path workspace) throws Exception {
+        Path spec = workspace.resolve("openspec/specs/demo/spec.md");
+        Path proposal = workspace.resolve("openspec/changes/oversized/proposal.md");
+        Files.createDirectories(spec.getParent());
+        Files.createDirectories(proposal.getParent());
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Files.writeString(spec, """
+                # Valid Specification
+
+                ## Requirements
+
+                ### Requirement: Preserve atomicity
+                The system SHALL discard partial provider snapshots.
+
+                #### Scenario: Oversized later group
+                - **WHEN** a later group exceeds its budget
+                - **THEN** no earlier group is published
+                """);
+        Files.writeString(proposal, "x".repeat((1024 * 1024) + 1));
+
+        var result = new OpenSpecSpecificationContentReader().read(
+                request(workspace, EnumSet.of(
+                        ReadCategory.CURRENT_SPECIFICATIONS,
+                        ReadCategory.REQUIREMENTS,
+                        ReadCategory.CHANGES)),
+                new StableTestIdentityResolver());
+
+        assertTrue(result.content().isEmpty());
+        assertEquals(ReadCategoryStatus.FAILED, status(result, ReadCategory.CURRENT_SPECIFICATIONS));
+        assertEquals(ReadCategoryStatus.FAILED, status(result, ReadCategory.REQUIREMENTS));
+        assertEquals(ReadCategoryStatus.FAILED, status(result, ReadCategory.CHANGES));
+        assertTrue(result.diagnostics().stream().anyMatch(
+                diagnostic -> diagnostic.code() == DiagnosticCode.INVALID_SOURCE));
+        assertFalse(result.diagnostics().stream().anyMatch(
+                diagnostic -> diagnostic.code() == DiagnosticCode.PARTIAL_INGESTION));
+    }
+
     private ProviderReadRequest request(Path workspace, Set<ReadCategory> categories) {
         return new ProviderReadRequest(workspace, ProjectSpecificationId.generate(), categories);
     }

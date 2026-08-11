@@ -1,5 +1,6 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.security.ExternalJarIntegrity;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
@@ -152,6 +153,12 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
                     + settings.configurationError().orElse(settings.state().name()));
         }
         Path jar = settings.jarPath().orElseThrow();
+        try {
+            settings.jarSha256().ifPresent(pin -> ExternalJarIntegrity.verifySha256(jar, pin));
+        } catch (IllegalArgumentException integrityFailure) {
+            throw new MinosIntegrationException(
+                    "MINOS JAR integrity verification failed immediately before launch", integrityFailure);
+        }
         List<String> arguments = new ArrayList<>();
         settings.homeDirectory().ifPresent(home -> arguments.add("-Dminos.home=" + home));
         arguments.addAll(List.of("-cp", jar.toString(), MINOS_SERVER_CLASS));

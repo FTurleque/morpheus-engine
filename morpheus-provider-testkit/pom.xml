@@ -17,6 +17,16 @@
     <dependencies>
         <dependency>
             <groupId>io.github.fturleque</groupId>
+            <artifactId>morpheus-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.fturleque</groupId>
+            <artifactId>morpheus-application</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.fturleque</groupId>
             <artifactId>morpheus-provider-sdk</artifactId>
             <version>${project.version}</version>
         </dependency>

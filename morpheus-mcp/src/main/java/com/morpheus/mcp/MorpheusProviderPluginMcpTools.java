@@ -32,7 +32,8 @@ final class MorpheusProviderPluginMcpTools {
                                 Map.of(
                                         "directory", stringProperty(),
                                         "pluginId", stringProperty(),
-                                        "workspace", stringProperty()),
+                                        "workspace", stringProperty(),
+                                        "sha256", stringProperty()),
                                 List.of("directory", "pluginId", "workspace"))));
     }
 
@@ -50,10 +51,7 @@ final class MorpheusProviderPluginMcpTools {
             Object result = switch (toolName) {
                 case DISCOVER_TOOL -> ProviderPluginViews.discovery(service.discover(
                         Path.of(requiredString(arguments, "directory"))));
-                case PROBE_TOOL -> service.probe(
-                        Path.of(requiredString(arguments, "directory")),
-                        requiredString(arguments, "pluginId"),
-                        Path.of(requiredString(arguments, "workspace")));
+                case PROBE_TOOL -> probe(arguments);
                 default -> throw new IllegalArgumentException("unknown M22 MCP tool: " + toolName);
             };
             return McpSchema.CallToolResult.builder()
@@ -65,6 +63,16 @@ final class MorpheusProviderPluginMcpTools {
                     .isError(true)
                     .build();
         }
+    }
+
+    private Object probe(Map<String, Object> arguments) {
+        Path directory = Path.of(requiredString(arguments, "directory"));
+        String pluginId = requiredString(arguments, "pluginId");
+        Path workspace = Path.of(requiredString(arguments, "workspace"));
+        Object pin = arguments.get("sha256");
+        return pin == null
+                ? service.probe(directory, pluginId, workspace)
+                : service.probe(directory, pluginId, workspace, requiredString(arguments, "sha256"));
     }
 
     private static Map<String, Object> stringProperty() {
