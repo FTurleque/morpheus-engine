@@ -2,6 +2,7 @@ package com.morpheus.provider.openspec;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -57,10 +58,21 @@ public final class OpenSpecChangeMetadataReader {
             ProjectSpecificationId projectId,
             EntityIdentityResolver identityResolver) {
         Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
+        ProviderIngestionBudget.Session budget = OpenSpecIngestionBudgets.open(root);
+        return read(root, projectId, identityResolver, budget);
+    }
+
+    NormalizedProjectContent read(
+            Path workspaceRoot,
+            ProjectSpecificationId projectId,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget) {
+        Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
         Objects.requireNonNull(projectId, "projectId");
         Objects.requireNonNull(identityResolver, "identityResolver");
+        Objects.requireNonNull(budget, "budget");
 
-        var probe = provider.probe(root);
+        var probe = provider.probe(root, budget);
         if (probe.status() != ProviderProbeStatus.SUPPORTED) {
             throw new IllegalArgumentException("OpenSpec workspace is not supported: " + root);
         }
@@ -74,9 +86,16 @@ public final class OpenSpecChangeMetadataReader {
         List<ImplementationTask> tasks = new ArrayList<>();
         List<Evidence> evidence = new ArrayList<>();
 
-        for (Path changeRoot : listChangeRoots(root.resolve("openspec/changes"))) {
-            normalizeChange(root, changeRoot, projectId, identityResolver, changes, constraints, decisions, tasks, evidence);
+        for (Path changeRoot : listChangeRoots(root.resolve("openspec/changes"), budget)) {
+            normalizeChange(
+                    root, changeRoot, projectId, identityResolver,
+                    changes, constraints, decisions, tasks, evidence, budget);
         }
+
+        budget.addBlocks(changes.size() + constraints.size() + decisions.size() + tasks.size(), "openspec/changes");
+        budget.addEntities(
+                changes.size() + constraints.size() + decisions.size() + tasks.size() + evidence.size(),
+                "openspec/changes");
 
         String displayName = root.getFileName() == null ? root.toString() : root.getFileName().toString();
         ProjectSpecification project = new ProjectSpecification(projectId, displayName, SourceLocator.file(root.toString()));
@@ -102,14 +121,15 @@ public final class OpenSpecChangeMetadataReader {
             List<Constraint> constraints,
             List<DesignDecision> decisions,
             List<ImplementationTask> tasks,
-            List<Evidence> evidence) {
+            List<Evidence> evidence,
+            ProviderIngestionBudget.Session budget) {
         String changeKey = changeRoot.getFileName().toString();
         Path proposalFile = changeRoot.resolve("proposal.md");
         if (!Files.isRegularFile(proposalFile)) {
             throw new IllegalArgumentException("OpenSpec change has no proposal.md: " + changeKey);
         }
 
-        List<String> proposalLines = readAllLines(proposalFile);
+        List<String> proposalLines = readAllLines(workspaceRoot, proposalFile, budget);
         SourceLocator proposalSource = locator(workspaceRoot, proposalFile);
         String changeExternalId = "change:" + changeKey;
         String title = proposalTitle(proposalLines);
@@ -119,7 +139,8 @@ public final class OpenSpecChangeMetadataReader {
         List<String> outOfScope = bulletSection(proposalLines, "## Out of scope");
         List<String> risks = bulletSection(proposalLines, "## Risks");
 
-        Evidence changeEvidence = evidence(identities, changeExternalId, proposalSource, proposalLines, 1, proposalLines.size());
+        Evidence changeEvidence = evidence(
+                identities, changeExternalId, proposalSource, proposalLines, 1, proposalLines.size(), budget);
         evidence.add(changeEvidence);
         ChangeId changeId = new ChangeId(identities.resolve(
                 OpenSpecSpecificationProvider.ID, "change", changeExternalId));
@@ -134,9 +155,9 @@ public final class OpenSpecChangeMetadataReader {
                 risks,
                 provenance(changeExternalId, proposalSource, changeEvidence.id())));
 
-        normalizeConstraints(changeKey, changeId, proposalLines, proposalSource, identities, constraints, evidence);
-        normalizeDecisions(workspaceRoot, changeRoot, changeKey, changeId, identities, decisions, evidence);
-        normalizeTasks(workspaceRoot, changeRoot, changeKey, changeId, identities, tasks, evidence);
+        normalizeConstraints(changeKey, changeId, proposalLines, proposalSource, identities, constraints, evidence, budget);
+        normalizeDecisions(workspaceRoot, changeRoot, changeKey, changeId, identities, decisions, evidence, budget);
+        normalizeTasks(workspaceRoot, changeRoot, changeKey, changeId, identities, tasks, evidence, budget);
     }
 
     private void normalizeConstraints(
@@ -146,12 +167,14 @@ public final class OpenSpecChangeMetadataReader {
             SourceLocator source,
             EntityIdentityResolver identities,
             List<Constraint> constraints,
-            List<Evidence> evidence) {
+            List<Evidence> evidence,
+            ProviderIngestionBudget.Session budget) {
         List<LineItem> items = bulletSectionItems(lines, "## Constraints");
         for (int index = 0; index < items.size(); index++) {
             LineItem item = items.get(index);
             String externalId = "constraint:" + changeKey + ":" + (index + 1);
-            Evidence itemEvidence = evidence(identities, externalId, source, lines, item.lineNumber(), item.lineNumber());
+            Evidence itemEvidence = evidence(
+                    identities, externalId, source, lines, item.lineNumber(), item.lineNumber(), budget);
             evidence.add(itemEvidence);
             constraints.add(new Constraint(
                     new ConstraintId(identities.resolve(OpenSpecSpecificationProvider.ID, "constraint", externalId)),
@@ -168,12 +191,13 @@ public final class OpenSpecChangeMetadataReader {
             ChangeId changeId,
             EntityIdentityResolver identities,
             List<DesignDecision> decisions,
-            List<Evidence> evidence) {
+            List<Evidence> evidence,
+            ProviderIngestionBudget.Session budget) {
         Path designFile = changeRoot.resolve("design.md");
         if (!Files.isRegularFile(designFile)) {
             return;
         }
-        List<String> lines = readAllLines(designFile);
+        List<String> lines = readAllLines(workspaceRoot, designFile, budget);
         SourceLocator source = locator(workspaceRoot, designFile);
         List<Integer> headings = headingIndexes(lines, DECISION_HEADING);
         for (int index = 0; index < headings.size(); index++) {
@@ -189,7 +213,7 @@ public final class OpenSpecChangeMetadataReader {
                 throw new IllegalArgumentException("OpenSpec design decision has no body: " + title);
             }
             String externalId = "design-decision:" + changeKey + ":" + slug(title);
-            Evidence itemEvidence = evidence(identities, externalId, source, lines, start + 1, end);
+            Evidence itemEvidence = evidence(identities, externalId, source, lines, start + 1, end, budget);
             evidence.add(itemEvidence);
             decisions.add(new DesignDecision(
                     new DesignDecisionId(identities.resolve(OpenSpecSpecificationProvider.ID, "design-decision", externalId)),
@@ -207,12 +231,13 @@ public final class OpenSpecChangeMetadataReader {
             ChangeId changeId,
             EntityIdentityResolver identities,
             List<ImplementationTask> tasks,
-            List<Evidence> evidence) {
+            List<Evidence> evidence,
+            ProviderIngestionBudget.Session budget) {
         Path tasksFile = changeRoot.resolve("tasks.md");
         if (!Files.isRegularFile(tasksFile)) {
             return;
         }
-        List<String> lines = readAllLines(tasksFile);
+        List<String> lines = readAllLines(workspaceRoot, tasksFile, budget);
         SourceLocator source = locator(workspaceRoot, tasksFile);
         int ordinal = 0;
         for (int index = 0; index < lines.size(); index++) {
@@ -222,7 +247,7 @@ public final class OpenSpecChangeMetadataReader {
             }
             ordinal++;
             String externalId = "task:" + changeKey + ":" + ordinal;
-            Evidence itemEvidence = evidence(identities, externalId, source, lines, index + 1, index + 1);
+            Evidence itemEvidence = evidence(identities, externalId, source, lines, index + 1, index + 1, budget);
             evidence.add(itemEvidence);
             tasks.add(new ImplementationTask(
                     new TaskId(identities.resolve(OpenSpecSpecificationProvider.ID, "task", externalId)),
@@ -234,16 +259,20 @@ public final class OpenSpecChangeMetadataReader {
         }
     }
 
-    private List<Path> listChangeRoots(Path changesRoot) {
+    private List<Path> listChangeRoots(
+            Path changesRoot,
+            ProviderIngestionBudget.Session budget) {
         if (!Files.isDirectory(changesRoot)) {
             return List.of();
         }
         try (var paths = Files.list(changesRoot)) {
-            return paths
+            List<Path> roots = paths
                     .filter(Files::isDirectory)
                     .filter(path -> !path.getFileName().toString().equals("archive"))
-                    .sorted()
+                    .limit(budget.remainingFiles() + 1)
                     .toList();
+            budget.requireAdditionalFiles(roots.size(), "openspec/changes");
+            return roots.stream().sorted().toList();
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot enumerate OpenSpec changes", exception);
         }
@@ -347,9 +376,11 @@ public final class OpenSpecChangeMetadataReader {
             SourceLocator source,
             List<String> lines,
             int startLine,
-            int endLine) {
+            int endLine,
+            ProviderIngestionBudget.Session budget) {
         int normalizedEnd = Math.max(startLine, endLine);
         String excerpt = String.join("\n", lines.subList(startLine - 1, normalizedEnd));
+        budget.addEvidenceFragment(excerpt, source.value());
         EvidenceId evidenceId = new EvidenceId(identities.resolve(
                 OpenSpecSpecificationProvider.ID, "evidence", "evidence:" + externalId));
         return new Evidence(
@@ -359,9 +390,14 @@ public final class OpenSpecChangeMetadataReader {
                 Optional.of(sha256(excerpt)));
     }
 
-    private List<String> readAllLines(Path source) {
+    private List<String> readAllLines(
+            Path workspaceRoot,
+            Path source,
+            ProviderIngestionBudget.Session budget) {
         try {
-            return Files.readAllLines(source, StandardCharsets.UTF_8);
+            return budget.readDocument(workspaceRoot.relativize(source))
+                    .lines()
+                    .toList();
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot read OpenSpec source " + source, exception);
         }

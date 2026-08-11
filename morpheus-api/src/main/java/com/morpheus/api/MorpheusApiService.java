@@ -81,9 +81,19 @@ public final class MorpheusApiService {
     public static final String FALLBACK_VERSION = "0.1.0-SNAPSHOT";
 
     private final Path databasePath;
+    private final Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots;
 
     public MorpheusApiService(Path databasePath) {
+        this(databasePath, Optional.empty());
+    }
+
+    MorpheusApiService(Path databasePath, AllowedWorkspaceRoots allowedWorkspaceRoots) {
+        this(databasePath, Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")));
+    }
+
+    private MorpheusApiService(Path databasePath, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
     }
 
     public Object health() {
@@ -105,7 +115,9 @@ public final class MorpheusApiService {
     }
 
     public RegistrationResult registerProject(String workspace) {
-        Path path = existingDirectory(workspace);
+        Path path = allowedWorkspaceRoots
+                .map(policy -> policy.requireAllowedDirectory(workspace))
+                .orElseGet(() -> existingDirectory(workspace));
         SourceLocator root = SourceLocator.file(path.toString());
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             Optional<ProjectStoreEntry> existing = runtime.snapshots.findProjectByRoot(root);
@@ -514,10 +526,11 @@ public final class MorpheusApiService {
             throw conflict("local headless sync requires a file: project root");
         }
         Path workspace = Path.of(project.rootLocator().value()).toAbsolutePath().normalize();
-        if (!Files.isDirectory(workspace)) {
-            throw conflict("workspace is not a directory: " + workspace);
+        Path authorizedWorkspace = authorizeWorkspace(workspace);
+        if (!Files.isDirectory(authorizedWorkspace)) {
+            throw conflict("workspace is not a directory: " + authorizedWorkspace);
         }
-        return workspace;
+        return authorizedWorkspace;
     }
 
     private Path existingDirectory(String workspace) {
@@ -534,6 +547,12 @@ public final class MorpheusApiService {
             throw ApiFailure.badRequest("workspace is not a directory: " + path);
         }
         return path;
+    }
+
+    private Path authorizeWorkspace(Path workspace) {
+        return allowedWorkspaceRoots
+                .map(policy -> policy.requireAllowedDirectory(workspace))
+                .orElse(workspace);
     }
 
     private BusinessContentQueryService business(ApiRuntime runtime) {
