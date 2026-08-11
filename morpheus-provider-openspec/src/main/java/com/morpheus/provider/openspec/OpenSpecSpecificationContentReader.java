@@ -2,6 +2,8 @@ package com.morpheus.provider.openspec;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderIngestionLimitException;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ReadCategory;
@@ -73,7 +75,8 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         Objects.requireNonNull(identityResolver, "identityResolver");
 
         Path root = request.workspaceRoot();
-        ProviderProbeResult probe = provider.probe(root);
+        ProviderIngestionBudget.Session budget = OpenSpecIngestionBudgets.open(root);
+        ProviderProbeResult probe = provider.probe(root, budget);
         List<Diagnostic> diagnostics = new ArrayList<>(probe.diagnostics());
 
         if (probe.status() != ProviderProbeStatus.SUPPORTED) {
@@ -89,7 +92,16 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             return new ProviderReadResult(providerId(), Optional.empty(), reports, diagnostics);
         }
 
-        ReadState state = readAvailableGroups(request, identityResolver, probe, diagnostics);
+        ReadState state;
+        try {
+            state = readAvailableGroups(request, identityResolver, probe, diagnostics, budget);
+        } catch (ProviderIngestionLimitException exception) {
+            addDistinct(diagnostics, List.of(invalidSource("ingestion-budget", exception)));
+            List<ReadCategoryReport> reports = ordered(request.requestedCategories()).stream()
+                    .map(category -> failed(category, "provider ingestion budget exceeded"))
+                    .toList();
+            return new ProviderReadResult(providerId(), Optional.empty(), reports, diagnostics);
+        }
         List<ReadCategoryReport> reports = ordered(request.requestedCategories()).stream()
                 .map(category -> report(category, probe, state))
                 .toList();
@@ -123,7 +135,8 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             ProviderReadRequest request,
             EntityIdentityResolver identityResolver,
             ProviderProbeResult probe,
-            List<Diagnostic> diagnostics) {
+            List<Diagnostic> diagnostics,
+            ProviderIngestionBudget.Session budget) {
         ReadState state = new ReadState();
         Set<ReadCategory> requested = request.requestedCategories();
 
@@ -136,12 +149,14 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             state.currentAttempted = true;
             try {
                 NormalizedProjectContent current = currentReader.read(
-                        request.workspaceRoot(), request.projectId(), identityResolver);
+                        request.workspaceRoot(), request.projectId(), identityResolver, budget);
                 state.specifications.addAll(current.specifications());
                 state.requirements.addAll(current.requirements());
                 state.scenarios.addAll(current.scenarios());
                 state.evidence.addAll(current.evidence());
                 addDistinct(diagnostics, current.diagnostics());
+            } catch (ProviderIngestionLimitException exception) {
+                throw exception;
             } catch (RuntimeException exception) {
                 state.currentFailed = true;
                 addDistinct(diagnostics, List.of(invalidSource("current", exception)));
@@ -152,13 +167,15 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             state.changeAttempted = true;
             try {
                 NormalizedProjectContent changes = changeReader.read(
-                        request.workspaceRoot(), request.projectId(), identityResolver);
+                        request.workspaceRoot(), request.projectId(), identityResolver, budget);
                 state.changes.addAll(changes.changes());
                 state.constraints.addAll(changes.constraints());
                 state.designDecisions.addAll(changes.designDecisions());
                 state.tasks.addAll(changes.tasks());
                 state.evidence.addAll(changes.evidence());
                 addDistinct(diagnostics, changes.diagnostics());
+            } catch (ProviderIngestionLimitException exception) {
+                throw exception;
             } catch (RuntimeException exception) {
                 state.changeFailed = true;
                 addDistinct(diagnostics, List.of(invalidSource("changes", exception)));
@@ -171,10 +188,12 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             state.deltaAttempted = true;
             try {
                 OpenSpecRequirementDeltaReader.ReadResult deltas = deltaReader.read(
-                        request.workspaceRoot(), identityResolver);
+                        request.workspaceRoot(), identityResolver, budget);
                 state.requirementDeltas.addAll(deltas.requirementDeltas());
                 state.evidence.addAll(deltas.evidence());
                 addDistinct(diagnostics, deltas.diagnostics());
+            } catch (ProviderIngestionLimitException exception) {
+                throw exception;
             } catch (RuntimeException exception) {
                 state.deltaFailed = true;
                 addDistinct(diagnostics, List.of(invalidSource("requirement-deltas", exception)));

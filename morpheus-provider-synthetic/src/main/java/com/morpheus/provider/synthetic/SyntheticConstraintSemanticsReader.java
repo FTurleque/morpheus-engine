@@ -1,7 +1,7 @@
 package com.morpheus.provider.synthetic;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.files.SafeWorkspaceFileResolver;
+import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.constraint.Constraint;
@@ -36,7 +36,7 @@ final class SyntheticConstraintSemanticsReader {
             List<Object> rawConstraints,
             ChangeId changeId,
             String changeExternalId,
-            Path workspaceRoot,
+            ProviderIngestionBudget.Session budget,
             SourceLocator definitionSource,
             String sourceText,
             int sourceLines,
@@ -55,7 +55,7 @@ final class SyntheticConstraintSemanticsReader {
                 Map<String, Object> support = object(rawEvidence, "constraint supporting evidence");
                 String relativePath = string(support, "source");
                 Evidence item = fileEvidence(
-                        workspaceRoot,
+                        budget,
                         relativePath,
                         identities,
                         externalId + "/support/" + relativePath);
@@ -111,11 +111,11 @@ final class SyntheticConstraintSemanticsReader {
     }
 
     private Evidence fileEvidence(
-            Path workspaceRoot,
+            ProviderIngestionBudget.Session budget,
             String relativePath,
             EntityIdentityResolver identities,
             String externalId) throws IOException {
-        String text = SafeWorkspaceFileResolver.rootedAt(workspaceRoot).readUtf8(Path.of(relativePath));
+        String text = budget.readEvidence(Path.of(relativePath));
         int lines = Math.max(1, text.lines().toList().size());
         return new Evidence(
                 new EvidenceId(identities.resolve(

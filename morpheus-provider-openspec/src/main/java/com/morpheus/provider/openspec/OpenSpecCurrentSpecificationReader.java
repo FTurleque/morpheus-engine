@@ -1,8 +1,8 @@
 package com.morpheus.provider.openspec;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.evidence.SourceRange;
@@ -63,10 +63,21 @@ public final class OpenSpecCurrentSpecificationReader {
             ProjectSpecificationId projectId,
             EntityIdentityResolver identityResolver) {
         Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
+        ProviderIngestionBudget.Session budget = OpenSpecIngestionBudgets.open(root);
+        return read(root, projectId, identityResolver, budget);
+    }
+
+    NormalizedProjectContent read(
+            Path workspaceRoot,
+            ProjectSpecificationId projectId,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget) {
+        Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
         Objects.requireNonNull(projectId, "projectId");
         Objects.requireNonNull(identityResolver, "identityResolver");
+        Objects.requireNonNull(budget, "budget");
 
-        var probe = provider.probe(root);
+        var probe = provider.probe(root, budget);
         if (probe.status() != ProviderProbeStatus.SUPPORTED) {
             throw new IllegalArgumentException("OpenSpec workspace is not supported: " + root);
         }
@@ -75,7 +86,7 @@ public final class OpenSpecCurrentSpecificationReader {
         }
 
         Path specsRoot = root.resolve("openspec/specs");
-        List<Path> specificationFiles = listSpecificationFiles(specsRoot);
+        List<Path> specificationFiles = listSpecificationFiles(specsRoot, budget);
         List<Specification> specifications = new ArrayList<>();
         List<Requirement> requirements = new ArrayList<>();
         List<Scenario> scenarios = new ArrayList<>();
@@ -91,8 +102,14 @@ public final class OpenSpecCurrentSpecificationReader {
                     specifications,
                     requirements,
                     scenarios,
-                    evidence);
+                    evidence,
+                    budget);
         }
+
+        budget.addBlocks(specifications.size() + requirements.size() + scenarios.size(), "openspec/current");
+        budget.addEntities(
+                specifications.size() + requirements.size() + scenarios.size() + evidence.size(),
+                "openspec/current");
 
         String displayName = root.getFileName() == null ? root.toString() : root.getFileName().toString();
         ProjectSpecification project = new ProjectSpecification(
@@ -118,8 +135,9 @@ public final class OpenSpecCurrentSpecificationReader {
             List<Specification> specifications,
             List<Requirement> requirements,
             List<Scenario> scenarios,
-            List<Evidence> evidence) {
-        List<String> lines = readAllLines(workspaceRoot, specificationFile);
+            List<Evidence> evidence,
+            ProviderIngestionBudget.Session budget) {
+        List<String> lines = readAllLines(workspaceRoot, specificationFile, budget);
         if (lines.isEmpty()) {
             throw new IllegalArgumentException("OpenSpec specification is empty: " + specificationFile);
         }
@@ -137,7 +155,8 @@ public final class OpenSpecCurrentSpecificationReader {
                 source,
                 lines,
                 1,
-                lines.size());
+                lines.size(),
+                budget);
         evidence.add(specificationEvidence);
 
         SpecificationId specificationId = new SpecificationId(identityResolver.resolve(
@@ -168,7 +187,8 @@ public final class OpenSpecCurrentSpecificationReader {
                     identityResolver,
                     requirements,
                     scenarios,
-                    evidence);
+                    evidence,
+                    budget);
         }
     }
 
@@ -182,7 +202,8 @@ public final class OpenSpecCurrentSpecificationReader {
             EntityIdentityResolver identityResolver,
             List<Requirement> requirements,
             List<Scenario> scenarios,
-            List<Evidence> evidence) {
+            List<Evidence> evidence,
+            ProviderIngestionBudget.Session budget) {
         Matcher requirementMatcher = REQUIREMENT_HEADING.matcher(lines.get(start));
         if (!requirementMatcher.matches()) {
             throw new IllegalStateException("requirement heading index does not point to a requirement");
@@ -211,7 +232,8 @@ public final class OpenSpecCurrentSpecificationReader {
                 source,
                 lines,
                 start + 1,
-                endExclusive);
+                endExclusive,
+                budget);
         evidence.add(requirementEvidence);
 
         RequirementId requirementId = new RequirementId(identityResolver.resolve(
@@ -247,7 +269,8 @@ public final class OpenSpecCurrentSpecificationReader {
                     source,
                     identityResolver,
                     scenarios,
-                    evidence);
+                    evidence,
+                    budget);
         }
     }
 
@@ -260,7 +283,8 @@ public final class OpenSpecCurrentSpecificationReader {
             SourceLocator source,
             EntityIdentityResolver identityResolver,
             List<Scenario> scenarios,
-            List<Evidence> evidence) {
+            List<Evidence> evidence,
+            ProviderIngestionBudget.Session budget) {
         Matcher heading = SCENARIO_HEADING.matcher(lines.get(start));
         if (!heading.matches()) {
             throw new IllegalStateException("scenario heading index does not point to a scenario");
@@ -307,7 +331,8 @@ public final class OpenSpecCurrentSpecificationReader {
                 source,
                 lines,
                 start + 1,
-                endExclusive);
+                endExclusive,
+                budget);
         evidence.add(scenarioEvidence);
 
         ScenarioId scenarioId = new ScenarioId(identityResolver.resolve(
@@ -340,9 +365,11 @@ public final class OpenSpecCurrentSpecificationReader {
             SourceLocator source,
             List<String> lines,
             int startLine,
-            int endLineExclusive) {
+            int endLineExclusive,
+            ProviderIngestionBudget.Session budget) {
         int normalizedEndLine = Math.max(startLine, endLineExclusive);
         String excerpt = String.join("\n", lines.subList(startLine - 1, normalizedEndLine));
+        budget.addEvidenceFragment(excerpt, source.value());
         EvidenceId evidenceId = new EvidenceId(identityResolver.resolve(
                 OpenSpecSpecificationProvider.ID,
                 "evidence",
@@ -354,22 +381,28 @@ public final class OpenSpecCurrentSpecificationReader {
                 Optional.of(sha256(excerpt)));
     }
 
-    private List<Path> listSpecificationFiles(Path specsRoot) {
+    private List<Path> listSpecificationFiles(
+            Path specsRoot,
+            ProviderIngestionBudget.Session budget) {
         try (var paths = Files.walk(specsRoot)) {
-            return paths
+            List<Path> files = paths
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().equals("spec.md"))
-                    .sorted()
+                    .limit(budget.remainingFiles() + 1)
                     .toList();
+            budget.requireAdditionalFiles(files.size(), "openspec/current");
+            return files.stream().sorted().toList();
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot enumerate OpenSpec specifications", exception);
         }
     }
 
-    private List<String> readAllLines(Path workspaceRoot, Path source) {
+    private List<String> readAllLines(
+            Path workspaceRoot,
+            Path source,
+            ProviderIngestionBudget.Session budget) {
         try {
-            return SafeWorkspaceFileResolver.rootedAt(workspaceRoot)
-                    .readUtf8(workspaceRoot.relativize(source))
+            return budget.readDocument(workspaceRoot.relativize(source))
                     .lines()
                     .toList();
         } catch (IOException exception) {

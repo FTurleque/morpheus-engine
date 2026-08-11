@@ -2,6 +2,7 @@ package com.morpheus.provider.openspec;
 
 import com.morpheus.application.provider.SpecificationProvider;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
+import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.provider.ProviderCapability;
@@ -48,6 +49,10 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
 
     @Override
     public ProviderProbeResult probe(Path workspaceRoot) {
+        return probe(workspaceRoot, null);
+    }
+
+    ProviderProbeResult probe(Path workspaceRoot, ProviderIngestionBudget.Session budget) {
         Path root = workspaceRoot.toAbsolutePath().normalize();
         Path openspecRoot = root.resolve("openspec");
         Path config = openspecRoot.resolve("config.yaml");
@@ -67,8 +72,12 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
 
         final Optional<String> schema;
         try {
-            String configText = SafeWorkspaceFileResolver.rootedAt(root)
-                    .readUtf8(Path.of("openspec/config.yaml"));
+            Path relativeConfig = Path.of("openspec/config.yaml");
+            String configText = budget == null
+                    ? SafeWorkspaceFileResolver.rootedAt(root).readUtf8(
+                            relativeConfig,
+                            Math.toIntExact(ProviderIngestionBudget.DEFAULT.maxDocumentBytes()))
+                    : budget.readDocument(relativeConfig);
             schema = readSchema(configText);
         } catch (IOException | IllegalArgumentException exception) {
             return invalid(config, "OpenSpec config.yaml could not be read.");
