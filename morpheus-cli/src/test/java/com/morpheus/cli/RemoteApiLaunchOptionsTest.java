@@ -35,6 +35,7 @@ class RemoteApiLaunchOptionsTest {
     void remoteModeRequiresExplicitFlagTlsMaterialAndProtectedPasswordSource() {
         Path keyStore = temp.resolve("server.p12");
         Path auth = temp.resolve("auth.txt");
+        Path pluginDirectory = temp.resolve("trusted-provider-plugins");
         Properties properties = properties();
 
         assertFalse(RemoteApiLaunchOptions.isRemoteApiCommand(new String[]{"api"}));
@@ -52,6 +53,7 @@ class RemoteApiLaunchOptionsTest {
                         "--host", "0.0.0.0", "--port", "9443",
                         "--tls-keystore", keyStore.toString(),
                         "--auth-file", auth.toString(),
+                        "--provider-plugin-dir", pluginDirectory.toString(),
                         "--max-concurrent", "7"
                 },
                 environment,
@@ -62,7 +64,21 @@ class RemoteApiLaunchOptionsTest {
         assertEquals(7, remote.maxConcurrentRequests());
         assertEquals(auth.toAbsolutePath().normalize(), remote.authFile());
         assertEquals(keyStore.toAbsolutePath().normalize(), remote.tlsKeyStore());
+        assertEquals(pluginDirectory.toAbsolutePath().normalize(), remote.providerPluginDirectory());
         assertEquals("test-password", new String(remote.tlsPasswordChars()));
+    }
+
+    @Test
+    void remotePluginDirectoryDefaultsToServerConfigDirectory() {
+        Path keyStore = temp.resolve("server.p12");
+        RemoteApiLaunchOptions remote = RemoteApiLaunchOptions.parse(
+                new String[]{"--data-dir", temp.toString(), "api", "--remote", "--tls-keystore", keyStore.toString()},
+                Map.of("MORPHEUS_SERVER_TLS_PASSWORD", "protected-source"),
+                properties());
+
+        assertEquals(
+                remote.layout().configDirectory().resolve("provider-plugins").toAbsolutePath().normalize(),
+                remote.providerPluginDirectory());
     }
 
     @Test

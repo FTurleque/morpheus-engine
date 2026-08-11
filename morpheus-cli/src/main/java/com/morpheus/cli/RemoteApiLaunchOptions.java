@@ -17,7 +17,8 @@ record RemoteApiLaunchOptions(
         Path authFile,
         Path tlsKeyStore,
         String tlsPassword,
-        int maxConcurrentRequests) {
+        int maxConcurrentRequests,
+        Path providerPluginDirectory) {
 
     static boolean isRemoteApiCommand(String[] args) {
         boolean api = false;
@@ -38,6 +39,7 @@ record RemoteApiLaunchOptions(
         Optional<Path> database = Optional.empty();
         Optional<Path> explicitAuthFile = Optional.empty();
         Optional<Path> explicitKeyStore = Optional.empty();
+        Optional<Path> explicitProviderPluginDirectory = Optional.empty();
         String host = "127.0.0.1";
         int port = 8765;
         int maxConcurrent = MorpheusRemoteHttpServer.DEFAULT_MAX_CONCURRENT_REQUESTS;
@@ -71,6 +73,7 @@ record RemoteApiLaunchOptions(
                     case "--db" -> database = Optional.of(Path.of(value));
                     case "--auth-file" -> explicitAuthFile = Optional.of(Path.of(value));
                     case "--tls-keystore" -> explicitKeyStore = Optional.of(Path.of(value));
+                    case "--provider-plugin-dir" -> explicitProviderPluginDirectory = Optional.of(Path.of(value));
                     case "--max-concurrent" -> {
                         maxConcurrent = parseConcurrency(value);
                         maxConcurrentExplicit = true;
@@ -95,6 +98,7 @@ record RemoteApiLaunchOptions(
                     case "--db" -> database = Optional.of(Path.of(value));
                     case "--auth-file" -> explicitAuthFile = Optional.of(Path.of(value));
                     case "--tls-keystore" -> explicitKeyStore = Optional.of(Path.of(value));
+                    case "--provider-plugin-dir" -> explicitProviderPluginDirectory = Optional.of(Path.of(value));
                     case "--max-concurrent" -> {
                         maxConcurrent = parseConcurrency(value);
                         maxConcurrentExplicit = true;
@@ -121,6 +125,11 @@ record RemoteApiLaunchOptions(
                 .orElseThrow(() -> new IllegalArgumentException(
                         "remote mode requires --tls-keystore or MORPHEUS_SERVER_TLS_KEYSTORE"))
                 .toAbsolutePath().normalize();
+        Path providerPluginDirectory = explicitProviderPluginDirectory
+                .or(() -> envPath(environment, "MORPHEUS_SERVER_PROVIDER_PLUGIN_DIR"))
+                .or(() -> propertyPath(properties, "morpheus.server.providerPluginDirectory"))
+                .orElse(layout.configDirectory().resolve("provider-plugins"))
+                .toAbsolutePath().normalize();
         String password = nonBlank(environment.get("MORPHEUS_SERVER_TLS_PASSWORD"))
                 .or(() -> nonBlank(properties.getProperty("morpheus.server.tls.password")))
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -130,7 +139,15 @@ record RemoteApiLaunchOptions(
                     .or(() -> nonBlank(properties.getProperty("morpheus.server.maxConcurrent")));
             if (configured.isPresent()) maxConcurrent = parseConcurrency(configured.orElseThrow());
         }
-        return new RemoteApiLaunchOptions(layout, host, port, authFile, keyStore, password, maxConcurrent);
+        return new RemoteApiLaunchOptions(
+                layout,
+                host,
+                port,
+                authFile,
+                keyStore,
+                password,
+                maxConcurrent,
+                providerPluginDirectory);
     }
 
     char[] tlsPasswordChars() {
@@ -141,7 +158,7 @@ record RemoteApiLaunchOptions(
         return token.equals("--host") || token.equals("--port")
                 || token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")
                 || token.equals("--auth-file") || token.equals("--tls-keystore")
-                || token.equals("--max-concurrent");
+                || token.equals("--provider-plugin-dir") || token.equals("--max-concurrent");
     }
 
     private static int parsePort(String raw) {
