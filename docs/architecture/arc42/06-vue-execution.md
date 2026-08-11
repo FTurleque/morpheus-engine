@@ -1,149 +1,177 @@
 # §6 — Vue d'exécution (scénarios runtime)
 
-> **Sources** : `docs/developer/ARCHITECTURE.md`, `docs/developer/MCP.md`,
-> `docs/developer/API.md`, `docs/openapi/morpheus-v1.yaml`,
-> `morpheus-application/`, `morpheus-store-sqlite/`.
->
-> Les noms sont strictement cohérents avec la §5.
+> Cette section décrit les interactions architecturales stables. Les noms de
+> commandes, endpoints, classes et tools détaillés restent autoritatifs dans les
+> contrats et le code ; ils ne sont pas dupliqués ici lorsqu'ils sont volatils.
 
 ---
 
-## 6.1 Scénario nominal — Synchronisation d'un projet
-
-**Description** : un développeur demande la synchronisation d'un projet via
-la CLI. MORPHEUS lit le workspace, construit un snapshot, le valide et l'active.
+## 6.1 Synchronisation d'un projet
 
 ```mermaid
 sequenceDiagram
   autonumber
-  actor Développeur as Développeur «Person»
-  participant CLI as CLI Runtime<br/>«adapter»
-  participant AppIngestion as Ingestion & Sync<br/>«Component»
-  participant Provider as Provider (Markdown/OpenSpec)<br/>«adapter»
-  participant Workspace as Workspace Projet<br/>«Software System»
-  participant AppSnapshot as Temporal & Snapshot<br/>«Component»
-  participant StoreDB as SQLite Store<br/>«database»
+  actor U as Utilisateur
+  participant S as CLI / MCP / HTTP
+  participant A as Application
+  participant P as Provider
+  participant W as Workspace
+  participant K as Snapshot services
+  participant DB as Store
 
-  Développeur->>CLI: morpheus sync --project ./mon-projet
-  CLI->>AppIngestion: syncProject(projectRoot)
-  AppIngestion->>StoreDB: getOrCreateProject(projectRoot)
-  StoreDB-->>AppIngestion: Project{id, rootScheme, rootValue}
-  AppIngestion->>Provider: readSpecification(projectRoot, capabilities)
-  Provider->>Workspace: lire fichiers sources (SHA-256 diff)
-  Workspace-->>Provider: fichiers modifiés
-  Provider-->>AppIngestion: SpecificationContent{entities, changes, references}
-  AppIngestion->>AppSnapshot: createSnapshot(projectId, content)
-  AppSnapshot->>StoreDB: persist BUILDING → VALIDATING → READY
-  AppSnapshot->>StoreDB: activateSnapshot(snapshotId) [atomique]
-  StoreDB-->>AppSnapshot: OK — état = ACTIVE
-  AppSnapshot-->>AppIngestion: KnowledgeSnapshot{id, state=ACTIVE}
-  AppIngestion-->>CLI: SyncResult{snapshotId, requirementsCount, changesCount}
-  CLI-->>Développeur: Synchronisation réussie [stdout]
+  U->>S: demande de synchronisation
+  S->>A: use case sync
+  A->>P: lecture via contrat provider
+  P->>W: lecture bornée des sources
+  W-->>P: contenu source
+  P-->>A: contenu normalisé + diagnostics
+  A->>K: construire / valider le candidat
+  K->>DB: persister le candidat
+  K->>DB: activation atomique si valide
+  DB-->>K: snapshot actif
+  K-->>A: résultat de sync
+  A-->>S: résultat structuré
+  S-->>U: succès / diagnostics
+```
+
+Invariants :
+
+```text
+provider input != published fact until validation
+candidate failure != partial ACTIVE exposure
+PROPOSED never leaks into CURRENT
+activation == atomic
 ```
 
 ---
 
-## 6.2 Scénario d'erreur — Défaillance d'un adaptateur externe (MINOS)
-
-**Description** : un agent IA demande une analyse de code intelligence ; MINOS
-est indisponible. MORPHEUS répond avec les faits locaux disponibles et signale
-explicitement l'absence de contexte code.
+## 6.2 Défaillance d'une intégration externe
 
 ```mermaid
 sequenceDiagram
   autonumber
-  actor AgentIA as Agent IA «Person»
-  participant McpServer as MCP STDIO Server<br/>«adapter»
-  participant AppReasoning as Assisted Reasoning<br/>«Component»
-  participant IntegMinos as Adaptateur MINOS<br/>«adapter»
-  participant Minos as MINOS ENGINE<br/>«Software System»
-  participant AppQuery as Query & Read<br/>«Component»
-  participant StoreDB as SQLite Store<br/>«database»
+  actor C as Client
+  participant S as Surface MORPHEUS
+  participant A as Application
+  participant I as Adaptateur MINOS/NEXUS
+  participant E as Moteur externe
+  participant L as Faits locaux
 
-  AgentIA->>McpServer: tool: morpheus_reasoning_analyze {projectId, question}
-  McpServer->>AppReasoning: analyze(projectId, question)
-  AppReasoning->>IntegMinos: requestCodeContext(projectId, symbols)
-  IntegMinos->>Minos: MCP STDIO — minos_find_symbols(...)
-  Minos--xIntegMinos: TIMEOUT / processus absent
-  IntegMinos-->>AppReasoning: MinosIntegrationException{unavailable}
+  C->>S: requête nécessitant un enrichissement optionnel
+  S->>A: use case
+  A->>I: demande d'enrichissement
+  I->>E: MCP STDIO
+  E--xI: indisponible / timeout / réponse invalide
+  I-->>A: échec explicite de l'adaptateur
+  A->>L: lire les faits MORPHEUS disponibles
+  L-->>A: faits + provenance
+  A-->>S: résultat local + warning explicite
+  S-->>C: réponse structurée
+```
 
-  Note over AppReasoning: adapter failure != fact loss<br/>Passage en mode dégradé
-
-  AppReasoning->>AppQuery: getLocalFacts(projectId)
-  AppQuery->>StoreDB: query snapshot actif
-  StoreDB-->>AppQuery: SpecificationFacts{requirements, changes, traceability}
-  AppQuery-->>AppReasoning: LocalFacts{...}
-  AppReasoning-->>McpServer: ReasoningResult{facts, evidence, codeContextAvailable=false, warning="MINOS unavailable"}
-  McpServer-->>AgentIA: JSON — résultat avec warning explicite
+```text
+adapter failure != fact loss
+external enrichment != published local fact
+optional integration != startup dependency
 ```
 
 ---
 
-## 6.3 Scénario d'exploitation — Démarrage en mode MCP STDIO
+## 6.3 Démarrage MCP natif
 
-**Description** : un client MCP (ex. Claude Desktop) lance MORPHEUS comme
-sous-processus. MORPHEUS initialise le store SQLite (migrations si nécessaire),
-enregistre les tools et entre en boucle d'écoute.
+Le mode MCP public de la baseline M28 est lancé en STDIO, par exemple via :
+
+```text
+morpheus mcp --stdio
+```
 
 ```mermaid
 sequenceDiagram
   autonumber
-  participant ClientMcp as Client MCP<br/>«Software System»
-  participant Process as Processus JVM<br/>(morpheus-cli:MorpheusMain)<br/>«adapter»
-  participant McpRuntime as MCP Runtime<br/>«adapter»
-  participant SchemaMgr as SqliteSchemaManager<br/>«adapter»
-  participant StoreDB as SQLite Store<br/>«database»
-  participant ToolCatalog as MCP Tool Catalog<br/>«adapter»
+  participant Client as Client MCP
+  participant Launcher as MORPHEUS launcher
+  participant Runtime as MCP runtime
+  participant App as Application services
 
-  ClientMcp->>Process: spawn — morpheus mcp
-  Process->>SchemaMgr: initSchema()
-  SchemaMgr->>StoreDB: vérifier version schema / checksum SHA-256
-  alt Migrations manquantes
-    SchemaMgr->>StoreDB: appliquer V00N__*.sql séquentiellement
-    StoreDB-->>SchemaMgr: OK
-  end
-  SchemaMgr-->>Process: schema OK (version 15)
-  Process->>McpRuntime: start(STDIO)
-  McpRuntime->>ToolCatalog: enregistrer les 13 familles de tools
-  McpRuntime-->>ClientMcp: initialize response (protocole MCP 2.0.0)
+  Client->>Launcher: spawn morpheus mcp --stdio
+  Launcher->>Runtime: initialiser le serveur STDIO
+  Runtime->>App: câbler les use cases exposés
+  Runtime-->>Client: handshake MCP
 
-  loop Boucle MCP
-    ClientMcp->>McpRuntime: JSON-RPC request (tool call)
-    McpRuntime->>ToolCatalog: dispatch(toolName, args)
-    ToolCatalog-->>McpRuntime: result JSON
-    McpRuntime-->>ClientMcp: JSON-RPC response
+  loop appels tools
+    Client->>Runtime: requête MCP
+    Runtime->>App: exécuter le use case
+    App-->>Runtime: résultat structuré
+    Runtime-->>Client: réponse MCP
   end
 
-  ClientMcp->>Process: SIGTERM / stdin EOF
-  Process->>McpRuntime: shutdown gracieux
-  McpRuntime-->>Process: stopped
+  Client->>Launcher: fermeture STDIO / arrêt processus
+  Launcher->>Runtime: shutdown
 ```
+
+La version **2.0.0** mentionnée dans le build est la version du **SDK Java MCP**,
+pas un numéro de version du protocole à afficher comme contrat produit.
 
 ---
 
-## 6.4 Scénario d'exploitation — Évaluation d'une policy pack
-
-**Description** : un développeur évalue une policy pack active sur l'état
-courant d'un projet via l'API HTTP.
+## 6.4 Évaluation de gouvernance en lecture
 
 ```mermaid
 sequenceDiagram
   autonumber
-  actor Dev as Développeur «Person»
-  participant API as HTTP API Server<br/>«adapter»
-  participant AppPolicy as Policy & Governance<br/>«Component»
-  participant AppQuery as Query & Read<br/>«Component»
-  participant StoreDB as SQLite Store<br/>«database»
+  actor U as Utilisateur
+  participant S as CLI / MCP / HTTP
+  participant G as Policy service
+  participant Q as Query services
+  participant DB as Store
 
-  Dev->>API: POST /api/v1/policies/evaluate {projectId, policyPackId}
-  API->>AppPolicy: evaluate(projectId, policyPackId)
-  AppPolicy->>StoreDB: getPolicyPack(policyPackId)
-  StoreDB-->>AppPolicy: PolicyPack{rules[], overrides[]}
-  AppPolicy->>AppQuery: getActiveSnapshot(projectId)
-  AppQuery->>StoreDB: SELECT snapshot WHERE state='ACTIVE'
-  StoreDB-->>AppQuery: KnowledgeSnapshot + facts
-  AppQuery-->>AppPolicy: SpecificationFacts
-  AppPolicy->>AppPolicy: évaluer chaque règle (constraint != policy recommendation)
-  AppPolicy-->>API: PolicyEvaluationResult{findings[], violations[], recommendations[]}
-  API-->>Dev: 200 OK — JSON résultat (dry-run != mutation)
+  U->>S: demande d'évaluation / dry-run
+  S->>G: évaluer une policy
+  G->>Q: lire les faits du snapshot ciblé
+  Q->>DB: lecture
+  DB-->>Q: faits versionnés
+  Q-->>G: faits + provenance
+  G->>G: évaluer règles et overrides
+  G-->>S: findings / décisions / explications
+  S-->>U: résultat
+```
+
+Invariants :
+
+```text
+dry-run != mutation
+policy recommendation != domain fact
+warning != blocker unless policy says so
+```
+
+---
+
+## 6.5 Mutation lifecycle contrôlée
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as Utilisateur autorisé
+  participant S as Surface d'écriture
+  participant A as Lifecycle service
+  participant DB as Mutation store
+
+  U->>S: demande de transition + révision attendue
+  S->>A: validation de capacité / confirmation
+  A->>A: évaluer la transition
+  alt transition autorisée
+    A->>DB: mutation CAS + idempotency + audit
+    DB-->>A: nouvel état / nouvelle révision
+    A-->>S: mutation appliquée
+  else bloquée / inconnue / entrée requise
+    A-->>S: décision explicite sans mutation
+  end
+  S-->>U: résultat
+```
+
+```text
+ALLOWED != applied
+stale revision != overwrite
+idempotent retry != duplicate mutation
+transition evaluation != lifecycle mutation
 ```
