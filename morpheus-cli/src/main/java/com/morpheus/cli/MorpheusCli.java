@@ -8,6 +8,7 @@ import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
 import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessService;
 import com.morpheus.application.quality.DecisionReferenceQualityService;
@@ -62,7 +63,6 @@ import java.util.Set;
 
 /** Stable, scriptable local MORPHEUS command-line adapter. */
 public final class MorpheusCli {
-    static final String FALLBACK_VERSION = "0.1.0-SNAPSHOT";
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
     public static void main(String[] args) {
@@ -613,8 +613,7 @@ public final class MorpheusCli {
     }
 
     private String version() {
-        String implementationVersion = MorpheusCli.class.getPackage().getImplementationVersion();
-        return implementationVersion == null || implementationVersion.isBlank() ? FALLBACK_VERSION : implementationVersion;
+        return ProductMetadata.version();
     }
 
     private void printHelp(PrintStream out) {

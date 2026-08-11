@@ -8,6 +8,7 @@ import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
 import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
@@ -78,7 +79,6 @@ public final class MorpheusApiService {
     public static final int MAX_DEPTH = 20;
     public static final long DEFAULT_MAX_AGE_MINUTES = 60L;
     public static final long MAX_MAX_AGE_MINUTES = 525_600L;
-    public static final String FALLBACK_VERSION = "0.1.0-SNAPSHOT";
 
     private final Path databasePath;
     private final Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots;
@@ -97,13 +97,11 @@ public final class MorpheusApiService {
     }
 
     public Object health() {
-        return map("status", "UP", "service", "morpheus", "apiVersion", "v1");
+        return map("status", "UP", "service", "morpheus", "apiVersion", ProductMetadata.API_VERSION);
     }
 
     public Object version() {
-        String implementationVersion = MorpheusApiService.class.getPackage().getImplementationVersion();
-        return map("version", implementationVersion == null || implementationVersion.isBlank()
-                ? FALLBACK_VERSION : implementationVersion);
+        return map("version", ProductMetadata.version());
     }
 
     public Object listProjects() {
