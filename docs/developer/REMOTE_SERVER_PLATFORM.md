@@ -136,6 +136,19 @@ Le frontal utilise un `Semaphore` équitable. `tryAcquire()` est non bloquant : 
 
 Le modèle n’ajoute pas une queue applicative non bornée. Les invariants SQLite/CAS existants restent responsables des conflits métier.
 
+### Session SQLite par opération API
+
+Chaque opération locale ou remote qui construit `ApiRuntime` possède un `SqliteConnectionScope` thread-confined.
+Les neuf stores du runtime empruntent neuf connexions logiques, mais partagent exactement une connexion physique.
+La vérification/migration du schéma est exécutée une seule fois dans ce scope ; la fermeture des stores ne ferme que
+leurs handles logiques, puis `ApiRuntime.close()` ferme la connexion physique propriétaire. Hors scope, les stores
+conservent leur cycle de vie historique autonome.
+
+La pression est donc bornée à une connexion physique SQLite par opération API active, indépendamment du nombre de
+stores consultés. `SqliteConnectionScope.diagnostics()` expose les compteurs process `opened`, `closed`, `active` et
+`peak` sans chemin de base ni donnée métier. Un scope ne peut pas être imbriqué, changer de base/timeout, traverser un
+thread ou survivre à l’opération qui le possède.
+
 ## Runtime status
 
 `/api/v1/server/status` expose :

@@ -14,7 +14,10 @@ import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
 import java.nio.file.Path;
 import java.util.Objects;
 
-/** Owns the SQLite adapters used by one HTTP API operation. */
+/**
+ * Owns the SQLite adapters used by one HTTP API operation.
+ * Nine logical stores share exactly one physical, thread-confined SQLite connection and one schema check.
+ */
 final class ApiRuntime implements AutoCloseable {
     final SqliteSpecificationKnowledgeStore snapshots;
     final SqliteVersionedRequirementStore requirements;
@@ -52,6 +55,10 @@ final class ApiRuntime implements AutoCloseable {
 
     int logicalSqliteConnectionsBorrowed() {
         return sqliteScope.logicalConnectionsBorrowed();
+    }
+
+    int sqliteSchemaInitializations() {
+        return sqliteScope.schemaInitializations();
     }
 
     @Override

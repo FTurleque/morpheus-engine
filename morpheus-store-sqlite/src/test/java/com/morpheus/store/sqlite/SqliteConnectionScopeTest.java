@@ -8,6 +8,7 @@ import java.sql.Connection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SqliteConnectionScopeTest {
     @TempDir
@@ -46,5 +47,36 @@ class SqliteConnectionScopeTest {
             assertThrows(IllegalStateException.class, () -> SqliteConnectionScope.open(firstDatabase));
             assertThrows(java.sql.SQLException.class, () -> SqliteDatabaseSecurity.open(secondDatabase));
         }
+    }
+
+    @Test
+    void schemaRunsOnceAndRollbackRemainsVisibleAcrossLogicalConnections() throws Exception {
+        Path database = temp.resolve("transaction.db");
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database);
+             Connection first = SqliteDatabaseSecurity.open(database);
+             Connection second = SqliteDatabaseSecurity.open(database)) {
+            SqliteSchemaManager migrations = new SqliteSchemaManager();
+            migrations.migrate(first);
+            migrations.migrate(second);
+            assertEquals(1, scope.schemaInitializations());
+
+            try (var statement = first.createStatement()) {
+                statement.execute("CREATE TABLE rollback_probe(value INTEGER)");
+            }
+            first.setAutoCommit(false);
+            try (var statement = first.createStatement()) {
+                statement.execute("INSERT INTO rollback_probe(value) VALUES (1)");
+            }
+            first.rollback();
+            first.setAutoCommit(true);
+            try (var statement = second.createStatement();
+                 var result = statement.executeQuery("SELECT COUNT(*) FROM rollback_probe")) {
+                assertTrue(result.next());
+                assertEquals(0, result.getInt(1));
+            }
+        }
+        SqliteConnectionScope.Diagnostics diagnostics = SqliteConnectionScope.diagnostics();
+        assertEquals(0, diagnostics.active());
+        assertTrue(diagnostics.opened() >= diagnostics.closed());
     }
 }

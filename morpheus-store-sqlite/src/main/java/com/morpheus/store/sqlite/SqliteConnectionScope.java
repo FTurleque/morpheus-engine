@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Explicit thread-confined scope that lets multiple SQLite store adapters share one physical connection.
@@ -15,6 +16,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class SqliteConnectionScope implements AutoCloseable {
     private static final ThreadLocal<State> ACTIVE = new ThreadLocal<>();
+    private static final AtomicLong PHYSICAL_OPENED = new AtomicLong();
+    private static final AtomicLong PHYSICAL_CLOSED = new AtomicLong();
+    private static final AtomicInteger PHYSICAL_ACTIVE = new AtomicInteger();
+    private static final AtomicInteger PHYSICAL_PEAK = new AtomicInteger();
 
     private final State state;
     private boolean closed;
@@ -36,6 +41,9 @@ public final class SqliteConnectionScope implements AutoCloseable {
         try {
             Connection physical = SqliteDatabaseSecurity.openPhysical(normalized, busyTimeoutMillis);
             State state = new State(normalized, busyTimeoutMillis, physical);
+            PHYSICAL_OPENED.incrementAndGet();
+            int active = PHYSICAL_ACTIVE.incrementAndGet();
+            PHYSICAL_PEAK.accumulateAndGet(active, Math::max);
             ACTIVE.set(state);
             return new SqliteConnectionScope(state);
         } catch (SQLException failure) {
@@ -45,6 +53,32 @@ public final class SqliteConnectionScope implements AutoCloseable {
 
     public int logicalConnectionsBorrowed() {
         return state.borrows.get();
+    }
+
+    public int schemaInitializations() {
+        return state.schemaInitializations;
+    }
+
+    /** Process-level pressure diagnostics for scoped API sessions. */
+    public static Diagnostics diagnostics() {
+        return new Diagnostics(
+                PHYSICAL_OPENED.get(),
+                PHYSICAL_CLOSED.get(),
+                PHYSICAL_ACTIVE.get(),
+                PHYSICAL_PEAK.get());
+    }
+
+    static boolean schemaReadyIfActive() {
+        State state = ACTIVE.get();
+        return state != null && state.schemaReady;
+    }
+
+    static void markSchemaReadyIfActive() {
+        State state = ACTIVE.get();
+        if (state != null && !state.schemaReady) {
+            state.schemaReady = true;
+            state.schemaInitializations++;
+        }
     }
 
     static Connection borrowIfActive(Path databasePath, int busyTimeoutMillis) throws SQLException {
@@ -96,8 +130,18 @@ public final class SqliteConnectionScope implements AutoCloseable {
         ACTIVE.remove();
         try {
             state.physical.close();
+            PHYSICAL_CLOSED.incrementAndGet();
+            PHYSICAL_ACTIVE.decrementAndGet();
         } catch (SQLException failure) {
             throw new IllegalStateException("cannot close SQLite operation scope", failure);
+        }
+    }
+
+    public record Diagnostics(long opened, long closed, int active, int peak) {
+        public Diagnostics {
+            if (opened < 0 || closed < 0 || active < 0 || peak < 0) {
+                throw new IllegalArgumentException("SQLite connection diagnostics must not be negative");
+            }
         }
     }
 
@@ -106,6 +150,8 @@ public final class SqliteConnectionScope implements AutoCloseable {
         private final int busyTimeoutMillis;
         private final Connection physical;
         private final AtomicInteger borrows = new AtomicInteger();
+        private boolean schemaReady;
+        private int schemaInitializations;
 
         private State(Path databasePath, int busyTimeoutMillis, Connection physical) {
             this.databasePath = databasePath;
