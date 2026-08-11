@@ -5,14 +5,15 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
 /** Canonical allowlist separating remote WRITE authority from the server process filesystem authority. */
 public final class AllowedWorkspaceRoots {
-    private final List<Path> roots;
+    private final List<AllowedRoot> roots;
 
-    private AllowedWorkspaceRoots(List<Path> roots) {
+    private AllowedWorkspaceRoots(List<AllowedRoot> roots) {
         this.roots = List.copyOf(roots);
     }
 
@@ -21,7 +22,7 @@ public final class AllowedWorkspaceRoots {
         if (configuredRoots.isEmpty()) {
             throw new IllegalArgumentException("remote workspace roots must contain at least one server-configured directory");
         }
-        List<Path> canonical = new ArrayList<>();
+        List<AllowedRoot> canonical = new ArrayList<>();
         for (Path configured : configuredRoots) {
             Objects.requireNonNull(configured, "workspace root");
             Path lexical = configured.toAbsolutePath().normalize();
@@ -30,12 +31,16 @@ public final class AllowedWorkspaceRoots {
             }
             try {
                 Path real = lexical.toRealPath();
-                if (canonical.stream().noneMatch(real::equals)) canonical.add(real);
+                if (canonical.stream().noneMatch(root -> root.real().equals(real))) {
+                    canonical.add(new AllowedRoot(lexical, real));
+                }
             } catch (IOException failure) {
                 throw new IllegalArgumentException("cannot canonicalize remote workspace root", failure);
             }
         }
-        return new AllowedWorkspaceRoots(canonical.stream().sorted().toList());
+        return new AllowedWorkspaceRoots(canonical.stream()
+                .sorted(Comparator.comparing(root -> root.real().toString()))
+                .toList());
     }
 
     public Path requireAllowedDirectory(Path requested) {
@@ -50,16 +55,17 @@ public final class AllowedWorkspaceRoots {
             throw new IllegalArgumentException("workspace must be an existing real directory");
         }
         try {
-            Path lexicalRoot = roots.stream()
-                    .filter(lexical::startsWith)
+            Path real = lexical.toRealPath();
+            AllowedRoot allowedRoot = roots.stream()
+                    .filter(root -> lexical.startsWith(root.lexical()) || lexical.startsWith(root.real()))
+                    .filter(root -> real.startsWith(root.real()))
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException(
                             "workspace is outside the server-configured allowed roots"));
+            Path lexicalRoot = lexical.startsWith(allowedRoot.lexical())
+                    ? allowedRoot.lexical()
+                    : allowedRoot.real();
             rejectSymbolicAncestors(lexicalRoot, lexical);
-            Path real = lexical.toRealPath();
-            if (!real.startsWith(lexicalRoot)) {
-                throw new IllegalArgumentException("workspace is outside the server-configured allowed roots");
-            }
             return real;
         } catch (IOException failure) {
             throw new IllegalArgumentException("cannot canonicalize requested workspace", failure);
@@ -78,7 +84,7 @@ public final class AllowedWorkspaceRoots {
     }
 
     public List<Path> roots() {
-        return roots;
+        return roots.stream().map(AllowedRoot::real).toList();
     }
 
     private void rejectSymbolicAncestors(Path root, Path candidate) throws IOException {
@@ -91,5 +97,8 @@ public final class AllowedWorkspaceRoots {
                 throw new IllegalArgumentException("symbolic workspace path is not allowed");
             }
         }
+    }
+
+    private record AllowedRoot(Path lexical, Path real) {
     }
 }
