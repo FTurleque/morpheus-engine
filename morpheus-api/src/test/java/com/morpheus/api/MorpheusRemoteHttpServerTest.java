@@ -124,6 +124,10 @@ class MorpheusRemoteHttpServerTest {
             assertEquals(403, writeCannotProbePlugin.statusCode());
             HttpResponse<String> adminCannotProbeWithGet = send(client, probe, "GET", admin.token(), null);
             assertEquals(405, adminCannotProbeWithGet.statusCode());
+            HttpResponse<String> adminCanProbeServerConfiguredDirectory = send(
+                    client, probe, "POST", admin.token(), null);
+            assertEquals(200, adminCanProbeServerConfiguredDirectory.statusCode(), adminCanProbeServerConfiguredDirectory.body());
+            assertTrue(adminCanProbeServerConfiguredDirectory.body().contains("PLUGIN_NOT_FOUND"));
 
             URI clientSelectedDirectory = URI.create(
                     probe + "&directory=" + URLEncoder.encode(temp.resolve("attacker-plugins").toString(), StandardCharsets.UTF_8));
