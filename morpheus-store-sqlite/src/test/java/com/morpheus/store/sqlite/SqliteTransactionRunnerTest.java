@@ -9,6 +9,7 @@ import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,7 +34,7 @@ class SqliteTransactionRunnerTest {
 
     @Test
     void sqlFailureIsWrappedAndRollbackFailureIsSuppressed() {
-        Connection connection = connection(false, true, false);
+        Connection connection = connection(true, true, false);
 
         KnowledgeStoreException thrown = assertThrows(KnowledgeStoreException.class, () ->
                 SqliteTransactionRunner.runVoid(connection, "store failed", ignored -> {
@@ -43,6 +44,37 @@ class SqliteTransactionRunnerTest {
         assertEquals("store failed", thrown.getMessage());
         assertInstanceOf(SQLException.class, thrown.getCause());
         assertEquals(1, thrown.getSuppressed().length);
+    }
+
+    @Test
+    void rejectsCallerOwnedTransactionWithoutCommittingOrRollingBackIt() {
+        AtomicBoolean commitCalled = new AtomicBoolean();
+        AtomicBoolean rollbackCalled = new AtomicBoolean();
+        Connection connection = (Connection) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[]{Connection.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getAutoCommit" -> false;
+                    case "commit" -> {
+                        commitCalled.set(true);
+                        yield null;
+                    }
+                    case "rollback" -> {
+                        rollbackCalled.set(true);
+                        yield null;
+                    }
+                    case "close", "setAutoCommit" -> null;
+                    case "isClosed" -> false;
+                    default -> defaultValue(method.getReturnType());
+                });
+
+        KnowledgeStoreException thrown = assertThrows(
+                KnowledgeStoreException.class,
+                () -> SqliteTransactionRunner.runVoid(connection, "store failed", ignored -> { }));
+
+        assertTrue(thrown.getMessage().contains("caller-owned transactions are not supported"));
+        assertFalse(commitCalled.get());
+        assertFalse(rollbackCalled.get());
     }
 
     @Test
