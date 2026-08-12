@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SafeWorkspaceFileResolverTest {
@@ -31,6 +32,18 @@ class SafeWorkspaceFileResolverTest {
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
         assertEquals("€", resolver.readUtf8(Path.of("spec.md"), 3));
         assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("spec.md"), 2));
+    }
+
+    @Test
+    void rejectsMalformedUtf8InsteadOfReplacingInvalidBytes() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace-invalid-utf8"));
+        Files.write(workspace.resolve("spec.md"), new byte[]{(byte) 0xC3, (byte) 0x28});
+
+        SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> resolver.readUtf8(Path.of("spec.md")));
+        assertTrue(failure.getMessage().contains("not valid UTF-8"));
     }
 
     @Test
