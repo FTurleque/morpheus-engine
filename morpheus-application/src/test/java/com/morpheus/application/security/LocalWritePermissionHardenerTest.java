@@ -57,7 +57,7 @@ class LocalWritePermissionHardenerTest {
     }
 
     @Test
-    void preservesPreexistingParentPermissions() throws Exception {
+    void preservesPreexistingParentPermissionsWhenNotWritableByOthers() throws Exception {
         LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
         Path existing = tempDir.resolve("user-owned-parent");
         Files.createDirectory(existing);
@@ -81,6 +81,27 @@ class LocalWritePermissionHardenerTest {
         if (before != null) {
             assertEquals(before, Files.getPosixFilePermissions(existing, LinkOption.NOFOLLOW_LINKS));
         }
+    }
+
+    @Test
+    void refusesPreexistingPosixDirectoryWritableByOtherUsers() throws Exception {
+        Path existing = tempDir.resolve("shared-parent");
+        Files.createDirectory(existing);
+        PosixFileAttributeView posix = Files.getFileAttributeView(
+                existing, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        if (posix == null) return;
+
+        Files.setPosixFilePermissions(existing, EnumSet.of(
+                PosixFilePermission.OWNER_READ,
+                PosixFilePermission.OWNER_WRITE,
+                PosixFilePermission.OWNER_EXECUTE,
+                PosixFilePermission.GROUP_READ,
+                PosixFilePermission.GROUP_WRITE,
+                PosixFilePermission.GROUP_EXECUTE));
+
+        assertThrows(
+                LocalWritePermissionHardener.LocalWritePermissionException.class,
+                () -> new LocalWritePermissionHardener().hardenDirectory(existing));
     }
 
     @Test
