@@ -122,18 +122,22 @@ public final class SqliteConnectionScope implements AutoCloseable {
     @Override
     public void close() {
         if (closed) return;
-        closed = true;
         State active = ACTIVE.get();
         if (active != state) {
             throw new IllegalStateException("SQLite connection scope must close on its owning thread");
         }
+
+        // Only mark the scope closed after ownership has been established. A wrong-thread close attempt must
+        // leave the owning thread able to perform the real cleanup later.
         ACTIVE.remove();
+        closed = true;
         try {
             state.physical.close();
             PHYSICAL_CLOSED.incrementAndGet();
-            PHYSICAL_ACTIVE.decrementAndGet();
         } catch (SQLException failure) {
             throw new IllegalStateException("cannot close SQLite operation scope", failure);
+        } finally {
+            PHYSICAL_ACTIVE.decrementAndGet();
         }
     }
 
