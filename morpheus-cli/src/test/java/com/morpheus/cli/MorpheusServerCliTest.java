@@ -39,6 +39,7 @@ class MorpheusServerCliTest {
         assertFalse(persisted.contains(token));
         assertTrue(persisted.matches("(?s).*alice\\|ADMIN\\|[0-9a-f]{64}.*"));
         assertTrue(created.out().contains("NOT_PERSISTED_PRINTED_ONCE"));
+        assertTrue(created.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
     }
 
     @Test
@@ -58,11 +59,14 @@ class MorpheusServerCliTest {
         assertFalse(listed.out().contains(token(secondAdmin)), listed.out());
         assertFalse(listed.out().contains(originalReaderToken), listed.out());
         assertFalse(Pattern.compile("[0-9a-f]{64}").matcher(listed.out()).find(), listed.out());
+        assertTrue(listed.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
 
         Result rotated = run("--json", "server", "identity", "rotate", "--principal", "reader");
         assertEquals(CliExitCode.SUCCESS.code(), rotated.exitCode(), rotated.err());
         assertFalse(token(rotated).equals(originalReaderToken));
-        assertTrue(rotated.out().contains("RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION"));
+        assertTrue(rotated.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
+        assertTrue(rotated.out().contains("INVALID_IMMEDIATELY"));
+        assertFalse(rotated.out().contains("RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION"));
 
         Result changed = run("--json", "server", "identity", "role",
                 "--principal", "reader", "--role", "WRITE");
