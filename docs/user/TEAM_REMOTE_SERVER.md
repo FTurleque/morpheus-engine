@@ -148,10 +148,17 @@ sorties de racine et chemins utilisant un symlink/junction. La même politique
 est réappliquée aux workspaces déjà persistés avant chaque synchronisation.
 Les erreurs remote ne renvoient pas les chemins serveur refusés.
 
-Le scan de synchronisation est borné avant fingerprint SHA-256 : profondeur,
-nombre de fichiers, taille individuelle et volume agrégé disposent de budgets
-fail-closed. Un workspace qui dépasse ces limites produit un scan incomplet et
-ne devient pas une nouvelle baseline.
+Le scan de synchronisation est borné **avant** fingerprint SHA-256. Les valeurs par défaut sont :
+
+```text
+profondeur             128 segments
+répertoires traversés  50 000
+fichiers                50 000
+taille individuelle    64 MiB
+volume agrégé           2 GiB
+```
+
+Un workspace qui dépasse l’un de ces budgets produit un scan incomplet et ne devient pas une nouvelle baseline. Ces plafonds protègent aussi le cas pathologique d’une arborescence contenant énormément de répertoires vides.
 
 À l’inverse, le mode local :
 
