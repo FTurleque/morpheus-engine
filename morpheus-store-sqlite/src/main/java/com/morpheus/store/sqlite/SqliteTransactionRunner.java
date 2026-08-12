@@ -68,8 +68,9 @@ final class SqliteTransactionRunner {
                 suppress(primary, cleanupFailure);
                 return;
             }
-            if (cleanupFailure instanceof RuntimeException runtimeFailure) throw runtimeFailure;
-            throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode", cleanupFailure);
+            throw new SqliteCommittedTransactionException(
+                    "SQLite commit succeeded but restoring auto-commit failed; the mutation is committed and must not be retried",
+                    cleanupFailure);
         }
     }
 
