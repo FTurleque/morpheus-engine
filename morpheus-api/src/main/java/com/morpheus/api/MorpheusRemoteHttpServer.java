@@ -157,9 +157,6 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                     technicalContextProvider,
                     writeCapabilityResolver,
                     allowedWorkspaceRoots);
-            // Keep the TCP accept queue distinct from the application concurrency budget. This lets accepted
-            // excess requests reach the semaphore and receive a deterministic HTTP 429 instead of being refused
-            // at the socket layer when a deliberately small maxConcurrentRequests value is configured.
             int listenBacklog = Math.max(DEFAULT_MAX_CONCURRENT_REQUESTS, maxConcurrentRequests);
             HttpsServer https = HttpsServer.create(new InetSocketAddress(normalizedHost, port), listenBacklog);
             https.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
@@ -393,6 +390,13 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                             "PLUGIN_SHA256_REQUIRED",
                             "remote provider-plugin probe requires a trusted SHA-256 pin");
                 }
+                if (!sha256.matches("[0-9a-fA-F]{64}")) {
+                    throw new RemoteFailure(
+                            400,
+                            "PLUGIN_SHA256_INVALID",
+                            "remote provider-plugin SHA-256 pin must contain exactly 64 hexadecimal characters");
+                }
+                upstream.put("sha256", sha256.toLowerCase(Locale.ROOT));
                 upstream.put("workspace", allowedWorkspaceRoots
                         .requireAllowedDirectory(query.get("workspace"))
                         .toString());
