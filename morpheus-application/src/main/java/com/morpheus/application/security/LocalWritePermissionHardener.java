@@ -29,6 +29,7 @@ public final class LocalWritePermissionHardener {
         try {
             List<Path> created = createMissingDirectories(directory);
             if (created.isEmpty()) {
+                requireWriteProtectedDirectory(directory);
                 return Result.PREEXISTING_PRESERVED;
             }
             boolean hardened = true;
