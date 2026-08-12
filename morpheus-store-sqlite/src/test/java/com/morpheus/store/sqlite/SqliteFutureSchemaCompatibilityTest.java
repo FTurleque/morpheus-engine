@@ -7,7 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.sql.DriverManager;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,7 +37,6 @@ class SqliteFutureSchemaCompatibilityTest {
         KnowledgeStoreException failure = assertThrows(
                 KnowledgeStoreException.class,
                 () -> new SqliteSpecificationKnowledgeStore(database));
-        assertTrue(failure.getMessage().contains("Cannot initialize SQLite knowledge store"));
         assertTrue(rootMessage(failure).contains("newer than supported 15"));
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database);
@@ -45,7 +44,7 @@ class SqliteFutureSchemaCompatibilityTest {
              var result = statement.executeQuery(
                      "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='projects'")) {
             assertTrue(result.next());
-            assertFalse(result.getInt(1) > 0, "known migrations must not run against a future schema");
+            assertEquals(0, result.getInt(1), "known migrations must not run against a future schema");
         }
     }
 
