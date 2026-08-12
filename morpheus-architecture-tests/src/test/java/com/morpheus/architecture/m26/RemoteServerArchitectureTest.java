@@ -23,7 +23,7 @@ class RemoteServerArchitectureTest {
     }
 
     @Test
-    void remoteBoundaryUsesTlsHashedBearerRbacAndNeverForwardsAuthorization() throws IOException {
+    void remoteBoundaryUsesTlsLiveHashedBearerRbacAndNeverForwardsAuthorization() throws IOException {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
@@ -46,6 +46,9 @@ class RemoteServerArchitectureTest {
         assertTrue(server.contains("TOO_MANY_REQUESTS"));
         assertTrue(server.contains("X-Frame-Options"));
         assertTrue(server.contains("Content-Security-Policy"));
+        assertTrue(server.contains("MorpheusRemoteIdentityFile.load(authFile)"));
+        assertTrue(server.contains("PLUGIN_SHA256_REQUIRED"));
+        assertTrue(server.contains("usesBoundedUpstreamTimeout"));
         assertFalse(server.contains("request.header(\"Authorization\""));
         assertFalse(server.contains("Access-Control-Allow-Origin"));
 
@@ -53,6 +56,8 @@ class RemoteServerArchitectureTest {
         assertTrue(identities.contains("SecureRandom"));
         assertTrue(identities.contains("TOKEN_BYTES = 32"));
         assertTrue(identities.contains("sha256"));
+        assertTrue(identities.contains("FileChannel"));
+        assertTrue(identities.contains("FileLock"));
         assertFalse(identities.contains("token + \"|\""));
 
         assertTrue(remoteOptions.contains("MORPHEUS_SERVER_TLS_PASSWORD"));
@@ -64,7 +69,7 @@ class RemoteServerArchitectureTest {
     }
 
     @Test
-    void backupRestoreIsVerifiedOfflineAndRemoteRestoreIsNotExposed() throws IOException {
+    void backupRestoreAndPluginProbeContractsAreFailClosed() throws IOException {
         Path root = repositoryRoot();
         String maintenance = Files.readString(root.resolve(
                 "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteServerMaintenance.java"));
@@ -79,12 +84,17 @@ class RemoteServerArchitectureTest {
         assertTrue(maintenance.contains("explicit confirmation"));
 
         assertTrue(manifest.contains("server.status\tREAD\tEXPLICITLY_REMOTE_ONLY\tEXPLICITLY_NOT_EXPOSED\tGET /api/v1/server/status"));
+        assertTrue(manifest.contains("server.identity.revoke\tWRITE\tserver identity revoke\tEXPLICITLY_NOT_EXPOSED\tEXPLICITLY_LOCAL_ONLY"));
         assertTrue(manifest.contains("server.backup.create\tWRITE\tserver backup create\tEXPLICITLY_NOT_EXPOSED\tPOST /api/v1/server/backups"));
         assertTrue(manifest.contains("server.restore\tWRITE\tserver restore --confirm\tEXPLICITLY_NOT_EXPOSED\tEXPLICITLY_OFFLINE_ONLY"));
+        assertTrue(manifest.contains("remote overlay deliberately requires POST + ADMIN"));
 
         assertTrue(openApi.contains("scheme: bearer"));
         assertTrue(openApi.contains("/server/status:"));
         assertTrue(openApi.contains("/server/backups:"));
+        assertTrue(openApi.contains("/provider-plugins/probe:"));
+        assertTrue(openApi.contains("name: sha256"));
+        assertTrue(openApi.contains("required: true"));
         assertFalse(openApi.contains("/server/restore"));
         assertTrue(openApi.contains("maximum: 512"));
         assertTrue(openApi.contains("maximum: 15"));
