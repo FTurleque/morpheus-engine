@@ -140,6 +140,11 @@ public final class LocalSourceInventoryScanner {
                             budget.exhaust();
                             return FileVisitResult.TERMINATE;
                         }
+                        Optional<String> directoryRejection = budget.reserveDirectory();
+                        if (directoryRejection.isPresent()) {
+                            failures.add(limitFailure(workspace, directory, directoryRejection.orElseThrow()));
+                            return FileVisitResult.TERMINATE;
+                        }
                         return FileVisitResult.CONTINUE;
                     }
 
@@ -160,7 +165,7 @@ public final class LocalSourceInventoryScanner {
                             budget.exhaust();
                             return FileVisitResult.TERMINATE;
                         }
-                        Optional<String> rejection = budget.reserve(attrs.size());
+                        Optional<String> rejection = budget.reserveFile(attrs.size());
                         if (rejection.isPresent()) {
                             failures.add(limitFailure(workspace, file, rejection.orElseThrow()));
                             return FileVisitResult.TERMINATE;
@@ -254,6 +259,7 @@ public final class LocalSourceInventoryScanner {
 
     private static final class ScanBudget {
         private final SourceScanPolicy policy;
+        private long directories;
         private long files;
         private long aggregateBytes;
         private boolean exhausted;
@@ -262,7 +268,16 @@ public final class LocalSourceInventoryScanner {
             this.policy = policy;
         }
 
-        private Optional<String> reserve(long fileBytes) {
+        private Optional<String> reserveDirectory() {
+            if (directories >= policy.maxDirectories()) {
+                exhausted = true;
+                return Optional.of("source scan directory count exceeds limit " + policy.maxDirectories());
+            }
+            directories++;
+            return Optional.empty();
+        }
+
+        private Optional<String> reserveFile(long fileBytes) {
             if (fileBytes < 0) {
                 exhausted = true;
                 return Optional.of("source file size is negative");
