@@ -17,6 +17,7 @@ import java.util.Set;
 
 /** M26 local administrative CLI for remote identities and SQLite backup/restore. */
 final class MorpheusServerCli {
+    private static final String IDENTITY_RELOAD_POLICY = "LIVE_RELOAD_ON_AUTHENTICATION";
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
 
@@ -96,7 +97,7 @@ final class MorpheusServerCli {
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
         view.put("identities", identities);
         view.put("tokenMaterialExposed", false);
-        view.put("reloadPolicy", "RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION");
+        view.put("reloadPolicy", IDENTITY_RELOAD_POLICY);
         print(parsed.json(), out, view);
         return CliExitCode.SUCCESS.code();
     }
@@ -118,7 +119,7 @@ final class MorpheusServerCli {
                 MorpheusRemoteIdentityFile.rotate(authFile, principal);
         Map<String, Object> view = credentialView(credential, authFile);
         view.put("mutation", "ROTATED");
-        view.put("oldToken", "INVALID_AFTER_REMOTE_SERVER_RESTART");
+        view.put("oldToken", "INVALID_IMMEDIATELY");
         print(parsed.json(), out, view);
         return CliExitCode.SUCCESS.code();
     }
@@ -173,7 +174,7 @@ final class MorpheusServerCli {
         view.put("token", credential.token());
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
         view.put("tokenPersistence", "NOT_PERSISTED_PRINTED_ONCE");
-        view.put("reloadPolicy", "RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION");
+        view.put("reloadPolicy", IDENTITY_RELOAD_POLICY);
         return view;
     }
 
@@ -182,7 +183,7 @@ final class MorpheusServerCli {
         view.put("mutation", mutation);
         view.put("principal", principal);
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
-        view.put("reloadPolicy", "RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION");
+        view.put("reloadPolicy", IDENTITY_RELOAD_POLICY);
         return view;
     }
 
