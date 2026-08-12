@@ -154,13 +154,14 @@ Les lectures provider passent par `SafeWorkspaceFileResolver`, qui applique un d
 Le scan source qui précède l'ingestion est lui aussi borné **avant** le fingerprint SHA-256 des fichiers. `SourceScanPolicy.safeDefaults()` limite :
 
 ```text
-profondeur            128 segments
-fichiers               50 000
-taille d'un fichier    64 MiB
-volume agrégé          2 GiB
+profondeur             128 segments
+répertoires traversés  50 000
+fichiers                50 000
+taille d'un fichier     64 MiB
+volume agrégé           2 GiB
 ```
 
-Le dépassement produit un `SourceInventoryScanResult` incomplet ; la synchronisation ne publie pas cette observation comme nouvelle baseline. Les budgets provider plus fins continuent ensuite de s'appliquer à l'ingestion métier.
+Le dépassement produit un `SourceInventoryScanResult` incomplet ; la synchronisation ne publie pas cette observation comme nouvelle baseline. Le compteur de répertoires empêche également une arborescence composée de très nombreux répertoires vides de contourner le budget. Les budgets provider plus fins continuent ensuite de s'appliquer à l'ingestion métier.
 
 ## TLS
 
@@ -201,8 +202,7 @@ thread ou survivre à l’opération qui le possède. Un appel `close()` depuis 
 
 Les blocs transactionnels des stores et du gestionnaire de schéma délèguent à `SqliteTransactionRunner`. Le runner
 emprunte la connexion sans jamais la fermer, possède la transition d’auto-commit, le commit/rollback et la restauration
-du mode précédent. Une erreur métier ou SQL reste toujours la cause primaire ; les échecs de rollback et de restauration
-sont rattachés comme exceptions `suppressed`.
+du mode précédent. Il exige `autoCommit=true` à l'entrée : une transaction déjà ouverte appartient au caller et est refusée sans `commit()` ni `rollback()` afin d'interdire les transactions imbriquées implicites. Une erreur métier ou SQL reste toujours la cause primaire ; les échecs de rollback et de restauration sont rattachés comme exceptions `suppressed`.
 
 Si le `commit()` réussit mais que la restauration du mode auto-commit échoue ensuite, le runner lève un `SqliteCommittedTransactionException`. Cette exception signifie explicitement que **la mutation est déjà commitée et ne doit pas être rejouée comme si elle avait rollbacké**.
 
@@ -317,7 +317,7 @@ Voir `contracts/public-surfaces.tsv` et `docs/openapi/morpheus-v1-remote-m26.yam
 - `MorpheusRemoteHttpServerTest` : PKCS12 réel, HTTPS, 401/403, rôles, live revoke, pin plugin, timeout classification, headers, backup ADMIN, 429, secret non-disclosure ;
 - `RemoteApiLaunchOptionsTest` : local loopback et startup remote fail-closed ;
 - `MorpheusServerCliTest` : provisioning/lifecycle + backup/verify/restore ;
-- `SqliteConnectionScopeTest` / `SqliteTransactionRunnerTest` : confinement thread, cleanup et résultat post-commit explicite ;
+- `SqliteConnectionScopeTest` / `SqliteTransactionRunnerTest` : confinement thread, transaction ownership, cleanup et résultat post-commit explicite ;
 - `SqliteFutureSchemaCompatibilityTest` / `SqliteServerMaintenanceTest` : integrity/schema/lease/future-schema ;
 - `RemoteServerArchitectureTest` : boundaries et contrats source/manifest/OpenAPI.
 
