@@ -3,6 +3,8 @@ package com.morpheus.api;
 import com.morpheus.application.security.LocalWritePermissionHardener;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -28,8 +30,9 @@ import java.util.regex.Pattern;
  * M26 reference identity file.
  *
  * <p>The file persists only principal, role and SHA-256(token). Generated bearer tokens are returned once to
- * the caller and are never written to disk. Identity mutations are atomic within this JVM; a running remote
- * server keeps its startup snapshot and must be restarted after administrative changes.</p>
+ * the caller and are never written to disk. Mutations are serialized both inside this JVM and across cooperating
+ * MORPHEUS processes through an owner-hardened sidecar file lock. The remote server reloads the current identity
+ * snapshot for each authentication request, so revoke/rotate/role changes become effective without restart.</p>
  */
 public final class MorpheusRemoteIdentityFile {
     public static final int MAX_FILE_BYTES = 256 * 1024;
@@ -104,8 +107,7 @@ public final class MorpheusRemoteIdentityFile {
         Objects.requireNonNull(authFile, "authFile");
         String normalizedPrincipal = requirePrincipal(principal);
         Objects.requireNonNull(role, "role");
-        synchronized (MUTATION_LOCK) {
-            Path file = normalizedFile(authFile);
+        return mutate(authFile, file -> {
             List<Identity> existing = Files.exists(file, LinkOption.NOFOLLOW_LINKS) ? load(file) : List.of();
             if (existing.stream().anyMatch(identity -> identity.principal().equals(normalizedPrincipal))) {
                 throw new IllegalArgumentException("remote principal already exists: " + normalizedPrincipal);
@@ -118,14 +120,14 @@ public final class MorpheusRemoteIdentityFile {
             updated.add(identity(credential));
             write(file, updated, new AuditRecord(Instant.now(), Mutation.CREATE, normalizedPrincipal, role));
             return credential;
-        }
+        });
     }
 
     public static List<Identity> revoke(Path authFile, String principal) {
         String normalizedPrincipal = requirePrincipal(principal);
-        synchronized (MUTATION_LOCK) {
-            Path file = secureExistingFile(authFile);
-            List<Identity> existing = load(file);
+        return mutate(authFile, file -> {
+            Path existingFile = secureExistingFile(file);
+            List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
             if (target.role() == MorpheusRemoteRole.ADMIN && adminCount(existing) == 1) {
                 throw new IllegalArgumentException("cannot revoke the last ADMIN identity");
@@ -133,34 +135,34 @@ public final class MorpheusRemoteIdentityFile {
             List<Identity> updated = existing.stream()
                     .filter(identity -> !identity.principal().equals(normalizedPrincipal))
                     .toList();
-            write(file, updated,
+            write(existingFile, updated,
                     new AuditRecord(Instant.now(), Mutation.REVOKE, normalizedPrincipal, target.role()));
             return updated;
-        }
+        });
     }
 
     public static GeneratedCredential rotate(Path authFile, String principal) {
         String normalizedPrincipal = requirePrincipal(principal);
-        synchronized (MUTATION_LOCK) {
-            Path file = secureExistingFile(authFile);
-            List<Identity> existing = load(file);
+        return mutate(authFile, file -> {
+            Path existingFile = secureExistingFile(file);
+            List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
             GeneratedCredential credential = newCredential(normalizedPrincipal, target.role());
             List<Identity> updated = existing.stream()
                     .map(identity -> identity.principal().equals(normalizedPrincipal) ? identity(credential) : identity)
                     .toList();
-            write(file, updated,
+            write(existingFile, updated,
                     new AuditRecord(Instant.now(), Mutation.ROTATE, normalizedPrincipal, target.role()));
             return credential;
-        }
+        });
     }
 
     public static List<Identity> changeRole(Path authFile, String principal, MorpheusRemoteRole newRole) {
         String normalizedPrincipal = requirePrincipal(principal);
         Objects.requireNonNull(newRole, "newRole");
-        synchronized (MUTATION_LOCK) {
-            Path file = secureExistingFile(authFile);
-            List<Identity> existing = load(file);
+        return mutate(authFile, file -> {
+            Path existingFile = secureExistingFile(file);
+            List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
             if (target.role() == MorpheusRemoteRole.ADMIN
                     && newRole != MorpheusRemoteRole.ADMIN
@@ -172,10 +174,10 @@ public final class MorpheusRemoteIdentityFile {
                             ? new Identity(identity.principal(), newRole, identity.tokenHash())
                             : identity)
                     .toList();
-            write(file, updated,
+            write(existingFile, updated,
                     new AuditRecord(Instant.now(), Mutation.ROLE_CHANGED, normalizedPrincipal, newRole));
             return updated;
-        }
+        });
     }
 
     public static List<AuditRecord> audit(Path authFile) {
@@ -203,6 +205,39 @@ public final class MorpheusRemoteIdentityFile {
 
     public static String sha256Hex(String token) {
         return HexFormat.of().formatHex(sha256Bytes(token));
+    }
+
+    private static <T> T mutate(Path authFile, MutationWork<T> work) {
+        Objects.requireNonNull(work, "work");
+        synchronized (MUTATION_LOCK) {
+            Path file = normalizedFile(authFile);
+            Path parent = file.getParent();
+            if (parent == null) throw new IllegalArgumentException("remote auth file must have a parent directory");
+            Path lockFile = mutationLockPath(file);
+            try {
+                Files.createDirectories(parent);
+                LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
+                hardener.hardenDirectory(parent);
+                rejectSymbolic(lockFile, "remote auth mutation lock");
+                try (FileChannel channel = FileChannel.open(
+                        lockFile,
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.WRITE,
+                        LinkOption.NOFOLLOW_LINKS)) {
+                    hardener.hardenFile(lockFile);
+                    try (FileLock ignored = channel.lock()) {
+                        return work.run(file);
+                    }
+                }
+            } catch (IOException failure) {
+                throw new IllegalArgumentException("cannot lock remote auth file for mutation", failure);
+            }
+        }
+    }
+
+    static Path mutationLockPath(Path authFile) {
+        Path file = normalizedFile(authFile);
+        return file.resolveSibling(file.getFileName() + ".lock");
     }
 
     private static List<Identity> parse(List<String> lines) {
@@ -385,4 +420,8 @@ public final class MorpheusRemoteIdentityFile {
         return principal.trim();
     }
 
+    @FunctionalInterface
+    private interface MutationWork<T> {
+        T run(Path file);
+    }
 }
