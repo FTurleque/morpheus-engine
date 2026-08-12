@@ -167,26 +167,33 @@ class MorpheusRemoteHttpServerTest {
             }
 
             String workspace = URLEncoder.encode(allowedWorkspace.toString(), StandardCharsets.UTF_8);
+            String trustedPin = "0".repeat(64);
             URI probe = URI.create(base + "/provider-plugins/probe?pluginId=missing&workspace=" + workspace);
+            URI pinnedProbe = URI.create(probe + "&sha256=" + trustedPin);
             HttpResponse<String> readCannotProbePlugin = send(client, probe, "POST", read.token(), null);
             assertEquals(403, readCannotProbePlugin.statusCode());
             HttpResponse<String> writeCannotProbePlugin = send(client, probe, "POST", write.token(), null);
             assertEquals(403, writeCannotProbePlugin.statusCode());
             HttpResponse<String> adminCannotProbeWithGet = send(client, probe, "GET", admin.token(), null);
             assertEquals(405, adminCannotProbeWithGet.statusCode());
-            HttpResponse<String> adminCanProbeServerConfiguredDirectory = send(
+            HttpResponse<String> adminCannotProbeWithoutIntegrityPin = send(
                     client, probe, "POST", admin.token(), null);
+            assertEquals(400, adminCannotProbeWithoutIntegrityPin.statusCode(), adminCannotProbeWithoutIntegrityPin.body());
+            assertTrue(adminCannotProbeWithoutIntegrityPin.body().contains("PLUGIN_SHA256_REQUIRED"));
+            HttpResponse<String> adminCanProbeServerConfiguredDirectory = send(
+                    client, pinnedProbe, "POST", admin.token(), null);
             assertEquals(200, adminCanProbeServerConfiguredDirectory.statusCode(), adminCanProbeServerConfiguredDirectory.body());
             assertTrue(adminCanProbeServerConfiguredDirectory.body().contains("PLUGIN_NOT_FOUND"));
             URI outsideProbe = URI.create(base + "/provider-plugins/probe?pluginId=missing&workspace="
-                    + URLEncoder.encode(outsideWorkspace.toString(), StandardCharsets.UTF_8));
+                    + URLEncoder.encode(outsideWorkspace.toString(), StandardCharsets.UTF_8)
+                    + "&sha256=" + trustedPin);
             HttpResponse<String> adminCannotProbeOutsideWorkspace = send(
                     client, outsideProbe, "POST", admin.token(), null);
             assertEquals(400, adminCannotProbeOutsideWorkspace.statusCode(), adminCannotProbeOutsideWorkspace.body());
             assertFalse(adminCannotProbeOutsideWorkspace.body().contains(outsideWorkspace.toString()));
 
             URI clientSelectedDirectory = URI.create(
-                    probe + "&directory=" + URLEncoder.encode(temp.resolve("attacker-plugins").toString(), StandardCharsets.UTF_8));
+                    pinnedProbe + "&directory=" + URLEncoder.encode(temp.resolve("attacker-plugins").toString(), StandardCharsets.UTF_8));
             HttpResponse<String> adminCannotSelectPluginRoot = send(
                     client, clientSelectedDirectory, "POST", admin.token(), null);
             assertEquals(400, adminCannotSelectPluginRoot.statusCode());
@@ -238,10 +245,26 @@ class MorpheusRemoteHttpServerTest {
                 assertTrue(statuses.stream().allMatch(code -> code == 201 || code == 429));
             }
 
+            MorpheusRemoteIdentityFile.revoke(auth, "reader");
+            HttpResponse<String> revokedReader = send(
+                    client, base.resolve("/api/v1/health"), "GET", read.token(), null);
+            assertEquals(401, revokedReader.statusCode(), revokedReader.body());
+
             HttpResponse<String> finalStatus = send(client, base.resolve("/api/v1/server/status"), "GET", admin.token(), null);
             assertEquals(200, finalStatus.statusCode());
             assertTrue(finalStatus.body().contains("\"throttledRequests\":"));
         }
+    }
+
+    @Test
+    void remoteProxyTimeoutIsLimitedToReadOnlyOperations() {
+        assertTrue(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("GET", "/api/v1/health"));
+        assertTrue(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/reasoning/analyze"));
+        assertTrue(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/provider-plugins/probe"));
+        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/projects/p1/sync"));
+        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/projects"));
+        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("PUT", "/api/v1/anything"));
+        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("DELETE", "/api/v1/anything"));
     }
 
     private String registrationBody(Path workspace) {
