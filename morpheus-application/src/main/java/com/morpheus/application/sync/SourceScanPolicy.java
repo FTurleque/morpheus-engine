@@ -11,10 +11,12 @@ public record SourceScanPolicy(
         Set<String> ignoredDirectoryNames,
         boolean followSymbolicLinks,
         int maxDepth,
+        int maxDirectories,
         int maxFiles,
         long maxFileBytes,
         long maxAggregateBytes) {
     static final int DEFAULT_MAX_DEPTH = 128;
+    static final int DEFAULT_MAX_DIRECTORIES = 50_000;
     static final int DEFAULT_MAX_FILES = 50_000;
     static final long DEFAULT_MAX_FILE_BYTES = 64L * 1024 * 1024;
     static final long DEFAULT_MAX_AGGREGATE_BYTES = 2L * 1024 * 1024 * 1024;
@@ -45,6 +47,7 @@ public record SourceScanPolicy(
             normalized.add(candidate);
         }
         if (maxDepth < 1) throw new IllegalArgumentException("maxDepth must be >= 1");
+        if (maxDirectories < 1) throw new IllegalArgumentException("maxDirectories must be >= 1");
         if (maxFiles < 1) throw new IllegalArgumentException("maxFiles must be >= 1");
         if (maxFileBytes < 1) throw new IllegalArgumentException("maxFileBytes must be >= 1");
         if (maxAggregateBytes < 1) throw new IllegalArgumentException("maxAggregateBytes must be >= 1");
@@ -54,12 +57,31 @@ public record SourceScanPolicy(
         ignoredDirectoryNames = Set.copyOf(normalized);
     }
 
+    /** Compatibility constructor for callers that customize the original filesystem budget dimensions. */
+    public SourceScanPolicy(
+            Set<String> ignoredDirectoryNames,
+            boolean followSymbolicLinks,
+            int maxDepth,
+            int maxFiles,
+            long maxFileBytes,
+            long maxAggregateBytes) {
+        this(
+                ignoredDirectoryNames,
+                followSymbolicLinks,
+                maxDepth,
+                DEFAULT_MAX_DIRECTORIES,
+                maxFiles,
+                maxFileBytes,
+                maxAggregateBytes);
+    }
+
     /** Compatibility constructor for callers that only customize ignored paths/link traversal. */
     public SourceScanPolicy(Set<String> ignoredDirectoryNames, boolean followSymbolicLinks) {
         this(
                 ignoredDirectoryNames,
                 followSymbolicLinks,
                 DEFAULT_MAX_DEPTH,
+                DEFAULT_MAX_DIRECTORIES,
                 DEFAULT_MAX_FILES,
                 DEFAULT_MAX_FILE_BYTES,
                 DEFAULT_MAX_AGGREGATE_BYTES);
@@ -70,6 +92,7 @@ public record SourceScanPolicy(
                 DEFAULT_IGNORED_DIRECTORIES,
                 false,
                 DEFAULT_MAX_DEPTH,
+                DEFAULT_MAX_DIRECTORIES,
                 DEFAULT_MAX_FILES,
                 DEFAULT_MAX_FILE_BYTES,
                 DEFAULT_MAX_AGGREGATE_BYTES);
