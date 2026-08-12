@@ -6,7 +6,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Objects;
 
-/** Executes one SQLite transaction while preserving the primary failure across rollback/cleanup errors. */
+/** Executes one owned SQLite transaction while preserving the primary failure across rollback/cleanup errors. */
 final class SqliteTransactionRunner {
     private SqliteTransactionRunner() {
     }
@@ -21,6 +21,10 @@ final class SqliteTransactionRunner {
             previousAutoCommit = connection.getAutoCommit();
         } catch (SQLException failure) {
             throw new KnowledgeStoreException("Cannot inspect SQLite auto-commit mode", failure);
+        }
+        if (!previousAutoCommit) {
+            throw new KnowledgeStoreException(
+                    "SQLite transaction runner requires auto-commit mode; nested or caller-owned transactions are not supported");
         }
 
         RuntimeException primary = null;
@@ -38,7 +42,7 @@ final class SqliteTransactionRunner {
             rollbackSuppressing(connection, primary);
             throw primary;
         } finally {
-            restoreAutoCommit(connection, previousAutoCommit, primary);
+            restoreAutoCommit(connection, true, primary);
         }
     }
 
