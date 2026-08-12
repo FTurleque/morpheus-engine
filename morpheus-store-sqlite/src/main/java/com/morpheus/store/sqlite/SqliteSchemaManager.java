@@ -33,11 +33,13 @@ final class SqliteSchemaManager {
             new Migration(13, "portfolio-intelligence", "/db/migration/V013__portfolio_intelligence.sql"),
             new Migration(14, "saved-views", "/db/migration/V014__saved_views.sql"),
             new Migration(15, "policy-packs", "/db/migration/V015__policy_packs.sql"));
+    static final int SUPPORTED_SCHEMA_VERSION = 15;
 
     void migrate(Connection connection) {
         if (SqliteConnectionScope.schemaReadyIfActive()) return;
         SqliteTransactionRunner.runVoid(connection, "SQLite schema migration failed", current -> {
             createMigrationLedger(current);
+            rejectFutureSchema(current);
 
             for (Migration migration : MIGRATIONS) {
                 applyMigration(current, migration);
@@ -65,6 +67,17 @@ final class SqliteSchemaManager {
                         applied_at TEXT NOT NULL
                     )
                     """);
+        }
+    }
+
+    private void rejectFutureSchema(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")) {
+            int version = result.next() ? result.getInt(1) : 0;
+            if (version > SUPPORTED_SCHEMA_VERSION) {
+                throw new KnowledgeStoreException(
+                        "SQLite schema version " + version + " is newer than supported " + SUPPORTED_SCHEMA_VERSION);
+            }
         }
     }
 
