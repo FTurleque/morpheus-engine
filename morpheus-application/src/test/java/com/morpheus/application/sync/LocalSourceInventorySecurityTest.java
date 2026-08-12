@@ -43,6 +43,7 @@ class LocalSourceInventorySecurityTest {
         assertFalse(scanner.policy().followSymbolicLinks());
         assertTrue(scanner.policy().ignoredDirectoryNames().contains(".git"));
         assertTrue(scanner.policy().ignoredDirectoryNames().contains("target"));
+        assertTrue(scanner.policy().maxDirectories() > 0);
         assertTrue(scanner.policy().maxFiles() > 0);
         assertTrue(scanner.policy().maxFileBytes() > 0);
         assertTrue(scanner.policy().maxAggregateBytes() >= scanner.policy().maxFileBytes());
@@ -70,6 +71,20 @@ class LocalSourceInventorySecurityTest {
         if (linkCreated) {
             assertTrue(Files.isSymbolicLink(workspace.resolve("external-link")));
         }
+    }
+
+    @Test
+    void rejectsDirectoryCountBeyondConfiguredBudgetEvenWithoutFiles() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("directory-count"));
+        Files.createDirectory(workspace.resolve("one"));
+        Files.createDirectory(workspace.resolve("two"));
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                new SourceScanPolicy(Set.of(), false, 8, 2, 10, 16, 64));
+
+        var result = scan(scanner, workspace);
+
+        assertFalse(result.complete());
+        assertTrue(result.failures().stream().anyMatch(failure -> failure.message().contains("directory count")));
     }
 
     @Test
