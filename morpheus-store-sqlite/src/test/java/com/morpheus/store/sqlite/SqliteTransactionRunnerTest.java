@@ -46,10 +46,17 @@ class SqliteTransactionRunnerTest {
     }
 
     @Test
-    void cleanupFailureAfterSuccessIsReported() {
+    void cleanupFailureAfterSuccessfulCommitIsExplicitlyMarkedCommitted() {
         Connection connection = connection(true, false, true);
-        assertThrows(KnowledgeStoreException.class, () ->
-                SqliteTransactionRunner.runVoid(connection, "store failed", ignored -> { }));
+
+        SqliteCommittedTransactionException thrown = assertThrows(
+                SqliteCommittedTransactionException.class,
+                () -> SqliteTransactionRunner.runVoid(connection, "store failed", ignored -> { }));
+
+        assertTrue(thrown.committed());
+        assertTrue(thrown.getMessage().contains("commit succeeded"));
+        assertTrue(thrown.getMessage().contains("must not be retried"));
+        assertInstanceOf(SQLException.class, thrown.getCause());
     }
 
     @Test
