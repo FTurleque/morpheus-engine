@@ -180,6 +180,10 @@ class MorpheusRemoteHttpServerTest {
                     client, probe, "POST", admin.token(), null);
             assertEquals(400, adminCannotProbeWithoutIntegrityPin.statusCode(), adminCannotProbeWithoutIntegrityPin.body());
             assertTrue(adminCannotProbeWithoutIntegrityPin.body().contains("PLUGIN_SHA256_REQUIRED"));
+            HttpResponse<String> adminCannotProbeWithMalformedIntegrityPin = send(
+                    client, URI.create(probe + "&sha256=abc"), "POST", admin.token(), null);
+            assertEquals(400, adminCannotProbeWithMalformedIntegrityPin.statusCode(), adminCannotProbeWithMalformedIntegrityPin.body());
+            assertTrue(adminCannotProbeWithMalformedIntegrityPin.body().contains("PLUGIN_SHA256_INVALID"));
             HttpResponse<String> adminCanProbeServerConfiguredDirectory = send(
                     client, pinnedProbe, "POST", admin.token(), null);
             assertEquals(200, adminCanProbeServerConfiguredDirectory.statusCode(), adminCanProbeServerConfiguredDirectory.body());
