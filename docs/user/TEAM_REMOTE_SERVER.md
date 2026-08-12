@@ -43,7 +43,7 @@ export MORPHEUS_SERVER_TLS_PASSWORD='<secret>'
 
 Le chemin du keystore peut être passé par `--tls-keystore` ou `MORPHEUS_SERVER_TLS_KEYSTORE`.
 
-## 2. Créer les identités
+## 2. Créer et administrer les identités
 
 Créer d’abord au moins un administrateur :
 
@@ -73,7 +73,29 @@ Exemple :
 admin|ADMIN|7c4a8d09ca3762af61e59520943dc26494f8941b...
 ```
 
-Un token perdu doit être remplacé par une nouvelle identité/credential ; MORPHEUS ne peut pas reconstruire le token depuis son hash.
+Un token perdu ne peut pas être reconstruit depuis son hash. Utilisez la rotation du credential.
+
+### Cycle de vie administratif
+
+```bash
+morpheus server identity list
+morpheus server identity rotate --principal alice
+morpheus server identity role --principal alice --role WRITE
+morpheus server identity revoke --principal alice
+```
+
+`create`, `rotate`, `role` et `revoke` sont sérialisés par un verrou fichier inter-processus afin que deux commandes MORPHEUS concurrentes ne puissent pas écraser silencieusement leurs modifications.
+
+Le serveur remote **relit le fichier d’identités à chaque authentification**. Il n’est donc plus nécessaire de le redémarrer après une mutation :
+
+```text
+create   -> le nouveau credential est utilisable dès la requête suivante
+rotate   -> l'ancien token devient invalide dès la requête suivante
+role     -> le nouveau rôle est appliqué dès la requête suivante
+revoke   -> le token révoqué est refusé dès la requête suivante
+```
+
+MORPHEUS refuse de révoquer ou rétrograder le dernier `ADMIN`.
 
 ### Rôles
 
@@ -81,7 +103,7 @@ Un token perdu doit être remplacé par une nouvelle identité/credential ; MORP
 |---|---|
 | `READ` | endpoints de lecture, Query DSL, exports, policy evaluate/dry-run, transition-check |
 | `WRITE` | READ + mutations métier/configuration existantes |
-| `ADMIN` | WRITE + métriques remote + création de backups serveur |
+| `ADMIN` | WRITE + métriques remote + création de backups serveur + probe de plugin externe |
 
 `READ != WRITE != ADMIN`. Un `principal` fourni dans un JSON n’est jamais une authentification.
 
@@ -101,6 +123,7 @@ Options utiles :
 --auth-file PATH         fichier d'identités, défaut <config-dir>/remote-auth.txt
 --max-concurrent N       1..512, défaut 64
 --workspace-root PATH    racine workspace autorisée, option répétable
+--provider-plugin-dir    répertoire de plugins externe configuré côté serveur
 ```
 
 Variables :
@@ -124,6 +147,18 @@ ou un descendant réel de cette allowlist. MORPHEUS refuse les traversals,
 sorties de racine et chemins utilisant un symlink/junction. La même politique
 est réappliquée aux workspaces déjà persistés avant chaque synchronisation.
 Les erreurs remote ne renvoient pas les chemins serveur refusés.
+
+Le scan de synchronisation est borné **avant** fingerprint SHA-256. Les valeurs par défaut sont :
+
+```text
+profondeur             128 segments
+répertoires traversés  50 000
+fichiers                50 000
+taille individuelle    64 MiB
+volume agrégé           2 GiB
+```
+
+Un workspace qui dépasse l’un de ces budgets produit un scan incomplet et ne devient pas une nouvelle baseline. Ces plafonds protègent aussi le cas pathologique d’une arborescence contenant énormément de répertoires vides.
 
 À l’inverse, le mode local :
 
@@ -157,7 +192,19 @@ Lorsque le budget de concurrence est atteint, MORPHEUS répond explicitement :
 HTTP 429 TOO_MANY_REQUESTS
 ```
 
-Aucune file non bornée n’est créée par M26.
+Aucune file non bornée n’est créée par M26. Les opérations read-only proxifiées disposent d’un timeout amont borné ; les mutations ne reçoivent pas une deadline arbitraire de 60 secondes qui pourrait faire croire à un rollback alors que le traitement interne continue. Un client doit néanmoins traiter toute rupture réseau pendant une mutation comme un résultat à réconcilier avant retry.
+
+### Probe de plugin externe en remote
+
+La discovery reste read-only. Le **probe qui charge du code JAR est ADMIN et exige un pin SHA-256** :
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $MORPHEUS_ADMIN_TOKEN" \
+  "https://morpheus.example.internal:8765/api/v1/provider-plugins/probe?pluginId=my-plugin&workspace=/srv/morpheus/workspaces/project&sha256=<64-hex>"
+```
+
+Le client ne choisit pas le répertoire de plugins : le serveur utilise uniquement son `--provider-plugin-dir`. Le JAR épinglé est copié dans un staging privé, le digest est vérifié sur cette copie puis seule cette copie est chargée ; le chemin mutable d’origine n’est jamais utilisé après la vérification d’intégrité.
 
 ## 5. Backups
 
@@ -177,6 +224,8 @@ Chaque backup :
 - passe `PRAGMA integrity_check` ;
 - contient un ledger `schema_migrations` reconnu ;
 - est rejeté si sa version de schéma est plus récente que celle supportée par le runtime.
+
+L'ouverture normale de la base applique la même règle : une base créée par un runtime plus récent est refusée avant l'exécution des migrations connues, afin d'empêcher un downgrade implicite.
 
 ### HTTP remote
 
@@ -207,7 +256,11 @@ Si un serveur M26 détient encore le lease de la base, la restauration échoue.
 
 Une base future n’est jamais downgradée. Une base historique compatible peut être restaurée ; le mécanisme normal de migration MORPHEUS s’appliquera lors de l’ouverture suivante.
 
-## 7. Headers et CORS
+## 7. Permissions locales sensibles
+
+Les fichiers d'authentification, bases, sidecars, locks et staging contrôlés par MORPHEUS sont durcis en permissions propriétaire lorsque le filesystem expose POSIX ou ACL. Sur POSIX, un répertoire sensible préexistant qui est modifiable par le groupe ou les autres utilisateurs est refusé au lieu d'être utilisé silencieusement.
+
+## 8. Headers et CORS
 
 Le frontal remote ajoute notamment :
 
@@ -222,7 +275,7 @@ X-Request-Id: <uuid>
 
 M26 n’active **aucun CORS implicite**.
 
-## 8. Limites M26
+## 9. Limites M26
 
 M26 fournit un serveur d’équipe auto-hébergeable de référence ; il ne prétend pas fournir :
 

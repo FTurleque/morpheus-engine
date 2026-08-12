@@ -1,8 +1,8 @@
 package com.morpheus.application.security;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.AclEntry;
@@ -12,9 +12,9 @@ import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
-import java.util.EnumSet;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -29,6 +29,7 @@ public final class LocalWritePermissionHardener {
         try {
             List<Path> created = createMissingDirectories(directory);
             if (created.isEmpty()) {
+                requireWriteProtectedDirectory(directory);
                 return Result.PREEXISTING_PRESERVED;
             }
             boolean hardened = true;
@@ -54,6 +55,33 @@ public final class LocalWritePermissionHardener {
             return harden(file, false) ? Result.HARDENED : Result.UNSUPPORTED;
         } catch (IOException exception) {
             throw new LocalWritePermissionException("Cannot harden local file permissions", exception);
+        }
+    }
+
+    /**
+     * Refuses a pre-existing POSIX directory when another group/user can replace entries inside it.
+     * ACL-only filesystems keep their native profile/administrator semantics and are reported as unsupported.
+     */
+    public Result requireWriteProtectedDirectory(Path directory) {
+        Objects.requireNonNull(directory, "directory");
+        Path normalized = directory.toAbsolutePath().normalize();
+        try {
+            rejectSymbolicLink(normalized);
+            if (!Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS)) {
+                throw new LocalWritePermissionException("Sensitive parent must be a regular directory");
+            }
+            if (!supportsPosix(normalized)) {
+                return Result.UNSUPPORTED;
+            }
+            Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(normalized, LinkOption.NOFOLLOW_LINKS);
+            if (permissions.contains(PosixFilePermission.GROUP_WRITE)
+                    || permissions.contains(PosixFilePermission.OTHERS_WRITE)) {
+                throw new LocalWritePermissionException(
+                        "Sensitive parent directory must not be writable by group or other users");
+            }
+            return Result.WRITE_PROTECTED;
+        } catch (IOException exception) {
+            throw new LocalWritePermissionException("Cannot validate sensitive parent directory permissions", exception);
         }
     }
 
@@ -129,6 +157,7 @@ public final class LocalWritePermissionHardener {
     public enum Result {
         HARDENED,
         PREEXISTING_PRESERVED,
+        WRITE_PROTECTED,
         UNSUPPORTED
     }
 

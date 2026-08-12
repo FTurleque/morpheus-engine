@@ -5,8 +5,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,6 +49,32 @@ class SqliteConnectionScopeTest {
             assertThrows(IllegalStateException.class, () -> SqliteConnectionScope.open(firstDatabase));
             assertThrows(java.sql.SQLException.class, () -> SqliteDatabaseSecurity.open(secondDatabase));
         }
+    }
+
+    @Test
+    void wrongThreadCloseDoesNotPoisonOwnerCleanup() throws Exception {
+        Path database = temp.resolve("owner-thread.db");
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database)) {
+            AtomicReference<Throwable> failure = new AtomicReference<>();
+            Thread wrongThread = new Thread(() -> {
+                try {
+                    scope.close();
+                } catch (Throwable thrown) {
+                    failure.set(thrown);
+                }
+            }, "wrong-sqlite-scope-owner");
+            wrongThread.start();
+            wrongThread.join();
+
+            assertInstanceOf(IllegalStateException.class, failure.get());
+            try (Connection stillUsable = SqliteDatabaseSecurity.open(database);
+                 var statement = stillUsable.createStatement()) {
+                statement.execute("SELECT 1");
+            }
+
+            scope.close();
+        }
+        assertEquals(0, SqliteConnectionScope.diagnostics().active());
     }
 
     @Test

@@ -1,9 +1,9 @@
 package com.morpheus.application.sync;
 
-import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalEventCode;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-/** Local-first scanner. Watcher events may trigger it, but this content scan remains the source of truth. */
+/** Local-first scanner. Watcher events may trigger it, but this bounded content scan remains the source of truth. */
 public final class LocalSourceInventoryScanner {
     private final SourceScanPolicy policy;
     private final OperationalRecorder recorder;
@@ -105,8 +105,10 @@ public final class LocalSourceInventoryScanner {
         Set<FileVisitOption> visitOptions = policy.followSymbolicLinks()
                 ? EnumSet.of(FileVisitOption.FOLLOW_LINKS)
                 : EnumSet.noneOf(FileVisitOption.class);
+        ScanBudget budget = new ScanBudget(policy);
 
         for (Path root : roots) {
+            if (budget.exhausted()) break;
             if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) {
                 failures.add(new SourceInventoryScanResult.Failure(
                         Optional.of(display(workspace, root)),
@@ -129,6 +131,20 @@ public final class LocalSourceInventoryScanner {
                         if (!policy.followSymbolicLinks() && Files.isSymbolicLink(directory)) {
                             return FileVisitResult.SKIP_SUBTREE;
                         }
+                        int depth = relativeDepth(root, directory);
+                        if (depth > policy.maxDepth()) {
+                            failures.add(limitFailure(
+                                    workspace,
+                                    directory,
+                                    "source scan depth exceeds limit " + policy.maxDepth()));
+                            budget.exhaust();
+                            return FileVisitResult.TERMINATE;
+                        }
+                        Optional<String> directoryRejection = budget.reserveDirectory();
+                        if (directoryRejection.isPresent()) {
+                            failures.add(limitFailure(workspace, directory, directoryRejection.orElseThrow()));
+                            return FileVisitResult.TERMINATE;
+                        }
                         return FileVisitResult.CONTINUE;
                     }
 
@@ -140,8 +156,23 @@ public final class LocalSourceInventoryScanner {
                         if (!attrs.isRegularFile()) {
                             return FileVisitResult.CONTINUE;
                         }
+                        int depth = relativeDepth(root, file);
+                        if (depth > policy.maxDepth()) {
+                            failures.add(limitFailure(
+                                    workspace,
+                                    file,
+                                    "source scan depth exceeds limit " + policy.maxDepth()));
+                            budget.exhaust();
+                            return FileVisitResult.TERMINATE;
+                        }
+                        Optional<String> rejection = budget.reserveFile(attrs.size());
+                        if (rejection.isPresent()) {
+                            failures.add(limitFailure(workspace, file, rejection.orElseThrow()));
+                            return FileVisitResult.TERMINATE;
+                        }
                         try {
-                            SourcePath sourcePath = new SourcePath(workspace.relativize(file.toAbsolutePath().normalize()).toString());
+                            SourcePath sourcePath = new SourcePath(
+                                    workspace.relativize(file.toAbsolutePath().normalize()).toString());
                             SourceFingerprint fingerprint = SourceFingerprint.ofFile(file);
                             BasicFileAttributes after = Files.readAttributes(
                                     file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
@@ -166,23 +197,23 @@ public final class LocalSourceInventoryScanner {
                         } catch (IOException | RuntimeException exception) {
                             failures.add(new SourceInventoryScanResult.Failure(
                                     Optional.of(display(workspace, file)),
-                                    exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage()));
+                                    safeMessage(exception)));
                         }
-                        return FileVisitResult.CONTINUE;
+                        return budget.exhausted() ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
                     }
 
                     @Override
                     public FileVisitResult visitFileFailed(Path file, IOException exception) {
                         failures.add(new SourceInventoryScanResult.Failure(
                                 Optional.of(display(workspace, file)),
-                                exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage()));
+                                safeMessage(exception)));
                         return FileVisitResult.CONTINUE;
                     }
                 });
             } catch (IOException | RuntimeException exception) {
                 failures.add(new SourceInventoryScanResult.Failure(
                         Optional.of(display(workspace, root)),
-                        exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage()));
+                        safeMessage(exception)));
             }
         }
 
@@ -205,10 +236,75 @@ public final class LocalSourceInventoryScanner {
         return resolved;
     }
 
+    private static int relativeDepth(Path root, Path candidate) {
+        Path relative = root.toAbsolutePath().normalize().relativize(candidate.toAbsolutePath().normalize());
+        return relative.toString().isEmpty() ? 0 : relative.getNameCount();
+    }
+
+    private static SourceInventoryScanResult.Failure limitFailure(Path workspace, Path path, String message) {
+        return new SourceInventoryScanResult.Failure(Optional.of(display(workspace, path)), message);
+    }
+
+    private static String safeMessage(Throwable failure) {
+        String message = failure.getMessage();
+        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
+    }
+
     private static String display(Path workspace, Path path) {
         Path normalized = path.toAbsolutePath().normalize();
         return normalized.startsWith(workspace)
                 ? workspace.relativize(normalized).toString().replace('\\', '/')
                 : normalized.toString();
+    }
+
+    private static final class ScanBudget {
+        private final SourceScanPolicy policy;
+        private long directories;
+        private long files;
+        private long aggregateBytes;
+        private boolean exhausted;
+
+        private ScanBudget(SourceScanPolicy policy) {
+            this.policy = policy;
+        }
+
+        private Optional<String> reserveDirectory() {
+            if (directories >= policy.maxDirectories()) {
+                exhausted = true;
+                return Optional.of("source scan directory count exceeds limit " + policy.maxDirectories());
+            }
+            directories++;
+            return Optional.empty();
+        }
+
+        private Optional<String> reserveFile(long fileBytes) {
+            if (fileBytes < 0) {
+                exhausted = true;
+                return Optional.of("source file size is negative");
+            }
+            if (files >= policy.maxFiles()) {
+                exhausted = true;
+                return Optional.of("source scan file count exceeds limit " + policy.maxFiles());
+            }
+            if (fileBytes > policy.maxFileBytes()) {
+                exhausted = true;
+                return Optional.of("source file exceeds size limit " + policy.maxFileBytes() + " bytes");
+            }
+            if (aggregateBytes > policy.maxAggregateBytes() - fileBytes) {
+                exhausted = true;
+                return Optional.of("source scan aggregate bytes exceed limit " + policy.maxAggregateBytes());
+            }
+            files++;
+            aggregateBytes += fileBytes;
+            return Optional.empty();
+        }
+
+        private boolean exhausted() {
+            return exhausted;
+        }
+
+        private void exhaust() {
+            exhausted = true;
+        }
     }
 }

@@ -1,14 +1,16 @@
 package com.morpheus.application.files;
 
-import java.io.IOException;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Objects;
 
 /**
@@ -55,7 +57,7 @@ public final class SafeWorkspaceFileResolver {
         return readUtf8(relativePath, Integer.MAX_VALUE);
     }
 
-    /** Reads a confined UTF-8 file while refusing more than {@code maxBytes} before buffering the excess. */
+    /** Reads a confined strict UTF-8 file while refusing more than {@code maxBytes} before buffering the excess. */
     public String readUtf8(Path relativePath, int maxBytes) throws IOException {
         if (maxBytes < 1) {
             throw new IllegalArgumentException("maxBytes must be positive");
@@ -93,7 +95,19 @@ public final class SafeWorkspaceFileResolver {
         if (!after.equals(file) || !sameIdentity(before, afterAttributes)) {
             throw new IllegalArgumentException("workspace file changed identity during read: " + relativePath);
         }
-        return new String(content, StandardCharsets.UTF_8);
+        return decodeStrictUtf8(content, relativePath);
+    }
+
+    private String decodeStrictUtf8(byte[] content, Path relativePath) {
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(content))
+                    .toString();
+        } catch (CharacterCodingException failure) {
+            throw new IllegalArgumentException("workspace file is not valid UTF-8: " + relativePath, failure);
+        }
     }
 
     private IllegalArgumentException inputLimitExceeded(Path relativePath, int maxBytes) {

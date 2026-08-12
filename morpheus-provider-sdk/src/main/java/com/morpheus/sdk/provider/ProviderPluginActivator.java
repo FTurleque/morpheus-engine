@@ -4,8 +4,11 @@ import com.morpheus.application.provider.SpecificationProvider;
 import com.morpheus.application.read.SpecificationContentReader;
 import com.morpheus.application.security.ExternalJarIntegrity;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -22,7 +25,8 @@ public final class ProviderPluginActivator {
 
     /**
      * Activates a compatible candidate after optional SHA-256 pin verification. When a pin is supplied,
-     * verification is completed before URLClassLoader creation or ServiceLoader execution.
+     * an owner-hardened verified staging copy is created and that immutable copy is the only JAR exposed to
+     * URLClassLoader/ServiceLoader, closing the verification-to-load TOCTOU window on the original path.
      */
     public ProviderPluginActivation activate(ProviderPluginCandidate candidate, String expectedSha256) {
         return activate(candidate, Optional.of(ExternalJarIntegrity.normalizeSha256(expectedSha256)));
@@ -35,14 +39,18 @@ public final class ProviderPluginActivator {
         }
         ProviderPluginMetadata manifestMetadata = candidate.metadata()
                 .orElseThrow(() -> new IllegalArgumentException("compatible candidate has no metadata"));
-        expectedSha256.ifPresent(expected -> ExternalJarIntegrity.verifySha256(candidate.jarPath(), expected));
+
+        Optional<Path> stagedJar = expectedSha256
+                .map(expected -> ExternalJarIntegrity.stageVerifiedCopy(candidate.jarPath(), expected));
+        Path loadJar = stagedJar.orElse(candidate.jarPath());
 
         URLClassLoader loader;
         try {
             loader = new URLClassLoader(
-                    new java.net.URL[] {candidate.jarPath().toUri().toURL()},
+                    new java.net.URL[] {loadJar.toUri().toURL()},
                     MorpheusProviderPlugin.class.getClassLoader());
         } catch (MalformedURLException failure) {
+            deleteStagedSuppressing(stagedJar, failure);
             throw new IllegalStateException("cannot create provider plugin classloader", failure);
         }
 
@@ -73,14 +81,24 @@ public final class ProviderPluginActivator {
                         "content reader provider id mismatch: manifest=" + manifestMetadata.providerId()
                                 + " runtime=" + contentReader.providerId());
             }
-            return new ProviderPluginActivation(candidate, plugin, provider, contentReader, loader);
+            return new ProviderPluginActivation(candidate, plugin, provider, contentReader, loader, stagedJar);
         } catch (ServiceConfigurationError | RuntimeException failure) {
             try {
                 loader.close();
-            } catch (java.io.IOException closeFailure) {
+            } catch (IOException closeFailure) {
                 failure.addSuppressed(closeFailure);
             }
+            deleteStagedSuppressing(stagedJar, failure);
             throw new IllegalStateException("provider plugin activation failed for " + candidate.jarPath(), failure);
+        }
+    }
+
+    private static void deleteStagedSuppressing(Optional<Path> stagedJar, Throwable primary) {
+        if (stagedJar.isEmpty()) return;
+        try {
+            Files.deleteIfExists(stagedJar.orElseThrow());
+        } catch (IOException deleteFailure) {
+            primary.addSuppressed(deleteFailure);
         }
     }
 }

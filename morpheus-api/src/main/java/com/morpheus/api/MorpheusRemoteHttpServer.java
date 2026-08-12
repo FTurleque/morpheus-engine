@@ -24,6 +24,7 @@ import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -54,6 +56,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     public static final int DEFAULT_MAX_CONCURRENT_REQUESTS = 64;
     public static final int MAX_CONCURRENT_REQUESTS = 512;
     private static final int MAX_REQUEST_BYTES = MorpheusHttpServer.MAX_REQUEST_BODY_BYTES;
+    private static final Duration READ_ONLY_UPSTREAM_TIMEOUT = Duration.ofSeconds(60);
 
     private final HttpsServer server;
     private final ExecutorService executor;
@@ -64,7 +67,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final Path backupDirectory;
     private final Path providerPluginDirectory;
     private final AllowedWorkspaceRoots allowedWorkspaceRoots;
-    private final List<MorpheusRemoteIdentityFile.Identity> identities;
+    private final Path authFile;
     private final Semaphore concurrency;
     private final RuntimeState runtime;
     private final HttpClient proxyClient;
@@ -80,7 +83,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             Path backupDirectory,
             Path providerPluginDirectory,
             AllowedWorkspaceRoots allowedWorkspaceRoots,
-            List<MorpheusRemoteIdentityFile.Identity> identities,
+            Path authFile,
             int maxConcurrentRequests) {
         this.server = server;
         this.executor = executor;
@@ -91,7 +94,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.backupDirectory = backupDirectory.toAbsolutePath().normalize();
         this.providerPluginDirectory = providerPluginDirectory.toAbsolutePath().normalize();
         this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
-        this.identities = identities;
+        this.authFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
         this.runtime = new RuntimeState(maxConcurrentRequests);
         this.proxyClient = HttpClient.newBuilder()
@@ -132,7 +135,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             throw new IllegalArgumentException("remote TLS keystore password is required");
         }
 
-        List<MorpheusRemoteIdentityFile.Identity> identities = MorpheusRemoteIdentityFile.load(authFile);
+        Path normalizedAuthFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
+        List<MorpheusRemoteIdentityFile.Identity> identities = MorpheusRemoteIdentityFile.load(normalizedAuthFile);
         if (identities.isEmpty()) throw new IllegalArgumentException("remote auth file contains no identities");
         if (identities.stream().noneMatch(identity -> identity.role() == MorpheusRemoteRole.ADMIN)) {
             throw new IllegalArgumentException("remote auth file must contain at least one ADMIN identity");
@@ -153,9 +157,6 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                     technicalContextProvider,
                     writeCapabilityResolver,
                     allowedWorkspaceRoots);
-            // Keep the TCP accept queue distinct from the application concurrency budget. This lets accepted
-            // excess requests reach the semaphore and receive a deterministic HTTP 429 instead of being refused
-            // at the socket layer when a deliberately small maxConcurrentRequests value is configured.
             int listenBacklog = Math.max(DEFAULT_MAX_CONCURRENT_REQUESTS, maxConcurrentRequests);
             HttpsServer https = HttpsServer.create(new InetSocketAddress(normalizedHost, port), listenBacklog);
             https.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
@@ -169,7 +170,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             executor = Executors.newVirtualThreadPerTaskExecutor();
             MorpheusRemoteHttpServer result = new MorpheusRemoteHttpServer(
                     https, executor, local, lease, maintenance, databasePath, backupDirectory,
-                    providerPluginDirectory, allowedWorkspaceRoots, identities, maxConcurrentRequests);
+                    providerPluginDirectory, allowedWorkspaceRoots, normalizedAuthFile, maxConcurrentRequests);
             https.setExecutor(executor);
             https.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
             https.start();
@@ -269,9 +270,18 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             throw new RemoteFailure(401, "UNAUTHENTICATED", "valid Bearer authentication is required");
         }
         String token = header.substring(7).trim();
-        return MorpheusRemoteIdentityFile.authenticate(identities, token)
-                .orElseThrow(() -> new RemoteFailure(
-                        401, "UNAUTHENTICATED", "valid Bearer authentication is required"));
+        final Optional<MorpheusRemoteIdentityFile.Identity> authenticated;
+        try {
+            authenticated = authenticateCurrent(authFile, token);
+        } catch (IllegalArgumentException failure) {
+            throw new RemoteFailure(503, "AUTH_STORE_UNAVAILABLE", "remote authentication store is unavailable");
+        }
+        return authenticated.orElseThrow(() -> new RemoteFailure(
+                401, "UNAUTHENTICATED", "valid Bearer authentication is required"));
+    }
+
+    static Optional<MorpheusRemoteIdentityFile.Identity> authenticateCurrent(Path authFile, String token) {
+        return MorpheusRemoteIdentityFile.authenticate(MorpheusRemoteIdentityFile.load(authFile), token);
     }
 
     private MorpheusRemoteRole requiredRole(String rawMethod, String path) {
@@ -303,7 +313,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         throw new RemoteFailure(405, "METHOD_NOT_ALLOWED", "unsupported remote HTTP method");
     }
 
-    private boolean isReadOnlyPost(String path) {
+    private static boolean isReadOnlyPost(String path) {
         String prefix = MorpheusHttpServer.API_PREFIX;
         return path.equals(prefix + "/queries/execute")
                 || path.equals(prefix + "/exports")
@@ -317,6 +327,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 || path.endsWith("/resolve") && path.contains("/external-references/");
     }
 
+    static boolean usesBoundedUpstreamTimeout(String rawMethod, String path) {
+        String method = Objects.requireNonNull(rawMethod, "rawMethod").toUpperCase(Locale.ROOT);
+        Objects.requireNonNull(path, "path");
+        if (method.equals("GET") || method.equals("HEAD")) return true;
+        if (!method.equals("POST")) return false;
+        return isReadOnlyPost(path)
+                || path.equals(MorpheusHttpServer.API_PREFIX + "/provider-plugins/probe");
+    }
+
     private void proxy(HttpExchange exchange) throws IOException {
         byte[] requestBody = readBoundedBody(exchange);
         URI requestUri = exchange.getRequestURI();
@@ -325,8 +344,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             throw new RemoteFailure(400, "BAD_REQUEST", "provider-plugin probe request body must be empty");
         }
         URI target = localTarget(requestUri);
-        HttpRequest.Builder request = HttpRequest.newBuilder(target)
-                .timeout(Duration.ofSeconds(60));
+        HttpRequest.Builder request = HttpRequest.newBuilder(target);
+        if (usesBoundedUpstreamTimeout(exchange.getRequestMethod(), requestUri.getPath())) {
+            request.timeout(READ_ONLY_UPSTREAM_TIMEOUT);
+        }
         String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
         if (contentType != null) request.header("Content-Type", contentType);
         String accept = exchange.getRequestHeaders().getFirst("Accept");
@@ -341,6 +362,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             exchange.getResponseHeaders().set("Content-Type", responseType);
             response.headers().firstValue("Allow").ifPresent(value -> exchange.getResponseHeaders().set("Allow", value));
             sendRaw(exchange, response.statusCode(), response.body());
+        } catch (HttpTimeoutException timeout) {
+            throw new RemoteFailure(504, "UPSTREAM_TIMEOUT", "local MORPHEUS read-only operation exceeded its timeout");
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new RemoteFailure(503, "UPSTREAM_INTERRUPTED", "local MORPHEUS API proxy was interrupted");
@@ -360,6 +383,20 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             Map<String, String> upstream = new LinkedHashMap<>(query);
             upstream.put("directory", providerPluginDirectory.toString());
             if (requestUri.getPath().endsWith("/probe")) {
+                String sha256 = query.get("sha256");
+                if (sha256 == null || sha256.isBlank()) {
+                    throw new RemoteFailure(
+                            400,
+                            "PLUGIN_SHA256_REQUIRED",
+                            "remote provider-plugin probe requires a trusted SHA-256 pin");
+                }
+                if (!sha256.matches("[0-9a-fA-F]{64}")) {
+                    throw new RemoteFailure(
+                            400,
+                            "PLUGIN_SHA256_INVALID",
+                            "remote provider-plugin SHA-256 pin must contain exactly 64 hexadecimal characters");
+                }
+                upstream.put("sha256", sha256.toLowerCase(Locale.ROOT));
                 upstream.put("workspace", allowedWorkspaceRoots
                         .requireAllowedDirectory(query.get("workspace"))
                         .toString());

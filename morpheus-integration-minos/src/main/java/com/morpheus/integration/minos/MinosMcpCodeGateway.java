@@ -11,12 +11,15 @@ import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /** Real inter-process MINOS gateway using its validated MCP STDIO server. */
@@ -27,6 +30,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
     private static final Set<String> REQUIRED_TOOLS = Set.of(TOOL_INDEX_STATUS, TOOL_FIND_SYMBOLS);
 
     private final McpSyncClient client;
+    private final Optional<Path> stagedJar;
     private final JsonMapper mapper = JsonMapper.builder()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
@@ -40,10 +44,12 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             List<String> arguments,
             Map<String, String> environment,
             Duration timeout) {
-        this(new Launch(command, arguments, environment, timeout));
+        this(new Launch(command, arguments, environment, timeout, Optional.empty()));
     }
 
     private MinosMcpCodeGateway(Launch launch) {
+        this.stagedJar = launch.stagedJar();
+        McpSyncClient started = null;
         try {
             var parameters = ServerParameters.builder(launch.command())
                     .args(launch.arguments().toArray(String[]::new));
@@ -51,22 +57,23 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
                 parameters.env(launch.environment());
             }
             StdioClientTransport transport = new StdioClientTransport(parameters.build(), McpJsonDefaults.getMapper());
-            this.client = McpClient.sync(transport)
+            started = McpClient.sync(transport)
                     .requestTimeout(launch.timeout())
                     .build();
-            client.initialize();
-            Set<String> available = client.listTools().tools().stream()
+            started.initialize();
+            Set<String> available = started.listTools().tools().stream()
                     .map(tool -> tool.name())
                     .collect(java.util.stream.Collectors.toUnmodifiableSet());
             if (!available.containsAll(REQUIRED_TOOLS)) {
-                client.closeGracefully();
                 throw new MinosIntegrationException(
                         "MINOS MCP server is incompatible; required tools missing: "
                                 + REQUIRED_TOOLS.stream().filter(tool -> !available.contains(tool)).sorted().toList());
             }
-        } catch (MinosIntegrationException failure) {
-            throw failure;
+            this.client = started;
         } catch (RuntimeException failure) {
+            closeStartedSuppressing(started, failure);
+            deleteStagedSuppressing(stagedJar, failure);
+            if (failure instanceof MinosIntegrationException integrationFailure) throw integrationFailure;
             throw new MinosIntegrationException("cannot start or initialize MINOS MCP server", failure);
         }
     }
@@ -107,6 +114,8 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             client.closeGracefully();
         } catch (RuntimeException ignored) {
             // Closing an optional external process must not mask the primary resolution result.
+        } finally {
+            deleteStagedQuietly(stagedJar);
         }
     }
 
@@ -153,16 +162,49 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
                     + settings.configurationError().orElse(settings.state().name()));
         }
         Path jar = settings.jarPath().orElseThrow();
+        Optional<Path> staged = Optional.empty();
         try {
-            settings.jarSha256().ifPresent(pin -> ExternalJarIntegrity.verifySha256(jar, pin));
+            staged = settings.jarSha256().map(pin -> ExternalJarIntegrity.stageVerifiedCopy(jar, pin));
+            Path launchJar = staged.orElse(jar);
+            List<String> arguments = new ArrayList<>();
+            settings.homeDirectory().ifPresent(home -> arguments.add("-Dminos.home=" + home));
+            arguments.addAll(List.of("-cp", launchJar.toString(), MINOS_SERVER_CLASS));
+            return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout(), staged);
         } catch (IllegalArgumentException integrityFailure) {
+            deleteStagedQuietly(staged);
             throw new MinosIntegrationException(
                     "MINOS JAR integrity verification failed immediately before launch", integrityFailure);
+        } catch (RuntimeException failure) {
+            deleteStagedQuietly(staged);
+            throw failure;
         }
-        List<String> arguments = new ArrayList<>();
-        settings.homeDirectory().ifPresent(home -> arguments.add("-Dminos.home=" + home));
-        arguments.addAll(List.of("-cp", jar.toString(), MINOS_SERVER_CLASS));
-        return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout());
+    }
+
+    private static void closeStartedSuppressing(McpSyncClient started, Throwable primary) {
+        if (started == null) return;
+        try {
+            started.closeGracefully();
+        } catch (RuntimeException closeFailure) {
+            primary.addSuppressed(closeFailure);
+        }
+    }
+
+    private static void deleteStagedSuppressing(Optional<Path> staged, Throwable primary) {
+        if (staged.isEmpty()) return;
+        try {
+            Files.deleteIfExists(staged.orElseThrow());
+        } catch (IOException deleteFailure) {
+            primary.addSuppressed(deleteFailure);
+        }
+    }
+
+    private static void deleteStagedQuietly(Optional<Path> staged) {
+        if (staged.isEmpty()) return;
+        try {
+            Files.deleteIfExists(staged.orElseThrow());
+        } catch (IOException ignored) {
+            // Best effort after the external process/classpath has been released.
+        }
     }
 
     private static String requireText(String value, String name) {
@@ -172,12 +214,19 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         return value.trim();
     }
 
-    private record Launch(String command, List<String> arguments, Map<String, String> environment, Duration timeout) {
+    private record Launch(
+            String command,
+            List<String> arguments,
+            Map<String, String> environment,
+            Duration timeout,
+            Optional<Path> stagedJar) {
         private Launch {
             command = requireText(command, "command");
             arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
             environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));
             Objects.requireNonNull(timeout, "timeout");
+            stagedJar = Objects.requireNonNull(stagedJar, "stagedJar")
+                    .map(path -> path.toAbsolutePath().normalize());
         }
     }
 
