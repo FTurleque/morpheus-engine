@@ -29,7 +29,7 @@ final class OpenSpecBoundedTraversal {
             throw new IllegalArgumentException("maxVisitedEntries must be positive");
         }
         if (Files.isSymbolicLink(normalizedRoot)) {
-            throw new IllegalStateException("OpenSpec traversal root must not be a symbolic link: " + normalizedRoot);
+            throw new IllegalArgumentException("OpenSpec traversal root must not be a symbolic link: " + normalizedRoot);
         }
 
         List<Path> bounded = new ArrayList<>();
@@ -48,9 +48,10 @@ final class OpenSpecBoundedTraversal {
                     throw new IllegalStateException(
                             "OpenSpec traversal exceeds maximum depth " + maxDepth + ": " + path);
                 }
-                if (!Files.isSymbolicLink(path)) {
-                    bounded.add(path);
+                if (Files.isSymbolicLink(path)) {
+                    throw new IllegalArgumentException("OpenSpec traversal refuses symbolic link: " + path);
                 }
+                bounded.add(path);
             }
         }
         return List.copyOf(bounded).stream();

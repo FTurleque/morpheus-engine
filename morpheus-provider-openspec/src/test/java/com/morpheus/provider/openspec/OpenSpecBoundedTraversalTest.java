@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -63,7 +62,7 @@ class OpenSpecBoundedTraversalTest {
     }
 
     @Test
-    void doesNotExposeSymbolicLinkEntries() throws Exception {
+    void rejectsSymbolicLinkEntriesInsteadOfSilentlySkippingThem() throws Exception {
         Path root = Files.createDirectories(temp.resolve("links"));
         Path target = Files.writeString(temp.resolve("outside.md"), "outside");
         Path link = root.resolve("spec.md");
@@ -73,10 +72,11 @@ class OpenSpecBoundedTraversalTest {
             Assumptions.abort("symbolic links are unavailable on this platform");
         }
 
-        List<Path> paths;
-        try (var walk = OpenSpecBoundedTraversal.walk(root, 4, 16)) {
-            paths = walk.toList();
-        }
-        assertFalse(paths.contains(link.toAbsolutePath().normalize()));
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> {
+            try (var ignored = OpenSpecBoundedTraversal.walk(root, 4, 16)) {
+                ignored.toList();
+            }
+        });
+        assertTrue(failure.getMessage().contains("symbolic link"));
     }
 }
