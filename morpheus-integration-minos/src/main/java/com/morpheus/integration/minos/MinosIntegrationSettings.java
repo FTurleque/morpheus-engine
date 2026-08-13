@@ -128,8 +128,9 @@ public record MinosIntegrationSettings(
         return jarPath.isPresent() ? State.CONFIGURED : State.DISABLED;
     }
 
+    /** External code execution is enabled only when the configured JAR is integrity-pinned. */
     public boolean enabled() {
-        return state() == State.CONFIGURED;
+        return state() == State.CONFIGURED && jarSha256.isPresent();
     }
 
     public Map<String, String> processEnvironment() {
