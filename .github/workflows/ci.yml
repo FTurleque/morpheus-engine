@@ -40,12 +40,12 @@ jobs:
       - name: Run one-command M21 gate on Linux
         if: runner.os == 'Linux'
         shell: bash
-        run: bash ./scripts/validate-m21.sh 1.2.0
+        run: bash ./scripts/validate-m21.sh 1.2.1
 
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
         shell: cmd
-        run: scripts\validate.cmd m21 -Version 1.2.0
+        run: scripts\validate.cmd m21 -Version 1.2.1
 
       - name: Upload M21 integrity evidence
         if: always()
