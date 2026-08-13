@@ -3,8 +3,10 @@ package com.morpheus.api;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -94,12 +96,17 @@ class MorpheusRemoteIdentityLifecycleTest {
         String principal = "a".repeat(128);
         MorpheusRemoteIdentityFile.create(auth, principal, MorpheusRemoteRole.ADMIN);
 
-        MorpheusRemoteIdentityFile.GeneratedCredential latest = null;
+        List<String> seed = Files.readAllLines(auth, StandardCharsets.UTF_8);
+        String auditLine = seed.stream().filter(line -> line.startsWith("# audit|")).findFirst().orElseThrow();
+        List<String> expanded = new ArrayList<>(seed);
         for (int index = 0; index < MorpheusRemoteIdentityFile.MAX_AUDIT_RECORDS + 64; index++) {
-            latest = MorpheusRemoteIdentityFile.rotate(auth, principal);
+            expanded.add(auditLine);
         }
+        Files.writeString(auth, String.join(System.lineSeparator(), expanded) + System.lineSeparator());
+        assertTrue(Files.size(auth) <= MorpheusRemoteIdentityFile.MAX_FILE_BYTES);
 
-        assertTrue(latest != null);
+        var latest = MorpheusRemoteIdentityFile.rotate(auth, principal);
+
         assertTrue(MorpheusRemoteIdentityFile.authenticate(MorpheusRemoteIdentityFile.load(auth), latest.token()).isPresent());
         assertEquals(MorpheusRemoteIdentityFile.MAX_AUDIT_RECORDS, MorpheusRemoteIdentityFile.audit(auth).size());
         assertTrue(Files.size(auth) <= MorpheusRemoteIdentityFile.MAX_FILE_BYTES);
