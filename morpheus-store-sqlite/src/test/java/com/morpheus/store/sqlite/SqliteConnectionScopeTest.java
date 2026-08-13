@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,6 +40,36 @@ class SqliteConnectionScopeTest {
             }
             second.close();
         }
+    }
+
+    @Test
+    void replacesPhysicalConnectionAfterCommittedCleanupFailureWithoutInvalidatingLogicalProxies() throws Exception {
+        Path database = temp.resolve("recovery.db");
+        SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database);
+             Connection first = SqliteDatabaseSecurity.open(database);
+             Connection second = SqliteDatabaseSecurity.open(database)) {
+            try (var statement = first.createStatement()) {
+                statement.execute("CREATE TABLE durable_probe(value INTEGER)");
+                statement.execute("INSERT INTO durable_probe(value) VALUES (9)");
+            }
+
+            assertTrue(SqliteConnectionScope.recoverAfterCommittedCleanupFailure(
+                    first, new java.sql.SQLException("simulated post-commit cleanup failure")));
+            assertFalse(first.isClosed());
+            assertFalse(second.isClosed());
+
+            try (var statement = second.createStatement();
+                 var result = statement.executeQuery("SELECT value FROM durable_probe")) {
+                assertTrue(result.next());
+                assertEquals(9, result.getInt(1));
+            }
+            assertEquals(2, scope.logicalConnectionsBorrowed());
+        }
+        SqliteConnectionScope.Diagnostics after = SqliteConnectionScope.diagnostics();
+        assertEquals(before.active(), after.active());
+        assertTrue(after.opened() >= before.opened() + 2);
+        assertTrue(after.closed() >= before.closed() + 2);
     }
 
     @Test

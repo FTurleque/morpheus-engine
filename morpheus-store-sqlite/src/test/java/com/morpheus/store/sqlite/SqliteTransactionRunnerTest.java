@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -94,17 +95,81 @@ class SqliteTransactionRunnerTest {
     }
 
     @Test
-    void cleanupFailureAfterSuccessfulCommitIsExplicitlyMarkedCommitted() {
-        Connection connection = connection(true, false, true);
+    void cleanupFailureAfterSuccessfulCommitKeepsDurableMutationSuccessfulAndQuarantinesDirectConnection() {
+        AtomicBoolean committed = new AtomicBoolean();
+        AtomicBoolean closed = new AtomicBoolean();
+        AtomicBoolean transactionModeSet = new AtomicBoolean();
+        Connection connection = (Connection) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[]{Connection.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getAutoCommit" -> true;
+                    case "setAutoCommit" -> {
+                        boolean value = (boolean) args[0];
+                        if (!value) {
+                            transactionModeSet.set(true);
+                            yield null;
+                        }
+                        if (transactionModeSet.get()) throw new SQLException("cleanup failed");
+                        yield null;
+                    }
+                    case "commit" -> {
+                        committed.set(true);
+                        yield null;
+                    }
+                    case "rollback" -> null;
+                    case "close" -> {
+                        closed.set(true);
+                        yield null;
+                    }
+                    case "isClosed" -> closed.get();
+                    default -> defaultValue(method.getReturnType());
+                });
 
-        SqliteCommittedTransactionException thrown = assertThrows(
-                SqliteCommittedTransactionException.class,
-                () -> SqliteTransactionRunner.runVoid(connection, "store failed", ignored -> { }));
+        String result = assertDoesNotThrow(() -> SqliteTransactionRunner.run(connection, "store failed", ignored -> "committed"));
 
-        assertTrue(thrown.committed());
-        assertTrue(thrown.getMessage().contains("commit succeeded"));
-        assertTrue(thrown.getMessage().contains("must not be retried"));
-        assertInstanceOf(SQLException.class, thrown.getCause());
+        assertEquals("committed", result);
+        assertTrue(committed.get());
+        assertTrue(closed.get());
+        KnowledgeStoreException quarantined = assertThrows(KnowledgeStoreException.class, () ->
+                SqliteTransactionRunner.runVoid(connection, "must not execute", ignored -> { }));
+        assertTrue(quarantined.getMessage().contains("quarantined"));
+    }
+
+    @Test
+    void transientCleanupFailureAfterCommitIsRecoveredByRetryWithoutQuarantine() {
+        AtomicBoolean transactionModeSet = new AtomicBoolean();
+        AtomicBoolean closed = new AtomicBoolean();
+        int[] cleanupAttempts = {0};
+        Connection connection = (Connection) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[]{Connection.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getAutoCommit" -> true;
+                    case "setAutoCommit" -> {
+                        boolean value = (boolean) args[0];
+                        if (!value) {
+                            transactionModeSet.set(true);
+                            yield null;
+                        }
+                        if (transactionModeSet.get() && cleanupAttempts[0]++ == 0) {
+                            throw new SQLException("transient cleanup failed");
+                        }
+                        yield null;
+                    }
+                    case "commit", "rollback" -> null;
+                    case "close" -> {
+                        closed.set(true);
+                        yield null;
+                    }
+                    case "isClosed" -> closed.get();
+                    default -> defaultValue(method.getReturnType());
+                });
+
+        assertEquals("ok", SqliteTransactionRunner.run(connection, "failed", ignored -> "ok"));
+        assertEquals(2, cleanupAttempts[0]);
+        assertFalse(closed.get());
+        assertDoesNotThrow(() -> SqliteTransactionRunner.runVoid(connection, "second", ignored -> { }));
     }
 
     @Test
