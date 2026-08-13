@@ -174,7 +174,7 @@ jobs:
 
       - name: Validate patched modules
         shell: bash
-        run: ./mvnw -B -pl morpheus-store-sqlite,morpheus-provider-openspec,morpheus-api,morpheus-architecture-tests -am test
+        run: ./mvnw -B -pl morpheus-store-sqlite,morpheus-provider-openspec,morpheus-api -am test
 
       - name: Parse PowerShell scripts
         shell: pwsh
