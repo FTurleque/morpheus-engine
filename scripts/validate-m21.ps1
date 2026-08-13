@@ -109,15 +109,15 @@ $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) {
     throw "Surefire failures=$($totals.Failures) errors=$($totals.Errors)"
 }
-if ($totals.Tests -lt 698) {
-    throw "M21 test baseline regression: $($totals.Tests) < 698"
+if ($totals.Tests -lt 711) {
+    throw "M21 test baseline regression: $($totals.Tests) < 711"
 }
 $architecture = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
-if ($architecture.Tests -lt 250) {
-    throw "M21 architecture baseline regression: $($architecture.Tests) < 250"
+if ($architecture.Tests -lt 253) {
+    throw "M21 architecture baseline regression: $($architecture.Tests) < 253"
 }
-Write-Host "Tests: PASS ($($totals.Tests), baseline >= 698)"
-Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= 250)"
+Write-Host "Tests: PASS ($($totals.Tests), baseline >= 711)"
+Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= 253)"
 
 $coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
 if (-not (Test-Path $coverageSummary)) { throw "Missing M21 coverage summary: $coverageSummary" }
