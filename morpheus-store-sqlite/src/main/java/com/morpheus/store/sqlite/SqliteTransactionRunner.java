@@ -27,20 +27,25 @@ final class SqliteTransactionRunner {
                     "SQLite transaction runner requires auto-commit mode; nested or caller-owned transactions are not supported");
         }
 
-        RuntimeException primary = null;
+        Throwable primary = null;
         try {
             connection.setAutoCommit(false);
             T result = work.run(connection);
             connection.commit();
             return result;
         } catch (SQLException failure) {
-            primary = new KnowledgeStoreException(failureMessage, failure);
-            rollbackSuppressing(connection, primary);
-            throw primary;
+            KnowledgeStoreException wrapped = new KnowledgeStoreException(failureMessage, failure);
+            primary = wrapped;
+            rollbackSuppressing(connection, wrapped);
+            throw wrapped;
         } catch (RuntimeException failure) {
             primary = failure;
-            rollbackSuppressing(connection, primary);
-            throw primary;
+            rollbackSuppressing(connection, failure);
+            throw failure;
+        } catch (Error failure) {
+            primary = failure;
+            rollbackSuppressing(connection, failure);
+            throw failure;
         } finally {
             restoreAutoCommit(connection, true, primary);
         }
@@ -53,10 +58,10 @@ final class SqliteTransactionRunner {
         });
     }
 
-    private static void rollbackSuppressing(Connection connection, RuntimeException primary) {
+    private static void rollbackSuppressing(Connection connection, Throwable primary) {
         try {
             connection.rollback();
-        } catch (SQLException | RuntimeException rollbackFailure) {
+        } catch (SQLException | RuntimeException | Error rollbackFailure) {
             suppress(primary, rollbackFailure);
         }
     }
@@ -64,10 +69,10 @@ final class SqliteTransactionRunner {
     private static void restoreAutoCommit(
             Connection connection,
             boolean previousAutoCommit,
-            RuntimeException primary) {
+            Throwable primary) {
         try {
             connection.setAutoCommit(previousAutoCommit);
-        } catch (SQLException | RuntimeException cleanupFailure) {
+        } catch (SQLException | RuntimeException | Error cleanupFailure) {
             if (primary != null) {
                 suppress(primary, cleanupFailure);
                 return;
@@ -78,7 +83,7 @@ final class SqliteTransactionRunner {
         }
     }
 
-    private static void suppress(RuntimeException primary, Throwable secondary) {
+    private static void suppress(Throwable primary, Throwable secondary) {
         if (primary != secondary) primary.addSuppressed(secondary);
     }
 

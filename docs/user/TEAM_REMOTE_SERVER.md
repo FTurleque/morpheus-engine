@@ -97,6 +97,8 @@ revoke   -> le token révoqué est refusé dès la requête suivante
 
 MORPHEUS refuse de révoquer ou rétrograder le dernier `ADMIN`.
 
+Le fichier conserve également un audit **sans secret** des mutations. Cet historique est une fenêtre roulante bornée aux **512 événements les plus récents**. Cette compaction fait partie de l'écriture atomique du snapshot : la croissance de l'audit ne peut donc pas remplir indéfiniment le fichier de 256 KiB et empêcher une rotation ou une révocation urgente.
+
 ### Rôles
 
 | Rôle | Autorisations |
@@ -136,17 +138,9 @@ MORPHEUS_SERVER_MAX_CONCURRENT     limite de concurrence
 MORPHEUS_SERVER_WORKSPACE_ROOTS    racines séparées par le séparateur de chemins OS
 ```
 
-La propriété protégée équivalente est `morpheus.server.workspaceRoots`. Les
-racines sont configurées uniquement au démarrage du serveur. Elles doivent
-exister, être des répertoires réels et ne pas être des liens symboliques. Le
-mode remote refuse de démarrer sans racine valide, keystore, mot de passe TLS
-ou identité ADMIN.
+La propriété protégée équivalente est `morpheus.server.workspaceRoots`. Les racines sont configurées uniquement au démarrage du serveur. Elles doivent exister, être des répertoires réels et ne pas être des liens symboliques. Le mode remote refuse de démarrer sans racine valide, keystore, mot de passe TLS ou identité ADMIN.
 
-Un rôle `WRITE` peut enregistrer ou synchroniser uniquement la racine exacte
-ou un descendant réel de cette allowlist. MORPHEUS refuse les traversals,
-sorties de racine et chemins utilisant un symlink/junction. La même politique
-est réappliquée aux workspaces déjà persistés avant chaque synchronisation.
-Les erreurs remote ne renvoient pas les chemins serveur refusés.
+Un rôle `WRITE` peut enregistrer ou synchroniser uniquement la racine exacte ou un descendant réel de cette allowlist. MORPHEUS refuse les traversals, sorties de racine et chemins utilisant un symlink/junction. La même politique est réappliquée aux workspaces déjà persistés avant chaque synchronisation. Les erreurs remote ne renvoient pas les chemins serveur refusés.
 
 Le scan de synchronisation est borné **avant** fingerprint SHA-256. Les valeurs par défaut sont :
 
@@ -192,11 +186,17 @@ Lorsque le budget de concurrence est atteint, MORPHEUS répond explicitement :
 HTTP 429 TOO_MANY_REQUESTS
 ```
 
-Aucune file non bornée n’est créée par M26. Les opérations read-only proxifiées disposent d’un timeout amont borné ; les mutations ne reçoivent pas une deadline arbitraire de 60 secondes qui pourrait faire croire à un rollback alors que le traitement interne continue. Un client doit néanmoins traiter toute rupture réseau pendant une mutation comme un résultat à réconcilier avant retry.
+Aucune file non bornée n’est créée par M26. Les opérations read-only dont l'exécution est entièrement contrôlée par MORPHEUS disposent d’un timeout amont de 60 secondes. Les mutations ne reçoivent pas cette deadline arbitraire : le slot de concurrence reste détenu jusqu'à la réponse réelle du traitement interne.
+
+Le probe de plugin externe fait volontairement partie des exceptions au timeout façade, même s'il est sémantiquement read-only : il exécute du code tiers explicitement approuvé par ADMIN et ce code ne possède pas de contrat de cancellation coopérative. MORPHEUS ne renvoie donc pas un faux `504` en libérant le slot alors que le plugin pourrait continuer à tourner ; le slot reste détenu jusqu'à la fin réelle du probe. Un administrateur doit considérer un plugin bloquant comme un plugin défectueux et intervenir sur le processus si nécessaire.
+
+Un client doit traiter toute rupture réseau pendant une mutation comme un résultat à réconcilier avant retry.
 
 ### Probe de plugin externe en remote
 
-La discovery reste read-only. Le **probe qui charge du code JAR est ADMIN et exige un pin SHA-256** :
+La discovery reste read-only et **metadata-only**. Elle refuse un répertoire de plugins symbolique ainsi que les candidats JAR symboliques ; une discovery ne peut donc pas suivre un lien `*.jar` vers un fichier externe au répertoire configuré.
+
+Le **probe qui charge du code JAR est ADMIN et exige un pin SHA-256** :
 
 ```bash
 curl -X POST \
@@ -256,11 +256,23 @@ Si un serveur M26 détient encore le lease de la base, la restauration échoue.
 
 Une base future n’est jamais downgradée. Une base historique compatible peut être restaurée ; le mécanisme normal de migration MORPHEUS s’appliquera lors de l’ouverture suivante.
 
-## 7. Permissions locales sensibles
+## 7. Cohérence des synchronisations
+
+La publication d'un snapshot et la persistance de la baseline d'inventaire restent deux mutations distinctes, mais l'orchestration ne transforme plus un résultat déjà commité en faux échec :
+
+1. après une exception de persistance, MORPHEUS relit l'état et accepte un commit déjà visible ;
+2. si le commit n'est pas visible, un **unique retry idempotent** de la baseline est tenté ;
+3. si une publication a pu réussir mais que la baseline reste impossible à persister, l'état est marqué `BASELINE_INCONSISTENT` plutôt que `EXECUTION_FAILED` ;
+4. le prochain plan force alors un full rebuild conservateur ;
+5. `SCAN_INCOMPLETE` reste une cause spécifique et n'est pas écrasée par `EXECUTION_FAILED`.
+
+Cette stratégie est une réconciliation bornée et explicite ; elle ne prétend pas transformer deux transactions physiques en une transaction distribuée atomique.
+
+## 8. Permissions locales sensibles
 
 Les fichiers d'authentification, bases, sidecars, locks et staging contrôlés par MORPHEUS sont durcis en permissions propriétaire lorsque le filesystem expose POSIX ou ACL. Sur POSIX, un répertoire sensible préexistant qui est modifiable par le groupe ou les autres utilisateurs est refusé au lieu d'être utilisé silencieusement.
 
-## 8. Headers et CORS
+## 9. Headers et CORS
 
 Le frontal remote ajoute notamment :
 
@@ -275,7 +287,7 @@ X-Request-Id: <uuid>
 
 M26 n’active **aucun CORS implicite**.
 
-## 9. Limites M26
+## 10. Limites M26
 
 M26 fournit un serveur d’équipe auto-hébergeable de référence ; il ne prétend pas fournir :
 

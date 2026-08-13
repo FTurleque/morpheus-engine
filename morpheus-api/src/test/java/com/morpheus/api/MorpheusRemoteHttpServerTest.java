@@ -261,10 +261,10 @@ class MorpheusRemoteHttpServerTest {
     }
 
     @Test
-    void remoteProxyTimeoutIsLimitedToReadOnlyOperations() {
+    void remoteProxyTimeoutExcludesOperationsWithoutCooperativeCancellation() {
         assertTrue(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("GET", "/api/v1/health"));
         assertTrue(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/reasoning/analyze"));
-        assertTrue(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/provider-plugins/probe"));
+        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/provider-plugins/probe"));
         assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/projects/p1/sync"));
         assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/projects"));
         assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("PUT", "/api/v1/anything"));

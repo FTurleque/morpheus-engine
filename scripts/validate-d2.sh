@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-1.2.0}"
+VERSION="${1:-1.2.1}"
 BASE_REF="${MORPHEUS_D2_BASE_REF:-origin/develop}"
 SKIP_SECURITY_SCAN="${MORPHEUS_D2_SKIP_SECURITY_SCAN:-false}"
 SKIP_PORTABLE="${MORPHEUS_D2_SKIP_PORTABLE:-false}"
@@ -87,12 +87,12 @@ if (( FAILURES != 0 || ERRORS != 0 )); then
   echo "D2 Surefire failures=$FAILURES errors=$ERRORS" >&2
   exit 1
 fi
-if (( TESTS < 613 )); then
-  echo "D2 test baseline regression: $TESTS < 613" >&2
+if (( TESTS < 711 )); then
+  echo "D2 test baseline regression: $TESTS < 711" >&2
   exit 1
 fi
-if (( ARCH_TESTS < 247 )); then
-  echo "D2 architecture baseline regression: $ARCH_TESTS < 247" >&2
+if (( ARCH_TESTS < 253 )); then
+  echo "D2 architecture baseline regression: $ARCH_TESTS < 253" >&2
   exit 1
 fi
 printf '%s\n' "D2 tests: PASS ($TESTS tests, architecture=$ARCH_TESTS, skipped=$SKIPPED)"

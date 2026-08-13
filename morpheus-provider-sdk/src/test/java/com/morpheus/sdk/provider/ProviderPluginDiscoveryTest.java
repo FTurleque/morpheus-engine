@@ -5,6 +5,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 import java.util.jar.JarEntry;
@@ -30,6 +31,36 @@ class ProviderPluginDiscoveryTest {
         assertEquals("b-provider.jar", result.candidates().get(1).jarPath().getFileName().toString());
         assertTrue(result.candidates().stream().allMatch(ProviderPluginCandidate::compatible));
         assertEquals(2, result.compatibleCount());
+    }
+
+    @Test
+    void symbolicJarCannotEscapePluginDirectoryDuringDiscovery() throws Exception {
+        Path plugins = Files.createDirectory(directory.resolve("plugins"));
+        Path external = directory.resolve("external.jar");
+        writeMetadataOnlyJar(external, metadata("external-plugin", 1, "1.0.0"));
+        Path link = plugins.resolve("linked.jar");
+        if (!createSymlink(link, external)) {
+            return;
+        }
+
+        ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(plugins);
+
+        assertTrue(result.candidates().isEmpty());
+    }
+
+    @Test
+    void symbolicPluginDirectoryIsRejected() throws Exception {
+        Path real = Files.createDirectory(directory.resolve("real-plugins"));
+        writeMetadataOnlyJar(real.resolve("provider.jar"), metadata("provider", 1, "1.0.0"));
+        Path link = directory.resolve("linked-plugins");
+        if (!createSymlink(link, real)) {
+            return;
+        }
+
+        ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(link);
+
+        assertTrue(result.candidates().isEmpty());
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.code().equals("PLUGIN_PATH_NOT_DIRECTORY")));
     }
 
     @Test
@@ -75,6 +106,15 @@ class ProviderPluginDiscoveryTest {
         assertTrue(outcome.diagnostics().stream().anyMatch(d -> d.code().equals("PLUGIN_ID_AMBIGUOUS")));
     }
 
+    private static boolean createSymlink(Path link, Path target) {
+        try {
+            Files.createSymbolicLink(link, target);
+            return true;
+        } catch (UnsupportedOperationException | java.io.IOException | SecurityException unsupported) {
+            return false;
+        }
+    }
+
     private static Properties metadata(String pluginId, int sdkApiVersion, String minimumVersion) {
         Properties properties = new Properties();
         properties.setProperty("plugin.id", pluginId);
@@ -89,7 +129,7 @@ class ProviderPluginDiscoveryTest {
         StringWriter metadata = new StringWriter();
         properties.store(metadata, null);
         byte[] bytes = metadata.toString().getBytes(StandardCharsets.UTF_8);
-        try (JarOutputStream jar = new JarOutputStream(java.nio.file.Files.newOutputStream(path))) {
+        try (JarOutputStream jar = new JarOutputStream(Files.newOutputStream(path))) {
             jar.putNextEntry(new JarEntry(ProviderSdk.METADATA_PATH));
             jar.write(bytes);
             jar.closeEntry();

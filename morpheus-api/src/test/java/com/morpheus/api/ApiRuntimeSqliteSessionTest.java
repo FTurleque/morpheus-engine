@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.store.sqlite.SqliteConnectionScope;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,6 +24,21 @@ class ApiRuntimeSqliteSessionTest {
             assertEquals(9, runtime.logicalSqliteConnectionsBorrowed());
             assertEquals(1, runtime.sqliteSchemaInitializations());
         }
+    }
+
+    @Test
+    void queryRuntimeSharesOnePhysicalConnectionAcrossItsFiveStores() {
+        Path database = temp.resolve("query.db");
+        SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
+
+        Object views = new MorpheusQueryApiService(database).listSavedViews(
+                "PROJECT", ProjectSpecificationId.generate().toString());
+
+        SqliteConnectionScope.Diagnostics after = SqliteConnectionScope.diagnostics();
+        assertTrue(views instanceof List<?>);
+        assertEquals(1, after.opened() - before.opened());
+        assertEquals(1, after.closed() - before.closed());
+        assertEquals(before.active(), after.active());
     }
 
     @Test

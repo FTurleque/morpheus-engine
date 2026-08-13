@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
 import com.morpheus.store.sqlite.SqliteCompositionStateStore;
+import com.morpheus.store.sqlite.SqliteConnectionScope;
 import com.morpheus.store.sqlite.SqliteEntityIdentityStore;
 import com.morpheus.store.sqlite.SqliteExternalReferenceStore;
 import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
@@ -26,19 +27,55 @@ final class CliRuntime implements AutoCloseable {
     final SqliteSyncStateStore syncState;
     final SqliteChangeLifecycleMutationStore lifecycleMutations;
     final SqliteCompositionStateStore compositions;
+    private final SqliteConnectionScope sqliteScope;
 
     CliRuntime(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-        new RuntimeSnapshotRecovery(snapshots).recoverAll(Instant.now());
-        requirements = new SqliteVersionedRequirementStore(databasePath);
-        content = new SqliteSnapshotBusinessContentStore(databasePath);
-        traceability = new SqliteTraceabilityStore(databasePath);
-        externalReferences = new SqliteExternalReferenceStore(databasePath);
-        identities = new SqliteEntityIdentityStore(databasePath);
-        syncState = new SqliteSyncStateStore(databasePath);
-        lifecycleMutations = new SqliteChangeLifecycleMutationStore(databasePath);
-        compositions = new SqliteCompositionStateStore(databasePath);
+        sqliteScope = SqliteConnectionScope.open(databasePath);
+        SqliteSpecificationKnowledgeStore openedSnapshots = null;
+        SqliteVersionedRequirementStore openedRequirements = null;
+        SqliteSnapshotBusinessContentStore openedContent = null;
+        SqliteTraceabilityStore openedTraceability = null;
+        SqliteExternalReferenceStore openedExternalReferences = null;
+        SqliteEntityIdentityStore openedIdentities = null;
+        SqliteSyncStateStore openedSyncState = null;
+        SqliteChangeLifecycleMutationStore openedLifecycleMutations = null;
+        SqliteCompositionStateStore openedCompositions = null;
+        try {
+            openedSnapshots = new SqliteSpecificationKnowledgeStore(databasePath);
+            new RuntimeSnapshotRecovery(openedSnapshots).recoverAll(Instant.now());
+            openedRequirements = new SqliteVersionedRequirementStore(databasePath);
+            openedContent = new SqliteSnapshotBusinessContentStore(databasePath);
+            openedTraceability = new SqliteTraceabilityStore(databasePath);
+            openedExternalReferences = new SqliteExternalReferenceStore(databasePath);
+            openedIdentities = new SqliteEntityIdentityStore(databasePath);
+            openedSyncState = new SqliteSyncStateStore(databasePath);
+            openedLifecycleMutations = new SqliteChangeLifecycleMutationStore(databasePath);
+            openedCompositions = new SqliteCompositionStateStore(databasePath);
+        } catch (RuntimeException failure) {
+            RuntimeException cleanup = null;
+            cleanup = close(openedCompositions, cleanup);
+            cleanup = close(openedLifecycleMutations, cleanup);
+            cleanup = close(openedSyncState, cleanup);
+            cleanup = close(openedIdentities, cleanup);
+            cleanup = close(openedExternalReferences, cleanup);
+            cleanup = close(openedTraceability, cleanup);
+            cleanup = close(openedContent, cleanup);
+            cleanup = close(openedRequirements, cleanup);
+            cleanup = close(openedSnapshots, cleanup);
+            cleanup = close(sqliteScope, cleanup);
+            if (cleanup != null) failure.addSuppressed(cleanup);
+            throw failure;
+        }
+        snapshots = openedSnapshots;
+        requirements = openedRequirements;
+        content = openedContent;
+        traceability = openedTraceability;
+        externalReferences = openedExternalReferences;
+        identities = openedIdentities;
+        syncState = openedSyncState;
+        lifecycleMutations = openedLifecycleMutations;
+        compositions = openedCompositions;
     }
 
     @Override
@@ -53,12 +90,14 @@ final class CliRuntime implements AutoCloseable {
         failure = close(content, failure);
         failure = close(requirements, failure);
         failure = close(snapshots, failure);
+        failure = close(sqliteScope, failure);
         if (failure != null) {
             throw failure;
         }
     }
 
-    private RuntimeException close(AutoCloseable closeable, RuntimeException previous) {
+    private static RuntimeException close(AutoCloseable closeable, RuntimeException previous) {
+        if (closeable == null) return previous;
         try {
             closeable.close();
             return previous;

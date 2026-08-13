@@ -32,11 +32,14 @@ import java.util.regex.Pattern;
  * <p>The file persists only principal, role and SHA-256(token). Generated bearer tokens are returned once to
  * the caller and are never written to disk. Mutations are serialized both inside this JVM and across cooperating
  * MORPHEUS processes through an owner-hardened sidecar file lock. The remote server reloads the current identity
- * snapshot for each authentication request, so revoke/rotate/role changes become effective without restart.</p>
+ * snapshot for each authentication request, so revoke/rotate/role changes become effective without restart.
+ * The secret-free audit is retained as a bounded rolling window inside the same atomic snapshot so audit growth can
+ * never prevent an urgent credential rotation or revocation.</p>
  */
 public final class MorpheusRemoteIdentityFile {
     public static final int MAX_FILE_BYTES = 256 * 1024;
     public static final int MAX_IDENTITIES = 256;
+    public static final int MAX_AUDIT_RECORDS = 512;
     public static final int TOKEN_BYTES = 32;
     private static final int MAX_PRESENTED_TOKEN_CHARS = 1024;
     private static final Pattern PRINCIPAL = Pattern.compile("[A-Za-z0-9._@-]{1,128}");
@@ -318,16 +321,21 @@ public final class MorpheusRemoteIdentityFile {
             if (!hashes.add(hash)) throw new IllegalArgumentException("duplicate remote token hash");
             lines.add(identity.principal() + "|" + identity.role().name() + "|" + hash);
         }
+
+        List<AuditRecord> retainedAudit = new ArrayList<>();
         if (Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
             try {
-                parseAudit(Files.readAllLines(file, StandardCharsets.UTF_8)).stream()
-                        .map(MorpheusRemoteIdentityFile::formatAudit)
-                        .forEach(lines::add);
+                retainedAudit.addAll(parseAudit(Files.readAllLines(file, StandardCharsets.UTF_8)));
             } catch (IOException failure) {
                 throw new IllegalArgumentException("cannot preserve remote identity audit", failure);
             }
         }
-        lines.add(formatAudit(Objects.requireNonNull(auditRecord, "auditRecord")));
+        retainedAudit.add(Objects.requireNonNull(auditRecord, "auditRecord"));
+        int firstRetained = Math.max(0, retainedAudit.size() - MAX_AUDIT_RECORDS);
+        retainedAudit.subList(firstRetained, retainedAudit.size()).stream()
+                .map(MorpheusRemoteIdentityFile::formatAudit)
+                .forEach(lines::add);
+
         String content = String.join(System.lineSeparator(), lines) + System.lineSeparator();
         if (content.getBytes(StandardCharsets.UTF_8).length > MAX_FILE_BYTES) {
             throw new IllegalArgumentException("remote auth file would exceed " + MAX_FILE_BYTES + " bytes");
