@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '1.0.0',
+    [string]$Version = '1.2.1',
     [string]$BaseRef = 'origin/main',
     [switch]$SkipPortable
 )
@@ -109,15 +109,15 @@ $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) {
     throw "Surefire failures=$($totals.Failures) errors=$($totals.Errors)"
 }
-if ($totals.Tests -lt 454) {
-    throw "M21 test baseline regression: $($totals.Tests) < 454"
+if ($totals.Tests -lt 698) {
+    throw "M21 test baseline regression: $($totals.Tests) < 698"
 }
 $architecture = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
-if ($architecture.Tests -lt 182) {
-    throw "M21 architecture baseline regression: $($architecture.Tests) < 182"
+if ($architecture.Tests -lt 250) {
+    throw "M21 architecture baseline regression: $($architecture.Tests) < 250"
 }
-Write-Host "Tests: PASS ($($totals.Tests), baseline >= 454)"
-Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= 182)"
+Write-Host "Tests: PASS ($($totals.Tests), baseline >= 698)"
+Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= 250)"
 
 $coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
 if (-not (Test-Path $coverageSummary)) { throw "Missing M21 coverage summary: $coverageSummary" }
@@ -125,13 +125,13 @@ $coverage = @{}
 Get-Content $coverageSummary | ForEach-Object {
     if ($_ -match '^([^=]+)=(.*)$') { $coverage[$matches[1]] = $matches[2] }
 }
-if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.25) {
-    throw "M21 line coverage below 25%: $($coverage.lineRatio)"
+if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.47) {
+    throw "M21 line coverage below 47% ratchet: $($coverage.lineRatio)"
 }
-if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.20) {
-    throw "M21 branch coverage below 20%: $($coverage.branchRatio)"
+if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.40) {
+    throw "M21 branch coverage below 40% ratchet: $($coverage.branchRatio)"
 }
-Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio))"
+Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio), ratchet=47%/40%)"
 
 $sbomJson = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.json'
 $sbomXml = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.xml'
