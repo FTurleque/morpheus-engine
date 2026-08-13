@@ -1,16 +1,6 @@
 package com.morpheus.architecture.m22;
 
-import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.product.ProductMetadata;
-import com.morpheus.application.read.ProviderReadRequest;
-import com.morpheus.application.read.ReadCategory;
-import com.morpheus.application.read.ReadCategoryStatus;
-import com.morpheus.domain.identity.DomainIdentity;
-import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.provider.ProviderCapability;
-import com.morpheus.sdk.provider.MorpheusProviderPlugin;
-import com.morpheus.sdk.provider.ProviderPluginActivation;
-import com.morpheus.sdk.provider.ProviderPluginActivator;
 import com.morpheus.sdk.provider.ProviderPluginCandidate;
 import com.morpheus.sdk.provider.ProviderPluginDiscovery;
 import org.junit.jupiter.api.Test;
@@ -20,12 +10,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProviderPluginPlatformContractTest {
@@ -33,7 +20,7 @@ class ProviderPluginPlatformContractTest {
     Path tempDirectory;
 
     @Test
-    void externalReferenceJarIsDiscoveredActivatedInDedicatedLoaderProbedAndRead() throws Exception {
+    void externalReferenceJarIsDiscoveredAsMetadataWithoutActivation() throws Exception {
         Path root = repoRoot();
         Path referenceJar = root.resolve(
                 "morpheus-provider-reference/target/morpheus-provider-reference-"
@@ -44,37 +31,12 @@ class ProviderPluginPlatformContractTest {
         Path pluginDirectory = Files.createDirectory(tempDirectory.resolve("plugins"));
         Path pluginJar = pluginDirectory.resolve("reference-provider.jar");
         Files.copy(referenceJar, pluginJar, StandardCopyOption.REPLACE_EXISTING);
-        Path workspace = Files.createDirectory(tempDirectory.resolve("workspace"));
-        Files.writeString(workspace.resolve("morpheus-reference.spec"), "reference\n");
 
         var discovery = new ProviderPluginDiscovery().discover(pluginDirectory);
         assertEquals(1, discovery.candidates().size());
         ProviderPluginCandidate candidate = discovery.candidates().getFirst();
         assertTrue(candidate.compatible(), candidate.diagnostics().toString());
         assertEquals("reference-provider-plugin", candidate.metadata().orElseThrow().pluginId());
-
-        try (ProviderPluginActivation activation = new ProviderPluginActivator().activate(candidate)) {
-            assertNotSame(
-                    MorpheusProviderPlugin.class.getClassLoader(),
-                    activation.plugin().getClass().getClassLoader(),
-                    "external plugin implementation must live in its dedicated URLClassLoader");
-            var probe = activation.provider().probe(workspace);
-            assertTrue(probe.supported(), probe.diagnostics().toString());
-            assertEquals("reference-plugin", probe.providerId().value());
-            assertTrue(probe.capabilities().contains(ProviderCapability.DISCOVER_PROJECT));
-            assertTrue(probe.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS));
-
-            ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-            var read = activation.contentReader().read(
-                    new ProviderReadRequest(workspace, projectId, Set.of(ReadCategory.CURRENT_SPECIFICATIONS)),
-                    stableResolver());
-            assertEquals("reference-plugin", read.providerId().value());
-            assertEquals(1, read.content().orElseThrow().specifications().size());
-            assertEquals("reference-current", read.content().orElseThrow().specifications().getFirst().key());
-            assertEquals(
-                    ReadCategoryStatus.READ,
-                    read.report(ReadCategory.CURRENT_SPECIFICATIONS).orElseThrow().status());
-        }
     }
 
     @Test
@@ -96,28 +58,25 @@ class ProviderPluginPlatformContractTest {
     }
 
     @Test
-    void referenceProviderIsNotEmbeddedAsALauncherDependencyAndSurfacesAreExplicit() throws IOException {
+    void referenceProviderIsNotEmbeddedAndExecutableSurfacesAreFailClosed() throws IOException {
         Path root = repoRoot();
         String cliPom = Files.readString(root.resolve("morpheus-cli/pom.xml"));
         String surfaces = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
         String main = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"));
         String mcp = Files.readString(root.resolve("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java"));
         String http = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String activator = Files.readString(root.resolve("morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginActivator.java"));
 
         assertFalse(cliPom.contains("morpheus-provider-reference"), "reference plugin must remain external to launcher runtime");
         assertTrue(surfaces.contains("provider.plugins.discover\tREAD\tprovider-plugins discover\tdiscover_provider_plugins\tGET /api/v1/provider-plugins/discover"));
-        assertTrue(surfaces.contains("provider.plugins.probe\tREAD\tprovider-plugins probe\tprobe_provider_plugin\tGET /api/v1/provider-plugins/probe"));
+        assertTrue(surfaces.contains("provider.plugins.probe\tWRITE\tprovider-plugins probe\tEXPLICITLY_NOT_EXPOSED\tPOST /api/v1/provider-plugins/probe"));
         assertTrue(main.contains("Provider plugins (M22, explicit only)"));
         assertTrue(mcp.contains("discover_provider_plugins"));
-        assertTrue(mcp.contains("probe_provider_plugin"));
-        assertTrue(http.contains("segments.getFirst().equals(\"provider-plugins\")"));
-    }
-
-    private static EntityIdentityResolver stableResolver() {
-        var identities = new ConcurrentHashMap<String, DomainIdentity>();
-        return (providerId, entityType, externalId) -> identities.computeIfAbsent(
-                providerId.value() + ":" + entityType + ":" + externalId,
-                ignored -> DomainIdentity.generate());
+        assertTrue(mcp.contains("RETIRED_PROBE_TOOL"));
+        assertFalse(mcp.contains("case RETIRED_PROBE_TOOL"));
+        assertTrue(http.contains("providerPluginProbeEnabled"));
+        assertTrue(http.contains("provider-plugin probe is remote-only"));
+        assertTrue(activator.contains("provider plugin activation requires a trusted SHA-256 pin"));
     }
 
     private String readTree(Path root) throws IOException {
