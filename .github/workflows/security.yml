@@ -46,7 +46,7 @@ jobs:
           restore-keys: |
             dependency-check-v12-${{ runner.os }}-
 
-      - name: Run OWASP Dependency-Check
+      - name: Update Dependency-Check vulnerability database
         shell: bash
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -54,21 +54,29 @@ jobs:
           args=(
             "-Pd2-security"
             "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data"
-            "org.owasp:dependency-check-maven:12.2.2:aggregate"
+            "org.owasp:dependency-check-maven:12.2.2:update-only"
           )
           if [[ -n "${NVD_API_KEY:-}" ]]; then
-            args+=("-DnvdApiKey=${NVD_API_KEY}")
+            args+=("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY")
           else
-            echo "::warning::NVD_API_KEY is not configured; cached NVD data will be used and cold updates can be slower."
+            echo "::warning::NVD_API_KEY is not configured; a cold NVD update can be slower."
           fi
           ./mvnw "${args[@]}"
 
-      - name: Save Dependency-Check database
-        if: always()
+      - name: Save updated Dependency-Check database
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
           key: dependency-check-v12-${{ runner.os }}-${{ github.run_id }}
+
+      - name: Run OWASP Dependency-Check scan
+        shell: bash
+        run: |
+          ./mvnw \
+            -Pd2-security \
+            "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data" \
+            -DautoUpdate=false \
+            org.owasp:dependency-check-maven:12.2.2:aggregate
 
       - name: Upload dependency-check evidence
         if: always()
