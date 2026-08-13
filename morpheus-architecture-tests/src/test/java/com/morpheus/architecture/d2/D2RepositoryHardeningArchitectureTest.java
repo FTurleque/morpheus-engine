@@ -102,9 +102,13 @@ class D2RepositoryHardeningArchitectureTest {
 
         assertTrue(security.contains("branches: [main, develop]"));
         assertTrue(security.contains("timeout-minutes: 90"));
+        assertTrue(security.contains("dependency-check-maven:12.2.2:update-only"));
         assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"));
+        assertTrue(security.contains("-DautoUpdate=false"));
         assertTrue(security.contains("target/dependency-check-data"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
+        assertTrue(security.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"));
+        assertFalse(security.contains("-DnvdApiKey=${NVD_API_KEY}"));
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
         assertTrue(dependabot.contains("target-branch: develop"));
