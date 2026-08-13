@@ -57,8 +57,8 @@ Linux :
 Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubuntu pour les pull requests ainsi que sur les pushes `main` et `develop`.
 
 ```text
-baseline Surefire totale       >= 698
-baseline architecture          >= 250
+baseline Surefire totale       >= 711
+baseline architecture          >= 253
 JaCoCo line ratchet            >= 47%
 JaCoCo branch ratchet          >= 40%
 D2 absolute line floor         40%
@@ -68,13 +68,13 @@ CycloneDX SBOM                  JSON + XML
 product/package version         1.2.1
 ```
 
-Les seuils `698 / 250` correspondent à la dernière baseline exacte qualifiée avant les corrections post-audit. Les nouveaux tests peuvent faire augmenter les compteurs ; les floors ne sont pas abaissés automatiquement. Après qualification durable d'un head plus élevé sur Windows et Linux, ils peuvent être relevés explicitement.
+Les seuils `711 / 253` correspondent à la baseline de remédiation post-audit qualifiée sur le même SHA exact sous Windows et Linux. Les floors sont des ratchets de présence : ils ne sont pas abaissés automatiquement, et toute hausse ultérieure doit elle aussi être fondée sur une qualification exacte des deux plateformes.
 
 Les scripts `validate-m21.sh` et `validate-m21.ps1` appliquent eux-mêmes les ratchets `47% / 40%`, en plus du contrat `CoverageQualityGateTest`, afin d'éviter qu'un changement de wiring Maven transforme silencieusement un ancien floor `25% / 20%` en garde principale.
 
 ## Qualité et ratchet JaCoCo
 
-MRA-12 a remplacé le simple floor D2 par un ratchet anti-régression. La baseline historique de référence MRA était **47,2781% lignes / 40,4547% branches** ; le merge post-audit `54c9d01c…` a ensuite qualifié **47,4534% / 40,7212%** sous Linux et **47,4739% / 40,6867%** sous Windows. Le ratchet exécutable reste volontairement arrondi vers le bas au point de pourcentage entier : **47% / 40%**.
+MRA-12 a remplacé le simple floor D2 par un ratchet anti-régression. La baseline historique de référence MRA était **47,2781% lignes / 40,4547% branches** ; le merge post-audit `54c9d01c…` a ensuite qualifié **47,4534% / 40,7212%** sous Linux et **47,4739% / 40,6867%** sous Windows. La remédiation post-audit suivante a qualifié **47,6094% lignes** sur les deux plateformes, avec **40,8521% branches** sous Linux et **40,7610%** sous Windows. Le ratchet exécutable reste volontairement arrondi vers le bas au point de pourcentage entier : **47% / 40%**.
 
 Règle d’évolution :
 
@@ -136,7 +136,7 @@ Linux / WSL :
 MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
 ```
 
-D2 applique désormais les floors de présence `698 / 250`, conserve les minima absolus de couverture `40% / 35%`, exécute Dependency-Check et exige le portable de la plateforme pour une qualification finale sans skip.
+D2 applique les mêmes floors de présence `711 / 253`, conserve les minima absolus de couverture `40% / 35%`, exécute Dependency-Check et exige le portable de la plateforme pour une qualification finale sans skip.
 
 ## Packaging actif
 
