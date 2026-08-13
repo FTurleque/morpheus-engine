@@ -22,16 +22,8 @@ public record SourceScanPolicy(
     static final long DEFAULT_MAX_AGGREGATE_BYTES = 2L * 1024 * 1024 * 1024;
 
     private static final Set<String> DEFAULT_IGNORED_DIRECTORIES = Set.of(
-            ".git",
-            ".hg",
-            ".svn",
-            ".idea",
-            ".gradle",
-            ".morpheus",
-            "target",
-            "build",
-            "dist",
-            "node_modules");
+            ".git", ".hg", ".svn", ".idea", ".gradle", ".morpheus",
+            "target", "build", "dist", "node_modules");
 
     public SourceScanPolicy {
         Objects.requireNonNull(ignoredDirectoryNames, "ignoredDirectoryNames");
@@ -46,6 +38,9 @@ public record SourceScanPolicy(
             }
             normalized.add(candidate);
         }
+        if (followSymbolicLinks) {
+            throw new IllegalArgumentException("symbolic-link traversal is not supported by the source scan policy");
+        }
         if (maxDepth < 1) throw new IllegalArgumentException("maxDepth must be >= 1");
         if (maxDirectories < 1) throw new IllegalArgumentException("maxDirectories must be >= 1");
         if (maxFiles < 1) throw new IllegalArgumentException("maxFiles must be >= 1");
@@ -57,7 +52,6 @@ public record SourceScanPolicy(
         ignoredDirectoryNames = Set.copyOf(normalized);
     }
 
-    /** Compatibility constructor for callers that customize the original filesystem budget dimensions. */
     public SourceScanPolicy(
             Set<String> ignoredDirectoryNames,
             boolean followSymbolicLinks,
@@ -65,37 +59,19 @@ public record SourceScanPolicy(
             int maxFiles,
             long maxFileBytes,
             long maxAggregateBytes) {
-        this(
-                ignoredDirectoryNames,
-                followSymbolicLinks,
-                maxDepth,
-                DEFAULT_MAX_DIRECTORIES,
-                maxFiles,
-                maxFileBytes,
-                maxAggregateBytes);
+        this(ignoredDirectoryNames, followSymbolicLinks, maxDepth, DEFAULT_MAX_DIRECTORIES,
+                maxFiles, maxFileBytes, maxAggregateBytes);
     }
 
-    /** Compatibility constructor for callers that only customize ignored paths/link traversal. */
+    /** Compatibility constructor. Symbolic-link traversal remains deliberately denied. */
     public SourceScanPolicy(Set<String> ignoredDirectoryNames, boolean followSymbolicLinks) {
-        this(
-                ignoredDirectoryNames,
-                followSymbolicLinks,
-                DEFAULT_MAX_DEPTH,
-                DEFAULT_MAX_DIRECTORIES,
-                DEFAULT_MAX_FILES,
-                DEFAULT_MAX_FILE_BYTES,
-                DEFAULT_MAX_AGGREGATE_BYTES);
+        this(ignoredDirectoryNames, followSymbolicLinks, DEFAULT_MAX_DEPTH, DEFAULT_MAX_DIRECTORIES,
+                DEFAULT_MAX_FILES, DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_AGGREGATE_BYTES);
     }
 
     public static SourceScanPolicy safeDefaults() {
-        return new SourceScanPolicy(
-                DEFAULT_IGNORED_DIRECTORIES,
-                false,
-                DEFAULT_MAX_DEPTH,
-                DEFAULT_MAX_DIRECTORIES,
-                DEFAULT_MAX_FILES,
-                DEFAULT_MAX_FILE_BYTES,
-                DEFAULT_MAX_AGGREGATE_BYTES);
+        return new SourceScanPolicy(DEFAULT_IGNORED_DIRECTORIES, false, DEFAULT_MAX_DEPTH,
+                DEFAULT_MAX_DIRECTORIES, DEFAULT_MAX_FILES, DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_AGGREGATE_BYTES);
     }
 
     public boolean ignoresDirectory(Path directory) {
