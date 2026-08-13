@@ -355,7 +355,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         if (contentType != null) request.header("Content-Type", contentType);
         String accept = exchange.getRequestHeaders().getFirst("Accept");
         if (accept != null) request.header("Accept", accept);
-        String upstreamMethod = providerProbe ? "GET" : exchange.getRequestMethod();
+        String upstreamMethod = exchange.getRequestMethod();
         request.method(upstreamMethod, requestBody.length == 0
                 ? HttpRequest.BodyPublishers.noBody()
                 : HttpRequest.BodyPublishers.ofByteArray(requestBody));
