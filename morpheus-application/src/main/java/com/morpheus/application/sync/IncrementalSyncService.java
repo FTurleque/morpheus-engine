@@ -94,6 +94,70 @@ public final class IncrementalSyncService {
                         archivedRevision))
                 .toList();
 
+        try {
+            commitSuccessfulSync(plan, current, completedAt, observedChangeAt, archives);
+            return;
+        } catch (RuntimeException primary) {
+            if (successfulCommitVisible(plan, current)) {
+                return;
+            }
+
+            // The SQLite implementation is idempotent (UPSERT + inventory replacement + INSERT OR IGNORE archives).
+            // A single bounded retry closes the gap where snapshot publication succeeded but sync-state persistence
+            // encountered a transient failure. Never loop indefinitely on a persistent storage problem.
+            try {
+                commitSuccessfulSync(plan, current, completedAt, observedChangeAt, archives);
+                return;
+            } catch (RuntimeException retryFailure) {
+                if (successfulCommitVisible(plan, current)) {
+                    return;
+                }
+                if (primary != retryFailure) primary.addSuppressed(retryFailure);
+            }
+
+            if (publicationExpected(plan)) {
+                // Publication is the authoritative business mutation. If its follow-up inventory commit cannot be
+                // persisted after a bounded retry, keep the operation truthful by marking the baseline inconsistent
+                // rather than falsely recording EXECUTION_FAILED after a new ACTIVE snapshot may already exist.
+                try {
+                    store.recordAttempt(
+                            plan.projectId(),
+                            plan.attemptedAt(),
+                            Optional.of(SyncPlan.FullRebuildReason.BASELINE_INCONSISTENT));
+                    return;
+                } catch (RuntimeException markerFailure) {
+                    if (primary != markerFailure) primary.addSuppressed(markerFailure);
+                }
+            }
+            throw primary;
+        }
+    }
+
+    public void fail(SyncPlan plan, Instant failedAt) {
+        Objects.requireNonNull(plan, "plan");
+        Objects.requireNonNull(failedAt, "failedAt");
+        if (failedAt.isBefore(plan.attemptedAt())) {
+            throw new IllegalArgumentException("failedAt must not be before attemptedAt");
+        }
+        SourceInventory current = plan.currentInventory().orElse(null);
+        if (current != null && successfulCommitVisible(plan, current)) {
+            return;
+        }
+        SyncPlan.FullRebuildReason failureReason = plan.fullRebuildReason()
+                .filter(reason -> reason == SyncPlan.FullRebuildReason.SCAN_INCOMPLETE)
+                .orElse(SyncPlan.FullRebuildReason.EXECUTION_FAILED);
+        store.recordAttempt(
+                plan.projectId(),
+                plan.attemptedAt(),
+                Optional.of(failureReason));
+    }
+
+    private void commitSuccessfulSync(
+            SyncPlan plan,
+            SourceInventory current,
+            Instant completedAt,
+            Optional<Instant> observedChangeAt,
+            List<SourceArchiveRecord> archives) {
         store.commitSuccessfulSync(
                 current,
                 plan.mode(),
@@ -103,16 +167,27 @@ public final class IncrementalSyncService {
                 archives);
     }
 
-    public void fail(SyncPlan plan, Instant failedAt) {
-        Objects.requireNonNull(plan, "plan");
-        Objects.requireNonNull(failedAt, "failedAt");
-        if (failedAt.isBefore(plan.attemptedAt())) {
-            throw new IllegalArgumentException("failedAt must not be before attemptedAt");
+    private boolean successfulCommitVisible(SyncPlan plan, SourceInventory expectedInventory) {
+        try {
+            Optional<ProjectSyncState> state = store.findSyncState(plan.projectId());
+            Optional<SourceInventory> inventory = store.findCurrentInventory(plan.projectId());
+            if (state.isEmpty() || inventory.isEmpty()) return false;
+            ProjectSyncState persisted = state.orElseThrow();
+            return persisted.lastSuccessfulSyncAt()
+                    .filter(value -> !value.isBefore(plan.attemptedAt()))
+                    .isPresent()
+                    && persisted.lastSuccessfulMode().equals(Optional.of(plan.mode()))
+                    && persisted.pendingFullRebuildReason().isEmpty()
+                    && persisted.sourceRevision().equals(expectedInventory.sourceRevision())
+                    && persisted.currentSourceCount() == expectedInventory.entries().size()
+                    && inventory.orElseThrow().equals(expectedInventory);
+        } catch (RuntimeException recoveryReadFailure) {
+            return false;
         }
-        store.recordAttempt(
-                plan.projectId(),
-                plan.attemptedAt(),
-                Optional.of(SyncPlan.FullRebuildReason.EXECUTION_FAILED));
+    }
+
+    private boolean publicationExpected(SyncPlan plan) {
+        return plan.mode() == SyncPlan.SyncMode.FULL_REBUILD || plan.hasSourceChanges();
     }
 
     private Optional<SyncPlan.FullRebuildReason> decideFullRebuildReason(
