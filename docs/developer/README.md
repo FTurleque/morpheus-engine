@@ -66,7 +66,8 @@ sqlite-jdbc                3.53.2.0
 MCP SDK                    2.0.0
 OWASP Dependency-Check     12.2.2
 JaCoCo ratchet             47% lignes / 40% branches
-Surefire floor             698\Architecture floor          250
+Surefire floor             698
+Architecture floor         250
 dependency analyze         failOnWarning=true
 ```
 
