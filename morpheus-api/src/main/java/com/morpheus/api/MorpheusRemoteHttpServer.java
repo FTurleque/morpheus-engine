@@ -332,8 +332,11 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         Objects.requireNonNull(path, "path");
         if (method.equals("GET") || method.equals("HEAD")) return true;
         if (!method.equals("POST")) return false;
-        return isReadOnlyPost(path)
-                || path.equals(MorpheusHttpServer.API_PREFIX + "/provider-plugins/probe");
+        // Only operations whose execution is entirely controlled by MORPHEUS receive the facade deadline.
+        // An ADMIN-approved provider probe executes third-party code that has no cooperative cancellation contract;
+        // returning 504 while that code continues would release the remote semaphore too early and make completion
+        // ambiguous. Keep that slot until the loopback probe actually completes.
+        return isReadOnlyPost(path);
     }
 
     private void proxy(HttpExchange exchange) throws IOException {
