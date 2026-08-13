@@ -44,6 +44,19 @@ class MorpheusProviderPluginApiContractTest {
         }
     }
 
+    @Test
+    void unpinnedProbeFailsClosedBeforeAnyPluginActivation() {
+        Path database = tempDirectory.resolve("morpheus.db");
+        String query = "/provider-plugins/probe?directory=" + encode(tempDirectory.toString())
+                + "&pluginId=example&workspace=" + encode(tempDirectory.toString());
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            ApiTestSupport.Response response = http.get(server, query);
+
+            assertEquals(400, response.status(), response.body());
+            assertTrue(response.body().contains("trusted SHA-256 pin"), response.body());
+        }
+    }
+
     private static String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
