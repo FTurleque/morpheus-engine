@@ -13,7 +13,7 @@ classloader isolation != security sandbox
 optional provider absence != project failure
 ```
 
-La commande `discover` inspecte uniquement les métadonnées du JAR. Elle n’exécute pas le plugin.
+La commande `discover` inspecte uniquement les métadonnées du JAR. Elle n’exécute pas le plugin. Le répertoire de plugins et les candidats JAR doivent être de vrais fichiers/répertoires non symboliques : la discovery utilise `NOFOLLOW_LINKS` et refuse donc qu'un `*.jar` symbolique fasse lire des métadonnées en dehors du répertoire configuré.
 
 La commande `probe` est différente : elle charge explicitement le plugin compatible et exécute son probe sur le workspace fourni. **Ne probez que des JARs dont vous acceptez d’exécuter le code.**
 
@@ -39,7 +39,7 @@ INCOMPATIBLE  plugin visible mais non activable par cette version
 INVALID       JAR ou manifeste invalide
 ```
 
-Un répertoire absent n’est pas une erreur fatale : MORPHEUS retourne zéro candidat et un diagnostic `PLUGIN_DIRECTORY_NOT_FOUND`.
+Un répertoire absent n’est pas une erreur fatale : MORPHEUS retourne zéro candidat et un diagnostic `PLUGIN_DIRECTORY_NOT_FOUND`. Un répertoire symbolique est refusé comme chemin de plugin invalide ; un JAR symbolique n'est pas considéré comme candidat.
 
 ## Tester un plugin sur un workspace
 
@@ -103,7 +103,10 @@ En remote :
 - le serveur injecte son `--provider-plugin-dir` configuré ;
 - le workspace doit appartenir à `AllowedWorkspaceRoots` ;
 - un probe sans pin retourne `PLUGIN_SHA256_REQUIRED` ;
-- le JAR épinglé est chargé depuis sa copie de staging vérifiée.
+- le JAR épinglé est chargé depuis sa copie de staging vérifiée ;
+- le probe ne reçoit pas la deadline façade de 60 secondes appliquée aux lectures purement MORPHEUS.
+
+La dernière règle est volontaire : un plugin tiers ne possède pas de contrat de cancellation coopérative. Renvoyer `504` après 60 secondes tout en libérant le slot de concurrence pourrait laisser le plugin continuer à s'exécuter en arrière-plan et rendre son achèvement ambigu. Le serveur conserve donc le slot jusqu'à la fin réelle du probe. Un plugin qui bloque est considéré comme défectueux et peut nécessiter une intervention sur le processus.
 
 Ce changement de forme est intentionnel : `surface parity != same transport shape`. Le probe reste la même capability, mais l’exposition réseau exige une autorisation et une preuve d’intégrité plus fortes.
 
