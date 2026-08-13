@@ -758,6 +758,9 @@ public final class MorpheusHttpServer implements AutoCloseable {
         } catch (RuntimeException ignored) {
             return "GET";
         }
+        if (segments.isEmpty()) {
+            return "GET";
+        }
         if (segments.size() == 1 && (segments.getFirst().equals("projects") || segments.getFirst().equals("portfolios"))) {
             return "GET, POST";
         }

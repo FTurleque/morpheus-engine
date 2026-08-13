@@ -47,6 +47,34 @@ function Get-FreeLoopbackPort {
     try { return ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port } finally { $listener.Stop() }
 }
 
+function Get-PackagedApiProbe {
+    param([Parameter(Mandatory = $true)][int]$Port)
+    $baseUri = "http://127.0.0.1:$Port/api/v1"
+    $health = Invoke-WebRequest -Uri "$baseUri/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+    $readiness = Invoke-WebRequest -Uri "$baseUri/readiness" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+    $metrics = Invoke-WebRequest -Uri "$baseUri/metrics" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+    $versionResponse = Invoke-WebRequest -Uri "$baseUri/version" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+    $versionPayload = $versionResponse.Content | ConvertFrom-Json
+    return [pscustomobject]@{
+        HealthStatus = $health.StatusCode
+        HealthBody = $health.Content
+        ReadinessStatus = $readiness.StatusCode
+        ReadinessBody = $readiness.Content
+        MetricsStatus = $metrics.StatusCode
+        MetricsBody = $metrics.Content
+        VersionStatus = $versionResponse.StatusCode
+        Version = [string]$versionPayload.data.version
+    }
+}
+
+function Test-PackagedApiProbe {
+    param([Parameter(Mandatory = $true)]$Probe)
+    return $Probe.HealthStatus -eq 200 -and $Probe.HealthBody -match '"status":"UP"' `
+        -and $Probe.ReadinessStatus -eq 200 -and $Probe.ReadinessBody -match '"status":"READY"' `
+        -and $Probe.MetricsStatus -eq 200 -and $Probe.MetricsBody -match '"counters"' `
+        -and $Probe.VersionStatus -eq 200 -and $Probe.Version -eq $Version
+}
+
 function Test-PackagedApiOperability {
     param([Parameter(Mandatory = $true)][string]$Launcher,
           [Parameter(Mandatory = $true)][string]$WorkDirectory)
@@ -60,35 +88,31 @@ function Test-PackagedApiOperability {
         -ArgumentList @("--data-dir", $apiData, "api", "--host", "127.0.0.1", "--port", "$port") `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
     try {
-        $healthUri = "http://127.0.0.1:$port/api/v1/health"
-        $readinessUri = "http://127.0.0.1:$port/api/v1/readiness"
-        $metricsUri = "http://127.0.0.1:$port/api/v1/metrics"
-        $versionUri = "http://127.0.0.1:$port/api/v1/version"
         for ($attempt = 1; $attempt -le 60; $attempt++) {
             if ($process.HasExited) {
                 $diagnostic = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
                 throw "Packaged API exited before health check. stderr=$diagnostic"
             }
             try {
-                $health = Invoke-WebRequest -Uri $healthUri -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-                $readiness = Invoke-WebRequest -Uri $readinessUri -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-                $metrics = Invoke-WebRequest -Uri $metricsUri -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-                $versionResponse = Invoke-WebRequest -Uri $versionUri -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-                $versionPayload = $versionResponse.Content | ConvertFrom-Json
-                if ($health.StatusCode -eq 200 -and $health.Content -match '"status":"UP"' `
-                        -and $readiness.StatusCode -eq 200 -and $readiness.Content -match '"status":"READY"' `
-                        -and $metrics.StatusCode -eq 200 -and $metrics.Content -match '"counters"' `
-                        -and $versionResponse.StatusCode -eq 200 -and [string]$versionPayload.data.version -eq $Version) {
-                    Write-Host "Packaged API health/readiness/metrics/version smoke: PASS (http://127.0.0.1:$port/api/v1)"
+                $probe = Get-PackagedApiProbe -Port $port
+                if (Test-PackagedApiProbe -Probe $probe) {
+                    Write-Output "Packaged API health/readiness/metrics/version smoke: PASS (http://127.0.0.1:$port/api/v1)"
                     return
                 }
-            } catch { Start-Sleep -Milliseconds 100 }
+            } catch {
+                Write-Verbose "Packaged API probe attempt $attempt failed: $($_.Exception.Message)"
+            }
+            Start-Sleep -Milliseconds 100
         }
         $diagnostic = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
         throw "Packaged API operability/version smoke timed out. stderr=$diagnostic"
     } finally {
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
-        try { $process.WaitForExit(5000) | Out-Null } catch { }
+        try {
+            $process.WaitForExit(5000) | Out-Null
+        } catch {
+            Write-Verbose "Packaged API process wait failed during cleanup: $($_.Exception.Message)"
+        }
         Start-Sleep -Milliseconds 300
     }
 }
