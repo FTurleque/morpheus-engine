@@ -1,6 +1,6 @@
 # Build, tests et validation
 
-Ce guide décrit l’environnement de développement et les gates actifs sur la baseline **MORPHEUS 1.2.0** après D2.
+Ce guide décrit l’environnement de développement et les gates actifs sur la baseline corrective **MORPHEUS 1.2.1**. La dernière release effectivement publiée reste `v1.2.0` tant qu'une release `v1.2.1` n'a pas été créée et qualifiée.
 
 ## Toolchain
 
@@ -8,7 +8,7 @@ Ce guide décrit l’environnement de développement et les gates actifs sur la 
 Java >= 21
 Maven >= 3.9.16 et < 4.0.0
 compiler release = 21
-Maven Wrapper = 3.9.16
+Maven Wrapper = 3.9.16 + distribution SHA-256
 ```
 
 ## Reactor Maven
@@ -34,6 +34,8 @@ morpheus-cli
 morpheus-architecture-tests
 ```
 
+Les 17 POMs actifs portent la même version MORPHEUS `1.2.1`. Les preuves de release historiques `1.2.0` ne sont pas réécrites.
+
 ## Gate Maven canonique
 
 Windows :
@@ -50,40 +52,49 @@ Linux :
 
 `clean test` est utile pour le diagnostic mais n’est pas la qualification finale : les tests d’architecture dépendent des JARs et rapports produits à `package`/`verify`.
 
-## Qualité et ratchet JaCoCo
+## Gate durable M21
+
+Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubuntu pour les pull requests ainsi que sur les pushes `main` et `develop`.
 
 ```text
-JaCoCo line ratchet        47%
-JaCoCo branch ratchet      40%
-D2 absolute line floor     40%
-D2 absolute branch floor   35%
-maven dependency analyze   failOnWarning=true
-CycloneDX SBOM              JSON + XML
-Jackson                     3.1.5 LTS
-sqlite-jdbc                 3.53.2.0
+baseline Surefire totale       >= 698
+baseline architecture          >= 250
+JaCoCo line ratchet            >= 47%
+JaCoCo branch ratchet          >= 40%
+D2 absolute line floor         40%
+D2 absolute branch floor       35%
+maven dependency analyze       failOnWarning=true
+CycloneDX SBOM                  JSON + XML
+product/package version         1.2.1
 ```
 
-MRA-12 remplace le simple floor D2 par un ratchet anti-régression. La baseline de référence a été mesurée sur le HEAD exact qualifié après MRA-11 : **47,2781% lignes / 40,4547% branches**. Les seuils exécutables sont volontairement arrondis vers le bas au point de pourcentage entier, soit **47% / 40%**, afin de conserver une petite marge déterministe sans autoriser un retour vers les anciens floors 40% / 35%.
+Les seuils `698 / 250` correspondent à la dernière baseline exacte qualifiée avant les corrections post-audit. Les nouveaux tests peuvent faire augmenter les compteurs ; les floors ne sont pas abaissés automatiquement. Après qualification durable d'un head plus élevé sur Windows et Linux, ils peuvent être relevés explicitement.
+
+Les scripts `validate-m21.sh` et `validate-m21.ps1` appliquent eux-mêmes les ratchets `47% / 40%`, en plus du contrat `CoverageQualityGateTest`, afin d'éviter qu'un changement de wiring Maven transforme silencieusement un ancien floor `25% / 20%` en garde principale.
+
+## Qualité et ratchet JaCoCo
+
+MRA-12 a remplacé le simple floor D2 par un ratchet anti-régression. La baseline historique de référence MRA était **47,2781% lignes / 40,4547% branches** ; le merge post-audit `54c9d01c…` a ensuite qualifié **47,4534% / 40,7212%** sous Linux et **47,4739% / 40,6867%** sous Windows. Le ratchet exécutable reste volontairement arrondi vers le bas au point de pourcentage entier : **47% / 40%**.
 
 Règle d’évolution :
 
 1. une baisse sous 47% lignes ou 40% branches fait échouer le gate ;
 2. les floors D2 40% / 35% restent des minima absolus et ne peuvent jamais affaiblir le ratchet ;
 3. une amélioration de couverture ne relève le ratchet qu’après qualification du même SHA exact sur Windows et Linux ;
-4. le nouveau ratchet est obtenu en arrondissant vers le bas la baseline qualifiée au point de pourcentage entier ;
-5. le ratchet n’est jamais abaissé automatiquement : une baisse nécessite une décision d’audit explicite et motivée ;
+4. le ratchet n’est jamais abaissé automatiquement ; une baisse nécessite une décision d’audit explicite et motivée ;
+5. les compteurs de tests sont eux aussi des ratchets de présence, pas une mesure de qualité autonome ;
 6. la couverture ne justifie pas des tests artificiels : les tests doivent conserver une valeur fonctionnelle, de contrat, de sécurité ou d’architecture indépendante du chiffre.
 
-`CoverageQualityGateTest` écrit dans `morpheus-architecture-tests/target/m21-coverage-summary.txt` la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2. Un test de régression démontre explicitement qu’une couverture qui aurait satisfait les anciens floors D2 peut désormais être rejetée.
+`CoverageQualityGateTest` écrit dans `morpheus-architecture-tests/target/m21-coverage-summary.txt` la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2.
 
-## SCA local D2
+## SCA / dépendances
 
 OWASP Dependency-Check est épinglé à `12.2.2` dans le profil Maven `d2-security`.
 
-Le gate D2 lance :
+Commande :
 
 ```text
-org.owasp:dependency-check-maven:12.2.2:aggregate
+./mvnw -Pd2-security org.owasp:dependency-check-maven:12.2.2:aggregate
 ```
 
 Politique :
@@ -96,70 +107,60 @@ report format    ALL
 output            target/d2-security
 ```
 
-La seule suppression locale est versionnée dans `config/dependency-check-suppressions.xml`. Elle retire l'association CPE erronée entre le module interne `io.github.fturleque:morpheus-store-sqlite:1.2.0` et SQLite 1.2.0 ; le véritable driver `org.xerial:sqlite-jdbc:3.53.2.0` reste analysé. Le scan échoue aussi si cette règle devient inutilisée, afin d'empêcher une suppression obsolète ou élargie silencieusement.
+La suppression versionnée dans `config/dependency-check-suppressions.xml` retire uniquement l'association CPE erronée entre le module interne `io.github.fturleque:morpheus-store-sqlite:1.2.1` et SQLite 1.2.1 ; le véritable driver `org.xerial:sqlite-jdbc:3.53.2.0` reste analysé. Le scan échoue si cette règle devient inutilisée afin d'empêcher une suppression obsolète ou trop large.
 
-Cette étape est volontairement hors du `clean verify` développeur ordinaire car elle requiert un accès réseau aux données de vulnérabilité.
+Le scan réseau n'est pas intégré au `clean verify` développeur ordinaire. Le workflow **MORPHEUS Security** l'exécute :
 
-## Gate D2 Windows
-
-```powershell
-.\scripts\validate.cmd d2 -Version 1.2.0 -BaseRef origin/develop
+```text
+pull_request -> main
+push         -> main
+schedule     -> chaque lundi
+manual       -> workflow_dispatch
 ```
 
-Options de diagnostic uniquement :
+Il constitue le gate SCA de la frontière stable `main`. Un `.github/dependabot.yml` maintient en parallèle des PRs hebdomadaires Maven et GitHub Actions vers `develop`. L'activation des alertes de vulnérabilité Dependabot reste un réglage administrateur du dépôt et n'est pas supposée par ce fichier.
+
+## Gate D2 spécialisé
+
+D2 reste un gate local spécialisé avec interdiction de modifier `.github/workflows` dans son périmètre. Il ne remplace pas M21 et n'est donc pas le validateur approprié d'une PR dont l'objet est précisément de modifier les workflows de sécurité.
+
+Windows :
 
 ```powershell
--SkipSecurityScan
--SkipPortable
+.\scripts\validate.cmd d2 -Version 1.2.1 -BaseRef origin/develop
 ```
 
-Une qualification finale D2 ne doit pas utiliser ces skips.
-
-## Gate D2 Linux / WSL
+Linux / WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.0
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
 ```
 
-Variables de diagnostic :
+D2 applique désormais les floors de présence `698 / 250`, conserve les minima absolus de couverture `40% / 35%`, exécute Dependency-Check et exige le portable de la plateforme pour une qualification finale sans skip.
 
-```text
-MORPHEUS_D2_SKIP_SECURITY_SCAN=true
-MORPHEUS_D2_SKIP_PORTABLE=true
+## Packaging actif
+
+Windows portable :
+
+```powershell
+.\distribution\build-portable.ps1 -Version 1.2.1
 ```
 
-Une qualification finale ne doit pas les activer.
+Windows setup :
 
-## Ce que D2 et le ratchet MRA-12 prouvent
-
-```text
-workspace tracked clean
-HEAD exact et stable
-git diff --check
-.github/workflows delta NONE
-17 POMs en 1.2.0
-versions de dépendances D2
-clean verify
-Surefire failures/errors = 0
-baseline tests >= 613
-baseline architecture >= 247
-coverage >= 47% / 40%
-absolute D2 floor >= 40% / 35%
-dependency hygiene bloquante
-CycloneDX SBOM
-SCA local HIGH/CRITICAL
-portable platform-native
-product-info packagé = 1.2.0
-workspace tracked clean en sortie
+```powershell
+.\distribution\build-installer.ps1 -Version 1.2.1
 ```
 
-Les floors 613 / 247 incluent explicitement le test de régression Jackson D2 et les quatre contrats d’architecture D2 ; ils empêchent le gate de réussir si ces nouveaux tests ne sont pas exécutés.
+Linux portable :
 
-Windows et Linux/WSL doivent qualifier exactement le même SHA.
+```bash
+bash distribution/build-portable.sh 1.2.1
+```
 
-## Politique CI D2
+Les builders actifs utilisent `1.2.1` par défaut. Les builders de release exigent en plus un workspace propre et que le tag `v1.2.1` pointe exactement sur HEAD avant de produire une release `1.2.1`.
 
-La qualification historique D2 reste fondée sur ses preuves locales. La CI publique actuelle exécute le gate durable M21 sur Windows et Linux pour les PR et protège notamment le ratchet de couverture.
+La release stable publiée reste `v1.2.0` jusqu'à publication explicite d'une version suivante ; les corrections de développement ne déplacent jamais le tag existant.
 
 ## Tests ciblés
 
@@ -171,42 +172,23 @@ Exemples :
 .\mvnw.cmd -pl morpheus-architecture-tests -am verify
 ```
 
-Le test de sécurité Jackson D2 est dans :
+Contrats de durcissement particulièrement importants :
 
 ```text
-morpheus-api/src/test/java/com/morpheus/api/JacksonSecurityRegressionTest.java
+morpheus-store-sqlite/.../SqliteTransactionRunnerTest.java
+morpheus-application/.../SyncReliabilityFallbackTest.java
+morpheus-api/.../MorpheusRemoteIdentityLifecycleTest.java
+morpheus-api/.../ApiRuntimeSqliteSessionTest.java
+morpheus-provider-sdk/.../ProviderPluginDiscoveryTest.java
+morpheus-architecture-tests/.../ProductReleaseContractTest.java
 ```
 
-Le contrat repository D2 est dans :
+Windows et Linux doivent qualifier exactement le même SHA pour considérer une baseline M21 comme durable.
 
-```text
-morpheus-architecture-tests/src/test/java/com/morpheus/architecture/d2/D2RepositoryHardeningArchitectureTest.java
-```
+## Preuves historiques
 
-## Packaging
-
-Windows portable :
-
-```powershell
-.\distribution\build-portable.ps1 -Version 1.2.0
-```
-
-Windows setup :
-
-```powershell
-.\distribution\build-installer.ps1 -Version 1.2.0
-```
-
-Linux portable :
-
-```bash
-bash distribution/build-portable.sh 1.2.0
-```
-
-La release stable publiée reste `v1.2.0`; D2/MRA ne déplacent ni ne recréent ce tag.
-
-## Preuves
-
-- R3 : [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md)
-- D2 : [`../validation/VALIDATION_D2.md`](../validation/VALIDATION_D2.md)
+- R3 / release 1.2.0 : [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md)
+- D2 historique : [`../validation/VALIDATION_D2.md`](../validation/VALIDATION_D2.md)
 - plan D2 : [`../roadmap/D2_EXECUTION.md`](../roadmap/D2_EXECUTION.md)
+
+Ces documents historiques conservent les commandes et versions réellement utilisées lors de leur qualification ; ils ne doivent pas être réécrits pour faire croire qu'ils validaient `1.2.1`.
