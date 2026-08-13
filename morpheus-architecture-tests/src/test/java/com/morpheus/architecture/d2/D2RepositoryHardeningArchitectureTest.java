@@ -109,6 +109,16 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
         assertTrue(security.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"));
         assertFalse(security.contains("-DnvdApiKey=${NVD_API_KEY}"));
+        assertTrue(security.contains("Remove stale Dependency-Check update lock"));
+        assertTrue(security.contains("odc.update.lock"));
+        assertTrue(security.contains("rm -f -- \"${lock_file}\""));
+
+        int restoreIndex = security.indexOf("- name: Restore Dependency-Check database");
+        int staleLockIndex = security.indexOf("- name: Remove stale Dependency-Check update lock");
+        int updateIndex = security.indexOf("- name: Update Dependency-Check vulnerability database");
+        assertTrue(restoreIndex >= 0 && staleLockIndex > restoreIndex && updateIndex > staleLockIndex,
+                "stale Dependency-Check lock must be cleared after cache restore and before update-only");
+
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
         assertTrue(dependabot.contains("target-branch: develop"));
