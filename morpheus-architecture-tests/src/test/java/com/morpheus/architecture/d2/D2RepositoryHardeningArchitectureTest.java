@@ -10,6 +10,10 @@ import org.junit.jupiter.api.Test;
 
 class D2RepositoryHardeningArchitectureTest {
 
+    private static final String CHECKOUT_SHA = "de0fac2e4500dabe0009e67214ff5f5447ce83dd";
+    private static final String SETUP_JAVA_SHA = "03ad4de0992f5dab5e18fcb136590ce7c4a0ac95";
+    private static final String UPLOAD_ARTIFACT_SHA = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a";
+
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
         String pom = Files.readString(repoRoot().resolve("pom.xml"));
@@ -58,17 +62,38 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     @Test
-    void mainBoundaryHasPinnedSecurityWorkflowAndDependencyUpdatePolicy() throws IOException {
+    void activeWorkflowsUsePinnedNode24GenerationActions() throws IOException {
+        Path root = repoRoot();
+        for (String workflow : java.util.List.of("ci.yml", "security.yml")) {
+            String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
+            assertTrue(text.contains("actions/checkout@" + CHECKOUT_SHA));
+            assertTrue(text.contains("actions/setup-java@" + SETUP_JAVA_SHA));
+            assertTrue(text.contains("actions/upload-artifact@" + UPLOAD_ARTIFACT_SHA));
+            assertFalse(text.contains("uses: actions/checkout@v"));
+            assertFalse(text.contains("uses: actions/setup-java@v"));
+            assertFalse(text.contains("uses: actions/upload-artifact@v"));
+        }
+    }
+
+    @Test
+    void historicalPreflightsAvoidDeprecatedSetupJavaV4() throws IOException {
+        Path root = repoRoot().resolve(".github/workflows");
+        for (String workflow : java.util.List.of("m10-preflight.yml", "m11-preflight.yml", "m12-preflight.yml")) {
+            String text = Files.readString(root.resolve(workflow));
+            assertTrue(text.contains("actions/checkout@" + CHECKOUT_SHA));
+            assertTrue(text.contains("actions/setup-java@" + SETUP_JAVA_SHA));
+            assertFalse(text.contains("cf277c60eb25467037889841efdb72551f06f6c3"));
+        }
+    }
+
+    @Test
+    void mainBoundaryHasDependencyUpdatePolicy() throws IOException {
         Path root = repoRoot();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String dependabot = Files.readString(root.resolve(".github/dependabot.yml"));
 
         assertTrue(security.contains("branches: [main]"));
         assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"));
-        assertTrue(security.contains("actions/checkout@11d5960a326750d5838078e36cf38b85af677262"));
-        assertTrue(security.contains("actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3"));
-        assertTrue(security.contains("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"));
-        assertFalse(security.contains("uses: actions/checkout@v"));
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
         assertTrue(dependabot.contains("target-branch: develop"));
