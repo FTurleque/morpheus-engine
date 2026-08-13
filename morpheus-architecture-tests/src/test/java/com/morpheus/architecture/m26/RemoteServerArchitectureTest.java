@@ -50,6 +50,8 @@ class RemoteServerArchitectureTest {
         assertTrue(server.contains("PLUGIN_SHA256_REQUIRED"));
         assertTrue(server.contains("usesBoundedUpstreamTimeout"));
         assertTrue(server.contains("An ADMIN-approved provider probe executes third-party code"));
+        assertTrue(server.contains("String upstreamMethod = exchange.getRequestMethod();"));
+        assertFalse(server.contains("providerProbe ? \"GET\""));
         assertFalse(server.contains("request.header(\"Authorization\""));
         assertFalse(server.contains("Access-Control-Allow-Origin"));
 
@@ -79,6 +81,8 @@ class RemoteServerArchitectureTest {
         String openApi = Files.readString(root.resolve("docs/openapi/morpheus-v1-remote-m26.yaml"));
         String discovery = Files.readString(root.resolve(
                 "morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginDiscovery.java"));
+        String localServer = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
 
         assertTrue(maintenance.contains("VACUUM INTO"));
         assertTrue(maintenance.contains("PRAGMA integrity_check"));
@@ -94,7 +98,8 @@ class RemoteServerArchitectureTest {
         assertTrue(manifest.contains("server.identity.revoke\tWRITE\tserver identity revoke\tEXPLICITLY_NOT_EXPOSED\tEXPLICITLY_LOCAL_ONLY"));
         assertTrue(manifest.contains("server.backup.create\tWRITE\tserver backup create\tEXPLICITLY_NOT_EXPOSED\tPOST /api/v1/server/backups"));
         assertTrue(manifest.contains("server.restore\tWRITE\tserver restore --confirm\tEXPLICITLY_NOT_EXPOSED\tEXPLICITLY_OFFLINE_ONLY"));
-        assertTrue(manifest.contains("remote overlay deliberately requires POST + ADMIN"));
+        assertTrue(manifest.contains("provider.plugins.probe\tWRITE\tprovider-plugins probe\tEXPLICITLY_NOT_EXPOSED\tPOST /api/v1/provider-plugins/probe"));
+        assertTrue(localServer.contains("provider-plugin probe is remote-only"));
 
         assertTrue(openApi.contains("scheme: bearer"));
         assertTrue(openApi.contains("/server/status:"));
