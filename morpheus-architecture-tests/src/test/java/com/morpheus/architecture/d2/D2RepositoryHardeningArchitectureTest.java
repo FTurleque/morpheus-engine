@@ -37,10 +37,22 @@ class D2RepositoryHardeningArchitectureTest {
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
         for (String script : java.util.List.of(linux, windows)) {
-            assertTrue(script.contains("698"));
-            assertTrue(script.contains("250"));
+            assertTrue(script.contains("711"));
+            assertTrue(script.contains("253"));
             assertTrue(script.contains("0.47"));
             assertTrue(script.contains("0.40"));
+            assertTrue(script.contains("1.2.1"));
+        }
+    }
+
+    @Test
+    void d2ScriptsKeepQualifiedPresenceRatchets() throws IOException {
+        Path root = repoRoot();
+        String linux = Files.readString(root.resolve("scripts/validate-d2.sh"));
+        String windows = Files.readString(root.resolve("scripts/validate-d2.ps1"));
+        for (String script : java.util.List.of(linux, windows)) {
+            assertTrue(script.contains("711"));
+            assertTrue(script.contains("253"));
             assertTrue(script.contains("1.2.1"));
         }
     }
