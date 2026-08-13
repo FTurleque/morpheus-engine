@@ -32,28 +32,19 @@ class MorpheusProviderPluginApiContractTest {
     }
 
     @Test
-    void probeRequiresEveryExplicitParameter() {
-        Path database = tempDirectory.resolve("morpheus.db");
-        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
-            ApiTestSupport.Response response = http.get(
-                    server,
-                    "/provider-plugins/probe?directory=" + encode(tempDirectory.toString()));
-
-            assertEquals(400, response.status(), response.body());
-            assertTrue(response.body().contains("query parameter is required: pluginId"), response.body());
-        }
-    }
-
-    @Test
-    void unpinnedProbeFailsClosedBeforeAnyPluginActivation() {
+    void ordinaryLocalHttpDoesNotExposeExecutableProbe() {
         Path database = tempDirectory.resolve("morpheus.db");
         String query = "/provider-plugins/probe?directory=" + encode(tempDirectory.toString())
-                + "&pluginId=example&workspace=" + encode(tempDirectory.toString());
+                + "&pluginId=example&workspace=" + encode(tempDirectory.toString())
+                + "&sha256=" + "0".repeat(64);
         try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
-            ApiTestSupport.Response response = http.get(server, query);
+            ApiTestSupport.Response get = http.get(server, query);
+            ApiTestSupport.Response post = http.post(server, query);
 
-            assertEquals(400, response.status(), response.body());
-            assertTrue(response.body().contains("trusted SHA-256 pin"), response.body());
+            assertEquals(404, get.status(), get.body());
+            assertEquals(404, post.status(), post.body());
+            assertTrue(get.body().contains("remote-only"), get.body());
+            assertTrue(post.body().contains("remote-only"), post.body());
         }
     }
 
