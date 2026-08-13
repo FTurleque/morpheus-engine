@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.security.ExternalJarIntegrity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -30,7 +31,7 @@ class ProviderPluginActivatorTest {
 
         StringWriter metadata = new StringWriter();
         properties.store(metadata, null);
-        try (JarOutputStream output = new JarOutputStream(java.nio.file.Files.newOutputStream(jar))) {
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             output.putNextEntry(new JarEntry(ProviderSdk.METADATA_PATH));
             output.write(metadata.toString().getBytes(StandardCharsets.UTF_8));
             output.closeEntry();
@@ -44,9 +45,32 @@ class ProviderPluginActivatorTest {
 
         IllegalStateException failure = assertThrows(
                 IllegalStateException.class,
-                () -> new ProviderPluginActivator().activate(candidate));
+                () -> new ProviderPluginActivator().activate(candidate, ExternalJarIntegrity.sha256(jar)));
         assertTrue(failure.getMessage().contains("activation failed"));
         assertTrue(failure.getCause().getMessage().contains("runtime metadata does not match"));
+    }
+
+    @Test
+    void unpinnedActivationFailsClosed() throws Exception {
+        Path jar = directory.resolve("unpinned.jar");
+        Properties properties = new Properties();
+        properties.setProperty("plugin.id", "manifest-plugin");
+        properties.setProperty("provider.id", "manifest-provider");
+        properties.setProperty("plugin.version", "1.0.0");
+        properties.setProperty("sdk.apiVersion", "1");
+        properties.setProperty("morpheus.minVersion", "1.0.0");
+        StringWriter metadata = new StringWriter();
+        properties.store(metadata, null);
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+            output.putNextEntry(new JarEntry(ProviderSdk.METADATA_PATH));
+            output.write(metadata.toString().getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+        ProviderPluginCandidate candidate = new ProviderPluginDiscovery().discover(directory).candidates().getFirst();
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> new ProviderPluginActivator().activate(candidate));
+        assertTrue(failure.getMessage().contains("trusted SHA-256 pin"));
     }
 
     @Test
