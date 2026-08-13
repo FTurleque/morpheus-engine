@@ -12,11 +12,11 @@ import org.junit.jupiter.api.Test;
 class D2RepositoryHardeningArchitectureTest {
 
     private static final Pattern CHECKOUT_NODE24 = Pattern.compile(
-            "(?m)^\\s*uses: actions/checkout@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
+            "(?m)^\\s*(?:-\\s*)?uses: actions/checkout@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
     private static final Pattern SETUP_JAVA_NODE24 = Pattern.compile(
-            "(?m)^\\s*uses: actions/setup-java@[0-9a-f]{40} # v(?:[5-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
+            "(?m)^\\s*(?:-\\s*)?uses: actions/setup-java@[0-9a-f]{40} # v(?:[5-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
     private static final Pattern UPLOAD_ARTIFACT_NODE24 = Pattern.compile(
-            "(?m)^\\s*uses: actions/upload-artifact@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
+            "(?m)^\\s*(?:-\\s*)?uses: actions/upload-artifact@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
 
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
