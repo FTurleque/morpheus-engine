@@ -93,6 +93,7 @@ class NexusMcpTechnicalContextProviderTest {
                 "java",
                 Optional.empty(),
                 Duration.ofSeconds(20),
+                Optional.of("0".repeat(64)),
                 Optional.empty());
     }
 
