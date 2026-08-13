@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.security.ExternalJarIntegrity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -39,12 +40,9 @@ class ProviderPluginDiscoveryTest {
         Path external = directory.resolve("external.jar");
         writeMetadataOnlyJar(external, metadata("external-plugin", 1, "1.0.0"));
         Path link = plugins.resolve("linked.jar");
-        if (!createSymlink(link, external)) {
-            return;
-        }
+        if (!createSymlink(link, external)) return;
 
         ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(plugins);
-
         assertTrue(result.candidates().isEmpty());
     }
 
@@ -53,12 +51,9 @@ class ProviderPluginDiscoveryTest {
         Path real = Files.createDirectory(directory.resolve("real-plugins"));
         writeMetadataOnlyJar(real.resolve("provider.jar"), metadata("provider", 1, "1.0.0"));
         Path link = directory.resolve("linked-plugins");
-        if (!createSymlink(link, real)) {
-            return;
-        }
+        if (!createSymlink(link, real)) return;
 
         ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(link);
-
         assertTrue(result.candidates().isEmpty());
         assertTrue(result.diagnostics().stream().anyMatch(d -> d.code().equals("PLUGIN_PATH_NOT_DIRECTORY")));
     }
@@ -66,9 +61,7 @@ class ProviderPluginDiscoveryTest {
     @Test
     void incompatibleSdkVersionIsVisibleButNotActivable() throws Exception {
         writeMetadataOnlyJar(directory.resolve("future.jar"), metadata("future-plugin", 999, "1.0.0"));
-
         ProviderPluginCandidate candidate = new ProviderPluginDiscovery().discover(directory).candidates().getFirst();
-
         assertEquals(ProviderPluginStatus.INCOMPATIBLE, candidate.status());
         assertFalse(candidate.compatible());
         assertTrue(candidate.diagnostics().stream().anyMatch(d -> d.code().equals("SDK_API_VERSION_MISMATCH")));
@@ -77,17 +70,17 @@ class ProviderPluginDiscoveryTest {
     @Test
     void missingOptionalPluginDirectoryIsNonFatal() {
         ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(directory.resolve("missing"));
-
         assertTrue(result.candidates().isEmpty());
         assertTrue(result.diagnostics().stream().anyMatch(d -> d.code().equals("PLUGIN_DIRECTORY_NOT_FOUND")));
     }
 
     @Test
     void activationFailureIsReturnedAsDiagnosticInsteadOfEscaping() throws Exception {
-        writeMetadataOnlyJar(directory.resolve("metadata-only.jar"), metadata("metadata-only", 1, "1.0.0"));
+        Path jar = directory.resolve("metadata-only.jar");
+        writeMetadataOnlyJar(jar, metadata("metadata-only", 1, "1.0.0"));
 
         ProviderPluginProbeOutcome outcome = new ProviderPluginService()
-                .probe(directory, "metadata-only", directory);
+                .probe(directory, "metadata-only", directory, ExternalJarIntegrity.sha256(jar));
 
         assertFalse(outcome.success());
         assertTrue(outcome.diagnostics().stream()
@@ -100,7 +93,7 @@ class ProviderPluginDiscoveryTest {
         writeMetadataOnlyJar(directory.resolve("b-duplicate.jar"), metadata("duplicate-plugin", 1, "1.0.0"));
 
         ProviderPluginProbeOutcome outcome = new ProviderPluginService()
-                .probe(directory, "duplicate-plugin", directory);
+                .probe(directory, "duplicate-plugin", directory, "0".repeat(64));
 
         assertFalse(outcome.success());
         assertTrue(outcome.diagnostics().stream().anyMatch(d -> d.code().equals("PLUGIN_ID_AMBIGUOUS")));
