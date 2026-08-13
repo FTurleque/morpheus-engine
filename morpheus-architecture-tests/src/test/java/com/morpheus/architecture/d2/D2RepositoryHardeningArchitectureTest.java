@@ -32,6 +32,37 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     @Test
+    void durableM21ScriptsKeepQualifiedPresenceAndCoverageRatchets() throws IOException {
+        Path root = repoRoot();
+        String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
+        String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
+        for (String script : java.util.List.of(linux, windows)) {
+            assertTrue(script.contains("698"));
+            assertTrue(script.contains("250"));
+            assertTrue(script.contains("0.47"));
+            assertTrue(script.contains("0.40"));
+            assertTrue(script.contains("1.2.1"));
+        }
+    }
+
+    @Test
+    void mainBoundaryHasPinnedSecurityWorkflowAndDependencyUpdatePolicy() throws IOException {
+        Path root = repoRoot();
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+        String dependabot = Files.readString(root.resolve(".github/dependabot.yml"));
+
+        assertTrue(security.contains("branches: [main]"));
+        assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"));
+        assertTrue(security.contains("actions/checkout@11d5960a326750d5838078e36cf38b85af677262"));
+        assertTrue(security.contains("actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3"));
+        assertTrue(security.contains("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"));
+        assertFalse(security.contains("uses: actions/checkout@v"));
+        assertTrue(dependabot.contains("package-ecosystem: maven"));
+        assertTrue(dependabot.contains("package-ecosystem: github-actions"));
+        assertTrue(dependabot.contains("target-branch: develop"));
+    }
+
+    @Test
     void untrustedJsonRemainsStrictAndDefaultTypingIsNotActivated() throws IOException {
         Path root = repoRoot();
         String server = Files.readString(root.resolve(
