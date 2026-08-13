@@ -33,6 +33,22 @@ class SqliteTransactionRunnerTest {
     }
 
     @Test
+    void primaryErrorSurvivesRollbackAndCleanupFailures() {
+        Connection connection = connection(true, true, true);
+        AssertionError primary = new AssertionError("fatal-primary");
+
+        AssertionError thrown = assertThrows(AssertionError.class, () ->
+                SqliteTransactionRunner.runVoid(connection, "store failed", ignored -> {
+                    throw primary;
+                }));
+
+        assertEquals(primary, thrown);
+        assertEquals(2, thrown.getSuppressed().length);
+        assertTrue(thrown.getSuppressed()[0].getMessage().contains("rollback"));
+        assertTrue(thrown.getSuppressed()[1].getMessage().contains("cleanup"));
+    }
+
+    @Test
     void sqlFailureIsWrappedAndRollbackFailureIsSuppressed() {
         Connection connection = connection(true, true, false);
 
