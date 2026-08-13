@@ -38,7 +38,7 @@ function Resolve-Iscc {
     if (-not (Test-Path -LiteralPath $bootstrap)) {
         throw "Inno Setup compiler is missing and bootstrap script was not found: $bootstrap"
     }
-    Write-Host 'ISCC.exe not found locally; bootstrapping pinned, Authenticode-verified Inno Setup 7.0.2...'
+    Write-Verbose 'ISCC.exe not found locally; bootstrapping pinned, Authenticode-verified Inno Setup 7.0.2...'
     $resolved = @(& $bootstrap)
     if ($LASTEXITCODE -ne 0 -or $resolved.Count -eq 0) {
         throw 'Inno Setup bootstrap failed'
@@ -62,7 +62,7 @@ function Write-And-VerifySha256([string]$Path) {
     if ($recorded -ne $actual) {
         throw "SHA-256 verification failed for $($item.FullName): recorded=$recorded actual=$actual"
     }
-    Write-Host "SHA-256: PASS ($($item.Name) -> $checksumPath)"
+    Write-Verbose "SHA-256: PASS ($($item.Name) -> $checksumPath)"
     return $checksumPath
 }
 

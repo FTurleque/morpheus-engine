@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
@@ -41,9 +42,7 @@ public final class SqliteConnectionScope implements AutoCloseable {
         try {
             Connection physical = SqliteDatabaseSecurity.openPhysical(normalized, busyTimeoutMillis);
             State state = new State(normalized, busyTimeoutMillis, physical);
-            PHYSICAL_OPENED.incrementAndGet();
-            int active = PHYSICAL_ACTIVE.incrementAndGet();
-            PHYSICAL_PEAK.accumulateAndGet(active, Math::max);
+            recordPhysicalOpen();
             ACTIVE.set(state);
             return new SqliteConnectionScope(state);
         } catch (SQLException failure) {
@@ -91,32 +90,49 @@ public final class SqliteConnectionScope implements AutoCloseable {
         if (state.busyTimeoutMillis != busyTimeoutMillis) {
             throw new SQLException("active SQLite scope uses a different busy timeout");
         }
+        if (state.quarantined) {
+            throw new SQLException("active SQLite scope is quarantined after a committed cleanup failure", state.quarantineCause);
+        }
         state.borrows.incrementAndGet();
-        AtomicBoolean logicalClosed = new AtomicBoolean();
         return (Connection) Proxy.newProxyInstance(
                 SqliteConnectionScope.class.getClassLoader(),
                 new Class<?>[]{Connection.class},
-                (proxy, method, args) -> {
-                    String name = method.getName();
-                    if (name.equals("close")) {
-                        logicalClosed.set(true);
-                        return null;
-                    }
-                    if (name.equals("isClosed")) {
-                        return logicalClosed.get() || state.physical.isClosed();
-                    }
-                    if (name.equals("toString")) {
-                        return "ScopedSqliteConnection[" + state.databasePath + "]";
-                    }
-                    if (name.equals("hashCode")) return System.identityHashCode(proxy);
-                    if (name.equals("equals")) return proxy == args[0];
-                    if (logicalClosed.get()) throw new SQLException("logical SQLite connection is closed");
-                    try {
-                        return method.invoke(state.physical, args);
-                    } catch (InvocationTargetException failure) {
-                        throw failure.getCause();
-                    }
-                });
+                new ScopedConnectionHandler(state));
+    }
+
+    /**
+     * Replace the physical connection after a mutation was durably committed but JDBC cleanup failed.
+     * Existing logical proxies delegate through {@link State#physical}, so they transparently use the replacement.
+     */
+    static boolean recoverAfterCommittedCleanupFailure(Connection logicalConnection, Throwable originalFailure) {
+        State active = ACTIVE.get();
+        if (active == null || !belongsTo(logicalConnection, active)) {
+            return false;
+        }
+        if (active.quarantined) {
+            return false;
+        }
+
+        try {
+            active.physical.close();
+            recordPhysicalClose(active);
+        } catch (SQLException | RuntimeException | Error closeFailure) {
+            suppress(originalFailure, closeFailure);
+            quarantine(active, originalFailure);
+            return false;
+        }
+
+        try {
+            active.physical = SqliteDatabaseSecurity.openPhysical(active.databasePath, active.busyTimeoutMillis);
+            active.physicalCountedActive = true;
+            recordPhysicalOpen();
+            // Schema is durable in the database and was already initialized for this scope.
+            return true;
+        } catch (SQLException | RuntimeException | Error reopenFailure) {
+            suppress(originalFailure, reopenFailure);
+            quarantine(active, originalFailure);
+            return false;
+        }
     }
 
     @Override
@@ -133,12 +149,48 @@ public final class SqliteConnectionScope implements AutoCloseable {
         closed = true;
         try {
             state.physical.close();
-            PHYSICAL_CLOSED.incrementAndGet();
+            recordPhysicalClose(state);
         } catch (SQLException failure) {
+            if (state.physicalCountedActive) {
+                state.physicalCountedActive = false;
+                PHYSICAL_ACTIVE.decrementAndGet();
+            }
             throw new IllegalStateException("cannot close SQLite operation scope", failure);
-        } finally {
-            PHYSICAL_ACTIVE.decrementAndGet();
         }
+    }
+
+    private static boolean belongsTo(Connection connection, State state) {
+        if (connection == null || !Proxy.isProxyClass(connection.getClass())) {
+            return false;
+        }
+        try {
+            InvocationHandler handler = Proxy.getInvocationHandler(connection);
+            return handler instanceof ScopedConnectionHandler scoped && scoped.state == state;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    private static void quarantine(State state, Throwable cause) {
+        state.quarantined = true;
+        state.quarantineCause = cause;
+    }
+
+    private static void recordPhysicalOpen() {
+        PHYSICAL_OPENED.incrementAndGet();
+        int active = PHYSICAL_ACTIVE.incrementAndGet();
+        PHYSICAL_PEAK.accumulateAndGet(active, Math::max);
+    }
+
+    private static void recordPhysicalClose(State state) {
+        if (!state.physicalCountedActive) return;
+        state.physicalCountedActive = false;
+        PHYSICAL_CLOSED.incrementAndGet();
+        PHYSICAL_ACTIVE.decrementAndGet();
+    }
+
+    private static void suppress(Throwable primary, Throwable secondary) {
+        if (primary != secondary) primary.addSuppressed(secondary);
     }
 
     public record Diagnostics(long opened, long closed, int active, int peak) {
@@ -149,13 +201,51 @@ public final class SqliteConnectionScope implements AutoCloseable {
         }
     }
 
+    private static final class ScopedConnectionHandler implements InvocationHandler {
+        private final State state;
+        private final AtomicBoolean logicalClosed = new AtomicBoolean();
+
+        private ScopedConnectionHandler(State state) {
+            this.state = state;
+        }
+
+        @Override
+        public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+            String name = method.getName();
+            if (name.equals("close")) {
+                logicalClosed.set(true);
+                return null;
+            }
+            if (name.equals("isClosed")) {
+                return logicalClosed.get() || state.quarantined || state.physical.isClosed();
+            }
+            if (name.equals("toString")) {
+                return "ScopedSqliteConnection[" + state.databasePath + "]";
+            }
+            if (name.equals("hashCode")) return System.identityHashCode(proxy);
+            if (name.equals("equals")) return proxy == args[0];
+            if (logicalClosed.get()) throw new SQLException("logical SQLite connection is closed");
+            if (state.quarantined) {
+                throw new SQLException("SQLite connection scope is quarantined after a committed cleanup failure", state.quarantineCause);
+            }
+            try {
+                return method.invoke(state.physical, args);
+            } catch (InvocationTargetException failure) {
+                throw failure.getCause();
+            }
+        }
+    }
+
     private static final class State {
         private final Path databasePath;
         private final int busyTimeoutMillis;
-        private final Connection physical;
+        private Connection physical;
         private final AtomicInteger borrows = new AtomicInteger();
         private boolean schemaReady;
         private int schemaInitializations;
+        private boolean physicalCountedActive = true;
+        private boolean quarantined;
+        private Throwable quarantineCause;
 
         private State(Path databasePath, int busyTimeoutMillis, Connection physical) {
             this.databasePath = databasePath;

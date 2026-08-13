@@ -149,7 +149,8 @@ Docker required for native MCP = false
 ```text
 Java                  21
 Build                 Maven Wrapper 3.9.16
-Version produit       1.2.0
+Release stable        1.2.0
+Baseline développement 1.2.1
 Persistent store      SQLite
 SQLite JDBC           3.53.2.0 (D2 branch)
 Jackson               3.1.5 LTS (D2 branch)
@@ -195,14 +196,14 @@ Le gate Maven canonique est :
 D2 ajoute un gate local complet :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.0 -BaseRef origin/develop
+.\scripts\validate.cmd d2 -Version 1.2.1 -BaseRef origin/develop
 ```
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.0
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
 ```
 
-**D2 n’utilise aucune CI** : aucun workflow GitHub Actions n’est inspecté, modifié, relancé ou utilisé comme preuve.
+Le gate **D2 reste une qualification locale distincte** ; les workflows `MORPHEUS CI` et `MORPHEUS Security` constituent des défenses complémentaires et ne remplacent pas la preuve D2.
 
 ## Qualité D2
 

@@ -360,7 +360,7 @@ public final class OpenSpecRequirementDeltaReader {
         if (!Files.isDirectory(specsRoot)) {
             return List.of();
         }
-        try (var paths = Files.walk(specsRoot)) {
+        try (var paths = OpenSpecBoundedTraversal.walk(specsRoot)) {
             List<Path> files = paths
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().equals("spec.md"))

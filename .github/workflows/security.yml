@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   schedule:
     - cron: '17 4 * * 1'
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
   dependency-check:
     name: dependency-check (ubuntu-latest)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
 
     steps:
       - name: Checkout exact head
@@ -37,9 +37,55 @@ jobs:
           cache: maven
           check-latest: false
 
-      - name: Run OWASP Dependency-Check
+      - name: Restore Dependency-Check database
+        id: dependency-check-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/dependency-check-data
+          key: dependency-check-v12-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            dependency-check-v12-${{ runner.os }}-
+
+      - name: Remove stale Dependency-Check update lock
         shell: bash
-        run: ./mvnw -Pd2-security org.owasp:dependency-check-maven:12.2.2:aggregate
+        run: |
+          lock_file="${GITHUB_WORKSPACE}/target/dependency-check-data/odc.update.lock"
+          if [[ -e "${lock_file}" ]]; then
+            echo "::warning::Removing stale Dependency-Check update lock restored from cache."
+            rm -f -- "${lock_file}"
+          fi
+
+      - name: Update Dependency-Check vulnerability database
+        shell: bash
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          args=(
+            "-Pd2-security"
+            "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data"
+            "org.owasp:dependency-check-maven:12.2.2:update-only"
+          )
+          if [[ -n "${NVD_API_KEY:-}" ]]; then
+            args+=("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY")
+          else
+            echo "::warning::NVD_API_KEY is not configured; a cold NVD update can be slower."
+          fi
+          ./mvnw "${args[@]}"
+
+      - name: Save updated Dependency-Check database
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/dependency-check-data
+          key: dependency-check-v12-${{ runner.os }}-${{ github.run_id }}
+
+      - name: Run OWASP Dependency-Check scan
+        shell: bash
+        run: |
+          ./mvnw \
+            -Pd2-security \
+            "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data" \
+            -DautoUpdate=false \
+            org.owasp:dependency-check-maven:12.2.2:aggregate
 
       - name: Upload dependency-check evidence
         if: always()
