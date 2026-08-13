@@ -19,12 +19,15 @@ import java.util.ServiceLoader;
 /** Explicit activation of one compatible candidate in a dedicated classloader. */
 public final class ProviderPluginActivator {
 
+    /** Unpinned executable activation is retained only for compatibility and always fails closed. */
+    @Deprecated(forRemoval = true)
     public ProviderPluginActivation activate(ProviderPluginCandidate candidate) {
-        return activate(candidate, Optional.empty());
+        Objects.requireNonNull(candidate, "candidate");
+        throw new IllegalArgumentException("provider plugin activation requires a trusted SHA-256 pin");
     }
 
     /**
-     * Activates a compatible candidate after optional SHA-256 pin verification. When a pin is supplied,
+     * Activates a compatible candidate after mandatory SHA-256 pin verification. When a pin is supplied,
      * an owner-hardened verified staging copy is created and that immutable copy is the only JAR exposed to
      * URLClassLoader/ServiceLoader, closing the verification-to-load TOCTOU window on the original path.
      */
