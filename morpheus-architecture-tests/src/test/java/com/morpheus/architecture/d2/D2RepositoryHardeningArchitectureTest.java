@@ -6,13 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 class D2RepositoryHardeningArchitectureTest {
 
-    private static final String CHECKOUT_SHA = "de0fac2e4500dabe0009e67214ff5f5447ce83dd";
-    private static final String SETUP_JAVA_SHA = "03ad4de0992f5dab5e18fcb136590ce7c4a0ac95";
-    private static final String UPLOAD_ARTIFACT_SHA = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a";
+    private static final Pattern CHECKOUT_NODE24 = Pattern.compile(
+            "(?m)^\\s*uses: actions/checkout@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
+    private static final Pattern SETUP_JAVA_NODE24 = Pattern.compile(
+            "(?m)^\\s*uses: actions/setup-java@[0-9a-f]{40} # v(?:[5-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
+    private static final Pattern UPLOAD_ARTIFACT_NODE24 = Pattern.compile(
+            "(?m)^\\s*uses: actions/upload-artifact@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
 
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
@@ -66,12 +70,9 @@ class D2RepositoryHardeningArchitectureTest {
         Path root = repoRoot();
         for (String workflow : java.util.List.of("ci.yml", "security.yml")) {
             String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
-            assertTrue(text.contains("actions/checkout@" + CHECKOUT_SHA));
-            assertTrue(text.contains("actions/setup-java@" + SETUP_JAVA_SHA));
-            assertTrue(text.contains("actions/upload-artifact@" + UPLOAD_ARTIFACT_SHA));
-            assertFalse(text.contains("uses: actions/checkout@v"));
-            assertFalse(text.contains("uses: actions/setup-java@v"));
-            assertFalse(text.contains("uses: actions/upload-artifact@v"));
+            assertPinnedNode24(text, CHECKOUT_NODE24, "checkout", workflow);
+            assertPinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", workflow);
+            assertPinnedNode24(text, UPLOAD_ARTIFACT_NODE24, "upload-artifact", workflow);
         }
     }
 
@@ -80,8 +81,8 @@ class D2RepositoryHardeningArchitectureTest {
         Path root = repoRoot().resolve(".github/workflows");
         for (String workflow : java.util.List.of("m10-preflight.yml", "m11-preflight.yml", "m12-preflight.yml")) {
             String text = Files.readString(root.resolve(workflow));
-            assertTrue(text.contains("actions/checkout@" + CHECKOUT_SHA));
-            assertTrue(text.contains("actions/setup-java@" + SETUP_JAVA_SHA));
+            assertPinnedNode24(text, CHECKOUT_NODE24, "checkout", workflow);
+            assertPinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", workflow);
             assertFalse(text.contains("cf277c60eb25467037889841efdb72551f06f6c3"));
         }
     }
@@ -128,6 +129,13 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-d2.sh")));
         assertTrue(Files.isRegularFile(root.resolve("docs/roadmap/D2_EXECUTION.md")));
         assertTrue(Files.isRegularFile(root.resolve("docs/validation/VALIDATION_D2.md")));
+    }
+
+    private void assertPinnedNode24(String workflow, Pattern pattern, String action, String file) {
+        assertTrue(pattern.matcher(workflow).find(),
+                () -> file + " must pin actions/" + action + " to a 40-char SHA from the Node 24 generation or newer");
+        assertFalse(workflow.contains("uses: actions/" + action + "@v"),
+                () -> file + " must not use a mutable tag for actions/" + action);
     }
 
     private Path repoRoot() {
