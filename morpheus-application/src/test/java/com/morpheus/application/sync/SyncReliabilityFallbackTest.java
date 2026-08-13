@@ -10,6 +10,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SyncReliabilityFallbackTest {
     private static final Instant T0 = Instant.parse("2026-07-23T22:30:00Z");
@@ -93,7 +94,7 @@ class SyncReliabilityFallbackTest {
     }
 
     @Test
-    void repeatedPostPublicationStateFailureMarksBaselineInconsistentInsteadOfExecutionFailed() {
+    void repeatedPostPublicationStateFailureSignalsBaselineInconsistentInsteadOfExecutionFailed() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StubStore store = new StubStore(Optional.empty(), Optional.empty());
         IncrementalSyncService service = new IncrementalSyncService(store);
@@ -104,9 +105,17 @@ class SyncReliabilityFallbackTest {
                 T0.plusSeconds(1));
         store.failBeforeCommit = 2;
 
-        service.complete(plan, T0.plusSeconds(2));
+        SyncBaselineInconsistentException thrown = assertThrows(
+                SyncBaselineInconsistentException.class,
+                () -> service.complete(plan, T0.plusSeconds(2)));
 
+        assertTrue(thrown.getMessage().contains("inspect current published and sync state before retrying"));
         assertEquals(2, store.commitAttempts);
+        assertEquals(
+                Optional.of(SyncPlan.FullRebuildReason.BASELINE_INCONSISTENT),
+                store.state.orElseThrow().pendingFullRebuildReason());
+
+        service.fail(plan, T0.plusSeconds(3));
         assertEquals(
                 Optional.of(SyncPlan.FullRebuildReason.BASELINE_INCONSISTENT),
                 store.state.orElseThrow().pendingFullRebuildReason());
