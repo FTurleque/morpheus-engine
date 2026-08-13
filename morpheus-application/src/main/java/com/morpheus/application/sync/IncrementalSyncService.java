@@ -124,10 +124,14 @@ public final class IncrementalSyncService {
                             plan.projectId(),
                             plan.attemptedAt(),
                             Optional.of(SyncPlan.FullRebuildReason.BASELINE_INCONSISTENT));
-                    return;
                 } catch (RuntimeException markerFailure) {
+                    if (baselineInconsistentVisible(plan)) {
+                        throw inconsistentOutcome(primary);
+                    }
                     if (primary != markerFailure) primary.addSuppressed(markerFailure);
+                    throw primary;
                 }
+                throw inconsistentOutcome(primary);
             }
             throw primary;
         }
@@ -141,6 +145,9 @@ public final class IncrementalSyncService {
         }
         SourceInventory current = plan.currentInventory().orElse(null);
         if (current != null && successfulCommitVisible(plan, current)) {
+            return;
+        }
+        if (baselineInconsistentVisible(plan)) {
             return;
         }
         SyncPlan.FullRebuildReason failureReason = plan.fullRebuildReason()
@@ -184,6 +191,27 @@ public final class IncrementalSyncService {
         } catch (RuntimeException recoveryReadFailure) {
             return false;
         }
+    }
+
+    private boolean baselineInconsistentVisible(SyncPlan plan) {
+        try {
+            return store.findSyncState(plan.projectId())
+                    .filter(state -> state.lastAttemptAt()
+                            .filter(value -> !value.isBefore(plan.attemptedAt()))
+                            .isPresent())
+                    .flatMap(ProjectSyncState::pendingFullRebuildReason)
+                    .filter(reason -> reason == SyncPlan.FullRebuildReason.BASELINE_INCONSISTENT)
+                    .isPresent();
+        } catch (RuntimeException recoveryReadFailure) {
+            return false;
+        }
+    }
+
+    private SyncBaselineInconsistentException inconsistentOutcome(RuntimeException cause) {
+        return new SyncBaselineInconsistentException(
+                "snapshot publication may already have succeeded but the sync baseline is inconsistent; "
+                        + "inspect current published and sync state before retrying",
+                cause);
     }
 
     private boolean publicationExpected(SyncPlan plan) {
