@@ -3,15 +3,12 @@ package com.morpheus.api;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -92,24 +89,21 @@ class MorpheusRemoteIdentityLifecycleTest {
     }
 
     @Test
-    void rejectedOversizedAtomicRewriteLeavesOriginalSnapshotUntouched() throws Exception {
-        Path auth = temp.resolve("full-auth.txt");
+    void auditWindowCompactsBeforeItCanBlockCredentialRotation() throws Exception {
+        Path auth = temp.resolve("rolling-auth.txt");
         String principal = "a".repeat(128);
         MorpheusRemoteIdentityFile.create(auth, principal, MorpheusRemoteRole.ADMIN);
-        List<String> seed = Files.readAllLines(auth, StandardCharsets.UTF_8);
-        String auditLine = seed.stream().filter(line -> line.startsWith("# audit|")).findFirst().orElseThrow();
-        List<String> full = new ArrayList<>(seed);
-        while (String.join(System.lineSeparator(), full).getBytes(StandardCharsets.UTF_8).length
-                + auditLine.getBytes(StandardCharsets.UTF_8).length
-                + System.lineSeparator().getBytes(StandardCharsets.UTF_8).length
-                <= MorpheusRemoteIdentityFile.MAX_FILE_BYTES) {
-            full.add(auditLine);
-        }
-        Files.writeString(auth, String.join(System.lineSeparator(), full) + System.lineSeparator());
-        byte[] before = Files.readAllBytes(auth);
 
-        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.rotate(auth, principal));
-        assertArrayEquals(before, Files.readAllBytes(auth));
-        assertEquals(1, MorpheusRemoteIdentityFile.load(auth).size());
+        MorpheusRemoteIdentityFile.GeneratedCredential latest = null;
+        for (int index = 0; index < MorpheusRemoteIdentityFile.MAX_AUDIT_RECORDS + 64; index++) {
+            latest = MorpheusRemoteIdentityFile.rotate(auth, principal);
+        }
+
+        assertTrue(latest != null);
+        assertTrue(MorpheusRemoteIdentityFile.authenticate(MorpheusRemoteIdentityFile.load(auth), latest.token()).isPresent());
+        assertEquals(MorpheusRemoteIdentityFile.MAX_AUDIT_RECORDS, MorpheusRemoteIdentityFile.audit(auth).size());
+        assertTrue(Files.size(auth) <= MorpheusRemoteIdentityFile.MAX_FILE_BYTES);
+        assertEquals(MorpheusRemoteIdentityFile.Mutation.ROTATE,
+                MorpheusRemoteIdentityFile.audit(auth).getLast().mutation());
     }
 }
