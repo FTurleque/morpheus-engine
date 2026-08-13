@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,6 +26,13 @@ class MorpheusApiContractTest {
             assertEquals(200, root.status());
             assertTrue(root.contentType().startsWith("application/json"));
             assertTrue(root.body().contains("\"apiVersion\":\"" + ProductMetadata.API_VERSION + "\""));
+
+            for (String forbiddenMethod : List.of("POST", "PUT", "DELETE")) {
+                ApiTestSupport.Response rootMethod = http.request(server, "/", forbiddenMethod);
+                assertEquals(405, rootMethod.status(), rootMethod.body());
+                assertEquals("GET", rootMethod.allow());
+                assertTrue(rootMethod.body().contains("METHOD_NOT_ALLOWED"));
+            }
 
             ApiTestSupport.Response health = http.get(server, "/health");
             assertEquals(200, health.status());

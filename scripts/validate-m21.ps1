@@ -15,7 +15,7 @@ $outputRoot = Join-Path $repo 'validation-output\m21'
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 $validationSha = (git rev-parse HEAD).Trim()
 
-function Invoke-Native([string]$Label, [scriptblock]$Command) {
+function Show-NativeStep([string]$Label, [scriptblock]$Command) {
     Write-Host ''
     Write-Host ('=' * 78)
     Write-Host $Label
@@ -49,6 +49,32 @@ function Get-FreeLoopbackPort {
     try { return ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port } finally { $listener.Stop() }
 }
 
+function Get-PackagedApiVersionAttempt([int]$Port) {
+    try {
+        $response = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/api/v1/version" -UseBasicParsing -TimeoutSec 2
+        if ($response.StatusCode -ne 200) { return $null }
+        $payload = $response.Content | ConvertFrom-Json
+        return [string]$payload.data.version
+    } catch {
+        return $null
+    }
+}
+
+function Wait-PackagedApiVersion([System.Diagnostics.Process]$Process, [int]$Port, [string]$StderrPath) {
+    for ($attempt = 1; $attempt -le 60; $attempt++) {
+        if ($Process.HasExited) {
+            $diagnostic = if (Test-Path $StderrPath) { Get-Content $StderrPath -Raw } else { '' }
+            throw "Packaged API exited before version check: $diagnostic"
+        }
+        $actualVersion = Get-PackagedApiVersionAttempt -Port $Port
+        if (-not [string]::IsNullOrWhiteSpace($actualVersion)) {
+            return $actualVersion
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw 'Packaged API version check timed out'
+}
+
 function Assert-PackagedApiVersion([string]$Launcher) {
     $port = Get-FreeLoopbackPort
     $apiData = Join-Path $outputRoot 'api-data'
@@ -60,30 +86,18 @@ function Assert-PackagedApiVersion([string]$Launcher) {
         -ArgumentList @('--data-dir', $apiData, 'api', '--host', '127.0.0.1', '--port', "$port") `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
     try {
-        for ($attempt = 1; $attempt -le 60; $attempt++) {
-            if ($process.HasExited) {
-                $diagnostic = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { '' }
-                throw "Packaged API exited before version check: $diagnostic"
-            }
-            try {
-                $response = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/v1/version" -UseBasicParsing -TimeoutSec 2
-                if ($response.StatusCode -eq 200) {
-                    $payload = $response.Content | ConvertFrom-Json
-                    if ([string]$payload.data.version -ne $Version) {
-                        throw "HTTP product version is $($payload.data.version); expected $Version"
-                    }
-                    Write-Host "HTTP product version convergence: PASS ($Version)"
-                    return
-                }
-            } catch {
-                if ($_.Exception.Message -like 'HTTP product version is*') { throw }
-                Start-Sleep -Milliseconds 100
-            }
+        $actualVersion = Wait-PackagedApiVersion -Process $process -Port $port -StderrPath $stderr
+        if ($actualVersion -ne $Version) {
+            throw "HTTP product version is $actualVersion; expected $Version"
         }
-        throw 'Packaged API version check timed out'
+        Write-Output "HTTP product version convergence: PASS ($Version)"
     } finally {
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
-        try { $process.WaitForExit(5000) | Out-Null } catch { }
+        try {
+            $process.WaitForExit(5000) | Out-Null
+        } catch {
+            Write-Verbose "Packaged API process wait failed during cleanup: $($_.Exception.Message)"
+        }
     }
 }
 
@@ -102,8 +116,8 @@ if ($LASTEXITCODE -ne 0) {
     }
 }
 Write-Host "M21 diff base: $BaseRef"
-Invoke-Native 'git diff --check' { git diff --check "$BaseRef...HEAD" }
-Invoke-Native 'Maven clean verify' { & .\mvnw.cmd 'clean' 'verify' }
+Show-NativeStep 'git diff --check' { git diff --check "$BaseRef...HEAD" }
+Show-NativeStep 'Maven clean verify' { & .\mvnw.cmd 'clean' 'verify' }
 
 $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) {

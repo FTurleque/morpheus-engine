@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   schedule:
     - cron: '17 4 * * 1'
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
   dependency-check:
     name: dependency-check (ubuntu-latest)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
 
     steps:
       - name: Checkout exact head
@@ -37,9 +37,38 @@ jobs:
           cache: maven
           check-latest: false
 
+      - name: Restore Dependency-Check database
+        id: dependency-check-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/dependency-check-data
+          key: dependency-check-v12-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            dependency-check-v12-${{ runner.os }}-
+
       - name: Run OWASP Dependency-Check
         shell: bash
-        run: ./mvnw -Pd2-security org.owasp:dependency-check-maven:12.2.2:aggregate
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          args=(
+            "-Pd2-security"
+            "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data"
+            "org.owasp:dependency-check-maven:12.2.2:aggregate"
+          )
+          if [[ -n "${NVD_API_KEY:-}" ]]; then
+            args+=("-DnvdApiKey=${NVD_API_KEY}")
+          else
+            echo "::warning::NVD_API_KEY is not configured; cached NVD data will be used and cold updates can be slower."
+          fi
+          ./mvnw "${args[@]}"
+
+      - name: Save Dependency-Check database
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/dependency-check-data
+          key: dependency-check-v12-${{ runner.os }}-${{ github.run_id }}
 
       - name: Upload dependency-check evidence
         if: always()

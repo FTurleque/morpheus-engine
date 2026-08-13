@@ -17,6 +17,8 @@ class D2RepositoryHardeningArchitectureTest {
             "(?m)^\\s*(?:-\\s*)?uses: actions/setup-java@[0-9a-f]{40} # v(?:[5-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
     private static final Pattern UPLOAD_ARTIFACT_NODE24 = Pattern.compile(
             "(?m)^\\s*(?:-\\s*)?uses: actions/upload-artifact@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
+    private static final Pattern CACHE_NODE24 = Pattern.compile(
+            "(?m)^\\s*(?:-\\s*)?uses: actions/cache/(?:restore|save)@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
 
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
@@ -74,6 +76,11 @@ class D2RepositoryHardeningArchitectureTest {
             assertPinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", workflow);
             assertPinnedNode24(text, UPLOAD_ARTIFACT_NODE24, "upload-artifact", workflow);
         }
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+        assertTrue(CACHE_NODE24.matcher(security).results().count() >= 2,
+                "security.yml must pin Node 24 cache restore/save actions by immutable SHA");
+        assertFalse(security.contains("uses: actions/cache/restore@v"));
+        assertFalse(security.contains("uses: actions/cache/save@v"));
     }
 
     @Test
@@ -88,13 +95,16 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     @Test
-    void mainBoundaryHasDependencyUpdatePolicy() throws IOException {
+    void dependencySecurityGateCoversPromotionAndDevelopUpdates() throws IOException {
         Path root = repoRoot();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String dependabot = Files.readString(root.resolve(".github/dependabot.yml"));
 
-        assertTrue(security.contains("branches: [main]"));
+        assertTrue(security.contains("branches: [main, develop]"));
+        assertTrue(security.contains("timeout-minutes: 90"));
         assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"));
+        assertTrue(security.contains("target/dependency-check-data"));
+        assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
         assertTrue(dependabot.contains("target-branch: develop"));
