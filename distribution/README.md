@@ -1,23 +1,30 @@
 # MORPHEUS — Distribution et release 1.2
 
-MORPHEUS 1.2.0 est la release stable publiée. R3 a produit et vérifié les distributions Windows/Linux avec runtime Java embarqué, SHA-256 et manifests liés au SHA Git exact.
+Deux états doivent rester distincts :
 
-## Artefacts 1.2.0
+```text
+release publiée     1.2.0 / tag v1.2.0 / commit 3ad9ebf030b58df97482e21e272c24feae6b9d86
+baseline active     1.2.1 corrective / non publiée tant que v1.2.1 n'existe pas
+```
+
+Le tag `v1.2.0` et ses artefacts sont historiques et immuables. Le code de développement postérieur utilise `1.2.1` afin qu'un arbre différent ne soit jamais distribué sous l'identité déjà publiée `1.2.0`.
+
+## Artefacts publiés 1.2.0
 
 ```text
 Windows setup
-  dist/MORPHEUS-1.2.0-windows-x64-setup.exe
-  dist/MORPHEUS-1.2.0-windows-x64-setup.exe.sha256
+  MORPHEUS-1.2.0-windows-x64-setup.exe
+  MORPHEUS-1.2.0-windows-x64-setup.exe.sha256
 
 Windows portable
-  dist/morpheus-1.2.0-windows-x64.zip
-  dist/morpheus-1.2.0-windows-x64.zip.sha256
-  dist/morpheus-1.2.0-windows-x64-release-manifest.json
+  morpheus-1.2.0-windows-x64.zip
+  morpheus-1.2.0-windows-x64.zip.sha256
+  morpheus-1.2.0-windows-x64-release-manifest.json
 
 Linux portable
-  dist/morpheus-1.2.0-linux-x64.tar.gz
-  dist/morpheus-1.2.0-linux-x64.tar.gz.sha256
-  dist/morpheus-1.2.0-linux-x64-release-manifest.json
+  morpheus-1.2.0-linux-x64.tar.gz
+  morpheus-1.2.0-linux-x64.tar.gz.sha256
+  morpheus-1.2.0-linux-x64-release-manifest.json
 ```
 
 La preuve R3 confirme la parité publiée **8/8 PASS**.
@@ -64,66 +71,83 @@ uninstall conservateur
 état persistant conservé par défaut
 ```
 
-## Build Windows
+## Build actif 1.2.1
 
-Portable :
-
-```powershell
-.\distribution\build-portable.ps1 -Version 1.2.0
-```
-
-Setup :
+Portable Windows :
 
 ```powershell
-.\distribution\build-installer.ps1 -Version 1.2.0
+.\distribution\build-portable.ps1 -Version 1.2.1
 ```
 
-Release depuis le tag exact déjà publié :
+Setup Windows :
 
 ```powershell
-.\distribution\build-release.ps1 -Version 1.2.0 -ExpectedTag v1.2.0
+.\distribution\build-installer.ps1 -Version 1.2.1
 ```
 
-Le tag `v1.2.0` est immuable et ne doit pas être déplacé par D2.
-
-## Build Linux
-
-Portable :
+Portable Linux :
 
 ```bash
-bash distribution/build-portable.sh 1.2.0
+bash distribution/build-portable.sh 1.2.1
 ```
 
-Release exacte :
+Les builders portables/installateur utilisent `1.2.1` par défaut.
+
+## Release 1.2.1 — pas encore publiée
+
+Les builders de release actifs utilisent `1.2.1` par défaut mais sont fail-closed :
+
+```powershell
+.\distribution\build-release.ps1 -Version 1.2.1 -ExpectedTag v1.2.1
+```
 
 ```bash
-bash distribution/build-release.sh 1.2.0 v1.2.0
+bash distribution/build-release.sh 1.2.1 v1.2.1
 ```
 
-## D2 — hardening post-release
+Ils refusent l'exécution si :
 
-D2 ne republie pas 1.2.0. Il requalifie le HEAD de développement après mise à jour de dépendances et qualité :
+- le workspace Git n'est pas propre ;
+- le tag attendu n'existe pas ;
+- le tag ne pointe pas exactement sur HEAD.
+
+Par conséquent, le simple bump de la baseline à `1.2.1` ne crée pas une release et ne peut pas écraser `v1.2.0`.
+
+## Reproduction historique 1.2.0
+
+Pour reproduire exactement la release publiée, checkout le tag immuable `v1.2.0` puis utilisez les commandes/version présentes sur ce tag. Ne tentez pas de reconstruire le HEAD `1.2.1` avec `-Version 1.2.0`.
+
+Preuve autoritative :
 
 ```text
-Jackson       3.1.5 LTS
-sqlite-jdbc   3.53.2.0
+docs/release/RELEASE_NOTES_1.2.0.md
+docs/validation/VALIDATION_R3.md
 ```
 
-Les validateurs D2 reconstruisent un portable sur chaque plateforme et vérifient que `product-info.version == 1.2.0`.
+## Gates de développement
 
-Windows :
+Le gate durable M21 qualifie la baseline active :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.0 -BaseRef origin/develop
+.\scripts\validate.cmd m21 -Version 1.2.1
 ```
-
-Linux/WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.0
+bash ./scripts/validate-m21.sh 1.2.1
 ```
 
-D2 est **local-only** et interdit tout delta `.github/workflows/**`.
+Ratchets :
+
+```text
+Surefire total      >= 698
+architecture        >= 250
+line coverage       >= 47%
+branch coverage     >= 40%
+```
+
+Le gate D2 spécialisé peut toujours être lancé en `1.2.1` sur un périmètre ne modifiant pas `.github/workflows/**`.
+
+Le workflow `MORPHEUS Security` exécute OWASP Dependency-Check à la frontière `main` et hebdomadairement ; `.github/dependabot.yml` maintient les dépendances Maven/GitHub Actions via PR vers `develop`.
 
 ## Runtime layout
 
@@ -144,9 +168,10 @@ Linux respecte aussi `XDG_DATA_HOME`, `XDG_CONFIG_HOME` et `XDG_STATE_HOME`.
 
 ## Documentation
 
-- [Installation 1.2](../docs/user/INSTALLATION.md)
+- [Installation de la release publiée 1.2.0](../docs/user/INSTALLATION.md)
 - [Upgrade 1.2](../docs/user/UPGRADE_1_2.md)
 - [Clients MCP](../docs/user/MCP_CLIENTS.md)
+- [Version produit active](../docs/developer/PRODUCT_VERSION.md)
 - [Build et tests](../docs/developer/BUILD_AND_TEST.md)
-- [Validation R3](../docs/validation/VALIDATION_R3.md)
-- [D2](../docs/roadmap/D2_EXECUTION.md)
+- [Validation R3 / 1.2.0 publiée](../docs/validation/VALIDATION_R3.md)
+- [Registre des risques](../docs/architecture/risks/register.md)
