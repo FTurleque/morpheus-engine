@@ -16,6 +16,7 @@ import com.morpheus.application.query.saved.SavedViewService;
 import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.store.sqlite.SqliteConnectionScope;
 import com.morpheus.store.sqlite.SqlitePortfolioStore;
 import com.morpheus.store.sqlite.SqliteSavedViewStore;
 import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
@@ -234,6 +235,7 @@ public final class MorpheusQueryApiService {
     }
 
     private static final class Runtime implements AutoCloseable {
+        private final SqliteConnectionScope sqliteScope;
         private final SqliteSpecificationKnowledgeStore snapshots;
         private final SqliteVersionedRequirementStore requirements;
         private final SqliteSnapshotBusinessContentStore content;
@@ -244,11 +246,34 @@ public final class MorpheusQueryApiService {
         private final QueryExportService exports;
 
         private Runtime(Path databasePath) {
-            snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-            requirements = new SqliteVersionedRequirementStore(databasePath);
-            content = new SqliteSnapshotBusinessContentStore(databasePath);
-            portfolios = new SqlitePortfolioStore(databasePath);
-            saved = new SqliteSavedViewStore(databasePath);
+            sqliteScope = SqliteConnectionScope.open(databasePath);
+            SqliteSpecificationKnowledgeStore openedSnapshots = null;
+            SqliteVersionedRequirementStore openedRequirements = null;
+            SqliteSnapshotBusinessContentStore openedContent = null;
+            SqlitePortfolioStore openedPortfolios = null;
+            SqliteSavedViewStore openedSaved = null;
+            try {
+                openedSnapshots = new SqliteSpecificationKnowledgeStore(databasePath);
+                openedRequirements = new SqliteVersionedRequirementStore(databasePath);
+                openedContent = new SqliteSnapshotBusinessContentStore(databasePath);
+                openedPortfolios = new SqlitePortfolioStore(databasePath);
+                openedSaved = new SqliteSavedViewStore(databasePath);
+            } catch (RuntimeException failure) {
+                RuntimeException cleanup = null;
+                cleanup = closeResource(openedSaved, cleanup);
+                cleanup = closeResource(openedPortfolios, cleanup);
+                cleanup = closeResource(openedContent, cleanup);
+                cleanup = closeResource(openedRequirements, cleanup);
+                cleanup = closeResource(openedSnapshots, cleanup);
+                cleanup = closeResource(sqliteScope, cleanup);
+                if (cleanup != null) failure.addSuppressed(cleanup);
+                throw failure;
+            }
+            snapshots = openedSnapshots;
+            requirements = openedRequirements;
+            content = openedContent;
+            portfolios = openedPortfolios;
+            saved = openedSaved;
             queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
             views = new SavedViewService(saved, queries);
             exports = new QueryExportService(queries);
@@ -256,11 +281,35 @@ public final class MorpheusQueryApiService {
 
         @Override
         public void close() {
-            saved.close();
-            portfolios.close();
-            content.close();
-            requirements.close();
-            snapshots.close();
+            RuntimeException failure = null;
+            failure = closeResource(saved, failure);
+            failure = closeResource(portfolios, failure);
+            failure = closeResource(content, failure);
+            failure = closeResource(requirements, failure);
+            failure = closeResource(snapshots, failure);
+            failure = closeResource(sqliteScope, failure);
+            if (failure != null) throw failure;
+        }
+
+        private static RuntimeException closeResource(AutoCloseable closeable, RuntimeException previous) {
+            if (closeable == null) return previous;
+            try {
+                closeable.close();
+                return previous;
+            } catch (RuntimeException failure) {
+                if (previous != null) {
+                    previous.addSuppressed(failure);
+                    return previous;
+                }
+                return failure;
+            } catch (Exception failure) {
+                RuntimeException wrapped = new IllegalStateException("cannot close query runtime resource", failure);
+                if (previous != null) {
+                    previous.addSuppressed(wrapped);
+                    return previous;
+                }
+                return wrapped;
+            }
         }
     }
 }
