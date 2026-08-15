@@ -104,7 +104,7 @@ final class SqliteDatabaseSecurity {
         if (!Files.isRegularFile(journal, LinkOption.NOFOLLOW_LINKS)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE TABLE IF NOT EXISTS morpheus_local_security_probe(id INTEGER PRIMARY KEY)");
-                statement.execute("DROP TABLE morpheus_local_security_probe");
+                statement.execute("DROP TABLE IF EXISTS morpheus_local_security_probe");
             }
         }
         if (!Files.isRegularFile(journal, LinkOption.NOFOLLOW_LINKS)) {
