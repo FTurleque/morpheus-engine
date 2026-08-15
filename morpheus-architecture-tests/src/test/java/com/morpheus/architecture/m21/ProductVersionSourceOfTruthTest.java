@@ -13,7 +13,7 @@ class ProductVersionSourceOfTruthTest {
     @Test
     void activeRuntimeSourcesContainNoHistoricalVersionFallback() throws IOException {
         Path root = repoRoot();
-        try (var files = Files.walk(root, 8)) {
+        try (var files = Files.walk(root, 16)) {
             List<Path> offenders = files
                     .filter(Files::isRegularFile)
                     .filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
