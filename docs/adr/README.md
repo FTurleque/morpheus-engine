@@ -111,6 +111,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0093](0093-provider-neutral-policy-packs-governance-automation.md) | Policy packs provider-neutral, versions immuables, overrides explicables et dry-run read-only | **Acceptée — M25** |
 | [ADR-0094](0094-optional-team-remote-server-mode.md) | Mode serveur remote optionnel, TLS/auth/RBAC, concurrence bornée et maintenance SQLite offline | **Acceptée — M26** |
 | [ADR-0095](0095-evidence-backed-assisted-reasoning.md) | Analyse assistée fondée sur des preuves, confiance explicite et séparation facts/claims | **Acceptée — M27** |
+| [ADR-0096](0096-conservative-native-mcp-client-integration.md) | Intégration native MCP explicite, conservatrice et state-driven | **Acceptée — M28** |
 
 # Preuves par jalon
 
@@ -141,36 +142,37 @@ M24 543 PASS Windows + Linux | Architecture 221 | Query/view/export convergence 
 M25 565 PASS Windows + Linux | Architecture 231 | Policy governance convergence PASS
 M26 579 PASS Windows + Linux | Architecture 234 | Remote TLS/auth/RBAC PASS
 M27 602 PASS Windows + Linux | Architecture 238 | Evidence-backed reasoning PASS
+M28 608 PASS Windows + Linux | Architecture 243 | Native MCP client integration PASS
 ```
 
 ## Dernière décision qualifiée
 
-ADR-0095 est acceptée après qualification Windows + Linux/WSL sur le même SHA exact :
+ADR-0096 est acceptée après qualification Windows + Linux/WSL sur le même SHA exact :
 
 ```text
-Code exact qualifié   f97307c878125550693699124ca717f64f305a3a
-Head PR docs-only     026c1d5f8671cd7b879fa89d51af8e83a5f06272
-Merge                 f8810803bd5ae7d57c4858e1e384c6a0132e1a45
-Version               1.0.0
-Windows               PASS
-Linux WSL             PASS
-Tests                 602 PASS
-Architecture          238 PASS
-Coverage              PASS Windows + Linux
-Facts / claims        séparation PASS
-Confidence            explicite et bornée PASS
-Evidence/provenance   PASS
-Adapters              optionnels + fault isolation PASS
-Mutation              NONE / mutated=false
-CLI/MCP/HTTP          convergence PASS
-Remote READ RBAC      PASS
-SBOM/provenance       PASS Windows + Linux
-Portable              PASS Windows + Linux
-Executable delta      NONE Windows + Linux
+Qualified exact head        58adfeb13b79808da12830f2d0b0b24ec46f67e6
+Merge                       1e606c63b9f74e45a2c0b3d2162d3db4721f4af4
+Target release              1.2.0
+Windows                     PASS
+Linux WSL                   PASS
+Tests                       608 PASS
+Architecture                243 PASS
+MCP clients                 5
+JSON merge                  PASS
+CLI registration            PASS
+Idempotency                 PASS
+Foreign entry preservation  PASS
+Modified entry preservation PASS
+State-driven uninstall      PASS
+Invalid JSON protection     PASS
+Portable Windows/Linux      PASS
+Installer Windows           PASS
+Docker required             false
+Post-gate executable delta  NONE
 ```
 
-Validation : [`../validation/VALIDATION_M27.md`](../validation/VALIDATION_M27.md).
-Plan final : [`../roadmap/M27_EXECUTION.md`](../roadmap/M27_EXECUTION.md).
+Validation : [`../validation/VALIDATION_M28.md`](../validation/VALIDATION_M28.md).
+Plan final : [`../roadmap/M28_EXECUTION.md`](../roadmap/M28_EXECUTION.md).
 Roadmap active 1.x : [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
 
 # Contraintes actives principales
@@ -215,6 +217,11 @@ adapter failure != fact loss
 reasoning execution != lifecycle mutation
 reasoning execution != policy override
 surface parity != same transport shape
+native MCP first
+third-party client config mutation is opt-in
+ownership is recorded, never guessed
+uninstall is state-driven
+manual client changes are preserved
 ```
 
 # Build
@@ -226,7 +233,7 @@ Unix    : ./mvnw clean test
 
 Baseline : Java `release 21`.
 
-Dernier gate techniquement qualifié : **M27**.
+Dernier gate fonctionnel qualifié : **M28**. Le gate durable de branche reste **M21** pour l'intégrité/surface-convergence exact-head.
 
 # Principe de validation
 

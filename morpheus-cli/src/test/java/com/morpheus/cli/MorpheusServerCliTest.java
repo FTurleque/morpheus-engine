@@ -39,6 +39,44 @@ class MorpheusServerCliTest {
         assertFalse(persisted.contains(token));
         assertTrue(persisted.matches("(?s).*alice\\|ADMIN\\|[0-9a-f]{64}.*"));
         assertTrue(created.out().contains("NOT_PERSISTED_PRINTED_ONCE"));
+        assertTrue(created.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
+    }
+
+    @Test
+    void identityLifecycleCommandsNeverListCredentialMaterial() throws Exception {
+        Result firstAdmin = run("--json", "server", "identity", "create",
+                "--principal", "admin-one", "--role", "ADMIN");
+        Result secondAdmin = run("--json", "server", "identity", "create",
+                "--principal", "admin-two", "--role", "ADMIN");
+        Result reader = run("--json", "server", "identity", "create",
+                "--principal", "reader", "--role", "READ");
+        String originalReaderToken = token(reader);
+
+        Result listed = run("--json", "server", "identity", "list");
+        assertEquals(CliExitCode.SUCCESS.code(), listed.exitCode(), listed.err());
+        assertTrue(listed.out().contains("\"principal\":\"reader\""), listed.out());
+        assertFalse(listed.out().contains(token(firstAdmin)), listed.out());
+        assertFalse(listed.out().contains(token(secondAdmin)), listed.out());
+        assertFalse(listed.out().contains(originalReaderToken), listed.out());
+        assertFalse(Pattern.compile("[0-9a-f]{64}").matcher(listed.out()).find(), listed.out());
+        assertTrue(listed.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
+
+        Result rotated = run("--json", "server", "identity", "rotate", "--principal", "reader");
+        assertEquals(CliExitCode.SUCCESS.code(), rotated.exitCode(), rotated.err());
+        assertFalse(token(rotated).equals(originalReaderToken));
+        assertTrue(rotated.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
+        assertTrue(rotated.out().contains("INVALID_IMMEDIATELY"));
+        assertFalse(rotated.out().contains("RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION"));
+
+        Result changed = run("--json", "server", "identity", "role",
+                "--principal", "reader", "--role", "WRITE");
+        assertEquals(CliExitCode.SUCCESS.code(), changed.exitCode(), changed.err());
+        Result revoked = run("--json", "server", "identity", "revoke", "--principal", "admin-one");
+        assertEquals(CliExitCode.SUCCESS.code(), revoked.exitCode(), revoked.err());
+
+        Result finalList = run("--json", "server", "identity", "list");
+        assertTrue(finalList.out().contains("\"principal\":\"reader\",\"role\":\"WRITE\""), finalList.out());
+        assertFalse(finalList.out().contains("admin-one"), finalList.out());
     }
 
     @Test
@@ -84,6 +122,12 @@ class MorpheusServerCliTest {
             exit = MorpheusMain.run(args.toArray(String[]::new), out, err, Map.of(), properties);
         }
         return new Result(exit, output.toString(StandardCharsets.UTF_8), errors.toString(StandardCharsets.UTF_8));
+    }
+
+    private String token(Result result) {
+        Matcher matcher = TOKEN.matcher(result.out());
+        assertTrue(matcher.find(), result.out());
+        return matcher.group(1);
     }
 
     private record Result(int exitCode, String out, String err) {

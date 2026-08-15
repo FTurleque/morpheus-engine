@@ -2,7 +2,7 @@ name: MORPHEUS CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
   workflow_dispatch:
 
@@ -24,37 +24,32 @@ jobs:
 
     steps:
       - name: Checkout exact PR head
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
           check-latest: false
 
-      - name: Enable executable scripts on Linux
-        if: runner.os == 'Linux'
-        shell: bash
-        run: chmod +x mvnw scripts/*.sh distribution/*.sh
-
       - name: Run one-command M21 gate on Linux
         if: runner.os == 'Linux'
         shell: bash
-        run: ./scripts/validate-m21.sh 1.0.0
+        run: bash ./scripts/validate-m21.sh 1.2.1
 
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
         shell: cmd
-        run: validate-m21.cmd -Version 1.0.0
+        run: scripts\validate.cmd m21 -Version 1.2.1
 
       - name: Upload M21 integrity evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: m21-integrity-${{ runner.os }}
           if-no-files-found: warn

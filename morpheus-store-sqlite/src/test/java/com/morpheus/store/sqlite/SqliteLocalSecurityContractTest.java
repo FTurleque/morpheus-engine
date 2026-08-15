@@ -12,8 +12,14 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,6 +97,44 @@ class SqliteLocalSecurityContractTest {
         }
 
         assertSecurePersistentSidecars(database);
+    }
+
+    @Test
+    void concurrentFirstOpensMaterializeTheJournalWithoutRacingOnTheProbeTable() throws Exception {
+        int rounds = 25;
+        int openers = 16;
+
+        try (var executor = Executors.newFixedThreadPool(openers)) {
+            for (int round = 0; round < rounds; round++) {
+                Path database = tempDir.resolve("concurrent-open-" + round).resolve("morpheus.db");
+                CountDownLatch start = new CountDownLatch(1);
+                List<Connection> opened = Collections.synchronizedList(new ArrayList<>());
+                List<Future<Void>> futures = new ArrayList<>();
+
+                for (int index = 0; index < openers; index++) {
+                    Callable<Void> opener = () -> {
+                        start.await();
+                        opened.add(SqliteDatabaseSecurity.openPhysical(
+                                database, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS));
+                        return null;
+                    };
+                    futures.add(executor.submit(opener));
+                }
+                start.countDown();
+                try {
+                    for (Future<Void> future : futures) {
+                        future.get();
+                    }
+                } finally {
+                    for (Connection connection : opened) {
+                        connection.close();
+                    }
+                }
+
+                assertEquals(openers, opened.size());
+                assertSecurePersistentSidecars(database);
+            }
+        }
     }
 
     private String pragmaText(Statement statement, String name) throws Exception {

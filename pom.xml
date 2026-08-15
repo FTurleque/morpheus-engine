@@ -6,7 +6,7 @@
 
     <groupId>io.github.fturleque</groupId>
     <artifactId>morpheus-engine</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
     <packaging>pom</packaging>
 
     <name>MORPHEUS</name>
@@ -38,9 +38,9 @@
 
         <junit.version>6.1.0</junit.version>
         <archunit.version>1.4.2</archunit.version>
-        <sqlite-jdbc.version>3.53.1.0</sqlite-jdbc.version>
+        <sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>
         <mcp-sdk.version>2.0.0</mcp-sdk.version>
-        <jackson.version>3.0.3</jackson.version>
+        <jackson.version>3.1.5</jackson.version>
 
         <maven.compiler.plugin.version>3.14.1</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.5.5</maven.surefire.plugin.version>
@@ -50,6 +50,7 @@
         <maven.dependency.plugin.version>3.11.0</maven.dependency.plugin.version>
         <jacoco.version>0.8.15</jacoco.version>
         <cyclonedx.maven.plugin.version>2.9.2</cyclonedx.maven.plugin.version>
+        <dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -147,13 +148,13 @@
                 <version>${maven.dependency.plugin.version}</version>
                 <executions>
                     <execution>
-                        <id>m21-dependency-hygiene</id>
+                        <id>d2-dependency-hygiene</id>
                         <phase>verify</phase>
                         <goals>
                             <goal>analyze-only</goal>
                         </goals>
                         <configuration>
-                            <failOnWarning>false</failOnWarning>
+                            <failOnWarning>true</failOnWarning>
                         </configuration>
                     </execution>
                 </executions>
@@ -205,4 +206,32 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>d2-security</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>${dependency-check.maven.plugin.version}</version>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <format>ALL</format>
+                            <failBuildOnCVSS>7.0</failBuildOnCVSS>
+                            <failOnError>true</failOnError>
+                            <failBuildOnUnusedSuppressionRule>true</failBuildOnUnusedSuppressionRule>
+                            <skipTestScope>true</skipTestScope>
+                            <prettyPrint>true</prettyPrint>
+                            <suppressionFiles>
+                                <suppressionFile>${maven.multiModuleProjectDirectory}/config/dependency-check-suppressions.xml</suppressionFile>
+                            </suppressionFiles>
+                            <outputDirectory>${project.build.directory}/d2-security</outputDirectory>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

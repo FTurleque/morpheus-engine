@@ -25,18 +25,18 @@ Le manifeste indique pour chaque capability critique :
 
 ## M22 — Provider plugins
 
-M22 ajoute deux capabilities READ explicites sur les trois transports :
+M22 ajoute deux capabilities explicites :
 
 ```text
 provider.plugins.discover
   CLI   provider-plugins discover
   MCP   discover_provider_plugins
-  HTTP  GET /api/v1/provider-plugins/discover
+  HTTP local  GET /api/v1/provider-plugins/discover
 
 provider.plugins.probe
   CLI   provider-plugins probe
   MCP   probe_provider_plugin
-  HTTP  GET /api/v1/provider-plugins/probe
+  HTTP local  GET /api/v1/provider-plugins/probe
 ```
 
 Elles n’ont pas la même portée d’exécution :
@@ -56,6 +56,40 @@ plugin failure != core crash
 ```
 
 Aucun répertoire de plugins n’est inspecté au démarrage CLI/MCP/HTTP.
+
+### Overlay remote M26
+
+La forme réseau durcit volontairement le probe exécutable sans changer sa sémantique :
+
+```text
+provider.plugins.discover  GET  -> READ
+provider.plugins.probe     POST -> ADMIN + sha256 obligatoire
+```
+
+Le client remote ne peut pas choisir le répertoire de plugins ; celui-ci vient de la configuration serveur. Le workspace doit appartenir aux racines autorisées et le JAR est chargé depuis une copie privée dont le SHA-256 a été vérifié. Le manifeste machine-readable porte cette asymétrie dans la colonne `notes` : c’est un exemple volontaire de `surface parity != same transport shape`.
+
+## M26 — Control plane local/remote
+
+Les identités remote restent administrées localement :
+
+```text
+server.identity.create
+server.identity.list
+server.identity.rotate
+server.identity.role
+server.identity.revoke
+```
+
+Aucune de ces mutations n’est exposée par MCP ou HTTP. Le serveur recharge le fichier d’identités à chaque authentification : rotation, changement de rôle et révocation sont effectifs dès la requête suivante.
+
+Les opérations serveur suivantes gardent leurs asymétries explicites :
+
+```text
+server.status         remote HTTP READ
+server.backup.create  CLI local + remote HTTP ADMIN
+server.backup.verify  CLI local uniquement
+server.restore        CLI offline uniquement + confirmation
+```
 
 ## Asymétrie déclarée : update discovery
 

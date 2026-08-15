@@ -78,9 +78,8 @@ class ProductionIntegrityContractTest {
             }
         }
 
-        assertEquals(2, constructionSites.size(), "update discovery must only be constructed by explicit CLI/MCP operations");
+        assertEquals(1, constructionSites.size(), "update discovery must only be constructed by the explicit CLI operation");
         assertTrue(constructionSites.contains(Path.of("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java")));
-        assertTrue(constructionSites.contains(Path.of("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProductMcpTools.java")));
         assertTrue(Files.isDirectory(productionRoot), "repository production source tree must remain discoverable");
     }
 

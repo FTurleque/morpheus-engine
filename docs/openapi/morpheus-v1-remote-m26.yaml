@@ -3,8 +3,9 @@ info:
   title: MORPHEUS Remote Server M26 Supplement
   version: 1.0.0-m26
   description: >-
-    M26 opt-in HTTPS remote/team server additions. Existing /api/v1 business routes remain the
-    same semantic API but, in remote mode, are fronted by TLS, Bearer authentication and RBAC.
+    M26 opt-in HTTPS remote/team server additions and security overlays. Existing /api/v1 business routes remain the
+    same semantic API but, in remote mode, are fronted by TLS, Bearer authentication and RBAC. Executable provider
+    plugin probing is deliberately stricter in remote mode: POST + ADMIN + trusted SHA-256.
 servers:
   - url: https://127.0.0.1:8765/api/v1
 security:
@@ -45,6 +46,60 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /provider-plugins/probe:
+    post:
+      operationId: probeRemoteProviderPlugin
+      summary: Probe one trusted provider plugin against an allowed workspace
+      description: >-
+        Remote security overlay for the local provider-plugin probe capability. Requires ADMIN. The plugin directory
+        is server-configured and cannot be selected by the client. The workspace must belong to AllowedWorkspaceRoots.
+        sha256 is mandatory and is verified on a private staging copy before any plugin classloading.
+      parameters:
+        - name: pluginId
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - name: workspace
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: sha256
+          in: query
+          required: true
+          description: Trusted SHA-256 of the exact plugin JAR to execute.
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{64}$'
+      responses:
+        '200':
+          description: Provider plugin probe outcome from the existing v1 provider-plugin API
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Missing/invalid SHA-256, disallowed workspace, or invalid provider-plugin request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '405':
+          description: Remote provider-plugin probe requires POST
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     bearerAuth:
@@ -52,10 +107,11 @@ components:
       scheme: bearer
       bearerFormat: opaque-256-bit-token
       description: >-
-        Bearer token generated locally by `server identity create`. Only SHA-256(token) is persisted.
+        Bearer token generated locally by the server identity lifecycle CLI. Only SHA-256(token) is persisted and the
+        current identity file is reloaded for every remote authentication.
   responses:
     Unauthenticated:
-      description: Missing or invalid Bearer token
+      description: Missing, invalid, rotated or revoked Bearer token
       content:
         application/json:
           schema:

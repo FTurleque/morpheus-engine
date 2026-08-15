@@ -57,17 +57,10 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
         Objects.requireNonNull(link, "link");
         try {
             requireSnapshot(snapshotId);
-            boolean previousAutoCommit = connection.getAutoCommit();
-            try {
-                connection.setAutoCommit(false);
+            SqliteTransactionRunner.runVoid(connection,
+                    "Cannot store traceability link " + link.id(), ignored -> {
                 putLinkInternal(snapshotId, link);
-                connection.commit();
-            } catch (SQLException | RuntimeException exception) {
-                rollbackQuietly();
-                throw exception;
-            } finally {
-                restoreAutoCommit(previousAutoCommit);
-            }
+            });
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot store traceability link " + link.id(), exception);
         }
@@ -83,19 +76,11 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
         }
         try {
             requireSnapshot(snapshotId);
-            boolean previousAutoCommit = connection.getAutoCommit();
-            try {
-                connection.setAutoCommit(false);
+            SqliteTransactionRunner.runVoid(connection, "Cannot store traceability link batch", ignored -> {
                 for (TraceabilityLink link : batch) {
                     putLinkInternal(snapshotId, link);
                 }
-                connection.commit();
-            } catch (SQLException | RuntimeException failure) {
-                rollbackQuietly();
-                throw failure;
-            } finally {
-                restoreAutoCommit(previousAutoCommit);
-            }
+            });
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot store traceability link batch", exception);
         }
@@ -315,22 +300,6 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
     private void ensureOpen() {
         if (closed) {
             throw new KnowledgeStoreException("SQLite traceability store is closed");
-        }
-    }
-
-    private void rollbackQuietly() {
-        try {
-            connection.rollback();
-        } catch (SQLException ignored) {
-            // Preserve the original persistence error.
-        }
-    }
-
-    private void restoreAutoCommit(boolean autoCommit) {
-        try {
-            connection.setAutoCommit(autoCommit);
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode", exception);
         }
     }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-1.0.0}"
+VERSION="${1:-1.2.1}"
 SKIP_PORTABLE="${MORPHEUS_M21_SKIP_PORTABLE:-false}"
 BASE_REF="${MORPHEUS_M21_BASE_REF:-origin/main}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,16 +51,16 @@ if (( FAILURES != 0 || ERRORS != 0 )); then
   echo "Surefire failures=$FAILURES errors=$ERRORS" >&2
   exit 1
 fi
-if (( TESTS < 454 )); then
-  echo "M21 test baseline regression: $TESTS < 454" >&2
+if (( TESTS < 711 )); then
+  echo "M21 test baseline regression: $TESTS < 711" >&2
   exit 1
 fi
-if (( ARCH_TESTS < 182 )); then
-  echo "M21 architecture baseline regression: $ARCH_TESTS < 182" >&2
+if (( ARCH_TESTS < 253 )); then
+  echo "M21 architecture baseline regression: $ARCH_TESTS < 253" >&2
   exit 1
 fi
-printf '%s\n' "Tests: PASS ($TESTS, baseline >= 454)"
-printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= 182)"
+printf '%s\n' "Tests: PASS ($TESTS, baseline >= 711)"
+printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= 253)"
 
 COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
 if [[ ! -f "$COVERAGE" ]]; then
@@ -73,12 +73,12 @@ python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line = float(sys.argv[1])
 branch = float(sys.argv[2])
-if line < 0.25:
-    raise SystemExit(f'M21 line coverage below 25%: {line}')
-if branch < 0.20:
-    raise SystemExit(f'M21 branch coverage below 20%: {branch}')
+if line < 0.47:
+    raise SystemExit(f'M21 line coverage below 47% ratchet: {line}')
+if branch < 0.40:
+    raise SystemExit(f'M21 branch coverage below 40% ratchet: {branch}')
 PY
-printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO)"
+printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO, ratchet=47%/40%)"
 
 SBOM_JSON="$REPO/target/m21-supply-chain/morpheus-sbom.json"
 SBOM_XML="$REPO/target/m21-supply-chain/morpheus-sbom.xml"

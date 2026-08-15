@@ -6,7 +6,7 @@ import com.morpheus.sdk.provider.ProviderPluginViews;
 
 import java.nio.file.Path;
 
-/** Read-only adapter service for explicit M22 provider-plugin discovery and probe routes. */
+/** Provider-plugin API adapter. Executable probing always requires a trusted SHA-256 pin. */
 final class MorpheusProviderPluginApiService {
     private final ProviderPluginService service = new ProviderPluginService();
 
@@ -14,7 +14,7 @@ final class MorpheusProviderPluginApiService {
         return ProviderPluginViews.discovery(service.discover(Path.of(directory)));
     }
 
-    ProviderPluginProbeOutcome probe(String directory, String pluginId, String workspace) {
-        return service.probe(Path.of(directory), pluginId, Path.of(workspace));
+    ProviderPluginProbeOutcome probe(String directory, String pluginId, String workspace, String expectedSha256) {
+        return service.probe(Path.of(directory), pluginId, Path.of(workspace), expectedSha256);
     }
 }

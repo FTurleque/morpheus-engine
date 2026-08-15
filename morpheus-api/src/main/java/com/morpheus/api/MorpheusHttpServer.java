@@ -56,6 +56,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusCompositionApiService compositionService;
     private final MorpheusPortfolioApiService portfolioService;
     private final MorpheusOperabilityApiService operabilityService;
+    private final boolean providerPluginProbeEnabled;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final JsonMapper mapper = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -72,7 +73,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
             MorpheusControlledLifecycleApiService controlledLifecycleService,
             MorpheusCompositionApiService compositionService,
             MorpheusPortfolioApiService portfolioService,
-            MorpheusOperabilityApiService operabilityService) {
+            MorpheusOperabilityApiService operabilityService,
+            boolean providerPluginProbeEnabled) {
         this.server = Objects.requireNonNull(server, "server");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.service = Objects.requireNonNull(service, "service");
@@ -83,6 +85,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.compositionService = Objects.requireNonNull(compositionService, "compositionService");
         this.portfolioService = Objects.requireNonNull(portfolioService, "portfolioService");
         this.operabilityService = Objects.requireNonNull(operabilityService, "operabilityService");
+        this.providerPluginProbeEnabled = providerPluginProbeEnabled;
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -119,32 +122,77 @@ public final class MorpheusHttpServer implements AutoCloseable {
             ExternalIntegrationStatusProvider minosStatus,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
+        return startConfigured(
+                databasePath,
+                host,
+                port,
+                resolverRegistry,
+                minosStatus,
+                technicalContextProvider,
+                writeCapabilityResolver,
+                Optional.empty());
+    }
+
+    static MorpheusHttpServer startRemote(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            AllowedWorkspaceRoots allowedWorkspaceRoots) {
+        return startConfigured(
+                databasePath,
+                host,
+                port,
+                resolverRegistry,
+                minosStatus,
+                technicalContextProvider,
+                writeCapabilityResolver,
+                Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")));
+    }
+
+    private static MorpheusHttpServer startConfigured(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(minosStatus, "minosStatus");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
-        String normalizedHost = requireHost(host);
+        Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
         }
+        var bindAddress = LoopbackHostPolicy.requireLoopbackAddress(host);
+        String normalizedHost = bindAddress.getHostAddress();
         try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(databasePath)) {
             new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
         }
         try {
-            HttpServer httpServer = HttpServer.create(new InetSocketAddress(normalizedHost, port), 0);
+            HttpServer httpServer = HttpServer.create(new InetSocketAddress(bindAddress, port), 0);
             ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
             MorpheusHttpServer result = new MorpheusHttpServer(
                     httpServer,
                     executor,
-                    new MorpheusApiService(databasePath),
+                    allowedWorkspaceRoots
+                            .map(policy -> new MorpheusApiService(databasePath, policy))
+                            .orElseGet(() -> new MorpheusApiService(databasePath)),
                     new MorpheusExternalReferenceApiService(databasePath, resolverRegistry, minosStatus),
                     new MorpheusAugmentedContextApiService(databasePath, technicalContextProvider),
                     new MorpheusJarvisOrchestrationApiService(databasePath),
                     new MorpheusControlledLifecycleApiService(databasePath, writeCapabilityResolver),
                     new MorpheusCompositionApiService(databasePath),
                     new MorpheusPortfolioApiService(databasePath),
-                    new MorpheusOperabilityApiService(databasePath));
+                    new MorpheusOperabilityApiService(databasePath),
+                    allowedWorkspaceRoots.isPresent());
             httpServer.setExecutor(executor);
             httpServer.createContext(API_PREFIX, result::handle);
             MorpheusQueryHttpRoutes.register(httpServer, databasePath);
@@ -225,19 +273,24 @@ public final class MorpheusHttpServer implements AutoCloseable {
             return ok(service.version());
         }
         if (segments.size() == 2 && segments.getFirst().equals("provider-plugins")) {
-            requireMethod(method, "GET");
             MorpheusProviderPluginApiService plugins = new MorpheusProviderPluginApiService();
             return switch (segments.get(1)) {
                 case "discover" -> {
+                    requireMethod(method, "GET");
                     query.rejectUnknown(Set.of("directory"));
                     yield ok(plugins.discover(query.required("directory")));
                 }
                 case "probe" -> {
-                    query.rejectUnknown(Set.of("directory", "pluginId", "workspace"));
-                    yield ok(plugins.probe(
-                            query.required("directory"),
-                            query.required("pluginId"),
-                            query.required("workspace")));
+                    if (!providerPluginProbeEnabled) {
+                        throw ApiFailure.notFound("provider-plugin probe is remote-only");
+                    }
+                    requireMethod(method, "POST");
+                    query.rejectUnknown(Set.of("directory", "pluginId", "workspace", "sha256"));
+                    String directory = query.required("directory");
+                    String pluginId = query.required("pluginId");
+                    String workspace = query.required("workspace");
+                    String sha256 = query.required("sha256");
+                    yield ok(plugins.probe(directory, pluginId, workspace, sha256));
                 }
                 default -> throw ApiFailure.notFound("unknown provider-plugin route");
             };
@@ -295,11 +348,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         };
     }
 
-    private RouteResponse routePortfolios(
-            HttpExchange exchange,
-            String method,
-            List<String> segments,
-            Query query) {
+    private RouteResponse routePortfolios(HttpExchange exchange, String method, List<String> segments, Query query) {
         if (segments.size() == 1) {
             if (method.equals("GET")) {
                 query.rejectUnknown(Set.of("offset", "limit"));
@@ -391,12 +440,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         throw ApiFailure.notFound("unknown portfolio API resource: " + resource);
     }
 
-    private RouteResponse routeSync(
-            HttpExchange exchange,
-            String method,
-            List<String> segments,
-            Query query,
-            String projectId) {
+    private RouteResponse routeSync(HttpExchange exchange, String method, List<String> segments, Query query, String projectId) {
         requireExactSegments(segments, 3);
         requireMethod(method, "POST");
         query.rejectUnknown(Set.of());
@@ -422,11 +466,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         if (segments.size() == 4 && segments.get(3).equals("conflicts")) {
             query.rejectUnknown(Set.of("offset", "limit"));
             int offset = query.intValue("offset", 0, 0, Integer.MAX_VALUE);
-            int limit = query.intValue(
-                    "limit",
-                    MorpheusCompositionApiService.DEFAULT_LIMIT,
-                    1,
-                    MorpheusCompositionApiService.MAX_LIMIT);
+            int limit = query.intValue("limit", MorpheusCompositionApiService.DEFAULT_LIMIT, 1, MorpheusCompositionApiService.MAX_LIMIT);
             return ok(compositionService.conflicts(projectId, offset, limit));
         }
         throw ApiFailure.notFound("unknown composition route");
@@ -434,10 +474,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private RouteResponse routeSpecifications(String method, List<String> segments, Query query, String projectId) {
         requireMethod(method, "GET");
-        if (segments.size() == 3) {
-            PageRequest page = page(query);
-            return ok(service.listSpecifications(projectId, page));
-        }
+        if (segments.size() == 3) return ok(service.listSpecifications(projectId, page(query)));
         if (segments.size() == 4) {
             query.rejectUnknown(Set.of());
             return ok(service.specification(projectId, segments.get(3)));
@@ -448,17 +485,12 @@ public final class MorpheusHttpServer implements AutoCloseable {
         throw ApiFailure.notFound("unknown specifications route");
     }
 
-    private RouteResponse routeRequirements(
-            HttpExchange exchange,
-            String method,
-            List<String> segments,
-            Query query,
-            String projectId) {
+    private RouteResponse routeRequirements(HttpExchange exchange, String method, List<String> segments, Query query, String projectId) {
         if (segments.size() == 5 && segments.get(4).equals("augmented-context")) {
             requireMethod(method, "POST");
             query.rejectUnknown(Set.of());
-            AugmentedContextRequest request = readRequiredJson(exchange, AugmentedContextRequest.class);
-            return ok(augmentedContextService.requirement(projectId, segments.get(3), request));
+            return ok(augmentedContextService.requirement(
+                    projectId, segments.get(3), readRequiredJson(exchange, AugmentedContextRequest.class)));
         }
         requireMethod(method, "GET");
         if (segments.size() == 3) {
@@ -480,41 +512,32 @@ public final class MorpheusHttpServer implements AutoCloseable {
         throw ApiFailure.notFound("unknown requirements route");
     }
 
-    private RouteResponse routeChanges(
-            HttpExchange exchange,
-            String method,
-            List<String> segments,
-            Query query,
-            String projectId) {
+    private RouteResponse routeChanges(HttpExchange exchange, String method, List<String> segments, Query query, String projectId) {
         if (segments.size() == 5 && segments.get(4).equals("augmented-context")) {
             requireMethod(method, "POST");
             query.rejectUnknown(Set.of());
-            AugmentedContextRequest request = readRequiredJson(exchange, AugmentedContextRequest.class);
-            return ok(augmentedContextService.change(projectId, segments.get(3), request));
+            return ok(augmentedContextService.change(
+                    projectId, segments.get(3), readRequiredJson(exchange, AugmentedContextRequest.class)));
         }
         if (segments.size() == 5 && segments.get(4).equals("transition-check")) {
             requireMethod(method, "POST");
             query.rejectUnknown(Set.of());
-            TransitionCheckRequest request = readRequiredJson(exchange, TransitionCheckRequest.class);
-            return ok(jarvisOrchestrationService.transition(projectId, segments.get(3), request));
+            return ok(jarvisOrchestrationService.transition(
+                    projectId, segments.get(3), readRequiredJson(exchange, TransitionCheckRequest.class)));
         }
         if (segments.size() == 5 && segments.get(4).equals("lifecycle-transitions")) {
             requireMethod(method, "POST");
             query.rejectUnknown(Set.of());
-            LifecycleMutationRequest request = readRequiredJson(exchange, LifecycleMutationRequest.class);
-            return ok(controlledLifecycleService.apply(projectId, segments.get(3), request));
+            return ok(controlledLifecycleService.apply(
+                    projectId, segments.get(3), readRequiredJson(exchange, LifecycleMutationRequest.class)));
         }
         requireMethod(method, "GET");
-        if (segments.size() == 3) {
-            return ok(service.listChanges(projectId, page(query)));
-        }
+        if (segments.size() == 3) return ok(service.listChanges(projectId, page(query)));
         if (segments.size() == 4) {
             query.rejectUnknown(Set.of());
             return ok(service.change(projectId, segments.get(3)));
         }
-        if (segments.size() != 5) {
-            throw ApiFailure.notFound("unknown changes route");
-        }
+        if (segments.size() != 5) throw ApiFailure.notFound("unknown changes route");
 
         String changeId = segments.get(3);
         String child = segments.get(4);
@@ -559,10 +582,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         }
         if (segments.size() == 4 && segments.get(3).equals("compare")) {
             query.rejectUnknown(Set.of("fromSnapshotId", "toSnapshotId"));
-            return ok(service.compareVersions(
-                    projectId,
-                    query.required("fromSnapshotId"),
-                    query.required("toSnapshotId")));
+            return ok(service.compareVersions(projectId, query.required("fromSnapshotId"), query.required("toSnapshotId")));
         }
         if (segments.size() == 5 && segments.get(4).equals("requirements")) {
             return ok(service.historicalRequirements(projectId, segments.get(3), page(query)));
@@ -577,11 +597,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return ok(service.diagnostics(projectId));
     }
 
-    private RouteResponse routeExternalReferences(
-            String method,
-            List<String> segments,
-            Query query,
-            String projectId) {
+    private RouteResponse routeExternalReferences(String method, List<String> segments, Query query, String projectId) {
         requireMethod(method, "GET");
         if (segments.size() == 3) {
             query.rejectUnknown(Set.of("ownerId"));
@@ -603,18 +619,14 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private <T> T readRequiredJson(HttpExchange exchange, Class<T> type) {
         byte[] body = readBody(exchange);
-        if (body.length == 0) {
-            throw ApiFailure.badRequest("JSON request body is required");
-        }
+        if (body.length == 0) throw ApiFailure.badRequest("JSON request body is required");
         requireJsonContentType(exchange.getRequestHeaders());
         return decode(body, type);
     }
 
     private <T> T readOptionalJson(HttpExchange exchange, Class<T> type, T defaultValue) {
         byte[] body = readBody(exchange);
-        if (body.length == 0) {
-            return defaultValue;
-        }
+        if (body.length == 0) return defaultValue;
         requireJsonContentType(exchange.getRequestHeaders());
         return decode(body, type);
     }
@@ -669,37 +681,23 @@ public final class MorpheusHttpServer implements AutoCloseable {
     }
 
     private void requireMethod(String actual, String expected) {
-        if (!actual.equals(expected)) {
-            throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
-        }
+        if (!actual.equals(expected)) throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
     }
 
     private void requireExactSegments(List<String> segments, int expected) {
-        if (segments.size() != expected) {
-            throw ApiFailure.notFound("unknown API route");
-        }
+        if (segments.size() != expected) throw ApiFailure.notFound("unknown API route");
     }
 
     private List<String> pathSegments(String path) {
-        if (!path.startsWith(API_PREFIX)) {
-            throw ApiFailure.notFound("unknown API route: " + path);
-        }
+        if (!path.startsWith(API_PREFIX)) throw ApiFailure.notFound("unknown API route: " + path);
         String suffix = path.substring(API_PREFIX.length());
-        if (suffix.isEmpty() || suffix.equals("/")) {
-            return List.of();
-        }
+        if (suffix.isEmpty() || suffix.equals("/")) return List.of();
         String normalized = suffix.startsWith("/") ? suffix.substring(1) : suffix;
-        if (normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        if (normalized.isEmpty()) {
-            return List.of();
-        }
+        if (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
+        if (normalized.isEmpty()) return List.of();
         List<String> result = new ArrayList<>();
         for (String segment : normalized.split("/")) {
-            if (segment.isEmpty()) {
-                throw ApiFailure.notFound("invalid API path");
-            }
+            if (segment.isEmpty()) throw ApiFailure.notFound("invalid API path");
             result.add(urlDecode(segment));
         }
         return List.copyOf(result);
@@ -712,34 +710,31 @@ public final class MorpheusHttpServer implements AutoCloseable {
         } catch (RuntimeException ignored) {
             return "GET";
         }
+        if (segments.isEmpty()) return "GET";
+        if (segments.size() == 2 && segments.getFirst().equals("provider-plugins")) {
+            return switch (segments.get(1)) {
+                case "discover" -> "GET";
+                case "probe" -> "POST";
+                default -> "GET";
+            };
+        }
         if (segments.size() == 1 && (segments.getFirst().equals("projects") || segments.getFirst().equals("portfolios"))) {
             return "GET, POST";
         }
         if (segments.getFirst().equals("portfolios")) {
-            if (segments.size() == 3
-                    && (segments.get(2).equals("projects") || segments.get(2).equals("references"))) {
+            if (segments.size() == 3 && (segments.get(2).equals("projects") || segments.get(2).equals("references"))) {
                 return "GET, POST";
             }
-            if (segments.size() == 3 && segments.get(2).equals("traverse")) {
-                return "POST";
-            }
-            if (segments.size() == 5
-                    && segments.get(2).equals("projects")
-                    && (segments.get(4).equals("missing") || segments.get(4).equals("freshness"))) {
-                return "POST";
-            }
+            if (segments.size() == 3 && segments.get(2).equals("traverse")) return "POST";
+            if (segments.size() == 5 && segments.get(2).equals("projects")
+                    && (segments.get(4).equals("missing") || segments.get(4).equals("freshness"))) return "POST";
         }
-        if (segments.size() == 3 && segments.getFirst().equals("projects") && segments.get(2).equals("sync")) {
-            return "POST";
-        }
-        if (segments.size() == 5
-                && segments.getFirst().equals("projects")
+        if (segments.size() == 3 && segments.getFirst().equals("projects") && segments.get(2).equals("sync")) return "POST";
+        if (segments.size() == 5 && segments.getFirst().equals("projects")
                 && (segments.get(2).equals("requirements") || segments.get(2).equals("changes"))
                 && (segments.get(4).equals("augmented-context")
                     || segments.get(4).equals("transition-check")
-                    || segments.get(4).equals("lifecycle-transitions"))) {
-            return "POST";
-        }
+                    || segments.get(4).equals("lifecycle-transitions"))) return "POST";
         return "GET";
     }
 
@@ -750,13 +745,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private static ChangeWriteCapabilityResolver deniedWrites() {
         return projectId -> ChangeWriteCapabilityObservation.denied(
                 "No WRITE_CHANGE provider capability resolver is configured for this HTTP server");
-    }
-
-    private static String requireHost(String host) {
-        if (host == null || host.isBlank()) {
-            throw new IllegalArgumentException("host must not be blank");
-        }
-        return host.trim();
     }
 
     private static String hostForUri(String host) {
@@ -796,18 +784,14 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private record RouteResponse(int status, Object data) {
         private RouteResponse {
-            if (status < 200 || status > 599) {
-                throw new IllegalArgumentException("route status must be between 200 and 599");
-            }
+            if (status < 200 || status > 599) throw new IllegalArgumentException("route status must be between 200 and 599");
             Objects.requireNonNull(data, "data");
         }
     }
 
     public record ProjectRegistrationRequest(String workspace) {
         public ProjectRegistrationRequest {
-            if (workspace == null || workspace.isBlank()) {
-                throw new IllegalArgumentException("workspace is required");
-            }
+            if (workspace == null || workspace.isBlank()) throw new IllegalArgumentException("workspace is required");
             workspace = workspace.trim();
         }
     }
@@ -815,9 +799,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     public record SyncRequest(String revision) {
         public SyncRequest {
             revision = revision == null ? null : revision.trim();
-            if (revision != null && revision.isEmpty()) {
-                revision = null;
-            }
+            if (revision != null && revision.isEmpty()) revision = null;
         }
     }
 
@@ -827,23 +809,15 @@ public final class MorpheusHttpServer implements AutoCloseable {
         }
 
         static Query parse(String rawQuery) {
-            if (rawQuery == null || rawQuery.isBlank()) {
-                return new Query(Map.of());
-            }
+            if (rawQuery == null || rawQuery.isBlank()) return new Query(Map.of());
             Map<String, String> values = new LinkedHashMap<>();
             for (String part : rawQuery.split("&")) {
-                if (part.isBlank()) {
-                    continue;
-                }
+                if (part.isBlank()) continue;
                 int separator = part.indexOf('=');
                 String key = urlDecode(separator < 0 ? part : part.substring(0, separator));
                 String value = urlDecode(separator < 0 ? "" : part.substring(separator + 1));
-                if (key.isBlank()) {
-                    throw ApiFailure.badRequest("query parameter name must not be blank");
-                }
-                if (values.putIfAbsent(key, value) != null) {
-                    throw ApiFailure.badRequest("duplicate query parameter: " + key);
-                }
+                if (key.isBlank()) throw ApiFailure.badRequest("query parameter name must not be blank");
+                if (values.putIfAbsent(key, value) != null) throw ApiFailure.badRequest("duplicate query parameter: " + key);
             }
             return new Query(values);
         }
@@ -854,22 +828,16 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
         String required(String name) {
             String value = values.get(name);
-            if (value == null || value.isBlank()) {
-                throw ApiFailure.badRequest("query parameter is required: " + name);
-            }
+            if (value == null || value.isBlank()) throw ApiFailure.badRequest("query parameter is required: " + name);
             return value;
         }
 
         int intValue(String name, int defaultValue, int minimum, int maximum) {
             String raw = values.get(name);
-            if (raw == null) {
-                return defaultValue;
-            }
+            if (raw == null) return defaultValue;
             try {
                 int value = Integer.parseInt(raw);
-                if (value < minimum || value > maximum) {
-                    throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
-                }
+                if (value < minimum || value > maximum) throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
                 return value;
             } catch (NumberFormatException failure) {
                 throw ApiFailure.badRequest(name + " must be an integer");
@@ -878,14 +846,10 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
         long longValue(String name, long defaultValue, long minimum, long maximum) {
             String raw = values.get(name);
-            if (raw == null) {
-                return defaultValue;
-            }
+            if (raw == null) return defaultValue;
             try {
                 long value = Long.parseLong(raw);
-                if (value < minimum || value > maximum) {
-                    throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
-                }
+                if (value < minimum || value > maximum) throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
                 return value;
             } catch (NumberFormatException failure) {
                 throw ApiFailure.badRequest(name + " must be an integer");
@@ -894,9 +858,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
         void rejectUnknown(Set<String> allowed) {
             for (String key : values.keySet()) {
-                if (!allowed.contains(key)) {
-                    throw ApiFailure.badRequest("unknown query parameter: " + key);
-                }
+                if (!allowed.contains(key)) throw ApiFailure.badRequest("unknown query parameter: " + key);
             }
         }
     }

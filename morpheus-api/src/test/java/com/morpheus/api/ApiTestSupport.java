@@ -19,6 +19,12 @@ final class ApiTestSupport {
         return send(HttpRequest.newBuilder(uri(server, pathAndQuery)).GET().build());
     }
 
+    Response request(MorpheusHttpServer server, String path, String method) {
+        return send(HttpRequest.newBuilder(uri(server, path))
+                .method(method, HttpRequest.BodyPublishers.noBody())
+                .build());
+    }
+
     Response postJson(MorpheusHttpServer server, String path, String body) {
         return send(HttpRequest.newBuilder(uri(server, path))
                 .header("Content-Type", "application/json")
@@ -107,6 +113,7 @@ final class ApiTestSupport {
             return new Response(
                     response.statusCode(),
                     response.headers().firstValue("Content-Type").orElse(""),
+                    response.headers().firstValue("Allow").orElse(""),
                     response.body());
         } catch (IOException failure) {
             throw new IllegalStateException("HTTP test request failed", failure);
@@ -116,6 +123,6 @@ final class ApiTestSupport {
         }
     }
 
-    record Response(int status, String contentType, String body) {
+    record Response(int status, String contentType, String allow, String body) {
     }
 }

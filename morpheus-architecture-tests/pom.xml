@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.github.fturleque</groupId>
         <artifactId>morpheus-engine</artifactId>
-        <version>1.2.0</version>
+        <version>1.2.1</version>
     </parent>
 
     <artifactId>morpheus-architecture-tests</artifactId>
@@ -27,7 +27,24 @@
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-mcp</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-api</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-cli</artifactId><version>${project.version}</version><scope>test</scope></dependency>
-        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter-api</artifactId><scope>test</scope></dependency>
         <dependency><groupId>com.tngtech.archunit</groupId><artifactId>archunit</artifactId><version>${archunit.version}</version><scope>test</scope></dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <!-- Loaded dynamically by ArchUnit importPackages("com.morpheus"). -->
+                    <usedDependencies>
+                        <usedDependency>io.github.fturleque:morpheus-integration-minos</usedDependency>
+                        <usedDependency>io.github.fturleque:morpheus-integration-nexus</usedDependency>
+                        <usedDependency>io.github.fturleque:morpheus-api</usedDependency>
+                    </usedDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

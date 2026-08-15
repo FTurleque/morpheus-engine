@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.domain.provider.ProviderProbeResult;
 
 import java.nio.file.Path;
@@ -27,10 +28,23 @@ public final class ProviderPluginService {
         return discovery.discover(Objects.requireNonNull(pluginDirectory, "pluginDirectory"));
     }
 
+    /**
+     * Unpinned executable activation is intentionally rejected. Public adapters must provide a trusted SHA-256 pin.
+     */
+    @Deprecated(forRemoval = true)
     public ProviderPluginProbeOutcome probe(Path pluginDirectory, String pluginId, Path workspaceRoot) {
         Objects.requireNonNull(pluginDirectory, "pluginDirectory");
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
+        requireText(pluginId, "pluginId");
+        throw new IllegalArgumentException("provider plugin probe requires a trusted SHA-256 pin");
+    }
+
+    public ProviderPluginProbeOutcome probe(
+            Path pluginDirectory, String pluginId, Path workspaceRoot, String expectedSha256) {
+        Objects.requireNonNull(pluginDirectory, "pluginDirectory");
+        Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         String requestedPluginId = requireText(pluginId, "pluginId");
+        String trustedSha256 = ExternalJarIntegrity.normalizeSha256(expectedSha256);
         ProviderPluginDiscoveryResult result = discovery.discover(pluginDirectory);
         List<ProviderPluginCandidate> matches = result.candidates().stream()
                 .filter(item -> item.metadata().map(metadata -> metadata.pluginId().equals(requestedPluginId)).orElse(false))
@@ -72,7 +86,7 @@ public final class ProviderPluginService {
                     selected.diagnostics());
         }
 
-        try (ProviderPluginActivation activation = activator.activate(selected)) {
+        try (ProviderPluginActivation activation = activator.activate(selected, trustedSha256)) {
             ProviderProbeResult probe = Objects.requireNonNull(
                     activation.provider().probe(workspaceRoot.toAbsolutePath().normalize()),
                     "provider probe result");
@@ -82,6 +96,18 @@ public final class ProviderPluginService {
                     selected.metadata(),
                     Optional.of(probe),
                     selected.diagnostics());
+        } catch (IllegalArgumentException integrityFailure) {
+            List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
+            diagnostics.add(ProviderPluginDiagnostic.error(
+                    "PLUGIN_INTEGRITY_VERIFICATION_FAILED",
+                    "Provider plugin was rejected before activation because its SHA-256 pin did not match",
+                    Map.of("pluginId", requestedPluginId, "reason", safeMessage(integrityFailure))));
+            return new ProviderPluginProbeOutcome(
+                    requestedPluginId,
+                    selected.jarPath().toString(),
+                    selected.metadata(),
+                    Optional.empty(),
+                    diagnostics);
         } catch (RuntimeException | LinkageError failure) {
             List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
             diagnostics.add(ProviderPluginDiagnostic.error(

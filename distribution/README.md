@@ -1,26 +1,54 @@
-# MORPHEUS — Distribution et release 1.0
+# MORPHEUS — Distribution et release 1.2
 
-M20 transforme le packaging portable historique en contrat de release produit : **setup Windows + archives portables Windows/Linux + runtime Java embarqué + SHA-256 + manifest lié au SHA Git**.
+Deux états doivent rester distincts :
 
-La preuve autoritative reste locale via les validateurs M20 ; GitHub Actions n’est pas le gate du jalon.
+```text
+release publiée     1.2.0 / tag v1.2.0 / commit 3ad9ebf030b58df97482e21e272c24feae6b9d86
+baseline active     1.2.1 corrective / non publiée tant que v1.2.1 n'existe pas
+```
 
-## Artefacts 1.0
+Le tag `v1.2.0` et ses artefacts sont historiques et immuables. Le code de développement postérieur utilise `1.2.1` afin qu'un arbre différent ne soit jamais distribué sous l'identité déjà publiée `1.2.0`.
+
+## Artefacts publiés 1.2.0
 
 ```text
 Windows setup
-  dist/MORPHEUS-1.0.0-windows-x64-setup.exe
-  dist/MORPHEUS-1.0.0-windows-x64-setup.exe.sha256
+  MORPHEUS-1.2.0-windows-x64-setup.exe
+  MORPHEUS-1.2.0-windows-x64-setup.exe.sha256
 
 Windows portable
-  dist/morpheus-1.0.0-windows-x64.zip
-  dist/morpheus-1.0.0-windows-x64.zip.sha256
+  morpheus-1.2.0-windows-x64.zip
+  morpheus-1.2.0-windows-x64.zip.sha256
+  morpheus-1.2.0-windows-x64-release-manifest.json
 
 Linux portable
-  dist/morpheus-1.0.0-linux-x64.tar.gz
-  dist/morpheus-1.0.0-linux-x64.tar.gz.sha256
+  morpheus-1.2.0-linux-x64.tar.gz
+  morpheus-1.2.0-linux-x64.tar.gz.sha256
+  morpheus-1.2.0-linux-x64-release-manifest.json
 ```
 
-Les distributions embarquent leur runtime Java, dont `jdk.httpserver` et `java.sql`. Aucun JDK utilisateur n’est requis pour exécuter MORPHEUS.
+La preuve R3 confirme la parité publiée **8/8 PASS**.
+
+## Contenu packagé
+
+Les distributions embarquent :
+
+```text
+CLI MORPHEUS
+serveur MCP STDIO
+API HTTP locale
+façade remote HTTPS opt-in
+services application/domain
+Provider SDK + providers
+store SQLite + migrations V001→V015
+Jackson
+runtime Java minimal
+integration/configure-mcp-clients.ps1
+integration/configure-mcp-clients-setup.ps1
+integration/README.md
+```
+
+Elles n’embarquent ni l’implémentation MINOS, ni l’implémentation NEXUS, ni JARVIS.
 
 ## Windows setup
 
@@ -37,131 +65,89 @@ per-user
 PrivilegesRequired=lowest
 %LOCALAPPDATA%\Programs\MORPHEUS
 AppId stable
-PATH utilisateur optionnel et décoché par défaut
-uninstall programme uniquement
+PATH utilisateur opt-in
+cinq intégrations MCP opt-in
+uninstall conservateur
+état persistant conservé par défaut
 ```
 
-L’état persistant vit hors du répertoire programme :
+## Build actif 1.2.1
 
-```text
-%LOCALAPPDATA%\MORPHEUS\data
-%LOCALAPPDATA%\MORPHEUS\config
-%LOCALAPPDATA%\MORPHEUS\logs
-%LOCALAPPDATA%\MORPHEUS\backups
-```
-
-Le setup ne contient aucune règle de suppression de ce state root lors de l’uninstall.
-
-## Build Windows
-
-Prérequis de build :
-
-```text
-JDK avec jpackage
-Maven Wrapper du dépôt
-PowerShell
-```
-
-Le setup MORPHEUS est compilé avec Inno Setup. Si `ISCC.exe` n’est ni installé ni fourni par `MORPHEUS_ISCC`, `build-installer.ps1` exécute automatiquement `distribution/ensure-inno-setup.ps1` :
-
-```text
-version épinglée : Inno Setup 7.0.2 x64
-source            : release GitHub immuable officielle JRSoftware
-vérification      : signature Authenticode valide
-éditeur attendu   : Pyrsys B.V.
-mode              : portable / current-user
-emplacement       : validation-output/m20/tooling
-```
-
-Ce bootstrap ne dépend pas de `winget`, ne requiert pas de droits administrateur et n’installe pas de dépendance système persistante. Inno Setup reste une dépendance **de build uniquement** ; les utilisateurs de MORPHEUS n’en ont jamais besoin.
-
-Un compilateur déjà présent reste prioritaire. Un chemin explicite peut être fourni via :
-
-```text
-MORPHEUS_ISCC=C:\...\ISCC.exe
-```
-
-### Archive portable seule
+Portable Windows :
 
 ```powershell
-.\distribution\build-portable.ps1 -Version 1.0.0
+.\distribution\build-portable.ps1 -Version 1.2.1
 ```
 
-### Setup Windows
+Setup Windows :
 
 ```powershell
-.\distribution\build-installer.ps1 -Version 1.0.0
+.\distribution\build-installer.ps1 -Version 1.2.1
 ```
 
-### Release Windows depuis un tag exact
-
-```powershell
-.\distribution\build-release.ps1 -Version 1.0.0 -ExpectedTag v1.0.0
-```
-
-`build-release.ps1` :
-
-1. refuse un workspace sale ;
-2. exige que le tag attendu pointe exactement sur `HEAD` ;
-3. construit le ZIP portable ;
-4. construit le setup ;
-5. écrit et revérifie les SHA-256 ;
-6. produit `morpheus-1.0.0-windows-x64-release-manifest.json` avec version, tag, SHA Git, tailles et hashes.
-
-## Build Linux
+Portable Linux :
 
 ```bash
-bash distribution/build-portable.sh 1.0.0
+bash distribution/build-portable.sh 1.2.1
 ```
 
-Release depuis le tag exact :
+Les builders portables/installateur utilisent `1.2.1` par défaut.
+
+## Release 1.2.1 — pas encore publiée
+
+Les builders de release actifs utilisent `1.2.1` par défaut mais sont fail-closed :
+
+```powershell
+.\distribution\build-release.ps1 -Version 1.2.1 -ExpectedTag v1.2.1
+```
 
 ```bash
-bash distribution/build-release.sh 1.0.0 v1.0.0
+bash distribution/build-release.sh 1.2.1 v1.2.1
 ```
 
-La chaîne Linux produit le tar.gz, son `.sha256`, vérifie le checksum et écrit le manifest Linux associé au SHA Git exact.
+Ils refusent l'exécution si :
 
-## Contenu packagé
+- le workspace Git n'est pas propre ;
+- le tag attendu n'existe pas ;
+- le tag ne pointe pas exactement sur HEAD.
 
-Le JAR ombré et l’app-image embarquent :
+Par conséquent, le simple bump de la baseline à `1.2.1` ne crée pas une release et ne peut pas écraser `v1.2.0`.
+
+## Reproduction historique 1.2.0
+
+Pour reproduire exactement la release publiée, checkout le tag immuable `v1.2.0` puis utilisez les commandes/version présentes sur ce tag. Ne tentez pas de reconstruire le HEAD `1.2.1` avec `-Version 1.2.0`.
+
+Preuve autoritative :
 
 ```text
-CLI MORPHEUS
-serveur MCP
-API HTTP
-services application/domain
-provider OpenSpec
-provider Structured Markdown
-adapters MINOS/NEXUS optionnels
-store SQLite + migrations
-Jackson
-runtime Java minimal
+docs/release/RELEASE_NOTES_1.2.0.md
+docs/validation/VALIDATION_R3.md
 ```
 
-Ils n’embarquent **ni l’implémentation MINOS, ni l’implémentation NEXUS, ni JARVIS**.
+## Gates de développement
 
-## Intégrations optionnelles
+Le gate durable M21 qualifie la baseline active :
 
-MINOS :
+```powershell
+.\scripts\validate.cmd m21 -Version 1.2.1
+```
+
+```bash
+bash ./scripts/validate-m21.sh 1.2.1
+```
+
+Ratchets :
 
 ```text
-MORPHEUS_MINOS_JAR
-MORPHEUS_MINOS_JAVA
-MORPHEUS_MINOS_HOME
-MORPHEUS_MINOS_TIMEOUT_SECONDS
+Surefire total      >= 698
+architecture        >= 250
+line coverage       >= 47%
+branch coverage     >= 40%
 ```
 
-NEXUS :
+Le gate D2 spécialisé peut toujours être lancé en `1.2.1` sur un périmètre ne modifiant pas `.github/workflows/**`.
 
-```text
-MORPHEUS_NEXUS_JAR
-MORPHEUS_NEXUS_JAVA
-MORPHEUS_NEXUS_HOME
-MORPHEUS_NEXUS_TIMEOUT_SECONDS
-```
-
-Sans configuration, les deux intégrations restent `DISABLED`. JARVIS n’est jamais embarqué.
+Le workflow `MORPHEUS Security` exécute OWASP Dependency-Check à la frontière `main` et hebdomadairement ; `.github/dependabot.yml` maintient les dépendances Maven/GitHub Actions via PR vers `develop`.
 
 ## Runtime layout
 
@@ -178,36 +164,14 @@ MORPHEUS_BACKUPS_DIR
 MORPHEUS_DB
 ```
 
-Linux respecte également :
-
-```text
-XDG_DATA_HOME
-XDG_CONFIG_HOME
-XDG_STATE_HOME
-```
-
-`morpheus paths` affiche le layout effectivement résolu.
-
-## Gate M20
-
-Windows :
-
-```powershell
-.\validate-m20.cmd
-```
-
-Linux :
-
-```bash
-bash scripts/validate-m20.sh
-```
-
-Les résultats Windows et Linux sont enregistrés séparément. Un environnement non exécuté n’est jamais déclaré PASS.
+Linux respecte aussi `XDG_DATA_HOME`, `XDG_CONFIG_HOME` et `XDG_STATE_HOME`.
 
 ## Documentation
 
-- [Installation / upgrade / uninstall 1.0](../docs/user/INSTALLATION.md)
-- [Démarrage rapide](../docs/user/QUICKSTART.md)
-- [Configuration des intégrations](../docs/user/INTEGRATIONS.md)
-- [Build et tests développeur](../docs/developer/BUILD_AND_TEST.md)
-- [Validation M20](../docs/validation/VALIDATION_M20.md)
+- [Installation de la release publiée 1.2.0](../docs/user/INSTALLATION.md)
+- [Upgrade 1.2](../docs/user/UPGRADE_1_2.md)
+- [Clients MCP](../docs/user/MCP_CLIENTS.md)
+- [Version produit active](../docs/developer/PRODUCT_VERSION.md)
+- [Build et tests](../docs/developer/BUILD_AND_TEST.md)
+- [Validation R3 / 1.2.0 publiée](../docs/validation/VALIDATION_R3.md)
+- [Registre des risques](../docs/architecture/risks/register.md)

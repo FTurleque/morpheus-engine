@@ -26,6 +26,12 @@ final class SqliteDatabaseSecurity {
 
     static Connection open(Path databasePath, int busyTimeoutMillis) throws SQLException {
         Objects.requireNonNull(databasePath, "databasePath");
+        Connection scoped = SqliteConnectionScope.borrowIfActive(databasePath, busyTimeoutMillis);
+        return scoped != null ? scoped : openPhysical(databasePath, busyTimeoutMillis);
+    }
+
+    static Connection openPhysical(Path databasePath, int busyTimeoutMillis) throws SQLException {
+        Objects.requireNonNull(databasePath, "databasePath");
         if (busyTimeoutMillis <= 0 || busyTimeoutMillis > 60_000) {
             throw new IllegalArgumentException("busyTimeoutMillis must be between 1 and 60000");
         }
@@ -98,7 +104,7 @@ final class SqliteDatabaseSecurity {
         if (!Files.isRegularFile(journal, LinkOption.NOFOLLOW_LINKS)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE TABLE IF NOT EXISTS morpheus_local_security_probe(id INTEGER PRIMARY KEY)");
-                statement.execute("DROP TABLE morpheus_local_security_probe");
+                statement.execute("DROP TABLE IF EXISTS morpheus_local_security_probe");
             }
         }
         if (!Files.isRegularFile(journal, LinkOption.NOFOLLOW_LINKS)) {

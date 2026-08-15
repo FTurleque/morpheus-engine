@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,12 +34,7 @@ class LocalSourceInventorySecurityTest {
         Files.writeString(workspace.resolve("node_modules/pkg/index.md"), "dependency");
 
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
-        var result = scanner.scan(
-                workspace,
-                ProjectSpecificationId.generate(),
-                Optional.empty(),
-                Instant.parse("2026-07-26T18:00:00Z"),
-                List.of());
+        var result = scan(scanner, workspace);
 
         assertTrue(result.complete(), () -> "scan failures: " + result.failures());
         var entries = result.inventory().orElseThrow().entries();
@@ -47,6 +43,10 @@ class LocalSourceInventorySecurityTest {
         assertFalse(scanner.policy().followSymbolicLinks());
         assertTrue(scanner.policy().ignoredDirectoryNames().contains(".git"));
         assertTrue(scanner.policy().ignoredDirectoryNames().contains("target"));
+        assertTrue(scanner.policy().maxDirectories() > 0);
+        assertTrue(scanner.policy().maxFiles() > 0);
+        assertTrue(scanner.policy().maxFileBytes() > 0);
+        assertTrue(scanner.policy().maxAggregateBytes() >= scanner.policy().maxFileBytes());
     }
 
     @Test
@@ -60,12 +60,7 @@ class LocalSourceInventorySecurityTest {
 
         boolean linkCreated = tryCreateSymbolicLink(workspace.resolve("external-link"), external);
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
-        var result = scanner.scan(
-                workspace,
-                ProjectSpecificationId.generate(),
-                Optional.empty(),
-                Instant.parse("2026-07-26T18:00:00Z"),
-                List.of());
+        var result = scan(scanner, workspace);
 
         assertTrue(result.complete(), () -> "scan failures: " + result.failures());
         assertEquals(List.of("local.md"), result.inventory().orElseThrow().entries().stream()
@@ -76,6 +71,84 @@ class LocalSourceInventorySecurityTest {
         if (linkCreated) {
             assertTrue(Files.isSymbolicLink(workspace.resolve("external-link")));
         }
+    }
+
+    @Test
+    void rejectsDirectoryCountBeyondConfiguredBudgetEvenWithoutFiles() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("directory-count"));
+        Files.createDirectory(workspace.resolve("one"));
+        Files.createDirectory(workspace.resolve("two"));
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                new SourceScanPolicy(Set.of(), false, 8, 2, 10, 16, 64));
+
+        var result = scan(scanner, workspace);
+
+        assertFalse(result.complete());
+        assertTrue(result.failures().stream().anyMatch(failure -> failure.message().contains("directory count")));
+    }
+
+    @Test
+    void rejectsFileCountBeyondConfiguredBudget() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("file-count"));
+        Files.writeString(workspace.resolve("one.md"), "1");
+        Files.writeString(workspace.resolve("two.md"), "2");
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                new SourceScanPolicy(Set.of(), false, 8, 1, 16, 16));
+
+        var result = scan(scanner, workspace);
+
+        assertFalse(result.complete());
+        assertTrue(result.failures().stream().anyMatch(failure -> failure.message().contains("file count")));
+    }
+
+    @Test
+    void rejectsOversizedFileBeforeFingerprinting() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("file-size"));
+        Files.writeString(workspace.resolve("large.md"), "12345");
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                new SourceScanPolicy(Set.of(), false, 8, 10, 4, 16));
+
+        var result = scan(scanner, workspace);
+
+        assertFalse(result.complete());
+        assertTrue(result.failures().stream().anyMatch(failure -> failure.message().contains("file exceeds size limit")));
+    }
+
+    @Test
+    void rejectsAggregateBytesBeyondConfiguredBudget() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("aggregate-size"));
+        Files.writeString(workspace.resolve("one.md"), "1234");
+        Files.writeString(workspace.resolve("two.md"), "5678");
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                new SourceScanPolicy(Set.of(), false, 8, 10, 4, 6));
+
+        var result = scan(scanner, workspace);
+
+        assertFalse(result.complete());
+        assertTrue(result.failures().stream().anyMatch(failure -> failure.message().contains("aggregate bytes")));
+    }
+
+    @Test
+    void rejectsTraversalBeyondConfiguredDepth() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("depth"));
+        Path nested = Files.createDirectories(workspace.resolve("one/two"));
+        Files.writeString(nested.resolve("deep.md"), "deep");
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                new SourceScanPolicy(Set.of(), false, 1, 10, 16, 64));
+
+        var result = scan(scanner, workspace);
+
+        assertFalse(result.complete());
+        assertTrue(result.failures().stream().anyMatch(failure -> failure.message().contains("depth exceeds limit")));
+    }
+
+    private SourceInventoryScanResult scan(LocalSourceInventoryScanner scanner, Path workspace) {
+        return scanner.scan(
+                workspace,
+                ProjectSpecificationId.generate(),
+                Optional.empty(),
+                Instant.parse("2026-07-26T18:00:00Z"),
+                List.of());
     }
 
     private boolean tryCreateSymbolicLink(Path link, Path target) {

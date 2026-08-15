@@ -1,9 +1,9 @@
 # MORPHEUS 1.x public convergence manifest
 # capability	intent	cli	mcp	http	notes
 product.version	READ	version	get_product_info	GET /api/v1/version	Build-derived ProductMetadata; no business-state dependency
-product.update-discovery	READ	update-check --manifest	check_product_update	EXPLICITLY_NOT_EXPOSED	HTTP omission is deliberate to avoid turning a local API into a generic SSRF surface; caller supplies URI only through CLI/MCP
-provider.plugins.discover	READ	provider-plugins discover	discover_provider_plugins	GET /api/v1/provider-plugins/discover	Metadata-only explicit directory scan; no plugin classloading or startup scan
-provider.plugins.probe	READ	provider-plugins probe	probe_provider_plugin	GET /api/v1/provider-plugins/probe	Explicit compatible-plugin activation + workspace probe; plugin failures remain diagnostics
+product.update-discovery	READ	update-check --manifest	check_product_update	EXPLICITLY_NOT_EXPOSED	URI-backed update discovery is CLI-only; the historical MCP name is retained as a no-I/O error stub and cannot read files or perform network access
+provider.plugins.discover	READ	provider-plugins discover	discover_provider_plugins	GET /api/v1/provider-plugins/discover	Metadata-only explicit directory scan; no plugin classloading or startup scan; remote keeps GET/READ and forces the server-configured plugin directory
+provider.plugins.probe	WRITE	provider-plugins probe	EXPLICITLY_NOT_EXPOSED	POST /api/v1/provider-plugins/probe	Executable third-party code is not model-facing; every service probe requires a trusted SHA-256 pin; remote exposes POST + ADMIN with server-configured plugin directory and allowed workspace
 portfolio.create	WRITE	portfolio create	create_portfolio	POST /api/v1/portfolios	Creates a stable MORPHEUS portfolio identity; never derived from a path or repository URL
 portfolio.project-register	WRITE	portfolio add-project	register_portfolio_project	POST /api/v1/portfolios/{portfolioId}/projects	Membership is keyed by PortfolioId + ProjectSpecificationId; locations/providers are observations
 portfolio.project-missing	WRITE	portfolio missing	mark_portfolio_project_missing	POST /api/v1/portfolios/{portfolioId}/projects/{projectId}/missing	Missing is non-destructive and retains identity, references and prior revision
@@ -43,7 +43,11 @@ policy.audit	READ	policy audit	get_policy_audit	GET /api/v1/policy-packs/{id}/au
 reasoning.adapters	READ	reason adapters	list_reasoning_adapters	GET /api/v1/reasoning/adapters	Passive discovery only; listing never activates adapters or performs network access
 reasoning.analyze	READ	reason analyze	reason_with_evidence	POST /api/v1/reasoning/analyze	Facts remain separate from explicit-confidence inference/heuristic/suggestion claims; execution is read-only and adapters are explicitly selected
 server.status	READ	EXPLICITLY_REMOTE_ONLY	EXPLICITLY_NOT_EXPOSED	GET /api/v1/server/status	Remote runtime status after Bearer auth; no credential material or provider truth
-server.identity.create	WRITE	server identity create	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Provisioning is local-only; generated token is printed once and only SHA-256 is persisted
+server.identity.create	WRITE	server identity create	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Provisioning is local-only; generated token is printed once and only SHA-256 is persisted; server reloads identities on the next authentication
+server.identity.list	READ	server identity list	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Lists principal/role only; never exposes token or token hash
+server.identity.rotate	WRITE	server identity rotate	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Generates a new one-time token; old token becomes invalid on the next remote authentication
+server.identity.role	WRITE	server identity role	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Changes role with last-ADMIN protection; effective on the next remote authentication
+server.identity.revoke	WRITE	server identity revoke	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Revokes principal with last-ADMIN protection; effective on the next remote authentication
 server.backup.create	WRITE	server backup create	EXPLICITLY_NOT_EXPOSED	POST /api/v1/server/backups	Remote HTTP requires ADMIN; SQLite coherent backup + integrity/schema verification
 server.backup.verify	READ	server backup verify	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Verification is local and read-only; rejects future schema
 server.restore	WRITE	server restore --confirm	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_OFFLINE_ONLY	Restore is deliberately absent from remote HTTP/MCP and fails while server lease is held

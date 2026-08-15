@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.4.xsd">
+    <suppress>
+        <notes><![CDATA[
+        False-positive CPE association: the internal Maven module
+        io.github.fturleque:morpheus-store-sqlite:1.2.1 is MORPHEUS code, not
+        SQLite 1.2.1. The actual runtime driver is independently scanned as
+        org.xerial:sqlite-jdbc:3.53.2.0.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/io\.github\.fturleque/morpheus-store-sqlite@1\.2\.1$</packageUrl>
+        <cpe>cpe:/a:sqlite:sqlite</cpe>
+    </suppress>
+</suppressions>

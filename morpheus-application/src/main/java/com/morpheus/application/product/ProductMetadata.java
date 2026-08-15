@@ -7,6 +7,7 @@ public final class ProductMetadata {
     public static final String PRODUCT_NAME = "MORPHEUS";
     public static final String API_VERSION = "v1";
     public static final String DEFAULT_UPDATE_CHANNEL = "stable";
+    public static final String PROJECT_VERSION_PROPERTY = "morpheus.project.version";
     public static final String DEVELOPMENT_VERSION = "development";
 
     private ProductMetadata() {
@@ -14,18 +15,22 @@ public final class ProductMetadata {
 
     /**
      * Returns the packaged implementation version, falling back to Maven's test/runtime property and finally to an
-     * explicit development marker. No network or mutable runtime state is consulted.
+     * explicit development marker. No adapter-specific historical semantic-version fallback is permitted.
      */
     public static String version() {
         String implementationVersion = ProductMetadata.class.getPackage().getImplementationVersion();
         if (implementationVersion != null && !implementationVersion.isBlank()) {
             return implementationVersion.trim();
         }
-        String projectVersion = System.getProperty("morpheus.project.version");
+        String projectVersion = System.getProperty(PROJECT_VERSION_PROPERTY);
         if (projectVersion != null && !projectVersion.isBlank()) {
             return projectVersion.trim();
         }
         return DEVELOPMENT_VERSION;
+    }
+
+    public static boolean developmentRuntime() {
+        return DEVELOPMENT_VERSION.equals(version());
     }
 
     public static ProductInfo current() {

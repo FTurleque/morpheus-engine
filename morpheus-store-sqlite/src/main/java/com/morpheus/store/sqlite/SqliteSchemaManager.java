@@ -33,33 +33,19 @@ final class SqliteSchemaManager {
             new Migration(13, "portfolio-intelligence", "/db/migration/V013__portfolio_intelligence.sql"),
             new Migration(14, "saved-views", "/db/migration/V014__saved_views.sql"),
             new Migration(15, "policy-packs", "/db/migration/V015__policy_packs.sql"));
+    static final int SUPPORTED_SCHEMA_VERSION = 15;
 
     void migrate(Connection connection) {
-        final boolean previousAutoCommit;
-        try {
-            previousAutoCommit = connection.getAutoCommit();
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot inspect SQLite auto-commit mode", exception);
-        }
-
-        try {
-            connection.setAutoCommit(false);
-            createMigrationLedger(connection);
+        if (SqliteConnectionScope.schemaReadyIfActive()) return;
+        SqliteTransactionRunner.runVoid(connection, "SQLite schema migration failed", current -> {
+            createMigrationLedger(current);
+            rejectFutureSchema(current);
 
             for (Migration migration : MIGRATIONS) {
-                applyMigration(connection, migration);
+                applyMigration(current, migration);
             }
-
-            connection.commit();
-        } catch (SQLException exception) {
-            rollbackQuietly(connection);
-            throw new KnowledgeStoreException("SQLite schema migration failed", exception);
-        } catch (RuntimeException exception) {
-            rollbackQuietly(connection);
-            throw exception;
-        } finally {
-            restoreAutoCommit(connection, previousAutoCommit);
-        }
+        });
+        SqliteConnectionScope.markSchemaReadyIfActive();
     }
 
     int currentVersion(Connection connection) {
@@ -81,6 +67,17 @@ final class SqliteSchemaManager {
                         applied_at TEXT NOT NULL
                     )
                     """);
+        }
+    }
+
+    private void rejectFutureSchema(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")) {
+            int version = result.next() ? result.getInt(1) : 0;
+            if (version > SUPPORTED_SCHEMA_VERSION) {
+                throw new KnowledgeStoreException(
+                        "SQLite schema version " + version + " is newer than supported " + SUPPORTED_SCHEMA_VERSION);
+            }
         }
     }
 
@@ -121,12 +118,8 @@ final class SqliteSchemaManager {
         }
     }
 
-    private void executeScript(Connection connection, String script) throws SQLException {
-        for (String fragment : script.split(";")) {
-            String sql = fragment.trim();
-            if (sql.isEmpty()) {
-                continue;
-            }
+    void executeScript(Connection connection, String script) throws SQLException {
+        for (String sql : SqliteSqlStatements.split(script)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute(sql);
             }
@@ -150,22 +143,6 @@ final class SqliteSchemaManager {
             return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 must be available", exception);
-        }
-    }
-
-    private void rollbackQuietly(Connection connection) {
-        try {
-            connection.rollback();
-        } catch (SQLException ignored) {
-            // Preserve the original migration error.
-        }
-    }
-
-    private void restoreAutoCommit(Connection connection, boolean autoCommit) {
-        try {
-            connection.setAutoCommit(autoCommit);
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode after migration", exception);
         }
     }
 

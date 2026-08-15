@@ -11,29 +11,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Explicit M22 provider-plugin tools. No plugin directory is inspected until one of these tools is called. */
+/** Metadata-only M22 provider-plugin MCP tool. Executable plugin probing is deliberately not model-facing. */
 final class MorpheusProviderPluginMcpTools {
     static final String DISCOVER_TOOL = "discover_provider_plugins";
-    static final String PROBE_TOOL = "probe_provider_plugin";
+    static final String RETIRED_PROBE_TOOL = "probe_provider_plugin";
 
     private final ProviderPluginService service = new ProviderPluginService();
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
     List<McpServerFeatures.SyncToolSpecification> specifications() {
-        return List.of(
-                tool(
-                        DISCOVER_TOOL,
-                        "Explicitly inspect provider-plugin JAR metadata in one local directory without activating plugin code.",
-                        schema(Map.of("directory", stringProperty()), List.of("directory"))),
-                tool(
-                        PROBE_TOOL,
-                        "Explicitly activate one compatible provider plugin and probe one workspace. Plugin failures are returned as diagnostics.",
-                        schema(
-                                Map.of(
-                                        "directory", stringProperty(),
-                                        "pluginId", stringProperty(),
-                                        "workspace", stringProperty()),
-                                List.of("directory", "pluginId", "workspace"))));
+        return List.of(tool(
+                DISCOVER_TOOL,
+                "Explicitly inspect provider-plugin JAR metadata in one local directory without activating plugin code.",
+                schema(Map.of("directory", stringProperty()), List.of("directory"))));
     }
 
     private McpServerFeatures.SyncToolSpecification tool(String name, String description, Map<String, Object> inputSchema) {
@@ -50,10 +40,6 @@ final class MorpheusProviderPluginMcpTools {
             Object result = switch (toolName) {
                 case DISCOVER_TOOL -> ProviderPluginViews.discovery(service.discover(
                         Path.of(requiredString(arguments, "directory"))));
-                case PROBE_TOOL -> service.probe(
-                        Path.of(requiredString(arguments, "directory")),
-                        requiredString(arguments, "pluginId"),
-                        Path.of(requiredString(arguments, "workspace")));
                 default -> throw new IllegalArgumentException("unknown M22 MCP tool: " + toolName);
             };
             return McpSchema.CallToolResult.builder()

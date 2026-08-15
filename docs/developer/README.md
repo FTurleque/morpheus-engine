@@ -1,93 +1,196 @@
 # Guide développeur MORPHEUS
 
-Cette documentation décrit la baseline stable **MORPHEUS 1.1.0** et le chantier actif **M28 — MCP Client Integration & Installer Wiring**.
+Cette documentation distingue deux états :
 
 ```text
-stable tag             v1.1.0
-release commit         31506029ded1101f0571edeb0d79c59bbf3f68c6
-post-release baseline  8dfbe807cb1a57a7750d9b9ac69def0da6c79ff3
-M28 branch             m28-mcp-client-integration
-M28 issue              #115
+release publiée         MORPHEUS 1.2.0 / tag v1.2.0
+release commit           3ad9ebf030b58df97482e21e272c24feae6b9d86
+baseline active          MORPHEUS 1.2.1 corrective
+branche d'intégration    develop
 ```
 
-## 1. Prérequis
+`1.2.1` est la version du code actif post-audit ; elle n'est pas considérée publiée tant qu'un tag/release `v1.2.1` n'a pas été créé et qualifié. Le tag `v1.2.0` reste immuable.
+
+## Prérequis
 
 ```text
 Java   >= 21
-Maven  via Maven Wrapper
+Maven  via Maven Wrapper 3.9.16 + SHA-256 vérifié
 Git
-Windows PowerShell pour le gate d’intégration clients
-WSL/Linux pour le gate portable Linux
-```
-
-```powershell
-.\mvnw.cmd --version
-```
-
-```bash
-./mvnw --version
+Windows PowerShell pour le gate Windows
+Linux/WSL pour le gate Linux
 ```
 
 Le reactor compile avec `release=21`.
 
-## 2. Import IntelliJ IDEA
+## Import IntelliJ IDEA
 
 Charger le `pom.xml` racine comme projet Maven. Ne pas créer les sous-modules manuellement : ils sont définis par le reactor.
 
-## 3. Vue du dépôt
+## Modules
 
 ```text
-morpheus-engine/
-├── morpheus-domain/
-├── morpheus-application/
-├── morpheus-provider-sdk/
-├── morpheus-provider-testkit/
-├── morpheus-provider-reference/
-├── morpheus-provider-openspec/
-├── morpheus-provider-markdown/
-├── morpheus-provider-synthetic/
-├── morpheus-store-memory/
-├── morpheus-store-sqlite/
-├── morpheus-integration-minos/
-├── morpheus-integration-nexus/
-├── morpheus-mcp/
-├── morpheus-api/
-├── morpheus-cli/
-├── morpheus-architecture-tests/
-├── integration/                 # M28 client MCP wiring
-├── distribution/
-├── scripts/
-├── docs/
-└── pom.xml
+morpheus-domain
+morpheus-application
+morpheus-provider-sdk
+morpheus-provider-testkit
+morpheus-provider-reference
+morpheus-provider-openspec
+morpheus-provider-markdown
+morpheus-provider-synthetic
+morpheus-store-memory
+morpheus-store-sqlite
+morpheus-integration-minos
+morpheus-integration-nexus
+morpheus-mcp
+morpheus-api
+morpheus-cli
+morpheus-architecture-tests
 ```
 
-## 4. Architecture
+Architecture générale :
 
 ```text
 adapters / sdk -> application -> domain
 ```
 
-Le domaine et l’application ne dépendent ni des transports, ni des clients MCP, ni des formats d’installation.
+Le domaine et l’application ne dépendent ni des transports ni des clients MCP.
 
-| Module | Responsabilité |
-|---|---|
-| `morpheus-domain` | modèle métier et invariants purs |
-| `morpheus-application` | use cases, ports, lifecycle, composition, portfolios, queries, policies, reasoning |
-| `morpheus-provider-sdk` | SPI plugins providers |
-| `morpheus-provider-testkit` | contrats pour auteurs de plugins |
-| `morpheus-store-memory` | stores mémoire |
-| `morpheus-store-sqlite` | persistance V001→V015 et maintenance |
-| `morpheus-integration-minos` | client MINOS via MCP STDIO |
-| `morpheus-integration-nexus` | client NEXUS via MCP STDIO |
-| `morpheus-mcp` | serveur MCP natif |
-| `morpheus-api` | API locale et façade remote HTTPS |
-| `morpheus-cli` | composition root et launcher |
-| `morpheus-architecture-tests` | contrats cross-module |
-| `integration` | gestionnaire M28 des configurations clientes, hors logique métier |
+## Baseline technique active
 
-## 5. Principales plateformes
+```text
+product                    1.2.1
+Java                       21
+Jackson                    3.1.5 LTS
+sqlite-jdbc                3.53.2.0
+MCP SDK                    2.0.0
+OWASP Dependency-Check     12.2.2
+JaCoCo ratchet             47% lignes / 40% branches
+Surefire floor             698
+Architecture floor         250
+dependency analyze         failOnWarning=true
+```
 
-Documentation détaillée :
+Le SCA réseau n’est pas attaché au `clean verify` développeur ordinaire. Il est exécuté par le workflow `MORPHEUS Security` sur la frontière `main`, chaque semaine et manuellement. Le profil local `d2-security` reste disponible pour une qualification spécialisée.
+
+## Gate Maven canonique
+
+Windows :
+
+```powershell
+.\mvnw.cmd clean verify
+```
+
+Linux :
+
+```bash
+./mvnw clean verify
+```
+
+`clean test` n’est pas la qualification finale : les tests d’architecture consomment les JARs et rapports produits jusqu’à `verify`.
+
+## Gate durable M21
+
+Windows :
+
+```powershell
+.\scripts\validate.cmd m21 -Version 1.2.1
+```
+
+Linux :
+
+```bash
+bash ./scripts/validate-m21.sh 1.2.1
+```
+
+M21 exige le même SHA exact sur Windows et Ubuntu/Linux, vérifie les ratchets de tests/couverture, le SBOM, la provenance, le portable et la convergence de version CLI/API/update.
+
+La CI canonique exécute M21 sur les pull requests ainsi que sur les pushes `main` et `develop`.
+
+## Gate D2 spécialisé
+
+Windows :
+
+```powershell
+.\scripts\validate.cmd d2 -Version 1.2.1 -BaseRef origin/develop
+```
+
+Linux / WSL :
+
+```bash
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
+```
+
+D2 conserve sa règle historique de périmètre local : il refuse une PR qui modifie `.github/workflows/**`. Il ne doit donc pas être utilisé comme preuve principale d'une PR dont l'objet est précisément de faire évoluer la CI ; M21 est le gate durable de ce cas.
+
+## Sécurité JSON
+
+Les routes HTTP conservent :
+
+```text
+MAX_REQUEST_BODY_BYTES = 65536
+FAIL_ON_UNKNOWN_PROPERTIES
+FAIL_ON_TRAILING_TOKENS
+```
+
+Jackson 3.1.5 LTS est utilisé sans default typing. Les tests de régression couvrent notamment la profondeur JSON, les tailles de requête et les frontières workspace/provider.
+
+## SCA
+
+Profil local :
+
+```text
+d2-security
+```
+
+Commande :
+
+```text
+org.owasp:dependency-check-maven:12.2.2:aggregate
+```
+
+Politique : CVSS >= 7.0 fait échouer la qualification ; test scope exclu ; erreur de scan bloquante ; rapports sous `target/d2-security`.
+
+Le workflow `.github/workflows/security.yml` exécute le même contrôle sur :
+
+```text
+PR -> main
+push -> main
+lundi hebdomadaire
+workflow_dispatch
+```
+
+`.github/dependabot.yml` ouvre en parallèle les mises à jour Maven et GitHub Actions vers `develop`. Les alertes de vulnérabilité Dependabot restent un réglage administrateur suivi dans #154.
+
+## Packaging
+
+Les builders actifs produisent `1.2.1` par défaut :
+
+```powershell
+.\distribution\build-portable.ps1 -Version 1.2.1
+.\distribution\build-installer.ps1 -Version 1.2.1
+```
+
+```bash
+bash ./distribution/build-portable.sh 1.2.1
+```
+
+Les builders de release refusent de publier si le workspace n'est pas propre ou si le tag attendu `v1.2.1` ne pointe pas exactement sur HEAD.
+
+Les distributions embarquent leur runtime Java, le MCP STDIO, l’API, les providers et les adapters MINOS/NEXUS optionnels, mais jamais les implémentations MINOS/NEXUS/JARVIS.
+
+## Gouvernance mono-développeur
+
+Tant que MORPHEUS est maintenu par un seul développeur :
+
+```text
+develop  non protégée volontairement + M21 sur push
+main     protection attendue + PR + checks + 0 approbation obligatoire
+```
+
+Le ruleset `main`, le Quality Gate Sonar new-code et les alertes Dependabot sont suivis dans #154.
+
+## Documentation d’architecture
 
 - [Architecture générale](ARCHITECTURE.md)
 - [Provider SDK](PROVIDER_SDK.md)
@@ -98,131 +201,8 @@ Documentation détaillée :
 - [Assisted Reasoning](ASSISTED_REASONING.md)
 - [API](API.md)
 - [MCP](MCP.md)
-
-## 6. M28 — couche d’intégration MCP
-
-M28 ne modifie pas le protocole MCP ni les handlers métier. Il ajoute une couche de configuration et de packaging :
-
-```text
-integration/configure-mcp-clients.ps1
-integration/configure-mcp-clients-setup.ps1
-scripts/verify-m28-mcp-client-integration.ps1
-distribution/windows/MORPHEUS.iss
-```
-
-Clients :
-
-```text
-Copilot JetBrains
-Copilot CLI
-Claude Code
-Claude Desktop
-Codex
-```
-
-Invariants :
-
-```text
-opt-in only
-backup before JSON write
-foreign entry never overwritten
-preexisting compatible entry never removed
-managed modified entry preserved
-uninstall driven by ownership state
-bounded native command timeout
-MCP remains native STDIO
-Docker not required
-```
-
-Architecture détaillée : [Serveur MCP et intégration clients](MCP.md).
-
-## 7. Gestionnaire PowerShell
-
-Le gestionnaire doit rester compatible avec Windows PowerShell pour l’exécution par l’installateur. Lorsqu’un client est exposé sous forme `.ps1`, il est lancé dans `pwsh` non interactif.
-
-Le registre persistant est séparé du programme :
-
-```text
-%LOCALAPPDATA%\MORPHEUS\mcp-client-integrations.json
-```
-
-Ne jamais déduire la propriété d’une entrée depuis son seul nom. La propriété est enregistrée après observation ou création réussie.
-
-## 8. Tests M28
-
-Le test PowerShell utilise des profils temporaires et de faux clients CLI. Il couvre :
-
-```text
-JSON merge
-preservation of unrelated content
-five client registrations
-argument ordering
-MORPHEUS_DATA_DIR / MORPHEUS_CONFIG_DIR
-UTF-8 without BOM
-backups
-idempotency
-foreign entry preservation
-modified entry preservation
-state-driven uninstall
-invalid JSON protection
-```
-
-Contrat Java :
-
-```text
-morpheus-architecture-tests/.../m28/McpClientIntegrationArchitectureTest.java
-```
-
-## 9. Gates exact-head
-
-Windows :
-
-```powershell
-.\validate-m28.cmd -Version 1.1.0 -BaseRef origin/develop
-```
-
-Linux/WSL :
-
-```bash
-MORPHEUS_M28_BASE_REF=origin/develop bash ./scripts/validate-m28.sh 1.1.0
-```
-
-Les deux gates doivent qualifier le même SHA. Le gate Linux ne prétend pas valider les mutations de profils Windows : il valide le reactor, les contrats statiques et le packaging Linux.
-
-## 10. Packaging
-
-Windows portable et setup embarquent :
-
-```text
-morpheus.exe
-runtime Java
-integration/configure-mcp-clients.ps1
-integration/configure-mcp-clients-setup.ps1
-integration/README.md
-```
-
-Linux embarque le launcher, le runtime et la documentation d’intégration. La configuration automatique reste Windows-only à ce jalon.
-
-## 11. Politique de version
-
-M28 est développé sur la baseline `1.1.0`. Le bump reactor vers `1.2.0`, les builds exact-tag et la publication appartiennent à la consolidation de release suivant l’intégration et la qualification du jalon.
-
-Ne jamais déplacer le tag `v1.1.0`.
-
-## 12. Politique CI — juillet 2026
-
-```text
-GitHub Actions is not a gate
-no workflow rerun
-no workflow dispatch
-no opportunistic workflow modification
-local Windows + Linux/WSL exact-head logs are authoritative
-```
-
-## 13. Documentation active
-
-- [Plan M28](../roadmap/M28_EXECUTION.md)
-- [Validation M28](../validation/VALIDATION_M28.md)
-- [Guide utilisateurs MCP](../user/MCP_CLIENTS.md)
-- [Serveur MCP](MCP.md)
-- [Roadmap globale](../governance/ROADMAP.md)
+- [Version produit](PRODUCT_VERSION.md)
+- [Build et tests](BUILD_AND_TEST.md)
+- [Registre des risques](../architecture/risks/register.md)
+- [Validation R3 / release 1.2.0 historique](../validation/VALIDATION_R3.md)
+- [Validation D2 historique](../validation/VALIDATION_D2.md)

@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '1.0.0',
+    [string]$Version = '1.2.1',
     [string]$BaseRef = 'origin/main',
     [switch]$SkipPortable
 )
@@ -15,7 +15,7 @@ $outputRoot = Join-Path $repo 'validation-output\m21'
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 $validationSha = (git rev-parse HEAD).Trim()
 
-function Invoke-Native([string]$Label, [scriptblock]$Command) {
+function Show-NativeStep([string]$Label, [scriptblock]$Command) {
     Write-Host ''
     Write-Host ('=' * 78)
     Write-Host $Label
@@ -49,6 +49,32 @@ function Get-FreeLoopbackPort {
     try { return ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port } finally { $listener.Stop() }
 }
 
+function Get-PackagedApiVersionAttempt([int]$Port) {
+    try {
+        $response = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/api/v1/version" -UseBasicParsing -TimeoutSec 2
+        if ($response.StatusCode -ne 200) { return $null }
+        $payload = $response.Content | ConvertFrom-Json
+        return [string]$payload.data.version
+    } catch {
+        return $null
+    }
+}
+
+function Wait-PackagedApiVersion([System.Diagnostics.Process]$Process, [int]$Port, [string]$StderrPath) {
+    for ($attempt = 1; $attempt -le 60; $attempt++) {
+        if ($Process.HasExited) {
+            $diagnostic = if (Test-Path $StderrPath) { Get-Content $StderrPath -Raw } else { '' }
+            throw "Packaged API exited before version check: $diagnostic"
+        }
+        $actualVersion = Get-PackagedApiVersionAttempt -Port $Port
+        if (-not [string]::IsNullOrWhiteSpace($actualVersion)) {
+            return $actualVersion
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw 'Packaged API version check timed out'
+}
+
 function Assert-PackagedApiVersion([string]$Launcher) {
     $port = Get-FreeLoopbackPort
     $apiData = Join-Path $outputRoot 'api-data'
@@ -60,30 +86,18 @@ function Assert-PackagedApiVersion([string]$Launcher) {
         -ArgumentList @('--data-dir', $apiData, 'api', '--host', '127.0.0.1', '--port', "$port") `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
     try {
-        for ($attempt = 1; $attempt -le 60; $attempt++) {
-            if ($process.HasExited) {
-                $diagnostic = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { '' }
-                throw "Packaged API exited before version check: $diagnostic"
-            }
-            try {
-                $response = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/v1/version" -UseBasicParsing -TimeoutSec 2
-                if ($response.StatusCode -eq 200) {
-                    $payload = $response.Content | ConvertFrom-Json
-                    if ([string]$payload.data.version -ne $Version) {
-                        throw "HTTP product version is $($payload.data.version); expected $Version"
-                    }
-                    Write-Host "HTTP product version convergence: PASS ($Version)"
-                    return
-                }
-            } catch {
-                if ($_.Exception.Message -like 'HTTP product version is*') { throw }
-                Start-Sleep -Milliseconds 100
-            }
+        $actualVersion = Wait-PackagedApiVersion -Process $process -Port $port -StderrPath $stderr
+        if ($actualVersion -ne $Version) {
+            throw "HTTP product version is $actualVersion; expected $Version"
         }
-        throw 'Packaged API version check timed out'
+        Write-Output "HTTP product version convergence: PASS ($Version)"
     } finally {
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
-        try { $process.WaitForExit(5000) | Out-Null } catch { }
+        try {
+            $process.WaitForExit(5000) | Out-Null
+        } catch {
+            Write-Verbose "Packaged API process wait failed during cleanup: $($_.Exception.Message)"
+        }
     }
 }
 
@@ -102,22 +116,22 @@ if ($LASTEXITCODE -ne 0) {
     }
 }
 Write-Host "M21 diff base: $BaseRef"
-Invoke-Native 'git diff --check' { git diff --check "$BaseRef...HEAD" }
-Invoke-Native 'Maven clean verify' { & .\mvnw.cmd 'clean' 'verify' }
+Show-NativeStep 'git diff --check' { git diff --check "$BaseRef...HEAD" }
+Show-NativeStep 'Maven clean verify' { & .\mvnw.cmd 'clean' 'verify' }
 
 $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) {
     throw "Surefire failures=$($totals.Failures) errors=$($totals.Errors)"
 }
-if ($totals.Tests -lt 454) {
-    throw "M21 test baseline regression: $($totals.Tests) < 454"
+if ($totals.Tests -lt 711) {
+    throw "M21 test baseline regression: $($totals.Tests) < 711"
 }
 $architecture = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
-if ($architecture.Tests -lt 182) {
-    throw "M21 architecture baseline regression: $($architecture.Tests) < 182"
+if ($architecture.Tests -lt 253) {
+    throw "M21 architecture baseline regression: $($architecture.Tests) < 253"
 }
-Write-Host "Tests: PASS ($($totals.Tests), baseline >= 454)"
-Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= 182)"
+Write-Host "Tests: PASS ($($totals.Tests), baseline >= 711)"
+Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= 253)"
 
 $coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
 if (-not (Test-Path $coverageSummary)) { throw "Missing M21 coverage summary: $coverageSummary" }
@@ -125,13 +139,13 @@ $coverage = @{}
 Get-Content $coverageSummary | ForEach-Object {
     if ($_ -match '^([^=]+)=(.*)$') { $coverage[$matches[1]] = $matches[2] }
 }
-if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.25) {
-    throw "M21 line coverage below 25%: $($coverage.lineRatio)"
+if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.47) {
+    throw "M21 line coverage below 47% ratchet: $($coverage.lineRatio)"
 }
-if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.20) {
-    throw "M21 branch coverage below 20%: $($coverage.branchRatio)"
+if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.40) {
+    throw "M21 branch coverage below 40% ratchet: $($coverage.branchRatio)"
 }
-Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio))"
+Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio), ratchet=47%/40%)"
 
 $sbomJson = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.json'
 $sbomXml = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.xml'

@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.github.fturleque</groupId>
         <artifactId>morpheus-engine</artifactId>
-        <version>1.2.0</version>
+        <version>1.2.1</version>
     </parent>
 
     <artifactId>morpheus-provider-testkit</artifactId>
@@ -15,6 +15,16 @@
     <description>Reusable provider plugin contract assertions for external provider authors.</description>
 
     <dependencies>
+        <dependency>
+            <groupId>io.github.fturleque</groupId>
+            <artifactId>morpheus-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.fturleque</groupId>
+            <artifactId>morpheus-application</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>io.github.fturleque</groupId>
             <artifactId>morpheus-provider-sdk</artifactId>

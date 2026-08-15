@@ -222,21 +222,9 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
         if (batch.isEmpty()) {
             return;
         }
-        try {
-            boolean previousAutoCommit = connection.getAutoCommit();
-            try {
-                connection.setAutoCommit(false);
+        SqliteTransactionRunner.runVoid(connection, "Cannot store requirement version batch", ignored -> {
                 batch.forEach(this::putRequirementVersion);
-                connection.commit();
-            } catch (SQLException | RuntimeException failure) {
-                rollbackQuietly();
-                throw failure;
-            } finally {
-                restoreAutoCommit(previousAutoCommit);
-            }
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot store requirement version batch", exception);
-        }
+        });
     }
 
     @Override
@@ -436,19 +424,4 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
         }
     }
 
-    private void rollbackQuietly() {
-        try {
-            connection.rollback();
-        } catch (SQLException ignored) {
-            // Preserve the original batch failure.
-        }
-    }
-
-    private void restoreAutoCommit(boolean autoCommit) {
-        try {
-            connection.setAutoCommit(autoCommit);
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot restore SQLite auto-commit mode", exception);
-        }
-    }
 }

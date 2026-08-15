@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./mvnw *)",
+      "Bash(mvnw.cmd *)",
+      "Bash(powershell * .claude/hooks/*.ps1*)",
+      "Bash(powershell * scripts/*.ps1*)",
+      "Bash(bash scripts/*.sh *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -NonInteractive -File .claude/hooks/post-edit.ps1"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -NonInteractive -File .claude/hooks/pre-bash.ps1"
+          }
+        ]
+      }
+    ]
+  }
+}
