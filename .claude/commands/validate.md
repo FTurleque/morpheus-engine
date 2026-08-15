@@ -32,7 +32,7 @@ Exécute le script de validation du milestone spécifié.
 
 ```
 Milestone M28 — Validation
-├── ArchUnit gate:     ✅ PASS (42 tests)  
+├── ArchUnit gate:     ✅ PASS (42 tests)
 ├── API contracts:     ✅ PASS
 └── Dependency hygiene: ✅ PASS (0 warnings)
 ```
