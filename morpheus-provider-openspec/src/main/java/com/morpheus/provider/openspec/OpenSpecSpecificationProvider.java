@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
 /** Read-only M1 provider probe for OpenSpec projects using the {@code spec-driven} schema. */
 public final class OpenSpecSpecificationProvider implements SpecificationProvider {
     public static final ProviderId ID = new ProviderId("openspec");
-    public static final String PROVIDER_VERSION = "0.1.0-SNAPSHOT";
+    public static final String PROVIDER_VERSION = "m1-v1";
     public static final String SUPPORTED_SCHEMA = "spec-driven";
 
     private static final Pattern SCHEMA_PATTERN = Pattern.compile("^schema:\\s*([^#\\s]+)");
