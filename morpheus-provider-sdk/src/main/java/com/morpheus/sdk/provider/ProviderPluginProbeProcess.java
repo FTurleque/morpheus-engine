@@ -6,8 +6,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -15,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 final class ProviderPluginProbeProcess {
     static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(45);
     private static final Duration GRACEFUL_TERMINATION = Duration.ofMillis(500);
+    private static final long TERMINATION_POLL_MILLIS = 10L;
 
     private final Duration timeout;
 
@@ -130,17 +133,100 @@ final class ProviderPluginProbeProcess {
         return executable;
     }
 
+    /**
+     * Terminates the complete process tree, not only the worker JVM. Handles are retained after re-parenting so
+     * descendants remain killable even when their direct parent exits first. Newly discovered descendants are
+     * repeatedly collected during both graceful and forced phases.
+     */
     private void terminate(Process process) {
-        if (!process.isAlive()) return;
-        process.destroy();
+        ProcessHandle root = process.toHandle();
+        Map<Long, ProcessHandle> observed = new LinkedHashMap<>();
+        collectTree(root, observed);
+
         try {
-            if (!process.waitFor(GRACEFUL_TERMINATION.toMillis(), TimeUnit.MILLISECONDS) && process.isAlive()) {
-                process.destroyForcibly();
-                process.waitFor(GRACEFUL_TERMINATION.toMillis(), TimeUnit.MILLISECONDS);
+            // Stop already-observed descendants before the worker so they cannot intentionally outlive it.
+            signalDescendants(root, observed, false);
+            collectTree(root, observed);
+            signalDescendants(root, observed, false);
+            signal(root, false);
+
+            if (awaitTreeExit(root, observed, GRACEFUL_TERMINATION, false)) {
+                return;
             }
+
+            collectTree(root, observed);
+            signalDescendants(root, observed, true);
+            signal(root, true);
+            awaitTreeExit(root, observed, GRACEFUL_TERMINATION, true);
         } catch (InterruptedException interrupted) {
+            // Cleanup remains mandatory even when the caller thread is interrupted.
+            collectTree(root, observed);
+            signalDescendants(root, observed, true);
+            signal(root, true);
             Thread.currentThread().interrupt();
-            if (process.isAlive()) process.destroyForcibly();
+        }
+    }
+
+    private boolean awaitTreeExit(
+            ProcessHandle root,
+            Map<Long, ProcessHandle> observed,
+            Duration duration,
+            boolean forcibly) throws InterruptedException {
+        long deadline = System.nanoTime() + duration.toNanos();
+        while (true) {
+            collectTree(root, observed);
+            signalDescendants(root, observed, forcibly);
+            if (forcibly) {
+                signal(root, true);
+            }
+            if (observed.values().stream().noneMatch(ProcessHandle::isAlive)) {
+                return true;
+            }
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                return observed.values().stream().noneMatch(ProcessHandle::isAlive);
+            }
+            long sleepMillis = Math.max(1L, Math.min(
+                    TERMINATION_POLL_MILLIS,
+                    TimeUnit.NANOSECONDS.toMillis(remaining)));
+            TimeUnit.MILLISECONDS.sleep(sleepMillis);
+        }
+    }
+
+    private void collectTree(ProcessHandle root, Map<Long, ProcessHandle> observed) {
+        observed.putIfAbsent(root.pid(), root);
+        // Iterate over a stable copy because descendants discovered from a retained, re-parented child must also
+        // become roots for subsequent discovery passes.
+        for (ProcessHandle seed : List.copyOf(observed.values())) {
+            if (!seed.isAlive()) continue;
+            try {
+                seed.descendants().forEach(handle -> observed.putIfAbsent(handle.pid(), handle));
+            } catch (RuntimeException ignored) {
+                // A process can disappear between isAlive() and descendants(); retained handles are still signalled.
+            }
+        }
+    }
+
+    private void signalDescendants(
+            ProcessHandle root,
+            Map<Long, ProcessHandle> observed,
+            boolean forcibly) {
+        for (ProcessHandle handle : List.copyOf(observed.values())) {
+            if (handle.pid() == root.pid()) continue;
+            signal(handle, forcibly);
+        }
+    }
+
+    private void signal(ProcessHandle handle, boolean forcibly) {
+        if (!handle.isAlive()) return;
+        try {
+            if (forcibly) {
+                handle.destroyForcibly();
+            } else {
+                handle.destroy();
+            }
+        } catch (RuntimeException ignored) {
+            // Continue terminating the rest of the observed tree; a later forced pass gets another opportunity.
         }
     }
 }
