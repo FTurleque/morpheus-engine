@@ -41,10 +41,11 @@ public final class FixtureNexusMcpServer {
         McpSchema.Tool tool = McpSchema.Tool.builder(name, schema()).description("M13 fixture tool").build();
         return McpServerFeatures.SyncToolSpecification.builder()
                 .tool(tool)
-                .callHandler((exchange, request) -> McpSchema.CallToolResult.builder()
-                        .content(List.of(new McpSchema.TextContent(handler.apply(
-                                request.arguments() == null ? Map.of() : request.arguments()))))
-                        .build())
+                .callHandler((exchange, request) -> {
+                    String text = handler.apply(request.arguments() == null ? Map.of() : request.arguments());
+                    return McpSchema.CallToolResult.builder(List.of(McpSchema.TextContent.builder(text).build()))
+                            .build();
+                })
                 .build();
     }
 
@@ -60,18 +61,18 @@ public final class FixtureNexusMcpServer {
         String query = escape(String.valueOf(arguments.getOrDefault("query", "intent")));
         int budget = arguments.get("tokenBudget") instanceof Number number ? number.intValue() : 2000;
         return "{"
-                + "\"project\":{\"id\":\"nexus-project-id\",\"name\":\"" + project + "\"," 
-                + "\"rootPath\":\"N:/workspace-dev/morpheus-engine\",\"sourceType\":\"LOCAL\"," 
+                + "\"project\":{\"id\":\"nexus-project-id\",\"name\":\"" + project + "\","
+                + "\"rootPath\":\"N:/workspace-dev/morpheus-engine\",\"sourceType\":\"LOCAL\","
                 + "\"languages\":[\"java\"],\"technologies\":[\"maven\"],\"lastIndexedAt\":null,\"indexStatus\":\"READY\"},"
                 + "\"query\":\"" + query + "\",\"explain\":" + explain + ",\"durationMs\":7,"
                 + "\"tokenBudget\":" + budget + ",\"estimatedTokens\":111,"
-                + "\"items\":[{\"type\":\"SYMBOL\",\"path\":\"src/main/java/SessionService.java\"," 
-                + "\"symbol\":\"SessionService\",\"startLine\":10,\"endLine\":20," 
-                + "\"content\":\"class SessionService {}\",\"score\":0.91," 
+                + "\"items\":[{\"type\":\"SYMBOL\",\"path\":\"src/main/java/SessionService.java\","
+                + "\"symbol\":\"SessionService\",\"startLine\":10,\"endLine\":20,"
+                + "\"content\":\"class SessionService {}\",\"score\":0.91,"
                 + "\"scoreComponents\":{\"lexical\":0.41,\"structural\":0.5},"
                 + "\"reasons\":[\"intent match\"],\"estimatedTokens\":111,\"truncated\":false}],"
                 + "\"excluded\":[\"target/generated.txt\"],"
-                + "\"metadata\":{\"strategy\":\"hybrid\",\"requestedSourcesEcho\":\"" 
+                + "\"metadata\":{\"strategy\":\"hybrid\",\"requestedSourcesEcho\":\""
                 + escape(String.valueOf(arguments.getOrDefault("requestedSources", List.of()))) + "\"}}";
     }
 

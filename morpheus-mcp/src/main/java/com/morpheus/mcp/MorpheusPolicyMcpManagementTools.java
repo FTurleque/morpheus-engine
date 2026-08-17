@@ -64,12 +64,13 @@ final class MorpheusPolicyMcpManagementTools {
                     default -> throw new IllegalArgumentException("unknown M25 policy management tool: " + name);
                 };
                 return McpSchema.CallToolResult.builder()
-                        .content(List.of(new McpSchema.TextContent(json.toJson(result))))
+                        .addTextContent(json.toJson(result))
+                        .isError(false)
                         .build();
             }
         } catch (IllegalArgumentException | IllegalStateException | KnowledgeStoreException expected) {
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(safeMessage(expected))))
+                    .addTextContent(safeMessage(expected))
                     .isError(true)
                     .build();
         }

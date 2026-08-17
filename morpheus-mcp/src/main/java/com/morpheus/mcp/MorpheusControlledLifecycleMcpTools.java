@@ -95,14 +95,14 @@ final class MorpheusControlledLifecycleMcpTools {
                                 actor,
                                 Instant.now()),
                         ChangeLifecycleMutationPolicy.strict());
-                return McpSchema.CallToolResult.builder()
-                        .content(List.of(new McpSchema.TextContent(
-                                json.toJson(ChangeLifecycleMutationResultView.from(result)))))
+                McpSchema.TextContent content = McpSchema.TextContent.builder(
+                                json.toJson(ChangeLifecycleMutationResultView.from(result)))
                         .build();
+                return McpSchema.CallToolResult.builder(List.of(content)).build();
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(safeMessage(expected))))
+            McpSchema.TextContent content = McpSchema.TextContent.builder(safeMessage(expected)).build();
+            return McpSchema.CallToolResult.builder(List.of(content))
                     .isError(true)
                     .build();
         }

@@ -65,11 +65,12 @@ final class MorpheusExternalReferenceMcpTools {
                 default -> throw new IllegalArgumentException("unknown M12 MCP tool: " + toolName);
             };
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(result)))
+                    .addTextContent(result)
+                    .isError(false)
                     .build();
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(safeMessage(expected))))
+                    .addTextContent(safeMessage(expected))
                     .isError(true)
                     .build();
         }

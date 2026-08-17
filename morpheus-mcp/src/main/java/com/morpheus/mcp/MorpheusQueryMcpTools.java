@@ -114,12 +114,13 @@ final class MorpheusQueryMcpTools {
                 };
                 String output = result instanceof String text ? text : json.toJson(result);
                 return McpSchema.CallToolResult.builder()
-                        .content(List.of(new McpSchema.TextContent(output)))
+                        .addTextContent(output)
+                        .isError(false)
                         .build();
             }
         } catch (IllegalArgumentException | IllegalStateException | KnowledgeStoreException expected) {
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(safeMessage(expected))))
+                    .addTextContent(safeMessage(expected))
                     .isError(true)
                     .build();
         }
