@@ -150,13 +150,22 @@ public final class IncrementalSyncService {
         if (baselineInconsistentVisible(plan)) {
             return;
         }
-        SyncPlan.FullRebuildReason failureReason = plan.fullRebuildReason()
+
+        SyncPlan.FullRebuildReason failureReason;
+        if (plan.fullRebuildReason()
                 .filter(reason -> reason == SyncPlan.FullRebuildReason.SCAN_INCOMPLETE)
-                .orElse(SyncPlan.FullRebuildReason.EXECUTION_FAILED);
-        store.recordAttempt(
-                plan.projectId(),
-                plan.attemptedAt(),
-                Optional.of(failureReason));
+                .isPresent()) {
+            failureReason = SyncPlan.FullRebuildReason.SCAN_INCOMPLETE;
+        } else if (publicationExpected(plan)) {
+            // The caller may reach fail() after publication committed but post-publication bookkeeping failed.
+            // Without a durable proof that publication did not occur, EXECUTION_FAILED would be a lie. Fail closed
+            // to BASELINE_INCONSISTENT so the next attempt performs reconciliation/full rebuild instead of trusting
+            // potentially stale metadata. Pre-publication failures are conservatively classified the same way.
+            failureReason = SyncPlan.FullRebuildReason.BASELINE_INCONSISTENT;
+        } else {
+            failureReason = SyncPlan.FullRebuildReason.EXECUTION_FAILED;
+        }
+        store.recordAttempt(plan.projectId(), plan.attemptedAt(), Optional.of(failureReason));
     }
 
     private void commitSuccessfulSync(
