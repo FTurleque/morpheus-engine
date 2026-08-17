@@ -84,7 +84,10 @@ public final class LocalWritePermissionHardener {
             requireHardened(normalized, false);
             Path parent = normalized.getParent();
             if (parent != null) {
-                requireWriteProtectedDirectory(parent);
+                // A POSIX sticky parent (for example /tmp) protects an owner-controlled file entry from
+                // cross-user replacement. This exception is deliberately file-only: a sensitive directory itself
+                // still cannot rely on sticky semantics because arbitrary entries could be created inside it.
+                requireWriteProtectedDirectory(parent, true);
             }
             return Result.HARDENED;
         } catch (IOException exception) {
@@ -98,6 +101,10 @@ public final class LocalWritePermissionHardener {
      * ACL-backed filesystems are inspected fail-closed for non-trusted principals with mutation rights.
      */
     public Result requireWriteProtectedDirectory(Path directory) {
+        return requireWriteProtectedDirectory(directory, false);
+    }
+
+    private Result requireWriteProtectedDirectory(Path directory, boolean allowStickyDirectParent) {
         Objects.requireNonNull(directory, "directory");
         Path normalized = directory.toAbsolutePath().normalize();
         try {
@@ -114,7 +121,11 @@ public final class LocalWritePermissionHardener {
                     throw new LocalWritePermissionException("Sensitive path ancestor must be a regular directory: " + current);
                 }
                 if (supportsPosix(current)) {
-                    requireProtectedPosixDirectory(current, sensitiveDirectory, sensitiveOwner);
+                    requireProtectedPosixDirectory(
+                            current,
+                            sensitiveDirectory,
+                            sensitiveOwner,
+                            allowStickyDirectParent && sensitiveDirectory);
                 } else {
                     AclFileAttributeView acl = Files.getFileAttributeView(
                             current, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
@@ -189,14 +200,16 @@ public final class LocalWritePermissionHardener {
     private void requireProtectedPosixDirectory(
             Path path,
             boolean sensitiveDirectory,
-            UserPrincipal sensitiveOwner) throws IOException {
+            UserPrincipal sensitiveOwner,
+            boolean stickyAllowedForSensitiveDirectory) throws IOException {
         Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(path, LinkOption.NOFOLLOW_LINKS);
         boolean writableByOthers = permissions.contains(PosixFilePermission.GROUP_WRITE)
                 || permissions.contains(PosixFilePermission.OTHERS_WRITE);
         if (!writableByOthers) {
             return;
         }
-        if (sensitiveDirectory || !hasUnixStickyBit(path)) {
+        boolean stickyProtectionAllowed = !sensitiveDirectory || stickyAllowedForSensitiveDirectory;
+        if (!stickyProtectionAllowed || !hasUnixStickyBit(path)) {
             throw new LocalWritePermissionException(
                     "Sensitive path must not be replaceable by group or other users: " + path);
         }
