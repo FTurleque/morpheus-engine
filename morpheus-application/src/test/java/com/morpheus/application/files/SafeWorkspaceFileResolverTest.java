@@ -4,12 +4,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributeView;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SafeWorkspaceFileResolverTest {
     @TempDir
@@ -32,6 +39,25 @@ class SafeWorkspaceFileResolverTest {
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
         assertEquals("€", resolver.readUtf8(Path.of("spec.md"), 3));
         assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("spec.md"), 2));
+    }
+
+    @Test
+    void rejectsSameSizeSameMtimeReplacementWithoutReturningStaleContent() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace-replacement"));
+        Path source = workspace.resolve("spec.md");
+        Path replacement = temp.resolve("replacement.md");
+        Files.writeString(source, "AAAA");
+        Files.writeString(replacement, "BBBB");
+        alignReplacementMetadata(source, replacement);
+
+        SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(
+                workspace,
+                file -> replaceAtomically(replacement, file));
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> resolver.readUtf8(Path.of("spec.md")));
+        assertTrue(failure.getMessage().contains("changed identity or metadata"), failure::getMessage);
     }
 
     @Test
@@ -109,6 +135,51 @@ class SafeWorkspaceFileResolverTest {
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
         assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("junction/spec.md")));
+    }
+
+    private void alignReplacementMetadata(Path first, Path second) throws IOException {
+        FileTime commonMtime = FileTime.fromMillis(1_700_000_000_000L);
+        Files.setLastModifiedTime(first, commonMtime);
+        Files.setLastModifiedTime(second, commonMtime);
+
+        BasicFileAttributes firstAttributes = readAttributes(first);
+        BasicFileAttributes secondAttributes = readAttributes(second);
+        if (firstAttributes.fileKey() == null && secondAttributes.fileKey() == null) {
+            setCreationTime(first, FileTime.fromMillis(1_600_000_000_000L), commonMtime);
+            setCreationTime(second, FileTime.fromMillis(1_650_000_000_000L), commonMtime);
+            firstAttributes = readAttributes(first);
+            secondAttributes = readAttributes(second);
+        }
+
+        assertEquals(firstAttributes.size(), secondAttributes.size());
+        assertEquals(firstAttributes.lastModifiedTime(), secondAttributes.lastModifiedTime());
+        if (firstAttributes.fileKey() == null && secondAttributes.fileKey() == null) {
+            assertNotEquals(firstAttributes.creationTime(), secondAttributes.creationTime());
+        } else {
+            assertNotEquals(firstAttributes.fileKey(), secondAttributes.fileKey());
+        }
+    }
+
+    private BasicFileAttributes readAttributes(Path path) throws IOException {
+        return Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+    }
+
+    private void setCreationTime(Path path, FileTime creationTime, FileTime lastModifiedTime) throws IOException {
+        BasicFileAttributeView view = Files.getFileAttributeView(
+                path, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        view.setTimes(lastModifiedTime, null, creationTime);
+    }
+
+    private void replaceAtomically(Path replacement, Path target) throws IOException {
+        try {
+            Files.move(
+                    replacement,
+                    target,
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException unsupported) {
+            Files.move(replacement, target, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     private boolean createSymlink(Path link, Path target) {

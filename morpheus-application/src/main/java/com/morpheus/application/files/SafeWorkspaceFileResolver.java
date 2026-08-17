@@ -22,9 +22,11 @@ import java.util.Objects;
 public final class SafeWorkspaceFileResolver {
     private final Path lexicalRoot;
     private final Path realRoot;
+    private final ReadObserver readObserver;
 
-    private SafeWorkspaceFileResolver(Path workspaceRoot) throws IOException {
+    private SafeWorkspaceFileResolver(Path workspaceRoot, ReadObserver readObserver) throws IOException {
         this.lexicalRoot = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
+        this.readObserver = Objects.requireNonNull(readObserver, "readObserver");
         if (Files.isSymbolicLink(lexicalRoot) || !Files.isDirectory(lexicalRoot, LinkOption.NOFOLLOW_LINKS)) {
             throw new IllegalArgumentException("workspace root must be a real directory: " + lexicalRoot);
         }
@@ -32,7 +34,11 @@ public final class SafeWorkspaceFileResolver {
     }
 
     public static SafeWorkspaceFileResolver rootedAt(Path workspaceRoot) throws IOException {
-        return new SafeWorkspaceFileResolver(workspaceRoot);
+        return new SafeWorkspaceFileResolver(workspaceRoot, ReadObserver.NONE);
+    }
+
+    static SafeWorkspaceFileResolver rootedAt(Path workspaceRoot, ReadObserver readObserver) throws IOException {
+        return new SafeWorkspaceFileResolver(workspaceRoot, readObserver);
     }
 
     public Path requireDirectory(Path relativePath) throws IOException {
@@ -72,6 +78,9 @@ public final class SafeWorkspaceFileResolver {
         try (var channel = Files.newByteChannel(
                 file, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS);
              var output = new ByteArrayOutputStream()) {
+            if (channel.size() != before.size()) {
+                throw changedDuringRead(relativePath);
+            }
             ByteBuffer buffer = ByteBuffer.allocate(8192);
             int total = 0;
             int read;
@@ -82,18 +91,26 @@ public final class SafeWorkspaceFileResolver {
                 if (total > maxBytes - read) {
                     throw inputLimitExceeded(relativePath, maxBytes);
                 }
+                if (read > before.size() - total) {
+                    throw changedDuringRead(relativePath);
+                }
                 output.write(buffer.array(), 0, read);
                 total += read;
                 buffer.clear();
             }
+            if (total != before.size() || channel.size() != before.size()) {
+                throw changedDuringRead(relativePath);
+            }
             content = output.toByteArray();
         }
+
+        readObserver.beforeFinalValidation(file);
         // Detect replacement or mutation while the read was in progress.
         Path after = requireRegularFile(relativePath);
         BasicFileAttributes afterAttributes = Files.readAttributes(
                 after, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (!after.equals(file) || !sameIdentity(before, afterAttributes)) {
-            throw new IllegalArgumentException("workspace file changed identity during read: " + relativePath);
+            throw changedDuringRead(relativePath);
         }
         return decodeStrictUtf8(content, relativePath);
     }
@@ -113,6 +130,10 @@ public final class SafeWorkspaceFileResolver {
     private IllegalArgumentException inputLimitExceeded(Path relativePath, int maxBytes) {
         return new IllegalArgumentException(
                 "workspace file exceeds maximum input size of " + maxBytes + " bytes: " + relativePath);
+    }
+
+    private IllegalArgumentException changedDuringRead(Path relativePath) {
+        return new IllegalArgumentException("workspace file changed identity or metadata during read: " + relativePath);
     }
 
     public Path lexicalRoot() {
@@ -162,11 +183,27 @@ public final class SafeWorkspaceFileResolver {
     }
 
     private boolean sameIdentity(BasicFileAttributes before, BasicFileAttributes after) {
-        if (before.fileKey() != null && after.fileKey() != null
-                && !before.fileKey().equals(after.fileKey())) {
+        if (!before.isRegularFile() || before.isSymbolicLink()
+                || !after.isRegularFile() || after.isSymbolicLink()) {
             return false;
         }
-        return before.size() == after.size()
-                && before.lastModifiedTime().equals(after.lastModifiedTime());
+        if (before.size() != after.size()
+                || !before.lastModifiedTime().equals(after.lastModifiedTime())
+                || !before.creationTime().equals(after.creationTime())) {
+            return false;
+        }
+        Object beforeKey = before.fileKey();
+        Object afterKey = after.fileKey();
+        if (beforeKey == null && afterKey == null) {
+            return true;
+        }
+        return Objects.equals(beforeKey, afterKey);
+    }
+
+    @FunctionalInterface
+    interface ReadObserver {
+        ReadObserver NONE = file -> { };
+
+        void beforeFinalValidation(Path file) throws IOException;
     }
 }
