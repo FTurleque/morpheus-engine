@@ -142,12 +142,13 @@ final class MorpheusPortfolioMcpTools {
                     default -> throw new IllegalArgumentException("unknown M23 MCP tool: " + toolName);
                 };
                 return McpSchema.CallToolResult.builder()
-                        .content(List.of(new McpSchema.TextContent(json.toJson(PortfolioPublicViews.project(result)))))
+                        .addTextContent(json.toJson(PortfolioPublicViews.project(result)))
+                        .isError(false)
                         .build();
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(safeMessage(expected))))
+                    .addTextContent(safeMessage(expected))
                     .isError(true)
                     .build();
         }

@@ -64,11 +64,12 @@ final class MorpheusReasoningMcpTools {
                 default -> throw new IllegalArgumentException("unknown M27 MCP tool: " + toolName);
             };
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(json.toJson(result))))
+                    .addTextContent(json.toJson(result))
+                    .isError(false)
                     .build();
         } catch (IllegalArgumentException | IllegalStateException expected) {
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(safeMessage(expected))))
+                    .addTextContent(safeMessage(expected))
                     .isError(true)
                     .build();
         }

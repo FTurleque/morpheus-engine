@@ -39,13 +39,13 @@ final class MorpheusProductMcpTools {
     private McpSchema.CallToolResult call(String toolName) {
         if (INFO_TOOL.equals(toolName)) {
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(json.toJson(ProductMetadata.current()))))
+                    .addTextContent(json.toJson(ProductMetadata.current()))
+                    .isError(false)
                     .build();
         }
         if (UPDATE_TOOL.equals(toolName)) {
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(
-                            "URI-backed update discovery is CLI-only; check_product_update performs no file or network I/O.")))
+                    .addTextContent("URI-backed update discovery is CLI-only; check_product_update performs no file or network I/O.")
                     .isError(true)
                     .build();
         }

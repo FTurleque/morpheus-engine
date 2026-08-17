@@ -43,11 +43,12 @@ final class MorpheusProviderPluginMcpTools {
                 default -> throw new IllegalArgumentException("unknown M22 MCP tool: " + toolName);
             };
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(json.toJson(result))))
+                    .addTextContent(json.toJson(result))
+                    .isError(false)
                     .build();
         } catch (RuntimeException expected) {
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(safeMessage(expected))))
+                    .addTextContent(safeMessage(expected))
                     .isError(true)
                     .build();
         }
