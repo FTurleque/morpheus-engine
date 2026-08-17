@@ -186,9 +186,29 @@ public final class LocalSourceInventoryScanner {
                         try {
                             SourcePath sourcePath = new SourcePath(
                                     workspace.relativize(file.toAbsolutePath().normalize()).toString());
-                            SourceFingerprint fingerprint = fingerprintComputer.compute(file, attrs.size());
+
+                            // walkFileTree attributes are a bounded preflight signal, not the content commit authority.
+                            // Capture a verified content witness first, then establish fresh authoritative attributes.
+                            SourceFingerprint initialFingerprint = SourceFingerprint.ofFile(file, attrs.size());
+                            BasicFileAttributes authoritativeBefore = SourceFingerprint.readAttributes(file);
+                            if (!authoritativeBefore.isRegularFile() || authoritativeBefore.isSymbolicLink()
+                                    || authoritativeBefore.size() > attrs.size()) {
+                                failures.add(new SourceInventoryScanResult.Failure(
+                                        Optional.of(sourcePath.toString()),
+                                        "source changed identity or metadata while fingerprint was being computed"));
+                                return FileVisitResult.CONTINUE;
+                            }
+
+                            SourceFingerprint fingerprint = fingerprintComputer.compute(file, authoritativeBefore.size());
+                            if (!initialFingerprint.equals(fingerprint)) {
+                                failures.add(new SourceInventoryScanResult.Failure(
+                                        Optional.of(sourcePath.toString()),
+                                        "source changed identity, metadata, or content while fingerprint was being computed"));
+                                return FileVisitResult.CONTINUE;
+                            }
+
                             BasicFileAttributes after = SourceFingerprint.readAttributes(file);
-                            if (!SourceFingerprint.sameFileIdentity(attrs, after)) {
+                            if (!SourceFingerprint.sameFileIdentity(authoritativeBefore, after)) {
                                 failures.add(new SourceInventoryScanResult.Failure(
                                         Optional.of(sourcePath.toString()),
                                         "source changed identity or metadata while fingerprint was being computed"));

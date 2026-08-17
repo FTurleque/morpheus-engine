@@ -16,7 +16,7 @@ import java.util.Objects;
 /** Content fingerprint. M7 intentionally standardizes on SHA-256 bytes, never mtime-only fingerprints. */
 public record SourceFingerprint(String sha256) implements Comparable<SourceFingerprint> {
     private static final String CHANGED_IDENTITY_MESSAGE =
-            "source changed identity or metadata while fingerprint was being computed";
+            "source changed identity, metadata, or content while fingerprint was being computed";
     private static final String CHANGED_SIZE_MESSAGE =
             "source changed size while fingerprint was being computed";
 
@@ -39,9 +39,10 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
 
     /**
      * Hashes one regular path without following a final symbolic link and refuses to consume more than
-     * {@code maxBytes}. The byte ceiling is enforced while reading. The path identity and metadata are also
-     * observed before and after the descriptor-backed read. Provider file keys are compared as opaque values
-     * when available; creation time supplies an additional portable replacement signal when file keys are absent.
+     * {@code maxBytes}. The byte ceiling is enforced while reading. The first descriptor is opened before
+     * the authoritative path attributes are captured, then the accepted path is re-read after the first
+     * descriptor closes. This makes the content digest itself a portable replacement witness in addition to
+     * opaque provider file keys and basic metadata.
      */
     public static SourceFingerprint ofFile(Path path, long maxBytes) throws IOException {
         return ofFile(path, maxBytes, ReadObserver.NONE);
@@ -54,19 +55,19 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
             throw new IllegalArgumentException("maxBytes must be non-negative");
         }
 
-        BasicFileAttributes before = readAttributes(path);
-        requireRegularNonSymbolic(before);
-        if (before.size() > maxBytes) {
-            throw new IOException("source file exceeded expected size while fingerprint was being computed");
-        }
-
-        MessageDigest digest = digest();
+        MessageDigest contentDigest = digest();
+        BasicFileAttributes before;
         long total = 0;
         boolean firstReadObserved = false;
         try (var channel = Files.newByteChannel(
                 path,
                 StandardOpenOption.READ,
                 LinkOption.NOFOLLOW_LINKS)) {
+            before = readAttributes(path);
+            requireRegularNonSymbolic(before);
+            if (before.size() > maxBytes) {
+                throw new IOException("source file exceeded expected size while fingerprint was being computed");
+            }
             if (channel.size() != before.size()) {
                 throw new IOException(CHANGED_SIZE_MESSAGE);
             }
@@ -83,7 +84,7 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
                 if (read > before.size() - total) {
                     throw new IOException(CHANGED_SIZE_MESSAGE);
                 }
-                digest.update(buffer.array(), 0, read);
+                contentDigest.update(buffer.array(), 0, read);
                 total += read;
                 buffer.clear();
                 if (!firstReadObserved) {
@@ -97,13 +98,17 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
             }
         }
 
+        byte[] expectedDigest = contentDigest.digest();
         observer.observe(path, ReadCheckpoint.BEFORE_FINAL_ATTRIBUTES);
         BasicFileAttributes after = readAttributes(path);
         if (!sameFileIdentity(before, after)) {
             throw new IOException(CHANGED_IDENTITY_MESSAGE);
         }
+        if (!contentStillMatches(path, maxBytes, after, expectedDigest)) {
+            throw new IOException(CHANGED_IDENTITY_MESSAGE);
+        }
 
-        return new SourceFingerprint(HexFormat.of().formatHex(digest.digest()));
+        return new SourceFingerprint(HexFormat.of().formatHex(expectedDigest));
     }
 
     static BasicFileAttributes readAttributes(Path path) throws IOException {
@@ -129,6 +134,48 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
             return true;
         }
         return Objects.equals(beforeKey, afterKey);
+    }
+
+    private static boolean contentStillMatches(
+            Path path,
+            long maxBytes,
+            BasicFileAttributes expectedAttributes,
+            byte[] expectedDigest) throws IOException {
+        MessageDigest verificationDigest = digest();
+        long total = 0;
+        try (var channel = Files.newByteChannel(
+                path,
+                StandardOpenOption.READ,
+                LinkOption.NOFOLLOW_LINKS)) {
+            BasicFileAttributes verificationBefore = readAttributes(path);
+            requireRegularNonSymbolic(verificationBefore);
+            if (!sameFileIdentity(expectedAttributes, verificationBefore)
+                    || verificationBefore.size() > maxBytes
+                    || channel.size() != verificationBefore.size()) {
+                return false;
+            }
+
+            ByteBuffer buffer = ByteBuffer.allocate(16 * 1024);
+            int read;
+            while ((read = channel.read(buffer)) >= 0) {
+                if (read == 0) {
+                    continue;
+                }
+                if (read > maxBytes - total || read > verificationBefore.size() - total) {
+                    return false;
+                }
+                verificationDigest.update(buffer.array(), 0, read);
+                total += read;
+                buffer.clear();
+            }
+            if (total != verificationBefore.size() || channel.size() != verificationBefore.size()) {
+                return false;
+            }
+        }
+
+        BasicFileAttributes verificationAfter = readAttributes(path);
+        return sameFileIdentity(expectedAttributes, verificationAfter)
+                && MessageDigest.isEqual(expectedDigest, verificationDigest.digest());
     }
 
     private static void requireRegularNonSymbolic(BasicFileAttributes attributes) throws IOException {

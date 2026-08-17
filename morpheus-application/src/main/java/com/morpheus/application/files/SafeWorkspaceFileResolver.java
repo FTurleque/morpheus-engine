@@ -105,14 +105,54 @@ public final class SafeWorkspaceFileResolver {
         }
 
         readObserver.beforeFinalValidation(file);
-        // Detect replacement or mutation while the read was in progress.
         Path after = requireRegularFile(relativePath);
         BasicFileAttributes afterAttributes = Files.readAttributes(
                 after, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-        if (!after.equals(file) || !sameIdentity(before, afterAttributes)) {
+        if (!after.equals(file)
+                || !sameIdentity(before, afterAttributes)
+                || !contentStillMatches(after, afterAttributes, content)) {
             throw changedDuringRead(relativePath);
         }
         return decodeStrictUtf8(content, relativePath);
+    }
+
+    private boolean contentStillMatches(
+            Path file,
+            BasicFileAttributes expectedAttributes,
+            byte[] expectedContent) throws IOException {
+        int offset = 0;
+        try (var channel = Files.newByteChannel(
+                file, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            BasicFileAttributes verificationBefore = Files.readAttributes(
+                    file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            if (!sameIdentity(expectedAttributes, verificationBefore)
+                    || channel.size() != expectedContent.length) {
+                return false;
+            }
+            ByteBuffer buffer = ByteBuffer.allocate(8192);
+            int read;
+            while ((read = channel.read(buffer)) != -1) {
+                if (read == 0) {
+                    continue;
+                }
+                if (offset > expectedContent.length - read) {
+                    return false;
+                }
+                for (int index = 0; index < read; index++) {
+                    if (buffer.array()[index] != expectedContent[offset + index]) {
+                        return false;
+                    }
+                }
+                offset += read;
+                buffer.clear();
+            }
+            if (offset != expectedContent.length || channel.size() != expectedContent.length) {
+                return false;
+            }
+        }
+        BasicFileAttributes verificationAfter = Files.readAttributes(
+                file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        return sameIdentity(expectedAttributes, verificationAfter);
     }
 
     private String decodeStrictUtf8(byte[] content, Path relativePath) {
@@ -133,7 +173,8 @@ public final class SafeWorkspaceFileResolver {
     }
 
     private IllegalArgumentException changedDuringRead(Path relativePath) {
-        return new IllegalArgumentException("workspace file changed identity or metadata during read: " + relativePath);
+        return new IllegalArgumentException("workspace file changed identity, metadata, or content during read: "
+                + relativePath);
     }
 
     public Path lexicalRoot() {
