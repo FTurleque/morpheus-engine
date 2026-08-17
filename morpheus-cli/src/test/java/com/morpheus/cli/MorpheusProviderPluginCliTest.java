@@ -36,6 +36,18 @@ class MorpheusProviderPluginCliTest {
     }
 
     @Test
+    void probeRequiresTrustedSha256Pin() {
+        Result result = run(
+                "provider-plugins", "probe",
+                "--directory", tempDir.toString(),
+                "--plugin", "example",
+                "--workspace", tempDir.toString());
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode());
+        assertTrue(result.err().contains("probe requires --sha256 HEX"));
+    }
+
+    @Test
     void probeRejectsMalformedTrustedOnlyPinBeforeDiscovery() {
         Result result = run(
                 "provider-plugins", "probe",
