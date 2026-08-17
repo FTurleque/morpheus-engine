@@ -51,6 +51,7 @@ class ProviderPluginActivatorTest {
     }
 
     @Test
+    @SuppressWarnings("removal") // Intentionally proves the deprecated unpinned entry point remains fail-closed until removal.
     void unpinnedActivationFailsClosed() throws Exception {
         Path jar = directory.resolve("unpinned.jar");
         Properties properties = new Properties();

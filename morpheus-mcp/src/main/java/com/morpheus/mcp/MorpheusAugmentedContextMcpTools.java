@@ -84,13 +84,12 @@ final class MorpheusAugmentedContextMcpTools {
                                     "project has no ACTIVE snapshot: " + projectId));
                     default -> throw new IllegalArgumentException("unknown M13 MCP tool: " + toolName);
                 };
-                return McpSchema.CallToolResult.builder()
-                        .content(List.of(new McpSchema.TextContent(json.toJson(result))))
-                        .build();
+                McpSchema.TextContent content = McpSchema.TextContent.builder(json.toJson(result)).build();
+                return McpSchema.CallToolResult.builder(List.of(content)).build();
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(safeMessage(expected))))
+            McpSchema.TextContent content = McpSchema.TextContent.builder(safeMessage(expected)).build();
+            return McpSchema.CallToolResult.builder(List.of(content))
                     .isError(true)
                     .build();
         }

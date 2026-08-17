@@ -40,10 +40,11 @@ public final class FixtureMinosMcpServer {
         McpSchema.Tool tool = McpSchema.Tool.builder(name, schema()).description("M12 fixture tool").build();
         return McpServerFeatures.SyncToolSpecification.builder()
                 .tool(tool)
-                .callHandler((exchange, request) -> McpSchema.CallToolResult.builder()
-                        .content(List.of(new McpSchema.TextContent(handler.apply(
-                                request.arguments() == null ? Map.of() : request.arguments()))))
-                        .build())
+                .callHandler((exchange, request) -> {
+                    String text = handler.apply(request.arguments() == null ? Map.of() : request.arguments());
+                    return McpSchema.CallToolResult.builder(List.of(McpSchema.TextContent.builder(text).build()))
+                            .build();
+                })
                 .build();
     }
 

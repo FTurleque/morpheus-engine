@@ -14,14 +14,23 @@ import java.util.Optional;
 public final class ProviderPluginService {
     private final ProviderPluginDiscovery discovery;
     private final ProviderPluginActivator activator;
+    private final ProviderPluginProbeProcess probeProcess;
 
     public ProviderPluginService() {
-        this(new ProviderPluginDiscovery(), new ProviderPluginActivator());
+        this(new ProviderPluginDiscovery(), new ProviderPluginActivator(), new ProviderPluginProbeProcess());
     }
 
     ProviderPluginService(ProviderPluginDiscovery discovery, ProviderPluginActivator activator) {
+        this(discovery, activator, new ProviderPluginProbeProcess());
+    }
+
+    ProviderPluginService(
+            ProviderPluginDiscovery discovery,
+            ProviderPluginActivator activator,
+            ProviderPluginProbeProcess probeProcess) {
         this.discovery = Objects.requireNonNull(discovery, "discovery");
         this.activator = Objects.requireNonNull(activator, "activator");
+        this.probeProcess = Objects.requireNonNull(probeProcess, "probeProcess");
     }
 
     public ProviderPluginDiscoveryResult discover(Path pluginDirectory) {
@@ -86,10 +95,11 @@ public final class ProviderPluginService {
                     selected.diagnostics());
         }
 
-        try (ProviderPluginActivation activation = activator.activate(selected, trustedSha256)) {
-            ProviderProbeResult probe = Objects.requireNonNull(
-                    activation.provider().probe(workspaceRoot.toAbsolutePath().normalize()),
-                    "provider probe result");
+        try {
+            // Verify in the parent for precise fail-closed diagnostics. The child verifies again before loading,
+            // so a path swap between this check and process launch cannot bypass the trusted SHA-256 pin.
+            ExternalJarIntegrity.verifySha256(selected.jarPath(), trustedSha256);
+            ProviderProbeResult probe = probeProcess.probe(selected, workspaceRoot, trustedSha256);
             return new ProviderPluginProbeOutcome(
                     requestedPluginId,
                     selected.jarPath().toString(),
@@ -102,6 +112,20 @@ public final class ProviderPluginService {
                     "PLUGIN_INTEGRITY_VERIFICATION_FAILED",
                     "Provider plugin was rejected before activation because its SHA-256 pin did not match",
                     Map.of("pluginId", requestedPluginId, "reason", safeMessage(integrityFailure))));
+            return new ProviderPluginProbeOutcome(
+                    requestedPluginId,
+                    selected.jarPath().toString(),
+                    selected.metadata(),
+                    Optional.empty(),
+                    diagnostics);
+        } catch (ProviderPluginProbeProcessException failure) {
+            List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
+            diagnostics.add(ProviderPluginDiagnostic.error(
+                    failure.timeout() ? "PLUGIN_PROBE_TIMEOUT" : "PLUGIN_ACTIVATION_OR_PROBE_FAILED",
+                    failure.timeout()
+                            ? "Provider plugin probe exceeded its isolated execution deadline and was terminated"
+                            : "Provider plugin activation or probe failed in its isolated process",
+                    Map.of("pluginId", requestedPluginId, "reason", safeMessage(failure))));
             return new ProviderPluginProbeOutcome(
                     requestedPluginId,
                     selected.jarPath().toString(),
