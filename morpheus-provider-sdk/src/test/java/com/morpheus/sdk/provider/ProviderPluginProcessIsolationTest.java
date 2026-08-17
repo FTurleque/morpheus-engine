@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
@@ -22,7 +23,7 @@ class ProviderPluginProcessIsolationTest {
     Path directory;
 
     @Test
-    void nonCooperativeProbeIsTerminatedWithoutBlockingMorpheus() throws Exception {
+    void nonCooperativeProbeAndItsDescendantAreTerminatedWithoutBlockingMorpheus() throws Exception {
         Path jar = blockingPluginJar();
         ProviderPluginService service = new ProviderPluginService(
                 new ProviderPluginDiscovery(),
@@ -40,6 +41,20 @@ class ProviderPluginProcessIsolationTest {
             assertTrue(outcome.diagnostics().stream()
                     .anyMatch(diagnostic -> diagnostic.code().equals("PLUGIN_PROBE_TIMEOUT")));
         });
+
+        Path childPidFile = directory.resolve(TestBlockingProviderPlugin.CHILD_PID_FILE);
+        assertTrue(Files.isRegularFile(childPidFile), "blocking plugin must have spawned its descendant fixture");
+        long childPid = Long.parseLong(Files.readString(childPidFile).trim());
+        ProcessHandle.of(childPid).filter(ProcessHandle::isAlive).ifPresent(handle -> {
+            try {
+                handle.onExit().get(5, TimeUnit.SECONDS);
+            } catch (Exception failure) {
+                throw new AssertionError("probe descendant did not terminate", failure);
+            }
+        });
+        assertTrue(
+                ProcessHandle.of(childPid).map(handle -> !handle.isAlive()).orElse(true),
+                "probe descendant must not survive the worker timeout");
     }
 
     private Path blockingPluginJar() throws Exception {
