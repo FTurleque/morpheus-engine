@@ -13,6 +13,8 @@ import java.util.TreeMap;
 
 /** Minimal deterministic JSON serializer for the typed compact-query DTO surface. */
 public final class CanonicalJsonSerializer {
+    /** Default ceiling used by byte-oriented transport serialization. */
+    public static final int DEFAULT_MAX_UTF8_BYTES = 16 * 1024 * 1024;
 
     public String toJson(Object value) {
         return toJson(value, Integer.MAX_VALUE);
@@ -25,8 +27,17 @@ public final class CanonicalJsonSerializer {
         return out.toString();
     }
 
+    /**
+     * Serializes a transport payload under the default hard ceiling. Callers that need a different explicit
+     * contract must use {@link #toUtf8(Object, int)} rather than materializing an unbounded intermediate String.
+     */
     public byte[] toUtf8(Object value) {
-        return toJson(value).getBytes(StandardCharsets.UTF_8);
+        return toUtf8(value, DEFAULT_MAX_UTF8_BYTES);
+    }
+
+    /** Serializes a UTF-8 payload while enforcing the supplied ceiling before the backing String can exceed it. */
+    public byte[] toUtf8(Object value, int maximumUtf8Bytes) {
+        return toJson(value, maximumUtf8Bytes).getBytes(StandardCharsets.UTF_8);
     }
 
     private void append(Utf8BoundedTextBuilder out, Object value) {
