@@ -214,7 +214,7 @@ public final class LocalWritePermissionHardener {
                     "Sensitive path must not be replaceable by group or other users: " + path);
         }
         UserPrincipal owner = Files.getOwner(path, LinkOption.NOFOLLOW_LINKS);
-        if (!owner.equals(sensitiveOwner) && !isTrustedPosixAdministrator(owner)) {
+        if (!samePrincipal(owner, sensitiveOwner) && !isTrustedPosixAdministrator(owner)) {
             throw new LocalWritePermissionException(
                     "Writable sticky ancestor is controlled by an untrusted owner: " + path);
         }
@@ -262,10 +262,10 @@ public final class LocalWritePermissionHardener {
             UserPrincipal principal,
             UserPrincipal owner,
             UserPrincipal sensitiveOwner) {
-        if (principal.equals(owner) || principal.equals(sensitiveOwner)) {
+        if (samePrincipal(principal, owner) || samePrincipal(principal, sensitiveOwner)) {
             return true;
         }
-        String name = principal.getName().toUpperCase(Locale.ROOT).replace('/', '\\');
+        String name = normalizedPrincipalName(principal);
         return name.equals("SYSTEM")
                 || name.endsWith("\\SYSTEM")
                 || name.endsWith("\\ADMINISTRATORS")
@@ -274,6 +274,14 @@ public final class LocalWritePermissionHardener {
                 || name.endsWith("\\PROPRIETAIRE CREATEUR")
                 || name.endsWith("\\PROPRIÉTAIRE CRÉATEUR")
                 || name.contains("TRUSTEDINSTALLER");
+    }
+
+    private boolean samePrincipal(UserPrincipal left, UserPrincipal right) {
+        return left.equals(right) || normalizedPrincipalName(left).equals(normalizedPrincipalName(right));
+    }
+
+    private String normalizedPrincipalName(UserPrincipal principal) {
+        return principal.getName().trim().toUpperCase(Locale.ROOT).replace('/', '\\');
     }
 
     private boolean hardenAcl(Path path, boolean directory) throws IOException {
