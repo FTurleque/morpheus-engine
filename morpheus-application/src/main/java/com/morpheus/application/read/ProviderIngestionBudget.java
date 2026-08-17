@@ -102,26 +102,33 @@ public record ProviderIngestionBudget(
 
         private String read(Path relativePath, long itemMaximum, boolean evidence) throws IOException {
             String source = relativePath.toString();
-            budget.requireFiles(fileCount + 1, source);
+            budget.requireFiles(Math.addExact(fileCount, 1), source);
             long aggregateRemaining = budget.maxAggregateBytes - aggregateBytes;
             if (aggregateRemaining < 1) {
-                throw exceeded("aggregate bytes", source, aggregateBytes + 1, budget.maxAggregateBytes);
+                throw exceeded("aggregate bytes", source, Math.addExact(aggregateBytes, 1), budget.maxAggregateBytes);
             }
-            int readMaximum = (int) Math.min(Integer.MAX_VALUE, Math.min(itemMaximum, aggregateRemaining));
+            long evidenceRemaining = evidence ? budget.maxEvidenceBytes - evidenceBytes : Long.MAX_VALUE;
+            if (evidence && evidenceRemaining < 1) {
+                throw exceeded("evidence bytes", source, Math.addExact(evidenceBytes, 1), budget.maxEvidenceBytes);
+            }
+            long effectiveItemMaximum = Math.min(itemMaximum, evidenceRemaining);
+            int readMaximum = (int) Math.min(Integer.MAX_VALUE, Math.min(effectiveItemMaximum, aggregateRemaining));
             String text;
             try {
                 text = files.readUtf8(relativePath, readMaximum);
             } catch (IllegalArgumentException failure) {
                 if (failure.getMessage() != null
                         && failure.getMessage().contains("exceeds maximum input size")) {
-                    String metric = aggregateRemaining <= itemMaximum
-                            ? "aggregate bytes"
-                            : evidence ? "evidence bytes" : "document bytes";
-                    long maximum = switch (metric) {
-                        case "aggregate bytes" -> budget.maxAggregateBytes;
-                        case "evidence bytes" -> budget.maxEvidenceBytes;
-                        default -> budget.maxDocumentBytes;
-                    };
+                    if (aggregateRemaining <= effectiveItemMaximum) {
+                        throw exceeded("aggregate bytes", source, budget.maxAggregateBytes + 1, budget.maxAggregateBytes);
+                    }
+                    if (evidence && evidenceRemaining <= itemMaximum) {
+                        throw exceeded("evidence bytes", source, budget.maxEvidenceBytes + 1, budget.maxEvidenceBytes);
+                    }
+                    String metric = evidence && itemMaximum == budget.maxEvidenceBytes
+                            ? "evidence bytes"
+                            : "document bytes";
+                    long maximum = metric.equals("evidence bytes") ? budget.maxEvidenceBytes : budget.maxDocumentBytes;
                     throw exceeded(metric, source, maximum + 1, maximum);
                 }
                 throw failure;
@@ -129,10 +136,10 @@ public record ProviderIngestionBudget(
             long bytes = utf8Bytes(text);
             long lines = text.lines().count();
             budget.requireDocumentBytes(bytes, source);
-            budget.requireAggregateBytes(aggregateBytes + bytes, source);
-            budget.requireLines(lineCount + lines, source);
+            budget.requireAggregateBytes(Math.addExact(aggregateBytes, bytes), source);
+            budget.requireLines(Math.addExact(lineCount, lines), source);
             if (evidence) {
-                budget.requireEvidenceBytes(bytes, source);
+                budget.requireEvidenceBytes(Math.addExact(evidenceBytes, bytes), source);
             }
             fileCount++;
             aggregateBytes += bytes;
@@ -143,20 +150,21 @@ public record ProviderIngestionBudget(
 
         public void addBlocks(long count, String source) {
             if (count < 0) throw new IllegalArgumentException("block count must not be negative");
-            budget.requireBlocks(blockCount + count, source);
+            budget.requireBlocks(Math.addExact(blockCount, count), source);
             blockCount += count;
         }
 
         public void addEntities(long count, String source) {
             if (count < 0) throw new IllegalArgumentException("entity count must not be negative");
-            budget.requireEntities(entityCount + count, source);
+            budget.requireEntities(Math.addExact(entityCount, count), source);
             entityCount += count;
         }
 
         public void addEvidenceFragment(String fragment, String source) {
             long bytes = utf8Bytes(Objects.requireNonNull(fragment, "fragment"));
-            budget.requireEvidenceBytes(bytes, source);
-            evidenceBytes += bytes;
+            long nextEvidenceBytes = Math.addExact(evidenceBytes, bytes);
+            budget.requireEvidenceBytes(nextEvidenceBytes, source);
+            evidenceBytes = nextEvidenceBytes;
         }
 
         /** Checks a discovered batch before it is fully collected; does not reserve or mutate the session. */
