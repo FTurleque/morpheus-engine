@@ -15,6 +15,7 @@ import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.GroupPrincipal;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.UserPrincipal;
 import java.nio.file.attribute.UserPrincipalNotFoundException;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -52,7 +53,8 @@ class LocalWritePermissionHardenerTest {
                     Files.getPosixFilePermissions(file, LinkOption.NOFOLLOW_LINKS));
         } else {
             AclFileAttributeView acl = Files.getFileAttributeView(file, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-            assertTrue(acl != null && acl.getAcl().stream().allMatch(entry -> entry.principal().equals(Files.getOwner(file))));
+            UserPrincipal owner = Files.getOwner(file, LinkOption.NOFOLLOW_LINKS);
+            assertTrue(acl != null && acl.getAcl().stream().allMatch(entry -> entry.principal().equals(owner)));
         }
     }
 
