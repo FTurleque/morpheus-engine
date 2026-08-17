@@ -48,7 +48,7 @@ class ProviderPluginProcessIsolationTest {
         properties.setProperty("plugin.id", "blocking-plugin");
         properties.setProperty("provider.id", "blocking-provider");
         properties.setProperty("plugin.version", "1.0.0");
-        properties.setProperty("sdk.apiVersion", ProviderSdk.API_VERSION);
+        properties.setProperty("sdk.apiVersion", Integer.toString(ProviderSdk.API_VERSION));
         properties.setProperty("morpheus.minVersion", "1.0.0");
 
         StringWriter metadata = new StringWriter();
