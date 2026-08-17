@@ -1,9 +1,11 @@
 package com.morpheus.application.sync;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -26,15 +28,37 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
     }
 
     public static SourceFingerprint ofFile(Path path) throws IOException {
+        return ofFile(path, Long.MAX_VALUE);
+    }
+
+    /**
+     * Hashes one regular path without following a final symbolic link and refuses to consume more than
+     * {@code maxBytes}. The byte ceiling is enforced while reading, so a file that grows or is replaced after
+     * an earlier filesystem inspection cannot turn a bounded scan into an unbounded read.
+     */
+    public static SourceFingerprint ofFile(Path path, long maxBytes) throws IOException {
         Objects.requireNonNull(path, "path");
+        if (maxBytes < 0) {
+            throw new IllegalArgumentException("maxBytes must be non-negative");
+        }
         MessageDigest digest = digest();
-        try (InputStream input = Files.newInputStream(path)) {
-            byte[] buffer = new byte[16 * 1024];
+        long total = 0;
+        try (var channel = Files.newByteChannel(
+                path,
+                StandardOpenOption.READ,
+                LinkOption.NOFOLLOW_LINKS)) {
+            ByteBuffer buffer = ByteBuffer.allocate(16 * 1024);
             int read;
-            while ((read = input.read(buffer)) >= 0) {
-                if (read > 0) {
-                    digest.update(buffer, 0, read);
+            while ((read = channel.read(buffer)) >= 0) {
+                if (read == 0) {
+                    continue;
                 }
+                if (read > maxBytes - total) {
+                    throw new IOException("source file exceeded expected size while fingerprint was being computed");
+                }
+                digest.update(buffer.array(), 0, read);
+                total += read;
+                buffer.clear();
             }
         }
         return new SourceFingerprint(HexFormat.of().formatHex(digest.digest()));
