@@ -23,16 +23,19 @@ class RemoteServerArchitectureTest {
     }
 
     @Test
-    void remotePublicContractsRemainFailClosed() throws IOException {
-        Path root = repositoryRoot();
-        String manifest = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
-        String openApi = Files.readString(root.resolve("docs/openapi/morpheus-v1-remote-m26.yaml"));
+    void remoteSurfaceManifestKeepsAdministrativeAndRemoteBoundariesExplicit() throws IOException {
+        String manifest = Files.readString(repositoryRoot().resolve("contracts/public-surfaces.tsv"));
 
         assertTrue(manifest.contains("server.status\tREAD\tEXPLICITLY_REMOTE_ONLY\tEXPLICITLY_NOT_EXPOSED\tGET /api/v1/server/status"));
         assertTrue(manifest.contains("server.identity.revoke\tWRITE\tserver identity revoke\tEXPLICITLY_NOT_EXPOSED\tEXPLICITLY_LOCAL_ONLY"));
         assertTrue(manifest.contains("server.backup.create\tWRITE\tserver backup create\tEXPLICITLY_NOT_EXPOSED\tPOST /api/v1/server/backups"));
         assertTrue(manifest.contains("server.restore\tWRITE\tserver restore --confirm\tEXPLICITLY_NOT_EXPOSED\tEXPLICITLY_OFFLINE_ONLY"));
         assertTrue(manifest.contains("provider.plugins.probe\tWRITE\tprovider-plugins probe\tEXPLICITLY_NOT_EXPOSED\tPOST /api/v1/provider-plugins/probe"));
+    }
+
+    @Test
+    void remoteOpenApiRequiresBearerAuthenticationAndPluginIntegrityPin() throws IOException {
+        String openApi = Files.readString(repositoryRoot().resolve("docs/openapi/morpheus-v1-remote-m26.yaml"));
 
         assertTrue(openApi.contains("scheme: bearer"));
         assertTrue(openApi.contains("/server/status:"));
@@ -40,6 +43,12 @@ class RemoteServerArchitectureTest {
         assertTrue(openApi.contains("/provider-plugins/probe:"));
         assertTrue(openApi.contains("name: sha256"));
         assertTrue(openApi.contains("required: true"));
+    }
+
+    @Test
+    void remoteOpenApiKeepsOfflineRestorePrivateAndPublicLimitsBounded() throws IOException {
+        String openApi = Files.readString(repositoryRoot().resolve("docs/openapi/morpheus-v1-remote-m26.yaml"));
+
         assertFalse(openApi.contains("/server/restore"));
         assertTrue(openApi.contains("maximum: 512"));
         assertTrue(openApi.contains("maximum: 15"));
