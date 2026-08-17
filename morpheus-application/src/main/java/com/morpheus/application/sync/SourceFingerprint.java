@@ -40,8 +40,8 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
     /**
      * Hashes one regular path without following a final symbolic link and refuses to consume more than
      * {@code maxBytes}. The byte ceiling is enforced while reading. The path identity and metadata are also
-     * observed before and after the descriptor-backed read; when the provider exposes {@link BasicFileAttributes#fileKey()},
-     * that opaque value participates in the identity check without making any Unix/inode assumption.
+     * observed before and after the descriptor-backed read. Provider file keys are compared as opaque values
+     * when available; creation time supplies an additional portable replacement signal when file keys are absent.
      */
     public static SourceFingerprint ofFile(Path path, long maxBytes) throws IOException {
         return ofFile(path, maxBytes, ReadObserver.NONE);
@@ -118,7 +118,8 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
             return false;
         }
         if (before.size() != after.size()
-                || !before.lastModifiedTime().equals(after.lastModifiedTime())) {
+                || !before.lastModifiedTime().equals(after.lastModifiedTime())
+                || !before.creationTime().equals(after.creationTime())) {
             return false;
         }
 

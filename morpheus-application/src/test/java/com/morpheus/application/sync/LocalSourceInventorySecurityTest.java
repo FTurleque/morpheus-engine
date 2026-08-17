@@ -1,7 +1,6 @@
 package com.morpheus.application.sync;
 
 import com.morpheus.domain.project.ProjectSpecificationId;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -9,8 +8,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
@@ -87,8 +88,7 @@ class LocalSourceInventorySecurityTest {
         Path replacement = tempDir.resolve("replacement.md");
         Files.writeString(source, "AAAA", StandardCharsets.UTF_8);
         Files.writeString(replacement, "BBBB", StandardCharsets.UTF_8);
-        alignMtime(source, replacement);
-        requireDistinctFileKeys(source, replacement);
+        alignReplacementMetadata(source, replacement);
 
         LocalSourceInventoryScanner scanner = mutationScanner((path, maxBytes) -> {
             replaceAtomically(replacement, path);
@@ -107,8 +107,7 @@ class LocalSourceInventorySecurityTest {
         Path replacement = tempDir.resolve("recreated.md");
         Files.writeString(source, "1111", StandardCharsets.UTF_8);
         Files.writeString(replacement, "2222", StandardCharsets.UTF_8);
-        alignMtime(source, replacement);
-        requireDistinctFileKeys(source, replacement);
+        alignReplacementMetadata(source, replacement);
 
         LocalSourceInventoryScanner scanner = mutationScanner((path, maxBytes) -> {
             Files.delete(path);
@@ -251,20 +250,36 @@ class LocalSourceInventorySecurityTest {
         assertTrue(failure.message().contains(messageFragment), failure::message);
     }
 
-    private void alignMtime(Path first, Path second) throws IOException {
-        FileTime common = FileTime.fromMillis(1_700_000_000_000L);
-        Files.setLastModifiedTime(first, common);
-        Files.setLastModifiedTime(second, common);
-        assertEquals(Files.getLastModifiedTime(first), Files.getLastModifiedTime(second));
-    }
+    private void alignReplacementMetadata(Path first, Path second) throws IOException {
+        FileTime commonMtime = FileTime.fromMillis(1_700_000_000_000L);
+        Files.setLastModifiedTime(first, commonMtime);
+        Files.setLastModifiedTime(second, commonMtime);
 
-    private void requireDistinctFileKeys(Path first, Path second) throws IOException {
         BasicFileAttributes firstAttributes = SourceFingerprint.readAttributes(first);
         BasicFileAttributes secondAttributes = SourceFingerprint.readAttributes(second);
-        Assumptions.assumeTrue(
-                firstAttributes.fileKey() != null && secondAttributes.fileKey() != null,
-                "filesystem provider does not expose stable fileKey values");
-        assertNotEquals(firstAttributes.fileKey(), secondAttributes.fileKey());
+        if (firstAttributes.fileKey() == null && secondAttributes.fileKey() == null) {
+            setCreationTime(first, FileTime.fromMillis(1_600_000_000_000L), commonMtime);
+            setCreationTime(second, FileTime.fromMillis(1_650_000_000_000L), commonMtime);
+            firstAttributes = SourceFingerprint.readAttributes(first);
+            secondAttributes = SourceFingerprint.readAttributes(second);
+        }
+
+        assertEquals(firstAttributes.size(), secondAttributes.size());
+        assertEquals(firstAttributes.lastModifiedTime(), secondAttributes.lastModifiedTime());
+        if (firstAttributes.fileKey() == null && secondAttributes.fileKey() == null) {
+            assertNotEquals(
+                    firstAttributes.creationTime(),
+                    secondAttributes.creationTime(),
+                    "provider without fileKey must expose a distinguishable creationTime fallback");
+        } else {
+            assertNotEquals(firstAttributes.fileKey(), secondAttributes.fileKey());
+        }
+    }
+
+    private void setCreationTime(Path path, FileTime creationTime, FileTime lastModifiedTime) throws IOException {
+        BasicFileAttributeView view = Files.getFileAttributeView(
+                path, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        view.setTimes(lastModifiedTime, null, creationTime);
     }
 
     private void replaceAtomically(Path replacement, Path target) throws IOException {
