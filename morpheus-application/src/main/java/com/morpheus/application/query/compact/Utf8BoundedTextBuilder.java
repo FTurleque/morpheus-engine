@@ -97,7 +97,8 @@ public final class Utf8BoundedTextBuilder {
         return bytes;
     }
 
-    public static final class LimitExceededException extends IllegalStateException {
+    /** Output-budget failures are transport/resource failures, not knowledge-state conflicts. */
+    public static final class LimitExceededException extends RuntimeException {
         private LimitExceededException(int maximumBytes) {
             super("UTF-8 output exceeds " + maximumBytes + " bytes");
         }

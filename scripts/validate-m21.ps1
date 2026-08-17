@@ -77,10 +77,12 @@ function Wait-PackagedApiVersion([System.Diagnostics.Process]$Process, [int]$Por
 
 function Assert-PackagedApiVersion([string]$Launcher) {
     $port = Get-FreeLoopbackPort
-    $apiData = Join-Path $outputRoot 'api-data'
+    # The portable smoke must exercise the same secure storage contract as a real Windows user. GitHub's checkout
+    # tree can intentionally inherit broad build ACLs, so using it as MORPHEUS data storage would now (correctly)
+    # fail closed. Keep logs/proofs in validation-output, but place sensitive API data under the user's temp root.
+    $apiData = Join-Path ([IO.Path]::GetTempPath()) ('morpheus-m21-api-' + [Guid]::NewGuid().ToString('N'))
     $stdout = Join-Path $outputRoot 'api.stdout.log'
     $stderr = Join-Path $outputRoot 'api.stderr.log'
-    New-Item -ItemType Directory -Force -Path $apiData | Out-Null
     Remove-Item $stdout, $stderr -Force -ErrorAction SilentlyContinue
     $process = Start-Process -FilePath $Launcher `
         -ArgumentList @('--data-dir', $apiData, 'api', '--host', '127.0.0.1', '--port', "$port") `
@@ -98,6 +100,7 @@ function Assert-PackagedApiVersion([string]$Launcher) {
         } catch {
             Write-Verbose "Packaged API process wait failed during cleanup: $($_.Exception.Message)"
         }
+        Remove-Item -LiteralPath $apiData -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 

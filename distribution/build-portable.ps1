@@ -79,10 +79,12 @@ function Test-PackagedApiOperability {
     param([Parameter(Mandatory = $true)][string]$Launcher,
           [Parameter(Mandatory = $true)][string]$WorkDirectory)
     $port = Get-FreeLoopbackPort
-    $apiData = Join-Path $WorkDirectory "api-smoke-data"
+    # Keep proof logs in the build work directory, but let MORPHEUS itself create and harden a fresh data directory
+    # under the current user's temp root. Pre-creating it from PowerShell would preserve inherited ACLs and would not
+    # exercise the real owner-controlled storage creation path.
+    $apiData = Join-Path ([IO.Path]::GetTempPath()) ('morpheus-portable-api-' + [Guid]::NewGuid().ToString('N'))
     $stdout = Join-Path $WorkDirectory "api-smoke.stdout.log"
     $stderr = Join-Path $WorkDirectory "api-smoke.stderr.log"
-    New-Item $apiData -ItemType Directory -Force | Out-Null
     Remove-Item $stdout, $stderr -Force -ErrorAction SilentlyContinue
     $process = Start-Process -FilePath $Launcher `
         -ArgumentList @("--data-dir", $apiData, "api", "--host", "127.0.0.1", "--port", "$port") `
@@ -114,6 +116,7 @@ function Test-PackagedApiOperability {
             Write-Verbose "Packaged API process wait failed during cleanup: $($_.Exception.Message)"
         }
         Start-Sleep -Milliseconds 300
+        Remove-Item -LiteralPath $apiData -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
