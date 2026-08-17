@@ -15,7 +15,12 @@ import java.util.TreeMap;
 public final class CanonicalJsonSerializer {
 
     public String toJson(Object value) {
-        StringBuilder out = new StringBuilder();
+        return toJson(value, Integer.MAX_VALUE);
+    }
+
+    /** Serializes canonical JSON while refusing to exceed the supplied UTF-8 byte ceiling during rendering. */
+    public String toJson(Object value, int maximumUtf8Bytes) {
+        Utf8BoundedTextBuilder out = new Utf8BoundedTextBuilder(maximumUtf8Bytes);
         append(out, value);
         return out.toString();
     }
@@ -24,7 +29,7 @@ public final class CanonicalJsonSerializer {
         return toJson(value).getBytes(StandardCharsets.UTF_8);
     }
 
-    private void append(StringBuilder out, Object value) {
+    private void append(Utf8BoundedTextBuilder out, Object value) {
         if (value == null) {
             out.append("null");
             return;
@@ -76,7 +81,7 @@ public final class CanonicalJsonSerializer {
         throw new IllegalArgumentException("unsupported canonical JSON type: " + value.getClass().getName());
     }
 
-    private void appendNumber(StringBuilder out, Number number) {
+    private void appendNumber(Utf8BoundedTextBuilder out, Number number) {
         Objects.requireNonNull(number, "number");
         if (number instanceof Double value && !Double.isFinite(value)) {
             throw new IllegalArgumentException("non-finite double is not valid JSON");
@@ -87,7 +92,7 @@ public final class CanonicalJsonSerializer {
         out.append(number);
     }
 
-    private void appendMap(StringBuilder out, Map<?, ?> map) {
+    private void appendMap(Utf8BoundedTextBuilder out, Map<?, ?> map) {
         TreeMap<String, Object> entries = new TreeMap<>();
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             if (!(entry.getKey() instanceof String key)) {
@@ -110,7 +115,7 @@ public final class CanonicalJsonSerializer {
         out.append('}');
     }
 
-    private void appendCollection(StringBuilder out, Collection<?> collection) {
+    private void appendCollection(Utf8BoundedTextBuilder out, Collection<?> collection) {
         out.append('[');
         boolean first = true;
         for (Object item : collection) {
@@ -123,7 +128,7 @@ public final class CanonicalJsonSerializer {
         out.append(']');
     }
 
-    private void appendArray(StringBuilder out, Object array) {
+    private void appendArray(Utf8BoundedTextBuilder out, Object array) {
         out.append('[');
         int length = Array.getLength(array);
         for (int index = 0; index < length; index++) {
@@ -135,7 +140,7 @@ public final class CanonicalJsonSerializer {
         out.append(']');
     }
 
-    private void appendRecord(StringBuilder out, Object record) {
+    private void appendRecord(Utf8BoundedTextBuilder out, Object record) {
         out.append('{');
         RecordComponent[] components = record.getClass().getRecordComponents();
         for (int index = 0; index < components.length; index++) {
@@ -160,7 +165,7 @@ public final class CanonicalJsonSerializer {
         out.append('}');
     }
 
-    private void appendString(StringBuilder out, String value) {
+    private void appendString(Utf8BoundedTextBuilder out, String value) {
         out.append('"');
         for (int index = 0; index < value.length(); index++) {
             char character = value.charAt(index);
@@ -184,7 +189,7 @@ public final class CanonicalJsonSerializer {
         out.append('"');
     }
 
-    private void appendUnicodeEscape(StringBuilder out, char character) {
+    private void appendUnicodeEscape(Utf8BoundedTextBuilder out, char character) {
         out.append("\\u");
         String hex = Integer.toHexString(character).toUpperCase(java.util.Locale.ROOT);
         out.append("0".repeat(4 - hex.length()));

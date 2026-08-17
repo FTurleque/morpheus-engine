@@ -23,6 +23,12 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Refuse direct develop promotion
+        if: github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'develop'
+        run: |
+          echo "::error::Do not merge develop directly into main while delete_branch_on_merge is enabled. Create a temporary promotion branch from develop instead."
+          exit 1
+
       - name: Checkout exact PR head
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
