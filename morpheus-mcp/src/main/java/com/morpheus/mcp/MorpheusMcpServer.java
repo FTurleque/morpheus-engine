@@ -138,11 +138,12 @@ public final class MorpheusMcpServer {
         try {
             String result = service.execute(toolName, arguments == null ? Map.of() : arguments);
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(result)))
+                    .addTextContent(result)
+                    .isError(false)
                     .build();
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
             return McpSchema.CallToolResult.builder()
-                    .content(List.of(new McpSchema.TextContent(safeMessage(expected))))
+                    .addTextContent(safeMessage(expected))
                     .isError(true)
                     .build();
         }
