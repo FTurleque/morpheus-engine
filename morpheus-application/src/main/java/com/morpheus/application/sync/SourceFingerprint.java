@@ -16,7 +16,7 @@ import java.util.Objects;
 /** Content fingerprint. M7 intentionally standardizes on SHA-256 bytes, never mtime-only fingerprints. */
 public record SourceFingerprint(String sha256) implements Comparable<SourceFingerprint> {
     private static final String CHANGED_IDENTITY_MESSAGE =
-            "source changed identity, metadata, or content while fingerprint was being computed";
+            "source changed identity or metadata (including content) while fingerprint was being computed";
     private static final String CHANGED_SIZE_MESSAGE =
             "source changed size while fingerprint was being computed";
 
@@ -39,10 +39,10 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
 
     /**
      * Hashes one regular path without following a final symbolic link and refuses to consume more than
-     * {@code maxBytes}. The byte ceiling is enforced while reading. The first descriptor is opened before
-     * the authoritative path attributes are captured, then the accepted path is re-read after the first
-     * descriptor closes. This makes the content digest itself a portable replacement witness in addition to
-     * opaque provider file keys and basic metadata.
+     * {@code maxBytes}. The byte ceiling is enforced while reading. A non-following preflight preserves the
+     * regular-file contract, then the first descriptor is opened before the authoritative path attributes are
+     * captured. The accepted path is re-read after the descriptor closes, making the content digest itself a
+     * portable replacement witness in addition to opaque provider file keys and basic metadata.
      */
     public static SourceFingerprint ofFile(Path path, long maxBytes) throws IOException {
         return ofFile(path, maxBytes, ReadObserver.NONE);
@@ -54,6 +54,8 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
         if (maxBytes < 0) {
             throw new IllegalArgumentException("maxBytes must be non-negative");
         }
+
+        requireRegularNonSymbolic(readAttributes(path));
 
         MessageDigest contentDigest = digest();
         BasicFileAttributes before;

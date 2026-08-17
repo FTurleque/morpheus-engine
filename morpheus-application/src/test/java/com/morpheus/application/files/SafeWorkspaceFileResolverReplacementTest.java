@@ -42,6 +42,7 @@ class SafeWorkspaceFileResolverReplacementTest {
                 IllegalArgumentException.class,
                 () -> resolver.readUtf8(Path.of("spec.md")));
 
-        assertTrue(failure.getMessage().contains("identity, metadata, or content"), failure::getMessage);
+        assertTrue(failure.getMessage().contains("identity or metadata"), failure::getMessage);
+        assertTrue(failure.getMessage().contains("content"), failure::getMessage);
     }
 }

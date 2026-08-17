@@ -173,7 +173,7 @@ public final class SafeWorkspaceFileResolver {
     }
 
     private IllegalArgumentException changedDuringRead(Path relativePath) {
-        return new IllegalArgumentException("workspace file changed identity, metadata, or content during read: "
+        return new IllegalArgumentException("workspace file changed identity or metadata (including content) during read: "
                 + relativePath);
     }
 

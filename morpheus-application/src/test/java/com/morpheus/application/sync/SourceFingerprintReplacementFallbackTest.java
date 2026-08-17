@@ -41,6 +41,7 @@ class SourceFingerprintReplacementFallbackTest {
                     }
                 }));
 
-        assertTrue(failure.getMessage().contains("identity, metadata, or content"), failure::getMessage);
+        assertTrue(failure.getMessage().contains("identity or metadata"), failure::getMessage);
+        assertTrue(failure.getMessage().contains("content"), failure::getMessage);
     }
 }
