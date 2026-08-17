@@ -10,6 +10,7 @@ import java.nio.file.attribute.AclEntryFlag;
 import java.nio.file.attribute.AclEntryPermission;
 import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.GroupPrincipal;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
@@ -262,7 +263,9 @@ public final class LocalWritePermissionHardener {
             UserPrincipal principal,
             UserPrincipal owner,
             UserPrincipal sensitiveOwner) {
-        if (samePrincipal(principal, owner) || samePrincipal(principal, sensitiveOwner)) {
+        if (samePrincipal(principal, owner)
+                || samePrincipal(principal, sensitiveOwner)
+                || isCurrentRuntimeUser(principal)) {
             return true;
         }
         String name = normalizedPrincipalName(principal);
@@ -274,6 +277,21 @@ public final class LocalWritePermissionHardener {
                 || name.endsWith("\\PROPRIETAIRE CREATEUR")
                 || name.endsWith("\\PROPRIÉTAIRE CRÉATEUR")
                 || name.contains("TRUSTEDINSTALLER");
+    }
+
+    private boolean isCurrentRuntimeUser(UserPrincipal principal) {
+        if (principal instanceof GroupPrincipal) {
+            return false;
+        }
+        String runtimeUser = System.getProperty("user.name", "")
+                .trim()
+                .toUpperCase(Locale.ROOT)
+                .replace('/', '\\');
+        if (runtimeUser.isEmpty()) {
+            return false;
+        }
+        String principalName = normalizedPrincipalName(principal);
+        return principalName.equals(runtimeUser) || principalName.endsWith("\\" + runtimeUser);
     }
 
     private boolean samePrincipal(UserPrincipal left, UserPrincipal right) {
