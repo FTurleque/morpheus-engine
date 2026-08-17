@@ -10,7 +10,10 @@ import com.morpheus.domain.provider.ProviderProbeResult;
 import com.morpheus.domain.provider.ProviderProbeStatus;
 import com.morpheus.domain.source.SourceLocator;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +29,10 @@ import java.util.Properties;
 
 /** Minimal deterministic IPC codec for an isolated provider probe subprocess. */
 final class ProviderProbeResultCodec {
+    static final int MAX_RESULT_BYTES = 1024 * 1024;
+    static final int MAX_DIAGNOSTICS = 1024;
+    static final int MAX_DETAILS_PER_DIAGNOSTIC = 256;
+
     private ProviderProbeResultCodec() {
     }
 
@@ -74,8 +81,9 @@ final class ProviderProbeResultCodec {
     }
 
     static ProviderProbeResult read(Path path) throws IOException {
+        byte[] payload = readBounded(path);
         Properties properties = new Properties();
-        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+        try (Reader reader = new InputStreamReader(new ByteArrayInputStream(payload), StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
 
@@ -92,11 +100,14 @@ final class ProviderProbeResultCodec {
                         required(properties, "source.value")))
                 : Optional.empty();
 
-        int diagnosticCount = Integer.parseInt(properties.getProperty("diagnostics.count", "0"));
+        int diagnosticCount = boundedCount(properties, "diagnostics.count", MAX_DIAGNOSTICS);
         List<Diagnostic> diagnostics = new ArrayList<>(diagnosticCount);
         for (int index = 0; index < diagnosticCount; index++) {
             String prefix = "diagnostic." + index + ".";
-            int detailCount = Integer.parseInt(properties.getProperty(prefix + "details.count", "0"));
+            int detailCount = boundedCount(
+                    properties,
+                    prefix + "details.count",
+                    MAX_DETAILS_PER_DIAGNOSTIC);
             Map<String, String> details = new LinkedHashMap<>();
             for (int detailIndex = 0; detailIndex < detailCount; detailIndex++) {
                 details.put(
@@ -121,6 +132,32 @@ final class ProviderProbeResultCodec {
                 capabilities,
                 Boolean.parseBoolean(required(properties, "remote")),
                 diagnostics);
+    }
+
+    private static byte[] readBounded(Path path) throws IOException {
+        try (InputStream input = Files.newInputStream(path)) {
+            byte[] payload = input.readNBytes(MAX_RESULT_BYTES + 1);
+            if (payload.length > MAX_RESULT_BYTES) {
+                throw new IOException(
+                        "isolated provider probe result exceeds " + MAX_RESULT_BYTES + " bytes");
+            }
+            return payload;
+        }
+    }
+
+    private static int boundedCount(Properties properties, String key, int maximum) throws IOException {
+        String raw = properties.getProperty(key, "0");
+        final int count;
+        try {
+            count = Integer.parseInt(raw);
+        } catch (NumberFormatException malformed) {
+            throw new IOException("isolated provider probe result has invalid count for " + key, malformed);
+        }
+        if (count < 0 || count > maximum) {
+            throw new IOException(
+                    "isolated provider probe result count for " + key + " must be between 0 and " + maximum);
+        }
+        return count;
     }
 
     private static void putOptional(Properties properties, String key, Optional<String> value) {
