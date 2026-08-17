@@ -173,7 +173,7 @@ public final class LocalSourceInventoryScanner {
                         try {
                             SourcePath sourcePath = new SourcePath(
                                     workspace.relativize(file.toAbsolutePath().normalize()).toString());
-                            SourceFingerprint fingerprint = SourceFingerprint.ofFile(file);
+                            SourceFingerprint fingerprint = SourceFingerprint.ofFile(file, attrs.size());
                             BasicFileAttributes after = Files.readAttributes(
                                     file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                             if (!after.isRegularFile()
