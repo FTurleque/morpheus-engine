@@ -87,9 +87,11 @@ public final class ProjectSnapshotImportService {
                 sourceRevision,
                 publishedAt);
 
-        requirementStore.putSpecificationVersion(version);
-        lifecycle.registerBuilding(candidate);
         try {
+            // The candidate is the durable recovery anchor. Persist it before the version row so a failed
+            // registration can never leave a specification version that is not bound to any snapshot.
+            lifecycle.registerBuilding(candidate);
+            requirementStore.putSpecificationVersion(version);
             requirementStore.bindSnapshotVersion(new SnapshotSpecificationVersionBinding(candidate.id(), version.id()));
 
             List<RequirementVersionRecord> requirements = content.requirements().stream()
