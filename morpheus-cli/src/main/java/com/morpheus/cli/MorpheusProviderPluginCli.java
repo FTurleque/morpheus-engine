@@ -72,9 +72,11 @@ final class MorpheusProviderPluginCli {
         Path directory = Path.of(parsed.required("directory"));
         String plugin = parsed.required("plugin");
         Path workspace = Path.of(parsed.required("workspace"));
-        ProviderPluginProbeOutcome outcome = parsed.optional("sha256")
-                .map(pin -> service.probe(directory, plugin, workspace, pin))
-                .orElseGet(() -> service.probe(directory, plugin, workspace));
+        ProviderPluginProbeOutcome outcome = service.probe(
+                directory,
+                plugin,
+                workspace,
+                parsed.required("sha256"));
         if (parsed.json()) {
             out.println(json.toJson(outcome));
         } else {
@@ -135,8 +137,9 @@ final class MorpheusProviderPluginCli {
         if (!options.containsKey("directory")) {
             throw new IllegalArgumentException(action + " requires --directory PATH");
         }
-        if (action.equals("probe") && (!options.containsKey("plugin") || !options.containsKey("workspace"))) {
-            throw new IllegalArgumentException("probe requires --plugin ID and --workspace PATH");
+        if (action.equals("probe")
+                && (!options.containsKey("plugin") || !options.containsKey("workspace") || !options.containsKey("sha256"))) {
+            throw new IllegalArgumentException("probe requires --plugin ID, --workspace PATH and --sha256 HEX");
         }
         if (action.equals("discover")
                 && (options.containsKey("plugin") || options.containsKey("workspace") || options.containsKey("sha256"))) {
@@ -180,10 +183,6 @@ final class MorpheusProviderPluginCli {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
             return value;
-        }
-
-        java.util.Optional<String> optional(String name) {
-            return java.util.Optional.ofNullable(options.get(name));
         }
     }
 }
