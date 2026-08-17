@@ -138,8 +138,11 @@ final class MorpheusProviderPluginCli {
             throw new IllegalArgumentException(action + " requires --directory PATH");
         }
         if (action.equals("probe")
-                && (!options.containsKey("plugin") || !options.containsKey("workspace") || !options.containsKey("sha256"))) {
-            throw new IllegalArgumentException("probe requires --plugin ID, --workspace PATH and --sha256 HEX");
+                && (!options.containsKey("plugin") || !options.containsKey("workspace"))) {
+            throw new IllegalArgumentException("probe requires --plugin ID and --workspace PATH");
+        }
+        if (action.equals("probe") && !options.containsKey("sha256")) {
+            throw new IllegalArgumentException("probe requires --sha256 HEX");
         }
         if (action.equals("discover")
                 && (options.containsKey("plugin") || options.containsKey("workspace") || options.containsKey("sha256"))) {
