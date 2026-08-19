@@ -145,10 +145,10 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
     private String call(String toolName, Map<String, Object> arguments) {
         try {
             var result = client.callTool(CallToolRequest.builder(toolName).arguments(arguments).build());
-            if (Boolean.TRUE.equals(result.isError())) {
-                throw new MinosIntegrationException("MINOS tool failed: " + toolName + ": " + text(result.content()));
-            }
             String content = requireBoundedResponse(text(result.content()), toolName);
+            if (Boolean.TRUE.equals(result.isError())) {
+                throw new MinosIntegrationException("MINOS tool failed: " + toolName + ": " + content);
+            }
             if (content.isBlank()) {
                 throw new MinosIntegrationException("MINOS tool returned an empty payload: " + toolName);
             }
