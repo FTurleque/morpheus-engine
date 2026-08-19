@@ -11,20 +11,12 @@ from collections import defaultdict
 from pathlib import Path, PurePosixPath
 
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
-FULL_SHA = re.compile(r"^[0-9a-fA-F]{40}$")
 JACOCO_SUFFIX = PurePosixPath("target/site/jacoco/jacoco.xml")
 EVIDENCE_OUTPUT = Path("validation-output/m21/diff-coverage.txt")
 
 
-def commit_sha(value: str) -> str:
-    if not FULL_SHA.fullmatch(value):
-        raise argparse.ArgumentTypeError("--base must be a full 40-character hexadecimal commit SHA")
-    return value.lower()
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base", required=True, type=commit_sha, help="Base commit SHA for evidence")
     parser.add_argument("--minimum", type=float, default=0.80, help="Minimum changed-line coverage ratio")
     args = parser.parse_args()
     if not 0.0 <= args.minimum <= 1.0:
@@ -186,7 +178,7 @@ def evaluate(
 
 
 def evidence_lines(
-    args: argparse.Namespace,
+    minimum: float,
     changed: dict[str, set[int]],
     covered: int,
     executable: int,
@@ -194,12 +186,12 @@ def evidence_lines(
     details: list[str],
 ) -> list[str]:
     return [
-        f"base={args.base}",
+        "diff_source=stdin",
         f"changed_java_files={len(changed)}",
         f"covered_executable_changed_lines={covered}",
         f"executable_changed_lines={executable}",
         f"coverage={ratio:.4f}",
-        f"minimum={args.minimum:.4f}",
+        f"minimum={minimum:.4f}",
         *details,
     ]
 
@@ -230,7 +222,7 @@ def main() -> int:
 
     covered, executable, details = evaluate(changed, jacoco)
     ratio = 1.0 if executable == 0 else covered / executable
-    lines = evidence_lines(args, changed, covered, executable, ratio, details)
+    lines = evidence_lines(args.minimum, changed, covered, executable, ratio, details)
     write_evidence(lines)
     print("\n".join(lines))
     return gate_result(ratio, args.minimum, details)
