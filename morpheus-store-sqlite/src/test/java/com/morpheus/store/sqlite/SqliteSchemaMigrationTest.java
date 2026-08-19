@@ -36,7 +36,7 @@ class SqliteSchemaMigrationTest {
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(15, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(16, new SqliteSchemaManager().currentVersion(connection));
             List<String> expectedTables = List.of(
                     "schema_migrations",
                     "projects",
@@ -91,6 +91,7 @@ class SqliteSchemaMigrationTest {
             assertTrue(indexExists(connection, "uq_projects_root"));
             assertTrue(indexExists(connection, "idx_entity_identity_bindings_domain_identity"));
             assertTrue(indexExists(connection, "uq_requirement_versions_current_snapshot_identity"));
+            assertTrue(indexExists(connection, "uq_specification_versions_project_sequence"));
             assertTrue(indexExists(connection, "idx_traceability_links_source"));
             assertTrue(indexExists(connection, "idx_traceability_links_target"));
             assertTrue(indexExists(connection, "idx_snapshot_traceability_links_snapshot"));
@@ -133,7 +134,7 @@ class SqliteSchemaMigrationTest {
     }
 
     @Test
-    void migrationReplayIsIdempotentAndLedgerContainsFifteenImmutableEntries() throws Exception {
+    void migrationReplayIsIdempotentAndLedgerContainsSixteenImmutableEntries() throws Exception {
         Path database = tempDir.resolve("replay.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // First application.
@@ -147,9 +148,47 @@ class SqliteSchemaMigrationTest {
              ResultSet result = statement.executeQuery(
                      "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum FROM schema_migrations")) {
             assertTrue(result.next());
-            assertEquals(15, result.getInt("count"));
+            assertEquals(16, result.getInt("count"));
             assertEquals(64, result.getInt("min_checksum"));
             assertEquals(64, result.getInt("max_checksum"));
+        }
+    }
+
+    @Test
+    void migrationSixteenRepairsHistoricalDuplicateSequencesBeforeAddingUniqueness() throws Exception {
+        Path database = tempDir.resolve("duplicate-sequences.db");
+        try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
+            // Build the current schema so the fixture can downgrade only migration 16.
+        }
+
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+             var statement = connection.createStatement()) {
+            statement.execute("DROP INDEX uq_specification_versions_project_sequence");
+            statement.execute("DELETE FROM schema_migrations WHERE version = 16");
+            statement.execute("INSERT INTO projects(id, root_scheme, root_value) VALUES ('project-seq', 'file', 'fixture')");
+            statement.execute("""
+                    INSERT INTO specification_versions(
+                        id, project_id, sequence, provider_version, source_revision, created_at, predecessor_id)
+                    VALUES
+                        ('version-a', 'project-seq', 1, NULL, 'a', '2026-08-19T10:00:00Z', NULL),
+                        ('version-b', 'project-seq', 1, NULL, 'b', '2026-08-19T10:00:01Z', NULL),
+                        ('version-c', 'project-seq', 2, NULL, 'c', '2026-08-19T10:00:02Z', NULL)
+                    """);
+        }
+
+        try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
+            // Reopen applies V016 and repairs the duplicate sequence before adding the unique index.
+        }
+
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+             var statement = connection.createStatement();
+             ResultSet result = statement.executeQuery(
+                     "SELECT sequence FROM specification_versions WHERE project_id = 'project-seq' ORDER BY sequence")) {
+            List<Long> sequences = new ArrayList<>();
+            while (result.next()) sequences.add(result.getLong(1));
+            assertEquals(List.of(1L, 2L, 3L), sequences);
+            assertTrue(indexExists(connection, "uq_specification_versions_project_sequence"));
+            assertEquals(16, new SqliteSchemaManager().currentVersion(connection));
         }
     }
 
