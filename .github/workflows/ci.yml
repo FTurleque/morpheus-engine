@@ -48,6 +48,17 @@ jobs:
         shell: bash
         run: bash ./scripts/validate-m21.sh 1.2.1
 
+      - name: Enforce changed-line coverage on Linux PRs
+        if: runner.os == 'Linux' && github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: >-
+          python3 scripts/check-diff-coverage.py
+          --base "$BASE_SHA"
+          --minimum 0.80
+          --output validation-output/m21/diff-coverage.txt
+
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
         shell: cmd
@@ -66,5 +77,6 @@ jobs:
             morpheus-architecture-tests/target/m21-coverage-summary.txt
             target/m21-supply-chain/**
             validation-output/m21/validation-summary.txt
+            validation-output/m21/diff-coverage.txt
             validation-output/m21/api.stdout.log
             validation-output/m21/api.stderr.log
