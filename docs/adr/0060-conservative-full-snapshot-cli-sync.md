@@ -7,14 +7,15 @@
 
 ## Précision de politique — 19 août 2026
 
-Cette ADR constitue la politique explicite annoncée par ADR-0031 pour le chemin officiel de full rebuild. `ProjectSnapshotImportService.publishFull()` alloue une nouvelle `SpecificationVersion` à **chaque tentative durable de publication complète**, même si une autre orchestration pourrait techniquement réutiliser une version existante.
+Cette ADR constitue la politique explicite annoncée par ADR-0031 pour le chemin officiel de full rebuild. `ProjectSnapshotImportService.publishFull()` alloue une nouvelle `SpecificationVersion` à **chaque tentative durable de publication complète qui atteint la persistance de version**, même si une autre orchestration pourrait techniquement réutiliser une version existante.
 
 Les invariants de récupération sont désormais :
 
 ```text
+BUILDING candidate est la première ancre durable
 sequence(project) est unique pour toute SpecificationVersion non nulle
 next sequence = max(sequence de toutes les tentatives durables) + 1
-FAILED candidate conserve sa SpecificationVersion et consomme sa sequence
+FAILED candidate ayant une SpecificationVersion conserve et consomme sa sequence
 retry ne réutilise jamais la sequence du FAILED
 predecessor du retry = version du snapshot précédemment ACTIVE
 ```
@@ -38,14 +39,14 @@ ProjectSnapshotImportResult
 
 Le service reçoit un `NormalizedProjectContent` complet et publie un nouveau snapshot par full rebuild conservateur.
 
-Séquence :
+Séquence durable :
 
 ```text
 register project
 resolve predecessor ACTIVE/version
+register BUILDING KnowledgeSnapshot
 allocate unique durable SpecificationVersion sequence
-create SpecificationVersion
-create BUILDING KnowledgeSnapshot
+create/persist SpecificationVersion
 bind snapshot/version
 persist CURRENT RequirementVersionRecord
 persist SnapshotBusinessContent
@@ -54,7 +55,7 @@ validate normalized diagnostics
 READY -> ACTIVE atomically
 ```
 
-L'ancien snapshot reste ACTIVE jusqu'à la dernière étape.
+L'ancien snapshot reste ACTIVE jusqu'à la dernière étape. L'ancre BUILDING précède obligatoirement la création durable de la version : une panne d'allocation ou de persistance ne peut donc pas laisser une `SpecificationVersion` orpheline sans candidate observable.
 
 ## Diagnostics
 
@@ -64,7 +65,7 @@ WARNING -> candidate READY puis ACTIVE
 none    -> candidate READY puis ACTIVE
 ```
 
-Un échec ne transforme jamais une ingestion partielle en nouvelle baseline publiée. Une candidate FAILED reste durablement observable pour l'audit et sa séquence ne peut pas être réutilisée par une tentative ultérieure.
+Un échec ne transforme jamais une ingestion partielle en nouvelle baseline publiée. Une candidate FAILED reste durablement observable pour l'audit ; lorsqu'une `SpecificationVersion` a déjà été persistée, sa séquence ne peut pas être réutilisée par une tentative ultérieure.
 
 ## Sync M7
 
@@ -130,6 +131,7 @@ Les tests prouvent :
 9. Memory + SQLite ;
 10. SQLite reopen ;
 11. CLI sync enregistre FULL_REBUILD et non un faux INCREMENTAL ;
-12. une tentative FAILED consomme une sequence unique et un retry alloue la suivante.
+12. une tentative FAILED ayant persisté une version consomme une sequence unique et un retry alloue la suivante ;
+13. BUILDING est persisté avant l'allocation/persistance de la version.
 
 **Décision : ADR-0060 acceptée.**
