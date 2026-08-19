@@ -20,7 +20,10 @@ public interface VersionedRequirementStore {
      * Returns the next durable project-local sequence, considering published and failed publication attempts.
      * A failed candidate therefore consumes its sequence instead of allowing a retry to create an ambiguous duplicate.
      */
-    long nextSpecificationVersionSequence(ProjectSpecificationId projectId);
+    default long nextSpecificationVersionSequence(ProjectSpecificationId projectId) {
+        throw new KnowledgeStoreException(
+                "versioned requirement store does not support durable specification-version sequence allocation");
+    }
 
     void bindSnapshotVersion(SnapshotSpecificationVersionBinding binding);
 
