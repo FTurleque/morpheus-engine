@@ -35,6 +35,20 @@ class ProviderPluginDiscoveryTest {
     }
 
     @Test
+    void discoveryRetainsOnlyDeterministicBoundedJarSetBeforeInspection() throws Exception {
+        for (int index = 0; index <= ProviderSdk.MAX_PLUGIN_JARS; index++) {
+            Files.write(directory.resolve("plugin-%03d.jar".formatted(index)), new byte[0]);
+        }
+
+        ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(directory);
+
+        assertEquals(ProviderSdk.MAX_PLUGIN_JARS, result.candidates().size());
+        assertEquals("plugin-000.jar", result.candidates().getFirst().jarPath().getFileName().toString());
+        assertEquals("plugin-255.jar", result.candidates().getLast().jarPath().getFileName().toString());
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.code().equals("PLUGIN_SCAN_LIMIT_REACHED")));
+    }
+
+    @Test
     void symbolicJarCannotEscapePluginDirectoryDuringDiscovery() throws Exception {
         Path plugins = Files.createDirectory(directory.resolve("plugins"));
         Path external = directory.resolve("external.jar");

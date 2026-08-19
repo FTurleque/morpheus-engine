@@ -15,6 +15,7 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -31,6 +32,11 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
     public static final String TOOL_LIST_PROJECTS = "list_projects";
     public static final String TOOL_BUILD_CONTEXT = "build_context";
     public static final String TOOL_EXPLAIN_CONTEXT = "explain_context";
+    static final int MAX_MCP_RESPONSE_BYTES = 4 * 1024 * 1024;
+    static final int MAX_PROJECTS = 4_096;
+    static final int MAX_CONTEXT_ITEMS = 4_096;
+    static final int MAX_EXCLUDED_ITEMS = 4_096;
+    static final int MAX_METADATA_ENTRIES = 1_024;
     private static final Set<String> REQUIRED_TOOLS = Set.of(
             TOOL_LIST_PROJECTS, TOOL_BUILD_CONTEXT, TOOL_EXPLAIN_CONTEXT);
 
@@ -85,9 +91,12 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             if (payload == null) {
                 return List.of();
             }
+            requireCardinality(payload.length, MAX_PROJECTS, "project list");
             return java.util.Arrays.stream(payload)
                     .map(project -> new ProjectInfo(project.id(), project.name(), project.indexStatus()))
                     .toList();
+        } catch (NexusIntegrationException failure) {
+            throw failure;
         } catch (Exception failure) {
             throw new NexusIntegrationException("invalid NEXUS projects JSON", failure);
         }
@@ -112,6 +121,11 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             ContextPayload payload = mapper.readValue(json, ContextPayload.class);
             ProjectPayload project = Objects.requireNonNull(payload.project(), "NEXUS context project");
             List<ItemPayload> items = payload.items() == null ? List.of() : payload.items();
+            List<String> excluded = payload.excluded() == null ? List.of() : payload.excluded();
+            Map<String, Object> metadata = payload.metadata() == null ? Map.of() : payload.metadata();
+            requireCardinality(items.size(), MAX_CONTEXT_ITEMS, "context items");
+            requireCardinality(excluded.size(), MAX_EXCLUDED_ITEMS, "excluded items");
+            requireCardinality(metadata.size(), MAX_METADATA_ENTRIES, "metadata entries");
             return new TechnicalContextBundle(
                     project.id(),
                     project.name(),
@@ -121,8 +135,10 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
                     payload.tokenBudget(),
                     payload.estimatedTokens(),
                     items.stream().map(this::item).toList(),
-                    payload.excluded() == null ? List.of() : payload.excluded(),
-                    payload.metadata() == null ? Map.of() : payload.metadata());
+                    excluded,
+                    metadata);
+        } catch (NexusIntegrationException failure) {
+            throw failure;
         } catch (Exception failure) {
             throw new NexusIntegrationException("invalid NEXUS context JSON", failure);
         }
@@ -149,7 +165,7 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
     private String call(String toolName, Map<String, Object> arguments) {
         try {
             var result = client.callTool(CallToolRequest.builder(toolName).arguments(arguments).build());
-            String content = text(result.content());
+            String content = requireBoundedResponse(text(result.content()), toolName);
             if (Boolean.TRUE.equals(result.isError())) {
                 throw new NexusIntegrationException("NEXUS tool failed: " + toolName + ": " + content);
             }
@@ -161,6 +177,22 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             throw failure;
         } catch (RuntimeException failure) {
             throw new NexusIntegrationException("NEXUS MCP call failed: " + toolName, failure);
+        }
+    }
+
+    static String requireBoundedResponse(String content, String toolName) {
+        Objects.requireNonNull(content, "content");
+        if (content.length() > MAX_MCP_RESPONSE_BYTES
+                || content.getBytes(StandardCharsets.UTF_8).length > MAX_MCP_RESPONSE_BYTES) {
+            throw new NexusIntegrationException(
+                    "NEXUS MCP response exceeds " + MAX_MCP_RESPONSE_BYTES + " bytes: " + toolName);
+        }
+        return content;
+    }
+
+    static void requireCardinality(int size, int maximum, String label) {
+        if (size < 0 || size > maximum) {
+            throw new NexusIntegrationException("NEXUS " + label + " exceeds configured limit " + maximum);
         }
     }
 

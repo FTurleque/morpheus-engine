@@ -48,6 +48,27 @@ jobs:
         shell: bash
         run: bash ./scripts/validate-m21.sh 1.2.1
 
+      - name: Enforce changed-line coverage on Linux PRs
+        if: runner.os == 'Linux' && github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          case "$BASE_REF" in
+            develop)
+              git diff --unified=0 --no-color origin/develop...HEAD -- |
+                python3 scripts/check-diff-coverage.py --minimum 0.80
+              ;;
+            main)
+              git diff --unified=0 --no-color origin/main...HEAD -- |
+                python3 scripts/check-diff-coverage.py --minimum 0.80
+              ;;
+            *)
+              echo "::error::Unsupported pull-request base branch"
+              exit 2
+              ;;
+          esac
+
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
         shell: cmd
@@ -66,5 +87,6 @@ jobs:
             morpheus-architecture-tests/target/m21-coverage-summary.txt
             target/m21-supply-chain/**
             validation-output/m21/validation-summary.txt
+            validation-output/m21/diff-coverage.txt
             validation-output/m21/api.stdout.log
             validation-output/m21/api.stderr.log

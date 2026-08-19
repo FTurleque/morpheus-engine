@@ -10,8 +10,9 @@ flowchart LR
     R --> A[Auth file SHA-256 + live reload]
     R --> RBAC[READ / WRITE / ADMIN]
     R --> ROOTS[AllowedWorkspaceRoots]
-    R --> LIMIT[Semaphore bounded concurrency]
-    R -->|no Authorization forwarded| L[MorpheusHttpServer loopback : ephemeral port]
+    R --> REQ[Request concurrency semaphore]
+    R --> RESP[8 proxy response slots / 128 MiB aggregate]
+    R -->|streamed body, no Authorization forwarded| L[MorpheusHttpServer loopback : ephemeral port]
     L --> APP[Existing application services]
     APP --> DB[(SQLite)]
     R --> BK[SqliteServerMaintenance]
@@ -28,9 +29,9 @@ L’API locale M11-M25 possède déjà les routes métier, validation JSON, CAS,
 1. le frontal `HttpsServer` termine TLS ;
 2. il authentifie le Bearer à partir du fichier d'identités courant ;
 3. il calcule le rôle requis ;
-4. il applique la limite de concurrence ;
+4. il applique les limites de concurrence et de réponse agrégée ;
 5. il intercepte uniquement les endpoints serveur M26 ;
-6. il proxy les autres requêtes vers un `MorpheusHttpServer` interne sur `127.0.0.1:0` ;
+6. il proxy les autres requêtes vers un `MorpheusHttpServer` interne sur `127.0.0.1:0` en streaming ;
 7. `Authorization` n’est jamais relayé vers l’inner server.
 
 Cette composition préserve les contrats M11-M25 et rend la sécurité remote vérifiable à une frontière unique.
@@ -53,7 +54,7 @@ Le démarrage exige :
 
 - auth file valide et non symbolique ;
 - au moins une identité ADMIN ;
-- keystore PKCS12 valide et non symbolique ;
+- keystore PKCS12 valide, confiné et borné ;
 - mot de passe TLS via environnement/propriété ;
 - limite de concurrence 1..512 ;
 - au moins une racine workspace serveur existante et canonique.
@@ -123,7 +124,7 @@ Une route inconnue n’obtient jamais ADMIN.
 
 ### Provider plugins en remote
 
-La discovery reste une opération metadata-only. Elle refuse un répertoire de plugins symbolique et ignore/refuse les candidats JAR symboliques ; l'ouverture du candidat utilise `NOFOLLOW_LINKS`, de sorte qu'une discovery ne puisse pas suivre un lien `*.jar` hors du répertoire configuré.
+La discovery reste une opération metadata-only et n’effectue aucun classloading. Elle refuse un répertoire de plugins symbolique, ignore/refuse les candidats JAR symboliques et contrôle leurs attributs avec `NOFOLLOW_LINKS` avant l’inspection. La sélection des candidats est bornée à 256 chemins avant le tri final, puis l’inspection utilise `JarFile` pour accéder directement aux métadonnées et refuse les archives dépassant 10 000 entrées. L’exécution du plugin reste une frontière distincte et plus stricte.
 
 Le probe exécutable remote :
 
@@ -135,7 +136,7 @@ Le probe exécutable remote :
 
 Pour un plugin épinglé, `ExternalJarIntegrity` copie d'abord le JAR dans un fichier de staging privé, vérifie le SHA-256 de **cette copie**, puis `URLClassLoader` charge exclusivement cette copie. Le chemin original peut changer après le staging sans modifier le code réellement exécuté. Le staging est supprimé après fermeture du classloader.
 
-Le même principe de staging vérifié est utilisé pour les JARs MINOS/NEXUS lorsqu'un pin d'intégrité est configuré ; les clients MCP déjà démarrés sont fermés si `initialize()` ou `listTools()` échoue.
+Le même principe de staging vérifié est utilisé pour les JARs MINOS/NEXUS lorsqu'un pin d'intégrité est configuré ; les clients MCP déjà démarrés sont fermés si `initialize()` ou `listTools()` échoue. Les réponses MCP sont également bornées avant désérialisation : 4 MiB maximum de `TextContent`, avec contrôle des cardinalités retournées côté MORPHEUS.
 
 ## Autorité filesystem des workspaces
 
@@ -151,7 +152,7 @@ refusé. La décision exige à la fois confinement lexical, absence de composant
 symbolique et confinement du real path. Le mode local conserve son comportement
 historique sans politique remote.
 
-Les lectures provider passent par `SafeWorkspaceFileResolver`, qui applique un décodage UTF-8 strict (`REPORT`) : un flux malformé est rejeté et n'est jamais normalisé silencieusement avec le caractère de remplacement Unicode.
+Les lectures provider passent par `SafeWorkspaceFileResolver`, qui applique un décodage UTF-8 strict (`REPORT`) : un flux malformé est rejeté et n'est jamais normalisé silencieusement avec le caractère de remplacement Unicode. La même primitive expose une lecture binaire bornée qui revalide l’identité, les métadonnées et le contenu après lecture afin de détecter un remplacement concurrent.
 
 ### Budget du scan d'inventaire
 
@@ -165,7 +166,7 @@ taille d'un fichier     64 MiB
 volume agrégé           2 GiB
 ```
 
-Le dépassement produit un `SourceInventoryScanResult` incomplet ; la synchronisation ne publie pas cette observation comme nouvelle baseline. Le compteur de répertoires empêche également une arborescence composée de très nombreux répertoires vides de contourner le budget. Les budgets provider plus fins continuent ensuite de s'appliquer à l'ingestion métier.
+Le dépassement produit un `SourceInventoryScanResult` incomplet ; la synchronisation ne publie pas cette observation comme nouvelle baseline. Le compteur de répertoires empêche également une arborescence composée de très nombreux répertoires vides de contourner le budget. `LocalSourceWatcher` applique désormais les mêmes limites de profondeur et de répertoires pendant l’enregistrement récursif et n’utilise plus de matérialisation non bornée de l’arbre. Les budgets provider plus fins continuent ensuite de s'appliquer à l'ingestion métier.
 
 ## TLS
 
@@ -179,11 +180,22 @@ SSLContext TLS
 protocols TLSv1.3 + TLSv1.2
 ```
 
-Le mot de passe du keystore est cloné pour l’initialisation puis le tableau temporaire est effacé.
+Le parent du keystore doit appartenir à une frontière d’écriture protégée. Le PKCS12 est lu par `SafeWorkspaceFileResolver.readBytes()` avec un plafond de **4 MiB**, refus des symlinks et revalidation anti-TOCTOU. Le mot de passe du keystore est cloné pour l’initialisation puis effacé ; le buffer binaire contenant le PKCS12 est lui aussi écrasé après chargement.
 
 ## Concurrence et timeout proxy
 
-Le frontal utilise un `Semaphore` équitable. `tryAcquire()` est non bloquant : lorsque le budget est atteint, la requête reçoit `429`.
+Le frontal utilise deux budgets indépendants et fail-closed :
+
+```text
+requêtes simultanées configurables   1..512
+réponse proxy individuelle           <= 16 MiB
+réponses proxy simultanées           <= 8
+budget agrégé de réponses in-flight  <= 128 MiB
+```
+
+Le `Semaphore` de requêtes est équitable. `tryAcquire()` est non bloquant : lorsque le budget de requêtes est atteint, la requête reçoit `429`. Un second `Semaphore` réserve au maximum huit slots pour les réponses du proxy ; une saturation de ce budget produit également `429 RESPONSE_BUDGET_EXHAUSTED`.
+
+Le hop loopback utilise `HttpResponse.BodyHandlers.ofInputStream()` : le body n’est plus matérialisé intégralement dans un `byte[]`. Le frontal exige un `Content-Length` borné pour les réponses avec body, refuse toute valeur supérieure à 16 MiB et relaie le flux par blocs de 8 KiB en vérifiant que le nombre réel d’octets correspond exactement à la longueur annoncée. Ainsi, augmenter `maxConcurrentRequests` jusqu’à 512 n’augmente pas proportionnellement la mémoire allouable aux bodies de réponses.
 
 Le modèle n’ajoute pas une queue applicative non bornée. Les invariants SQLite/CAS existants restent responsables des conflits métier.
 
@@ -226,7 +238,9 @@ La publication d'un snapshot et la persistance de la baseline de synchronisation
 
 ## Schéma SQLite
 
-Le gestionnaire de migrations connaît la version maximale supportée par le runtime (`15` sur cette baseline). Après création/lecture du ledger et **avant toute migration connue**, une base dont `MAX(schema_migrations.version) > 15` est refusée. La règle de compatibilité utilisée à l'ouverture normale et celle du backup/restore sont ainsi cohérentes : aucun downgrade implicite d'une base future.
+Le gestionnaire de migrations connaît la version maximale supportée par le runtime : **V016** sur cette baseline. Après création/lecture du ledger et **avant toute migration connue**, une base dont `MAX(schema_migrations.version) > 16` est refusée. `SqliteServerMaintenance` dérive sa propre limite directement de `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION`, ce qui empêche le backup/restore de diverger du gestionnaire de schéma.
+
+V016 répare d’éventuels doublons historiques de `SpecificationVersion.sequence` par projet, puis impose un index unique partiel `(project_id, sequence)` pour toute séquence non nulle. Une candidate de publication FAILED reste durable pour l’audit et consomme sa séquence ; un retry alloue donc la suivante au lieu de produire un doublon logique.
 
 Le runtime utilise `journal_mode=PERSIST` avec busy timeout et refuse les sidecars WAL/SHM dans ce mode. La mitigation de concurrence ne repose donc pas sur WAL.
 
@@ -243,6 +257,9 @@ startedAt
 uptimeSeconds
 activeRequests
 maxConcurrentRequests
+maxProxyResponseBytes
+maxProxyInFlightBytes
+maxConcurrentBufferedProxyResponses
 totalRequests
 authenticationFailures
 authorizationFailures
@@ -264,7 +281,7 @@ Aucun header, token, token hash, keystore password ou payload métier.
 7. lit `schema_migrations` ;
 8. calcule SHA-256.
 
-M26 ne crée pas V016 : les données remote sont de la configuration externe/opérationnelle et non une nouvelle vérité métier en SQLite.
+V016 est une migration générale d’intégrité du schéma MORPHEUS, pas une nouvelle table de configuration remote. Les identités remote, secrets TLS et paramètres de façade restent de la configuration externe/opérationnelle et ne deviennent pas une vérité métier SQLite.
 
 ## Restore offline
 
@@ -284,7 +301,7 @@ explicit --confirm
 
 Le remote server garde le même file lock pendant toute sa durée de vie. Une restauration concurrente échoue donc avant remplacement.
 
-`SUPPORTED_SCHEMA_VERSION = 15`. Un backup `> 15` est rejeté. Un backup `<= 15` est accepté ; les migrations normales restent l’unique mécanisme d’upgrade lors de l’ouverture suivante.
+`SUPPORTED_SCHEMA_VERSION` est dérivé de `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION` (**16** sur cette baseline). Un backup `> 16` est rejeté. Un backup `<= 16` est accepté ; les migrations normales restent l’unique mécanisme d’upgrade lors de l’ouverture suivante.
 
 ### Format des migrations SQLite
 
@@ -332,19 +349,22 @@ Voir `contracts/public-surfaces.tsv` et `docs/openapi/morpheus-v1-remote-m26.yam
 ## Tests
 
 - `MorpheusRemoteIdentityFileTest` / lifecycle tests : hash-only, auth, malformed/duplicates, mutations, concurrence et compaction de l'audit ;
-- `MorpheusRemoteHttpServerTest` : PKCS12 réel, HTTPS, 401/403, rôles, live revoke, pin plugin, timeout classification, headers, backup ADMIN, 429, secret non-disclosure ;
-- `ProviderPluginDiscoveryTest` : discovery metadata-only et refus des symlinks ;
+- `MorpheusRemoteHttpServerTest` : PKCS12 réel, HTTPS, 401/403, rôles, live revoke, pin plugin, timeout classification, headers, backup ADMIN, concurrence/429, budgets proxy, PKCS12 surdimensionné et secret non-disclosure ;
+- `ProviderPluginDiscoveryTest` : discovery metadata-only, sélection bornée, ordre déterministe et refus des symlinks ;
 - `RemoteApiLaunchOptionsTest` : local loopback et startup remote fail-closed ;
 - `MorpheusServerCliTest` : provisioning/lifecycle + backup/verify/restore ;
 - `ApiRuntimeSqliteSessionTest` / `CliRuntimeSqliteSessionTest` : une connexion physique par runtime ;
 - `SqliteConnectionScopeTest` / `SqliteTransactionRunnerTest` : confinement thread, transaction ownership, `Error`, cleanup et résultat post-commit explicite ;
 - `SyncReliabilityFallbackTest` : commit visible, retry borné, `BASELINE_INCONSISTENT`, `SCAN_INCOMPLETE` ;
 - `SqliteFutureSchemaCompatibilityTest` / `SqliteServerMaintenanceTest` : integrity/schema/lease/future-schema ;
+- `FailedPublishRecoveryContractTest` : séquences durables `1 -> FAILED 2 -> retry 3` ;
 - `RemoteServerArchitectureTest` : boundaries et contrats source/manifest/OpenAPI.
 
 ## Gates
 
-Le gate durable exact-head est M21 sur Linux et Windows, avec la baseline active `1.2.1`. Les gates milestone M26 restent des preuves historiques/spécialisées :
+Le gate durable exact-head est M21 sur Linux et Windows, avec la baseline active `1.2.1`. Sur pull request, Linux applique en plus un gate JaCoCo différentiel : au moins **80 % des lignes Java de production modifiées et exécutables** doivent être couvertes ; l’évidence est conservée dans `validation-output/m21/diff-coverage.txt`.
+
+Les gates milestone M26 restent des preuves historiques/spécialisées :
 
 ```text
 Windows  .\validate-m26.cmd 1.0.0

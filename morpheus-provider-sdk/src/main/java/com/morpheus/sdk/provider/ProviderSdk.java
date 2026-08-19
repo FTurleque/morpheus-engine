@@ -6,6 +6,7 @@ public final class ProviderSdk {
     public static final String METADATA_PATH = "META-INF/morpheus-provider.properties";
     public static final int MAX_PLUGIN_JARS = 256;
     public static final long MAX_PLUGIN_JAR_BYTES = 64L * 1024L * 1024L;
+    public static final int MAX_PLUGIN_JAR_ENTRIES = 10_000;
     public static final long MAX_METADATA_BYTES = 16L * 1024L;
 
     private ProviderSdk() {

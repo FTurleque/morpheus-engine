@@ -29,7 +29,7 @@ import java.util.UUID;
 
 /** M26 SQLite backup, verification and explicitly-offline restore support. */
 public final class SqliteServerMaintenance {
-    public static final int SUPPORTED_SCHEMA_VERSION = 15;
+    public static final int SUPPORTED_SCHEMA_VERSION = SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION;
     private static final DateTimeFormatter BACKUP_TIME = DateTimeFormatter
             .ofPattern("yyyyMMdd-HHmmss")
             .withZone(ZoneOffset.UTC);
@@ -238,7 +238,7 @@ public final class SqliteServerMaintenance {
     }
 
     private static Path sidecar(Path database, String suffix) {
-        return Path.of(database + suffix);
+        return database.resolveSibling(database.getFileName() + suffix);
     }
 
     private static String sqlLiteral(String value) {

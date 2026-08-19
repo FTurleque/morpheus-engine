@@ -3,6 +3,7 @@ package com.morpheus.architecture.m24;
 import com.morpheus.application.portfolio.PortfolioRegistryService;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
+import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.application.query.dsl.QueryDefinition;
 import com.morpheus.application.query.dsl.QueryEntityType;
 import com.morpheus.application.query.dsl.QueryExecutionService;
@@ -12,6 +13,7 @@ import com.morpheus.application.query.dsl.QueryPredicate;
 import com.morpheus.application.query.dsl.QueryProjection;
 import com.morpheus.application.query.dsl.QuerySort;
 import com.morpheus.application.query.dsl.QuerySortDirection;
+import com.morpheus.application.query.dsl.QueryValidationException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.SnapshotBusinessContent;
 import com.morpheus.application.store.SnapshotSpecificationVersionBinding;
@@ -40,6 +42,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QueryExecutionContractTest {
@@ -93,6 +96,30 @@ class QueryExecutionContractTest {
         assertEquals(1, result.totalMatches());
         assertEquals(PROJECT_A.toString(), result.items().getFirst().projectId());
         assertEquals("Alpha", result.items().getFirst().cell("title").orElseThrow().render());
+    }
+
+    @Test
+    void portfolioProjectBudgetIsEnforcedBeforePaginationOrSorting() {
+        Fixture fixture = fixture();
+        for (int index = 0; index <= QueryBudgets.MAX_PORTFOLIO_PROJECTS; index++) {
+            ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+            fixture.registry().registerProject(
+                    fixture.portfolioId(),
+                    projectId,
+                    "Project " + index,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Set.of(new ProviderId("test-provider")));
+        }
+
+        QueryDefinition query = QueryDefinition.all(
+                new PortfolioQueryScope(fixture.portfolioId()),
+                QueryEntityType.PORTFOLIO_MEMBERSHIP,
+                QueryPage.first(1));
+
+        QueryValidationException failure = assertThrows(QueryValidationException.class, () -> fixture.queries().execute(query));
+        assertEquals("QUERY_SOURCE_BUDGET_EXCEEDED", failure.diagnostics().getFirst().code());
+        assertEquals("$.scope.portfolio", failure.diagnostics().getFirst().path());
     }
 
     private Fixture fixture() {
