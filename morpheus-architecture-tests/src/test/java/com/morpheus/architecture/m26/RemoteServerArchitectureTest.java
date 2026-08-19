@@ -51,7 +51,10 @@ class RemoteServerArchitectureTest {
 
         assertFalse(openApi.contains("/server/restore"));
         assertTrue(openApi.contains("maximum: 512"));
-        assertTrue(openApi.contains("maximum: 15"));
+        assertTrue(openApi.contains("maximum: 16"));
+        assertTrue(openApi.contains("maxProxyResponseBytes"));
+        assertTrue(openApi.contains("maxProxyInFlightBytes"));
+        assertTrue(openApi.contains("maxConcurrentBufferedProxyResponses"));
     }
 
     private Path repositoryRoot() {
