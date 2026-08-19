@@ -1,9 +1,25 @@
 # ADR-0060 — Sync CLI conservateur par publication complète de snapshot
 
-- Statut : **Acceptée — M9**
+- Statut : **Acceptée — M9, récupération durcie le 19 août 2026**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0033, ADR-0034, ADR-0039, ADR-0053, ADR-0054, ADR-0055
 - Portée : M9 — ingestion exécutable depuis la CLI
+
+## Précision de politique — 19 août 2026
+
+Cette ADR constitue la politique explicite annoncée par ADR-0031 pour le chemin officiel de full rebuild. `ProjectSnapshotImportService.publishFull()` alloue une nouvelle `SpecificationVersion` à **chaque tentative durable de publication complète**, même si une autre orchestration pourrait techniquement réutiliser une version existante.
+
+Les invariants de récupération sont désormais :
+
+```text
+sequence(project) est unique pour toute SpecificationVersion non nulle
+next sequence = max(sequence de toutes les tentatives durables) + 1
+FAILED candidate conserve sa SpecificationVersion et consomme sa sequence
+retry ne réutilise jamais la sequence du FAILED
+predecessor du retry = version du snapshot précédemment ACTIVE
+```
+
+Les artefacts d'une candidate FAILED restent conservés comme preuve de tentative et ne deviennent jamais une baseline publiée. La migration SQLite V016 répare d'éventuels doublons historiques de séquence avant d'imposer l'index unique `(project_id, sequence)`.
 
 ## Contexte
 
@@ -27,6 +43,7 @@ Séquence :
 ```text
 register project
 resolve predecessor ACTIVE/version
+allocate unique durable SpecificationVersion sequence
 create SpecificationVersion
 create BUILDING KnowledgeSnapshot
 bind snapshot/version
@@ -47,7 +64,7 @@ WARNING -> candidate READY puis ACTIVE
 none    -> candidate READY puis ACTIVE
 ```
 
-Un échec ne transforme jamais une ingestion partielle en nouvelle baseline publiée.
+Un échec ne transforme jamais une ingestion partielle en nouvelle baseline publiée. Une candidate FAILED reste durablement observable pour l'audit et sa séquence ne peut pas être réutilisée par une tentative ultérieure.
 
 ## Sync M7
 
@@ -112,6 +129,7 @@ Les tests prouvent :
 8. diagnostic ERROR laisse l'ancien ACTIVE ;
 9. Memory + SQLite ;
 10. SQLite reopen ;
-11. CLI sync enregistre FULL_REBUILD et non un faux INCREMENTAL.
+11. CLI sync enregistre FULL_REBUILD et non un faux INCREMENTAL ;
+12. une tentative FAILED consomme une sequence unique et un retry alloue la suivante.
 
 **Décision : ADR-0060 acceptée.**
