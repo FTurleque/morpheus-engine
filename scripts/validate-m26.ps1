@@ -75,7 +75,7 @@ function Assert-PackagedM26([string]$Launcher) {
 
     $backupJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'backup', 'create')
     $backup = $backupJson | ConvertFrom-Json
-    if (-not $backup.integrityOk -or [int]$backup.schemaVersion -ne 15) { throw "M26 backup contract mismatch: $backupJson" }
+    if (-not $backup.integrityOk -or [int]$backup.schemaVersion -ne 16) { throw "M26 backup contract mismatch: $backupJson" }
     if (-not (Test-Path ([string]$backup.path))) { throw "M26 backup file missing: $($backup.path)" }
     $verifyJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'backup', 'verify', '--file', ([string]$backup.path))
     $verified = $verifyJson | ConvertFrom-Json
@@ -83,7 +83,7 @@ function Assert-PackagedM26([string]$Launcher) {
     Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'server', 'restore', '--file', ([string]$backup.path)) '--confirm' 'restore-unconfirmed'
     $restoredJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'restore', '--file', ([string]$backup.path), '--confirm')
     $restored = $restoredJson | ConvertFrom-Json
-    if (-not $restored.integrityOk -or [int]$restored.schemaVersion -ne 15) { throw "M26 offline restore mismatch: $restoredJson" }
+    if (-not $restored.integrityOk -or [int]$restored.schemaVersion -ne 16) { throw "M26 offline restore mismatch: $restoredJson" }
     Write-Host 'SQLite backup + verify + explicit offline restore: PASS'
 
     Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'api', '--host', '0.0.0.0', '--port', '18765') 'requires explicit.*api --remote' 'local-nonloopback'
@@ -162,7 +162,7 @@ $summary = @(
     "lineCoverage=$($coverage.lineRatio)", "branchCoverage=$($coverage.branchRatio)",
     'localFirst=PASS', 'remoteTlsAuthRbac=PASS', 'boundedConcurrency=PASS',
     'secretNonDisclosure=PASS', 'backupRestore=PASS', 'schemaCompatibility=PASS',
-    'surfaceConvergence=PASS', 'sqliteV015=PASS', 'sbom=PASS', 'provenance=PASS',
+    'surfaceConvergence=PASS', 'sqliteV016=PASS', 'sbom=PASS', 'provenance=PASS',
     "portable=$(-not $SkipPortable)", 'postGateExecutableDelta=NONE')
 $summary | Set-Content -Encoding UTF8 (Join-Path $outputRoot 'validation-summary.txt')
 $summary | ForEach-Object { Write-Host $_ }
