@@ -14,11 +14,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class MorpheusM14McpStdioIntegrationTest {
+    private static final Duration PROCESS_STOP_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration STDERR_RELEASE_TIMEOUT = Duration.ofSeconds(2);
+
     @TempDir
     Path tempDirectory;
 
@@ -59,12 +64,37 @@ class MorpheusM14McpStdioIntegrationTest {
             assertTrue(missingProject.contains("isError") || missingProject.contains("error"), missingProject);
             assertTrue(missingProject.contains("project not found"), missingProject);
         } finally {
-            process.destroy();
-            if (!process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
-            }
+            stopProcess(process);
+            deleteWhenReleased(stderr);
         }
+    }
+
+    private void stopProcess(Process process) throws InterruptedException {
+        process.destroy();
+        if (!process.waitFor(PROCESS_STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+            process.destroyForcibly();
+            assertTrue(
+                    process.waitFor(PROCESS_STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS),
+                    "M14 MCP process did not terminate after destroyForcibly()");
+        }
+        assertFalse(process.isAlive(), "M14 MCP process must be terminated before @TempDir cleanup");
+    }
+
+    private void deleteWhenReleased(Path path) throws Exception {
+        long deadline = System.nanoTime() + STDERR_RELEASE_TIMEOUT.toNanos();
+        IOException lastFailure = null;
+        do {
+            try {
+                Files.deleteIfExists(path);
+                return;
+            } catch (IOException locked) {
+                lastFailure = locked;
+                Thread.sleep(25L);
+            }
+        } while (System.nanoTime() < deadline);
+        throw lastFailure == null
+                ? new IOException("failed to remove stderr log before @TempDir cleanup: " + path)
+                : lastFailure;
     }
 
     private void send(BufferedWriter writer, String message) throws IOException {
