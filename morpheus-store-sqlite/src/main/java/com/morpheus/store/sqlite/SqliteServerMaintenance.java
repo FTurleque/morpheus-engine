@@ -247,18 +247,16 @@ public final class SqliteServerMaintenance {
 
     private static void moveReplacing(Path source, Path target) throws IOException {
         try {
-            Files.move(source, target,
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING);
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (AtomicMoveNotSupportedException unsupported) {
             Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
-    private static String sha256(Path path) throws IOException {
+    private static String sha256(Path file) throws IOException {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            try (var input = Files.newInputStream(path)) {
+            try (var input = Files.newInputStream(file)) {
                 byte[] buffer = new byte[8192];
                 int read;
                 while ((read = input.read(buffer)) >= 0) {
@@ -266,8 +264,8 @@ public final class SqliteServerMaintenance {
                 }
             }
             return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        } catch (NoSuchAlgorithmException failure) {
+            throw new IllegalStateException("SHA-256 must be available", failure);
         }
     }
 }
