@@ -74,7 +74,7 @@ public final class ProjectSnapshotImportService {
         SpecificationVersion version = new SpecificationVersion(
                 SpecificationVersionId.generate(),
                 content.project().id(),
-                Optional.of(previousVersion.flatMap(SpecificationVersion::sequence).orElse(0L) + 1L),
+                Optional.of(requirementStore.nextSpecificationVersionSequence(content.project().id())),
                 commonProviderVersion(content),
                 sourceRevision,
                 publishedAt,
