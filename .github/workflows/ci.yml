@@ -53,11 +53,15 @@ jobs:
         shell: bash
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: >-
-          python3 scripts/check-diff-coverage.py
-          --base "$BASE_SHA"
-          --minimum 0.80
-          --output validation-output/m21/diff-coverage.txt
+        run: |
+          if [[ ! "$BASE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::Invalid pull-request base SHA"
+            exit 2
+          fi
+          git diff --unified=0 --no-color "${BASE_SHA}...HEAD" -- |
+            python3 scripts/check-diff-coverage.py \
+              --base "$BASE_SHA" \
+              --minimum 0.80
 
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
