@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -13,8 +12,8 @@ from pathlib import Path, PurePosixPath
 
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 FULL_SHA = re.compile(r"^[0-9a-fA-F]{40}$")
-OUTPUT_NAME = re.compile(r"^[A-Za-z0-9._/-]+$")
 JACOCO_SUFFIX = PurePosixPath("target/site/jacoco/jacoco.xml")
+EVIDENCE_OUTPUT = Path("validation-output/m21/diff-coverage.txt")
 
 
 def commit_sha(value: str) -> str:
@@ -23,43 +22,14 @@ def commit_sha(value: str) -> str:
     return value.lower()
 
 
-def evidence_output_path(value: str) -> Path:
-    if not OUTPUT_NAME.fullmatch(value):
-        raise argparse.ArgumentTypeError("--output contains unsupported characters")
-    candidate = PurePosixPath(value)
-    if candidate.is_absolute() or ".." in candidate.parts or not candidate.parts:
-        raise argparse.ArgumentTypeError("--output must be a safe relative path")
-    if candidate.parts[0] != "validation-output":
-        raise argparse.ArgumentTypeError("--output must be located under validation-output/")
-
-    repository_root = Path.cwd().resolve()
-    allowed_root = repository_root / "validation-output"
-    if allowed_root.exists() and allowed_root.is_symlink():
-        raise argparse.ArgumentTypeError("validation-output must not be a symbolic link")
-
-    output = repository_root.joinpath(*candidate.parts)
-    resolved_parent = output.parent.resolve(strict=False)
-    allowed_resolved = allowed_root.resolve(strict=False)
-    if resolved_parent != allowed_resolved and allowed_resolved not in resolved_parent.parents:
-        raise argparse.ArgumentTypeError("--output escapes validation-output/")
-    return output
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base", required=True, type=commit_sha, help="Base commit SHA for base...HEAD")
+    parser.add_argument("--base", required=True, type=commit_sha, help="Base commit SHA for evidence")
     parser.add_argument("--minimum", type=float, default=0.80, help="Minimum changed-line coverage ratio")
-    parser.add_argument("--output", type=evidence_output_path, required=True, help="Evidence output file")
     args = parser.parse_args()
     if not 0.0 <= args.minimum <= 1.0:
         parser.error("--minimum must be between 0 and 1")
     return args
-
-
-def git_diff(base: str) -> str:
-    validated_base = commit_sha(base)
-    command = ["git", "diff", "--unified=0", "--no-color", f"{validated_base}...HEAD", "--"]
-    return subprocess.run(command, check=True, text=True, capture_output=True).stdout
 
 
 def is_main_java(path: str) -> bool:
@@ -178,7 +148,6 @@ def load_jacoco() -> dict[tuple[str, str], dict[int, bool]]:
 
 
 def file_coverage(
-    path: str,
     changed_line_numbers: set[int],
     report_lines: dict[int, bool],
 ) -> tuple[int, int]:
@@ -207,7 +176,7 @@ def evaluate(
         if report_lines is None:
             details.append(f"MISSING_REPORT {path}")
             continue
-        file_covered, file_total = file_coverage(path, changed[path], report_lines)
+        file_covered, file_total = file_coverage(changed[path], report_lines)
         covered += file_covered
         executable += file_total
         if file_total:
@@ -235,19 +204,9 @@ def evidence_lines(
     ]
 
 
-def validated_evidence_output(output: Path) -> Path:
-    repository_root = Path.cwd().resolve()
-    allowed_root = (repository_root / "validation-output").resolve(strict=False)
-    resolved = output.resolve(strict=False)
-    if resolved == allowed_root or allowed_root not in resolved.parents:
-        raise ValueError("evidence output must be a file under validation-output/")
-    return resolved
-
-
-def write_evidence(output: Path, lines: list[str]) -> None:
-    validated_output = validated_evidence_output(output)
-    validated_output.parent.mkdir(parents=True, exist_ok=True)
-    validated_output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+def write_evidence(lines: list[str]) -> None:
+    EVIDENCE_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    EVIDENCE_OUTPUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def gate_result(ratio: float, minimum: float, details: list[str]) -> int:
@@ -263,7 +222,7 @@ def gate_result(ratio: float, minimum: float, details: list[str]) -> int:
 def main() -> int:
     args = parse_args()
     try:
-        changed = changed_lines(git_diff(args.base))
+        changed = changed_lines(sys.stdin.read())
         jacoco = load_jacoco()
     except (ValueError, ET.ParseError) as failure:
         print(f"::error::{failure}", file=sys.stderr)
@@ -272,7 +231,7 @@ def main() -> int:
     covered, executable, details = evaluate(changed, jacoco)
     ratio = 1.0 if executable == 0 else covered / executable
     lines = evidence_lines(args, changed, covered, executable, ratio, details)
-    write_evidence(args.output, lines)
+    write_evidence(lines)
     print("\n".join(lines))
     return gate_result(ratio, args.minimum, details)
 
