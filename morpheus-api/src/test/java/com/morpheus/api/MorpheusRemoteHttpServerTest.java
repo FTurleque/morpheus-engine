@@ -34,6 +34,7 @@ import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusRemoteHttpServerTest {
@@ -218,6 +219,8 @@ class MorpheusRemoteHttpServerTest {
             assertEquals(200, status.statusCode());
             assertTrue(status.body().contains("\"mode\":\"REMOTE\""));
             assertTrue(status.body().contains("\"transport\":\"HTTPS\""));
+            assertTrue(status.body().contains("\"maxProxyResponseBytes\":" + MorpheusRemoteHttpServer.MAX_PROXY_RESPONSE_BYTES));
+            assertTrue(status.body().contains("\"maxProxyInFlightBytes\":" + MorpheusRemoteHttpServer.MAX_PROXY_IN_FLIGHT_BYTES));
             assertFalse(status.body().contains(read.token()));
             assertFalse(status.body().contains(write.token()));
             assertFalse(status.body().contains(admin.token()));
@@ -230,7 +233,7 @@ class MorpheusRemoteHttpServerTest {
             HttpResponse<String> backup = send(client, base.resolve("/api/v1/server/backups"), "POST", admin.token(), null);
             assertEquals(201, backup.statusCode());
             assertTrue(backup.body().contains("\"integrityOk\":true"));
-            assertTrue(backup.body().contains("\"schemaVersion\":15"));
+            assertTrue(backup.body().contains("\"schemaVersion\":16"));
 
             try (var pool = Executors.newFixedThreadPool(8)) {
                 List<Callable<Integer>> calls = new ArrayList<>();
@@ -258,6 +261,31 @@ class MorpheusRemoteHttpServerTest {
             assertEquals(200, finalStatus.statusCode());
             assertTrue(finalStatus.body().contains("\"throttledRequests\":"));
         }
+    }
+
+    @Test
+    void oversizedTlsKeystoreIsRejectedBeforePkcs12Parsing() throws Exception {
+        Path auth = temp.resolve("oversized-auth.txt");
+        MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
+        Path allowed = Files.createDirectory(temp.resolve("oversized-allowed"));
+        Path keyStore = temp.resolve("oversized.p12");
+        Files.write(keyStore, new byte[MorpheusRemoteHttpServer.MAX_KEYSTORE_BYTES + 1]);
+
+        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteHttpServer.start(
+                temp.resolve("oversized.db"),
+                temp.resolve("oversized-backups"),
+                temp.resolve("oversized-plugins"),
+                AllowedWorkspaceRoots.of(List.of(allowed)),
+                "127.0.0.1",
+                0,
+                auth,
+                keyStore,
+                "changeit".toCharArray(),
+                1,
+                new ExternalReferenceResolverRegistry(List.of()),
+                () -> new ExternalIntegrationStatus("MINOS", "DISABLED", false, "test", Map.of()),
+                new DisabledTechnicalContextProvider("NEXUS", "test"),
+                project -> ChangeWriteCapabilityObservation.denied("test")));
     }
 
     @Test
