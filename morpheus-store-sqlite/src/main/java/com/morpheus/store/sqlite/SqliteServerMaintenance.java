@@ -29,7 +29,7 @@ import java.util.UUID;
 
 /** M26 SQLite backup, verification and explicitly-offline restore support. */
 public final class SqliteServerMaintenance {
-    public static final int SUPPORTED_SCHEMA_VERSION = 15;
+    public static final int SUPPORTED_SCHEMA_VERSION = SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION;
     private static final DateTimeFormatter BACKUP_TIME = DateTimeFormatter
             .ofPattern("yyyyMMdd-HHmmss")
             .withZone(ZoneOffset.UTC);
@@ -238,7 +238,7 @@ public final class SqliteServerMaintenance {
     }
 
     private static Path sidecar(Path database, String suffix) {
-        return Path.of(database + suffix);
+        return database.resolveSibling(database.getFileName() + suffix);
     }
 
     private static String sqlLiteral(String value) {
@@ -247,16 +247,18 @@ public final class SqliteServerMaintenance {
 
     private static void moveReplacing(Path source, Path target) throws IOException {
         try {
-            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(source, target,
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
         } catch (AtomicMoveNotSupportedException unsupported) {
             Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
-    private static String sha256(Path file) throws IOException {
+    private static String sha256(Path path) throws IOException {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            try (var input = Files.newInputStream(file)) {
+            try (var input = Files.newInputStream(path)) {
                 byte[] buffer = new byte[8192];
                 int read;
                 while ((read = input.read(buffer)) >= 0) {
@@ -264,8 +266,8 @@ public final class SqliteServerMaintenance {
                 }
             }
             return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException failure) {
-            throw new IllegalStateException("SHA-256 must be available", failure);
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
         }
     }
 }
