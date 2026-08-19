@@ -13,23 +13,14 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NexusMcpTransportIntegrationTest {
     @Test
     void initializesListsRequiredToolsAndBuildsBudgetedContextOverRealStdioProcess() {
-        String javaExecutable = Path.of(
-                System.getProperty("java.home"),
-                "bin",
-                System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java")
-                .toString();
-        String testClasspath = System.getProperty(
-                "surefire.test.class.path",
-                System.getProperty("java.class.path"));
-        List<String> arguments = List.of("-cp", testClasspath, FixtureNexusMcpServer.class.getName());
-
         try (NexusMcpContextGateway gateway = new NexusMcpContextGateway(
-                javaExecutable, arguments, Map.of(), Duration.ofSeconds(10))) {
+                javaExecutable(), serverArguments(), Map.of(), Duration.ofSeconds(10))) {
             var projects = gateway.listProjects();
             assertEquals(1, projects.size());
             assertEquals("morpheus-engine", projects.getFirst().name());
@@ -56,5 +47,36 @@ class NexusMcpTransportIntegrationTest {
             assertEquals(List.of("target/generated.txt"), bundle.excluded());
             assertEquals("hybrid", bundle.metadata().get("strategy"));
         }
+    }
+
+    @Test
+    void rejectsOversizedTextBeforeJsonDeserialization() {
+        String oversized = "x".repeat(NexusMcpContextGateway.MAX_MCP_RESPONSE_BYTES + 1);
+        assertThrows(NexusIntegrationException.class,
+                () -> NexusMcpContextGateway.requireBoundedResponse(oversized, "fixture"));
+    }
+
+    @Test
+    void rejectsExternalCollectionCardinalityAboveConfiguredBudgets() {
+        assertThrows(NexusIntegrationException.class,
+                () -> NexusMcpContextGateway.requireCardinality(
+                        NexusMcpContextGateway.MAX_CONTEXT_ITEMS + 1,
+                        NexusMcpContextGateway.MAX_CONTEXT_ITEMS,
+                        "context items"));
+    }
+
+    private String javaExecutable() {
+        return Path.of(
+                System.getProperty("java.home"),
+                "bin",
+                System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java")
+                .toString();
+    }
+
+    private List<String> serverArguments() {
+        String testClasspath = System.getProperty(
+                "surefire.test.class.path",
+                System.getProperty("java.class.path"));
+        return List.of("-cp", testClasspath, FixtureNexusMcpServer.class.getName());
     }
 }
