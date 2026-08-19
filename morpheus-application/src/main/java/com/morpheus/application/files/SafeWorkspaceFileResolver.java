@@ -65,6 +65,13 @@ public final class SafeWorkspaceFileResolver {
 
     /** Reads a confined strict UTF-8 file while refusing more than {@code maxBytes} before buffering the excess. */
     public String readUtf8(Path relativePath, int maxBytes) throws IOException {
+        return decodeStrictUtf8(readBytes(relativePath, maxBytes), relativePath);
+    }
+
+    /**
+     * Reads a confined binary file with the same race-resistant identity and content validation used for UTF-8 reads.
+     */
+    public byte[] readBytes(Path relativePath, int maxBytes) throws IOException {
         if (maxBytes < 1) {
             throw new IllegalArgumentException("maxBytes must be positive");
         }
@@ -113,7 +120,7 @@ public final class SafeWorkspaceFileResolver {
                 || !contentStillMatches(after, afterAttributes, content)) {
             throw changedDuringRead(relativePath);
         }
-        return decodeStrictUtf8(content, relativePath);
+        return content;
     }
 
     private boolean contentStillMatches(
