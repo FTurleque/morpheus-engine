@@ -64,7 +64,8 @@ class SqliteDatabaseLeaseTest {
         Path lockPath = database.resolveSibling(database.getFileName() + ".access.lock");
         Files.createFile(lockPath);
 
-        try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.WRITE);
+        try (FileChannel channel = FileChannel.open(
+                lockPath, StandardOpenOption.READ, StandardOpenOption.WRITE);
              FileLock ignored = channel.lock(0L, Long.MAX_VALUE, true)) {
             assertThrows(IllegalStateException.class, () -> SqliteDatabaseLease.acquireExclusive(database));
         }
