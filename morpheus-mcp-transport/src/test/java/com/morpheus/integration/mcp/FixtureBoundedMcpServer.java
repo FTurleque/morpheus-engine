@@ -1,6 +1,6 @@
 package com.morpheus.integration.mcp;
 
-import io.modelcontextprotocol.json.McpJsonDefaults;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapperSupplier;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
@@ -19,7 +19,8 @@ public final class FixtureBoundedMcpServer {
     }
 
     public static void main(String[] args) {
-        StdioServerTransportProvider transport = new StdioServerTransportProvider(McpJsonDefaults.getMapper());
+        StdioServerTransportProvider transport = new StdioServerTransportProvider(
+                new JacksonMcpJsonMapperSupplier().get());
         McpSyncServer server = McpServer.sync(transport)
                 .serverInfo("fixture-bounded-transport", "1.0")
                 .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
