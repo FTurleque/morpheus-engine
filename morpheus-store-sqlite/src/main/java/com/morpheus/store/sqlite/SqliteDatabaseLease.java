@@ -125,7 +125,11 @@ final class SqliteDatabaseLease {
             Path parent = lockPath.getParent();
             if (parent != null) Files.createDirectories(parent);
             rejectUnsafeLockEntry(lockPath);
-            FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+            FileChannel channel = FileChannel.open(
+                    lockPath,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.READ,
+                    StandardOpenOption.WRITE);
             LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
             if (parent != null) hardener.hardenDirectory(parent);
             hardener.hardenFile(lockPath);
