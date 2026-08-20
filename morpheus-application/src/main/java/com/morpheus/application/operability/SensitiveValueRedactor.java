@@ -15,8 +15,10 @@ public final class SensitiveValueRedactor {
     public static final String REDACTED = "<redacted>";
     public static final String PATH_REDACTED = "<path-redacted>";
 
+    private static final Pattern INLINE_AUTHORIZATION = Pattern.compile(
+            "(?i)(authorization\\s*[=:]\\s*)(?:[a-z][a-z0-9+._-]*\\s+)?([^\\s,;&]+)");
     private static final Pattern INLINE_SECRET = Pattern.compile(
-            "(?i)(token|password|secret|api[_-]?key|authorization|credential)\\s*[=:]\\s*([^\\s,;&]+)");
+            "(?i)(token|password|secret|api[_-]?key|credential)\\s*[=:]\\s*([^\\s,;&]+)");
     private static final Pattern WINDOWS_DRIVE_ABSOLUTE = Pattern.compile("(?i)^[a-z]:[\\\\/].*");
     private static final Pattern UNC_ABSOLUTE = Pattern.compile("^(?:\\\\\\\\|//)[^\\\\/]+[\\\\/][^\\\\/]+.*");
 
@@ -78,10 +80,16 @@ public final class SensitiveValueRedactor {
     }
 
     private String redactInlineSecrets(String value) {
-        Matcher matcher = INLINE_SECRET.matcher(value);
+        String redacted = replaceMatches(INLINE_AUTHORIZATION, value, true);
+        return replaceMatches(INLINE_SECRET, redacted, false);
+    }
+
+    private String replaceMatches(Pattern pattern, String value, boolean preserveSeparator) {
+        Matcher matcher = pattern.matcher(value);
         StringBuffer buffer = new StringBuffer();
         while (matcher.find()) {
-            matcher.appendReplacement(buffer, Matcher.quoteReplacement(matcher.group(1) + "=" + REDACTED));
+            String prefix = preserveSeparator ? matcher.group(1) : matcher.group(1) + "=";
+            matcher.appendReplacement(buffer, Matcher.quoteReplacement(prefix + REDACTED));
         }
         matcher.appendTail(buffer);
         return buffer.toString();

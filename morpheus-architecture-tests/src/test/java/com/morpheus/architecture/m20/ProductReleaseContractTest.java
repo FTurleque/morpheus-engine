@@ -30,7 +30,7 @@ class ProductReleaseContractTest {
                     .toList();
         }
 
-        assertEquals(17, poms.size(), "Unexpected Maven reactor POM count");
+        assertEquals(18, poms.size(), "Unexpected Maven reactor POM count");
         for (Path pomPath : poms) {
             String pom = Files.readString(pomPath);
             assertTrue(pom.contains("<version>1.2.1</version>"),

@@ -49,6 +49,25 @@ class OperationalObservabilityContractTest {
     }
 
     @Test
+    void freeTextAuthorizationHeadersNeverExposeBearerOrBasicCredentials() {
+        SensitiveValueRedactor redactor = new SensitiveValueRedactor();
+        String bearer = "bearer-token-value";
+        String basic = "dXNlcjpwYXNzd29yZA==";
+
+        String bearerMessage = redactor.redact(
+                "message", "upstream failed Authorization: Bearer " + bearer + " retry=false");
+        String basicMessage = redactor.redact(
+                "detail", "authorization=Basic " + basic + "; status=401");
+
+        assertEquals("upstream failed Authorization: <redacted> retry=false", bearerMessage);
+        assertEquals("authorization=<redacted>; status=401", basicMessage);
+        assertFalse(bearerMessage.contains(bearer));
+        assertFalse(basicMessage.contains(basic));
+        assertFalse(bearerMessage.contains("Bearer"));
+        assertFalse(basicMessage.contains("Basic"));
+    }
+
+    @Test
     void operationalMetricsExposeStableProcessLocalCountersAndTimings() {
         OperationalMetrics metrics = new OperationalMetrics();
         metrics.increment("sync.success");
