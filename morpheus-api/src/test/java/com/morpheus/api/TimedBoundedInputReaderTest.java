@@ -3,7 +3,10 @@ package com.morpheus.api;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -26,6 +29,35 @@ class TimedBoundedInputReaderTest {
             assertThrows(TimedBoundedInputReader.LimitExceededException.class, () ->
                     TimedBoundedInputReader.read(
                             new ByteArrayInputStream(payload), 64, Duration.ofSeconds(1), executor));
+        }
+    }
+
+    @Test
+    void closesSlowInputWhenReadDeadlineExpires() {
+        BlockingInputStream input = new BlockingInputStream();
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            assertThrows(TimedBoundedInputReader.ReadTimeoutException.class, () ->
+                    TimedBoundedInputReader.read(input, 64, Duration.ofMillis(50), executor));
+        }
+    }
+
+    private static final class BlockingInputStream extends InputStream {
+        private final CountDownLatch closed = new CountDownLatch(1);
+
+        @Override
+        public int read() throws IOException {
+            try {
+                closed.await();
+                return -1;
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IOException("blocking input interrupted", interrupted);
+            }
+        }
+
+        @Override
+        public void close() {
+            closed.countDown();
         }
     }
 }
