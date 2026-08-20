@@ -19,7 +19,9 @@ final class TimedBoundedInputReader {
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(timeout, "timeout");
         Objects.requireNonNull(executor, "executor");
-        if (maxBytes < 0) throw new IllegalArgumentException("maxBytes must not be negative");
+        if (maxBytes < 0 || maxBytes == Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("maxBytes must be between 0 and Integer.MAX_VALUE - 1");
+        }
         if (timeout.isZero() || timeout.isNegative()) {
             throw new IllegalArgumentException("timeout must be positive");
         }
@@ -32,13 +34,13 @@ final class TimedBoundedInputReader {
             }
             return bytes;
         } catch (TimeoutException timeoutFailure) {
-            closeQuietly(input);
             read.cancel(true);
+            closeQuietly(input);
             throw new ReadTimeoutException("request body exceeded its read deadline", timeoutFailure);
         } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            closeQuietly(input);
             read.cancel(true);
+            closeQuietly(input);
+            Thread.currentThread().interrupt();
             throw new IOException("request body read was interrupted", interrupted);
         } catch (ExecutionException executionFailure) {
             Throwable cause = executionFailure.getCause();
@@ -53,7 +55,7 @@ final class TimedBoundedInputReader {
         try {
             input.close();
         } catch (IOException ignored) {
-            // Closing is only used to unblock a timed-out reader.
+            // The read task was already interrupted; close is best-effort cleanup.
         }
     }
 
