@@ -60,8 +60,11 @@ final class SqliteDatabaseSecurity {
             return guarded;
         } finally {
             if (!success) {
-                if (connection != null) connection.close();
-                lease.close();
+                try {
+                    if (connection != null) connection.close();
+                } finally {
+                    lease.close();
+                }
             }
         }
     }
