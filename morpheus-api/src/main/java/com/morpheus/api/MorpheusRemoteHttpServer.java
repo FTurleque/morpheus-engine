@@ -60,6 +60,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     static final int MAX_PROXY_RESPONSE_BYTES = 16 * 1024 * 1024;
     static final int MAX_PROXY_IN_FLIGHT_BYTES = 128 * 1024 * 1024;
     static final int MAX_KEYSTORE_BYTES = 4 * 1024 * 1024;
+    static final Duration REQUEST_BODY_READ_TIMEOUT = Duration.ofSeconds(15);
     private static final int MAX_PROXY_RESPONSE_SLOTS = MAX_PROXY_IN_FLIGHT_BYTES / MAX_PROXY_RESPONSE_BYTES;
     private static final int MAX_REQUEST_BYTES = MorpheusHttpServer.MAX_REQUEST_BODY_BYTES;
     private static final Duration READ_ONLY_UPSTREAM_TIMEOUT = Duration.ofSeconds(60);
@@ -508,11 +509,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     }
 
     private byte[] readBoundedBody(HttpExchange exchange) throws IOException {
-        byte[] body = exchange.getRequestBody().readNBytes(MAX_REQUEST_BYTES + 1);
-        if (body.length > MAX_REQUEST_BYTES) {
+        try {
+            return TimedBoundedInputReader.read(
+                    exchange.getRequestBody(), MAX_REQUEST_BYTES, REQUEST_BODY_READ_TIMEOUT, executor);
+        } catch (TimedBoundedInputReader.LimitExceededException tooLarge) {
             throw new RemoteFailure(413, "PAYLOAD_TOO_LARGE", "request body exceeds " + MAX_REQUEST_BYTES + " bytes");
+        } catch (TimedBoundedInputReader.ReadTimeoutException timeout) {
+            runtime.requestTimeouts.increment();
+            throw new RemoteFailure(408, "REQUEST_TIMEOUT", "request body exceeded its read deadline");
         }
-        return body;
     }
 
     private void requireEmptyBody(HttpExchange exchange) throws IOException {
@@ -629,6 +634,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         private final LongAdder authenticationFailures = new LongAdder();
         private final LongAdder authorizationFailures = new LongAdder();
         private final LongAdder throttledRequests = new LongAdder();
+        private final LongAdder requestTimeouts = new LongAdder();
 
         private RuntimeState(int maxConcurrentRequests) {
             this.maxConcurrentRequests = maxConcurrentRequests;
@@ -645,6 +651,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             status.put("uptimeSeconds", uptimeSeconds);
             status.put("activeRequests", activeRequests.get());
             status.put("maxConcurrentRequests", maxConcurrentRequests);
+            status.put("requestBodyReadTimeoutMillis", REQUEST_BODY_READ_TIMEOUT.toMillis());
             status.put("maxProxyResponseBytes", MAX_PROXY_RESPONSE_BYTES);
             status.put("maxProxyInFlightBytes", MAX_PROXY_IN_FLIGHT_BYTES);
             status.put("maxConcurrentBufferedProxyResponses", MAX_PROXY_RESPONSE_SLOTS);
@@ -652,6 +659,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             status.put("authenticationFailures", authenticationFailures.sum());
             status.put("authorizationFailures", authorizationFailures.sum());
             status.put("throttledRequests", throttledRequests.sum());
+            status.put("requestTimeouts", requestTimeouts.sum());
             return Map.copyOf(status);
         }
     }
