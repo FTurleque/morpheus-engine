@@ -181,7 +181,8 @@ public final class SqliteServerMaintenance {
         Path database = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         Path parent = database.getParent();
         if (parent == null) throw new IllegalArgumentException("database path must have a parent directory");
-        try (ServerLease ignored = acquireServerLease(database)) {
+        try (ServerLease ignored = acquireServerLease(database);
+             SqliteDatabaseLease.Lease databaseLease = SqliteDatabaseLease.acquireExclusive(database)) {
             Files.createDirectories(parent);
             rejectUnsafeEntry(database, false, "database");
             rejectUnsafeEntry(sidecar(database, "-journal"), false, "SQLite journal");
