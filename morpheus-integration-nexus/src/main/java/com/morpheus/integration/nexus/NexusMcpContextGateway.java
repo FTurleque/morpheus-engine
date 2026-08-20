@@ -4,10 +4,10 @@ import com.morpheus.application.context.TechnicalContextBundle;
 import com.morpheus.application.context.TechnicalContextItem;
 import com.morpheus.application.context.TechnicalContextRequest;
 import com.morpheus.application.security.ExternalJarIntegrity;
+import com.morpheus.integration.mcp.BoundedStdioClientTransport;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
-import io.modelcontextprotocol.client.transport.StdioClientTransport;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
@@ -63,7 +63,8 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             if (!launch.environment().isEmpty()) {
                 parameters.env(launch.environment());
             }
-            StdioClientTransport transport = new StdioClientTransport(parameters.build(), McpJsonDefaults.getMapper());
+            BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                    parameters.build(), McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
             started = McpClient.sync(transport).requestTimeout(launch.timeout()).build();
             started.initialize();
             Set<String> available = started.listTools().tools().stream()
@@ -197,8 +198,8 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
     }
 
     private String text(List<?> content) {
-        if (content == null || content.isEmpty() || !(content.getFirst() instanceof TextContent textContent)) {
-            throw new NexusIntegrationException("NEXUS MCP response does not contain TextContent");
+        if (content == null || content.size() != 1 || !(content.getFirst() instanceof TextContent textContent)) {
+            throw new NexusIntegrationException("NEXUS MCP response must contain exactly one TextContent item");
         }
         return textContent.text() == null ? "" : textContent.text();
     }
