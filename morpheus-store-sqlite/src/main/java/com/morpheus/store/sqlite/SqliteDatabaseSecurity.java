@@ -47,17 +47,21 @@ final class SqliteDatabaseSecurity {
             hardener.hardenDirectory(parent);
         }
 
-        Connection connection = DriverManager.getConnection("jdbc:sqlite:" + absolutePath);
+        SqliteDatabaseLease.Lease lease = SqliteDatabaseLease.acquireShared(absolutePath);
+        Connection connection = null;
         boolean success = false;
         try {
+            connection = DriverManager.getConnection("jdbc:sqlite:" + absolutePath);
             hardener.hardenFile(absolutePath);
             configureSecureDefaults(connection, busyTimeoutMillis);
             ensureAndHardenPersistentJournal(connection, absolutePath, hardener);
+            Connection guarded = SqliteDatabaseLease.guard(connection, lease);
             success = true;
-            return connection;
+            return guarded;
         } finally {
             if (!success) {
-                connection.close();
+                if (connection != null) connection.close();
+                lease.close();
             }
         }
     }
