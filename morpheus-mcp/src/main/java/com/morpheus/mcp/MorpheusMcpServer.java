@@ -13,7 +13,6 @@ import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
-import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
 
 import java.nio.file.Path;
@@ -51,40 +50,7 @@ public final class MorpheusMcpServer {
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
-        Objects.requireNonNull(databasePath, "databasePath");
-        Objects.requireNonNull(resolverRegistry, "resolverRegistry");
-        Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
-        Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
-        try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(databasePath)) {
-            new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
-        }
-        MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
-        MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath);
-        StdioServerTransportProvider transport = new StdioServerTransportProvider(McpJsonDefaults.getMapper());
-        List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
-
-        for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
-            tools.add(tool(definition, service));
-        }
-        tools.addAll(new MorpheusProductMcpTools().specifications());
-        tools.addAll(new MorpheusProviderPluginMcpTools().specifications());
-        tools.addAll(new MorpheusPortfolioMcpTools(databasePath).specifications());
-        tools.addAll(new MorpheusQueryMcpTools(databasePath).specifications());
-        tools.addAll(new MorpheusPolicyMcpTools(databasePath).specifications());
-        tools.addAll(new MorpheusPolicyMcpManagementTools(databasePath).specifications());
-        tools.addAll(new MorpheusReasoningMcpTools().specifications());
-        tools.addAll(new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications());
-        tools.addAll(new MorpheusAugmentedContextMcpTools(databasePath, technicalContextProvider).specifications());
-        tools.addAll(new MorpheusJarvisOrchestrationMcpTools(databasePath).specifications());
-        tools.addAll(new MorpheusCompositionMcpTools(databasePath).specifications());
-        tools.addAll(new MorpheusControlledLifecycleMcpTools(databasePath, writeCapabilityResolver).specifications());
-
-        return McpServer.sync(transport)
-                .serverInfo(SERVER_NAME, SERVER_VERSION)
-                .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
-                .validateToolInputs(true)
-                .tools(tools)
-                .build();
+        return createRuntime(databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver).server();
     }
 
     public static int run(Path databasePath) {
@@ -107,16 +73,59 @@ public final class MorpheusMcpServer {
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
-        McpSyncServer server = build(databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver);
+        ServerRuntime runtime = createRuntime(
+                databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver);
         try {
-            Thread.currentThread().join();
-            return 0;
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
+            runtime.transport().completion().block();
             return 0;
         } finally {
-            server.close();
+            runtime.server().close();
+            runtime.transport().closeGracefully().block();
         }
+    }
+
+    private static ServerRuntime createRuntime(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver) {
+        Objects.requireNonNull(databasePath, "databasePath");
+        Objects.requireNonNull(resolverRegistry, "resolverRegistry");
+        Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
+        Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
+        try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(databasePath)) {
+            new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
+        }
+
+        BoundedStdioServerTransportProvider transport =
+                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper());
+        MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
+        MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath);
+        List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
+
+        for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
+            tools.add(tool(definition, service));
+        }
+        tools.addAll(new MorpheusProductMcpTools().specifications());
+        tools.addAll(new MorpheusProviderPluginMcpTools().specifications());
+        tools.addAll(new MorpheusPortfolioMcpTools(databasePath).specifications());
+        tools.addAll(new MorpheusQueryMcpTools(databasePath).specifications());
+        tools.addAll(new MorpheusPolicyMcpTools(databasePath).specifications());
+        tools.addAll(new MorpheusPolicyMcpManagementTools(databasePath).specifications());
+        tools.addAll(new MorpheusReasoningMcpTools().specifications());
+        tools.addAll(new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications());
+        tools.addAll(new MorpheusAugmentedContextMcpTools(databasePath, technicalContextProvider).specifications());
+        tools.addAll(new MorpheusJarvisOrchestrationMcpTools(databasePath).specifications());
+        tools.addAll(new MorpheusCompositionMcpTools(databasePath).specifications());
+        tools.addAll(new MorpheusControlledLifecycleMcpTools(databasePath, writeCapabilityResolver).specifications());
+
+        McpSyncServer server = McpServer.sync(transport)
+                .serverInfo(SERVER_NAME, SERVER_VERSION)
+                .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
+                .validateToolInputs(true)
+                .tools(tools)
+                .build();
+        return new ServerRuntime(server, transport);
     }
 
     static McpServerFeatures.SyncToolSpecification tool(
@@ -161,5 +170,8 @@ public final class MorpheusMcpServer {
     private static String safeMessage(RuntimeException failure) {
         String message = failure.getMessage();
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
+    }
+
+    private record ServerRuntime(McpSyncServer server, BoundedStdioServerTransportProvider transport) {
     }
 }
