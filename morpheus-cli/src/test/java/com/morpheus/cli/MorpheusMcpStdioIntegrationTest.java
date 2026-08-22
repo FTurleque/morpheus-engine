@@ -85,9 +85,10 @@ class MorpheusMcpStdioIntegrationTest {
             assertTrue(initialized.contains("\"id\":1"), initialized);
 
             writer.close();
-            assertTrue(process.waitFor(5, TimeUnit.SECONDS),
-                    () -> "MCP process did not exit after stdin EOF; stderr=" + readStderr(stderr));
-            assertEquals(0, process.exitValue(), () -> "stderr=" + readStderr(stderr));
+            boolean exited = process.waitFor(5, TimeUnit.SECONDS);
+            String stderrOutput = readStderr(stderr);
+            assertTrue(exited, "MCP process did not exit after stdin EOF; stderr=" + stderrOutput);
+            assertEquals(0, process.exitValue(), "stderr=" + stderrOutput);
         } finally {
             terminate(process);
         }
@@ -104,8 +105,9 @@ class MorpheusMcpStdioIntegrationTest {
             writer.newLine();
             writer.flush();
 
-            assertTrue(process.waitFor(5, TimeUnit.SECONDS),
-                    () -> "MCP process did not fail closed after oversized frame; stderr=" + readStderr(stderr));
+            boolean exited = process.waitFor(5, TimeUnit.SECONDS);
+            assertTrue(exited,
+                    "MCP process did not fail closed after oversized frame; stderr=" + readStderr(stderr));
         } finally {
             terminate(process);
         }
