@@ -117,6 +117,19 @@ class BoundedStdioServerTransportProviderTest {
     }
 
     @Test
+    void convenienceConstructorsUseBoundedDefaultsAndCanCloseBeforeSessionCreation() throws Exception {
+        BoundedStdioServerTransportProvider defaults =
+                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper());
+        defaults.closeGracefully().block();
+        assertTrue(defaults.awaitTermination(Duration.ofSeconds(1)));
+
+        BoundedStdioServerTransportProvider customFrameLimit =
+                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper(), 2048);
+        customFrameLimit.closeGracefully().block();
+        assertTrue(customFrameLimit.awaitTermination(Duration.ofSeconds(1)));
+    }
+
+    @Test
     void acceptsInboundFrameAtConfiguredBoundary() throws Exception {
         String json = "{\"jsonrpc\":\"2.0\"}";
         byte[] frame = (json + "\n").getBytes(StandardCharsets.UTF_8);
