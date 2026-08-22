@@ -15,7 +15,6 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
 import java.nio.file.attribute.UserPrincipalLookupService;
-import java.nio.file.attribute.UserPrincipalNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -299,10 +298,17 @@ public final class LocalWritePermissionHardener {
     }
 
     private static Set<UserPrincipal> resolveTrustedWindowsPrincipals() {
-        if (!System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")) {
-            return Set.of();
-        }
-        UserPrincipalLookupService lookup = FileSystems.getDefault().getUserPrincipalLookupService();
+        return resolveTrustedWindowsPrincipals(
+                FileSystems.getDefault().getUserPrincipalLookupService(),
+                System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win"));
+    }
+
+    /** Resolves trusted ACL identities through the platform lookup service; unresolved aliases remain untrusted. */
+    static Set<UserPrincipal> resolveTrustedWindowsPrincipals(
+            UserPrincipalLookupService lookup,
+            boolean windows) {
+        Objects.requireNonNull(lookup, "lookup");
+        if (!windows) return Set.of();
         Set<UserPrincipal> resolved = new LinkedHashSet<>();
         for (String name : List.of(
                 "NT AUTHORITY\\SYSTEM",
@@ -311,12 +317,18 @@ public final class LocalWritePermissionHardener {
                 "CREATOR OWNER",
                 "CREATEUR PROPRIETAIRE",
                 "PROPRIETAIRE CREATEUR")) {
-            resolveUserPrincipal(lookup, name, resolved);
+            try {
+                resolved.add(lookup.lookupPrincipalByName(name));
+            } catch (IOException | UnsupportedOperationException ignored) {
+                // Missing/localized identities are intentionally not trusted.
+            }
         }
-        for (String name : List.of(
-                "BUILTIN\\Administrators",
-                "BUILTIN\\Administrateurs")) {
-            resolveGroupPrincipal(lookup, name, resolved);
+        for (String name : List.of("BUILTIN\\Administrators", "BUILTIN\\Administrateurs")) {
+            try {
+                resolved.add(lookup.lookupPrincipalByGroupName(name));
+            } catch (IOException | UnsupportedOperationException ignored) {
+                // Missing/localized identities are intentionally not trusted.
+            }
         }
         return Set.copyOf(resolved);
     }
@@ -328,32 +340,6 @@ public final class LocalWritePermissionHardener {
             return FileSystems.getDefault().getUserPrincipalLookupService().lookupPrincipalByName(runtimeUser);
         } catch (IOException | UnsupportedOperationException ignored) {
             return null;
-        }
-    }
-
-    private static void resolveUserPrincipal(
-            UserPrincipalLookupService lookup,
-            String name,
-            Set<UserPrincipal> resolved) {
-        try {
-            resolved.add(lookup.lookupPrincipalByName(name));
-        } catch (UserPrincipalNotFoundException ignored) {
-            // Localized or unavailable well-known principal: fail closed by not trusting it.
-        } catch (IOException | UnsupportedOperationException ignored) {
-            // Principal lookup is optional; ACL validation remains fail-closed for unresolved identities.
-        }
-    }
-
-    private static void resolveGroupPrincipal(
-            UserPrincipalLookupService lookup,
-            String name,
-            Set<UserPrincipal> resolved) {
-        try {
-            resolved.add(lookup.lookupPrincipalByGroupName(name));
-        } catch (UserPrincipalNotFoundException ignored) {
-            // Localized or unavailable well-known principal: fail closed by not trusting it.
-        } catch (IOException | UnsupportedOperationException ignored) {
-            // Principal lookup is optional; ACL validation remains fail-closed for unresolved identities.
         }
     }
 
