@@ -4,6 +4,7 @@ import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonDefaults;
+import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import org.junit.jupiter.api.Test;
@@ -65,6 +66,26 @@ class BoundedStdioClientTransportTest {
     }
 
     @Test
+    void failsClosedWhenOutboundQueueCapacityIsExceeded() {
+        BoundedStdioClientTransport transport = transport(1024, 1);
+        McpSchema.JSONRPCNotification message =
+                new McpSchema.JSONRPCNotification("notifications/test", Map.of("value", "bounded"));
+
+        transport.sendMessage(message).block();
+
+        assertThrows(RuntimeException.class, () -> transport.sendMessage(message).block());
+    }
+
+    @Test
+    void rejectsOversizedOutboundFrameBeforeEnqueue() {
+        BoundedStdioClientTransport transport = transport(128, 4);
+        McpSchema.JSONRPCNotification message = new McpSchema.JSONRPCNotification(
+                "notifications/test", Map.of("value", "x".repeat(512)));
+
+        assertThrows(RuntimeException.class, () -> transport.sendMessage(message).block());
+    }
+
+    @Test
     void acceptsFrameAtExactByteLimitAndStripsCrLfDelimiter() throws Exception {
         String json = "{\"id\":1}";
         byte[] line = (json + "\r\n").getBytes(StandardCharsets.UTF_8);
@@ -96,10 +117,18 @@ class BoundedStdioClientTransportTest {
     }
 
     private BoundedStdioClientTransport transport(int maxBytes) {
+        return transport(maxBytes, BoundedStdioClientTransport.DEFAULT_MAX_PENDING_MESSAGES);
+    }
+
+    private BoundedStdioClientTransport transport(int maxBytes, int maxPendingMessages) {
         ServerParameters parameters = ServerParameters.builder(javaExecutable())
                 .args(serverArguments().toArray(String[]::new))
                 .build();
-        return new BoundedStdioClientTransport(parameters, McpJsonDefaults.getMapper(), maxBytes);
+        return new BoundedStdioClientTransport(
+                parameters,
+                McpJsonDefaults.getMapper(),
+                maxBytes,
+                maxPendingMessages);
     }
 
     private String javaExecutable() {
