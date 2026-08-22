@@ -27,6 +27,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -45,6 +46,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     public static final String DEFAULT_HOST = "127.0.0.1";
     public static final int DEFAULT_PORT = 8765;
     public static final int MAX_REQUEST_BODY_BYTES = 65_536;
+    static final Duration REQUEST_BODY_READ_TIMEOUT = Duration.ofSeconds(15);
 
     private final HttpServer server;
     private final ExecutorService executor;
@@ -633,11 +635,12 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private byte[] readBody(HttpExchange exchange) {
         try {
-            byte[] bytes = exchange.getRequestBody().readNBytes(MAX_REQUEST_BODY_BYTES + 1);
-            if (bytes.length > MAX_REQUEST_BODY_BYTES) {
-                throw ApiFailure.badRequest("request body exceeds " + MAX_REQUEST_BODY_BYTES + " bytes");
-            }
-            return bytes;
+            return TimedBoundedInputReader.read(
+                    exchange.getRequestBody(), MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, executor);
+        } catch (TimedBoundedInputReader.LimitExceededException tooLarge) {
+            throw ApiFailure.badRequest("request body exceeds " + MAX_REQUEST_BODY_BYTES + " bytes");
+        } catch (TimedBoundedInputReader.ReadTimeoutException timeout) {
+            throw ApiFailure.badRequest("request body exceeded its read deadline");
         } catch (IOException failure) {
             throw ApiFailure.badRequest("cannot read request body");
         }
