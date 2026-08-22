@@ -180,7 +180,8 @@ final class BoundedStdioServerTransportProvider implements McpServerTransportPro
         }
 
         private void readLoop() {
-            try (InputStream input = new BufferedInputStream(inputStream)) {
+            InputStream input = new BufferedInputStream(inputStream);
+            try {
                 String line;
                 while (!closing.get() && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
                     JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, line);
