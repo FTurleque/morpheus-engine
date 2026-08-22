@@ -28,6 +28,9 @@ final class ProviderPluginProbeProcess {
     private static final Set<String> SAFE_ENVIRONMENT_KEYS = Set.of(
             "SYSTEMROOT",
             "WINDIR",
+            "PATH",
+            "PATHEXT",
+            "COMSPEC",
             "TEMP",
             "TMP",
             "TMPDIR",
