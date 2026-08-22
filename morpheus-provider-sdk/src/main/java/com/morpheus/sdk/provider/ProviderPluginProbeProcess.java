@@ -11,13 +11,32 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-/** Executes third-party provider probe code in a killable child JVM. */
+/**
+ * Executes hash-pinned third-party provider probe code in a killable, environment-minimized child JVM.
+ *
+ * <p>This process boundary protects MORPHEUS from non-cooperative probe lifecycle failures and accidental environment
+ * disclosure. It is deliberately not described as an OS security sandbox: an approved plugin still runs as the same
+ * operating-system account and therefore must be treated as trusted code for filesystem and network access.</p>
+ */
 final class ProviderPluginProbeProcess {
     static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(45);
     private static final Duration GRACEFUL_TERMINATION = Duration.ofMillis(500);
     private static final long TERMINATION_POLL_MILLIS = 10L;
+    private static final Set<String> SAFE_ENVIRONMENT_KEYS = Set.of(
+            "SYSTEMROOT",
+            "WINDIR",
+            "PATH",
+            "PATHEXT",
+            "COMSPEC",
+            "TEMP",
+            "TMP",
+            "TMPDIR",
+            "LANG",
+            "LC_ALL",
+            "LC_CTYPE");
 
     private final Duration timeout;
 
@@ -42,17 +61,18 @@ final class ProviderPluginProbeProcess {
 
         Path resultFile = null;
         Process process = null;
+        Map<Long, ProcessHandle> observed = new LinkedHashMap<>();
         try {
             resultFile = Files.createTempFile("morpheus-provider-probe-", ".properties");
             Files.deleteIfExists(resultFile);
-            process = new ProcessBuilder(command(candidate, workspaceRoot, trustedSha256, resultFile))
+            ProcessBuilder builder = new ProcessBuilder(command(candidate, workspaceRoot, trustedSha256, resultFile))
                     .redirectErrorStream(true)
-                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                    .start();
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD);
+            sanitizeEnvironment(builder.environment());
+            process = builder.start();
 
-            boolean completed = process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            boolean completed = waitForCompletion(process, observed);
             if (!completed) {
-                terminate(process);
                 throw new ProviderPluginProbeProcessException(
                         "provider plugin probe exceeded the " + timeout.toSeconds() + " second execution limit",
                         true);
@@ -70,24 +90,58 @@ final class ProviderPluginProbeProcess {
             return ProviderProbeResultCodec.read(resultFile);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            if (process != null) terminate(process);
             throw new ProviderPluginProbeProcessException(
                     "isolated provider plugin probe was interrupted",
                     false,
                     interrupted);
         } catch (IOException failure) {
-            if (process != null) terminate(process);
             throw new ProviderPluginProbeProcessException(
                     "cannot execute isolated provider plugin probe",
                     false,
                     failure);
         } finally {
+            if (process != null) terminate(process, observed);
             if (resultFile != null) {
                 try {
                     Files.deleteIfExists(resultFile);
                 } catch (IOException ignored) {
                     // The result file contains no secret material; preserve the primary outcome.
                 }
+            }
+        }
+    }
+
+    /** Removes inherited credentials and JVM injection variables before the plugin worker is started. */
+    static void sanitizeEnvironment(Map<String, String> environment) {
+        Objects.requireNonNull(environment, "environment");
+        Map<String, String> inherited = new LinkedHashMap<>(environment);
+        environment.clear();
+        for (Map.Entry<String, String> entry : inherited.entrySet()) {
+            if (SAFE_ENVIRONMENT_KEYS.contains(entry.getKey().toUpperCase(Locale.ROOT))) {
+                environment.put(entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    private boolean waitForCompletion(Process process, Map<Long, ProcessHandle> observed) throws InterruptedException {
+        ProcessHandle root = process.toHandle();
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (true) {
+            collectTree(root, observed);
+            if (!process.isAlive()) {
+                collectTree(root, observed);
+                return true;
+            }
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                return !process.isAlive();
+            }
+            long waitMillis = Math.max(1L, Math.min(
+                    TERMINATION_POLL_MILLIS,
+                    TimeUnit.NANOSECONDS.toMillis(remaining)));
+            if (process.waitFor(waitMillis, TimeUnit.MILLISECONDS)) {
+                collectTree(root, observed);
+                return true;
             }
         }
     }
@@ -134,17 +188,15 @@ final class ProviderPluginProbeProcess {
     }
 
     /**
-     * Terminates the complete process tree, not only the worker JVM. Handles are retained after re-parenting so
-     * descendants remain killable even when their direct parent exits first. Newly discovered descendants are
-     * repeatedly collected during both graceful and forced phases.
+     * Terminates every descendant observed during execution, not only descendants still attached to the worker JVM.
+     * Retaining handles while the worker is alive is important because a child can be re-parented as soon as the worker
+     * exits successfully.
      */
-    private void terminate(Process process) {
+    private void terminate(Process process, Map<Long, ProcessHandle> observed) {
         ProcessHandle root = process.toHandle();
-        Map<Long, ProcessHandle> observed = new LinkedHashMap<>();
         collectTree(root, observed);
 
         try {
-            // Stop already-observed descendants before the worker so they cannot intentionally outlive it.
             signalDescendants(root, observed, false);
             collectTree(root, observed);
             signalDescendants(root, observed, false);
@@ -159,7 +211,6 @@ final class ProviderPluginProbeProcess {
             signal(root, true);
             awaitTreeExit(root, observed, GRACEFUL_TERMINATION, true);
         } catch (InterruptedException interrupted) {
-            // Cleanup remains mandatory even when the caller thread is interrupted.
             collectTree(root, observed);
             signalDescendants(root, observed, true);
             signal(root, true);
@@ -195,8 +246,6 @@ final class ProviderPluginProbeProcess {
 
     private void collectTree(ProcessHandle root, Map<Long, ProcessHandle> observed) {
         observed.putIfAbsent(root.pid(), root);
-        // Iterate over a stable copy because descendants discovered from a retained, re-parented child must also
-        // become roots for subsequent discovery passes.
         for (ProcessHandle seed : List.copyOf(observed.values())) {
             if (!seed.isAlive()) continue;
             try {

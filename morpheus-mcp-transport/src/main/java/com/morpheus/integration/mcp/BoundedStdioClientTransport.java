@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -49,6 +50,8 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private final ServerParameters parameters;
     private final McpJsonMapper jsonMapper;
     private final int maxMessageBytes;
+    private final int maxPendingMessages;
+    private final Semaphore inboundCapacity;
     private final Scheduler inboundScheduler;
     private final Scheduler outboundScheduler;
     private final Scheduler errorScheduler;
@@ -74,6 +77,8 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         if (maxMessageBytes < 1) throw new IllegalArgumentException("maxMessageBytes must be positive");
         if (maxPendingMessages < 1) throw new IllegalArgumentException("maxPendingMessages must be positive");
         this.maxMessageBytes = maxMessageBytes;
+        this.maxPendingMessages = maxPendingMessages;
+        this.inboundCapacity = new Semaphore(maxPendingMessages);
         this.inboundSink = Sinks.many().unicast()
                 .onBackpressureBuffer(new ArrayBlockingQueue<JSONRPCMessage>(maxPendingMessages));
         this.outboundSink = Sinks.many().unicast()
@@ -160,7 +165,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private void handleIncomingMessages(Function<Mono<JSONRPCMessage>, Mono<JSONRPCMessage>> handler) {
         inboundSink.asFlux()
-                .flatMap(message -> Mono.just(message).transform(handler))
+                .flatMap(
+                        message -> Mono.defer(() -> Mono.just(message).transform(handler))
+                                .doFinally(ignored -> inboundCapacity.release()),
+                        maxPendingMessages)
                 .subscribe(
                         ignored -> { },
                         failure -> {
@@ -177,7 +185,12 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 String line;
                 while (!closing && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
                     JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, line);
+                    if (!inboundCapacity.tryAcquire()) {
+                        failClosed(new IllegalStateException("MCP inbound pending-message capacity exceeded"));
+                        return;
+                    }
                     if (!inboundSink.tryEmitNext(message).isSuccess()) {
+                        inboundCapacity.release();
                         if (!closing) failClosed(new IllegalStateException("MCP inbound queue capacity exceeded"));
                         return;
                     }

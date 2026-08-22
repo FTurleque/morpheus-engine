@@ -28,15 +28,39 @@ function Resolve-BaseRef([string]$Requested) {
 }
 
 function Assert-ReactorVersion([string]$ExpectedVersion) {
+    $rootPomPath = Join-Path $repo 'pom.xml'
+    [xml]$rootPomXml = Get-Content -LiteralPath $rootPomPath -Raw
+    $namespace = New-Object System.Xml.XmlNamespaceManager($rootPomXml.NameTable)
+    $namespace.AddNamespace('m', 'http://maven.apache.org/POM/4.0.0')
+    $modules = @($rootPomXml.SelectNodes('/m:project/m:modules/m:module', $namespace))
+    if ($modules.Count -eq 0) { throw 'D2 root POM declares no reactor modules' }
+
+    $expectedPomPaths = @($rootPomPath)
+    foreach ($module in $modules) {
+        $moduleName = $module.InnerText.Trim()
+        if ([string]::IsNullOrWhiteSpace($moduleName)) { throw 'D2 root POM contains an empty module declaration' }
+        $expectedPomPaths += Join-Path (Join-Path $repo $moduleName) 'pom.xml'
+    }
+    $expectedPomPaths = @($expectedPomPaths | ForEach-Object { [IO.Path]::GetFullPath($_) } | Sort-Object -Unique)
+
     $poms = @(Get-ChildItem -Path $repo -Recurse -File -Filter 'pom.xml' |
         Where-Object { $_.FullName -notmatch '[\\/]target[\\/]' })
-    if ($poms.Count -ne 17) { throw "Unexpected Maven reactor POM count: $($poms.Count), expected 17" }
+    $actualPomPaths = @($poms.FullName | ForEach-Object { [IO.Path]::GetFullPath($_) } | Sort-Object -Unique)
+    if ($actualPomPaths.Count -ne $expectedPomPaths.Count) {
+        throw "Unexpected Maven reactor POM count: $($actualPomPaths.Count), expected $($expectedPomPaths.Count) from root modules"
+    }
+    foreach ($expectedPom in $expectedPomPaths) {
+        if ($actualPomPaths -notcontains $expectedPom) {
+            throw "Expected Maven reactor POM missing or unexpected POM present: $expectedPom"
+        }
+    }
     foreach ($pom in $poms) {
         $content = Get-Content -LiteralPath $pom.FullName -Raw
         if (-not $content.Contains("<version>$ExpectedVersion</version>")) {
             throw "MORPHEUS $ExpectedVersion version missing from $($pom.FullName)"
         }
     }
+    Write-Host "D2 reactor: PASS ($($modules.Count) modules / $($expectedPomPaths.Count) Maven projects)"
 }
 
 function Read-KeyValueFile([string]$Path) {

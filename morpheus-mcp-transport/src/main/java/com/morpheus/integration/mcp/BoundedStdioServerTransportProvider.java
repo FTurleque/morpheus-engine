@@ -20,11 +20,15 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Resource-bounded MCP STDIO server transport.
@@ -108,16 +112,15 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
 
     @Override
     public Mono<Void> closeGracefully() {
+        BoundedSessionTransport currentTransport = transport;
+        if (currentTransport != null) currentTransport.requestStop();
         McpServerSession current = session;
         if (current == null) {
             closing.set(true);
             terminated.countDown();
             return Mono.empty();
         }
-        return current.closeGracefully().doFinally(ignored -> {
-            BoundedSessionTransport currentTransport = transport;
-            if (currentTransport != null) currentTransport.requestStop();
-        });
+        return current.closeGracefully();
     }
 
     /** Blocks until stdin reaches EOF, the peer violates a transport bound, or the transport is closed. */
@@ -140,6 +143,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
                 Executors.newSingleThreadExecutor(), "morpheus-mcp-server-outbound");
         private final AtomicBoolean started = new AtomicBoolean(false);
         private final AtomicInteger workersRemaining = new AtomicInteger(2);
+        private final AtomicReference<CompletableFuture<Void>> activeHandler = new AtomicReference<>();
 
         @Override
         public Mono<Void> sendMessage(JSONRPCMessage message) {
@@ -191,7 +195,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
                     String line = readUtf8LineBounded(input, maxFrameBytes);
                     if (line == null || closing.get()) break;
                     JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, line);
-                    session.handle(message).block();
+                    handleSequentially(message);
                 }
             } catch (MessageTooLargeException oversized) {
                 failClosed(oversized);
@@ -202,8 +206,27 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
                     McpServerSession current = session;
                     if (current != null) current.close();
                 }
+                cancelActiveHandler();
                 closeInputQuietly();
                 workerFinished();
+            }
+        }
+
+        private void handleSequentially(JSONRPCMessage message) throws Exception {
+            CompletableFuture<Void> future = session.handle(message).toFuture();
+            activeHandler.set(future);
+            if (closing.get()) future.cancel(true);
+            try {
+                future.get();
+            } catch (CancellationException cancelled) {
+                if (!closing.get()) throw cancelled;
+            } catch (ExecutionException failure) {
+                Throwable cause = failure.getCause();
+                if (cause instanceof Exception exception) throw exception;
+                if (cause instanceof Error error) throw error;
+                throw new IllegalStateException("MCP STDIO handler failed", cause);
+            } finally {
+                activeHandler.compareAndSet(future, null);
             }
         }
 
@@ -239,6 +262,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
 
         private void requestStop() {
             closing.set(true);
+            cancelActiveHandler();
             closeInputQuietly();
         }
 
@@ -248,7 +272,13 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
                 McpServerSession current = session;
                 if (current != null) current.close();
             }
+            cancelActiveHandler();
             closeInputQuietly();
+        }
+
+        private void cancelActiveHandler() {
+            CompletableFuture<Void> future = activeHandler.getAndSet(null);
+            if (future != null) future.cancel(true);
         }
 
         private void workerFinished() {

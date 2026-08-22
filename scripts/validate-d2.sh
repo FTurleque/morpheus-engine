@@ -38,16 +38,34 @@ printf '%s\n' 'D2 no-CI scope: PASS (.github/workflows delta NONE)'
 python3 - "$REPO" "$VERSION" <<'PY'
 import pathlib
 import sys
+import xml.etree.ElementTree as ET
+
 root = pathlib.Path(sys.argv[1])
 version = sys.argv[2]
-poms = sorted(p for p in root.rglob('pom.xml') if 'target' not in p.parts)
-if len(poms) != 17:
-    raise SystemExit(f'unexpected Maven reactor POM count: {len(poms)}, expected 17')
-for pom in poms:
+root_pom_path = root / 'pom.xml'
+namespace = {'m': 'http://maven.apache.org/POM/4.0.0'}
+project = ET.parse(root_pom_path).getroot()
+modules = [node.text.strip() for node in project.findall('./m:modules/m:module', namespace) if node.text and node.text.strip()]
+if not modules:
+    raise SystemExit('D2 root POM declares no reactor modules')
+expected_poms = {root_pom_path.resolve(), *(root / module / 'pom.xml' for module in modules)}
+expected_poms = {path.resolve() for path in expected_poms}
+actual_poms = {
+    path.resolve()
+    for path in root.rglob('pom.xml')
+    if 'target' not in path.parts
+}
+if actual_poms != expected_poms:
+    missing = sorted(str(path.relative_to(root)) for path in expected_poms - actual_poms)
+    unexpected = sorted(str(path.relative_to(root)) for path in actual_poms - expected_poms)
+    raise SystemExit(
+        f'D2 Maven reactor POM mismatch: expected {len(expected_poms)}, found {len(actual_poms)}, '
+        f'missing={missing}, unexpected={unexpected}')
+for pom in sorted(actual_poms):
     text = pom.read_text(encoding='utf-8')
     if f'<version>{version}</version>' not in text:
         raise SystemExit(f'MORPHEUS {version} version missing from {pom}')
-root_pom = (root / 'pom.xml').read_text(encoding='utf-8')
+root_pom = root_pom_path.read_text(encoding='utf-8')
 for token in (
     '<jackson.version>3.1.5</jackson.version>',
     '<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>',
@@ -60,6 +78,7 @@ for token in (
 ):
     if token not in root_pom:
         raise SystemExit(f'D2 dependency/quality token missing from pom.xml: {token}')
+print(f'D2 reactor: PASS ({len(modules)} modules / {len(expected_poms)} Maven projects)')
 PY
 printf '%s\n' 'D2 dependency baseline: PASS'
 
