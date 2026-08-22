@@ -260,7 +260,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                         failure -> LOGGER.log(System.Logger.Level.WARNING, "MCP outbound processing failed", failure));
     }
 
-    private String serializedFrame(JSONRPCMessage message) {
+    private String serializedFrame(JSONRPCMessage message) throws IOException {
         return jsonMapper.writeValueAsString(message)
                 .replace("\r\n", "\\n")
                 .replace("\n", "\\n")
@@ -268,9 +268,13 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     }
 
     private void ensureFrameWithinLimit(JSONRPCMessage message) {
-        String json = serializedFrame(message);
-        if (json.getBytes(StandardCharsets.UTF_8).length > maxMessageBytes) {
-            throw new IllegalArgumentException("outbound MCP STDIO frame exceeds " + maxMessageBytes + " bytes");
+        try {
+            String json = serializedFrame(message);
+            if (json.getBytes(StandardCharsets.UTF_8).length > maxMessageBytes) {
+                throw new IllegalArgumentException("outbound MCP STDIO frame exceeds " + maxMessageBytes + " bytes");
+            }
+        } catch (IOException failure) {
+            throw new IllegalStateException("failed to serialize MCP message", failure);
         }
     }
 
