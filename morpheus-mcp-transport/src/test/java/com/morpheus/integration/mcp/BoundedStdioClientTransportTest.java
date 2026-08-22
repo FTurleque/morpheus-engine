@@ -8,6 +8,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Mono;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -16,11 +17,14 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BoundedStdioClientTransportTest {
@@ -45,6 +49,38 @@ class BoundedStdioClientTransportTest {
             assertEquals("hello-bounded-stdio", ((TextContent) result.content().getFirst()).text());
         } finally {
             client.closeGracefully();
+        }
+    }
+
+    @Test
+    void aggregateInboundBudgetIncludesActiveHandlersAndFailsClosed() throws Exception {
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                peerParameters(FixtureFloodingMcpPeer.class),
+                McpJsonDefaults.getMapper(),
+                4096,
+                1);
+        CountDownLatch firstHandlerStarted = new CountDownLatch(1);
+        try {
+            transport.connect(message -> {
+                firstHandlerStarted.countDown();
+                return Mono.never();
+            }).block();
+
+            assertTrue(firstHandlerStarted.await(2, TimeUnit.SECONDS));
+            McpSchema.JSONRPCNotification outbound =
+                    new McpSchema.JSONRPCNotification("notifications/test", Map.of("value", "probe"));
+            assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+                while (true) {
+                    try {
+                        transport.sendMessage(outbound).block();
+                        TimeUnit.MILLISECONDS.sleep(10);
+                    } catch (RuntimeException expectedClosedTransport) {
+                        return;
+                    }
+                }
+            });
+        } finally {
+            transport.closeGracefully().block();
         }
     }
 
@@ -161,8 +197,12 @@ class BoundedStdioClientTransportTest {
     }
 
     private ServerParameters serverParameters() {
+        return peerParameters(FixtureBoundedMcpServer.class);
+    }
+
+    private ServerParameters peerParameters(Class<?> mainClass) {
         return ServerParameters.builder(javaExecutable())
-                .args(serverArguments().toArray(String[]::new))
+                .args(peerArguments(mainClass).toArray(String[]::new))
                 .build();
     }
 
@@ -174,10 +214,10 @@ class BoundedStdioClientTransportTest {
                 .toString();
     }
 
-    private List<String> serverArguments() {
+    private List<String> peerArguments(Class<?> mainClass) {
         String testClasspath = System.getProperty(
                 "surefire.test.class.path",
                 System.getProperty("java.class.path"));
-        return List.of("-cp", testClasspath, FixtureBoundedMcpServer.class.getName());
+        return List.of("-cp", testClasspath, mainClass.getName());
     }
 }
