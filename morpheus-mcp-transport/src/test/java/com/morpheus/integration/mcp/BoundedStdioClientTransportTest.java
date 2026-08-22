@@ -86,6 +86,15 @@ class BoundedStdioClientTransportTest {
     }
 
     @Test
+    void cleansUpSchedulersWhenPeerProcessCannotStart() {
+        ServerParameters parameters = ServerParameters.builder("morpheus-command-that-does-not-exist-20260822").build();
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                parameters, McpJsonDefaults.getMapper(), 1024);
+
+        assertThrows(RuntimeException.class, () -> transport.connect(message -> message).block());
+    }
+
+    @Test
     void acceptsCustomStderrHandler() {
         BoundedStdioClientTransport transport = transport(1024);
         try {
