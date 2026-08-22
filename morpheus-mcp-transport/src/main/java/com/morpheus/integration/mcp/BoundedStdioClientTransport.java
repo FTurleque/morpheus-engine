@@ -36,10 +36,10 @@ import java.util.function.Function;
  * MORPHEUS reads process streams as bounded UTF-8 bytes before JSON parsing, caps pending inbound/outbound messages,
  * handles stderr synchronously on its reader thread, and fails closed when a peer exceeds a resource budget.</p>
  */
-public final class BoundedStioClientTransport implements McpClientTransport {
+public final class BoundedStdioClientTransport implements McpClientTransport {
     public static final int DEFAULT_MAX_PENDING_MESSAGES = 64;
 
-    private static final System.Logger LOGGER = System.getLogger(BoundedStioClientTransport.class.getName());
+    private static final System.Logger LOGGER = System.getLogger(BoundedStdioClientTransport.class.getName());
     private static final Set<Integer> NORMAL_EXIT_CODES = Set.of(0, 130, 141, 143);
     private static final Duration PROCESS_SHUTDOWN_GRACE = Duration.ofSeconds(2);
     private static final Duration PROCESS_SHUTDOWN_FORCE = Duration.ofSeconds(2);
@@ -57,14 +57,14 @@ public final class BoundedStioClientTransport implements McpClientTransport {
     private volatile boolean closing;
     private Consumer<String> stdErrorHandler = error -> LOGGER.log(System.Logger.Level.INFO, "MCP STDERR: {0}", error);
 
-    public BoundedStioClientTransport(
+    public BoundedStdioClientTransport(
             ServerParameters parameters,
             McpJsonMapper jsonMapper,
             int maxInboundMessageBytes) {
         this(parameters, jsonMapper, maxInboundMessageBytes, DEFAULT_MAX_PENDING_MESSAGES);
     }
 
-    public BoundedStioClientTransport(
+    public BoundedStdioClientTransport(
             ServerParameters parameters,
             McpJsonMapper jsonMapper,
             int maxMessageBytes,
