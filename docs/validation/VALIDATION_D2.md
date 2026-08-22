@@ -4,6 +4,12 @@ Statut : **QUALIFIED CANDIDATE — FINAL EXACT-HEAD REVALIDATION REQUIRED AFTER 
 
 Issue : **#120**
 
+> **Historical evidence notice.** This file preserves the literal D2 qualification evidence produced for MORPHEUS
+> 1.2.0 on 2026-08-11. The current repository is newer and must not inherit these results. The canonical D2 scripts now
+> default to the current product version and derive the reactor from the root `pom.xml` `<modules>` declaration instead
+> of assuming the historical 17-project reactor. Any current D2 qualification requires fresh same-SHA Windows and
+> Linux/WSL executions; the historical commands and measurements below are intentionally left unchanged.
+
 ## 1. Scope
 
 D2 hardens the post-R3 repository without changing product semantics or GitHub Actions.
