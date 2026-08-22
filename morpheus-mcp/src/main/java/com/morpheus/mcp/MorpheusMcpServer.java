@@ -8,12 +8,12 @@ import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.application.store.KnowledgeStoreException;
+import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
 import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
-import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
 
 import java.nio.file.Path;
@@ -51,16 +51,30 @@ public final class MorpheusMcpServer {
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
+        return build(
+                databasePath,
+                resolverRegistry,
+                technicalContextProvider,
+                writeCapabilityResolver,
+                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper()));
+    }
+
+    private static McpSyncServer build(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            BoundedStdioServerTransportProvider transport) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
+        Objects.requireNonNull(transport, "transport");
         try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(databasePath)) {
             new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
         }
         MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
         MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath);
-        StdioServerTransportProvider transport = new StdioServerTransportProvider(McpJsonDefaults.getMapper());
         List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
 
         for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
@@ -107,9 +121,16 @@ public final class MorpheusMcpServer {
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
-        McpSyncServer server = build(databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver);
+        BoundedStdioServerTransportProvider transport =
+                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper());
+        McpSyncServer server = build(
+                databasePath,
+                resolverRegistry,
+                technicalContextProvider,
+                writeCapabilityResolver,
+                transport);
         try {
-            Thread.currentThread().join();
+            transport.awaitTermination();
             return 0;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
