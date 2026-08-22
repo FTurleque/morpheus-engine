@@ -16,6 +16,8 @@ import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
 
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -57,6 +59,22 @@ public final class MorpheusMcpServer {
                 technicalContextProvider,
                 writeCapabilityResolver,
                 new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper()));
+    }
+
+    static McpSyncServer build(Path databasePath, InputStream inputStream, OutputStream outputStream) {
+        Objects.requireNonNull(inputStream, "inputStream");
+        Objects.requireNonNull(outputStream, "outputStream");
+        return build(
+                databasePath,
+                new ExternalReferenceResolverRegistry(List.of()),
+                disabledNexus(),
+                deniedWrites(),
+                new BoundedStdioServerTransportProvider(
+                        McpJsonDefaults.getMapper(),
+                        inputStream,
+                        outputStream,
+                        BoundedStdioServerTransportProvider.DEFAULT_MAX_FRAME_BYTES,
+                        BoundedStdioServerTransportProvider.DEFAULT_MAX_PENDING_MESSAGES));
     }
 
     private static McpSyncServer build(
