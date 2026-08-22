@@ -14,11 +14,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class MorpheusMcpStdioIntegrationTest {
+    private static final int SERVER_MAX_FRAME_BYTES = 1024 * 1024;
 
     @TempDir
     Path tempDirectory;
@@ -27,14 +30,7 @@ class MorpheusMcpStdioIntegrationTest {
     void negotiatesListsCallsAndRejectsInvalidArgumentsOverRealStdio() throws Exception {
         Path database = tempDirectory.resolve("morpheus.db");
         Path stderr = tempDirectory.resolve("mcp-stderr.log");
-        Process process = new ProcessBuilder(
-                javaExecutable().toString(),
-                "-cp", System.getProperty("java.class.path"),
-                MorpheusMain.class.getName(),
-                "--db", database.toString(),
-                "mcp", "--stdio")
-                .redirectError(stderr.toFile())
-                .start();
+        Process process = startProcess(database, stderr);
 
         try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
              BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
@@ -70,11 +66,68 @@ class MorpheusMcpStdioIntegrationTest {
             assertTrue(rejected.contains("\"id\":4"), rejected);
             assertTrue(rejected.contains("isError") || rejected.contains("error"), rejected);
         } finally {
-            process.destroy();
-            if (!process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
-            }
+            terminate(process);
+        }
+    }
+
+    @Test
+    void exitsWhenClientClosesStdin() throws Exception {
+        Path database = tempDirectory.resolve("eof.db");
+        Path stderr = tempDirectory.resolve("eof-stderr.log");
+        Process process = startProcess(database, stderr);
+
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
+             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            send(writer, """
+                    {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"morpheus-eof-test","version":"1.0"}}}
+                    """);
+            String initialized = readLine(reader, process, stderr, Duration.ofSeconds(10));
+            assertTrue(initialized.contains("\"id\":1"), initialized);
+
+            writer.close();
+            assertTrue(process.waitFor(5, TimeUnit.SECONDS),
+                    () -> "MCP process did not exit after stdin EOF; stderr=" + readStderr(stderr));
+            assertEquals(0, process.exitValue(), () -> "stderr=" + readStderr(stderr));
+        } finally {
+            terminate(process);
+        }
+    }
+
+    @Test
+    void exitsWhenInboundFrameExceedsServerTransportBound() throws Exception {
+        Path database = tempDirectory.resolve("oversized.db");
+        Path stderr = tempDirectory.resolve("oversized-stderr.log");
+        Process process = startProcess(database, stderr);
+
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8))) {
+            writer.write("x".repeat(SERVER_MAX_FRAME_BYTES + 1));
+            writer.newLine();
+            writer.flush();
+
+            assertTrue(process.waitFor(5, TimeUnit.SECONDS),
+                    () -> "MCP process did not fail closed after oversized frame; stderr=" + readStderr(stderr));
+        } finally {
+            terminate(process);
+        }
+    }
+
+    private Process startProcess(Path database, Path stderr) throws IOException {
+        return new ProcessBuilder(
+                javaExecutable().toString(),
+                "-cp", System.getProperty("java.class.path"),
+                MorpheusMain.class.getName(),
+                "--db", database.toString(),
+                "mcp", "--stdio")
+                .redirectError(stderr.toFile())
+                .start();
+    }
+
+    private void terminate(Process process) throws InterruptedException {
+        if (!process.isAlive()) return;
+        process.destroy();
+        if (!process.waitFor(2, TimeUnit.SECONDS)) {
+            process.destroyForcibly();
+            process.waitFor(2, TimeUnit.SECONDS);
         }
     }
 
@@ -89,9 +142,7 @@ class MorpheusMcpStdioIntegrationTest {
         while (System.nanoTime() < deadline) {
             if (reader.ready()) {
                 String line = reader.readLine();
-                if (line != null) {
-                    return line;
-                }
+                if (line != null) return line;
             }
             if (!process.isAlive()) {
                 fail("MCP process exited with " + process.exitValue() + "; stderr=" + readStderr(stderr));
