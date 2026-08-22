@@ -220,13 +220,17 @@ final class BoundedStdioServerTransportProvider implements McpServerTransportPro
         }
 
         private void ensureOutboundLimit(JSONRPCMessage message) {
-            if (serializedFrame(message).getBytes(StandardCharsets.UTF_8).length > maxMessageBytes) {
-                throw new IllegalArgumentException(
-                        "outbound MCP server STDIO frame exceeds " + maxMessageBytes + " bytes");
+            try {
+                if (serializedFrame(message).getBytes(StandardCharsets.UTF_8).length > maxMessageBytes) {
+                    throw new IllegalArgumentException(
+                            "outbound MCP server STDIO frame exceeds " + maxMessageBytes + " bytes");
+                }
+            } catch (IOException failure) {
+                throw new IllegalStateException("failed to serialize MCP server response", failure);
             }
         }
 
-        private String serializedFrame(JSONRPCMessage message) {
+        private String serializedFrame(JSONRPCMessage message) throws IOException {
             return jsonMapper.writeValueAsString(message)
                     .replace("\r\n", "\\n")
                     .replace("\n", "\\n")
