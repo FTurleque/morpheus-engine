@@ -69,17 +69,18 @@ class ProviderPluginProcessIsolationTest {
     }
 
     @Test
-    void childEnvironmentKeepsOnlyExplicitlySafeOperatingSystemValues() {
+    void childEnvironmentKeepsExecutionVariablesButDropsSecretsAndJvmInjection() {
         Map<String, String> environment = new LinkedHashMap<>();
         environment.put("MORPHEUS_TOKEN", "secret");
         environment.put("JAVA_TOOL_OPTIONS", "-javaagent:unexpected.jar");
-        environment.put("PATH", "/sensitive/custom/path");
+        environment.put("PATH", "/safe/execution/path");
         environment.put("LANG", "fr_FR.UTF-8");
         environment.put("TMPDIR", "/tmp/morpheus");
 
         ProviderPluginProbeProcess.sanitizeEnvironment(environment);
 
         assertEquals(Map.of(
+                "PATH", "/safe/execution/path",
                 "LANG", "fr_FR.UTF-8",
                 "TMPDIR", "/tmp/morpheus"), environment);
     }
