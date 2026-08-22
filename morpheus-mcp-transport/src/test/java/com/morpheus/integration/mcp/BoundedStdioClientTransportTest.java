@@ -65,6 +65,19 @@ class BoundedStdioClientTransportTest {
     }
 
     @Test
+    void boundedQueueRejectsAggregateFlood() {
+        var sink = BoundedStdioClientTransport.<String>boundedSink(2);
+        assertTrue(sink.tryEmitNext("one").isSuccess());
+        assertTrue(sink.tryEmitNext("two").isSuccess());
+        assertFalse(sink.tryEmitNext("three").isSuccess());
+    }
+
+    @Test
+    void rejectsInvalidQueueCapacity() {
+        assertThrows(IllegalArgumentException.class, () -> BoundedStdioClientTransport.boundedSink(0));
+    }
+
+    @Test
     void acceptsFrameAtExactByteLimitAndStripsCrLfDelimiter() throws Exception {
         String json = "{\"id\":1}";
         byte[] line = (json + "\r\n").getBytes(StandardCharsets.UTF_8);
