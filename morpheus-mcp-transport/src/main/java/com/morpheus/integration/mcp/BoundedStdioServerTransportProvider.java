@@ -215,6 +215,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         private void handleSequentially(JSONRPCMessage message) throws Exception {
             CompletableFuture<Void> future = session.handle(message).toFuture();
             activeHandler.set(future);
+            if (closing.get()) future.cancel(true);
             try {
                 future.get();
             } catch (CancellationException cancelled) {
