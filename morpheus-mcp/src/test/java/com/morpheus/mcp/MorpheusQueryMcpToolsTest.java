@@ -69,7 +69,10 @@ class MorpheusQueryMcpToolsTest {
 
     @Test
     void serverCatalogAcceptsAllM24ToolsWithoutNameOrSchemaCollision() {
-        var server = MorpheusMcpServer.build(temporaryDirectory.resolve("morpheus.db"));
+        var server = MorpheusMcpServer.build(
+                temporaryDirectory.resolve("morpheus.db"),
+                java.io.InputStream.nullInputStream(),
+                java.io.OutputStream.nullOutputStream());
         try {
             assertTrue(server != null);
         } finally {
