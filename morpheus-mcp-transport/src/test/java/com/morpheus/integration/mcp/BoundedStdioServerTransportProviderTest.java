@@ -4,7 +4,9 @@ import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpServerSession;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Mono;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -47,6 +49,38 @@ class BoundedStdioServerTransportProviderTest {
         String response = output.toString(StandardCharsets.UTF_8);
         assertTrue(response.contains("\"id\":1"), response);
         assertTrue(response.contains("bounded-server"), response);
+    }
+
+    @Test
+    void closeGracefullyCancelsNonTerminatingActiveHandler() throws Exception {
+        String input = "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/test\",\"params\":{}}\n";
+        CountDownLatch handlerStarted = new CountDownLatch(1);
+        CountDownLatch handlerCancelled = new CountDownLatch(1);
+        BoundedStdioServerTransportProvider provider = new BoundedStdioServerTransportProvider(
+                McpJsonDefaults.getMapper(),
+                new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)),
+                new ByteArrayOutputStream(),
+                4096,
+                4);
+
+        provider.setSessionFactory(transport -> new McpServerSession(
+                "non-terminating-session",
+                Duration.ofSeconds(30),
+                transport,
+                null,
+                Map.of(),
+                Map.of()) {
+            @Override
+            public Mono<Void> handle(McpSchema.JSONRPCMessage message) {
+                handlerStarted.countDown();
+                return Mono.<Void>never().doOnCancel(handlerCancelled::countDown);
+            }
+        });
+
+        assertTrue(handlerStarted.await(2, TimeUnit.SECONDS));
+        provider.closeGracefully().block();
+        assertTrue(handlerCancelled.await(2, TimeUnit.SECONDS));
+        assertTrue(provider.awaitTermination(Duration.ofSeconds(2)));
     }
 
     @Test
