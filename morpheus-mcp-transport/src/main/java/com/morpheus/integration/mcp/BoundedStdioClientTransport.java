@@ -36,10 +36,10 @@ import java.util.function.Function;
  * MORPHEUS reads process streams as bounded UTF-8 bytes before JSON parsing, caps pending inbound/outbound messages,
  * handles stderr synchronously on its reader thread, and fails closed when a peer exceeds a resource budget.</p>
  */
-public final class BoundedStdioClientTransport implements McpClientTransport {
+public final class BoundedStioClientTransport implements McpClientTransport {
     public static final int DEFAULT_MAX_PENDING_MESSAGES = 64;
 
-    private static final System.Logger LOGGER = System.getLogger(BoundedStdioClientTransport.class.getName());
+    private static final System.Logger LOGGER = System.getLogger(BoundedStioClientTransport.class.getName());
     private static final Set<Integer> NORMAL_EXIT_CODES = Set.of(0, 130, 141, 143);
     private static final Duration PROCESS_SHUTDOWN_GRACE = Duration.ofSeconds(2);
     private static final Duration PROCESS_SHUTDOWN_FORCE = Duration.ofSeconds(2);
@@ -57,14 +57,14 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private volatile boolean closing;
     private Consumer<String> stdErrorHandler = error -> LOGGER.log(System.Logger.Level.INFO, "MCP STDERR: {0}", error);
 
-    public BoundedStdioClientTransport(
+    public BoundedStioClientTransport(
             ServerParameters parameters,
             McpJsonMapper jsonMapper,
             int maxInboundMessageBytes) {
         this(parameters, jsonMapper, maxInboundMessageBytes, DEFAULT_MAX_PENDING_MESSAGES);
     }
 
-    public BoundedStdioClientTransport(
+    public BoundedStioClientTransport(
             ServerParameters parameters,
             McpJsonMapper jsonMapper,
             int maxMessageBytes,
@@ -259,6 +259,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         outboundSink.tryEmitError(failure);
         LOGGER.log(System.Logger.Level.WARNING, "MCP transport failed closed: {0}", failure.getMessage());
         destroyProcessTree(process);
+        disposeSchedulers();
     }
 
     private void shutdownProcess() {
@@ -270,6 +271,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
             current.destroy();
             try {
                 if (!current.waitFor(PROCESS_SHUTDOWN_GRACE.toMillis(), TimeUnit.MILLISECONDS)) {
+                    descendants = mergeHandles(descendants, current.descendants().toList());
                     destroyHandles(descendants, true);
                     current.destroyForcibly();
                     if (!current.waitFor(PROCESS_SHUTDOWN_FORCE.toMillis(), TimeUnit.MILLISECONDS)) {
@@ -278,16 +280,26 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 }
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
+                descendants = mergeHandles(descendants, current.descendants().toList());
                 destroyHandles(descendants, true);
                 current.destroyForcibly();
             }
         }
+        destroyHandles(descendants, true);
         if (!current.isAlive()) {
             int exitCode = current.exitValue();
             if (!NORMAL_EXIT_CODES.contains(exitCode)) {
                 LOGGER.log(System.Logger.Level.WARNING, "MCP process exited with code {0}", exitCode);
             }
         }
+    }
+
+    private List<ProcessHandle> mergeHandles(List<ProcessHandle> first, List<ProcessHandle> second) {
+        List<ProcessHandle> merged = new ArrayList<>(first);
+        for (ProcessHandle candidate : second) {
+            if (merged.stream().noneMatch(existing -> existing.pid() == candidate.pid())) merged.add(candidate);
+        }
+        return merged;
     }
 
     private void destroyProcessTree(Process current) {
