@@ -2,6 +2,7 @@ package com.morpheus.application.security;
 
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -10,15 +11,16 @@ import java.nio.file.attribute.AclEntryFlag;
 import java.nio.file.attribute.AclEntryPermission;
 import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.AclFileAttributeView;
-import java.nio.file.attribute.GroupPrincipal;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
+import java.nio.file.attribute.UserPrincipalLookupService;
+import java.nio.file.attribute.UserPrincipalNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -43,13 +45,27 @@ public final class LocalWritePermissionHardener {
             AclEntryPermission.WRITE_OWNER);
 
     private final DirectoryCreationObserver creationObserver;
+    private final Set<UserPrincipal> trustedAclPrincipals;
+    private final UserPrincipal runtimePrincipal;
 
     public LocalWritePermissionHardener() {
         this(DirectoryCreationObserver.NONE);
     }
 
     LocalWritePermissionHardener(DirectoryCreationObserver creationObserver) {
+        this(
+                creationObserver,
+                resolveTrustedWindowsPrincipals(),
+                resolveCurrentRuntimePrincipal());
+    }
+
+    private LocalWritePermissionHardener(
+            DirectoryCreationObserver creationObserver,
+            Set<UserPrincipal> trustedAclPrincipals,
+            UserPrincipal runtimePrincipal) {
         this.creationObserver = Objects.requireNonNull(creationObserver, "creationObserver");
+        this.trustedAclPrincipals = Set.copyOf(Objects.requireNonNull(trustedAclPrincipals, "trustedAclPrincipals"));
+        this.runtimePrincipal = runtimePrincipal;
     }
 
     public Result hardenDirectory(Path directory) {
@@ -171,8 +187,6 @@ public final class LocalWritePermissionHardener {
                     throw new LocalWritePermissionException("Directory path was concurrently replaced");
                 }
             }
-            // A directory that appeared in the create race is not trusted merely because it is a directory.
-            // Harden it exactly like a directory created by this process.
             createdOrRaced.add(path);
         }
         return List.copyOf(createdOrRaced);
@@ -268,38 +282,79 @@ public final class LocalWritePermissionHardener {
                 || isCurrentRuntimeUser(principal)) {
             return true;
         }
-        String name = normalizedPrincipalName(principal);
-        return name.equals("SYSTEM")
-                || name.endsWith("\\SYSTEM")
-                || name.endsWith("\\ADMINISTRATORS")
-                || name.endsWith("\\ADMINISTRATEURS")
-                || name.endsWith("\\CREATOR OWNER")
-                || name.endsWith("\\PROPRIETAIRE CREATEUR")
-                || name.endsWith("\\PROPRIÉTAIRE CRÉATEUR")
-                || name.contains("TRUSTEDINSTALLER");
+        return trustedAclPrincipals.stream().anyMatch(trusted -> samePrincipal(principal, trusted));
     }
 
     private boolean isCurrentRuntimeUser(UserPrincipal principal) {
-        if (principal instanceof GroupPrincipal) {
-            return false;
-        }
-        String runtimeUser = System.getProperty("user.name", "")
-                .trim()
-                .toUpperCase(Locale.ROOT)
-                .replace('/', '\\');
-        if (runtimeUser.isEmpty()) {
-            return false;
-        }
-        String principalName = normalizedPrincipalName(principal);
-        return principalName.equals(runtimeUser) || principalName.endsWith("\\" + runtimeUser);
+        return runtimePrincipal != null && samePrincipal(principal, runtimePrincipal);
     }
 
     private boolean samePrincipal(UserPrincipal left, UserPrincipal right) {
-        return left.equals(right) || normalizedPrincipalName(left).equals(normalizedPrincipalName(right));
+        return samePrincipalIdentity(left, right);
     }
 
-    private String normalizedPrincipalName(UserPrincipal principal) {
-        return principal.getName().trim().toUpperCase(Locale.ROOT).replace('/', '\\');
+    /** Identity comparison intentionally does not fall back to display-name equality. */
+    static boolean samePrincipalIdentity(UserPrincipal left, UserPrincipal right) {
+        return Objects.requireNonNull(left, "left").equals(Objects.requireNonNull(right, "right"));
+    }
+
+    private static Set<UserPrincipal> resolveTrustedWindowsPrincipals() {
+        if (!System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")) {
+            return Set.of();
+        }
+        UserPrincipalLookupService lookup = FileSystems.getDefault().getUserPrincipalLookupService();
+        Set<UserPrincipal> resolved = new LinkedHashSet<>();
+        for (String name : List.of(
+                "NT AUTHORITY\\SYSTEM",
+                "SYSTEM",
+                "NT SERVICE\\TrustedInstaller",
+                "CREATOR OWNER",
+                "CREATEUR PROPRIETAIRE",
+                "PROPRIETAIRE CREATEUR")) {
+            resolveUserPrincipal(lookup, name, resolved);
+        }
+        for (String name : List.of(
+                "BUILTIN\\Administrators",
+                "BUILTIN\\Administrateurs")) {
+            resolveGroupPrincipal(lookup, name, resolved);
+        }
+        return Set.copyOf(resolved);
+    }
+
+    private static UserPrincipal resolveCurrentRuntimePrincipal() {
+        String runtimeUser = System.getProperty("user.name", "").trim();
+        if (runtimeUser.isEmpty()) return null;
+        try {
+            return FileSystems.getDefault().getUserPrincipalLookupService().lookupPrincipalByName(runtimeUser);
+        } catch (IOException | UnsupportedOperationException ignored) {
+            return null;
+        }
+    }
+
+    private static void resolveUserPrincipal(
+            UserPrincipalLookupService lookup,
+            String name,
+            Set<UserPrincipal> resolved) {
+        try {
+            resolved.add(lookup.lookupPrincipalByName(name));
+        } catch (UserPrincipalNotFoundException ignored) {
+            // Localized or unavailable well-known principal: fail closed by not trusting it.
+        } catch (IOException | UnsupportedOperationException ignored) {
+            // Principal lookup is optional; ACL validation remains fail-closed for unresolved identities.
+        }
+    }
+
+    private static void resolveGroupPrincipal(
+            UserPrincipalLookupService lookup,
+            String name,
+            Set<UserPrincipal> resolved) {
+        try {
+            resolved.add(lookup.lookupPrincipalByGroupName(name));
+        } catch (UserPrincipalNotFoundException ignored) {
+            // Localized or unavailable well-known principal: fail closed by not trusting it.
+        } catch (IOException | UnsupportedOperationException ignored) {
+            // Principal lookup is optional; ACL validation remains fail-closed for unresolved identities.
+        }
     }
 
     private boolean hardenAcl(Path path, boolean directory) throws IOException {
