@@ -23,27 +23,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * MCP STDIO client transport with a hard UTF-8 frame bound applied before JSON deserialization.
+ * MCP STDIO client transport with hard per-frame and aggregate queue bounds.
  *
- * <p>The upstream Java SDK 2.0.0 STDIO transport uses {@code BufferedReader.readLine()}, which can materialize an
- * unbounded line before the application sees the response. MORPHEUS reads the process stream as bounded bytes and
- * rejects an oversized JSON-RPC frame before creating the frame String or object graph.</p>
+ * <p>The upstream Java SDK 2.0.0 STDIO transport can materialize unbounded lines and uses unbounded Reactor queues.
+ * MORPHEUS reads process streams as bounded UTF-8 bytes before JSON parsing, caps pending inbound/outbound messages,
+ * handles stderr synchronously on its reader thread, and fails closed when a peer exceeds a resource budget.</p>
  */
 public final class BoundedStdioClientTransport implements McpClientTransport {
+    public static final int DEFAULT_MAX_PENDING_MESSAGES = 64;
+
     private static final System.Logger LOGGER = System.getLogger(BoundedStdioClientTransport.class.getName());
     private static final Set<Integer> NORMAL_EXIT_CODES = Set.of(0, 130, 141, 143);
+    private static final Duration PROCESS_SHUTDOWN_GRACE = Duration.ofSeconds(2);
+    private static final Duration PROCESS_SHUTDOWN_FORCE = Duration.ofSeconds(2);
 
-    private final Sinks.Many<JSONRPCMessage> inboundSink = Sinks.many().unicast().onBackpressureBuffer();
-    private final Sinks.Many<JSONRPCMessage> outboundSink = Sinks.many().unicast().onBackpressureBuffer();
-    private final Sinks.Many<String> errorSink = Sinks.many().unicast().onBackpressureBuffer();
+    private final Sinks.Many<JSONRPCMessage> inboundSink;
+    private final Sinks.Many<OutboundFrame> outboundSink;
     private final ServerParameters parameters;
     private final McpJsonMapper jsonMapper;
-    private final int maxInboundMessageBytes;
+    private final int maxMessageBytes;
     private final Scheduler inboundScheduler;
     private final Scheduler outboundScheduler;
     private final Scheduler errorScheduler;
@@ -56,12 +61,23 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
             ServerParameters parameters,
             McpJsonMapper jsonMapper,
             int maxInboundMessageBytes) {
+        this(parameters, jsonMapper, maxInboundMessageBytes, DEFAULT_MAX_PENDING_MESSAGES);
+    }
+
+    public BoundedStdioClientTransport(
+            ServerParameters parameters,
+            McpJsonMapper jsonMapper,
+            int maxMessageBytes,
+            int maxPendingMessages) {
         this.parameters = Objects.requireNonNull(parameters, "parameters");
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
-        if (maxInboundMessageBytes < 1) {
-            throw new IllegalArgumentException("maxInboundMessageBytes must be positive");
-        }
-        this.maxInboundMessageBytes = maxInboundMessageBytes;
+        if (maxMessageBytes < 1) throw new IllegalArgumentException("maxMessageBytes must be positive");
+        if (maxPendingMessages < 1) throw new IllegalArgumentException("maxPendingMessages must be positive");
+        this.maxMessageBytes = maxMessageBytes;
+        this.inboundSink = Sinks.many().unicast()
+                .onBackpressureBuffer(new ArrayBlockingQueue<JSONRPCMessage>(maxPendingMessages));
+        this.outboundSink = Sinks.many().unicast()
+                .onBackpressureBuffer(new ArrayBlockingQueue<OutboundFrame>(maxPendingMessages));
         this.inboundScheduler = Schedulers.fromExecutorService(
                 Executors.newSingleThreadExecutor(), "morpheus-mcp-inbound");
         this.outboundScheduler = Schedulers.fromExecutorService(
@@ -79,7 +95,6 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         Objects.requireNonNull(handler, "handler");
         return Mono.<Void>fromRunnable(() -> {
             handleIncomingMessages(handler);
-            handleIncomingErrors();
 
             List<String> command = new ArrayList<>();
             command.add(parameters.getCommand());
@@ -91,10 +106,12 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
             try {
                 process = builder.start();
             } catch (IOException failure) {
+                disposeSchedulers();
                 throw new IllegalStateException("failed to start MCP process", failure);
             }
             if (process.getInputStream() == null || process.getOutputStream() == null) {
-                process.destroy();
+                destroyProcessTree(process);
+                disposeSchedulers();
                 throw new IllegalStateException("MCP process input or output stream is unavailable");
             }
 
@@ -107,39 +124,33 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     @Override
     public Mono<Void> sendMessage(JSONRPCMessage message) {
         Objects.requireNonNull(message, "message");
-        if (closing) return Mono.error(new IllegalStateException("MCP transport is closing"));
-        if (outboundSink.tryEmitNext(message).isSuccess()) return Mono.empty();
-        return Mono.error(new IllegalStateException("failed to enqueue MCP message"));
+        return Mono.defer(() -> {
+            if (closing) return Mono.error(new IllegalStateException("MCP transport is closing"));
+            final OutboundFrame frame;
+            try {
+                frame = encode(message);
+            } catch (IOException failure) {
+                failClosed(failure);
+                return Mono.error(failure);
+            }
+            if (outboundSink.tryEmitNext(frame).isSuccess()) return Mono.empty();
+            IllegalStateException overflow = new IllegalStateException("MCP outbound queue capacity exceeded");
+            failClosed(overflow);
+            return Mono.error(overflow);
+        });
     }
 
     @Override
     public Mono<Void> closeGracefully() {
-        return Mono.fromRunnable(() -> closing = true)
-                .then(Mono.defer(() -> {
+        return Mono.fromRunnable(() -> {
+                    closing = true;
                     inboundSink.tryEmitComplete();
                     outboundSink.tryEmitComplete();
-                    errorSink.tryEmitComplete();
-                    return Mono.delay(Duration.ofMillis(100)).then();
-                }))
-                .then(Mono.defer(() -> {
-                    Process current = process;
-                    if (current == null) return Mono.<Process>empty();
-                    current.destroy();
-                    return Mono.fromFuture(current.onExit());
-                }))
-                .doOnNext(exited -> {
-                    int exitCode = exited.exitValue();
-                    if (!NORMAL_EXIT_CODES.contains(exitCode)) {
-                        LOGGER.log(System.Logger.Level.WARNING, "MCP process exited with code {0}", exitCode);
-                    }
+                    shutdownProcess();
+                    disposeSchedulers();
                 })
-                .then(Mono.fromRunnable(() -> {
-                    inboundScheduler.dispose();
-                    outboundScheduler.dispose();
-                    errorScheduler.dispose();
-                }))
-                .then()
-                .subscribeOn(Schedulers.boundedElastic());
+                .subscribeOn(Schedulers.boundedElastic())
+                .then();
     }
 
     @Override
@@ -155,39 +166,27 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                         failure -> {
                             if (!closing) {
                                 LOGGER.log(System.Logger.Level.WARNING, "MCP inbound processing failed", failure);
+                                failClosed(failure);
                             }
                         });
-    }
-
-    private void handleIncomingErrors() {
-        errorSink.asFlux().subscribe(
-                stdErrorHandler,
-                failure -> {
-                    if (!closing) {
-                        LOGGER.log(System.Logger.Level.WARNING, "MCP stderr processing failed", failure);
-                    }
-                });
     }
 
     private void startInboundProcessing() {
         inboundScheduler.schedule(() -> {
             try (InputStream input = new BufferedInputStream(process.getInputStream())) {
                 String line;
-                while (!closing && (line = readUtf8LineBounded(input, maxInboundMessageBytes)) != null) {
+                while (!closing && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
                     JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, line);
                     if (!inboundSink.tryEmitNext(message).isSuccess()) {
-                        if (!closing) {
-                            failInbound(new IllegalStateException("failed to enqueue inbound MCP message"));
-                        }
+                        if (!closing) failClosed(new IllegalStateException("MCP inbound queue capacity exceeded"));
                         return;
                     }
                 }
                 if (!closing) inboundSink.tryEmitComplete();
             } catch (MessageTooLargeException oversized) {
-                failInbound(oversized);
-                destroyProcess();
+                failClosed(oversized);
             } catch (Exception failure) {
-                if (!closing) failInbound(failure);
+                if (!closing) failClosed(failure);
             }
         });
     }
@@ -196,73 +195,136 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         errorScheduler.schedule(() -> {
             try (InputStream input = new BufferedInputStream(process.getErrorStream())) {
                 String line;
-                while (!closing && (line = readUtf8LineBounded(input, maxInboundMessageBytes)) != null) {
-                    if (!errorSink.tryEmitNext(line).isSuccess()) return;
+                while (!closing && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
+                    try {
+                        stdErrorHandler.accept(line);
+                    } catch (RuntimeException handlerFailure) {
+                        LOGGER.log(System.Logger.Level.WARNING, "MCP stderr handler failed", handlerFailure);
+                    }
                 }
-                if (!closing) errorSink.tryEmitComplete();
             } catch (MessageTooLargeException oversized) {
                 if (!closing) {
-                    errorSink.tryEmitNext("MCP stderr frame exceeded configured byte limit");
-                    errorSink.tryEmitError(oversized);
+                    LOGGER.log(System.Logger.Level.WARNING, "MCP stderr frame exceeded configured byte limit");
+                    failClosed(oversized);
                 }
-                destroyProcess();
             } catch (Exception failure) {
-                if (!closing) errorSink.tryEmitError(failure);
+                if (!closing) failClosed(failure);
             }
         });
     }
 
     private void startOutboundProcessing() {
-        handleOutbound(messages -> messages
+        handleOutbound(frames -> frames
                 .publishOn(outboundScheduler)
-                .handle((message, sink) -> {
-                    if (message == null || closing) return;
+                .handle((frame, sink) -> {
+                    if (frame == null || closing) return;
                     try {
-                        String json = jsonMapper.writeValueAsString(message)
-                                .replace("\r\n", "\\n")
-                                .replace("\n", "\\n")
-                                .replace("\r", "\\n");
-                        byte[] encoded = json.getBytes(StandardCharsets.UTF_8);
                         var output = process.getOutputStream();
                         synchronized (output) {
-                            output.write(encoded);
+                            output.write(frame.encoded());
                             output.write('\n');
                             output.flush();
                         }
-                        sink.next(message);
+                        sink.next(frame);
                     } catch (IOException failure) {
                         sink.error(new IllegalStateException("failed to write MCP message", failure));
                     }
                 }));
     }
 
-    private void handleOutbound(Function<Flux<JSONRPCMessage>, Flux<JSONRPCMessage>> consumer) {
+    private void handleOutbound(Function<Flux<OutboundFrame>, Flux<OutboundFrame>> consumer) {
         consumer.apply(outboundSink.asFlux())
-                .doOnComplete(() -> {
-                    closing = true;
-                    outboundSink.tryEmitComplete();
-                })
                 .doOnError(failure -> {
-                    if (!closing) {
-                        closing = true;
-                        outboundSink.tryEmitError(failure);
-                    }
+                    if (!closing) failClosed(failure);
                 })
                 .subscribe(
                         ignored -> { },
                         failure -> LOGGER.log(System.Logger.Level.WARNING, "MCP outbound processing failed", failure));
     }
 
-    private void failInbound(Throwable failure) {
-        if (!closing) {
-            inboundSink.tryEmitError(failure);
-            LOGGER.log(System.Logger.Level.WARNING, "MCP inbound transport failed: {0}", failure.getMessage());
+    private OutboundFrame encode(JSONRPCMessage message) throws IOException {
+        String json = jsonMapper.writeValueAsString(message)
+                .replace("\r\n", "\\n")
+                .replace("\n", "\\n")
+                .replace("\r", "\\n");
+        byte[] encoded = json.getBytes(StandardCharsets.UTF_8);
+        if (encoded.length > maxMessageBytes) throw new MessageTooLargeException(maxMessageBytes);
+        return new OutboundFrame(encoded);
+    }
+
+    private void failClosed(Throwable failure) {
+        if (closing) return;
+        closing = true;
+        inboundSink.tryEmitError(failure);
+        outboundSink.tryEmitError(failure);
+        LOGGER.log(System.Logger.Level.WARNING, "MCP transport failed closed: {0}", failure.getMessage());
+        destroyProcessTree(process);
+        disposeSchedulers();
+    }
+
+    private void shutdownProcess() {
+        Process current = process;
+        if (current == null) return;
+        List<ProcessHandle> descendants = current.descendants().toList();
+        if (current.isAlive()) {
+            destroyHandles(descendants, false);
+            current.destroy();
+            try {
+                if (!current.waitFor(PROCESS_SHUTDOWN_GRACE.toMillis(), TimeUnit.MILLISECONDS)) {
+                    descendants = mergeHandles(descendants, current.descendants().toList());
+                    destroyHandles(descendants, true);
+                    current.destroyForcibly();
+                    if (!current.waitFor(PROCESS_SHUTDOWN_FORCE.toMillis(), TimeUnit.MILLISECONDS)) {
+                        LOGGER.log(System.Logger.Level.WARNING, "MCP process remained alive after forced shutdown deadline");
+                    }
+                }
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                descendants = mergeHandles(descendants, current.descendants().toList());
+                destroyHandles(descendants, true);
+                current.destroyForcibly();
+            }
+        }
+        destroyHandles(descendants, true);
+        if (!current.isAlive()) {
+            int exitCode = current.exitValue();
+            if (!NORMAL_EXIT_CODES.contains(exitCode)) {
+                LOGGER.log(System.Logger.Level.WARNING, "MCP process exited with code {0}", exitCode);
+            }
         }
     }
 
-    private void destroyProcess() {
-        Process current = process;
-        if (current != null && current.isAlive()) current.destroyForcibly();
+    private List<ProcessHandle> mergeHandles(List<ProcessHandle> first, List<ProcessHandle> second) {
+        List<ProcessHandle> merged = new ArrayList<>(first);
+        for (ProcessHandle candidate : second) {
+            if (merged.stream().noneMatch(existing -> existing.pid() == candidate.pid())) merged.add(candidate);
+        }
+        return merged;
+    }
+
+    private void destroyProcessTree(Process current) {
+        if (current == null) return;
+        List<ProcessHandle> descendants = current.descendants().toList();
+        destroyHandles(descendants, true);
+        if (current.isAlive()) current.destroyForcibly();
+    }
+
+    private void destroyHandles(List<ProcessHandle> handles, boolean force) {
+        for (ProcessHandle handle : handles) {
+            if (!handle.isAlive()) continue;
+            try {
+                if (force) handle.destroyForcibly();
+                else handle.destroy();
+            } catch (RuntimeException failure) {
+                LOGGER.log(System.Logger.Level.DEBUG, "Unable to terminate MCP descendant process", failure);
+            }
+        }
+    }
+
+    private void disposeSchedulers() {
+        inboundScheduler.dispose();
+        outboundScheduler.dispose();
+        errorScheduler.dispose();
     }
 
     static String readUtf8LineBounded(InputStream input, int maxBytes) throws IOException {
@@ -280,6 +342,12 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         int length = bytes.length;
         if (length > 0 && bytes[length - 1] == '\r') length--;
         return new String(bytes, 0, length, StandardCharsets.UTF_8);
+    }
+
+    private record OutboundFrame(byte[] encoded) {
+        private OutboundFrame {
+            encoded = Objects.requireNonNull(encoded, "encoded");
+        }
     }
 
     static final class MessageTooLargeException extends IOException {

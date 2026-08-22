@@ -4,6 +4,7 @@ import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonDefaults;
+import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import org.junit.jupiter.api.Test;
@@ -65,6 +66,55 @@ class BoundedStdioClientTransportTest {
     }
 
     @Test
+    void failsClosedWhenOutboundQueueCapacityIsExceeded() {
+        BoundedStdioClientTransport transport = transport(1024, 1);
+        McpSchema.JSONRPCNotification message =
+                new McpSchema.JSONRPCNotification("notifications/test", Map.of("value", "bounded"));
+
+        transport.sendMessage(message).block();
+
+        assertThrows(RuntimeException.class, () -> transport.sendMessage(message).block());
+    }
+
+    @Test
+    void rejectsOversizedOutboundFrameBeforeEnqueue() {
+        BoundedStdioClientTransport transport = transport(128, 4);
+        McpSchema.JSONRPCNotification message = new McpSchema.JSONRPCNotification(
+                "notifications/test", Map.of("value", "x".repeat(512)));
+
+        assertThrows(RuntimeException.class, () -> transport.sendMessage(message).block());
+    }
+
+    @Test
+    void cleansUpSchedulersWhenPeerProcessCannotStart() {
+        ServerParameters parameters = ServerParameters.builder("morpheus-command-that-does-not-exist-20260822").build();
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                parameters, McpJsonDefaults.getMapper(), 1024);
+
+        assertThrows(RuntimeException.class, () -> transport.connect(message -> message).block());
+    }
+
+    @Test
+    void acceptsCustomStderrHandler() {
+        BoundedStdioClientTransport transport = transport(1024);
+        try {
+            transport.setStdErrorHandler(ignored -> { });
+        } finally {
+            transport.closeGracefully().block();
+        }
+    }
+
+    @Test
+    void rejectsNonPositiveTransportLimits() {
+        ServerParameters parameters = serverParameters();
+
+        assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
+                parameters, McpJsonDefaults.getMapper(), 0, 1));
+        assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
+                parameters, McpJsonDefaults.getMapper(), 1024, 0));
+    }
+
+    @Test
     void acceptsFrameAtExactByteLimitAndStripsCrLfDelimiter() throws Exception {
         String json = "{\"id\":1}";
         byte[] line = (json + "\r\n").getBytes(StandardCharsets.UTF_8);
@@ -96,10 +146,24 @@ class BoundedStdioClientTransportTest {
     }
 
     private BoundedStdioClientTransport transport(int maxBytes) {
-        ServerParameters parameters = ServerParameters.builder(javaExecutable())
+        return new BoundedStdioClientTransport(
+                serverParameters(),
+                McpJsonDefaults.getMapper(),
+                maxBytes);
+    }
+
+    private BoundedStdioClientTransport transport(int maxBytes, int maxPendingMessages) {
+        return new BoundedStdioClientTransport(
+                serverParameters(),
+                McpJsonDefaults.getMapper(),
+                maxBytes,
+                maxPendingMessages);
+    }
+
+    private ServerParameters serverParameters() {
+        return ServerParameters.builder(javaExecutable())
                 .args(serverArguments().toArray(String[]::new))
                 .build();
-        return new BoundedStdioClientTransport(parameters, McpJsonDefaults.getMapper(), maxBytes);
     }
 
     private String javaExecutable() {
