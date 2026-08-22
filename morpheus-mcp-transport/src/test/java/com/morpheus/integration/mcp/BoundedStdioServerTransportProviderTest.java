@@ -37,8 +37,11 @@ class BoundedStdioServerTransportProviderTest {
                 64 * 1024,
                 4);
 
-        try (McpSyncServer ignored = server(provider)) {
+        McpSyncServer server = server(provider);
+        try {
             assertTrue(provider.awaitTermination(Duration.ofSeconds(5)));
+        } finally {
+            server.close();
         }
 
         String response = output.toString(StandardCharsets.UTF_8);
@@ -52,10 +55,13 @@ class BoundedStdioServerTransportProviderTest {
         BoundedStdioServerTransportProvider provider = new BoundedStdioServerTransportProvider(
                 McpJsonDefaults.getMapper(), input, new ByteArrayOutputStream(), 128, 4);
 
-        try (McpSyncServer ignored = server(provider)) {
+        McpSyncServer server = server(provider);
+        try {
             assertThrows(RuntimeException.class, () -> provider.notifyClients(
                     "notifications/test", Map.of("value", "x".repeat(1024))).block());
             assertTrue(provider.awaitTermination(Duration.ofSeconds(5)));
+        } finally {
+            server.close();
         }
     }
 
@@ -66,7 +72,8 @@ class BoundedStdioServerTransportProviderTest {
         BoundedStdioServerTransportProvider provider = new BoundedStdioServerTransportProvider(
                 McpJsonDefaults.getMapper(), input, output, 4096, 1);
 
-        try (McpSyncServer ignored = server(provider)) {
+        McpSyncServer server = server(provider);
+        try {
             provider.notifyClients("notifications/test", Map.of("sequence", 1)).block();
             assertTrue(output.awaitWrite(Duration.ofSeconds(2)));
             provider.notifyClients("notifications/test", Map.of("sequence", 2)).block();
@@ -76,6 +83,7 @@ class BoundedStdioServerTransportProviderTest {
             assertTrue(provider.awaitTermination(Duration.ofSeconds(5)));
         } finally {
             output.release();
+            server.close();
         }
     }
 
@@ -85,9 +93,12 @@ class BoundedStdioServerTransportProviderTest {
         BoundedStdioServerTransportProvider provider = new BoundedStdioServerTransportProvider(
                 McpJsonDefaults.getMapper(), input, new ByteArrayOutputStream(), 4096, 4);
 
-        try (McpSyncServer ignored = server(provider)) {
+        McpSyncServer server = server(provider);
+        try {
             assertThrows(RuntimeException.class, () -> provider.notifyClient(
                     "not-the-session", "notifications/test", Map.of()).block());
+        } finally {
+            server.close();
         }
         assertTrue(provider.awaitTermination(Duration.ofSeconds(5)));
 
