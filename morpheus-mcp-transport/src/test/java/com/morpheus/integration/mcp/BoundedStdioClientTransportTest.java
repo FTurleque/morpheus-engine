@@ -86,6 +86,26 @@ class BoundedStdioClientTransportTest {
     }
 
     @Test
+    void acceptsCustomStderrHandler() {
+        BoundedStdioClientTransport transport = transport(1024);
+        try {
+            transport.setStdErrorHandler(ignored -> { });
+        } finally {
+            transport.closeGracefully().block();
+        }
+    }
+
+    @Test
+    void rejectsNonPositiveTransportLimits() {
+        ServerParameters parameters = serverParameters();
+
+        assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
+                parameters, McpJsonDefaults.getMapper(), 0, 1));
+        assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
+                parameters, McpJsonDefaults.getMapper(), 1024, 0));
+    }
+
+    @Test
     void acceptsFrameAtExactByteLimitAndStripsCrLfDelimiter() throws Exception {
         String json = "{\"id\":1}";
         byte[] line = (json + "\r\n").getBytes(StandardCharsets.UTF_8);
@@ -117,18 +137,24 @@ class BoundedStdioClientTransportTest {
     }
 
     private BoundedStdioClientTransport transport(int maxBytes) {
-        return transport(maxBytes, BoundedStdioClientTransport.DEFAULT_MAX_PENDING_MESSAGES);
+        return new BoundedStdioClientTransport(
+                serverParameters(),
+                McpJsonDefaults.getMapper(),
+                maxBytes);
     }
 
     private BoundedStdioClientTransport transport(int maxBytes, int maxPendingMessages) {
-        ServerParameters parameters = ServerParameters.builder(javaExecutable())
-                .args(serverArguments().toArray(String[]::new))
-                .build();
         return new BoundedStdioClientTransport(
-                parameters,
+                serverParameters(),
                 McpJsonDefaults.getMapper(),
                 maxBytes,
                 maxPendingMessages);
+    }
+
+    private ServerParameters serverParameters() {
+        return ServerParameters.builder(javaExecutable())
+                .args(serverArguments().toArray(String[]::new))
+                .build();
     }
 
     private String javaExecutable() {
