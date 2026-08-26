@@ -106,7 +106,7 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     @Test
-    void dependencySecurityGateCoversPromotionAndDevelopUpdatesWithoutSecretsOrCacheWritesOnPr() throws IOException {
+    void dependencySecurityGateCoversPromotionAndDevelopUpdatesWithoutPrUpdatesOrCacheWrites() throws IOException {
         Path root = repoRoot();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String dependabot = Files.readString(root.resolve(".github/dependabot.yml"));
@@ -119,11 +119,11 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("target/dependency-check-data"));
         assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"));
         assertTrue(security.contains("if: github.event_name != 'pull_request'"));
-        assertTrue(security.contains("if: github.event_name == 'pull_request'"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
         assertTrue(security.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"));
         assertFalse(security.contains("-DnvdApiKey=${NVD_API_KEY}"));
-        assertTrue(security.contains("pull request, no secrets"));
+        assertFalse(security.contains("Update Dependency-Check vulnerability database (pull request, no secrets)"));
+        assertFalse(security.contains("pull request, no secrets"));
         assertTrue(security.contains("Remove stale Dependency-Check update lock"));
         assertTrue(security.contains("odc.update.lock"));
         assertTrue(security.contains("rm -f -- \"${lock_file}\""));
@@ -131,20 +131,25 @@ class D2RepositoryHardeningArchitectureTest {
         int restoreIndex = security.indexOf("- name: Restore Dependency-Check database");
         int staleLockIndex = security.indexOf("- name: Remove stale Dependency-Check update lock");
         int trustedUpdateIndex = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
-        int pullRequestUpdateIndex = security.indexOf(
-                "- name: Update Dependency-Check vulnerability database (pull request, no secrets)");
         int saveIndex = security.indexOf("- name: Save trusted Dependency-Check database");
         int scanIndex = security.indexOf("- name: Run OWASP Dependency-Check scan");
         assertTrue(restoreIndex >= 0 && staleLockIndex > restoreIndex && trustedUpdateIndex > staleLockIndex,
                 "trusted Dependency-Check update must follow cache restore and stale-lock cleanup");
-        assertTrue(pullRequestUpdateIndex > trustedUpdateIndex && saveIndex > pullRequestUpdateIndex,
-                "secret-free pull-request update must remain a separate step before trusted cache handling");
+        assertTrue(saveIndex > trustedUpdateIndex,
+                "trusted cache save must follow the trusted Dependency-Check update");
         assertTrue(scanIndex > saveIndex, "aggregate scan must run after cache/update preparation");
-        String pullRequestStep = security.substring(pullRequestUpdateIndex, saveIndex);
-        assertFalse(pullRequestStep.contains("${{ secrets."),
-                "pull-request Dependency-Check step must not reference repository secret expressions");
-        assertFalse(pullRequestStep.contains("NVD_API_KEY"),
-                "pull-request Dependency-Check step must not receive the NVD API key");
+
+        String trustedUpdateStep = security.substring(trustedUpdateIndex, saveIndex);
+        assertTrue(trustedUpdateStep.contains("if: github.event_name != 'pull_request'"),
+                "Dependency-Check database updates must be restricted to trusted events");
+        assertTrue(trustedUpdateStep.contains("${{ secrets.NVD_API_KEY }}"),
+                "trusted Dependency-Check updates must use the configured NVD API key when available");
+        int firstUpdateOnly = security.indexOf("dependency-check-maven:12.2.2:update-only");
+        assertTrue(firstUpdateOnly >= trustedUpdateIndex && firstUpdateOnly < saveIndex,
+                "Dependency-Check update-only must remain inside the trusted-event update step");
+        assertTrue(security.indexOf("dependency-check-maven:12.2.2:update-only", firstUpdateOnly + 1) < 0,
+                "pull requests must consume the trusted cache and must not run a second anonymous NVD update");
+
         String saveStep = security.substring(saveIndex, scanIndex);
         assertTrue(saveStep.contains("if: github.event_name != 'pull_request'"),
                 "Dependency-Check cache writes must be restricted to trusted events");
