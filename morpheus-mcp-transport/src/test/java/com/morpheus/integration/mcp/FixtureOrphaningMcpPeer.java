@@ -3,7 +3,6 @@ package com.morpheus.integration.mcp;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -44,7 +43,7 @@ final class FixtureOrphaningMcpPeer {
             TimeUnit.MILLISECONDS.sleep(10);
         }
         TimeUnit.MILLISECONDS.sleep(250);
-        Files.writeString(exitMarker, "parent-exiting");
+        Files.writeString(exitMarker, Long.toString(ProcessHandle.current().pid()));
     }
 
     private static void runChild(Path pidFile) throws Exception {
