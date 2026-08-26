@@ -42,9 +42,9 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
-          key: dependency-check-v12-${{ runner.os }}-${{ github.run_id }}
+          key: dependency-check-v12-trusted-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
-            dependency-check-v12-${{ runner.os }}-
+            dependency-check-v12-trusted-${{ runner.os }}-
 
       - name: Remove stale Dependency-Check update lock
         shell: bash
@@ -83,11 +83,12 @@ jobs:
             "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data" \
             org.owasp:dependency-check-maven:12.2.2:update-only
 
-      - name: Save updated Dependency-Check database
+      - name: Save trusted Dependency-Check database
+        if: github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
-          key: dependency-check-v12-${{ runner.os }}-${{ github.run_id }}
+          key: dependency-check-v12-trusted-${{ runner.os }}-${{ github.run_id }}
 
       - name: Run OWASP Dependency-Check scan
         shell: bash
