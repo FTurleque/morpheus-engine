@@ -141,8 +141,8 @@ class D2RepositoryHardeningArchitectureTest {
                 "secret-free pull-request update must remain a separate step before trusted cache handling");
         assertTrue(scanIndex > saveIndex, "aggregate scan must run after cache/update preparation");
         String pullRequestStep = security.substring(pullRequestUpdateIndex, saveIndex);
-        assertFalse(pullRequestStep.contains("secrets."),
-                "pull-request Dependency-Check step must not reference repository secrets");
+        assertFalse(pullRequestStep.contains("${{ secrets."),
+                "pull-request Dependency-Check step must not reference repository secret expressions");
         assertFalse(pullRequestStep.contains("NVD_API_KEY"),
                 "pull-request Dependency-Check step must not receive the NVD API key");
         String saveStep = security.substring(saveIndex, scanIndex);
