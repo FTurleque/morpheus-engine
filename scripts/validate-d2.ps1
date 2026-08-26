@@ -129,8 +129,8 @@ foreach ($report in $reports) {
 if ($failures -ne 0 -or $errors -ne 0) {
     throw "D2 Surefire failures=$failures errors=$errors"
 }
-if ($tests -lt 711) { throw "D2 test baseline regression: $tests < 711" }
-if ($architectureTests -lt 253) { throw "D2 architecture baseline regression: $architectureTests < 253" }
+if ($tests -lt 820) { throw "D2 test baseline regression: $tests < 820" }
+if ($architectureTests -lt 258) { throw "D2 architecture baseline regression: $architectureTests < 258" }
 Write-Host "D2 tests: PASS ($tests tests, architecture=$architectureTests, skipped=$skipped)"
 
 $coveragePath = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
