@@ -8,17 +8,22 @@ import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import reactor.core.publisher.Mono;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BoundedStdioClientTransportTest {
+    @TempDir
+    Path tempDir;
 
     @Test
     void exchangesJsonRpcFramesOverRealStdioProcess() {
@@ -49,6 +56,58 @@ class BoundedStdioClientTransportTest {
             assertEquals("hello-bounded-stdio", ((TextContent) result.content().getFirst()).text());
         } finally {
             client.closeGracefully();
+        }
+    }
+
+    @Test
+    void childEnvironmentDropsInheritedSecretsAndKeepsExplicitConfiguration() {
+        Map<String, String> environment = new LinkedHashMap<>();
+        environment.put("PATH", "safe-path");
+        environment.put("LANG", "fr_FR.UTF-8");
+        environment.put("MORPHEUS_SERVER_TLS_PASSWORD", "must-not-leak");
+        environment.put("JAVA_TOOL_OPTIONS", "-Dinherited=true");
+
+        BoundedStdioClientTransport.sanitizeEnvironment(
+                environment,
+                Map.of("MCP_EXPLICIT_SETTING", "kept", "JAVA_TOOL_OPTIONS", "-Dexplicit=true"));
+
+        assertEquals("safe-path", environment.get("PATH"));
+        assertEquals("fr_FR.UTF-8", environment.get("LANG"));
+        assertFalse(environment.containsKey("MORPHEUS_SERVER_TLS_PASSWORD"));
+        assertEquals("-Dexplicit=true", environment.get("JAVA_TOOL_OPTIONS"));
+        assertEquals("kept", environment.get("MCP_EXPLICIT_SETTING"));
+    }
+
+    @Test
+    void closesDescendantObservedBeforePeerParentExits() throws Exception {
+        Path childPidFile = tempDir.resolve("mcp-child.pid");
+        Path parentExitMarker = tempDir.resolve("mcp-parent-exit.pid");
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                peerParameters(
+                        FixtureOrphaningMcpPeer.class,
+                        childPidFile.toString(),
+                        parentExitMarker.toString()),
+                McpJsonDefaults.getMapper(),
+                4096);
+        long childPid = -1L;
+        try {
+            transport.connect(message -> message).block();
+            awaitCondition(Duration.ofSeconds(5), () -> Files.isRegularFile(childPidFile));
+            awaitCondition(Duration.ofSeconds(5), () -> Files.isRegularFile(parentExitMarker));
+            childPid = Long.parseLong(Files.readString(childPidFile).trim());
+            long parentPid = Long.parseLong(Files.readString(parentExitMarker).trim());
+
+            awaitCondition(Duration.ofSeconds(5), () -> !isAlive(parentPid));
+            assertTrue(isAlive(childPid), "fixture descendant must still be alive after its MCP parent exits");
+
+            transport.closeGracefully().block();
+            long retainedChildPid = childPid;
+            awaitCondition(Duration.ofSeconds(5), () -> !isAlive(retainedChildPid));
+        } finally {
+            transport.closeGracefully().block();
+            if (childPid > 0) {
+                ProcessHandle.of(childPid).filter(ProcessHandle::isAlive).ifPresent(ProcessHandle::destroyForcibly);
+            }
         }
     }
 
@@ -200,9 +259,11 @@ class BoundedStdioClientTransportTest {
         return peerParameters(FixtureBoundedMcpServer.class);
     }
 
-    private ServerParameters peerParameters(Class<?> mainClass) {
+    private ServerParameters peerParameters(Class<?> mainClass, String... extraArguments) {
+        List<String> arguments = new ArrayList<>(peerArguments(mainClass));
+        arguments.addAll(List.of(extraArguments));
         return ServerParameters.builder(javaExecutable())
-                .args(peerArguments(mainClass).toArray(String[]::new))
+                .args(arguments.toArray(String[]::new))
                 .build();
     }
 
@@ -219,5 +280,19 @@ class BoundedStdioClientTransportTest {
                 "surefire.test.class.path",
                 System.getProperty("java.class.path"));
         return List.of("-cp", testClasspath, mainClass.getName());
+    }
+
+    private void awaitCondition(Duration timeout, BooleanSupplier condition) throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() >= deadline) {
+                throw new AssertionError("condition was not satisfied within " + timeout);
+            }
+            TimeUnit.MILLISECONDS.sleep(10);
+        }
+    }
+
+    private boolean isAlive(long pid) {
+        return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
     }
 }
