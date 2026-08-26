@@ -19,11 +19,14 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -35,7 +38,12 @@ import java.util.function.Function;
  *
  * <p>The upstream Java SDK 2.0.0 STDIO transport can materialize unbounded lines and uses unbounded Reactor queues.
  * MORPHEUS reads process streams as bounded UTF-8 bytes before JSON parsing, caps pending inbound/outbound messages,
- * handles stderr synchronously on its reader thread, and fails closed when a peer exceeds a resource budget.</p>
+ * minimizes inherited child-process environment, retains observed descendants for deterministic cleanup, handles stderr
+ * synchronously on its reader thread, and fails closed when a peer exceeds a resource budget.</p>
+ *
+ * <p>The child-process boundary is lifecycle and environment isolation, not an operating-system security sandbox. An
+ * explicitly configured MCP peer still runs as the MORPHEUS operating-system account and must therefore be trusted for
+ * filesystem and network access.</p>
  */
 public final class BoundedStdioClientTransport implements McpClientTransport {
     public static final int DEFAULT_MAX_PENDING_MESSAGES = 64;
@@ -44,6 +52,19 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private static final Set<Integer> NORMAL_EXIT_CODES = Set.of(0, 130, 141, 143);
     private static final Duration PROCESS_SHUTDOWN_GRACE = Duration.ofSeconds(2);
     private static final Duration PROCESS_SHUTDOWN_FORCE = Duration.ofSeconds(2);
+    private static final long PROCESS_OBSERVATION_POLL_MILLIS = 10L;
+    private static final Set<String> SAFE_ENVIRONMENT_KEYS = Set.of(
+            "SYSTEMROOT",
+            "WINDIR",
+            "PATH",
+            "PATHEXT",
+            "COMSPEC",
+            "TEMP",
+            "TMP",
+            "TMPDIR",
+            "LANG",
+            "LC_ALL",
+            "LC_CTYPE");
 
     private final Sinks.Many<JSONRPCMessage> inboundSink;
     private final Sinks.Many<OutboundFrame> outboundSink;
@@ -55,6 +76,8 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private final Scheduler inboundScheduler;
     private final Scheduler outboundScheduler;
     private final Scheduler errorScheduler;
+    private final Scheduler lifecycleScheduler;
+    private final Map<Long, ProcessHandle> observedProcesses = new ConcurrentHashMap<>();
 
     private volatile Process process;
     private volatile boolean closing;
@@ -89,6 +112,8 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 Executors.newSingleThreadExecutor(), "morpheus-mcp-outbound");
         this.errorScheduler = Schedulers.fromExecutorService(
                 Executors.newSingleThreadExecutor(), "morpheus-mcp-stderr");
+        this.lifecycleScheduler = Schedulers.fromExecutorService(
+                Executors.newSingleThreadExecutor(), "morpheus-mcp-lifecycle");
     }
 
     public void setStdErrorHandler(Consumer<String> handler) {
@@ -105,8 +130,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
             command.add(parameters.getCommand());
             command.addAll(parameters.getArgs());
             ProcessBuilder builder = new ProcessBuilder(command);
-            Map<String, String> environment = builder.environment();
-            environment.putAll(parameters.getEnv());
+            sanitizeEnvironment(builder.environment(), parameters.getEnv());
 
             try {
                 process = builder.start();
@@ -114,16 +138,36 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 disposeSchedulers();
                 throw new IllegalStateException("failed to start MCP process", failure);
             }
+            observeTree(process.toHandle());
             if (process.getInputStream() == null || process.getOutputStream() == null) {
-                destroyProcessTree(process);
+                destroyObservedProcessTree(process);
                 disposeSchedulers();
                 throw new IllegalStateException("MCP process input or output stream is unavailable");
             }
 
+            startLifecycleObservation();
             startInboundProcessing();
             startOutboundProcessing();
             startErrorProcessing();
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Keeps only process-launch essentials from the MORPHEUS environment, then overlays explicitly configured peer
+     * variables. Explicit variables are trusted integration configuration and therefore may intentionally use keys that
+     * are not part of the inherited allowlist.
+     */
+    static void sanitizeEnvironment(Map<String, String> environment, Map<String, String> explicitEnvironment) {
+        Objects.requireNonNull(environment, "environment");
+        Objects.requireNonNull(explicitEnvironment, "explicitEnvironment");
+        Map<String, String> inherited = new LinkedHashMap<>(environment);
+        environment.clear();
+        for (Map.Entry<String, String> entry : inherited.entrySet()) {
+            if (SAFE_ENVIRONMENT_KEYS.contains(entry.getKey().toUpperCase(Locale.ROOT))) {
+                environment.put(entry.getKey(), entry.getValue());
+            }
+        }
+        environment.putAll(explicitEnvironment);
     }
 
     @Override
@@ -245,6 +289,24 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 }));
     }
 
+    private void startLifecycleObservation() {
+        Process current = process;
+        if (current == null) return;
+        ProcessHandle root = current.toHandle();
+        lifecycleScheduler.schedule(() -> {
+            try {
+                while (!closing && root.isAlive()) {
+                    observeTree(root);
+                    TimeUnit.MILLISECONDS.sleep(PROCESS_OBSERVATION_POLL_MILLIS);
+                }
+                observeTree(root);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                observeTree(root);
+            }
+        });
+    }
+
     private void handleOutbound(Function<Flux<OutboundFrame>, Flux<OutboundFrame>> consumer) {
         consumer.apply(outboundSink.asFlux())
                 .doOnError(failure -> {
@@ -271,21 +333,25 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         inboundSink.tryEmitError(failure);
         outboundSink.tryEmitError(failure);
         LOGGER.log(System.Logger.Level.WARNING, "MCP transport failed closed: {0}", failure.getMessage());
-        destroyProcessTree(process);
+        destroyObservedProcessTree(process);
         disposeSchedulers();
     }
 
     private void shutdownProcess() {
         Process current = process;
-        if (current == null) return;
-        List<ProcessHandle> descendants = current.descendants().toList();
+        if (current == null) {
+            destroyHandles(List.copyOf(observedProcesses.values()), true);
+            return;
+        }
+        ProcessHandle root = current.toHandle();
+        observeTree(root);
         if (current.isAlive()) {
-            destroyHandles(descendants, false);
+            destroyObservedDescendants(root, false);
             current.destroy();
             try {
                 if (!current.waitFor(PROCESS_SHUTDOWN_GRACE.toMillis(), TimeUnit.MILLISECONDS)) {
-                    descendants = mergeHandles(descendants, current.descendants().toList());
-                    destroyHandles(descendants, true);
+                    observeTree(root);
+                    destroyObservedDescendants(root, true);
                     current.destroyForcibly();
                     if (!current.waitFor(PROCESS_SHUTDOWN_FORCE.toMillis(), TimeUnit.MILLISECONDS)) {
                         LOGGER.log(System.Logger.Level.WARNING, "MCP process remained alive after forced shutdown deadline");
@@ -293,12 +359,12 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 }
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
-                descendants = mergeHandles(descendants, current.descendants().toList());
-                destroyHandles(descendants, true);
+                observeTree(root);
+                destroyObservedDescendants(root, true);
                 current.destroyForcibly();
             }
         }
-        destroyHandles(descendants, true);
+        destroyObservedDescendants(root, true);
         if (!current.isAlive()) {
             int exitCode = current.exitValue();
             if (!NORMAL_EXIT_CODES.contains(exitCode)) {
@@ -307,19 +373,41 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         }
     }
 
-    private List<ProcessHandle> mergeHandles(List<ProcessHandle> first, List<ProcessHandle> second) {
-        List<ProcessHandle> merged = new ArrayList<>(first);
-        for (ProcessHandle candidate : second) {
-            if (merged.stream().noneMatch(existing -> existing.pid() == candidate.pid())) merged.add(candidate);
+    private void destroyObservedProcessTree(Process current) {
+        if (current == null) {
+            destroyHandles(List.copyOf(observedProcesses.values()), true);
+            return;
         }
-        return merged;
+        ProcessHandle root = current.toHandle();
+        observeTree(root);
+        destroyObservedDescendants(root, true);
+        if (root.isAlive()) {
+            try {
+                root.destroyForcibly();
+            } catch (RuntimeException failure) {
+                LOGGER.log(System.Logger.Level.DEBUG, "Unable to terminate MCP root process", failure);
+            }
+        }
+        destroyObservedDescendants(root, true);
     }
 
-    private void destroyProcessTree(Process current) {
-        if (current == null) return;
-        List<ProcessHandle> descendants = current.descendants().toList();
-        destroyHandles(descendants, true);
-        if (current.isAlive()) current.destroyForcibly();
+    private void observeTree(ProcessHandle root) {
+        observedProcesses.putIfAbsent(root.pid(), root);
+        for (ProcessHandle seed : List.copyOf(observedProcesses.values())) {
+            if (!seed.isAlive()) continue;
+            try {
+                seed.descendants().forEach(handle -> observedProcesses.putIfAbsent(handle.pid(), handle));
+            } catch (RuntimeException ignored) {
+                // A process can disappear between isAlive() and descendants(); retained handles remain available.
+            }
+        }
+    }
+
+    private void destroyObservedDescendants(ProcessHandle root, boolean force) {
+        List<ProcessHandle> descendants = observedProcesses.values().stream()
+                .filter(handle -> handle.pid() != root.pid())
+                .toList();
+        destroyHandles(descendants, force);
     }
 
     private void destroyHandles(List<ProcessHandle> handles, boolean force) {
@@ -338,6 +426,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         inboundScheduler.dispose();
         outboundScheduler.dispose();
         errorScheduler.dispose();
+        lifecycleScheduler.dispose();
     }
 
     static String readUtf8LineBounded(InputStream input, int maxBytes) throws IOException {

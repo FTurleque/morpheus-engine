@@ -126,15 +126,15 @@ $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) {
     throw "Surefire failures=$($totals.Failures) errors=$($totals.Errors)"
 }
-if ($totals.Tests -lt 711) {
-    throw "M21 test baseline regression: $($totals.Tests) < 711"
+if ($totals.Tests -lt 820) {
+    throw "M21 test baseline regression: $($totals.Tests) < 820"
 }
 $architecture = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
-if ($architecture.Tests -lt 253) {
-    throw "M21 architecture baseline regression: $($architecture.Tests) < 253"
+if ($architecture.Tests -lt 258) {
+    throw "M21 architecture baseline regression: $($architecture.Tests) < 258"
 }
-Write-Host "Tests: PASS ($($totals.Tests), baseline >= 711)"
-Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= 253)"
+Write-Host "Tests: PASS ($($totals.Tests), baseline >= 820)"
+Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= 258)"
 
 $coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
 if (-not (Test-Path $coverageSummary)) { throw "Missing M21 coverage summary: $coverageSummary" }
@@ -142,13 +142,13 @@ $coverage = @{}
 Get-Content $coverageSummary | ForEach-Object {
     if ($_ -match '^([^=]+)=(.*)$') { $coverage[$matches[1]] = $matches[2] }
 }
-if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.47) {
-    throw "M21 line coverage below 47% ratchet: $($coverage.lineRatio)"
+if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.50) {
+    throw "M21 line coverage below 50% ratchet: $($coverage.lineRatio)"
 }
-if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.40) {
-    throw "M21 branch coverage below 40% ratchet: $($coverage.branchRatio)"
+if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.42) {
+    throw "M21 branch coverage below 42% ratchet: $($coverage.branchRatio)"
 }
-Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio), ratchet=47%/40%)"
+Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio), ratchet=50%/42%)"
 
 $sbomJson = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.json'
 $sbomXml = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.xml'

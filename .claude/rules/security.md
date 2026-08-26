@@ -1,4 +1,4 @@
-# Règles — Sécurité (D2 + M22 + M26)
+# Règles — Sécurité (D2 + M22 + M26 + audit 2026-08-26)
 
 Toutes ces invariants sont **assertés textuellement** dans les sources par les tests d'architecture.
 Supprimer une de ces chaînes casse le build.
@@ -38,6 +38,14 @@ Supprimer une de ces chaînes casse le build.
 - La méthode HTTP amont doit être **préservée** : `String upstreamMethod = exchange.getRequestMethod();`
   — jamais de réécriture conditionnelle type `providerProbe ? "GET"`
 
+## Processus MCP externes — environnement et cycle de vie bornés
+
+- `BoundedStdioClientTransport` ne doit **jamais** transmettre implicitement tout l'environnement MORPHEUS à MINOS/NEXUS.
+- L'environnement hérité est réduit à une allowlist de lancement (`PATH`, variables Windows d'exécution, temp et locale), puis les variables explicitement configurées pour le peer sont appliquées.
+- Les variables sensibles comme `MORPHEUS_SERVER_TLS_PASSWORD` et les variables d'injection JVM ne sont jamais héritées implicitement.
+- Les descendants observés d'un peer MCP sont retenus par PID/`ProcessHandle` pendant toute la vie du parent afin de pouvoir les terminer même si le parent sort avant `closeGracefully()`.
+- Cette frontière fournit une isolation de **lifecycle/environnement**, pas une sandbox OS : un peer explicitement configuré reste du code de confiance exécuté sous le compte MORPHEUS.
+
 ## Plugins providers (M22) — fail-closed
 
 - L'activation d'un plugin **exige un pin SHA-256 de confiance**
@@ -49,6 +57,12 @@ Supprimer une de ces chaînes casse le build.
   - **jamais model-facing** → `EXPLICITLY_NOT_EXPOSED` côté MCP
   - refusé en local : *"provider-plugin probe is remote-only"*
 - `morpheus-cli/pom.xml` ne doit **jamais** embarquer `morpheus-provider-reference`
+
+## Update discovery
+
+- Un manifeste local utilise `file:`.
+- Un manifeste distant utilise **uniquement `https:`** ; `http:` est refusé avant tout I/O réseau.
+- La découverte reste read-only : aucun téléchargement, installation ou exécution automatique de l'artefact annoncé.
 
 ## Persistance SQLite
 
@@ -62,7 +76,9 @@ Supprimer une de ces chaînes casse le build.
 
 - Toutes les actions GitHub sont **pinnées par SHA 40 caractères**, génération Node 24+
   (`actions/checkout` ≥ v6, `actions/setup-java` ≥ v5, `actions/upload-artifact` ≥ v6, `actions/cache/{restore,save}` ≥ v6)
-- **Jamais** de tag mutable `uses: actions/<x>@v...`
+- **Jamais** de tag mutable `uses: actions/<x>@v...`.
+- CodeQL est versionné dans `.github/workflows/codeql.yml`; `init` et `analyze` sont pinnés par SHA et exécutent les requêtes `security-extended` Java.
 - OWASP : `failBuildOnCVSS = 7.0`, `-DautoUpdate=false`, clé NVD via
-  `-DnvdApiKeyEnvironmentVariable=NVD_API_KEY` — **jamais** `-DnvdApiKey=${NVD_API_KEY}` (fuite en ligne de commande)
-- Ordre imposé dans `security.yml` : restore cache → remove stale lock (`odc.update.lock`) → update-only
+  `-DnvdApiKeyEnvironmentVariable=NVD_API_KEY` — **jamais** `-DnvdApiKey=${NVD_API_KEY}` (fuite en ligne de commande).
+- La clé `NVD_API_KEY` est réservée aux événements de confiance ; le chemin `pull_request` exécute l'update Dependency-Check **sans secret repository**.
+- Ordre imposé dans `security.yml` : restore cache → remove stale lock (`odc.update.lock`) → update-only → scan agrégé.

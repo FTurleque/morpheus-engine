@@ -19,6 +19,8 @@ class D2RepositoryHardeningArchitectureTest {
             "(?m)^\\s*(?:-\\s*)?uses: actions/upload-artifact@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
     private static final Pattern CACHE_NODE24 = Pattern.compile(
             "(?m)^\\s*(?:-\\s*)?uses: actions/cache/(?:restore|save)@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
+    private static final Pattern CODEQL_V4 = Pattern.compile(
+            "(?m)^\\s*(?:-\\s*)?uses: github/codeql-action/(?:init|analyze)@[0-9a-f]{40} # v4(?:\\.[0-9]+){1,2}\\s*$");
 
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
@@ -32,13 +34,13 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     @Test
-    void coverageRatchetCannotSilentlyReturnToTheM21Floor() throws IOException {
+    void coverageRatchetCannotSilentlyReturnToTheD2Floor() throws IOException {
         String coverage = Files.readString(repoRoot().resolve(
                 "morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java"));
-        assertTrue(coverage.contains("MIN_LINE_RATIO = 0.40d"));
-        assertTrue(coverage.contains("MIN_BRANCH_RATIO = 0.35d"));
-        assertFalse(coverage.contains("MIN_LINE_RATIO = 0.25d"));
-        assertFalse(coverage.contains("MIN_BRANCH_RATIO = 0.20d"));
+        assertTrue(coverage.contains("LINE_RATCHET = 0.50d"));
+        assertTrue(coverage.contains("BRANCH_RATCHET = 0.42d"));
+        assertFalse(coverage.contains("LINE_RATCHET = 0.47d"));
+        assertFalse(coverage.contains("BRANCH_RATCHET = 0.40d"));
     }
 
     @Test
@@ -47,22 +49,22 @@ class D2RepositoryHardeningArchitectureTest {
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
         for (String script : java.util.List.of(linux, windows)) {
-            assertTrue(script.contains("711"));
-            assertTrue(script.contains("253"));
-            assertTrue(script.contains("0.47"));
-            assertTrue(script.contains("0.40"));
+            assertTrue(script.contains("820"));
+            assertTrue(script.contains("258"));
+            assertTrue(script.contains("0.50"));
+            assertTrue(script.contains("0.42"));
             assertTrue(script.contains("1.2.1"));
         }
     }
 
     @Test
-    void d2ScriptsKeepQualifiedPresenceRatchets() throws IOException {
+    void d2ScriptsKeepCurrentPresenceRatchets() throws IOException {
         Path root = repoRoot();
         String linux = Files.readString(root.resolve("scripts/validate-d2.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-d2.ps1"));
         for (String script : java.util.List.of(linux, windows)) {
-            assertTrue(script.contains("711"));
-            assertTrue(script.contains("253"));
+            assertTrue(script.contains("820"));
+            assertTrue(script.contains("258"));
             assertTrue(script.contains("1.2.1"));
         }
     }
@@ -70,10 +72,13 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void activeWorkflowsUsePinnedNode24GenerationActions() throws IOException {
         Path root = repoRoot();
-        for (String workflow : java.util.List.of("ci.yml", "security.yml")) {
+        for (String workflow : java.util.List.of("ci.yml", "security.yml", "codeql.yml")) {
             String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
             assertPinnedNode24(text, CHECKOUT_NODE24, "checkout", workflow);
             assertPinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", workflow);
+        }
+        for (String workflow : java.util.List.of("ci.yml", "security.yml")) {
+            String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
             assertPinnedNode24(text, UPLOAD_ARTIFACT_NODE24, "upload-artifact", workflow);
         }
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
@@ -81,6 +86,12 @@ class D2RepositoryHardeningArchitectureTest {
                 "security.yml must pin Node 24 cache restore/save actions by immutable SHA");
         assertFalse(security.contains("uses: actions/cache/restore@v"));
         assertFalse(security.contains("uses: actions/cache/save@v"));
+
+        String codeql = Files.readString(root.resolve(".github/workflows/codeql.yml"));
+        assertTrue(CODEQL_V4.matcher(codeql).results().count() >= 2,
+                "codeql.yml must pin CodeQL init/analyze actions by immutable SHA");
+        assertFalse(codeql.contains("uses: github/codeql-action/init@v"));
+        assertFalse(codeql.contains("uses: github/codeql-action/analyze@v"));
     }
 
     @Test
@@ -95,7 +106,7 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     @Test
-    void dependencySecurityGateCoversPromotionAndDevelopUpdates() throws IOException {
+    void dependencySecurityGateCoversPromotionAndDevelopUpdatesWithoutSecretsOrCacheWritesOnPr() throws IOException {
         Path root = repoRoot();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String dependabot = Files.readString(root.resolve(".github/dependabot.yml"));
@@ -106,22 +117,52 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"));
         assertTrue(security.contains("-DautoUpdate=false"));
         assertTrue(security.contains("target/dependency-check-data"));
+        assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"));
+        assertTrue(security.contains("if: github.event_name != 'pull_request'"));
+        assertTrue(security.contains("if: github.event_name == 'pull_request'"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
         assertTrue(security.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"));
         assertFalse(security.contains("-DnvdApiKey=${NVD_API_KEY}"));
+        assertTrue(security.contains("pull request, no secrets"));
         assertTrue(security.contains("Remove stale Dependency-Check update lock"));
         assertTrue(security.contains("odc.update.lock"));
         assertTrue(security.contains("rm -f -- \"${lock_file}\""));
 
         int restoreIndex = security.indexOf("- name: Restore Dependency-Check database");
         int staleLockIndex = security.indexOf("- name: Remove stale Dependency-Check update lock");
-        int updateIndex = security.indexOf("- name: Update Dependency-Check vulnerability database");
-        assertTrue(restoreIndex >= 0 && staleLockIndex > restoreIndex && updateIndex > staleLockIndex,
-                "stale Dependency-Check lock must be cleared after cache restore and before update-only");
+        int trustedUpdateIndex = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
+        int pullRequestUpdateIndex = security.indexOf(
+                "- name: Update Dependency-Check vulnerability database (pull request, no secrets)");
+        int saveIndex = security.indexOf("- name: Save trusted Dependency-Check database");
+        int scanIndex = security.indexOf("- name: Run OWASP Dependency-Check scan");
+        assertTrue(restoreIndex >= 0 && staleLockIndex > restoreIndex && trustedUpdateIndex > staleLockIndex,
+                "trusted Dependency-Check update must follow cache restore and stale-lock cleanup");
+        assertTrue(pullRequestUpdateIndex > trustedUpdateIndex && saveIndex > pullRequestUpdateIndex,
+                "secret-free pull-request update must remain a separate step before trusted cache handling");
+        assertTrue(scanIndex > saveIndex, "aggregate scan must run after cache/update preparation");
+        String pullRequestStep = security.substring(pullRequestUpdateIndex, saveIndex);
+        assertFalse(pullRequestStep.contains("${{ secrets."),
+                "pull-request Dependency-Check step must not reference repository secret expressions");
+        assertFalse(pullRequestStep.contains("NVD_API_KEY"),
+                "pull-request Dependency-Check step must not receive the NVD API key");
+        String saveStep = security.substring(saveIndex, scanIndex);
+        assertTrue(saveStep.contains("if: github.event_name != 'pull_request'"),
+                "Dependency-Check cache writes must be restricted to trusted events");
 
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
         assertTrue(dependabot.contains("target-branch: develop"));
+    }
+
+    @Test
+    void codeQlSastIsVersionedAndUsesExtendedJavaSecurityQueries() throws IOException {
+        String codeql = Files.readString(repoRoot().resolve(".github/workflows/codeql.yml"));
+        assertTrue(codeql.contains("branches: [main, develop]"));
+        assertTrue(codeql.contains("security-events: write"));
+        assertTrue(codeql.contains("languages: java-kotlin"));
+        assertTrue(codeql.contains("build-mode: manual"));
+        assertTrue(codeql.contains("queries: security-extended"));
+        assertTrue(codeql.contains("./mvnw -DskipTests -Djacoco.skip=true clean package"));
     }
 
     @Test

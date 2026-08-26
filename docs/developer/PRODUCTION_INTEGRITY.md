@@ -11,6 +11,7 @@ Architecture           morpheus-architecture-tests
 Release packaging      distribution/**
 M21 gate               scripts/validate-m21.*
 CI durable             .github/workflows/ci.yml
+SAST durable           .github/workflows/codeql.yml
 Preuve finale          docs/validation/VALIDATION_M21.md
 ```
 
@@ -18,19 +19,20 @@ La documentation humaine explique ces contrats ; elle ne doit pas devenir une de
 
 ## Quality gates M21
 
-Baseline minimale :
+Baseline active ratchetée après la qualification exact-head du hardening #169 :
 
 ```text
-Tests              >= 454 PASS
-Architecture       >= 182 PASS
-Reactor            14/14 SUCCESS
+Tests              >= 820 PASS
+Architecture       >= 258 PASS
+Reactor            18/18 SUCCESS
 Windows            PASS
 Linux              PASS
-JaCoCo lines        >= 25 % aggregate
-JaCoCo branches     >= 20 % aggregate
+JaCoCo lines        >= 50 % aggregate
+JaCoCo branches     >= 42 % aggregate
+Changed lines       >= 80 %
 ```
 
-Les seuils 25 % / 20 % sont des floors de non-régression instrumentale introduits en M21. Ils ne signifient pas qu’une couverture de 25 % est un objectif de qualité final. La tendance doit être conservée et les seuils pourront être relevés avec des mesures réelles.
+La preuve ayant servi au ratchet mesurait 824 tests, 258 tests d’architecture, 50,3630 % de lignes et 42,7823 % de branches. Les seuils sont volontairement arrondis légèrement en dessous afin d’absorber le bruit déterministe sans permettre une régression significative. Les anciens floors D2 restent des minima historiques inférieurs ; M21 est le gate durable actif le plus strict.
 
 ## Reproducible-build hygiene
 
@@ -56,6 +58,8 @@ provenance metadata != cryptographic identity
 
 Un SHA-256 permet de vérifier l’intégrité d’un fichier par rapport à une valeur attendue ; il ne prouve pas à lui seul l’identité de l’émetteur. MORPHEUS ne simule donc jamais une signature cryptographique. Une signature ou attestation cryptographique ne peut devenir obligatoire qu’avec une identité et une clé réelles, gérées par un flux de release explicite.
 
+Le workflow `MORPHEUS Security` complète ce contrôle par OWASP Dependency-Check. Le chemin `pull_request` n’injecte aucun secret NVD dans le code de la PR ; la clé NVD est réservée aux événements de confiance. `MORPHEUS CodeQL` fournit en plus un SAST Java versionné avec actions pinnées par SHA et requêtes `security-extended`.
+
 ## Update channel
 
 La version courante et le channel `stable` sont exposés par `ProductMetadata`. La découverte d’une version disponible est strictement read-only :
@@ -64,7 +68,7 @@ La version courante et le channel `stable` sont exposés par `ProductMetadata`. 
 update discovery != automatic update
 ```
 
-Elle est déclenchée uniquement par un appel explicite CLI/MCP avec une URI de manifeste. Les schémas supportés sont `file:`, `http:` et `https:`. Construction et démarrage du runtime n’effectuent aucune requête réseau pour rechercher une mise à jour.
+Elle est déclenchée uniquement par un appel explicite CLI/MCP avec une URI de manifeste. Les schémas supportés sont `file:` et `https:`. Un manifeste distant en `http:` est refusé avant tout I/O réseau. Construction et démarrage du runtime n’effectuent aucune requête réseau pour rechercher une mise à jour.
 
 Le manifeste contient au minimum :
 

@@ -47,9 +47,10 @@ Schémas de manifeste supportés :
 
 ```text
 file:
-http:
 https:
 ```
+
+Un manifeste distant en `http:` est refusé avant toute requête réseau. Une source distante doit fournir TLS via `https:`.
 
 ## Ce que `update-check` ne fait jamais
 

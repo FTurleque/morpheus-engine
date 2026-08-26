@@ -77,11 +77,21 @@ class ProductIntegrityTest {
     }
 
     @Test
+    void insecureHttpManifestIsRejectedBeforeAnyNetworkIo() {
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> new UpdateDiscoveryService().check(URI.create("http://example.invalid/update.properties")));
+        assertTrue(failure.getMessage().contains("insecure update manifest scheme"));
+        assertTrue(failure.getMessage().contains("https"));
+    }
+
+    @Test
     void unsupportedManifestSchemesAreRejectedBeforeAnyIo() {
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
                 () -> new UpdateDiscoveryService().check(URI.create("ftp://example.invalid/update.properties")));
         assertTrue(failure.getMessage().contains("unsupported update manifest scheme"));
+        assertTrue(failure.getMessage().contains("file or https"));
     }
 
     @Test
