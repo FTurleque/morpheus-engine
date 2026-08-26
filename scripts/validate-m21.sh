@@ -51,16 +51,16 @@ if (( FAILURES != 0 || ERRORS != 0 )); then
   echo "Surefire failures=$FAILURES errors=$ERRORS" >&2
   exit 1
 fi
-if (( TESTS < 711 )); then
-  echo "M21 test baseline regression: $TESTS < 711" >&2
+if (( TESTS < 820 )); then
+  echo "M21 test baseline regression: $TESTS < 820" >&2
   exit 1
 fi
-if (( ARCH_TESTS < 253 )); then
-  echo "M21 architecture baseline regression: $ARCH_TESTS < 253" >&2
+if (( ARCH_TESTS < 258 )); then
+  echo "M21 architecture baseline regression: $ARCH_TESTS < 258" >&2
   exit 1
 fi
-printf '%s\n' "Tests: PASS ($TESTS, baseline >= 711)"
-printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= 253)"
+printf '%s\n' "Tests: PASS ($TESTS, baseline >= 820)"
+printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= 258)"
 
 COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
 if [[ ! -f "$COVERAGE" ]]; then
@@ -73,12 +73,12 @@ python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line = float(sys.argv[1])
 branch = float(sys.argv[2])
-if line < 0.47:
-    raise SystemExit(f'M21 line coverage below 47% ratchet: {line}')
-if branch < 0.40:
-    raise SystemExit(f'M21 branch coverage below 40% ratchet: {branch}')
+if line < 0.50:
+    raise SystemExit(f'M21 line coverage below 50% ratchet: {line}')
+if branch < 0.42:
+    raise SystemExit(f'M21 branch coverage below 42% ratchet: {branch}')
 PY
-printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO, ratchet=47%/40%)"
+printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO, ratchet=50%/42%)"
 
 SBOM_JSON="$REPO/target/m21-supply-chain/morpheus-sbom.json"
 SBOM_XML="$REPO/target/m21-supply-chain/morpheus-sbom.xml"
