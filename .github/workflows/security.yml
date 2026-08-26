@@ -43,9 +43,9 @@ jobs:
         with:
           path: target/dependency-check-data
           key: dependency-check-v12-trusted-${{ runner.os }}-${{ github.run_id }}
+          # One-time migration bootstrap: known-good develop cache from successful run 32587778460.
           restore-keys: |
             dependency-check-v12-trusted-${{ runner.os }}-
-            # One-time migration bootstrap: known-good develop cache from successful run 32587778460.
             dependency-check-v12-${{ runner.os }}-32587778460
 
       - name: Remove stale Dependency-Check update lock
