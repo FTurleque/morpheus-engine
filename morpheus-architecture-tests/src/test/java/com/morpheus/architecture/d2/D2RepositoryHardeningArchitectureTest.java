@@ -106,7 +106,7 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     @Test
-    void dependencySecurityGateCoversPromotionAndDevelopUpdatesWithoutSecretsOnPr() throws IOException {
+    void dependencySecurityGateCoversPromotionAndDevelopUpdatesWithoutSecretsOrCacheWritesOnPr() throws IOException {
         Path root = repoRoot();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String dependabot = Files.readString(root.resolve(".github/dependabot.yml"));
@@ -117,6 +117,7 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"));
         assertTrue(security.contains("-DautoUpdate=false"));
         assertTrue(security.contains("target/dependency-check-data"));
+        assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"));
         assertTrue(security.contains("if: github.event_name != 'pull_request'"));
         assertTrue(security.contains("if: github.event_name == 'pull_request'"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
@@ -132,16 +133,21 @@ class D2RepositoryHardeningArchitectureTest {
         int trustedUpdateIndex = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
         int pullRequestUpdateIndex = security.indexOf(
                 "- name: Update Dependency-Check vulnerability database (pull request, no secrets)");
-        int saveIndex = security.indexOf("- name: Save updated Dependency-Check database");
+        int saveIndex = security.indexOf("- name: Save trusted Dependency-Check database");
+        int scanIndex = security.indexOf("- name: Run OWASP Dependency-Check scan");
         assertTrue(restoreIndex >= 0 && staleLockIndex > restoreIndex && trustedUpdateIndex > staleLockIndex,
                 "trusted Dependency-Check update must follow cache restore and stale-lock cleanup");
         assertTrue(pullRequestUpdateIndex > trustedUpdateIndex && saveIndex > pullRequestUpdateIndex,
-                "secret-free pull-request update must remain a separate step before cache save");
+                "secret-free pull-request update must remain a separate step before trusted cache handling");
+        assertTrue(scanIndex > saveIndex, "aggregate scan must run after cache/update preparation");
         String pullRequestStep = security.substring(pullRequestUpdateIndex, saveIndex);
         assertFalse(pullRequestStep.contains("secrets."),
                 "pull-request Dependency-Check step must not reference repository secrets");
         assertFalse(pullRequestStep.contains("NVD_API_KEY"),
                 "pull-request Dependency-Check step must not receive the NVD API key");
+        String saveStep = security.substring(saveIndex, scanIndex);
+        assertTrue(saveStep.contains("if: github.event_name != 'pull_request'"),
+                "Dependency-Check cache writes must be restricted to trusted events");
 
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
