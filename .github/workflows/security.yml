@@ -73,16 +73,6 @@ jobs:
           fi
           ./mvnw "${args[@]}"
 
-      - name: Update Dependency-Check vulnerability database (pull request, no secrets)
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          echo "Dependency-Check pull-request update runs without repository secrets."
-          ./mvnw \
-            -Pd2-security \
-            "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data" \
-            org.owasp:dependency-check-maven:12.2.2:update-only
-
       - name: Save trusted Dependency-Check database
         if: github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
