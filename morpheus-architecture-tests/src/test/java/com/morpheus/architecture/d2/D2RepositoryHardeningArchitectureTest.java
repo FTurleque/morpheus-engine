@@ -118,6 +118,9 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("-DautoUpdate=false"));
         assertTrue(security.contains("target/dependency-check-data"));
         assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"));
+        assertTrue(security.contains("dependency-check-v12-${{ runner.os }}-32587778460"),
+                "security.yml must retain the known-good develop bootstrap cache until the trusted namespace is seeded");
+        assertTrue(security.contains("known-good develop cache from successful run 32587778460"));
         assertTrue(security.contains("if: github.event_name != 'pull_request'"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
         assertTrue(security.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"));
