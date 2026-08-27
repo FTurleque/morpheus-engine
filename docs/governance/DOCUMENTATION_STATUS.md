@@ -1,19 +1,31 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — MORPHEUS 1.2.0 PUBLIÉ — D2 EN COURS**
+Statut : **ACTIF — MORPHEUS 1.2.0 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.1**
 
-Dernière mise à jour : 5 août 2026
+Dernière mise à jour : 27 août 2026
 
 ## Hiérarchie d’autorité
 
+Pour l’état courant de développement :
+
 ```text
+root pom.xml + code + tests
+        ↓
 docs/governance/ROADMAP.md
         ↓
+docs/developer/BUILD_AND_TEST.md
+        ↓
+GitHub exact-head CI / Security / CodeQL
+```
+
+Pour les preuves historiques D2 :
+
+```text
 docs/roadmap/D2_EXECUTION.md
         ↓
 docs/validation/VALIDATION_D2.md
         ↓
-code + tests + logs exact-head locaux Windows/Linux
+PR #121 exact-head Windows + Linux/WSL evidence
 ```
 
 Pour la release stable déjà publiée :
@@ -23,6 +35,8 @@ docs/validation/VALIDATION_R3.md
         ↓
 v1.2.0 + exact-tag assets publiés
 ```
+
+Les plans et preuves des jalons terminés restent des archives factuelles. Ils ne sont jamais réécrits pour leur attribuer un résultat, une commande ou un SHA postérieur.
 
 ## Documentation active
 
@@ -39,15 +53,14 @@ docs/developer/MCP.md
 distribution/README.md
 docs/governance/ROADMAP.md
 docs/governance/DOCUMENTATION_STATUS.md
-docs/roadmap/D2_EXECUTION.md
-docs/validation/VALIDATION_D2.md
+docs/validation/README.md
 docs/validation/VALIDATION_R3.md
 docs/release/RELEASE_NOTES_1.2.0.md
 integration/README.md
 scripts/README.md
 ```
 
-Les plans et preuves des jalons terminés restent des archives factuelles et ne sont pas réécrits pour adopter les commandes modernes.
+`docs/roadmap/D2_EXECUTION.md` et `docs/validation/VALIDATION_D2.md` restent référencés comme **archives historiques D2**, pas comme état actif du produit.
 
 ## Release stable publiée
 
@@ -65,29 +78,64 @@ Exact-tag Windows          PASS
 Exact-tag Linux            PASS
 ```
 
-## D2 actif
+## D2 — terminé et historique
+
+D2 a été qualifié et intégré le 11 août 2026.
 
 ```text
-Issue                      #120 OPEN
-Branch                     d2-post-r3-hardening
-Goal                       post-R3 repository hardening
-Stable product version     remains 1.2.0
-CI                         NOT USED
-Windows local gate         REQUIRED
-Linux/WSL local gate       REQUIRED
-Same exact SHA             REQUIRED
+Issue                      #120 CLOSED / completed
+PR                         #121 MERGED
+Qualified exact head       fa54b3d6a316357b2ef79afd2243619a64a05f3b
+Develop merge commit       c12882d6e43daab600f6580f22f8eff2fbc6f4de
+Windows local gate         PASS
+Linux/WSL local gate       PASS
+Same exact SHA             PASS
+.github/workflows delta    NONE
+CI used as D2 gate         false
 ```
 
-Hardening prévu/implémenté sur la branche :
+Hardening D2 intégré :
 
 ```text
 Jackson                    3.1.5 LTS
 sqlite-jdbc                3.53.2.0
-OWASP Dependency-Check     local explicit scan
-coverage floors            40% lines / 35% branches
+OWASP Dependency-Check     12.2.2
+absolute coverage floors   40% lines / 35% branches
 dependency hygiene         blocking
-active docs                reconciled to 1.2.0
 ```
+
+La règle « CI NOT USED » appartient exclusivement au protocole historique D2. Elle ne s’applique pas aux protections continues actuelles.
+
+## Baseline développement 1.2.1
+
+```text
+Version                    1.2.1
+Java                       21
+Maven Wrapper              3.9.16
+Maven modules              17
+MCP SDK                    2.0.1
+SQLite JDBC                3.53.2.0
+Jackson                    3.1.5 LTS
+```
+
+Qualité continue :
+
+```text
+MORPHEUS CI                exact-head Windows + Ubuntu
+MORPHEUS Security          OWASP Dependency-Check
+MORPHEUS CodeQL            security-extended
+Surefire ratchet           >= 820
+Architecture ratchet       >= 258
+Global line ratchet        >= 50.6%
+Global branch ratchet      >= 43.0%
+PR changed line coverage   >= 80%
+PR changed branch coverage >= 70%
+Dependency hygiene         blocking
+CycloneDX SBOM             required
+Build provenance           required
+```
+
+Le gate durable est documenté dans [`../developer/BUILD_AND_TEST.md`](../developer/BUILD_AND_TEST.md).
 
 ## Autorité des commandes Windows
 
@@ -97,24 +145,23 @@ Le dispatcher actif est :
 .\scripts\validate.cmd <target> [arguments]
 ```
 
-Pour D2 :
+Pour la baseline courante :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.0 -BaseRef origin/develop
+.\scripts\validate.cmd m21 -Version 1.2.1
 ```
 
 Les anciens wrappers `validate-*.cmd` à la racine ne font plus partie de la documentation active.
 
-## Politique D2 — aucune CI
+## Suivis encore ouverts
+
+Les éléments suivants ne doivent pas être déclarés terminés sans preuve externe ou événement réel :
 
 ```text
-GitHub Actions inspection    NOT USED
-workflow rerun/dispatch      NOT USED
-.github/workflows mutation   FORBIDDEN
-CI status as proof           FORBIDDEN
+#154  vérifier SonarCloud et les réglages GitHub Security administrateur
+#184  relever progressivement la couverture historique sur les frontières prioritaires
+#185  qualifier le workflow de release attestée lors d'une vraie v1.2.1+ release
 ```
-
-Les preuves D2 seront uniquement les sorties exact-head locales Windows + Linux/WSL sur le même SHA.
 
 ## État fonctionnel
 
@@ -124,5 +171,6 @@ D0 + D1        ✅ validés / intégrés
 R1             ✅ 1.0.0 publié
 R2             ✅ 1.1.0 publié
 R3             ✅ 1.2.0 publié
-D2             🚧 implementation / local qualification pending
+D2             ✅ qualifié / intégré
+1.2.1          🔧 baseline de développement active
 ```
