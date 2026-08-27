@@ -28,6 +28,22 @@ class McpDiagnosticRedactorTest {
     }
 
     @Test
+    void redactsJsonStyleSecretsAndThrowableMessages() {
+        String token = "json-token-value";
+        String password = "json-password-value";
+        IllegalStateException failure = new IllegalStateException(
+                "peer rejected {\"token\":\"" + token + "\", \"password\": \"" + password + "\"}");
+
+        String diagnostic = McpDiagnosticRedactor.describe(failure);
+
+        assertFalse(diagnostic.contains(token));
+        assertFalse(diagnostic.contains(password));
+        assertEquals(
+                "IllegalStateException: peer rejected {\"token\":\"<redacted>\", \"password\": \"<redacted>\"}",
+                diagnostic);
+    }
+
+    @Test
     void preservesNonSensitiveDiagnostics() {
         assertEquals(
                 "indexing failed status=503 retry=true",
