@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AuditHardeningWorkflowContractTest {
     private static final Pattern CACHE_AGE = Pattern.compile(
             "DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS:\\s*'([0-9]+)'");
+    private static final Pattern RELEASE_TAG_TRIGGER = Pattern.compile(
+            "(?m)^\\s*tags:\\s*\\R\\s*-\\s*'v\\*'\\s*$");
 
     @Test
     void dependencyCheckTrustedRefreshCannotAgePastPullRequestCacheWindow() throws IOException {
@@ -36,7 +38,8 @@ class AuditHardeningWorkflowContractTest {
     void releaseWorkflowPublishesAttestedNonOverwritableAssetsFromMain() throws IOException {
         String workflow = Files.readString(repoRoot().resolve(".github/workflows/release.yml"));
 
-        assertTrue(workflow.contains("tags:\n      - 'v*'"));
+        assertTrue(RELEASE_TAG_TRIGGER.matcher(workflow).find(),
+                "Release workflow must trigger on version tags on every supported platform");
         assertTrue(workflow.contains("contents: write"));
         assertTrue(workflow.contains("id-token: write"));
         assertTrue(workflow.contains("attestations: write"));
