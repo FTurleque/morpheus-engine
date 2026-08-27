@@ -42,9 +42,15 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(workflow.contains("attestations: write"));
         assertTrue(workflow.contains("git merge-base --is-ancestor HEAD origin/main"));
         assertTrue(workflow.contains("distribution/build-release.sh"));
+        assertTrue(workflow.contains("distribution/build-release.ps1"));
         assertTrue(workflow.contains(
                 "actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6"),
                 "Release provenance action must remain SHA-pinned");
+        assertTrue(workflow.contains(
+                "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"),
+                "Cross-job release asset download must remain SHA-pinned");
+        assertTrue(workflow.contains("MORPHEUS-${version}-windows-x64-setup.exe"));
+        assertTrue(workflow.contains("morpheus-${version}-linux-x64.tar.gz"));
         assertTrue(workflow.contains("gh release view \"${GITHUB_REF_NAME}\""));
         assertTrue(workflow.contains("refusing to overwrite published assets"));
         assertFalse(workflow.contains("--clobber"),
@@ -82,6 +88,21 @@ class AuditHardeningWorkflowContractTest {
         assertFalse(client.contains("\"MCP inbound processing failed\", failure"));
         assertFalse(client.contains("\"MCP outbound processing failed\", failure"));
         assertTrue(redactor.contains("JSON_OR_NAMED_SECRET"));
+    }
+
+    @Test
+    void futureRemoteUpdaterCannotRegressToChecksumOnlyTrust() throws IOException {
+        Path root = repoRoot();
+        String manifest = Files.readString(root.resolve(
+                "morpheus-application/src/main/java/com/morpheus/application/product/UpdateManifest.java"));
+        String discovery = Files.readString(root.resolve(
+                "morpheus-application/src/main/java/com/morpheus/application/product/UpdateDiscoveryService.java"));
+
+        assertTrue(manifest.contains("remote update manifest must declare attestationUri"));
+        assertTrue(manifest.contains("remote update artifactUri must use https"));
+        assertTrue(manifest.contains("remote update attestationUri must use https"));
+        assertTrue(discovery.contains("optionalUri(properties, \"attestationUri\")"));
+        assertTrue(discovery.contains("manifest.requireRemoteTrust(manifestUri)"));
     }
 
     private Path repoRoot() {
