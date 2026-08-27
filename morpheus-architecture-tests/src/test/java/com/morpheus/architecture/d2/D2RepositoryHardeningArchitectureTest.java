@@ -45,8 +45,8 @@ class D2RepositoryHardeningArchitectureTest {
     void coverageRatchetCannotSilentlyReturnToTheD2Floor() throws IOException {
         String coverage = Files.readString(repoRoot().resolve(
                 "morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java"));
-        assertTrue(coverage.contains("LINE_RATCHET = 0.504d"));
-        assertTrue(coverage.contains("BRANCH_RATCHET = 0.429d"));
+        assertTrue(coverage.contains("LINE_RATCHET = 0.506d"));
+        assertTrue(coverage.contains("BRANCH_RATCHET = 0.430d"));
         assertFalse(coverage.contains("LINE_RATCHET = 0.40d"));
         assertFalse(coverage.contains("BRANCH_RATCHET = 0.35d"));
     }
@@ -59,8 +59,8 @@ class D2RepositoryHardeningArchitectureTest {
         for (String script : java.util.List.of(linux, windows)) {
             assertTrue(script.contains("820"));
             assertTrue(script.contains("258"));
-            assertTrue(script.contains("0.50"));
-            assertTrue(script.contains("0.42"));
+            assertTrue(script.contains("0.506"));
+            assertTrue(script.contains("0.430"));
             assertTrue(script.contains("1.2.1"));
         }
     }
