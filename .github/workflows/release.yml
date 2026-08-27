@@ -6,9 +6,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
 
 concurrency:
   group: morpheus-release-${{ github.ref }}
@@ -19,6 +17,10 @@ jobs:
     name: signed-provenance (linux-x64)
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout exact tag
@@ -44,7 +46,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build tagged release
+      - name: Build tagged Linux release
         id: build
         shell: bash
         run: |
@@ -55,18 +57,15 @@ jobs:
           version="${BASH_REMATCH[1]}"
           bash distribution/build-release.sh "${version}" "${GITHUB_REF_NAME}" dist
           archive="dist/morpheus-${version}-linux-x64.tar.gz"
-          manifest="dist/morpheus-${version}-linux-x64-release-manifest.json"
-          checksum="${archive}.sha256"
-          printf 'version=%s\narchive=%s\nmanifest=%s\nchecksum=%s\n' \
-            "${version}" "${archive}" "${manifest}" "${checksum}" >> "${GITHUB_OUTPUT}"
+          printf 'version=%s\narchive=%s\n' "${version}" "${archive}" >> "${GITHUB_OUTPUT}"
 
-      - name: Attest release artifact provenance
+      - name: Attest Linux release artifact provenance
         id: attest
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: ${{ steps.build.outputs.archive }}
 
-      - name: Preserve attestation bundle with release assets
+      - name: Preserve Linux attestation bundle
         shell: bash
         env:
           ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
@@ -75,24 +74,148 @@ jobs:
           test -s "${ATTESTATION_BUNDLE}"
           cp -- "${ATTESTATION_BUNDLE}" "dist/morpheus-${VERSION}-linux-x64.attestation.jsonl"
 
+      - name: Upload Linux release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-linux-x64
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            dist/morpheus-*-linux-x64.tar.gz
+            dist/morpheus-*-linux-x64.tar.gz.sha256
+            dist/morpheus-*-linux-x64-release-manifest.json
+            dist/morpheus-*-linux-x64.attestation.jsonl
+
+  windows-release:
+    name: signed-provenance (windows-x64)
+    runs-on: windows-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout exact tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      - name: Verify tag belongs to main
+        shell: pwsh
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw "Release tag $env:GITHUB_REF_NAME does not point to a commit reachable from main."
+          }
+
+      - name: Build tagged Windows release
+        id: build
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -notmatch '^v(?<version>[0-9]+\.[0-9]+\.[0-9]+)$') {
+            throw 'Release tag must use semantic version form vX.Y.Z.'
+          }
+          $version = $Matches.version
+          & ./distribution/build-release.ps1 -Version $version -ExpectedTag $env:GITHUB_REF_NAME -OutputDirectory dist
+          if ($LASTEXITCODE -ne 0) { throw "Windows release build failed with exit code $LASTEXITCODE" }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Attest Windows release artifact provenance
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            dist/morpheus-${{ steps.build.outputs.version }}-windows-x64.zip
+            dist/MORPHEUS-${{ steps.build.outputs.version }}-windows-x64-setup.exe
+
+      - name: Preserve Windows attestation bundle
+        shell: pwsh
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          if (-not (Test-Path -LiteralPath $env:ATTESTATION_BUNDLE)) { throw 'Attestation bundle is missing' }
+          Copy-Item -LiteralPath $env:ATTESTATION_BUNDLE -Destination "dist/morpheus-$env:VERSION-windows-x64.attestation.jsonl"
+
+      - name: Upload Windows release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-windows-x64
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            dist/morpheus-*-windows-x64.zip
+            dist/morpheus-*-windows-x64.zip.sha256
+            dist/MORPHEUS-*-windows-x64-setup.exe
+            dist/MORPHEUS-*-windows-x64-setup.exe.sha256
+            dist/morpheus-*-windows-x64-release-manifest.json
+            dist/morpheus-*-windows-x64.attestation.jsonl
+
+  publish:
+    name: publish immutable GitHub release
+    needs: [linux-release, windows-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout exact tag metadata
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Download attested release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+          digest-mismatch: error
+
       - name: Publish immutable GitHub release assets
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          ARCHIVE: ${{ steps.build.outputs.archive }}
-          CHECKSUM: ${{ steps.build.outputs.checksum }}
-          MANIFEST: ${{ steps.build.outputs.manifest }}
-          VERSION: ${{ steps.build.outputs.version }}
         run: |
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::Release tag must use semantic version form vX.Y.Z."
+            exit 1
+          fi
+          version="${BASH_REMATCH[1]}"
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             echo "::error::GitHub release ${GITHUB_REF_NAME} already exists; refusing to overwrite published assets."
             exit 1
           fi
+          expected=(
+            "release-assets/morpheus-${version}-linux-x64.tar.gz"
+            "release-assets/morpheus-${version}-linux-x64.tar.gz.sha256"
+            "release-assets/morpheus-${version}-linux-x64-release-manifest.json"
+            "release-assets/morpheus-${version}-linux-x64.attestation.jsonl"
+            "release-assets/morpheus-${version}-windows-x64.zip"
+            "release-assets/morpheus-${version}-windows-x64.zip.sha256"
+            "release-assets/MORPHEUS-${version}-windows-x64-setup.exe"
+            "release-assets/MORPHEUS-${version}-windows-x64-setup.exe.sha256"
+            "release-assets/morpheus-${version}-windows-x64-release-manifest.json"
+            "release-assets/morpheus-${version}-windows-x64.attestation.jsonl"
+          )
+          for asset in "${expected[@]}"; do
+            test -s "${asset}" || { echo "::error::Missing release asset: ${asset}"; exit 1; }
+          done
           gh release create "${GITHUB_REF_NAME}" \
             --verify-tag \
             --generate-notes \
-            --title "MORPHEUS ${VERSION}" \
-            "${ARCHIVE}" \
-            "${CHECKSUM}" \
-            "${MANIFEST}" \
-            "dist/morpheus-${VERSION}-linux-x64.attestation.jsonl"
+            --title "MORPHEUS ${version}" \
+            "${expected[@]}"
