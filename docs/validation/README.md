@@ -14,10 +14,10 @@ VALIDATION_R1.md
 VALIDATION_M21.md → VALIDATION_M28.md
 VALIDATION_R2.md
 VALIDATION_R3.md
-VALIDATION_D2.md   ← actif / en attente de qualification locale
+VALIDATION_D2.md   ← preuve historique D2
 ```
 
-Chaque preuve historique conserve les décisions, SHA, commandes et résultats réellement observés. Une preuve historique n’est jamais réécrite pour fabriquer un PASS.
+Chaque preuve historique conserve les décisions, SHA, commandes et résultats réellement observés. Une preuve historique n’est jamais réécrite pour fabriquer un PASS ni pour adopter rétroactivement une commande moderne.
 
 ## Baseline stable publiée
 
@@ -40,35 +40,52 @@ Preuve : [`VALIDATION_R3.md`](VALIDATION_R3.md).
 
 ## D2 — Post-R3 Repository Hardening
 
-Statut : **PENDING LOCAL QUALIFICATION**.
+Statut courant : **COMPLETE / QUALIFIED / MERGED**.
+
+La preuve `VALIDATION_D2.md` est volontairement conservée comme document historique : son texte enregistre le candidat et le protocole de qualification au moment où le fichier a été écrit. La qualification finale exact-head a ensuite été attachée à la PR #121, sans réécrire cette preuve pour lui attribuer un SHA qu’elle ne contenait pas.
 
 ```text
-issue                   #120
-branch                  d2-post-r3-hardening
-stable product          remains 1.2.0
+issue                   #120 CLOSED / completed
+PR                      #121 MERGED
+qualified exact head    fa54b3d6a316357b2ef79afd2243619a64a05f3b
+develop merge commit    c12882d6e43daab600f6580f22f8eff2fbc6f4de
+Windows local gate      PASS
+Linux/WSL local gate    PASS
+same exact SHA          PASS
+.github/workflows delta NONE
+CI used as D2 gate      false
 Jackson                 3.1.5 LTS
 sqlite-jdbc             3.53.2.0
-SCA                     OWASP Dependency-Check 12.2.2 local
+SCA                     OWASP Dependency-Check 12.2.2
 coverage floors         40% line / 35% branch
 dependency hygiene      blocking
-CI                      NOT USED
 ```
 
-Gates canoniques :
+Preuve historique : [`VALIDATION_D2.md`](VALIDATION_D2.md).
+Preuves exact-head finales : PR #121.
 
-```powershell
-.\scripts\validate.cmd d2 -Version 1.2.0 -BaseRef origin/develop
+La règle « CI non utilisée » décrit uniquement le protocole D2 historique. Les protections continues de la baseline `1.2.1` utilisent désormais GitHub Actions.
+
+## Baseline développement 1.2.1
+
+Les validations courantes sont documentées dans [`../developer/BUILD_AND_TEST.md`](../developer/BUILD_AND_TEST.md).
+
+```text
+MORPHEUS CI                exact-head Windows + Ubuntu
+MORPHEUS Security          OWASP Dependency-Check
+MORPHEUS CodeQL            security-extended
+Surefire total             >= 820
+architecture               >= 258
+JaCoCo global lines        >= 50.6%
+JaCoCo global branches     >= 43.0%
+PR changed lines           >= 80%
+PR changed branches        >= 70%
+SBOM / provenance          required
 ```
 
-```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.0
-```
+Ces ratchets appartiennent à la baseline de développement courante. Ils ne sont pas injectés rétroactivement dans les preuves historiques.
 
-D2 ne sera marqué PASS qu’après exécution des deux gates sur le même SHA exact. Les validateurs refusent tout delta `.github/workflows/**`.
-
-Preuve en cours : [`VALIDATION_D2.md`](VALIDATION_D2.md).
-
-## Évolutions 1.x qualifiées
+## Évolutions 1.x historiquement qualifiées
 
 ```text
 M21  473 tests | architecture 187
@@ -83,17 +100,16 @@ M28  608 tests | architecture 243
 R3   608 tests | architecture 243
 ```
 
-Les comptes D2 seront renseignés uniquement après le gate réel.
+Les comptes plus récents de la baseline corrective sont des mesures de CI courante et ne doivent pas être substitués aux comptes historiques ci-dessus.
 
-## Politique de preuve D2
+## Politique de preuve
 
 ```text
-GitHub Actions inspection    NOT USED
-workflow rerun/dispatch      NOT USED
-CI result as gate            FORBIDDEN
-.github/workflows delta      MUST BE NONE
-Windows local exact-head     REQUIRED
-Linux/WSL local exact-head   REQUIRED
-same SHA                     REQUIRED
-post-gate executable delta   MUST BE NONE
+historical SHA/result attribution   immutable
+current CI checkout                 exact head
+current CI platforms                Windows + Ubuntu
+current SCA                         blocking at CVSS >= 7
+current code scanning               CodeQL security-extended
+release publication                 only from real vX.Y.Z tags reachable from main
+external/admin settings             never claimed verified without direct evidence
 ```
