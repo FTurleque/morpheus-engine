@@ -1,0 +1,164 @@
+package com.morpheus.application.query.dsl;
+
+import com.morpheus.domain.project.ProjectSpecificationId;
+import org.junit.jupiter.api.Test;
+
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class QueryDefinitionCodecBudgetTest {
+
+    private final QueryDefinitionCodec codec = new QueryDefinitionCodec();
+
+    @Test
+    void validDefinitionStillRoundTripsDeterministically() {
+        QueryDefinition query = new QueryDefinition(
+                new ProjectQueryScope(ProjectSpecificationId.generate()),
+                QueryEntityType.REQUIREMENT,
+                Optional.of(QueryPredicate.exists("title")),
+                List.of(),
+                QueryProjection.defaults(),
+                QueryPage.first(10));
+
+        String encoded = codec.encode(query);
+
+        assertEquals(query, codec.decode(encoded));
+        assertEquals(encoded, codec.encode(codec.decode(encoded)));
+    }
+
+    @Test
+    void rejectsEncodedPayloadAboveSixteenKiBBeforeBase64Decode() {
+        String oversized = "A".repeat(QueryBudgets.MAX_ENCODED_EXPRESSION_BYTES + 1);
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> codec.decode(oversized));
+
+        assertTrue(failure.getMessage().contains("exceeds " + QueryBudgets.MAX_ENCODED_EXPRESSION_BYTES));
+    }
+
+    @Test
+    void rejectsEncoderOutputAboveSixteenKiB() {
+        QueryDefinition query = new QueryDefinition(
+                new ProjectQueryScope(ProjectSpecificationId.generate()),
+                QueryEntityType.REQUIREMENT,
+                Optional.of(QueryPredicate.unary("title", QueryOperator.CONTAINS, "x".repeat(20_000))),
+                List.of(),
+                QueryProjection.defaults(),
+                QueryPage.first(10));
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> codec.encode(query));
+
+        assertTrue(failure.getMessage().contains("exceeds " + QueryBudgets.MAX_ENCODED_EXPRESSION_BYTES));
+    }
+
+    @Test
+    void rejectsBooleanDepthBeforeFollowingDeepRecursivePayload() throws IOException {
+        String encoded = encodedFilter(out -> {
+            for (int depth = 0; depth < 10_000; depth++) {
+                out.writeByte(4);
+            }
+            writeExistsPredicate(out);
+        });
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> codec.decode(encoded));
+
+        assertTrue(failure.getMessage().contains("boolean depth exceeds " + QueryBudgets.MAX_BOOLEAN_DEPTH));
+    }
+
+    @Test
+    void rejectsOneHundredTwentyNinthGlobalAstNode() throws IOException {
+        String encoded = encodedFilter(out -> {
+            out.writeByte(2);
+            out.writeInt(64);
+            for (int index = 0; index < 64; index++) {
+                out.writeByte(4);
+                writeExistsPredicate(out);
+            }
+        });
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> codec.decode(encoded));
+
+        assertTrue(failure.getMessage().contains("AST nodes exceed " + QueryBudgets.MAX_AST_NODES));
+    }
+
+    @Test
+    void rejectsSixtyFifthGlobalPredicate() throws IOException {
+        String encoded = encodedFilter(out -> {
+            out.writeByte(2);
+            out.writeInt(QueryBudgets.MAX_PREDICATES + 1);
+            for (int index = 0; index <= QueryBudgets.MAX_PREDICATES; index++) {
+                writeExistsPredicate(out);
+            }
+        });
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> codec.decode(encoded));
+
+        assertTrue(failure.getMessage().contains("predicates exceed " + QueryBudgets.MAX_PREDICATES));
+    }
+
+    @Test
+    void validatorStopsTraversingOnceStructuralBudgetIsExceeded() {
+        QueryFilter filter = QueryPredicate.exists("title");
+        for (int depth = 0; depth < 10_000; depth++) {
+            filter = new QueryNot(filter);
+        }
+        QueryDefinition query = new QueryDefinition(
+                new ProjectQueryScope(ProjectSpecificationId.generate()),
+                QueryEntityType.REQUIREMENT,
+                Optional.of(filter),
+                List.of(),
+                QueryProjection.defaults(),
+                QueryPage.first(10));
+
+        List<QueryDiagnostic> diagnostics = new QueryValidator().validate(query);
+
+        assertTrue(diagnostics.stream().anyMatch(diagnostic ->
+                diagnostic.message().contains("boolean depth exceeds " + QueryBudgets.MAX_BOOLEAN_DEPTH)));
+    }
+
+    private String encodedFilter(FilterWriter writer) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeInt(1);
+            out.writeByte(1);
+            out.writeUTF(ProjectSpecificationId.generate().toString());
+            out.writeUTF(QueryEntityType.REQUIREMENT.name());
+            out.writeBoolean(true);
+            writer.write(out);
+            out.writeInt(0);
+            out.writeInt(0);
+            out.writeInt(0);
+            out.writeInt(10);
+        }
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes.toByteArray());
+    }
+
+    private static void writeExistsPredicate(DataOutputStream out) throws IOException {
+        out.writeByte(1);
+        out.writeUTF("title");
+        out.writeUTF(QueryOperator.EXISTS.name());
+        out.writeInt(0);
+    }
+
+    @FunctionalInterface
+    private interface FilterWriter {
+        void write(DataOutputStream out) throws IOException;
+    }
+}
