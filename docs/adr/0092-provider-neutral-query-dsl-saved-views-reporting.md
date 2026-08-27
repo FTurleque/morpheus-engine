@@ -174,6 +174,27 @@ Positives : langage métier stable et provider-neutral, vues partageables sans m
 
 Coûts : registre de champs explicite à maintenir, store/versioning supplémentaire, migration SQLite et tests de déterminisme plus nombreux.
 
+## Durcissement post-audit — 27 août 2026
+
+Le réaudit de la baseline 1.2.1 a identifié qu'un payload `QueryDefinitionCodec` pouvait commencer sa désérialisation récursive avant que les budgets globaux M24 soient tous appliqués. La décision M24 est donc précisée sans modifier le modèle métier :
+
+```text
+untrusted encoded query -> size check -> bounded decode -> semantic validation -> QueryDefinition
+```
+
+Le codec doit désormais :
+
+- refuser une représentation encodée supérieure à 16 KiB avant le décodage Base64 ;
+- compter globalement chaque nœud AST pendant la désérialisation et refuser le 129e ;
+- compter globalement les prédicats et refuser le 65e ;
+- refuser une profondeur booléenne supérieure à 8 avant l'appel récursif suivant ;
+- soumettre la définition reconstruite au `QueryValidator` avant de la retourner ;
+- refuser également à l'encodage une définition invalide ou une représentation qui dépasserait le budget de 16 KiB.
+
+`QueryValidator` arrête son parcours dès qu'un budget structurel est dépassé afin qu'un AST construit directement en mémoire ne puisse pas provoquer une récursion non bornée. Les adapters policy HTTP, MCP et CLI restent obligatoirement câblés sur le même `QueryDefinitionCodec`; un contrat d'architecture interdit un décodeur parallèle non borné.
+
+Des tests adversariaux couvrent explicitement une charge de 10 000 `NOT` imbriqués, le 129e nœud global, le 65e prédicat et les représentations supérieures à 16 KiB. Ces tests complètent la validation M24 historique ; ils ne réécrivent pas sa preuve exact-head passée.
+
 ## Validation acquise
 
 L'acceptation repose sur la double qualification exact-head Windows + Linux du même SHA exécutable :

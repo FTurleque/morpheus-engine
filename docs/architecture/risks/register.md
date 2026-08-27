@@ -37,13 +37,30 @@ Ils restent traçables dans l'historique Git et les issues #154/#166, mais ne do
 | ID | Dette | Domaine | Priorité | Action |
 |----|-------|---------|----------|--------|
 | DT-01 | Documents historiques encore présentés avec des baselines C0/M20/M27 | Documentation | **Haute** | Les qualifier comme historiques ou les réconcilier dans des PR dédiées sans falsifier les preuves passées |
-| DT-07 | Quality Gate SonarCloud potentiellement moins strict que le gate repository sur le nouveau code | Qualité externe | **Moyenne** | Vérifier le réglage SonarCloud ; le repository impose indépendamment `>= 80%` changed-line et `>= 70%` changed-branch coverage |
-| DT-08 | État des alertes Dependabot / Secret Scanning non vérifiable par le connecteur | Supply chain | **Moyenne** | Vérifier/activer les réglages administrateur ; le dépôt fournit Dependabot, OWASP Dependency-Check et CodeQL versionné |
+| DT-07 | Quality Gate SonarCloud potentiellement moins strict que le gate repository sur le nouveau code | Qualité externe | **Moyenne** | Vérifier le réglage SonarCloud ; le repository impose indépendamment `>= 80%` changed-line et `>= 70%` changed-branch coverage ; suivi #154 |
+| DT-08 | État des alertes Dependabot / Secret Scanning non vérifiable par le connecteur | Supply chain | **Moyenne** | Vérifier/activer les réglages administrateur ; le dépôt fournit Dependabot, OWASP Dependency-Check et CodeQL versionné ; suivi #154 |
+| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Réduire progressivement la dette sur les frontières critiques et relever les ratchets uniquement après preuve exact-head ; suivi #184 |
+| DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
 | DT-03 | Seuils de performance M19 peu visibles depuis la documentation d'architecture | Qualité | **Moyenne** | Relier les scénarios qualité aux tests/gates autoritatifs |
 | DT-04 | SQLite reste l'unique backend persistant | Architecture | **Faible à moyenne** | N'engager un backend alternatif qu'après besoin et ADR dédiés |
 | DT-05 | Distribution macOS absente | Distribution | **Faible** | Décision produit avant ajout du packaging/CI |
 
 Les anciennes dettes `DT-06` (protection `main`) et `DT-09` (protection `develop`) sont résolues et retirées du tableau actif.
+
+---
+
+## Correctifs issus du réaudit post-#183 du 27/08/2026
+
+| Constat | Traitement |
+|---|---|
+| `QueryDefinitionCodec.decode()` pouvait commencer une récursion avant application des budgets globaux M24 | codec désormais fail-fast : taille encodée <= 16 KiB avant Base64, profondeur <= 8 avant récursion, compteurs globaux <= 128 nœuds et <= 64 prédicats ; validation sémantique avant retour |
+| `QueryValidator` continuait à parcourir l'AST après dépassement structurel | parcours interrompu dès le premier dépassement structurel pour borner aussi les AST construits directement en mémoire |
+| HTTP/MCP/CLI pouvaient dépendre implicitement du comportement du codec sans garde d'architecture dédiée | contrat d'architecture ajouté : les trois adapters policy doivent passer par `QueryDefinitionCodec` et ne peuvent introduire un décodeur Base64 parallèle |
+| Couverture historique à 50,7896 % lignes / 43,2215 % branches | aucun seuil abaissé ; tests adversariaux ciblés ajoutés et plan de remontée progressive suivi par #184 |
+| Réglages SonarCloud / alertes administrateur externes non qualifiables par le code | restent explicitement ouverts dans #154 ; ne pas prétendre à une correction repository-side supplémentaire |
+| Workflow release attestée correct mais jamais exécuté sur une vraie release | qualification end-to-end suivie par #185 ; aucune release artificielle créée pour fermer le constat |
+
+Les tests adversariaux du codec couvrent notamment une représentation >16 KiB, 10 000 `NOT` imbriqués, le 129e nœud et le 65e prédicat. La preuve M24 historique reste immuable ; ADR-0092 contient un addendum de hardening post-audit.
 
 ---
 
@@ -117,7 +134,7 @@ changed-line         >= 80%
 changed-branch       >= 70%
 ```
 
-La qualification du SHA `ec0f1b4d4821d4b6a946a820e257bd4449bfaf58` avant cette remédiation a produit `839` tests, `260` tests d'architecture, `50,6959%` lignes et `43,1147%` branches. Les baselines restent volontairement légèrement en dessous des observations qualifiées afin d'être des ratchets stables, pas des égalités fragiles.
+La qualification post-merge du SHA `72a7f8aea85950c45e6c59e48b07abff480e9419` a produit `853` tests, `265` tests d'architecture, `50,7896%` lignes et `43,2215%` branches. Les baselines restent volontairement légèrement en dessous des observations qualifiées afin d'être des ratchets stables, pas des égalités fragiles.
 
 `MORPHEUS Security` exécute OWASP Dependency-Check (CVSS >= 7 bloquant) sur PR/push `main` et `develop`, quotidiennement et sur demande. Les PR n'obtiennent pas la clé NVD depuis ce workflow. `MORPHEUS CodeQL` exécute un SAST Java versionné avec `security-extended`.
 
