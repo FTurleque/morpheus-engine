@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import reactor.core.publisher.Mono;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -92,10 +93,8 @@ class BoundedStdioClientTransportTest {
         long childPid = -1L;
         try {
             transport.connect(message -> message).block();
-            awaitCondition(Duration.ofSeconds(5), () -> Files.isRegularFile(childPidFile));
-            awaitCondition(Duration.ofSeconds(5), () -> Files.isRegularFile(parentExitMarker));
-            childPid = Long.parseLong(Files.readString(childPidFile).trim());
-            long parentPid = Long.parseLong(Files.readString(parentExitMarker).trim());
+            childPid = awaitPublishedPid(childPidFile, Duration.ofSeconds(5));
+            long parentPid = awaitPublishedPid(parentExitMarker, Duration.ofSeconds(5));
 
             awaitCondition(Duration.ofSeconds(5), () -> !isAlive(parentPid));
             assertTrue(isAlive(childPid), "fixture descendant must still be alive after its MCP parent exits");
@@ -280,6 +279,24 @@ class BoundedStdioClientTransportTest {
                 "surefire.test.class.path",
                 System.getProperty("java.class.path"));
         return List.of("-cp", testClasspath, mainClass.getName());
+    }
+
+    private long awaitPublishedPid(Path path, Duration timeout) throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (true) {
+            if (Files.isRegularFile(path)) {
+                try {
+                    String published = Files.readString(path).trim();
+                    if (!published.isEmpty()) return Long.parseLong(published);
+                } catch (IOException | NumberFormatException transientPublicationRace) {
+                    // Files.writeString may make the entry visible before the PID bytes are observable.
+                }
+            }
+            if (System.nanoTime() >= deadline) {
+                throw new AssertionError("PID was not published within " + timeout + ": " + path.getFileName());
+            }
+            TimeUnit.MILLISECONDS.sleep(10);
+        }
     }
 
     private void awaitCondition(Duration timeout, BooleanSupplier condition) throws InterruptedException {
