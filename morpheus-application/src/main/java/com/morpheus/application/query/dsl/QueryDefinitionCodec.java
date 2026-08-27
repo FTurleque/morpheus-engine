@@ -19,6 +19,7 @@ public final class QueryDefinitionCodec {
     private static final int VERSION = 1;
 
     public String encode(QueryDefinition query) {
+        new QueryValidator().requireValid(query);
         try {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream out = new DataOutputStream(bytes)) {
@@ -41,7 +42,9 @@ public final class QueryDefinitionCodec {
                 out.writeInt(query.page().offset());
                 out.writeInt(query.page().limit());
             }
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes.toByteArray());
+            String encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes.toByteArray());
+            requireEncodedSize(encoded);
+            return encoded;
         } catch (IOException exception) {
             throw new IllegalStateException("cannot encode query definition", exception);
         }
@@ -51,8 +54,10 @@ public final class QueryDefinitionCodec {
         if (encoded == null || encoded.isBlank()) {
             throw new IllegalArgumentException("encoded query definition must not be blank");
         }
+        requireEncodedSize(encoded);
         try {
             byte[] bytes = Base64.getUrlDecoder().decode(encoded);
+            DecodeBudget budget = new DecodeBudget();
             try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes))) {
                 int version = in.readInt();
                 if (version != VERSION) {
@@ -60,7 +65,9 @@ public final class QueryDefinitionCodec {
                 }
                 QueryScope scope = readScope(in);
                 QueryEntityType entityType = QueryEntityType.valueOf(in.readUTF());
-                Optional<QueryFilter> filter = in.readBoolean() ? Optional.of(readFilter(in)) : Optional.empty();
+                Optional<QueryFilter> filter = in.readBoolean()
+                        ? Optional.of(readFilter(in, budget, 1))
+                        : Optional.empty();
                 int sortCount = boundedCount(in.readInt(), QueryBudgets.MAX_SORT_FIELDS, "sort");
                 List<QuerySort> sort = new ArrayList<>(sortCount);
                 for (int index = 0; index < sortCount; index++) {
@@ -76,8 +83,10 @@ public final class QueryDefinitionCodec {
                 if (in.available() != 0) {
                     throw new IllegalArgumentException("encoded query definition contains trailing data");
                 }
-                return new QueryDefinition(
+                QueryDefinition query = new QueryDefinition(
                         scope, entityType, filter, sort, new QueryProjection(projection), page);
+                new QueryValidator().requireValid(query, encoded.length());
+                return query;
             }
         } catch (IllegalArgumentException exception) {
             throw exception;
@@ -85,6 +94,13 @@ public final class QueryDefinitionCodec {
             throw new IllegalArgumentException("encoded query definition is truncated", exception);
         } catch (IOException exception) {
             throw new IllegalArgumentException("cannot decode query definition", exception);
+        }
+    }
+
+    private void requireEncodedSize(String encoded) {
+        if (encoded.length() > QueryBudgets.MAX_ENCODED_EXPRESSION_BYTES) {
+            throw new IllegalArgumentException(
+                    "encoded query definition exceeds " + QueryBudgets.MAX_ENCODED_EXPRESSION_BYTES + " bytes");
         }
     }
 
@@ -146,17 +162,19 @@ public final class QueryDefinitionCodec {
         }
     }
 
-    private QueryFilter readFilter(DataInputStream in) throws IOException {
+    private QueryFilter readFilter(DataInputStream in, DecodeBudget budget, int depth) throws IOException {
+        budget.enterNode(depth);
         return switch (in.readUnsignedByte()) {
-            case 1 -> readPredicate(in);
-            case 2 -> new QueryAnd(readChildren(in));
-            case 3 -> new QueryOr(readChildren(in));
-            case 4 -> new QueryNot(readFilter(in));
+            case 1 -> readPredicate(in, budget);
+            case 2 -> new QueryAnd(readChildren(in, budget, depth));
+            case 3 -> new QueryOr(readChildren(in, budget, depth));
+            case 4 -> new QueryNot(readFilter(in, budget, depth + 1));
             default -> throw new IllegalArgumentException("unsupported query filter tag");
         };
     }
 
-    private QueryPredicate readPredicate(DataInputStream in) throws IOException {
+    private QueryPredicate readPredicate(DataInputStream in, DecodeBudget budget) throws IOException {
+        budget.enterPredicate();
         String field = in.readUTF();
         QueryOperator operator = QueryOperator.valueOf(in.readUTF());
         int count = boundedCount(in.readInt(), QueryBudgets.MAX_PREDICATES, "predicate values");
@@ -167,11 +185,11 @@ public final class QueryDefinitionCodec {
         return new QueryPredicate(field, operator, values);
     }
 
-    private List<QueryFilter> readChildren(DataInputStream in) throws IOException {
+    private List<QueryFilter> readChildren(DataInputStream in, DecodeBudget budget, int parentDepth) throws IOException {
         int count = boundedCount(in.readInt(), QueryBudgets.MAX_AST_NODES, "filter children");
         List<QueryFilter> children = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
-            children.add(readFilter(in));
+            children.add(readFilter(in, budget, parentDepth + 1));
         }
         return children;
     }
@@ -181,5 +199,30 @@ public final class QueryDefinitionCodec {
             throw new IllegalArgumentException(name + " count is outside supported bounds: " + count);
         }
         return count;
+    }
+
+    private static final class DecodeBudget {
+        private int nodes;
+        private int predicates;
+
+        private void enterNode(int depth) {
+            if (depth > QueryBudgets.MAX_BOOLEAN_DEPTH) {
+                throw new IllegalArgumentException(
+                        "query boolean depth exceeds " + QueryBudgets.MAX_BOOLEAN_DEPTH);
+            }
+            nodes++;
+            if (nodes > QueryBudgets.MAX_AST_NODES) {
+                throw new IllegalArgumentException(
+                        "query AST nodes exceed " + QueryBudgets.MAX_AST_NODES);
+            }
+        }
+
+        private void enterPredicate() {
+            predicates++;
+            if (predicates > QueryBudgets.MAX_PREDICATES) {
+                throw new IllegalArgumentException(
+                        "query predicates exceed " + QueryBudgets.MAX_PREDICATES);
+            }
+        }
     }
 }
