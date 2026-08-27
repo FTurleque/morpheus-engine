@@ -86,4 +86,32 @@ class ProviderIngestionBudgetTest {
         assertEquals(0, session.fileCount());
         assertEquals(0, session.aggregateBytes());
     }
+
+    @Test
+    void sessionRejectsCumulativeEvidenceFilesAndDoesNotAdvanceAfterFailure(@TempDir Path workspace) throws Exception {
+        Files.writeString(workspace.resolve("a.txt"), "1234");
+        Files.writeString(workspace.resolve("b.txt"), "5678");
+        ProviderIngestionBudget budget = new ProviderIngestionBudget(10, 3, 30, 10, 10, 10, 6);
+        var session = budget.open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        assertEquals("1234", session.readEvidence(Path.of("a.txt")));
+        assertThrows(ProviderIngestionLimitException.class, () -> session.readEvidence(Path.of("b.txt")));
+
+        assertEquals(1, session.fileCount());
+        assertEquals(4, session.aggregateBytes());
+        assertEquals(4, session.evidenceBytes());
+    }
+
+    @Test
+    void sessionRejectsCumulativeInlineEvidenceFragmentsWithoutAdvancingCounter(@TempDir Path workspace) throws Exception {
+        ProviderIngestionBudget budget = new ProviderIngestionBudget(10, 3, 30, 10, 10, 10, 6);
+        var session = budget.open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        session.addEvidenceFragment("1234", "blocks.md");
+        assertThrows(
+                ProviderIngestionLimitException.class,
+                () -> session.addEvidenceFragment("567", "blocks.md"));
+
+        assertEquals(4, session.evidenceBytes());
+    }
 }

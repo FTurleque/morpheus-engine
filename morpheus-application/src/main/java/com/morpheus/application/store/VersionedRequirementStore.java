@@ -1,6 +1,7 @@
 package com.morpheus.application.store;
 
 import com.morpheus.domain.identity.DomainIdentity;
+import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.version.EntityVersionId;
 import com.morpheus.domain.version.SpecificationVersion;
@@ -14,6 +15,15 @@ public interface VersionedRequirementStore {
     void putSpecificationVersion(SpecificationVersion version);
 
     Optional<SpecificationVersion> findSpecificationVersion(SpecificationVersionId versionId);
+
+    /**
+     * Returns the next durable project-local sequence, considering published and failed publication attempts.
+     * A failed candidate therefore consumes its sequence instead of allowing a retry to create an ambiguous duplicate.
+     */
+    default long nextSpecificationVersionSequence(ProjectSpecificationId projectId) {
+        throw new KnowledgeStoreException(
+                "versioned requirement store does not support durable specification-version sequence allocation");
+    }
 
     void bindSnapshotVersion(SnapshotSpecificationVersionBinding binding);
 

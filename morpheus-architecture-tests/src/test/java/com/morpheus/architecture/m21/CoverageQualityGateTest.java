@@ -19,12 +19,12 @@ class CoverageQualityGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline after MRA-11 on Linux: 47.2781% lines / 40.4547% branches.
-    // Ratchets are rounded down to a whole percentage point to absorb deterministic report noise.
-    private static final double QUALIFIED_LINE_RATIO = 0.472781d;
-    private static final double QUALIFIED_BRANCH_RATIO = 0.404547d;
-    private static final double LINE_RATCHET = 0.47d;
-    private static final double BRANCH_RATCHET = 0.40d;
+    // Qualified exact-head baseline after audit hardening #179 on Linux: 50.6353% lines / 43.0862% branches.
+    // Ratchets stay below the qualified measurement to absorb deterministic cross-platform report noise.
+    private static final double QUALIFIED_LINE_RATIO = 0.506353d;
+    private static final double QUALIFIED_BRANCH_RATIO = 0.430862d;
+    private static final double LINE_RATCHET = 0.504d;
+    private static final double BRANCH_RATCHET = 0.429d;
 
     private static final double MIN_LINE_RATIO = Math.max(D2_MIN_LINE_RATIO, LINE_RATCHET);
     private static final double MIN_BRANCH_RATIO = Math.max(D2_MIN_BRANCH_RATIO, BRANCH_RATCHET);
@@ -66,7 +66,7 @@ class CoverageQualityGateTest {
         Files.createDirectories(summary.getParent());
         Files.writeString(summary, String.format(
                 java.util.Locale.ROOT,
-                "reports=%d%nlineCovered=%d%nlineMissed=%d%nlineRatio=%.6f%nbranchCovered=%d%nbranchMissed=%d%nbranchRatio=%.6f%nqualifiedLineBaseline=%.6f%nqualifiedBranchBaseline=%.6f%nlineRatchet=%.2f%nbranchRatchet=%.2f%nd2LineFloor=%.2f%nd2BranchFloor=%.2f%n",
+                "reports=%d%nlineCovered=%d%nlineMissed=%d%nlineRatio=%.6f%nbranchCovered=%d%nbranchMissed=%d%nbranchRatio=%.6f%nqualifiedLineBaseline=%.6f%nqualifiedBranchBaseline=%.6f%nlineRatchet=%.3f%nbranchRatchet=%.3f%nd2LineFloor=%.2f%nd2BranchFloor=%.2f%n",
                 reports.size(), lines.covered, lines.missed, lineRatio,
                 branches.covered, branches.missed, branchRatio,
                 QUALIFIED_LINE_RATIO, QUALIFIED_BRANCH_RATIO,
@@ -79,10 +79,10 @@ class CoverageQualityGateTest {
 
     @Test
     void ratchetRejectsARegressionThatTheOldD2FloorWouldHaveAccepted() {
-        assertTrue(0.46d >= D2_MIN_LINE_RATIO);
-        assertTrue(0.39d >= D2_MIN_BRANCH_RATIO);
-        assertThrows(AssertionError.class, () -> assertCoverageAtLeast("line", 0.46d, MIN_LINE_RATIO));
-        assertThrows(AssertionError.class, () -> assertCoverageAtLeast("branch", 0.39d, MIN_BRANCH_RATIO));
+        assertTrue(0.49d >= D2_MIN_LINE_RATIO);
+        assertTrue(0.41d >= D2_MIN_BRANCH_RATIO);
+        assertThrows(AssertionError.class, () -> assertCoverageAtLeast("line", 0.49d, MIN_LINE_RATIO));
+        assertThrows(AssertionError.class, () -> assertCoverageAtLeast("branch", 0.41d, MIN_BRANCH_RATIO));
     }
 
     private static void assertCoverageAtLeast(String kind, double actual, double minimum) {

@@ -68,8 +68,9 @@ class ReasoningPlatformArchitectureTest {
     @Test
     void remoteFacadeClassifiesReasoningAnalysisAsReadOnlyPost() throws IOException {
         String source = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        assertTrue(source.contains("path.equals(prefix + \"/reasoning/analyze\")"));
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRoutePolicy.java"));
+        assertTrue(source.contains("segments.equals(List.of(\"reasoning\", \"analyze\"))"));
+        assertTrue(source.contains("if (method.equals(\"POST\") && isExplicitReadOnlyPost(segments))"));
     }
 
     private static void append(StringBuilder target, Path path) {

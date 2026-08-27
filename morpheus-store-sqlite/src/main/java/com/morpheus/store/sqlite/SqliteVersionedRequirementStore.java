@@ -113,6 +113,33 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
+    public synchronized long nextSpecificationVersionSequence(ProjectSpecificationId projectId) {
+        ensureOpen();
+        Objects.requireNonNull(projectId, "projectId");
+        try {
+            if (!projectExists(projectId)) {
+                throw new KnowledgeStoreException("project not found for specification version sequence: " + projectId);
+            }
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    SELECT COALESCE(MAX(sequence), 0) AS current_sequence
+                    FROM specification_versions
+                    WHERE project_id = ?
+                    """)) {
+                statement.setString(1, projectId.toString());
+                try (ResultSet result = statement.executeQuery()) {
+                    long current = result.next() ? result.getLong("current_sequence") : 0L;
+                    if (current == Long.MAX_VALUE) {
+                        throw new KnowledgeStoreException("specification version sequence exhausted for project " + projectId);
+                    }
+                    return current + 1L;
+                }
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot allocate specification version sequence for " + projectId, exception);
+        }
+    }
+
+    @Override
     public synchronized void bindSnapshotVersion(SnapshotSpecificationVersionBinding binding) {
         ensureOpen();
         Objects.requireNonNull(binding, "binding");
@@ -223,7 +250,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
             return;
         }
         SqliteTransactionRunner.runVoid(connection, "Cannot store requirement version batch", ignored -> {
-                batch.forEach(this::putRequirementVersion);
+            batch.forEach(this::putRequirementVersion);
         });
     }
 

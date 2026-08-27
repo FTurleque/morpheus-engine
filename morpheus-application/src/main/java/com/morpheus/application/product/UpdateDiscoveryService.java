@@ -18,7 +18,8 @@ import java.util.Properties;
 
 /**
  * Explicit read-only update discovery. Construction performs no I/O; callers must invoke {@link #check(URI)} with a
- * concrete manifest URI. The service never downloads or installs the advertised artifact.
+ * concrete manifest URI. The service never downloads or installs the advertised artifact. Remote manifests require
+ * HTTPS; local manifests use the file scheme.
  */
 public final class UpdateDiscoveryService {
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
@@ -64,9 +65,11 @@ public final class UpdateDiscoveryService {
         String scheme = manifestUri.getScheme().toLowerCase(Locale.ROOT);
         Properties properties = switch (scheme) {
             case "file" -> readFile(manifestUri);
-            case "http", "https" -> readHttp(manifestUri);
+            case "https" -> readHttp(manifestUri);
+            case "http" -> throw new IllegalArgumentException(
+                    "insecure update manifest scheme: http (expected file or https)");
             default -> throw new IllegalArgumentException(
-                    "unsupported update manifest scheme: " + scheme + " (expected file, http or https)");
+                    "unsupported update manifest scheme: " + scheme + " (expected file or https)");
         };
         return new UpdateManifest(
                 required(properties, "version"),

@@ -5,23 +5,22 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Properties;
 import java.util.jar.JarEntry;
-import java.util.jar.JarInputStream;
-import java.util.stream.Stream;
+import java.util.jar.JarFile;
 
 /**
  * Explicit, metadata-only discovery of provider plugin JARs.
  *
  * <p>This class never creates a ClassLoader or ServiceLoader. Reading a directory therefore does not execute plugin
- * code. Discovery also refuses symbolic links and opens candidate JARs with {@link LinkOption#NOFOLLOW_LINKS}, so a
+ * code. Discovery also refuses symbolic links and opens candidate JARs without following symbolic paths, so a
  * metadata scan cannot escape the configured plugin directory through a symlink.</p>
  */
 public final class ProviderPluginDiscovery {
@@ -49,15 +48,9 @@ public final class ProviderPluginDiscovery {
         }
 
         List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>();
-        List<Path> jars;
-        try (Stream<Path> entries = Files.list(directory)) {
-            jars = entries
-                    .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-                    .filter(path -> !Files.isSymbolicLink(path))
-                    .filter(this::isJar)
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
-                    .limit((long) ProviderSdk.MAX_PLUGIN_JARS + 1L)
-                    .toList();
+        BoundedJarSelection selection;
+        try {
+            selection = selectJars(directory);
         } catch (IOException failure) {
             return new ProviderPluginDiscoveryResult(
                     directory,
@@ -68,16 +61,41 @@ public final class ProviderPluginDiscovery {
                             Map.of("directory", directory.toString(), "reason", safeMessage(failure)))));
         }
 
-        if (jars.size() > ProviderSdk.MAX_PLUGIN_JARS) {
+        if (selection.totalJars() > ProviderSdk.MAX_PLUGIN_JARS) {
             diagnostics.add(ProviderPluginDiagnostic.warning(
                     "PLUGIN_SCAN_LIMIT_REACHED",
                     "Provider plugin scan was truncated at the configured JAR limit",
                     Map.of("limit", Integer.toString(ProviderSdk.MAX_PLUGIN_JARS))));
-            jars = jars.subList(0, ProviderSdk.MAX_PLUGIN_JARS);
         }
 
-        List<ProviderPluginCandidate> candidates = jars.stream().map(this::inspect).toList();
+        List<ProviderPluginCandidate> candidates = selection.jars().stream().map(this::inspect).toList();
         return new ProviderPluginDiscoveryResult(directory, candidates, diagnostics);
+    }
+
+    private BoundedJarSelection selectJars(Path directory) throws IOException {
+        Comparator<Path> order = Comparator.comparing(path -> path.getFileName().toString());
+        PriorityQueue<Path> selected = new PriorityQueue<>(ProviderSdk.MAX_PLUGIN_JARS, order.reversed());
+        long total = 0;
+        try (var entries = Files.list(directory)) {
+            var iterator = entries.iterator();
+            while (iterator.hasNext()) {
+                Path path = iterator.next();
+                if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
+                        || Files.isSymbolicLink(path)
+                        || !isJar(path)) {
+                    continue;
+                }
+                total++;
+                if (selected.size() < ProviderSdk.MAX_PLUGIN_JARS) {
+                    selected.add(path);
+                } else if (order.compare(path, selected.peek()) < 0) {
+                    selected.poll();
+                    selected.add(path);
+                }
+            }
+        }
+        List<Path> jars = selected.stream().sorted(order).toList();
+        return new BoundedJarSelection(jars, total);
     }
 
     private ProviderPluginCandidate inspect(Path jarPath) {
@@ -136,15 +154,22 @@ public final class ProviderPluginDiscovery {
     }
 
     private byte[] readMetadata(Path jar) throws IOException {
-        try (var input = Files.newInputStream(jar, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS);
-             JarInputStream jarInput = new JarInputStream(input, false)) {
-            JarEntry entry;
-            while ((entry = jarInput.getNextJarEntry()) != null) {
-                if (ProviderSdk.METADATA_PATH.equals(entry.getName())) {
-                    return jarInput.readNBytes((int) ProviderSdk.MAX_METADATA_BYTES + 1);
-                }
+        try (JarFile jarFile = new JarFile(jar.toFile(), false)) {
+            if (jarFile.size() > ProviderSdk.MAX_PLUGIN_JAR_ENTRIES) {
+                throw new IOException("provider plugin JAR exceeds "
+                        + ProviderSdk.MAX_PLUGIN_JAR_ENTRIES + " entries");
             }
-            return null;
+            JarEntry entry = jarFile.getJarEntry(ProviderSdk.METADATA_PATH);
+            if (entry == null || entry.isDirectory()) {
+                return null;
+            }
+            long declaredSize = entry.getSize();
+            if (declaredSize > ProviderSdk.MAX_METADATA_BYTES) {
+                return new byte[(int) ProviderSdk.MAX_METADATA_BYTES + 1];
+            }
+            try (var input = jarFile.getInputStream(entry)) {
+                return input.readNBytes((int) ProviderSdk.MAX_METADATA_BYTES + 1);
+            }
         }
     }
 
@@ -163,5 +188,11 @@ public final class ProviderPluginDiscovery {
     private static String safeMessage(Exception failure) {
         String message = failure.getMessage();
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
+    }
+
+    private record BoundedJarSelection(List<Path> jars, long totalJars) {
+        private BoundedJarSelection {
+            jars = List.copyOf(jars);
+        }
     }
 }

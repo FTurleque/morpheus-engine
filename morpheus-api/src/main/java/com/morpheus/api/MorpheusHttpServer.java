@@ -27,6 +27,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -45,6 +46,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     public static final String DEFAULT_HOST = "127.0.0.1";
     public static final int DEFAULT_PORT = 8765;
     public static final int MAX_REQUEST_BODY_BYTES = 65_536;
+    static final Duration REQUEST_BODY_READ_TIMEOUT = Duration.ofSeconds(15);
 
     private final HttpServer server;
     private final ExecutorService executor;
@@ -130,6 +132,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
                 minosStatus,
                 technicalContextProvider,
                 writeCapabilityResolver,
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -141,7 +144,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
             ExternalIntegrationStatusProvider minosStatus,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver,
-            AllowedWorkspaceRoots allowedWorkspaceRoots) {
+            AllowedWorkspaceRoots allowedWorkspaceRoots,
+            MorpheusInternalCapability internalCapability) {
         return startConfigured(
                 databasePath,
                 host,
@@ -150,7 +154,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
                 minosStatus,
                 technicalContextProvider,
                 writeCapabilityResolver,
-                Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")));
+                Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")),
+                Optional.of(Objects.requireNonNull(internalCapability, "internalCapability")));
     }
 
     private static MorpheusHttpServer startConfigured(
@@ -161,13 +166,15 @@ public final class MorpheusHttpServer implements AutoCloseable {
             ExternalIntegrationStatusProvider minosStatus,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver,
-            Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
+            Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots,
+            Optional<MorpheusInternalCapability> internalCapability) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(minosStatus, "minosStatus");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
         Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
+        Objects.requireNonNull(internalCapability, "internalCapability");
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("port must be between 0 and 65535");
         }
@@ -177,7 +184,10 @@ public final class MorpheusHttpServer implements AutoCloseable {
             new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
         }
         try {
-            HttpServer httpServer = HttpServer.create(new InetSocketAddress(bindAddress, port), 0);
+            HttpServer delegate = HttpServer.create(new InetSocketAddress(bindAddress, port), 0);
+            HttpServer httpServer = internalCapability
+                    .<HttpServer>map(capability -> new CapabilityProtectedHttpServer(delegate, capability))
+                    .orElse(delegate);
             ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
             MorpheusHttpServer result = new MorpheusHttpServer(
                     httpServer,
@@ -633,11 +643,12 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private byte[] readBody(HttpExchange exchange) {
         try {
-            byte[] bytes = exchange.getRequestBody().readNBytes(MAX_REQUEST_BODY_BYTES + 1);
-            if (bytes.length > MAX_REQUEST_BODY_BYTES) {
-                throw ApiFailure.badRequest("request body exceeds " + MAX_REQUEST_BODY_BYTES + " bytes");
-            }
-            return bytes;
+            return TimedBoundedInputReader.read(
+                    exchange.getRequestBody(), MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, executor);
+        } catch (TimedBoundedInputReader.LimitExceededException tooLarge) {
+            throw ApiFailure.badRequest("request body exceeds " + MAX_REQUEST_BODY_BYTES + " bytes");
+        } catch (TimedBoundedInputReader.ReadTimeoutException timeout) {
+            throw ApiFailure.badRequest("request body exceeded its read deadline");
         } catch (IOException failure) {
             throw ApiFailure.badRequest("cannot read request body");
         }

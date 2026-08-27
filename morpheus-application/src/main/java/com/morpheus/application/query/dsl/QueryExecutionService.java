@@ -28,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 /** Provider-neutral deterministic query engine over published MORPHEUS facts. */
 public final class QueryExecutionService {
@@ -78,28 +79,35 @@ public final class QueryExecutionService {
 
     private List<QueryRow> sourceRows(QueryDefinition query) {
         if (query.scope() instanceof ProjectQueryScope project) {
-            return projectRows(project.projectId(), query.entityType());
+            return boundedRows(projectRows(project.projectId(), query.entityType()), "$.scope.project");
         }
         PortfolioQueryScope portfolio = (PortfolioQueryScope) query.scope();
         portfolioStore.findPortfolio(portfolio.portfolioId())
                 .orElseThrow(() -> new IllegalArgumentException("unknown portfolio: " + portfolio.portfolioId()));
+        List<PortfolioMembership> memberships = portfolioStore.listMemberships(portfolio.portfolioId());
+        requirePortfolioProjectBudget(memberships.size());
         if (query.entityType() == QueryEntityType.PORTFOLIO_MEMBERSHIP) {
-            return portfolioStore.listMemberships(portfolio.portfolioId()).stream()
+            return boundedRows(memberships.stream()
                     .sorted(Comparator.comparing(PortfolioMembership::projectId))
                     .map(this::membershipRow)
-                    .toList();
+                    .toList(), "$.source.portfolioMemberships");
         }
         if (query.entityType() == QueryEntityType.PORTFOLIO_REFERENCE) {
-            return portfolioStore.listReferences(portfolio.portfolioId()).stream()
+            List<CrossProjectReference> references = portfolioStore.listReferences(portfolio.portfolioId());
+            requireSourceRowBudget(references.size(), "$.source.portfolioReferences");
+            return references.stream()
                     .sorted()
                     .map(this::referenceRow)
                     .toList();
         }
         List<QueryRow> result = new ArrayList<>();
-        portfolioStore.listMemberships(portfolio.portfolioId()).stream()
+        memberships.stream()
                 .map(PortfolioMembership::projectId)
                 .sorted()
-                .forEach(projectId -> result.addAll(projectRows(projectId, query.entityType())));
+                .forEach(projectId -> appendBounded(
+                        result,
+                        projectRows(projectId, query.entityType()),
+                        "$.source.portfolioProjects"));
         return List.copyOf(result);
     }
 
@@ -109,7 +117,9 @@ public final class QueryExecutionService {
             return List.of();
         }
         if (type == QueryEntityType.REQUIREMENT) {
-            return requirementStore.listRequirementVersions(snapshot.get().id()).stream()
+            var records = requirementStore.listRequirementVersions(snapshot.get().id());
+            requireSourceRowBudget(records.size(), "$.source.requirements");
+            return records.stream()
                     .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
                     .map(record -> requirementRow(projectId, record.entityVersion().content()))
                     .toList();
@@ -121,16 +131,63 @@ public final class QueryExecutionService {
                 .orElseThrow(() -> new KnowledgeStoreException(
                         "published snapshot has no business-content projection: " + snapshot.get().id()));
         return switch (type) {
-            case SPECIFICATION -> content.specifications().stream().map(item -> specificationRow(projectId, item)).toList();
-            case SCENARIO -> content.scenarios().stream().map(item -> scenarioRow(projectId, item)).toList();
-            case CHANGE -> content.changes().stream().map(item -> changeRow(projectId, item)).toList();
-            case CONSTRAINT -> content.constraints().stream().map(item -> constraintRow(projectId, item)).toList();
-            case DESIGN_DECISION -> content.designDecisions().stream().map(item -> decisionRow(projectId, item)).toList();
-            case TASK -> content.tasks().stream().map(item -> taskRow(projectId, item)).toList();
-            case ACCEPTANCE_CRITERION -> content.acceptanceCriteria().stream().map(item -> acceptanceRow(projectId, item)).toList();
-            case EVIDENCE -> content.evidence().stream().map(item -> evidenceRow(projectId, item)).toList();
+            case SPECIFICATION -> mapBounded(content.specifications(),
+                    item -> specificationRow(projectId, item), "$.source.specifications");
+            case SCENARIO -> mapBounded(content.scenarios(),
+                    item -> scenarioRow(projectId, item), "$.source.scenarios");
+            case CHANGE -> mapBounded(content.changes(),
+                    item -> changeRow(projectId, item), "$.source.changes");
+            case CONSTRAINT -> mapBounded(content.constraints(),
+                    item -> constraintRow(projectId, item), "$.source.constraints");
+            case DESIGN_DECISION -> mapBounded(content.designDecisions(),
+                    item -> decisionRow(projectId, item), "$.source.designDecisions");
+            case TASK -> mapBounded(content.tasks(),
+                    item -> taskRow(projectId, item), "$.source.tasks");
+            case ACCEPTANCE_CRITERION -> mapBounded(content.acceptanceCriteria(),
+                    item -> acceptanceRow(projectId, item), "$.source.acceptanceCriteria");
+            case EVIDENCE -> mapBounded(content.evidence(),
+                    item -> evidenceRow(projectId, item), "$.source.evidence");
             case REQUIREMENT, PORTFOLIO_MEMBERSHIP, PORTFOLIO_REFERENCE -> throw new IllegalStateException("handled before switch");
         };
+    }
+
+    private <T> List<QueryRow> mapBounded(List<T> source, Function<T, QueryRow> mapper, String path) {
+        requireSourceRowBudget(source.size(), path);
+        return source.stream().map(mapper).toList();
+    }
+
+    private List<QueryRow> boundedRows(List<QueryRow> rows, String path) {
+        requireSourceRowBudget(rows.size(), path);
+        return rows;
+    }
+
+    private void appendBounded(List<QueryRow> target, List<QueryRow> rows, String path) {
+        long combined = (long) target.size() + rows.size();
+        requireSourceRowBudget(combined, path);
+        target.addAll(rows);
+    }
+
+    private void requireSourceRowBudget(long rows, String path) {
+        if (rows <= QueryBudgets.MAX_SOURCE_ROWS) {
+            return;
+        }
+        throw budgetExceeded(
+                path,
+                "query source exceeds " + QueryBudgets.MAX_SOURCE_ROWS + " rows before filtering/pagination");
+    }
+
+    private void requirePortfolioProjectBudget(long projects) {
+        if (projects <= QueryBudgets.MAX_PORTFOLIO_PROJECTS) {
+            return;
+        }
+        throw budgetExceeded(
+                "$.scope.portfolio",
+                "portfolio query exceeds " + QueryBudgets.MAX_PORTFOLIO_PROJECTS + " projects");
+    }
+
+    private QueryValidationException budgetExceeded(String path, String message) {
+        QueryDiagnostic diagnostic = new QueryDiagnostic("QUERY_SOURCE_BUDGET_EXCEEDED", path, message);
+        return new QueryValidationException(List.of(diagnostic), diagnostic.code() + " at " + path + ": " + message);
     }
 
     private boolean matches(QueryRow row, QueryFilter filter) {

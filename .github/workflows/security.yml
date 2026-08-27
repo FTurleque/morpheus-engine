@@ -24,13 +24,13 @@ jobs:
 
     steps:
       - name: Checkout exact head
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Set up Java 21
-        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '21'
@@ -42,9 +42,13 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
-          key: dependency-check-v12-${{ runner.os }}-${{ github.run_id }}
+          key: dependency-check-v12-trusted-${{ runner.os }}-${{ github.run_id }}
+          # One-time main-promotion bootstrap: known-good main scheduled cache from successful run 32690353897.
+          # One-time migration bootstrap: known-good develop cache from successful run 32587778460.
           restore-keys: |
-            dependency-check-v12-${{ runner.os }}-
+            dependency-check-v12-trusted-${{ runner.os }}-
+            dependency-check-v12-${{ runner.os }}-32690353897
+            dependency-check-v12-${{ runner.os }}-32587778460
 
       - name: Remove stale Dependency-Check update lock
         shell: bash
@@ -55,7 +59,8 @@ jobs:
             rm -f -- "${lock_file}"
           fi
 
-      - name: Update Dependency-Check vulnerability database
+      - name: Update Dependency-Check vulnerability database (trusted events)
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -72,11 +77,12 @@ jobs:
           fi
           ./mvnw "${args[@]}"
 
-      - name: Save updated Dependency-Check database
+      - name: Save trusted Dependency-Check database
+        if: github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
-          key: dependency-check-v12-${{ runner.os }}-${{ github.run_id }}
+          key: dependency-check-v12-trusted-${{ runner.os }}-${{ github.run_id }}
 
       - name: Run OWASP Dependency-Check scan
         shell: bash

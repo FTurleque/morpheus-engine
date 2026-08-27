@@ -26,7 +26,10 @@ class MorpheusPortfolioMcpToolsTest {
 
     @Test
     void serverCatalogContainsPortfolioTools() {
-        var server = MorpheusMcpServer.build(temporaryDirectory.resolve("morpheus.db"));
+        var server = MorpheusMcpServer.build(
+                temporaryDirectory.resolve("morpheus.db"),
+                java.io.InputStream.nullInputStream(),
+                java.io.OutputStream.nullOutputStream());
         try {
             // Construction validates schemas, unique names and complete registration.
             assertTrue(server != null);

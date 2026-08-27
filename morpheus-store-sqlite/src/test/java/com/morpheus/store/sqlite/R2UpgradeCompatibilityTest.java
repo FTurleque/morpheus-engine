@@ -41,7 +41,7 @@ class R2UpgradeCompatibilityTest {
     Path tempDir;
 
     @Test
-    void oneDotZeroSchemaMigratesToV15WithoutIdentityOrHistoryLoss() throws Exception {
+    void oneDotZeroSchemaMigratesToV16WithoutIdentityOrHistoryLoss() throws Exception {
         Path database = tempDir.resolve("morpheus-1.0.0.db");
         Map<Integer, String> baselineChecksums;
 
@@ -57,12 +57,12 @@ class R2UpgradeCompatibilityTest {
         }
 
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
-            // Opening with MORPHEUS 1.1.0 applies V013, V014 and V015.
+            // Opening with the current runtime applies V013 through V016.
         }
 
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(15, new SqliteSchemaManager().currentVersion(connection));
-            assertEquals(15, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
+            assertEquals(16, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(16, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
 
             assertEquals("file", scalar(connection, "SELECT root_scheme FROM projects WHERE id = 'project-r2'"));
             assertEquals("workspace-r2", scalar(connection, "SELECT root_value FROM projects WHERE id = 'project-r2'"));
@@ -75,6 +75,7 @@ class R2UpgradeCompatibilityTest {
             assertTrue(tableExists(connection, "portfolios"));
             assertTrue(tableExists(connection, "saved_views"));
             assertTrue(tableExists(connection, "policy_packs"));
+            assertTrue(indexExists(connection, "uq_specification_versions_project_sequence"));
 
             for (Map.Entry<Integer, String> baseline : baselineChecksums.entrySet()) {
                 assertEquals(baseline.getValue(), scalar(connection,
@@ -84,11 +85,11 @@ class R2UpgradeCompatibilityTest {
         }
 
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
-            // A second 1.1.0 startup must not replay an already applied migration.
+            // A second current-runtime startup must not replay an already applied migration.
         }
 
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(15, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
+            assertEquals(16, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
             assertEquals(1, integerScalar(connection, "SELECT COUNT(*) FROM projects WHERE id = 'project-r2'"));
             assertEquals(1, integerScalar(connection,
                     "SELECT COUNT(*) FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
@@ -181,6 +182,16 @@ class R2UpgradeCompatibilityTest {
         try (var statement = connection.prepareStatement(
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")) {
             statement.setString(1, table);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        }
+    }
+
+    private boolean indexExists(Connection connection, String index) throws Exception {
+        try (var statement = connection.prepareStatement(
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?")) {
+            statement.setString(1, index);
             try (ResultSet result = statement.executeQuery()) {
                 return result.next();
             }

@@ -123,7 +123,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
     TooManyRequests:
-      description: Explicit M26 concurrent request budget reached
+      description: Explicit M26 concurrent request or aggregate proxy-response budget reached
       content:
         application/json:
           schema:
@@ -150,6 +150,9 @@ components:
         - uptimeSeconds
         - activeRequests
         - maxConcurrentRequests
+        - maxProxyResponseBytes
+        - maxProxyInFlightBytes
+        - maxConcurrentBufferedProxyResponses
         - totalRequests
         - authenticationFailures
         - authorizationFailures
@@ -180,6 +183,15 @@ components:
           type: integer
           minimum: 1
           maximum: 512
+        maxProxyResponseBytes:
+          type: integer
+          const: 16777216
+        maxProxyInFlightBytes:
+          type: integer
+          const: 134217728
+        maxConcurrentBufferedProxyResponses:
+          type: integer
+          const: 8
         totalRequests:
           type: integer
           minimum: 0
@@ -218,7 +230,7 @@ components:
         schemaVersion:
           type: integer
           minimum: 1
-          maximum: 15
+          maximum: 16
         integrityOk:
           const: true
     ErrorEnvelope:

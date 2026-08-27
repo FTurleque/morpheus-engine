@@ -28,18 +28,31 @@ import java.util.Set;
 public final class LocalSourceInventoryScanner {
     private final SourceScanPolicy policy;
     private final OperationalRecorder recorder;
+    private final FingerprintComputer fingerprintComputer;
 
     public LocalSourceInventoryScanner() {
-        this(SourceScanPolicy.safeDefaults(), LocalOperationalRuntime.recorder());
+        this(SourceScanPolicy.safeDefaults(), LocalOperationalRuntime.recorder(), SourceFingerprint::ofFile);
     }
 
     public LocalSourceInventoryScanner(SourceScanPolicy policy) {
-        this(policy, LocalOperationalRuntime.recorder());
+        this(policy, LocalOperationalRuntime.recorder(), SourceFingerprint::ofFile);
     }
 
     public LocalSourceInventoryScanner(SourceScanPolicy policy, OperationalRecorder recorder) {
+        this(policy, recorder, SourceFingerprint::ofFile);
+    }
+
+    LocalSourceInventoryScanner(SourceScanPolicy policy, FingerprintComputer fingerprintComputer) {
+        this(policy, LocalOperationalRuntime.recorder(), fingerprintComputer);
+    }
+
+    private LocalSourceInventoryScanner(
+            SourceScanPolicy policy,
+            OperationalRecorder recorder,
+            FingerprintComputer fingerprintComputer) {
         this.policy = Objects.requireNonNull(policy, "policy");
         this.recorder = Objects.requireNonNull(recorder, "recorder");
+        this.fingerprintComputer = Objects.requireNonNull(fingerprintComputer, "fingerprintComputer");
     }
 
     public SourceScanPolicy policy() {
@@ -173,15 +186,32 @@ public final class LocalSourceInventoryScanner {
                         try {
                             SourcePath sourcePath = new SourcePath(
                                     workspace.relativize(file.toAbsolutePath().normalize()).toString());
-                            SourceFingerprint fingerprint = SourceFingerprint.ofFile(file);
-                            BasicFileAttributes after = Files.readAttributes(
-                                    file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-                            if (!after.isRegularFile()
-                                    || attrs.size() != after.size()
-                                    || !attrs.lastModifiedTime().equals(after.lastModifiedTime())) {
+
+                            // walkFileTree attributes are a bounded preflight signal, not the content commit authority.
+                            // Capture a verified content witness first, then establish fresh authoritative attributes.
+                            SourceFingerprint initialFingerprint = SourceFingerprint.ofFile(file, attrs.size());
+                            BasicFileAttributes authoritativeBefore = SourceFingerprint.readAttributes(file);
+                            if (!authoritativeBefore.isRegularFile() || authoritativeBefore.isSymbolicLink()
+                                    || authoritativeBefore.size() > attrs.size()) {
                                 failures.add(new SourceInventoryScanResult.Failure(
                                         Optional.of(sourcePath.toString()),
-                                        "source changed while fingerprint was being computed"));
+                                        "source changed identity or metadata while fingerprint was being computed"));
+                                return FileVisitResult.CONTINUE;
+                            }
+
+                            SourceFingerprint fingerprint = fingerprintComputer.compute(file, authoritativeBefore.size());
+                            if (!initialFingerprint.equals(fingerprint)) {
+                                failures.add(new SourceInventoryScanResult.Failure(
+                                        Optional.of(sourcePath.toString()),
+                                        "source changed identity, metadata, or content while fingerprint was being computed"));
+                                return FileVisitResult.CONTINUE;
+                            }
+
+                            BasicFileAttributes after = SourceFingerprint.readAttributes(file);
+                            if (!SourceFingerprint.sameFileIdentity(authoritativeBefore, after)) {
+                                failures.add(new SourceInventoryScanResult.Failure(
+                                        Optional.of(sourcePath.toString()),
+                                        "source changed identity or metadata while fingerprint was being computed"));
                                 return FileVisitResult.CONTINUE;
                             }
                             SourceInventory.Entry entry = new SourceInventory.Entry(
@@ -255,6 +285,11 @@ public final class LocalSourceInventoryScanner {
         return normalized.startsWith(workspace)
                 ? workspace.relativize(normalized).toString().replace('\\', '/')
                 : normalized.toString();
+    }
+
+    @FunctionalInterface
+    interface FingerprintComputer {
+        SourceFingerprint compute(Path path, long maxBytes) throws IOException;
     }
 
     private static final class ScanBudget {

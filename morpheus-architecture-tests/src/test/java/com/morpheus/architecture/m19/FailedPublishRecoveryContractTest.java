@@ -30,7 +30,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.sql.DriverManager;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -59,6 +61,7 @@ class FailedPublishRecoveryContractTest {
             ProjectSnapshotImportResult published = stores.publisher().publishFull(first, Optional.of("revision-v1"), T0);
             firstActive = published.snapshot().id();
             assertEquals(firstActive, stores.snapshots().activeSnapshot(projectId).orElseThrow().id());
+            assertEquals(List.of(1L), specificationSequences(database, projectId));
 
             NormalizedProjectContent interrupted = content(projectId, "persistence-failure");
             assertThrows(KnowledgeStoreException.class,
@@ -73,6 +76,8 @@ class FailedPublishRecoveryContractTest {
             assertTrue(stores.snapshots().listSnapshots(projectId).stream()
                             .anyMatch(snapshot -> snapshot.state() == KnowledgeSnapshotState.FAILED),
                     "the failed candidate must be visible as FAILED rather than disappearing or becoming ACTIVE");
+            assertEquals(List.of(1L, 2L), specificationSequences(database, projectId),
+                    "a failed durable candidate consumes a unique version sequence");
 
             NormalizedProjectContent rebuilt = content(projectId, "v2");
             ProjectSnapshotImportResult rebuiltResult = stores.publisher().publishFull(
@@ -82,6 +87,8 @@ class FailedPublishRecoveryContractTest {
             rebuiltActive = rebuiltResult.snapshot().id();
 
             assertNotEquals(firstActive, rebuiltActive);
+            assertEquals(3L, rebuiltResult.specificationVersion().sequence().orElseThrow());
+            assertEquals(List.of(1L, 2L, 3L), specificationSequences(database, projectId));
             assertEquals(rebuiltActive, stores.snapshots().activeSnapshot(projectId).orElseThrow().id());
             assertEquals(KnowledgeSnapshotState.RETIRED,
                     stores.snapshots().findSnapshot(firstActive).orElseThrow().state());
@@ -98,6 +105,26 @@ class FailedPublishRecoveryContractTest {
                     .count());
             assertTrue(reopened.listSnapshots(projectId).stream()
                     .anyMatch(snapshot -> snapshot.state() == KnowledgeSnapshotState.FAILED));
+            assertEquals(List.of(1L, 2L, 3L), specificationSequences(database, projectId));
+        }
+    }
+
+    private List<Long> specificationSequences(Path database, ProjectSpecificationId projectId) {
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+             var statement = connection.prepareStatement("""
+                     SELECT sequence
+                     FROM specification_versions
+                     WHERE project_id = ? AND sequence IS NOT NULL
+                     ORDER BY sequence
+                     """)) {
+            statement.setString(1, projectId.toString());
+            List<Long> sequences = new ArrayList<>();
+            try (var result = statement.executeQuery()) {
+                while (result.next()) sequences.add(result.getLong(1));
+            }
+            return List.copyOf(sequences);
+        } catch (Exception failure) {
+            throw new AssertionError("cannot inspect durable specification version sequences", failure);
         }
     }
 

@@ -210,12 +210,39 @@ public final class MemorySpecificationKnowledgeStore
             }
             return;
         }
+        version.sequence().ifPresent(sequence -> {
+            boolean duplicate = specificationVersions.values().stream()
+                    .filter(candidate -> candidate.projectId().equals(version.projectId()))
+                    .flatMap(candidate -> candidate.sequence().stream())
+                    .anyMatch(sequence::equals);
+            if (duplicate) {
+                throw new KnowledgeStoreException(
+                        "specification version sequence collision for project " + version.projectId() + ": " + sequence);
+            }
+        });
         specificationVersions.put(version.id(), version);
     }
 
     @Override
     public synchronized Optional<SpecificationVersion> findSpecificationVersion(SpecificationVersionId versionId) {
         return Optional.ofNullable(specificationVersions.get(versionId));
+    }
+
+    @Override
+    public synchronized long nextSpecificationVersionSequence(ProjectSpecificationId projectId) {
+        if (!projects.containsKey(projectId)) {
+            throw new KnowledgeStoreException("project not found for specification version sequence: " + projectId);
+        }
+        long current = specificationVersions.values().stream()
+                .filter(version -> version.projectId().equals(projectId))
+                .flatMap(version -> version.sequence().stream())
+                .mapToLong(Long::longValue)
+                .max()
+                .orElse(0L);
+        if (current == Long.MAX_VALUE) {
+            throw new KnowledgeStoreException("specification version sequence exhausted for project " + projectId);
+        }
+        return current + 1L;
     }
 
     @Override

@@ -1,10 +1,12 @@
 package com.morpheus.api;
 
 import com.morpheus.application.context.TechnicalContextProvider;
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
+import com.morpheus.application.security.LocalWritePermissionHardener;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
@@ -15,8 +17,10 @@ import com.sun.net.httpserver.HttpsServer;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
@@ -26,8 +30,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
@@ -50,17 +52,24 @@ import java.util.concurrent.atomic.LongAdder;
  * M26 opt-in HTTPS facade for team/remote use.
  *
  * <p>The existing local API remains an internal loopback server. Authentication headers are consumed by this
- * facade and are never forwarded to that internal HTTP hop.</p>
+ * facade and are never forwarded to that internal HTTP hop. The private hop is independently protected by a
+ * per-process capability that is never exposed through the remote API.</p>
  */
 public final class MorpheusRemoteHttpServer implements AutoCloseable {
     public static final int DEFAULT_MAX_CONCURRENT_REQUESTS = 64;
     public static final int MAX_CONCURRENT_REQUESTS = 512;
+    static final int MAX_PROXY_RESPONSE_BYTES = 16 * 1024 * 1024;
+    static final int MAX_PROXY_IN_FLIGHT_BYTES = 128 * 1024 * 1024;
+    static final int MAX_KEYSTORE_BYTES = 4 * 1024 * 1024;
+    static final Duration REQUEST_BODY_READ_TIMEOUT = Duration.ofSeconds(15);
+    private static final int MAX_PROXY_RESPONSE_SLOTS = MAX_PROXY_IN_FLIGHT_BYTES / MAX_PROXY_RESPONSE_BYTES;
     private static final int MAX_REQUEST_BYTES = MorpheusHttpServer.MAX_REQUEST_BODY_BYTES;
     private static final Duration READ_ONLY_UPSTREAM_TIMEOUT = Duration.ofSeconds(60);
 
     private final HttpsServer server;
     private final ExecutorService executor;
     private final MorpheusHttpServer localServer;
+    private final MorpheusInternalCapability internalCapability;
     private final SqliteServerMaintenance.ServerLease lease;
     private final SqliteServerMaintenance maintenance;
     private final Path databasePath;
@@ -69,6 +78,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final AllowedWorkspaceRoots allowedWorkspaceRoots;
     private final Path authFile;
     private final Semaphore concurrency;
+    private final Semaphore proxyResponses;
     private final RuntimeState runtime;
     private final HttpClient proxyClient;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
@@ -77,6 +87,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             HttpsServer server,
             ExecutorService executor,
             MorpheusHttpServer localServer,
+            MorpheusInternalCapability internalCapability,
             SqliteServerMaintenance.ServerLease lease,
             SqliteServerMaintenance maintenance,
             Path databasePath,
@@ -88,6 +99,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.server = server;
         this.executor = executor;
         this.localServer = localServer;
+        this.internalCapability = Objects.requireNonNull(internalCapability, "internalCapability");
         this.lease = lease;
         this.maintenance = maintenance;
         this.databasePath = databasePath.toAbsolutePath().normalize();
@@ -96,6 +108,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
         this.authFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
+        this.proxyResponses = new Semaphore(MAX_PROXY_RESPONSE_SLOTS, true);
         this.runtime = new RuntimeState(maxConcurrentRequests);
         this.proxyClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
@@ -145,6 +158,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         SSLContext sslContext = buildSslContext(keyStorePath, keyStorePassword.clone());
         SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
         SqliteServerMaintenance.ServerLease lease = maintenance.acquireServerLease(databasePath);
+        MorpheusInternalCapability internalCapability = MorpheusInternalCapability.generate();
         MorpheusHttpServer local = null;
         ExecutorService executor = null;
         try {
@@ -156,7 +170,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                     minosStatus,
                     technicalContextProvider,
                     writeCapabilityResolver,
-                    allowedWorkspaceRoots);
+                    allowedWorkspaceRoots,
+                    internalCapability);
             int listenBacklog = Math.max(DEFAULT_MAX_CONCURRENT_REQUESTS, maxConcurrentRequests);
             HttpsServer https = HttpsServer.create(new InetSocketAddress(normalizedHost, port), listenBacklog);
             https.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
@@ -169,7 +184,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             });
             executor = Executors.newVirtualThreadPerTaskExecutor();
             MorpheusRemoteHttpServer result = new MorpheusRemoteHttpServer(
-                    https, executor, local, lease, maintenance, databasePath, backupDirectory,
+                    https, executor, local, internalCapability, lease, maintenance, databasePath, backupDirectory,
                     providerPluginDirectory, allowedWorkspaceRoots, normalizedAuthFile, maxConcurrentRequests);
             https.setExecutor(executor);
             https.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
@@ -285,58 +300,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     }
 
     private MorpheusRemoteRole requiredRole(String rawMethod, String path) {
-        String method = rawMethod.toUpperCase(Locale.ROOT);
-        String prefix = MorpheusHttpServer.API_PREFIX;
-        if (!path.startsWith(prefix)) {
-            throw new RemoteFailure(404, "NOT_FOUND", "unknown remote API path");
+        try {
+            return MorpheusRemoteRoutePolicy.requiredRole(rawMethod, path);
+        } catch (MorpheusRemoteRoutePolicy.RoutePolicyException failure) {
+            throw new RemoteFailure(failure.status(), failure.code(), failure.getMessage());
         }
-        if (path.equals(prefix + "/metrics")) return MorpheusRemoteRole.ADMIN;
-        if (path.equals(prefix + "/server/backups")) return MorpheusRemoteRole.ADMIN;
-        if (path.equals(prefix + "/server/status")) return MorpheusRemoteRole.READ;
-        if (path.equals(prefix + "/provider-plugins/discover")) {
-            if (!method.equals("GET")) {
-                throw new RemoteFailure(405, "METHOD_NOT_ALLOWED", "provider-plugin discovery requires GET");
-            }
-            return MorpheusRemoteRole.READ;
-        }
-        if (path.equals(prefix + "/provider-plugins/probe")) {
-            if (!method.equals("POST")) {
-                throw new RemoteFailure(405, "METHOD_NOT_ALLOWED", "provider-plugin probe requires POST");
-            }
-            return MorpheusRemoteRole.ADMIN;
-        }
-        if (method.equals("GET") || method.equals("HEAD")) return MorpheusRemoteRole.READ;
-        if (method.equals("POST") && isReadOnlyPost(path)) return MorpheusRemoteRole.READ;
-        if (method.equals("POST") || method.equals("PUT") || method.equals("PATCH") || method.equals("DELETE")) {
-            return MorpheusRemoteRole.WRITE;
-        }
-        throw new RemoteFailure(405, "METHOD_NOT_ALLOWED", "unsupported remote HTTP method");
-    }
-
-    private static boolean isReadOnlyPost(String path) {
-        String prefix = MorpheusHttpServer.API_PREFIX;
-        return path.equals(prefix + "/queries/execute")
-                || path.equals(prefix + "/exports")
-                || path.equals(prefix + "/policies/evaluate")
-                || path.equals(prefix + "/policies/dry-run")
-                || path.equals(prefix + "/reasoning/analyze")
-                || path.endsWith("/transition-check")
-                || path.endsWith("/augmented-context")
-                || path.endsWith("/execute") && path.contains("/saved-views/")
-                || path.endsWith("/export") && path.contains("/saved-views/")
-                || path.endsWith("/resolve") && path.contains("/external-references/");
     }
 
     static boolean usesBoundedUpstreamTimeout(String rawMethod, String path) {
-        String method = Objects.requireNonNull(rawMethod, "rawMethod").toUpperCase(Locale.ROOT);
-        Objects.requireNonNull(path, "path");
-        if (method.equals("GET") || method.equals("HEAD")) return true;
-        if (!method.equals("POST")) return false;
-        // Only operations whose execution is entirely controlled by MORPHEUS receive the facade deadline.
-        // An ADMIN-approved provider probe executes third-party code that has no cooperative cancellation contract;
-        // returning 504 while that code continues would release the remote semaphore too early and make completion
-        // ambiguous. Keep that slot until the loopback probe actually completes.
-        return isReadOnlyPost(path);
+        return MorpheusRemoteRoutePolicy.usesBoundedUpstreamTimeout(rawMethod, path);
     }
 
     private void proxy(HttpExchange exchange) throws IOException {
@@ -348,6 +320,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         }
         URI target = localTarget(requestUri);
         HttpRequest.Builder request = HttpRequest.newBuilder(target);
+        internalCapability.authorize(request);
         if (usesBoundedUpstreamTimeout(exchange.getRequestMethod(), requestUri.getPath())) {
             request.timeout(READ_ONLY_UPSTREAM_TIMEOUT);
         }
@@ -359,17 +332,73 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         request.method(upstreamMethod, requestBody.length == 0
                 ? HttpRequest.BodyPublishers.noBody()
                 : HttpRequest.BodyPublishers.ofByteArray(requestBody));
+
+        if (!proxyResponses.tryAcquire()) {
+            runtime.throttledRequests.increment();
+            throw new RemoteFailure(
+                    429,
+                    "RESPONSE_BUDGET_EXHAUSTED",
+                    "remote proxy response memory budget is saturated");
+        }
         try {
-            HttpResponse<byte[]> response = proxyClient.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
-            String responseType = response.headers().firstValue("Content-Type").orElse("application/json; charset=utf-8");
-            exchange.getResponseHeaders().set("Content-Type", responseType);
-            response.headers().firstValue("Allow").ifPresent(value -> exchange.getResponseHeaders().set("Allow", value));
-            sendRaw(exchange, response.statusCode(), response.body());
+            HttpResponse<InputStream> response = proxyClient.send(
+                    request.build(), HttpResponse.BodyHandlers.ofInputStream());
+            try (InputStream upstream = response.body()) {
+                String responseType = response.headers().firstValue("Content-Type")
+                        .orElse("application/json; charset=utf-8");
+                exchange.getResponseHeaders().set("Content-Type", responseType);
+                response.headers().firstValue("Allow")
+                        .ifPresent(value -> exchange.getResponseHeaders().set("Allow", value));
+
+                boolean bodyless = upstreamMethod.equalsIgnoreCase("HEAD")
+                        || response.statusCode() == 204
+                        || response.statusCode() == 304;
+                if (bodyless) {
+                    response.headers().firstValue("Content-Length")
+                            .ifPresent(value -> exchange.getResponseHeaders().set("Content-Length", value));
+                    exchange.sendResponseHeaders(response.statusCode(), -1);
+                    return;
+                }
+
+                long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1L);
+                if (declaredLength < 0) {
+                    throw new RemoteFailure(
+                            502,
+                            "UPSTREAM_LENGTH_REQUIRED",
+                            "local MORPHEUS response omitted a bounded Content-Length");
+                }
+                if (declaredLength > MAX_PROXY_RESPONSE_BYTES) {
+                    throw new RemoteFailure(
+                            502,
+                            "UPSTREAM_RESPONSE_TOO_LARGE",
+                            "local MORPHEUS response exceeds " + MAX_PROXY_RESPONSE_BYTES + " bytes");
+                }
+                exchange.sendResponseHeaders(response.statusCode(), declaredLength);
+                copyBounded(upstream, exchange.getResponseBody(), declaredLength);
+            }
         } catch (HttpTimeoutException timeout) {
             throw new RemoteFailure(504, "UPSTREAM_TIMEOUT", "local MORPHEUS read-only operation exceeded its timeout");
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new RemoteFailure(503, "UPSTREAM_INTERRUPTED", "local MORPHEUS API proxy was interrupted");
+        } finally {
+            proxyResponses.release();
+        }
+    }
+
+    private void copyBounded(InputStream upstream, OutputStream downstream, long declaredLength) throws IOException {
+        byte[] buffer = new byte[8192];
+        long total = 0;
+        int read;
+        while ((read = upstream.read(buffer)) != -1) {
+            if (total + read > declaredLength || total + read > MAX_PROXY_RESPONSE_BYTES) {
+                throw new IOException("local MORPHEUS response exceeded its declared or configured bound");
+            }
+            downstream.write(buffer, 0, read);
+            total += read;
+        }
+        if (total != declaredLength) {
+            throw new IOException("local MORPHEUS response length changed while proxying");
         }
     }
 
@@ -444,11 +473,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     }
 
     private byte[] readBoundedBody(HttpExchange exchange) throws IOException {
-        byte[] body = exchange.getRequestBody().readNBytes(MAX_REQUEST_BYTES + 1);
-        if (body.length > MAX_REQUEST_BYTES) {
+        try {
+            return TimedBoundedInputReader.read(
+                    exchange.getRequestBody(), MAX_REQUEST_BYTES, REQUEST_BODY_READ_TIMEOUT, executor);
+        } catch (TimedBoundedInputReader.LimitExceededException tooLarge) {
             throw new RemoteFailure(413, "PAYLOAD_TOO_LARGE", "request body exceeds " + MAX_REQUEST_BYTES + " bytes");
+        } catch (TimedBoundedInputReader.ReadTimeoutException timeout) {
+            runtime.requestTimeouts.increment();
+            throw new RemoteFailure(408, "REQUEST_TIMEOUT", "request body exceeded its read deadline");
         }
-        return body;
     }
 
     private void requireEmptyBody(HttpExchange exchange) throws IOException {
@@ -505,12 +538,18 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private static SSLContext buildSslContext(Path keyStorePath, char[] password) {
         Objects.requireNonNull(keyStorePath, "keyStorePath");
         Path path = keyStorePath.toAbsolutePath().normalize();
-        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(path)) {
-            throw new IllegalArgumentException("remote TLS keystore must be a regular non-symbolic PKCS12 file");
-        }
+        byte[] encoded = null;
         try {
+            Path parent = path.getParent();
+            if (parent == null) {
+                throw new IllegalArgumentException("remote TLS keystore must have a parent directory");
+            }
+            new LocalWritePermissionHardener().requireWriteProtectedDirectory(parent);
+            encoded = SafeWorkspaceFileResolver.rootedAt(parent)
+                    .readBytes(path.getFileName(), MAX_KEYSTORE_BYTES);
+
             KeyStore keyStore = KeyStore.getInstance("PKCS12");
-            try (InputStream input = Files.newInputStream(path)) {
+            try (InputStream input = new ByteArrayInputStream(encoded)) {
                 keyStore.load(input, password);
             }
             KeyManagerFactory keyManagers = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
@@ -521,6 +560,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         } catch (IOException | GeneralSecurityException failure) {
             throw new IllegalArgumentException("cannot initialize remote TLS keystore", failure);
         } finally {
+            if (encoded != null) java.util.Arrays.fill(encoded, (byte) 0);
             java.util.Arrays.fill(password, '\0');
         }
     }
@@ -558,6 +598,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         private final LongAdder authenticationFailures = new LongAdder();
         private final LongAdder authorizationFailures = new LongAdder();
         private final LongAdder throttledRequests = new LongAdder();
+        private final LongAdder requestTimeouts = new LongAdder();
 
         private RuntimeState(int maxConcurrentRequests) {
             this.maxConcurrentRequests = maxConcurrentRequests;
@@ -574,10 +615,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             status.put("uptimeSeconds", uptimeSeconds);
             status.put("activeRequests", activeRequests.get());
             status.put("maxConcurrentRequests", maxConcurrentRequests);
+            status.put("requestBodyReadTimeoutMillis", REQUEST_BODY_READ_TIMEOUT.toMillis());
+            status.put("maxProxyResponseBytes", MAX_PROXY_RESPONSE_BYTES);
+            status.put("maxProxyInFlightBytes", MAX_PROXY_IN_FLIGHT_BYTES);
+            status.put("maxConcurrentBufferedProxyResponses", MAX_PROXY_RESPONSE_SLOTS);
             status.put("totalRequests", totalRequests.sum());
             status.put("authenticationFailures", authenticationFailures.sum());
             status.put("authorizationFailures", authorizationFailures.sum());
             status.put("throttledRequests", throttledRequests.sum());
+            status.put("requestTimeouts", requestTimeouts.sum());
             return Map.copyOf(status);
         }
     }

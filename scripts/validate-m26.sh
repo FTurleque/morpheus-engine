@@ -116,12 +116,12 @@ import json,sys
 p=json.loads(sys.argv[1]); print(p['path'],p['sha256'],p['schemaVersion'],str(p['integrityOk']).lower())
 PY
 )
-  [[ -f "$BACKUP_PATH" && "$BACKUP_SCHEMA" == 15 && "$BACKUP_OK" == true ]] || { echo "M26 backup result mismatch: $BACKUP" >&2; exit 1; }
+  [[ -f "$BACKUP_PATH" && "$BACKUP_SCHEMA" == 16 && "$BACKUP_OK" == true ]] || { echo "M26 backup result mismatch: $BACKUP" >&2; exit 1; }
   VERIFIED="$($LAUNCHER --data-dir "$DATA" --json server backup verify --file "$BACKUP_PATH")"
   python3 - "$VERIFIED" "$BACKUP_SHA" <<'PY'
 import json,sys
 p=json.loads(sys.argv[1]); expected=sys.argv[2]
-assert p['integrityOk'] is True and p['schemaVersion']==15 and p['sha256']==expected,p
+assert p['integrityOk'] is True and p['schemaVersion']==16 and p['sha256']==expected,p
 PY
   if "$LAUNCHER" --data-dir "$DATA" server restore --file "$BACKUP_PATH" >"$OUTPUT/restore-unconfirmed.stdout" 2>"$OUTPUT/restore-unconfirmed.stderr"; then
     echo 'Unconfirmed M26 restore unexpectedly succeeded' >&2; exit 1
@@ -130,7 +130,7 @@ PY
   RESTORED="$($LAUNCHER --data-dir "$DATA" --json server restore --file "$BACKUP_PATH" --confirm)"
   python3 - "$RESTORED" <<'PY'
 import json,sys
-p=json.loads(sys.argv[1]); assert p['integrityOk'] is True and p['schemaVersion']==15,p
+p=json.loads(sys.argv[1]); assert p['integrityOk'] is True and p['schemaVersion']==16,p
 PY
   printf '%s\n' 'SQLite backup + verify + explicit offline restore: PASS'
 
@@ -165,7 +165,7 @@ secretNonDisclosure=PASS
 backupRestore=PASS
 schemaCompatibility=PASS
 surfaceConvergence=PASS
-sqliteV015=PASS
+sqliteV016=PASS
 sbom=PASS
 provenance=PASS
 portable=$([[ "$SKIP_PORTABLE" == true ]] && echo false || echo true)

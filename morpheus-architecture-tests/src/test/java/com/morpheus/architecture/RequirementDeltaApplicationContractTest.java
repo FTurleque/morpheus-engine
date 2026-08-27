@@ -97,17 +97,19 @@ class RequirementDeltaApplicationContractTest {
 
     @Test
     void applicationSemanticsDoNotDependOnDeltaInputOrder() {
-        var store = new MemorySpecificationKnowledgeStore();
         BaselineFixture fixture = fixture();
-        seed(store, store, fixture);
+        var forwardStore = new MemorySpecificationKnowledgeStore();
+        var backwardStore = new MemorySpecificationKnowledgeStore();
+        seed(forwardStore, forwardStore, fixture);
+        seed(backwardStore, backwardStore, fixture);
 
-        RequirementDeltaApplicationResult forward = new RequirementDeltaApplicationService(store, store)
+        RequirementDeltaApplicationResult forward = new RequirementDeltaApplicationService(forwardStore, forwardStore)
                 .apply(validPlan(fixture, List.of(fixture.modifiedDelta(), fixture.removedDelta(), fixture.addedDelta())));
 
         List<RequirementDelta> reversed = new ArrayList<>(List.of(
                 fixture.modifiedDelta(), fixture.removedDelta(), fixture.addedDelta()));
         Collections.reverse(reversed);
-        RequirementDeltaApplicationResult backward = new RequirementDeltaApplicationService(store, store)
+        RequirementDeltaApplicationResult backward = new RequirementDeltaApplicationService(backwardStore, backwardStore)
                 .apply(validPlan(fixture, reversed));
 
         assertEquals(contentByIdentity(forward.records()), contentByIdentity(backward.records()));

@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.security.LocalWritePermissionHardener;
 
 import java.io.IOException;
@@ -94,16 +95,7 @@ public final class MorpheusRemoteIdentityFile {
     }
 
     public static List<Identity> load(Path authFile) {
-        Path file = secureExistingFile(authFile);
-        try {
-            long bytes = Files.size(file);
-            if (bytes > MAX_FILE_BYTES) {
-                throw new IllegalArgumentException("remote auth file exceeds " + MAX_FILE_BYTES + " bytes");
-            }
-            return parse(Files.readAllLines(file, StandardCharsets.UTF_8));
-        } catch (IOException failure) {
-            throw new IllegalArgumentException("cannot read remote auth file", failure);
-        }
+        return parse(readLinesSecurely(authFile, "cannot read remote auth file"));
     }
 
     public static GeneratedCredential create(Path authFile, String principal, MorpheusRemoteRole role) {
@@ -184,12 +176,7 @@ public final class MorpheusRemoteIdentityFile {
     }
 
     public static List<AuditRecord> audit(Path authFile) {
-        Path file = secureExistingFile(authFile);
-        try {
-            return parseAudit(Files.readAllLines(file, StandardCharsets.UTF_8));
-        } catch (IOException failure) {
-            throw new IllegalArgumentException("cannot read remote identity audit", failure);
-        }
+        return parseAudit(readLinesSecurely(authFile, "cannot read remote identity audit"));
     }
 
     public static Optional<Identity> authenticate(List<Identity> identities, String token) {
@@ -324,11 +311,7 @@ public final class MorpheusRemoteIdentityFile {
 
         List<AuditRecord> retainedAudit = new ArrayList<>();
         if (Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
-            try {
-                retainedAudit.addAll(parseAudit(Files.readAllLines(file, StandardCharsets.UTF_8)));
-            } catch (IOException failure) {
-                throw new IllegalArgumentException("cannot preserve remote identity audit", failure);
-            }
+            retainedAudit.addAll(parseAudit(readLinesSecurely(file, "cannot preserve remote identity audit")));
         }
         retainedAudit.add(Objects.requireNonNull(auditRecord, "auditRecord"));
         int firstRetained = Math.max(0, retainedAudit.size() - MAX_AUDIT_RECORDS);
@@ -359,6 +342,26 @@ public final class MorpheusRemoteIdentityFile {
             }
         } catch (IOException failure) {
             throw new IllegalArgumentException("cannot update remote auth file", failure);
+        }
+    }
+
+    private static List<String> readLinesSecurely(Path authFile, String failureMessage) {
+        Path file = secureExistingFile(authFile);
+        Path parent = file.getParent();
+        if (parent == null) throw new IllegalArgumentException("remote auth file must have a parent directory");
+        try {
+            // The parent chain is part of the file identity: a protected file can still be replaced when an
+            // ancestor is writable. Revalidate it for every security-sensitive read.
+            new LocalWritePermissionHardener().requireWriteProtectedDirectory(parent);
+            String text = SafeWorkspaceFileResolver.rootedAt(parent)
+                    .readUtf8(file.getFileName(), MAX_FILE_BYTES);
+            return text.lines().toList();
+        } catch (IOException | RuntimeException failure) {
+            if (failure.getMessage() != null && failure.getMessage().contains("exceeds maximum input size")) {
+                throw new IllegalArgumentException(
+                        "remote auth file exceeds " + MAX_FILE_BYTES + " bytes", failure);
+            }
+            throw new IllegalArgumentException(failureMessage, failure);
         }
     }
 

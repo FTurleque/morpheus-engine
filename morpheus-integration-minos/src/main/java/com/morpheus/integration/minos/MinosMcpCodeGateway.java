@@ -1,10 +1,10 @@
 package com.morpheus.integration.minos;
 
 import com.morpheus.application.security.ExternalJarIntegrity;
+import com.morpheus.integration.mcp.BoundedStdioClientTransport;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
-import io.modelcontextprotocol.client.transport.StdioClientTransport;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
@@ -12,6 +12,7 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -27,6 +28,8 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
     public static final String MINOS_SERVER_CLASS = "com.minos.mcp.MinosMcpServer";
     public static final String TOOL_INDEX_STATUS = "minos_index_status";
     public static final String TOOL_FIND_SYMBOLS = "minos_find_symbols";
+    static final int MAX_MCP_RESPONSE_BYTES = 4 * 1024 * 1024;
+    private static final int MAX_SYMBOLS = 1000;
     private static final Set<String> REQUIRED_TOOLS = Set.of(TOOL_INDEX_STATUS, TOOL_FIND_SYMBOLS);
 
     private final McpSyncClient client;
@@ -56,7 +59,8 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             if (!launch.environment().isEmpty()) {
                 parameters.env(launch.environment());
             }
-            StdioClientTransport transport = new StdioClientTransport(parameters.build(), McpJsonDefaults.getMapper());
+            BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                    parameters.build(), McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
             started = McpClient.sync(transport)
                     .requestTimeout(launch.timeout())
                     .build();
@@ -95,14 +99,22 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
     public List<Symbol> findSymbols(String project, String query, int limit) {
         requireText(project, "project");
         requireText(query, "query");
-        if (limit < 1 || limit > 1000) {
-            throw new IllegalArgumentException("MINOS symbol limit must be between 1 and 1000");
+        if (limit < 1 || limit > MAX_SYMBOLS) {
+            throw new IllegalArgumentException("MINOS symbol limit must be between 1 and " + MAX_SYMBOLS);
         }
         String json = call(TOOL_FIND_SYMBOLS, Map.of("project", project, "query", query, "limit", limit));
         try {
             SymbolEnvelope payload = mapper.readValue(json, SymbolEnvelope.class);
             List<SymbolPayload> symbols = payload.symbols() == null ? List.of() : payload.symbols();
+            if (payload.count() < 0 || payload.count() != symbols.size()) {
+                throw new MinosIntegrationException("MINOS symbol response count does not match payload size");
+            }
+            if (symbols.size() > limit || symbols.size() > MAX_SYMBOLS) {
+                throw new MinosIntegrationException("MINOS symbol response exceeds requested limit " + limit);
+            }
             return symbols.stream().map(this::symbol).toList();
+        } catch (MinosIntegrationException failure) {
+            throw failure;
         } catch (Exception failure) {
             throw new MinosIntegrationException("invalid MINOS symbol JSON", failure);
         }
@@ -134,10 +146,10 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
     private String call(String toolName, Map<String, Object> arguments) {
         try {
             var result = client.callTool(CallToolRequest.builder(toolName).arguments(arguments).build());
+            String content = requireBoundedResponse(text(result.content()), toolName);
             if (Boolean.TRUE.equals(result.isError())) {
-                throw new MinosIntegrationException("MINOS tool failed: " + toolName + ": " + text(result.content()));
+                throw new MinosIntegrationException("MINOS tool failed: " + toolName + ": " + content);
             }
-            String content = text(result.content());
             if (content.isBlank()) {
                 throw new MinosIntegrationException("MINOS tool returned an empty payload: " + toolName);
             }
@@ -149,9 +161,19 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         }
     }
 
+    static String requireBoundedResponse(String content, String toolName) {
+        Objects.requireNonNull(content, "content");
+        if (content.length() > MAX_MCP_RESPONSE_BYTES
+                || content.getBytes(StandardCharsets.UTF_8).length > MAX_MCP_RESPONSE_BYTES) {
+            throw new MinosIntegrationException(
+                    "MINOS MCP response exceeds " + MAX_MCP_RESPONSE_BYTES + " bytes: " + toolName);
+        }
+        return content;
+    }
+
     private String text(List<?> content) {
-        if (content == null || content.isEmpty() || !(content.getFirst() instanceof TextContent textContent)) {
-            throw new MinosIntegrationException("MINOS MCP response does not contain TextContent");
+        if (content == null || content.size() != 1 || !(content.getFirst() instanceof TextContent textContent)) {
+            throw new MinosIntegrationException("MINOS MCP response must contain exactly one TextContent item");
         }
         return textContent.text() == null ? "" : textContent.text();
     }

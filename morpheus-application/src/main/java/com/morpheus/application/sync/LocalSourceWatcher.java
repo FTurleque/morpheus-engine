@@ -2,40 +2,55 @@ package com.morpheus.application.sync;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /** Recursive local watcher used only as a rescan trigger; SHA-256 inventory scanning remains authoritative. */
 public final class LocalSourceWatcher implements AutoCloseable {
     private final Path workspaceRoot;
     private final WatchService watchService;
+    private final SourceScanPolicy policy;
     private final Map<WatchKey, Path> directories = new HashMap<>();
+    private final Set<Path> registeredDirectories = new HashSet<>();
     private boolean closed;
 
     public LocalSourceWatcher(Path workspaceRoot, Collection<Path> watchedRoots) throws IOException {
+        this(workspaceRoot, watchedRoots, SourceScanPolicy.safeDefaults());
+    }
+
+    public LocalSourceWatcher(
+            Path workspaceRoot,
+            Collection<Path> watchedRoots,
+            SourceScanPolicy policy) throws IOException {
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         Objects.requireNonNull(watchedRoots, "watchedRoots");
+        this.policy = Objects.requireNonNull(policy, "policy");
         this.workspaceRoot = workspaceRoot.toAbsolutePath().normalize();
         this.watchService = FileSystems.getDefault().newWatchService();
         Collection<Path> roots = watchedRoots.isEmpty() ? List.of(this.workspaceRoot) : watchedRoots;
         try {
             for (Path root : roots) {
                 Path resolved = resolveWithin(this.workspaceRoot, root);
-                if (!Files.isDirectory(resolved, LinkOption.NOFOLLOW_LINKS)) {
-                    throw new IOException("watched root is not a directory: " + root);
+                if (!Files.isDirectory(resolved, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(resolved)) {
+                    throw new IOException("watched root is not a real directory: " + root);
                 }
                 registerRecursively(resolved);
             }
@@ -79,6 +94,7 @@ public final class LocalSourceWatcher implements AutoCloseable {
             watchService.close();
             closed = true;
             directories.clear();
+            registeredDirectories.clear();
         } catch (IOException exception) {
             throw new IllegalStateException("cannot close local source watcher", exception);
         }
@@ -112,7 +128,8 @@ public final class LocalSourceWatcher implements AutoCloseable {
                 SourcePath sourcePath = new SourcePath(workspaceRoot.relativize(absolute).toString());
                 signals.add(new SourceWatchSignal(toKind(kind), java.util.Optional.of(sourcePath)));
                 if (kind == StandardWatchEventKinds.ENTRY_CREATE
-                        && Files.isDirectory(absolute, LinkOption.NOFOLLOW_LINKS)) {
+                        && Files.isDirectory(absolute, LinkOption.NOFOLLOW_LINKS)
+                        && !Files.isSymbolicLink(absolute)) {
                     registerRecursively(absolute);
                 }
             } catch (IOException | RuntimeException exception) {
@@ -122,24 +139,61 @@ public final class LocalSourceWatcher implements AutoCloseable {
 
         if (!key.reset()) {
             directories.remove(key);
+            registeredDirectories.remove(directory);
             signals.add(SourceWatchSignal.overflow());
         }
     }
 
     private void registerRecursively(Path root) throws IOException {
-        try (var stream = Files.walk(root)) {
-            for (Path directory : stream
-                    .filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
-                    .sorted()
-                    .toList()) {
-                WatchKey key = directory.register(
-                        watchService,
-                        StandardWatchEventKinds.ENTRY_CREATE,
-                        StandardWatchEventKinds.ENTRY_MODIFY,
-                        StandardWatchEventKinds.ENTRY_DELETE);
-                directories.put(key, directory);
-            }
+        int rootDepth = depth(root);
+        if (rootDepth > policy.maxDepth()) {
+            throw new IOException("watched root exceeds source scan depth budget: " + root);
         }
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) throws IOException {
+                if (Files.isSymbolicLink(directory)
+                        || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+                    return FileVisitResult.SKIP_SUBTREE;
+                }
+                int directoryDepth = depth(directory);
+                if (directoryDepth > policy.maxDepth()) {
+                    return FileVisitResult.SKIP_SUBTREE;
+                }
+                if (!directory.equals(root) && policy.ignoresDirectory(directory)) {
+                    return FileVisitResult.SKIP_SUBTREE;
+                }
+                registerDirectory(directory);
+                return directoryDepth == policy.maxDepth()
+                        ? FileVisitResult.SKIP_SUBTREE
+                        : FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    private void registerDirectory(Path directory) throws IOException {
+        Path normalized = directory.toAbsolutePath().normalize();
+        if (registeredDirectories.contains(normalized)) {
+            return;
+        }
+        if (registeredDirectories.size() >= policy.maxDirectories()) {
+            throw new IOException("watched directory budget exceeds " + policy.maxDirectories());
+        }
+        WatchKey key = normalized.register(
+                watchService,
+                StandardWatchEventKinds.ENTRY_CREATE,
+                StandardWatchEventKinds.ENTRY_MODIFY,
+                StandardWatchEventKinds.ENTRY_DELETE);
+        directories.put(key, normalized);
+        registeredDirectories.add(normalized);
+    }
+
+    private int depth(Path directory) {
+        Path normalized = directory.toAbsolutePath().normalize();
+        if (normalized.equals(workspaceRoot)) {
+            return 0;
+        }
+        return workspaceRoot.relativize(normalized).getNameCount();
     }
 
     private SourceWatchSignal.Kind toKind(WatchEvent.Kind<?> kind) {

@@ -70,15 +70,6 @@ public final class ProjectSnapshotImportService {
         Optional<SpecificationVersion> previousVersion = previousSnapshot.flatMap(snapshot ->
                 requirementStore.findSnapshotVersion(snapshot.id())
                         .flatMap(binding -> requirementStore.findSpecificationVersion(binding.specificationVersionId())));
-
-        SpecificationVersion version = new SpecificationVersion(
-                SpecificationVersionId.generate(),
-                content.project().id(),
-                Optional.of(previousVersion.flatMap(SpecificationVersion::sequence).orElse(0L) + 1L),
-                commonProviderVersion(content),
-                sourceRevision,
-                publishedAt,
-                previousVersion.map(SpecificationVersion::id));
         KnowledgeSnapshotMetadata candidate = new KnowledgeSnapshotMetadata(
                 KnowledgeSnapshotId.generate(),
                 content.project().id(),
@@ -87,9 +78,20 @@ public final class ProjectSnapshotImportService {
                 sourceRevision,
                 publishedAt);
 
-        requirementStore.putSpecificationVersion(version);
-        lifecycle.registerBuilding(candidate);
         try {
+            // The candidate is the durable recovery anchor. Persist it before allocating/persisting the version so a
+            // failed registration can never leave a specification version that is not bound to a durable candidate.
+            lifecycle.registerBuilding(candidate);
+
+            SpecificationVersion version = new SpecificationVersion(
+                    SpecificationVersionId.generate(),
+                    content.project().id(),
+                    Optional.of(requirementStore.nextSpecificationVersionSequence(content.project().id())),
+                    commonProviderVersion(content),
+                    sourceRevision,
+                    publishedAt,
+                    previousVersion.map(SpecificationVersion::id));
+            requirementStore.putSpecificationVersion(version);
             requirementStore.bindSnapshotVersion(new SnapshotSpecificationVersionBinding(candidate.id(), version.id()));
 
             List<RequirementVersionRecord> requirements = content.requirements().stream()

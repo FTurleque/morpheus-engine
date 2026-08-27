@@ -88,14 +88,20 @@ class ProductionIntegrityContractTest {
         Path root = repoRoot();
         String publicSurfaces = Files.readString(root.resolve("docs/reference/PUBLIC_SURFACES.md"));
         String integrity = Files.readString(root.resolve("docs/developer/PRODUCTION_INTEGRITY.md"));
+        String userIntegrity = Files.readString(root.resolve("docs/user/PRODUCT_INTEGRITY.md"));
 
         assertTrue(publicSurfaces.contains("../../contracts/public-surfaces.tsv"));
         assertTrue(publicSurfaces.contains("EXPLICITLY_NOT_EXPOSED"));
-        assertTrue(integrity.contains("25 %"));
-        assertTrue(integrity.contains("20 %"));
+        assertTrue(integrity.contains("820 PASS"));
+        assertTrue(integrity.contains("258 PASS"));
+        assertTrue(integrity.contains("50 % aggregate"));
+        assertTrue(integrity.contains("42 % aggregate"));
+        assertTrue(integrity.contains("Changed lines       >= 80 %"));
         assertTrue(integrity.contains("CycloneDX"));
         assertTrue(integrity.contains("update discovery != automatic update"));
         assertTrue(integrity.contains("checksum != signature"));
+        assertTrue(integrity.contains("`file:` et `https:`"));
+        assertFalse(userIntegrity.contains("\nhttp:\n"));
     }
 
     private String readJavaTree(Path root) throws IOException {

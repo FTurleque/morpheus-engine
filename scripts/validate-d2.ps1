@@ -28,15 +28,39 @@ function Resolve-BaseRef([string]$Requested) {
 }
 
 function Assert-ReactorVersion([string]$ExpectedVersion) {
+    $rootPomPath = Join-Path $repo 'pom.xml'
+    [xml]$rootPomXml = Get-Content -LiteralPath $rootPomPath -Raw
+    $namespace = New-Object System.Xml.XmlNamespaceManager($rootPomXml.NameTable)
+    $namespace.AddNamespace('m', 'http://maven.apache.org/POM/4.0.0')
+    $modules = @($rootPomXml.SelectNodes('/m:project/m:modules/m:module', $namespace))
+    if ($modules.Count -eq 0) { throw 'D2 root POM declares no reactor modules' }
+
+    $expectedPomPaths = @($rootPomPath)
+    foreach ($module in $modules) {
+        $moduleName = $module.InnerText.Trim()
+        if ([string]::IsNullOrWhiteSpace($moduleName)) { throw 'D2 root POM contains an empty module declaration' }
+        $expectedPomPaths += Join-Path (Join-Path $repo $moduleName) 'pom.xml'
+    }
+    $expectedPomPaths = @($expectedPomPaths | ForEach-Object { [IO.Path]::GetFullPath($_) } | Sort-Object -Unique)
+
     $poms = @(Get-ChildItem -Path $repo -Recurse -File -Filter 'pom.xml' |
         Where-Object { $_.FullName -notmatch '[\\/]target[\\/]' })
-    if ($poms.Count -ne 17) { throw "Unexpected Maven reactor POM count: $($poms.Count), expected 17" }
+    $actualPomPaths = @($poms.FullName | ForEach-Object { [IO.Path]::GetFullPath($_) } | Sort-Object -Unique)
+    if ($actualPomPaths.Count -ne $expectedPomPaths.Count) {
+        throw "Unexpected Maven reactor POM count: $($actualPomPaths.Count), expected $($expectedPomPaths.Count) from root modules"
+    }
+    foreach ($expectedPom in $expectedPomPaths) {
+        if ($actualPomPaths -notcontains $expectedPom) {
+            throw "Expected Maven reactor POM missing or unexpected POM present: $expectedPom"
+        }
+    }
     foreach ($pom in $poms) {
         $content = Get-Content -LiteralPath $pom.FullName -Raw
         if (-not $content.Contains("<version>$ExpectedVersion</version>")) {
             throw "MORPHEUS $ExpectedVersion version missing from $($pom.FullName)"
         }
     }
+    Write-Host "D2 reactor: PASS ($($modules.Count) modules / $($expectedPomPaths.Count) Maven projects)"
 }
 
 function Read-KeyValueFile([string]$Path) {
@@ -105,8 +129,8 @@ foreach ($report in $reports) {
 if ($failures -ne 0 -or $errors -ne 0) {
     throw "D2 Surefire failures=$failures errors=$errors"
 }
-if ($tests -lt 711) { throw "D2 test baseline regression: $tests < 711" }
-if ($architectureTests -lt 253) { throw "D2 architecture baseline regression: $architectureTests < 253" }
+if ($tests -lt 820) { throw "D2 test baseline regression: $tests < 820" }
+if ($architectureTests -lt 258) { throw "D2 architecture baseline regression: $architectureTests < 258" }
 Write-Host "D2 tests: PASS ($tests tests, architecture=$architectureTests, skipped=$skipped)"
 
 $coveragePath = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'

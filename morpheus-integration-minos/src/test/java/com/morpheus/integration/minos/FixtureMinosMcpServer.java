@@ -58,9 +58,16 @@ public final class FixtureMinosMcpServer {
 
     private static String findSymbols(Map<String, Object> arguments) {
         String query = String.valueOf(arguments.getOrDefault("query", "symbol:RequirementService"));
-        return "{\"count\":1,\"symbols\":[{"
+        if (query.equals("fixture:too-many")) {
+            return "{\"count\":2,\"symbols\":[" + symbol("symbol-one") + "," + symbol("symbol-two") + "]}";
+        }
+        return "{\"count\":1,\"symbols\":[" + symbol(query) + "]}";
+    }
+
+    private static String symbol(String symbolKey) {
+        return "{"
                 + "\"id\":\"symbol-id\","
-                + "\"symbolKey\":\"" + escape(query) + "\","
+                + "\"symbolKey\":\"" + escape(symbolKey) + "\","
                 + "\"identityQuality\":\"STABLE\","
                 + "\"projectId\":\"project-123\","
                 + "\"moduleId\":\"module-main\","
@@ -74,7 +81,7 @@ public final class FixtureMinosMcpServer {
                 + "\"resolutionStatus\":\"RESOLVED\","
                 + "\"origin\":{\"providerId\":\"scip-java\",\"providerType\":\"SCIP\","
                 + "\"providerVersion\":\"1.7.0\",\"indexRunId\":\"run-99\",\"sourceType\":\"INDEX\"},"
-                + "\"external\":false,\"generated\":false}]}";
+                + "\"external\":false,\"generated\":false}";
     }
 
     private static Map<String, Object> schema() {

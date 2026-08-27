@@ -1,9 +1,26 @@
 # ADR-0031 — Projeter explicitement l'état temporel sur des occurrences versionnées
 
-- Statut : **Acceptée — M3**
+- Statut : **Acceptée — M3, politique de publication précisée par ADR-0060**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0006, ADR-0009, ADR-0012, ADR-0022, ADR-0030
 - Portée : M3-S1, temporalité, versions métier, occurrence d'entité
+
+## Précision ultérieure — ADR-0060 / audit du 19 août 2026
+
+Cette ADR définit le **modèle de capacité** : une reconstruction technique peut réutiliser explicitement un même `SpecificationVersionId`; le fait de reconstruire un snapshot ne force donc pas, par nature, une nouvelle version métier.
+
+ADR-0060 a ensuite défini une **politique applicative explicite** pour le chemin officiel `ProjectSnapshotImportService.publishFull()` : chaque tentative durable de publication complète alloue un nouveau `SpecificationVersionId` et une nouvelle `sequence`. Cette politique est volontaire et ne doit pas être interprétée comme une identité entre `KnowledgeSnapshot` et `SpecificationVersion`.
+
+Depuis le durcissement du 19 août 2026 :
+
+```text
+full publish attempt -> new SpecificationVersionId + unique project-local sequence
+FAILED candidate     -> version remains durable and consumes its sequence
+successful retry     -> allocates the next sequence
+predecessor          -> remains the previously ACTIVE published version
+```
+
+Le modèle continue donc d'autoriser la réutilisation explicite d'une version dans d'autres orchestrations, tandis que la publication complète officielle choisit de ne pas l'utiliser. Cette précision lève l'ambiguïté entre la capacité M3 et la politique M9.
 
 ## Contexte
 
@@ -102,7 +119,7 @@ Invariant :
 SpecificationVersion != KnowledgeSnapshot
 ```
 
-Deux ingestions techniques peuvent reconstruire la même `SpecificationVersionId` sans créer implicitement une nouvelle version métier.
+Le modèle permet à plusieurs ingestions techniques de reconstruire explicitement le même `SpecificationVersionId`. La politique de publication complète retenue ultérieurement par ADR-0060 choisit toutefois d'allouer une nouvelle version à chaque tentative durable.
 
 ## Projection applicative
 
@@ -158,7 +175,7 @@ La vue courante reste :
 
 ## Réingestion technique
 
-Une reconstruction technique peut produire un nouvel `EntityVersionId` tout en réutilisant explicitement le même `SpecificationVersionId` :
+Une reconstruction technique peut, au niveau du modèle, produire un nouvel `EntityVersionId` tout en réutilisant explicitement le même `SpecificationVersionId` :
 
 ```text
 snapshot/reingestion A -> EntityVersionId A -> SpecificationVersionId V1
@@ -168,10 +185,10 @@ snapshot/reingestion B -> EntityVersionId B -> SpecificationVersionId V1
 Cela matérialise l'invariant ADR-0012 :
 
 ```text
-réingestion technique != nouvelle version métier implicite
+réingestion technique != nouvelle version métier intrinsèquement obligatoire
 ```
 
-La décision de créer une nouvelle `SpecificationVersionId` appartient à une politique explicite ultérieure, pas au simple fait qu'une ingestion s'exécute.
+La décision de créer une nouvelle `SpecificationVersionId` appartient à une politique explicite. ADR-0060 matérialise précisément cette politique pour le full rebuild officiel : il crée une nouvelle version à chaque tentative durable de publication.
 
 ## Pourquoi ne pas modifier les records M2
 
@@ -206,7 +223,7 @@ ADR-0031 passe à **Acceptée — M3** lorsque le build complet démontre :
 5. `current()` et `currentFor()` excluent toujours `PROPOSED` et `HISTORICAL` ;
 6. deux occurrences `CURRENT` pour la même identité sont rejetées ;
 7. `SpecificationVersion` possède un predecessor explicite et ne peut pas se référencer lui-même ;
-8. une réingestion technique peut réutiliser explicitement la même `SpecificationVersionId` ;
+8. le modèle autorise explicitement la réutilisation d'une même `SpecificationVersionId` par une réingestion ;
 9. aucune entité M2 n'est modifiée pour ajouter la temporalité ;
 10. `.\mvnw.cmd clean test` est vert.
 
@@ -244,7 +261,7 @@ BUILD SUCCESS
 
 La preuve matérialise explicitement l'oracle concurrent E04 : une même identité logique conserve une baseline `CURRENT` à 30 minutes et deux propositions concurrentes à 60 et 15 minutes, tandis que `currentFor(identity)` ne retourne que la baseline.
 
-Deux occurrences `CURRENT` pour une même `DomainIdentity` sont rejetées ; plusieurs `PROPOSED` restent autorisées. La réingestion technique peut produire plusieurs `EntityVersionId` tout en réutilisant la même `SpecificationVersionId`.
+Deux occurrences `CURRENT` pour une même `DomainIdentity` sont rejetées ; plusieurs `PROPOSED` restent autorisées. La réingestion technique peut produire plusieurs `EntityVersionId` tout en réutilisant la même `SpecificationVersionId` au niveau du modèle.
 
 Aucun record normalisé M2 n'a été modifié pour porter `TemporalState`.
 

@@ -41,7 +41,7 @@ class SqliteServerMaintenanceTest {
     }
 
     @Test
-    void restoreRequiresConfirmationAndFailsWhileServerLeaseIsHeld() {
+    void restoreRequiresConfirmationAndFailsWhileAnyMorpheusLeaseIsHeld() throws Exception {
         Path database = temp.resolve("morpheus.db");
         try (SqliteSpecificationKnowledgeStore ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // initialize
@@ -55,6 +55,11 @@ class SqliteServerMaintenanceTest {
         try (SqliteServerMaintenance.ServerLease ignored = maintenance.acquireServerLease(database)) {
             assertThrows(IllegalStateException.class,
                     () -> maintenance.restoreOffline(backup.path(), database, true));
+        }
+        try (var activeLocalConnection = SqliteDatabaseSecurity.open(database)) {
+            IllegalStateException failure = assertThrows(IllegalStateException.class,
+                    () -> maintenance.restoreOffline(backup.path(), database, true));
+            assertTrue(failure.getMessage().contains("still open"));
         }
     }
 
