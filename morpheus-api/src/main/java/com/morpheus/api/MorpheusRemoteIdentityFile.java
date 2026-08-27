@@ -30,12 +30,13 @@ import java.util.regex.Pattern;
 /**
  * M26 reference identity file.
  *
- * <p>The file persists only principal, role and SHA-256(token). Generated bearer tokens are returned once to
- * the caller and are never written to disk. Mutations are serialized both inside this JVM and across cooperating
- * MORPHEUS processes through an owner-hardened sidecar file lock. The remote server reloads the current identity
- * snapshot for each authentication request, so revoke/rotate/role changes become effective without restart.
- * The secret-free audit is retained as a bounded rolling window inside the same atomic snapshot so audit growth can
- * never prevent an urgent credential rotation or revocation.</p>
+ * <p>The file persists principal, role, SHA-256(token) and an optional expiry instant. Generated bearer tokens are
+ * returned once to the caller and are never written to disk. Legacy three-field identity entries remain accepted and
+ * represent non-expiring credentials. Mutations are serialized both inside this JVM and across cooperating MORPHEUS
+ * processes through an owner-hardened sidecar file lock. The remote server reloads the current identity snapshot for
+ * each authentication request, so revoke/rotate/role/expiry changes become effective without restart. The secret-free
+ * audit is retained as a bounded rolling window inside the same atomic snapshot so audit growth can never prevent an
+ * urgent credential rotation or revocation.</p>
  */
 public final class MorpheusRemoteIdentityFile {
     public static final int MAX_FILE_BYTES = 256 * 1024;
@@ -51,29 +52,56 @@ public final class MorpheusRemoteIdentityFile {
     private MorpheusRemoteIdentityFile() {
     }
 
-    public record Identity(String principal, MorpheusRemoteRole role, byte[] tokenHash) {
+    public record Identity(
+            String principal,
+            MorpheusRemoteRole role,
+            byte[] tokenHash,
+            Optional<Instant> expiresAt) {
         public Identity {
             principal = requirePrincipal(principal);
             role = Objects.requireNonNull(role, "role");
             tokenHash = Objects.requireNonNull(tokenHash, "tokenHash").clone();
+            expiresAt = Objects.requireNonNull(expiresAt, "expiresAt");
             if (tokenHash.length != 32) {
                 throw new IllegalArgumentException("tokenHash must contain exactly 32 bytes");
             }
+        }
+
+        public Identity(String principal, MorpheusRemoteRole role, byte[] tokenHash) {
+            this(principal, role, tokenHash, Optional.empty());
         }
 
         @Override
         public byte[] tokenHash() {
             return tokenHash.clone();
         }
+
+        public boolean isExpiredAt(Instant instant) {
+            Objects.requireNonNull(instant, "instant");
+            return expiresAt.map(expiry -> !instant.isBefore(expiry)).orElse(false);
+        }
+
+        public boolean isActiveAt(Instant instant) {
+            return !isExpiredAt(instant);
+        }
     }
 
-    public record GeneratedCredential(String principal, MorpheusRemoteRole role, String token) {
+    public record GeneratedCredential(
+            String principal,
+            MorpheusRemoteRole role,
+            String token,
+            Optional<Instant> expiresAt) {
         public GeneratedCredential {
             principal = requirePrincipal(principal);
             role = Objects.requireNonNull(role, "role");
             if (token == null || token.isBlank()) {
                 throw new IllegalArgumentException("generated token must not be blank");
             }
+            expiresAt = Objects.requireNonNull(expiresAt, "expiresAt");
+        }
+
+        public GeneratedCredential(String principal, MorpheusRemoteRole role, String token) {
+            this(principal, role, token, Optional.empty());
         }
     }
 
@@ -99,9 +127,26 @@ public final class MorpheusRemoteIdentityFile {
     }
 
     public static GeneratedCredential create(Path authFile, String principal, MorpheusRemoteRole role) {
+        return create(authFile, principal, role, Optional.empty());
+    }
+
+    public static GeneratedCredential create(
+            Path authFile,
+            String principal,
+            MorpheusRemoteRole role,
+            Instant expiresAt) {
+        return create(authFile, principal, role, Optional.of(requireFutureExpiry(expiresAt)));
+    }
+
+    private static GeneratedCredential create(
+            Path authFile,
+            String principal,
+            MorpheusRemoteRole role,
+            Optional<Instant> expiresAt) {
         Objects.requireNonNull(authFile, "authFile");
         String normalizedPrincipal = requirePrincipal(principal);
         Objects.requireNonNull(role, "role");
+        Objects.requireNonNull(expiresAt, "expiresAt");
         return mutate(authFile, file -> {
             List<Identity> existing = Files.exists(file, LinkOption.NOFOLLOW_LINKS) ? load(file) : List.of();
             if (existing.stream().anyMatch(identity -> identity.principal().equals(normalizedPrincipal))) {
@@ -110,7 +155,7 @@ public final class MorpheusRemoteIdentityFile {
             if (existing.size() >= MAX_IDENTITIES) {
                 throw new IllegalArgumentException("remote auth file already contains the maximum number of identities");
             }
-            GeneratedCredential credential = newCredential(normalizedPrincipal, role);
+            GeneratedCredential credential = newCredential(normalizedPrincipal, role, expiresAt);
             List<Identity> updated = new ArrayList<>(existing);
             updated.add(identity(credential));
             write(file, updated, new AuditRecord(Instant.now(), Mutation.CREATE, normalizedPrincipal, role));
@@ -124,8 +169,8 @@ public final class MorpheusRemoteIdentityFile {
             Path existingFile = secureExistingFile(file);
             List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
-            if (target.role() == MorpheusRemoteRole.ADMIN && adminCount(existing) == 1) {
-                throw new IllegalArgumentException("cannot revoke the last ADMIN identity");
+            if (target.role() == MorpheusRemoteRole.ADMIN && target.isActiveAt(Instant.now()) && adminCount(existing) == 1) {
+                throw new IllegalArgumentException("cannot revoke the last active ADMIN identity");
             }
             List<Identity> updated = existing.stream()
                     .filter(identity -> !identity.principal().equals(normalizedPrincipal))
@@ -136,13 +181,36 @@ public final class MorpheusRemoteIdentityFile {
         });
     }
 
+    /** Rotates token material while preserving the identity's current expiry policy. */
     public static GeneratedCredential rotate(Path authFile, String principal) {
         String normalizedPrincipal = requirePrincipal(principal);
         return mutate(authFile, file -> {
             Path existingFile = secureExistingFile(file);
             List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
-            GeneratedCredential credential = newCredential(normalizedPrincipal, target.role());
+            GeneratedCredential credential = newCredential(normalizedPrincipal, target.role(), target.expiresAt());
+            List<Identity> updated = existing.stream()
+                    .map(identity -> identity.principal().equals(normalizedPrincipal) ? identity(credential) : identity)
+                    .toList();
+            write(existingFile, updated,
+                    new AuditRecord(Instant.now(), Mutation.ROTATE, normalizedPrincipal, target.role()));
+            return credential;
+        });
+    }
+
+    /** Rotates token material and replaces the expiry. Optional.empty() explicitly makes the new credential permanent. */
+    public static GeneratedCredential rotate(
+            Path authFile,
+            String principal,
+            Optional<Instant> expiresAt) {
+        String normalizedPrincipal = requirePrincipal(principal);
+        Optional<Instant> normalizedExpiry = Objects.requireNonNull(expiresAt, "expiresAt")
+                .map(MorpheusRemoteIdentityFile::requireFutureExpiry);
+        return mutate(authFile, file -> {
+            Path existingFile = secureExistingFile(file);
+            List<Identity> existing = load(existingFile);
+            Identity target = requireIdentity(existing, normalizedPrincipal);
+            GeneratedCredential credential = newCredential(normalizedPrincipal, target.role(), normalizedExpiry);
             List<Identity> updated = existing.stream()
                     .map(identity -> identity.principal().equals(normalizedPrincipal) ? identity(credential) : identity)
                     .toList();
@@ -160,13 +228,14 @@ public final class MorpheusRemoteIdentityFile {
             List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
             if (target.role() == MorpheusRemoteRole.ADMIN
+                    && target.isActiveAt(Instant.now())
                     && newRole != MorpheusRemoteRole.ADMIN
                     && adminCount(existing) == 1) {
-                throw new IllegalArgumentException("cannot change the role of the last ADMIN identity");
+                throw new IllegalArgumentException("cannot change the role of the last active ADMIN identity");
             }
             List<Identity> updated = existing.stream()
                     .map(identity -> identity.principal().equals(normalizedPrincipal)
-                            ? new Identity(identity.principal(), newRole, identity.tokenHash())
+                            ? new Identity(identity.principal(), newRole, identity.tokenHash(), identity.expiresAt())
                             : identity)
                     .toList();
             write(existingFile, updated,
@@ -185,10 +254,12 @@ public final class MorpheusRemoteIdentityFile {
             return Optional.empty();
         }
         byte[] candidate = sha256Bytes(token);
+        Instant now = Instant.now();
         Identity matched = null;
         for (Identity identity : identities) {
             boolean equal = MessageDigest.isEqual(candidate, identity.tokenHash());
-            if (equal) matched = identity;
+            boolean active = identity.isActiveAt(now);
+            if (equal && active) matched = identity;
         }
         return Optional.ofNullable(matched);
     }
@@ -238,7 +309,7 @@ public final class MorpheusRemoteIdentityFile {
             String line = lines.get(index).trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
             String[] fields = line.split("\\|", -1);
-            if (fields.length != 3) {
+            if (fields.length != 3 && fields.length != 4) {
                 throw new IllegalArgumentException("invalid remote auth entry at line " + (index + 1));
             }
             String principal = requirePrincipal(fields[0].trim());
@@ -252,9 +323,21 @@ public final class MorpheusRemoteIdentityFile {
             if (!hashText.matches("[0-9a-f]{64}")) {
                 throw new IllegalArgumentException("invalid token SHA-256 at line " + (index + 1));
             }
+            Optional<Instant> expiresAt = Optional.empty();
+            if (fields.length == 4) {
+                String expiryText = fields[3].trim();
+                if (expiryText.isEmpty()) {
+                    throw new IllegalArgumentException("blank remote identity expiry at line " + (index + 1));
+                }
+                try {
+                    expiresAt = Optional.of(Instant.parse(expiryText));
+                } catch (IllegalArgumentException failure) {
+                    throw new IllegalArgumentException("invalid remote identity expiry at line " + (index + 1), failure);
+                }
+            }
             if (!principals.add(principal)) throw new IllegalArgumentException("duplicate remote principal: " + principal);
             if (!hashes.add(hashText)) throw new IllegalArgumentException("duplicate remote token hash");
-            identities.add(new Identity(principal, role, HexFormat.of().parseHex(hashText)));
+            identities.add(new Identity(principal, role, HexFormat.of().parseHex(hashText), expiresAt));
             if (identities.size() > MAX_IDENTITIES) {
                 throw new IllegalArgumentException("remote auth file exceeds " + MAX_IDENTITIES + " identities");
             }
@@ -262,20 +345,25 @@ public final class MorpheusRemoteIdentityFile {
         return List.copyOf(identities);
     }
 
-    private static GeneratedCredential newCredential(String principal, MorpheusRemoteRole role) {
+    private static GeneratedCredential newCredential(
+            String principal,
+            MorpheusRemoteRole role,
+            Optional<Instant> expiresAt) {
         byte[] tokenBytes = new byte[TOKEN_BYTES];
         RANDOM.nextBytes(tokenBytes);
         return new GeneratedCredential(
                 principal,
                 role,
-                Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes));
+                Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes),
+                expiresAt);
     }
 
     private static Identity identity(GeneratedCredential credential) {
         return new Identity(
                 credential.principal(),
                 credential.role(),
-                sha256Bytes(credential.token()));
+                sha256Bytes(credential.token()),
+                credential.expiresAt());
     }
 
     private static Identity requireIdentity(List<Identity> identities, String principal) {
@@ -286,7 +374,11 @@ public final class MorpheusRemoteIdentityFile {
     }
 
     private static long adminCount(List<Identity> identities) {
-        return identities.stream().filter(identity -> identity.role() == MorpheusRemoteRole.ADMIN).count();
+        Instant now = Instant.now();
+        return identities.stream()
+                .filter(identity -> identity.role() == MorpheusRemoteRole.ADMIN)
+                .filter(identity -> identity.isActiveAt(now))
+                .count();
     }
 
     private static void write(Path file, List<Identity> identities, AuditRecord auditRecord) {
@@ -299,14 +391,16 @@ public final class MorpheusRemoteIdentityFile {
                 .sorted(Comparator.comparing(Identity::principal))
                 .toList();
         List<String> lines = new ArrayList<>();
-        lines.add("# MORPHEUS remote identities: principal|role|sha256(token)");
+        lines.add("# MORPHEUS remote identities: principal|role|sha256(token)[|expiresAt]");
         for (Identity identity : ordered) {
             String hash = HexFormat.of().formatHex(identity.tokenHash());
             if (!principals.add(identity.principal())) {
                 throw new IllegalArgumentException("duplicate remote principal: " + identity.principal());
             }
             if (!hashes.add(hash)) throw new IllegalArgumentException("duplicate remote token hash");
-            lines.add(identity.principal() + "|" + identity.role().name() + "|" + hash);
+            String entry = identity.principal() + "|" + identity.role().name() + "|" + hash;
+            if (identity.expiresAt().isPresent()) entry += "|" + identity.expiresAt().orElseThrow();
+            lines.add(entry);
         }
 
         List<AuditRecord> retainedAudit = new ArrayList<>();
@@ -429,6 +523,14 @@ public final class MorpheusRemoteIdentityFile {
             throw new IllegalArgumentException("principal must match " + PRINCIPAL.pattern());
         }
         return principal.trim();
+    }
+
+    private static Instant requireFutureExpiry(Instant expiresAt) {
+        Instant expiry = Objects.requireNonNull(expiresAt, "expiresAt");
+        if (!Instant.now().isBefore(expiry)) {
+            throw new IllegalArgumentException("remote identity expiry must be in the future");
+        }
+        return expiry;
     }
 
     @FunctionalInterface
