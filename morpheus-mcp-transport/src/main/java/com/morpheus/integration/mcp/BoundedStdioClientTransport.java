@@ -218,10 +218,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 .subscribe(
                         ignored -> { },
                         failure -> {
-                            if (!closing) {
-                                LOGGER.log(System.Logger.Level.WARNING, "MCP inbound processing failed", failure);
-                                failClosed(failure);
-                            }
+                            if (!closing) failClosed(failure);
                         });
     }
 
@@ -258,7 +255,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                     try {
                         stdErrorHandler.accept(line);
                     } catch (RuntimeException handlerFailure) {
-                        LOGGER.log(System.Logger.Level.WARNING, "MCP stderr handler failed", handlerFailure);
+                        LOGGER.log(
+                                System.Logger.Level.WARNING,
+                                "MCP stderr handler failed: {0}",
+                                McpDiagnosticRedactor.describe(handlerFailure));
                     }
                 }
             } catch (MessageTooLargeException oversized) {
@@ -316,7 +316,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 })
                 .subscribe(
                         ignored -> { },
-                        failure -> LOGGER.log(System.Logger.Level.WARNING, "MCP outbound processing failed", failure));
+                        failure -> LOGGER.log(
+                                System.Logger.Level.WARNING,
+                                "MCP outbound processing failed: {0}",
+                                McpDiagnosticRedactor.describe(failure)));
     }
 
     private OutboundFrame encode(JSONRPCMessage message) throws IOException {
@@ -334,7 +337,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         closing = true;
         inboundSink.tryEmitError(failure);
         outboundSink.tryEmitError(failure);
-        LOGGER.log(System.Logger.Level.WARNING, "MCP transport failed closed: {0}", failure.getMessage());
+        LOGGER.log(
+                System.Logger.Level.WARNING,
+                "MCP transport failed closed: {0}",
+                McpDiagnosticRedactor.describe(failure));
         destroyObservedProcessTree(process);
         disposeSchedulers();
     }
@@ -387,7 +393,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
             try {
                 root.destroyForcibly();
             } catch (RuntimeException failure) {
-                LOGGER.log(System.Logger.Level.DEBUG, "Unable to terminate MCP root process", failure);
+                LOGGER.log(
+                        System.Logger.Level.DEBUG,
+                        "Unable to terminate MCP root process: {0}",
+                        McpDiagnosticRedactor.describe(failure));
             }
         }
         destroyObservedDescendants(root, true);
@@ -419,7 +428,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 if (force) handle.destroyForcibly();
                 else handle.destroy();
             } catch (RuntimeException failure) {
-                LOGGER.log(System.Logger.Level.DEBUG, "Unable to terminate MCP descendant process", failure);
+                LOGGER.log(
+                        System.Logger.Level.DEBUG,
+                        "Unable to terminate MCP descendant process: {0}",
+                        McpDiagnosticRedactor.describe(failure));
             }
         }
     }

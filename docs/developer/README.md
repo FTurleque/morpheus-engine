@@ -29,6 +29,8 @@ Charger le `pom.xml` racine comme projet Maven. Ne pas créer les sous-modules m
 
 ## Modules
 
+Le reactor contient 17 modules enfants / 18 projets Maven parent inclus :
+
 ```text
 morpheus-domain
 morpheus-application
@@ -40,6 +42,7 @@ morpheus-provider-markdown
 morpheus-provider-synthetic
 morpheus-store-memory
 morpheus-store-sqlite
+morpheus-mcp-transport
 morpheus-integration-minos
 morpheus-integration-nexus
 morpheus-mcp
@@ -63,15 +66,17 @@ product                    1.2.1
 Java                       21
 Jackson                    3.1.5 LTS
 sqlite-jdbc                3.53.2.0
-MCP SDK                    2.0.0
+MCP SDK                    2.0.1
 OWASP Dependency-Check     12.2.2
-JaCoCo ratchet             47% lignes / 40% branches
-Surefire floor             698
-Architecture floor         250
+JaCoCo ratchet             50.6% lignes / 43.0% branches
+Surefire floor             820
+Architecture floor         258
+Changed-line gate          80%
+Changed-branch gate        70%
 dependency analyze         failOnWarning=true
 ```
 
-Le SCA réseau n’est pas attaché au `clean verify` développeur ordinaire. Il est exécuté par le workflow `MORPHEUS Security` sur la frontière `main`, chaque semaine et manuellement. Le profil local `d2-security` reste disponible pour une qualification spécialisée.
+Le SCA réseau n’est pas attaché au `clean verify` développeur ordinaire. Il est exécuté par `MORPHEUS Security` sur `main` et `develop`, avec refresh trusted quotidien et TTL PR de 72 h. Le profil local `d2-security` reste disponible pour une qualification spécialisée.
 
 ## Gate Maven canonique
 
@@ -105,7 +110,7 @@ bash ./scripts/validate-m21.sh 1.2.1
 
 M21 exige le même SHA exact sur Windows et Ubuntu/Linux, vérifie les ratchets de tests/couverture, le SBOM, la provenance, le portable et la convergence de version CLI/API/update.
 
-La CI canonique exécute M21 sur les pull requests ainsi que sur les pushes `main` et `develop`.
+La CI canonique exécute M21 sur les pull requests ainsi que sur les pushes `main` et `develop`. Les PR Java de production doivent en plus conserver `>= 80%` de changed-line coverage et `>= 70%` de changed-branch coverage.
 
 ## Gate D2 spécialisé
 
@@ -154,15 +159,15 @@ Politique : CVSS >= 7.0 fait échouer la qualification ; test scope exclu ; erre
 Le workflow `.github/workflows/security.yml` exécute le même contrôle sur :
 
 ```text
-PR -> main
-push -> main
-lundi hebdomadaire
+PR -> main, develop
+push -> main, develop
+schedule -> quotidien 04:17 UTC
 workflow_dispatch
 ```
 
-`.github/dependabot.yml` ouvre en parallèle les mises à jour Maven et GitHub Actions vers `develop`. Les alertes de vulnérabilité Dependabot restent un réglage administrateur suivi dans #154.
+`.github/dependabot.yml` ouvre en parallèle les mises à jour Maven et GitHub Actions vers `develop`. Les alertes de vulnérabilité Dependabot et Secret Scanning restent des réglages administrateur à vérifier dans #154.
 
-## Packaging
+## Packaging et release
 
 Les builders actifs produisent `1.2.1` par défaut :
 
@@ -177,18 +182,27 @@ bash ./distribution/build-portable.sh 1.2.1
 
 Les builders de release refusent de publier si le workspace n'est pas propre ou si le tag attendu `v1.2.1` ne pointe pas exactement sur HEAD.
 
+Le workflow `MORPHEUS Release` ajoute une chaîne de publication attestée : tag `vX.Y.Z` atteignable depuis `main`, builds Linux + Windows, attestation GitHub/OIDC pour les artefacts, puis création unique de la GitHub Release sans écrasement d'assets existants.
+
 Les distributions embarquent leur runtime Java, le MCP STDIO, l’API, les providers et les adapters MINOS/NEXUS optionnels, mais jamais les implémentations MINOS/NEXUS/JARVIS.
 
 ## Gouvernance mono-développeur
 
-Tant que MORPHEUS est maintenu par un seul développeur :
+Le ruleset GitHub **Protect main & develop** protège désormais les deux branches :
 
 ```text
-develop  non protégée volontairement + M21 sur push
-main     protection attendue + PR + checks + 0 approbation obligatoire
+PR obligatoire
+checks exact-head Linux + Windows requis
+Dependency-Check requis
+CodeQL / code scanning requis
+conversations résolues
+strict required checks
+suppression / non-fast-forward interdits
+0 approbation obligatoire
+aucun bypass
 ```
 
-Le ruleset `main`, le Quality Gate Sonar new-code et les alertes Dependabot sont suivis dans #154.
+Le choix de `0` approbation obligatoire reste cohérent avec le contexte mono-mainteneur. #166 est clôturée ; #154 est désormais limitée aux réglages externes SonarCloud / alertes de sécurité administrateur restant à vérifier.
 
 ## Documentation d’architecture
 
@@ -203,6 +217,7 @@ Le ruleset `main`, le Quality Gate Sonar new-code et les alertes Dependabot sont
 - [MCP](MCP.md)
 - [Version produit](PRODUCT_VERSION.md)
 - [Build et tests](BUILD_AND_TEST.md)
+- [Production integrity](PRODUCTION_INTEGRITY.md)
 - [Registre des risques](../architecture/risks/register.md)
 - [Validation R3 / release 1.2.0 historique](../validation/VALIDATION_R3.md)
 - [Validation D2 historique](../validation/VALIDATION_D2.md)

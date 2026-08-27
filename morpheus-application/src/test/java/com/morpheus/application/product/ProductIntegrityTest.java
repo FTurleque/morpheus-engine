@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -98,6 +99,66 @@ class ProductIntegrityTest {
     void sha256IsValidated() {
         assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
                 "1.0.1", "stable", URI.create("https://example.invalid/morpheus.zip"), "not-a-sha"));
+    }
+
+    @Test
+    void advertisedArtifactRejectsInsecureSchemesEvenForLocalDiscovery() {
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
+                "1.0.1",
+                "stable",
+                URI.create("http://example.invalid/morpheus.zip"),
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assertTrue(failure.getMessage().contains("artifactUri must use file or https"));
+    }
+
+    @Test
+    void remoteManifestRequiresHttpsArtifactAndAttestation() {
+        URI remoteManifest = URI.create("https://updates.example.invalid/stable.properties");
+        UpdateManifest missingAttestation = new UpdateManifest(
+                "1.0.1",
+                "stable",
+                URI.create("https://downloads.example.invalid/morpheus.zip"),
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+
+        IllegalArgumentException missing = assertThrows(
+                IllegalArgumentException.class,
+                () -> missingAttestation.requireRemoteTrust(remoteManifest));
+        assertTrue(missing.getMessage().contains("attestationUri"));
+
+        UpdateManifest trusted = new UpdateManifest(
+                "1.0.1",
+                "stable",
+                URI.create("https://downloads.example.invalid/morpheus.zip"),
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                Optional.of(URI.create("https://github.com/example/morpheus/attestations/123")));
+        trusted.requireRemoteTrust(remoteManifest);
+        assertTrue(trusted.attestationUri().isPresent());
+    }
+
+    @Test
+    void remoteManifestRejectsFileAttestation() {
+        UpdateManifest manifest = new UpdateManifest(
+                "1.0.1",
+                "stable",
+                URI.create("https://downloads.example.invalid/morpheus.zip"),
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                Optional.of(tempDir.resolve("attestation.jsonl").toUri()));
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> manifest.requireRemoteTrust(URI.create("https://updates.example.invalid/stable.properties")));
+        assertTrue(failure.getMessage().contains("attestationUri must use https"));
+    }
+
+    @Test
+    void localManifestMayRemainDiscoveryOnlyWithoutAttestation() {
+        UpdateManifest manifest = new UpdateManifest(
+                "1.0.1",
+                "stable",
+                URI.create("https://downloads.example.invalid/morpheus.zip"),
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        manifest.requireRemoteTrust(tempDir.resolve("local.properties").toUri());
+        assertTrue(manifest.attestationUri().isEmpty());
     }
 
     @Test

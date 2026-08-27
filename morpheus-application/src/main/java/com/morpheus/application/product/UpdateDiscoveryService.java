@@ -14,12 +14,14 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
 
 /**
  * Explicit read-only update discovery. Construction performs no I/O; callers must invoke {@link #check(URI)} with a
  * concrete manifest URI. The service never downloads or installs the advertised artifact. Remote manifests require
- * HTTPS; local manifests use the file scheme.
+ * HTTPS, advertise only HTTPS artifacts, and must provide an HTTPS provenance attestation URI. Local manifests use the
+ * file scheme and remain available for explicit diagnostics and test fixtures.
  */
 public final class UpdateDiscoveryService {
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
@@ -71,11 +73,14 @@ public final class UpdateDiscoveryService {
             default -> throw new IllegalArgumentException(
                     "unsupported update manifest scheme: " + scheme + " (expected file or https)");
         };
-        return new UpdateManifest(
+        UpdateManifest manifest = new UpdateManifest(
                 required(properties, "version"),
                 required(properties, "channel"),
                 URI.create(required(properties, "artifactUri")),
-                required(properties, "sha256"));
+                required(properties, "sha256"),
+                optionalUri(properties, "attestationUri"));
+        manifest.requireRemoteTrust(manifestUri);
+        return manifest;
     }
 
     private Properties readFile(URI uri) {
@@ -129,6 +134,16 @@ public final class UpdateDiscoveryService {
             throw new IllegalArgumentException("missing update manifest property: " + key);
         }
         return value.trim();
+    }
+
+    private static Optional<URI> optionalUri(Properties properties, String key) {
+        String value = properties.getProperty(key);
+        if (value == null || value.isBlank()) return Optional.empty();
+        try {
+            return Optional.of(URI.create(value.trim()));
+        } catch (IllegalArgumentException failure) {
+            throw new IllegalArgumentException("invalid update manifest URI property: " + key, failure);
+        }
     }
 
     static int compareVersions(String left, String right) {

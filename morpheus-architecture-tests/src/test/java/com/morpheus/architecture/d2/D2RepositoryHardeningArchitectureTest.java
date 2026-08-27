@@ -130,7 +130,10 @@ class D2RepositoryHardeningArchitectureTest {
         assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32690353897"));
         assertTrue(security.contains("Verify restored Dependency-Check database freshness"));
         assertTrue(security.contains("if: github.event_name == 'pull_request'"));
-        assertTrue(security.contains("max_age_seconds=\"$((72 * 60 * 60))\""));
+        assertTrue(security.contains("DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS: '72'"));
+        assertTrue(security.contains("max_age_seconds=\"$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))\""));
+        assertTrue(security.contains("- cron: '17 4 * * *'"));
+        assertFalse(security.contains("- cron: '17 4 * * 1'"));
         assertTrue(security.contains("No trusted Dependency-Check database was restored"));
         assertTrue(security.contains("if: github.event_name != 'pull_request'"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));

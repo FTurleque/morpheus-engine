@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: bash ./scripts/validate-m21.sh 1.2.1
 
-      - name: Enforce changed-line coverage on Linux PRs
+      - name: Enforce changed line and branch coverage on Linux PRs
         if: runner.os == 'Linux' && github.event_name == 'pull_request'
         shell: bash
         env:
@@ -57,11 +57,11 @@ jobs:
           case "$BASE_REF" in
             develop)
               git diff --unified=0 --no-color origin/develop...HEAD -- |
-                python3 scripts/check-diff-coverage.py --minimum 0.80
+                python3 scripts/check-diff-coverage.py --minimum 0.80 --minimum-branch 0.70
               ;;
             main)
               git diff --unified=0 --no-color origin/main...HEAD -- |
-                python3 scripts/check-diff-coverage.py --minimum 0.80
+                python3 scripts/check-diff-coverage.py --minimum 0.80 --minimum-branch 0.70
               ;;
             *)
               echo "::error::Unsupported pull-request base branch"

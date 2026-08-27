@@ -94,13 +94,16 @@ class ProductionIntegrityContractTest {
         assertTrue(publicSurfaces.contains("EXPLICITLY_NOT_EXPOSED"));
         assertTrue(integrity.contains("820 PASS"));
         assertTrue(integrity.contains("258 PASS"));
-        assertTrue(integrity.contains("50 % aggregate"));
-        assertTrue(integrity.contains("42 % aggregate"));
+        assertTrue(integrity.contains("50.6 % aggregate"));
+        assertTrue(integrity.contains("43.0 % aggregate"));
         assertTrue(integrity.contains("Changed lines       >= 80 %"));
+        assertTrue(integrity.contains("Changed branches    >= 70 %"));
         assertTrue(integrity.contains("CycloneDX"));
         assertTrue(integrity.contains("update discovery != automatic update"));
-        assertTrue(integrity.contains("checksum != signature"));
-        assertTrue(integrity.contains("`file:` et `https:`"));
+        assertTrue(integrity.contains("GitHub attestation"));
+        assertTrue(integrity.contains("attestationUri=https://"));
+        assertTrue(integrity.contains("Un manifeste local `file:`"));
+        assertTrue(integrity.contains("Un manifeste distant `https:`"));
         assertFalse(userIntegrity.contains("\nhttp:\n"));
     }
 
