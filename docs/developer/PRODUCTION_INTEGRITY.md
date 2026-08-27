@@ -9,7 +9,7 @@ Build/version          pom.xml + ProductMetadata
 Public surfaces        contracts/public-surfaces.tsv
 Architecture           morpheus-architecture-tests
 Release packaging      distribution/** + .github/workflows/release.yml
-M21 gate               scripts/validate-m21.*
+M21 gate               config/m21-quality-ratchets.properties + scripts/validate-m21.*
 CI durable             .github/workflows/ci.yml
 SCA durable            .github/workflows/security.yml
 SAST durable           .github/workflows/codeql.yml
@@ -23,28 +23,41 @@ La documentation humaine explique ces contrats ; elle ne doit pas devenir une de
 Baseline active :
 
 ```text
-Tests              >= 820 PASS
-Architecture       >= 258 PASS
+Tests              >= 860 PASS
+Architecture       >= 265 PASS
 Reactor            18/18 SUCCESS
 Windows            PASS
 Linux              PASS
-JaCoCo lines        >= 50.6 % aggregate
-JaCoCo branches     >= 43.0 % aggregate
+JaCoCo lines        >= 51.0 % aggregate
+JaCoCo branches     >= 43.5 % aggregate
 Changed lines       >= 80 %
 Changed branches    >= 70 %
 ```
 
-La qualification exact-head `ec0f1b4d4821d4b6a946a820e257bd4449bfaf58` a mesuré 839 tests, 260 tests d’architecture, 50,6959 % de lignes et 43,1147 % de branches. Les seuils restent volontairement légèrement sous les mesures qualifiées afin de former des ratchets stables. Le changed-code gate complète désormais les lignes par les branches situées sur les lignes exécutables modifiées.
+La qualification exact-head de la PR #187 sur `75768168ce552d97ede15a5fe4aa3979993ee108` a mesuré **871 tests**, **269 tests d’architecture**, **51,3447 % de lignes** sous Linux (**51,3530 % sous Windows**) et **43,9379 % de branches** sur les deux plateformes. Les seuils restent volontairement légèrement sous les mesures qualifiées afin de former des ratchets stables. Le changed-code gate complète les lignes par les branches situées sur les lignes exécutables modifiées.
+
+Les quatre ratchets durables sont définis une seule fois dans `config/m21-quality-ratchets.properties`. Les validateurs Linux/Windows et `CoverageQualityGateTest` lisent cette configuration au lieu de recopier les valeurs.
 
 ## Reproducible-build hygiene
 
-Le build fixe `project.build.outputTimestamp`, centralise les versions de plugins structurants et écrit les métadonnées de version dans les manifests JAR. Une release reste construite à partir d’un ref/tag exact conformément au contrat M20.
+Le build fixe `project.build.outputTimestamp`, centralise les versions de plugins structurants et écrit les métadonnées de version dans les manifests JAR. Maven Enforcer impose Maven `>= 3.9.16` et `< 4.0.0`, la ligne JDK **21 uniquement** (`>= 21` et `< 22`) ainsi que la convergence des dépendances transitives. Une release reste construite à partir d’un ref/tag exact conformément au contrat M20.
 
 Les métadonnées de release ne sont pas un état métier :
 
 ```text
 release metadata != runtime business state
 ```
+
+## Frontière HTTP des corps de requête
+
+Toutes les routes HTTP étendues utilisent `HttpRequestBodyReader`, qui délègue à `TimedBoundedInputReader` et applique la même politique que la frontière HTTP principale :
+
+```text
+request body max size     65 536 bytes
+request body read timeout 15 seconds
+```
+
+Les contextes Query/Saved Views/Export, Policy, Policy Management et Reasoning ne doivent pas effectuer de `readNBytes(...)` direct sur `HttpExchange.getRequestBody()`. Cette règle empêche un client local lent ou défaillant de conserver indéfiniment une lecture de body ouverte et est verrouillée par un contrat de repository.
 
 ## Supply chain et provenance de release
 
