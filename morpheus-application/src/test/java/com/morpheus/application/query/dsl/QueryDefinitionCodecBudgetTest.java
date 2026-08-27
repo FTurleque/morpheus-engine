@@ -104,6 +104,19 @@ class QueryDefinitionCodecBudgetTest {
     }
 
     @Test
+    void validatorTraversesAndAndOrWithinBudgetWithoutExhaustion() {
+        QueryFilter filter = new QueryAnd(List.of(
+                QueryPredicate.exists("title"),
+                new QueryOr(List.of(
+                        QueryPredicate.exists("statement"),
+                        QueryPredicate.exists("key")))));
+
+        List<QueryDiagnostic> diagnostics = new QueryValidator().validate(queryWithFilter(filter));
+
+        assertTrue(diagnostics.isEmpty());
+    }
+
+    @Test
     void validatorStopsTraversingOnceDepthBudgetIsExceeded() {
         QueryFilter filter = QueryPredicate.exists("title");
         for (int depth = 0; depth < 10_000; depth++) {
