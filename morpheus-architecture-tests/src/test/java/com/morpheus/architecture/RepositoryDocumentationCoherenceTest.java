@@ -5,7 +5,9 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Guards active repository documentation against drifting from root Maven facts. */
+/** Guards active repository documentation and validation contracts against drifting from repository facts. */
 class RepositoryDocumentationCoherenceTest {
     private static final Pattern PROJECT_VERSION = Pattern.compile("<version>([^<]+)</version>");
     private static final Pattern MCP_VERSION = Pattern.compile("<mcp-sdk\\.version>([^<]+)</mcp-sdk\\.version>");
@@ -42,17 +44,7 @@ class RepositoryDocumentationCoherenceTest {
     void activeDocumentationDeclaresCurrentDevelopmentBaseline() throws Exception {
         Path root = repositoryRoot();
         String version = firstGroup(PROJECT_VERSION, Files.readString(root.resolve("pom.xml")), "project version");
-        List<Path> activeStatusPages = List.of(
-                root.resolve("README.md"),
-                root.resolve("docs/README.md"),
-                root.resolve("docs/user/README.md"),
-                root.resolve("docs/developer/README.md"),
-                root.resolve("docs/developer/BUILD_AND_TEST.md"),
-                root.resolve("docs/governance/ROADMAP.md"),
-                root.resolve("docs/governance/DOCUMENTATION_STATUS.md"),
-                root.resolve("docs/validation/README.md"));
-
-        for (Path page : activeStatusPages) {
+        for (Path page : activeStatusPages(root)) {
             String content = Files.readString(page);
             assertTrue(content.contains(version),
                     () -> root.relativize(page) + " must mention current development baseline " + version);
@@ -62,13 +54,6 @@ class RepositoryDocumentationCoherenceTest {
     @Test
     void activeStatusPagesDoNotAdvertiseCompletedD2AsPending() throws Exception {
         Path root = repositoryRoot();
-        List<Path> statusPages = List.of(
-                root.resolve("README.md"),
-                root.resolve("docs/README.md"),
-                root.resolve("docs/user/README.md"),
-                root.resolve("docs/governance/ROADMAP.md"),
-                root.resolve("docs/governance/DOCUMENTATION_STATUS.md"),
-                root.resolve("docs/validation/README.md"));
         List<String> obsoleteMarkers = List.of(
                 "D2 EN COURS",
                 "D2 — Repository Hardening en cours",
@@ -76,13 +61,57 @@ class RepositoryDocumentationCoherenceTest {
                 "LOCAL QUALIFICATION PENDING",
                 "#120 OPEN");
 
-        for (Path page : statusPages) {
+        for (Path page : activeStatusPages(root)) {
             String content = Files.readString(page);
             for (String obsolete : obsoleteMarkers) {
                 assertFalse(content.contains(obsolete),
                         () -> root.relativize(page) + " still contains obsolete D2 marker: " + obsolete);
             }
         }
+    }
+
+    @Test
+    void bothPlatformValidatorsConsumeSingleQualityRatchetConfiguration() throws Exception {
+        Path root = repositoryRoot();
+        Path ratchetFile = root.resolve("config/m21-quality-ratchets.properties");
+        Map<String, String> ratchets = properties(ratchetFile);
+        assertEquals("860", ratchets.get("testsMinimum"));
+        assertEquals("265", ratchets.get("architectureTestsMinimum"));
+        assertEquals("0.510", ratchets.get("lineCoverageMinimum"));
+        assertEquals("0.435", ratchets.get("branchCoverageMinimum"));
+
+        String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
+        String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
+        assertTrue(linux.contains("config/m21-quality-ratchets.properties"));
+        assertTrue(windows.contains("config\\m21-quality-ratchets.properties"));
+        assertFalse(linux.contains("line < 0.506"), "Linux validator must not retain the old embedded line ratchet");
+        assertFalse(windows.contains("-lt 0.506"), "Windows validator must not retain the old embedded line ratchet");
+    }
+
+    private static List<Path> activeStatusPages(Path root) {
+        return List.of(
+                root.resolve("README.md"),
+                root.resolve("docs/README.md"),
+                root.resolve("docs/user/README.md"),
+                root.resolve("docs/developer/README.md"),
+                root.resolve("docs/developer/BUILD_AND_TEST.md"),
+                root.resolve("docs/governance/ROADMAP.md"),
+                root.resolve("docs/governance/DOCUMENTATION_STATUS.md"),
+                root.resolve("docs/validation/README.md"));
+    }
+
+    private static Map<String, String> properties(Path path) throws IOException {
+        Map<String, String> result = new HashMap<>();
+        for (String raw : Files.readAllLines(path)) {
+            String line = raw.trim();
+            if (line.isEmpty() || line.startsWith("#")) continue;
+            int separator = line.indexOf('=');
+            if (separator <= 0 || separator == line.length() - 1) {
+                throw new IllegalArgumentException("invalid property in " + path + ": " + line);
+            }
+            result.put(line.substring(0, separator).trim(), line.substring(separator + 1).trim());
+        }
+        return Map.copyOf(result);
     }
 
     private static Path repositoryRoot() throws IOException {
