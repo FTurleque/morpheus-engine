@@ -41,6 +41,8 @@
         <archunit.version>1.5.0</archunit.version>
         <sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>
         <mcp-sdk.version>2.0.1</mcp-sdk.version>
+        <reactor-bom.version>2024.0.0</reactor-bom.version>
+        <slf4j.version>2.0.18</slf4j.version>
         <jackson.version>3.1.5</jackson.version>
 
         <maven.compiler.plugin.version>3.14.1</maven.compiler.plugin.version>
@@ -70,12 +72,26 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- MCP SDK 2.0.1 is built on the Reactor 2024.0.x/3.7.x line. Keep the transport on that compatible train. -->
+            <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-bom</artifactId>
+                <version>${reactor-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>tools.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
                 <version>${jackson.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <!-- Align the API used transitively by MCP/networknt with the runtime SLF4J backend packaged by the CLI. -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
