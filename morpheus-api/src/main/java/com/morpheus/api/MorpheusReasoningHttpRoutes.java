@@ -55,6 +55,9 @@ final class MorpheusReasoningHttpRoutes {
             }
             sendJson(exchange, failure.status, new ApiErrorEnvelope(
                     "v1", new ApiError(failure.code, failure.getMessage(), Map.of())));
+        } catch (HttpRequestBodyReader.RequestBodyException failure) {
+            sendJson(exchange, 400, new ApiErrorEnvelope(
+                    "v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
         } catch (IllegalArgumentException failure) {
             sendJson(exchange, 400, new ApiErrorEnvelope(
                     "v1", new ApiError("REASONING_VALIDATION", safeMessage(failure), Map.of())));
@@ -83,16 +86,7 @@ final class MorpheusReasoningHttpRoutes {
     }
 
     private byte[] readBody(HttpExchange exchange) {
-        try {
-            byte[] body = exchange.getRequestBody().readNBytes(MorpheusHttpServer.MAX_REQUEST_BODY_BYTES + 1);
-            if (body.length > MorpheusHttpServer.MAX_REQUEST_BODY_BYTES) {
-                throw new HttpFailure(400, "BAD_REQUEST",
-                        "request body exceeds " + MorpheusHttpServer.MAX_REQUEST_BODY_BYTES + " bytes");
-            }
-            return body;
-        } catch (IOException failure) {
-            throw new HttpFailure(400, "BAD_REQUEST", "cannot read request body");
-        }
+        return HttpRequestBodyReader.read(exchange);
     }
 
     private void requireEmptyBody(HttpExchange exchange) {
