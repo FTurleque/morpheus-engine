@@ -1,0 +1,98 @@
+name: MORPHEUS Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: morpheus-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux-release:
+    name: signed-provenance (linux-x64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout exact tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      - name: Verify tag belongs to main
+        shell: bash
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::Release tag ${GITHUB_REF_NAME} does not point to a commit reachable from main."
+            exit 1
+          fi
+
+      - name: Build tagged release
+        id: build
+        shell: bash
+        run: |
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::Release tag must use semantic version form vX.Y.Z."
+            exit 1
+          fi
+          version="${BASH_REMATCH[1]}"
+          bash distribution/build-release.sh "${version}" "${GITHUB_REF_NAME}" dist
+          archive="dist/morpheus-${version}-linux-x64.tar.gz"
+          manifest="dist/morpheus-${version}-linux-x64-release-manifest.json"
+          checksum="${archive}.sha256"
+          printf 'version=%s\narchive=%s\nmanifest=%s\nchecksum=%s\n' \
+            "${version}" "${archive}" "${manifest}" "${checksum}" >> "${GITHUB_OUTPUT}"
+
+      - name: Attest release artifact provenance
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ steps.build.outputs.archive }}
+
+      - name: Preserve attestation bundle with release assets
+        shell: bash
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          test -s "${ATTESTATION_BUNDLE}"
+          cp -- "${ATTESTATION_BUNDLE}" "dist/morpheus-${VERSION}-linux-x64.attestation.jsonl"
+
+      - name: Publish immutable GitHub release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE: ${{ steps.build.outputs.archive }}
+          CHECKSUM: ${{ steps.build.outputs.checksum }}
+          MANIFEST: ${{ steps.build.outputs.manifest }}
+          VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "::error::GitHub release ${GITHUB_REF_NAME} already exists; refusing to overwrite published assets."
+            exit 1
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            --verify-tag \
+            --generate-notes \
+            --title "MORPHEUS ${VERSION}" \
+            "${ARCHIVE}" \
+            "${CHECKSUM}" \
+            "${MANIFEST}" \
+            "dist/morpheus-${VERSION}-linux-x64.attestation.jsonl"
