@@ -5,10 +5,11 @@ Ce guide décrit l’environnement de développement et les gates actifs sur la 
 ## Toolchain
 
 ```text
-Java >= 21
+Java 21 uniquement (>= 21 et < 22)
 Maven >= 3.9.16 et < 4.0.0
 compiler release = 21
 Maven Wrapper = 3.9.16 + distribution SHA-256
+Maven Enforcer = dependency convergence obligatoire
 ```
 
 ## Reactor Maven
@@ -58,24 +59,25 @@ Linux :
 Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubuntu pour les pull requests ainsi que sur les pushes `main` et `develop`.
 
 ```text
-baseline Surefire totale       >= 820
-baseline architecture          >= 258
-JaCoCo line ratchet            >= 50.6%
-JaCoCo branch ratchet          >= 43.0%
+baseline Surefire totale       >= 860
+baseline architecture          >= 265
+JaCoCo line ratchet            >= 51.0%
+JaCoCo branch ratchet          >= 43.5%
 D2 absolute line floor         40%
 D2 absolute branch floor       35%
 maven dependency analyze       failOnWarning=true
+maven dependency convergence   required
 CycloneDX SBOM                  JSON + XML
 product/package version         1.2.1
 ```
 
-Les floors sont des ratchets de présence : ils ne sont pas abaissés automatiquement, et toute hausse ultérieure doit être fondée sur une qualification exacte du même SHA sous Windows et Linux.
+La source normative des quatre ratchets M21 est `config/m21-quality-ratchets.properties`. Les scripts Windows/Linux et `CoverageQualityGateTest` consomment ce même fichier afin d'empêcher toute divergence entre gate shell, gate PowerShell et gate Java.
 
-Les scripts `validate-m21.sh` et `validate-m21.ps1` appliquent eux-mêmes les ratchets **50,6% lignes / 43,0% branches**, en plus du contrat `CoverageQualityGateTest`, afin qu'un changement de wiring Maven ne puisse pas affaiblir silencieusement la garde principale.
+Les floors sont des ratchets de présence : ils ne sont pas abaissés automatiquement, et toute hausse ultérieure doit être fondée sur une qualification exacte du même SHA sous Windows et Linux.
 
 ## Couverture différentielle des pull requests
 
-Sur les PR, Linux exécute `scripts/check-diff-coverage.py` sur les lignes Java de production ajoutées ou modifiées. Le gate exige désormais simultanément :
+Sur les PR, Linux exécute `scripts/check-diff-coverage.py` sur les lignes Java de production ajoutées ou modifiées. Le gate exige simultanément :
 
 ```text
 changed executable line coverage   >= 80%
@@ -88,11 +90,11 @@ Cette garde différentielle complète le ratchet global : elle évite qu'une nou
 
 ## Qualité et ratchet JaCoCo
 
-La baseline globale courante est verrouillée à **50,6% lignes / 43,0% branches**.
+La baseline globale courante est verrouillée à **51,0% lignes / 43,5% branches**.
 
 Règle d’évolution :
 
-1. une baisse sous 50,6% lignes ou 43,0% branches fait échouer le gate M21 ;
+1. une baisse sous 51,0% lignes ou 43,5% branches fait échouer le gate M21 ;
 2. les floors D2 40% / 35% restent des minima absolus et ne peuvent jamais affaiblir le ratchet ;
 3. une amélioration de couverture ne relève le ratchet qu’après qualification du même SHA exact sur Windows et Linux ;
 4. le ratchet n’est jamais abaissé automatiquement ; une baisse nécessite une décision d’audit explicite et motivée ;
@@ -100,6 +102,17 @@ Règle d’évolution :
 6. la couverture ne justifie pas des tests artificiels : les tests doivent conserver une valeur fonctionnelle, de contrat, de sécurité ou d’architecture indépendante du chiffre.
 
 `CoverageQualityGateTest` écrit dans `morpheus-architecture-tests/target/m21-coverage-summary.txt` la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2.
+
+## Frontière HTTP des corps de requête
+
+Toutes les routes HTTP doivent utiliser la primitive partagée `HttpRequestBodyReader`, qui délègue à `TimedBoundedInputReader`. La politique active est :
+
+```text
+request body max size     65 536 bytes
+request body read timeout 15 seconds
+```
+
+Il est interdit aux contextes Query, Saved Views, Export, Policy, Policy Management ou Reasoning de revenir à un `exchange.getRequestBody().readNBytes(...)` direct sans deadline. `RepositoryDocumentationCoherenceTest` verrouille cette règle de repository et `HttpRequestBodyReaderTest` couvre succès, dépassement de taille, timeout et erreur I/O.
 
 ## SCA / dépendances
 
@@ -208,6 +221,7 @@ morpheus-store-sqlite/.../SqliteTransactionRunnerTest.java
 morpheus-application/.../SyncReliabilityFallbackTest.java
 morpheus-api/.../MorpheusRemoteIdentityLifecycleTest.java
 morpheus-api/.../ApiRuntimeSqliteSessionTest.java
+morpheus-api/.../HttpRequestBodyReaderTest.java
 morpheus-provider-sdk/.../ProviderPluginDiscoveryTest.java
 morpheus-mcp-transport/.../McpDiagnosticRedactorTest.java
 morpheus-architecture-tests/.../ProductReleaseContractTest.java

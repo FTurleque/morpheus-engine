@@ -92,12 +92,15 @@ class ProductionIntegrityContractTest {
 
         assertTrue(publicSurfaces.contains("../../contracts/public-surfaces.tsv"));
         assertTrue(publicSurfaces.contains("EXPLICITLY_NOT_EXPOSED"));
-        assertTrue(integrity.contains("820 PASS"));
-        assertTrue(integrity.contains("258 PASS"));
-        assertTrue(integrity.contains("50.6 % aggregate"));
-        assertTrue(integrity.contains("43.0 % aggregate"));
+        assertTrue(integrity.contains("860 PASS"));
+        assertTrue(integrity.contains("265 PASS"));
+        assertTrue(integrity.contains("51.0 % aggregate"));
+        assertTrue(integrity.contains("43.5 % aggregate"));
         assertTrue(integrity.contains("Changed lines       >= 80 %"));
         assertTrue(integrity.contains("Changed branches    >= 70 %"));
+        assertTrue(integrity.contains("config/m21-quality-ratchets.properties"));
+        assertTrue(integrity.contains("convergence des dépendances transitives"));
+        assertTrue(integrity.contains("HttpRequestBodyReader"));
         assertTrue(integrity.contains("CycloneDX"));
         assertTrue(integrity.contains("update discovery != automatic update"));
         assertTrue(integrity.contains("GitHub attestation"));

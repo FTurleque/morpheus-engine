@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Properties;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
@@ -43,10 +44,17 @@ class D2RepositoryHardeningArchitectureTest {
 
     @Test
     void coverageRatchetCannotSilentlyReturnToTheD2Floor() throws IOException {
-        String coverage = Files.readString(repoRoot().resolve(
+        Path root = repoRoot();
+        Properties ratchets = m21Ratchets(root);
+        double line = Double.parseDouble(ratchets.getProperty("lineCoverageMinimum"));
+        double branch = Double.parseDouble(ratchets.getProperty("branchCoverageMinimum"));
+        assertTrue(line > 0.40d, "M21 line ratchet must remain stricter than the D2 floor");
+        assertTrue(branch > 0.35d, "M21 branch ratchet must remain stricter than the D2 floor");
+
+        String coverage = Files.readString(root.resolve(
                 "morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java"));
-        assertTrue(coverage.contains("LINE_RATCHET = 0.506d"));
-        assertTrue(coverage.contains("BRANCH_RATCHET = 0.430d"));
+        assertTrue(coverage.contains("config/m21-quality-ratchets.properties"),
+                "M21 coverage gate must consume the centralized ratchet configuration");
         assertFalse(coverage.contains("LINE_RATCHET = 0.40d"));
         assertFalse(coverage.contains("BRANCH_RATCHET = 0.35d"));
     }
@@ -54,15 +62,18 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void durableM21ScriptsKeepQualifiedPresenceAndCoverageRatchets() throws IOException {
         Path root = repoRoot();
+        Properties ratchets = m21Ratchets(root);
+        assertTrue(Integer.parseInt(ratchets.getProperty("testsMinimum")) >= 860);
+        assertTrue(Integer.parseInt(ratchets.getProperty("architectureTestsMinimum")) >= 265);
+        assertTrue(Double.parseDouble(ratchets.getProperty("lineCoverageMinimum")) >= 0.510d);
+        assertTrue(Double.parseDouble(ratchets.getProperty("branchCoverageMinimum")) >= 0.435d);
+
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
-        for (String script : java.util.List.of(linux, windows)) {
-            assertTrue(script.contains("820"));
-            assertTrue(script.contains("258"));
-            assertTrue(script.contains("0.506"));
-            assertTrue(script.contains("0.430"));
-            assertTrue(script.contains("1.2.1"));
-        }
+        assertTrue(linux.contains("config/m21-quality-ratchets.properties"));
+        assertTrue(windows.contains("config\\m21-quality-ratchets.properties"));
+        assertTrue(linux.contains("1.2.1"));
+        assertTrue(windows.contains("1.2.1"));
     }
 
     @Test
@@ -218,6 +229,14 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-d2.sh")));
         assertTrue(Files.isRegularFile(root.resolve("docs/roadmap/D2_EXECUTION.md")));
         assertTrue(Files.isRegularFile(root.resolve("docs/validation/VALIDATION_D2.md")));
+    }
+
+    private Properties m21Ratchets(Path root) throws IOException {
+        Properties properties = new Properties();
+        try (var reader = Files.newBufferedReader(root.resolve("config/m21-quality-ratchets.properties"))) {
+            properties.load(reader);
+        }
+        return properties;
     }
 
     private void assertPinnedNode24(String workflow, Pattern pattern, String action, String file) {

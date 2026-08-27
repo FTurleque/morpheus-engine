@@ -10,6 +10,38 @@ cd "$REPO"
 OUTPUT="$REPO/validation-output/m21"
 mkdir -p "$OUTPUT"
 VALIDATION_SHA="$(git rev-parse HEAD)"
+RATCHETS="$REPO/config/m21-quality-ratchets.properties"
+
+read_ratchet() {
+  local key="$1"
+  local value
+  value="$(sed -n "s/^${key}=//p" "$RATCHETS")"
+  if [[ -z "$value" ]]; then
+    echo "Missing M21 quality ratchet: $key" >&2
+    exit 1
+  fi
+  printf '%s' "$value"
+}
+
+if [[ ! -f "$RATCHETS" ]]; then
+  echo "Missing M21 quality ratchet configuration: $RATCHETS" >&2
+  exit 1
+fi
+TESTS_MINIMUM="$(read_ratchet testsMinimum)"
+ARCH_TESTS_MINIMUM="$(read_ratchet architectureTestsMinimum)"
+LINE_COVERAGE_MINIMUM="$(read_ratchet lineCoverageMinimum)"
+BRANCH_COVERAGE_MINIMUM="$(read_ratchet branchCoverageMinimum)"
+
+python3 - "$TESTS_MINIMUM" "$ARCH_TESTS_MINIMUM" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
+import sys
+
+tests, architecture = map(int, sys.argv[1:3])
+line, branch = map(float, sys.argv[3:5])
+if tests < 1 or architecture < 1:
+    raise SystemExit('M21 test ratchets must be positive integers')
+if not 0.0 < line <= 1.0 or not 0.0 < branch <= 1.0:
+    raise SystemExit('M21 coverage ratchets must be ratios in (0, 1]')
+PY
 
 printf '%s\n' "M21 exact-head validation SHA: $VALIDATION_SHA"
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
@@ -51,16 +83,16 @@ if (( FAILURES != 0 || ERRORS != 0 )); then
   echo "Surefire failures=$FAILURES errors=$ERRORS" >&2
   exit 1
 fi
-if (( TESTS < 820 )); then
-  echo "M21 test baseline regression: $TESTS < 820" >&2
+if (( TESTS < TESTS_MINIMUM )); then
+  echo "M21 test baseline regression: $TESTS < $TESTS_MINIMUM" >&2
   exit 1
 fi
-if (( ARCH_TESTS < 258 )); then
-  echo "M21 architecture baseline regression: $ARCH_TESTS < 258" >&2
+if (( ARCH_TESTS < ARCH_TESTS_MINIMUM )); then
+  echo "M21 architecture baseline regression: $ARCH_TESTS < $ARCH_TESTS_MINIMUM" >&2
   exit 1
 fi
-printf '%s\n' "Tests: PASS ($TESTS, baseline >= 820)"
-printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= 258)"
+printf '%s\n' "Tests: PASS ($TESTS, baseline >= $TESTS_MINIMUM)"
+printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= $ARCH_TESTS_MINIMUM)"
 
 COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
 if [[ ! -f "$COVERAGE" ]]; then
@@ -69,16 +101,15 @@ if [[ ! -f "$COVERAGE" ]]; then
 fi
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+python3 - "$LINE_RATIO" "$BRANCH_RATIO" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
 import sys
-line = float(sys.argv[1])
-branch = float(sys.argv[2])
-if line < 0.506:
-    raise SystemExit(f'M21 line coverage below 50.6% ratchet: {line}')
-if branch < 0.430:
-    raise SystemExit(f'M21 branch coverage below 43.0% ratchet: {branch}')
+line, branch, minimum_line, minimum_branch = map(float, sys.argv[1:])
+if line < minimum_line:
+    raise SystemExit(f'M21 line coverage below {minimum_line:.3f} ratchet: {line}')
+if branch < minimum_branch:
+    raise SystemExit(f'M21 branch coverage below {minimum_branch:.3f} ratchet: {branch}')
 PY
-printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO, ratchet=50.6%/43.0%)"
+printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO, ratchet=$LINE_COVERAGE_MINIMUM/$BRANCH_COVERAGE_MINIMUM)"
 
 SBOM_JSON="$REPO/target/m21-supply-chain/morpheus-sbom.json"
 SBOM_XML="$REPO/target/m21-supply-chain/morpheus-sbom.xml"
@@ -192,6 +223,7 @@ tests=$TESTS
 architectureTests=$ARCH_TESTS
 lineCoverage=$LINE_RATIO
 branchCoverage=$BRANCH_RATIO
+qualityRatchets=$TESTS_MINIMUM/$ARCH_TESTS_MINIMUM/$LINE_COVERAGE_MINIMUM/$BRANCH_COVERAGE_MINIMUM
 sbom=PASS
 provenance=PASS
 portable=$([[ "$SKIP_PORTABLE" == true ]] && echo false || echo true)

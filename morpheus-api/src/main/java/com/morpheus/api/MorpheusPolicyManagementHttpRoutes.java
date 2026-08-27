@@ -129,15 +129,7 @@ final class MorpheusPolicyManagementHttpRoutes {
     }
 
     private byte[] readBody(HttpExchange exchange) {
-        try {
-            byte[] body = exchange.getRequestBody().readNBytes(MorpheusHttpServer.MAX_REQUEST_BODY_BYTES + 1);
-            if (body.length > MorpheusHttpServer.MAX_REQUEST_BODY_BYTES) {
-                throw new HttpFailure(400, "BAD_REQUEST", "request body exceeds " + MorpheusHttpServer.MAX_REQUEST_BODY_BYTES + " bytes");
-            }
-            return body;
-        } catch (IOException failure) {
-            throw new HttpFailure(400, "BAD_REQUEST", "cannot read request body");
-        }
+        return HttpRequestBodyReader.read(exchange);
     }
 
     private void requireEmptyBody(HttpExchange exchange) {
