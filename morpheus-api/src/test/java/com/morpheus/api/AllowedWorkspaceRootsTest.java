@@ -53,6 +53,17 @@ class AllowedWorkspaceRootsTest {
     }
 
     @Test
+    void rejectsRootReplacementAfterAllowlistCreation() throws Exception {
+        Path allowed = Files.createDirectory(temp.resolve("allowed"));
+        AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
+        Path original = temp.resolve("allowed-original");
+        Files.move(allowed, original);
+        Path replacement = Files.createDirectory(allowed);
+
+        assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(replacement));
+    }
+
+    @Test
     void rejectsWindowsJunctionInsideRoot() throws Exception {
         if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) return;
         Path allowed = Files.createDirectory(temp.resolve("allowed"));
