@@ -268,7 +268,10 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
 
         private void failClosed(Throwable failure) {
             if (closing.compareAndSet(false, true)) {
-                LOGGER.log(System.Logger.Level.WARNING, "MCP STDIO server transport failed: {0}", failure.getMessage());
+                LOGGER.log(
+                        System.Logger.Level.WARNING,
+                        "MCP STDIO server transport failed: {0}",
+                        McpDiagnosticRedactor.describe(failure));
                 McpServerSession current = session;
                 if (current != null) current.close();
             }
