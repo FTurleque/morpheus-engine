@@ -19,12 +19,12 @@ class CoverageQualityGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline after audit hardening #179 on Linux: 50.6353% lines / 43.0862% branches.
+    // Qualified exact-head baseline after post-audit hardening #182 on Linux: 50.7034% lines / 43.1249% branches.
     // Ratchets stay below the qualified measurement to absorb deterministic cross-platform report noise.
-    private static final double QUALIFIED_LINE_RATIO = 0.506353d;
-    private static final double QUALIFIED_BRANCH_RATIO = 0.430862d;
-    private static final double LINE_RATCHET = 0.504d;
-    private static final double BRANCH_RATCHET = 0.429d;
+    private static final double QUALIFIED_LINE_RATIO = 0.507034d;
+    private static final double QUALIFIED_BRANCH_RATIO = 0.431249d;
+    private static final double LINE_RATCHET = 0.506d;
+    private static final double BRANCH_RATCHET = 0.430d;
 
     private static final double MIN_LINE_RATIO = Math.max(D2_MIN_LINE_RATIO, LINE_RATCHET);
     private static final double MIN_BRANCH_RATIO = Math.max(D2_MIN_BRANCH_RATIO, BRANCH_RATCHET);

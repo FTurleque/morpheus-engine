@@ -15,6 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CapabilityProtectedHttpServerTest {
 
@@ -26,8 +27,9 @@ class CapabilityProtectedHttpServerTest {
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
         server.setExecutor(executor);
         server.createContext(MorpheusHttpServer.API_PREFIX, CapabilityProtectedHttpServerTest::noContent);
-        server.createContext(MorpheusHttpServer.API_PREFIX + "/reasoning")
-                .setHandler(CapabilityProtectedHttpServerTest::noContent);
+        var childContext = server.createContext(MorpheusHttpServer.API_PREFIX + "/reasoning");
+        childContext.setHandler(CapabilityProtectedHttpServerTest::noContent);
+        assertThrows(UnsupportedOperationException.class, () -> childContext.getFilters().clear());
         server.start();
 
         try {

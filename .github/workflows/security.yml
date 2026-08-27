@@ -43,12 +43,28 @@ jobs:
         with:
           path: target/dependency-check-data
           key: dependency-check-v12-trusted-${{ runner.os }}-${{ github.run_id }}
-          # One-time main-promotion bootstrap: known-good main scheduled cache from successful run 32690353897.
-          # One-time migration bootstrap: known-good develop cache from successful run 32587778460.
           restore-keys: |
             dependency-check-v12-trusted-${{ runner.os }}-
-            dependency-check-v12-${{ runner.os }}-32690353897
-            dependency-check-v12-${{ runner.os }}-32587778460
+
+      - name: Verify restored Dependency-Check database freshness
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          data_dir="${GITHUB_WORKSPACE}/target/dependency-check-data"
+          db_file="$(find "${data_dir}" -type f \( -name 'odc*.mv.db' -o -name 'odc*.db' \) -print -quit 2>/dev/null || true)"
+          if [[ -z "${db_file}" ]]; then
+            echo "::error::No trusted Dependency-Check database was restored for this pull request."
+            exit 1
+          fi
+          now_epoch="$(date +%s)"
+          modified_epoch="$(stat -c %Y "${db_file}")"
+          age_seconds="$((now_epoch - modified_epoch))"
+          max_age_seconds="$((72 * 60 * 60))"
+          if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
+            echo "::error::Restored Dependency-Check database is stale (${age_seconds}s old; maximum ${max_age_seconds}s)."
+            exit 1
+          fi
+          echo "Dependency-Check database freshness PASS (${age_seconds}s old)."
 
       - name: Remove stale Dependency-Check update lock
         shell: bash

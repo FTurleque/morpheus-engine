@@ -8,6 +8,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -111,7 +112,9 @@ final class CapabilityProtectedHttpServer extends HttpServer {
 
         @Override
         public List<Filter> getFilters() {
-            return delegate.getFilters();
+            // Capability enforcement wraps the handler. Exposing the delegate's mutable filter list would let a future
+            // filter answer before that handler and accidentally bypass the internal trust boundary, so fail closed.
+            return Collections.unmodifiableList(delegate.getFilters());
         }
 
         @Override

@@ -27,6 +27,7 @@ class D2RepositoryHardeningArchitectureTest {
         String pom = Files.readString(repoRoot().resolve("pom.xml"));
         assertTrue(pom.contains("<jackson.version>3.1.5</jackson.version>"));
         assertTrue(pom.contains("<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>"));
+        assertTrue(pom.contains("<mcp-sdk.version>2.0.1</mcp-sdk.version>"));
         assertTrue(pom.contains("<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>"));
         assertTrue(pom.contains("<failOnWarning>true</failOnWarning>"));
         assertTrue(pom.contains("<id>d2-security</id>"));
@@ -34,11 +35,18 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     @Test
+    void activeMcpDocumentationMatchesPinnedSdkVersion() throws IOException {
+        String mcp = Files.readString(repoRoot().resolve("docs/developer/MCP.md"));
+        assertTrue(mcp.contains("Java MCP SDK 2.0.1"));
+        assertFalse(mcp.contains("Java MCP SDK 2.0.0"));
+    }
+
+    @Test
     void coverageRatchetCannotSilentlyReturnToTheD2Floor() throws IOException {
         String coverage = Files.readString(repoRoot().resolve(
                 "morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java"));
-        assertTrue(coverage.contains("LINE_RATCHET = 0.504d"));
-        assertTrue(coverage.contains("BRANCH_RATCHET = 0.429d"));
+        assertTrue(coverage.contains("LINE_RATCHET = 0.506d"));
+        assertTrue(coverage.contains("BRANCH_RATCHET = 0.430d"));
         assertFalse(coverage.contains("LINE_RATCHET = 0.40d"));
         assertFalse(coverage.contains("BRANCH_RATCHET = 0.35d"));
     }
@@ -51,8 +59,8 @@ class D2RepositoryHardeningArchitectureTest {
         for (String script : java.util.List.of(linux, windows)) {
             assertTrue(script.contains("820"));
             assertTrue(script.contains("258"));
-            assertTrue(script.contains("0.50"));
-            assertTrue(script.contains("0.42"));
+            assertTrue(script.contains("0.506"));
+            assertTrue(script.contains("0.430"));
             assertTrue(script.contains("1.2.1"));
         }
     }
@@ -118,9 +126,12 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("-DautoUpdate=false"));
         assertTrue(security.contains("target/dependency-check-data"));
         assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"));
-        assertTrue(security.contains("dependency-check-v12-${{ runner.os }}-32587778460"),
-                "security.yml must retain the known-good develop bootstrap cache until the trusted namespace is seeded");
-        assertTrue(security.contains("known-good develop cache from successful run 32587778460"));
+        assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32587778460"));
+        assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32690353897"));
+        assertTrue(security.contains("Verify restored Dependency-Check database freshness"));
+        assertTrue(security.contains("if: github.event_name == 'pull_request'"));
+        assertTrue(security.contains("max_age_seconds=\"$((72 * 60 * 60))\""));
+        assertTrue(security.contains("No trusted Dependency-Check database was restored"));
         assertTrue(security.contains("if: github.event_name != 'pull_request'"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
         assertTrue(security.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"));
@@ -132,12 +143,14 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("rm -f -- \"${lock_file}\""));
 
         int restoreIndex = security.indexOf("- name: Restore Dependency-Check database");
+        int freshnessIndex = security.indexOf("- name: Verify restored Dependency-Check database freshness");
         int staleLockIndex = security.indexOf("- name: Remove stale Dependency-Check update lock");
         int trustedUpdateIndex = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
         int saveIndex = security.indexOf("- name: Save trusted Dependency-Check database");
         int scanIndex = security.indexOf("- name: Run OWASP Dependency-Check scan");
-        assertTrue(restoreIndex >= 0 && staleLockIndex > restoreIndex && trustedUpdateIndex > staleLockIndex,
-                "trusted Dependency-Check update must follow cache restore and stale-lock cleanup");
+        assertTrue(restoreIndex >= 0 && freshnessIndex > restoreIndex && staleLockIndex > freshnessIndex
+                        && trustedUpdateIndex > staleLockIndex,
+                "trusted Dependency-Check preparation must verify freshness before scanning or updating");
         assertTrue(saveIndex > trustedUpdateIndex,
                 "trusted cache save must follow the trusted Dependency-Check update");
         assertTrue(scanIndex > saveIndex, "aggregate scan must run after cache/update preparation");

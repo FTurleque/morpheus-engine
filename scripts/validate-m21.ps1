@@ -142,13 +142,13 @@ $coverage = @{}
 Get-Content $coverageSummary | ForEach-Object {
     if ($_ -match '^([^=]+)=(.*)$') { $coverage[$matches[1]] = $matches[2] }
 }
-if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.504) {
-    throw "M21 line coverage below 50.4% ratchet: $($coverage.lineRatio)"
+if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.506) {
+    throw "M21 line coverage below 50.6% ratchet: $($coverage.lineRatio)"
 }
-if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.429) {
-    throw "M21 branch coverage below 42.9% ratchet: $($coverage.branchRatio)"
+if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.430) {
+    throw "M21 branch coverage below 43.0% ratchet: $($coverage.branchRatio)"
 }
-Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio), ratchet=50.4%/42.9%)"
+Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio), ratchet=50.6%/43.0%)"
 
 $sbomJson = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.json'
 $sbomXml = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.xml'
