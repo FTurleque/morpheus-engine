@@ -51,6 +51,20 @@ class AuditHardeningWorkflowContractTest {
                 "Published release assets must never be silently replaced");
     }
 
+    @Test
+    void pullRequestCoverageGateIncludesChangedBranches() throws IOException {
+        Path root = repoRoot();
+        String workflow = Files.readString(root.resolve(".github/workflows/ci.yml"));
+        String checker = Files.readString(root.resolve("scripts/check-diff-coverage.py"));
+
+        assertTrue(workflow.contains("--minimum 0.80 --minimum-branch 0.70"),
+                "CI must gate both changed lines and branches");
+        assertTrue(checker.contains("--minimum-branch"));
+        assertTrue(checker.contains("covered_changed_branches"));
+        assertTrue(checker.contains("changed_branches"));
+        assertTrue(checker.contains("Changed-branch coverage"));
+    }
+
     private Path repoRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
