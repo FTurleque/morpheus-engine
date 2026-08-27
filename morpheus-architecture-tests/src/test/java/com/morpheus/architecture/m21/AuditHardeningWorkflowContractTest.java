@@ -65,6 +65,25 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(checker.contains("Changed-branch coverage"));
     }
 
+    @Test
+    void mcpTransportDoesNotLogRawPeerControlledThrowables() throws IOException {
+        Path root = repoRoot();
+        String client = Files.readString(root.resolve(
+                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
+        String server = Files.readString(root.resolve(
+                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioServerTransportProvider.java"));
+        String redactor = Files.readString(root.resolve(
+                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/McpDiagnosticRedactor.java"));
+
+        assertTrue(client.contains("McpDiagnosticRedactor.describe(failure)"));
+        assertTrue(server.contains("McpDiagnosticRedactor.describe(failure)"));
+        assertFalse(client.contains("failure.getMessage()"));
+        assertFalse(server.contains("failure.getMessage()"));
+        assertFalse(client.contains("\"MCP inbound processing failed\", failure"));
+        assertFalse(client.contains("\"MCP outbound processing failed\", failure"));
+        assertTrue(redactor.contains("JSON_OR_NAMED_SECRET"));
+    }
+
     private Path repoRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
