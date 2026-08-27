@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
+import java.nio.file.attribute.UserPrincipal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -32,7 +35,7 @@ public final class AllowedWorkspaceRoots {
             try {
                 Path real = lexical.toRealPath();
                 if (canonical.stream().noneMatch(root -> root.real().equals(real))) {
-                    canonical.add(new AllowedRoot(lexical, real));
+                    canonical.add(AllowedRoot.capture(lexical, real));
                 }
             } catch (IOException failure) {
                 throw new IllegalArgumentException("cannot canonicalize remote workspace root", failure);
@@ -62,10 +65,12 @@ public final class AllowedWorkspaceRoots {
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException(
                             "workspace is outside the server-configured allowed roots"));
+            allowedRoot.requireUnchanged();
             Path lexicalRoot = lexical.startsWith(allowedRoot.lexical())
                     ? allowedRoot.lexical()
                     : allowedRoot.real();
             rejectSymbolicAncestors(lexicalRoot, lexical);
+            allowedRoot.requireUnchanged();
             return real;
         } catch (IOException failure) {
             throw new IllegalArgumentException("cannot canonicalize requested workspace", failure);
@@ -99,6 +104,41 @@ public final class AllowedWorkspaceRoots {
         }
     }
 
-    private record AllowedRoot(Path lexical, Path real) {
+    private record AllowedRoot(Path lexical, Path real, RootIdentity identity) {
+        private static AllowedRoot capture(Path lexical, Path real) throws IOException {
+            return new AllowedRoot(lexical, real, RootIdentity.capture(real));
+        }
+
+        private void requireUnchanged() throws IOException {
+            if (!Files.isDirectory(real, LinkOption.NOFOLLOW_LINKS)
+                    || Files.isSymbolicLink(real)
+                    || !identity.matches(RootIdentity.capture(real))) {
+                throw new IllegalArgumentException("server-configured workspace root changed after startup: " + real);
+            }
+        }
+    }
+
+    private record RootIdentity(Object fileKey, String owner, FileTime creationTime) {
+        private static RootIdentity capture(Path directory) throws IOException {
+            BasicFileAttributes attributes = Files.readAttributes(
+                    directory, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            return new RootIdentity(attributes.fileKey(), owner(directory), attributes.creationTime());
+        }
+
+        private boolean matches(RootIdentity current) {
+            if (fileKey != null || current.fileKey != null) {
+                return Objects.equals(fileKey, current.fileKey) && Objects.equals(owner, current.owner);
+            }
+            return Objects.equals(owner, current.owner) && Objects.equals(creationTime, current.creationTime);
+        }
+
+        private static String owner(Path directory) throws IOException {
+            try {
+                UserPrincipal principal = Files.getOwner(directory, LinkOption.NOFOLLOW_LINKS);
+                return principal == null ? null : principal.getName();
+            } catch (UnsupportedOperationException unsupported) {
+                return null;
+            }
+        }
     }
 }
