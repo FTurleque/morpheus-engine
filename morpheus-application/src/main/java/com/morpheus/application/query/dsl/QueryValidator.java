@@ -87,35 +87,41 @@ public final class QueryValidator {
             int depth,
             Counters counters,
             List<QueryDiagnostic> diagnostics) {
+        if (counters.exhausted) {
+            return;
+        }
+
         counters.nodes++;
-        if (counters.nodes == QueryBudgets.MAX_AST_NODES + 1) {
+        if (counters.nodes > QueryBudgets.MAX_AST_NODES) {
             diagnostics.add(new QueryDiagnostic(
                     "QUERY_BUDGET_EXCEEDED", path, "AST nodes exceed " + QueryBudgets.MAX_AST_NODES));
+            counters.exhausted = true;
+            return;
         }
         if (depth > QueryBudgets.MAX_BOOLEAN_DEPTH) {
             diagnostics.add(new QueryDiagnostic(
                     "QUERY_BUDGET_EXCEEDED", path, "boolean depth exceeds " + QueryBudgets.MAX_BOOLEAN_DEPTH));
+            counters.exhausted = true;
+            return;
         }
 
         if (filter instanceof QueryPredicate predicate) {
             counters.predicates++;
-            if (counters.predicates == QueryBudgets.MAX_PREDICATES + 1) {
+            if (counters.predicates > QueryBudgets.MAX_PREDICATES) {
                 diagnostics.add(new QueryDiagnostic(
                         "QUERY_BUDGET_EXCEEDED", path, "predicates exceed " + QueryBudgets.MAX_PREDICATES));
+                counters.exhausted = true;
+                return;
             }
             validatePredicate(predicate, fields, path, diagnostics);
             return;
         }
         if (filter instanceof QueryAnd and) {
-            for (int index = 0; index < and.children().size(); index++) {
-                inspect(and.children().get(index), fields, path + ".and[" + index + "]", depth + 1, counters, diagnostics);
-            }
+            inspectChildren(and.children(), fields, path + ".and", depth, counters, diagnostics);
             return;
         }
         if (filter instanceof QueryOr or) {
-            for (int index = 0; index < or.children().size(); index++) {
-                inspect(or.children().get(index), fields, path + ".or[" + index + "]", depth + 1, counters, diagnostics);
-            }
+            inspectChildren(or.children(), fields, path + ".or", depth, counters, diagnostics);
             return;
         }
         if (filter instanceof QueryNot not) {
@@ -123,6 +129,18 @@ public final class QueryValidator {
             return;
         }
         diagnostics.add(new QueryDiagnostic("QUERY_FILTER_UNKNOWN", path, "unsupported query filter node"));
+    }
+
+    private void inspectChildren(
+            List<QueryFilter> children,
+            Map<String, QueryFieldDefinition> fields,
+            String path,
+            int parentDepth,
+            Counters counters,
+            List<QueryDiagnostic> diagnostics) {
+        for (int index = 0; index < children.size() && !counters.exhausted; index++) {
+            inspect(children.get(index), fields, path + "[" + index + "]", parentDepth + 1, counters, diagnostics);
+        }
     }
 
     private void validatePredicate(
@@ -175,5 +193,6 @@ public final class QueryValidator {
     private static final class Counters {
         private int nodes;
         private int predicates;
+        private boolean exhausted;
     }
 }
