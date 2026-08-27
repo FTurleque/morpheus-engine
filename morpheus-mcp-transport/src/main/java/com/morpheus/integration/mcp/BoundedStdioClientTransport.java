@@ -36,7 +36,7 @@ import java.util.function.Function;
 /**
  * MCP STDIO client transport with hard per-frame and aggregate queue bounds.
  *
- * <p>The upstream Java SDK 2.0.0 STDIO transport can materialize unbounded lines and uses unbounded Reactor queues.
+ * <p>The upstream Java SDK 2.0.1 STDIO transport can materialize unbounded lines and uses unbounded Reactor queues.
  * MORPHEUS reads process streams as bounded UTF-8 bytes before JSON parsing, caps pending inbound/outbound messages,
  * minimizes inherited child-process environment, retains observed descendants for deterministic cleanup, handles stderr
  * synchronously on its reader thread, and fails closed when a peer exceeds a resource budget.</p>
@@ -81,7 +81,8 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private volatile Process process;
     private volatile boolean closing;
-    private Consumer<String> stdErrorHandler = error -> LOGGER.log(System.Logger.Level.INFO, "MCP STDERR: {0}", error);
+    private Consumer<String> stdErrorHandler = error -> LOGGER.log(
+            System.Logger.Level.INFO, "MCP STDERR: {0}", McpDiagnosticRedactor.redact(error));
 
     public BoundedStdioClientTransport(
             ServerParameters parameters,
@@ -117,7 +118,8 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     }
 
     public void setStdErrorHandler(Consumer<String> handler) {
-        this.stdErrorHandler = Objects.requireNonNull(handler, "handler");
+        Consumer<String> downstream = Objects.requireNonNull(handler, "handler");
+        this.stdErrorHandler = error -> downstream.accept(McpDiagnosticRedactor.redact(error));
     }
 
     @Override
