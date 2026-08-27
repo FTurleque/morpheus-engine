@@ -27,10 +27,18 @@ class D2RepositoryHardeningArchitectureTest {
         String pom = Files.readString(repoRoot().resolve("pom.xml"));
         assertTrue(pom.contains("<jackson.version>3.1.5</jackson.version>"));
         assertTrue(pom.contains("<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>"));
+        assertTrue(pom.contains("<mcp-sdk.version>2.0.1</mcp-sdk.version>"));
         assertTrue(pom.contains("<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>"));
         assertTrue(pom.contains("<failOnWarning>true</failOnWarning>"));
         assertTrue(pom.contains("<id>d2-security</id>"));
         assertTrue(pom.contains("<failBuildOnCVSS>7.0</failBuildOnCVSS>"));
+    }
+
+    @Test
+    void activeMcpDocumentationMatchesPinnedSdkVersion() throws IOException {
+        String mcp = Files.readString(repoRoot().resolve("docs/developer/MCP.md"));
+        assertTrue(mcp.contains("Java MCP SDK 2.0.1"));
+        assertFalse(mcp.contains("Java MCP SDK 2.0.0"));
     }
 
     @Test
@@ -118,9 +126,12 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("-DautoUpdate=false"));
         assertTrue(security.contains("target/dependency-check-data"));
         assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"));
-        assertTrue(security.contains("dependency-check-v12-${{ runner.os }}-32587778460"),
-                "security.yml must retain the known-good develop bootstrap cache until the trusted namespace is seeded");
-        assertTrue(security.contains("known-good develop cache from successful run 32587778460"));
+        assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32587778460"));
+        assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32690353897"));
+        assertTrue(security.contains("Verify restored Dependency-Check database freshness"));
+        assertTrue(security.contains("if: github.event_name == 'pull_request'"));
+        assertTrue(security.contains("max_age_seconds=\"$((72 * 60 * 60))\""));
+        assertTrue(security.contains("No trusted Dependency-Check database was restored"));
         assertTrue(security.contains("if: github.event_name != 'pull_request'"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
         assertTrue(security.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"));
@@ -132,12 +143,14 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("rm -f -- \"${lock_file}\""));
 
         int restoreIndex = security.indexOf("- name: Restore Dependency-Check database");
+        int freshnessIndex = security.indexOf("- name: Verify restored Dependency-Check database freshness");
         int staleLockIndex = security.indexOf("- name: Remove stale Dependency-Check update lock");
         int trustedUpdateIndex = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
         int saveIndex = security.indexOf("- name: Save trusted Dependency-Check database");
         int scanIndex = security.indexOf("- name: Run OWASP Dependency-Check scan");
-        assertTrue(restoreIndex >= 0 && staleLockIndex > restoreIndex && trustedUpdateIndex > staleLockIndex,
-                "trusted Dependency-Check update must follow cache restore and stale-lock cleanup");
+        assertTrue(restoreIndex >= 0 && freshnessIndex > restoreIndex && staleLockIndex > freshnessIndex
+                        && trustedUpdateIndex > staleLockIndex,
+                "trusted Dependency-Check preparation must verify freshness before scanning or updating");
         assertTrue(saveIndex > trustedUpdateIndex,
                 "trusted cache save must follow the trusted Dependency-Check update");
         assertTrue(scanIndex > saveIndex, "aggregate scan must run after cache/update preparation");
