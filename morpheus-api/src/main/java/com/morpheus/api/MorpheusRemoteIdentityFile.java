@@ -331,7 +331,7 @@ public final class MorpheusRemoteIdentityFile {
                 }
                 try {
                     expiresAt = Optional.of(Instant.parse(expiryText));
-                } catch (IllegalArgumentException failure) {
+                } catch (RuntimeException failure) {
                     throw new IllegalArgumentException("invalid remote identity expiry at line " + (index + 1), failure);
                 }
             }
