@@ -443,7 +443,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         byte[] bytes = buffer.toByteArray();
         int length = bytes.length;
         if (length > 0 && bytes[length - 1] == '\r') length--;
-        return new String(bytes, 0, length, StandardCharsets.UTF_8);
+        return StrictUtf8.decode(bytes, length);
     }
 
     private record OutboundFrame(byte[] encoded) {

@@ -97,6 +97,7 @@ public final class LocalWritePermissionHardener {
             if (!Files.isRegularFile(normalized, LinkOption.NOFOLLOW_LINKS)) {
                 throw new LocalWritePermissionException("Refusing to harden a non-regular file");
             }
+            requireTrustedSensitiveOwner(normalized, Files.getOwner(normalized, LinkOption.NOFOLLOW_LINKS));
             requireHardened(normalized, false);
             Path parent = normalized.getParent();
             if (parent != null) {
@@ -129,6 +130,7 @@ public final class LocalWritePermissionHardener {
                 throw new LocalWritePermissionException("Sensitive parent must be a regular directory");
             }
             UserPrincipal sensitiveOwner = Files.getOwner(normalized, LinkOption.NOFOLLOW_LINKS);
+            requireTrustedSensitiveOwner(normalized, sensitiveOwner);
             Path current = normalized;
             boolean sensitiveDirectory = true;
             while (current != null) {
@@ -209,6 +211,23 @@ public final class LocalWritePermissionHardener {
     private boolean supportsPosix(Path path) {
         return Files.getFileAttributeView(path, java.nio.file.attribute.PosixFileAttributeView.class,
                 LinkOption.NOFOLLOW_LINKS) != null;
+    }
+
+    private void requireTrustedSensitiveOwner(Path path, UserPrincipal owner) {
+        if (isTrustedOwnerIdentity(owner, runtimePrincipal, trustedAclPrincipals)) return;
+        if (supportsPosix(path) && isTrustedPosixAdministrator(owner)) return;
+        throw new LocalWritePermissionException(
+                "Sensitive local storage is owned by an untrusted principal: " + path + " (" + owner.getName() + ")");
+    }
+
+    static boolean isTrustedOwnerIdentity(
+            UserPrincipal owner,
+            UserPrincipal runtimePrincipal,
+            Set<UserPrincipal> trustedPrincipals) {
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(trustedPrincipals, "trustedPrincipals");
+        if (runtimePrincipal != null && samePrincipalIdentity(owner, runtimePrincipal)) return true;
+        return trustedPrincipals.stream().anyMatch(trusted -> samePrincipalIdentity(owner, trusted));
     }
 
     private void requireProtectedPosixDirectory(

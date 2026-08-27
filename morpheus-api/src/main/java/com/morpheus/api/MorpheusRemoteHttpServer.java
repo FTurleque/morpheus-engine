@@ -52,7 +52,8 @@ import java.util.concurrent.atomic.LongAdder;
  * M26 opt-in HTTPS facade for team/remote use.
  *
  * <p>The existing local API remains an internal loopback server. Authentication headers are consumed by this
- * facade and are never forwarded to that internal HTTP hop.</p>
+ * facade and are never forwarded to that internal HTTP hop. The private hop is independently protected by a
+ * per-process capability that is never exposed through the remote API.</p>
  */
 public final class MorpheusRemoteHttpServer implements AutoCloseable {
     public static final int DEFAULT_MAX_CONCURRENT_REQUESTS = 64;
@@ -68,6 +69,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final HttpsServer server;
     private final ExecutorService executor;
     private final MorpheusHttpServer localServer;
+    private final MorpheusInternalCapability internalCapability;
     private final SqliteServerMaintenance.ServerLease lease;
     private final SqliteServerMaintenance maintenance;
     private final Path databasePath;
@@ -85,6 +87,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             HttpsServer server,
             ExecutorService executor,
             MorpheusHttpServer localServer,
+            MorpheusInternalCapability internalCapability,
             SqliteServerMaintenance.ServerLease lease,
             SqliteServerMaintenance maintenance,
             Path databasePath,
@@ -96,6 +99,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.server = server;
         this.executor = executor;
         this.localServer = localServer;
+        this.internalCapability = Objects.requireNonNull(internalCapability, "internalCapability");
         this.lease = lease;
         this.maintenance = maintenance;
         this.databasePath = databasePath.toAbsolutePath().normalize();
@@ -154,6 +158,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         SSLContext sslContext = buildSslContext(keyStorePath, keyStorePassword.clone());
         SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
         SqliteServerMaintenance.ServerLease lease = maintenance.acquireServerLease(databasePath);
+        MorpheusInternalCapability internalCapability = MorpheusInternalCapability.generate();
         MorpheusHttpServer local = null;
         ExecutorService executor = null;
         try {
@@ -165,7 +170,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                     minosStatus,
                     technicalContextProvider,
                     writeCapabilityResolver,
-                    allowedWorkspaceRoots);
+                    allowedWorkspaceRoots,
+                    internalCapability);
             int listenBacklog = Math.max(DEFAULT_MAX_CONCURRENT_REQUESTS, maxConcurrentRequests);
             HttpsServer https = HttpsServer.create(new InetSocketAddress(normalizedHost, port), listenBacklog);
             https.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
@@ -178,7 +184,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             });
             executor = Executors.newVirtualThreadPerTaskExecutor();
             MorpheusRemoteHttpServer result = new MorpheusRemoteHttpServer(
-                    https, executor, local, lease, maintenance, databasePath, backupDirectory,
+                    https, executor, local, internalCapability, lease, maintenance, databasePath, backupDirectory,
                     providerPluginDirectory, allowedWorkspaceRoots, normalizedAuthFile, maxConcurrentRequests);
             https.setExecutor(executor);
             https.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
@@ -294,58 +300,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     }
 
     private MorpheusRemoteRole requiredRole(String rawMethod, String path) {
-        String method = rawMethod.toUpperCase(Locale.ROOT);
-        String prefix = MorpheusHttpServer.API_PREFIX;
-        if (!path.startsWith(prefix)) {
-            throw new RemoteFailure(404, "NOT_FOUND", "unknown remote API path");
+        try {
+            return MorpheusRemoteRoutePolicy.requiredRole(rawMethod, path);
+        } catch (MorpheusRemoteRoutePolicy.RoutePolicyException failure) {
+            throw new RemoteFailure(failure.status(), failure.code(), failure.getMessage());
         }
-        if (path.equals(prefix + "/metrics")) return MorpheusRemoteRole.ADMIN;
-        if (path.equals(prefix + "/server/backups")) return MorpheusRemoteRole.ADMIN;
-        if (path.equals(prefix + "/server/status")) return MorpheusRemoteRole.READ;
-        if (path.equals(prefix + "/provider-plugins/discover")) {
-            if (!method.equals("GET")) {
-                throw new RemoteFailure(405, "METHOD_NOT_ALLOWED", "provider-plugin discovery requires GET");
-            }
-            return MorpheusRemoteRole.READ;
-        }
-        if (path.equals(prefix + "/provider-plugins/probe")) {
-            if (!method.equals("POST")) {
-                throw new RemoteFailure(405, "METHOD_NOT_ALLOWED", "provider-plugin probe requires POST");
-            }
-            return MorpheusRemoteRole.ADMIN;
-        }
-        if (method.equals("GET") || method.equals("HEAD")) return MorpheusRemoteRole.READ;
-        if (method.equals("POST") && isReadOnlyPost(path)) return MorpheusRemoteRole.READ;
-        if (method.equals("POST") || method.equals("PUT") || method.equals("PATCH") || method.equals("DELETE")) {
-            return MorpheusRemoteRole.WRITE;
-        }
-        throw new RemoteFailure(405, "METHOD_NOT_ALLOWED", "unsupported remote HTTP method");
-    }
-
-    private static boolean isReadOnlyPost(String path) {
-        String prefix = MorpheusHttpServer.API_PREFIX;
-        return path.equals(prefix + "/queries/execute")
-                || path.equals(prefix + "/exports")
-                || path.equals(prefix + "/policies/evaluate")
-                || path.equals(prefix + "/policies/dry-run")
-                || path.equals(prefix + "/reasoning/analyze")
-                || path.endsWith("/transition-check")
-                || path.endsWith("/augmented-context")
-                || path.endsWith("/execute") && path.contains("/saved-views/")
-                || path.endsWith("/export") && path.contains("/saved-views/")
-                || path.endsWith("/resolve") && path.contains("/external-references/");
     }
 
     static boolean usesBoundedUpstreamTimeout(String rawMethod, String path) {
-        String method = Objects.requireNonNull(rawMethod, "rawMethod").toUpperCase(Locale.ROOT);
-        Objects.requireNonNull(path, "path");
-        if (method.equals("GET") || method.equals("HEAD")) return true;
-        if (!method.equals("POST")) return false;
-        // Only operations whose execution is entirely controlled by MORPHEUS receive the facade deadline.
-        // An ADMIN-approved provider probe executes third-party code that has no cooperative cancellation contract;
-        // returning 504 while that code continues would release the remote semaphore too early and make completion
-        // ambiguous. Keep that slot until the loopback probe actually completes.
-        return isReadOnlyPost(path);
+        return MorpheusRemoteRoutePolicy.usesBoundedUpstreamTimeout(rawMethod, path);
     }
 
     private void proxy(HttpExchange exchange) throws IOException {
@@ -357,6 +320,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         }
         URI target = localTarget(requestUri);
         HttpRequest.Builder request = HttpRequest.newBuilder(target);
+        internalCapability.authorize(request);
         if (usesBoundedUpstreamTimeout(exchange.getRequestMethod(), requestUri.getPath())) {
             request.timeout(READ_ONLY_UPSTREAM_TIMEOUT);
         }
