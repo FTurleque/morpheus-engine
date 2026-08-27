@@ -108,6 +108,43 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(discovery.contains("manifest.requireRemoteTrust(manifestUri)"));
     }
 
+    @Test
+    void policyAdaptersCannotBypassBoundedQueryDefinitionCodec() throws IOException {
+        Path root = repoRoot();
+        String codec = Files.readString(root.resolve(
+                "morpheus-application/src/main/java/com/morpheus/application/query/dsl/QueryDefinitionCodec.java"));
+        String validator = Files.readString(root.resolve(
+                "morpheus-application/src/main/java/com/morpheus/application/query/dsl/QueryValidator.java"));
+
+        assertTrue(codec.contains("requireEncodedSize(encoded)"),
+                "QueryDefinitionCodec must reject oversized encoded input before Base64 decoding");
+        assertTrue(codec.contains("budget.enterNode(depth)"),
+                "QueryDefinitionCodec must account for every AST node before recursive decoding");
+        assertTrue(codec.contains("budget.enterPredicate()"),
+                "QueryDefinitionCodec must enforce the global predicate budget during decoding");
+        assertTrue(codec.contains("new QueryValidator().requireValid(query, encoded.length())"),
+                "Decoded queries must pass the shared semantic and size validator before leaving the codec");
+        assertTrue(validator.contains("counters.exhausted"),
+                "QueryValidator must stop traversal after a structural budget is exceeded");
+
+        assertUsesBoundedQueryCodec(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusPolicyApiService.java"));
+        assertUsesBoundedQueryCodec(root.resolve(
+                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusPolicyMcpTools.java"));
+        assertUsesBoundedQueryCodec(root.resolve(
+                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusPolicyCli.java"));
+    }
+
+    private void assertUsesBoundedQueryCodec(Path adapter) throws IOException {
+        String source = Files.readString(adapter);
+        assertTrue(source.contains("QueryDefinitionCodec"),
+                adapter + " must depend on the shared bounded query codec");
+        assertTrue(source.contains("queryCodec.decode("),
+                adapter + " must decode persisted QUERY_ASSERTION payloads through QueryDefinitionCodec");
+        assertFalse(source.contains("Base64.getUrlDecoder()"),
+                adapter + " must not implement an unbounded parallel query decoder");
+    }
+
     private Path repoRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
