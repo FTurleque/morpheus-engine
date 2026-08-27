@@ -6,20 +6,23 @@
 
 ## État produit
 
-**MORPHEUS 1.2.0 est la release stable publiée.**
+**MORPHEUS 1.2.0 est la release stable publiée.** La baseline de développement courante est **1.2.1**.
 
 ```text
-Stable version      1.2.0
-Stable tag          v1.2.0
-Release commit      3ad9ebf030b58df97482e21e272c24feae6b9d86
-R3                  COMPLETE / VALIDATED / PUBLISHED
-Published assets    8/8 parity PASS
-Post-R3             D2 — Repository Hardening en cours
-D2 issue            #120
+Stable version          1.2.0
+Stable tag              v1.2.0
+Release commit          3ad9ebf030b58df97482e21e272c24feae6b9d86
+R3                      COMPLETE / VALIDATED / PUBLISHED
+Published assets        8/8 parity PASS
+Development baseline    1.2.1
+D2                      COMPLETE / QUALIFIED / MERGED
+D2 issue                #120 CLOSED / completed
+D2 qualified exact head fa54b3d6a316357b2ef79afd2243619a64a05f3b
+D2 merge commit         c12882d6e43daab600f6580f22f8eff2fbc6f4de
 ```
 
 Preuve de release : [`docs/validation/VALIDATION_R3.md`](docs/validation/VALIDATION_R3.md).
-Plan D2 : [`docs/roadmap/D2_EXECUTION.md`](docs/roadmap/D2_EXECUTION.md).
+Preuve historique D2 : [`docs/validation/VALIDATION_D2.md`](docs/validation/VALIDATION_D2.md), complétée par les preuves exact-head de la PR #121.
 
 ## Capacités
 
@@ -147,17 +150,17 @@ Docker required for native MCP = false
 ## Fondation technique
 
 ```text
-Java                  21
-Build                 Maven Wrapper 3.9.16
-Release stable        1.2.0
+Java                   21
+Build                  Maven Wrapper 3.9.16
+Release stable         1.2.0
 Baseline développement 1.2.1
-Persistent store      SQLite
-SQLite JDBC           3.53.2.0 (D2 branch)
-Jackson               3.1.5 LTS (D2 branch)
-MCP SDK               Java MCP SDK 2.0.0
-HTTP local            JDK jdk.httpserver
-Remote HTTPS          JDK HttpsServer, opt-in
-Distribution          jpackage + Inno Setup Windows
+Persistent store       SQLite
+SQLite JDBC            3.53.2.0
+Jackson                3.1.5 LTS
+MCP SDK                Java MCP SDK 2.0.1
+HTTP local             JDK jdk.httpserver
+Remote HTTPS           JDK HttpsServer, opt-in
+Distribution           jpackage + Inno Setup Windows
 ```
 
 Modules Maven :
@@ -173,6 +176,7 @@ morpheus-provider-markdown
 morpheus-provider-synthetic
 morpheus-store-memory
 morpheus-store-sqlite
+morpheus-mcp-transport
 morpheus-integration-minos
 morpheus-integration-nexus
 morpheus-mcp
@@ -193,32 +197,32 @@ Le gate Maven canonique est :
 ./mvnw clean verify
 ```
 
-D2 ajoute un gate local complet :
+Le gate durable exact-head utilisé par `MORPHEUS CI` est :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.1 -BaseRef origin/develop
+.\scripts\validate.cmd m21 -Version 1.2.1
 ```
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
+bash ./scripts/validate-m21.sh 1.2.1
 ```
 
-Le gate **D2 reste une qualification locale distincte** ; les workflows `MORPHEUS CI` et `MORPHEUS Security` constituent des défenses complémentaires et ne remplacent pas la preuve D2.
+Sur les pull requests, la couverture différentielle impose **≥ 80 % des lignes exécutables changées** et **≥ 70 % des branches changées**. Le ratchet global est **≥ 50,6 % lignes / ≥ 43,0 % branches**. Dependency hygiene, SBOM CycloneDX, provenance et smoke packaging font partie du gate durable.
 
-## Qualité D2
+D2 reste une preuve historique distincte : sa qualification finale a été effectuée localement sur Windows et Linux/WSL au même SHA, sans utiliser la CI comme gate D2. Cette contrainte historique ne désactive pas les workflows actuels `MORPHEUS CI`, `MORPHEUS Security` et `MORPHEUS CodeQL`.
 
-Sur la branche D2 :
+## Sécurité et supply chain
 
 ```text
-Jackson                3.1.5 LTS
-sqlite-jdbc            3.53.2.0
-OWASP Dependency-Check 12.2.2, scan local explicite
-Dependency hygiene     failOnWarning=true
-JaCoCo line floor      40%
-JaCoCo branch floor    35%
+OWASP Dependency-Check 12.2.2
+SCA fail threshold      CVSS >= 7.0
+Dependency hygiene      failOnWarning=true
+SBOM                    CycloneDX JSON + XML
+Code scanning           CodeQL security-extended
+Dependency updates      Dependabot Maven + GitHub Actions
 ```
 
-La qualification D2 n’est considérée acquise qu’après Windows + Linux/WSL sur le même SHA exact. Voir [`docs/validation/VALIDATION_D2.md`](docs/validation/VALIDATION_D2.md).
+La qualification end-to-end du workflow de release attestée sera faite lors de la prochaine vraie release `v1.2.1` ou supérieure ; elle n’est pas simulée sur un tag artificiel.
 
 ## Documentation
 
@@ -230,4 +234,4 @@ Point d’entrée : [`docs/README.md`](docs/README.md).
 - installation : [`docs/user/INSTALLATION.md`](docs/user/INSTALLATION.md) ;
 - clients MCP : [`docs/user/MCP_CLIENTS.md`](docs/user/MCP_CLIENTS.md) ;
 - build/test : [`docs/developer/BUILD_AND_TEST.md`](docs/developer/BUILD_AND_TEST.md) ;
-- D2 : [`docs/roadmap/D2_EXECUTION.md`](docs/roadmap/D2_EXECUTION.md).
+- preuve historique D2 : [`docs/validation/VALIDATION_D2.md`](docs/validation/VALIDATION_D2.md).
