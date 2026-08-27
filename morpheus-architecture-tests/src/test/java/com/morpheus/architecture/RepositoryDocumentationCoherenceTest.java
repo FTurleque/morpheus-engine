@@ -90,7 +90,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void rootBuildEnforcerPinsQualifiedJavaAndDependencyConvergence() throws Exception {
-        String pom = Files.readString(repositoryRoot().resolve("pom.xml"));
+        String pom = Files.readString(repositoryRoot().resolve("pom.xml")).replace("\r\n", "\n");
         assertTrue(pom.contains("<requireJavaVersion>\n                                    <version>[21,22)</version>\n                                </requireJavaVersion>"),
                 "root Maven enforcer must reject JDKs newer than the qualified Java 21 line");
         assertTrue(pom.contains("<dependencyConvergence/>"),
