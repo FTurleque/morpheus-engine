@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -20,13 +21,7 @@ class QueryDefinitionCodecBudgetTest {
 
     @Test
     void validDefinitionStillRoundTripsDeterministically() {
-        QueryDefinition query = new QueryDefinition(
-                new ProjectQueryScope(ProjectSpecificationId.generate()),
-                QueryEntityType.REQUIREMENT,
-                Optional.of(QueryPredicate.exists("title")),
-                List.of(),
-                QueryProjection.defaults(),
-                QueryPage.first(10));
+        QueryDefinition query = queryWithFilter(QueryPredicate.exists("title"));
 
         String encoded = codec.encode(query);
 
@@ -47,13 +42,8 @@ class QueryDefinitionCodecBudgetTest {
 
     @Test
     void rejectsEncoderOutputAboveSixteenKiB() {
-        QueryDefinition query = new QueryDefinition(
-                new ProjectQueryScope(ProjectSpecificationId.generate()),
-                QueryEntityType.REQUIREMENT,
-                Optional.of(QueryPredicate.unary("title", QueryOperator.CONTAINS, "x".repeat(20_000))),
-                List.of(),
-                QueryProjection.defaults(),
-                QueryPage.first(10));
+        QueryDefinition query = queryWithFilter(
+                QueryPredicate.unary("title", QueryOperator.CONTAINS, "x".repeat(20_000)));
 
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
@@ -114,23 +104,52 @@ class QueryDefinitionCodecBudgetTest {
     }
 
     @Test
-    void validatorStopsTraversingOnceStructuralBudgetIsExceeded() {
+    void validatorStopsTraversingOnceDepthBudgetIsExceeded() {
         QueryFilter filter = QueryPredicate.exists("title");
         for (int depth = 0; depth < 10_000; depth++) {
             filter = new QueryNot(filter);
         }
-        QueryDefinition query = new QueryDefinition(
+
+        List<QueryDiagnostic> diagnostics = new QueryValidator().validate(queryWithFilter(filter));
+
+        assertTrue(diagnostics.stream().anyMatch(diagnostic ->
+                diagnostic.message().contains("boolean depth exceeds " + QueryBudgets.MAX_BOOLEAN_DEPTH)));
+    }
+
+    @Test
+    void validatorStopsAtOneHundredTwentyNinthGlobalAstNode() {
+        List<QueryFilter> children = new ArrayList<>();
+        for (int index = 0; index < 64; index++) {
+            children.add(new QueryNot(QueryPredicate.exists("title")));
+        }
+
+        List<QueryDiagnostic> diagnostics = new QueryValidator().validate(queryWithFilter(new QueryAnd(children)));
+
+        assertTrue(diagnostics.stream().anyMatch(diagnostic ->
+                diagnostic.message().contains("AST nodes exceed " + QueryBudgets.MAX_AST_NODES)));
+    }
+
+    @Test
+    void validatorStopsAtSixtyFifthGlobalPredicate() {
+        List<QueryFilter> children = new ArrayList<>();
+        for (int index = 0; index <= QueryBudgets.MAX_PREDICATES; index++) {
+            children.add(QueryPredicate.exists("title"));
+        }
+
+        List<QueryDiagnostic> diagnostics = new QueryValidator().validate(queryWithFilter(new QueryAnd(children)));
+
+        assertTrue(diagnostics.stream().anyMatch(diagnostic ->
+                diagnostic.message().contains("predicates exceed " + QueryBudgets.MAX_PREDICATES)));
+    }
+
+    private QueryDefinition queryWithFilter(QueryFilter filter) {
+        return new QueryDefinition(
                 new ProjectQueryScope(ProjectSpecificationId.generate()),
                 QueryEntityType.REQUIREMENT,
                 Optional.of(filter),
                 List.of(),
                 QueryProjection.defaults(),
                 QueryPage.first(10));
-
-        List<QueryDiagnostic> diagnostics = new QueryValidator().validate(query);
-
-        assertTrue(diagnostics.stream().anyMatch(diagnostic ->
-                diagnostic.message().contains("boolean depth exceeds " + QueryBudgets.MAX_BOOLEAN_DEPTH)));
     }
 
     private String encodedFilter(FilterWriter writer) throws IOException {
