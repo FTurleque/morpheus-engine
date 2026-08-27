@@ -88,6 +88,38 @@ class RepositoryDocumentationCoherenceTest {
         assertFalse(windows.contains("-lt 0.506"), "Windows validator must not retain the old embedded line ratchet");
     }
 
+    @Test
+    void rootBuildEnforcerPinsQualifiedJavaAndDependencyConvergence() throws Exception {
+        String pom = Files.readString(repositoryRoot().resolve("pom.xml"));
+        assertTrue(pom.contains("<requireJavaVersion>\n                                    <version>[21,22)</version>\n                                </requireJavaVersion>"),
+                "root Maven enforcer must reject JDKs newer than the qualified Java 21 line");
+        assertTrue(pom.contains("<dependencyConvergence/>"),
+                "root Maven enforcer must reject divergent transitive dependency versions");
+    }
+
+    @Test
+    void httpExtensionRoutesUseSharedTimedRequestBodyBoundary() throws Exception {
+        Path root = repositoryRoot();
+        Path api = root.resolve("morpheus-api/src/main/java/com/morpheus/api");
+        List<String> routes = List.of(
+                "MorpheusQueryHttpRoutes.java",
+                "MorpheusPolicyHttpRoutes.java",
+                "MorpheusPolicyManagementHttpRoutes.java",
+                "MorpheusReasoningHttpRoutes.java");
+
+        for (String route : routes) {
+            String content = Files.readString(api.resolve(route));
+            assertTrue(content.contains("HttpRequestBodyReader.read(exchange)"),
+                    () -> route + " must use the shared timed request-body boundary");
+            assertFalse(content.contains("getRequestBody().readNBytes("),
+                    () -> route + " must not perform direct wall-clock-unbounded request-body reads");
+        }
+
+        String reader = Files.readString(api.resolve("HttpRequestBodyReader.java"));
+        assertTrue(reader.contains("TimedBoundedInputReader.read("),
+                "shared extension-route body reader must delegate to the deadline-aware primitive");
+    }
+
     private static List<Path> activeStatusPages(Path root) {
         return List.of(
                 root.resolve("README.md"),
