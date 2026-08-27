@@ -99,7 +99,7 @@ class ProductionIntegrityContractTest {
         assertTrue(integrity.contains("Changed lines       >= 80 %"));
         assertTrue(integrity.contains("Changed branches    >= 70 %"));
         assertTrue(integrity.contains("config/m21-quality-ratchets.properties"));
-        assertTrue(integrity.contains("dependency convergence"));
+        assertTrue(integrity.contains("convergence des dépendances transitives"));
         assertTrue(integrity.contains("HttpRequestBodyReader"));
         assertTrue(integrity.contains("CycloneDX"));
         assertTrue(integrity.contains("update discovery != automatic update"));
