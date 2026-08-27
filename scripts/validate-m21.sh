@@ -73,12 +73,12 @@ python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line = float(sys.argv[1])
 branch = float(sys.argv[2])
-if line < 0.50:
-    raise SystemExit(f'M21 line coverage below 50% ratchet: {line}')
-if branch < 0.42:
-    raise SystemExit(f'M21 branch coverage below 42% ratchet: {branch}')
+if line < 0.504:
+    raise SystemExit(f'M21 line coverage below 50.4% ratchet: {line}')
+if branch < 0.429:
+    raise SystemExit(f'M21 branch coverage below 42.9% ratchet: {branch}')
 PY
-printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO, ratchet=50%/42%)"
+printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO, ratchet=50.4%/42.9%)"
 
 SBOM_JSON="$REPO/target/m21-supply-chain/morpheus-sbom.json"
 SBOM_XML="$REPO/target/m21-supply-chain/morpheus-sbom.xml"
