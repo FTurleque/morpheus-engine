@@ -120,6 +120,38 @@ class RepositoryDocumentationCoherenceTest {
                 "shared extension-route body reader must delegate to the deadline-aware primitive");
     }
 
+    @Test
+    void repositoryPublishesSecurityPolicyAndSensitiveCodeOwnership() throws Exception {
+        Path root = repositoryRoot();
+        String security = Files.readString(root.resolve("SECURITY.md"));
+        String codeowners = Files.readString(root.resolve(".github/CODEOWNERS"));
+
+        assertTrue(security.contains("Reporting a vulnerability"));
+        assertTrue(security.contains("not an operating-system sandbox"));
+        assertTrue(security.contains("Unknown remote routes are denied"));
+        assertTrue(codeowners.contains("* @FTurleque"));
+        assertTrue(codeowners.contains("/morpheus-api/ @FTurleque"));
+        assertTrue(codeowners.contains("/morpheus-provider-sdk/ @FTurleque"));
+        assertTrue(codeowners.contains("/morpheus-mcp-transport/ @FTurleque"));
+        assertTrue(codeowners.contains("/morpheus-store-sqlite/ @FTurleque"));
+    }
+
+    @Test
+    void remoteAuthorizationAndCredentialDocumentationStayFailClosedAndExpiryAware() throws Exception {
+        Path root = repositoryRoot();
+        String routePolicy = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRoutePolicy.java"));
+        String userGuide = Files.readString(root.resolve("docs/user/TEAM_REMOTE_SERVER.md"));
+
+        assertTrue(routePolicy.contains("private static final List<RouteRule> ROUTES"));
+        assertTrue(routePolicy.contains("unknown remote API path"));
+        assertFalse(routePolicy.contains("method.equals(\"GET\") || method.equals(\"HEAD\")"),
+                "remote authorization must not infer READ authority from GET/HEAD");
+        assertTrue(userGuide.contains("table exhaustive `(méthode HTTP, route) -> rôle minimum`"));
+        assertTrue(userGuide.contains("principal|role|sha256(token)[|expiresAt]"));
+        assertTrue(userGuide.contains("--expires-at never"));
+    }
+
     private static List<Path> activeStatusPages(Path root) {
         return List.of(
                 root.resolve("README.md"),
