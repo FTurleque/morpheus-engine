@@ -28,6 +28,17 @@ class McpDiagnosticRedactorTest {
     }
 
     @Test
+    void redactsJsonAuthorizationIncludingSchemeAndCredential() {
+        String bearer = "json-bearer-value";
+        String diagnostic = McpDiagnosticRedactor.redact(
+                "peer={\"Authorization\":\"Bearer " + bearer + "\",\"status\":401}");
+
+        assertEquals("peer={\"Authorization\":\"<redacted>\",\"status\":401}", diagnostic);
+        assertFalse(diagnostic.contains(bearer));
+        assertFalse(diagnostic.contains("Bearer"));
+    }
+
+    @Test
     void redactsJsonStyleSecretsAndThrowableMessages() {
         String token = "json-token-value";
         String password = "json-password-value";
