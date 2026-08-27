@@ -23,7 +23,7 @@ morpheus --db /path/to/morpheus.db mcp --stdio
 Contrat transport :
 
 ```text
-SDK        Java MCP SDK 2.0.0
+SDK        Java MCP SDK 2.0.1
 transport  STDIO
 stdout     JSON-RPC MCP uniquement
 stderr     diagnostics uniquement
