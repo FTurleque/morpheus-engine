@@ -87,10 +87,6 @@ public final class QueryValidator {
             int depth,
             Counters counters,
             List<QueryDiagnostic> diagnostics) {
-        if (counters.exhausted) {
-            return;
-        }
-
         counters.nodes++;
         if (counters.nodes > QueryBudgets.MAX_AST_NODES) {
             diagnostics.add(new QueryDiagnostic(
@@ -138,8 +134,11 @@ public final class QueryValidator {
             int parentDepth,
             Counters counters,
             List<QueryDiagnostic> diagnostics) {
-        for (int index = 0; index < children.size() && !counters.exhausted; index++) {
+        for (int index = 0; index < children.size(); index++) {
             inspect(children.get(index), fields, path + "[" + index + "]", parentDepth + 1, counters, diagnostics);
+            if (counters.exhausted) {
+                return;
+            }
         }
     }
 
