@@ -1,21 +1,23 @@
 # Feuille de route — MORPHEUS
 
-Statut : **MORPHEUS 1.2.0 PUBLIÉ — D2 POST-R3 HARDENING EN COURS**
+Statut : **MORPHEUS 1.2.0 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.1 / HARDENING CONTINU**
 
-Dernière mise à jour : 5 août 2026
+Dernière mise à jour : 27 août 2026
 
 MORPHEUS est piloté par des preuves : contrats stables, tests reproductibles, SHA exacts et réponse explicite à chaque question de sortie.
 
 ## Politique de branches
 
 ```text
-feature / milestone branch -> develop
-release branch             -> main après qualification
-develop                    -> intégration
-main                       -> stabilisation / livraison
+feature / fix branch        -> develop via PR
+promotion branch temporaire -> main après qualification
+develop                     -> intégration protégée
+main                        -> stabilisation / livraison protégée
 ```
 
-## Baseline stable
+Les protections repository imposent des checks exact-head et interdisent de considérer une simple documentation comme preuve d’exécution.
+
+## Baseline stable et historique
 
 ```text
 C0 → M20      ✅ validés et intégrés
@@ -25,7 +27,7 @@ M21 → M27     ✅ validés et intégrés
 R2            ✅ MORPHEUS 1.1.0 publié
 M28           ✅ validé, intégré et livré dans 1.2.0
 R3            ✅ MORPHEUS 1.2.0 publié
-D2            🚧 Post-R3 Repository Hardening
+D2            ✅ Post-R3 Repository Hardening qualifié et intégré
 ```
 
 ```text
@@ -37,50 +39,62 @@ R3 PR                       #118 MERGED
 R3 issue                    #117 CLOSED / completed
 published assets            8/8
 published parity            8/8 PASS
-D2 issue                    #120 OPEN
-D2 branch                   d2-post-r3-hardening
+D2 issue                    #120 CLOSED / completed
+D2 PR                       #121 MERGED
+D2 qualified exact head     fa54b3d6a316357b2ef79afd2243619a64a05f3b
+D2 develop merge commit     c12882d6e43daab600f6580f22f8eff2fbc6f4de
 ```
 
-## NOW — D2 Post-R3 Repository Hardening
+## D2 — terminé
 
-Question de sortie :
+D2 répondait à la question de sortie suivante :
 
 > Le HEAD post-R3 est-il sécurisé, documenté et localement qualifié sur Windows + Linux/WSL, sans dépendre d’aucune CI et sans modifier GitHub Actions ?
 
-Périmètre :
+Résultat final : **oui**, sur le SHA exact `fa54b3d6a316357b2ef79afd2243619a64a05f3b`.
 
 ```text
-Jackson 3.1 LTS patched baseline
-sqlite-jdbc patched baseline
-local Maven SCA
-JSON nesting regression
-coverage ratchet 40% / 35%
-blocking dependency hygiene
-active documentation reconciliation
-Windows exact-head local gate
-Linux/WSL exact-head local gate
-same exact SHA
+Jackson 3.1.5 LTS             integrated
+sqlite-jdbc 3.53.2.0          integrated
+local Maven SCA               PASS
+coverage floors 40% / 35%     enforced
+blocking dependency hygiene   enforced
+Windows exact-head local gate PASS
+Linux/WSL exact-head local    PASS
+same exact SHA                PASS
+.github/workflows delta       NONE
+CI used as D2 gate            false
 ```
 
-Plan : [`../roadmap/D2_EXECUTION.md`](../roadmap/D2_EXECUTION.md).
-Preuve : [`../validation/VALIDATION_D2.md`](../validation/VALIDATION_D2.md).
+Plan historique : [`../roadmap/D2_EXECUTION.md`](../roadmap/D2_EXECUTION.md).
+Preuve historique : [`../validation/VALIDATION_D2.md`](../validation/VALIDATION_D2.md), complétée par les preuves exact-head publiées sur la PR #121.
 
-## Contrainte D2 — aucune CI
+La contrainte « aucune CI » était spécifique au protocole D2. Elle ne redéfinit pas la politique actuelle de `develop`.
 
-D2 n’utilise aucune GitHub Actions / CI comme source de vérité.
+## NOW — baseline corrective 1.2.1
+
+La priorité courante est de faire progresser la qualité sans inventer une nouvelle release tant qu’un vrai tag n’a pas été produit.
 
 ```text
-workflow inspection         NOT USED
-workflow rerun/dispatch     NOT USED
-.github/workflows mutation  FORBIDDEN
-CI status as gate           FORBIDDEN
-Windows local gate          REQUIRED
-Linux/WSL local gate        REQUIRED
+version développement           1.2.1
+MORPHEUS CI                      Windows + Ubuntu exact-head
+MORPHEUS Security                OWASP Dependency-Check
+MORPHEUS CodeQL                  security-extended
+diff coverage PR                 >= 80% lines / >= 70% branches
+global coverage ratchet          >= 50.6% lines / >= 43.0% branches
+Surefire / architecture ratchets >= 820 / >= 258
+SBOM / provenance                required
 ```
 
-Les validateurs D2 refusent tout delta sous `.github/workflows/`.
+Suivis actifs :
 
-Cette contrainte est spécifique au jalon D2 demandé ; elle ne redéfinit pas à elle seule la politique future de CI après D2.
+```text
+#154  SonarCloud + réglages GitHub Security administrateur
+#184  réduction progressive de la dette de couverture historique
+#185  qualification réelle du workflow de release attestée sur v1.2.1+
+```
+
+Ces suivis ont des critères de clôture explicites : aucune configuration externe ni qualification de release n’est simulée pour obtenir artificiellement un état vert.
 
 ## R3 — MORPHEUS 1.2.0
 
@@ -136,16 +150,18 @@ uninstall is state-driven
 stable tag is immutable
 release tag target == exact main release commit
 published assets == exact-tag assets
-D2 CI workflow delta == NONE
+historical validation evidence is never rewritten
+current documentation must match repository facts
 ```
 
-## Après D2
+## Prochaine sortie
 
-Aucun nouveau grand jalon produit n’est défini par ce document tant que D2 n’est pas qualifié et intégré.
+Aucun numéro de release supplémentaire n’est déclaré publié avant une vraie exécution du pipeline de release.
 
 ```text
 NEXT
-  terminer D2
-  réconcilier develop après merge
-  sélectionner le prochain milestone produit
+  réduire la dette de couverture historique (#184)
+  vérifier les réglages externes encore ouverts (#154)
+  maintenir les ratchets exact-head sans régression
+  qualifier la prochaine vraie release attestée (#185)
 ```
