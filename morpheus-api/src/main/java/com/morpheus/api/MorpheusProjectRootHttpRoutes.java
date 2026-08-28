@@ -8,11 +8,11 @@ import java.util.Set;
 
 /** Owns local HTTP dispatch for the project collection and project detail routes. */
 final class MorpheusProjectRootHttpRoutes {
-    private final MorpheusApiService service;
+    private final MorpheusProjectRegistryApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
 
     MorpheusProjectRootHttpRoutes(MorpheusApiService service, MorpheusHttpRequestDecoder requestDecoder) {
-        this.service = Objects.requireNonNull(service, "service");
+        this.service = Objects.requireNonNull(service, "service").projectRegistryService();
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
     }
 
@@ -38,7 +38,7 @@ final class MorpheusProjectRootHttpRoutes {
         if (method.equals("POST")) {
             MorpheusHttpServer.ProjectRegistrationRequest request = requestDecoder.readRequiredJson(
                     exchange, MorpheusHttpServer.ProjectRegistrationRequest.class);
-            MorpheusApiService.RegistrationResult result = service.registerProject(request.workspace());
+            MorpheusProjectRegistryApiService.RegistrationResult result = service.registerProject(request.workspace());
             return new MorpheusHttpRouteResponse(result.created() ? 201 : 200, result.project());
         }
         throw ApiFailure.methodNotAllowed("projects supports GET and POST");
