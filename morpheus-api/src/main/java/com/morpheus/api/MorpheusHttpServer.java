@@ -25,7 +25,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -46,8 +45,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusControlledLifecycleApiService controlledLifecycleService;
     private final MorpheusCompositionApiService compositionService;
     private final MorpheusPortfolioApiService portfolioService;
-    private final MorpheusOperabilityApiService operabilityService;
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusRootHttpRoutes rootRoutes;
     private final MorpheusProjectRootHttpRoutes projectRootRoutes;
     private final MorpheusProjectSyncHttpRoutes projectSyncRoutes;
     private final MorpheusPortfolioHttpRoutes portfolioRoutes;
@@ -85,9 +84,10 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.controlledLifecycleService = Objects.requireNonNull(controlledLifecycleService, "controlledLifecycleService");
         this.compositionService = Objects.requireNonNull(compositionService, "compositionService");
         this.portfolioService = Objects.requireNonNull(portfolioService, "portfolioService");
-        this.operabilityService = Objects.requireNonNull(operabilityService, "operabilityService");
         this.requestDecoder = new MorpheusHttpRequestDecoder(
                 MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, this.executor);
+        this.rootRoutes = new MorpheusRootHttpRoutes(
+                this.service, Objects.requireNonNull(operabilityService, "operabilityService"));
         this.projectRootRoutes = new MorpheusProjectRootHttpRoutes(this.service, this.requestDecoder);
         this.projectSyncRoutes = new MorpheusProjectSyncHttpRoutes(this.service, this.requestDecoder);
         this.portfolioRoutes = new MorpheusPortfolioHttpRoutes(this.portfolioService, this.requestDecoder);
@@ -275,31 +275,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
         List<String> segments = pathSegments(exchange.getRequestURI().getPath());
         MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
 
-        if (segments.isEmpty()) {
-            requireMethod(method, "GET");
-            query.rejectUnknown(Set.of());
-            return ok(Map.of("service", "morpheus", "apiVersion", "v1"));
-        }
-        if (segments.size() == 1 && segments.getFirst().equals("health")) {
-            requireMethod(method, "GET");
-            query.rejectUnknown(Set.of());
-            return ok(service.health());
-        }
-        if (segments.size() == 1 && segments.getFirst().equals("readiness")) {
-            requireMethod(method, "GET");
-            query.rejectUnknown(Set.of());
-            MorpheusOperabilityApiService.ReadinessView readiness = operabilityService.readiness();
-            return new MorpheusHttpRouteResponse("READY".equals(readiness.status()) ? 200 : 503, readiness);
-        }
-        if (segments.size() == 1 && segments.getFirst().equals("metrics")) {
-            requireMethod(method, "GET");
-            query.rejectUnknown(Set.of());
-            return ok(operabilityService.metrics());
-        }
-        if (segments.size() == 1 && segments.getFirst().equals("version")) {
-            requireMethod(method, "GET");
-            query.rejectUnknown(Set.of());
-            return ok(service.version());
+        if (rootRoutes.handles(segments)) {
+            return rootRoutes.route(method, segments, query);
         }
         if (segments.size() == 2 && segments.getFirst().equals("provider-plugins")) {
             return providerPluginRoutes.route(method, segments, query);
@@ -346,14 +323,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private ApiErrorEnvelope error(String code, String message, Map<String, Object> details) {
         return new ApiErrorEnvelope("v1", new ApiError(code, message, details));
-    }
-
-    private MorpheusHttpRouteResponse ok(Object data) {
-        return new MorpheusHttpRouteResponse(200, data);
-    }
-
-    private void requireMethod(String actual, String expected) {
-        MorpheusHttpRouteGuards.requireMethod(actual, expected);
     }
 
     private List<String> pathSegments(String path) {
