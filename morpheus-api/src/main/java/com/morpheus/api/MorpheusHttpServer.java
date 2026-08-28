@@ -56,6 +56,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusSpecificationsHttpRoutes specificationsRoutes;
     private final MorpheusDiagnosticsHttpRoutes diagnosticsRoutes;
     private final MorpheusExternalReferenceHttpRoutes externalReferenceRoutes;
+    private final MorpheusVersionsHttpRoutes versionsRoutes;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
     private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
     private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
@@ -92,6 +93,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.specificationsRoutes = new MorpheusSpecificationsHttpRoutes(this.service);
         this.diagnosticsRoutes = new MorpheusDiagnosticsHttpRoutes(this.service);
         this.externalReferenceRoutes = new MorpheusExternalReferenceHttpRoutes(this.externalReferenceService);
+        this.versionsRoutes = new MorpheusVersionsHttpRoutes(this.service);
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -329,7 +331,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "specifications" -> specificationsRoutes.route(method, segments, query, projectId);
             case "requirements" -> routeRequirements(exchange, method, segments, query, projectId);
             case "changes" -> routeChanges(exchange, method, segments, query, projectId);
-            case "versions" -> routeVersions(method, segments, query, projectId);
+            case "versions" -> versionsRoutes.route(method, segments, query, projectId);
             case "diagnostics" -> diagnosticsRoutes.route(method, segments, query, projectId);
             case "external-references" -> externalReferenceRoutes.route(method, segments, query, projectId);
             default -> throw ApiFailure.notFound("unknown project API resource: " + resource);
@@ -440,22 +442,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
             }
             default -> throw ApiFailure.notFound("unknown change subresource: " + child);
         };
-    }
-
-    private MorpheusHttpRouteResponse routeVersions(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
-        requireMethod(method, "GET");
-        if (segments.size() == 3) {
-            query.rejectUnknown(Set.of());
-            return ok(service.versions(projectId));
-        }
-        if (segments.size() == 4 && segments.get(3).equals("compare")) {
-            query.rejectUnknown(Set.of("fromSnapshotId", "toSnapshotId"));
-            return ok(service.compareVersions(projectId, query.required("fromSnapshotId"), query.required("toSnapshotId")));
-        }
-        if (segments.size() == 5 && segments.get(4).equals("requirements")) {
-            return ok(service.historicalRequirements(projectId, segments.get(3), page(query)));
-        }
-        throw ApiFailure.notFound("unknown versions route");
     }
 
     private PageRequest page(MorpheusHttpQuery query) {
