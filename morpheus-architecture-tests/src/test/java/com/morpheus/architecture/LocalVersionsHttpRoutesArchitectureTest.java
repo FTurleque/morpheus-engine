@@ -25,7 +25,9 @@ class LocalVersionsHttpRoutesArchitectureTest {
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeVersions("));
         assertFalse(server.contains("unknown versions route"));
 
-        assertTrue(routes.contains("MorpheusApiService service"));
+        assertTrue(routes.contains("private final MorpheusHistoryApiService service;"));
+        assertTrue(routes.contains("MorpheusVersionsHttpRoutes(MorpheusApiService facade)"));
+        assertTrue(routes.contains("this(Objects.requireNonNull(facade, \"facade\").historyService());"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
         assertTrue(routes.contains("service.versions(projectId)"));
         assertTrue(routes.contains("service.compareVersions("));
@@ -34,6 +36,7 @@ class LocalVersionsHttpRoutesArchitectureTest {
         assertTrue(routes.contains("query.required(\"toSnapshotId\")"));
         assertTrue(routes.contains("query.rejectUnknown(Set.of(\"offset\", \"limit\"))"));
         assertTrue(routes.contains("unknown versions route"));
+        assertFalse(routes.contains("private final MorpheusApiService service;"));
         assertFalse(routes.contains("HttpExchange"));
         assertFalse(routes.contains("HttpServer"));
         assertFalse(routes.contains("JsonMapper"));
