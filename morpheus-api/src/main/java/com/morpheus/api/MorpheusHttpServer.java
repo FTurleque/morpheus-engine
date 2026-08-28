@@ -54,6 +54,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusHttpRequestDecoder requestDecoder;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
     private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
+    private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
 
     private MorpheusHttpServer(
             HttpServer server,
@@ -229,7 +230,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             send(exchange, response.status(), success(response.data()));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", allowedMethods(exchange.getRequestURI().getPath()));
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getPath()));
             }
             send(exchange, failure.status(), error(failure.code(), failure.getMessage(), failure.details()));
         } catch (IllegalArgumentException failure) {
@@ -653,41 +654,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private List<String> pathSegments(String path) {
         return pathParser.segments(path);
-    }
-
-    private String allowedMethods(String path) {
-        List<String> segments;
-        try {
-            segments = pathSegments(path);
-        } catch (RuntimeException ignored) {
-            return "GET";
-        }
-        if (segments.isEmpty()) return "GET";
-        if (segments.size() == 2 && segments.getFirst().equals("provider-plugins")) {
-            return switch (segments.get(1)) {
-                case "discover" -> "GET";
-                case "probe" -> "POST";
-                default -> "GET";
-            };
-        }
-        if (segments.size() == 1 && (segments.getFirst().equals("projects") || segments.getFirst().equals("portfolios"))) {
-            return "GET, POST";
-        }
-        if (segments.getFirst().equals("portfolios")) {
-            if (segments.size() == 3 && (segments.get(2).equals("projects") || segments.get(2).equals("references"))) {
-                return "GET, POST";
-            }
-            if (segments.size() == 3 && segments.get(2).equals("traverse")) return "POST";
-            if (segments.size() == 5 && segments.get(2).equals("projects")
-                    && (segments.get(4).equals("missing") || segments.get(4).equals("freshness"))) return "POST";
-        }
-        if (segments.size() == 3 && segments.getFirst().equals("projects") && segments.get(2).equals("sync")) return "POST";
-        if (segments.size() == 5 && segments.getFirst().equals("projects")
-                && (segments.get(2).equals("requirements") || segments.get(2).equals("changes"))
-                && (segments.get(4).equals("augmented-context")
-                    || segments.get(4).equals("transition-check")
-                    || segments.get(4).equals("lifecycle-transitions"))) return "POST";
-        return "GET";
     }
 
     private static TechnicalContextProvider disabledNexus() {
