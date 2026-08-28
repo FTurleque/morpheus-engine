@@ -51,6 +51,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusHttpRequestDecoder requestDecoder;
     private final MorpheusPortfolioHttpRoutes portfolioRoutes;
     private final MorpheusProviderPluginHttpRoutes providerPluginRoutes;
+    private final MorpheusIntegrationStatusHttpRoutes integrationStatusRoutes;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
     private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
     private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
@@ -81,6 +82,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
                 MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, this.executor);
         this.portfolioRoutes = new MorpheusPortfolioHttpRoutes(this.portfolioService, this.requestDecoder);
         this.providerPluginRoutes = new MorpheusProviderPluginHttpRoutes(providerPluginProbeEnabled);
+        this.integrationStatusRoutes = new MorpheusIntegrationStatusHttpRoutes(
+                this.externalReferenceService, this.augmentedContextService);
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -284,13 +287,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         if (segments.size() == 3
                 && segments.getFirst().equals("integrations")
                 && segments.get(2).equals("status")) {
-            requireMethod(method, "GET");
-            query.rejectUnknown(Set.of());
-            return switch (segments.get(1)) {
-                case "minos" -> ok(externalReferenceService.minosStatus());
-                case "nexus" -> ok(augmentedContextService.nexusStatus());
-                default -> throw ApiFailure.notFound("unknown integration: " + segments.get(1));
-            };
+            return integrationStatusRoutes.route(method, segments, query);
         }
         if (!segments.getFirst().equals("projects")) {
             throw ApiFailure.notFound("unknown API route: " + exchange.getRequestURI().getPath());
