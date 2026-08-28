@@ -31,7 +31,9 @@ class MorpheusProjectRegistryApiServiceContractTest {
         MorpheusProjectRegistryApiService.RegistrationResult created = service.registerProject(workspace.toString());
         assertTrue(created.created());
         Map<?, ?> createdProject = (Map<?, ?>) created.project();
-        assertEquals(workspace.toAbsolutePath().normalize().toString(), createdProject.get("workspace"));
+        assertEquals(
+                workspace.toAbsolutePath().normalize(),
+                Path.of(createdProject.get("workspace").toString()).toAbsolutePath().normalize());
         assertEquals("none", createdProject.get("activeSnapshotId"));
 
         MorpheusProjectRegistryApiService.RegistrationResult existing = service.registerProject(workspace.toString());
@@ -49,6 +51,19 @@ class MorpheusProjectRegistryApiServiceContractTest {
         ApiFailure blank = assertThrows(ApiFailure.class, () -> service.registerProject("  "));
         assertEquals(400, blank.status());
         assertEquals("workspace is required", blank.getMessage());
+
+        ApiFailure nullWorkspace = assertThrows(ApiFailure.class, () -> service.registerProject(null));
+        assertEquals(400, nullWorkspace.status());
+        assertEquals("workspace is required", nullWorkspace.getMessage());
+
+        Path missingDirectory = tempDirectory.resolve("missing-directory");
+        ApiFailure notDirectory = assertThrows(
+                ApiFailure.class,
+                () -> service.registerProject(missingDirectory.toString()));
+        assertEquals(400, notDirectory.status());
+        assertEquals(
+                "workspace is not a directory: " + missingDirectory.toAbsolutePath().normalize(),
+                notDirectory.getMessage());
 
         Path allowed = Files.createDirectory(tempDirectory.resolve("allowed"));
         Path outside = Files.createDirectory(tempDirectory.resolve("outside"));
