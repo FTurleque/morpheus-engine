@@ -20,12 +20,9 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -56,6 +53,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final boolean providerPluginProbeEnabled;
     private final MorpheusHttpRequestDecoder requestDecoder;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
+    private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
 
     private MorpheusHttpServer(
             HttpServer server,
@@ -654,18 +652,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     }
 
     private List<String> pathSegments(String path) {
-        if (!path.startsWith(API_PREFIX)) throw ApiFailure.notFound("unknown API route: " + path);
-        String suffix = path.substring(API_PREFIX.length());
-        if (suffix.isEmpty() || suffix.equals("/")) return List.of();
-        String normalized = suffix.startsWith("/") ? suffix.substring(1) : suffix;
-        if (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
-        if (normalized.isEmpty()) return List.of();
-        List<String> result = new ArrayList<>();
-        for (String segment : normalized.split("/")) {
-            if (segment.isEmpty()) throw ApiFailure.notFound("invalid API path");
-            result.add(urlDecode(segment));
-        }
-        return List.copyOf(result);
+        return pathParser.segments(path);
     }
 
     private String allowedMethods(String path) {
@@ -719,10 +706,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private static String safeMessage(Throwable failure) {
         String message = failure.getMessage();
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
-    private static String urlDecode(String value) {
-        return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
     public record ApiSuccess(String apiVersion, Object data) {
