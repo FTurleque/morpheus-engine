@@ -4,16 +4,6 @@ import com.morpheus.application.history.HistoricalRequirementQueryService;
 import com.morpheus.application.history.PublishedSnapshotHistoryService;
 import com.morpheus.application.history.RequirementSnapshotComparisonService;
 import com.morpheus.application.product.ProductMetadata;
-import com.morpheus.application.quality.AcceptanceQualityService;
-import com.morpheus.application.quality.ChangeCompletenessAssessment;
-import com.morpheus.application.quality.ChangeCompletenessService;
-import com.morpheus.application.quality.DecisionReferenceQualityService;
-import com.morpheus.application.quality.QualityFinding;
-import com.morpheus.application.quality.QualityReport;
-import com.morpheus.application.quality.QualityReportService;
-import com.morpheus.application.quality.RequirementQualityService;
-import com.morpheus.application.quality.TaskQualityService;
-import com.morpheus.application.quality.compact.CompactQualityReportService;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.ChangeContextQueryService;
 import com.morpheus.application.query.PageRequest;
@@ -68,6 +58,7 @@ public final class MorpheusApiService {
     private final Path databasePath;
     private final MorpheusProjectRegistryApiService projectRegistryService;
     private final MorpheusProjectSyncApiService projectSyncService;
+    private final MorpheusDiagnosticsApiService diagnosticsService;
 
     public MorpheusApiService(Path databasePath) {
         this(databasePath, Optional.empty());
@@ -82,6 +73,7 @@ public final class MorpheusApiService {
         Optional<AllowedWorkspaceRoots> workspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
         this.projectRegistryService = new MorpheusProjectRegistryApiService(this.databasePath, workspaceRoots);
         this.projectSyncService = new MorpheusProjectSyncApiService(this.databasePath, workspaceRoots);
+        this.diagnosticsService = new MorpheusDiagnosticsApiService(this.databasePath);
     }
 
     public Object health() {
@@ -111,6 +103,10 @@ public final class MorpheusApiService {
 
     MorpheusProjectSyncApiService projectSyncService() {
         return projectSyncService;
+    }
+
+    MorpheusDiagnosticsApiService diagnosticsService() {
+        return diagnosticsService;
     }
 
     public Object sync(String projectIdValue, Optional<String> revision) {
@@ -307,36 +303,11 @@ public final class MorpheusApiService {
     }
 
     public Object changeStatus(String projectIdValue, String changeIdValue) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
-            return map(
-                    "snapshotId", activeSnapshot(runtime, projectId).id().toString(),
-                    "changeId", changeId.toString(),
-                    "status", "UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT",
-                    "lifecycleState", "UNAVAILABLE",
-                    "observableFacts", lifecycleFacts(assessment),
-                    "reason", "Published snapshot content does not persist an explicit ChangeLifecycle state; MORPHEUS does not infer it.");
-        }
+        return diagnosticsService.changeStatus(projectIdValue, changeIdValue);
     }
 
     public Object blockingConditions(String projectIdValue, String changeIdValue) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
-            return map(
-                    "snapshotId", activeSnapshot(runtime, projectId).id().toString(),
-                    "changeId", changeId.toString(),
-                    "currentRequirementCount", assessment.currentRequirementCount(),
-                    "constraintCount", assessment.constraintCount(),
-                    "designDecisionCount", assessment.designDecisionCount(),
-                    "implementationTaskCount", assessment.implementationTaskCount(),
-                    "observableFacts", lifecycleFacts(assessment),
-                    "unavailableFacts", assessment.lifecycleFacts().unavailableFacts(),
-                    "findings", assessment.findings().stream().map(this::finding).toList());
-        }
+        return diagnosticsService.blockingConditions(projectIdValue, changeIdValue);
     }
 
     public Object versions(String projectIdValue) {
@@ -397,21 +368,7 @@ public final class MorpheusApiService {
     }
 
     public Object diagnostics(String projectIdValue) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            activeSnapshot(runtime, projectId);
-            QualityReportService service = new QualityReportService(
-                    runtime.snapshots,
-                    new RequirementQualityService(runtime.snapshots, runtime.requirements, runtime.traceability),
-                    new TaskQualityService(runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability),
-                    new AcceptanceQualityService(runtime.snapshots, runtime.content),
-                    new ChangeCompletenessService(runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability),
-                    new DecisionReferenceQualityService(
-                            runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences));
-            QualityReport report = service.assessActive(projectId)
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            return new CompactQualityReportService().view(report);
-        }
+        return diagnosticsService.diagnostics(projectIdValue);
     }
 
     private ProjectStoreEntry requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
@@ -449,18 +406,6 @@ public final class MorpheusApiService {
             throw notFound("change not found: " + changeId);
         }
         return result;
-    }
-
-    private ChangeCompletenessAssessment completeness(ApiRuntime runtime, ProjectSpecificationId projectId, ChangeId changeId) {
-        activeSnapshot(runtime, projectId);
-        var report = new ChangeCompletenessService(
-                runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
-                .assessActive(projectId)
-                .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-        return report.changes().stream()
-                .filter(item -> item.change().id().equals(changeId))
-                .findFirst()
-                .orElseThrow(() -> notFound("change not found: " + changeId));
     }
 
     private Object version(ApiRuntime runtime, KnowledgeSnapshotMetadata snapshot) {
@@ -561,33 +506,6 @@ public final class MorpheusApiService {
                 "preconditions", item.preconditions(),
                 "action", item.action(),
                 "expectedOutcome", item.expectedOutcome());
-    }
-
-    private Object lifecycleFacts(ChangeCompletenessAssessment assessment) {
-        var facts = assessment.lifecycleFacts();
-        return map(
-                "requirementsIdentified", facts.requirementsIdentified().name(),
-                "criticalConstraintsKnown", facts.criticalConstraintsKnown().name(),
-                "acceptanceCriteriaDefined", facts.acceptanceCriteriaDefined().name(),
-                "designRequired", facts.designRequired().name(),
-                "designDecisionsAvailable", facts.designDecisionsAvailable().name(),
-                "planPresent", facts.planPresent().name(),
-                "knownBlocker", facts.knownBlocker().name(),
-                "blockingAcceptanceCriterionFailed", facts.blockingAcceptanceCriterionFailed().name(),
-                "blockingAcceptanceCriterionUnverified", facts.blockingAcceptanceCriterionUnverified().name());
-    }
-
-    private Object finding(QualityFinding finding) {
-        return map(
-                "code", finding.code().name(),
-                "severity", finding.severity().name(),
-                "evidenceKind", finding.evidenceKind().name(),
-                "subjectKind", finding.subject().kind().name(),
-                "subjectId", finding.subject().identity().toString(),
-                "message", finding.message(),
-                "details", finding.details(),
-                "confidence", finding.confidence().map(Object::toString).orElse(""),
-                "evidenceIds", finding.evidenceIds().stream().map(Object::toString).toList());
     }
 
     private Object page(SnapshotPage<?> page, List<?> items) {
