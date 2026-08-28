@@ -91,6 +91,29 @@ class RemoteServerArchitectureTest {
         assertFalse(responses.contains("MorpheusRemoteRoutePolicy"));
     }
 
+    @Test
+    void remoteProxyTargetResolutionStaysExtractedAndTransportFree() throws IOException {
+        Path root = repositoryRoot();
+        String server = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String resolver = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTargetResolver.java"));
+
+        assertTrue(server.contains("private final MorpheusRemoteProxyTargetResolver proxyTargets;"));
+        assertFalse(server.contains("private URI localTarget("));
+        assertFalse(server.contains("private static Map<String, String> parseQuery("));
+        assertFalse(server.contains("private static String encodeQuery("));
+        assertFalse(server.contains("URLDecoder"));
+        assertFalse(server.contains("URLEncoder"));
+        assertTrue(resolver.contains("final class MorpheusRemoteProxyTargetResolver"));
+        assertTrue(resolver.contains("SERVER_CONFIGURED_PLUGIN_DIRECTORY"));
+        assertTrue(resolver.contains("PLUGIN_SHA256_REQUIRED"));
+        assertFalse(resolver.contains("HttpClient"));
+        assertFalse(resolver.contains("MorpheusRemoteRole"));
+        assertFalse(resolver.contains("MorpheusRemoteIdentityFile"));
+        assertFalse(resolver.contains("MorpheusRemoteRoutePolicy"));
+    }
+
     private Path repositoryRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {
