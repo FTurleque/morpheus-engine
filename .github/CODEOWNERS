@@ -1,0 +1,12 @@
+# Default ownership for a mono-maintainer repository. This remains useful even while
+# required code-owner reviews are intentionally disabled by the repository ruleset.
+* @FTurleque
+
+# Security- and delivery-sensitive boundaries.
+/.github/ @FTurleque
+/scripts/ @FTurleque
+/distribution/ @FTurleque
+/morpheus-api/ @FTurleque
+/morpheus-provider-sdk/ @FTurleque
+/morpheus-mcp-transport/ @FTurleque
+/morpheus-store-sqlite/ @FTurleque

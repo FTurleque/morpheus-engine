@@ -7,6 +7,8 @@ import com.morpheus.store.sqlite.SqliteServerMaintenance;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -75,12 +77,20 @@ final class MorpheusServerCli {
     }
 
     private int identityCreate(Parsed parsed, PrintStream out) {
-        Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "role", "auth-file"));
+        Map<String, String> options = options(
+                parsed.command(), 3, Set.of("principal", "role", "auth-file", "expires-at"));
         String principal = required(options, "principal");
         MorpheusRemoteRole role = role(required(options, "role"));
         Path authFile = authFile(parsed, options);
-        MorpheusRemoteIdentityFile.GeneratedCredential credential =
-                MorpheusRemoteIdentityFile.create(authFile, principal, role);
+        MorpheusRemoteIdentityFile.GeneratedCredential credential;
+        if (options.containsKey("expires-at")) {
+            Optional<Instant> expiry = expiry(options.get("expires-at"));
+            credential = expiry.isPresent()
+                    ? MorpheusRemoteIdentityFile.create(authFile, principal, role, expiry.orElseThrow())
+                    : MorpheusRemoteIdentityFile.create(authFile, principal, role);
+        } else {
+            credential = MorpheusRemoteIdentityFile.create(authFile, principal, role);
+        }
         print(parsed.json(), out, credentialView(credential, authFile));
         return CliExitCode.SUCCESS.code();
     }
@@ -88,10 +98,16 @@ final class MorpheusServerCli {
     private int identityList(Parsed parsed, PrintStream out) {
         Map<String, String> options = options(parsed.command(), 3, Set.of("auth-file"));
         Path authFile = authFile(parsed, options);
+        Instant now = Instant.now();
         List<Map<String, Object>> identities = MorpheusRemoteIdentityFile.load(authFile).stream()
-                .map(identity -> Map.<String, Object>of(
-                        "principal", identity.principal(),
-                        "role", identity.role().name()))
+                .map(identity -> {
+                    Map<String, Object> view = new LinkedHashMap<>();
+                    view.put("principal", identity.principal());
+                    view.put("role", identity.role().name());
+                    view.put("expiresAt", identity.expiresAt().map(Instant::toString).orElse("NEVER"));
+                    view.put("expired", identity.isExpiredAt(now));
+                    return Map.copyOf(view);
+                })
                 .toList();
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
@@ -112,11 +128,12 @@ final class MorpheusServerCli {
     }
 
     private int identityRotate(Parsed parsed, PrintStream out) {
-        Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "auth-file"));
+        Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "auth-file", "expires-at"));
         String principal = required(options, "principal");
         Path authFile = authFile(parsed, options);
-        MorpheusRemoteIdentityFile.GeneratedCredential credential =
-                MorpheusRemoteIdentityFile.rotate(authFile, principal);
+        MorpheusRemoteIdentityFile.GeneratedCredential credential = options.containsKey("expires-at")
+                ? MorpheusRemoteIdentityFile.rotate(authFile, principal, expiry(options.get("expires-at")))
+                : MorpheusRemoteIdentityFile.rotate(authFile, principal);
         Map<String, Object> view = credentialView(credential, authFile);
         view.put("mutation", "ROTATED");
         view.put("oldToken", "INVALID_IMMEDIATELY");
@@ -172,6 +189,7 @@ final class MorpheusServerCli {
         view.put("principal", credential.principal());
         view.put("role", credential.role().name());
         view.put("token", credential.token());
+        view.put("expiresAt", credential.expiresAt().map(Instant::toString).orElse("NEVER"));
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
         view.put("tokenPersistence", "NOT_PERSISTED_PRINTED_ONCE");
         view.put("reloadPolicy", IDENTITY_RELOAD_POLICY);
@@ -198,6 +216,16 @@ final class MorpheusServerCli {
             return MorpheusRemoteRole.valueOf(value.toUpperCase());
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException("--role must be READ, WRITE, or ADMIN", failure);
+        }
+    }
+
+    private Optional<Instant> expiry(String value) {
+        String normalized = required(Map.of("expires-at", value), "expires-at");
+        if (normalized.equalsIgnoreCase("never")) return Optional.empty();
+        try {
+            return Optional.of(Instant.parse(normalized));
+        } catch (DateTimeParseException failure) {
+            throw new IllegalArgumentException("--expires-at must be an ISO-8601 instant or 'never'", failure);
         }
     }
 

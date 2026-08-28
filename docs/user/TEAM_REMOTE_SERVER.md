@@ -53,6 +53,17 @@ morpheus server identity create \
   --role ADMIN
 ```
 
+Pour borner automatiquement la durée de vie d’un credential, ajoutez une échéance ISO-8601 :
+
+```bash
+morpheus server identity create \
+  --principal ci-reader \
+  --role READ \
+  --expires-at 2030-01-01T00:00:00Z
+```
+
+`--expires-at` est optionnel. Sans cette option, le credential est non expirant. La valeur spéciale `never` permet de rendre explicitement permanent un credential lors d’une rotation.
+
 La commande affiche un token Bearer **une seule fois**. Copiez-le immédiatement dans votre gestionnaire de secrets.
 
 Le fichier par défaut est :
@@ -61,17 +72,20 @@ Le fichier par défaut est :
 <config-dir>/remote-auth.txt
 ```
 
-Il ne contient jamais le token clair :
+Il ne contient jamais le token clair. Le format courant est :
 
 ```text
-principal|role|sha256(token)
+principal|role|sha256(token)[|expiresAt]
 ```
 
-Exemple :
+Exemples :
 
 ```text
 admin|ADMIN|7c4a8d09ca3762af61e59520943dc26494f8941b...
+ci-reader|READ|0123456789abcdef...|2030-01-01T00:00:00Z
 ```
+
+Les anciennes entrées à trois champs restent valides et sont volontairement interprétées comme **non expirantes**. Une entrée à quatre champs porte une échéance ISO-8601. Dès que cette échéance est atteinte, le token est refusé à l’authentification suivante.
 
 Un token perdu ne peut pas être reconstruit depuis son hash. Utilisez la rotation du credential.
 
@@ -80,9 +94,13 @@ Un token perdu ne peut pas être reconstruit depuis son hash. Utilisez la rotati
 ```bash
 morpheus server identity list
 morpheus server identity rotate --principal alice
+morpheus server identity rotate --principal alice --expires-at 2030-01-01T00:00:00Z
+morpheus server identity rotate --principal alice --expires-at never
 morpheus server identity role --principal alice --role WRITE
 morpheus server identity revoke --principal alice
 ```
+
+Une rotation sans `--expires-at` conserve la politique d’expiration actuelle. Une rotation avec un instant remplace l’échéance ; `--expires-at never` supprime l’échéance. `identity list` expose l’échéance et l’état `expired`, mais jamais le token ni son hash.
 
 `create`, `rotate`, `role` et `revoke` sont sérialisés par un verrou fichier inter-processus afin que deux commandes MORPHEUS concurrentes ne puissent pas écraser silencieusement leurs modifications.
 
@@ -93,21 +111,32 @@ create   -> le nouveau credential est utilisable dès la requête suivante
 rotate   -> l'ancien token devient invalide dès la requête suivante
 role     -> le nouveau rôle est appliqué dès la requête suivante
 revoke   -> le token révoqué est refusé dès la requête suivante
+expiry   -> le token expiré est refusé dès la requête suivante
 ```
 
-MORPHEUS refuse de révoquer ou rétrograder le dernier `ADMIN`.
+MORPHEUS refuse de révoquer ou rétrograder le dernier `ADMIN` actif.
 
 Le fichier conserve également un audit **sans secret** des mutations. Cet historique est une fenêtre roulante bornée aux **512 événements les plus récents**. Cette compaction fait partie de l'écriture atomique du snapshot : la croissance de l'audit ne peut donc pas remplir indéfiniment le fichier de 256 KiB et empêcher une rotation ou une révocation urgente.
 
-### Rôles
+### Rôles et autorisation distante
 
 | Rôle | Autorisations |
 |---|---|
-| `READ` | endpoints de lecture, Query DSL, exports, policy evaluate/dry-run, transition-check |
-| `WRITE` | READ + mutations métier/configuration existantes |
+| `READ` | endpoints explicitement déclarés read-only, Query DSL, exports, policy evaluate/dry-run, transition-check |
+| `WRITE` | READ + mutations métier/configuration explicitement déclarées |
 | `ADMIN` | WRITE + métriques remote + création de backups serveur + probe de plugin externe |
 
 `READ != WRITE != ADMIN`. Un `principal` fourni dans un JSON n’est jamais une authentification.
+
+La façade distante applique une **table exhaustive `(méthode HTTP, route) -> rôle minimum`**. Il n’existe plus de règle implicite du type « tout GET vaut READ » ou « tout POST vaut WRITE » :
+
+```text
+route inconnue                 -> 404 NOT_FOUND
+route connue, méthode inconnue -> 405 METHOD_NOT_ALLOWED
+route + méthode connues        -> rôle minimum déclaré explicitement
+```
+
+Ainsi, l’ajout futur d’un endpoint GET ne l’expose jamais automatiquement à un principal READ. Toute nouvelle route distante doit être ajoutée explicitement à la politique d’autorisation et couverte par les tests.
 
 ## 3. Démarrer le serveur remote
 
@@ -287,7 +316,11 @@ X-Request-Id: <uuid>
 
 M26 n’active **aucun CORS implicite**.
 
-## 10. Limites M26
+## 10. Frontière de confiance et limites M26
+
+Les plugins provider approuvés et les pairs MCP configurés bénéficient de contrôles d’intégrité, de limites de ressources, d’un environnement hérité réduit et d’un nettoyage de processus. Ces mécanismes constituent une isolation de cycle de vie et de secrets ambiants, **pas un sandbox de sécurité OS**.
+
+Un plugin ou pair MCP explicitement approuvé s’exécute avec les droits fichier/réseau du compte système MORPHEUS. Pour exécuter du code tiers réellement non fiable, utilisez une isolation système supplémentaire : compte dédié à privilèges minimaux, conteneur ou mécanisme de sandbox adapté à la plateforme.
 
 M26 fournit un serveur d’équipe auto-hébergeable de référence ; il ne prétend pas fournir :
 

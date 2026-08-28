@@ -40,6 +40,31 @@ class MorpheusServerCliTest {
         assertTrue(persisted.matches("(?s).*alice\\|ADMIN\\|[0-9a-f]{64}.*"));
         assertTrue(created.out().contains("NOT_PERSISTED_PRINTED_ONCE"));
         assertTrue(created.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
+        assertTrue(created.out().contains("\"expiresAt\":\"NEVER\""), created.out());
+    }
+
+    @Test
+    void identityExpiryCanBeCreatedPreservedAndExplicitlyRemoved() throws Exception {
+        String expiry = "2099-01-01T00:00:00Z";
+        Result created = run("--json", "server", "identity", "create",
+                "--principal", "expiring", "--role", "ADMIN", "--expires-at", expiry);
+        assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
+        assertTrue(created.out().contains("\"expiresAt\":\"" + expiry + "\""), created.out());
+        assertTrue(Files.readString(temp.resolve("config/remote-auth.txt")).contains("|" + expiry));
+
+        Result listed = run("--json", "server", "identity", "list");
+        assertEquals(CliExitCode.SUCCESS.code(), listed.exitCode(), listed.err());
+        assertTrue(listed.out().contains("\"expired\":false"), listed.out());
+        assertTrue(listed.out().contains("\"expiresAt\":\"" + expiry + "\""), listed.out());
+
+        Result preserved = run("--json", "server", "identity", "rotate", "--principal", "expiring");
+        assertEquals(CliExitCode.SUCCESS.code(), preserved.exitCode(), preserved.err());
+        assertTrue(preserved.out().contains("\"expiresAt\":\"" + expiry + "\""), preserved.out());
+
+        Result permanent = run("--json", "server", "identity", "rotate",
+                "--principal", "expiring", "--expires-at", "never");
+        assertEquals(CliExitCode.SUCCESS.code(), permanent.exitCode(), permanent.err());
+        assertTrue(permanent.out().contains("\"expiresAt\":\"NEVER\""), permanent.out());
     }
 
     @Test
