@@ -16,13 +16,16 @@ class LocalHttpRouteGuardsArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String rootRoutes = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRootHttpRoutes.java"));
         String projectSyncRoutes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectSyncHttpRoutes.java"));
         String guards = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRouteGuards.java"));
-        String localHttpConsumers = server + "\n" + projectSyncRoutes;
+        String localHttpConsumers = server + "\n" + rootRoutes + "\n" + projectSyncRoutes;
 
-        assertTrue(server.contains("MorpheusHttpRouteGuards.requireMethod(actual, expected)"));
+        assertTrue(rootRoutes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
+        assertFalse(server.contains("private void requireMethod(String actual, String expected)"));
         assertTrue(projectSyncRoutes.contains("MorpheusHttpRouteGuards.requireExactSegments(segments, 3)"));
         assertTrue(projectSyncRoutes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"POST\")"));
         assertTrue(projectSyncRoutes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
