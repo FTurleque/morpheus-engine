@@ -205,9 +205,13 @@ class D2RepositoryHardeningArchitectureTest {
         Path root = repoRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String requestDecoder = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRequestDecoder.java"));
         assertTrue(server.contains("MAX_REQUEST_BODY_BYTES = 65_536"));
-        assertTrue(server.contains("FAIL_ON_UNKNOWN_PROPERTIES"));
-        assertTrue(server.contains("FAIL_ON_TRAILING_TOKENS"));
+        assertTrue(server.contains("private final MorpheusHttpRequestDecoder requestDecoder;"));
+        assertTrue(requestDecoder.contains("FAIL_ON_UNKNOWN_PROPERTIES"));
+        assertTrue(requestDecoder.contains("FAIL_ON_TRAILING_TOKENS"));
+        assertTrue(requestDecoder.contains("TimedBoundedInputReader.read("));
         assertTrue(Files.isRegularFile(root.resolve(
                 "morpheus-api/src/test/java/com/morpheus/api/JacksonSecurityRegressionTest.java")));
 
