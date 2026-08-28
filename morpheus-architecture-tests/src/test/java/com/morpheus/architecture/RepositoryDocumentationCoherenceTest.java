@@ -109,7 +109,7 @@ class RepositoryDocumentationCoherenceTest {
         for (Path page : List.of(
                 root.resolve("docs/architecture/arc42/11-risques-dette.md"),
                 root.resolve("docs/architecture/risks/register.md"))) {
-            String content = Files.readString(page);
+            String content = Files.readString(page).replace("\r\n", "\n");
             assertTrue(content.contains(expectedRatchets),
                     () -> root.relativize(page) + " must mirror executable M21 quality ratchets");
         }
