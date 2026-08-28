@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -86,6 +87,39 @@ class RepositoryDocumentationCoherenceTest {
         assertTrue(windows.contains("config\\m21-quality-ratchets.properties"));
         assertFalse(linux.contains("line < 0.506"), "Linux validator must not retain the old embedded line ratchet");
         assertFalse(windows.contains("-lt 0.506"), "Windows validator must not retain the old embedded line ratchet");
+    }
+
+    @Test
+    void activeRiskDocumentationMatchesExecutableQualityRatchetsAndResolvedAdrIndex() throws Exception {
+        Path root = repositoryRoot();
+        Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
+        String expectedRatchets = """
+                Surefire total       >= %s
+                architecture         >= %s
+                line coverage        >= %s
+                branch coverage      >= %s
+                changed-line         >= 80%%
+                changed-branch       >= 70%%
+                """.formatted(
+                ratchets.get("testsMinimum"),
+                ratchets.get("architectureTestsMinimum"),
+                percentage(ratchets.get("lineCoverageMinimum")),
+                percentage(ratchets.get("branchCoverageMinimum")));
+
+        for (Path page : List.of(
+                root.resolve("docs/architecture/arc42/11-risques-dette.md"),
+                root.resolve("docs/architecture/risks/register.md"))) {
+            String content = Files.readString(page).replace("\r\n", "\n");
+            assertTrue(content.contains(expectedRatchets),
+                    () -> root.relativize(page) + " must mirror executable M21 quality ratchets");
+        }
+
+        String arc42 = Files.readString(root.resolve("docs/architecture/arc42/11-risques-dette.md"));
+        String adrIndex = Files.readString(root.resolve("docs/adr/README.md"));
+        assertTrue(adrIndex.contains("[ADR-0096](0096-conservative-native-mcp-client"),
+                "ADR index must retain the accepted ADR-0096 entry");
+        assertFalse(arc42.contains("| DT-02 |"),
+                "active debt register must not advertise the already-resolved ADR-0096 index drift");
     }
 
     @Test
@@ -176,6 +210,10 @@ class RepositoryDocumentationCoherenceTest {
                 root.resolve("docs/governance/ROADMAP.md"),
                 root.resolve("docs/governance/DOCUMENTATION_STATUS.md"),
                 root.resolve("docs/validation/README.md"));
+    }
+
+    private static String percentage(String decimal) {
+        return String.format(Locale.ROOT, "%.1f%%", Double.parseDouble(decimal) * 100.0d);
     }
 
     private static Map<String, String> properties(Path path) throws IOException {

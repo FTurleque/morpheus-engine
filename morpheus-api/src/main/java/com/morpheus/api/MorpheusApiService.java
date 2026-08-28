@@ -320,12 +320,20 @@ public final class MorpheusApiService {
     }
 
     public Object acceptanceCriteria(String projectIdValue, String changeIdValue) {
+        return acceptanceCriteria(projectIdValue, changeIdValue, PageRequest.first(MAX_LIMIT));
+    }
+
+    public Object acceptanceCriteria(
+            String projectIdValue,
+            String changeIdValue,
+            PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
+        Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<AcceptanceCriterion> result = business(runtime)
-                    .activeAcceptanceCriteriaForChange(projectId, changeId, PageRequest.first(MAX_LIMIT))
+                    .activeAcceptanceCriteriaForChange(projectId, changeId, pageRequest)
                     .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
             return page(result, result.items().stream().map(this::acceptanceCriterion).toList());
         }

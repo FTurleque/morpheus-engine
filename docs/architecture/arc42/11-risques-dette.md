@@ -30,11 +30,12 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 | ID | Dette | Domaine | Priorité | Traitement |
 |----|-------|---------|----------|------------|
 | DT-01 | Certains documents historiques restent ancrés sur C0/M20/M27 alors que la release stable est 1.2.0 et M28 est livré | Documentation | **Haute** | Les marquer comme historiques ou les réconcilier lorsqu'ils sont promus comme documentation active |
-| DT-02 | `docs/adr/README.md` ne référence pas encore ADR-0096 alors que le fichier ADR-0096 est accepté et présent | Documentation ADR | **Moyenne** | Réconcilier l'index ADR dans un changement dédié |
 | DT-03 | Le suivi des seuils de performance M19 est difficile à lire depuis la documentation d'architecture | Qualité | **Moyenne** | Maintenir les scénarios qualité et pointer vers les tests/gates autoritatifs plutôt que dupliquer les valeurs |
 | DT-04 | Aucun backend persistant alternatif à SQLite n'est implémenté | Architecture | **Faible à moyenne** | Ne pas pré-déclarer une solution ; créer un ADR seulement si un besoin réel de substitution apparaît |
 | DT-05 | Pas de distribution macOS qualifiée | Distribution | **Faible** | Décision produit préalable avant investissement CI/packaging |
 | DT-06 | Réglages externes SonarCloud / alertes de sécurité non tous vérifiables depuis le connecteur | Gouvernance externe | **Moyenne** | Conserver les gates repository indépendants et vérifier les réglages sur les plateformes concernées |
+
+L'ancien `DT-02` relatif à l'absence d'ADR-0096 dans l'index ADR est résolu : `docs/adr/README.md` référence désormais ADR-0096 et sa qualification M28.
 
 ---
 
@@ -51,10 +52,10 @@ mécaniquement M21 dans `ci.yml`.
 La baseline active du gate est :
 
 ```text
-Surefire total       >= 820
-architecture         >= 258
-line coverage        >= 50.6%
-branch coverage      >= 43.0%
+Surefire total       >= 880
+architecture         >= 270
+line coverage        >= 51.2%
+branch coverage      >= 43.7%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```

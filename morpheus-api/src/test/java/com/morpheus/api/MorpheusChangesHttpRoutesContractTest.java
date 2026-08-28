@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -57,6 +58,45 @@ class MorpheusChangesHttpRoutesContractTest {
                     server, "/projects/project-1/changes/change-1/unknown");
             assertEquals(404, unknown.status(), unknown.body());
             assertTrue(unknown.body().contains("unknown change subresource: unknown"), unknown.body());
+        }
+    }
+
+    @Test
+    void acceptanceCriteriaUsesTheSharedPaginationContract() {
+        Path database = tempDirectory.resolve("acceptance-pagination.db");
+        Path fixture = http.fixture("openspec-basic");
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            String registration = "{\"workspace\":" + http.jsonString(fixture.toString()) + "}";
+            ApiTestSupport.Response created = http.postJson(server, "/projects", registration);
+            assertEquals(201, created.status(), created.body());
+            String projectId = http.field(created.body(), "projectId");
+
+            ApiTestSupport.Response sync = http.postJson(
+                    server, "/projects/" + projectId + "/sync", "{\"revision\":\"pagination-r1\"}");
+            assertEquals(200, sync.status(), sync.body());
+
+            ApiTestSupport.Response changes = http.get(server, "/projects/" + projectId + "/changes?limit=1");
+            assertEquals(200, changes.status(), changes.body());
+            String changeId = http.field(changes.body(), "id");
+
+            ApiTestSupport.Response page = http.get(
+                    server,
+                    "/projects/" + projectId + "/changes/" + changeId
+                            + "/acceptance-criteria?offset=1&limit=1");
+            assertEquals(200, page.status(), page.body());
+            assertTrue(page.body().contains("\"offset\":1"), page.body());
+            assertTrue(page.body().contains("\"limit\":1"), page.body());
+
+            Map<?, ?> compatibility = (Map<?, ?>) new MorpheusApiService(database)
+                    .acceptanceCriteria(projectId, changeId);
+            assertEquals(MorpheusApiService.MAX_LIMIT, compatibility.get("limit"));
+
+            ApiTestSupport.Response invalidLimit = http.get(
+                    server,
+                    "/projects/" + projectId + "/changes/" + changeId
+                            + "/acceptance-criteria?limit=101");
+            assertEquals(400, invalidLimit.status(), invalidLimit.body());
+            assertTrue(invalidLimit.body().contains("limit must be between 1 and 100"), invalidLimit.body());
         }
     }
 }
