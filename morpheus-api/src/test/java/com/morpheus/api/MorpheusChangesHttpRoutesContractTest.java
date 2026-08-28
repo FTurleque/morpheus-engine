@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -85,6 +86,10 @@ class MorpheusChangesHttpRoutesContractTest {
             assertEquals(200, page.status(), page.body());
             assertTrue(page.body().contains("\"offset\":1"), page.body());
             assertTrue(page.body().contains("\"limit\":1"), page.body());
+
+            Map<?, ?> compatibility = (Map<?, ?>) new MorpheusApiService(database)
+                    .acceptanceCriteria(projectId, changeId);
+            assertEquals(MorpheusApiService.MAX_LIMIT, compatibility.get("limit"));
 
             ApiTestSupport.Response invalidLimit = http.get(
                     server,
