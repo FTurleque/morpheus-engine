@@ -90,8 +90,11 @@ public final class MorpheusMain {
             out.println();
             out.println("Team / remote server (M26, opt-in):");
             out.println("  morpheus [layout] api --remote --host HOST --port PORT --tls-keystore FILE --workspace-root PATH [--workspace-root PATH ...] [--auth-file FILE] [--max-concurrent N] [--provider-plugin-dir PATH]");
-            out.println("  Remote mode is HTTPS-only and requires MORPHEUS_SERVER_TLS_PASSWORD plus at least one server-owned workspace root.");
-            out.println("  morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN [--auth-file FILE]");
+            out.println("  Remote mode is HTTPS-only and requires MORPHEUS_SERVER_TLS_PASSWORD, at least one active ADMIN identity and at least one server-owned workspace root.");
+            out.println("  morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN [--expires-at ISO-8601] [--auth-file FILE]");
+            out.println("  morpheus [layout] server identity rotate --principal NAME [--expires-at ISO-8601|never] [--auth-file FILE]");
+            out.println("  morpheus [layout] server identity list [--auth-file FILE]");
+            out.println("  Rotation preserves the current expiry when --expires-at is omitted; --expires-at never makes the credential permanent.");
             out.println("  morpheus [layout] server backup create [--output-dir PATH]");
             out.println("  morpheus [layout] server backup verify --file PATH");
             out.println("  morpheus [layout] server restore --file PATH --confirm");
