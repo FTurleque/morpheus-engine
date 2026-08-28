@@ -16,6 +16,8 @@ class LocalHttpAllowedMethodsArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String rootRoutes = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRootHttpRoutes.java"));
         String projectRootRoutes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectRootHttpRoutes.java"));
         String allowed = Files.readString(root.resolve(
@@ -23,11 +25,15 @@ class LocalHttpAllowedMethodsArchitectureTest {
 
         assertTrue(server.contains("private final MorpheusHttpAllowedMethods allowedMethods"));
         assertTrue(server.contains("allowedMethods.forPath(exchange.getRequestURI().getPath())"));
-        assertTrue(server.contains("private void requireMethod(String actual, String expected)"));
+        assertFalse(server.contains("private void requireMethod(String actual, String expected)"));
         assertTrue(server.contains("projectRootRoutes.route(exchange, method, segments, query)"));
         assertFalse(server.contains("ApiFailure.methodNotAllowed"));
         assertFalse(server.contains("projects supports GET and POST"));
         assertFalse(server.contains("private String allowedMethods(String path)"));
+
+        assertTrue(rootRoutes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
+        assertFalse(rootRoutes.contains("MorpheusHttpAllowedMethods"));
+        assertFalse(rootRoutes.contains("getResponseHeaders().set(\"Allow\""));
 
         assertTrue(projectRootRoutes.contains("ApiFailure.methodNotAllowed(\"projects supports GET and POST\")"));
         assertFalse(projectRootRoutes.contains("MorpheusHttpAllowedMethods"));
