@@ -46,7 +46,7 @@ class MorpheusProviderPluginApiContractTest {
             assertEquals(405, wrongMethod.status(), wrongMethod.body());
             assertTrue(wrongMethod.body().contains("expected HTTP GET but received POST"), wrongMethod.body());
             assertEquals(400, unknownQuery.status(), unknownQuery.body());
-            assertTrue(unknownQuery.body().contains("unexpected query parameter: unexpected"), unknownQuery.body());
+            assertTrue(unknownQuery.body().contains("unknown query parameter: unexpected"), unknownQuery.body());
         }
     }
 
