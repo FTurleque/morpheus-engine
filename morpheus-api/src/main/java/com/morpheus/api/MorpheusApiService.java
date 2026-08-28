@@ -47,7 +47,6 @@ import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
-import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 import com.morpheus.domain.task.ImplementationTask;
@@ -82,6 +81,7 @@ public final class MorpheusApiService {
 
     private final Path databasePath;
     private final Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots;
+    private final MorpheusProjectRegistryApiService projectRegistryService;
 
     public MorpheusApiService(Path databasePath) {
         this(databasePath, Optional.empty());
@@ -94,6 +94,7 @@ public final class MorpheusApiService {
     private MorpheusApiService(Path databasePath, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
+        this.projectRegistryService = new MorpheusProjectRegistryApiService(this.databasePath, this.allowedWorkspaceRoots);
     }
 
     public Object health() {
@@ -105,34 +106,20 @@ public final class MorpheusApiService {
     }
 
     public Object listProjects() {
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            return runtime.snapshots.listProjects().stream()
-                    .map(project -> project(runtime, project))
-                    .toList();
-        }
+        return projectRegistryService.listProjects();
     }
 
     public RegistrationResult registerProject(String workspace) {
-        Path path = allowedWorkspaceRoots
-                .map(policy -> policy.requireAllowedDirectory(workspace))
-                .orElseGet(() -> existingDirectory(workspace));
-        SourceLocator root = SourceLocator.file(path.toString());
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            Optional<ProjectStoreEntry> existing = runtime.snapshots.findProjectByRoot(root);
-            ProjectStoreEntry entry = existing.orElseGet(() -> {
-                ProjectStoreEntry created = new ProjectStoreEntry(ProjectSpecificationId.generate(), root);
-                runtime.snapshots.putProject(created);
-                return created;
-            });
-            return new RegistrationResult(project(runtime, entry), existing.isEmpty());
-        }
+        MorpheusProjectRegistryApiService.RegistrationResult result = projectRegistryService.registerProject(workspace);
+        return new RegistrationResult(result.project(), result.created());
     }
 
     public Object project(String projectIdValue) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            return project(runtime, requireProject(runtime, projectId));
-        }
+        return projectRegistryService.project(projectIdValue);
+    }
+
+    MorpheusProjectRegistryApiService projectRegistryService() {
+        return projectRegistryService;
     }
 
     public Object sync(String projectIdValue, Optional<String> revision) {
@@ -491,13 +478,6 @@ public final class MorpheusApiService {
         }
     }
 
-    private Object project(ApiRuntime runtime, ProjectStoreEntry entry) {
-        return map(
-                "projectId", entry.id().toString(),
-                "workspace", entry.rootLocator().value(),
-                "activeSnapshotId", runtime.snapshots.activeSnapshot(entry.id()).map(snapshot -> snapshot.id().toString()).orElse("none"));
-    }
-
     private ProjectStoreEntry requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
         return runtime.snapshots.findProject(projectId)
                 .orElseThrow(() -> notFound("project not found: " + projectId));
@@ -529,22 +509,6 @@ public final class MorpheusApiService {
             throw conflict("workspace is not a directory: " + authorizedWorkspace);
         }
         return authorizedWorkspace;
-    }
-
-    private Path existingDirectory(String workspace) {
-        if (workspace == null || workspace.isBlank()) {
-            throw ApiFailure.badRequest("workspace is required");
-        }
-        Path path;
-        try {
-            path = Path.of(workspace).toAbsolutePath().normalize();
-        } catch (RuntimeException failure) {
-            throw ApiFailure.badRequest("workspace is not a valid path: " + workspace);
-        }
-        if (!Files.isDirectory(path)) {
-            throw ApiFailure.badRequest("workspace is not a directory: " + path);
-        }
-        return path;
     }
 
     private Path authorizeWorkspace(Path workspace) {
