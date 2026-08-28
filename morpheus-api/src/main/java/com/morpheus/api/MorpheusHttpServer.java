@@ -645,11 +645,11 @@ public final class MorpheusHttpServer implements AutoCloseable {
     }
 
     private void requireMethod(String actual, String expected) {
-        if (!actual.equals(expected)) throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
+        MorpheusHttpRouteGuards.requireMethod(actual, expected);
     }
 
     private void requireExactSegments(List<String> segments, int expected) {
-        if (segments.size() != expected) throw ApiFailure.notFound("unknown API route");
+        MorpheusHttpRouteGuards.requireExactSegments(segments, expected);
     }
 
     private List<String> pathSegments(String path) {
