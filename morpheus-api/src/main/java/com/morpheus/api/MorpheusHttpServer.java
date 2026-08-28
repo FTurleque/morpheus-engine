@@ -54,6 +54,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusIntegrationStatusHttpRoutes integrationStatusRoutes;
     private final MorpheusCompositionHttpRoutes compositionRoutes;
     private final MorpheusSpecificationsHttpRoutes specificationsRoutes;
+    private final MorpheusDiagnosticsHttpRoutes diagnosticsRoutes;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
     private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
     private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
@@ -88,6 +89,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
                 this.externalReferenceService, this.augmentedContextService);
         this.compositionRoutes = new MorpheusCompositionHttpRoutes(this.compositionService);
         this.specificationsRoutes = new MorpheusSpecificationsHttpRoutes(this.service);
+        this.diagnosticsRoutes = new MorpheusDiagnosticsHttpRoutes(this.service);
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -326,7 +328,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "requirements" -> routeRequirements(exchange, method, segments, query, projectId);
             case "changes" -> routeChanges(exchange, method, segments, query, projectId);
             case "versions" -> routeVersions(method, segments, query, projectId);
-            case "diagnostics" -> routeDiagnostics(method, segments, query, projectId);
+            case "diagnostics" -> diagnosticsRoutes.route(method, segments, query, projectId);
             case "external-references" -> routeExternalReferences(method, segments, query, projectId);
             default -> throw ApiFailure.notFound("unknown project API resource: " + resource);
         };
@@ -452,13 +454,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
             return ok(service.historicalRequirements(projectId, segments.get(3), page(query)));
         }
         throw ApiFailure.notFound("unknown versions route");
-    }
-
-    private MorpheusHttpRouteResponse routeDiagnostics(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
-        requireExactSegments(segments, 3);
-        requireMethod(method, "GET");
-        query.rejectUnknown(Set.of());
-        return ok(service.diagnostics(projectId));
     }
 
     private MorpheusHttpRouteResponse routeExternalReferences(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
