@@ -57,6 +57,21 @@ class RemoteServerArchitectureTest {
         assertTrue(openApi.contains("maxConcurrentBufferedProxyResponses"));
     }
 
+    @Test
+    void remoteRuntimeStateStaysExtractedAndPolicyFree() throws IOException {
+        Path root = repositoryRoot();
+        String server = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String runtime = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRuntimeState.java"));
+
+        assertTrue(server.contains("private final MorpheusRemoteRuntimeState runtime;"));
+        assertFalse(server.contains("class RuntimeState"));
+        assertTrue(runtime.contains("final class MorpheusRemoteRuntimeState"));
+        assertFalse(runtime.contains("MorpheusRemoteRole"));
+        assertFalse(runtime.contains("MorpheusRemoteIdentityFile"));
+    }
+
     private Path repositoryRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {

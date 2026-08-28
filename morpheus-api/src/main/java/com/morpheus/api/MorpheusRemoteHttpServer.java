@@ -45,8 +45,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.LongAdder;
 
 /**
  * M26 opt-in HTTPS facade for team/remote use.
@@ -79,7 +77,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final Path authFile;
     private final Semaphore concurrency;
     private final Semaphore proxyResponses;
-    private final RuntimeState runtime;
+    private final MorpheusRemoteRuntimeState runtime;
     private final HttpClient proxyClient;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
 
@@ -109,7 +107,12 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.authFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
         this.proxyResponses = new Semaphore(MAX_PROXY_RESPONSE_SLOTS, true);
-        this.runtime = new RuntimeState(maxConcurrentRequests);
+        this.runtime = new MorpheusRemoteRuntimeState(
+                maxConcurrentRequests,
+                REQUEST_BODY_READ_TIMEOUT,
+                MAX_PROXY_RESPONSE_BYTES,
+                MAX_PROXY_IN_FLIGHT_BYTES,
+                MAX_PROXY_RESPONSE_SLOTS);
         this.proxyClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .followRedirects(HttpClient.Redirect.NEVER)
@@ -234,9 +237,9 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private void handle(HttpExchange exchange) throws IOException {
         String requestId = UUID.randomUUID().toString();
         applySecurityHeaders(exchange.getResponseHeaders(), requestId);
-        runtime.totalRequests.increment();
+        runtime.recordRequest();
         if (!concurrency.tryAcquire()) {
-            runtime.throttledRequests.increment();
+            runtime.recordThrottledRequest();
             try {
                 sendJson(exchange, 429, error("TOO_MANY_REQUESTS", "remote request concurrency limit reached"));
             } finally {
@@ -244,12 +247,12 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             }
             return;
         }
-        runtime.activeRequests.incrementAndGet();
+        runtime.requestStarted();
         try {
             MorpheusRemoteIdentityFile.Identity identity = authenticate(exchange);
             MorpheusRemoteRole required = requiredRole(exchange.getRequestMethod(), exchange.getRequestURI().getPath());
             if (!identity.role().allows(required)) {
-                runtime.authorizationFailures.increment();
+                runtime.recordAuthorizationFailure();
                 sendJson(exchange, 403, error("FORBIDDEN", "authenticated principal is not authorized for this operation"));
                 return;
             }
@@ -269,8 +272,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             }
             proxy(exchange);
         } catch (RemoteFailure failure) {
-            if (failure.status == 401) runtime.authenticationFailures.increment();
-            if (failure.status == 403) runtime.authorizationFailures.increment();
+            if (failure.status == 401) runtime.recordAuthenticationFailure();
+            if (failure.status == 403) runtime.recordAuthorizationFailure();
             if (failure.status == 401) {
                 exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer realm=\"morpheus\"");
             }
@@ -280,7 +283,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         } catch (RuntimeException failure) {
             sendJson(exchange, 500, error("INTERNAL_ERROR", "internal MORPHEUS remote server error"));
         } finally {
-            runtime.activeRequests.decrementAndGet();
+            runtime.requestFinished();
             concurrency.release();
             exchange.close();
         }
@@ -345,7 +348,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 : HttpRequest.BodyPublishers.ofByteArray(requestBody));
 
         if (!proxyResponses.tryAcquire()) {
-            runtime.throttledRequests.increment();
+            runtime.recordThrottledRequest();
             throw new RemoteFailure(
                     429,
                     "RESPONSE_BUDGET_EXHAUSTED",
@@ -490,7 +493,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         } catch (TimedBoundedInputReader.LimitExceededException tooLarge) {
             throw new RemoteFailure(413, "PAYLOAD_TOO_LARGE", "request body exceeds " + MAX_REQUEST_BYTES + " bytes");
         } catch (TimedBoundedInputReader.ReadTimeoutException timeout) {
-            runtime.requestTimeouts.increment();
+            runtime.recordRequestTimeout();
             throw new RemoteFailure(408, "REQUEST_TIMEOUT", "request body exceeded its read deadline");
         }
     }
@@ -598,44 +601,6 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             super(message);
             this.status = status;
             this.code = code;
-        }
-    }
-
-    private static final class RuntimeState {
-        private final Instant startedAt = Instant.now();
-        private final int maxConcurrentRequests;
-        private final AtomicInteger activeRequests = new AtomicInteger();
-        private final LongAdder totalRequests = new LongAdder();
-        private final LongAdder authenticationFailures = new LongAdder();
-        private final LongAdder authorizationFailures = new LongAdder();
-        private final LongAdder throttledRequests = new LongAdder();
-        private final LongAdder requestTimeouts = new LongAdder();
-
-        private RuntimeState(int maxConcurrentRequests) {
-            this.maxConcurrentRequests = maxConcurrentRequests;
-        }
-
-        private Map<String, Object> status(String host, int port) {
-            long uptimeSeconds = Math.max(0, Duration.between(startedAt, Instant.now()).toSeconds());
-            Map<String, Object> status = new LinkedHashMap<>();
-            status.put("mode", "REMOTE");
-            status.put("transport", "HTTPS");
-            status.put("host", host);
-            status.put("port", port);
-            status.put("startedAt", startedAt.toString());
-            status.put("uptimeSeconds", uptimeSeconds);
-            status.put("activeRequests", activeRequests.get());
-            status.put("maxConcurrentRequests", maxConcurrentRequests);
-            status.put("requestBodyReadTimeoutMillis", REQUEST_BODY_READ_TIMEOUT.toMillis());
-            status.put("maxProxyResponseBytes", MAX_PROXY_RESPONSE_BYTES);
-            status.put("maxProxyInFlightBytes", MAX_PROXY_IN_FLIGHT_BYTES);
-            status.put("maxConcurrentBufferedProxyResponses", MAX_PROXY_RESPONSE_SLOTS);
-            status.put("totalRequests", totalRequests.sum());
-            status.put("authenticationFailures", authenticationFailures.sum());
-            status.put("authorizationFailures", authorizationFailures.sum());
-            status.put("throttledRequests", throttledRequests.sum());
-            status.put("requestTimeouts", requestTimeouts.sum());
-            return Map.copyOf(status);
         }
     }
 }
