@@ -16,16 +16,21 @@ class LocalHttpRequestDecoderArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projectRootRoutes = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectRootHttpRoutes.java"));
         String projectSyncRoutes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectSyncHttpRoutes.java"));
         String decoder = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRequestDecoder.java"));
-        String localHttpConsumers = server + "\n" + projectSyncRoutes;
+        String localHttpConsumers = server + "\n" + projectRootRoutes + "\n" + projectSyncRoutes;
 
         assertTrue(server.contains("private final MorpheusHttpRequestDecoder requestDecoder;"));
-        assertTrue(server.contains("requestDecoder.readRequiredJson(exchange, type)"));
+        assertTrue(server.contains("new MorpheusProjectRootHttpRoutes(this.service, this.requestDecoder)"));
+        assertTrue(projectRootRoutes.contains("MorpheusHttpRequestDecoder requestDecoder"));
+        assertTrue(projectRootRoutes.contains("requestDecoder.readRequiredJson("));
         assertTrue(projectSyncRoutes.contains("MorpheusHttpRequestDecoder requestDecoder"));
         assertTrue(projectSyncRoutes.contains("requestDecoder.readOptionalJson("));
+        assertFalse(server.contains("requestDecoder.readRequiredJson("));
         assertFalse(localHttpConsumers.contains("JsonMapper"));
         assertFalse(localHttpConsumers.contains("DeserializationFeature"));
         assertFalse(localHttpConsumers.contains("TimedBoundedInputReader"));

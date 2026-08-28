@@ -48,6 +48,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusPortfolioApiService portfolioService;
     private final MorpheusOperabilityApiService operabilityService;
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusProjectRootHttpRoutes projectRootRoutes;
     private final MorpheusProjectSyncHttpRoutes projectSyncRoutes;
     private final MorpheusPortfolioHttpRoutes portfolioRoutes;
     private final MorpheusProviderPluginHttpRoutes providerPluginRoutes;
@@ -87,6 +88,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.operabilityService = Objects.requireNonNull(operabilityService, "operabilityService");
         this.requestDecoder = new MorpheusHttpRequestDecoder(
                 MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, this.executor);
+        this.projectRootRoutes = new MorpheusProjectRootHttpRoutes(this.service, this.requestDecoder);
         this.projectSyncRoutes = new MorpheusProjectSyncHttpRoutes(this.service, this.requestDecoder);
         this.portfolioRoutes = new MorpheusPortfolioHttpRoutes(this.portfolioService, this.requestDecoder);
         this.providerPluginRoutes = new MorpheusProviderPluginHttpRoutes(providerPluginProbeEnabled);
@@ -314,26 +316,11 @@ public final class MorpheusHttpServer implements AutoCloseable {
             throw ApiFailure.notFound("unknown API route: " + exchange.getRequestURI().getPath());
         }
 
-        if (segments.size() == 1) {
-            query.rejectUnknown(Set.of());
-            if (method.equals("GET")) {
-                return ok(service.listProjects());
-            }
-            if (method.equals("POST")) {
-                ProjectRegistrationRequest request = readRequiredJson(exchange, ProjectRegistrationRequest.class);
-                MorpheusApiService.RegistrationResult result = service.registerProject(request.workspace());
-                return new MorpheusHttpRouteResponse(result.created() ? 201 : 200, result.project());
-            }
-            throw ApiFailure.methodNotAllowed("projects supports GET and POST");
+        if (segments.size() <= 2) {
+            return projectRootRoutes.route(exchange, method, segments, query);
         }
 
         String projectId = segments.get(1);
-        if (segments.size() == 2) {
-            requireMethod(method, "GET");
-            query.rejectUnknown(Set.of());
-            return ok(service.project(projectId));
-        }
-
         String resource = segments.get(2);
         return switch (resource) {
             case "sync" -> projectSyncRoutes.routeSync(exchange, method, segments, query, projectId);
@@ -347,10 +334,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "external-references" -> externalReferenceRoutes.route(method, segments, query, projectId);
             default -> throw ApiFailure.notFound("unknown project API resource: " + resource);
         };
-    }
-
-    private <T> T readRequiredJson(HttpExchange exchange, Class<T> type) {
-        return requestDecoder.readRequiredJson(exchange, type);
     }
 
     private void send(HttpExchange exchange, int status, Object body) throws IOException {
