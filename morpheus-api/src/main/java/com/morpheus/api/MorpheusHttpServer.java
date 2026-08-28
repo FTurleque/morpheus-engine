@@ -18,8 +18,6 @@ import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -60,10 +58,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusOperabilityApiService operabilityService;
     private final boolean providerPluginProbeEnabled;
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
-    private final JsonMapper mapper = JsonMapper.builder()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-            .build();
+    private final MorpheusHttpRequestDecoder requestDecoder;
 
     private MorpheusHttpServer(
             HttpServer server,
@@ -88,6 +83,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.portfolioService = Objects.requireNonNull(portfolioService, "portfolioService");
         this.operabilityService = Objects.requireNonNull(operabilityService, "operabilityService");
         this.providerPluginProbeEnabled = providerPluginProbeEnabled;
+        this.requestDecoder = new MorpheusHttpRequestDecoder(
+                MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, this.executor);
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -628,45 +625,11 @@ public final class MorpheusHttpServer implements AutoCloseable {
     }
 
     private <T> T readRequiredJson(HttpExchange exchange, Class<T> type) {
-        byte[] body = readBody(exchange);
-        if (body.length == 0) throw ApiFailure.badRequest("JSON request body is required");
-        requireJsonContentType(exchange.getRequestHeaders());
-        return decode(body, type);
+        return requestDecoder.readRequiredJson(exchange, type);
     }
 
     private <T> T readOptionalJson(HttpExchange exchange, Class<T> type, T defaultValue) {
-        byte[] body = readBody(exchange);
-        if (body.length == 0) return defaultValue;
-        requireJsonContentType(exchange.getRequestHeaders());
-        return decode(body, type);
-    }
-
-    private byte[] readBody(HttpExchange exchange) {
-        try {
-            return TimedBoundedInputReader.read(
-                    exchange.getRequestBody(), MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, executor);
-        } catch (TimedBoundedInputReader.LimitExceededException tooLarge) {
-            throw ApiFailure.badRequest("request body exceeds " + MAX_REQUEST_BODY_BYTES + " bytes");
-        } catch (TimedBoundedInputReader.ReadTimeoutException timeout) {
-            throw ApiFailure.badRequest("request body exceeded its read deadline");
-        } catch (IOException failure) {
-            throw ApiFailure.badRequest("cannot read request body");
-        }
-    }
-
-    private <T> T decode(byte[] body, Class<T> type) {
-        try {
-            return mapper.readValue(body, type);
-        } catch (Exception failure) {
-            throw ApiFailure.badRequest("invalid JSON request body: " + safeMessage(failure));
-        }
-    }
-
-    private void requireJsonContentType(Headers headers) {
-        String value = headers.getFirst("Content-Type");
-        if (value == null || !value.toLowerCase(Locale.ROOT).startsWith("application/json")) {
-            throw ApiFailure.unsupportedMediaType("Content-Type application/json is required");
-        }
+        return requestDecoder.readOptionalJson(exchange, type, defaultValue);
     }
 
     private void send(HttpExchange exchange, int status, Object body) throws IOException {
