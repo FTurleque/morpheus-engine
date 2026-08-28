@@ -42,7 +42,7 @@ class MorpheusSpecificationsHttpRoutesContractTest {
             ApiTestSupport.Response invalidLimit = http.get(
                     server, "/projects/project-1/specifications/specification-1/context?limit=0");
             assertEquals(400, invalidLimit.status(), invalidLimit.body());
-            assertTrue(invalidLimit.body().contains("query parameter limit must be between 1 and 100"), invalidLimit.body());
+            assertTrue(invalidLimit.body().contains("limit must be between 1 and 100"), invalidLimit.body());
 
             ApiTestSupport.Response unknownChild = http.get(
                     server, "/projects/project-1/specifications/specification-1/other");
