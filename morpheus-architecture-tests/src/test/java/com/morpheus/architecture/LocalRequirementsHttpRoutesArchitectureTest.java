@@ -26,7 +26,9 @@ class LocalRequirementsHttpRoutesArchitectureTest {
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeRequirements("));
         assertFalse(server.contains("unknown requirements route"));
 
-        assertTrue(routes.contains("MorpheusApiService service"));
+        assertTrue(routes.contains("private final MorpheusRequirementQueryApiService service;"));
+        assertTrue(routes.contains("MorpheusRequirementsHttpRoutes(\n            MorpheusApiService facade,"));
+        assertTrue(routes.contains("this(Objects.requireNonNull(facade, \"facade\").requirementQueryService(), augmentedContextService, requestDecoder);"));
         assertTrue(routes.contains("MorpheusAugmentedContextApiService augmentedContextService"));
         assertTrue(routes.contains("MorpheusHttpRequestDecoder requestDecoder"));
         assertTrue(routes.contains("requestDecoder.readRequiredJson(exchange, AugmentedContextRequest.class)"));
@@ -36,6 +38,7 @@ class LocalRequirementsHttpRoutesArchitectureTest {
         assertTrue(routes.contains("service.requirement(projectId, segments.get(3))"));
         assertTrue(routes.contains("service.traceRequirement(projectId, segments.get(3), depth)"));
         assertTrue(routes.contains("unknown requirements route"));
+        assertFalse(routes.contains("private final MorpheusApiService service;"));
         assertTrue(routes.contains("HttpExchange"));
         assertFalse(routes.contains("HttpServer"));
         assertFalse(routes.contains("JsonMapper"));
