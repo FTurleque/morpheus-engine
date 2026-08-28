@@ -8,9 +8,13 @@ import java.util.Set;
 
 /** Owns local HTTP dispatch for project version-history reads. */
 final class MorpheusVersionsHttpRoutes {
-    private final MorpheusApiService service;
+    private final MorpheusHistoryApiService service;
 
-    MorpheusVersionsHttpRoutes(MorpheusApiService service) {
+    MorpheusVersionsHttpRoutes(MorpheusApiService facade) {
+        this(Objects.requireNonNull(facade, "facade").historyService());
+    }
+
+    MorpheusVersionsHttpRoutes(MorpheusHistoryApiService service) {
         this.service = Objects.requireNonNull(service, "service");
     }
 

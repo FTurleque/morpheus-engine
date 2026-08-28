@@ -1,8 +1,5 @@
 package com.morpheus.api;
 
-import com.morpheus.application.history.HistoricalRequirementQueryService;
-import com.morpheus.application.history.PublishedSnapshotHistoryService;
-import com.morpheus.application.history.RequirementSnapshotComparisonService;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.ChangeContextQueryService;
@@ -25,7 +22,6 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.scenario.Scenario;
-import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
@@ -59,6 +55,7 @@ public final class MorpheusApiService {
     private final MorpheusProjectRegistryApiService projectRegistryService;
     private final MorpheusProjectSyncApiService projectSyncService;
     private final MorpheusDiagnosticsApiService diagnosticsService;
+    private final MorpheusHistoryApiService historyService;
 
     public MorpheusApiService(Path databasePath) {
         this(databasePath, Optional.empty());
@@ -74,6 +71,7 @@ public final class MorpheusApiService {
         this.projectRegistryService = new MorpheusProjectRegistryApiService(this.databasePath, workspaceRoots);
         this.projectSyncService = new MorpheusProjectSyncApiService(this.databasePath, workspaceRoots);
         this.diagnosticsService = new MorpheusDiagnosticsApiService(this.databasePath);
+        this.historyService = new MorpheusHistoryApiService(this.databasePath);
     }
 
     public Object health() {
@@ -107,6 +105,10 @@ public final class MorpheusApiService {
 
     MorpheusDiagnosticsApiService diagnosticsService() {
         return diagnosticsService;
+    }
+
+    MorpheusHistoryApiService historyService() {
+        return historyService;
     }
 
     public Object sync(String projectIdValue, Optional<String> revision) {
@@ -311,60 +313,18 @@ public final class MorpheusApiService {
     }
 
     public Object versions(String projectIdValue) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireProject(runtime, projectId);
-            PublishedSnapshotHistoryService history = new PublishedSnapshotHistoryService(runtime.snapshots);
-            List<KnowledgeSnapshotMetadata> lineage = history.lineage(projectId);
-            return map(
-                    "projectId", projectId.toString(),
-                    "retentionPolicy", history.retentionPolicy().name(),
-                    "items", lineage.stream().map(snapshot -> version(runtime, snapshot)).toList());
-        }
+        return historyService.versions(projectIdValue);
     }
 
     public Object historicalRequirements(
             String projectIdValue,
             String snapshotIdValue,
             PageRequest pageRequest) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.parse(snapshotIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireSnapshotProject(runtime, projectId, snapshotId);
-            List<RequirementVersionRecord> records = new HistoricalRequirementQueryService(runtime.snapshots, runtime.requirements)
-                    .requirements(snapshotId);
-            int total = records.size();
-            int from = Math.min(pageRequest.offset(), total);
-            int to = (int) Math.min((long) from + pageRequest.limit(), total);
-            return map(
-                    "snapshotId", snapshotId.toString(),
-                    "offset", pageRequest.offset(),
-                    "limit", pageRequest.limit(),
-                    "totalMatches", total,
-                    "hasMore", to < total,
-                    "items", records.subList(from, to).stream().map(this::requirementRecord).toList());
-        }
+        return historyService.historicalRequirements(projectIdValue, snapshotIdValue, pageRequest);
     }
 
     public Object compareVersions(String projectIdValue, String sourceIdValue, String targetIdValue) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        KnowledgeSnapshotId sourceId = KnowledgeSnapshotId.parse(sourceIdValue);
-        KnowledgeSnapshotId targetId = KnowledgeSnapshotId.parse(targetIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireSnapshotProject(runtime, projectId, sourceId);
-            requireSnapshotProject(runtime, projectId, targetId);
-            var comparison = new RequirementSnapshotComparisonService(runtime.snapshots, runtime.requirements)
-                    .compare(sourceId, targetId);
-            return map(
-                    "projectId", projectId.toString(),
-                    "sourceSnapshotId", comparison.sourceSnapshot().id().toString(),
-                    "targetSnapshotId", comparison.targetSnapshot().id().toString(),
-                    "differences", comparison.differences().stream().map(difference -> map(
-                            "requirementId", difference.entityIdentity().toString(),
-                            "kind", difference.kind().name(),
-                            "source", difference.source().map(this::requirementRecord).orElse(null),
-                            "target", difference.target().map(this::requirementRecord).orElse(null))).toList());
-        }
+        return historyService.compareVersions(projectIdValue, sourceIdValue, targetIdValue);
     }
 
     public Object diagnostics(String projectIdValue) {
@@ -382,15 +342,6 @@ public final class MorpheusApiService {
                 .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
     }
 
-    private void requireSnapshotProject(ApiRuntime runtime, ProjectSpecificationId projectId, KnowledgeSnapshotId snapshotId) {
-        requireProject(runtime, projectId);
-        KnowledgeSnapshotMetadata snapshot = runtime.snapshots.findSnapshot(snapshotId)
-                .orElseThrow(() -> notFound("snapshot not found: " + snapshotId));
-        if (!snapshot.projectId().equals(projectId)) {
-            throw notFound("snapshot not found in project: " + snapshotId);
-        }
-    }
-
     private BusinessContentQueryService business(ApiRuntime runtime) {
         return new BusinessContentQueryService(runtime.snapshots, runtime.content);
     }
@@ -406,24 +357,6 @@ public final class MorpheusApiService {
             throw notFound("change not found: " + changeId);
         }
         return result;
-    }
-
-    private Object version(ApiRuntime runtime, KnowledgeSnapshotMetadata snapshot) {
-        var binding = runtime.requirements.findSnapshotVersion(snapshot.id())
-                .orElseThrow(() -> state("published snapshot has no specification version binding: " + snapshot.id()));
-        var specificationVersion = runtime.requirements.findSpecificationVersion(binding.specificationVersionId())
-                .orElseThrow(() -> state("specification version not found: " + binding.specificationVersionId()));
-        return map(
-                "snapshotId", snapshot.id().toString(),
-                "snapshotState", snapshot.state().name(),
-                "predecessorSnapshotId", snapshot.predecessorId().map(Object::toString).orElse("none"),
-                "sourceRevision", snapshot.sourceRevision().orElse("unknown"),
-                "snapshotCreatedAt", snapshot.createdAt().toString(),
-                "specificationVersionId", specificationVersion.id().toString(),
-                "sequence", specificationVersion.sequence().map(Object::toString).orElse("unknown"),
-                "providerVersion", specificationVersion.providerVersion().orElse("unknown"),
-                "versionCreatedAt", specificationVersion.createdAt().toString(),
-                "predecessorSpecificationVersionId", specificationVersion.predecessor().map(Object::toString).orElse("none"));
     }
 
     private Object requirementRecord(RequirementVersionRecord record) {
@@ -544,8 +477,6 @@ public final class MorpheusApiService {
         for (int index = 0; index < entries.length; index += 2) {
             result.put((String) entries[index], entries[index + 1]);
         }
-        // Unlike Map.copyOf, this deliberately preserves null values used to represent an absent
-        // source/target side in ADDED/REMOVED historical diffs. CanonicalJsonSerializer emits JSON null.
         return Collections.unmodifiableMap(result);
     }
 
