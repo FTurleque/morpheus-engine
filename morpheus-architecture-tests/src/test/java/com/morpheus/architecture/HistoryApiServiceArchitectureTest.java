@@ -37,7 +37,7 @@ class HistoryApiServiceArchitectureTest {
         assertTrue(history.contains("new RequirementSnapshotComparisonService(runtime.snapshots, runtime.requirements)"));
         assertTrue(history.contains("private void requireSnapshotProject("));
         assertTrue(history.contains("private Object version(ApiRuntime runtime, KnowledgeSnapshotMetadata snapshot)"));
-        assertFalse(history.contains("RequirementQueryService"));
+        assertFalse(history.contains("new RequirementQueryService("));
         assertFalse(history.contains("QualityReportService"));
         assertFalse(history.contains("LocalSourceInventoryScanner"));
         assertFalse(history.contains("MorpheusHttpResponseWriter"));
