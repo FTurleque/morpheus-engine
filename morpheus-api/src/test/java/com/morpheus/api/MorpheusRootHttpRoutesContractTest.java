@@ -28,7 +28,7 @@ class MorpheusRootHttpRoutesContractTest {
             ApiTestSupport.Response method = http.post(server, "/health");
             assertEquals(405, method.status(), method.body());
             assertTrue(method.body().contains("expected HTTP GET but received POST"), method.body());
-            assertEquals("GET", method.firstHeader("Allow"));
+            assertEquals("GET", method.allow());
 
             ApiTestSupport.Response methodBeforeQuery = http.post(server, "/health?unexpected=true");
             assertEquals(405, methodBeforeQuery.status(), methodBeforeQuery.body());
