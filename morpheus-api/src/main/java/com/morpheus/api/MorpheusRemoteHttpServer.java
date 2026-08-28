@@ -3,12 +3,10 @@ package com.morpheus.api;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
-import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.security.LocalWritePermissionHardener;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
@@ -79,7 +77,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final Semaphore proxyResponses;
     private final MorpheusRemoteRuntimeState runtime;
     private final HttpClient proxyClient;
-    private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
+    private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter();
 
     private MorpheusRemoteHttpServer(
             HttpsServer server,
@@ -236,12 +234,12 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
 
     private void handle(HttpExchange exchange) throws IOException {
         String requestId = UUID.randomUUID().toString();
-        applySecurityHeaders(exchange.getResponseHeaders(), requestId);
+        responses.applySecurityHeaders(exchange.getResponseHeaders(), requestId);
         runtime.recordRequest();
         if (!concurrency.tryAcquire()) {
             runtime.recordThrottledRequest();
             try {
-                sendJson(exchange, 429, error("TOO_MANY_REQUESTS", "remote request concurrency limit reached"));
+                responses.sendError(exchange, 429, "TOO_MANY_REQUESTS", "remote request concurrency limit reached");
             } finally {
                 exchange.close();
             }
@@ -253,21 +251,25 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             MorpheusRemoteRole required = requiredRole(exchange.getRequestMethod(), exchange.getRequestURI().getPath());
             if (!identity.role().allows(required)) {
                 runtime.recordAuthorizationFailure();
-                sendJson(exchange, 403, error("FORBIDDEN", "authenticated principal is not authorized for this operation"));
+                responses.sendError(
+                        exchange,
+                        403,
+                        "FORBIDDEN",
+                        "authenticated principal is not authorized for this operation");
                 return;
             }
 
             String path = exchange.getRequestURI().getPath();
             if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/status")) {
                 requireMethod(exchange, "GET");
-                sendJson(exchange, 200, success(runtime.status(host(), port())));
+                responses.sendSuccess(exchange, 200, runtime.status(host(), port()));
                 return;
             }
             if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/backups")) {
                 requireMethod(exchange, "POST");
                 requireEmptyBody(exchange);
                 SqliteServerMaintenance.BackupVerification backup = maintenance.createBackup(databasePath, backupDirectory);
-                sendJson(exchange, 201, success(backupView(backup)));
+                responses.sendSuccess(exchange, 201, backupView(backup));
                 return;
             }
             proxy(exchange);
@@ -277,11 +279,11 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             if (failure.status == 401) {
                 exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer realm=\"morpheus\"");
             }
-            sendJson(exchange, failure.status, error(failure.code, failure.getMessage()));
+            responses.sendError(exchange, failure.status, failure.code, failure.getMessage());
         } catch (IllegalArgumentException failure) {
-            sendJson(exchange, 400, error("BAD_REQUEST", safeMessage(failure)));
+            responses.sendError(exchange, 400, "BAD_REQUEST", safeMessage(failure));
         } catch (RuntimeException failure) {
-            sendJson(exchange, 500, error("INTERNAL_ERROR", "internal MORPHEUS remote server error"));
+            responses.sendError(exchange, 500, "INTERNAL_ERROR", "internal MORPHEUS remote server error");
         } finally {
             runtime.requestFinished();
             concurrency.release();
@@ -518,35 +520,6 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         view.put("schemaVersion", backup.schemaVersion());
         view.put("integrityOk", backup.integrityOk());
         return Map.copyOf(view);
-    }
-
-    private Map<String, Object> success(Object data) {
-        return Map.of("apiVersion", "v1", "data", data);
-    }
-
-    private Map<String, Object> error(String code, String message) {
-        return Map.of(
-                "apiVersion", "v1",
-                "error", Map.of("code", code, "message", message, "details", Map.of()));
-    }
-
-    private void sendJson(HttpExchange exchange, int status, Object payload) throws IOException {
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-        sendRaw(exchange, status, serializer.toUtf8(payload));
-    }
-
-    private void sendRaw(HttpExchange exchange, int status, byte[] body) throws IOException {
-        exchange.sendResponseHeaders(status, body.length);
-        exchange.getResponseBody().write(body);
-    }
-
-    private static void applySecurityHeaders(Headers headers, String requestId) {
-        headers.set("Cache-Control", "no-store");
-        headers.set("X-Content-Type-Options", "nosniff");
-        headers.set("X-Frame-Options", "DENY");
-        headers.set("Referrer-Policy", "no-referrer");
-        headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
-        headers.set("X-Request-Id", requestId);
     }
 
     private static SSLContext buildSslContext(Path keyStorePath, char[] password) {
