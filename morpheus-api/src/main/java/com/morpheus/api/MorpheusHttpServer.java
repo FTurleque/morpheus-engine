@@ -38,6 +38,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private final HttpServer server;
     private final ExecutorService executor;
+    private final MorpheusHttpRequestDecoder requestDecoder;
     private final MorpheusRootHttpRoutes rootRoutes;
     private final MorpheusProjectsHttpRoutes projectsRoutes;
     private final MorpheusPortfolioHttpRoutes portfolioRoutes;
@@ -61,7 +62,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             boolean providerPluginProbeEnabled) {
         this.server = Objects.requireNonNull(server, "server");
         this.executor = Objects.requireNonNull(executor, "executor");
-        MorpheusHttpRequestDecoder requestDecoder = new MorpheusHttpRequestDecoder(
+        this.requestDecoder = new MorpheusHttpRequestDecoder(
                 MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, this.executor);
         this.rootRoutes = new MorpheusRootHttpRoutes(service, operabilityService);
         this.projectsRoutes = new MorpheusProjectsHttpRoutes(
@@ -71,8 +72,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
                 jarvisOrchestrationService,
                 controlledLifecycleService,
                 compositionService,
-                requestDecoder);
-        this.portfolioRoutes = new MorpheusPortfolioHttpRoutes(portfolioService, requestDecoder);
+                this.requestDecoder);
+        this.portfolioRoutes = new MorpheusPortfolioHttpRoutes(portfolioService, this.requestDecoder);
         this.providerPluginRoutes = new MorpheusProviderPluginHttpRoutes(providerPluginProbeEnabled);
         this.integrationStatusRoutes = new MorpheusIntegrationStatusHttpRoutes(
                 externalReferenceService, augmentedContextService);
