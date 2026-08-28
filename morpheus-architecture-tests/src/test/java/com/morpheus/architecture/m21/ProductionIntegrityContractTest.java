@@ -47,7 +47,7 @@ class ProductionIntegrityContractTest {
         String main = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"));
         String productCli = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java"));
         String mcp = Files.readString(root.resolve("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProductMcpTools.java"));
-        String http = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String rootHttp = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusRootHttpRoutes.java"));
         String compositionMcp = readJavaTree(root.resolve("morpheus-mcp/src/main/java"));
         String lifecycleCli = readJavaTree(root.resolve("morpheus-cli/src/main/java"));
 
@@ -55,7 +55,7 @@ class ProductionIntegrityContractTest {
         assertTrue(productCli.contains("update-check"));
         assertTrue(mcp.contains("get_product_info"));
         assertTrue(mcp.contains("check_product_update"));
-        assertTrue(http.contains("segments.getFirst().equals(\"version\")"));
+        assertTrue(rootHttp.contains("case \"version\" -> ok(service.version())"));
         assertTrue(compositionMcp.contains("get_composition_status"));
         assertTrue(compositionMcp.contains("list_composition_conflicts"));
         assertTrue(compositionMcp.contains("apply_change_lifecycle_transition"));
