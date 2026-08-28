@@ -3,7 +3,7 @@
 > Synthèse opérationnelle de [§11](../arc42/11-risques-dette.md).
 > Baseline active : MORPHEUS 1.2.1 corrective — branche de développement post-audit.
 > Dernière release publiée : `v1.2.0`.
-> Mise à jour : **2026-08-27**.
+> Mise à jour : **2026-08-29**.
 >
 > **P** = probabilité, **I** = impact, **E** = exposition = P × I ; échelle 1 à 3.
 
@@ -85,7 +85,7 @@ Les tests adversariaux du codec couvrent notamment une représentation >16 KiB, 
 | Descendant MCP pouvant survivre après sortie du parent | observation périodique des `ProcessHandle`, rétention des descendants vus puis cleanup forcé même si le parent a déjà disparu |
 | Secret NVD disponible sur le chemin PR | `security.yml` sépare les événements de confiance du chemin `pull_request`; l'update PR n'injecte aucun repository secret |
 | Absence de SAST versionné | `.github/workflows/codeql.yml` ajouté, actions CodeQL pinnées par SHA, Java `security-extended` |
-| Ratchets devenus trop permissifs | M21 relevé progressivement ; baseline active actuelle `820 / 258 / 50,6% / 43,0%` |
+| Ratchets devenus trop permissifs | M21 relevé progressivement ; baseline active au 29/08/2026 `880 / 270 / 51,2% / 43,7%` |
 | Manifeste update distant en HTTP | `UpdateDiscoveryService` accepte `file:` et `https:` uniquement ; `http:` est refusé avant I/O |
 
 La réduction d'environnement et le suivi des descendants sont des mesures de confinement de lifecycle et de secrets ; ils ne transforment pas un JAR externe explicitement configuré en code non fiable sandboxé. MINOS/NEXUS et les plugins exécutables restent sous le même compte OS que MORPHEUS.
@@ -126,15 +126,15 @@ M21 s'exécute sur les pull requests ainsi que sur les pushes `main` et `develop
 Ratchets actifs :
 
 ```text
-Surefire total       >= 820
-architecture         >= 258
-line coverage        >= 50.6%
-branch coverage      >= 43.0%
+Surefire total       >= 880
+architecture         >= 270
+line coverage        >= 51.2%
+branch coverage      >= 43.7%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```
 
-La qualification post-merge du SHA `72a7f8aea85950c45e6c59e48b07abff480e9419` a produit `853` tests, `265` tests d'architecture, `50,7896%` lignes et `43,2215%` branches. Les baselines restent volontairement légèrement en dessous des observations qualifiées afin d'être des ratchets stables, pas des égalités fragiles.
+La dernière qualification exact-head de #219 sur `ac61abb0f9bafd55cc59e0a2885322de415898ca` a produit `999` tests, `299` tests d'architecture, `52,4323%` lignes et `45,3834%` branches ; le merge signé résultant place `develop` sur `e17cdb3cccdbd7a1d15ec54f5460e1fce4489b47`. Les baselines restent volontairement légèrement en dessous des observations qualifiées afin d'être des ratchets stables, pas des égalités fragiles.
 
 `MORPHEUS Security` exécute OWASP Dependency-Check (CVSS >= 7 bloquant) sur PR/push `main` et `develop`, quotidiennement et sur demande. Les PR n'obtiennent pas la clé NVD depuis ce workflow. `MORPHEUS CodeQL` exécute un SAST Java versionné avec `security-extended`.
 
