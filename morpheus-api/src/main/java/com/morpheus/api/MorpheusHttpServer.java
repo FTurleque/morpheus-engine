@@ -48,6 +48,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusPortfolioApiService portfolioService;
     private final MorpheusOperabilityApiService operabilityService;
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusProjectSyncHttpRoutes projectSyncRoutes;
     private final MorpheusPortfolioHttpRoutes portfolioRoutes;
     private final MorpheusProviderPluginHttpRoutes providerPluginRoutes;
     private final MorpheusIntegrationStatusHttpRoutes integrationStatusRoutes;
@@ -86,6 +87,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.operabilityService = Objects.requireNonNull(operabilityService, "operabilityService");
         this.requestDecoder = new MorpheusHttpRequestDecoder(
                 MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, this.executor);
+        this.projectSyncRoutes = new MorpheusProjectSyncHttpRoutes(this.service, this.requestDecoder);
         this.portfolioRoutes = new MorpheusPortfolioHttpRoutes(this.portfolioService, this.requestDecoder);
         this.providerPluginRoutes = new MorpheusProviderPluginHttpRoutes(providerPluginProbeEnabled);
         this.integrationStatusRoutes = new MorpheusIntegrationStatusHttpRoutes(
@@ -334,8 +336,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
         String resource = segments.get(2);
         return switch (resource) {
-            case "sync" -> routeSync(exchange, method, segments, query, projectId);
-            case "sync-status" -> routeSyncStatus(method, segments, query, projectId);
+            case "sync" -> projectSyncRoutes.routeSync(exchange, method, segments, query, projectId);
+            case "sync-status" -> projectSyncRoutes.routeSyncStatus(method, segments, query, projectId);
             case "composition" -> compositionRoutes.route(method, segments, query, projectId);
             case "specifications" -> specificationsRoutes.route(method, segments, query, projectId);
             case "requirements" -> requirementsRoutes.route(exchange, method, segments, query, projectId);
@@ -347,41 +349,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
         };
     }
 
-    private MorpheusHttpRouteResponse routeSync(
-            HttpExchange exchange,
-            String method,
-            List<String> segments,
-            MorpheusHttpQuery query,
-            String projectId) {
-        requireExactSegments(segments, 3);
-        requireMethod(method, "POST");
-        query.rejectUnknown(Set.of());
-        SyncRequest request = readOptionalJson(exchange, SyncRequest.class, new SyncRequest(null));
-        return ok(service.sync(projectId, Optional.ofNullable(request.revision())));
-    }
-
-    private MorpheusHttpRouteResponse routeSyncStatus(
-            String method,
-            List<String> segments,
-            MorpheusHttpQuery query,
-            String projectId) {
-        requireExactSegments(segments, 3);
-        requireMethod(method, "GET");
-        query.rejectUnknown(Set.of("maxAgeMinutes"));
-        long maxAge = query.longValue(
-                "maxAgeMinutes",
-                MorpheusApiService.DEFAULT_MAX_AGE_MINUTES,
-                1,
-                MorpheusApiService.MAX_MAX_AGE_MINUTES);
-        return ok(service.syncStatus(projectId, maxAge));
-    }
-
     private <T> T readRequiredJson(HttpExchange exchange, Class<T> type) {
         return requestDecoder.readRequiredJson(exchange, type);
-    }
-
-    private <T> T readOptionalJson(HttpExchange exchange, Class<T> type, T defaultValue) {
-        return requestDecoder.readOptionalJson(exchange, type, defaultValue);
     }
 
     private void send(HttpExchange exchange, int status, Object body) throws IOException {
@@ -402,10 +371,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private void requireMethod(String actual, String expected) {
         MorpheusHttpRouteGuards.requireMethod(actual, expected);
-    }
-
-    private void requireExactSegments(List<String> segments, int expected) {
-        MorpheusHttpRouteGuards.requireExactSegments(segments, expected);
     }
 
     private List<String> pathSegments(String path) {
