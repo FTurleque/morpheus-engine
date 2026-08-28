@@ -16,11 +16,16 @@ class LocalHttpRouteGuardsArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projects = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectsHttpRoutes.java"));
         String guards = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRouteGuards.java"));
 
-        assertTrue(server.contains("MorpheusHttpRouteGuards.requireMethod(actual, expected)"));
-        assertTrue(server.contains("MorpheusHttpRouteGuards.requireExactSegments(segments, expected)"));
+        assertFalse(server.contains("private void requireMethod(String actual, String expected)"));
+        assertFalse(server.contains("private void requireExactSegments(List<String> segments, int expected)"));
+        assertTrue(projects.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
+        assertTrue(projects.contains("MorpheusHttpRouteGuards.requireMethod(method, \"POST\")"));
+        assertTrue(projects.contains("MorpheusHttpRouteGuards.requireExactSegments(segments, 3)"));
         assertFalse(server.contains("throw ApiFailure.methodNotAllowed(\"expected HTTP \""));
         assertFalse(server.contains("throw ApiFailure.notFound(\"unknown API route\")"));
 
