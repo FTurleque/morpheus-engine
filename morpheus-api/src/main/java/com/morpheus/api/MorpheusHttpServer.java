@@ -52,6 +52,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusPortfolioHttpRoutes portfolioRoutes;
     private final MorpheusProviderPluginHttpRoutes providerPluginRoutes;
     private final MorpheusIntegrationStatusHttpRoutes integrationStatusRoutes;
+    private final MorpheusCompositionHttpRoutes compositionRoutes;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
     private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
     private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
@@ -84,6 +85,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.providerPluginRoutes = new MorpheusProviderPluginHttpRoutes(providerPluginProbeEnabled);
         this.integrationStatusRoutes = new MorpheusIntegrationStatusHttpRoutes(
                 this.externalReferenceService, this.augmentedContextService);
+        this.compositionRoutes = new MorpheusCompositionHttpRoutes(this.compositionService);
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -317,7 +319,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return switch (resource) {
             case "sync" -> routeSync(exchange, method, segments, query, projectId);
             case "sync-status" -> routeSyncStatus(method, segments, query, projectId);
-            case "composition" -> routeComposition(method, segments, query, projectId);
+            case "composition" -> compositionRoutes.route(method, segments, query, projectId);
             case "specifications" -> routeSpecifications(method, segments, query, projectId);
             case "requirements" -> routeRequirements(exchange, method, segments, query, projectId);
             case "changes" -> routeChanges(exchange, method, segments, query, projectId);
@@ -343,21 +345,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
         long maxAge = query.longValue(
                 "maxAgeMinutes", MorpheusApiService.DEFAULT_MAX_AGE_MINUTES, 1, MorpheusApiService.MAX_MAX_AGE_MINUTES);
         return ok(service.syncStatus(projectId, maxAge));
-    }
-
-    private MorpheusHttpRouteResponse routeComposition(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
-        requireMethod(method, "GET");
-        if (segments.size() == 3) {
-            query.rejectUnknown(Set.of());
-            return ok(compositionService.status(projectId));
-        }
-        if (segments.size() == 4 && segments.get(3).equals("conflicts")) {
-            query.rejectUnknown(Set.of("offset", "limit"));
-            int offset = query.intValue("offset", 0, 0, Integer.MAX_VALUE);
-            int limit = query.intValue("limit", MorpheusCompositionApiService.DEFAULT_LIMIT, 1, MorpheusCompositionApiService.MAX_LIMIT);
-            return ok(compositionService.conflicts(projectId, offset, limit));
-        }
-        throw ApiFailure.notFound("unknown composition route");
     }
 
     private MorpheusHttpRouteResponse routeSpecifications(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
