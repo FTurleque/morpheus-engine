@@ -21,7 +21,7 @@ class LocalIntegrationStatusHttpRoutesArchitectureTest {
 
         assertTrue(server.contains("MorpheusIntegrationStatusHttpRoutes integrationStatusRoutes"));
         assertTrue(server.contains("new MorpheusIntegrationStatusHttpRoutes("));
-        assertTrue(server.contains("this.externalReferenceService, this.augmentedContextService"));
+        assertTrue(server.contains("externalReferenceService, augmentedContextService"));
         assertTrue(server.contains("integrationStatusRoutes.route(method, segments, query)"));
         assertFalse(server.contains("case \"minos\" -> ok(externalReferenceService.minosStatus())"));
         assertFalse(server.contains("case \"nexus\" -> ok(augmentedContextService.nexusStatus())"));
