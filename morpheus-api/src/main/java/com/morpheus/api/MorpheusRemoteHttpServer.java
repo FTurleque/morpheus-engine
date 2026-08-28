@@ -294,7 +294,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 401, "UNAUTHENTICATED", "valid Bearer authentication is required"));
     }
 
-    static Optional<MorpusRemoteIdentityFile.Identity> authenticateCurrent(Path authFile, String token) {
+    static Optional<MorpheusRemoteIdentityFile.Identity> authenticateCurrent(Path authFile, String token) {
         return MorpheusRemoteIdentityFile.authenticate(MorpheusRemoteIdentityFile.load(authFile), token);
     }
 
