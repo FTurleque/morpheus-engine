@@ -9,10 +9,14 @@ import java.util.Set;
 
 /** Owns local HTTP dispatch for project synchronization and synchronization status. */
 final class MorpheusProjectSyncHttpRoutes {
-    private final MorpheusApiService service;
+    private final MorpheusProjectSyncApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
 
-    MorpheusProjectSyncHttpRoutes(MorpheusApiService service, MorpheusHttpRequestDecoder requestDecoder) {
+    MorpheusProjectSyncHttpRoutes(MorpheusApiService facade, MorpheusHttpRequestDecoder requestDecoder) {
+        this(Objects.requireNonNull(facade, "facade").projectSyncService(), requestDecoder);
+    }
+
+    MorpheusProjectSyncHttpRoutes(MorpheusProjectSyncApiService service, MorpheusHttpRequestDecoder requestDecoder) {
         this.service = Objects.requireNonNull(service, "service");
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
     }
