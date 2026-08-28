@@ -16,13 +16,15 @@ class LocalRequirementsHttpRoutesArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projects = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectsHttpRoutes.java"));
         String routes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusRequirementsHttpRoutes.java"));
 
-        assertTrue(server.contains("MorpheusRequirementsHttpRoutes requirementsRoutes"));
-        assertTrue(server.contains("new MorpheusRequirementsHttpRoutes("));
-        assertTrue(server.contains("this.service, this.augmentedContextService, this.requestDecoder"));
-        assertTrue(server.contains("requirementsRoutes.route(exchange, method, segments, query, projectId)"));
+        assertFalse(server.contains("MorpheusRequirementsHttpRoutes requirementsRoutes"));
+        assertTrue(projects.contains("MorpheusRequirementsHttpRoutes requirementsRoutes"));
+        assertTrue(projects.contains("new MorpheusRequirementsHttpRoutes("));
+        assertTrue(projects.contains("requirementsRoutes.route(exchange, method, segments, query, projectId)"));
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeRequirements("));
         assertFalse(server.contains("unknown requirements route"));
 
