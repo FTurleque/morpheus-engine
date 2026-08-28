@@ -3,11 +3,6 @@ package com.morpheus.api;
 import com.morpheus.application.history.HistoricalRequirementQueryService;
 import com.morpheus.application.history.PublishedSnapshotHistoryService;
 import com.morpheus.application.history.RequirementSnapshotComparisonService;
-import com.morpheus.application.identity.PersistentEntityIdentityResolver;
-import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
-import com.morpheus.application.ingestion.ProjectSnapshotImportService;
-import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
@@ -31,11 +26,6 @@ import com.morpheus.application.query.compact.CompactQueryViewService;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.RequirementVersionRecord;
-import com.morpheus.application.sync.IncrementalSyncService;
-import com.morpheus.application.sync.LocalSourceInventoryScanner;
-import com.morpheus.application.sync.SyncFreshness;
-import com.morpheus.application.sync.SyncFreshnessService;
-import com.morpheus.application.sync.SyncPlan;
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
@@ -50,12 +40,8 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 import com.morpheus.domain.task.ImplementationTask;
-import com.morpheus.provider.openspec.OpenSpecProjectContentReader;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -80,8 +66,8 @@ public final class MorpheusApiService {
     public static final long MAX_MAX_AGE_MINUTES = 525_600L;
 
     private final Path databasePath;
-    private final Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots;
     private final MorpheusProjectRegistryApiService projectRegistryService;
+    private final MorpheusProjectSyncApiService projectSyncService;
 
     public MorpheusApiService(Path databasePath) {
         this(databasePath, Optional.empty());
@@ -93,8 +79,9 @@ public final class MorpheusApiService {
 
     private MorpheusApiService(Path databasePath, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
-        this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
-        this.projectRegistryService = new MorpheusProjectRegistryApiService(this.databasePath, this.allowedWorkspaceRoots);
+        Optional<AllowedWorkspaceRoots> workspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
+        this.projectRegistryService = new MorpheusProjectRegistryApiService(this.databasePath, workspaceRoots);
+        this.projectSyncService = new MorpheusProjectSyncApiService(this.databasePath, workspaceRoots);
     }
 
     public Object health() {
@@ -122,75 +109,16 @@ public final class MorpheusApiService {
         return projectRegistryService;
     }
 
-    public Object sync(String projectIdValue, Optional<String> revision) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        Optional<String> normalizedRevision = Objects.requireNonNull(revision, "revision")
-                .map(String::trim).filter(value -> !value.isEmpty());
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            Path workspace = projectWorkspace(runtime, projectId);
-            Instant attemptedAt = Instant.now();
-            var scan = new LocalSourceInventoryScanner().scan(
-                    workspace,
-                    projectId,
-                    normalizedRevision,
-                    attemptedAt,
-                    List.of(Path.of("openspec")));
-            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState);
-            SyncPlan plan = syncService.prepare(scan, SyncPlan.Trigger.manual().forced(), attemptedAt);
-            if (!scan.complete()) {
-                syncService.fail(plan, Instant.now());
-                throw ApiFailure.conflict("source scan is incomplete: " + scan.failures());
-            }
+    MorpheusProjectSyncApiService projectSyncService() {
+        return projectSyncService;
+    }
 
-            try {
-                var normalized = new OpenSpecProjectContentReader().read(
-                        workspace,
-                        projectId,
-                        new PersistentEntityIdentityResolver(runtime.identities));
-                ProjectSnapshotImportResult imported = new ObservedProjectSnapshotPublisher(
-                        new ProjectSnapshotImportService(
-                                runtime.snapshots,
-                                runtime.requirements,
-                                runtime.content,
-                                runtime.traceability),
-                        LocalOperationalRuntime.recorder())
-                        .publishFull(normalized, normalizedRevision, Instant.now());
-                syncService.complete(plan, Instant.now());
-                return map(
-                        "projectId", projectId.toString(),
-                        "snapshotId", imported.snapshot().id().toString(),
-                        "mode", plan.mode().name(),
-                        "fullRebuildReason", plan.fullRebuildReason().map(Enum::name).orElse("none"),
-                        "sourceCount", scan.inventory().orElseThrow().entries().size(),
-                        "requirementCount", imported.requirementCount(),
-                        "traceabilityLinkCount", imported.traceabilityLinkCount(),
-                        "diagnosticCount", imported.diagnostics().size(),
-                        "published", true);
-            } catch (RuntimeException failure) {
-                syncService.fail(plan, Instant.now());
-                throw failure;
-            }
-        }
+    public Object sync(String projectIdValue, Optional<String> revision) {
+        return projectSyncService.sync(projectIdValue, revision);
     }
 
     public Object syncStatus(String projectIdValue, long maxAgeMinutes) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        requireRange("maxAgeMinutes", maxAgeMinutes, 1L, MAX_MAX_AGE_MINUTES);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireProject(runtime, projectId);
-            SyncFreshness freshness = new SyncFreshnessService(runtime.syncState)
-                    .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
-            return map(
-                    "projectId", projectId.toString(),
-                    "state", freshness.state().name(),
-                    "lastSuccessfulSyncAt", freshness.lastSuccessfulSyncAt().map(Instant::toString).orElse("unknown"),
-                    "ageSeconds", freshness.ageSinceSuccessfulSync().map(Duration::toSeconds).map(Object::toString).orElse("unknown"),
-                    "lastObservedChangeAt", freshness.lastObservedChangeAt().map(Instant::toString).orElse("unknown"),
-                    "sourceRevision", freshness.sourceRevision().orElse("unknown"),
-                    "lastSuccessfulMode", freshness.lastSuccessfulMode().map(Enum::name).orElse("unknown"),
-                    "pendingFullRebuildReason", freshness.pendingFullRebuildReason().map(Enum::name).orElse("none"),
-                    "currentSourceCount", freshness.currentSourceCount());
-        }
+        return projectSyncService.syncStatus(projectIdValue, maxAgeMinutes);
     }
 
     public Object listSpecifications(String projectIdValue, PageRequest pageRequest) {
@@ -504,25 +432,6 @@ public final class MorpheusApiService {
         if (!snapshot.projectId().equals(projectId)) {
             throw notFound("snapshot not found in project: " + snapshotId);
         }
-    }
-
-    private Path projectWorkspace(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        ProjectStoreEntry project = requireProject(runtime, projectId);
-        if (!project.rootLocator().scheme().equals("file")) {
-            throw conflict("local headless sync requires a file: project root");
-        }
-        Path workspace = Path.of(project.rootLocator().value()).toAbsolutePath().normalize();
-        Path authorizedWorkspace = authorizeWorkspace(workspace);
-        if (!Files.isDirectory(authorizedWorkspace)) {
-            throw conflict("workspace is not a directory: " + authorizedWorkspace);
-        }
-        return authorizedWorkspace;
-    }
-
-    private Path authorizeWorkspace(Path workspace) {
-        return allowedWorkspaceRoots
-                .map(policy -> policy.requireAllowedDirectory(workspace))
-                .orElse(workspace);
     }
 
     private BusinessContentQueryService business(ApiRuntime runtime) {
