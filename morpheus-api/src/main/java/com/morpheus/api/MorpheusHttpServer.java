@@ -55,6 +55,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusCompositionHttpRoutes compositionRoutes;
     private final MorpheusSpecificationsHttpRoutes specificationsRoutes;
     private final MorpheusDiagnosticsHttpRoutes diagnosticsRoutes;
+    private final MorpheusExternalReferenceHttpRoutes externalReferenceRoutes;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
     private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
     private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
@@ -90,6 +91,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.compositionRoutes = new MorpheusCompositionHttpRoutes(this.compositionService);
         this.specificationsRoutes = new MorpheusSpecificationsHttpRoutes(this.service);
         this.diagnosticsRoutes = new MorpheusDiagnosticsHttpRoutes(this.service);
+        this.externalReferenceRoutes = new MorpheusExternalReferenceHttpRoutes(this.externalReferenceService);
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -329,7 +331,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "changes" -> routeChanges(exchange, method, segments, query, projectId);
             case "versions" -> routeVersions(method, segments, query, projectId);
             case "diagnostics" -> diagnosticsRoutes.route(method, segments, query, projectId);
-            case "external-references" -> routeExternalReferences(method, segments, query, projectId);
+            case "external-references" -> externalReferenceRoutes.route(method, segments, query, projectId);
             default -> throw ApiFailure.notFound("unknown project API resource: " + resource);
         };
     }
@@ -454,19 +456,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
             return ok(service.historicalRequirements(projectId, segments.get(3), page(query)));
         }
         throw ApiFailure.notFound("unknown versions route");
-    }
-
-    private MorpheusHttpRouteResponse routeExternalReferences(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
-        requireMethod(method, "GET");
-        if (segments.size() == 3) {
-            query.rejectUnknown(Set.of("ownerId"));
-            return ok(externalReferenceService.list(projectId, query.required("ownerId")));
-        }
-        if (segments.size() == 5 && segments.get(4).equals("resolution")) {
-            query.rejectUnknown(Set.of());
-            return ok(externalReferenceService.resolve(projectId, segments.get(3)));
-        }
-        throw ApiFailure.notFound("unknown external-references route");
     }
 
     private PageRequest page(MorpheusHttpQuery query) {
