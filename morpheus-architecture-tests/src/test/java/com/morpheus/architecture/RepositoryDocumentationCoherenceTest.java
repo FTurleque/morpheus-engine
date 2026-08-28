@@ -141,15 +141,29 @@ class RepositoryDocumentationCoherenceTest {
         Path root = repositoryRoot();
         String routePolicy = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRoutePolicy.java"));
+        String remoteServer = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
         String userGuide = Files.readString(root.resolve("docs/user/TEAM_REMOTE_SERVER.md"));
+        String developerGuide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
 
         assertTrue(routePolicy.contains("private static final List<RouteRule> ROUTES"));
         assertTrue(routePolicy.contains("unknown remote API path"));
         assertFalse(routePolicy.contains("method.equals(\"GET\") || method.equals(\"HEAD\")"),
                 "remote authorization must not infer READ authority from GET/HEAD");
+        assertTrue(remoteServer.contains("at least one active ADMIN identity"));
+        assertTrue(remoteServer.contains("identity.isActiveAt(now)"));
+
         assertTrue(userGuide.contains("table exhaustive `(méthode HTTP, route) -> rôle minimum`"));
         assertTrue(userGuide.contains("principal|role|sha256(token)[|expiresAt]"));
         assertTrue(userGuide.contains("--expires-at never"));
+
+        assertTrue(developerGuide.contains("table exhaustive `(méthode HTTP, route) -> rôle minimum`"));
+        assertTrue(developerGuide.contains("principal|role|sha256(token)[|expiresAt]"));
+        assertTrue(developerGuide.contains("ADMIN` **active à l'instant du démarrage**"));
+        assertTrue(developerGuide.contains("70 % des branches modifiées"));
+        assertTrue(developerGuide.contains("ne constituent pas une sandbox du système d'exploitation"));
+        assertFalse(developerGuide.contains("`GET`/`HEAD` : READ"),
+                "developer guide must not reintroduce the obsolete verb-derived RBAC contract");
     }
 
     private static List<Path> activeStatusPages(Path root) {
