@@ -16,12 +16,15 @@ class LocalSpecificationsHttpRoutesArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projects = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectsHttpRoutes.java"));
         String routes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusSpecificationsHttpRoutes.java"));
 
-        assertTrue(server.contains("MorpheusSpecificationsHttpRoutes specificationsRoutes"));
-        assertTrue(server.contains("new MorpheusSpecificationsHttpRoutes(this.service)"));
-        assertTrue(server.contains("specificationsRoutes.route(method, segments, query, projectId)"));
+        assertFalse(server.contains("MorpheusSpecificationsHttpRoutes specificationsRoutes"));
+        assertTrue(projects.contains("MorpheusSpecificationsHttpRoutes specificationsRoutes"));
+        assertTrue(projects.contains("new MorpheusSpecificationsHttpRoutes(this.service)"));
+        assertTrue(projects.contains("specificationsRoutes.route(method, segments, query, projectId)"));
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeSpecifications("));
         assertFalse(server.contains("unknown specifications route"));
 
