@@ -226,7 +226,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private void handle(HttpExchange exchange) throws IOException {
         try {
-            RouteResponse response = route(exchange);
+            MorpheusHttpRouteResponse response = route(exchange);
             send(exchange, response.status(), success(response.data()));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
@@ -244,7 +244,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         }
     }
 
-    private RouteResponse route(HttpExchange exchange) {
+    private MorpheusHttpRouteResponse route(HttpExchange exchange) {
         String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
         List<String> segments = pathSegments(exchange.getRequestURI().getPath());
         MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
@@ -263,7 +263,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             requireMethod(method, "GET");
             query.rejectUnknown(Set.of());
             MorpheusOperabilityApiService.ReadinessView readiness = operabilityService.readiness();
-            return new RouteResponse("READY".equals(readiness.status()) ? 200 : 503, readiness);
+            return new MorpheusHttpRouteResponse("READY".equals(readiness.status()) ? 200 : 503, readiness);
         }
         if (segments.size() == 1 && segments.getFirst().equals("metrics")) {
             requireMethod(method, "GET");
@@ -324,7 +324,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             if (method.equals("POST")) {
                 ProjectRegistrationRequest request = readRequiredJson(exchange, ProjectRegistrationRequest.class);
                 MorpheusApiService.RegistrationResult result = service.registerProject(request.workspace());
-                return new RouteResponse(result.created() ? 201 : 200, result.project());
+                return new MorpheusHttpRouteResponse(result.created() ? 201 : 200, result.project());
             }
             throw ApiFailure.methodNotAllowed("projects supports GET and POST");
         }
@@ -351,7 +351,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         };
     }
 
-    private RouteResponse routePortfolios(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query) {
+    private MorpheusHttpRouteResponse routePortfolios(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query) {
         if (segments.size() == 1) {
             if (method.equals("GET")) {
                 query.rejectUnknown(Set.of("offset", "limit"));
@@ -363,7 +363,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
                 query.rejectUnknown(Set.of());
                 Object created = portfolioService.create(
                         readRequiredJson(exchange, MorpheusPortfolioApiService.CreatePortfolioRequest.class));
-                return new RouteResponse(201, created);
+                return new MorpheusHttpRouteResponse(201, created);
             }
             throw ApiFailure.methodNotAllowed("portfolios supports GET and POST");
         }
@@ -389,7 +389,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             if (segments.size() == 3) {
                 requireMethod(method, "POST");
                 query.rejectUnknown(Set.of());
-                return new RouteResponse(201, portfolioService.registerProject(
+                return new MorpheusHttpRouteResponse(201, portfolioService.registerProject(
                         portfolioId,
                         readRequiredJson(exchange, MorpheusPortfolioApiService.RegisterProjectRequest.class)));
             }
@@ -420,7 +420,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             }
             if (method.equals("POST")) {
                 query.rejectUnknown(Set.of());
-                return new RouteResponse(201, portfolioService.addReference(
+                return new MorpheusHttpRouteResponse(201, portfolioService.addReference(
                         portfolioId,
                         readRequiredJson(exchange, MorpheusPortfolioApiService.CrossProjectReferenceRequest.class)));
             }
@@ -443,7 +443,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         throw ApiFailure.notFound("unknown portfolio API resource: " + resource);
     }
 
-    private RouteResponse routeSync(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeSync(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
         requireExactSegments(segments, 3);
         requireMethod(method, "POST");
         query.rejectUnknown(Set.of());
@@ -451,7 +451,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return ok(service.sync(projectId, Optional.ofNullable(request.revision())));
     }
 
-    private RouteResponse routeSyncStatus(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeSyncStatus(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
         requireExactSegments(segments, 3);
         requireMethod(method, "GET");
         query.rejectUnknown(Set.of("maxAgeMinutes"));
@@ -460,7 +460,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return ok(service.syncStatus(projectId, maxAge));
     }
 
-    private RouteResponse routeComposition(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeComposition(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
         requireMethod(method, "GET");
         if (segments.size() == 3) {
             query.rejectUnknown(Set.of());
@@ -475,7 +475,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         throw ApiFailure.notFound("unknown composition route");
     }
 
-    private RouteResponse routeSpecifications(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeSpecifications(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
         requireMethod(method, "GET");
         if (segments.size() == 3) return ok(service.listSpecifications(projectId, page(query)));
         if (segments.size() == 4) {
@@ -488,7 +488,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         throw ApiFailure.notFound("unknown specifications route");
     }
 
-    private RouteResponse routeRequirements(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeRequirements(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
         if (segments.size() == 5 && segments.get(4).equals("augmented-context")) {
             requireMethod(method, "POST");
             query.rejectUnknown(Set.of());
@@ -515,7 +515,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         throw ApiFailure.notFound("unknown requirements route");
     }
 
-    private RouteResponse routeChanges(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeChanges(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
         if (segments.size() == 5 && segments.get(4).equals("augmented-context")) {
             requireMethod(method, "POST");
             query.rejectUnknown(Set.of());
@@ -577,7 +577,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         };
     }
 
-    private RouteResponse routeVersions(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeVersions(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
         requireMethod(method, "GET");
         if (segments.size() == 3) {
             query.rejectUnknown(Set.of());
@@ -593,14 +593,14 @@ public final class MorpheusHttpServer implements AutoCloseable {
         throw ApiFailure.notFound("unknown versions route");
     }
 
-    private RouteResponse routeDiagnostics(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeDiagnostics(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
         requireExactSegments(segments, 3);
         requireMethod(method, "GET");
         query.rejectUnknown(Set.of());
         return ok(service.diagnostics(projectId));
     }
 
-    private RouteResponse routeExternalReferences(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeExternalReferences(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
         requireMethod(method, "GET");
         if (segments.size() == 3) {
             query.rejectUnknown(Set.of("ownerId"));
@@ -640,8 +640,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return new ApiErrorEnvelope("v1", new ApiError(code, message, details));
     }
 
-    private RouteResponse ok(Object data) {
-        return new RouteResponse(200, data);
+    private MorpheusHttpRouteResponse ok(Object data) {
+        return new MorpheusHttpRouteResponse(200, data);
     }
 
     private void requireMethod(String actual, String expected) {
@@ -693,13 +693,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
         public ApiErrorEnvelope {
             Objects.requireNonNull(apiVersion, "apiVersion");
             Objects.requireNonNull(error, "error");
-        }
-    }
-
-    private record RouteResponse(int status, Object data) {
-        private RouteResponse {
-            if (status < 200 || status > 599) throw new IllegalArgumentException("route status must be between 200 and 599");
-            Objects.requireNonNull(data, "data");
         }
     }
 
