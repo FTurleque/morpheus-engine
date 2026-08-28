@@ -16,12 +16,15 @@ class LocalVersionsHttpRoutesArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projects = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectsHttpRoutes.java"));
         String routes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusVersionsHttpRoutes.java"));
 
-        assertTrue(server.contains("MorpheusVersionsHttpRoutes versionsRoutes"));
-        assertTrue(server.contains("new MorpheusVersionsHttpRoutes(this.service)"));
-        assertTrue(server.contains("versionsRoutes.route(method, segments, query, projectId)"));
+        assertFalse(server.contains("MorpheusVersionsHttpRoutes versionsRoutes"));
+        assertTrue(projects.contains("MorpheusVersionsHttpRoutes versionsRoutes"));
+        assertTrue(projects.contains("new MorpheusVersionsHttpRoutes(this.service)"));
+        assertTrue(projects.contains("versionsRoutes.route(method, segments, query, projectId)"));
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeVersions("));
         assertFalse(server.contains("unknown versions route"));
 
