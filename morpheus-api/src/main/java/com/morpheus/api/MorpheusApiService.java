@@ -4,15 +4,11 @@ import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.ChangeContextQueryService;
 import com.morpheus.application.query.PageRequest;
-import com.morpheus.application.query.RequirementQueryService;
-import com.morpheus.application.query.RequirementSearchQuery;
 import com.morpheus.application.query.SnapshotPage;
 import com.morpheus.application.query.SpecificationContextQueryService;
-import com.morpheus.application.query.TraceRequirementQueryService;
 import com.morpheus.application.query.compact.CompactQueryViewService;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
-import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
@@ -20,7 +16,6 @@ import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.decision.DesignDecision;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.requirement.Requirement;
-import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.specification.Specification;
@@ -56,6 +51,7 @@ public final class MorpheusApiService {
     private final MorpheusProjectSyncApiService projectSyncService;
     private final MorpheusDiagnosticsApiService diagnosticsService;
     private final MorpheusHistoryApiService historyService;
+    private final MorpheusRequirementQueryApiService requirementQueryService;
 
     public MorpheusApiService(Path databasePath) {
         this(databasePath, Optional.empty());
@@ -72,6 +68,7 @@ public final class MorpheusApiService {
         this.projectSyncService = new MorpheusProjectSyncApiService(this.databasePath, workspaceRoots);
         this.diagnosticsService = new MorpheusDiagnosticsApiService(this.databasePath);
         this.historyService = new MorpheusHistoryApiService(this.databasePath);
+        this.requirementQueryService = new MorpheusRequirementQueryApiService(this.databasePath);
     }
 
     public Object health() {
@@ -109,6 +106,10 @@ public final class MorpheusApiService {
 
     MorpheusHistoryApiService historyService() {
         return historyService;
+    }
+
+    MorpheusRequirementQueryApiService requirementQueryService() {
+        return requirementQueryService;
     }
 
     public Object sync(String projectIdValue, Optional<String> revision) {
@@ -172,47 +173,15 @@ public final class MorpheusApiService {
     }
 
     public Object requirements(String projectIdValue, String query, PageRequest pageRequest) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        String queryText = query == null ? "" : query.trim();
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireProject(runtime, projectId);
-            var result = new RequirementQueryService(runtime.snapshots, runtime.requirements)
-                    .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            return map(
-                    "snapshotId", result.snapshot().id().toString(),
-                    "query", queryText,
-                    "offset", result.pageRequest().offset(),
-                    "limit", result.pageRequest().limit(),
-                    "totalMatches", result.totalMatches(),
-                    "hasMore", result.hasMore(),
-                    "items", result.items().stream().map(this::requirementRecord).toList());
-        }
+        return requirementQueryService.requirements(projectIdValue, query, pageRequest);
     }
 
     public Object requirement(String projectIdValue, String requirementIdValue) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        RequirementId requirementId = RequirementId.parse(requirementIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            KnowledgeSnapshotMetadata snapshot = activeSnapshot(runtime, projectId);
-            RequirementVersionRecord record = runtime.requirements.currentRequirement(snapshot.id(), requirementId.value())
-                    .orElseThrow(() -> notFound("requirement not found: " + requirementId));
-            return map("snapshotId", snapshot.id().toString(), "requirement", requirementRecord(record));
-        }
+        return requirementQueryService.requirement(projectIdValue, requirementIdValue);
     }
 
     public Object traceRequirement(String projectIdValue, String requirementIdValue, int depth) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        RequirementId requirementId = RequirementId.parse(requirementIdValue);
-        requireRange("depth", depth, 1, MAX_DEPTH);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            activeSnapshot(runtime, projectId);
-            var result = new TraceRequirementQueryService(
-                    runtime.snapshots, runtime.requirements, runtime.traceability, runtime.externalReferences)
-                    .active(projectId, requirementId, depth, Set.of())
-                    .orElseThrow(() -> notFound("requirement not found: " + requirementId));
-            return new CompactQueryViewService(runtime.content).traceRequirement(result);
-        }
+        return requirementQueryService.traceRequirement(projectIdValue, requirementIdValue, depth);
     }
 
     public Object listChanges(String projectIdValue, PageRequest pageRequest) {
@@ -357,15 +326,6 @@ public final class MorpheusApiService {
             throw notFound("change not found: " + changeId);
         }
         return result;
-    }
-
-    private Object requirementRecord(RequirementVersionRecord record) {
-        var version = record.entityVersion();
-        return map(
-                "entityVersionId", version.id().toString(),
-                "specificationVersionId", version.specificationVersionId().toString(),
-                "temporalState", version.temporalState().name(),
-                "requirement", requirement(version.content()));
     }
 
     private Object requirement(Requirement item) {
