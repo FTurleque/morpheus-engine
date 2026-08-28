@@ -9,12 +9,19 @@ import java.util.Set;
 
 /** Owns local HTTP dispatch for project requirement reads and augmented context. */
 final class MorpheusRequirementsHttpRoutes {
-    private final MorpheusApiService service;
+    private final MorpheusRequirementQueryApiService service;
     private final MorpheusAugmentedContextApiService augmentedContextService;
     private final MorpheusHttpRequestDecoder requestDecoder;
 
     MorpheusRequirementsHttpRoutes(
-            MorpheusApiService service,
+            MorpheusApiService facade,
+            MorpheusAugmentedContextApiService augmentedContextService,
+            MorpheusHttpRequestDecoder requestDecoder) {
+        this(Objects.requireNonNull(facade, "facade").requirementQueryService(), augmentedContextService, requestDecoder);
+    }
+
+    MorpheusRequirementsHttpRoutes(
+            MorpheusRequirementQueryApiService service,
             MorpheusAugmentedContextApiService augmentedContextService,
             MorpheusHttpRequestDecoder requestDecoder) {
         this.service = Objects.requireNonNull(service, "service");
