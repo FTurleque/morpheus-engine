@@ -16,12 +16,15 @@ class LocalCompositionHttpRoutesArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projects = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectsHttpRoutes.java"));
         String routes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusCompositionHttpRoutes.java"));
 
-        assertTrue(server.contains("MorpheusCompositionHttpRoutes compositionRoutes"));
-        assertTrue(server.contains("new MorpheusCompositionHttpRoutes(this.compositionService)"));
-        assertTrue(server.contains("compositionRoutes.route(method, segments, query, projectId)"));
+        assertFalse(server.contains("MorpheusCompositionHttpRoutes compositionRoutes"));
+        assertTrue(projects.contains("MorpheusCompositionHttpRoutes compositionRoutes"));
+        assertTrue(projects.contains("new MorpheusCompositionHttpRoutes("));
+        assertTrue(projects.contains("compositionRoutes.route(method, segments, query, projectId)"));
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeComposition("));
         assertFalse(server.contains("unknown composition route"));
 
