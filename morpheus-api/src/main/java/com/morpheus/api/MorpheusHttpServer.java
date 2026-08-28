@@ -5,8 +5,6 @@ import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.history.PublishedHistoryException;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
-import com.morpheus.application.portfolio.PortfolioQueryService;
-import com.morpheus.application.portfolio.PortfolioTraversalService;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
@@ -52,6 +50,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusOperabilityApiService operabilityService;
     private final boolean providerPluginProbeEnabled;
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusPortfolioHttpRoutes portfolioRoutes;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
     private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
     private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
@@ -81,6 +80,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.providerPluginProbeEnabled = providerPluginProbeEnabled;
         this.requestDecoder = new MorpheusHttpRequestDecoder(
                 MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, this.executor);
+        this.portfolioRoutes = new MorpheusPortfolioHttpRoutes(this.portfolioService, this.requestDecoder);
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -299,7 +299,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             };
         }
         if (segments.getFirst().equals("portfolios")) {
-            return routePortfolios(exchange, method, segments, query);
+            return portfolioRoutes.route(exchange, method, segments, query);
         }
         if (segments.size() == 3
                 && segments.getFirst().equals("integrations")
@@ -349,98 +349,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "external-references" -> routeExternalReferences(method, segments, query, projectId);
             default -> throw ApiFailure.notFound("unknown project API resource: " + resource);
         };
-    }
-
-    private MorpheusHttpRouteResponse routePortfolios(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query) {
-        if (segments.size() == 1) {
-            if (method.equals("GET")) {
-                query.rejectUnknown(Set.of("offset", "limit"));
-                return ok(portfolioService.list(
-                        query.intValue("offset", 0, 0, Integer.MAX_VALUE),
-                        query.intValue("limit", 100, 1, PortfolioQueryService.MAX_PAGE_SIZE)));
-            }
-            if (method.equals("POST")) {
-                query.rejectUnknown(Set.of());
-                Object created = portfolioService.create(
-                        readRequiredJson(exchange, MorpheusPortfolioApiService.CreatePortfolioRequest.class));
-                return new MorpheusHttpRouteResponse(201, created);
-            }
-            throw ApiFailure.methodNotAllowed("portfolios supports GET and POST");
-        }
-
-        String portfolioId = segments.get(1);
-        if (segments.size() == 2) {
-            requireMethod(method, "GET");
-            query.rejectUnknown(Set.of());
-            return ok(portfolioService.overview(portfolioId));
-        }
-
-        String resource = segments.get(2);
-        if (resource.equals("members")) {
-            requireExactSegments(segments, 3);
-            requireMethod(method, "GET");
-            query.rejectUnknown(Set.of("offset", "limit"));
-            return ok(portfolioService.members(
-                    portfolioId,
-                    query.intValue("offset", 0, 0, Integer.MAX_VALUE),
-                    query.intValue("limit", 100, 1, PortfolioQueryService.MAX_PAGE_SIZE)));
-        }
-        if (resource.equals("projects")) {
-            if (segments.size() == 3) {
-                requireMethod(method, "POST");
-                query.rejectUnknown(Set.of());
-                return new MorpheusHttpRouteResponse(201, portfolioService.registerProject(
-                        portfolioId,
-                        readRequiredJson(exchange, MorpheusPortfolioApiService.RegisterProjectRequest.class)));
-            }
-            if (segments.size() == 5 && segments.get(4).equals("missing")) {
-                requireMethod(method, "POST");
-                query.rejectUnknown(Set.of());
-                return ok(portfolioService.markMissing(portfolioId, segments.get(3)));
-            }
-            if (segments.size() == 5 && segments.get(4).equals("freshness")) {
-                requireMethod(method, "POST");
-                query.rejectUnknown(Set.of());
-                return ok(portfolioService.observeFreshness(
-                        portfolioId,
-                        segments.get(3),
-                        readRequiredJson(exchange, MorpheusPortfolioApiService.FreshnessRequest.class)));
-            }
-            throw ApiFailure.notFound("unknown portfolio projects route");
-        }
-        if (resource.equals("references")) {
-            requireExactSegments(segments, 3);
-            if (method.equals("GET")) {
-                query.rejectUnknown(Set.of("projectId", "offset", "limit"));
-                return ok(portfolioService.references(
-                        portfolioId,
-                        query.string("projectId").map(String::trim).filter(value -> !value.isEmpty()),
-                        query.intValue("offset", 0, 0, Integer.MAX_VALUE),
-                        query.intValue("limit", 100, 1, PortfolioQueryService.MAX_PAGE_SIZE)));
-            }
-            if (method.equals("POST")) {
-                query.rejectUnknown(Set.of());
-                return new MorpheusHttpRouteResponse(201, portfolioService.addReference(
-                        portfolioId,
-                        readRequiredJson(exchange, MorpheusPortfolioApiService.CrossProjectReferenceRequest.class)));
-            }
-            throw ApiFailure.methodNotAllowed("portfolio references supports GET and POST");
-        }
-        if (resource.equals("conflicts")) {
-            requireExactSegments(segments, 3);
-            requireMethod(method, "GET");
-            query.rejectUnknown(Set.of());
-            return ok(portfolioService.conflicts(portfolioId));
-        }
-        if (resource.equals("traverse")) {
-            requireExactSegments(segments, 3);
-            requireMethod(method, "POST");
-            query.rejectUnknown(Set.of());
-            return ok(portfolioService.traverse(
-                    portfolioId,
-                    readRequiredJson(exchange, MorpheusPortfolioApiService.TraversalRequest.class)));
-        }
-        throw ApiFailure.notFound("unknown portfolio API resource: " + resource);
     }
 
     private MorpheusHttpRouteResponse routeSync(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
