@@ -150,10 +150,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
 
         Path normalizedAuthFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
         List<MorpheusRemoteIdentityFile.Identity> identities = MorpheusRemoteIdentityFile.load(normalizedAuthFile);
-        if (identities.isEmpty()) throw new IllegalArgumentException("remote auth file contains no identities");
-        if (identities.stream().noneMatch(identity -> identity.role() == MorpheusRemoteRole.ADMIN)) {
-            throw new IllegalArgumentException("remote auth file must contain at least one ADMIN identity");
-        }
+        validateStartupIdentities(identities, Instant.now());
 
         SSLContext sslContext = buildSslContext(keyStorePath, keyStorePassword.clone());
         SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
@@ -197,6 +194,20 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             throw failure instanceof RuntimeException runtimeFailure
                     ? runtimeFailure
                     : new IllegalStateException("cannot start MORPHEUS remote HTTPS server", failure);
+        }
+    }
+
+    static void validateStartupIdentities(
+            List<MorpheusRemoteIdentityFile.Identity> identities,
+            Instant now) {
+        Objects.requireNonNull(identities, "identities");
+        Objects.requireNonNull(now, "now");
+        if (identities.isEmpty()) {
+            throw new IllegalArgumentException("remote auth file contains no identities");
+        }
+        if (identities.stream().noneMatch(identity ->
+                identity.role() == MorpheusRemoteRole.ADMIN && identity.isActiveAt(now))) {
+            throw new IllegalArgumentException("remote auth file must contain at least one active ADMIN identity");
         }
     }
 
