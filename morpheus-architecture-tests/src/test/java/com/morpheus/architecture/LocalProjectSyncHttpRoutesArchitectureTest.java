@@ -29,7 +29,9 @@ class LocalProjectSyncHttpRoutesArchitectureTest {
         assertFalse(server.contains("service.syncStatus(projectId"));
         assertFalse(server.contains("query.rejectUnknown(Set.of(\"maxAgeMinutes\"))"));
 
-        assertTrue(routes.contains("MorpheusApiService service"));
+        assertTrue(routes.contains("MorpheusProjectSyncApiService service"));
+        assertTrue(routes.contains("MorpheusApiService facade"));
+        assertTrue(routes.contains("facade.projectSyncService()"));
         assertTrue(routes.contains("MorpheusHttpRequestDecoder requestDecoder"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireExactSegments(segments, 3)"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"POST\")"));
