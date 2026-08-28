@@ -21,13 +21,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
@@ -35,7 +32,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -70,14 +66,13 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final SqliteServerMaintenance maintenance;
     private final Path databasePath;
     private final Path backupDirectory;
-    private final Path providerPluginDirectory;
-    private final AllowedWorkspaceRoots allowedWorkspaceRoots;
     private final Path authFile;
     private final Semaphore concurrency;
     private final Semaphore proxyResponses;
     private final MorpheusRemoteRuntimeState runtime;
     private final HttpClient proxyClient;
     private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter();
+    private final MorpheusRemoteProxyTargetResolver proxyTargets;
 
     private MorpheusRemoteHttpServer(
             HttpsServer server,
@@ -100,8 +95,6 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.maintenance = maintenance;
         this.databasePath = databasePath.toAbsolutePath().normalize();
         this.backupDirectory = backupDirectory.toAbsolutePath().normalize();
-        this.providerPluginDirectory = providerPluginDirectory.toAbsolutePath().normalize();
-        this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
         this.authFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
         this.proxyResponses = new Semaphore(MAX_PROXY_RESPONSE_SLOTS, true);
@@ -115,6 +108,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 .connectTimeout(Duration.ofSeconds(5))
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
+        this.proxyTargets = new MorpheusRemoteProxyTargetResolver(
+                localServer.port(), providerPluginDirectory, allowedWorkspaceRoots);
     }
 
     public static MorpheusRemoteHttpServer start(
@@ -334,7 +329,12 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         if (providerProbe && requestBody.length != 0) {
             throw new RemoteFailure(400, "BAD_REQUEST", "provider-plugin probe request body must be empty");
         }
-        URI target = localTarget(requestUri);
+        final URI target;
+        try {
+            target = proxyTargets.resolve(requestUri);
+        } catch (MorpheusRemoteProxyTargetResolver.ResolutionException failure) {
+            throw new RemoteFailure(failure.status(), failure.code(), failure.getMessage());
+        }
         HttpRequest.Builder request = HttpRequest.newBuilder(target);
         internalCapability.authorize(request);
         if (usesBoundedUpstreamTimeout(exchange.getRequestMethod(), requestUri.getPath())) {
@@ -416,76 +416,6 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         if (total != declaredLength) {
             throw new IOException("local MORPHEUS response length changed while proxying");
         }
-    }
-
-    private URI localTarget(URI requestUri) {
-        String suffix = requestUri.getRawPath();
-        if (isProviderPluginPath(requestUri.getPath())) {
-            Map<String, String> query = parseQuery(requestUri.getRawQuery());
-            if (query.containsKey("directory")) {
-                throw new RemoteFailure(
-                        400,
-                        "SERVER_CONFIGURED_PLUGIN_DIRECTORY",
-                        "provider-plugin directory is configured by the remote server and must not be supplied by the client");
-            }
-            Map<String, String> upstream = new LinkedHashMap<>(query);
-            upstream.put("directory", providerPluginDirectory.toString());
-            if (requestUri.getPath().endsWith("/probe")) {
-                String sha256 = query.get("sha256");
-                if (sha256 == null || sha256.isBlank()) {
-                    throw new RemoteFailure(
-                            400,
-                            "PLUGIN_SHA256_REQUIRED",
-                            "remote provider-plugin probe requires a trusted SHA-256 pin");
-                }
-                if (!sha256.matches("[0-9a-fA-F]{64}")) {
-                    throw new RemoteFailure(
-                            400,
-                            "PLUGIN_SHA256_INVALID",
-                            "remote provider-plugin SHA-256 pin must contain exactly 64 hexadecimal characters");
-                }
-                upstream.put("sha256", sha256.toLowerCase(Locale.ROOT));
-                upstream.put("workspace", allowedWorkspaceRoots
-                        .requireAllowedDirectory(query.get("workspace"))
-                        .toString());
-            }
-            suffix += "?" + encodeQuery(upstream);
-        } else if (requestUri.getRawQuery() != null) {
-            suffix += "?" + requestUri.getRawQuery();
-        }
-        return URI.create("http://127.0.0.1:" + localServer.port() + suffix);
-    }
-
-    private static boolean isProviderPluginPath(String path) {
-        String prefix = MorpheusHttpServer.API_PREFIX + "/provider-plugins/";
-        return path.equals(prefix + "discover") || path.equals(prefix + "probe");
-    }
-
-    private static Map<String, String> parseQuery(String rawQuery) {
-        if (rawQuery == null || rawQuery.isBlank()) return Map.of();
-        Map<String, String> result = new LinkedHashMap<>();
-        for (String part : rawQuery.split("&")) {
-            if (part.isBlank()) continue;
-            int separator = part.indexOf('=');
-            String key = URLDecoder.decode(separator < 0 ? part : part.substring(0, separator), StandardCharsets.UTF_8);
-            String value = URLDecoder.decode(separator < 0 ? "" : part.substring(separator + 1), StandardCharsets.UTF_8);
-            if (key.isBlank()) throw new RemoteFailure(400, "BAD_REQUEST", "query parameter name must not be blank");
-            if (result.putIfAbsent(key, value) != null) {
-                throw new RemoteFailure(400, "BAD_REQUEST", "duplicate query parameter: " + key);
-            }
-        }
-        return Map.copyOf(result);
-    }
-
-    private static String encodeQuery(Map<String, String> query) {
-        StringBuilder result = new StringBuilder();
-        for (Map.Entry<String, String> entry : query.entrySet()) {
-            if (!result.isEmpty()) result.append('&');
-            result.append(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8));
-            result.append('=');
-            result.append(URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
-        }
-        return result.toString();
     }
 
     private byte[] readBoundedBody(HttpExchange exchange) throws IOException {
