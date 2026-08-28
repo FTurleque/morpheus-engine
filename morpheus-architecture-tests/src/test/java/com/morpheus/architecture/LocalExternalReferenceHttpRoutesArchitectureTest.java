@@ -16,12 +16,15 @@ class LocalExternalReferenceHttpRoutesArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projects = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectsHttpRoutes.java"));
         String routes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusExternalReferenceHttpRoutes.java"));
 
-        assertTrue(server.contains("MorpheusExternalReferenceHttpRoutes externalReferenceRoutes"));
-        assertTrue(server.contains("new MorpheusExternalReferenceHttpRoutes(this.externalReferenceService)"));
-        assertTrue(server.contains("externalReferenceRoutes.route(method, segments, query, projectId)"));
+        assertFalse(server.contains("MorpheusExternalReferenceHttpRoutes externalReferenceRoutes"));
+        assertTrue(projects.contains("MorpheusExternalReferenceHttpRoutes externalReferenceRoutes"));
+        assertTrue(projects.contains("new MorpheusExternalReferenceHttpRoutes("));
+        assertTrue(projects.contains("externalReferenceRoutes.route(method, segments, query, projectId)"));
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeExternalReferences("));
 
         assertTrue(routes.contains("MorpheusExternalReferenceApiService service"));
