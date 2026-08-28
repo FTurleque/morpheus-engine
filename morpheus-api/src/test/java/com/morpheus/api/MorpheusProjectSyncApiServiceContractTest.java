@@ -41,9 +41,19 @@ class MorpheusProjectSyncApiServiceContractTest {
         assertEquals("sync-service-r1", status.get("sourceRevision"));
         assertEquals("FULL_REBUILD", status.get("lastSuccessfulMode"));
 
+        Map<?, ?> blankRevisionSync = (Map<?, ?>) service.sync(projectId, Optional.of("   "));
+        assertEquals(projectId, blankRevisionSync.get("projectId"));
+        assertEquals(Boolean.TRUE, blankRevisionSync.get("published"));
+
         ApiFailure tooYoung = assertThrows(ApiFailure.class, () -> service.syncStatus(projectId, 0));
         assertEquals(400, tooYoung.status());
         assertTrue(tooYoung.getMessage().contains("maxAgeMinutes must be between 1 and"));
+
+        ApiFailure tooOld = assertThrows(
+                ApiFailure.class,
+                () -> service.syncStatus(projectId, MorpheusApiService.MAX_MAX_AGE_MINUTES + 1));
+        assertEquals(400, tooOld.status());
+        assertTrue(tooOld.getMessage().contains("maxAgeMinutes must be between 1 and"));
 
         Path allowed = Files.createDirectory(tempDirectory.resolve("allowed"));
         MorpheusProjectSyncApiService confined = new MorpheusProjectSyncApiService(
