@@ -6,9 +6,13 @@ import java.util.Set;
 
 /** Owns local HTTP dispatch for project diagnostics reads. */
 final class MorpheusDiagnosticsHttpRoutes {
-    private final MorpheusApiService service;
+    private final MorpheusDiagnosticsApiService service;
 
-    MorpheusDiagnosticsHttpRoutes(MorpheusApiService service) {
+    MorpheusDiagnosticsHttpRoutes(MorpheusApiService facade) {
+        this(Objects.requireNonNull(facade, "facade").diagnosticsService());
+    }
+
+    MorpheusDiagnosticsHttpRoutes(MorpheusDiagnosticsApiService service) {
         this.service = Objects.requireNonNull(service, "service");
     }
 
