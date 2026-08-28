@@ -57,6 +57,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusDiagnosticsHttpRoutes diagnosticsRoutes;
     private final MorpheusExternalReferenceHttpRoutes externalReferenceRoutes;
     private final MorpheusVersionsHttpRoutes versionsRoutes;
+    private final MorpheusRequirementsHttpRoutes requirementsRoutes;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
     private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
     private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
@@ -94,6 +95,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.diagnosticsRoutes = new MorpheusDiagnosticsHttpRoutes(this.service);
         this.externalReferenceRoutes = new MorpheusExternalReferenceHttpRoutes(this.externalReferenceService);
         this.versionsRoutes = new MorpheusVersionsHttpRoutes(this.service);
+        this.requirementsRoutes = new MorpheusRequirementsHttpRoutes(
+                this.service, this.augmentedContextService, this.requestDecoder);
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -329,7 +332,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "sync-status" -> routeSyncStatus(method, segments, query, projectId);
             case "composition" -> compositionRoutes.route(method, segments, query, projectId);
             case "specifications" -> specificationsRoutes.route(method, segments, query, projectId);
-            case "requirements" -> routeRequirements(exchange, method, segments, query, projectId);
+            case "requirements" -> requirementsRoutes.route(exchange, method, segments, query, projectId);
             case "changes" -> routeChanges(exchange, method, segments, query, projectId);
             case "versions" -> versionsRoutes.route(method, segments, query, projectId);
             case "diagnostics" -> diagnosticsRoutes.route(method, segments, query, projectId);
@@ -353,33 +356,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
         long maxAge = query.longValue(
                 "maxAgeMinutes", MorpheusApiService.DEFAULT_MAX_AGE_MINUTES, 1, MorpheusApiService.MAX_MAX_AGE_MINUTES);
         return ok(service.syncStatus(projectId, maxAge));
-    }
-
-    private MorpheusHttpRouteResponse routeRequirements(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
-        if (segments.size() == 5 && segments.get(4).equals("augmented-context")) {
-            requireMethod(method, "POST");
-            query.rejectUnknown(Set.of());
-            return ok(augmentedContextService.requirement(
-                    projectId, segments.get(3), readRequiredJson(exchange, AugmentedContextRequest.class)));
-        }
-        requireMethod(method, "GET");
-        if (segments.size() == 3) {
-            query.rejectUnknown(Set.of("query", "offset", "limit"));
-            PageRequest page = new PageRequest(
-                    query.intValue("offset", 0, 0, Integer.MAX_VALUE),
-                    query.intValue("limit", MorpheusApiService.DEFAULT_LIMIT, 1, MorpheusApiService.MAX_LIMIT));
-            return ok(service.requirements(projectId, query.string("query").orElse(""), page));
-        }
-        if (segments.size() == 4) {
-            query.rejectUnknown(Set.of());
-            return ok(service.requirement(projectId, segments.get(3)));
-        }
-        if (segments.size() == 5 && segments.get(4).equals("trace")) {
-            query.rejectUnknown(Set.of("depth"));
-            int depth = query.intValue("depth", MorpheusApiService.DEFAULT_DEPTH, 1, MorpheusApiService.MAX_DEPTH);
-            return ok(service.traceRequirement(projectId, segments.get(3), depth));
-        }
-        throw ApiFailure.notFound("unknown requirements route");
     }
 
     private MorpheusHttpRouteResponse routeChanges(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
