@@ -21,14 +21,14 @@ final class MorpheusSpecificationsHttpRoutes {
             String projectId) {
         MorpheusHttpRouteGuards.requireMethod(method, "GET");
         if (segments.size() == 3) {
-            return MorpheusHttpRouteResponse.ok(service.listSpecifications(projectId, page(query)));
+            return ok(service.listSpecifications(projectId, page(query)));
         }
         if (segments.size() == 4) {
             query.rejectUnknown(Set.of());
-            return MorpheusHttpRouteResponse.ok(service.specification(projectId, segments.get(3)));
+            return ok(service.specification(projectId, segments.get(3)));
         }
         if (segments.size() == 5 && segments.get(4).equals("context")) {
-            return MorpheusHttpRouteResponse.ok(service.specificationContext(projectId, segments.get(3), page(query)));
+            return ok(service.specificationContext(projectId, segments.get(3), page(query)));
         }
         throw ApiFailure.notFound("unknown specifications route");
     }
@@ -38,5 +38,9 @@ final class MorpheusSpecificationsHttpRoutes {
         return new PageRequest(
                 query.intValue("offset", 0, 0, Integer.MAX_VALUE),
                 query.intValue("limit", MorpheusApiService.DEFAULT_LIMIT, 1, MorpheusApiService.MAX_LIMIT));
+    }
+
+    private MorpheusHttpRouteResponse ok(Object data) {
+        return new MorpheusHttpRouteResponse(200, data);
     }
 }
