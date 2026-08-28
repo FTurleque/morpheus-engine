@@ -53,6 +53,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusProviderPluginHttpRoutes providerPluginRoutes;
     private final MorpheusIntegrationStatusHttpRoutes integrationStatusRoutes;
     private final MorpheusCompositionHttpRoutes compositionRoutes;
+    private final MorpheusSpecificationsHttpRoutes specificationsRoutes;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
     private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
     private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
@@ -86,6 +87,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.integrationStatusRoutes = new MorpheusIntegrationStatusHttpRoutes(
                 this.externalReferenceService, this.augmentedContextService);
         this.compositionRoutes = new MorpheusCompositionHttpRoutes(this.compositionService);
+        this.specificationsRoutes = new MorpheusSpecificationsHttpRoutes(this.service);
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -320,7 +322,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "sync" -> routeSync(exchange, method, segments, query, projectId);
             case "sync-status" -> routeSyncStatus(method, segments, query, projectId);
             case "composition" -> compositionRoutes.route(method, segments, query, projectId);
-            case "specifications" -> routeSpecifications(method, segments, query, projectId);
+            case "specifications" -> specificationsRoutes.route(method, segments, query, projectId);
             case "requirements" -> routeRequirements(exchange, method, segments, query, projectId);
             case "changes" -> routeChanges(exchange, method, segments, query, projectId);
             case "versions" -> routeVersions(method, segments, query, projectId);
@@ -345,19 +347,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
         long maxAge = query.longValue(
                 "maxAgeMinutes", MorpheusApiService.DEFAULT_MAX_AGE_MINUTES, 1, MorpheusApiService.MAX_MAX_AGE_MINUTES);
         return ok(service.syncStatus(projectId, maxAge));
-    }
-
-    private MorpheusHttpRouteResponse routeSpecifications(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
-        requireMethod(method, "GET");
-        if (segments.size() == 3) return ok(service.listSpecifications(projectId, page(query)));
-        if (segments.size() == 4) {
-            query.rejectUnknown(Set.of());
-            return ok(service.specification(projectId, segments.get(3)));
-        }
-        if (segments.size() == 5 && segments.get(4).equals("context")) {
-            return ok(service.specificationContext(projectId, segments.get(3), page(query)));
-        }
-        throw ApiFailure.notFound("unknown specifications route");
     }
 
     private MorpheusHttpRouteResponse routeRequirements(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
