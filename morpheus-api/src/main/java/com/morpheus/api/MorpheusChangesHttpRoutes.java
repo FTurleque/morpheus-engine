@@ -74,10 +74,7 @@ final class MorpheusChangesHttpRoutes {
         String child = segments.get(4);
         return switch (child) {
             case "constraints" -> ok(service.constraints(projectId, changeId, page(query)));
-            case "acceptance-criteria" -> {
-                query.rejectUnknown(Set.of());
-                yield ok(service.acceptanceCriteria(projectId, changeId));
-            }
+            case "acceptance-criteria" -> ok(service.acceptanceCriteria(projectId, changeId, page(query)));
             case "design-decisions" -> ok(service.designDecisions(projectId, changeId, page(query)));
             case "implementation-tasks" -> ok(service.implementationTasks(projectId, changeId, page(query)));
             case "context" -> {
