@@ -8,14 +8,12 @@ import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver
 import com.morpheus.application.portfolio.PortfolioQueryService;
 import com.morpheus.application.portfolio.PortfolioTraversalService;
 import com.morpheus.application.query.PageRequest;
-import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -57,8 +55,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusPortfolioApiService portfolioService;
     private final MorpheusOperabilityApiService operabilityService;
     private final boolean providerPluginProbeEnabled;
-    private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
 
     private MorpheusHttpServer(
             HttpServer server,
@@ -633,13 +631,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     }
 
     private void send(HttpExchange exchange, int status, Object body) throws IOException {
-        byte[] bytes = serializer.toUtf8(body);
-        Headers headers = exchange.getResponseHeaders();
-        headers.set("Content-Type", "application/json; charset=utf-8");
-        headers.set("Cache-Control", "no-store");
-        headers.set("X-Content-Type-Options", "nosniff");
-        exchange.sendResponseHeaders(status, bytes.length);
-        exchange.getResponseBody().write(bytes);
+        responseWriter.send(exchange, status, body);
     }
 
     private ApiSuccess success(Object data) {
