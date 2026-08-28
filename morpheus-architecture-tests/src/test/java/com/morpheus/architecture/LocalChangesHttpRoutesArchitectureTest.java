@@ -16,12 +16,15 @@ class LocalChangesHttpRoutesArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projects = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectsHttpRoutes.java"));
         String routes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusChangesHttpRoutes.java"));
 
-        assertTrue(server.contains("MorpheusChangesHttpRoutes changesRoutes"));
-        assertTrue(server.contains("new MorpheusChangesHttpRoutes("));
-        assertTrue(server.contains("changesRoutes.route(exchange, method, segments, query, projectId)"));
+        assertFalse(server.contains("MorpheusChangesHttpRoutes changesRoutes"));
+        assertTrue(projects.contains("MorpheusChangesHttpRoutes changesRoutes"));
+        assertTrue(projects.contains("new MorpheusChangesHttpRoutes("));
+        assertTrue(projects.contains("changesRoutes.route(exchange, method, segments, query, projectId)"));
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeChanges("));
         assertFalse(server.contains("unknown change subresource"));
 
