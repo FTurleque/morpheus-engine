@@ -5,7 +5,6 @@ import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.history.PublishedHistoryException;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
-import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -58,6 +57,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusExternalReferenceHttpRoutes externalReferenceRoutes;
     private final MorpheusVersionsHttpRoutes versionsRoutes;
     private final MorpheusRequirementsHttpRoutes requirementsRoutes;
+    private final MorpheusChangesHttpRoutes changesRoutes;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
     private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
     private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
@@ -97,6 +97,12 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.versionsRoutes = new MorpheusVersionsHttpRoutes(this.service);
         this.requirementsRoutes = new MorpheusRequirementsHttpRoutes(
                 this.service, this.augmentedContextService, this.requestDecoder);
+        this.changesRoutes = new MorpheusChangesHttpRoutes(
+                this.service,
+                this.augmentedContextService,
+                this.jarvisOrchestrationService,
+                this.controlledLifecycleService,
+                this.requestDecoder);
     }
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
@@ -333,7 +339,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             case "composition" -> compositionRoutes.route(method, segments, query, projectId);
             case "specifications" -> specificationsRoutes.route(method, segments, query, projectId);
             case "requirements" -> requirementsRoutes.route(exchange, method, segments, query, projectId);
-            case "changes" -> routeChanges(exchange, method, segments, query, projectId);
+            case "changes" -> changesRoutes.route(exchange, method, segments, query, projectId);
             case "versions" -> versionsRoutes.route(method, segments, query, projectId);
             case "diagnostics" -> diagnosticsRoutes.route(method, segments, query, projectId);
             case "external-references" -> externalReferenceRoutes.route(method, segments, query, projectId);
@@ -341,7 +347,12 @@ public final class MorpheusHttpServer implements AutoCloseable {
         };
     }
 
-    private MorpheusHttpRouteResponse routeSync(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeSync(
+            HttpExchange exchange,
+            String method,
+            List<String> segments,
+            MorpheusHttpQuery query,
+            String projectId) {
         requireExactSegments(segments, 3);
         requireMethod(method, "POST");
         query.rejectUnknown(Set.of());
@@ -349,82 +360,20 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return ok(service.sync(projectId, Optional.ofNullable(request.revision())));
     }
 
-    private MorpheusHttpRouteResponse routeSyncStatus(String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
+    private MorpheusHttpRouteResponse routeSyncStatus(
+            String method,
+            List<String> segments,
+            MorpheusHttpQuery query,
+            String projectId) {
         requireExactSegments(segments, 3);
         requireMethod(method, "GET");
         query.rejectUnknown(Set.of("maxAgeMinutes"));
         long maxAge = query.longValue(
-                "maxAgeMinutes", MorpheusApiService.DEFAULT_MAX_AGE_MINUTES, 1, MorpheusApiService.MAX_MAX_AGE_MINUTES);
+                "maxAgeMinutes",
+                MorpheusApiService.DEFAULT_MAX_AGE_MINUTES,
+                1,
+                MorpheusApiService.MAX_MAX_AGE_MINUTES);
         return ok(service.syncStatus(projectId, maxAge));
-    }
-
-    private MorpheusHttpRouteResponse routeChanges(HttpExchange exchange, String method, List<String> segments, MorpheusHttpQuery query, String projectId) {
-        if (segments.size() == 5 && segments.get(4).equals("augmented-context")) {
-            requireMethod(method, "POST");
-            query.rejectUnknown(Set.of());
-            return ok(augmentedContextService.change(
-                    projectId, segments.get(3), readRequiredJson(exchange, AugmentedContextRequest.class)));
-        }
-        if (segments.size() == 5 && segments.get(4).equals("transition-check")) {
-            requireMethod(method, "POST");
-            query.rejectUnknown(Set.of());
-            return ok(jarvisOrchestrationService.transition(
-                    projectId, segments.get(3), readRequiredJson(exchange, TransitionCheckRequest.class)));
-        }
-        if (segments.size() == 5 && segments.get(4).equals("lifecycle-transitions")) {
-            requireMethod(method, "POST");
-            query.rejectUnknown(Set.of());
-            return ok(controlledLifecycleService.apply(
-                    projectId, segments.get(3), readRequiredJson(exchange, LifecycleMutationRequest.class)));
-        }
-        requireMethod(method, "GET");
-        if (segments.size() == 3) return ok(service.listChanges(projectId, page(query)));
-        if (segments.size() == 4) {
-            query.rejectUnknown(Set.of());
-            return ok(service.change(projectId, segments.get(3)));
-        }
-        if (segments.size() != 5) throw ApiFailure.notFound("unknown changes route");
-
-        String changeId = segments.get(3);
-        String child = segments.get(4);
-        return switch (child) {
-            case "constraints" -> ok(service.constraints(projectId, changeId, page(query)));
-            case "acceptance-criteria" -> {
-                query.rejectUnknown(Set.of());
-                yield ok(service.acceptanceCriteria(projectId, changeId));
-            }
-            case "design-decisions" -> ok(service.designDecisions(projectId, changeId, page(query)));
-            case "implementation-tasks" -> ok(service.implementationTasks(projectId, changeId, page(query)));
-            case "context" -> {
-                query.rejectUnknown(Set.of("depth"));
-                int depth = query.intValue("depth", MorpheusApiService.DEFAULT_DEPTH, 1, MorpheusApiService.MAX_DEPTH);
-                yield ok(service.changeContext(projectId, changeId, depth));
-            }
-            case "status" -> {
-                query.rejectUnknown(Set.of());
-                yield ok(service.changeStatus(projectId, changeId));
-            }
-            case "blocking-conditions" -> {
-                query.rejectUnknown(Set.of());
-                yield ok(service.blockingConditions(projectId, changeId));
-            }
-            case "orchestration" -> {
-                query.rejectUnknown(Set.of("lifecycleState", "abandonmentReason"));
-                yield ok(jarvisOrchestrationService.state(
-                        projectId,
-                        changeId,
-                        query.string("lifecycleState").map(String::trim).filter(value -> !value.isEmpty()),
-                        query.string("abandonmentReason").map(String::trim).filter(value -> !value.isEmpty())));
-            }
-            default -> throw ApiFailure.notFound("unknown change subresource: " + child);
-        };
-    }
-
-    private PageRequest page(MorpheusHttpQuery query) {
-        query.rejectUnknown(Set.of("offset", "limit"));
-        return new PageRequest(
-                query.intValue("offset", 0, 0, Integer.MAX_VALUE),
-                query.intValue("limit", MorpheusApiService.DEFAULT_LIMIT, 1, MorpheusApiService.MAX_LIMIT));
     }
 
     private <T> T readRequiredJson(HttpExchange exchange, Class<T> type) {
@@ -505,7 +454,9 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     public record ProjectRegistrationRequest(String workspace) {
         public ProjectRegistrationRequest {
-            if (workspace == null || workspace.isBlank()) throw new IllegalArgumentException("workspace is required");
+            if (workspace == null || workspace.isBlank()) {
+                throw new IllegalArgumentException("workspace is required");
+            }
             workspace = workspace.trim();
         }
     }
@@ -513,7 +464,9 @@ public final class MorpheusHttpServer implements AutoCloseable {
     public record SyncRequest(String revision) {
         public SyncRequest {
             revision = revision == null ? null : revision.trim();
-            if (revision != null && revision.isEmpty()) revision = null;
+            if (revision != null && revision.isEmpty()) {
+                revision = null;
+            }
         }
     }
 }
