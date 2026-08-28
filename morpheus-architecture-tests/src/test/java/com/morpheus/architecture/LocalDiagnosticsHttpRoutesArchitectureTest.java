@@ -24,7 +24,9 @@ class LocalDiagnosticsHttpRoutesArchitectureTest {
         assertTrue(server.contains("diagnosticsRoutes.route(method, segments, query, projectId)"));
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeDiagnostics("));
 
-        assertTrue(routes.contains("MorpheusApiService service"));
+        assertTrue(routes.contains("MorpheusDiagnosticsApiService service"));
+        assertTrue(routes.contains("MorpheusApiService facade"));
+        assertTrue(routes.contains("Objects.requireNonNull(facade, \"facade\").diagnosticsService()"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireExactSegments(segments, 3)"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
         assertTrue(routes.contains("query.rejectUnknown(Set.of())"));
