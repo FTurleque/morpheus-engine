@@ -16,12 +16,15 @@ class LocalDiagnosticsHttpRoutesArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projects = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectsHttpRoutes.java"));
         String routes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusDiagnosticsHttpRoutes.java"));
 
-        assertTrue(server.contains("MorpheusDiagnosticsHttpRoutes diagnosticsRoutes"));
-        assertTrue(server.contains("new MorpheusDiagnosticsHttpRoutes(this.service)"));
-        assertTrue(server.contains("diagnosticsRoutes.route(method, segments, query, projectId)"));
+        assertFalse(server.contains("MorpheusDiagnosticsHttpRoutes diagnosticsRoutes"));
+        assertTrue(projects.contains("MorpheusDiagnosticsHttpRoutes diagnosticsRoutes"));
+        assertTrue(projects.contains("new MorpheusDiagnosticsHttpRoutes(this.service)"));
+        assertTrue(projects.contains("diagnosticsRoutes.route(method, segments, query, projectId)"));
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeDiagnostics("));
 
         assertTrue(routes.contains("MorpheusApiService service"));
