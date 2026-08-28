@@ -72,6 +72,25 @@ class RemoteServerArchitectureTest {
         assertFalse(runtime.contains("MorpheusRemoteIdentityFile"));
     }
 
+    @Test
+    void remoteResponseRenderingStaysExtractedAndPolicyFree() throws IOException {
+        Path root = repositoryRoot();
+        String server = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String responses = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteResponseWriter.java"));
+
+        assertTrue(server.contains("private final MorpheusRemoteResponseWriter responses"));
+        assertFalse(server.contains("CanonicalJsonSerializer"));
+        assertFalse(server.contains("private void sendJson("));
+        assertFalse(server.contains("private static void applySecurityHeaders("));
+        assertTrue(responses.contains("final class MorpheusRemoteResponseWriter"));
+        assertTrue(responses.contains("Content-Security-Policy"));
+        assertFalse(responses.contains("MorpheusRemoteRole"));
+        assertFalse(responses.contains("MorpheusRemoteIdentityFile"));
+        assertFalse(responses.contains("MorpheusRemoteRoutePolicy"));
+    }
+
     private Path repositoryRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {
