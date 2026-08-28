@@ -16,16 +16,20 @@ class LocalHttpRequestDecoderArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projectSyncRoutes = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectSyncHttpRoutes.java"));
         String decoder = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRequestDecoder.java"));
+        String localHttpConsumers = server + "\n" + projectSyncRoutes;
 
         assertTrue(server.contains("private final MorpheusHttpRequestDecoder requestDecoder;"));
         assertTrue(server.contains("requestDecoder.readRequiredJson(exchange, type)"));
-        assertTrue(server.contains("requestDecoder.readOptionalJson(exchange, type, defaultValue)"));
-        assertFalse(server.contains("JsonMapper"));
-        assertFalse(server.contains("DeserializationFeature"));
-        assertFalse(server.contains("TimedBoundedInputReader"));
-        assertFalse(server.contains("requireJsonContentType("));
+        assertTrue(projectSyncRoutes.contains("MorpheusHttpRequestDecoder requestDecoder"));
+        assertTrue(projectSyncRoutes.contains("requestDecoder.readOptionalJson("));
+        assertFalse(localHttpConsumers.contains("JsonMapper"));
+        assertFalse(localHttpConsumers.contains("DeserializationFeature"));
+        assertFalse(localHttpConsumers.contains("TimedBoundedInputReader"));
+        assertFalse(localHttpConsumers.contains("requireJsonContentType("));
         assertTrue(decoder.contains("final class MorpheusHttpRequestDecoder"));
         assertTrue(decoder.contains("FAIL_ON_UNKNOWN_PROPERTIES"));
         assertTrue(decoder.contains("FAIL_ON_TRAILING_TOKENS"));

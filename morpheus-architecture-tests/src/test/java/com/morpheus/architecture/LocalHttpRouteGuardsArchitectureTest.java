@@ -16,13 +16,18 @@ class LocalHttpRouteGuardsArchitectureTest {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String projectSyncRoutes = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectSyncHttpRoutes.java"));
         String guards = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRouteGuards.java"));
+        String localHttpConsumers = server + "\n" + projectSyncRoutes;
 
         assertTrue(server.contains("MorpheusHttpRouteGuards.requireMethod(actual, expected)"));
-        assertTrue(server.contains("MorpheusHttpRouteGuards.requireExactSegments(segments, expected)"));
-        assertFalse(server.contains("throw ApiFailure.methodNotAllowed(\"expected HTTP \""));
-        assertFalse(server.contains("throw ApiFailure.notFound(\"unknown API route\")"));
+        assertTrue(projectSyncRoutes.contains("MorpheusHttpRouteGuards.requireExactSegments(segments, 3)"));
+        assertTrue(projectSyncRoutes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"POST\")"));
+        assertTrue(projectSyncRoutes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
+        assertFalse(localHttpConsumers.contains("throw ApiFailure.methodNotAllowed(\"expected HTTP \""));
+        assertFalse(localHttpConsumers.contains("throw ApiFailure.notFound(\"unknown API route\")"));
 
         assertTrue(guards.contains("ApiFailure.methodNotAllowed(\"expected HTTP \" + expected + \" but received \" + actual)"));
         assertTrue(guards.contains("ApiFailure.notFound(\"unknown API route\")"));
