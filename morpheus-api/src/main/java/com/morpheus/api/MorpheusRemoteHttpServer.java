@@ -18,13 +18,8 @@ import javax.net.ssl.SSLParameters;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.http.HttpTimeoutException;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
@@ -56,23 +51,20 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     static final Duration REQUEST_BODY_READ_TIMEOUT = Duration.ofSeconds(15);
     private static final int MAX_PROXY_RESPONSE_SLOTS = MAX_PROXY_IN_FLIGHT_BYTES / MAX_PROXY_RESPONSE_BYTES;
     private static final int MAX_REQUEST_BYTES = MorpheusHttpServer.MAX_REQUEST_BODY_BYTES;
-    private static final Duration READ_ONLY_UPSTREAM_TIMEOUT = Duration.ofSeconds(60);
 
     private final HttpsServer server;
     private final ExecutorService executor;
     private final MorpheusHttpServer localServer;
-    private final MorpheusInternalCapability internalCapability;
     private final SqliteServerMaintenance.ServerLease lease;
     private final SqliteServerMaintenance maintenance;
     private final Path databasePath;
     private final Path backupDirectory;
     private final Path authFile;
     private final Semaphore concurrency;
-    private final Semaphore proxyResponses;
     private final MorpheusRemoteRuntimeState runtime;
-    private final HttpClient proxyClient;
     private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter();
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
+    private final MorpheusRemoteProxyTransport proxyTransport;
 
     private MorpheusRemoteHttpServer(
             HttpsServer server,
@@ -90,26 +82,22 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.server = server;
         this.executor = executor;
         this.localServer = localServer;
-        this.internalCapability = Objects.requireNonNull(internalCapability, "internalCapability");
         this.lease = lease;
         this.maintenance = maintenance;
         this.databasePath = databasePath.toAbsolutePath().normalize();
         this.backupDirectory = backupDirectory.toAbsolutePath().normalize();
         this.authFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
-        this.proxyResponses = new Semaphore(MAX_PROXY_RESPONSE_SLOTS, true);
         this.runtime = new MorpheusRemoteRuntimeState(
                 maxConcurrentRequests,
                 REQUEST_BODY_READ_TIMEOUT,
                 MAX_PROXY_RESPONSE_BYTES,
                 MAX_PROXY_IN_FLIGHT_BYTES,
                 MAX_PROXY_RESPONSE_SLOTS);
-        this.proxyClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
         this.proxyTargets = new MorpheusRemoteProxyTargetResolver(
                 localServer.port(), providerPluginDirectory, allowedWorkspaceRoots);
+        this.proxyTransport = new MorpheusRemoteProxyTransport(
+                internalCapability, runtime, MAX_PROXY_RESPONSE_BYTES, MAX_PROXY_RESPONSE_SLOTS);
     }
 
     public static MorpheusRemoteHttpServer start(
@@ -335,86 +323,14 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         } catch (MorpheusRemoteProxyTargetResolver.ResolutionException failure) {
             throw new RemoteFailure(failure.status(), failure.code(), failure.getMessage());
         }
-        HttpRequest.Builder request = HttpRequest.newBuilder(target);
-        internalCapability.authorize(request);
-        if (usesBoundedUpstreamTimeout(exchange.getRequestMethod(), requestUri.getPath())) {
-            request.timeout(READ_ONLY_UPSTREAM_TIMEOUT);
-        }
-        String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-        if (contentType != null) request.header("Content-Type", contentType);
-        String accept = exchange.getRequestHeaders().getFirst("Accept");
-        if (accept != null) request.header("Accept", accept);
-        String upstreamMethod = exchange.getRequestMethod();
-        request.method(upstreamMethod, requestBody.length == 0
-                ? HttpRequest.BodyPublishers.noBody()
-                : HttpRequest.BodyPublishers.ofByteArray(requestBody));
-
-        if (!proxyResponses.tryAcquire()) {
-            runtime.recordThrottledRequest();
-            throw new RemoteFailure(
-                    429,
-                    "RESPONSE_BUDGET_EXHAUSTED",
-                    "remote proxy response memory budget is saturated");
-        }
         try {
-            HttpResponse<InputStream> response = proxyClient.send(
-                    request.build(), HttpResponse.BodyHandlers.ofInputStream());
-            try (InputStream upstream = response.body()) {
-                String responseType = response.headers().firstValue("Content-Type")
-                        .orElse("application/json; charset=utf-8");
-                exchange.getResponseHeaders().set("Content-Type", responseType);
-                response.headers().firstValue("Allow")
-                        .ifPresent(value -> exchange.getResponseHeaders().set("Allow", value));
-
-                boolean bodyless = upstreamMethod.equalsIgnoreCase("HEAD")
-                        || response.statusCode() == 204
-                        || response.statusCode() == 304;
-                if (bodyless) {
-                    response.headers().firstValue("Content-Length")
-                            .ifPresent(value -> exchange.getResponseHeaders().set("Content-Length", value));
-                    exchange.sendResponseHeaders(response.statusCode(), -1);
-                    return;
-                }
-
-                long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1L);
-                if (declaredLength < 0) {
-                    throw new RemoteFailure(
-                            502,
-                            "UPSTREAM_LENGTH_REQUIRED",
-                            "local MORPHEUS response omitted a bounded Content-Length");
-                }
-                if (declaredLength > MAX_PROXY_RESPONSE_BYTES) {
-                    throw new RemoteFailure(
-                            502,
-                            "UPSTREAM_RESPONSE_TOO_LARGE",
-                            "local MORPHEUS response exceeds " + MAX_PROXY_RESPONSE_BYTES + " bytes");
-                }
-                exchange.sendResponseHeaders(response.statusCode(), declaredLength);
-                copyBounded(upstream, exchange.getResponseBody(), declaredLength);
-            }
-        } catch (HttpTimeoutException timeout) {
-            throw new RemoteFailure(504, "UPSTREAM_TIMEOUT", "local MORPHEUS read-only operation exceeded its timeout");
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            throw new RemoteFailure(503, "UPSTREAM_INTERRUPTED", "local MORPHEUS API proxy was interrupted");
-        } finally {
-            proxyResponses.release();
-        }
-    }
-
-    private void copyBounded(InputStream upstream, OutputStream downstream, long declaredLength) throws IOException {
-        byte[] buffer = new byte[8192];
-        long total = 0;
-        int read;
-        while ((read = upstream.read(buffer)) != -1) {
-            if (total + read > declaredLength || total + read > MAX_PROXY_RESPONSE_BYTES) {
-                throw new IOException("local MORPHEUS response exceeded its declared or configured bound");
-            }
-            downstream.write(buffer, 0, read);
-            total += read;
-        }
-        if (total != declaredLength) {
-            throw new IOException("local MORPHEUS response length changed while proxying");
+            proxyTransport.forward(
+                    exchange,
+                    target,
+                    requestBody,
+                    usesBoundedUpstreamTimeout(exchange.getRequestMethod(), requestUri.getPath()));
+        } catch (MorpheusRemoteProxyTransport.TransportException failure) {
+            throw new RemoteFailure(failure.status(), failure.code(), failure.getMessage());
         }
     }
 

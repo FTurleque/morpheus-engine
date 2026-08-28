@@ -114,6 +114,32 @@ class RemoteServerArchitectureTest {
         assertFalse(resolver.contains("MorpheusRemoteRoutePolicy"));
     }
 
+    @Test
+    void remoteProxyTransportStaysExtractedBoundedAndPolicyFree() throws IOException {
+        Path root = repositoryRoot();
+        String server = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String transport = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTransport.java"));
+
+        assertTrue(server.contains("private final MorpheusRemoteProxyTransport proxyTransport;"));
+        assertFalse(server.contains("HttpClient"));
+        assertFalse(server.contains("HttpResponse"));
+        assertFalse(server.contains("HttpTimeoutException"));
+        assertFalse(server.contains("private void copyBounded("));
+        assertFalse(server.contains("proxyResponses"));
+        assertTrue(transport.contains("final class MorpheusRemoteProxyTransport"));
+        assertTrue(transport.contains("RESPONSE_BUDGET_EXHAUSTED"));
+        assertTrue(transport.contains("UPSTREAM_LENGTH_REQUIRED"));
+        assertTrue(transport.contains("UPSTREAM_RESPONSE_TOO_LARGE"));
+        assertTrue(transport.contains("UPSTREAM_TIMEOUT"));
+        assertTrue(transport.contains("copyBounded("));
+        assertFalse(transport.contains("MorpheusRemoteRole"));
+        assertFalse(transport.contains("MorpheusRemoteIdentityFile"));
+        assertFalse(transport.contains("MorpheusRemoteRoutePolicy"));
+        assertFalse(transport.contains("MorpheusRemoteProxyTargetResolver"));
+    }
+
     private Path repositoryRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {
