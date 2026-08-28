@@ -31,7 +31,7 @@ class LocalProjectSyncHttpRoutesArchitectureTest {
 
         assertTrue(routes.contains("MorpheusProjectSyncApiService service"));
         assertTrue(routes.contains("MorpheusApiService facade"));
-        assertTrue(routes.contains("facade.projectSyncService()"));
+        assertTrue(routes.contains("Objects.requireNonNull(facade, \"facade\").projectSyncService()"));
         assertTrue(routes.contains("MorpheusHttpRequestDecoder requestDecoder"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireExactSegments(segments, 3)"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"POST\")"));
