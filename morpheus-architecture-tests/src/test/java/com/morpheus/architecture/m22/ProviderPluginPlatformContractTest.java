@@ -65,6 +65,8 @@ class ProviderPluginPlatformContractTest {
         String main = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"));
         String mcp = Files.readString(root.resolve("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java"));
         String http = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String httpRoutes = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProviderPluginHttpRoutes.java"));
         String activator = Files.readString(root.resolve("morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginActivator.java"));
 
         assertFalse(cliPom.contains("morpheus-provider-reference"), "reference plugin must remain external to launcher runtime");
@@ -74,8 +76,9 @@ class ProviderPluginPlatformContractTest {
         assertTrue(mcp.contains("discover_provider_plugins"));
         assertTrue(mcp.contains("RETIRED_PROBE_TOOL"));
         assertFalse(mcp.contains("case RETIRED_PROBE_TOOL"));
-        assertTrue(http.contains("providerPluginProbeEnabled"));
-        assertTrue(http.contains("provider-plugin probe is remote-only"));
+        assertTrue(http.contains("new MorpheusProviderPluginHttpRoutes(providerPluginProbeEnabled)"));
+        assertTrue(httpRoutes.contains("if (!probeEnabled)"));
+        assertTrue(httpRoutes.contains("provider-plugin probe is remote-only"));
         assertTrue(activator.contains("provider plugin activation requires a trusted SHA-256 pin"));
     }
 
