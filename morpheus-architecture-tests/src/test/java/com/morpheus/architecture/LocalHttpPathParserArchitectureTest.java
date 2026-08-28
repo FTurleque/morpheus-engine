@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LocalHttpPathParserArchitectureTest {
 
     @Test
-    void localHttpPathParsingStaysExtractedAndMethodPolicyRemainsInFacade() throws IOException {
+    void localHttpPathParsingStaysExtractedAndDoesNotAbsorbAllowPolicy() throws IOException {
         Path root = repositoryRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
@@ -21,7 +21,6 @@ class LocalHttpPathParserArchitectureTest {
 
         assertTrue(server.contains("private final MorpheusHttpPathParser pathParser"));
         assertTrue(server.contains("return pathParser.segments(path);"));
-        assertTrue(server.contains("private String allowedMethods(String path)"));
         assertFalse(server.contains("URLDecoder"));
         assertFalse(server.contains("StandardCharsets"));
         assertFalse(server.contains("new ArrayList"));
@@ -33,6 +32,7 @@ class LocalHttpPathParserArchitectureTest {
         assertTrue(parser.contains("URLDecoder.decode"));
         assertTrue(parser.contains("invalid API path"));
         assertFalse(parser.contains("allowedMethods"));
+        assertFalse(parser.contains("MorpheusHttpAllowedMethods"));
         assertFalse(parser.contains("HttpExchange"));
         assertFalse(parser.contains("MorpheusApiService"));
         assertFalse(parser.contains("MorpheusRemoteRoutePolicy"));
