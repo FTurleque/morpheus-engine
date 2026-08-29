@@ -8,9 +8,13 @@ import java.util.Set;
 
 /** Owns local HTTP dispatch for specification reads. */
 final class MorpheusSpecificationsHttpRoutes {
-    private final MorpheusApiService service;
+    private final MorpheusSpecificationQueryApiService service;
 
-    MorpheusSpecificationsHttpRoutes(MorpheusApiService service) {
+    MorpheusSpecificationsHttpRoutes(MorpheusApiService facade) {
+        this(Objects.requireNonNull(facade, "facade").specificationQueryService());
+    }
+
+    MorpheusSpecificationsHttpRoutes(MorpheusSpecificationQueryApiService service) {
         this.service = Objects.requireNonNull(service, "service");
     }
 

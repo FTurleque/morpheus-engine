@@ -25,13 +25,16 @@ class LocalSpecificationsHttpRoutesArchitectureTest {
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeSpecifications("));
         assertFalse(server.contains("unknown specifications route"));
 
-        assertTrue(routes.contains("MorpheusApiService service"));
+        assertTrue(routes.contains("private final MorpheusSpecificationQueryApiService service;"));
+        assertTrue(routes.contains("MorpheusSpecificationsHttpRoutes(MorpheusApiService facade)"));
+        assertTrue(routes.contains("specificationQueryService()"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
         assertTrue(routes.contains("service.listSpecifications(projectId, page(query))"));
         assertTrue(routes.contains("service.specification(projectId, segments.get(3))"));
         assertTrue(routes.contains("service.specificationContext(projectId, segments.get(3), page(query))"));
         assertTrue(routes.contains("query.rejectUnknown(Set.of(\"offset\", \"limit\"))"));
         assertTrue(routes.contains("unknown specifications route"));
+        assertFalse(routes.contains("private final MorpheusApiService service;"));
         assertFalse(routes.contains("HttpExchange"));
         assertFalse(routes.contains("HttpServer"));
         assertFalse(routes.contains("JsonMapper"));

@@ -5,9 +5,7 @@ import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.ChangeContextQueryService;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.SnapshotPage;
-import com.morpheus.application.query.SpecificationContextQueryService;
 import com.morpheus.application.query.compact.CompactQueryViewService;
-import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.change.ChangeId;
@@ -15,16 +13,11 @@ import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.decision.DesignDecision;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.requirement.Requirement;
-import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
-import com.morpheus.domain.specification.Specification;
-import com.morpheus.domain.specification.SpecificationId;
 import com.morpheus.domain.task.ImplementationTask;
 
 import java.nio.file.Path;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +45,7 @@ public final class MorpheusApiService {
     private final MorpheusDiagnosticsApiService diagnosticsService;
     private final MorpheusHistoryApiService historyService;
     private final MorpheusRequirementQueryApiService requirementQueryService;
+    private final MorpheusSpecificationQueryApiService specificationQueryService;
 
     public MorpheusApiService(Path databasePath) {
         this(databasePath, Optional.empty());
@@ -69,6 +63,7 @@ public final class MorpheusApiService {
         this.diagnosticsService = new MorpheusDiagnosticsApiService(this.databasePath);
         this.historyService = new MorpheusHistoryApiService(this.databasePath);
         this.requirementQueryService = new MorpheusRequirementQueryApiService(this.databasePath);
+        this.specificationQueryService = new MorpheusSpecificationQueryApiService(this.databasePath);
     }
 
     public Object health() {
@@ -112,6 +107,10 @@ public final class MorpheusApiService {
         return requirementQueryService;
     }
 
+    MorpheusSpecificationQueryApiService specificationQueryService() {
+        return specificationQueryService;
+    }
+
     public Object sync(String projectIdValue, Optional<String> revision) {
         return projectSyncService.sync(projectIdValue, revision);
     }
@@ -121,55 +120,18 @@ public final class MorpheusApiService {
     }
 
     public Object listSpecifications(String projectIdValue, PageRequest pageRequest) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            KnowledgeSnapshotMetadata snapshot = activeSnapshot(runtime, projectId);
-            var content = runtime.content.findSnapshotContent(snapshot.id())
-                    .orElseThrow(() -> state("published snapshot has no business-content projection: " + snapshot.id()));
-            List<Specification> specifications = content.specifications().stream()
-                    .sorted(Comparator.comparing(Specification::id))
-                    .toList();
-            return page(snapshot, specifications, pageRequest, specifications.stream().map(this::specification).toList());
-        }
+        return specificationQueryService.listSpecifications(projectIdValue, pageRequest);
     }
 
     public Object specification(String projectIdValue, String specificationIdValue) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        SpecificationId specificationId = SpecificationId.parse(specificationIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireProject(runtime, projectId);
-            var result = business(runtime).activeSpecification(projectId, specificationId)
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            Specification item = result.item().orElseThrow(() -> notFound("specification not found: " + specificationId));
-            return map("snapshotId", result.snapshot().id().toString(), "specification", specification(item));
-        }
+        return specificationQueryService.specification(projectIdValue, specificationIdValue);
     }
 
     public Object specificationContext(
             String projectIdValue,
             String specificationIdValue,
             PageRequest pageRequest) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        SpecificationId specificationId = SpecificationId.parse(specificationIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireProject(runtime, projectId);
-            var specificationResult = business(runtime).activeSpecification(projectId, specificationId)
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            if (specificationResult.item().isEmpty()) {
-                throw notFound("specification not found: " + specificationId);
-            }
-            var result = new SpecificationContextQueryService(
-                    runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
-                    .active(projectId, specificationId, pageRequest)
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            return map(
-                    "snapshotId", result.snapshot().id().toString(),
-                    "specification", specification(result.specification()),
-                    "requirements", page(result.requirements(), result.requirements().items().stream()
-                            .map(this::requirement).toList()),
-                    "scenarios", result.scenarios().stream().map(this::scenario).toList(),
-                    "changes", result.changes().stream().map(this::change).toList());
-        }
+        return specificationQueryService.specificationContext(projectIdValue, specificationIdValue, pageRequest);
     }
 
     public Object requirements(String projectIdValue, String query, PageRequest pageRequest) {
@@ -328,24 +290,6 @@ public final class MorpheusApiService {
         return result;
     }
 
-    private Object requirement(Requirement item) {
-        return map(
-                "id", item.id().toString(),
-                "specificationId", item.specificationId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "statement", item.statement());
-    }
-
-    private Object specification(Specification item) {
-        return map(
-                "id", item.id().toString(),
-                "projectId", item.projectId().toString(),
-                "key", item.key(),
-                "title", item.title(),
-                "description", item.description().orElse(""));
-    }
-
     private Object change(ChangeProposal item) {
         return map(
                 "id", item.id().toString(),
@@ -391,16 +335,6 @@ public final class MorpheusApiService {
                 "completed", item.completed());
     }
 
-    private Object scenario(Scenario item) {
-        return map(
-                "id", item.id().toString(),
-                "requirementId", item.requirementId().map(Object::toString).orElse(""),
-                "title", item.title(),
-                "preconditions", item.preconditions(),
-                "action", item.action(),
-                "expectedOutcome", item.expectedOutcome());
-    }
-
     private Object page(SnapshotPage<?> page, List<?> items) {
         return map(
                 "snapshotId", page.snapshot().id().toString(),
@@ -409,23 +343,6 @@ public final class MorpheusApiService {
                 "totalMatches", page.totalMatches(),
                 "hasMore", page.hasMore(),
                 "items", items);
-    }
-
-    private Object page(
-            KnowledgeSnapshotMetadata snapshot,
-            List<?> source,
-            PageRequest pageRequest,
-            List<?> mapped) {
-        int total = source.size();
-        int from = Math.min(pageRequest.offset(), total);
-        int to = (int) Math.min((long) from + pageRequest.limit(), total);
-        return map(
-                "snapshotId", snapshot.id().toString(),
-                "offset", pageRequest.offset(),
-                "limit", pageRequest.limit(),
-                "totalMatches", total,
-                "hasMore", to < total,
-                "items", mapped.subList(from, to));
     }
 
     /** LinkedHashMap keeps construction stable while the canonical serializer sorts JSON keys. */
@@ -452,10 +369,6 @@ public final class MorpheusApiService {
 
     private ApiFailure conflict(String message) {
         return ApiFailure.conflict(message);
-    }
-
-    private KnowledgeStoreException state(String message) {
-        return new KnowledgeStoreException(message);
     }
 
     public record RegistrationResult(Object project, boolean created) {
