@@ -9,19 +9,37 @@ import java.util.Set;
 
 /** Owns local HTTP dispatch for project change reads, context and controlled mutations. */
 final class MorpheusChangesHttpRoutes {
-    private final MorpheusApiService service;
+    private final MorpheusChangeQueryApiService service;
+    private final MorpheusDiagnosticsApiService diagnosticsService;
     private final MorpheusAugmentedContextApiService augmentedContextService;
     private final MorpheusJarvisOrchestrationApiService jarvisOrchestrationService;
     private final MorpheusControlledLifecycleApiService controlledLifecycleService;
     private final MorpheusHttpRequestDecoder requestDecoder;
 
     MorpheusChangesHttpRoutes(
-            MorpheusApiService service,
+            MorpheusApiService facade,
+            MorpheusAugmentedContextApiService augmentedContextService,
+            MorpheusJarvisOrchestrationApiService jarvisOrchestrationService,
+            MorpheusControlledLifecycleApiService controlledLifecycleService,
+            MorpheusHttpRequestDecoder requestDecoder) {
+        this(
+                Objects.requireNonNull(facade, "facade").changeQueryService(),
+                facade.diagnosticsService(),
+                augmentedContextService,
+                jarvisOrchestrationService,
+                controlledLifecycleService,
+                requestDecoder);
+    }
+
+    MorpheusChangesHttpRoutes(
+            MorpheusChangeQueryApiService service,
+            MorpheusDiagnosticsApiService diagnosticsService,
             MorpheusAugmentedContextApiService augmentedContextService,
             MorpheusJarvisOrchestrationApiService jarvisOrchestrationService,
             MorpheusControlledLifecycleApiService controlledLifecycleService,
             MorpheusHttpRequestDecoder requestDecoder) {
         this.service = Objects.requireNonNull(service, "service");
+        this.diagnosticsService = Objects.requireNonNull(diagnosticsService, "diagnosticsService");
         this.augmentedContextService = Objects.requireNonNull(augmentedContextService, "augmentedContextService");
         this.jarvisOrchestrationService = Objects.requireNonNull(jarvisOrchestrationService, "jarvisOrchestrationService");
         this.controlledLifecycleService = Objects.requireNonNull(controlledLifecycleService, "controlledLifecycleService");
@@ -85,11 +103,11 @@ final class MorpheusChangesHttpRoutes {
             }
             case "status" -> {
                 query.rejectUnknown(Set.of());
-                yield ok(service.changeStatus(projectId, changeId));
+                yield ok(diagnosticsService.changeStatus(projectId, changeId));
             }
             case "blocking-conditions" -> {
                 query.rejectUnknown(Set.of());
-                yield ok(service.blockingConditions(projectId, changeId));
+                yield ok(diagnosticsService.blockingConditions(projectId, changeId));
             }
             case "orchestration" -> {
                 query.rejectUnknown(Set.of("lifecycleState", "abandonmentReason"));

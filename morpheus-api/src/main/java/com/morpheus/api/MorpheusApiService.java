@@ -1,35 +1,20 @@
 package com.morpheus.api;
 
 import com.morpheus.application.product.ProductMetadata;
-import com.morpheus.application.query.BusinessContentQueryService;
-import com.morpheus.application.query.ChangeContextQueryService;
 import com.morpheus.application.query.PageRequest;
-import com.morpheus.application.query.SnapshotPage;
-import com.morpheus.application.query.compact.CompactQueryViewService;
-import com.morpheus.application.store.ProjectStoreEntry;
-import com.morpheus.domain.acceptance.AcceptanceCriterion;
-import com.morpheus.domain.change.ChangeId;
-import com.morpheus.domain.change.ChangeProposal;
-import com.morpheus.domain.constraint.Constraint;
-import com.morpheus.domain.decision.DesignDecision;
-import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
-import com.morpheus.domain.task.ImplementationTask;
 
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Headless M11 application adapter facade.
  *
- * <p>This class performs adapter orchestration and DTO mapping only. Business semantics remain in
- * MORPHEUS application/domain services.</p>
+ * <p>This class performs adapter composition and compatibility delegation only. Business semantics
+ * remain in MORPHEUS application/domain services.</p>
  */
 public final class MorpheusApiService {
     public static final int DEFAULT_LIMIT = 50;
@@ -46,6 +31,7 @@ public final class MorpheusApiService {
     private final MorpheusHistoryApiService historyService;
     private final MorpheusRequirementQueryApiService requirementQueryService;
     private final MorpheusSpecificationQueryApiService specificationQueryService;
+    private final MorpheusChangeQueryApiService changeQueryService;
 
     public MorpheusApiService(Path databasePath) {
         this(databasePath, Optional.empty());
@@ -64,6 +50,7 @@ public final class MorpheusApiService {
         this.historyService = new MorpheusHistoryApiService(this.databasePath);
         this.requirementQueryService = new MorpheusRequirementQueryApiService(this.databasePath);
         this.specificationQueryService = new MorpheusSpecificationQueryApiService(this.databasePath);
+        this.changeQueryService = new MorpheusChangeQueryApiService(this.databasePath);
     }
 
     public Object health() {
@@ -111,6 +98,10 @@ public final class MorpheusApiService {
         return specificationQueryService;
     }
 
+    MorpheusChangeQueryApiService changeQueryService() {
+        return changeQueryService;
+    }
+
     public Object sync(String projectIdValue, Optional<String> revision) {
         return projectSyncService.sync(projectIdValue, revision);
     }
@@ -147,92 +138,38 @@ public final class MorpheusApiService {
     }
 
     public Object listChanges(String projectIdValue, PageRequest pageRequest) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireProject(runtime, projectId);
-            SnapshotPage<ChangeProposal> result = business(runtime).listActiveChanges(projectId, pageRequest)
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            return page(result, result.items().stream().map(this::change).toList());
-        }
+        return changeQueryService.listChanges(projectIdValue, pageRequest);
     }
 
     public Object change(String projectIdValue, String changeIdValue) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            var result = requireChange(runtime, projectId, changeId);
-            return map("snapshotId", result.snapshot().id().toString(), "change", change(result.item().orElseThrow()));
-        }
+        return changeQueryService.change(projectIdValue, changeIdValue);
     }
 
     public Object constraints(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireChange(runtime, projectId, changeId);
-            SnapshotPage<Constraint> result = business(runtime).activeConstraints(projectId, changeId, pageRequest)
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            return page(result, result.items().stream().map(this::constraint).toList());
-        }
+        return changeQueryService.constraints(projectIdValue, changeIdValue, pageRequest);
     }
 
     public Object acceptanceCriteria(String projectIdValue, String changeIdValue) {
-        return acceptanceCriteria(projectIdValue, changeIdValue, PageRequest.first(MAX_LIMIT));
+        return changeQueryService.acceptanceCriteria(projectIdValue, changeIdValue);
     }
 
     public Object acceptanceCriteria(
             String projectIdValue,
             String changeIdValue,
             PageRequest pageRequest) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        ChangeId changeId = ChangeId.parse(changeIdValue);
-        Objects.requireNonNull(pageRequest, "pageRequest");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireChange(runtime, projectId, changeId);
-            SnapshotPage<AcceptanceCriterion> result = business(runtime)
-                    .activeAcceptanceCriteriaForChange(projectId, changeId, pageRequest)
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            return page(result, result.items().stream().map(this::acceptanceCriterion).toList());
-        }
+        return changeQueryService.acceptanceCriteria(projectIdValue, changeIdValue, pageRequest);
     }
 
     public Object designDecisions(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireChange(runtime, projectId, changeId);
-            SnapshotPage<DesignDecision> result = business(runtime).activeDesignDecisions(projectId, changeId, pageRequest)
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            return page(result, result.items().stream().map(this::decision).toList());
-        }
+        return changeQueryService.designDecisions(projectIdValue, changeIdValue, pageRequest);
     }
 
     public Object implementationTasks(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            requireChange(runtime, projectId, changeId);
-            SnapshotPage<ImplementationTask> result = business(runtime).activeImplementationTasks(projectId, changeId, pageRequest)
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            return page(result, result.items().stream().map(this::task).toList());
-        }
+        return changeQueryService.implementationTasks(projectIdValue, changeIdValue, pageRequest);
     }
 
     public Object changeContext(String projectIdValue, String changeIdValue, int depth) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        ChangeId changeId = ChangeId.parse(changeIdValue);
-        requireRange("depth", depth, 1, MAX_DEPTH);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            activeSnapshot(runtime, projectId);
-            var result = new ChangeContextQueryService(
-                    runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences)
-                    .active(projectId, changeId, depth, Set.of())
-                    .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-            if (result.change().isEmpty()) {
-                throw notFound("change not found: " + changeId);
-            }
-            return new CompactQueryViewService(runtime.content).changeContext(result);
-        }
+        return changeQueryService.changeContext(projectIdValue, changeIdValue, depth);
     }
 
     public Object changeStatus(String projectIdValue, String changeIdValue) {
@@ -262,89 +199,6 @@ public final class MorpheusApiService {
         return diagnosticsService.diagnostics(projectIdValue);
     }
 
-    private ProjectStoreEntry requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        return runtime.snapshots.findProject(projectId)
-                .orElseThrow(() -> notFound("project not found: " + projectId));
-    }
-
-    private KnowledgeSnapshotMetadata activeSnapshot(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        requireProject(runtime, projectId);
-        return runtime.snapshots.activeSnapshot(projectId)
-                .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-    }
-
-    private BusinessContentQueryService business(ApiRuntime runtime) {
-        return new BusinessContentQueryService(runtime.snapshots, runtime.content);
-    }
-
-    private com.morpheus.application.query.SnapshotItemResult<ChangeProposal> requireChange(
-            ApiRuntime runtime,
-            ProjectSpecificationId projectId,
-            ChangeId changeId) {
-        requireProject(runtime, projectId);
-        var result = business(runtime).activeChange(projectId, changeId)
-                .orElseThrow(() -> conflict("project has no ACTIVE snapshot: " + projectId));
-        if (result.item().isEmpty()) {
-            throw notFound("change not found: " + changeId);
-        }
-        return result;
-    }
-
-    private Object change(ChangeProposal item) {
-        return map(
-                "id", item.id().toString(),
-                "projectId", item.projectId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "intent", item.intent(),
-                "scope", item.scope(),
-                "outOfScope", item.outOfScope(),
-                "risks", item.risks());
-    }
-
-    private Object constraint(Constraint item) {
-        return map("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
-    }
-
-    private Object acceptanceCriterion(AcceptanceCriterion item) {
-        return map(
-                "id", item.id().toString(),
-                "requirementId", item.requirementId().map(Object::toString).orElse(""),
-                "changeId", item.changeId().map(Object::toString).orElse(""),
-                "title", item.title(),
-                "condition", item.condition(),
-                "verificationStatus", item.verificationStatus().name(),
-                "verificationEvidenceIds", item.verificationEvidenceIds().stream().map(Object::toString).toList(),
-                "sourceEvidenceId", item.provenance().evidenceId().toString());
-    }
-
-    private Object decision(DesignDecision item) {
-        return map(
-                "id", item.id().toString(),
-                "changeId", item.changeId().toString(),
-                "title", item.title(),
-                "decision", item.decision());
-    }
-
-    private Object task(ImplementationTask item) {
-        return map(
-                "id", item.id().toString(),
-                "changeId", item.changeId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "completed", item.completed());
-    }
-
-    private Object page(SnapshotPage<?> page, List<?> items) {
-        return map(
-                "snapshotId", page.snapshot().id().toString(),
-                "offset", page.pageRequest().offset(),
-                "limit", page.pageRequest().limit(),
-                "totalMatches", page.totalMatches(),
-                "hasMore", page.hasMore(),
-                "items", items);
-    }
-
     /** LinkedHashMap keeps construction stable while the canonical serializer sorts JSON keys. */
     private Map<String, Object> map(Object... entries) {
         if (entries.length % 2 != 0) {
@@ -355,20 +209,6 @@ public final class MorpheusApiService {
             result.put((String) entries[index], entries[index + 1]);
         }
         return Collections.unmodifiableMap(result);
-    }
-
-    private void requireRange(String name, long value, long minimum, long maximum) {
-        if (value < minimum || value > maximum) {
-            throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
-        }
-    }
-
-    private ApiFailure notFound(String message) {
-        return ApiFailure.notFound(message);
-    }
-
-    private ApiFailure conflict(String message) {
-        return ApiFailure.conflict(message);
     }
 
     public record RegistrationResult(Object project, boolean created) {
