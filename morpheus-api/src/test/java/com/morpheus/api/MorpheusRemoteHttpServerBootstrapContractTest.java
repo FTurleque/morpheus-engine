@@ -21,6 +21,7 @@ class MorpheusRemoteHttpServerBootstrapContractTest {
 
     @Test
     void rejectsInvalidHostPortConcurrencyAndTlsPasswordBeforeStartupIo() {
+        assertMessage("remote host must not be blank", () -> start(null, 0, "changeit".toCharArray(), 1));
         assertMessage("remote host must not be blank", () -> start("   ", 0, "changeit".toCharArray(), 1));
         assertMessage("port must be between 0 and 65535", () -> start("127.0.0.1", -1, "changeit".toCharArray(), 1));
         assertMessage("port must be between 0 and 65535", () -> start("127.0.0.1", 65_536, "changeit".toCharArray(), 1));
