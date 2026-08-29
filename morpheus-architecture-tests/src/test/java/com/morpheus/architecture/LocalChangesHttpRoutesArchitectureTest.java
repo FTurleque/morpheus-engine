@@ -25,7 +25,12 @@ class LocalChangesHttpRoutesArchitectureTest {
         assertFalse(server.contains("private MorpheusHttpRouteResponse routeChanges("));
         assertFalse(server.contains("unknown change subresource"));
 
-        assertTrue(routes.contains("MorpheusApiService service"));
+        assertTrue(routes.contains("private final MorpheusChangeQueryApiService service;"));
+        assertTrue(routes.contains("private final MorpheusDiagnosticsApiService diagnosticsService;"));
+        assertTrue(routes.contains("MorpheusChangesHttpRoutes("));
+        assertTrue(routes.contains("MorpheusApiService facade"));
+        assertTrue(routes.contains("changeQueryService()"));
+        assertTrue(routes.contains("diagnosticsService()"));
         assertTrue(routes.contains("MorpheusAugmentedContextApiService augmentedContextService"));
         assertTrue(routes.contains("MorpheusJarvisOrchestrationApiService jarvisOrchestrationService"));
         assertTrue(routes.contains("MorpheusControlledLifecycleApiService controlledLifecycleService"));
@@ -35,7 +40,17 @@ class LocalChangesHttpRoutesArchitectureTest {
         assertTrue(routes.contains("requestDecoder.readRequiredJson(exchange, LifecycleMutationRequest.class)"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"POST\")"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
+        assertTrue(routes.contains("service.listChanges(projectId, page(query))"));
+        assertTrue(routes.contains("service.change(projectId, segments.get(3))"));
+        assertTrue(routes.contains("service.constraints(projectId, changeId, page(query))"));
+        assertTrue(routes.contains("service.acceptanceCriteria(projectId, changeId, page(query))"));
+        assertTrue(routes.contains("service.designDecisions(projectId, changeId, page(query))"));
+        assertTrue(routes.contains("service.implementationTasks(projectId, changeId, page(query))"));
+        assertTrue(routes.contains("service.changeContext(projectId, changeId, depth)"));
+        assertTrue(routes.contains("diagnosticsService.changeStatus(projectId, changeId)"));
+        assertTrue(routes.contains("diagnosticsService.blockingConditions(projectId, changeId)"));
         assertTrue(routes.contains("unknown change subresource"));
+        assertFalse(routes.contains("private final MorpheusApiService service;"));
         assertTrue(routes.contains("HttpExchange"));
         assertFalse(routes.contains("HttpServer"));
         assertFalse(routes.contains("JsonMapper"));
