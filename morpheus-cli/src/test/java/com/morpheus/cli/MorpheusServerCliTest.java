@@ -116,7 +116,7 @@ class MorpheusServerCliTest {
 
         Result verified = run("--json", "server", "backup", "verify", "--file", backupPath.toString());
         assertEquals(CliExitCode.SUCCESS.code(), verified.exitCode(), verified.err());
-        assertTrue(verified.out().contains("\"schemaVersion\":16"), verified.out());
+        assertTrue(verified.out().contains("\"schemaVersion\":17"), verified.out());
 
         Result unconfirmed = run("--json", "server", "restore", "--file", backupPath.toString());
         assertEquals(CliExitCode.USAGE.code(), unconfirmed.exitCode(), unconfirmed.err());
