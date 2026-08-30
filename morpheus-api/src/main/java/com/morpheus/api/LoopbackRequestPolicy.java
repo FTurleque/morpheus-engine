@@ -52,11 +52,12 @@ final class LoopbackRequestPolicy {
         try {
             URI origin = URI.create(rawOrigin.trim());
             String scheme = origin.getScheme();
+            String path = origin.getRawPath();
             if (scheme == null || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
                 return false;
             }
             if (origin.getUserInfo() != null || origin.getHost() == null
-                    || origin.getRawPath() != null && !origin.getRawPath().isEmpty()
+                    || path != null && !path.isEmpty()
                     || origin.getRawQuery() != null || origin.getRawFragment() != null) {
                 return false;
             }
@@ -73,9 +74,10 @@ final class LoopbackRequestPolicy {
         String authority = rawAuthority.trim();
         try {
             URI parsed = URI.create("http://" + authority);
+            String path = parsed.getRawPath();
             if (parsed.getHost() == null || parsed.getUserInfo() != null
                     || parsed.getRawQuery() != null || parsed.getRawFragment() != null
-                    || !parsed.getRawPath().isEmpty()) {
+                    || path != null && !path.isEmpty()) {
                 return false;
             }
             return isAllowedHost(parsed.getHost());
