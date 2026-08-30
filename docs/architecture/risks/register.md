@@ -13,11 +13,11 @@
 
 | ID | Risque | P | I | E | Mitigation actuelle | Révision |
 |----|--------|:-:|:-:|:-:|---------------------|----------|
-| RT-01 | Concurrence SQLite si le mode remote devient fortement multi-écrivain | 2 | 3 | **6** | `journal_mode=PERSIST`, busy timeout, transactions bornées, une connexion physique scopée par opération API/Query/CLI, leases, index d'unicité et backups | Si le profil d'usage remote évolue |
+| RT-01 | Concurrence SQLite si le mode remote devient fortement multi-écrivain | 2 | 3 | **6** | `journal_mode=PERSIST`, busy timeout, transactions bornées, une connexion physique scopée par opération API/Query/CLI, leases, réservation persistante atomique des séquences de version, index d'unicité et backups | Si le profil d'usage remote évolue |
 | RT-02 | Rollback applicatif après migration de schéma | 2 | 3 | **6** | Migrations forward-only, checksums, refus des schémas futurs, backup/restore offline | À chaque évolution de schéma |
 | RT-03 | Limites de `jdk.httpserver` sous forte charge | 2 | 2 | **4** | Concurrence remote bornée, timeouts/budgets et inventaires filesystem bornés ; mesurer avant substitution | Lors de load tests représentatifs |
 | RT-04 | Breaking change MCP SDK / clients MCP | 2 | 2 | **4** | Version épinglée, tests de contrat, budgets de frames/queues, cancellation serveur, cleanup fail-closed et diagnostics redacted | À chaque upgrade MCP |
-| RT-05 | Provider externe malformé, bloquant ou non fiable | 2 | 2 | **4** | Discovery metadata-only sans symlink, activation explicite, SHA-256 obligatoire en remote, staging vérifié, budgets d'ingestion et environnement enfant minimisé | À chaque évolution du Provider SDK |
+| RT-05 | Provider externe malformé, bloquant ou non fiable | 2 | 2 | **4** | Discovery metadata-only sans symlink avec revalidation d'identité avant/après lecture, activation explicite, SHA-256 obligatoire en remote, staging vérifié, budgets d'ingestion et environnement enfant minimisé | À chaque évolution du Provider SDK |
 | RT-12 | Peer MCP externe MINOS/NEXUS compromis | 2 | 2 | **4** | JAR optionnel/pinnable, environnement hérité réduit à une allowlist, descendants observés et terminés, frames/queues bornées, stderr et exceptions peer redacted ; la frontière n'est pas une sandbox OS | À chaque évolution du transport MCP |
 | RT-06 | Diagnostic runtime limité par le logging silencieux | 2 | 2 | **4** | Health/metrics, erreurs structurées et diagnostics MCP sanitizés ; préserver stdout MCP | Permanent |
 | RT-09 | Drift documentaire entre sources historiques et HEAD | 2 | 2 | **4** | Hiérarchie des sources, séparation release publiée `1.2.0` / baseline active `1.2.1`, guides actifs réconciliés et contrats d'architecture sur les invariants CI | À chaque release/hardening |
@@ -39,13 +39,28 @@ Ils restent traçables dans l'historique Git et les issues #154/#166, mais ne do
 | DT-01 | Documents historiques encore présentés avec des baselines C0/M20/M27 | Documentation | **Haute** | Les qualifier comme historiques ou les réconcilier dans des PR dédiées sans falsifier les preuves passées |
 | DT-07 | Quality Gate SonarCloud potentiellement moins strict que le gate repository sur le nouveau code | Qualité externe | **Moyenne** | Vérifier le réglage SonarCloud ; le repository impose indépendamment `>= 80%` changed-line et `>= 70%` changed-branch coverage ; suivi #154 |
 | DT-08 | État des alertes Dependabot / Secret Scanning non vérifiable par le connecteur | Supply chain | **Moyenne** | Vérifier/activer les réglages administrateur ; le dépôt fournit Dependabot, OWASP Dependency-Check et CodeQL versionné ; suivi #154 |
-| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 relevés à `1000 / 300 / 52,0% / 45,0%` sur preuve exact-head #230 ; suivi #184 jusqu'à qualification du relèvement |
+| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 qualifiés à `1000 / 300 / 52,0% / 45,0%` ; #184 est clôturée, conserver la remontée progressive uniquement après nouvelle preuve exact-head reproductible |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
 | DT-03 | Seuils de performance M19 peu visibles depuis la documentation d'architecture | Qualité | **Moyenne** | Relier les scénarios qualité aux tests/gates autoritatifs |
 | DT-04 | SQLite reste l'unique backend persistant | Architecture | **Faible à moyenne** | N'engager un backend alternatif qu'après besoin et ADR dédiés |
 | DT-05 | Distribution macOS absente | Distribution | **Faible** | Décision produit avant ajout du packaging/CI |
 
 Les anciennes dettes `DT-06` (protection `main`) et `DT-09` (protection `develop`) sont résolues et retirées du tableau actif.
+
+---
+
+## Correctifs issus de l'audit du 30/08/2026
+
+| Constat | Traitement |
+|---|---|
+| `nextSpecificationVersionSequence()` utilisait `MAX(sequence)+1`, ce qui pouvait attribuer le même numéro à deux connexions/processus concurrents | migration V017 `specification_version_sequences`, réservation durable dans une transaction d'écriture avant la publication, prise en compte du maximum déjà stocké, parité du store mémoire et test de concurrence à deux stores indépendants |
+| La discovery provider validait un chemin puis rouvrait le JAR sans vérifier qu'il s'agissait toujours du même fichier | revalidation des attributs/identité avant et après la lecture metadata, diagnostic `PLUGIN_JAR_CHANGED_DURING_SCAN` en cas de remplacement ; l'activation exécutable conserve la frontière plus forte SHA-256 + staging vérifié déjà existante |
+| `QueryFieldType.NUMBER` existait dans l'API mais héritait de l'égalité/du tri textuels | sémantique numérique explicite basée sur `BigDecimal` pour l'égalité canonique et l'ordre ; comportement historique TEXT/ENUM/BOOLEAN/IDENTITY préservé |
+| L'audit initial signalait l'absence d'un gate changed-branch à 70 % et un registre de risques obsolète | ces deux points étaient déjà corrigés sur `develop` avant cette branche : gate `>=80%` lignes / `>=70%` branches et ruleset `main/develop` actifs ; aucun correctif redondant ajouté |
+| La couverture globale restait modeste | les ratchets avaient déjà été qualifiés à `52,0%` lignes / `45,0%` branches et #184 clôturée ; les nouveaux correctifs ajoutent des tests ciblés, sans relever artificiellement les seuils avant mesure exact-head |
+| La chaîne de release 1.2.1+ n'avait pas encore de qualification réelle | le workflow attesté existe déjà sur `develop`; #185 reste volontairement ouvert jusqu'à une vraie release, aucune release artificielle n'est créée pour fermer le constat |
+
+La migration V017 change la version de schéma durable de 16 à 17. Les validations M26 Linux et Windows sont alignées sur `schemaVersion=17` pour les scénarios backup, verify et restore ; les migrations historiques V001..V016 restent immuables.
 
 ---
 
@@ -56,7 +71,7 @@ Les anciennes dettes `DT-06` (protection `main`) et `DT-09` (protection `develop
 | `QueryDefinitionCodec.decode()` pouvait commencer une récursion avant application des budgets globaux M24 | codec désormais fail-fast : taille encodée <= 16 KiB avant Base64, profondeur <= 8 avant récursion, compteurs globaux <= 128 nœuds et <= 64 prédicats ; validation sémantique avant retour |
 | `QueryValidator` continuait à parcourir l'AST après dépassement structurel | parcours interrompu dès le premier dépassement structurel pour borner aussi les AST construits directement en mémoire |
 | HTTP/MCP/CLI pouvaient dépendre implicitement du comportement du codec sans garde d'architecture dédiée | contrat d'architecture ajouté : les trois adapters policy doivent passer par `QueryDefinitionCodec` et ne peuvent introduire un décodeur Base64 parallèle |
-| Couverture historique à 50,7896 % lignes / 43,2215 % branches | aucun seuil abaissé ; tests adversariaux ciblés ajoutés et plan de remontée progressive suivi par #184 |
+| Couverture historique à 50,7896 % lignes / 43,2215 % branches | aucun seuil abaissé ; tests adversariaux ciblés ajoutés ; la remontée progressive a ensuite permis de clôturer #184 après qualification des ratchets `52,0% / 45,0%` |
 | Réglages SonarCloud / alertes administrateur externes non qualifiables par le code | restent explicitement ouverts dans #154 ; ne pas prétendre à une correction repository-side supplémentaire |
 | Workflow release attestée correct mais jamais exécuté sur une vraie release | qualification end-to-end suivie par #185 ; aucune release artificielle créée pour fermer le constat |
 
@@ -134,7 +149,7 @@ changed-line         >= 80%
 changed-branch       >= 70%
 ```
 
-La dernière qualification exact-head de #230 sur `9602eaa4a20b08955e63a6dfe10e30fb1ec90f1d` a produit `1017` tests, `308` tests d'architecture, `52,6971%` lignes et `45,7250%` branches ; le merge signé résultant place `develop` sur `e1199189afe45dd228c4507f93a19b370ba4bced`. Les baselines restent volontairement légèrement en dessous des observations qualifiées afin d'être des ratchets stables, pas des égalités fragiles.
+La qualification exact-head de #230 sur `9602eaa4a20b08955e63a6dfe10e30fb1ec90f1d` a produit `1017` tests, `308` tests d'architecture, `52,6971%` lignes et `45,7250%` branches et a justifié les ratchets ci-dessus. Les PR de hardening ultérieures doivent satisfaire les mêmes gates ; le registre n'utilise pas un SHA mouvant de `develop` comme prétendue baseline active.
 
 `MORPHEUS Security` exécute OWASP Dependency-Check (CVSS >= 7 bloquant) sur PR/push `main` et `develop`, quotidiennement et sur demande. Les PR n'obtiennent pas la clé NVD depuis ce workflow. `MORPHEUS CodeQL` exécute un SAST Java versionné avec `security-extended`.
 
