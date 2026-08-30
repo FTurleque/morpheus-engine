@@ -29,11 +29,16 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
 /** SQLite adapter for versioned Requirement persistence introduced by M3-S4. */
 public final class SqliteVersionedRequirementStore implements VersionedRequirementStore, AutoCloseable {
+    private static final int SEQUENCE_ALLOCATION_MAX_ATTEMPTS = 24;
+    private static final long SEQUENCE_ALLOCATION_INITIAL_BACKOFF_MILLIS = 10L;
+    private static final long SEQUENCE_ALLOCATION_MAX_BACKOFF_MILLIS = 250L;
+
     private final Connection connection;
     private boolean closed;
 
@@ -116,10 +121,22 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     public synchronized long nextSpecificationVersionSequence(ProjectSpecificationId projectId) {
         ensureOpen();
         Objects.requireNonNull(projectId, "projectId");
-        return SqliteTransactionRunner.run(
-                connection,
-                "Cannot allocate specification version sequence for " + projectId,
-                ignored -> reserveNextSpecificationVersionSequence(projectId));
+        long backoffMillis = SEQUENCE_ALLOCATION_INITIAL_BACKOFF_MILLIS;
+        for (int attempt = 1; attempt <= SEQUENCE_ALLOCATION_MAX_ATTEMPTS; attempt++) {
+            try {
+                return SqliteTransactionRunner.run(
+                        connection,
+                        "Cannot allocate specification version sequence for " + projectId,
+                        ignored -> reserveNextSpecificationVersionSequence(projectId));
+            } catch (KnowledgeStoreException failure) {
+                if (!isSqliteBusy(failure) || attempt == SEQUENCE_ALLOCATION_MAX_ATTEMPTS) {
+                    throw failure;
+                }
+                sleepBeforeSequenceRetry(projectId, backoffMillis, failure);
+                backoffMillis = Math.min(backoffMillis * 2L, SEQUENCE_ALLOCATION_MAX_BACKOFF_MILLIS);
+            }
+        }
+        throw new IllegalStateException("unreachable specification version sequence retry state");
     }
 
     @Override
@@ -307,7 +324,9 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
         }
 
         // Force this deferred SQLite transaction into the writer set before reading MAX(sequence), so concurrent
-        // allocators serialize instead of observing the same pre-allocation state.
+        // allocators serialize instead of observing the same pre-allocation state. Some sqlite-jdbc/PERSIST lock
+        // transitions can still surface SQLITE_BUSY immediately; the caller retries the complete rolled-back
+        // transaction only for that specific transient condition.
         try (PreparedStatement acquireWrite = connection.prepareStatement("""
                 UPDATE specification_version_sequences
                 SET last_sequence = last_sequence
@@ -361,6 +380,37 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
             }
         }
         return next;
+    }
+
+    private void sleepBeforeSequenceRetry(
+            ProjectSpecificationId projectId,
+            long backoffMillis,
+            KnowledgeStoreException busyFailure) {
+        try {
+            Thread.sleep(backoffMillis);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            KnowledgeStoreException failure = new KnowledgeStoreException(
+                    "Interrupted while retrying SQLite specification version sequence allocation for " + projectId,
+                    interrupted);
+            failure.addSuppressed(busyFailure);
+            throw failure;
+        }
+    }
+
+    private static boolean isSqliteBusy(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof SQLException sqlFailure) {
+                String message = sqlFailure.getMessage();
+                if (sqlFailure.getErrorCode() == 5
+                        || (message != null && message.toUpperCase(Locale.ROOT).contains("SQLITE_BUSY"))) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private Optional<SpecificationVersion> findSpecificationVersionInternal(SpecificationVersionId versionId)
