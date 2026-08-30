@@ -49,6 +49,7 @@ public final class LocalSourceWatcher implements AutoCloseable {
         try {
             for (Path root : roots) {
                 Path resolved = resolveWithin(this.workspaceRoot, root);
+                WorkspacePathBoundary.requireContained(this.workspaceRoot, resolved);
                 if (!Files.isDirectory(resolved, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(resolved)) {
                     throw new IOException("watched root is not a real directory: " + root);
                 }
@@ -125,6 +126,8 @@ public final class LocalSourceWatcher implements AutoCloseable {
                 continue;
             }
             try {
+                WorkspacePathBoundary.requireContained(workspaceRoot, directory);
+                WorkspacePathBoundary.requireContained(workspaceRoot, absolute);
                 SourcePath sourcePath = new SourcePath(workspaceRoot.relativize(absolute).toString());
                 signals.add(new SourceWatchSignal(toKind(kind), java.util.Optional.of(sourcePath)));
                 if (kind == StandardWatchEventKinds.ENTRY_CREATE
@@ -145,6 +148,7 @@ public final class LocalSourceWatcher implements AutoCloseable {
     }
 
     private void registerRecursively(Path root) throws IOException {
+        WorkspacePathBoundary.requireContained(workspaceRoot, root);
         int rootDepth = depth(root);
         if (rootDepth > policy.maxDepth()) {
             throw new IOException("watched root exceeds source scan depth budget: " + root);
@@ -152,6 +156,7 @@ public final class LocalSourceWatcher implements AutoCloseable {
         Files.walkFileTree(root, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) throws IOException {
+                WorkspacePathBoundary.requireContained(workspaceRoot, directory);
                 if (Files.isSymbolicLink(directory)
                         || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
                     return FileVisitResult.SKIP_SUBTREE;
@@ -173,6 +178,7 @@ public final class LocalSourceWatcher implements AutoCloseable {
 
     private void registerDirectory(Path directory) throws IOException {
         Path normalized = directory.toAbsolutePath().normalize();
+        WorkspacePathBoundary.requireContained(workspaceRoot, normalized);
         if (registeredDirectories.contains(normalized)) {
             return;
         }
