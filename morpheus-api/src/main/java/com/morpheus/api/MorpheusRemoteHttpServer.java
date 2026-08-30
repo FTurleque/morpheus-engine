@@ -165,7 +165,6 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         String requestId = UUID.randomUUID().toString();
         responses.applySecurityHeaders(exchange.getResponseHeaders(), requestId);
         runtime.recordRequest();
-        boolean authenticationSlot = false;
         boolean requestSlot = false;
         boolean privilegedSlot = false;
         try {
@@ -176,13 +175,11 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                         "AUTHENTICATION_BUSY",
                         "remote authentication concurrency limit reached");
             }
-            authenticationSlot = true;
             MorpheusRemoteIdentityFile.Identity identity;
             try {
                 identity = authenticate(exchange);
             } finally {
                 authenticationConcurrency.release();
-                authenticationSlot = false;
             }
 
             MorpheusRemoteRole required = requiredRole(exchange.getRequestMethod(), exchange.getRequestURI().getPath());
@@ -240,9 +237,6 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         } catch (RuntimeException failure) {
             responses.sendError(exchange, 500, "INTERNAL_ERROR", "internal MORPHEUS remote server error");
         } finally {
-            if (authenticationSlot) {
-                authenticationConcurrency.release();
-            }
             if (requestSlot) {
                 runtime.requestFinished();
                 concurrency.release();
