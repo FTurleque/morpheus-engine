@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 
 /**
@@ -26,7 +27,7 @@ final class MorpheusRemoteIdentitySnapshotCache {
     private final long revalidationNanos;
     private final IdentityLoader loader;
     private final LongSupplier nanoTime;
-    private volatile Snapshot snapshot;
+    private final AtomicReference<Snapshot> snapshot = new AtomicReference<>();
 
     MorpheusRemoteIdentitySnapshotCache(Path authFile) {
         this(authFile, DEFAULT_REVALIDATION_INTERVAL, MorpheusRemoteIdentityFile::load, System::nanoTime);
@@ -54,14 +55,14 @@ final class MorpheusRemoteIdentitySnapshotCache {
     List<MorpheusRemoteIdentityFile.Identity> current() {
         FileStamp observed = readStamp(authFile);
         long now = nanoTime.getAsLong();
-        Snapshot cached = snapshot;
+        Snapshot cached = snapshot.get();
         if (isReusable(cached, observed, now)) {
             return cached.identities();
         }
         synchronized (this) {
             observed = readStamp(authFile);
             now = nanoTime.getAsLong();
-            cached = snapshot;
+            cached = snapshot.get();
             if (isReusable(cached, observed, now)) {
                 return cached.identities();
             }
@@ -75,7 +76,7 @@ final class MorpheusRemoteIdentitySnapshotCache {
             List<MorpheusRemoteIdentityFile.Identity> identities = List.copyOf(loader.load(authFile));
             FileStamp after = readStamp(authFile);
             if (before.equals(after)) {
-                snapshot = new Snapshot(after, now, identities);
+                snapshot.set(new Snapshot(after, now, identities));
                 return identities;
             }
         }
