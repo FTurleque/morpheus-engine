@@ -122,14 +122,6 @@ public final class LocalSourceInventoryScanner {
 
         for (Path root : roots) {
             if (budget.exhausted()) break;
-            try {
-                WorkspacePathBoundary.requireContained(workspace, root);
-            } catch (IOException boundaryFailure) {
-                failures.add(new SourceInventoryScanResult.Failure(
-                        Optional.of(display(workspace, root)),
-                        safeMessage(boundaryFailure)));
-                continue;
-            }
             if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) {
                 failures.add(new SourceInventoryScanResult.Failure(
                         Optional.of(display(workspace, root)),
@@ -143,9 +135,23 @@ public final class LocalSourceInventoryScanner {
                 continue;
             }
             try {
+                WorkspacePathBoundary.requireContained(workspace, root);
+            } catch (IOException boundaryFailure) {
+                failures.add(new SourceInventoryScanResult.Failure(
+                        Optional.of(display(workspace, root)),
+                        safeMessage(boundaryFailure)));
+                continue;
+            }
+            try {
                 Files.walkFileTree(root, visitOptions, Integer.MAX_VALUE, new SimpleFileVisitor<>() {
                     @Override
                     public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attrs) {
+                        if (policy.ignoresDirectory(directory)) {
+                            return FileVisitResult.SKIP_SUBTREE;
+                        }
+                        if (!policy.followSymbolicLinks() && Files.isSymbolicLink(directory)) {
+                            return FileVisitResult.SKIP_SUBTREE;
+                        }
                         try {
                             WorkspacePathBoundary.requireContained(workspace, directory);
                         } catch (IOException boundaryFailure) {
@@ -154,12 +160,6 @@ public final class LocalSourceInventoryScanner {
                                     safeMessage(boundaryFailure)));
                             budget.exhaust();
                             return FileVisitResult.TERMINATE;
-                        }
-                        if (policy.ignoresDirectory(directory)) {
-                            return FileVisitResult.SKIP_SUBTREE;
-                        }
-                        if (!policy.followSymbolicLinks() && Files.isSymbolicLink(directory)) {
-                            return FileVisitResult.SKIP_SUBTREE;
                         }
                         int depth = relativeDepth(root, directory);
                         if (depth > policy.maxDepth()) {
@@ -180,6 +180,9 @@ public final class LocalSourceInventoryScanner {
 
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                        if (!policy.followSymbolicLinks() && (attrs.isSymbolicLink() || Files.isSymbolicLink(file))) {
+                            return FileVisitResult.CONTINUE;
+                        }
                         try {
                             WorkspacePathBoundary.requireContained(workspace, file);
                         } catch (IOException boundaryFailure) {
@@ -188,9 +191,6 @@ public final class LocalSourceInventoryScanner {
                                     safeMessage(boundaryFailure)));
                             budget.exhaust();
                             return FileVisitResult.TERMINATE;
-                        }
-                        if (!policy.followSymbolicLinks() && (attrs.isSymbolicLink() || Files.isSymbolicLink(file))) {
-                            return FileVisitResult.CONTINUE;
                         }
                         if (!attrs.isRegularFile()) {
                             return FileVisitResult.CONTINUE;
