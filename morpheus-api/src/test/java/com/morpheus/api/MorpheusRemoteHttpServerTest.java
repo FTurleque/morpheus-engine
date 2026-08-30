@@ -233,7 +233,7 @@ class MorpheusRemoteHttpServerTest {
             HttpResponse<String> backup = send(client, base.resolve("/api/v1/server/backups"), "POST", admin.token(), null);
             assertEquals(201, backup.statusCode());
             assertTrue(backup.body().contains("\"integrityOk\":true"));
-            assertTrue(backup.body().contains("\"schemaVersion\":16"));
+            assertTrue(backup.body().contains("\"schemaVersion\":17"));
 
             try (var pool = Executors.newFixedThreadPool(8)) {
                 List<Callable<Integer>> calls = new ArrayList<>();
