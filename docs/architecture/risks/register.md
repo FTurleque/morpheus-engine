@@ -3,7 +3,7 @@
 > Synthèse opérationnelle de [§11](../arc42/11-risques-dette.md).
 > Baseline active : MORPHEUS 1.2.1 corrective — branche de développement post-audit.
 > Dernière release publiée : `v1.2.0`.
-> Mise à jour : **2026-08-29**.
+> Mise à jour : **2026-08-30**.
 >
 > **P** = probabilité, **I** = impact, **E** = exposition = P × I ; échelle 1 à 3.
 
@@ -39,7 +39,7 @@ Ils restent traçables dans l'historique Git et les issues #154/#166, mais ne do
 | DT-01 | Documents historiques encore présentés avec des baselines C0/M20/M27 | Documentation | **Haute** | Les qualifier comme historiques ou les réconcilier dans des PR dédiées sans falsifier les preuves passées |
 | DT-07 | Quality Gate SonarCloud potentiellement moins strict que le gate repository sur le nouveau code | Qualité externe | **Moyenne** | Vérifier le réglage SonarCloud ; le repository impose indépendamment `>= 80%` changed-line et `>= 70%` changed-branch coverage ; suivi #154 |
 | DT-08 | État des alertes Dependabot / Secret Scanning non vérifiable par le connecteur | Supply chain | **Moyenne** | Vérifier/activer les réglages administrateur ; le dépôt fournit Dependabot, OWASP Dependency-Check et CodeQL versionné ; suivi #154 |
-| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Réduire progressivement la dette sur les frontières critiques et relever les ratchets uniquement après preuve exact-head ; suivi #184 |
+| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 relevés à `1000 / 300 / 52,0% / 45,0%` sur preuve exact-head #230 ; suivi #184 jusqu'à qualification du relèvement |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
 | DT-03 | Seuils de performance M19 peu visibles depuis la documentation d'architecture | Qualité | **Moyenne** | Relier les scénarios qualité aux tests/gates autoritatifs |
 | DT-04 | SQLite reste l'unique backend persistant | Architecture | **Faible à moyenne** | N'engager un backend alternatif qu'après besoin et ADR dédiés |
@@ -85,7 +85,7 @@ Les tests adversariaux du codec couvrent notamment une représentation >16 KiB, 
 | Descendant MCP pouvant survivre après sortie du parent | observation périodique des `ProcessHandle`, rétention des descendants vus puis cleanup forcé même si le parent a déjà disparu |
 | Secret NVD disponible sur le chemin PR | `security.yml` sépare les événements de confiance du chemin `pull_request`; l'update PR n'injecte aucun repository secret |
 | Absence de SAST versionné | `.github/workflows/codeql.yml` ajouté, actions CodeQL pinnées par SHA, Java `security-extended` |
-| Ratchets devenus trop permissifs | M21 relevé progressivement ; baseline active au 29/08/2026 `880 / 270 / 51,2% / 43,7%` |
+| Ratchets devenus trop permissifs | M21 relevé progressivement ; baseline active au 30/08/2026 `1000 / 300 / 52,0% / 45,0%` |
 | Manifeste update distant en HTTP | `UpdateDiscoveryService` accepte `file:` et `https:` uniquement ; `http:` est refusé avant I/O |
 
 La réduction d'environnement et le suivi des descendants sont des mesures de confinement de lifecycle et de secrets ; ils ne transforment pas un JAR externe explicitement configuré en code non fiable sandboxé. MINOS/NEXUS et les plugins exécutables restent sous le même compte OS que MORPHEUS.
@@ -126,15 +126,15 @@ M21 s'exécute sur les pull requests ainsi que sur les pushes `main` et `develop
 Ratchets actifs :
 
 ```text
-Surefire total       >= 880
-architecture         >= 270
-line coverage        >= 51.2%
-branch coverage      >= 43.7%
+Surefire total       >= 1000
+architecture         >= 300
+line coverage        >= 52.0%
+branch coverage      >= 45.0%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```
 
-La dernière qualification exact-head de #219 sur `ac61abb0f9bafd55cc59e0a2885322de415898ca` a produit `999` tests, `299` tests d'architecture, `52,4323%` lignes et `45,3834%` branches ; le merge signé résultant place `develop` sur `e17cdb3cccdbd7a1d15ec54f5460e1fce4489b47`. Les baselines restent volontairement légèrement en dessous des observations qualifiées afin d'être des ratchets stables, pas des égalités fragiles.
+La dernière qualification exact-head de #230 sur `9602eaa4a20b08955e63a6dfe10e30fb1ec90f1d` a produit `1017` tests, `308` tests d'architecture, `52,6971%` lignes et `45,7250%` branches ; le merge signé résultant place `develop` sur `e1199189afe45dd228c4507f93a19b370ba4bced`. Les baselines restent volontairement légèrement en dessous des observations qualifiées afin d'être des ratchets stables, pas des égalités fragiles.
 
 `MORPHEUS Security` exécute OWASP Dependency-Check (CVSS >= 7 bloquant) sur PR/push `main` et `develop`, quotidiennement et sur demande. Les PR n'obtiennent pas la clé NVD depuis ce workflow. `MORPHEUS CodeQL` exécute un SAST Java versionné avec `security-extended`.
 
