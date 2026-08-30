@@ -116,27 +116,10 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     public synchronized long nextSpecificationVersionSequence(ProjectSpecificationId projectId) {
         ensureOpen();
         Objects.requireNonNull(projectId, "projectId");
-        try {
-            if (!projectExists(projectId)) {
-                throw new KnowledgeStoreException("project not found for specification version sequence: " + projectId);
-            }
-            try (PreparedStatement statement = connection.prepareStatement("""
-                    SELECT COALESCE(MAX(sequence), 0) AS current_sequence
-                    FROM specification_versions
-                    WHERE project_id = ?
-                    """)) {
-                statement.setString(1, projectId.toString());
-                try (ResultSet result = statement.executeQuery()) {
-                    long current = result.next() ? result.getLong("current_sequence") : 0L;
-                    if (current == Long.MAX_VALUE) {
-                        throw new KnowledgeStoreException("specification version sequence exhausted for project " + projectId);
-                    }
-                    return current + 1L;
-                }
-            }
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot allocate specification version sequence for " + projectId, exception);
-        }
+        return SqliteTransactionRunner.run(
+                connection,
+                "Cannot allocate specification version sequence for " + projectId,
+                ignored -> reserveNextSpecificationVersionSequence(projectId));
     }
 
     @Override
@@ -308,6 +291,76 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot close SQLite versioned requirement store", exception);
         }
+    }
+
+    private long reserveNextSpecificationVersionSequence(ProjectSpecificationId projectId) throws SQLException {
+        if (!projectExists(projectId)) {
+            throw new KnowledgeStoreException("project not found for specification version sequence: " + projectId);
+        }
+
+        try (PreparedStatement createReservation = connection.prepareStatement("""
+                INSERT OR IGNORE INTO specification_version_sequences(project_id, last_sequence)
+                VALUES (?, 0)
+                """)) {
+            createReservation.setString(1, projectId.toString());
+            createReservation.executeUpdate();
+        }
+
+        // Force this deferred SQLite transaction into the writer set before reading MAX(sequence), so concurrent
+        // allocators serialize instead of observing the same pre-allocation state.
+        try (PreparedStatement acquireWrite = connection.prepareStatement("""
+                UPDATE specification_version_sequences
+                SET last_sequence = last_sequence
+                WHERE project_id = ?
+                """)) {
+            acquireWrite.setString(1, projectId.toString());
+            if (acquireWrite.executeUpdate() != 1) {
+                throw new KnowledgeStoreException("specification version sequence reservation is missing for " + projectId);
+            }
+        }
+
+        long reserved;
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT last_sequence FROM specification_version_sequences WHERE project_id = ?")) {
+            statement.setString(1, projectId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    throw new KnowledgeStoreException("specification version sequence reservation is missing for " + projectId);
+                }
+                reserved = result.getLong(1);
+            }
+        }
+
+        long stored;
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT COALESCE(MAX(sequence), 0)
+                FROM specification_versions
+                WHERE project_id = ?
+                """)) {
+            statement.setString(1, projectId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                stored = result.next() ? result.getLong(1) : 0L;
+            }
+        }
+
+        long current = Math.max(reserved, stored);
+        if (current == Long.MAX_VALUE) {
+            throw new KnowledgeStoreException("specification version sequence exhausted for project " + projectId);
+        }
+        long next = current + 1L;
+
+        try (PreparedStatement statement = connection.prepareStatement("""
+                UPDATE specification_version_sequences
+                SET last_sequence = ?
+                WHERE project_id = ?
+                """)) {
+            statement.setLong(1, next);
+            statement.setString(2, projectId.toString());
+            if (statement.executeUpdate() != 1) {
+                throw new KnowledgeStoreException("cannot persist specification version sequence reservation for " + projectId);
+            }
+        }
+        return next;
     }
 
     private Optional<SpecificationVersion> findSpecificationVersionInternal(SpecificationVersionId versionId)
