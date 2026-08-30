@@ -75,6 +75,33 @@ class AuditHardeningWorkflowContractTest {
     }
 
     @Test
+    void sonarCiAnalysisImportsExactHeadJaCoCoAndFailsClosed() throws IOException {
+        String workflow = Files.readString(repoRoot().resolve(".github/workflows/ci.yml"));
+
+        assertTrue(workflow.contains("Run SonarQube Cloud CI analysis with JaCoCo"));
+        assertTrue(workflow.contains("SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}"),
+                "Sonar analysis must authenticate through the repository secret");
+        assertTrue(workflow.contains("github.event.pull_request.head.repo.full_name == github.repository"),
+                "Untrusted fork pull requests must not receive the Sonar secret");
+        assertTrue(workflow.contains("*/target/site/jacoco/jacoco.xml"),
+                "Sonar analysis must import the XML reports produced by M21");
+        assertTrue(workflow.contains("-Dsonar.coverage.jacoco.xmlReportPaths=\"$reports\""));
+        assertTrue(workflow.contains("-Dsonar.projectKey=FTurleque_morpheus-engine"));
+        assertTrue(workflow.contains("-Dsonar.organization=fturleque"));
+        assertTrue(workflow.contains("-Dsonar.host.url=https://sonarcloud.io"));
+        assertTrue(workflow.contains("-Dsonar.qualitygate.wait=true"),
+                "The GitHub CI gate must fail when SonarQube Cloud rejects the analysis");
+        assertTrue(workflow.contains(
+                "org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar"),
+                "The SonarScanner for Maven must be version-pinned");
+        assertTrue(workflow.indexOf("Run one-command M21 gate on Linux")
+                        < workflow.indexOf("Run SonarQube Cloud CI analysis with JaCoCo"),
+                "Coverage-producing M21 validation must complete before Sonar analysis");
+        assertFalse(workflow.contains("continue-on-error: true"),
+                "Sonar analysis must never be made advisory through continue-on-error");
+    }
+
+    @Test
     void mcpTransportDoesNotLogRawPeerControlledThrowables() throws IOException {
         Path root = repoRoot();
         String client = Files.readString(root.resolve(
