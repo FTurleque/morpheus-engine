@@ -26,6 +26,7 @@ class LocalHttpServerBootstrapArchitectureTest {
         assertFalse(server.contains("InetSocketAddress"));
         assertFalse(server.contains("HttpServer.create("));
         assertFalse(server.contains("Executors.newVirtualThreadPerTaskExecutor()"));
+        assertFalse(server.contains("LoopbackRequestProtectedHttpServer"));
         assertFalse(server.contains("CapabilityProtectedHttpServer"));
         assertFalse(server.contains("startConfigured("));
 
@@ -33,7 +34,8 @@ class LocalHttpServerBootstrapArchitectureTest {
         assertTrue(bootstrap.contains("new SqliteSpecificationKnowledgeStore(databasePath)"));
         assertTrue(bootstrap.contains("LoopbackHostPolicy.requireLoopbackAddress(host)"));
         assertTrue(bootstrap.contains("HttpServer.create(new InetSocketAddress(bindAddress, port), 0)"));
-        assertTrue(bootstrap.contains("new CapabilityProtectedHttpServer(delegate, capability)"));
+        assertTrue(bootstrap.contains("new LoopbackRequestProtectedHttpServer(delegate)"));
+        assertTrue(bootstrap.contains("new CapabilityProtectedHttpServer(loopbackProtected, capability)"));
         assertTrue(bootstrap.contains("Executors.newVirtualThreadPerTaskExecutor()"));
         assertTrue(bootstrap.contains("httpServer.createContext(MorpheusHttpServer.API_PREFIX, result::handle)"));
         assertTrue(bootstrap.contains("MorpheusQueryHttpRoutes.register(httpServer, databasePath)"));

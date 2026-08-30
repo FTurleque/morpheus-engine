@@ -229,9 +229,12 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
     }
 
     private void addScenario(EntityIdentityResolver identities, ParsedBlock parsed, Normalization result) {
+        String key = parsed.block.required("key");
+        rejectDuplicate(result.scenarioIdsByKey, key, "scenario");
         RequirementId requirementId = required(
                 result.requirementIdsByKey, parsed.block.required("requirement"), "requirement");
         ScenarioId id = new ScenarioId(identities.resolve(providerId(), "scenario", parsed.externalId));
+        result.scenarioIdsByKey.put(key, id);
         result.scenarios.add(new Scenario(
                 id,
                 Optional.of(requirementId),
@@ -293,7 +296,7 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
                 changeId,
                 Optional.of(key),
                 parsed.block.required("title"),
-                Boolean.parseBoolean(parsed.block.optional("completed", "false")),
+                parseStrictBoolean(parsed.block, "completed", false),
                 provenance(parsed, source())));
     }
 
@@ -442,6 +445,20 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
         }
     }
 
+    private static boolean parseStrictBoolean(
+            StructuredMarkdownBlockParser.Block block,
+            String key,
+            boolean fallback) {
+        String value = block.optional(key, Boolean.toString(fallback)).trim().toLowerCase(Locale.ROOT);
+        return switch (value) {
+            case "true" -> true;
+            case "false" -> false;
+            default -> throw new IllegalArgumentException(
+                    "unsupported boolean '" + value + "' for '" + key + "' in "
+                            + block.type() + " block at line " + block.startLine());
+        };
+    }
+
     private static Optional<String> optional(String value) {
         return Optional.ofNullable(value).map(String::trim).filter(item -> !item.isEmpty());
     }
@@ -466,6 +483,7 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
         private final List<ParsedBlock> blocks = new ArrayList<>();
         private final Map<String, SpecificationId> specificationIdsByKey = new LinkedHashMap<>();
         private final Map<String, RequirementId> requirementIdsByKey = new LinkedHashMap<>();
+        private final Map<String, ScenarioId> scenarioIdsByKey = new LinkedHashMap<>();
         private final Map<String, ChangeId> changeIdsByKey = new LinkedHashMap<>();
         private final List<Specification> specifications = new ArrayList<>();
         private final List<Requirement> requirements = new ArrayList<>();

@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,6 +39,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     static final Duration REQUEST_BODY_READ_TIMEOUT = Duration.ofSeconds(15);
     private static final int MAX_PROXY_RESPONSE_SLOTS = MAX_PROXY_IN_FLIGHT_BYTES / MAX_PROXY_RESPONSE_BYTES;
     private static final int MAX_REQUEST_BYTES = MorpheusHttpServer.MAX_REQUEST_BODY_BYTES;
+    private static final int MAX_PRESENTED_BEARER_CHARS = 1024;
 
     private final HttpsServer server;
     private final ExecutorService executor;
@@ -47,7 +49,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final Path databasePath;
     private final Path backupDirectory;
     private final Path authFile;
+    private final MorpheusRemoteIdentitySnapshotCache identityCache;
+    private final Semaphore authenticationConcurrency;
     private final Semaphore concurrency;
+    private final Semaphore privilegedConcurrency;
     private final MorpheusRemoteRuntimeState runtime;
     private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter();
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
@@ -74,7 +79,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.databasePath = databasePath.toAbsolutePath().normalize();
         this.backupDirectory = backupDirectory.toAbsolutePath().normalize();
         this.authFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
+        this.identityCache = new MorpheusRemoteIdentitySnapshotCache(this.authFile);
+        this.authenticationConcurrency = new Semaphore(authenticationConcurrencyLimit(maxConcurrentRequests), true);
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
+        this.privilegedConcurrency = new Semaphore(privilegedConcurrencyLimit(maxConcurrentRequests), true);
         this.runtime = new MorpheusRemoteRuntimeState(
                 maxConcurrentRequests,
                 REQUEST_BODY_READ_TIMEOUT,
@@ -157,18 +165,23 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         String requestId = UUID.randomUUID().toString();
         responses.applySecurityHeaders(exchange.getResponseHeaders(), requestId);
         runtime.recordRequest();
-        if (!concurrency.tryAcquire()) {
-            runtime.recordThrottledRequest();
-            try {
-                responses.sendError(exchange, 429, "TOO_MANY_REQUESTS", "remote request concurrency limit reached");
-            } finally {
-                exchange.close();
-            }
-            return;
-        }
-        runtime.requestStarted();
+        boolean requestSlot = false;
+        boolean privilegedSlot = false;
         try {
-            MorpheusRemoteIdentityFile.Identity identity = authenticate(exchange);
+            if (!authenticationConcurrency.tryAcquire()) {
+                runtime.recordThrottledRequest();
+                throw new RemoteFailure(
+                        429,
+                        "AUTHENTICATION_BUSY",
+                        "remote authentication concurrency limit reached");
+            }
+            MorpheusRemoteIdentityFile.Identity identity;
+            try {
+                identity = authenticate(exchange);
+            } finally {
+                authenticationConcurrency.release();
+            }
+
             MorpheusRemoteRole required = requiredRole(exchange.getRequestMethod(), exchange.getRequestURI().getPath());
             if (!identity.role().allows(required)) {
                 runtime.recordAuthorizationFailure();
@@ -179,6 +192,24 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                         "authenticated principal is not authorized for this operation");
                 return;
             }
+
+            if (usesPrivilegedConcurrency(exchange.getRequestMethod(), exchange.getRequestURI().getPath())) {
+                if (!privilegedConcurrency.tryAcquire()) {
+                    runtime.recordThrottledRequest();
+                    throw new RemoteFailure(
+                            429,
+                            "PRIVILEGED_CONCURRENCY_LIMIT",
+                            "remote write/admin concurrency limit reached");
+                }
+                privilegedSlot = true;
+            }
+
+            if (!concurrency.tryAcquire()) {
+                runtime.recordThrottledRequest();
+                throw new RemoteFailure(429, "TOO_MANY_REQUESTS", "remote request concurrency limit reached");
+            }
+            requestSlot = true;
+            runtime.requestStarted();
 
             String path = exchange.getRequestURI().getPath();
             if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/status")) {
@@ -206,8 +237,13 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         } catch (RuntimeException failure) {
             responses.sendError(exchange, 500, "INTERNAL_ERROR", "internal MORPHEUS remote server error");
         } finally {
-            runtime.requestFinished();
-            concurrency.release();
+            if (requestSlot) {
+                runtime.requestFinished();
+                concurrency.release();
+            }
+            if (privilegedSlot) {
+                privilegedConcurrency.release();
+            }
             exchange.close();
         }
     }
@@ -222,9 +258,12 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             throw new RemoteFailure(401, "UNAUTHENTICATED", "valid Bearer authentication is required");
         }
         String token = header.substring(7).trim();
+        if (token.isBlank() || token.length() > MAX_PRESENTED_BEARER_CHARS) {
+            throw new RemoteFailure(401, "UNAUTHENTICATED", "valid Bearer authentication is required");
+        }
         final Optional<MorpheusRemoteIdentityFile.Identity> authenticated;
         try {
-            authenticated = authenticateCurrent(authFile, token);
+            authenticated = identityCache.authenticate(token);
         } catch (IllegalArgumentException failure) {
             throw new RemoteFailure(503, "AUTH_STORE_UNAVAILABLE", "remote authentication store is unavailable");
         }
@@ -246,6 +285,23 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
 
     static boolean usesBoundedUpstreamTimeout(String rawMethod, String path) {
         return MorpheusRemoteRoutePolicy.usesBoundedUpstreamTimeout(rawMethod, path);
+    }
+
+    static boolean usesPrivilegedConcurrency(String rawMethod, String path) {
+        MorpheusRemoteRole role = MorpheusRemoteRoutePolicy.requiredRole(rawMethod, path);
+        String method = Objects.requireNonNull(rawMethod, "rawMethod").toUpperCase(Locale.ROOT);
+        return role == MorpheusRemoteRole.WRITE
+                || role == MorpheusRemoteRole.ADMIN && !method.equals("GET") && !method.equals("HEAD");
+    }
+
+    static int authenticationConcurrencyLimit(int maxConcurrentRequests) {
+        if (maxConcurrentRequests < 1) throw new IllegalArgumentException("maxConcurrentRequests must be positive");
+        return Math.max(4, Math.min(64, maxConcurrentRequests));
+    }
+
+    static int privilegedConcurrencyLimit(int maxConcurrentRequests) {
+        if (maxConcurrentRequests < 1) throw new IllegalArgumentException("maxConcurrentRequests must be positive");
+        return Math.max(1, (maxConcurrentRequests + 3) / 4);
     }
 
     private void proxy(HttpExchange exchange) throws IOException {
