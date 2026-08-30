@@ -17,6 +17,7 @@ import com.morpheus.domain.requirement.RequirementDelta;
 import com.morpheus.domain.requirement.RequirementDeltaId;
 import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.scenario.Scenario;
+import com.morpheus.domain.scenario.ScenarioId;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 import com.morpheus.domain.task.ImplementationTask;
@@ -152,11 +153,17 @@ public record NormalizedProjectContent(
             }
         }
 
-        scenarios.forEach(scenario -> scenario.requirementId().ifPresent(requirementId -> {
-            if (!requirementIds.contains(requirementId)) {
-                throw new IllegalArgumentException("scenario references unknown requirement: " + scenario.id());
+        Set<ScenarioId> scenarioIds = new HashSet<>();
+        for (Scenario scenario : scenarios) {
+            scenario.requirementId().ifPresent(requirementId -> {
+                if (!requirementIds.contains(requirementId)) {
+                    throw new IllegalArgumentException("scenario references unknown requirement: " + scenario.id());
+                }
+            });
+            if (!scenarioIds.add(scenario.id())) {
+                throw new IllegalArgumentException("duplicate scenario identity: " + scenario.id());
             }
-        }));
+        }
 
         Set<ChangeId> changeIds = new HashSet<>();
         for (ChangeProposal change : changes) {
