@@ -152,9 +152,10 @@ final class MorpheusLocalHttpServerBootstrap {
 
         try {
             HttpServer delegate = HttpServer.create(new InetSocketAddress(bindAddress, port), 0);
+            HttpServer loopbackProtected = new LoopbackRequestProtectedHttpServer(delegate);
             HttpServer httpServer = internalCapability
-                    .<HttpServer>map(capability -> new CapabilityProtectedHttpServer(delegate, capability))
-                    .orElse(delegate);
+                    .<HttpServer>map(capability -> new CapabilityProtectedHttpServer(loopbackProtected, capability))
+                    .orElse(loopbackProtected);
             ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
             MorpheusHttpServer result = new MorpheusHttpServer(
                     httpServer,
