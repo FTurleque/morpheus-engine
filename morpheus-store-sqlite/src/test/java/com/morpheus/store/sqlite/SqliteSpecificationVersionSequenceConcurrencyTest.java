@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -17,6 +20,7 @@ import java.util.concurrent.Future;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class SqliteSpecificationVersionSequenceConcurrencyTest {
+    private static final int RESERVATIONS_PER_STORE = 8;
 
     @TempDir
     Path tempDir;
@@ -35,34 +39,48 @@ class SqliteSpecificationVersionSequenceConcurrencyTest {
             CountDownLatch start = new CountDownLatch(1);
             ExecutorService executor = Executors.newFixedThreadPool(2);
             try {
-                Future<Long> left = executor.submit(() -> reserve(first, projectId, ready, start));
-                Future<Long> right = executor.submit(() -> reserve(second, projectId, ready, start));
+                Future<List<Long>> left = executor.submit(() -> reserveMany(first, projectId, ready, start));
+                Future<List<Long>> right = executor.submit(() -> reserveMany(second, projectId, ready, start));
                 ready.await();
                 start.countDown();
 
-                assertEquals(Set.of(1L, 2L), Set.of(value(left), value(right)));
+                List<Long> all = new ArrayList<>();
+                all.addAll(value(left));
+                all.addAll(value(right));
+                assertEquals(expectedSequences(RESERVATIONS_PER_STORE * 2), new HashSet<>(all));
+                assertEquals(RESERVATIONS_PER_STORE * 2, all.size(), "every reservation must be unique");
             } finally {
                 executor.shutdownNow();
             }
         }
 
         try (var reopened = new SqliteVersionedRequirementStore(database)) {
-            assertEquals(3L, reopened.nextSpecificationVersionSequence(projectId),
+            assertEquals(17L, reopened.nextSpecificationVersionSequence(projectId),
                     "reservations must survive store/process boundaries even when no version row was written");
         }
     }
 
-    private long reserve(
+    private List<Long> reserveMany(
             SqliteVersionedRequirementStore store,
             ProjectSpecificationId projectId,
             CountDownLatch ready,
             CountDownLatch start) throws Exception {
         ready.countDown();
         start.await();
-        return store.nextSpecificationVersionSequence(projectId);
+        List<Long> reserved = new ArrayList<>();
+        for (int index = 0; index < RESERVATIONS_PER_STORE; index++) {
+            reserved.add(store.nextSpecificationVersionSequence(projectId));
+        }
+        return List.copyOf(reserved);
     }
 
-    private long value(Future<Long> future) throws Exception {
+    private Set<Long> expectedSequences(int count) {
+        Set<Long> expected = new HashSet<>();
+        for (long sequence = 1; sequence <= count; sequence++) expected.add(sequence);
+        return expected;
+    }
+
+    private <T> T value(Future<T> future) throws Exception {
         try {
             return future.get();
         } catch (ExecutionException failure) {
