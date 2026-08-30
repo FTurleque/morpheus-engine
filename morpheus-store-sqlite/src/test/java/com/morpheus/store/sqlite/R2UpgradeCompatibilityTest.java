@@ -41,7 +41,7 @@ class R2UpgradeCompatibilityTest {
     Path tempDir;
 
     @Test
-    void oneDotZeroSchemaMigratesToV16WithoutIdentityOrHistoryLoss() throws Exception {
+    void oneDotZeroSchemaMigratesToV17WithoutIdentityOrHistoryLoss() throws Exception {
         Path database = tempDir.resolve("morpheus-1.0.0.db");
         Map<Integer, String> baselineChecksums;
 
@@ -57,12 +57,12 @@ class R2UpgradeCompatibilityTest {
         }
 
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
-            // Opening with the current runtime applies V013 through V016.
+            // Opening with the current runtime applies V013 through V017.
         }
 
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(16, new SqliteSchemaManager().currentVersion(connection));
-            assertEquals(16, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
+            assertEquals(17, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(17, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
 
             assertEquals("file", scalar(connection, "SELECT root_scheme FROM projects WHERE id = 'project-r2'"));
             assertEquals("workspace-r2", scalar(connection, "SELECT root_value FROM projects WHERE id = 'project-r2'"));
@@ -75,6 +75,7 @@ class R2UpgradeCompatibilityTest {
             assertTrue(tableExists(connection, "portfolios"));
             assertTrue(tableExists(connection, "saved_views"));
             assertTrue(tableExists(connection, "policy_packs"));
+            assertTrue(tableExists(connection, "specification_version_sequences"));
             assertTrue(indexExists(connection, "uq_specification_versions_project_sequence"));
 
             for (Map.Entry<Integer, String> baseline : baselineChecksums.entrySet()) {
@@ -89,7 +90,7 @@ class R2UpgradeCompatibilityTest {
         }
 
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(16, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
+            assertEquals(17, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
             assertEquals(1, integerScalar(connection, "SELECT COUNT(*) FROM projects WHERE id = 'project-r2'"));
             assertEquals(1, integerScalar(connection,
                     "SELECT COUNT(*) FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
