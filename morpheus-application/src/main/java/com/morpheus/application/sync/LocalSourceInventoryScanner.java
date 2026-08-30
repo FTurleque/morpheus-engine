@@ -28,31 +28,31 @@ import java.util.Set;
 public final class LocalSourceInventoryScanner {
     private final SourceScanPolicy policy;
     private final OperationalRecorder recorder;
-    private final FingerprintComputer fingerprintComputer;
+    private final Optional<FingerprintComputer> verificationComputer;
 
     public LocalSourceInventoryScanner() {
-        this(SourceScanPolicy.safeDefaults(), LocalOperationalRuntime.recorder(), SourceFingerprint::ofFile);
+        this(SourceScanPolicy.safeDefaults(), LocalOperationalRuntime.recorder(), Optional.empty());
     }
 
     public LocalSourceInventoryScanner(SourceScanPolicy policy) {
-        this(policy, LocalOperationalRuntime.recorder(), SourceFingerprint::ofFile);
+        this(policy, LocalOperationalRuntime.recorder(), Optional.empty());
     }
 
     public LocalSourceInventoryScanner(SourceScanPolicy policy, OperationalRecorder recorder) {
-        this(policy, recorder, SourceFingerprint::ofFile);
+        this(policy, recorder, Optional.empty());
     }
 
     LocalSourceInventoryScanner(SourceScanPolicy policy, FingerprintComputer fingerprintComputer) {
-        this(policy, LocalOperationalRuntime.recorder(), fingerprintComputer);
+        this(policy, LocalOperationalRuntime.recorder(), Optional.of(Objects.requireNonNull(fingerprintComputer, "fingerprintComputer")));
     }
 
     private LocalSourceInventoryScanner(
             SourceScanPolicy policy,
             OperationalRecorder recorder,
-            FingerprintComputer fingerprintComputer) {
+            Optional<FingerprintComputer> verificationComputer) {
         this.policy = Objects.requireNonNull(policy, "policy");
         this.recorder = Objects.requireNonNull(recorder, "recorder");
-        this.fingerprintComputer = Objects.requireNonNull(fingerprintComputer, "fingerprintComputer");
+        this.verificationComputer = Objects.requireNonNull(verificationComputer, "verificationComputer");
     }
 
     public SourceScanPolicy policy() {
@@ -122,6 +122,14 @@ public final class LocalSourceInventoryScanner {
 
         for (Path root : roots) {
             if (budget.exhausted()) break;
+            try {
+                WorkspacePathBoundary.requireContained(workspace, root);
+            } catch (IOException boundaryFailure) {
+                failures.add(new SourceInventoryScanResult.Failure(
+                        Optional.of(display(workspace, root)),
+                        safeMessage(boundaryFailure)));
+                continue;
+            }
             if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) {
                 failures.add(new SourceInventoryScanResult.Failure(
                         Optional.of(display(workspace, root)),
@@ -138,6 +146,15 @@ public final class LocalSourceInventoryScanner {
                 Files.walkFileTree(root, visitOptions, Integer.MAX_VALUE, new SimpleFileVisitor<>() {
                     @Override
                     public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attrs) {
+                        try {
+                            WorkspacePathBoundary.requireContained(workspace, directory);
+                        } catch (IOException boundaryFailure) {
+                            failures.add(new SourceInventoryScanResult.Failure(
+                                    Optional.of(display(workspace, directory)),
+                                    safeMessage(boundaryFailure)));
+                            budget.exhaust();
+                            return FileVisitResult.TERMINATE;
+                        }
                         if (policy.ignoresDirectory(directory)) {
                             return FileVisitResult.SKIP_SUBTREE;
                         }
@@ -163,6 +180,15 @@ public final class LocalSourceInventoryScanner {
 
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                        try {
+                            WorkspacePathBoundary.requireContained(workspace, file);
+                        } catch (IOException boundaryFailure) {
+                            failures.add(new SourceInventoryScanResult.Failure(
+                                    Optional.of(display(workspace, file)),
+                                    safeMessage(boundaryFailure)));
+                            budget.exhaust();
+                            return FileVisitResult.TERMINATE;
+                        }
                         if (!policy.followSymbolicLinks() && (attrs.isSymbolicLink() || Files.isSymbolicLink(file))) {
                             return FileVisitResult.CONTINUE;
                         }
@@ -187,10 +213,8 @@ public final class LocalSourceInventoryScanner {
                             SourcePath sourcePath = new SourcePath(
                                     workspace.relativize(file.toAbsolutePath().normalize()).toString());
 
-                            // walkFileTree attributes are a bounded preflight signal, not the content commit authority.
-                            // Capture a verified content witness first, then establish fresh authoritative attributes.
-                            SourceFingerprint initialFingerprint = SourceFingerprint.ofFile(file, attrs.size());
-                            BasicFileAttributes authoritativeBefore = SourceFingerprint.readAttributes(file);
+                            SourceFingerprint.VerifiedFile verified = SourceFingerprint.verifiedFile(file, attrs.size());
+                            BasicFileAttributes authoritativeBefore = verified.attributes();
                             if (!authoritativeBefore.isRegularFile() || authoritativeBefore.isSymbolicLink()
                                     || authoritativeBefore.size() > attrs.size()) {
                                 failures.add(new SourceInventoryScanResult.Failure(
@@ -199,14 +223,19 @@ public final class LocalSourceInventoryScanner {
                                 return FileVisitResult.CONTINUE;
                             }
 
-                            SourceFingerprint fingerprint = fingerprintComputer.compute(file, authoritativeBefore.size());
-                            if (!initialFingerprint.equals(fingerprint)) {
-                                failures.add(new SourceInventoryScanResult.Failure(
-                                        Optional.of(sourcePath.toString()),
-                                        "source changed identity, metadata, or content while fingerprint was being computed"));
-                                return FileVisitResult.CONTINUE;
+                            SourceFingerprint fingerprint = verified.fingerprint();
+                            if (verificationComputer.isPresent()) {
+                                SourceFingerprint verification = verificationComputer.orElseThrow()
+                                        .compute(file, authoritativeBefore.size());
+                                if (!fingerprint.equals(verification)) {
+                                    failures.add(new SourceInventoryScanResult.Failure(
+                                            Optional.of(sourcePath.toString()),
+                                            "source changed identity, metadata, or content while fingerprint was being computed"));
+                                    return FileVisitResult.CONTINUE;
+                                }
                             }
 
+                            WorkspacePathBoundary.requireContained(workspace, file);
                             BasicFileAttributes after = SourceFingerprint.readAttributes(file);
                             if (!SourceFingerprint.sameFileIdentity(authoritativeBefore, after)) {
                                 failures.add(new SourceInventoryScanResult.Failure(
