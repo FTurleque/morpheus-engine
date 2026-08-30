@@ -16,11 +16,13 @@ class LoopbackRequestPolicyTest {
             assertDoesNotThrow(() -> LoopbackRequestPolicy.requireAllowed(headers), host);
         }
 
-        Headers localOrigin = new Headers();
-        localOrigin.set("Host", "127.0.0.1:8765");
-        localOrigin.set("Origin", "http://localhost:3000");
-        localOrigin.set("Sec-Fetch-Site", "same-site");
-        assertDoesNotThrow(() -> LoopbackRequestPolicy.requireAllowed(localOrigin));
+        for (String origin : new String[]{"http://localhost:3000", "https://127.0.0.1", "http://[::1]:8765"}) {
+            Headers headers = new Headers();
+            headers.set("Host", "127.0.0.1:8765");
+            headers.set("Origin", origin);
+            headers.set("Sec-Fetch-Site", "same-site");
+            assertDoesNotThrow(() -> LoopbackRequestPolicy.requireAllowed(headers), origin);
+        }
     }
 
     @Test
@@ -38,7 +40,7 @@ class LoopbackRequestPolicyTest {
 
         Headers crossSite = new Headers();
         crossSite.set("Host", "127.0.0.1:8765");
-        crossSite.set("Sec-Fetch-Site", "cross-site");
+        crossSite.set("Sec-Fetch-Site", "CrOsS-SiTe");
         assertThrows(LoopbackRequestPolicy.RejectedRequestException.class,
                 () -> LoopbackRequestPolicy.requireAllowed(crossSite));
     }
@@ -54,9 +56,60 @@ class LoopbackRequestPolicyTest {
         assertThrows(LoopbackRequestPolicy.RejectedRequestException.class,
                 () -> LoopbackRequestPolicy.requireAllowed(duplicate));
 
-        Headers malformed = new Headers();
-        malformed.set("Host", "127.0.0.1.evil.example:8765");
+        for (String host : new String[]{
+                "",
+                "127.0.0.1.evil.example:8765",
+                "128.0.0.1:8765",
+                "127.0.0:8765",
+                "127.0.0.999:8765",
+                "127.0.0.1000:8765",
+                "127.0.0.a:8765",
+                "user@localhost:8765",
+                "localhost:8765/path",
+                "localhost:8765?query=1",
+                "localhost:8765#fragment",
+                "[::1%25lo]:8765"}) {
+            Headers malformed = new Headers();
+            malformed.set("Host", host);
+            assertThrows(LoopbackRequestPolicy.RejectedRequestException.class,
+                    () -> LoopbackRequestPolicy.requireAllowed(malformed), host);
+        }
+    }
+
+    @Test
+    void rejectsMalformedOrDuplicateOrigins() {
+        for (String origin : new String[]{
+                "",
+                "null",
+                "ftp://localhost",
+                "https://attacker.example",
+                "http://user@localhost",
+                "http://localhost/path",
+                "http://localhost?query=1",
+                "http://localhost#fragment",
+                "not-an-origin"}) {
+            Headers headers = new Headers();
+            headers.set("Host", "localhost:8765");
+            headers.set("Origin", origin);
+            assertThrows(LoopbackRequestPolicy.RejectedRequestException.class,
+                    () -> LoopbackRequestPolicy.requireAllowed(headers), origin);
+        }
+
+        Headers duplicate = new Headers();
+        duplicate.set("Host", "localhost:8765");
+        duplicate.add("Origin", "http://localhost:3000");
+        duplicate.add("Origin", "http://127.0.0.1:3000");
         assertThrows(LoopbackRequestPolicy.RejectedRequestException.class,
-                () -> LoopbackRequestPolicy.requireAllowed(malformed));
+                () -> LoopbackRequestPolicy.requireAllowed(duplicate));
+    }
+
+    @Test
+    void rejectsDuplicateFetchMetadata() {
+        Headers duplicate = new Headers();
+        duplicate.set("Host", "localhost:8765");
+        duplicate.add("Sec-Fetch-Site", "same-origin");
+        duplicate.add("Sec-Fetch-Site", "same-site");
+        assertThrows(LoopbackRequestPolicy.RejectedRequestException.class,
+                () -> LoopbackRequestPolicy.requireAllowed(duplicate));
     }
 }
