@@ -111,16 +111,11 @@ final class LoopbackRequestPolicy {
             return false;
         }
         for (String octet : octets) {
-            if (octet.isEmpty() || octet.length() > 3 || !octet.chars().allMatch(Character::isDigit)) {
+            if (octet.isEmpty() || octet.length() > 3
+                    || !octet.chars().allMatch(character -> character >= '0' && character <= '9')) {
                 return false;
             }
-            int value;
-            try {
-                value = Integer.parseInt(octet);
-            } catch (NumberFormatException invalid) {
-                return false;
-            }
-            if (value < 0 || value > 255) {
+            if (Integer.parseInt(octet) > 255) {
                 return false;
             }
         }
