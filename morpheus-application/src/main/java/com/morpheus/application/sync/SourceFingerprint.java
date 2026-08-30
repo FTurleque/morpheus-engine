@@ -39,16 +39,21 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
 
     /**
      * Hashes one regular path without following a final symbolic link and refuses to consume more than
-     * {@code maxBytes}. The byte ceiling is enforced while reading. A non-following preflight preserves the
-     * regular-file contract, then the first descriptor is opened before the authoritative path attributes are
-     * captured. The accepted path is re-read after the descriptor closes, making the content digest itself a
-     * portable replacement witness in addition to opaque provider file keys and basic metadata.
+     * {@code maxBytes}. The accepted path is re-read once to provide a portable replacement witness.
      */
     public static SourceFingerprint ofFile(Path path, long maxBytes) throws IOException {
-        return ofFile(path, maxBytes, ReadObserver.NONE);
+        return verifiedFile(path, maxBytes, ReadObserver.NONE).fingerprint();
     }
 
     static SourceFingerprint ofFile(Path path, long maxBytes, ReadObserver observer) throws IOException {
+        return verifiedFile(path, maxBytes, observer).fingerprint();
+    }
+
+    static VerifiedFile verifiedFile(Path path, long maxBytes) throws IOException {
+        return verifiedFile(path, maxBytes, ReadObserver.NONE);
+    }
+
+    private static VerifiedFile verifiedFile(Path path, long maxBytes, ReadObserver observer) throws IOException {
         Objects.requireNonNull(path, "path");
         Objects.requireNonNull(observer, "observer");
         if (maxBytes < 0) {
@@ -106,11 +111,14 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
         if (!sameFileIdentity(before, after)) {
             throw new IOException(CHANGED_IDENTITY_MESSAGE);
         }
-        if (!contentStillMatches(path, maxBytes, after, expectedDigest)) {
+        BasicFileAttributes verifiedAttributes = verifyContentStillMatches(path, maxBytes, after, expectedDigest);
+        if (verifiedAttributes == null) {
             throw new IOException(CHANGED_IDENTITY_MESSAGE);
         }
 
-        return new SourceFingerprint(HexFormat.of().formatHex(expectedDigest));
+        return new VerifiedFile(
+                new SourceFingerprint(HexFormat.of().formatHex(expectedDigest)),
+                verifiedAttributes);
     }
 
     static BasicFileAttributes readAttributes(Path path) throws IOException {
@@ -138,7 +146,7 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
         return Objects.equals(beforeKey, afterKey);
     }
 
-    private static boolean contentStillMatches(
+    private static BasicFileAttributes verifyContentStillMatches(
             Path path,
             long maxBytes,
             BasicFileAttributes expectedAttributes,
@@ -154,7 +162,7 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
             if (!sameFileIdentity(expectedAttributes, verificationBefore)
                     || verificationBefore.size() > maxBytes
                     || channel.size() != verificationBefore.size()) {
-                return false;
+                return null;
             }
 
             ByteBuffer buffer = ByteBuffer.allocate(16 * 1024);
@@ -164,20 +172,22 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
                     continue;
                 }
                 if (read > maxBytes - total || read > verificationBefore.size() - total) {
-                    return false;
+                    return null;
                 }
                 verificationDigest.update(buffer.array(), 0, read);
                 total += read;
                 buffer.clear();
             }
             if (total != verificationBefore.size() || channel.size() != verificationBefore.size()) {
-                return false;
+                return null;
             }
         }
 
         BasicFileAttributes verificationAfter = readAttributes(path);
         return sameFileIdentity(expectedAttributes, verificationAfter)
-                && MessageDigest.isEqual(expectedDigest, verificationDigest.digest());
+                && MessageDigest.isEqual(expectedDigest, verificationDigest.digest())
+                ? verificationAfter
+                : null;
     }
 
     private static void requireRegularNonSymbolic(BasicFileAttributes attributes) throws IOException {
@@ -202,6 +212,13 @@ public record SourceFingerprint(String sha256) implements Comparable<SourceFinge
     @Override
     public String toString() {
         return "sha256:" + sha256;
+    }
+
+    record VerifiedFile(SourceFingerprint fingerprint, BasicFileAttributes attributes) {
+        VerifiedFile {
+            Objects.requireNonNull(fingerprint, "fingerprint");
+            Objects.requireNonNull(attributes, "attributes");
+        }
     }
 
     enum ReadCheckpoint {
