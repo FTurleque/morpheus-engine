@@ -69,6 +69,34 @@ jobs:
               ;;
           esac
 
+      - name: Run SonarQube Cloud CI analysis with JaCoCo
+        if: >-
+          runner.os == 'Linux' &&
+          (github.event_name == 'push' ||
+           (github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository))
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SONAR_TOKEN:-}" ]; then
+            echo "::error::SONAR_TOKEN is required for SonarQube Cloud CI analysis"
+            exit 1
+          fi
+          reports="$(find "$GITHUB_WORKSPACE" -type f -path '*/target/site/jacoco/jacoco.xml' -print | sort | paste -sd, -)"
+          if [ -z "$reports" ]; then
+            echo "::error::No JaCoCo XML reports were produced by the exact-head M21 gate"
+            exit 1
+          fi
+          ./mvnw -B -ntp -DskipTests -Djacoco.skip=true \
+            -Dsonar.projectKey=FTurleque_morpheus-engine \
+            -Dsonar.organization=fturleque \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.qualitygate.wait=true \
+            -Dsonar.coverage.jacoco.xmlReportPaths="$reports" \
+            org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar
+
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
         shell: cmd
