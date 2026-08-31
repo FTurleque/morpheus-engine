@@ -43,6 +43,30 @@ jobs:
           cache: maven
           check-latest: false
 
+      - name: Diagnose existing Sonar reliability issues
+        if: >-
+          runner.os == 'Linux' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SONAR_TOKEN:-}" ]; then
+            echo "::error::SONAR_TOKEN is required for Sonar reliability diagnostics"
+            exit 1
+          fi
+          echo "Existing Sonar reliability issues for PR #${PR_NUMBER}:"
+          curl --fail --silent --show-error --user "${SONAR_TOKEN}:" --get \
+            'https://sonarcloud.io/api/issues/search' \
+            --data-urlencode 'componentKeys=FTurleque_morpheus-engine' \
+            --data-urlencode "pullRequest=${PR_NUMBER}" \
+            --data-urlencode 'resolved=false' \
+            --data-urlencode 'ps=100' |
+            python3 -c 'import json,sys; p=json.load(sys.stdin); issues=[i for i in p.get("issues",[]) if i.get("type")=="BUG" or any(x.get("softwareQuality")=="RELIABILITY" for x in i.get("impacts",[]))]; [print(json.dumps({"key":i.get("key"),"rule":i.get("rule"),"component":i.get("component"),"line":i.get("line"),"message":i.get("message"),"severity":i.get("severity"),"impacts":i.get("impacts")}, ensure_ascii=False)) for i in issues]'
+
       - name: Run one-command M21 gate on Linux
         if: runner.os == 'Linux'
         shell: bash
