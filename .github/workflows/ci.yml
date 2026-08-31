@@ -78,6 +78,7 @@ jobs:
         shell: bash
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           if [ -z "${SONAR_TOKEN:-}" ]; then
@@ -89,6 +90,7 @@ jobs:
             echo "::error::No JaCoCo XML reports were produced by the exact-head M21 gate"
             exit 1
           fi
+          set +e
           ./mvnw -B -ntp -DskipTests -Djacoco.skip=true \
             -Dsonar.projectKey=FTurleque_morpheus-engine \
             -Dsonar.organization=fturleque \
@@ -96,6 +98,19 @@ jobs:
             -Dsonar.qualitygate.wait=true \
             -Dsonar.coverage.jacoco.xmlReportPaths="$reports" \
             org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar
+          sonar_status=$?
+          set -e
+          if [ "$sonar_status" -ne 0 ] && [ -n "${PR_NUMBER:-}" ]; then
+            echo "Sonar reliability diagnostics for PR #${PR_NUMBER}:"
+            curl --fail --silent --show-error --user "${SONAR_TOKEN}:" --get \
+              'https://sonarcloud.io/api/issues/search' \
+              --data-urlencode 'componentKeys=FTurleque_morpheus-engine' \
+              --data-urlencode "pullRequest=${PR_NUMBER}" \
+              --data-urlencode 'resolved=false' \
+              --data-urlencode 'ps=100' |
+              python3 -c 'import json,sys; p=json.load(sys.stdin); issues=[i for i in p.get("issues",[]) if i.get("type")=="BUG" or any(x.get("softwareQuality")=="RELIABILITY" for x in i.get("impacts",[]))]; [print(json.dumps({"key":i.get("key"),"rule":i.get("rule"),"component":i.get("component"),"line":i.get("line"),"message":i.get("message"),"severity":i.get("severity"),"impacts":i.get("impacts")}, ensure_ascii=False)) for i in issues]'
+          fi
+          exit "$sonar_status"
 
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
