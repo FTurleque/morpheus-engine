@@ -72,6 +72,7 @@ jobs:
       - name: Run SonarQube Cloud CI analysis with JaCoCo
         if: >-
           runner.os == 'Linux' &&
+          github.actor != 'dependabot[bot]' &&
           (github.event_name == 'push' ||
            (github.event_name == 'pull_request' &&
             github.event.pull_request.head.repo.full_name == github.repository))
@@ -96,6 +97,13 @@ jobs:
             -Dsonar.qualitygate.wait=true \
             -Dsonar.coverage.jacoco.xmlReportPaths="$reports" \
             org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar
+
+      - name: Record SonarQube Cloud skip for Dependabot
+        if: runner.os == 'Linux' && github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+        shell: bash
+        run: |
+          echo "SonarQube Cloud analysis is skipped for Dependabot pull requests because GitHub withholds repository secrets from Dependabot pull_request workflows."
+          echo "Exact-head M21, changed coverage, Dependency-Check, Security and CodeQL gates remain enforced."
 
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
