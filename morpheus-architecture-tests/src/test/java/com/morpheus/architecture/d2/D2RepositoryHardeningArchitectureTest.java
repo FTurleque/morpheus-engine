@@ -26,7 +26,7 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
         String pom = Files.readString(repoRoot().resolve("pom.xml"));
-        assertTrue(pom.contains("<jackson.version>3.1.5</jackson.version>"));
+        assertTrue(pom.contains("<jackson.version>3.2.2</jackson.version>"));
         assertTrue(pom.contains("<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>"));
         assertTrue(pom.contains("<mcp-sdk.version>2.0.1</mcp-sdk.version>"));
         assertTrue(pom.contains("<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>"));
