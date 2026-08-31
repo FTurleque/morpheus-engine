@@ -54,6 +54,18 @@ class SafeWorkspaceFileResolverTest {
     }
 
     @Test
+    void defaultReadAcceptsFileExactlyOneMiB() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace-default-limit-boundary"));
+        byte[] exactlyOneMiB = new byte[1024 * 1024];
+        java.util.Arrays.fill(exactlyOneMiB, (byte) 'a');
+        Files.write(workspace.resolve("exact.txt"), exactlyOneMiB);
+
+        SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
+        String content = resolver.readUtf8(Path.of("exact.txt"));
+        assertEquals(1024 * 1024, content.length());
+    }
+
+    @Test
     void rejectsSameSizeSameMtimeReplacementWithoutReturningStaleContent() throws Exception {
         Path workspace = Files.createDirectory(temp.resolve("workspace-replacement"));
         Path source = workspace.resolve("spec.md");
