@@ -13,10 +13,10 @@ class QueryValueSemanticsTest {
 
     @Test
     void numericEqualityUsesNumericValueRatherThanTextRepresentation() {
-        assertTrue(QueryValueSemantics.equal("1.00", "01.0", QueryFieldType.NUMBER));
-        assertEquals(false, QueryValueSemantics.equal("1", "2", QueryFieldType.NUMBER));
-        assertTrue(QueryValueSemantics.equal("Alpha", "alpha", QueryFieldType.TEXT));
-        assertEquals(false, QueryValueSemantics.equal("ABC", "abc", QueryFieldType.IDENTITY));
+        assertTrue(QueryValueSemantics.sameValue("1.00", "01.0", QueryFieldType.NUMBER));
+        assertEquals(false, QueryValueSemantics.sameValue("1", "2", QueryFieldType.NUMBER));
+        assertTrue(QueryValueSemantics.sameValue("Alpha", "alpha", QueryFieldType.TEXT));
+        assertEquals(false, QueryValueSemantics.sameValue("ABC", "abc", QueryFieldType.IDENTITY));
     }
 
     @Test
@@ -44,6 +44,6 @@ class QueryValueSemanticsTest {
     @Test
     void invalidNumericValueFailsClosed() {
         assertThrows(IllegalArgumentException.class,
-                () -> QueryValueSemantics.equal("not-a-number", "1", QueryFieldType.NUMBER));
+                () -> QueryValueSemantics.sameValue("not-a-number", "1", QueryFieldType.NUMBER));
     }
 }
