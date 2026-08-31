@@ -3,7 +3,9 @@ package com.morpheus.sdk.provider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +18,7 @@ import java.util.jar.JarOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProviderPluginDiscoveryReplacementTest {
@@ -57,6 +60,20 @@ class ProviderPluginDiscoveryReplacementTest {
 
         Attributes withoutFileKey = attributes(true, 100L, 1_000L, 2_000L, null);
         assertTrue(sameIdentity(discovery, withoutFileKey, withoutFileKey));
+        assertFalse(sameIdentity(discovery, withoutFileKey, baseline));
+    }
+
+    @Test
+    void regularCandidateGuardRejectsNonRegularPath() throws Exception {
+        ProviderPluginDiscovery discovery = new ProviderPluginDiscovery();
+        var method = ProviderPluginDiscovery.class.getDeclaredMethod("requireRegularCandidate", Path.class);
+        method.setAccessible(true);
+
+        InvocationTargetException failure = assertThrows(
+                InvocationTargetException.class,
+                () -> method.invoke(discovery, directory));
+
+        assertTrue(failure.getCause() instanceof IOException);
     }
 
     private static boolean sameIdentity(
