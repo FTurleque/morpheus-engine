@@ -221,11 +221,7 @@ public final class QueryExecutionService {
     }
 
     private boolean anyEqual(List<String> values, String expected, QueryFieldType type) {
-        return values.stream().anyMatch(value -> equal(value, expected, type));
-    }
-
-    private boolean equal(String actual, String expected, QueryFieldType type) {
-        return QueryValueSemantics.equal(actual, expected, type);
+        return values.stream().anyMatch(value -> QueryValueSemantics.sameValue(value, expected, type));
     }
 
     private boolean textAny(List<String> values, String expected, TextMatch mode) {
