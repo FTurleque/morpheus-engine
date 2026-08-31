@@ -1,6 +1,6 @@
 ---
 name: architect
-description: Use for architecture reviews, module dependency checks, ArchUnit rule analysis, and evaluating whether a proposed change respects the Morpheus Engine ports-and-adapters architecture. Trigger when: reviewing a diff, validating a new feature's placement, checking if an import violates module boundaries, or interpreting an ArchUnit failure.
+description: "Use for architecture reviews, module dependency checks, ArchUnit rule analysis, and evaluating whether a proposed change respects the Morpheus Engine ports-and-adapters architecture. Trigger when: reviewing a diff, validating a new feature's placement, checking if an import violates module boundaries, or interpreting an ArchUnit failure."
 tools:
   - Read
   - Grep
@@ -82,7 +82,7 @@ Si conforme :
 ```
 ✅ CONFORME
    Modules touchés:  morpheus-api, morpheus-application
-   Gates concernés:  M26 (remote), M28 (courant), D2 (hardening)
+   Gates concernés:  <milestones lus en live dans .claude/CLAUDE.md, ex. M26/M28/D2>
    Contrats:         inchangés / à mettre à jour → contracts/public-surfaces.tsv
    Vérification:     ./mvnw test -pl morpheus-architecture-tests
 ```

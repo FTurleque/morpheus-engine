@@ -20,13 +20,25 @@ capability	intent	cli	mcp	http	notes
 
 **Une case vide est une violation.** L'absence doit être *déclarée*, jamais implicite.
 
+### Exemple réel (`contracts/public-surfaces.tsv`)
+
+```
+capability	intent	cli	mcp	http	notes
+provider.plugins.probe	WRITE	provider-plugins probe	EXPLICITLY_NOT_EXPOSED	POST /api/v1/provider-plugins/probe	Executable third-party code is not model-facing; ...
+```
+
+Ici, `mcp` porte `EXPLICITLY_NOT_EXPOSED` plutôt qu'une case vide : le probe exécute du
+code tiers, donc il est délibérément absent du transport MCP (jamais model-facing), et la
+colonne `notes` justifie pourquoi. C'est le patron à reproduire pour toute nouvelle
+capacité qui n'expose pas les trois transports.
+
 Les tests `publicManifestAndOpenApiExposeSame*IntentFamilies` comparent le TSV **caractère par caractère**
 avec l'OpenAPI. Modifier une signature sans mettre à jour les deux casse le gate.
 
 ## TOUJOURS
 
 - Mettre à jour **ensemble** : le code, `contracts/public-surfaces.tsv`, et `docs/openapi/morpheus-v1-*.yaml`
-- Écrire un ADR dans `docs/adr/` pour toute décision structurelle (96 ADRs existants — chercher avant de décider)
+- Écrire un ADR dans `docs/adr/` pour toute décision structurelle (98 fichiers constatés le 31/08/2026, dont un doublon de numéro `0095-*` — recompter avec `glob`, ne pas recopier ce total, cf. `rules/meta.md`)
 - Livrer le quadruplet complet pour un nouveau milestone (suite ArchUnit + scripts dual-platform + EXECUTION + VALIDATION)
 - Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée
 
@@ -66,5 +78,10 @@ Toute spec `docs/openapi/*.yaml` doit porter :
 
 ## Ratchets de présence qualifiée
 
-`scripts/validate-m21.*` et `scripts/validate-d2.*` assertent les compteurs `711` et `253`
-ainsi que la version `1.2.1`. Ces nombres sont des **ratchets** — ils ne descendent pas.
+**Ne pas se fier aux nombres codés en dur ici** — source de vérité vivante :
+`config/m21-quality-ratchets.properties`. `scripts/validate-m21.*` et `scripts/validate-d2.*`
+lisent ce fichier et assertent le nombre de tests, le nombre de tests d'architecture,
+la couverture ligne/branche et la version courante (`1.2.1`). Ces nombres sont des
+**ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones, donc
+toute valeur recopiée ici (y compris dans une version antérieure de cette page) peut être
+périmée. Relire le fichier `.properties` avant de citer un chiffre. Voir `rules/meta.md`.

@@ -32,8 +32,8 @@ Rapport complet : tous modules, coverage JaCoCo, gates enforced.
 Pour chaque module testé, afficher :
 ```
 morpheus-api
-  Tests:    47 run, 0 failures, 0 errors, 0 skipped
-  Coverage: 68% lines (min: 40%) ✅ | 52% branches (min: 35%) ✅
+  Tests:    <N> run, 0 failures, 0 errors, 0 skipped
+  Coverage: <line%> lines (min: <ratchet lu en live>) ✅ | <branch%> branches (min: <ratchet lu en live>) ✅
 ```
 
 Si un test échoue :
@@ -43,6 +43,9 @@ Si un test échoue :
 4. Proposer une hypothèse de cause basée sur le stack trace
 
 ## Floors de coverage (enforced)
-- Line coverage : minimum **40%** par module
-- Branch coverage : minimum **35%** par module
-- Défini dans `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/d2/CoverageQualityGateTest.java`
+- Le gate applique `max(plancher D2, ratchet qualifié)` — le plancher D2 est une constante
+  fixe (`D2_MIN_LINE_RATIO` / `D2_MIN_BRANCH_RATIO`), le ratchet qualifié est **vivant** et
+  monte au fil des milestones : lire `config/m21-quality-ratchets.properties`
+  (`lineCoverageMinimum` / `branchCoverageMinimum`), jamais un pourcentage mémorisé
+- Défini dans `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java`
+- Voir `.claude/rules/meta.md` avant de citer un seuil dans un rapport

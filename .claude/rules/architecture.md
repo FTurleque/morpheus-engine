@@ -18,6 +18,31 @@ Exemple de port : `com.morpheus.application.read.SpecificationContentReader`
 - Garder les identités **scopées par provider** : deux providers avec la même clé externe produisent des `DomainIdentity` **différentes**
 - Faire passer toute communication MINOS/NEXUS par **MCP STDIO uniquement**
 
+## Anatomie d'une règle de couche (exemple réel)
+
+`LayerDependencyTest.java` encode chaque interdit comme une règle ArchUnit `noClasses()`,
+avec un `because(...)` qui explique le *pourquoi* — c'est ce message qui apparaît dans le
+rapport de test en cas de violation :
+
+```java
+@Test
+void applicationMustNotDependOnAdapters() {
+    noClasses()
+            .that().resideInAPackage("com.morpheus.application..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "com.morpheus.provider..", "com.morpheus.store..", "com.morpheus.cli..",
+                    "com.morpheus.mcp..", "com.morpheus.api..", "com.morpheus.integration..",
+                    "com.minos..", "com.nexus..", "com.jarvis..")
+            .because("application services define use cases and ports without depending on adapters")
+            .check(classes);
+}
+```
+
+**Ajouter une nouvelle frontière de module** = ajouter un test de cette forme dans
+`LayerDependencyTest.java` (règles transverses) ou dans un `*ArchitectureTest` dédié au
+milestone (règles de sous-plateforme, ex. `m24/QueryPlatformArchitectureTest`). Ne jamais
+se contenter d'une convention non testée — si ArchUnit ne la vérifie pas, elle n'existe pas.
+
 ## JAMAIS — interdits enforced par ArchUnit
 
 ### `com.morpheus.domain..` ne doit dépendre de rien de tout ça

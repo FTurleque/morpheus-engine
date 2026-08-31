@@ -11,6 +11,46 @@ Aucun linter n'est configuré. La cohérence vient du code existant et des tests
 - Rendre les échecs **explicites** : exception nommée (`SyncBaselineInconsistentException`) plutôt que retour silencieux
 - Nommer les états de rejet explicitement (`SCAN_INCOMPLETE`, `PLUGIN_SHA256_REQUIRED`, `existing-unmanaged-morpheus-entry`)
 
+## Anatomie d'un type domaine (exemple réel)
+
+`DomainIdentity` illustre plusieurs règles à la fois : record immuable, validation dans le
+constructeur compact, échec explicite nommé, jamais de littéral magique caché :
+
+```java
+public record DomainIdentity(UUID value) implements Comparable<DomainIdentity> {
+    public DomainIdentity {
+        Objects.requireNonNull(value, "value");
+        if (value.version() != 7 || value.variant() != 2) {
+            throw new IllegalArgumentException("DomainIdentity must be an RFC 9562 UUIDv7");
+        }
+    }
+
+    public static DomainIdentity generate() {
+        long unixMillis = System.currentTimeMillis() & 0x0000FFFFFFFFFFFFL;
+        long randomA = RANDOM.nextInt(1 << 12);
+        long mostSignificantBits = (unixMillis << 16) | (0x7L << 12) | randomA;
+
+        long randomB = RANDOM.nextLong() & 0x3FFFFFFFFFFFFFFFL;
+        long leastSignificantBits = 0x8000000000000000L | randomB;
+
+        return new DomainIdentity(new UUID(mostSignificantBits, leastSignificantBits));
+    }
+
+    public static DomainIdentity parse(String value) {
+        Objects.requireNonNull(value, "value");
+        return new DomainIdentity(UUID.fromString(value.trim()));
+    }
+}
+```
+
+À retenir de cet exemple :
+- La validation d'invariant (`version() != 7`) est dans le **constructeur compact**, pas
+  dans une méthode `validate()` séparée qu'on pourrait oublier d'appeler
+- L'exception a un message qui nomme précisément l'invariant violé — pas
+  `"invalid value"`, mais `"DomainIdentity must be an RFC 9562 UUIDv7"`
+- Aucun champ mutable, aucun setter — les deux fabriques (`generate`, `parse`) sont les
+  seuls points d'entrée pour construire un `DomainIdentity` valide
+
 ## JAMAIS
 
 - Jamais de commentaire qui explique **quoi** fait le code — le nom s'en charge
