@@ -241,7 +241,11 @@ public final class QueryExecutionService {
         Comparator<QueryRow> comparator = (left, right) -> 0;
         Map<String, QueryFieldDefinition> schema = QuerySchemaRegistry.fields(query.entityType());
         for (QuerySort sort : query.sort()) {
-            QueryFieldType fieldType = schema.get(sort.field()).type();
+            QueryFieldDefinition definition = schema.get(sort.field());
+            if (definition == null) {
+                throw new IllegalStateException("validated sort field missing from query schema: " + sort.field());
+            }
+            QueryFieldType fieldType = definition.type();
             Comparator<QueryRow> key = (left, right) -> QueryValueSemantics.compare(
                     left.cell(sort.field()), right.cell(sort.field()), fieldType);
             if (sort.direction() == QuerySortDirection.DESC) {
