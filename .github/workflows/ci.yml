@@ -65,7 +65,17 @@ jobs:
             --data-urlencode "pullRequest=${PR_NUMBER}" \
             --data-urlencode 'resolved=false' \
             --data-urlencode 'ps=100' |
-            python3 -c 'import json,sys; p=json.load(sys.stdin); issues=[i for i in p.get("issues",[]) if i.get("type")=="BUG" or any(x.get("softwareQuality")=="RELIABILITY" for x in i.get("impacts",[]))]; [print(json.dumps({"key":i.get("key"),"rule":i.get("rule"),"component":i.get("component"),"line":i.get("line"),"message":i.get("message"),"severity":i.get("severity"),"impacts":i.get("impacts")}, ensure_ascii=False)) for i in issues]'
+            python3 -c 'import json,sys; p=json.load(sys.stdin); issues=[i for i in p.get("issues",[]) if i.get("type")=="BUG" or any(x.get("softwareQuality")=="RELIABILITY" for x in i.get("impacts",[]))]; [print(json.dumps({"key":i.get("key"),"rule":i.get("rule"),"component":i.get("component"),"line":i.get("line"),"message":i.get("message"),"severity":i.get("severity"),"impacts":i.get("impacts")}, ensure_ascii=False)) for i in issues]' |
+            tee sonar-reliability-diagnostics.jsonl
+
+      - name: Upload Sonar reliability diagnostics
+        if: runner.os == 'Linux' && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sonar-reliability-diagnostics
+          if-no-files-found: error
+          retention-days: 1
+          path: sonar-reliability-diagnostics.jsonl
 
       - name: Run one-command M21 gate on Linux
         if: runner.os == 'Linux'
