@@ -64,7 +64,7 @@ Le domaine et l’application ne dépendent ni des transports ni des clients MCP
 ```text
 product                    1.2.1
 Java                       21
-Jackson                    3.1.5 LTS
+Jackson                    3.2.2
 sqlite-jdbc                3.53.2.0
 MCP SDK                    2.0.1
 OWASP Dependency-Check     12.2.2
@@ -138,7 +138,7 @@ FAIL_ON_UNKNOWN_PROPERTIES
 FAIL_ON_TRAILING_TOKENS
 ```
 
-Jackson 3.1.5 LTS est utilisé sans default typing. Les tests de régression couvrent notamment la profondeur JSON, les tailles de requête et les frontières workspace/provider.
+Jackson 3.2.2 est utilisé sans default typing. Les tests de régression couvrent notamment la profondeur JSON, les tailles de requête et les frontières workspace/provider.
 
 ## SCA
 

@@ -115,7 +115,7 @@ Maven Wrapper              3.9.16
 Maven modules              17
 MCP SDK                    2.0.1
 SQLite JDBC                3.53.2.0
-Jackson                    3.1.5 LTS
+Jackson                    3.2.2
 ```
 
 Qualité continue :
