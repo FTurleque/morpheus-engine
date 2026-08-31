@@ -9,7 +9,7 @@ final class QueryValueSemantics {
     private QueryValueSemantics() {
     }
 
-    static boolean equal(String actual, String expected, QueryFieldType type) {
+    static boolean sameValue(String actual, String expected, QueryFieldType type) {
         return switch (type) {
             case TEXT, ENUM, BOOLEAN -> actual.equalsIgnoreCase(expected);
             case IDENTITY -> actual.equals(expected);
