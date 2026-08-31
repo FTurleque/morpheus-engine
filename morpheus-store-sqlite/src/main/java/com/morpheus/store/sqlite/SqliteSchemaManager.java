@@ -34,8 +34,10 @@ final class SqliteSchemaManager {
             new Migration(14, "saved-views", "/db/migration/V014__saved_views.sql"),
             new Migration(15, "policy-packs", "/db/migration/V015__policy_packs.sql"),
             new Migration(16, "specification-version-sequence-integrity",
-                    "/db/migration/V016__specification_version_sequence_integrity.sql"));
-    static final int SUPPORTED_SCHEMA_VERSION = 16;
+                    "/db/migration/V016__specification_version_sequence_integrity.sql"),
+            new Migration(17, "specification-version-sequence-reservations",
+                    "/db/migration/V017__specification_version_sequence_reservations.sql"));
+    static final int SUPPORTED_SCHEMA_VERSION = 17;
 
     void migrate(Connection connection) {
         if (SqliteConnectionScope.schemaReadyIfActive()) return;

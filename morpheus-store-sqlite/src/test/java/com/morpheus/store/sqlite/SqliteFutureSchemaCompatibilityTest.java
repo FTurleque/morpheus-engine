@@ -30,14 +30,14 @@ class SqliteFutureSchemaCompatibilityTest {
                     """);
             statement.execute("""
                     INSERT INTO schema_migrations(version, name, checksum, applied_at)
-                    VALUES (17, 'future', 'future-checksum', '2026-08-12T00:00:00Z')
+                    VALUES (18, 'future', 'future-checksum', '2026-08-30T00:00:00Z')
                     """);
         }
 
         KnowledgeStoreException failure = assertThrows(
                 KnowledgeStoreException.class,
                 () -> new SqliteSpecificationKnowledgeStore(database));
-        assertTrue(rootMessage(failure).contains("newer than supported 16"));
+        assertTrue(rootMessage(failure).contains("newer than supported 17"));
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database);
              var statement = connection.createStatement();

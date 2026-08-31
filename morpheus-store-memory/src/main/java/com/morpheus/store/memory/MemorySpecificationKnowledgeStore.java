@@ -34,6 +34,7 @@ public final class MemorySpecificationKnowledgeStore
     private final Map<KnowledgeSnapshotId, KnowledgeSnapshotMetadata> snapshots = new HashMap<>();
     private final Map<EntityIdentityKey, DomainIdentity> entityIdentities = new HashMap<>();
     private final Map<SpecificationVersionId, SpecificationVersion> specificationVersions = new HashMap<>();
+    private final Map<ProjectSpecificationId, Long> specificationVersionSequences = new HashMap<>();
     private final Map<KnowledgeSnapshotId, SnapshotSpecificationVersionBinding> snapshotVersionBindings = new HashMap<>();
     private final Map<EntityVersionId, RequirementVersionRecord> requirementVersions = new HashMap<>();
 
@@ -233,16 +234,20 @@ public final class MemorySpecificationKnowledgeStore
         if (!projects.containsKey(projectId)) {
             throw new KnowledgeStoreException("project not found for specification version sequence: " + projectId);
         }
-        long current = specificationVersions.values().stream()
+        long stored = specificationVersions.values().stream()
                 .filter(version -> version.projectId().equals(projectId))
                 .flatMap(version -> version.sequence().stream())
                 .mapToLong(Long::longValue)
                 .max()
                 .orElse(0L);
+        long reserved = specificationVersionSequences.getOrDefault(projectId, 0L);
+        long current = Math.max(stored, reserved);
         if (current == Long.MAX_VALUE) {
             throw new KnowledgeStoreException("specification version sequence exhausted for project " + projectId);
         }
-        return current + 1L;
+        long next = current + 1L;
+        specificationVersionSequences.put(projectId, next);
+        return next;
     }
 
     @Override

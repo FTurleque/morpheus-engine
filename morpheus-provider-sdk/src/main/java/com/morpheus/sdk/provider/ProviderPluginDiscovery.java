@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Properties;
 import java.util.jar.JarEntry;
@@ -19,12 +20,22 @@ import java.util.jar.JarFile;
 /**
  * Explicit, metadata-only discovery of provider plugin JARs.
  *
- * <p>This class never creates a ClassLoader or ServiceLoader. Reading a directory therefore does not execute plugin
- * code. Discovery also refuses symbolic links and opens candidate JARs without following symbolic paths, so a
- * metadata scan cannot escape the configured plugin directory through a symlink.</p>
+ * <p>This class never creates a ClassLoader or ServiceLoader. Discovery refuses symbolic links and revalidates the
+ * candidate file identity immediately before and after metadata inspection so a concurrent replacement is rejected
+ * instead of being silently accepted. Executable activation has the stronger boundary: it requires a SHA-256 pin and
+ * loads only an owner-hardened verified staging copy.</p>
  */
 public final class ProviderPluginDiscovery {
     private final ProviderPluginCompatibility compatibility = new ProviderPluginCompatibility();
+    private final InspectionObserver inspectionObserver;
+
+    public ProviderPluginDiscovery() {
+        this(InspectionObserver.NONE);
+    }
+
+    ProviderPluginDiscovery(InspectionObserver inspectionObserver) {
+        this.inspectionObserver = Objects.requireNonNull(inspectionObserver, "inspectionObserver");
+    }
 
     public ProviderPluginDiscoveryResult discover(Path pluginDirectory) {
         Path directory = pluginDirectory.toAbsolutePath().normalize();
@@ -101,23 +112,25 @@ public final class ProviderPluginDiscovery {
     private ProviderPluginCandidate inspect(Path jarPath) {
         Path jar = jarPath.toAbsolutePath().normalize();
         try {
-            BasicFileAttributes attributes = Files.readAttributes(
-                    jar, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-            if (!attributes.isRegularFile() || Files.isSymbolicLink(jar)) {
-                return invalid(
-                        jar,
-                        "PLUGIN_JAR_NOT_REGULAR",
-                        "Provider plugin candidate must be a regular non-symbolic file",
-                        Map.of());
-            }
-            long size = attributes.size();
+            BasicFileAttributes selected = requireRegularCandidate(jar);
+            long size = selected.size();
             if (size > ProviderSdk.MAX_PLUGIN_JAR_BYTES) {
                 return invalid(jar, "PLUGIN_JAR_TOO_LARGE", "Provider plugin JAR exceeds the scan size limit", Map.of(
                         "sizeBytes", Long.toString(size),
                         "limitBytes", Long.toString(ProviderSdk.MAX_PLUGIN_JAR_BYTES)));
             }
 
+            inspectionObserver.beforeMetadataRead(jar);
+            BasicFileAttributes beforeRead = requireRegularCandidate(jar);
+            if (!sameIdentity(selected, beforeRead)) {
+                return changedDuringScan(jar);
+            }
+
             byte[] metadataBytes = readMetadata(jar);
+            BasicFileAttributes afterRead = requireRegularCandidate(jar);
+            if (!sameIdentity(beforeRead, afterRead)) {
+                return changedDuringScan(jar);
+            }
             if (metadataBytes == null) {
                 return invalid(
                         jar,
@@ -153,6 +166,28 @@ public final class ProviderPluginDiscovery {
         }
     }
 
+    private BasicFileAttributes requireRegularCandidate(Path jar) throws IOException {
+        BasicFileAttributes attributes = Files.readAttributes(
+                jar, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (!attributes.isRegularFile() || Files.isSymbolicLink(jar)) {
+            throw new IOException("provider plugin candidate is not a regular non-symbolic file");
+        }
+        return attributes;
+    }
+
+    private boolean sameIdentity(BasicFileAttributes left, BasicFileAttributes right) {
+        if (!left.isRegularFile() || !right.isRegularFile()) return false;
+        if (left.size() != right.size()
+                || !left.lastModifiedTime().equals(right.lastModifiedTime())
+                || !left.creationTime().equals(right.creationTime())) {
+            return false;
+        }
+        Object leftKey = left.fileKey();
+        Object rightKey = right.fileKey();
+        if (leftKey == null && rightKey == null) return true;
+        return Objects.equals(leftKey, rightKey);
+    }
+
     private byte[] readMetadata(Path jar) throws IOException {
         try (JarFile jarFile = new JarFile(jar.toFile(), false)) {
             if (jarFile.size() > ProviderSdk.MAX_PLUGIN_JAR_ENTRIES) {
@@ -177,6 +212,14 @@ public final class ProviderPluginDiscovery {
         return path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar");
     }
 
+    private ProviderPluginCandidate changedDuringScan(Path jar) {
+        return invalid(
+                jar,
+                "PLUGIN_JAR_CHANGED_DURING_SCAN",
+                "Provider plugin JAR changed identity or metadata during discovery",
+                Map.of());
+    }
+
     private ProviderPluginCandidate invalid(Path jar, String code, String message, Map<String, String> details) {
         return new ProviderPluginCandidate(
                 jar,
@@ -188,6 +231,13 @@ public final class ProviderPluginDiscovery {
     private static String safeMessage(Exception failure) {
         String message = failure.getMessage();
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
+    }
+
+    @FunctionalInterface
+    interface InspectionObserver {
+        InspectionObserver NONE = jar -> { };
+
+        void beforeMetadataRead(Path jar) throws IOException;
     }
 
     private record BoundedJarSelection(List<Path> jars, long totalJars) {
