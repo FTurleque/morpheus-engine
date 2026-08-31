@@ -83,6 +83,14 @@ class AuditHardeningWorkflowContractTest {
                 "Sonar analysis must authenticate through the repository secret");
         assertTrue(workflow.contains("github.event.pull_request.head.repo.full_name == github.repository"),
                 "Untrusted fork pull requests must not receive the Sonar secret");
+        assertTrue(workflow.contains("github.actor != 'dependabot[bot]'"),
+                "Dependabot pull requests must not enter a Sonar step that requires unavailable repository secrets");
+        assertTrue(workflow.contains("Record SonarQube Cloud skip for Dependabot"),
+                "The Dependabot-only Sonar exception must remain explicit and auditable");
+        assertTrue(workflow.contains("github.actor == 'dependabot[bot]'"),
+                "The Sonar skip path must be scoped to the Dependabot actor");
+        assertFalse(workflow.contains("pull_request_target"),
+                "CI must not expose repository secrets to pull-request code through pull_request_target");
         assertTrue(workflow.contains("*/target/site/jacoco/jacoco.xml"),
                 "Sonar analysis must import the XML reports produced by M21");
         assertTrue(workflow.contains("-Dsonar.coverage.jacoco.xmlReportPaths=\"$reports\""));
