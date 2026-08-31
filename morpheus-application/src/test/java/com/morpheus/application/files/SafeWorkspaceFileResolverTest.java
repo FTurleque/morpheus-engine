@@ -42,6 +42,18 @@ class SafeWorkspaceFileResolverTest {
     }
 
     @Test
+    void defaultReadRejectsFilesLargerThanOneMiB() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace-default-limit"));
+        Files.write(workspace.resolve("too-large.txt"), new byte[(1024 * 1024) + 1]);
+
+        SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> resolver.readUtf8(Path.of("too-large.txt")));
+        assertTrue(failure.getMessage().contains("1048576 bytes"), failure::getMessage);
+    }
+
+    @Test
     void rejectsSameSizeSameMtimeReplacementWithoutReturningStaleContent() throws Exception {
         Path workspace = Files.createDirectory(temp.resolve("workspace-replacement"));
         Path source = workspace.resolve("spec.md");
