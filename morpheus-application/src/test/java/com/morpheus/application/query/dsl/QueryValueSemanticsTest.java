@@ -14,6 +14,7 @@ class QueryValueSemanticsTest {
     @Test
     void numericEqualityUsesNumericValueRatherThanTextRepresentation() {
         assertTrue(QueryValueSemantics.equal("1.00", "01.0", QueryFieldType.NUMBER));
+        assertEquals(false, QueryValueSemantics.equal("1", "2", QueryFieldType.NUMBER));
         assertTrue(QueryValueSemantics.equal("Alpha", "alpha", QueryFieldType.TEXT));
         assertEquals(false, QueryValueSemantics.equal("ABC", "abc", QueryFieldType.IDENTITY));
     }
