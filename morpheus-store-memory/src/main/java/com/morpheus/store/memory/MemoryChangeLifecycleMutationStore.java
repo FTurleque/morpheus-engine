@@ -6,6 +6,8 @@ import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersis
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceState;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationStore;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleOperationalState;
+import com.morpheus.application.store.KnowledgeStoreException;
+import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycle;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleIdempotencyKey;
@@ -22,9 +24,14 @@ import java.util.Optional;
 
 /** In-memory reference implementation of M17 lifecycle CAS/idempotency/audit semantics. */
 public final class MemoryChangeLifecycleMutationStore implements ChangeLifecycleMutationStore {
+    private final SpecificationKnowledgeStore projects;
     private final Map<StateKey, ChangeLifecycleOperationalState> states = new HashMap<>();
     private final Map<IdempotencyKey, ChangeLifecycleMutationAuditRecord> byIdempotency = new HashMap<>();
     private final Map<ChangeLifecycleMutationId, ChangeLifecycleMutationAuditRecord> byMutationId = new HashMap<>();
+
+    public MemoryChangeLifecycleMutationStore(SpecificationKnowledgeStore projects) {
+        this.projects = Objects.requireNonNull(projects, "projects");
+    }
 
     @Override
     public synchronized Optional<ChangeLifecycleOperationalState> findState(
@@ -56,6 +63,7 @@ public final class MemoryChangeLifecycleMutationStore implements ChangeLifecycle
     @Override
     public synchronized ChangeLifecycleMutationPersistenceResult apply(ChangeLifecycleMutationAttempt attempt) {
         Objects.requireNonNull(attempt, "attempt");
+        requireProject(attempt.projectId());
         IdempotencyKey idempotencyKey = new IdempotencyKey(attempt.projectId(), attempt.idempotencyKey());
         ChangeLifecycleMutationAuditRecord existing = byIdempotency.get(idempotencyKey);
         if (existing != null) {
@@ -115,6 +123,12 @@ public final class MemoryChangeLifecycleMutationStore implements ChangeLifecycle
                 Optional.of(next),
                 Optional.of(audit),
                 "Lifecycle mutation applied");
+    }
+
+    private void requireProject(ProjectSpecificationId projectId) {
+        if (projects.findProject(projectId).isEmpty()) {
+            throw new KnowledgeStoreException("project not found for lifecycle mutation: " + projectId);
+        }
     }
 
     private ChangeLifecycleOperationalState current(ChangeLifecycleMutationAttempt attempt) {
