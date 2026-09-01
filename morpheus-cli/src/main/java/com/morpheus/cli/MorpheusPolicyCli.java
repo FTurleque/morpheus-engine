@@ -44,6 +44,14 @@ import java.util.Set;
 
 /** M25 CLI adapter. Policy semantics remain centralized in application services. */
 final class MorpheusPolicyCli {
+    private static final String OPT_ACTOR = "actor";
+    private static final String OPT_REASON = "reason";
+    private static final String OPT_RULES = "rules";
+    private static final String OPT_EXPECTED_REVISION = "expected-revision";
+    private static final String OPT_PROJECT = "project";
+    private static final String OPT_PORTFOLIO = "portfolio";
+    private static final String OPT_VERSION = "version";
+
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final QueryDefinitionCodec queryCodec = new QueryDefinitionCodec();
 
@@ -74,10 +82,10 @@ final class MorpheusPolicyCli {
         Options options = Options.parse(parsed.arguments());
         return switch (parsed.action()) {
             case "pack-create" -> {
-                options.rejectUnknown(Set.of("name", "rules", "actor", "reason"));
+                options.rejectUnknown(Set.of("name", OPT_RULES, OPT_ACTOR, OPT_REASON));
                 yield PolicyPublicViews.definition(runtime.registry.create(
-                        options.required("name"), rules(options.required("rules")),
-                        options.required("actor"), options.required("reason")));
+                        options.required("name"), rules(options.required(OPT_RULES)),
+                        options.required(OPT_ACTOR), options.required(OPT_REASON)));
             }
             case "pack-list" -> {
                 options.rejectUnknown(Set.of());
@@ -92,47 +100,47 @@ final class MorpheusPolicyCli {
                 yield PolicyPublicViews.versions(runtime.registry.versions(pack(options)));
             }
             case "pack-update" -> {
-                options.rejectUnknown(Set.of("id", "expected-revision", "name", "rules", "actor", "reason"));
+                options.rejectUnknown(Set.of("id", OPT_EXPECTED_REVISION, "name", OPT_RULES, OPT_ACTOR, OPT_REASON));
                 yield PolicyPublicViews.definition(runtime.registry.update(
-                        pack(options), revision(options), options.required("name"), rules(options.required("rules")),
-                        options.required("actor"), options.required("reason")));
+                        pack(options), revision(options), options.required("name"), rules(options.required(OPT_RULES)),
+                        options.required(OPT_ACTOR), options.required(OPT_REASON)));
             }
             case "activate" -> {
-                options.rejectUnknown(Set.of("id", "version", "project", "portfolio", "expected-revision", "actor", "reason"));
+                options.rejectUnknown(Set.of("id", OPT_VERSION, OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
                 yield PolicyPublicViews.activation(runtime.registry.activate(
-                        scope(options), pack(options), PolicyIds.VersionId.parse(options.required("version")), revisionAllowZero(options),
-                        options.required("actor"), options.required("reason")));
+                        scope(options), pack(options), PolicyIds.VersionId.parse(options.required(OPT_VERSION)), revisionAllowZero(options),
+                        options.required(OPT_ACTOR), options.required(OPT_REASON)));
             }
             case "activations" -> {
-                options.rejectUnknown(Set.of("project", "portfolio"));
+                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO));
                 yield PolicyPublicViews.activations(runtime.registry.activations(scope(options)));
             }
             case "deactivate" -> {
-                options.rejectUnknown(Set.of("id", "project", "portfolio", "expected-revision", "actor", "reason"));
+                options.rejectUnknown(Set.of("id", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
                 runtime.registry.deactivate(scope(options), pack(options), revision(options),
-                        options.required("actor"), options.required("reason"));
+                        options.required(OPT_ACTOR), options.required(OPT_REASON));
                 yield VoidMarker.INSTANCE;
             }
             case "override-put" -> {
-                options.rejectUnknown(Set.of("id", "rule", "mode", "project", "portfolio", "expected-revision", "actor", "reason"));
+                options.rejectUnknown(Set.of("id", "rule", "mode", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
                 yield PolicyPublicViews.override(runtime.registry.putOverride(
                         scope(options), pack(options), PolicyIds.RuleId.parse(options.required("rule")),
                         PolicyConfiguration.OverrideMode.valueOf(options.required("mode").toUpperCase(Locale.ROOT)),
-                        revisionAllowZero(options), options.required("actor"), options.required("reason")));
+                        revisionAllowZero(options), options.required(OPT_ACTOR), options.required(OPT_REASON)));
             }
             case "override-list" -> {
-                options.rejectUnknown(Set.of("project", "portfolio"));
+                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO));
                 yield PolicyPublicViews.overrides(runtime.registry.overrides(scope(options)));
             }
             case "override-remove" -> {
-                options.rejectUnknown(Set.of("id", "rule", "project", "portfolio", "expected-revision", "actor", "reason"));
+                options.rejectUnknown(Set.of("id", "rule", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
                 runtime.registry.removeOverride(
                         scope(options), pack(options), PolicyIds.RuleId.parse(options.required("rule")), revision(options),
-                        options.required("actor"), options.required("reason"));
+                        options.required(OPT_ACTOR), options.required(OPT_REASON));
                 yield Map.of("removed", true);
             }
             case "evaluate" -> {
-                options.rejectUnknown(Set.of("id", "project", "portfolio"));
+                options.rejectUnknown(Set.of("id", OPT_PROJECT, OPT_PORTFOLIO));
                 PolicyScope evaluationScope = scope(options);
                 Optional<String> packId = options.optional("id");
                 if (packId.isPresent()) {
@@ -142,9 +150,9 @@ final class MorpheusPolicyCli {
                 yield PolicyPublicViews.governance(runtime.evaluation.evaluate(evaluationScope));
             }
             case "dry-run" -> {
-                options.rejectUnknown(Set.of("id", "version", "project", "portfolio"));
+                options.rejectUnknown(Set.of("id", OPT_VERSION, OPT_PROJECT, OPT_PORTFOLIO));
                 yield PolicyPublicViews.report(runtime.evaluation.dryRun(
-                        scope(options), pack(options), PolicyIds.VersionId.parse(options.required("version"))));
+                        scope(options), pack(options), PolicyIds.VersionId.parse(options.required(OPT_VERSION))));
             }
             case "audit" -> {
                 options.rejectUnknown(Set.of("id"));
@@ -211,8 +219,8 @@ final class MorpheusPolicyCli {
     }
 
     private PolicyScope scope(Options options) {
-        Optional<String> project = options.optional("project");
-        Optional<String> portfolio = options.optional("portfolio");
+        Optional<String> project = options.optional(OPT_PROJECT);
+        Optional<String> portfolio = options.optional(OPT_PORTFOLIO);
         if (project.isPresent() == portfolio.isPresent()) {
             throw new IllegalArgumentException("exactly one of --project or --portfolio is required");
         }
@@ -221,7 +229,7 @@ final class MorpheusPolicyCli {
     }
 
     private long revision(Options options) {
-        long value = parseLong(options.required("expected-revision"), "expected-revision");
+        long value = parseLong(options.required(OPT_EXPECTED_REVISION), OPT_EXPECTED_REVISION);
         if (value <= 0) {
             throw new IllegalArgumentException("--expected-revision must be positive");
         }
@@ -229,7 +237,7 @@ final class MorpheusPolicyCli {
     }
 
     private long revisionAllowZero(Options options) {
-        long value = parseLong(options.required("expected-revision"), "expected-revision");
+        long value = parseLong(options.required(OPT_EXPECTED_REVISION), OPT_EXPECTED_REVISION);
         if (value < 0) {
             throw new IllegalArgumentException("--expected-revision must be >= 0");
         }
@@ -245,11 +253,17 @@ final class MorpheusPolicyCli {
     }
 
     private static String command(String[] args) {
-        for (int index = 0; index < args.length; index++) {
+        int index = 0;
+        while (index < args.length) {
             String token = args[index];
-            if (token.equals("--json")) continue;
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) { index++; continue; }
-            return token;
+            index++;
+            boolean isValueFlag = token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db");
+            if (isValueFlag) {
+                index++;
+            }
+            if (!token.equals("--json") && !isValueFlag) {
+                return token;
+            }
         }
         return "";
     }
@@ -268,13 +282,24 @@ final class MorpheusPolicyCli {
             Optional<Path> config = Optional.empty();
             Optional<Path> database = Optional.empty();
             List<String> remaining = new ArrayList<>();
-            for (int index = 0; index < args.length; index++) {
+            int index = 0;
+            while (index < args.length) {
                 String token = args[index];
+                index++;
                 switch (token) {
                     case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(Path.of(requireValue(args, ++index, token)));
+                    case "--data-dir" -> {
+                        data = Optional.of(Path.of(requireValue(args, index, token)));
+                        index++;
+                    }
+                    case "--config-dir" -> {
+                        config = Optional.of(Path.of(requireValue(args, index, token)));
+                        index++;
+                    }
+                    case "--db" -> {
+                        database = Optional.of(Path.of(requireValue(args, index, token)));
+                        index++;
+                    }
                     default -> remaining.add(token);
                 }
             }
@@ -308,16 +333,19 @@ final class MorpheusPolicyCli {
 
         static Options parse(List<String> tokens) {
             Options result = new Options();
-            for (int index = 0; index < tokens.size(); index++) {
+            int index = 0;
+            while (index < tokens.size()) {
                 String token = tokens.get(index);
+                index++;
                 if (!token.startsWith("--")) throw new IllegalArgumentException("unknown token: " + token);
                 String key = token.substring(2);
-                if (index + 1 >= tokens.size() || tokens.get(index + 1).startsWith("--")) {
+                if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
                     throw new IllegalArgumentException(token + " requires a value");
                 }
-                if (result.values.putIfAbsent(key, tokens.get(++index)) != null) {
+                if (result.values.putIfAbsent(key, tokens.get(index)) != null) {
                     throw new IllegalArgumentException("duplicate option: --" + key);
                 }
+                index++;
             }
             return result;
         }

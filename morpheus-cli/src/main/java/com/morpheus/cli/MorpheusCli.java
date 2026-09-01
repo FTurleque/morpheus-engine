@@ -66,6 +66,16 @@ import java.util.Set;
 
 /** Stable, scriptable local MORPHEUS command-line adapter. */
 public final class MorpheusCli {
+    private static final String OPT_PROJECT = "project";
+    private static final String OPT_FORCE = "force";
+    private static final String OPT_CHANGE = "change";
+    private static final String OPT_OFFSET = "offset";
+    private static final String OPT_LIMIT = "limit";
+    private static final String OPT_DEPTH = "depth";
+    private static final String KEY_SNAPSHOT_ID = "snapshotId=";
+    private static final String KEY_UNKNOWN = "unknown";
+    private static final String MSG_PROJECT_NO_ACTIVE_SNAPSHOT = "project has no ACTIVE snapshot: ";
+
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
     public static void main(String[] args) {
@@ -207,11 +217,11 @@ public final class MorpheusCli {
     }
 
     private int sync(List<String> tokens, CliLayout layout, boolean jsonOutput, PrintStream out) {
-        CommandOptions options = CommandOptions.parse(tokens, Set.of("force"));
-        options.rejectUnknown(Set.of("project", "revision", "force"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
+        CommandOptions options = CommandOptions.parse(tokens, Set.of(OPT_FORCE));
+        options.rejectUnknown(Set.of(OPT_PROJECT, "revision", OPT_FORCE));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         Optional<String> revision = options.optional("revision");
-        boolean force = options.flag("force");
+        boolean force = options.flag(OPT_FORCE);
 
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             Path workspace = projectWorkspace(runtime, projectId);
@@ -285,7 +295,7 @@ public final class MorpheusCli {
     private void printSync(PrintStream out, boolean jsonOutput, SyncView view) {
         print(out, jsonOutput, view, String.join(System.lineSeparator(),
                 "projectId=" + view.projectId(),
-                "snapshotId=" + view.snapshotId(),
+                KEY_SNAPSHOT_ID + view.snapshotId(),
                 "mode=" + view.mode(),
                 "fullRebuildReason=" + view.fullRebuildReason().orElse("none"),
                 "sources=" + view.sourceCount(),
@@ -297,8 +307,8 @@ public final class MorpheusCli {
 
     private int syncStatus(List<String> tokens, CliLayout layout, boolean jsonOutput, PrintStream out) {
         CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of("project", "max-age-minutes"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
+        options.rejectUnknown(Set.of(OPT_PROJECT, "max-age-minutes"));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         long maxAgeMinutes = options.longValue("max-age-minutes", 60L, 1L, 525600L);
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             SyncFreshness freshness = new SyncFreshnessService(runtime.syncState)
@@ -315,10 +325,10 @@ public final class MorpheusCli {
                     freshness.currentSourceCount());
             print(out, jsonOutput, view, String.join(System.lineSeparator(),
                     "state=" + view.state(),
-                    "lastSuccessfulSyncAt=" + view.lastSuccessfulSyncAt().orElse("unknown"),
-                    "ageSeconds=" + view.ageSeconds().map(Object::toString).orElse("unknown"),
-                    "sourceRevision=" + view.sourceRevision().orElse("unknown"),
-                    "mode=" + view.lastSuccessfulMode().orElse("unknown"),
+                    "lastSuccessfulSyncAt=" + view.lastSuccessfulSyncAt().orElse(KEY_UNKNOWN),
+                    "ageSeconds=" + view.ageSeconds().map(Object::toString).orElse(KEY_UNKNOWN),
+                    "sourceRevision=" + view.sourceRevision().orElse(KEY_UNKNOWN),
+                    "mode=" + view.lastSuccessfulMode().orElse(KEY_UNKNOWN),
                     "pendingFullRebuildReason=" + view.pendingFullRebuildReason().orElse("none"),
                     "sourceCount=" + view.currentSourceCount()));
             return CliExitCode.SUCCESS.code();
@@ -330,14 +340,14 @@ public final class MorpheusCli {
             throw usage("requirements requires subcommand: find");
         }
         CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        options.rejectUnknown(Set.of("project", "query", "offset", "limit"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
+        options.rejectUnknown(Set.of(OPT_PROJECT, "query", OPT_OFFSET, OPT_LIMIT));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         PageRequest pageRequest = page(options);
         RequirementSearchQuery query = new RequirementSearchQuery(options.optional("query").orElse(""));
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             RequirementSearchPage result = new RequirementQueryService(runtime.snapshots, runtime.requirements)
                     .findActive(projectId, query, pageRequest)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             List<RequirementView> items = result.items().stream().map(this::requirementView).toList();
             RequirementSearchView view = new RequirementSearchView(
                     result.snapshot().id().toString(),
@@ -348,7 +358,7 @@ public final class MorpheusCli {
             if (jsonOutput) {
                 out.println(json.toJson(view));
             } else {
-                out.println("snapshotId=" + view.snapshotId() + " total=" + view.totalMatches() + " hasMore=" + view.hasMore());
+                out.println(KEY_SNAPSHOT_ID + view.snapshotId() + " total=" + view.totalMatches() + " hasMore=" + view.hasMore());
                 items.forEach(item -> out.println(item.id() + "\t" + item.key().orElse("") + "\t" + item.title()));
             }
             return CliExitCode.SUCCESS.code();
@@ -361,13 +371,13 @@ public final class MorpheusCli {
         }
         String subcommand = tokens.getFirst();
         CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             BusinessContentQueryService service = new BusinessContentQueryService(runtime.snapshots, runtime.content);
             if (subcommand.equals("list")) {
-                options.rejectUnknown(Set.of("project", "offset", "limit"));
+                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_OFFSET, OPT_LIMIT));
                 SnapshotPage<ChangeProposal> page = service.listActiveChanges(projectId, page(options))
-                        .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                        .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
                 PageView<ChangeView> view = new PageView<>(
                         page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
                         page.items().stream().map(this::changeView).toList());
@@ -375,10 +385,10 @@ public final class MorpheusCli {
                 return CliExitCode.SUCCESS.code();
             }
             if (subcommand.equals("get")) {
-                options.rejectUnknown(Set.of("project", "change"));
-                ChangeId changeId = ChangeId.parse(options.required("change"));
+                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE));
+                ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
                 var result = service.activeChange(projectId, changeId)
-                        .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                        .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
                 ChangeProposal change = result.item().orElseThrow(() -> notFound("change not found: " + changeId));
                 ChangeView view = changeView(change);
                 print(out, jsonOutput, view, String.join(System.lineSeparator(),
@@ -394,13 +404,13 @@ public final class MorpheusCli {
             throw usage("constraints requires subcommand: list");
         }
         CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        options.rejectUnknown(Set.of("project", "change", "offset", "limit"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
-        ChangeId changeId = ChangeId.parse(options.required("change"));
+        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
+        ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             SnapshotPage<Constraint> page = new BusinessContentQueryService(runtime.snapshots, runtime.content)
                     .activeConstraints(projectId, changeId, page(options))
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             PageView<ConstraintView> view = new PageView<>(page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
                     page.items().stream().map(item -> new ConstraintView(item.id().toString(), item.changeId().toString(), item.statement())).toList());
             printPage(out, jsonOutput, view, item -> item.id() + "\t" + item.statement());
@@ -413,13 +423,13 @@ public final class MorpheusCli {
             throw usage("decisions requires subcommand: list");
         }
         CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        options.rejectUnknown(Set.of("project", "change", "offset", "limit"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
-        ChangeId changeId = ChangeId.parse(options.required("change"));
+        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
+        ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             SnapshotPage<DesignDecision> page = new BusinessContentQueryService(runtime.snapshots, runtime.content)
                     .activeDesignDecisions(projectId, changeId, page(options))
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             PageView<DecisionView> view = new PageView<>(page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
                     page.items().stream().map(item -> new DecisionView(item.id().toString(), item.changeId().toString(), item.title(), item.decision())).toList());
             printPage(out, jsonOutput, view, item -> item.id() + "\t" + item.title());
@@ -432,13 +442,13 @@ public final class MorpheusCli {
             throw usage("tasks requires subcommand: list");
         }
         CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        options.rejectUnknown(Set.of("project", "change", "offset", "limit"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
-        ChangeId changeId = ChangeId.parse(options.required("change"));
+        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
+        ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             SnapshotPage<ImplementationTask> page = new BusinessContentQueryService(runtime.snapshots, runtime.content)
                     .activeImplementationTasks(projectId, changeId, page(options))
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             PageView<TaskView> view = new PageView<>(page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
                     page.items().stream().map(item -> new TaskView(
                             item.id().toString(), item.changeId().toString(), item.key(), item.title(), item.completed())).toList());
@@ -449,10 +459,10 @@ public final class MorpheusCli {
 
     private int traceRequirement(List<String> tokens, CliLayout layout, boolean jsonOutput, PrintStream out) {
         CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of("project", "requirement", "depth"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
+        options.rejectUnknown(Set.of(OPT_PROJECT, "requirement", OPT_DEPTH));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         RequirementId requirementId = RequirementId.parse(options.required("requirement"));
-        int depth = options.intValue("depth", 2, 1, 20);
+        int depth = options.intValue(OPT_DEPTH, 2, 1, 20);
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             var result = new TraceRequirementQueryService(
                     runtime.snapshots, runtime.requirements, runtime.traceability, runtime.externalReferences)
@@ -472,15 +482,15 @@ public final class MorpheusCli {
 
     private int changeContext(List<String> tokens, CliLayout layout, boolean jsonOutput, PrintStream out) {
         CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of("project", "change", "depth"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
-        ChangeId changeId = ChangeId.parse(options.required("change"));
-        int depth = options.intValue("depth", 2, 1, 20);
+        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_DEPTH));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
+        ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
+        int depth = options.intValue(OPT_DEPTH, 2, 1, 20);
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             var result = new ChangeContextQueryService(
                     runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences)
                     .active(projectId, changeId, depth, Set.of())
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             if (result.change().isEmpty()) {
                 throw notFound("change not found: " + changeId);
             }
@@ -501,10 +511,10 @@ public final class MorpheusCli {
 
     private int analyzeChange(List<String> tokens, CliLayout layout, boolean jsonOutput, PrintStream out) {
         CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of("project", "change", "depth"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
-        ChangeId changeId = ChangeId.parse(options.required("change"));
-        int depth = options.intValue("depth", 2, 1, 20);
+        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_DEPTH));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
+        ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
+        int depth = options.intValue(OPT_DEPTH, 2, 1, 20);
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             Path workspace = projectWorkspace(runtime, projectId);
             var normalized = new OpenSpecProjectContentReader().read(
@@ -513,7 +523,7 @@ public final class MorpheusCli {
             var result = new ChangeAnalysisService(
                     runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
                     .analyzeActive(proposal, depth)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             if (jsonOutput) {
                 out.println(new CompactChangeAnalysisViewService().toJson(result));
             } else {
@@ -532,8 +542,8 @@ public final class MorpheusCli {
 
     private int quality(List<String> tokens, CliLayout layout, boolean jsonOutput, PrintStream out) {
         CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of("project"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
+        options.rejectUnknown(Set.of(OPT_PROJECT));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
             QualityReportService service = new QualityReportService(
                     runtime.snapshots,
@@ -544,12 +554,12 @@ public final class MorpheusCli {
                     new DecisionReferenceQualityService(
                             runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences));
             QualityReport report = service.assessActive(projectId)
-                    .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                    .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             if (jsonOutput) {
                 out.println(new CompactQualityReportService().toJson(report));
             } else {
                 var metrics = report.metrics();
-                out.println("snapshotId=" + report.snapshot().id());
+                out.println(KEY_SNAPSHOT_ID + report.snapshot().id());
                 out.println("findings=" + metrics.totalFindings()
                         + " requirements=" + metrics.totalRequirements()
                         + " requirementCoverage=" + metrics.requirementCoverageRatio()
@@ -561,8 +571,8 @@ public final class MorpheusCli {
         }
     }
 
-    private RequirementView requirementView(RequirementVersionRecord record) {
-        var requirement = record.entityVersion().content();
+    private RequirementView requirementView(RequirementVersionRecord versionRecord) {
+        var requirement = versionRecord.entityVersion().content();
         return new RequirementView(
                 requirement.id().toString(),
                 requirement.key(),
@@ -576,7 +586,7 @@ public final class MorpheusCli {
     }
 
     private PageRequest page(CommandOptions options) {
-        return new PageRequest(options.intValue("offset", 0, 0, Integer.MAX_VALUE), options.intValue("limit", 20, 1, PageRequest.MAX_LIMIT));
+        return new PageRequest(options.intValue(OPT_OFFSET, 0, 0, Integer.MAX_VALUE), options.intValue(OPT_LIMIT, 20, 1, PageRequest.MAX_LIMIT));
     }
 
     private Path projectWorkspace(CliRuntime runtime, ProjectSpecificationId projectId) {
@@ -601,7 +611,7 @@ public final class MorpheusCli {
             out.println(json.toJson(view));
             return;
         }
-        out.println("snapshotId=" + view.snapshotId() + " total=" + view.totalMatches() + " hasMore=" + view.hasMore());
+        out.println(KEY_SNAPSHOT_ID + view.snapshotId() + " total=" + view.totalMatches() + " hasMore=" + view.hasMore());
         view.items().forEach(item -> out.println(human.apply(item)));
     }
 
@@ -700,13 +710,24 @@ public final class MorpheusCli {
             Optional<Path> config = Optional.empty();
             Optional<Path> database = Optional.empty();
             List<String> remaining = new ArrayList<>();
-            for (int index = 0; index < args.length; index++) {
+            int index = 0;
+            while (index < args.length) {
                 String token = args[index];
+                index++;
                 switch (token) {
                     case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(Path.of(requireValue(args, ++index, token)));
+                    case "--data-dir" -> {
+                        data = Optional.of(Path.of(requireValue(args, index, token)));
+                        index++;
+                    }
+                    case "--config-dir" -> {
+                        config = Optional.of(Path.of(requireValue(args, index, token)));
+                        index++;
+                    }
+                    case "--db" -> {
+                        database = Optional.of(Path.of(requireValue(args, index, token)));
+                        index++;
+                    }
                     default -> remaining.add(token);
                 }
             }
@@ -724,45 +745,46 @@ public final class MorpheusCli {
     private static final class CommandOptions {
         private final Map<String, String> values;
         private final Set<String> flags;
-        private final List<String> positionals;
 
-        private CommandOptions(Map<String, String> values, Set<String> flags, List<String> positionals) {
+        private CommandOptions(Map<String, String> values, Set<String> flags) {
             this.values = Map.copyOf(values);
             this.flags = Set.copyOf(flags);
-            this.positionals = List.copyOf(positionals);
         }
 
         static CommandOptions parse(List<String> tokens, Set<String> allowedFlags) {
             Map<String, String> values = new HashMap<>();
             Set<String> flags = new HashSet<>();
             List<String> positionals = new ArrayList<>();
-            for (int index = 0; index < tokens.size(); index++) {
+            int index = 0;
+            while (index < tokens.size()) {
                 String token = tokens.get(index);
+                index++;
                 if (!token.startsWith("--")) {
                     positionals.add(token);
-                    continue;
-                }
-                String key = token.substring(2);
-                if (key.isBlank()) {
-                    throw new IllegalArgumentException("invalid empty option");
-                }
-                if (allowedFlags.contains(key)) {
-                    if (!flags.add(key)) {
-                        throw new IllegalArgumentException("duplicate flag: --" + key);
+                } else {
+                    String key = token.substring(2);
+                    if (key.isBlank()) {
+                        throw new IllegalArgumentException("invalid empty option");
                     }
-                    continue;
-                }
-                if (index + 1 >= tokens.size() || tokens.get(index + 1).startsWith("--")) {
-                    throw new IllegalArgumentException("--" + key + " requires a value");
-                }
-                if (values.putIfAbsent(key, tokens.get(++index)) != null) {
-                    throw new IllegalArgumentException("duplicate option: --" + key);
+                    if (allowedFlags.contains(key)) {
+                        if (!flags.add(key)) {
+                            throw new IllegalArgumentException("duplicate flag: --" + key);
+                        }
+                    } else {
+                        if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
+                            throw new IllegalArgumentException("--" + key + " requires a value");
+                        }
+                        if (values.putIfAbsent(key, tokens.get(index)) != null) {
+                            throw new IllegalArgumentException("duplicate option: --" + key);
+                        }
+                        index++;
+                    }
                 }
             }
             if (!positionals.isEmpty()) {
                 throw new IllegalArgumentException("unexpected positional arguments: " + positionals);
             }
-            return new CommandOptions(values, flags, positionals);
+            return new CommandOptions(values, flags);
         }
 
         void rejectUnknown(Set<String> allowed) {
