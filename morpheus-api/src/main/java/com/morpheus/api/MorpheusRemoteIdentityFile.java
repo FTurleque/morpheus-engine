@@ -17,6 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -61,7 +62,7 @@ public final class MorpheusRemoteIdentityFile {
             principal = requirePrincipal(principal);
             role = Objects.requireNonNull(role, "role");
             tokenHash = Objects.requireNonNull(tokenHash, "tokenHash").clone();
-            expiresAt = Objects.requireNonNull(expiresAt, "expiresAt");
+            Objects.requireNonNull(expiresAt, "expiresAt");
             if (tokenHash.length != 32) {
                 throw new IllegalArgumentException("tokenHash must contain exactly 32 bytes");
             }
@@ -84,6 +85,27 @@ public final class MorpheusRemoteIdentityFile {
         public boolean isActiveAt(Instant instant) {
             return !isExpiredAt(instant);
         }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Identity otherIdentity)) return false;
+            return principal.equals(otherIdentity.principal)
+                    && role == otherIdentity.role
+                    && Arrays.equals(tokenHash, otherIdentity.tokenHash)
+                    && expiresAt.equals(otherIdentity.expiresAt);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(principal, role, Arrays.hashCode(tokenHash), expiresAt);
+        }
+
+        @Override
+        public String toString() {
+            return "Identity[principal=" + principal + ", role=" + role
+                    + ", tokenHash=" + Arrays.toString(tokenHash) + ", expiresAt=" + expiresAt + "]";
+        }
     }
 
     public record GeneratedCredential(
@@ -97,7 +119,7 @@ public final class MorpheusRemoteIdentityFile {
             if (token == null || token.isBlank()) {
                 throw new IllegalArgumentException("generated token must not be blank");
             }
-            expiresAt = Objects.requireNonNull(expiresAt, "expiresAt");
+            Objects.requireNonNull(expiresAt, "expiresAt");
         }
 
         public GeneratedCredential(String principal, MorpheusRemoteRole role, String token) {
@@ -118,7 +140,7 @@ public final class MorpheusRemoteIdentityFile {
             at = Objects.requireNonNull(at, "at");
             mutation = Objects.requireNonNull(mutation, "mutation");
             principal = requirePrincipal(principal);
-            role = Objects.requireNonNull(role, "role");
+            Objects.requireNonNull(role, "role");
         }
     }
 
@@ -481,9 +503,9 @@ public final class MorpheusRemoteIdentityFile {
         return List.copyOf(records);
     }
 
-    private static String formatAudit(AuditRecord record) {
-        return AUDIT_PREFIX + record.at() + "|" + record.mutation().name() + "|"
-                + record.principal() + "|" + record.role().name();
+    private static String formatAudit(AuditRecord auditRecord) {
+        return AUDIT_PREFIX + auditRecord.at() + "|" + auditRecord.mutation().name() + "|"
+                + auditRecord.principal() + "|" + auditRecord.role().name();
     }
 
     private static byte[] sha256Bytes(String token) {
