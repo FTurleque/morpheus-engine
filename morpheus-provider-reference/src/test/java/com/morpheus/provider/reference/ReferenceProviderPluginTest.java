@@ -1,10 +1,7 @@
 package com.morpheus.provider.reference;
 
-import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryStatus;
-import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderCapability;
 import com.morpheus.sdk.provider.ProviderPluginMetadata;
@@ -18,7 +15,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,10 +33,7 @@ class ReferenceProviderPluginTest {
         assertTrue(snapshot.supportedProbe().capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS));
 
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        EntityIdentityResolver identities = stableResolver();
-        var result = snapshot.contentReader().read(
-                new ProviderReadRequest(workspace, projectId, java.util.Set.of(ReadCategory.CURRENT_SPECIFICATIONS)),
-                identities);
+        var result = ProviderPluginContractAssertions.verifyRead(snapshot, workspace, projectId);
 
         assertEquals(ReferenceSpecificationProvider.ID, result.providerId());
         assertEquals(1, result.content().orElseThrow().specifications().size());
@@ -63,12 +56,5 @@ class ReferenceProviderPluginTest {
         }
         ProviderPluginMetadata manifest = ProviderPluginMetadata.from(properties);
         assertEquals(ReferenceProviderPlugin.METADATA, manifest);
-    }
-
-    private static EntityIdentityResolver stableResolver() {
-        var identities = new ConcurrentHashMap<String, DomainIdentity>();
-        return (providerId, entityType, externalId) -> identities.computeIfAbsent(
-                providerId.value() + ":" + entityType + ":" + externalId,
-                ignored -> DomainIdentity.generate());
     }
 }
