@@ -223,9 +223,10 @@ Pour les données normalisées, la provenance doit conserver le `ProviderId`, la
 
 ## 10. Test kit
 
-`morpheus-provider-testkit` fournit `ProviderPluginContractAssertions.verify(...)`.
+`morpheus-provider-testkit` fournit `ProviderPluginContractAssertions.verify(...)` et
+`ProviderPluginContractAssertions.verifyRead(...)`.
 
-Il vérifie notamment :
+`verify(...)` vérifie notamment :
 
 - version SDK ;
 - cohérence metadata/provider ID ;
@@ -234,7 +235,13 @@ Il vérifie notamment :
 - probe déterministe sur workspace inchangé ;
 - cohérence provider ID/version/remote entre provider et probe.
 
-Le provider `morpheus-provider-reference` consomme réellement ce test kit, puis son propre test exécute également une lecture normalisée.
+`verifyRead(...)` exerce ensuite `SpecificationContentReader.read(...)` sur le workspace fourni,
+en demandant toutes les `ReadCategory` : il vérifie que le `providerId` du résultat correspond aux
+métadonnées du plugin, qu'une lecture répétée sur le même workspace avec le même état de résolveur
+d'identité produit un résultat rigoureusement identique (déterminisme), et qu'un rapport est
+présent pour chaque catégorie demandée — y compris celles non supportées par le provider.
+
+Le provider `morpheus-provider-reference` consomme réellement les deux méthodes du test kit.
 
 ## 11. Provider de référence
 

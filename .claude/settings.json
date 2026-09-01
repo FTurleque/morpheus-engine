@@ -6,6 +6,18 @@
       "Bash(powershell * .claude/hooks/*.ps1*)",
       "Bash(powershell * scripts/*.ps1*)",
       "Bash(bash scripts/*.sh *)"
+    ],
+    "deny": [
+      "Bash(git push --force *main*)",
+      "Bash(git push --force *develop*)",
+      "Bash(git push --force *master*)",
+      "Bash(git push -f *main*)",
+      "Bash(git push -f *develop*)",
+      "Bash(git push -f *master*)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~/*)"
     ]
   },
   "hooks": {

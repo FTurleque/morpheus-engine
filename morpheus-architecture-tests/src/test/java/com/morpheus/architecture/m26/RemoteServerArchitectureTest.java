@@ -57,6 +57,89 @@ class RemoteServerArchitectureTest {
         assertTrue(openApi.contains("maxConcurrentBufferedProxyResponses"));
     }
 
+    @Test
+    void remoteRuntimeStateStaysExtractedAndPolicyFree() throws IOException {
+        Path root = repositoryRoot();
+        String server = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String runtime = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRuntimeState.java"));
+
+        assertTrue(server.contains("private final MorpheusRemoteRuntimeState runtime;"));
+        assertFalse(server.contains("class RuntimeState"));
+        assertTrue(runtime.contains("final class MorpheusRemoteRuntimeState"));
+        assertFalse(runtime.contains("MorpheusRemoteRole"));
+        assertFalse(runtime.contains("MorpheusRemoteIdentityFile"));
+    }
+
+    @Test
+    void remoteResponseRenderingStaysExtractedAndPolicyFree() throws IOException {
+        Path root = repositoryRoot();
+        String server = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String responses = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteResponseWriter.java"));
+
+        assertTrue(server.contains("private final MorpheusRemoteResponseWriter responses"));
+        assertFalse(server.contains("CanonicalJsonSerializer"));
+        assertFalse(server.contains("private void sendJson("));
+        assertFalse(server.contains("private static void applySecurityHeaders("));
+        assertTrue(responses.contains("final class MorpheusRemoteResponseWriter"));
+        assertTrue(responses.contains("Content-Security-Policy"));
+        assertFalse(responses.contains("MorpheusRemoteRole"));
+        assertFalse(responses.contains("MorpheusRemoteIdentityFile"));
+        assertFalse(responses.contains("MorpheusRemoteRoutePolicy"));
+    }
+
+    @Test
+    void remoteProxyTargetResolutionStaysExtractedAndTransportFree() throws IOException {
+        Path root = repositoryRoot();
+        String server = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String resolver = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTargetResolver.java"));
+
+        assertTrue(server.contains("private final MorpheusRemoteProxyTargetResolver proxyTargets;"));
+        assertFalse(server.contains("private URI localTarget("));
+        assertFalse(server.contains("private static Map<String, String> parseQuery("));
+        assertFalse(server.contains("private static String encodeQuery("));
+        assertFalse(server.contains("URLDecoder"));
+        assertFalse(server.contains("URLEncoder"));
+        assertTrue(resolver.contains("final class MorpheusRemoteProxyTargetResolver"));
+        assertTrue(resolver.contains("SERVER_CONFIGURED_PLUGIN_DIRECTORY"));
+        assertTrue(resolver.contains("PLUGIN_SHA256_REQUIRED"));
+        assertFalse(resolver.contains("HttpClient"));
+        assertFalse(resolver.contains("MorpheusRemoteRole"));
+        assertFalse(resolver.contains("MorpheusRemoteIdentityFile"));
+        assertFalse(resolver.contains("MorpheusRemoteRoutePolicy"));
+    }
+
+    @Test
+    void remoteProxyTransportStaysExtractedBoundedAndPolicyFree() throws IOException {
+        Path root = repositoryRoot();
+        String server = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String transport = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTransport.java"));
+
+        assertTrue(server.contains("private final MorpheusRemoteProxyTransport proxyTransport;"));
+        assertFalse(server.contains("HttpClient"));
+        assertFalse(server.contains("HttpResponse"));
+        assertFalse(server.contains("HttpTimeoutException"));
+        assertFalse(server.contains("private void copyBounded("));
+        assertFalse(server.contains("proxyResponses"));
+        assertTrue(transport.contains("final class MorpheusRemoteProxyTransport"));
+        assertTrue(transport.contains("RESPONSE_BUDGET_EXHAUSTED"));
+        assertTrue(transport.contains("UPSTREAM_LENGTH_REQUIRED"));
+        assertTrue(transport.contains("UPSTREAM_RESPONSE_TOO_LARGE"));
+        assertTrue(transport.contains("UPSTREAM_TIMEOUT"));
+        assertTrue(transport.contains("copyBounded("));
+        assertFalse(transport.contains("MorpheusRemoteRole"));
+        assertFalse(transport.contains("MorpheusRemoteIdentityFile"));
+        assertFalse(transport.contains("MorpheusRemoteRoutePolicy"));
+        assertFalse(transport.contains("MorpheusRemoteProxyTargetResolver"));
+    }
+
     private Path repositoryRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {

@@ -111,6 +111,17 @@ Ils refusent l'exécution si :
 - le tag attendu n'existe pas ;
 - le tag ne pointe pas exactement sur HEAD.
 
+Le workflow `.github/workflows/release.yml` ajoute la chaîne de confiance GitHub pour les tags `vX.Y.Z` :
+
+- le SHA du tag doit être atteignable depuis `main` ;
+- le build passe par `distribution/build-release.sh` ;
+- l'archive Linux reçoit une attestation de provenance GitHub via OIDC avec `actions/attest` pinné par SHA ;
+- le bundle d'attestation est conservé comme asset ;
+- la GitHub Release est créée sans `--clobber` ;
+- une release existante n'est jamais écrasée silencieusement.
+
+Le fichier `.sha256` reste la preuve d'intégrité locale ; l'attestation GitHub ajoute la preuve d'origine liée au commit et au workflow de publication.
+
 Par conséquent, le simple bump de la baseline à `1.2.1` ne crée pas une release et ne peut pas écraser `v1.2.0`.
 
 ## Reproduction historique 1.2.0
@@ -139,15 +150,17 @@ bash ./scripts/validate-m21.sh 1.2.1
 Ratchets :
 
 ```text
-Surefire total      >= 698
-architecture        >= 250
-line coverage       >= 47%
-branch coverage     >= 40%
+Surefire total       >= 1000
+architecture         >= 300
+line coverage        >= 52.0%
+branch coverage      >= 45.0%
+changed-line         >= 80%
+changed-branch       >= 70%
 ```
 
 Le gate D2 spécialisé peut toujours être lancé en `1.2.1` sur un périmètre ne modifiant pas `.github/workflows/**`.
 
-Le workflow `MORPHEUS Security` exécute OWASP Dependency-Check à la frontière `main` et hebdomadairement ; `.github/dependabot.yml` maintient les dépendances Maven/GitHub Actions via PR vers `develop`.
+Le workflow `MORPHEUS Security` exécute OWASP Dependency-Check sur `main` et `develop`, avec refresh trusted quotidien et cache PR limité à 72 h. `.github/dependabot.yml` maintient les dépendances Maven/GitHub Actions via PR vers `develop`.
 
 ## Runtime layout
 

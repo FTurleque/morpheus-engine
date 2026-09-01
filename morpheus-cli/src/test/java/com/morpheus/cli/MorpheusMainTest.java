@@ -82,7 +82,48 @@ class MorpheusMainTest {
         assertTrue(help.contains("minos-status"));
         assertTrue(help.contains("external-references list"));
         assertTrue(help.contains("MORPHEUS_MINOS_JAR"));
+        assertTrue(help.contains("server identity create --principal NAME --role READ|WRITE|ADMIN [--expires-at ISO-8601]"));
+        assertTrue(help.contains("server identity rotate --principal NAME [--expires-at ISO-8601|never]"));
+        assertTrue(help.contains("at least one active ADMIN identity"));
+        assertTrue(help.contains("--expires-at never makes the credential permanent"));
         assertTrue(errors.toString(StandardCharsets.UTF_8).isEmpty());
+    }
+
+    @Test
+    void helpIsDetectedAfterSkippingAValueConsumingGlobalFlag() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+
+        int exit;
+        try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
+            exit = MorpheusMain.run(new String[]{"--data-dir", "data", "help"}, out, err, Map.of(), properties());
+        }
+
+        assertEquals(CliExitCode.SUCCESS.code(), exit);
+        String help = output.toString(StandardCharsets.UTF_8);
+        assertTrue(help.contains("mcp --stdio"));
+        assertTrue(help.contains("api [--host HOST] [--port PORT]"));
+    }
+
+    @Test
+    void emptyArgumentsAreTreatedAsAnImplicitHelpRequestWithoutForcingSync() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+
+        int exit;
+        try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
+            exit = MorpheusMain.run(new String[0], out, err, Map.of(), properties());
+        }
+
+        assertEquals(CliExitCode.SUCCESS.code(), exit);
+        String help = output.toString(StandardCharsets.UTF_8);
+        assertTrue(help.contains("mcp --stdio"));
+        assertTrue(help.contains("api [--host HOST] [--port PORT]"));
+
+        String[] normalized = MorpheusMain.normalizeForExecution(new String[0]);
+        assertArrayEquals(new String[0], normalized);
     }
 
     @Test

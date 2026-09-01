@@ -17,8 +17,9 @@ public interface VersionedRequirementStore {
     Optional<SpecificationVersion> findSpecificationVersion(SpecificationVersionId versionId);
 
     /**
-     * Returns the next durable project-local sequence, considering published and failed publication attempts.
-     * A failed candidate therefore consumes its sequence instead of allowing a retry to create an ambiguous duplicate.
+     * Atomically reserves and returns the next durable project-local sequence, considering both stored versions and
+     * earlier reservations. A failed candidate therefore consumes its sequence instead of allowing a concurrent or
+     * later retry to create an ambiguous duplicate.
      */
     default long nextSpecificationVersionSequence(ProjectSpecificationId projectId) {
         throw new KnowledgeStoreException(

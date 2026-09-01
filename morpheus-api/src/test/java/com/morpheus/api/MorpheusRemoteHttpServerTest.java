@@ -65,9 +65,7 @@ class MorpheusRemoteHttpServerTest {
         var write = MorpheusRemoteIdentityFile.create(auth, "writer", MorpheusRemoteRole.WRITE);
         var admin = MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
         String persistedAuth = java.nio.file.Files.readString(auth);
-        assertFalse(persistedAuth.contains(read.token()));
-        assertFalse(persistedAuth.contains(write.token()));
-        assertFalse(persistedAuth.contains(admin.token()));
+        assertAuthFileNeverPersistsRawTokens(persistedAuth, read, write, admin);
 
         Path keyStore = createKeyStore();
         Path providerPluginDirectory = temp.resolve("provider-plugins");
@@ -95,14 +93,10 @@ class MorpheusRemoteHttpServerTest {
             URI base = URI.create("https://127.0.0.1:" + server.port() + "/api/v1");
 
             HttpResponse<String> unauthenticated = send(client, base.resolve("/api/v1/health"), "GET", null, null);
-            assertEquals(401, unauthenticated.statusCode());
-            assertTrue(unauthenticated.headers().firstValue("WWW-Authenticate").orElse("").contains("Bearer"));
+            assertUnauthenticatedRequestRejected(unauthenticated);
 
             HttpResponse<String> health = send(client, base.resolve("/api/v1/health"), "GET", read.token(), null);
-            assertEquals(200, health.statusCode());
-            assertEquals("nosniff", health.headers().firstValue("X-Content-Type-Options").orElseThrow());
-            assertEquals("DENY", health.headers().firstValue("X-Frame-Options").orElseThrow());
-            assertFalse(health.headers().firstValue("Access-Control-Allow-Origin").isPresent());
+            assertHealthResponseHasSecurityHeaders(health);
 
             HttpResponse<String> readReasoning = send(
                     client,
@@ -115,41 +109,30 @@ class MorpheusRemoteHttpServerTest {
                        "statement":"Published history remains authoritative","provenance":{"source":"remote-test"}}
                     ],"adapterIds":[]}
                     """);
-            assertEquals(200, readReasoning.statusCode(), readReasoning.body());
-            assertTrue(readReasoning.body().contains("\"assisted\":false"), readReasoning.body());
-            assertTrue(readReasoning.body().contains("\"mutated\":false"), readReasoning.body());
+            assertReadOnlyReasoningSucceeds(readReasoning);
 
             HttpResponse<String> readCannotWrite = send(client, base.resolve("/api/v1/projects"), "POST", read.token(), "{}");
-            assertEquals(403, readCannotWrite.statusCode());
-
             HttpResponse<String> writerReachedWriteRoute = send(client, base.resolve("/api/v1/projects"), "POST", write.token(), "{}");
-            assertEquals(400, writerReachedWriteRoute.statusCode());
-
             HttpResponse<String> writerCannotReadAdminMetrics = send(client, base.resolve("/api/v1/metrics"), "GET", write.token(), null);
-            assertEquals(403, writerCannotReadAdminMetrics.statusCode());
-
             HttpResponse<String> readCannotRegisterWorkspace = send(
                     client, base.resolve("/api/v1/projects"), "POST", read.token(), registrationBody(allowedWorkspace));
-            assertEquals(403, readCannotRegisterWorkspace.statusCode());
+            assertRoleEnforcementOnWriteAndAdminRoutes(
+                    readCannotWrite, writerReachedWriteRoute, writerCannotReadAdminMetrics, readCannotRegisterWorkspace);
 
             HttpResponse<String> exactRootRegistration = send(
                     client, base.resolve("/api/v1/projects"), "POST", write.token(), registrationBody(allowedWorkspaceRoot));
-            assertEquals(201, exactRootRegistration.statusCode(), exactRootRegistration.body());
             HttpResponse<String> descendantRegistration = send(
                     client, base.resolve("/api/v1/projects"), "POST", write.token(), registrationBody(allowedWorkspace));
-            assertEquals(201, descendantRegistration.statusCode(), descendantRegistration.body());
+            assertWorkspaceRegistrationSucceedsForRootAndDescendant(exactRootRegistration, descendantRegistration);
 
             HttpResponse<String> outsideRegistration = send(
                     client, base.resolve("/api/v1/projects"), "POST", write.token(), registrationBody(outsideWorkspace));
-            assertEquals(400, outsideRegistration.statusCode(), outsideRegistration.body());
-            assertTrue(outsideRegistration.body().contains("outside the server-configured allowed roots"));
-            assertFalse(outsideRegistration.body().contains(outsideWorkspace.toString()));
+            assertOutsideWorkspaceRegistrationRejected(outsideRegistration, outsideWorkspace);
 
             Path traversingWorkspace = allowedWorkspace.resolve("..").resolve("project");
             HttpResponse<String> traversalRegistration = send(
                     client, base.resolve("/api/v1/projects"), "POST", write.token(), registrationBody(traversingWorkspace));
-            assertEquals(400, traversalRegistration.statusCode(), traversalRegistration.body());
-            assertTrue(traversalRegistration.body().contains("workspace traversal is not allowed"));
+            assertWorkspaceTraversalRejected(traversalRegistration);
 
             HttpResponse<String> persistedOutsideSync = send(
                     client,
@@ -157,14 +140,13 @@ class MorpheusRemoteHttpServerTest {
                     "POST",
                     write.token(),
                     null);
-            assertEquals(400, persistedOutsideSync.statusCode(), persistedOutsideSync.body());
-            assertFalse(persistedOutsideSync.body().contains(outsideWorkspace.toString()));
+            assertPersistedOutsideProjectSyncRejected(persistedOutsideSync, outsideWorkspace);
 
             Path linkedWorkspace = allowedWorkspaceRoot.resolve("linked-outside");
             if (createSymlink(linkedWorkspace, outsideWorkspace)) {
                 HttpResponse<String> linkedRegistration = send(
                         client, base.resolve("/api/v1/projects"), "POST", write.token(), registrationBody(linkedWorkspace));
-                assertEquals(400, linkedRegistration.statusCode(), linkedRegistration.body());
+                assertLinkedOutsideWorkspaceRejected(linkedRegistration);
             }
 
             String workspace = URLEncoder.encode(allowedWorkspace.toString(), StandardCharsets.UTF_8);
@@ -172,37 +154,32 @@ class MorpheusRemoteHttpServerTest {
             URI probe = URI.create(base + "/provider-plugins/probe?pluginId=missing&workspace=" + workspace);
             URI pinnedProbe = URI.create(probe + "&sha256=" + trustedPin);
             HttpResponse<String> readCannotProbePlugin = send(client, probe, "POST", read.token(), null);
-            assertEquals(403, readCannotProbePlugin.statusCode());
             HttpResponse<String> writeCannotProbePlugin = send(client, probe, "POST", write.token(), null);
-            assertEquals(403, writeCannotProbePlugin.statusCode());
             HttpResponse<String> adminCannotProbeWithGet = send(client, probe, "GET", admin.token(), null);
-            assertEquals(405, adminCannotProbeWithGet.statusCode());
+            assertPluginProbeRequiresAdminRole(readCannotProbePlugin, writeCannotProbePlugin, adminCannotProbeWithGet);
+
             HttpResponse<String> adminCannotProbeWithoutIntegrityPin = send(
                     client, probe, "POST", admin.token(), null);
-            assertEquals(400, adminCannotProbeWithoutIntegrityPin.statusCode(), adminCannotProbeWithoutIntegrityPin.body());
-            assertTrue(adminCannotProbeWithoutIntegrityPin.body().contains("PLUGIN_SHA256_REQUIRED"));
             HttpResponse<String> adminCannotProbeWithMalformedIntegrityPin = send(
                     client, URI.create(probe + "&sha256=abc"), "POST", admin.token(), null);
-            assertEquals(400, adminCannotProbeWithMalformedIntegrityPin.statusCode(), adminCannotProbeWithMalformedIntegrityPin.body());
-            assertTrue(adminCannotProbeWithMalformedIntegrityPin.body().contains("PLUGIN_SHA256_INVALID"));
             HttpResponse<String> adminCanProbeServerConfiguredDirectory = send(
                     client, pinnedProbe, "POST", admin.token(), null);
-            assertEquals(200, adminCanProbeServerConfiguredDirectory.statusCode(), adminCanProbeServerConfiguredDirectory.body());
-            assertTrue(adminCanProbeServerConfiguredDirectory.body().contains("PLUGIN_NOT_FOUND"));
+            assertPluginProbeIntegrityPinValidation(
+                    adminCannotProbeWithoutIntegrityPin,
+                    adminCannotProbeWithMalformedIntegrityPin,
+                    adminCanProbeServerConfiguredDirectory);
+
             URI outsideProbe = URI.create(base + "/provider-plugins/probe?pluginId=missing&workspace="
                     + URLEncoder.encode(outsideWorkspace.toString(), StandardCharsets.UTF_8)
                     + "&sha256=" + trustedPin);
             HttpResponse<String> adminCannotProbeOutsideWorkspace = send(
                     client, outsideProbe, "POST", admin.token(), null);
-            assertEquals(400, adminCannotProbeOutsideWorkspace.statusCode(), adminCannotProbeOutsideWorkspace.body());
-            assertFalse(adminCannotProbeOutsideWorkspace.body().contains(outsideWorkspace.toString()));
 
             URI clientSelectedDirectory = URI.create(
                     pinnedProbe + "&directory=" + URLEncoder.encode(temp.resolve("attacker-plugins").toString(), StandardCharsets.UTF_8));
             HttpResponse<String> adminCannotSelectPluginRoot = send(
                     client, clientSelectedDirectory, "POST", admin.token(), null);
-            assertEquals(400, adminCannotSelectPluginRoot.statusCode());
-            assertTrue(adminCannotSelectPluginRoot.body().contains("SERVER_CONFIGURED_PLUGIN_DIRECTORY"));
+            assertPluginProbeWorkspaceBoundaryEnforced(adminCannotProbeOutsideWorkspace, outsideWorkspace, adminCannotSelectPluginRoot);
 
             HttpResponse<String> discovery = send(
                     client,
@@ -210,30 +187,15 @@ class MorpheusRemoteHttpServerTest {
                     "GET",
                     read.token(),
                     null);
-            assertEquals(200, discovery.statusCode(), discovery.body());
-
             HttpResponse<String> metrics = send(client, base.resolve("/api/v1/metrics"), "GET", admin.token(), null);
-            assertEquals(200, metrics.statusCode());
+            assertPluginDiscoveryAndAdminMetricsSucceed(discovery, metrics);
 
             HttpResponse<String> status = send(client, base.resolve("/api/v1/server/status"), "GET", read.token(), null);
-            assertEquals(200, status.statusCode());
-            assertTrue(status.body().contains("\"mode\":\"REMOTE\""));
-            assertTrue(status.body().contains("\"transport\":\"HTTPS\""));
-            assertTrue(status.body().contains("\"maxProxyResponseBytes\":" + MorpheusRemoteHttpServer.MAX_PROXY_RESPONSE_BYTES));
-            assertTrue(status.body().contains("\"maxProxyInFlightBytes\":" + MorpheusRemoteHttpServer.MAX_PROXY_IN_FLIGHT_BYTES));
-            assertFalse(status.body().contains(read.token()));
-            assertFalse(status.body().contains(write.token()));
-            assertFalse(status.body().contains(admin.token()));
-            assertFalse(status.body().contains(MorpheusRemoteIdentityFile.sha256Hex(admin.token())));
-            assertFalse(status.body().contains("changeit"));
+            assertServerStatusExposesModeWithoutLeakingSecrets(status, read, write, admin);
 
             HttpResponse<String> writerCannotBackup = send(client, base.resolve("/api/v1/server/backups"), "POST", write.token(), null);
-            assertEquals(403, writerCannotBackup.statusCode());
-
             HttpResponse<String> backup = send(client, base.resolve("/api/v1/server/backups"), "POST", admin.token(), null);
-            assertEquals(201, backup.statusCode());
-            assertTrue(backup.body().contains("\"integrityOk\":true"));
-            assertTrue(backup.body().contains("\"schemaVersion\":16"));
+            assertBackupRequiresAdminRoleAndSucceeds(writerCannotBackup, backup);
 
             try (var pool = Executors.newFixedThreadPool(8)) {
                 List<Callable<Integer>> calls = new ArrayList<>();
@@ -247,19 +209,15 @@ class MorpheusRemoteHttpServerTest {
                         throw new IllegalStateException(failure);
                     }
                 }).toList();
-                assertTrue(statuses.contains(201));
-                assertTrue(statuses.contains(429), "expected bounded remote concurrency to produce HTTP 429: " + statuses);
-                assertTrue(statuses.stream().allMatch(code -> code == 201 || code == 429));
+                assertBoundedConcurrencyProducesThrottling(statuses);
             }
 
             MorpheusRemoteIdentityFile.revoke(auth, "reader");
             HttpResponse<String> revokedReader = send(
                     client, base.resolve("/api/v1/health"), "GET", read.token(), null);
-            assertEquals(401, revokedReader.statusCode(), revokedReader.body());
 
             HttpResponse<String> finalStatus = send(client, base.resolve("/api/v1/server/status"), "GET", admin.token(), null);
-            assertEquals(200, finalStatus.statusCode());
-            assertTrue(finalStatus.body().contains("\"throttledRequests\":"));
+            assertRevokedReaderRejectedAndStatusReportsThrottling(revokedReader, finalStatus);
         }
     }
 
@@ -297,6 +255,144 @@ class MorpheusRemoteHttpServerTest {
         assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/projects"));
         assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("PUT", "/api/v1/anything"));
         assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("DELETE", "/api/v1/anything"));
+    }
+
+    private void assertAuthFileNeverPersistsRawTokens(
+            String persistedAuth,
+            MorpheusRemoteIdentityFile.GeneratedCredential read,
+            MorpheusRemoteIdentityFile.GeneratedCredential write,
+            MorpheusRemoteIdentityFile.GeneratedCredential admin) {
+        assertFalse(persistedAuth.contains(read.token()));
+        assertFalse(persistedAuth.contains(write.token()));
+        assertFalse(persistedAuth.contains(admin.token()));
+    }
+
+    private void assertUnauthenticatedRequestRejected(HttpResponse<String> unauthenticated) {
+        assertEquals(401, unauthenticated.statusCode());
+        assertTrue(unauthenticated.headers().firstValue("WWW-Authenticate").orElse("").contains("Bearer"));
+    }
+
+    private void assertHealthResponseHasSecurityHeaders(HttpResponse<String> health) {
+        assertEquals(200, health.statusCode());
+        assertEquals("nosniff", health.headers().firstValue("X-Content-Type-Options").orElseThrow());
+        assertEquals("DENY", health.headers().firstValue("X-Frame-Options").orElseThrow());
+        assertFalse(health.headers().firstValue("Access-Control-Allow-Origin").isPresent());
+    }
+
+    private void assertReadOnlyReasoningSucceeds(HttpResponse<String> readReasoning) {
+        assertEquals(200, readReasoning.statusCode(), readReasoning.body());
+        assertTrue(readReasoning.body().contains("\"assisted\":false"), readReasoning.body());
+        assertTrue(readReasoning.body().contains("\"mutated\":false"), readReasoning.body());
+    }
+
+    private void assertRoleEnforcementOnWriteAndAdminRoutes(
+            HttpResponse<String> readCannotWrite,
+            HttpResponse<String> writerReachedWriteRoute,
+            HttpResponse<String> writerCannotReadAdminMetrics,
+            HttpResponse<String> readCannotRegisterWorkspace) {
+        assertEquals(403, readCannotWrite.statusCode());
+        assertEquals(400, writerReachedWriteRoute.statusCode());
+        assertEquals(403, writerCannotReadAdminMetrics.statusCode());
+        assertEquals(403, readCannotRegisterWorkspace.statusCode());
+    }
+
+    private void assertWorkspaceRegistrationSucceedsForRootAndDescendant(
+            HttpResponse<String> exactRootRegistration, HttpResponse<String> descendantRegistration) {
+        assertEquals(201, exactRootRegistration.statusCode(), exactRootRegistration.body());
+        assertEquals(201, descendantRegistration.statusCode(), descendantRegistration.body());
+    }
+
+    private void assertOutsideWorkspaceRegistrationRejected(HttpResponse<String> outsideRegistration, Path outsideWorkspace) {
+        assertEquals(400, outsideRegistration.statusCode(), outsideRegistration.body());
+        assertTrue(outsideRegistration.body().contains("outside the server-configured allowed roots"));
+        assertFalse(outsideRegistration.body().contains(outsideWorkspace.toString()));
+    }
+
+    private void assertWorkspaceTraversalRejected(HttpResponse<String> traversalRegistration) {
+        assertEquals(400, traversalRegistration.statusCode(), traversalRegistration.body());
+        assertTrue(traversalRegistration.body().contains("workspace traversal is not allowed"));
+    }
+
+    private void assertPersistedOutsideProjectSyncRejected(HttpResponse<String> persistedOutsideSync, Path outsideWorkspace) {
+        assertEquals(400, persistedOutsideSync.statusCode(), persistedOutsideSync.body());
+        assertFalse(persistedOutsideSync.body().contains(outsideWorkspace.toString()));
+    }
+
+    private void assertLinkedOutsideWorkspaceRejected(HttpResponse<String> linkedRegistration) {
+        assertEquals(400, linkedRegistration.statusCode(), linkedRegistration.body());
+    }
+
+    private void assertPluginProbeRequiresAdminRole(
+            HttpResponse<String> readCannotProbePlugin,
+            HttpResponse<String> writeCannotProbePlugin,
+            HttpResponse<String> adminCannotProbeWithGet) {
+        assertEquals(403, readCannotProbePlugin.statusCode());
+        assertEquals(403, writeCannotProbePlugin.statusCode());
+        assertEquals(405, adminCannotProbeWithGet.statusCode());
+    }
+
+    private void assertPluginProbeIntegrityPinValidation(
+            HttpResponse<String> adminCannotProbeWithoutIntegrityPin,
+            HttpResponse<String> adminCannotProbeWithMalformedIntegrityPin,
+            HttpResponse<String> adminCanProbeServerConfiguredDirectory) {
+        assertEquals(400, adminCannotProbeWithoutIntegrityPin.statusCode(), adminCannotProbeWithoutIntegrityPin.body());
+        assertTrue(adminCannotProbeWithoutIntegrityPin.body().contains("PLUGIN_SHA256_REQUIRED"));
+        assertEquals(400, adminCannotProbeWithMalformedIntegrityPin.statusCode(), adminCannotProbeWithMalformedIntegrityPin.body());
+        assertTrue(adminCannotProbeWithMalformedIntegrityPin.body().contains("PLUGIN_SHA256_INVALID"));
+        assertEquals(200, adminCanProbeServerConfiguredDirectory.statusCode(), adminCanProbeServerConfiguredDirectory.body());
+        assertTrue(adminCanProbeServerConfiguredDirectory.body().contains("PLUGIN_NOT_FOUND"));
+    }
+
+    private void assertPluginProbeWorkspaceBoundaryEnforced(
+            HttpResponse<String> adminCannotProbeOutsideWorkspace,
+            Path outsideWorkspace,
+            HttpResponse<String> adminCannotSelectPluginRoot) {
+        assertEquals(400, adminCannotProbeOutsideWorkspace.statusCode(), adminCannotProbeOutsideWorkspace.body());
+        assertFalse(adminCannotProbeOutsideWorkspace.body().contains(outsideWorkspace.toString()));
+        assertEquals(400, adminCannotSelectPluginRoot.statusCode());
+        assertTrue(adminCannotSelectPluginRoot.body().contains("SERVER_CONFIGURED_PLUGIN_DIRECTORY"));
+    }
+
+    private void assertPluginDiscoveryAndAdminMetricsSucceed(HttpResponse<String> discovery, HttpResponse<String> metrics) {
+        assertEquals(200, discovery.statusCode(), discovery.body());
+        assertEquals(200, metrics.statusCode());
+    }
+
+    private void assertServerStatusExposesModeWithoutLeakingSecrets(
+            HttpResponse<String> status,
+            MorpheusRemoteIdentityFile.GeneratedCredential read,
+            MorpheusRemoteIdentityFile.GeneratedCredential write,
+            MorpheusRemoteIdentityFile.GeneratedCredential admin) {
+        assertEquals(200, status.statusCode());
+        assertTrue(status.body().contains("\"mode\":\"REMOTE\""));
+        assertTrue(status.body().contains("\"transport\":\"HTTPS\""));
+        assertTrue(status.body().contains("\"maxProxyResponseBytes\":" + MorpheusRemoteHttpServer.MAX_PROXY_RESPONSE_BYTES));
+        assertTrue(status.body().contains("\"maxProxyInFlightBytes\":" + MorpheusRemoteHttpServer.MAX_PROXY_IN_FLIGHT_BYTES));
+        assertFalse(status.body().contains(read.token()));
+        assertFalse(status.body().contains(write.token()));
+        assertFalse(status.body().contains(admin.token()));
+        assertFalse(status.body().contains(MorpheusRemoteIdentityFile.sha256Hex(admin.token())));
+        assertFalse(status.body().contains("changeit"));
+    }
+
+    private void assertBackupRequiresAdminRoleAndSucceeds(HttpResponse<String> writerCannotBackup, HttpResponse<String> backup) {
+        assertEquals(403, writerCannotBackup.statusCode());
+        assertEquals(201, backup.statusCode());
+        assertTrue(backup.body().contains("\"integrityOk\":true"));
+        assertTrue(backup.body().contains("\"schemaVersion\":17"));
+    }
+
+    private void assertBoundedConcurrencyProducesThrottling(List<Integer> statuses) {
+        assertTrue(statuses.contains(201));
+        assertTrue(statuses.contains(429), "expected bounded remote concurrency to produce HTTP 429: " + statuses);
+        assertTrue(statuses.stream().allMatch(code -> code == 201 || code == 429));
+    }
+
+    private void assertRevokedReaderRejectedAndStatusReportsThrottling(
+            HttpResponse<String> revokedReader, HttpResponse<String> finalStatus) {
+        assertEquals(401, revokedReader.statusCode(), revokedReader.body());
+        assertEquals(200, finalStatus.statusCode());
+        assertTrue(finalStatus.body().contains("\"throttledRequests\":"));
     }
 
     private String registrationBody(Path workspace) {
@@ -355,6 +451,8 @@ class MorpheusRemoteHttpServerTest {
 
             @Override
             public void checkServerTrusted(X509Certificate[] chain, String authType) {
+                // no-op: this test client deliberately trusts the ephemeral self-signed
+                // certificate generated by createKeyStore() for the loopback test server
             }
 
             @Override

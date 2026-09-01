@@ -7,8 +7,8 @@ M26 ajoute une frontière réseau optionnelle sans modifier l’autorité du dom
 ```mermaid
 flowchart LR
     C[Remote client] -->|HTTPS + Bearer| R[MorpheusRemoteHttpServer]
-    R --> A[Auth file SHA-256 + live reload]
-    R --> RBAC[READ / WRITE / ADMIN]
+    R --> A[Auth file SHA-256 + live reload + expiry]
+    R --> RBAC[Explicit method/route registry]
     R --> ROOTS[AllowedWorkspaceRoots]
     R --> REQ[Request concurrency semaphore]
     R --> RESP[8 proxy response slots / 128 MiB aggregate]
@@ -28,7 +28,7 @@ L’API locale M11-M25 possède déjà les routes métier, validation JSON, CAS,
 
 1. le frontal `HttpsServer` termine TLS ;
 2. il authentifie le Bearer à partir du fichier d'identités courant ;
-3. il calcule le rôle requis ;
+3. il résout le rôle minimum depuis une table exhaustive `(méthode HTTP, route)` ;
 4. il applique les limites de concurrence et de réponse agrégée ;
 5. il intercepte uniquement les endpoints serveur M26 ;
 6. il proxy les autres requêtes vers un `MorpheusHttpServer` interne sur `127.0.0.1:0` en streaming ;
@@ -53,11 +53,13 @@ adresse non-loopback.
 Le démarrage exige :
 
 - auth file valide et non symbolique ;
-- au moins une identité ADMIN ;
+- au moins une identité `ADMIN` **active à l'instant du démarrage** ;
 - keystore PKCS12 valide, confiné et borné ;
 - mot de passe TLS via environnement/propriété ;
 - limite de concurrence 1..512 ;
 - au moins une racine workspace serveur existante et canonique.
+
+Un record `ADMIN` déjà expiré ne satisfait pas le prérequis de démarrage. Un `ADMIN` non expirant reste actif tant qu'il n'est ni révoqué ni rétrogradé.
 
 ## Authentication
 
@@ -66,8 +68,10 @@ Le démarrage exige :
 Format :
 
 ```text
-principal|role|sha256(token)
+principal|role|sha256(token)[|expiresAt]
 ```
+
+Le quatrième champ est optionnel et contient un `Instant` ISO-8601. Les entrées historiques à trois champs restent compatibles et sont interprétées comme non expirantes. Une échéance absente signifie donc `NEVER`; une échéance malformée est rejetée fail-closed au chargement du store. Une identité dont `expiresAt <= now` ne peut plus s'authentifier.
 
 Contraintes :
 
@@ -77,8 +81,19 @@ auth file         <= 256 KiB
 audit retained    <= 512 secret-free records
 principal         [A-Za-z0-9._@-]{1,128}
 token             32 random bytes / 256 bits
+expiresAt         optional ISO-8601 Instant
 persisted token   never
 comparison        MessageDigest.isEqual
+```
+
+Cycle de vie CLI de l'expiration :
+
+```text
+create sans --expires-at        -> credential permanent
+create --expires-at <instant>   -> credential borné dans le temps
+rotate sans --expires-at        -> conserve l'échéance actuelle
+rotate --expires-at <instant>   -> remplace l'échéance
+rotate --expires-at never       -> rend explicitement permanent
 ```
 
 Les mutations `create`, `revoke`, `rotate` et `role` utilisent :
@@ -88,7 +103,7 @@ JVM mutation lock
     -> owner-hardened <auth-file>.lock
     -> FileChannel/FileLock inter-processus
     -> read current snapshot
-    -> validate invariants, dont dernier ADMIN
+    -> validate invariants, dont dernier ADMIN actif
     -> retain only the latest 512 audit records
     -> temp file owner-only
     -> atomic move/replace
@@ -96,7 +111,7 @@ JVM mutation lock
 
 Deux processus administratifs coopérants ne peuvent donc plus effectuer simultanément un read-modify-write qui perdrait une mutation. L'audit est secret-free et borné à une fenêtre roulante de 512 événements ; sa croissance ne peut pas remplir indéfiniment le fichier de 256 KiB et empêcher une rotation/révocation urgente.
 
-Le serveur ne conserve pas un snapshot d'identités comme autorité d'authentification. Il recharge le fichier courant à chaque requête avant la comparaison du Bearer. Une rotation/révocation/changement de rôle est effective dès l'authentification suivante, sans redémarrage serveur. Une erreur de lecture/validation du store d'authentification produit un refus fail-closed plutôt qu'un fallback sur une ancienne copie en mémoire.
+Le serveur ne conserve pas un snapshot d'identités comme autorité d'authentification. Il recharge le fichier courant à chaque requête avant la comparaison du Bearer. Une rotation/révocation/changement de rôle est effective dès l'authentification suivante, sans redémarrage serveur ; l'expiration est elle aussi évaluée à chaque authentification. Une erreur de lecture/validation du store d'authentification produit un refus fail-closed plutôt qu'un fallback sur une ancienne copie en mémoire.
 
 Les répertoires locaux sensibles nouvellement créés sont durcis. Sur POSIX, un répertoire préexistant modifiable par groupe/autres est refusé ; sur les filesystems ACL-only, les ACL natives du profil/administrateur restent l'autorité de plateforme et les fichiers créés par MORPHEUS sont durcis quand la vue ACL est disponible.
 
@@ -108,19 +123,26 @@ Ordre :
 READ < WRITE < ADMIN
 ```
 
-Classification remote :
+`MorpheusRemoteRoutePolicy` porte une table exhaustive `(méthode HTTP, route) -> rôle minimum`. Il n'existe aucun fallback générique du type `GET/HEAD => READ` ou `mutation => WRITE`.
 
-- `GET`/`HEAD` : READ, sauf métriques ADMIN ;
-- POST read-only explicitement listés : READ ;
-- POST/PUT/PATCH/DELETE restants : WRITE ;
-- `/provider-plugins/probe` : ADMIN et POST uniquement ;
-- `/server/backups` : ADMIN ;
-- `/server/status` : READ ;
-- méthode non supportée : 405.
+Sémantique fail-closed :
 
-Les POST read-only incluent Query DSL, exports, policy evaluate/dry-run, transition-check, augmented context, saved-view execute/export et external-reference resolve.
+```text
+route inconnue                 -> 404 NOT_FOUND
+route connue, méthode inconnue -> 405 METHOD_NOT_ALLOWED
+route + méthode connues        -> rôle minimum déclaré explicitement
+```
 
-Une route inconnue n’obtient jamais ADMIN.
+Les routes sensibles sont également déclarées explicitement :
+
+- `GET /metrics` : ADMIN ;
+- `POST /provider-plugins/probe` : ADMIN ;
+- `POST /server/backups` : ADMIN ;
+- `GET /server/status` : READ.
+
+Les POST read-only sont des exceptions **déclarées dans le registre**, notamment Query DSL (`queries/execute`), exports, policy evaluate/dry-run, reasoning analyze, augmented context, transition-check et saved-view execute/export. La résolution d'une external reference est un `GET` explicitement déclaré READ.
+
+L'ajout futur d'un endpoint, y compris un GET, ne lui confère donc aucune autorisation distante tant que sa méthode et son template de route ne sont pas enregistrés. Une route inconnue n'obtient jamais implicitement READ, WRITE ou ADMIN.
 
 ### Provider plugins en remote
 
@@ -137,6 +159,8 @@ Le probe exécutable remote :
 Pour un plugin épinglé, `ExternalJarIntegrity` copie d'abord le JAR dans un fichier de staging privé, vérifie le SHA-256 de **cette copie**, puis `URLClassLoader` charge exclusivement cette copie. Le chemin original peut changer après le staging sans modifier le code réellement exécuté. Le staging est supprimé après fermeture du classloader.
 
 Le même principe de staging vérifié est utilisé pour les JARs MINOS/NEXUS lorsqu'un pin d'intégrité est configuré ; les clients MCP déjà démarrés sont fermés si `initialize()` ou `listTools()` échoue. Les réponses MCP sont également bornées avant désérialisation : 4 MiB maximum de `TextContent`, avec contrôle des cardinalités retournées côté MORPHEUS.
+
+Ces contrôles apportent intégrité, confinement de chemins et isolation de cycle de vie, mais **ne constituent pas une sandbox du système d'exploitation**. Un plugin ou serveur MCP explicitement approuvé s'exécute avec les permissions OS du compte MORPHEUS ; le déploiement doit donc appliquer le moindre privilège au compte de service et ne charger que du code tiers de confiance et épinglé lorsque l'intégrité est configurable.
 
 ## Autorité filesystem des workspaces
 
@@ -257,6 +281,7 @@ startedAt
 uptimeSeconds
 activeRequests
 maxConcurrentRequests
+requestBodyReadTimeoutMillis
 maxProxyResponseBytes
 maxProxyInFlightBytes
 maxConcurrentBufferedProxyResponses
@@ -264,6 +289,7 @@ totalRequests
 authenticationFailures
 authorizationFailures
 throttledRequests
+requestTimeouts
 ```
 
 Aucun header, token, token hash, keystore password ou payload métier.
@@ -336,11 +362,11 @@ Expositions intentionnelles :
 ```text
 server.status             HTTP remote
 identity lifecycle        CLI local only
-backup create             CLI local + HTTP ADMIN
+backup create             CLI local + HTTP POST ADMIN
 backup verify             CLI local only
 restore                   CLI offline only
-provider plugin discover  HTTP READ
-provider plugin probe     HTTP ADMIN + trusted SHA-256
+provider plugin discover  HTTP GET READ
+provider plugin probe     HTTP POST ADMIN + trusted SHA-256
 MCP                       aucune surface control-plane M26
 ```
 
@@ -348,21 +374,23 @@ Voir `contracts/public-surfaces.tsv` et `docs/openapi/morpheus-v1-remote-m26.yam
 
 ## Tests
 
-- `MorpheusRemoteIdentityFileTest` / lifecycle tests : hash-only, auth, malformed/duplicates, mutations, concurrence et compaction de l'audit ;
+- `MorpheusRemoteIdentityFileTest` / lifecycle tests : hash-only, auth, expiry rétrocompatible, malformed/duplicates, mutations, concurrence et compaction de l'audit ;
+- `MorpheusRemoteHttpServerStartupPolicyTest` : store vide, ADMIN expiré, ADMIN actif et ADMIN permanent au démarrage ;
 - `MorpheusRemoteHttpServerTest` : PKCS12 réel, HTTPS, 401/403, rôles, live revoke, pin plugin, timeout classification, headers, backup ADMIN, concurrence/429, budgets proxy, PKCS12 surdimensionné et secret non-disclosure ;
+- `MorpheusRemoteRoutePolicyTest` : registre exhaustif, exceptions read-only, 404 sur route inconnue et 405 sur méthode non déclarée ;
 - `ProviderPluginDiscoveryTest` : discovery metadata-only, sélection bornée, ordre déterministe et refus des symlinks ;
 - `RemoteApiLaunchOptionsTest` : local loopback et startup remote fail-closed ;
-- `MorpheusServerCliTest` : provisioning/lifecycle + backup/verify/restore ;
+- `MorpheusServerCliTest` : provisioning/lifecycle/expiry + backup/verify/restore ;
 - `ApiRuntimeSqliteSessionTest` / `CliRuntimeSqliteSessionTest` : une connexion physique par runtime ;
 - `SqliteConnectionScopeTest` / `SqliteTransactionRunnerTest` : confinement thread, transaction ownership, `Error`, cleanup et résultat post-commit explicite ;
 - `SyncReliabilityFallbackTest` : commit visible, retry borné, `BASELINE_INCONSISTENT`, `SCAN_INCOMPLETE` ;
 - `SqliteFutureSchemaCompatibilityTest` / `SqliteServerMaintenanceTest` : integrity/schema/lease/future-schema ;
 - `FailedPublishRecoveryContractTest` : séquences durables `1 -> FAILED 2 -> retry 3` ;
-- `RemoteServerArchitectureTest` : boundaries et contrats source/manifest/OpenAPI.
+- `RemoteServerArchitectureTest` / `RepositoryDocumentationCoherenceTest` : boundaries et contrats source/manifest/OpenAPI/documentation.
 
 ## Gates
 
-Le gate durable exact-head est M21 sur Linux et Windows, avec la baseline active `1.2.1`. Sur pull request, Linux applique en plus un gate JaCoCo différentiel : au moins **80 % des lignes Java de production modifiées et exécutables** doivent être couvertes ; l’évidence est conservée dans `validation-output/m21/diff-coverage.txt`.
+Le gate durable exact-head est M21 sur Linux et Windows, avec la baseline active `1.2.1`. Sur pull request, Linux applique en plus un gate JaCoCo différentiel : au moins **80 % des lignes Java de production modifiées et exécutables** et **70 % des branches modifiées** doivent être couvertes ; l’évidence est conservée dans `validation-output/m21/diff-coverage.txt`.
 
 Les gates milestone M26 restent des preuves historiques/spécialisées :
 

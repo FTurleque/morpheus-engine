@@ -40,6 +40,25 @@ class MorpheusQueryCliTest {
     }
 
     @Test
+    void explicitDataAndConfigDirectoriesAreBothConsumedBeforeCommandDispatch() {
+        ProjectSpecificationId project = ProjectSpecificationId.generate();
+
+        Result result = run(
+                "--data-dir", tempDirectory.resolve("data").toString(),
+                "--config-dir", tempDirectory.resolve("config").toString(),
+                "--db", tempDirectory.resolve("morpheus.db").toString(),
+                "--json", "query", "execute",
+                "--project", project.toString(),
+                "--entity", "change",
+                "--filter", "title contains security",
+                "--fields", "id,title",
+                "--limit", "25");
+
+        assertEquals(CliExitCode.SUCCESS.code(), result.exitCode(), result.err());
+        assertTrue(result.out().contains("\"totalMatches\":0"), result.out());
+    }
+
+    @Test
     void savedViewIdentityVersioningAndStaleCasAreVisibleOnCli() {
         ProjectSpecificationId project = ProjectSpecificationId.generate();
         Result created = run(

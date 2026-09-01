@@ -2,7 +2,7 @@
 
 MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise, versionne, compose et expose les faits de spécification et d’intention via CLI, MCP STDIO et API HTTP.
 
-Baseline stable publiée : **MORPHEUS 1.2.0**.
+Baseline stable publiée : **MORPHEUS 1.2.0**. Baseline de développement courante : **1.2.1**.
 
 ```text
 stable tag             v1.2.0
@@ -10,8 +10,11 @@ release commit         3ad9ebf030b58df97482e21e272c24feae6b9d86
 R3 qualification       608 tests / 243 architecture Windows + Linux/WSL
 published assets       8/8 vérifiés
 M28                    livré dans 1.2.0
-D2                     hardening post-R3 en cours
+D2                     qualifié / intégré dans develop
+D2 issue               #120 CLOSED / completed
 ```
+
+Les commandes d’installation ci-dessous et les assets publiés restent ceux de la release stable `1.2.0` tant qu’une nouvelle release n’a pas été réellement publiée.
 
 ## Capacités principales
 
@@ -136,4 +139,4 @@ MORPHEUS préfère `UNAVAILABLE` ou `UNKNOWN` à un fait inventé.
 - [Upgrade 1.2](UPGRADE_1_2.md)
 - [Guide développeur](../developer/README.md)
 - [Validation R3](../validation/VALIDATION_R3.md)
-- [D2](../roadmap/D2_EXECUTION.md)
+- [Preuve historique D2](../validation/VALIDATION_D2.md)

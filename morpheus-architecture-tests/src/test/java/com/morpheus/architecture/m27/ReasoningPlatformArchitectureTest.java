@@ -66,11 +66,15 @@ class ReasoningPlatformArchitectureTest {
     }
 
     @Test
-    void remoteFacadeClassifiesReasoningAnalysisAsReadOnlyPost() throws IOException {
+    void remoteFacadeRegistersReasoningAnalysisAsExplicitReadOnlyPost() throws IOException {
         String source = Files.readString(repositoryRoot().resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRoutePolicy.java"));
-        assertTrue(source.contains("segments.equals(List.of(\"reasoning\", \"analyze\"))"));
-        assertTrue(source.contains("if (method.equals(\"POST\") && isExplicitReadOnlyPost(segments))"));
+        assertTrue(source.contains(
+                "route(\"reasoning/analyze\", Map.of(POST, MorpheusRemoteRole.READ))"));
+        assertTrue(source.contains(
+                "route(\"reasoning/adapters\", Map.of(GET, MorpheusRemoteRole.READ))"));
+        assertFalse(source.contains("method.equals(\"GET\") || method.equals(\"HEAD\")"),
+                "M27 reasoning routes must remain explicit entries in the fail-closed remote registry");
     }
 
     private static void append(StringBuilder target, Path path) {

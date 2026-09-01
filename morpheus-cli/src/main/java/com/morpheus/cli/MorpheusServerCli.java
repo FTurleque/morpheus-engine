@@ -7,9 +7,12 @@ import com.morpheus.store.sqlite.SqliteServerMaintenance;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -18,6 +21,8 @@ import java.util.Set;
 /** M26 local administrative CLI for remote identities and SQLite backup/restore. */
 final class MorpheusServerCli {
     private static final String IDENTITY_RELOAD_POLICY = "LIVE_RELOAD_ON_AUTHENTICATION";
+    private static final String OPT_CONFIG_DIR = "--config-dir";
+    private static final String OPT_CONFIRM = "confirm";
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
 
@@ -75,12 +80,20 @@ final class MorpheusServerCli {
     }
 
     private int identityCreate(Parsed parsed, PrintStream out) {
-        Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "role", "auth-file"));
+        Map<String, String> options = options(
+                parsed.command(), 3, Set.of("principal", "role", "auth-file", "expires-at"));
         String principal = required(options, "principal");
         MorpheusRemoteRole role = role(required(options, "role"));
         Path authFile = authFile(parsed, options);
-        MorpheusRemoteIdentityFile.GeneratedCredential credential =
-                MorpheusRemoteIdentityFile.create(authFile, principal, role);
+        MorpheusRemoteIdentityFile.GeneratedCredential credential;
+        if (options.containsKey("expires-at")) {
+            Optional<Instant> expiry = expiry(options.get("expires-at"));
+            credential = expiry.isPresent()
+                    ? MorpheusRemoteIdentityFile.create(authFile, principal, role, expiry.orElseThrow())
+                    : MorpheusRemoteIdentityFile.create(authFile, principal, role);
+        } else {
+            credential = MorpheusRemoteIdentityFile.create(authFile, principal, role);
+        }
         print(parsed.json(), out, credentialView(credential, authFile));
         return CliExitCode.SUCCESS.code();
     }
@@ -88,10 +101,16 @@ final class MorpheusServerCli {
     private int identityList(Parsed parsed, PrintStream out) {
         Map<String, String> options = options(parsed.command(), 3, Set.of("auth-file"));
         Path authFile = authFile(parsed, options);
+        Instant now = Instant.now();
         List<Map<String, Object>> identities = MorpheusRemoteIdentityFile.load(authFile).stream()
-                .map(identity -> Map.<String, Object>of(
-                        "principal", identity.principal(),
-                        "role", identity.role().name()))
+                .map(identity -> {
+                    Map<String, Object> view = new LinkedHashMap<>();
+                    view.put("principal", identity.principal());
+                    view.put("role", identity.role().name());
+                    view.put("expiresAt", identity.expiresAt().map(Instant::toString).orElse("NEVER"));
+                    view.put("expired", identity.isExpiredAt(now));
+                    return Map.copyOf(view);
+                })
                 .toList();
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
@@ -112,11 +131,12 @@ final class MorpheusServerCli {
     }
 
     private int identityRotate(Parsed parsed, PrintStream out) {
-        Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "auth-file"));
+        Map<String, String> options = options(parsed.command(), 3, Set.of("principal", "auth-file", "expires-at"));
         String principal = required(options, "principal");
         Path authFile = authFile(parsed, options);
-        MorpheusRemoteIdentityFile.GeneratedCredential credential =
-                MorpheusRemoteIdentityFile.rotate(authFile, principal);
+        MorpheusRemoteIdentityFile.GeneratedCredential credential = options.containsKey("expires-at")
+                ? MorpheusRemoteIdentityFile.rotate(authFile, principal, expiry(options.get("expires-at")))
+                : MorpheusRemoteIdentityFile.rotate(authFile, principal);
         Map<String, Object> view = credentialView(credential, authFile);
         view.put("mutation", "ROTATED");
         view.put("oldToken", "INVALID_IMMEDIATELY");
@@ -155,8 +175,8 @@ final class MorpheusServerCli {
     }
 
     private int restore(Parsed parsed, PrintStream out) {
-        Map<String, String> options = options(parsed.command(), 2, Set.of("file", "confirm"));
-        if (!"true".equals(options.get("confirm"))) {
+        Map<String, String> options = options(parsed.command(), 2, Set.of("file", OPT_CONFIRM));
+        if (!"true".equals(options.get(OPT_CONFIRM))) {
             throw new IllegalArgumentException("server restore requires explicit --confirm");
         }
         SqliteServerMaintenance.BackupVerification restored = maintenance.restoreOffline(
@@ -172,6 +192,7 @@ final class MorpheusServerCli {
         view.put("principal", credential.principal());
         view.put("role", credential.role().name());
         view.put("token", credential.token());
+        view.put("expiresAt", credential.expiresAt().map(Instant::toString).orElse("NEVER"));
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
         view.put("tokenPersistence", "NOT_PERSISTED_PRINTED_ONCE");
         view.put("reloadPolicy", IDENTITY_RELOAD_POLICY);
@@ -195,9 +216,19 @@ final class MorpheusServerCli {
 
     private MorpheusRemoteRole role(String value) {
         try {
-            return MorpheusRemoteRole.valueOf(value.toUpperCase());
+            return MorpheusRemoteRole.valueOf(value.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException("--role must be READ, WRITE, or ADMIN", failure);
+        }
+    }
+
+    private Optional<Instant> expiry(String value) {
+        String normalized = required(Map.of("expires-at", value), "expires-at");
+        if (normalized.equalsIgnoreCase("never")) return Optional.empty();
+        try {
+            return Optional.of(Instant.parse(normalized));
+        } catch (DateTimeParseException failure) {
+            throw new IllegalArgumentException("--expires-at must be an ISO-8601 instant or 'never'", failure);
         }
     }
 
@@ -223,11 +254,11 @@ final class MorpheusServerCli {
                 json = true;
                 continue;
             }
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
+            if (token.equals("--data-dir") || token.equals(OPT_CONFIG_DIR) || token.equals("--db")) {
                 if (index + 1 >= args.length) throw new IllegalArgumentException(token + " requires a value");
                 Path value = Path.of(args[++index]);
                 if (token.equals("--data-dir")) data = Optional.of(value);
-                if (token.equals("--config-dir")) config = Optional.of(value);
+                if (token.equals(OPT_CONFIG_DIR)) config = Optional.of(value);
                 if (token.equals("--db")) database = Optional.of(value);
                 continue;
             }
@@ -236,7 +267,7 @@ final class MorpheusServerCli {
                 Path value = Path.of(token.substring(separator + 1));
                 String option = token.substring(0, separator);
                 if (option.equals("--data-dir")) data = Optional.of(value);
-                if (option.equals("--config-dir")) config = Optional.of(value);
+                if (option.equals(OPT_CONFIG_DIR)) config = Optional.of(value);
                 if (option.equals("--db")) database = Optional.of(value);
                 continue;
             }
@@ -255,7 +286,7 @@ final class MorpheusServerCli {
             if (!token.startsWith("--")) throw new IllegalArgumentException("unexpected server argument: " + token);
             String name = token.substring(2);
             if (!allowed.contains(name)) throw new IllegalArgumentException("unknown server option: --" + name);
-            if (name.equals("confirm")) {
+            if (name.equals(OPT_CONFIRM)) {
                 if (result.put(name, "true") != null) throw new IllegalArgumentException("duplicate --confirm");
                 continue;
             }
@@ -284,7 +315,7 @@ final class MorpheusServerCli {
     }
 
     private static boolean isLayoutOption(String token) {
-        return token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")
+        return token.equals("--data-dir") || token.equals(OPT_CONFIG_DIR) || token.equals("--db")
                 || token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=");
     }
 

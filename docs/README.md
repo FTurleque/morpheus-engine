@@ -11,11 +11,12 @@ Stable version          MORPHEUS 1.2.0
 Stable tag              v1.2.0
 R3                      COMPLETE / VALIDATED / PUBLISHED
 M28                     livré dans 1.2.0
-Post-R3                 D2 — Repository Hardening en cours
-D2 issue                #120
+Development baseline    1.2.1
+D2                      COMPLETE / QUALIFIED / MERGED
+D2 issue                #120 CLOSED / completed
 ```
 
-R3 a été qualifié localement Windows + Linux/WSL puis publié avec huit assets vérifiés. D2 est un jalon de hardening **sans CI**.
+R3 reste la preuve de la release stable publiée. D2 a été qualifié localement au même SHA sur Windows et Linux/WSL puis intégré dans `develop`; cette preuve historique n’utilisait pas la CI comme gate. La baseline corrective `1.2.1` utilise désormais les workflows exact-head `MORPHEUS CI`, `MORPHEUS Security` et `MORPHEUS CodeQL` comme protections continues complémentaires.
 
 ## Parcours utilisateur
 
@@ -53,38 +54,53 @@ Les distributions Windows/Linux embarquent leur runtime Java.
 | MCP | [MCP](developer/MCP.md) |
 | cross-engine | [Intégrations](developer/INTEGRATIONS.md) |
 
-Baseline technique courante : Java 21, Maven Wrapper 3.9.16, SQLite, Java MCP SDK 2.0.0, `jdk.httpserver`, `jpackage` et Inno Setup. La branche D2 met à jour Jackson vers 3.1.5 LTS et sqlite-jdbc vers 3.53.2.0.
+Baseline technique courante : Java 21, Maven Wrapper 3.9.16, SQLite JDBC 3.53.2.0, Jackson 3.2.2, Java MCP SDK 2.0.1, `jdk.httpserver`, `jpackage` et Inno Setup.
 
 ## Gouvernance
 
-- [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global ;
-- [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité documentaire ;
-- [`roadmap/D2_EXECUTION.md`](roadmap/D2_EXECUTION.md) — plan actif D2 ;
-- [`validation/VALIDATION_D2.md`](validation/VALIDATION_D2.md) — preuve D2 en attente de qualification ;
+- [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global et priorités post-D2 ;
+- [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité documentaire courante ;
+- [`roadmap/D2_EXECUTION.md`](roadmap/D2_EXECUTION.md) — plan historique D2 ;
+- [`validation/VALIDATION_D2.md`](validation/VALIDATION_D2.md) — preuve historique D2, complétée par les sorties exact-head publiées sur la PR #121 ;
 - [`validation/VALIDATION_R3.md`](validation/VALIDATION_R3.md) — preuve de publication 1.2.0 ;
 - [`release/RELEASE_NOTES_1.2.0.md`](release/RELEASE_NOTES_1.2.0.md) — release publiée.
 
+Les documents de preuve historiques ne sont pas réécrits pour leur faire revendiquer des résultats postérieurs à leur SHA. Les pages actives décrivent, elles, la baseline courante.
+
 ## Validation active
 
-Le gate Maven développeur est :
+Gate Maven développeur :
 
 ```text
 mvnw clean verify
 ```
 
-Le gate D2 Windows est :
+Gate durable exact-head :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.0 -BaseRef origin/develop
+.\scripts\validate.cmd m21 -Version 1.2.1
 ```
-
-Le gate D2 Linux/WSL est :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.0
+bash ./scripts/validate-m21.sh 1.2.1
 ```
 
-D2 exige le même SHA sur les deux plateformes et interdit tout delta `.github/workflows/**`. Aucun statut GitHub Actions n’est utilisé comme preuve D2.
+Contrats actifs :
+
+```text
+Surefire total                 >= 1000
+architecture tests             >= 300
+JaCoCo global lines            >= 52.0%
+JaCoCo global branches         >= 45.0%
+PR changed executable lines    >= 80%
+PR changed branches            >= 70%
+dependency hygiene             blocking
+SBOM / provenance              required
+CI exact-head                  Windows + Ubuntu
+security                       Dependency-Check + CodeQL
+```
+
+La qualification historique D2 reste distincte : Windows et Linux/WSL avaient validé le même SHA exact sans CI, conformément à son contrat de sortie.
 
 ## Références machine
 
@@ -96,7 +112,7 @@ D2 exige le même SHA sur les deux plateformes et interdit tout delta `.github/w
 - [`openapi/morpheus-v1-remote-m26.yaml`](openapi/morpheus-v1-remote-m26.yaml) ;
 - [`openapi/morpheus-v1-reasoning-m27.yaml`](openapi/morpheus-v1-reasoning-m27.yaml) ;
 - [`../contracts/public-surfaces.tsv`](../contracts/public-surfaces.tsv) — convergence CLI/MCP/HTTP ;
-- [`../distribution/README.md`](../distribution/README.md) — distribution 1.2.0.
+- [`../distribution/README.md`](../distribution/README.md) — distribution stable 1.2.0.
 
 ## État livré / actif
 
@@ -106,5 +122,6 @@ D0 + D1        ✅ VALIDÉS / INTÉGRÉS
 R1             ✅ 1.0.0 publié
 R2             ✅ 1.1.0 publié
 R3             ✅ 1.2.0 publié
-D2             🚧 POST-R3 HARDENING / LOCAL QUALIFICATION PENDING
+D2             ✅ QUALIFIÉ / INTÉGRÉ
+1.2.1          🔧 BASELINE DE DÉVELOPPEMENT / HARDENING CONTINU
 ```

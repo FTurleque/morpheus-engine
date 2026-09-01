@@ -8,9 +8,10 @@ M21 transforme les garanties de production de MORPHEUS 1.x en gates durables et 
 Build/version          pom.xml + ProductMetadata
 Public surfaces        contracts/public-surfaces.tsv
 Architecture           morpheus-architecture-tests
-Release packaging      distribution/**
-M21 gate               scripts/validate-m21.*
+Release packaging      distribution/** + .github/workflows/release.yml
+M21 gate               config/m21-quality-ratchets.properties + scripts/validate-m21.*
 CI durable             .github/workflows/ci.yml
+SCA durable            .github/workflows/security.yml
 SAST durable           .github/workflows/codeql.yml
 Preuve finale          docs/validation/VALIDATION_M21.md
 ```
@@ -19,24 +20,27 @@ La documentation humaine explique ces contrats ; elle ne doit pas devenir une de
 
 ## Quality gates M21
 
-Baseline active ratchetée après la qualification exact-head du hardening #169 :
+Baseline active :
 
 ```text
-Tests              >= 820 PASS
-Architecture       >= 258 PASS
+Tests              >= 860 PASS
+Architecture       >= 265 PASS
 Reactor            18/18 SUCCESS
 Windows            PASS
 Linux              PASS
-JaCoCo lines        >= 50 % aggregate
-JaCoCo branches     >= 42 % aggregate
+JaCoCo lines        >= 51.0 % aggregate
+JaCoCo branches     >= 43.5 % aggregate
 Changed lines       >= 80 %
+Changed branches    >= 70 %
 ```
 
-La preuve ayant servi au ratchet mesurait 824 tests, 258 tests d’architecture, 50,3630 % de lignes et 42,7823 % de branches. Les seuils sont volontairement arrondis légèrement en dessous afin d’absorber le bruit déterministe sans permettre une régression significative. Les anciens floors D2 restent des minima historiques inférieurs ; M21 est le gate durable actif le plus strict.
+La qualification exact-head de la PR #187 sur `75768168ce552d97ede15a5fe4aa3979993ee108` a mesuré **871 tests**, **269 tests d’architecture**, **51,3447 % de lignes** sous Linux (**51,3530 % sous Windows**) et **43,9379 % de branches** sur les deux plateformes. Les seuils restent volontairement légèrement sous les mesures qualifiées afin de former des ratchets stables. Le changed-code gate complète les lignes par les branches situées sur les lignes exécutables modifiées.
+
+Les quatre ratchets durables sont définis une seule fois dans `config/m21-quality-ratchets.properties`. Les validateurs Linux/Windows et `CoverageQualityGateTest` lisent cette configuration au lieu de recopier les valeurs.
 
 ## Reproducible-build hygiene
 
-Le build fixe `project.build.outputTimestamp`, centralise les versions de plugins structurants et écrit les métadonnées de version dans les manifests JAR. Une release reste construite à partir d’un ref/tag exact conformément au contrat M20.
+Le build fixe `project.build.outputTimestamp`, centralise les versions de plugins structurants et écrit les métadonnées de version dans les manifests JAR. Maven Enforcer impose Maven `>= 3.9.16` et `< 4.0.0`, la ligne JDK **21 uniquement** (`>= 21` et `< 22`) ainsi que la convergence des dépendances transitives. Une release reste construite à partir d’un ref/tag exact conformément au contrat M20.
 
 Les métadonnées de release ne sont pas un état métier :
 
@@ -44,21 +48,42 @@ Les métadonnées de release ne sont pas un état métier :
 release metadata != runtime business state
 ```
 
-## Supply chain
+## Frontière HTTP des corps de requête
 
-Le build M21 génère un SBOM CycloneDX JSON/XML et une provenance de build explicite. Les artefacts de release conservent des checksums SHA-256.
+Toutes les routes HTTP étendues utilisent `HttpRequestBodyReader`, qui délègue à `TimedBoundedInputReader` et applique la même politique que la frontière HTTP principale :
+
+```text
+request body max size     65 536 bytes
+request body read timeout 15 seconds
+```
+
+Les contextes Query/Saved Views/Export, Policy, Policy Management et Reasoning ne doivent pas effectuer de `readNBytes(...)` direct sur `HttpExchange.getRequestBody()`. Cette règle empêche un client local lent ou défaillant de conserver indéfiniment une lecture de body ouverte et est verrouillée par un contrat de repository.
+
+## Supply chain et provenance de release
+
+Le build M21 génère un SBOM CycloneDX JSON/XML et une provenance de build explicite. Les builders de release produisent également des checksums SHA-256.
+
+Le workflow `MORPHEUS Release` ajoute une preuve d'origine authentifiée pour les releases futures :
+
+- déclenchement uniquement sur tag `vX.Y.Z` ;
+- tag obligatoirement atteignable depuis `main` ;
+- build depuis le SHA exact du tag ;
+- attestation GitHub via OIDC avec `actions/attest` pinné par SHA ;
+- bundle d'attestation conservé avec les assets ;
+- refus d'écraser une GitHub Release déjà publiée.
 
 Politique de confiance :
 
 ```text
-checksum != signature
-SBOM != signature
-provenance metadata != cryptographic identity
+checksum          -> intégrité par rapport à une valeur attendue
+SBOM              -> composition logicielle
+build provenance  -> traçabilité du build
+GitHub attestation -> preuve d'origine liée au workflow et au commit
 ```
 
-Un SHA-256 permet de vérifier l’intégrité d’un fichier par rapport à une valeur attendue ; il ne prouve pas à lui seul l’identité de l’émetteur. MORPHEUS ne simule donc jamais une signature cryptographique. Une signature ou attestation cryptographique ne peut devenir obligatoire qu’avec une identité et une clé réelles, gérées par un flux de release explicite.
+Un checksum publié à côté d'un artefact ne suffit donc plus comme seule preuve de confiance pour les nouvelles releases produites par ce workflow.
 
-Le workflow `MORPHEUS Security` complète ce contrôle par OWASP Dependency-Check. Le chemin `pull_request` n’injecte aucun secret NVD dans le code de la PR ; la clé NVD est réservée aux événements de confiance. `MORPHEUS CodeQL` fournit en plus un SAST Java versionné avec actions pinnées par SHA et requêtes `security-extended`.
+Le workflow `MORPHEUS Security` complète ce contrôle par OWASP Dependency-Check. Le chemin `pull_request` n’injecte aucun secret NVD dans le code de la PR ; la clé NVD est réservée aux événements de confiance. La base trusted est rafraîchie quotidiennement et un cache PR âgé de plus de 72 h est refusé. `MORPHEUS CodeQL` fournit en plus un SAST Java versionné avec actions pinnées par SHA et requêtes `security-extended`.
 
 ## Update channel
 
@@ -68,18 +93,30 @@ La version courante et le channel `stable` sont exposés par `ProductMetadata`. 
 update discovery != automatic update
 ```
 
-Elle est déclenchée uniquement par un appel explicite CLI/MCP avec une URI de manifeste. Les schémas supportés sont `file:` et `https:`. Un manifeste distant en `http:` est refusé avant tout I/O réseau. Construction et démarrage du runtime n’effectuent aucune requête réseau pour rechercher une mise à jour.
+Elle est déclenchée uniquement par un appel explicite CLI/MCP avec une URI de manifeste. Construction et démarrage du runtime n’effectuent aucune requête réseau pour rechercher une mise à jour.
 
-Le manifeste contient au minimum :
+Un manifeste local `file:` peut rester minimal pour les tests et diagnostics :
 
 ```properties
-version=1.0.1
+version=1.2.1
 channel=stable
-artifactUri=https://example.invalid/morpheus-1.0.1.zip
+artifactUri=https://example.invalid/morpheus-1.2.1.zip
 sha256=<64 hex chars>
 ```
 
-La découverte valide les métadonnées et compare les versions. Elle ne télécharge, n’installe, ne remplace et n’exécute jamais l’artefact.
+Un manifeste distant `https:` doit en plus déclarer une provenance :
+
+```properties
+version=1.2.1
+channel=stable
+artifactUri=https://downloads.example.invalid/morpheus-1.2.1.zip
+sha256=<64 hex chars>
+attestationUri=https://github.com/OWNER/REPO/attestations/...
+```
+
+Pour une source distante, `artifactUri` et `attestationUri` doivent tous deux être en HTTPS et l'attestation est obligatoire. Les URI d'artefact en HTTP/FTP/autres schémas sont rejetées. Cette règle ne transforme pas encore `update-check` en vérificateur d'attestation : le service ne télécharge, n’installe, ne remplace et n’exécute jamais l’artefact. Elle verrouille toutefois le contrat de sorte qu'un futur auto-updater ne puisse pas être construit silencieusement sur un simple couple URI + checksum sans provenance.
+
+Toute future capacité d'installation devra vérifier cryptographiquement l'attestation avant utilisation de l'artefact et recevoir son propre ADR/contrat de sécurité.
 
 ## Public surface convergence
 
@@ -89,4 +126,4 @@ Une capability peut avoir des formes différentes selon CLI/MCP/HTTP. Une diffé
 
 ## Qualification
 
-Le gate M21 doit être exécuté sur le head exact. Après le gate final, seuls des changements de preuve/documentation explicitement contrôlés sont admis ; le delta exécutable post-gate doit rester `NONE` avant passage de la PR en Ready.
+Le gate M21 doit être exécuté sur le head exact. Les changements de sécurité, release, coverage ou update contract doivent rester couverts par des tests/contrats d'architecture afin d'éviter une régression silencieuse des gates.

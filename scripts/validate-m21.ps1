@@ -43,6 +43,40 @@ function Get-SurefireTotals([string]$Root) {
     return [pscustomobject]$result
 }
 
+function Get-M21QualityRatchets([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Missing M21 quality ratchet configuration: $Path"
+    }
+    $values = @{}
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        $trimmed = $line.Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) { continue }
+        if ($trimmed -notmatch '^([^=]+)=(.+)$') {
+            throw "Invalid M21 quality ratchet entry: $trimmed"
+        }
+        $values[$matches[1].Trim()] = $matches[2].Trim()
+    }
+    foreach ($required in @('testsMinimum', 'architectureTestsMinimum', 'lineCoverageMinimum', 'branchCoverageMinimum')) {
+        if (-not $values.ContainsKey($required)) { throw "Missing M21 quality ratchet: $required" }
+    }
+    $result = [pscustomobject]@{
+        Tests = [int]$values.testsMinimum
+        ArchitectureTests = [int]$values.architectureTestsMinimum
+        LineCoverage = [double]::Parse($values.lineCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
+        BranchCoverage = [double]::Parse($values.branchCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
+        LineCoverageText = [string]$values.lineCoverageMinimum
+        BranchCoverageText = [string]$values.branchCoverageMinimum
+    }
+    if ($result.Tests -lt 1 -or $result.ArchitectureTests -lt 1) {
+        throw 'M21 test ratchets must be positive integers'
+    }
+    if ($result.LineCoverage -le 0 -or $result.LineCoverage -gt 1 -or
+        $result.BranchCoverage -le 0 -or $result.BranchCoverage -gt 1) {
+        throw 'M21 coverage ratchets must be ratios in (0, 1]'
+    }
+    return $result
+}
+
 function Get-FreeLoopbackPort {
     $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
     $listener.Start()
@@ -104,6 +138,8 @@ function Assert-PackagedApiVersion([string]$Launcher) {
     }
 }
 
+$ratchets = Get-M21QualityRatchets (Join-Path $repo 'config\m21-quality-ratchets.properties')
+
 Write-Host "M21 exact-head validation SHA: $validationSha"
 $initialTracked = @(git status --porcelain --untracked-files=no)
 if ($initialTracked.Count -ne 0) {
@@ -126,15 +162,15 @@ $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) {
     throw "Surefire failures=$($totals.Failures) errors=$($totals.Errors)"
 }
-if ($totals.Tests -lt 820) {
-    throw "M21 test baseline regression: $($totals.Tests) < 820"
+if ($totals.Tests -lt $ratchets.Tests) {
+    throw "M21 test baseline regression: $($totals.Tests) < $($ratchets.Tests)"
 }
 $architecture = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
-if ($architecture.Tests -lt 258) {
-    throw "M21 architecture baseline regression: $($architecture.Tests) < 258"
+if ($architecture.Tests -lt $ratchets.ArchitectureTests) {
+    throw "M21 architecture baseline regression: $($architecture.Tests) < $($ratchets.ArchitectureTests)"
 }
-Write-Host "Tests: PASS ($($totals.Tests), baseline >= 820)"
-Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= 258)"
+Write-Host "Tests: PASS ($($totals.Tests), baseline >= $($ratchets.Tests))"
+Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= $($ratchets.ArchitectureTests))"
 
 $coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
 if (-not (Test-Path $coverageSummary)) { throw "Missing M21 coverage summary: $coverageSummary" }
@@ -142,13 +178,15 @@ $coverage = @{}
 Get-Content $coverageSummary | ForEach-Object {
     if ($_ -match '^([^=]+)=(.*)$') { $coverage[$matches[1]] = $matches[2] }
 }
-if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.504) {
-    throw "M21 line coverage below 50.4% ratchet: $($coverage.lineRatio)"
+$lineRatio = [double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture)
+$branchRatio = [double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture)
+if ($lineRatio -lt $ratchets.LineCoverage) {
+    throw "M21 line coverage below $($ratchets.LineCoverageText) ratchet: $($coverage.lineRatio)"
 }
-if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.429) {
-    throw "M21 branch coverage below 42.9% ratchet: $($coverage.branchRatio)"
+if ($branchRatio -lt $ratchets.BranchCoverage) {
+    throw "M21 branch coverage below $($ratchets.BranchCoverageText) ratchet: $($coverage.branchRatio)"
 }
-Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio), ratchet=50.4%/42.9%)"
+Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio), ratchet=$($ratchets.LineCoverageText)/$($ratchets.BranchCoverageText))"
 
 $sbomJson = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.json'
 $sbomXml = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.xml'
@@ -205,6 +243,7 @@ $summary = @(
     "architectureTests=$($architecture.Tests)"
     "lineCoverage=$($coverage.lineRatio)"
     "branchCoverage=$($coverage.branchRatio)"
+    "qualityRatchets=$($ratchets.Tests)/$($ratchets.ArchitectureTests)/$($ratchets.LineCoverageText)/$($ratchets.BranchCoverageText)"
     'sbom=PASS'
     'provenance=PASS'
     "portable=$(-not $SkipPortable)"

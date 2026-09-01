@@ -12,18 +12,23 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 /**
  * Explicit read-only update discovery. Construction performs no I/O; callers must invoke {@link #check(URI)} with a
  * concrete manifest URI. The service never downloads or installs the advertised artifact. Remote manifests require
- * HTTPS; local manifests use the file scheme.
+ * HTTPS, advertise only HTTPS artifacts, and must provide an HTTPS provenance attestation URI. Local manifests use the
+ * file scheme and remain available for explicit diagnostics and test fixtures.
  */
 public final class UpdateDiscoveryService {
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
     public static final int MAX_MANIFEST_BYTES = 64 * 1024;
+    private static final Pattern NUMERIC_IDENTIFIER_PATTERN = Pattern.compile("\\d+");
 
     private final HttpClient httpClient;
     private final Duration timeout;
@@ -71,11 +76,14 @@ public final class UpdateDiscoveryService {
             default -> throw new IllegalArgumentException(
                     "unsupported update manifest scheme: " + scheme + " (expected file or https)");
         };
-        return new UpdateManifest(
+        UpdateManifest manifest = new UpdateManifest(
                 required(properties, "version"),
                 required(properties, "channel"),
                 URI.create(required(properties, "artifactUri")),
-                required(properties, "sha256"));
+                required(properties, "sha256"),
+                optionalUri(properties, "attestationUri"));
+        manifest.requireRemoteTrust(manifestUri);
+        return manifest;
     }
 
     private Properties readFile(URI uri) {
@@ -131,6 +139,16 @@ public final class UpdateDiscoveryService {
         return value.trim();
     }
 
+    private static Optional<URI> optionalUri(Properties properties, String key) {
+        String value = properties.getProperty(key);
+        if (value == null || value.isBlank()) return Optional.empty();
+        try {
+            return Optional.of(URI.create(value.trim()));
+        } catch (IllegalArgumentException failure) {
+            throw new IllegalArgumentException("invalid update manifest URI property: " + key, failure);
+        }
+    }
+
     static int compareVersions(String left, String right) {
         ParsedVersion a = ParsedVersion.parse(left);
         ParsedVersion b = ParsedVersion.parse(right);
@@ -162,8 +180,8 @@ public final class UpdateDiscoveryService {
         for (int index = 0; index < common; index++) {
             String av = a[index];
             String bv = b[index];
-            boolean an = av.matches("\\d+");
-            boolean bn = bv.matches("\\d+");
+            boolean an = NUMERIC_IDENTIFIER_PATTERN.matcher(av).matches();
+            boolean bn = NUMERIC_IDENTIFIER_PATTERN.matcher(bv).matches();
             int compared;
             if (an && bn) {
                 compared = compareNumericIdentifier(av, bv);
@@ -195,6 +213,23 @@ public final class UpdateDiscoveryService {
     }
 
     private record ParsedVersion(int[] parts, String preRelease) {
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof ParsedVersion that)) return false;
+            return Arrays.equals(parts, that.parts) && Objects.equals(preRelease, that.preRelease);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(Arrays.hashCode(parts), preRelease);
+        }
+
+        @Override
+        public String toString() {
+            return "ParsedVersion[parts=" + Arrays.toString(parts) + ", preRelease=" + preRelease + "]";
+        }
+
         static ParsedVersion parse(String value) {
             Objects.requireNonNull(value, "value");
             String normalized = value.trim();

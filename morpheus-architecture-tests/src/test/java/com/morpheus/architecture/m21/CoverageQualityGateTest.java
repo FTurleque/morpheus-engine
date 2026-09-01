@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Element;
@@ -19,25 +20,25 @@ class CoverageQualityGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline after audit hardening #179 on Linux: 50.6353% lines / 43.0862% branches.
-    // Ratchets stay below the qualified measurement to absorb deterministic cross-platform report noise.
-    private static final double QUALIFIED_LINE_RATIO = 0.506353d;
-    private static final double QUALIFIED_BRANCH_RATIO = 0.430862d;
-    private static final double LINE_RATCHET = 0.504d;
-    private static final double BRANCH_RATCHET = 0.429d;
-
-    private static final double MIN_LINE_RATIO = Math.max(D2_MIN_LINE_RATIO, LINE_RATCHET);
-    private static final double MIN_BRANCH_RATIO = Math.max(D2_MIN_BRANCH_RATIO, BRANCH_RATCHET);
+    // Qualified exact-head baseline after #230 on Linux: 52.6971% lines / 45.7250% branches.
+    // Durable ratchets are loaded from config/m21-quality-ratchets.properties and must remain below this evidence.
+    private static final double QUALIFIED_LINE_RATIO = 0.526971d;
+    private static final double QUALIFIED_BRANCH_RATIO = 0.457250d;
 
     @Test
     void reactorCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {
         Path root = repoRoot();
+        Ratchets ratchets = Ratchets.load(root.resolve("config/m21-quality-ratchets.properties"));
+        double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.lineCoverageMinimum());
+        double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.branchCoverageMinimum());
         List<Path> reports = jacocoReports(root);
         assertTrue(reports.size() >= 8, "expected JaCoCo reports from the tested reactor modules, got " + reports.size());
-        assertTrue(MIN_LINE_RATIO >= D2_MIN_LINE_RATIO, "coverage ratchet must never weaken the D2 line floor");
-        assertTrue(MIN_BRANCH_RATIO >= D2_MIN_BRANCH_RATIO, "coverage ratchet must never weaken the D2 branch floor");
-        assertTrue(LINE_RATCHET <= QUALIFIED_LINE_RATIO, "line ratchet must not exceed its qualified baseline");
-        assertTrue(BRANCH_RATCHET <= QUALIFIED_BRANCH_RATIO, "branch ratchet must not exceed its qualified baseline");
+        assertTrue(minLineRatio >= D2_MIN_LINE_RATIO, "coverage ratchet must never weaken the D2 line floor");
+        assertTrue(minBranchRatio >= D2_MIN_BRANCH_RATIO, "coverage ratchet must never weaken the D2 branch floor");
+        assertTrue(ratchets.lineCoverageMinimum() <= QUALIFIED_LINE_RATIO,
+                "line ratchet must not exceed its qualified baseline");
+        assertTrue(ratchets.branchCoverageMinimum() <= QUALIFIED_BRANCH_RATIO,
+                "branch ratchet must not exceed its qualified baseline");
 
         Counter lines = new Counter();
         Counter branches = new Counter();
@@ -70,19 +71,22 @@ class CoverageQualityGateTest {
                 reports.size(), lines.covered, lines.missed, lineRatio,
                 branches.covered, branches.missed, branchRatio,
                 QUALIFIED_LINE_RATIO, QUALIFIED_BRANCH_RATIO,
-                MIN_LINE_RATIO, MIN_BRANCH_RATIO,
+                minLineRatio, minBranchRatio,
                 D2_MIN_LINE_RATIO, D2_MIN_BRANCH_RATIO));
 
-        assertCoverageAtLeast("line", lineRatio, MIN_LINE_RATIO);
-        assertCoverageAtLeast("branch", branchRatio, MIN_BRANCH_RATIO);
+        assertCoverageAtLeast("line", lineRatio, minLineRatio);
+        assertCoverageAtLeast("branch", branchRatio, minBranchRatio);
     }
 
     @Test
-    void ratchetRejectsARegressionThatTheOldD2FloorWouldHaveAccepted() {
+    void ratchetRejectsARegressionThatTheOldD2FloorWouldHaveAccepted() throws Exception {
+        Ratchets ratchets = Ratchets.load(repoRoot().resolve("config/m21-quality-ratchets.properties"));
+        double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.lineCoverageMinimum());
+        double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.branchCoverageMinimum());
         assertTrue(0.49d >= D2_MIN_LINE_RATIO);
         assertTrue(0.41d >= D2_MIN_BRANCH_RATIO);
-        assertThrows(AssertionError.class, () -> assertCoverageAtLeast("line", 0.49d, MIN_LINE_RATIO));
-        assertThrows(AssertionError.class, () -> assertCoverageAtLeast("branch", 0.41d, MIN_BRANCH_RATIO));
+        assertThrows(AssertionError.class, () -> assertCoverageAtLeast("line", 0.49d, minLineRatio));
+        assertThrows(AssertionError.class, () -> assertCoverageAtLeast("branch", 0.41d, minBranchRatio));
     }
 
     private static void assertCoverageAtLeast(String kind, double actual, double minimum) {
@@ -126,6 +130,34 @@ class CoverageQualityGateTest {
             return parent;
         }
         throw new IllegalStateException("MORPHEUS repository root not found from " + current);
+    }
+
+    private record Ratchets(double lineCoverageMinimum, double branchCoverageMinimum) {
+        private static Ratchets load(Path path) throws IOException {
+            Properties properties = new Properties();
+            try (var reader = Files.newBufferedReader(path)) {
+                properties.load(reader);
+            }
+            return new Ratchets(
+                    requiredDouble(properties, "lineCoverageMinimum"),
+                    requiredDouble(properties, "branchCoverageMinimum"));
+        }
+
+        private static double requiredDouble(Properties properties, String key) {
+            String value = properties.getProperty(key);
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException("missing M21 quality ratchet: " + key);
+            }
+            try {
+                double parsed = Double.parseDouble(value.trim());
+                if (parsed < 0.0d || parsed > 1.0d) {
+                    throw new IllegalArgumentException("M21 quality ratchet must be between 0 and 1: " + key);
+                }
+                return parsed;
+            } catch (NumberFormatException failure) {
+                throw new IllegalArgumentException("invalid M21 quality ratchet: " + key, failure);
+            }
+        }
     }
 
     private static final class Counter {

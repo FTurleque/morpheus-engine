@@ -8,6 +8,8 @@ public final class PolicyBudgets {
     public static final int MAX_PACK_NAME = 160;
     public static final int MAX_RULE_DESCRIPTION = 512;
     public static final int MAX_DRY_RUN_EVALUATIONS = 4096;
+    public static final int MAX_ACTOR = 256;
+    public static final int MAX_REASON = 1024;
 
     private PolicyBudgets() {
     }

@@ -48,13 +48,14 @@ class QuerySourceBudgetTest {
                 portfolioId,
                 Collections.nCopies(QueryBudgets.MAX_PORTFOLIO_PROJECTS + 1, membership));
         QueryExecutionService service = service(portfolios);
+        QueryDefinition definition = QueryDefinition.all(
+                new PortfolioQueryScope(portfolioId),
+                QueryEntityType.PORTFOLIO_MEMBERSHIP,
+                QueryPage.first(1));
 
         QueryValidationException failure = assertThrows(
                 QueryValidationException.class,
-                () -> service.execute(QueryDefinition.all(
-                        new PortfolioQueryScope(portfolioId),
-                        QueryEntityType.PORTFOLIO_MEMBERSHIP,
-                        QueryPage.first(1))));
+                () -> service.execute(definition));
 
         assertTrue(failure.getMessage().contains("portfolio query exceeds"));
     }
@@ -62,16 +63,24 @@ class QuerySourceBudgetTest {
     @Test
     void materializesPortfolioMembershipSourcesWithinBudget() {
         PortfolioId portfolioId = PortfolioId.generate();
-        PortfolioMembership membership = membership(portfolioId, ProjectSpecificationId.generate());
-        QueryExecutionService service = service(new StubPortfolioStore(portfolioId, List.of(membership)));
-
-        QueryResult result = service.execute(QueryDefinition.all(
+        PortfolioMembership first = membership(portfolioId, ProjectSpecificationId.generate());
+        PortfolioMembership second = membership(portfolioId, ProjectSpecificationId.generate());
+        QueryExecutionService service = service(new StubPortfolioStore(portfolioId, List.of(first, second)));
+        QueryDefinition sorted = new QueryDefinition(
                 new PortfolioQueryScope(portfolioId),
                 QueryEntityType.PORTFOLIO_MEMBERSHIP,
-                QueryPage.first(10)));
+                Optional.empty(),
+                List.of(new QuerySort("projectId", QuerySortDirection.ASC)),
+                QueryProjection.defaults(),
+                QueryPage.first(10));
 
-        assertEquals(1, result.totalMatches());
-        assertEquals(membership.projectId().toString(), result.items().getFirst().projectId());
+        QueryResult result = service.execute(sorted);
+
+        String expectedFirst = first.projectId().toString().compareTo(second.projectId().toString()) <= 0
+                ? first.projectId().toString()
+                : second.projectId().toString();
+        assertEquals(2, result.totalMatches());
+        assertEquals(expectedFirst, result.items().getFirst().projectId());
     }
 
     @Test

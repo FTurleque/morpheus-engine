@@ -1,6 +1,7 @@
 package com.morpheus.application.sync;
 
 import com.morpheus.domain.project.ProjectSpecificationId;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -22,6 +23,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LocalSourceInventorySecurityTest {
@@ -79,6 +81,60 @@ class LocalSourceInventorySecurityTest {
         if (linkCreated) {
             assertTrue(Files.isSymbolicLink(workspace.resolve("external-link")));
         }
+    }
+
+    @Test
+    void rejectsSourceRootThatIsItselfASymbolicLinkWithoutTraversingItsTarget() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("symlink-root-workspace"));
+        Path target = Files.createDirectories(tempDir.resolve("symlink-root-target"));
+        Files.writeString(target.resolve("inside.md"), "inside content");
+        Path link = workspace.resolve("linked-root");
+        if (!tryCreateSymbolicLink(link, target)) {
+            Assumptions.assumeTrue(false, "symlinks not supported in this environment");
+            return;
+        }
+
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
+        assertFalse(scanner.policy().followSymbolicLinks());
+        SourceInventoryScanResult result = scan(scanner, workspace, List.of(Path.of("linked-root")));
+
+        assertFalse(result.complete(), () -> "scan should be incomplete: " + result);
+        assertTrue(result.inventory().isEmpty(), "a rejected symbolic-link root must never publish an inventory");
+        assertTrue(result.failures().stream().anyMatch(failure ->
+                        failure.message().contains("symbolic-link source root is not followed")),
+                () -> "unexpected failures: " + result.failures());
+    }
+
+    @Test
+    void rejectsMtimeMutationThatSurvivesFingerprintVerificationButFailsTheFinalIdentityRecheck() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("post-verification-mtime-mutation"));
+        Path source = workspace.resolve("source.md");
+        byte[] content = "unchanged-content".getBytes(StandardCharsets.UTF_8);
+        Files.write(source, content);
+        SourceFingerprint unchangedFingerprint = SourceFingerprint.ofBytes(content);
+
+        LocalSourceInventoryScanner scanner = mutationScanner((path, maxBytes) -> {
+            Files.setLastModifiedTime(path, FileTime.fromMillis(1_600_000_000_000L));
+            return unchangedFingerprint;
+        });
+
+        SourceInventoryScanResult result = scan(scanner, workspace);
+
+        assertMutationFailure(result, "source.md", "changed identity or metadata");
+    }
+
+    @Test
+    void verificationComputerIoFailureIsCaughtAsAScopedFileFailureNotAScanCrash() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("verification-io-failure"));
+        Files.writeString(workspace.resolve("source.md"), "content", StandardCharsets.UTF_8);
+
+        LocalSourceInventoryScanner scanner = mutationScanner((path, maxBytes) -> {
+            throw new IOException("simulated verification I/O failure");
+        });
+
+        SourceInventoryScanResult result = scan(scanner, workspace);
+
+        assertMutationFailure(result, "source.md", "simulated verification I/O failure");
     }
 
     @Test
@@ -228,17 +284,68 @@ class LocalSourceInventorySecurityTest {
         assertTrue(result.failures().stream().anyMatch(failure -> failure.message().contains("depth exceeds limit")));
     }
 
+    @Test
+    void rejectsFileWhoseOwnDepthExceedsTheLimitEvenWhenItsParentDirectoryDoesNot() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("file-depth"));
+        Path nested = Files.createDirectories(workspace.resolve("one"));
+        Files.writeString(nested.resolve("leaf.md"), "leaf");
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                new SourceScanPolicy(Set.of(), false, 1, 10, 10, 1024, 1024));
+
+        var result = scan(scanner, workspace);
+
+        assertFalse(result.complete());
+        assertTrue(result.inventory().isEmpty());
+        assertTrue(result.failures().stream().anyMatch(failure ->
+                        failure.source().orElse("").replace('\\', '/').endsWith("one/leaf.md")
+                                && failure.message().contains("depth exceeds limit")),
+                () -> "unexpected failures: " + result.failures());
+    }
+
+    @Test
+    void sharedBudgetExhaustionSkipsRemainingSourceRootsWithoutRescanningThem() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("multi-root-budget"));
+        Path first = Files.createDirectories(workspace.resolve("first"));
+        Files.createDirectories(first.resolve("nested"));
+        Files.createDirectories(workspace.resolve("second"));
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                new SourceScanPolicy(Set.of(), false, 8, 1, 10, 1024, 1024));
+
+        var result = scan(scanner, workspace, List.of(Path.of("first"), Path.of("second")));
+
+        assertFalse(result.complete());
+        assertTrue(result.inventory().isEmpty());
+        assertEquals(1, result.failures().size(), () -> "unexpected failures: " + result.failures());
+        assertTrue(result.failures().getFirst().message().contains("directory count exceeds limit"));
+    }
+
+    @Test
+    void sourceRootThatEscapesTheWorkspaceViaRelativeTraversalIsRejectedBeforeAnyFilesystemWalk() {
+        Path workspace = tempDir.resolve("escape-workspace");
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> scan(scanner, workspace, List.of(Path.of("../escape-target"))));
+
+        assertTrue(failure.getMessage().contains("escapes workspace"), failure::getMessage);
+    }
+
     private LocalSourceInventoryScanner mutationScanner(LocalSourceInventoryScanner.FingerprintComputer computer) {
         return new LocalSourceInventoryScanner(SourceScanPolicy.safeDefaults(), computer);
     }
 
     private SourceInventoryScanResult scan(LocalSourceInventoryScanner scanner, Path workspace) {
+        return scan(scanner, workspace, List.of());
+    }
+
+    private SourceInventoryScanResult scan(
+            LocalSourceInventoryScanner scanner, Path workspace, List<Path> sourceRoots) {
         return scanner.scan(
                 workspace,
                 ProjectSpecificationId.generate(),
                 Optional.empty(),
                 Instant.parse("2026-07-26T18:00:00Z"),
-                List.of());
+                sourceRoots);
     }
 
     private void assertMutationFailure(SourceInventoryScanResult result, String source, String messageFragment) {

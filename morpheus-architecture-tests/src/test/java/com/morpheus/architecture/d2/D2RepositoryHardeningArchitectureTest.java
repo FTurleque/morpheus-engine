@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Properties;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
@@ -25,8 +26,9 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
         String pom = Files.readString(repoRoot().resolve("pom.xml"));
-        assertTrue(pom.contains("<jackson.version>3.1.5</jackson.version>"));
+        assertTrue(pom.contains("<jackson.version>3.2.2</jackson.version>"));
         assertTrue(pom.contains("<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>"));
+        assertTrue(pom.contains("<mcp-sdk.version>2.0.1</mcp-sdk.version>"));
         assertTrue(pom.contains("<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>"));
         assertTrue(pom.contains("<failOnWarning>true</failOnWarning>"));
         assertTrue(pom.contains("<id>d2-security</id>"));
@@ -34,11 +36,25 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     @Test
+    void activeMcpDocumentationMatchesPinnedSdkVersion() throws IOException {
+        String mcp = Files.readString(repoRoot().resolve("docs/developer/MCP.md"));
+        assertTrue(mcp.contains("Java MCP SDK 2.0.1"));
+        assertFalse(mcp.contains("Java MCP SDK 2.0.0"));
+    }
+
+    @Test
     void coverageRatchetCannotSilentlyReturnToTheD2Floor() throws IOException {
-        String coverage = Files.readString(repoRoot().resolve(
+        Path root = repoRoot();
+        Properties ratchets = m21Ratchets(root);
+        double line = Double.parseDouble(ratchets.getProperty("lineCoverageMinimum"));
+        double branch = Double.parseDouble(ratchets.getProperty("branchCoverageMinimum"));
+        assertTrue(line > 0.40d, "M21 line ratchet must remain stricter than the D2 floor");
+        assertTrue(branch > 0.35d, "M21 branch ratchet must remain stricter than the D2 floor");
+
+        String coverage = Files.readString(root.resolve(
                 "morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java"));
-        assertTrue(coverage.contains("LINE_RATCHET = 0.504d"));
-        assertTrue(coverage.contains("BRANCH_RATCHET = 0.429d"));
+        assertTrue(coverage.contains("config/m21-quality-ratchets.properties"),
+                "M21 coverage gate must consume the centralized ratchet configuration");
         assertFalse(coverage.contains("LINE_RATCHET = 0.40d"));
         assertFalse(coverage.contains("BRANCH_RATCHET = 0.35d"));
     }
@@ -46,15 +62,18 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void durableM21ScriptsKeepQualifiedPresenceAndCoverageRatchets() throws IOException {
         Path root = repoRoot();
+        Properties ratchets = m21Ratchets(root);
+        assertTrue(Integer.parseInt(ratchets.getProperty("testsMinimum")) >= 860);
+        assertTrue(Integer.parseInt(ratchets.getProperty("architectureTestsMinimum")) >= 265);
+        assertTrue(Double.parseDouble(ratchets.getProperty("lineCoverageMinimum")) >= 0.510d);
+        assertTrue(Double.parseDouble(ratchets.getProperty("branchCoverageMinimum")) >= 0.435d);
+
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
-        for (String script : java.util.List.of(linux, windows)) {
-            assertTrue(script.contains("820"));
-            assertTrue(script.contains("258"));
-            assertTrue(script.contains("0.50"));
-            assertTrue(script.contains("0.42"));
-            assertTrue(script.contains("1.2.1"));
-        }
+        assertTrue(linux.contains("config/m21-quality-ratchets.properties"));
+        assertTrue(windows.contains("config\\m21-quality-ratchets.properties"));
+        assertTrue(linux.contains("1.2.1"));
+        assertTrue(windows.contains("1.2.1"));
     }
 
     @Test
@@ -118,9 +137,15 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("-DautoUpdate=false"));
         assertTrue(security.contains("target/dependency-check-data"));
         assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"));
-        assertTrue(security.contains("dependency-check-v12-${{ runner.os }}-32587778460"),
-                "security.yml must retain the known-good develop bootstrap cache until the trusted namespace is seeded");
-        assertTrue(security.contains("known-good develop cache from successful run 32587778460"));
+        assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32587778460"));
+        assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32690353897"));
+        assertTrue(security.contains("Verify restored Dependency-Check database freshness"));
+        assertTrue(security.contains("if: github.event_name == 'pull_request'"));
+        assertTrue(security.contains("DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS: '72'"));
+        assertTrue(security.contains("max_age_seconds=\"$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))\""));
+        assertTrue(security.contains("- cron: '17 4 * * *'"));
+        assertFalse(security.contains("- cron: '17 4 * * 1'"));
+        assertTrue(security.contains("No trusted Dependency-Check database was restored"));
         assertTrue(security.contains("if: github.event_name != 'pull_request'"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
         assertTrue(security.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"));
@@ -132,12 +157,14 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("rm -f -- \"${lock_file}\""));
 
         int restoreIndex = security.indexOf("- name: Restore Dependency-Check database");
+        int freshnessIndex = security.indexOf("- name: Verify restored Dependency-Check database freshness");
         int staleLockIndex = security.indexOf("- name: Remove stale Dependency-Check update lock");
         int trustedUpdateIndex = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
         int saveIndex = security.indexOf("- name: Save trusted Dependency-Check database");
         int scanIndex = security.indexOf("- name: Run OWASP Dependency-Check scan");
-        assertTrue(restoreIndex >= 0 && staleLockIndex > restoreIndex && trustedUpdateIndex > staleLockIndex,
-                "trusted Dependency-Check update must follow cache restore and stale-lock cleanup");
+        assertTrue(restoreIndex >= 0 && freshnessIndex > restoreIndex && staleLockIndex > freshnessIndex
+                        && trustedUpdateIndex > staleLockIndex,
+                "trusted Dependency-Check preparation must verify freshness before scanning or updating");
         assertTrue(saveIndex > trustedUpdateIndex,
                 "trusted cache save must follow the trusted Dependency-Check update");
         assertTrue(scanIndex > saveIndex, "aggregate scan must run after cache/update preparation");
@@ -178,9 +205,13 @@ class D2RepositoryHardeningArchitectureTest {
         Path root = repoRoot();
         String server = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String requestDecoder = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRequestDecoder.java"));
         assertTrue(server.contains("MAX_REQUEST_BODY_BYTES = 65_536"));
-        assertTrue(server.contains("FAIL_ON_UNKNOWN_PROPERTIES"));
-        assertTrue(server.contains("FAIL_ON_TRAILING_TOKENS"));
+        assertTrue(server.contains("private final MorpheusHttpRequestDecoder requestDecoder;"));
+        assertTrue(requestDecoder.contains("FAIL_ON_UNKNOWN_PROPERTIES"));
+        assertTrue(requestDecoder.contains("FAIL_ON_TRAILING_TOKENS"));
+        assertTrue(requestDecoder.contains("TimedBoundedInputReader.read("));
         assertTrue(Files.isRegularFile(root.resolve(
                 "morpheus-api/src/test/java/com/morpheus/api/JacksonSecurityRegressionTest.java")));
 
@@ -202,6 +233,14 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-d2.sh")));
         assertTrue(Files.isRegularFile(root.resolve("docs/roadmap/D2_EXECUTION.md")));
         assertTrue(Files.isRegularFile(root.resolve("docs/validation/VALIDATION_D2.md")));
+    }
+
+    private Properties m21Ratchets(Path root) throws IOException {
+        Properties properties = new Properties();
+        try (var reader = Files.newBufferedReader(root.resolve("config/m21-quality-ratchets.properties"))) {
+            properties.load(reader);
+        }
+        return properties;
     }
 
     private void assertPinnedNode24(String workflow, Pattern pattern, String action, String file) {

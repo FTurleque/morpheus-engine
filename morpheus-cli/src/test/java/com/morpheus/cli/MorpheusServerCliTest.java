@@ -17,6 +17,7 @@ import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusServerCliTest {
@@ -40,10 +41,35 @@ class MorpheusServerCliTest {
         assertTrue(persisted.matches("(?s).*alice\\|ADMIN\\|[0-9a-f]{64}.*"));
         assertTrue(created.out().contains("NOT_PERSISTED_PRINTED_ONCE"));
         assertTrue(created.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
+        assertTrue(created.out().contains("\"expiresAt\":\"NEVER\""), created.out());
     }
 
     @Test
-    void identityLifecycleCommandsNeverListCredentialMaterial() throws Exception {
+    void identityExpiryCanBeCreatedPreservedAndExplicitlyRemoved() throws Exception {
+        String expiry = "2099-01-01T00:00:00Z";
+        Result created = run("--json", "server", "identity", "create",
+                "--principal", "expiring", "--role", "ADMIN", "--expires-at", expiry);
+        assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
+        assertTrue(created.out().contains("\"expiresAt\":\"" + expiry + "\""), created.out());
+        assertTrue(Files.readString(temp.resolve("config/remote-auth.txt")).contains("|" + expiry));
+
+        Result listed = run("--json", "server", "identity", "list");
+        assertEquals(CliExitCode.SUCCESS.code(), listed.exitCode(), listed.err());
+        assertTrue(listed.out().contains("\"expired\":false"), listed.out());
+        assertTrue(listed.out().contains("\"expiresAt\":\"" + expiry + "\""), listed.out());
+
+        Result preserved = run("--json", "server", "identity", "rotate", "--principal", "expiring");
+        assertEquals(CliExitCode.SUCCESS.code(), preserved.exitCode(), preserved.err());
+        assertTrue(preserved.out().contains("\"expiresAt\":\"" + expiry + "\""), preserved.out());
+
+        Result permanent = run("--json", "server", "identity", "rotate",
+                "--principal", "expiring", "--expires-at", "never");
+        assertEquals(CliExitCode.SUCCESS.code(), permanent.exitCode(), permanent.err());
+        assertTrue(permanent.out().contains("\"expiresAt\":\"NEVER\""), permanent.out());
+    }
+
+    @Test
+    void identityLifecycleCommandsNeverListCredentialMaterial() {
         Result firstAdmin = run("--json", "server", "identity", "create",
                 "--principal", "admin-one", "--role", "ADMIN");
         Result secondAdmin = run("--json", "server", "identity", "create",
@@ -63,7 +89,7 @@ class MorpheusServerCliTest {
 
         Result rotated = run("--json", "server", "identity", "rotate", "--principal", "reader");
         assertEquals(CliExitCode.SUCCESS.code(), rotated.exitCode(), rotated.err());
-        assertFalse(token(rotated).equals(originalReaderToken));
+        assertNotEquals(originalReaderToken, token(rotated));
         assertTrue(rotated.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
         assertTrue(rotated.out().contains("INVALID_IMMEDIATELY"));
         assertFalse(rotated.out().contains("RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION"));
@@ -91,7 +117,7 @@ class MorpheusServerCliTest {
 
         Result verified = run("--json", "server", "backup", "verify", "--file", backupPath.toString());
         assertEquals(CliExitCode.SUCCESS.code(), verified.exitCode(), verified.err());
-        assertTrue(verified.out().contains("\"schemaVersion\":16"), verified.out());
+        assertTrue(verified.out().contains("\"schemaVersion\":17"), verified.out());
 
         Result unconfirmed = run("--json", "server", "restore", "--file", backupPath.toString());
         assertEquals(CliExitCode.USAGE.code(), unconfirmed.exitCode(), unconfirmed.err());
@@ -100,6 +126,35 @@ class MorpheusServerCliTest {
         Result restored = run("--json", "server", "restore", "--file", backupPath.toString(), "--confirm");
         assertEquals(CliExitCode.SUCCESS.code(), restored.exitCode(), restored.err());
         assertTrue(restored.out().contains("\"integrityOk\":true"), restored.out());
+    }
+
+    @Test
+    void configDirAcceptsEqualsFormAlongsideOtherEqualsFormGlobalFlags() throws Exception {
+        Path dataDir = temp.resolve("data-eq");
+        Path configDir = temp.resolve("config-eq");
+        Path db = temp.resolve("data-eq/morpheus.db");
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+        int exit;
+        try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
+            Properties properties = new Properties();
+            properties.setProperty("user.home", temp.resolve("home").toString());
+            properties.setProperty("os.name", System.getProperty("os.name", "Linux"));
+            exit = MorpheusMain.run(new String[]{
+                    "--data-dir=" + dataDir,
+                    "--config-dir=" + configDir,
+                    "--db=" + db,
+                    "--json", "server", "identity", "create",
+                    "--principal", "eqform", "--role", "READ"
+            }, out, err, Map.of(), properties);
+        }
+
+        assertEquals(CliExitCode.SUCCESS.code(), exit, errors.toString(StandardCharsets.UTF_8));
+        Path auth = configDir.resolve("remote-auth.txt");
+        assertTrue(Files.exists(auth), "expected auth file under --config-dir= target: " + auth);
+        assertTrue(Files.readString(auth).contains("eqform|READ"));
     }
 
     private Result run(String... rawArgs) {

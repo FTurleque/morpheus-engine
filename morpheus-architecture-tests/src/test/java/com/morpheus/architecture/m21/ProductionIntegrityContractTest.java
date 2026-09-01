@@ -48,6 +48,7 @@ class ProductionIntegrityContractTest {
         String productCli = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java"));
         String mcp = Files.readString(root.resolve("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProductMcpTools.java"));
         String http = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String rootHttp = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusRootHttpRoutes.java"));
         String compositionMcp = readJavaTree(root.resolve("morpheus-mcp/src/main/java"));
         String lifecycleCli = readJavaTree(root.resolve("morpheus-cli/src/main/java"));
 
@@ -55,7 +56,8 @@ class ProductionIntegrityContractTest {
         assertTrue(productCli.contains("update-check"));
         assertTrue(mcp.contains("get_product_info"));
         assertTrue(mcp.contains("check_product_update"));
-        assertTrue(http.contains("segments.getFirst().equals(\"version\")"));
+        assertTrue(http.contains("rootRoutes.route(method, segments, query)"));
+        assertTrue(rootHttp.contains("case \"version\" -> ok(service.version())"));
         assertTrue(compositionMcp.contains("get_composition_status"));
         assertTrue(compositionMcp.contains("list_composition_conflicts"));
         assertTrue(compositionMcp.contains("apply_change_lifecycle_transition"));
@@ -92,15 +94,21 @@ class ProductionIntegrityContractTest {
 
         assertTrue(publicSurfaces.contains("../../contracts/public-surfaces.tsv"));
         assertTrue(publicSurfaces.contains("EXPLICITLY_NOT_EXPOSED"));
-        assertTrue(integrity.contains("820 PASS"));
-        assertTrue(integrity.contains("258 PASS"));
-        assertTrue(integrity.contains("50 % aggregate"));
-        assertTrue(integrity.contains("42 % aggregate"));
+        assertTrue(integrity.contains("860 PASS"));
+        assertTrue(integrity.contains("265 PASS"));
+        assertTrue(integrity.contains("51.0 % aggregate"));
+        assertTrue(integrity.contains("43.5 % aggregate"));
         assertTrue(integrity.contains("Changed lines       >= 80 %"));
+        assertTrue(integrity.contains("Changed branches    >= 70 %"));
+        assertTrue(integrity.contains("config/m21-quality-ratchets.properties"));
+        assertTrue(integrity.contains("convergence des dépendances transitives"));
+        assertTrue(integrity.contains("HttpRequestBodyReader"));
         assertTrue(integrity.contains("CycloneDX"));
         assertTrue(integrity.contains("update discovery != automatic update"));
-        assertTrue(integrity.contains("checksum != signature"));
-        assertTrue(integrity.contains("`file:` et `https:`"));
+        assertTrue(integrity.contains("GitHub attestation"));
+        assertTrue(integrity.contains("attestationUri=https://"));
+        assertTrue(integrity.contains("Un manifeste local `file:`"));
+        assertTrue(integrity.contains("Un manifeste distant `https:`"));
         assertFalse(userIntegrity.contains("\nhttp:\n"));
     }
 
@@ -116,13 +124,13 @@ class ProductionIntegrityContractTest {
 
     private Path repoRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
+        while (current != null) {
+            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
+                    && Files.isRegularFile(current.resolve("pom.xml"))) {
+                return current;
+            }
+            current = current.getParent();
         }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml")) && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
+        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

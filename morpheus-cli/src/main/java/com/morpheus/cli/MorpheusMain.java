@@ -7,7 +7,10 @@ import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
 import com.morpheus.mcp.MorpheusMcpServer;
 
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -19,6 +22,9 @@ public final class MorpheusMain {
     private MorpheusMain() {
     }
 
+    // These System.err references wire the real process stderr into the launcher's own
+    // PrintStream-taking methods; a logging framework has no place in the OS entry point.
+    @SuppressWarnings("java:S106")
     public static void main(String[] args) {
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
@@ -28,7 +34,9 @@ public final class MorpheusMain {
         } else if (McpLaunchOptions.isMcpCommand(args)) {
             exitCode = runMcp(args, System.err, System.getenv(), System.getProperties());
         } else {
-            exitCode = run(args, System.out, System.err, System.getenv(), System.getProperties());
+            PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
+            PrintStream err = new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
+            exitCode = run(args, out, err, System.getenv(), System.getProperties());
         }
         if (exitCode != 0) {
             System.exit(exitCode);
@@ -90,8 +98,11 @@ public final class MorpheusMain {
             out.println();
             out.println("Team / remote server (M26, opt-in):");
             out.println("  morpheus [layout] api --remote --host HOST --port PORT --tls-keystore FILE --workspace-root PATH [--workspace-root PATH ...] [--auth-file FILE] [--max-concurrent N] [--provider-plugin-dir PATH]");
-            out.println("  Remote mode is HTTPS-only and requires MORPHEUS_SERVER_TLS_PASSWORD plus at least one server-owned workspace root.");
-            out.println("  morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN [--auth-file FILE]");
+            out.println("  Remote mode is HTTPS-only and requires MORPHEUS_SERVER_TLS_PASSWORD, at least one active ADMIN identity and at least one server-owned workspace root.");
+            out.println("  morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN [--expires-at ISO-8601] [--auth-file FILE]");
+            out.println("  morpheus [layout] server identity rotate --principal NAME [--expires-at ISO-8601|never] [--auth-file FILE]");
+            out.println("  morpheus [layout] server identity list [--auth-file FILE]");
+            out.println("  Rotation preserves the current expiry when --expires-at is omitted; --expires-at never makes the credential permanent.");
             out.println("  morpheus [layout] server backup create [--output-dir PATH]");
             out.println("  morpheus [layout] server backup verify --file PATH");
             out.println("  morpheus [layout] server restore --file PATH --confirm");
@@ -286,8 +297,10 @@ public final class MorpheusMain {
     }
 
     private static boolean isSyncCommand(String[] args) {
-        for (int index = 0; index < args.length; index++) {
+        int index = 0;
+        while (index < args.length) {
             String token = args[index];
+            index++;
             if (token.equals("--json")) {
                 continue;
             }
@@ -301,8 +314,10 @@ public final class MorpheusMain {
     }
 
     private static boolean isHelpRequest(String[] args) {
-        for (int index = 0; index < args.length; index++) {
+        int index = 0;
+        while (index < args.length) {
             String token = args[index];
+            index++;
             if (token.equals("--json")) {
                 continue;
             }

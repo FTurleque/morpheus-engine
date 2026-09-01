@@ -36,13 +36,14 @@ class SqliteSchemaMigrationTest {
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(16, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(17, new SqliteSchemaManager().currentVersion(connection));
             List<String> expectedTables = List.of(
                     "schema_migrations",
                     "projects",
                     "knowledge_snapshots",
                     "entity_identity_bindings",
                     "specification_versions",
+                    "specification_version_sequences",
                     "snapshot_specification_versions",
                     "requirement_versions",
                     "traceability_links",
@@ -134,7 +135,7 @@ class SqliteSchemaMigrationTest {
     }
 
     @Test
-    void migrationReplayIsIdempotentAndLedgerContainsSixteenImmutableEntries() throws Exception {
+    void migrationReplayIsIdempotentAndLedgerContainsSeventeenImmutableEntries() throws Exception {
         Path database = tempDir.resolve("replay.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // First application.
@@ -148,7 +149,7 @@ class SqliteSchemaMigrationTest {
              ResultSet result = statement.executeQuery(
                      "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum FROM schema_migrations")) {
             assertTrue(result.next());
-            assertEquals(16, result.getInt("count"));
+            assertEquals(17, result.getInt("count"));
             assertEquals(64, result.getInt("min_checksum"));
             assertEquals(64, result.getInt("max_checksum"));
         }
@@ -188,7 +189,7 @@ class SqliteSchemaMigrationTest {
             while (result.next()) sequences.add(result.getLong(1));
             assertEquals(List.of(1L, 2L, 3L), sequences);
             assertTrue(indexExists(connection, "uq_specification_versions_project_sequence"));
-            assertEquals(16, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(17, new SqliteSchemaManager().currentVersion(connection));
         }
     }
 

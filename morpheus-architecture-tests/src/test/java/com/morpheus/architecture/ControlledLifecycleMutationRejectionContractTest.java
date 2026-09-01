@@ -1,11 +1,13 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAttempt;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationCommand;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPolicy;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultState;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.lifecycle.mutation.ControlledChangeLifecycleMutationService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
+import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.SnapshotBusinessContent;
 import com.morpheus.application.store.SnapshotSpecificationVersionBinding;
@@ -37,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ControlledLifecycleMutationRejectionContractTest {
@@ -73,7 +76,7 @@ class ControlledLifecycleMutationRejectionContractTest {
                 List.of(), List.of(), List.of(evidence)));
         core.activateSnapshot(snapshotId, Optional.empty());
 
-        MemoryChangeLifecycleMutationStore mutations = new MemoryChangeLifecycleMutationStore();
+        MemoryChangeLifecycleMutationStore mutations = new MemoryChangeLifecycleMutationStore(core);
         ControlledChangeLifecycleMutationService service = new ControlledChangeLifecycleMutationService(
                 new ChangeTransitionEvaluationService(core, content, core, traceability),
                 mutations,
@@ -97,5 +100,30 @@ class ControlledLifecycleMutationRejectionContractTest {
         assertTrue(result.reason().contains("BLOCKED"), result.reason());
         assertTrue(mutations.findState(projectId, changeId).isEmpty());
         assertTrue(mutations.listAudit(projectId, changeId).isEmpty());
+    }
+
+    @Test
+    void memoryStoreRejectsMutationForUnregisteredProjectLikeSqliteDoes() {
+        MemorySpecificationKnowledgeStore core = new MemorySpecificationKnowledgeStore();
+        MemoryChangeLifecycleMutationStore mutations = new MemoryChangeLifecycleMutationStore(core);
+        ProjectSpecificationId unregisteredProjectId = ProjectSpecificationId.generate();
+        ChangeId changeId = ChangeId.generate();
+
+        ChangeLifecycleMutationAttempt attempt = new ChangeLifecycleMutationAttempt(
+                ChangeLifecycleMutationId.generate(),
+                new ChangeLifecycleIdempotencyKey("m17-unregistered-project"),
+                "fingerprint",
+                unregisteredProjectId,
+                changeId,
+                ChangeLifecycleState.DRAFT,
+                ChangeLifecycleState.VERIFYING,
+                Optional.empty(),
+                ChangeLifecycleRevision.initial(),
+                "m17-test",
+                PROVIDER,
+                "unregistered project must be rejected",
+                T0);
+
+        assertThrows(KnowledgeStoreException.class, () -> mutations.apply(attempt));
     }
 }

@@ -221,14 +221,7 @@ public final class QueryExecutionService {
     }
 
     private boolean anyEqual(List<String> values, String expected, QueryFieldType type) {
-        return values.stream().anyMatch(value -> equal(value, expected, type));
-    }
-
-    private boolean equal(String actual, String expected, QueryFieldType type) {
-        if (type == QueryFieldType.TEXT || type == QueryFieldType.ENUM || type == QueryFieldType.BOOLEAN) {
-            return actual.equalsIgnoreCase(expected);
-        }
-        return actual.equals(expected);
+        return values.stream().anyMatch(value -> QueryValueSemantics.sameValue(value, expected, type));
     }
 
     private boolean textAny(List<String> values, String expected, TextMatch mode) {
@@ -242,9 +235,14 @@ public final class QueryExecutionService {
 
     private Comparator<QueryRow> comparator(QueryDefinition query) {
         Comparator<QueryRow> comparator = (left, right) -> 0;
+        Map<String, QueryFieldDefinition> schema = QuerySchemaRegistry.fields(query.entityType());
         for (QuerySort sort : query.sort()) {
-            Comparator<QueryRow> key = Comparator.comparing(row -> row.cell(sort.field())
-                    .map(QueryCell::sortKey).orElse(""));
+            QueryFieldDefinition definition = Objects.requireNonNull(
+                    schema.get(sort.field()),
+                    "validated sort field missing from query schema: " + sort.field());
+            QueryFieldType fieldType = definition.type();
+            Comparator<QueryRow> key = (left, right) -> QueryValueSemantics.compare(
+                    left.cell(sort.field()), right.cell(sort.field()), fieldType);
             if (sort.direction() == QuerySortDirection.DESC) {
                 key = key.reversed();
             }

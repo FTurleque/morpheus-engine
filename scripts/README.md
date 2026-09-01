@@ -35,14 +35,21 @@ M21 applique notamment :
 
 ```text
 clean verify
-Surefire >= 698
-architecture >= 250
-coverage >= 47% / 40%
+Surefire >= 1000
+architecture >= 300
+coverage >= 52.0% / 45.0%
 CycloneDX SBOM
 provenance
 portable smoke
 product/package version = 1.2.1
 HEAD exact + workspace tracked clean
+```
+
+Sur les pull requests, `MORPHEUS CI` complète M21 avec le gate différentiel :
+
+```text
+changed executable lines >= 80%
+changed branches         >= 70%
 ```
 
 Le même SHA doit réussir sur Windows et Linux.
@@ -66,7 +73,7 @@ D2 reste un gate **local spécialisé** :
 ```text
 .github/workflows delta forbidden
 clean verify required
-baseline tests >= 698 / architecture >= 250
+baseline tests >= 1000 / architecture >= 300
 absolute coverage floor >= 40% / 35%
 dependency hygiene blocking
 OWASP Dependency-Check local aggregate
@@ -74,7 +81,7 @@ portable smoke required
 same SHA Windows/Linux required
 ```
 
-Il n'est pas destiné à qualifier une PR qui modifie précisément les workflows GitHub ; le gate durable de ces PR reste M21, complété par `MORPHEUS Security` à la frontière `main`.
+Il n'est pas destiné à qualifier une PR qui modifie précisément les workflows GitHub ; le gate durable de ces PR reste M21, complété par `MORPHEUS Security` sur `main` et `develop`.
 
 Les switches/variables de skip D2 sont réservés au diagnostic et ne constituent jamais une qualification finale.
 
