@@ -1,5 +1,11 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.query.dsl.ProjectQueryScope;
+import com.morpheus.application.query.dsl.QueryDefinition;
+import com.morpheus.application.query.dsl.QueryDefinitionCodec;
+import com.morpheus.application.query.dsl.QueryEntityType;
+import com.morpheus.application.query.dsl.QueryPage;
+import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -97,6 +103,65 @@ class MorpheusPolicyCliTest {
         assertTrue(evaluated.out().contains("\"originalDecision\":\"UNKNOWN\""), evaluated.out());
         assertTrue(evaluated.out().contains("\"effectiveDecision\":\"BLOCK\""), evaluated.out());
         assertTrue(evaluated.out().contains("explicit exception"), evaluated.out());
+    }
+
+    @Test
+    void packCreateAcceptsConstraintAndLifecycleGuardRuleKinds() {
+        String changeId = ChangeId.generate().toString();
+        Result created = run(
+                "--json", "policy", "pack", "create",
+                "--name", "Guards",
+                "--rules", "new|Constraint guard|CONSTRAINT_GUARD|WARNING|" + changeId + "|COMPLETED"
+                        + ";;new|Lifecycle guard|LIFECYCLE_GUARD|INFO|" + changeId + "|DRAFT|VERIFYING",
+                "--actor", "alice", "--reason", "guard baseline");
+        assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
+        String packId = uuids(created.out()).getFirst();
+
+        Result versions = run("--json", "policy", "pack", "versions", "--id", packId);
+
+        assertEquals(CliExitCode.SUCCESS.code(), versions.exitCode(), versions.err());
+        assertTrue(versions.out().contains("\"kind\":\"CONSTRAINT_GUARD\""), versions.out());
+        assertTrue(versions.out().contains("\"kind\":\"LIFECYCLE_GUARD\""), versions.out());
+    }
+
+    @Test
+    void packCreateAcceptsQueryAssertionRuleKind() {
+        QueryDefinition query = QueryDefinition.all(
+                new ProjectQueryScope(ProjectSpecificationId.generate()), QueryEntityType.REQUIREMENT, QueryPage.first(50));
+        String encodedQuery = new QueryDefinitionCodec().encode(query);
+
+        Result created = run(
+                "--json", "policy", "pack", "create",
+                "--name", "QueryGuard",
+                "--rules", "new|Query assertion|QUERY_ASSERTION|WARNING|" + encodedQuery + "|GTE|0",
+                "--actor", "alice", "--reason", "query baseline");
+        assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
+        String packId = uuids(created.out()).getFirst();
+
+        Result versions = run("--json", "policy", "pack", "versions", "--id", packId);
+
+        assertEquals(CliExitCode.SUCCESS.code(), versions.exitCode(), versions.err());
+        assertTrue(versions.out().contains("\"kind\":\"QUERY_ASSERTION\""), versions.out());
+    }
+
+    @Test
+    void explicitDataAndConfigDirectoriesAreBothConsumedBeforeActionValidation() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+        int exit;
+        try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
+            Properties properties = new Properties();
+            properties.setProperty("user.home", tempDirectory.resolve("home").toString());
+            properties.setProperty("os.name", "Linux");
+            exit = MorpheusMain.run(new String[]{
+                    "--data-dir", tempDirectory.resolve("data").toString(),
+                    "--config-dir", tempDirectory.resolve("config").toString(),
+                    "--db", tempDirectory.resolve("morpheus.db").toString(),
+                    "policy"}, out, err, Map.of(), properties);
+        }
+        assertEquals(CliExitCode.USAGE.code(), exit);
+        assertTrue(errors.toString(StandardCharsets.UTF_8).contains("policy action is required"));
     }
 
     private Result run(String... rawArgs) {

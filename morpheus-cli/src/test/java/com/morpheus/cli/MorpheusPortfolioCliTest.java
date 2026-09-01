@@ -52,6 +52,41 @@ class MorpheusPortfolioCliTest {
     }
 
     @Test
+    void observesFreshnessAndTraversesWithExplicitDirection() {
+        Result created = run("--json", "portfolio", "create", "--name", "Freshness");
+        assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
+        String portfolioId = firstUuid(created.out());
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        run("--json", "portfolio", "add-project",
+                "--portfolio", portfolioId, "--project", projectId.toString(), "--name", "Alpha");
+
+        Result freshness = run(
+                "--json", "portfolio", "freshness",
+                "--portfolio", portfolioId, "--project", projectId.toString(), "--state", "stale");
+        assertEquals(CliExitCode.SUCCESS.code(), freshness.exitCode(), freshness.err());
+        assertTrue(freshness.out().contains("\"STALE\""), freshness.out());
+
+        Result traversal = run(
+                "portfolio", "traverse", "--portfolio", portfolioId,
+                "--start-project", projectId.toString(), "--start-type", "PROJECT",
+                "--start-id", com.morpheus.domain.identity.DomainIdentity.generate().toString(),
+                "--direction", "outgoing");
+        assertEquals(CliExitCode.SUCCESS.code(), traversal.exitCode(), traversal.err());
+    }
+
+    @Test
+    void explicitDataAndConfigDirectoriesAreBothConsumedBeforeActionValidation() {
+        Result result = run(
+                "--data-dir", tempDirectory.resolve("data").toString(),
+                "--config-dir", tempDirectory.resolve("config").toString(),
+                "--db", tempDirectory.resolve("morpheus.db").toString(),
+                "portfolio");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode());
+        assertTrue(result.err().contains("portfolio requires an action"), result.err());
+    }
+
+    @Test
     void traversalRequiresExplicitStartIdentity() {
         Result created = run("--json", "portfolio", "create", "--name", "Traversal");
         assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());

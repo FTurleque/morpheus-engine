@@ -124,10 +124,10 @@ Qualité continue :
 MORPHEUS CI                exact-head Windows + Ubuntu
 MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
-Surefire ratchet           >= 820
-Architecture ratchet       >= 258
-Global line ratchet        >= 50.6%
-Global branch ratchet      >= 43.0%
+Surefire ratchet           >= 1000
+Architecture ratchet       >= 300
+Global line ratchet        >= 52.0%
+Global branch ratchet      >= 45.0%
 PR changed line coverage   >= 80%
 PR changed branch coverage >= 70%
 Dependency hygiene         blocking
@@ -153,13 +153,18 @@ Pour la baseline courante :
 
 Les anciens wrappers `validate-*.cmd` à la racine ne font plus partie de la documentation active.
 
+## Suivis clôturés
+
+```text
+#154  vérifier SonarCloud et les réglages GitHub Security administrateur — clôturée
+#184  relever progressivement la couverture historique sur les frontières prioritaires — clôturée
+```
+
 ## Suivis encore ouverts
 
 Les éléments suivants ne doivent pas être déclarés terminés sans preuve externe ou événement réel :
 
 ```text
-#154  vérifier SonarCloud et les réglages GitHub Security administrateur
-#184  relever progressivement la couverture historique sur les frontières prioritaires
 #185  qualifier le workflow de release attestée lors d'une vraie v1.2.1+ release
 ```
 

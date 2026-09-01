@@ -12,6 +12,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -213,7 +214,7 @@ final class MorpheusServerCli {
 
     private MorpheusRemoteRole role(String value) {
         try {
-            return MorpheusRemoteRole.valueOf(value.toUpperCase());
+            return MorpheusRemoteRole.valueOf(value.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException("--role must be READ, WRITE, or ADMIN", failure);
         }

@@ -7,7 +7,10 @@ import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
 import com.morpheus.mcp.MorpheusMcpServer;
 
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -28,7 +31,9 @@ public final class MorpheusMain {
         } else if (McpLaunchOptions.isMcpCommand(args)) {
             exitCode = runMcp(args, System.err, System.getenv(), System.getProperties());
         } else {
-            exitCode = run(args, System.out, System.err, System.getenv(), System.getProperties());
+            PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
+            PrintStream err = new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
+            exitCode = run(args, out, err, System.getenv(), System.getProperties());
         }
         if (exitCode != 0) {
             System.exit(exitCode);

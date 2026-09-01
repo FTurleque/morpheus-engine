@@ -44,6 +44,18 @@ class MorpheusCliTest {
     }
 
     @Test
+    void explicitDataAndConfigDirectoriesAreBothConsumedBeforeCommandDispatch() {
+        Invocation invocation = invoke(
+                "--data-dir", tempDir.resolve("data").toString(),
+                "--config-dir", tempDir.resolve("config").toString(),
+                "--db", tempDir.resolve("morpheus.db").toString(),
+                "does-not-exist");
+
+        assertEquals(CliExitCode.USAGE.code(), invocation.exitCode());
+        assertTrue(invocation.stderr().contains("unknown command: does-not-exist"), invocation.stderr());
+    }
+
+    @Test
     void layoutUsesProductionDefaultsAndExplicitDataKeepsPortableStateTogether() {
         Path home = tempDir.resolve("home");
         Properties linux = properties("Linux", home);

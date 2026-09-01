@@ -23,9 +23,10 @@ Java 21 · Maven 3.9.16 · 17 modules (constaté le 31/08/2026 dans `pom.xml` �
 `morpheus-architecture-tests` (compter avec un `glob`, pas de mémoire — le total évolue à
 chaque milestone) assertent la structure, les contrats, la sécurité et jusqu'au contenu
 textuel de fichiers précis.
-`docs/adr/` documente le *pourquoi* (98 fichiers constatés au 31/08/2026 — un doublon de
-numéro `0095-*` existe déjà, donc revérifier avant de citer ce total ou d'assigner un
-nouveau numéro).
+`docs/adr/` documente le *pourquoi* (98 fichiers constatés au 31/08/2026 ; le doublon de
+numéro `0095-*` alors présent a été corrigé le 01/09/2026 — renumérotation en `0097-*` —
+mais revérifier quand même avant de citer ce total ou d'assigner un nouveau numéro, le
+compte évolue à chaque ADR ajouté).
 
 > Avant de décider quoi que ce soit de structurel : **lire le test ArchUnit concerné**, puis l'ADR.
 > Ne jamais deviner une règle — elle est écrite quelque part et vérifiable.
@@ -81,7 +82,7 @@ Les adaptateurs dépendent vers l'intérieur. Les adaptateurs sont **frères** �
 ```bash
 ./mvnw clean verify                                       # reactor complet
 ./mvnw test -pl morpheus-architecture-tests               # tous les gates
-./mvnw test -pl morpheus-architecture-tests -Dtest=*M28*  # gate courant
+./mvnw test -pl morpheus-architecture-tests -Dtest=*M28*  # dernier gate milestone livré
 ./mvnw dependency:analyze                                 # 0 warning exigé
 ```
 
@@ -90,7 +91,10 @@ Dispatcher : `scripts/validate.cmd` → `scripts/validate.ps1`
 
 ## Milestones
 
-Milestone courant : **M28** (intégration client MCP native).
+Dernier milestone livré : **M28** (intégration client MCP native, livré dans 1.2.0). Aucun
+milestone n'est actuellement en cours — la baseline **1.2.1** est une passe corrective et de
+durcissement (audit, sécurité, dette de gouvernance), suivie par l'issue #185 jusqu'à sa
+release réelle, pas un nouveau milestone.
 Gates actifs : **M19** (perf) · **M20** (release) · **M21** (coverage + intégrité) · **M22** (plugins)
 · **M23** (portfolio) · **M24** (query DSL) · **M25** (policy) · **M26** (remote) · **M27** (reasoning) · **M28** (MCP clients) · **D2** (hardening repo)
 

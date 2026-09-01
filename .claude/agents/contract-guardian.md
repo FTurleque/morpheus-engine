@@ -48,8 +48,8 @@ Format TSV : `capability	intent	cli	mcp	http	notes`, `intent` ∈ `READ` | `WRIT
    sous-plateforme, changement de frontière de sécurité, nouveau transport) doit avoir un
    ADR dans `docs/adr/`. Chercher d'abord si un ADR existant couvre déjà le sujet — 98
    fichiers y existent actuellement (compter avec `glob`, ne pas recopier un total figé ;
-   un doublon de numérotation `0095-*` existe déjà, signe que même la numérotation doit
-   être vérifiée avant d'assigner un nouveau numéro)
+   un doublon de numérotation `0095-*` a déjà existé — corrigé le 01/09/2026 — donc vérifier
+   qu'aucun numéro choisi n'est déjà pris avant d'assigner un nouveau numéro)
 6. **Vérifier le quadruplet milestone** si un gate est concerné :
    `morpheus-architecture-tests/.../m<N>/` (suite ArchUnit) + `scripts/validate-m<N>.ps1`
    **et** `.sh` + `docs/roadmap/M<N>_EXECUTION.md` + `docs/validation/VALIDATION_M<N>.md`

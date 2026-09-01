@@ -272,7 +272,7 @@ class ControlledLifecycleMutationContractTest {
                 List.of(), List.of(), List.of(evidence)));
         core.activateSnapshot(snapshotId, Optional.empty());
 
-        MemoryChangeLifecycleMutationStore mutations = new MemoryChangeLifecycleMutationStore();
+        MemoryChangeLifecycleMutationStore mutations = new MemoryChangeLifecycleMutationStore(core);
         ChangeTransitionEvaluationService transitions = new ChangeTransitionEvaluationService(
                 core, content, core, traceability);
         ControlledChangeLifecycleMutationService service = new ControlledChangeLifecycleMutationService(

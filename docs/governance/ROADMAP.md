@@ -81,20 +81,22 @@ MORPHEUS CI                      Windows + Ubuntu exact-head
 MORPHEUS Security                OWASP Dependency-Check
 MORPHEUS CodeQL                  security-extended
 diff coverage PR                 >= 80% lines / >= 70% branches
-global coverage ratchet          >= 50.6% lines / >= 43.0% branches
-Surefire / architecture ratchets >= 820 / >= 258
+global coverage ratchet          >= 52.0% lines / >= 45.0% branches
+Surefire / architecture ratchets >= 1000 / >= 300
 SBOM / provenance                required
 ```
 
-Suivis actifs :
+Suivis clôturés : #154 (SonarCloud + réglages GitHub Security administrateur), #184
+(réduction progressive de la dette de couverture historique).
+
+Suivi actif :
 
 ```text
-#154  SonarCloud + réglages GitHub Security administrateur
-#184  réduction progressive de la dette de couverture historique
 #185  qualification réelle du workflow de release attestée sur v1.2.1+
 ```
 
-Ces suivis ont des critères de clôture explicites : aucune configuration externe ni qualification de release n’est simulée pour obtenir artificiellement un état vert.
+Ce suivi a des critères de clôture explicites : aucune qualification de release n’est
+simulée pour obtenir artificiellement un état vert.
 
 ## R3 — MORPHEUS 1.2.0
 
@@ -160,8 +162,6 @@ Aucun numéro de release supplémentaire n’est déclaré publié avant une vra
 
 ```text
 NEXT
-  réduire la dette de couverture historique (#184)
-  vérifier les réglages externes encore ouverts (#154)
   maintenir les ratchets exact-head sans régression
   qualifier la prochaine vraie release attestée (#185)
 ```

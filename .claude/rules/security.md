@@ -66,7 +66,7 @@ Supprimer une de ces chaînes casse le build.
 
 ## Persistance SQLite
 
-- Schéma supporté : `SUPPORTED_SCHEMA_VERSION = 15`
+- Schéma supporté : `SUPPORTED_SCHEMA_VERSION` (constaté à 17 le 01/09/2026 dans `SqliteSchemaManager` — revérifier avant de citer, cf. `rules/meta.md`)
 - Backup : `VACUUM INTO` + `PRAGMA integrity_check` + `tryLock` + `ATOMIC_MOVE`
 - Restore : exige une **`explicit confirmation`**, et reste `EXPLICITLY_OFFLINE_ONLY`
 - `SqliteTransactionRunner` doit gérer `catch (Error failure)` + `rollbackSuppressing(connection, failure)`

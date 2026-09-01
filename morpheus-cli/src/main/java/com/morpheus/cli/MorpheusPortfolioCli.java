@@ -17,11 +17,9 @@ import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.store.sqlite.SqlitePortfolioStore;
 
 import java.io.PrintStream;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -30,10 +28,15 @@ import java.util.stream.Collectors;
 
 /** M23 CLI for explicit portfolio registry, queries, references and bounded traversal. */
 final class MorpheusPortfolioCli {
+    private static final String OPT_PORTFOLIO = "portfolio";
+    private static final String OPT_PROJECT = "project";
+    private static final String OPT_LIMIT = "limit";
+    private static final String OPT_OFFSET = "offset";
+
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
     static boolean handles(String[] args) {
-        return "portfolio".equals(command(args));
+        return OPT_PORTFOLIO.equals(command(args));
     }
 
     int run(
@@ -48,7 +51,7 @@ final class MorpheusPortfolioCli {
                 throw new IllegalArgumentException("portfolio requires an action");
             }
             String action = parsed.tokens().getFirst();
-            Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+            SimpleOptions options = SimpleOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()));
             try (SqlitePortfolioStore store = new SqlitePortfolioStore(parsed.layout().databasePath())) {
                 PortfolioRegistryService registry = new PortfolioRegistryService(store);
                 PortfolioQueryService query = new PortfolioQueryService(store);
@@ -57,17 +60,17 @@ final class MorpheusPortfolioCli {
                     case "create" -> registry.create(options.required("name"));
                     case "add-project" -> registry.registerProject(
                             portfolio(options),
-                            ProjectSpecificationId.parse(options.required("project")),
+                            ProjectSpecificationId.parse(options.required(OPT_PROJECT)),
                             options.required("name"),
                             options.optional("workspace").map(SourceLocator::file),
                             options.optional("repository").map(MorpheusPortfolioCli::locator),
                             providers(options.optional("providers")));
                     case "missing" -> registry.markMissing(
-                            portfolio(options), ProjectSpecificationId.parse(options.required("project")));
+                            portfolio(options), ProjectSpecificationId.parse(options.required(OPT_PROJECT)));
                     case "freshness" -> registry.observeFreshness(
                             portfolio(options),
-                            ProjectSpecificationId.parse(options.required("project")),
-                            PortfolioFreshnessState.valueOf(options.required("state").toUpperCase()),
+                            ProjectSpecificationId.parse(options.required(OPT_PROJECT)),
+                            PortfolioFreshnessState.valueOf(options.required("state").toUpperCase(Locale.ROOT)),
                             options.optional("revision"),
                             options.optional("explanation"));
                     case "add-reference" -> registry.addReference(
@@ -78,17 +81,17 @@ final class MorpheusPortfolioCli {
                             new ProviderId(options.required("provider")),
                             options.optional("source-locator").map(MorpheusPortfolioCli::locator),
                             options.optional("evidence").map(EvidenceId::parse));
-                    case "list" -> query.listPortfolios(integer(options, "offset", 0), integer(options, "limit", 100));
+                    case "list" -> query.listPortfolios(integer(options, OPT_OFFSET, 0), integer(options, OPT_LIMIT, 100));
                     case "overview" -> query.overview(portfolio(options));
                     case "members" -> query.memberships(
-                            portfolio(options), integer(options, "offset", 0), integer(options, "limit", 100));
-                    case "references" -> options.optional("project")
+                            portfolio(options), integer(options, OPT_OFFSET, 0), integer(options, OPT_LIMIT, 100));
+                    case "references" -> options.optional(OPT_PROJECT)
                             .map(ProjectSpecificationId::parse)
                             .map(projectId -> query.projectReferences(
                                     portfolio(options), projectId,
-                                    integer(options, "offset", 0), integer(options, "limit", 100)))
+                                    integer(options, OPT_OFFSET, 0), integer(options, OPT_LIMIT, 100)))
                             .orElseGet(() -> query.references(
-                                    portfolio(options), integer(options, "offset", 0), integer(options, "limit", 100)));
+                                    portfolio(options), integer(options, OPT_OFFSET, 0), integer(options, OPT_LIMIT, 100)));
                     case "conflicts" -> query.conflicts(portfolio(options));
                     case "traverse" -> traversal.traverse(
                             portfolio(options),
@@ -97,7 +100,7 @@ final class MorpheusPortfolioCli {
                             integer(options, "nodes", 250),
                             integer(options, "links", 1000),
                             PortfolioTraversalDirection.valueOf(
-                                    options.optional("direction").orElse("BOTH").toUpperCase()));
+                                    options.optional("direction").orElse("BOTH").toUpperCase(Locale.ROOT)));
                     default -> throw new IllegalArgumentException("unknown portfolio action: " + action);
                 };
                 write(result, parsed.json(), out);
@@ -120,11 +123,11 @@ final class MorpheusPortfolioCli {
         }
     }
 
-    private static PortfolioId portfolio(Options options) {
-        return PortfolioId.parse(options.required("portfolio"));
+    private static PortfolioId portfolio(SimpleOptions options) {
+        return PortfolioId.parse(options.required(OPT_PORTFOLIO));
     }
 
-    private static PortfolioEntityRef entity(Options options, String prefix) {
+    private static PortfolioEntityRef entity(SimpleOptions options, String prefix) {
         return new PortfolioEntityRef(
                 ProjectSpecificationId.parse(options.required(prefix + "-project")),
                 options.required(prefix + "-type"),
@@ -148,7 +151,7 @@ final class MorpheusPortfolioCli {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    private static int integer(Options options, String key, int fallback) {
+    private static int integer(SimpleOptions options, String key, int fallback) {
         return options.optional(key).map(Integer::parseInt).orElse(fallback);
     }
 
@@ -158,85 +161,21 @@ final class MorpheusPortfolioCli {
     }
 
     private static String command(String[] args) {
-        for (int index = 0; index < args.length; index++) {
-            String token = args[index];
-            if ("--json".equals(token)) {
-                continue;
-            }
-            if ("--data-dir".equals(token) || "--config-dir".equals(token) || "--db".equals(token)) {
-                index++;
-                continue;
-            }
-            return token;
-        }
-        return "";
+        return GlobalArgs.command(args);
     }
 
     private record Parsed(boolean json, CliLayout layout, List<String> tokens) {
         private static Parsed parse(String[] args, Map<String, String> environment, Properties properties) {
-            boolean json = false;
-            Optional<Path> data = Optional.empty();
-            Optional<Path> config = Optional.empty();
-            Optional<Path> database = Optional.empty();
-            List<String> remaining = new ArrayList<>();
-            for (int index = 0; index < args.length; index++) {
-                String token = args[index];
-                switch (token) {
-                    case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    default -> remaining.add(token);
-                }
-            }
-            if (remaining.isEmpty() || !"portfolio".equals(remaining.getFirst())) {
+            GlobalArgs.Parsed global = GlobalArgs.parse(args);
+            List<String> remaining = global.remaining();
+            if (remaining.isEmpty() || !OPT_PORTFOLIO.equals(remaining.getFirst())) {
                 throw new IllegalArgumentException("portfolio command is required");
             }
             return new Parsed(
-                    json,
-                    CliLayout.resolve(data, config, database, environment, properties),
+                    global.json(),
+                    CliLayout.resolve(global.dataDirectory(), global.configDirectory(), global.databasePath(),
+                            environment, properties),
                     List.copyOf(remaining.subList(1, remaining.size())));
-        }
-
-        private static String requireValue(String[] args, int index, String option) {
-            if (index >= args.length || args[index].startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return args[index];
-        }
-    }
-
-    private static final class Options {
-        private final Map<String, String> values = new LinkedHashMap<>();
-
-        static Options parse(List<String> tokens) {
-            Options result = new Options();
-            for (int index = 0; index < tokens.size(); index++) {
-                String token = tokens.get(index);
-                if (!token.startsWith("--")) {
-                    throw new IllegalArgumentException("unknown token: " + token);
-                }
-                String key = token.substring(2);
-                if (result.values.putIfAbsent(key, require(tokens, ++index, token)) != null) {
-                    throw new IllegalArgumentException("duplicate option: " + token);
-                }
-            }
-            return result;
-        }
-
-        String required(String key) {
-            return optional(key).orElseThrow(() -> new IllegalArgumentException("--" + key + " is required"));
-        }
-
-        Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim).filter(value -> !value.isEmpty());
-        }
-
-        private static String require(List<String> tokens, int index, String option) {
-            if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return tokens.get(index);
         }
     }
 }

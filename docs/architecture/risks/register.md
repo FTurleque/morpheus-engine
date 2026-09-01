@@ -72,7 +72,7 @@ La migration V017 change la version de schéma durable de 16 à 17. Les validati
 | `QueryValidator` continuait à parcourir l'AST après dépassement structurel | parcours interrompu dès le premier dépassement structurel pour borner aussi les AST construits directement en mémoire |
 | HTTP/MCP/CLI pouvaient dépendre implicitement du comportement du codec sans garde d'architecture dédiée | contrat d'architecture ajouté : les trois adapters policy doivent passer par `QueryDefinitionCodec` et ne peuvent introduire un décodeur Base64 parallèle |
 | Couverture historique à 50,7896 % lignes / 43,2215 % branches | aucun seuil abaissé ; tests adversariaux ciblés ajoutés ; la remontée progressive a ensuite permis de clôturer #184 après qualification des ratchets `52,0% / 45,0%` |
-| Réglages SonarCloud / alertes administrateur externes non qualifiables par le code | restent explicitement ouverts dans #154 ; ne pas prétendre à une correction repository-side supplémentaire |
+| Réglages SonarCloud / alertes administrateur externes non qualifiables par le code | vérifiés directement sur leurs plateformes ; #154 clôturée, aucune correction repository-side supplémentaire n'était requise |
 | Workflow release attestée correct mais jamais exécuté sur une vraie release | qualification end-to-end suivie par #185 ; aucune release artificielle créée pour fermer le constat |
 
 Les tests adversariaux du codec couvrent notamment une représentation >16 KiB, 10 000 `NOT` imbriqués, le 129e nœud et le 65e prédicat. La preuve M24 historique reste immuable ; ADR-0092 contient un addendum de hardening post-audit.
