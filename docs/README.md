@@ -54,7 +54,7 @@ Les distributions Windows/Linux embarquent leur runtime Java.
 | MCP | [MCP](developer/MCP.md) |
 | cross-engine | [Intégrations](developer/INTEGRATIONS.md) |
 
-Baseline technique courante : Java 21, Maven Wrapper 3.9.16, SQLite JDBC 3.53.2.0, Jackson 3.1.5 LTS, Java MCP SDK 2.0.1, `jdk.httpserver`, `jpackage` et Inno Setup.
+Baseline technique courante : Java 21, Maven Wrapper 3.9.16, SQLite JDBC 3.53.2.0, Jackson 3.2.2, Java MCP SDK 2.0.1, `jdk.httpserver`, `jpackage` et Inno Setup.
 
 ## Gouvernance
 

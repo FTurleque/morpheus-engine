@@ -52,14 +52,18 @@ Pour chaque milestone actif, vérifier le quadruplet :
 ═══════════════════════════════════════════════
 
 DÉPENDANCES     ✅ 0 warning
-ARCHITECTURE    ✅ 70 tests / 0 violation
-COVERAGE        ✅ 47.3% lignes (≥47%) | 40.5% branches (≥40%)
-CONVERGENCE     ✅ N capacités, 0 case vide
-VERSION         ✅ 1.2.1 — ProductMetadata unique
-MILESTONES      ✅ M19–M28 + D2 complets
+ARCHITECTURE    ✅ <N constaté> tests / 0 violation
+COVERAGE        ✅ <line%> lignes (≥ratchet lu en live) | <branch%> branches (≥ratchet lu en live)
+CONVERGENCE     ✅ <N> capacités, 0 case vide
+VERSION         ✅ <version lue dans ProductMetadata> — source unique
+MILESTONES      ✅ <liste constatée> complets
 
-Gates: ████████████ 11/11
+Gates: <N passants>/<N total>
 ```
+
+Tous les chiffres de ce gabarit sont des **exemples de format**, jamais des valeurs à
+recopier — chaque exécution doit les remplacer par ce qui est réellement lu dans les
+sources vivantes (cf. `.claude/rules/meta.md`).
 
 Pour chaque ❌ : citer le test exact, la ligne fautive, et la correction minimale.
 

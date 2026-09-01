@@ -1,0 +1,47 @@
+# Règles — Fraîcheur des règles elles-mêmes
+
+Ce fichier existe parce qu'une dérive réelle a été constatée le 31/08/2026 :
+`rules/testing.md` citait un ratchet coverage de 47%/40%, `rules/governance.md` citait
+"711 et 253", `docs/README.md` citait 820/258/50.6%/43.0% — **trois chiffres différents
+pour le même seuil**, alors que la source réelle (`config/m21-quality-ratchets.properties`)
+donnait une quatrième valeur. Un agent qui aurait suivi `.claude/rules/` tel quel aurait
+raisonné sur des seuils faux.
+
+## Principe
+
+**Tout chiffre présent dans `.claude/rules/*.md` est une copie, jamais l'original.**
+Les fichiers de ce dossier décrivent des règles *stables* (ce qui est interdit, ce qui
+est obligatoire, où chercher). Dès qu'une règle s'appuie sur un **nombre qui évolue avec
+le projet** (seuil de coverage, nombre de tests, nombre d'ADR, nombre de gates, numéro de
+version, compteurs `dependency:analyze`), ce nombre doit être traité comme périssable.
+
+## TOUJOURS
+
+- Avant un audit de gouvernance, de coverage, ou toute réponse qui cite un seuil chiffré :
+  relire la source vivante, pas cette page. Sources vivantes connues :
+  - `config/m21-quality-ratchets.properties` — tests/architecture/coverage minimums
+  - `morpheus-architecture-tests/.../d2/CoverageQualityGateTest.java` et
+    `D2RepositoryHardeningArchitectureTest.java` — planchers D2 asserts textuellement
+  - `pom.xml` (racine) — version produit, versions pinnées
+  - `docs/adr/` — compter les fichiers, ne pas répéter un total mémorisé (un doublon de
+    numérotation ADR existe déjà — `0095-*` apparaît deux fois — donc "N ADRs" doit
+    toujours être vérifié par un `glob`/`ls`, jamais recopié tel quel)
+  - `contracts/public-surfaces.tsv` — compter les lignes et les sentinelles réellement
+    présentes plutôt que de citer un total figé
+- Si un chiffre trouvé dans les sources ci-dessus diverge d'un chiffre écrit dans
+  `.claude/rules/*.md` ou `CLAUDE.md`, **le signaler explicitement** dans la réponse et
+  proposer la correction de la règle dans la même session — ne pas trancher silencieusement
+  en faveur de l'un ou l'autre
+- Quand un ratchet (`config/m21-quality-ratchets.properties` ou équivalent futur) change :
+  répercuter la nouvelle valeur **dans le même changement** vers `rules/testing.md`,
+  `rules/governance.md` et `docs/README.md` — les trois doivent rester identiques
+- Traiter `post-edit.ps1` (hook) comme un filet de sécurité, pas une garantie : il avertit
+  quand un fichier de gouvernance change, mais ne vérifie pas la cohérence des valeurs
+
+## JAMAIS
+
+- Jamais citer un seuil de coverage, un nombre de tests ou un nombre d'ADR de mémoire sans
+  l'avoir revérifié dans la session courante si la réponse a un impact décisionnel
+  (passer/casser un gate, autoriser une PR, juger une régression)
+- Jamais supposer qu'une règle `.claude/rules/*.md` est plus récente que le code — en cas
+  de doute, le code et les scripts de validation font foi, pas la documentation

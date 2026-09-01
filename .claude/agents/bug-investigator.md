@@ -1,6 +1,6 @@
 ---
 name: bug-investigator
-description: Use for deep bug investigation in Morpheus Engine. Reproduces the bug, traces the execution path across modules, identifies the root cause, and proposes a minimal fix. Trigger when: debugging a failing test, tracing an unexpected behavior, investigating a regression, or understanding a stack trace.
+description: "Use for deep bug investigation in Morpheus Engine. Reproduces the bug, traces the execution path across modules, identifies the root cause, and proposes a minimal fix. Trigger when: debugging a failing test, tracing an unexpected behavior, investigating a regression, or understanding a stack trace."
 tools:
   - Read
   - Grep
@@ -64,7 +64,7 @@ Règles pour le fix :
 
 ```bash
 ./mvnw test -pl <module-affecté> 2>&1
-./mvnw test -pl morpheus-architecture-tests -Dtest=*M28* 2>&1
+./mvnw test -pl morpheus-architecture-tests -Dtest=*M<milestone concerné, lu dans .claude/CLAUDE.md>* 2>&1
 ./mvnw dependency:analyze -pl <module-affecté> 2>&1
 ```
 
@@ -79,7 +79,7 @@ Symptôme:    <description>
 Module:      morpheus-<x>
 Fichier:     src/main/java/.../Foo.java:<line>
 Type:        [Régression|Nouveau|Edge case]
-Gate affecté: M28 [IMPACT|SAFE]
+Gate affecté: <milestone lu en live> [IMPACT|SAFE]
 
 Cause racine:
   <explication en 2-3 phrases du pourquoi>
@@ -91,7 +91,7 @@ Fix appliqué:
 Tests:
   ✅ Test de reproduction: <TestClass#méthode>
   ✅ <N> tests module passants
-  ✅ Gate M28 intact
+  ✅ Gate <milestone lu en live> intact
 ```
 
 Sois méthodique. Ne propose jamais de fix sans avoir d'abord un test qui le valide.

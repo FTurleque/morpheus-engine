@@ -20,6 +20,8 @@ import java.util.Objects;
  * any real path that escapes the canonical workspace root.</p>
  */
 public final class SafeWorkspaceFileResolver {
+    private static final int DEFAULT_MAX_UTF8_BYTES = 1024 * 1024;
+
     private final Path lexicalRoot;
     private final Path realRoot;
     private final ReadObserver readObserver;
@@ -60,7 +62,7 @@ public final class SafeWorkspaceFileResolver {
     }
 
     public String readUtf8(Path relativePath) throws IOException {
-        return readUtf8(relativePath, Integer.MAX_VALUE);
+        return readUtf8(relativePath, DEFAULT_MAX_UTF8_BYTES);
     }
 
     /** Reads a confined strict UTF-8 file while refusing more than {@code maxBytes} before buffering the excess. */
