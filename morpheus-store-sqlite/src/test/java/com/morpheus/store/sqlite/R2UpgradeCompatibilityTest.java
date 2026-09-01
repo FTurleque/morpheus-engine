@@ -49,11 +49,7 @@ class R2UpgradeCompatibilityTest {
             baselineChecksums = applyOneDotZeroBaseline(connection);
             insertPublishedOneDotZeroState(connection);
 
-            assertEquals(12, new SqliteSchemaManager().currentVersion(connection));
-            assertEquals("file", scalar(connection, "SELECT root_scheme FROM projects WHERE id = 'project-r2'"));
-            assertEquals("ACTIVE", scalar(connection, "SELECT state FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
-            assertEquals("release-1.0.0", scalar(connection,
-                    "SELECT source_revision FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
+            assertOneDotZeroBaselineState(connection);
         }
 
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
@@ -61,28 +57,10 @@ class R2UpgradeCompatibilityTest {
         }
 
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(17, new SqliteSchemaManager().currentVersion(connection));
-            assertEquals(17, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
-
-            assertEquals("file", scalar(connection, "SELECT root_scheme FROM projects WHERE id = 'project-r2'"));
-            assertEquals("workspace-r2", scalar(connection, "SELECT root_value FROM projects WHERE id = 'project-r2'"));
-            assertEquals("project-r2", scalar(connection,
-                    "SELECT project_id FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
-            assertEquals("ACTIVE", scalar(connection, "SELECT state FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
-            assertEquals("release-1.0.0", scalar(connection,
-                    "SELECT source_revision FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
-
-            assertTrue(tableExists(connection, "portfolios"));
-            assertTrue(tableExists(connection, "saved_views"));
-            assertTrue(tableExists(connection, "policy_packs"));
-            assertTrue(tableExists(connection, "specification_version_sequences"));
-            assertTrue(indexExists(connection, "uq_specification_versions_project_sequence"));
-
-            for (Map.Entry<Integer, String> baseline : baselineChecksums.entrySet()) {
-                assertEquals(baseline.getValue(), scalar(connection,
-                        "SELECT checksum FROM schema_migrations WHERE version = " + baseline.getKey()),
-                        "Historical migration checksum changed for V" + baseline.getKey());
-            }
+            assertUpgradedSchemaVersionAndMigrationCount(connection);
+            assertProjectAndSnapshotPreservedAfterUpgrade(connection);
+            assertNewTablesAndIndexesExist(connection);
+            assertHistoricalChecksumsUnchanged(connection, baselineChecksums);
         }
 
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
@@ -90,11 +68,55 @@ class R2UpgradeCompatibilityTest {
         }
 
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(17, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
-            assertEquals(1, integerScalar(connection, "SELECT COUNT(*) FROM projects WHERE id = 'project-r2'"));
-            assertEquals(1, integerScalar(connection,
-                    "SELECT COUNT(*) FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
+            assertNoDuplicateRowsAfterSecondStartup(connection);
         }
+    }
+
+    private void assertOneDotZeroBaselineState(Connection connection) throws Exception {
+        assertEquals(12, new SqliteSchemaManager().currentVersion(connection));
+        assertEquals("file", scalar(connection, "SELECT root_scheme FROM projects WHERE id = 'project-r2'"));
+        assertEquals("ACTIVE", scalar(connection, "SELECT state FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
+        assertEquals("release-1.0.0", scalar(connection,
+                "SELECT source_revision FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
+    }
+
+    private void assertUpgradedSchemaVersionAndMigrationCount(Connection connection) throws Exception {
+        assertEquals(17, new SqliteSchemaManager().currentVersion(connection));
+        assertEquals(17, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
+    }
+
+    private void assertProjectAndSnapshotPreservedAfterUpgrade(Connection connection) throws Exception {
+        assertEquals("file", scalar(connection, "SELECT root_scheme FROM projects WHERE id = 'project-r2'"));
+        assertEquals("workspace-r2", scalar(connection, "SELECT root_value FROM projects WHERE id = 'project-r2'"));
+        assertEquals("project-r2", scalar(connection,
+                "SELECT project_id FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
+        assertEquals("ACTIVE", scalar(connection, "SELECT state FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
+        assertEquals("release-1.0.0", scalar(connection,
+                "SELECT source_revision FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
+    }
+
+    private void assertNewTablesAndIndexesExist(Connection connection) throws Exception {
+        assertTrue(tableExists(connection, "portfolios"));
+        assertTrue(tableExists(connection, "saved_views"));
+        assertTrue(tableExists(connection, "policy_packs"));
+        assertTrue(tableExists(connection, "specification_version_sequences"));
+        assertTrue(indexExists(connection, "uq_specification_versions_project_sequence"));
+    }
+
+    private void assertHistoricalChecksumsUnchanged(Connection connection, Map<Integer, String> baselineChecksums)
+            throws Exception {
+        for (Map.Entry<Integer, String> baseline : baselineChecksums.entrySet()) {
+            assertEquals(baseline.getValue(), scalar(connection,
+                    "SELECT checksum FROM schema_migrations WHERE version = " + baseline.getKey()),
+                    "Historical migration checksum changed for V" + baseline.getKey());
+        }
+    }
+
+    private void assertNoDuplicateRowsAfterSecondStartup(Connection connection) throws Exception {
+        assertEquals(17, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
+        assertEquals(1, integerScalar(connection, "SELECT COUNT(*) FROM projects WHERE id = 'project-r2'"));
+        assertEquals(1, integerScalar(connection,
+                "SELECT COUNT(*) FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
     }
 
     private Map<Integer, String> applyOneDotZeroBaseline(Connection connection) throws Exception {
