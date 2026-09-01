@@ -106,6 +106,20 @@ class LocalSourceInventorySecurityTest {
     }
 
     @Test
+    void verificationComputerIoFailureIsCaughtAsAScopedFileFailureNotAScanCrash() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("verification-io-failure"));
+        Files.writeString(workspace.resolve("source.md"), "content", StandardCharsets.UTF_8);
+
+        LocalSourceInventoryScanner scanner = mutationScanner((path, maxBytes) -> {
+            throw new IOException("simulated verification I/O failure");
+        });
+
+        SourceInventoryScanResult result = scan(scanner, workspace);
+
+        assertMutationFailure(result, "source.md", "simulated verification I/O failure");
+    }
+
+    @Test
     void rejectsSameSizeSameMtimeAtomicReplacementWithDifferentFileIdentity() throws Exception {
         Path workspace = Files.createDirectories(tempDir.resolve("same-metadata-replacement"));
         Path source = workspace.resolve("source.md");
