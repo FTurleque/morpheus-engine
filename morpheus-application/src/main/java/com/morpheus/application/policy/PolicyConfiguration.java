@@ -25,7 +25,7 @@ public final class PolicyConfiguration {
             if (revision <= 0) {
                 throw new IllegalArgumentException("activation revision must be positive");
             }
-            actor = nonBlank(actor, "actor");
+            actor = requireBounded(actor, "actor", PolicyBudgets.MAX_ACTOR);
             Objects.requireNonNull(updatedAt, "updatedAt");
         }
 
@@ -50,8 +50,8 @@ public final class PolicyConfiguration {
             Objects.requireNonNull(packId, "packId");
             Objects.requireNonNull(ruleId, "ruleId");
             Objects.requireNonNull(mode, "mode");
-            reason = nonBlank(reason, "reason");
-            actor = nonBlank(actor, "actor");
+            reason = requireBounded(reason, "reason", PolicyBudgets.MAX_REASON);
+            actor = requireBounded(actor, "actor", PolicyBudgets.MAX_ACTOR);
             if (revision <= 0) {
                 throw new IllegalArgumentException("override revision must be positive");
             }
@@ -101,8 +101,8 @@ public final class PolicyConfiguration {
             Objects.requireNonNull(versionId, "versionId");
             Objects.requireNonNull(ruleId, "ruleId");
             Objects.requireNonNull(scope, "scope");
-            actor = nonBlank(actor, "actor");
-            reason = nonBlank(reason, "reason");
+            actor = requireBounded(actor, "actor", PolicyBudgets.MAX_ACTOR);
+            reason = requireBounded(reason, "reason", PolicyBudgets.MAX_REASON);
             Objects.requireNonNull(at, "at");
         }
 
@@ -117,11 +117,14 @@ public final class PolicyConfiguration {
         return scope.type() + ":" + scope.identity();
     }
 
-    private static String nonBlank(String value, String name) {
+    private static String requireBounded(String value, String name, int maxLength) {
         Objects.requireNonNull(value, name);
         String normalized = value.trim();
         if (normalized.isEmpty()) {
             throw new IllegalArgumentException(name + " must not be blank");
+        }
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(name + " exceeds " + maxLength + " characters");
         }
         return normalized;
     }
