@@ -50,4 +50,3 @@ Fix: <une phrase sur le quoi>
 Tests: ✅ <N> tests passants, 0 régression
 Gates: ✅ <milestone concerné lu en live> intact
 ```
-

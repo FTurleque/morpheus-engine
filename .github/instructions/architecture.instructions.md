@@ -42,4 +42,3 @@ classpath scanning.
 3. Si une surface publique change, mettre à jour `contracts/public-surfaces.tsv` **et**
    `docs/openapi/morpheus-v1-*.yaml` dans le même changement
 4. Lancer `./mvnw test -pl morpheus-architecture-tests` avant de proposer le changement comme terminé
-

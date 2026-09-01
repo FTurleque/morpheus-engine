@@ -104,6 +104,3 @@ Toute modification d'un artefact de gouvernance IA (`.github/instructions/`,
 2. Éviter tout chiffre périssable — renvoyer vers la source vivante
 3. Être mentionnée dans la description de la PR (ce sont des fichiers de gouvernance, pas
    de simples fichiers de config)
-
-
-

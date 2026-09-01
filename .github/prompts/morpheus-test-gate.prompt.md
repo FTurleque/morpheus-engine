@@ -46,4 +46,3 @@ Le gate applique `max(plancher D2 fixe, ratchet qualifié vivant)`. Le plancher 
 constante fixe dans `CoverageQualityGateTest.java` (`D2_MIN_LINE_RATIO` /
 `D2_MIN_BRANCH_RATIO`) ; le ratchet qualifié monte à chaque milestone — lire
 `config/m21-quality-ratchets.properties`, jamais un pourcentage mémorisé.
-

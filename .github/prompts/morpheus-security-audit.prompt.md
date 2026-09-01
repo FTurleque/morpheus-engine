@@ -71,4 +71,3 @@ CVE             ✅/❌ seuil CVSS lu dans pom.xml, pas mémorisé
 ```
 
 Pour chaque ❌ : fichier, chaîne manquante ou interdite, test d'architecture qui l'exige.
-

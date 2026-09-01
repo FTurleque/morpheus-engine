@@ -58,4 +58,3 @@ Ne jamais recopier un seuil de coverage, un nombre de tests ou un nombre d'ADR d
 réponse à impact décisionnel sans l'avoir revérifié dans la session : source vivante
 = `config/m21-quality-ratchets.properties` + `docs/adr/` compté par `glob`. Voir
 `.claude/rules/meta.md`.
-

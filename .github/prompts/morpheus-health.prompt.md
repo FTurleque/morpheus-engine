@@ -56,4 +56,3 @@ Recommandations:
 
 Si l'utilisateur demande un rapport "complet", exécuter aussi
 `./mvnw clean verify -q` (plus lent).
-

@@ -61,4 +61,3 @@ avant toute revue de sécurité).
 `NVD_API_KEY` et `MORPHEUS_SERVER_TLS_PASSWORD` sont des variables d'environnement,
 jamais des flags CLI, jamais des littéraux dans le code, les logs ou les messages de
 commit.
-

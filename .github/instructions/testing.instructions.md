@@ -47,4 +47,3 @@ docs/validation/VALIDATION_M<N>.md                                         ← p
 ./mvnw test -pl morpheus-architecture-tests                      # tous les gates
 ./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest
 ```
-

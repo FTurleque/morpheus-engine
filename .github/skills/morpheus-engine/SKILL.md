@@ -64,5 +64,3 @@ Aucun framework applicatif (pas de Spring/Micronaut), aucun Docker.
    d'une autre page de documentation
 4. Vérifier la convergence des contrats si une surface publique change
 5. Valider avec les commandes Maven listées dans `.github/instructions/build.instructions.md`
-
-

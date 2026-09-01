@@ -43,4 +43,3 @@ partagée avec Claude Code).
 
 `UNKNOWN` n'est jamais silencieusement converti en `BLOCKED` ou en `PASS`. Si une
 information manque, la réponse le dit.
-

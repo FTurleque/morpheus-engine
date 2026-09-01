@@ -40,4 +40,3 @@ version sans mettre à jour le test correspondant casse le gate.
 · Jackson 3 (`tools.jackson`) · `jpackage` + Inno Setup (distribution, **pas Docker**) ·
 Maven multi-module. Voir les ADR référencés dans `.claude/rules/build.md` pour le
 *pourquoi* de chaque choix.
-

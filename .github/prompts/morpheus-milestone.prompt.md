@@ -39,4 +39,3 @@ existant, ou "next" pour préparer le suivant.
 
 Jamais deviner le milestone courant ou le numéro du prochain — le lire dans
 `.claude/CLAUDE.md` ou dans `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/`.
-

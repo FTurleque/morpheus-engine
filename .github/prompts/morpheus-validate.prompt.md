@@ -35,4 +35,3 @@ Milestone M<N> — Validation
 
 Si des violations sont trouvées, fournir le chemin exact vers le test ArchUnit
 correspondant.
-

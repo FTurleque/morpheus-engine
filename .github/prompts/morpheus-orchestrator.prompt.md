@@ -35,4 +35,3 @@ vivante (`config/m21-quality-ratchets.properties`, `pom.xml`, `docs/adr/` compt�
 Ne pas inventer une procédure : lire `.claude/rules/*.md` (source détaillée) et
 `.github/instructions/*.instructions.md` (ciblage par chemin), citer le fichier de test
 ArchUnit ou le script `scripts/validate-m*` concerné avant de répondre.
-

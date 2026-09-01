@@ -69,4 +69,3 @@ MILESTONES      ✅/❌ <liste constatée> complets
 Pour chaque ❌ : citer le test exact, la ligne fautive, et la correction minimale. Tous les
 chiffres du gabarit ci-dessus sont des emplacements à remplir en live, jamais des valeurs
 à recopier depuis ce fichier (cf. `.claude/rules/meta.md`).
-
