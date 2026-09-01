@@ -1,4 +1,4 @@
-# ADR-0095 — Full publish version semantics and failed candidates
+# ADR-0097 — Full publish version semantics and failed candidates
 
 - Statut : **Acceptée — post-audit M28**
 - Date : 19 août 2026

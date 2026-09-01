@@ -23,9 +23,11 @@ version, compteurs `dependency:analyze`), ce nombre doit être traité comme pé
   - `morpheus-architecture-tests/.../d2/CoverageQualityGateTest.java` et
     `D2RepositoryHardeningArchitectureTest.java` — planchers D2 asserts textuellement
   - `pom.xml` (racine) — version produit, versions pinnées
-  - `docs/adr/` — compter les fichiers, ne pas répéter un total mémorisé (un doublon de
-    numérotation ADR existe déjà — `0095-*` apparaît deux fois — donc "N ADRs" doit
-    toujours être vérifié par un `glob`/`ls`, jamais recopié tel quel)
+  - `docs/adr/` — compter les fichiers, ne pas répéter un total mémorisé ("N ADRs" doit
+    toujours être vérifié par un `glob`/`ls`, jamais recopié tel quel ; un doublon de
+    numérotation `0095-*` a existé jusqu'au 01/09/2026, corrigé en renumérotant le second
+    fichier en `0097-*` — la numérotation elle-même n'est donc pas à l'abri d'un futur
+    doublon et mérite d'être revérifiée avant d'assigner un nouveau numéro)
   - `contracts/public-surfaces.tsv` — compter les lignes et les sentinelles réellement
     présentes plutôt que de citer un total figé
 - Si un chiffre trouvé dans les sources ci-dessus diverge d'un chiffre écrit dans

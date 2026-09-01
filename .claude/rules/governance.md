@@ -38,7 +38,7 @@ avec l'OpenAPI. Modifier une signature sans mettre à jour les deux casse le gat
 ## TOUJOURS
 
 - Mettre à jour **ensemble** : le code, `contracts/public-surfaces.tsv`, et `docs/openapi/morpheus-v1-*.yaml`
-- Écrire un ADR dans `docs/adr/` pour toute décision structurelle (98 fichiers constatés le 31/08/2026, dont un doublon de numéro `0095-*` — recompter avec `glob`, ne pas recopier ce total, cf. `rules/meta.md`)
+- Écrire un ADR dans `docs/adr/` pour toute décision structurelle (98 fichiers constatés le 31/08/2026 — recompter avec `glob`, ne pas recopier ce total, cf. `rules/meta.md`)
 - Livrer le quadruplet complet pour un nouveau milestone (suite ArchUnit + scripts dual-platform + EXECUTION + VALIDATION)
 - Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée
 

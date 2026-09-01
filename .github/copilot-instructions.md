@@ -36,8 +36,8 @@ jamais l'original.**
   - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java`
     et `.../d2/D2RepositoryHardeningArchitectureTest.java` — planchers D2, gate de non-régression
   - `pom.xml` (racine) — version produit, liste des `<module>`, versions pinnées
-  - `docs/adr/` — compter les fichiers réels (un doublon de numérotation `0095-*` existe déjà :
-    ne jamais recopier un total mémorisé)
+  - `docs/adr/` — compter les fichiers réels (ne jamais recopier un total mémorisé ; un
+    doublon de numérotation `0095-*` a existé jusqu'au 01/09/2026, corrigé en `0097-*`)
   - `contracts/public-surfaces.tsv` — convergence CLI/MCP/HTTP, compter les lignes réelles
 - Si un chiffre trouvé dans le code diverge d'un chiffre écrit dans ces instructions,
   **le signaler explicitement** dans la réponse et proposer la correction du fichier

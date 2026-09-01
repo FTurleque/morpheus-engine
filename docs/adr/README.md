@@ -112,6 +112,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0094](0094-optional-team-remote-server-mode.md) | Mode serveur remote optionnel, TLS/auth/RBAC, concurrence bornée et maintenance SQLite offline | **Acceptée — M26** |
 | [ADR-0095](0095-evidence-backed-assisted-reasoning.md) | Analyse assistée fondée sur des preuves, confiance explicite et séparation facts/claims | **Acceptée — M27** |
 | [ADR-0096](0096-conservative-native-mcp-client-integration.md) | Intégration native MCP explicite, conservatrice et state-driven | **Acceptée — M28** |
+| [ADR-0097](0097-full-publish-version-semantics-and-failed-candidates.md) | Sémantique de `publishFull`, séquence durable et candidats `FAILED` | **Acceptée — post-audit M28** |
 
 # Preuves par jalon
 
