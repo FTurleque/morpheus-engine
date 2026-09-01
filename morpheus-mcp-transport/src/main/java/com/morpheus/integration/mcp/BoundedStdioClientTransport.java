@@ -19,7 +19,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -473,29 +472,6 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         int length = bytes.length;
         if (length > 0 && bytes[length - 1] == '\r') length--;
         return StrictUtf8.decode(bytes, length);
-    }
-
-    private record OutboundFrame(byte[] encoded) {
-        private OutboundFrame {
-            encoded = Objects.requireNonNull(encoded, "encoded");
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            if (this == other) return true;
-            if (!(other instanceof OutboundFrame that)) return false;
-            return Arrays.equals(encoded, that.encoded);
-        }
-
-        @Override
-        public int hashCode() {
-            return Arrays.hashCode(encoded);
-        }
-
-        @Override
-        public String toString() {
-            return "OutboundFrame[encoded=" + Arrays.toString(encoded) + "]";
-        }
     }
 
     static final class MessageTooLargeException extends IOException {
