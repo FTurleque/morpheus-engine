@@ -62,9 +62,10 @@ class ProviderPluginContractAssertionsTest {
         FakePlugin plugin = new FakePlugin(PROVIDER_ID, false);
         var snapshot = ProviderPluginContractAssertions.verify(plugin, WORKSPACE);
         plugin.nonDeterministicReadFrom(2);
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
 
         assertThrows(AssertionError.class, () -> ProviderPluginContractAssertions.verifyRead(
-                snapshot, WORKSPACE, ProjectSpecificationId.generate()));
+                snapshot, WORKSPACE, projectId));
     }
 
     @Test
@@ -72,9 +73,10 @@ class ProviderPluginContractAssertionsTest {
         FakePlugin plugin = new FakePlugin(PROVIDER_ID, false);
         var snapshot = ProviderPluginContractAssertions.verify(plugin, WORKSPACE);
         plugin.dropCategoryReport(ReadCategory.ARCHIVES);
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
 
         assertThrows(AssertionError.class, () -> ProviderPluginContractAssertions.verifyRead(
-                snapshot, WORKSPACE, ProjectSpecificationId.generate()));
+                snapshot, WORKSPACE, projectId));
     }
 
     private static final class FakePlugin implements MorpheusProviderPlugin {

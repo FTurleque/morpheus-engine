@@ -8,6 +8,10 @@ import java.util.Optional;
 
 /** Mutable governance configuration is explicit, CAS-versioned and separately audited. */
 public final class PolicyConfiguration {
+    private static final String FIELD_SCOPE = "scope";
+    private static final String FIELD_PACK_ID = "packId";
+    private static final String FIELD_ACTOR = "actor";
+
     private PolicyConfiguration() {
     }
 
@@ -19,13 +23,13 @@ public final class PolicyConfiguration {
             String actor,
             Instant updatedAt) implements Comparable<Activation> {
         public Activation {
-            Objects.requireNonNull(scope, "scope");
-            Objects.requireNonNull(packId, "packId");
+            Objects.requireNonNull(scope, FIELD_SCOPE);
+            Objects.requireNonNull(packId, FIELD_PACK_ID);
             Objects.requireNonNull(versionId, "versionId");
             if (revision <= 0) {
                 throw new IllegalArgumentException("activation revision must be positive");
             }
-            actor = requireBounded(actor, "actor", PolicyBudgets.MAX_ACTOR);
+            actor = requireBounded(actor, FIELD_ACTOR, PolicyBudgets.MAX_ACTOR);
             Objects.requireNonNull(updatedAt, "updatedAt");
         }
 
@@ -46,12 +50,12 @@ public final class PolicyConfiguration {
             long revision,
             Instant updatedAt) implements Comparable<Override> {
         public Override {
-            Objects.requireNonNull(scope, "scope");
-            Objects.requireNonNull(packId, "packId");
+            Objects.requireNonNull(scope, FIELD_SCOPE);
+            Objects.requireNonNull(packId, FIELD_PACK_ID);
             Objects.requireNonNull(ruleId, "ruleId");
             Objects.requireNonNull(mode, "mode");
             reason = requireBounded(reason, "reason", PolicyBudgets.MAX_REASON);
-            actor = requireBounded(actor, "actor", PolicyBudgets.MAX_ACTOR);
+            actor = requireBounded(actor, FIELD_ACTOR, PolicyBudgets.MAX_ACTOR);
             if (revision <= 0) {
                 throw new IllegalArgumentException("override revision must be positive");
             }
@@ -97,11 +101,11 @@ public final class PolicyConfiguration {
         public AuditRecord {
             Objects.requireNonNull(id, "id");
             Objects.requireNonNull(action, "action");
-            Objects.requireNonNull(packId, "packId");
+            Objects.requireNonNull(packId, FIELD_PACK_ID);
             Objects.requireNonNull(versionId, "versionId");
             Objects.requireNonNull(ruleId, "ruleId");
-            Objects.requireNonNull(scope, "scope");
-            actor = requireBounded(actor, "actor", PolicyBudgets.MAX_ACTOR);
+            Objects.requireNonNull(scope, FIELD_SCOPE);
+            actor = requireBounded(actor, FIELD_ACTOR, PolicyBudgets.MAX_ACTOR);
             reason = requireBounded(reason, "reason", PolicyBudgets.MAX_REASON);
             Objects.requireNonNull(at, "at");
         }

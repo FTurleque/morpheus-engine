@@ -137,10 +137,6 @@ public final class MemoryChangeLifecycleMutationStore implements ChangeLifecycle
                 ChangeLifecycleOperationalState.initial(attempt.projectId(), attempt.changeId()));
     }
 
-    private Optional<ChangeLifecycleOperationalState> current(ChangeLifecycleMutationAttempt attempt, boolean optional) {
-        return Optional.of(current(attempt));
-    }
-
     private ChangeLifecycleMutationPersistenceResult conflict(
             ChangeLifecycleOperationalState current,
             String reason) {
