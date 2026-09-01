@@ -102,7 +102,7 @@ printf '%s\n' "Creating self-contained Linux app-image with embedded runtime + j
   --main-jar morpheus.jar \
   --main-class com.morpheus.cli.MorpheusMain \
   --add-modules jdk.httpserver,java.sql,java.net.http \
-  --java-options "--enable-native-access=ALL-UNNAMED" \
+  --java-options "--enable-native-access=ALL-UNNAMED -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8" \
   --dest "$IMAGE_ROOT"
 
 LAUNCHER="$IMAGE_ROOT/morpheus/bin/morpheus"

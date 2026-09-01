@@ -45,8 +45,11 @@ import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.task.ImplementationTask;
 import com.morpheus.provider.openspec.OpenSpecProjectContentReader;
 
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -66,7 +69,9 @@ public final class MorpheusCli {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
     public static void main(String[] args) {
-        int exit = new MorpheusCli().run(args, System.out, System.err, System.getenv(), System.getProperties());
+        PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
+        PrintStream err = new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
+        int exit = new MorpheusCli().run(args, out, err, System.getenv(), System.getProperties());
         if (exit != 0) {
             System.exit(exit);
         }
