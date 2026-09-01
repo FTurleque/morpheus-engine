@@ -36,6 +36,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -116,7 +117,7 @@ final class MorpheusPolicyCli {
                 options.rejectUnknown(Set.of("id", "rule", "mode", "project", "portfolio", "expected-revision", "actor", "reason"));
                 yield PolicyPublicViews.override(runtime.registry.putOverride(
                         scope(options), pack(options), PolicyIds.RuleId.parse(options.required("rule")),
-                        PolicyConfiguration.OverrideMode.valueOf(options.required("mode").toUpperCase()),
+                        PolicyConfiguration.OverrideMode.valueOf(options.required("mode").toUpperCase(Locale.ROOT)),
                         revisionAllowZero(options), options.required("actor"), options.required("reason")));
             }
             case "override-list" -> {
@@ -168,29 +169,29 @@ final class MorpheusPolicyCli {
             PolicyIds.RuleId id = fields[0].equalsIgnoreCase("new")
                     ? PolicyIds.RuleId.generate() : PolicyIds.RuleId.parse(fields[0]);
             String description = fields[1];
-            PolicyRule.Kind kind = PolicyRule.Kind.valueOf(fields[2].toUpperCase());
-            PolicyRule.Severity severity = PolicyRule.Severity.valueOf(fields[3].toUpperCase());
+            PolicyRule.Kind kind = PolicyRule.Kind.valueOf(fields[2].toUpperCase(Locale.ROOT));
+            PolicyRule.Severity severity = PolicyRule.Severity.valueOf(fields[3].toUpperCase(Locale.ROOT));
             PolicyRule.Config config = switch (kind) {
                 case CONSTRAINT_GUARD -> {
                     requireFields(fields, 6, kind);
-                    yield new PolicyRule.ConstraintGuard(ChangeId.parse(fields[4]), ChangeLifecycleState.valueOf(fields[5].toUpperCase()));
+                    yield new PolicyRule.ConstraintGuard(ChangeId.parse(fields[4]), ChangeLifecycleState.valueOf(fields[5].toUpperCase(Locale.ROOT)));
                 }
                 case LIFECYCLE_GUARD -> {
                     requireFields(fields, 7, kind);
                     yield new PolicyRule.LifecycleGuard(
-                            ChangeId.parse(fields[4]), ChangeLifecycleState.valueOf(fields[5].toUpperCase()),
-                            ChangeLifecycleState.valueOf(fields[6].toUpperCase()));
+                            ChangeId.parse(fields[4]), ChangeLifecycleState.valueOf(fields[5].toUpperCase(Locale.ROOT)),
+                            ChangeLifecycleState.valueOf(fields[6].toUpperCase(Locale.ROOT)));
                 }
                 case QUALITY_THRESHOLD -> {
                     requireFields(fields, 7, kind);
                     yield new PolicyRule.QualityThreshold(
-                            PolicyRule.QualityMetric.valueOf(fields[4].toUpperCase()),
-                            PolicyRule.Comparison.valueOf(fields[5].toUpperCase()), Double.parseDouble(fields[6]));
+                            PolicyRule.QualityMetric.valueOf(fields[4].toUpperCase(Locale.ROOT)),
+                            PolicyRule.Comparison.valueOf(fields[5].toUpperCase(Locale.ROOT)), Double.parseDouble(fields[6]));
                 }
                 case QUERY_ASSERTION -> {
                     requireFields(fields, 7, kind);
                     yield new PolicyRule.QueryAssertion(
-                            queryCodec.decode(fields[4]), PolicyRule.Comparison.valueOf(fields[5].toUpperCase()),
+                            queryCodec.decode(fields[4]), PolicyRule.Comparison.valueOf(fields[5].toUpperCase(Locale.ROOT)),
                             Long.parseLong(fields[6]));
                 }
             };

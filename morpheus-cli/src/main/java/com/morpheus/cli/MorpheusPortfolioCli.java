@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -67,7 +68,7 @@ final class MorpheusPortfolioCli {
                     case "freshness" -> registry.observeFreshness(
                             portfolio(options),
                             ProjectSpecificationId.parse(options.required("project")),
-                            PortfolioFreshnessState.valueOf(options.required("state").toUpperCase()),
+                            PortfolioFreshnessState.valueOf(options.required("state").toUpperCase(Locale.ROOT)),
                             options.optional("revision"),
                             options.optional("explanation"));
                     case "add-reference" -> registry.addReference(
@@ -97,7 +98,7 @@ final class MorpheusPortfolioCli {
                             integer(options, "nodes", 250),
                             integer(options, "links", 1000),
                             PortfolioTraversalDirection.valueOf(
-                                    options.optional("direction").orElse("BOTH").toUpperCase()));
+                                    options.optional("direction").orElse("BOTH").toUpperCase(Locale.ROOT)));
                     default -> throw new IllegalArgumentException("unknown portfolio action: " + action);
                 };
                 write(result, parsed.json(), out);

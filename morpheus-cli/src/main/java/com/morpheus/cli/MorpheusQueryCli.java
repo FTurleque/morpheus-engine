@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -183,7 +184,7 @@ final class MorpheusQueryCli {
 
     private QueryExportFormat format(Options options) {
         try {
-            return QueryExportFormat.valueOf(options.required("format").replace('-', '_').toUpperCase());
+            return QueryExportFormat.valueOf(options.required("format").replace('-', '_').toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException("--format must be json, csv or markdown");
         }
