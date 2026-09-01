@@ -1,5 +1,11 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.query.dsl.ProjectQueryScope;
+import com.morpheus.application.query.dsl.QueryDefinition;
+import com.morpheus.application.query.dsl.QueryDefinitionCodec;
+import com.morpheus.application.query.dsl.QueryEntityType;
+import com.morpheus.application.query.dsl.QueryPage;
+import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -97,6 +103,37 @@ class MorpheusPolicyCliTest {
         assertTrue(evaluated.out().contains("\"originalDecision\":\"UNKNOWN\""), evaluated.out());
         assertTrue(evaluated.out().contains("\"effectiveDecision\":\"BLOCK\""), evaluated.out());
         assertTrue(evaluated.out().contains("explicit exception"), evaluated.out());
+    }
+
+    @Test
+    void packCreateAcceptsConstraintAndLifecycleGuardRuleKinds() {
+        String changeId = ChangeId.generate().toString();
+        Result created = run(
+                "--json", "policy", "pack", "create",
+                "--name", "Guards",
+                "--rules", "new|Constraint guard|CONSTRAINT_GUARD|WARNING|" + changeId + "|COMPLETED"
+                        + ";;new|Lifecycle guard|LIFECYCLE_GUARD|INFO|" + changeId + "|DRAFT|VERIFYING",
+                "--actor", "alice", "--reason", "guard baseline");
+
+        assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
+        assertTrue(created.out().contains("\"kind\":\"CONSTRAINT_GUARD\""), created.out());
+        assertTrue(created.out().contains("\"kind\":\"LIFECYCLE_GUARD\""), created.out());
+    }
+
+    @Test
+    void packCreateAcceptsQueryAssertionRuleKind() {
+        QueryDefinition query = QueryDefinition.all(
+                new ProjectQueryScope(ProjectSpecificationId.generate()), QueryEntityType.REQUIREMENT, QueryPage.first(50));
+        String encodedQuery = new QueryDefinitionCodec().encode(query);
+
+        Result created = run(
+                "--json", "policy", "pack", "create",
+                "--name", "QueryGuard",
+                "--rules", "new|Query assertion|QUERY_ASSERTION|WARNING|" + encodedQuery + "|GTE|0",
+                "--actor", "alice", "--reason", "query baseline");
+
+        assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
+        assertTrue(created.out().contains("\"kind\":\"QUERY_ASSERTION\""), created.out());
     }
 
     private Result run(String... rawArgs) {

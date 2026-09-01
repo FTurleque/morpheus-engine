@@ -56,6 +56,33 @@ class PolicyConfigurationTest {
     }
 
     @Test
+    void overrideConstructsSuccessfullyWithinBounds() {
+        var override = new PolicyConfiguration.Override(
+                scope, packId, ruleId, PolicyConfiguration.OverrideMode.FORCE_BLOCK, "reason", "actor", 1L,
+                Instant.now());
+
+        org.junit.jupiter.api.Assertions.assertEquals("reason", override.reason());
+        org.junit.jupiter.api.Assertions.assertEquals("actor", override.actor());
+    }
+
+    @Test
+    void auditRecordConstructsSuccessfullyWithinBounds() {
+        var audit = new PolicyConfiguration.AuditRecord(
+                com.morpheus.domain.identity.DomainIdentity.generate(),
+                PolicyConfiguration.AuditAction.CREATE,
+                packId,
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                "actor",
+                "reason",
+                Instant.now());
+
+        org.junit.jupiter.api.Assertions.assertEquals("actor", audit.actor());
+        org.junit.jupiter.api.Assertions.assertEquals("reason", audit.reason());
+    }
+
+    @Test
     void activationAcceptsActorAtExactMaxLength() {
         String maxLength = "a".repeat(PolicyBudgets.MAX_ACTOR);
 
