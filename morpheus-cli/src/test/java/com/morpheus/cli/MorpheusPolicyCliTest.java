@@ -114,10 +114,14 @@ class MorpheusPolicyCliTest {
                 "--rules", "new|Constraint guard|CONSTRAINT_GUARD|WARNING|" + changeId + "|COMPLETED"
                         + ";;new|Lifecycle guard|LIFECYCLE_GUARD|INFO|" + changeId + "|DRAFT|VERIFYING",
                 "--actor", "alice", "--reason", "guard baseline");
-
         assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
-        assertTrue(created.out().contains("\"kind\":\"CONSTRAINT_GUARD\""), created.out());
-        assertTrue(created.out().contains("\"kind\":\"LIFECYCLE_GUARD\""), created.out());
+        String packId = uuids(created.out()).getFirst();
+
+        Result versions = run("--json", "policy", "pack", "versions", "--id", packId);
+
+        assertEquals(CliExitCode.SUCCESS.code(), versions.exitCode(), versions.err());
+        assertTrue(versions.out().contains("\"kind\":\"CONSTRAINT_GUARD\""), versions.out());
+        assertTrue(versions.out().contains("\"kind\":\"LIFECYCLE_GUARD\""), versions.out());
     }
 
     @Test
@@ -131,9 +135,13 @@ class MorpheusPolicyCliTest {
                 "--name", "QueryGuard",
                 "--rules", "new|Query assertion|QUERY_ASSERTION|WARNING|" + encodedQuery + "|GTE|0",
                 "--actor", "alice", "--reason", "query baseline");
-
         assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());
-        assertTrue(created.out().contains("\"kind\":\"QUERY_ASSERTION\""), created.out());
+        String packId = uuids(created.out()).getFirst();
+
+        Result versions = run("--json", "policy", "pack", "versions", "--id", packId);
+
+        assertEquals(CliExitCode.SUCCESS.code(), versions.exitCode(), versions.err());
+        assertTrue(versions.out().contains("\"kind\":\"QUERY_ASSERTION\""), versions.out());
     }
 
     private Result run(String... rawArgs) {
