@@ -17,6 +17,7 @@ import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusServerCliTest {
@@ -68,7 +69,7 @@ class MorpheusServerCliTest {
     }
 
     @Test
-    void identityLifecycleCommandsNeverListCredentialMaterial() throws Exception {
+    void identityLifecycleCommandsNeverListCredentialMaterial() {
         Result firstAdmin = run("--json", "server", "identity", "create",
                 "--principal", "admin-one", "--role", "ADMIN");
         Result secondAdmin = run("--json", "server", "identity", "create",
@@ -88,7 +89,7 @@ class MorpheusServerCliTest {
 
         Result rotated = run("--json", "server", "identity", "rotate", "--principal", "reader");
         assertEquals(CliExitCode.SUCCESS.code(), rotated.exitCode(), rotated.err());
-        assertFalse(token(rotated).equals(originalReaderToken));
+        assertNotEquals(originalReaderToken, token(rotated));
         assertTrue(rotated.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
         assertTrue(rotated.out().contains("INVALID_IMMEDIATELY"));
         assertFalse(rotated.out().contains("RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION"));
