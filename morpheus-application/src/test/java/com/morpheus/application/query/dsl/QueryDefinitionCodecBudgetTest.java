@@ -187,6 +187,20 @@ class QueryDefinitionCodecBudgetTest {
         assertTrue(decoded.filter().orElseThrow() instanceof QueryAnd);
     }
 
+    @Test
+    void disjunctionFilterRoundTripsThroughTheQueryOrBranch() {
+        QueryFilter filter = new QueryOr(List.of(
+                QueryPredicate.exists("title"),
+                QueryPredicate.exists("key")));
+
+        QueryDefinition query = queryWithFilter(filter);
+        String encoded = codec.encode(query);
+        QueryDefinition decoded = codec.decode(encoded);
+
+        assertEquals(query, decoded);
+        assertTrue(decoded.filter().orElseThrow() instanceof QueryOr);
+    }
+
     private QueryDefinition queryWithFilter(QueryFilter filter) {
         return new QueryDefinition(
                 new ProjectQueryScope(ProjectSpecificationId.generate()),

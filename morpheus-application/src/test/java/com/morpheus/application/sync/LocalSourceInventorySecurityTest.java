@@ -23,6 +23,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LocalSourceInventorySecurityTest {
@@ -249,6 +250,52 @@ class LocalSourceInventorySecurityTest {
 
         assertFalse(result.complete());
         assertTrue(result.failures().stream().anyMatch(failure -> failure.message().contains("depth exceeds limit")));
+    }
+
+    @Test
+    void rejectsFileWhoseOwnDepthExceedsTheLimitEvenWhenItsParentDirectoryDoesNot() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("file-depth"));
+        Path nested = Files.createDirectories(workspace.resolve("one"));
+        Files.writeString(nested.resolve("leaf.md"), "leaf");
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                new SourceScanPolicy(Set.of(), false, 1, 10, 10, 1024, 1024));
+
+        var result = scan(scanner, workspace);
+
+        assertFalse(result.complete());
+        assertTrue(result.inventory().isEmpty());
+        assertTrue(result.failures().stream().anyMatch(failure ->
+                        failure.source().orElse("").replace('\\', '/').endsWith("one/leaf.md")
+                                && failure.message().contains("depth exceeds limit")),
+                () -> "unexpected failures: " + result.failures());
+    }
+
+    @Test
+    void sharedBudgetExhaustionSkipsRemainingSourceRootsWithoutRescanningThem() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("multi-root-budget"));
+        Path first = Files.createDirectories(workspace.resolve("first"));
+        Files.createDirectories(first.resolve("nested"));
+        Files.createDirectories(workspace.resolve("second"));
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                new SourceScanPolicy(Set.of(), false, 8, 1, 10, 1024, 1024));
+
+        var result = scan(scanner, workspace, List.of(Path.of("first"), Path.of("second")));
+
+        assertFalse(result.complete());
+        assertTrue(result.inventory().isEmpty());
+        assertEquals(1, result.failures().size(), () -> "unexpected failures: " + result.failures());
+        assertTrue(result.failures().getFirst().message().contains("directory count exceeds limit"));
+    }
+
+    @Test
+    void sourceRootThatEscapesTheWorkspaceViaRelativeTraversalIsRejectedBeforeAnyFilesystemWalk() {
+        Path workspace = tempDir.resolve("escape-workspace");
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> scan(scanner, workspace, List.of(Path.of("../escape-target"))));
+
+        assertTrue(failure.getMessage().contains("escapes workspace"), failure::getMessage);
     }
 
     private LocalSourceInventoryScanner mutationScanner(LocalSourceInventoryScanner.FingerprintComputer computer) {
