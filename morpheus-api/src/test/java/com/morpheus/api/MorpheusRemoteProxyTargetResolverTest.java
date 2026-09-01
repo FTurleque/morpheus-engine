@@ -102,11 +102,11 @@ class MorpheusRemoteProxyTargetResolverTest {
     @Test
     void probeKeepsGenericWorkspaceValidationAsBadRequestInput() throws IOException {
         Fixture fixture = fixture();
+        URI request = URI.create("/api/v1/provider-plugins/probe?sha256=" + VALID_SHA_UPPER);
 
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
-                () -> fixture.resolver().resolve(URI.create(
-                        "/api/v1/provider-plugins/probe?sha256=" + VALID_SHA_UPPER)));
+                () -> fixture.resolver().resolve(request));
 
         assertEquals("workspace is required", failure.getMessage());
     }

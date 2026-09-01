@@ -84,8 +84,9 @@ class MorpheusRemoteRuntimeStateTest {
                 1, Duration.ofSeconds(1), 1, 1, 0, STARTED_AT));
         assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteRuntimeState(
                 1, Duration.ZERO, 1, 1, 1, STARTED_AT));
+        Duration negativeDuration = Duration.ofSeconds(-1);
         assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteRuntimeState(
-                1, Duration.ofSeconds(-1), 1, 1, 1, STARTED_AT));
+                1, negativeDuration, 1, 1, 1, STARTED_AT));
         assertThrows(NullPointerException.class, () -> new MorpheusRemoteRuntimeState(
                 1, null, 1, 1, 1, STARTED_AT));
         assertThrows(NullPointerException.class, () -> new MorpheusRemoteRuntimeState(

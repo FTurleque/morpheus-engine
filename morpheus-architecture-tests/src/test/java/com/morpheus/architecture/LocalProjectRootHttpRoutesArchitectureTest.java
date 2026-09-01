@@ -19,6 +19,12 @@ class LocalProjectRootHttpRoutesArchitectureTest {
         String routes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectRootHttpRoutes.java"));
 
+        assertServerDelegatesToProjectRootRoutes(server);
+        assertProjectRootRoutesImplementRouting(routes);
+        assertProjectRootRoutesDoNotLeakSharedHttpInfrastructure(routes);
+    }
+
+    private void assertServerDelegatesToProjectRootRoutes(String server) {
         assertTrue(server.contains("MorpheusProjectRootHttpRoutes projectRootRoutes"));
         assertTrue(server.contains("new MorpheusProjectRootHttpRoutes(this.service, this.requestDecoder)"));
         assertTrue(server.contains("projectRootRoutes.route(exchange, method, segments, query)"));
@@ -28,7 +34,9 @@ class LocalProjectRootHttpRoutesArchitectureTest {
         assertFalse(server.contains("projects supports GET and POST"));
         assertFalse(server.contains("ProjectRegistrationRequest.class"));
         assertFalse(server.contains("private <T> T readRequiredJson("));
+    }
 
+    private void assertProjectRootRoutesImplementRouting(String routes) {
         assertTrue(routes.contains("MorpheusApiService service"));
         assertTrue(routes.contains("MorpheusHttpRequestDecoder requestDecoder"));
         assertTrue(routes.contains("query.rejectUnknown(Set.of())"));
@@ -43,6 +51,9 @@ class LocalProjectRootHttpRoutesArchitectureTest {
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
         assertTrue(routes.contains("service.project(projectId)"));
         assertTrue(routes.contains("HttpExchange"));
+    }
+
+    private void assertProjectRootRoutesDoNotLeakSharedHttpInfrastructure(String routes) {
         assertFalse(routes.contains("com.sun.net.httpserver.HttpServer"));
         assertFalse(routes.contains("JsonMapper"));
         assertFalse(routes.contains("MorpheusHttpResponseWriter"));
