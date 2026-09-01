@@ -23,6 +23,8 @@ import java.util.Objects;
 
 /** Owns active specification list, detail and contextual API views. */
 final class MorpheusSpecificationQueryApiService {
+    private static final String FIELD_TITLE = "title";
+
     private final Path databasePath;
 
     MorpheusSpecificationQueryApiService(Path databasePath) {
@@ -105,7 +107,7 @@ final class MorpheusSpecificationQueryApiService {
                 "id", item.id().toString(),
                 "specificationId", item.specificationId().toString(),
                 "key", item.key().orElse(""),
-                "title", item.title(),
+                FIELD_TITLE, item.title(),
                 "statement", item.statement());
     }
 
@@ -114,7 +116,7 @@ final class MorpheusSpecificationQueryApiService {
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key(),
-                "title", item.title(),
+                FIELD_TITLE, item.title(),
                 "description", item.description().orElse(""));
     }
 
@@ -123,7 +125,7 @@ final class MorpheusSpecificationQueryApiService {
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key().orElse(""),
-                "title", item.title(),
+                FIELD_TITLE, item.title(),
                 "intent", item.intent(),
                 "scope", item.scope(),
                 "outOfScope", item.outOfScope(),
@@ -134,7 +136,7 @@ final class MorpheusSpecificationQueryApiService {
         return map(
                 "id", item.id().toString(),
                 "requirementId", item.requirementId().map(Object::toString).orElse(""),
-                "title", item.title(),
+                FIELD_TITLE, item.title(),
                 "preconditions", item.preconditions(),
                 "action", item.action(),
                 "expectedOutcome", item.expectedOutcome());

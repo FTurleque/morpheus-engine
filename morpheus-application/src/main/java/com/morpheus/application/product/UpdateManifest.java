@@ -25,7 +25,7 @@ public record UpdateManifest(
         if (!sha256.matches("[0-9a-f]{64}")) {
             throw new IllegalArgumentException("sha256 must contain exactly 64 hexadecimal characters");
         }
-        attestationUri = Objects.requireNonNull(attestationUri, "attestationUri");
+        Objects.requireNonNull(attestationUri, "attestationUri");
         attestationUri = attestationUri.map(uri -> requireAllowedUri(uri, "attestationUri"));
     }
 

@@ -12,10 +12,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 /**
  * Explicit read-only update discovery. Construction performs no I/O; callers must invoke {@link #check(URI)} with a
@@ -26,6 +28,7 @@ import java.util.Properties;
 public final class UpdateDiscoveryService {
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
     public static final int MAX_MANIFEST_BYTES = 64 * 1024;
+    private static final Pattern NUMERIC_IDENTIFIER_PATTERN = Pattern.compile("\\d+");
 
     private final HttpClient httpClient;
     private final Duration timeout;
@@ -177,8 +180,8 @@ public final class UpdateDiscoveryService {
         for (int index = 0; index < common; index++) {
             String av = a[index];
             String bv = b[index];
-            boolean an = av.matches("\\d+");
-            boolean bn = bv.matches("\\d+");
+            boolean an = NUMERIC_IDENTIFIER_PATTERN.matcher(av).matches();
+            boolean bn = NUMERIC_IDENTIFIER_PATTERN.matcher(bv).matches();
             int compared;
             if (an && bn) {
                 compared = compareNumericIdentifier(av, bv);
@@ -210,6 +213,23 @@ public final class UpdateDiscoveryService {
     }
 
     private record ParsedVersion(int[] parts, String preRelease) {
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof ParsedVersion that)) return false;
+            return Arrays.equals(parts, that.parts) && Objects.equals(preRelease, that.preRelease);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(Arrays.hashCode(parts), preRelease);
+        }
+
+        @Override
+        public String toString() {
+            return "ParsedVersion[parts=" + Arrays.toString(parts) + ", preRelease=" + preRelease + "]";
+        }
+
         static ParsedVersion parse(String value) {
             Objects.requireNonNull(value, "value");
             String normalized = value.trim();
