@@ -153,8 +153,11 @@ components:
       name: scopeId
       in: query
       required: true
-      schema: { type: string, minLength: 1 }
+      schema: { $ref: '#/components/schemas/Uuid' }
   schemas:
+    Uuid:
+      type: string
+      format: uuid
     ScopeKind:
       type: string
       enum: [PROJECT, PORTFOLIO]
@@ -164,13 +167,13 @@ components:
       required: [scopeKind, scopeId]
       properties:
         scopeKind: { $ref: '#/components/schemas/ScopeKind' }
-        scopeId: { type: string, minLength: 1 }
+        scopeId: { $ref: '#/components/schemas/Uuid' }
     PolicyRule:
       type: object
       additionalProperties: false
       required: [description, kind, severity]
       properties:
-        id: { type: string, minLength: 1 }
+        id: { $ref: '#/components/schemas/Uuid' }
         description: { type: string, minLength: 1, maxLength: 512 }
         kind:
           type: string
@@ -191,6 +194,7 @@ components:
         queryDefinition:
           type: string
           minLength: 1
+          maxLength: 16384
           description: Deterministic M24 QueryDefinitionCodec representation, never SQL.
         expectedCount: { type: integer, minimum: 0 }
     CreatePolicyPackRequest:
@@ -204,8 +208,8 @@ components:
           minItems: 1
           maxItems: 128
           items: { $ref: '#/components/schemas/PolicyRule' }
-        actor: { type: string, minLength: 1 }
-        reason: { type: string, minLength: 1 }
+        actor: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 1024 }
     UpdatePolicyPackRequest:
       type: object
       additionalProperties: false
@@ -218,59 +222,59 @@ components:
           minItems: 1
           maxItems: 128
           items: { $ref: '#/components/schemas/PolicyRule' }
-        actor: { type: string, minLength: 1 }
-        reason: { type: string, minLength: 1 }
+        actor: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 1024 }
     ActivationRequest:
       type: object
       additionalProperties: false
       required: [versionId, scopeKind, scopeId, expectedRevision, actor, reason]
       properties:
-        versionId: { type: string, minLength: 1 }
+        versionId: { $ref: '#/components/schemas/Uuid' }
         scopeKind: { $ref: '#/components/schemas/ScopeKind' }
-        scopeId: { type: string, minLength: 1 }
+        scopeId: { $ref: '#/components/schemas/Uuid' }
         expectedRevision: { type: integer, minimum: 0 }
-        actor: { type: string, minLength: 1 }
-        reason: { type: string, minLength: 1 }
+        actor: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 1024 }
     DeactivationRequest:
       type: object
       additionalProperties: false
       required: [scopeKind, scopeId, expectedRevision, actor, reason]
       properties:
         scopeKind: { $ref: '#/components/schemas/ScopeKind' }
-        scopeId: { type: string, minLength: 1 }
+        scopeId: { $ref: '#/components/schemas/Uuid' }
         expectedRevision: { type: integer, minimum: 1 }
-        actor: { type: string, minLength: 1 }
-        reason: { type: string, minLength: 1 }
+        actor: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 1024 }
     OverrideRequest:
       type: object
       additionalProperties: false
       required: [scopeKind, scopeId, mode, expectedRevision, actor, reason]
       properties:
         scopeKind: { $ref: '#/components/schemas/ScopeKind' }
-        scopeId: { type: string, minLength: 1 }
+        scopeId: { $ref: '#/components/schemas/Uuid' }
         mode:
           type: string
           enum: [DISABLE, FORCE_WARN, FORCE_BLOCK]
         expectedRevision: { type: integer, minimum: 0 }
-        actor: { type: string, minLength: 1 }
-        reason: { type: string, minLength: 1 }
+        actor: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 1024 }
     EvaluateRequest:
       type: object
       additionalProperties: false
       required: [scopeKind, scopeId]
       properties:
         scopeKind: { $ref: '#/components/schemas/ScopeKind' }
-        scopeId: { type: string, minLength: 1 }
-        id: { type: string, minLength: 1 }
+        scopeId: { $ref: '#/components/schemas/Uuid' }
+        id: { $ref: '#/components/schemas/Uuid' }
     DryRunRequest:
       type: object
       additionalProperties: false
       required: [scopeKind, scopeId, id, versionId]
       properties:
         scopeKind: { $ref: '#/components/schemas/ScopeKind' }
-        scopeId: { type: string, minLength: 1 }
-        id: { type: string, minLength: 1 }
-        versionId: { type: string, minLength: 1 }
+        scopeId: { $ref: '#/components/schemas/Uuid' }
+        id: { $ref: '#/components/schemas/Uuid' }
+        versionId: { $ref: '#/components/schemas/Uuid' }
     ErrorEnvelope:
       type: object
       additionalProperties: false

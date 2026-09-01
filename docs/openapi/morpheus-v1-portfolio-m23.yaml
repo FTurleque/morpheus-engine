@@ -186,7 +186,7 @@ components:
       additionalProperties: false
       required: [name]
       properties:
-        name: {type: string, minLength: 1}
+        name: {type: string, minLength: 1, maxLength: 256}
 
     RegisterProjectRequest:
       type: object
@@ -194,7 +194,7 @@ components:
       required: [projectId, name]
       properties:
         projectId: {$ref: '#/components/schemas/Uuid'}
-        name: {type: string, minLength: 1}
+        name: {type: string, minLength: 1, maxLength: 256}
         workspace: {type: [string, 'null']}
         repository:
           type: [string, 'null']
@@ -212,8 +212,8 @@ components:
           type: string
           minLength: 1
           description: PortfolioFreshnessState enum value, case-insensitive at the HTTP adapter boundary.
-        revision: {type: [string, 'null']}
-        explanation: {type: [string, 'null']}
+        revision: {type: [string, 'null'], maxLength: 512}
+        explanation: {type: [string, 'null'], maxLength: 1024}
 
     CrossProjectReferenceRequest:
       type: object
