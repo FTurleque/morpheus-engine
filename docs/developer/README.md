@@ -68,9 +68,9 @@ Jackson                    3.2.2
 sqlite-jdbc                3.53.2.0
 MCP SDK                    2.0.1
 OWASP Dependency-Check     12.2.2
-JaCoCo ratchet             50.6% lignes / 43.0% branches
-Surefire floor             820
-Architecture floor         258
+JaCoCo ratchet             52.0% lignes / 45.0% branches
+Surefire floor             1000
+Architecture floor         300
 Changed-line gate          80%
 Changed-branch gate        70%
 dependency analyze         failOnWarning=true
@@ -165,7 +165,7 @@ schedule -> quotidien 04:17 UTC
 workflow_dispatch
 ```
 
-`.github/dependabot.yml` ouvre en parallèle les mises à jour Maven et GitHub Actions vers `develop`. Les alertes de vulnérabilité Dependabot et Secret Scanning restent des réglages administrateur à vérifier dans #154.
+`.github/dependabot.yml` ouvre en parallèle les mises à jour Maven et GitHub Actions vers `develop`. Les alertes de vulnérabilité Dependabot et Secret Scanning ont été vérifiées directement dans les réglages GitHub administrateur ; #154 est clôturée.
 
 ## Packaging et release
 
@@ -202,7 +202,7 @@ suppression / non-fast-forward interdits
 aucun bypass
 ```
 
-Le choix de `0` approbation obligatoire reste cohérent avec le contexte mono-mainteneur. #166 est clôturée ; #154 est désormais limitée aux réglages externes SonarCloud / alertes de sécurité administrateur restant à vérifier.
+Le choix de `0` approbation obligatoire reste cohérent avec le contexte mono-mainteneur. #166 et #154 sont clôturées ; le Quality Gate SonarCloud et les réglages de sécurité administrateur ont été vérifiés directement sur leurs plateformes.
 
 ## Documentation d’architecture
 

@@ -74,10 +74,10 @@ Les validations courantes sont documentées dans [`../developer/BUILD_AND_TEST.m
 MORPHEUS CI                exact-head Windows + Ubuntu
 MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
-Surefire total             >= 820
-architecture               >= 258
-JaCoCo global lines        >= 50.6%
-JaCoCo global branches     >= 43.0%
+Surefire total             >= 1000
+architecture               >= 300
+JaCoCo global lines        >= 52.0%
+JaCoCo global branches     >= 45.0%
 PR changed lines           >= 80%
 PR changed branches        >= 70%
 SBOM / provenance          required

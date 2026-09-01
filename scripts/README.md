@@ -35,9 +35,9 @@ M21 applique notamment :
 
 ```text
 clean verify
-Surefire >= 820
-architecture >= 258
-coverage >= 50.6% / 43.0%
+Surefire >= 1000
+architecture >= 300
+coverage >= 52.0% / 45.0%
 CycloneDX SBOM
 provenance
 portable smoke
@@ -73,7 +73,7 @@ D2 reste un gate **local spécialisé** :
 ```text
 .github/workflows delta forbidden
 clean verify required
-baseline tests >= 820 / architecture >= 258
+baseline tests >= 1000 / architecture >= 300
 absolute coverage floor >= 40% / 35%
 dependency hygiene blocking
 OWASP Dependency-Check local aggregate
