@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CancellationException;
@@ -53,9 +54,10 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private final CountDownLatch terminated = new CountDownLatch(1);
 
-    private volatile McpServerSession session;
-    private volatile BoundedSessionTransport transport;
+    private final AtomicReference<McpServerSession> session = new AtomicReference<>();
+    private final AtomicReference<BoundedSessionTransport> transport = new AtomicReference<>();
 
+    @SuppressWarnings("java:S106") // System.out is the actual MCP wire-protocol stream, not a log write.
     public BoundedStdioServerTransportProvider(McpJsonMapper jsonMapper) {
         this(jsonMapper, System.in, System.out, DEFAULT_MAX_FRAME_BYTES, DEFAULT_MAX_PENDING_MESSAGES);
     }
@@ -86,14 +88,14 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
             throw new IllegalStateException("MCP STDIO transport supports exactly one session");
         }
         BoundedSessionTransport createdTransport = new BoundedSessionTransport();
-        this.transport = createdTransport;
-        this.session = sessionFactory.create(createdTransport);
+        this.transport.set(createdTransport);
+        this.session.set(sessionFactory.create(createdTransport));
         createdTransport.start();
     }
 
     @Override
     public Mono<Void> notifyClients(String method, Object params) {
-        McpServerSession current = session;
+        McpServerSession current = session.get();
         if (current == null) return Mono.error(new IllegalStateException("No MCP STDIO session is available"));
         return current.sendNotification(method, params);
     }
@@ -101,7 +103,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
     @Override
     public Mono<Void> notifyClient(String sessionId, String method, Object params) {
         return Mono.defer(() -> {
-            McpServerSession current = session;
+            McpServerSession current = session.get();
             if (current == null) return Mono.error(new IllegalStateException("No MCP STDIO session is available"));
             if (!current.getId().equals(sessionId)) {
                 return Mono.error(new IllegalStateException("Unknown MCP STDIO session: " + sessionId));
@@ -112,9 +114,9 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
 
     @Override
     public Mono<Void> closeGracefully() {
-        BoundedSessionTransport currentTransport = transport;
+        BoundedSessionTransport currentTransport = transport.get();
         if (currentTransport != null) currentTransport.requestStop();
-        McpServerSession current = session;
+        McpServerSession current = session.get();
         if (current == null) {
             closing.set(true);
             terminated.countDown();
@@ -203,7 +205,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
                 if (!closing.get()) failClosed(failure);
             } finally {
                 if (closing.compareAndSet(false, true)) {
-                    McpServerSession current = session;
+                    McpServerSession current = session.get();
                     if (current != null) current.close();
                 }
                 cancelActiveHandler();
@@ -213,7 +215,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         }
 
         private void handleSequentially(JSONRPCMessage message) throws Exception {
-            CompletableFuture<Void> future = session.handle(message).toFuture();
+            CompletableFuture<Void> future = session.get().handle(message).toFuture();
             activeHandler.set(future);
             if (closing.get()) future.cancel(true);
             try {
@@ -272,7 +274,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
                         System.Logger.Level.WARNING,
                         "MCP STDIO server transport failed: {0}",
                         McpDiagnosticRedactor.describe(failure));
-                McpServerSession current = session;
+                McpServerSession current = session.get();
                 if (current != null) current.close();
             }
             cancelActiveHandler();
@@ -321,6 +323,23 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
     private record OutboundFrame(byte[] encoded) {
         private OutboundFrame {
             encoded = Objects.requireNonNull(encoded, "encoded");
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof OutboundFrame that)) return false;
+            return Arrays.equals(encoded, that.encoded);
+        }
+
+        @Override
+        public int hashCode() {
+            return Arrays.hashCode(encoded);
+        }
+
+        @Override
+        public String toString() {
+            return "OutboundFrame[encoded=" + Arrays.toString(encoded) + "]";
         }
     }
 
