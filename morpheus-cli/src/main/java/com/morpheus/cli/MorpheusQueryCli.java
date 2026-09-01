@@ -82,7 +82,7 @@ final class MorpheusQueryCli {
 
     private int query(Parsed parsed, Runtime runtime, PrintStream out) {
         requireAction(parsed, "execute");
-        Options options = Options.parse(parsed.arguments());
+        SimpleOptions options = SimpleOptions.parse(parsed.arguments());
         options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, "sort", OPT_FIELDS, OPT_OFFSET, OPT_LIMIT));
         QueryDefinition query = query(options, scope(options));
         write(QueryPublicViews.result(runtime.queries.execute(query)), parsed.json(), out);
@@ -94,7 +94,7 @@ final class MorpheusQueryCli {
             throw new IllegalArgumentException("views requires an action");
         }
         String action = parsed.action().orElseThrow();
-        Options options = Options.parse(parsed.arguments());
+        SimpleOptions options = SimpleOptions.parse(parsed.arguments());
         Object result = switch (action) {
             case "create" -> {
                 options.rejectUnknown(Set.of(
@@ -143,7 +143,7 @@ final class MorpheusQueryCli {
             throw new IllegalArgumentException("export requires query or view");
         }
         String action = parsed.action().orElseThrow();
-        Options options = Options.parse(parsed.arguments());
+        SimpleOptions options = SimpleOptions.parse(parsed.arguments());
         QueryExportFormat format = format(options);
         QueryDefinition definition = switch (action) {
             case CMD_QUERY -> {
@@ -169,7 +169,7 @@ final class MorpheusQueryCli {
         return CliExitCode.SUCCESS.code();
     }
 
-    private QueryDefinition query(Options options, QueryScope scope) {
+    private QueryDefinition query(SimpleOptions options, QueryScope scope) {
         return parser.parse(
                 scope,
                 options.required(OPT_ENTITY),
@@ -180,7 +180,7 @@ final class MorpheusQueryCli {
                 integer(options, OPT_LIMIT, DEFAULT_LIMIT));
     }
 
-    private QueryScope scope(Options options) {
+    private QueryScope scope(SimpleOptions options) {
         Optional<String> project = options.optional(OPT_PROJECT);
         Optional<String> portfolio = options.optional(OPT_PORTFOLIO);
         if (project.isPresent() == portfolio.isPresent()) {
@@ -190,11 +190,11 @@ final class MorpheusQueryCli {
                 .orElseGet(() -> new PortfolioQueryScope(PortfolioId.parse(portfolio.orElseThrow())));
     }
 
-    private SavedViewId savedView(Options options) {
+    private SavedViewId savedView(SimpleOptions options) {
         return SavedViewId.parse(options.required("id"));
     }
 
-    private QueryExportFormat format(Options options) {
+    private QueryExportFormat format(SimpleOptions options) {
         try {
             return QueryExportFormat.valueOf(options.required(OPT_FORMAT).replace('-', '_').toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException failure) {
@@ -202,7 +202,7 @@ final class MorpheusQueryCli {
         }
     }
 
-    private static int integer(Options options, String key, int fallback) {
+    private static int integer(SimpleOptions options, String key, int fallback) {
         try {
             return options.optional(key).map(Integer::parseInt).orElse(fallback);
         } catch (NumberFormatException failure) {
@@ -210,7 +210,7 @@ final class MorpheusQueryCli {
         }
     }
 
-    private static long positiveLong(Options options, String key) {
+    private static long positiveLong(SimpleOptions options, String key) {
         try {
             long value = Long.parseLong(options.required(key));
             if (value <= 0) {
@@ -242,49 +242,13 @@ final class MorpheusQueryCli {
     }
 
     private static String command(String[] args) {
-        int index = 0;
-        while (index < args.length) {
-            String token = args[index];
-            index++;
-            boolean isValueFlag = token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db");
-            if (isValueFlag) {
-                index++;
-            }
-            if (!token.equals("--json") && !isValueFlag) {
-                return token;
-            }
-        }
-        return "";
+        return GlobalArgs.command(args);
     }
 
     private record Parsed(boolean json, CliLayout layout, String command, Optional<String> action, List<String> arguments) {
         private static Parsed parse(String[] args, Map<String, String> environment, Properties properties) {
-            boolean json = false;
-            Optional<Path> data = Optional.empty();
-            Optional<Path> config = Optional.empty();
-            Optional<Path> database = Optional.empty();
-            List<String> remaining = new ArrayList<>();
-            int index = 0;
-            while (index < args.length) {
-                String token = args[index];
-                index++;
-                switch (token) {
-                    case "--json" -> json = true;
-                    case "--data-dir" -> {
-                        data = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    case "--config-dir" -> {
-                        config = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    case "--db" -> {
-                        database = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    default -> remaining.add(token);
-                }
-            }
+            GlobalArgs.Parsed global = GlobalArgs.parse(args);
+            List<String> remaining = global.remaining();
             if (remaining.isEmpty() || !(remaining.getFirst().equals(CMD_QUERY)
                     || remaining.getFirst().equals(CMD_VIEWS) || remaining.getFirst().equals(CMD_EXPORT))) {
                 throw new IllegalArgumentException("query, views or export command is required");
@@ -294,62 +258,12 @@ final class MorpheusQueryCli {
                     ? Optional.of(remaining.get(1)) : Optional.empty();
             int argumentStart = action.isPresent() ? 2 : 1;
             return new Parsed(
-                    json,
-                    CliLayout.resolve(data, config, database, environment, properties),
+                    global.json(),
+                    CliLayout.resolve(global.dataDirectory(), global.configDirectory(), global.databasePath(),
+                            environment, properties),
                     command,
                     action,
                     List.copyOf(remaining.subList(argumentStart, remaining.size())));
-        }
-
-        private static String requireValue(String[] args, int index, String option) {
-            if (index >= args.length || args[index].startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return args[index];
-        }
-    }
-
-    private static final class Options {
-        private final Map<String, String> values = new LinkedHashMap<>();
-
-        static Options parse(List<String> tokens) {
-            Options result = new Options();
-            int index = 0;
-            while (index < tokens.size()) {
-                String token = tokens.get(index);
-                index++;
-                if (!token.startsWith("--")) {
-                    throw new IllegalArgumentException("unknown token: " + token);
-                }
-                String key = token.substring(2);
-                if (result.values.putIfAbsent(key, require(tokens, index, token)) != null) {
-                    throw new IllegalArgumentException("duplicate option: " + token);
-                }
-                index++;
-            }
-            return result;
-        }
-
-        String required(String key) {
-            return optional(key).orElseThrow(() -> new IllegalArgumentException("--" + key + " is required"));
-        }
-
-        Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim).filter(value -> !value.isEmpty());
-        }
-
-        void rejectUnknown(Set<String> allowed) {
-            values.keySet().stream().filter(key -> !allowed.contains(key)).findFirst()
-                    .ifPresent(key -> {
-                        throw new IllegalArgumentException("unknown option: --" + key);
-                    });
-        }
-
-        private static String require(List<String> tokens, int index, String option) {
-            if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return tokens.get(index);
         }
     }
 

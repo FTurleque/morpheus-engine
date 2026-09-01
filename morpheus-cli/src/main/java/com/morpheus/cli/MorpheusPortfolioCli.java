@@ -17,10 +17,7 @@ import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.store.sqlite.SqlitePortfolioStore;
 
 import java.io.PrintStream;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -54,7 +51,7 @@ final class MorpheusPortfolioCli {
                 throw new IllegalArgumentException("portfolio requires an action");
             }
             String action = parsed.tokens().getFirst();
-            Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+            SimpleOptions options = SimpleOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()));
             try (SqlitePortfolioStore store = new SqlitePortfolioStore(parsed.layout().databasePath())) {
                 PortfolioRegistryService registry = new PortfolioRegistryService(store);
                 PortfolioQueryService query = new PortfolioQueryService(store);
@@ -126,11 +123,11 @@ final class MorpheusPortfolioCli {
         }
     }
 
-    private static PortfolioId portfolio(Options options) {
+    private static PortfolioId portfolio(SimpleOptions options) {
         return PortfolioId.parse(options.required(OPT_PORTFOLIO));
     }
 
-    private static PortfolioEntityRef entity(Options options, String prefix) {
+    private static PortfolioEntityRef entity(SimpleOptions options, String prefix) {
         return new PortfolioEntityRef(
                 ProjectSpecificationId.parse(options.required(prefix + "-project")),
                 options.required(prefix + "-type"),
@@ -154,7 +151,7 @@ final class MorpheusPortfolioCli {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    private static int integer(Options options, String key, int fallback) {
+    private static int integer(SimpleOptions options, String key, int fallback) {
         return options.optional(key).map(Integer::parseInt).orElse(fallback);
     }
 
@@ -164,100 +161,21 @@ final class MorpheusPortfolioCli {
     }
 
     private static String command(String[] args) {
-        int index = 0;
-        while (index < args.length) {
-            String token = args[index];
-            index++;
-            boolean isValueFlag = "--data-dir".equals(token) || "--config-dir".equals(token) || "--db".equals(token);
-            if (isValueFlag) {
-                index++;
-            }
-            if (!"--json".equals(token) && !isValueFlag) {
-                return token;
-            }
-        }
-        return "";
+        return GlobalArgs.command(args);
     }
 
     private record Parsed(boolean json, CliLayout layout, List<String> tokens) {
         private static Parsed parse(String[] args, Map<String, String> environment, Properties properties) {
-            boolean json = false;
-            Optional<Path> data = Optional.empty();
-            Optional<Path> config = Optional.empty();
-            Optional<Path> database = Optional.empty();
-            List<String> remaining = new ArrayList<>();
-            int index = 0;
-            while (index < args.length) {
-                String token = args[index];
-                index++;
-                switch (token) {
-                    case "--json" -> json = true;
-                    case "--data-dir" -> {
-                        data = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    case "--config-dir" -> {
-                        config = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    case "--db" -> {
-                        database = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    default -> remaining.add(token);
-                }
-            }
+            GlobalArgs.Parsed global = GlobalArgs.parse(args);
+            List<String> remaining = global.remaining();
             if (remaining.isEmpty() || !OPT_PORTFOLIO.equals(remaining.getFirst())) {
                 throw new IllegalArgumentException("portfolio command is required");
             }
             return new Parsed(
-                    json,
-                    CliLayout.resolve(data, config, database, environment, properties),
+                    global.json(),
+                    CliLayout.resolve(global.dataDirectory(), global.configDirectory(), global.databasePath(),
+                            environment, properties),
                     List.copyOf(remaining.subList(1, remaining.size())));
-        }
-
-        private static String requireValue(String[] args, int index, String option) {
-            if (index >= args.length || args[index].startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return args[index];
-        }
-    }
-
-    private static final class Options {
-        private final Map<String, String> values = new LinkedHashMap<>();
-
-        static Options parse(List<String> tokens) {
-            Options result = new Options();
-            int index = 0;
-            while (index < tokens.size()) {
-                String token = tokens.get(index);
-                index++;
-                if (!token.startsWith("--")) {
-                    throw new IllegalArgumentException("unknown token: " + token);
-                }
-                String key = token.substring(2);
-                if (result.values.putIfAbsent(key, require(tokens, index, token)) != null) {
-                    throw new IllegalArgumentException("duplicate option: " + token);
-                }
-                index++;
-            }
-            return result;
-        }
-
-        String required(String key) {
-            return optional(key).orElseThrow(() -> new IllegalArgumentException("--" + key + " is required"));
-        }
-
-        Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim).filter(value -> !value.isEmpty());
-        }
-
-        private static String require(List<String> tokens, int index, String option) {
-            if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return tokens.get(index);
         }
     }
 }

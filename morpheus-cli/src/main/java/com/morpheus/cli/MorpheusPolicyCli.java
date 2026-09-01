@@ -79,7 +79,7 @@ final class MorpheusPolicyCli {
     }
 
     private Object execute(Parsed parsed, Runtime runtime) {
-        Options options = Options.parse(parsed.arguments());
+        SimpleOptions options = SimpleOptions.parse(parsed.arguments());
         return switch (parsed.action()) {
             case "pack-create" -> {
                 options.rejectUnknown(Set.of("name", OPT_RULES, OPT_ACTOR, OPT_REASON));
@@ -214,11 +214,11 @@ final class MorpheusPolicyCli {
         }
     }
 
-    private PolicyIds.PackId pack(Options options) {
+    private PolicyIds.PackId pack(SimpleOptions options) {
         return PolicyIds.PackId.parse(options.required("id"));
     }
 
-    private PolicyScope scope(Options options) {
+    private PolicyScope scope(SimpleOptions options) {
         Optional<String> project = options.optional(OPT_PROJECT);
         Optional<String> portfolio = options.optional(OPT_PORTFOLIO);
         if (project.isPresent() == portfolio.isPresent()) {
@@ -228,7 +228,7 @@ final class MorpheusPolicyCli {
                 .orElseGet(() -> new PolicyScope.Portfolio(PortfolioId.parse(portfolio.orElseThrow())));
     }
 
-    private long revision(Options options) {
+    private long revision(SimpleOptions options) {
         long value = parseLong(options.required(OPT_EXPECTED_REVISION), OPT_EXPECTED_REVISION);
         if (value <= 0) {
             throw new IllegalArgumentException("--expected-revision must be positive");
@@ -236,7 +236,7 @@ final class MorpheusPolicyCli {
         return value;
     }
 
-    private long revisionAllowZero(Options options) {
+    private long revisionAllowZero(SimpleOptions options) {
         long value = parseLong(options.required(OPT_EXPECTED_REVISION), OPT_EXPECTED_REVISION);
         if (value < 0) {
             throw new IllegalArgumentException("--expected-revision must be >= 0");
@@ -253,19 +253,7 @@ final class MorpheusPolicyCli {
     }
 
     private static String command(String[] args) {
-        int index = 0;
-        while (index < args.length) {
-            String token = args[index];
-            index++;
-            boolean isValueFlag = token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db");
-            if (isValueFlag) {
-                index++;
-            }
-            if (!token.equals("--json") && !isValueFlag) {
-                return token;
-            }
-        }
-        return "";
+        return GlobalArgs.command(args);
     }
 
     private static String safeMessage(Throwable failure) {
@@ -277,32 +265,8 @@ final class MorpheusPolicyCli {
 
     private record Parsed(boolean json, CliLayout layout, String action, List<String> arguments) {
         static Parsed parse(String[] args, Map<String, String> environment, Properties properties) {
-            boolean json = false;
-            Optional<Path> data = Optional.empty();
-            Optional<Path> config = Optional.empty();
-            Optional<Path> database = Optional.empty();
-            List<String> remaining = new ArrayList<>();
-            int index = 0;
-            while (index < args.length) {
-                String token = args[index];
-                index++;
-                switch (token) {
-                    case "--json" -> json = true;
-                    case "--data-dir" -> {
-                        data = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    case "--config-dir" -> {
-                        config = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    case "--db" -> {
-                        database = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    default -> remaining.add(token);
-                }
-            }
+            GlobalArgs.Parsed global = GlobalArgs.parse(args);
+            List<String> remaining = global.remaining();
             if (remaining.isEmpty() || !remaining.getFirst().equals("policy") || remaining.size() < 2) {
                 throw new IllegalArgumentException("policy action is required");
             }
@@ -316,51 +280,11 @@ final class MorpheusPolicyCli {
                 action = remaining.get(1);
                 consumed = 2;
             }
-            return new Parsed(json, CliLayout.resolve(data, config, database, environment, properties),
+            return new Parsed(
+                    global.json(),
+                    CliLayout.resolve(global.dataDirectory(), global.configDirectory(), global.databasePath(),
+                            environment, properties),
                     action, List.copyOf(remaining.subList(consumed, remaining.size())));
-        }
-
-        private static String requireValue(String[] args, int index, String option) {
-            if (index >= args.length || args[index].startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return args[index];
-        }
-    }
-
-    private static final class Options {
-        private final Map<String, String> values = new LinkedHashMap<>();
-
-        static Options parse(List<String> tokens) {
-            Options result = new Options();
-            int index = 0;
-            while (index < tokens.size()) {
-                String token = tokens.get(index);
-                index++;
-                if (!token.startsWith("--")) throw new IllegalArgumentException("unknown token: " + token);
-                String key = token.substring(2);
-                if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-                    throw new IllegalArgumentException(token + " requires a value");
-                }
-                if (result.values.putIfAbsent(key, tokens.get(index)) != null) {
-                    throw new IllegalArgumentException("duplicate option: --" + key);
-                }
-                index++;
-            }
-            return result;
-        }
-
-        String required(String key) {
-            return optional(key).orElseThrow(() -> new IllegalArgumentException("--" + key + " is required"));
-        }
-
-        Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim).filter(value -> !value.isEmpty());
-        }
-
-        void rejectUnknown(Set<String> allowed) {
-            values.keySet().stream().filter(key -> !allowed.contains(key)).findFirst()
-                    .ifPresent(key -> { throw new IllegalArgumentException("unknown option: --" + key); });
         }
     }
 

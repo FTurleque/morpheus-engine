@@ -705,40 +705,10 @@ public final class MorpheusCli {
             Optional<Path> databasePath,
             List<String> tokens) {
         private static GlobalOptions parse(String[] args) {
-            boolean json = false;
-            Optional<Path> data = Optional.empty();
-            Optional<Path> config = Optional.empty();
-            Optional<Path> database = Optional.empty();
-            List<String> remaining = new ArrayList<>();
-            int index = 0;
-            while (index < args.length) {
-                String token = args[index];
-                index++;
-                switch (token) {
-                    case "--json" -> json = true;
-                    case "--data-dir" -> {
-                        data = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    case "--config-dir" -> {
-                        config = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    case "--db" -> {
-                        database = Optional.of(Path.of(requireValue(args, index, token)));
-                        index++;
-                    }
-                    default -> remaining.add(token);
-                }
-            }
-            return new GlobalOptions(json, data, config, database, List.copyOf(remaining));
-        }
-
-        private static String requireValue(String[] args, int index, String option) {
-            if (index >= args.length || args[index].startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return args[index];
+            GlobalArgs.Parsed parsed = GlobalArgs.parse(args);
+            return new GlobalOptions(
+                    parsed.json(), parsed.dataDirectory(), parsed.configDirectory(), parsed.databasePath(),
+                    parsed.remaining());
         }
     }
 
