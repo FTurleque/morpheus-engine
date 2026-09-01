@@ -731,30 +731,40 @@ public final class MorpheusCli {
                 index++;
                 if (!token.startsWith("--")) {
                     positionals.add(token);
-                } else {
-                    String key = token.substring(2);
-                    if (key.isBlank()) {
-                        throw new IllegalArgumentException("invalid empty option");
-                    }
-                    if (allowedFlags.contains(key)) {
-                        if (!flags.add(key)) {
-                            throw new IllegalArgumentException("duplicate flag: --" + key);
-                        }
-                    } else {
-                        if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-                            throw new IllegalArgumentException("--" + key + " requires a value");
-                        }
-                        if (values.putIfAbsent(key, tokens.get(index)) != null) {
-                            throw new IllegalArgumentException("duplicate option: --" + key);
-                        }
-                        index++;
-                    }
+                    continue;
                 }
+                index = consumeOption(token, tokens, index, allowedFlags, values, flags);
             }
             if (!positionals.isEmpty()) {
                 throw new IllegalArgumentException("unexpected positional arguments: " + positionals);
             }
             return new CommandOptions(values, flags);
+        }
+
+        private static int consumeOption(
+                String token,
+                List<String> tokens,
+                int index,
+                Set<String> allowedFlags,
+                Map<String, String> values,
+                Set<String> flags) {
+            String key = token.substring(2);
+            if (key.isBlank()) {
+                throw new IllegalArgumentException("invalid empty option");
+            }
+            if (allowedFlags.contains(key)) {
+                if (!flags.add(key)) {
+                    throw new IllegalArgumentException("duplicate flag: --" + key);
+                }
+                return index;
+            }
+            if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
+                throw new IllegalArgumentException("--" + key + " requires a value");
+            }
+            if (values.putIfAbsent(key, tokens.get(index)) != null) {
+                throw new IllegalArgumentException("duplicate option: --" + key);
+            }
+            return index + 1;
         }
 
         void rejectUnknown(Set<String> allowed) {
