@@ -1,5 +1,6 @@
 package com.morpheus.application.query.dsl;
 
+import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
 
@@ -153,6 +154,37 @@ class QueryDefinitionCodecBudgetTest {
 
         assertTrue(diagnostics.stream().anyMatch(diagnostic ->
                 diagnostic.message().contains("predicates exceed " + QueryBudgets.MAX_PREDICATES)));
+    }
+
+    @Test
+    void portfolioScopedQueryRoundTripsThroughTheNonProjectScopeBranch() {
+        QueryDefinition query = new QueryDefinition(
+                new PortfolioQueryScope(PortfolioId.generate()),
+                QueryEntityType.REQUIREMENT,
+                Optional.of(QueryPredicate.exists("title")),
+                List.of(),
+                QueryProjection.defaults(),
+                QueryPage.first(10));
+
+        String encoded = codec.encode(query);
+        QueryDefinition decoded = codec.decode(encoded);
+
+        assertEquals(query, decoded);
+        assertTrue(decoded.scope() instanceof PortfolioQueryScope);
+    }
+
+    @Test
+    void conjunctionFilterRoundTripsThroughTheQueryAndBranch() {
+        QueryFilter filter = new QueryAnd(List.of(
+                QueryPredicate.exists("title"),
+                QueryPredicate.exists("key")));
+
+        QueryDefinition query = queryWithFilter(filter);
+        String encoded = codec.encode(query);
+        QueryDefinition decoded = codec.decode(encoded);
+
+        assertEquals(query, decoded);
+        assertTrue(decoded.filter().orElseThrow() instanceof QueryAnd);
     }
 
     private QueryDefinition queryWithFilter(QueryFilter filter) {

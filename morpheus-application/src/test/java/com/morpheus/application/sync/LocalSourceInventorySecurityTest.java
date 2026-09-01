@@ -1,6 +1,7 @@
 package com.morpheus.application.sync;
 
 import com.morpheus.domain.project.ProjectSpecificationId;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -79,6 +80,28 @@ class LocalSourceInventorySecurityTest {
         if (linkCreated) {
             assertTrue(Files.isSymbolicLink(workspace.resolve("external-link")));
         }
+    }
+
+    @Test
+    void rejectsSourceRootThatIsItselfASymbolicLinkWithoutTraversingItsTarget() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("symlink-root-workspace"));
+        Path target = Files.createDirectories(tempDir.resolve("symlink-root-target"));
+        Files.writeString(target.resolve("inside.md"), "inside content");
+        Path link = workspace.resolve("linked-root");
+        if (!tryCreateSymbolicLink(link, target)) {
+            Assumptions.assumeTrue(false, "symlinks not supported in this environment");
+            return;
+        }
+
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
+        assertFalse(scanner.policy().followSymbolicLinks());
+        SourceInventoryScanResult result = scan(scanner, workspace, List.of(Path.of("linked-root")));
+
+        assertFalse(result.complete(), () -> "scan should be incomplete: " + result);
+        assertTrue(result.inventory().isEmpty(), "a rejected symbolic-link root must never publish an inventory");
+        assertTrue(result.failures().stream().anyMatch(failure ->
+                        failure.message().contains("symbolic-link source root is not followed")),
+                () -> "unexpected failures: " + result.failures());
     }
 
     @Test
@@ -233,12 +256,17 @@ class LocalSourceInventorySecurityTest {
     }
 
     private SourceInventoryScanResult scan(LocalSourceInventoryScanner scanner, Path workspace) {
+        return scan(scanner, workspace, List.of());
+    }
+
+    private SourceInventoryScanResult scan(
+            LocalSourceInventoryScanner scanner, Path workspace, List<Path> sourceRoots) {
         return scanner.scan(
                 workspace,
                 ProjectSpecificationId.generate(),
                 Optional.empty(),
                 Instant.parse("2026-07-26T18:00:00Z"),
-                List.of());
+                sourceRoots);
     }
 
     private void assertMutationFailure(SourceInventoryScanResult result, String source, String messageFragment) {

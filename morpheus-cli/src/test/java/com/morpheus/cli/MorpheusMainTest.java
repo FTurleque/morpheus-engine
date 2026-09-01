@@ -90,6 +90,23 @@ class MorpheusMainTest {
     }
 
     @Test
+    void helpIsDetectedAfterSkippingAValueConsumingGlobalFlag() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+
+        int exit;
+        try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
+            exit = MorpheusMain.run(new String[]{"--data-dir", "data", "help"}, out, err, Map.of(), properties());
+        }
+
+        assertEquals(CliExitCode.SUCCESS.code(), exit);
+        String help = output.toString(StandardCharsets.UTF_8);
+        assertTrue(help.contains("mcp --stdio"));
+        assertTrue(help.contains("api [--host HOST] [--port PORT]"));
+    }
+
+    @Test
     void rejectsUnsupportedMcpModesAndJsonWrapper() {
         Properties properties = properties();
         assertThrows(IllegalArgumentException.class,

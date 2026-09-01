@@ -128,6 +128,35 @@ class MorpheusServerCliTest {
         assertTrue(restored.out().contains("\"integrityOk\":true"), restored.out());
     }
 
+    @Test
+    void configDirAcceptsEqualsFormAlongsideOtherEqualsFormGlobalFlags() throws Exception {
+        Path dataDir = temp.resolve("data-eq");
+        Path configDir = temp.resolve("config-eq");
+        Path db = temp.resolve("data-eq/morpheus.db");
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+        int exit;
+        try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
+            Properties properties = new Properties();
+            properties.setProperty("user.home", temp.resolve("home").toString());
+            properties.setProperty("os.name", System.getProperty("os.name", "Linux"));
+            exit = MorpheusMain.run(new String[]{
+                    "--data-dir=" + dataDir,
+                    "--config-dir=" + configDir,
+                    "--db=" + db,
+                    "--json", "server", "identity", "create",
+                    "--principal", "eqform", "--role", "READ"
+            }, out, err, Map.of(), properties);
+        }
+
+        assertEquals(CliExitCode.SUCCESS.code(), exit, errors.toString(StandardCharsets.UTF_8));
+        Path auth = configDir.resolve("remote-auth.txt");
+        assertTrue(Files.exists(auth), "expected auth file under --config-dir= target: " + auth);
+        assertTrue(Files.readString(auth).contains("eqform|READ"));
+    }
+
     private Result run(String... rawArgs) {
         List<String> args = new ArrayList<>();
         args.add("--data-dir");
