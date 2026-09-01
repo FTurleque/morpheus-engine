@@ -75,6 +75,18 @@ class MorpheusPortfolioCliTest {
     }
 
     @Test
+    void explicitDataAndConfigDirectoriesAreBothConsumedBeforeActionValidation() {
+        Result result = run(
+                "--data-dir", tempDirectory.resolve("data").toString(),
+                "--config-dir", tempDirectory.resolve("config").toString(),
+                "--db", tempDirectory.resolve("morpheus.db").toString(),
+                "portfolio");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode());
+        assertTrue(result.err().contains("portfolio requires an action"), result.err());
+    }
+
+    @Test
     void traversalRequiresExplicitStartIdentity() {
         Result created = run("--json", "portfolio", "create", "--name", "Traversal");
         assertEquals(CliExitCode.SUCCESS.code(), created.exitCode(), created.err());

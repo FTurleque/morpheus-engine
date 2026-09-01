@@ -144,6 +144,26 @@ class MorpheusPolicyCliTest {
         assertTrue(versions.out().contains("\"kind\":\"QUERY_ASSERTION\""), versions.out());
     }
 
+    @Test
+    void explicitDataAndConfigDirectoriesAreBothConsumedBeforeActionValidation() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+        int exit;
+        try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
+            Properties properties = new Properties();
+            properties.setProperty("user.home", tempDirectory.resolve("home").toString());
+            properties.setProperty("os.name", "Linux");
+            exit = MorpheusMain.run(new String[]{
+                    "--data-dir", tempDirectory.resolve("data").toString(),
+                    "--config-dir", tempDirectory.resolve("config").toString(),
+                    "--db", tempDirectory.resolve("morpheus.db").toString(),
+                    "policy"}, out, err, Map.of(), properties);
+        }
+        assertEquals(CliExitCode.USAGE.code(), exit);
+        assertTrue(errors.toString(StandardCharsets.UTF_8).contains("policy action is required"));
+    }
+
     private Result run(String... rawArgs) {
         List<String> args = new ArrayList<>();
         args.add("--db");
