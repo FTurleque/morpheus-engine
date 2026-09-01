@@ -23,16 +23,16 @@ public final class MorpheusMain {
     }
 
     public static void main(String[] args) {
-        PrintStream err = new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
-            exitCode = runRemoteApi(args, err, System.getenv(), System.getProperties());
+            exitCode = runRemoteApi(args, System.err, System.getenv(), System.getProperties());
         } else if (ApiLaunchOptions.isApiCommand(args)) {
-            exitCode = runApi(args, err, System.getenv(), System.getProperties());
+            exitCode = runApi(args, System.err, System.getenv(), System.getProperties());
         } else if (McpLaunchOptions.isMcpCommand(args)) {
-            exitCode = runMcp(args, err, System.getenv(), System.getProperties());
+            exitCode = runMcp(args, System.err, System.getenv(), System.getProperties());
         } else {
             PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
+            PrintStream err = new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
             exitCode = run(args, out, err, System.getenv(), System.getProperties());
         }
         if (exitCode != 0) {
