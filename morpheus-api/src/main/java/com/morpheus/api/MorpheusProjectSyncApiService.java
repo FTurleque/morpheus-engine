@@ -27,6 +27,8 @@ import java.util.Optional;
 
 /** Owns project synchronization orchestration and synchronization API views. */
 final class MorpheusProjectSyncApiService {
+    private static final String UNKNOWN_VALUE = "unknown";
+
     private final Path databasePath;
     private final Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots;
 
@@ -97,11 +99,11 @@ final class MorpheusProjectSyncApiService {
             return map(
                     "projectId", projectId.toString(),
                     "state", freshness.state().name(),
-                    "lastSuccessfulSyncAt", freshness.lastSuccessfulSyncAt().map(Instant::toString).orElse("unknown"),
-                    "ageSeconds", freshness.ageSinceSuccessfulSync().map(Duration::toSeconds).map(Object::toString).orElse("unknown"),
-                    "lastObservedChangeAt", freshness.lastObservedChangeAt().map(Instant::toString).orElse("unknown"),
-                    "sourceRevision", freshness.sourceRevision().orElse("unknown"),
-                    "lastSuccessfulMode", freshness.lastSuccessfulMode().map(Enum::name).orElse("unknown"),
+                    "lastSuccessfulSyncAt", freshness.lastSuccessfulSyncAt().map(Instant::toString).orElse(UNKNOWN_VALUE),
+                    "ageSeconds", freshness.ageSinceSuccessfulSync().map(Duration::toSeconds).map(Object::toString).orElse(UNKNOWN_VALUE),
+                    "lastObservedChangeAt", freshness.lastObservedChangeAt().map(Instant::toString).orElse(UNKNOWN_VALUE),
+                    "sourceRevision", freshness.sourceRevision().orElse(UNKNOWN_VALUE),
+                    "lastSuccessfulMode", freshness.lastSuccessfulMode().map(Enum::name).orElse(UNKNOWN_VALUE),
                     "pendingFullRebuildReason", freshness.pendingFullRebuildReason().map(Enum::name).orElse("none"),
                     "currentSourceCount", freshness.currentSourceCount());
         }

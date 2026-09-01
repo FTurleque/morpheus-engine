@@ -48,13 +48,14 @@ class QuerySourceBudgetTest {
                 portfolioId,
                 Collections.nCopies(QueryBudgets.MAX_PORTFOLIO_PROJECTS + 1, membership));
         QueryExecutionService service = service(portfolios);
+        QueryDefinition definition = QueryDefinition.all(
+                new PortfolioQueryScope(portfolioId),
+                QueryEntityType.PORTFOLIO_MEMBERSHIP,
+                QueryPage.first(1));
 
         QueryValidationException failure = assertThrows(
                 QueryValidationException.class,
-                () -> service.execute(QueryDefinition.all(
-                        new PortfolioQueryScope(portfolioId),
-                        QueryEntityType.PORTFOLIO_MEMBERSHIP,
-                        QueryPage.first(1))));
+                () -> service.execute(definition));
 
         assertTrue(failure.getMessage().contains("portfolio query exceeds"));
     }

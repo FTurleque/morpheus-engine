@@ -58,6 +58,11 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
     private final MorpheusRemoteProxyTransport proxyTransport;
 
+    // Wires together every transport, persistence, and access-control collaborator of the remote HTTPS facade
+    // explicitly, per MorpheusMain's explicit-wiring convention (see .claude/rules/architecture.md, "Pas de
+    // framework, pas de magie"); grouping these into holder records would blur which parameter carries a
+    // security-sensitive capability (internalCapability, authFile) for this security-critical class.
+    @SuppressWarnings("java:S107")
     MorpheusRemoteHttpServer(
             HttpsServer server,
             ExecutorService executor,

@@ -36,9 +36,10 @@ class MorpheusChangeQueryApiServiceContractTest {
                 () -> service.listChanges(projectId, PageRequest.first(1)));
         assertEquals(409, noActiveSnapshot.status());
 
+        String missingProjectId = ProjectSpecificationId.generate().toString();
         ApiFailure missingProject = assertThrows(
                 ApiFailure.class,
-                () -> service.listChanges(ProjectSpecificationId.generate().toString(), PageRequest.first(1)));
+                () -> service.listChanges(missingProjectId, PageRequest.first(1)));
         assertEquals(404, missingProject.status());
 
         new MorpheusProjectSyncApiService(database, Optional.empty()).sync(projectId, Optional.of("changes-r1"));

@@ -17,6 +17,7 @@ import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusServerCliTest {
@@ -68,7 +69,7 @@ class MorpheusServerCliTest {
     }
 
     @Test
-    void identityLifecycleCommandsNeverListCredentialMaterial() throws Exception {
+    void identityLifecycleCommandsNeverListCredentialMaterial() {
         Result firstAdmin = run("--json", "server", "identity", "create",
                 "--principal", "admin-one", "--role", "ADMIN");
         Result secondAdmin = run("--json", "server", "identity", "create",
@@ -88,7 +89,7 @@ class MorpheusServerCliTest {
 
         Result rotated = run("--json", "server", "identity", "rotate", "--principal", "reader");
         assertEquals(CliExitCode.SUCCESS.code(), rotated.exitCode(), rotated.err());
-        assertFalse(token(rotated).equals(originalReaderToken));
+        assertNotEquals(originalReaderToken, token(rotated));
         assertTrue(rotated.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
         assertTrue(rotated.out().contains("INVALID_IMMEDIATELY"));
         assertFalse(rotated.out().contains("RESTART_REMOTE_SERVER_REQUIRED_AFTER_MUTATION"));
@@ -125,6 +126,35 @@ class MorpheusServerCliTest {
         Result restored = run("--json", "server", "restore", "--file", backupPath.toString(), "--confirm");
         assertEquals(CliExitCode.SUCCESS.code(), restored.exitCode(), restored.err());
         assertTrue(restored.out().contains("\"integrityOk\":true"), restored.out());
+    }
+
+    @Test
+    void configDirAcceptsEqualsFormAlongsideOtherEqualsFormGlobalFlags() throws Exception {
+        Path dataDir = temp.resolve("data-eq");
+        Path configDir = temp.resolve("config-eq");
+        Path db = temp.resolve("data-eq/morpheus.db");
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+        int exit;
+        try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
+            Properties properties = new Properties();
+            properties.setProperty("user.home", temp.resolve("home").toString());
+            properties.setProperty("os.name", System.getProperty("os.name", "Linux"));
+            exit = MorpheusMain.run(new String[]{
+                    "--data-dir=" + dataDir,
+                    "--config-dir=" + configDir,
+                    "--db=" + db,
+                    "--json", "server", "identity", "create",
+                    "--principal", "eqform", "--role", "READ"
+            }, out, err, Map.of(), properties);
+        }
+
+        assertEquals(CliExitCode.SUCCESS.code(), exit, errors.toString(StandardCharsets.UTF_8));
+        Path auth = configDir.resolve("remote-auth.txt");
+        assertTrue(Files.exists(auth), "expected auth file under --config-dir= target: " + auth);
+        assertTrue(Files.readString(auth).contains("eqform|READ"));
     }
 
     private Result run(String... rawArgs) {

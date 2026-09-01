@@ -24,6 +24,8 @@ import java.util.Set;
 
 /** Owns active change list, detail, subresource and contextual API views. */
 final class MorpheusChangeQueryApiService {
+    private static final String FIELD_TITLE = "title";
+
     private final Path databasePath;
 
     MorpheusChangeQueryApiService(Path databasePath) {
@@ -154,7 +156,7 @@ final class MorpheusChangeQueryApiService {
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key().orElse(""),
-                "title", item.title(),
+                FIELD_TITLE, item.title(),
                 "intent", item.intent(),
                 "scope", item.scope(),
                 "outOfScope", item.outOfScope(),
@@ -170,7 +172,7 @@ final class MorpheusChangeQueryApiService {
                 "id", item.id().toString(),
                 "requirementId", item.requirementId().map(Object::toString).orElse(""),
                 "changeId", item.changeId().map(Object::toString).orElse(""),
-                "title", item.title(),
+                FIELD_TITLE, item.title(),
                 "condition", item.condition(),
                 "verificationStatus", item.verificationStatus().name(),
                 "verificationEvidenceIds", item.verificationEvidenceIds().stream().map(Object::toString).toList(),
@@ -181,7 +183,7 @@ final class MorpheusChangeQueryApiService {
         return map(
                 "id", item.id().toString(),
                 "changeId", item.changeId().toString(),
-                "title", item.title(),
+                FIELD_TITLE, item.title(),
                 "decision", item.decision());
     }
 
@@ -190,7 +192,7 @@ final class MorpheusChangeQueryApiService {
                 "id", item.id().toString(),
                 "changeId", item.changeId().toString(),
                 "key", item.key().orElse(""),
-                "title", item.title(),
+                FIELD_TITLE, item.title(),
                 "completed", item.completed());
     }
 

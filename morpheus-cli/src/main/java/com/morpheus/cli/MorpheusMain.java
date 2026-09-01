@@ -22,6 +22,9 @@ public final class MorpheusMain {
     private MorpheusMain() {
     }
 
+    // These System.err references wire the real process stderr into the launcher's own
+    // PrintStream-taking methods; a logging framework has no place in the OS entry point.
+    @SuppressWarnings("java:S106")
     public static void main(String[] args) {
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
@@ -294,8 +297,10 @@ public final class MorpheusMain {
     }
 
     private static boolean isSyncCommand(String[] args) {
-        for (int index = 0; index < args.length; index++) {
+        int index = 0;
+        while (index < args.length) {
             String token = args[index];
+            index++;
             if (token.equals("--json")) {
                 continue;
             }
@@ -309,8 +314,10 @@ public final class MorpheusMain {
     }
 
     private static boolean isHelpRequest(String[] args) {
-        for (int index = 0; index < args.length; index++) {
+        int index = 0;
+        while (index < args.length) {
             String token = args[index];
+            index++;
             if (token.equals("--json")) {
                 continue;
             }

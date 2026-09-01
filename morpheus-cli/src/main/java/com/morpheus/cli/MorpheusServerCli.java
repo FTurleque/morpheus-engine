@@ -21,6 +21,8 @@ import java.util.Set;
 /** M26 local administrative CLI for remote identities and SQLite backup/restore. */
 final class MorpheusServerCli {
     private static final String IDENTITY_RELOAD_POLICY = "LIVE_RELOAD_ON_AUTHENTICATION";
+    private static final String OPT_CONFIG_DIR = "--config-dir";
+    private static final String OPT_CONFIRM = "confirm";
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
 
@@ -173,8 +175,8 @@ final class MorpheusServerCli {
     }
 
     private int restore(Parsed parsed, PrintStream out) {
-        Map<String, String> options = options(parsed.command(), 2, Set.of("file", "confirm"));
-        if (!"true".equals(options.get("confirm"))) {
+        Map<String, String> options = options(parsed.command(), 2, Set.of("file", OPT_CONFIRM));
+        if (!"true".equals(options.get(OPT_CONFIRM))) {
             throw new IllegalArgumentException("server restore requires explicit --confirm");
         }
         SqliteServerMaintenance.BackupVerification restored = maintenance.restoreOffline(
@@ -252,11 +254,11 @@ final class MorpheusServerCli {
                 json = true;
                 continue;
             }
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
+            if (token.equals("--data-dir") || token.equals(OPT_CONFIG_DIR) || token.equals("--db")) {
                 if (index + 1 >= args.length) throw new IllegalArgumentException(token + " requires a value");
                 Path value = Path.of(args[++index]);
                 if (token.equals("--data-dir")) data = Optional.of(value);
-                if (token.equals("--config-dir")) config = Optional.of(value);
+                if (token.equals(OPT_CONFIG_DIR)) config = Optional.of(value);
                 if (token.equals("--db")) database = Optional.of(value);
                 continue;
             }
@@ -265,7 +267,7 @@ final class MorpheusServerCli {
                 Path value = Path.of(token.substring(separator + 1));
                 String option = token.substring(0, separator);
                 if (option.equals("--data-dir")) data = Optional.of(value);
-                if (option.equals("--config-dir")) config = Optional.of(value);
+                if (option.equals(OPT_CONFIG_DIR)) config = Optional.of(value);
                 if (option.equals("--db")) database = Optional.of(value);
                 continue;
             }
@@ -284,7 +286,7 @@ final class MorpheusServerCli {
             if (!token.startsWith("--")) throw new IllegalArgumentException("unexpected server argument: " + token);
             String name = token.substring(2);
             if (!allowed.contains(name)) throw new IllegalArgumentException("unknown server option: --" + name);
-            if (name.equals("confirm")) {
+            if (name.equals(OPT_CONFIRM)) {
                 if (result.put(name, "true") != null) throw new IllegalArgumentException("duplicate --confirm");
                 continue;
             }
@@ -313,7 +315,7 @@ final class MorpheusServerCli {
     }
 
     private static boolean isLayoutOption(String token) {
-        return token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")
+        return token.equals("--data-dir") || token.equals(OPT_CONFIG_DIR) || token.equals("--db")
                 || token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=");
     }
 

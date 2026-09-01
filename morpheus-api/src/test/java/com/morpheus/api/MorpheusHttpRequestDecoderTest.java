@@ -119,8 +119,9 @@ class MorpheusHttpRequestDecoderTest {
     @Test
     void constructorRejectsNonPositiveBounds() {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            Duration oneSecond = Duration.ofSeconds(1);
             assertThrows(IllegalArgumentException.class,
-                    () -> new MorpheusHttpRequestDecoder(0, Duration.ofSeconds(1), executor));
+                    () -> new MorpheusHttpRequestDecoder(0, oneSecond, executor));
             assertThrows(IllegalArgumentException.class,
                     () -> new MorpheusHttpRequestDecoder(1, Duration.ZERO, executor));
             assertThrows(IllegalArgumentException.class,
@@ -223,6 +224,8 @@ class MorpheusHttpRequestDecoderTest {
 
         @Override
         public void setStreams(InputStream input, OutputStream output) {
+            // no-op: this stub serves fixed in-memory streams and never needs the
+            // server's filtered/wrapped input and output streams substituted in
         }
 
         @Override

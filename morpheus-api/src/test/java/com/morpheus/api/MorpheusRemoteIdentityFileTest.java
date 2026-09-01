@@ -156,4 +156,74 @@ class MorpheusRemoteIdentityFileTest {
 
         assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(link));
     }
+
+    @Test
+    void identityEqualsComparesTokenHashByContentNotReference() {
+        byte[] hashA = new byte[32];
+        hashA[0] = 1;
+        byte[] hashB = hashA.clone();
+        assertFalse(hashA == hashB);
+
+        MorpheusRemoteIdentityFile.Identity first =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hashA, Optional.empty());
+        MorpheusRemoteIdentityFile.Identity second =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hashB, Optional.empty());
+
+        assertEquals(first, second);
+        assertEquals(first.hashCode(), second.hashCode());
+    }
+
+    @Test
+    void identityEqualsFastPathsAndDistinguishingFields() {
+        byte[] hash = new byte[32];
+        hash[0] = 9;
+        byte[] otherHash = new byte[32];
+        otherHash[0] = 10;
+
+        Instant expiry = Instant.parse("2099-01-01T00:00:00Z");
+        Instant otherExpiry = Instant.parse("2099-06-01T00:00:00Z");
+
+        MorpheusRemoteIdentityFile.Identity base =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hash, Optional.of(expiry));
+
+        assertEquals(base, base);
+        assertFalse(base.equals("not an identity"));
+
+        MorpheusRemoteIdentityFile.Identity differentPrincipal =
+                new MorpheusRemoteIdentityFile.Identity("bob", MorpheusRemoteRole.ADMIN, hash, Optional.of(expiry));
+        assertFalse(base.equals(differentPrincipal));
+
+        MorpheusRemoteIdentityFile.Identity differentRole =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.READ, hash, Optional.of(expiry));
+        assertFalse(base.equals(differentRole));
+
+        MorpheusRemoteIdentityFile.Identity differentHash =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, otherHash, Optional.of(expiry));
+        assertFalse(base.equals(differentHash));
+
+        MorpheusRemoteIdentityFile.Identity differentExpiry =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hash, Optional.of(otherExpiry));
+        assertFalse(base.equals(differentExpiry));
+
+        MorpheusRemoteIdentityFile.Identity sameValues =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hash, Optional.of(expiry));
+        assertTrue(base.equals(sameValues));
+    }
+
+    @Test
+    void identityToStringContainsDecodedTokenHashBytesNotArrayReference() {
+        byte[] hash = new byte[32];
+        hash[0] = 1;
+        hash[1] = 2;
+        hash[2] = 3;
+
+        MorpheusRemoteIdentityFile.Identity identity =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hash);
+
+        String text = identity.toString();
+        assertTrue(text.contains("principal=alice"));
+        assertTrue(text.contains("role=ADMIN"));
+        assertTrue(text.contains("tokenHash=[1, 2, 3"));
+        assertFalse(text.contains("[B@"));
+    }
 }

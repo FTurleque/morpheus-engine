@@ -105,9 +105,9 @@ public final class QueryDefinitionCodec {
     }
 
     private void writeScope(DataOutputStream out, QueryScope scope) throws IOException {
-        if (scope instanceof ProjectQueryScope project) {
+        if (scope instanceof ProjectQueryScope(ProjectSpecificationId projectId)) {
             out.writeByte(1);
-            out.writeUTF(project.projectId().toString());
+            out.writeUTF(projectId.toString());
             return;
         }
         if (scope instanceof PortfolioQueryScope portfolio) {
@@ -137,9 +137,9 @@ public final class QueryDefinitionCodec {
             }
             return;
         }
-        if (filter instanceof QueryAnd and) {
+        if (filter instanceof QueryAnd(List<QueryFilter> children)) {
             out.writeByte(2);
-            writeChildren(out, and.children());
+            writeChildren(out, children);
             return;
         }
         if (filter instanceof QueryOr or) {

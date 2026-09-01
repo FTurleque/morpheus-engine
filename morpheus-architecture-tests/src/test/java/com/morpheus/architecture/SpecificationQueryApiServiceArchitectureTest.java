@@ -21,6 +21,12 @@ class SpecificationQueryApiServiceArchitectureTest {
         String routes = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusSpecificationsHttpRoutes.java"));
 
+        assertFacadeDelegatesToSpecificationQueryService(facade);
+        assertSpecificationQueryServiceImplementsQueries(specifications);
+        assertSpecificationsHttpRoutesUseQueryService(routes);
+    }
+
+    private void assertFacadeDelegatesToSpecificationQueryService(String facade) {
         assertTrue(facade.contains("private final MorpheusSpecificationQueryApiService specificationQueryService;"));
         assertTrue(facade.contains("return specificationQueryService.listSpecifications(projectIdValue, pageRequest);"));
         assertTrue(facade.contains("return specificationQueryService.specification(projectIdValue, specificationIdValue);"));
@@ -30,7 +36,9 @@ class SpecificationQueryApiServiceArchitectureTest {
         assertFalse(facade.contains("activeSpecification(projectId, specificationId)"));
         assertFalse(facade.contains("private Object specification(Specification item)"));
         assertFalse(facade.contains("private Object scenario(Scenario item)"));
+    }
 
+    private void assertSpecificationQueryServiceImplementsQueries(String specifications) {
         assertTrue(specifications.contains("final class MorpheusSpecificationQueryApiService"));
         assertTrue(specifications.contains("content.specifications().stream()"));
         assertTrue(specifications.contains("new SpecificationContextQueryService("));
@@ -45,7 +53,9 @@ class SpecificationQueryApiServiceArchitectureTest {
         assertFalse(specifications.contains("LocalSourceInventoryScanner"));
         assertFalse(specifications.contains("MorpheusHttpResponseWriter"));
         assertFalse(specifications.contains("MorpheusRemote"));
+    }
 
+    private void assertSpecificationsHttpRoutesUseQueryService(String routes) {
         assertTrue(routes.contains("private final MorpheusSpecificationQueryApiService service;"));
         assertTrue(routes.contains("specificationQueryService()"));
         assertTrue(routes.contains("service.listSpecifications(projectId, page(query))"));

@@ -199,6 +199,32 @@ class BoundedStdioClientTransportTest {
     }
 
     @Test
+    void handleErrorLineSurvivesThrowingStderrHandlerAndKeepsTransportUsable() throws Exception {
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                peerParameters(FixtureStderrChattyMcpServer.class),
+                McpJsonDefaults.getMapper(),
+                4096);
+        CountDownLatch handlerInvoked = new CountDownLatch(1);
+        transport.setStdErrorHandler(line -> {
+            handlerInvoked.countDown();
+            throw new RuntimeException("boom from stderr handler");
+        });
+        McpSyncClient client = McpClient.sync(transport)
+                .requestTimeout(Duration.ofSeconds(5))
+                .build();
+        try {
+            client.initialize();
+            assertTrue(handlerInvoked.await(5, TimeUnit.SECONDS),
+                    "stderr handler was never invoked with the fixture's diagnostic line");
+            assertTrue(client.listTools().tools().stream()
+                            .anyMatch(tool -> tool.name().equals(FixtureStderrChattyMcpServer.TOOL_ECHO)),
+                    "transport must remain usable after its stderr handler threw");
+        } finally {
+            client.closeGracefully();
+        }
+    }
+
+    @Test
     void rejectsNonPositiveTransportLimits() {
         ServerParameters parameters = serverParameters();
 

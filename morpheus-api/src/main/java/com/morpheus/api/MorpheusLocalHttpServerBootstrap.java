@@ -36,12 +36,8 @@ final class MorpheusLocalHttpServerBootstrap {
                 databasePath,
                 host,
                 port,
-                resolvers,
-                disabledMinos,
-                disabledNexus(),
-                deniedWrites(),
-                Optional.empty(),
-                Optional.empty());
+                new HttpServerIntegrations(resolvers, disabledMinos, disabledNexus(), deniedWrites()),
+                new RemoteAccessControls(Optional.empty(), Optional.empty()));
     }
 
     static MorpheusHttpServer start(
@@ -54,12 +50,8 @@ final class MorpheusLocalHttpServerBootstrap {
                 databasePath,
                 host,
                 port,
-                resolverRegistry,
-                minosStatus,
-                disabledNexus(),
-                deniedWrites(),
-                Optional.empty(),
-                Optional.empty());
+                new HttpServerIntegrations(resolverRegistry, minosStatus, disabledNexus(), deniedWrites()),
+                new RemoteAccessControls(Optional.empty(), Optional.empty()));
     }
 
     static MorpheusHttpServer start(
@@ -73,12 +65,8 @@ final class MorpheusLocalHttpServerBootstrap {
                 databasePath,
                 host,
                 port,
-                resolverRegistry,
-                minosStatus,
-                technicalContextProvider,
-                deniedWrites(),
-                Optional.empty(),
-                Optional.empty());
+                new HttpServerIntegrations(resolverRegistry, minosStatus, technicalContextProvider, deniedWrites()),
+                new RemoteAccessControls(Optional.empty(), Optional.empty()));
     }
 
     static MorpheusHttpServer start(
@@ -93,12 +81,8 @@ final class MorpheusLocalHttpServerBootstrap {
                 databasePath,
                 host,
                 port,
-                resolverRegistry,
-                minosStatus,
-                technicalContextProvider,
-                writeCapabilityResolver,
-                Optional.empty(),
-                Optional.empty());
+                new HttpServerIntegrations(resolverRegistry, minosStatus, technicalContextProvider, writeCapabilityResolver),
+                new RemoteAccessControls(Optional.empty(), Optional.empty()));
     }
 
     static MorpheusHttpServer startRemote(
@@ -115,25 +99,41 @@ final class MorpheusLocalHttpServerBootstrap {
                 databasePath,
                 host,
                 port,
-                resolverRegistry,
-                minosStatus,
-                technicalContextProvider,
-                writeCapabilityResolver,
-                Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")),
-                Optional.of(Objects.requireNonNull(internalCapability, "internalCapability")));
+                new HttpServerIntegrations(resolverRegistry, minosStatus, technicalContextProvider, writeCapabilityResolver),
+                new RemoteAccessControls(
+                        Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")),
+                        Optional.of(Objects.requireNonNull(internalCapability, "internalCapability"))));
+    }
+
+    /** Groups the read/write/telemetry integration collaborators the local HTTP server delegates to. */
+    private record HttpServerIntegrations(
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver) {
+    }
+
+    /** Groups the remote-only access-control extras that are absent for the plain local server. */
+    private record RemoteAccessControls(
+            Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots,
+            Optional<MorpheusInternalCapability> internalCapability) {
     }
 
     private static MorpheusHttpServer start(
             Path databasePath,
             String host,
             int port,
-            ExternalReferenceResolverRegistry resolverRegistry,
-            ExternalIntegrationStatusProvider minosStatus,
-            TechnicalContextProvider technicalContextProvider,
-            ChangeWriteCapabilityResolver writeCapabilityResolver,
-            Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots,
-            Optional<MorpheusInternalCapability> internalCapability) {
+            HttpServerIntegrations integrations,
+            RemoteAccessControls remoteAccessControls) {
         Objects.requireNonNull(databasePath, "databasePath");
+        Objects.requireNonNull(integrations, "integrations");
+        Objects.requireNonNull(remoteAccessControls, "remoteAccessControls");
+        ExternalReferenceResolverRegistry resolverRegistry = integrations.resolverRegistry();
+        ExternalIntegrationStatusProvider minosStatus = integrations.minosStatus();
+        TechnicalContextProvider technicalContextProvider = integrations.technicalContextProvider();
+        ChangeWriteCapabilityResolver writeCapabilityResolver = integrations.writeCapabilityResolver();
+        Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots = remoteAccessControls.allowedWorkspaceRoots();
+        Optional<MorpheusInternalCapability> internalCapability = remoteAccessControls.internalCapability();
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(minosStatus, "minosStatus");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");

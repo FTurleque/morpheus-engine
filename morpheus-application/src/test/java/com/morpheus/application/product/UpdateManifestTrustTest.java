@@ -27,9 +27,10 @@ class UpdateManifestTrustTest {
                 SHA256,
                 java.util.Optional.of(URI.create("https://github.com/example/morpheus/attestations/123")));
 
+        URI remoteManifestUri = URI.create("https://updates.example.invalid/stable.properties");
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
-                () -> manifest.requireRemoteTrust(URI.create("https://updates.example.invalid/stable.properties")));
+                () -> manifest.requireRemoteTrust(remoteManifestUri));
 
         assertTrue(failure.getMessage().contains("artifactUri must use https"));
     }
@@ -39,12 +40,14 @@ class UpdateManifestTrustTest {
         assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
                 "1.2.2", "stable", URI.create("morpheus.zip"), SHA256));
 
+        URI validArtifactUri = URI.create("https://downloads.example.invalid/morpheus.zip");
+        java.util.Optional<URI> relativeAttestationUri = java.util.Optional.of(URI.create("attestation.jsonl"));
         assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
                 "1.2.2",
                 "stable",
-                URI.create("https://downloads.example.invalid/morpheus.zip"),
+                validArtifactUri,
                 SHA256,
-                java.util.Optional.of(URI.create("attestation.jsonl"))));
+                relativeAttestationUri));
     }
 
     @Test

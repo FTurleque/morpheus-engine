@@ -2,6 +2,7 @@ package com.morpheus.application.product;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -26,7 +27,7 @@ class ProductIntegrityTest {
             assertEquals(mavenVersion, ProductMetadata.version());
             assertFalse(ProductMetadata.developmentRuntime());
         }
-        assertFalse("0.1.0-SNAPSHOT".equals(ProductMetadata.version()));
+        assertNotEquals("0.1.0-SNAPSHOT", ProductMetadata.version());
         assertEquals("MORPHEUS", ProductMetadata.current().name());
         assertEquals("v1", ProductMetadata.current().apiVersion());
         assertEquals("stable", ProductMetadata.current().updateChannel());
@@ -103,10 +104,11 @@ class ProductIntegrityTest {
 
     @Test
     void advertisedArtifactRejectsInsecureSchemesEvenForLocalDiscovery() {
+        URI insecureArtifactUri = URI.create("http://example.invalid/morpheus.zip");
         IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
                 "1.0.1",
                 "stable",
-                URI.create("http://example.invalid/morpheus.zip"),
+                insecureArtifactUri,
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         assertTrue(failure.getMessage().contains("artifactUri must use file or https"));
     }
