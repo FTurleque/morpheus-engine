@@ -108,3 +108,19 @@ Les conditions d’acceptation ont été démontrées sur le même head exécuta
 - `postGateExecutableDelta=NONE` sur Windows et Linux.
 
 Preuve : [`../validation/VALIDATION_M21.md`](../validation/VALIDATION_M21.md).
+
+## Portée du manifeste (clarification post-audit 1.2.1)
+
+Un audit de finalisation 1.2.1 a relevé que `contracts/public-surfaces.tsv` ne couvre que les
+capabilities introduites à partir de M21 ; les surfaces antérieures (M0–M20 : specifications,
+requirements, changes, constraints, decisions, tasks, sync, augmented-context, jarvis-
+orchestration, external-reference, controlled-lifecycle) sont exposées de façon symétrique sur
+CLI/MCP/HTTP mais n'ont pas de ligne dans le manifeste — elles restent documentées par
+`docs/openapi/morpheus-v1.yaml` et le code des trois adapters plutôt que par le TSV.
+
+Ceci est une décision de portée assumée, pas un oubli à corriger a posteriori : le manifeste a
+été introduit après ces surfaces précisément pour discipliner la croissance *future*, et
+`ProductionIntegrityContractTest` ne prétend pas à une couverture exhaustive rétroactive
+(`entries.size() >= 6`, pas un compte exact). Backfiller ces lignes resterait possible si un
+besoin de convergence machine-lisible apparaissait pour ces surfaces historiques, mais n'est pas
+requis par cette ADR.
