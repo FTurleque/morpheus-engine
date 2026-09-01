@@ -73,7 +73,7 @@ jobs:
         if: >-
           runner.os == 'Linux' &&
           github.actor != 'dependabot[bot]' &&
-          (github.event_name == 'push' ||
+          ((github.event_name == 'push' && github.ref_name == 'main') ||
            (github.event_name == 'pull_request' &&
             github.event.pull_request.head.repo.full_name == github.repository))
         shell: bash
@@ -104,6 +104,14 @@ jobs:
         run: |
           echo "SonarQube Cloud analysis is skipped for Dependabot pull requests because GitHub withholds repository secrets from Dependabot pull_request workflows."
           echo "Exact-head M21, changed coverage, Dependency-Check, Security and CodeQL gates remain enforced."
+
+      - name: Record SonarQube Cloud skip for non-main branch push
+        if: runner.os == 'Linux' && github.event_name == 'push' && github.ref_name != 'main'
+        shell: bash
+        run: |
+          echo "SonarQube Cloud analysis is skipped for pushes to branches other than main."
+          echo "The current SonarCloud plan for this organization does not allow accessing Quality Gate status for non-main branches (api/qualitygates/project_status returns: 'Organization is not allowed to access data from non main branches.')."
+          echo "Every change reaching this branch already passed SonarQube Cloud pull-request analysis (sonar.qualitygate.wait=true) before merge. Exact-head M21, Dependency-Check, Security and CodeQL gates remain enforced on every push."
 
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
