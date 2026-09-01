@@ -106,6 +106,24 @@ class LocalSourceInventorySecurityTest {
     }
 
     @Test
+    void rejectsMtimeMutationThatSurvivesFingerprintVerificationButFailsTheFinalIdentityRecheck() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("post-verification-mtime-mutation"));
+        Path source = workspace.resolve("source.md");
+        byte[] content = "unchanged-content".getBytes(StandardCharsets.UTF_8);
+        Files.write(source, content);
+        SourceFingerprint unchangedFingerprint = SourceFingerprint.ofBytes(content);
+
+        LocalSourceInventoryScanner scanner = mutationScanner((path, maxBytes) -> {
+            Files.setLastModifiedTime(path, FileTime.fromMillis(1_600_000_000_000L));
+            return unchangedFingerprint;
+        });
+
+        SourceInventoryScanResult result = scan(scanner, workspace);
+
+        assertMutationFailure(result, "source.md", "changed identity or metadata");
+    }
+
+    @Test
     void verificationComputerIoFailureIsCaughtAsAScopedFileFailureNotAScanCrash() throws Exception {
         Path workspace = Files.createDirectories(tempDir.resolve("verification-io-failure"));
         Files.writeString(workspace.resolve("source.md"), "content", StandardCharsets.UTF_8);
