@@ -35,8 +35,8 @@ provider.plugins.discover
 
 provider.plugins.probe
   CLI   provider-plugins probe
-  MCP   probe_provider_plugin
-  HTTP local  GET /api/v1/provider-plugins/probe
+  MCP   EXPLICITLY_NOT_EXPOSED
+  HTTP local  POST /api/v1/provider-plugins/probe
 ```
 
 Elles n’ont pas la même portée d’exécution :
