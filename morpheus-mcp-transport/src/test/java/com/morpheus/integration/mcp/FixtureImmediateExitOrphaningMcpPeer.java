@@ -3,7 +3,7 @@ package com.morpheus.integration.mcp;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * Test peer that spawns a long-lived child and exits in the same instant, without ever giving MORPHEUS a window in
@@ -45,7 +45,10 @@ final class FixtureImmediateExitOrphaningMcpPeer {
 
     private static void runChild(Path pidFile) throws Exception {
         Files.writeString(pidFile, Long.toString(ProcessHandle.current().pid()));
-        TimeUnit.SECONDS.sleep(30);
+        while (true) {
+            LockSupport.parkNanos(100_000_000L);
+            Thread.interrupted();
+        }
     }
 
     private static String javaExecutable() {

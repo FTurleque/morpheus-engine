@@ -2,9 +2,11 @@ package com.morpheus.sdk.provider;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.io.InputStreamReader;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
@@ -12,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -63,12 +66,10 @@ class ProviderPluginDescendantTerminationTest {
 
     @Test
     void descendantsOfARootAreReapedWhileThatRootIsStillAlive() throws Exception {
-        Path grandchildPidFile = Files.createTempFile("morpheus-reaper-grandchild-", ".pid");
-        Files.deleteIfExists(grandchildPidFile);
-        Process child = spawnProcess(SpawningChild.class, grandchildPidFile.toString());
+        Process child = spawnProcess(SpawningChild.class);
         long grandchildPid = -1L;
         try {
-            grandchildPid = awaitPublishedPid(grandchildPidFile);
+            grandchildPid = assertTimeoutPreemptively(GRACE, () -> readPublishedPid(child));
             assertTrue(ProcessHandle.of(grandchildPid).map(ProcessHandle::isAlive).orElse(false),
                     "fixture grandchild must be running before the reap");
 
@@ -83,7 +84,6 @@ class ProviderPluginDescendantTerminationTest {
                 ProcessHandle.of(grandchildPid).filter(ProcessHandle::isAlive).ifPresent(ProcessHandle::destroyForcibly);
             }
             child.destroyForcibly();
-            Files.deleteIfExists(grandchildPidFile);
         }
     }
 
@@ -140,16 +140,18 @@ class ProviderPluginDescendantTerminationTest {
         assertFalse(appearsLater.isAlive(), "a descendant appearing between snapshots must still be terminated");
     }
 
-    private long awaitPublishedPid(Path path) throws Exception {
-        long deadline = System.nanoTime() + GRACE.toNanos();
-        while (System.nanoTime() < deadline) {
-            if (Files.isRegularFile(path)) {
-                String published = Files.readString(path).trim();
-                if (!published.isEmpty()) {
-                    return Long.parseLong(published);
+    /** Blocks on the child's stdout rather than polling for a file, so no timer is involved. */
+    private long readPublishedPid(Process child) throws IOException {
+        try (BufferedReader output = new BufferedReader(
+                new InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8))) {
+            String line = output.readLine();
+            while (line != null) {
+                try {
+                    return Long.parseLong(line.trim());
+                } catch (NumberFormatException notThePidLine) {
+                    line = output.readLine();
                 }
             }
-            TimeUnit.MILLISECONDS.sleep(10);
         }
         throw new AssertionError("fixture grandchild did not publish its PID");
     }
@@ -171,13 +173,10 @@ class ProviderPluginDescendantTerminationTest {
         List<String> command = new java.util.ArrayList<>(List.of(
                 java.toString(), "-cp", classPath, mainClass.getName()));
         command.addAll(List.of(arguments));
-        return new ProcessBuilder(command)
-                .redirectErrorStream(true)
-                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                .start();
+        return new ProcessBuilder(command).start();
     }
 
-    /** Spawns one long-lived grandchild, publishes its PID, then parks so the root stays observable. */
+    /** Spawns one long-lived grandchild, publishes its PID on stdout, then parks so the root stays observable. */
     public static final class SpawningChild {
         private SpawningChild() {
         }
@@ -196,7 +195,8 @@ class ProviderPluginDescendantTerminationTest {
                     .redirectErrorStream(true)
                     .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                     .start();
-            Files.writeString(Path.of(args[0]), Long.toString(grandchild.pid()));
+            System.out.println(grandchild.pid());
+            System.out.flush();
             while (true) {
                 LockSupport.parkNanos(100_000_000L);
                 Thread.interrupted();
