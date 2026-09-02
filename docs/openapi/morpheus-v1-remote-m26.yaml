@@ -54,6 +54,9 @@ paths:
         Remote security overlay for the local provider-plugin probe capability. Requires ADMIN. The plugin directory
         is server-configured and cannot be selected by the client. The workspace must belong to AllowedWorkspaceRoots.
         sha256 is mandatory and is verified on a private staging copy before any plugin classloading.
+        The response is an allowlisted projection of the probe outcome: the plugin JAR is reported by name, and
+        the probe result produced by third-party plugin code is projected field by field, so no server filesystem
+        location reaches the caller through plugin-authored text, a diagnostic detail or a source locator.
       parameters:
         - name: pluginId
           in: query

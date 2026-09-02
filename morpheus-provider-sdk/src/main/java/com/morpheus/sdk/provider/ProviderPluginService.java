@@ -111,7 +111,10 @@ public final class ProviderPluginService {
             diagnostics.add(ProviderPluginDiagnostic.error(
                     "PLUGIN_INTEGRITY_VERIFICATION_FAILED",
                     "Provider plugin was rejected before activation because its SHA-256 pin did not match",
-                    Map.of("pluginId", requestedPluginId, "reason", safeMessage(integrityFailure))));
+                    Map.of(
+                            "pluginId", requestedPluginId,
+                            "reason", safeMessage(integrityFailure),
+                            "reasonType", failureType(integrityFailure))));
             return new ProviderPluginProbeOutcome(
                     requestedPluginId,
                     selected.jarPath().toString(),
@@ -125,7 +128,10 @@ public final class ProviderPluginService {
                     failure.timeout()
                             ? "Provider plugin probe exceeded its isolated execution deadline and was terminated"
                             : "Provider plugin activation or probe failed in its isolated process",
-                    Map.of("pluginId", requestedPluginId, "reason", safeMessage(failure))));
+                    Map.of(
+                            "pluginId", requestedPluginId,
+                            "reason", safeMessage(failure),
+                            "reasonType", failureType(failure))));
             return new ProviderPluginProbeOutcome(
                     requestedPluginId,
                     selected.jarPath().toString(),
@@ -137,7 +143,10 @@ public final class ProviderPluginService {
             diagnostics.add(ProviderPluginDiagnostic.error(
                     "PLUGIN_ACTIVATION_OR_PROBE_FAILED",
                     "Provider plugin activation or probe failed without terminating MORPHEUS",
-                    Map.of("pluginId", requestedPluginId, "reason", safeMessage(failure))));
+                    Map.of(
+                            "pluginId", requestedPluginId,
+                            "reason", safeMessage(failure),
+                            "reasonType", failureType(failure))));
             return new ProviderPluginProbeOutcome(
                     requestedPluginId,
                     selected.jarPath().toString(),
@@ -158,5 +167,13 @@ public final class ProviderPluginService {
     private static String safeMessage(Throwable failure) {
         String message = failure.getMessage();
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
+    }
+
+    /**
+     * Names the failure without locating it. {@code reason} relays an exception message, which for a filesystem
+     * failure can be the pathname itself, so only the type crosses the remote boundary.
+     */
+    private static String failureType(Throwable failure) {
+        return failure.getClass().getSimpleName();
     }
 }

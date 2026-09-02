@@ -356,6 +356,31 @@ class MorpheusRemoteHttpServerTest {
     private void assertPluginDiscoveryAndAdminMetricsSucceed(HttpResponse<String> discovery, HttpResponse<String> metrics) {
         assertEquals(200, discovery.statusCode(), discovery.body());
         assertEquals(200, metrics.statusCode());
+        assertRemoteDiscoveryJsonCarriesNoServerLocation(discovery);
+    }
+
+    /**
+     * The projection is verified in the SDK; this proves it survives canonical JSON serialization and the proxy,
+     * which is the form a remote caller actually receives.
+     */
+    private void assertRemoteDiscoveryJsonCarriesNoServerLocation(HttpResponse<String> discovery) {
+        String body = discovery.body();
+        assertFalse(body.contains("\"directory\""),
+                () -> "remote plugin discovery must not name the server plugin directory: " + body);
+        assertFalse(body.contains("\"jarPath\""),
+                () -> "remote plugin discovery must not carry absolute JAR pathnames: " + body);
+        assertFalse(body.contains("file:"), () -> "remote plugin discovery must not carry a file: URI: " + body);
+
+        for (String location : List.of(
+                temp.toAbsolutePath().toString(),
+                temp.resolve("provider-plugins").toAbsolutePath().toString(),
+                System.getProperty("user.home"))) {
+            assertFalse(body.contains(location), () -> "remote plugin discovery leaked a location: " + body);
+            assertFalse(body.contains(location.replace('\\', '/')),
+                    () -> "remote plugin discovery leaked a location: " + body);
+            assertFalse(body.contains(location.replace("\\", "\\\\")),
+                    () -> "remote plugin discovery leaked a JSON-escaped location: " + body);
+        }
     }
 
     private void assertServerStatusExposesModeWithoutLeakingSecrets(
