@@ -102,6 +102,11 @@ final class SyntheticJsonParser {
             skipWhitespace();
             expect(':');
             Object value = parseValue(depth + 1);
+            // code-style forbids a silent last-write-wins: a duplicate key is a conflict in the source, and
+            // whichever value survived would depend on document order rather than on the data.
+            if (result.containsKey(key)) {
+                throw error("duplicate JSON object key: " + key);
+            }
             result.put(key, value);
             skipWhitespace();
             if (peek('}')) {
@@ -139,6 +144,12 @@ final class SyntheticJsonParser {
             if (current == '"') {
                 return result.toString();
             }
+            if (current < 0x20) {
+                // JSON strings carry these escaped. A raw one means two different documents -- one with the byte,
+                // one with its escape -- would parse to the same model.
+                throw error("unescaped control character U+"
+                        + String.format(java.util.Locale.ROOT, "%04X", (int) current) + " in string");
+            }
             if (current != '\\') {
                 appendStringChar(result, current);
                 continue;
@@ -154,7 +165,7 @@ final class SyntheticJsonParser {
                 case 'n' -> appendStringChar(result, '\n');
                 case 'r' -> appendStringChar(result, '\r');
                 case 't' -> appendStringChar(result, '\t');
-                case 'u' -> appendStringChar(result, parseUnicodeEscape());
+                case 'u' -> appendUnicodeEscape(result);
                 default -> throw error("unsupported escape sequence: \\" + escaped);
             }
         }
@@ -168,33 +179,85 @@ final class SyntheticJsonParser {
         result.append(value);
     }
 
-    private char parseUnicodeEscape() {
+    /**
+     * Reads one {@code \\uXXXX} escape and, for a high surrogate, the low surrogate that must follow it.
+     *
+     * <p>An unpaired surrogate is not a character. Accepting one would put a value in the parsed model that
+     * cannot round-trip through UTF-8, so two documents that differ would canonicalize to the same bytes.</p>
+     */
+    private void appendUnicodeEscape(StringBuilder result) {
+        char first = readFourHexDigits();
+        if (Character.isLowSurrogate(first)) {
+            throw error("unpaired low surrogate in unicode escape");
+        }
+        if (!Character.isHighSurrogate(first)) {
+            appendStringChar(result, first);
+            return;
+        }
+        if (index + 1 >= input.length() || input.charAt(index) != '\\' || input.charAt(index + 1) != 'u') {
+            throw error("high surrogate escape must be followed by a low surrogate escape");
+        }
+        index += 2;
+        char second = readFourHexDigits();
+        if (!Character.isLowSurrogate(second)) {
+            throw error("high surrogate escape must be followed by a low surrogate escape");
+        }
+        appendStringChar(result, first);
+        appendStringChar(result, second);
+    }
+
+    /** {@code Integer.parseInt(hex, 16)} also accepts signs and non-ASCII digits; JSON allows neither. */
+    private char readFourHexDigits() {
         if (index + 4 > input.length()) {
             throw error("incomplete unicode escape");
         }
-        String hex = input.substring(index, index + 4);
-        index += 4;
-        try {
-            return (char) Integer.parseInt(hex, 16);
-        } catch (NumberFormatException exception) {
-            throw error("invalid unicode escape: " + hex);
+        int value = 0;
+        for (int offset = 0; offset < 4; offset++) {
+            char digit = input.charAt(index + offset);
+            int parsed = hexValue(digit);
+            if (parsed < 0) {
+                throw error("invalid unicode escape: " + input.substring(index, index + 4));
+            }
+            value = (value << 4) | parsed;
         }
+        index += 4;
+        return (char) value;
     }
 
+    private static int hexValue(char digit) {
+        if (digit >= '0' && digit <= '9') return digit - '0';
+        if (digit >= 'a' && digit <= 'f') return digit - 'a' + 10;
+        if (digit >= 'A' && digit <= 'F') return digit - 'A' + 10;
+        return -1;
+    }
+
+    /**
+     * Reads a number under the JSON grammar rather than under what {@code Long}/{@code Double} happen to accept.
+     *
+     * <p>Two kinds of leniency mattered here. {@code Character.isDigit} is true for every Unicode decimal digit,
+     * and {@code Long.parseLong} decodes them, so an Arabic-Indic {@code ٣} parsed as 3 -- the same value
+     * reachable through two very different documents. And a token only had to survive {@code parseDouble}, which
+     * accepts {@code 1.} and {@code .1}, neither of which is JSON. Leading zeros passed for the same reason.</p>
+     */
     private Object parseNumber() {
         int start = index;
         if (peek('-')) {
             index++;
         }
-        while (index < input.length() && Character.isDigit(input.charAt(index))) {
-            index++;
+        int integerDigits = consumeAsciiDigits();
+        if (integerDigits == 0) {
+            throw error("expected JSON value");
         }
+        if (integerDigits > 1 && input.charAt(start + (input.charAt(start) == '-' ? 1 : 0)) == '0') {
+            throw error("JSON number must not have a leading zero: " + input.substring(start, index));
+        }
+
         boolean decimal = false;
         if (peek('.')) {
             decimal = true;
             index++;
-            while (index < input.length() && Character.isDigit(input.charAt(index))) {
-                index++;
+            if (consumeAsciiDigits() == 0) {
+                throw error("JSON number requires at least one digit after the decimal point");
             }
         }
         if (peek('e') || peek('E')) {
@@ -203,13 +266,11 @@ final class SyntheticJsonParser {
             if (peek('+') || peek('-')) {
                 index++;
             }
-            while (index < input.length() && Character.isDigit(input.charAt(index))) {
-                index++;
+            if (consumeAsciiDigits() == 0) {
+                throw error("JSON number requires at least one digit in its exponent");
             }
         }
-        if (start == index) {
-            throw error("expected JSON value");
-        }
+
         String token = input.substring(start, index);
         try {
             if (decimal) {
@@ -221,6 +282,20 @@ final class SyntheticJsonParser {
         } catch (NumberFormatException exception) {
             throw error("invalid number: " + token);
         }
+    }
+
+    /** ASCII digits only: the JSON grammar has no other digit, whatever the platform is willing to decode. */
+    private int consumeAsciiDigits() {
+        int consumed = 0;
+        while (index < input.length()) {
+            char current = input.charAt(index);
+            if (current < '0' || current > '9') {
+                break;
+            }
+            index++;
+            consumed++;
+        }
+        return consumed;
     }
 
     private Object parseLiteral(String literal, Object value) {
