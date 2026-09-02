@@ -15,7 +15,7 @@
 ## Identité
 
 `io.github.fturleque:morpheus-engine` **1.2.1** — Specification & Intent Intelligence Engine
-Java 21 · Maven 3.9.16 · 17 modules (constaté le 31/08/2026 dans `pom.xml` — recompter avant de citer) · local-first · **sans framework** · **sans Docker**
+Java 21 · Maven 3.9.16 · multi-module Maven (compter les `<module>` de `pom.xml` — ne jamais citer un total de mémoire) · local-first · **sans framework** · **sans Docker**
 
 ## Principe directeur
 
@@ -23,10 +23,11 @@ Java 21 · Maven 3.9.16 · 17 modules (constaté le 31/08/2026 dans `pom.xml` �
 `morpheus-architecture-tests` (compter avec un `glob`, pas de mémoire — le total évolue à
 chaque milestone) assertent la structure, les contrats, la sécurité et jusqu'au contenu
 textuel de fichiers précis.
-`docs/adr/` documente le *pourquoi* (98 fichiers constatés au 31/08/2026 ; le doublon de
-numéro `0095-*` alors présent a été corrigé le 01/09/2026 — renumérotation en `0097-*` —
-mais revérifier quand même avant de citer ce total ou d'assigner un nouveau numéro, le
-compte évolue à chaque ADR ajouté).
+`docs/adr/` documente le *pourquoi*. **Ne jamais citer un total d'ADR de mémoire** : compter
+les fichiers numérotés (`docs/adr/0*.md`) avec un `glob` au moment où la réponse est
+écrite — le répertoire contient aussi un `README.md`, donc « nombre de fichiers » et
+« nombre d'ADR » ne sont pas le même chiffre. Vérifier aussi le plus haut numéro attribué
+avant d'en assigner un nouveau : un doublon de numérotation a déjà existé.
 
 > Avant de décider quoi que ce soit de structurel : **lire le test ArchUnit concerné**, puis l'ADR.
 > Ne jamais deviner une règle — elle est écrite quelque part et vérifiable.
