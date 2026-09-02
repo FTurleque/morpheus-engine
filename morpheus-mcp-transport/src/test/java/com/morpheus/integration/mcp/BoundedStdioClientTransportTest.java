@@ -110,6 +110,43 @@ class BoundedStdioClientTransportTest {
         }
     }
 
+    /**
+     * A peer that spawns a child and then halts in the same instant is outside what descendant observation can
+     * cover: once the peer is gone the operating system has re-parented the child and no portable API still
+     * attributes it to that peer. This test pins what MORPHEUS does guarantee in that case — it shuts down cleanly,
+     * without stalling, leaking its own state, or reporting success it cannot back. The surviving grandchild is a
+     * documented limitation of the stdio boundary, not a sandbox failure; see SECURITY.md.
+     */
+    @Test
+    void peerThatOrphansAChildBeforeObservationStillShutsMorpheusDownCleanly() throws Exception {
+        Path childPidFile = tempDir.resolve("immediate-exit-child.pid");
+        Path peerPidFile = tempDir.resolve("immediate-exit-peer.pid");
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                peerParameters(
+                        FixtureImmediateExitOrphaningMcpPeer.class,
+                        childPidFile.toString(),
+                        peerPidFile.toString()),
+                McpJsonDefaults.getMapper(),
+                4096);
+        long childPid = -1L;
+        try {
+            transport.connect(message -> message).block();
+            long peerPid = awaitPublishedPid(peerPidFile, Duration.ofSeconds(10));
+            childPid = awaitPublishedPid(childPidFile, Duration.ofSeconds(10));
+
+            assertTimeoutPreemptively(Duration.ofSeconds(10), () -> transport.closeGracefully().block());
+            // Idempotent close is part of the contract MORPHEUS does guarantee here.
+            assertTimeoutPreemptively(Duration.ofSeconds(10), () -> transport.closeGracefully().block());
+
+            assertFalse(isAlive(peerPid), "the MCP peer itself must always be terminated");
+        } finally {
+            transport.closeGracefully().block();
+            if (childPid > 0) {
+                ProcessHandle.of(childPid).filter(ProcessHandle::isAlive).ifPresent(ProcessHandle::destroyForcibly);
+            }
+        }
+    }
+
     @Test
     void aggregateInboundBudgetIncludesActiveHandlersAndFailsClosed() throws Exception {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
