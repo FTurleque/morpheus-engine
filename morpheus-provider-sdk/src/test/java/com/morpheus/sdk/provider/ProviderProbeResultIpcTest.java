@@ -14,7 +14,14 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryFlag;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -102,6 +109,39 @@ class ProviderProbeResultIpcTest {
         Files.createDirectory(asDirectory);
 
         assertThrows(IOException.class, () -> ProviderProbeResultCodec.read(asDirectory));
+    }
+
+    @Test
+    void aPosixFilesystemRestrictsTheStagingDirectoryWithOwnerOnlyPermissionBits() throws Exception {
+        java.nio.file.attribute.FileAttribute<?>[] attributes =
+                ProviderPluginProbeProcess.ownerOnlyAttributes(Set.of("basic", "posix", "owner"));
+
+        assertEquals(1, attributes.length);
+        assertEquals("posix:permissions", attributes[0].name());
+        assertEquals(PosixFilePermissions.fromString("rwx------"), attributes[0].value());
+    }
+
+    @Test
+    void anAclFilesystemRestrictsTheStagingDirectoryWithASingleOwnerEntry() throws Exception {
+        java.nio.file.attribute.FileAttribute<?>[] attributes =
+                ProviderPluginProbeProcess.ownerOnlyAttributes(Set.of("basic", "acl", "owner"));
+
+        assertEquals(1, attributes.length);
+        assertEquals("acl:acl", attributes[0].name());
+
+        @SuppressWarnings("unchecked")
+        List<AclEntry> acl = (List<AclEntry>) attributes[0].value();
+        assertEquals(1, acl.size(), "exactly one principal may be granted");
+        AclEntry entry = acl.getFirst();
+        assertEquals(AclEntryType.ALLOW, entry.type());
+        assertEquals(EnumSet.allOf(AclEntryPermission.class), entry.permissions());
+        assertTrue(entry.flags().contains(AclEntryFlag.DIRECTORY_INHERIT), "children must inherit the restriction");
+        assertTrue(entry.flags().contains(AclEntryFlag.FILE_INHERIT), "the result file must inherit the restriction");
+    }
+
+    @Test
+    void aFilesystemExposingNeitherViewYieldsNoStagingAttributes() throws Exception {
+        assertEquals(0, ProviderPluginProbeProcess.ownerOnlyAttributes(Set.of("basic")).length);
     }
 
     @Test

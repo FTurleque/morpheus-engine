@@ -140,7 +140,14 @@ final class ProviderPluginProbeProcess {
      * takes an explicit owner-only ACL, which also replaces whatever the temporary directory would have inherited.
      */
     static FileAttribute<?>[] ownerOnlyAttributes() throws IOException {
-        Set<String> views = FileSystems.getDefault().supportedFileAttributeViews();
+        return ownerOnlyAttributes(FileSystems.getDefault().supportedFileAttributeViews());
+    }
+
+    /**
+     * Selection is separated from the running filesystem so both strategies stay verifiable on either platform.
+     * Building the attributes is pure Java; only applying them needs the matching filesystem.
+     */
+    static FileAttribute<?>[] ownerOnlyAttributes(Set<String> views) throws IOException {
         if (views.contains("posix")) {
             return new FileAttribute<?>[] {
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"))
