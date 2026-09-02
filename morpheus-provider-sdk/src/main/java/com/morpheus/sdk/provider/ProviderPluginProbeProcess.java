@@ -7,8 +7,15 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryFlag;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.UserPrincipal;
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 final class ProviderPluginProbeProcess {
     static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(45);
     static final String RESULT_FILE_NAME = "probe-result.properties";
+    private static final String STAGING_PREFIX = "morpheus-provider-probe-";
     private static final Duration GRACEFUL_TERMINATION = Duration.ofMillis(500);
     private static final long TERMINATION_POLL_MILLIS = 10L;
     private static final Set<String> SAFE_ENVIRONMENT_KEYS = Set.of(
@@ -119,19 +127,52 @@ final class ProviderPluginProbeProcess {
      * cannot be pre-empted.
      */
     private Path createPrivateStagingDirectory() throws IOException {
-        Path directory = supportsPosixPermissions()
-                ? Files.createTempDirectory(
-                        "morpheus-provider-probe-",
-                        PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")))
-                : Files.createTempDirectory("morpheus-provider-probe-");
+        Path directory = Files.createTempDirectory(STAGING_PREFIX, ownerOnlyAttributes());
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("provider probe staging directory was replaced before use");
         }
         return directory;
     }
 
-    private static boolean supportsPosixPermissions() {
-        return FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
+    /**
+     * Restricts the staging directory to its owner at creation time rather than afterwards, so it is never briefly
+     * readable or writable by other local accounts. POSIX filesystems take the permission bits directly; Windows
+     * takes an explicit owner-only ACL, which also replaces whatever the temporary directory would have inherited.
+     */
+    static FileAttribute<?>[] ownerOnlyAttributes() throws IOException {
+        Set<String> views = FileSystems.getDefault().supportedFileAttributeViews();
+        if (views.contains("posix")) {
+            return new FileAttribute<?>[] {
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"))
+            };
+        }
+        if (views.contains("acl")) {
+            return new FileAttribute<?>[] {ownerOnlyAcl()};
+        }
+        return new FileAttribute<?>[0];
+    }
+
+    private static FileAttribute<List<AclEntry>> ownerOnlyAcl() throws IOException {
+        UserPrincipal owner = FileSystems.getDefault()
+                .getUserPrincipalLookupService()
+                .lookupPrincipalByName(System.getProperty("user.name"));
+        List<AclEntry> acl = List.of(AclEntry.newBuilder()
+                .setType(AclEntryType.ALLOW)
+                .setPrincipal(owner)
+                .setPermissions(EnumSet.allOf(AclEntryPermission.class))
+                .setFlags(AclEntryFlag.DIRECTORY_INHERIT, AclEntryFlag.FILE_INHERIT)
+                .build());
+        return new FileAttribute<>() {
+            @Override
+            public String name() {
+                return "acl:acl";
+            }
+
+            @Override
+            public List<AclEntry> value() {
+                return acl;
+            }
+        };
     }
 
     private void deleteStagingDirectory(Path directory) {

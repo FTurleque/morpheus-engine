@@ -12,6 +12,9 @@ import java.util.Set;
 
 /** Transport-safe immutable views without java.nio.Path implementation details. */
 public final class ProviderPluginViews {
+    private static final String FIELD_DIAGNOSTICS = "diagnostics";
+    private static final String FIELD_METADATA = "metadata";
+
     /** Diagnostic detail keys whose values are server filesystem locations. */
     private static final Set<String> PATH_DETAIL_KEYS = Set.of("directory", "jarPath", "path", "workspace");
 
@@ -104,7 +107,7 @@ public final class ProviderPluginViews {
         public DiscoveryView {
             directory = requireText(directory, "directory");
             candidates = List.copyOf(Objects.requireNonNull(candidates, "candidates"));
-            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
+            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, FIELD_DIAGNOSTICS));
         }
     }
 
@@ -114,7 +117,7 @@ public final class ProviderPluginViews {
             long compatibleCount) {
         public RemoteDiscoveryView {
             candidates = List.copyOf(Objects.requireNonNull(candidates, "candidates"));
-            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
+            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, FIELD_DIAGNOSTICS));
         }
     }
 
@@ -125,9 +128,9 @@ public final class ProviderPluginViews {
             List<ProviderPluginDiagnostic> diagnostics) {
         public RemoteCandidateView {
             jarName = requireText(jarName, "jarName");
-            metadata = Objects.requireNonNull(metadata, "metadata");
+            Objects.requireNonNull(metadata, FIELD_METADATA);
             Objects.requireNonNull(status, "status");
-            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
+            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, FIELD_DIAGNOSTICS));
         }
     }
 
@@ -140,9 +143,9 @@ public final class ProviderPluginViews {
         public RemoteProbeView {
             pluginId = requireText(pluginId, "pluginId");
             jarName = jarName == null ? "" : jarName;
-            metadata = Objects.requireNonNull(metadata, "metadata");
-            probe = Objects.requireNonNull(probe, "probe");
-            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
+            Objects.requireNonNull(metadata, FIELD_METADATA);
+            Objects.requireNonNull(probe, "probe");
+            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, FIELD_DIAGNOSTICS));
         }
     }
 
@@ -153,9 +156,9 @@ public final class ProviderPluginViews {
             List<ProviderPluginDiagnostic> diagnostics) {
         public CandidateView {
             jarPath = requireText(jarPath, "jarPath");
-            metadata = Objects.requireNonNull(metadata, "metadata");
+            Objects.requireNonNull(metadata, FIELD_METADATA);
             Objects.requireNonNull(status, "status");
-            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
+            diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, FIELD_DIAGNOSTICS));
         }
     }
 

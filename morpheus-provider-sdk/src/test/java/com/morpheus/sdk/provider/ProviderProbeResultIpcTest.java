@@ -103,6 +103,42 @@ class ProviderProbeResultIpcTest {
         assertThrows(IOException.class, () -> ProviderProbeResultCodec.read(asDirectory));
     }
 
+    @Test
+    void theStagingDirectoryIsRestrictedToItsOwnerAtCreationTime() throws Exception {
+        java.nio.file.attribute.FileAttribute<?>[] attributes = ProviderPluginProbeProcess.ownerOnlyAttributes();
+
+        assertEquals(1, attributes.length,
+                "this platform must support either POSIX permissions or ACLs for the staging directory");
+        String name = attributes[0].name();
+        assertTrue(name.equals("posix:permissions") || name.equals("acl:acl"),
+                () -> "unexpected staging attribute: " + name);
+
+        Path staged = Files.createTempDirectory("morpheus-staging-attribute-check-", attributes);
+        try {
+            assertTrue(Files.isDirectory(staged, LinkOption.NOFOLLOW_LINKS));
+            assertFalse(isWorldAccessible(staged), "the staging directory must not be reachable by other accounts");
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+    }
+
+    private boolean isWorldAccessible(Path directory) throws IOException {
+        var posix = Files.getFileAttributeView(
+                directory, java.nio.file.attribute.PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        if (posix != null) {
+            var permissions = posix.readAttributes().permissions();
+            return permissions.stream().anyMatch(permission -> permission.name().startsWith("GROUP_")
+                    || permission.name().startsWith("OTHERS_"));
+        }
+        var acl = Files.getFileAttributeView(
+                directory, java.nio.file.attribute.AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        if (acl == null) {
+            return false;
+        }
+        var owner = Files.getOwner(directory, LinkOption.NOFOLLOW_LINKS);
+        return acl.getAcl().stream().anyMatch(entry -> !entry.principal().equals(owner));
+    }
+
     private boolean createSymbolicLink(Path link, Path target) {
         try {
             Files.createSymbolicLink(link, target);
