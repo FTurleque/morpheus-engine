@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -22,6 +23,7 @@ class RepositoryDocumentationCoherenceTest {
     private static final Pattern MCP_VERSION = Pattern.compile("<mcp-sdk\\.version>([^<]+)</mcp-sdk\\.version>");
     private static final Pattern MODULE_BLOCK = Pattern.compile("<modules>(.*?)</modules>", Pattern.DOTALL);
     private static final Pattern MODULE = Pattern.compile("<module>([^<]+)</module>");
+    private static final Pattern DOCUMENTED_THRESHOLD = Pattern.compile(">=\\s*([0-9]+(?:[.,][0-9]+)?)");
 
     @Test
     void rootReadmeMatchesPomVersionMcpSdkAndModuleList() throws Exception {
@@ -123,6 +125,45 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     @Test
+    void operatorFacingQualityGateDocumentationMirrorsTheNormativeRatchets() throws Exception {
+        Path root = repositoryRoot();
+        Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
+        String tests = ratchets.get("testsMinimum");
+        String architecture = ratchets.get("architectureTestsMinimum");
+        String line = decimalPercentage(ratchets.get("lineCoverageMinimum"));
+        String branch = decimalPercentage(ratchets.get("branchCoverageMinimum"));
+
+        assertLabelledThresholds(root, "docs/developer/BUILD_AND_TEST.md", Map.of(
+                "baseline Surefire totale", tests,
+                "baseline architecture", architecture,
+                "JaCoCo line ratchet", line,
+                "JaCoCo branch ratchet", branch));
+        assertLabelledThresholds(root, "docs/developer/PRODUCTION_INTEGRITY.md", Map.of(
+                "Tests ", tests,
+                "Architecture ", architecture,
+                "JaCoCo lines", line,
+                "JaCoCo branches", branch));
+        assertLabelledThresholds(root, "docs/README.md", Map.of(
+                "Surefire total", tests,
+                "architecture tests", architecture,
+                "JaCoCo global lines", line,
+                "JaCoCo global branches", branch));
+
+        String readme = Files.readString(root.resolve("README.md"));
+        String readmeClaim = "Le ratchet global est **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire** et **≥ %s tests d’architecture**"
+                .formatted(french(line), french(branch), tests, architecture);
+        assertTrue(readme.contains(readmeClaim),
+                () -> "README.md must state the normative M21 ratchets: " + readmeClaim);
+
+        String buildAndTest = Files.readString(root.resolve("docs/developer/BUILD_AND_TEST.md"));
+        String lockedBaseline = "**%s%% lignes / %s%% branches**".formatted(french(line), french(branch));
+        assertTrue(buildAndTest.contains("verrouillée à " + lockedBaseline),
+                () -> "BUILD_AND_TEST.md locked baseline must be " + lockedBaseline);
+        assertTrue(buildAndTest.contains("une baisse sous %s%% lignes ou %s%% branches".formatted(french(line), french(branch))),
+                "BUILD_AND_TEST.md regression rule must quote the normative coverage ratchets");
+    }
+
+    @Test
     void rootBuildEnforcerPinsQualifiedJavaAndDependencyConvergence() throws Exception {
         String pom = Files.readString(repositoryRoot().resolve("pom.xml")).replace("\r\n", "\n");
         assertTrue(pom.contains("<requireJavaVersion>\n                                    <version>[21,22)</version>\n                                </requireJavaVersion>"),
@@ -198,6 +239,44 @@ class RepositoryDocumentationCoherenceTest {
         assertTrue(developerGuide.contains("ne constituent pas une sandbox du système d'exploitation"));
         assertFalse(developerGuide.contains("`GET`/`HEAD` : READ"),
                 "developer guide must not reintroduce the obsolete verb-derived RBAC contract");
+    }
+
+    private static void assertLabelledThresholds(Path root, String page, Map<String, String> expected) throws IOException {
+        String content = Files.readString(root.resolve(page)).replace("\r\n", "\n");
+        for (Map.Entry<String, String> entry : expected.entrySet()) {
+            List<String> observed = labelledThresholds(content, entry.getKey());
+            assertFalse(observed.isEmpty(),
+                    () -> page + " must document the \"" + entry.getKey().strip() + "\" quality ratchet");
+            for (String value : observed) {
+                assertEquals(entry.getValue(), value,
+                        () -> page + " documents a stale \"" + entry.getKey().strip()
+                                + "\" ratchet; config/m21-quality-ratchets.properties is normative");
+            }
+        }
+    }
+
+    private static List<String> labelledThresholds(String content, String label) {
+        List<String> values = new ArrayList<>();
+        for (String raw : content.split("\n")) {
+            String candidate = raw.strip();
+            if (!candidate.startsWith(label.strip()) || !candidate.contains(">=")) {
+                continue;
+            }
+            Matcher matcher = DOCUMENTED_THRESHOLD.matcher(candidate);
+            if (matcher.find()) {
+                values.add(matcher.group(1).replace(',', '.'));
+            }
+        }
+        return values;
+    }
+
+    /** Renders a ratchet ratio the way the gate blocks do, e.g. 0.520 -> "52.0". */
+    private static String decimalPercentage(String decimal) {
+        return String.format(Locale.ROOT, "%.1f", Double.parseDouble(decimal) * 100.0d);
+    }
+
+    private static String french(String decimal) {
+        return decimal.replace('.', ',');
     }
 
     private static List<Path> activeStatusPages(Path root) {
