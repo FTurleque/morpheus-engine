@@ -10,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -116,27 +117,45 @@ class ProviderProbeResultIpcTest {
         Path staged = Files.createTempDirectory("morpheus-staging-attribute-check-", attributes);
         try {
             assertTrue(Files.isDirectory(staged, LinkOption.NOFOLLOW_LINKS));
-            assertFalse(isWorldAccessible(staged), "the staging directory must not be reachable by other accounts");
+            List<String> unexpected = principalsBeyondTheOwningAccount(staged);
+            assertTrue(unexpected.isEmpty(),
+                    () -> "the staging directory grants access beyond the owning account: " + unexpected);
         } finally {
             Files.deleteIfExists(staged);
         }
     }
 
-    private boolean isWorldAccessible(Path directory) throws IOException {
+    /**
+     * Returns the principals allowed on the directory that are neither its owner nor the account this JVM runs as.
+     *
+     * <p>Windows may record the owner as the administrators group rather than the granting user, so the check is
+     * against both identities. Anything else - SYSTEM, Users, Authenticated Users - would mean the inherited
+     * temporary-directory ACL survived, which is exactly what the staging attributes exist to replace.
+     */
+    private List<String> principalsBeyondTheOwningAccount(Path directory) throws IOException {
         var posix = Files.getFileAttributeView(
                 directory, java.nio.file.attribute.PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
         if (posix != null) {
-            var permissions = posix.readAttributes().permissions();
-            return permissions.stream().anyMatch(permission -> permission.name().startsWith("GROUP_")
-                    || permission.name().startsWith("OTHERS_"));
+            return posix.readAttributes().permissions().stream()
+                    .map(Enum::name)
+                    .filter(permission -> permission.startsWith("GROUP_") || permission.startsWith("OTHERS_"))
+                    .toList();
         }
         var acl = Files.getFileAttributeView(
                 directory, java.nio.file.attribute.AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
         if (acl == null) {
-            return false;
+            return List.of();
         }
-        var owner = Files.getOwner(directory, LinkOption.NOFOLLOW_LINKS);
-        return acl.getAcl().stream().anyMatch(entry -> !entry.principal().equals(owner));
+        String owner = Files.getOwner(directory, LinkOption.NOFOLLOW_LINKS).getName();
+        String runtimeAccount = FileSystems.getDefault()
+                .getUserPrincipalLookupService()
+                .lookupPrincipalByName(System.getProperty("user.name"))
+                .getName();
+        return acl.getAcl().stream()
+                .map(entry -> entry.principal().getName())
+                .filter(principal -> !principal.equals(owner) && !principal.equals(runtimeAccount))
+                .distinct()
+                .toList();
     }
 
     private boolean createSymbolicLink(Path link, Path target) {
