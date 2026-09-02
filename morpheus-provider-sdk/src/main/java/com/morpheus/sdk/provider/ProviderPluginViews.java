@@ -44,10 +44,8 @@ public final class ProviderPluginViews {
     }
 
     private static RemoteCandidateView remoteCandidate(ProviderPluginCandidate candidate) {
-        Path jarPath = candidate.jarPath();
-        Path fileName = jarPath.getFileName();
         return new RemoteCandidateView(
-                fileName == null ? jarPath.toString() : fileName.toString(),
+                fileNameOf(candidate.jarPath()),
                 candidate.metadata(),
                 candidate.status(),
                 redactAll(candidate.diagnostics()));
@@ -57,13 +55,19 @@ public final class ProviderPluginViews {
     public static RemoteProbeView remoteProbe(ProviderPluginProbeOutcome outcome) {
         Objects.requireNonNull(outcome, "outcome");
         String jarPath = outcome.jarPath();
-        String jarName = jarPath.isBlank() ? "" : Path.of(jarPath).getFileName().toString();
+        String jarName = jarPath.isBlank() ? "" : fileNameOf(Path.of(jarPath));
         return new RemoteProbeView(
                 outcome.pluginId(),
                 jarName,
                 outcome.metadata(),
                 outcome.probe(),
                 redactAll(outcome.diagnostics()));
+    }
+
+    /** A filesystem root has no file name; fall back to its own rendering rather than dereferencing null. */
+    private static String fileNameOf(Path path) {
+        Path fileName = path.getFileName();
+        return fileName == null ? path.toString() : fileName.toString();
     }
 
     private static List<ProviderPluginDiagnostic> redactAll(List<ProviderPluginDiagnostic> diagnostics) {

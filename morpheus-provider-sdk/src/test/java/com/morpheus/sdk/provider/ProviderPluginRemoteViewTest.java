@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -93,6 +95,39 @@ class ProviderPluginRemoteViewTest {
         assertFalse(remote.diagnostics().getFirst().details().containsKey("jarPath"),
                 "diagnostic details must not relay the absolute JAR path");
         assertEquals("activation refused", remote.diagnostics().getFirst().details().get("reason"));
+    }
+
+    @Test
+    void aDiagnosticWithoutPathDetailsIsRelayedUnchanged() {
+        ProviderPluginDiagnostic clean = ProviderPluginDiagnostic.warning(
+                "PLUGIN_JAR_TOO_LARGE", "JAR exceeds the scan size limit", Map.of("limitBytes", "1024"));
+
+        ProviderPluginViews.RemoteDiscoveryView remote = ProviderPluginViews.remoteDiscovery(
+                new ProviderPluginDiscoveryResult(pluginDirectory, List.of(), List.of(clean)));
+
+        assertSame(clean, remote.diagnostics().getFirst(),
+                "a diagnostic carrying no server pathname needs no rewriting");
+    }
+
+    @Test
+    void aProbeOutcomeWithoutAJarPathYieldsAnEmptyJarName() {
+        ProviderPluginViews.RemoteProbeView remote = ProviderPluginViews.remoteProbe(
+                new ProviderPluginProbeOutcome(
+                        "acme-plugin", "", Optional.empty(), Optional.empty(), List.of()));
+
+        assertEquals("", remote.jarName());
+    }
+
+    @Test
+    void aFilesystemRootJarPathDoesNotDereferenceANullFileName() {
+        Path root = pluginDirectory.getRoot();
+        assertNotNull(root, "this platform must expose a filesystem root for the check to mean anything");
+
+        ProviderPluginViews.RemoteProbeView remote = ProviderPluginViews.remoteProbe(
+                new ProviderPluginProbeOutcome(
+                        "acme-plugin", root.toString(), Optional.empty(), Optional.empty(), List.of()));
+
+        assertEquals(root.toString(), remote.jarName());
     }
 
     @Test
