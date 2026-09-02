@@ -258,6 +258,40 @@ class D2RepositoryHardeningArchitectureTest {
         }
     }
 
+    /**
+     * The documented CVE command must actually scan.
+     *
+     * <p>The {@code d2-security} profile only configures the plugin; it binds no execution to a phase. So
+     * {@code ./mvnw verify -P d2-security}, which four governance surfaces documented as the CVE scan, completed
+     * in seconds with BUILD SUCCESS having analysed nothing — an auditor following it would have reported a clean
+     * scan without running one. The goal has to be invoked explicitly, as {@code security.yml} does.</p>
+     */
+    @Test
+    void governanceSurfacesDocumentACveCommandThatActuallyInvokesTheScan() throws IOException {
+        Path root = repoRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        assertTrue(pom.contains("<id>d2-security</id>"), "the security profile must exist");
+
+        List<String> surfaces = List.of(
+                ".claude/commands/security-audit.md",
+                ".claude/agents/security-reviewer.md",
+                ".claude/rules/build.md",
+                ".github/prompts/morpheus-security-audit.prompt.md");
+        for (String surface : surfaces) {
+            String content = Files.readString(root.resolve(surface));
+            assertTrue(content.contains("org.owasp:dependency-check-maven:aggregate"),
+                    () -> surface + " must document the goal invocation that actually runs the CVE scan");
+            assertFalse(content.contains("verify -P d2-security"),
+                    () -> surface + " documents a command that activates the profile without running the scan");
+            assertFalse(content.contains("verify -Pd2-security"),
+                    () -> surface + " documents a command that activates the profile without running the scan");
+        }
+
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+        assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"),
+                "CI must invoke the aggregate goal explicitly");
+    }
+
     @Test
     void d2IsLocalOnlyAndHasDualPlatformValidationArtifacts() {
         Path root = repoRoot();

@@ -69,7 +69,7 @@ Ordre imposé : restore cache → remove stale lock → update-only.
 
 ## 7. Scan CVE complet
 ```bash
-./mvnw verify -P d2-security
+./mvnw -Pd2-security -DautoUpdate=false org.owasp:dependency-check-maven:aggregate
 ```
 
 ## Rapport
