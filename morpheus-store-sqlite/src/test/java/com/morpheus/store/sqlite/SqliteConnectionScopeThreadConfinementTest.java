@@ -82,12 +82,14 @@ class SqliteConnectionScopeThreadConfinementTest {
         Path database = tempDir.resolve("identity.db");
         try (SqliteConnectionScope ignored = SqliteConnectionScope.open(database)) {
             Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
+            Connection sibling = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
             assertNotNull(borrowed);
+            assertNotNull(sibling);
 
-            // The proxy answers equals by identity, so comparing it to something else exercises that path from
-            // the foreign thread instead of asserting a tautology.
+            // Two distinct logical connections over the same scope. Comparing them exercises the identity path
+            // the proxy implements, from the foreign thread, instead of asserting a tautology.
             String rendered = onAnotherThread(() -> {
-                assertNotEquals(borrowed, new Object());
+                assertNotEquals(borrowed, sibling);
                 assertEquals(System.identityHashCode(borrowed), borrowed.hashCode());
                 return borrowed.toString();
             });

@@ -23,13 +23,9 @@ class StartupOwnershipTest {
     void aFailureAfterAcquisitionReleasesEverythingInReverseOrder() {
         List<String> released = new ArrayList<>();
 
-        RuntimeException failure = assertThrows(RuntimeException.class, () -> {
-            try (StartupOwnership owned = new StartupOwnership()) {
-                owned.keep("socket", released::add);
-                owned.keep("executor", released::add);
-                throw new IllegalStateException("service construction failed");
-            }
-        });
+        RuntimeException failure = assertThrows(
+                RuntimeException.class,
+                () -> failAfterKeeping(released));
 
         assertEquals("service construction failed", failure.getMessage());
         assertEquals(List.of("executor", "socket"), released,
@@ -63,15 +59,9 @@ class StartupOwnershipTest {
     void aReleaseFailureIsReportedAsSuppressedAndNeverReplacesThePrimaryFailure() {
         AtomicBoolean secondReleased = new AtomicBoolean();
 
-        RuntimeException primary = assertThrows(RuntimeException.class, () -> {
-            try (StartupOwnership owned = new StartupOwnership()) {
-                owned.keep("socket", ignored -> secondReleased.set(true));
-                owned.keep("executor", ignored -> {
-                    throw new IllegalStateException("shutdownNow failed");
-                });
-                throw new IllegalArgumentException("port must be between 0 and 65535");
-            }
-        });
+        RuntimeException primary = assertThrows(
+                RuntimeException.class,
+                () -> failWithAFailingRelease(secondReleased));
 
         assertEquals("port must be between 0 and 65535", primary.getMessage());
         assertTrue(secondReleased.get(), "a failing release must not stop the remaining ones");
@@ -87,12 +77,9 @@ class StartupOwnershipTest {
     void anErrorDuringAssemblyStillReleasesAndStillPropagates() {
         AtomicBoolean released = new AtomicBoolean();
 
-        ExceptionInInitializerError raised = assertThrows(ExceptionInInitializerError.class, () -> {
-            try (StartupOwnership owned = new StartupOwnership()) {
-                owned.keep("socket", ignored -> released.set(true));
-                throw new ExceptionInInitializerError("static initializer failed");
-            }
-        });
+        ExceptionInInitializerError raised = assertThrows(
+                ExceptionInInitializerError.class,
+                () -> failWithAnError(released));
 
         assertEquals("static initializer failed", raised.getMessage());
         assertTrue(released.get(), "an Error must still free the socket before it leaves the bootstrap");
@@ -114,12 +101,9 @@ class StartupOwnershipTest {
     void keepActionRegistersAReleaseForAHandleTheCallerHoldsItself() {
         AtomicBoolean released = new AtomicBoolean();
 
-        assertThrows(IllegalStateException.class, () -> {
-            try (StartupOwnership owned = new StartupOwnership()) {
-                owned.keepAction(() -> released.set(true));
-                throw new IllegalStateException("bind failed");
-            }
-        });
+        assertThrows(
+                IllegalStateException.class,
+                () -> failAfterKeepingAnAction(released));
 
         assertTrue(released.get());
     }
@@ -145,5 +129,37 @@ class StartupOwnershipTest {
 
         assertEquals(List.of("socket"), released, "a second close must not re-run a release");
         assertFalse(released.size() > 1);
+    }
+
+    private static void failAfterKeeping(List<String> released) {
+        try (StartupOwnership owned = new StartupOwnership()) {
+            owned.keep("socket", released::add);
+            owned.keep("executor", released::add);
+            throw new IllegalStateException("service construction failed");
+        }
+    }
+
+    private static void failWithAFailingRelease(AtomicBoolean secondReleased) {
+        try (StartupOwnership owned = new StartupOwnership()) {
+            owned.keep("socket", ignored -> secondReleased.set(true));
+            owned.keep("executor", ignored -> {
+                throw new IllegalStateException("shutdownNow failed");
+            });
+            throw new IllegalArgumentException("port must be between 0 and 65535");
+        }
+    }
+
+    private static void failWithAnError(AtomicBoolean released) {
+        try (StartupOwnership owned = new StartupOwnership()) {
+            owned.keep("socket", ignored -> released.set(true));
+            throw new ExceptionInInitializerError("static initializer failed");
+        }
+    }
+
+    private static void failAfterKeepingAnAction(AtomicBoolean released) {
+        try (StartupOwnership owned = new StartupOwnership()) {
+            owned.keepAction(() -> released.set(true));
+            throw new IllegalStateException("bind failed");
+        }
     }
 }

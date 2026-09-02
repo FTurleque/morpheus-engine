@@ -28,42 +28,50 @@ class SqlitePartialStoreOpenLeaseReleaseTest {
     @Test
     void anOpenStoreDoesBlockTheExclusiveLease() {
         Path database = tempDir.resolve("detector.db");
-        SqliteSpecificationKnowledgeStore open = new SqliteSpecificationKnowledgeStore(database);
-        try {
+
+        try (SqliteSpecificationKnowledgeStore ignored = new SqliteSpecificationKnowledgeStore(database)) {
             IllegalStateException refused = assertThrows(
                     IllegalStateException.class,
                     () -> SqliteDatabaseLease.acquireExclusive(database));
             assertTrue(
                     refused.getMessage().contains("still open"),
                     () -> "expected the exclusive lease to refuse: " + refused.getMessage());
-        } finally {
-            open.close();
         }
-        assertDoesNotThrow(() -> SqliteDatabaseLease.acquireExclusive(database).close());
+
+        assertDoesNotThrow(() -> takeAndReleaseExclusiveLease(database));
     }
 
     @Test
     void aFailureWhileOpeningStoresReleasesTheOnesAlreadyOpen() {
         Path database = tempDir.resolve("partial-open.db");
 
-        IllegalStateException failure = assertThrows(IllegalStateException.class, () -> {
-            try (StartupOwnership owned = new StartupOwnership()) {
-                owned.keep(
-                        new SqliteSpecificationKnowledgeStore(database),
-                        SqliteSpecificationKnowledgeStore::close);
-                owned.keep(
-                        new SqliteVersionedRequirementStore(database),
-                        SqliteVersionedRequirementStore::close);
-                owned.keep(
-                        new SqliteSnapshotBusinessContentStore(database),
-                        SqliteSnapshotBusinessContentStore::close);
-                throw new IllegalStateException("cannot open the fourth store");
-            }
-        });
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class,
+                () -> openThreeStoresThenFail(database));
 
         assertTrue(failure.getMessage().contains("cannot open the fourth store"));
         assertDoesNotThrow(
-                () -> SqliteDatabaseLease.acquireExclusive(database).close(),
+                () -> takeAndReleaseExclusiveLease(database),
                 "the stores opened before the failure must have been closed");
+    }
+
+    /** Reproduces the opening sequence of a multi-store runtime and fails partway through it. */
+    private static void openThreeStoresThenFail(Path database) {
+        try (StartupOwnership owned = new StartupOwnership()) {
+            owned.keep(
+                    new SqliteSpecificationKnowledgeStore(database),
+                    SqliteSpecificationKnowledgeStore::close);
+            owned.keep(
+                    new SqliteVersionedRequirementStore(database),
+                    SqliteVersionedRequirementStore::close);
+            owned.keep(
+                    new SqliteSnapshotBusinessContentStore(database),
+                    SqliteSnapshotBusinessContentStore::close);
+            throw new IllegalStateException("cannot open the fourth store");
+        }
+    }
+
+    private static void takeAndReleaseExclusiveLease(Path database) {
+        SqliteDatabaseLease.acquireExclusive(database).close();
     }
 }

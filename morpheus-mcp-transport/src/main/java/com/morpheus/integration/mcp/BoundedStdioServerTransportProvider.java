@@ -80,7 +80,11 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         this.maxPendingMessages = maxPendingMessages;
     }
 
+    // java:S1181 catches Error deliberately: the transport's two worker executors exist before the factory runs,
+    // and only a started transport can dispose them. An Error from the factory must release them just as a
+    // RuntimeException does. The failure is rethrown unchanged, never swallowed.
     @Override
+    @SuppressWarnings("java:S1181")
     public void setSessionFactory(McpServerSession.Factory sessionFactory) {
         Objects.requireNonNull(sessionFactory, "sessionFactory");
         if (!initialized.compareAndSet(false, true)) {
@@ -105,6 +109,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
      * Releases a transport that never reached a running session, and marks the provider terminated so a caller
      * blocked in {@link #awaitTermination()} is released instead of waiting forever.
      */
+    @SuppressWarnings("java:S1181") // Releasing the workers must not itself be defeated by an Error.
     private void abandonUnstartedTransport(BoundedSessionTransport createdTransport, Throwable primary) {
         closing.set(true);
         try {

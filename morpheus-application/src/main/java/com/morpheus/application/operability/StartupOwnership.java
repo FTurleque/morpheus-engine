@@ -53,7 +53,11 @@ public final class StartupOwnership implements AutoCloseable {
         transferred = true;
     }
 
+    // java:S1181 catches Error deliberately: a socket or an executor must be released even when assembly failed
+    // on a LinkageError or an ExceptionInInitializerError, which is exactly the case that used to leak. Nothing
+    // is swallowed -- the release failure is reported, and the original failure keeps propagating.
     @Override
+    @SuppressWarnings("java:S1181")
     public void close() {
         if (transferred) {
             pending.clear();

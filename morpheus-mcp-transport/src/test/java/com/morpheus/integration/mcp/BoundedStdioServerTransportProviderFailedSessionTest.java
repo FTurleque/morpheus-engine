@@ -1,7 +1,6 @@
 package com.morpheus.integration.mcp;
 
 import io.modelcontextprotocol.json.McpJsonDefaults;
-import io.modelcontextprotocol.spec.McpServerSession;
 
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +27,7 @@ class BoundedStdioServerTransportProviderFailedSessionTest {
 
     @Test
     void aFailingSessionFactoryLeavesNoTransportWorkerBehind() throws Exception {
-        Set<String> before = workerThreadNames();
+        Set<Thread> before = workerThreads();
 
         BoundedStdioServerTransportProvider provider = provider();
         IllegalStateException failure = assertThrows(
@@ -48,7 +47,7 @@ class BoundedStdioServerTransportProviderFailedSessionTest {
     /** An Error from the factory must release the workers just as a RuntimeException does. */
     @Test
     void anErrorFromTheSessionFactoryAlsoReleasesTheWorkers() throws Exception {
-        Set<String> before = workerThreadNames();
+        Set<Thread> before = workerThreads();
 
         BoundedStdioServerTransportProvider provider = provider();
         assertThrows(ExceptionInInitializerError.class, () -> provider.setSessionFactory(transport -> {
@@ -83,26 +82,29 @@ class BoundedStdioServerTransportProviderFailedSessionTest {
                 4);
     }
 
-    private static void assertNoWorkerThreadsLeaked(Set<String> before) throws InterruptedException {
-        // Reactor disposes its executors asynchronously, so give the threads a bounded chance to exit.
-        for (int attempt = 0; attempt < 100; attempt++) {
-            Set<String> now = workerThreadNames();
-            now.removeAll(before);
-            if (now.isEmpty()) {
-                return;
-            }
-            Thread.sleep(50);
+    /**
+     * Waits on the threads themselves rather than sleeping: a disposed Reactor scheduler stops its executor
+     * asynchronously, and Thread.join is the primitive that observes that, deterministically.
+     */
+    private static void assertNoWorkerThreadsLeaked(Set<Thread> before) throws InterruptedException {
+        Set<Thread> candidates = workerThreads();
+        candidates.removeAll(before);
+        for (Thread worker : candidates) {
+            worker.join(5_000);
         }
-        Set<String> leaked = workerThreadNames();
-        leaked.removeAll(before);
-        throw new AssertionError("transport worker threads survived the failed session factory: " + leaked);
+
+        Set<Thread> stillAlive = workerThreads();
+        stillAlive.removeAll(before);
+        assertTrue(
+                stillAlive.isEmpty(),
+                () -> "transport worker threads survived the failed session factory: "
+                        + stillAlive.stream().map(Thread::getName).collect(Collectors.toList()));
     }
 
-    private static Set<String> workerThreadNames() {
+    private static Set<Thread> workerThreads() {
         return Thread.getAllStackTraces().keySet().stream()
                 .filter(Thread::isAlive)
-                .map(Thread::getName)
-                .filter(name -> name.startsWith(WORKER_PREFIX))
+                .filter(thread -> thread.getName().startsWith(WORKER_PREFIX))
                 .collect(Collectors.toCollection(java.util.HashSet::new));
     }
 

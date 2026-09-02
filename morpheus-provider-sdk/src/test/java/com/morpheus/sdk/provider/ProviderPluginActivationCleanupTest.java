@@ -51,10 +51,11 @@ class ProviderPluginActivationCleanupTest {
         String sha256 = ExternalJarIntegrity.sha256(jar);
 
         Set<Path> stagedBefore = stagedPluginCopies();
+        ProviderPluginActivator activator = new ProviderPluginActivator();
 
         NoClassDefFoundError raised = assertThrows(
                 NoClassDefFoundError.class,
-                () -> new ProviderPluginActivator().activate(candidate, sha256));
+                () -> activator.activate(candidate, sha256));
         assertEquals(
                 "com/example/ProviderDependencyMissingAtRuntime",
                 raised.getMessage(),
@@ -75,10 +76,11 @@ class ProviderPluginActivationCleanupTest {
         String sha256 = ExternalJarIntegrity.sha256(jar);
 
         Set<Path> stagedBefore = stagedPluginCopies();
+        ProviderPluginActivator activator = new ProviderPluginActivator();
 
         IllegalStateException refused = assertThrows(
                 IllegalStateException.class,
-                () -> new ProviderPluginActivator().activate(candidate, sha256));
+                () -> activator.activate(candidate, sha256));
         assertTrue(refused.getCause() instanceof java.util.ServiceConfigurationError,
                 () -> "expected ServiceLoader to wrap the initializer failure, got: " + refused.getCause());
 
@@ -94,10 +96,11 @@ class ProviderPluginActivationCleanupTest {
         String sha256 = ExternalJarIntegrity.sha256(jar);
 
         Set<Path> stagedBefore = stagedPluginCopies();
+        ProviderPluginActivator activator = new ProviderPluginActivator();
 
         IllegalStateException refused = assertThrows(
                 IllegalStateException.class,
-                () -> new ProviderPluginActivator().activate(candidate, sha256));
+                () -> activator.activate(candidate, sha256));
         assertTrue(refused.getMessage().contains("provider plugin activation failed for"));
 
         assertNoStagedCopyLeaked(stagedBefore);

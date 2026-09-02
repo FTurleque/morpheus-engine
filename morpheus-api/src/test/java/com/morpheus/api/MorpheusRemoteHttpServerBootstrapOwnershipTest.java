@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
+import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -49,21 +50,30 @@ class MorpheusRemoteHttpServerBootstrapOwnershipTest {
             occupied.bind(new InetSocketAddress("127.0.0.1", 0));
             int takenPort = occupied.getLocalPort();
 
+            Path backups = temp.resolve("backups");
+            Path providerPlugins = temp.resolve("provider-plugins");
+            AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowedWorkspaceRoot));
+            char[] password = "changeit".toCharArray();
+            ExternalReferenceResolverRegistry resolvers = new ExternalReferenceResolverRegistry(List.of());
+            ExternalIntegrationStatusProvider minos = disabledMinos();
+            DisabledTechnicalContextProvider nexus = new DisabledTechnicalContextProvider("NEXUS", "test");
+            ChangeWriteCapabilityResolver writes = project -> ChangeWriteCapabilityObservation.denied("test");
+
             RuntimeException failure = assertThrows(RuntimeException.class, () -> MorpheusRemoteHttpServer.start(
                     database,
-                    temp.resolve("backups"),
-                    temp.resolve("provider-plugins"),
-                    AllowedWorkspaceRoots.of(List.of(allowedWorkspaceRoot)),
+                    backups,
+                    providerPlugins,
+                    roots,
                     "127.0.0.1",
                     takenPort,
                     auth,
                     keyStore,
-                    "changeit".toCharArray(),
+                    password,
                     1,
-                    new ExternalReferenceResolverRegistry(List.of()),
-                    disabledMinos(),
-                    new DisabledTechnicalContextProvider("NEXUS", "test"),
-                    project -> ChangeWriteCapabilityObservation.denied("test")));
+                    resolvers,
+                    minos,
+                    nexus,
+                    writes));
 
             assertTrue(
                     failure.getMessage().contains("cannot start MORPHEUS remote HTTPS server"),
@@ -72,10 +82,13 @@ class MorpheusRemoteHttpServerBootstrapOwnershipTest {
 
         // The lease is exclusive: re-acquiring it proves the failed bootstrap released it rather than holding the
         // database for the rest of the process.
-        SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
         assertDoesNotThrow(
-                () -> maintenance.acquireServerLease(database).close(),
+                () -> takeAndReleaseServerLease(database),
                 "the failed bootstrap must have released the exclusive server lease");
+    }
+
+    private static void takeAndReleaseServerLease(Path database) {
+        new SqliteServerMaintenance().acquireServerLease(database).close();
     }
 
     private ExternalIntegrationStatusProvider disabledMinos() {
