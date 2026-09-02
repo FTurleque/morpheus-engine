@@ -6,6 +6,7 @@ BASE_REF="${MORPHEUS_D2_BASE_REF:-origin/develop}"
 SKIP_SECURITY_SCAN="${MORPHEUS_D2_SKIP_SECURITY_SCAN:-false}"
 SKIP_PORTABLE="${MORPHEUS_D2_SKIP_PORTABLE:-false}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/d2"
@@ -35,7 +36,7 @@ if git diff --name-only "$BASE_REF...HEAD" -- .github/workflows | grep -q .; the
 fi
 printf '%s\n' 'D2 no-CI scope: PASS (.github/workflows delta NONE)'
 
-python3 - "$REPO" "$VERSION" <<'PY'
+morpheus_python - "$REPO" "$VERSION" <<'PY'
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -84,7 +85,7 @@ printf '%s\n' 'D2 dependency baseline: PASS'
 
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS SKIPPED ARCH_TESTS < <(python3 - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS SKIPPED ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -123,7 +124,7 @@ if [[ ! -f "$COVERAGE" ]]; then
 fi
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line = float(sys.argv[1])
 branch = float(sys.argv[2])
@@ -164,7 +165,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     exit 1
   fi
   PRODUCT_INFO="$($LAUNCHER --json product-info)"
-  python3 - "$PRODUCT_INFO" "$VERSION" <<'PY'
+  morpheus_python - "$PRODUCT_INFO" "$VERSION" <<'PY'
 import json
 import sys
 payload = json.loads(sys.argv[1])

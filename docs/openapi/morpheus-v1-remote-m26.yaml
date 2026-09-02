@@ -54,6 +54,9 @@ paths:
         Remote security overlay for the local provider-plugin probe capability. Requires ADMIN. The plugin directory
         is server-configured and cannot be selected by the client. The workspace must belong to AllowedWorkspaceRoots.
         sha256 is mandatory and is verified on a private staging copy before any plugin classloading.
+        The response is an allowlisted projection of the probe outcome: the plugin JAR is reported by name, and
+        the probe result produced by third-party plugin code is projected field by field, so no server filesystem
+        location reaches the caller through plugin-authored text, a diagnostic detail or a source locator.
       parameters:
         - name: pluginId
           in: query
@@ -216,11 +219,16 @@ components:
     BackupVerification:
       type: object
       additionalProperties: false
-      required: [path, bytes, sha256, schemaVersion, integrityOk]
+      required: [fileName, bytes, sha256, schemaVersion, integrityOk]
       properties:
-        path:
+        fileName:
           type: string
           minLength: 1
+          maxLength: 255
+          description: >-
+            Backup file name within the server-configured backup directory. The absolute pathname is deliberately
+            not exposed: the directory is not client-selectable and restore is offline-only, so the pathname would
+            only describe the server's filesystem layout. The local CLI still reports it.
         bytes:
           type: integer
           minimum: 1
@@ -230,7 +238,11 @@ components:
         schemaVersion:
           type: integer
           minimum: 1
-          maximum: 16
+          maximum: 999
+          description: >-
+            Sanity ceiling, not a pin on the current schema. SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION is
+            normative; a ceiling equal to the current version silently rots into rejecting valid responses at the
+            next migration.
         integrityOk:
           const: true
     ErrorEnvelope:

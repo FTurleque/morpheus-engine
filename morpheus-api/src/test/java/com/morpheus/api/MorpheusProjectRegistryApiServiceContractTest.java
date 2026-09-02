@@ -31,9 +31,13 @@ class MorpheusProjectRegistryApiServiceContractTest {
         MorpheusProjectRegistryApiService.RegistrationResult created = service.registerProject(workspace.toString());
         assertTrue(created.created());
         Map<?, ?> createdProject = (Map<?, ?>) created.project();
-        assertEquals(
-                workspace.toAbsolutePath().normalize(),
-                Path.of(createdProject.get("workspace").toString()).toAbsolutePath().normalize());
+        // GET /projects lists every registered project, including ones the operator registered locally, so the
+        // HTTP view names the workspace instead of locating it. projectId remains the addressable identity.
+        assertEquals("workspace", createdProject.get("workspaceName"));
+        assertFalse(createdProject.containsKey("workspace"),
+                "the HTTP project view must not carry the absolute workspace pathname");
+        assertFalse(createdProject.toString().contains(tempDirectory.toString()),
+                () -> "the HTTP project view leaked a server location: " + createdProject);
         assertEquals("none", createdProject.get("activeSnapshotId"));
 
         MorpheusProjectRegistryApiService.RegistrationResult existing = service.registerProject(workspace.toString());

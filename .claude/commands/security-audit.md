@@ -69,7 +69,7 @@ Ordre imposé : restore cache → remove stale lock → update-only.
 
 ## 7. Scan CVE complet
 ```bash
-./mvnw verify -P d2-security
+./mvnw -Pd2-security -DautoUpdate=false org.owasp:dependency-check-maven:aggregate
 ```
 
 ## Rapport
@@ -83,9 +83,13 @@ JSON            ✅ typing désactivé, limites strictes
 LOOPBACK        ✅ local confiné
 REMOTE TLS      ✅ TLS 1.2/1.3, tokens hashés, pas de CORS
 PLUGINS         ✅ pin SHA-256 requis, probe remote-only
-SQLITE          ✅ schéma 15, backup atomique
+SQLITE          ✅ schéma <valeur lue dans SqliteSchemaManager>, backup atomique
 CI SUPPLY CHAIN ✅ actions pinnées par SHA
 CVE             ✅ 0 ≥ 7.0
 ```
+
+Le gabarit ci-dessus contient un emplacement, pas une valeur : substituer le numéro de schéma
+réellement lu à l’étape 5. Ne jamais recopier un numéro depuis une exécution antérieure de cette
+commande — il devient faux dès la migration suivante.
 
 Pour chaque ❌ : fichier, chaîne manquante ou interdite, test d'architecture qui l'exige.

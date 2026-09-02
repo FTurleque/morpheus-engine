@@ -82,6 +82,49 @@ class ProviderPluginPlatformContractTest {
         assertTrue(activator.contains("provider plugin activation requires a trusted SHA-256 pin"));
     }
 
+    /**
+     * The remote provider-plugin surface must stay a projection, not a filter.
+     *
+     * <p>A denylist of path-shaped key names protects only the disclosures already known by name; it admits the
+     * ones arriving under an innocent name and every field added later. This pins the inverse: the remote records
+     * enumerate what they carry, no internal type reaches a remote caller whole, and the values of the allowlisted
+     * fields still pass the text policy because a probe result is authored by third-party plugin code.</p>
+     */
+    @Test
+    void theRemoteProviderSurfaceIsAnAllowlistedProjectionRatherThanAFilteredInternalModel() throws IOException {
+        Path sdk = repoRoot().resolve("morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider");
+        String views = Files.readString(sdk.resolve("ProviderPluginViews.java"));
+
+        assertTrue(Files.isRegularFile(sdk.resolve("RemoteTextPolicy.java")),
+                "the remote value gate must exist alongside the projections");
+        assertTrue(views.contains("REMOTE_SAFE_DETAIL_KEYS"),
+                "remote diagnostic details must be admitted by an allowlist");
+        assertTrue(views.contains("REMOTE_SAFE_DETAIL_KEYS.contains(key) && RemoteTextPolicy.isRemoteSafe(value)"),
+                "an allowlisted key must still carry a value the text policy accepts");
+        assertFalse(views.contains("PATH_DETAIL_KEYS"),
+                "remote details must not return to a denylist of path-shaped key names");
+        assertFalse(views.contains("!PATH_DETAIL_KEYS.contains(key)"),
+                "remote details must not be admitted by exclusion");
+
+        assertTrue(views.contains("record RemoteProbeResultView("),
+                "a probe result must be projected rather than relayed");
+        assertTrue(views.contains("record RemoteProbeDiagnosticView("),
+                "a plugin-authored diagnostic must be projected rather than relayed");
+        assertTrue(views.contains("record RemoteSourceView("),
+                "a source locator must be projected rather than relayed");
+        assertFalse(views.contains("Optional<ProviderProbeResult> probe"),
+                "the internal probe result must not cross the remote boundary whole");
+        assertFalse(views.contains("List<ProviderPluginDiagnostic> diagnostics) {\n        public RemoteDiscoveryView"),
+                "remote views must not carry the internal diagnostic type");
+
+        String discovery = Files.readString(sdk.resolve("ProviderPluginDiscovery.java"));
+        String service = Files.readString(sdk.resolve("ProviderPluginService.java"));
+        for (String producer : java.util.List.of(discovery, service)) {
+            assertTrue(producer.contains("\"reasonType\", failureType("),
+                    "a producer relaying an exception message must also record the remote-safe failure type");
+        }
+    }
+
     private String readTree(Path root) throws IOException {
         StringBuilder result = new StringBuilder();
         try (var files = Files.walk(root)) {

@@ -93,7 +93,7 @@ Si conforme :
 ```
 ✅ CONFORME
    Domaines vérifiés: JSON / loopback / remote TLS / plugins / SQLite / CI
-   Vérification: ./mvnw verify -P d2-security
+   Vérification: ./mvnw -Pd2-security -DautoUpdate=false org.owasp:dependency-check-maven:aggregate
 ```
 
 Sois strict. Aucune tolérance sur les interdits textuels — ce sont des gates, pas des

@@ -26,6 +26,13 @@ class RepositoryDocumentationCoherenceTest {
             Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*(\\d+)");
     private static final Pattern SCHEMA_VERSION_LITERAL =
             Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*\\d+");
+    /**
+     * A schema version stated in prose on an active surface: "schema 15", "schéma V017", or the constant
+     * followed by its value in words rather than by an assignment. Historical pages are never scanned with it.
+     */
+    private static final Pattern SCHEMA_VERSION_PROSE = Pattern.compile(
+            "(?i)(?:sch[eé]ma|schema)\\s+(?:supported\\s+|support[eé]e?\\s+)?V?\\d+"
+                    + "|SUPPORTED_SCHEMA_VERSION[^\\n]{0,40}?\\bV?\\d+");
     private static final Pattern MODULE = Pattern.compile("<module>([^<]+)</module>");
     private static final Pattern DOCUMENTED_THRESHOLD = Pattern.compile(">=\\s*([0-9]+(?:[.,][0-9]+)?)");
 
@@ -186,11 +193,39 @@ class RepositoryDocumentationCoherenceTest {
             if (!Files.isRegularFile(page)) {
                 continue;
             }
-            Matcher pinned = SCHEMA_VERSION_LITERAL.matcher(Files.readString(page));
+            String content = Files.readString(page);
+            Matcher pinned = SCHEMA_VERSION_LITERAL.matcher(content);
             assertFalse(pinned.find(),
                     () -> root.relativize(page) + " pins SUPPORTED_SCHEMA_VERSION to a literal; derive it from "
                             + "SqliteSchemaManager instead so the check cannot describe a stale contract");
+
+            // The assignment form is only one way to state the version. An active surface that *describes* the
+            // current schema in prose - "schema 15" in a report template, "constate a 17" in a rule - rots the
+            // same way while sailing past a check that only looks for the constant.
+            Matcher prose = SCHEMA_VERSION_PROSE.matcher(content);
+            assertFalse(prose.find(),
+                    () -> root.relativize(page) + " states a current SQLite schema version in prose ("
+                            + describeFirstMatch(SCHEMA_VERSION_PROSE, content)
+                            + "); active surfaces must read SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION instead");
         }
+    }
+
+    /**
+     * The audit command must tell its reader where the normative value lives, not just avoid restating it.
+     * A template with an empty placeholder and no instruction invites the next reader to fill in a remembered
+     * number, which is how the stale "schema 15" line survived the previous correction.
+     */
+    @Test
+    void theSecurityAuditCommandDerivesTheSqliteSchemaVersionFromTheDeclaringConstant() throws Exception {
+        Path root = repositoryRoot();
+        String command = Files.readString(root.resolve(".claude/commands/security-audit.md"));
+
+        assertTrue(command.contains("SUPPORTED_SCHEMA_VERSION"),
+                "the audit command must point at the declaring constant");
+        assertTrue(command.contains("SqliteSchemaManager.java"),
+                "the audit command must name the file that declares the normative version");
+        assertTrue(command.contains("SqliteSchemaManager>"),
+                "the audit report template must carry a placeholder rather than a version number");
     }
 
     @Test
@@ -269,6 +304,12 @@ class RepositoryDocumentationCoherenceTest {
         assertTrue(developerGuide.contains("ne constituent pas une sandbox du système d'exploitation"));
         assertFalse(developerGuide.contains("`GET`/`HEAD` : READ"),
                 "developer guide must not reintroduce the obsolete verb-derived RBAC contract");
+    }
+
+    /** Quotes the offending text so a failure names what to remove instead of only where to look. */
+    private static String describeFirstMatch(Pattern pattern, String content) {
+        Matcher matcher = pattern.matcher(content);
+        return matcher.find() ? matcher.group().strip() : "";
     }
 
     private static void assertLabelledThresholds(Path root, String page, Map<String, String> expected) throws IOException {

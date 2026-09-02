@@ -12,7 +12,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -60,17 +59,23 @@ class ProviderPluginRemoteViewTest {
         ProviderPluginDiagnostic withPath = ProviderPluginDiagnostic.error(
                 "PLUGIN_DIRECTORY_UNREADABLE",
                 "Provider plugin directory cannot be scanned",
-                Map.of("directory", "/srv/morpheus/plugins", "reason", "permission denied"));
+                Map.of(
+                        "directory", "/srv/morpheus/plugins",
+                        "reason", "permission denied",
+                        "reasonType", "AccessDeniedException"));
 
         ProviderPluginViews.RemoteDiscoveryView remote = ProviderPluginViews.remoteDiscovery(
                 new ProviderPluginDiscoveryResult(pluginDirectory, List.of(), List.of(withPath)));
 
-        ProviderPluginDiagnostic relayed = remote.diagnostics().getFirst();
+        ProviderPluginViews.RemoteProviderDiagnostic relayed = remote.diagnostics().getFirst();
         assertFalse(relayed.details().containsKey("directory"),
                 "the server pathname must not be relayed through diagnostic details");
-        assertEquals("permission denied", relayed.details().get("reason"),
-                "the actionable reason must survive redaction");
+        assertFalse(relayed.details().containsKey("reason"),
+                "an exception message can be a pathname, so it is not on the remote allowlist");
+        assertEquals("AccessDeniedException", relayed.details().get("reasonType"),
+                "the failure type carries the actionable signal without locating anything");
         assertEquals("PLUGIN_DIRECTORY_UNREADABLE", relayed.code());
+        assertEquals("Provider plugin directory cannot be scanned", relayed.message());
     }
 
     @Test
@@ -84,7 +89,10 @@ class ProviderPluginRemoteViewTest {
                 List.of(ProviderPluginDiagnostic.error(
                         "PLUGIN_PROBE_FAILED",
                         "probe failed",
-                        Map.of("jarPath", jar.toString(), "reason", "activation refused"))));
+                        Map.of(
+                                "jarPath", jar.toString(),
+                                "pluginId", "acme-plugin",
+                                "reason", "activation refused"))));
 
         ProviderPluginViews.RemoteProbeView remote = ProviderPluginViews.remoteProbe(outcome);
         String rendered = remote.toString();
@@ -94,19 +102,24 @@ class ProviderPluginRemoteViewTest {
                 () -> "remote probe view leaked the absolute JAR path: " + rendered);
         assertFalse(remote.diagnostics().getFirst().details().containsKey("jarPath"),
                 "diagnostic details must not relay the absolute JAR path");
-        assertEquals("activation refused", remote.diagnostics().getFirst().details().get("reason"));
+        assertEquals("acme-plugin", remote.diagnostics().getFirst().details().get("pluginId"),
+                "the allowlisted plugin identity survives the projection");
     }
 
     @Test
-    void aDiagnosticWithoutPathDetailsIsRelayedUnchanged() {
+    void aDiagnosticWithoutPathDetailsIsRelayedIntact() {
         ProviderPluginDiagnostic clean = ProviderPluginDiagnostic.warning(
                 "PLUGIN_JAR_TOO_LARGE", "JAR exceeds the scan size limit", Map.of("limitBytes", "1024"));
 
-        ProviderPluginViews.RemoteDiscoveryView remote = ProviderPluginViews.remoteDiscovery(
-                new ProviderPluginDiscoveryResult(pluginDirectory, List.of(), List.of(clean)));
+        ProviderPluginViews.RemoteProviderDiagnostic relayed = ProviderPluginViews.remoteDiscovery(
+                new ProviderPluginDiscoveryResult(pluginDirectory, List.of(), List.of(clean)))
+                .diagnostics().getFirst();
 
-        assertSame(clean, remote.diagnostics().getFirst(),
-                "a diagnostic carrying no server pathname needs no rewriting");
+        assertEquals(clean.severity(), relayed.severity());
+        assertEquals(clean.code(), relayed.code());
+        assertEquals(clean.message(), relayed.message());
+        assertEquals(clean.details(), relayed.details(),
+                "a diagnostic carrying only allowlisted details loses nothing");
     }
 
     @Test
@@ -118,8 +131,9 @@ class ProviderPluginRemoteViewTest {
         assertEquals("", remote.jarName());
     }
 
+    /** A root has no file name, so it names no plugin; relaying it would only describe the server. */
     @Test
-    void aFilesystemRootJarPathDoesNotDereferenceANullFileName() {
+    void aFilesystemRootJarPathYieldsNoJarNameInsteadOfTheRootItself() {
         Path root = pluginDirectory.getRoot();
         assertNotNull(root, "this platform must expose a filesystem root for the check to mean anything");
 
@@ -127,7 +141,7 @@ class ProviderPluginRemoteViewTest {
                 new ProviderPluginProbeOutcome(
                         "acme-plugin", root.toString(), Optional.empty(), Optional.empty(), List.of()));
 
-        assertEquals(root.toString(), remote.jarName());
+        assertEquals("", remote.jarName());
     }
 
     @Test

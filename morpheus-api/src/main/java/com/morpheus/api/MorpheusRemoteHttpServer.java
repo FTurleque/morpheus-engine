@@ -357,14 +357,28 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         }
     }
 
+    /**
+     * Remote projection of a backup verification.
+     *
+     * <p>The backup directory is server-configured and restore is offline-only, so a remote ADMIN never needs the
+     * absolute pathname; sending it would only describe where the server keeps its data. The file name identifies
+     * the backup, and the SHA-256 identifies its content. The local CLI keeps the full pathname because an operator
+     * passes it straight back to {@code server backup verify --file}.</p>
+     */
     private Map<String, Object> backupView(SqliteServerMaintenance.BackupVerification backup) {
         Map<String, Object> view = new LinkedHashMap<>();
-        view.put("path", backup.path().toString());
+        view.put("fileName", fileNameOf(backup.path()));
         view.put("bytes", backup.bytes());
         view.put("sha256", backup.sha256());
         view.put("schemaVersion", backup.schemaVersion());
         view.put("integrityOk", backup.integrityOk());
         return Map.copyOf(view);
+    }
+
+    /** A filesystem root has no file name; fall back to the SHA-256 rather than dereferencing null. */
+    private String fileNameOf(Path path) {
+        Path fileName = path.getFileName();
+        return fileName == null ? "" : fileName.toString();
     }
 
     private static String hostForUri(String host) {

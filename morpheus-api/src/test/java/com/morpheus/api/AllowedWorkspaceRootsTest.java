@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -60,7 +61,15 @@ class AllowedWorkspaceRootsTest {
         Files.move(allowed, original);
         Path replacement = Files.createDirectory(allowed);
 
-        assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(replacement));
+        IllegalArgumentException rejection =
+                assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(replacement));
+
+        // This check runs while serving a request and the remote facade renders the failure as a 400 carrying
+        // this message, so naming the root would publish a server-configured pathname the caller cannot select.
+        assertFalse(rejection.getMessage().contains(allowed.toString()),
+                () -> "root replacement rejection must not name the server-configured root: " + rejection.getMessage());
+        assertFalse(rejection.getMessage().contains(temp.toString()),
+                () -> "root replacement rejection must not name a server location: " + rejection.getMessage());
     }
 
     @Test

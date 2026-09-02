@@ -80,6 +80,29 @@ class MorpheusHttpRequestDecoderTest {
         }
     }
 
+    /**
+     * A prefix test on the header admits this body as JSON. The decoder must reject it at the media-type
+     * boundary instead of handing an {@code application/jsonp} payload to the JSON mapper.
+     */
+    @Test
+    void aTypeThatMerelyStartsWithApplicationJsonIsRejectedAtTheBoundary() {
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            MorpheusHttpRequestDecoder decoder = new MorpheusHttpRequestDecoder(256, Duration.ofSeconds(1), executor);
+            for (String spoofed : java.util.List.of("application/jsonp", "application/json-patch+json")) {
+                StubExchange exchange = new StubExchange("{\"name\":\"morpheus\"}".getBytes(StandardCharsets.UTF_8));
+                exchange.getRequestHeaders().set("Content-Type", spoofed);
+
+                ApiFailure failure = assertThrows(
+                        ApiFailure.class,
+                        () -> decoder.readRequiredJson(exchange, Payload.class),
+                        () -> "decoder accepted spoofed media type " + spoofed);
+
+                assertEquals(415, failure.status());
+                assertEquals("UNSUPPORTED_MEDIA_TYPE", failure.code());
+            }
+        }
+    }
+
     @Test
     void strictMapperRejectsUnknownPropertiesAndTrailingTokens() {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
