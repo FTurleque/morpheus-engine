@@ -15,6 +15,7 @@ import java.util.concurrent.Executors;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,11 +39,10 @@ class SqliteConnectionScopeThreadConfinementTest {
             Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
             assertNotNull(borrowed, "an active scope must hand out a logical connection");
 
-            SQLException refused = onAnotherThread(() -> assertThrows(SQLException.class, () -> {
-                try (Statement statement = borrowed.createStatement()) {
-                    statement.execute("SELECT 1");
-                }
-            }));
+            // A single throwing call, so the refusal cannot be attributed to the wrong one: the proxy stops the
+            // foreign thread at createStatement, before any statement exists to execute.
+            SQLException refused = onAnotherThread(
+                    () -> assertThrows(SQLException.class, borrowed::createStatement));
 
             assertTrue(
                     refused.getMessage().contains("confined to the thread that opened its scope"),
@@ -84,8 +84,10 @@ class SqliteConnectionScopeThreadConfinementTest {
             Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
             assertNotNull(borrowed);
 
+            // The proxy answers equals by identity, so comparing it to something else exercises that path from
+            // the foreign thread instead of asserting a tautology.
             String rendered = onAnotherThread(() -> {
-                assertEquals(borrowed, borrowed);
+                assertNotEquals(borrowed, new Object());
                 assertEquals(System.identityHashCode(borrowed), borrowed.hashCode());
                 return borrowed.toString();
             });
@@ -101,7 +103,7 @@ class SqliteConnectionScopeThreadConfinementTest {
         Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
         assertNotNull(borrowed);
 
-        onAnotherThread(() -> assertThrows(SQLException.class, () -> borrowed.createStatement()));
+        onAnotherThread(() -> assertThrows(SQLException.class, borrowed::createStatement));
 
         assertDoesNotThrow(scope::close);
         // A second close on the owning thread stays a no-op.
