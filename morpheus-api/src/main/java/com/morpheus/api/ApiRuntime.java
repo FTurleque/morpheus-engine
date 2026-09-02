@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
 import com.morpheus.store.sqlite.SqliteCompositionStateStore;
 import com.morpheus.store.sqlite.SqliteConnectionScope;
@@ -32,8 +33,12 @@ final class ApiRuntime implements AutoCloseable {
 
     ApiRuntime(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        this.sqliteScope = SqliteConnectionScope.open(databasePath);
-        try {
+        // The stores all borrow the scope's single physical connection, so releasing the scope releases every
+        // one of them. What the previous catch missed was the kind of failure: an Error raised while a store
+        // class initializes skipped it entirely and left the scope, and its connection, open.
+        try (StartupOwnership owned = new StartupOwnership()) {
+            SqliteConnectionScope scope = owned.keep(
+                    SqliteConnectionScope.open(databasePath), SqliteConnectionScope::close);
             snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
             requirements = new SqliteVersionedRequirementStore(databasePath);
             content = new SqliteSnapshotBusinessContentStore(databasePath);
@@ -43,13 +48,8 @@ final class ApiRuntime implements AutoCloseable {
             syncState = new SqliteSyncStateStore(databasePath);
             lifecycleMutations = new SqliteChangeLifecycleMutationStore(databasePath);
             compositions = new SqliteCompositionStateStore(databasePath);
-        } catch (RuntimeException failure) {
-            try {
-                sqliteScope.close();
-            } catch (RuntimeException closeFailure) {
-                failure.addSuppressed(closeFailure);
-            }
-            throw failure;
+            owned.transferred();
+            this.sqliteScope = scope;
         }
     }
 
