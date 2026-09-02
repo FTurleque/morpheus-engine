@@ -60,9 +60,12 @@ class PartialRuntimeOwnershipContractTest {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {
             Path pom = current.resolve("pom.xml");
-            if (Files.isRegularFile(pom)
-                    && Files.readString(pom).contains("<artifactId>morpheus-engine</artifactId>")) {
-                return current;
+            if (Files.isRegularFile(pom)) {
+                String content = Files.readString(pom);
+                // A module pom names morpheus-engine as its <parent>, so the module list is what marks the root.
+                if (content.contains("<artifactId>morpheus-engine</artifactId>") && content.contains("<modules>")) {
+                    return current;
+                }
             }
             current = current.getParent();
         }
