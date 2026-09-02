@@ -46,11 +46,18 @@ paths:
   /integrations/minos/status:
     get:
       operationId: getMinosIntegrationStatus
+      description: >-
+        Reports integration availability without making MINOS mandatory. Launch settings are server-configured, so
+        the response says whether each location is configured rather than naming it; the local CLI reports the full
+        settings, which is where an operator changes them.
       responses: {'200': {$ref: '#/components/responses/Success'}}
   /integrations/nexus/status:
     get:
       operationId: getNexusIntegrationStatus
-      description: Reports integration availability without making NEXUS mandatory.
+      description: >-
+        Reports integration availability without making NEXUS mandatory. Launch settings are server-configured, so
+        the response says whether each location is configured rather than naming it; the local CLI reports the full
+        settings, which is where an operator changes them.
       responses: {'200': {$ref: '#/components/responses/Success'}}
 
   /projects:
