@@ -43,8 +43,17 @@ Ne doit **PAS** contenir : `token + "|"`
 - Le probe reste `EXPLICITLY_NOT_EXPOSED` côté MCP dans le TSV
 
 ## 5. SQLite
+Récupérer d'abord la valeur normative — ne jamais la citer de mémoire ni la recopier ici :
+
+```bash
+grep -n "SUPPORTED_SCHEMA_VERSION = " morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java
+```
+
+`SqliteSchemaManager.java` **déclare** la version supportée ; `SqliteServerMaintenance.java` doit
+**consommer cette constante**, jamais un littéral. Reporter dans le rapport la valeur réellement détectée.
+
 `SqliteServerMaintenance.java` : `VACUUM INTO` · `PRAGMA integrity_check`
-· `SUPPORTED_SCHEMA_VERSION = 15` · `tryLock` · `ATOMIC_MOVE` · `"explicit confirmation"`
+· `tryLock` · `ATOMIC_MOVE` · `"explicit confirmation"`
 `SqliteTransactionRunner.java` : `catch (Error failure)` · `rollbackSuppressing(connection, failure)`
 
 ## 6. Chaîne CI
