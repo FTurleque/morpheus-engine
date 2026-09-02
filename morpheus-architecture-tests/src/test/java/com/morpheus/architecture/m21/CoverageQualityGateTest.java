@@ -21,9 +21,11 @@ class CoverageQualityGateTest {
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
     // Qualified exact-head baseline after #253: 54.5801% lines / 47.7791% branches.
-    // This is the LOWEST of the reproducible exact-head measurements across both platforms, not the best one:
-    // Windows runs a few platform-specific tests that Linux skips, so taking the higher number would qualify a
-    // baseline one platform cannot reach. Durable ratchets are loaded from
+    // Deliberately at or below the LOWEST reproducible exact-head measurement across both platforms, never the
+    // best one. The two platforms run the same number of tests, but some of them no-op off their own OS -- the
+    // Windows junction check is one -- so Linux covers slightly fewer lines for an identical test count
+    // (#254 measured 54.6286% on Linux against 54.6678% on Windows). Qualifying on the higher figure would pin a
+    // baseline the other platform cannot reach. Durable ratchets are loaded from
     // config/m21-quality-ratchets.properties and must remain below this evidence.
     private static final double QUALIFIED_LINE_RATIO = 0.545801d;
     private static final double QUALIFIED_BRANCH_RATIO = 0.477791d;
