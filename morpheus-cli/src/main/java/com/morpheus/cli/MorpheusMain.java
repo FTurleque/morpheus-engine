@@ -11,9 +11,6 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -84,7 +81,7 @@ public final class MorpheusMain {
             exitCode = new MorpheusExternalIntegrationCli(minos.resolverRegistry(), minos)
                     .run(args, out, err, environment, properties);
         } else {
-            exitCode = new MorpheusCli().run(normalizeForExecution(args), out, err, environment, properties);
+            exitCode = new MorpheusCli().run(args, out, err, environment, properties);
         }
         if (exitCode == CliExitCode.SUCCESS.code() && isHelpRequest(args)) {
             out.println();
@@ -286,31 +283,6 @@ public final class MorpheusMain {
             Thread.currentThread().interrupt();
             return CliExitCode.SUCCESS.code();
         }
-    }
-
-    static String[] normalizeForExecution(String[] args) {
-        List<String> normalized = new ArrayList<>(Arrays.asList(args));
-        if (isSyncCommand(args) && normalized.stream().noneMatch("--force"::equals)) {
-            normalized.add("--force");
-        }
-        return normalized.toArray(String[]::new);
-    }
-
-    private static boolean isSyncCommand(String[] args) {
-        int index = 0;
-        while (index < args.length) {
-            String token = args[index];
-            index++;
-            if (token.equals("--json")) {
-                continue;
-            }
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
-                index++;
-                continue;
-            }
-            return token.equals("sync");
-        }
-        return false;
     }
 
     private static boolean isHelpRequest(String[] args) {

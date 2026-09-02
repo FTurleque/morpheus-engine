@@ -67,7 +67,7 @@ for pom in sorted(actual_poms):
         raise SystemExit(f'MORPHEUS {version} version missing from {pom}')
 root_pom = root_pom_path.read_text(encoding='utf-8')
 for token in (
-    '<jackson.version>3.1.5</jackson.version>',
+    '<jackson.version>3.2.2</jackson.version>',
     '<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>',
     '<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>',
     '<failOnWarning>true</failOnWarning>',

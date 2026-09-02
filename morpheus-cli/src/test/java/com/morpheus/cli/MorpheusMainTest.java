@@ -1,37 +1,75 @@
 package com.morpheus.cli;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusMainTest {
+    @TempDir
+    Path tempDir;
+
     @Test
-    void officialLauncherForcesCliSyncToMatchFullSnapshotExecution() {
-        String[] normalized = MorpheusMain.normalizeForExecution(new String[]{
-                "--data-dir", "data", "sync", "--project", "01900000-0000-7000-8000-000000000001"
-        });
-        assertTrue(Arrays.asList(normalized).contains("--force"));
+    void officialLauncherKeepsAPlainSyncIncrementalInsteadOfInjectingForce() {
+        String projectId = registerFixtureProject();
+
+        Invocation bootstrap = launch("--data-dir", data().toString(), "sync", "--project", projectId);
+        assertEquals(CliExitCode.SUCCESS.code(), bootstrap.exitCode(), bootstrap.stderr());
+        assertTrue(bootstrap.stdout().contains("mode=FULL_REBUILD"), bootstrap.stdout());
+
+        Invocation unchanged = launch("--data-dir", data().toString(), "sync", "--project", projectId);
+        assertEquals(CliExitCode.SUCCESS.code(), unchanged.exitCode(), unchanged.stderr());
+        assertTrue(unchanged.stdout().contains("mode=INCREMENTAL"), unchanged.stdout());
+        assertTrue(unchanged.stdout().contains("fullRebuildReason=none"), unchanged.stdout());
+        assertTrue(unchanged.stdout().contains("published=false"), unchanged.stdout());
     }
 
     @Test
-    void explicitForceIsNotDuplicatedAndOtherCommandsAreUntouched() {
-        String[] forced = MorpheusMain.normalizeForExecution(new String[]{"sync", "--project", "x", "--force"});
-        assertArrayEquals(new String[]{"sync", "--project", "x", "--force"}, forced);
+    void officialLauncherForwardsAnExplicitForceExactlyOnce() {
+        String projectId = registerFixtureProject();
+        assertEquals(CliExitCode.SUCCESS.code(), launch("--data-dir", data().toString(), "sync", "--project", projectId).exitCode());
 
-        String[] query = MorpheusMain.normalizeForExecution(new String[]{"--json", "projects", "list"});
-        assertArrayEquals(new String[]{"--json", "projects", "list"}, query);
+        Invocation forced = launch("--data-dir", data().toString(), "sync", "--project", projectId, "--force");
+
+        // A second --force would be rejected by CommandOptions as "duplicate flag", so SUCCESS proves single delivery.
+        assertEquals(CliExitCode.SUCCESS.code(), forced.exitCode(), forced.stderr());
+        assertTrue(forced.stdout().contains("mode=FULL_REBUILD"), forced.stdout());
+        assertTrue(forced.stdout().contains("fullRebuildReason=FORCED"), forced.stdout());
+    }
+
+    @Test
+    void officialLauncherForwardsGlobalLayoutFlagsBeforeASyncWithoutForcing() {
+        String projectId = registerFixtureProject();
+        assertEquals(CliExitCode.SUCCESS.code(), launch("--data-dir", data().toString(), "sync", "--project", projectId).exitCode());
+
+        Invocation json = launch("--data-dir", data().toString(), "--json", "sync", "--project", projectId);
+        assertEquals(CliExitCode.SUCCESS.code(), json.exitCode(), json.stderr());
+        assertTrue(json.stdout().contains("\"mode\":\"INCREMENTAL\""), json.stdout());
+
+        Invocation config = launch(
+                "--data-dir", data().toString(),
+                "--config-dir", tempDir.resolve("config").toString(),
+                "sync", "--project", projectId);
+        assertEquals(CliExitCode.SUCCESS.code(), config.exitCode(), config.stderr());
+        assertTrue(config.stdout().contains("mode=INCREMENTAL"), config.stdout());
+
+        Invocation db = launch(
+                "--data-dir", data().toString(),
+                "--db", data().resolve("morpheus.db").toString(),
+                "sync", "--project", projectId);
+        assertEquals(CliExitCode.SUCCESS.code(), db.exitCode(), db.stderr());
+        assertTrue(db.stdout().contains("mode=INCREMENTAL"), db.stdout());
     }
 
     @Test
@@ -121,9 +159,6 @@ class MorpheusMainTest {
         String help = output.toString(StandardCharsets.UTF_8);
         assertTrue(help.contains("mcp --stdio"));
         assertTrue(help.contains("api [--host HOST] [--port PORT]"));
-
-        String[] normalized = MorpheusMain.normalizeForExecution(new String[0]);
-        assertArrayEquals(new String[0], normalized);
     }
 
     @Test
@@ -149,6 +184,48 @@ class MorpheusMainTest {
         assertThrows(IllegalArgumentException.class,
                 () -> ApiLaunchOptions.parse(new String[]{"api", "--tls"}, Map.of(), properties));
     }
+
+    private Path data() {
+        return tempDir.resolve("data");
+    }
+
+    private String registerFixtureProject() {
+        Invocation add = launch("--data-dir", data().toString(), "projects", "add", "--workspace", fixture().toString());
+        assertEquals(CliExitCode.SUCCESS.code(), add.exitCode(), add.stderr());
+        return add.stdout().lines()
+                .filter(line -> line.startsWith("projectId="))
+                .findFirst()
+                .map(line -> line.substring("projectId=".length()).trim())
+                .orElseThrow(() -> new AssertionError("missing projectId in output: " + add.stdout()));
+    }
+
+    private Path fixture() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        Path fromRoot = current.resolve("experiments/m0/fixtures/openspec-basic");
+        if (Files.isDirectory(fromRoot)) {
+            return fromRoot;
+        }
+        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve("openspec-basic");
+        if (Files.isDirectory(fromModule)) {
+            return fromModule;
+        }
+        throw new IllegalStateException("M0 fixture not found from " + current);
+    }
+
+    private Invocation launch(String... args) {
+        ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+        ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
+        try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(errBytes, true, StandardCharsets.UTF_8)) {
+            int exitCode = MorpheusMain.run(args, out, err, Map.of(), properties());
+            return new Invocation(
+                    exitCode,
+                    outBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"),
+                    errBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"));
+        }
+    }
+
+    private record Invocation(int exitCode, String stdout, String stderr) {}
 
     private Properties properties() {
         Properties properties = new Properties();
