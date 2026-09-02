@@ -52,7 +52,9 @@ final class CliRuntime implements AutoCloseable {
             openedSyncState = new SqliteSyncStateStore(databasePath);
             openedLifecycleMutations = new SqliteChangeLifecycleMutationStore(databasePath);
             openedCompositions = new SqliteCompositionStateStore(databasePath);
-        } catch (RuntimeException failure) {
+        } catch (RuntimeException | Error failure) {
+            // An Error raised while a store class initializes used to skip this rollback entirely, leaving every
+            // store opened before it -- and the scope's connection -- behind.
             RuntimeException cleanup = null;
             cleanup = close(openedCompositions, cleanup);
             cleanup = close(openedLifecycleMutations, cleanup);

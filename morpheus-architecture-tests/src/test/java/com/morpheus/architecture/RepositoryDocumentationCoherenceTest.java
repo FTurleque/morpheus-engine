@@ -245,6 +245,49 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     /**
+     * The developer platform guide describes the current contract, so it must not pin the runtime's maximum
+     * schema version. It said the maximum was V016 and that anything above 16 is refused, while the manager had
+     * moved to 17 -- a reader following it would have concluded a valid database was rejected.
+     */
+    @Test
+    void theRemotePlatformGuideDerivesTheSchemaCeilingFromTheDeclaringConstant() throws Exception {
+        Path root = repositoryRoot();
+        String guide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
+
+        int section = guide.indexOf("## Schéma SQLite");
+        assertTrue(section >= 0, "the guide must keep its SQLite schema section");
+        String schemaSection = guide.substring(section, Math.min(guide.length(), section + 2000));
+
+        assertTrue(schemaSection.contains("SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION"),
+                "the documented ceiling must point at the constant that declares it");
+        assertFalse(Pattern.compile("version maximale supportée par le runtime\\s*:\\s*\\*\\*V?\\d+")
+                        .matcher(schemaSection).find(),
+                "the guide must not restate the runtime's maximum schema version as a literal");
+    }
+
+    /**
+     * The guide must not describe a failure type that no longer exists.
+     *
+     * <p>It documented the transaction runner as throwing {@code SqliteCommittedTransactionException} on a
+     * post-commit cleanup failure. Nothing threw it -- the runner retries, recovers the scope or quarantines the
+     * connection, and reports the mutation as the success it durably is. A reader would have written a catch
+     * block for a case that never arrives, and missed the one that does: the next transaction being refused.</p>
+     */
+    @Test
+    void theRemotePlatformGuideOnlyNamesFailureTypesThatExist() throws Exception {
+        Path root = repositoryRoot();
+        String guide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
+        Path sqliteSources = root.resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite");
+
+        Matcher named = Pattern.compile("`(Sqlite[A-Za-z]*Exception)`").matcher(guide);
+        while (named.find()) {
+            String type = named.group(1);
+            assertTrue(Files.isRegularFile(sqliteSources.resolve(type + ".java")),
+                    () -> "REMOTE_SERVER_PLATFORM.md documents " + type + ", which no longer exists");
+        }
+    }
+
+    /**
      * The audit command must tell its reader where the normative value lives, not just avoid restating it.
      * A template with an empty placeholder and no instruction invites the next reader to fill in a remembered
      * number, which is how the stale "schema 15" line survived the previous correction.

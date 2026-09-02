@@ -212,6 +212,14 @@ public final class SqliteConnectionScope implements AutoCloseable {
         @Override
         public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
             String name = method.getName();
+            // Identity is not database access: comparing or printing a proxy touches no shared state, so it stays
+            // available anywhere. Everything below reaches the one physical SQLite connection this scope owns.
+            if (name.equals("toString")) {
+                return "ScopedSqliteConnection[" + state.databasePath + "]";
+            }
+            if (name.equals("hashCode")) return System.identityHashCode(proxy);
+            if (name.equals("equals")) return proxy == args[0];
+            requireOwningThread(name);
             if (name.equals("close")) {
                 logicalClosed.set(true);
                 return null;
@@ -219,11 +227,6 @@ public final class SqliteConnectionScope implements AutoCloseable {
             if (name.equals("isClosed")) {
                 return logicalClosed.get() || state.quarantined || state.physical.isClosed();
             }
-            if (name.equals("toString")) {
-                return "ScopedSqliteConnection[" + state.databasePath + "]";
-            }
-            if (name.equals("hashCode")) return System.identityHashCode(proxy);
-            if (name.equals("equals")) return proxy == args[0];
             if (logicalClosed.get()) throw new SQLException("logical SQLite connection is closed");
             if (state.quarantined) {
                 throw new SQLException("SQLite connection scope is quarantined after a committed cleanup failure", state.quarantineCause);
@@ -234,11 +237,29 @@ public final class SqliteConnectionScope implements AutoCloseable {
                 throw failure.getCause();
             }
         }
+
+        /**
+         * The scope shares one physical SQLite connection between every store adapter on the owning thread, which
+         * is only safe because that thread is the only one using it. A logical connection handed to another thread
+         * would drive that same connection concurrently -- interleaving statements and transaction state on a
+         * handle that is not built for it. Failing here is loud; the corruption it prevents would not be.
+         */
+        private void requireOwningThread(String operation) throws SQLException {
+            Thread current = Thread.currentThread();
+            if (current != state.owner) {
+                throw new SQLException(
+                        "scoped SQLite connection is confined to the thread that opened its scope: "
+                                + operation + " was called from '" + current.getName()
+                                + "' but the scope belongs to '" + state.owner.getName() + "'");
+            }
+        }
     }
 
     private static final class State {
         private final Path databasePath;
         private final int busyTimeoutMillis;
+        /** The thread that opened the scope; the only one allowed to reach the physical connection. */
+        private final Thread owner = Thread.currentThread();
         private Connection physical;
         private final AtomicInteger borrows = new AtomicInteger();
         private boolean schemaReady;

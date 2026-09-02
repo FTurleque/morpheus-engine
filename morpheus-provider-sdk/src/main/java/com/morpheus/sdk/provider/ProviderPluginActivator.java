@@ -85,15 +85,34 @@ public final class ProviderPluginActivator {
                                 + " runtime=" + contentReader.providerId());
             }
             return new ProviderPluginActivation(candidate, plugin, provider, contentReader, loader, stagedJar);
-        } catch (ServiceConfigurationError | RuntimeException failure) {
-            try {
-                loader.close();
-            } catch (IOException closeFailure) {
-                failure.addSuppressed(closeFailure);
+        } catch (Throwable failure) {
+            // Everything inside the try runs third-party code: service lookup, class initialization, then three
+            // plugin factory calls. That code fails in ways no exception taxonomy enumerates -- a static
+            // initializer that throws surfaces as ExceptionInInitializerError, a JAR built against another API as
+            // NoClassDefFoundError, neither of which is a ServiceConfigurationError or a RuntimeException. Those
+            // used to escape before the classloader was closed, and on Windows an open classloader holds the JAR
+            // handle, so the staged copy could not be deleted at all. Cleanup is therefore driven by leaving the
+            // block, not by the kind of failure that caused it.
+            releaseLoaderAndStaging(loader, stagedJar, failure);
+            if (failure instanceof ServiceConfigurationError || failure instanceof RuntimeException) {
+                throw new IllegalStateException("provider plugin activation failed for " + candidate.jarPath(), failure);
             }
-            deleteStagedSuppressing(stagedJar, failure);
+            // A LinkageError or a VM error keeps its own type: ProviderPluginService reports the first as a
+            // diagnostic, and the second must not be disguised as an ordinary activation failure.
+            if (failure instanceof Error error) {
+                throw error;
+            }
             throw new IllegalStateException("provider plugin activation failed for " + candidate.jarPath(), failure);
         }
+    }
+
+    private static void releaseLoaderAndStaging(URLClassLoader loader, Optional<Path> stagedJar, Throwable primary) {
+        try {
+            loader.close();
+        } catch (IOException | RuntimeException closeFailure) {
+            primary.addSuppressed(closeFailure);
+        }
+        deleteStagedSuppressing(stagedJar, primary);
     }
 
     private static void deleteStagedSuppressing(Optional<Path> stagedJar, Throwable primary) {
