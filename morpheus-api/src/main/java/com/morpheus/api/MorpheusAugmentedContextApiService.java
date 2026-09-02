@@ -25,7 +25,7 @@ final class MorpheusAugmentedContextApiService {
     }
 
     Object nexusStatus() {
-        return provider.status();
+        return IntegrationStatusViews.status(provider.status());
     }
 
     Object requirement(String projectIdValue, String requirementIdValue, AugmentedContextRequest request) {
