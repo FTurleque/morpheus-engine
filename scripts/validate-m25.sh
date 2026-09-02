@@ -39,7 +39,7 @@ printf '%s\n' "M25 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <("$PYTHON" - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
 import pathlib, sys, xml.etree.ElementTree as ET
 root = pathlib.Path(sys.argv[1])
 def totals(base):
@@ -62,7 +62,7 @@ COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
 [[ -f "$COVERAGE" ]] || { echo "Missing production coverage summary: $COVERAGE" >&2; exit 1; }
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-"$PYTHON" - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line, branch = map(float, sys.argv[1:])
 if line < .25: raise SystemExit(f'M25 line coverage below 25%: {line}')
@@ -104,7 +104,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   PROJECT_ID='01890f7a-36d4-7c1e-8000-000000000081'
   RULE='new|No findings|QUALITY_THRESHOLD|BLOCKER|FINDINGS|LTE|0'
   CREATED="$($LAUNCHER --data-dir "$DATA" --json policy pack create --name 'M25 Gate Pack' --rules "$RULE" --actor gate --reason baseline)"
-  PACK_ID="$("$PYTHON" - "$CREATED" <<'PY'
+  PACK_ID="$(morpheus_python - "$CREATED" <<'PY'
 import re, sys
 m=re.search(r'[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',sys.argv[1]);
 if not m: raise SystemExit('pack UUIDv7 not found')
@@ -112,7 +112,7 @@ print(m.group())
 PY
 )"
   VERSIONS="$($LAUNCHER --data-dir "$DATA" --json policy pack versions --id "$PACK_ID")"
-  read -r VERSION_ID RULE_ID < <("$PYTHON" - "$VERSIONS" <<'PY'
+  read -r VERSION_ID RULE_ID < <(morpheus_python - "$VERSIONS" <<'PY'
 import re,sys
 ids=re.findall(r'[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',sys.argv[1])
 if len(ids)<3: raise SystemExit('version/rule UUIDv7 not found')
@@ -135,7 +135,7 @@ PY
   [[ "$EVALUATED" == *'"originalDecision":"UNKNOWN"'* && "$EVALUATED" == *'"effectiveDecision":"BLOCK"'* ]] || { echo "Policy override provenance mismatch: $EVALUATED" >&2; exit 1; }
   printf '%s\n' 'Policy versioning + CAS + dry-run + override explainability: PASS'
 
-  PORT="$("$PYTHON" - <<'PY'
+  PORT="$(morpheus_python - <<'PY'
 import socket
 with socket.socket() as sock: sock.bind(('127.0.0.1',0)); print(sock.getsockname()[1])
 PY
@@ -147,7 +147,7 @@ PY
   API_OK=false
   for _ in $(seq 1 60); do
     if ! kill -0 "$API_PID" >/dev/null 2>&1; then cat "$OUTPUT/api.stderr.log" >&2 || true; exit 1; fi
-    if "$PYTHON" - "$PORT" "$PACK_ID" 2>/dev/null <<'PY'
+    if morpheus_python - "$PORT" "$PACK_ID" 2>/dev/null <<'PY'
 import json,sys,urllib.request
 port,pack=sys.argv[1:]
 with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/v1/policy-packs/{pack}',timeout=.5) as response:

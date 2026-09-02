@@ -25,7 +25,7 @@ MORPHEUS_R2_BASE_REF="$BASE_REF" MORPHEUS_R2_SKIP_PORTABLE=true \
 bash -n "$REPO/distribution/build-portable.sh"
 bash -n "$SCRIPT_DIR/validate-m28.sh"
 
-"$PYTHON" - "$REPO" <<'PY'
+morpheus_python - "$REPO" <<'PY'
 import pathlib
 import sys
 

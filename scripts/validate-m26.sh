@@ -39,7 +39,7 @@ printf '%s\n' "M26 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <("$PYTHON" - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
 import pathlib, sys, xml.etree.ElementTree as ET
 root = pathlib.Path(sys.argv[1])
 def totals(base):
@@ -62,7 +62,7 @@ COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
 [[ -f "$COVERAGE" ]] || { echo "Missing production coverage summary: $COVERAGE" >&2; exit 1; }
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-"$PYTHON" - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line, branch = map(float, sys.argv[1:])
 if line < .25: raise SystemExit(f'M26 line coverage below 25%: {line}')
@@ -99,7 +99,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   DATA="$OUTPUT/server-data"
   rm -rf "$DATA" && mkdir -p "$DATA"
   IDENTITY="$($LAUNCHER --data-dir "$DATA" --json server identity create --principal gate-admin --role ADMIN)"
-  read -r TOKEN TOKEN_PERSISTENCE < <("$PYTHON" - "$IDENTITY" <<'PY'
+  read -r TOKEN TOKEN_PERSISTENCE < <(morpheus_python - "$IDENTITY" <<'PY'
 import json,sys
 p=json.loads(sys.argv[1]); print(p['token'],p['tokenPersistence'])
 PY
@@ -112,14 +112,14 @@ PY
   printf '%s\n' 'Remote identity hash-only provisioning: PASS'
 
   BACKUP="$($LAUNCHER --data-dir "$DATA" --json server backup create)"
-  read -r BACKUP_PATH BACKUP_SHA BACKUP_SCHEMA BACKUP_OK < <("$PYTHON" - "$BACKUP" <<'PY'
+  read -r BACKUP_PATH BACKUP_SHA BACKUP_SCHEMA BACKUP_OK < <(morpheus_python - "$BACKUP" <<'PY'
 import json,sys
 p=json.loads(sys.argv[1]); print(p['path'],p['sha256'],p['schemaVersion'],str(p['integrityOk']).lower())
 PY
 )
   [[ -f "$BACKUP_PATH" && "$BACKUP_SCHEMA" == 17 && "$BACKUP_OK" == true ]] || { echo "M26 backup result mismatch: $BACKUP" >&2; exit 1; }
   VERIFIED="$($LAUNCHER --data-dir "$DATA" --json server backup verify --file "$BACKUP_PATH")"
-  "$PYTHON" - "$VERIFIED" "$BACKUP_SHA" <<'PY'
+  morpheus_python - "$VERIFIED" "$BACKUP_SHA" <<'PY'
 import json,sys
 p=json.loads(sys.argv[1]); expected=sys.argv[2]
 assert p['integrityOk'] is True and p['schemaVersion']==17 and p['sha256']==expected,p
@@ -129,7 +129,7 @@ PY
   fi
   grep -q -- '--confirm' "$OUTPUT/restore-unconfirmed.stderr" || { cat "$OUTPUT/restore-unconfirmed.stderr" >&2; exit 1; }
   RESTORED="$($LAUNCHER --data-dir "$DATA" --json server restore --file "$BACKUP_PATH" --confirm)"
-  "$PYTHON" - "$RESTORED" <<'PY'
+  morpheus_python - "$RESTORED" <<'PY'
 import json,sys
 p=json.loads(sys.argv[1]); assert p['integrityOk'] is True and p['schemaVersion']==17,p
 PY

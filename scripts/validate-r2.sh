@@ -19,7 +19,7 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   exit 1
 fi
 
-"$PYTHON" - "$REPO" "$VERSION" <<'PY'
+morpheus_python - "$REPO" "$VERSION" <<'PY'
 import pathlib
 import sys
 
@@ -43,7 +43,7 @@ MORPHEUS_M27_SKIP_PORTABLE="$SKIP_PORTABLE" \
 
 UPGRADE_REPORT="$REPO/morpheus-store-sqlite/target/surefire-reports/TEST-com.morpheus.store.sqlite.R2UpgradeCompatibilityTest.xml"
 [[ -f "$UPGRADE_REPORT" ]] || { echo "R2 upgrade report is missing: $UPGRADE_REPORT" >&2; exit 1; }
-"$PYTHON" - "$UPGRADE_REPORT" <<'PY'
+morpheus_python - "$UPGRADE_REPORT" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 

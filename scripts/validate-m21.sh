@@ -33,7 +33,7 @@ ARCH_TESTS_MINIMUM="$(read_ratchet architectureTestsMinimum)"
 LINE_COVERAGE_MINIMUM="$(read_ratchet lineCoverageMinimum)"
 BRANCH_COVERAGE_MINIMUM="$(read_ratchet branchCoverageMinimum)"
 
-"$PYTHON" - "$TESTS_MINIMUM" "$ARCH_TESTS_MINIMUM" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
+morpheus_python - "$TESTS_MINIMUM" "$ARCH_TESTS_MINIMUM" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
 import sys
 
 tests, architecture = map(int, sys.argv[1:3])
@@ -61,7 +61,7 @@ printf '%s\n' "M21 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <("$PYTHON" - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -102,7 +102,7 @@ if [[ ! -f "$COVERAGE" ]]; then
 fi
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-"$PYTHON" - "$LINE_RATIO" "$BRANCH_RATIO" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
+morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
 import sys
 line, branch, minimum_line, minimum_branch = map(float, sys.argv[1:])
 if line < minimum_line:
@@ -135,7 +135,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   fi
 
   PRODUCT_INFO="$($LAUNCHER --json product-info)"
-  "$PYTHON" - "$PRODUCT_INFO" "$VERSION" <<'PY'
+  morpheus_python - "$PRODUCT_INFO" "$VERSION" <<'PY'
 import json
 import sys
 payload = json.loads(sys.argv[1])
@@ -151,7 +151,7 @@ artifactUri=https://example.invalid/morpheus.zip
 sha256=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 EOF
   UPDATE="$($LAUNCHER --json update-check --manifest "$MANIFEST")"
-  "$PYTHON" - "$UPDATE" <<'PY'
+  morpheus_python - "$UPDATE" <<'PY'
 import json
 import sys
 payload = json.loads(sys.argv[1])
@@ -159,7 +159,7 @@ if payload.get('updateAvailable') is not False:
     raise SystemExit(f'same-version manifest must not report an update: {payload!r}')
 PY
 
-  PORT="$("$PYTHON" - <<'PY'
+  PORT="$(morpheus_python - <<'PY'
 import socket
 with socket.socket() as sock:
     sock.bind(('127.0.0.1', 0))
@@ -179,7 +179,7 @@ PY
       echo 'Packaged API exited before version check' >&2
       exit 1
     fi
-    if "$PYTHON" - "$PORT" "$VERSION" 2>/dev/null <<'PY'
+    if morpheus_python - "$PORT" "$VERSION" 2>/dev/null <<'PY'
 import json
 import sys
 import urllib.request

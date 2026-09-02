@@ -31,7 +31,7 @@ if grep -Eq '^morpheus-store-sqlite/src/main/resources/db/migration/' <<<"$CHANG
 fi
 printf '%s\n' 'R3 scope policy: PASS (no CI workflow or SQLite migration delta)'
 
-"$PYTHON" - "$REPO" "$VERSION" <<'PY'
+morpheus_python - "$REPO" "$VERSION" <<'PY'
 import pathlib
 import sys
 
@@ -57,7 +57,7 @@ bash -n "$REPO/distribution/build-portable.sh"
 bash -n "$REPO/distribution/build-release.sh"
 bash -n "$SCRIPT_DIR/validate-r3.sh"
 
-"$PYTHON" - "$REPO" "$VERSION" <<'PY'
+morpheus_python - "$REPO" "$VERSION" <<'PY'
 import pathlib
 import sys
 

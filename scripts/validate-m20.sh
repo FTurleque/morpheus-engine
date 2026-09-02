@@ -34,7 +34,7 @@ fail() {
 section 'Workspace / SHA / version'
 SHA="$(git rev-parse HEAD)"
 [[ -z "$(git status --porcelain)" ]] || fail 'exact-head validation requires a clean Git workspace'
-POM_VERSION="$("$PYTHON" - <<'PY'
+POM_VERSION="$(morpheus_python - <<'PY'
 import xml.etree.ElementTree as ET
 root = ET.parse('pom.xml').getroot()
 ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
@@ -63,7 +63,7 @@ MANIFEST="$REPO/dist/morpheus-$VERSION-linux-x64-release-manifest.json"
   cd "$(dirname "$ARCHIVE")"
   sha256sum -c "$(basename "$CHECKSUM")"
 )
-"$PYTHON" - "$MANIFEST" "$VERSION" "$VALIDATION_TAG" "$SHA" <<'PY'
+morpheus_python - "$MANIFEST" "$VERSION" "$VALIDATION_TAG" "$SHA" <<'PY'
 import json
 import sys
 manifest, version, tag, sha = sys.argv[1:]
@@ -83,7 +83,7 @@ LAUNCHER="$EXTRACT/morpheus/bin/morpheus"
 [[ -x "$LAUNCHER" ]] || fail "portable launcher missing or not executable: $LAUNCHER"
 
 VERSION_JSON="$(env -u JAVA_HOME PATH=/usr/bin:/bin "$LAUNCHER" --json version)"
-"$PYTHON" - "$VERSION_JSON" "$VERSION" <<'PY'
+morpheus_python - "$VERSION_JSON" "$VERSION" <<'PY'
 import json
 import sys
 payload = json.loads(sys.argv[1])
@@ -91,7 +91,7 @@ assert payload['version'] == sys.argv[2], payload
 PY
 
 PATHS_JSON="$(env -u JAVA_HOME PATH=/usr/bin:/bin XDG_DATA_HOME="$XDG_DATA" XDG_CONFIG_HOME="$XDG_CONFIG" XDG_STATE_HOME="$XDG_STATE" "$LAUNCHER" --json paths)"
-"$PYTHON" - "$PATHS_JSON" "$XDG_DATA" "$XDG_CONFIG" "$XDG_STATE" <<'PY'
+morpheus_python - "$PATHS_JSON" "$XDG_DATA" "$XDG_CONFIG" "$XDG_STATE" <<'PY'
 import json
 import os
 import sys
