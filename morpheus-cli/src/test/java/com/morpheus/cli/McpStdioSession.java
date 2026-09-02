@@ -9,6 +9,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,13 +25,19 @@ import static org.junit.jupiter.api.Assertions.fail;
  * unreferenced stream is collected, so {@code @TempDir} cleanup raced that handle on Windows and failed the
  * build with {@code DirectoryNotEmptyException}. Keeping the diagnostics in memory removes the file, and with
  * it the race, without weakening the failure messages.
+ *
+ * <p>Protocol lines are drained the same way and handed over through a queue, so a test waits on the response
+ * itself rather than sampling the stream on a timer.
  */
 final class McpStdioSession implements AutoCloseable {
     private static final Duration TERMINATION_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration DRAIN_TIMEOUT = Duration.ofSeconds(5);
 
     private final Process process;
+    private final Thread stdoutDrain;
     private final Thread stderrDrain;
+    // An empty element marks end of stream, so a server that dies fails fast instead of waiting out the timeout.
+    private final BlockingQueue<Optional<String>> responses = new LinkedBlockingQueue<>();
     private final StringBuffer stderr = new StringBuffer();
     private final BufferedWriter writer;
     private final BufferedReader reader;
@@ -37,6 +46,7 @@ final class McpStdioSession implements AutoCloseable {
         this.process = process;
         this.writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
         this.reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+        this.stdoutDrain = Thread.ofPlatform().daemon().name("mcp-stdio-stdout").start(this::drainResponses);
         this.stderrDrain = Thread.ofPlatform().daemon().name("mcp-stdio-stderr").start(this::drainStderr);
     }
 
@@ -71,22 +81,13 @@ final class McpStdioSession implements AutoCloseable {
         writer.close();
     }
 
-    String readLine(Duration timeout) throws Exception {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        while (System.nanoTime() < deadline) {
-            if (reader.ready()) {
-                String line = reader.readLine();
-                if (line != null) {
-                    return line;
-                }
-            }
-            if (!process.isAlive()) {
-                fail("MCP process exited with " + process.exitValue() + "; stderr=" + stderr());
-            }
-            Thread.sleep(10L);
+    String readLine(Duration timeout) throws InterruptedException {
+        Optional<String> next = responses.poll(timeout.toNanos(), TimeUnit.NANOSECONDS);
+        if (next == null) {
+            return fail("Timed out waiting for MCP response; stderr=" + stderr());
         }
-        fail("Timed out waiting for MCP response; stderr=" + stderr());
-        return "";
+        return next.orElseGet(() ->
+                fail("MCP process closed stdout before responding; stderr=" + stderr()));
     }
 
     @Override
@@ -99,9 +100,26 @@ final class McpStdioSession implements AutoCloseable {
         }
         assertTrue(process.waitFor(TERMINATION_TIMEOUT.toSeconds(), TimeUnit.SECONDS),
                 "MCP process did not terminate; stderr=" + stderr());
+        stdoutDrain.join(DRAIN_TIMEOUT.toMillis());
         stderrDrain.join(DRAIN_TIMEOUT.toMillis());
         writer.close();
         reader.close();
+    }
+
+    private void drainResponses() {
+        try {
+            String line = reader.readLine();
+            while (line != null) {
+                responses.put(Optional.of(line));
+                line = reader.readLine();
+            }
+        } catch (IOException streamClosedWithProcess) {
+            stderr.append("stdout drain stopped: ").append(streamClosedWithProcess);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+        responses.add(Optional.empty());
     }
 
     private void drainStderr() {
