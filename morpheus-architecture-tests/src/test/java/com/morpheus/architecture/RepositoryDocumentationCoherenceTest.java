@@ -27,6 +27,12 @@ class RepositoryDocumentationCoherenceTest {
     private static final Pattern SCHEMA_VERSION_LITERAL =
             Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*\\d+");
     /**
+     * A total that grows with the repository, stated on a page that describes the current contract:
+     * "98 fichiers" ADR, "17 modules". The count belongs in a glob at answer time, not on the page.
+     */
+    private static final Pattern ADR_OR_MODULE_TOTAL = Pattern.compile(
+            "(?i)\\b\\d{1,4}\\s+(?:fichiers?|ADRs?|modules?)\\b");
+    /**
      * A schema version stated in prose on an active surface: "schema 15", "schéma V017", or the constant
      * followed by its value in words rather than by an assignment. Historical pages are never scanned with it.
      */
@@ -211,6 +217,34 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     /**
+     * Active governance surfaces must not state a total that changes when the repository grows.
+     *
+     * <p>{@code rules/meta.md} says never to recopy a perishable total, yet the ADR rule recopied one, and it had
+     * rotted into an ambiguity: "98 fichiers" counted 97 numbered ADRs plus the directory's own README, so a
+     * reader following it would have cited 98 ADRs. The instruction to count is what belongs on these pages.</p>
+     */
+    @Test
+    void activeGovernanceSurfacesDoNotRestateAPerishableAdrOrModuleTotal() throws Exception {
+        Path root = repositoryRoot();
+        long numberedAdrs;
+        try (var files = Files.list(root.resolve("docs/adr"))) {
+            numberedAdrs = files.filter(path -> path.getFileName().toString().matches("\\d{4}-.*\\.md")).count();
+        }
+        assertTrue(numberedAdrs > 0, "the ADR directory must contain numbered decision records");
+
+        for (Path page : activeGovernanceSurfaces(root)) {
+            if (!Files.isRegularFile(page)) {
+                continue;
+            }
+            String content = Files.readString(page);
+            assertFalse(ADR_OR_MODULE_TOTAL.matcher(content).find(),
+                    () -> root.relativize(page) + " restates a perishable total (\""
+                            + describeFirstMatch(ADR_OR_MODULE_TOTAL, content)
+                            + "\"); count docs/adr/0*.md or pom.xml <module> entries instead");
+        }
+    }
+
+    /**
      * The audit command must tell its reader where the normative value lives, not just avoid restating it.
      * A template with an empty placeholder and no instruction invites the next reader to fill in a remembered
      * number, which is how the stale "schema 15" line survived the previous correction.
@@ -352,6 +386,14 @@ class RepositoryDocumentationCoherenceTest {
 
     private static List<Path> activeGovernanceSurfaces(Path root) throws IOException {
         List<Path> surfaces = new ArrayList<>();
+        // The two always-loaded entry points belong here too: they are the surfaces an agent reads first, so a
+        // stale fact on them propagates furthest.
+        for (String page : List.of(".claude/CLAUDE.md", ".github/copilot-instructions.md")) {
+            Path file = root.resolve(page);
+            if (Files.isRegularFile(file)) {
+                surfaces.add(file);
+            }
+        }
         for (String directory : List.of(".claude/commands", ".claude/agents", ".claude/rules", ".github/prompts",
                 ".github/instructions")) {
             Path base = root.resolve(directory);
