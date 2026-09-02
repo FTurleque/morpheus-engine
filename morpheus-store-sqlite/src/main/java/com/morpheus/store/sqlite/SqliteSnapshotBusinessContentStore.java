@@ -45,9 +45,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /** SQLite adapter for snapshot-owned non-Requirement business-content projection. */
 public final class SqliteSnapshotBusinessContentStore implements SnapshotBusinessContentStore, AutoCloseable {
+    /** Bare lowercase SQLite identifier: no quoting, no separator, no whitespace, nothing to close a token with. */
+    private static final Pattern SQL_IDENTIFIER = Pattern.compile("[a-z][a-z0-9_]{0,63}");
+
     private final Connection connection;
     private boolean closed;
 
@@ -633,14 +637,30 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
         }
     }
 
+    /**
+     * A table or column name cannot be a bound parameter, so these two helpers interpolate theirs into the SQL
+     * text. Every call site passes a literal, and this keeps that the only thing they can pass: an identifier
+     * that is not a bare lowercase name is refused before it reaches {@code prepareStatement}, so the day one of
+     * these helpers is reused with a value derived from input, it fails closed instead of composing SQL.
+     */
+    static String requireSqlIdentifier(String identifier, String role) {
+        Objects.requireNonNull(identifier, role);
+        if (!SQL_IDENTIFIER.matcher(identifier).matches()) {
+            throw new IllegalArgumentException(
+                    "SQLite " + role + " identifier must match " + SQL_IDENTIFIER.pattern());
+        }
+        return identifier;
+    }
+
     private void insertOrderedValues(
             String table,
             String ownerColumn,
             KnowledgeSnapshotId snapshotId,
             String ownerId,
             List<String> values) throws SQLException {
-        String sql = "INSERT INTO " + table
-                + "(snapshot_id, " + ownerColumn + ", ordinal, value) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO " + requireSqlIdentifier(table, "table")
+                + "(snapshot_id, " + requireSqlIdentifier(ownerColumn, "ownerColumn")
+                + ", ordinal, value) VALUES (?, ?, ?, ?)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             for (int index = 0; index < values.size(); index++) {
                 statement.setString(1, snapshotId.toString());
@@ -658,8 +678,9 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
             String ownerColumn,
             KnowledgeSnapshotId snapshotId,
             String ownerId) throws SQLException {
-        String sql = "SELECT value FROM " + table
-                + " WHERE snapshot_id = ? AND " + ownerColumn + " = ? ORDER BY ordinal";
+        String sql = "SELECT value FROM " + requireSqlIdentifier(table, "table")
+                + " WHERE snapshot_id = ? AND " + requireSqlIdentifier(ownerColumn, "ownerColumn")
+                + " = ? ORDER BY ordinal";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, snapshotId.toString());
             statement.setString(2, ownerId);
