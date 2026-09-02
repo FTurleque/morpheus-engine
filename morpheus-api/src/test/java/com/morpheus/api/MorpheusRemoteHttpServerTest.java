@@ -380,6 +380,30 @@ class MorpheusRemoteHttpServerTest {
         assertEquals(201, backup.statusCode());
         assertTrue(backup.body().contains("\"integrityOk\":true"));
         assertTrue(backup.body().contains("\"schemaVersion\":17"));
+        assertRemoteBackupNamesTheFileWithoutTheServerPathname(backup);
+    }
+
+    /**
+     * The backup directory is server-configured and restore is offline-only, so a remote ADMIN needs the backup's
+     * identity, not its location. Anything that would let the caller reconstruct the server's filesystem layout is
+     * a disclosure the response does not need to make.
+     */
+    private void assertRemoteBackupNamesTheFileWithoutTheServerPathname(HttpResponse<String> backup) {
+        String body = backup.body();
+        assertTrue(body.contains("\"fileName\":"), () -> "remote backup must name the file: " + body);
+        assertFalse(body.contains("\"path\":"),
+                () -> "remote backup must not expose the absolute backup pathname: " + body);
+        assertFalse(body.contains("file:"), () -> "remote backup must not expose a file: URI: " + body);
+
+        for (String location : List.of(
+                temp.toAbsolutePath().toString(),
+                temp.resolve("backups").toAbsolutePath().toString(),
+                System.getProperty("user.home"))) {
+            assertFalse(body.contains(location),
+                    () -> "remote backup leaked a server filesystem location: " + body);
+            assertFalse(body.contains(location.replace('\\', '/')),
+                    () -> "remote backup leaked a server filesystem location: " + body);
+        }
     }
 
     private void assertBoundedConcurrencyProducesThrottling(List<Integer> statuses) {

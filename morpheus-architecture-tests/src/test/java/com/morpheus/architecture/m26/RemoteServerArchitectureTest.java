@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -20,6 +22,54 @@ class RemoteServerArchitectureTest {
                 .that().resideInAnyPackage("..domain..", "..application..")
                 .should().dependOnClassesThat().resideInAnyPackage("..cli..", "..api..")
                 .check(classes);
+    }
+
+    /**
+     * The remote backup response identifies the backup; it does not locate it.
+     *
+     * <p>The backup directory is server-configured and restore is {@code EXPLICITLY_OFFLINE_ONLY}, so a remote
+     * ADMIN has no use for the absolute pathname. The local CLI keeps it, because an operator passes it straight
+     * back to {@code server backup verify --file}.</p>
+     */
+    @Test
+    void remoteBackupResponseNamesTheFileWhileTheLocalCliKeepsThePathname() throws IOException {
+        Path root = repositoryRoot();
+        String remoteServer = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String cli = Files.readString(root.resolve(
+                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusServerCli.java"));
+        String openApi = Files.readString(root.resolve("docs/openapi/morpheus-v1-remote-m26.yaml"));
+
+        assertTrue(remoteServer.contains("view.put(\"fileName\", fileNameOf(backup.path()))"),
+                "the remote backup view must project the backup to its file name");
+        assertFalse(remoteServer.contains("view.put(\"path\", backup.path().toString())"),
+                "the remote backup view must not expose the server's absolute backup pathname");
+        assertTrue(cli.contains("view.put(\"path\", backup.path().toString())"),
+                "the local CLI backup view must keep the pathname an operator passes back to --file");
+        assertTrue(openApi.contains("required: [fileName, bytes, sha256, schemaVersion, integrityOk]"),
+                "the remote OpenAPI backup schema must require fileName rather than path");
+    }
+
+    /**
+     * A response bound equal to the current schema version silently rots into rejecting valid responses at the
+     * next migration, so the published ceiling must stay strictly above the normative constant.
+     */
+    @Test
+    void remoteBackupSchemaCeilingCannotRotBelowTheSupportedSchemaVersion() throws IOException {
+        Path root = repositoryRoot();
+        String manager = Files.readString(root.resolve(
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java"));
+        Matcher declaration = Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*(\\d+)").matcher(manager);
+        assertTrue(declaration.find(), "SqliteSchemaManager must declare SUPPORTED_SCHEMA_VERSION");
+        int supported = Integer.parseInt(declaration.group(1));
+
+        String openApi = Files.readString(root.resolve("docs/openapi/morpheus-v1-remote-m26.yaml"));
+        Matcher ceiling = Pattern.compile("schemaVersion:\\s*\\R\\s*type: integer\\s*\\R\\s*minimum: \\d+\\s*\\R\\s*maximum: (\\d+)")
+                .matcher(openApi);
+        assertTrue(ceiling.find(), "the remote OpenAPI must bound the reported schemaVersion");
+        assertTrue(Integer.parseInt(ceiling.group(1)) > supported,
+                () -> "the published schemaVersion ceiling " + ceiling.group(1)
+                        + " must stay above SUPPORTED_SCHEMA_VERSION " + supported);
     }
 
     @Test
@@ -51,7 +101,6 @@ class RemoteServerArchitectureTest {
 
         assertFalse(openApi.contains("/server/restore"));
         assertTrue(openApi.contains("maximum: 512"));
-        assertTrue(openApi.contains("maximum: 16"));
         assertTrue(openApi.contains("maxProxyResponseBytes"));
         assertTrue(openApi.contains("maxProxyInFlightBytes"));
         assertTrue(openApi.contains("maxConcurrentBufferedProxyResponses"));
