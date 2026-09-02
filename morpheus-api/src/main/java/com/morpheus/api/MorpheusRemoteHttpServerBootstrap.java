@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.security.LocalWritePermissionHardener;
@@ -76,10 +77,12 @@ final class MorpheusRemoteHttpServerBootstrap {
         SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
         SqliteServerMaintenance.ServerLease lease = maintenance.acquireServerLease(databasePath);
         MorpheusInternalCapability internalCapability = MorpheusInternalCapability.generate();
-        MorpheusHttpServer local = null;
-        ExecutorService executor = null;
-        try {
-            local = MorpheusHttpServer.startRemote(
+        // HttpsServer.create binds the TLS socket, and it used to be declared inside the try, so the recovery
+        // path could not reach it: a failure between the bind and a started server left the port held. The lease
+        // had the same shape of problem -- it was released after local.close(), so a failing close skipped it.
+        try (StartupOwnership owned = new StartupOwnership()) {
+            owned.keep(lease, SqliteServerMaintenance.ServerLease::close);
+            MorpheusHttpServer local = owned.keep(MorpheusHttpServer.startRemote(
                     databasePath,
                     MorpheusHttpServer.DEFAULT_HOST,
                     0,
@@ -88,9 +91,11 @@ final class MorpheusRemoteHttpServerBootstrap {
                     technicalContextProvider,
                     writeCapabilityResolver,
                     allowedWorkspaceRoots,
-                    internalCapability);
+                    internalCapability), MorpheusHttpServer::close);
             int listenBacklog = Math.max(MorpheusRemoteHttpServer.DEFAULT_MAX_CONCURRENT_REQUESTS, maxConcurrentRequests);
-            HttpsServer https = HttpsServer.create(new InetSocketAddress(normalizedHost, port), listenBacklog);
+            HttpsServer https = owned.keep(
+                    HttpsServer.create(new InetSocketAddress(normalizedHost, port), listenBacklog),
+                    server -> server.stop(0));
             https.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
                 @Override
                 public void configure(HttpsParameters parameters) {
@@ -99,7 +104,8 @@ final class MorpheusRemoteHttpServerBootstrap {
                     parameters.setSSLParameters(secure);
                 }
             });
-            executor = Executors.newVirtualThreadPerTaskExecutor();
+            ExecutorService executor = owned.keep(
+                    Executors.newVirtualThreadPerTaskExecutor(), ExecutorService::shutdownNow);
             MorpheusRemoteHttpServer result = new MorpheusRemoteHttpServer(
                     https,
                     executor,
@@ -116,18 +122,10 @@ final class MorpheusRemoteHttpServerBootstrap {
             https.setExecutor(executor);
             https.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
             https.start();
+            owned.transferred();
             return result;
-        } catch (IOException | RuntimeException failure) {
-            if (executor != null) {
-                executor.shutdownNow();
-            }
-            if (local != null) {
-                local.close();
-            }
-            lease.close();
-            throw failure instanceof RuntimeException runtimeFailure
-                    ? runtimeFailure
-                    : new IllegalStateException("cannot start MORPHEUS remote HTTPS server", failure);
+        } catch (IOException failure) {
+            throw new IllegalStateException("cannot start MORPHEUS remote HTTPS server", failure);
         }
     }
 

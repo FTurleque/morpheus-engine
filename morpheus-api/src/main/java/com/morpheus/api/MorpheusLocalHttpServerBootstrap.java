@@ -4,6 +4,7 @@ import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -150,13 +151,18 @@ final class MorpheusLocalHttpServerBootstrap {
             new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
         }
 
-        try {
-            HttpServer delegate = HttpServer.create(new InetSocketAddress(bindAddress, port), 0);
+        // HttpServer.create binds the socket, and everything after it can fail -- notably the API services, which
+        // each open the SQLite database. Until MorpheusHttpServer exists and holds them, the socket and the
+        // executor belong to this method, or a failed start leaves the port bound and the threads alive.
+        try (StartupOwnership owned = new StartupOwnership()) {
+            HttpServer delegate = owned.keep(
+                    HttpServer.create(new InetSocketAddress(bindAddress, port), 0), server -> server.stop(0));
             HttpServer loopbackProtected = new LoopbackRequestProtectedHttpServer(delegate);
             HttpServer httpServer = internalCapability
                     .<HttpServer>map(capability -> new CapabilityProtectedHttpServer(loopbackProtected, capability))
                     .orElse(loopbackProtected);
-            ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+            ExecutorService executor = owned.keep(
+                    Executors.newVirtualThreadPerTaskExecutor(), ExecutorService::shutdownNow);
             MorpheusHttpServer result = new MorpheusHttpServer(
                     httpServer,
                     executor,
@@ -175,6 +181,7 @@ final class MorpheusLocalHttpServerBootstrap {
             httpServer.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
             MorpheusQueryHttpRoutes.register(httpServer, databasePath);
             httpServer.start();
+            owned.transferred();
             return result;
         } catch (IOException failure) {
             throw new IllegalStateException("cannot start MORPHEUS API on " + normalizedHost + ":" + port, failure);
