@@ -3,8 +3,11 @@ package com.morpheus.sdk.provider;
 import com.morpheus.domain.provider.ProviderProbeResult;
 
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,6 +26,7 @@ import java.util.concurrent.TimeUnit;
  */
 final class ProviderPluginProbeProcess {
     static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(45);
+    static final String RESULT_FILE_NAME = "probe-result.properties";
     private static final Duration GRACEFUL_TERMINATION = Duration.ofMillis(500);
     private static final long TERMINATION_POLL_MILLIS = 10L;
     private static final Set<String> SAFE_ENVIRONMENT_KEYS = Set.of(
@@ -59,12 +63,12 @@ final class ProviderPluginProbeProcess {
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         Objects.requireNonNull(trustedSha256, "trustedSha256");
 
-        Path resultFile = null;
+        Path stagingDirectory = null;
         Process process = null;
         Map<Long, ProcessHandle> observed = new LinkedHashMap<>();
         try {
-            resultFile = Files.createTempFile("morpheus-provider-probe-", ".properties");
-            Files.deleteIfExists(resultFile);
+            stagingDirectory = createPrivateStagingDirectory();
+            Path resultFile = stagingDirectory.resolve(RESULT_FILE_NAME);
             ProcessBuilder builder = new ProcessBuilder(command(candidate, workspaceRoot, trustedSha256, resultFile))
                     .redirectErrorStream(true)
                     .redirectOutput(ProcessBuilder.Redirect.DISCARD);
@@ -101,13 +105,44 @@ final class ProviderPluginProbeProcess {
                     failure);
         } finally {
             if (process != null) terminate(process, observed);
-            if (resultFile != null) {
-                try {
-                    Files.deleteIfExists(resultFile);
-                } catch (IOException ignored) {
-                    // The result file contains no secret material; preserve the primary outcome.
-                }
-            }
+            deleteStagingDirectory(stagingDirectory);
+        }
+    }
+
+    /**
+     * Creates the private directory that carries the probe result back from the worker.
+     *
+     * <p>The previous design created a temporary file in the shared temporary directory and deleted it again,
+     * which left a known, unoccupied pathname in a directory other local processes can write to. Owning a private
+     * directory instead means the result pathname never exists as a substitutable entry outside MORPHEUS control.
+     * The worker then creates the file itself with {@code CREATE_NEW}, so even inside this directory the pathname
+     * cannot be pre-empted.
+     */
+    private Path createPrivateStagingDirectory() throws IOException {
+        Path directory = supportsPosixPermissions()
+                ? Files.createTempDirectory(
+                        "morpheus-provider-probe-",
+                        PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")))
+                : Files.createTempDirectory("morpheus-provider-probe-");
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("provider probe staging directory was replaced before use");
+        }
+        return directory;
+    }
+
+    private static boolean supportsPosixPermissions() {
+        return FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
+    }
+
+    private void deleteStagingDirectory(Path directory) {
+        if (directory == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(directory.resolve(RESULT_FILE_NAME));
+            Files.deleteIfExists(directory);
+        } catch (IOException ignored) {
+            // The staging directory holds no secret material; preserve the primary outcome.
         }
     }
 
