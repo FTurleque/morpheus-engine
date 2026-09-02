@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -63,5 +64,31 @@ class MorpheusProjectSyncApiServiceContractTest {
                 IllegalArgumentException.class,
                 () -> confined.sync(projectId, Optional.empty()));
         assertTrue(denied.getMessage().contains("outside the server-configured allowed roots"));
+    }
+
+    /**
+     * {@code POST /projects/{id}/sync} is remote WRITE, and the workspace it resolves comes from the stored
+     * project rather than from the request. A project the operator registered locally would otherwise hand its
+     * absolute pathname to a remote caller through this conflict message.
+     */
+    @Test
+    void aVanishedWorkspaceIsReportedByProjectIdRatherThanByPathname() throws Exception {
+        Path database = tempDirectory.resolve("vanished.db");
+        Path workspace = Files.createDirectory(tempDirectory.resolve("vanishing-workspace"));
+        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, Optional.empty());
+        String projectId = ((Map<?, ?>) registry.registerProject(workspace.toString()).project())
+                .get("projectId").toString();
+        Files.delete(workspace);
+
+        MorpheusProjectSyncApiService service = new MorpheusProjectSyncApiService(database, Optional.empty());
+        ApiFailure conflict = assertThrows(ApiFailure.class, () -> service.sync(projectId, Optional.empty()));
+
+        assertEquals(409, conflict.status());
+        assertTrue(conflict.getMessage().contains(projectId),
+                () -> "the caller must still learn which project is affected: " + conflict.getMessage());
+        assertFalse(conflict.getMessage().contains(workspace.toString()),
+                () -> "the conflict leaked the stored workspace pathname: " + conflict.getMessage());
+        assertFalse(conflict.getMessage().contains(tempDirectory.toString()),
+                () -> "the conflict leaked a server location: " + conflict.getMessage());
     }
 }

@@ -65,8 +65,10 @@ class MorpheusProjectRegistryApiServiceContractTest {
                 ApiFailure.class,
                 () -> service.registerProject(missingDirectory.toString()));
         assertEquals(400, notDirectory.status());
+        // The rejection echoes what the caller sent, not what the server resolved it to; a relative request would
+        // otherwise report the server's working directory back.
         assertEquals(
-                "workspace is not a directory: " + missingDirectory.toAbsolutePath().normalize(),
+                "workspace is not a directory: " + missingDirectory,
                 notDirectory.getMessage());
 
         Path allowed = Files.createDirectory(tempDirectory.resolve("allowed"));
@@ -77,5 +79,26 @@ class MorpheusProjectRegistryApiServiceContractTest {
                 IllegalArgumentException.class,
                 () -> confined.registerProject(outside.toString()));
         assertTrue(denied.getMessage().contains("outside the server-configured allowed roots"));
+    }
+
+    /**
+     * A relative request must not be answered with the resolved absolute path.
+     *
+     * <p>The server resolves a relative workspace against its own working directory. Reporting the result back
+     * would tell a caller where the server runs, which is something it did not supply and cannot reach.</p>
+     */
+    @Test
+    void aRelativeWorkspaceRejectionDoesNotReportTheServersWorkingDirectory() {
+        MorpheusProjectRegistryApiService service = new MorpheusProjectRegistryApiService(
+                tempDirectory.resolve("relative.db"), Optional.empty());
+
+        ApiFailure rejection = assertThrows(
+                ApiFailure.class,
+                () -> service.registerProject("no-such-relative-workspace"));
+
+        assertEquals(400, rejection.status());
+        assertEquals("workspace is not a directory: no-such-relative-workspace", rejection.getMessage());
+        assertFalse(rejection.getMessage().contains(Path.of("").toAbsolutePath().toString()),
+                () -> "the rejection leaked the server working directory: " + rejection.getMessage());
     }
 }

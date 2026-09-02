@@ -52,10 +52,10 @@ mécaniquement M21 dans `ci.yml`.
 La baseline active du gate est :
 
 ```text
-Surefire total       >= 1000
-architecture         >= 300
-line coverage        >= 52.0%
-branch coverage      >= 45.0%
+Surefire total       >= 1150
+architecture         >= 310
+line coverage        >= 54.0%
+branch coverage      >= 47.0%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```
