@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
@@ -70,7 +71,7 @@ final_summary() {
 }
 
 surefire_totals() {
-  python3 - "$1" <<'PY'
+  "$PYTHON" - "$1" <<'PY'
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -124,7 +125,7 @@ startup_gate() {
   chmod +x "$launcher"
   "$launcher" --json version >"$CURRENT_LOG" 2>&1
 
-  python3 - "$launcher" "$CURRENT_LOG" <<'PY'
+  "$PYTHON" - "$launcher" "$CURRENT_LOG" <<'PY'
 import math
 import pathlib
 import subprocess
@@ -180,7 +181,7 @@ record "Workspace / SHA" "PASS"
 section "Reference environment"
 LOGICAL_PROCESSORS="$(getconf _NPROCESSORS_ONLN)"
 VISIBLE_RAM_KIB="$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)"
-VISIBLE_RAM_GIB="$(python3 - "$VISIBLE_RAM_KIB" <<'PY'
+VISIBLE_RAM_GIB="$("$PYTHON" - "$VISIBLE_RAM_KIB" <<'PY'
 import sys
 print(f"{int(sys.argv[1]) / 1024 / 1024:.1f}")
 PY
@@ -197,7 +198,7 @@ FILESYSTEM_SOURCE="$(findmnt -n -o SOURCE --target "$REPO_ROOT")"
   echo "DB fixture fs:      $FILESYSTEM_TYPE (under workspace target/)"
 } | tee "$LOG_ROOT/01-reference-environment.log"
 (( LOGICAL_PROCESSORS >= 4 )) || { echo "Reference environment requires at least 4 logical processors" >&2; exit 1; }
-python3 - "$VISIBLE_RAM_GIB" <<'PY'
+"$PYTHON" - "$VISIBLE_RAM_GIB" <<'PY'
 import sys
 if float(sys.argv[1]) < 8.0:
     raise SystemExit("Reference environment requires at least 8 GiB visible RAM")

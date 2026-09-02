@@ -5,6 +5,7 @@ VERSION="${1:-1.0.0}"
 SKIP_PORTABLE="${MORPHEUS_M24_SKIP_PORTABLE:-false}"
 BASE_REF="${MORPHEUS_M24_BASE_REF:-origin/main}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m24"
@@ -26,7 +27,7 @@ printf '%s\n' "M24 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <(python3 - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS ARCH_TESTS < <("$PYTHON" - "$REPO" <<'PY'
 import pathlib, sys, xml.etree.ElementTree as ET
 root = pathlib.Path(sys.argv[1])
 def totals(base):
@@ -55,7 +56,7 @@ COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
 [[ -f "$COVERAGE" ]] || { echo "Missing production coverage summary: $COVERAGE" >&2; exit 1; }
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+"$PYTHON" - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line, branch = map(float, sys.argv[1:])
 if line < .25: raise SystemExit(f'M24 line coverage below 25%: {line}')
@@ -108,7 +109,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   printf '%s\n' 'Provider-neutral query DSL + page budget: PASS'
 
   CREATED="$($LAUNCHER --data-dir "$DATA" --json views create --name 'M24 Gate View' --project "$PROJECT_ID" --entity change --filter 'title contains security' --fields 'id,title')"
-  VIEW_ID="$(python3 - "$CREATED" <<'PY'
+  VIEW_ID="$("$PYTHON" - "$CREATED" <<'PY'
 import re, sys
 m = re.search(r'[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}', sys.argv[1])
 if not m: raise SystemExit(f'UUIDv7 not found: {sys.argv[1]}')
@@ -135,7 +136,7 @@ PY
   [[ "$AFTER" == *'"revision":2'* ]] || { echo 'Export mutated saved-view revision' >&2; exit 1; }
   printf '%s\n' 'Canonical JSON + CSV + Markdown read-only exports: PASS'
 
-  PORT="$(python3 - <<'PY'
+  PORT="$("$PYTHON" - <<'PY'
 import socket
 with socket.socket() as sock:
     sock.bind(('127.0.0.1', 0)); print(sock.getsockname()[1])
@@ -148,7 +149,7 @@ PY
   API_OK=false
   for _ in $(seq 1 60); do
     if ! kill -0 "$API_PID" >/dev/null 2>&1; then cat "$OUTPUT/api.stderr.log" >&2 || true; exit 1; fi
-    if python3 - "$PORT" "$PROJECT_ID" "$VIEW_ID" 2>/dev/null <<'PY'
+    if "$PYTHON" - "$PORT" "$PROJECT_ID" "$VIEW_ID" 2>/dev/null <<'PY'
 import json, sys, urllib.request
 port, project, view = sys.argv[1:]
 body = json.dumps({

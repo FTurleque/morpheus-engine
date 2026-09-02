@@ -5,6 +5,7 @@ VERSION="${1:-1.2.1}"
 SKIP_PORTABLE="${MORPHEUS_M21_SKIP_PORTABLE:-false}"
 BASE_REF="${MORPHEUS_M21_BASE_REF:-origin/main}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m21"
@@ -32,7 +33,7 @@ ARCH_TESTS_MINIMUM="$(read_ratchet architectureTestsMinimum)"
 LINE_COVERAGE_MINIMUM="$(read_ratchet lineCoverageMinimum)"
 BRANCH_COVERAGE_MINIMUM="$(read_ratchet branchCoverageMinimum)"
 
-python3 - "$TESTS_MINIMUM" "$ARCH_TESTS_MINIMUM" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
+"$PYTHON" - "$TESTS_MINIMUM" "$ARCH_TESTS_MINIMUM" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
 import sys
 
 tests, architecture = map(int, sys.argv[1:3])
@@ -60,7 +61,7 @@ printf '%s\n' "M21 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <(python3 - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS ARCH_TESTS < <("$PYTHON" - "$REPO" <<'PY'
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -101,7 +102,7 @@ if [[ ! -f "$COVERAGE" ]]; then
 fi
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-python3 - "$LINE_RATIO" "$BRANCH_RATIO" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
+"$PYTHON" - "$LINE_RATIO" "$BRANCH_RATIO" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
 import sys
 line, branch, minimum_line, minimum_branch = map(float, sys.argv[1:])
 if line < minimum_line:
@@ -134,7 +135,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   fi
 
   PRODUCT_INFO="$($LAUNCHER --json product-info)"
-  python3 - "$PRODUCT_INFO" "$VERSION" <<'PY'
+  "$PYTHON" - "$PRODUCT_INFO" "$VERSION" <<'PY'
 import json
 import sys
 payload = json.loads(sys.argv[1])
@@ -150,7 +151,7 @@ artifactUri=https://example.invalid/morpheus.zip
 sha256=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 EOF
   UPDATE="$($LAUNCHER --json update-check --manifest "$MANIFEST")"
-  python3 - "$UPDATE" <<'PY'
+  "$PYTHON" - "$UPDATE" <<'PY'
 import json
 import sys
 payload = json.loads(sys.argv[1])
@@ -158,7 +159,7 @@ if payload.get('updateAvailable') is not False:
     raise SystemExit(f'same-version manifest must not report an update: {payload!r}')
 PY
 
-  PORT="$(python3 - <<'PY'
+  PORT="$("$PYTHON" - <<'PY'
 import socket
 with socket.socket() as sock:
     sock.bind(('127.0.0.1', 0))
@@ -178,7 +179,7 @@ PY
       echo 'Packaged API exited before version check' >&2
       exit 1
     fi
-    if python3 - "$PORT" "$VERSION" 2>/dev/null <<'PY'
+    if "$PYTHON" - "$PORT" "$VERSION" 2>/dev/null <<'PY'
 import json
 import sys
 import urllib.request

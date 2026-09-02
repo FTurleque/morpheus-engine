@@ -5,6 +5,7 @@ VERSION="${1:-1.2.0}"
 BASE_REF="${MORPHEUS_R3_BASE_REF:-origin/develop}"
 SKIP_PORTABLE="${MORPHEUS_R3_SKIP_PORTABLE:-false}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/r3"
@@ -30,7 +31,7 @@ if grep -Eq '^morpheus-store-sqlite/src/main/resources/db/migration/' <<<"$CHANG
 fi
 printf '%s\n' 'R3 scope policy: PASS (no CI workflow or SQLite migration delta)'
 
-python3 - "$REPO" "$VERSION" <<'PY'
+"$PYTHON" - "$REPO" "$VERSION" <<'PY'
 import pathlib
 import sys
 
@@ -56,7 +57,7 @@ bash -n "$REPO/distribution/build-portable.sh"
 bash -n "$REPO/distribution/build-release.sh"
 bash -n "$SCRIPT_DIR/validate-r3.sh"
 
-python3 - "$REPO" "$VERSION" <<'PY'
+"$PYTHON" - "$REPO" "$VERSION" <<'PY'
 import pathlib
 import sys
 

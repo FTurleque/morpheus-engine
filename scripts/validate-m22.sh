@@ -5,6 +5,7 @@ VERSION="${1:-1.0.0}"
 SKIP_PORTABLE="${MORPHEUS_M22_SKIP_PORTABLE:-false}"
 BASE_REF="${MORPHEUS_M22_BASE_REF:-origin/main}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m22"
@@ -28,7 +29,7 @@ printf '%s\n' "M22 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <(python3 - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS ARCH_TESTS < <("$PYTHON" - "$REPO" <<'PY'
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -69,7 +70,7 @@ if [[ ! -f "$COVERAGE" ]]; then
 fi
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+"$PYTHON" - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line = float(sys.argv[1])
 branch = float(sys.argv[2])
@@ -132,7 +133,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   printf '%s\n' reference > "$WORKSPACE/morpheus-reference.spec"
 
   DISCOVERY="$($LAUNCHER --json provider-plugins discover --directory "$PLUGIN_DIR")"
-  python3 - "$DISCOVERY" <<'PY'
+  "$PYTHON" - "$DISCOVERY" <<'PY'
 import json
 import sys
 payload = json.loads(sys.argv[1])
@@ -141,7 +142,7 @@ assert payload['candidates'][0]['status'] == 'COMPATIBLE', payload
 PY
 
   PROBE="$($LAUNCHER --json provider-plugins probe --directory "$PLUGIN_DIR" --plugin reference-provider-plugin --workspace "$WORKSPACE")"
-  python3 - "$PROBE" <<'PY'
+  "$PYTHON" - "$PROBE" <<'PY'
 import json
 import sys
 payload = json.loads(sys.argv[1])
@@ -150,7 +151,7 @@ assert payload['probe']['providerId']['value'] == 'reference-plugin', payload
 PY
   printf '%s\n' 'External reference provider discovery + isolated activation + probe: PASS'
 
-  PORT="$(python3 - <<'PY'
+  PORT="$("$PYTHON" - <<'PY'
 import socket
 with socket.socket() as sock:
     sock.bind(('127.0.0.1', 0))
@@ -170,7 +171,7 @@ PY
       echo 'Packaged API exited before M22 check' >&2
       exit 1
     fi
-    if python3 - "$PORT" "$VERSION" "$PLUGIN_DIR" 2>/dev/null <<'PY'
+    if "$PYTHON" - "$PORT" "$VERSION" "$PLUGIN_DIR" 2>/dev/null <<'PY'
 import json
 import sys
 import urllib.parse

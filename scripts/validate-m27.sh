@@ -5,6 +5,7 @@ VERSION="${1:-1.0.0}"
 SKIP_PORTABLE="${MORPHEUS_M27_SKIP_PORTABLE:-false}"
 BASE_REF="${MORPHEUS_M27_BASE_REF:-origin/develop}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m27"
@@ -35,7 +36,7 @@ printf '%s\n' "M27 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <(python3 - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS ARCH_TESTS < <("$PYTHON" - "$REPO" <<'PY'
 import pathlib, sys, xml.etree.ElementTree as ET
 root = pathlib.Path(sys.argv[1])
 def totals(base):
@@ -58,7 +59,7 @@ COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
 [[ -f "$COVERAGE" ]] || { echo "Missing production coverage summary: $COVERAGE" >&2; exit 1; }
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+"$PYTHON" - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line, branch = map(float, sys.argv[1:])
 if line < .42: raise SystemExit(f'M27 line coverage below 42%: {line}')
@@ -66,7 +67,7 @@ if branch < .35: raise SystemExit(f'M27 branch coverage below 35%: {branch}')
 PY
 printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO)"
 
-python3 - "$REPO/contracts/public-surfaces.tsv" "$REPO/docs/openapi/morpheus-v1-reasoning-m27.yaml" <<'PY'
+"$PYTHON" - "$REPO/contracts/public-surfaces.tsv" "$REPO/docs/openapi/morpheus-v1-reasoning-m27.yaml" <<'PY'
 import pathlib, sys
 manifest = pathlib.Path(sys.argv[1]).read_text()
 openapi = pathlib.Path(sys.argv[2]).read_text()
@@ -112,7 +113,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     --evidence 'fact-1|PUBLISHED_FACT|remote|TLS is required|source=gate' \
     --evidence 'fact-2|PUBLISHED_FACT|remote|Authentication is required|source=gate' \
     --adapter builtin-evidence-synthesis-v1 --max-claims 10)"
-  python3 - "$ADAPTERS" "$FACTS_ONLY" "$ASSISTED" <<'PY'
+  "$PYTHON" - "$ADAPTERS" "$FACTS_ONLY" "$ASSISTED" <<'PY'
 import json, sys
 adapters, facts, assisted = map(json.loads, sys.argv[1:])
 assert any(item['id']=='builtin-evidence-synthesis-v1' for item in adapters), adapters

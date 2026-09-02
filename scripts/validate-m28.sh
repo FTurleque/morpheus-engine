@@ -5,6 +5,7 @@ VERSION="${1:-1.1.0}"
 BASE_REF="${MORPHEUS_M28_BASE_REF:-origin/develop}"
 SKIP_PORTABLE="${MORPHEUS_M28_SKIP_PORTABLE:-false}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m28"
@@ -24,7 +25,7 @@ MORPHEUS_R2_BASE_REF="$BASE_REF" MORPHEUS_R2_SKIP_PORTABLE=true \
 bash -n "$REPO/distribution/build-portable.sh"
 bash -n "$SCRIPT_DIR/validate-m28.sh"
 
-python3 - "$REPO" <<'PY'
+"$PYTHON" - "$REPO" <<'PY'
 import pathlib
 import sys
 
