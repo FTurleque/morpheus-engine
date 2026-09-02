@@ -13,12 +13,15 @@ import com.morpheus.domain.source.SourceLocator;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -75,7 +78,12 @@ final class ProviderProbeResultCodec {
             }
         }
 
-        try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
+        // CREATE_NEW fails atomically if anything already occupies the pathname - a regular file, a directory or
+        // a symbolic link planted by another local process. It is what makes the result pathname unusable as a
+        // substitution target, so the write can never be redirected outside the private staging directory.
+        try (Writer writer = new OutputStreamWriter(
+                Files.newOutputStream(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE),
+                StandardCharsets.UTF_8)) {
             properties.store(writer, null);
         }
     }
@@ -135,7 +143,10 @@ final class ProviderProbeResultCodec {
     }
 
     private static byte[] readBounded(Path path) throws IOException {
-        try (InputStream input = Files.newInputStream(path)) {
+        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("isolated provider probe result is not a regular file");
+        }
+        try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
             byte[] payload = input.readNBytes(MAX_RESULT_BYTES + 1);
             if (payload.length > MAX_RESULT_BYTES) {
                 throw new IOException(

@@ -4,6 +4,7 @@ import com.morpheus.application.security.ExternalJarIntegrity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -117,6 +118,48 @@ class ProviderPluginProcessIsolationTest {
 
         assertEquals(List.of(), leaked,
                 "every probe descendant must be terminated by the worker before it exits");
+    }
+
+    @Test
+    void aSuccessfulProbeLeavesNoStagingDirectoryBehind() throws Exception {
+        Path jar = pluginJar(
+                "staging-success.jar",
+                "successful-descendant-plugin",
+                "successful-descendant-provider",
+                TestSuccessfulDescendantProviderPlugin.class);
+        List<Path> before = stagingDirectories();
+
+        ProviderPluginProbeOutcome outcome = service(Duration.ofSeconds(10))
+                .probe(directory, "successful-descendant-plugin", directory, ExternalJarIntegrity.sha256(jar));
+
+        assertTrue(outcome.success(), outcome.diagnostics().toString());
+        assertEquals(before, stagingDirectories(), "a successful probe must remove its staging directory");
+    }
+
+    @Test
+    void aFailedProbeAlsoLeavesNoStagingDirectoryBehind() throws Exception {
+        Path jar = pluginJar(
+                "staging-failure.jar",
+                "blocking-plugin",
+                "blocking-provider",
+                TestBlockingProviderPlugin.class);
+        List<Path> before = stagingDirectories();
+
+        ProviderPluginProbeOutcome outcome = service(Duration.ofSeconds(2))
+                .probe(directory, "blocking-plugin", directory, ExternalJarIntegrity.sha256(jar));
+
+        assertFalse(outcome.success(), "the blocking fixture must not report success");
+        assertEquals(before, stagingDirectories(), "a failed probe must remove its staging directory too");
+    }
+
+    private List<Path> stagingDirectories() throws IOException {
+        Path temp = Path.of(System.getProperty("java.io.tmpdir"));
+        try (var entries = Files.list(temp)) {
+            return entries
+                    .filter(path -> path.getFileName().toString().startsWith("morpheus-provider-probe-"))
+                    .sorted()
+                    .toList();
+        }
     }
 
     @Test

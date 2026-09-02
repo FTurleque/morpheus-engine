@@ -3,9 +3,20 @@ package com.morpheus.sdk.provider;
 import com.morpheus.domain.provider.ProviderProbeResult;
 
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryFlag;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.UserPrincipal;
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -23,6 +34,8 @@ import java.util.concurrent.TimeUnit;
  */
 final class ProviderPluginProbeProcess {
     static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(45);
+    static final String RESULT_FILE_NAME = "probe-result.properties";
+    private static final String STAGING_PREFIX = "morpheus-provider-probe-";
     private static final Duration GRACEFUL_TERMINATION = Duration.ofMillis(500);
     private static final long TERMINATION_POLL_MILLIS = 10L;
     private static final Set<String> SAFE_ENVIRONMENT_KEYS = Set.of(
@@ -59,12 +72,12 @@ final class ProviderPluginProbeProcess {
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         Objects.requireNonNull(trustedSha256, "trustedSha256");
 
-        Path resultFile = null;
+        Path stagingDirectory = null;
         Process process = null;
         Map<Long, ProcessHandle> observed = new LinkedHashMap<>();
         try {
-            resultFile = Files.createTempFile("morpheus-provider-probe-", ".properties");
-            Files.deleteIfExists(resultFile);
+            stagingDirectory = createPrivateStagingDirectory();
+            Path resultFile = stagingDirectory.resolve(RESULT_FILE_NAME);
             ProcessBuilder builder = new ProcessBuilder(command(candidate, workspaceRoot, trustedSha256, resultFile))
                     .redirectErrorStream(true)
                     .redirectOutput(ProcessBuilder.Redirect.DISCARD);
@@ -101,13 +114,91 @@ final class ProviderPluginProbeProcess {
                     failure);
         } finally {
             if (process != null) terminate(process, observed);
-            if (resultFile != null) {
-                try {
-                    Files.deleteIfExists(resultFile);
-                } catch (IOException ignored) {
-                    // The result file contains no secret material; preserve the primary outcome.
-                }
+            deleteStagingDirectory(stagingDirectory);
+        }
+    }
+
+    /**
+     * Creates the private directory that carries the probe result back from the worker.
+     *
+     * <p>The previous design created a temporary file in the shared temporary directory and deleted it again,
+     * which left a known, unoccupied pathname in a directory other local processes can write to. Owning a private
+     * directory instead means the result pathname never exists as a substitutable entry outside MORPHEUS control.
+     * The worker then creates the file itself with {@code CREATE_NEW}, so even inside this directory the pathname
+     * cannot be pre-empted.
+     */
+    private Path createPrivateStagingDirectory() throws IOException {
+        Path directory = switch (stagingAttributeView(FileSystems.getDefault().supportedFileAttributeViews())) {
+            case POSIX -> Files.createTempDirectory(STAGING_PREFIX, ownerOnlyPermissions());
+            case ACL -> Files.createTempDirectory(STAGING_PREFIX, ownerOnlyAcl());
+        };
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("provider probe staging directory was replaced before use");
+        }
+        return directory;
+    }
+
+    /**
+     * Chooses how the staging directory will be restricted, or refuses to probe at all.
+     *
+     * <p>Selection is separated from the running filesystem so both strategies stay verifiable on either platform.
+     * A filesystem exposing neither view cannot give MORPHEUS a directory that is private at creation time, and
+     * creating a world-reachable one instead would reintroduce exactly the exposure this staging design removes.
+     */
+    static StagingProtection stagingAttributeView(Set<String> views) throws IOException {
+        if (views.contains("posix")) {
+            return StagingProtection.POSIX;
+        }
+        if (views.contains("acl")) {
+            return StagingProtection.ACL;
+        }
+        throw new IOException(
+                "cannot create a private provider probe staging directory: this filesystem exposes neither POSIX "
+                        + "permissions nor ACLs");
+    }
+
+    /** How the staging directory is restricted to the MORPHEUS account at creation time. */
+    enum StagingProtection {
+        POSIX,
+        ACL
+    }
+
+    static FileAttribute<Set<PosixFilePermission>> ownerOnlyPermissions() {
+        return PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"));
+    }
+
+    static FileAttribute<List<AclEntry>> ownerOnlyAcl() throws IOException {
+        UserPrincipal owner = FileSystems.getDefault()
+                .getUserPrincipalLookupService()
+                .lookupPrincipalByName(System.getProperty("user.name"));
+        List<AclEntry> acl = List.of(AclEntry.newBuilder()
+                .setType(AclEntryType.ALLOW)
+                .setPrincipal(owner)
+                .setPermissions(EnumSet.allOf(AclEntryPermission.class))
+                .setFlags(AclEntryFlag.DIRECTORY_INHERIT, AclEntryFlag.FILE_INHERIT)
+                .build());
+        return new FileAttribute<>() {
+            @Override
+            public String name() {
+                return "acl:acl";
             }
+
+            @Override
+            public List<AclEntry> value() {
+                return acl;
+            }
+        };
+    }
+
+    private void deleteStagingDirectory(Path directory) {
+        if (directory == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(directory.resolve(RESULT_FILE_NAME));
+            Files.deleteIfExists(directory);
+        } catch (IOException ignored) {
+            // The staging directory holds no secret material; preserve the primary outcome.
         }
     }
 

@@ -101,10 +101,17 @@ public final class MorpheusRemoteIdentityFile {
             return Objects.hash(principal, role, Arrays.hashCode(tokenHash), expiresAt);
         }
 
+        /**
+         * Diagnostic rendering without the stored verifier.
+         *
+         * <p>The token hash is the material an offline attacker needs; it has no diagnostic value that principal,
+         * role and expiry do not already provide. Any log line, exception message or collection dump that
+         * interpolates an identity must stay safe by construction.
+         */
         @Override
         public String toString() {
             return "Identity[principal=" + principal + ", role=" + role
-                    + ", tokenHash=" + Arrays.toString(tokenHash) + ", expiresAt=" + expiresAt + "]";
+                    + ", tokenHash=<redacted>, expiresAt=" + expiresAt + "]";
         }
     }
 
@@ -124,6 +131,18 @@ public final class MorpheusRemoteIdentityFile {
 
         public GeneratedCredential(String principal, MorpheusRemoteRole role, String token) {
             this(principal, role, token, Optional.empty());
+        }
+
+        /**
+         * Diagnostic rendering without the bearer token.
+         *
+         * <p>The token is printed once, deliberately, by the credential commands through {@link #token()}. The
+         * automatic record rendering must never become a second, accidental disclosure path.
+         */
+        @Override
+        public String toString() {
+            return "GeneratedCredential[principal=" + principal + ", role=" + role
+                    + ", token=<redacted>, expiresAt=" + expiresAt + "]";
         }
     }
 

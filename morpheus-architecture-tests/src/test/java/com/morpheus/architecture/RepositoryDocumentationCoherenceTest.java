@@ -22,6 +22,10 @@ class RepositoryDocumentationCoherenceTest {
     private static final Pattern PROJECT_VERSION = Pattern.compile("<version>([^<]+)</version>");
     private static final Pattern MCP_VERSION = Pattern.compile("<mcp-sdk\\.version>([^<]+)</mcp-sdk\\.version>");
     private static final Pattern MODULE_BLOCK = Pattern.compile("<modules>(.*?)</modules>", Pattern.DOTALL);
+    private static final Pattern SCHEMA_VERSION_DECLARATION =
+            Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*(\\d+)");
+    private static final Pattern SCHEMA_VERSION_LITERAL =
+            Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*\\d+");
     private static final Pattern MODULE = Pattern.compile("<module>([^<]+)</module>");
     private static final Pattern DOCUMENTED_THRESHOLD = Pattern.compile(">=\\s*([0-9]+(?:[.,][0-9]+)?)");
 
@@ -164,6 +168,32 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     @Test
+    void activeGovernanceDocumentationNeverPinsTheSqliteSchemaVersion() throws Exception {
+        Path root = repositoryRoot();
+        String manager = Files.readString(root.resolve(
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java"));
+        Matcher declaration = SCHEMA_VERSION_DECLARATION.matcher(manager);
+        assertTrue(declaration.find(), "SqliteSchemaManager must declare SUPPORTED_SCHEMA_VERSION");
+
+        String maintenance = Files.readString(root.resolve(
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteServerMaintenance.java"));
+        assertTrue(maintenance.contains("SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION"),
+                "maintenance must consume the declared constant rather than restate the version");
+
+        // Active governance surfaces describe the *current* contract, so a literal here silently rots.
+        // Historical snapshots under docs/validation and docs/roadmap legitimately record past versions.
+        for (Path page : activeGovernanceSurfaces(root)) {
+            if (!Files.isRegularFile(page)) {
+                continue;
+            }
+            Matcher pinned = SCHEMA_VERSION_LITERAL.matcher(Files.readString(page));
+            assertFalse(pinned.find(),
+                    () -> root.relativize(page) + " pins SUPPORTED_SCHEMA_VERSION to a literal; derive it from "
+                            + "SqliteSchemaManager instead so the check cannot describe a stale contract");
+        }
+    }
+
+    @Test
     void rootBuildEnforcerPinsQualifiedJavaAndDependencyConvergence() throws Exception {
         String pom = Files.readString(repositoryRoot().resolve("pom.xml")).replace("\r\n", "\n");
         assertTrue(pom.contains("<requireJavaVersion>\n                                    <version>[21,22)</version>\n                                </requireJavaVersion>"),
@@ -277,6 +307,21 @@ class RepositoryDocumentationCoherenceTest {
 
     private static String french(String decimal) {
         return decimal.replace('.', ',');
+    }
+
+    private static List<Path> activeGovernanceSurfaces(Path root) throws IOException {
+        List<Path> surfaces = new ArrayList<>();
+        for (String directory : List.of(".claude/commands", ".claude/agents", ".claude/rules", ".github/prompts",
+                ".github/instructions")) {
+            Path base = root.resolve(directory);
+            if (!Files.isDirectory(base)) {
+                continue;
+            }
+            try (var entries = Files.list(base)) {
+                entries.filter(path -> path.toString().endsWith(".md")).sorted().forEach(surfaces::add);
+            }
+        }
+        return surfaces;
     }
 
     private static List<Path> activeStatusPages(Path root) {
