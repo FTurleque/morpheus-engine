@@ -4,20 +4,15 @@ import com.morpheus.domain.provider.ProviderProbeResult;
 
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * JVM entry point used only by {@link ProviderPluginProbeProcess}.
  *
- * <p>The worker reaps its own process subtree before it exits. This is the only place where that subtree is reliably
- * enumerable: once this JVM dies the operating system re-parents whatever the plugin spawned, and no portable API can
- * still attribute those processes to it. Leaving cleanup to the parent alone made termination depend on the parent
- * having sampled {@code descendants()} during the window between the spawn and this JVM exiting.
+ * <p>The worker reaps its own process subtree on shutdown. That is the only point at which the subtree is still
+ * reliably enumerable, so a plugin cannot leave a process behind by spawning one and returning immediately. The
+ * hook also runs when the parent terminates the worker gracefully. A worker killed outright falls back to the
+ * parent's observed-tree cleanup.
  */
 public final class ProviderPluginProbeWorker {
     // Bounded twice (graceful then forcible) and spent inside the parent's probe budget, so it stays small.
@@ -27,17 +22,10 @@ public final class ProviderPluginProbeWorker {
     }
 
     public static void main(String[] args) throws Exception {
-        // Covers the parent's graceful destroy() path, where the body below never reaches its finally block.
-        Runtime.getRuntime().addShutdownHook(
-                new Thread(ProviderPluginProbeWorker::reapDescendants, "morpheus-probe-descendant-reaper"));
-        try {
-            runProbe(args);
-        } finally {
-            reapDescendants();
-        }
-    }
-
-    private static void runProbe(String[] args) throws Exception {
+        Runtime.getRuntime().addShutdownHook(new Thread(
+                () -> ProviderPluginDescendantTermination.reapDescendantsOf(
+                        ProcessHandle.current(), DESCENDANT_TERMINATION_GRACE),
+                "morpheus-probe-descendant-reaper"));
         if (args.length != 4) {
             throw new IllegalArgumentException("expected: JAR WORKSPACE SHA256 RESULT_FILE");
         }
@@ -61,57 +49,6 @@ public final class ProviderPluginProbeWorker {
                     activation.provider().probe(workspace),
                     "provider probe result");
             ProviderProbeResultCodec.write(resultFile, result);
-        }
-    }
-
-    /**
-     * Terminates everything this JVM still has below it. Idempotent, bounded, and deliberately silent: the probe
-     * outcome is already durable by the time this runs, and the parent retains its own observed-tree cleanup.
-     */
-    private static void reapDescendants() {
-        List<ProcessHandle> descendants = ProcessHandle.current().descendants().toList();
-        if (descendants.isEmpty()) {
-            return;
-        }
-        signal(descendants, false);
-        if (awaitExit(descendants)) {
-            return;
-        }
-        // Re-snapshot: a descendant may have spawned another one while the graceful signal was in flight.
-        List<ProcessHandle> remaining = ProcessHandle.current().descendants().toList();
-        signal(remaining, true);
-        awaitExit(remaining);
-    }
-
-    private static void signal(List<ProcessHandle> handles, boolean forcibly) {
-        for (ProcessHandle handle : handles) {
-            if (!handle.isAlive()) {
-                continue;
-            }
-            try {
-                if (forcibly) {
-                    handle.destroyForcibly();
-                } else {
-                    handle.destroy();
-                }
-            } catch (RuntimeException vanished) {
-                // The descendant exited between the liveness check and the signal.
-            }
-        }
-    }
-
-    private static boolean awaitExit(List<ProcessHandle> handles) {
-        CompletableFuture<?>[] exits = handles.stream()
-                .map(ProcessHandle::onExit)
-                .toArray(CompletableFuture[]::new);
-        try {
-            CompletableFuture.allOf(exits).get(DESCENDANT_TERMINATION_GRACE.toMillis(), TimeUnit.MILLISECONDS);
-            return true;
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            return handles.stream().noneMatch(ProcessHandle::isAlive);
-        } catch (ExecutionException | TimeoutException notTerminated) {
-            return handles.stream().noneMatch(ProcessHandle::isAlive);
         }
     }
 }
