@@ -86,10 +86,35 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         if (!initialized.compareAndSet(false, true)) {
             throw new IllegalStateException("MCP STDIO transport supports exactly one session");
         }
+        // The transport allocates its two worker executors as soon as it is constructed, but only workerFinished()
+        // disposes them, and that cannot run until start() has launched both workers. A session factory that
+        // fails in between therefore used to leak both threads for the life of the process and leave
+        // awaitTermination() waiting on a latch nothing would ever count down.
         BoundedSessionTransport createdTransport = new BoundedSessionTransport();
         this.transport.set(createdTransport);
-        this.session.set(sessionFactory.create(createdTransport));
-        createdTransport.start();
+        try {
+            this.session.set(sessionFactory.create(createdTransport));
+            createdTransport.start();
+        } catch (RuntimeException | Error failure) {
+            abandonUnstartedTransport(createdTransport, failure);
+            throw failure;
+        }
+    }
+
+    /**
+     * Releases a transport that never reached a running session, and marks the provider terminated so a caller
+     * blocked in {@link #awaitTermination()} is released instead of waiting forever.
+     */
+    private void abandonUnstartedTransport(BoundedSessionTransport createdTransport, Throwable primary) {
+        closing.set(true);
+        try {
+            createdTransport.releaseWorkers();
+        } catch (RuntimeException | Error releaseFailure) {
+            primary.addSuppressed(releaseFailure);
+        }
+        transport.set(null);
+        session.set(null);
+        terminated.countDown();
     }
 
     @Override
@@ -291,6 +316,15 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
                 outboundScheduler.dispose();
                 terminated.countDown();
             }
+        }
+
+        /**
+         * Disposes the worker executors directly, for a transport whose workers never ran. Disposal is idempotent
+         * in Reactor, so this stays safe if a worker did start and later reaches {@link #workerFinished()}.
+         */
+        private void releaseWorkers() {
+            inboundScheduler.dispose();
+            outboundScheduler.dispose();
         }
     }
 
