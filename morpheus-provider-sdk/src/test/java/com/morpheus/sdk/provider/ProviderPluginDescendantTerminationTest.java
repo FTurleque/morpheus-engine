@@ -87,6 +87,59 @@ class ProviderPluginDescendantTerminationTest {
         }
     }
 
+    @Test
+    void aHandleSurvivingGracefulTerminationIsForciblyTerminated() {
+        FakeProcessHandle stubborn = new FakeProcessHandle(4242).survivingNormalTermination();
+
+        assertTrue(ProviderPluginDescendantTermination.terminate(List.of(stubborn), Duration.ofMillis(20)));
+        assertFalse(stubborn.isAlive(), "escalation must terminate a handle that ignores graceful termination");
+    }
+
+    @Test
+    void aHandleStillAliveAfterEscalationIsReportedAsNotTerminated() {
+        FakeProcessHandle unkillable = new FakeProcessHandle(4243)
+                .survivingNormalTermination()
+                .throwingOnSignal();
+
+        assertFalse(ProviderPluginDescendantTermination.terminate(List.of(unkillable), Duration.ofMillis(20)),
+                "termination must report failure rather than claim a still-live process was cleaned up");
+        assertTrue(unkillable.isAlive());
+    }
+
+    @Test
+    void aFailedExitNotificationFallsBackToALivenessCheck() {
+        FakeProcessHandle exited = new FakeProcessHandle(4244).withFailedExitSignal();
+
+        assertTrue(ProviderPluginDescendantTermination.terminate(List.of(exited), Duration.ofMillis(20)),
+                "a handle that is no longer alive counts as terminated even if its exit signal failed");
+    }
+
+    @Test
+    void anInterruptedWaitRestoresTheInterruptFlagAndRechecksLiveness() {
+        FakeProcessHandle stubborn = new FakeProcessHandle(4245).survivingNormalTermination();
+        Thread.currentThread().interrupt();
+        try {
+            ProviderPluginDescendantTermination.terminate(List.of(stubborn), Duration.ofSeconds(5));
+            assertTrue(Thread.currentThread().isInterrupted(), "the interrupt flag must be restored");
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aDescendantAppearingBetweenSnapshotsIsStillTerminated() {
+        FakeProcessHandle firstPass = new FakeProcessHandle(4246);
+        FakeProcessHandle appearsLater = new FakeProcessHandle(4247);
+        FakeProcessHandle root = new FakeProcessHandle(4248)
+                .withDescendantSnapshots(List.of(firstPass), List.of(appearsLater));
+
+        ProviderPluginDescendantTermination.reapDescendantsOf(root, Duration.ofMillis(20));
+
+        assertFalse(firstPass.isAlive());
+        assertFalse(appearsLater.isAlive(), "a descendant appearing between snapshots must still be terminated");
+    }
+
     private long awaitPublishedPid(Path path) throws Exception {
         long deadline = System.nanoTime() + GRACE.toNanos();
         while (System.nanoTime() < deadline) {
