@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.diagnostic.DiagnosticSeverity;
@@ -240,6 +241,76 @@ class ProviderPluginRemoteDisclosureTest {
         assertEquals("", remote.jarName());
         assertFalse(remote.toString().contains(root.toString()),
                 () -> "remote probe view leaked the filesystem root: " + remote);
+    }
+
+    /**
+     * The whole probe pipeline against a real JAR that fails to activate. This is the path that produced the
+     * disclosure: the service catches the failure, records its message, and the outcome is projected for remote.
+     */
+    @Test
+    void arealActivationFailureReachesTheRemoteViewWithATypeAndWithoutAPathname() throws Exception {
+        Path jar = pluginDirectory.resolve("metadata-only.jar");
+        writeMetadataOnlyJar(jar);
+
+        ProviderPluginProbeOutcome outcome = new ProviderPluginService()
+                .probe(pluginDirectory, "metadata-only", pluginDirectory, ExternalJarIntegrity.sha256(jar));
+
+        assertFalse(outcome.success());
+        ProviderPluginViews.RemoteProbeView remote = ProviderPluginViews.remoteProbe(outcome);
+        String rendered = remote.toString();
+
+        assertFalse(rendered.contains(pluginDirectory.toString()),
+                () -> "a real activation failure leaked the plugin directory: " + rendered);
+        assertFalse(rendered.contains(jar.toString()),
+                () -> "a real activation failure leaked the JAR pathname: " + rendered);
+        assertEquals("metadata-only.jar", remote.jarName());
+
+        ProviderPluginViews.RemoteProviderDiagnostic failure = remote.diagnostics().stream()
+                .filter(diagnostic -> diagnostic.code().equals("PLUGIN_ACTIVATION_OR_PROBE_FAILED"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("expected an activation failure diagnostic: " + remote));
+        assertFalse(failure.details().containsKey("reason"),
+                "the raw failure message stays local");
+        assertTrue(failure.details().containsKey("reasonType"),
+                () -> "a remote caller must still learn the failure type: " + failure);
+        assertEquals("metadata-only", failure.details().get("pluginId"));
+    }
+
+    /** The SHA-256 pin rejection is the other failure path that records an exception message. */
+    @Test
+    void anIntegrityRejectionReachesTheRemoteViewWithATypeAndWithoutAPathname() throws Exception {
+        Path jar = pluginDirectory.resolve("metadata-only.jar");
+        writeMetadataOnlyJar(jar);
+
+        ProviderPluginProbeOutcome outcome = new ProviderPluginService()
+                .probe(pluginDirectory, "metadata-only", pluginDirectory, "0".repeat(64));
+
+        assertFalse(outcome.success());
+        ProviderPluginViews.RemoteProbeView remote = ProviderPluginViews.remoteProbe(outcome);
+
+        ProviderPluginViews.RemoteProviderDiagnostic rejection = remote.diagnostics().stream()
+                .filter(diagnostic -> diagnostic.code().equals("PLUGIN_INTEGRITY_VERIFICATION_FAILED"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("expected an integrity rejection: " + remote));
+
+        assertFalse(remote.toString().contains(pluginDirectory.toString()),
+                () -> "an integrity rejection leaked the plugin directory: " + remote);
+        assertFalse(rejection.details().containsKey("reason"), "the raw rejection message stays local");
+        assertEquals("IllegalArgumentException", rejection.details().get("reasonType"));
+    }
+
+    private void writeMetadataOnlyJar(Path jar) throws Exception {
+        java.util.Properties metadata = new java.util.Properties();
+        metadata.setProperty("plugin.id", "metadata-only");
+        metadata.setProperty("provider.id", "metadata-only-provider");
+        metadata.setProperty("plugin.version", "1.0.0");
+        metadata.setProperty("sdk.apiVersion", Integer.toString(ProviderSdk.API_VERSION));
+        metadata.setProperty("morpheus.minVersion", "0.0.1");
+        try (var output = new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(jar))) {
+            output.putNextEntry(new java.util.zip.ZipEntry(ProviderSdk.METADATA_PATH));
+            metadata.store(output, null);
+            output.closeEntry();
+        }
     }
 
     @Test

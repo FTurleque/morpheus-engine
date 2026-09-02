@@ -60,6 +60,43 @@ class ServerLocationDisclosureTest {
         }
     }
 
+    /**
+     * A colon or a slash alone must not condemn a value: the projections rely on ordinary identifiers, ratios
+     * and relative resource names still reaching the caller, and a predicate that rejects those quietly empties
+     * the remote response instead of protecting it.
+     */
+    @Test
+    void tokensThatMerelyResembleAPathAreStillRelayed() {
+        List<String> safe = List.of(
+                "expected GET, got POST",
+                "3:1",
+                "sdkApiVersion:1",
+                "META-INF/services/com.morpheus.Provider",
+                "morpheus:provider:acme",
+                "note: see the CLI");
+
+        for (String value : safe) {
+            assertFalse(ServerLocationDisclosure.namesAServerLocation(value),
+                    () -> "must not treat as a server location: " + value);
+        }
+    }
+
+    /** A drive letter is only a drive root at a token boundary and when it is actually rooted. */
+    @Test
+    void aDriveLetterIsRecognizedOnlyWhenItActuallyRootsAPath() {
+        assertTrue(ServerLocationDisclosure.namesAServerLocation("d:/data/morpheus"));
+        assertTrue(ServerLocationDisclosure.namesAServerLocation("opened d:/data"));
+        assertFalse(ServerLocationDisclosure.namesAServerLocation("d:data"));
+        assertFalse(ServerLocationDisclosure.namesAServerLocation("ratio a:b"));
+    }
+
+    /** A scheme-like prefix followed by a rooted path is a location however the scheme is spelled. */
+    @Test
+    void aSchemeFollowedByARootedPathIsRecognized() {
+        assertTrue(ServerLocationDisclosure.namesAServerLocation("jar:/opt/morpheus/plugin.jar"));
+        assertTrue(ServerLocationDisclosure.namesAServerLocation("workspace=/srv/morpheus/data"));
+    }
+
     @Test
     void anOversizedValueIsRefusedRegardlessOfShape() {
         assertFalse(ServerLocationDisclosure.isSafeToRelay(
