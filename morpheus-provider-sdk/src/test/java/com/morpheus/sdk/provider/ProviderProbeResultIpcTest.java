@@ -113,24 +113,23 @@ class ProviderProbeResultIpcTest {
 
     @Test
     void aPosixFilesystemRestrictsTheStagingDirectoryWithOwnerOnlyPermissionBits() throws Exception {
-        java.nio.file.attribute.FileAttribute<?>[] attributes =
-                ProviderPluginProbeProcess.ownerOnlyAttributes(Set.of("basic", "posix", "owner"));
+        assertEquals(ProviderPluginProbeProcess.StagingProtection.POSIX,
+                ProviderPluginProbeProcess.stagingAttributeView(Set.of("basic", "posix", "owner")));
 
-        assertEquals(1, attributes.length);
-        assertEquals("posix:permissions", attributes[0].name());
-        assertEquals(PosixFilePermissions.fromString("rwx------"), attributes[0].value());
+        var permissions = ProviderPluginProbeProcess.ownerOnlyPermissions();
+        assertEquals("posix:permissions", permissions.name());
+        assertEquals(PosixFilePermissions.fromString("rwx------"), permissions.value());
     }
 
     @Test
     void anAclFilesystemRestrictsTheStagingDirectoryWithASingleOwnerEntry() throws Exception {
-        java.nio.file.attribute.FileAttribute<?>[] attributes =
-                ProviderPluginProbeProcess.ownerOnlyAttributes(Set.of("basic", "acl", "owner"));
+        assertEquals(ProviderPluginProbeProcess.StagingProtection.ACL,
+                ProviderPluginProbeProcess.stagingAttributeView(Set.of("basic", "acl", "owner")));
 
-        assertEquals(1, attributes.length);
-        assertEquals("acl:acl", attributes[0].name());
+        var attribute = ProviderPluginProbeProcess.ownerOnlyAcl();
+        assertEquals("acl:acl", attribute.name());
 
-        @SuppressWarnings("unchecked")
-        List<AclEntry> acl = (List<AclEntry>) attributes[0].value();
+        List<AclEntry> acl = attribute.value();
         assertEquals(1, acl.size(), "exactly one principal may be granted");
         AclEntry entry = acl.getFirst();
         assertEquals(AclEntryType.ALLOW, entry.type());
@@ -140,21 +139,22 @@ class ProviderProbeResultIpcTest {
     }
 
     @Test
-    void aFilesystemExposingNeitherViewYieldsNoStagingAttributes() throws Exception {
-        assertEquals(0, ProviderPluginProbeProcess.ownerOnlyAttributes(Set.of("basic")).length);
+    void aFilesystemExposingNeitherViewRefusesToStageRatherThanExposeTheResult() {
+        IOException refusal = assertThrows(IOException.class,
+                () -> ProviderPluginProbeProcess.stagingAttributeView(Set.of("basic")));
+
+        assertTrue(refusal.getMessage().contains("neither POSIX"), refusal.getMessage());
     }
 
     @Test
     void theStagingDirectoryIsRestrictedToItsOwnerAtCreationTime() throws Exception {
-        java.nio.file.attribute.FileAttribute<?>[] attributes = ProviderPluginProbeProcess.ownerOnlyAttributes();
+        var protection = ProviderPluginProbeProcess.stagingAttributeView(
+                FileSystems.getDefault().supportedFileAttributeViews());
+        var attribute = protection == ProviderPluginProbeProcess.StagingProtection.POSIX
+                ? ProviderPluginProbeProcess.ownerOnlyPermissions()
+                : ProviderPluginProbeProcess.ownerOnlyAcl();
 
-        assertEquals(1, attributes.length,
-                "this platform must support either POSIX permissions or ACLs for the staging directory");
-        String name = attributes[0].name();
-        assertTrue(name.equals("posix:permissions") || name.equals("acl:acl"),
-                () -> "unexpected staging attribute: " + name);
-
-        Path staged = Files.createTempDirectory("morpheus-staging-attribute-check-", attributes);
+        Path staged = Files.createTempDirectory("morpheus-staging-attribute-check-", attribute);
         try {
             assertTrue(Files.isDirectory(staged, LinkOption.NOFOLLOW_LINKS));
             List<String> unexpected = principalsBeyondTheOwningAccount(staged);

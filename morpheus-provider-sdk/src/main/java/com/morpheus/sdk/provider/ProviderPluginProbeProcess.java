@@ -12,6 +12,7 @@ import java.nio.file.attribute.AclEntryFlag;
 import java.nio.file.attribute.AclEntryPermission;
 import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
 import java.time.Duration;
@@ -127,7 +128,10 @@ final class ProviderPluginProbeProcess {
      * cannot be pre-empted.
      */
     private Path createPrivateStagingDirectory() throws IOException {
-        Path directory = Files.createTempDirectory(STAGING_PREFIX, ownerOnlyAttributes());
+        Path directory = switch (stagingAttributeView(FileSystems.getDefault().supportedFileAttributeViews())) {
+            case POSIX -> Files.createTempDirectory(STAGING_PREFIX, ownerOnlyPermissions());
+            case ACL -> Files.createTempDirectory(STAGING_PREFIX, ownerOnlyAcl());
+        };
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("provider probe staging directory was replaced before use");
         }
@@ -135,31 +139,35 @@ final class ProviderPluginProbeProcess {
     }
 
     /**
-     * Restricts the staging directory to its owner at creation time rather than afterwards, so it is never briefly
-     * readable or writable by other local accounts. POSIX filesystems take the permission bits directly; Windows
-     * takes an explicit owner-only ACL, which also replaces whatever the temporary directory would have inherited.
+     * Chooses how the staging directory will be restricted, or refuses to probe at all.
+     *
+     * <p>Selection is separated from the running filesystem so both strategies stay verifiable on either platform.
+     * A filesystem exposing neither view cannot give MORPHEUS a directory that is private at creation time, and
+     * creating a world-reachable one instead would reintroduce exactly the exposure this staging design removes.
      */
-    static FileAttribute<?>[] ownerOnlyAttributes() throws IOException {
-        return ownerOnlyAttributes(FileSystems.getDefault().supportedFileAttributeViews());
-    }
-
-    /**
-     * Selection is separated from the running filesystem so both strategies stay verifiable on either platform.
-     * Building the attributes is pure Java; only applying them needs the matching filesystem.
-     */
-    static FileAttribute<?>[] ownerOnlyAttributes(Set<String> views) throws IOException {
+    static StagingProtection stagingAttributeView(Set<String> views) throws IOException {
         if (views.contains("posix")) {
-            return new FileAttribute<?>[] {
-                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"))
-            };
+            return StagingProtection.POSIX;
         }
         if (views.contains("acl")) {
-            return new FileAttribute<?>[] {ownerOnlyAcl()};
+            return StagingProtection.ACL;
         }
-        return new FileAttribute<?>[0];
+        throw new IOException(
+                "cannot create a private provider probe staging directory: this filesystem exposes neither POSIX "
+                        + "permissions nor ACLs");
     }
 
-    private static FileAttribute<List<AclEntry>> ownerOnlyAcl() throws IOException {
+    /** How the staging directory is restricted to the MORPHEUS account at creation time. */
+    enum StagingProtection {
+        POSIX,
+        ACL
+    }
+
+    static FileAttribute<Set<PosixFilePermission>> ownerOnlyPermissions() {
+        return PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"));
+    }
+
+    static FileAttribute<List<AclEntry>> ownerOnlyAcl() throws IOException {
         UserPrincipal owner = FileSystems.getDefault()
                 .getUserPrincipalLookupService()
                 .lookupPrincipalByName(System.getProperty("user.name"));
