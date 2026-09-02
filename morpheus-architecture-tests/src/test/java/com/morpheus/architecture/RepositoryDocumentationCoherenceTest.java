@@ -89,10 +89,10 @@ class RepositoryDocumentationCoherenceTest {
         Path root = repositoryRoot();
         Path ratchetFile = root.resolve("config/m21-quality-ratchets.properties");
         Map<String, String> ratchets = properties(ratchetFile);
-        assertEquals("1000", ratchets.get("testsMinimum"));
-        assertEquals("300", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.520", ratchets.get("lineCoverageMinimum"));
-        assertEquals("0.450", ratchets.get("branchCoverageMinimum"));
+        assertEquals("1150", ratchets.get("testsMinimum"));
+        assertEquals("310", ratchets.get("architectureTestsMinimum"));
+        assertEquals("0.540", ratchets.get("lineCoverageMinimum"));
+        assertEquals("0.470", ratchets.get("branchCoverageMinimum"));
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));

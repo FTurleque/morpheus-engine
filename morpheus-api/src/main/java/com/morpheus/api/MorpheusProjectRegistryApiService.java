@@ -100,7 +100,10 @@ final class MorpheusProjectRegistryApiService {
             throw ApiFailure.badRequest("workspace is not a valid path: " + workspace);
         }
         if (!Files.isDirectory(path)) {
-            throw ApiFailure.badRequest("workspace is not a directory: " + path);
+            // Echo what the caller sent, not what the server resolved it to: a relative request would otherwise
+            // report the server's working directory back. This branch runs only when no allowed-roots policy is
+            // configured, so it is not reachable from a remote caller today -- and stays safe if that changes.
+            throw ApiFailure.badRequest("workspace is not a directory: " + workspace);
         }
         return path;
     }

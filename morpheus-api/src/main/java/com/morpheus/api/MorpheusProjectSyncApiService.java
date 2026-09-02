@@ -124,7 +124,10 @@ final class MorpheusProjectSyncApiService {
                 .map(policy -> policy.requireAllowedDirectory(workspace))
                 .orElse(workspace);
         if (!Files.isDirectory(authorizedWorkspace)) {
-            throw ApiFailure.conflict("workspace is not a directory: " + authorizedWorkspace);
+            // The workspace comes from the stored project, not from this request, so naming it would hand a remote
+            // caller a pathname it never supplied -- including for a project the operator registered locally. The
+            // route already identifies the project, which is what the caller can act on.
+            throw ApiFailure.conflict("project workspace is no longer a directory: " + projectId);
         }
         return authorizedWorkspace;
     }

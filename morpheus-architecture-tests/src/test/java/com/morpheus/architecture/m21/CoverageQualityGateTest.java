@@ -20,10 +20,15 @@ class CoverageQualityGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline after #230 on Linux: 52.6971% lines / 45.7250% branches.
-    // Durable ratchets are loaded from config/m21-quality-ratchets.properties and must remain below this evidence.
-    private static final double QUALIFIED_LINE_RATIO = 0.526971d;
-    private static final double QUALIFIED_BRANCH_RATIO = 0.457250d;
+    // Qualified exact-head baseline after #253: 54.5801% lines / 47.7791% branches.
+    // Deliberately at or below the LOWEST reproducible exact-head measurement across both platforms, never the
+    // best one. The two platforms run the same number of tests, but some of them no-op off their own OS -- the
+    // Windows junction check is one -- so Linux covers slightly fewer lines for an identical test count
+    // (#254 measured 54.6286% on Linux against 54.6678% on Windows). Qualifying on the higher figure would pin a
+    // baseline the other platform cannot reach. Durable ratchets are loaded from
+    // config/m21-quality-ratchets.properties and must remain below this evidence.
+    private static final double QUALIFIED_LINE_RATIO = 0.545801d;
+    private static final double QUALIFIED_BRANCH_RATIO = 0.477791d;
 
     @Test
     void reactorCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {
