@@ -97,7 +97,8 @@ Les tests adversariaux du codec couvrent notamment une représentation >16 KiB, 
 | Constat | Traitement dans la baseline corrective |
 |---|---|
 | Environnement MORPHEUS intégralement hérité par MINOS/NEXUS | `BoundedStdioClientTransport` conserve uniquement une allowlist de lancement puis applique les variables explicitement configurées pour le peer |
-| Descendant MCP pouvant survivre après sortie du parent | observation périodique des `ProcessHandle`, rétention des descendants vus puis cleanup forcé même si le parent a déjà disparu |
+| Descendant MCP pouvant survivre après sortie du parent | observation périodique des `ProcessHandle`, rétention des descendants vus puis cleanup forcé même si le parent a déjà disparu ; **résiduel assumé** : un descendant créé et orphelin dans un même intervalle d'observation n'est plus attribuable au pair et n'est pas terminé (cf. `SECURITY.md`, section Process-tree termination) |
+| Descendant de plugin provider survivant au worker | **fermé** : `ProviderPluginProbeWorker` termine son propre sous-arbre avant de sortir, tant qu'il est encore énumérable ; le cleanup côté parent reste une seconde ligne de défense |
 | Secret NVD disponible sur le chemin PR | `security.yml` sépare les événements de confiance du chemin `pull_request`; l'update PR n'injecte aucun repository secret |
 | Absence de SAST versionné | `.github/workflows/codeql.yml` ajouté, actions CodeQL pinnées par SHA, Java `security-extended` |
 | Ratchets devenus trop permissifs | M21 relevé progressivement ; baseline active au 30/08/2026 `1000 / 300 / 52,0% / 45,0%` |

@@ -28,6 +28,16 @@ Provider plugins and configured MCP peers execute in child processes/classloader
 
 For deployments that require execution of untrusted third-party code, isolate MORPHEUS or the external process with operating-system/container controls and a dedicated least-privilege account.
 
+### Process-tree termination
+
+The two external-code boundaries give different guarantees, because only one of them has a MORPHEUS-controlled root process.
+
+**Provider plugin probes are guaranteed.** The probe runs under `ProviderPluginProbeWorker`, which is MORPHEUS code. It terminates its own process subtree before it exits, and it does so while that subtree is still enumerable. A plugin therefore cannot leave a process behind by spawning one and returning immediately. The parent additionally terminates every descendant it observed, which covers the worker being killed on timeout. The residual gap is a worker killed by `SIGKILL`/`TerminateProcess` or lost to a JVM crash in the same instant it spawned a process; that path falls back to parent-side observation and is best-effort.
+
+**MCP peer descendants are best-effort.** A configured MCP peer is not MORPHEUS code, so nothing inside it can be required to clean up. MORPHEUS observes the peer's process tree continuously, retains every `ProcessHandle` it sees, and force-terminates all of them on shutdown — including descendants that outlived the peer. The peer process itself is always terminated. What is **not** guaranteed is a descendant that is spawned and orphaned inside a single observation interval: once the peer exits the operating system re-parents that process, and no portable Java API can still attribute it to the peer. Closing this window requires an OS containment object created at spawn time (a Windows Job Object, a POSIX process group, or a cgroup); Java 21 exposes none of these, and MORPHEUS does not currently take a native dependency to obtain them.
+
+Neither guarantee is a sandbox. Operators who need a hard bound on what an external process can leave running must run MORPHEUS under an OS-level container or job/cgroup that owns the whole tree.
+
 ## Supply chain
 
 Repository CI includes dependency convergence checks, OWASP Dependency-Check, CodeQL, CycloneDX SBOM generation, exact-head qualification, and Linux/Windows release provenance. GitHub Actions used by release workflows are pinned to immutable commit SHAs.
