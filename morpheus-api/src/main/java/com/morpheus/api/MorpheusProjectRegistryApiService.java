@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.source.SourceLocator;
@@ -55,14 +56,37 @@ final class MorpheusProjectRegistryApiService {
         }
     }
 
+    /**
+     * The HTTP surface names a project's workspace; it does not locate it.
+     *
+     * <p>{@code GET /projects} lists every registered project, including ones registered locally by the operator,
+     * so a remote READ caller would otherwise learn absolute pathnames it never supplied and cannot reach. The
+     * workspace name is what distinguishes projects to a human, and {@code projectId} remains the identity every
+     * other route is addressed by. The CLI renders its own view and keeps the full pathname, which is what an
+     * operator passes back to {@code --workspace}.</p>
+     */
     private Object project(ApiRuntime runtime, ProjectStoreEntry entry) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("projectId", entry.id().toString());
-        result.put("workspace", entry.rootLocator().value());
+        result.put("workspaceName", workspaceName(entry.rootLocator()));
         result.put(
                 "activeSnapshotId",
                 runtime.snapshots.activeSnapshot(entry.id()).map(snapshot -> snapshot.id().toString()).orElse("none"));
         return Collections.unmodifiableMap(result);
+    }
+
+    /** The last segment of a file locator. Another scheme is relayed only when it locates nothing. */
+    private String workspaceName(SourceLocator locator) {
+        if (!"file".equals(locator.scheme())) {
+            return ServerLocationDisclosure.isSafeToRelay(locator.value()) ? locator.value() : locator.scheme();
+        }
+        String normalized = locator.value().replace('\\', '/');
+        while (normalized.endsWith("/") && normalized.length() > 1) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        int lastSeparator = normalized.lastIndexOf('/');
+        String name = lastSeparator < 0 ? normalized : normalized.substring(lastSeparator + 1);
+        return name.isBlank() ? locator.value() : name;
     }
 
     private Path existingDirectory(String workspace) {

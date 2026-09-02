@@ -63,6 +63,11 @@ paths:
   /projects:
     get:
       operationId: listProjects
+      description: >-
+        Lists every registered project. A project is reported by projectId and by its workspace name; the absolute
+        workspace pathname is deliberately not exposed, because the list includes projects registered locally by the
+        operator and a caller would otherwise learn locations it never supplied. The local CLI reports the full
+        pathname, which is what an operator passes back to --workspace.
       responses: {'200': {$ref: '#/components/responses/Success'}}
     post:
       operationId: registerProject

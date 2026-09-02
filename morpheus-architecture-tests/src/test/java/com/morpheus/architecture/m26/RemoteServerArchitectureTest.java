@@ -51,6 +51,40 @@ class RemoteServerArchitectureTest {
     }
 
     /**
+     * Every HTTP surface that reports a server-side location must name it rather than locate it.
+     *
+     * <p>These three were found one after another and share a cause: an internal model carrying an absolute
+     * pathname was rendered straight onto a response that a remote role can read. The CLI keeps the pathname in
+     * each case, which is where an operator acts on it.</p>
+     */
+    @Test
+    void httpSurfacesNameServerSideLocationsWhileTheCliKeepsThem() throws IOException {
+        Path root = repositoryRoot();
+        String projects = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectRegistryApiService.java"));
+        String integrations = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/IntegrationStatusViews.java"));
+        String cli = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusCli.java"));
+
+        assertTrue(projects.contains("result.put(\"workspaceName\", workspaceName(entry.rootLocator()))"),
+                "the HTTP project view must name the workspace");
+        assertFalse(projects.contains("result.put(\"workspace\", entry.rootLocator().value())"),
+                "the HTTP project view must not expose the absolute workspace pathname");
+        assertTrue(cli.contains("new ProjectView(item.id().toString(), item.rootLocator().value())"),
+                "the local CLI must keep the workspace pathname an operator passes back to --workspace");
+
+        assertTrue(integrations.contains("LOCATION_DETAIL_KEYS"),
+                "integration launch locations must be reported as configured rather than named");
+        assertTrue(integrations.contains("ServerLocationDisclosure.namesAServerLocation"),
+                "the integration projection must consult the shared boundary predicate");
+
+        String policy = Files.readString(root.resolve(
+                "morpheus-application/src/main/java/com/morpheus/application/security/ServerLocationDisclosure.java"));
+        assertTrue(policy.contains("public static boolean isSafeToRelay("),
+                "the boundary predicate must stay shared rather than duplicated per adapter");
+    }
+
+    /**
      * A response bound equal to the current schema version silently rots into rejecting valid responses at the
      * next migration, so the published ceiling must stay strictly above the normative constant.
      */
