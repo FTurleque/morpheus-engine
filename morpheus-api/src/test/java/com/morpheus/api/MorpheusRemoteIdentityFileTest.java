@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -10,6 +11,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -18,6 +20,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MorpheusRemoteIdentityFileTest {
     @TempDir
     Path temp;
+
+    @Test
+    void identityDiagnosticsNeverRenderTheStoredTokenVerifier() {
+        byte[] tokenHash = new byte[32];
+        for (int index = 0; index < tokenHash.length; index++) {
+            tokenHash[index] = (byte) (index + 1);
+        }
+        MorpheusRemoteIdentityFile.Identity identity = new MorpheusRemoteIdentityFile.Identity(
+                "ci-runner", MorpheusRemoteRole.READ, tokenHash);
+
+        String rendered = identity.toString();
+
+        assertFalse(rendered.contains(Arrays.toString(tokenHash)),
+                () -> "identity diagnostics leaked the token hash: " + rendered);
+        assertFalse(rendered.contains("1, 2, 3"),
+                () -> "identity diagnostics leaked token hash bytes: " + rendered);
+        assertFalse(rendered.contains("[B@"),
+                () -> "identity diagnostics must not fall back to a raw array reference: " + rendered);
+        assertTrue(rendered.contains("ci-runner"), "principal must remain available for diagnostics");
+        assertTrue(rendered.contains("READ"), "role must remain available for diagnostics");
+        assertArrayEquals(tokenHash, identity.tokenHash(), "the stored verifier itself must be unchanged");
+    }
+
+    @Test
+    void generatedCredentialDiagnosticsNeverRenderTheBearerToken() {
+        String rawToken = "sekret-bearer-token-value";
+        MorpheusRemoteIdentityFile.GeneratedCredential credential =
+                new MorpheusRemoteIdentityFile.GeneratedCredential("ci-runner", MorpheusRemoteRole.ADMIN, rawToken);
+
+        String rendered = credential.toString();
+
+        assertFalse(rendered.contains(rawToken),
+                () -> "credential diagnostics leaked the bearer token: " + rendered);
+        assertTrue(rendered.contains("ci-runner"), "principal must remain available for diagnostics");
+        assertEquals(rawToken, credential.token(), "the token must still be retrievable for its one-time print");
+    }
 
     @Test
     void generatedTokenIsReturnedOnceButOnlyItsHashIsPersisted() throws Exception {
@@ -210,20 +248,4 @@ class MorpheusRemoteIdentityFileTest {
         assertTrue(base.equals(sameValues));
     }
 
-    @Test
-    void identityToStringContainsDecodedTokenHashBytesNotArrayReference() {
-        byte[] hash = new byte[32];
-        hash[0] = 1;
-        hash[1] = 2;
-        hash[2] = 3;
-
-        MorpheusRemoteIdentityFile.Identity identity =
-                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hash);
-
-        String text = identity.toString();
-        assertTrue(text.contains("principal=alice"));
-        assertTrue(text.contains("role=ADMIN"));
-        assertTrue(text.contains("tokenHash=[1, 2, 3"));
-        assertFalse(text.contains("[B@"));
-    }
 }
