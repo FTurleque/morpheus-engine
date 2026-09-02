@@ -174,7 +174,7 @@ final class MorpheusQueryHttpRoutes {
             throw new HttpFailure(400, "BAD_REQUEST", "JSON request body is required");
         }
         String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("application/json")) {
+        if (!JsonMediaType.isJson(contentType)) {
             throw new HttpFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Content-Type application/json is required");
         }
         try {

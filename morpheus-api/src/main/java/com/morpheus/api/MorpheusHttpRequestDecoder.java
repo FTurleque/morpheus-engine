@@ -7,7 +7,6 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 
@@ -73,7 +72,7 @@ final class MorpheusHttpRequestDecoder {
 
     private static void requireJsonContentType(Headers headers) {
         String value = headers.getFirst("Content-Type");
-        if (value == null || !value.toLowerCase(Locale.ROOT).startsWith("application/json")) {
+        if (!JsonMediaType.isJson(value)) {
             throw ApiFailure.unsupportedMediaType("Content-Type application/json is required");
         }
     }

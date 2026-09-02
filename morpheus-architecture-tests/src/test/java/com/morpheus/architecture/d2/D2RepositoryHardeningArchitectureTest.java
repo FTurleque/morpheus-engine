@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Properties;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -222,6 +223,37 @@ class D2RepositoryHardeningArchitectureTest {
                 String text = Files.readString(source);
                 assertFalse(text.contains("activateDefaultTyping("), "default typing activation forbidden: " + source);
                 assertFalse(text.contains("enableDefaultTyping("), "default typing activation forbidden: " + source);
+            }
+        }
+    }
+
+    /**
+     * A prefix test on Content-Type admits {@code application/jsonp} and {@code application/json-patch+json} as
+     * JSON. Every request-body boundary must decide admission through the shared exact parser instead.
+     */
+    @Test
+    void requestBodyBoundariesAdmitJsonByExactMediaTypeNotByPrefix() throws IOException {
+        Path api = repoRoot().resolve("morpheus-api/src/main/java/com/morpheus/api");
+        assertTrue(Files.isRegularFile(api.resolve("JsonMediaType.java")),
+                "the shared exact JSON media-type parser must exist");
+
+        List<String> boundaries = List.of(
+                "MorpheusHttpRequestDecoder.java",
+                "MorpheusQueryHttpRoutes.java",
+                "MorpheusPolicyHttpRoutes.java",
+                "MorpheusPolicyManagementHttpRoutes.java",
+                "MorpheusReasoningHttpRoutes.java");
+        for (String boundary : boundaries) {
+            String content = Files.readString(api.resolve(boundary));
+            assertTrue(content.contains("JsonMediaType.isJson("),
+                    () -> boundary + " must admit JSON through the shared exact media-type parser");
+        }
+
+        try (var files = Files.walk(api, 4)) {
+            for (Path source : files.filter(path -> path.toString().endsWith(".java")).toList()) {
+                String text = Files.readString(source);
+                assertFalse(text.contains("startsWith(\"application/json\")"),
+                        () -> "Content-Type must not be admitted by prefix: " + source.getFileName());
             }
         }
     }
