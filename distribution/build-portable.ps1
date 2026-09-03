@@ -197,11 +197,24 @@ Write-Host "Creating self-contained Windows app-image with embedded runtime + jd
 & $jpackage --type app-image --name morpheus --app-version $Version `
     --description "MORPHEUS Specification & Intent Intelligence Engine" `
     --input $input --main-jar "morpheus.jar" --main-class "com.morpheus.cli.MorpheusMain" `
-    --add-modules jdk.httpserver,java.sql,java.net.http --java-options "--enable-native-access=ALL-UNNAMED -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8" --win-console --dest $appImageRoot
+    --add-modules jdk.httpserver,java.sql,java.net.http --java-options "--enable-native-access=ALL-UNNAMED -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8" `
+    --jlink-options "--strip-debug --no-man-pages --no-header-files" --win-console --dest $appImageRoot
 if ($LASTEXITCODE -ne 0) { throw "jpackage app-image failed with exit code $LASTEXITCODE" }
 
 $launcher = Join-Path $appImageRoot "morpheus\morpheus.exe"
 if (-not (Test-Path $launcher)) { throw "Packaged launcher not found: $launcher" }
+
+# The isolated provider probe starts its child from the MORPHEUS runtime alone -- java.home/bin/java -- and never
+# from PATH, so the distribution has to carry that launcher. jpackage's default jlink options include
+# --strip-native-commands, which removed it: discovery worked in the packaged build and the probe could not run at
+# all. The options above are those defaults minus that one, so nothing else about the runtime changes.
+# The launcher is located rather than assumed: the runtime directory sits at a different depth per platform.
+$runtimeJava = Get-ChildItem -LiteralPath (Join-Path $appImageRoot 'morpheus') -Recurse -File -Filter 'java.exe' |
+    Select-Object -First 1
+if ($null -eq $runtimeJava) {
+    throw 'Embedded runtime is missing the Java launcher the isolated provider probe starts'
+}
+Write-Host "Embedded runtime child Java launcher: PASS ($($runtimeJava.FullName))"
 
 $integrationSource = Join-Path $repo 'integration'
 $integrationTarget = Join-Path $appImageRoot 'morpheus\integration'

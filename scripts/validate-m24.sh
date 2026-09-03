@@ -97,8 +97,13 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   [[ "$HELP" == *'Query DSL / saved views / reporting (M24)'* ]] || { echo 'Packaged M24 CLI help smoke failed' >&2; exit 1; }
   printf '%s\n' 'M24 classes + V014 + CLI help packaging proof: PASS'
 
-  DATA="$OUTPUT/query-data"
-  rm -rf "$DATA" && mkdir -p "$DATA"
+  # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+  # here inherits the permissions of whatever it sits under, and the real owner-controlled storage path is
+  # never exercised. Under the repository that inheritance is what the hardener refuses, which made a packaged
+  # product gate depend on the permissions of a development checkout. mktemp gives an owner-only parent; the
+  # data directory itself is only named here and is created by the launcher.
+  DATA_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-m24-query-XXXXXXXXXX")"
+  DATA="$DATA_ROOT/data"
   PROJECT_ID='01890f7a-36d4-7c1e-8000-000000000071'
   QUERY="$($LAUNCHER --data-dir "$DATA" --json query execute --project "$PROJECT_ID" --entity change --filter 'title contains security' --sort 'title:asc' --fields 'id,title' --limit 25)"
   [[ "$QUERY" == *'"entityType":"CHANGE"'* && "$QUERY" == *'"totalMatches":0'* ]] || { echo "Packaged query mismatch: $QUERY" >&2; exit 1; }
@@ -144,7 +149,9 @@ PY
 )"
   "$LAUNCHER" --data-dir "$DATA" api --host 127.0.0.1 --port "$PORT" >"$OUTPUT/api.stdout.log" 2>"$OUTPUT/api.stderr.log" &
   API_PID=$!
-  cleanup_api() { kill "$API_PID" >/dev/null 2>&1 || true; wait "$API_PID" >/dev/null 2>&1 || true; }
+  # Removing the temp root here rather than from a trap of its own: the trap below replaces any
+  # earlier EXIT handler, so a separate one would simply never run.
+  cleanup_api() { kill "$API_PID" >/dev/null 2>&1 || true; wait "$API_PID" >/dev/null 2>&1 || true; rm -rf "$DATA_ROOT"; }
   trap cleanup_api EXIT
   API_OK=false
   for _ in $(seq 1 60); do

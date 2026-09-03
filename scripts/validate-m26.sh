@@ -96,8 +96,15 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   [[ "$HELP" == *'Team / remote server (M26, opt-in)'* ]] || { echo 'Packaged M26 CLI help smoke failed' >&2; exit 1; }
   printf '%s\n' 'M26 TLS/auth/server/maintenance classes + CLI help packaging proof: PASS'
 
-  DATA="$OUTPUT/server-data"
-  rm -rf "$DATA" && mkdir -p "$DATA"
+  # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+  # here inherits the permissions of whatever it sits under, and the real owner-controlled storage path is never
+  # exercised. Under the repository that inheritance is precisely what the hardener refuses, which made a
+  # packaged product gate depend on the permissions of a development checkout. mktemp gives an owner-only parent;
+  # the data directory itself is only named here and is created by the launcher below.
+  DATA_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-m26-XXXXXXXXXX")"
+  # Best effort, and deliberately not allowed to replace whatever failure is already unwinding.
+  trap 'rm -rf "$DATA_ROOT"' EXIT
+  DATA="$DATA_ROOT/server-data"
   IDENTITY="$($LAUNCHER --data-dir "$DATA" --json server identity create --principal gate-admin --role ADMIN)"
   read -r TOKEN TOKEN_PERSISTENCE < <(morpheus_python - "$IDENTITY" <<'PY'
 import json,sys

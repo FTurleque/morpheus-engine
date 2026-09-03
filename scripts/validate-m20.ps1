@@ -217,10 +217,13 @@ function Get-FreeLoopbackPort {
 
 function Test-InstalledApi([string]$Launcher) {
     $port = Get-FreeLoopbackPort
-    $apiData = Join-Path $outputRoot 'api-data'
+    # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+    # here inherits the ACLs of whatever it sits under, and the real owner-controlled storage path is never
+    # exercised. Under the repository that inheritance is what the hardener refuses, which made a packaged
+    # product gate depend on the permissions of a development checkout.
+    $apiData = Join-Path ([IO.Path]::GetTempPath()) ('morpheus-m20-api-' + [Guid]::NewGuid().ToString('N'))
     $stdout = Join-Path $logRoot 'installed-api.stdout.log'
     $stderr = Join-Path $logRoot 'installed-api.stderr.log'
-    New-Item -ItemType Directory -Force -Path $apiData | Out-Null
     $process = Start-Process -FilePath $Launcher `
         -ArgumentList @('--data-dir', $apiData, 'api', '--host', '127.0.0.1', '--port', "$port") `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
@@ -239,6 +242,8 @@ function Test-InstalledApi([string]$Launcher) {
         }
         throw 'Installed API health/readiness/metrics timed out'
     } finally {
+        # Best effort, and deliberately not allowed to replace whatever failure is already unwinding.
+        Remove-Item -LiteralPath $apiData -Recurse -Force -ErrorAction SilentlyContinue
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
         try { $process.WaitForExit(5000) | Out-Null } catch { }
     }
