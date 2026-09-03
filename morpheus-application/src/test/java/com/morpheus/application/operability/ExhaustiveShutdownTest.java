@@ -82,6 +82,31 @@ class ExhaustiveShutdownTest {
         assertSame(cause, thrown.getCause());
     }
 
+    /**
+     * Two releases can rethrow the same instance -- a shared sentinel, or one resource delegating to another.
+     * Java refuses to suppress a throwable into itself, and that IllegalArgumentException used to escape the
+     * loop, so the resources after the collision were never released: precisely the leak this class prevents.
+     */
+    @Test
+    void twoReleasesFailingWithTheSameInstanceDoNotStopTheRemainingOnes() {
+        List<String> released = new ArrayList<>();
+        RuntimeException shared = new IllegalStateException("the same failure twice");
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> ExhaustiveShutdown.releaseAll(
+                "cannot shut down",
+                () -> {
+                    throw shared;
+                },
+                () -> {
+                    throw shared;
+                },
+                () -> released.add("lease")));
+
+        assertSame(shared, thrown, "the first failure is still what propagates");
+        assertEquals(List.of("lease"), released, "the release after the collision must still have run");
+        assertEquals(0, thrown.getSuppressed().length, "a throwable cannot be suppressed into itself");
+    }
+
     @Test
     void aResourceThatWasNeverAcquiredIsSkippedRatherThanFailingTheRollback() {
         List<String> released = new ArrayList<>();
