@@ -19,13 +19,7 @@ import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqliteExternalReferenceStore;
-import com.morpheus.store.sqlite.SqlitePolicyPackStore;
-import com.morpheus.store.sqlite.SqlitePortfolioStore;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.SqlitePolicyStores;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -352,42 +346,16 @@ final class MorpheusPolicyMcpTools {
     }
 
     private static final class Runtime implements AutoCloseable {
-        private final SqliteSpecificationKnowledgeStore snapshots;
-        private final SqliteVersionedRequirementStore requirements;
-        private final SqliteSnapshotBusinessContentStore content;
-        private final SqliteTraceabilityStore traceability;
-        private final SqliteExternalReferenceStore externalReferences;
-        private final SqlitePortfolioStore portfolios;
-        private final SqlitePolicyPackStore policies;
+        private final SqlitePolicyStores stores;
         private final PolicyPackService registry;
         private final PolicyEvaluationService evaluation;
 
         Runtime(Path databasePath) {
             try (StartupOwnership owned = new StartupOwnership()) {
-                SqliteSpecificationKnowledgeStore openedSnapshots = owned.keep(
-                        new SqliteSpecificationKnowledgeStore(databasePath), SqliteSpecificationKnowledgeStore::close);
-                SqliteVersionedRequirementStore openedRequirements = owned.keep(
-                        new SqliteVersionedRequirementStore(databasePath), SqliteVersionedRequirementStore::close);
-                SqliteSnapshotBusinessContentStore openedContent = owned.keep(
-                        new SqliteSnapshotBusinessContentStore(databasePath), SqliteSnapshotBusinessContentStore::close);
-                SqliteTraceabilityStore openedTraceability = owned.keep(
-                        new SqliteTraceabilityStore(databasePath), SqliteTraceabilityStore::close);
-                SqliteExternalReferenceStore openedExternalReferences = owned.keep(
-                        new SqliteExternalReferenceStore(databasePath), SqliteExternalReferenceStore::close);
-                SqlitePortfolioStore openedPortfolios = owned.keep(
-                        new SqlitePortfolioStore(databasePath), SqlitePortfolioStore::close);
-                SqlitePolicyPackStore openedPolicies = owned.keep(
-                        new SqlitePolicyPackStore(databasePath), SqlitePolicyPackStore::close);
-
-                snapshots = openedSnapshots;
-                requirements = openedRequirements;
-                content = openedContent;
-                traceability = openedTraceability;
-                externalReferences = openedExternalReferences;
-                portfolios = openedPortfolios;
-                policies = openedPolicies;
+                stores = SqlitePolicyStores.open(databasePath, owned);
                 PolicyRuntimeServices services = PolicyRuntimeServices.from(
-                        snapshots, requirements, content, traceability, externalReferences, portfolios, policies);
+                        stores.snapshots(), stores.requirements(), stores.content(), stores.traceability(),
+                        stores.externalReferences(), stores.portfolios(), stores.policies());
                 registry = services.registry();
                 evaluation = services.evaluation();
 
@@ -397,15 +365,7 @@ final class MorpheusPolicyMcpTools {
 
         @Override
         public void close() {
-            ExhaustiveShutdown.releaseAll(
-                    "cannot close the policy MCP runtime",
-                    policies,
-                portfolios,
-                externalReferences,
-                traceability,
-                content,
-                requirements,
-                snapshots);
+            stores.close();
         }
     }
 }

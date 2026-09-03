@@ -25,9 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class MultiResourceOwnershipContractTest {
 
-    /** A constructor body: the name, the parameter list, then everything up to the matching closing brace. */
-    private static final Pattern CONSTRUCTOR = Pattern.compile(
-            "\\n(\\s*)(?:private |public |protected )?(\\w+)\\(([^)]*)\\)\\s*\\{(.*?)\\n\\1\\}", Pattern.DOTALL);
+    /** Any constructor or method: the name, the parameter list, then the body up to its closing brace. */
+    private static final Pattern ASSEMBLER = Pattern.compile(
+            "\\n(\\s*)(?:@Override\\s+)?(?:private |public |protected )?(?:static )?[\\w<>,\\[\\] ]*?(\\w+)\\(([^)]*)\\)[^{]*\\{(.*?)\\n\\1\\}", Pattern.DOTALL);
     private static final Pattern SQLITE_STORE_ACQUISITION = Pattern.compile("new (Sqlite\\w+)\\(databasePath");
     private static final Pattern CLOSE_BODY = Pattern.compile(
             "\\n(\\s*)public void close\\(\\)[^{]*\\{(.*?)\\n\\1\\}", Pattern.DOTALL);
@@ -46,21 +46,46 @@ class MultiResourceOwnershipContractTest {
         List<String> offenders = new ArrayList<>();
         for (Path source : mainSources()) {
             String content = Files.readString(source);
-            Matcher constructor = CONSTRUCTOR.matcher(content);
-            while (constructor.find()) {
-                String constructorBody = constructor.group(4);
-                if (countMatches(SQLITE_STORE_ACQUISITION, constructorBody) < 2) {
+            Matcher assembler = ASSEMBLER.matcher(content);
+            while (assembler.find()) {
+                String body = assembler.group(4);
+                if (countMatches(SQLITE_STORE_ACQUISITION, body) < 2) {
                     continue;
                 }
-                if (!constructorBody.contains("StartupOwnership")
-                        || !constructorBody.contains("owned.transferred();")) {
-                    offenders.add(relative(source) + " :: " + constructor.group(2));
+                if (!acquisitionsAreOwned(body)) {
+                    offenders.add(relative(source) + " :: " + assembler.group(2) + " (no owner)");
+                    continue;
+                }
+                // Only whoever creates the ownership transfers it. A factory handed the caller's ownership must
+                // not: the caller is still assembling, and a store opened for a runtime that never finishes has
+                // to be released with the rest of it.
+                if (body.contains("new StartupOwnership()") && !body.contains("owned.transferred();")) {
+                    offenders.add(relative(source) + " :: " + assembler.group(2) + " (never transfers)");
                 }
             }
         }
         assertTrue(offenders.isEmpty(),
                 () -> "these assemblers open several SQLite stores without holding them until assembly finishes,"
                         + " so a failure partway leaks every store opened before it: " + offenders);
+    }
+
+    /** The scan must actually reach the store sets, or it protects nothing that matters. */
+    @Test
+    void theScanReachesTheSharedStoreSets() throws IOException {
+        List<String> assemblers = new ArrayList<>();
+        for (Path source : mainSources()) {
+            String content = Files.readString(source);
+            Matcher assembler = ASSEMBLER.matcher(content);
+            while (assembler.find()) {
+                if (countMatches(SQLITE_STORE_ACQUISITION, assembler.group(4)) >= 2) {
+                    assemblers.add(relative(source) + " :: " + assembler.group(2));
+                }
+            }
+        }
+        assertTrue(assemblers.stream().anyMatch(name -> name.contains("SqlitePolicyStores")),
+                () -> "the policy store set must be among the assemblers the rule inspects: " + assemblers);
+        assertTrue(assemblers.stream().anyMatch(name -> name.contains("SqliteQueryStores")),
+                () -> "the query store set must be among the assemblers the rule inspects: " + assemblers);
     }
 
     /**
@@ -139,6 +164,48 @@ class MultiResourceOwnershipContractTest {
                 "exhaustive shutdown must keep releasing when one release fails on an Error");
         assertTrue(shutdown.contains("if (primary != failure)"),
                 "suppression must stay guarded against a throwable suppressed into itself");
+    }
+
+    /**
+     * Whether every SQLite store this body opens has an owner from the moment it exists.
+     *
+     * <p>Two mechanisms qualify. {@code StartupOwnership} is MORPHEUS's, for an assembly that outlives the
+     * method. Try-with-resources is the language's, and it does the same job where the stores do not: it closes
+     * what it opened, in reverse order, and attaches a close failure to the primary rather than replacing it.
+     * A store opened outside both has no owner until the method returns, which is the case that leaks.</p>
+     */
+    private static boolean acquisitionsAreOwned(String body) {
+        if (body.contains("owned.keep(")) {
+            return true;
+        }
+        Matcher acquisition = SQLITE_STORE_ACQUISITION.matcher(body);
+        while (acquisition.find()) {
+            if (!insideATryWithResourcesHeader(body, acquisition.start())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** True when the index falls inside the resource list of a {@code try (...)} header. */
+    private static boolean insideATryWithResourcesHeader(String body, int index) {
+        int header = body.lastIndexOf("try (", index);
+        if (header < 0) {
+            return false;
+        }
+        int depth = 0;
+        for (int cursor = header + "try ".length(); cursor < body.length(); cursor++) {
+            char character = body.charAt(cursor);
+            if (character == '(') {
+                depth++;
+            } else if (character == ')') {
+                depth--;
+                if (depth == 0) {
+                    return index < cursor;
+                }
+            }
+        }
+        return false;
     }
 
     private static int countMatches(Pattern pattern, String content) {

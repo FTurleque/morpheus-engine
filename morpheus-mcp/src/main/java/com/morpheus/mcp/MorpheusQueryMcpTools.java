@@ -19,11 +19,7 @@ import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePortfolioStore;
-import com.morpheus.store.sqlite.SqliteSavedViewStore;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.SqliteQueryStores;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -296,35 +292,17 @@ final class MorpheusQueryMcpTools {
     }
 
     private static final class Runtime implements AutoCloseable {
-        private final SqliteSpecificationKnowledgeStore snapshots;
-        private final SqliteVersionedRequirementStore requirements;
-        private final SqliteSnapshotBusinessContentStore content;
-        private final SqlitePortfolioStore portfolios;
-        private final SqliteSavedViewStore saved;
+        private final SqliteQueryStores stores;
         private final QueryExecutionService queries;
         private final SavedViewService views;
         private final QueryExportService exports;
 
         private Runtime(Path databasePath) {
             try (StartupOwnership owned = new StartupOwnership()) {
-                SqliteSpecificationKnowledgeStore openedSnapshots = owned.keep(
-                        new SqliteSpecificationKnowledgeStore(databasePath), SqliteSpecificationKnowledgeStore::close);
-                SqliteVersionedRequirementStore openedRequirements = owned.keep(
-                        new SqliteVersionedRequirementStore(databasePath), SqliteVersionedRequirementStore::close);
-                SqliteSnapshotBusinessContentStore openedContent = owned.keep(
-                        new SqliteSnapshotBusinessContentStore(databasePath), SqliteSnapshotBusinessContentStore::close);
-                SqlitePortfolioStore openedPortfolios = owned.keep(
-                        new SqlitePortfolioStore(databasePath), SqlitePortfolioStore::close);
-                SqliteSavedViewStore openedSaved = owned.keep(
-                        new SqliteSavedViewStore(databasePath), SqliteSavedViewStore::close);
-
-                snapshots = openedSnapshots;
-                requirements = openedRequirements;
-                content = openedContent;
-                portfolios = openedPortfolios;
-                saved = openedSaved;
-                queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
-                views = new SavedViewService(saved, queries);
+                stores = SqliteQueryStores.open(databasePath, owned);
+                queries = new QueryExecutionService(
+                        stores.snapshots(), stores.requirements(), stores.content(), stores.portfolios());
+                views = new SavedViewService(stores.saved(), queries);
                 exports = new QueryExportService(queries);
 
                 owned.transferred();
@@ -333,13 +311,7 @@ final class MorpheusQueryMcpTools {
 
         @Override
         public void close() {
-            ExhaustiveShutdown.releaseAll(
-                    "cannot close the query MCP runtime",
-                    saved,
-                portfolios,
-                content,
-                requirements,
-                snapshots);
+            stores.close();
         }
     }
 }
