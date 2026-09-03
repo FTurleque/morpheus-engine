@@ -1,6 +1,7 @@
 package com.morpheus.api;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryBudgets;
@@ -247,43 +248,28 @@ public final class MorpheusQueryApiService {
         private final QueryExportService exports;
 
         private Runtime(Path databasePath) {
-            sqliteScope = SqliteConnectionScope.open(databasePath);
-            SqliteSpecificationKnowledgeStore openedSnapshots = null;
-            SqliteVersionedRequirementStore openedRequirements = null;
-            SqliteSnapshotBusinessContentStore openedContent = null;
-            SqlitePortfolioStore openedPortfolios = null;
-            SqliteSavedViewStore openedSaved = null;
-            try {
-                openedSnapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-                openedRequirements = new SqliteVersionedRequirementStore(databasePath);
-                openedContent = new SqliteSnapshotBusinessContentStore(databasePath);
-                openedPortfolios = new SqlitePortfolioStore(databasePath);
-                openedSaved = new SqliteSavedViewStore(databasePath);
-            } catch (RuntimeException | Error failure) {
-                // An Error raised while a store class initializes used to skip this rollback entirely, leaving
-                // every store opened before it -- and the scope's connection -- behind.
-                try {
-                    ExhaustiveShutdown.releaseAll(
-                            "cannot close query runtime resource",
-                            openedSaved,
-                            openedPortfolios,
-                            openedContent,
-                            openedRequirements,
-                            openedSnapshots,
-                            sqliteScope);
-                } catch (RuntimeException | Error cleanup) {
-                    if (failure != cleanup) failure.addSuppressed(cleanup);
-                }
-                throw failure;
+            try (StartupOwnership owned = new StartupOwnership()) {
+                sqliteScope = owned.keep(
+                        SqliteConnectionScope.open(databasePath), SqliteConnectionScope::close);
+                snapshots = owned.keep(
+                        new SqliteSpecificationKnowledgeStore(databasePath), SqliteSpecificationKnowledgeStore::close);
+                requirements = owned.keep(
+                        new SqliteVersionedRequirementStore(databasePath), SqliteVersionedRequirementStore::close);
+                content = owned.keep(
+                        new SqliteSnapshotBusinessContentStore(databasePath), SqliteSnapshotBusinessContentStore::close);
+                portfolios = owned.keep(
+                        new SqlitePortfolioStore(databasePath), SqlitePortfolioStore::close);
+                saved = owned.keep(
+                        new SqliteSavedViewStore(databasePath), SqliteSavedViewStore::close);
+
+                // The services are built inside the block too: a failure here used to leave every store and the
+                // scope's connection behind, because the rollback ended before this point.
+                queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
+                views = new SavedViewService(saved, queries);
+                exports = new QueryExportService(queries);
+
+                owned.transferred();
             }
-            snapshots = openedSnapshots;
-            requirements = openedRequirements;
-            content = openedContent;
-            portfolios = openedPortfolios;
-            saved = openedSaved;
-            queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
-            views = new SavedViewService(saved, queries);
-            exports = new QueryExportService(queries);
         }
 
         @Override

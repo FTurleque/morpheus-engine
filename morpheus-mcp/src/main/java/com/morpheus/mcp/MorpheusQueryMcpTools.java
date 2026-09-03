@@ -1,5 +1,7 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
@@ -304,23 +306,40 @@ final class MorpheusQueryMcpTools {
         private final QueryExportService exports;
 
         private Runtime(Path databasePath) {
-            snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-            requirements = new SqliteVersionedRequirementStore(databasePath);
-            content = new SqliteSnapshotBusinessContentStore(databasePath);
-            portfolios = new SqlitePortfolioStore(databasePath);
-            saved = new SqliteSavedViewStore(databasePath);
-            queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
-            views = new SavedViewService(saved, queries);
-            exports = new QueryExportService(queries);
+            try (StartupOwnership owned = new StartupOwnership()) {
+                SqliteSpecificationKnowledgeStore openedSnapshots = owned.keep(
+                        new SqliteSpecificationKnowledgeStore(databasePath), SqliteSpecificationKnowledgeStore::close);
+                SqliteVersionedRequirementStore openedRequirements = owned.keep(
+                        new SqliteVersionedRequirementStore(databasePath), SqliteVersionedRequirementStore::close);
+                SqliteSnapshotBusinessContentStore openedContent = owned.keep(
+                        new SqliteSnapshotBusinessContentStore(databasePath), SqliteSnapshotBusinessContentStore::close);
+                SqlitePortfolioStore openedPortfolios = owned.keep(
+                        new SqlitePortfolioStore(databasePath), SqlitePortfolioStore::close);
+                SqliteSavedViewStore openedSaved = owned.keep(
+                        new SqliteSavedViewStore(databasePath), SqliteSavedViewStore::close);
+
+                snapshots = openedSnapshots;
+                requirements = openedRequirements;
+                content = openedContent;
+                portfolios = openedPortfolios;
+                saved = openedSaved;
+                queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
+                views = new SavedViewService(saved, queries);
+                exports = new QueryExportService(queries);
+
+                owned.transferred();
+            }
         }
 
         @Override
         public void close() {
-            saved.close();
-            portfolios.close();
-            content.close();
-            requirements.close();
-            snapshots.close();
+            ExhaustiveShutdown.releaseAll(
+                    "cannot close the query MCP runtime",
+                    saved,
+                portfolios,
+                content,
+                requirements,
+                snapshots);
         }
     }
 }

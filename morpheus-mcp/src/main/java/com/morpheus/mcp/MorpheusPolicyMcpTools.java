@@ -1,5 +1,7 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.policy.DefaultPolicyFactResolver;
 import com.morpheus.application.policy.PolicyBudgets;
@@ -370,36 +372,57 @@ final class MorpheusPolicyMcpTools {
         private final PolicyEvaluationService evaluation;
 
         Runtime(Path databasePath) {
-            snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-            requirements = new SqliteVersionedRequirementStore(databasePath);
-            content = new SqliteSnapshotBusinessContentStore(databasePath);
-            traceability = new SqliteTraceabilityStore(databasePath);
-            externalReferences = new SqliteExternalReferenceStore(databasePath);
-            portfolios = new SqlitePortfolioStore(databasePath);
-            policies = new SqlitePolicyPackStore(databasePath);
-            QueryExecutionService queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
-            ConstraintEvaluationQueryService constraints = new ConstraintEvaluationQueryService(snapshots, content);
-            ChangeTransitionEvaluationService lifecycle = new ChangeTransitionEvaluationService(snapshots, content, requirements, traceability);
-            QualityReportService quality = new QualityReportService(
-                    snapshots,
-                    new RequirementQualityService(snapshots, requirements, traceability),
-                    new TaskQualityService(snapshots, content, requirements, traceability),
-                    new AcceptanceQualityService(snapshots, content),
-                    new ChangeCompletenessService(snapshots, content, requirements, traceability),
-                    new DecisionReferenceQualityService(snapshots, content, requirements, traceability, externalReferences));
-            registry = new PolicyPackService(policies);
-            evaluation = new PolicyEvaluationService(policies, new DefaultPolicyFactResolver(constraints, lifecycle, quality, queries));
+            try (StartupOwnership owned = new StartupOwnership()) {
+                SqliteSpecificationKnowledgeStore openedSnapshots = owned.keep(
+                        new SqliteSpecificationKnowledgeStore(databasePath), SqliteSpecificationKnowledgeStore::close);
+                SqliteVersionedRequirementStore openedRequirements = owned.keep(
+                        new SqliteVersionedRequirementStore(databasePath), SqliteVersionedRequirementStore::close);
+                SqliteSnapshotBusinessContentStore openedContent = owned.keep(
+                        new SqliteSnapshotBusinessContentStore(databasePath), SqliteSnapshotBusinessContentStore::close);
+                SqliteTraceabilityStore openedTraceability = owned.keep(
+                        new SqliteTraceabilityStore(databasePath), SqliteTraceabilityStore::close);
+                SqliteExternalReferenceStore openedExternalReferences = owned.keep(
+                        new SqliteExternalReferenceStore(databasePath), SqliteExternalReferenceStore::close);
+                SqlitePortfolioStore openedPortfolios = owned.keep(
+                        new SqlitePortfolioStore(databasePath), SqlitePortfolioStore::close);
+                SqlitePolicyPackStore openedPolicies = owned.keep(
+                        new SqlitePolicyPackStore(databasePath), SqlitePolicyPackStore::close);
+
+                snapshots = openedSnapshots;
+                requirements = openedRequirements;
+                content = openedContent;
+                traceability = openedTraceability;
+                externalReferences = openedExternalReferences;
+                portfolios = openedPortfolios;
+                policies = openedPolicies;
+                QueryExecutionService queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
+                ConstraintEvaluationQueryService constraints = new ConstraintEvaluationQueryService(snapshots, content);
+                ChangeTransitionEvaluationService lifecycle = new ChangeTransitionEvaluationService(snapshots, content, requirements, traceability);
+                QualityReportService quality = new QualityReportService(
+                snapshots,
+                new RequirementQualityService(snapshots, requirements, traceability),
+                new TaskQualityService(snapshots, content, requirements, traceability),
+                new AcceptanceQualityService(snapshots, content),
+                new ChangeCompletenessService(snapshots, content, requirements, traceability),
+                new DecisionReferenceQualityService(snapshots, content, requirements, traceability, externalReferences));
+                registry = new PolicyPackService(policies);
+                evaluation = new PolicyEvaluationService(policies, new DefaultPolicyFactResolver(constraints, lifecycle, quality, queries));
+
+                owned.transferred();
+            }
         }
 
         @Override
         public void close() {
-            policies.close();
-            portfolios.close();
-            externalReferences.close();
-            traceability.close();
-            content.close();
-            requirements.close();
-            snapshots.close();
+            ExhaustiveShutdown.releaseAll(
+                    "cannot close the policy MCP runtime",
+                    policies,
+                portfolios,
+                externalReferences,
+                traceability,
+                content,
+                requirements,
+                snapshots);
         }
     }
 }

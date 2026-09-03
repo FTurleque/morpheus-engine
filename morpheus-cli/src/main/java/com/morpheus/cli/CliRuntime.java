@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
 import com.morpheus.store.sqlite.SqliteCompositionStateStore;
@@ -32,57 +33,31 @@ final class CliRuntime implements AutoCloseable {
 
     CliRuntime(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        sqliteScope = SqliteConnectionScope.open(databasePath);
-        SqliteSpecificationKnowledgeStore openedSnapshots = null;
-        SqliteVersionedRequirementStore openedRequirements = null;
-        SqliteSnapshotBusinessContentStore openedContent = null;
-        SqliteTraceabilityStore openedTraceability = null;
-        SqliteExternalReferenceStore openedExternalReferences = null;
-        SqliteEntityIdentityStore openedIdentities = null;
-        SqliteSyncStateStore openedSyncState = null;
-        SqliteChangeLifecycleMutationStore openedLifecycleMutations = null;
-        SqliteCompositionStateStore openedCompositions = null;
-        try {
-            openedSnapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-            new RuntimeSnapshotRecovery(openedSnapshots).recoverAll(Instant.now());
-            openedRequirements = new SqliteVersionedRequirementStore(databasePath);
-            openedContent = new SqliteSnapshotBusinessContentStore(databasePath);
-            openedTraceability = new SqliteTraceabilityStore(databasePath);
-            openedExternalReferences = new SqliteExternalReferenceStore(databasePath);
-            openedIdentities = new SqliteEntityIdentityStore(databasePath);
-            openedSyncState = new SqliteSyncStateStore(databasePath);
-            openedLifecycleMutations = new SqliteChangeLifecycleMutationStore(databasePath);
-            openedCompositions = new SqliteCompositionStateStore(databasePath);
-        } catch (RuntimeException | Error failure) {
-            // An Error raised while a store class initializes used to skip this rollback entirely, leaving every
-            // store opened before it -- and the scope's connection -- behind.
-            try {
-                ExhaustiveShutdown.releaseAll(
-                        "cannot close CLI runtime resource",
-                        openedCompositions,
-                        openedLifecycleMutations,
-                        openedSyncState,
-                        openedIdentities,
-                        openedExternalReferences,
-                        openedTraceability,
-                        openedContent,
-                        openedRequirements,
-                        openedSnapshots,
-                        sqliteScope);
-            } catch (RuntimeException | Error cleanup) {
-                failure.addSuppressed(cleanup);
-            }
-            throw failure;
+        try (StartupOwnership owned = new StartupOwnership()) {
+            sqliteScope = owned.keep(
+                    SqliteConnectionScope.open(databasePath), SqliteConnectionScope::close);
+            snapshots = owned.keep(
+                    new SqliteSpecificationKnowledgeStore(databasePath), SqliteSpecificationKnowledgeStore::close);
+            new RuntimeSnapshotRecovery(snapshots).recoverAll(Instant.now());
+            requirements = owned.keep(
+                    new SqliteVersionedRequirementStore(databasePath), SqliteVersionedRequirementStore::close);
+            content = owned.keep(
+                    new SqliteSnapshotBusinessContentStore(databasePath), SqliteSnapshotBusinessContentStore::close);
+            traceability = owned.keep(
+                    new SqliteTraceabilityStore(databasePath), SqliteTraceabilityStore::close);
+            externalReferences = owned.keep(
+                    new SqliteExternalReferenceStore(databasePath), SqliteExternalReferenceStore::close);
+            identities = owned.keep(
+                    new SqliteEntityIdentityStore(databasePath), SqliteEntityIdentityStore::close);
+            syncState = owned.keep(
+                    new SqliteSyncStateStore(databasePath), SqliteSyncStateStore::close);
+            lifecycleMutations = owned.keep(
+                    new SqliteChangeLifecycleMutationStore(databasePath), SqliteChangeLifecycleMutationStore::close);
+            compositions = owned.keep(
+                    new SqliteCompositionStateStore(databasePath), SqliteCompositionStateStore::close);
+
+            owned.transferred();
         }
-        snapshots = openedSnapshots;
-        requirements = openedRequirements;
-        content = openedContent;
-        traceability = openedTraceability;
-        externalReferences = openedExternalReferences;
-        identities = openedIdentities;
-        syncState = openedSyncState;
-        lifecycleMutations = openedLifecycleMutations;
-        compositions = openedCompositions;
     }
 
     @Override
