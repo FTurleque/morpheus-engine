@@ -103,6 +103,10 @@ class MorpheusProjectRegistryApiServiceContractTest {
         expected.put("/srv/morpheus/private/classified/", "classified");
         expected.put("/srv/morpheus/private/classified", "classified");
         expected.put("C:\\secret\\workspace\\classified", "classified");
+        // A two-character last segment that is not a drive, and a colon that is not preceded by a
+        // drive letter: neither locates a volume, so both stay names.
+        expected.put("/srv/morpheus/ab", "ab");
+        expected.put("/srv/morpheus/1:", "1:");
 
         for (Map.Entry<String, String> entry : expected.entrySet()) {
             String projected = service.workspaceName(new SourceLocator("file", entry.getKey()));

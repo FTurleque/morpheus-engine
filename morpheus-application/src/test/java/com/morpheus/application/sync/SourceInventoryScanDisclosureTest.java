@@ -75,6 +75,41 @@ class SourceInventoryScanDisclosureTest {
         assertEquals("SCAN_LIMIT_EXCEEDED at openspec/deep: source scan depth exceeds limit 32", view.toString());
     }
 
+    /** Both fields naming a location leaves the code alone, which is still an answer the caller can act on. */
+    @Test
+    void afailureWhoseSourceAndDetailBothLocateRendersAsTheCodeAlone() {
+        SourceInventoryScanResult.Failure failure = new SourceInventoryScanResult.Failure(
+                Optional.of(POSIX_SENTINEL),
+                SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
+                new AccessDeniedException(WINDOWS_SENTINEL).getMessage());
+
+        SourceInventoryScanResult.PublicView view = failure.publicView();
+
+        assertTrue(view.source().isEmpty());
+        assertTrue(view.detail().isEmpty());
+        assertEquals("SOURCE_UNREADABLE", view.toString());
+    }
+
+    /** Two failures on the same source are ordered by code, so a rendering never depends on scan order. */
+    @Test
+    void failuresOnTheSameSourceAreOrderedByCode() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        SourceInventoryScanResult scan = SourceInventoryScanResult.incomplete(projectId, List.of(
+                new SourceInventoryScanResult.Failure(
+                        Optional.of("openspec/a.md"),
+                        SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
+                        "unreadable"),
+                new SourceInventoryScanResult.Failure(
+                        Optional.of("openspec/a.md"),
+                        SourceInventoryScanResult.Failure.Code.SCAN_LIMIT_EXCEEDED,
+                        "source scan file count exceeds limit 10")));
+
+        assertEquals(
+                "[SCAN_LIMIT_EXCEEDED at openspec/a.md: source scan file count exceeds limit 10,"
+                        + " SOURCE_UNREADABLE at openspec/a.md: unreadable]",
+                scan.publicFailures().toString());
+    }
+
     /** The whole result projects in the order the failures are already sorted in. */
     @Test
     void theResultProjectsEveryFailureDeterministically() {
