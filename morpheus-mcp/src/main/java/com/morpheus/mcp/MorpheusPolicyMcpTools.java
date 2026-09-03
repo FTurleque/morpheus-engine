@@ -1,16 +1,12 @@
 package com.morpheus.mcp;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
-import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyConflictException;
-import com.morpheus.application.policy.PolicyEvaluationService;
 import com.morpheus.application.policy.PolicyIds;
-import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyPublicViews;
 import com.morpheus.application.policy.PolicyRule;
-import com.morpheus.application.policy.PolicyRuntimeServices;
 import com.morpheus.application.policy.PolicyScope;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.QueryDefinitionCodec;
@@ -19,7 +15,7 @@ import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePolicyStores;
+import com.morpheus.store.sqlite.SqlitePolicyRuntime;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -81,46 +77,46 @@ final class MorpheusPolicyMcpTools {
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
             Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
-            try (Runtime runtime = new Runtime(databasePath)) {
+            try (SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(databasePath)) {
                 Object result = switch (toolName) {
-                    case CREATE -> PolicyPublicViews.definition(runtime.registry.create(
+                    case CREATE -> PolicyPublicViews.definition(runtime.registry().create(
                             requiredString(arguments, "name"), rules(arguments),
                             requiredString(arguments, "actor"), requiredString(arguments, "reason")));
-                    case LIST -> PolicyPublicViews.definitions(runtime.registry.list());
-                    case GET -> PolicyPublicViews.definition(runtime.registry.get(pack(arguments)));
-                    case VERSIONS -> PolicyPublicViews.versions(runtime.registry.versions(pack(arguments)));
-                    case UPDATE -> PolicyPublicViews.definition(runtime.registry.update(
+                    case LIST -> PolicyPublicViews.definitions(runtime.registry().list());
+                    case GET -> PolicyPublicViews.definition(runtime.registry().get(pack(arguments)));
+                    case VERSIONS -> PolicyPublicViews.versions(runtime.registry().versions(pack(arguments)));
+                    case UPDATE -> PolicyPublicViews.definition(runtime.registry().update(
                             pack(arguments), longValue(arguments, "expectedRevision", 1, Long.MAX_VALUE),
                             requiredString(arguments, "name"), rules(arguments),
                             requiredString(arguments, "actor"), requiredString(arguments, "reason")));
-                    case ACTIVATE -> PolicyPublicViews.activation(runtime.registry.activate(
+                    case ACTIVATE -> PolicyPublicViews.activation(runtime.registry().activate(
                             scope(arguments), pack(arguments), PolicyIds.VersionId.parse(requiredString(arguments, "versionId")),
                             longValue(arguments, "expectedRevision", 0, Long.MAX_VALUE),
                             requiredString(arguments, "actor"), requiredString(arguments, "reason")));
                     case DEACTIVATE -> {
-                        runtime.registry.deactivate(
+                        runtime.registry().deactivate(
                                 scope(arguments), pack(arguments), longValue(arguments, "expectedRevision", 1, Long.MAX_VALUE),
                                 requiredString(arguments, "actor"), requiredString(arguments, "reason"));
                         yield Map.of("deactivated", true);
                     }
-                    case PUT_OVERRIDE -> PolicyPublicViews.override(runtime.registry.putOverride(
+                    case PUT_OVERRIDE -> PolicyPublicViews.override(runtime.registry().putOverride(
                             scope(arguments), pack(arguments), PolicyIds.RuleId.parse(requiredString(arguments, "ruleId")),
                             PolicyConfiguration.OverrideMode.valueOf(requiredString(arguments, "mode").toUpperCase()),
                             longValue(arguments, "expectedRevision", 0, Long.MAX_VALUE),
                             requiredString(arguments, "actor"), requiredString(arguments, "reason")));
-                    case LIST_OVERRIDES -> PolicyPublicViews.overrides(runtime.registry.overrides(scope(arguments)));
+                    case LIST_OVERRIDES -> PolicyPublicViews.overrides(runtime.registry().overrides(scope(arguments)));
                     case EVALUATE -> {
                         PolicyScope evaluationScope = scope(arguments);
                         Optional<String> packId = optionalString(arguments, "id");
                         if (packId.isPresent()) {
-                            yield PolicyPublicViews.report(runtime.evaluation.evaluatePack(
+                            yield PolicyPublicViews.report(runtime.evaluation().evaluatePack(
                                     evaluationScope, PolicyIds.PackId.parse(packId.orElseThrow())));
                         }
-                        yield PolicyPublicViews.governance(runtime.evaluation.evaluate(evaluationScope));
+                        yield PolicyPublicViews.governance(runtime.evaluation().evaluate(evaluationScope));
                     }
-                    case DRY_RUN -> PolicyPublicViews.report(runtime.evaluation.dryRun(
+                    case DRY_RUN -> PolicyPublicViews.report(runtime.evaluation().dryRun(
                             scope(arguments), pack(arguments), PolicyIds.VersionId.parse(requiredString(arguments, "versionId"))));
-                    case AUDIT -> PolicyPublicViews.audit(runtime.registry.audit(pack(arguments)));
+                    case AUDIT -> PolicyPublicViews.audit(runtime.registry().audit(pack(arguments)));
                     default -> throw new IllegalArgumentException("unknown M25 MCP tool: " + toolName);
                 };
                 return McpSchema.CallToolResult.builder()
@@ -345,27 +341,4 @@ final class MorpheusPolicyMcpTools {
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
-    private static final class Runtime implements AutoCloseable {
-        private final SqlitePolicyStores stores;
-        private final PolicyPackService registry;
-        private final PolicyEvaluationService evaluation;
-
-        Runtime(Path databasePath) {
-            try (StartupOwnership owned = new StartupOwnership()) {
-                stores = SqlitePolicyStores.open(databasePath, owned);
-                PolicyRuntimeServices services = PolicyRuntimeServices.from(
-                        stores.snapshots(), stores.requirements(), stores.content(), stores.traceability(),
-                        stores.externalReferences(), stores.portfolios(), stores.policies());
-                registry = services.registry();
-                evaluation = services.evaluation();
-
-                owned.transferred();
-            }
-        }
-
-        @Override
-        public void close() {
-            stores.close();
-        }
-    }
 }
