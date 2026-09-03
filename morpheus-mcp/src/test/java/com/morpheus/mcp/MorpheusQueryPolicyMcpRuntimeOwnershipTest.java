@@ -81,6 +81,34 @@ class MorpheusQueryPolicyMcpRuntimeOwnershipTest {
                 "a partially assembled policy runtime must release what it had already opened");
     }
 
+    /**
+     * Every published tool reaches the runtime.
+     *
+     * <p>Each branch of the dispatcher names the runtime's services, and a branch wired to nothing fails only
+     * when somebody calls it. Calling all of them with empty arguments is enough to prove the wiring: the ones
+     * that need arguments answer with an error result, which is still an answer from the runtime rather than a
+     * dispatcher that never reached one. What must never happen is a database left held afterwards.</p>
+     */
+    @Test
+    void everyPublishedToolReachesItsRuntimeAndGivesTheDatabaseBack() {
+        Path database = temporaryDirectory.resolve("every-tool.db").toAbsolutePath().normalize();
+
+        List<McpServerFeatures.SyncToolSpecification> policy = new MorpheusPolicyMcpTools(database).specifications();
+        for (McpServerFeatures.SyncToolSpecification specification : policy) {
+            assertNotNull(call(policy, specification.tool().name(), Map.of()),
+                    "policy tool answered nothing: " + specification.tool().name());
+        }
+
+        List<McpServerFeatures.SyncToolSpecification> query = new MorpheusQueryMcpTools(database).specifications();
+        for (McpServerFeatures.SyncToolSpecification specification : query) {
+            assertNotNull(call(query, specification.tool().name(), Map.of()),
+                    "query tool answered nothing: " + specification.tool().name());
+        }
+
+        assertDoesNotThrow(() -> new SqliteServerMaintenance().acquireServerLease(database).close(),
+                "no tool call may leave the database held");
+    }
+
     /** A database a newer MORPHEUS wrote: refused fail-closed once the first store tries to migrate it. */
     private static void writeFutureSchema(Path database) throws Exception {
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database);
