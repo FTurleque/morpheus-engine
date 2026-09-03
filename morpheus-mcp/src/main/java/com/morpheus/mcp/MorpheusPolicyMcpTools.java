@@ -397,16 +397,19 @@ final class MorpheusPolicyMcpTools {
                 policies = openedPolicies;
                 QueryExecutionService queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
                 ConstraintEvaluationQueryService constraints = new ConstraintEvaluationQueryService(snapshots, content);
-                ChangeTransitionEvaluationService lifecycle = new ChangeTransitionEvaluationService(snapshots, content, requirements, traceability);
+                ChangeTransitionEvaluationService lifecycle = new ChangeTransitionEvaluationService(
+                        snapshots, content, requirements, traceability);
                 QualityReportService quality = new QualityReportService(
-                snapshots,
-                new RequirementQualityService(snapshots, requirements, traceability),
-                new TaskQualityService(snapshots, content, requirements, traceability),
-                new AcceptanceQualityService(snapshots, content),
-                new ChangeCompletenessService(snapshots, content, requirements, traceability),
-                new DecisionReferenceQualityService(snapshots, content, requirements, traceability, externalReferences));
+                        snapshots,
+                        new RequirementQualityService(snapshots, requirements, traceability),
+                        new TaskQualityService(snapshots, content, requirements, traceability),
+                        new AcceptanceQualityService(snapshots, content),
+                        new ChangeCompletenessService(snapshots, content, requirements, traceability),
+                        new DecisionReferenceQualityService(
+                                snapshots, content, requirements, traceability, externalReferences));
                 registry = new PolicyPackService(policies);
-                evaluation = new PolicyEvaluationService(policies, new DefaultPolicyFactResolver(constraints, lifecycle, quality, queries));
+                evaluation = new PolicyEvaluationService(
+                        policies, new DefaultPolicyFactResolver(constraints, lifecycle, quality, queries));
 
                 owned.transferred();
             }
