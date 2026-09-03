@@ -311,7 +311,10 @@ try {
 
     Assert-Tool 'java'
     $mvnw = Join-Path $repo 'mvnw.cmd'
-    Invoke-LoggedStage -Name 'Full Maven reactor' -FilePath $mvnw -Arguments @('clean', 'test') -LogName '01-full-reactor.log'
+    # verify, not test: the architecture suite this reactor runs reads the JaCoCo reports and the packaged
+    # morpheus-provider-reference JAR, and neither exists after `clean test`. The coverage gate and the
+    # provider-plugin contract failed here for that reason alone. Every other validator uses verify.
+    Invoke-LoggedStage -Name 'Full Maven reactor' -FilePath $mvnw -Arguments @('clean', 'verify') -LogName '01-full-reactor.log'
     $script:FullTestSummary = Get-SurefireTotals $repo
     $script:ArchitectureTestSummary = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
     if ($script:FullTestSummary.Failures -ne 0 -or $script:FullTestSummary.Errors -ne 0 -or $script:FullTestSummary.Skipped -ne 0) {

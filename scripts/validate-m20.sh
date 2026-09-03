@@ -45,7 +45,9 @@ PY
 printf 'SHA:     %s\nVersion: %s\n' "$SHA" "$VERSION"
 
 section 'Full Maven reactor'
-./mvnw clean test 2>&1 | tee "$LOGS/01-full-reactor.log"
+# verify, not test: the architecture suite this reactor runs reads the JaCoCo reports and the packaged
+# morpheus-provider-reference JAR, and neither exists after `clean test`. Every other validator uses verify.
+./mvnw clean verify 2>&1 | tee "$LOGS/01-full-reactor.log"
 
 section 'Tagged Linux release build'
 VALIDATION_TAG="m20-validation-${SHA:0:12}"
