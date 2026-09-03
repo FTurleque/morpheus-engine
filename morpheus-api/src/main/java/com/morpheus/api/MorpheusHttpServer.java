@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.history.PublishedHistoryException;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -178,8 +179,10 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     @Override
     public void close() {
-        server.stop(0);
-        executor.shutdownNow();
+        ExhaustiveShutdown.releaseAll(
+                "cannot shut down the MORPHEUS local HTTP server",
+                () -> server.stop(0),
+                executor::shutdownNow);
     }
 
     void handle(HttpExchange exchange) throws IOException {

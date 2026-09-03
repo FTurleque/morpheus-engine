@@ -165,6 +165,33 @@ class RepositoryDocumentationCoherenceTest {
                 "architecture tests", architecture,
                 "JaCoCo global lines", line,
                 "JaCoCo global branches", branch));
+        // The operator surfaces an engineer actually opens before running a gate. Each of these still announced
+        // the pre-1.2.1 ratchets, so four different numbers were in circulation for one executable threshold.
+        assertLabelledThresholds(root, "scripts/README.md", Map.of(
+                "Surefire total", tests,
+                "architecture ", architecture,
+                "line coverage", line,
+                "branch coverage", branch));
+        assertLabelledThresholds(root, "distribution/README.md", Map.of(
+                "Surefire total", tests,
+                "architecture ", architecture,
+                "line coverage", line,
+                "branch coverage", branch));
+        assertLabelledThresholds(root, "docs/developer/README.md", Map.of(
+                "Surefire floor", tests,
+                "Architecture floor", architecture,
+                "JaCoCo line ratchet", line,
+                "JaCoCo branch ratchet", branch));
+        assertLabelledThresholds(root, "docs/governance/DOCUMENTATION_STATUS.md", Map.of(
+                "Surefire ratchet", tests,
+                "Architecture ratchet", architecture,
+                "Global line ratchet", line,
+                "Global branch ratchet", branch));
+        assertLabelledThresholds(root, "docs/governance/ROADMAP.md", Map.of(
+                "Surefire ratchet", tests,
+                "architecture ratchet", architecture,
+                "global line ratchet", line,
+                "global branch ratchet", branch));
 
         String readme = Files.readString(root.resolve("README.md"));
         String readmeClaim = "Le ratchet global est **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire** et **≥ %s tests d’architecture**"
@@ -178,6 +205,38 @@ class RepositoryDocumentationCoherenceTest {
                 () -> "BUILD_AND_TEST.md locked baseline must be " + lockedBaseline);
         assertTrue(buildAndTest.contains("une baisse sous %s%% lignes ou %s%% branches".formatted(french(line), french(branch))),
                 "BUILD_AND_TEST.md regression rule must quote the normative coverage ratchets");
+    }
+
+    /**
+     * The D2 half of the operator guide has no properties file behind it: both validators carry the baseline as
+     * a literal, and D2RepositoryHardeningArchitectureTest pins those literals. The guide announced the M21
+     * ratchets instead, so an operator reading it expected D2 to refuse a build that D2 accepts.
+     */
+    @Test
+    void operatorFacingD2GateDocumentationMirrorsWhatTheD2ValidatorsEnforce() throws Exception {
+        Path root = repositoryRoot();
+        String linux = Files.readString(root.resolve("scripts/validate-d2.sh"));
+        String windows = Files.readString(root.resolve("scripts/validate-d2.ps1"));
+
+        String tests = onlyGroup(Pattern.compile("\\(\\( TESTS < (\\d+) \\)\\)"), linux, "D2 Surefire baseline");
+        String architecture = onlyGroup(Pattern.compile("\\(\\( ARCH_TESTS < (\\d+) \\)\\)"), linux, "D2 architecture baseline");
+        String lineFloor = onlyGroup(Pattern.compile("if line < (0\\.\\d+):"), linux, "D2 line coverage floor");
+        String branchFloor = onlyGroup(Pattern.compile("if branch < (0\\.\\d+):"), linux, "D2 branch coverage floor");
+
+        assertTrue(windows.contains("$tests -lt " + tests),
+                "the Windows D2 validator must enforce the same Surefire baseline as the Linux one");
+        assertTrue(windows.contains("$architectureTests -lt " + architecture),
+                "the Windows D2 validator must enforce the same architecture baseline as the Linux one");
+        assertTrue(windows.contains("$lineCoverage -lt " + lineFloor),
+                "the Windows D2 validator must enforce the same line coverage floor as the Linux one");
+        assertTrue(windows.contains("$branchCoverage -lt " + branchFloor),
+                "the Windows D2 validator must enforce the same branch coverage floor as the Linux one");
+
+        assertLabelledThresholds(root, "scripts/README.md", Map.of(
+                "baseline Surefire", tests,
+                "baseline architecture", architecture,
+                "absolute line floor", decimalPercentage(lineFloor),
+                "absolute branch floor", decimalPercentage(branchFloor)));
     }
 
     @Test
@@ -381,6 +440,15 @@ class RepositoryDocumentationCoherenceTest {
         assertTrue(developerGuide.contains("ne constituent pas une sandbox du système d'exploitation"));
         assertFalse(developerGuide.contains("`GET`/`HEAD` : READ"),
                 "developer guide must not reintroduce the obsolete verb-derived RBAC contract");
+    }
+
+    /** Reads a threshold a validator states exactly once, so a second statement of it cannot go unnoticed. */
+    private static String onlyGroup(Pattern pattern, String script, String label) {
+        Matcher matcher = pattern.matcher(script);
+        assertTrue(matcher.find(), () -> "cannot find " + label + " in the D2 validator");
+        String value = matcher.group(1);
+        assertFalse(matcher.find(), () -> label + " is stated more than once in the D2 validator");
+        return value;
     }
 
     /** Quotes the offending text so a failure names what to remove instead of only where to look. */

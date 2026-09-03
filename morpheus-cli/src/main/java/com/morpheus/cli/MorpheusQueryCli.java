@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
@@ -290,11 +291,13 @@ final class MorpheusQueryCli {
 
         @Override
         public void close() {
-            saved.close();
-            portfolios.close();
-            content.close();
-            requirements.close();
-            snapshots.close();
+            ExhaustiveShutdown.releaseAll(
+                    "cannot close the query CLI runtime",
+                    saved,
+                    portfolios,
+                    content,
+                    requirements,
+                    snapshots);
         }
     }
 }

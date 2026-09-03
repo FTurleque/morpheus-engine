@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
@@ -158,12 +159,17 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         return URI.create("https://" + hostForUri(host()) + ":" + port() + MorpheusHttpServer.API_PREFIX);
     }
 
+    // The exclusive server lease is released last and matters most: a failure in any earlier release used to
+    // skip it, leaving the database reserved for the rest of the process while the facade reported itself shut
+    // down. Every release now runs, and the first failure is the one the caller sees.
     @Override
     public void close() {
-        server.stop(0);
-        executor.shutdownNow();
-        localServer.close();
-        lease.close();
+        ExhaustiveShutdown.releaseAll(
+                "cannot shut down the MORPHEUS remote HTTPS server",
+                () -> server.stop(0),
+                executor::shutdownNow,
+                localServer::close,
+                lease::close);
     }
 
     void handle(HttpExchange exchange) throws IOException {

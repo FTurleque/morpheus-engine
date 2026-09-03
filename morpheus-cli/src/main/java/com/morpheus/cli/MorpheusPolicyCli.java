@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.policy.DefaultPolicyFactResolver;
 import com.morpheus.application.policy.PolicyConfiguration;
@@ -326,13 +327,15 @@ final class MorpheusPolicyCli {
 
         @Override
         public void close() {
-            policies.close();
-            portfolios.close();
-            externalReferences.close();
-            traceability.close();
-            content.close();
-            requirements.close();
-            snapshots.close();
+            ExhaustiveShutdown.releaseAll(
+                    "cannot close the policy CLI runtime",
+                    policies,
+                    portfolios,
+                    externalReferences,
+                    traceability,
+                    content,
+                    requirements,
+                    snapshots);
         }
     }
 }

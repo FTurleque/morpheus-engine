@@ -75,13 +75,14 @@ final class MorpheusRemoteHttpServerBootstrap {
 
         SSLContext sslContext = buildSslContext(keyStorePath, keyStorePassword.clone());
         SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
-        SqliteServerMaintenance.ServerLease lease = maintenance.acquireServerLease(databasePath);
-        MorpheusInternalCapability internalCapability = MorpheusInternalCapability.generate();
-        // HttpsServer.create binds the TLS socket, and it used to be declared inside the try, so the recovery
-        // path could not reach it: a failure between the bind and a started server left the port held. The lease
-        // had the same shape of problem -- it was released after local.close(), so a failing close skipped it.
+        // Ownership is entered before the first resource is acquired, not after: the lease was taken and the
+        // internal capability generated outside the try, so a failure in between held the database exclusively
+        // for the rest of the process. HttpsServer.create binds the TLS socket, and it used to be declared
+        // inside the try, so the recovery path could not reach it either.
         try (StartupOwnership owned = new StartupOwnership()) {
-            owned.keep(lease, SqliteServerMaintenance.ServerLease::close);
+            SqliteServerMaintenance.ServerLease lease = owned.keep(
+                    maintenance.acquireServerLease(databasePath), SqliteServerMaintenance.ServerLease::close);
+            MorpheusInternalCapability internalCapability = MorpheusInternalCapability.generate();
             MorpheusHttpServer local = owned.keep(MorpheusHttpServer.startRemote(
                     databasePath,
                     MorpheusHttpServer.DEFAULT_HOST,

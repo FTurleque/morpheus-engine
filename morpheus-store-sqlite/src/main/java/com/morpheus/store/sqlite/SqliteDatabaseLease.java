@@ -84,22 +84,42 @@ final class SqliteDatabaseLease {
         }
     }
 
+    // java:S1181 catches Error deliberately: the lease must be released, and the driver failure kept, when
+    // the driver fails on a LinkageError. Nothing is swallowed -- the first failure is what propagates.
+    @SuppressWarnings("java:S1181")
     static Connection guard(Connection connection, Lease lease) {
         Objects.requireNonNull(connection, "connection");
         Objects.requireNonNull(lease, "lease");
         AtomicBoolean closed = new AtomicBoolean();
+        AtomicBoolean released = new AtomicBoolean();
         return (Connection) Proxy.newProxyInstance(
                 SqliteDatabaseLease.class.getClassLoader(),
                 new Class<?>[]{Connection.class},
                 (proxy, method, args) -> {
                     String name = method.getName();
                     if (name.equals("close")) {
-                        if (closed.compareAndSet(false, true)) {
+                        // Closing makes the connection unusable whatever happens next, but only a release that
+                        // actually succeeded may be recorded as one: the flag was set before either call ran,
+                        // so a retry after a failed release silently did nothing. The lease is released either
+                        // way -- a finally block did that too, but let its own outcome replace the driver
+                        // failure, which is the one the caller has to see, and it is thrown here unchanged so
+                        // that a store still catches the SQLException its close is declared to throw.
+                        closed.set(true);
+                        if (!released.get()) {
+                            Throwable driverFailure = null;
                             try {
                                 connection.close();
-                            } finally {
-                                lease.close();
+                            } catch (SQLException | RuntimeException | Error failure) {
+                                driverFailure = failure;
                             }
+                            try {
+                                lease.close();
+                            } catch (RuntimeException | Error leaseFailure) {
+                                if (driverFailure == null) throw leaseFailure;
+                                driverFailure.addSuppressed(leaseFailure);
+                            }
+                            if (driverFailure != null) throw driverFailure;
+                            released.set(true);
                         }
                         return null;
                     }

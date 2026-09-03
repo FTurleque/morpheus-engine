@@ -35,19 +35,36 @@ public final class SqliteConnectionScope implements AutoCloseable {
 
     public static SqliteConnectionScope open(Path databasePath, int busyTimeoutMillis) {
         Objects.requireNonNull(databasePath, "databasePath");
+        // Rejected before the connection is opened: refusing afterwards would leak the connection it opened.
         if (ACTIVE.get() != null) {
             throw new IllegalStateException("nested SQLite connection scopes are not supported");
         }
         Path normalized = databasePath.toAbsolutePath().normalize();
         try {
-            Connection physical = SqliteDatabaseSecurity.openPhysical(normalized, busyTimeoutMillis);
-            State state = new State(normalized, busyTimeoutMillis, physical);
-            recordPhysicalOpen();
-            ACTIVE.set(state);
-            return new SqliteConnectionScope(state);
+            return adopt(normalized, busyTimeoutMillis,
+                    SqliteDatabaseSecurity.openPhysical(normalized, busyTimeoutMillis));
         } catch (SQLException failure) {
             throw new IllegalStateException("cannot open SQLite operation scope", failure);
         }
+    }
+
+    /**
+     * Opens a scope over a physical connection the caller established and now hands over.
+     *
+     * <p>{@link #close()} has to behave when the driver fails to release the connection, and a healthy SQLite
+     * file never produces that failure. Taking the connection as a parameter is how that branch is reached, the
+     * same way {@link SqliteTransactionRunner} takes the connection whose cleanup failures it must survive.</p>
+     */
+    static SqliteConnectionScope adopt(Path databasePath, int busyTimeoutMillis, Connection physical) {
+        Objects.requireNonNull(databasePath, "databasePath");
+        Objects.requireNonNull(physical, "physical");
+        if (ACTIVE.get() != null) {
+            throw new IllegalStateException("nested SQLite connection scopes are not supported");
+        }
+        State state = new State(databasePath.toAbsolutePath().normalize(), busyTimeoutMillis, physical);
+        recordPhysicalOpen();
+        ACTIVE.set(state);
+        return new SqliteConnectionScope(state);
     }
 
     public int logicalConnectionsBorrowed() {
@@ -91,7 +108,7 @@ public final class SqliteConnectionScope implements AutoCloseable {
             throw new SQLException("active SQLite scope uses a different busy timeout");
         }
         if (state.quarantined) {
-            throw new SQLException("active SQLite scope is quarantined after a committed cleanup failure", state.quarantineCause);
+            throw new SQLException("active SQLite scope is quarantined after a failed connection cleanup", state.quarantineCause);
         }
         state.borrows.incrementAndGet();
         return (Connection) Proxy.newProxyInstance(
@@ -135,7 +152,20 @@ public final class SqliteConnectionScope implements AutoCloseable {
         }
     }
 
+    /**
+     * Releases the physical connection, and only claims to have released it once that has happened.
+     *
+     * <p>The scope used to detach from the thread and mark itself closed before the JDBC close ran, then count
+     * the connection as no longer active whether or not it had been released. A scope whose close failed
+     * therefore reported a connection it still held as gone, and the owning thread could not retry: the second
+     * call returned immediately. Detaching now happens after a successful release, so a failed close leaves a
+     * scope that is honestly still open, refuses further work through its connections, and can be closed
+     * again.</p>
+     */
+    // java:S1181 catches Error deliberately: the scope must record that it still holds the connection when the
+    // driver fails on a LinkageError, exactly as it does for a SQLException. The failure keeps propagating.
     @Override
+    @SuppressWarnings("java:S1181")
     public void close() {
         if (closed) return;
         State active = ACTIVE.get();
@@ -143,20 +173,21 @@ public final class SqliteConnectionScope implements AutoCloseable {
             throw new IllegalStateException("SQLite connection scope must close on its owning thread");
         }
 
-        // Only mark the scope closed after ownership has been established. A wrong-thread close attempt must
-        // leave the owning thread able to perform the real cleanup later.
-        ACTIVE.remove();
-        closed = true;
         try {
             state.physical.close();
-            recordPhysicalClose(state);
         } catch (SQLException failure) {
-            if (state.physicalCountedActive) {
-                state.physicalCountedActive = false;
-                PHYSICAL_ACTIVE.decrementAndGet();
-            }
+            quarantine(state, failure);
             throw new IllegalStateException("cannot close SQLite operation scope", failure);
+        } catch (RuntimeException | Error failure) {
+            quarantine(state, failure);
+            throw failure;
         }
+
+        // Past this point the connection is released, so the scope may detach from the thread, declare itself
+        // closed, and count the release once -- guarded against a second count by physicalCountedActive.
+        ACTIVE.remove();
+        closed = true;
+        recordPhysicalClose(state);
     }
 
     private static boolean belongsTo(Connection connection, State state) {
@@ -229,7 +260,7 @@ public final class SqliteConnectionScope implements AutoCloseable {
             }
             if (logicalClosed.get()) throw new SQLException("logical SQLite connection is closed");
             if (state.quarantined) {
-                throw new SQLException("SQLite connection scope is quarantined after a committed cleanup failure", state.quarantineCause);
+                throw new SQLException("SQLite connection scope is quarantined after a failed connection cleanup", state.quarantineCause);
             }
             try {
                 return method.invoke(state.physical, args);
