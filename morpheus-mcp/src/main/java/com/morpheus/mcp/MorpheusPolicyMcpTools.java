@@ -2,8 +2,6 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.operability.StartupOwnership;
-import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
-import com.morpheus.application.policy.DefaultPolicyFactResolver;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyConflictException;
@@ -12,17 +10,10 @@ import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyPublicViews;
 import com.morpheus.application.policy.PolicyRule;
+import com.morpheus.application.policy.PolicyRuntimeServices;
 import com.morpheus.application.policy.PolicyScope;
-import com.morpheus.application.quality.AcceptanceQualityService;
-import com.morpheus.application.quality.ChangeCompletenessService;
-import com.morpheus.application.quality.DecisionReferenceQualityService;
-import com.morpheus.application.quality.QualityReportService;
-import com.morpheus.application.quality.RequirementQualityService;
-import com.morpheus.application.quality.TaskQualityService;
-import com.morpheus.application.query.ConstraintEvaluationQueryService;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.QueryDefinitionCodec;
-import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
@@ -395,21 +386,10 @@ final class MorpheusPolicyMcpTools {
                 externalReferences = openedExternalReferences;
                 portfolios = openedPortfolios;
                 policies = openedPolicies;
-                QueryExecutionService queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
-                ConstraintEvaluationQueryService constraints = new ConstraintEvaluationQueryService(snapshots, content);
-                ChangeTransitionEvaluationService lifecycle = new ChangeTransitionEvaluationService(
-                        snapshots, content, requirements, traceability);
-                QualityReportService quality = new QualityReportService(
-                        snapshots,
-                        new RequirementQualityService(snapshots, requirements, traceability),
-                        new TaskQualityService(snapshots, content, requirements, traceability),
-                        new AcceptanceQualityService(snapshots, content),
-                        new ChangeCompletenessService(snapshots, content, requirements, traceability),
-                        new DecisionReferenceQualityService(
-                                snapshots, content, requirements, traceability, externalReferences));
-                registry = new PolicyPackService(policies);
-                evaluation = new PolicyEvaluationService(
-                        policies, new DefaultPolicyFactResolver(constraints, lifecycle, quality, queries));
+                PolicyRuntimeServices services = PolicyRuntimeServices.from(
+                        snapshots, requirements, content, traceability, externalReferences, portfolios, policies);
+                registry = services.registry();
+                evaluation = services.evaluation();
 
                 owned.transferred();
             }
