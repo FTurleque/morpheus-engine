@@ -145,11 +145,13 @@ PY
   if "$LAUNCHER" --data-dir "$DATA" api --host 0.0.0.0 --port 18765 >"$OUTPUT/local-nonloopback.stdout" 2>"$OUTPUT/local-nonloopback.stderr"; then
     echo 'Local non-loopback API unexpectedly started' >&2; exit 1
   fi
-  grep -Eq 'requires explicit.*api --remote' "$OUTPUT/local-nonloopback.stderr" || { cat "$OUTPUT/local-nonloopback.stderr" >&2; exit 1; }
+  # Collapse whitespace before matching: a diagnostic can reach the log wrapped, and what is asserted is the
+  # message rather than how a terminal rendered it. The wording is LoopbackHostPolicy's, not an older one.
+  tr -s '[:space:]' ' ' < "$OUTPUT/local-nonloopback.stderr"     | grep -Eq 'non-loopback API bind requires explicit remote mode'     || { cat "$OUTPUT/local-nonloopback.stderr" >&2; exit 1; }
   if "$LAUNCHER" --data-dir "$DATA" api --remote --host 127.0.0.1 --port 18766 >"$OUTPUT/remote-missing-tls.stdout" 2>"$OUTPUT/remote-missing-tls.stderr"; then
     echo 'Remote API without TLS unexpectedly started' >&2; exit 1
   fi
-  grep -Eq 'requires --tls-keystore|TLS keystore' "$OUTPUT/remote-missing-tls.stderr" || { cat "$OUTPUT/remote-missing-tls.stderr" >&2; exit 1; }
+  tr -s '[:space:]' ' ' < "$OUTPUT/remote-missing-tls.stderr"     | grep -Eq 'requires --tls-keystore|TLS keystore'     || { cat "$OUTPUT/remote-missing-tls.stderr" >&2; exit 1; }
   printf '%s\n' 'Local-first bind boundary + remote fail-closed startup: PASS'
 fi
 

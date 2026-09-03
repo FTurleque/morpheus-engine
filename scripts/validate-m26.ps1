@@ -53,7 +53,10 @@ function Invoke-ExpectedFailure([string]$Launcher, [string[]]$Arguments, [string
     }
     if ($exitCode -eq 0) { throw "$Name unexpectedly succeeded" }
     $diagnostic = if (Test-Path $stderr) { Get-Content -LiteralPath $stderr -Raw } else { '' }
-    if ($diagnostic -notmatch $ExpectedPattern) { throw "$Name diagnostic mismatch: $diagnostic" }
+    # The console renders a native command's stderr wrapped at the window width, so a long diagnostic arrives
+    # split across lines. Collapsing whitespace keeps the expectation about the message, not the terminal.
+    $normalized = ($diagnostic -replace '\\s+', ' ').Trim()
+    if ($normalized -notmatch $ExpectedPattern) { throw "$Name diagnostic mismatch: $diagnostic" }
 }
 
 function Assert-PackagedM26([string]$Launcher) {
@@ -91,7 +94,7 @@ function Assert-PackagedM26([string]$Launcher) {
         if (-not $restored.integrityOk -or [int]$restored.schemaVersion -ne 17) { throw "M26 offline restore mismatch: $restoredJson" }
         Write-Host 'SQLite backup + verify + explicit offline restore: PASS'
 
-        Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'api', '--host', '0.0.0.0', '--port', '18765') 'requires explicit.*api --remote' 'local-nonloopback'
+        Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'api', '--host', '0.0.0.0', '--port', '18765') 'non-loopback API bind requires explicit remote mode' 'local-nonloopback'
         Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'api', '--remote', '--host', '127.0.0.1', '--port', '18766') 'requires --tls-keystore|TLS keystore' 'remote-missing-tls'
         Write-Host 'Local-first bind boundary + remote fail-closed startup: PASS'
     } finally {
