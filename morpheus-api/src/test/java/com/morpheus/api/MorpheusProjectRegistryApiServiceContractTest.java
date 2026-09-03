@@ -1,11 +1,13 @@
 package com.morpheus.api;
 
 import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.domain.source.SourceLocator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -79,6 +81,46 @@ class MorpheusProjectRegistryApiServiceContractTest {
                 IllegalArgumentException.class,
                 () -> confined.registerProject(outside.toString()));
         assertTrue(denied.getMessage().contains("outside the server-configured allowed roots"));
+    }
+
+    /**
+     * The HTTP surface names a workspace; it never locates one.
+     *
+     * <p>A workspace registered at a filesystem root has no last segment, and the projection used to fall back
+     * to the locator itself for exactly those cases -- handing a remote READ caller the absolute pathname the
+     * whole projection exists to withhold. The fallback names the shape instead.</p>
+     */
+    @Test
+    void aWorkspaceAtAFilesystemRootIsNamedWithoutBeingLocated() throws Exception {
+        Path database = tempDirectory.resolve("roots.db");
+        MorpheusProjectRegistryApiService service = new MorpheusProjectRegistryApiService(database, Optional.empty());
+
+        Map<String, String> expected = new LinkedHashMap<>();
+        expected.put("/", MorpheusProjectRegistryApiService.FILESYSTEM_ROOT_WORKSPACE_NAME);
+        expected.put("C:\\", MorpheusProjectRegistryApiService.FILESYSTEM_ROOT_WORKSPACE_NAME);
+        expected.put("C:/", MorpheusProjectRegistryApiService.FILESYSTEM_ROOT_WORKSPACE_NAME);
+        expected.put("//", MorpheusProjectRegistryApiService.FILESYSTEM_ROOT_WORKSPACE_NAME);
+        expected.put("/srv/morpheus/private/classified/", "classified");
+        expected.put("/srv/morpheus/private/classified", "classified");
+        expected.put("C:\\secret\\workspace\\classified", "classified");
+        // A two-character last segment that is not a drive, and a colon that is not preceded by a
+        // drive letter: neither locates a volume, so both stay names.
+        expected.put("/srv/morpheus/ab", "ab");
+        expected.put("/srv/morpheus/1:", "1:");
+
+        for (Map.Entry<String, String> entry : expected.entrySet()) {
+            String projected = service.workspaceName(new SourceLocator("file", entry.getKey()));
+            assertEquals(entry.getValue(), projected,
+                    () -> "unexpected workspace name for locator " + entry.getKey());
+            assertFalse(projected.contains("/") || projected.contains("\\"),
+                    () -> "the workspace name still locates the workspace: " + projected);
+        }
+
+        // A scheme that locates nothing is still relayed as it is; one that locates something never is.
+        assertEquals("openspec", service.workspaceName(new SourceLocator("synthetic", "openspec")));
+        assertEquals("synthetic",
+                service.workspaceName(new SourceLocator("synthetic", "/srv/morpheus/private/spec")));
+        assertTrue(Files.notExists(database), "naming a workspace must not open the store");
     }
 
     /**

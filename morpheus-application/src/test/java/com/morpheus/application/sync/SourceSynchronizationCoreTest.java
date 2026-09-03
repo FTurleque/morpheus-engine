@@ -181,7 +181,10 @@ class SourceSynchronizationCoreTest {
 
         FakeSyncStateStore incompleteStore = seededStore(baseline);
         SyncPlan incomplete = new IncrementalSyncService(incompleteStore).prepare(
-                SourceInventoryScanResult.incomplete(projectId, List.of(new SourceInventoryScanResult.Failure(Optional.empty(), "denied"))),
+                SourceInventoryScanResult.incomplete(projectId, List.of(new SourceInventoryScanResult.Failure(
+                        Optional.empty(),
+                        SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
+                        "denied"))),
                 SyncPlan.Trigger.manual(), T0.plusSeconds(2));
         assertEquals(SyncPlan.FullRebuildReason.SCAN_INCOMPLETE, incomplete.fullRebuildReason().orElseThrow());
 

@@ -60,11 +60,14 @@ final class SqliteDatabaseSecurity {
             return guarded;
         } finally {
             if (!success) {
-                try {
-                    if (connection != null) connection.close();
-                } finally {
-                    lease.close();
+                // The same rule the guarded connection follows: the lease is what keeps offline maintenance out
+                // while a physical handle may be held, so it is released only once a close has proven the handle
+                // is gone. A finally block released it whatever the close did, and it also let the close failure
+                // disappear behind the release. Unwinding an acquisition is no reason to relax either.
+                if (connection != null) {
+                    connection.close();
                 }
+                lease.close();
             }
         }
     }

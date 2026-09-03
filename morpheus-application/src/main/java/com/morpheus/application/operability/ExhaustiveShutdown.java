@@ -53,11 +53,18 @@ public final class ExhaustiveShutdown {
         }
     }
 
+    /**
+     * Two releases can rethrow the same instance -- a shared sentinel, or one resource delegating to another.
+     * {@link Throwable#addSuppressed} rejects that with an {@link IllegalArgumentException}, which would escape
+     * the loop and leave every remaining resource unreleased: the one failure this class exists to prevent.
+     */
     private static Throwable keepFirst(Throwable primary, Throwable failure) {
         if (primary == null) {
             return failure;
         }
-        primary.addSuppressed(failure);
+        if (primary != failure) {
+            primary.addSuppressed(failure);
+        }
         return primary;
     }
 }

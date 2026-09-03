@@ -195,9 +195,9 @@ public final class MorpheusHttpServer implements AutoCloseable {
             }
             send(exchange, failure.status(), error(failure.code(), failure.getMessage(), failure.details()));
         } catch (IllegalArgumentException failure) {
-            send(exchange, 400, error("BAD_REQUEST", safeMessage(failure), Map.of()));
+            send(exchange, 400, error("BAD_REQUEST", BoundaryFailureMessage.safe(failure), Map.of()));
         } catch (KnowledgeStoreException | PublishedHistoryException | IllegalStateException failure) {
-            send(exchange, 409, error("STATE_CONFLICT", safeMessage(failure), Map.of()));
+            send(exchange, 409, error("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of()));
         } catch (RuntimeException failure) {
             send(exchange, 500, error("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of()));
         } finally {
@@ -268,10 +268,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
     }
 
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 
     public record ApiSuccess(String apiVersion, Object data) {
         public ApiSuccess {

@@ -55,7 +55,10 @@ final class MorpheusProjectSyncApiService {
             SyncPlan plan = syncService.prepare(scan, SyncPlan.Trigger.manual().forced(), attemptedAt);
             if (!scan.complete()) {
                 syncService.fail(plan, Instant.now());
-                throw ApiFailure.conflict("source scan is incomplete: " + scan.failures());
+                // The public projection, never scan.failures(): a scan failure carries the pathname the
+                // platform put in it, and this route is reachable remotely by a WRITE caller who supplied
+                // none of the server's layout.
+                throw ApiFailure.conflict("source scan is incomplete: " + scan.publicFailures());
             }
 
             try {

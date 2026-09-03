@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryBudgets;
@@ -258,15 +259,21 @@ public final class MorpheusQueryApiService {
                 openedContent = new SqliteSnapshotBusinessContentStore(databasePath);
                 openedPortfolios = new SqlitePortfolioStore(databasePath);
                 openedSaved = new SqliteSavedViewStore(databasePath);
-            } catch (RuntimeException failure) {
-                RuntimeException cleanup = null;
-                cleanup = closeResource(openedSaved, cleanup);
-                cleanup = closeResource(openedPortfolios, cleanup);
-                cleanup = closeResource(openedContent, cleanup);
-                cleanup = closeResource(openedRequirements, cleanup);
-                cleanup = closeResource(openedSnapshots, cleanup);
-                cleanup = closeResource(sqliteScope, cleanup);
-                if (cleanup != null) failure.addSuppressed(cleanup);
+            } catch (RuntimeException | Error failure) {
+                // An Error raised while a store class initializes used to skip this rollback entirely, leaving
+                // every store opened before it -- and the scope's connection -- behind.
+                try {
+                    ExhaustiveShutdown.releaseAll(
+                            "cannot close query runtime resource",
+                            openedSaved,
+                            openedPortfolios,
+                            openedContent,
+                            openedRequirements,
+                            openedSnapshots,
+                            sqliteScope);
+                } catch (RuntimeException | Error cleanup) {
+                    if (failure != cleanup) failure.addSuppressed(cleanup);
+                }
                 throw failure;
             }
             snapshots = openedSnapshots;
@@ -281,35 +288,15 @@ public final class MorpheusQueryApiService {
 
         @Override
         public void close() {
-            RuntimeException failure = null;
-            failure = closeResource(saved, failure);
-            failure = closeResource(portfolios, failure);
-            failure = closeResource(content, failure);
-            failure = closeResource(requirements, failure);
-            failure = closeResource(snapshots, failure);
-            failure = closeResource(sqliteScope, failure);
-            if (failure != null) throw failure;
+            ExhaustiveShutdown.releaseAll(
+                    "cannot close query runtime resource",
+                    saved,
+                    portfolios,
+                    content,
+                    requirements,
+                    snapshots,
+                    sqliteScope);
         }
 
-        private static RuntimeException closeResource(AutoCloseable closeable, RuntimeException previous) {
-            if (closeable == null) return previous;
-            try {
-                closeable.close();
-                return previous;
-            } catch (RuntimeException failure) {
-                if (previous != null) {
-                    previous.addSuppressed(failure);
-                    return previous;
-                }
-                return failure;
-            } catch (Exception failure) {
-                RuntimeException wrapped = new IllegalStateException("cannot close query runtime resource", failure);
-                if (previous != null) {
-                    previous.addSuppressed(wrapped);
-                    return previous;
-                }
-                return wrapped;
-            }
-        }
     }
 }

@@ -244,7 +244,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             }
             responses.sendError(exchange, failure.status, failure.code, failure.getMessage());
         } catch (IllegalArgumentException failure) {
-            responses.sendError(exchange, 400, "BAD_REQUEST", safeMessage(failure));
+            responses.sendError(exchange, 400, "BAD_REQUEST", BoundaryFailureMessage.safe(failure));
         } catch (RuntimeException failure) {
             responses.sendError(exchange, 500, "INTERNAL_ERROR", "internal MORPHEUS remote server error");
         } finally {
@@ -391,10 +391,6 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         return host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 
     private static final class RemoteFailure extends RuntimeException {
         private final int status;
