@@ -201,8 +201,15 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                     closing = true;
                     inboundSink.tryEmitComplete();
                     outboundSink.tryEmitComplete();
-                    shutdownProcess();
-                    disposeSchedulers();
+                    // Stopping the peer walks its process tree and reads its exit status, both of which can
+                    // fail. The four schedulers are this transport's own threads, one set per configured peer,
+                    // and they were disposed after that walk -- so a failure there left them running for the
+                    // rest of the process. Disposal is driven by leaving the block, not by it succeeding.
+                    try {
+                        shutdownProcess();
+                    } finally {
+                        disposeSchedulers();
+                    }
                 })
                 .subscribeOn(Schedulers.boundedElastic())
                 .then();

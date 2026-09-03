@@ -103,6 +103,7 @@ printf '%s\n' "Creating self-contained Linux app-image with embedded runtime + j
   --main-class com.morpheus.cli.MorpheusMain \
   --add-modules jdk.httpserver,java.sql,java.net.http \
   --java-options "--enable-native-access=ALL-UNNAMED -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8" \
+  --jlink-options "--strip-debug --no-man-pages --no-header-files" \
   --dest "$IMAGE_ROOT"
 
 LAUNCHER="$IMAGE_ROOT/morpheus/bin/morpheus"
@@ -110,6 +111,20 @@ if [[ ! -x "$LAUNCHER" ]]; then
   echo "Packaged launcher not found: $LAUNCHER" >&2
   exit 1
 fi
+
+# The isolated provider probe starts its child from the MORPHEUS runtime alone -- java.home/bin/java -- and never
+# from PATH, so the distribution has to carry that launcher. jpackage's default jlink options include
+# --strip-native-commands, which removed it: discovery worked in the packaged build while the probe could not run
+# at all. The options above are those defaults minus that one, so nothing else about the runtime changes. The
+# launcher is located rather than assumed, because the runtime directory sits at a different depth per platform.
+RUNTIME_JAVA="$(find "$IMAGE_ROOT/morpheus" -type f -name java -perm -u+x -print -quit 2>/dev/null || true)"
+if [[ -z "$RUNTIME_JAVA" ]]; then
+  echo "Embedded runtime is missing the Java launcher the isolated provider probe starts" >&2
+  find "$IMAGE_ROOT/morpheus" -maxdepth 3 -type d >&2
+  exit 1
+fi
+printf '%s
+' "Embedded runtime child Java launcher: PASS ($RUNTIME_JAVA)"
 
 INTEGRATION_SOURCE="$REPO/integration"
 INTEGRATION_TARGET="$IMAGE_ROOT/morpheus/integration"
@@ -174,13 +189,16 @@ with socket.socket() as sock:
     print(sock.getsockname()[1])
 PY
 )"
-  api_data="$work_directory/api-smoke-data"
+  # Keep proof logs in the build work directory, but let MORPHEUS itself create and harden a fresh data
+  # directory under the user's temp root -- the Windows smoke already does this. Pre-creating it under the
+  # repository preserves inherited permissions and never exercises the owner-controlled storage creation path.
+  api_data_root="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-portable-api-XXXXXXXXXX")"
+  api_data="$api_data_root/data"
   stdout="$work_directory/api-smoke.stdout.log"
   stderr="$work_directory/api-smoke.stderr.log"
-  mkdir -p "$api_data"
   "$launcher" --data-dir "$api_data" api --host 127.0.0.1 --port "$port" >"$stdout" 2>"$stderr" &
   api_pid=$!
-  trap 'kill "$api_pid" >/dev/null 2>&1 || true; wait "$api_pid" >/dev/null 2>&1 || true' EXIT
+  trap 'kill "$api_pid" >/dev/null 2>&1 || true; wait "$api_pid" >/dev/null 2>&1 || true; rm -rf "$api_data_root"' EXIT
   ready=false
   for _ in $(seq 1 40); do
     if ! kill -0 "$api_pid" >/dev/null 2>&1; then

@@ -141,7 +141,16 @@ assert payload['compatibleCount'] == 1, payload
 assert payload['candidates'][0]['status'] == 'COMPATIBLE', payload
 PY
 
-  PROBE="$($LAUNCHER --json provider-plugins probe --directory "$PLUGIN_DIR" --plugin reference-provider-plugin --workspace "$WORKSPACE")"
+  # Activation is fail-closed on a trusted SHA-256 pin, so the probe has to present one. This check was
+  # written before that requirement and kept calling the probe without it, which the CLI refuses outright.
+  PIN="$(morpheus_python - "$PLUGIN_DIR/reference-provider.jar" <<'PY'
+import hashlib
+import pathlib
+import sys
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+PY
+)"
+  PROBE="$($LAUNCHER --json provider-plugins probe --directory "$PLUGIN_DIR" --plugin reference-provider-plugin --workspace "$WORKSPACE" --sha256 "$PIN")"
   morpheus_python - "$PROBE" <<'PY'
 import json
 import sys
@@ -158,11 +167,18 @@ with socket.socket() as sock:
     print(sock.getsockname()[1])
 PY
 )"
-  API_DATA="$OUTPUT/api-data"
-  mkdir -p "$API_DATA"
+  # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+  # here inherits the permissions of whatever it sits under, and the real owner-controlled storage path is
+  # never exercised. Under the repository that inheritance is what the hardener refuses, which made a packaged
+  # product gate depend on the permissions of a development checkout. mktemp gives an owner-only parent; the
+  # data directory itself is only named here and is created by the launcher.
+  API_DATA_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-m22-api-XXXXXXXXXX")"
+  API_DATA="$API_DATA_ROOT/data"
   "$LAUNCHER" --data-dir "$API_DATA" api --host 127.0.0.1 --port "$PORT" >"$OUTPUT/api.stdout.log" 2>"$OUTPUT/api.stderr.log" &
   API_PID=$!
-  cleanup_api() { kill "$API_PID" >/dev/null 2>&1 || true; wait "$API_PID" >/dev/null 2>&1 || true; }
+  # Removing the temp root here rather than from a trap of its own: the trap below replaces any
+  # earlier EXIT handler, so a separate one would simply never run.
+  cleanup_api() { kill "$API_PID" >/dev/null 2>&1 || true; wait "$API_PID" >/dev/null 2>&1 || true; rm -rf "$API_DATA_ROOT"; }
   trap cleanup_api EXIT
   API_OK=false
   for _ in $(seq 1 60); do

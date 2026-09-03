@@ -42,7 +42,7 @@ services application/domain
 Provider SDK + providers
 store SQLite + migrations V001→V015
 Jackson
-runtime Java minimal
+runtime Java minimal, avec son bin/java (probe isolé de plugin, ADR-0098)
 integration/configure-mcp-clients.ps1
 integration/configure-mcp-clients-setup.ps1
 integration/README.md
@@ -150,10 +150,10 @@ bash ./scripts/validate-m21.sh 1.2.1
 Ratchets :
 
 ```text
-Surefire total       >= 1000
-architecture         >= 300
-line coverage        >= 52.0%
-branch coverage      >= 45.0%
+Surefire total       >= 1150
+architecture         >= 310
+line coverage        >= 54.0%
+branch coverage      >= 47.0%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```

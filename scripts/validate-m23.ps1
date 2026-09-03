@@ -54,9 +54,11 @@ function Get-FirstUuid([string]$Text) {
 }
 
 function Assert-PackagedPortfolio([string]$Launcher) {
-    $data = Join-Path $outputRoot 'portfolio-data'
-    Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force -Path $data | Out-Null
+    # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+    # here inherits the ACLs of whatever it sits under, and the real owner-controlled storage path is never
+    # exercised. Under the repository that inheritance is what the hardener refuses, which made a packaged
+    # product gate depend on the permissions of a development checkout.
+    $data = Join-Path ([IO.Path]::GetTempPath()) ('morpheus-m23-portfolio-' + [Guid]::NewGuid().ToString('N'))
 
     $createdText = (& $Launcher --data-dir $data --json portfolio create --name 'M23 Gate Portfolio') -join "`n"
     if ($LASTEXITCODE -ne 0) { throw "Packaged portfolio create failed: $createdText" }
@@ -95,6 +97,8 @@ function Assert-PackagedPortfolio([string]$Launcher) {
         }
         throw 'Packaged API M23 portfolio check timed out'
     } finally {
+        # Best effort, and deliberately not allowed to replace whatever failure is already unwinding.
+        Remove-Item -LiteralPath $data -Recurse -Force -ErrorAction SilentlyContinue
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
         try { $process.WaitForExit(5000) | Out-Null } catch { }
     }

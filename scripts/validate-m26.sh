@@ -96,8 +96,15 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   [[ "$HELP" == *'Team / remote server (M26, opt-in)'* ]] || { echo 'Packaged M26 CLI help smoke failed' >&2; exit 1; }
   printf '%s\n' 'M26 TLS/auth/server/maintenance classes + CLI help packaging proof: PASS'
 
-  DATA="$OUTPUT/server-data"
-  rm -rf "$DATA" && mkdir -p "$DATA"
+  # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+  # here inherits the permissions of whatever it sits under, and the real owner-controlled storage path is never
+  # exercised. Under the repository that inheritance is precisely what the hardener refuses, which made a
+  # packaged product gate depend on the permissions of a development checkout. mktemp gives an owner-only parent;
+  # the data directory itself is only named here and is created by the launcher below.
+  DATA_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-m26-XXXXXXXXXX")"
+  # Best effort, and deliberately not allowed to replace whatever failure is already unwinding.
+  trap 'rm -rf "$DATA_ROOT"' EXIT
+  DATA="$DATA_ROOT/server-data"
   IDENTITY="$($LAUNCHER --data-dir "$DATA" --json server identity create --principal gate-admin --role ADMIN)"
   read -r TOKEN TOKEN_PERSISTENCE < <(morpheus_python - "$IDENTITY" <<'PY'
 import json,sys
@@ -138,11 +145,13 @@ PY
   if "$LAUNCHER" --data-dir "$DATA" api --host 0.0.0.0 --port 18765 >"$OUTPUT/local-nonloopback.stdout" 2>"$OUTPUT/local-nonloopback.stderr"; then
     echo 'Local non-loopback API unexpectedly started' >&2; exit 1
   fi
-  grep -Eq 'requires explicit.*api --remote' "$OUTPUT/local-nonloopback.stderr" || { cat "$OUTPUT/local-nonloopback.stderr" >&2; exit 1; }
+  # Collapse whitespace before matching: a diagnostic can reach the log wrapped, and what is asserted is the
+  # message rather than how a terminal rendered it. The wording is LoopbackHostPolicy's, not an older one.
+  tr -s '[:space:]' ' ' < "$OUTPUT/local-nonloopback.stderr"     | grep -Eq 'non-loopback API bind requires explicit remote mode'     || { cat "$OUTPUT/local-nonloopback.stderr" >&2; exit 1; }
   if "$LAUNCHER" --data-dir "$DATA" api --remote --host 127.0.0.1 --port 18766 >"$OUTPUT/remote-missing-tls.stdout" 2>"$OUTPUT/remote-missing-tls.stderr"; then
     echo 'Remote API without TLS unexpectedly started' >&2; exit 1
   fi
-  grep -Eq 'requires --tls-keystore|TLS keystore' "$OUTPUT/remote-missing-tls.stderr" || { cat "$OUTPUT/remote-missing-tls.stderr" >&2; exit 1; }
+  tr -s '[:space:]' ' ' < "$OUTPUT/remote-missing-tls.stderr"     | grep -Eq 'requires --tls-keystore|TLS keystore'     || { cat "$OUTPUT/remote-missing-tls.stderr" >&2; exit 1; }
   printf '%s\n' 'Local-first bind boundary + remote fail-closed startup: PASS'
 fi
 

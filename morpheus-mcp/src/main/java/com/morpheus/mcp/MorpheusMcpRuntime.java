@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
 import com.morpheus.store.sqlite.SqliteExternalReferenceStore;
@@ -66,36 +67,15 @@ final class MorpheusMcpRuntime implements AutoCloseable {
 
     @Override
     public void close() {
-        RuntimeException failure = null;
-        failure = close(lifecycleMutations, failure);
-        failure = close(syncState, failure);
-        failure = close(externalReferences, failure);
-        failure = close(traceability, failure);
-        failure = close(content, failure);
-        failure = close(requirements, failure);
-        failure = close(snapshots, failure);
-        if (failure != null) {
-            throw failure;
-        }
+        ExhaustiveShutdown.releaseAll(
+                "cannot close MCP runtime resource",
+                lifecycleMutations,
+                syncState,
+                externalReferences,
+                traceability,
+                content,
+                requirements,
+                snapshots);
     }
 
-    private RuntimeException close(AutoCloseable closeable, RuntimeException previous) {
-        try {
-            closeable.close();
-            return previous;
-        } catch (RuntimeException exception) {
-            if (previous != null) {
-                previous.addSuppressed(exception);
-                return previous;
-            }
-            return exception;
-        } catch (Exception exception) {
-            RuntimeException wrapped = new IllegalStateException("cannot close MCP runtime resource", exception);
-            if (previous != null) {
-                previous.addSuppressed(wrapped);
-                return previous;
-            }
-            return wrapped;
-        }
-    }
 }

@@ -316,8 +316,17 @@ final class SyntheticJsonParser {
         }
     }
 
+    /**
+     * RFC 8259 allows exactly four characters between tokens. {@link Character#isWhitespace(char)} accepts far
+     * more -- a no-break space, a line separator, a vertical tab -- so using it made this parser accept
+     * documents no conforming JSON reader would, which is the opposite of what a strict grammar is for.
+     */
+    private static boolean isJsonWhitespace(char candidate) {
+        return candidate == ' ' || candidate == '\t' || candidate == '\n' || candidate == '\r';
+    }
+
     private void skipWhitespace() {
-        while (index < input.length() && Character.isWhitespace(input.charAt(index))) {
+        while (index < input.length() && isJsonWhitespace(input.charAt(index))) {
             index++;
         }
     }

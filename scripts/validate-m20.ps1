@@ -12,7 +12,10 @@ Set-Location $repo
 $outputRoot = Join-Path $repo 'validation-output\m20'
 $logRoot = Join-Path $outputRoot 'logs'
 $installRoot = Join-Path $outputRoot 'installed\MORPHEUS'
-$validationLocalAppData = Join-Path $outputRoot 'localappdata'
+# The installed launcher resolves its PROD data/config/logs from LOCALAPPDATA, and MORPHEUS hardens what it
+# creates there. Pointing it inside the repository made that hardening inspect the checkout's inherited
+# ACLs, so the PROD-path proof depended on the permissions of a development directory.
+$validationLocalAppData = Join-Path ([IO.Path]::GetTempPath()) ('morpheus-m20-localappdata-' + [Guid]::NewGuid().ToString('N'))
 $stateRoot = Join-Path $validationLocalAppData 'MORPHEUS'
 $sentinel = Join-Path $stateRoot 'config\m20-upgrade-preservation.txt'
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
@@ -217,10 +220,13 @@ function Get-FreeLoopbackPort {
 
 function Test-InstalledApi([string]$Launcher) {
     $port = Get-FreeLoopbackPort
-    $apiData = Join-Path $outputRoot 'api-data'
+    # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+    # here inherits the ACLs of whatever it sits under, and the real owner-controlled storage path is never
+    # exercised. Under the repository that inheritance is what the hardener refuses, which made a packaged
+    # product gate depend on the permissions of a development checkout.
+    $apiData = Join-Path ([IO.Path]::GetTempPath()) ('morpheus-m20-api-' + [Guid]::NewGuid().ToString('N'))
     $stdout = Join-Path $logRoot 'installed-api.stdout.log'
     $stderr = Join-Path $logRoot 'installed-api.stderr.log'
-    New-Item -ItemType Directory -Force -Path $apiData | Out-Null
     $process = Start-Process -FilePath $Launcher `
         -ArgumentList @('--data-dir', $apiData, 'api', '--host', '127.0.0.1', '--port', "$port") `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
@@ -239,6 +245,8 @@ function Test-InstalledApi([string]$Launcher) {
         }
         throw 'Installed API health/readiness/metrics timed out'
     } finally {
+        # Best effort, and deliberately not allowed to replace whatever failure is already unwinding.
+        Remove-Item -LiteralPath $apiData -Recurse -Force -ErrorAction SilentlyContinue
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
         try { $process.WaitForExit(5000) | Out-Null } catch { }
     }
@@ -306,7 +314,10 @@ try {
 
     Assert-Tool 'java'
     $mvnw = Join-Path $repo 'mvnw.cmd'
-    Invoke-LoggedStage -Name 'Full Maven reactor' -FilePath $mvnw -Arguments @('clean', 'test') -LogName '01-full-reactor.log'
+    # verify, not test: the architecture suite this reactor runs reads the JaCoCo reports and the packaged
+    # morpheus-provider-reference JAR, and neither exists after `clean test`. The coverage gate and the
+    # provider-plugin contract failed here for that reason alone. Every other validator uses verify.
+    Invoke-LoggedStage -Name 'Full Maven reactor' -FilePath $mvnw -Arguments @('clean', 'verify') -LogName '01-full-reactor.log'
     $script:FullTestSummary = Get-SurefireTotals $repo
     $script:ArchitectureTestSummary = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
     if ($script:FullTestSummary.Failures -ne 0 -or $script:FullTestSummary.Errors -ne 0 -or $script:FullTestSummary.Skipped -ne 0) {

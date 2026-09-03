@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.policy.DefaultPolicyFactResolver;
 import com.morpheus.application.policy.PolicyBudgets;
@@ -265,13 +266,15 @@ public final class MorpheusPolicyApiService {
 
         @Override
         public void close() {
-            policies.close();
-            portfolios.close();
-            externalReferences.close();
-            traceability.close();
-            content.close();
-            requirements.close();
-            snapshots.close();
+            ExhaustiveShutdown.releaseAll(
+                    "cannot close the policy API runtime",
+                    policies,
+                    portfolios,
+                    externalReferences,
+                    traceability,
+                    content,
+                    requirements,
+                    snapshots);
         }
     }
 }

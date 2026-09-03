@@ -60,9 +60,11 @@ function Invoke-LauncherText([string]$Launcher, [string[]]$Arguments) {
 }
 
 function Assert-PackagedM24([string]$Launcher) {
-    $data = Join-Path $outputRoot 'query-data'
-    Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force -Path $data | Out-Null
+    # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+    # here inherits the ACLs of whatever it sits under, and the real owner-controlled storage path is never
+    # exercised. Under the repository that inheritance is what the hardener refuses, which made a packaged
+    # product gate depend on the permissions of a development checkout.
+    $data = Join-Path ([IO.Path]::GetTempPath()) ('morpheus-m24-query-' + [Guid]::NewGuid().ToString('N'))
     $projectId = '01890f7a-36d4-7c1e-8000-000000000071'
 
     $queryText = Invoke-LauncherText $Launcher @(
@@ -157,6 +159,8 @@ function Assert-PackagedM24([string]$Launcher) {
         }
         if (-not $apiOk) { throw 'Packaged API M24 query/saved-view check timed out' }
     } finally {
+        # Best effort, and deliberately not allowed to replace whatever failure is already unwinding.
+        Remove-Item -LiteralPath $data -Recurse -Force -ErrorAction SilentlyContinue
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
         try { $process.WaitForExit(5000) | Out-Null } catch { }
     }

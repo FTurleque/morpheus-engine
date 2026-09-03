@@ -56,6 +56,72 @@ class PartialRuntimeOwnershipContractTest {
                 "an unregistered TLS server cannot be stopped when startup fails after the bind");
     }
 
+    /**
+     * Ownership must start before the first acquisition, not after it. The remote bootstrap took the exclusive
+     * server lease and generated the internal capability above the try, so a failure in between held the
+     * database for the rest of the process with nothing left able to release it.
+     */
+    @Test
+    void theRemoteBootstrapEntersOwnershipBeforeItTakesTheExclusiveServerLease() throws IOException {
+        String bootstrap = Files.readString(repositoryRoot().resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.java"));
+
+        int ownership = bootstrap.indexOf("try (StartupOwnership owned = new StartupOwnership())");
+        int acquisition = bootstrap.indexOf("maintenance.acquireServerLease(databasePath)");
+        assertTrue(ownership >= 0 && acquisition > ownership,
+                "the server lease must be acquired inside the block that can release it");
+        assertFalse(bootstrap.contains("ServerLease lease = maintenance.acquireServerLease("),
+                "an acquisition that is not registered as it happens leaves a window with no owner");
+    }
+
+    /**
+     * The teardown side of the same invariant. A shutdown written as a bare sequence of close calls stops at the
+     * first failure, and what it skips is everything after it -- including, for the remote facade, the exclusive
+     * lease it releases last.
+     */
+    @Test
+    void shutdownPathsThatOwnSeveralResourcesReleaseEveryOneOfThem() throws IOException {
+        Path root = repositoryRoot();
+        assertTrue(
+                Files.isRegularFile(root.resolve(
+                        "morpheus-application/src/main/java/com/morpheus/application/operability/ExhaustiveShutdown.java")),
+                "the shared exhaustive-shutdown primitive must exist");
+
+        List<String> owners = List.of(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java",
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java",
+                "morpheus-api/src/main/java/com/morpheus/api/ApiRuntime.java",
+                "morpheus-cli/src/main/java/com/morpheus/cli/CliRuntime.java",
+                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusMcpRuntime.java");
+
+        for (String owner : owners) {
+            String content = Files.readString(root.resolve(owner));
+            assertTrue(content.contains("ExhaustiveShutdown.releaseAll("),
+                    () -> owner + " must release every resource it owns, not stop at the first failure");
+        }
+
+        String remote = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        assertFalse(remote.contains("localServer.close();"),
+                "a bare close call leaves the exclusive lease held when an earlier release fails");
+    }
+
+    /**
+     * The MCP transport owns four single-thread schedulers per configured peer and cannot reach the shared
+     * shutdown primitive: morpheus-mcp-transport deliberately depends on neither domain nor application. It
+     * disposed them after stopping the peer process, and stopping a peer walks its process tree and reads its
+     * exit status -- so a failure there left one set of threads running per peer for the rest of the process.
+     */
+    @Test
+    void theMcpClientTransportDisposesItsSchedulersEvenWhenStoppingThePeerFails() throws IOException {
+        String transport = Files.readString(repositoryRoot().resolve(
+                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
+
+        String statements = transport.replaceAll("\\s+", " ");
+        assertTrue(statements.contains("try { shutdownProcess(); } finally { disposeSchedulers(); }"),
+                "scheduler disposal must not depend on the peer shutdown having succeeded");
+    }
+
     private static Path repositoryRoot() throws IOException {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {

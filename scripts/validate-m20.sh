@@ -8,14 +8,19 @@ REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUTPUT="$REPO/validation-output/m20-linux"
 LOGS="$OUTPUT/logs"
 EXTRACT="$OUTPUT/portable"
-XDG_DATA="$OUTPUT/xdg-data"
-XDG_CONFIG="$OUTPUT/xdg-config"
-XDG_STATE="$OUTPUT/xdg-state"
+# The launcher resolves its PROD data/config/state from the XDG roots, and MORPHEUS hardens what it creates
+# there. Pointing them inside the repository made that hardening inspect the checkout's inherited permissions,
+# so the PROD-path proof depended on the permissions of a development directory.
+XDG_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-m20-xdg-XXXXXXXXXX")"
+XDG_DATA="$XDG_ROOT/data"
+XDG_CONFIG="$XDG_ROOT/config"
+XDG_STATE="$XDG_ROOT/state"
 mkdir -p "$LOGS"
 cd "$REPO"
 
 VALIDATION_TAG=""
 cleanup() {
+  rm -rf "$XDG_ROOT"
   if [[ -n "$VALIDATION_TAG" ]]; then
     git tag -d "$VALIDATION_TAG" >/dev/null 2>&1 || true
   fi
@@ -45,7 +50,9 @@ PY
 printf 'SHA:     %s\nVersion: %s\n' "$SHA" "$VERSION"
 
 section 'Full Maven reactor'
-./mvnw clean test 2>&1 | tee "$LOGS/01-full-reactor.log"
+# verify, not test: the architecture suite this reactor runs reads the JaCoCo reports and the packaged
+# morpheus-provider-reference JAR, and neither exists after `clean test`. Every other validator uses verify.
+./mvnw clean verify 2>&1 | tee "$LOGS/01-full-reactor.log"
 
 section 'Tagged Linux release build'
 VALIDATION_TAG="m20-validation-${SHA:0:12}"

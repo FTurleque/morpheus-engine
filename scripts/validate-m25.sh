@@ -99,8 +99,13 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   [[ "$HELP" == *'Policy packs / governance automation (M25)'* ]] || { echo 'Packaged M25 CLI help smoke failed' >&2; exit 1; }
   printf '%s\n' 'M25 classes + V015 + CLI help packaging proof: PASS'
 
-  DATA="$OUTPUT/policy-data"
-  rm -rf "$DATA" && mkdir -p "$DATA"
+  # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+  # here inherits the permissions of whatever it sits under, and the real owner-controlled storage path is
+  # never exercised. Under the repository that inheritance is what the hardener refuses, which made a packaged
+  # product gate depend on the permissions of a development checkout. mktemp gives an owner-only parent; the
+  # data directory itself is only named here and is created by the launcher.
+  DATA_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-m25-policy-XXXXXXXXXX")"
+  DATA="$DATA_ROOT/data"
   PROJECT_ID='01890f7a-36d4-7c1e-8000-000000000081'
   RULE='new|No findings|QUALITY_THRESHOLD|BLOCKER|FINDINGS|LTE|0'
   CREATED="$($LAUNCHER --data-dir "$DATA" --json policy pack create --name 'M25 Gate Pack' --rules "$RULE" --actor gate --reason baseline)"
@@ -142,7 +147,9 @@ PY
 )"
   "$LAUNCHER" --data-dir "$DATA" api --host 127.0.0.1 --port "$PORT" >"$OUTPUT/api.stdout.log" 2>"$OUTPUT/api.stderr.log" &
   API_PID=$!
-  cleanup_api(){ kill "$API_PID" >/dev/null 2>&1 || true; wait "$API_PID" >/dev/null 2>&1 || true; }
+  # Removing the temp root here rather than from a trap of its own: the trap below replaces any
+  # earlier EXIT handler, so a separate one would simply never run.
+  cleanup_api(){ kill "$API_PID" >/dev/null 2>&1 || true; wait "$API_PID" >/dev/null 2>&1 || true; rm -rf "$DATA_ROOT"; }
   trap cleanup_api EXIT
   API_OK=false
   for _ in $(seq 1 60); do

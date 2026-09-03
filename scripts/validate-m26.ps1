@@ -53,44 +53,54 @@ function Invoke-ExpectedFailure([string]$Launcher, [string[]]$Arguments, [string
     }
     if ($exitCode -eq 0) { throw "$Name unexpectedly succeeded" }
     $diagnostic = if (Test-Path $stderr) { Get-Content -LiteralPath $stderr -Raw } else { '' }
-    if ($diagnostic -notmatch $ExpectedPattern) { throw "$Name diagnostic mismatch: $diagnostic" }
+    # The console renders a native command's stderr wrapped at the window width, so a long diagnostic arrives
+    # split across lines. Collapsing whitespace keeps the expectation about the message, not the terminal.
+    $normalized = ($diagnostic -replace '\\s+', ' ').Trim()
+    if ($normalized -notmatch $ExpectedPattern) { throw "$Name diagnostic mismatch: $diagnostic" }
 }
 
 function Assert-PackagedM26([string]$Launcher) {
-    $data = Join-Path $outputRoot 'server-data'
-    Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force -Path $data | Out-Null
+    # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+    # here inherits the ACLs of whatever it sits under, and the real owner-controlled storage path is never
+    # exercised. Under the repository that inheritance is precisely what the hardener refuses, which made a
+    # packaged product gate depend on the permissions of a development checkout. The portable API smoke in
+    # distribution/build-portable.ps1 already provisions its data directory this way.
+    $data = Join-Path ([IO.Path]::GetTempPath()) ('morpheus-m26-' + [Guid]::NewGuid().ToString('N'))
+    try {
+        $identityJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'identity', 'create',
+            '--principal', 'gate-admin', '--role', 'ADMIN')
+        $identity = $identityJson | ConvertFrom-Json
+        if ([string]::IsNullOrWhiteSpace([string]$identity.token)) { throw "Generated M26 bearer token missing: $identityJson" }
+        if ($identity.tokenPersistence -ne 'NOT_PERSISTED_PRINTED_ONCE') { throw "Token persistence contract mismatch: $identityJson" }
+        $authFile = Join-Path $data 'config\remote-auth.txt'
+        if (-not (Test-Path $authFile)) { throw "M26 remote auth file missing: $authFile" }
+        $authText = Get-Content -LiteralPath $authFile -Raw
+        if ($authText.Contains([string]$identity.token)) { throw 'Plaintext bearer token leaked into persisted auth file' }
+        if ($authText -notmatch 'gate-admin\|ADMIN\|[0-9a-f]{64}') { throw "Hashed auth entry missing: $authText" }
+        Write-Host 'Remote identity hash-only provisioning: PASS'
 
-    $identityJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'identity', 'create',
-        '--principal', 'gate-admin', '--role', 'ADMIN')
-    $identity = $identityJson | ConvertFrom-Json
-    if ([string]::IsNullOrWhiteSpace([string]$identity.token)) { throw "Generated M26 bearer token missing: $identityJson" }
-    if ($identity.tokenPersistence -ne 'NOT_PERSISTED_PRINTED_ONCE') { throw "Token persistence contract mismatch: $identityJson" }
-    $authFile = Join-Path $data 'config\remote-auth.txt'
-    if (-not (Test-Path $authFile)) { throw "M26 remote auth file missing: $authFile" }
-    $authText = Get-Content -LiteralPath $authFile -Raw
-    if ($authText.Contains([string]$identity.token)) { throw 'Plaintext bearer token leaked into persisted auth file' }
-    if ($authText -notmatch 'gate-admin\|ADMIN\|[0-9a-f]{64}') { throw "Hashed auth entry missing: $authText" }
-    Write-Host 'Remote identity hash-only provisioning: PASS'
+        $backupJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'backup', 'create')
+        $backup = $backupJson | ConvertFrom-Json
+        if (-not $backup.integrityOk -or [int]$backup.schemaVersion -ne 17) { throw "M26 backup contract mismatch: $backupJson" }
+        if (-not (Test-Path ([string]$backup.path))) { throw "M26 backup file missing: $($backup.path)" }
+        $verifyJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'backup', 'verify', '--file', ([string]$backup.path))
+        $verified = $verifyJson | ConvertFrom-Json
+        if (-not $verified.integrityOk -or [int]$verified.schemaVersion -ne 17 -or $verified.sha256 -ne $backup.sha256) {
+            throw "M26 backup verification mismatch: $verifyJson"
+        }
+        Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'server', 'restore', '--file', ([string]$backup.path)) '--confirm' 'restore-unconfirmed'
+        $restoredJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'restore', '--file', ([string]$backup.path), '--confirm')
+        $restored = $restoredJson | ConvertFrom-Json
+        if (-not $restored.integrityOk -or [int]$restored.schemaVersion -ne 17) { throw "M26 offline restore mismatch: $restoredJson" }
+        Write-Host 'SQLite backup + verify + explicit offline restore: PASS'
 
-    $backupJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'backup', 'create')
-    $backup = $backupJson | ConvertFrom-Json
-    if (-not $backup.integrityOk -or [int]$backup.schemaVersion -ne 17) { throw "M26 backup contract mismatch: $backupJson" }
-    if (-not (Test-Path ([string]$backup.path))) { throw "M26 backup file missing: $($backup.path)" }
-    $verifyJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'backup', 'verify', '--file', ([string]$backup.path))
-    $verified = $verifyJson | ConvertFrom-Json
-    if (-not $verified.integrityOk -or [int]$verified.schemaVersion -ne 17 -or $verified.sha256 -ne $backup.sha256) {
-        throw "M26 backup verification mismatch: $verifyJson"
+        Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'api', '--host', '0.0.0.0', '--port', '18765') 'non-loopback API bind requires explicit remote mode' 'local-nonloopback'
+        Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'api', '--remote', '--host', '127.0.0.1', '--port', '18766') 'requires --tls-keystore|TLS keystore' 'remote-missing-tls'
+        Write-Host 'Local-first bind boundary + remote fail-closed startup: PASS'
+    } finally {
+        # Best effort, and deliberately not allowed to replace whatever failure is already unwinding.
+        Remove-Item -LiteralPath $data -Recurse -Force -ErrorAction SilentlyContinue
     }
-    Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'server', 'restore', '--file', ([string]$backup.path)) '--confirm' 'restore-unconfirmed'
-    $restoredJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'restore', '--file', ([string]$backup.path), '--confirm')
-    $restored = $restoredJson | ConvertFrom-Json
-    if (-not $restored.integrityOk -or [int]$restored.schemaVersion -ne 17) { throw "M26 offline restore mismatch: $restoredJson" }
-    Write-Host 'SQLite backup + verify + explicit offline restore: PASS'
-
-    Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'api', '--host', '0.0.0.0', '--port', '18765') 'requires explicit.*api --remote' 'local-nonloopback'
-    Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'api', '--remote', '--host', '127.0.0.1', '--port', '18766') 'requires --tls-keystore|TLS keystore' 'remote-missing-tls'
-    Write-Host 'Local-first bind boundary + remote fail-closed startup: PASS'
 }
 
 Write-Host "M26 exact-head validation SHA: $validationSha"

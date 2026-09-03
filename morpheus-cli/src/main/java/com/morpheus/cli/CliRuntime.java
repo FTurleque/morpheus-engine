@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
 import com.morpheus.store.sqlite.SqliteCompositionStateStore;
@@ -55,18 +56,22 @@ final class CliRuntime implements AutoCloseable {
         } catch (RuntimeException | Error failure) {
             // An Error raised while a store class initializes used to skip this rollback entirely, leaving every
             // store opened before it -- and the scope's connection -- behind.
-            RuntimeException cleanup = null;
-            cleanup = close(openedCompositions, cleanup);
-            cleanup = close(openedLifecycleMutations, cleanup);
-            cleanup = close(openedSyncState, cleanup);
-            cleanup = close(openedIdentities, cleanup);
-            cleanup = close(openedExternalReferences, cleanup);
-            cleanup = close(openedTraceability, cleanup);
-            cleanup = close(openedContent, cleanup);
-            cleanup = close(openedRequirements, cleanup);
-            cleanup = close(openedSnapshots, cleanup);
-            cleanup = close(sqliteScope, cleanup);
-            if (cleanup != null) failure.addSuppressed(cleanup);
+            try {
+                ExhaustiveShutdown.releaseAll(
+                        "cannot close CLI runtime resource",
+                        openedCompositions,
+                        openedLifecycleMutations,
+                        openedSyncState,
+                        openedIdentities,
+                        openedExternalReferences,
+                        openedTraceability,
+                        openedContent,
+                        openedRequirements,
+                        openedSnapshots,
+                        sqliteScope);
+            } catch (RuntimeException | Error cleanup) {
+                failure.addSuppressed(cleanup);
+            }
             throw failure;
         }
         snapshots = openedSnapshots;
@@ -82,40 +87,18 @@ final class CliRuntime implements AutoCloseable {
 
     @Override
     public void close() {
-        RuntimeException failure = null;
-        failure = close(compositions, failure);
-        failure = close(lifecycleMutations, failure);
-        failure = close(syncState, failure);
-        failure = close(identities, failure);
-        failure = close(externalReferences, failure);
-        failure = close(traceability, failure);
-        failure = close(content, failure);
-        failure = close(requirements, failure);
-        failure = close(snapshots, failure);
-        failure = close(sqliteScope, failure);
-        if (failure != null) {
-            throw failure;
-        }
+        ExhaustiveShutdown.releaseAll(
+                "cannot close CLI runtime resource",
+                compositions,
+                lifecycleMutations,
+                syncState,
+                identities,
+                externalReferences,
+                traceability,
+                content,
+                requirements,
+                snapshots,
+                sqliteScope);
     }
 
-    private static RuntimeException close(AutoCloseable closeable, RuntimeException previous) {
-        if (closeable == null) return previous;
-        try {
-            closeable.close();
-            return previous;
-        } catch (RuntimeException exception) {
-            if (previous != null) {
-                previous.addSuppressed(exception);
-                return previous;
-            }
-            return exception;
-        } catch (Exception exception) {
-            RuntimeException wrapped = new IllegalStateException("cannot close CLI runtime resource", exception);
-            if (previous != null) {
-                previous.addSuppressed(wrapped);
-                return previous;
-            }
-            return wrapped;
-        }
-    }
 }

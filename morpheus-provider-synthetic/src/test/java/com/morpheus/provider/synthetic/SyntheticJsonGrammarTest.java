@@ -137,6 +137,40 @@ class SyntheticJsonGrammarTest {
         assertEquals(null, parsed.get("d"));
     }
 
+    /**
+     * RFC 8259 names four characters as whitespace between tokens. The parser skipped anything
+     * {@code Character.isWhitespace} accepted, which is a much larger set, so documents that no conforming
+     * reader would accept parsed here.
+     */
+    @Test
+    void onlyTheFourJsonWhitespaceCharactersSeparateTokens() {
+        for (String separator : List.of(" ", "\t", "\n", "\r", " \t\n\r ")) {
+            String document = "{" + separator + "\"value\"" + separator + ":" + separator + "1" + separator + "}";
+            assertEquals(1L, SyntheticJsonParser.parseObject(document).get("value"),
+                    () -> "must accept JSON whitespace between tokens");
+        }
+    }
+
+    /** Every one of these is Character.isWhitespace, and none of them is JSON whitespace. */
+    @Test
+    void unicodeSpacesThatAreNotJsonWhitespaceAreRefusedBetweenTokens() {
+        for (char separator : new char[] {0x000B, 0x000C, 0x001C, 0x001D, 0x001E, 0x001F, 0x2028, 0x2029, 0x3000}) {
+            String document = "{" + separator + "\"value\":1}";
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> SyntheticJsonParser.parseObject(document),
+                    () -> "must refuse U+" + String.format("%04X", (int) separator) + " as a token separator");
+        }
+    }
+
+    /** A no-break space is not whitespace to Java either, but it is the separator a reader reaches for first. */
+    @Test
+    void aNoBreakSpaceIsNotATokenSeparator() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> SyntheticJsonParser.parseObject("{" + (char) 0x00A0 + "\"value\":1}"));
+    }
+
     private static Object value(String jsonLiteral) {
         return SyntheticJsonParser.parseObject("{\"value\":" + jsonLiteral + "}").get("value");
     }
