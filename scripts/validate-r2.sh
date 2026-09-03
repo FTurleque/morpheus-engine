@@ -26,15 +26,18 @@ import sys
 root = pathlib.Path(sys.argv[1])
 version = sys.argv[2]
 poms = sorted(path for path in root.rglob('pom.xml') if 'target' not in path.parts)
-if len(poms) != 17:
-    raise SystemExit(f'Unexpected Maven reactor POM count: {len(poms)}, expected 17')
+# The root POM plus one per declared module. A literal here counted the reactor of the milestone that wrote
+# this check, so every module added afterwards made the gate refuse a repository that was perfectly correct.
+expected = 1 + (root / 'pom.xml').read_text(encoding='utf-8').count('<module>')
+if len(poms) != expected:
+    raise SystemExit(f'Unexpected Maven reactor POM count: {len(poms)}, expected {expected}')
 for pom in poms:
     content = pom.read_text(encoding='utf-8')
     if f'<version>{version}</version>' not in content:
         raise SystemExit(f'MORPHEUS {version} version missing from {pom.relative_to(root)}')
     if '<version>1.0.0</version>' in content:
         raise SystemExit(f'Stale MORPHEUS 1.0.0 version remains in {pom.relative_to(root)}')
-print(f'Maven reactor version: PASS ({version} across 17 POMs)')
+print(f'Maven reactor version: PASS ({version} across {expected} POMs)')
 PY
 
 MORPHEUS_M27_BASE_REF="$BASE_REF" \

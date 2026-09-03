@@ -185,7 +185,11 @@ if (-not $SkipPortable) {
         throw "Packaged external provider discovery mismatch: $discoveryText"
     }
 
-    $probeText = (& $launcher --json provider-plugins probe --directory $pluginDirectory --plugin 'reference-provider-plugin' --workspace $workspace) -join "`n"
+    # Activation is fail-closed on a trusted SHA-256 pin, so the probe has to present one. This check was
+    # written before that requirement and kept calling the probe without it, which the CLI refuses outright.
+    $stagedJar = Join-Path $pluginDirectory 'reference-provider.jar'
+    $pin = (Get-FileHash -LiteralPath $stagedJar -Algorithm SHA256).Hash.ToLowerInvariant()
+    $probeText = (& $launcher --json provider-plugins probe --directory $pluginDirectory --plugin 'reference-provider-plugin' --workspace $workspace --sha256 $pin) -join "`n"
     if ($LASTEXITCODE -ne 0) { throw "Packaged external provider probe failed: $probeText" }
     $probe = $probeText | ConvertFrom-Json
     if ([string]$probe.probe.status -ne 'SUPPORTED' -or [string]$probe.probe.providerId.value -ne 'reference-plugin') {

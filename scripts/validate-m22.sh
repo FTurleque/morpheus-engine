@@ -141,7 +141,16 @@ assert payload['compatibleCount'] == 1, payload
 assert payload['candidates'][0]['status'] == 'COMPATIBLE', payload
 PY
 
-  PROBE="$($LAUNCHER --json provider-plugins probe --directory "$PLUGIN_DIR" --plugin reference-provider-plugin --workspace "$WORKSPACE")"
+  # Activation is fail-closed on a trusted SHA-256 pin, so the probe has to present one. This check was
+  # written before that requirement and kept calling the probe without it, which the CLI refuses outright.
+  PIN="$(morpheus_python - "$PLUGIN_DIR/reference-provider.jar" <<'PY'
+import hashlib
+import pathlib
+import sys
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+PY
+)"
+  PROBE="$($LAUNCHER --json provider-plugins probe --directory "$PLUGIN_DIR" --plugin reference-provider-plugin --workspace "$WORKSPACE" --sha256 "$PIN")"
   morpheus_python - "$PROBE" <<'PY'
 import json
 import sys
