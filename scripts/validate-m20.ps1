@@ -12,7 +12,10 @@ Set-Location $repo
 $outputRoot = Join-Path $repo 'validation-output\m20'
 $logRoot = Join-Path $outputRoot 'logs'
 $installRoot = Join-Path $outputRoot 'installed\MORPHEUS'
-$validationLocalAppData = Join-Path $outputRoot 'localappdata'
+# The installed launcher resolves its PROD data/config/logs from LOCALAPPDATA, and MORPHEUS hardens what it
+# creates there. Pointing it inside the repository made that hardening inspect the checkout's inherited
+# ACLs, so the PROD-path proof depended on the permissions of a development directory.
+$validationLocalAppData = Join-Path ([IO.Path]::GetTempPath()) ('morpheus-m20-localappdata-' + [Guid]::NewGuid().ToString('N'))
 $stateRoot = Join-Path $validationLocalAppData 'MORPHEUS'
 $sentinel = Join-Path $stateRoot 'config\m20-upgrade-preservation.txt'
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null

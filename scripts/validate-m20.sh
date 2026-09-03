@@ -8,14 +8,19 @@ REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUTPUT="$REPO/validation-output/m20-linux"
 LOGS="$OUTPUT/logs"
 EXTRACT="$OUTPUT/portable"
-XDG_DATA="$OUTPUT/xdg-data"
-XDG_CONFIG="$OUTPUT/xdg-config"
-XDG_STATE="$OUTPUT/xdg-state"
+# The launcher resolves its PROD data/config/state from the XDG roots, and MORPHEUS hardens what it creates
+# there. Pointing them inside the repository made that hardening inspect the checkout's inherited permissions,
+# so the PROD-path proof depended on the permissions of a development directory.
+XDG_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-m20-xdg-XXXXXXXXXX")"
+XDG_DATA="$XDG_ROOT/data"
+XDG_CONFIG="$XDG_ROOT/config"
+XDG_STATE="$XDG_ROOT/state"
 mkdir -p "$LOGS"
 cd "$REPO"
 
 VALIDATION_TAG=""
 cleanup() {
+  rm -rf "$XDG_ROOT"
   if [[ -n "$VALIDATION_TAG" ]]; then
     git tag -d "$VALIDATION_TAG" >/dev/null 2>&1 || true
   fi
