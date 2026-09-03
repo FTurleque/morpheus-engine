@@ -15,6 +15,9 @@ import java.util.Optional;
 
 /** Owns project registry orchestration and project registry API views. */
 final class MorpheusProjectRegistryApiService {
+    /** What a workspace registered at a filesystem root is called: it names the shape, and locates nothing. */
+    static final String FILESYSTEM_ROOT_WORKSPACE_NAME = "filesystem-root";
+
     private final Path databasePath;
     private final Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots;
 
@@ -75,8 +78,15 @@ final class MorpheusProjectRegistryApiService {
         return Collections.unmodifiableMap(result);
     }
 
-    /** The last segment of a file locator. Another scheme is relayed only when it locates nothing. */
-    private String workspaceName(SourceLocator locator) {
+    /**
+     * The last segment of a file locator. Another scheme is relayed only when it locates nothing.
+     *
+     * <p>A workspace registered at a filesystem root has no last segment: {@code /} and a Windows drive root
+     * leave nothing after the final separator. Falling back to the locator there handed a remote caller the
+     * very pathname this projection exists to withhold, so the fallback is a name that locates nothing. The
+     * result is checked before it leaves, because a locator shape nobody anticipated must fail closed too.</p>
+     */
+    String workspaceName(SourceLocator locator) {
         if (!"file".equals(locator.scheme())) {
             return ServerLocationDisclosure.isSafeToRelay(locator.value()) ? locator.value() : locator.scheme();
         }
@@ -86,7 +96,20 @@ final class MorpheusProjectRegistryApiService {
         }
         int lastSeparator = normalized.lastIndexOf('/');
         String name = lastSeparator < 0 ? normalized : normalized.substring(lastSeparator + 1);
-        return name.isBlank() ? locator.value() : name;
+        if (name.isBlank() || isDriveDesignator(name) || !ServerLocationDisclosure.isSafeToRelay(name)) {
+            return FILESYSTEM_ROOT_WORKSPACE_NAME;
+        }
+        return name;
+    }
+
+    /**
+     * A drive root leaves a designator rather than nothing: {@code C:\} strips to {@code C:}, which passes a
+     * blank check and still tells a caller which volume the server keeps the workspace on.
+     */
+    private static boolean isDriveDesignator(String candidate) {
+        return candidate.length() == 2
+                && candidate.charAt(1) == ':'
+                && Character.isLetter(candidate.charAt(0));
     }
 
     private Path existingDirectory(String workspace) {
