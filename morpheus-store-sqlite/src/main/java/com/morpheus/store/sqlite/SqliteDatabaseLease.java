@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.security.LocalWritePermissionHardener;
 import com.morpheus.application.store.KnowledgeStoreException;
 
@@ -37,6 +38,9 @@ final class SqliteDatabaseLease {
     private SqliteDatabaseLease() {
     }
 
+    // java:S1181 catches Error deliberately: the lock channel opened just above must be released even when
+    // locking fails on a LinkageError. The failure keeps propagating unchanged.
+    @SuppressWarnings("java:S1181")
     static Lease acquireShared(Path databasePath) {
         Path database = normalize(databasePath);
         synchronized (MONITOR) {
@@ -56,13 +60,16 @@ final class SqliteDatabaseLease {
                         "SQLite database is reserved for exclusive maintenance");
                 SHARED.put(database, new SharedState(channel, lock));
                 return Lease.shared(database);
-            } catch (RuntimeException failure) {
+            } catch (RuntimeException | Error failure) {
                 closeQuietly(channel);
                 throw failure;
             }
         }
     }
 
+    // java:S1181 catches Error deliberately: the lock channel opened just above must be released even when
+    // locking fails on a LinkageError. The failure keeps propagating unchanged.
+    @SuppressWarnings("java:S1181")
     static Lease acquireExclusive(Path databasePath) {
         Path database = normalize(databasePath);
         synchronized (MONITOR) {
@@ -77,16 +84,13 @@ final class SqliteDatabaseLease {
                         "SQLite database is still open in another MORPHEUS process");
                 EXCLUSIVE.add(database);
                 return Lease.exclusive(database, channel, lock);
-            } catch (RuntimeException failure) {
+            } catch (RuntimeException | Error failure) {
                 closeQuietly(channel);
                 throw failure;
             }
         }
     }
 
-    // java:S1181 catches Error deliberately: the lease must be released, and the driver failure kept, when
-    // the driver fails on a LinkageError. Nothing is swallowed -- the first failure is what propagates.
-    @SuppressWarnings("java:S1181")
     static Connection guard(Connection connection, Lease lease) {
         Objects.requireNonNull(connection, "connection");
         Objects.requireNonNull(lease, "lease");
@@ -98,28 +102,18 @@ final class SqliteDatabaseLease {
                 (proxy, method, args) -> {
                     String name = method.getName();
                     if (name.equals("close")) {
-                        // Closing makes the connection unusable whatever happens next, but only a release that
-                        // actually succeeded may be recorded as one: the flag was set before either call ran,
-                        // so a retry after a failed release silently did nothing. The lease is released either
-                        // way -- a finally block did that too, but let its own outcome replace the driver
-                        // failure, which is the one the caller has to see, and it is thrown here unchanged so
-                        // that a store still catches the SQLException its close is declared to throw.
+                        // Closing makes the connection unusable whatever happens next. Releasing the database
+                        // lease is a different question, and it is answered only by a driver close that
+                        // succeeded: the lease is what makes offline maintenance impossible while a physical
+                        // handle is held, so a close whose outcome is unknown must keep it. Releasing it here
+                        // regardless let acquireExclusive succeed over a connection that may still be alive,
+                        // and a restore may replace the database file and its sidecars underneath one.
                         closed.set(true);
                         if (!released.get()) {
-                            Throwable driverFailure = null;
-                            try {
-                                connection.close();
-                            } catch (SQLException | RuntimeException | Error failure) {
-                                driverFailure = failure;
-                            }
-                            try {
-                                lease.close();
-                            } catch (RuntimeException | Error leaseFailure) {
-                                if (driverFailure == null) throw leaseFailure;
-                                driverFailure.addSuppressed(leaseFailure);
-                            }
-                            if (driverFailure != null) throw driverFailure;
+                            connection.close();
+                            // Only now is the physical handle proven gone, so the lease may go with it.
                             released.set(true);
+                            lease.close();
                         }
                         return null;
                     }
@@ -140,19 +134,30 @@ final class SqliteDatabaseLease {
                 });
     }
 
+    /**
+     * Opens the lock channel and hands it to the caller only once hardening has succeeded.
+     *
+     * <p>Hardening runs after the channel exists and refuses fail-closed on a permissive ancestor, which is a
+     * {@link com.morpheus.application.security.LocalWritePermissionHardener.LocalWritePermissionException} --
+     * unchecked, so the {@code IOException} handler never saw it and the descriptor stayed open for the life of
+     * the process. Ownership is explicit until the channel is returned.</p>
+     */
     private static FileChannel openLockChannel(Path lockPath) {
-        try {
+        try (StartupOwnership owned = new StartupOwnership()) {
             Path parent = lockPath.getParent();
             if (parent != null) Files.createDirectories(parent);
             rejectUnsafeLockEntry(lockPath);
-            FileChannel channel = FileChannel.open(
-                    lockPath,
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.READ,
-                    StandardOpenOption.WRITE);
+            FileChannel channel = owned.keep(
+                    FileChannel.open(
+                            lockPath,
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.READ,
+                            StandardOpenOption.WRITE),
+                    SqliteDatabaseLease::closeQuietly);
             LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
             if (parent != null) hardener.hardenDirectory(parent);
             hardener.hardenFile(lockPath);
+            owned.transferred();
             return channel;
         } catch (IOException failure) {
             throw new KnowledgeStoreException("Cannot open SQLite database access lease", failure);
