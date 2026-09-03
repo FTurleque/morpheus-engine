@@ -317,9 +317,12 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
 
         private void workerFinished() {
             if (workersRemaining.decrementAndGet() == 0) {
-                inboundScheduler.dispose();
-                outboundScheduler.dispose();
-                terminated.countDown();
+                try {
+                    SchedulerRelease.disposeAll(inboundScheduler, outboundScheduler);
+                } finally {
+                    // Whoever waits on termination must be released even when a scheduler refused to stop.
+                    terminated.countDown();
+                }
             }
         }
 
@@ -328,8 +331,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
          * in Reactor, so this stays safe if a worker did start and later reaches {@link #workerFinished()}.
          */
         private void releaseWorkers() {
-            inboundScheduler.dispose();
-            outboundScheduler.dispose();
+            SchedulerRelease.disposeAll(inboundScheduler, outboundScheduler);
         }
     }
 

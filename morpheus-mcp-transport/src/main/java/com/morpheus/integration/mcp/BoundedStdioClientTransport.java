@@ -458,10 +458,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     }
 
     private void disposeSchedulers() {
-        inboundScheduler.dispose();
-        outboundScheduler.dispose();
-        errorScheduler.dispose();
-        lifecycleScheduler.dispose();
+        SchedulerRelease.disposeAll(inboundScheduler, outboundScheduler, errorScheduler, lifecycleScheduler);
     }
 
     static String readUtf8LineBounded(InputStream input, int maxBytes) throws IOException {

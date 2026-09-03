@@ -31,18 +31,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
 
     public SqlitePolicyPackStore(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        Connection opened = null;
-        try {
-            opened = SqliteDatabaseSecurity.open(databasePath);
-            new SqliteSchemaManager().migrate(opened);
-            this.connection = opened;
-        } catch (SQLException | RuntimeException failure) {
-            closeQuietly(opened);
-            if (failure instanceof KnowledgeStoreException knowledgeStoreException) {
-                throw knowledgeStoreException;
-            }
-            throw new KnowledgeStoreException("Cannot initialize SQLite policy-pack store", failure);
-        }
+        this.connection = SqliteStoreConnection.openAndMigrate(databasePath, "Cannot initialize SQLite policy-pack store");
     }
 
     @Override
@@ -636,16 +625,6 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
         }
     }
 
-    private static void closeQuietly(Connection connection) {
-        if (connection == null) {
-            return;
-        }
-        try {
-            connection.close();
-        } catch (SQLException ignored) {
-            // Preserve initialization failure.
-        }
-    }
 
     @FunctionalInterface
     private interface SqlWork<T> {

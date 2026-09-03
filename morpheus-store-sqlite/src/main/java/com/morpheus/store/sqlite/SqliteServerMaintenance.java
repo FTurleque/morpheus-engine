@@ -57,25 +57,43 @@ public final class SqliteServerMaintenance {
         private final FileLock lock;
         private boolean closed;
 
-        private ServerLease(FileChannel channel, FileLock lock) {
+        // Package-private so the close contract can be driven over a channel and a lock that fail on demand:
+        // a real descriptor does not refuse to close, and that branch is the one that must stay retryable.
+        ServerLease(FileChannel channel, FileLock lock) {
             this.channel = channel;
             this.lock = lock;
         }
 
+        /**
+         * Releases the lease, and says so only once the descriptor is actually gone.
+         *
+         * <p>Marking the lease closed before either release ran meant a failed {@code channel.close()} left a
+         * lease that reported itself released over a descriptor that may still be open, and no retry could
+         * finish the job: the next call returned immediately.</p>
+         *
+         * <p>Releasing the lock is attempted first and is best effort on its own -- closing the channel releases
+         * the operating-system lock anyway, so a failure there must not stop the call that actually frees the
+         * descriptor. It is reported with the channel failure when both go wrong, and a lock already released by
+         * an earlier attempt simply has no effect.</p>
+         */
         @Override
         public synchronized void close() {
             if (closed) return;
-            closed = true;
+            IOException lockFailure = null;
             try {
                 lock.release();
-            } catch (IOException ignored) {
-                // Closing the channel below also releases the process lock.
+            } catch (IOException failure) {
+                lockFailure = failure;
             }
             try {
                 channel.close();
-            } catch (IOException ignored) {
-                // Best effort during server shutdown.
+            } catch (IOException failure) {
+                if (lockFailure != null) {
+                    failure.addSuppressed(lockFailure);
+                }
+                throw new KnowledgeStoreException("Cannot release the MORPHEUS server lease", failure);
             }
+            closed = true;
         }
     }
 

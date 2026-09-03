@@ -1,36 +1,18 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
-import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
-import com.morpheus.application.policy.DefaultPolicyFactResolver;
 import com.morpheus.application.policy.PolicyConfiguration;
-import com.morpheus.application.policy.PolicyEvaluationService;
 import com.morpheus.application.policy.PolicyIds;
-import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyPublicViews;
 import com.morpheus.application.policy.PolicyRule;
 import com.morpheus.application.policy.PolicyScope;
-import com.morpheus.application.quality.AcceptanceQualityService;
-import com.morpheus.application.quality.ChangeCompletenessService;
-import com.morpheus.application.quality.DecisionReferenceQualityService;
-import com.morpheus.application.quality.QualityReportService;
-import com.morpheus.application.quality.RequirementQualityService;
-import com.morpheus.application.quality.TaskQualityService;
-import com.morpheus.application.query.ConstraintEvaluationQueryService;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.QueryDefinitionCodec;
-import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqliteExternalReferenceStore;
-import com.morpheus.store.sqlite.SqlitePolicyPackStore;
-import com.morpheus.store.sqlite.SqlitePortfolioStore;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.SqlitePolicyRuntime;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -63,7 +45,7 @@ final class MorpheusPolicyCli {
     int run(String[] args, PrintStream out, PrintStream err, Map<String, String> environment, Properties properties) {
         try {
             Parsed parsed = Parsed.parse(args, environment, properties);
-            try (Runtime runtime = new Runtime(parsed.layout().databasePath())) {
+            try (SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(parsed.layout().databasePath())) {
                 Object result = execute(parsed, runtime);
                 if (result != VoidMarker.INSTANCE) {
                     out.println(parsed.json() ? json.toJson(result) : result);
@@ -79,63 +61,63 @@ final class MorpheusPolicyCli {
         }
     }
 
-    private Object execute(Parsed parsed, Runtime runtime) {
+    private Object execute(Parsed parsed, SqlitePolicyRuntime runtime) {
         SimpleOptions options = SimpleOptions.parse(parsed.arguments());
         return switch (parsed.action()) {
             case "pack-create" -> {
                 options.rejectUnknown(Set.of("name", OPT_RULES, OPT_ACTOR, OPT_REASON));
-                yield PolicyPublicViews.definition(runtime.registry.create(
+                yield PolicyPublicViews.definition(runtime.registry().create(
                         options.required("name"), rules(options.required(OPT_RULES)),
                         options.required(OPT_ACTOR), options.required(OPT_REASON)));
             }
             case "pack-list" -> {
                 options.rejectUnknown(Set.of());
-                yield PolicyPublicViews.definitions(runtime.registry.list());
+                yield PolicyPublicViews.definitions(runtime.registry().list());
             }
             case "pack-get" -> {
                 options.rejectUnknown(Set.of("id"));
-                yield PolicyPublicViews.definition(runtime.registry.get(pack(options)));
+                yield PolicyPublicViews.definition(runtime.registry().get(pack(options)));
             }
             case "pack-versions" -> {
                 options.rejectUnknown(Set.of("id"));
-                yield PolicyPublicViews.versions(runtime.registry.versions(pack(options)));
+                yield PolicyPublicViews.versions(runtime.registry().versions(pack(options)));
             }
             case "pack-update" -> {
                 options.rejectUnknown(Set.of("id", OPT_EXPECTED_REVISION, "name", OPT_RULES, OPT_ACTOR, OPT_REASON));
-                yield PolicyPublicViews.definition(runtime.registry.update(
+                yield PolicyPublicViews.definition(runtime.registry().update(
                         pack(options), revision(options), options.required("name"), rules(options.required(OPT_RULES)),
                         options.required(OPT_ACTOR), options.required(OPT_REASON)));
             }
             case "activate" -> {
                 options.rejectUnknown(Set.of("id", OPT_VERSION, OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
-                yield PolicyPublicViews.activation(runtime.registry.activate(
+                yield PolicyPublicViews.activation(runtime.registry().activate(
                         scope(options), pack(options), PolicyIds.VersionId.parse(options.required(OPT_VERSION)), revisionAllowZero(options),
                         options.required(OPT_ACTOR), options.required(OPT_REASON)));
             }
             case "activations" -> {
                 options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO));
-                yield PolicyPublicViews.activations(runtime.registry.activations(scope(options)));
+                yield PolicyPublicViews.activations(runtime.registry().activations(scope(options)));
             }
             case "deactivate" -> {
                 options.rejectUnknown(Set.of("id", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
-                runtime.registry.deactivate(scope(options), pack(options), revision(options),
+                runtime.registry().deactivate(scope(options), pack(options), revision(options),
                         options.required(OPT_ACTOR), options.required(OPT_REASON));
                 yield VoidMarker.INSTANCE;
             }
             case "override-put" -> {
                 options.rejectUnknown(Set.of("id", "rule", "mode", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
-                yield PolicyPublicViews.override(runtime.registry.putOverride(
+                yield PolicyPublicViews.override(runtime.registry().putOverride(
                         scope(options), pack(options), PolicyIds.RuleId.parse(options.required("rule")),
                         PolicyConfiguration.OverrideMode.valueOf(options.required("mode").toUpperCase(Locale.ROOT)),
                         revisionAllowZero(options), options.required(OPT_ACTOR), options.required(OPT_REASON)));
             }
             case "override-list" -> {
                 options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO));
-                yield PolicyPublicViews.overrides(runtime.registry.overrides(scope(options)));
+                yield PolicyPublicViews.overrides(runtime.registry().overrides(scope(options)));
             }
             case "override-remove" -> {
                 options.rejectUnknown(Set.of("id", "rule", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
-                runtime.registry.removeOverride(
+                runtime.registry().removeOverride(
                         scope(options), pack(options), PolicyIds.RuleId.parse(options.required("rule")), revision(options),
                         options.required(OPT_ACTOR), options.required(OPT_REASON));
                 yield Map.of("removed", true);
@@ -145,19 +127,19 @@ final class MorpheusPolicyCli {
                 PolicyScope evaluationScope = scope(options);
                 Optional<String> packId = options.optional("id");
                 if (packId.isPresent()) {
-                    yield PolicyPublicViews.report(runtime.evaluation.evaluatePack(
+                    yield PolicyPublicViews.report(runtime.evaluation().evaluatePack(
                             evaluationScope, PolicyIds.PackId.parse(packId.orElseThrow())));
                 }
-                yield PolicyPublicViews.governance(runtime.evaluation.evaluate(evaluationScope));
+                yield PolicyPublicViews.governance(runtime.evaluation().evaluate(evaluationScope));
             }
             case "dry-run" -> {
                 options.rejectUnknown(Set.of("id", OPT_VERSION, OPT_PROJECT, OPT_PORTFOLIO));
-                yield PolicyPublicViews.report(runtime.evaluation.dryRun(
+                yield PolicyPublicViews.report(runtime.evaluation().dryRun(
                         scope(options), pack(options), PolicyIds.VersionId.parse(options.required(OPT_VERSION))));
             }
             case "audit" -> {
                 options.rejectUnknown(Set.of("id"));
-                yield PolicyPublicViews.audit(runtime.registry.audit(pack(options)));
+                yield PolicyPublicViews.audit(runtime.registry().audit(pack(options)));
             }
             default -> throw new IllegalArgumentException("unknown policy action: " + parsed.action());
         };
@@ -289,53 +271,4 @@ final class MorpheusPolicyCli {
         }
     }
 
-    private static final class Runtime implements AutoCloseable {
-        private final SqliteSpecificationKnowledgeStore snapshots;
-        private final SqliteVersionedRequirementStore requirements;
-        private final SqliteSnapshotBusinessContentStore content;
-        private final SqliteTraceabilityStore traceability;
-        private final SqliteExternalReferenceStore externalReferences;
-        private final SqlitePortfolioStore portfolios;
-        private final SqlitePolicyPackStore policies;
-        private final PolicyPackService registry;
-        private final PolicyEvaluationService evaluation;
-
-        Runtime(Path databasePath) {
-            snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-            requirements = new SqliteVersionedRequirementStore(databasePath);
-            content = new SqliteSnapshotBusinessContentStore(databasePath);
-            traceability = new SqliteTraceabilityStore(databasePath);
-            externalReferences = new SqliteExternalReferenceStore(databasePath);
-            portfolios = new SqlitePortfolioStore(databasePath);
-            policies = new SqlitePolicyPackStore(databasePath);
-
-            QueryExecutionService queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
-            ConstraintEvaluationQueryService constraints = new ConstraintEvaluationQueryService(snapshots, content);
-            ChangeTransitionEvaluationService lifecycle = new ChangeTransitionEvaluationService(
-                    snapshots, content, requirements, traceability);
-            QualityReportService quality = new QualityReportService(
-                    snapshots,
-                    new RequirementQualityService(snapshots, requirements, traceability),
-                    new TaskQualityService(snapshots, content, requirements, traceability),
-                    new AcceptanceQualityService(snapshots, content),
-                    new ChangeCompletenessService(snapshots, content, requirements, traceability),
-                    new DecisionReferenceQualityService(snapshots, content, requirements, traceability, externalReferences));
-            registry = new PolicyPackService(policies);
-            evaluation = new PolicyEvaluationService(
-                    policies, new DefaultPolicyFactResolver(constraints, lifecycle, quality, queries));
-        }
-
-        @Override
-        public void close() {
-            ExhaustiveShutdown.releaseAll(
-                    "cannot close the policy CLI runtime",
-                    policies,
-                    portfolios,
-                    externalReferences,
-                    traceability,
-                    content,
-                    requirements,
-                    snapshots);
-        }
-    }
 }
