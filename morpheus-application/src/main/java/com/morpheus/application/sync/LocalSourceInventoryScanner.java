@@ -145,12 +145,14 @@ public final class LocalSourceInventoryScanner {
         if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) {
             failures.add(new SourceInventoryScanResult.Failure(
                     Optional.of(display(workspace, root)),
+                    SourceInventoryScanResult.Failure.Code.SOURCE_ROOT_MISSING,
                     "source root does not exist"));
             return;
         }
         if (!policy.followSymbolicLinks() && Files.isSymbolicLink(root)) {
             failures.add(new SourceInventoryScanResult.Failure(
                     Optional.of(display(workspace, root)),
+                    SourceInventoryScanResult.Failure.Code.SYMLINK_NOT_FOLLOWED,
                     "symbolic-link source root is not followed by the active scan policy"));
             return;
         }
@@ -159,6 +161,7 @@ public final class LocalSourceInventoryScanner {
         } catch (IOException boundaryFailure) {
             failures.add(new SourceInventoryScanResult.Failure(
                     Optional.of(display(workspace, root)),
+                    SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED,
                     safeMessage(boundaryFailure)));
             return;
         }
@@ -177,6 +180,7 @@ public final class LocalSourceInventoryScanner {
                     } catch (IOException boundaryFailure) {
                         failures.add(new SourceInventoryScanResult.Failure(
                                 Optional.of(display(workspace, directory)),
+                                SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED,
                                 safeMessage(boundaryFailure)));
                         budget.exhaust();
                         return FileVisitResult.TERMINATE;
@@ -208,6 +212,7 @@ public final class LocalSourceInventoryScanner {
                     } catch (IOException boundaryFailure) {
                         failures.add(new SourceInventoryScanResult.Failure(
                                 Optional.of(display(workspace, file)),
+                                SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED,
                                 safeMessage(boundaryFailure)));
                         budget.exhaust();
                         return FileVisitResult.TERMINATE;
@@ -239,6 +244,7 @@ public final class LocalSourceInventoryScanner {
                                 || authoritativeBefore.size() > attrs.size()) {
                             failures.add(new SourceInventoryScanResult.Failure(
                                     Optional.of(sourcePath.toString()),
+                                    SourceInventoryScanResult.Failure.Code.SOURCE_CHANGED_DURING_SCAN,
                                     "source changed identity or metadata while fingerprint was being computed"));
                             return FileVisitResult.CONTINUE;
                         }
@@ -250,6 +256,7 @@ public final class LocalSourceInventoryScanner {
                             if (!fingerprint.equals(verification)) {
                                 failures.add(new SourceInventoryScanResult.Failure(
                                         Optional.of(sourcePath.toString()),
+                                        SourceInventoryScanResult.Failure.Code.SOURCE_CHANGED_DURING_SCAN,
                                         "source changed identity, metadata, or content while fingerprint was being computed"));
                                 return FileVisitResult.CONTINUE;
                             }
@@ -260,6 +267,7 @@ public final class LocalSourceInventoryScanner {
                         if (!SourceFingerprint.sameFileIdentity(authoritativeBefore, after)) {
                             failures.add(new SourceInventoryScanResult.Failure(
                                     Optional.of(sourcePath.toString()),
+                                    SourceInventoryScanResult.Failure.Code.SOURCE_CHANGED_DURING_SCAN,
                                     "source changed identity or metadata while fingerprint was being computed"));
                             return FileVisitResult.CONTINUE;
                         }
@@ -271,11 +279,13 @@ public final class LocalSourceInventoryScanner {
                         if (existing != null && !existing.equals(entry)) {
                             failures.add(new SourceInventoryScanResult.Failure(
                                     Optional.of(sourcePath.toString()),
+                                    SourceInventoryScanResult.Failure.Code.SOURCE_OBSERVED_TWICE,
                                     "source observed twice with different content"));
                         }
                     } catch (IOException | RuntimeException exception) {
                         failures.add(new SourceInventoryScanResult.Failure(
                                 Optional.of(display(workspace, file)),
+                                SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
                                 safeMessage(exception)));
                     }
                     return budget.exhausted() ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
@@ -285,6 +295,7 @@ public final class LocalSourceInventoryScanner {
                 public FileVisitResult visitFileFailed(Path file, IOException exception) {
                     failures.add(new SourceInventoryScanResult.Failure(
                             Optional.of(display(workspace, file)),
+                            SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
                             safeMessage(exception)));
                     return FileVisitResult.CONTINUE;
                 }
@@ -292,6 +303,7 @@ public final class LocalSourceInventoryScanner {
         } catch (IOException | RuntimeException exception) {
             failures.add(new SourceInventoryScanResult.Failure(
                     Optional.of(display(workspace, root)),
+                    SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
                     safeMessage(exception)));
         }
     }
@@ -311,7 +323,10 @@ public final class LocalSourceInventoryScanner {
     }
 
     private static SourceInventoryScanResult.Failure limitFailure(Path workspace, Path path, String message) {
-        return new SourceInventoryScanResult.Failure(Optional.of(display(workspace, path)), message);
+        return new SourceInventoryScanResult.Failure(
+                Optional.of(display(workspace, path)),
+                SourceInventoryScanResult.Failure.Code.SCAN_LIMIT_EXCEEDED,
+                message);
     }
 
     private static String safeMessage(Throwable failure) {

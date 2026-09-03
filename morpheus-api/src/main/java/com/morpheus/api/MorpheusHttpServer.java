@@ -6,6 +6,7 @@ import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver
 import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
+import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -268,9 +269,20 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
     }
 
+    /**
+     * The message of a failure MORPHEUS did not author for this boundary.
+     *
+     * <p>These arrive from anywhere below the route -- the platform, the driver, a store -- and their text is
+     * not written with a caller outside the machine in mind. A value that names a filesystem location is
+     * replaced by the class name rather than scrubbed, because a partially scrubbed pathname is still a
+     * pathname, and the status code already says what went wrong.</p>
+     */
     private static String safeMessage(Throwable failure) {
         String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
+        if (message == null || message.isBlank() || !ServerLocationDisclosure.isSafeToRelay(message)) {
+            return failure.getClass().getSimpleName();
+        }
+        return message;
     }
 
     public record ApiSuccess(String apiVersion, Object data) {
