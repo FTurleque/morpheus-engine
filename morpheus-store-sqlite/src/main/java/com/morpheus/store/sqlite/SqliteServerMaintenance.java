@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.security.LocalWritePermissionHardener;
 import com.morpheus.application.store.KnowledgeStoreException;
 
@@ -78,14 +79,23 @@ public final class SqliteServerMaintenance {
         }
     }
 
+    /**
+     * Takes the exclusive server lease, and owns the lock channel until the lease that will close it exists.
+     *
+     * <p>Hardening and locking both run after the channel is open and both fail unchecked -- a permissive
+     * ancestor raises {@code LocalWritePermissionException}, and an already-held lease raises
+     * {@code IllegalStateException}. Only the two paths that were written out by hand closed the descriptor;
+     * every other failure between the open and the returned lease leaked it for the life of the process.</p>
+     */
     public ServerLease acquireServerLease(Path databasePath) {
         Path lockPath = lockPath(databasePath);
-        try {
+        try (StartupOwnership owned = new StartupOwnership()) {
             Path parent = lockPath.getParent();
             if (parent != null) Files.createDirectories(parent);
             rejectUnsafeEntry(lockPath, false, "server lease");
-            FileChannel channel = FileChannel.open(lockPath,
-                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+            FileChannel channel = owned.keep(
+                    FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE),
+                    SqliteServerMaintenance::closeQuietly);
             LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
             if (parent != null) hardener.hardenDirectory(parent);
             hardener.hardenFile(lockPath);
@@ -93,16 +103,25 @@ public final class SqliteServerMaintenance {
             try {
                 lock = channel.tryLock();
             } catch (OverlappingFileLockException busy) {
-                channel.close();
                 throw new IllegalStateException("MORPHEUS server lease is already held for this database", busy);
             }
             if (lock == null) {
-                channel.close();
                 throw new IllegalStateException("MORPHEUS server lease is already held for this database");
             }
-            return new ServerLease(channel, lock);
+            ServerLease lease = new ServerLease(channel, lock);
+            owned.transferred();
+            return lease;
         } catch (IOException failure) {
             throw new KnowledgeStoreException("Cannot acquire MORPHEUS server lease", failure);
+        }
+    }
+
+    /** Best effort while unwinding a lease acquisition that will not complete. */
+    private static void closeQuietly(FileChannel channel) {
+        try {
+            channel.close();
+        } catch (IOException ignored) {
+            // The acquisition failure is what the caller needs; the descriptor is released either way.
         }
     }
 
