@@ -35,21 +35,8 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
 
     SqliteSpecificationKnowledgeStore(Path databasePath, int busyTimeoutMillis) {
         Objects.requireNonNull(databasePath, "databasePath");
-        if (busyTimeoutMillis <= 0 || busyTimeoutMillis > 60_000) {
-            throw new IllegalArgumentException("busyTimeoutMillis must be between 1 and 60000");
-        }
-        Connection opened = null;
-        try {
-            opened = SqliteDatabaseSecurity.open(databasePath, busyTimeoutMillis);
-            new SqliteSchemaManager().migrate(opened);
-            this.connection = opened;
-        } catch (SQLException | RuntimeException exception) {
-            closeQuietly(opened);
-            if (exception instanceof KnowledgeStoreException knowledgeStoreException) {
-                throw knowledgeStoreException;
-            }
-            throw new KnowledgeStoreException("Cannot initialize SQLite knowledge store", exception);
-        }
+        this.connection = SqliteStoreConnection.openAndMigrate(
+                databasePath, busyTimeoutMillis, "Cannot initialize SQLite knowledge store");
     }
 
     @Override
@@ -394,14 +381,4 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
         }
     }
 
-    private static void closeQuietly(Connection connection) {
-        if (connection == null) {
-            return;
-        }
-        try {
-            connection.close();
-        } catch (SQLException ignored) {
-            // Initialization is already failing.
-        }
-    }
 }

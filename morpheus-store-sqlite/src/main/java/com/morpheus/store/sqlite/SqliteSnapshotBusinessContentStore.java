@@ -57,19 +57,8 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
 
     public SqliteSnapshotBusinessContentStore(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        Connection opened = null;
-        try {
-            opened = SqliteDatabaseSecurity.open(databasePath);
-            configure(opened);
-            new SqliteSchemaManager().migrate(opened);
-            this.connection = opened;
-        } catch (SQLException | RuntimeException exception) {
-            closeQuietly(opened);
-            if (exception instanceof KnowledgeStoreException knowledgeStoreException) {
-                throw knowledgeStoreException;
-            }
-            throw new KnowledgeStoreException("Cannot initialize SQLite snapshot business content store", exception);
-        }
+        this.connection = SqliteStoreConnection.openAndMigrate(
+                databasePath, "Cannot initialize SQLite snapshot business content store", SqliteSnapshotBusinessContentStore::configure);
     }
 
     @Override
@@ -752,7 +741,7 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
         });
     }
 
-    private void configure(Connection connection) throws SQLException {
+    private static void configure(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("PRAGMA foreign_keys = ON");
             statement.execute("PRAGMA busy_timeout = 5000");
@@ -765,14 +754,4 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
         }
     }
 
-    private static void closeQuietly(Connection connection) {
-        if (connection == null) {
-            return;
-        }
-        try {
-            connection.close();
-        } catch (SQLException ignored) {
-            // Initialization is already failing.
-        }
-    }
 }

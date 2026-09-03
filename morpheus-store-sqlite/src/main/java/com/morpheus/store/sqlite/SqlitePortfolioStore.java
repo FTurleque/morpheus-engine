@@ -38,18 +38,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
 
     public SqlitePortfolioStore(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        Connection opened = null;
-        try {
-            opened = SqliteDatabaseSecurity.open(databasePath);
-            new SqliteSchemaManager().migrate(opened);
-            this.connection = opened;
-        } catch (SQLException | RuntimeException failure) {
-            closeQuietly(opened);
-            if (failure instanceof KnowledgeStoreException knowledgeStoreException) {
-                throw knowledgeStoreException;
-            }
-            throw new KnowledgeStoreException("Cannot initialize SQLite portfolio store", failure);
-        }
+        this.connection = SqliteStoreConnection.openAndMigrate(databasePath, "Cannot initialize SQLite portfolio store");
     }
 
     @Override
@@ -500,16 +489,6 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
         }
     }
 
-    private static void closeQuietly(Connection connection) {
-        if (connection == null) {
-            return;
-        }
-        try {
-            connection.close();
-        } catch (SQLException ignored) {
-            // Preserve initialization failure.
-        }
-    }
 
     @FunctionalInterface
     private interface StatementBinder {

@@ -36,19 +36,8 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
 
     public SqliteChangeLifecycleMutationStore(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        Connection opened = null;
-        try {
-            opened = SqliteDatabaseSecurity.open(databasePath);
-            configure(opened);
-            new SqliteSchemaManager().migrate(opened);
-            connection = opened;
-        } catch (SQLException | RuntimeException exception) {
-            closeQuietly(opened);
-            if (exception instanceof KnowledgeStoreException knowledgeStoreException) {
-                throw knowledgeStoreException;
-            }
-            throw new KnowledgeStoreException("Cannot initialize SQLite lifecycle mutation store", exception);
-        }
+        connection = SqliteStoreConnection.openAndMigrate(
+                databasePath, "Cannot initialize SQLite lifecycle mutation store", SqliteChangeLifecycleMutationStore::configure);
     }
 
     @Override
@@ -435,7 +424,7 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
         }
     }
 
-    private void configure(Connection connection) throws SQLException {
+    private static void configure(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("PRAGMA foreign_keys = ON");
             statement.execute("PRAGMA busy_timeout = 5000");
@@ -460,14 +449,4 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
         }
     }
 
-    private static void closeQuietly(Connection connection) {
-        if (connection == null) {
-            return;
-        }
-        try {
-            connection.close();
-        } catch (SQLException ignored) {
-            // Best effort during construction failure.
-        }
-    }
 }
