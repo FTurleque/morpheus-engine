@@ -141,6 +141,44 @@ class MorpheusRemoteProxyResponseBudgetTest {
         assertEquals(1, exhausted.availablePermits(), "the slot must be given back");
     }
 
+    /**
+     * An interrupt while a mutation waits for the budget must not abandon the upstream response. Nobody will
+     * read it now, so its connection goes back to the pool rather than being held until the client is collected.
+     */
+    @Test
+    void anInterruptWhileWaitingForTheBudgetClosesTheUpstreamResponse() throws Exception {
+        Semaphore exhausted = new Semaphore(0, true);
+        MorpheusRemoteProxyTransport transport = transport(exhausted);
+        releaseUpstream.countDown();
+
+        AtomicReference<Object> outcome = new AtomicReference<>();
+        StubExchange write = new StubExchange("POST", "/api/v1/projects");
+        Thread caller = new Thread(() -> outcome.set(forward(transport, write)));
+        caller.start();
+        awaitBudgetWait(exhausted);
+
+        caller.interrupt();
+        caller.join(TimeUnit.SECONDS.toMillis(10));
+
+        assertTrue(outcome.get() instanceof MorpheusRemoteProxyTransport.TransportException,
+                () -> "the interrupted mutation must fail explicitly, got: " + outcome.get());
+        MorpheusRemoteProxyTransport.TransportException failure =
+                (MorpheusRemoteProxyTransport.TransportException) outcome.get();
+        assertEquals(503, failure.status());
+        assertEquals("UPSTREAM_INTERRUPTED", failure.code());
+        assertEquals(-1, write.responseCode(), "nothing must have been written downstream");
+        assertEquals(0, exhausted.availablePermits(), "a budget that was never taken must not be given back");
+    }
+
+    /** The upstream has answered and the caller is parked on the saturated budget. */
+    private static void awaitBudgetWait(Semaphore budget) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!budget.hasQueuedThreads()) {
+            assertTrue(System.nanoTime() < deadline, "the mutation must have reached the budget wait");
+            Thread.sleep(10);
+        }
+    }
+
     @Test
     void theSlotIsReleasedWhenTheUpstreamAnswersSomethingUnusable() throws Exception {
         upstream.createContext("/api/v1/unbounded", exchange -> {
