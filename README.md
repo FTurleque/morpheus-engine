@@ -207,7 +207,7 @@ Le gate durable exact-head utilisé par `MORPHEUS CI` est :
 bash ./scripts/validate-m21.sh 1.2.1
 ```
 
-Sur les pull requests, la couverture différentielle impose **≥ 80 % des lignes exécutables changées** et **≥ 70 % des branches changées**. Le ratchet global est **≥ 54,0 % lignes / ≥ 47,0 % branches**, avec **≥ 1150 tests Surefire** et **≥ 310 tests d’architecture** (source normative : `config/m21-quality-ratchets.properties`). Dependency hygiene, SBOM CycloneDX, provenance et smoke packaging font partie du gate durable.
+Sur les pull requests, la couverture différentielle impose **≥ 80 % des lignes exécutables changées** et **≥ 70 % des branches changées**. Le ratchet global est **≥ 54,5 % lignes / ≥ 47,7 % branches**, avec **≥ 1300 tests Surefire** et **≥ 335 tests d’architecture** (source normative : `config/m21-quality-ratchets.properties`). Dependency hygiene, SBOM CycloneDX, provenance et smoke packaging font partie du gate durable.
 
 D2 reste une preuve historique distincte : sa qualification finale a été effectuée localement sur Windows et Linux/WSL au même SHA, sans utiliser la CI comme gate D2. Cette contrainte historique ne désactive pas les workflows actuels `MORPHEUS CI`, `MORPHEUS Security` et `MORPHEUS CodeQL`.
 

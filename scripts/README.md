@@ -35,10 +35,10 @@ M21 applique notamment :
 
 ```text
 clean verify
-Surefire total       >= 1150
-architecture         >= 310
-line coverage        >= 54.0%
-branch coverage      >= 47.0%
+Surefire total       >= 1300
+architecture         >= 335
+line coverage        >= 54.5%
+branch coverage      >= 47.7%
 CycloneDX SBOM
 provenance
 portable smoke
