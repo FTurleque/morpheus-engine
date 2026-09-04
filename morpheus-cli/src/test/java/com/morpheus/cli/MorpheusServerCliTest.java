@@ -105,6 +105,50 @@ class MorpheusServerCliTest {
         assertFalse(finalList.out().contains("admin-one"), finalList.out());
     }
 
+    /**
+     * The operator path out of non-expiring credentials: see them, rehearse the change, then apply it.
+     *
+     * <p>The listing names how many credentials never expire and how to fix that, once, rather than repeating a
+     * warning on every row. The migration itself is refused outright when it would leave the server with no
+     * administrator after the deadline -- that is a lockout scheduled for a date, not an error on that date.</p>
+     */
+    @Test
+    void nonExpiringIdentitiesAreVisibleAndMigratableWithoutRotatingTokens() throws Exception {
+        String deadline = "2099-06-01T00:00:00Z";
+        run("--json", "server", "identity", "create", "--principal", "breakglass", "--role", "ADMIN");
+        Result reader = run("--json", "server", "identity", "create", "--principal", "reader", "--role", "READ");
+        String readerToken = token(reader);
+
+        Result listed = run("--json", "server", "identity", "list");
+        assertTrue(listed.out().contains("\"nonExpiringIdentities\":2"), listed.out());
+        assertTrue(listed.out().contains("server identity migrate-legacy"), listed.out());
+
+        Result stranded = run("--json", "server", "identity", "migrate-legacy", "--expires-at", deadline);
+        assertEquals(CliExitCode.USAGE.code(), stranded.exitCode(), stranded.out());
+        assertTrue(stranded.err().contains("no ADMIN identity active after"), stranded.err());
+
+        Result rehearsal = run("--json", "server", "identity", "migrate-legacy",
+                "--expires-at", deadline, "--principal", "reader", "--dry-run");
+        assertEquals(CliExitCode.SUCCESS.code(), rehearsal.exitCode(), rehearsal.err());
+        assertTrue(rehearsal.out().contains("\"mutation\":\"DRY_RUN\""), rehearsal.out());
+        assertTrue(rehearsal.out().contains("\"migrated\":[\"reader\"]"), rehearsal.out());
+        assertTrue(Files.readString(temp.resolve("config/remote-auth.txt")).contains("reader|READ|"));
+        assertFalse(Files.readString(temp.resolve("config/remote-auth.txt")).contains(deadline),
+                "a dry run must not write the new expiry");
+
+        Result migrated = run("--json", "server", "identity", "migrate-legacy",
+                "--expires-at", deadline, "--principal", "reader");
+        assertEquals(CliExitCode.SUCCESS.code(), migrated.exitCode(), migrated.err());
+        assertTrue(migrated.out().contains("\"mutation\":\"EXPIRY_MIGRATED\""), migrated.out());
+        assertTrue(migrated.out().contains("\"tokensRotated\":false"), migrated.out());
+        assertTrue(migrated.out().contains("\"retainedNonExpiring\":[\"breakglass\"]"), migrated.out());
+        assertFalse(migrated.out().contains(readerToken), "a migration must never render token material");
+
+        Result afterwards = run("--json", "server", "identity", "list");
+        assertTrue(afterwards.out().contains("\"nonExpiringIdentities\":1"), afterwards.out());
+        assertTrue(afterwards.out().contains("\"expiresAt\":\"" + deadline + "\""), afterwards.out());
+    }
+
     @Test
     void backupVerifyAndConfirmedOfflineRestoreAreAvailableLocally() throws Exception {
         Result backup = run("--json", "server", "backup", "create");

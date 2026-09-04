@@ -23,6 +23,8 @@ final class MorpheusServerCli {
     private static final String IDENTITY_RELOAD_POLICY = "LIVE_RELOAD_ON_AUTHENTICATION";
     private static final String OPT_CONFIG_DIR = "--config-dir";
     private static final String OPT_CONFIRM = "confirm";
+    private static final String OPT_DRY_RUN = "dry-run";
+    private static final String MIGRATE_LEGACY_COMMAND = "server identity migrate-legacy --expires-at <ISO-8601>";
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
 
@@ -55,8 +57,9 @@ final class MorpheusServerCli {
                     case "revoke" -> identityRevoke(parsed, out);
                     case "rotate" -> identityRotate(parsed, out);
                     case "role" -> identityRole(parsed, out);
+                    case "migrate-legacy" -> identityMigrateLegacy(parsed, out);
                     default -> throw new IllegalArgumentException(
-                            "server identity command must be create, list, revoke, rotate, or role");
+                            "server identity command must be create, list, revoke, rotate, role, or migrate-legacy");
                 };
             }
             if (command.size() >= 3 && command.get(1).equals("backup") && command.get(2).equals("create")) {
@@ -69,7 +72,8 @@ final class MorpheusServerCli {
                 return restore(parsed, out);
             }
             throw new IllegalArgumentException(
-                    "server command must be identity create|list|revoke|rotate|role, backup create, backup verify, or restore");
+                    "server command must be identity create|list|revoke|rotate|role|migrate-legacy, "
+                            + "backup create, backup verify, or restore");
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS server usage error: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
@@ -109,12 +113,18 @@ final class MorpheusServerCli {
                     view.put("role", identity.role().name());
                     view.put("expiresAt", identity.expiresAt().map(Instant::toString).orElse("NEVER"));
                     view.put("expired", identity.isExpiredAt(now));
+                    view.put("nonExpiring", identity.expiresAt().isEmpty());
                     return Map.copyOf(view);
                 })
                 .toList();
+        long nonExpiring = identities.stream().filter(identity -> Boolean.TRUE.equals(identity.get("nonExpiring"))).count();
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
         view.put("identities", identities);
+        // Named once rather than repeated per row: an operator needs to know the file still contains credentials
+        // that never expire, without the listing turning into a warning banner every time it is read.
+        view.put("nonExpiringIdentities", nonExpiring);
+        view.put("nonExpiringMigrationCommand", nonExpiring == 0 ? "NOT_APPLICABLE" : MIGRATE_LEGACY_COMMAND);
         view.put("tokenMaterialExposed", false);
         view.put("reloadPolicy", IDENTITY_RELOAD_POLICY);
         print(parsed.json(), out, view);
@@ -152,6 +162,42 @@ final class MorpheusServerCli {
         MorpheusRemoteIdentityFile.changeRole(authFile, principal, role);
         Map<String, Object> view = mutationView("ROLE_CHANGED", principal, authFile);
         view.put("role", role.name());
+        print(parsed.json(), out, view);
+        return CliExitCode.SUCCESS.code();
+    }
+
+    /**
+     * Gives an explicit expiry to credentials that have none, without touching their token material.
+     *
+     * <p>A three-field entry is a valid non-expiring credential and stays valid input, so nothing here happens
+     * implicitly. The migration reports exactly what it would do before it does it, rotates nothing -- every
+     * client keeps working -- and refuses to schedule an ADMIN lockout.</p>
+     */
+    private int identityMigrateLegacy(Parsed parsed, PrintStream out) {
+        Map<String, String> options = options(
+                parsed.command(), 3, Set.of("expires-at", "auth-file", "principal", OPT_DRY_RUN));
+        Path authFile = authFile(parsed, options);
+        Instant expiresAt = expiry(required(options, "expires-at"))
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "--expires-at never is not a migration; it is the state being migrated away from"));
+        Set<String> principals = options.containsKey("principal")
+                ? Set.of(options.get("principal"))
+                : Set.of();
+        boolean dryRun = "true".equals(options.get(OPT_DRY_RUN));
+
+        MorpheusRemoteIdentityFile.LegacyMigration migration =
+                MorpheusRemoteIdentityFile.migrateLegacyExpiry(authFile, expiresAt, principals, dryRun);
+
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("mutation", dryRun ? "DRY_RUN" : "EXPIRY_MIGRATED");
+        view.put("authFile", authFile.toAbsolutePath().normalize().toString());
+        view.put("expiresAt", migration.expiresAt().toString());
+        view.put("migrated", migration.migrated());
+        view.put("migratedCount", migration.migrated().size());
+        view.put("retainedNonExpiring", migration.retained());
+        view.put("tokensRotated", false);
+        view.put("tokenMaterialExposed", false);
+        view.put("reloadPolicy", IDENTITY_RELOAD_POLICY);
         print(parsed.json(), out, view);
         return CliExitCode.SUCCESS.code();
     }
@@ -286,8 +332,8 @@ final class MorpheusServerCli {
             if (!token.startsWith("--")) throw new IllegalArgumentException("unexpected server argument: " + token);
             String name = token.substring(2);
             if (!allowed.contains(name)) throw new IllegalArgumentException("unknown server option: --" + name);
-            if (name.equals(OPT_CONFIRM)) {
-                if (result.put(name, "true") != null) throw new IllegalArgumentException("duplicate --confirm");
+            if (name.equals(OPT_CONFIRM) || name.equals(OPT_DRY_RUN)) {
+                if (result.put(name, "true") != null) throw new IllegalArgumentException("duplicate --" + name);
                 continue;
             }
             if (index + 1 >= command.size()) throw new IllegalArgumentException(token + " requires a value");

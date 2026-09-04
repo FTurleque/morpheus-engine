@@ -48,6 +48,7 @@ server.identity.list	READ	server identity list	EXPLICITLY_NOT_EXPOSED	EXPLICITLY
 server.identity.rotate	WRITE	server identity rotate	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Generates a new one-time token; old token becomes invalid on the next remote authentication
 server.identity.role	WRITE	server identity role	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Changes role with last-ADMIN protection; effective on the next remote authentication
 server.identity.revoke	WRITE	server identity revoke	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Revokes principal with last-ADMIN protection; effective on the next remote authentication
+server.identity.migrate-legacy	WRITE	server identity migrate-legacy	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Gives non-expiring identities an explicit expiry; never rotates token material, supports --dry-run and refuses to leave no ADMIN active after the deadline
 server.backup.create	WRITE	server backup create	EXPLICITLY_NOT_EXPOSED	POST /api/v1/server/backups	Remote HTTP requires ADMIN; SQLite coherent backup + integrity/schema verification
 server.backup.verify	READ	server backup verify	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_LOCAL_ONLY	Verification is local and read-only; rejects future schema
 server.restore	WRITE	server restore --confirm	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_OFFLINE_ONLY	Restore is deliberately absent from remote HTTP/MCP and fails while server lease is held

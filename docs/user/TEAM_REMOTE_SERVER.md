@@ -120,6 +120,43 @@ expiry   -> le token expiré est refusé dès la requête suivante
 
 MORPHEUS refuse de révoquer ou rétrograder le dernier `ADMIN` actif.
 
+### Sortir du format d'identité sans expiration
+
+Le format historique à **trois champs** (`principal|role|sha256`) reste accepté et décrit un credential **sans échéance**. `identity list` l'expose : chaque entrée porte `nonExpiring`, et le rapport nomme une fois le total `nonExpiringIdentities` ainsi que la commande de sortie. Aucune conversion n'est jamais implicite : faire expirer d'autorité un credential qu'aucun opérateur n'a demandé à changer est précisément la façon dont un serveur remote s'enferme dehors.
+
+La migration explicite ajoute une échéance **sans toucher au matériel de token** — aucun client existant ne cesse de fonctionner, il acquiert seulement une date limite :
+
+```bash
+# 1. Voir l'état réel
+morpheus --json server identity list
+
+# 2. Répéter la migration sans rien écrire
+morpheus --json server identity migrate-legacy --expires-at 2027-01-01T00:00:00Z --dry-run
+
+# 3. Appliquer, éventuellement identité par identité
+morpheus --json server identity migrate-legacy --expires-at 2027-01-01T00:00:00Z --principal reader
+morpheus --json server identity migrate-legacy --expires-at 2027-01-01T00:00:00Z
+```
+
+Propriétés garanties :
+
+| Propriété | Comportement |
+|---|---|
+| Dry-run | `--dry-run` laisse le fichier **octet pour octet identique** et retourne le rapport exact |
+| Tokens | `tokensRotated: false` — aucune rotation, aucun token ni hash rendu |
+| Écriture | une seule écriture atomique sous verrou fichier inter-processus, comme toute autre mutation d'identité |
+| Audit | un événement `EXPIRY_MIGRATED` sans secret par identité migrée |
+| Idempotence | une seconde exécution ne trouve plus rien à faire |
+| Anti-lockout | **refus complet** si la migration ne laisserait aucun `ADMIN` actif après l'échéance |
+
+Le refus anti-lockout est la contrainte structurante : un fichier dont **toutes** les identités `ADMIN` expirent à la même date est un verrouillage programmé pour cette date, pas une erreur à cette date. La procédure est donc :
+
+1. donner à un administrateur « break-glass » une échéance plus lointaine (`server identity rotate --principal admin --expires-at <date lointaine>`), ou le laisser volontairement sans échéance ;
+2. migrer tout le reste ;
+3. la liste `retainedNonExpiring` du rapport nomme précisément ce qui a été laissé en l'état.
+
+**Le format à trois champs reste supporté en 1.2.1.** Le retirer est une évolution explicitement incompatible, pas un patch : cette commande existe pour qu'un parc soit déjà migré le jour où cette décision sera prise. Suivi : DT-12.
+
 Le fichier conserve également un audit **sans secret** des mutations. Cet historique est une fenêtre roulante bornée aux **512 événements les plus récents**. Cette compaction fait partie de l'écriture atomique du snapshot : la croissance de l'audit ne peut donc pas remplir indéfiniment le fichier de 256 KiB et empêcher une rotation ou une révocation urgente.
 
 ### Rôles et autorisation distante

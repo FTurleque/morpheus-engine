@@ -22,6 +22,7 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -150,7 +151,26 @@ public final class MorpheusRemoteIdentityFile {
         CREATE,
         REVOKE,
         ROTATE,
-        ROLE_CHANGED
+        ROLE_CHANGED,
+        EXPIRY_MIGRATED
+    }
+
+    /**
+     * Outcome of a legacy expiry migration, secret-free by construction.
+     *
+     * <p>{@code retained} names the identities the migration deliberately left non-expiring. That set is not a
+     * failure: it is how an operator keeps a break-glass credential while the rest of the file gains an expiry.</p>
+     */
+    public record LegacyMigration(
+            boolean dryRun,
+            Instant expiresAt,
+            List<String> migrated,
+            List<String> retained) {
+        public LegacyMigration {
+            Objects.requireNonNull(expiresAt, "expiresAt");
+            migrated = List.copyOf(Objects.requireNonNull(migrated, "migrated"));
+            retained = List.copyOf(Objects.requireNonNull(retained, "retained"));
+        }
     }
 
     /** Secret-free mutation evidence persisted atomically with the identity snapshot. */
@@ -283,6 +303,82 @@ public final class MorpheusRemoteIdentityFile {
                     new AuditRecord(Instant.now(), Mutation.ROLE_CHANGED, normalizedPrincipal, newRole));
             return updated;
         });
+    }
+
+    /**
+     * Gives an explicit expiry to identities that have none, without touching their token material.
+     *
+     * <p>The three-field entry is a non-expiring credential, and it stays valid input: nothing here happens
+     * implicitly, because silently expiring a credential an operator never asked to change is how a remote
+     * server locks its own administrators out. The migration is explicit, reports exactly what it would do
+     * before it does it, and rotates nothing -- every client keeps working, it simply now has a deadline.</p>
+     *
+     * <p>It refuses to schedule an ADMIN lockout. If applying it would leave no ADMIN identity still active
+     * after {@code expiresAt}, the whole migration fails: an operator must first give one administrator a later
+     * expiry, or exclude it with {@code principals}, so a way back into the server outlives the deadline.</p>
+     *
+     * @param principals identities to migrate, or empty to migrate every non-expiring identity
+     */
+    public static LegacyMigration migrateLegacyExpiry(
+            Path authFile,
+            Instant expiresAt,
+            Set<String> principals,
+            boolean dryRun) {
+        Instant expiry = requireFutureExpiry(expiresAt);
+        Set<String> selected = new LinkedHashSet<>();
+        for (String principal : Objects.requireNonNull(principals, "principals")) {
+            selected.add(requirePrincipal(principal));
+        }
+        return mutate(authFile, file -> {
+            List<Identity> existing = load(secureExistingFile(file));
+            for (String principal : selected) {
+                requireIdentity(existing, principal);
+            }
+
+            List<String> migrated = existing.stream()
+                    .filter(identity -> identity.expiresAt().isEmpty())
+                    .filter(identity -> selected.isEmpty() || selected.contains(identity.principal()))
+                    .map(Identity::principal)
+                    .toList();
+            List<Identity> updated = existing.stream()
+                    .map(identity -> migrated.contains(identity.principal())
+                            ? new Identity(identity.principal(), identity.role(), identity.tokenHash(),
+                                    Optional.of(expiry))
+                            : identity)
+                    .toList();
+            requireAdministratorOutliving(updated, expiry);
+
+            List<String> retained = updated.stream()
+                    .filter(identity -> identity.expiresAt().isEmpty())
+                    .map(Identity::principal)
+                    .toList();
+            if (!dryRun && !migrated.isEmpty()) {
+                Instant at = Instant.now();
+                // One atomic write for the whole migration: writing per identity would leave the file in a
+                // partially migrated state if any intermediate write failed.
+                write(file, updated, migrated.stream()
+                        .map(principal -> new AuditRecord(
+                                at, Mutation.EXPIRY_MIGRATED, principal, requireIdentity(updated, principal).role()))
+                        .toList());
+            }
+            return new LegacyMigration(dryRun, expiry, migrated, retained);
+        });
+    }
+
+    /**
+     * A remote server refuses to start without an active ADMIN identity, so a migration that leaves none after
+     * the deadline is a lockout scheduled for that date rather than an error at that date.
+     */
+    private static void requireAdministratorOutliving(List<Identity> identities, Instant expiry) {
+        boolean survives = identities.stream()
+                .filter(identity -> identity.role() == MorpheusRemoteRole.ADMIN)
+                .anyMatch(identity -> identity.expiresAt().isEmpty()
+                        || identity.expiresAt().orElseThrow().isAfter(expiry));
+        if (!survives) {
+            throw new IllegalArgumentException(
+                    "migration would leave no ADMIN identity active after " + expiry
+                            + "; give one administrator a later expiry or exclude it from the migration");
+        }
     }
 
     public static List<AuditRecord> audit(Path authFile) {
@@ -423,6 +519,10 @@ public final class MorpheusRemoteIdentityFile {
     }
 
     private static void write(Path file, List<Identity> identities, AuditRecord auditRecord) {
+        write(file, identities, List.of(Objects.requireNonNull(auditRecord, "auditRecord")));
+    }
+
+    private static void write(Path file, List<Identity> identities, List<AuditRecord> auditRecords) {
         if (identities.size() > MAX_IDENTITIES) {
             throw new IllegalArgumentException("remote auth file exceeds " + MAX_IDENTITIES + " identities");
         }
@@ -448,7 +548,7 @@ public final class MorpheusRemoteIdentityFile {
         if (Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
             retainedAudit.addAll(parseAudit(readLinesSecurely(file, "cannot preserve remote identity audit")));
         }
-        retainedAudit.add(Objects.requireNonNull(auditRecord, "auditRecord"));
+        retainedAudit.addAll(Objects.requireNonNull(auditRecords, "auditRecords"));
         int firstRetained = Math.max(0, retainedAudit.size() - MAX_AUDIT_RECORDS);
         retainedAudit.subList(firstRetained, retainedAudit.size()).stream()
                 .map(MorpheusRemoteIdentityFile::formatAudit)

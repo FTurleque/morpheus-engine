@@ -101,6 +101,8 @@ public final class MorpheusMain {
             out.println("  morpheus [layout] server identity rotate --principal NAME [--expires-at ISO-8601|never] [--auth-file FILE]");
             out.println("  morpheus [layout] server identity list [--auth-file FILE]");
             out.println("  Rotation preserves the current expiry when --expires-at is omitted; --expires-at never makes the credential permanent.");
+            out.println("  morpheus [layout] server identity migrate-legacy --expires-at ISO-8601 [--principal NAME] [--dry-run] [--auth-file FILE]");
+            out.println("  migrate-legacy gives non-expiring identities an explicit expiry without rotating any token; it refuses to leave no ADMIN active after the deadline.");
             out.println("  morpheus [layout] server backup create [--output-dir PATH]");
             out.println("  morpheus [layout] server backup verify --file PATH");
             out.println("  morpheus [layout] server restore --file PATH --confirm");
