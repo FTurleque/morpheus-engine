@@ -184,7 +184,13 @@ jobs:
             echo "::notice::macOS reaches its temporary directory through a symlink; MORPHEUS refuses such paths by design."
           fi
 
+      # The build's outcome is the observation, so it is captured rather than thrown. A lane whose whole job is
+      # to report on an unqualified platform must not sit permanently red in the checks list -- that teaches
+      # people to ignore CI, which costs more than the information here is worth. The outcome is published in
+      # full below, and MacosSmokeLaneContract asserts it cannot degrade into a rubber stamp.
       - name: Build and test the full reactor on macOS
+        id: reactor
+        continue-on-error: true
         shell: bash
         run: ./mvnw -B -ntp clean verify
 
@@ -203,6 +209,17 @@ jobs:
           echo "| Symlink creation | $(ln -s /tmp "$RUNNER_TEMP/morpheus-symlink-probe" 2>/dev/null && echo permitted || echo refused) |" >> "$GITHUB_STEP_SUMMARY"
           echo "| TMPDIR reached through a symlink | $(if [ "$(cd "${TMPDIR:-/tmp}" && pwd -P)" = "${TMPDIR%/}" ]; then echo no; else echo yes; fi) |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Java version | $(java -version 2>&1 | head -1) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Reactor outcome on macOS: ${{ steps.reactor.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.reactor.outcome }}" != "success" ]; then
+            echo "The full reactor did NOT pass on macOS. Known cause, tracked as RT-08: macOS roots its temporary directory under /var, which is a symlink to /private/var, and MORPHEUS refuses paths reached through a symbolic link. That refusal is a security invariant behaving correctly, and it is not bypassable from CI configuration -- neither a resolved TMPDIR nor -Djava.io.tmpdir reaches the forked test JVM on this platform. See docs/architecture/quality/scenarios.md, Q-PO-03." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::macOS reactor outcome is ${{ steps.reactor.outcome }} (advisory, RT-08 open, no support claimed)." >> /dev/null
+            echo "::warning::macOS reactor outcome is ${{ steps.reactor.outcome }} (advisory, RT-08 open, no support claimed)."
+          else
+            echo "The full reactor passed on macOS. This is evidence, not a support decision: qualifying the platform additionally requires packaging, an extended dual-platform validation and an ADR." >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "macOS is not an officially supported MORPHEUS platform. This lane is advisory evidence only; it creates no packaging and no support commitment." >> "$GITHUB_STEP_SUMMARY"
 

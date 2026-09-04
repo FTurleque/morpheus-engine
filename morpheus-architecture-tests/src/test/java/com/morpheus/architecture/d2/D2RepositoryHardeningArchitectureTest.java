@@ -132,6 +132,15 @@ class D2RepositoryHardeningArchitectureTest {
         assertFalse(ci.contains("jpackage") && ci.contains("macos"),
                 "the macOS lane must not produce distribution artifacts");
 
+        // The lane tolerates a failing reactor so it does not sit permanently red, which is only acceptable
+        // while it still says what happened. Swallowing the outcome would turn an observation lane into a
+        // rubber stamp: green because it ran, not because anything worked.
+        assertTrue(ci.contains("id: reactor"), "the macOS reactor step must be identifiable");
+        assertTrue(ci.contains("Reactor outcome on macOS: ${{ steps.reactor.outcome }}"),
+                "the macOS lane must publish the reactor outcome rather than swallow it");
+        assertTrue(ci.contains("RT-08 open, no support claimed"),
+                "a failing macOS reactor must be surfaced as a warning naming the open risk");
+
         String qualityScenarios = Files.readString(root.resolve("docs/architecture/quality/scenarios.md"));
         String architecture = Files.readString(root.resolve("docs/architecture/arc42/10-exigences-qualite.md"));
         assertTrue(qualityScenarios.contains("non supporté"),

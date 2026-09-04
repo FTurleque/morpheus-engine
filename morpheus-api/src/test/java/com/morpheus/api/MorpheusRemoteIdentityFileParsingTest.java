@@ -142,8 +142,9 @@ class MorpheusRemoteIdentityFileParsingTest {
         assertEquals(1, identities.size(), "an expired credential must stay visible to an operator");
         assertTrue(identities.getFirst().isExpiredAt(Instant.now()));
         assertTrue(MorpheusRemoteIdentityFile.authenticate(identities, "stale-token").isEmpty());
-        assertThrows(IllegalArgumentException.class, () ->
-                MorpheusRemoteHttpServer.validateStartupIdentities(identities, Instant.now()));
+        Instant now = Instant.now();
+        assertThrows(IllegalArgumentException.class,
+                () -> MorpheusRemoteHttpServer.validateStartupIdentities(identities, now));
     }
 
     private String hashOf(String token) {

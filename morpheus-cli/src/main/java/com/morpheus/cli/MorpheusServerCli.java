@@ -24,6 +24,8 @@ final class MorpheusServerCli {
     private static final String OPT_CONFIG_DIR = "--config-dir";
     private static final String OPT_CONFIRM = "confirm";
     private static final String OPT_DRY_RUN = "dry-run";
+    private static final String VIEW_EXPIRES_AT = "expiresAt";
+    private static final String VIEW_MUTATION = "mutation";
     private static final String MIGRATE_LEGACY_COMMAND = "server identity migrate-legacy --expires-at <ISO-8601>";
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
@@ -111,7 +113,7 @@ final class MorpheusServerCli {
                     Map<String, Object> view = new LinkedHashMap<>();
                     view.put("principal", identity.principal());
                     view.put("role", identity.role().name());
-                    view.put("expiresAt", identity.expiresAt().map(Instant::toString).orElse("NEVER"));
+                    view.put(VIEW_EXPIRES_AT, identity.expiresAt().map(Instant::toString).orElse("NEVER"));
                     view.put("expired", identity.isExpiredAt(now));
                     view.put("nonExpiring", identity.expiresAt().isEmpty());
                     return Map.copyOf(view);
@@ -148,7 +150,7 @@ final class MorpheusServerCli {
                 ? MorpheusRemoteIdentityFile.rotate(authFile, principal, expiry(options.get("expires-at")))
                 : MorpheusRemoteIdentityFile.rotate(authFile, principal);
         Map<String, Object> view = credentialView(credential, authFile);
-        view.put("mutation", "ROTATED");
+        view.put(VIEW_MUTATION, "ROTATED");
         view.put("oldToken", "INVALID_IMMEDIATELY");
         print(parsed.json(), out, view);
         return CliExitCode.SUCCESS.code();
@@ -189,9 +191,9 @@ final class MorpheusServerCli {
                 MorpheusRemoteIdentityFile.migrateLegacyExpiry(authFile, expiresAt, principals, dryRun);
 
         Map<String, Object> view = new LinkedHashMap<>();
-        view.put("mutation", dryRun ? "DRY_RUN" : "EXPIRY_MIGRATED");
+        view.put(VIEW_MUTATION, dryRun ? "DRY_RUN" : "EXPIRY_MIGRATED");
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
-        view.put("expiresAt", migration.expiresAt().toString());
+        view.put(VIEW_EXPIRES_AT, migration.expiresAt().toString());
         view.put("migrated", migration.migrated());
         view.put("migratedCount", migration.migrated().size());
         view.put("retainedNonExpiring", migration.retained());
@@ -238,7 +240,7 @@ final class MorpheusServerCli {
         view.put("principal", credential.principal());
         view.put("role", credential.role().name());
         view.put("token", credential.token());
-        view.put("expiresAt", credential.expiresAt().map(Instant::toString).orElse("NEVER"));
+        view.put(VIEW_EXPIRES_AT, credential.expiresAt().map(Instant::toString).orElse("NEVER"));
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
         view.put("tokenPersistence", "NOT_PERSISTED_PRINTED_ONCE");
         view.put("reloadPolicy", IDENTITY_RELOAD_POLICY);
@@ -247,7 +249,7 @@ final class MorpheusServerCli {
 
     private Map<String, Object> mutationView(String mutation, String principal, Path authFile) {
         Map<String, Object> view = new LinkedHashMap<>();
-        view.put("mutation", mutation);
+        view.put(VIEW_MUTATION, mutation);
         view.put("principal", principal);
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
         view.put("reloadPolicy", IDENTITY_RELOAD_POLICY);

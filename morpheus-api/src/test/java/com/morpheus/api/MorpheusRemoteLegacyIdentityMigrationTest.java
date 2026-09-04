@@ -115,10 +115,14 @@ class MorpheusRemoteLegacyIdentityMigrationTest {
     void aMigrationRefusesAPastDeadlineAndAnUnknownPrincipal() throws Exception {
         Path auth = legacyFile("breakglass|ADMIN", "reader|READ");
 
-        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.migrateLegacyExpiry(
-                auth, Instant.parse("2000-01-01T00:00:00Z"), Set.of("reader"), false));
-        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.migrateLegacyExpiry(
-                auth, DEADLINE, Set.of("absent"), true));
+        Instant past = Instant.parse("2000-01-01T00:00:00Z");
+        Set<String> reader = Set.of("reader");
+        Set<String> absent = Set.of("absent");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> MorpheusRemoteIdentityFile.migrateLegacyExpiry(auth, past, reader, false));
+        assertThrows(IllegalArgumentException.class,
+                () -> MorpheusRemoteIdentityFile.migrateLegacyExpiry(auth, DEADLINE, absent, true));
     }
 
     /** Migrating twice is a no-op, so an interrupted rollout can simply be run again. */

@@ -97,14 +97,14 @@ class MorpheusRemoteLoadProfileTest {
             assertTrue(served > 0, "the facade must serve reads while refusing the excess");
 
             recordLatency("read.storm", outcomes, wallNanos);
-            record("read.storm.served", served);
-            record("read.storm.refused", outcomes.size() - served);
-            record("read.storm.maxConcurrentRequests", MAX_CONCURRENT);
+            measure("read.storm.served", served);
+            measure("read.storm.refused", outcomes.size() - served);
+            measure("read.storm.maxConcurrentRequests", MAX_CONCURRENT);
 
             Map<String, Object> settled = statusOf(client, base, admin.token());
             assertEquals(0, ((Number) settled.get("activeRequests")).intValue(),
                     "no request slot may be left behind after the storm");
-            record("read.storm.throttledRequests", ((Number) settled.get("throttledRequests")).longValue());
+            measure("read.storm.throttledRequests", ((Number) settled.get("throttledRequests")).longValue());
         }
         writeProfile();
     }
@@ -175,7 +175,7 @@ class MorpheusRemoteLoadProfileTest {
             Map<String, Object> settled = statusOf(client, base, admin.token());
             assertEquals(0, ((Number) settled.get("activeRequests")).intValue());
             assertEquals(0, ((Number) settled.get("activePrivilegedRequests")).intValue());
-            record("mixed.load.throttledPrivileged",
+            measure("mixed.load.throttledPrivileged",
                     ((Number) settled.get("throttledPrivilegedRequests")).longValue());
         }
         writeProfile();
@@ -220,8 +220,8 @@ class MorpheusRemoteLoadProfileTest {
                     "a refused oversized body must not hold a request slot");
             assertEquals(0, ((Number) settled.get("activePrivilegedRequests")).intValue(),
                     "a refused oversized mutation must not hold a privileged slot");
-            record("hostile.oversizedRefused", 8);
-            record("hostile.abandonedClients", 8);
+            measure("hostile.oversizedRefused", 8);
+            measure("hostile.abandonedClients", 8);
 
             assertEquals(200, RemoteHttpTestSupport.send(
                     client, base.resolve("/api/v1/health"), "GET", admin.token(), null).statusCode(),
@@ -264,14 +264,14 @@ class MorpheusRemoteLoadProfileTest {
     private void recordLatency(String prefix, List<long[]> outcomes, long wallNanos) {
         List<Long> latencies = new ArrayList<>(outcomes.stream().map(outcome -> outcome[1]).toList());
         Collections.sort(latencies);
-        record(prefix + ".requests", latencies.size());
-        record(prefix + ".p50Millis", TimeUnit.NANOSECONDS.toMillis(latencies.get(latencies.size() / 2)));
-        record(prefix + ".p95Millis", TimeUnit.NANOSECONDS.toMillis(latencies.get(latencies.size() * 95 / 100)));
-        record(prefix + ".maxMillis", TimeUnit.NANOSECONDS.toMillis(latencies.getLast()));
-        record(prefix + ".wallMillis", TimeUnit.NANOSECONDS.toMillis(wallNanos));
+        measure(prefix + ".requests", latencies.size());
+        measure(prefix + ".p50Millis", TimeUnit.NANOSECONDS.toMillis(latencies.get(latencies.size() / 2)));
+        measure(prefix + ".p95Millis", TimeUnit.NANOSECONDS.toMillis(latencies.get(latencies.size() * 95 / 100)));
+        measure(prefix + ".maxMillis", TimeUnit.NANOSECONDS.toMillis(latencies.getLast()));
+        measure(prefix + ".wallMillis", TimeUnit.NANOSECONDS.toMillis(wallNanos));
     }
 
-    private void record(String name, long value) {
+    private void measure(String name, long value) {
         measurements.add(name + "=" + value);
     }
 
