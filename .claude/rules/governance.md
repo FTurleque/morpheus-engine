@@ -81,7 +81,8 @@ Toute spec `docs/openapi/*.yaml` doit porter :
 **Ne pas se fier aux nombres codés en dur ici** — source de vérité vivante :
 `config/m21-quality-ratchets.properties`. `scripts/validate-m21.*` et `scripts/validate-d2.*`
 lisent ce fichier et assertent le nombre de tests, le nombre de tests d'architecture,
-la couverture ligne/branche et la version courante (`1.2.1`). Ces nombres sont des
+la couverture ligne/branche et la version courante (`1.2.1`). Valeurs constatées le
+04/09/2026 : `1300 / 335 / 54,5% / 47,7%`. Ces nombres sont des
 **ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones, donc
 toute valeur recopiée ici (y compris dans une version antérieure de cette page) peut être
 périmée. Relire le fichier `.properties` avant de citer un chiffre. Voir `rules/meta.md`.
