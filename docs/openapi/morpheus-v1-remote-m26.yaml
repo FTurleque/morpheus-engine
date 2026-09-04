@@ -153,13 +153,21 @@ components:
         - uptimeSeconds
         - activeRequests
         - maxConcurrentRequests
+        - activePrivilegedRequests
+        - maxConcurrentPrivilegedRequests
+        - oldestActivePrivilegedRequestMillis
+        - requestBodyReadTimeoutMillis
         - maxProxyResponseBytes
         - maxProxyInFlightBytes
         - maxConcurrentBufferedProxyResponses
         - totalRequests
+        - totalPrivilegedRequests
         - authenticationFailures
         - authorizationFailures
         - throttledRequests
+        - throttledPrivilegedRequests
+        - requestTimeouts
+        - responseWriteTimeouts
       properties:
         mode:
           const: REMOTE

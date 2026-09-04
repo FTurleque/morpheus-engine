@@ -24,7 +24,8 @@
 
 ## 4.2 Décomposition
 
-MORPHEUS 1.2.0 est un reactor Maven de **16 modules** :
+MORPHEUS 1.2.1 est un reactor Maven de **17 modules** (18 projets Maven en
+comptant le parent) :
 
 ```text
 Adapters / surfaces
@@ -45,6 +46,7 @@ Adapters / stores
   morpheus-store-sqlite
 
 Adapters / integrations
+  morpheus-mcp-transport
   morpheus-integration-minos
   morpheus-integration-nexus
 
