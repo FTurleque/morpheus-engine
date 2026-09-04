@@ -184,17 +184,26 @@ par un lien symbolique — ce refus est un invariant de sécurité, et il a fonc
 prévu. Conséquence : tous les tests utilisant `@TempDir` échouaient avant qu'aucun comportement
 spécifique à macOS ne puisse être observé.
 
-Second fait, découvert en corrigeant le premier : **positionner `TMPDIR` ne suffit pas.** Sur macOS
-la JVM dérive `java.io.tmpdir` d'une API Darwin et non de l'environnement, donc la variable est
-ignorée. La lane passe désormais la propriété explicitement, Surefire la transmettant à la JVM de
-test forkée.
+Second fait, découvert en tentant de corriger le premier : **cela ne se corrige pas depuis le
+runner.** Exporter un `TMPDIR` résolu ne change rien — sur macOS la JVM prend son répertoire
+temporaire d'une API Darwin au démarrage, pas de l'environnement — et passer
+`-Djava.io.tmpdir` en ligne de commande Maven arrive trop tard pour la JVM de test forkée.
 
-**Ce n'est pas un défaut MORPHEUS et l'invariant n'a pas été touché.** C'est une correction de
-runner, au même titre que le poste Windows de développement qui doit pointer `TMP` vers un
-répertoire aux ACL saines. Les deux faits sont enregistrés parce qu'une future décision de support
-macOS doit en tenir compte : sur cette plateforme, un répertoire de données dérivé du répertoire
-temporaire est par défaut derrière un lien symbolique, et cela ne se corrige pas par variable
-d'environnement.
+**Ce n'est pas un défaut MORPHEUS et l'invariant n'a pas été touché.** Aucun contournement n'a été
+introduit : la lane reste advisory et **signale** le fait plutôt que de le masquer.
+
+Conséquence pour une future décision de support macOS — c'est le livrable réel de A-09 :
+
+1. sur macOS, le répertoire temporaire par défaut est derrière un lien symbolique, et MORPHEUS le
+   refuse **correctement** ;
+2. ce refus n'est pas contournable par variable d'environnement ni par propriété Maven ;
+3. rendre la lane verte suppose de décider **où les tests MORPHEUS enracinent leurs fichiers
+   temporaires** sur cette plateforme — une décision de support, pas un ajustement de CI ;
+4. la même question se posera à l'exécution pour un répertoire de données dérivé du répertoire
+   temporaire.
+
+Tant que cette décision n'est pas prise, la lane observe, échoue de façon informative, et ne bloque
+rien.
 
 Passer de « observé » à « supporté » exige une décision produit explicite : lane
 rendue bloquante, packaging macOS, validation dual-platform étendue, et ADR dédié.

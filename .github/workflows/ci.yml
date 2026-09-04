@@ -165,26 +165,28 @@ jobs:
           cache: maven
           check-latest: false
 
-      # First fact this lane produced: the macOS temporary directory lives under /var, and /var is a symlink to
-      # /private/var. MORPHEUS refuses to harden or read a path reached through a symbolic link -- correctly,
-      # that refusal is a security invariant -- so every @TempDir test failed before any macOS-specific
-      # behaviour could be observed. Setting TMPDIR alone does not fix it: on macOS the JVM derives
-      # java.io.tmpdir from a Darwin API rather than from the environment, so the property is passed explicitly
-      # and Surefire carries it into the forked test JVM. This is a runner fix, not a MORPHEUS one; the
-      # invariant is unchanged and the observation is recorded in docs/architecture/quality/scenarios.md.
-      - name: Resolve the temporary directory through the /var symlink macOS uses by default
+      # This step exists to report a finding, not to work around it. The macOS temporary directory lives under
+      # /var, and /var is a symlink to /private/var; MORPHEUS refuses to harden or read a path reached through a
+      # symbolic link, and that refusal is a security invariant working exactly as designed. Neither exporting a
+      # resolved TMPDIR nor passing -Djava.io.tmpdir moves the tests off it -- on macOS the JVM takes its
+      # temporary directory from a Darwin API at startup, so the environment does not reach it and a Maven
+      # command-line property arrives too late for the forked test JVM. Closing this needs a decision about where
+      # MORPHEUS tests root their temporary files, which belongs to a macOS support decision rather than to a CI
+      # tweak. Recorded in docs/architecture/quality/scenarios.md; the lane stays advisory meanwhile.
+      - name: Report how macOS roots its temporary directory
         shell: bash
         run: |
           set -euo pipefail
           real="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
-          echo "TMPDIR=$real" >> "$GITHUB_ENV"
-          echo "MORPHEUS_MACOS_TMPDIR=$real" >> "$GITHUB_ENV"
-          echo "macOS default TMPDIR: ${TMPDIR:-/tmp}"
-          echo "resolved to: $real"
+          echo "macOS TMPDIR: ${TMPDIR:-/tmp}"
+          echo "resolved:     $real"
+          if [ "$real" != "${TMPDIR%/}" ]; then
+            echo "::notice::macOS reaches its temporary directory through a symlink; MORPHEUS refuses such paths by design."
+          fi
 
       - name: Build and test the full reactor on macOS
         shell: bash
-        run: ./mvnw -B -ntp -Djava.io.tmpdir="$MORPHEUS_MACOS_TMPDIR" clean verify
+        run: ./mvnw -B -ntp clean verify
 
       - name: Record the macOS filesystem and process facts MORPHEUS depends on
         if: always()
