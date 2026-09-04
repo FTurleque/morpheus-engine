@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.Map;
 
@@ -126,11 +127,11 @@ class SqliteContentionObservabilityTest {
 
     private void insertProbeRow(Connection connection) {
         SqliteTransactionRunner.runVoid(connection, "Cannot store project", current -> {
-            try (Statement statement = current.createStatement()) {
-                statement.executeUpdate(
-                        "INSERT INTO projects(id, root_scheme, root_value) VALUES ('"
-                                + ProjectSpecificationId.generate() + "', 'file', 'contention/probe-"
-                                + System.nanoTime() + "')");
+            try (PreparedStatement statement = current.prepareStatement(
+                    "INSERT INTO projects(id, root_scheme, root_value) VALUES (?, 'file', ?)")) {
+                statement.setString(1, ProjectSpecificationId.generate().toString());
+                statement.setString(2, "contention/probe-" + System.nanoTime());
+                statement.executeUpdate();
             }
         });
     }

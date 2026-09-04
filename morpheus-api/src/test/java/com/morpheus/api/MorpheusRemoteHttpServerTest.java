@@ -461,6 +461,6 @@ class MorpheusRemoteHttpServerTest {
     }
 
     private HttpClient trustedClient() throws Exception {
-        return RemoteHttpTestSupport.trustedClient();
+        return RemoteHttpTestSupport.trustedClient(temp.resolve("server.p12"));
     }
 }

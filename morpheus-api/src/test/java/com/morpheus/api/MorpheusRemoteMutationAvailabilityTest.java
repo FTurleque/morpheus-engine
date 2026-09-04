@@ -55,7 +55,7 @@ class MorpheusRemoteMutationAvailabilityTest {
         seedSlowBackupPayload(database);
         Path auth = temp.resolve("remote-auth.txt");
         var admin = MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
-        HttpClient client = RemoteHttpTestSupport.trustedClient();
+        HttpClient client = RemoteHttpTestSupport.trustedClient(keyStore());
 
         try (MorpheusRemoteHttpServer server = start(database, auth);
              ExecutorService pool = Executors.newFixedThreadPool(CONCURRENT_MUTATIONS + 1)) {
@@ -102,7 +102,7 @@ class MorpheusRemoteMutationAvailabilityTest {
         Path auth = temp.resolve("remote-auth.txt");
         var admin = MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
         var reader = MorpheusRemoteIdentityFile.create(auth, "reader", MorpheusRemoteRole.READ);
-        HttpClient client = RemoteHttpTestSupport.trustedClient();
+        HttpClient client = RemoteHttpTestSupport.trustedClient(keyStore());
 
         try (MorpheusRemoteHttpServer server = start(database, auth);
              ExecutorService pool = Executors.newFixedThreadPool(CONCURRENT_MUTATIONS)) {
@@ -180,9 +180,18 @@ class MorpheusRemoteMutationAvailabilityTest {
         }
     }
 
+    /** Generated once per test so the client can be pinned to the very certificate the server will serve. */
+    private Path keyStore() throws Exception {
+        Path keyStore = temp.resolve("server.p12");
+        if (!Files.isRegularFile(keyStore)) {
+            RemoteHttpTestSupport.createKeyStore(keyStore);
+        }
+        return keyStore;
+    }
+
     private MorpheusRemoteHttpServer start(Path database, Path auth) throws Exception {
         Path allowedWorkspaceRoot = Files.createDirectories(temp.resolve("allowed-workspaces"));
-        Path keyStore = RemoteHttpTestSupport.createKeyStore(temp.resolve("server.p12"));
+        Path keyStore = keyStore();
         ExternalIntegrationStatusProvider minos = () ->
                 new ExternalIntegrationStatus("MINOS", "DISABLED", false, "test", Map.of());
         return MorpheusRemoteHttpServer.start(

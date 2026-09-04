@@ -174,6 +174,22 @@ parce qu'une lane verte ne vaut pas une décision de support.
 | Seuil | Aucun — la lane est non bloquante |
 | Preuve | Job `macos-smoke` de `.github/workflows/ci.yml` |
 
+#### Premier fait observé (04/09/2026)
+
+La lane a produit un constat dès sa première exécution, ce qui est exactement sa raison d'être.
+
+Sur `macos-latest`, `TMPDIR` pointe sous `/var/folders/...`, et `/var` est un **lien symbolique**
+vers `/private/var`. `LocalWritePermissionHardener` refuse de durcir ou de lire un chemin atteint
+par un lien symbolique — ce refus est un invariant de sécurité, et il a fonctionné exactement comme
+prévu. Conséquence : tous les tests utilisant `@TempDir` échouaient avant qu'aucun comportement
+spécifique à macOS ne puisse être observé.
+
+**Ce n'est pas un défaut MORPHEUS et l'invariant n'a pas été touché.** La lane résout désormais
+`TMPDIR` vers son chemin réel avant de lancer le reactor, comme le poste Windows de développement
+doit pointer `TMP` vers un répertoire aux ACL saines. Le fait est enregistré parce qu'une future
+décision de support macOS doit en tenir compte : sur cette plateforme, un répertoire de données
+dérivé de `TMPDIR` est, par défaut, derrière un lien symbolique.
+
 Passer de « observé » à « supporté » exige une décision produit explicite : lane
 rendue bloquante, packaging macOS, validation dual-platform étendue, et ADR dédié.
 L'état actuel reste **RT-08 ouvert**.

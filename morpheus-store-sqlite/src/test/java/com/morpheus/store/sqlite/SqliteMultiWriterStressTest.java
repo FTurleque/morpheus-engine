@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -137,10 +138,11 @@ class SqliteMultiWriterStressTest {
 
     private void insertProject(Connection connection, String identity) {
         SqliteTransactionRunner.runVoid(connection, "Cannot store project " + identity, current -> {
-            try (Statement statement = current.createStatement()) {
-                statement.executeUpdate(
-                        "INSERT INTO projects(id, root_scheme, root_value) VALUES ('"
-                                + identity + "', 'file', 'stress/" + identity + "')");
+            try (PreparedStatement statement = current.prepareStatement(
+                    "INSERT INTO projects(id, root_scheme, root_value) VALUES (?, 'file', ?)")) {
+                statement.setString(1, identity);
+                statement.setString(2, "stress/" + identity);
+                statement.executeUpdate();
             }
         });
     }

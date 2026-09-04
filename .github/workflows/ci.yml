@@ -165,6 +165,20 @@ jobs:
           cache: maven
           check-latest: false
 
+      # First fact this lane produced: the macOS default TMPDIR lives under /var, and /var is a symlink to
+      # /private/var. MORPHEUS refuses to harden or read a path reached through a symbolic link -- correctly,
+      # that refusal is a security invariant -- so every @TempDir test failed before any macOS-specific
+      # behaviour could be observed. Resolving TMPDIR to its real path is a runner fix, not a MORPHEUS one;
+      # the invariant is unchanged and the observation is recorded in docs/architecture/quality/scenarios.md.
+      - name: Resolve TMPDIR through the /var symlink macOS uses by default
+        shell: bash
+        run: |
+          set -euo pipefail
+          real="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
+          echo "TMPDIR=$real" >> "$GITHUB_ENV"
+          echo "macOS default TMPDIR: ${TMPDIR:-/tmp}"
+          echo "resolved to: $real"
+
       - name: Build and test the full reactor on macOS
         shell: bash
         run: ./mvnw -B -ntp clean verify
@@ -182,6 +196,7 @@ jobs:
           echo "| Path separator | $(python3 -c 'import os; print(repr(os.sep))') |" >> "$GITHUB_STEP_SUMMARY"
           echo "| POSIX permissions on TMPDIR | $(ls -ld "${TMPDIR:-/tmp}" | cut -d' ' -f1) |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Symlink creation | $(ln -s /tmp "$RUNNER_TEMP/morpheus-symlink-probe" 2>/dev/null && echo permitted || echo refused) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| TMPDIR reached through a symlink | $(if [ "$(cd "${TMPDIR:-/tmp}" && pwd -P)" = "${TMPDIR%/}" ]; then echo no; else echo yes; fi) |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Java version | $(java -version 2>&1 | head -1) |" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "macOS is not an officially supported MORPHEUS platform. This lane is advisory evidence only; it creates no packaging and no support commitment." >> "$GITHUB_STEP_SUMMARY"

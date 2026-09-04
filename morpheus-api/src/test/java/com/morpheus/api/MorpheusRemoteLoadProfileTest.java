@@ -67,7 +67,7 @@ class MorpheusRemoteLoadProfileTest {
         Path database = temp.resolve("morpheus.db");
         Path auth = temp.resolve("remote-auth.txt");
         var admin = MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
-        HttpClient client = RemoteHttpTestSupport.trustedClient();
+        HttpClient client = RemoteHttpTestSupport.trustedClient(keyStore());
 
         try (MorpheusRemoteHttpServer server = start(database, auth);
              ExecutorService callers = Executors.newFixedThreadPool(CLIENT_THREADS)) {
@@ -121,7 +121,7 @@ class MorpheusRemoteLoadProfileTest {
         seedBackupPayload(database);
         Path auth = temp.resolve("remote-auth.txt");
         var admin = MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
-        HttpClient client = RemoteHttpTestSupport.trustedClient();
+        HttpClient client = RemoteHttpTestSupport.trustedClient(keyStore());
 
         try (MorpheusRemoteHttpServer server = start(database, auth);
              ExecutorService callers = Executors.newFixedThreadPool(CLIENT_THREADS)) {
@@ -192,7 +192,7 @@ class MorpheusRemoteLoadProfileTest {
         Path database = temp.resolve("morpheus.db");
         Path auth = temp.resolve("remote-auth.txt");
         var admin = MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
-        HttpClient client = RemoteHttpTestSupport.trustedClient();
+        HttpClient client = RemoteHttpTestSupport.trustedClient(keyStore());
 
         try (MorpheusRemoteHttpServer server = start(database, auth)) {
             URI base = URI.create("https://127.0.0.1:" + server.port() + "/api/v1");
@@ -236,7 +236,7 @@ class MorpheusRemoteLoadProfileTest {
         Path database = temp.resolve("morpheus.db");
         Path auth = temp.resolve("remote-auth.txt");
         var admin = MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
-        HttpClient client = RemoteHttpTestSupport.trustedClient();
+        HttpClient client = RemoteHttpTestSupport.trustedClient(keyStore());
 
         URI base;
         try (MorpheusRemoteHttpServer server = start(database, auth)) {
@@ -315,9 +315,18 @@ class MorpheusRemoteLoadProfileTest {
         }
     }
 
+    /** Generated once per test so the client can be pinned to the very certificate the server will serve. */
+    private Path keyStore() throws Exception {
+        Path keyStore = temp.resolve("server.p12");
+        if (!Files.isRegularFile(keyStore)) {
+            RemoteHttpTestSupport.createKeyStore(keyStore);
+        }
+        return keyStore;
+    }
+
     private MorpheusRemoteHttpServer start(Path database, Path auth) throws Exception {
         Path allowedWorkspaceRoot = Files.createDirectories(temp.resolve("allowed-workspaces"));
-        Path keyStore = RemoteHttpTestSupport.createKeyStore(temp.resolve("server.p12"));
+        Path keyStore = keyStore();
         ExternalIntegrationStatusProvider minos = () ->
                 new ExternalIntegrationStatus("MINOS", "DISABLED", false, "load", Map.of());
         return MorpheusRemoteHttpServer.start(
