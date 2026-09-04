@@ -59,9 +59,17 @@ class MorpheusRemoteAdversarialClientTest {
     private static final int SEEDED_PROJECTS = 8_000;
     private static final int STALLED_CLIENTS = MAX_CONCURRENT;
     private static final int SMALL_RECEIVE_BUFFER_BYTES = 4096;
-    private static final int PAUSES = 4;
-    private static final Duration PAUSE = Duration.ofSeconds(5);
-    private static final int SIP_BYTES = 128 * 1024;
+    /**
+     * A slow reader's pacing, derived from the budget it must stay inside rather than written next to it.
+     *
+     * <p>Six pauses of a fifth of the stall budget outlast that budget in aggregate while leaving each
+     * individual gap five times inside it. The first version used a third of the budget per pause and was cut
+     * off on Linux but not on Windows -- close enough to the limit that platform differences in socket
+     * back-pressure decided the outcome. A test of a 15-second budget should not be sensitive to a second.</p>
+     */
+    private static final int PAUSES = 6;
+    private static final Duration PAUSE = TimedBoundedResponseWriter.RESPONSE_STALL_TIMEOUT.dividedBy(5);
+    private static final int SIP_BYTES = 256 * 1024;
 
     @TempDir
     static Path temp;
@@ -129,7 +137,12 @@ class MorpheusRemoteAdversarialClientTest {
                 assertTrue(abandoned.responseStarted(), "each adversarial client must have a response to abandon");
             }
 
-            awaitCondition(Duration.ofSeconds(150), () -> counter("responseWriteTimeouts") > timeoutsBefore);
+            // Every one of them, not just the first: the counter is incremented after the handler's finally has
+            // already released the slots, so activeRequests can reach zero while increments are still pending.
+            // Leaving those in flight would let one land inside whichever test runs next.
+            awaitCondition(
+                    Duration.ofSeconds(150),
+                    () -> counter("responseWriteTimeouts") >= timeoutsBefore + STALLED_CLIENTS);
             awaitCondition(Duration.ofSeconds(60), () -> counter("activeRequests") == 0);
         } finally {
             for (StalledClient abandoned : stalled) {
@@ -152,24 +165,24 @@ class MorpheusRemoteAdversarialClientTest {
     @Test
     @Timeout(240)
     void aSlowButProgressingClientIsServedInFull() throws Exception {
-        long timeoutsBefore = counter("responseWriteTimeouts");
-
-        long received;
-        try (StalledClient slow = StalledClient.readHeadersThenStop("/api/v1/projects")) {
-            assertTrue(slow.responseStarted());
-            received = slow.drainWithPauses(PAUSES, PAUSE);
-        }
-
         assertTrue(PAUSE.compareTo(TimedBoundedResponseWriter.RESPONSE_STALL_TIMEOUT) < 0,
                 "each pause must stay inside the stall budget, or this would only be a stalled client again");
         assertTrue(PAUSE.multipliedBy(PAUSES).compareTo(TimedBoundedResponseWriter.RESPONSE_STALL_TIMEOUT) > 0,
                 "the response must outlast the stall budget, or a deadline that never rearmed would pass too");
 
-        assertTrue(received > 1024L * 1024L,
+        long declared;
+        long received;
+        try (StalledClient slow = StalledClient.readHeadersThenStop("/api/v1/projects")) {
+            assertTrue(slow.responseStarted());
+            declared = slow.declaredBodyBytes();
+            received = slow.drainWithPauses(PAUSES, PAUSE);
+        }
+
+        assertTrue(declared > 1024L * 1024L,
                 () -> "the fixture must produce a response too large to be absorbed by socket buffers, got "
-                        + received + " bytes");
-        assertEquals(timeoutsBefore, counter("responseWriteTimeouts"),
-                "a client that keeps making progress must never be cut off");
+                        + declared + " bytes");
+        assertEquals(declared, received,
+                "a client that keeps making progress must be served in full, not truncated by the deadline");
         awaitCondition(Duration.ofSeconds(60), () -> counter("activeRequests") == 0);
     }
 
@@ -243,13 +256,13 @@ class MorpheusRemoteAdversarialClientTest {
         private final Socket plain;
         private final SSLSocket tls;
         private final InputStream input;
-        private final boolean responseStarted;
+        private final long declaredBodyBytes;
 
-        private StalledClient(Socket plain, SSLSocket tls, InputStream input, boolean responseStarted) {
+        private StalledClient(Socket plain, SSLSocket tls, InputStream input, long declaredBodyBytes) {
             this.plain = plain;
             this.tls = tls;
             this.input = input;
-            this.responseStarted = responseStarted;
+            this.declaredBodyBytes = declaredBodyBytes;
         }
 
         private static StalledClient readHeadersThenStop(String path) throws Exception {
@@ -274,26 +287,46 @@ class MorpheusRemoteAdversarialClientTest {
             output.flush();
 
             InputStream input = tls.getInputStream();
-            boolean started = readStatusLineAndHeaders(input);
-            return new StalledClient(plain, tls, input, started);
+            return new StalledClient(plain, tls, input, readStatusLineAndHeaders(input));
         }
 
-        /** Reads exactly up to the blank line ending the headers, and not one byte of the body. */
-        private static boolean readStatusLineAndHeaders(InputStream input) throws IOException {
+        /**
+         * Reads exactly up to the blank line ending the headers, and not one byte of the body.
+         *
+         * <p>Returns the declared body length, or -1 when the response is not one this test can use. The length
+         * is what makes truncation detectable: the facade sends a bounded Content-Length on every proxied
+         * response, so a client that received fewer bytes than that was cut off -- which is a property of this
+         * one exchange, not of a counter the whole class shares.</p>
+         */
+        private static long readStatusLineAndHeaders(InputStream input) throws IOException {
             StringBuilder headers = new StringBuilder();
             int next;
             while ((next = input.read()) != -1) {
                 headers.append((char) next);
                 if (headers.length() >= 4 && headers.lastIndexOf("\r\n\r\n") == headers.length() - 4) {
-                    return headers.indexOf("HTTP/1.1 200") == 0;
+                    return headers.indexOf("HTTP/1.1 200") == 0 ? declaredLength(headers.toString()) : -1L;
                 }
-                if (headers.length() > 16 * 1024) return false;
+                if (headers.length() > 16 * 1024) return -1L;
             }
-            return false;
+            return -1L;
+        }
+
+        private static long declaredLength(String headers) {
+            String name = "Content-Length:";
+            for (String line : headers.split("\r\n")) {
+                if (line.regionMatches(true, 0, name, 0, name.length())) {
+                    return Long.parseLong(line.substring(name.length()).trim());
+                }
+            }
+            return -1L;
         }
 
         private boolean responseStarted() {
-            return responseStarted;
+            return declaredBodyBytes >= 0;
+        }
+
+        private long declaredBodyBytes() {
+            return declaredBodyBytes;
         }
 
         /**
