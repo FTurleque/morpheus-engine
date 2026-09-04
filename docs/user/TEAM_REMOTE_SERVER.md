@@ -236,6 +236,23 @@ Le probe de plugin externe fait volontairement partie des exceptions au timeout 
 
 Un client doit traiter toute rupture réseau pendant une mutation comme un résultat à réconcilier avant retry.
 
+### Détecter la contention SQLite
+
+SQLite sérialise les écrivains. Une base contendue est d'abord une base **plus lente**, puis, une fois le busy timeout épuisé, une base qui **refuse** explicitement. Entre les deux il n'y avait aucun signal ; `GET /api/v1/metrics` (ADMIN en remote) en expose désormais quatre :
+
+| Compteur | Lecture |
+|---|---|
+| `sqlite.transaction.started` / `sqlite.transaction.committed` | volume de transactions explicites |
+| `sqlite.transaction.rolled_back` | transactions annulées, toutes causes confondues |
+| `sqlite.contention.busy_or_locked` | transactions perdues sur `SQLITE_BUSY`/`SQLITE_LOCKED` |
+| `sqlite.contention.connection_open` | ouvertures de connexion physique perdues sur la même cause |
+
+La durée est également agrégée sous `sqlite.transaction.duration` (`count`, `totalNanos`, `maxNanos`). C'est ce `maxNanos` qui bouge en premier : il monte bien avant que `sqlite.contention.busy_or_locked` ne commence à s'incrémenter.
+
+**Portée exacte du compteur** : sont comptées les transactions explicites — c'est-à-dire toute mutation multi-instructions de MORPHEUS, celles qui tiennent réellement un verrou d'écriture — et les ouvertures de connexion physique. Une écriture mono-instruction en autocommit n'est pas comptée : l'observer imposerait de proxifier chaque `Statement` JDBC à travers le garde de lease, et ce garde est ce qui libère le lease de la base. Un compteur ne justifie pas d'y toucher.
+
+Ces compteurs sont process-local : aucun exporter, aucun transport réseau. Ils ne pilotent rien — aucun retry, aucun refus n'en dépend.
+
 ### Probe de plugin externe en remote
 
 La discovery reste read-only et **metadata-only**. Elle refuse un répertoire de plugins symbolique ainsi que les candidats JAR symboliques ; une discovery ne peut donc pas suivre un lien `*.jar` vers un fichier externe au répertoire configuré.
