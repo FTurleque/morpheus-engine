@@ -310,7 +310,7 @@ Les builders vérifient explicitement la présence de la couche M28 avant de pro
 Windows :
 
 ```powershell
-.\validate-m28.cmd -Version 1.1.0 -BaseRef origin/develop
+scripts\validate.cmd m28 -Version 1.2.1 -BaseRef origin/develop
 ```
 
 Le gate couvre notamment :
@@ -333,7 +333,7 @@ setup Windows
 Linux/WSL :
 
 ```bash
-MORPHEUS_M28_BASE_REF=origin/develop bash ./scripts/validate-m28.sh 1.1.0
+MORPHEUS_M28_BASE_REF=origin/develop bash ./scripts/validate-m28.sh 1.2.1
 ```
 
 Le gate Linux couvre les contrats statiques, la non-régression reactor et le packaging Linux. Les écritures de profils Windows ne sont pas simulées comme une preuve Linux équivalente.

@@ -88,6 +88,26 @@ mindmap
 | Seuil | 0 |
 | Vérification | `ProviderIngestionBudgetTest`, tests JSON et providers |
 
+### Q-SE-03 — Écriture de réponse remote bornée en temps
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Un client TLS authentifié cesse de lire une réponse remote (lecture lente, arrêt après en-têtes, disparition brutale) |
+| Réponse attendue | Deadline stall (15 s réarmée par bloc écrit) ou totale (120 s), écriture interrompue, connexion libérée |
+| Mesure | Thread/slot de réponse retenu au-delà des budgets |
+| Seuil | 0 |
+| Vérification | `TimedBoundedResponseWriterTest`, `MorpheusRemoteAdversarialClientTest` |
+
+### Q-SE-04 — Budgets de query HTTP bornés avant décodage
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Une query string ou l'un de ses paramètres dépasse `HttpQueryBudget` |
+| Réponse attendue | Rejet déterministe `400 BAD_REQUEST`, jamais `500` |
+| Mesure | Dépassement accepté ou provoquant une erreur non contrôlée |
+| Seuil | 0 |
+| Vérification | `MorpheusHttpQueryTest`, `LocalHttpQueryArchitectureTest` |
+
 ### Q-MA-01 — Isolation des couches
 
 | Champ | Valeur |
@@ -110,7 +130,7 @@ mindmap
 | Seuil | 0 |
 | Vérification | `.github/workflows/ci.yml` et metadata du run |
 
-Le workflow actuel appelle le gate **M21** avec la version **1.2.0**. Ce nom est
+Le workflow actuel appelle le gate **M21** avec la version **1.2.1**. Ce nom est
 intentionnel et ne doit pas être remplacé automatiquement par le dernier numéro
 de milestone fonctionnel.
 

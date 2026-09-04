@@ -1,7 +1,7 @@
 # Scénarios de qualité — MORPHEUS ENGINE
 
 > Complément de [§10](../arc42/10-exigences-qualite.md).
-> Baseline : MORPHEUS 1.2.0 — `develop` post-D2.
+> Baseline active : MORPHEUS 1.2.1 corrective — `develop` post-audit. Dernière release publiée : `v1.2.0`.
 >
 > Un scénario est marqué **qualifié** uniquement lorsqu'une preuve exécutable ou
 > une validation identifiée existe. Les objectifs sans seuil mesuré restent des
@@ -89,6 +89,46 @@ bit-à-bit identiques.
 | Seuil | 0 |
 | Preuve | `ExternalJarIntegrityTest` |
 
+### Q-SE-05 — Écriture de réponse remote bornée en temps — qualifié post-audit 1.2.1 (A-10)
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Un client TLS authentifié cesse de lire une réponse (lecture lente, arrêt après les en-têtes, disparition brutale) |
+| Réponse | La deadline stall (15 s réarmée à chaque bloc écrit) ou totale (120 s) interrompt l'écriture et libère la connexion |
+| Mesure | Un client abandonné retient un thread/slot de réponse au-delà des budgets |
+| Seuil | 0 |
+| Preuve | `TimedBoundedResponseWriterTest`, `MorpheusRemoteAdversarialClientTest` |
+
+### Q-SE-06 — Audit d'identités : preuve, pas autorité — qualifié post-audit 1.2.1 (A-12)
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Une entrée illisible ou corrompue existe dans le fichier d'audit des identités remote |
+| Réponse | L'entrée est mise en quarantaine (`AUDIT_QUARANTINED`) sans bloquer `revoke`/`rotate`/`create` |
+| Mesure | Une mutation de sécurité légitime est bloquée par une entrée d'audit illisible |
+| Seuil | 0 |
+| Preuve | `MorpheusRemoteIdentityAuditRecoveryTest`, ADR-0100 |
+
+### Q-SE-07 — Budgets de query HTTP bornés avant décodage — qualifié post-audit 1.2.1 (A-13)
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Une query string dépasse 16 KiB, 16 paramètres, 128 octets de nom ou 8 KiB de valeur, ou porte un encodage `%` invalide |
+| Réponse | Rejet déterministe `400 BAD_REQUEST`, jamais `500`, budgets vérifiés en octets UTF-8 avant tout décodage |
+| Mesure | Dépassement accepté ou provoquant une erreur non contrôlée |
+| Seuil | 0 |
+| Preuve | `MorpheusHttpQueryTest`, `LocalHttpQueryArchitectureTest` |
+
+### Q-SE-08 — Lifecycle explicite du transport MCP borné — qualifié post-audit 1.2.1 (A-14)
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Double `connect()` séquentiel ou concurrent, `connect()` après `close()`, ou échec de démarrage du pair MCP |
+| Réponse | Machine d'état `NEW → CONNECTING → CONNECTED → CLOSING → CLOSED/FAILED` revendiquée avant tout démarrage ; un seul ticket de teardown est délivré |
+| Mesure | Un second pair démarré sans que le premier soit nommé/terminé |
+| Seuil | 0 |
+| Preuve | `BoundedStdioClientTransportLifecycleTest`, `BoundedStdioClientTransportTest` |
+
 ---
 
 ## Maintenabilité
@@ -125,7 +165,7 @@ bit-à-bit identiques.
 | Seuil | 0 |
 | Preuve | `.github/workflows/ci.yml` et metadata GitHub Actions |
 
-Le workflow actuel appelle `validate-m21` avec la version 1.2.0. Le numéro M21
+Le workflow actuel appelle `validate-m21` avec la version 1.2.1. Le numéro M21
 est celui du gate durable d'intégrité ; il ne représente pas le dernier
 milestone fonctionnel livré.
 

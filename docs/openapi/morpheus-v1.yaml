@@ -177,7 +177,7 @@ paths:
   /projects/{projectId}/requirements:
     parameters:
       - {$ref: '#/components/parameters/ProjectId'}
-      - {name: query, in: query, schema: {type: string, default: ''}}
+      - {name: query, in: query, schema: {type: string, default: '', maxLength: 8192}}
       - {$ref: '#/components/parameters/Offset'}
       - {$ref: '#/components/parameters/Limit'}
     get:

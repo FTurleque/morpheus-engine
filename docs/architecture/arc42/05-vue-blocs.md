@@ -11,7 +11,7 @@
 flowchart TB
   USER[Utilisateur / client MCP / client HTTP]
 
-  subgraph M[MORPHEUS ENGINE 1.2.0]
+  subgraph M[MORPHEUS ENGINE 1.2.1]
     CLI[morpheus-cli\nCLI / launcher]
     MCP[morpheus-mcp\nMCP STDIO]
     API[morpheus-api\nHTTP /api/v1]
@@ -28,6 +28,7 @@ flowchart TB
     MEM[morpheus-store-memory]
     SQL[morpheus-store-sqlite\nsqlite-jdbc 3.53.2.0]
 
+    MCPT[morpheus-mcp-transport\ntransport MCP borné]
     MINOS[morpheus-integration-minos]
     NEXUS[morpheus-integration-nexus]
   end
@@ -63,6 +64,10 @@ flowchart TB
   NEXUS --> APP
   MINOS --> MINOSEXT
   NEXUS --> NEXUSEXT
+
+  MCP --> MCPT
+  MINOS --> MCPT
+  NEXUS --> MCPT
 ```
 
 Le diagramme exprime les dépendances logiques, pas un ordre de démarrage. Les
@@ -73,7 +78,8 @@ supportent ; OpenSpec ne doit pas être confondu avec OpenAPI.
 
 ## 5.2 Reactor Maven
 
-Le parent `morpheus-engine` agrège 16 modules :
+Le parent `morpheus-engine` agrège 17 modules (18 projets Maven en comptant
+le parent) :
 
 | Famille | Modules | Responsabilité |
 |---------|---------|----------------|
@@ -82,7 +88,7 @@ Le parent `morpheus-engine` agrège 16 modules :
 | Provider SDK | `morpheus-provider-sdk`, `morpheus-provider-testkit`, `morpheus-provider-reference` | Contrats d'extension, qualification et plugin de référence |
 | Providers | `morpheus-provider-openspec`, `morpheus-provider-markdown`, `morpheus-provider-synthetic` | Adaptation des sources vers les contrats MORPHEUS |
 | Stores | `morpheus-store-memory`, `morpheus-store-sqlite` | Persistance derrière les ports applicatifs |
-| Intégrations | `morpheus-integration-minos`, `morpheus-integration-nexus` | Passerelles optionnelles vers les moteurs externes |
+| Intégrations | `morpheus-mcp-transport`, `morpheus-integration-minos`, `morpheus-integration-nexus` | Transport MCP STDIO borné partagé et passerelles optionnelles vers les moteurs externes |
 | Surfaces | `morpheus-cli`, `morpheus-mcp`, `morpheus-api` | CLI, MCP STDIO et HTTP |
 | Qualification | `morpheus-architecture-tests` | Invariants et gates d'architecture |
 
