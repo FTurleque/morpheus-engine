@@ -216,7 +216,8 @@ class MorpheusRemoteProxyResponseBudgetTest {
                 new MorpheusRemoteRuntimeState(4, 1, Duration.ofSeconds(1), 4096, 4096, 2, Instant.EPOCH),
                 4096,
                 responseSlots,
-                HttpClient.newHttpClient());
+                HttpClient.newHttpClient(),
+                new TimedBoundedResponseWriter());
     }
 
     /** Returns the failure the call produced, or null when it completed. */

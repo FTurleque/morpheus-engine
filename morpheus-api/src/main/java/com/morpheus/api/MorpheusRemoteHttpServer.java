@@ -56,7 +56,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final Semaphore privilegedConcurrency;
     private final Semaphore observabilityConcurrency;
     private final MorpheusRemoteRuntimeState runtime;
-    private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter();
+    private final TimedBoundedResponseWriter boundedResponses = new TimedBoundedResponseWriter();
+    private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter(boundedResponses);
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
     private final MorpheusRemoteProxyTransport proxyTransport;
 
@@ -101,7 +102,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.proxyTargets = new MorpheusRemoteProxyTargetResolver(
                 localServer.port(), providerPluginDirectory, allowedWorkspaceRoots);
         this.proxyTransport = new MorpheusRemoteProxyTransport(
-                internalCapability, runtime, MAX_PROXY_RESPONSE_BYTES, MAX_PROXY_RESPONSE_SLOTS);
+                internalCapability, runtime, MAX_PROXY_RESPONSE_BYTES, MAX_PROXY_RESPONSE_SLOTS, boundedResponses);
     }
 
     public static MorpheusRemoteHttpServer start(
@@ -171,11 +172,28 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 "cannot shut down the MORPHEUS remote HTTPS server",
                 () -> server.stop(0),
                 executor::shutdownNow,
+                boundedResponses::close,
                 localServer::close,
                 lease::close);
     }
 
+    /**
+     * Serves one exchange, and absorbs the one failure that has nowhere left to be reported.
+     *
+     * <p>When a client stops draining its response, the deadline in {@link TimedBoundedResponseWriter} reclaims
+     * the connection -- which is also the only channel an error envelope could have travelled on. The abandoned
+     * request is counted and the exchange ends; every slot it held is given back by the inner {@code finally}
+     * either way.</p>
+     */
     void handle(HttpExchange exchange) throws IOException {
+        try {
+            serve(exchange);
+        } catch (TimedBoundedResponseWriter.ResponseWriteTimeoutException abandoned) {
+            runtime.recordResponseWriteTimeout();
+        }
+    }
+
+    private void serve(HttpExchange exchange) throws IOException {
         String requestId = UUID.randomUUID().toString();
         responses.applySecurityHeaders(exchange.getResponseHeaders(), requestId);
         runtime.recordRequest();

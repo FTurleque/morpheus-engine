@@ -72,6 +72,14 @@ final class RemoteHttpTestSupport {
      * client.</p>
      */
     static HttpClient trustedClient(Path keyStore) throws Exception {
+        return HttpClient.newBuilder()
+                .sslContext(trustedContext(keyStore))
+                .connectTimeout(Duration.ofSeconds(5))
+                .build();
+    }
+
+    /** The same pinned trust, for tests that need a raw {@code SSLSocket} rather than an {@code HttpClient}. */
+    static SSLContext trustedContext(Path keyStore) throws Exception {
         KeyStore server = KeyStore.getInstance("PKCS12");
         try (InputStream input = Files.newInputStream(keyStore)) {
             server.load(input, KEYSTORE_PASSWORD.toCharArray());
@@ -89,9 +97,6 @@ final class RemoteHttpTestSupport {
 
         SSLContext context = SSLContext.getInstance("TLS");
         context.init(null, trustManagers.getTrustManagers(), null);
-        return HttpClient.newBuilder()
-                .sslContext(context)
-                .connectTimeout(Duration.ofSeconds(5))
-                .build();
+        return context;
     }
 }

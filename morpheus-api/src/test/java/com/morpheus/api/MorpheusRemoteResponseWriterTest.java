@@ -12,7 +12,7 @@ class MorpheusRemoteResponseWriterTest {
 
     @Test
     void successEnvelopeKeepsVersionedDataContract() {
-        MorpheusRemoteResponseWriter writer = new MorpheusRemoteResponseWriter();
+        MorpheusRemoteResponseWriter writer = new MorpheusRemoteResponseWriter(new TimedBoundedResponseWriter());
         Map<String, Object> data = Map.of("state", "READY");
 
         Map<String, Object> envelope = writer.success(data);
@@ -25,7 +25,7 @@ class MorpheusRemoteResponseWriterTest {
     @Test
     @SuppressWarnings("unchecked")
     void errorEnvelopeKeepsVersionedDetailsContract() {
-        MorpheusRemoteResponseWriter writer = new MorpheusRemoteResponseWriter();
+        MorpheusRemoteResponseWriter writer = new MorpheusRemoteResponseWriter(new TimedBoundedResponseWriter());
 
         Map<String, Object> envelope = writer.error("FORBIDDEN", "denied");
         Map<String, Object> error = (Map<String, Object>) envelope.get("error");
@@ -40,7 +40,7 @@ class MorpheusRemoteResponseWriterTest {
 
     @Test
     void securityHeadersRemainStrictRequestScopedAndCorsFree() {
-        MorpheusRemoteResponseWriter writer = new MorpheusRemoteResponseWriter();
+        MorpheusRemoteResponseWriter writer = new MorpheusRemoteResponseWriter(new TimedBoundedResponseWriter());
         Headers headers = new Headers();
 
         writer.applySecurityHeaders(headers, "request-123");
