@@ -120,7 +120,7 @@ class TimedBoundedResponseWriterTest {
      */
     @Test
     @Timeout(30)
-    void aFailureThatIsNotADeadlineIsPropagatedUnchanged() throws Exception {
+    void aFailureThatIsNotADeadlineIsPropagatedUnchanged() {
         try (TimedBoundedResponseWriter writer =
                      new TimedBoundedResponseWriter(Duration.ofSeconds(30), Duration.ofSeconds(60))) {
             IOException broken = new IOException("Broken pipe");
@@ -136,12 +136,16 @@ class TimedBoundedResponseWriterTest {
 
     @Test
     void budgetsMustBePositiveAndOrdered() {
+        Duration oneSecond = Duration.ofSeconds(1);
+        Duration twoSeconds = Duration.ofSeconds(2);
+        Duration negative = Duration.ofSeconds(-1);
+
         assertThrows(IllegalArgumentException.class,
-                () -> new TimedBoundedResponseWriter(Duration.ZERO, Duration.ofSeconds(1)));
+                () -> new TimedBoundedResponseWriter(Duration.ZERO, oneSecond));
         assertThrows(IllegalArgumentException.class,
-                () -> new TimedBoundedResponseWriter(Duration.ofSeconds(1), Duration.ofSeconds(-1)));
+                () -> new TimedBoundedResponseWriter(oneSecond, negative));
         assertThrows(IllegalArgumentException.class,
-                () -> new TimedBoundedResponseWriter(Duration.ofSeconds(2), Duration.ofSeconds(1)));
+                () -> new TimedBoundedResponseWriter(twoSeconds, oneSecond));
     }
 
     private static void writeUntilBlocked(Peers peers, TimedBoundedResponseWriter.Progress progress)
@@ -164,6 +168,7 @@ class TimedBoundedResponseWriterTest {
     }
 
     /** A peer that keeps reading, a little at a time, until it is told to stop. */
+    @SuppressWarnings("java:S2925")
     private static Thread drainSlowly(Peers peers, AtomicBoolean draining) {
         Thread reader = new Thread(() -> {
             ByteBuffer sink = ByteBuffer.allocate(4096);

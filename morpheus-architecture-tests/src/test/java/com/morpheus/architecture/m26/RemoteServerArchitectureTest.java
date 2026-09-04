@@ -217,9 +217,16 @@ class RemoteServerArchitectureTest {
         assertTrue(server.contains("private final Semaphore observabilityConcurrency;"),
                 "the status lane must be bounded on its own semaphore");
         assertTrue(server.contains("static int observabilityConcurrencyLimit(int maxConcurrentRequests)"));
-        assertTrue(server.contains("privilegedTicket = runtime.privilegedRequestStarted();"));
+        // The gauge entry is still created exactly when the slot is taken and returned exactly when it is given
+        // back; acquisition simply moved into a method that returns the ticket. The flag that used to sit beside
+        // the ticket is now forbidden outright, because a boolean and a semaphore can disagree and a ticket that
+        // is only ever zero or issued cannot.
+        assertTrue(server.contains("privilegedTicket = acquirePrivilegedTicket("));
+        assertTrue(server.contains("return runtime.privilegedRequestStarted();"));
         assertTrue(server.contains("runtime.privilegedRequestFinished(privilegedTicket);"),
                 "every privileged slot must be given back with its gauge entry");
+        assertFalse(server.contains("boolean privilegedSlot"),
+                "the privileged slot must be tracked by its ticket alone, never by a parallel flag");
         assertTrue(server.contains("recordThrottledPrivilegedRequest()"));
     }
 

@@ -24,15 +24,17 @@ final class HttpQueryBudget {
     private HttpQueryBudget() {
     }
 
+    private static final String QUERY_EXCEEDS = "query string exceeds ";
+
     static void requireBoundedQuery(String rawQuery, Function<String, RuntimeException> failure) {
         if (exceedsUtf8(rawQuery, MAX_QUERY_BYTES)) {
-            throw failure.apply("query string exceeds " + MAX_QUERY_BYTES + " bytes");
+            throw failure.apply(QUERY_EXCEEDS + MAX_QUERY_BYTES + " bytes");
         }
     }
 
     static void requireBoundedParameterCount(int parameters, Function<String, RuntimeException> failure) {
         if (parameters > MAX_PARAMETERS) {
-            throw failure.apply("query string exceeds " + MAX_PARAMETERS + " parameters");
+            throw failure.apply(QUERY_EXCEEDS + MAX_PARAMETERS + " parameters");
         }
     }
 
@@ -59,18 +61,23 @@ final class HttpQueryBudget {
     static boolean exceedsUtf8(String value, int maxBytes) {
         if (value.length() > maxBytes) return true;
         int length = 0;
-        for (int index = 0; index < value.length(); index++) {
+        int index = 0;
+        while (index < value.length()) {
             char current = value.charAt(index);
             if (current < 0x80) {
                 length += 1;
+                index += 1;
             } else if (current < 0x800) {
                 length += 2;
+                index += 1;
             } else if (Character.isHighSurrogate(current) && index + 1 < value.length()
                     && Character.isLowSurrogate(value.charAt(index + 1))) {
+                // A surrogate pair is one code point in four bytes, so it advances two chars at once.
                 length += 4;
-                index++;
+                index += 2;
             } else {
                 length += 3;
+                index += 1;
             }
             if (length > maxBytes) return true;
         }

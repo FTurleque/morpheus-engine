@@ -198,7 +198,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         responses.applySecurityHeaders(exchange.getResponseHeaders(), requestId);
         runtime.recordRequest();
         boolean requestSlot = false;
-        boolean privilegedSlot = false;
+        // Zero means no privileged slot is held: privilegedRequestStarted() never issues that ticket. One piece
+        // of state instead of a flag beside it, because a flag and a ticket can disagree and a ticket cannot.
         long privilegedTicket = 0L;
         try {
             if (!authenticationConcurrency.tryAcquire()) {
@@ -233,20 +234,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 return;
             }
 
-            if (usesPrivilegedConcurrency(exchange.getRequestMethod(), path)) {
-                if (!privilegedConcurrency.tryAcquire()) {
-                    runtime.recordThrottledPrivilegedRequest();
-                    throw new RemoteFailure(
-                            429,
-                            "PRIVILEGED_CONCURRENCY_LIMIT",
-                            "remote write/admin concurrency limit reached");
-                }
-                privilegedSlot = true;
-                privilegedTicket = runtime.privilegedRequestStarted();
-            }
+            privilegedTicket = acquirePrivilegedTicket(exchange.getRequestMethod(), path);
 
             if (!concurrency.tryAcquire()) {
-                if (privilegedSlot) {
+                if (privilegedTicket != 0L) {
                     runtime.recordThrottledPrivilegedRequest();
                 } else {
                     runtime.recordThrottledRequest();
@@ -265,12 +256,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             }
             proxy(exchange);
         } catch (RemoteFailure failure) {
-            if (failure.status == 401) runtime.recordAuthenticationFailure();
-            if (failure.status == 403) runtime.recordAuthorizationFailure();
-            if (failure.status == 401) {
-                exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer realm=\"morpheus\"");
-            }
-            responses.sendError(exchange, failure.status, failure.code, failure.getMessage());
+            renderFailure(exchange, failure);
         } catch (IllegalArgumentException failure) {
             responses.sendError(exchange, 400, "BAD_REQUEST", BoundaryFailureMessage.safe(failure));
         } catch (RuntimeException failure) {
@@ -280,12 +266,46 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 runtime.requestFinished();
                 concurrency.release();
             }
-            if (privilegedSlot) {
+            if (privilegedTicket != 0L) {
                 runtime.privilegedRequestFinished(privilegedTicket);
                 privilegedConcurrency.release();
             }
             exchange.close();
         }
+    }
+
+    /**
+     * Takes the write/admin slot when the route needs one, and reports which slot is held.
+     *
+     * <p>Returns zero for a route that needs no privileged slot, which is also what the caller gives back: a
+     * ticket is never zero once issued, so the ticket alone says whether a slot is held. A refusal throws before
+     * any slot exists, so there is nothing to release on that path.</p>
+     */
+    private long acquirePrivilegedTicket(String method, String path) {
+        if (!usesPrivilegedConcurrency(method, path)) return 0L;
+        if (!privilegedConcurrency.tryAcquire()) {
+            runtime.recordThrottledPrivilegedRequest();
+            throw new RemoteFailure(
+                    429,
+                    "PRIVILEGED_CONCURRENCY_LIMIT",
+                    "remote write/admin concurrency limit reached");
+        }
+        return runtime.privilegedRequestStarted();
+    }
+
+    /**
+     * Renders a decided failure, and records what kind it was.
+     *
+     * <p>The challenge header belongs with the authentication counter rather than in a second test of the same
+     * status: they are one decision about one outcome, and splitting them is how one of them later moves.</p>
+     */
+    private void renderFailure(HttpExchange exchange, RemoteFailure failure) throws IOException {
+        if (failure.status == 401) {
+            runtime.recordAuthenticationFailure();
+            exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer realm=\"morpheus\"");
+        }
+        if (failure.status == 403) runtime.recordAuthorizationFailure();
+        responses.sendError(exchange, failure.status, failure.code, failure.getMessage());
     }
 
     /**

@@ -21,8 +21,8 @@ public final class FixtureLaunchRecordingMcpPeer {
 
     public static void main(String[] args) throws IOException {
         if (args.length < 1) throw new IllegalArgumentException("launch record path is required");
-        Path record = Path.of(args[0]);
-        synchronizedAppend(record, ProcessHandle.current().pid() + System.lineSeparator());
+        Path launches = Path.of(args[0]);
+        synchronizedAppend(launches, ProcessHandle.current().pid() + System.lineSeparator());
         try (InputStream input = System.in) {
             while (input.read() != -1) {
                 // A peer that never answers is enough: these tests exercise the transport lifecycle, not MCP.
@@ -31,9 +31,9 @@ public final class FixtureLaunchRecordingMcpPeer {
     }
 
     /** Appends atomically, so two peers racing to record themselves both end up in the file. */
-    private static void synchronizedAppend(Path record, String line) throws IOException {
+    private static void synchronizedAppend(Path launches, String line) throws IOException {
         Files.write(
-                record,
+                launches,
                 line.getBytes(StandardCharsets.UTF_8),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.WRITE,

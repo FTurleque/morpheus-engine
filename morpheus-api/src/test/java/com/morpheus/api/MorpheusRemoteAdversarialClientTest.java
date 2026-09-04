@@ -241,6 +241,13 @@ class MorpheusRemoteAdversarialClientTest {
         }
     }
 
+    /**
+     * Polls a facade counter until it settles, with an explicit deadline.
+     *
+     * <p>java:S2925 flags the sleep. The facade publishes its state over HTTP and offers no latch, so a bounded
+     * poll is what reading it looks like; the deadline is what keeps a stuck facade a failure and not a hang.</p>
+     */
+    @SuppressWarnings("java:S2925")
     private static void awaitCondition(Duration timeout, BooleanSupplier condition) throws InterruptedException {
         long deadline = System.nanoTime() + timeout.toNanos();
         while (!condition.getAsBoolean()) {
@@ -337,6 +344,7 @@ class MorpheusRemoteAdversarialClientTest {
          * longer than that budget. A deadline that did not rearm on progress would end this response; one that
          * merely throttled by bandwidth would too.</p>
          */
+        @SuppressWarnings("java:S2925")
         private long drainWithPauses(int pauses, Duration pause) throws IOException, InterruptedException {
             byte[] sip = new byte[8192];
             long total = 0;

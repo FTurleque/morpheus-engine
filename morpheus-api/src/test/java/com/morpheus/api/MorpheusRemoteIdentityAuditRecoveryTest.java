@@ -82,8 +82,8 @@ class MorpheusRemoteIdentityAuditRecoveryTest {
 
         // The unreadable line is gone, so the strict reader works again on the very file it used to reject.
         List<MorpheusRemoteIdentityFile.AuditRecord> audit = MorpheusRemoteIdentityFile.audit(auth);
-        assertTrue(audit.stream().anyMatch(record ->
-                        record.mutation() == MorpheusRemoteIdentityFile.Mutation.AUDIT_QUARANTINED),
+        assertTrue(audit.stream().anyMatch(entry ->
+                        entry.mutation() == MorpheusRemoteIdentityFile.Mutation.AUDIT_QUARANTINED),
                 "dropping unreadable history must itself be recorded, not left silent");
         assertEquals(MorpheusRemoteIdentityFile.Mutation.CREATE, audit.getLast().mutation());
         assertTrue(audit.size() <= MorpheusRemoteIdentityFile.MAX_AUDIT_RECORDS);
@@ -116,7 +116,7 @@ class MorpheusRemoteIdentityAuditRecoveryTest {
                         MorpheusRemoteIdentityFile.Mutation.REVOKE),
                 mutations,
                 "both surviving creations must be kept, with the loss recorded between them and the new entry");
-        assertFalse(audit.stream().anyMatch(record -> record.principal().equals("ghost")));
+        assertFalse(audit.stream().anyMatch(entry -> entry.principal().equals("ghost")));
     }
 
     /**
@@ -133,7 +133,7 @@ class MorpheusRemoteIdentityAuditRecoveryTest {
         MorpheusRemoteIdentityFile.revoke(auth, "reader");
 
         long quarantines = MorpheusRemoteIdentityFile.audit(auth).stream()
-                .filter(record -> record.mutation() == MorpheusRemoteIdentityFile.Mutation.AUDIT_QUARANTINED)
+                .filter(entry -> entry.mutation() == MorpheusRemoteIdentityFile.Mutation.AUDIT_QUARANTINED)
                 .count();
         assertEquals(1, quarantines);
     }

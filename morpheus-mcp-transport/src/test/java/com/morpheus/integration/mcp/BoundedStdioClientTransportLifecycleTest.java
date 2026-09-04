@@ -5,6 +5,7 @@ import io.modelcontextprotocol.json.McpJsonDefaults;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,8 +52,8 @@ class BoundedStdioClientTransportLifecycleTest {
             transport.connect(message -> message).block();
             awaitLaunches(launches, 1);
 
-            IllegalStateException refused = assertThrows(
-                    IllegalStateException.class, () -> transport.connect(message -> message).block());
+            Mono<Void> secondConnect = transport.connect(message -> message);
+            IllegalStateException refused = assertThrows(IllegalStateException.class, secondConnect::block);
             assertTrue(refused.getMessage().contains("cannot connect twice"), refused.getMessage());
 
             assertEquals(1, recordedLaunches(launches).size(), "a refused connect must not start a peer");
@@ -98,8 +99,7 @@ class BoundedStdioClientTransportLifecycleTest {
 
             assertEquals(1, connected.get(), "exactly one caller may win the lifecycle");
             awaitLaunches(launches, 1);
-            // Give a lost racer every chance to have started a peer of its own before counting.
-            TimeUnit.MILLISECONDS.sleep(200);
+            settleLostRacers();
             assertEquals(1, recordedLaunches(launches).size(), "a race must never produce a second peer");
         } finally {
             transport.closeGracefully().block();
@@ -116,8 +116,8 @@ class BoundedStdioClientTransportLifecycleTest {
         awaitLaunches(launches, 1);
         transport.closeGracefully().block();
 
-        IllegalStateException refused = assertThrows(
-                IllegalStateException.class, () -> transport.connect(message -> message).block());
+        Mono<Void> afterClose = transport.connect(message -> message);
+        IllegalStateException refused = assertThrows(IllegalStateException.class, afterClose::block);
 
         assertTrue(refused.getMessage().contains("cannot connect twice"), refused.getMessage());
         assertEquals(BoundedStdioClientTransport.State.CLOSED, transport.state());
@@ -185,13 +185,13 @@ class BoundedStdioClientTransportLifecycleTest {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                 missingCommand, McpJsonDefaults.getMapper(), 1024);
 
-        IllegalStateException unstarted = assertThrows(
-                IllegalStateException.class, () -> transport.connect(message -> message).block());
+        Mono<Void> firstConnect = transport.connect(message -> message);
+        IllegalStateException unstarted = assertThrows(IllegalStateException.class, firstConnect::block);
         assertTrue(unstarted.getMessage().contains("failed to start MCP process"), unstarted.getMessage());
         assertEquals(BoundedStdioClientTransport.State.FAILED, transport.state());
 
-        IllegalStateException refused = assertThrows(
-                IllegalStateException.class, () -> transport.connect(message -> message).block());
+        Mono<Void> secondConnect = transport.connect(message -> message);
+        IllegalStateException refused = assertThrows(IllegalStateException.class, secondConnect::block);
         assertTrue(refused.getMessage().contains("cannot connect twice"), refused.getMessage());
 
         // Closing a transport that never started must still be safe, and must not undo the terminal state.
@@ -259,6 +259,14 @@ class BoundedStdioClientTransportLifecycleTest {
         }
     }
 
+    /**
+     * Polls until a condition holds, which is what waiting on another process requires.
+     *
+     * <p>java:S2925 flags the sleep. There is no event to await here: the states these tests wait on belong to
+     * operating-system processes and to a facade's own counters, neither of which offers a latch. A bounded poll
+     * with an explicit deadline is the honest form, and it fails loudly rather than hanging.</p>
+     */
+    @SuppressWarnings("java:S2925")
     private void awaitCondition(Duration timeout, BooleanSupplier condition) throws InterruptedException {
         long deadline = System.nanoTime() + timeout.toNanos();
         while (!condition.getAsBoolean()) {
@@ -267,6 +275,17 @@ class BoundedStdioClientTransportLifecycleTest {
             }
             TimeUnit.MILLISECONDS.sleep(10);
         }
+    }
+
+    /**
+     * Gives a racer that lost the lifecycle claim time to have started a peer, if it were going to.
+     *
+     * <p>java:S2925 flags the sleep, and here it is the measurement rather than a synchronisation shortcut:
+     * the assertion is that something never happens, and nothing can signal the absence of an event.</p>
+     */
+    @SuppressWarnings("java:S2925")
+    private void settleLostRacers() throws InterruptedException {
+        TimeUnit.MILLISECONDS.sleep(200);
     }
 
     private boolean isAlive(long pid) {

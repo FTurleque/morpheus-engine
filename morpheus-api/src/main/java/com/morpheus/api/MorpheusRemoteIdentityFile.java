@@ -631,11 +631,11 @@ public final class MorpheusRemoteIdentityFile {
         for (int index = 0; index < lines.size(); index++) {
             String line = lines.get(index).trim();
             if (!line.startsWith(AUDIT_PREFIX)) continue;
-            AuditRecord record = readAudit(line);
-            if (record == null) {
+            AuditRecord entry = readAudit(line);
+            if (entry == null) {
                 throw new IllegalArgumentException("invalid remote identity audit at line " + (index + 1));
             }
-            records.add(record);
+            records.add(entry);
         }
         return List.copyOf(records);
     }
@@ -660,9 +660,9 @@ public final class MorpheusRemoteIdentityFile {
         for (String raw : lines) {
             String line = raw.trim();
             if (!line.startsWith(AUDIT_PREFIX)) continue;
-            AuditRecord record = readAudit(line);
-            if (record == null) quarantined++;
-            else records.add(record);
+            AuditRecord entry = readAudit(line);
+            if (entry == null) quarantined++;
+            else records.add(entry);
         }
         return new RetainedAudit(records, quarantined);
     }
