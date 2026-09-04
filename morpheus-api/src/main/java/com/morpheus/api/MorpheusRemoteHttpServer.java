@@ -54,6 +54,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final Semaphore authenticationConcurrency;
     private final Semaphore concurrency;
     private final Semaphore privilegedConcurrency;
+    private final Semaphore observabilityConcurrency;
     private final MorpheusRemoteRuntimeState runtime;
     private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter();
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
@@ -89,8 +90,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.authenticationConcurrency = new Semaphore(authenticationConcurrencyLimit(maxConcurrentRequests), true);
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
         this.privilegedConcurrency = new Semaphore(privilegedConcurrencyLimit(maxConcurrentRequests), true);
+        this.observabilityConcurrency = new Semaphore(observabilityConcurrencyLimit(maxConcurrentRequests), true);
         this.runtime = new MorpheusRemoteRuntimeState(
                 maxConcurrentRequests,
+                privilegedConcurrencyLimit(maxConcurrentRequests),
                 REQUEST_BODY_READ_TIMEOUT,
                 MAX_PROXY_RESPONSE_BYTES,
                 MAX_PROXY_IN_FLIGHT_BYTES,
@@ -178,6 +181,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         runtime.recordRequest();
         boolean requestSlot = false;
         boolean privilegedSlot = false;
+        long privilegedTicket = 0L;
         try {
             if (!authenticationConcurrency.tryAcquire()) {
                 runtime.recordThrottledRequest();
@@ -204,30 +208,36 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 return;
             }
 
-            if (usesPrivilegedConcurrency(exchange.getRequestMethod(), exchange.getRequestURI().getPath())) {
+            String path = exchange.getRequestURI().getPath();
+            if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/status")) {
+                requireMethod(exchange, "GET");
+                serveStatus(exchange);
+                return;
+            }
+
+            if (usesPrivilegedConcurrency(exchange.getRequestMethod(), path)) {
                 if (!privilegedConcurrency.tryAcquire()) {
-                    runtime.recordThrottledRequest();
+                    runtime.recordThrottledPrivilegedRequest();
                     throw new RemoteFailure(
                             429,
                             "PRIVILEGED_CONCURRENCY_LIMIT",
                             "remote write/admin concurrency limit reached");
                 }
                 privilegedSlot = true;
+                privilegedTicket = runtime.privilegedRequestStarted();
             }
 
             if (!concurrency.tryAcquire()) {
-                runtime.recordThrottledRequest();
+                if (privilegedSlot) {
+                    runtime.recordThrottledPrivilegedRequest();
+                } else {
+                    runtime.recordThrottledRequest();
+                }
                 throw new RemoteFailure(429, "TOO_MANY_REQUESTS", "remote request concurrency limit reached");
             }
             requestSlot = true;
             runtime.requestStarted();
 
-            String path = exchange.getRequestURI().getPath();
-            if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/status")) {
-                requireMethod(exchange, "GET");
-                responses.sendSuccess(exchange, 200, runtime.status(host(), port()));
-                return;
-            }
             if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/backups")) {
                 requireMethod(exchange, "POST");
                 requireEmptyBody(exchange);
@@ -253,9 +263,31 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 concurrency.release();
             }
             if (privilegedSlot) {
+                runtime.privilegedRequestFinished(privilegedTicket);
                 privilegedConcurrency.release();
             }
             exchange.close();
+        }
+    }
+
+    /**
+     * Answers the runtime status outside the request budget it reports on.
+     *
+     * <p>Status is the one route an operator needs precisely when the facade is saturated, and it used to be
+     * admitted through the same semaphore as the traffic it describes: a server at its request ceiling answered
+     * 429 to the question "why are you at your ceiling?". It reads process-local counters, touches no database
+     * and makes no upstream call, so it does not belong in that budget -- but it is still authenticated,
+     * authorized and separately bounded, so an authenticated reader cannot turn it into an unmetered lane.</p>
+     */
+    private void serveStatus(HttpExchange exchange) throws IOException {
+        if (!observabilityConcurrency.tryAcquire()) {
+            runtime.recordThrottledRequest();
+            throw new RemoteFailure(429, "TOO_MANY_REQUESTS", "remote status concurrency limit reached");
+        }
+        try {
+            responses.sendSuccess(exchange, 200, runtime.status(host(), port()));
+        } finally {
+            observabilityConcurrency.release();
         }
     }
 
@@ -313,6 +345,18 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     static int privilegedConcurrencyLimit(int maxConcurrentRequests) {
         if (maxConcurrentRequests < 1) throw new IllegalArgumentException("maxConcurrentRequests must be positive");
         return Math.max(1, (maxConcurrentRequests + 3) / 4);
+    }
+
+    /**
+     * Capacity of the status lane, which is deliberately independent of {@code maxConcurrentRequests}.
+     *
+     * <p>It does not scale with configured request capacity because it is not request work: an operator polling
+     * a saturated server needs a handful of concurrent status reads, not a proportional share of a budget that
+     * is by then fully committed.</p>
+     */
+    static int observabilityConcurrencyLimit(int maxConcurrentRequests) {
+        if (maxConcurrentRequests < 1) throw new IllegalArgumentException("maxConcurrentRequests must be positive");
+        return 8;
     }
 
     private void proxy(HttpExchange exchange) throws IOException {

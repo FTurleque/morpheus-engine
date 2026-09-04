@@ -155,6 +155,36 @@ class RemoteServerArchitectureTest {
         assertFalse(runtime.contains("MorpheusRemoteIdentityFile"));
     }
 
+    /**
+     * A remote mutation has no upstream deadline, so a blocked one holds its slots until it really ends. That is
+     * only tolerable while an operator can see it: the privileged gauge and the age of the oldest privileged
+     * operation are the difference between a busy facade and a stuck one, and they must not rot back into an
+     * aggregate request count that also moves with ordinary read traffic.
+     */
+    @Test
+    void remoteStatusExposesPrivilegedOccupancyAndIsServedOutsideTheRequestBudget() throws IOException {
+        Path root = repositoryRoot();
+        String server = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String runtime = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRuntimeState.java"));
+
+        assertTrue(runtime.contains("activePrivilegedRequests"),
+                "remote status must expose how many privileged operations are in flight");
+        assertTrue(runtime.contains("maxConcurrentPrivilegedRequests"));
+        assertTrue(runtime.contains("oldestActivePrivilegedRequestMillis"),
+                "remote status must expose the age of the longest-running privileged operation");
+        assertTrue(runtime.contains("throttledPrivilegedRequests"));
+
+        assertTrue(server.contains("private final Semaphore observabilityConcurrency;"),
+                "the status lane must be bounded on its own semaphore");
+        assertTrue(server.contains("static int observabilityConcurrencyLimit(int maxConcurrentRequests)"));
+        assertTrue(server.contains("privilegedTicket = runtime.privilegedRequestStarted();"));
+        assertTrue(server.contains("runtime.privilegedRequestFinished(privilegedTicket);"),
+                "every privileged slot must be given back with its gauge entry");
+        assertTrue(server.contains("recordThrottledPrivilegedRequest()"));
+    }
+
     @Test
     void remoteResponseRenderingStaysExtractedAndPolicyFree() throws IOException {
         Path root = repositoryRoot();

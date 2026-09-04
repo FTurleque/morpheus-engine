@@ -209,13 +209,28 @@ curl \
 
 La réponse contient uniquement des informations process-local : uptime, requêtes actives/totales, échecs d’authentification/autorisation et throttling. Elle n’expose ni token, ni hash de token, ni mot de passe TLS.
 
+`server/status` est servi **hors du budget de requêtes qu'il décrit**, sur une voie bornée qui lui est propre. C'est délibéré : la question « pourquoi le serveur est-il à son plafond ? » doit rester posable quand il y est. Le champ `activeRequests` compte donc le travail en vol, jamais l'appel de status lui-même.
+
+Trois champs servent au diagnostic d'une mutation bloquée :
+
+| Champ | Lecture |
+|---|---|
+| `activePrivilegedRequests` / `maxConcurrentPrivilegedRequests` | occupation de la voie WRITE/ADMIN |
+| `oldestActivePrivilegedRequestMillis` | âge de l'opération privilégiée la plus ancienne encore en cours |
+| `throttledPrivilegedRequests` | refus imputables à la pression WRITE/ADMIN (sous-ensemble de `throttledRequests`) |
+
+Un `activePrivilegedRequests` saturé avec un `oldestActivePrivilegedRequestMillis` de quelques secondes est de la charge. Le même compteur saturé avec un âge qui ne cesse de croître est une mutation que rien ne terminera : c'est le signal d'intervention, MORPHEUS ne la tuera pas de lui-même (voir ci-dessous).
+
 Lorsque le budget de concurrence est atteint, MORPHEUS répond explicitement :
 
 ```text
 HTTP 429 TOO_MANY_REQUESTS
+HTTP 429 PRIVILEGED_CONCURRENCY_LIMIT
 ```
 
 Aucune file non bornée n’est créée par M26. Les opérations read-only dont l'exécution est entièrement contrôlée par MORPHEUS disposent d’un timeout amont de 60 secondes. Les mutations ne reçoivent pas cette deadline arbitraire : le slot de concurrence reste détenu jusqu'à la réponse réelle du traitement interne.
+
+La capacité privilégiée est plafonnée au quart du budget de requêtes (`maxConcurrentPrivilegedRequests`). Des mutations toutes bloquées ne peuvent donc jamais confisquer plus d'un quart de la capacité : les lectures conservent les trois quarts restants. **Risque résiduel assumé en 1.2.1** : une mutation réellement bloquée immobilise son slot jusqu'à sa fin réelle, et une saturation durable de la voie privilégiée refuse les mutations suivantes en `429` sans les mettre en file. MORPHEUS préfère ce refus explicite à une deadline qui rapporterait `504` pour un commit peut-être déjà durable.
 
 Le probe de plugin externe fait volontairement partie des exceptions au timeout façade, même s'il est sémantiquement read-only : il exécute du code tiers explicitement approuvé par ADMIN et ce code ne possède pas de contrat de cancellation coopérative. MORPHEUS ne renvoie donc pas un faux `504` en libérant le slot alors que le plugin pourrait continuer à tourner ; le slot reste détenu jusqu'à la fin réelle du probe. Un administrateur doit considérer un plugin bloquant comme un plugin défectueux et intervenir sur le processus si nécessaire.
 
