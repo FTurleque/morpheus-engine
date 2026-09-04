@@ -80,6 +80,7 @@ class MorpheusRemoteProxyTransportTest {
     void saturatedResponseBudgetFailsClosedBeforeCallingTheLoopbackServer() {
         MorpheusRemoteRuntimeState runtime = new MorpheusRemoteRuntimeState(
                 1,
+                1,
                 Duration.ofSeconds(1),
                 16,
                 16,
@@ -109,7 +110,7 @@ class MorpheusRemoteProxyTransportTest {
     void responseBoundMustBePositive() {
         assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteProxyTransport(
                 MorpheusInternalCapability.generate(),
-                new MorpheusRemoteRuntimeState(1, Duration.ofSeconds(1), 1, 1, 1),
+                new MorpheusRemoteRuntimeState(1, 1, Duration.ofSeconds(1), 1, 1, 1),
                 0,
                 new Semaphore(1),
                 HttpClient.newHttpClient()));

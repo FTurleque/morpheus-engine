@@ -114,6 +114,43 @@ class D2RepositoryHardeningArchitectureTest {
         assertFalse(codeql.contains("uses: github/codeql-action/analyze@v"));
     }
 
+    /**
+     * The macOS lane observes; it must never be mistaken for support.
+     *
+     * <p>An unqualified platform must not gate pull requests, so the lane is advisory. The opposite mistake is
+     * the one worth guarding against in a contract: a green advisory lane is not a support decision, and the
+     * qualified-platform list must keep saying Windows and Linux until a product decision says otherwise.</p>
+     */
+    @Test
+    void theMacosLaneStaysAdvisoryAndClaimsNoSupport() throws IOException {
+        Path root = repoRoot();
+        String ci = Files.readString(root.resolve(".github/workflows/ci.yml"));
+
+        assertTrue(ci.contains("runs-on: macos-latest"), "ci.yml must observe macOS at least at smoke level");
+        assertTrue(ci.contains("continue-on-error: true"),
+                "an unqualified platform must not gate pull requests");
+        assertFalse(ci.contains("jpackage") && ci.contains("macos"),
+                "the macOS lane must not produce distribution artifacts");
+
+        // The lane tolerates a failing reactor so it does not sit permanently red, which is only acceptable
+        // while it still says what happened. Swallowing the outcome would turn an observation lane into a
+        // rubber stamp: green because it ran, not because anything worked.
+        assertTrue(ci.contains("id: reactor"), "the macOS reactor step must be identifiable");
+        assertTrue(ci.contains("Reactor outcome on macOS: ${{ steps.reactor.outcome }}"),
+                "the macOS lane must publish the reactor outcome rather than swallow it");
+        assertTrue(ci.contains("RT-08 open, no support claimed"),
+                "a failing macOS reactor must be surfaced as a warning naming the open risk");
+
+        String qualityScenarios = Files.readString(root.resolve("docs/architecture/quality/scenarios.md"));
+        String architecture = Files.readString(root.resolve("docs/architecture/arc42/10-exigences-qualite.md"));
+        assertTrue(qualityScenarios.contains("non supporté"),
+                "the quality scenario must keep saying macOS is not supported");
+        assertTrue(qualityScenarios.contains("RT-08 ouvert"),
+                "observing macOS does not close RT-08");
+        assertTrue(architecture.contains("Observation n'est pas qualification"),
+                "arc42 must keep separating observation from qualification");
+    }
+
     @Test
     void historicalPreflightsAvoidDeprecatedSetupJavaV4() throws IOException {
         Path root = repoRoot().resolve(".github/workflows");

@@ -154,10 +154,60 @@ milestone fonctionnel livré.
 | Seuil | PASS |
 | Preuve | Validation R3 et manifests de release |
 
-### Q-PO-03 — macOS — non qualifié
+### Q-PO-03 — macOS — observé au niveau smoke, non supporté
 
-macOS n'est pas une plateforme publiée/qualifiée par la baseline actuelle. Il
-n'existe donc pas de seuil de compatibilité à annoncer ici.
+macOS n'est **pas** une plateforme publiée ou supportée par la baseline actuelle.
+Aucun packaging macOS n'est produit et aucun engagement de support n'est pris.
+
+Ce qui a changé : la lane `macos-smoke` de `ci.yml` fait tourner le reactor complet
+sur `macos-latest` et enregistre les faits système dont MORPHEUS dépend
+(sensibilité à la casse, permissions POSIX sur `TMPDIR`, création de liens
+symboliques, version Java). Elle est **advisory** — `continue-on-error: true` —
+parce qu'une plateforme jamais qualifiée ne doit pas bloquer les pull requests, et
+parce qu'une lane verte ne vaut pas une décision de support.
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Exécution du reactor complet sur `macos-latest` |
+| Réponse | Observation enregistrée, sans engagement de support ni packaging |
+| Mesure | Résultat de la lane advisory + faits système publiés dans le résumé de job |
+| Seuil | Aucun — la lane est non bloquante |
+| Preuve | Job `macos-smoke` de `.github/workflows/ci.yml` |
+
+#### Premier fait observé (04/09/2026)
+
+La lane a produit un constat dès sa première exécution, ce qui est exactement sa raison d'être.
+
+Sur `macos-latest`, `TMPDIR` pointe sous `/var/folders/...`, et `/var` est un **lien symbolique**
+vers `/private/var`. `LocalWritePermissionHardener` refuse de durcir ou de lire un chemin atteint
+par un lien symbolique — ce refus est un invariant de sécurité, et il a fonctionné exactement comme
+prévu. Conséquence : tous les tests utilisant `@TempDir` échouaient avant qu'aucun comportement
+spécifique à macOS ne puisse être observé.
+
+Second fait, découvert en tentant de corriger le premier : **cela ne se corrige pas depuis le
+runner.** Exporter un `TMPDIR` résolu ne change rien — sur macOS la JVM prend son répertoire
+temporaire d'une API Darwin au démarrage, pas de l'environnement — et passer
+`-Djava.io.tmpdir` en ligne de commande Maven arrive trop tard pour la JVM de test forkée.
+
+**Ce n'est pas un défaut MORPHEUS et l'invariant n'a pas été touché.** Aucun contournement n'a été
+introduit : la lane reste advisory et **signale** le fait plutôt que de le masquer.
+
+Conséquence pour une future décision de support macOS — c'est le livrable réel de A-09 :
+
+1. sur macOS, le répertoire temporaire par défaut est derrière un lien symbolique, et MORPHEUS le
+   refuse **correctement** ;
+2. ce refus n'est pas contournable par variable d'environnement ni par propriété Maven ;
+3. rendre la lane verte suppose de décider **où les tests MORPHEUS enracinent leurs fichiers
+   temporaires** sur cette plateforme — une décision de support, pas un ajustement de CI ;
+4. la même question se posera à l'exécution pour un répertoire de données dérivé du répertoire
+   temporaire.
+
+Tant que cette décision n'est pas prise, la lane observe, échoue de façon informative, et ne bloque
+rien.
+
+Passer de « observé » à « supporté » exige une décision produit explicite : lane
+rendue bloquante, packaging macOS, validation dual-platform étendue, et ADR dédié.
+L'état actuel reste **RT-08 ouvert**.
 
 ---
 

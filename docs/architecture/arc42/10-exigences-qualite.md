@@ -176,6 +176,14 @@ Linux
 macOS n'est pas déclaré supporté par simple analogie avec Linux. Son ajout doit
 être une décision produit accompagnée de packaging et de qualification dédiés.
 
+Depuis la passe post-audit A-09, `ci.yml` porte une lane `macos-smoke` **advisory**
+(`continue-on-error: true`) qui exécute le reactor complet sur `macos-latest` et
+publie les faits système observés. Elle transforme « macOS inconnu » en « macOS
+observé ».
+
+**Observation n'est pas qualification** : cette lane ne produit aucun artefact de
+distribution, et la liste des plateformes qualifiées ci-dessus est inchangée.
+
 ---
 
 ## 10.5 Traçabilité de la qualité

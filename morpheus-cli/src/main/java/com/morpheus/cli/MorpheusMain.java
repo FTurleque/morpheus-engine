@@ -11,6 +11,7 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
 
@@ -100,6 +101,8 @@ public final class MorpheusMain {
             out.println("  morpheus [layout] server identity rotate --principal NAME [--expires-at ISO-8601|never] [--auth-file FILE]");
             out.println("  morpheus [layout] server identity list [--auth-file FILE]");
             out.println("  Rotation preserves the current expiry when --expires-at is omitted; --expires-at never makes the credential permanent.");
+            out.println("  morpheus [layout] server identity migrate-legacy --expires-at ISO-8601 [--principal NAME] [--dry-run] [--auth-file FILE]");
+            out.println("  migrate-legacy gives non-expiring identities an explicit expiry without rotating any token; it refuses to leave no ADMIN active after the deadline.");
             out.println("  morpheus [layout] server backup create [--output-dir PATH]");
             out.println("  morpheus [layout] server backup verify --file PATH");
             out.println("  morpheus [layout] server restore --file PATH --confirm");
@@ -248,21 +251,7 @@ public final class MorpheusMain {
             RemoteApiLaunchOptions options = RemoteApiLaunchOptions.parse(args, environment, properties);
             MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
             NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
-            try (MorpheusRemoteHttpServer server = MorpheusRemoteHttpServer.start(
-                    options.layout().databasePath(),
-                    options.layout().backupsDirectory(),
-                    options.providerPluginDirectory(),
-                    AllowedWorkspaceRoots.of(options.allowedWorkspaceRoots()),
-                    options.host(),
-                    options.port(),
-                    options.authFile(),
-                    options.tlsKeyStore(),
-                    options.tlsPasswordChars(),
-                    options.maxConcurrentRequests(),
-                    minos.resolverRegistry(),
-                    minos,
-                    nexus,
-                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()))) {
+            try (MorpheusRemoteHttpServer server = startRemoteServer(options, minos, nexus)) {
                 err.println("MORPHEUS remote HTTPS API listening on " + server.baseUri());
                 return waitUntilInterrupted();
             }
@@ -272,6 +261,39 @@ public final class MorpheusMain {
         } catch (RuntimeException failure) {
             err.println("MORPHEUS remote API startup error: " + safeMessage(failure));
             return CliExitCode.INTERNAL_ERROR.code();
+        }
+    }
+
+    /**
+     * Starts the remote server and wipes the password buffer the moment it is no longer needed.
+     *
+     * <p>The buffer exists only across this call: by the time {@code start} returns, the keystore has been read
+     * and the {@link javax.net.ssl.SSLContext} holds the key material. Keeping the buffer alongside the running
+     * server would have made its lifetime the server's lifetime for no benefit at all.</p>
+     */
+    private static MorpheusRemoteHttpServer startRemoteServer(
+            RemoteApiLaunchOptions options,
+            MinosIntegrationRuntime minos,
+            NexusIntegrationRuntime nexus) {
+        char[] keyStorePassword = options.tlsPassword().resolve();
+        try {
+            return MorpheusRemoteHttpServer.start(
+                    options.layout().databasePath(),
+                    options.layout().backupsDirectory(),
+                    options.providerPluginDirectory(),
+                    AllowedWorkspaceRoots.of(options.allowedWorkspaceRoots()),
+                    options.host(),
+                    options.port(),
+                    options.authFile(),
+                    options.tlsKeyStore(),
+                    keyStorePassword,
+                    options.maxConcurrentRequests(),
+                    minos.resolverRegistry(),
+                    minos,
+                    nexus,
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()));
+        } finally {
+            Arrays.fill(keyStorePassword, '\0');
         }
     }
 

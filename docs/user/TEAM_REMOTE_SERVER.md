@@ -43,6 +43,10 @@ export MORPHEUS_SERVER_TLS_PASSWORD='<secret>'
 
 Le chemin du keystore peut être passé par `--tls-keystore` ou `MORPHEUS_SERVER_TLS_KEYSTORE`.
 
+MORPHEUS ne recopie pas ce secret. La JVM le détient déjà sous forme de `String` dès qu'il vient de l'environnement ou d'une propriété — cela, MORPHEUS ne peut pas l'effacer. Ce qu'il contrôle, c'est de ne pas en fabriquer une seconde copie : les options de lancement analysées ne portent que le moyen de le retrouver, jamais la valeur. Le mot de passe n'existe sous forme de `char[]` que le temps d'ouvrir le keystore, puis chaque tampon est écrasé. Aucune surface de diagnostic (`toString()`, log, exception, JSON, métrique) ne peut donc le rendre.
+
+**Ce n'est pas une promesse d'effacement.** Un secret présent dans l'environnement d'un processus reste lisible par tout ce qui peut inspecter ce processus. La mesure réduit le nombre et la durée de vie des copies, elle ne remplace pas un gestionnaire de secrets ni un compte OS dédié.
+
 ## 2. Créer et administrer les identités
 
 Créer d’abord au moins un administrateur :
@@ -116,6 +120,43 @@ expiry   -> le token expiré est refusé dès la requête suivante
 
 MORPHEUS refuse de révoquer ou rétrograder le dernier `ADMIN` actif.
 
+### Sortir du format d'identité sans expiration
+
+Le format historique à **trois champs** (`principal|role|sha256`) reste accepté et décrit un credential **sans échéance**. `identity list` l'expose : chaque entrée porte `nonExpiring`, et le rapport nomme une fois le total `nonExpiringIdentities` ainsi que la commande de sortie. Aucune conversion n'est jamais implicite : faire expirer d'autorité un credential qu'aucun opérateur n'a demandé à changer est précisément la façon dont un serveur remote s'enferme dehors.
+
+La migration explicite ajoute une échéance **sans toucher au matériel de token** — aucun client existant ne cesse de fonctionner, il acquiert seulement une date limite :
+
+```bash
+# 1. Voir l'état réel
+morpheus --json server identity list
+
+# 2. Répéter la migration sans rien écrire
+morpheus --json server identity migrate-legacy --expires-at 2027-01-01T00:00:00Z --dry-run
+
+# 3. Appliquer, éventuellement identité par identité
+morpheus --json server identity migrate-legacy --expires-at 2027-01-01T00:00:00Z --principal reader
+morpheus --json server identity migrate-legacy --expires-at 2027-01-01T00:00:00Z
+```
+
+Propriétés garanties :
+
+| Propriété | Comportement |
+|---|---|
+| Dry-run | `--dry-run` laisse le fichier **octet pour octet identique** et retourne le rapport exact |
+| Tokens | `tokensRotated: false` — aucune rotation, aucun token ni hash rendu |
+| Écriture | une seule écriture atomique sous verrou fichier inter-processus, comme toute autre mutation d'identité |
+| Audit | un événement `EXPIRY_MIGRATED` sans secret par identité migrée |
+| Idempotence | une seconde exécution ne trouve plus rien à faire |
+| Anti-lockout | **refus complet** si la migration ne laisserait aucun `ADMIN` actif après l'échéance |
+
+Le refus anti-lockout est la contrainte structurante : un fichier dont **toutes** les identités `ADMIN` expirent à la même date est un verrouillage programmé pour cette date, pas une erreur à cette date. La procédure est donc :
+
+1. donner à un administrateur « break-glass » une échéance plus lointaine (`server identity rotate --principal admin --expires-at <date lointaine>`), ou le laisser volontairement sans échéance ;
+2. migrer tout le reste ;
+3. la liste `retainedNonExpiring` du rapport nomme précisément ce qui a été laissé en l'état.
+
+**Le format à trois champs reste supporté en 1.2.1.** Le retirer est une évolution explicitement incompatible, pas un patch : cette commande existe pour qu'un parc soit déjà migré le jour où cette décision sera prise. Suivi : DT-12.
+
 Le fichier conserve également un audit **sans secret** des mutations. Cet historique est une fenêtre roulante bornée aux **512 événements les plus récents**. Cette compaction fait partie de l'écriture atomique du snapshot : la croissance de l'audit ne peut donc pas remplir indéfiniment le fichier de 256 KiB et empêcher une rotation ou une révocation urgente.
 
 ### Rôles et autorisation distante
@@ -160,7 +201,7 @@ Options utiles :
 Variables :
 
 ```text
-MORPHEUS_SERVER_TLS_PASSWORD       obligatoire
+MORPHEUS_SERVER_TLS_PASSWORD       obligatoire (jamais un argument de ligne de commande)
 MORPHEUS_SERVER_TLS_KEYSTORE       alternative à --tls-keystore
 MORPHEUS_SERVER_AUTH_FILE          alternative à --auth-file
 MORPHEUS_SERVER_MAX_CONCURRENT     limite de concurrence
@@ -209,17 +250,83 @@ curl \
 
 La réponse contient uniquement des informations process-local : uptime, requêtes actives/totales, échecs d’authentification/autorisation et throttling. Elle n’expose ni token, ni hash de token, ni mot de passe TLS.
 
+`server/status` est servi **hors du budget de requêtes qu'il décrit**, sur une voie bornée qui lui est propre. C'est délibéré : la question « pourquoi le serveur est-il à son plafond ? » doit rester posable quand il y est. Le champ `activeRequests` compte donc le travail en vol, jamais l'appel de status lui-même.
+
+Trois champs servent au diagnostic d'une mutation bloquée :
+
+| Champ | Lecture |
+|---|---|
+| `activePrivilegedRequests` / `maxConcurrentPrivilegedRequests` | occupation de la voie WRITE/ADMIN |
+| `oldestActivePrivilegedRequestMillis` | âge de l'opération privilégiée la plus ancienne encore en cours |
+| `throttledPrivilegedRequests` | refus imputables à la pression WRITE/ADMIN (sous-ensemble de `throttledRequests`) |
+
+Un `activePrivilegedRequests` saturé avec un `oldestActivePrivilegedRequestMillis` de quelques secondes est de la charge. Le même compteur saturé avec un âge qui ne cesse de croître est une mutation que rien ne terminera : c'est le signal d'intervention, MORPHEUS ne la tuera pas de lui-même (voir ci-dessous).
+
 Lorsque le budget de concurrence est atteint, MORPHEUS répond explicitement :
 
 ```text
 HTTP 429 TOO_MANY_REQUESTS
+HTTP 429 PRIVILEGED_CONCURRENCY_LIMIT
 ```
 
 Aucune file non bornée n’est créée par M26. Les opérations read-only dont l'exécution est entièrement contrôlée par MORPHEUS disposent d’un timeout amont de 60 secondes. Les mutations ne reçoivent pas cette deadline arbitraire : le slot de concurrence reste détenu jusqu'à la réponse réelle du traitement interne.
 
+La capacité privilégiée est plafonnée au quart du budget de requêtes (`maxConcurrentPrivilegedRequests`). Des mutations toutes bloquées ne peuvent donc jamais confisquer plus d'un quart de la capacité : les lectures conservent les trois quarts restants. **Risque résiduel assumé en 1.2.1** : une mutation réellement bloquée immobilise son slot jusqu'à sa fin réelle, et une saturation durable de la voie privilégiée refuse les mutations suivantes en `429` sans les mettre en file. MORPHEUS préfère ce refus explicite à une deadline qui rapporterait `504` pour un commit peut-être déjà durable.
+
 Le probe de plugin externe fait volontairement partie des exceptions au timeout façade, même s'il est sémantiquement read-only : il exécute du code tiers explicitement approuvé par ADMIN et ce code ne possède pas de contrat de cancellation coopérative. MORPHEUS ne renvoie donc pas un faux `504` en libérant le slot alors que le plugin pourrait continuer à tourner ; le slot reste détenu jusqu'à la fin réelle du probe. Un administrateur doit considérer un plugin bloquant comme un plugin défectueux et intervenir sur le processus si nécessaire.
 
 Un client doit traiter toute rupture réseau pendant une mutation comme un résultat à réconcilier avant retry.
+
+### Profil de charge et critères de remplacement de `jdk.httpserver`
+
+MORPHEUS utilise le serveur HTTP du JDK (ADR-0065). C'est un choix assumé, pas un provisoire : il n'a aucune dépendance, aucun cycle de vie à gérer et aucune surface de configuration à sécuriser. Le remplacer par Jetty/Netty/Undertow doit donc être une **décision prise sur mesure**, jamais sur intuition.
+
+`MorpheusRemoteLoadProfileTest` (module `morpheus-api`) est le harnais reproductible qui produit cette mesure. Il pilote la vraie façade HTTPS et écrit ce qu'il a observé dans `morpheus-api/target/remote-load-profile.txt` :
+
+```bash
+./mvnw -pl morpheus-api test -Dtest=MorpheusRemoteLoadProfileTest
+```
+
+Ce que le harnais **affirme** n'est délibérément pas une latence. Un chiffre absolu sur un runner partagé n'est pas une propriété de MORPHEUS, et un build qui casse quand la machine est occupée apprend surtout à ignorer l'échec. Les assertions portent sur les propriétés qui doivent tenir à n'importe quelle vitesse :
+
+- toute requête reçoit une réponse ;
+- cette réponse n'est **jamais** un 5xx : la saturation s'exprime en `429` explicite, jamais en drop ni en attente ;
+- `server/status` reste répondable pendant toute une charge mixte lecture + mutation ;
+- un corps surdimensionné (`413`) et un client qui abandonne ne laissent **aucun** slot derrière eux ;
+- fermer la façade libère réellement sa socket et son executor.
+
+Les latences (`p50`, `p95`, `max`, `wall`) sont **enregistrées comme preuve**, pas asserties. Elles alimentent la décision suivante.
+
+**Critères objectifs de remplacement.** Tant qu'aucun de ces seuils n'est franchi sur une charge représentative mesurée par le harnais, la solution simple est conservée :
+
+| Critère | Seuil déclencheur |
+|---|---|
+| Latence | `p95` d'une lecture servie > 500 ms alors que `activeRequests` < `maxConcurrentRequests` (la latence ne vient donc pas du plafond) |
+| Refus | taux de `429` durablement > 20 % sur une charge que l'exploitation considère nominale, `maxConcurrentRequests` déjà porté à 512 |
+| Connexions | besoin avéré de plus de 512 requêtes réellement concurrentes |
+| Mémoire | pression mémoire imputée aux réponses tamponnées alors que `maxProxyInFlightBytes` est déjà la contrainte active |
+| Contention | `sqlite.contention.busy_or_locked` reste nul pendant que la latence HTTP monte — le goulot est alors le transport, pas la persistance |
+
+Le dernier critère est le plus important : il distingue « le serveur HTTP est trop lent » de « la base est le goulot ». Remplacer `jdk.httpserver` alors que la contention est en réalité SQLite ne changerait rien et ajouterait une dépendance. Le franchissement d'un seuil appelle un ADR dédié, pas un changement direct.
+
+Le harnais montre aussi le comportement de refus : la façade préfère refuser vite plutôt que mettre en file. Sur un tir à 240 lectures concurrentes contre `--max-concurrent 8`, l'essentiel des requêtes reçoit un `429` en quelques millisecondes. Un client remote doit donc implémenter un retry avec backoff ; c'est un choix de conception, pas une limite du serveur HTTP.
+
+### Détecter la contention SQLite
+
+SQLite sérialise les écrivains. Une base contendue est d'abord une base **plus lente**, puis, une fois le busy timeout épuisé, une base qui **refuse** explicitement. Entre les deux il n'y avait aucun signal ; `GET /api/v1/metrics` (ADMIN en remote) en expose désormais quatre :
+
+| Compteur | Lecture |
+|---|---|
+| `sqlite.transaction.started` / `sqlite.transaction.committed` | volume de transactions explicites |
+| `sqlite.transaction.rolled_back` | transactions annulées, toutes causes confondues |
+| `sqlite.contention.busy_or_locked` | transactions perdues sur `SQLITE_BUSY`/`SQLITE_LOCKED` |
+| `sqlite.contention.connection_open` | ouvertures de connexion physique perdues sur la même cause |
+
+La durée est également agrégée sous `sqlite.transaction.duration` (`count`, `totalNanos`, `maxNanos`). C'est ce `maxNanos` qui bouge en premier : il monte bien avant que `sqlite.contention.busy_or_locked` ne commence à s'incrémenter.
+
+**Portée exacte du compteur** : sont comptées les transactions explicites — c'est-à-dire toute mutation multi-instructions de MORPHEUS, celles qui tiennent réellement un verrou d'écriture — et les ouvertures de connexion physique. Une écriture mono-instruction en autocommit n'est pas comptée : l'observer imposerait de proxifier chaque `Statement` JDBC à travers le garde de lease, et ce garde est ce qui libère le lease de la base. Un compteur ne justifie pas d'y toucher.
+
+Ces compteurs sont process-local : aucun exporter, aucun transport réseau. Ils ne pilotent rien — aucun retry, aucun refus n'en dépend.
 
 ### Probe de plugin externe en remote
 

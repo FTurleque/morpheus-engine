@@ -56,6 +56,7 @@ final class SqliteDatabaseSecurity {
             ensureAndHardenPersistentJournal(connection, absolutePath, hardener);
             return SqliteDatabaseLease.guard(connection, lease);
         } catch (SQLException | RuntimeException | Error failure) {
+            SqliteContentionMetrics.connectionOpenFailed(failure);
             unwind(absolutePath, connection, lease, failure);
             throw failure;
         }

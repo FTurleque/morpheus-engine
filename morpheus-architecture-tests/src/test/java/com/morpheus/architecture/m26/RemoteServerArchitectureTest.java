@@ -115,6 +115,44 @@ class RemoteServerArchitectureTest {
         assertTrue(manifest.contains("server.backup.create\tWRITE\tserver backup create\tEXPLICITLY_NOT_EXPOSED\tPOST /api/v1/server/backups"));
         assertTrue(manifest.contains("server.restore\tWRITE\tserver restore --confirm\tEXPLICITLY_NOT_EXPOSED\tEXPLICITLY_OFFLINE_ONLY"));
         assertTrue(manifest.contains("provider.plugins.probe\tWRITE\tprovider-plugins probe\tEXPLICITLY_NOT_EXPOSED\tPOST /api/v1/provider-plugins/probe"));
+        assertTrue(manifest.contains(
+                "server.identity.migrate-legacy\tWRITE\tserver identity migrate-legacy\tEXPLICITLY_NOT_EXPOSED\tEXPLICITLY_LOCAL_ONLY"));
+    }
+
+    /**
+     * The three-field identity entry stays valid input, and leaving it behind stays an explicit operator act.
+     *
+     * <p>Expiring a credential nobody asked to change is how a remote server locks its own administrators out,
+     * so the compatibility must not decay into an implicit conversion -- and the way out must not decay into
+     * something that rotates tokens, which would break every client at once instead of giving them a deadline.</p>
+     */
+    @Test
+    void leavingTheNonExpiringIdentityFormatStaysExplicitAndNeverRotatesTokens() throws IOException {
+        Path root = repositoryRoot();
+        String identityFile = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteIdentityFile.java"));
+        String serverCli = Files.readString(root.resolve(
+                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusServerCli.java"));
+        String guide = Files.readString(root.resolve("docs/user/TEAM_REMOTE_SERVER.md"));
+
+        assertTrue(identityFile.contains("public static LegacyMigration migrateLegacyExpiry("),
+                "an operable way out of non-expiring identities must exist");
+        assertTrue(identityFile.contains("requireAdministratorOutliving(updated, expiry)"),
+                "the migration must refuse to schedule an ADMIN lockout");
+        assertTrue(identityFile.contains("Mutation.EXPIRY_MIGRATED"),
+                "the migration must leave secret-free audit evidence");
+        assertFalse(identityFile.contains("newCredential(normalizedPrincipal, identity.role()"),
+                "the migration must never rotate token material");
+
+        assertTrue(serverCli.contains("\"migrate-legacy\" -> identityMigrateLegacy(parsed, out)"));
+        assertTrue(serverCli.contains("view.put(\"nonExpiringIdentities\", nonExpiring);"),
+                "the listing must keep non-expiring identities visible to an operator");
+        assertTrue(serverCli.contains("view.put(\"tokensRotated\", false);"));
+
+        assertTrue(guide.contains("server identity migrate-legacy"),
+                "the operator guide must document the way out");
+        assertTrue(guide.contains("reste supporté en 1.2.1"),
+                "the guide must keep saying the historical format is still supported");
     }
 
     @Test
@@ -153,6 +191,36 @@ class RemoteServerArchitectureTest {
         assertTrue(runtime.contains("final class MorpheusRemoteRuntimeState"));
         assertFalse(runtime.contains("MorpheusRemoteRole"));
         assertFalse(runtime.contains("MorpheusRemoteIdentityFile"));
+    }
+
+    /**
+     * A remote mutation has no upstream deadline, so a blocked one holds its slots until it really ends. That is
+     * only tolerable while an operator can see it: the privileged gauge and the age of the oldest privileged
+     * operation are the difference between a busy facade and a stuck one, and they must not rot back into an
+     * aggregate request count that also moves with ordinary read traffic.
+     */
+    @Test
+    void remoteStatusExposesPrivilegedOccupancyAndIsServedOutsideTheRequestBudget() throws IOException {
+        Path root = repositoryRoot();
+        String server = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String runtime = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRuntimeState.java"));
+
+        assertTrue(runtime.contains("activePrivilegedRequests"),
+                "remote status must expose how many privileged operations are in flight");
+        assertTrue(runtime.contains("maxConcurrentPrivilegedRequests"));
+        assertTrue(runtime.contains("oldestActivePrivilegedRequestMillis"),
+                "remote status must expose the age of the longest-running privileged operation");
+        assertTrue(runtime.contains("throttledPrivilegedRequests"));
+
+        assertTrue(server.contains("private final Semaphore observabilityConcurrency;"),
+                "the status lane must be bounded on its own semaphore");
+        assertTrue(server.contains("static int observabilityConcurrencyLimit(int maxConcurrentRequests)"));
+        assertTrue(server.contains("privilegedTicket = runtime.privilegedRequestStarted();"));
+        assertTrue(server.contains("runtime.privilegedRequestFinished(privilegedTicket);"),
+                "every privileged slot must be given back with its gauge entry");
+        assertTrue(server.contains("recordThrottledPrivilegedRequest()"));
     }
 
     @Test

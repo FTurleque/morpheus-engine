@@ -213,7 +213,7 @@ class MorpheusRemoteProxyResponseBudgetTest {
     private MorpheusRemoteProxyTransport transport(Semaphore responseSlots) {
         return new MorpheusRemoteProxyTransport(
                 MorpheusInternalCapability.generate(),
-                new MorpheusRemoteRuntimeState(4, Duration.ofSeconds(1), 4096, 4096, 2, Instant.EPOCH),
+                new MorpheusRemoteRuntimeState(4, 1, Duration.ofSeconds(1), 4096, 4096, 2, Instant.EPOCH),
                 4096,
                 responseSlots,
                 HttpClient.newHttpClient());
