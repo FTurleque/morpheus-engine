@@ -43,14 +43,15 @@ class PolicyRuntimeServicesTest {
 
     @Test
     void aMissingPortIsRejectedRatherThanDeferredToTheFirstQuery() {
+        SpecificationKnowledgeStore specifications = unusedPort(SpecificationKnowledgeStore.class);
+        VersionedRequirementStore requirements = unusedPort(VersionedRequirementStore.class);
+        SnapshotBusinessContentStore businessContent = unusedPort(SnapshotBusinessContentStore.class);
+        TraceabilityStore traceability = unusedPort(TraceabilityStore.class);
+        ExternalReferenceStore externalReferences = unusedPort(ExternalReferenceStore.class);
+        PortfolioStore portfolio = unusedPort(PortfolioStore.class);
+
         assertThrows(NullPointerException.class, () -> PolicyRuntimeServices.from(
-                unusedPort(SpecificationKnowledgeStore.class),
-                unusedPort(VersionedRequirementStore.class),
-                unusedPort(SnapshotBusinessContentStore.class),
-                unusedPort(TraceabilityStore.class),
-                unusedPort(ExternalReferenceStore.class),
-                unusedPort(PortfolioStore.class),
-                null));
+                specifications, requirements, businessContent, traceability, externalReferences, portfolio, null));
     }
 
     @Test
@@ -63,11 +64,11 @@ class PolicyRuntimeServicesTest {
                 unusedPort(ExternalReferenceStore.class),
                 unusedPort(PortfolioStore.class),
                 unusedPort(PolicyPackStore.class));
+        PolicyEvaluationService evaluation = services.evaluation();
+        PolicyPackService registry = services.registry();
 
-        assertThrows(NullPointerException.class,
-                () -> new PolicyRuntimeServices(null, services.evaluation()));
-        assertThrows(NullPointerException.class,
-                () -> new PolicyRuntimeServices(services.registry(), null));
+        assertThrows(NullPointerException.class, () -> new PolicyRuntimeServices(null, evaluation));
+        assertThrows(NullPointerException.class, () -> new PolicyRuntimeServices(registry, null));
     }
 
     /** A port that fails on any call: wiring is allowed to hold it, never to use it. */

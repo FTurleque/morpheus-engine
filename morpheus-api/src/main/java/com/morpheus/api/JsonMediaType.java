@@ -40,16 +40,14 @@ final class JsonMediaType {
     private static boolean charsetIsUtf8(String parameters) {
         for (String parameter : parameters.split(";")) {
             int separator = parameter.indexOf('=');
-            if (separator < 0) {
-                continue;
-            }
-            String name = parameter.substring(0, separator).trim().toLowerCase(Locale.ROOT);
-            if (!"charset".equals(name)) {
-                continue;
-            }
-            String value = unquote(parameter.substring(separator + 1).trim()).toLowerCase(Locale.ROOT);
-            if (!"utf-8".equals(value) && !"utf8".equals(value)) {
-                return false;
+            if (separator >= 0) {
+                String name = parameter.substring(0, separator).trim().toLowerCase(Locale.ROOT);
+                if ("charset".equals(name)) {
+                    String value = unquote(parameter.substring(separator + 1).trim()).toLowerCase(Locale.ROOT);
+                    if (!"utf-8".equals(value) && !"utf8".equals(value)) {
+                        return false;
+                    }
+                }
             }
         }
         return true;

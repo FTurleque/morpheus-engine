@@ -25,12 +25,13 @@ class SchedulerReleaseTest {
     void aSchedulerThatRefusesToStopDoesNotKeepTheOthersRunning() {
         List<String> disposed = new ArrayList<>();
         RuntimeException injected = new IllegalStateException("injected dispose failure");
+        Scheduler inbound = recording(disposed, "inbound", null);
+        Scheduler outbound = recording(disposed, "outbound", injected);
+        Scheduler stderr = recording(disposed, "stderr", null);
+        Scheduler lifecycle = recording(disposed, "lifecycle", null);
 
-        RuntimeException thrown = assertThrows(RuntimeException.class, () -> SchedulerRelease.disposeAll(
-                recording(disposed, "inbound", null),
-                recording(disposed, "outbound", injected),
-                recording(disposed, "stderr", null),
-                recording(disposed, "lifecycle", null)));
+        RuntimeException thrown = assertThrows(RuntimeException.class,
+                () -> SchedulerRelease.disposeAll(inbound, outbound, stderr, lifecycle));
 
         assertSame(injected, thrown, "the first failure is what the caller sees");
         assertEquals(List.of("inbound", "stderr", "lifecycle"), disposed,
@@ -41,11 +42,12 @@ class SchedulerReleaseTest {
     void severalFailuresAreReportedTogetherWithoutSelfSuppression() {
         RuntimeException shared = new IllegalStateException("the same failure twice");
         List<String> disposed = new ArrayList<>();
+        Scheduler inbound = recording(disposed, "inbound", shared);
+        Scheduler outbound = recording(disposed, "outbound", shared);
+        Scheduler stderr = recording(disposed, "stderr", null);
 
-        RuntimeException thrown = assertThrows(RuntimeException.class, () -> SchedulerRelease.disposeAll(
-                recording(disposed, "inbound", shared),
-                recording(disposed, "outbound", shared),
-                recording(disposed, "stderr", null)));
+        RuntimeException thrown = assertThrows(RuntimeException.class,
+                () -> SchedulerRelease.disposeAll(inbound, outbound, stderr));
 
         assertSame(shared, thrown);
         assertEquals(0, thrown.getSuppressed().length, "a throwable cannot be suppressed into itself");

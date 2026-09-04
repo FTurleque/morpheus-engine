@@ -124,14 +124,4 @@ public final class SqliteEntityIdentityStore implements EntityIdentityStore, Aut
         }
     }
 
-    private void closeQuietly(Connection connection) {
-        if (connection == null) {
-            return;
-        }
-        try {
-            connection.close();
-        } catch (SQLException ignored) {
-            // Preserve the initialization failure.
-        }
-    }
 }

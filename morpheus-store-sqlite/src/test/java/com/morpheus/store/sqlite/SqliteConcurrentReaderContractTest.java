@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -85,7 +86,7 @@ class SqliteConcurrentReaderContractTest {
                             // Not synchronization: every ordering guarantee here comes from the latches. This
                             // only keeps three readers from holding the shared lock back to back, which starves
                             // the writer under a rollback journal and has nothing to do with what is asserted.
-                            TimeUnit.MILLISECONDS.sleep(1L);
+                            LockSupport.parkNanos(1_000_000L);
                         }
                         observedNext.countDown();
                     } catch (Throwable failure) {

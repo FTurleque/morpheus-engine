@@ -33,6 +33,7 @@ import java.util.TreeSet;
 public final class ProviderPluginViews {
     private static final String FIELD_DIAGNOSTICS = "diagnostics";
     private static final String FIELD_METADATA = "metadata";
+    private static final String FIELD_STATUS = "status";
 
     /**
      * Diagnostic detail keys that may reach a remote caller.
@@ -234,7 +235,7 @@ public final class ProviderPluginViews {
         public RemoteCandidateView {
             jarName = requireText(jarName, "jarName");
             Objects.requireNonNull(metadata, FIELD_METADATA);
-            Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(status, FIELD_STATUS);
             diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, FIELD_DIAGNOSTICS));
         }
     }
@@ -268,7 +269,7 @@ public final class ProviderPluginViews {
         public RemoteProbeResultView {
             Objects.requireNonNull(providerId, "providerId");
             Objects.requireNonNull(providerVersion, "providerVersion");
-            Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(status, FIELD_STATUS);
             Objects.requireNonNull(schema, "schema");
             Objects.requireNonNull(formatVersion, "formatVersion");
             Objects.requireNonNull(source, "source");
@@ -315,7 +316,7 @@ public final class ProviderPluginViews {
         public CandidateView {
             jarPath = requireText(jarPath, "jarPath");
             Objects.requireNonNull(metadata, FIELD_METADATA);
-            Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(status, FIELD_STATUS);
             diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, FIELD_DIAGNOSTICS));
         }
     }

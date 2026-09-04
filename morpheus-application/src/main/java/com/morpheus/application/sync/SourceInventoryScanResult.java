@@ -107,9 +107,9 @@ public record SourceInventoryScanResult(
     /** A scan failure as it may leave the machine. Rendering is deterministic and names no server location. */
     public record PublicView(Optional<String> source, Failure.Code code, Optional<String> detail) {
         public PublicView {
-            source = Objects.requireNonNull(source, "source");
+            Objects.requireNonNull(source, "source");
             Objects.requireNonNull(code, "code");
-            detail = Objects.requireNonNull(detail, "detail");
+            Objects.requireNonNull(detail, "detail");
         }
 
         @Override
