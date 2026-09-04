@@ -22,6 +22,26 @@ Remote identity tokens contain 256 bits of random material and only their SHA-25
 
 Credential material printed by `server identity create` or `server identity rotate` must be captured once into an appropriate secret store. Never commit generated tokens, keystore passwords, or authentication files containing operational credential hashes.
 
+### Response lifetime and abandoned clients
+
+Concurrency permits, the proxied-response memory budget and the request-body deadline are all taken before a
+response is written and released after it. An authenticated client that stops reading therefore holds every one
+of them for as long as it keeps the socket full, without sending anything malformed; bounding the response size
+does not help, because the cost is time rather than memory.
+
+Responses are written under two budgets: a stall budget rearmed by each block that reaches the client, and a
+total budget for the whole response. `jdk.httpserver` exposes no write timeout, and its only response deadline is
+the undocumented `sun.net.httpserver.maxRspTime` system property, which MORPHEUS deliberately does not rely on.
+The deadline is enforced instead by interrupting the blocked writer: a thread blocked on a
+`java.nio.channels.InterruptibleChannel` closes that channel and receives `ClosedByInterruptException`, which is
+specified behaviour rather than an implementation detail.
+
+**Residual limitation.** An abandoned response is aborted, not completed: the client sees a truncated body on a
+closed connection and receives no error envelope, because the connection that would carry it is the resource
+being reclaimed. The event is counted separately from a request-body timeout in `GET /api/v1/server/status`
+(`responseWriteTimeouts`), since only a client that stopped receiving holds a slot for as long as it stays
+connected.
+
 ## External code trust boundary
 
 Provider plugins and configured MCP peers execute in child processes/classloaders with integrity checks, bounded resources, minimized inherited environment, and lifecycle cleanup. These controls are **not an operating-system sandbox**. Approved plugins and MCP peers execute with the filesystem and network permissions of the MORPHEUS operating-system account and must therefore be treated as trusted code.
