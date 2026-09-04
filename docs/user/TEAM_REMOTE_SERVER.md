@@ -277,6 +277,40 @@ Le probe de plugin externe fait volontairement partie des exceptions au timeout 
 
 Un client doit traiter toute rupture réseau pendant une mutation comme un résultat à réconcilier avant retry.
 
+### Profil de charge et critères de remplacement de `jdk.httpserver`
+
+MORPHEUS utilise le serveur HTTP du JDK (ADR-0065). C'est un choix assumé, pas un provisoire : il n'a aucune dépendance, aucun cycle de vie à gérer et aucune surface de configuration à sécuriser. Le remplacer par Jetty/Netty/Undertow doit donc être une **décision prise sur mesure**, jamais sur intuition.
+
+`MorpheusRemoteLoadProfileTest` (module `morpheus-api`) est le harnais reproductible qui produit cette mesure. Il pilote la vraie façade HTTPS et écrit ce qu'il a observé dans `morpheus-api/target/remote-load-profile.txt` :
+
+```bash
+./mvnw -pl morpheus-api test -Dtest=MorpheusRemoteLoadProfileTest
+```
+
+Ce que le harnais **affirme** n'est délibérément pas une latence. Un chiffre absolu sur un runner partagé n'est pas une propriété de MORPHEUS, et un build qui casse quand la machine est occupée apprend surtout à ignorer l'échec. Les assertions portent sur les propriétés qui doivent tenir à n'importe quelle vitesse :
+
+- toute requête reçoit une réponse ;
+- cette réponse n'est **jamais** un 5xx : la saturation s'exprime en `429` explicite, jamais en drop ni en attente ;
+- `server/status` reste répondable pendant toute une charge mixte lecture + mutation ;
+- un corps surdimensionné (`413`) et un client qui abandonne ne laissent **aucun** slot derrière eux ;
+- fermer la façade libère réellement sa socket et son executor.
+
+Les latences (`p50`, `p95`, `max`, `wall`) sont **enregistrées comme preuve**, pas asserties. Elles alimentent la décision suivante.
+
+**Critères objectifs de remplacement.** Tant qu'aucun de ces seuils n'est franchi sur une charge représentative mesurée par le harnais, la solution simple est conservée :
+
+| Critère | Seuil déclencheur |
+|---|---|
+| Latence | `p95` d'une lecture servie > 500 ms alors que `activeRequests` < `maxConcurrentRequests` (la latence ne vient donc pas du plafond) |
+| Refus | taux de `429` durablement > 20 % sur une charge que l'exploitation considère nominale, `maxConcurrentRequests` déjà porté à 512 |
+| Connexions | besoin avéré de plus de 512 requêtes réellement concurrentes |
+| Mémoire | pression mémoire imputée aux réponses tamponnées alors que `maxProxyInFlightBytes` est déjà la contrainte active |
+| Contention | `sqlite.contention.busy_or_locked` reste nul pendant que la latence HTTP monte — le goulot est alors le transport, pas la persistance |
+
+Le dernier critère est le plus important : il distingue « le serveur HTTP est trop lent » de « la base est le goulot ». Remplacer `jdk.httpserver` alors que la contention est en réalité SQLite ne changerait rien et ajouterait une dépendance. Le franchissement d'un seuil appelle un ADR dédié, pas un changement direct.
+
+Le harnais montre aussi le comportement de refus : la façade préfère refuser vite plutôt que mettre en file. Sur un tir à 240 lectures concurrentes contre `--max-concurrent 8`, l'essentiel des requêtes reçoit un `429` en quelques millisecondes. Un client remote doit donc implémenter un retry avec backoff ; c'est un choix de conception, pas une limite du serveur HTTP.
+
 ### Détecter la contention SQLite
 
 SQLite sérialise les écrivains. Une base contendue est d'abord une base **plus lente**, puis, une fois le busy timeout épuisé, une base qui **refuse** explicitement. Entre les deux il n'y avait aucun signal ; `GET /api/v1/metrics` (ADMIN en remote) en expose désormais quatre :
