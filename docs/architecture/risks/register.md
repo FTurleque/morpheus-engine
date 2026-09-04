@@ -3,7 +3,7 @@
 > Synthèse opérationnelle de [§11](../arc42/11-risques-dette.md).
 > Baseline active : MORPHEUS 1.2.1 corrective — branche de développement post-audit.
 > Dernière release publiée : `v1.2.0`.
-> Mise à jour : **2026-08-30**.
+> Mise à jour : **2026-09-04** (passe post-audit A-02..A-09 ; A-01 volontairement non traitée).
 >
 > **P** = probabilité, **I** = impact, **E** = exposition = P × I ; échelle 1 à 3.
 
@@ -13,15 +13,15 @@
 
 | ID | Risque | P | I | E | Mitigation actuelle | Révision |
 |----|--------|:-:|:-:|:-:|---------------------|----------|
-| RT-01 | Concurrence SQLite si le mode remote devient fortement multi-écrivain | 2 | 3 | **6** | `journal_mode=PERSIST`, busy timeout, transactions bornées, une connexion physique scopée par opération API/Query/CLI, leases, réservation persistante atomique des séquences de version, index d'unicité et backups | Si le profil d'usage remote évolue |
+| RT-01 | Concurrence SQLite si le mode remote devient fortement multi-écrivain | 2 | 3 | **6** | `journal_mode=PERSIST`, busy timeout, transactions bornées, une connexion physique scopée par opération API/Query/CLI, leases, réservation persistante atomique des séquences de version, index d'unicité, backups ; **observabilité de contention** (`sqlite.contention.*`, `sqlite.transaction.duration`) et tests de stress multi-écrivain | Si le profil d'usage remote évolue |
 | RT-02 | Rollback applicatif après migration de schéma | 2 | 3 | **6** | Migrations forward-only, checksums, refus des schémas futurs, backup/restore offline | À chaque évolution de schéma |
-| RT-03 | Limites de `jdk.httpserver` sous forte charge | 2 | 2 | **4** | Concurrence remote bornée, timeouts/budgets et inventaires filesystem bornés ; mesurer avant substitution | Lors de load tests représentatifs |
+| RT-03 | Limites de `jdk.httpserver` sous forte charge | 2 | 2 | **4** | Concurrence remote bornée, timeouts/budgets et inventaires filesystem bornés ; **harnais de charge reproductible** (`MorpheusRemoteLoadProfileTest`) et **critères objectifs de remplacement** documentés — mesurer avant substitution | Lors de load tests représentatifs |
 | RT-04 | Breaking change MCP SDK / clients MCP | 2 | 2 | **4** | Version épinglée, tests de contrat, budgets de frames/queues, cancellation serveur, cleanup fail-closed et diagnostics redacted | À chaque upgrade MCP |
 | RT-05 | Provider externe malformé, bloquant ou non fiable | 2 | 2 | **4** | Discovery metadata-only sans symlink avec revalidation d'identité avant/après lecture, activation explicite, SHA-256 obligatoire en remote, staging vérifié, budgets d'ingestion et environnement enfant minimisé | À chaque évolution du Provider SDK |
 | RT-12 | Peer MCP externe MINOS/NEXUS compromis | 2 | 2 | **4** | JAR optionnel/pinnable, environnement hérité réduit à une allowlist, descendants observés et terminés, frames/queues bornées, stderr et exceptions peer redacted ; la frontière n'est pas une sandbox OS | À chaque évolution du transport MCP |
 | RT-06 | Diagnostic runtime limité par le logging silencieux | 2 | 2 | **4** | Health/metrics, erreurs structurées et diagnostics MCP sanitizés ; préserver stdout MCP | Permanent |
 | RT-09 | Drift documentaire entre sources historiques et HEAD | 2 | 2 | **4** | Hiérarchie des sources, séparation release publiée `1.2.0` / baseline active `1.2.1`, guides actifs réconciliés et contrats d'architecture sur les invariants CI | À chaque release/hardening |
-| RT-07 | Auth remote sans SSO/LDAP | 1 | 2 | **2** | Bearer auth + RBAC, mutations inter-processus sérialisées, live reload, audit secret-free roulant borné | Si besoin entreprise démontré |
+| RT-07 | Auth remote sans SSO/LDAP | 1 | 2 | **2** | Bearer auth + RBAC, mutations inter-processus sérialisées, live reload, audit secret-free roulant borné ; mot de passe TLS résolu tardivement en `char[]` et jamais retenu dans les options de lancement | Si besoin entreprise démontré |
 | RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement ; lane CI `macos-smoke` **advisory** (`continue-on-error`) qui exécute le reactor complet et publie les faits système observés — observation, pas qualification | Si support macOS décidé |
 
 ### Risques de gouvernance résolus le 27/08/2026
@@ -41,12 +41,32 @@ Ils restent traçables dans l'historique Git et les issues #154/#166, mais ne do
 | DT-08 | État des alertes Dependabot / Secret Scanning non vérifiable par le connecteur | Supply chain | **Moyenne** | Vérifier/activer les réglages administrateur ; le dépôt fournit Dependabot, OWASP Dependency-Check et CodeQL versionné ; suivi #154 |
 | DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 qualifiés à `1150 / 310 / 54,0% / 47,0%` ; #184 est clôturée, conserver la remontée progressive uniquement après nouvelle preuve exact-head reproductible |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
-| DT-12 | Identités remote historiques à trois champs sans expiration | Sécurité remote | **Faible à moyenne** | Compatibilité contractuelle et verrouillée par `legacyThreeFieldIdentityRemainsNonExpiring` ; `server identity list` les rend visibles par `expiresAt: NEVER`. Les nouvelles identités exigent `--expires-at`, `never` restant un choix explicite. Retirer le format à trois champs demande une évolution explicitement incompatible, pas un patch 1.2.1 |
+| DT-12 | Identités remote historiques à trois champs sans expiration | Sécurité remote | **Faible à moyenne** | Compatibilité contractuelle et verrouillée par `legacyThreeFieldIdentityRemainsNonExpiring` ; `server identity list` expose `nonExpiring` par entrée et le total `nonExpiringIdentities`. **`server identity migrate-legacy`** donne une échéance explicite sans rotation de token, avec `--dry-run`, écriture atomique verrouillée, audit `EXPIRY_MIGRATED` et refus complet d'un lockout ADMIN. Les nouvelles identités exigent `--expires-at`, `never` restant un choix explicite. Retirer le format à trois champs reste une évolution explicitement incompatible, pas un patch 1.2.1 |
 | DT-03 | Seuils de performance M19 peu visibles depuis la documentation d'architecture | Qualité | **Moyenne** | Relier les scénarios qualité aux tests/gates autoritatifs |
 | DT-04 | SQLite reste l'unique backend persistant | Architecture | **Faible à moyenne** | N'engager un backend alternatif qu'après besoin et ADR dédiés |
 | DT-05 | Distribution macOS absente | Distribution | **Faible** | Décision produit avant ajout du packaging ; la lane smoke n'en produit aucun |
 
 Les anciennes dettes `DT-06` (protection `main`) et `DT-09` (protection `develop`) sont résolues et retirées du tableau actif.
+
+---
+
+## Correctifs issus de la passe post-audit du 04/09/2026 (A-02 à A-09)
+
+| Constat | Traitement |
+|---|---|
+| **A-02** — une mutation remote bloquée retenait ses slots sans être observable, et `server/status` était admis par le sémaphore qu'il décrit : un serveur à son plafond répondait `429` à la seule question utile | status servi sur une **voie bornée dédiée** (hors budget de requêtes, toujours authentifié et autorisé) ; status expose `activePrivilegedRequests`, `maxConcurrentPrivilegedRequests`, `oldestActivePrivilegedRequestMillis`, `throttledPrivilegedRequests` ; tests adversariaux de saturation, de refus et de libération de tous les slots. **Résiduel assumé** : une mutation réellement bloquée retient son slot jusqu'à sa fin réelle — aucune deadline n'est ajoutée, car un `504` sur un commit peut-être déjà durable serait pire |
+| **A-03** — la contention SQLite n'avait aucun signal en production ; `SqliteFailureClassifier` n'avait **aucun appelant** hors tests | compteurs process-local `sqlite.transaction.{started,committed,rolled_back}`, `sqlite.contention.{busy_or_locked,connection_open}` et timing `sqlite.transaction.duration`, exposés par `GET /api/v1/metrics` ; tests de stress multi-écrivain (aucune perte d'update, aucun doublon d'identité, aucun lease abandonné). **Portée déclarée** : transactions explicites et ouvertures de connexion, pas les écritures mono-instruction en autocommit |
+| **A-04** — les deux frontières d'exécution externe (probe plugin, pair MCP) avaient des allowlists d'environnement identiques **par coïncidence**, sans contrat | `ExternalCodeTrustBoundaryArchitectureTest` : allowlists asserties identiques, aucun secret MORPHEUS ni variable d'injection JVM, environnement reconstruit depuis vide, pin + staging vérifié, et scan de **toute** source de production interdisant une revendication de sandbox |
+| **A-05** — couverture historique globale modeste | tests ciblés sur les zones à risque (disponibilité remote, contention SQLite, migration d'identités, parsing fail-closed du fichier d'identités, cycle de vie du secret TLS, charge HTTP) ; ratchets relevés uniquement dans la marge déjà qualifiée sur les deux plateformes |
+| **A-06** — le format d'identité sans expiration n'avait aucune sortie opérable | `server identity migrate-legacy` (dry-run, échéance explicite, aucune rotation de token, écriture atomique verrouillée, audit sans secret, refus complet d'un lockout ADMIN) et visibilité `nonExpiring` dans le listing. Le format reste supporté en 1.2.1 |
+| **A-07** — `jdk.httpserver` jamais mesuré sous charge | `MorpheusRemoteLoadProfileTest` : tempête de lectures au-delà de la capacité, charge mixte lecture/mutation, corps surdimensionnés, clients abandonnés, fermeture de la façade. Les propriétés sont asserties, les latences **enregistrées comme preuve** dans `target/remote-load-profile.txt` ; critères objectifs de remplacement documentés |
+| **A-08** — `RemoteApiLaunchOptions` retenait le mot de passe TLS en `String` pendant toute la vie du serveur, et un record rend tous ses composants | les options ne portent plus que le moyen de retrouver la valeur ; résolution tardive en `char[]`, effacé dès que le `SSLContext` existe. **Pas une promesse d'effacement** : la JVM détient déjà le `String` d'origine |
+| **A-09** — macOS inconnu | lane `macos-smoke` **advisory** exécutant le reactor complet et publiant les faits système observés. Aucun packaging, aucun engagement de support ; RT-08 reste ouvert |
+| **A-01** — qualification de la chaîne de release attestée | **non traitée volontairement.** Aucun tag, aucune release, aucune simulation. #185 et DT-11 restent ouverts |
+
+Constat connexe relevé pendant la passe et corrigé : `AuditHardeningWorkflowContractTest` interdisait `continue-on-error` dans **tout** `ci.yml`. Exact tant que le fichier ne portait qu'un seul job, faux dès qu'une lane advisory apparaît à côté. Le contrat vise désormais précisément le job `verify` requis : ce qui ne doit jamais être advisory est le job qui garde les merges, pas le fichier.
+
+Observation de mesure, sans correction : l'agrégat JaCoCo **sous-estime structurellement** la couverture, parce que le rapport de `morpheus-architecture-tests` est exclu de l'agrégation alors que cette suite couvre une large part de `morpheus-application`. Aucun changement n'a été fait : inclure ce rapport ferait monter le chiffre sans ajouter un seul test, ce qui est exactement le jeu que les ratchets existent pour empêcher.
 
 ---
 

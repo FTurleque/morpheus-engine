@@ -105,8 +105,28 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(workflow.indexOf("Run one-command M21 gate on Linux")
                         < workflow.indexOf("Run SonarQube Cloud CI analysis with JaCoCo"),
                 "Coverage-producing M21 validation must complete before Sonar analysis");
-        assertFalse(workflow.contains("continue-on-error: true"),
-                "Sonar analysis must never be made advisory through continue-on-error");
+        assertFalse(requiredVerifyJob(workflow).contains("continue-on-error"),
+                "the exact-head verify job, Sonar analysis included, must never be made advisory");
+    }
+
+    /**
+     * Isolates the required exact-head job from the advisory lanes beside it.
+     *
+     * <p>This guard used to scan the whole file for {@code continue-on-error}, which was exact while ci.yml held
+     * a single job and became wrong the moment an advisory lane was added next to it. What must never be
+     * advisory is the job that gates merges; a lane that observes an unqualified platform must be advisory, and
+     * conflating the two would force the second to become a required check on evidence nobody has yet.</p>
+     */
+    private String requiredVerifyJob(String workflow) {
+        Matcher verify = Pattern.compile("(?m)^  verify:\\s*$").matcher(workflow);
+        assertTrue(verify.find(), "ci.yml must keep the required exact-head job named verify");
+        int start = verify.end();
+        Matcher nextJob = Pattern.compile("(?m)^  [a-z][a-z0-9-]*:\\s*$").matcher(workflow);
+        int end = nextJob.find(start) ? nextJob.start() : workflow.length();
+        String job = workflow.substring(start, end);
+        assertTrue(job.contains("Run SonarQube Cloud CI analysis with JaCoCo"),
+                "the Sonar step must live inside the required verify job");
+        return job;
     }
 
     @Test
