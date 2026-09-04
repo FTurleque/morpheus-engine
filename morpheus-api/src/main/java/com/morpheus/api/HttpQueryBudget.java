@@ -24,30 +24,33 @@ final class HttpQueryBudget {
     private HttpQueryBudget() {
     }
 
-    private static final String QUERY_EXCEEDS = "query string exceeds ";
-
     static void requireBoundedQuery(String rawQuery, Function<String, RuntimeException> failure) {
         if (exceedsUtf8(rawQuery, MAX_QUERY_BYTES)) {
-            throw failure.apply(QUERY_EXCEEDS + MAX_QUERY_BYTES + " bytes");
+            throw failure.apply(overBudget("query string", MAX_QUERY_BYTES));
         }
     }
 
     static void requireBoundedParameterCount(int parameters, Function<String, RuntimeException> failure) {
         if (parameters > MAX_PARAMETERS) {
-            throw failure.apply(QUERY_EXCEEDS + MAX_PARAMETERS + " parameters");
+            throw failure.apply("query string exceeds " + MAX_PARAMETERS + " parameters");
         }
     }
 
     static void requireBoundedParameterName(String rawName, Function<String, RuntimeException> failure) {
         if (exceedsUtf8(rawName, MAX_PARAMETER_NAME_BYTES)) {
-            throw failure.apply("query parameter name exceeds " + MAX_PARAMETER_NAME_BYTES + " bytes");
+            throw failure.apply(overBudget("query parameter name", MAX_PARAMETER_NAME_BYTES));
         }
     }
 
     static void requireBoundedParameterValue(String rawValue, Function<String, RuntimeException> failure) {
         if (exceedsUtf8(rawValue, MAX_PARAMETER_VALUE_BYTES)) {
-            throw failure.apply("query parameter value exceeds " + MAX_PARAMETER_VALUE_BYTES + " bytes");
+            throw failure.apply(overBudget("query parameter value", MAX_PARAMETER_VALUE_BYTES));
         }
+    }
+
+    /** The three byte budgets refuse input the same way, so they say so the same way. */
+    private static String overBudget(String subject, int maxBytes) {
+        return subject + " exceeds " + maxBytes + " bytes";
     }
 
     /**
