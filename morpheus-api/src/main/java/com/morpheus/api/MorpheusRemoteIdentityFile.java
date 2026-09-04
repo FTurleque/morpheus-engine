@@ -38,7 +38,8 @@ import java.util.regex.Pattern;
  * processes through an owner-hardened sidecar file lock. The remote server reloads the current identity snapshot for
  * each authentication request, so revoke/rotate/role/expiry changes become effective without restart. The secret-free
  * audit is retained as a bounded rolling window inside the same atomic snapshot so audit growth can never prevent an
- * urgent credential rotation or revocation.</p>
+ * urgent credential rotation or revocation. Neither can audit corruption: historical audit entries are evidence, not
+ * authority, so an unreadable one is quarantined and recorded as such rather than failing the mutation it precedes.</p>
  */
 public final class MorpheusRemoteIdentityFile {
     public static final int MAX_FILE_BYTES = 256 * 1024;
@@ -48,6 +49,13 @@ public final class MorpheusRemoteIdentityFile {
     private static final int MAX_PRESENTED_TOKEN_CHARS = 1024;
     private static final Pattern PRINCIPAL = Pattern.compile("[A-Za-z0-9._@-]{1,128}");
     private static final String AUDIT_PREFIX = "# audit|";
+    /**
+     * Subject of an {@link Mutation#AUDIT_QUARANTINED} entry.
+     *
+     * <p>It is a reserved name rather than an operator principal, and it is never accepted as an identity: the
+     * identity parser only ever reads principals from identity lines, and the audit is a comment to it.</p>
+     */
+    private static final String AUDIT_QUARANTINE_SUBJECT = "morpheus.audit";
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Object MUTATION_LOCK = new Object();
 
@@ -152,7 +160,15 @@ public final class MorpheusRemoteIdentityFile {
         REVOKE,
         ROTATE,
         ROLE_CHANGED,
-        EXPIRY_MIGRATED
+        EXPIRY_MIGRATED,
+
+        /**
+         * Unreadable historical audit entries were dropped so a credential mutation could proceed.
+         *
+         * <p>It carries no principal of its own because the entries it replaces could not be read, and reading
+         * them is exactly what failed.</p>
+         */
+        AUDIT_QUARANTINED
     }
 
     /**
@@ -546,7 +562,10 @@ public final class MorpheusRemoteIdentityFile {
 
         List<AuditRecord> retainedAudit = new ArrayList<>();
         if (Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
-            retainedAudit.addAll(parseAudit(readLinesSecurely(file, "cannot preserve remote identity audit")));
+            RetainedAudit salvaged = retainableAudit(
+                    readLinesSecurely(file, "cannot preserve remote identity audit"));
+            retainedAudit.addAll(salvaged.records());
+            if (salvaged.quarantined() > 0) retainedAudit.add(quarantineRecord());
         }
         retainedAudit.addAll(Objects.requireNonNull(auditRecords, "auditRecords"));
         int firstRetained = Math.max(0, retainedAudit.size() - MAX_AUDIT_RECORDS);
@@ -600,26 +619,76 @@ public final class MorpheusRemoteIdentityFile {
         }
     }
 
+    /**
+     * Reads the audit strictly, naming the first unreadable line.
+     *
+     * <p>This is the reporting surface: it says what is on disk rather than what can be salvaged from it, so a
+     * corrupted history is visible instead of quietly shorter. The mutation path deliberately does not use it --
+     * see {@link #retainableAudit(List)}.</p>
+     */
     private static List<AuditRecord> parseAudit(List<String> lines) {
         List<AuditRecord> records = new ArrayList<>();
         for (int index = 0; index < lines.size(); index++) {
             String line = lines.get(index).trim();
             if (!line.startsWith(AUDIT_PREFIX)) continue;
-            String[] fields = line.substring(AUDIT_PREFIX.length()).split("\\|", -1);
-            if (fields.length != 4) {
+            AuditRecord entry = readAudit(line);
+            if (entry == null) {
                 throw new IllegalArgumentException("invalid remote identity audit at line " + (index + 1));
             }
-            try {
-                records.add(new AuditRecord(
-                        Instant.parse(fields[0]),
-                        Mutation.valueOf(fields[1]),
-                        fields[2],
-                        MorpheusRemoteRole.valueOf(fields[3])));
-            } catch (IllegalArgumentException failure) {
-                throw new IllegalArgumentException("invalid remote identity audit at line " + (index + 1), failure);
-            }
+            records.add(entry);
         }
         return List.copyOf(records);
+    }
+
+    /**
+     * Salvages the historical audit for retention, counting what it had to leave behind.
+     *
+     * <p>The audit is evidence about mutations, never an authority over them. Preserving it strictly meant a
+     * single unreadable {@code # audit|} line -- from a partial write, a hand edit, or a truncated copy -- made
+     * every later mutation of the file fail, so a credential known to be compromised could not be revoked while
+     * the credential itself stayed perfectly valid. Ordering that the wrong way makes the audit a denial of
+     * service against the operation the audit exists to record.</p>
+     *
+     * <p>Unreadable entries are therefore dropped rather than preserved, and their loss is itself recorded as an
+     * {@link Mutation#AUDIT_QUARANTINED} entry. Nothing from the rejected line is carried into that record: a
+     * line that failed to parse is of unknown provenance, and the only safe thing to say about it is that it
+     * existed.</p>
+     */
+    private static RetainedAudit retainableAudit(List<String> lines) {
+        List<AuditRecord> records = new ArrayList<>();
+        int quarantined = 0;
+        for (String raw : lines) {
+            String line = raw.trim();
+            if (!line.startsWith(AUDIT_PREFIX)) continue;
+            AuditRecord entry = readAudit(line);
+            if (entry == null) quarantined++;
+            else records.add(entry);
+        }
+        return new RetainedAudit(records, quarantined);
+    }
+
+    /** Returns {@code null} for an entry no reader can trust, without echoing any of its content. */
+    private static AuditRecord readAudit(String line) {
+        String[] fields = line.substring(AUDIT_PREFIX.length()).split("\\|", -1);
+        if (fields.length != 4) return null;
+        try {
+            return new AuditRecord(
+                    Instant.parse(fields[0]),
+                    Mutation.valueOf(fields[1]),
+                    fields[2],
+                    MorpheusRemoteRole.valueOf(fields[3]));
+        } catch (RuntimeException unreadable) {
+            return null;
+        }
+    }
+
+    /** Historical audit entries that survived a read, and how many did not. */
+    private record RetainedAudit(List<AuditRecord> records, int quarantined) {
+    }
+
+    private static AuditRecord quarantineRecord() {
+        return new AuditRecord(
+                Instant.now(), Mutation.AUDIT_QUARANTINED, AUDIT_QUARANTINE_SUBJECT, MorpheusRemoteRole.ADMIN);
     }
 
     private static String formatAudit(AuditRecord auditRecord) {

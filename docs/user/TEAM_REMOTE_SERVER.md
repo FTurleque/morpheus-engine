@@ -292,7 +292,7 @@ Ce que le harnais **affirme** n'est délibérément pas une latence. Un chiffre 
 - toute requête reçoit une réponse ;
 - cette réponse n'est **jamais** un 5xx : la saturation s'exprime en `429` explicite, jamais en drop ni en attente ;
 - `server/status` reste répondable pendant toute une charge mixte lecture + mutation ;
-- un corps surdimensionné (`413`) et un client qui abandonne ne laissent **aucun** slot derrière eux ;
+- un corps surdimensionné (`413`) ne laisse **aucun** slot derrière lui ;
 - fermer la façade libère réellement sa socket et son executor.
 
 Les latences (`p50`, `p95`, `max`, `wall`) sont **enregistrées comme preuve**, pas asserties. Elles alimentent la décision suivante.
@@ -310,6 +310,41 @@ Les latences (`p50`, `p95`, `max`, `wall`) sont **enregistrées comme preuve**, 
 Le dernier critère est le plus important : il distingue « le serveur HTTP est trop lent » de « la base est le goulot ». Remplacer `jdk.httpserver` alors que la contention est en réalité SQLite ne changerait rien et ajouterait une dépendance. Le franchissement d'un seuil appelle un ADR dédié, pas un changement direct.
 
 Le harnais montre aussi le comportement de refus : la façade préfère refuser vite plutôt que mettre en file. Sur un tir à 240 lectures concurrentes contre `--max-concurrent 8`, l'essentiel des requêtes reçoit un `429` en quelques millisecondes. Un client remote doit donc implémenter un retry avec backoff ; c'est un choix de conception, pas une limite du serveur HTTP.
+
+### Clients lents et clients qui cessent de lire
+
+Tous les budgets de la façade — permits de concurrence, budget mémoire des réponses proxifiées, deadline de
+lecture du corps — sont pris **avant** l'écriture de la réponse et rendus **après** elle. Un client qui négocie
+TLS, s'authentifie, envoie une requête valide puis **cesse simplement de lire** n'a donc rien de malformé à
+envoyer : l'écriture bloque sur une socket pleine et tout ce qui est derrière reste pris aussi longtemps que le
+client reste connecté. Borner la taille d'une réponse n'y change rien — le coût est du temps, pas de la mémoire.
+
+La réponse porte donc deux budgets, appliqués dans `TimedBoundedResponseWriter` :
+
+| Budget | Valeur | Ce qu'il borne |
+|---|---|---|
+| Stall | 15 s | temps **sans progression** ; réarmé à chaque bloc réellement écrit vers le client |
+| Total | 120 s | durée complète d'une réponse, quelle que soit la progression |
+
+Un client lent mais qui continue de consommer est donc servi intégralement ; un client qui s'arrête, ou qui
+n'accepte qu'un bloc par fenêtre indéfiniment, voit sa connexion récupérée.
+
+**Comment la deadline est appliquée.** `jdk.httpserver` n'expose aucun timeout d'écriture, et sa seule deadline
+de réponse est la propriété système non documentée `sun.net.httpserver.maxRspTime` — MORPHEUS ne s'y appuie
+pas. En revanche il écrit à travers un `SocketChannel` bloquant, et cela est spécifié : interrompre le thread
+bloqué sur un canal `InterruptibleChannel` **ferme le canal** et lève `ClosedByInterruptException`. La deadline
+interrompt donc le thread écrivain, et la garantie est le contrat documenté de `java.nio.channels`.
+
+**Limite résiduelle assumée.** La réponse est *avortée*, pas terminée proprement : le client voit un corps
+tronqué sur une connexion fermée, et aucune enveloppe d'erreur ne peut lui parvenir puisque la connexion qui la
+transporterait est précisément la ressource récupérée. L'événement est compté dans
+`GET /api/v1/server/status` sous `responseWriteTimeouts`, distinct de `requestTimeouts` : le premier est un
+client qui a cessé de **recevoir**, le second un client qui a cessé d'**envoyer**, et seul le premier retient un
+slot tant que le client reste connecté.
+
+`MorpheusRemoteAdversarialClientTest` pilote ces trois comportements depuis une socket TLS brute contre la vraie
+façade : lecture des seuls en-têtes puis arrêt, lecture lente avec pauses, et disparition brutale en cours de
+réponse.
 
 ### Détecter la contention SQLite
 

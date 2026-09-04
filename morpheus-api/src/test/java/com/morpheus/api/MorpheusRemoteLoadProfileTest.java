@@ -36,8 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>RT-01 and RT-03 both invite the same shortcut: replace the JDK server with a real one because it "might
  * not scale". This suite exists so that decision is made on evidence. It drives concurrent reads, concurrent
- * mutations, oversized bodies and abandoned clients against the real HTTPS facade, and writes what it measured
- * to {@code target/remote-load-profile.txt}.</p>
+ * mutations and oversized bodies against the real HTTPS facade, and writes what it measured to
+ * {@code target/remote-load-profile.txt}. Transport-level abandonment needs a socket the test controls rather
+ * than an HTTP client, and lives in {@code MorpheusRemoteAdversarialClientTest}.</p>
  *
  * <p>What it <em>asserts</em> is deliberately not a latency number. Absolute timings on a CI runner are not a
  * property of MORPHEUS, and a build that fails when a shared machine is busy teaches people to ignore it. The
@@ -182,13 +183,19 @@ class MorpheusRemoteLoadProfileTest {
     }
 
     /**
-     * An oversized body and an abandoned client are refused and forgotten, not accumulated.
+     * An oversized body is refused and forgotten, not accumulated.
      *
-     * <p>Both are what a hostile or broken client actually does. The assertion is not that they fail -- it is
-     * that after they fail, the facade is exactly as large as it was before them.</p>
+     * <p>The assertion is not that it fails -- it is that after it fails, the facade is exactly as large as it
+     * was before it.</p>
+     *
+     * <p>This used to also claim to cover an abandoned client, using a request sent with a discarding body
+     * handler. That handler consumes the response body exactly like any other and only throws the bytes away
+     * afterwards, so the facade saw an entirely well-behaved client and the no-slot-left-behind assertion held
+     * for a reason unrelated to abandonment. Abandonment is exercised where it can actually be produced -- from
+     * a raw TLS socket -- in {@code MorpheusRemoteAdversarialClientTest}.</p>
      */
     @Test
-    void oversizedBodiesAndAbandonedClientsLeaveNoSlotBehind() throws Exception {
+    void oversizedBodiesLeaveNoSlotBehind() throws Exception {
         Path database = temp.resolve("morpheus.db");
         Path auth = temp.resolve("remote-auth.txt");
         var admin = MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
@@ -205,23 +212,12 @@ class MorpheusRemoteLoadProfileTest {
                 assertTrue(refused.body().contains("PAYLOAD_TOO_LARGE"), refused.body());
             }
 
-            for (int attempt = 0; attempt < 8; attempt++) {
-                // Discarding the response body is the client walking away mid-exchange.
-                client.send(
-                        java.net.http.HttpRequest.newBuilder(base.resolve("/api/v1/health"))
-                                .header("Authorization", "Bearer " + admin.token())
-                                .GET()
-                                .build(),
-                        HttpResponse.BodyHandlers.discarding());
-            }
-
             Map<String, Object> settled = statusOf(client, base, admin.token());
             assertEquals(0, ((Number) settled.get("activeRequests")).intValue(),
                     "a refused oversized body must not hold a request slot");
             assertEquals(0, ((Number) settled.get("activePrivilegedRequests")).intValue(),
                     "a refused oversized mutation must not hold a privileged slot");
             measure("hostile.oversizedRefused", 8);
-            measure("hostile.abandonedClients", 8);
 
             assertEquals(200, RemoteHttpTestSupport.send(
                     client, base.resolve("/api/v1/health"), "GET", admin.token(), null).statusCode(),

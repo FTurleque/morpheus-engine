@@ -109,6 +109,124 @@ class MorpheusHttpQueryTest {
                 "unknown query parameter: surprise");
     }
 
+    @Test
+    void aQueryExactlyAtTheTotalBudgetIsAcceptedAndOneByteMoreIsRefused() {
+        String atLimit = queryOfExactly(HttpQueryBudget.MAX_QUERY_BYTES, "x");
+        assertEquals(4, countParameters(atLimit));
+        assertDoesNotThrow(() -> MorpheusHttpQuery.parse(atLimit));
+
+        assertBadRequest(
+                () -> MorpheusHttpQuery.parse(atLimit + "x"),
+                "query string exceeds " + HttpQueryBudget.MAX_QUERY_BYTES + " bytes");
+    }
+
+    /**
+     * The budget is counted in UTF-8 bytes, like every other MORPHEUS input budget.
+     *
+     * <p>Counting characters instead would let a multi-byte query weigh twice what it was allowed, which is
+     * exactly the discrepancy a byte budget exists to close.</p>
+     */
+    @Test
+    void theTotalBudgetCountsUtf8BytesRatherThanCharacters() {
+        String multibyte = queryOfExactly(HttpQueryBudget.MAX_QUERY_BYTES / 2 + 8, "é");
+        assertTrue(multibyte.length() < HttpQueryBudget.MAX_QUERY_BYTES,
+                "the query must be comfortably within budget when it is counted in characters");
+
+        assertBadRequest(
+                () -> MorpheusHttpQuery.parse(multibyte),
+                "query string exceeds " + HttpQueryBudget.MAX_QUERY_BYTES + " bytes");
+
+        String withinBudget = "é".repeat(64);
+        assertEquals(withinBudget, MorpheusHttpQuery.parse("q=" + withinBudget).required("q"));
+    }
+
+    @Test
+    void theParameterCountIsBoundedAtItsLimit() {
+        StringBuilder atLimit = new StringBuilder();
+        for (int index = 0; index < HttpQueryBudget.MAX_PARAMETERS; index++) {
+            if (index > 0) atLimit.append('&');
+            atLimit.append("p").append(index).append("=v");
+        }
+        MorpheusHttpQuery accepted = MorpheusHttpQuery.parse(atLimit.toString());
+        assertEquals("v", accepted.required("p0"));
+        assertEquals("v", accepted.required("p" + (HttpQueryBudget.MAX_PARAMETERS - 1)));
+
+        String overLimit = atLimit + "&overflow=v";
+        assertBadRequest(
+                () -> MorpheusHttpQuery.parse(overLimit),
+                "query string exceeds " + HttpQueryBudget.MAX_PARAMETERS + " parameters");
+    }
+
+    @Test
+    void parameterNamesAndValuesAreBoundedIndependently() {
+        String longestName = "n".repeat(HttpQueryBudget.MAX_PARAMETER_NAME_BYTES);
+        assertEquals("v", MorpheusHttpQuery.parse(longestName + "=v").required(longestName));
+        assertBadRequest(
+                () -> MorpheusHttpQuery.parse(longestName + "n=v"),
+                "query parameter name exceeds " + HttpQueryBudget.MAX_PARAMETER_NAME_BYTES + " bytes");
+
+        String longestValue = "v".repeat(HttpQueryBudget.MAX_PARAMETER_VALUE_BYTES);
+        assertEquals(longestValue, MorpheusHttpQuery.parse("q=" + longestValue).required("q"));
+        assertBadRequest(
+                () -> MorpheusHttpQuery.parse("q=" + longestValue + "v"),
+                "query parameter value exceeds " + HttpQueryBudget.MAX_PARAMETER_VALUE_BYTES + " bytes");
+    }
+
+    /**
+     * A value is bounded before it is decoded, on the encoded text.
+     *
+     * <p>Percent-decoding only ever shrinks a slice, so a raw slice within budget cannot decode into one that is
+     * not -- which is what lets the check happen before the allocation it guards rather than after it.</p>
+     */
+    @Test
+    void anOversizedValueIsRefusedOnItsEncodedFormBeforeItIsDecoded() {
+        String encoded = "%41".repeat(HttpQueryBudget.MAX_PARAMETER_VALUE_BYTES / 2);
+        assertBadRequest(
+                () -> MorpheusHttpQuery.parse("q=" + encoded),
+                "query parameter value exceeds " + HttpQueryBudget.MAX_PARAMETER_VALUE_BYTES + " bytes");
+    }
+
+    @Test
+    void invalidPercentEncodingIsAClientErrorRatherThanAnInternalOne() {
+        assertBadRequest(
+                () -> MorpheusHttpQuery.parse("q=%zz"),
+                "query parameter uses an invalid percent-encoding");
+        assertBadRequest(
+                () -> MorpheusHttpQuery.parse("q=%"),
+                "query parameter uses an invalid percent-encoding");
+    }
+
+    @Test
+    void emptySeparatorsAndTrailingAmpersandsStayWithinTheParameterBudget() {
+        MorpheusHttpQuery query = MorpheusHttpQuery.parse("&&a=1&&&b=2&");
+
+        assertEquals("1", query.required("a"));
+        assertEquals("2", query.required("b"));
+    }
+
+    /**
+     * A query of exactly {@code characters} characters, spread over four parameters.
+     *
+     * <p>The total budget cannot be exercised with one parameter, because the per-value budget is smaller and
+     * would be the bound that fires. Four is what every route stays under, so this is also a realistic shape.</p>
+     */
+    private static String queryOfExactly(int characters, String filler) {
+        int parameters = 4;
+        int overhead = parameters * "pN=".length() + parameters - 1;
+        int payload = characters - overhead;
+        StringBuilder query = new StringBuilder();
+        for (int index = 0; index < parameters; index++) {
+            if (index > 0) query.append('&');
+            int share = payload / parameters + (index < payload % parameters ? 1 : 0);
+            query.append('p').append(index).append('=').append(filler.repeat(share));
+        }
+        return query.toString();
+    }
+
+    private static int countParameters(String query) {
+        return query.split("&").length;
+    }
+
     private static void assertBadRequest(ThrowingRunnable action, String message) {
         ApiFailure failure = assertThrows(ApiFailure.class, action::run);
         assertEquals(400, failure.status());

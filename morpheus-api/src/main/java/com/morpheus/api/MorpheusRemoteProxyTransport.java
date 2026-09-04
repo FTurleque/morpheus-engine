@@ -25,12 +25,14 @@ final class MorpheusRemoteProxyTransport {
     private final int maxResponseBytes;
     private final Semaphore responseSlots;
     private final HttpClient client;
+    private final TimedBoundedResponseWriter bounded;
 
     MorpheusRemoteProxyTransport(
             MorpheusInternalCapability internalCapability,
             MorpheusRemoteRuntimeState runtime,
             int maxResponseBytes,
-            int maxResponseSlots) {
+            int maxResponseSlots,
+            TimedBoundedResponseWriter bounded) {
         this(
                 internalCapability,
                 runtime,
@@ -39,7 +41,8 @@ final class MorpheusRemoteProxyTransport {
                 HttpClient.newBuilder()
                         .connectTimeout(CONNECT_TIMEOUT)
                         .followRedirects(HttpClient.Redirect.NEVER)
-                        .build());
+                        .build(),
+                bounded);
     }
 
     MorpheusRemoteProxyTransport(
@@ -47,13 +50,15 @@ final class MorpheusRemoteProxyTransport {
             MorpheusRemoteRuntimeState runtime,
             int maxResponseBytes,
             Semaphore responseSlots,
-            HttpClient client) {
+            HttpClient client,
+            TimedBoundedResponseWriter bounded) {
         this.internalCapability = Objects.requireNonNull(internalCapability, "internalCapability");
         this.runtime = Objects.requireNonNull(runtime, "runtime");
         if (maxResponseBytes < 1) throw new IllegalArgumentException("maxResponseBytes must be positive");
         this.maxResponseBytes = maxResponseBytes;
         this.responseSlots = Objects.requireNonNull(responseSlots, "responseSlots");
         this.client = Objects.requireNonNull(client, "client");
+        this.bounded = Objects.requireNonNull(bounded, "bounded");
     }
 
     void forward(
@@ -106,14 +111,19 @@ final class MorpheusRemoteProxyTransport {
                 if (isBodyless(upstreamMethod, response.statusCode())) {
                     response.headers().firstValue("Content-Length")
                             .ifPresent(value -> exchange.getResponseHeaders().set("Content-Length", value));
-                    exchange.sendResponseHeaders(response.statusCode(), -1);
+                    bounded.write(progress -> {
+                        exchange.sendResponseHeaders(response.statusCode(), -1);
+                        progress.made();
+                    });
                     return;
                 }
 
                 long declaredLength = requireBoundedLength(
                         response.headers().firstValueAsLong("Content-Length"), maxResponseBytes);
-                exchange.sendResponseHeaders(response.statusCode(), declaredLength);
-                copyBounded(upstream, exchange.getResponseBody(), declaredLength, maxResponseBytes);
+                bounded.write(progress -> {
+                    exchange.sendResponseHeaders(response.statusCode(), declaredLength);
+                    copyBounded(upstream, exchange.getResponseBody(), declaredLength, maxResponseBytes, progress);
+                });
             }
         } catch (HttpTimeoutException timeout) {
             throw new TransportException(
@@ -174,11 +184,18 @@ final class MorpheusRemoteProxyTransport {
         return length;
     }
 
+    /**
+     * Streams the upstream body downstream, reporting each chunk that reached the client.
+     *
+     * <p>The progress report is what separates a slow reader from a stopped one: it rearms the stall budget of
+     * {@link TimedBoundedResponseWriter}, so a client that keeps draining is served for as long as it does.</p>
+     */
     static void copyBounded(
             InputStream upstream,
             OutputStream downstream,
             long declaredLength,
-            int maxResponseBytes) throws IOException {
+            int maxResponseBytes,
+            TimedBoundedResponseWriter.Progress progress) throws IOException {
         byte[] buffer = new byte[8192];
         long total = 0;
         int read;
@@ -187,6 +204,7 @@ final class MorpheusRemoteProxyTransport {
                 throw new IOException("local MORPHEUS response exceeded its declared or configured bound");
             }
             downstream.write(buffer, 0, read);
+            progress.made();
             total += read;
         }
         if (total != declaredLength) {

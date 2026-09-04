@@ -207,6 +207,39 @@ components:
         throttledRequests:
           type: integer
           minimum: 0
+        maxConcurrentPrivilegedRequests:
+          type: integer
+          minimum: 1
+          maximum: 512
+        activePrivilegedRequests:
+          type: integer
+          minimum: 0
+        oldestActivePrivilegedRequestMillis:
+          type: integer
+          minimum: 0
+          description: >-
+            Age of the longest-running privileged operation, or 0 when none is running. A mutation carries no
+            upstream deadline by design, so this is what separates a busy facade from a stuck one.
+        requestBodyReadTimeoutMillis:
+          type: integer
+          minimum: 1
+        totalPrivilegedRequests:
+          type: integer
+          minimum: 0
+        throttledPrivilegedRequests:
+          type: integer
+          minimum: 0
+        requestTimeouts:
+          type: integer
+          minimum: 0
+          description: Requests whose body did not arrive within its read deadline.
+        responseWriteTimeouts:
+          type: integer
+          minimum: 0
+          description: >-
+            Responses whose client stopped draining them and whose connection the facade reclaimed. Counted apart
+            from requestTimeouts: one is a client that stopped sending, the other a client that stopped receiving,
+            and only the second holds a request slot for as long as the client stays connected.
     BackupEnvelope:
       type: object
       additionalProperties: false

@@ -64,16 +64,18 @@ class MorpheusRemoteProxyTransportTest {
         byte[] payload = "morpheus".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         ByteArrayOutputStream copied = new ByteArrayOutputStream();
         MorpheusRemoteProxyTransport.copyBounded(
-                new ByteArrayInputStream(payload), copied, payload.length, payload.length);
+                new ByteArrayInputStream(payload), copied, payload.length, payload.length, () -> { });
         assertArrayEquals(payload, copied.toByteArray());
 
         assertThrows(IOException.class, () -> MorpheusRemoteProxyTransport.copyBounded(
-                new ByteArrayInputStream(payload), new ByteArrayOutputStream(), payload.length - 1, payload.length));
+                new ByteArrayInputStream(payload), new ByteArrayOutputStream(),
+                payload.length - 1, payload.length, () -> { }));
         assertThrows(IOException.class, () -> MorpheusRemoteProxyTransport.copyBounded(
                 new ByteArrayInputStream(payload, 0, payload.length - 1),
-                new ByteArrayOutputStream(), payload.length, payload.length));
+                new ByteArrayOutputStream(), payload.length, payload.length, () -> { }));
         assertThrows(IOException.class, () -> MorpheusRemoteProxyTransport.copyBounded(
-                new ByteArrayInputStream(payload), new ByteArrayOutputStream(), payload.length, payload.length - 1));
+                new ByteArrayInputStream(payload), new ByteArrayOutputStream(),
+                payload.length, payload.length - 1, () -> { }));
     }
 
     @Test
@@ -91,7 +93,8 @@ class MorpheusRemoteProxyTransportTest {
                 runtime,
                 16,
                 new Semaphore(0),
-                HttpClient.newHttpClient());
+                HttpClient.newHttpClient(),
+                new TimedBoundedResponseWriter());
 
         var failure = assertThrows(
                 MorpheusRemoteProxyTransport.TransportException.class,
@@ -113,7 +116,8 @@ class MorpheusRemoteProxyTransportTest {
                 new MorpheusRemoteRuntimeState(1, 1, Duration.ofSeconds(1), 1, 1, 1),
                 0,
                 new Semaphore(1),
-                HttpClient.newHttpClient()));
+                HttpClient.newHttpClient(),
+                new TimedBoundedResponseWriter()));
     }
 
     private static final class StubExchange extends HttpExchange {

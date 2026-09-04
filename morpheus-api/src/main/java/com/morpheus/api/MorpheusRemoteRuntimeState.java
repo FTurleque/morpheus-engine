@@ -37,6 +37,7 @@ final class MorpheusRemoteRuntimeState {
     private final LongAdder throttledRequests = new LongAdder();
     private final LongAdder throttledPrivilegedRequests = new LongAdder();
     private final LongAdder requestTimeouts = new LongAdder();
+    private final LongAdder responseWriteTimeouts = new LongAdder();
     private final LongAdder totalPrivilegedRequests = new LongAdder();
 
     // The privileged semaphore gates every insertion, so this map cannot grow past
@@ -147,6 +148,18 @@ final class MorpheusRemoteRuntimeState {
         requestTimeouts.increment();
     }
 
+    /**
+     * A response the client stopped draining, whose connection the facade reclaimed.
+     *
+     * <p>It is counted apart from the request timeout because it says something different about the peer: a
+     * request timeout is a client that stopped sending, and this is a client that stopped receiving. Only the
+     * second one holds a slot for as long as the client stays connected, so a facade under this kind of pressure
+     * looks busy for a reason no other counter explains.</p>
+     */
+    void recordResponseWriteTimeout() {
+        responseWriteTimeouts.increment();
+    }
+
     Map<String, Object> status(String host, int port) {
         return statusAt(host, port, Instant.now(), System.nanoTime());
     }
@@ -182,6 +195,7 @@ final class MorpheusRemoteRuntimeState {
         status.put("throttledRequests", throttledRequests.sum());
         status.put("throttledPrivilegedRequests", throttledPrivilegedRequests.sum());
         status.put("requestTimeouts", requestTimeouts.sum());
+        status.put("responseWriteTimeouts", responseWriteTimeouts.sum());
         return Map.copyOf(status);
     }
 
