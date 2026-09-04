@@ -43,6 +43,10 @@ export MORPHEUS_SERVER_TLS_PASSWORD='<secret>'
 
 Le chemin du keystore peut être passé par `--tls-keystore` ou `MORPHEUS_SERVER_TLS_KEYSTORE`.
 
+MORPHEUS ne recopie pas ce secret. La JVM le détient déjà sous forme de `String` dès qu'il vient de l'environnement ou d'une propriété — cela, MORPHEUS ne peut pas l'effacer. Ce qu'il contrôle, c'est de ne pas en fabriquer une seconde copie : les options de lancement analysées ne portent que le moyen de le retrouver, jamais la valeur. Le mot de passe n'existe sous forme de `char[]` que le temps d'ouvrir le keystore, puis chaque tampon est écrasé. Aucune surface de diagnostic (`toString()`, log, exception, JSON, métrique) ne peut donc le rendre.
+
+**Ce n'est pas une promesse d'effacement.** Un secret présent dans l'environnement d'un processus reste lisible par tout ce qui peut inspecter ce processus. La mesure réduit le nombre et la durée de vie des copies, elle ne remplace pas un gestionnaire de secrets ni un compte OS dédié.
+
 ## 2. Créer et administrer les identités
 
 Créer d’abord au moins un administrateur :
@@ -160,7 +164,7 @@ Options utiles :
 Variables :
 
 ```text
-MORPHEUS_SERVER_TLS_PASSWORD       obligatoire
+MORPHEUS_SERVER_TLS_PASSWORD       obligatoire (jamais un argument de ligne de commande)
 MORPHEUS_SERVER_TLS_KEYSTORE       alternative à --tls-keystore
 MORPHEUS_SERVER_AUTH_FILE          alternative à --auth-file
 MORPHEUS_SERVER_MAX_CONCURRENT     limite de concurrence

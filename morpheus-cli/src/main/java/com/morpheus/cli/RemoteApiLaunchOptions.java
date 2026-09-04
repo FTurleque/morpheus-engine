@@ -18,7 +18,7 @@ record RemoteApiLaunchOptions(
         int port,
         Path authFile,
         Path tlsKeyStore,
-        String tlsPassword,
+        TlsKeystorePassword tlsPassword,
         int maxConcurrentRequests,
         Path providerPluginDirectory,
         List<Path> allowedWorkspaceRoots) {
@@ -144,10 +144,16 @@ record RemoteApiLaunchOptions(
                 explicitWorkspaceRoots,
                 environment,
                 properties);
-        String password = nonBlank(environment.get("MORPHEUS_SERVER_TLS_PASSWORD"))
-                .or(() -> nonBlank(properties.getProperty("morpheus.server.tls.password")))
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "remote mode requires the TLS keystore password from environment or protected property"));
+        // The value is deliberately not captured here. Only the way back to it is: the JVM already holds the
+        // environment and property strings, and a field on these options would be a second copy living as long
+        // as the server does. Presence is still proven now, so a misconfigured launch fails before startup.
+        TlsKeystorePassword password = new TlsKeystorePassword(
+                () -> nonBlank(environment.get("MORPHEUS_SERVER_TLS_PASSWORD"))
+                        .or(() -> nonBlank(properties.getProperty("morpheus.server.tls.password"))));
+        if (!password.isPresent()) {
+            throw new IllegalArgumentException(
+                    "remote mode requires the TLS keystore password from environment or protected property");
+        }
         if (!maxConcurrentExplicit) {
             Optional<String> configured = nonBlank(environment.get("MORPHEUS_SERVER_MAX_CONCURRENT"))
                     .or(() -> nonBlank(properties.getProperty("morpheus.server.maxConcurrent")));
@@ -163,10 +169,6 @@ record RemoteApiLaunchOptions(
                 maxConcurrent,
                 providerPluginDirectory,
                 allowedWorkspaceRoots);
-    }
-
-    char[] tlsPasswordChars() {
-        return tlsPassword.toCharArray();
     }
 
     private static boolean takesValue(String token) {

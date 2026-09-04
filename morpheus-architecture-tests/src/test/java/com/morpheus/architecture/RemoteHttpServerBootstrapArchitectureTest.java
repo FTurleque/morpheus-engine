@@ -57,6 +57,46 @@ class RemoteHttpServerBootstrapArchitectureTest {
         assertFalse(bootstrap.contains("createBackup("));
     }
 
+    /**
+     * The TLS keystore password gets no long-lived copy of MORPHEUS's own making.
+     *
+     * <p>The JVM already holds it as a {@link String} the moment it arrives from the environment or a property,
+     * and nothing here can erase that. What MORPHEUS controls is whether it keeps a second one: the parsed
+     * launch options carried the password as a field for the entire lifetime of the running server, and the
+     * record's generated {@code toString()} would have rendered it into any diagnostic that printed them.</p>
+     */
+    @Test
+    void theTlsKeystorePasswordIsResolvedLateHeldMutablyAndWiped() throws IOException {
+        Path root = repositoryRoot();
+        String options = Files.readString(root.resolve(
+                "morpheus-cli/src/main/java/com/morpheus/cli/RemoteApiLaunchOptions.java"));
+        String main = Files.readString(root.resolve(
+                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"));
+        String handle = Files.readString(root.resolve(
+                "morpheus-cli/src/main/java/com/morpheus/cli/TlsKeystorePassword.java"));
+        String bootstrap = Files.readString(root.resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.java"));
+
+        assertFalse(options.contains("String tlsPassword"),
+                "the launch options must not retain the TLS password as an immutable field");
+        assertTrue(options.contains("TlsKeystorePassword tlsPassword"));
+        assertFalse(options.contains("--tls-password"),
+                "the TLS password must never become a command-line argument");
+        assertTrue(options.contains("MORPHEUS_SERVER_TLS_PASSWORD"));
+
+        assertTrue(handle.contains("char[] resolve()"), "the password must reach the keystore as a char[]");
+        assertTrue(handle.contains("value=<redacted>"), "the password handle must render redacted");
+
+        assertTrue(main.contains("char[] keyStorePassword = options.tlsPassword().resolve();"));
+        assertTrue(main.contains("Arrays.fill(keyStorePassword, '\\0');"),
+                "the launcher must wipe the password buffer once the server has started");
+
+        assertTrue(bootstrap.contains("java.util.Arrays.fill(password, '\\0');"),
+                "the bootstrap must wipe its own copy once the SSLContext exists");
+        assertTrue(bootstrap.contains("java.util.Arrays.fill(encoded, (byte) 0);"),
+                "the bootstrap must wipe the decoded keystore bytes");
+    }
+
     private Path repositoryRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {
