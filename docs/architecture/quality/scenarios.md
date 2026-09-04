@@ -154,10 +154,29 @@ milestone fonctionnel livré.
 | Seuil | PASS |
 | Preuve | Validation R3 et manifests de release |
 
-### Q-PO-03 — macOS — non qualifié
+### Q-PO-03 — macOS — observé au niveau smoke, non supporté
 
-macOS n'est pas une plateforme publiée/qualifiée par la baseline actuelle. Il
-n'existe donc pas de seuil de compatibilité à annoncer ici.
+macOS n'est **pas** une plateforme publiée ou supportée par la baseline actuelle.
+Aucun packaging macOS n'est produit et aucun engagement de support n'est pris.
+
+Ce qui a changé : la lane `macos-smoke` de `ci.yml` fait tourner le reactor complet
+sur `macos-latest` et enregistre les faits système dont MORPHEUS dépend
+(sensibilité à la casse, permissions POSIX sur `TMPDIR`, création de liens
+symboliques, version Java). Elle est **advisory** — `continue-on-error: true` —
+parce qu'une plateforme jamais qualifiée ne doit pas bloquer les pull requests, et
+parce qu'une lane verte ne vaut pas une décision de support.
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Exécution du reactor complet sur `macos-latest` |
+| Réponse | Observation enregistrée, sans engagement de support ni packaging |
+| Mesure | Résultat de la lane advisory + faits système publiés dans le résumé de job |
+| Seuil | Aucun — la lane est non bloquante |
+| Preuve | Job `macos-smoke` de `.github/workflows/ci.yml` |
+
+Passer de « observé » à « supporté » exige une décision produit explicite : lane
+rendue bloquante, packaging macOS, validation dual-platform étendue, et ADR dédié.
+L'état actuel reste **RT-08 ouvert**.
 
 ---
 

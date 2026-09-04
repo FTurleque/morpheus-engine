@@ -22,7 +22,7 @@
 | RT-06 | Diagnostic runtime limité par le logging silencieux | 2 | 2 | **4** | Health/metrics, erreurs structurées et diagnostics MCP sanitizés ; préserver stdout MCP | Permanent |
 | RT-09 | Drift documentaire entre sources historiques et HEAD | 2 | 2 | **4** | Hiérarchie des sources, séparation release publiée `1.2.0` / baseline active `1.2.1`, guides actifs réconciliés et contrats d'architecture sur les invariants CI | À chaque release/hardening |
 | RT-07 | Auth remote sans SSO/LDAP | 1 | 2 | **2** | Bearer auth + RBAC, mutations inter-processus sérialisées, live reload, audit secret-free roulant borné | Si besoin entreprise démontré |
-| RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement dans la baseline actuelle | Si support macOS décidé |
+| RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement ; lane CI `macos-smoke` **advisory** (`continue-on-error`) qui exécute le reactor complet et publie les faits système observés — observation, pas qualification | Si support macOS décidé |
 
 ### Risques de gouvernance résolus le 27/08/2026
 
@@ -44,7 +44,7 @@ Ils restent traçables dans l'historique Git et les issues #154/#166, mais ne do
 | DT-12 | Identités remote historiques à trois champs sans expiration | Sécurité remote | **Faible à moyenne** | Compatibilité contractuelle et verrouillée par `legacyThreeFieldIdentityRemainsNonExpiring` ; `server identity list` les rend visibles par `expiresAt: NEVER`. Les nouvelles identités exigent `--expires-at`, `never` restant un choix explicite. Retirer le format à trois champs demande une évolution explicitement incompatible, pas un patch 1.2.1 |
 | DT-03 | Seuils de performance M19 peu visibles depuis la documentation d'architecture | Qualité | **Moyenne** | Relier les scénarios qualité aux tests/gates autoritatifs |
 | DT-04 | SQLite reste l'unique backend persistant | Architecture | **Faible à moyenne** | N'engager un backend alternatif qu'après besoin et ADR dédiés |
-| DT-05 | Distribution macOS absente | Distribution | **Faible** | Décision produit avant ajout du packaging/CI |
+| DT-05 | Distribution macOS absente | Distribution | **Faible** | Décision produit avant ajout du packaging ; la lane smoke n'en produit aucun |
 
 Les anciennes dettes `DT-06` (protection `main`) et `DT-09` (protection `develop`) sont résolues et retirées du tableau actif.
 

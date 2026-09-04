@@ -139,3 +139,60 @@ jobs:
             validation-output/m21/diff-coverage.txt
             validation-output/m21/api.stdout.log
             validation-output/m21/api.stderr.log
+
+  macos-smoke:
+    # macOS is NOT an officially supported MORPHEUS platform. This lane exists to turn "macOS unknown" into
+    # "macOS observed", and stays non-blocking until it has been reproducibly green for long enough to justify
+    # a support decision. Making it required before that would gate every pull request on an unqualified
+    # platform; claiming support because a smoke lane passes would be worse.
+    name: macOS smoke (advisory, not a supported platform)
+    runs-on: macos-latest
+    continue-on-error: true
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      - name: Build and test the full reactor on macOS
+        shell: bash
+        run: ./mvnw -B -ntp clean verify
+
+      - name: Record the macOS filesystem and process facts MORPHEUS depends on
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## macOS smoke observations" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Fact | Observed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Case-sensitive filesystem | $(if [ -e /etc/HOSTS ] && [ -e /etc/hosts ]; then echo no; else echo yes; fi) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Path separator | $(python3 -c 'import os; print(repr(os.sep))') |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| POSIX permissions on TMPDIR | $(ls -ld "${TMPDIR:-/tmp}" | cut -d' ' -f1) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Symlink creation | $(ln -s /tmp "$RUNNER_TEMP/morpheus-symlink-probe" 2>/dev/null && echo permitted || echo refused) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Java version | $(java -version 2>&1 | head -1) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "macOS is not an officially supported MORPHEUS platform. This lane is advisory evidence only; it creates no packaging and no support commitment." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload macOS smoke evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos-smoke-evidence
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            **/target/surefire-reports/*.xml
+            morpheus-api/target/remote-load-profile.txt
