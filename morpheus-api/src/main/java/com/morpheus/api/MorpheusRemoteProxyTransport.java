@@ -93,21 +93,7 @@ final class MorpheusRemoteProxyTransport {
             HttpResponse<InputStream> response = client.send(
                     request.build(), HttpResponse.BodyHandlers.ofInputStream());
             if (!budgetHeld) {
-                // A mutation takes its budget only once the upstream has answered, and waits rather than being
-                // refused. Both halves matter. Holding it across the wait is what let blocked mutations shut the
-                // facade: a mutation has no upstream deadline -- deliberately, because a deadline over a commit
-                // that is already durable would report 504 for work that happened -- so it would hold a slot
-                // forever, and there are eight for a server that admits sixteen concurrent mutations. Refusing
-                // here instead of waiting would be the same lie in another form: the commit has already
-                // happened by the time these headers exist.
-                try {
-                    responseSlots.acquire();
-                } catch (InterruptedException interrupted) {
-                    // The response exists and nobody will read it now, so its connection goes back to the pool
-                    // rather than being held until the client is collected.
-                    response.body().close();
-                    throw interrupted;
-                }
+                awaitResponseBudget(response);
                 budgetHeld = true;
             }
             try (InputStream upstream = response.body()) {
@@ -144,6 +130,26 @@ final class MorpheusRemoteProxyTransport {
             if (budgetHeld) {
                 responseSlots.release();
             }
+        }
+    }
+
+    /**
+     * Takes the response budget for a mutation, once the upstream has answered.
+     *
+     * <p>Both halves of that matter. Holding the budget across the wait is what let blocked mutations shut the
+     * facade: a mutation has no upstream deadline — deliberately, because a deadline over a commit that is
+     * already durable would report 504 for work that happened — so it would hold a slot forever, and there are
+     * eight for a server that admits sixteen concurrent mutations. Refusing here instead of waiting would be the
+     * same lie in another form: the commit has already happened by the time these headers exist.</p>
+     */
+    private void awaitResponseBudget(HttpResponse<InputStream> response) throws InterruptedException, IOException {
+        try {
+            responseSlots.acquire();
+        } catch (InterruptedException interrupted) {
+            // The response exists and nobody will read it now, so its connection goes back to the pool rather
+            // than being held until the client is collected.
+            response.body().close();
+            throw interrupted;
         }
     }
 

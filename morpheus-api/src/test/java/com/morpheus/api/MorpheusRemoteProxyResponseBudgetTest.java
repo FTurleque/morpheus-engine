@@ -147,7 +147,7 @@ class MorpheusRemoteProxyResponseBudgetTest {
      */
     @Test
     void anInterruptWhileWaitingForTheBudgetClosesTheUpstreamResponse() throws Exception {
-        Semaphore exhausted = new Semaphore(0, true);
+        WatchedSemaphore exhausted = new WatchedSemaphore();
         MorpheusRemoteProxyTransport transport = transport(exhausted);
         releaseUpstream.countDown();
 
@@ -155,7 +155,8 @@ class MorpheusRemoteProxyResponseBudgetTest {
         StubExchange write = new StubExchange("POST", "/api/v1/projects");
         Thread caller = new Thread(() -> outcome.set(forward(transport, write)));
         caller.start();
-        awaitBudgetWait(exhausted);
+        assertTrue(exhausted.reachedTheWait.await(10, TimeUnit.SECONDS),
+                "the mutation must have reached the budget wait");
 
         caller.interrupt();
         caller.join(TimeUnit.SECONDS.toMillis(10));
@@ -170,17 +171,29 @@ class MorpheusRemoteProxyResponseBudgetTest {
         assertEquals(0, exhausted.availablePermits(), "a budget that was never taken must not be given back");
     }
 
-    /** The upstream has answered and the caller is parked on the saturated budget. */
-    private static void awaitBudgetWait(Semaphore budget) throws InterruptedException {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (!budget.hasQueuedThreads()) {
-            assertTrue(System.nanoTime() < deadline, "the mutation must have reached the budget wait");
-            Thread.sleep(10);
+    /**
+     * A budget with nothing to give, which says when a caller is about to wait on it.
+     *
+     * <p>Signalling from inside {@code acquire} is what makes the interrupt land in the right place: a caller
+     * interrupted a moment too early throws out of {@code acquire} on its own interrupt status, which is the
+     * same path.</p>
+     */
+    private static final class WatchedSemaphore extends Semaphore {
+        private final CountDownLatch reachedTheWait = new CountDownLatch(1);
+
+        private WatchedSemaphore() {
+            super(0, true);
+        }
+
+        @Override
+        public void acquire() throws InterruptedException {
+            reachedTheWait.countDown();
+            super.acquire();
         }
     }
 
     @Test
-    void theSlotIsReleasedWhenTheUpstreamAnswersSomethingUnusable() throws Exception {
+    void theSlotIsReleasedWhenTheUpstreamAnswersSomethingUnusable() {
         upstream.createContext("/api/v1/unbounded", exchange -> {
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, 0);
@@ -281,6 +294,7 @@ class MorpheusRemoteProxyResponseBudgetTest {
 
         @Override
         public void close() {
+            // The exchange the transport writes into is inspected by the test, not recycled.
         }
 
         @Override
@@ -325,10 +339,12 @@ class MorpheusRemoteProxyResponseBudgetTest {
 
         @Override
         public void setAttribute(String name, Object value) {
+            // Filter attributes: nothing in the proxy path reads them back.
         }
 
         @Override
         public void setStreams(InputStream input, OutputStream output) {
+            // Only the container swaps an exchange's streams, and no container runs here.
         }
 
         @Override
