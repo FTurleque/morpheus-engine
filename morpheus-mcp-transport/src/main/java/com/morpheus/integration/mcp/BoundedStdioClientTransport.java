@@ -68,6 +68,29 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
             "LC_ALL",
             "LC_CTYPE");
 
+    /**
+     * Lifecycle of one transport instance, and of exactly one peer process.
+     *
+     * <p>A transport used to be told it was connected by a field that only recorded the last process started, so
+     * two subscriptions to {@code connect()} -- sequential or concurrent -- each started a peer and the second
+     * overwrote the reference to the first. That is how a peer becomes unreachable while still running under the
+     * MORPHEUS account: nothing left in the process could name it in order to stop it. This state is what makes a
+     * second start impossible rather than merely unlikely.</p>
+     *
+     * <p>{@code CLOSING} is the teardown ticket: whichever of graceful close and fail-closed claims it owns the
+     * cleanup, and the other waits for that cleanup instead of repeating it. {@code FAILED} and {@code CLOSED} are
+     * both terminal and both mean the peer and the schedulers are gone; they differ only in what ended the
+     * transport.</p>
+     */
+    enum State {
+        NEW,
+        CONNECTING,
+        CONNECTED,
+        CLOSING,
+        CLOSED,
+        FAILED
+    }
+
     private final Sinks.Many<JSONRPCMessage> inboundSink;
     private final Sinks.Many<OutboundFrame> outboundSink;
     private final ServerParameters parameters;
@@ -82,7 +105,8 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private final Map<Long, ProcessHandle> observedProcesses = new ConcurrentHashMap<>();
 
     private final AtomicReference<Process> process = new AtomicReference<>();
-    private volatile boolean closing;
+    private final AtomicReference<State> state = new AtomicReference<>(State.NEW);
+    private final Object lifecycleLock = new Object();
     private Consumer<String> stdErrorHandler = error -> LOGGER.log(
             System.Logger.Level.INFO, "MCP STDERR: {0}", McpDiagnosticRedactor.redact(error));
 
@@ -109,14 +133,23 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 .onBackpressureBuffer(new ArrayBlockingQueue<JSONRPCMessage>(maxPendingMessages));
         this.outboundSink = Sinks.many().unicast()
                 .onBackpressureBuffer(new ArrayBlockingQueue<OutboundFrame>(maxPendingMessages));
-        this.inboundScheduler = Schedulers.fromExecutorService(
-                Executors.newSingleThreadExecutor(), "morpheus-mcp-inbound");
-        this.outboundScheduler = Schedulers.fromExecutorService(
-                Executors.newSingleThreadExecutor(), "morpheus-mcp-outbound");
-        this.errorScheduler = Schedulers.fromExecutorService(
-                Executors.newSingleThreadExecutor(), "morpheus-mcp-stderr");
-        this.lifecycleScheduler = Schedulers.fromExecutorService(
-                Executors.newSingleThreadExecutor(), "morpheus-mcp-lifecycle");
+        this.inboundScheduler = transportScheduler("morpheus-mcp-inbound");
+        this.outboundScheduler = transportScheduler("morpheus-mcp-outbound");
+        this.errorScheduler = transportScheduler("morpheus-mcp-stderr");
+        this.lifecycleScheduler = transportScheduler("morpheus-mcp-lifecycle");
+    }
+
+    /**
+     * One named thread per transport role.
+     *
+     * <p>The scheduler already carried these names, but its worker did not, so a stuck or leaked MCP transport
+     * showed up in a thread dump as an anonymous pool thread. Naming the thread is what makes the four threads a
+     * transport owns identifiable -- to an operator reading a dump, and to a test asserting they really went
+     * away.</p>
+     */
+    private static Scheduler transportScheduler(String role) {
+        return Schedulers.fromExecutorService(
+                Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, role)), role);
     }
 
     public void setStdErrorHandler(Consumer<String> handler) {
@@ -124,38 +157,70 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         this.stdErrorHandler = error -> downstream.accept(McpDiagnosticRedactor.redact(error));
     }
 
+    /**
+     * Starts the one peer this transport will ever own.
+     *
+     * <p>The lifecycle claim happens before the handler is wired and before anything is spawned, so a second
+     * subscription -- another caller, a retry, a {@code Mono} subscribed twice -- is refused while the peer of the
+     * first one is still the only process that exists. A transport that has been closed or has failed is refused
+     * on the same check: it has no way back to a running peer, and pretending otherwise would start a process
+     * whose teardown has already run.</p>
+     */
     @Override
     public Mono<Void> connect(Function<Mono<JSONRPCMessage>, Mono<JSONRPCMessage>> handler) {
         Objects.requireNonNull(handler, "handler");
         return Mono.<Void>fromRunnable(() -> {
-            handleIncomingMessages(handler::apply);
-
-            List<String> command = new ArrayList<>();
-            command.add(parameters.getCommand());
-            command.addAll(parameters.getArgs());
-            ProcessBuilder builder = new ProcessBuilder(command);
-            sanitizeEnvironment(builder.environment(), parameters.getEnv());
-
-            Process started;
-            try {
-                started = builder.start();
-                process.set(started);
-            } catch (IOException failure) {
-                disposeSchedulers();
-                throw new IllegalStateException("failed to start MCP process", failure);
+            if (!state.compareAndSet(State.NEW, State.CONNECTING)) {
+                throw new IllegalStateException(
+                        "MCP transport cannot connect twice; current state is " + state.get());
             }
-            observeTree(started.toHandle());
+            handleIncomingMessages(handler::apply);
+            Process started = startPeer();
             if (started.getInputStream() == null || started.getOutputStream() == null) {
-                destroyObservedProcessTree(started);
-                disposeSchedulers();
-                throw new IllegalStateException("MCP process input or output stream is unavailable");
+                IllegalStateException unusable =
+                        new IllegalStateException("MCP process input or output stream is unavailable");
+                failClosed(unusable);
+                throw unusable;
             }
 
             startLifecycleObservation();
             startInboundProcessing();
             startOutboundProcessing();
             startErrorProcessing();
+            // A close that arrived during startup already owns the teardown; leaving CONNECTING behind would
+            // publish a CONNECTED transport whose peer has just been destroyed.
+            state.compareAndSet(State.CONNECTING, State.CONNECTED);
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Spawns the peer and publishes it, under the same lock teardown takes.
+     *
+     * <p>Publishing the handle is what makes the peer reachable for termination, and it cannot be allowed to
+     * happen after a concurrent close has already looked. Holding the lock across both makes the outcome one of
+     * two: the close sees a peer and stops it, or the close precedes the spawn and the spawn does not happen.</p>
+     */
+    private Process startPeer() {
+        List<String> command = new ArrayList<>();
+        command.add(parameters.getCommand());
+        command.addAll(parameters.getArgs());
+        ProcessBuilder builder = new ProcessBuilder(command);
+        sanitizeEnvironment(builder.environment(), parameters.getEnv());
+        synchronized (lifecycleLock) {
+            if (state.get() != State.CONNECTING) {
+                throw new IllegalStateException("MCP transport was closed while connecting");
+            }
+            try {
+                Process started = builder.start();
+                process.set(started);
+                observeTree(started.toHandle());
+                return started;
+            } catch (IOException failure) {
+                IllegalStateException unstarted = new IllegalStateException("failed to start MCP process", failure);
+                failClosed(unstarted);
+                throw unstarted;
+            }
+        }
     }
 
     /**
@@ -180,7 +245,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     public Mono<Void> sendMessage(JSONRPCMessage message) {
         Objects.requireNonNull(message, "message");
         return Mono.defer(() -> {
-            if (closing) return Mono.error(new IllegalStateException("MCP transport is closing"));
+            if (isClosing()) return Mono.error(new IllegalStateException("MCP transport is closing"));
             final OutboundFrame frame;
             try {
                 frame = encode(message);
@@ -195,20 +260,32 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         });
     }
 
+    /**
+     * Stops the peer and this transport's threads, exactly once.
+     *
+     * <p>Close is idempotent and concurrent-safe in the only sense that is useful to a caller: a second close
+     * does not repeat the teardown, and it does not return until the first one has finished. Waiting is the point
+     * -- a caller that is told the transport is closed while its peer is still being destroyed has been told
+     * something that is not yet true.</p>
+     */
     @Override
     public Mono<Void> closeGracefully() {
         return Mono.fromRunnable(() -> {
-                    closing = true;
-                    inboundSink.tryEmitComplete();
-                    outboundSink.tryEmitComplete();
-                    // Stopping the peer walks its process tree and reads its exit status, both of which can
-                    // fail. The four schedulers are this transport's own threads, one set per configured peer,
-                    // and they were disposed after that walk -- so a failure there left them running for the
-                    // rest of the process. Disposal is driven by leaving the block, not by it succeeding.
-                    try {
-                        shutdownProcess();
-                    } finally {
-                        disposeSchedulers();
+                    synchronized (lifecycleLock) {
+                        if (!claimTeardown()) return;
+                        inboundSink.tryEmitComplete();
+                        outboundSink.tryEmitComplete();
+                        // Stopping the peer walks its process tree and reads its exit status, both of which can
+                        // fail. The four schedulers are this transport's own threads, one set per configured
+                        // peer, and they were disposed after that walk -- so a failure there left them running
+                        // for the rest of the process. Disposal is driven by leaving the block, not by it
+                        // succeeding, and so is reaching the terminal state.
+                        try {
+                            shutdownProcess();
+                        } finally {
+                            disposeSchedulers();
+                            state.set(State.CLOSED);
+                        }
                     }
                 })
                 .subscribeOn(Schedulers.boundedElastic())
@@ -229,7 +306,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 .subscribe(
                         ignored -> { },
                         failure -> {
-                            if (!closing) failClosed(failure);
+                            if (!isClosing()) failClosed(failure);
                         });
     }
 
@@ -237,14 +314,14 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         inboundScheduler.schedule(() -> {
             try (InputStream input = new BufferedInputStream(process.get().getInputStream())) {
                 String line;
-                while (!closing && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
+                while (!isClosing() && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
                     if (!processInboundLine(line)) return;
                 }
-                if (!closing) inboundSink.tryEmitComplete();
+                if (!isClosing()) inboundSink.tryEmitComplete();
             } catch (MessageTooLargeException oversized) {
                 failClosed(oversized);
             } catch (Exception failure) {
-                if (!closing) failClosed(failure);
+                if (!isClosing()) failClosed(failure);
             }
         });
     }
@@ -258,7 +335,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         }
         if (!inboundSink.tryEmitNext(message).isSuccess()) {
             inboundCapacity.release();
-            if (!closing) failClosed(new IllegalStateException("MCP inbound queue capacity exceeded"));
+            if (!isClosing()) failClosed(new IllegalStateException("MCP inbound queue capacity exceeded"));
             return false;
         }
         return true;
@@ -268,16 +345,16 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         errorScheduler.schedule(() -> {
             try (InputStream input = new BufferedInputStream(process.get().getErrorStream())) {
                 String line;
-                while (!closing && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
+                while (!isClosing() && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
                     handleErrorLine(line);
                 }
             } catch (MessageTooLargeException oversized) {
-                if (!closing) {
+                if (!isClosing()) {
                     LOGGER.log(System.Logger.Level.WARNING, "MCP stderr frame exceeded configured byte limit");
                     failClosed(oversized);
                 }
             } catch (Exception failure) {
-                if (!closing) failClosed(failure);
+                if (!isClosing()) failClosed(failure);
             }
         });
     }
@@ -297,7 +374,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         handleOutbound(frames -> frames
                 .publishOn(outboundScheduler)
                 .handle((frame, sink) -> {
-                    if (frame == null || closing) return;
+                    if (frame == null || isClosing()) return;
                     try {
                         var output = process.get().getOutputStream();
                         synchronized (output) {
@@ -318,7 +395,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         ProcessHandle root = current.toHandle();
         lifecycleScheduler.schedule(() -> {
             try {
-                while (!closing && root.isAlive()) {
+                while (!isClosing() && root.isAlive()) {
                     observeTree(root);
                     TimeUnit.MILLISECONDS.sleep(PROCESS_OBSERVATION_POLL_MILLIS);
                 }
@@ -333,7 +410,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private void handleOutbound(Function<Flux<OutboundFrame>, Flux<OutboundFrame>> consumer) {
         consumer.apply(outboundSink.asFlux())
                 .doOnError(failure -> {
-                    if (!closing) failClosed(failure);
+                    if (!isClosing()) failClosed(failure);
                 })
                 .subscribe(
                         ignored -> { },
@@ -354,16 +431,47 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     }
 
     private void failClosed(Throwable failure) {
-        if (closing) return;
-        closing = true;
-        inboundSink.tryEmitError(failure);
-        outboundSink.tryEmitError(failure);
-        LOGGER.log(
-                System.Logger.Level.WARNING,
-                "MCP transport failed closed: {0}",
-                McpDiagnosticRedactor.describe(failure));
-        destroyObservedProcessTree(process.get());
-        disposeSchedulers();
+        synchronized (lifecycleLock) {
+            if (!claimTeardown()) return;
+            inboundSink.tryEmitError(failure);
+            outboundSink.tryEmitError(failure);
+            LOGGER.log(
+                    System.Logger.Level.WARNING,
+                    "MCP transport failed closed: {0}",
+                    McpDiagnosticRedactor.describe(failure));
+            try {
+                destroyObservedProcessTree(process.get());
+            } finally {
+                disposeSchedulers();
+                state.set(State.FAILED);
+            }
+        }
+    }
+
+    /**
+     * Takes ownership of teardown, or reports that someone else already has it.
+     *
+     * <p>Callers hold {@code lifecycleLock} across the whole teardown, so a losing caller only returns once the
+     * winning one is done. Every non-terminal state is a valid place to start tearing down, including
+     * {@code CONNECTING}: a peer that failed halfway through startup still has a process and four schedulers to
+     * account for.</p>
+     */
+    private boolean claimTeardown() {
+        State current = state.get();
+        if (current == State.CLOSING || current == State.CLOSED || current == State.FAILED) return false;
+        state.set(State.CLOSING);
+        return true;
+    }
+
+    /** Whether the transport has stopped accepting work, whichever way it stopped. */
+    private boolean isClosing() {
+        State current = state.get();
+        return current == State.CLOSING || current == State.CLOSED || current == State.FAILED;
+    }
+
+    /** Current lifecycle state, for tests that assert the transport really is single-connect. */
+    State state() {
+        return state.get();
     }
 
     private void shutdownProcess() {

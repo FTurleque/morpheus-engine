@@ -118,8 +118,15 @@ class PartialRuntimeOwnershipContractTest {
                 "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
 
         String statements = transport.replaceAll("\\s+", " ");
-        assertTrue(statements.contains("try { shutdownProcess(); } finally { disposeSchedulers(); }"),
-                "scheduler disposal must not depend on the peer shutdown having succeeded");
+        assertTrue(
+                statements.contains(
+                        "try { shutdownProcess(); } finally { disposeSchedulers(); state.set(State.CLOSED); }"),
+                "scheduler disposal and the terminal state must not depend on the peer shutdown succeeding");
+        assertTrue(
+                statements.contains(
+                        "try { destroyObservedProcessTree(process.get()); } finally { disposeSchedulers();"
+                                + " state.set(State.FAILED); }"),
+                "the fail-closed path must release the same threads on the same terms");
     }
 
     private static Path repositoryRoot() throws IOException {
