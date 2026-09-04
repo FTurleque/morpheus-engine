@@ -184,11 +184,17 @@ par un lien symbolique — ce refus est un invariant de sécurité, et il a fonc
 prévu. Conséquence : tous les tests utilisant `@TempDir` échouaient avant qu'aucun comportement
 spécifique à macOS ne puisse être observé.
 
-**Ce n'est pas un défaut MORPHEUS et l'invariant n'a pas été touché.** La lane résout désormais
-`TMPDIR` vers son chemin réel avant de lancer le reactor, comme le poste Windows de développement
-doit pointer `TMP` vers un répertoire aux ACL saines. Le fait est enregistré parce qu'une future
-décision de support macOS doit en tenir compte : sur cette plateforme, un répertoire de données
-dérivé de `TMPDIR` est, par défaut, derrière un lien symbolique.
+Second fait, découvert en corrigeant le premier : **positionner `TMPDIR` ne suffit pas.** Sur macOS
+la JVM dérive `java.io.tmpdir` d'une API Darwin et non de l'environnement, donc la variable est
+ignorée. La lane passe désormais la propriété explicitement, Surefire la transmettant à la JVM de
+test forkée.
+
+**Ce n'est pas un défaut MORPHEUS et l'invariant n'a pas été touché.** C'est une correction de
+runner, au même titre que le poste Windows de développement qui doit pointer `TMP` vers un
+répertoire aux ACL saines. Les deux faits sont enregistrés parce qu'une future décision de support
+macOS doit en tenir compte : sur cette plateforme, un répertoire de données dérivé du répertoire
+temporaire est par défaut derrière un lien symbolique, et cela ne se corrige pas par variable
+d'environnement.
 
 Passer de « observé » à « supporté » exige une décision produit explicite : lane
 rendue bloquante, packaging macOS, validation dual-platform étendue, et ADR dédié.
