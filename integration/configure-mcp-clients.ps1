@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $InstallRoot,
 
-    [ValidateSet('Install', 'Uninstall')]
+    [ValidateSet('Install', 'Uninstall', 'Detect')]
     [string] $Action = 'Install',
 
     [switch] $CopilotJetBrains,
@@ -22,7 +22,10 @@ param(
     [string] $LogPath = '',
     [string] $BackupRoot = '',
     [string] $CopilotJetBrainsConfigPath = '',
-    [string] $ClaudeDesktopConfigPath = ''
+    [string] $ClaudeDesktopConfigPath = '',
+
+    # Detect-only: where to write the per-client INI report the installer wizard reads via GetIniString.
+    [string] $Out = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -40,6 +43,26 @@ if ($Action -eq 'Install' -and -not (Test-Path -LiteralPath $MorpheusExe -PathTy
 
 $LocalAppData = [Environment]::GetFolderPath('LocalApplicationData')
 $RoamingAppData = [Environment]::GetFolderPath('ApplicationData')
+
+# Claude Desktop ships both as a classic per-user installer (%APPDATA%\Claude) and, on some Windows machines,
+# as an MSIX/Store package whose real profile lives under a per-install %LOCALAPPDATA%\Packages\Claude_* GUID
+# directory. Checking only the classic path misreports a Store install as absent. Defined this early because
+# it must run before the parameter-defaulting block below, and PowerShell does not hoist function definitions.
+function Resolve-ClaudeDesktopConfigPath {
+    $PackagesDir = Join-Path $LocalAppData 'Packages'
+    if (Test-Path -LiteralPath $PackagesDir -PathType Container) {
+        $MsixDir = Get-ChildItem -LiteralPath $PackagesDir -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($null -ne $MsixDir) {
+            $MsixConfig = Join-Path $MsixDir.FullName 'LocalCache\Roaming\Claude\claude_desktop_config.json'
+            if (Test-Path -LiteralPath (Split-Path -Parent $MsixConfig) -PathType Container) {
+                return $MsixConfig
+            }
+        }
+    }
+    return Join-Path $RoamingAppData 'Claude\claude_desktop_config.json'
+}
+
 if ([string]::IsNullOrWhiteSpace($DataRoot)) {
     $DataRoot = Join-Path $LocalAppData 'MORPHEUS\data'
 }
@@ -62,7 +85,7 @@ if ([string]::IsNullOrWhiteSpace($CopilotJetBrainsConfigPath)) {
     $CopilotJetBrainsConfigPath = Join-Path $LocalAppData 'github-copilot\intellij\mcp.json'
 }
 if ([string]::IsNullOrWhiteSpace($ClaudeDesktopConfigPath)) {
-    $ClaudeDesktopConfigPath = Join-Path $RoamingAppData 'Claude\claude_desktop_config.json'
+    $ClaudeDesktopConfigPath = Resolve-ClaudeDesktopConfigPath
 }
 
 $StatePath = [System.IO.Path]::GetFullPath($StatePath)
@@ -443,6 +466,40 @@ function Resolve-CommandPath([string] $Name) {
     return $Command.Name
 }
 
+# A name on PATH is not an installation: an editor extension routinely ships a same-named launcher/shim that
+# either fails MORPHEUS's probe outright or, worse, silently no-ops. Every candidate is tried in PATH order and
+# the first one that actually answers a real command wins; a bare name match is never treated as sufficient.
+function Test-VsCodeShimPath([string] $Path) {
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    $Lower = $Path.ToLowerInvariant()
+    return $Lower.Contains('microsoft vs code') -or $Lower.Contains('\code\bin\') -or $Lower.Contains('vscode\bin\') `
+        -or $Lower.Contains('\code - insiders\')
+}
+
+function Resolve-CliCandidate([string] $Name) {
+    $Candidates = @(Get-Command $Name -All -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandType -in @('Application', 'ExternalScript') } |
+        Select-Object -ExpandProperty Source -Unique)
+    foreach ($Candidate in $Candidates) {
+        if (Test-VsCodeShimPath -Path $Candidate) { continue }
+        $Probe = Invoke-NativeCapture -File $Candidate -Arguments @('--version')
+        if ($Probe.ExitCode -eq 0) { return $Candidate }
+    }
+    return ''
+}
+
+function Test-ClaudeDesktopPresent([string] $ConfigPath) {
+    $Directory = Split-Path -Parent $ConfigPath
+    if (Test-Path -LiteralPath $Directory -PathType Container) { return $true }
+    return Test-Path -LiteralPath (Join-Path $Directory 'logs') -PathType Container
+}
+
+# The JetBrains plugin, not MORPHEUS, owns this directory's existence. Writing an mcp.json into a directory
+# that only a theoretical future plugin install would create is exactly the "blind write" this must never do.
+function Test-JetBrainsCopilotPresent([string] $ConfigPath) {
+    return Test-Path -LiteralPath (Split-Path -Parent $ConfigPath) -PathType Container
+}
+
 function Stop-NativeProcessTree([System.Diagnostics.Process] $Process) {
     if ($null -eq $Process) { return }
     try { if ($Process.HasExited) { return } } catch { return }
@@ -559,9 +616,9 @@ function Install-CliClient(
     [string[]] $GetArguments, [string[]] $AddArguments, [string[]] $RemoveArguments
 ) {
     try {
-        $ToolPath = Resolve-CommandPath -Name $ToolName
+        $ToolPath = Resolve-CliCandidate -Name $ToolName
         if ([string]::IsNullOrWhiteSpace($ToolPath)) {
-            Fail-Or-Warn "$DisplayName was selected, but '$ToolName' is not installed or not available in PATH."
+            Fail-Or-Warn "$DisplayName was selected, but no working '$ToolName' executable was found on PATH."
             return
         }
         $Managed = Get-ManagedEntry -Id $Id
@@ -607,7 +664,7 @@ function Uninstall-CliClient([object] $Entry) {
         return
     }
     try {
-        $ToolPath = Resolve-CommandPath -Name ([string]$Entry.toolName)
+        $ToolPath = Resolve-CliCandidate -Name ([string]$Entry.toolName)
         if ([string]::IsNullOrWhiteSpace($ToolPath)) {
             Fail-Or-Warn "Cannot remove MORPHEUS from $($Entry.displayName): '$($Entry.toolName)' is no longer available in PATH."
             return
@@ -626,12 +683,154 @@ function Uninstall-CliClient([object] $Entry) {
     catch { Fail-Or-Warn "Failed to remove MORPHEUS from $($Entry.displayName): $($_.Exception.Message)" }
 }
 
+# A tracked entry can be exactly what its own record says and still be wrong: if this invocation's install
+# root, data root or config root differ from what was tracked, the live client still points at a location that
+# may no longer hold a running MORPHEUS. That is "needs repair", distinct from "a human edited the entry" --
+# the latter must never be touched automatically, the former is exactly what MORPHEUS itself should offer to
+# fix.
+function Test-TrackedValuesCurrent([object] $Entry) {
+    $EntryCommand = [string]$Entry.command
+    if ([string]::IsNullOrWhiteSpace($EntryCommand) -or
+            -not $EntryCommand.Equals($MorpheusExe, [StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+    $EntryData = if ($Entry.PSObject.Properties['dataRoot']) { [string]$Entry.dataRoot } else { '' }
+    $EntryConfig = if ($Entry.PSObject.Properties['configRoot']) { [string]$Entry.configRoot } else { '' }
+    return $EntryData.Equals($DataRoot, [StringComparison]::OrdinalIgnoreCase) -and
+            $EntryConfig.Equals($ConfigRoot, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function New-ClientState([bool] $Available, [bool] $AlreadyManaged, [bool] $NeedsRepair, [bool] $Conflict, [string] $Reason) {
+    return [pscustomobject]@{
+        Available = $Available; AlreadyManaged = $AlreadyManaged; NeedsRepair = $NeedsRepair
+        Conflict = $Conflict; Reason = $Reason
+    }
+}
+
+function Get-JsonClientState(
+    [string] $Id, [string] $DisplayName, [string] $ConfigPath, [string] $ContainerName, [bool] $ClientPresent
+) {
+    if (-not $ClientPresent) {
+        return New-ClientState $false $false $false $false "$DisplayName is not detected on this machine."
+    }
+
+    $Root = $null
+    try { $Root = Read-JsonObject -Path $ConfigPath }
+    catch {
+        return New-ClientState $false $false $false $true "$DisplayName configuration is invalid JSON; automatic configuration disabled."
+    }
+    $Container = Get-ObjectPropertyValue -Root $Root -Name $ContainerName
+    $ExistingProperty = if ($null -ne $Container) { $Container.PSObject.Properties['morpheus'] } else { $null }
+    $Existing = if ($null -eq $ExistingProperty) { $null } else { $ExistingProperty.Value }
+    $Managed = Get-ManagedEntry -Id $Id
+
+    if ($null -eq $Existing) {
+        return New-ClientState $true $false $false $false "$DisplayName detected - available for configuration."
+    }
+    if ($null -eq $Managed) {
+        return New-ClientState $false $false $false $true "An MCP configuration named 'morpheus' already exists and does not belong to MORPHEUS."
+    }
+    if ((Get-EntryOwnership -Entry $Managed) -eq 'preexisting') {
+        return New-ClientState $false $true $false $false "$DisplayName - already configured."
+    }
+    if (-not (Test-ManagedJsonEntryMatches -Entry $Managed -Current $Existing)) {
+        return New-ClientState $false $false $false $true "$DisplayName - the 'morpheus' MCP entry was modified manually; left as-is."
+    }
+    if (-not (Test-TrackedValuesCurrent -Entry $Managed)) {
+        return New-ClientState $false $false $true $false "$DisplayName - configuration needs to be updated (install location or data/config roots changed)."
+    }
+    return New-ClientState $false $true $false $false "$DisplayName - already configured."
+}
+
+function Get-CliClientState([string] $Id, [string] $DisplayName, [string] $ToolName, [string[]] $GetArguments) {
+    $ToolPath = Resolve-CliCandidate -Name $ToolName
+    if ([string]::IsNullOrWhiteSpace($ToolPath)) {
+        return New-ClientState $false $false $false $false "$DisplayName is not detected (no working '$ToolName' executable found on PATH)."
+    }
+    $Managed = Get-ManagedEntry -Id $Id
+    $Probe = Invoke-NativeCapture -File $ToolPath -Arguments $GetArguments
+    if ($Probe.ExitCode -ne 0) {
+        return New-ClientState $true $false $false $false "$DisplayName detected - available for configuration."
+    }
+    if ($null -eq $Managed) {
+        return New-ClientState $false $false $false $true "An MCP configuration named 'morpheus' already exists and does not belong to MORPHEUS."
+    }
+    if ((Get-EntryOwnership -Entry $Managed) -eq 'preexisting') {
+        return New-ClientState $false $true $false $false "$DisplayName - already configured."
+    }
+    if (-not (Test-ManagedCliProbeMatches -Entry $Managed -Probe $Probe)) {
+        return New-ClientState $false $false $false $true "$DisplayName - the 'morpheus' MCP entry was modified manually; left as-is."
+    }
+    if (-not (Test-TrackedValuesCurrent -Entry $Managed)) {
+        return New-ClientState $false $false $true $false "$DisplayName - configuration needs to be updated (install location or data/config roots changed)."
+    }
+    return New-ClientState $false $true $false $false "$DisplayName - already configured."
+}
+
+function Write-IniValue([System.Text.StringBuilder] $Builder, [string] $Key, [object] $Value) {
+    $Text = if ($Value -is [bool]) { if ($Value) { '1' } else { '0' } } else { [string]$Value }
+    $Text = $Text -replace "`r?`n", ' '
+    [void]$Builder.Append($Key).Append('=').Append($Text).Append([Environment]::NewLine)
+}
+
+function Write-DetectReport {
+    $States = [ordered]@{
+        'copilot-jetbrains' = Get-JsonClientState -Id 'copilot-jetbrains' -DisplayName 'GitHub Copilot (JetBrains / IntelliJ)' `
+            -ConfigPath $CopilotJetBrainsConfigPath -ContainerName 'servers' `
+            -ClientPresent (Test-JetBrainsCopilotPresent -ConfigPath $CopilotJetBrainsConfigPath)
+        'claude-desktop' = Get-JsonClientState -Id 'claude-desktop' -DisplayName 'Claude Desktop' `
+            -ConfigPath $ClaudeDesktopConfigPath -ContainerName 'mcpServers' `
+            -ClientPresent (Test-ClaudeDesktopPresent -ConfigPath $ClaudeDesktopConfigPath)
+        'copilot-cli' = Get-CliClientState -Id 'copilot-cli' -DisplayName 'GitHub Copilot CLI' -ToolName 'copilot' `
+            -GetArguments @('mcp', 'get', 'morpheus', '--json')
+        'claude-code' = Get-CliClientState -Id 'claude-code' -DisplayName 'Claude Code' -ToolName 'claude' `
+            -GetArguments @('mcp', 'get', 'morpheus')
+        'codex' = Get-CliClientState -Id 'codex' -DisplayName 'OpenAI Codex' -ToolName 'codex' `
+            -GetArguments @('mcp', 'get', 'morpheus')
+    }
+
+    $Builder = New-Object System.Text.StringBuilder
+    foreach ($Key in $States.Keys) {
+        $State = $States[$Key]
+        [void]$Builder.Append('[').Append($Key).Append(']').Append([Environment]::NewLine)
+        Write-IniValue $Builder 'Available' $State.Available
+        Write-IniValue $Builder 'AlreadyManaged' $State.AlreadyManaged
+        Write-IniValue $Builder 'NeedsRepair' $State.NeedsRepair
+        Write-IniValue $Builder 'Conflict' $State.Conflict
+        Write-IniValue $Builder 'Reason' $State.Reason
+        [void]$Builder.Append([Environment]::NewLine)
+    }
+
+    $Parent = Split-Path -Parent $Out
+    if (-not [string]::IsNullOrWhiteSpace($Parent)) {
+        New-Item -ItemType Directory -Force -Path $Parent | Out-Null
+    }
+    # Written with a UTF-8 BOM (unlike the BOM-less JSON state file) so Inno Setup's GetIniString reliably
+    # reads it as Unicode rather than falling back to the system ANSI code page.
+    [System.IO.File]::WriteAllText($Out, $Builder.ToString(), [System.Text.UTF8Encoding]::new($true))
+}
+
 Write-IntegrationLog "BEGIN action=$Action installRoot='$InstallRoot' dataRoot='$DataRoot' configRoot='$ConfigRoot'"
+
+if ($Action -eq 'Detect') {
+    if ([string]::IsNullOrWhiteSpace($Out)) {
+        throw "-Out is required for -Action Detect"
+    }
+    $Out = [System.IO.Path]::GetFullPath($Out)
+    Write-DetectReport
+    Write-IntegrationLog "END action=Detect out='$Out'"
+    return
+}
 
 if ($Action -eq 'Install') {
     if ($CopilotJetBrains) {
-        Install-JsonClient -Id 'copilot-jetbrains' -DisplayName 'GitHub Copilot (JetBrains / IntelliJ)' `
-            -ConfigPath $CopilotJetBrainsConfigPath -ContainerName 'servers'
+        if (Test-JetBrainsCopilotPresent -ConfigPath $CopilotJetBrainsConfigPath) {
+            Install-JsonClient -Id 'copilot-jetbrains' -DisplayName 'GitHub Copilot (JetBrains / IntelliJ)' `
+                -ConfigPath $CopilotJetBrainsConfigPath -ContainerName 'servers'
+        }
+        else {
+            Fail-Or-Warn "GitHub Copilot (JetBrains / IntelliJ) was selected, but the plugin's own configuration directory does not exist; nothing was created."
+        }
     }
     if ($ClaudeDesktop) {
         Install-JsonClient -Id 'claude-desktop' -DisplayName 'Claude Desktop' `

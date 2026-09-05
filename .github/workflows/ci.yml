@@ -69,15 +69,18 @@ jobs:
               ;;
           esac
 
-      - name: Run one-command M21 gate on Windows
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: scripts\validate.cmd m21 -Version 1.2.1
-
-      - name: Run M28 MCP client integration verification on Windows
+      # scripts\validate-m28.ps1 chains M28 -> R2 -> M27 only (measured ~8 minutes end to end: one
+      # `mvnw clean verify`, the M22-M27/M28 contract/convergence checks, and both real Windows installer
+      # builds plus their lifecycle/MCP-smoke verification against the actually compiled Setup.exe) -- it
+      # does not re-run every earlier milestone's own reactor pass, so running it here is not the redundant
+      # historical chain that would be disproportionate for a PR. It replaces the old M21-only gate: M28's
+      # own chain already runs M27's full reactor verify, so a separate M21-only step would just repeat that
+      # build. A wiring regression in MORPHEUS.iss's wizard/detection/transactional-upgrade/uninstall path
+      # is caught here, on every PR, not only at release time.
+      - name: Run full M28 gate on Windows (Setup.exe wizard, transactional upgrade, MCP smoke)
         if: runner.os == 'Windows'
         shell: powershell
-        run: .\scripts\verify-m28-mcp-client-integration.ps1
+        run: .\scripts\validate-m28.ps1 -Version 1.2.1
 
       - name: Upload M21 integrity evidence
         if: always()
@@ -95,6 +98,7 @@ jobs:
             validation-output/m21/diff-coverage.txt
             validation-output/m21/api.stdout.log
             validation-output/m21/api.stderr.log
+            validation-output/m28/validation-summary.txt
 
   sonar:
     # SONAR_TOKEN is a durable secret. It must never be present in the environment of a build that compiles or

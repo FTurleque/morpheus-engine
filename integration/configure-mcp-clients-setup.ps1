@@ -7,7 +7,15 @@ param(
     [switch] $CopilotCli,
     [switch] $ClaudeCode,
     [switch] $ClaudeDesktop,
-    [switch] $Codex
+    [switch] $Codex,
+
+    [string] $DataRoot = '',
+    [string] $ConfigRoot = '',
+    [string] $StatePath = '',
+    [string] $LogPath = '',
+    [string] $BackupRoot = '',
+    [string] $ClaudeDesktopConfigPath = '',
+    [string] $CopilotJetBrainsConfigPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,6 +27,13 @@ if (-not (Test-Path -LiteralPath $Manager -PathType Leaf)) {
 }
 
 $Parameters = @{ InstallRoot = $InstallRoot }
+if (-not [string]::IsNullOrWhiteSpace($DataRoot)) { $Parameters['DataRoot'] = $DataRoot }
+if (-not [string]::IsNullOrWhiteSpace($ConfigRoot)) { $Parameters['ConfigRoot'] = $ConfigRoot }
+if (-not [string]::IsNullOrWhiteSpace($StatePath)) { $Parameters['StatePath'] = $StatePath }
+if (-not [string]::IsNullOrWhiteSpace($LogPath)) { $Parameters['LogPath'] = $LogPath }
+if (-not [string]::IsNullOrWhiteSpace($BackupRoot)) { $Parameters['BackupRoot'] = $BackupRoot }
+if (-not [string]::IsNullOrWhiteSpace($ClaudeDesktopConfigPath)) { $Parameters['ClaudeDesktopConfigPath'] = $ClaudeDesktopConfigPath }
+if (-not [string]::IsNullOrWhiteSpace($CopilotJetBrainsConfigPath)) { $Parameters['CopilotJetBrainsConfigPath'] = $CopilotJetBrainsConfigPath }
 if ($CopilotJetBrains) { $Parameters['CopilotJetBrains'] = $true }
 if ($CopilotCli) { $Parameters['CopilotCli'] = $true }
 if ($ClaudeCode) { $Parameters['ClaudeCode'] = $true }
@@ -35,12 +50,15 @@ if ($ClaudeDesktop) { $Selected += 'claude-desktop' }
 if ($Codex) { $Selected += 'codex' }
 if ($Selected.Count -eq 0) { return }
 
-$LocalAppData = [Environment]::GetFolderPath('LocalApplicationData')
-$StatePath = Join-Path $LocalAppData 'MORPHEUS\mcp-client-integrations.json'
+$VerificationStatePath = $StatePath
+if ([string]::IsNullOrWhiteSpace($VerificationStatePath)) {
+    $LocalAppData = [Environment]::GetFolderPath('LocalApplicationData')
+    $VerificationStatePath = Join-Path $LocalAppData 'MORPHEUS\mcp-client-integrations.json'
+}
 $ManagedIds = @()
-if (Test-Path -LiteralPath $StatePath -PathType Leaf) {
+if (Test-Path -LiteralPath $VerificationStatePath -PathType Leaf) {
     try {
-        $State = Get-Content -Raw -LiteralPath $StatePath | ConvertFrom-Json
+        $State = Get-Content -Raw -LiteralPath $VerificationStatePath | ConvertFrom-Json
         $ManagedIds = @($State.clients | ForEach-Object { [string]$_.id })
     }
     catch {

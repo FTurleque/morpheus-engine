@@ -266,24 +266,85 @@ Les données MORPHEUS, la base SQLite, les backups et le registre vivent hors du
 
 ## 12. Installer Windows
 
-Les cinq tâches Inno Setup sont opt-in et décochées :
+Les cinq clients ne sont plus des tâches Inno statiques : `MORPHEUS.iss` exécute
+`configure-mcp-clients.ps1 -Action Detect` (extrait via `Flags: dontcopy` avant `ssInstall`, puisque
+`{app}\integration` n’existe pas encore lors d’une première installation) et sérialise le résultat dans un
+rapport INI que la page custom « Clients IA » lit via `GetIniString` — Inno Pascal Script n’a pas de
+parseur JSON. Chaque client est classé dans l’un de cinq états (`NotDetected`, `Available`,
+`AlreadyManaged`, `NeedsRepair`, `Conflict`) par les **mêmes fonctions** que celles utilisées par
+`Install`/`Uninstall` : le wizard et le gestionnaire ne peuvent pas diverger par construction. `NeedsRepair`
+correspond à une entrée gérée par MORPHEUS mais dont le chemin d’installation ou les répertoires
+données/config trackés ne correspondent plus aux valeurs courantes ; la resélectionner et relancer
+`Install` la répare (le chemin `Install-JsonClient`/`Install-CliClient` réécrit l’entrée dès qu’elle ne
+correspond plus à la config courante). `Conflict` (entrée étrangère ou JSON invalide) reste toujours
+décoché et désactivé.
 
-```text
-mcp_copilot_jetbrains
-mcp_copilot_cli
-mcp_claude_code
-mcp_claude_desktop
-mcp_codex
-```
+Une page `TInputOptionWizardPage` Standard/Advanced précède le choix du répertoire d’installation ; Avancé
+expose les répertoires données/config (les seuls réglages runtime réels, pas d’option théorique). Une page
+Résumé (`TNewMemo` lecture seule) précède l’installation effective.
 
-Après copie des fichiers, `configure-mcp-clients-setup.ps1` :
+Le payload applicatif n’est plus copié directement par `[Files]` : `PrepareToInstall` (avant `ssInstall`)
+extrait `update-installation.ps1` et `morpheus-payload.zip`, puis délègue à un moteur transactionnel
+(stage → vérification → activation avec journal → rollback automatique sur échec → nettoyage des fichiers
+obsolètes de l’ancienne version). Voir `distribution/windows/update-installation.ps1` et
+`docs/architecture` pour le détail du protocole (marqueur de propriété, refus des points de jonction,
+récupération après crash au lancement suivant).
 
-1. appelle le gestionnaire ;
+Une installation silencieuse (`/VERYSILENT`) ne rend jamais la page « Clients IA » — aucune case n'est donc
+jamais cochée par un clic. En revanche, Inno exécute quand même `CurPageChanged` en interne pour cette page
+même sans l'afficher (constaté empiriquement) : la détection tourne donc dans les deux modes. C'est pour
+cette raison qu'`ApplyCommandLineClientSelection` (application de `/MORPHEUSMCPCLIENTS="id1,id2"`, uniquement
+parmi les lignes que la détection a laissées sélectionnables — jamais un client `Conflict`/`NotDetected`)
+s'exécute dans `PrepareToInstall` **sans être conditionné** par le fait que la détection ait déjà tourné ou
+non : la première version conditionnait les deux au même indicateur, ce qui empêchait toute sélection en
+mode silencieux puisque la détection avait déjà tourné via `CurPageChanged` avant que `PrepareToInstall` ne
+s'exécute. `/NOICONS` exige `AllowNoIcons=yes` dans `[Setup]` pour avoir un effet.
+
+Après activation des fichiers, `configure-mcp-clients-setup.ps1` :
+
+1. appelle le gestionnaire avec les clients effectivement sélectionnés ;
 2. relit le registre ;
 3. vérifie que chaque intégration sélectionnée est présente ;
 4. échoue explicitement si une sélection n’a pas été configurée.
 
 Un échec de câblage n’altère pas le binaire MORPHEUS : la CLI et le serveur MCP natif restent lançables directement.
+
+Le vrai `Setup.exe` produit est testé de bout en bout (pas seulement les scripts en isolation) par
+`scripts/verify-windows-setup-lifecycle.ps1` : installation silencieuse dans un répertoire sandboxé,
+`morpheus.exe --version`, démarrage/arrêt du serveur MCP STDIO, réinstallation idempotente,
+suppression réelle d’un fichier obsolète lors d’une réactivation, création/suppression d’une intégration
+cliente via le gestionnaire réellement installé (chemins injectés, jamais les vraies configs
+Claude/Copilot/Codex de la machine), puis désinstallation complète (répertoire programme et clé de
+registre per-user tous deux supprimés).
+
+### Mode smoke — sélectionner réellement un client sans toucher la machine
+
+`[Environment]::GetFolderPath` et les constantes Inno `{localappdata}`/`{userappdata}`/`{group}` résolvent
+via l’API Windows Known Folder et ignorent les variables d’environnement `LOCALAPPDATA`/`APPDATA` du
+process (constaté empiriquement) — un vrai `Setup.exe` ne peut donc jamais rediriger ces chemins par
+variables d’environnement seules. Plutôt que de renoncer à tester la sélection réelle d’un client,
+`MORPHEUS.iss` compile un mécanisme d’override dédié **uniquement** quand `ISCC` reçoit `/DSmokeMode=1` :
+
+- `BuildSmokeOverrideParameters` (appelée à l’identique par `RunDetect`, `ConfigureNativeMcpClients` et
+  `UninstallParameters`, donc le preflight et le gestionnaire ne peuvent jamais recevoir des chemins
+  différents) lit des variables `MORPHEUS_SMOKE_*` (`MORPHEUS_SMOKE_MODE`, `_DATA_ROOT`, `_CONFIG_ROOT`,
+  `_STATE_PATH`, `_LOG_PATH`, `_BACKUP_ROOT`, `_CLAUDE_DESKTOP_CONFIG_PATH`,
+  `_COPILOT_JETBRAINS_CONFIG_PATH`) et les repasse en `-DataRoot`/`-ConfigRoot`/`-StatePath`/`-LogPath`/
+  `-BackupRoot`/`-ClaudeDesktopConfigPath`/`-CopilotJetBrainsConfigPath` au script appelé ;
+- tout le code lisant ces variables est entouré de `#ifdef SmokeMode` : un build de production (sans ce
+  define) ne contient tout simplement pas ce chemin de code, même si les variables d’environnement sont
+  présentes sur la machine ;
+- un build smoke porte un `AppId`/`AppName`/nom de sortie distincts et stables (`MORPHEUS Setup Smoke`,
+  `MORPHEUS-<version>-windows-x64-setup-smoke.exe`) pour qu’un crash de test ne puisse jamais laisser une
+  clé de registre HKCU identifiée comme l’installation de production.
+
+`distribution/build-installer.ps1 -SmokeMode` produit ce build à partir du même app-image que la
+production. `scripts/verify-windows-setup-mcp-smoke.ps1` l’utilise pour dérouler le chemin de code réel
+(wizard → détection → sélection via `/MORPHEUSMCPCLIENTS` → `CurStepChanged` → `configure-mcp-clients-setup.ps1`
+→ gestionnaire → écriture) contre un faux Claude Desktop sandboxé, preuve incluse que les entrées MCP
+étrangères et les propriétés non liées sont préservées, que l’opération est idempotente, qu’une entrée
+modifiée manuellement survit à la désinstallation, et qu’une entrée possédée non modifiée est retirée
+proprement — sans jamais toucher la vraie configuration Claude Desktop de la machine.
 
 ## 13. Packaging
 
