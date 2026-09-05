@@ -25,6 +25,7 @@ VersionInfoVersion={#MyAppVersion}
 DefaultDirName={localappdata}\Programs\MORPHEUS
 DefaultGroupName=MORPHEUS
 DisableProgramGroupPage=yes
+AllowNoIcons=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -76,6 +77,7 @@ var
   ClientCheckBoxes: array[0..4] of TNewCheckBox;
   ClientStatusLabels: array[0..4] of TNewStaticText;
   DetectReportPath: String;
+  DetectionHasRun: Boolean;
 
 const
   ClientCount = 5;
@@ -257,6 +259,28 @@ begin
   end;
 end;
 
+// Inno never shows custom wizard pages during a silent/unattended install, so the checkboxes above are never
+// interactively set. /MORPHEUSMCPCLIENTS="id1,id2" (client ids: copilot-jetbrains, claude-desktop,
+// copilot-cli, claude-code, codex) lets an unattended deployment select clients the same way a human would --
+// but it can only select a row that detection already left Enabled, so a Conflict or NotDetected client is
+// never selected this way either, exactly like the interactive page.
+procedure ApplyCommandLineClientSelection;
+var
+  Requested: String;
+  I: Integer;
+begin
+  Requested := ',' + ExpandConstant('{param:MORPHEUSMCPCLIENTS|}') + ',';
+  if Requested = ',,' then
+    exit;
+  for I := 0 to ClientCount - 1 do
+  begin
+    if not ClientCheckBoxes[I].Enabled then
+      Continue;
+    if Pos(',' + ClientRows[I].Id + ',', Requested) > 0 then
+      ClientCheckBoxes[I].Checked := True;
+  end;
+end;
+
 procedure RefreshSummaryPage;
 var
   Summary: String;
@@ -358,6 +382,18 @@ begin
   Result := '';
   NeedsRestart := False;
 
+  // A silent/unattended install never shows the custom "Clients IA" page, so CurPageChanged never runs
+  // detection. This is the fallback that guarantees detection (and therefore the Conflict/NotDetected
+  // selectability guard) still runs exactly once before files are activated, in both modes.
+  if not DetectionHasRun then
+  begin
+    RunDetect;
+    RefreshClientsPage;
+    if WizardSilent() then
+      ApplyCommandLineClientSelection;
+    DetectionHasRun := True;
+  end;
+
   if not FileExists(ExpandConstant('{tmp}\update-installation.ps1')) then
     ExtractTemporaryFile('update-installation.ps1');
   if not FileExists(ExpandConstant('{tmp}\morpheus-payload.zip')) then
@@ -393,6 +429,7 @@ begin
   begin
     RunDetect;
     RefreshClientsPage;
+    DetectionHasRun := True;
   end
   else if CurPageID = SummaryPage.ID then
     RefreshSummaryPage;

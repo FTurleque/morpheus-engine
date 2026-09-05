@@ -48,6 +48,8 @@ required_installer = [
     'procedure RunDetect', 'procedure RefreshClientsPage', 'AlreadyManaged', 'NeedsRepair',
     'SetupTypePage', 'AdvancedRootsPage', 'procedure RefreshSummaryPage',
     '[UninstallDelete]', 'Type: filesandordirs; Name: "{app}"',
+    'DetectionHasRun', 'ApplyCommandLineClientSelection', 'MORPHEUSMCPCLIENTS', 'WizardSilent()',
+    'AllowNoIcons=yes',
 ]
 for token in required_installer:
     if token not in installer:
@@ -74,6 +76,7 @@ for path in (
     'distribution/windows/update-installation.ps1',
     'scripts/verify-m28-mcp-client-integration.ps1',
     'scripts/verify-windows-transactional-upgrade.ps1',
+    'scripts/verify-windows-setup-lifecycle.ps1',
     'docs/user/MCP_CLIENTS.md',
     'docs/roadmap/M28_EXECUTION.md',
     'docs/validation/VALIDATION_M28.md'):

@@ -142,6 +142,19 @@ class McpClientIntegrationArchitectureTest {
         assertTrue(engine.contains("ReparsePoint"));
 
         assertTrue(builder.contains("morpheus-payload.zip"));
+
+        // Inno never fires CurPageChanged during a silent/unattended install, so the custom "Clients IA"
+        // page's checkboxes would otherwise never be populated or selectable there. PrepareToInstall's
+        // fallback runs detection unconditionally, and /MORPHEUSMCPCLIENTS lets an unattended deployment
+        // select a client the same way a human would -- but only among rows detection left Enabled, so a
+        // Conflict/NotDetected client is never selected this way either.
+        assertTrue(installer.contains("DetectionHasRun"));
+        assertTrue(installer.contains("ApplyCommandLineClientSelection"));
+        assertTrue(installer.contains("MORPHEUSMCPCLIENTS"));
+        assertTrue(installer.contains("WizardSilent()"));
+        // /NOICONS only takes effect with AllowNoIcons=yes; without it a silent/CI install of the real
+        // Setup.exe leaves a real Start Menu shortcut on the host running the test.
+        assertTrue(installer.contains("AllowNoIcons=yes"));
         assertTrue(builder.contains("Compress-Archive"));
         assertTrue(builder.contains("/DPayloadZip="));
         assertTrue(builder.contains("/DUpdateInstallationScript="));

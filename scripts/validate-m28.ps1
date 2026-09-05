@@ -85,6 +85,9 @@ if (-not $SkipInstaller) {
     }
     $installerBuilt = $true
     Write-Host "M28 Windows setup integration wiring: PASS ($setup)"
+
+    & (Join-Path $PSScriptRoot 'verify-windows-setup-lifecycle.ps1') -SetupExePath $setup
+    Assert-NativeSuccess 'M28 Windows setup lifecycle verification'
 }
 
 $currentSha = (git rev-parse HEAD).Trim()
