@@ -103,8 +103,9 @@ jobs:
     # the internal-branch gap by never running for pull_request at all. Analysis instead runs only after a push
     # lands on main, i.e. only for code that already passed every required check and any review policy in place.
     # This job intentionally is not a required status check (see the branch protection ruleset): its result is a
-    # trusted-context quality signal, not a merge gate, so a SonarCloud-side outage cannot block a promotion that
-    # already passed exact-head, Dependency-Check and CodeQL on its own commit.
+    # trusted-context quality signal, not a merge gate. A genuine Sonar Quality Gate ERROR still fails this job;
+    # a successfully processed analysis for which SonarQube Cloud returns NONE / "Quality Gate not computed" is
+    # classified separately as an external indeterminate state so it cannot masquerade as a MORPHEUS regression.
     name: SonarQube Cloud Analysis
     if: github.event_name == 'push' && github.ref_name == 'main'
     runs-on: ubuntu-latest
@@ -130,6 +131,8 @@ jobs:
         run: ./mvnw -B -ntp clean verify
 
       - name: Run SonarQube Cloud CI analysis with JaCoCo
+        id: sonar_scan
+        continue-on-error: true
         shell: bash
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -151,6 +154,13 @@ jobs:
             -Dsonar.qualitygate.wait=true \
             -Dsonar.coverage.jacoco.xmlReportPaths="$reports" \
             org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar
+
+      - name: Classify failed Sonar scanner outcome
+        if: steps.sonar_scan.outcome == 'failure'
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: bash ./scripts/classify-sonar-quality-gate.sh
 
   macos-smoke:
     # macOS is NOT an officially supported MORPHEUS platform. This lane exists to turn "macOS unknown" into
