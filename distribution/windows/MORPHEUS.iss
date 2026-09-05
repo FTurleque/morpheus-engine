@@ -35,14 +35,10 @@ UsePreviousTasks=yes
 
 [Tasks]
 Name: "addtopath"; Description: "Ajouter MORPHEUS au PATH utilisateur"; GroupDescription: "Intégration système :"; Flags: unchecked
-Name: "mcp_copilot_jetbrains"; Description: "GitHub Copilot — JetBrains / IntelliJ"; GroupDescription: "Connecter le MCP natif MORPHEUS à :"; Flags: unchecked
-Name: "mcp_copilot_cli"; Description: "GitHub Copilot CLI"; GroupDescription: "Connecter le MCP natif MORPHEUS à :"; Flags: unchecked
-Name: "mcp_claude_code"; Description: "Claude Code"; GroupDescription: "Connecter le MCP natif MORPHEUS à :"; Flags: unchecked
-Name: "mcp_claude_desktop"; Description: "Claude Desktop"; GroupDescription: "Connecter le MCP natif MORPHEUS à :"; Flags: unchecked
-Name: "mcp_codex"; Description: "OpenAI Codex"; GroupDescription: "Connecter le MCP natif MORPHEUS à :"; Flags: unchecked
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\integration\configure-mcp-clients.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 
 [Icons]
 Name: "{group}\MORPHEUS"; Filename: "{app}\morpheus.exe"
@@ -51,6 +47,25 @@ Name: "{group}\MORPHEUS"; Filename: "{app}\morpheus.exe"
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\integration\configure-mcp-clients.ps1"" -InstallRoot ""{app}"" -Action Uninstall"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "RemoveMorpheusNativeMcpClients"
 
 [Code]
+type
+  TClientRow = record
+    Id: String;
+    DisplayName: String;
+  end;
+
+var
+  SetupTypePage: TInputOptionWizardPage;
+  AdvancedRootsPage: TInputDirWizardPage;
+  ClientsPage: TWizardPage;
+  SummaryPage: TOutputMsgMemoWizardPage;
+  ClientRows: array[0..4] of TClientRow;
+  ClientCheckBoxes: array[0..4] of TNewCheckBox;
+  ClientStatusLabels: array[0..4] of TNewStaticText;
+  DetectReportPath: String;
+
+const
+  ClientCount = 5;
+
 function NormalizePathEntry(Value: String): String;
 begin
   Result := RemoveBackslashUnlessRoot(Trim(Value));
@@ -119,14 +134,230 @@ begin
   RegWriteExpandStringValue(HKCU, 'Environment', 'Path', SearchValue);
 end;
 
-function NativeMcpClientSelected(): Boolean;
+// Standard keeps the current safe defaults (%LOCALAPPDATA%\MORPHEUS\data|config); Advanced exposes the two
+// roots that genuinely exist as independent runtime settings (-DataRoot/-ConfigRoot on the integration
+// manager) -- never a pseudo-option that has no effect.
+function IsAdvancedSetup(): Boolean;
 begin
-  Result :=
-    WizardIsTaskSelected('mcp_copilot_jetbrains') or
-    WizardIsTaskSelected('mcp_copilot_cli') or
-    WizardIsTaskSelected('mcp_claude_code') or
-    WizardIsTaskSelected('mcp_claude_desktop') or
-    WizardIsTaskSelected('mcp_codex');
+  Result := SetupTypePage.Values[1];
+end;
+
+function GetDataRoot(): String;
+begin
+  if IsAdvancedSetup() then
+    Result := AdvancedRootsPage.Values[0]
+  else
+    Result := ExpandConstant('{localappdata}\MORPHEUS\data');
+end;
+
+function GetConfigRoot(): String;
+begin
+  if IsAdvancedSetup() then
+    Result := AdvancedRootsPage.Values[1]
+  else
+    Result := ExpandConstant('{localappdata}\MORPHEUS\config');
+end;
+
+// Runs the exact same detection code Install/Uninstall use (integration\configure-mcp-clients.ps1
+// -Action Detect), extracted ahead of ssInstall since the real {app}\integration copy does not exist yet on
+// a first-time install. The wizard and the manager can never diverge on a client's state because there is
+// only one implementation of "what state is this client in".
+procedure RunDetect;
+var
+  ResultCode: Integer;
+  Parameters: String;
+  PowerShell: String;
+  ScriptPath: String;
+begin
+  ScriptPath := ExpandConstant('{tmp}\configure-mcp-clients.ps1');
+  if not FileExists(ScriptPath) then
+    ExtractTemporaryFile('configure-mcp-clients.ps1');
+
+  DetectReportPath := ExpandConstant('{tmp}\morpheus-mcp-detect.ini');
+  DeleteFile(DetectReportPath);
+
+  PowerShell := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
+  Parameters :=
+    '-NoProfile -ExecutionPolicy Bypass -File "' + ScriptPath + '"' +
+    ' -InstallRoot "' + WizardDirValue() + '"' +
+    ' -Action Detect' +
+    ' -DataRoot "' + GetDataRoot() + '"' +
+    ' -ConfigRoot "' + GetConfigRoot() + '"' +
+    ' -NativeCommandTimeoutSeconds 5' +
+    ' -Out "' + DetectReportPath + '"';
+
+  if (not Exec(PowerShell, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or
+     (ResultCode <> 0) or (not FileExists(DetectReportPath)) then
+    DetectReportPath := '';
+end;
+
+// Fail-closed: if detection could not run, every row is disabled and unchecked rather than guessing. Never
+// auto-overwrite a Conflict row; only Available/NeedsRepair rows are selectable, and AlreadyManaged is shown
+// checked-and-disabled since MORPHEUS already owns it.
+procedure RefreshClientsPage;
+var
+  I: Integer;
+  Section: String;
+  Available, AlreadyManaged, NeedsRepair: Boolean;
+  Reason: String;
+begin
+  for I := 0 to ClientCount - 1 do
+  begin
+    if DetectReportPath = '' then
+    begin
+      ClientCheckBoxes[I].Enabled := False;
+      ClientCheckBoxes[I].Checked := False;
+      ClientStatusLabels[I].Caption := 'Détection indisponible : ' + ClientRows[I].DisplayName + ' ne sera pas configuré automatiquement.';
+      Continue;
+    end;
+
+    Section := ClientRows[I].Id;
+    Available := GetIniString(Section, 'Available', '0', DetectReportPath) = '1';
+    AlreadyManaged := GetIniString(Section, 'AlreadyManaged', '0', DetectReportPath) = '1';
+    NeedsRepair := GetIniString(Section, 'NeedsRepair', '0', DetectReportPath) = '1';
+    Reason := GetIniString(Section, 'Reason', '', DetectReportPath);
+
+    if AlreadyManaged then
+    begin
+      ClientCheckBoxes[I].Enabled := False;
+      ClientCheckBoxes[I].Checked := True;
+    end
+    else if NeedsRepair then
+    begin
+      ClientCheckBoxes[I].Enabled := True;
+      ClientCheckBoxes[I].Checked := True;
+    end
+    else if Available then
+    begin
+      ClientCheckBoxes[I].Enabled := True;
+      ClientCheckBoxes[I].Checked := False;
+    end
+    else
+    begin
+      // NotDetected or Conflict (a foreign, non-MORPHEUS 'morpheus' entry): never selectable, never touched.
+      ClientCheckBoxes[I].Enabled := False;
+      ClientCheckBoxes[I].Checked := False;
+    end;
+
+    ClientStatusLabels[I].Caption := Reason;
+  end;
+end;
+
+procedure RefreshSummaryPage;
+var
+  Summary: String;
+  I: Integer;
+begin
+  Summary := 'Répertoire du programme : ' + WizardDirValue() + #13#10;
+  Summary := Summary + 'Répertoire de données : ' + GetDataRoot() + #13#10;
+  Summary := Summary + 'Répertoire de configuration : ' + GetConfigRoot() + #13#10;
+  if WizardIsTaskSelected('addtopath') then
+    Summary := Summary + 'Ajout au PATH utilisateur : oui' + #13#10
+  else
+    Summary := Summary + 'Ajout au PATH utilisateur : non' + #13#10;
+
+  Summary := Summary + #13#10 + 'Clients IA :' + #13#10;
+  for I := 0 to ClientCount - 1 do
+  begin
+    if ClientCheckBoxes[I].Checked then
+      Summary := Summary + '  - ' + ClientRows[I].DisplayName + ' : sera configuré' + #13#10
+    else if ClientCheckBoxes[I].Enabled then
+      Summary := Summary + '  - ' + ClientRows[I].DisplayName + ' : non sélectionné' + #13#10
+    else
+      Summary := Summary + '  - ' + ClientRows[I].DisplayName + ' : ' + ClientStatusLabels[I].Caption + #13#10;
+  end;
+
+  SummaryPage.RichEditViewer.Lines.Text := Summary;
+end;
+
+procedure InitializeWizard;
+var
+  I: Integer;
+  RowTop: Integer;
+begin
+  ClientRows[0].Id := 'copilot-jetbrains'; ClientRows[0].DisplayName := 'GitHub Copilot — JetBrains / IntelliJ';
+  ClientRows[1].Id := 'claude-desktop';    ClientRows[1].DisplayName := 'Claude Desktop';
+  ClientRows[2].Id := 'copilot-cli';       ClientRows[2].DisplayName := 'GitHub Copilot CLI';
+  ClientRows[3].Id := 'claude-code';       ClientRows[3].DisplayName := 'Claude Code';
+  ClientRows[4].Id := 'codex';             ClientRows[4].DisplayName := 'OpenAI Codex';
+
+  SetupTypePage := CreateInputOptionPage(wpWelcome,
+    'Type d''installation', 'Choisissez le niveau de configuration',
+    'Standard configure MORPHEUS avec des emplacements sûrs par défaut. Avancé permet de personnaliser les répertoires de données et de configuration.',
+    True, False);
+  SetupTypePage.Add('Standard (recommandé)');
+  SetupTypePage.Add('Avancé');
+  SetupTypePage.Values[0] := True;
+
+  AdvancedRootsPage := CreateInputDirPage(wpSelectDir,
+    'Emplacements avancés', 'Où MORPHEUS doit-il stocker ses données et sa configuration ?',
+    'Ces emplacements sont indépendants du répertoire du programme et sont conservés lors des mises à jour et de la désinstallation.',
+    False, '');
+  AdvancedRootsPage.Add('Répertoire de données :');
+  AdvancedRootsPage.Add('Répertoire de configuration :');
+  AdvancedRootsPage.Values[0] := ExpandConstant('{localappdata}\MORPHEUS\data');
+  AdvancedRootsPage.Values[1] := ExpandConstant('{localappdata}\MORPHEUS\config');
+
+  ClientsPage := CreateCustomPage(AdvancedRootsPage.ID,
+    'Clients IA', 'Connecter le MCP natif MORPHEUS à vos outils détectés');
+
+  RowTop := 8;
+  for I := 0 to ClientCount - 1 do
+  begin
+    ClientCheckBoxes[I] := TNewCheckBox.Create(ClientsPage);
+    ClientCheckBoxes[I].Parent := ClientsPage.Surface;
+    ClientCheckBoxes[I].Left := 0;
+    ClientCheckBoxes[I].Top := RowTop;
+    ClientCheckBoxes[I].Width := ClientsPage.SurfaceWidth;
+    ClientCheckBoxes[I].Caption := ClientRows[I].DisplayName;
+
+    ClientStatusLabels[I] := TNewStaticText.Create(ClientsPage);
+    ClientStatusLabels[I].Parent := ClientsPage.Surface;
+    ClientStatusLabels[I].Left := 20;
+    ClientStatusLabels[I].Top := RowTop + 18;
+    ClientStatusLabels[I].Width := ClientsPage.SurfaceWidth - 20;
+    ClientStatusLabels[I].AutoSize := False;
+    ClientStatusLabels[I].WordWrap := True;
+    ClientStatusLabels[I].Caption := 'Détection en cours...';
+
+    RowTop := RowTop + 54;
+  end;
+
+  SummaryPage := CreateOutputMsgMemoPage(ClientsPage.ID,
+    'Résumé', 'Vérifiez la configuration avant l''installation',
+    'Ces paramètres seront appliqués. Aucune information sensible n''est affichée.',
+    '');
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if PageID = AdvancedRootsPage.ID then
+    Result := not IsAdvancedSetup();
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = ClientsPage.ID then
+  begin
+    RunDetect;
+    RefreshClientsPage;
+  end
+  else if CurPageID = SummaryPage.ID then
+    RefreshSummaryPage;
+end;
+
+function NativeMcpClientSelected(): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 0 to ClientCount - 1 do
+    if ClientCheckBoxes[I].Checked then
+    begin
+      Result := True;
+      exit;
+    end;
 end;
 
 procedure ConfigureNativeMcpClients;
@@ -142,18 +373,15 @@ begin
   Parameters :=
     '-NoProfile -ExecutionPolicy Bypass -File "' +
     ExpandConstant('{app}\integration\configure-mcp-clients-setup.ps1') +
-    '" -InstallRoot "' + ExpandConstant('{app}') + '"';
+    '" -InstallRoot "' + ExpandConstant('{app}') + '"' +
+    ' -DataRoot "' + GetDataRoot() + '"' +
+    ' -ConfigRoot "' + GetConfigRoot() + '"';
 
-  if WizardIsTaskSelected('mcp_copilot_jetbrains') then
-    Parameters := Parameters + ' -CopilotJetBrains';
-  if WizardIsTaskSelected('mcp_copilot_cli') then
-    Parameters := Parameters + ' -CopilotCli';
-  if WizardIsTaskSelected('mcp_claude_code') then
-    Parameters := Parameters + ' -ClaudeCode';
-  if WizardIsTaskSelected('mcp_claude_desktop') then
-    Parameters := Parameters + ' -ClaudeDesktop';
-  if WizardIsTaskSelected('mcp_codex') then
-    Parameters := Parameters + ' -Codex';
+  if ClientCheckBoxes[0].Checked then Parameters := Parameters + ' -CopilotJetBrains';
+  if ClientCheckBoxes[1].Checked then Parameters := Parameters + ' -ClaudeDesktop';
+  if ClientCheckBoxes[2].Checked then Parameters := Parameters + ' -CopilotCli';
+  if ClientCheckBoxes[3].Checked then Parameters := Parameters + ' -ClaudeCode';
+  if ClientCheckBoxes[4].Checked then Parameters := Parameters + ' -Codex';
 
   if (not Exec(PowerShell, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or
      (ResultCode <> 0) then

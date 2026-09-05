@@ -80,23 +80,37 @@ class McpClientIntegrationArchitectureTest {
         assertTrue(setupWrapper.contains("One or more selected MORPHEUS MCP client integrations were not configured"));
     }
 
+    /**
+     * The five MCP client checkboxes are no longer static Inno {@code [Tasks]}: they live on a custom wizard
+     * page driven by a real preflight ({@code -Action Detect}), so the wizard and the manager can never
+     * disagree about a client's state. This pins that the custom page exists, that it is actually populated
+     * from the Detect INI report (not a guess), and that the conservative Install/Uninstall contract still
+     * holds underneath it.
+     */
     @Test
-    void installerExposesUncheckedClientTasksAndConservativeUninstall() throws IOException {
+    void installerExposesDetectionDrivenClientPageAndConservativeUninstall() throws IOException {
         Path root = repoRoot();
         String installer = Files.readString(root.resolve("distribution/windows/MORPHEUS.iss"));
 
-        assertTrue(installer.contains("Name: \"mcp_copilot_jetbrains\""));
-        assertTrue(installer.contains("Name: \"mcp_copilot_cli\""));
-        assertTrue(installer.contains("Name: \"mcp_claude_code\""));
-        assertTrue(installer.contains("Name: \"mcp_claude_desktop\""));
-        assertTrue(installer.contains("Name: \"mcp_codex\""));
-        assertTrue(installer.contains("Connecter le MCP natif MORPHEUS à :"));
-        assertTrue(installer.contains("Flags: unchecked"));
+        assertTrue(installer.contains("'Clients IA'"));
+        assertTrue(installer.contains("TNewCheckBox"));
+        assertTrue(installer.contains("-Action Detect"));
+        assertTrue(installer.contains("GetIniString"));
+        assertTrue(installer.contains("procedure RunDetect"));
+        assertTrue(installer.contains("procedure RefreshClientsPage"));
+        assertTrue(installer.contains("AlreadyManaged"));
+        assertTrue(installer.contains("NeedsRepair"));
+        assertTrue(installer.contains("Detection indisponible") || installer.contains("Détection indisponible"));
+        assertTrue(installer.contains("SetupTypePage"));
+        assertTrue(installer.contains("Standard (recommandé)"));
+        assertTrue(installer.contains("AdvancedRootsPage"));
+        assertTrue(installer.contains("procedure RefreshSummaryPage"));
         assertTrue(installer.contains("configure-mcp-clients-setup.ps1"));
         assertTrue(installer.contains("configure-mcp-clients.ps1"));
         assertTrue(installer.contains("-Action Uninstall"));
         assertTrue(installer.contains("NativeMcpClientSelected"));
         assertTrue(installer.contains("ConfigureNativeMcpClients"));
+        assertFalse(installer.contains("Name: \"mcp_copilot_jetbrains\""));
         assertFalse(installer.contains("mcp_docker"));
     }
 

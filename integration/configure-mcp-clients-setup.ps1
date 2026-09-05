@@ -7,7 +7,10 @@ param(
     [switch] $CopilotCli,
     [switch] $ClaudeCode,
     [switch] $ClaudeDesktop,
-    [switch] $Codex
+    [switch] $Codex,
+
+    [string] $DataRoot = '',
+    [string] $ConfigRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,6 +22,8 @@ if (-not (Test-Path -LiteralPath $Manager -PathType Leaf)) {
 }
 
 $Parameters = @{ InstallRoot = $InstallRoot }
+if (-not [string]::IsNullOrWhiteSpace($DataRoot)) { $Parameters['DataRoot'] = $DataRoot }
+if (-not [string]::IsNullOrWhiteSpace($ConfigRoot)) { $Parameters['ConfigRoot'] = $ConfigRoot }
 if ($CopilotJetBrains) { $Parameters['CopilotJetBrains'] = $true }
 if ($CopilotCli) { $Parameters['CopilotCli'] = $true }
 if ($ClaudeCode) { $Parameters['ClaudeCode'] = $true }
