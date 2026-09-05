@@ -98,7 +98,7 @@ class BoundedStdioServerTransportProviderFailedSessionTest {
         assertTrue(
                 stillAlive.isEmpty(),
                 () -> "transport worker threads survived the failed session factory: "
-                        + stillAlive.stream().map(Thread::getName).collect(Collectors.toList()));
+                        + stillAlive.stream().map(Thread::getName).toList());
     }
 
     private static Set<Thread> workerThreads() {

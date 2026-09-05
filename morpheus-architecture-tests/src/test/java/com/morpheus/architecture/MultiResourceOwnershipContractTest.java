@@ -27,7 +27,7 @@ class MultiResourceOwnershipContractTest {
 
     /** Any constructor or method: the name, the parameter list, then the body up to its closing brace. */
     private static final Pattern ASSEMBLER = Pattern.compile(
-            "\\n(\\s*)(?:@Override\\s+)?(?:private |public |protected )?(?:static )?[\\w<>,\\[\\] ]*?(\\w+)\\(([^)]*)\\)[^{]*\\{(.*?)\\n\\1\\}", Pattern.DOTALL);
+            "\\n(\\s*)(?:@Override\\s+)?(?:private |public |protected )?(?:static )?(?:[\\w<>,\\[\\]]+\\s+)*(\\w+)\\(([^)]*)\\)[^{]*\\{(.*?)\\n\\1\\}", Pattern.DOTALL);
     private static final Pattern SQLITE_STORE_ACQUISITION = Pattern.compile("new (Sqlite\\w+)\\(databasePath");
     private static final Pattern CLOSE_BODY = Pattern.compile(
             "\\n(\\s*)public void close\\(\\)[^{]*\\{(.*?)\\n\\1\\}", Pattern.DOTALL);

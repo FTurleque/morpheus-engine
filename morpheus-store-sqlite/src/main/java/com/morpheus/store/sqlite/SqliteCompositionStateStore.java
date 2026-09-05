@@ -243,17 +243,6 @@ public final class SqliteCompositionStateStore implements CompositionStateStore,
         }
     }
 
-    private void closeQuietly(Connection opened) {
-        if (opened == null) {
-            return;
-        }
-        try {
-            opened.close();
-        } catch (SQLException ignored) {
-            // Preserve original initialization failure.
-        }
-    }
-
     @Override
     public synchronized void close() {
         if (closed) {

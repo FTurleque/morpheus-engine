@@ -195,8 +195,8 @@ class SqliteDatabaseLeaseTest {
 
         try (FileChannel external = FileChannel.open(lockPath, StandardOpenOption.WRITE);
              FileLock ignored = external.lock()) {
-            assertThrows(IllegalStateException.class,
-                    () -> new SqliteServerMaintenance().acquireServerLease(database));
+            SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
+            assertThrows(IllegalStateException.class, () -> maintenance.acquireServerLease(database));
         }
 
         assertTrue(Files.deleteIfExists(lockPath),

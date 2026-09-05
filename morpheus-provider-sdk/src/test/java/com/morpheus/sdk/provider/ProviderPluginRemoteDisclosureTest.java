@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -232,7 +233,7 @@ class ProviderPluginRemoteDisclosureTest {
     @Test
     void aFilesystemRootJarPathYieldsNoJarName() {
         Path root = pluginDirectory.getRoot();
-        assertTrue(root != null, "this platform must expose a filesystem root for the check to mean anything");
+        assertNotNull(root, "this platform must expose a filesystem root for the check to mean anything");
 
         ProviderPluginViews.RemoteProbeView remote = ProviderPluginViews.remoteProbe(
                 new ProviderPluginProbeOutcome(
