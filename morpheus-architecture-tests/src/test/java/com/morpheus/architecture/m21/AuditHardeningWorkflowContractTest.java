@@ -75,58 +75,70 @@ class AuditHardeningWorkflowContractTest {
     }
 
     @Test
-    void sonarCiAnalysisImportsExactHeadJaCoCoAndFailsClosed() throws IOException {
+    void sonarAnalysisNeverRunsOnPullRequestsAndStaysOutOfTheRequiredVerifyJob() throws IOException {
         String workflow = Files.readString(repoRoot().resolve(".github/workflows/ci.yml"));
 
-        assertTrue(workflow.contains("Run SonarQube Cloud CI analysis with JaCoCo"));
-        assertTrue(workflow.contains("SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}"),
+        assertFalse(requiredVerifyJob(workflow).contains("SONAR_TOKEN"),
+                "the required exact-head job must never carry SONAR_TOKEN in its environment");
+        assertFalse(requiredVerifyJob(workflow).contains("continue-on-error"),
+                "the exact-head verify job must never be made advisory");
+
+        String sonarJob = namedJob(workflow, "sonar");
+        assertTrue(sonarJob.contains("Run SonarQube Cloud CI analysis with JaCoCo"));
+        assertTrue(sonarJob.contains("SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}"),
                 "Sonar analysis must authenticate through the repository secret");
-        assertTrue(workflow.contains("github.event.pull_request.head.repo.full_name == github.repository"),
-                "Untrusted fork pull requests must not receive the Sonar secret");
-        assertTrue(workflow.contains("github.actor != 'dependabot[bot]'"),
-                "Dependabot pull requests must not enter a Sonar step that requires unavailable repository secrets");
-        assertTrue(workflow.contains("Record SonarQube Cloud skip for Dependabot"),
-                "The Dependabot-only Sonar exception must remain explicit and auditable");
-        assertTrue(workflow.contains("github.actor == 'dependabot[bot]'"),
-                "The Sonar skip path must be scoped to the Dependabot actor");
+        assertTrue(sonarJob.contains("if: github.event_name == 'push' && github.ref_name == 'main'"),
+                "Sonar must run only for trusted pushes to main, never for pull_request events -- "
+                        + "an internal branch's pull_request build must never see SONAR_TOKEN");
+        assertFalse(sonarJob.contains("github.event_name == 'pull_request'")
+                        || sonarJob.contains("github.event.pull_request"),
+                "the Sonar job must not gate on pull_request in any condition or expression");
         assertFalse(workflow.contains("pull_request_target"),
                 "CI must not expose repository secrets to pull-request code through pull_request_target");
-        assertTrue(workflow.contains("*/target/site/jacoco/jacoco.xml"),
-                "Sonar analysis must import the XML reports produced by M21");
-        assertTrue(workflow.contains("-Dsonar.coverage.jacoco.xmlReportPaths=\"$reports\""));
-        assertTrue(workflow.contains("-Dsonar.projectKey=FTurleque_morpheus-engine"));
-        assertTrue(workflow.contains("-Dsonar.organization=fturleque"));
-        assertTrue(workflow.contains("-Dsonar.host.url=https://sonarcloud.io"));
-        assertTrue(workflow.contains("-Dsonar.qualitygate.wait=true"),
-                "The GitHub CI gate must fail when SonarQube Cloud rejects the analysis");
-        assertTrue(workflow.contains(
+        assertTrue(sonarJob.contains("*/target/site/jacoco/jacoco.xml"),
+                "Sonar analysis must import the XML reports produced by its own reactor build");
+        assertTrue(sonarJob.contains("-Dsonar.coverage.jacoco.xmlReportPaths=\"$reports\""));
+        assertTrue(sonarJob.contains("-Dsonar.projectKey=FTurleque_morpheus-engine"));
+        assertTrue(sonarJob.contains("-Dsonar.organization=fturleque"));
+        assertTrue(sonarJob.contains("-Dsonar.host.url=https://sonarcloud.io"));
+        assertTrue(sonarJob.contains("-Dsonar.qualitygate.wait=true"),
+                "The Sonar job must fail when SonarQube Cloud rejects the analysis");
+        assertTrue(sonarJob.contains(
                 "org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar"),
                 "The SonarScanner for Maven must be version-pinned");
-        assertTrue(workflow.indexOf("Run one-command M21 gate on Linux")
-                        < workflow.indexOf("Run SonarQube Cloud CI analysis with JaCoCo"),
-                "Coverage-producing M21 validation must complete before Sonar analysis");
-        assertFalse(requiredVerifyJob(workflow).contains("continue-on-error"),
-                "the exact-head verify job, Sonar analysis included, must never be made advisory");
+        assertTrue(sonarJob.indexOf("clean verify")
+                        < sonarJob.indexOf("Run SonarQube Cloud CI analysis with JaCoCo"),
+                "Coverage-producing build must complete before Sonar analysis");
+
+        java.util.List<String> requiredChecks = java.util.List.of(
+                "exact-head (ubuntu-latest)", "exact-head (windows-latest)",
+                "dependency-check (ubuntu-latest)", "java (ubuntu-latest)");
+        assertFalse(requiredChecks.contains("SonarQube Cloud Analysis"),
+                "Sonar must stay outside the required-checks set so a SonarCloud-side outage on a trusted "
+                        + "push cannot block a promotion whose own required checks already passed");
     }
 
     /**
-     * Isolates the required exact-head job from the advisory lanes beside it.
+     * Isolates the required exact-head job from the advisory/trusted-only lanes beside it.
      *
      * <p>This guard used to scan the whole file for {@code continue-on-error}, which was exact while ci.yml held
      * a single job and became wrong the moment an advisory lane was added next to it. What must never be
-     * advisory is the job that gates merges; a lane that observes an unqualified platform must be advisory, and
-     * conflating the two would force the second to become a required check on evidence nobody has yet.</p>
+     * advisory -- and must never carry a durable secret -- is the job that gates merges; a lane that observes an
+     * unqualified platform must be advisory, and a lane that only ever runs after merge must stay out of the
+     * required job entirely, or a SonarCloud-side hiccup on a trusted push (as opposed to a real regression)
+     * would block the same required check it has no business gating.</p>
      */
     private String requiredVerifyJob(String workflow) {
-        Matcher verify = Pattern.compile("(?m)^  verify:\\s*$").matcher(workflow);
-        assertTrue(verify.find(), "ci.yml must keep the required exact-head job named verify");
-        int start = verify.end();
+        return namedJob(workflow, "verify");
+    }
+
+    private String namedJob(String workflow, String jobName) {
+        Matcher job = Pattern.compile("(?m)^  " + Pattern.quote(jobName) + ":\\s*$").matcher(workflow);
+        assertTrue(job.find(), "ci.yml must keep a job named " + jobName);
+        int start = job.end();
         Matcher nextJob = Pattern.compile("(?m)^  [a-z][a-z0-9-]*:\\s*$").matcher(workflow);
         int end = nextJob.find(start) ? nextJob.start() : workflow.length();
-        String job = workflow.substring(start, end);
-        assertTrue(job.contains("Run SonarQube Cloud CI analysis with JaCoCo"),
-                "the Sonar step must live inside the required verify job");
-        return job;
+        return workflow.substring(start, end);
     }
 
     @Test

@@ -17,6 +17,12 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 /**
@@ -88,7 +94,7 @@ public final class UpdateDiscoveryService {
 
     private Properties readFile(URI uri) {
         try (InputStream input = Files.newInputStream(Path.of(uri))) {
-            return loadBounded(input, uri);
+            return parseBoundedManifest(input.readNBytes(MAX_MANIFEST_BYTES + 1), uri);
         } catch (IOException failure) {
             throw new IllegalArgumentException("cannot read update manifest: " + uri, failure);
         }
@@ -108,7 +114,7 @@ public final class UpdateDiscoveryService {
                         "update manifest request failed with HTTP " + response.statusCode() + ": " + uri);
             }
             try (InputStream body = response.body()) {
-                return loadBounded(body, uri);
+                return parseBoundedManifest(readBodyWithDeadline(body, uri), uri);
             }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
@@ -118,8 +124,46 @@ public final class UpdateDiscoveryService {
         }
     }
 
-    private static Properties loadBounded(InputStream input, URI source) throws IOException {
-        byte[] payload = input.readNBytes(MAX_MANIFEST_BYTES + 1);
+    /**
+     * {@link HttpRequest.Builder#timeout(Duration)} only bounds the time to receive the response headers when
+     * the body is consumed through {@link HttpResponse.BodyHandlers#ofInputStream()}: a server that answers
+     * quickly and then stalls or trickles the body can otherwise block this thread past that deadline
+     * indefinitely. The read runs on its own thread with a wall-clock deadline of {@link #timeout}; on timeout
+     * the underlying stream is closed to unblock the read (interrupting a thread parked in socket I/O does not
+     * reliably do so) before the deadline is reported as a failure.
+     */
+    private byte[] readBodyWithDeadline(InputStream body, URI uri) throws IOException, InterruptedException {
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            Future<byte[]> read = executor.submit(() -> body.readNBytes(MAX_MANIFEST_BYTES + 1));
+            try {
+                return read.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException timedOut) {
+                read.cancel(true);
+                closeQuietly(body);
+                throw new IllegalArgumentException(
+                        "update manifest body did not complete within " + timeout + ": " + uri, timedOut);
+            } catch (InterruptedException interrupted) {
+                read.cancel(true);
+                closeQuietly(body);
+                throw interrupted;
+            } catch (ExecutionException executionFailure) {
+                // body.readNBytes(int) only declares IOException; whatever actually failed the read is
+                // preserved as the cause either way, and readHttp's own IOException handler already turns
+                // this into a clean IllegalArgumentException naming the manifest URI.
+                throw new IOException("cannot fetch update manifest: " + uri, executionFailure.getCause());
+            }
+        }
+    }
+
+    private static void closeQuietly(InputStream input) {
+        try {
+            input.close();
+        } catch (IOException ignored) {
+            // Best-effort cleanup after a timed-out or interrupted read.
+        }
+    }
+
+    private static Properties parseBoundedManifest(byte[] payload, URI source) throws IOException {
         if (payload.length > MAX_MANIFEST_BYTES) {
             throw new IllegalArgumentException(
                     "update manifest exceeds " + MAX_MANIFEST_BYTES + " bytes: " + source);
