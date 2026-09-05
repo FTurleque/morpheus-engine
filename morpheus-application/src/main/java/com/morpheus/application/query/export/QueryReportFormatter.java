@@ -52,7 +52,7 @@ public final class QueryReportFormatter {
                 out.append(',');
             }
             out.append('"');
-            appendCsvText(out, columns.get(index));
+            appendCsvCell(out, List.of(columns.get(index)));
             out.append('"');
         }
         out.append('\n');
@@ -67,10 +67,24 @@ public final class QueryReportFormatter {
                 out.append(',');
             }
             out.append('"');
-            appendCsvValues(out, cellValues(row, columns.get(index)));
+            appendCsvCell(out, cellValues(row, columns.get(index)));
             out.append('"');
         }
         out.append('\n');
+    }
+
+    /**
+     * Quoting a CSV field escapes it as data for the CSV format, but Excel/LibreOffice still parse a quoted
+     * field's own content for a leading formula trigger once the file is opened as a spreadsheet. A cell
+     * beginning with {@code = + - @}, a tab or a carriage return -- directly or after leading whitespace a
+     * parser might trim before that check -- is prefixed with an apostrophe, the standard spreadsheet marker
+     * for "treat this as text", before the existing quote-escaping runs.
+     */
+    private void appendCsvCell(Utf8BoundedTextBuilder out, List<String> values) {
+        if (!values.isEmpty() && isSpreadsheetFormulaTrigger(values.get(0))) {
+            out.append('\'');
+        }
+        appendCsvValues(out, values);
     }
 
     private void appendCsvValues(Utf8BoundedTextBuilder out, List<String> values) {
@@ -80,6 +94,29 @@ public final class QueryReportFormatter {
             }
             appendCsvText(out, values.get(index));
         }
+    }
+
+    private static boolean isSpreadsheetFormulaTrigger(String value) {
+        if (value.isEmpty()) {
+            return false;
+        }
+        if (isFormulaTriggerCharacter(value.charAt(0))) {
+            return true;
+        }
+        int index = 0;
+        while (index < value.length() && isSkippableLeadingCharacter(value.charAt(index))) {
+            index++;
+        }
+        return index > 0 && index < value.length() && isFormulaTriggerCharacter(value.charAt(index));
+    }
+
+    private static boolean isFormulaTriggerCharacter(char character) {
+        return character == '=' || character == '+' || character == '-' || character == '@'
+                || character == '\t' || character == '\r';
+    }
+
+    private static boolean isSkippableLeadingCharacter(char character) {
+        return Character.isWhitespace(character) || Character.isISOControl(character);
     }
 
     private void appendCsvText(Utf8BoundedTextBuilder out, String value) {
