@@ -7,6 +7,7 @@
 /scripts/ @FTurleque
 /distribution/ @FTurleque
 /morpheus-api/ @FTurleque
+/morpheus-cli/ @FTurleque
 /morpheus-provider-sdk/ @FTurleque
 /morpheus-mcp-transport/ @FTurleque
 /morpheus-store-sqlite/ @FTurleque
