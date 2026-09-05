@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.net.ssl.KeyManagerFactory;
 
@@ -163,6 +164,73 @@ class UpdateDiscoveryServiceStalledBodyTest {
 
         assertEquals("9.9.9", result.availableVersion());
         assertTrue(result.updateAvailable());
+    }
+
+    @Test
+    void interruptingTheCallingThreadWhileWaitingForABodyCancelsTheReadAndPropagatesInterruption()
+            throws Exception {
+        Path keyStore = createKeyStore(tempDir.resolve("update-test-5.p12"));
+        CountDownLatch serverStarted = new CountDownLatch(1);
+        CountDownLatch releaseBody = new CountDownLatch(1);
+        server = startServer(keyStore, exchange -> {
+            byte[] validManifest = validManifestBytes();
+            exchange.sendResponseHeaders(200, validManifest.length);
+            exchange.getResponseBody().write(validManifest, 0, 4);
+            exchange.getResponseBody().flush();
+            serverStarted.countDown();
+            try {
+                releaseBody.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            } finally {
+                exchange.close();
+            }
+        });
+
+        UpdateDiscoveryService service = new UpdateDiscoveryService(
+                trustedClient(keyStore), Duration.ofSeconds(30));
+        URI manifestUri = URI.create("https://localhost:" + server.getAddress().getPort() + "/manifest");
+        AtomicReference<Throwable> observed = new AtomicReference<>();
+        Thread caller = new Thread(() -> {
+            try {
+                service.check(manifestUri);
+            } catch (Throwable failure) {
+                observed.set(failure);
+            }
+        });
+        caller.start();
+
+        assertTrue(serverStarted.await(10, TimeUnit.SECONDS), "the server must have started streaming headers");
+        Thread.sleep(200);
+        caller.interrupt();
+        caller.join(TimeUnit.SECONDS.toMillis(10));
+
+        assertTrue(!caller.isAlive(), "the caller thread must terminate promptly once interrupted");
+        assertNotNull(observed.get(), "an interrupted read must surface a failure rather than silently succeed");
+        assertTrue(observed.get() instanceof IllegalStateException,
+                "interruption must be reported the same way as an interrupted request: " + observed.get());
+    }
+
+    @Test
+    void aLocalFileManifestIsReadThroughTheSameBoundedParsingPath() throws Exception {
+        Path manifestFile = tempDir.resolve("manifest.properties");
+        Files.write(manifestFile, validManifestFileBytes());
+
+        UpdateDiscoveryService service = new UpdateDiscoveryService(
+                HttpClient.newHttpClient(), SERVICE_TIMEOUT);
+        UpdateCheckResult result = service.check(manifestFile.toUri());
+
+        assertEquals("9.9.9", result.availableVersion());
+    }
+
+    private static byte[] validManifestFileBytes() {
+        String manifest = """
+                version=9.9.9
+                channel=stable
+                artifactUri=file:///tmp/morpheus.zip
+                sha256=%s
+                """.formatted("a".repeat(64));
+        return manifest.getBytes(StandardCharsets.UTF_8);
     }
 
     private static byte[] validManifestBytes() {

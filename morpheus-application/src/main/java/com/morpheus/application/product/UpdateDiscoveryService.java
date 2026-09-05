@@ -147,17 +147,10 @@ public final class UpdateDiscoveryService {
                 closeQuietly(body);
                 throw interrupted;
             } catch (ExecutionException executionFailure) {
-                Throwable cause = executionFailure.getCause();
-                if (cause instanceof IOException ioFailure) {
-                    throw ioFailure;
-                }
-                if (cause instanceof RuntimeException runtimeFailure) {
-                    throw runtimeFailure;
-                }
-                if (cause instanceof Error error) {
-                    throw error;
-                }
-                throw new IOException("cannot fetch update manifest: " + uri, cause);
+                // body.readNBytes(int) only declares IOException; whatever actually failed the read is
+                // preserved as the cause either way, and readHttp's own IOException handler already turns
+                // this into a clean IllegalArgumentException naming the manifest URI.
+                throw new IOException("cannot fetch update manifest: " + uri, executionFailure.getCause());
             }
         }
     }
