@@ -89,7 +89,11 @@ jobs:
   windows-release:
     name: signed-provenance (windows-x64)
     runs-on: windows-latest
-    timeout-minutes: 75
+    # Full M28 (scripts\validate-m28.ps1, run below) chains through R2 -> M27 -> ... -> M19's own full
+    # reactor passes; the CI PR lane (ci.yml) deliberately does not repeat that on every PR (see the comment
+    # there) but a release must never publish without it, so it runs here instead, before the release
+    # artifact is even built.
+    timeout-minutes: 180
     permissions:
       contents: read
       id-token: write
@@ -118,6 +122,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Release tag $env:GITHUB_REF_NAME does not point to a commit reachable from main."
           }
+
+      - name: Run full M28 gate before release
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -notmatch '^v(?<version>[0-9]+\.[0-9]+\.[0-9]+)$') {
+            throw 'Release tag must use semantic version form vX.Y.Z.'
+          }
+          & ./scripts/validate-m28.ps1 -Version $Matches.version -BaseRef origin/main
+          if ($LASTEXITCODE -ne 0) { throw "Full M28 gate failed with exit code $LASTEXITCODE" }
 
       - name: Build tagged Windows release
         id: build

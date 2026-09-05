@@ -79,6 +79,39 @@ jobs:
         shell: powershell
         run: .\scripts\verify-m28-mcp-client-integration.ps1
 
+      # Full M28 (scripts\validate-m28.ps1) chains through R2 -> M27 -> M26 -> ... -> M19, rebuilding and
+      # re-running every earlier milestone gate's own full reactor pass on top of its own portable+installer
+      # builds -- appropriate as a pre-release qualification gate (see release.yml, windows-release job,
+      # which runs it in full and blocks publishing on it) but disproportionate to repeat on every PR. This
+      # lane instead builds the real Windows portable app-image and both installer variants once and runs
+      # only the two scripts that actually exercise the compiled Setup.exe end to end, so a regression in the
+      # wizard/transactional-upgrade/uninstall wiring is still caught on every PR without paying for the full
+      # milestone chain each time.
+      - name: Build Windows portable app-image
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: .\distribution\build-portable.ps1 -Version 1.2.1
+
+      - name: Build Windows production installer
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: .\distribution\build-installer.ps1 -Version 1.2.1 -SkipPortable
+
+      - name: Run the real Setup.exe lifecycle smoke on Windows
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: .\scripts\verify-windows-setup-lifecycle.ps1 -SetupExePath 'dist\MORPHEUS-1.2.1-windows-x64-setup.exe'
+
+      - name: Build Windows smoke installer
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: .\distribution\build-installer.ps1 -Version 1.2.1 -SkipPortable -SmokeMode
+
+      - name: Run the real Setup.exe MCP client smoke on Windows
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: .\scripts\verify-windows-setup-mcp-smoke.ps1 -SmokeSetupExePath 'dist\MORPHEUS-1.2.1-windows-x64-setup-smoke.exe'
+
       - name: Upload M21 integrity evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
