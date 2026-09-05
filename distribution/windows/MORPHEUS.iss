@@ -17,8 +17,18 @@
 #endif
 
 [Setup]
+; A smoke build (-DSmokeMode=1) gets its own stable AppId/name/output filename so it can never be mistaken
+; for -- or leave an HKCU uninstall entry identified as -- the real production installer. Production's own
+; AppId is completely untouched by this: #ifdef only compiles the smoke branch in when the define is passed.
+#ifdef SmokeMode
+AppId={{6BF23F0E-6C9B-4B5A-9E51-8B6D1F0C7E42}
+AppName=MORPHEUS Setup Smoke
+OutputBaseFilename=MORPHEUS-{#MyAppVersion}-windows-x64-setup-smoke
+#else
 AppId={{4D0DC052-2FD6-49F5-88F4-E32C9B1EB67A}
 AppName={#MyAppName}
+OutputBaseFilename=MORPHEUS-{#MyAppVersion}-windows-x64-setup
+#endif
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 VersionInfoVersion={#MyAppVersion}
@@ -30,7 +40,6 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputDir}
-OutputBaseFilename=MORPHEUS-{#MyAppVersion}-windows-x64-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -59,7 +68,11 @@ Name: "{group}\MORPHEUS"; Filename: "{app}\morpheus.exe"
 Type: filesandordirs; Name: "{app}"
 
 [UninstallRun]
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\integration\configure-mcp-clients.ps1"" -InstallRoot ""{app}"" -Action Uninstall"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "RemoveMorpheusNativeMcpClients"
+; {code:...} calls UninstallParameters (in [Code]) so a smoke build's uninstall also honors
+; MORPHEUS_SMOKE_* overrides via BuildSmokeOverrideParameters -- a static Parameters string here would
+; silently fall back to the real LocalAppData paths during smoke uninstall regardless of what was overridden
+; during install.
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "{code:UninstallParameters}"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "RemoveMorpheusNativeMcpClients"
 
 [Code]
 type
@@ -158,8 +171,28 @@ begin
   Result := SetupTypePage.Values[1];
 end;
 
+// {localappdata} resolves through the Windows Known Folder API exactly like .NET's
+// [Environment]::GetFolderPath, so it cannot be redirected by setting LOCALAPPDATA in the setup's own
+// process environment (verified empirically). IsSmokeOverrideActive/GetDataRoot/GetConfigRoot are the only
+// place production's own path resolution is touched by the smoke mechanism, and only the smoke-compiled
+// binary even contains the branch that reads it.
+function IsSmokeOverrideActive(): Boolean;
+begin
+  Result := False;
+#ifdef SmokeMode
+  Result := GetEnv('MORPHEUS_SMOKE_MODE') = '1';
+#endif
+end;
+
 function GetDataRoot(): String;
 begin
+#ifdef SmokeMode
+  if IsSmokeOverrideActive() and (GetEnv('MORPHEUS_SMOKE_DATA_ROOT') <> '') then
+  begin
+    Result := GetEnv('MORPHEUS_SMOKE_DATA_ROOT');
+    exit;
+  end;
+#endif
   if IsAdvancedSetup() then
     Result := AdvancedRootsPage.Values[0]
   else
@@ -168,10 +201,41 @@ end;
 
 function GetConfigRoot(): String;
 begin
+#ifdef SmokeMode
+  if IsSmokeOverrideActive() and (GetEnv('MORPHEUS_SMOKE_CONFIG_ROOT') <> '') then
+  begin
+    Result := GetEnv('MORPHEUS_SMOKE_CONFIG_ROOT');
+    exit;
+  end;
+#endif
   if IsAdvancedSetup() then
     Result := AdvancedRootsPage.Values[1]
   else
     Result := ExpandConstant('{localappdata}\MORPHEUS\config');
+end;
+
+// The remaining paths (state/log/backup roots, the two JSON client config files) have no Standard/Advanced
+// UI at all -- they only ever come from the manager's own LocalAppData-based defaults in production. Smoke
+// mode is the only way to redirect them, and only when explicitly compiled in and explicitly armed via
+// MORPHEUS_SMOKE_MODE=1. This single function is called from both RunDetect and ConfigureNativeMcpClients so
+// preflight and the manager can never see different values for the same run.
+function BuildSmokeOverrideParameters(): String;
+begin
+  Result := '';
+#ifdef SmokeMode
+  if not IsSmokeOverrideActive() then
+    exit;
+  if GetEnv('MORPHEUS_SMOKE_STATE_PATH') <> '' then
+    Result := Result + ' -StatePath "' + GetEnv('MORPHEUS_SMOKE_STATE_PATH') + '"';
+  if GetEnv('MORPHEUS_SMOKE_LOG_PATH') <> '' then
+    Result := Result + ' -LogPath "' + GetEnv('MORPHEUS_SMOKE_LOG_PATH') + '"';
+  if GetEnv('MORPHEUS_SMOKE_BACKUP_ROOT') <> '' then
+    Result := Result + ' -BackupRoot "' + GetEnv('MORPHEUS_SMOKE_BACKUP_ROOT') + '"';
+  if GetEnv('MORPHEUS_SMOKE_CLAUDE_DESKTOP_CONFIG_PATH') <> '' then
+    Result := Result + ' -ClaudeDesktopConfigPath "' + GetEnv('MORPHEUS_SMOKE_CLAUDE_DESKTOP_CONFIG_PATH') + '"';
+  if GetEnv('MORPHEUS_SMOKE_COPILOT_JETBRAINS_CONFIG_PATH') <> '' then
+    Result := Result + ' -CopilotJetBrainsConfigPath "' + GetEnv('MORPHEUS_SMOKE_COPILOT_JETBRAINS_CONFIG_PATH') + '"';
+#endif
 end;
 
 // Runs the exact same detection code Install/Uninstall use (integration\configure-mcp-clients.ps1
@@ -200,7 +264,8 @@ begin
     ' -DataRoot "' + GetDataRoot() + '"' +
     ' -ConfigRoot "' + GetConfigRoot() + '"' +
     ' -NativeCommandTimeoutSeconds 5' +
-    ' -Out "' + DetectReportPath + '"';
+    ' -Out "' + DetectReportPath + '"' +
+    BuildSmokeOverrideParameters();
 
   if (not Exec(PowerShell, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or
      (ResultCode <> 0) or (not FileExists(DetectReportPath)) then
@@ -259,9 +324,11 @@ begin
   end;
 end;
 
-// Inno never shows custom wizard pages during a silent/unattended install, so the checkboxes above are never
-// interactively set. /MORPHEUSMCPCLIENTS="id1,id2" (client ids: copilot-jetbrains, claude-desktop,
-// copilot-cli, claude-code, codex) lets an unattended deployment select clients the same way a human would --
+// A silent/unattended install never renders the custom "Clients IA" page, so its checkboxes are never set
+// by a click -- even though Inno still walks CurPageChanged through it internally (confirmed empirically),
+// nothing there ever flips ClientCheckBoxes[I].Checked. /MORPHEUSMCPCLIENTS="id1,id2" (client ids:
+// copilot-jetbrains, claude-desktop, copilot-cli, claude-code, codex) lets an unattended deployment select
+// clients the same way a human would --
 // but it can only select a row that detection already left Enabled, so a Conflict or NotDetected client is
 // never selected this way either, exactly like the interactive page.
 procedure ApplyCommandLineClientSelection;
@@ -382,17 +449,23 @@ begin
   Result := '';
   NeedsRestart := False;
 
-  // A silent/unattended install never shows the custom "Clients IA" page, so CurPageChanged never runs
-  // detection. This is the fallback that guarantees detection (and therefore the Conflict/NotDetected
-  // selectability guard) still runs exactly once before files are activated, in both modes.
+  // This is the fallback that guarantees detection (and therefore the Conflict/NotDetected selectability
+  // guard) still runs exactly once before files are activated, in case CurPageChanged never reached the
+  // custom "Clients IA" page for any reason (ShouldSkipPage logic changes, an aborted wizard, etc).
   if not DetectionHasRun then
   begin
     RunDetect;
     RefreshClientsPage;
-    if WizardSilent() then
-      ApplyCommandLineClientSelection;
     DetectionHasRun := True;
   end;
+
+  // Deliberately NOT folded into the DetectionHasRun guard above: Inno still walks a silent/unattended
+  // install through each wizard page's CurPageChanged internally (confirmed empirically -- it sets
+  // DetectionHasRun there without ever rendering the page), so that guard is already closed by the time
+  // PrepareToInstall runs. ApplyCommandLineClientSelection is idempotent and must run unconditionally for a
+  // silent install regardless of which path already ran detection.
+  if WizardSilent() then
+    ApplyCommandLineClientSelection;
 
   if not FileExists(ExpandConstant('{tmp}\update-installation.ps1')) then
     ExtractTemporaryFile('update-installation.ps1');
@@ -463,7 +536,8 @@ begin
     ExpandConstant('{app}\integration\configure-mcp-clients-setup.ps1') +
     '" -InstallRoot "' + ExpandConstant('{app}') + '"' +
     ' -DataRoot "' + GetDataRoot() + '"' +
-    ' -ConfigRoot "' + GetConfigRoot() + '"';
+    ' -ConfigRoot "' + GetConfigRoot() + '"' +
+    BuildSmokeOverrideParameters();
 
   if ClientCheckBoxes[0].Checked then Parameters := Parameters + ' -CopilotJetBrains';
   if ClientCheckBoxes[1].Checked then Parameters := Parameters + ' -ClaudeDesktop';
@@ -491,6 +565,18 @@ begin
       AddUserPath(ExpandConstant('{app}'));
     ConfigureNativeMcpClients;
   end;
+end;
+
+// Referenced from [UninstallRun] via {code:UninstallParameters}. A static Parameters string in [UninstallRun]
+// cannot call BuildSmokeOverrideParameters, so a smoke build's uninstall would otherwise ignore the very
+// overrides its install honored and reach for the real LocalAppData paths instead.
+function UninstallParameters(Param: String): String;
+begin
+  Result :=
+    '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\integration\configure-mcp-clients.ps1') + '"' +
+    ' -InstallRoot "' + ExpandConstant('{app}') + '"' +
+    ' -Action Uninstall' +
+    BuildSmokeOverrideParameters();
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

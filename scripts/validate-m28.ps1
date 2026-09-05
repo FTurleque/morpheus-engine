@@ -53,6 +53,7 @@ Write-Host 'M28 static integration contract: PASS'
 
 $portableBuilt = $false
 $installerBuilt = $false
+$smokeMcpVerified = $false
 $dist = 'validation-output\m28\dist'
 if (-not $SkipPortable) {
     & .\distribution\build-portable.ps1 -Version $Version -OutputDirectory $dist
@@ -88,6 +89,14 @@ if (-not $SkipInstaller) {
 
     & (Join-Path $PSScriptRoot 'verify-windows-setup-lifecycle.ps1') -SetupExePath $setup
     Assert-NativeSuccess 'M28 Windows setup lifecycle verification'
+
+    & .\distribution\build-installer.ps1 -Version $Version -OutputDirectory $dist -SkipPortable -SmokeMode
+    Assert-NativeSuccess 'M28 Windows smoke installer build'
+    $smokeSetup = Join-Path $repo "$dist\MORPHEUS-$Version-windows-x64-setup-smoke.exe"
+    if (-not (Test-Path -LiteralPath $smokeSetup)) { throw 'M28 Windows smoke setup is missing' }
+    & (Join-Path $PSScriptRoot 'verify-windows-setup-mcp-smoke.ps1') -SmokeSetupExePath $smokeSetup
+    Assert-NativeSuccess 'M28 Windows setup MCP smoke verification'
+    $smokeMcpVerified = $true
 }
 
 $currentSha = (git rev-parse HEAD).Trim()
@@ -124,6 +133,7 @@ $summary = @(
     'invalidJsonProtection=PASS',
     "portable=$portableBuilt",
     "installer=$installerBuilt",
+    "smokeSetupMcpSelected=$smokeMcpVerified",
     'dockerRequired=false',
     'postGateExecutableDelta=NONE')
 $summary | Set-Content -Encoding UTF8 (Join-Path $outputRoot 'validation-summary.txt')

@@ -143,11 +143,13 @@ class McpClientIntegrationArchitectureTest {
 
         assertTrue(builder.contains("morpheus-payload.zip"));
 
-        // Inno never fires CurPageChanged during a silent/unattended install, so the custom "Clients IA"
-        // page's checkboxes would otherwise never be populated or selectable there. PrepareToInstall's
-        // fallback runs detection unconditionally, and /MORPHEUSMCPCLIENTS lets an unattended deployment
-        // select a client the same way a human would -- but only among rows detection left Enabled, so a
-        // Conflict/NotDetected client is never selected this way either.
+        // A silent/unattended install never renders the custom "Clients IA" page, so nothing ever clicks its
+        // checkboxes -- confirmed empirically that Inno still walks CurPageChanged through it internally, so
+        // detection itself runs either way, but ApplyCommandLineClientSelection must run unconditionally
+        // (not folded into the "detection already ran" guard) or a silent install can never select a client
+        // at all. /MORPHEUSMCPCLIENTS lets an unattended deployment select a client the same way a human
+        // would -- but only among rows detection left Enabled, so a Conflict/NotDetected client is never
+        // selected this way either.
         assertTrue(installer.contains("DetectionHasRun"));
         assertTrue(installer.contains("ApplyCommandLineClientSelection"));
         assertTrue(installer.contains("MORPHEUSMCPCLIENTS"));
@@ -191,11 +193,68 @@ class McpClientIntegrationArchitectureTest {
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate.ps1")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/README.md")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/verify-m28-mcp-client-integration.ps1")));
+        assertTrue(Files.isRegularFile(root.resolve("scripts/verify-windows-setup-mcp-smoke.ps1")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-m28.ps1")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-m28.sh")));
         assertTrue(Files.isRegularFile(root.resolve("docs/user/MCP_CLIENTS.md")));
         assertTrue(Files.isRegularFile(root.resolve("docs/roadmap/M28_EXECUTION.md")));
         assertTrue(Files.isRegularFile(root.resolve("docs/validation/VALIDATION_M28.md")));
+    }
+
+    /**
+     * The real Setup.exe was proven to never select an MCP client during a production run:
+     * [Environment]::GetFolderPath and Inno's own {localappdata}/{userappdata}/{group} constants resolve
+     * through the Windows Known Folder API and ignore LOCALAPPDATA/APPDATA process overrides. Rather than
+     * accept "the real wizard-to-manager path is untested" as a residual risk, a smoke-only build
+     * (#ifdef SmokeMode, ISCC /DSmokeMode=1) compiles in a narrow, explicitly-named override mechanism that a
+     * production build never contains at all -- not merely disabled at runtime.
+     */
+    @Test
+    void smokeModeLetsTheRealWizardSelectASandboxedClientWithoutTouchingProduction() throws IOException {
+        Path root = repoRoot();
+        String installer = Files.readString(root.resolve("distribution/windows/MORPHEUS.iss"));
+        String builder = Files.readString(root.resolve("distribution/build-installer.ps1"));
+        String setupWrapper = Files.readString(root.resolve("integration/configure-mcp-clients-setup.ps1"));
+        String smokeTest = Files.readString(root.resolve("scripts/verify-windows-setup-mcp-smoke.ps1"));
+
+        assertTrue(installer.contains("#ifdef SmokeMode"));
+        assertTrue(installer.contains("function BuildSmokeOverrideParameters"));
+        assertTrue(installer.contains("function UninstallParameters"));
+        assertTrue(installer.contains("{code:UninstallParameters}"));
+        assertTrue(installer.contains("MORPHEUS_SMOKE_MODE"));
+        assertTrue(installer.contains("MORPHEUS_SMOKE_DATA_ROOT"));
+        assertTrue(installer.contains("MORPHEUS_SMOKE_CONFIG_ROOT"));
+        assertTrue(installer.contains("MORPHEUS_SMOKE_STATE_PATH"));
+        assertTrue(installer.contains("MORPHEUS_SMOKE_LOG_PATH"));
+        assertTrue(installer.contains("MORPHEUS_SMOKE_BACKUP_ROOT"));
+        assertTrue(installer.contains("MORPHEUS_SMOKE_CLAUDE_DESKTOP_CONFIG_PATH"));
+        assertTrue(installer.contains("MORPHEUS_SMOKE_COPILOT_JETBRAINS_CONFIG_PATH"));
+        // A smoke build's HKCU uninstall key must never be able to collide with -- or be mistaken for --
+        // production's, so a crash mid-test cannot leave a fake install registered as the real product.
+        assertTrue(installer.contains("6BF23F0E-6C9B-4B5A-9E51-8B6D1F0C7E42"));
+        assertTrue(installer.contains("4D0DC052-2FD6-49F5-88F4-E32C9B1EB67A"),
+                "production's own AppId must be untouched by the smoke mechanism");
+        assertTrue(installer.contains("MORPHEUS Setup Smoke"));
+        assertTrue(installer.contains("setup-smoke"));
+
+        assertTrue(builder.contains("SmokeMode"));
+        assertTrue(builder.contains("/DSmokeMode=1"));
+
+        assertTrue(setupWrapper.contains("StatePath"));
+        assertTrue(setupWrapper.contains("ClaudeDesktopConfigPath"));
+        assertTrue(setupWrapper.contains("CopilotJetBrainsConfigPath"));
+
+        assertTrue(smokeTest.contains("MORPHEUSMCPCLIENTS="),
+                "the smoke test must select the client through the real ApplyCommandLineClientSelection path, not bypass it");
+        assertTrue(smokeTest.contains("'claude-desktop'"));
+        assertTrue(smokeTest.contains("mcpServers.morpheus.command"));
+        assertTrue(smokeTest.contains("MORPHEUS_DATA_DIR"));
+        assertTrue(smokeTest.contains("MORPHEUS_CONFIG_DIR"));
+        assertTrue(smokeTest.contains("foreign"));
+        assertTrue(smokeTest.contains("Idempotent"));
+        assertTrue(smokeTest.contains("manually modified") || smokeTest.contains("modified managed entry"));
+        assertTrue(smokeTest.contains("RealClaudeDesktopConfig"),
+                "the smoke test must assert the real machine's Claude Desktop configuration was never touched");
     }
 
     private Path repoRoot() {

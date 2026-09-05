@@ -2,7 +2,14 @@
 param(
     [string]$Version = '1.2.1',
     [string]$OutputDirectory = 'dist',
-    [switch]$SkipPortable
+    [switch]$SkipPortable,
+
+    # Builds a distinctly-AppId'd, distinctly-named "MORPHEUS Setup Smoke" installer from the SAME app-image.
+    # Only this build ever contains the MORPHEUS_SMOKE_* environment-variable override mechanism in
+    # MORPHEUS.iss; the production build (no -SmokeMode) compiles that branch out entirely (see MORPHEUS.iss,
+    # #ifdef SmokeMode). Exists purely so scripts/verify-windows-setup-mcp-smoke.ps1 can drive the real wizard
+    # code path against sandboxed client configuration files instead of the real ones.
+    [switch]$SmokeMode
 )
 
 Set-StrictMode -Version Latest
@@ -92,18 +99,27 @@ if (-not (Test-Path -LiteralPath $updateInstallationScript -PathType Leaf)) {
 }
 
 $iscc = Resolve-Iscc
-Write-Host "Building MORPHEUS $Version per-user Windows setup with $iscc"
+$isccArgs = @(
+    "/DMyAppVersion=$Version",
+    "/DSourceDir=$appImage",
+    "/DOutputDir=$dist",
+    "/DPayloadZip=$payloadZip",
+    "/DUpdateInstallationScript=$updateInstallationScript"
+)
+$outputSuffix = 'setup'
+if ($SmokeMode) {
+    $isccArgs += '/DSmokeMode=1'
+    $outputSuffix = 'setup-smoke'
+    Write-Host "Building MORPHEUS $Version per-user Windows SMOKE setup (distinct AppId, never production) with $iscc"
+}
+else {
+    Write-Host "Building MORPHEUS $Version per-user Windows setup with $iscc"
+}
 
-& $iscc `
-    "/DMyAppVersion=$Version" `
-    "/DSourceDir=$appImage" `
-    "/DOutputDir=$dist" `
-    "/DPayloadZip=$payloadZip" `
-    "/DUpdateInstallationScript=$updateInstallationScript" `
-    $iss
+& $iscc @isccArgs $iss
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup build failed with exit code $LASTEXITCODE" }
 
-$setup = Join-Path $dist "MORPHEUS-$Version-windows-x64-setup.exe"
+$setup = Join-Path $dist "MORPHEUS-$Version-windows-x64-$outputSuffix.exe"
 if (-not (Test-Path -LiteralPath $setup)) {
     throw "Windows setup was not produced: $setup"
 }
