@@ -266,24 +266,56 @@ Les données MORPHEUS, la base SQLite, les backups et le registre vivent hors du
 
 ## 12. Installer Windows
 
-Les cinq tâches Inno Setup sont opt-in et décochées :
+Les cinq clients ne sont plus des tâches Inno statiques : `MORPHEUS.iss` exécute
+`configure-mcp-clients.ps1 -Action Detect` (extrait via `Flags: dontcopy` avant `ssInstall`, puisque
+`{app}\integration` n’existe pas encore lors d’une première installation) et sérialise le résultat dans un
+rapport INI que la page custom « Clients IA » lit via `GetIniString` — Inno Pascal Script n’a pas de
+parseur JSON. Chaque client est classé dans l’un de cinq états (`NotDetected`, `Available`,
+`AlreadyManaged`, `NeedsRepair`, `Conflict`) par les **mêmes fonctions** que celles utilisées par
+`Install`/`Uninstall` : le wizard et le gestionnaire ne peuvent pas diverger par construction. `NeedsRepair`
+correspond à une entrée gérée par MORPHEUS mais dont le chemin d’installation ou les répertoires
+données/config trackés ne correspondent plus aux valeurs courantes ; la resélectionner et relancer
+`Install` la répare (le chemin `Install-JsonClient`/`Install-CliClient` réécrit l’entrée dès qu’elle ne
+correspond plus à la config courante). `Conflict` (entrée étrangère ou JSON invalide) reste toujours
+décoché et désactivé.
 
-```text
-mcp_copilot_jetbrains
-mcp_copilot_cli
-mcp_claude_code
-mcp_claude_desktop
-mcp_codex
-```
+Une page `TInputOptionWizardPage` Standard/Advanced précède le choix du répertoire d’installation ; Avancé
+expose les répertoires données/config (les seuls réglages runtime réels, pas d’option théorique). Une page
+Résumé (`TNewMemo` lecture seule) précède l’installation effective.
 
-Après copie des fichiers, `configure-mcp-clients-setup.ps1` :
+Le payload applicatif n’est plus copié directement par `[Files]` : `PrepareToInstall` (avant `ssInstall`)
+extrait `update-installation.ps1` et `morpheus-payload.zip`, puis délègue à un moteur transactionnel
+(stage → vérification → activation avec journal → rollback automatique sur échec → nettoyage des fichiers
+obsolètes de l’ancienne version). Voir `distribution/windows/update-installation.ps1` et
+`docs/architecture` pour le détail du protocole (marqueur de propriété, refus des points de jonction,
+récupération après crash au lancement suivant).
 
-1. appelle le gestionnaire ;
+Une installation silencieuse (`/VERYSILENT`) ne déclenche jamais `CurPageChanged` : `PrepareToInstall`
+exécute donc la détection de secours et applique `/MORPHEUSMCPCLIENTS="id1,id2"` si fourni — uniquement
+parmi les lignes que la détection a laissées sélectionnables (jamais un client `Conflict`/`NotDetected`).
+`/NOICONS` exige `AllowNoIcons=yes` dans `[Setup]` pour avoir un effet.
+
+Après activation des fichiers, `configure-mcp-clients-setup.ps1` :
+
+1. appelle le gestionnaire avec les clients effectivement sélectionnés ;
 2. relit le registre ;
 3. vérifie que chaque intégration sélectionnée est présente ;
 4. échoue explicitement si une sélection n’a pas été configurée.
 
 Un échec de câblage n’altère pas le binaire MORPHEUS : la CLI et le serveur MCP natif restent lançables directement.
+
+Le vrai `Setup.exe` produit est testé de bout en bout (pas seulement les scripts en isolation) par
+`scripts/verify-windows-setup-lifecycle.ps1` : installation silencieuse dans un répertoire sandboxé,
+`morpheus.exe --version`, démarrage/arrêt du serveur MCP STDIO, réinstallation idempotente,
+suppression réelle d’un fichier obsolète lors d’une réactivation, création/suppression d’une intégration
+cliente via le gestionnaire réellement installé (chemins injectés, jamais les vraies configs
+Claude/Copilot/Codex de la machine), puis désinstallation complète (répertoire programme et clé de
+registre per-user tous deux supprimés). `[Environment]::GetFolderPath` et les constantes Inno
+`{localappdata}`/`{userappdata}`/`{group}` résolvent via l’API Windows Known Folder et ignorent les
+variables d’environnement `LOCALAPPDATA`/`APPDATA` du process — un vrai `Setup.exe` ne peut donc jamais
+être totalement sandboxé par variables d’environnement seules, d’où le choix de ne sélectionner aucun
+client pendant l’exécution réelle du setup et de tester le gestionnaire séparément avec des chemins
+injectés.
 
 ## 13. Packaging
 

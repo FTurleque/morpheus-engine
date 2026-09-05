@@ -18,18 +18,36 @@ Tous les clients doivent utiliser les mêmes répertoires persistants afin d’i
 
 ## 1. Installation Windows recommandée
 
-Le setup MORPHEUS propose des choix indépendants, tous décochés par défaut :
+Le setup MORPHEUS exécute une détection réelle avant d'afficher la page **Clients IA** : chaque ligne
+reflète l'état constaté sur la machine, pas une simple case à cocher indépendante.
 
 ```text
 Connecter le MCP natif MORPHEUS à :
-  ☐ GitHub Copilot — JetBrains / IntelliJ
-  ☐ GitHub Copilot CLI
-  ☐ Claude Code
-  ☐ Claude Desktop
-  ☐ OpenAI Codex
+  ☐ GitHub Copilot — JetBrains / IntelliJ   [non détecté]
+  ☑ GitHub Copilot CLI                      [déjà configuré]
+  ☐ Claude Code                             [détecté — disponible]
+  ☐ Claude Desktop                          [configuration à mettre à jour]
+  ☐ OpenAI Codex                            [entrée « morpheus » étrangère, non modifiée]
 ```
 
-Le choix reste explicite : installer MORPHEUS ne modifie aucun client tiers sans sélection de l’utilisateur.
+Règles d'affichage par état :
+
+- **non détecté** → case décochée et désactivée ;
+- **détecté, disponible** → case décochée, activée (sélection possible) ;
+- **déjà configuré** (MORPHEUS possède l'entrée et elle est à jour) → case cochée et désactivée ;
+- **configuration à mettre à jour** (l'entrée existe mais pointe vers un ancien emplacement d'installation
+  ou d'anciens répertoires de données/config) → case cochée, activée : la resélectionner répare l'entrée
+  au moment de l'installation ;
+- **conflit** (une entrée `morpheus` existe et n'appartient pas à MORPHEUS, ou le fichier JSON est invalide)
+  → case décochée et désactivée, jamais écrasée automatiquement.
+
+Une page **Standard / Avancé** précède le choix des répertoires (Avancé permet de personnaliser les
+répertoires de données et de configuration) et une page **Résumé** en lecture seule précède l'installation
+réelle. Le choix reste explicite : installer MORPHEUS ne modifie aucun client tiers sans sélection de
+l'utilisateur, et une installation silencieuse (`/VERYSILENT`) ne sélectionne aucun client sauf si
+`/MORPHEUSMCPCLIENTS="id1,id2"` est fourni sur la ligne de commande (identifiants : `copilot-jetbrains`,
+`claude-desktop`, `copilot-cli`, `claude-code`, `codex`) — et uniquement parmi les clients que la détection
+a laissés sélectionnables.
 
 Le gestionnaire installé est :
 
