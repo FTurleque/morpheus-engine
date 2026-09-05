@@ -114,6 +114,39 @@ class McpClientIntegrationArchitectureTest {
         assertFalse(installer.contains("mcp_docker"));
     }
 
+    /**
+     * Upgrading MORPHEUS must never leave a half-old/half-new install: PrepareToInstall runs the
+     * transactional engine (stage the new payload, verify it, activate with a journal, roll back on
+     * failure) instead of letting Inno copy {#SourceDir}\* directly into {app}. This pins that the engine is
+     * actually wired in, not just present on disk unused.
+     */
+    @Test
+    void installerActivatesThePayloadThroughTheTransactionalUpgradeEngine() throws IOException {
+        Path root = repoRoot();
+        String installer = Files.readString(root.resolve("distribution/windows/MORPHEUS.iss"));
+        String engine = Files.readString(root.resolve("distribution/windows/update-installation.ps1"));
+        String builder = Files.readString(root.resolve("distribution/build-installer.ps1"));
+
+        assertTrue(installer.contains("function PrepareToInstall"));
+        assertTrue(installer.contains("update-installation.ps1"));
+        assertTrue(installer.contains("morpheus-payload.zip"));
+        assertFalse(installer.contains("Source: \"{#SourceDir}\\*\""),
+                "the app-image must be activated by the transactional engine, not copied directly by [Files]");
+
+        assertTrue(engine.contains("$PayloadZip"));
+        assertTrue(engine.contains(".install-staging"));
+        assertTrue(engine.contains(".install-rollback"));
+        assertTrue(engine.contains(".install-journal.json"));
+        assertTrue(engine.contains("Resume-InterruptedTransaction"));
+        assertTrue(engine.contains(".morpheus-install.json"));
+        assertTrue(engine.contains("ReparsePoint"));
+
+        assertTrue(builder.contains("morpheus-payload.zip"));
+        assertTrue(builder.contains("Compress-Archive"));
+        assertTrue(builder.contains("/DPayloadZip="));
+        assertTrue(builder.contains("/DUpdateInstallationScript="));
+    }
+
     @Test
     void portableDistributionsContainTheIntegrationLayer() throws IOException {
         Path root = repoRoot();

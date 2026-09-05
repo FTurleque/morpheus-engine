@@ -104,7 +104,14 @@ class ProductReleaseContractTest {
         assertTrue(installer.contains("DefaultDirName={localappdata}\\Programs\\MORPHEUS"));
         assertTrue(installer.contains("PrivilegesRequired=lowest"));
         assertTrue(installer.contains("Name: \"addtopath\""));
-        assertFalse(installer.contains("UninstallDelete"));
+        // The program payload is activated by PrepareToInstall's transactional engine, not a direct
+        // DestDir: "{app}" copy in [Files] -- Inno's automatic per-file uninstall tracking has nothing to
+        // remove without an explicit recursive [UninstallDelete] on {app} (safe: {app} holds only MORPHEUS
+        // program files, data/config roots are separate persistent locations untouched by this).
+        assertTrue(installer.contains("[UninstallDelete]"));
+        assertTrue(installer.contains("Type: filesandordirs; Name: \"{app}\""));
+        assertFalse(installer.contains("DestDir: \"{app}\"; Flags: ignoreversion recursesubdirs createallsubdirs"));
+        assertTrue(installer.contains("function PrepareToInstall"));
 
         assertTrue(windowsRelease.contains("Release build requires a clean Git workspace"));
         assertTrue(windowsRelease.contains("points to $tagSha, but HEAD is $head"));

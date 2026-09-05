@@ -42,14 +42,38 @@ for token in required_manager:
         raise SystemExit(f'M28 manager contract token is missing: {token}')
 if 'docker' in manager.lower():
     raise SystemExit('M28 native MCP client manager must not require Docker')
-for task in ('mcp_copilot_jetbrains', 'mcp_copilot_cli', 'mcp_claude_code', 'mcp_claude_desktop', 'mcp_codex'):
-    if task not in installer:
-        raise SystemExit(f'M28 installer task is missing: {task}')
+required_installer = [
+    'function PrepareToInstall', 'update-installation.ps1', 'morpheus-payload.zip',
+    "'Clients IA'", 'TNewCheckBox', '-Action Detect', 'GetIniString',
+    'procedure RunDetect', 'procedure RefreshClientsPage', 'AlreadyManaged', 'NeedsRepair',
+    'SetupTypePage', 'AdvancedRootsPage', 'procedure RefreshSummaryPage',
+    '[UninstallDelete]', 'Type: filesandordirs; Name: "{app}"',
+]
+for token in required_installer:
+    if token not in installer:
+        raise SystemExit(f'M28 installer contract token is missing: {token}')
+if 'Source: "{#SourceDir}\\*"' in installer:
+    raise SystemExit('M28 installer must not copy the app-image directly via [Files]; PrepareToInstall must activate it')
+for task in ('mcp_copilot_jetbrains', 'mcp_docker'):
+    if task in installer:
+        raise SystemExit(f'M28 installer must not reintroduce the retired static task: {task}')
+
+engine = (root / 'distribution/windows/update-installation.ps1').read_text(encoding='utf-8')
+required_engine = [
+    '$PayloadZip', '.install-staging', '.install-rollback', '.install-journal.json',
+    'Resume-InterruptedTransaction', '.morpheus-install.json', 'ReparsePoint',
+]
+for token in required_engine:
+    if token not in engine:
+        raise SystemExit(f'M28 transactional upgrade engine token is missing: {token}')
+
 for path in (
     'integration/configure-mcp-clients.ps1',
     'integration/configure-mcp-clients-setup.ps1',
     'integration/README.md',
+    'distribution/windows/update-installation.ps1',
     'scripts/verify-m28-mcp-client-integration.ps1',
+    'scripts/verify-windows-transactional-upgrade.ps1',
     'docs/user/MCP_CLIENTS.md',
     'docs/roadmap/M28_EXECUTION.md',
     'docs/validation/VALIDATION_M28.md'):

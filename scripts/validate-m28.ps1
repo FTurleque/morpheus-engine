@@ -31,6 +31,9 @@ Assert-NativeSuccess 'R2 inherited exact-head gate'
 & (Join-Path $PSScriptRoot 'verify-m28-mcp-client-integration.ps1')
 Assert-NativeSuccess 'M28 MCP client integration verification'
 
+& (Join-Path $PSScriptRoot 'verify-windows-transactional-upgrade.ps1')
+Assert-NativeSuccess 'M28 transactional upgrade engine verification'
+
 $manager = Join-Path $repo 'integration\configure-mcp-clients.ps1'
 $setupWrapper = Join-Path $repo 'integration\configure-mcp-clients-setup.ps1'
 $installer = Join-Path $repo 'distribution\windows\MORPHEUS.iss'

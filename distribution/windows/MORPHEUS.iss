@@ -9,6 +9,12 @@
 #ifndef OutputDir
 #define OutputDir "..\..\dist"
 #endif
+#ifndef PayloadZip
+#define PayloadZip "..\..\dist\morpheus-payload.zip"
+#endif
+#ifndef UpdateInstallationScript
+#define UpdateInstallationScript "update-installation.ps1"
+#endif
 
 [Setup]
 AppId={{4D0DC052-2FD6-49F5-88F4-E32C9B1EB67A}
@@ -37,11 +43,19 @@ UsePreviousTasks=yes
 Name: "addtopath"; Description: "Ajouter MORPHEUS au PATH utilisateur"; GroupDescription: "Intégration système :"; Flags: unchecked
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SourceDir}\integration\configure-mcp-clients.ps1"; DestDir: "{tmp}"; Flags: dontcopy
+Source: "{#UpdateInstallationScript}"; DestDir: "{tmp}"; Flags: dontcopy
+Source: "{#PayloadZip}"; DestDir: "{tmp}"; Flags: dontcopy
 
 [Icons]
 Name: "{group}\MORPHEUS"; Filename: "{app}\morpheus.exe"
+
+[UninstallDelete]
+; The program payload is activated by PrepareToInstall's transactional engine, not Inno's own [Files]
+; tracking, so Inno's automatic per-file uninstall has nothing to remove without this: {app} holds only
+; MORPHEUS program files (data/config roots are separate persistent locations), so a full recursive delete
+; here is safe and matches what the old direct-copy [Files] entry gave Inno for free.
+Type: filesandordirs; Name: "{app}"
 
 [UninstallRun]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\integration\configure-mcp-clients.ps1"" -InstallRoot ""{app}"" -Action Uninstall"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "RemoveMorpheusNativeMcpClients"
@@ -327,6 +341,43 @@ begin
     'Résumé', 'Vérifiez la configuration avant l''installation',
     'Ces paramètres seront appliqués. Aucune information sensible n''est affichée.',
     '');
+end;
+
+// Runs before ssInstall: this is the sole mechanism that places MORPHEUS's program files into {app}. [Files]
+// intentionally carries no direct DestDir: "{app}" copy of the payload -- the transactional engine (stage,
+// verify, activate with a journal, roll back on failure, only then remove obsolete files from the previous
+// version) replaces Inno's own unconditional overwrite-in-place copy.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+  Parameters: String;
+  PowerShell: String;
+  UpdateScriptPath: String;
+  PayloadZipPath: String;
+begin
+  Result := '';
+  NeedsRestart := False;
+
+  if not FileExists(ExpandConstant('{tmp}\update-installation.ps1')) then
+    ExtractTemporaryFile('update-installation.ps1');
+  if not FileExists(ExpandConstant('{tmp}\morpheus-payload.zip')) then
+    ExtractTemporaryFile('morpheus-payload.zip');
+
+  UpdateScriptPath := ExpandConstant('{tmp}\update-installation.ps1');
+  PayloadZipPath := ExpandConstant('{tmp}\morpheus-payload.zip');
+  PowerShell := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
+
+  Parameters :=
+    '-NoProfile -ExecutionPolicy Bypass -File "' + UpdateScriptPath + '"' +
+    ' -InstallRoot "' + WizardDirValue() + '"' +
+    ' -PayloadZip "' + PayloadZipPath + '"' +
+    ' -Version "{#MyAppVersion}"';
+
+  if (not Exec(PowerShell, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
+    Result :=
+      'MORPHEUS n''a pas pu installer ses fichiers de programme (code ' + IntToStr(ResultCode) + ').' + #13#10 +
+      'Aucune modification n''a été appliquée si une installation précédente existait.' + #13#10 +
+      'Diagnostic : %LOCALAPPDATA%\MORPHEUS\mcp-clients.log';
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;

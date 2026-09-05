@@ -79,6 +79,18 @@ if (-not (Test-Path -LiteralPath $iss)) {
 }
 
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
+
+# The setup's [Files] section carries no direct copy of the app-image: PrepareToInstall's transactional
+# engine (distribution/windows/update-installation.ps1) stages and activates this zip instead, so it must be
+# rebuilt from the current app-image on every run rather than reused from a previous build.
+$payloadZip = Join-Path $dist 'morpheus-payload.zip'
+if (Test-Path -LiteralPath $payloadZip) { Remove-Item -LiteralPath $payloadZip -Force }
+Compress-Archive -Path (Join-Path $appImage '*') -DestinationPath $payloadZip -CompressionLevel Optimal
+$updateInstallationScript = Join-Path $PSScriptRoot 'windows\update-installation.ps1'
+if (-not (Test-Path -LiteralPath $updateInstallationScript -PathType Leaf)) {
+    throw "Transactional installation engine is missing: $updateInstallationScript"
+}
+
 $iscc = Resolve-Iscc
 Write-Host "Building MORPHEUS $Version per-user Windows setup with $iscc"
 
@@ -86,6 +98,8 @@ Write-Host "Building MORPHEUS $Version per-user Windows setup with $iscc"
     "/DMyAppVersion=$Version" `
     "/DSourceDir=$appImage" `
     "/DOutputDir=$dist" `
+    "/DPayloadZip=$payloadZip" `
+    "/DUpdateInstallationScript=$updateInstallationScript" `
     $iss
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup build failed with exit code $LASTEXITCODE" }
 
