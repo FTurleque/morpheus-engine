@@ -69,50 +69,6 @@ jobs:
               ;;
           esac
 
-      - name: Run SonarQube Cloud CI analysis with JaCoCo
-        if: >-
-          runner.os == 'Linux' &&
-          github.actor != 'dependabot[bot]' &&
-          ((github.event_name == 'push' && github.ref_name == 'main') ||
-           (github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository))
-        shell: bash
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${SONAR_TOKEN:-}" ]; then
-            echo "::error::SONAR_TOKEN is required for SonarQube Cloud CI analysis"
-            exit 1
-          fi
-          reports="$(find "$GITHUB_WORKSPACE" -type f -path '*/target/site/jacoco/jacoco.xml' -print | sort | paste -sd, -)"
-          if [ -z "$reports" ]; then
-            echo "::error::No JaCoCo XML reports were produced by the exact-head M21 gate"
-            exit 1
-          fi
-          ./mvnw -B -ntp -DskipTests -Djacoco.skip=true \
-            -Dsonar.projectKey=FTurleque_morpheus-engine \
-            -Dsonar.organization=fturleque \
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.qualitygate.wait=true \
-            -Dsonar.coverage.jacoco.xmlReportPaths="$reports" \
-            org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar
-
-      - name: Record SonarQube Cloud skip for Dependabot
-        if: runner.os == 'Linux' && github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
-        shell: bash
-        run: |
-          echo "SonarQube Cloud analysis is skipped for Dependabot pull requests because GitHub withholds repository secrets from Dependabot pull_request workflows."
-          echo "Exact-head M21, changed coverage, Dependency-Check, Security and CodeQL gates remain enforced."
-
-      - name: Record SonarQube Cloud skip for non-main branch push
-        if: runner.os == 'Linux' && github.event_name == 'push' && github.ref_name != 'main'
-        shell: bash
-        run: |
-          echo "SonarQube Cloud analysis is skipped for pushes to branches other than main."
-          echo "The current SonarCloud plan for this organization does not allow accessing Quality Gate status for non-main branches (api/qualitygates/project_status returns: 'Organization is not allowed to access data from non main branches.')."
-          echo "Every change reaching this branch already passed SonarQube Cloud pull-request analysis (sonar.qualitygate.wait=true) before merge. Exact-head M21, Dependency-Check, Security and CodeQL gates remain enforced on every push."
-
       - name: Run one-command M21 gate on Windows
         if: runner.os == 'Windows'
         shell: cmd
@@ -139,6 +95,64 @@ jobs:
             validation-output/m21/diff-coverage.txt
             validation-output/m21/api.stdout.log
             validation-output/m21/api.stderr.log
+
+  sonar:
+    # SONAR_TOKEN is a durable secret. It must never be present in the environment of a build that compiles or
+    # executes code from a not-yet-merged pull request -- including an internal branch of this repository, which
+    # actions/checkout with a pull_request ref would otherwise hand this secret alongside. A contributor able to
+    # push a branch here could change pom.xml, .mvn/**, mvnw, or a plugin execution and have that code run with
+    # SONAR_TOKEN in scope. Fork and Dependabot pull requests already withhold secrets by default; this job closes
+    # the internal-branch gap by never running for pull_request at all. Analysis instead runs only after a push
+    # lands on main, i.e. only for code that already passed every required check and any review policy in place.
+    # This job intentionally is not a required status check (see the branch protection ruleset): its result is a
+    # trusted-context quality signal, not a merge gate, so a SonarCloud-side outage cannot block a promotion that
+    # already passed exact-head, Dependency-Check and CodeQL on its own commit.
+    name: SonarQube Cloud Analysis
+    if: github.event_name == 'push' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      - name: Build and test the full reactor for coverage
+        shell: bash
+        run: ./mvnw -B -ntp clean verify
+
+      - name: Run SonarQube Cloud CI analysis with JaCoCo
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SONAR_TOKEN:-}" ]; then
+            echo "::error::SONAR_TOKEN is required for SonarQube Cloud CI analysis"
+            exit 1
+          fi
+          reports="$(find "$GITHUB_WORKSPACE" -type f -path '*/target/site/jacoco/jacoco.xml' -print | sort | paste -sd, -)"
+          if [ -z "$reports" ]; then
+            echo "::error::No JaCoCo XML reports were produced by the reactor build"
+            exit 1
+          fi
+          ./mvnw -B -ntp -DskipTests -Djacoco.skip=true \
+            -Dsonar.projectKey=FTurleque_morpheus-engine \
+            -Dsonar.organization=fturleque \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.qualitygate.wait=true \
+            -Dsonar.coverage.jacoco.xmlReportPaths="$reports" \
+            org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar
 
   macos-smoke:
     # macOS is NOT an officially supported MORPHEUS platform. This lane exists to turn "macOS unknown" into
