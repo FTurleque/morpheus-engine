@@ -5,11 +5,53 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class McpClientIntegrationArchitectureTest {
+
+    /**
+     * A dead second pipeline ({@code build-windows-installer.ps1}, WiX/jpackage against the retired M14
+     * app-image layout) once coexisted with the official Inno Setup pipeline and could silently produce a
+     * different MORPHEUS.exe with different behavior. This is not a "the file happens not to exist today"
+     * check: it forbids the mechanism (a second {@code --type exe}/WiX/candle/light invocation anywhere under
+     * {@code distribution/}, or more than one file invoking ISCC) from reappearing under any filename.
+     */
+    @Test
+    void exactlyOneWindowsInstallerPipelineExists() throws IOException {
+        Path root = repoRoot();
+        Path distribution = root.resolve("distribution");
+        assertFalse(Files.exists(distribution.resolve("build-windows-installer.ps1")),
+                "the retired WiX/jpackage pipeline must not come back under its old name");
+
+        List<Path> scripts;
+        try (var files = Files.walk(distribution)) {
+            scripts = files.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".ps1")
+                            || path.getFileName().toString().endsWith(".sh"))
+                    .toList();
+        }
+
+        int isccInvocationSites = 0;
+        for (Path script : scripts) {
+            String content = Files.readString(script);
+            assertFalse(content.contains("--type exe"),
+                    script + " must not invoke jpackage's own EXE/WiX packaging");
+            assertFalse(content.toLowerCase(java.util.Locale.ROOT).contains("candle.exe")
+                            || content.toLowerCase(java.util.Locale.ROOT).contains("light.exe")
+                            || content.contains("wix.exe"),
+                    script + " must not reference WiX tooling");
+            if (content.contains("ISCC")) {
+                isccInvocationSites++;
+                assertTrue(script.getFileName().toString().equals("build-installer.ps1")
+                                || script.getFileName().toString().equals("ensure-inno-setup.ps1"),
+                        "unexpected ISCC reference outside the official Inno pipeline: " + script);
+            }
+        }
+        assertTrue(isccInvocationSites >= 1, "the official Inno Setup pipeline must still invoke ISCC somewhere");
+    }
 
     @Test
     void integrationManagerIsNativeOptInConservativeAndStateDriven() throws IOException {
