@@ -4,19 +4,19 @@ Les documents de ce groupe servent à piloter et auditer le projet. Ils ne sont 
 
 ## Pilotage
 
-- [`ROADMAP.md`](ROADMAP.md) — état global courant, baseline C0→M18 et jalons post-M18 ;
+- [`ROADMAP.md`](ROADMAP.md) — état global courant, baseline C0→D2 livrée et priorité active (corrective 1.2.1) ;
 - [`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md) — autorité des documents actifs, ADR et preuves historiques ;
 - [`../roadmap/README.md`](../roadmap/README.md) — index des plans d’exécution ;
-- [`../roadmap/POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md) — roadmap détaillée D0 + M15→M20 ;
-- [`../roadmap/M18_EXECUTION.md`](../roadmap/M18_EXECUTION.md) — dernier jalon intégré ;
+- [`../roadmap/POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md) — roadmap détaillée D0 + M15→M20 (historique) ;
+- [`../roadmap/M18_EXECUTION.md`](../roadmap/M18_EXECUTION.md) — jalon M18 (historique, non le dernier intégré) ;
 - [`PLAN.md`](PLAN.md) — plan de cadrage C0/M0 historique ;
 - [`AUDIT_COHERENCE_C0.md`](AUDIT_COHERENCE_C0.md) — audit de cohérence C0.
 
 La roadmap opérationnelle d’un jalon reste la source de vérité pendant son exécution. Pour l’état d’intégration courant des jalons déjà livrés, `ROADMAP.md` prévaut sur une instruction de merge conservée dans une preuve historique.
 
-Baseline livrée : **C0 à M18 + D0 validés et intégrés**. **M19 — Production Hardening, Scale & Operability — est le prochain jalon.**
+Baseline livrée : **C0 à M28, R1/R2/R3 (MORPHEUS 1.2.0 publié) et D2 (Post-R3 Repository Hardening) validés et intégrés**. Aucun milestone n'est actuellement en cours : la baseline **1.2.1** est une passe corrective et de durcissement, suivie par l'issue #185 jusqu'à sa qualification réelle — voir `ROADMAP.md` pour le détail à jour.
 
-Référence M18 :
+Référence M18 (historique — ne plus présenter comme le dernier jalon intégré) :
 
 ```text
 PR #86          MERGED
@@ -59,7 +59,7 @@ Elles enregistrent notamment :
 
 Ces fichiers sont des **preuves historiques**. Ils ne sont pas réécrits après merge pour modifier artificiellement le SHA ou le gate exécuté ; une information post-merge est ajoutée explicitement lorsque nécessaire, tandis que les roadmaps et index actifs enregistrent l’état d’intégration courant.
 
-Dernière preuve intégrée : M18, **418/418 PASS**, Architecture **170/170 PASS**, packaging Windows + smokes PASS, merge `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
+Dernière preuve intégrée : D2 (Post-R3 Repository Hardening), SHA exact qualifié `fa54b3d6a316357b2ef79afd2243619a64a05f3b`, merge `develop` `c12882d6e43daab600f6580f22f8eff2fbc6f4de` — voir `ROADMAP.md` pour le détail. La ligne M18 ci-dessus reste une preuve historique de ce jalon précis, pas la dernière preuve d'intégration.
 
 ## Documentation active
 

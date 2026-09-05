@@ -5,6 +5,7 @@ VERSION="${1:-1.0.0}"
 SKIP_PORTABLE="${MORPHEUS_M26_SKIP_PORTABLE:-false}"
 BASE_REF="${MORPHEUS_M26_BASE_REF:-origin/develop}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m26"
@@ -38,7 +39,7 @@ printf '%s\n' "M26 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <(python3 - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
 import pathlib, sys, xml.etree.ElementTree as ET
 root = pathlib.Path(sys.argv[1])
 def totals(base):
@@ -61,7 +62,7 @@ COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
 [[ -f "$COVERAGE" ]] || { echo "Missing production coverage summary: $COVERAGE" >&2; exit 1; }
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line, branch = map(float, sys.argv[1:])
 if line < .25: raise SystemExit(f'M26 line coverage below 25%: {line}')
@@ -95,10 +96,17 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   [[ "$HELP" == *'Team / remote server (M26, opt-in)'* ]] || { echo 'Packaged M26 CLI help smoke failed' >&2; exit 1; }
   printf '%s\n' 'M26 TLS/auth/server/maintenance classes + CLI help packaging proof: PASS'
 
-  DATA="$OUTPUT/server-data"
-  rm -rf "$DATA" && mkdir -p "$DATA"
+  # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+  # here inherits the permissions of whatever it sits under, and the real owner-controlled storage path is never
+  # exercised. Under the repository that inheritance is precisely what the hardener refuses, which made a
+  # packaged product gate depend on the permissions of a development checkout. mktemp gives an owner-only parent;
+  # the data directory itself is only named here and is created by the launcher below.
+  DATA_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-m26-XXXXXXXXXX")"
+  # Best effort, and deliberately not allowed to replace whatever failure is already unwinding.
+  trap 'rm -rf "$DATA_ROOT"' EXIT
+  DATA="$DATA_ROOT/server-data"
   IDENTITY="$($LAUNCHER --data-dir "$DATA" --json server identity create --principal gate-admin --role ADMIN)"
-  read -r TOKEN TOKEN_PERSISTENCE < <(python3 - "$IDENTITY" <<'PY'
+  read -r TOKEN TOKEN_PERSISTENCE < <(morpheus_python - "$IDENTITY" <<'PY'
 import json,sys
 p=json.loads(sys.argv[1]); print(p['token'],p['tokenPersistence'])
 PY
@@ -111,14 +119,14 @@ PY
   printf '%s\n' 'Remote identity hash-only provisioning: PASS'
 
   BACKUP="$($LAUNCHER --data-dir "$DATA" --json server backup create)"
-  read -r BACKUP_PATH BACKUP_SHA BACKUP_SCHEMA BACKUP_OK < <(python3 - "$BACKUP" <<'PY'
+  read -r BACKUP_PATH BACKUP_SHA BACKUP_SCHEMA BACKUP_OK < <(morpheus_python - "$BACKUP" <<'PY'
 import json,sys
 p=json.loads(sys.argv[1]); print(p['path'],p['sha256'],p['schemaVersion'],str(p['integrityOk']).lower())
 PY
 )
   [[ -f "$BACKUP_PATH" && "$BACKUP_SCHEMA" == 17 && "$BACKUP_OK" == true ]] || { echo "M26 backup result mismatch: $BACKUP" >&2; exit 1; }
   VERIFIED="$($LAUNCHER --data-dir "$DATA" --json server backup verify --file "$BACKUP_PATH")"
-  python3 - "$VERIFIED" "$BACKUP_SHA" <<'PY'
+  morpheus_python - "$VERIFIED" "$BACKUP_SHA" <<'PY'
 import json,sys
 p=json.loads(sys.argv[1]); expected=sys.argv[2]
 assert p['integrityOk'] is True and p['schemaVersion']==17 and p['sha256']==expected,p
@@ -128,7 +136,7 @@ PY
   fi
   grep -q -- '--confirm' "$OUTPUT/restore-unconfirmed.stderr" || { cat "$OUTPUT/restore-unconfirmed.stderr" >&2; exit 1; }
   RESTORED="$($LAUNCHER --data-dir "$DATA" --json server restore --file "$BACKUP_PATH" --confirm)"
-  python3 - "$RESTORED" <<'PY'
+  morpheus_python - "$RESTORED" <<'PY'
 import json,sys
 p=json.loads(sys.argv[1]); assert p['integrityOk'] is True and p['schemaVersion']==17,p
 PY
@@ -137,11 +145,13 @@ PY
   if "$LAUNCHER" --data-dir "$DATA" api --host 0.0.0.0 --port 18765 >"$OUTPUT/local-nonloopback.stdout" 2>"$OUTPUT/local-nonloopback.stderr"; then
     echo 'Local non-loopback API unexpectedly started' >&2; exit 1
   fi
-  grep -Eq 'requires explicit.*api --remote' "$OUTPUT/local-nonloopback.stderr" || { cat "$OUTPUT/local-nonloopback.stderr" >&2; exit 1; }
+  # Collapse whitespace before matching: a diagnostic can reach the log wrapped, and what is asserted is the
+  # message rather than how a terminal rendered it. The wording is LoopbackHostPolicy's, not an older one.
+  tr -s '[:space:]' ' ' < "$OUTPUT/local-nonloopback.stderr"     | grep -Eq 'non-loopback API bind requires explicit remote mode'     || { cat "$OUTPUT/local-nonloopback.stderr" >&2; exit 1; }
   if "$LAUNCHER" --data-dir "$DATA" api --remote --host 127.0.0.1 --port 18766 >"$OUTPUT/remote-missing-tls.stdout" 2>"$OUTPUT/remote-missing-tls.stderr"; then
     echo 'Remote API without TLS unexpectedly started' >&2; exit 1
   fi
-  grep -Eq 'requires --tls-keystore|TLS keystore' "$OUTPUT/remote-missing-tls.stderr" || { cat "$OUTPUT/remote-missing-tls.stderr" >&2; exit 1; }
+  tr -s '[:space:]' ' ' < "$OUTPUT/remote-missing-tls.stderr"     | grep -Eq 'requires --tls-keystore|TLS keystore'     || { cat "$OUTPUT/remote-missing-tls.stderr" >&2; exit 1; }
   printf '%s\n' 'Local-first bind boundary + remote fail-closed startup: PASS'
 fi
 

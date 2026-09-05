@@ -46,16 +46,28 @@ paths:
   /integrations/minos/status:
     get:
       operationId: getMinosIntegrationStatus
+      description: >-
+        Reports integration availability without making MINOS mandatory. Launch settings are server-configured, so
+        the response says whether each location is configured rather than naming it; the local CLI reports the full
+        settings, which is where an operator changes them.
       responses: {'200': {$ref: '#/components/responses/Success'}}
   /integrations/nexus/status:
     get:
       operationId: getNexusIntegrationStatus
-      description: Reports integration availability without making NEXUS mandatory.
+      description: >-
+        Reports integration availability without making NEXUS mandatory. Launch settings are server-configured, so
+        the response says whether each location is configured rather than naming it; the local CLI reports the full
+        settings, which is where an operator changes them.
       responses: {'200': {$ref: '#/components/responses/Success'}}
 
   /projects:
     get:
       operationId: listProjects
+      description: >-
+        Lists every registered project. A project is reported by projectId and by its workspace name; the absolute
+        workspace pathname is deliberately not exposed, because the list includes projects registered locally by the
+        operator and a caller would otherwise learn locations it never supplied. The local CLI reports the full
+        pathname, which is what an operator passes back to --workspace.
       responses: {'200': {$ref: '#/components/responses/Success'}}
     post:
       operationId: registerProject
@@ -165,7 +177,7 @@ paths:
   /projects/{projectId}/requirements:
     parameters:
       - {$ref: '#/components/parameters/ProjectId'}
-      - {name: query, in: query, schema: {type: string, default: ''}}
+      - {name: query, in: query, schema: {type: string, default: '', maxLength: 8192}}
       - {$ref: '#/components/parameters/Offset'}
       - {$ref: '#/components/parameters/Limit'}
     get:

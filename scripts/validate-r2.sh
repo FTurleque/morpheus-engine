@@ -5,6 +5,7 @@ VERSION="${1:-1.1.0}"
 BASE_REF="${MORPHEUS_R2_BASE_REF:-origin/develop}"
 SKIP_PORTABLE="${MORPHEUS_R2_SKIP_PORTABLE:-false}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/r2"
@@ -18,22 +19,25 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   exit 1
 fi
 
-python3 - "$REPO" "$VERSION" <<'PY'
+morpheus_python - "$REPO" "$VERSION" <<'PY'
 import pathlib
 import sys
 
 root = pathlib.Path(sys.argv[1])
 version = sys.argv[2]
 poms = sorted(path for path in root.rglob('pom.xml') if 'target' not in path.parts)
-if len(poms) != 17:
-    raise SystemExit(f'Unexpected Maven reactor POM count: {len(poms)}, expected 17')
+# The root POM plus one per declared module. A literal here counted the reactor of the milestone that wrote
+# this check, so every module added afterwards made the gate refuse a repository that was perfectly correct.
+expected = 1 + (root / 'pom.xml').read_text(encoding='utf-8').count('<module>')
+if len(poms) != expected:
+    raise SystemExit(f'Unexpected Maven reactor POM count: {len(poms)}, expected {expected}')
 for pom in poms:
     content = pom.read_text(encoding='utf-8')
     if f'<version>{version}</version>' not in content:
         raise SystemExit(f'MORPHEUS {version} version missing from {pom.relative_to(root)}')
     if '<version>1.0.0</version>' in content:
         raise SystemExit(f'Stale MORPHEUS 1.0.0 version remains in {pom.relative_to(root)}')
-print(f'Maven reactor version: PASS ({version} across 17 POMs)')
+print(f'Maven reactor version: PASS ({version} across {expected} POMs)')
 PY
 
 MORPHEUS_M27_BASE_REF="$BASE_REF" \
@@ -42,7 +46,7 @@ MORPHEUS_M27_SKIP_PORTABLE="$SKIP_PORTABLE" \
 
 UPGRADE_REPORT="$REPO/morpheus-store-sqlite/target/surefire-reports/TEST-com.morpheus.store.sqlite.R2UpgradeCompatibilityTest.xml"
 [[ -f "$UPGRADE_REPORT" ]] || { echo "R2 upgrade report is missing: $UPGRADE_REPORT" >&2; exit 1; }
-python3 - "$UPGRADE_REPORT" <<'PY'
+morpheus_python - "$UPGRADE_REPORT" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 

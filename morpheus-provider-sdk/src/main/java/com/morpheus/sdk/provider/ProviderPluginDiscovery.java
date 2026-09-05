@@ -69,7 +69,10 @@ public final class ProviderPluginDiscovery {
                     List.of(ProviderPluginDiagnostic.error(
                             "PLUGIN_DIRECTORY_READ_FAILED",
                             "Cannot inspect provider plugin directory",
-                            Map.of("directory", directory.toString(), "reason", safeMessage(failure)))));
+                            Map.of(
+                                    "directory", directory.toString(),
+                                    "reason", safeMessage(failure),
+                                    "reasonType", failureType(failure)))));
         }
 
         if (selection.totalJars() > ProviderSdk.MAX_PLUGIN_JARS) {
@@ -162,7 +165,7 @@ public final class ProviderPluginDiscovery {
                     jar,
                     "PLUGIN_METADATA_INVALID",
                     "Provider plugin JAR metadata cannot be read or validated",
-                    Map.of("reason", safeMessage(failure)));
+                    Map.of("reason", safeMessage(failure), "reasonType", failureType(failure)));
         }
     }
 
@@ -231,6 +234,17 @@ public final class ProviderPluginDiscovery {
     private static String safeMessage(Exception failure) {
         String message = failure.getMessage();
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
+    }
+
+    /**
+     * Names the failure without locating it.
+     *
+     * <p>A filesystem exception's message is often the pathname itself — {@link java.nio.file.AccessDeniedException}
+     * reports nothing else — so {@code reason} cannot cross the remote boundary. The exception type survives that
+     * boundary and still tells a remote administrator whether the directory was unreadable, missing or malformed.</p>
+     */
+    private static String failureType(Exception failure) {
+        return failure.getClass().getSimpleName();
     }
 
     @FunctionalInterface

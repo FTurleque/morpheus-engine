@@ -1,7 +1,7 @@
 # Scénarios de qualité — MORPHEUS ENGINE
 
 > Complément de [§10](../arc42/10-exigences-qualite.md).
-> Baseline : MORPHEUS 1.2.0 — `develop` post-D2.
+> Baseline active : MORPHEUS 1.2.1 corrective — `develop` post-audit. Dernière release publiée : `v1.2.0`.
 >
 > Un scénario est marqué **qualifié** uniquement lorsqu'une preuve exécutable ou
 > une validation identifiée existe. Les objectifs sans seuil mesuré restent des
@@ -89,6 +89,46 @@ bit-à-bit identiques.
 | Seuil | 0 |
 | Preuve | `ExternalJarIntegrityTest` |
 
+### Q-SE-05 — Écriture de réponse remote bornée en temps — qualifié post-audit 1.2.1 (A-10)
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Un client TLS authentifié cesse de lire une réponse (lecture lente, arrêt après les en-têtes, disparition brutale) |
+| Réponse | La deadline stall (15 s réarmée à chaque bloc écrit) ou totale (120 s) interrompt l'écriture et libère la connexion |
+| Mesure | Un client abandonné retient un thread/slot de réponse au-delà des budgets |
+| Seuil | 0 |
+| Preuve | `TimedBoundedResponseWriterTest`, `MorpheusRemoteAdversarialClientTest` |
+
+### Q-SE-06 — Audit d'identités : preuve, pas autorité — qualifié post-audit 1.2.1 (A-12)
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Une entrée illisible ou corrompue existe dans le fichier d'audit des identités remote |
+| Réponse | L'entrée est mise en quarantaine (`AUDIT_QUARANTINED`) sans bloquer `revoke`/`rotate`/`create` |
+| Mesure | Une mutation de sécurité légitime est bloquée par une entrée d'audit illisible |
+| Seuil | 0 |
+| Preuve | `MorpheusRemoteIdentityAuditRecoveryTest`, ADR-0100 |
+
+### Q-SE-07 — Budgets de query HTTP bornés avant décodage — qualifié post-audit 1.2.1 (A-13)
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Une query string dépasse 16 KiB, 16 paramètres, 128 octets de nom ou 8 KiB de valeur, ou porte un encodage `%` invalide |
+| Réponse | Rejet déterministe `400 BAD_REQUEST`, jamais `500`, budgets vérifiés en octets UTF-8 avant tout décodage |
+| Mesure | Dépassement accepté ou provoquant une erreur non contrôlée |
+| Seuil | 0 |
+| Preuve | `MorpheusHttpQueryTest`, `LocalHttpQueryArchitectureTest` |
+
+### Q-SE-08 — Lifecycle explicite du transport MCP borné — qualifié post-audit 1.2.1 (A-14)
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Double `connect()` séquentiel ou concurrent, `connect()` après `close()`, ou échec de démarrage du pair MCP |
+| Réponse | Machine d'état `NEW → CONNECTING → CONNECTED → CLOSING → CLOSED/FAILED` revendiquée avant tout démarrage ; un seul ticket de teardown est délivré |
+| Mesure | Un second pair démarré sans que le premier soit nommé/terminé |
+| Seuil | 0 |
+| Preuve | `BoundedStdioClientTransportLifecycleTest`, `BoundedStdioClientTransportTest` |
+
 ---
 
 ## Maintenabilité
@@ -125,7 +165,7 @@ bit-à-bit identiques.
 | Seuil | 0 |
 | Preuve | `.github/workflows/ci.yml` et metadata GitHub Actions |
 
-Le workflow actuel appelle `validate-m21` avec la version 1.2.0. Le numéro M21
+Le workflow actuel appelle `validate-m21` avec la version 1.2.1. Le numéro M21
 est celui du gate durable d'intégrité ; il ne représente pas le dernier
 milestone fonctionnel livré.
 
@@ -154,10 +194,60 @@ milestone fonctionnel livré.
 | Seuil | PASS |
 | Preuve | Validation R3 et manifests de release |
 
-### Q-PO-03 — macOS — non qualifié
+### Q-PO-03 — macOS — observé au niveau smoke, non supporté
 
-macOS n'est pas une plateforme publiée/qualifiée par la baseline actuelle. Il
-n'existe donc pas de seuil de compatibilité à annoncer ici.
+macOS n'est **pas** une plateforme publiée ou supportée par la baseline actuelle.
+Aucun packaging macOS n'est produit et aucun engagement de support n'est pris.
+
+Ce qui a changé : la lane `macos-smoke` de `ci.yml` fait tourner le reactor complet
+sur `macos-latest` et enregistre les faits système dont MORPHEUS dépend
+(sensibilité à la casse, permissions POSIX sur `TMPDIR`, création de liens
+symboliques, version Java). Elle est **advisory** — `continue-on-error: true` —
+parce qu'une plateforme jamais qualifiée ne doit pas bloquer les pull requests, et
+parce qu'une lane verte ne vaut pas une décision de support.
+
+| Champ | Valeur |
+|-------|--------|
+| Stimulus | Exécution du reactor complet sur `macos-latest` |
+| Réponse | Observation enregistrée, sans engagement de support ni packaging |
+| Mesure | Résultat de la lane advisory + faits système publiés dans le résumé de job |
+| Seuil | Aucun — la lane est non bloquante |
+| Preuve | Job `macos-smoke` de `.github/workflows/ci.yml` |
+
+#### Premier fait observé (04/09/2026)
+
+La lane a produit un constat dès sa première exécution, ce qui est exactement sa raison d'être.
+
+Sur `macos-latest`, `TMPDIR` pointe sous `/var/folders/...`, et `/var` est un **lien symbolique**
+vers `/private/var`. `LocalWritePermissionHardener` refuse de durcir ou de lire un chemin atteint
+par un lien symbolique — ce refus est un invariant de sécurité, et il a fonctionné exactement comme
+prévu. Conséquence : tous les tests utilisant `@TempDir` échouaient avant qu'aucun comportement
+spécifique à macOS ne puisse être observé.
+
+Second fait, découvert en tentant de corriger le premier : **cela ne se corrige pas depuis le
+runner.** Exporter un `TMPDIR` résolu ne change rien — sur macOS la JVM prend son répertoire
+temporaire d'une API Darwin au démarrage, pas de l'environnement — et passer
+`-Djava.io.tmpdir` en ligne de commande Maven arrive trop tard pour la JVM de test forkée.
+
+**Ce n'est pas un défaut MORPHEUS et l'invariant n'a pas été touché.** Aucun contournement n'a été
+introduit : la lane reste advisory et **signale** le fait plutôt que de le masquer.
+
+Conséquence pour une future décision de support macOS — c'est le livrable réel de A-09 :
+
+1. sur macOS, le répertoire temporaire par défaut est derrière un lien symbolique, et MORPHEUS le
+   refuse **correctement** ;
+2. ce refus n'est pas contournable par variable d'environnement ni par propriété Maven ;
+3. rendre la lane verte suppose de décider **où les tests MORPHEUS enracinent leurs fichiers
+   temporaires** sur cette plateforme — une décision de support, pas un ajustement de CI ;
+4. la même question se posera à l'exécution pour un répertoire de données dérivé du répertoire
+   temporaire.
+
+Tant que cette décision n'est pas prise, la lane observe, échoue de façon informative, et ne bloque
+rien.
+
+Passer de « observé » à « supporté » exige une décision produit explicite : lane
+rendue bloquante, packaging macOS, validation dual-platform étendue, et ADR dédié.
+L'état actuel reste **RT-08 ouvert**.
 
 ---
 

@@ -11,6 +11,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 class ProductionIntegrityContractTest {
@@ -94,10 +96,15 @@ class ProductionIntegrityContractTest {
 
         assertTrue(publicSurfaces.contains("../../contracts/public-surfaces.tsv"));
         assertTrue(publicSurfaces.contains("EXPLICITLY_NOT_EXPOSED"));
-        assertTrue(integrity.contains("860 PASS"));
-        assertTrue(integrity.contains("265 PASS"));
-        assertTrue(integrity.contains("51.0 % aggregate"));
-        assertTrue(integrity.contains("43.5 % aggregate"));
+        Ratchets ratchets = Ratchets.load(root.resolve("config/m21-quality-ratchets.properties"));
+        assertTrue(integrity.contains(ratchets.tests() + " PASS"),
+                "PRODUCTION_INTEGRITY.md must quote the normative Surefire ratchet " + ratchets.tests());
+        assertTrue(integrity.contains(ratchets.architectureTests() + " PASS"),
+                "PRODUCTION_INTEGRITY.md must quote the normative architecture ratchet " + ratchets.architectureTests());
+        assertTrue(integrity.contains(ratchets.lineCoverage() + " % aggregate"),
+                "PRODUCTION_INTEGRITY.md must quote the normative line ratchet " + ratchets.lineCoverage());
+        assertTrue(integrity.contains(ratchets.branchCoverage() + " % aggregate"),
+                "PRODUCTION_INTEGRITY.md must quote the normative branch ratchet " + ratchets.branchCoverage());
         assertTrue(integrity.contains("Changed lines       >= 80 %"));
         assertTrue(integrity.contains("Changed branches    >= 70 %"));
         assertTrue(integrity.contains("config/m21-quality-ratchets.properties"));
@@ -120,6 +127,25 @@ class ProductionIntegrityContractTest {
             }
         }
         return result.toString();
+    }
+
+    /** Reads the single normative source of the M21 ratchets so documentation gates can never pin stale numbers. */
+    private record Ratchets(String tests, String architectureTests, String lineCoverage, String branchCoverage) {
+        private static Ratchets load(Path path) throws IOException {
+            Properties properties = new Properties();
+            try (var reader = Files.newBufferedReader(path)) {
+                properties.load(reader);
+            }
+            return new Ratchets(
+                    properties.getProperty("testsMinimum"),
+                    properties.getProperty("architectureTestsMinimum"),
+                    percentage(properties.getProperty("lineCoverageMinimum")),
+                    percentage(properties.getProperty("branchCoverageMinimum")));
+        }
+
+        private static String percentage(String decimal) {
+            return String.format(Locale.ROOT, "%.1f", Double.parseDouble(decimal) * 100.0d);
+        }
     }
 
     private Path repoRoot() {

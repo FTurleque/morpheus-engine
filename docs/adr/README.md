@@ -113,6 +113,9 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0095](0095-evidence-backed-assisted-reasoning.md) | Analyse assistée fondée sur des preuves, confiance explicite et séparation facts/claims | **Acceptée — M27** |
 | [ADR-0096](0096-conservative-native-mcp-client-integration.md) | Intégration native MCP explicite, conservatrice et state-driven | **Acceptée — M28** |
 | [ADR-0097](0097-full-publish-version-semantics-and-failed-candidates.md) | Sémantique de `publishFull`, séquence durable et candidats `FAILED` | **Acceptée — post-audit M28** |
+| [ADR-0098](0098-embedded-runtime-retains-its-java-launcher.md) | Le runtime embarqué conserve `bin/java` pour le probe isolé de plugin | **Acceptée — post-audit 1.2.1** |
+| [ADR-0099](0099-bounded-response-lifetime-on-the-remote-facade.md) | Durée de vie bornée d'une réponse remote : budgets stall/total et deadline par interruption de canal | **Acceptée — post-audit 1.2.1** |
+| [ADR-0100](0100-identity-audit-is-evidence-not-authority.md) | L'audit d'identités est une preuve, pas une autorité : une entrée illisible ne bloque pas une révocation | **Acceptée — post-audit 1.2.1** |
 
 # Preuves par jalon
 

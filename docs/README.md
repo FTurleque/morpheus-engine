@@ -88,10 +88,10 @@ bash ./scripts/validate-m21.sh 1.2.1
 Contrats actifs :
 
 ```text
-Surefire total                 >= 1000
-architecture tests             >= 300
-JaCoCo global lines            >= 52.0%
-JaCoCo global branches         >= 45.0%
+Surefire total                 >= 1300
+architecture tests             >= 335
+JaCoCo global lines            >= 54.5%
+JaCoCo global branches         >= 47.7%
 PR changed executable lines    >= 80%
 PR changed branches            >= 70%
 dependency hygiene             blocking

@@ -1,6 +1,6 @@
 # Operability M19
 
-Statut : **M19 en cours — contrat implémenté, gate final non exécuté**
+Statut : **M19 livré et intégré** — ce document décrit le comportement actuel ; la preuve de qualification du jalon reste `docs/validation/VALIDATION_M19.md` (historique).
 
 ## Principes
 
@@ -206,7 +206,7 @@ docs/validation/VALIDATION_M19.md
 Code SHA      = dca27db969b426ad43941ccb8cee7e926efb931b
 Windows proof = PASS
 Linux proof   = PASS sur ext4 / WSL2
-M19 result    = VALIDATED TECHNICALLY / NOT MERGED
+M19 result    = VALIDATED TECHNICALLY / MERGED
 ```
 
-Les deux plateformes ont exécuté 449/449 tests, 178/178 tests d'architecture, 14/14 modules et les budgets gelés sans failure, error ou skipped. La PR #89 reste non mergée.
+Les deux plateformes ont exécuté 449/449 tests, 178/178 tests d'architecture, 14/14 modules et les budgets gelés sans failure, error ou skipped. Ces chiffres restent la preuve historique de la qualification M19 au SHA ci-dessus ; ils ne sont pas recalculés ici. La PR #89 est **MERGED** (2026-07-27) ; le jalon M19 est intégré dans `develop` depuis lors.

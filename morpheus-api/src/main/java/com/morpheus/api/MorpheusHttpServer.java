@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.history.PublishedHistoryException;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -178,8 +179,10 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     @Override
     public void close() {
-        server.stop(0);
-        executor.shutdownNow();
+        ExhaustiveShutdown.releaseAll(
+                "cannot shut down the MORPHEUS local HTTP server",
+                () -> server.stop(0),
+                executor::shutdownNow);
     }
 
     void handle(HttpExchange exchange) throws IOException {
@@ -192,9 +195,9 @@ public final class MorpheusHttpServer implements AutoCloseable {
             }
             send(exchange, failure.status(), error(failure.code(), failure.getMessage(), failure.details()));
         } catch (IllegalArgumentException failure) {
-            send(exchange, 400, error("BAD_REQUEST", safeMessage(failure), Map.of()));
+            send(exchange, 400, error("BAD_REQUEST", BoundaryFailureMessage.safe(failure), Map.of()));
         } catch (KnowledgeStoreException | PublishedHistoryException | IllegalStateException failure) {
-            send(exchange, 409, error("STATE_CONFLICT", safeMessage(failure), Map.of()));
+            send(exchange, 409, error("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of()));
         } catch (RuntimeException failure) {
             send(exchange, 500, error("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of()));
         } finally {
@@ -265,10 +268,6 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
     }
 
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 
     public record ApiSuccess(String apiVersion, Object data) {
         public ApiSuccess {

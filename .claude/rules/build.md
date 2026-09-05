@@ -94,7 +94,7 @@ juste au-dessus de cette dépendance dans le POM).
 ```bash
 ./mvnw clean verify                      # build complet + coverage + gates
 ./mvnw dependency:analyze                # hygiène (0 warning exigé)
-./mvnw verify -P d2-security             # + scan OWASP CVE
+./mvnw -Pd2-security -DautoUpdate=false org.owasp:dependency-check-maven:aggregate             # + scan OWASP CVE
 ./mvnw test -pl morpheus-architecture-tests
 ```
 

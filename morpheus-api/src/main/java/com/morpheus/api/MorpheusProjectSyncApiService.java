@@ -55,7 +55,10 @@ final class MorpheusProjectSyncApiService {
             SyncPlan plan = syncService.prepare(scan, SyncPlan.Trigger.manual().forced(), attemptedAt);
             if (!scan.complete()) {
                 syncService.fail(plan, Instant.now());
-                throw ApiFailure.conflict("source scan is incomplete: " + scan.failures());
+                // The public projection, never scan.failures(): a scan failure carries the pathname the
+                // platform put in it, and this route is reachable remotely by a WRITE caller who supplied
+                // none of the server's layout.
+                throw ApiFailure.conflict("source scan is incomplete: " + scan.publicFailures());
             }
 
             try {
@@ -124,7 +127,10 @@ final class MorpheusProjectSyncApiService {
                 .map(policy -> policy.requireAllowedDirectory(workspace))
                 .orElse(workspace);
         if (!Files.isDirectory(authorizedWorkspace)) {
-            throw ApiFailure.conflict("workspace is not a directory: " + authorizedWorkspace);
+            // The workspace comes from the stored project, not from this request, so naming it would hand a remote
+            // caller a pathname it never supplied -- including for a project the operator registered locally. The
+            // route already identifies the project, which is what the caller can act on.
+            throw ApiFailure.conflict("project workspace is no longer a directory: " + projectId);
         }
         return authorizedWorkspace;
     }

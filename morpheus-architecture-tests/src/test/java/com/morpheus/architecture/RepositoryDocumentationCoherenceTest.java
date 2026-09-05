@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -21,7 +22,25 @@ class RepositoryDocumentationCoherenceTest {
     private static final Pattern PROJECT_VERSION = Pattern.compile("<version>([^<]+)</version>");
     private static final Pattern MCP_VERSION = Pattern.compile("<mcp-sdk\\.version>([^<]+)</mcp-sdk\\.version>");
     private static final Pattern MODULE_BLOCK = Pattern.compile("<modules>(.*?)</modules>", Pattern.DOTALL);
+    private static final Pattern SCHEMA_VERSION_DECLARATION =
+            Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*(\\d+)");
+    private static final Pattern SCHEMA_VERSION_LITERAL =
+            Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*\\d+");
+    /**
+     * A total that grows with the repository, stated on a page that describes the current contract:
+     * "98 fichiers" ADR, "17 modules". The count belongs in a glob at answer time, not on the page.
+     */
+    private static final Pattern ADR_OR_MODULE_TOTAL = Pattern.compile(
+            "(?i)\\b\\d{1,4}\\s+(?:fichiers?|ADRs?|modules?)\\b");
+    /**
+     * A schema version stated in prose on an active surface: "schema 15", "schéma V017", or the constant
+     * followed by its value in words rather than by an assignment. Historical pages are never scanned with it.
+     */
+    private static final Pattern SCHEMA_VERSION_PROSE = Pattern.compile(
+            "(?i)(?:sch[eé]ma|schema)\\s+(?:supported\\s+|support[eé]e?\\s+)?V?\\d+"
+                    + "|SUPPORTED_SCHEMA_VERSION[^\\n]{0,40}?\\bV?\\d+");
     private static final Pattern MODULE = Pattern.compile("<module>([^<]+)</module>");
+    private static final Pattern DOCUMENTED_THRESHOLD = Pattern.compile(">=\\s*([0-9]+(?:[.,][0-9]+)?)");
 
     @Test
     void rootReadmeMatchesPomVersionMcpSdkAndModuleList() throws Exception {
@@ -76,10 +95,14 @@ class RepositoryDocumentationCoherenceTest {
         Path root = repositoryRoot();
         Path ratchetFile = root.resolve("config/m21-quality-ratchets.properties");
         Map<String, String> ratchets = properties(ratchetFile);
-        assertEquals("1000", ratchets.get("testsMinimum"));
-        assertEquals("300", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.520", ratchets.get("lineCoverageMinimum"));
-        assertEquals("0.450", ratchets.get("branchCoverageMinimum"));
+        // Pinned so that moving a ratchet is a deliberate act with evidence, never a side effect. Raised on
+        // 04/09/2026 from 1150/310/0.540/0.470 against an exact-head Windows measurement of 57.49% lines and
+        // 50.21% branches over 1324 tests, of which 343 are architecture tests. The coverage values stay under
+        // CoverageQualityGateTest's qualified cap, which requires evidence from both platforms to move.
+        assertEquals("1300", ratchets.get("testsMinimum"));
+        assertEquals("335", ratchets.get("architectureTestsMinimum"));
+        assertEquals("0.545", ratchets.get("lineCoverageMinimum"));
+        assertEquals("0.477", ratchets.get("branchCoverageMinimum"));
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
@@ -120,6 +143,229 @@ class RepositoryDocumentationCoherenceTest {
                 "ADR index must retain the accepted ADR-0096 entry");
         assertFalse(arc42.contains("| DT-02 |"),
                 "active debt register must not advertise the already-resolved ADR-0096 index drift");
+    }
+
+    @Test
+    void operatorFacingQualityGateDocumentationMirrorsTheNormativeRatchets() throws Exception {
+        Path root = repositoryRoot();
+        Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
+        String tests = ratchets.get("testsMinimum");
+        String architecture = ratchets.get("architectureTestsMinimum");
+        String line = decimalPercentage(ratchets.get("lineCoverageMinimum"));
+        String branch = decimalPercentage(ratchets.get("branchCoverageMinimum"));
+
+        assertLabelledThresholds(root, "docs/developer/BUILD_AND_TEST.md", Map.of(
+                "baseline Surefire totale", tests,
+                "baseline architecture", architecture,
+                "JaCoCo line ratchet", line,
+                "JaCoCo branch ratchet", branch));
+        assertLabelledThresholds(root, "docs/developer/PRODUCTION_INTEGRITY.md", Map.of(
+                "Tests ", tests,
+                "Architecture ", architecture,
+                "JaCoCo lines", line,
+                "JaCoCo branches", branch));
+        assertLabelledThresholds(root, "docs/README.md", Map.of(
+                "Surefire total", tests,
+                "architecture tests", architecture,
+                "JaCoCo global lines", line,
+                "JaCoCo global branches", branch));
+        // The operator surfaces an engineer actually opens before running a gate. Each of these still announced
+        // the pre-1.2.1 ratchets, so four different numbers were in circulation for one executable threshold.
+        assertLabelledThresholds(root, "scripts/README.md", Map.of(
+                "Surefire total", tests,
+                "architecture ", architecture,
+                "line coverage", line,
+                "branch coverage", branch));
+        assertLabelledThresholds(root, "distribution/README.md", Map.of(
+                "Surefire total", tests,
+                "architecture ", architecture,
+                "line coverage", line,
+                "branch coverage", branch));
+        assertLabelledThresholds(root, "docs/developer/README.md", Map.of(
+                "Surefire floor", tests,
+                "Architecture floor", architecture,
+                "JaCoCo line ratchet", line,
+                "JaCoCo branch ratchet", branch));
+        assertLabelledThresholds(root, "docs/governance/DOCUMENTATION_STATUS.md", Map.of(
+                "Surefire ratchet", tests,
+                "Architecture ratchet", architecture,
+                "Global line ratchet", line,
+                "Global branch ratchet", branch));
+        assertLabelledThresholds(root, "docs/governance/ROADMAP.md", Map.of(
+                "Surefire ratchet", tests,
+                "architecture ratchet", architecture,
+                "global line ratchet", line,
+                "global branch ratchet", branch));
+
+        String readme = Files.readString(root.resolve("README.md"));
+        String readmeClaim = "Le ratchet global est **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire** et **≥ %s tests d’architecture**"
+                .formatted(french(line), french(branch), tests, architecture);
+        assertTrue(readme.contains(readmeClaim),
+                () -> "README.md must state the normative M21 ratchets: " + readmeClaim);
+
+        String buildAndTest = Files.readString(root.resolve("docs/developer/BUILD_AND_TEST.md"));
+        String lockedBaseline = "**%s%% lignes / %s%% branches**".formatted(french(line), french(branch));
+        assertTrue(buildAndTest.contains("verrouillée à " + lockedBaseline),
+                () -> "BUILD_AND_TEST.md locked baseline must be " + lockedBaseline);
+        assertTrue(buildAndTest.contains("une baisse sous %s%% lignes ou %s%% branches".formatted(french(line), french(branch))),
+                "BUILD_AND_TEST.md regression rule must quote the normative coverage ratchets");
+    }
+
+    /**
+     * The D2 half of the operator guide has no properties file behind it: both validators carry the baseline as
+     * a literal, and D2RepositoryHardeningArchitectureTest pins those literals. The guide announced the M21
+     * ratchets instead, so an operator reading it expected D2 to refuse a build that D2 accepts.
+     */
+    @Test
+    void operatorFacingD2GateDocumentationMirrorsWhatTheD2ValidatorsEnforce() throws Exception {
+        Path root = repositoryRoot();
+        String linux = Files.readString(root.resolve("scripts/validate-d2.sh"));
+        String windows = Files.readString(root.resolve("scripts/validate-d2.ps1"));
+
+        String tests = onlyGroup(Pattern.compile("\\(\\( TESTS < (\\d+) \\)\\)"), linux, "D2 Surefire baseline");
+        String architecture = onlyGroup(Pattern.compile("\\(\\( ARCH_TESTS < (\\d+) \\)\\)"), linux, "D2 architecture baseline");
+        String lineFloor = onlyGroup(Pattern.compile("if line < (0\\.\\d+):"), linux, "D2 line coverage floor");
+        String branchFloor = onlyGroup(Pattern.compile("if branch < (0\\.\\d+):"), linux, "D2 branch coverage floor");
+
+        assertTrue(windows.contains("$tests -lt " + tests),
+                "the Windows D2 validator must enforce the same Surefire baseline as the Linux one");
+        assertTrue(windows.contains("$architectureTests -lt " + architecture),
+                "the Windows D2 validator must enforce the same architecture baseline as the Linux one");
+        assertTrue(windows.contains("$lineCoverage -lt " + lineFloor),
+                "the Windows D2 validator must enforce the same line coverage floor as the Linux one");
+        assertTrue(windows.contains("$branchCoverage -lt " + branchFloor),
+                "the Windows D2 validator must enforce the same branch coverage floor as the Linux one");
+
+        assertLabelledThresholds(root, "scripts/README.md", Map.of(
+                "baseline Surefire", tests,
+                "baseline architecture", architecture,
+                "absolute line floor", decimalPercentage(lineFloor),
+                "absolute branch floor", decimalPercentage(branchFloor)));
+    }
+
+    @Test
+    void activeGovernanceDocumentationNeverPinsTheSqliteSchemaVersion() throws Exception {
+        Path root = repositoryRoot();
+        String manager = Files.readString(root.resolve(
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java"));
+        Matcher declaration = SCHEMA_VERSION_DECLARATION.matcher(manager);
+        assertTrue(declaration.find(), "SqliteSchemaManager must declare SUPPORTED_SCHEMA_VERSION");
+
+        String maintenance = Files.readString(root.resolve(
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteServerMaintenance.java"));
+        assertTrue(maintenance.contains("SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION"),
+                "maintenance must consume the declared constant rather than restate the version");
+
+        // Active governance surfaces describe the *current* contract, so a literal here silently rots.
+        // Historical snapshots under docs/validation and docs/roadmap legitimately record past versions.
+        for (Path page : activeGovernanceSurfaces(root)) {
+            if (!Files.isRegularFile(page)) {
+                continue;
+            }
+            String content = Files.readString(page);
+            Matcher pinned = SCHEMA_VERSION_LITERAL.matcher(content);
+            assertFalse(pinned.find(),
+                    () -> root.relativize(page) + " pins SUPPORTED_SCHEMA_VERSION to a literal; derive it from "
+                            + "SqliteSchemaManager instead so the check cannot describe a stale contract");
+
+            // The assignment form is only one way to state the version. An active surface that *describes* the
+            // current schema in prose - "schema 15" in a report template, "constate a 17" in a rule - rots the
+            // same way while sailing past a check that only looks for the constant.
+            Matcher prose = SCHEMA_VERSION_PROSE.matcher(content);
+            assertFalse(prose.find(),
+                    () -> root.relativize(page) + " states a current SQLite schema version in prose ("
+                            + describeFirstMatch(SCHEMA_VERSION_PROSE, content)
+                            + "); active surfaces must read SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION instead");
+        }
+    }
+
+    /**
+     * Active governance surfaces must not state a total that changes when the repository grows.
+     *
+     * <p>{@code rules/meta.md} says never to recopy a perishable total, yet the ADR rule recopied one, and it had
+     * rotted into an ambiguity: "98 fichiers" counted 97 numbered ADRs plus the directory's own README, so a
+     * reader following it would have cited 98 ADRs. The instruction to count is what belongs on these pages.</p>
+     */
+    @Test
+    void activeGovernanceSurfacesDoNotRestateAPerishableAdrOrModuleTotal() throws Exception {
+        Path root = repositoryRoot();
+        long numberedAdrs;
+        try (var files = Files.list(root.resolve("docs/adr"))) {
+            numberedAdrs = files.filter(path -> path.getFileName().toString().matches("\\d{4}-.*\\.md")).count();
+        }
+        assertTrue(numberedAdrs > 0, "the ADR directory must contain numbered decision records");
+
+        for (Path page : activeGovernanceSurfaces(root)) {
+            if (!Files.isRegularFile(page)) {
+                continue;
+            }
+            String content = Files.readString(page);
+            assertFalse(ADR_OR_MODULE_TOTAL.matcher(content).find(),
+                    () -> root.relativize(page) + " restates a perishable total (\""
+                            + describeFirstMatch(ADR_OR_MODULE_TOTAL, content)
+                            + "\"); count docs/adr/0*.md or pom.xml <module> entries instead");
+        }
+    }
+
+    /**
+     * The developer platform guide describes the current contract, so it must not pin the runtime's maximum
+     * schema version. It said the maximum was V016 and that anything above 16 is refused, while the manager had
+     * moved to 17 -- a reader following it would have concluded a valid database was rejected.
+     */
+    @Test
+    void theRemotePlatformGuideDerivesTheSchemaCeilingFromTheDeclaringConstant() throws Exception {
+        Path root = repositoryRoot();
+        String guide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
+
+        int section = guide.indexOf("## Schéma SQLite");
+        assertTrue(section >= 0, "the guide must keep its SQLite schema section");
+        String schemaSection = guide.substring(section, Math.min(guide.length(), section + 2000));
+
+        assertTrue(schemaSection.contains("SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION"),
+                "the documented ceiling must point at the constant that declares it");
+        assertFalse(Pattern.compile("version maximale supportée par le runtime\\s*:\\s*\\*\\*V?\\d+")
+                        .matcher(schemaSection).find(),
+                "the guide must not restate the runtime's maximum schema version as a literal");
+    }
+
+    /**
+     * The guide must not describe a failure type that no longer exists.
+     *
+     * <p>It documented the transaction runner as throwing {@code SqliteCommittedTransactionException} on a
+     * post-commit cleanup failure. Nothing threw it -- the runner retries, recovers the scope or quarantines the
+     * connection, and reports the mutation as the success it durably is. A reader would have written a catch
+     * block for a case that never arrives, and missed the one that does: the next transaction being refused.</p>
+     */
+    @Test
+    void theRemotePlatformGuideOnlyNamesFailureTypesThatExist() throws Exception {
+        Path root = repositoryRoot();
+        String guide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
+        Path sqliteSources = root.resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite");
+
+        Matcher named = Pattern.compile("`(Sqlite[A-Za-z]*Exception)`").matcher(guide);
+        while (named.find()) {
+            String type = named.group(1);
+            assertTrue(Files.isRegularFile(sqliteSources.resolve(type + ".java")),
+                    () -> "REMOTE_SERVER_PLATFORM.md documents " + type + ", which no longer exists");
+        }
+    }
+
+    /**
+     * The audit command must tell its reader where the normative value lives, not just avoid restating it.
+     * A template with an empty placeholder and no instruction invites the next reader to fill in a remembered
+     * number, which is how the stale "schema 15" line survived the previous correction.
+     */
+    @Test
+    void theSecurityAuditCommandDerivesTheSqliteSchemaVersionFromTheDeclaringConstant() throws Exception {
+        Path root = repositoryRoot();
+        String command = Files.readString(root.resolve(".claude/commands/security-audit.md"));
+
+        assertTrue(command.contains("SUPPORTED_SCHEMA_VERSION"),
+                "the audit command must point at the declaring constant");
+        assertTrue(command.contains("SqliteSchemaManager.java"),
+                "the audit command must name the file that declares the normative version");
+        assertTrue(command.contains("SqliteSchemaManager>"),
+                "the audit report template must carry a placeholder rather than a version number");
     }
 
     @Test
@@ -198,6 +444,82 @@ class RepositoryDocumentationCoherenceTest {
         assertTrue(developerGuide.contains("ne constituent pas une sandbox du système d'exploitation"));
         assertFalse(developerGuide.contains("`GET`/`HEAD` : READ"),
                 "developer guide must not reintroduce the obsolete verb-derived RBAC contract");
+    }
+
+    /** Reads a threshold a validator states exactly once, so a second statement of it cannot go unnoticed. */
+    private static String onlyGroup(Pattern pattern, String script, String label) {
+        Matcher matcher = pattern.matcher(script);
+        assertTrue(matcher.find(), () -> "cannot find " + label + " in the D2 validator");
+        String value = matcher.group(1);
+        assertFalse(matcher.find(), () -> label + " is stated more than once in the D2 validator");
+        return value;
+    }
+
+    /** Quotes the offending text so a failure names what to remove instead of only where to look. */
+    private static String describeFirstMatch(Pattern pattern, String content) {
+        Matcher matcher = pattern.matcher(content);
+        return matcher.find() ? matcher.group().strip() : "";
+    }
+
+    private static void assertLabelledThresholds(Path root, String page, Map<String, String> expected) throws IOException {
+        String content = Files.readString(root.resolve(page)).replace("\r\n", "\n");
+        for (Map.Entry<String, String> entry : expected.entrySet()) {
+            List<String> observed = labelledThresholds(content, entry.getKey());
+            assertFalse(observed.isEmpty(),
+                    () -> page + " must document the \"" + entry.getKey().strip() + "\" quality ratchet");
+            for (String value : observed) {
+                assertEquals(entry.getValue(), value,
+                        () -> page + " documents a stale \"" + entry.getKey().strip()
+                                + "\" ratchet; config/m21-quality-ratchets.properties is normative");
+            }
+        }
+    }
+
+    private static List<String> labelledThresholds(String content, String label) {
+        List<String> values = new ArrayList<>();
+        for (String raw : content.split("\n")) {
+            String candidate = raw.strip();
+            if (!candidate.startsWith(label.strip()) || !candidate.contains(">=")) {
+                continue;
+            }
+            Matcher matcher = DOCUMENTED_THRESHOLD.matcher(candidate);
+            if (matcher.find()) {
+                values.add(matcher.group(1).replace(',', '.'));
+            }
+        }
+        return values;
+    }
+
+    /** Renders a ratchet ratio the way the gate blocks do, e.g. 0.520 -> "52.0". */
+    private static String decimalPercentage(String decimal) {
+        return String.format(Locale.ROOT, "%.1f", Double.parseDouble(decimal) * 100.0d);
+    }
+
+    private static String french(String decimal) {
+        return decimal.replace('.', ',');
+    }
+
+    private static List<Path> activeGovernanceSurfaces(Path root) throws IOException {
+        List<Path> surfaces = new ArrayList<>();
+        // The two always-loaded entry points belong here too: they are the surfaces an agent reads first, so a
+        // stale fact on them propagates furthest.
+        for (String page : List.of(".claude/CLAUDE.md", ".github/copilot-instructions.md")) {
+            Path file = root.resolve(page);
+            if (Files.isRegularFile(file)) {
+                surfaces.add(file);
+            }
+        }
+        for (String directory : List.of(".claude/commands", ".claude/agents", ".claude/rules", ".github/prompts",
+                ".github/instructions")) {
+            Path base = root.resolve(directory);
+            if (!Files.isDirectory(base)) {
+                continue;
+            }
+            try (var entries = Files.list(base)) {
+                entries.filter(path -> path.toString().endsWith(".md")).sorted().forEach(surfaces::add);
+            }
+        }
+        return surfaces;
     }
 
     private static List<Path> activeStatusPages(Path root) {

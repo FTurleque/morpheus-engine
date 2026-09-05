@@ -44,7 +44,7 @@ L'application autonome contient :
 ```text
 launcher natif
 application JAR
-runtime Java embarqué
+runtime Java embarqué (avec son propre bin/java, cf. ADR-0098)
 ```
 
 Chaque build exécute le launcher packagé avec `--version` et `--json version` avant archivage.

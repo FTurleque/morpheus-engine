@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
 import com.morpheus.store.sqlite.SqliteCompositionStateStore;
 import com.morpheus.store.sqlite.SqliteConnectionScope;
@@ -32,8 +34,12 @@ final class ApiRuntime implements AutoCloseable {
 
     ApiRuntime(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        this.sqliteScope = SqliteConnectionScope.open(databasePath);
-        try {
+        // The stores all borrow the scope's single physical connection, so releasing the scope releases every
+        // one of them. What the previous catch missed was the kind of failure: an Error raised while a store
+        // class initializes skipped it entirely and left the scope, and its connection, open.
+        try (StartupOwnership owned = new StartupOwnership()) {
+            SqliteConnectionScope scope = owned.keep(
+                    SqliteConnectionScope.open(databasePath), SqliteConnectionScope::close);
             snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
             requirements = new SqliteVersionedRequirementStore(databasePath);
             content = new SqliteSnapshotBusinessContentStore(databasePath);
@@ -43,13 +49,8 @@ final class ApiRuntime implements AutoCloseable {
             syncState = new SqliteSyncStateStore(databasePath);
             lifecycleMutations = new SqliteChangeLifecycleMutationStore(databasePath);
             compositions = new SqliteCompositionStateStore(databasePath);
-        } catch (RuntimeException failure) {
-            try {
-                sqliteScope.close();
-            } catch (RuntimeException closeFailure) {
-                failure.addSuppressed(closeFailure);
-            }
-            throw failure;
+            owned.transferred();
+            this.sqliteScope = scope;
         }
     }
 
@@ -63,37 +64,18 @@ final class ApiRuntime implements AutoCloseable {
 
     @Override
     public void close() {
-        RuntimeException failure = null;
-        failure = close(compositions, failure);
-        failure = close(lifecycleMutations, failure);
-        failure = close(syncState, failure);
-        failure = close(identities, failure);
-        failure = close(externalReferences, failure);
-        failure = close(traceability, failure);
-        failure = close(content, failure);
-        failure = close(requirements, failure);
-        failure = close(snapshots, failure);
-        failure = close(sqliteScope, failure);
-        if (failure != null) throw failure;
+        ExhaustiveShutdown.releaseAll(
+                "cannot close API runtime resource",
+                compositions,
+                lifecycleMutations,
+                syncState,
+                identities,
+                externalReferences,
+                traceability,
+                content,
+                requirements,
+                snapshots,
+                sqliteScope);
     }
 
-    private RuntimeException close(AutoCloseable closeable, RuntimeException previous) {
-        try {
-            closeable.close();
-            return previous;
-        } catch (RuntimeException exception) {
-            if (previous != null) {
-                previous.addSuppressed(exception);
-                return previous;
-            }
-            return exception;
-        } catch (Exception exception) {
-            RuntimeException wrapped = new IllegalStateException("cannot close API runtime resource", exception);
-            if (previous != null) {
-                previous.addSuppressed(wrapped);
-                return previous;
-            }
-            return wrapped;
-        }
-    }
 }

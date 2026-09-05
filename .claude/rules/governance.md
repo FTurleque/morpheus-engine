@@ -38,7 +38,7 @@ avec l'OpenAPI. Modifier une signature sans mettre à jour les deux casse le gat
 ## TOUJOURS
 
 - Mettre à jour **ensemble** : le code, `contracts/public-surfaces.tsv`, et `docs/openapi/morpheus-v1-*.yaml`
-- Écrire un ADR dans `docs/adr/` pour toute décision structurelle (98 fichiers constatés le 31/08/2026 — recompter avec `glob`, ne pas recopier ce total, cf. `rules/meta.md`)
+- Écrire un ADR dans `docs/adr/` pour toute décision structurelle (compter `docs/adr/0*.md` avec un `glob` — ne jamais recopier un total, cf. `rules/meta.md` ; le `README.md` du répertoire n'est pas un ADR)
 - Livrer le quadruplet complet pour un nouveau milestone (suite ArchUnit + scripts dual-platform + EXECUTION + VALIDATION)
 - Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée
 
@@ -81,7 +81,8 @@ Toute spec `docs/openapi/*.yaml` doit porter :
 **Ne pas se fier aux nombres codés en dur ici** — source de vérité vivante :
 `config/m21-quality-ratchets.properties`. `scripts/validate-m21.*` et `scripts/validate-d2.*`
 lisent ce fichier et assertent le nombre de tests, le nombre de tests d'architecture,
-la couverture ligne/branche et la version courante (`1.2.1`). Ces nombres sont des
+la couverture ligne/branche et la version courante (`1.2.1`). Valeurs constatées le
+04/09/2026 : `1300 / 335 / 54,5% / 47,7%`. Ces nombres sont des
 **ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones, donc
 toute valeur recopiée ici (y compris dans une version antérieure de cette page) peut être
 périmée. Relire le fichier `.properties` avant de citer un chiffre. Voir `rules/meta.md`.

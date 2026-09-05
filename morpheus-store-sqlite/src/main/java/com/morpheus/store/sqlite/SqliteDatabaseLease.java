@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.security.LocalWritePermissionHardener;
 import com.morpheus.application.store.KnowledgeStoreException;
 
@@ -15,10 +16,13 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -33,10 +37,22 @@ final class SqliteDatabaseLease {
     private static final Object MONITOR = new Object();
     private static final Map<Path, SharedState> SHARED = new HashMap<>();
     private static final Set<Path> EXCLUSIVE = new HashSet<>();
+    /**
+     * Physical handles whose close failed, with the lease each still holds.
+     *
+     * <p>Refusing to release a lease over an unproven close is what keeps offline maintenance out, but it left
+     * the handle and its lease unreachable: nothing could finish the release, so the database stayed reserved
+     * for the life of the process. They are retained here instead, and {@link #resolveRetained(Path)} is the
+     * controlled retry. A retry that fails changes nothing -- the lease is still held, and still refused.</p>
+     */
+    private static final Map<Path, List<RetainedHandle>> RETAINED = new HashMap<>();
 
     private SqliteDatabaseLease() {
     }
 
+    // java:S1181 catches Error deliberately: the lock channel opened just above must be released even when
+    // locking fails on a LinkageError. The failure keeps propagating unchanged.
+    @SuppressWarnings("java:S1181")
     static Lease acquireShared(Path databasePath) {
         Path database = normalize(databasePath);
         synchronized (MONITOR) {
@@ -56,16 +72,22 @@ final class SqliteDatabaseLease {
                         "SQLite database is reserved for exclusive maintenance");
                 SHARED.put(database, new SharedState(channel, lock));
                 return Lease.shared(database);
-            } catch (RuntimeException failure) {
+            } catch (RuntimeException | Error failure) {
                 closeQuietly(channel);
                 throw failure;
             }
         }
     }
 
+    // java:S1181 catches Error deliberately: the lock channel opened just above must be released even when
+    // locking fails on a LinkageError. The failure keeps propagating unchanged.
+    @SuppressWarnings("java:S1181")
     static Lease acquireExclusive(Path databasePath) {
         Path database = normalize(databasePath);
         synchronized (MONITOR) {
+            // A handle whose close failed still holds its lease. Finishing that release is the only way it can
+            // ever be given back, so it is attempted here -- and it releases nothing unless a close succeeds.
+            resolveRetained(database);
             if (SHARED.containsKey(database) || EXCLUSIVE.contains(database)) {
                 throw new IllegalStateException("SQLite database is still open in another MORPHEUS operation");
             }
@@ -77,7 +99,7 @@ final class SqliteDatabaseLease {
                         "SQLite database is still open in another MORPHEUS process");
                 EXCLUSIVE.add(database);
                 return Lease.exclusive(database, channel, lock);
-            } catch (RuntimeException failure) {
+            } catch (RuntimeException | Error failure) {
                 closeQuietly(channel);
                 throw failure;
             }
@@ -88,18 +110,25 @@ final class SqliteDatabaseLease {
         Objects.requireNonNull(connection, "connection");
         Objects.requireNonNull(lease, "lease");
         AtomicBoolean closed = new AtomicBoolean();
+        AtomicBoolean released = new AtomicBoolean();
         return (Connection) Proxy.newProxyInstance(
                 SqliteDatabaseLease.class.getClassLoader(),
                 new Class<?>[]{Connection.class},
                 (proxy, method, args) -> {
                     String name = method.getName();
                     if (name.equals("close")) {
-                        if (closed.compareAndSet(false, true)) {
-                            try {
-                                connection.close();
-                            } finally {
-                                lease.close();
-                            }
+                        // Closing makes the connection unusable whatever happens next. Releasing the database
+                        // lease is a different question, and it is answered only by a driver close that
+                        // succeeded: the lease is what makes offline maintenance impossible while a physical
+                        // handle is held, so a close whose outcome is unknown must keep it. Releasing it here
+                        // regardless let acquireExclusive succeed over a connection that may still be alive,
+                        // and a restore may replace the database file and its sidecars underneath one.
+                        closed.set(true);
+                        if (!released.get()) {
+                            connection.close();
+                            // Only now is the physical handle proven gone, so the lease may go with it.
+                            released.set(true);
+                            lease.close();
                         }
                         return null;
                     }
@@ -120,19 +149,30 @@ final class SqliteDatabaseLease {
                 });
     }
 
+    /**
+     * Opens the lock channel and hands it to the caller only once hardening has succeeded.
+     *
+     * <p>Hardening runs after the channel exists and refuses fail-closed on a permissive ancestor, which is a
+     * {@link com.morpheus.application.security.LocalWritePermissionHardener.LocalWritePermissionException} --
+     * unchecked, so the {@code IOException} handler never saw it and the descriptor stayed open for the life of
+     * the process. Ownership is explicit until the channel is returned.</p>
+     */
     private static FileChannel openLockChannel(Path lockPath) {
-        try {
+        try (StartupOwnership owned = new StartupOwnership()) {
             Path parent = lockPath.getParent();
             if (parent != null) Files.createDirectories(parent);
             rejectUnsafeLockEntry(lockPath);
-            FileChannel channel = FileChannel.open(
-                    lockPath,
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.READ,
-                    StandardOpenOption.WRITE);
+            FileChannel channel = owned.keep(
+                    FileChannel.open(
+                            lockPath,
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.READ,
+                            StandardOpenOption.WRITE),
+                    SqliteDatabaseLease::closeQuietly);
             LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
             if (parent != null) hardener.hardenDirectory(parent);
             hardener.hardenFile(lockPath);
+            owned.transferred();
             return channel;
         } catch (IOException failure) {
             throw new KnowledgeStoreException("Cannot open SQLite database access lease", failure);
@@ -149,6 +189,80 @@ final class SqliteDatabaseLease {
         } catch (IOException failure) {
             throw new KnowledgeStoreException("Cannot acquire SQLite database access lease", failure);
         }
+    }
+
+    /**
+     * Keeps a physical handle and its lease together after a close that failed.
+     *
+     * <p>The lease is deliberately not released: the handle may still be alive, and an offline restore replaces
+     * the database file and its sidecars. Keeping both reachable is what separates "not released yet" from
+     * "leaked" -- the second cannot be recovered, and this one can.</p>
+     */
+    static void retain(Path databasePath, Connection connection, Lease lease, Throwable closeFailure) {
+        Objects.requireNonNull(connection, "connection");
+        Objects.requireNonNull(lease, "lease");
+        Objects.requireNonNull(closeFailure, "closeFailure");
+        Path database = normalize(databasePath);
+        synchronized (MONITOR) {
+            RETAINED.computeIfAbsent(database, key -> new ArrayList<>())
+                    .add(new RetainedHandle(connection, lease, closeFailure));
+        }
+    }
+
+    /**
+     * Tries to finish the release of every handle retained for this database.
+     *
+     * <p>A handle whose close succeeds gives its lease back and is forgotten. One that fails again is kept, with
+     * the newest failure recorded, so the lease stays held and maintenance stays refused.</p>
+     */
+    // java:S1181 catches Error deliberately: a driver that fails on a LinkageError must leave the handle
+    // retained rather than unreachable, exactly as a SQLException does.
+    @SuppressWarnings("java:S1181")
+    static void resolveRetained(Path databasePath) {
+        Path database = normalize(databasePath);
+        synchronized (MONITOR) {
+            List<RetainedHandle> retained = RETAINED.get(database);
+            if (retained == null) {
+                return;
+            }
+            List<RetainedHandle> unresolved = new ArrayList<>();
+            for (RetainedHandle handle : retained) {
+                try {
+                    handle.connection.close();
+                } catch (SQLException | RuntimeException | Error failure) {
+                    unresolved.add(new RetainedHandle(handle.connection, handle.lease, failure));
+                    continue;
+                }
+                handle.lease.close();
+            }
+            if (unresolved.isEmpty()) {
+                RETAINED.remove(database);
+            } else {
+                RETAINED.put(database, unresolved);
+            }
+        }
+    }
+
+    /** How many handles are still waiting to be released for this database. */
+    static int retainedCount(Path databasePath) {
+        Path database = normalize(databasePath);
+        synchronized (MONITOR) {
+            return RETAINED.getOrDefault(database, List.of()).size();
+        }
+    }
+
+    /** Why the most recent release attempt for a retained handle failed, for diagnostics and tests. */
+    static Optional<Throwable> lastRetainedFailure(Path databasePath) {
+        Path database = normalize(databasePath);
+        synchronized (MONITOR) {
+            List<RetainedHandle> retained = RETAINED.getOrDefault(database, List.of());
+            return retained.isEmpty()
+                    ? Optional.empty()
+                    : Optional.of(retained.get(retained.size() - 1).closeFailure);
+        }
+    }
+
+    private record RetainedHandle(Connection connection, Lease lease, Throwable closeFailure) {
     }
 
     private static void releaseShared(Path database) {

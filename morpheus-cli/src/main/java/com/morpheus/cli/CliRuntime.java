@@ -1,5 +1,7 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
 import com.morpheus.store.sqlite.SqliteCompositionStateStore;
@@ -31,89 +33,47 @@ final class CliRuntime implements AutoCloseable {
 
     CliRuntime(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        sqliteScope = SqliteConnectionScope.open(databasePath);
-        SqliteSpecificationKnowledgeStore openedSnapshots = null;
-        SqliteVersionedRequirementStore openedRequirements = null;
-        SqliteSnapshotBusinessContentStore openedContent = null;
-        SqliteTraceabilityStore openedTraceability = null;
-        SqliteExternalReferenceStore openedExternalReferences = null;
-        SqliteEntityIdentityStore openedIdentities = null;
-        SqliteSyncStateStore openedSyncState = null;
-        SqliteChangeLifecycleMutationStore openedLifecycleMutations = null;
-        SqliteCompositionStateStore openedCompositions = null;
-        try {
-            openedSnapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-            new RuntimeSnapshotRecovery(openedSnapshots).recoverAll(Instant.now());
-            openedRequirements = new SqliteVersionedRequirementStore(databasePath);
-            openedContent = new SqliteSnapshotBusinessContentStore(databasePath);
-            openedTraceability = new SqliteTraceabilityStore(databasePath);
-            openedExternalReferences = new SqliteExternalReferenceStore(databasePath);
-            openedIdentities = new SqliteEntityIdentityStore(databasePath);
-            openedSyncState = new SqliteSyncStateStore(databasePath);
-            openedLifecycleMutations = new SqliteChangeLifecycleMutationStore(databasePath);
-            openedCompositions = new SqliteCompositionStateStore(databasePath);
-        } catch (RuntimeException failure) {
-            RuntimeException cleanup = null;
-            cleanup = close(openedCompositions, cleanup);
-            cleanup = close(openedLifecycleMutations, cleanup);
-            cleanup = close(openedSyncState, cleanup);
-            cleanup = close(openedIdentities, cleanup);
-            cleanup = close(openedExternalReferences, cleanup);
-            cleanup = close(openedTraceability, cleanup);
-            cleanup = close(openedContent, cleanup);
-            cleanup = close(openedRequirements, cleanup);
-            cleanup = close(openedSnapshots, cleanup);
-            cleanup = close(sqliteScope, cleanup);
-            if (cleanup != null) failure.addSuppressed(cleanup);
-            throw failure;
+        try (StartupOwnership owned = new StartupOwnership()) {
+            sqliteScope = owned.keep(
+                    SqliteConnectionScope.open(databasePath), SqliteConnectionScope::close);
+            snapshots = owned.keep(
+                    new SqliteSpecificationKnowledgeStore(databasePath), SqliteSpecificationKnowledgeStore::close);
+            new RuntimeSnapshotRecovery(snapshots).recoverAll(Instant.now());
+            requirements = owned.keep(
+                    new SqliteVersionedRequirementStore(databasePath), SqliteVersionedRequirementStore::close);
+            content = owned.keep(
+                    new SqliteSnapshotBusinessContentStore(databasePath), SqliteSnapshotBusinessContentStore::close);
+            traceability = owned.keep(
+                    new SqliteTraceabilityStore(databasePath), SqliteTraceabilityStore::close);
+            externalReferences = owned.keep(
+                    new SqliteExternalReferenceStore(databasePath), SqliteExternalReferenceStore::close);
+            identities = owned.keep(
+                    new SqliteEntityIdentityStore(databasePath), SqliteEntityIdentityStore::close);
+            syncState = owned.keep(
+                    new SqliteSyncStateStore(databasePath), SqliteSyncStateStore::close);
+            lifecycleMutations = owned.keep(
+                    new SqliteChangeLifecycleMutationStore(databasePath), SqliteChangeLifecycleMutationStore::close);
+            compositions = owned.keep(
+                    new SqliteCompositionStateStore(databasePath), SqliteCompositionStateStore::close);
+
+            owned.transferred();
         }
-        snapshots = openedSnapshots;
-        requirements = openedRequirements;
-        content = openedContent;
-        traceability = openedTraceability;
-        externalReferences = openedExternalReferences;
-        identities = openedIdentities;
-        syncState = openedSyncState;
-        lifecycleMutations = openedLifecycleMutations;
-        compositions = openedCompositions;
     }
 
     @Override
     public void close() {
-        RuntimeException failure = null;
-        failure = close(compositions, failure);
-        failure = close(lifecycleMutations, failure);
-        failure = close(syncState, failure);
-        failure = close(identities, failure);
-        failure = close(externalReferences, failure);
-        failure = close(traceability, failure);
-        failure = close(content, failure);
-        failure = close(requirements, failure);
-        failure = close(snapshots, failure);
-        failure = close(sqliteScope, failure);
-        if (failure != null) {
-            throw failure;
-        }
+        ExhaustiveShutdown.releaseAll(
+                "cannot close CLI runtime resource",
+                compositions,
+                lifecycleMutations,
+                syncState,
+                identities,
+                externalReferences,
+                traceability,
+                content,
+                requirements,
+                snapshots,
+                sqliteScope);
     }
 
-    private static RuntimeException close(AutoCloseable closeable, RuntimeException previous) {
-        if (closeable == null) return previous;
-        try {
-            closeable.close();
-            return previous;
-        } catch (RuntimeException exception) {
-            if (previous != null) {
-                previous.addSuppressed(exception);
-                return previous;
-            }
-            return exception;
-        } catch (Exception exception) {
-            RuntimeException wrapped = new IllegalStateException("cannot close CLI runtime resource", exception);
-            if (previous != null) {
-                previous.addSuppressed(wrapped);
-                return previous;
-            }
-            return wrapped;
-        }
-    }
 }

@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.security.LocalWritePermissionHardener;
 import com.morpheus.application.store.KnowledgeStoreException;
 
@@ -56,36 +57,63 @@ public final class SqliteServerMaintenance {
         private final FileLock lock;
         private boolean closed;
 
-        private ServerLease(FileChannel channel, FileLock lock) {
+        // Package-private so the close contract can be driven over a channel and a lock that fail on demand:
+        // a real descriptor does not refuse to close, and that branch is the one that must stay retryable.
+        ServerLease(FileChannel channel, FileLock lock) {
             this.channel = channel;
             this.lock = lock;
         }
 
+        /**
+         * Releases the lease, and says so only once the descriptor is actually gone.
+         *
+         * <p>Marking the lease closed before either release ran meant a failed {@code channel.close()} left a
+         * lease that reported itself released over a descriptor that may still be open, and no retry could
+         * finish the job: the next call returned immediately.</p>
+         *
+         * <p>Releasing the lock is attempted first and is best effort on its own -- closing the channel releases
+         * the operating-system lock anyway, so a failure there must not stop the call that actually frees the
+         * descriptor. It is reported with the channel failure when both go wrong, and a lock already released by
+         * an earlier attempt simply has no effect.</p>
+         */
         @Override
         public synchronized void close() {
             if (closed) return;
-            closed = true;
+            IOException lockFailure = null;
             try {
                 lock.release();
-            } catch (IOException ignored) {
-                // Closing the channel below also releases the process lock.
+            } catch (IOException failure) {
+                lockFailure = failure;
             }
             try {
                 channel.close();
-            } catch (IOException ignored) {
-                // Best effort during server shutdown.
+            } catch (IOException failure) {
+                if (lockFailure != null) {
+                    failure.addSuppressed(lockFailure);
+                }
+                throw new KnowledgeStoreException("Cannot release the MORPHEUS server lease", failure);
             }
+            closed = true;
         }
     }
 
+    /**
+     * Takes the exclusive server lease, and owns the lock channel until the lease that will close it exists.
+     *
+     * <p>Hardening and locking both run after the channel is open and both fail unchecked -- a permissive
+     * ancestor raises {@code LocalWritePermissionException}, and an already-held lease raises
+     * {@code IllegalStateException}. Only the two paths that were written out by hand closed the descriptor;
+     * every other failure between the open and the returned lease leaked it for the life of the process.</p>
+     */
     public ServerLease acquireServerLease(Path databasePath) {
         Path lockPath = lockPath(databasePath);
-        try {
+        try (StartupOwnership owned = new StartupOwnership()) {
             Path parent = lockPath.getParent();
             if (parent != null) Files.createDirectories(parent);
             rejectUnsafeEntry(lockPath, false, "server lease");
-            FileChannel channel = FileChannel.open(lockPath,
-                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+            FileChannel channel = owned.keep(
+                    FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE),
+                    SqliteServerMaintenance::closeQuietly);
             LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
             if (parent != null) hardener.hardenDirectory(parent);
             hardener.hardenFile(lockPath);
@@ -93,16 +121,25 @@ public final class SqliteServerMaintenance {
             try {
                 lock = channel.tryLock();
             } catch (OverlappingFileLockException busy) {
-                channel.close();
                 throw new IllegalStateException("MORPHEUS server lease is already held for this database", busy);
             }
             if (lock == null) {
-                channel.close();
                 throw new IllegalStateException("MORPHEUS server lease is already held for this database");
             }
-            return new ServerLease(channel, lock);
+            ServerLease lease = new ServerLease(channel, lock);
+            owned.transferred();
+            return lease;
         } catch (IOException failure) {
             throw new KnowledgeStoreException("Cannot acquire MORPHEUS server lease", failure);
+        }
+    }
+
+    /** Best effort while unwinding a lease acquisition that will not complete. */
+    private static void closeQuietly(FileChannel channel) {
+        try {
+            channel.close();
+        } catch (IOException ignored) {
+            // The acquisition failure is what the caller needs; the descriptor is released either way.
         }
     }
 

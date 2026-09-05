@@ -243,7 +243,7 @@ Les blocs transactionnels des stores et du gestionnaire de schéma délèguent �
 
 Une erreur métier, SQL **ou `Error`** quittant le work avant commit provoque un rollback best-effort. La défaillance primaire est réémise ; les échecs de rollback et de restauration sont rattachés comme exceptions `suppressed`.
 
-Si le `commit()` réussit mais que la restauration du mode auto-commit échoue ensuite, le runner lève un `SqliteCommittedTransactionException`. Cette exception signifie explicitement que **la mutation est déjà commitée et ne doit pas être rejouée comme si elle avait rollbacké**.
+Si le `commit()` réussit mais que la restauration du mode auto-commit échoue ensuite, la mutation est **déjà durable** : la signaler comme un échec inviterait à la rejouer. Le runner ne lève donc rien et traite le problème comme un défaut de connexion, en trois temps : il retente le cleanup une fois ; si la connexion appartient à un scope d'opération, il remplace la connexion physique pour que les proxys logiques existants restent utilisables ; sinon il met la connexion directe en quarantaine et la ferme. Dans les trois cas l'opération est rapportée comme réussie et l'incident est journalisé. C'est la **transaction suivante** sur une connexion en quarantaine qui est refusée, par un `KnowledgeStoreException`.
 
 ### Réconciliation du sync après publication
 
@@ -262,7 +262,9 @@ La publication d'un snapshot et la persistance de la baseline de synchronisation
 
 ## Schéma SQLite
 
-Le gestionnaire de migrations connaît la version maximale supportée par le runtime : **V016** sur cette baseline. Après création/lecture du ledger et **avant toute migration connue**, une base dont `MAX(schema_migrations.version) > 16` est refusée. `SqliteServerMaintenance` dérive sa propre limite directement de `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION`, ce qui empêche le backup/restore de diverger du gestionnaire de schéma.
+Le gestionnaire de migrations connaît la version maximale supportée par le runtime : `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION`, qui est la seule source normative — **ne jamais recopier sa valeur ici**, elle change à chaque migration. Après création/lecture du ledger et **avant toute migration connue**, une base dont `MAX(schema_migrations.version)` dépasse cette constante est refusée. `SqliteServerMaintenance` dérive sa propre limite de la même constante, ce qui empêche le backup/restore de diverger du gestionnaire de schéma.
+
+Les migrations historiques restent immuables ; chacune décrite ci-dessous l'est à titre de contenu, pas comme borne courante. La dernière en date, V017, réserve durablement les numéros de `SpecificationVersion.sequence` dans la transaction d'écriture, là où `MAX(sequence)+1` pouvait attribuer le même numéro à deux connexions concurrentes.
 
 V016 répare d’éventuels doublons historiques de `SpecificationVersion.sequence` par projet, puis impose un index unique partiel `(project_id, sequence)` pour toute séquence non nulle. Une candidate de publication FAILED reste durable pour l’audit et consomme sa séquence ; un retry alloue donc la suivante au lieu de produire un doublon logique.
 

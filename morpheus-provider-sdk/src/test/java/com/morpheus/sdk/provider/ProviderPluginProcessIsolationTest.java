@@ -4,12 +4,15 @@ import com.morpheus.application.security.ExternalJarIntegrity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -22,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProviderPluginProcessIsolationTest {
+    private static final int LEAK_STRESS_ITERATIONS = 12;
+
     @TempDir
     Path directory;
 
@@ -66,6 +71,95 @@ class ProviderPluginProcessIsolationTest {
 
         assertTrue(outcome.success(), outcome.diagnostics().toString());
         assertDescendantTerminated(directory.resolve(TestSuccessfulDescendantProviderPlugin.CHILD_PID_FILE));
+    }
+
+    @Test
+    void descendantSpawnedJustBeforeWorkerExitIsTerminatedWithoutHavingBeenObserved() throws Exception {
+        Path jar = pluginJar(
+                "late-descendant.jar",
+                "late-descendant-plugin",
+                "late-descendant-provider",
+                TestLateDescendantProviderPlugin.class);
+        ProviderPluginService service = service(Duration.ofSeconds(10));
+
+        ProviderPluginProbeOutcome outcome = assertTimeoutPreemptively(Duration.ofSeconds(20), () -> service.probe(
+                directory,
+                "late-descendant-plugin",
+                directory,
+                ExternalJarIntegrity.sha256(jar)));
+
+        assertTrue(outcome.success(), outcome.diagnostics().toString());
+        assertDescendantTerminated(directory.resolve(TestLateDescendantProviderPlugin.CHILD_PID_FILE));
+    }
+
+    @Test
+    void repeatedLateDescendantProbesNeverLeakAProcess() throws Exception {
+        Path jar = pluginJar(
+                "late-descendant-stress.jar",
+                "late-descendant-plugin",
+                "late-descendant-provider",
+                TestLateDescendantProviderPlugin.class);
+        ProviderPluginService service = service(Duration.ofSeconds(10));
+        Path pidFile = directory.resolve(TestLateDescendantProviderPlugin.CHILD_PID_FILE);
+        String sha256 = ExternalJarIntegrity.sha256(jar);
+        List<Long> leaked = new ArrayList<>();
+
+        for (int iteration = 0; iteration < LEAK_STRESS_ITERATIONS; iteration++) {
+            Files.deleteIfExists(pidFile);
+            ProviderPluginProbeOutcome outcome = service.probe(directory, "late-descendant-plugin", directory, sha256);
+            assertTrue(outcome.success(), outcome.diagnostics().toString());
+
+            long childPid = Long.parseLong(Files.readString(pidFile).trim());
+            ProcessHandle.of(childPid).filter(ProcessHandle::isAlive).ifPresent(handle -> {
+                handle.destroyForcibly();
+                leaked.add(handle.pid());
+            });
+        }
+
+        assertEquals(List.of(), leaked,
+                "every probe descendant must be terminated by the worker before it exits");
+    }
+
+    @Test
+    void aSuccessfulProbeLeavesNoStagingDirectoryBehind() throws Exception {
+        Path jar = pluginJar(
+                "staging-success.jar",
+                "successful-descendant-plugin",
+                "successful-descendant-provider",
+                TestSuccessfulDescendantProviderPlugin.class);
+        List<Path> before = stagingDirectories();
+
+        ProviderPluginProbeOutcome outcome = service(Duration.ofSeconds(10))
+                .probe(directory, "successful-descendant-plugin", directory, ExternalJarIntegrity.sha256(jar));
+
+        assertTrue(outcome.success(), outcome.diagnostics().toString());
+        assertEquals(before, stagingDirectories(), "a successful probe must remove its staging directory");
+    }
+
+    @Test
+    void aFailedProbeAlsoLeavesNoStagingDirectoryBehind() throws Exception {
+        Path jar = pluginJar(
+                "staging-failure.jar",
+                "blocking-plugin",
+                "blocking-provider",
+                TestBlockingProviderPlugin.class);
+        List<Path> before = stagingDirectories();
+
+        ProviderPluginProbeOutcome outcome = service(Duration.ofSeconds(2))
+                .probe(directory, "blocking-plugin", directory, ExternalJarIntegrity.sha256(jar));
+
+        assertFalse(outcome.success(), "the blocking fixture must not report success");
+        assertEquals(before, stagingDirectories(), "a failed probe must remove its staging directory too");
+    }
+
+    private List<Path> stagingDirectories() throws IOException {
+        Path temp = Path.of(System.getProperty("java.io.tmpdir"));
+        try (var entries = Files.list(temp)) {
+            return entries
+                    .filter(path -> path.getFileName().toString().startsWith("morpheus-provider-probe-"))
+                    .sorted()
+                    .toList();
+        }
     }
 
     @Test

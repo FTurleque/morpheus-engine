@@ -5,6 +5,7 @@ VERSION="${1:-1.0.0}"
 SKIP_PORTABLE="${MORPHEUS_M22_SKIP_PORTABLE:-false}"
 BASE_REF="${MORPHEUS_M22_BASE_REF:-origin/main}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m22"
@@ -28,7 +29,7 @@ printf '%s\n' "M22 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <(python3 - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -69,7 +70,7 @@ if [[ ! -f "$COVERAGE" ]]; then
 fi
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line = float(sys.argv[1])
 branch = float(sys.argv[2])
@@ -132,7 +133,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   printf '%s\n' reference > "$WORKSPACE/morpheus-reference.spec"
 
   DISCOVERY="$($LAUNCHER --json provider-plugins discover --directory "$PLUGIN_DIR")"
-  python3 - "$DISCOVERY" <<'PY'
+  morpheus_python - "$DISCOVERY" <<'PY'
 import json
 import sys
 payload = json.loads(sys.argv[1])
@@ -140,8 +141,17 @@ assert payload['compatibleCount'] == 1, payload
 assert payload['candidates'][0]['status'] == 'COMPATIBLE', payload
 PY
 
-  PROBE="$($LAUNCHER --json provider-plugins probe --directory "$PLUGIN_DIR" --plugin reference-provider-plugin --workspace "$WORKSPACE")"
-  python3 - "$PROBE" <<'PY'
+  # Activation is fail-closed on a trusted SHA-256 pin, so the probe has to present one. This check was
+  # written before that requirement and kept calling the probe without it, which the CLI refuses outright.
+  PIN="$(morpheus_python - "$PLUGIN_DIR/reference-provider.jar" <<'PY'
+import hashlib
+import pathlib
+import sys
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+PY
+)"
+  PROBE="$($LAUNCHER --json provider-plugins probe --directory "$PLUGIN_DIR" --plugin reference-provider-plugin --workspace "$WORKSPACE" --sha256 "$PIN")"
+  morpheus_python - "$PROBE" <<'PY'
 import json
 import sys
 payload = json.loads(sys.argv[1])
@@ -150,18 +160,25 @@ assert payload['probe']['providerId']['value'] == 'reference-plugin', payload
 PY
   printf '%s\n' 'External reference provider discovery + isolated activation + probe: PASS'
 
-  PORT="$(python3 - <<'PY'
+  PORT="$(morpheus_python - <<'PY'
 import socket
 with socket.socket() as sock:
     sock.bind(('127.0.0.1', 0))
     print(sock.getsockname()[1])
 PY
 )"
-  API_DATA="$OUTPUT/api-data"
-  mkdir -p "$API_DATA"
+  # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+  # here inherits the permissions of whatever it sits under, and the real owner-controlled storage path is
+  # never exercised. Under the repository that inheritance is what the hardener refuses, which made a packaged
+  # product gate depend on the permissions of a development checkout. mktemp gives an owner-only parent; the
+  # data directory itself is only named here and is created by the launcher.
+  API_DATA_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-m22-api-XXXXXXXXXX")"
+  API_DATA="$API_DATA_ROOT/data"
   "$LAUNCHER" --data-dir "$API_DATA" api --host 127.0.0.1 --port "$PORT" >"$OUTPUT/api.stdout.log" 2>"$OUTPUT/api.stderr.log" &
   API_PID=$!
-  cleanup_api() { kill "$API_PID" >/dev/null 2>&1 || true; wait "$API_PID" >/dev/null 2>&1 || true; }
+  # Removing the temp root here rather than from a trap of its own: the trap below replaces any
+  # earlier EXIT handler, so a separate one would simply never run.
+  cleanup_api() { kill "$API_PID" >/dev/null 2>&1 || true; wait "$API_PID" >/dev/null 2>&1 || true; rm -rf "$API_DATA_ROOT"; }
   trap cleanup_api EXIT
   API_OK=false
   for _ in $(seq 1 60); do
@@ -170,7 +187,7 @@ PY
       echo 'Packaged API exited before M22 check' >&2
       exit 1
     fi
-    if python3 - "$PORT" "$VERSION" "$PLUGIN_DIR" 2>/dev/null <<'PY'
+    if morpheus_python - "$PORT" "$VERSION" "$PLUGIN_DIR" 2>/dev/null <<'PY'
 import json
 import sys
 import urllib.parse

@@ -51,10 +51,13 @@ function Get-FreeLoopbackPort {
 
 function Assert-PackagedApi([string]$Launcher, [string]$PluginDirectory) {
     $port = Get-FreeLoopbackPort
-    $apiData = Join-Path $outputRoot 'api-data'
+    # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+    # here inherits the ACLs of whatever it sits under, and the real owner-controlled storage path is never
+    # exercised. Under the repository that inheritance is what the hardener refuses, which made a packaged
+    # product gate depend on the permissions of a development checkout.
+    $apiData = Join-Path ([IO.Path]::GetTempPath()) ('morpheus-m22-api-' + [Guid]::NewGuid().ToString('N'))
     $stdout = Join-Path $outputRoot 'api.stdout.log'
     $stderr = Join-Path $outputRoot 'api.stderr.log'
-    New-Item -ItemType Directory -Force -Path $apiData | Out-Null
     Remove-Item $stdout, $stderr -Force -ErrorAction SilentlyContinue
     $process = Start-Process -FilePath $Launcher `
         -ArgumentList @('--data-dir', $apiData, 'api', '--host', '127.0.0.1', '--port', "$port") `
@@ -85,6 +88,8 @@ function Assert-PackagedApi([string]$Launcher, [string]$PluginDirectory) {
         $diagnostic = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { '' }
         throw "Packaged API M22 check timed out. stderr=$diagnostic"
     } finally {
+        # Best effort, and deliberately not allowed to replace whatever failure is already unwinding.
+        Remove-Item -LiteralPath $apiData -Recurse -Force -ErrorAction SilentlyContinue
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
         try { $process.WaitForExit(5000) | Out-Null } catch { }
     }
@@ -185,7 +190,11 @@ if (-not $SkipPortable) {
         throw "Packaged external provider discovery mismatch: $discoveryText"
     }
 
-    $probeText = (& $launcher --json provider-plugins probe --directory $pluginDirectory --plugin 'reference-provider-plugin' --workspace $workspace) -join "`n"
+    # Activation is fail-closed on a trusted SHA-256 pin, so the probe has to present one. This check was
+    # written before that requirement and kept calling the probe without it, which the CLI refuses outright.
+    $stagedJar = Join-Path $pluginDirectory 'reference-provider.jar'
+    $pin = (Get-FileHash -LiteralPath $stagedJar -Algorithm SHA256).Hash.ToLowerInvariant()
+    $probeText = (& $launcher --json provider-plugins probe --directory $pluginDirectory --plugin 'reference-provider-plugin' --workspace $workspace --sha256 $pin) -join "`n"
     if ($LASTEXITCODE -ne 0) { throw "Packaged external provider probe failed: $probeText" }
     $probe = $probeText | ConvertFrom-Json
     if ([string]$probe.probe.status -ne 'SUPPORTED' -or [string]$probe.probe.providerId.value -ne 'reference-plugin') {

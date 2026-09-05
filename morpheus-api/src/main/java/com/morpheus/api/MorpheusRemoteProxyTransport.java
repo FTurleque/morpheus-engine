@@ -25,12 +25,14 @@ final class MorpheusRemoteProxyTransport {
     private final int maxResponseBytes;
     private final Semaphore responseSlots;
     private final HttpClient client;
+    private final TimedBoundedResponseWriter bounded;
 
     MorpheusRemoteProxyTransport(
             MorpheusInternalCapability internalCapability,
             MorpheusRemoteRuntimeState runtime,
             int maxResponseBytes,
-            int maxResponseSlots) {
+            int maxResponseSlots,
+            TimedBoundedResponseWriter bounded) {
         this(
                 internalCapability,
                 runtime,
@@ -39,7 +41,8 @@ final class MorpheusRemoteProxyTransport {
                 HttpClient.newBuilder()
                         .connectTimeout(CONNECT_TIMEOUT)
                         .followRedirects(HttpClient.Redirect.NEVER)
-                        .build());
+                        .build(),
+                bounded);
     }
 
     MorpheusRemoteProxyTransport(
@@ -47,13 +50,15 @@ final class MorpheusRemoteProxyTransport {
             MorpheusRemoteRuntimeState runtime,
             int maxResponseBytes,
             Semaphore responseSlots,
-            HttpClient client) {
+            HttpClient client,
+            TimedBoundedResponseWriter bounded) {
         this.internalCapability = Objects.requireNonNull(internalCapability, "internalCapability");
         this.runtime = Objects.requireNonNull(runtime, "runtime");
         if (maxResponseBytes < 1) throw new IllegalArgumentException("maxResponseBytes must be positive");
         this.maxResponseBytes = maxResponseBytes;
         this.responseSlots = Objects.requireNonNull(responseSlots, "responseSlots");
         this.client = Objects.requireNonNull(client, "client");
+        this.bounded = Objects.requireNonNull(bounded, "bounded");
     }
 
     void forward(
@@ -79,16 +84,23 @@ final class MorpheusRemoteProxyTransport {
                 ? HttpRequest.BodyPublishers.noBody()
                 : HttpRequest.BodyPublishers.ofByteArray(requestBody));
 
-        if (!responseSlots.tryAcquire()) {
+        // A read is refused before the call: nothing has happened upstream yet, so failing fast costs the
+        // caller a retry and nothing else.
+        if (boundedUpstreamTimeout && !responseSlots.tryAcquire()) {
             runtime.recordThrottledRequest();
             throw new TransportException(
                     429,
                     "RESPONSE_BUDGET_EXHAUSTED",
                     "remote proxy response memory budget is saturated");
         }
+        boolean budgetHeld = boundedUpstreamTimeout;
         try {
             HttpResponse<InputStream> response = client.send(
                     request.build(), HttpResponse.BodyHandlers.ofInputStream());
+            if (!budgetHeld) {
+                awaitResponseBudget(response);
+                budgetHeld = true;
+            }
             try (InputStream upstream = response.body()) {
                 String responseType = response.headers().firstValue("Content-Type")
                         .orElse("application/json; charset=utf-8");
@@ -99,14 +111,19 @@ final class MorpheusRemoteProxyTransport {
                 if (isBodyless(upstreamMethod, response.statusCode())) {
                     response.headers().firstValue("Content-Length")
                             .ifPresent(value -> exchange.getResponseHeaders().set("Content-Length", value));
-                    exchange.sendResponseHeaders(response.statusCode(), -1);
+                    bounded.write(progress -> {
+                        exchange.sendResponseHeaders(response.statusCode(), -1);
+                        progress.made();
+                    });
                     return;
                 }
 
                 long declaredLength = requireBoundedLength(
                         response.headers().firstValueAsLong("Content-Length"), maxResponseBytes);
-                exchange.sendResponseHeaders(response.statusCode(), declaredLength);
-                copyBounded(upstream, exchange.getResponseBody(), declaredLength, maxResponseBytes);
+                bounded.write(progress -> {
+                    exchange.sendResponseHeaders(response.statusCode(), declaredLength);
+                    copyBounded(upstream, exchange.getResponseBody(), declaredLength, maxResponseBytes, progress);
+                });
             }
         } catch (HttpTimeoutException timeout) {
             throw new TransportException(
@@ -120,7 +137,29 @@ final class MorpheusRemoteProxyTransport {
                     "UPSTREAM_INTERRUPTED",
                     "local MORPHEUS API proxy was interrupted");
         } finally {
-            responseSlots.release();
+            if (budgetHeld) {
+                responseSlots.release();
+            }
+        }
+    }
+
+    /**
+     * Takes the response budget for a mutation, once the upstream has answered.
+     *
+     * <p>Both halves of that matter. Holding the budget across the wait is what let blocked mutations shut the
+     * facade: a mutation has no upstream deadline — deliberately, because a deadline over a commit that is
+     * already durable would report 504 for work that happened — so it would hold a slot forever, and there are
+     * eight for a server that admits sixteen concurrent mutations. Refusing here instead of waiting would be the
+     * same lie in another form: the commit has already happened by the time these headers exist.</p>
+     */
+    private void awaitResponseBudget(HttpResponse<InputStream> response) throws InterruptedException, IOException {
+        try {
+            responseSlots.acquire();
+        } catch (InterruptedException interrupted) {
+            // The response exists and nobody will read it now, so its connection goes back to the pool rather
+            // than being held until the client is collected.
+            response.body().close();
+            throw interrupted;
         }
     }
 
@@ -145,11 +184,18 @@ final class MorpheusRemoteProxyTransport {
         return length;
     }
 
+    /**
+     * Streams the upstream body downstream, reporting each chunk that reached the client.
+     *
+     * <p>The progress report is what separates a slow reader from a stopped one: it rearms the stall budget of
+     * {@link TimedBoundedResponseWriter}, so a client that keeps draining is served for as long as it does.</p>
+     */
     static void copyBounded(
             InputStream upstream,
             OutputStream downstream,
             long declaredLength,
-            int maxResponseBytes) throws IOException {
+            int maxResponseBytes,
+            TimedBoundedResponseWriter.Progress progress) throws IOException {
         byte[] buffer = new byte[8192];
         long total = 0;
         int read;
@@ -158,6 +204,7 @@ final class MorpheusRemoteProxyTransport {
                 throw new IOException("local MORPHEUS response exceeded its declared or configured bound");
             }
             downstream.write(buffer, 0, read);
+            progress.made();
             total += read;
         }
         if (total != declaredLength) {

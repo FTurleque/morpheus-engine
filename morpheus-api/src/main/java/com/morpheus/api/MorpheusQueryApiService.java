@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryBudgets;
@@ -246,70 +248,41 @@ public final class MorpheusQueryApiService {
         private final QueryExportService exports;
 
         private Runtime(Path databasePath) {
-            sqliteScope = SqliteConnectionScope.open(databasePath);
-            SqliteSpecificationKnowledgeStore openedSnapshots = null;
-            SqliteVersionedRequirementStore openedRequirements = null;
-            SqliteSnapshotBusinessContentStore openedContent = null;
-            SqlitePortfolioStore openedPortfolios = null;
-            SqliteSavedViewStore openedSaved = null;
-            try {
-                openedSnapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-                openedRequirements = new SqliteVersionedRequirementStore(databasePath);
-                openedContent = new SqliteSnapshotBusinessContentStore(databasePath);
-                openedPortfolios = new SqlitePortfolioStore(databasePath);
-                openedSaved = new SqliteSavedViewStore(databasePath);
-            } catch (RuntimeException failure) {
-                RuntimeException cleanup = null;
-                cleanup = closeResource(openedSaved, cleanup);
-                cleanup = closeResource(openedPortfolios, cleanup);
-                cleanup = closeResource(openedContent, cleanup);
-                cleanup = closeResource(openedRequirements, cleanup);
-                cleanup = closeResource(openedSnapshots, cleanup);
-                cleanup = closeResource(sqliteScope, cleanup);
-                if (cleanup != null) failure.addSuppressed(cleanup);
-                throw failure;
+            try (StartupOwnership owned = new StartupOwnership()) {
+                sqliteScope = owned.keep(
+                        SqliteConnectionScope.open(databasePath), SqliteConnectionScope::close);
+                snapshots = owned.keep(
+                        new SqliteSpecificationKnowledgeStore(databasePath), SqliteSpecificationKnowledgeStore::close);
+                requirements = owned.keep(
+                        new SqliteVersionedRequirementStore(databasePath), SqliteVersionedRequirementStore::close);
+                content = owned.keep(
+                        new SqliteSnapshotBusinessContentStore(databasePath), SqliteSnapshotBusinessContentStore::close);
+                portfolios = owned.keep(
+                        new SqlitePortfolioStore(databasePath), SqlitePortfolioStore::close);
+                saved = owned.keep(
+                        new SqliteSavedViewStore(databasePath), SqliteSavedViewStore::close);
+
+                // The services are built inside the block too: a failure here used to leave every store and the
+                // scope's connection behind, because the rollback ended before this point.
+                queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
+                views = new SavedViewService(saved, queries);
+                exports = new QueryExportService(queries);
+
+                owned.transferred();
             }
-            snapshots = openedSnapshots;
-            requirements = openedRequirements;
-            content = openedContent;
-            portfolios = openedPortfolios;
-            saved = openedSaved;
-            queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
-            views = new SavedViewService(saved, queries);
-            exports = new QueryExportService(queries);
         }
 
         @Override
         public void close() {
-            RuntimeException failure = null;
-            failure = closeResource(saved, failure);
-            failure = closeResource(portfolios, failure);
-            failure = closeResource(content, failure);
-            failure = closeResource(requirements, failure);
-            failure = closeResource(snapshots, failure);
-            failure = closeResource(sqliteScope, failure);
-            if (failure != null) throw failure;
+            ExhaustiveShutdown.releaseAll(
+                    "cannot close query runtime resource",
+                    saved,
+                    portfolios,
+                    content,
+                    requirements,
+                    snapshots,
+                    sqliteScope);
         }
 
-        private static RuntimeException closeResource(AutoCloseable closeable, RuntimeException previous) {
-            if (closeable == null) return previous;
-            try {
-                closeable.close();
-                return previous;
-            } catch (RuntimeException failure) {
-                if (previous != null) {
-                    previous.addSuppressed(failure);
-                    return previous;
-                }
-                return failure;
-            } catch (Exception failure) {
-                RuntimeException wrapped = new IllegalStateException("cannot close query runtime resource", failure);
-                if (previous != null) {
-                    previous.addSuppressed(wrapped);
-                    return previous;
-                }
-                return wrapped;
-            }
-        }
     }
 }

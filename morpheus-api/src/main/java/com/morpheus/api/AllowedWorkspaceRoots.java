@@ -109,11 +109,19 @@ public final class AllowedWorkspaceRoots {
             return new AllowedRoot(lexical, real, RootIdentity.capture(real));
         }
 
+        /**
+         * The message names the condition, not the root.
+         *
+         * <p>This check runs while serving a request, and the remote facade renders an IllegalArgumentException
+         * as a 400 carrying its message. Naming the root would publish a server-configured absolute pathname to a
+         * caller who cannot select it; the operator resolving this reads the server's own configuration, where
+         * the set of roots is already listed.</p>
+         */
         private void requireUnchanged() throws IOException {
             if (!Files.isDirectory(real, LinkOption.NOFOLLOW_LINKS)
                     || Files.isSymbolicLink(real)
                     || !identity.matches(RootIdentity.capture(real))) {
-                throw new IllegalArgumentException("server-configured workspace root changed after startup: " + real);
+                throw new IllegalArgumentException("a server-configured workspace root changed after startup");
             }
         }
     }

@@ -1,27 +1,21 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.application.query.dsl.QueryDefinition;
 import com.morpheus.application.query.dsl.QueryDslParser;
-import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.application.query.dsl.QueryPublicViews;
 import com.morpheus.application.query.dsl.QueryScope;
 import com.morpheus.application.query.export.QueryExportFormat;
-import com.morpheus.application.query.export.QueryExportService;
 import com.morpheus.application.query.saved.SavedViewId;
-import com.morpheus.application.query.saved.SavedViewService;
 import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePortfolioStore;
-import com.morpheus.store.sqlite.SqliteSavedViewStore;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.SqliteQueryRuntime;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -81,34 +75,34 @@ final class MorpheusQueryMcpTools {
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
             Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
-            try (Runtime runtime = new Runtime(databasePath)) {
+            try (SqliteQueryRuntime runtime = SqliteQueryRuntime.open(databasePath)) {
                 Object result = switch (toolName) {
-                    case EXECUTE_QUERY -> QueryPublicViews.result(runtime.queries.execute(query(arguments, scope(arguments))));
-                    case CREATE_SAVED_VIEW -> QueryPublicViews.savedView(runtime.views.create(
+                    case EXECUTE_QUERY -> QueryPublicViews.result(runtime.queries().execute(query(arguments, scope(arguments))));
+                    case CREATE_SAVED_VIEW -> QueryPublicViews.savedView(runtime.views().create(
                             requiredString(arguments, "name"), query(arguments, scope(arguments))));
-                    case LIST_SAVED_VIEWS -> QueryPublicViews.savedViews(runtime.views.list(scope(arguments)));
-                    case GET_SAVED_VIEW -> QueryPublicViews.savedView(runtime.views.get(id(arguments)));
-                    case LIST_SAVED_VIEW_VERSIONS -> QueryPublicViews.savedVersions(runtime.views.versions(id(arguments)));
+                    case LIST_SAVED_VIEWS -> QueryPublicViews.savedViews(runtime.views().list(scope(arguments)));
+                    case GET_SAVED_VIEW -> QueryPublicViews.savedView(runtime.views().get(id(arguments)));
+                    case LIST_SAVED_VIEW_VERSIONS -> QueryPublicViews.savedVersions(runtime.views().versions(id(arguments)));
                     case UPDATE_SAVED_VIEW -> {
                         SavedViewId id = id(arguments);
-                        var current = runtime.views.get(id);
-                        yield QueryPublicViews.savedView(runtime.views.update(
+                        var current = runtime.views().get(id);
+                        yield QueryPublicViews.savedView(runtime.views().update(
                                 id,
                                 longValue(arguments, "expectedRevision", 1, Long.MAX_VALUE),
                                 requiredString(arguments, "name"),
                                 query(arguments, current.query().scope())));
                     }
-                    case ARCHIVE_SAVED_VIEW -> QueryPublicViews.savedView(runtime.views.archive(
+                    case ARCHIVE_SAVED_VIEW -> QueryPublicViews.savedView(runtime.views().archive(
                             id(arguments), longValue(arguments, "expectedRevision", 1, Long.MAX_VALUE)));
-                    case EXECUTE_SAVED_VIEW -> QueryPublicViews.result(runtime.views.execute(id(arguments)));
-                    case EXPORT_QUERY -> runtime.exports.export(
+                    case EXECUTE_SAVED_VIEW -> QueryPublicViews.result(runtime.views().execute(id(arguments)));
+                    case EXPORT_QUERY -> runtime.exports().export(
                             query(arguments, scope(arguments)), format(arguments)).content();
                     case EXPORT_SAVED_VIEW -> {
-                        var view = runtime.views.get(id(arguments));
+                        var view = runtime.views().get(id(arguments));
                         if (view.status() != SavedViewStatus.ACTIVE) {
                             throw new IllegalStateException("saved view is archived: " + view.id());
                         }
-                        yield runtime.exports.export(view.query(), format(arguments)).content();
+                        yield runtime.exports().export(view.query(), format(arguments)).content();
                     }
                     default -> throw new IllegalArgumentException("unknown M24 MCP tool: " + toolName);
                 };
@@ -293,34 +287,4 @@ final class MorpheusQueryMcpTools {
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
-    private static final class Runtime implements AutoCloseable {
-        private final SqliteSpecificationKnowledgeStore snapshots;
-        private final SqliteVersionedRequirementStore requirements;
-        private final SqliteSnapshotBusinessContentStore content;
-        private final SqlitePortfolioStore portfolios;
-        private final SqliteSavedViewStore saved;
-        private final QueryExecutionService queries;
-        private final SavedViewService views;
-        private final QueryExportService exports;
-
-        private Runtime(Path databasePath) {
-            snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-            requirements = new SqliteVersionedRequirementStore(databasePath);
-            content = new SqliteSnapshotBusinessContentStore(databasePath);
-            portfolios = new SqlitePortfolioStore(databasePath);
-            saved = new SqliteSavedViewStore(databasePath);
-            queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
-            views = new SavedViewService(saved, queries);
-            exports = new QueryExportService(queries);
-        }
-
-        @Override
-        public void close() {
-            saved.close();
-            portfolios.close();
-            content.close();
-            requirements.close();
-            snapshots.close();
-        }
-    }
 }

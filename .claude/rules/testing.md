@@ -8,14 +8,14 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (31/08/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (04/09/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
-| `testsMinimum` | 1000 |
-| `architectureTestsMinimum` | 300 |
-| `lineCoverageMinimum` | 0.520 (52.0%) |
-| `branchCoverageMinimum` | 0.450 (45.0%) |
+| `testsMinimum` | 1300 |
+| `architectureTestsMinimum` | 335 |
+| `lineCoverageMinimum` | 0.545 (54.5%) |
+| `branchCoverageMinimum` | 0.477 (47.7%) |
 
 `CoverageQualityGateTest` (`morpheus-architecture-tests/.../m21/`) applique **deux** niveaux :
 
@@ -27,12 +27,28 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (31/08/2026
 Le gate applique `max(plancher, ratchet)`.
 
 - Un ratchet ne doit **jamais** être affaibli : `assertTrue(minLineRatio >= D2_MIN_LINE_RATIO, ...)` est lui-même asserté dans `CoverageQualityGateTest`
-- Un ratchet ne doit **jamais** dépasser sa baseline qualifiée : `assertTrue(ratchets.lineCoverageMinimum() <= QUALIFIED_LINE_RATIO, ...)` (constatée : `QUALIFIED_LINE_RATIO = 0.526971d`, `QUALIFIED_BRANCH_RATIO = 0.457250d` — à revérifier, cf. `rules/meta.md`)
+- Un ratchet ne doit **jamais** dépasser sa baseline qualifiée : `assertTrue(ratchets.lineCoverageMinimum() <= QUALIFIED_LINE_RATIO, ...)` (constatée : `QUALIFIED_LINE_RATIO = 0.545801d`, `QUALIFIED_BRANCH_RATIO = 0.477791d` — à revérifier, cf. `rules/meta.md`)
 - `D2RepositoryHardeningArchitectureTest#coverageRatchetCannotSilentlyReturnToTheD2Floor` vérifie que
   `CoverageQualityGateTest.java` **ne contient pas** les chaînes `LINE_RATCHET = 0.40d` / `BRANCH_RATCHET = 0.35d`
   (le ratchet ne doit jamais être recodé en dur à la valeur plancher D2) et lit bien
   `config/m21-quality-ratchets.properties`
 - Le gate exige **≥ 8 rapports JaCoCo** — le reactor complet doit avoir tourné
+
+### Pourquoi le ratchet plafonne sous la mesure réelle
+
+Au 04/09/2026 la mesure exact-head Windows est **57,49 % lignes / 50,21 % branches**, très
+au-dessus du ratchet actif. Ce n'est pas un oubli.
+
+`QUALIFIED_LINE_RATIO` / `QUALIFIED_BRANCH_RATIO` (dans `CoverageQualityGateTest`) plafonnent
+le ratchet, et leur commentaire impose qu'ils soient qualifiés sur **la plus basse mesure
+reproductible des deux plateformes**, jamais sur la meilleure : Linux et Windows exécutent le
+même nombre de tests, mais certains no-opent hors de leur OS, donc Linux couvre légèrement
+moins de lignes à nombre de tests identique.
+
+Relever le plafond exige donc une preuve Linux **et** Windows. Une session qui ne dispose que
+d'une des deux ne peut relever que le ratchet, dans la marge déjà qualifiée — c'est exactement
+ce qui a été fait ici. Le run CI exact-head de la PR fournit la moitié Linux manquante ; le
+plafond ne doit être relevé qu'après, dans un changement dédié qui cite les deux mesures.
 
 **Ne jamais baisser un ratchet pour faire passer un build.** Écrire les tests manquants.
 

@@ -65,6 +65,7 @@ final class MorpheusRemoteProxyTargetResolver {
             }
             suffix += "?" + encodeQuery(upstream);
         } else if (requestUri.getRawQuery() != null) {
+            HttpQueryBudget.requireBoundedQuery(requestUri.getRawQuery(), MorpheusRemoteProxyTargetResolver::badRequest);
             suffix += "?" + requestUri.getRawQuery();
         }
         return URI.create("http://127.0.0.1:" + localPort + suffix);
@@ -76,18 +77,44 @@ final class MorpheusRemoteProxyTargetResolver {
 
     private static Map<String, String> parseQuery(String rawQuery) {
         if (rawQuery == null || rawQuery.isBlank()) return Map.of();
+        HttpQueryBudget.requireBoundedQuery(rawQuery, MorpheusRemoteProxyTargetResolver::badRequest);
         Map<String, String> result = new LinkedHashMap<>();
-        for (String part : rawQuery.split("&")) {
-            if (part.isBlank()) continue;
-            int separator = part.indexOf('=');
-            String key = URLDecoder.decode(separator < 0 ? part : part.substring(0, separator), StandardCharsets.UTF_8);
-            String value = URLDecoder.decode(separator < 0 ? "" : part.substring(separator + 1), StandardCharsets.UTF_8);
-            if (key.isBlank()) throw failure("BAD_REQUEST", "query parameter name must not be blank");
-            if (result.putIfAbsent(key, value) != null) {
-                throw failure("BAD_REQUEST", "duplicate query parameter: " + key);
-            }
+        int start = 0;
+        while (start <= rawQuery.length()) {
+            int separator = rawQuery.indexOf('&', start);
+            int end = separator < 0 ? rawQuery.length() : separator;
+            addParameter(result, rawQuery.substring(start, end));
+            start = end + 1;
         }
         return Map.copyOf(result);
+    }
+
+    private static void addParameter(Map<String, String> result, String part) {
+        if (part.isBlank()) return;
+        HttpQueryBudget.requireBoundedParameterCount(result.size() + 1, MorpheusRemoteProxyTargetResolver::badRequest);
+        int separator = part.indexOf('=');
+        String rawKey = separator < 0 ? part : part.substring(0, separator);
+        String rawValue = separator < 0 ? "" : part.substring(separator + 1);
+        HttpQueryBudget.requireBoundedParameterName(rawKey, MorpheusRemoteProxyTargetResolver::badRequest);
+        HttpQueryBudget.requireBoundedParameterValue(rawValue, MorpheusRemoteProxyTargetResolver::badRequest);
+        String key = decode(rawKey);
+        String value = decode(rawValue);
+        if (key.isBlank()) throw badRequest("query parameter name must not be blank");
+        if (result.putIfAbsent(key, value) != null) {
+            throw badRequest("duplicate query parameter: " + key);
+        }
+    }
+
+    private static String decode(String value) {
+        try {
+            return URLDecoder.decode(value, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException malformed) {
+            throw badRequest("query parameter uses an invalid percent-encoding");
+        }
+    }
+
+    private static ResolutionException badRequest(String message) {
+        return failure("BAD_REQUEST", message);
     }
 
     private static String encodeQuery(Map<String, String> query) {

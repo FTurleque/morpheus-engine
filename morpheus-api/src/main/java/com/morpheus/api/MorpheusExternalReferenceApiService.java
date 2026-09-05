@@ -31,7 +31,7 @@ final class MorpheusExternalReferenceApiService {
     }
 
     Object minosStatus() {
-        return minosStatus.status();
+        return IntegrationStatusViews.status(minosStatus.status());
     }
 
     Object list(String projectIdValue, String ownerIdValue) {

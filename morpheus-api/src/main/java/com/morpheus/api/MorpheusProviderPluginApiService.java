@@ -10,11 +10,14 @@ import java.nio.file.Path;
 final class MorpheusProviderPluginApiService {
     private final ProviderPluginService service = new ProviderPluginService();
 
-    ProviderPluginViews.DiscoveryView discover(String directory) {
-        return ProviderPluginViews.discovery(service.discover(Path.of(directory)));
+    ProviderPluginViews.RemoteDiscoveryView discover(String directory) {
+        // The HTTP surface is relayed to remote callers verbatim, so it must not carry server filesystem paths.
+        return ProviderPluginViews.remoteDiscovery(service.discover(Path.of(directory)));
     }
 
-    ProviderPluginProbeOutcome probe(String directory, String pluginId, String workspace, String expectedSha256) {
-        return service.probe(Path.of(directory), pluginId, Path.of(workspace), expectedSha256);
+    ProviderPluginViews.RemoteProbeView probe(
+            String directory, String pluginId, String workspace, String expectedSha256) {
+        return ProviderPluginViews.remoteProbe(
+                service.probe(Path.of(directory), pluginId, Path.of(workspace), expectedSha256));
     }
 }

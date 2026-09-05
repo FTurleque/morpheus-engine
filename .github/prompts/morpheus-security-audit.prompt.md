@@ -51,7 +51,7 @@ Toutes les actions pinnées par SHA 40 caractères, aucun tag mutable `@v...`.
 
 ## 7. Scan CVE complet
 ```bash
-./mvnw verify -P d2-security
+./mvnw -Pd2-security -DautoUpdate=false org.owasp:dependency-check-maven:aggregate
 ```
 
 ## Rapport

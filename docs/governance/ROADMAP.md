@@ -80,9 +80,12 @@ version développement           1.2.1
 MORPHEUS CI                      Windows + Ubuntu exact-head
 MORPHEUS Security                OWASP Dependency-Check
 MORPHEUS CodeQL                  security-extended
-diff coverage PR                 >= 80% lines / >= 70% branches
-global coverage ratchet          >= 52.0% lines / >= 45.0% branches
-Surefire / architecture ratchets >= 1000 / >= 300
+diff coverage PR lines           >= 80%
+diff coverage PR branches        >= 70%
+global line ratchet              >= 54.5%
+global branch ratchet            >= 47.7%
+Surefire ratchet                 >= 1300
+architecture ratchet             >= 335
 SBOM / provenance                required
 ```
 

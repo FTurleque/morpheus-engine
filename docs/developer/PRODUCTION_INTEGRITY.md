@@ -23,18 +23,18 @@ La documentation humaine explique ces contrats ; elle ne doit pas devenir une de
 Baseline active :
 
 ```text
-Tests              >= 860 PASS
-Architecture       >= 265 PASS
+Tests              >= 1300 PASS
+Architecture       >= 335 PASS
 Reactor            18/18 SUCCESS
 Windows            PASS
 Linux              PASS
-JaCoCo lines        >= 51.0 % aggregate
-JaCoCo branches     >= 43.5 % aggregate
+JaCoCo lines        >= 54.5 % aggregate
+JaCoCo branches     >= 47.7 % aggregate
 Changed lines       >= 80 %
 Changed branches    >= 70 %
 ```
 
-La qualification exact-head de la PR #187 sur `75768168ce552d97ede15a5fe4aa3979993ee108` a mesuré **871 tests**, **269 tests d’architecture**, **51,3447 % de lignes** sous Linux (**51,3530 % sous Windows**) et **43,9379 % de branches** sur les deux plateformes. Les seuils restent volontairement légèrement sous les mesures qualifiées afin de former des ratchets stables. Le changed-code gate complète les lignes par les branches situées sur les lignes exécutables modifiées.
+La baseline qualifiée qui borne les ratchets actifs est enregistrée dans `CoverageQualityGateTest` : **52,6971 % de lignes** et **45,7250 % de branches**, mesurées exact-head sous Linux après #230. Les seuils de `config/m21-quality-ratchets.properties` restent volontairement légèrement sous cette mesure afin de former des ratchets stables, et `CoverageQualityGateTest` refuse tout ratchet qui la dépasserait. La qualification de la PR #187 sur `75768168ce552d97ede15a5fe4aa3979993ee108` (871 tests, 269 tests d’architecture, 51,3447 % de lignes sous Linux, 51,3530 % sous Windows, 43,9379 % de branches) est conservée comme trace d’audit et ne décrit plus les seuils actifs. Le changed-code gate complète les lignes par les branches situées sur les lignes exécutables modifiées.
 
 Les quatre ratchets durables sont définis une seule fois dans `config/m21-quality-ratchets.properties`. Les validateurs Linux/Windows et `CoverageQualityGateTest` lisent cette configuration au lieu de recopier les valeurs.
 

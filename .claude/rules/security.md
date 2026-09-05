@@ -44,6 +44,8 @@ Supprimer une de ces chaînes casse le build.
 - L'environnement hérité est réduit à une allowlist de lancement (`PATH`, variables Windows d'exécution, temp et locale), puis les variables explicitement configurées pour le peer sont appliquées.
 - Les variables sensibles comme `MORPHEUS_SERVER_TLS_PASSWORD` et les variables d'injection JVM ne sont jamais héritées implicitement.
 - Les descendants observés d'un peer MCP sont retenus par PID/`ProcessHandle` pendant toute la vie du parent afin de pouvoir les terminer même si le parent sort avant `closeGracefully()`.
+- `ProviderPluginProbeWorker` (code MORPHEUS) termine **son propre sous-arbre avant de sortir** : c'est le seul endroit où ce sous-arbre est encore énumérable. Ne jamais revenir à un nettoyage assuré uniquement par le parent — l'observation périodique ne garantit rien pour un descendant créé puis orphelin dans le même intervalle.
+- Côté MCP le pair n'est pas du code MORPHEUS : la terminaison des descendants reste **best-effort** et ce trou est documenté dans `SECURITY.md`. Ne pas le présenter comme une garantie.
 - Cette frontière fournit une isolation de **lifecycle/environnement**, pas une sandbox OS : un peer explicitement configuré reste du code de confiance exécuté sous le compte MORPHEUS.
 
 ## Plugins providers (M22) — fail-closed
@@ -66,7 +68,7 @@ Supprimer une de ces chaînes casse le build.
 
 ## Persistance SQLite
 
-- Schéma supporté : `SUPPORTED_SCHEMA_VERSION` (constaté à 17 le 01/09/2026 dans `SqliteSchemaManager` — revérifier avant de citer, cf. `rules/meta.md`)
+- Schéma supporté : `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION` — lire la constante, ne jamais recopier sa valeur ici (cf. `rules/meta.md`) ; `SqliteServerMaintenance` doit la consommer, jamais restituer un littéral
 - Backup : `VACUUM INTO` + `PRAGMA integrity_check` + `tryLock` + `ATOMIC_MOVE`
 - Restore : exige une **`explicit confirmation`**, et reste `EXPLICITLY_OFFLINE_ONLY`
 - `SqliteTransactionRunner` doit gérer `catch (Error failure)` + `rollbackSuppressing(connection, failure)`

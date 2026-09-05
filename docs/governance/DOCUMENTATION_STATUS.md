@@ -124,10 +124,10 @@ Qualité continue :
 MORPHEUS CI                exact-head Windows + Ubuntu
 MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
-Surefire ratchet           >= 1000
-Architecture ratchet       >= 300
-Global line ratchet        >= 52.0%
-Global branch ratchet      >= 45.0%
+Surefire ratchet           >= 1300
+Architecture ratchet       >= 335
+Global line ratchet        >= 54.5%
+Global branch ratchet      >= 47.7%
 PR changed line coverage   >= 80%
 PR changed branch coverage >= 70%
 Dependency hygiene         blocking

@@ -80,16 +80,46 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         this.maxPendingMessages = maxPendingMessages;
     }
 
+    // java:S1181 catches Error deliberately: the transport's two worker executors exist before the factory runs,
+    // and only a started transport can dispose them. An Error from the factory must release them just as a
+    // RuntimeException does. The failure is rethrown unchanged, never swallowed.
     @Override
+    @SuppressWarnings("java:S1181")
     public void setSessionFactory(McpServerSession.Factory sessionFactory) {
         Objects.requireNonNull(sessionFactory, "sessionFactory");
         if (!initialized.compareAndSet(false, true)) {
             throw new IllegalStateException("MCP STDIO transport supports exactly one session");
         }
+        // The transport allocates its two worker executors as soon as it is constructed, but only workerFinished()
+        // disposes them, and that cannot run until start() has launched both workers. A session factory that
+        // fails in between therefore used to leak both threads for the life of the process and leave
+        // awaitTermination() waiting on a latch nothing would ever count down.
         BoundedSessionTransport createdTransport = new BoundedSessionTransport();
         this.transport.set(createdTransport);
-        this.session.set(sessionFactory.create(createdTransport));
-        createdTransport.start();
+        try {
+            this.session.set(sessionFactory.create(createdTransport));
+            createdTransport.start();
+        } catch (RuntimeException | Error failure) {
+            abandonUnstartedTransport(createdTransport, failure);
+            throw failure;
+        }
+    }
+
+    /**
+     * Releases a transport that never reached a running session, and marks the provider terminated so a caller
+     * blocked in {@link #awaitTermination()} is released instead of waiting forever.
+     */
+    @SuppressWarnings("java:S1181") // Releasing the workers must not itself be defeated by an Error.
+    private void abandonUnstartedTransport(BoundedSessionTransport createdTransport, Throwable primary) {
+        closing.set(true);
+        try {
+            createdTransport.releaseWorkers();
+        } catch (RuntimeException | Error releaseFailure) {
+            primary.addSuppressed(releaseFailure);
+        }
+        transport.set(null);
+        session.set(null);
+        terminated.countDown();
     }
 
     @Override
@@ -287,10 +317,21 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
 
         private void workerFinished() {
             if (workersRemaining.decrementAndGet() == 0) {
-                inboundScheduler.dispose();
-                outboundScheduler.dispose();
-                terminated.countDown();
+                try {
+                    SchedulerRelease.disposeAll(inboundScheduler, outboundScheduler);
+                } finally {
+                    // Whoever waits on termination must be released even when a scheduler refused to stop.
+                    terminated.countDown();
+                }
             }
+        }
+
+        /**
+         * Disposes the worker executors directly, for a transport whose workers never ran. Disposal is idempotent
+         * in Reactor, so this stays safe if a worker did start and later reaches {@link #workerFinished()}.
+         */
+        private void releaseWorkers() {
+            SchedulerRelease.disposeAll(inboundScheduler, outboundScheduler);
         }
     }
 

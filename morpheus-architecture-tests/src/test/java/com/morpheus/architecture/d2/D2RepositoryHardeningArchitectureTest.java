@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Properties;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -111,6 +112,43 @@ class D2RepositoryHardeningArchitectureTest {
                 "codeql.yml must pin CodeQL init/analyze actions by immutable SHA");
         assertFalse(codeql.contains("uses: github/codeql-action/init@v"));
         assertFalse(codeql.contains("uses: github/codeql-action/analyze@v"));
+    }
+
+    /**
+     * The macOS lane observes; it must never be mistaken for support.
+     *
+     * <p>An unqualified platform must not gate pull requests, so the lane is advisory. The opposite mistake is
+     * the one worth guarding against in a contract: a green advisory lane is not a support decision, and the
+     * qualified-platform list must keep saying Windows and Linux until a product decision says otherwise.</p>
+     */
+    @Test
+    void theMacosLaneStaysAdvisoryAndClaimsNoSupport() throws IOException {
+        Path root = repoRoot();
+        String ci = Files.readString(root.resolve(".github/workflows/ci.yml"));
+
+        assertTrue(ci.contains("runs-on: macos-latest"), "ci.yml must observe macOS at least at smoke level");
+        assertTrue(ci.contains("continue-on-error: true"),
+                "an unqualified platform must not gate pull requests");
+        assertFalse(ci.contains("jpackage") && ci.contains("macos"),
+                "the macOS lane must not produce distribution artifacts");
+
+        // The lane tolerates a failing reactor so it does not sit permanently red, which is only acceptable
+        // while it still says what happened. Swallowing the outcome would turn an observation lane into a
+        // rubber stamp: green because it ran, not because anything worked.
+        assertTrue(ci.contains("id: reactor"), "the macOS reactor step must be identifiable");
+        assertTrue(ci.contains("Reactor outcome on macOS: ${{ steps.reactor.outcome }}"),
+                "the macOS lane must publish the reactor outcome rather than swallow it");
+        assertTrue(ci.contains("RT-08 open, no support claimed"),
+                "a failing macOS reactor must be surfaced as a warning naming the open risk");
+
+        String qualityScenarios = Files.readString(root.resolve("docs/architecture/quality/scenarios.md"));
+        String architecture = Files.readString(root.resolve("docs/architecture/arc42/10-exigences-qualite.md"));
+        assertTrue(qualityScenarios.contains("non supporté"),
+                "the quality scenario must keep saying macOS is not supported");
+        assertTrue(qualityScenarios.contains("RT-08 ouvert"),
+                "observing macOS does not close RT-08");
+        assertTrue(architecture.contains("Observation n'est pas qualification"),
+                "arc42 must keep separating observation from qualification");
     }
 
     @Test
@@ -224,6 +262,71 @@ class D2RepositoryHardeningArchitectureTest {
                 assertFalse(text.contains("enableDefaultTyping("), "default typing activation forbidden: " + source);
             }
         }
+    }
+
+    /**
+     * A prefix test on Content-Type admits {@code application/jsonp} and {@code application/json-patch+json} as
+     * JSON. Every request-body boundary must decide admission through the shared exact parser instead.
+     */
+    @Test
+    void requestBodyBoundariesAdmitJsonByExactMediaTypeNotByPrefix() throws IOException {
+        Path api = repoRoot().resolve("morpheus-api/src/main/java/com/morpheus/api");
+        assertTrue(Files.isRegularFile(api.resolve("JsonMediaType.java")),
+                "the shared exact JSON media-type parser must exist");
+
+        List<String> boundaries = List.of(
+                "MorpheusHttpRequestDecoder.java",
+                "MorpheusQueryHttpRoutes.java",
+                "MorpheusPolicyHttpRoutes.java",
+                "MorpheusPolicyManagementHttpRoutes.java",
+                "MorpheusReasoningHttpRoutes.java");
+        for (String boundary : boundaries) {
+            String content = Files.readString(api.resolve(boundary));
+            assertTrue(content.contains("JsonMediaType.isJson("),
+                    () -> boundary + " must admit JSON through the shared exact media-type parser");
+        }
+
+        try (var files = Files.walk(api, 4)) {
+            for (Path source : files.filter(path -> path.toString().endsWith(".java")).toList()) {
+                String text = Files.readString(source);
+                assertFalse(text.contains("startsWith(\"application/json\")"),
+                        () -> "Content-Type must not be admitted by prefix: " + source.getFileName());
+            }
+        }
+    }
+
+    /**
+     * The documented CVE command must actually scan.
+     *
+     * <p>The {@code d2-security} profile only configures the plugin; it binds no execution to a phase. So
+     * {@code ./mvnw verify -P d2-security}, which four governance surfaces documented as the CVE scan, completed
+     * in seconds with BUILD SUCCESS having analysed nothing — an auditor following it would have reported a clean
+     * scan without running one. The goal has to be invoked explicitly, as {@code security.yml} does.</p>
+     */
+    @Test
+    void governanceSurfacesDocumentACveCommandThatActuallyInvokesTheScan() throws IOException {
+        Path root = repoRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        assertTrue(pom.contains("<id>d2-security</id>"), "the security profile must exist");
+
+        List<String> surfaces = List.of(
+                ".claude/commands/security-audit.md",
+                ".claude/agents/security-reviewer.md",
+                ".claude/rules/build.md",
+                ".github/prompts/morpheus-security-audit.prompt.md");
+        for (String surface : surfaces) {
+            String content = Files.readString(root.resolve(surface));
+            assertTrue(content.contains("org.owasp:dependency-check-maven:aggregate"),
+                    () -> surface + " must document the goal invocation that actually runs the CVE scan");
+            assertFalse(content.contains("verify -P d2-security"),
+                    () -> surface + " documents a command that activates the profile without running the scan");
+            assertFalse(content.contains("verify -Pd2-security"),
+                    () -> surface + " documents a command that activates the profile without running the scan");
+        }
+
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+        assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"),
+                "CI must invoke the aggregate goal explicitly");
     }
 
     @Test

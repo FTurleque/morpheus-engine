@@ -22,6 +22,7 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -37,7 +38,8 @@ import java.util.regex.Pattern;
  * processes through an owner-hardened sidecar file lock. The remote server reloads the current identity snapshot for
  * each authentication request, so revoke/rotate/role/expiry changes become effective without restart. The secret-free
  * audit is retained as a bounded rolling window inside the same atomic snapshot so audit growth can never prevent an
- * urgent credential rotation or revocation.</p>
+ * urgent credential rotation or revocation. Neither can audit corruption: historical audit entries are evidence, not
+ * authority, so an unreadable one is quarantined and recorded as such rather than failing the mutation it precedes.</p>
  */
 public final class MorpheusRemoteIdentityFile {
     public static final int MAX_FILE_BYTES = 256 * 1024;
@@ -47,6 +49,13 @@ public final class MorpheusRemoteIdentityFile {
     private static final int MAX_PRESENTED_TOKEN_CHARS = 1024;
     private static final Pattern PRINCIPAL = Pattern.compile("[A-Za-z0-9._@-]{1,128}");
     private static final String AUDIT_PREFIX = "# audit|";
+    /**
+     * Subject of an {@link Mutation#AUDIT_QUARANTINED} entry.
+     *
+     * <p>It is a reserved name rather than an operator principal, and it is never accepted as an identity: the
+     * identity parser only ever reads principals from identity lines, and the audit is a comment to it.</p>
+     */
+    private static final String AUDIT_QUARANTINE_SUBJECT = "morpheus.audit";
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Object MUTATION_LOCK = new Object();
 
@@ -101,10 +110,17 @@ public final class MorpheusRemoteIdentityFile {
             return Objects.hash(principal, role, Arrays.hashCode(tokenHash), expiresAt);
         }
 
+        /**
+         * Diagnostic rendering without the stored verifier.
+         *
+         * <p>The token hash is the material an offline attacker needs; it has no diagnostic value that principal,
+         * role and expiry do not already provide. Any log line, exception message or collection dump that
+         * interpolates an identity must stay safe by construction.
+         */
         @Override
         public String toString() {
             return "Identity[principal=" + principal + ", role=" + role
-                    + ", tokenHash=" + Arrays.toString(tokenHash) + ", expiresAt=" + expiresAt + "]";
+                    + ", tokenHash=<redacted>, expiresAt=" + expiresAt + "]";
         }
     }
 
@@ -125,13 +141,52 @@ public final class MorpheusRemoteIdentityFile {
         public GeneratedCredential(String principal, MorpheusRemoteRole role, String token) {
             this(principal, role, token, Optional.empty());
         }
+
+        /**
+         * Diagnostic rendering without the bearer token.
+         *
+         * <p>The token is printed once, deliberately, by the credential commands through {@link #token()}. The
+         * automatic record rendering must never become a second, accidental disclosure path.
+         */
+        @Override
+        public String toString() {
+            return "GeneratedCredential[principal=" + principal + ", role=" + role
+                    + ", token=<redacted>, expiresAt=" + expiresAt + "]";
+        }
     }
 
     public enum Mutation {
         CREATE,
         REVOKE,
         ROTATE,
-        ROLE_CHANGED
+        ROLE_CHANGED,
+        EXPIRY_MIGRATED,
+
+        /**
+         * Unreadable historical audit entries were dropped so a credential mutation could proceed.
+         *
+         * <p>It carries no principal of its own because the entries it replaces could not be read, and reading
+         * them is exactly what failed.</p>
+         */
+        AUDIT_QUARANTINED
+    }
+
+    /**
+     * Outcome of a legacy expiry migration, secret-free by construction.
+     *
+     * <p>{@code retained} names the identities the migration deliberately left non-expiring. That set is not a
+     * failure: it is how an operator keeps a break-glass credential while the rest of the file gains an expiry.</p>
+     */
+    public record LegacyMigration(
+            boolean dryRun,
+            Instant expiresAt,
+            List<String> migrated,
+            List<String> retained) {
+        public LegacyMigration {
+            Objects.requireNonNull(expiresAt, "expiresAt");
+            migrated = List.copyOf(Objects.requireNonNull(migrated, "migrated"));
+            retained = List.copyOf(Objects.requireNonNull(retained, "retained"));
+        }
     }
 
     /** Secret-free mutation evidence persisted atomically with the identity snapshot. */
@@ -264,6 +319,82 @@ public final class MorpheusRemoteIdentityFile {
                     new AuditRecord(Instant.now(), Mutation.ROLE_CHANGED, normalizedPrincipal, newRole));
             return updated;
         });
+    }
+
+    /**
+     * Gives an explicit expiry to identities that have none, without touching their token material.
+     *
+     * <p>The three-field entry is a non-expiring credential, and it stays valid input: nothing here happens
+     * implicitly, because silently expiring a credential an operator never asked to change is how a remote
+     * server locks its own administrators out. The migration is explicit, reports exactly what it would do
+     * before it does it, and rotates nothing -- every client keeps working, it simply now has a deadline.</p>
+     *
+     * <p>It refuses to schedule an ADMIN lockout. If applying it would leave no ADMIN identity still active
+     * after {@code expiresAt}, the whole migration fails: an operator must first give one administrator a later
+     * expiry, or exclude it with {@code principals}, so a way back into the server outlives the deadline.</p>
+     *
+     * @param principals identities to migrate, or empty to migrate every non-expiring identity
+     */
+    public static LegacyMigration migrateLegacyExpiry(
+            Path authFile,
+            Instant expiresAt,
+            Set<String> principals,
+            boolean dryRun) {
+        Instant expiry = requireFutureExpiry(expiresAt);
+        Set<String> selected = new LinkedHashSet<>();
+        for (String principal : Objects.requireNonNull(principals, "principals")) {
+            selected.add(requirePrincipal(principal));
+        }
+        return mutate(authFile, file -> {
+            List<Identity> existing = load(secureExistingFile(file));
+            for (String principal : selected) {
+                requireIdentity(existing, principal);
+            }
+
+            List<String> migrated = existing.stream()
+                    .filter(identity -> identity.expiresAt().isEmpty())
+                    .filter(identity -> selected.isEmpty() || selected.contains(identity.principal()))
+                    .map(Identity::principal)
+                    .toList();
+            List<Identity> updated = existing.stream()
+                    .map(identity -> migrated.contains(identity.principal())
+                            ? new Identity(identity.principal(), identity.role(), identity.tokenHash(),
+                                    Optional.of(expiry))
+                            : identity)
+                    .toList();
+            requireAdministratorOutliving(updated, expiry);
+
+            List<String> retained = updated.stream()
+                    .filter(identity -> identity.expiresAt().isEmpty())
+                    .map(Identity::principal)
+                    .toList();
+            if (!dryRun && !migrated.isEmpty()) {
+                Instant at = Instant.now();
+                // One atomic write for the whole migration: writing per identity would leave the file in a
+                // partially migrated state if any intermediate write failed.
+                write(file, updated, migrated.stream()
+                        .map(principal -> new AuditRecord(
+                                at, Mutation.EXPIRY_MIGRATED, principal, requireIdentity(updated, principal).role()))
+                        .toList());
+            }
+            return new LegacyMigration(dryRun, expiry, migrated, retained);
+        });
+    }
+
+    /**
+     * A remote server refuses to start without an active ADMIN identity, so a migration that leaves none after
+     * the deadline is a lockout scheduled for that date rather than an error at that date.
+     */
+    private static void requireAdministratorOutliving(List<Identity> identities, Instant expiry) {
+        boolean survives = identities.stream()
+                .filter(identity -> identity.role() == MorpheusRemoteRole.ADMIN)
+                .anyMatch(identity -> identity.expiresAt().isEmpty()
+                        || identity.expiresAt().orElseThrow().isAfter(expiry));
+        if (!survives) {
+            throw new IllegalArgumentException(
+                    "migration would leave no ADMIN identity active after " + expiry
+                            + "; give one administrator a later expiry or exclude it from the migration");
+        }
     }
 
     public static List<AuditRecord> audit(Path authFile) {
@@ -404,6 +535,10 @@ public final class MorpheusRemoteIdentityFile {
     }
 
     private static void write(Path file, List<Identity> identities, AuditRecord auditRecord) {
+        write(file, identities, List.of(Objects.requireNonNull(auditRecord, "auditRecord")));
+    }
+
+    private static void write(Path file, List<Identity> identities, List<AuditRecord> auditRecords) {
         if (identities.size() > MAX_IDENTITIES) {
             throw new IllegalArgumentException("remote auth file exceeds " + MAX_IDENTITIES + " identities");
         }
@@ -427,9 +562,12 @@ public final class MorpheusRemoteIdentityFile {
 
         List<AuditRecord> retainedAudit = new ArrayList<>();
         if (Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
-            retainedAudit.addAll(parseAudit(readLinesSecurely(file, "cannot preserve remote identity audit")));
+            RetainedAudit salvaged = retainableAudit(
+                    readLinesSecurely(file, "cannot preserve remote identity audit"));
+            retainedAudit.addAll(salvaged.records());
+            if (salvaged.quarantined() > 0) retainedAudit.add(quarantineRecord());
         }
-        retainedAudit.add(Objects.requireNonNull(auditRecord, "auditRecord"));
+        retainedAudit.addAll(Objects.requireNonNull(auditRecords, "auditRecords"));
         int firstRetained = Math.max(0, retainedAudit.size() - MAX_AUDIT_RECORDS);
         retainedAudit.subList(firstRetained, retainedAudit.size()).stream()
                 .map(MorpheusRemoteIdentityFile::formatAudit)
@@ -481,26 +619,76 @@ public final class MorpheusRemoteIdentityFile {
         }
     }
 
+    /**
+     * Reads the audit strictly, naming the first unreadable line.
+     *
+     * <p>This is the reporting surface: it says what is on disk rather than what can be salvaged from it, so a
+     * corrupted history is visible instead of quietly shorter. The mutation path deliberately does not use it --
+     * see {@link #retainableAudit(List)}.</p>
+     */
     private static List<AuditRecord> parseAudit(List<String> lines) {
         List<AuditRecord> records = new ArrayList<>();
         for (int index = 0; index < lines.size(); index++) {
             String line = lines.get(index).trim();
             if (!line.startsWith(AUDIT_PREFIX)) continue;
-            String[] fields = line.substring(AUDIT_PREFIX.length()).split("\\|", -1);
-            if (fields.length != 4) {
+            AuditRecord entry = readAudit(line);
+            if (entry == null) {
                 throw new IllegalArgumentException("invalid remote identity audit at line " + (index + 1));
             }
-            try {
-                records.add(new AuditRecord(
-                        Instant.parse(fields[0]),
-                        Mutation.valueOf(fields[1]),
-                        fields[2],
-                        MorpheusRemoteRole.valueOf(fields[3])));
-            } catch (IllegalArgumentException failure) {
-                throw new IllegalArgumentException("invalid remote identity audit at line " + (index + 1), failure);
-            }
+            records.add(entry);
         }
         return List.copyOf(records);
+    }
+
+    /**
+     * Salvages the historical audit for retention, counting what it had to leave behind.
+     *
+     * <p>The audit is evidence about mutations, never an authority over them. Preserving it strictly meant a
+     * single unreadable {@code # audit|} line -- from a partial write, a hand edit, or a truncated copy -- made
+     * every later mutation of the file fail, so a credential known to be compromised could not be revoked while
+     * the credential itself stayed perfectly valid. Ordering that the wrong way makes the audit a denial of
+     * service against the operation the audit exists to record.</p>
+     *
+     * <p>Unreadable entries are therefore dropped rather than preserved, and their loss is itself recorded as an
+     * {@link Mutation#AUDIT_QUARANTINED} entry. Nothing from the rejected line is carried into that record: a
+     * line that failed to parse is of unknown provenance, and the only safe thing to say about it is that it
+     * existed.</p>
+     */
+    private static RetainedAudit retainableAudit(List<String> lines) {
+        List<AuditRecord> records = new ArrayList<>();
+        int quarantined = 0;
+        for (String raw : lines) {
+            String line = raw.trim();
+            if (!line.startsWith(AUDIT_PREFIX)) continue;
+            AuditRecord entry = readAudit(line);
+            if (entry == null) quarantined++;
+            else records.add(entry);
+        }
+        return new RetainedAudit(records, quarantined);
+    }
+
+    /** Returns {@code null} for an entry no reader can trust, without echoing any of its content. */
+    private static AuditRecord readAudit(String line) {
+        String[] fields = line.substring(AUDIT_PREFIX.length()).split("\\|", -1);
+        if (fields.length != 4) return null;
+        try {
+            return new AuditRecord(
+                    Instant.parse(fields[0]),
+                    Mutation.valueOf(fields[1]),
+                    fields[2],
+                    MorpheusRemoteRole.valueOf(fields[3]));
+        } catch (RuntimeException unreadable) {
+            return null;
+        }
+    }
+
+    /** Historical audit entries that survived a read, and how many did not. */
+    private record RetainedAudit(List<AuditRecord> records, int quarantined) {
+    }
+
+    private static AuditRecord quarantineRecord() {
+        return new AuditRecord(
+                Instant.now(), Mutation.AUDIT_QUARANTINED, AUDIT_QUARANTINE_SUBJECT, MorpheusRemoteRole.ADMIN);
     }
 
     private static String formatAudit(AuditRecord auditRecord) {

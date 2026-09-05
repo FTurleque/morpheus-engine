@@ -35,8 +35,31 @@ version, compteurs `dependency:analyze`), ce nombre doit être traité comme pé
   proposer la correction de la règle dans la même session — ne pas trancher silencieusement
   en faveur de l'un ou l'autre
 - Quand un ratchet (`config/m21-quality-ratchets.properties` ou équivalent futur) change :
-  répercuter la nouvelle valeur **dans le même changement** vers `rules/testing.md`,
-  `rules/governance.md` et `docs/README.md` — les trois doivent rester identiques
+  répercuter la nouvelle valeur **dans le même changement** partout. Cette page annonçait
+  trois destinations ; le 04/09/2026 une hausse de ratchet en a fait échouer **quatre tests
+  d'architecture** sur des fichiers absents de cette liste. Ne pas se fier à la liste : lancer
+  `RepositoryDocumentationCoherenceTest` + `ProductionIntegrityContractTest` et laisser les
+  échecs énumérer les destinations réelles. Constatées ce jour-là :
+
+  ```text
+  config/m21-quality-ratchets.properties        (source normative)
+  README.md                                     (phrase « Le ratchet global est … »)
+  docs/README.md
+  docs/developer/BUILD_AND_TEST.md              (tableau + « verrouillée à » + règle de baisse)
+  docs/developer/PRODUCTION_INTEGRITY.md
+  docs/developer/README.md
+  docs/governance/DOCUMENTATION_STATUS.md
+  docs/governance/ROADMAP.md
+  docs/architecture/arc42/11-risques-dette.md
+  docs/architecture/risks/register.md           (état CI actif + DT-10)
+  scripts/README.md
+  distribution/README.md
+  .claude/rules/testing.md
+  .claude/rules/governance.md
+  RepositoryDocumentationCoherenceTest          (valeurs épinglées, hausse délibérée)
+  ```
+
+  Les **mesures historiques** datées ne se réécrivent pas : seule une valeur active se met à jour
 - Traiter `post-edit.ps1` (hook) comme un filet de sécurité, pas une garantie : il avertit
   quand un fichier de gouvernance change, mais ne vérifie pas la cohérence des valeurs
 

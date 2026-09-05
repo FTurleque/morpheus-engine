@@ -1,25 +1,19 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryDefinition;
 import com.morpheus.application.query.dsl.QueryDslParser;
-import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.application.query.dsl.QueryPublicViews;
 import com.morpheus.application.query.dsl.QueryScope;
 import com.morpheus.application.query.export.QueryExportFormat;
-import com.morpheus.application.query.export.QueryExportService;
 import com.morpheus.application.query.saved.SavedViewId;
-import com.morpheus.application.query.saved.SavedViewService;
 import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePortfolioStore;
-import com.morpheus.store.sqlite.SqliteSavedViewStore;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.SqliteQueryRuntime;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -63,7 +57,7 @@ final class MorpheusQueryCli {
             Properties properties) {
         try {
             Parsed parsed = Parsed.parse(args, environment, properties);
-            try (Runtime runtime = new Runtime(parsed.layout().databasePath())) {
+            try (SqliteQueryRuntime runtime = SqliteQueryRuntime.open(parsed.layout().databasePath())) {
                 return switch (parsed.command()) {
                     case CMD_QUERY -> query(parsed, runtime, out);
                     case CMD_VIEWS -> views(parsed, runtime, out);
@@ -80,16 +74,16 @@ final class MorpheusQueryCli {
         }
     }
 
-    private int query(Parsed parsed, Runtime runtime, PrintStream out) {
+    private int query(Parsed parsed, SqliteQueryRuntime runtime, PrintStream out) {
         requireAction(parsed, "execute");
         SimpleOptions options = SimpleOptions.parse(parsed.arguments());
         options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, "sort", OPT_FIELDS, OPT_OFFSET, OPT_LIMIT));
         QueryDefinition query = query(options, scope(options));
-        write(QueryPublicViews.result(runtime.queries.execute(query)), parsed.json(), out);
+        write(QueryPublicViews.result(runtime.queries().execute(query)), parsed.json(), out);
         return CliExitCode.SUCCESS.code();
     }
 
-    private int views(Parsed parsed, Runtime runtime, PrintStream out) {
+    private int views(Parsed parsed, SqliteQueryRuntime runtime, PrintStream out) {
         if (parsed.action().isEmpty()) {
             throw new IllegalArgumentException("views requires an action");
         }
@@ -100,37 +94,37 @@ final class MorpheusQueryCli {
                 options.rejectUnknown(Set.of(
                         "name", OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, "sort", OPT_FIELDS, OPT_OFFSET, OPT_LIMIT));
                 QueryDefinition definition = query(options, scope(options));
-                yield QueryPublicViews.savedView(runtime.views.create(options.required("name"), definition));
+                yield QueryPublicViews.savedView(runtime.views().create(options.required("name"), definition));
             }
             case "list" -> {
                 options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO));
-                yield QueryPublicViews.savedViews(runtime.views.list(scope(options)));
+                yield QueryPublicViews.savedViews(runtime.views().list(scope(options)));
             }
             case "get" -> {
                 options.rejectUnknown(Set.of("id"));
-                yield QueryPublicViews.savedView(runtime.views.get(savedView(options)));
+                yield QueryPublicViews.savedView(runtime.views().get(savedView(options)));
             }
             case "versions" -> {
                 options.rejectUnknown(Set.of("id"));
-                yield QueryPublicViews.savedVersions(runtime.views.versions(savedView(options)));
+                yield QueryPublicViews.savedVersions(runtime.views().versions(savedView(options)));
             }
             case "update" -> {
                 options.rejectUnknown(Set.of(
                         "id", OPT_EXPECTED_REVISION, "name", OPT_ENTITY, OPT_FILTER, "sort", OPT_FIELDS, OPT_OFFSET, OPT_LIMIT));
                 SavedViewId id = savedView(options);
-                var current = runtime.views.get(id);
+                var current = runtime.views().get(id);
                 QueryDefinition definition = query(options, current.query().scope());
-                yield QueryPublicViews.savedView(runtime.views.update(
+                yield QueryPublicViews.savedView(runtime.views().update(
                         id, positiveLong(options, OPT_EXPECTED_REVISION), options.required("name"), definition));
             }
             case "archive" -> {
                 options.rejectUnknown(Set.of("id", OPT_EXPECTED_REVISION));
-                yield QueryPublicViews.savedView(runtime.views.archive(
+                yield QueryPublicViews.savedView(runtime.views().archive(
                         savedView(options), positiveLong(options, OPT_EXPECTED_REVISION)));
             }
             case "execute" -> {
                 options.rejectUnknown(Set.of("id"));
-                yield QueryPublicViews.result(runtime.views.execute(savedView(options)));
+                yield QueryPublicViews.result(runtime.views().execute(savedView(options)));
             }
             default -> throw new IllegalArgumentException("unknown views action: " + action);
         };
@@ -138,7 +132,7 @@ final class MorpheusQueryCli {
         return CliExitCode.SUCCESS.code();
     }
 
-    private int export(Parsed parsed, Runtime runtime, PrintStream out) {
+    private int export(Parsed parsed, SqliteQueryRuntime runtime, PrintStream out) {
         if (parsed.action().isEmpty()) {
             throw new IllegalArgumentException("export requires query or view");
         }
@@ -153,7 +147,7 @@ final class MorpheusQueryCli {
             }
             case "view" -> {
                 options.rejectUnknown(Set.of(OPT_FORMAT, "id"));
-                var view = runtime.views.get(savedView(options));
+                var view = runtime.views().get(savedView(options));
                 if (view.status() != SavedViewStatus.ACTIVE) {
                     throw new IllegalStateException("saved view is archived: " + view.id());
                 }
@@ -161,7 +155,7 @@ final class MorpheusQueryCli {
             }
             default -> throw new IllegalArgumentException("unknown export action: " + action);
         };
-        var export = runtime.exports.export(definition, format);
+        var export = runtime.exports().export(definition, format);
         out.print(export.content());
         if (!export.content().endsWith("\n")) {
             out.println();
@@ -267,34 +261,4 @@ final class MorpheusQueryCli {
         }
     }
 
-    private static final class Runtime implements AutoCloseable {
-        private final SqliteSpecificationKnowledgeStore snapshots;
-        private final SqliteVersionedRequirementStore requirements;
-        private final SqliteSnapshotBusinessContentStore content;
-        private final SqlitePortfolioStore portfolios;
-        private final SqliteSavedViewStore saved;
-        private final QueryExecutionService queries;
-        private final SavedViewService views;
-        private final QueryExportService exports;
-
-        private Runtime(Path databasePath) {
-            snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-            requirements = new SqliteVersionedRequirementStore(databasePath);
-            content = new SqliteSnapshotBusinessContentStore(databasePath);
-            portfolios = new SqlitePortfolioStore(databasePath);
-            saved = new SqliteSavedViewStore(databasePath);
-            queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
-            views = new SavedViewService(saved, queries);
-            exports = new QueryExportService(queries);
-        }
-
-        @Override
-        public void close() {
-            saved.close();
-            portfolios.close();
-            content.close();
-            requirements.close();
-            snapshots.close();
-        }
-    }
 }

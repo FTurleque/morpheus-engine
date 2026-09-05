@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
@@ -53,8 +54,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final Semaphore authenticationConcurrency;
     private final Semaphore concurrency;
     private final Semaphore privilegedConcurrency;
+    private final Semaphore observabilityConcurrency;
     private final MorpheusRemoteRuntimeState runtime;
-    private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter();
+    private final TimedBoundedResponseWriter boundedResponses = new TimedBoundedResponseWriter();
+    private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter(boundedResponses);
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
     private final MorpheusRemoteProxyTransport proxyTransport;
 
@@ -88,8 +91,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.authenticationConcurrency = new Semaphore(authenticationConcurrencyLimit(maxConcurrentRequests), true);
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
         this.privilegedConcurrency = new Semaphore(privilegedConcurrencyLimit(maxConcurrentRequests), true);
+        this.observabilityConcurrency = new Semaphore(observabilityConcurrencyLimit(maxConcurrentRequests), true);
         this.runtime = new MorpheusRemoteRuntimeState(
                 maxConcurrentRequests,
+                privilegedConcurrencyLimit(maxConcurrentRequests),
                 REQUEST_BODY_READ_TIMEOUT,
                 MAX_PROXY_RESPONSE_BYTES,
                 MAX_PROXY_IN_FLIGHT_BYTES,
@@ -97,7 +102,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.proxyTargets = new MorpheusRemoteProxyTargetResolver(
                 localServer.port(), providerPluginDirectory, allowedWorkspaceRoots);
         this.proxyTransport = new MorpheusRemoteProxyTransport(
-                internalCapability, runtime, MAX_PROXY_RESPONSE_BYTES, MAX_PROXY_RESPONSE_SLOTS);
+                internalCapability, runtime, MAX_PROXY_RESPONSE_BYTES, MAX_PROXY_RESPONSE_SLOTS, boundedResponses);
     }
 
     public static MorpheusRemoteHttpServer start(
@@ -158,20 +163,44 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         return URI.create("https://" + hostForUri(host()) + ":" + port() + MorpheusHttpServer.API_PREFIX);
     }
 
+    // The exclusive server lease is released last and matters most: a failure in any earlier release used to
+    // skip it, leaving the database reserved for the rest of the process while the facade reported itself shut
+    // down. Every release now runs, and the first failure is the one the caller sees.
     @Override
     public void close() {
-        server.stop(0);
-        executor.shutdownNow();
-        localServer.close();
-        lease.close();
+        ExhaustiveShutdown.releaseAll(
+                "cannot shut down the MORPHEUS remote HTTPS server",
+                () -> server.stop(0),
+                executor::shutdownNow,
+                boundedResponses::close,
+                localServer::close,
+                lease::close);
     }
 
+    /**
+     * Serves one exchange, and absorbs the one failure that has nowhere left to be reported.
+     *
+     * <p>When a client stops draining its response, the deadline in {@link TimedBoundedResponseWriter} reclaims
+     * the connection -- which is also the only channel an error envelope could have travelled on. The abandoned
+     * request is counted and the exchange ends; every slot it held is given back by the inner {@code finally}
+     * either way.</p>
+     */
     void handle(HttpExchange exchange) throws IOException {
+        try {
+            serve(exchange);
+        } catch (TimedBoundedResponseWriter.ResponseWriteTimeoutException abandoned) {
+            runtime.recordResponseWriteTimeout();
+        }
+    }
+
+    private void serve(HttpExchange exchange) throws IOException {
         String requestId = UUID.randomUUID().toString();
         responses.applySecurityHeaders(exchange.getResponseHeaders(), requestId);
         runtime.recordRequest();
         boolean requestSlot = false;
-        boolean privilegedSlot = false;
+        // Zero means no privileged slot is held: privilegedRequestStarted() never issues that ticket. One piece
+        // of state instead of a flag beside it, because a flag and a ticket can disagree and a ticket cannot.
+        long privilegedTicket = 0L;
         try {
             if (!authenticationConcurrency.tryAcquire()) {
                 runtime.recordThrottledRequest();
@@ -198,30 +227,26 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 return;
             }
 
-            if (usesPrivilegedConcurrency(exchange.getRequestMethod(), exchange.getRequestURI().getPath())) {
-                if (!privilegedConcurrency.tryAcquire()) {
-                    runtime.recordThrottledRequest();
-                    throw new RemoteFailure(
-                            429,
-                            "PRIVILEGED_CONCURRENCY_LIMIT",
-                            "remote write/admin concurrency limit reached");
-                }
-                privilegedSlot = true;
+            String path = exchange.getRequestURI().getPath();
+            if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/status")) {
+                requireMethod(exchange, "GET");
+                serveStatus(exchange);
+                return;
             }
 
+            privilegedTicket = acquirePrivilegedTicket(exchange.getRequestMethod(), path);
+
             if (!concurrency.tryAcquire()) {
-                runtime.recordThrottledRequest();
+                if (privilegedTicket != 0L) {
+                    runtime.recordThrottledPrivilegedRequest();
+                } else {
+                    runtime.recordThrottledRequest();
+                }
                 throw new RemoteFailure(429, "TOO_MANY_REQUESTS", "remote request concurrency limit reached");
             }
             requestSlot = true;
             runtime.requestStarted();
 
-            String path = exchange.getRequestURI().getPath();
-            if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/status")) {
-                requireMethod(exchange, "GET");
-                responses.sendSuccess(exchange, 200, runtime.status(host(), port()));
-                return;
-            }
             if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/backups")) {
                 requireMethod(exchange, "POST");
                 requireEmptyBody(exchange);
@@ -231,14 +256,9 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             }
             proxy(exchange);
         } catch (RemoteFailure failure) {
-            if (failure.status == 401) runtime.recordAuthenticationFailure();
-            if (failure.status == 403) runtime.recordAuthorizationFailure();
-            if (failure.status == 401) {
-                exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer realm=\"morpheus\"");
-            }
-            responses.sendError(exchange, failure.status, failure.code, failure.getMessage());
+            renderFailure(exchange, failure);
         } catch (IllegalArgumentException failure) {
-            responses.sendError(exchange, 400, "BAD_REQUEST", safeMessage(failure));
+            responses.sendError(exchange, 400, "BAD_REQUEST", BoundaryFailureMessage.safe(failure));
         } catch (RuntimeException failure) {
             responses.sendError(exchange, 500, "INTERNAL_ERROR", "internal MORPHEUS remote server error");
         } finally {
@@ -246,10 +266,66 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 runtime.requestFinished();
                 concurrency.release();
             }
-            if (privilegedSlot) {
+            if (privilegedTicket != 0L) {
+                runtime.privilegedRequestFinished(privilegedTicket);
                 privilegedConcurrency.release();
             }
             exchange.close();
+        }
+    }
+
+    /**
+     * Takes the write/admin slot when the route needs one, and reports which slot is held.
+     *
+     * <p>Returns zero for a route that needs no privileged slot, which is also what the caller gives back: a
+     * ticket is never zero once issued, so the ticket alone says whether a slot is held. A refusal throws before
+     * any slot exists, so there is nothing to release on that path.</p>
+     */
+    private long acquirePrivilegedTicket(String method, String path) {
+        if (!usesPrivilegedConcurrency(method, path)) return 0L;
+        if (!privilegedConcurrency.tryAcquire()) {
+            runtime.recordThrottledPrivilegedRequest();
+            throw new RemoteFailure(
+                    429,
+                    "PRIVILEGED_CONCURRENCY_LIMIT",
+                    "remote write/admin concurrency limit reached");
+        }
+        return runtime.privilegedRequestStarted();
+    }
+
+    /**
+     * Renders a decided failure, and records what kind it was.
+     *
+     * <p>The challenge header belongs with the authentication counter rather than in a second test of the same
+     * status: they are one decision about one outcome, and splitting them is how one of them later moves.</p>
+     */
+    private void renderFailure(HttpExchange exchange, RemoteFailure failure) throws IOException {
+        if (failure.status == 401) {
+            runtime.recordAuthenticationFailure();
+            exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer realm=\"morpheus\"");
+        }
+        if (failure.status == 403) runtime.recordAuthorizationFailure();
+        responses.sendError(exchange, failure.status, failure.code, failure.getMessage());
+    }
+
+    /**
+     * Answers the runtime status outside the request budget it reports on.
+     *
+     * <p>Status is the one route an operator needs precisely when the facade is saturated, and it used to be
+     * admitted through the same semaphore as the traffic it describes: a server at its request ceiling answered
+     * 429 to the question "why are you at your ceiling?". It reads process-local counters, touches no database
+     * and makes no upstream call, so it does not belong in that budget -- but it is still authenticated,
+     * authorized and separately bounded, so an authenticated reader cannot turn it into an unmetered lane.</p>
+     */
+    private void serveStatus(HttpExchange exchange) throws IOException {
+        if (!observabilityConcurrency.tryAcquire()) {
+            runtime.recordThrottledRequest();
+            throw new RemoteFailure(429, "TOO_MANY_REQUESTS", "remote status concurrency limit reached");
+        }
+        try {
+            responses.sendSuccess(exchange, 200, runtime.status(host(), port()));
+        } finally {
+            observabilityConcurrency.release();
         }
     }
 
@@ -309,6 +385,18 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         return Math.max(1, (maxConcurrentRequests + 3) / 4);
     }
 
+    /**
+     * Capacity of the status lane, which is deliberately independent of {@code maxConcurrentRequests}.
+     *
+     * <p>It does not scale with configured request capacity because it is not request work: an operator polling
+     * a saturated server needs a handful of concurrent status reads, not a proportional share of a budget that
+     * is by then fully committed.</p>
+     */
+    static int observabilityConcurrencyLimit(int maxConcurrentRequests) {
+        if (maxConcurrentRequests < 1) throw new IllegalArgumentException("maxConcurrentRequests must be positive");
+        return 8;
+    }
+
     private void proxy(HttpExchange exchange) throws IOException {
         byte[] requestBody = readBoundedBody(exchange);
         URI requestUri = exchange.getRequestURI();
@@ -357,9 +445,17 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         }
     }
 
+    /**
+     * Remote projection of a backup verification.
+     *
+     * <p>The backup directory is server-configured and restore is offline-only, so a remote ADMIN never needs the
+     * absolute pathname; sending it would only describe where the server keeps its data. The file name identifies
+     * the backup, and the SHA-256 identifies its content. The local CLI keeps the full pathname because an operator
+     * passes it straight back to {@code server backup verify --file}.</p>
+     */
     private Map<String, Object> backupView(SqliteServerMaintenance.BackupVerification backup) {
         Map<String, Object> view = new LinkedHashMap<>();
-        view.put("path", backup.path().toString());
+        view.put("fileName", fileNameOf(backup.path()));
         view.put("bytes", backup.bytes());
         view.put("sha256", backup.sha256());
         view.put("schemaVersion", backup.schemaVersion());
@@ -367,14 +463,16 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         return Map.copyOf(view);
     }
 
+    /** A filesystem root has no file name; fall back to the SHA-256 rather than dereferencing null. */
+    private String fileNameOf(Path path) {
+        Path fileName = path.getFileName();
+        return fileName == null ? "" : fileName.toString();
+    }
+
     private static String hostForUri(String host) {
         return host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 
     private static final class RemoteFailure extends RuntimeException {
         private final int status;

@@ -29,19 +29,8 @@ public final class SqliteCompositionStateStore implements CompositionStateStore,
 
     public SqliteCompositionStateStore(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
-        Connection opened = null;
-        try {
-            opened = SqliteDatabaseSecurity.open(databasePath);
-            configure(opened);
-            new SqliteSchemaManager().migrate(opened);
-            connection = opened;
-        } catch (SQLException | RuntimeException exception) {
-            closeQuietly(opened);
-            if (exception instanceof KnowledgeStoreException knowledgeStoreException) {
-                throw knowledgeStoreException;
-            }
-            throw new KnowledgeStoreException("Cannot initialize SQLite composition state store", exception);
-        }
+        connection = SqliteStoreConnection.openAndMigrate(
+                databasePath, "Cannot initialize SQLite composition state store", SqliteCompositionStateStore::configure);
     }
 
     @Override
@@ -241,7 +230,7 @@ public final class SqliteCompositionStateStore implements CompositionStateStore,
         return List.copyOf(candidates);
     }
 
-    private void configure(Connection opened) throws SQLException {
+    private static void configure(Connection opened) throws SQLException {
         try (Statement statement = opened.createStatement()) {
             statement.execute("PRAGMA foreign_keys = ON");
             statement.execute("PRAGMA busy_timeout = 5000");
@@ -251,17 +240,6 @@ public final class SqliteCompositionStateStore implements CompositionStateStore,
     private void ensureOpen() {
         if (closed) {
             throw new IllegalStateException("SQLite composition state store is closed");
-        }
-    }
-
-    private void closeQuietly(Connection opened) {
-        if (opened == null) {
-            return;
-        }
-        try {
-            opened.close();
-        } catch (SQLException ignored) {
-            // Preserve original initialization failure.
         }
     }
 

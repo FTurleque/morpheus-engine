@@ -5,18 +5,29 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Owns the remote facade's response envelope and security-header mechanics.
  *
  * <p>Status selection, authentication, authorization and proxy policy remain responsibilities of
  * {@link MorpheusRemoteHttpServer}; this component only renders outcomes already decided by the facade.</p>
+ *
+ * <p>Even a small envelope is written under the facade's response deadline. An envelope is a few hundred bytes
+ * and normally disappears into the socket buffer, but "normally" is a property of the client, and a client that
+ * never reads is exactly the one this bound exists for.</p>
  */
 final class MorpheusRemoteResponseWriter {
     private static final String JSON_CONTENT_TYPE = "application/json; charset=utf-8";
 
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
+    private final TimedBoundedResponseWriter bounded;
+
+    MorpheusRemoteResponseWriter(TimedBoundedResponseWriter bounded) {
+        this.bounded = Objects.requireNonNull(bounded, "bounded");
+    }
 
     void applySecurityHeaders(Headers headers, String requestId) {
         headers.set("Cache-Control", "no-store");
@@ -48,7 +59,12 @@ final class MorpheusRemoteResponseWriter {
     private void sendJson(HttpExchange exchange, int status, Object payload) throws IOException {
         exchange.getResponseHeaders().set("Content-Type", JSON_CONTENT_TYPE);
         byte[] body = serializer.toUtf8(payload);
-        exchange.sendResponseHeaders(status, body.length);
-        exchange.getResponseBody().write(body);
+        bounded.write(progress -> {
+            exchange.sendResponseHeaders(status, body.length);
+            OutputStream downstream = exchange.getResponseBody();
+            downstream.write(body);
+            progress.made();
+            downstream.flush();
+        });
     }
 }

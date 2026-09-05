@@ -59,10 +59,10 @@ Linux :
 Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubuntu pour les pull requests ainsi que sur les pushes `main` et `develop`.
 
 ```text
-baseline Surefire totale       >= 860
-baseline architecture          >= 265
-JaCoCo line ratchet            >= 51.0%
-JaCoCo branch ratchet          >= 43.5%
+baseline Surefire totale       >= 1300
+baseline architecture          >= 335
+JaCoCo line ratchet            >= 54.5%
+JaCoCo branch ratchet          >= 47.7%
 D2 absolute line floor         40%
 D2 absolute branch floor       35%
 maven dependency analyze       failOnWarning=true
@@ -90,11 +90,11 @@ Cette garde différentielle complète le ratchet global : elle évite qu'une nou
 
 ## Qualité et ratchet JaCoCo
 
-La baseline globale courante est verrouillée à **51,0% lignes / 43,5% branches**.
+La baseline globale courante est verrouillée à **54,5% lignes / 47,7% branches**.
 
 Règle d’évolution :
 
-1. une baisse sous 51,0% lignes ou 43,5% branches fait échouer le gate M21 ;
+1. une baisse sous 54,5% lignes ou 47,7% branches fait échouer le gate M21 ;
 2. les floors D2 40% / 35% restent des minima absolus et ne peuvent jamais affaiblir le ratchet ;
 3. une amélioration de couverture ne relève le ratchet qu’après qualification du même SHA exact sur Windows et Linux ;
 4. le ratchet n’est jamais abaissé automatiquement ; une baisse nécessite une décision d’audit explicite et motivée ;

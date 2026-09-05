@@ -11,19 +11,13 @@ import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.SecureRandom;
-import java.security.cert.X509Certificate;
 import java.sql.DriverManager;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -83,7 +77,7 @@ class MorpheusRemoteHttpServerTest {
                 0,
                 auth,
                 keyStore,
-                "changeit".toCharArray(),
+                RemoteHttpTestSupport.KEYSTORE_PASSWORD.toCharArray(),
                 1,
                 new ExternalReferenceResolverRegistry(List.of()),
                 minos,
@@ -238,7 +232,7 @@ class MorpheusRemoteHttpServerTest {
                 0,
                 auth,
                 keyStore,
-                "changeit".toCharArray(),
+                RemoteHttpTestSupport.KEYSTORE_PASSWORD.toCharArray(),
                 1,
                 new ExternalReferenceResolverRegistry(List.of()),
                 () -> new ExternalIntegrationStatus("MINOS", "DISABLED", false, "test", Map.of()),
@@ -356,6 +350,31 @@ class MorpheusRemoteHttpServerTest {
     private void assertPluginDiscoveryAndAdminMetricsSucceed(HttpResponse<String> discovery, HttpResponse<String> metrics) {
         assertEquals(200, discovery.statusCode(), discovery.body());
         assertEquals(200, metrics.statusCode());
+        assertRemoteDiscoveryJsonCarriesNoServerLocation(discovery);
+    }
+
+    /**
+     * The projection is verified in the SDK; this proves it survives canonical JSON serialization and the proxy,
+     * which is the form a remote caller actually receives.
+     */
+    private void assertRemoteDiscoveryJsonCarriesNoServerLocation(HttpResponse<String> discovery) {
+        String body = discovery.body();
+        assertFalse(body.contains("\"directory\""),
+                () -> "remote plugin discovery must not name the server plugin directory: " + body);
+        assertFalse(body.contains("\"jarPath\""),
+                () -> "remote plugin discovery must not carry absolute JAR pathnames: " + body);
+        assertFalse(body.contains("file:"), () -> "remote plugin discovery must not carry a file: URI: " + body);
+
+        for (String location : List.of(
+                temp.toAbsolutePath().toString(),
+                temp.resolve("provider-plugins").toAbsolutePath().toString(),
+                System.getProperty("user.home"))) {
+            assertFalse(body.contains(location), () -> "remote plugin discovery leaked a location: " + body);
+            assertFalse(body.contains(location.replace('\\', '/')),
+                    () -> "remote plugin discovery leaked a location: " + body);
+            assertFalse(body.contains(location.replace("\\", "\\\\")),
+                    () -> "remote plugin discovery leaked a JSON-escaped location: " + body);
+        }
     }
 
     private void assertServerStatusExposesModeWithoutLeakingSecrets(
@@ -380,6 +399,30 @@ class MorpheusRemoteHttpServerTest {
         assertEquals(201, backup.statusCode());
         assertTrue(backup.body().contains("\"integrityOk\":true"));
         assertTrue(backup.body().contains("\"schemaVersion\":17"));
+        assertRemoteBackupNamesTheFileWithoutTheServerPathname(backup);
+    }
+
+    /**
+     * The backup directory is server-configured and restore is offline-only, so a remote ADMIN needs the backup's
+     * identity, not its location. Anything that would let the caller reconstruct the server's filesystem layout is
+     * a disclosure the response does not need to make.
+     */
+    private void assertRemoteBackupNamesTheFileWithoutTheServerPathname(HttpResponse<String> backup) {
+        String body = backup.body();
+        assertTrue(body.contains("\"fileName\":"), () -> "remote backup must name the file: " + body);
+        assertFalse(body.contains("\"path\":"),
+                () -> "remote backup must not expose the absolute backup pathname: " + body);
+        assertFalse(body.contains("file:"), () -> "remote backup must not expose a file: URI: " + body);
+
+        for (String location : List.of(
+                temp.toAbsolutePath().toString(),
+                temp.resolve("backups").toAbsolutePath().toString(),
+                System.getProperty("user.home"))) {
+            assertFalse(body.contains(location),
+                    () -> "remote backup leaked a server filesystem location: " + body);
+            assertFalse(body.contains(location.replace('\\', '/')),
+                    () -> "remote backup leaked a server filesystem location: " + body);
+        }
     }
 
     private void assertBoundedConcurrencyProducesThrottling(List<Integer> statuses) {
@@ -410,58 +453,14 @@ class MorpheusRemoteHttpServerTest {
     }
 
     private HttpResponse<String> send(HttpClient client, URI uri, String method, String token, String body) throws Exception {
-        HttpRequest.Builder builder = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30));
-        if (token != null) builder.header("Authorization", "Bearer " + token);
-        if (body != null) builder.header("Content-Type", "application/json");
-        builder.method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body));
-        return client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        return RemoteHttpTestSupport.send(client, uri, method, token, body);
     }
 
     private Path createKeyStore() throws Exception {
-        Path keyStore = temp.resolve("server.p12");
-        Path javaHome = Path.of(System.getProperty("java.home"));
-        boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
-        Path keytool = javaHome.resolve("bin").resolve(windows ? "keytool.exe" : "keytool");
-        Process process = new ProcessBuilder(
-                keytool.toString(),
-                "-genkeypair",
-                "-alias", "morpheus-test",
-                "-keyalg", "RSA",
-                "-keysize", "2048",
-                "-validity", "2",
-                "-storetype", "PKCS12",
-                "-keystore", keyStore.toString(),
-                "-storepass", "changeit",
-                "-keypass", "changeit",
-                "-dname", "CN=localhost",
-                "-ext", "SAN=DNS:localhost,IP:127.0.0.1",
-                "-noprompt")
-                .redirectErrorStream(true)
-                .start();
-        String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-        assertEquals(0, process.waitFor(), output);
-        return keyStore;
+        return RemoteHttpTestSupport.createKeyStore(temp.resolve("server.p12"));
     }
 
     private HttpClient trustedClient() throws Exception {
-        TrustManager[] trustAll = {new X509TrustManager() {
-            @Override
-            public void checkClientTrusted(X509Certificate[] chain, String authType) {
-            }
-
-            @Override
-            public void checkServerTrusted(X509Certificate[] chain, String authType) {
-                // no-op: this test client deliberately trusts the ephemeral self-signed
-                // certificate generated by createKeyStore() for the loopback test server
-            }
-
-            @Override
-            public X509Certificate[] getAcceptedIssuers() {
-                return new X509Certificate[0];
-            }
-        }};
-        SSLContext context = SSLContext.getInstance("TLS");
-        context.init(null, trustAll, new SecureRandom());
-        return HttpClient.newBuilder().sslContext(context).connectTimeout(Duration.ofSeconds(5)).build();
+        return RemoteHttpTestSupport.trustedClient(temp.resolve("server.p12"));
     }
 }

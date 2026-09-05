@@ -171,6 +171,41 @@ class MorpheusCliTest {
         assertEquals(CliExitCode.USAGE.code(), badDepth.exitCode());
     }
 
+    @Test
+    void firstSyncBootstrapsThenRepeatedSyncsStayIncrementalUntilForceIsRequested() {
+        Path data = tempDir.resolve("data");
+        Path fixture = fixture("openspec-basic");
+
+        Invocation add = invokeWithData(data, "projects", "add", "--workspace", fixture.toString());
+        assertEquals(0, add.exitCode(), add.stderr());
+        String projectId = value(add.stdout(), "projectId");
+
+        Invocation first = invokeWithData(data, "sync", "--project", projectId);
+        assertEquals(0, first.exitCode(), first.stderr());
+        assertTrue(first.stdout().contains("mode=FULL_REBUILD"), first.stdout());
+        assertTrue(first.stdout().contains("published=true"), first.stdout());
+        String bootstrapSnapshot = value(first.stdout(), "snapshotId");
+
+        Invocation unchanged = invokeWithData(data, "sync", "--project", projectId);
+        assertEquals(0, unchanged.exitCode(), unchanged.stderr());
+        assertTrue(unchanged.stdout().contains("mode=INCREMENTAL"), unchanged.stdout());
+        assertTrue(unchanged.stdout().contains("fullRebuildReason=none"), unchanged.stdout());
+        assertTrue(unchanged.stdout().contains("published=false"), unchanged.stdout());
+        assertTrue(unchanged.stdout().contains("requirements=0"), unchanged.stdout());
+        assertEquals(bootstrapSnapshot, value(unchanged.stdout(), "snapshotId"));
+
+        Invocation forced = invokeWithData(data, "sync", "--project", projectId, "--force");
+        assertEquals(0, forced.exitCode(), forced.stderr());
+        assertTrue(forced.stdout().contains("mode=FULL_REBUILD"), forced.stdout());
+        assertTrue(forced.stdout().contains("fullRebuildReason=FORCED"), forced.stdout());
+        assertTrue(forced.stdout().contains("published=true"), forced.stdout());
+
+        Invocation status = invokeWithData(data, "--json", "sync-status", "--project", projectId);
+        assertEquals(0, status.exitCode(), status.stderr());
+        assertTrue(status.stdout().contains("\"state\":\"FRESH\""), status.stdout());
+        assertTrue(status.stdout().contains("\"lastSuccessfulMode\":\"FULL_REBUILD\""), status.stdout());
+    }
+
     private Invocation invokeWithData(Path data, String... command) {
         String[] args = new String[command.length + 2];
         args[0] = "--data-dir";

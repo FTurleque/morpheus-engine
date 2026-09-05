@@ -43,8 +43,17 @@ Ne doit **PAS** contenir : `token + "|"`
 - Le probe reste `EXPLICITLY_NOT_EXPOSED` côté MCP dans le TSV
 
 ## 5. SQLite
+Récupérer d'abord la valeur normative — ne jamais la citer de mémoire ni la recopier ici :
+
+```bash
+grep -n "SUPPORTED_SCHEMA_VERSION = " morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java
+```
+
+`SqliteSchemaManager.java` **déclare** la version supportée ; `SqliteServerMaintenance.java` doit
+**consommer cette constante**, jamais un littéral. Reporter dans le rapport la valeur réellement détectée.
+
 `SqliteServerMaintenance.java` : `VACUUM INTO` · `PRAGMA integrity_check`
-· `SUPPORTED_SCHEMA_VERSION = 15` · `tryLock` · `ATOMIC_MOVE` · `"explicit confirmation"`
+· `tryLock` · `ATOMIC_MOVE` · `"explicit confirmation"`
 `SqliteTransactionRunner.java` : `catch (Error failure)` · `rollbackSuppressing(connection, failure)`
 
 ## 6. Chaîne CI
@@ -60,7 +69,7 @@ Ordre imposé : restore cache → remove stale lock → update-only.
 
 ## 7. Scan CVE complet
 ```bash
-./mvnw verify -P d2-security
+./mvnw -Pd2-security -DautoUpdate=false org.owasp:dependency-check-maven:aggregate
 ```
 
 ## Rapport
@@ -74,9 +83,13 @@ JSON            ✅ typing désactivé, limites strictes
 LOOPBACK        ✅ local confiné
 REMOTE TLS      ✅ TLS 1.2/1.3, tokens hashés, pas de CORS
 PLUGINS         ✅ pin SHA-256 requis, probe remote-only
-SQLITE          ✅ schéma 15, backup atomique
+SQLITE          ✅ schéma <valeur lue dans SqliteSchemaManager>, backup atomique
 CI SUPPLY CHAIN ✅ actions pinnées par SHA
 CVE             ✅ 0 ≥ 7.0
 ```
+
+Le gabarit ci-dessus contient un emplacement, pas une valeur : substituer le numéro de schéma
+réellement lu à l’étape 5. Ne jamais recopier un numéro depuis une exécution antérieure de cette
+commande — il devient faux dès la migration suivante.
 
 Pour chaque ❌ : fichier, chaîne manquante ou interdite, test d'architecture qui l'exige.

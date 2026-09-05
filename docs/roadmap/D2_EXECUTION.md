@@ -1,6 +1,6 @@
 # D2 — Post-R3 Repository Hardening
 
-Statut : **IN PROGRESS**
+Statut : **TERMINÉ — VALIDÉ — INTÉGRÉ DANS DEVELOP**
 
 Issue : **#120**
 
@@ -203,4 +203,4 @@ CI workflow delta                MUST BE NONE
 post-gate executable delta       MUST BE NONE
 ```
 
-Statut courant : **IMPLEMENTATION / QUALIFICATION PENDING**.
+Statut courant : **TERMINÉ** — SHA exact qualifié `fa54b3d6a316357b2ef79afd2243619a64a05f3b`, PR #121 MERGED, issue #120 CLOSED / completed. Voir [`../governance/ROADMAP.md`](../governance/ROADMAP.md) pour l'état d'intégration courant.

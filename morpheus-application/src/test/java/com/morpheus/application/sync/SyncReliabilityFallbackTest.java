@@ -146,7 +146,10 @@ class SyncReliabilityFallbackTest {
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.incomplete(
                         projectId,
-                        List.of(new SourceInventoryScanResult.Failure(Optional.of("openspec"), "cannot scan"))),
+                        List.of(new SourceInventoryScanResult.Failure(
+                                Optional.of("openspec"),
+                                SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
+                                "cannot scan"))),
                 SyncPlan.Trigger.manual(),
                 T0.plusSeconds(1));
 

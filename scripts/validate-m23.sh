@@ -5,6 +5,7 @@ VERSION="${1:-1.0.0}"
 SKIP_PORTABLE="${MORPHEUS_M23_SKIP_PORTABLE:-false}"
 BASE_REF="${MORPHEUS_M23_BASE_REF:-origin/main}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m23"
@@ -26,7 +27,7 @@ printf '%s\n' "M23 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <(python3 - "$REPO" <<'PY'
+read -r TESTS FAILURES ERRORS ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
 import pathlib, sys, xml.etree.ElementTree as ET
 root = pathlib.Path(sys.argv[1])
 def totals(base):
@@ -55,7 +56,7 @@ COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
 [[ -f "$COVERAGE" ]] || { echo "Missing production coverage summary: $COVERAGE" >&2; exit 1; }
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-python3 - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
 import sys
 line, branch = map(float, sys.argv[1:])
 if line < .25: raise SystemExit(f'M23 line coverage below 25%: {line}')
@@ -93,11 +94,16 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   [[ "$HELP" == *'Portfolio intelligence (M23)'* ]] || { echo 'Packaged M23 CLI help smoke failed' >&2; exit 1; }
   printf '%s\n' 'M23 classes + V013 + CLI help packaging proof: PASS'
 
-  DATA="$OUTPUT/portfolio-data"
-  rm -rf "$DATA" && mkdir -p "$DATA"
+  # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
+  # here inherits the permissions of whatever it sits under, and the real owner-controlled storage path is
+  # never exercised. Under the repository that inheritance is what the hardener refuses, which made a packaged
+  # product gate depend on the permissions of a development checkout. mktemp gives an owner-only parent; the
+  # data directory itself is only named here and is created by the launcher.
+  DATA_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-m23-portfolio-XXXXXXXXXX")"
+  DATA="$DATA_ROOT/data"
   CREATED="$($LAUNCHER --data-dir "$DATA" --json portfolio create --name 'M23 Gate Portfolio')"
   SEED="$($LAUNCHER --data-dir "$DATA" --json portfolio create --name 'M23 Project Identity Seed')"
-  read -r PORTFOLIO_ID PROJECT_ID < <(python3 - "$CREATED" "$SEED" <<'PY'
+  read -r PORTFOLIO_ID PROJECT_ID < <(morpheus_python - "$CREATED" "$SEED" <<'PY'
 import re, sys
 pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
 def first(text):
@@ -112,7 +118,7 @@ PY
   [[ "$OVERVIEW" == *"$PROJECT_ID"* && "$OVERVIEW" == *'"referenceCount":0'* ]] || { echo "Packaged portfolio overview mismatch: $OVERVIEW" >&2; exit 1; }
   printf '%s\n' 'Packaged portfolio CLI create/register/overview: PASS'
 
-  PORT="$(python3 - <<'PY'
+  PORT="$(morpheus_python - <<'PY'
 import socket
 with socket.socket() as sock:
     sock.bind(('127.0.0.1', 0)); print(sock.getsockname()[1])
@@ -120,12 +126,14 @@ PY
 )"
   "$LAUNCHER" --data-dir "$DATA" api --host 127.0.0.1 --port "$PORT" >"$OUTPUT/api.stdout.log" 2>"$OUTPUT/api.stderr.log" &
   API_PID=$!
-  cleanup_api() { kill "$API_PID" >/dev/null 2>&1 || true; wait "$API_PID" >/dev/null 2>&1 || true; }
+  # Removing the temp root here rather than from a trap of its own: the trap below replaces any
+  # earlier EXIT handler, so a separate one would simply never run.
+  cleanup_api() { kill "$API_PID" >/dev/null 2>&1 || true; wait "$API_PID" >/dev/null 2>&1 || true; rm -rf "$DATA_ROOT"; }
   trap cleanup_api EXIT
   API_OK=false
   for _ in $(seq 1 60); do
     if ! kill -0 "$API_PID" >/dev/null 2>&1; then cat "$OUTPUT/api.stderr.log" >&2 || true; exit 1; fi
-    if python3 - "$PORT" "$PORTFOLIO_ID" "$PROJECT_ID" 2>/dev/null <<'PY'
+    if morpheus_python - "$PORT" "$PORTFOLIO_ID" "$PROJECT_ID" 2>/dev/null <<'PY'
 import json, sys, urllib.request
 port, portfolio, project = sys.argv[1:]
 with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/v1/portfolios/{portfolio}', timeout=.5) as response:

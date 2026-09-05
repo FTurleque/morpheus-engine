@@ -49,24 +49,47 @@ final class SqliteDatabaseSecurity {
 
         SqliteDatabaseLease.Lease lease = SqliteDatabaseLease.acquireShared(absolutePath);
         Connection connection = null;
-        boolean success = false;
         try {
             connection = DriverManager.getConnection("jdbc:sqlite:" + absolutePath);
             hardener.hardenFile(absolutePath);
             configureSecureDefaults(connection, busyTimeoutMillis);
             ensureAndHardenPersistentJournal(connection, absolutePath, hardener);
-            Connection guarded = SqliteDatabaseLease.guard(connection, lease);
-            success = true;
-            return guarded;
-        } finally {
-            if (!success) {
-                try {
-                    if (connection != null) connection.close();
-                } finally {
-                    lease.close();
+            return SqliteDatabaseLease.guard(connection, lease);
+        } catch (SQLException | RuntimeException | Error failure) {
+            SqliteContentionMetrics.connectionOpenFailed(failure);
+            unwind(absolutePath, connection, lease, failure);
+            throw failure;
+        }
+    }
+
+    /**
+     * Gives back what a failed open acquired, without ever claiming more than it can prove.
+     *
+     * <p>The lease is what keeps offline maintenance out while a physical handle may be held, so it goes back
+     * only once a close has established the handle is gone. When that close fails the handle and its lease are
+     * retained together instead: refusing to release them was already right, but leaving them unreachable meant
+     * nothing could ever finish the job, and the database stayed reserved for the life of the process.</p>
+     *
+     * <p>The failure that brought us here stays primary. A cleanup failure is attached to it, never substituted
+     * for it -- the caller needs to know why the open failed first.</p>
+     */
+    // java:S1181 catches Error deliberately: a driver failing on a LinkageError leaves the same unresolved
+    // handle as a SQLException, and it must be retained rather than lost.
+    @SuppressWarnings("java:S1181")
+    private static void unwind(
+            Path absolutePath, Connection connection, SqliteDatabaseLease.Lease lease, Throwable primary) {
+        if (connection != null) {
+            try {
+                connection.close();
+            } catch (SQLException | RuntimeException | Error closeFailure) {
+                SqliteDatabaseLease.retain(absolutePath, connection, lease, closeFailure);
+                if (primary != closeFailure) {
+                    primary.addSuppressed(closeFailure);
                 }
+                return;
             }
         }
+        lease.close();
     }
 
     private static void rejectUnsafeSidecarEntry(Path sidecar) {
