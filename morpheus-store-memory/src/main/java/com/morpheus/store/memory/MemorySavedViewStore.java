@@ -1,5 +1,6 @@
 package com.morpheus.store.memory;
 
+import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.application.query.dsl.QueryScope;
 import com.morpheus.application.query.saved.SavedViewConflictException;
 import com.morpheus.application.query.saved.SavedViewDefinition;
@@ -25,6 +26,10 @@ public final class MemorySavedViewStore implements SavedViewStore {
         }
         if (definitions.containsKey(definition.id())) {
             throw new SavedViewConflictException("saved view already exists: " + definition.id());
+        }
+        if (count(definition.query().scope()) >= QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE) {
+            throw new IllegalStateException(
+                    "saved view budget exceeded for scope: " + QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE);
         }
         definitions.put(definition.id(), definition);
         history.put(definition.id(), new ArrayList<>(List.of(version)));
