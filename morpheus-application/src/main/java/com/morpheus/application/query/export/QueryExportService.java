@@ -5,11 +5,10 @@ import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.application.query.dsl.QueryDefinition;
 import com.morpheus.application.query.dsl.QueryExecutionService;
-import com.morpheus.application.query.dsl.QueryPage;
-import com.morpheus.application.query.dsl.QueryResult;
+import com.morpheus.application.query.dsl.QueryMaterializationLimitException;
+import com.morpheus.application.query.dsl.QueryMaterializedView;
 import com.morpheus.application.query.dsl.QueryRow;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -35,7 +34,7 @@ public final class QueryExportService {
     }
 
     /**
-     * Exports the complete filtered/sorted view, intentionally independent from interactive pagination.
+     * Exports the complete filtered/sorted view from one bounded materialization.
      * The export row/byte budgets are enforced before any partial payload can be returned.
      */
     public QueryExport export(QueryDefinition query, QueryExportFormat format) {
@@ -45,37 +44,25 @@ public final class QueryExportService {
     }
 
     private QueryExportView collect(QueryDefinition query) {
-        QueryDefinition firstQuery = withPage(query, 0, QueryBudgets.MAX_PAGE_SIZE);
-        QueryResult first = queries.execute(firstQuery);
-        budgets.requireRows(first.totalMatches());
-
-        List<QueryRow> rows = new ArrayList<>(first.items());
-        int offset = first.items().size();
-        while (offset < first.totalMatches()) {
-            QueryResult page = queries.execute(withPage(query, offset, QueryBudgets.MAX_PAGE_SIZE));
-            if (!page.columns().equals(first.columns()) || page.totalMatches() != first.totalMatches()) {
-                throw new IllegalStateException("query changed while building deterministic export");
-            }
-            if (page.items().isEmpty()) {
-                throw new IllegalStateException("query export pagination made no progress");
-            }
-            rows.addAll(page.items());
-            offset += page.items().size();
+        final QueryMaterializedView materialized;
+        try {
+            materialized = queries.materializeComplete(query, QueryBudgets.MAX_EXPORT_ROWS);
+        } catch (QueryMaterializationLimitException failure) {
+            // Keep the public export contract and its QUERY_BUDGET_EXCEEDED mapping while the query engine
+            // refuses the over-budget full projection before allocating it.
+            budgets.requireRows(failure.actualRows());
+            throw failure;
         }
+        budgets.requireRows(materialized.totalMatches());
 
         return new QueryExportView(
                 SCHEMA_VERSION,
                 scopeKind(query),
                 scopeId(query),
                 query.entityType().name(),
-                first.columns(),
-                first.totalMatches(),
-                rows.stream().map(this::rowView).toList());
-    }
-
-    private QueryDefinition withPage(QueryDefinition query, int offset, int limit) {
-        return new QueryDefinition(
-                query.scope(), query.entityType(), query.filter(), query.sort(), query.projection(), new QueryPage(offset, limit));
+                materialized.columns(),
+                materialized.totalMatches(),
+                materialized.items().stream().map(this::rowView).toList());
     }
 
     private QueryExportView.RowView rowView(QueryRow row) {

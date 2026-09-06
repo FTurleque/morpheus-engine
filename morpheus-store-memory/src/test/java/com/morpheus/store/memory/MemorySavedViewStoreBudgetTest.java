@@ -36,6 +36,25 @@ class MemorySavedViewStoreBudgetTest {
         assertEquals(QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE, store.count(scope));
     }
 
+    @Test
+    void compareAndSetRejectsScopeChangesInsideTheStore() {
+        MemorySavedViewStore store = new MemorySavedViewStore();
+        ProjectQueryScope originalScope = new ProjectQueryScope(ProjectSpecificationId.generate());
+        ProjectQueryScope otherScope = new ProjectQueryScope(ProjectSpecificationId.generate());
+        QueryDefinition originalQuery = QueryDefinition.all(originalScope, QueryEntityType.CHANGE, QueryPage.first(10));
+        QueryDefinition movedQuery = QueryDefinition.all(otherScope, QueryEntityType.CHANGE, QueryPage.first(10));
+        SavedViewDefinition original = definition("stable", originalQuery);
+        store.create(original, version(original));
+
+        SavedViewDefinition moved = new SavedViewDefinition(
+                original.id(), original.name(), movedQuery, 2L, original.status(), original.createdAt(), NOW.plusSeconds(1));
+
+        assertThrows(IllegalArgumentException.class, () -> store.compareAndSet(
+                original.id(), 1L, moved, version(moved)));
+        assertEquals(original, store.find(original.id()).orElseThrow());
+        assertEquals(1, store.listVersions(original.id()).size());
+    }
+
     private SavedViewDefinition definition(String name, QueryDefinition query) {
         return new SavedViewDefinition(
                 SavedViewId.generate(), name, query, 1L, SavedViewStatus.ACTIVE, NOW, NOW);

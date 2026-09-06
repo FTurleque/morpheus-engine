@@ -75,6 +75,9 @@ public final class MemorySavedViewStore implements SavedViewStore {
         if (!replacement.id().equals(id) || !version.id().equals(id)) {
             throw new IllegalArgumentException("saved view replacement identity mismatch");
         }
+        if (!current.query().scope().equals(replacement.query().scope())) {
+            throw new IllegalArgumentException("saved view scope is immutable");
+        }
         long nextRevision = expectedRevision + 1;
         if (replacement.revision() != nextRevision || version.revision() != nextRevision) {
             throw new IllegalArgumentException("saved view replacement must advance revision by exactly one");
