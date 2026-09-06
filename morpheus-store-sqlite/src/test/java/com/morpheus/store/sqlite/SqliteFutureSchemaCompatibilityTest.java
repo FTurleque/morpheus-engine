@@ -18,6 +18,8 @@ class SqliteFutureSchemaCompatibilityTest {
     @Test
     void refusesDatabaseCreatedByNewerMorpheusVersionBeforeApplyingKnownMigrations() throws Exception {
         Path database = temp.resolve("future.db");
+        int supported = SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION;
+        int future = supported + 1;
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database);
              var statement = connection.createStatement()) {
             statement.execute("""
@@ -30,14 +32,14 @@ class SqliteFutureSchemaCompatibilityTest {
                     """);
             statement.execute("""
                     INSERT INTO schema_migrations(version, name, checksum, applied_at)
-                    VALUES (18, 'future', 'future-checksum', '2026-08-30T00:00:00Z')
-                    """);
+                    VALUES (%d, 'future', 'future-checksum', '2026-08-30T00:00:00Z')
+                    """.formatted(future));
         }
 
         KnowledgeStoreException failure = assertThrows(
                 KnowledgeStoreException.class,
                 () -> new SqliteSpecificationKnowledgeStore(database));
-        assertTrue(rootMessage(failure).contains("newer than supported 17"));
+        assertTrue(rootMessage(failure).contains("newer than supported " + supported));
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database);
              var statement = connection.createStatement();
