@@ -11,6 +11,20 @@ cd "$REPO"
 OUTPUT="$REPO/validation-output/m26"
 mkdir -p "$OUTPUT"
 VALIDATION_SHA="$(git rev-parse HEAD)"
+EXPECTED_SCHEMA="$(morpheus_python - "$REPO/morpheus-store-sqlite/src/main/resources/db/migration" <<'PY'
+import pathlib, re, sys
+migration_dir = pathlib.Path(sys.argv[1])
+versions = []
+for path in migration_dir.glob('V[0-9][0-9][0-9]__*.sql'):
+    match = re.match(r'^V(\d{3})__', path.name)
+    if match:
+        versions.append(int(match.group(1)))
+if not versions:
+    raise SystemExit(f'No SQLite migrations found in {migration_dir}')
+print(max(versions))
+PY
+)"
+[[ "$EXPECTED_SCHEMA" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid expected SQLite schema: $EXPECTED_SCHEMA" >&2; exit 1; }
 
 if [[ -z "${JAVA_HOME:-}" ]]; then
   JAVA_BIN="$(command -v java || true)"
@@ -25,6 +39,7 @@ if [[ -z "${JAVA_HOME:-}" ]]; then
 fi
 
 printf '%s\n' "M26 exact-head validation SHA: $VALIDATION_SHA"
+printf '%s\n' "M26 expected SQLite schema: $EXPECTED_SCHEMA"
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   echo 'M26 exact-head gate requires no tracked workspace delta before validation' >&2
   git status --short --untracked-files=no >&2
@@ -124,21 +139,22 @@ import json,sys
 p=json.loads(sys.argv[1]); print(p['path'],p['sha256'],p['schemaVersion'],str(p['integrityOk']).lower())
 PY
 )
-  [[ -f "$BACKUP_PATH" && "$BACKUP_SCHEMA" == 17 && "$BACKUP_OK" == true ]] || { echo "M26 backup result mismatch: $BACKUP" >&2; exit 1; }
+  [[ -f "$BACKUP_PATH" && "$BACKUP_SCHEMA" == "$EXPECTED_SCHEMA" && "$BACKUP_OK" == true ]] || { echo "M26 backup result mismatch: $BACKUP" >&2; exit 1; }
   VERIFIED="$($LAUNCHER --data-dir "$DATA" --json server backup verify --file "$BACKUP_PATH")"
-  morpheus_python - "$VERIFIED" "$BACKUP_SHA" <<'PY'
+  morpheus_python - "$VERIFIED" "$BACKUP_SHA" "$EXPECTED_SCHEMA" <<'PY'
 import json,sys
-p=json.loads(sys.argv[1]); expected=sys.argv[2]
-assert p['integrityOk'] is True and p['schemaVersion']==17 and p['sha256']==expected,p
+p=json.loads(sys.argv[1]); expected_sha=sys.argv[2]; expected_schema=int(sys.argv[3])
+assert p['integrityOk'] is True and p['schemaVersion']==expected_schema and p['sha256']==expected_sha,p
 PY
   if "$LAUNCHER" --data-dir "$DATA" server restore --file "$BACKUP_PATH" >"$OUTPUT/restore-unconfirmed.stdout" 2>"$OUTPUT/restore-unconfirmed.stderr"; then
     echo 'Unconfirmed M26 restore unexpectedly succeeded' >&2; exit 1
   fi
   grep -q -- '--confirm' "$OUTPUT/restore-unconfirmed.stderr" || { cat "$OUTPUT/restore-unconfirmed.stderr" >&2; exit 1; }
   RESTORED="$($LAUNCHER --data-dir "$DATA" --json server restore --file "$BACKUP_PATH" --confirm)"
-  morpheus_python - "$RESTORED" <<'PY'
+  morpheus_python - "$RESTORED" "$EXPECTED_SCHEMA" <<'PY'
 import json,sys
-p=json.loads(sys.argv[1]); assert p['integrityOk'] is True and p['schemaVersion']==17,p
+p=json.loads(sys.argv[1]); expected_schema=int(sys.argv[2])
+assert p['integrityOk'] is True and p['schemaVersion']==expected_schema,p
 PY
   printf '%s\n' 'SQLite backup + verify + explicit offline restore: PASS'
 
@@ -164,6 +180,7 @@ M26 VALIDATION PASS
 sha=$VALIDATION_SHA
 baseRef=$BASE_REF
 version=$VERSION
+expectedSchema=$EXPECTED_SCHEMA
 tests=$TESTS
 architectureTests=$ARCH_TESTS
 lineCoverage=$LINE_RATIO
@@ -175,7 +192,7 @@ secretNonDisclosure=PASS
 backupRestore=PASS
 schemaCompatibility=PASS
 surfaceConvergence=PASS
-sqliteV017=PASS
+sqliteSchema=PASS
 sbom=PASS
 provenance=PASS
 portable=$([[ "$SKIP_PORTABLE" == true ]] && echo false || echo true)
