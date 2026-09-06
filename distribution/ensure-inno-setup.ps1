@@ -21,7 +21,8 @@ $toolRoot = [IO.Path]::GetFullPath($ToolDirectory)
 function Get-TrustedIsccPath {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
-        [switch]$Strict
+        [switch]$Strict,
+        [switch]$PinnedBootstrap
     )
 
     try {
@@ -37,11 +38,28 @@ function Get-TrustedIsccPath {
         if ($subject -notmatch $expectedSignerPattern) {
             throw "Unexpected Inno Setup compiler signer: $subject ($resolved)"
         }
+
         $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($resolved)
-        if ($version.FileMajorPart -ne 7 -or $version.FileMinorPart -ne 0 -or $version.FileBuildPart -ne 2) {
-            throw "Inno Setup compiler must be version ${innoVersion}: $resolved reports $($version.FileVersion)"
+        $hasVersionMetadata = $version.FileMajorPart -ne 0 -or
+            $version.FileMinorPart -ne 0 -or
+            $version.FileBuildPart -ne 0 -or
+            $version.FilePrivatePart -ne 0
+
+        if ($hasVersionMetadata) {
+            if ($version.FileMajorPart -ne 7 -or $version.FileMinorPart -ne 0 -or $version.FileBuildPart -ne 2) {
+                throw "Inno Setup compiler must be version ${innoVersion}: $resolved reports $($version.FileVersion)"
+            }
         }
-        Write-Host "Inno Setup compiler trust: PASS ($resolved, $($version.FileVersion), $subject)"
+        elseif (-not $PinnedBootstrap) {
+            # Arbitrary system, PATH and explicit-override candidates must prove their exact version.
+            # The official compiler currently carries no usable FileVersionInfo after bootstrap, so only
+            # the compiler extracted from our already-pinned and Authenticode-validated installer may use
+            # installer provenance in place of absent PE version metadata.
+            throw "Inno Setup compiler version metadata is unavailable for unpinned candidate: $resolved"
+        }
+
+        $versionEvidence = if ($hasVersionMetadata) { $version.FileVersion } else { "pinned-bootstrap-$innoVersion" }
+        Write-Host "Inno Setup compiler trust: PASS ($resolved, $versionEvidence, $subject)"
         return $resolved
     }
     catch {
@@ -128,6 +146,14 @@ if ($null -eq $iscc) {
     throw "Inno Setup bootstrap completed but ISCC.exe was not found under $compilerRoot"
 }
 
-$trustedIscc = Get-TrustedIsccPath -Path $iscc.FullName -Strict
+# The no-version-metadata exception is valid only for the compiler under the controlled bootstrap root.
+$resolvedCompilerRoot = (Resolve-Path -LiteralPath $compilerRoot).Path.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+$resolvedIscc = (Resolve-Path -LiteralPath $iscc.FullName).Path
+$compilerPrefix = $resolvedCompilerRoot + [IO.Path]::DirectorySeparatorChar
+if (-not $resolvedIscc.StartsWith($compilerPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Pinned bootstrap compiler escaped controlled compiler root: $resolvedIscc"
+}
+
+$trustedIscc = Get-TrustedIsccPath -Path $iscc.FullName -Strict -PinnedBootstrap
 Write-Host "Inno Setup compiler ready: $trustedIscc"
 Write-Output $trustedIscc
