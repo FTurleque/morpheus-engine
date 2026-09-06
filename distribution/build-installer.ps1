@@ -36,8 +36,12 @@ function Resolve-Iscc {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Inno Setup trust/bootstrap returned an invalid compiler path: $path"
     }
-    $env:MORPHEUS_ISCC = (Resolve-Path -LiteralPath $path).Path
-    return $env:MORPHEUS_ISCC
+
+    # Keep internal resolution local to this invocation. Publishing the bootstrapped compiler through
+    # MORPHEUS_ISCC would turn a trusted internal result into an apparent operator override for the next
+    # installer build in the same PowerShell process (for example M28's production + SmokeMode builds).
+    # Genuine operator-provided MORPHEUS_ISCC values remain handled fail-closed by ensure-inno-setup.ps1.
+    return (Resolve-Path -LiteralPath $path).Path
 }
 
 function Write-And-VerifySha256([string]$Path) {
