@@ -1,9 +1,11 @@
 package com.morpheus.application.query.export;
 
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
+import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.application.query.dsl.QueryDefinition;
 import com.morpheus.application.query.dsl.QueryEntityType;
 import com.morpheus.application.query.dsl.QueryExecutionService;
+import com.morpheus.application.query.dsl.QueryMaterializationLimitException;
 import com.morpheus.application.query.dsl.QueryPage;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.store.ProjectStoreEntry;
@@ -40,6 +42,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QueryExportMaterializationTest {
@@ -51,19 +54,58 @@ class QueryExportMaterializationTest {
         List<PortfolioMembership> firstView = memberships(portfolioId, 600, "first");
         List<PortfolioMembership> secondView = memberships(portfolioId, 600, "second");
         SwitchingPortfolioStore portfolios = new SwitchingPortfolioStore(portfolioId, firstView, secondView);
-        QueryExecutionService queries = new QueryExecutionService(
-                new EmptySnapshotStore(), new EmptyVersionStore(), new EmptyContentStore(), portfolios);
+        QueryExecutionService queries = queries(portfolios);
         QueryExportService exports = new QueryExportService(queries);
-        QueryDefinition query = QueryDefinition.all(
-                new PortfolioQueryScope(portfolioId),
-                QueryEntityType.PORTFOLIO_MEMBERSHIP,
-                QueryPage.first(10));
+        QueryDefinition query = query(portfolioId);
 
         QueryExport export = exports.export(query, QueryExportFormat.JSON);
 
         assertEquals(1, portfolios.membershipReads);
         assertTrue(export.content().contains(firstView.getFirst().projectId().toString()));
         assertFalse(export.content().contains(secondView.getFirst().projectId().toString()));
+    }
+
+    @Test
+    void completeMaterializationRejectsOverBudgetResultAfterOneSourceRead() {
+        PortfolioId portfolioId = PortfolioId.generate();
+        List<PortfolioMembership> firstView = memberships(portfolioId, 600, "first");
+        SwitchingPortfolioStore portfolios = new SwitchingPortfolioStore(
+                portfolioId, firstView, memberships(portfolioId, 600, "second"));
+        QueryExecutionService queries = queries(portfolios);
+
+        QueryMaterializationLimitException failure = assertThrows(
+                QueryMaterializationLimitException.class,
+                () -> queries.materializeComplete(query(portfolioId), 500));
+
+        assertEquals(500, failure.maximumRows());
+        assertEquals(600, failure.actualRows());
+        assertEquals(1, portfolios.membershipReads);
+    }
+
+    @Test
+    void completeMaterializationRejectsInvalidCallerCeilingsBeforeReadingTheSource() {
+        PortfolioId portfolioId = PortfolioId.generate();
+        SwitchingPortfolioStore portfolios = new SwitchingPortfolioStore(
+                portfolioId, List.of(), List.of());
+        QueryExecutionService queries = queries(portfolios);
+        QueryDefinition query = query(portfolioId);
+
+        assertThrows(IllegalArgumentException.class, () -> queries.materializeComplete(query, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> queries.materializeComplete(query, QueryBudgets.MAX_SOURCE_ROWS + 1));
+        assertEquals(0, portfolios.membershipReads);
+    }
+
+    private QueryExecutionService queries(PortfolioStore portfolios) {
+        return new QueryExecutionService(
+                new EmptySnapshotStore(), new EmptyVersionStore(), new EmptyContentStore(), portfolios);
+    }
+
+    private QueryDefinition query(PortfolioId portfolioId) {
+        return QueryDefinition.all(
+                new PortfolioQueryScope(portfolioId),
+                QueryEntityType.PORTFOLIO_MEMBERSHIP,
+                QueryPage.first(10));
     }
 
     private List<PortfolioMembership> memberships(PortfolioId portfolioId, int count, String prefix) {
