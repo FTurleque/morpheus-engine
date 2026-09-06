@@ -20,6 +20,12 @@ class InnoSetupToolchainTrustArchitectureTest {
         assertFalse(builder.contains("Get-Command ISCC.exe"));
         assertFalse(builder.contains("Inno Setup $major\\ISCC.exe"));
 
+        // Internal trust resolution must remain local to each build. Otherwise a production build can leak its
+        // bootstrapped compiler into MORPHEUS_ISCC and make the following SmokeMode build look like an external
+        // operator override, losing the bootstrap provenance that justified absent PE version metadata.
+        assertFalse(builder.contains("$env:MORPHEUS_ISCC ="));
+        assertTrue(builder.contains("return (Resolve-Path -LiteralPath $path).Path"));
+
         assertTrue(resolver.contains("$innoVersion = '7.0.2'"));
         assertTrue(resolver.contains("releases/download/is-7_0_2/$assetName"));
         assertTrue(resolver.contains("Get-AuthenticodeSignature -LiteralPath $resolved"));
