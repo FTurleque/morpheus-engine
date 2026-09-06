@@ -20,13 +20,25 @@ class InnoSetupToolchainTrustArchitectureTest {
         assertFalse(builder.contains("Get-Command ISCC.exe"));
         assertFalse(builder.contains("Inno Setup $major\\ISCC.exe"));
 
+        assertTrue(resolver.contains("$innoVersion = '7.0.2'"));
+        assertTrue(resolver.contains("releases/download/is-7_0_2/$assetName"));
         assertTrue(resolver.contains("Get-AuthenticodeSignature -LiteralPath $resolved"));
         assertTrue(resolver.contains("$version.FileMajorPart -ne 7"));
         assertTrue(resolver.contains("$version.FileMinorPart -ne 0"));
         assertTrue(resolver.contains("$version.FileBuildPart -ne 2"));
+        assertTrue(resolver.contains("elseif (-not $PinnedBootstrap)"));
         assertTrue(resolver.contains("Pyrsys B\\.V\\."));
+
+        // Arbitrary operator/system candidates may never opt into bootstrap provenance.
         assertTrue(resolver.contains("Get-TrustedIsccPath -Path $env:MORPHEUS_ISCC -Strict"));
-        assertTrue(resolver.contains("Get-TrustedIsccPath -Path $iscc.FullName -Strict"));
+        assertFalse(resolver.contains("Get-TrustedIsccPath -Path $env:MORPHEUS_ISCC -Strict -PinnedBootstrap"));
+
+        // Missing PE version metadata is tolerated only after a signed, pinned installer populated our
+        // controlled compiler root; the extracted compiler itself is still signature/signer validated.
+        assertTrue(resolver.contains("Pinned bootstrap compiler escaped controlled compiler root"));
+        assertTrue(resolver.contains("Get-TrustedIsccPath -Path $iscc.FullName -Strict -PinnedBootstrap"));
+        assertTrue(resolver.contains("Inno Setup bootstrap Authenticode signature is not valid"));
+        assertTrue(resolver.contains("Unexpected Inno Setup signer"));
     }
 
     private Path repoRoot() {
