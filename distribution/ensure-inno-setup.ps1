@@ -39,7 +39,7 @@ function Get-TrustedIsccPath {
         }
         $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($resolved)
         if ($version.FileMajorPart -ne 7 -or $version.FileMinorPart -ne 0 -or $version.FileBuildPart -ne 2) {
-            throw "Inno Setup compiler must be version $innoVersion: $resolved reports $($version.FileVersion)"
+            throw "Inno Setup compiler must be version ${innoVersion}: $resolved reports $($version.FileVersion)"
         }
         Write-Host "Inno Setup compiler trust: PASS ($resolved, $($version.FileVersion), $subject)"
         return $resolved
