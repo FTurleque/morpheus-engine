@@ -60,6 +60,40 @@ public final class QueryExecutionService {
     }
 
     public QueryResult execute(QueryDefinition query) {
+        MaterializedRows materialized = materializeRows(query);
+        int totalMatches = materialized.matches().size();
+        int from = Math.min(query.page().offset(), totalMatches);
+        int to = (int) Math.min((long) from + query.page().limit(), totalMatches);
+        List<QueryRow> page = materialized.matches().subList(from, to).stream()
+                .map(row -> row.project(materialized.columns()))
+                .toList();
+        return new QueryResult(query, materialized.columns(), page, totalMatches, to < totalMatches);
+    }
+
+    /**
+     * Materializes one complete, bounded query view from a single source/filter/sort pass.
+     *
+     * <p>The caller chooses a hard row ceiling. If the filtered result exceeds that ceiling the method fails
+     * before projecting the complete result, so export-style consumers can preserve their own tighter budgets
+     * without re-running paged queries or allocating an over-budget projection.</p>
+     */
+    public QueryMaterializedView materializeComplete(QueryDefinition query, int maximumRows) {
+        if (maximumRows < 1 || maximumRows > QueryBudgets.MAX_SOURCE_ROWS) {
+            throw new IllegalArgumentException(
+                    "maximumRows must be between 1 and " + QueryBudgets.MAX_SOURCE_ROWS);
+        }
+        MaterializedRows materialized = materializeRows(query);
+        int totalMatches = materialized.matches().size();
+        if (totalMatches > maximumRows) {
+            throw new QueryMaterializationLimitException(maximumRows, totalMatches);
+        }
+        List<QueryRow> projected = materialized.matches().stream()
+                .map(row -> row.project(materialized.columns()))
+                .toList();
+        return new QueryMaterializedView(query, materialized.columns(), projected);
+    }
+
+    private MaterializedRows materializeRows(QueryDefinition query) {
         Objects.requireNonNull(query, "query");
         validator.requireValid(query);
 
@@ -68,13 +102,7 @@ public final class QueryExecutionService {
                 .filter(row -> query.filter().map(filter -> matches(row, filter)).orElse(true))
                 .sorted(comparator(query))
                 .toList();
-
-        int totalMatches = matches.size();
-        int from = Math.min(query.page().offset(), totalMatches);
-        int to = (int) Math.min((long) from + query.page().limit(), totalMatches);
-        List<String> columns = columns(query);
-        List<QueryRow> page = matches.subList(from, to).stream().map(row -> row.project(columns)).toList();
-        return new QueryResult(query, columns, page, totalMatches, to < totalMatches);
+        return new MaterializedRows(matches, columns(query));
     }
 
     private List<QueryRow> sourceRows(QueryDefinition query) {
@@ -366,6 +394,13 @@ public final class QueryExecutionService {
 
     private QueryRow row(QueryEntityType type, ProjectSpecificationId projectId, Object entityId, List<QueryCell> cells) {
         return new QueryRow(type, projectId.toString(), entityId.toString(), cells);
+    }
+
+    private record MaterializedRows(List<QueryRow> matches, List<String> columns) {
+        private MaterializedRows {
+            matches = List.copyOf(Objects.requireNonNull(matches, "matches"));
+            columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
+        }
     }
 
     private enum TextMatch {
