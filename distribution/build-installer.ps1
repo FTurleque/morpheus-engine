@@ -22,37 +22,19 @@ $appImage = Join-Path $portableWork 'image\morpheus'
 $iss = Join-Path $PSScriptRoot 'windows\MORPHEUS.iss'
 
 function Resolve-Iscc {
-    if ($env:MORPHEUS_ISCC -and (Test-Path -LiteralPath $env:MORPHEUS_ISCC)) {
-        return (Resolve-Path -LiteralPath $env:MORPHEUS_ISCC).Path
-    }
-
-    $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
-    $candidates = foreach ($root in $roots) {
-        foreach ($major in 7, 6) {
-            $candidate = Join-Path $root "Inno Setup $major\ISCC.exe"
-            if (Test-Path -LiteralPath $candidate) { $candidate }
-        }
-    }
-
-    if (@($candidates).Count -gt 0) {
-        return (Resolve-Path -LiteralPath @($candidates)[0]).Path
-    }
-
-    $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-    if ($command) { return $command.Source }
-
+    # All discovery and trust validation live in one place. In particular, this caller must never bypass the
+    # version/signature checks merely because ISCC.exe happens to be installed or present on PATH.
     $bootstrap = Join-Path $PSScriptRoot 'ensure-inno-setup.ps1'
-    if (-not (Test-Path -LiteralPath $bootstrap)) {
-        throw "Inno Setup compiler is missing and bootstrap script was not found: $bootstrap"
+    if (-not (Test-Path -LiteralPath $bootstrap -PathType Leaf)) {
+        throw "Inno Setup trust/bootstrap script was not found: $bootstrap"
     }
-    Write-Verbose 'ISCC.exe not found locally; bootstrapping pinned, Authenticode-verified Inno Setup 7.0.2...'
     $resolved = @(& $bootstrap)
     if ($LASTEXITCODE -ne 0 -or $resolved.Count -eq 0) {
-        throw 'Inno Setup bootstrap failed'
+        throw 'Inno Setup trust/bootstrap resolution failed'
     }
     $path = [string]$resolved[-1]
-    if (-not (Test-Path -LiteralPath $path)) {
-        throw "Inno Setup bootstrap returned an invalid compiler path: $path"
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Inno Setup trust/bootstrap returned an invalid compiler path: $path"
     }
     $env:MORPHEUS_ISCC = (Resolve-Path -LiteralPath $path).Path
     return $env:MORPHEUS_ISCC
