@@ -2,7 +2,7 @@
 # capability	intent	cli	mcp	http	notes
 product.version	READ	version	get_product_info	GET /api/v1/version	Build-derived ProductMetadata; no business-state dependency
 product.update-discovery	READ	update-check --manifest	check_product_update	EXPLICITLY_NOT_EXPOSED	URI-backed update discovery is CLI-only; the historical MCP name is retained as a no-I/O error stub and cannot read files or perform network access
-provider.plugins.discover	READ	provider-plugins discover	discover_provider_plugins	GET /api/v1/provider-plugins/discover	Metadata-only explicit directory scan; no plugin classloading or startup scan; remote keeps GET/READ and forces the server-configured plugin directory; remote responses are allowlisted projections that carry no server pathname
+provider.plugins.discover	READ	provider-plugins discover	EXPLICITLY_NOT_EXPOSED	GET /api/v1/provider-plugins/discover	Metadata-only explicit directory scan; MCP deliberately exposes no caller-controlled filesystem directory; remote HTTP forces the server-configured plugin directory and returns an allowlisted projection carrying no server pathname
 provider.plugins.probe	WRITE	provider-plugins probe	EXPLICITLY_NOT_EXPOSED	POST /api/v1/provider-plugins/probe	Executable third-party code is not model-facing; every service probe requires a trusted SHA-256 pin; remote exposes POST + ADMIN with server-configured plugin directory and allowed workspace; the probe result is projected, never relayed, so plugin-authored text cannot disclose a server location
 portfolio.create	WRITE	portfolio create	create_portfolio	POST /api/v1/portfolios	Creates a stable MORPHEUS portfolio identity; never derived from a path or repository URL
 portfolio.project-register	WRITE	portfolio add-project	register_portfolio_project	POST /api/v1/portfolios/{portfolioId}/projects	Membership is keyed by PortfolioId + ProjectSpecificationId; locations/providers are observations
@@ -21,7 +21,7 @@ saved-view.create	WRITE	views create	create_saved_view	POST /api/v1/saved-views	
 saved-view.list	READ	views list	list_saved_views	GET /api/v1/saved-views	Lists active definitions for one explicit project or portfolio scope
 saved-view.get	READ	views get	get_saved_view	GET /api/v1/saved-views/{id}	Stable identity is independent from mutable name
 saved-view.versions	READ	views versions	list_saved_view_versions	GET /api/v1/saved-views/{id}/versions	Immutable definition revision history
-saved-view.update	WRITE	views update	update_saved_view	PUT /api/v1/saved-views/{id}	Configuration CAS using expected revision; stale writers fail explicitly
+saved-view.update	WRITE	views update	update_saved_view	PUT /api/v1/saved-views/{id}	CAS configuration update creates a new immutable version; stale writers fail
 saved-view.archive	WRITE	views archive	archive_saved_view	POST /api/v1/saved-views/{id}/archive	Configuration mutation only; archive is versioned and non-destructive
 saved-view.execute	READ	views execute	execute_saved_view	POST /api/v1/saved-views/{id}/execute	Executes the stored query definition against current published truth; saved view is not materialized truth
 query.export	READ	export query	export_query	POST /api/v1/exports	Read-only bounded canonical JSON/CSV/Markdown export; no domain mutation
@@ -36,7 +36,7 @@ policy.pack.deactivate	WRITE	policy deactivate	deactivate_policy_pack	POST /api/
 policy.activation.list	READ	policy activations	list_policy_activations	GET /api/v1/policy-activations	Lists explicit version activations for one scope
 policy.override.put	WRITE	policy override put	put_policy_override	PUT /api/v1/policy-packs/{id}/overrides/{ruleId}	Explicit reason/actor + CAS; original policy decision/provenance remains observable
 policy.override.list	READ	policy override list	list_policy_overrides	GET /api/v1/policy-overrides	Scope-explicit governance configuration view
-policy.override.remove	WRITE	policy override remove	remove_policy_override	POST /api/v1/policy-overrides/remove	Explicit audited removal restores source decision semantics
+policy.override.remove	WRITE	policy override remove	EXPLICITLY_NOT_EXPOSED	POST /api/v1/policy-overrides/remove	Explicit audited removal restores source decision semantics; MCP omits this mutation because its current write capability resolver cannot authorize both project and portfolio policy scopes consistently
 policy.evaluate	READ	policy evaluate	evaluate_policies	POST /api/v1/policies/evaluate	Read-only deterministic evaluation; UNKNOWN is not implicitly BLOCKED
 policy.dry-run	READ	policy dry-run	dry_run_policy_pack	POST /api/v1/policies/dry-run	Evaluates an immutable version without activation, lifecycle mutation or published-state write
 policy.audit	READ	policy audit	get_policy_audit	GET /api/v1/policy-packs/{id}/audit	Append-only audit of policy configuration changes, distinct from lifecycle mutation audit
