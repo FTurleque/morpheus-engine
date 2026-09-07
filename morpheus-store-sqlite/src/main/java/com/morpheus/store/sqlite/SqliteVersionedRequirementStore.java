@@ -275,6 +275,36 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
+    public synchronized List<RequirementVersionRecord> listCurrentRequirementVersions(
+            KnowledgeSnapshotId snapshotId,
+            int limit) {
+        ensureOpen();
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        if (limit < 1) {
+            throw new IllegalArgumentException("limit must be positive");
+        }
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT * FROM requirement_versions
+                WHERE snapshot_id = ? AND temporal_state = 'CURRENT'
+                ORDER BY entity_version_id
+                LIMIT ?
+                """)) {
+            statement.setString(1, snapshotId.toString());
+            statement.setInt(2, limit);
+            try (ResultSet result = statement.executeQuery()) {
+                List<RequirementVersionRecord> records = new ArrayList<>();
+                while (result.next()) {
+                    records.add(mapRequirementVersion(result));
+                }
+                return List.copyOf(records);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot list bounded CURRENT requirement versions for snapshot "
+                    + snapshotId, exception);
+        }
+    }
+
+    @Override
     public synchronized Optional<RequirementVersionRecord> currentRequirement(
             KnowledgeSnapshotId snapshotId,
             DomainIdentity entityIdentity) {
