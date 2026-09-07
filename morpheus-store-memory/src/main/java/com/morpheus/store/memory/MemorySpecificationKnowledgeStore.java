@@ -326,6 +326,21 @@ public final class MemorySpecificationKnowledgeStore
     }
 
     @Override
+    public synchronized List<RequirementVersionRecord> listCurrentRequirementVersions(
+            KnowledgeSnapshotId snapshotId,
+            int limit) {
+        if (limit < 1) {
+            throw new IllegalArgumentException("limit must be positive");
+        }
+        return requirementVersions.values().stream()
+                .filter(record -> record.snapshotId().equals(snapshotId))
+                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+                .sorted((left, right) -> left.entityVersion().id().compareTo(right.entityVersion().id()))
+                .limit(limit)
+                .toList();
+    }
+
+    @Override
     public synchronized Optional<RequirementVersionRecord> currentRequirement(
             KnowledgeSnapshotId snapshotId,
             DomainIdentity entityIdentity) {
