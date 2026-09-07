@@ -94,7 +94,10 @@ jobs:
           if [[ -n "${NVD_API_KEY:-}" ]]; then
             args+=("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY")
           else
-            echo "::warning::NVD_API_KEY is not configured; a cold NVD update can be slower."
+            echo "::warning::NVD_API_KEY is not configured; continuing with an anonymous NVD update."
+            # GitHub materializes an unavailable secret as an empty environment variable. Dependency-Check 13
+            # treats a present-but-empty NVD_API_KEY as an explicitly supplied invalid key, so remove it entirely.
+            unset NVD_API_KEY
           fi
           ./mvnw "${args[@]}"
 
