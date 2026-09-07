@@ -14,7 +14,12 @@ class MorpheusProviderPluginMcpToolsTest {
     Path temporaryDirectory;
 
     @Test
-    void exposesOnlyProviderMetadataDiscoveryWithoutCallerControlledFilesystemPath() {
+    void defaultServerConfigurationExposesNoProviderFilesystemTool() {
+        assertEquals(List.of(), new MorpheusProviderPluginMcpTools().specifications());
+    }
+
+    @Test
+    void configuredDiscoveryHasNoCallerControlledFilesystemPath() {
         var specifications = new MorpheusProviderPluginMcpTools(temporaryDirectory).specifications();
 
         assertEquals(1, specifications.size());
