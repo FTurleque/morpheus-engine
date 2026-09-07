@@ -87,6 +87,8 @@ final class MorpheusProductCli {
             out.println("artifactUri=" + result.artifactUri());
             out.println("sha256=" + result.sha256());
             out.println("manifestUri=" + result.manifestUri());
+            out.println("attestationUri=" + result.attestationUri().map(URI::toString).orElse("none"));
+            out.println("trustLevel=" + result.trustLevel());
             out.println("action=none (discovery is read-only; MORPHEUS never auto-installs updates)");
         }
         return CliExitCode.SUCCESS.code();

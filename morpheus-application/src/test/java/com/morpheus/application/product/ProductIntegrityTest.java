@@ -49,7 +49,43 @@ class ProductIntegrityTest {
         assertEquals(ProductMetadata.version(), result.currentVersion());
         assertEquals(availableVersion, result.availableVersion());
         assertEquals("stable", result.channel());
+        assertTrue(result.attestationUri().isEmpty());
+        assertEquals(UpdateTrustLevel.DISCOVERY_ONLY, result.trustLevel());
         assertTrue(result.updateAvailable());
+    }
+
+    @Test
+    void discoveryResultPreservesProvenanceReferenceWithoutClaimingVerification() throws IOException {
+        String availableVersion = nextPatchVersion(ProductMetadata.version());
+        URI attestation = URI.create("https://github.com/FTurleque/morpheus-engine/attestations/123");
+        Path manifest = tempDir.resolve("provenance.properties");
+        Files.writeString(manifest, String.join("\n",
+                "version=" + availableVersion,
+                "channel=stable",
+                "artifactUri=https://example.invalid/morpheus-" + availableVersion + ".zip",
+                "sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "attestationUri=" + attestation,
+                ""));
+
+        UpdateCheckResult result = new UpdateDiscoveryService().check(manifest.toUri());
+
+        assertEquals(Optional.of(attestation), result.attestationUri());
+        assertEquals(UpdateTrustLevel.DISCOVERY_ONLY, result.trustLevel());
+    }
+
+    @Test
+    void historicalResultConstructorRemainsExplicitlyDiscoveryOnly() {
+        UpdateCheckResult result = new UpdateCheckResult(
+                ProductMetadata.version(),
+                ProductMetadata.version(),
+                "stable",
+                URI.create("https://example.invalid/morpheus.zip"),
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                URI.create("file:///tmp/update.properties"),
+                false);
+
+        assertTrue(result.attestationUri().isEmpty());
+        assertEquals(UpdateTrustLevel.DISCOVERY_ONLY, result.trustLevel());
     }
 
     @Test

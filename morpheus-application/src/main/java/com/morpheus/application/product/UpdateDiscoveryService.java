@@ -70,6 +70,8 @@ public final class UpdateDiscoveryService {
                 manifest.artifactUri(),
                 manifest.sha256(),
                 manifestUri,
+                manifest.attestationUri(),
+                UpdateTrustLevel.DISCOVERY_ONLY,
                 available);
     }
 
