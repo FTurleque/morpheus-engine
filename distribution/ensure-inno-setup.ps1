@@ -11,6 +11,7 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $innoVersion = '7.0.2'
 $assetName = "innosetup-$innoVersion-x64.exe"
 $assetUri = "https://github.com/jrsoftware/issrc/releases/download/is-7_0_2/$assetName"
+$expectedInstallerSha256 = '5ad54ca3def786f8f4212552e54cc6d8d61329e2d24a1cfee0571d42c2684ff1'
 $expectedSignerPattern = 'Pyrsys B\.V\.'
 
 if ([string]::IsNullOrWhiteSpace($ToolDirectory)) {
@@ -109,6 +110,12 @@ if (-not (Test-Path -LiteralPath $installer)) {
     Write-Host "Downloading pinned Inno Setup $innoVersion x64 from JRSoftware's immutable GitHub release..."
     Invoke-WebRequest -Uri $assetUri -OutFile $installer -UseBasicParsing
 }
+
+$actualInstallerSha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualInstallerSha256 -ne $expectedInstallerSha256) {
+    throw "Inno Setup bootstrap SHA-256 mismatch: expected $expectedInstallerSha256, got $actualInstallerSha256"
+}
+Write-Host "Inno Setup bootstrap SHA-256: PASS ($actualInstallerSha256)"
 
 $signature = Get-AuthenticodeSignature -LiteralPath $installer
 if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
