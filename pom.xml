@@ -53,7 +53,7 @@
         <maven.dependency.plugin.version>3.11.0</maven.dependency.plugin.version>
         <jacoco.version>0.8.15</jacoco.version>
         <cyclonedx.maven.plugin.version>2.9.3</cyclonedx.maven.plugin.version>
-        <dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>
+        <dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>
     </properties>
 
     <dependencyManagement>
