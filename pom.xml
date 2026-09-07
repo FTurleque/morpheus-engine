@@ -238,6 +238,7 @@
                         <configuration>
                             <format>ALL</format>
                             <failBuildOnCVSS>7.0</failBuildOnCVSS>
+                            <junitFailOnCVSS>4.0</junitFailOnCVSS>
                             <failOnError>true</failOnError>
                             <failBuildOnUnusedSuppressionRule>true</failBuildOnUnusedSuppressionRule>
                             <skipTestScope>true</skipTestScope>
