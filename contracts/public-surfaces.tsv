@@ -21,7 +21,7 @@ saved-view.create	WRITE	views create	create_saved_view	POST /api/v1/saved-views	
 saved-view.list	READ	views list	list_saved_views	GET /api/v1/saved-views	Lists active definitions for one explicit project or portfolio scope
 saved-view.get	READ	views get	get_saved_view	GET /api/v1/saved-views/{id}	Stable identity is independent from mutable name
 saved-view.versions	READ	views versions	list_saved_view_versions	GET /api/v1/saved-views/{id}/versions	Immutable definition revision history
-saved-view.update	WRITE	views update	update_saved_view	PUT /api/v1/saved-views/{id}	CAS configuration update creates a new immutable version; stale writers fail
+saved-view.update	WRITE	views update	update_saved_view	PUT /api/v1/saved-views/{id}	Configuration CAS using expected revision; stale writers fail explicitly
 saved-view.archive	WRITE	views archive	archive_saved_view	POST /api/v1/saved-views/{id}/archive	Configuration mutation only; archive is versioned and non-destructive
 saved-view.execute	READ	views execute	execute_saved_view	POST /api/v1/saved-views/{id}/execute	Executes the stored query definition against current published truth; saved view is not materialized truth
 query.export	READ	export query	export_query	POST /api/v1/exports	Read-only bounded canonical JSON/CSV/Markdown export; no domain mutation
