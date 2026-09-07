@@ -75,16 +75,18 @@ Le résultat indique uniquement la version courante, la version disponible, le c
 
 ```text
 update discovery != automatic update
+provenance reference != verified provenance
 ```
 
 ## MCP
 
-Les mêmes capacités de lecture sont accessibles par :
+La version produit reste accessible via :
 
 ```text
 get_product_info
-check_product_update(manifestUri)
 ```
+
+Le nom historique `check_product_update` est conservé uniquement comme **stub sans I/O** : il ne lit aucun fichier, n’effectue aucune requête réseau et retourne une erreur indiquant que la découverte à URI fournie est CLI-only. Cette asymétrie réduit la surface SSRF/file-read d’un client agentique.
 
 ## HTTP
 
@@ -94,12 +96,12 @@ La découverte d’update à URI fournie par le client est **volontairement abse
 
 ## Intégrité et confiance
 
-Le SHA-256 annoncé par le manifeste permet de vérifier l’intégrité d’un artefact par rapport à une valeur attendue. Il ne constitue pas une preuve d’identité de l’éditeur :
+Le SHA-256 annoncé par le manifeste permet de contrôler la forme d’une valeur d’intégrité attendue et de la transporter avec les métadonnées de découverte. Il ne constitue pas une preuve d’identité de l’éditeur :
 
 ```text
 checksum != provenance
 ```
 
-Les releases produites par le workflow `MORPHEUS Release` reçoivent désormais une attestation GitHub de provenance liée au workflow et au commit tagué. Le champ `attestationUri` rend cette preuve explicitement référençable par le contrat de découverte distant.
+Les releases produites par le workflow `MORPHEUS Release` reçoivent une attestation GitHub de provenance liée au workflow et au commit tagué. Le champ `attestationUri` rend cette preuve explicitement référençable par le contrat de découverte distant.
 
-MORPHEUS ne vérifie ni ne télécharge encore cette attestation dans `update-check`; l'exigence actuelle garantit qu'un futur installateur ne puisse pas être construit silencieusement sur l'ancien contrat « checksum seulement ». Toute installation automatique future devra vérifier l'attestation avant d'utiliser l'artefact.
+MORPHEUS ne vérifie ni ne télécharge cette attestation dans `update-check`. La méthode de validation du manifeste vérifie donc un **contrat de découverte distant**, pas une décision cryptographique de confiance éditeur. Toute installation automatique future devra vérifier cryptographiquement l’attestation et son lien avec l’artefact avant d’utiliser celui-ci.

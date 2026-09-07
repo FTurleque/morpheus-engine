@@ -161,7 +161,7 @@ class AuditHardeningWorkflowContractTest {
     }
 
     @Test
-    void futureRemoteUpdaterCannotRegressToChecksumOnlyTrust() throws IOException {
+    void remoteDiscoveryCannotRegressToChecksumOnlyOrClaimVerifiedTrust() throws IOException {
         Path root = repoRoot();
         String manifest = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/product/UpdateManifest.java"));
@@ -171,8 +171,10 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(manifest.contains("remote update manifest must declare attestationUri"));
         assertTrue(manifest.contains("remote update artifactUri must use https"));
         assertTrue(manifest.contains("remote update attestationUri must use https"));
+        assertTrue(manifest.contains("does not cryptographically verify the attestation"),
+                "discovery validation must never be presented as publisher-identity verification");
         assertTrue(discovery.contains("optionalUri(properties, \"attestationUri\")"));
-        assertTrue(discovery.contains("manifest.requireRemoteTrust(manifestUri)"));
+        assertTrue(discovery.contains("manifest.requireRemoteDiscoveryContract(manifestUri)"));
     }
 
     @Test
