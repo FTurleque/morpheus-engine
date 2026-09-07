@@ -28,9 +28,9 @@ class D2RepositoryHardeningArchitectureTest {
     void dependencyAndQualityBaselineIsPinned() throws IOException {
         String pom = Files.readString(repoRoot().resolve("pom.xml"));
         assertTrue(pom.contains("<jackson.version>3.2.2</jackson.version>"));
-        assertTrue(pom.contains("<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>"));
+        assertTrue(pom.contains("<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>"));
         assertTrue(pom.contains("<mcp-sdk.version>2.0.1</mcp-sdk.version>"));
-        assertTrue(pom.contains("<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>"));
+        assertTrue(pom.contains("<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>"));
         assertTrue(pom.contains("<failOnWarning>true</failOnWarning>"));
         assertTrue(pom.contains("<id>d2-security</id>"));
         assertTrue(pom.contains("<failBuildOnCVSS>7.0</failBuildOnCVSS>"));
@@ -82,7 +82,7 @@ class D2RepositoryHardeningArchitectureTest {
         Path root = repoRoot();
         String linux = Files.readString(root.resolve("scripts/validate-d2.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-d2.ps1"));
-        for (String script : java.util.List.of(linux, windows)) {
+        for (String script : List.of(linux, windows)) {
             assertTrue(script.contains("820"));
             assertTrue(script.contains("258"));
             assertTrue(script.contains("1.2.1"));
@@ -92,12 +92,12 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void activeWorkflowsUsePinnedNode24GenerationActions() throws IOException {
         Path root = repoRoot();
-        for (String workflow : java.util.List.of("ci.yml", "security.yml", "codeql.yml")) {
+        for (String workflow : List.of("ci.yml", "security.yml", "codeql.yml")) {
             String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
             assertPinnedNode24(text, CHECKOUT_NODE24, "checkout", workflow);
             assertPinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", workflow);
         }
-        for (String workflow : java.util.List.of("ci.yml", "security.yml")) {
+        for (String workflow : List.of("ci.yml", "security.yml")) {
             String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
             assertPinnedNode24(text, UPLOAD_ARTIFACT_NODE24, "upload-artifact", workflow);
         }
@@ -114,13 +114,6 @@ class D2RepositoryHardeningArchitectureTest {
         assertFalse(codeql.contains("uses: github/codeql-action/analyze@v"));
     }
 
-    /**
-     * The macOS lane observes; it must never be mistaken for support.
-     *
-     * <p>An unqualified platform must not gate pull requests, so the lane is advisory. The opposite mistake is
-     * the one worth guarding against in a contract: a green advisory lane is not a support decision, and the
-     * qualified-platform list must keep saying Windows and Linux until a product decision says otherwise.</p>
-     */
     @Test
     void theMacosLaneStaysAdvisoryAndClaimsNoSupport() throws IOException {
         Path root = repoRoot();
@@ -131,10 +124,6 @@ class D2RepositoryHardeningArchitectureTest {
                 "an unqualified platform must not gate pull requests");
         assertFalse(ci.contains("jpackage") && ci.contains("macos"),
                 "the macOS lane must not produce distribution artifacts");
-
-        // The lane tolerates a failing reactor so it does not sit permanently red, which is only acceptable
-        // while it still says what happened. Swallowing the outcome would turn an observation lane into a
-        // rubber stamp: green because it ran, not because anything worked.
         assertTrue(ci.contains("id: reactor"), "the macOS reactor step must be identifiable");
         assertTrue(ci.contains("Reactor outcome on macOS: ${{ steps.reactor.outcome }}"),
                 "the macOS lane must publish the reactor outcome rather than swallow it");
@@ -154,7 +143,7 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void historicalPreflightsAvoidDeprecatedSetupJavaV4() throws IOException {
         Path root = repoRoot().resolve(".github/workflows");
-        for (String workflow : java.util.List.of("m10-preflight.yml", "m11-preflight.yml", "m12-preflight.yml")) {
+        for (String workflow : List.of("m10-preflight.yml", "m11-preflight.yml", "m12-preflight.yml")) {
             String text = Files.readString(root.resolve(workflow));
             assertPinnedNode24(text, CHECKOUT_NODE24, "checkout", workflow);
             assertPinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", workflow);
@@ -170,11 +159,14 @@ class D2RepositoryHardeningArchitectureTest {
 
         assertTrue(security.contains("branches: [main, develop]"));
         assertTrue(security.contains("timeout-minutes: 90"));
-        assertTrue(security.contains("dependency-check-maven:12.2.2:update-only"));
-        assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"));
+        assertTrue(security.contains("dependency-check-maven:13.0.0:update-only"));
+        assertTrue(security.contains("dependency-check-maven:13.0.0:aggregate"));
         assertTrue(security.contains("-DautoUpdate=false"));
         assertTrue(security.contains("target/dependency-check-data"));
-        assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"));
+        assertTrue(security.contains("dependency-check-v13-trusted-${{ runner.os }}-"),
+                "Dependency-Check 13 must write into its own trusted cache namespace");
+        assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"),
+                "the v13 rollout must be able to read the existing trusted v12 cache during migration");
         assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32587778460"));
         assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32690353897"));
         assertTrue(security.contains("Verify restored Dependency-Check database freshness"));
@@ -212,15 +204,17 @@ class D2RepositoryHardeningArchitectureTest {
                 "Dependency-Check database updates must be restricted to trusted events");
         assertTrue(trustedUpdateStep.contains("${{ secrets.NVD_API_KEY }}"),
                 "trusted Dependency-Check updates must use the configured NVD API key when available");
-        int firstUpdateOnly = security.indexOf("dependency-check-maven:12.2.2:update-only");
+        int firstUpdateOnly = security.indexOf("dependency-check-maven:13.0.0:update-only");
         assertTrue(firstUpdateOnly >= trustedUpdateIndex && firstUpdateOnly < saveIndex,
                 "Dependency-Check update-only must remain inside the trusted-event update step");
-        assertTrue(security.indexOf("dependency-check-maven:12.2.2:update-only", firstUpdateOnly + 1) < 0,
+        assertTrue(security.indexOf("dependency-check-maven:13.0.0:update-only", firstUpdateOnly + 1) < 0,
                 "pull requests must consume the trusted cache and must not run a second anonymous NVD update");
 
         String saveStep = security.substring(saveIndex, scanIndex);
         assertTrue(saveStep.contains("if: github.event_name != 'pull_request'"),
                 "Dependency-Check cache writes must be restricted to trusted events");
+        assertTrue(saveStep.contains("dependency-check-v13-trusted-${{ runner.os }}-${{ github.run_id }}"),
+                "trusted events must publish the migrated cache under the v13 namespace");
 
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
@@ -255,7 +249,8 @@ class D2RepositoryHardeningArchitectureTest {
 
         try (var files = Files.walk(root, 16)) {
             for (Path source : files.filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> path.toString().contains("src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
+                    .filter(path -> path.toString().contains(
+                            "src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
                     .toList()) {
                 String text = Files.readString(source);
                 assertFalse(text.contains("activateDefaultTyping("), "default typing activation forbidden: " + source);
@@ -264,10 +259,6 @@ class D2RepositoryHardeningArchitectureTest {
         }
     }
 
-    /**
-     * A prefix test on Content-Type admits {@code application/jsonp} and {@code application/json-patch+json} as
-     * JSON. Every request-body boundary must decide admission through the shared exact parser instead.
-     */
     @Test
     void requestBodyBoundariesAdmitJsonByExactMediaTypeNotByPrefix() throws IOException {
         Path api = repoRoot().resolve("morpheus-api/src/main/java/com/morpheus/api");
@@ -295,14 +286,6 @@ class D2RepositoryHardeningArchitectureTest {
         }
     }
 
-    /**
-     * The documented CVE command must actually scan.
-     *
-     * <p>The {@code d2-security} profile only configures the plugin; it binds no execution to a phase. So
-     * {@code ./mvnw verify -P d2-security}, which four governance surfaces documented as the CVE scan, completed
-     * in seconds with BUILD SUCCESS having analysed nothing — an auditor following it would have reported a clean
-     * scan without running one. The goal has to be invoked explicitly, as {@code security.yml} does.</p>
-     */
     @Test
     void governanceSurfacesDocumentACveCommandThatActuallyInvokesTheScan() throws IOException {
         Path root = repoRoot();
@@ -325,8 +308,8 @@ class D2RepositoryHardeningArchitectureTest {
         }
 
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
-        assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"),
-                "CI must invoke the aggregate goal explicitly");
+        assertTrue(security.contains("dependency-check-maven:13.0.0:aggregate"),
+                "CI must invoke the pinned aggregate goal explicitly");
     }
 
     @Test
@@ -359,7 +342,8 @@ class D2RepositoryHardeningArchitectureTest {
             return current;
         }
         Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml")) && Files.isDirectory(parent.resolve("distribution"))) {
+        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
+                && Files.isDirectory(parent.resolve("distribution"))) {
             return parent;
         }
         throw new IllegalStateException("MORPHEUS repository root not found from " + current);
