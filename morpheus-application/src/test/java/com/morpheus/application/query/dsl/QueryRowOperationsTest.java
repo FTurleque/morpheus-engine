@@ -15,7 +15,7 @@ class QueryRowOperationsTest {
 
     @Test
     void evaluatesEveryPredicateAndBooleanOperator() {
-        QueryRow row = requirementRow("project-b", "req-2", "Alpha Billing", List.of("billing", "api"));
+        QueryRow row = changeRow("project-b", "chg-2", "Alpha Billing", List.of("billing", "api"));
 
         assertTrue(operations.matches(row, QueryPredicate.unary("title", QueryOperator.EQ, "alpha billing")));
         assertTrue(operations.matches(row, QueryPredicate.unary("title", QueryOperator.NEQ, "other")));
@@ -28,7 +28,7 @@ class QueryRowOperationsTest {
 
         QueryFilter title = QueryPredicate.unary("title", QueryOperator.CONTAINS, "billing");
         QueryFilter scope = QueryPredicate.unary("scope", QueryOperator.EQ, "api");
-        QueryFilter missing = QueryPredicate.unary("key", QueryOperator.EQ, "REQ-404");
+        QueryFilter missing = QueryPredicate.unary("key", QueryOperator.EQ, "CHG-404");
         assertTrue(operations.matches(row, new QueryAnd(List.of(title, scope))));
         assertFalse(operations.matches(row, new QueryAnd(List.of(title, missing))));
         assertTrue(operations.matches(row, new QueryOr(List.of(missing, scope))));
@@ -39,10 +39,10 @@ class QueryRowOperationsTest {
 
     @Test
     void comparatorHonoursDirectionThenStableProjectAndEntityTies() {
-        QueryRow alphaB = requirementRow("project-b", "req-2", "Alpha", List.of());
-        QueryRow alphaA2 = requirementRow("project-a", "req-2", "Alpha", List.of());
-        QueryRow alphaA1 = requirementRow("project-a", "req-1", "Alpha", List.of());
-        QueryRow zulu = requirementRow("project-a", "req-9", "Zulu", List.of());
+        QueryRow alphaB = requirementRow("project-b", "req-2", "Alpha");
+        QueryRow alphaA2 = requirementRow("project-a", "req-2", "Alpha");
+        QueryRow alphaA1 = requirementRow("project-a", "req-1", "Alpha");
+        QueryRow zulu = requirementRow("project-a", "req-9", "Zulu");
 
         var ascending = operations.comparator(query(
                 QueryEntityType.REQUIREMENT,
@@ -96,11 +96,18 @@ class QueryRowOperationsTest {
                 QueryPage.first(10));
     }
 
-    private QueryRow requirementRow(String projectId, String entityId, String title, List<String> scope) {
-        return new QueryRow(QueryEntityType.REQUIREMENT, projectId, entityId, List.of(
+    private QueryRow changeRow(String projectId, String entityId, String title, List<String> scope) {
+        return new QueryRow(QueryEntityType.CHANGE, projectId, entityId, List.of(
                 QueryCell.scalar("id", entityId),
                 QueryCell.scalar("projectId", projectId),
                 QueryCell.scalar("title", title),
                 new QueryCell("scope", scope)));
+    }
+
+    private QueryRow requirementRow(String projectId, String entityId, String title) {
+        return new QueryRow(QueryEntityType.REQUIREMENT, projectId, entityId, List.of(
+                QueryCell.scalar("id", entityId),
+                QueryCell.scalar("projectId", projectId),
+                QueryCell.scalar("title", title)));
     }
 }
