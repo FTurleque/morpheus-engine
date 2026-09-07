@@ -30,6 +30,7 @@
         <module>morpheus-api</module>
         <module>morpheus-cli</module>
         <module>morpheus-architecture-tests</module>
+        <module>morpheus-coverage-report</module>
     </modules>
 
     <properties>
