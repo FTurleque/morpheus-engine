@@ -12,6 +12,7 @@ import com.morpheus.domain.decision.DesignDecisionId;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.evidence.SourceRange;
+import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.portfolio.CrossProjectReference;
 import com.morpheus.domain.portfolio.CrossProjectReferenceId;
 import com.morpheus.domain.portfolio.PortfolioEntityRef;
@@ -110,8 +111,8 @@ class QueryRowMapperTest {
         CrossProjectReference reference = new CrossProjectReference(
                 CrossProjectReferenceId.generate(),
                 portfolioId,
-                new PortfolioEntityRef(projectId, "requirement", requirement.id()),
-                new PortfolioEntityRef(targetProjectId, "requirement", RequirementId.generate()),
+                new PortfolioEntityRef(projectId, "requirement", DomainIdentity.generate()),
+                new PortfolioEntityRef(targetProjectId, "requirement", DomainIdentity.generate()),
                 "depends-on",
                 new ProviderId("openspec"),
                 Optional.of(SourceLocator.file("specs/billing.md")),
