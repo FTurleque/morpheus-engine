@@ -21,6 +21,7 @@ import java.util.Optional;
 final class MorpheusProviderPluginMcpTools {
     static final String DISCOVER_TOOL = "discover_provider_plugins";
     static final String RETIRED_PROBE_TOOL = "probe_provider_plugin";
+    static final String REMOTE_DISCOVERY_FAILURE = "PROVIDER_PLUGIN_DISCOVERY_FAILED";
 
     private final ProviderPluginService service = new ProviderPluginService();
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
@@ -66,8 +67,11 @@ final class MorpheusProviderPluginMcpTools {
                     .isError(false)
                     .build();
         } catch (RuntimeException expected) {
+            // Remote/model-facing callers must never receive an arbitrary RuntimeException message: filesystem
+            // exceptions frequently render their pathname as the message. Detailed diagnostics stay on local
+            // operator surfaces; this boundary returns only a stable, non-locating failure code.
             return McpSchema.CallToolResult.builder()
-                    .addTextContent(safeMessage(expected))
+                    .addTextContent(REMOTE_DISCOVERY_FAILURE)
                     .isError(true)
                     .build();
         }
@@ -81,10 +85,5 @@ final class MorpheusProviderPluginMcpTools {
         result.put("required", required);
         result.put("additionalProperties", false);
         return Map.copyOf(result);
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 }
