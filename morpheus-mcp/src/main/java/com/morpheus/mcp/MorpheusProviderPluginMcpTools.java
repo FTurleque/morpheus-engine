@@ -11,10 +11,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Metadata-only M22 provider-plugin MCP tool bound to one operator-configured directory.
- * Executable plugin probing is deliberately not model-facing.
+ * Executable plugin probing is deliberately not model-facing. The default server constructor keeps this surface
+ * disabled, so an MCP caller can never choose an arbitrary local directory.
  */
 final class MorpheusProviderPluginMcpTools {
     static final String DISCOVER_TOOL = "discover_provider_plugins";
@@ -22,13 +24,21 @@ final class MorpheusProviderPluginMcpTools {
 
     private final ProviderPluginService service = new ProviderPluginService();
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
-    private final Path pluginDirectory;
+    private final Optional<Path> pluginDirectory;
+
+    MorpheusProviderPluginMcpTools() {
+        this.pluginDirectory = Optional.empty();
+    }
 
     MorpheusProviderPluginMcpTools(Path pluginDirectory) {
-        this.pluginDirectory = Objects.requireNonNull(pluginDirectory, "pluginDirectory").toAbsolutePath().normalize();
+        this.pluginDirectory = Optional.of(
+                Objects.requireNonNull(pluginDirectory, "pluginDirectory").toAbsolutePath().normalize());
     }
 
     List<McpServerFeatures.SyncToolSpecification> specifications() {
+        if (pluginDirectory.isEmpty()) {
+            return List.of();
+        }
         return List.of(tool(
                 DISCOVER_TOOL,
                 "Inspect provider-plugin JAR metadata in the server-configured plugin directory without activating plugin code.",
@@ -45,8 +55,10 @@ final class MorpheusProviderPluginMcpTools {
 
     private McpSchema.CallToolResult call(String toolName) {
         try {
+            Path configuredDirectory = pluginDirectory.orElseThrow(() ->
+                    new IllegalStateException("provider-plugin discovery is not configured for this MCP server"));
             Object result = switch (toolName) {
-                case DISCOVER_TOOL -> ProviderPluginViews.remoteDiscovery(service.discover(pluginDirectory));
+                case DISCOVER_TOOL -> ProviderPluginViews.remoteDiscovery(service.discover(configuredDirectory));
                 default -> throw new IllegalArgumentException("unknown M22 MCP tool: " + toolName);
             };
             return McpSchema.CallToolResult.builder()
