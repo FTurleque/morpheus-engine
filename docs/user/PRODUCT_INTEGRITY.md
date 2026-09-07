@@ -71,7 +71,13 @@ pas d’exécution de l’artefact annoncé
 pas de mutation de la base métier
 ```
 
-Le résultat indique uniquement la version courante, la version disponible, le channel, l’URI de l’artefact, son SHA-256 annoncé et `updateAvailable`.
+Le résultat transporte la version courante, la version disponible, le channel, l’URI de l’artefact, son SHA-256 annoncé, l’URI d’attestation lorsqu’elle existe, `updateAvailable` et un niveau de confiance explicite :
+
+```text
+trustLevel=DISCOVERY_ONLY
+```
+
+`DISCOVERY_ONLY` signifie que la référence de provenance a été conservée par le contrat de découverte, mais qu’aucune vérification cryptographique de l’attestation ou de l’identité de l’éditeur n’a été effectuée.
 
 ```text
 update discovery != automatic update
@@ -102,6 +108,6 @@ Le SHA-256 annoncé par le manifeste permet de contrôler la forme d’une valeu
 checksum != provenance
 ```
 
-Les releases produites par le workflow `MORPHEUS Release` reçoivent une attestation GitHub de provenance liée au workflow et au commit tagué. Le champ `attestationUri` rend cette preuve explicitement référençable par le contrat de découverte distant.
+Les releases produites par le workflow `MORPHEUS Release` reçoivent une attestation GitHub de provenance liée au workflow et au commit tagué. Le champ `attestationUri` rend cette preuve explicitement référençable par le contrat de découverte distant et elle est désormais conservée dans `UpdateCheckResult`.
 
-MORPHEUS ne vérifie ni ne télécharge cette attestation dans `update-check`. La méthode de validation du manifeste vérifie donc un **contrat de découverte distant**, pas une décision cryptographique de confiance éditeur. Toute installation automatique future devra vérifier cryptographiquement l’attestation et son lien avec l’artefact avant d’utiliser celui-ci.
+MORPHEUS ne vérifie ni ne télécharge cette attestation dans `update-check`. La méthode de validation du manifeste vérifie donc un **contrat de découverte distant**, pas une décision cryptographique de confiance éditeur. Toute installation automatique future devra introduire un niveau de confiance vérifié et vérifier cryptographiquement l’attestation ainsi que son lien avec l’artefact avant d’utiliser celui-ci.
