@@ -34,12 +34,14 @@ class DependencyCheckWorkflowContractTest {
 
     private static Path repoRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("pom.xml"))) {
-            current = current.getParent();
+        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
+            return current;
         }
-        if (current == null) {
-            throw new IllegalStateException("repository root not found");
+        Path parent = current.getParent();
+        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
+                && Files.isDirectory(parent.resolve("distribution"))) {
+            return parent;
         }
-        return current;
+        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }
