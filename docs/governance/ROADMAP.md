@@ -55,7 +55,7 @@ Résultat final : **oui**, sur le SHA exact `fa54b3d6a316357b2ef79afd2243619a64a
 
 ```text
 Jackson 3.1.5 LTS             integrated
-sqlite-jdbc 3.53.2.0          integrated
+sqlite-jdbc 3.53.4.0          integrated
 local Maven SCA               PASS
 coverage floors 40% / 35%     enforced
 blocking dependency hygiene   enforced
@@ -82,10 +82,10 @@ MORPHEUS Security                OWASP Dependency-Check
 MORPHEUS CodeQL                  security-extended
 diff coverage PR lines           >= 80%
 diff coverage PR branches        >= 70%
-global line ratchet              >= 54.5%
-global branch ratchet            >= 47.7%
-Surefire ratchet                 >= 1300
-architecture ratchet             >= 335
+global line ratchet              >= 62.0%
+global branch ratchet            >= 53.5%
+Surefire ratchet                 >= 1550
+architecture ratchet             >= 385
 SBOM / provenance                required
 ```
 

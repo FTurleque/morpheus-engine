@@ -55,8 +55,8 @@ same exact SHA          PASS
 .github/workflows delta NONE
 CI used as D2 gate      false
 Jackson                 3.1.5 LTS
-sqlite-jdbc             3.53.2.0
-SCA                     OWASP Dependency-Check 12.2.2
+sqlite-jdbc             3.53.4.0
+SCA                     OWASP Dependency-Check 13.0.0
 coverage floors         40% line / 35% branch
 dependency hygiene      blocking
 ```

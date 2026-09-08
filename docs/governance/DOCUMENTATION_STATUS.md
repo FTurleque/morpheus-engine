@@ -98,8 +98,8 @@ Hardening D2 intégré :
 
 ```text
 Jackson                    3.1.5 LTS
-sqlite-jdbc                3.53.2.0
-OWASP Dependency-Check     12.2.2
+sqlite-jdbc                3.53.4.0
+OWASP Dependency-Check     13.0.0
 absolute coverage floors   40% lines / 35% branches
 dependency hygiene         blocking
 ```
@@ -125,10 +125,10 @@ Qualité continue :
 MORPHEUS CI                exact-head Windows + Ubuntu
 MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
-Surefire ratchet           >= 1300
-Architecture ratchet       >= 335
-Global line ratchet        >= 54.5%
-Global branch ratchet      >= 47.7%
+Surefire ratchet           >= 1550
+Architecture ratchet       >= 385
+Global line ratchet        >= 62.0%
+Global branch ratchet      >= 53.5%
 PR changed line coverage   >= 80%
 PR changed branch coverage >= 70%
 JaCoCo canonical report    morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml

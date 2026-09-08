@@ -11,8 +11,6 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -221,9 +219,9 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
 
         private void readLoop() {
             try {
-                BufferedInputStream input = new BufferedInputStream(inputStream);
+                BoundedStdioLineReader frames = new BoundedStdioLineReader(inputStream);
                 while (!closing.get()) {
-                    String line = readUtf8LineBounded(input, maxFrameBytes);
+                    String line = frames.readLine(maxFrameBytes);
                     if (line == null || closing.get()) break;
                     JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, line);
                     handleSequentially(message);
@@ -340,29 +338,6 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
             inputStream.close();
         } catch (IOException ignored) {
             // Closing stdin is best-effort cleanup used to unblock a pending read.
-        }
-    }
-
-    static String readUtf8LineBounded(InputStream input, int maxBytes) throws IOException {
-        Objects.requireNonNull(input, "input");
-        if (maxBytes < 1) throw new IllegalArgumentException("maxBytes must be positive");
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream(Math.min(maxBytes, 8192));
-        int next;
-        while ((next = input.read()) != -1) {
-            if (next == '\n') break;
-            if (buffer.size() >= maxBytes) throw new MessageTooLargeException(maxBytes);
-            buffer.write(next);
-        }
-        if (next == -1 && buffer.size() == 0) return null;
-        byte[] bytes = buffer.toByteArray();
-        int length = bytes.length;
-        if (length > 0 && bytes[length - 1] == '\r') length--;
-        return StrictUtf8.decode(bytes, length);
-    }
-
-    static final class MessageTooLargeException extends IOException {
-        private MessageTooLargeException(int maximum) {
-            super("MCP STDIO frame exceeds " + maximum + " bytes");
         }
     }
 }

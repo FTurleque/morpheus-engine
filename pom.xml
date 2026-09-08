@@ -253,5 +253,47 @@
                 </plugins>
             </build>
         </profile>
+
+        <!--
+            Build-time supply chain, scanned separately from the distributed product.
+
+            The product SBOM and the d2-security scan deliberately exclude test scope: a JUnit or ArchUnit
+            artifact is never shipped, and listing it as a product component would misdescribe what an operator
+            installs. It is still executed on every CI machine that builds MORPHEUS, so excluding it from the
+            product view must not mean nobody looks at it. This profile is that second look, and it is
+            fail-closed on the same CVSS threshold: a critical vulnerability in something the build runs is a
+            critical vulnerability in the build.
+        -->
+        <profile>
+            <id>d2-security-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>${dependency-check.maven.plugin.version}</version>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <format>ALL</format>
+                            <failBuildOnCVSS>7.0</failBuildOnCVSS>
+                            <junitFailOnCVSS>4.0</junitFailOnCVSS>
+                            <failOnError>true</failOnError>
+                            <!--
+                                failBuildOnUnusedSuppressionRule stays on the product scan alone: the suppression
+                                file is the same one, so a stale rule is already caught there, and asserting it
+                                twice over two different dependency sets only adds a way to fail for a reason that
+                                is not a vulnerability.
+                            -->
+                            <skipTestScope>false</skipTestScope>
+                            <prettyPrint>true</prettyPrint>
+                            <suppressionFiles>
+                                <suppressionFile>${maven.multiModuleProjectDirectory}/config/dependency-check-suppressions.xml</suppressionFile>
+                            </suppressionFiles>
+                            <outputDirectory>${project.build.directory}/d2-security-tests</outputDirectory>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>

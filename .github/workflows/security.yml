@@ -132,6 +132,19 @@ jobs:
             -DautoUpdate=false \
             org.owasp:dependency-check-maven:13.0.0:aggregate
 
+      # The product SBOM and the scan above exclude test scope on purpose: those artifacts are never shipped.
+      # They are executed on every machine that builds MORPHEUS, so they get their own fail-closed scan rather
+      # than no scan at all. It reuses the trusted database the steps above already prepared, so this second
+      # look costs no additional NVD traffic.
+      - name: Run OWASP Dependency-Check scan over build and test dependencies
+        shell: bash
+        run: |
+          ./mvnw \
+            -Pd2-security-tests \
+            "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data" \
+            -DautoUpdate=false \
+            org.owasp:dependency-check-maven:13.0.0:aggregate
+
       - name: Upload dependency-check evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -139,4 +152,6 @@ jobs:
           name: dependency-check
           if-no-files-found: warn
           retention-days: 14
-          path: target/d2-security/**
+          path: |
+            target/d2-security/**
+            target/d2-security-tests/**
