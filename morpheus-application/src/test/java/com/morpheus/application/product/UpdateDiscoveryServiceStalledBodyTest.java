@@ -47,6 +47,18 @@ class UpdateDiscoveryServiceStalledBodyTest {
     private static final String CERTIFICATE_ALIAS = "morpheus-update-test";
     private static final Duration SERVICE_TIMEOUT = Duration.ofSeconds(1);
 
+    /**
+     * Deadline for a probe whose subject is resource release rather than promptness.
+     *
+     * <p>{@link #SERVICE_TIMEOUT} is short because one test's subject is that the client gives up quickly. A
+     * request sent afterwards to prove the reader thread and connection were released has no reason to inherit
+     * that budget: it opens a TLS connection to a freshly started server, and on a heavily scheduled Windows
+     * runner the handshake alone can outlast a second. A leaked reader thread or connection makes that request
+     * fail at any deadline, so the generous one costs the assertion nothing and stops it from measuring the
+     * runner instead of the code.</p>
+     */
+    private static final Duration RECOVERY_TIMEOUT = Duration.ofSeconds(30);
+
     @TempDir
     private Path tempDir;
 
@@ -119,13 +131,17 @@ class UpdateDiscoveryServiceStalledBodyTest {
             exchange.close();
         });
 
-        UpdateDiscoveryService service = new UpdateDiscoveryService(trustedClient(keyStore), SERVICE_TIMEOUT);
+        // One client for both requests: what is under test is that this client released the reader thread and
+        // the connection the stalled request held. Two clients would prove nothing.
+        HttpClient client = trustedClient(keyStore);
+        UpdateDiscoveryService stalling = new UpdateDiscoveryService(client, SERVICE_TIMEOUT);
+        UpdateDiscoveryService recovering = new UpdateDiscoveryService(client, RECOVERY_TIMEOUT);
         int port = server.getAddress().getPort();
 
         assertThrows(RuntimeException.class,
-                () -> service.check(URI.create("https://localhost:" + port + "/stall")));
+                () -> stalling.check(URI.create("https://localhost:" + port + "/stall")));
 
-        UpdateCheckResult result = service.check(URI.create("https://localhost:" + port + "/fast"));
+        UpdateCheckResult result = recovering.check(URI.create("https://localhost:" + port + "/fast"));
         assertEquals("9.9.9", result.availableVersion());
     }
 
