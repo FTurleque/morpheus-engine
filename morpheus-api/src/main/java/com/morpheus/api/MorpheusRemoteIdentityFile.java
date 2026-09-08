@@ -1,33 +1,16 @@
 package com.morpheus.api;
 
-import com.morpheus.application.files.SafeWorkspaceFileResolver;
-import com.morpheus.application.security.LocalWritePermissionHardener;
+import com.morpheus.api.RemoteIdentityAudit.RetainedAudit;
 
-import java.io.IOException;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * M26 reference identity file.
@@ -40,24 +23,19 @@ import java.util.regex.Pattern;
  * audit is retained as a bounded rolling window inside the same atomic snapshot so audit growth can never prevent an
  * urgent credential rotation or revocation. Neither can audit corruption: historical audit entries are evidence, not
  * authority, so an unreadable one is quarantined and recorded as such rather than failing the mutation it precedes.</p>
+ *
+ * <p>This type is the public facade and the only place where those policies are decided. The mechanisms they are
+ * decided over live in four bounded package-private components, none of which can reach the others: the text format
+ * in {@link RemoteIdentityCodec}, token material in {@link RemoteIdentityCredentialService}, mutation evidence in
+ * {@link RemoteIdentityAudit}, and filesystem custody in {@link RemoteIdentityFileStore}. Splitting them that way is
+ * what makes each invariant testable on its own -- a parser that cannot open a file, and a store that cannot read a
+ * token -- while the ADMIN and expiry rules stay visible together, here, where an operator-facing command lands.</p>
  */
 public final class MorpheusRemoteIdentityFile {
-    public static final int MAX_FILE_BYTES = 256 * 1024;
-    public static final int MAX_IDENTITIES = 256;
-    public static final int MAX_AUDIT_RECORDS = 512;
-    public static final int TOKEN_BYTES = 32;
-    private static final int MAX_PRESENTED_TOKEN_CHARS = 1024;
-    private static final Pattern PRINCIPAL = Pattern.compile("[A-Za-z0-9._@-]{1,128}");
-    private static final String AUDIT_PREFIX = "# audit|";
-    /**
-     * Subject of an {@link Mutation#AUDIT_QUARANTINED} entry.
-     *
-     * <p>It is a reserved name rather than an operator principal, and it is never accepted as an identity: the
-     * identity parser only ever reads principals from identity lines, and the audit is a comment to it.</p>
-     */
-    private static final String AUDIT_QUARANTINE_SUBJECT = "morpheus.audit";
-    private static final SecureRandom RANDOM = new SecureRandom();
-    private static final Object MUTATION_LOCK = new Object();
+    public static final int MAX_FILE_BYTES = RemoteIdentityFileStore.MAX_FILE_BYTES;
+    public static final int MAX_IDENTITIES = RemoteIdentityCodec.MAX_IDENTITIES;
+    public static final int MAX_AUDIT_RECORDS = RemoteIdentityAudit.MAX_AUDIT_RECORDS;
+    public static final int TOKEN_BYTES = RemoteIdentityCredentialService.TOKEN_BYTES;
 
     private MorpheusRemoteIdentityFile() {
     }
@@ -68,7 +46,7 @@ public final class MorpheusRemoteIdentityFile {
             byte[] tokenHash,
             Optional<Instant> expiresAt) {
         public Identity {
-            principal = requirePrincipal(principal);
+            principal = RemoteIdentityCodec.requirePrincipal(principal);
             role = Objects.requireNonNull(role, "role");
             tokenHash = Objects.requireNonNull(tokenHash, "tokenHash").clone();
             Objects.requireNonNull(expiresAt, "expiresAt");
@@ -130,7 +108,7 @@ public final class MorpheusRemoteIdentityFile {
             String token,
             Optional<Instant> expiresAt) {
         public GeneratedCredential {
-            principal = requirePrincipal(principal);
+            principal = RemoteIdentityCodec.requirePrincipal(principal);
             role = Objects.requireNonNull(role, "role");
             if (token == null || token.isBlank()) {
                 throw new IllegalArgumentException("generated token must not be blank");
@@ -194,13 +172,14 @@ public final class MorpheusRemoteIdentityFile {
         public AuditRecord {
             at = Objects.requireNonNull(at, "at");
             mutation = Objects.requireNonNull(mutation, "mutation");
-            principal = requirePrincipal(principal);
+            principal = RemoteIdentityCodec.requirePrincipal(principal);
             Objects.requireNonNull(role, "role");
         }
     }
 
     public static List<Identity> load(Path authFile) {
-        return parse(readLinesSecurely(authFile, "cannot read remote auth file"));
+        return RemoteIdentityCodec.parse(
+                RemoteIdentityFileStore.readLines(authFile, "cannot read remote auth file"));
     }
 
     public static GeneratedCredential create(Path authFile, String principal, MorpheusRemoteRole role) {
@@ -212,7 +191,7 @@ public final class MorpheusRemoteIdentityFile {
             String principal,
             MorpheusRemoteRole role,
             Instant expiresAt) {
-        return create(authFile, principal, role, Optional.of(requireFutureExpiry(expiresAt)));
+        return create(authFile, principal, role, Optional.of(RemoteIdentityCodec.requireFutureExpiry(expiresAt)));
     }
 
     private static GeneratedCredential create(
@@ -221,29 +200,30 @@ public final class MorpheusRemoteIdentityFile {
             MorpheusRemoteRole role,
             Optional<Instant> expiresAt) {
         Objects.requireNonNull(authFile, "authFile");
-        String normalizedPrincipal = requirePrincipal(principal);
+        String normalizedPrincipal = RemoteIdentityCodec.requirePrincipal(principal);
         Objects.requireNonNull(role, "role");
         Objects.requireNonNull(expiresAt, "expiresAt");
-        return mutate(authFile, file -> {
-            List<Identity> existing = Files.exists(file, LinkOption.NOFOLLOW_LINKS) ? load(file) : List.of();
+        return RemoteIdentityFileStore.withMutationLock(authFile, file -> {
+            List<Identity> existing = RemoteIdentityFileStore.exists(file) ? load(file) : List.of();
             if (existing.stream().anyMatch(identity -> identity.principal().equals(normalizedPrincipal))) {
                 throw new IllegalArgumentException("remote principal already exists: " + normalizedPrincipal);
             }
             if (existing.size() >= MAX_IDENTITIES) {
                 throw new IllegalArgumentException("remote auth file already contains the maximum number of identities");
             }
-            GeneratedCredential credential = newCredential(normalizedPrincipal, role, expiresAt);
+            GeneratedCredential credential =
+                    RemoteIdentityCredentialService.newCredential(normalizedPrincipal, role, expiresAt);
             List<Identity> updated = new ArrayList<>(existing);
-            updated.add(identity(credential));
+            updated.add(RemoteIdentityCredentialService.identity(credential));
             write(file, updated, new AuditRecord(Instant.now(), Mutation.CREATE, normalizedPrincipal, role));
             return credential;
         });
     }
 
     public static List<Identity> revoke(Path authFile, String principal) {
-        String normalizedPrincipal = requirePrincipal(principal);
-        return mutate(authFile, file -> {
-            Path existingFile = secureExistingFile(file);
+        String normalizedPrincipal = RemoteIdentityCodec.requirePrincipal(principal);
+        return RemoteIdentityFileStore.withMutationLock(authFile, file -> {
+            Path existingFile = RemoteIdentityFileStore.secureExistingFile(file);
             List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
             if (target.role() == MorpheusRemoteRole.ADMIN && target.isActiveAt(Instant.now()) && adminCount(existing) == 1) {
@@ -260,18 +240,12 @@ public final class MorpheusRemoteIdentityFile {
 
     /** Rotates token material while preserving the identity's current expiry policy. */
     public static GeneratedCredential rotate(Path authFile, String principal) {
-        String normalizedPrincipal = requirePrincipal(principal);
-        return mutate(authFile, file -> {
-            Path existingFile = secureExistingFile(file);
+        String normalizedPrincipal = RemoteIdentityCodec.requirePrincipal(principal);
+        return RemoteIdentityFileStore.withMutationLock(authFile, file -> {
+            Path existingFile = RemoteIdentityFileStore.secureExistingFile(file);
             List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
-            GeneratedCredential credential = newCredential(normalizedPrincipal, target.role(), target.expiresAt());
-            List<Identity> updated = existing.stream()
-                    .map(identity -> identity.principal().equals(normalizedPrincipal) ? identity(credential) : identity)
-                    .toList();
-            write(existingFile, updated,
-                    new AuditRecord(Instant.now(), Mutation.ROTATE, normalizedPrincipal, target.role()));
-            return credential;
+            return rotateTo(existingFile, existing, target, target.expiresAt());
         });
     }
 
@@ -280,28 +254,44 @@ public final class MorpheusRemoteIdentityFile {
             Path authFile,
             String principal,
             Optional<Instant> expiresAt) {
-        String normalizedPrincipal = requirePrincipal(principal);
+        String normalizedPrincipal = RemoteIdentityCodec.requirePrincipal(principal);
         Optional<Instant> normalizedExpiry = Objects.requireNonNull(expiresAt, "expiresAt")
-                .map(MorpheusRemoteIdentityFile::requireFutureExpiry);
-        return mutate(authFile, file -> {
-            Path existingFile = secureExistingFile(file);
+                .map(RemoteIdentityCodec::requireFutureExpiry);
+        return RemoteIdentityFileStore.withMutationLock(authFile, file -> {
+            Path existingFile = RemoteIdentityFileStore.secureExistingFile(file);
             List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
-            GeneratedCredential credential = newCredential(normalizedPrincipal, target.role(), normalizedExpiry);
-            List<Identity> updated = existing.stream()
-                    .map(identity -> identity.principal().equals(normalizedPrincipal) ? identity(credential) : identity)
-                    .toList();
-            write(existingFile, updated,
-                    new AuditRecord(Instant.now(), Mutation.ROTATE, normalizedPrincipal, target.role()));
-            return credential;
+            return rotateTo(existingFile, existing, target, normalizedExpiry);
         });
     }
 
+    /**
+     * Replaces one identity's token material, keeping its role.
+     *
+     * <p>Rotation never changes who the principal is or what it may do: an operator rotating a compromised token
+     * is answering a leak, not making an authorization decision.</p>
+     */
+    private static GeneratedCredential rotateTo(
+            Path file,
+            List<Identity> existing,
+            Identity target,
+            Optional<Instant> expiresAt) {
+        GeneratedCredential credential =
+                RemoteIdentityCredentialService.newCredential(target.principal(), target.role(), expiresAt);
+        Identity rotated = RemoteIdentityCredentialService.identity(credential);
+        List<Identity> updated = existing.stream()
+                .map(identity -> identity.principal().equals(target.principal()) ? rotated : identity)
+                .toList();
+        write(file, updated,
+                new AuditRecord(Instant.now(), Mutation.ROTATE, target.principal(), target.role()));
+        return credential;
+    }
+
     public static List<Identity> changeRole(Path authFile, String principal, MorpheusRemoteRole newRole) {
-        String normalizedPrincipal = requirePrincipal(principal);
+        String normalizedPrincipal = RemoteIdentityCodec.requirePrincipal(principal);
         Objects.requireNonNull(newRole, "newRole");
-        return mutate(authFile, file -> {
-            Path existingFile = secureExistingFile(file);
+        return RemoteIdentityFileStore.withMutationLock(authFile, file -> {
+            Path existingFile = RemoteIdentityFileStore.secureExistingFile(file);
             List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
             if (target.role() == MorpheusRemoteRole.ADMIN
@@ -340,13 +330,13 @@ public final class MorpheusRemoteIdentityFile {
             Instant expiresAt,
             Set<String> principals,
             boolean dryRun) {
-        Instant expiry = requireFutureExpiry(expiresAt);
+        Instant expiry = RemoteIdentityCodec.requireFutureExpiry(expiresAt);
         Set<String> selected = new LinkedHashSet<>();
         for (String principal : Objects.requireNonNull(principals, "principals")) {
-            selected.add(requirePrincipal(principal));
+            selected.add(RemoteIdentityCodec.requirePrincipal(principal));
         }
-        return mutate(authFile, file -> {
-            List<Identity> existing = load(secureExistingFile(file));
+        return RemoteIdentityFileStore.withMutationLock(authFile, file -> {
+            List<Identity> existing = load(RemoteIdentityFileStore.secureExistingFile(file));
             for (String principal : selected) {
                 requireIdentity(existing, principal);
             }
@@ -398,125 +388,20 @@ public final class MorpheusRemoteIdentityFile {
     }
 
     public static List<AuditRecord> audit(Path authFile) {
-        return parseAudit(readLinesSecurely(authFile, "cannot read remote identity audit"));
+        return RemoteIdentityAudit.parseStrict(
+                RemoteIdentityFileStore.readLines(authFile, "cannot read remote identity audit"));
     }
 
     public static Optional<Identity> authenticate(List<Identity> identities, String token) {
-        Objects.requireNonNull(identities, "identities");
-        if (token == null || token.isBlank() || token.length() > MAX_PRESENTED_TOKEN_CHARS) {
-            return Optional.empty();
-        }
-        byte[] candidate = sha256Bytes(token);
-        Instant now = Instant.now();
-        Identity matched = null;
-        for (Identity identity : identities) {
-            boolean equal = MessageDigest.isEqual(candidate, identity.tokenHash());
-            boolean active = identity.isActiveAt(now);
-            if (equal && active) matched = identity;
-        }
-        return Optional.ofNullable(matched);
+        return RemoteIdentityCredentialService.authenticate(identities, token, Instant.now());
     }
 
     public static String sha256Hex(String token) {
-        return HexFormat.of().formatHex(sha256Bytes(token));
-    }
-
-    private static <T> T mutate(Path authFile, MutationWork<T> work) {
-        Objects.requireNonNull(work, "work");
-        synchronized (MUTATION_LOCK) {
-            Path file = normalizedFile(authFile);
-            Path parent = file.getParent();
-            if (parent == null) throw new IllegalArgumentException("remote auth file must have a parent directory");
-            Path lockFile = mutationLockPath(file);
-            try {
-                Files.createDirectories(parent);
-                LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
-                hardener.hardenDirectory(parent);
-                rejectSymbolic(lockFile, "remote auth mutation lock");
-                try (FileChannel channel = FileChannel.open(
-                        lockFile,
-                        StandardOpenOption.CREATE,
-                        StandardOpenOption.WRITE,
-                        LinkOption.NOFOLLOW_LINKS)) {
-                    hardener.hardenFile(lockFile);
-                    try (FileLock ignored = channel.lock()) {
-                        return work.run(file);
-                    }
-                }
-            } catch (IOException failure) {
-                throw new IllegalArgumentException("cannot lock remote auth file for mutation", failure);
-            }
-        }
+        return RemoteIdentityCredentialService.sha256Hex(token);
     }
 
     static Path mutationLockPath(Path authFile) {
-        Path file = normalizedFile(authFile);
-        return file.resolveSibling(file.getFileName() + ".lock");
-    }
-
-    private static List<Identity> parse(List<String> lines) {
-        List<Identity> identities = new ArrayList<>();
-        Set<String> principals = new HashSet<>();
-        Set<String> hashes = new HashSet<>();
-        for (int index = 0; index < lines.size(); index++) {
-            String line = lines.get(index).trim();
-            if (line.isEmpty() || line.startsWith("#")) continue;
-            String[] fields = line.split("\\|", -1);
-            if (fields.length != 3 && fields.length != 4) {
-                throw new IllegalArgumentException("invalid remote auth entry at line " + (index + 1));
-            }
-            String principal = requirePrincipal(fields[0].trim());
-            MorpheusRemoteRole role;
-            try {
-                role = MorpheusRemoteRole.valueOf(fields[1].trim());
-            } catch (IllegalArgumentException failure) {
-                throw new IllegalArgumentException("invalid remote role at line " + (index + 1), failure);
-            }
-            String hashText = fields[2].trim().toLowerCase();
-            if (!hashText.matches("[0-9a-f]{64}")) {
-                throw new IllegalArgumentException("invalid token SHA-256 at line " + (index + 1));
-            }
-            Optional<Instant> expiresAt = Optional.empty();
-            if (fields.length == 4) {
-                String expiryText = fields[3].trim();
-                if (expiryText.isEmpty()) {
-                    throw new IllegalArgumentException("blank remote identity expiry at line " + (index + 1));
-                }
-                try {
-                    expiresAt = Optional.of(Instant.parse(expiryText));
-                } catch (RuntimeException failure) {
-                    throw new IllegalArgumentException("invalid remote identity expiry at line " + (index + 1), failure);
-                }
-            }
-            if (!principals.add(principal)) throw new IllegalArgumentException("duplicate remote principal: " + principal);
-            if (!hashes.add(hashText)) throw new IllegalArgumentException("duplicate remote token hash");
-            identities.add(new Identity(principal, role, HexFormat.of().parseHex(hashText), expiresAt));
-            if (identities.size() > MAX_IDENTITIES) {
-                throw new IllegalArgumentException("remote auth file exceeds " + MAX_IDENTITIES + " identities");
-            }
-        }
-        return List.copyOf(identities);
-    }
-
-    private static GeneratedCredential newCredential(
-            String principal,
-            MorpheusRemoteRole role,
-            Optional<Instant> expiresAt) {
-        byte[] tokenBytes = new byte[TOKEN_BYTES];
-        RANDOM.nextBytes(tokenBytes);
-        return new GeneratedCredential(
-                principal,
-                role,
-                Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes),
-                expiresAt);
-    }
-
-    private static Identity identity(GeneratedCredential credential) {
-        return new Identity(
-                credential.principal(),
-                credential.role(),
-                sha256Bytes(credential.token()),
-                credential.expiresAt());
+        return RemoteIdentityFileStore.mutationLockPath(authFile);
     }
 
     private static Identity requireIdentity(List<Identity> identities, String principal) {
@@ -538,213 +423,25 @@ public final class MorpheusRemoteIdentityFile {
         write(file, identities, List.of(Objects.requireNonNull(auditRecord, "auditRecord")));
     }
 
+    /**
+     * Publishes the identity snapshot and its audit window as one atomic replacement.
+     *
+     * <p>The audit is salvaged rather than parsed strictly here. Preserving it strictly meant a single unreadable
+     * {@code # audit|} line -- from a partial write, a hand edit, or a truncated copy -- made every later mutation
+     * of the file fail, so a credential known to be compromised could not be revoked while the credential itself
+     * stayed perfectly valid. Ordering that the wrong way makes the audit a denial of service against the
+     * operation the audit exists to record.</p>
+     */
     private static void write(Path file, List<Identity> identities, List<AuditRecord> auditRecords) {
-        if (identities.size() > MAX_IDENTITIES) {
-            throw new IllegalArgumentException("remote auth file exceeds " + MAX_IDENTITIES + " identities");
-        }
-        Set<String> principals = new HashSet<>();
-        Set<String> hashes = new HashSet<>();
-        List<Identity> ordered = identities.stream()
-                .sorted(Comparator.comparing(Identity::principal))
-                .toList();
-        List<String> lines = new ArrayList<>();
-        lines.add("# MORPHEUS remote identities: principal|role|sha256(token)[|expiresAt]");
-        for (Identity identity : ordered) {
-            String hash = HexFormat.of().formatHex(identity.tokenHash());
-            if (!principals.add(identity.principal())) {
-                throw new IllegalArgumentException("duplicate remote principal: " + identity.principal());
-            }
-            if (!hashes.add(hash)) throw new IllegalArgumentException("duplicate remote token hash");
-            String entry = identity.principal() + "|" + identity.role().name() + "|" + hash;
-            if (identity.expiresAt().isPresent()) entry += "|" + identity.expiresAt().orElseThrow();
-            lines.add(entry);
-        }
+        Objects.requireNonNull(auditRecords, "auditRecords");
+        List<String> lines = new ArrayList<>(RemoteIdentityCodec.format(identities));
+        RetainedAudit salvaged = RemoteIdentityFileStore.exists(file)
+                ? RemoteIdentityAudit.salvage(
+                        RemoteIdentityFileStore.readLines(file, "cannot preserve remote identity audit"))
+                : new RetainedAudit(List.of(), 0);
+        lines.addAll(RemoteIdentityAudit.format(RemoteIdentityAudit.retain(salvaged, auditRecords)));
 
-        List<AuditRecord> retainedAudit = new ArrayList<>();
-        if (Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
-            RetainedAudit salvaged = retainableAudit(
-                    readLinesSecurely(file, "cannot preserve remote identity audit"));
-            retainedAudit.addAll(salvaged.records());
-            if (salvaged.quarantined() > 0) retainedAudit.add(quarantineRecord());
-        }
-        retainedAudit.addAll(Objects.requireNonNull(auditRecords, "auditRecords"));
-        int firstRetained = Math.max(0, retainedAudit.size() - MAX_AUDIT_RECORDS);
-        retainedAudit.subList(firstRetained, retainedAudit.size()).stream()
-                .map(MorpheusRemoteIdentityFile::formatAudit)
-                .forEach(lines::add);
-
-        String content = String.join(System.lineSeparator(), lines) + System.lineSeparator();
-        if (content.getBytes(StandardCharsets.UTF_8).length > MAX_FILE_BYTES) {
-            throw new IllegalArgumentException("remote auth file would exceed " + MAX_FILE_BYTES + " bytes");
-        }
-        Path parent = file.getParent();
-        if (parent == null) throw new IllegalArgumentException("remote auth file must have a parent directory");
-        try {
-            Files.createDirectories(parent);
-            rejectSymbolic(file, "remote auth file");
-            Path temp = Files.createTempFile(parent, ".morpheus-auth-", ".tmp");
-            try {
-                Files.writeString(temp, content, StandardCharsets.UTF_8,
-                        StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
-                LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
-                hardener.hardenDirectory(parent);
-                hardener.hardenFile(temp);
-                Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-                hardener.hardenFile(file);
-            } finally {
-                Files.deleteIfExists(temp);
-            }
-        } catch (IOException failure) {
-            throw new IllegalArgumentException("cannot update remote auth file", failure);
-        }
-    }
-
-    private static List<String> readLinesSecurely(Path authFile, String failureMessage) {
-        Path file = secureExistingFile(authFile);
-        Path parent = file.getParent();
-        if (parent == null) throw new IllegalArgumentException("remote auth file must have a parent directory");
-        try {
-            // The parent chain is part of the file identity: a protected file can still be replaced when an
-            // ancestor is writable. Revalidate it for every security-sensitive read.
-            new LocalWritePermissionHardener().requireWriteProtectedDirectory(parent);
-            String text = SafeWorkspaceFileResolver.rootedAt(parent)
-                    .readUtf8(file.getFileName(), MAX_FILE_BYTES);
-            return text.lines().toList();
-        } catch (IOException | RuntimeException failure) {
-            if (failure.getMessage() != null && failure.getMessage().contains("exceeds maximum input size")) {
-                throw new IllegalArgumentException(
-                        "remote auth file exceeds " + MAX_FILE_BYTES + " bytes", failure);
-            }
-            throw new IllegalArgumentException(failureMessage, failure);
-        }
-    }
-
-    /**
-     * Reads the audit strictly, naming the first unreadable line.
-     *
-     * <p>This is the reporting surface: it says what is on disk rather than what can be salvaged from it, so a
-     * corrupted history is visible instead of quietly shorter. The mutation path deliberately does not use it --
-     * see {@link #retainableAudit(List)}.</p>
-     */
-    private static List<AuditRecord> parseAudit(List<String> lines) {
-        List<AuditRecord> records = new ArrayList<>();
-        for (int index = 0; index < lines.size(); index++) {
-            String line = lines.get(index).trim();
-            if (!line.startsWith(AUDIT_PREFIX)) continue;
-            AuditRecord entry = readAudit(line);
-            if (entry == null) {
-                throw new IllegalArgumentException("invalid remote identity audit at line " + (index + 1));
-            }
-            records.add(entry);
-        }
-        return List.copyOf(records);
-    }
-
-    /**
-     * Salvages the historical audit for retention, counting what it had to leave behind.
-     *
-     * <p>The audit is evidence about mutations, never an authority over them. Preserving it strictly meant a
-     * single unreadable {@code # audit|} line -- from a partial write, a hand edit, or a truncated copy -- made
-     * every later mutation of the file fail, so a credential known to be compromised could not be revoked while
-     * the credential itself stayed perfectly valid. Ordering that the wrong way makes the audit a denial of
-     * service against the operation the audit exists to record.</p>
-     *
-     * <p>Unreadable entries are therefore dropped rather than preserved, and their loss is itself recorded as an
-     * {@link Mutation#AUDIT_QUARANTINED} entry. Nothing from the rejected line is carried into that record: a
-     * line that failed to parse is of unknown provenance, and the only safe thing to say about it is that it
-     * existed.</p>
-     */
-    private static RetainedAudit retainableAudit(List<String> lines) {
-        List<AuditRecord> records = new ArrayList<>();
-        int quarantined = 0;
-        for (String raw : lines) {
-            String line = raw.trim();
-            if (!line.startsWith(AUDIT_PREFIX)) continue;
-            AuditRecord entry = readAudit(line);
-            if (entry == null) quarantined++;
-            else records.add(entry);
-        }
-        return new RetainedAudit(records, quarantined);
-    }
-
-    /** Returns {@code null} for an entry no reader can trust, without echoing any of its content. */
-    private static AuditRecord readAudit(String line) {
-        String[] fields = line.substring(AUDIT_PREFIX.length()).split("\\|", -1);
-        if (fields.length != 4) return null;
-        try {
-            return new AuditRecord(
-                    Instant.parse(fields[0]),
-                    Mutation.valueOf(fields[1]),
-                    fields[2],
-                    MorpheusRemoteRole.valueOf(fields[3]));
-        } catch (RuntimeException unreadable) {
-            return null;
-        }
-    }
-
-    /** Historical audit entries that survived a read, and how many did not. */
-    private record RetainedAudit(List<AuditRecord> records, int quarantined) {
-    }
-
-    private static AuditRecord quarantineRecord() {
-        return new AuditRecord(
-                Instant.now(), Mutation.AUDIT_QUARANTINED, AUDIT_QUARANTINE_SUBJECT, MorpheusRemoteRole.ADMIN);
-    }
-
-    private static String formatAudit(AuditRecord auditRecord) {
-        return AUDIT_PREFIX + auditRecord.at() + "|" + auditRecord.mutation().name() + "|"
-                + auditRecord.principal() + "|" + auditRecord.role().name();
-    }
-
-    private static byte[] sha256Bytes(String token) {
-        Objects.requireNonNull(token, "token");
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchAlgorithmException failure) {
-            throw new IllegalStateException("SHA-256 must be available", failure);
-        }
-    }
-
-    private static Path normalizedFile(Path authFile) {
-        Objects.requireNonNull(authFile, "authFile");
-        Path file = authFile.toAbsolutePath().normalize();
-        Path parent = file.getParent();
-        if (parent == null) throw new IllegalArgumentException("remote auth file must have a parent directory");
-        if (Files.exists(file, LinkOption.NOFOLLOW_LINKS)) rejectSymbolic(file, "remote auth file");
-        return file;
-    }
-
-    private static Path secureExistingFile(Path authFile) {
-        Path file = normalizedFile(authFile);
-        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(file)) {
-            throw new IllegalArgumentException("remote auth file must be a regular non-symbolic file");
-        }
-        return file;
-    }
-
-    private static void rejectSymbolic(Path path, String label) {
-        if (Files.exists(path, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(path)) {
-            throw new IllegalArgumentException(label + " must not be a symbolic link");
-        }
-    }
-
-    private static String requirePrincipal(String principal) {
-        if (principal == null || !PRINCIPAL.matcher(principal.trim()).matches()) {
-            throw new IllegalArgumentException("principal must match " + PRINCIPAL.pattern());
-        }
-        return principal.trim();
-    }
-
-    private static Instant requireFutureExpiry(Instant expiresAt) {
-        Instant expiry = Objects.requireNonNull(expiresAt, "expiresAt");
-        if (!Instant.now().isBefore(expiry)) {
-            throw new IllegalArgumentException("remote identity expiry must be in the future");
-        }
-        return expiry;
-    }
-
-    @FunctionalInterface
-    private interface MutationWork<T> {
-        T run(Path file);
+        RemoteIdentityFileStore.writeAtomically(
+                file, String.join(System.lineSeparator(), lines) + System.lineSeparator());
     }
 }
