@@ -20,15 +20,27 @@ class CoverageQualityGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline after #253: 54.5801% lines / 47.7791% branches.
+    // Qualified exact-head baseline: 62.5013% lines / 53.7997% branches.
     // Deliberately at or below the LOWEST reproducible exact-head measurement across both platforms, never the
     // best one. The two platforms run the same number of tests, but some of them no-op off their own OS -- the
-    // Windows junction check is one -- so Linux covers slightly fewer lines for an identical test count
-    // (#254 measured 54.6286% on Linux against 54.6678% on Windows). Qualifying on the higher figure would pin a
-    // baseline the other platform cannot reach. Durable ratchets are loaded from
-    // config/m21-quality-ratchets.properties and must remain below this evidence.
-    private static final double QUALIFIED_LINE_RATIO = 0.545801d;
-    private static final double QUALIFIED_BRANCH_RATIO = 0.477791d;
+    // Windows junction check is one -- so Linux covers slightly fewer lines for an identical test count.
+    // Qualifying on the higher figure would pin a baseline the other platform cannot reach.
+    //
+    // Measured on 08/09/2026 at fix/audit-hardening-2026-09-08, two full runs per platform:
+    //     Windows  62.5328% / 62.5432% lines,  53.8092% / 53.8188% branches
+    //     Linux    62.5083% / 62.5013% lines,  53.7997% / 53.7997% branches   <- qualified on the lowest
+    // The previous baseline (54.5801% / 47.7791%, #253) had drifted well below the measured reality: develop
+    // already stood at 60.41% lines on Linux before this branch added a test.
+    //
+    // The ratchets in config/m21-quality-ratchets.properties sit deliberately BELOW this cap rather than at it.
+    // Two runs of the same commit on the same machine differed by two covered lines, so a ratchet pinned to the
+    // measurement would turn ordinary run-to-run variation into a build failure. 0.620 / 0.535 leaves roughly
+    // 140 lines and 30 branches of headroom -- far more than any variation observed, far less than the 8-point
+    // gap the stale cap had accumulated.
+    //
+    // Raising these two constants requires a fresh measurement on BOTH platforms, cited here.
+    private static final double QUALIFIED_LINE_RATIO = 0.625013d;
+    private static final double QUALIFIED_BRANCH_RATIO = 0.537997d;
 
     @Test
     void reactorCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {

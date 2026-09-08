@@ -39,6 +39,37 @@ class RepositoryDocumentationCoherenceTest {
     private static final Pattern SCHEMA_VERSION_PROSE = Pattern.compile(
             "(?i)(?:sch[eé]ma|schema)\\s+(?:supported\\s+|support[eé]e?\\s+)?V?\\d+"
                     + "|SUPPORTED_SCHEMA_VERSION[^\\n]{0,40}?\\bV?\\d+");
+    /**
+     * A dependency version stated next to the name of the dependency it belongs to.
+     *
+     * <p>The window is short and digit-free on purpose: it catches the table cell, the aligned block and the
+     * Maven coordinate an active page actually uses, without reaching across a sentence into an unrelated
+     * number.</p>
+     */
+    private static final Pattern SQLITE_JDBC_MENTION =
+            Pattern.compile("(?i)sqlite[- ]jdbc[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2,3})");
+    private static final Pattern DEPENDENCY_CHECK_MENTION =
+            Pattern.compile("(?i)dependency-check[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2})");
+    private static final Pattern JACKSON_MENTION =
+            Pattern.compile("(?i)jackson(?: bom)?[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2})");
+
+    /**
+     * Surfaces whose stack statement is about the current baseline rather than a dated one.
+     *
+     * <p>Deliberately excludes the D2 evidence blocks in {@code DOCUMENTATION_STATUS.md}, {@code ROADMAP.md} and
+     * {@code validation/README.md}: those describe what was integrated at SHA {@code fa54b3d6}, and updating them
+     * would falsify a record rather than refresh a claim.</p>
+     */
+    private static final List<String> CURRENT_STACK_SURFACES = List.of(
+            "README.md",
+            "docs/README.md",
+            "docs/developer/README.md",
+            "docs/developer/BUILD_AND_TEST.md",
+            "docs/architecture/arc42/02-contraintes.md",
+            "docs/architecture/arc42/04-strategie-solution.md",
+            "docs/architecture/arc42/05-vue-blocs.md",
+            "docs/architecture/arc42/08-concepts-transverses.md");
+
     private static final Pattern MODULE = Pattern.compile("<module>([^<]+)</module>");
     private static final Pattern DOCUMENTED_THRESHOLD = Pattern.compile(">=\\s*([0-9]+(?:[.,][0-9]+)?)");
 
@@ -90,19 +121,113 @@ class RepositoryDocumentationCoherenceTest {
         }
     }
 
+    /**
+     * Surfaces that state the current stack must state the version the root POM declares.
+     *
+     * <p>They had drifted: the POM carried {@code sqlite-jdbc 3.53.4.0} and Dependency-Check {@code 13.0.0} while
+     * both D2 validators still asserted {@code 3.53.2.0} and {@code 12.2.2}. Those two are executable, so the
+     * drift was not merely misleading -- {@code validate-d2} could not pass on {@code develop} at all, because it
+     * required a token the POM no longer contains. The expected values are read from the POM rather than pinned
+     * here, so this test cannot itself become the next stale copy.</p>
+     *
+     * <p><strong>A page is not the unit of currency; a block is.</strong> The first version of this rule scanned
+     * whole files, and the sweep that satisfied it rewrote dated evidence: three D2 records tied to SHA
+     * {@code fa54b3d6} were given today's versions, and two arc42 tables labelled "baseline 1.2.0" came out half
+     * updated -- sqlite and Dependency-Check current, Jackson and the MCP SDK not -- which is worse than either
+     * being stale. Only surfaces whose stack statement is unambiguously about now are scanned.</p>
+     */
+    @Test
+    void activeStackDocumentationAndD2ValidatorsFollowTheRootPomDependencyVersions() throws Exception {
+        Path root = repositoryRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String sqlite = pomProperty(pom, "sqlite-jdbc.version");
+        String dependencyCheck = pomProperty(pom, "dependency-check.maven.plugin.version");
+
+        for (String validator : List.of("scripts/validate-d2.sh", "scripts/validate-d2.ps1")) {
+            String script = Files.readString(root.resolve(validator));
+            assertTrue(script.contains("<sqlite-jdbc.version>" + sqlite + "</sqlite-jdbc.version>"),
+                    () -> validator + " asserts a sqlite-jdbc version the root POM no longer declares");
+            assertTrue(script.contains(
+                            "<dependency-check.maven.plugin.version>" + dependencyCheck
+                                    + "</dependency-check.maven.plugin.version>"),
+                    () -> validator + " asserts a Dependency-Check version the root POM no longer declares");
+            assertTrue(script.contains("dependency-check-maven:" + dependencyCheck + ":aggregate"),
+                    () -> validator + " invokes a Dependency-Check version the root POM no longer declares");
+        }
+
+        String jackson = pomProperty(pom, "jackson.version");
+        for (String page : CURRENT_STACK_SURFACES) {
+            String content = Files.readString(root.resolve(page));
+            assertStatedVersion(page, content, SQLITE_JDBC_MENTION, sqlite, "sqlite-jdbc");
+            assertStatedVersion(page, content, DEPENDENCY_CHECK_MENTION, dependencyCheck, "Dependency-Check");
+            assertStatedVersion(page, content, JACKSON_MENTION, jackson, "Jackson");
+        }
+    }
+
+    /**
+     * A dated snapshot has to agree with itself.
+     *
+     * <p>The arc42 stack tables defer authority to {@code pom.xml} and describe "la baseline au moment de la
+     * réconciliation documentaire", so reconciling them means moving every row at once. Half a reconciliation
+     * produces a table that is true about two dependencies and false about five, and nothing in it says which
+     * is which -- which is how this repository's documentation actually broke.</p>
+     */
+    @Test
+    void theArc42StackTablesAreReconciledAsAWholeRatherThanRowByRow() throws Exception {
+        Path root = repositoryRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        Map<String, String> reconciled = new HashMap<>();
+        for (String property : List.of(
+                "junit.version", "archunit.version", "mcp-sdk.version", "cyclonedx.maven.plugin.version")) {
+            reconciled.put(property, pomProperty(pom, property));
+        }
+
+        for (String page : List.of(
+                "docs/architecture/arc42/04-strategie-solution.md",
+                "docs/architecture/arc42/08-concepts-transverses.md")) {
+            String content = Files.readString(root.resolve(page));
+            for (Map.Entry<String, String> row : reconciled.entrySet()) {
+                assertTrue(content.contains(row.getValue()),
+                        () -> page + " omits the reconciled " + row.getKey() + " " + row.getValue()
+                                + "; the stack table moves as a whole or not at all");
+            }
+        }
+    }
+
+    private static void assertStatedVersion(
+            String page, String content, Pattern mention, String expected, String label) {
+        Matcher matcher = mention.matcher(content);
+        while (matcher.find()) {
+            String stated = matcher.group(1);
+            assertEquals(expected, stated,
+                    () -> page + " states " + label + " " + stated + " while the root POM declares " + expected);
+        }
+    }
+
+    private static String pomProperty(String pom, String name) {
+        Matcher matcher = Pattern.compile("<" + Pattern.quote(name) + ">([^<]+)</" + Pattern.quote(name) + ">")
+                .matcher(pom);
+        assertTrue(matcher.find(), () -> "the root POM must declare " + name);
+        return matcher.group(1).trim();
+    }
+
     @Test
     void bothPlatformValidatorsConsumeSingleQualityRatchetConfiguration() throws Exception {
         Path root = repositoryRoot();
         Path ratchetFile = root.resolve("config/m21-quality-ratchets.properties");
         Map<String, String> ratchets = properties(ratchetFile);
         // Pinned so that moving a ratchet is a deliberate act with evidence, never a side effect. Raised on
-        // 04/09/2026 from 1150/310/0.540/0.470 against an exact-head Windows measurement of 57.49% lines and
-        // 50.21% branches over 1324 tests, of which 343 are architecture tests. The coverage values stay under
-        // CoverageQualityGateTest's qualified cap, which requires evidence from both platforms to move.
-        assertEquals("1300", ratchets.get("testsMinimum"));
-        assertEquals("335", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.545", ratchets.get("lineCoverageMinimum"));
-        assertEquals("0.477", ratchets.get("branchCoverageMinimum"));
+        // 08/09/2026 from 1300/335/0.545/0.477 against exact-head measurements taken on BOTH platforms at
+        // fix/audit-hardening-2026-09-08, 1560+ tests each of which 390+ are architecture tests:
+        //     Windows  62.5328% / 62.5432% lines,  53.8092% / 53.8188% branches
+        //     Linux    62.5083% / 62.5013% lines,  53.7997% / 53.7997% branches
+        // The coverage values stay below CoverageQualityGateTest's qualified cap rather than at it: two runs of
+        // one commit differed by two covered lines, so pinning the ratchet to the measurement would make
+        // ordinary variation fail the build.
+        assertEquals("1550", ratchets.get("testsMinimum"));
+        assertEquals("385", ratchets.get("architectureTestsMinimum"));
+        assertEquals("0.620", ratchets.get("lineCoverageMinimum"));
+        assertEquals("0.535", ratchets.get("branchCoverageMinimum"));
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));

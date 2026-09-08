@@ -161,7 +161,18 @@ manifest provider.id == contentReader.providerId()
 
 Le handle `ProviderPluginActivation` expose le `SpecificationProvider` et le `SpecificationContentReader`. Il est `AutoCloseable` et ferme son classloader.
 
-Cette isolation évite que les dépendances propres à deux plugins soient mélangées. Elle **n’est pas un sandbox de sécurité**. Exécuter du code non fiable demanderait une frontière process/OS distincte, différée au-delà de M22.
+Cette isolation évite que les dépendances propres à deux plugins soient mélangées. Elle **n’est pas un sandbox de sécurité**.
+
+La frontière de processus, elle, existe depuis M22 : le probe s’exécute dans une JVM enfant tuable,
+à l’environnement réduit à une liste blanche, dont le sous-arbre est réapé. Ce qui n’existe pas — et
+n’est pas planifié — c’est une **sandbox du système d’exploitation**. Un plugin approuvé s’exécute
+sous le compte système MORPHEUS et dispose donc des mêmes droits fichiers et réseau que MORPHEUS. Le
+pin SHA-256 garantit que le code exécuté est exactement celui qui a été approuvé ; il ne dit rien de
+ce que ce code fait. Voir [ADR-0101](../adr/0101-external-code-is-trusted-code-not-sandboxed-code.md)
+pour le modèle de confiance complet, garanties et non-garanties.
+
+Pour exécuter du code tiers **non fiable**, isoler MORPHEUS ou le processus externe avec un
+conteneur, un job object ou un cgroup, sous un compte dédié de moindre privilège.
 
 ## 8. Probe, capabilities et lecture
 

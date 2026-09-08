@@ -36,7 +36,7 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 | DT-05 | Pas de distribution macOS qualifiée | Distribution | **Faible** | Décision produit préalable avant investissement packaging ; la lane smoke n'en produit aucun |
 | DT-07 | Quality Gate SonarCloud potentiellement moins strict que le gate repository sur le nouveau code | Qualité externe | **Moyenne** | Le repository impose indépendamment `>= 80%` changed-line et `>= 70%` changed-branch coverage ; vérifier le réglage SonarCloud sur sa propre plateforme |
 | DT-08 | État des alertes Dependabot / Secret Scanning non vérifiable par le connecteur | Supply chain | **Moyenne** | Vérifier/activer les réglages administrateur ; le dépôt fournit indépendamment Dependabot, OWASP Dependency-Check et CodeQL versionné |
-| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `1300 / 335 / 54,5% / 47,7%` ; ne relever qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
+| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `1550 / 385 / 62,0% / 53,5%` ; ne relever qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
 | DT-12 | Identités remote historiques à trois champs sans expiration | Sécurité remote | **Faible à moyenne** | Compatibilité contractuelle verrouillée par test ; `server identity migrate-legacy` donne une échéance explicite sans rotation de token ; retirer le format à trois champs reste une évolution incompatible, pas un patch 1.2.1 |
 
@@ -57,10 +57,10 @@ mécaniquement M21 dans `ci.yml`.
 La baseline active du gate est :
 
 ```text
-Surefire total       >= 1300
-architecture         >= 335
-line coverage        >= 54.5%
-branch coverage      >= 47.7%
+Surefire total       >= 1550
+architecture         >= 385
+line coverage        >= 62.0%
+branch coverage      >= 53.5%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```

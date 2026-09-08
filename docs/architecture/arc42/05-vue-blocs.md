@@ -26,7 +26,7 @@ flowchart TB
     PREF[morpheus-provider-reference\nplugin de référence]
 
     MEM[morpheus-store-memory]
-    SQL[morpheus-store-sqlite\nsqlite-jdbc 3.53.2.0]
+    SQL[morpheus-store-sqlite\nsqlite-jdbc 3.53.4.0]
 
     MCPT[morpheus-mcp-transport\ntransport MCP borné]
     MINOS[morpheus-integration-minos]

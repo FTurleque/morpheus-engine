@@ -54,7 +54,7 @@ Le hardening D2 renforce les frontières qui traitent des données non fiables :
 | Workspaces HTTP/remote | `AllowedWorkspaceRoots`, politique de host et résolveurs sûrs |
 | Fichiers workspace | `SafeWorkspaceFileResolver` et refus des évasions hors racine |
 | Ingestion provider | budgets explicites (`ProviderIngestionBudget`) et erreurs bornées |
-| JSON | baseline Jackson 3.1.5 + tests de régression de profondeur / parsing |
+| JSON | baseline Jackson 3.2.2 + tests de régression de profondeur / parsing |
 | Plugins externes | intégrité JAR et activation explicite |
 | SQLite | accès transactionnels, checksums de migrations, sécurité du fichier |
 
@@ -154,19 +154,19 @@ Le choix de logging doit préserver la pureté de stdout en mode MCP STDIO.
 
 ## 8.10 Supply chain
 
-Baseline 1.2.0 :
+Baseline 1.2.1 :
 
 ```text
 Java                  21
 Maven Wrapper         3.9.16
-sqlite-jdbc           3.53.2.0
-Jackson BOM           3.1.5
-MCP SDK Java          2.0.0
-JUnit                 6.1.0
-ArchUnit              1.4.2
+sqlite-jdbc           3.53.4.0
+Jackson BOM           3.2.2
+MCP SDK Java          2.0.1
+JUnit                 6.1.3
+ArchUnit              1.5.0
 JaCoCo                0.8.15
-CycloneDX plugin      2.9.2
-Dependency-Check      12.2.2
+CycloneDX plugin      2.9.3
+Dependency-Check      13.0.0
 ```
 
 Le build applique également une analyse Maven bloquante des dépendances

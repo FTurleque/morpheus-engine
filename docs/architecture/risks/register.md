@@ -39,7 +39,7 @@ Ils restent traçables dans l'historique Git et les issues #154/#166, mais ne do
 | DT-01 | Documents historiques encore présentés avec des baselines C0/M20/M27 | Documentation | **Haute** | Les qualifier comme historiques ou les réconcilier dans des PR dédiées sans falsifier les preuves passées |
 | DT-07 | Quality Gate SonarCloud potentiellement moins strict que le gate repository sur le nouveau code | Qualité externe | **Moyenne** | Vérifier le réglage SonarCloud ; le repository impose indépendamment `>= 80%` changed-line et `>= 70%` changed-branch coverage ; suivi #154 |
 | DT-08 | État des alertes Dependabot / Secret Scanning non vérifiable par le connecteur | Supply chain | **Moyenne** | Vérifier/activer les réglages administrateur ; le dépôt fournit Dependabot, OWASP Dependency-Check et CodeQL versionné ; suivi #154 |
-| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `1300 / 335 / 54,5% / 47,7%` (mesure exact-head Windows du 04/09/2026 : 57,49% lignes / 50,21% branches) ; #184 est clôturée, conserver la remontée progressive uniquement après nouvelle preuve exact-head reproductible |
+| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `1550 / 385 / 62,0% / 53,5%` (mesure exact-head dual-plateforme du 08/09/2026 : Windows 62,53% lignes / 53,81% branches, Linux 62,51% / 53,80%) ; #184 est clôturée, conserver la remontée progressive uniquement après nouvelle preuve exact-head reproductible |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
 | DT-12 | Identités remote historiques à trois champs sans expiration | Sécurité remote | **Faible à moyenne** | Compatibilité contractuelle et verrouillée par `legacyThreeFieldIdentityRemainsNonExpiring` ; `server identity list` expose `nonExpiring` par entrée et le total `nonExpiringIdentities`. **`server identity migrate-legacy`** donne une échéance explicite sans rotation de token, avec `--dry-run`, écriture atomique verrouillée, audit `EXPIRY_MIGRATED` et refus complet d'un lockout ADMIN. Les nouvelles identités exigent `--expires-at`, `never` restant un choix explicite. Retirer le format à trois champs reste une évolution explicitement incompatible, pas un patch 1.2.1 |
 | DT-03 | Seuils de performance M19 peu visibles depuis la documentation d'architecture | Qualité | **Moyenne** | Relier les scénarios qualité aux tests/gates autoritatifs |
@@ -180,10 +180,10 @@ M21 s'exécute sur les pull requests ainsi que sur les pushes `main` et `develop
 Ratchets actifs :
 
 ```text
-Surefire total       >= 1300
-architecture         >= 335
-line coverage        >= 54.5%
-branch coverage      >= 47.7%
+Surefire total       >= 1550
+architecture         >= 385
+line coverage        >= 62.0%
+branch coverage      >= 53.5%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```

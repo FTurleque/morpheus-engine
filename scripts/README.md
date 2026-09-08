@@ -35,10 +35,10 @@ M21 applique notamment :
 
 ```text
 clean verify
-Surefire total       >= 1300
-architecture         >= 335
-line coverage        >= 54.5%
-branch coverage      >= 47.7%
+Surefire total       >= 1550
+architecture         >= 385
+line coverage        >= 62.0%
+branch coverage      >= 53.5%
 CycloneDX SBOM
 provenance
 portable smoke
@@ -87,6 +87,27 @@ same SHA Windows/Linux required
 Il n'est pas destiné à qualifier une PR qui modifie précisément les workflows GitHub ; le gate durable de ces PR reste M21, complété par `MORPHEUS Security` sur `main` et `develop`.
 
 Les switches/variables de skip D2 sont réservés au diagnostic et ne constituent jamais une qualification finale.
+
+## Qualification d'une release publiée
+
+Les validateurs `validate-*` qualifient un **commit**. Une release publiée demande une vérification
+distincte, exécutée après coup et depuis une machine qui n'est pas le runner :
+
+```bash
+bash ./scripts/verify-release-provenance.sh v1.2.1
+```
+
+```powershell
+.\scripts\verify-release-provenance.ps1 -Tag v1.2.1
+```
+
+Les deux variantes lisent ce que GitHub a réellement publié et échouent fermé sur : tag inatteignable
+depuis `main`, asset manquant **ou inattendu**, checksum divergent, manifeste incohérent avec le tag ou
+le commit, attestation de provenance non vérifiable, bundle d'attestation vide. Elles ne créent jamais
+un tag, une release ni un asset.
+
+Procédure complète et critère de clôture de l'issue #185 :
+[docs/validation/RELEASE_QUALIFICATION.md](../docs/validation/RELEASE_QUALIFICATION.md).
 
 Le dispatcher Windows sélectionne `scripts/validate-<target>.ps1`, transmet les arguments tels quels et propage son code de sortie.
 

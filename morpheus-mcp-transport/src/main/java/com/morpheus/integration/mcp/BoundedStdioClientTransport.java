@@ -12,8 +12,6 @@ import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -312,9 +310,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private void startInboundProcessing() {
         inboundScheduler.schedule(() -> {
-            try (InputStream input = new BufferedInputStream(process.get().getInputStream())) {
+            try (InputStream input = process.get().getInputStream()) {
+                BoundedStdioLineReader frames = new BoundedStdioLineReader(input);
                 String line;
-                while (!isClosing() && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
+                while (!isClosing() && (line = frames.readLine(maxMessageBytes)) != null) {
                     if (!processInboundLine(line)) return;
                 }
                 if (!isClosing()) inboundSink.tryEmitComplete();
@@ -343,9 +342,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private void startErrorProcessing() {
         errorScheduler.schedule(() -> {
-            try (InputStream input = new BufferedInputStream(process.get().getErrorStream())) {
+            try (InputStream input = process.get().getErrorStream()) {
+                BoundedStdioLineReader frames = new BoundedStdioLineReader(input);
                 String line;
-                while (!isClosing() && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
+                while (!isClosing() && (line = frames.readLine(maxMessageBytes)) != null) {
                     handleErrorLine(line);
                 }
             } catch (MessageTooLargeException oversized) {
@@ -567,28 +567,5 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private void disposeSchedulers() {
         SchedulerRelease.disposeAll(inboundScheduler, outboundScheduler, errorScheduler, lifecycleScheduler);
-    }
-
-    static String readUtf8LineBounded(InputStream input, int maxBytes) throws IOException {
-        Objects.requireNonNull(input, "input");
-        if (maxBytes < 1) throw new IllegalArgumentException("maxBytes must be positive");
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream(Math.min(maxBytes, 8192));
-        int next;
-        while ((next = input.read()) != -1) {
-            if (next == '\n') break;
-            if (buffer.size() >= maxBytes) throw new MessageTooLargeException(maxBytes);
-            buffer.write(next);
-        }
-        if (next == -1 && buffer.size() == 0) return null;
-        byte[] bytes = buffer.toByteArray();
-        int length = bytes.length;
-        if (length > 0 && bytes[length - 1] == '\r') length--;
-        return StrictUtf8.decode(bytes, length);
-    }
-
-    static final class MessageTooLargeException extends IOException {
-        private MessageTooLargeException(int maximum) {
-            super("MCP STDIO frame exceeds " + maximum + " bytes");
-        }
     }
 }

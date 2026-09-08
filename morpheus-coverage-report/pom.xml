@@ -84,6 +84,12 @@
                             <skipTests>true</skipTests>
                         </configuration>
                     </execution>
+                    <!--
+                      Bound to verify so it runs after report-aggregate, and re-enabled because default-test is
+                      skipped for this module. It follows ${skipTests} rather than a literal false: pinning it
+                      made this the one execution `-DskipTests` could not skip, and the resulting failure blamed
+                      a missing JaCoCo report instead of the skip that removed it.
+                    -->
                     <execution>
                         <id>aggregate-coverage-gate</id>
                         <phase>verify</phase>
@@ -91,7 +97,7 @@
                             <goal>test</goal>
                         </goals>
                         <configuration>
-                            <skipTests>false</skipTests>
+                            <skipTests>${skipTests}</skipTests>
                             <includes>
                                 <include>**/AggregateCoverageGateTest.java</include>
                             </includes>

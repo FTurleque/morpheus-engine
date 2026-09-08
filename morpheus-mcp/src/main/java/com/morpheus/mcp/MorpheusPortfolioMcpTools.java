@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -106,7 +107,7 @@ final class MorpheusPortfolioMcpTools {
                     case OBSERVE_FRESHNESS -> registry.observeFreshness(
                             portfolio(arguments),
                             ProjectSpecificationId.parse(requiredString(arguments, "projectId")),
-                            PortfolioFreshnessState.valueOf(requiredString(arguments, "state").toUpperCase()),
+                            PortfolioFreshnessState.valueOf(requiredString(arguments, "state").toUpperCase(Locale.ROOT)),
                             optionalString(arguments, "revision"),
                             optionalString(arguments, "explanation"));
                     case ADD_REFERENCE -> registry.addReference(
@@ -138,7 +139,7 @@ final class MorpheusPortfolioMcpTools {
                             intValue(arguments, "maxNodes", 250, 1, PortfolioTraversalService.MAX_NODES),
                             intValue(arguments, "maxLinks", 1000, 1, PortfolioTraversalService.MAX_LINKS),
                             PortfolioTraversalDirection.valueOf(
-                                    optionalString(arguments, "direction").orElse("BOTH").toUpperCase()));
+                                    optionalString(arguments, "direction").orElse("BOTH").toUpperCase(Locale.ROOT)));
                     default -> throw new IllegalArgumentException("unknown M23 MCP tool: " + toolName);
                 };
                 return McpSchema.CallToolResult.builder()

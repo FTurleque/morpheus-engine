@@ -17,6 +17,7 @@ import com.morpheus.store.sqlite.SqlitePortfolioStore;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -63,7 +64,7 @@ public final class MorpheusPortfolioApiService {
             return PortfolioPublicViews.project(new PortfolioRegistryService(store).observeFreshness(
                     PortfolioId.parse(portfolioId),
                     ProjectSpecificationId.parse(projectId),
-                    PortfolioFreshnessState.valueOf(request.state().trim().toUpperCase()),
+                    PortfolioFreshnessState.valueOf(request.state().trim().toUpperCase(Locale.ROOT)),
                     optional(request.revision()),
                     optional(request.explanation())));
         }
@@ -129,7 +130,7 @@ public final class MorpheusPortfolioApiService {
                     request.maxDepth() == null ? 4 : request.maxDepth(),
                     request.maxNodes() == null ? 250 : request.maxNodes(),
                     request.maxLinks() == null ? 1000 : request.maxLinks(),
-                    PortfolioTraversalDirection.valueOf(optional(request.direction()).orElse("BOTH").toUpperCase())));
+                    PortfolioTraversalDirection.valueOf(optional(request.direction()).orElse("BOTH").toUpperCase(Locale.ROOT))));
         }
     }
 
