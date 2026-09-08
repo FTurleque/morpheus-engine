@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -101,7 +102,7 @@ final class MorpheusPolicyMcpTools {
                     }
                     case PUT_OVERRIDE -> PolicyPublicViews.override(runtime.registry().putOverride(
                             scope(arguments), pack(arguments), PolicyIds.RuleId.parse(requiredString(arguments, "ruleId")),
-                            PolicyConfiguration.OverrideMode.valueOf(requiredString(arguments, "mode").toUpperCase()),
+                            PolicyConfiguration.OverrideMode.valueOf(requiredString(arguments, "mode").toUpperCase(Locale.ROOT)),
                             longValue(arguments, "expectedRevision", 0, Long.MAX_VALUE),
                             requiredString(arguments, "actor"), requiredString(arguments, "reason")));
                     case LIST_OVERRIDES -> PolicyPublicViews.overrides(runtime.registry().overrides(scope(arguments)));
@@ -147,23 +148,23 @@ final class MorpheusPolicyMcpTools {
             }
             Map<String, Object> rule = stringKeyMap(rawRule);
             PolicyIds.RuleId id = optionalString(rule, "id").map(PolicyIds.RuleId::parse).orElseGet(PolicyIds.RuleId::generate);
-            PolicyRule.Kind kind = PolicyRule.Kind.valueOf(requiredString(rule, "kind").toUpperCase());
-            PolicyRule.Severity severity = PolicyRule.Severity.valueOf(requiredString(rule, "severity").toUpperCase());
+            PolicyRule.Kind kind = PolicyRule.Kind.valueOf(requiredString(rule, "kind").toUpperCase(Locale.ROOT));
+            PolicyRule.Severity severity = PolicyRule.Severity.valueOf(requiredString(rule, "severity").toUpperCase(Locale.ROOT));
             PolicyRule.Config config = switch (kind) {
                 case CONSTRAINT_GUARD -> new PolicyRule.ConstraintGuard(
                         ChangeId.parse(requiredString(rule, "changeId")),
-                        ChangeLifecycleState.valueOf(requiredString(rule, "targetState").toUpperCase()));
+                        ChangeLifecycleState.valueOf(requiredString(rule, "targetState").toUpperCase(Locale.ROOT)));
                 case LIFECYCLE_GUARD -> new PolicyRule.LifecycleGuard(
                         ChangeId.parse(requiredString(rule, "changeId")),
-                        ChangeLifecycleState.valueOf(requiredString(rule, "sourceState").toUpperCase()),
-                        ChangeLifecycleState.valueOf(requiredString(rule, "targetState").toUpperCase()));
+                        ChangeLifecycleState.valueOf(requiredString(rule, "sourceState").toUpperCase(Locale.ROOT)),
+                        ChangeLifecycleState.valueOf(requiredString(rule, "targetState").toUpperCase(Locale.ROOT)));
                 case QUALITY_THRESHOLD -> new PolicyRule.QualityThreshold(
-                        PolicyRule.QualityMetric.valueOf(requiredString(rule, "qualityMetric").toUpperCase()),
-                        PolicyRule.Comparison.valueOf(requiredString(rule, "comparison").toUpperCase()),
+                        PolicyRule.QualityMetric.valueOf(requiredString(rule, "qualityMetric").toUpperCase(Locale.ROOT)),
+                        PolicyRule.Comparison.valueOf(requiredString(rule, "comparison").toUpperCase(Locale.ROOT)),
                         doubleValue(rule, "threshold"));
                 case QUERY_ASSERTION -> new PolicyRule.QueryAssertion(
                         queryCodec.decode(requiredString(rule, "queryDefinition")),
-                        PolicyRule.Comparison.valueOf(requiredString(rule, "comparison").toUpperCase()),
+                        PolicyRule.Comparison.valueOf(requiredString(rule, "comparison").toUpperCase(Locale.ROOT)),
                         longValue(rule, "expectedCount", 0, Long.MAX_VALUE));
             };
             result.add(new PolicyRule(id, requiredString(rule, "description"), kind, severity, config));
@@ -185,7 +186,7 @@ final class MorpheusPolicyMcpTools {
     }
 
     private PolicyScope scope(Map<String, Object> arguments) {
-        String kind = requiredString(arguments, "scopeKind").toUpperCase();
+        String kind = requiredString(arguments, "scopeKind").toUpperCase(Locale.ROOT);
         String id = requiredString(arguments, "scopeId");
         return switch (kind) {
             case "PROJECT" -> new PolicyScope.Project(ProjectSpecificationId.parse(id));
