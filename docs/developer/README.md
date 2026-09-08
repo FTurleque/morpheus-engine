@@ -68,10 +68,10 @@ Jackson                    3.2.2
 sqlite-jdbc                3.53.4.0
 MCP SDK                    2.0.1
 OWASP Dependency-Check     13.0.0
-JaCoCo line ratchet        >= 54.5%
-JaCoCo branch ratchet      >= 47.7%
-Surefire floor             >= 1300
-Architecture floor         >= 335
+JaCoCo line ratchet        >= 62.0%
+JaCoCo branch ratchet      >= 53.5%
+Surefire floor             >= 1550
+Architecture floor         >= 385
 Changed-line gate          80%
 Changed-branch gate        70%
 dependency analyze         failOnWarning=true

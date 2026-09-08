@@ -172,13 +172,17 @@ class RepositoryDocumentationCoherenceTest {
         Path ratchetFile = root.resolve("config/m21-quality-ratchets.properties");
         Map<String, String> ratchets = properties(ratchetFile);
         // Pinned so that moving a ratchet is a deliberate act with evidence, never a side effect. Raised on
-        // 04/09/2026 from 1150/310/0.540/0.470 against an exact-head Windows measurement of 57.49% lines and
-        // 50.21% branches over 1324 tests, of which 343 are architecture tests. The coverage values stay under
-        // CoverageQualityGateTest's qualified cap, which requires evidence from both platforms to move.
-        assertEquals("1300", ratchets.get("testsMinimum"));
-        assertEquals("335", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.545", ratchets.get("lineCoverageMinimum"));
-        assertEquals("0.477", ratchets.get("branchCoverageMinimum"));
+        // 08/09/2026 from 1300/335/0.545/0.477 against exact-head measurements taken on BOTH platforms at
+        // fix/audit-hardening-2026-09-08, 1560+ tests each of which 390+ are architecture tests:
+        //     Windows  62.5328% / 62.5432% lines,  53.8092% / 53.8188% branches
+        //     Linux    62.5083% / 62.5013% lines,  53.7997% / 53.7997% branches
+        // The coverage values stay below CoverageQualityGateTest's qualified cap rather than at it: two runs of
+        // one commit differed by two covered lines, so pinning the ratchet to the measurement would make
+        // ordinary variation fail the build.
+        assertEquals("1550", ratchets.get("testsMinimum"));
+        assertEquals("385", ratchets.get("architectureTestsMinimum"));
+        assertEquals("0.620", ratchets.get("lineCoverageMinimum"));
+        assertEquals("0.535", ratchets.get("branchCoverageMinimum"));
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));

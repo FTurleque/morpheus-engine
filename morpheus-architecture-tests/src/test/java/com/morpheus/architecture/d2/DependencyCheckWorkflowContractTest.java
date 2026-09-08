@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 class DependencyCheckWorkflowContractTest {
@@ -48,6 +50,39 @@ class DependencyCheckWorkflowContractTest {
         String saveStep = security.substring(saveStart, scanStart);
         assertTrue(saveStep.contains("steps.dependency-check-update.outputs.updated == 'true'"),
                 "the workflow must publish a new trusted cache only after a real NVD refresh");
+    }
+
+    /**
+     * The workflow must scan with the Dependency-Check the repository pins, not a version of its own.
+     *
+     * <p>The goal coordinates in {@code security.yml} carry the version explicitly, so a POM bump that forgets
+     * the workflow leaves CI scanning with a different analyzer than the one the build declares -- and the
+     * 13.0.0 workaround below is tied to one specific upstream defect, so running a different version silently
+     * would make that workaround either useless or wrong. Deriving the expectation from the POM is what keeps
+     * the two from drifting apart the way the D2 validators already did.</p>
+     */
+    @Test
+    void everyDependencyCheckInvocationUsesTheVersionTheRootPomPins() throws IOException {
+        Path root = repoRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+
+        Matcher property = Pattern.compile(
+                        "<dependency-check\\.maven\\.plugin\\.version>([^<]+)</dependency-check\\.maven\\.plugin\\.version>")
+                .matcher(pom);
+        assertTrue(property.find(), "the root POM must pin the Dependency-Check version");
+        String pinned = property.group(1).trim();
+
+        Matcher invocations = Pattern.compile("dependency-check-maven:([0-9][^:]*):").matcher(security);
+        int found = 0;
+        while (invocations.find()) {
+            assertTrue(pinned.equals(invocations.group(1)),
+                    () -> "security.yml invokes Dependency-Check " + invocations.group(1)
+                            + " while the root POM pins " + pinned);
+            found++;
+        }
+        assertTrue(found >= 3,
+                "security.yml must keep its update-only and both aggregate scans on the pinned version");
     }
 
     private static Path repoRoot() {
