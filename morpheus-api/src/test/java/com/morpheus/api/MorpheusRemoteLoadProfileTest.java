@@ -102,7 +102,7 @@ class MorpheusRemoteLoadProfileTest {
             measure("read.storm.refused", outcomes.size() - served);
             measure("read.storm.maxConcurrentRequests", MAX_CONCURRENT);
 
-            Map<String, Object> settled = statusOf(client, base, admin.token());
+            Map<String, Object> settled = awaitSettledStatus(client, base, admin.token());
             assertEquals(0, ((Number) settled.get("activeRequests")).intValue(),
                     "no request slot may be left behind after the storm");
             measure("read.storm.throttledRequests", ((Number) settled.get("throttledRequests")).longValue());
@@ -173,7 +173,7 @@ class MorpheusRemoteLoadProfileTest {
 
             recordLatency("mixed.load", outcomes, wallNanos);
 
-            Map<String, Object> settled = statusOf(client, base, admin.token());
+            Map<String, Object> settled = awaitSettledStatus(client, base, admin.token());
             assertEquals(0, ((Number) settled.get("activeRequests")).intValue());
             assertEquals(0, ((Number) settled.get("activePrivilegedRequests")).intValue());
             measure("mixed.load.throttledPrivileged",
@@ -212,7 +212,7 @@ class MorpheusRemoteLoadProfileTest {
                 assertTrue(refused.body().contains("PAYLOAD_TOO_LARGE"), refused.body());
             }
 
-            Map<String, Object> settled = statusOf(client, base, admin.token());
+            Map<String, Object> settled = awaitSettledStatus(client, base, admin.token());
             assertEquals(0, ((Number) settled.get("activeRequests")).intValue(),
                     "a refused oversized body must not hold a request slot");
             assertEquals(0, ((Number) settled.get("activePrivilegedRequests")).intValue(),
@@ -292,6 +292,31 @@ class MorpheusRemoteLoadProfileTest {
                 java.nio.file.StandardOpenOption.CREATE,
                 java.nio.file.StandardOpenOption.APPEND);
         assertFalse(measurements.isEmpty(), "a load profile run must record what it measured");
+    }
+
+    /**
+     * Waits for request gauges to become quiescent after the client has received every response.
+     *
+     * <p>The server releases its request permits in the handler's {@code finally}, after the response writer can
+     * already have made the final bytes visible to the client. A single immediate status read therefore races
+     * that bookkeeping on a slow or heavily scheduled runner. The bounded poll verifies the actual contract --
+     * no slot is left behind -- without turning scheduler timing into a performance threshold.</p>
+     */
+    @SuppressWarnings("java:S2925")
+    private Map<String, Object> awaitSettledStatus(HttpClient client, URI base, String token) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        Map<String, Object> status;
+        do {
+            status = statusOf(client, base, token);
+            if (((Number) status.get("activeRequests")).intValue() == 0
+                    && ((Number) status.get("activePrivilegedRequests")).intValue() == 0) {
+                return status;
+            }
+            if (System.nanoTime() >= deadline) {
+                return status;
+            }
+            TimeUnit.MILLISECONDS.sleep(50);
+        } while (true);
     }
 
     @SuppressWarnings("unchecked")
