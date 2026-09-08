@@ -9,7 +9,6 @@ import com.morpheus.application.store.VersionedRequirementStore;
 import com.morpheus.domain.portfolio.CrossProjectReference;
 import com.morpheus.domain.portfolio.PortfolioMembership;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.temporal.TemporalState;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -62,22 +61,19 @@ public final class QueryExecutionService {
     }
 
     /**
-     * Materializes one complete, bounded query view from a single source/filter/sort pass.
+     * Materializes one complete, bounded query view from a single source/filter pass.
      *
-     * <p>The caller chooses a hard row ceiling. If the filtered result exceeds that ceiling the method fails
-     * before projecting the complete result, so export-style consumers can preserve their own tighter budgets
-     * without re-running paged queries or allocating an over-budget projection.</p>
+     * <p>The caller chooses a hard row ceiling. Filtering still scans the already source-bounded input so the
+     * reported {@link QueryMaterializationLimitException#actualRows()} remains exact, but once the ceiling is
+     * exceeded no additional match rows are retained and no over-budget result is sorted or projected. Export-style
+     * consumers therefore keep their tighter allocation/CPU budget without re-running paged queries.</p>
      */
     public QueryMaterializedView materializeComplete(QueryDefinition query, int maximumRows) {
         if (maximumRows < 1 || maximumRows > QueryBudgets.MAX_SOURCE_ROWS) {
             throw new IllegalArgumentException(
                     "maximumRows must be between 1 and " + QueryBudgets.MAX_SOURCE_ROWS);
         }
-        MaterializedRows materialized = materializeRows(query);
-        int totalMatches = materialized.matches().size();
-        if (totalMatches > maximumRows) {
-            throw new QueryMaterializationLimitException(maximumRows, totalMatches);
-        }
+        MaterializedRows materialized = materializeRowsBounded(query, maximumRows);
         List<QueryRow> projected = materialized.matches().stream()
                 .map(row -> row.project(materialized.columns()))
                 .toList();
@@ -94,6 +90,29 @@ public final class QueryExecutionService {
                 .sorted(rowOperations.comparator(query))
                 .toList();
         return new MaterializedRows(matches, rowOperations.columns(query));
+    }
+
+    private MaterializedRows materializeRowsBounded(QueryDefinition query, int maximumRows) {
+        Objects.requireNonNull(query, "query");
+        validator.requireValid(query);
+
+        List<QueryRow> source = sourceRows(query);
+        List<QueryRow> retained = new ArrayList<>(Math.min(maximumRows, source.size()));
+        int totalMatches = 0;
+        for (QueryRow row : source) {
+            if (!query.filter().map(filter -> rowOperations.matches(row, filter)).orElse(true)) {
+                continue;
+            }
+            totalMatches++;
+            if (totalMatches <= maximumRows) {
+                retained.add(row);
+            }
+        }
+        if (totalMatches > maximumRows) {
+            throw new QueryMaterializationLimitException(maximumRows, totalMatches);
+        }
+        retained.sort(rowOperations.comparator(query));
+        return new MaterializedRows(retained, rowOperations.columns(query));
     }
 
     private List<QueryRow> sourceRows(QueryDefinition query) {
@@ -136,10 +155,10 @@ public final class QueryExecutionService {
             return List.of();
         }
         if (type == QueryEntityType.REQUIREMENT) {
-            var records = requirementStore.listRequirementVersions(snapshot.get().id());
+            var records = requirementStore.listCurrentRequirementVersions(
+                    snapshot.get().id(), QueryBudgets.MAX_SOURCE_ROWS + 1);
             requireSourceRowBudget(records.size(), "$.source.requirements");
             return records.stream()
-                    .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
                     .map(record -> rowMapper.requirement(projectId, record.entityVersion().content()))
                     .toList();
         }
