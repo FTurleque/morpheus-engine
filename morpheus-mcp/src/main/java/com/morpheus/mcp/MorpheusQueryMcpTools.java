@@ -22,6 +22,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -132,7 +133,7 @@ final class MorpheusQueryMcpTools {
     }
 
     private QueryScope scope(Map<String, Object> arguments) {
-        String kind = requiredString(arguments, "scopeKind").toUpperCase();
+        String kind = requiredString(arguments, "scopeKind").toUpperCase(Locale.ROOT);
         String id = requiredString(arguments, "scopeId");
         return switch (kind) {
             case "PROJECT" -> new ProjectQueryScope(ProjectSpecificationId.parse(id));
@@ -147,7 +148,7 @@ final class MorpheusQueryMcpTools {
 
     private QueryExportFormat format(Map<String, Object> arguments) {
         try {
-            return QueryExportFormat.valueOf(requiredString(arguments, "format").toUpperCase());
+            return QueryExportFormat.valueOf(requiredString(arguments, "format").toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException("format must be JSON, CSV or MARKDOWN");
         }

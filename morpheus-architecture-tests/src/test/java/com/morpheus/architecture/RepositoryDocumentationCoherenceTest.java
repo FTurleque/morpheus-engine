@@ -50,6 +50,26 @@ class RepositoryDocumentationCoherenceTest {
             Pattern.compile("(?i)sqlite[- ]jdbc[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2,3})");
     private static final Pattern DEPENDENCY_CHECK_MENTION =
             Pattern.compile("(?i)dependency-check[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2})");
+    private static final Pattern JACKSON_MENTION =
+            Pattern.compile("(?i)jackson(?: bom)?[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2})");
+
+    /**
+     * Surfaces whose stack statement is about the current baseline rather than a dated one.
+     *
+     * <p>Deliberately excludes the D2 evidence blocks in {@code DOCUMENTATION_STATUS.md}, {@code ROADMAP.md} and
+     * {@code validation/README.md}: those describe what was integrated at SHA {@code fa54b3d6}, and updating them
+     * would falsify a record rather than refresh a claim.</p>
+     */
+    private static final List<String> CURRENT_STACK_SURFACES = List.of(
+            "README.md",
+            "docs/README.md",
+            "docs/developer/README.md",
+            "docs/developer/BUILD_AND_TEST.md",
+            "docs/architecture/arc42/02-contraintes.md",
+            "docs/architecture/arc42/04-strategie-solution.md",
+            "docs/architecture/arc42/05-vue-blocs.md",
+            "docs/architecture/arc42/08-concepts-transverses.md");
+
     private static final Pattern MODULE = Pattern.compile("<module>([^<]+)</module>");
     private static final Pattern DOCUMENTED_THRESHOLD = Pattern.compile(">=\\s*([0-9]+(?:[.,][0-9]+)?)");
 
@@ -102,16 +122,19 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     /**
-     * Active surfaces must not restate a dependency version the root POM has since moved.
+     * Surfaces that state the current stack must state the version the root POM declares.
      *
-     * <p>They had. The POM carried {@code sqlite-jdbc 3.53.4.0} and Dependency-Check {@code 13.0.0} while eleven
-     * active pages -- and, worse, both D2 validators -- still asserted {@code 3.53.2.0} and {@code 12.2.2}. The
-     * validators are executable, so the drift was not merely misleading: {@code validate-d2} could not pass on
-     * {@code develop} at all, because it required a token the POM no longer contains.</p>
+     * <p>They had drifted: the POM carried {@code sqlite-jdbc 3.53.4.0} and Dependency-Check {@code 13.0.0} while
+     * both D2 validators still asserted {@code 3.53.2.0} and {@code 12.2.2}. Those two are executable, so the
+     * drift was not merely misleading -- {@code validate-d2} could not pass on {@code develop} at all, because it
+     * required a token the POM no longer contains. The expected values are read from the POM rather than pinned
+     * here, so this test cannot itself become the next stale copy.</p>
      *
-     * <p>The expected values are read from the POM rather than pinned here, so this test cannot itself become the
-     * next stale copy. Historical records are never scanned: {@code D2_EXECUTION.md} and {@code VALIDATION_D2.md}
-     * say what D2 delivered on the day it was delivered, and rewriting them would falsify evidence.</p>
+     * <p><strong>A page is not the unit of currency; a block is.</strong> The first version of this rule scanned
+     * whole files, and the sweep that satisfied it rewrote dated evidence: three D2 records tied to SHA
+     * {@code fa54b3d6} were given today's versions, and two arc42 tables labelled "baseline 1.2.0" came out half
+     * updated -- sqlite and Dependency-Check current, Jackson and the MCP SDK not -- which is worse than either
+     * being stale. Only surfaces whose stack statement is unambiguously about now are scanned.</p>
      */
     @Test
     void activeStackDocumentationAndD2ValidatorsFollowTheRootPomDependencyVersions() throws Exception {
@@ -132,20 +155,42 @@ class RepositoryDocumentationCoherenceTest {
                     () -> validator + " invokes a Dependency-Check version the root POM no longer declares");
         }
 
-        for (String page : List.of(
-                "docs/README.md",
-                "docs/developer/README.md",
-                "docs/developer/BUILD_AND_TEST.md",
-                "docs/validation/README.md",
-                "docs/governance/DOCUMENTATION_STATUS.md",
-                "docs/governance/ROADMAP.md",
-                "docs/architecture/arc42/02-contraintes.md",
-                "docs/architecture/arc42/04-strategie-solution.md",
-                "docs/architecture/arc42/05-vue-blocs.md",
-                "docs/architecture/arc42/08-concepts-transverses.md")) {
+        String jackson = pomProperty(pom, "jackson.version");
+        for (String page : CURRENT_STACK_SURFACES) {
             String content = Files.readString(root.resolve(page));
             assertStatedVersion(page, content, SQLITE_JDBC_MENTION, sqlite, "sqlite-jdbc");
             assertStatedVersion(page, content, DEPENDENCY_CHECK_MENTION, dependencyCheck, "Dependency-Check");
+            assertStatedVersion(page, content, JACKSON_MENTION, jackson, "Jackson");
+        }
+    }
+
+    /**
+     * A dated snapshot has to agree with itself.
+     *
+     * <p>The arc42 stack tables defer authority to {@code pom.xml} and describe "la baseline au moment de la
+     * réconciliation documentaire", so reconciling them means moving every row at once. Half a reconciliation
+     * produces a table that is true about two dependencies and false about five, and nothing in it says which
+     * is which -- which is how this repository's documentation actually broke.</p>
+     */
+    @Test
+    void theArc42StackTablesAreReconciledAsAWholeRatherThanRowByRow() throws Exception {
+        Path root = repositoryRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        Map<String, String> reconciled = new HashMap<>();
+        for (String property : List.of(
+                "junit.version", "archunit.version", "mcp-sdk.version", "cyclonedx.maven.plugin.version")) {
+            reconciled.put(property, pomProperty(pom, property));
+        }
+
+        for (String page : List.of(
+                "docs/architecture/arc42/04-strategie-solution.md",
+                "docs/architecture/arc42/08-concepts-transverses.md")) {
+            String content = Files.readString(root.resolve(page));
+            for (Map.Entry<String, String> row : reconciled.entrySet()) {
+                assertTrue(content.contains(row.getValue()),
+                        () -> page + " omits the reconciled " + row.getKey() + " " + row.getValue()
+                                + "; the stack table moves as a whole or not at all");
+            }
         }
     }
 

@@ -14,6 +14,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -66,7 +67,7 @@ final class MorpheusPolicyMcpManagementTools {
     }
 
     private PolicyScope scope(Map<String, Object> arguments) {
-        String kind = requiredString(arguments, "scopeKind").toUpperCase();
+        String kind = requiredString(arguments, "scopeKind").toUpperCase(Locale.ROOT);
         String id = requiredString(arguments, "scopeId");
         return switch (kind) {
             case "PROJECT" -> new PolicyScope.Project(ProjectSpecificationId.parse(id));
