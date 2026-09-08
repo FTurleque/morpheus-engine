@@ -69,8 +69,8 @@ for pom in sorted(actual_poms):
 root_pom = root_pom_path.read_text(encoding='utf-8')
 for token in (
     '<jackson.version>3.2.2</jackson.version>',
-    '<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>',
-    '<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>',
+    '<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>',
+    '<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>',
     '<failOnWarning>true</failOnWarning>',
     '<id>d2-security</id>',
     '<failBuildOnCVSS>7.0</failBuildOnCVSS>',
@@ -145,7 +145,7 @@ printf '%s\n' 'D2 SBOM: PASS'
 
 SECURITY_SCAN=SKIPPED
 if [[ "$SKIP_SECURITY_SCAN" != true ]]; then
-  ./mvnw -Pd2-security org.owasp:dependency-check-maven:12.2.2:aggregate
+  ./mvnw -Pd2-security org.owasp:dependency-check-maven:13.0.0:aggregate
   SECURITY_REPORT="$REPO/target/d2-security/dependency-check-report.json"
   if [[ ! -f "$SECURITY_REPORT" ]]; then
     echo "D2 dependency-check JSON report missing: $SECURITY_REPORT" >&2

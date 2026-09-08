@@ -159,14 +159,14 @@ Baseline 1.2.0 :
 ```text
 Java                  21
 Maven Wrapper         3.9.16
-sqlite-jdbc           3.53.2.0
+sqlite-jdbc           3.53.4.0
 Jackson BOM           3.1.5
 MCP SDK Java          2.0.0
 JUnit                 6.1.0
 ArchUnit              1.4.2
 JaCoCo                0.8.15
 CycloneDX plugin      2.9.2
-Dependency-Check      12.2.2
+Dependency-Check      13.0.0
 ```
 
 Le build applique également une analyse Maven bloquante des dépendances

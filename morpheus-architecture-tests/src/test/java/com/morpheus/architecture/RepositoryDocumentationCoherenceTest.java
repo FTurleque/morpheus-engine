@@ -39,6 +39,17 @@ class RepositoryDocumentationCoherenceTest {
     private static final Pattern SCHEMA_VERSION_PROSE = Pattern.compile(
             "(?i)(?:sch[eé]ma|schema)\\s+(?:supported\\s+|support[eé]e?\\s+)?V?\\d+"
                     + "|SUPPORTED_SCHEMA_VERSION[^\\n]{0,40}?\\bV?\\d+");
+    /**
+     * A dependency version stated next to the name of the dependency it belongs to.
+     *
+     * <p>The window is short and digit-free on purpose: it catches the table cell, the aligned block and the
+     * Maven coordinate an active page actually uses, without reaching across a sentence into an unrelated
+     * number.</p>
+     */
+    private static final Pattern SQLITE_JDBC_MENTION =
+            Pattern.compile("(?i)sqlite[- ]jdbc[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2,3})");
+    private static final Pattern DEPENDENCY_CHECK_MENTION =
+            Pattern.compile("(?i)dependency-check[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2})");
     private static final Pattern MODULE = Pattern.compile("<module>([^<]+)</module>");
     private static final Pattern DOCUMENTED_THRESHOLD = Pattern.compile(">=\\s*([0-9]+(?:[.,][0-9]+)?)");
 
@@ -88,6 +99,71 @@ class RepositoryDocumentationCoherenceTest {
                         () -> root.relativize(page) + " still contains obsolete D2 marker: " + obsolete);
             }
         }
+    }
+
+    /**
+     * Active surfaces must not restate a dependency version the root POM has since moved.
+     *
+     * <p>They had. The POM carried {@code sqlite-jdbc 3.53.4.0} and Dependency-Check {@code 13.0.0} while eleven
+     * active pages -- and, worse, both D2 validators -- still asserted {@code 3.53.2.0} and {@code 12.2.2}. The
+     * validators are executable, so the drift was not merely misleading: {@code validate-d2} could not pass on
+     * {@code develop} at all, because it required a token the POM no longer contains.</p>
+     *
+     * <p>The expected values are read from the POM rather than pinned here, so this test cannot itself become the
+     * next stale copy. Historical records are never scanned: {@code D2_EXECUTION.md} and {@code VALIDATION_D2.md}
+     * say what D2 delivered on the day it was delivered, and rewriting them would falsify evidence.</p>
+     */
+    @Test
+    void activeStackDocumentationAndD2ValidatorsFollowTheRootPomDependencyVersions() throws Exception {
+        Path root = repositoryRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String sqlite = pomProperty(pom, "sqlite-jdbc.version");
+        String dependencyCheck = pomProperty(pom, "dependency-check.maven.plugin.version");
+
+        for (String validator : List.of("scripts/validate-d2.sh", "scripts/validate-d2.ps1")) {
+            String script = Files.readString(root.resolve(validator));
+            assertTrue(script.contains("<sqlite-jdbc.version>" + sqlite + "</sqlite-jdbc.version>"),
+                    () -> validator + " asserts a sqlite-jdbc version the root POM no longer declares");
+            assertTrue(script.contains(
+                            "<dependency-check.maven.plugin.version>" + dependencyCheck
+                                    + "</dependency-check.maven.plugin.version>"),
+                    () -> validator + " asserts a Dependency-Check version the root POM no longer declares");
+            assertTrue(script.contains("dependency-check-maven:" + dependencyCheck + ":aggregate"),
+                    () -> validator + " invokes a Dependency-Check version the root POM no longer declares");
+        }
+
+        for (String page : List.of(
+                "docs/README.md",
+                "docs/developer/README.md",
+                "docs/developer/BUILD_AND_TEST.md",
+                "docs/validation/README.md",
+                "docs/governance/DOCUMENTATION_STATUS.md",
+                "docs/governance/ROADMAP.md",
+                "docs/architecture/arc42/02-contraintes.md",
+                "docs/architecture/arc42/04-strategie-solution.md",
+                "docs/architecture/arc42/05-vue-blocs.md",
+                "docs/architecture/arc42/08-concepts-transverses.md")) {
+            String content = Files.readString(root.resolve(page));
+            assertStatedVersion(page, content, SQLITE_JDBC_MENTION, sqlite, "sqlite-jdbc");
+            assertStatedVersion(page, content, DEPENDENCY_CHECK_MENTION, dependencyCheck, "Dependency-Check");
+        }
+    }
+
+    private static void assertStatedVersion(
+            String page, String content, Pattern mention, String expected, String label) {
+        Matcher matcher = mention.matcher(content);
+        while (matcher.find()) {
+            String stated = matcher.group(1);
+            assertEquals(expected, stated,
+                    () -> page + " states " + label + " " + stated + " while the root POM declares " + expected);
+        }
+    }
+
+    private static String pomProperty(String pom, String name) {
+        Matcher matcher = Pattern.compile("<" + Pattern.quote(name) + ">([^<]+)</" + Pattern.quote(name) + ">")
+                .matcher(pom);
+        assertTrue(matcher.find(), () -> "the root POM must declare " + name);
+        return matcher.group(1).trim();
     }
 
     @Test

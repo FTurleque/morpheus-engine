@@ -1,5 +1,6 @@
 package com.morpheus.architecture.d2;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -219,6 +220,49 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
         assertTrue(dependabot.contains("target-branch: develop"));
+    }
+
+    /**
+     * What the build executes is scanned even though it is not what the build ships.
+     *
+     * <p>The product SBOM and the product scan exclude test scope deliberately: a JUnit artifact is never
+     * installed on an operator's machine, and listing it as a product component would misdescribe the product.
+     * That exclusion becomes a blind spot the moment it is the only view, because those artifacts still execute
+     * on every machine that builds MORPHEUS. The second scan closes it, on the same CVSS threshold, reusing the
+     * database the product scan already prepared so the coverage costs no extra NVD traffic.</p>
+     */
+    @Test
+    void buildAndTestDependenciesAreScannedSeparatelyFromTheDistributedProduct() throws IOException {
+        Path root = repoRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+
+        assertTrue(pom.contains("<includeTestScope>false</includeTestScope>"),
+                "the product SBOM must keep describing only what is distributed");
+        assertTrue(pom.contains("<id>d2-security-tests</id>"));
+        assertTrue(pom.contains("<skipTestScope>false</skipTestScope>"),
+                "the build-time scan must look at exactly what the product scan skips");
+        assertTrue(pom.contains("<outputDirectory>${project.build.directory}/d2-security-tests</outputDirectory>"));
+        assertEquals(2, countOccurrences(pom, "<failBuildOnCVSS>7.0</failBuildOnCVSS>"),
+                "both scans must fail closed on the same severity threshold");
+
+        int productScan = security.indexOf("- name: Run OWASP Dependency-Check scan");
+        int buildScan = security.indexOf("- name: Run OWASP Dependency-Check scan over build and test dependencies");
+        assertTrue(productScan >= 0 && buildScan > productScan,
+                "the build-time scan must reuse the database the product scan already prepared");
+
+        String buildScanStep = security.substring(buildScan);
+        assertTrue(buildScanStep.contains("-Pd2-security-tests"));
+        assertTrue(buildScanStep.contains("-DautoUpdate=false"),
+                "the second scan must not trigger a second NVD download");
+        assertFalse(buildScanStep.contains("continue-on-error"),
+                "a scan that cannot fail the build is not a gate");
+        assertTrue(security.contains("target/d2-security-tests/**"),
+                "the build-time scan must publish its evidence");
+    }
+
+    private static int countOccurrences(String text, String needle) {
+        return text.split(Pattern.quote(needle), -1).length - 1;
     }
 
     @Test

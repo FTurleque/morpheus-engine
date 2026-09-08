@@ -98,8 +98,8 @@ Hardening D2 intégré :
 
 ```text
 Jackson                    3.1.5 LTS
-sqlite-jdbc                3.53.2.0
-OWASP Dependency-Check     12.2.2
+sqlite-jdbc                3.53.4.0
+OWASP Dependency-Check     13.0.0
 absolute coverage floors   40% lines / 35% branches
 dependency hygiene         blocking
 ```

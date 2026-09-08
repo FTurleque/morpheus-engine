@@ -116,25 +116,46 @@ Il est interdit aux contextes Query, Saved Views, Export, Policy, Policy Managem
 
 ## SCA / dépendances
 
-OWASP Dependency-Check est épinglé à `12.2.2` dans le profil Maven `d2-security`.
+OWASP Dependency-Check est épinglé à `13.0.0` dans les profils Maven `d2-security` et
+`d2-security-tests`. La version exacte est assertée par
+`D2RepositoryHardeningArchitectureTest#dependencyAndQualityBaselineIsPinned` — la relire dans
+`pom.xml` avant de la citer.
 
-Commande :
+Deux scans, deux périmètres différents :
 
 ```text
-./mvnw -Pd2-security org.owasp:dependency-check-maven:12.2.2:aggregate
+d2-security          ce que MORPHEUS distribue        test scope ignoré
+d2-security-tests    ce que le build exécute          test scope inclus
+```
+
+Le SBOM produit (`cyclonedx`, `includeTestScope=false`) et `d2-security` excluent délibérément
+le scope `test` : un artefact JUnit ou ArchUnit n'est jamais installé chez un opérateur, et le
+faire figurer comme composant du produit décrirait mal ce qui est livré. Mais ces artefacts
+s'exécutent sur chaque machine qui construit MORPHEUS, donc `d2-security-tests` les regarde,
+avec le même seuil bloquant. Il réutilise la base Dependency-Check déjà préparée par le scan
+produit, donc ce second regard ne coûte aucun téléchargement NVD supplémentaire.
+
+Commandes :
+
+```text
+./mvnw -Pd2-security       -DautoUpdate=false org.owasp:dependency-check-maven:13.0.0:aggregate
+./mvnw -Pd2-security-tests -DautoUpdate=false org.owasp:dependency-check-maven:13.0.0:aggregate
 ```
 
 Politique :
 
 ```text
-CVSS >= 7.0     FAIL
+CVSS >= 7.0      FAIL (les deux scans)
 scan error       FAIL
-test scope       skipped
 report format    ALL
-output            target/d2-security
+output           target/d2-security · target/d2-security-tests
 ```
 
-La suppression versionnée dans `config/dependency-check-suppressions.xml` retire uniquement l'association CPE erronée entre le module interne `io.github.fturleque:morpheus-store-sqlite:1.2.1` et SQLite 1.2.1 ; le véritable driver `org.xerial:sqlite-jdbc:3.53.2.0` reste analysé. Le scan échoue si cette règle devient inutilisée afin d'empêcher une suppression obsolète ou trop large.
+Les suppressions versionnées dans `config/dependency-check-suppressions.xml` retirent uniquement
+deux associations CPE erronées sur des modules internes : `io.github.fturleque:morpheus-store-sqlite`
+n'est pas SQLite, `io.github.fturleque:morpheus-cli` n'est pas GitHub CLI. Le vrai driver
+`org.xerial:sqlite-jdbc` et toutes les dépendances tierces restent analysés. Le scan produit échoue
+si une de ces règles devient inutilisée, afin d'empêcher une suppression obsolète ou trop large.
 
 Le workflow **MORPHEUS Security** utilise une base Dependency-Check produite uniquement par des événements de confiance. Sa politique est :
 
