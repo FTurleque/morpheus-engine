@@ -64,6 +64,39 @@ class ProviderPluginDescendantTerminationTest {
         }
     }
 
+    /**
+     * A short grace must not turn a successful kill into a reported failure.
+     *
+     * <p>{@code terminate} used the caller's grace twice: to wait politely after {@code SIGTERM}, and again to
+     * observe that the {@code SIGKILL} it then sent had landed. Killing a child JVM needs single-digit
+     * milliseconds to become observable, so a one-millisecond grace produced {@code false} for a subtree that
+     * was already dead.</p>
+     *
+     * <p>The sibling test above hits the same path but only fails intermittently, because whether {@code SIGTERM}
+     * kills the child outright or triggers a graceful JVM shutdown depends on how far the child got starting up
+     * -- which is why the defect only ever surfaced on a loaded CI runner. Waiting for the child to be running
+     * first removes that coin flip and makes the regression deterministic.</p>
+     */
+    @Test
+    @SuppressWarnings("java:S2925")
+    void aGraceShorterThanTheReapLatencyStillReportsTheKillItPerformed() throws Exception {
+        Process child = spawnPersistentProcess();
+        try {
+            // Let the child install its shutdown handling, so the graceful signal starts an orderly JVM exit
+            // instead of killing a process that has barely started.
+            Thread.sleep(250);
+            assertTrue(child.isAlive(), "fixture process must still be running before the kill");
+
+            assertTrue(
+                    ProviderPluginDescendantTermination.terminate(
+                            List.of(child.toHandle()), Duration.ofMillis(1)),
+                    "a kill that succeeded must not be reported as a failure because the grace was short");
+            assertFalse(child.isAlive(), "the process must be gone once termination reports success");
+        } finally {
+            child.destroyForcibly();
+        }
+    }
+
     @Test
     void descendantsOfARootAreReapedWhileThatRootIsStillAlive() throws Exception {
         Process child = spawnProcess(SpawningChild.class);
