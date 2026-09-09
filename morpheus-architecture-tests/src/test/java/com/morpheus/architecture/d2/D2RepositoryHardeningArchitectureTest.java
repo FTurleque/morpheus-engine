@@ -22,6 +22,12 @@ class D2RepositoryHardeningArchitectureTest {
             "(?m)^\\s*(?:-\\s*)?uses: actions/upload-artifact@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
     private static final Pattern CACHE_NODE24 = Pattern.compile(
             "(?m)^\\s*(?:-\\s*)?uses: actions/cache/(?:restore|save)@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
+    /**
+     * Matches a {@code pull_request} trigger key, not the words. A workflow explains in prose why it has no such
+     * trigger, so a substring search finds its own documentation and reports a violation that is not there.
+     */
+    private static final Pattern WORKFLOW_PULL_REQUEST_TRIGGER =
+            Pattern.compile("(?m)^\\s*pull_request(?:_target)?:\\s*$");
     private static final Pattern CODEQL_V4 = Pattern.compile(
             "(?m)^\\s*(?:-\\s*)?uses: github/codeql-action/(?:init|analyze)@[0-9a-f]{40} # v4(?:\\.[0-9]+){1,2}\\s*$");
 
@@ -104,12 +110,12 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void activeWorkflowsUsePinnedNode24GenerationActions() throws IOException {
         Path root = repoRoot();
-        for (String workflow : List.of("ci.yml", "security.yml", "codeql.yml")) {
+        for (String workflow : List.of("ci.yml", "security.yml", "codeql.yml", "nightly.yml")) {
             String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
             assertPinnedNode24(text, CHECKOUT_NODE24, "checkout", workflow);
             assertPinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", workflow);
         }
-        for (String workflow : List.of("ci.yml", "security.yml")) {
+        for (String workflow : List.of("ci.yml", "security.yml", "nightly.yml")) {
             String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
             assertPinnedNode24(text, UPLOAD_ARTIFACT_NODE24, "upload-artifact", workflow);
         }
@@ -126,21 +132,47 @@ class D2RepositoryHardeningArchitectureTest {
         assertFalse(codeql.contains("uses: github/codeql-action/analyze@v"));
     }
 
+    /**
+     * The macOS lane is observed, never claimed as supported, and now runs on a bounded cadence.
+     *
+     * <p>This contract used to read {@code ci.yml}, because that is where the lane lived. It moved to
+     * {@code nightly.yml} and this test moved with it: the finding it reports is a property of the platform and
+     * of the MORPHEUS symlink invariant, not of the change under review, so RT-08 reported the same result on
+     * every pull request and reproducing it several hundred times a month bought no information. Every guarantee
+     * the previous version asserted is asserted here unchanged -- advisory, no distribution artifacts, the
+     * reactor outcome published rather than swallowed, RT-08 named, and the documentation still refusing to call
+     * macOS supported. Only the cadence changed, so this test additionally pins the cadence itself: the lane must
+     * be reachable from a bounded schedule and must not be reachable from a pull request, which is the property
+     * that would silently regress if someone later "restored" the lane to ci.yml.</p>
+     */
     @Test
     void theMacosLaneStaysAdvisoryAndClaimsNoSupport() throws IOException {
         Path root = repoRoot();
-        String ci = Files.readString(root.resolve(".github/workflows/ci.yml"));
+        String nightly = Files.readString(root.resolve(".github/workflows/nightly.yml"));
 
-        assertTrue(ci.contains("runs-on: macos-latest"), "ci.yml must observe macOS at least at smoke level");
-        assertTrue(ci.contains("continue-on-error: true"),
-                "an unqualified platform must not gate pull requests");
-        assertFalse(ci.contains("jpackage") && ci.contains("macos"),
+        assertTrue(nightly.contains("runs-on: macos-latest"),
+                "the nightly workflow must observe macOS at least at smoke level");
+        assertTrue(nightly.contains("continue-on-error: true"),
+                "an unqualified platform must not gate anything");
+        assertFalse(nightly.contains("jpackage") && nightly.contains("macos"),
                 "the macOS lane must not produce distribution artifacts");
-        assertTrue(ci.contains("id: reactor"), "the macOS reactor step must be identifiable");
-        assertTrue(ci.contains("Reactor outcome on macOS: ${{ steps.reactor.outcome }}"),
+        assertTrue(nightly.contains("id: reactor"), "the macOS reactor step must be identifiable");
+        assertTrue(nightly.contains("Reactor outcome on macOS: ${{ steps.reactor.outcome }}"),
                 "the macOS lane must publish the reactor outcome rather than swallow it");
-        assertTrue(ci.contains("RT-08 open, no support claimed"),
+        assertTrue(nightly.contains("RT-08 open, no support claimed"),
                 "a failing macOS reactor must be surfaced as a warning naming the open risk");
+
+        assertTrue(nightly.contains("schedule:") && nightly.contains("- cron: "),
+                "the macOS observation must run on a bounded cadence rather than on demand only, or nobody "
+                        + "will ever see it");
+        assertFalse(WORKFLOW_PULL_REQUEST_TRIGGER.matcher(nightly).find(),
+                "the macOS lane must not be reachable from a pull request: its finding does not change between "
+                        + "one pull request and the next, and a permanently failing advisory lane in the checks "
+                        + "list teaches people to ignore CI");
+
+        String ci = Files.readString(root.resolve(".github/workflows/ci.yml"));
+        assertFalse(ci.contains("macos"),
+                "the macOS lane must not come back to the per-pull-request workflow");
 
         String qualityScenarios = Files.readString(root.resolve("docs/architecture/quality/scenarios.md"));
         String architecture = Files.readString(root.resolve("docs/architecture/arc42/10-exigences-qualite.md"));

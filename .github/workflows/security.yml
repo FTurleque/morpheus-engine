@@ -58,15 +58,16 @@ jobs:
           data_dir="${GITHUB_WORKSPACE}/target/dependency-check-data"
           db_file="$(find "${data_dir}" -type f \( -name 'odc*.mv.db' -o -name 'odc*.db' \) -print -quit 2>/dev/null || true)"
           if [[ -z "${db_file}" ]]; then
-            echo "::error::No trusted Dependency-Check database was restored for this pull request."
+            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check database was restored for this pull request. This is an infrastructure failure, not a vulnerability finding."
             exit 1
           fi
           now_epoch="$(date +%s)"
           modified_epoch="$(stat -c %Y "${db_file}")"
           age_seconds="$((now_epoch - modified_epoch))"
           max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
+          bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "trusted cache restored for this pull request"
           if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
-            echo "::error::Restored Dependency-Check database is stale (${age_seconds}s old; maximum ${max_age_seconds}s)."
+            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Restored Dependency-Check database is stale (${age_seconds}s old; maximum ${max_age_seconds}s). This is an infrastructure failure, not a vulnerability finding: no dependency crossed the CVSS threshold, the vulnerability feed is simply too old to scan against."
             exit 1
           fi
           echo "Dependency-Check database freshness PASS (${age_seconds}s old; maximum ${max_age_seconds}s)."
@@ -96,21 +97,28 @@ jobs:
               -DnvdApiKeyEnvironmentVariable=NVD_API_KEY \
               org.owasp:dependency-check-maven:13.0.0:update-only
             echo "updated=true" >> "${GITHUB_OUTPUT}"
+            db_file="$(find "${data_dir}" -type f \( -name 'odc*.mv.db' -o -name 'odc*.db' \) -print -quit 2>/dev/null || true)"
+            if [[ -n "${db_file}" ]]; then
+              now_epoch="$(date +%s)"
+              modified_epoch="$(stat -c %Y "${db_file}")"
+              bash ./scripts/report-dependency-check-cache.sh "$((now_epoch - modified_epoch))" "NVD API key refresh"
+            fi
           else
             # Dependency-Check 13.0.0 upstream bug #8715 treats its built-in blank nvd.api.key as a real key.
             # Until a release containing upstream fix #8716 exists, never attempt the broken anonymous update.
             echo "::warning::NVD_API_KEY is not configured; Dependency-Check 13.0.0 anonymous update is broken upstream. Reusing a fresh trusted cache."
             db_file="$(find "${data_dir}" -type f \( -name 'odc*.mv.db' -o -name 'odc*.db' \) -print -quit 2>/dev/null || true)"
             if [[ -z "${db_file}" ]]; then
-              echo "::error::No trusted Dependency-Check database is available. Configure NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released."
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check database is available. Configure NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released."
               exit 1
             fi
             now_epoch="$(date +%s)"
             modified_epoch="$(stat -c %Y "${db_file}")"
             age_seconds="$((now_epoch - modified_epoch))"
             max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
+            bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "trusted cache fallback (NVD_API_KEY absent, no refresh performed)"
             if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
-              echo "::error::Trusted Dependency-Check database is stale (${age_seconds}s old; maximum ${max_age_seconds}s). Configure NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released."
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Trusted Dependency-Check database is stale (${age_seconds}s old; maximum ${max_age_seconds}s). Configure NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released. This is an infrastructure failure, not a vulnerability finding."
               exit 1
             fi
             echo "Dependency-Check trusted cache fallback PASS (${age_seconds}s old; maximum ${max_age_seconds}s)."
@@ -126,11 +134,16 @@ jobs:
       - name: Run OWASP Dependency-Check scan
         shell: bash
         run: |
-          ./mvnw \
+          set -uo pipefail
+          log="${RUNNER_TEMP}/dependency-check-product.log"
+          if ./mvnw \
             -Pd2-security \
             "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data" \
             -DautoUpdate=false \
-            org.owasp:dependency-check-maven:13.0.0:aggregate
+            org.owasp:dependency-check-maven:13.0.0:aggregate 2>&1 | tee "${log}"; then
+            exit 0
+          fi
+          bash ./scripts/classify-dependency-check-failure.sh "${log}" "product runtime dependencies"
 
       # The product SBOM and the scan above exclude test scope on purpose: those artifacts are never shipped.
       # They are executed on every machine that builds MORPHEUS, so they get their own fail-closed scan rather
@@ -139,11 +152,16 @@ jobs:
       - name: Run OWASP Dependency-Check scan over build and test dependencies
         shell: bash
         run: |
-          ./mvnw \
+          set -uo pipefail
+          log="${RUNNER_TEMP}/dependency-check-build-and-test.log"
+          if ./mvnw \
             -Pd2-security-tests \
             "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data" \
             -DautoUpdate=false \
-            org.owasp:dependency-check-maven:13.0.0:aggregate
+            org.owasp:dependency-check-maven:13.0.0:aggregate 2>&1 | tee "${log}"; then
+            exit 0
+          fi
+          bash ./scripts/classify-dependency-check-failure.sh "${log}" "build and test dependencies"
 
       - name: Upload dependency-check evidence
         if: always()
