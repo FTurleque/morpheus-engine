@@ -85,6 +85,48 @@ class MorpheusControlledLifecycleApiContractTest {
         }
     }
 
+    /**
+     * An omitted required field is a client fault. It used to reach {@code Objects.requireNonNull} and surface
+     * as 500 "internal MORPHEUS API error", telling the caller nothing, while the CLI and the MCP tool refused
+     * the identical command by naming the argument.
+     */
+    @Test
+    void anOmittedRequiredFieldIsRefusedAsABadRequestNamingTheField() {
+        Path database = tempDirectory.resolve("m17-omitted-field-api.db");
+        Seed seed = seed(database);
+        String route = "/projects/" + seed.projectId() + "/changes/" + seed.changeId() + "/lifecycle-transitions";
+
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            for (String omitted : List.of("idempotencyKey", "targetState", "actor")) {
+                ApiTestSupport.Response response = http.postJson(server, route, bodyWithout(omitted));
+
+                assertEquals(400, response.status(), response.body());
+                assertTrue(response.body().contains("BAD_REQUEST"), response::body);
+                assertTrue(response.body().contains(omitted + " is required and must be a non-blank string"),
+                        response::body);
+            }
+        }
+
+        try (var mutations = new SqliteChangeLifecycleMutationStore(database)) {
+            assertTrue(mutations.listAudit(
+                            ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId()))
+                    .isEmpty(), "a refused request must leave no audit record");
+        }
+    }
+
+    private static String bodyWithout(String omitted) {
+        Map<String, String> fields = new java.util.LinkedHashMap<>();
+        fields.put("idempotencyKey", "\"m17-http-omitted\"");
+        fields.put("expectedRevision", "0");
+        fields.put("targetState", "\"PROPOSED\"");
+        fields.put("actor", "\"m17-api-test\"");
+        fields.put("confirmed", "true");
+        fields.remove(omitted);
+        return fields.entrySet().stream()
+                .map(entry -> "\"" + entry.getKey() + "\":" + entry.getValue())
+                .collect(java.util.stream.Collectors.joining(",", "{", "}"));
+    }
+
     private Seed seed(Path database) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         Path fixture = http.fixture("synthetic-basic");

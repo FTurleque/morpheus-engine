@@ -60,8 +60,8 @@ final class MorpheusExternalReferenceMcpTools {
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> arguments) {
         try {
             String result = switch (toolName) {
-                case LIST_TOOL -> list(arguments == null ? Map.of() : arguments);
-                case RESOLVE_TOOL -> resolve(arguments == null ? Map.of() : arguments);
+                case LIST_TOOL -> list(McpArguments.orEmpty(arguments));
+                case RESOLVE_TOOL -> resolve(McpArguments.orEmpty(arguments));
                 default -> throw new IllegalArgumentException("unknown M12 MCP tool: " + toolName);
             };
             return McpSchema.CallToolResult.builder()
@@ -69,16 +69,13 @@ final class MorpheusExternalReferenceMcpTools {
                     .isError(false)
                     .build();
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(safeMessage(expected))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
     private String list(Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(required(arguments, "projectId"));
-        DomainIdentity ownerId = DomainIdentity.parse(required(arguments, "ownerId"));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
+        DomainIdentity ownerId = DomainIdentity.parse(McpArguments.requiredString(arguments, "ownerId"));
         try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
             if (runtime.snapshots.findProject(projectId).isEmpty()) {
                 throw new KnowledgeStoreException("project not found: " + projectId);
@@ -95,8 +92,8 @@ final class MorpheusExternalReferenceMcpTools {
     }
 
     private String resolve(Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(required(arguments, "projectId"));
-        ExternalReferenceId referenceId = ExternalReferenceId.parse(required(arguments, "referenceId"));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
+        ExternalReferenceId referenceId = ExternalReferenceId.parse(McpArguments.requiredString(arguments, "referenceId"));
         try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
             if (runtime.snapshots.findProject(projectId).isEmpty()) {
                 throw new KnowledgeStoreException("project not found: " + projectId);
@@ -132,13 +129,6 @@ final class MorpheusExternalReferenceMcpTools {
         return result;
     }
 
-    private String required(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (!(value instanceof String text) || text.isBlank()) {
-            throw new IllegalArgumentException("missing required MCP argument: " + key);
-        }
-        return text;
-    }
 
     private static Map<String, Object> schema(List<String> required, Map<String, Object> properties) {
         Map<String, Object> schema = new LinkedHashMap<>();
@@ -154,8 +144,4 @@ final class MorpheusExternalReferenceMcpTools {
         return Map.of("type", "string", "minLength", 1);
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

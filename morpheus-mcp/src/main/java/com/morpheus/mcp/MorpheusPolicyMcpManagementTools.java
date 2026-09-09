@@ -46,7 +46,7 @@ final class MorpheusPolicyMcpManagementTools {
 
     private McpSchema.CallToolResult call(String name, Map<String, Object> rawArguments) {
         try {
-            Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
+            Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
             try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(databasePath)) {
                 PolicyPackService registry = new PolicyPackService(store);
                 Object result = switch (name) {
@@ -59,16 +59,13 @@ final class MorpheusPolicyMcpManagementTools {
                         .build();
             }
         } catch (IllegalArgumentException | IllegalStateException | KnowledgeStoreException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(safeMessage(expected))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
     private PolicyScope scope(Map<String, Object> arguments) {
-        String kind = requiredString(arguments, "scopeKind").toUpperCase(Locale.ROOT);
-        String id = requiredString(arguments, "scopeId");
+        String kind = McpArguments.requiredString(arguments, "scopeKind").toUpperCase(Locale.ROOT);
+        String id = McpArguments.requiredString(arguments, "scopeId");
         return switch (kind) {
             case "PROJECT" -> new PolicyScope.Project(ProjectSpecificationId.parse(id));
             case "PORTFOLIO" -> new PolicyScope.Portfolio(PortfolioId.parse(id));
@@ -98,16 +95,5 @@ final class MorpheusPolicyMcpManagementTools {
         return Map.of("type", "string", "minLength", 1);
     }
 
-    private static String requiredString(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (!(value instanceof String text) || text.isBlank()) {
-            throw new IllegalArgumentException(key + " must be a non-blank string");
-        }
-        return text.trim();
-    }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

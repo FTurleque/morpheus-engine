@@ -117,6 +117,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0099](0099-bounded-response-lifetime-on-the-remote-facade.md) | Durée de vie bornée d'une réponse remote : budgets stall/total et deadline par interruption de canal | **Acceptée — post-audit 1.2.1** |
 | [ADR-0100](0100-identity-audit-is-evidence-not-authority.md) | L'audit d'identités est une preuve, pas une autorité : une entrée illisible ne bloque pas une révocation | **Acceptée — post-audit 1.2.1** |
 | [ADR-0101](0101-external-code-is-trusted-code-not-sandboxed-code.md) | Un plugin ou un pair MCP explicitement approuvé est du code de confiance : la frontière de processus n'est pas une sandbox OS | **Acceptée — post-audit 1.2.1** |
+| [ADR-0102](0102-mcp-failure-contract-is-one-rule.md) | Le contrat d'échec MCP est une règle unique : un format de message canonique, un mapping d'exceptions dérivé, un refus des arguments inconnus avant dispatch | **Acceptée — post-audit 1.2.1** |
 
 # Preuves par jalon
 
