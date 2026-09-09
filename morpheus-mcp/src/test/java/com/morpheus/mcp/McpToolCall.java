@@ -10,7 +10,6 @@ import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.provider.ProviderId;
-import com.morpheus.domain.reference.ExternalReferenceId;
 import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.source.SourceLocator;
@@ -25,6 +24,8 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -66,13 +67,15 @@ final class McpToolCall {
                 .reduce("", (left, right) -> left + right);
     }
 
-    /** The arguments a tool declares required, each carrying a value that is valid in isolation. */
-    static Map<String, Object> validRequiredArguments(McpSchema.Tool tool, PublishedProject project) {
-        Map<String, Object> arguments = new java.util.LinkedHashMap<>();
-        for (String name : requiredNames(tool)) {
-            arguments.put(name, sampleValue(tool, name, project));
-        }
-        return arguments;
+    /**
+     * A document built from the tool's own schema, carrying every argument it declares required and nothing
+     * else. It is meant to satisfy the schema, not to name existing data: it is what proves a validator that
+     * refuses an unknown argument is not simply refusing everything.
+     */
+    @SuppressWarnings("unchecked")
+    static Map<String, Object> validRequiredArguments(McpSchema.Tool tool) {
+        return (Map<String, Object>) sampleForSchema(
+                tool.inputSchema() == null ? Map.of() : tool.inputSchema());
     }
 
     @SuppressWarnings("unchecked")
@@ -81,41 +84,42 @@ final class McpToolCall {
         return required instanceof List<?> names ? List.copyOf((List<String>) names) : List.of();
     }
 
-    @SuppressWarnings("unchecked")
-    private static Object sampleValue(McpSchema.Tool tool, String name, PublishedProject project) {
-        Map<String, Object> property = property(tool, name);
-        Object type = property.get("type");
-        if ("integer".equals(type) || "number".equals(type)) {
-            return property.get("minimum") instanceof Number minimum ? minimum : 0;
-        }
-        if ("boolean".equals(type)) {
-            return true;
-        }
-        if ("array".equals(type)) {
-            return List.of();
-        }
-        if (property.get("enum") instanceof List<?> values && !values.isEmpty()) {
+    private static Object sampleForSchema(Map<?, ?> schema) {
+        if (schema.get("enum") instanceof List<?> values && !values.isEmpty()) {
             return values.get(0);
         }
-        return switch (name) {
-            case "projectId", "startProjectId", "sourceProjectId", "targetProjectId" -> project.projectId();
-            case "changeId" -> project.changeId();
-            case "requirementId" -> project.requirementId();
-            case "specificationId" -> project.specificationId();
-            case "ownerId", "startId", "sourceId", "targetId" -> project.requirementId();
-            case "referenceId" -> ABSENT_REFERENCE_ID;
-            case "scopeId" -> project.projectId();
-            default -> "sample";
-        };
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> property(McpSchema.Tool tool, String name) {
-        Object properties = tool.inputSchema() == null ? null : tool.inputSchema().get("properties");
-        if (!(properties instanceof Map<?, ?> map) || !(map.get(name) instanceof Map<?, ?> property)) {
-            return Map.of();
+        Object type = schema.get("type");
+        if ("object".equals(type)) {
+            Map<String, Object> value = new LinkedHashMap<>();
+            Object required = schema.get("required");
+            Object properties = schema.get("properties");
+            if (required instanceof List<?> names && properties instanceof Map<?, ?> declared) {
+                for (Object name : names) {
+                    Object property = declared.get(name);
+                    value.put((String) name,
+                            property instanceof Map<?, ?> nested ? sampleForSchema(nested) : "sample");
+                }
+            }
+            return value;
         }
-        return (Map<String, Object>) property;
+        if ("array".equals(type)) {
+            long minimumItems = schema.get("minItems") instanceof Number count ? count.longValue() : 0L;
+            List<Object> items = new ArrayList<>();
+            for (long index = 0; index < minimumItems; index++) {
+                items.add(schema.get("items") instanceof Map<?, ?> item ? sampleForSchema(item) : "sample");
+            }
+            return List.copyOf(items);
+        }
+        if ("integer".equals(type)) {
+            return schema.get("minimum") instanceof Number minimum ? minimum.longValue() : 0L;
+        }
+        if ("number".equals(type)) {
+            return schema.get("minimum") instanceof Number minimum ? minimum.doubleValue() : 0.0d;
+        }
+        if ("boolean".equals(type)) {
+            return Boolean.TRUE;
+        }
+        return "sample";
     }
 
     /** Publishes one ACTIVE snapshot holding a specification, a requirement and a change. */
@@ -164,15 +168,9 @@ final class McpToolCall {
                 projectId.toString(),
                 specificationId.toString(),
                 requirementId.toString(),
-                changeId.toString(),
-                ExternalReferenceId.generate().toString());
+                changeId.toString());
     }
 
-    record PublishedProject(
-            String projectId,
-            String specificationId,
-            String requirementId,
-            String changeId,
-            String unusedReferenceId) {
+    record PublishedProject(String projectId, String specificationId, String requirementId, String changeId) {
     }
 }
