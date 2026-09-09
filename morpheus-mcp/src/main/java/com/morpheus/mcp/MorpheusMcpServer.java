@@ -175,16 +175,13 @@ public final class MorpheusMcpServer {
             String toolName,
             Map<String, Object> arguments) {
         try {
-            String result = service.execute(toolName, arguments == null ? Map.of() : arguments);
+            String result = service.execute(toolName, McpArguments.orEmpty(arguments));
             return McpSchema.CallToolResult.builder()
                     .addTextContent(result)
                     .isError(false)
                     .build();
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(safeMessage(expected))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
@@ -197,8 +194,4 @@ public final class MorpheusMcpServer {
                 "No WRITE_CHANGE provider capability resolver is configured for this MCP server");
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

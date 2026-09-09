@@ -88,58 +88,58 @@ final class MorpheusPortfolioMcpTools {
 
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
-            Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
+            Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
             try (SqlitePortfolioStore store = new SqlitePortfolioStore(databasePath)) {
                 PortfolioRegistryService registry = new PortfolioRegistryService(store);
                 PortfolioQueryService query = new PortfolioQueryService(store);
                 PortfolioTraversalService traversal = new PortfolioTraversalService(store);
                 Object result = switch (toolName) {
-                    case CREATE -> registry.create(requiredString(arguments, "name"));
+                    case CREATE -> registry.create(McpArguments.requiredString(arguments, "name"));
                     case REGISTER_PROJECT -> registry.registerProject(
                             portfolio(arguments),
-                            ProjectSpecificationId.parse(requiredString(arguments, "projectId")),
-                            requiredString(arguments, "name"),
-                            optionalString(arguments, "workspace").map(SourceLocator::file),
-                            optionalString(arguments, "repository").map(MorpheusPortfolioMcpTools::locator),
-                            providers(optionalString(arguments, "providers")));
+                            ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId")),
+                            McpArguments.requiredString(arguments, "name"),
+                            McpArguments.optionalString(arguments, "workspace").map(SourceLocator::file),
+                            McpArguments.optionalString(arguments, "repository").map(MorpheusPortfolioMcpTools::locator),
+                            providers(McpArguments.optionalString(arguments, "providers")));
                     case MARK_MISSING -> registry.markMissing(
-                            portfolio(arguments), ProjectSpecificationId.parse(requiredString(arguments, "projectId")));
+                            portfolio(arguments), ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId")));
                     case OBSERVE_FRESHNESS -> registry.observeFreshness(
                             portfolio(arguments),
-                            ProjectSpecificationId.parse(requiredString(arguments, "projectId")),
-                            PortfolioFreshnessState.valueOf(requiredString(arguments, "state").toUpperCase(Locale.ROOT)),
-                            optionalString(arguments, "revision"),
-                            optionalString(arguments, "explanation"));
+                            ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId")),
+                            PortfolioFreshnessState.valueOf(McpArguments.requiredString(arguments, "state").toUpperCase(Locale.ROOT)),
+                            McpArguments.optionalString(arguments, "revision"),
+                            McpArguments.optionalString(arguments, "explanation"));
                     case ADD_REFERENCE -> registry.addReference(
                             portfolio(arguments),
                             entity(arguments, "source"),
                             entity(arguments, "target"),
-                            requiredString(arguments, "relation"),
-                            new ProviderId(requiredString(arguments, "providerId")),
-                            optionalString(arguments, "sourceLocator").map(MorpheusPortfolioMcpTools::locator),
-                            optionalString(arguments, "evidenceId").map(EvidenceId::parse));
+                            McpArguments.requiredString(arguments, "relation"),
+                            new ProviderId(McpArguments.requiredString(arguments, "providerId")),
+                            McpArguments.optionalString(arguments, "sourceLocator").map(MorpheusPortfolioMcpTools::locator),
+                            McpArguments.optionalString(arguments, "evidenceId").map(EvidenceId::parse));
                     case OVERVIEW -> query.overview(portfolio(arguments));
-                    case REFERENCES -> optionalString(arguments, "projectId")
+                    case REFERENCES -> McpArguments.optionalString(arguments, "projectId")
                             .map(ProjectSpecificationId::parse)
                             .map(projectId -> query.projectReferences(
                                     portfolio(arguments), projectId,
-                                    intValue(arguments, "offset", 0, 0, Integer.MAX_VALUE),
-                                    intValue(arguments, "limit", 100, 1, PortfolioQueryService.MAX_PAGE_SIZE)))
+                                    McpArguments.optionalInt(arguments, "offset", 0, 0, Integer.MAX_VALUE),
+                                    McpArguments.optionalInt(arguments, "limit", 100, 1, PortfolioQueryService.MAX_PAGE_SIZE)))
                             .orElseGet(() -> query.references(
                                     portfolio(arguments),
-                                    intValue(arguments, "offset", 0, 0, Integer.MAX_VALUE),
-                                    intValue(arguments, "limit", 100, 1, PortfolioQueryService.MAX_PAGE_SIZE)));
+                                    McpArguments.optionalInt(arguments, "offset", 0, 0, Integer.MAX_VALUE),
+                                    McpArguments.optionalInt(arguments, "limit", 100, 1, PortfolioQueryService.MAX_PAGE_SIZE)));
                     case TRAVERSE -> traversal.traverse(
                             portfolio(arguments),
                             new PortfolioEntityRef(
-                                    ProjectSpecificationId.parse(requiredString(arguments, "startProjectId")),
-                                    requiredString(arguments, "startType"),
-                                    DomainIdentity.parse(requiredString(arguments, "startId"))),
-                            intValue(arguments, "maxDepth", 4, 1, PortfolioTraversalService.MAX_DEPTH),
-                            intValue(arguments, "maxNodes", 250, 1, PortfolioTraversalService.MAX_NODES),
-                            intValue(arguments, "maxLinks", 1000, 1, PortfolioTraversalService.MAX_LINKS),
+                                    ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "startProjectId")),
+                                    McpArguments.requiredString(arguments, "startType"),
+                                    DomainIdentity.parse(McpArguments.requiredString(arguments, "startId"))),
+                            McpArguments.optionalInt(arguments, "maxDepth", 4, 1, PortfolioTraversalService.MAX_DEPTH),
+                            McpArguments.optionalInt(arguments, "maxNodes", 250, 1, PortfolioTraversalService.MAX_NODES),
+                            McpArguments.optionalInt(arguments, "maxLinks", 1000, 1, PortfolioTraversalService.MAX_LINKS),
                             PortfolioTraversalDirection.valueOf(
-                                    optionalString(arguments, "direction").orElse("BOTH").toUpperCase(Locale.ROOT)));
+                                    McpArguments.optionalString(arguments, "direction").orElse("BOTH").toUpperCase(Locale.ROOT)));
                     default -> throw new IllegalArgumentException("unknown M23 MCP tool: " + toolName);
                 };
                 return McpSchema.CallToolResult.builder()
@@ -148,22 +148,19 @@ final class MorpheusPortfolioMcpTools {
                         .build();
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(safeMessage(expected))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
     private static PortfolioId portfolio(Map<String, Object> arguments) {
-        return PortfolioId.parse(requiredString(arguments, "portfolioId"));
+        return PortfolioId.parse(McpArguments.requiredString(arguments, "portfolioId"));
     }
 
     private static PortfolioEntityRef entity(Map<String, Object> arguments, String prefix) {
         return new PortfolioEntityRef(
-                ProjectSpecificationId.parse(requiredString(arguments, prefix + "ProjectId")),
-                requiredString(arguments, prefix + "Type"),
-                DomainIdentity.parse(requiredString(arguments, prefix + "Id")));
+                ProjectSpecificationId.parse(McpArguments.requiredString(arguments, prefix + "ProjectId")),
+                McpArguments.requiredString(arguments, prefix + "Type"),
+                DomainIdentity.parse(McpArguments.requiredString(arguments, prefix + "Id")));
     }
 
     private static SourceLocator locator(String encoded) {
@@ -222,44 +219,5 @@ final class MorpheusPortfolioMcpTools {
         return List.of(names);
     }
 
-    private static String requiredString(Map<String, Object> arguments, String key) {
-        return optionalString(arguments, key)
-                .orElseThrow(() -> new IllegalArgumentException(key + " must be a non-blank string"));
-    }
 
-    private static Optional<String> optionalString(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (value == null) {
-            return Optional.empty();
-        }
-        if (!(value instanceof String text) || text.isBlank()) {
-            throw new IllegalArgumentException(key + " must be a non-blank string when present");
-        }
-        return Optional.of(text.trim());
-    }
-
-    private static int intValue(
-            Map<String, Object> arguments,
-            String key,
-            int defaultValue,
-            int minimum,
-            int maximum) {
-        Object raw = arguments.get(key);
-        if (raw == null) {
-            return defaultValue;
-        }
-        if (!(raw instanceof Number number)) {
-            throw new IllegalArgumentException(key + " must be an integer");
-        }
-        long value = number.longValue();
-        if (Double.compare(number.doubleValue(), (double) value) != 0 || value < minimum || value > maximum) {
-            throw new IllegalArgumentException(key + " must be an integer between " + minimum + " and " + maximum);
-        }
-        return Math.toIntExact(value);
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

@@ -57,7 +57,7 @@ final class MorpheusReasoningMcpTools {
 
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
-            Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
+            Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
             Object result = switch (toolName) {
                 case LIST_TOOL -> service.adapters();
                 case REASON_TOOL -> service.execute(toRequest(arguments));
@@ -68,20 +68,20 @@ final class MorpheusReasoningMcpTools {
                     .isError(false)
                     .build();
         } catch (IllegalArgumentException | IllegalStateException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(safeMessage(expected))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
+    /**
+     * Arguments outside the published schema are refused by the SDK before dispatch (ADR-0102), so this
+     * reader states only what the schema cannot: the shape each accepted argument must have.
+     */
     private static Request toRequest(Map<String, Object> arguments) {
-        rejectUnknown(arguments, List.of("question", "evidence", "adapterIds", "parameters", "maxClaims"));
-        String question = requiredString(arguments, "question");
+        String question = McpArguments.requiredString(arguments, "question");
         List<Evidence> evidence = evidence(arguments.get("evidence"));
-        List<String> adapterIds = stringList(arguments.get("adapterIds"), "adapterIds");
-        Map<String, String> parameters = stringMap(arguments.get("parameters"), "parameters");
-        int maxClaims = optionalInteger(arguments.get("maxClaims"), ReasoningContracts.MAX_CLAIMS);
+        List<String> adapterIds = McpArguments.stringList(arguments, "adapterIds");
+        Map<String, String> parameters = McpArguments.stringMap(arguments, "parameters");
+        int maxClaims = McpArguments.optionalInt(arguments, "maxClaims", ReasoningContracts.MAX_CLAIMS);
         return new Request(question, evidence, adapterIds, parameters, maxClaims);
     }
 
@@ -94,17 +94,13 @@ final class MorpheusReasoningMcpTools {
         }
         List<Evidence> result = new ArrayList<>(items.size());
         for (Object item : items) {
-            if (!(item instanceof Map<?, ?> map)) {
-                throw new IllegalArgumentException("each evidence item must be an object");
-            }
-            Map<String, Object> values = stringObjectMap(map, "evidence");
-            rejectUnknown(values, List.of("id", "kind", "subject", "statement", "provenance"));
+            Map<String, Object> values = McpArguments.nestedObject(item, "evidence");
             result.add(new Evidence(
-                    requiredString(values, "id"),
-                    evidenceKind(requiredString(values, "kind")),
-                    requiredString(values, "subject"),
-                    requiredString(values, "statement"),
-                    stringMap(values.get("provenance"), "provenance")));
+                    McpArguments.requiredString(values, "id"),
+                    evidenceKind(McpArguments.requiredString(values, "kind")),
+                    McpArguments.requiredString(values, "subject"),
+                    McpArguments.requiredString(values, "statement"),
+                    McpArguments.stringMap(values, "provenance")));
         }
         return List.copyOf(result);
     }
@@ -117,81 +113,6 @@ final class MorpheusReasoningMcpTools {
         }
     }
 
-    private static List<String> stringList(Object raw, String name) {
-        if (raw == null) {
-            return List.of();
-        }
-        if (!(raw instanceof List<?> values)) {
-            throw new IllegalArgumentException(name + " must be an array of strings");
-        }
-        List<String> result = new ArrayList<>(values.size());
-        for (Object value : values) {
-            if (!(value instanceof String text) || text.isBlank()) {
-                throw new IllegalArgumentException(name + " must contain non-blank strings");
-            }
-            result.add(text.trim());
-        }
-        return List.copyOf(result);
-    }
-
-    private static Map<String, String> stringMap(Object raw, String name) {
-        if (raw == null) {
-            return Map.of();
-        }
-        if (!(raw instanceof Map<?, ?> values)) {
-            throw new IllegalArgumentException(name + " must be an object of string values");
-        }
-        Map<String, String> result = new LinkedHashMap<>();
-        values.forEach((key, value) -> {
-            if (!(key instanceof String textKey) || textKey.isBlank()
-                    || !(value instanceof String textValue) || textValue.isBlank()) {
-                throw new IllegalArgumentException(name + " must contain non-blank string keys and values");
-            }
-            result.put(textKey.trim(), textValue.trim());
-        });
-        return Map.copyOf(result);
-    }
-
-    private static Map<String, Object> stringObjectMap(Map<?, ?> raw, String name) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        raw.forEach((key, value) -> {
-            if (!(key instanceof String text) || text.isBlank()) {
-                throw new IllegalArgumentException(name + " keys must be non-blank strings");
-            }
-            result.put(text, value);
-        });
-        return Map.copyOf(result);
-    }
-
-    private static int optionalInteger(Object raw, int defaultValue) {
-        if (raw == null) {
-            return defaultValue;
-        }
-        if (!(raw instanceof Number number)) {
-            throw new IllegalArgumentException("maxClaims must be an integer");
-        }
-        int value = number.intValue();
-        if (number.doubleValue() != value) {
-            throw new IllegalArgumentException("maxClaims must be an integer");
-        }
-        return value;
-    }
-
-    private static String requiredString(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (!(value instanceof String text) || text.isBlank()) {
-            throw new IllegalArgumentException("missing required MCP argument: " + key);
-        }
-        return text.trim();
-    }
-
-    private static void rejectUnknown(Map<String, ?> values, List<String> allowed) {
-        for (String key : values.keySet()) {
-            if (!allowed.contains(key)) {
-                throw new IllegalArgumentException("unknown MCP argument: " + key);
-            }
-        }
-    }
 
     private static Map<String, Object> reasoningSchema() {
         Map<String, Object> evidenceItem = schema(
@@ -228,8 +149,4 @@ final class MorpheusReasoningMcpTools {
         return Map.copyOf(result);
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

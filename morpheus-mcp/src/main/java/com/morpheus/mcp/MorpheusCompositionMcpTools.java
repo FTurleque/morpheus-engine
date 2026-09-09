@@ -52,8 +52,8 @@ final class MorpheusCompositionMcpTools {
 
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
-            Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
-            ProjectSpecificationId projectId = ProjectSpecificationId.parse(requiredString(arguments, "projectId"));
+            Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
+            ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
             try (SqliteSpecificationKnowledgeStore snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
                  SqliteCompositionStateStore compositions = new SqliteCompositionStateStore(databasePath)) {
                 CompositionStateView state = new CompositionQueryService(snapshots, compositions)
@@ -69,16 +69,13 @@ final class MorpheusCompositionMcpTools {
                 return McpSchema.CallToolResult.builder(List.of(content)).build();
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            McpSchema.TextContent content = McpSchema.TextContent.builder(safeMessage(expected)).build();
-            return McpSchema.CallToolResult.builder(List.of(content))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
     private Object conflicts(CompositionStateView state, Map<String, Object> arguments) {
-        int offset = intValue(arguments, "offset", 0, 0, Integer.MAX_VALUE);
-        int limit = intValue(arguments, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
+        int offset = McpArguments.optionalInt(arguments, "offset", 0, 0, Integer.MAX_VALUE);
+        int limit = McpArguments.optionalInt(arguments, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
         int total = state.conflicts().size();
         int from = Math.min(offset, total);
         int to = Math.min(total, from + limit);
@@ -108,28 +105,6 @@ final class MorpheusCompositionMcpTools {
         return Map.copyOf(schema);
     }
 
-    private String requiredString(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (!(value instanceof String text) || text.isBlank()) {
-            throw new IllegalArgumentException(key + " must be a non-blank string");
-        }
-        return text.trim();
-    }
-
-    private int intValue(Map<String, Object> arguments, String key, int defaultValue, int minimum, int maximum) {
-        Object raw = arguments.get(key);
-        if (raw == null) {
-            return defaultValue;
-        }
-        if (!(raw instanceof Number number)) {
-            throw new IllegalArgumentException(key + " must be an integer");
-        }
-        long value = number.longValue();
-        if (Double.compare(number.doubleValue(), (double) value) != 0 || value < minimum || value > maximum) {
-            throw new IllegalArgumentException(key + " must be an integer between " + minimum + " and " + maximum);
-        }
-        return Math.toIntExact(value);
-    }
 
     private Map<String, Object> map(Object... entries) {
         Map<String, Object> result = new LinkedHashMap<>();
@@ -139,8 +114,4 @@ final class MorpheusCompositionMcpTools {
         return Map.copyOf(result);
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

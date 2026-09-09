@@ -55,8 +55,8 @@ final class MorpheusAugmentedContextMcpTools {
 
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
-            Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
-            ProjectSpecificationId projectId = ProjectSpecificationId.parse(requiredString(arguments, "projectId"));
+            Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
+            ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
             TechnicalContextOptions options = options(arguments);
             try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
                 if (runtime.snapshots.findProject(projectId).isEmpty()) {
@@ -72,13 +72,13 @@ final class MorpheusAugmentedContextMcpTools {
                 Object result = switch (toolName) {
                     case REQUIREMENT_TOOL -> service.requirement(
                                     projectId,
-                                    RequirementId.parse(requiredString(arguments, "requirementId")),
+                                    RequirementId.parse(McpArguments.requiredString(arguments, "requirementId")),
                                     options)
                             .orElseThrow(() -> new KnowledgeStoreException(
                                     "project has no ACTIVE snapshot: " + projectId));
                     case CHANGE_TOOL -> service.change(
                                     projectId,
-                                    ChangeId.parse(requiredString(arguments, "changeId")),
+                                    ChangeId.parse(McpArguments.requiredString(arguments, "changeId")),
                                     options)
                             .orElseThrow(() -> new KnowledgeStoreException(
                                     "project has no ACTIVE snapshot: " + projectId));
@@ -88,19 +88,17 @@ final class MorpheusAugmentedContextMcpTools {
                 return McpSchema.CallToolResult.builder(List.of(content)).build();
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            McpSchema.TextContent content = McpSchema.TextContent.builder(safeMessage(expected)).build();
-            return McpSchema.CallToolResult.builder(List.of(content))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
     private TechnicalContextOptions options(Map<String, Object> arguments) {
-        String nexusProject = requiredString(arguments, "nexusProject");
-        int tokenBudget = integer(arguments, "tokenBudget", TechnicalContextOptions.DEFAULT_TOKEN_BUDGET);
-        Set<String> sources = strings(arguments.get("requestedSources"));
-        Map<String, String> constraints = stringMap(arguments.get("constraints"));
-        boolean explain = bool(arguments, "explain", false);
+        String nexusProject = McpArguments.requiredString(arguments, "nexusProject");
+        int tokenBudget = McpArguments.optionalInt(
+                arguments, "tokenBudget", TechnicalContextOptions.DEFAULT_TOKEN_BUDGET);
+        Set<String> sources = upperCased(McpArguments.stringList(arguments, "requestedSources"));
+        Map<String, String> constraints = McpArguments.stringMap(arguments, "constraints");
+        boolean explain = McpArguments.optionalBoolean(arguments, "explain", false);
         return new TechnicalContextOptions(nexusProject, tokenBudget, sources, constraints, explain);
     }
 
@@ -132,79 +130,13 @@ final class MorpheusAugmentedContextMcpTools {
         return Map.of("type", "string", "minLength", 1);
     }
 
-    private String requiredString(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (!(value instanceof String text) || text.isBlank()) {
-            throw new IllegalArgumentException("missing required MCP argument: " + key);
-        }
-        return text.trim();
-    }
-
-    private int integer(Map<String, Object> arguments, String key, int defaultValue) {
-        Object value = arguments.get(key);
-        if (value == null) {
-            return defaultValue;
-        }
-        if (!(value instanceof Number number)) {
-            throw new IllegalArgumentException(key + " must be an integer");
-        }
-        int integer = number.intValue();
-        if (Double.compare(number.doubleValue(), integer) != 0) {
-            throw new IllegalArgumentException(key + " must be an integer");
-        }
-        return integer;
-    }
-
-    private Set<String> strings(Object value) {
-        if (value == null) {
-            return Set.of();
-        }
-        if (!(value instanceof List<?> list)) {
-            throw new IllegalArgumentException("requestedSources must be an array");
-        }
+    /** The source vocabulary is case-insensitive on this surface and normalised through the root locale. */
+    private Set<String> upperCased(List<String> values) {
         Set<String> result = new LinkedHashSet<>();
-        for (Object item : list) {
-            if (!(item instanceof String text) || text.isBlank()) {
-                throw new IllegalArgumentException("requestedSources must contain non-blank strings");
-            }
-            result.add(text.trim().toUpperCase(java.util.Locale.ROOT));
+        for (String value : values) {
+            result.add(value.toUpperCase(java.util.Locale.ROOT));
         }
         return Set.copyOf(result);
     }
 
-    private Map<String, String> stringMap(Object value) {
-        if (value == null) {
-            return Map.of();
-        }
-        if (!(value instanceof Map<?, ?> map)) {
-            throw new IllegalArgumentException("constraints must be an object");
-        }
-        Map<String, String> result = new LinkedHashMap<>();
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
-            if (!(entry.getKey() instanceof String key)
-                    || !(entry.getValue() instanceof String text)
-                    || key.isBlank()
-                    || text.isBlank()) {
-                throw new IllegalArgumentException("constraints must contain non-blank string keys and values");
-            }
-            result.put(key.trim(), text.trim());
-        }
-        return Map.copyOf(result);
-    }
-
-    private boolean bool(Map<String, Object> arguments, String key, boolean defaultValue) {
-        Object value = arguments.get(key);
-        if (value == null) {
-            return defaultValue;
-        }
-        if (!(value instanceof Boolean bool)) {
-            throw new IllegalArgumentException(key + " must be a boolean");
-        }
-        return bool;
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }
