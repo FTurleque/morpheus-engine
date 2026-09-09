@@ -207,10 +207,19 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("dependency-check-maven:13.0.0:aggregate"));
         assertTrue(security.contains("-DautoUpdate=false"));
         assertTrue(security.contains("target/dependency-check-data"));
-        assertTrue(security.contains("dependency-check-v13-trusted-${{ runner.os }}-"),
-                "Dependency-Check 13 must write into its own trusted cache namespace");
-        assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"),
-                "the v13 rollout must be able to read the existing trusted v12 cache during migration");
+        // Same intention as the v13/v12 namespace assertions this replaces -- a trusted cache must never be
+        // reused by an analyzer that cannot read it -- retargeted onto the property that actually decides it.
+        // The plugin version never did: 12.2.2 and 13.0.0 both declare data.version 5.6 with byte-identical
+        // DDL, so the namespace was strict where it did not need to be, and the v12 restore-key added for the
+        // rollout would have been permissive where it must not be. The schema version decides it exactly, and
+        // leaves nothing to fall back to. DependencyCheckWorkflowContractTest carries the full argument.
+        assertTrue(security.contains("dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-"
+                        + "${{ runner.os }}-"),
+                "the trusted cache must be namespaced by the H2 schema version, so it is reused exactly when "
+                        + "the running analyzer can read it");
+        assertFalse(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"),
+                "the v13 rollout migration is over: a restore-key that crosses schema namespaces must not "
+                        + "outlive it");
         assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32587778460"));
         assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32690353897"));
         assertTrue(security.contains("Verify restored Dependency-Check database freshness"));
@@ -219,7 +228,10 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("max_age_seconds=\"$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))\""));
         assertTrue(security.contains("- cron: '17 4 * * *'"));
         assertFalse(security.contains("- cron: '17 4 * * 1'"));
-        assertTrue(security.contains("No trusted Dependency-Check database was restored"));
+        assertTrue(security.contains("No trusted Dependency-Check refresh could be established"),
+                "a pull request handed a cache it cannot date must still refuse: freshness is now established "
+                        + "from the sentinel a refresh wrote, so the refusal names the missing refresh rather "
+                        + "than a missing file");
         assertTrue(security.contains("if: github.event_name != 'pull_request'"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
         assertTrue(security.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"));
@@ -257,8 +269,10 @@ class D2RepositoryHardeningArchitectureTest {
         String saveStep = security.substring(saveIndex, scanIndex);
         assertTrue(saveStep.contains("if: github.event_name != 'pull_request'"),
                 "Dependency-Check cache writes must be restricted to trusted events");
-        assertTrue(saveStep.contains("dependency-check-v13-trusted-${{ runner.os }}-${{ github.run_id }}"),
-                "trusted events must publish the migrated cache under the v13 namespace");
+        assertTrue(saveStep.contains("dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}"
+                        + "-trusted-${{ runner.os }}-${{ github.run_id }}"),
+                "trusted events must publish the cache under the schema namespace the restore reads, so a save "
+                        + "and a restore can never disagree about which databases are interchangeable");
 
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));

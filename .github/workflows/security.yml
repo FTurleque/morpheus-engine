@@ -15,6 +15,10 @@ permissions:
 
 env:
   DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS: '72'
+  # The H2 schema Dependency-Check expects (`data.version` in dependency-check-core), pinned in the root POM
+  # as <dependency-check.data.version> and kept in step with it by DependencyCheckWorkflowContractTest.
+  DEPENDENCY_CHECK_SCHEMA_VERSION: '5.6'
+  DEPENDENCY_CHECK_PLUGIN_VERSION: '13.0.0'
 
 concurrency:
   group: morpheus-security-${{ github.ref }}
@@ -46,31 +50,49 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
-          key: dependency-check-v13-trusted-${{ runner.os }}-${{ github.run_id }}
+          # Keyed on the H2 schema version, not on the plugin version.
+          #
+          # What a cache key must answer is whether the running analyzer can read this database, and that is
+          # decided by the schema alone. Dependency-Check 12.2.2 and 13.0.0 both declare data.version 5.6 and
+          # ship byte-identical data/initialize.sql and data/dbStatements.properties; upstream changed the
+          # schema at 12.2.2, not at 13.0.0. A plugin-versioned key therefore answered a question nobody
+          # asked, and answered it wrongly in both directions: it orphaned a perfectly readable database on a
+          # routine bump, and the v12 restore-key added to paper over that orphaning would equally have
+          # matched a genuinely incompatible database had the schema really moved.
+          #
+          # Keyed on the schema there is nothing left to fall back to. A schema change produces a different
+          # key, no match, and an honest cold start -- which is the correct outcome, because the alternative
+          # is a database the analyzer will refuse anyway: every scan below runs -DautoUpdate=false, under
+          # which Dependency-Check throws rather than migrating a mismatched schema.
+          key: dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
-            dependency-check-v13-trusted-${{ runner.os }}-
-            dependency-check-v12-trusted-${{ runner.os }}-
+            dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-${{ runner.os }}-
 
+      # Freshness is read from the sentinel a real refresh wrote, never from a file mtime. An mtime says when
+      # Dependency-Check last rewrote some file, survives actions/cache restore untouched because tar
+      # preserves it, and an incremental update-only that rewrites nothing leaves it stale behind a current
+      # database. The sentinel is a fact the refresh produces; the mtime was a side effect of the filesystem.
       - name: Verify restored Dependency-Check database freshness
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
           data_dir="${GITHUB_WORKSPACE}/target/dependency-check-data"
-          db_file="$(find "${data_dir}" -type f \( -name 'odc*.mv.db' -o -name 'odc*.db' \) -print -quit 2>/dev/null || true)"
-          if [[ -z "${db_file}" ]]; then
-            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check database was restored for this pull request. This is an infrastructure failure, not a vulnerability finding."
+          facts="$(bash ./scripts/read-dependency-check-sentinel.sh "${data_dir}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}")"
+          status="$(sed -n 's/^status=//p' <<< "${facts}" | head -n 1)"
+
+          if [[ "${status}" != 'OK' ]]; then
+            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check refresh could be established for this pull request (${status}). A cache restored without a trusted-refresh sentinel has an unknown age, and an unknown age is not a fresh one. This is an infrastructure failure, not a vulnerability finding."
             exit 1
           fi
-          now_epoch="$(date +%s)"
-          modified_epoch="$(stat -c %Y "${db_file}")"
-          age_seconds="$((now_epoch - modified_epoch))"
+
+          age_seconds="$(sed -n 's/^ageSeconds=//p' <<< "${facts}" | head -n 1)"
           max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
           bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "trusted cache restored for this pull request"
           if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
-            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Restored Dependency-Check database is stale (${age_seconds}s old; maximum ${max_age_seconds}s). This is an infrastructure failure, not a vulnerability finding: no dependency crossed the CVSS threshold, the vulnerability feed is simply too old to scan against."
+            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Restored Dependency-Check database is stale (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s). This is an infrastructure failure, not a vulnerability finding: no dependency crossed the CVSS threshold, the vulnerability feed is simply too old to scan against."
             exit 1
           fi
-          echo "Dependency-Check database freshness PASS (${age_seconds}s old; maximum ${max_age_seconds}s)."
+          echo "Dependency-Check database freshness PASS (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s)."
 
       - name: Remove stale Dependency-Check update lock
         shell: bash
@@ -90,38 +112,36 @@ jobs:
         run: |
           echo "updated=false" >> "${GITHUB_OUTPUT}"
           data_dir="${GITHUB_WORKSPACE}/target/dependency-check-data"
+          max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
           if [[ -n "${NVD_API_KEY:-}" ]]; then
             ./mvnw \
               -Pd2-security \
               "-DdataDirectory=${data_dir}" \
               -DnvdApiKeyEnvironmentVariable=NVD_API_KEY \
               org.owasp:dependency-check-maven:13.0.0:update-only
+            # The sentinel is written here and only here on this path: after the refresh succeeded, so its
+            # presence is evidence the feed was actually renewed rather than that a file happens to exist.
+            bash ./scripts/write-dependency-check-sentinel.sh \
+              "${data_dir}" "${DEPENDENCY_CHECK_PLUGIN_VERSION}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}" "NVD API key refresh"
             echo "updated=true" >> "${GITHUB_OUTPUT}"
-            db_file="$(find "${data_dir}" -type f \( -name 'odc*.mv.db' -o -name 'odc*.db' \) -print -quit 2>/dev/null || true)"
-            if [[ -n "${db_file}" ]]; then
-              now_epoch="$(date +%s)"
-              modified_epoch="$(stat -c %Y "${db_file}")"
-              bash ./scripts/report-dependency-check-cache.sh "$((now_epoch - modified_epoch))" "NVD API key refresh"
-            fi
+            bash ./scripts/report-dependency-check-cache.sh 0 "NVD API key refresh"
           else
             # Dependency-Check 13.0.0 upstream bug #8715 treats its built-in blank nvd.api.key as a real key.
             # Until a release containing upstream fix #8716 exists, never attempt the broken anonymous update.
             echo "::warning::NVD_API_KEY is not configured; Dependency-Check 13.0.0 anonymous update is broken upstream. Reusing a fresh trusted cache."
-            db_file="$(find "${data_dir}" -type f \( -name 'odc*.mv.db' -o -name 'odc*.db' \) -print -quit 2>/dev/null || true)"
-            if [[ -z "${db_file}" ]]; then
-              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check database is available. Configure NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released."
+            facts="$(bash ./scripts/read-dependency-check-sentinel.sh "${data_dir}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}")"
+            status="$(sed -n 's/^status=//p' <<< "${facts}" | head -n 1)"
+            if [[ "${status}" != 'OK' ]]; then
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check database is available (${status}): nothing here refreshed the feed, and the restored cache carries no trusted-refresh sentinel to date. Configure NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released."
               exit 1
             fi
-            now_epoch="$(date +%s)"
-            modified_epoch="$(stat -c %Y "${db_file}")"
-            age_seconds="$((now_epoch - modified_epoch))"
-            max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
+            age_seconds="$(sed -n 's/^ageSeconds=//p' <<< "${facts}" | head -n 1)"
             bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "trusted cache fallback (NVD_API_KEY absent, no refresh performed)"
             if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
-              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Trusted Dependency-Check database is stale (${age_seconds}s old; maximum ${max_age_seconds}s). Configure NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released. This is an infrastructure failure, not a vulnerability finding."
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Trusted Dependency-Check database is stale (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s). Configure NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released. This is an infrastructure failure, not a vulnerability finding."
               exit 1
             fi
-            echo "Dependency-Check trusted cache fallback PASS (${age_seconds}s old; maximum ${max_age_seconds}s)."
+            echo "Dependency-Check trusted cache fallback PASS (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s)."
           fi
 
       - name: Save trusted Dependency-Check database
@@ -129,7 +149,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
-          key: dependency-check-v13-trusted-${{ runner.os }}-${{ github.run_id }}
+          key: dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-${{ runner.os }}-${{ github.run_id }}
 
       - name: Run OWASP Dependency-Check scan
         shell: bash
