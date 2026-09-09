@@ -14,8 +14,8 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (08/09/2026
 |---|---|
 | `testsMinimum` | 1550 |
 | `architectureTestsMinimum` | 385 |
-| `aggregateLineCoverageMinimum` | 0.620 (62.0%) |
-| `aggregateBranchCoverageMinimum` | 0.535 (53.5%) |
+| `aggregateLineCoverageMinimum` | 0.850 (85.0%) |
+| `aggregateBranchCoverageMinimum` | 0.680 (68.0%) |
 | `perModuleLineCoverageMinimum` | 0.620 (62.0%) |
 | `perModuleBranchCoverageMinimum` | 0.535 (53.5%) |
 

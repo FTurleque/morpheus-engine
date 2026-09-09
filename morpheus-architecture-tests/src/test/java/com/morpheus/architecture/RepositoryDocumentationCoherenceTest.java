@@ -225,16 +225,17 @@ class RepositoryDocumentationCoherenceTest {
         //     per-module (CoverageQualityGateTest, sum of each module's own report)
         //         Windows  62.5328% / 62.5432% lines,  53.8092% / 53.8188% branches
         //         Linux    62.5083% / 62.5013% lines,  53.7997% / 53.7997% branches
-        //     aggregate  (AggregateCoverageGateTest, canonical jacoco-aggregate report)
-        //         cited in AggregateCoverageGateTest, which is where that cap lives
+        //     aggregate  (AggregateCoverageGateTest, canonical jacoco-aggregate report), 09/09/2026 at e5127486
+        //         Windows  85.7612% / 85.7717% lines,  68.5342% / 68.5629% branches
+        //         Linux    85.7263% / 85.7367% lines,  68.5246% / 68.5437% branches
         // Each pair stays below its own cap rather than at it: two runs of one commit differed by two covered
         // lines, so pinning a ratchet to the measurement would make ordinary variation fail the build.
         assertEquals("1550", ratchets.get("testsMinimum"));
         assertEquals("385", ratchets.get("architectureTestsMinimum"));
         assertEquals("0.620", ratchets.get("perModuleLineCoverageMinimum"));
         assertEquals("0.535", ratchets.get("perModuleBranchCoverageMinimum"));
-        assertEquals("0.620", ratchets.get("aggregateLineCoverageMinimum"));
-        assertEquals("0.535", ratchets.get("aggregateBranchCoverageMinimum"));
+        assertEquals("0.850", ratchets.get("aggregateLineCoverageMinimum"));
+        assertEquals("0.680", ratchets.get("aggregateBranchCoverageMinimum"));
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
