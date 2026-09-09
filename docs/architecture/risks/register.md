@@ -22,7 +22,56 @@
 | RT-06 | Diagnostic runtime limité par le logging silencieux | 2 | 2 | **4** | Health/metrics, erreurs structurées et diagnostics MCP sanitizés ; préserver stdout MCP | Permanent |
 | RT-09 | Drift documentaire entre sources historiques et HEAD | 2 | 2 | **4** | Hiérarchie des sources, séparation release publiée `1.2.0` / baseline active `1.2.1`, guides actifs réconciliés et contrats d'architecture sur les invariants CI | À chaque release/hardening |
 | RT-07 | Auth remote sans SSO/LDAP | 1 | 2 | **2** | Bearer auth + RBAC, mutations inter-processus sérialisées, live reload, audit secret-free roulant borné ; mot de passe TLS résolu tardivement en `char[]` et jamais retenu dans les options de lancement | Si besoin entreprise démontré |
-| RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement ; lane CI `macos-smoke` **advisory** (`continue-on-error`) qui exécute le reactor complet et publie les faits système observés — observation, pas qualification | Si support macOS décidé |
+| RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement ; lane `macos-smoke` **advisory** (`continue-on-error`) de `nightly.yml`, sur cadence quotidienne bornée et non par pull request, qui exécute le reactor complet et publie les faits système observés — observation, pas qualification | Si support macOS décidé |
+| RT-13 | `NVD_API_KEY` absent : la base Dependency-Check ne peut plus être rafraîchie une fois 1.2.1 promue sur `main` | 3 | 3 | **9** | **Aucune mitigation technique possible — action propriétaire requise.** Voir la section dédiée ci-dessous | Immédiate ; à clore en configurant le secret |
+
+### RT-13 — la base Dependency-Check n'a plus de source de rafraîchissement (constaté le 09/09/2026)
+
+Ce risque n'est pas une hypothèse : c'est une panne **datée**, qui se déclenchera environ
+**72 heures après la promotion de 1.2.1 sur `main`**, et qu'aucune modification de workflow ne peut
+éviter. Il est enregistré ici parce que sa résolution appartient au propriétaire du dépôt, pas au code.
+
+Constats du 09/09/2026, vérifiés sur le dépôt et non recopiés :
+
+- `NVD_API_KEY` **n'est pas configuré**. `gh api repos/FTurleque/morpheus-engine/actions/secrets` ne
+  retourne que `SONAR_TOKEN` ; il n'existe ni secret d'organisation (le dépôt appartient à un compte
+  utilisateur) ni environnement GitHub.
+- Le job planifié quotidien **réussit** — dernière exécution `34311308046`, 09/09/2026 04:31 UTC — mais il
+  s'exécute sur `main`. Un déclencheur `schedule` est toujours dispatché sur la branche par défaut : le
+  filtre `branches: [main, develop]` ne s'applique qu'à `push` et `pull_request` et n'a aucun effet ici.
+- `main` épingle encore Dependency-Check **12.2.2**, dont la mise à jour anonyme fonctionne (`3 788`
+  enregistrements, 210 s dans ce run) et dont l'étape de sauvegarde de cache est inconditionnelle. C'est
+  **cette** exécution qui alimente le cache que toutes les pull requests de `develop` restaurent via la
+  `restore-key` `dependency-check-v12-trusted-`.
+- `develop` épingle **13.0.0**, dont la mise à jour anonyme est cassée en amont
+  ([issue #8715](https://github.com/dependency-check/DependencyCheck/issues/8715)). Le correctif #8716 est
+  mergé mais jalonné **13.0.1**, qui n'est pas publiée : la dernière release est 13.0.0 du 03/08/2026.
+
+Enchaînement une fois 1.2.1 promue : le workflow de `main` devient celui de `develop`, la branche de repli
+s'active, elle ne rafraîchit rien, et l'étape de sauvegarde est conditionnée à
+`steps.dependency-check-update.outputs.updated == 'true'` — donc plus aucun cache n'est publié. Le dernier
+cache `v12` cesse de vieillir sous surveillance et franchit `DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS: 72`.
+À partir de là, le job planifié **et chaque pull request** échouent, sur un motif qui n'est pas une
+vulnérabilité.
+
+Ce qui a été fait dans la PR de ce jour, et ce que ça ne fait pas : la panne devient **visible avant de se
+produire** — âge du cache, marge restante et voie d'obtention publiés dans le résumé de job, alerte aux deux
+tiers du budget, motif d'échec nommé `STALE_DATABASE` et distingué de `VULNERABILITY_THRESHOLD_EXCEEDED`.
+**Aucune de ces améliorations ne remplace le secret manquant.** Elles transforment une falaise en pente ; elles
+ne rafraîchissent pas la base.
+
+Trois sorties possibles, par ordre de préférence :
+
+1. **Configurer `NVD_API_KEY`** (clé gratuite auprès du NIST). C'est la seule qui restaure un vrai
+   rafraîchissement et la seule qui clôt RT-13.
+2. Attendre la publication de **13.0.1** et bumper le pin — remet la mise à jour anonyme en service, mais la
+   date de publication n'est pas maîtrisée.
+3. Revenir à **12.2.2**. Écarté : `D2RepositoryHardeningArchitectureTest#dependencyAndQualityBaselineIsPinned`
+   épingle 13.0.0 textuellement, et régresser l'analyseur pour contourner une absence de secret échange un
+   problème d'exploitation contre une perte de couverture d'analyse.
+
+Ne **pas** relâcher `DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS` pour faire disparaître le symptôme : une base plus
+vieille est une base moins fiable, et le problème est le rafraîchissement, pas le seuil.
 
 ### Risques de gouvernance résolus le 27/08/2026
 
@@ -176,6 +225,8 @@ Windows -> scripts\validate.cmd m21 -Version 1.2.1
 ```
 
 M21 s'exécute sur les pull requests ainsi que sur les pushes `main` et `develop`. Les actions tierces des workflows actifs sont référencées par SHA immuable et le Maven Wrapper vérifie le SHA-256 de la distribution Maven.
+
+Deux signaux tournent sur une **cadence bornée** plutôt que par pull request, dans `nightly.yml` : l'analyse SonarQube Cloud de `develop` — que `ci.yml` ne couvrait pas, puisqu'il n'analyse que les pushes sur `main`, soit une fois par promotion — et la lane advisory `macos-smoke`. `nightly.yml` n'a **aucun** déclencheur `pull_request`, ce qui est la raison même de son existence : `SONAR_TOKEN` est un secret durable et ne doit jamais côtoyer du code non mergé.
 
 Ratchets actifs :
 
