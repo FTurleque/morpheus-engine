@@ -28,15 +28,28 @@ class AggregateCoverageGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline of the AGGREGATE scale.
+    // Qualified exact-head baseline of the AGGREGATE scale: 85.7263% lines / 68.5246% branches.
     //
-    // No aggregate measurement had ever been qualified: until the scale split, this gate read the ratchet keys
-    // that CoverageQualityGateTest had qualified on the per-module scale, so its threshold carried no evidence
-    // about this grandeur at all. The cap therefore starts pinned to the value inherited from that shared key
-    // and moves only with an exact-head measurement of THIS report, taken twice on each platform and qualified
-    // on the lowest of the four -- the same rule the per-module cap follows.
-    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.620d;
-    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.535d;
+    // No aggregate measurement had ever been qualified. Until the scale split, this gate read the ratchet keys
+    // CoverageQualityGateTest had qualified on the per-module scale, so its threshold carried no evidence about
+    // this grandeur at all: it sat roughly 24 points under the measurement, and about 6800 lines and 1570
+    // branches of aggregate coverage could disappear without any gate reacting.
+    //
+    // Measured on 09/09/2026 at fix/coverage-ratchet-scale-split-2026-09-09 (e5127486), two full runs per
+    // platform, the first of each being the platform's validate-m21 run:
+    //     Windows  85.7612% / 85.7717% lines,  68.5342% / 68.5629% branches
+    //     Linux    85.7263% / 85.7367% lines,  68.5246% / 68.5437% branches   <- qualified on the lowest
+    // Qualified on the lowest of the four, never the best: Linux and Windows run the same tests, but some
+    // no-op off their own OS, so the platform that covers fewer lines is the one the cap has to be reachable
+    // on. The four runs spread 0.045 point on lines and 0.038 on branches.
+    //
+    // The aggregate ratchets in config/m21-quality-ratchets.properties sit deliberately BELOW this cap rather
+    // than at it: 0.850 / 0.680 leaves about 208 lines and 55 branches of headroom, an order of magnitude more
+    // than the observed run-to-run variation and small enough that a real regression is caught.
+    //
+    // Raising these two constants requires a fresh aggregate measurement on BOTH platforms, cited here.
+    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.857263d;
+    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.685246d;
 
     @Test
     void aggregateCoverageIncludesCrossModuleExecutionAndMeetsRatchets() throws Exception {
