@@ -80,7 +80,7 @@ class MorpheusRemoteMutationAvailabilityTest {
 
             assertEquals(201, backup.get(60, TimeUnit.SECONDS).statusCode());
 
-            Map<String, Object> settled = statusOf(client, base, admin.token());
+            Map<String, Object> settled = awaitSettledStatus(client, base, admin.token());
             assertEquals(0, ((Number) settled.get("activeRequests")).intValue());
             assertEquals(0, ((Number) settled.get("activePrivilegedRequests")).intValue());
             assertEquals(0L, ((Number) settled.get("oldestActivePrivilegedRequestMillis")).longValue());
@@ -125,7 +125,7 @@ class MorpheusRemoteMutationAvailabilityTest {
             assertTrue(statuses.contains(429), () -> "bounded privileged capacity must refuse the excess: " + statuses);
             assertTrue(statuses.stream().allMatch(code -> code == 201 || code == 429), () -> "unexpected: " + statuses);
 
-            Map<String, Object> settled = statusOf(client, base, admin.token());
+            Map<String, Object> settled = awaitSettledStatus(client, base, admin.token());
             assertEquals(0, ((Number) settled.get("activeRequests")).intValue(),
                     "a refused request must give its request slot back");
             assertEquals(0, ((Number) settled.get("activePrivilegedRequests")).intValue(),
@@ -140,6 +140,24 @@ class MorpheusRemoteMutationAvailabilityTest {
         }
     }
 
+    /**
+     * Waits for the request gauges to become quiescent once the client holds every response.
+     *
+     * <p>The facade releases its request slot and privileged permit in the handler's {@code finally}, after the
+     * response writer can already have made the final bytes visible to the client. A single status read taken
+     * straight after {@code Future#get()} therefore races that bookkeeping, and loses it on a heavily scheduled
+     * runner -- which is what failed the Windows leg of the promotion with {@code expected: <0> but was: <1>}.</p>
+     *
+     * <p>This waits for a state rather than retrying until green: the bound is real, and a slot that is genuinely
+     * leaked still fails the assertions that follow once the deadline expires.</p>
+     */
+    private Map<String, Object> awaitSettledStatus(HttpClient client, URI base, String token) throws Exception {
+        return awaitStatusWhere(client, base, token,
+                status -> ((Number) status.get("activeRequests")).intValue() == 0
+                        && ((Number) status.get("activePrivilegedRequests")).intValue() == 0);
+    }
+
+    @SuppressWarnings("java:S2925")
     private Map<String, Object> awaitStatusWhere(
             HttpClient client,
             URI base,
@@ -150,6 +168,9 @@ class MorpheusRemoteMutationAvailabilityTest {
         while (System.nanoTime() < deadline) {
             last = statusOf(client, base, token);
             if (condition.test(last)) return last;
+            // Pause between samples: an unthrottled HTTPS poll is load of its own on the facade whose occupancy
+            // is being measured, and it was the only loop here without one.
+            TimeUnit.MILLISECONDS.sleep(25);
         }
         throw new AssertionError("remote status never reached the expected state; last was " + last);
     }
