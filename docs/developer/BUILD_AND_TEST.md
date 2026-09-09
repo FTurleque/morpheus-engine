@@ -61,8 +61,10 @@ Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubunt
 ```text
 baseline Surefire totale       >= 1550
 baseline architecture          >= 385
-JaCoCo line ratchet            >= 62.0%
-JaCoCo branch ratchet          >= 53.5%
+JaCoCo aggregate line ratchet     >= 85.0%
+JaCoCo aggregate branch ratchet   >= 68.0%
+JaCoCo per-module line ratchet    >= 62.0%
+JaCoCo per-module branch ratchet  >= 53.5%
 D2 absolute line floor         40%
 D2 absolute branch floor       35%
 maven dependency analyze       failOnWarning=true
@@ -71,7 +73,7 @@ CycloneDX SBOM                  JSON + XML
 product/package version         1.2.1
 ```
 
-La source normative des quatre ratchets M21 est `config/m21-quality-ratchets.properties`. Les scripts Windows/Linux et `CoverageQualityGateTest` consomment ce même fichier afin d'empêcher toute divergence entre gate shell, gate PowerShell et gate Java.
+La source normative des six ratchets M21 est `config/m21-quality-ratchets.properties`. Les deux échelles de couverture y sont déclarées séparément : `aggregate*` pour la mesure canonique (`morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml`, qui fusionne aussi l'exécution cross-module des tests d'architecture) et `perModule*` pour la somme des rapports JaCoCo de chaque module pris isolément. `AggregateCoverageGateTest` et les deux validateurs `validate-m21.*` consomment la première, `CoverageQualityGateTest` la seconde ; aucun gate ne lit les clés de l'autre échelle, et `CoverageScaleSeparationTest` fait échouer le build si l'un d'eux s'y essaie.
 
 Les floors sont des ratchets de présence : ils ne sont pas abaissés automatiquement, et toute hausse ultérieure doit être fondée sur une qualification exacte du même SHA sous Windows et Linux.
 
@@ -90,18 +92,18 @@ Cette garde différentielle complète le ratchet global : elle évite qu'une nou
 
 ## Qualité et ratchet JaCoCo
 
-La baseline globale courante est verrouillée à **62,0% lignes / 53,5% branches**.
+La baseline courante est verrouillée à **85,0% lignes / 68,0% branches** sur l'échelle agrégée et **62,0% lignes / 53,5% branches** par module. Les deux chiffres mesurent des populations de lignes différentes : les comparer entre eux n'a pas de sens, et comparer l'un au seuil de l'autre est précisément le défaut que la séparation des clés supprime.
 
 Règle d’évolution :
 
-1. une baisse sous 62,0% lignes ou 53,5% branches fait échouer le gate M21 ;
+1. une baisse sous 85,0% lignes ou 68,0% branches agrégées, ou sous 62,0% lignes ou 53,5% branches par module, fait échouer le gate M21 ;
 2. les floors D2 40% / 35% restent des minima absolus et ne peuvent jamais affaiblir le ratchet ;
 3. une amélioration de couverture ne relève le ratchet qu’après qualification du même SHA exact sur Windows et Linux ;
 4. le ratchet n’est jamais abaissé automatiquement ; une baisse nécessite une décision d’audit explicite et motivée ;
 5. les compteurs de tests sont eux aussi des ratchets de présence, pas une mesure de qualité autonome ;
 6. la couverture ne justifie pas des tests artificiels : les tests doivent conserver une valeur fonctionnelle, de contrat, de sécurité ou d’architecture indépendante du chiffre.
 
-`CoverageQualityGateTest` écrit dans `morpheus-architecture-tests/target/m21-coverage-summary.txt` la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2.
+Chaque gate écrit sa propre preuve, dont la première ligne déclare l'échelle mesurée : `CoverageQualityGateTest` écrit `morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt` (`coverageScope=per-module`) et `AggregateCoverageGateTest` écrit `morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt` (`coverageScope=aggregate`). Les deux fichiers portent la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2. Les validateurs refusent de conclure sur une preuve dont l'échelle n'est pas celle qu'ils attendent.
 
 ## Frontière HTTP des corps de requête
 

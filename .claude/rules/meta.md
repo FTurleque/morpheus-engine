@@ -19,9 +19,14 @@ version, compteurs `dependency:analyze`), ce nombre doit être traité comme pé
 
 - Avant un audit de gouvernance, de coverage, ou toute réponse qui cite un seuil chiffré :
   relire la source vivante, pas cette page. Sources vivantes connues :
-  - `config/m21-quality-ratchets.properties` — tests/architecture/coverage minimums
-  - `morpheus-architecture-tests/.../d2/CoverageQualityGateTest.java` et
-    `D2RepositoryHardeningArchitectureTest.java` — planchers D2 asserts textuellement
+  - `config/m21-quality-ratchets.properties` — tests/architecture minimums, puis **une paire
+    de clés de couverture par échelle** (`aggregate*`, `perModule*`) : un seuil de couverture
+    cité sans son échelle ne veut rien dire
+  - `morpheus-architecture-tests/.../m21/CoverageQualityGateTest.java` (plafond qualifié de
+    l'échelle par module), `morpheus-coverage-report/.../AggregateCoverageGateTest.java`
+    (plafond qualifié de l'échelle agrégée, canonique) et
+    `morpheus-architecture-tests/.../d2/D2RepositoryHardeningArchitectureTest.java` —
+    planchers D2 asserts textuellement
   - `pom.xml` (racine) — version produit, versions pinnées
   - `docs/adr/` — compter les fichiers, ne pas répéter un total mémorisé ("N ADRs" doit
     toujours être vérifié par un `glob`/`ls`, jamais recopié tel quel ; un doublon de
@@ -42,7 +47,7 @@ version, compteurs `dependency:analyze`), ce nombre doit être traité comme pé
   échecs énumérer les destinations réelles. Constatées ce jour-là :
 
   ```text
-  config/m21-quality-ratchets.properties        (source normative)
+  config/m21-quality-ratchets.properties        (source normative, deux paires de clés)
   README.md                                     (phrase « Le ratchet global est … »)
   docs/README.md
   docs/developer/BUILD_AND_TEST.md              (tableau + « verrouillée à » + règle de baisse)
@@ -57,7 +62,14 @@ version, compteurs `dependency:analyze`), ce nombre doit être traité comme pé
   .claude/rules/testing.md
   .claude/rules/governance.md
   RepositoryDocumentationCoherenceTest          (valeurs épinglées, hausse délibérée)
+  AggregateCoverageGateTest                     (plafond qualifié agrégé)
+  CoverageQualityGateTest                       (plafond qualifié par module)
   ```
+
+  Depuis le 09/09/2026 les deux échelles de couverture ont des clés, des plafonds, des
+  fichiers de preuve et des messages distincts. Répercuter une hausse veut donc dire : ne
+  toucher qu'à l'échelle réellement mesurée, et ne jamais aligner les deux sur une valeur
+  moyenne — ce serait refaire sous un autre nom le défaut que la séparation a corrigé.
 
   Les **mesures historiques** datées ne se réécrivent pas : seule une valeur active se met à jour
 - Traiter `post-edit.ps1` (hook) comme un filet de sécurité, pas une garantie : il avertit

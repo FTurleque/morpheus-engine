@@ -21,7 +21,10 @@ Rapporter par milestone : M19 M20 M21 M22 M23 M24 M25 M26 M27 M28 D2 + tests rac
 ./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest
 ```
 Seuils appliqués : **47% lignes / 40% branches** (ratchet qualifié), pas 40/35 (plancher D2).
-Lire le résumé généré : `morpheus-architecture-tests/target/m21-coverage-summary.txt`.
+Lire les résumés générés, dont la première ligne déclare l'échelle mesurée :
+`morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt` (`coverageScope=aggregate`,
+mesure canonique) et `morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt`
+(`coverageScope=per-module`).
 
 ### 4. Convergence des contrats
 Vérifier la cohérence entre :

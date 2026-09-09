@@ -127,8 +127,10 @@ MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
 Surefire ratchet           >= 1550
 Architecture ratchet       >= 385
-Global line ratchet        >= 62.0%
-Global branch ratchet      >= 53.5%
+Aggregate line ratchet     >= 85.0%
+Aggregate branch ratchet   >= 68.0%
+Per-module line ratchet    >= 62.0%
+Per-module branch ratchet  >= 53.5%
 PR changed line coverage   >= 80%
 PR changed branch coverage >= 70%
 JaCoCo canonical report    morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml

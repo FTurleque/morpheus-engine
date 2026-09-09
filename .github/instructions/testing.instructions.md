@@ -10,12 +10,20 @@ Détail complet, procédures et anatomie d'un gate milestone : `.claude/rules/te
 ## ⚠️ Coverage : ne jamais citer un seuil de mémoire
 
 **Source de vérité unique et vivante** : `config/m21-quality-ratchets.properties`
-(`testsMinimum`, `architectureTestsMinimum`, `lineCoverageMinimum`,
-`branchCoverageMinimum`). Ce projet a déjà eu trois chiffres différents pour le même
-ratchet dans trois fichiers de documentation — relire systématiquement le fichier
-`.properties` avant toute décision de gouvernance ou de coverage, jamais cette page ni
-`.claude/rules/testing.md`. Le gate `CoverageQualityGateTest` applique
-`max(plancher D2 fixe, ratchet qualifié vivant)`.
+(`testsMinimum`, `architectureTestsMinimum`, puis **une paire de clés par échelle de
+mesure** : `aggregateLineCoverageMinimum` / `aggregateBranchCoverageMinimum` et
+`perModuleLineCoverageMinimum` / `perModuleBranchCoverageMinimum`). Ce projet a déjà eu
+trois chiffres différents pour le même ratchet dans trois fichiers de documentation —
+relire systématiquement le fichier `.properties` avant toute décision de gouvernance ou
+de coverage, jamais cette page ni `.claude/rules/testing.md`.
+
+Deux gates mesurent la couverture sur deux grandeurs différentes et chacun applique
+`max(plancher D2 fixe, ratchet qualifié vivant de son échelle)` :
+`AggregateCoverageGateTest` lit le rapport canonique `jacoco-aggregate` et les clés
+`aggregate*` ; `CoverageQualityGateTest` somme les rapports JaCoCo par module et lit les
+clés `perModule*`. Chacun écrit sa propre preuve, dont la première ligne déclare
+`coverageScope=`. **Ne jamais comparer un ratio d'une échelle au seuil de l'autre** —
+`CoverageScaleSeparationTest` fait échouer le build sur cette confusion.
 
 ## TOUJOURS
 
@@ -45,5 +53,6 @@ docs/validation/VALIDATION_M<N>.md                                         ← p
 ```bash
 ./mvnw clean verify                                              # reactor complet + coverage
 ./mvnw test -pl morpheus-architecture-tests                      # tous les gates
-./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest
+./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest    # échelle par module
+./mvnw test -pl morpheus-coverage-report                                      # échelle agrégée
 ```

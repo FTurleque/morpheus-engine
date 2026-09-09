@@ -14,10 +14,23 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (08/09/2026
 |---|---|
 | `testsMinimum` | 1550 |
 | `architectureTestsMinimum` | 385 |
-| `lineCoverageMinimum` | 0.620 (62.0%) |
-| `branchCoverageMinimum` | 0.535 (53.5%) |
+| `aggregateLineCoverageMinimum` | 0.850 (85.0%) |
+| `aggregateBranchCoverageMinimum` | 0.680 (68.0%) |
+| `perModuleLineCoverageMinimum` | 0.620 (62.0%) |
+| `perModuleBranchCoverageMinimum` | 0.535 (53.5%) |
 
-`CoverageQualityGateTest` (`morpheus-architecture-tests/.../m21/`) applique **deux** niveaux :
+## Deux échelles de couverture, deux jeux de seuils
+
+Deux gates mesurent la couverture et ne mesurent **pas la même grandeur**. Jusqu'au 09/09/2026 ils lisaient les deux mêmes clés et écrivaient le même fichier de preuve, donc un seuil qualifié sur une échelle gouvernait l'autre :
+
+| Gate | Rapport lu | Clés | Preuve écrite |
+|---|---|---|---|
+| `AggregateCoverageGateTest` (`morpheus-coverage-report`) | `jacoco-aggregate` (mesure canonique, fusionne l'exécution cross-module des tests d'architecture) | `aggregate*` | `target/m21-aggregate-coverage-summary.txt` (`coverageScope=aggregate`) |
+| `CoverageQualityGateTest` (`morpheus-architecture-tests/.../m21/`) | somme des `*/target/site/jacoco/jacoco.xml`, module de tests d'architecture exclu | `perModule*` | `target/m21-per-module-coverage-summary.txt` (`coverageScope=per-module`) |
+
+`CoverageScaleSeparationTest` fait échouer le build si un gate lit une clé, un rapport ou une preuve de l'autre échelle, et prouve que les validateurs `validate-m21.*` refusent une preuve dont la première ligne n'est pas `coverageScope=aggregate`. **Ne jamais comparer un ratio par module à un seuil agrégé, ni l'inverse.**
+
+Chaque gate applique **deux** niveaux :
 
 | Niveau | Line | Branch | Rôle |
 |---|---|---|---|
@@ -27,7 +40,7 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (08/09/2026
 Le gate applique `max(plancher, ratchet)`.
 
 - Un ratchet ne doit **jamais** être affaibli : `assertTrue(minLineRatio >= D2_MIN_LINE_RATIO, ...)` est lui-même asserté dans `CoverageQualityGateTest`
-- Un ratchet ne doit **jamais** dépasser sa baseline qualifiée : `assertTrue(ratchets.lineCoverageMinimum() <= QUALIFIED_LINE_RATIO, ...)` (constatée : `QUALIFIED_LINE_RATIO = 0.625013d`, `QUALIFIED_BRANCH_RATIO = 0.537997d` — à revérifier, cf. `rules/meta.md`)
+- Un ratchet ne doit **jamais** dépasser la baseline qualifiée **de sa propre échelle** : `PER_MODULE_QUALIFIED_LINE_RATIO` / `PER_MODULE_QUALIFIED_BRANCH_RATIO` dans `CoverageQualityGateTest`, `AGGREGATE_QUALIFIED_LINE_RATIO` / `AGGREGATE_QUALIFIED_BRANCH_RATIO` dans `AggregateCoverageGateTest` (valeurs à relire dans les sources, cf. `rules/meta.md`)
 - `D2RepositoryHardeningArchitectureTest#coverageRatchetCannotSilentlyReturnToTheD2Floor` vérifie que
   `CoverageQualityGateTest.java` **ne contient pas** les chaînes `LINE_RATCHET = 0.40d` / `BRANCH_RATCHET = 0.35d`
   (le ratchet ne doit jamais être recodé en dur à la valeur plancher D2) et lit bien
@@ -36,8 +49,8 @@ Le gate applique `max(plancher, ratchet)`.
 
 ### Pourquoi le ratchet plafonne sous la mesure réelle
 
-`QUALIFIED_LINE_RATIO` / `QUALIFIED_BRANCH_RATIO` (dans `CoverageQualityGateTest`) plafonnent
-le ratchet, et leur commentaire impose qu'ils soient qualifiés sur **la plus basse mesure
+Les constantes `*_QUALIFIED_LINE_RATIO` / `*_QUALIFIED_BRANCH_RATIO` plafonnent le ratchet de leur
+échelle, et leur commentaire impose qu'ils soient qualifiés sur **la plus basse mesure
 reproductible des deux plateformes**, jamais sur la meilleure : Linux et Windows exécutent le
 même nombre de tests, mais certains no-opent hors de leur OS, donc Linux couvre légèrement
 moins de lignes à nombre de tests identique.
@@ -56,7 +69,8 @@ Le plafond précédent (54,5801 % / 47,7791 %) avait dérivé loin sous la réal
 Le **ratchet** se place délibérément *sous* le plafond, pas dessus : deux runs du même commit
 sur la même machine ont différé de deux lignes couvertes, donc un ratchet collé à la mesure
 transformerait une variation ordinaire en échec de build. `0.620 / 0.535` laisse environ
-140 lignes et 30 branches de marge.
+140 lignes et 30 branches de marge **sur l'échelle par module** ; l'échelle agrégée compte une autre
+population de lignes et sa marge se lit dans `AggregateCoverageGateTest`.
 
 Une session qui ne dispose que d'une plateforme ne peut relever que le ratchet, dans la marge
 déjà qualifiée ; elle ne touche pas au plafond.
@@ -119,5 +133,6 @@ référencées par plusieurs suites et servent de baseline de non-régression.
 ./mvnw clean verify                                              # reactor complet + coverage
 ./mvnw test -pl morpheus-architecture-tests                      # tous les gates
 ./mvnw test -pl morpheus-architecture-tests -Dtest=*M28*         # gate M28
-./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest
+./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest    # échelle par module
+./mvnw test -pl morpheus-coverage-report                                      # échelle agrégée
 ```

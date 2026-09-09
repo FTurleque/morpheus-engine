@@ -117,11 +117,8 @@ if (( ARCH_TESTS < 258 )); then
 fi
 printf '%s\n' "D2 tests: PASS ($TESTS tests, architecture=$ARCH_TESTS, skipped=$SKIPPED)"
 
-COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
-if [[ ! -f "$COVERAGE" ]]; then
-  echo "D2 coverage summary missing: $COVERAGE" >&2
-  exit 1
-fi
+COVERAGE="$REPO/morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt"
+bash "$SCRIPT_DIR/lib/require-aggregate-coverage-evidence.sh" "$COVERAGE"
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
 morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'

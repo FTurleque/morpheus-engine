@@ -48,17 +48,26 @@ class D2RepositoryHardeningArchitectureTest {
     void coverageRatchetCannotSilentlyReturnToTheD2Floor() throws IOException {
         Path root = repoRoot();
         Properties ratchets = m21Ratchets(root);
-        double line = Double.parseDouble(ratchets.getProperty("lineCoverageMinimum"));
-        double branch = Double.parseDouble(ratchets.getProperty("branchCoverageMinimum"));
-        assertTrue(line > 0.40d, "M21 line ratchet must remain stricter than the D2 floor");
-        assertTrue(branch > 0.35d, "M21 branch ratchet must remain stricter than the D2 floor");
+        // Both scales, because a floor that only one of them respects leaves the other free to return to it.
+        for (String key : List.of("perModuleLineCoverageMinimum", "aggregateLineCoverageMinimum")) {
+            assertTrue(Double.parseDouble(ratchets.getProperty(key)) > 0.40d,
+                    () -> "M21 line ratchet " + key + " must remain stricter than the D2 floor");
+        }
+        for (String key : List.of("perModuleBranchCoverageMinimum", "aggregateBranchCoverageMinimum")) {
+            assertTrue(Double.parseDouble(ratchets.getProperty(key)) > 0.35d,
+                    () -> "M21 branch ratchet " + key + " must remain stricter than the D2 floor");
+        }
 
         String coverage = Files.readString(root.resolve(
                 "morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java"));
-        assertTrue(coverage.contains("config/m21-quality-ratchets.properties"),
-                "M21 coverage gate must consume the centralized ratchet configuration");
-        assertFalse(coverage.contains("LINE_RATCHET = 0.40d"));
-        assertFalse(coverage.contains("BRANCH_RATCHET = 0.35d"));
+        String aggregate = Files.readString(root.resolve(
+                "morpheus-coverage-report/src/test/java/com/morpheus/coverage/AggregateCoverageGateTest.java"));
+        for (String gate : List.of(coverage, aggregate)) {
+            assertTrue(gate.contains("config/m21-quality-ratchets.properties"),
+                    "each M21 coverage gate must consume the centralized ratchet configuration");
+            assertFalse(gate.contains("LINE_RATCHET = 0.40d"));
+            assertFalse(gate.contains("BRANCH_RATCHET = 0.35d"));
+        }
     }
 
     @Test
@@ -67,8 +76,10 @@ class D2RepositoryHardeningArchitectureTest {
         Properties ratchets = m21Ratchets(root);
         assertTrue(Integer.parseInt(ratchets.getProperty("testsMinimum")) >= 860);
         assertTrue(Integer.parseInt(ratchets.getProperty("architectureTestsMinimum")) >= 265);
-        assertTrue(Double.parseDouble(ratchets.getProperty("lineCoverageMinimum")) >= 0.510d);
-        assertTrue(Double.parseDouble(ratchets.getProperty("branchCoverageMinimum")) >= 0.435d);
+        assertTrue(Double.parseDouble(ratchets.getProperty("perModuleLineCoverageMinimum")) >= 0.510d);
+        assertTrue(Double.parseDouble(ratchets.getProperty("perModuleBranchCoverageMinimum")) >= 0.435d);
+        assertTrue(Double.parseDouble(ratchets.getProperty("aggregateLineCoverageMinimum")) >= 0.510d);
+        assertTrue(Double.parseDouble(ratchets.getProperty("aggregateBranchCoverageMinimum")) >= 0.435d);
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
