@@ -87,7 +87,8 @@ jobs:
             **/target/surefire-reports/*.xml
             **/target/site/jacoco/jacoco.xml
             morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml
-            morpheus-architecture-tests/target/m21-coverage-summary.txt
+            morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt
+            morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt
             target/m21-supply-chain/**
             validation-output/m21/validation-summary.txt
             validation-output/m21/diff-coverage.txt

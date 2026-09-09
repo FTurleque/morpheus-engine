@@ -28,15 +28,17 @@ Architecture       >= 385 PASS
 Reactor            18/18 SUCCESS
 Windows            PASS
 Linux              PASS
-JaCoCo lines        >= 62.0 % aggregate
-JaCoCo branches     >= 53.5 % aggregate
+JaCoCo aggregate lines      >= 62.0 %
+JaCoCo aggregate branches   >= 53.5 %
+JaCoCo per-module lines     >= 62.0 %
+JaCoCo per-module branches  >= 53.5 %
 Changed lines       >= 80 %
 Changed branches    >= 70 %
 ```
 
-La baseline qualifiée qui borne les ratchets actifs est enregistrée dans `CoverageQualityGateTest` : **52,6971 % de lignes** et **45,7250 % de branches**, mesurées exact-head sous Linux après #230. Les seuils de `config/m21-quality-ratchets.properties` restent volontairement légèrement sous cette mesure afin de former des ratchets stables, et `CoverageQualityGateTest` refuse tout ratchet qui la dépasserait. La qualification de la PR #187 sur `75768168ce552d97ede15a5fe4aa3979993ee108` (871 tests, 269 tests d’architecture, 51,3447 % de lignes sous Linux, 51,3530 % sous Windows, 43,9379 % de branches) est conservée comme trace d’audit et ne décrit plus les seuils actifs. Le changed-code gate complète les lignes par les branches situées sur les lignes exécutables modifiées.
+Chaque échelle borne ses propres ratchets par une baseline qualifiée enregistrée dans le gate qui la mesure : `CoverageQualityGateTest` pour l'échelle par module, `AggregateCoverageGateTest` pour l'échelle agrégée. Les seuils de `config/m21-quality-ratchets.properties` restent volontairement légèrement sous la baseline de leur propre échelle afin de former des ratchets stables, et chaque gate refuse un ratchet qui dépasserait la sienne. La qualification de la PR #187 sur `75768168ce552d97ede15a5fe4aa3979993ee108` (871 tests, 269 tests d’architecture, 51,3447 % de lignes sous Linux, 51,3530 % sous Windows, 43,9379 % de branches) est conservée comme trace d’audit et ne décrit plus les seuils actifs. Le changed-code gate complète les lignes par les branches situées sur les lignes exécutables modifiées.
 
-Les quatre ratchets durables sont définis une seule fois dans `config/m21-quality-ratchets.properties`. Les validateurs Linux/Windows et `CoverageQualityGateTest` lisent cette configuration au lieu de recopier les valeurs.
+Les six ratchets durables sont définis une seule fois dans `config/m21-quality-ratchets.properties` : deux ratchets de présence, puis une paire de couverture par échelle (`aggregate*`, `perModule*`). Les validateurs Linux/Windows concluent sur l'échelle agrégée et refusent une preuve produite sur l'autre ; chaque gate lit uniquement la paire de clés de l'échelle qu'il mesure.
 
 ## Reproducible-build hygiene
 

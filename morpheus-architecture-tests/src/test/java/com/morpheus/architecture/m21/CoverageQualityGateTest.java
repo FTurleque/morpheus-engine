@@ -16,11 +16,19 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
+/**
+ * Per-module coverage gate: the sum of every module's own JaCoCo report, architecture-test module excluded.
+ *
+ * <p>This scale answers a question the canonical post-reactor measurement cannot: what each module covers
+ * <em>by itself</em>. A service exercised only through a sibling module's tests reads as uncovered here, so a
+ * module that stops testing itself stays visible instead of being masked by its consumers. It is a different
+ * grandeur from the canonical measurement and therefore reads its own pair of ratchet keys.</p>
+ */
 class CoverageQualityGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline: 62.5013% lines / 53.7997% branches.
+    // Qualified exact-head baseline of the PER-MODULE scale: 62.5013% lines / 53.7997% branches.
     // Deliberately at or below the LOWEST reproducible exact-head measurement across both platforms, never the
     // best one. The two platforms run the same number of tests, but some of them no-op off their own OS -- the
     // Windows junction check is one -- so Linux covers slightly fewer lines for an identical test count.
@@ -32,30 +40,30 @@ class CoverageQualityGateTest {
     // The previous baseline (54.5801% / 47.7791%, #253) had drifted well below the measured reality: develop
     // already stood at 60.41% lines on Linux before this branch added a test.
     //
-    // The ratchets in config/m21-quality-ratchets.properties sit deliberately BELOW this cap rather than at it.
-    // Two runs of the same commit on the same machine differed by two covered lines, so a ratchet pinned to the
-    // measurement would turn ordinary run-to-run variation into a build failure. 0.620 / 0.535 leaves roughly
-    // 140 lines and 30 branches of headroom -- far more than any variation observed, far less than the 8-point
-    // gap the stale cap had accumulated.
+    // The per-module ratchets in config/m21-quality-ratchets.properties sit deliberately BELOW this cap rather
+    // than at it. Two runs of the same commit on the same machine differed by two covered lines, so a ratchet
+    // pinned to the measurement would turn ordinary run-to-run variation into a build failure. 0.620 / 0.535
+    // leaves roughly 140 lines and 30 branches of headroom ON THIS SCALE only; the canonical measurement counts
+    // a different population of covered lines and carries its own cap in AggregateCoverageGateTest.
     //
-    // Raising these two constants requires a fresh measurement on BOTH platforms, cited here.
-    private static final double QUALIFIED_LINE_RATIO = 0.625013d;
-    private static final double QUALIFIED_BRANCH_RATIO = 0.537997d;
+    // Raising these two constants requires a fresh per-module measurement on BOTH platforms, cited here.
+    private static final double PER_MODULE_QUALIFIED_LINE_RATIO = 0.625013d;
+    private static final double PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.537997d;
 
     @Test
-    void reactorCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {
+    void perModuleCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {
         Path root = repoRoot();
         Ratchets ratchets = Ratchets.load(root.resolve("config/m21-quality-ratchets.properties"));
-        double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.lineCoverageMinimum());
-        double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.branchCoverageMinimum());
+        double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.perModuleLineCoverageMinimum());
+        double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.perModuleBranchCoverageMinimum());
         List<Path> reports = jacocoReports(root);
         assertTrue(reports.size() >= 8, "expected JaCoCo reports from the tested reactor modules, got " + reports.size());
         assertTrue(minLineRatio >= D2_MIN_LINE_RATIO, "coverage ratchet must never weaken the D2 line floor");
         assertTrue(minBranchRatio >= D2_MIN_BRANCH_RATIO, "coverage ratchet must never weaken the D2 branch floor");
-        assertTrue(ratchets.lineCoverageMinimum() <= QUALIFIED_LINE_RATIO,
-                "line ratchet must not exceed its qualified baseline");
-        assertTrue(ratchets.branchCoverageMinimum() <= QUALIFIED_BRANCH_RATIO,
-                "branch ratchet must not exceed its qualified baseline");
+        assertRatchetWithinQualifiedWindow("line", ratchets.perModuleLineCoverageMinimum(),
+                D2_MIN_LINE_RATIO, PER_MODULE_QUALIFIED_LINE_RATIO);
+        assertRatchetWithinQualifiedWindow("branch", ratchets.perModuleBranchCoverageMinimum(),
+                D2_MIN_BRANCH_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO);
 
         Counter lines = new Counter();
         Counter branches = new Counter();
@@ -80,14 +88,14 @@ class CoverageQualityGateTest {
 
         double lineRatio = lines.ratio();
         double branchRatio = branches.ratio();
-        Path summary = root.resolve("morpheus-architecture-tests/target/m21-coverage-summary.txt");
+        Path summary = root.resolve("morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt");
         Files.createDirectories(summary.getParent());
         Files.writeString(summary, String.format(
                 java.util.Locale.ROOT,
-                "reports=%d%nlineCovered=%d%nlineMissed=%d%nlineRatio=%.6f%nbranchCovered=%d%nbranchMissed=%d%nbranchRatio=%.6f%nqualifiedLineBaseline=%.6f%nqualifiedBranchBaseline=%.6f%nlineRatchet=%.3f%nbranchRatchet=%.3f%nd2LineFloor=%.2f%nd2BranchFloor=%.2f%n",
+                "coverageScope=per-module%nreports=%d%nlineCovered=%d%nlineMissed=%d%nlineRatio=%.6f%nbranchCovered=%d%nbranchMissed=%d%nbranchRatio=%.6f%nqualifiedLineBaseline=%.6f%nqualifiedBranchBaseline=%.6f%nlineRatchet=%.3f%nbranchRatchet=%.3f%nd2LineFloor=%.2f%nd2BranchFloor=%.2f%n",
                 reports.size(), lines.covered, lines.missed, lineRatio,
                 branches.covered, branches.missed, branchRatio,
-                QUALIFIED_LINE_RATIO, QUALIFIED_BRANCH_RATIO,
+                PER_MODULE_QUALIFIED_LINE_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO,
                 minLineRatio, minBranchRatio,
                 D2_MIN_LINE_RATIO, D2_MIN_BRANCH_RATIO));
 
@@ -98,17 +106,41 @@ class CoverageQualityGateTest {
     @Test
     void ratchetRejectsARegressionThatTheOldD2FloorWouldHaveAccepted() throws Exception {
         Ratchets ratchets = Ratchets.load(repoRoot().resolve("config/m21-quality-ratchets.properties"));
-        double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.lineCoverageMinimum());
-        double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.branchCoverageMinimum());
+        double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.perModuleLineCoverageMinimum());
+        double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.perModuleBranchCoverageMinimum());
         assertTrue(0.49d >= D2_MIN_LINE_RATIO);
         assertTrue(0.41d >= D2_MIN_BRANCH_RATIO);
         assertThrows(AssertionError.class, () -> assertCoverageAtLeast("line", 0.49d, minLineRatio));
         assertThrows(AssertionError.class, () -> assertCoverageAtLeast("branch", 0.41d, minBranchRatio));
     }
 
+    /**
+     * The window is what makes a ratchet a ratchet: strictly above the D2 floor it may never silently return to,
+     * and at or below the measurement that qualified it. Both ends are proven here rather than merely exercised
+     * by whichever value happens to be configured today.
+     */
+    @Test
+    void perModuleRatchetWindowRejectsAnUnqualifiedRaiseAndAReturnToTheD2Floor() {
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "line", PER_MODULE_QUALIFIED_LINE_RATIO + 0.000001d, D2_MIN_LINE_RATIO, PER_MODULE_QUALIFIED_LINE_RATIO));
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "branch", PER_MODULE_QUALIFIED_BRANCH_RATIO + 0.000001d, D2_MIN_BRANCH_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO));
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "line", D2_MIN_LINE_RATIO, D2_MIN_LINE_RATIO, PER_MODULE_QUALIFIED_LINE_RATIO));
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "branch", D2_MIN_BRANCH_RATIO, D2_MIN_BRANCH_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO));
+    }
+
+    private static void assertRatchetWithinQualifiedWindow(String kind, double ratchet, double floor, double cap) {
+        assertTrue(ratchet > floor,
+                () -> "per-module " + kind + " ratchet " + ratchet + " must stay stricter than the D2 floor " + floor);
+        assertTrue(ratchet <= cap,
+                () -> "per-module " + kind + " ratchet " + ratchet + " exceeds its qualified per-module baseline " + cap);
+    }
+
     private static void assertCoverageAtLeast(String kind, double actual, double minimum) {
         assertTrue(actual >= minimum,
-                () -> "aggregate JaCoCo " + kind + " coverage " + actual + " is below qualified-baseline ratchet " + minimum);
+                () -> "per-module JaCoCo " + kind + " coverage " + actual + " is below qualified-baseline ratchet " + minimum);
     }
 
     private org.w3c.dom.Document parse(Path report) throws Exception {
@@ -149,15 +181,15 @@ class CoverageQualityGateTest {
         throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 
-    private record Ratchets(double lineCoverageMinimum, double branchCoverageMinimum) {
+    private record Ratchets(double perModuleLineCoverageMinimum, double perModuleBranchCoverageMinimum) {
         private static Ratchets load(Path path) throws IOException {
             Properties properties = new Properties();
             try (var reader = Files.newBufferedReader(path)) {
                 properties.load(reader);
             }
             return new Ratchets(
-                    requiredDouble(properties, "lineCoverageMinimum"),
-                    requiredDouble(properties, "branchCoverageMinimum"));
+                    requiredDouble(properties, "perModuleLineCoverageMinimum"),
+                    requiredDouble(properties, "perModuleBranchCoverageMinimum"));
         }
 
         private static double requiredDouble(Properties properties, String key) {

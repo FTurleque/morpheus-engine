@@ -25,11 +25,15 @@ courante, elle évolue).
 
 ### 3. Coverage — seuils vivants
 ```bash
-./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest
+./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest    # échelle par module
+./mvnw test -pl morpheus-coverage-report                                      # échelle agrégée
 ```
-Le gate applique `max(plancher D2 fixe, ratchet qualifié vivant)`. Lire le ratchet actif
-dans `config/m21-quality-ratchets.properties`, jamais un pourcentage mémorisé. Lire le
-résumé généré : `morpheus-architecture-tests/target/m21-coverage-summary.txt`.
+Chaque gate applique `max(plancher D2 fixe, ratchet qualifié vivant de son échelle)`. Lire
+les ratchets actifs dans `config/m21-quality-ratchets.properties` (`aggregate*` pour la
+mesure canonique, `perModule*` pour la somme par module), jamais un pourcentage mémorisé.
+Lire les résumés générés, dont la première ligne déclare l'échelle :
+`morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt` et
+`morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt`.
 
 ### 4. Convergence des contrats
 Vérifier la cohérence entre `contracts/public-surfaces.tsv` et

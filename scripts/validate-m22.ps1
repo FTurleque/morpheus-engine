@@ -127,8 +127,8 @@ if ($architecture.Tests -lt 187) {
 Write-Host "Tests: PASS ($($totals.Tests), baseline >= 473)"
 Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= 187)"
 
-$coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
-if (-not (Test-Path $coverageSummary)) { throw "Missing production coverage summary: $coverageSummary" }
+$coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
+& (Join-Path $PSScriptRoot 'lib\Require-AggregateCoverageEvidence.ps1') -EvidencePath $coverageSummary
 $coverage = @{}
 Get-Content $coverageSummary | ForEach-Object {
     if ($_ -match '^([^=]+)=(.*)$') { $coverage[$matches[1]] = $matches[2] }

@@ -34,7 +34,12 @@ jamais l'original.**
 - Sources vivantes de référence :
   - `config/m21-quality-ratchets.properties` — minimums tests/architecture/coverage
   - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java`
+    (échelle par module, clés `perModule*`),
+    `morpheus-coverage-report/src/test/java/com/morpheus/coverage/AggregateCoverageGateTest.java`
+    (échelle agrégée canonique, clés `aggregate*`)
     et `.../d2/D2RepositoryHardeningArchitectureTest.java` — planchers D2, gate de non-régression
+  - un seuil de couverture ne se cite jamais sans son échelle : les deux gates mesurent des
+    populations de lignes différentes
   - `pom.xml` (racine) — version produit, liste des `<module>`, versions pinnées
   - `docs/adr/` — compter les fichiers réels (ne jamais recopier un total mémorisé ; un
     doublon de numérotation `0095-*` a existé jusqu'au 01/09/2026, corrigé en `0097-*`)

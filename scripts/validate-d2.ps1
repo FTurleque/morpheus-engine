@@ -133,10 +133,8 @@ if ($tests -lt 820) { throw "D2 test baseline regression: $tests < 820" }
 if ($architectureTests -lt 258) { throw "D2 architecture baseline regression: $architectureTests < 258" }
 Write-Host "D2 tests: PASS ($tests tests, architecture=$architectureTests, skipped=$skipped)"
 
-$coveragePath = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
-if (-not (Test-Path -LiteralPath $coveragePath -PathType Leaf)) {
-    throw "D2 coverage summary missing: $coveragePath"
-}
+$coveragePath = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
+& (Join-Path $PSScriptRoot 'lib\Require-AggregateCoverageEvidence.ps1') -EvidencePath $coveragePath
 $coverage = Read-KeyValueFile $coveragePath
 $lineCoverage = [double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture)
 $branchCoverage = [double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture)

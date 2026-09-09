@@ -216,23 +216,38 @@ class RepositoryDocumentationCoherenceTest {
         Path root = repositoryRoot();
         Path ratchetFile = root.resolve("config/m21-quality-ratchets.properties");
         Map<String, String> ratchets = properties(ratchetFile);
-        // Pinned so that moving a ratchet is a deliberate act with evidence, never a side effect. Raised on
-        // 08/09/2026 from 1300/335/0.545/0.477 against exact-head measurements taken on BOTH platforms at
-        // fix/audit-hardening-2026-09-08, 1560+ tests each of which 390+ are architecture tests:
-        //     Windows  62.5328% / 62.5432% lines,  53.8092% / 53.8188% branches
-        //     Linux    62.5083% / 62.5013% lines,  53.7997% / 53.7997% branches
-        // The coverage values stay below CoverageQualityGateTest's qualified cap rather than at it: two runs of
-        // one commit differed by two covered lines, so pinning the ratchet to the measurement would make
-        // ordinary variation fail the build.
+        // Pinned so that moving a ratchet is a deliberate act with evidence, never a side effect. The presence
+        // ratchets were raised on 08/09/2026 from 1300/335 against exact-head measurements taken on BOTH
+        // platforms at fix/audit-hardening-2026-09-08, 1560+ tests of which 390+ are architecture tests.
+        //
+        // The coverage ratchets are two pairs because two gates measure two different grandeurs, each with its
+        // own qualified cap, and until 09/09/2026 they shared one pair of keys:
+        //     per-module (CoverageQualityGateTest, sum of each module's own report)
+        //         Windows  62.5328% / 62.5432% lines,  53.8092% / 53.8188% branches
+        //         Linux    62.5083% / 62.5013% lines,  53.7997% / 53.7997% branches
+        //     aggregate  (AggregateCoverageGateTest, canonical jacoco-aggregate report)
+        //         cited in AggregateCoverageGateTest, which is where that cap lives
+        // Each pair stays below its own cap rather than at it: two runs of one commit differed by two covered
+        // lines, so pinning a ratchet to the measurement would make ordinary variation fail the build.
         assertEquals("1550", ratchets.get("testsMinimum"));
         assertEquals("385", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.620", ratchets.get("lineCoverageMinimum"));
-        assertEquals("0.535", ratchets.get("branchCoverageMinimum"));
+        assertEquals("0.620", ratchets.get("perModuleLineCoverageMinimum"));
+        assertEquals("0.535", ratchets.get("perModuleBranchCoverageMinimum"));
+        assertEquals("0.620", ratchets.get("aggregateLineCoverageMinimum"));
+        assertEquals("0.535", ratchets.get("aggregateBranchCoverageMinimum"));
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
         assertTrue(linux.contains("config/m21-quality-ratchets.properties"));
         assertTrue(windows.contains("config\\m21-quality-ratchets.properties"));
+        // Both validators conclude on the aggregate scale, so both must read the aggregate keys and neither
+        // may fall back to a scale-agnostic one.
+        for (String script : List.of(linux, windows)) {
+            assertTrue(script.contains("aggregateLineCoverageMinimum"));
+            assertTrue(script.contains("aggregateBranchCoverageMinimum"));
+            assertFalse(script.contains("read_ratchet lineCoverageMinimum"));
+            assertFalse(script.contains("$values.lineCoverageMinimum"));
+        }
         assertFalse(linux.contains("line < 0.506"), "Linux validator must not retain the old embedded line ratchet");
         assertFalse(windows.contains("-lt 0.506"), "Windows validator must not retain the old embedded line ratchet");
     }
@@ -242,17 +257,21 @@ class RepositoryDocumentationCoherenceTest {
         Path root = repositoryRoot();
         Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
         String expectedRatchets = """
-                Surefire total       >= %s
-                architecture         >= %s
-                line coverage        >= %s
-                branch coverage      >= %s
-                changed-line         >= 80%%
-                changed-branch       >= 70%%
+                Surefire total          >= %s
+                architecture            >= %s
+                aggregate line          >= %s
+                aggregate branch        >= %s
+                per-module line         >= %s
+                per-module branch       >= %s
+                changed-line            >= 80%%
+                changed-branch          >= 70%%
                 """.formatted(
                 ratchets.get("testsMinimum"),
                 ratchets.get("architectureTestsMinimum"),
-                percentage(ratchets.get("lineCoverageMinimum")),
-                percentage(ratchets.get("branchCoverageMinimum")));
+                percentage(ratchets.get("aggregateLineCoverageMinimum")),
+                percentage(ratchets.get("aggregateBranchCoverageMinimum")),
+                percentage(ratchets.get("perModuleLineCoverageMinimum")),
+                percentage(ratchets.get("perModuleBranchCoverageMinimum")));
 
         for (Path page : List.of(
                 root.resolve("docs/architecture/arc42/11-risques-dette.md"),
@@ -276,64 +295,89 @@ class RepositoryDocumentationCoherenceTest {
         Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
         String tests = ratchets.get("testsMinimum");
         String architecture = ratchets.get("architectureTestsMinimum");
-        String line = decimalPercentage(ratchets.get("lineCoverageMinimum"));
-        String branch = decimalPercentage(ratchets.get("branchCoverageMinimum"));
+        String aggregateLine = decimalPercentage(ratchets.get("aggregateLineCoverageMinimum"));
+        String aggregateBranch = decimalPercentage(ratchets.get("aggregateBranchCoverageMinimum"));
+        String perModuleLine = decimalPercentage(ratchets.get("perModuleLineCoverageMinimum"));
+        String perModuleBranch = decimalPercentage(ratchets.get("perModuleBranchCoverageMinimum"));
 
         assertLabelledThresholds(root, "docs/developer/BUILD_AND_TEST.md", Map.of(
                 "baseline Surefire totale", tests,
                 "baseline architecture", architecture,
-                "JaCoCo line ratchet", line,
-                "JaCoCo branch ratchet", branch));
+                "JaCoCo aggregate line ratchet", aggregateLine,
+                "JaCoCo aggregate branch ratchet", aggregateBranch,
+                "JaCoCo per-module line ratchet", perModuleLine,
+                "JaCoCo per-module branch ratchet", perModuleBranch));
         assertLabelledThresholds(root, "docs/developer/PRODUCTION_INTEGRITY.md", Map.of(
                 "Tests ", tests,
                 "Architecture ", architecture,
-                "JaCoCo lines", line,
-                "JaCoCo branches", branch));
+                "JaCoCo aggregate lines", aggregateLine,
+                "JaCoCo aggregate branches", aggregateBranch,
+                "JaCoCo per-module lines", perModuleLine,
+                "JaCoCo per-module branches", perModuleBranch));
         assertLabelledThresholds(root, "docs/README.md", Map.of(
                 "Surefire total", tests,
                 "architecture tests", architecture,
-                "JaCoCo global lines", line,
-                "JaCoCo global branches", branch));
+                "JaCoCo aggregate lines", aggregateLine,
+                "JaCoCo aggregate branches", aggregateBranch,
+                "JaCoCo per-module lines", perModuleLine,
+                "JaCoCo per-module branches", perModuleBranch));
         // The operator surfaces an engineer actually opens before running a gate. Each of these still announced
         // the pre-1.2.1 ratchets, so four different numbers were in circulation for one executable threshold.
+        // Each now has to name the scale as well as the number: one figure standing alone was exactly how a
+        // per-module threshold came to be read as governing the canonical measurement.
         assertLabelledThresholds(root, "scripts/README.md", Map.of(
                 "Surefire total", tests,
                 "architecture ", architecture,
-                "line coverage", line,
-                "branch coverage", branch));
+                "aggregate line coverage", aggregateLine,
+                "aggregate branch coverage", aggregateBranch,
+                "per-module line coverage", perModuleLine,
+                "per-module branch coverage", perModuleBranch));
         assertLabelledThresholds(root, "distribution/README.md", Map.of(
                 "Surefire total", tests,
                 "architecture ", architecture,
-                "line coverage", line,
-                "branch coverage", branch));
+                "aggregate line coverage", aggregateLine,
+                "aggregate branch coverage", aggregateBranch,
+                "per-module line coverage", perModuleLine,
+                "per-module branch coverage", perModuleBranch));
         assertLabelledThresholds(root, "docs/developer/README.md", Map.of(
                 "Surefire floor", tests,
                 "Architecture floor", architecture,
-                "JaCoCo line ratchet", line,
-                "JaCoCo branch ratchet", branch));
+                "JaCoCo aggregate line ratchet", aggregateLine,
+                "JaCoCo aggregate branch ratchet", aggregateBranch,
+                "JaCoCo per-module line ratchet", perModuleLine,
+                "JaCoCo per-module branch ratchet", perModuleBranch));
         assertLabelledThresholds(root, "docs/governance/DOCUMENTATION_STATUS.md", Map.of(
                 "Surefire ratchet", tests,
                 "Architecture ratchet", architecture,
-                "Global line ratchet", line,
-                "Global branch ratchet", branch));
+                "Aggregate line ratchet", aggregateLine,
+                "Aggregate branch ratchet", aggregateBranch,
+                "Per-module line ratchet", perModuleLine,
+                "Per-module branch ratchet", perModuleBranch));
         assertLabelledThresholds(root, "docs/governance/ROADMAP.md", Map.of(
                 "Surefire ratchet", tests,
                 "architecture ratchet", architecture,
-                "global line ratchet", line,
-                "global branch ratchet", branch));
+                "aggregate line ratchet", aggregateLine,
+                "aggregate branch ratchet", aggregateBranch,
+                "per-module line ratchet", perModuleLine,
+                "per-module branch ratchet", perModuleBranch));
 
         String readme = Files.readString(root.resolve("README.md"));
-        String readmeClaim = "Le ratchet global est **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire** et **≥ %s tests d’architecture**"
-                .formatted(french(line), french(branch), tests, architecture);
+        String readmeClaim = ("Le ratchet agrégé est **≥ %s %% lignes / ≥ %s %% branches**, le ratchet par module"
+                + " **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire** et"
+                + " **≥ %s tests d’architecture**")
+                .formatted(french(aggregateLine), french(aggregateBranch),
+                        french(perModuleLine), french(perModuleBranch), tests, architecture);
         assertTrue(readme.contains(readmeClaim),
                 () -> "README.md must state the normative M21 ratchets: " + readmeClaim);
 
         String buildAndTest = Files.readString(root.resolve("docs/developer/BUILD_AND_TEST.md"));
-        String lockedBaseline = "**%s%% lignes / %s%% branches**".formatted(french(line), french(branch));
+        String lockedBaseline = "**%s%% lignes / %s%% branches** sur l'échelle agrégée et **%s%% lignes / %s%% branches** par module"
+                .formatted(french(aggregateLine), french(aggregateBranch), french(perModuleLine), french(perModuleBranch));
         assertTrue(buildAndTest.contains("verrouillée à " + lockedBaseline),
                 () -> "BUILD_AND_TEST.md locked baseline must be " + lockedBaseline);
-        assertTrue(buildAndTest.contains("une baisse sous %s%% lignes ou %s%% branches".formatted(french(line), french(branch))),
-                "BUILD_AND_TEST.md regression rule must quote the normative coverage ratchets");
+        assertTrue(buildAndTest.contains("une baisse sous %s%% lignes ou %s%% branches agrégées, ou sous %s%% lignes ou %s%% branches par module"
+                        .formatted(french(aggregateLine), french(aggregateBranch), french(perModuleLine), french(perModuleBranch))),
+                "BUILD_AND_TEST.md regression rule must quote the normative coverage ratchets of both scales");
     }
 
     /**
