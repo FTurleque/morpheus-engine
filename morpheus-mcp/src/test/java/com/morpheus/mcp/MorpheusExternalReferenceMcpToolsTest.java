@@ -109,6 +109,24 @@ class MorpheusExternalReferenceMcpToolsTest {
         assertTrue(body.contains("\"items\":[]"), () -> body);
     }
 
+    /**
+     * The resolve path past the project guard: the project exists, so the refusal has to come from the
+     * reference itself rather than from the project lookup that shadows it.
+     */
+    @Test
+    void resolvingAnUnknownReferenceInAPublishedProjectFailsOnTheReferenceNotTheProject() {
+        Path database = database("published-resolve.db");
+        McpToolCall.PublishedProject project = McpToolCall.publish(database);
+
+        McpSchema.CallToolResult result = call(database, MorpheusExternalReferenceMcpTools.RESOLVE_TOOL,
+                map("projectId", project.projectId(), "referenceId", McpToolCall.ABSENT_REFERENCE_ID));
+        String body = McpToolCall.text(result);
+
+        assertTrue(result.isError(), () -> body);
+        assertFalse(body.contains("project not found"),
+                () -> "the project exists; the refusal must name the reference: " + body);
+    }
+
     private void assertRefusal(Path database, String tool, Map<String, Object> arguments, String expected) {
         McpSchema.CallToolResult result = call(database, tool, arguments);
         assertTrue(result.isError(), () -> tool + " must refuse: " + McpToolCall.text(result));
