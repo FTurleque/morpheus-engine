@@ -41,6 +41,7 @@ Les distributions Windows/Linux embarquent leur runtime Java.
 
 | Besoin | Document |
 |---|---|
+| **reprendre le dépôt après une longue interruption** | [**Reprise à froid**](developer/COLD_START_RECOVERY.md) |
 | comprendre les modules | [Guide développeur](developer/README.md) |
 | comprendre les couches | [Architecture](developer/ARCHITECTURE.md) |
 | compiler / tester / qualifier | [Build, tests et validation](developer/BUILD_AND_TEST.md) |

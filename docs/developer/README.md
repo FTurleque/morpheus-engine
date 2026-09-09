@@ -219,6 +219,7 @@ Le choix de `0` approbation obligatoire reste cohérent avec le contexte mono-ma
 - [API](API.md)
 - [MCP](MCP.md)
 - [Version produit](PRODUCT_VERSION.md)
+- [Reprise à froid](COLD_START_RECOVERY.md) — par où recommencer après une longue interruption : la commande unique qui qualifie le dépôt, les secrets externes et ce qui casse sans eux, comment lire une preuve, et quels gates rouges ne sont pas des régressions
 - [Build et tests](BUILD_AND_TEST.md)
 - [Production integrity](PRODUCTION_INTEGRITY.md)
 - [Registre des risques](../architecture/risks/register.md)
