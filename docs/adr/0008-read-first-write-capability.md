@@ -1,6 +1,6 @@
 # ADR-0008 — Le cœur MORPHEUS est read-first ; l'écriture est une capacité séparée
 
-- Statut : **Proposée — à valider pendant C0 et M0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001, ADR-0002
 - Complétée par : ADR-0011
