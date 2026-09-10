@@ -125,10 +125,21 @@ public final class TestLateDescendantProviderPlugin implements MorpheusProviderP
 
     /** Separate JVM entry point retained on the test classpath; it never exits on its own. */
     public static final class PersistentChild {
+
+        /**
+         * Printed once the child is running, so a test can wait for the fact instead of guessing a duration.
+         *
+         * <p>Safe on both launch paths: {@link #startPersistentChild} discards this child's output, and the
+         * only reader is the test that deliberately waits for this line.</p>
+         */
+        public static final String READY_ANNOUNCEMENT = "morpheus-fixture-persistent-child-ready";
+
         private PersistentChild() {
         }
 
         public static void main(String[] args) {
+            System.out.println(READY_ANNOUNCEMENT);
+            System.out.flush();
             while (true) {
                 LockSupport.parkNanos(100_000_000L);
                 Thread.interrupted();

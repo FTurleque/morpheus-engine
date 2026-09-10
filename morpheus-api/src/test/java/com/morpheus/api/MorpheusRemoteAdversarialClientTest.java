@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -140,10 +139,19 @@ class MorpheusRemoteAdversarialClientTest {
             // Every one of them, not just the first: the counter is incremented after the handler's finally has
             // already released the slots, so activeRequests can reach zero while increments are still pending.
             // Leaving those in flight would let one land inside whichever test runs next.
-            awaitCondition(
+            BoundedWait.until(
+                    "every stalled client's write timeout to be counted",
                     Duration.ofSeconds(150),
-                    () -> counter("responseWriteTimeouts") >= timeoutsBefore + STALLED_CLIENTS);
-            awaitCondition(Duration.ofSeconds(60), () -> counter("activeRequests") == 0);
+                    BoundedWait.LOCAL_COUNTER_POLL,
+                    () -> counter("responseWriteTimeouts") >= timeoutsBefore + STALLED_CLIENTS,
+                    () -> "responseWriteTimeouts=" + counter("responseWriteTimeouts")
+                            + " (need " + (timeoutsBefore + STALLED_CLIENTS) + ")");
+            BoundedWait.until(
+                    "the facade to release every request slot",
+                    Duration.ofSeconds(60),
+                    BoundedWait.LOCAL_COUNTER_POLL,
+                    () -> counter("activeRequests") == 0,
+                    () -> "activeRequests=" + counter("activeRequests"));
         } finally {
             for (StalledClient abandoned : stalled) {
                 abandoned.close();
@@ -183,7 +191,12 @@ class MorpheusRemoteAdversarialClientTest {
                         + declared + " bytes");
         assertEquals(declared, received,
                 "a client that keeps making progress must be served in full, not truncated by the deadline");
-        awaitCondition(Duration.ofSeconds(60), () -> counter("activeRequests") == 0);
+        BoundedWait.until(
+                "the facade to release every request slot",
+                Duration.ofSeconds(60),
+                BoundedWait.LOCAL_COUNTER_POLL,
+                () -> counter("activeRequests") == 0,
+                () -> "activeRequests=" + counter("activeRequests"));
     }
 
     /**
@@ -202,7 +215,12 @@ class MorpheusRemoteAdversarialClientTest {
             abandoned.abort();
         }
 
-        awaitCondition(Duration.ofSeconds(90), () -> counter("activeRequests") == 0);
+        BoundedWait.until(
+                "the facade to release every request slot after each client aborted",
+                Duration.ofSeconds(90),
+                BoundedWait.LOCAL_COUNTER_POLL,
+                () -> counter("activeRequests") == 0,
+                () -> "activeRequests=" + counter("activeRequests"));
         assertEquals(0, counter("activePrivilegedRequests"));
         assertEquals(200, RemoteHttpTestSupport
                 .send(client, base.resolve("/api/v1/health"), "GET", admin.token(), null).statusCode());
@@ -238,23 +256,6 @@ class MorpheusRemoteAdversarialClientTest {
             return ((Number) data.get(name)).longValue();
         } catch (Exception unreachable) {
             throw new IllegalStateException("remote status must stay answerable under adversarial load", unreachable);
-        }
-    }
-
-    /**
-     * Polls a facade counter until it settles, with an explicit deadline.
-     *
-     * <p>java:S2925 flags the sleep. The facade publishes its state over HTTP and offers no latch, so a bounded
-     * poll is what reading it looks like; the deadline is what keeps a stuck facade a failure and not a hang.</p>
-     */
-    @SuppressWarnings("java:S2925")
-    private static void awaitCondition(Duration timeout, BooleanSupplier condition) throws InterruptedException {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() >= deadline) {
-                throw new AssertionError("condition was not satisfied within " + timeout);
-            }
-            TimeUnit.MILLISECONDS.sleep(200);
         }
     }
 
@@ -343,6 +344,11 @@ class MorpheusRemoteAdversarialClientTest {
          * be a stall on any platform and short enough to stay inside the stall budget, and together they last
          * longer than that budget. A deadline that did not rearm on progress would end this response; one that
          * merely throttled by bandwidth would too.</p>
+         *
+         * <p>java:S2925, category two of three: a deliberately slow actor, where the sleep is the device
+         * under test. This is a fixture, not a wait: the pauses are the slow client the rearming deadline is
+         * being tested against, so removing them removes the test. Nothing here waits for a condition, and
+         * BoundedWait would be the wrong shape.</p>
          */
         @SuppressWarnings("java:S2925")
         private long drainWithPauses(int pauses, Duration pause) throws IOException, InterruptedException {

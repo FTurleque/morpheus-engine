@@ -15,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -152,27 +153,31 @@ class MorpheusRemoteMutationAvailabilityTest {
      * leaked still fails the assertions that follow once the deadline expires.</p>
      */
     private Map<String, Object> awaitSettledStatus(HttpClient client, URI base, String token) throws Exception {
-        return awaitStatusWhere(client, base, token,
+        return awaitStatusWhere("the remote facade to release every request slot", client, base, token,
                 status -> ((Number) status.get("activeRequests")).intValue() == 0
                         && ((Number) status.get("activePrivilegedRequests")).intValue() == 0);
     }
 
-    @SuppressWarnings("java:S2925")
     private Map<String, Object> awaitStatusWhere(
             HttpClient client,
             URI base,
             String token,
             java.util.function.Predicate<Map<String, Object>> condition) throws Exception {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
-        Map<String, Object> last = Map.of();
-        while (System.nanoTime() < deadline) {
-            last = statusOf(client, base, token);
-            if (condition.test(last)) return last;
-            // Pause between samples: an unthrottled HTTPS poll is load of its own on the facade whose occupancy
-            // is being measured, and it was the only loop here without one.
-            TimeUnit.MILLISECONDS.sleep(25);
-        }
-        throw new AssertionError("remote status never reached the expected state; last was " + last);
+        return awaitStatusWhere("the remote status to reach the expected state", client, base, token, condition);
+    }
+
+    private Map<String, Object> awaitStatusWhere(
+            String what,
+            HttpClient client,
+            URI base,
+            String token,
+            java.util.function.Predicate<Map<String, Object>> condition) throws Exception {
+        return BoundedWait.untilObserved(
+                what,
+                Duration.ofSeconds(60),
+                BoundedWait.HTTPS_STATUS_POLL,
+                () -> statusOf(client, base, token),
+                condition);
     }
 
     private Map<String, Object> statusOf(HttpClient client, URI base, String token) throws Exception {
