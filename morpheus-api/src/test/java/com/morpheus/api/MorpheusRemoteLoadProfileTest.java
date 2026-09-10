@@ -16,6 +16,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -301,22 +302,20 @@ class MorpheusRemoteLoadProfileTest {
      * already have made the final bytes visible to the client. A single immediate status read therefore races
      * that bookkeeping on a slow or heavily scheduled runner. The bounded poll verifies the actual contract --
      * no slot is left behind -- without turning scheduler timing into a performance threshold.</p>
+     *
+     * <p>This copy used to return the unsettled status on expiry instead of failing, while the identically
+     * named copy in {@code MorpheusRemoteMutationAvailabilityTest} threw. Two copies of one helper had drifted
+     * into opposite behaviours, and the silent one turned a leaked slot into whichever assertion happened to
+     * read the gauge next. Both now expire the same way, with a diagnosis.</p>
      */
-    @SuppressWarnings("java:S2925")
     private Map<String, Object> awaitSettledStatus(HttpClient client, URI base, String token) throws Exception {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
-        Map<String, Object> status;
-        do {
-            status = statusOf(client, base, token);
-            if (((Number) status.get("activeRequests")).intValue() == 0
-                    && ((Number) status.get("activePrivilegedRequests")).intValue() == 0) {
-                return status;
-            }
-            if (System.nanoTime() >= deadline) {
-                return status;
-            }
-            TimeUnit.MILLISECONDS.sleep(50);
-        } while (true);
+        return BoundedWait.untilObserved(
+                "the remote facade to release every request slot",
+                Duration.ofSeconds(30),
+                BoundedWait.HTTPS_STATUS_POLL,
+                () -> statusOf(client, base, token),
+                status -> ((Number) status.get("activeRequests")).intValue() == 0
+                        && ((Number) status.get("activePrivilegedRequests")).intValue() == 0);
     }
 
     @SuppressWarnings("unchecked")

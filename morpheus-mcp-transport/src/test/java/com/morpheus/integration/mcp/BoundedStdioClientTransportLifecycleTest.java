@@ -21,7 +21,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -39,6 +38,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * two peers and kept one reference is indistinguishable from a correct one when asked from the inside.</p>
  */
 class BoundedStdioClientTransportLifecycleTest {
+
+    /** How long a racer that lost the lifecycle claim is given to start a peer, if it were going to. */
+    private static final long LOST_RACER_SETTLE_MILLIS = 200L;
 
     @TempDir
     Path tempDir;
@@ -179,7 +181,7 @@ class BoundedStdioClientTransportLifecycleTest {
 
     @Test
     @Timeout(30)
-    void aFailedConnectEndsInATerminalStateThatCannotBeReconnected() {
+    void aFailedConnectEndsInATerminalStateThatCannotBeReconnected() throws InterruptedException {
         ServerParameters missingCommand =
                 ServerParameters.builder("morpheus-command-that-does-not-exist-20260904").build();
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
@@ -208,7 +210,12 @@ class BoundedStdioClientTransportLifecycleTest {
     }
 
     private void awaitLaunches(Path launches, int expected) throws InterruptedException {
-        awaitCondition(Duration.ofSeconds(20), () -> recordedLaunches(launches).size() >= expected);
+        BoundedWait.until(
+                "the peer to record " + expected + " launch(es)",
+                Duration.ofSeconds(20),
+                BoundedWait.FILE_PUBLICATION_POLL,
+                () -> recordedLaunches(launches).size() >= expected,
+                () -> "recorded launches=" + recordedLaunches(launches));
     }
 
     private List<Long> recordedLaunches(Path launches) {
@@ -227,7 +234,12 @@ class BoundedStdioClientTransportLifecycleTest {
 
     private void assertNoRecordedPeerSurvives(Path launches) throws InterruptedException {
         for (long pid : recordedLaunches(launches)) {
-            awaitCondition(Duration.ofSeconds(10), () -> !isAlive(pid));
+            BoundedWait.until(
+                    "recorded peer " + pid + " to be terminated with its transport",
+                    Duration.ofSeconds(10),
+                    BoundedWait.PROCESS_TRANSITION_POLL,
+                    () -> !isAlive(pid),
+                    () -> "peer " + pid + " alive=" + isAlive(pid));
         }
     }
 
@@ -237,10 +249,24 @@ class BoundedStdioClientTransportLifecycleTest {
      * <p>They are named after their role precisely so this can be asserted rather than assumed; an anonymous
      * pool thread left behind by a half-torn-down transport is invisible until the process runs out of them.</p>
      */
-    private void assertNoTransportThreadsSurvive() {
-        assertTrue(awaitQuietly(Duration.ofSeconds(10), () -> Thread.getAllStackTraces().keySet().stream()
-                        .noneMatch(thread -> thread.isAlive() && thread.getName().startsWith("morpheus-mcp-"))),
-                "no transport scheduler thread may outlive its transport");
+    private void assertNoTransportThreadsSurvive() throws InterruptedException {
+        // Waiting through BoundedWait rather than asserting on a boolean is the whole point: a surviving thread
+        // now names itself in the failure, where "no transport scheduler thread may outlive its transport"
+        // reported only that one did.
+        BoundedWait.until(
+                "every transport scheduler thread to end with its transport",
+                Duration.ofSeconds(10),
+                BoundedWait.PROCESS_TRANSITION_POLL,
+                () -> survivingTransportThreads().isEmpty(),
+                () -> "surviving transport threads=" + survivingTransportThreads());
+    }
+
+    private List<String> survivingTransportThreads() {
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(thread -> thread.isAlive() && thread.getName().startsWith("morpheus-mcp-"))
+                .map(Thread::getName)
+                .sorted()
+                .toList();
     }
 
     private void destroyRecorded(Path launches) {
@@ -249,43 +275,21 @@ class BoundedStdioClientTransportLifecycleTest {
         }
     }
 
-    private boolean awaitQuietly(Duration timeout, BooleanSupplier condition) {
-        try {
-            awaitCondition(timeout, condition);
-            return true;
-        } catch (AssertionError | InterruptedException notSatisfied) {
-            if (notSatisfied instanceof InterruptedException) Thread.currentThread().interrupt();
-            return false;
-        }
-    }
-
-    /**
-     * Polls until a condition holds, which is what waiting on another process requires.
-     *
-     * <p>java:S2925 flags the sleep. There is no event to await here: the states these tests wait on belong to
-     * operating-system processes and to a facade's own counters, neither of which offers a latch. A bounded poll
-     * with an explicit deadline is the honest form, and it fails loudly rather than hanging.</p>
-     */
-    @SuppressWarnings("java:S2925")
-    private void awaitCondition(Duration timeout, BooleanSupplier condition) throws InterruptedException {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() >= deadline) {
-                throw new AssertionError("condition was not satisfied within " + timeout);
-            }
-            TimeUnit.MILLISECONDS.sleep(10);
-        }
-    }
-
     /**
      * Gives a racer that lost the lifecycle claim time to have started a peer, if it were going to.
      *
-     * <p>java:S2925 flags the sleep, and here it is the measurement rather than a synchronisation shortcut:
-     * the assertion is that something never happens, and nothing can signal the absence of an event.</p>
+     * <p>java:S2925, category three of three: a fixed stabilisation delay, and the only one in this class.
+     * It is not a bounded wait and must not become one -- {@link BoundedWait} waits for a condition to become
+     * true, and the assertion here is that a condition never becomes true. Nothing can signal the absence of
+     * an event, so there is no observable condition to poll and no deadline that would make the delay
+     * unnecessary. This is the category where the residual risk actually sits: a runner slow enough that a
+     * losing racer needs more than {@value #LOST_RACER_SETTLE_MILLIS}ms to start a peer would let this pass
+     * while the peer starts afterwards. The bound is stated here rather than left as a bare literal so that
+     * raising it is a visible decision.</p>
      */
     @SuppressWarnings("java:S2925")
     private void settleLostRacers() throws InterruptedException {
-        TimeUnit.MILLISECONDS.sleep(200);
+        TimeUnit.MILLISECONDS.sleep(LOST_RACER_SETTLE_MILLIS);
     }
 
     private boolean isAlive(long pid) {

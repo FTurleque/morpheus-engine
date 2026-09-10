@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,6 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ProviderPluginDescendantTerminationTest {
     private static final Duration GRACE = Duration.ofSeconds(5);
+
+    /** How long the fixture child is given to reach its main method and say so. Bounds a read, not a guess. */
+    private static final Duration CHILD_READY_BUDGET = Duration.ofSeconds(30);
 
     @Test
     void anEmptyHandleListIsAlreadyTerminated() {
@@ -76,15 +80,18 @@ class ProviderPluginDescendantTerminationTest {
      * kills the child outright or triggers a graceful JVM shutdown depends on how far the child got starting up
      * -- which is why the defect only ever surfaced on a loaded CI runner. Waiting for the child to be running
      * first removes that coin flip and makes the regression deterministic.</p>
+     *
+     * <p>That wait used to be {@code Thread.sleep(250)}: a fixed stabilisation delay, the third and riskiest of
+     * the three shapes java:S2925 covers, because a runner slower than the guess passes the test without ever
+     * establishing the precondition. Here the precondition turned out to be observable after all -- the child
+     * announces on stdout once its main method is running -- so this waits for that announcement rather than
+     * for a duration chosen to be probably long enough. No sleep is left, and no suppression with it.</p>
      */
     @Test
-    @SuppressWarnings("java:S2925")
     void aGraceShorterThanTheReapLatencyStillReportsTheKillItPerformed() throws Exception {
         Process child = spawnPersistentProcess();
         try {
-            // Let the child install its shutdown handling, so the graceful signal starts an orderly JVM exit
-            // instead of killing a process that has barely started.
-            Thread.sleep(250);
+            awaitChildReady(child);
             assertTrue(child.isAlive(), "fixture process must still be running before the kill");
 
             assertTrue(
@@ -187,6 +194,20 @@ class ProviderPluginDescendantTerminationTest {
             }
         }
         throw new AssertionError("fixture grandchild did not publish its PID");
+    }
+
+    /**
+     * Blocks until the fixture child announces that its main method is running.
+     *
+     * <p>Event-driven rather than polled: the announcement arrives on the child's stdout, so the read itself is
+     * the wait and {@code assertTimeoutPreemptively} is the bound. There is no sleep here to suppress.</p>
+     */
+    private void awaitChildReady(Process child) {
+        assertTimeoutPreemptively(CHILD_READY_BUDGET, () -> assertEquals(
+                TestLateDescendantProviderPlugin.PersistentChild.READY_ANNOUNCEMENT,
+                new BufferedReader(new InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8))
+                        .readLine(),
+                "the fixture child must announce readiness before it is a meaningful kill target"));
     }
 
     private Process spawnPersistentProcess() throws IOException {
