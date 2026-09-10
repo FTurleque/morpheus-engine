@@ -54,11 +54,74 @@ cache `v12` cesse de vieillir sous surveillance et franchit `DEPENDENCY_CHECK_MA
 À partir de là, le job planifié **et chaque pull request** échouent, sur un motif qui n'est pas une
 vulnérabilité.
 
-Ce qui a été fait dans la PR de ce jour, et ce que ça ne fait pas : la panne devient **visible avant de se
+Ce qui a été fait le 09/09/2026 (PR #299), et ce que ça ne fait pas : la panne devient **visible avant de se
 produire** — âge du cache, marge restante et voie d'obtention publiés dans le résumé de job, alerte aux deux
 tiers du budget, motif d'échec nommé `STALE_DATABASE` et distingué de `VULNERABILITY_THRESHOLD_EXCEEDED`.
 **Aucune de ces améliorations ne remplace le secret manquant.** Elles transforment une falaise en pente ; elles
 ne rafraîchissent pas la base.
+
+#### Ce que la première mesure a réellement montré (corrigé le 09/09/2026)
+
+Le premier rapport de fraîcheur a annoncé une base à **54 h, 75 % du budget consommé**, alors que le job
+planifié avait réussi 15 h plus tôt. Les deux chiffres ne pouvaient pas être vrais ensemble, et c'est le
+rapport qui avait tort. **Cette valeur était un artefact de mesure, pas un âge.** Trois constats, tous
+vérifiés sur les artefacts et non déduits :
+
+- La sonde lisait `stat -c %Y` sur le fichier retourné par `find … -print -quit`, c'est-à-dire **le premier
+  fichier que la marche du système de fichiers croisait** — ni la base, ni le plus récent.
+- `actions/cache` restaure via tar, qui **préserve les mtimes**. Même en visant le bon fichier, la date lue
+  est celle de la dernière écriture par Dependency-Check, pas celle de la restauration ; et un `update-only`
+  incrémental qui ne réécrit rien laisse un mtime ancien sur une base courante.
+- Aucun de ces mécanismes ne mesurait la seule chose qui compte : **quand le flux de vulnérabilités a
+  réellement été renouvelé**.
+
+Conséquence pour l'appréciation du risque : **un job planifié vert sur `main` n'a jamais prouvé que la base
+scannée par `develop` était fraîche.** Il prouvait qu'un rafraîchissement avait réussi sur `main` ; rien, dans
+la chaîne, ne datait la base que `develop` restaurait. RT-13 restait donc juste sur le fond — il n'y a pas de
+source de rafraîchissement propre à `develop` — mais l'instrumentation censée le surveiller ne le surveillait
+pas.
+
+#### Ce qui n'était **pas** un défaut : le repli de clé `v12`
+
+L'audit soupçonnait que la `restore-key` `dependency-check-v12-trusted-` faisait scanner `develop` (13.0.0)
+avec une base écrite par 12.2.2, et que la version dans la clé existait précisément pour l'empêcher. **Mesuré,
+ce n'est pas le cas** :
+
+- 12.2.2 et 13.0.0 déclarent tous deux `data.version=5.6` dans le `dependencycheck.properties` de
+  `dependency-check-core`, et livrent des `data/initialize.sql` et `data/dbStatements.properties`
+  **identiques octet pour octet**. Le changement de schéma amont a eu lieu **à 12.2.2**, pas à 13.0.0 — les
+  notes de version 13.0.0 le disent explicitement (« highlighting 12.2.2 DB schema change »).
+- `DatabaseManager#ensureSchemaVersion` vérifie le schéma **à chaque ouverture de connexion**. Sous
+  `-DautoUpdate=false`, que tous les scans MORPHEUS passent, une base d'un autre schéma fait lever
+  `DatabaseException` au lieu d'être migrée silencieusement. La compatibilité est donc **déjà fail-closed**,
+  au seul endroit qui peut la connaître.
+
+La version du plugin dans la clé de cache mesurait donc la mauvaise variable : trop stricte (elle orphelinait
+une base parfaitement lisible à chaque bump de routine) et sans rapport avec ce qu'elle prétendait garantir.
+La clé est désormais construite sur la **version de schéma** (`<dependency-check.data.version>` du POM
+racine), et il n'y a plus de repli : un changement de schéma produit une clé différente, aucun `hit`, et un
+démarrage à froid honnête — qui est de toute façon le seul résultat qu'un repli aurait pu produire, puisque
+l'analyseur aurait refusé la base.
+
+#### Correctif du 09/09/2026 — la fraîcheur est un fait, plus une déduction
+
+Un **sentinelle horodaté** (`dependency-check-refresh.sentinel`) est écrit dans le répertoire de données
+**uniquement** par un rafraîchissement réussi, avant toute publication de cache, et voyage avec le cache. Il
+porte l'epoch du rafraîchissement, la **version de schéma** (divergence = refus) et la **version du plugin**
+qui l'a écrit (divergence = signalée, jamais fatale — 12.2.2 et 13.0.0 écrivent le même schéma, donc la
+réutilisation croisée est correcte et doit être *visible*, pas interdite). Plus aucune lecture de fraîcheur ne
+passe par un mtime.
+
+**Un cache restauré sans sentinelle est traité comme périmé**, jamais comme frais : son âge est *inconnu*, et
+la règle tri-state de ce dépôt (ADR-0078, ADR-0093) interdit de convertir `UNKNOWN` en `PASS`.
+`DependencyCheckWorkflowContractTest` verrouille les cinq points.
+
+**Effet attendu et assumé de ce correctif :** le premier scan qui suit ne trouvera ni cache à la nouvelle clé,
+ni sentinelle dans l'ancien, et **refusera** — `STALE_DATABASE`. Ce n'est pas une régression : c'est la
+première mesure honnête. Elle se résorbe dès qu'un événement de confiance écrit une sentinelle, c'est-à-dire
+au premier `schedule`/`workflow_dispatch` exécuté sur `main` **après** que ce correctif y soit promu (12.2.2 y
+rafraîchit encore anonymement), ou immédiatement si `NVD_API_KEY` est configuré. Ne **pas** relâcher le gate
+pour raccourcir cette fenêtre.
 
 Trois sorties possibles, par ordre de préférence :
 
@@ -66,9 +129,26 @@ Trois sorties possibles, par ordre de préférence :
    rafraîchissement et la seule qui clôt RT-13.
 2. Attendre la publication de **13.0.1** et bumper le pin — remet la mise à jour anonyme en service, mais la
    date de publication n'est pas maîtrisée.
-3. Revenir à **12.2.2**. Écarté : `D2RepositoryHardeningArchitectureTest#dependencyAndQualityBaselineIsPinned`
-   épingle 13.0.0 textuellement, et régresser l'analyseur pour contourner une absence de secret échange un
-   problème d'exploitation contre une perte de couverture d'analyse.
+3. Revenir à **12.2.2**. Réévalué le 09/09/2026 avec les deux vérifications qu'exige un tel retour, et
+   **écarté sur la première** :
+   - *Aucune déficience corrigée par 13.0.0 ?* **Faux.** 13.0.0 contient
+     [#8509](https://github.com/dependency-check/DependencyCheck/pull/8509) (« use more conservative CPE 22
+     prefix suppression syntax **to avoid false negatives** ») et
+     [#8548](https://github.com/dependency-check/DependencyCheck/pull/8548), qui resserrent le *matching* des
+     suppressions CPE 2.2. Redescendre en 12.2.2 réintroduirait une classe de **faux négatifs de suppression**
+     dans le gate dont la raison d'être est précisément de ne pas en avoir — et ce dépôt exécute
+     `failBuildOnUnusedSuppressionRule`, dont la sémantique dépend de ce même *matching*. Échanger une gêne
+     d'exploitation contre un angle mort de détection est le mauvais sens de l'échange.
+   - *Aucune configuration `d2-security` dépendante de 13.0.0 ?* **Vrai, vérifié** : les douze paramètres
+     configurés par les profils `d2-security` et `d2-security-tests` (`failBuildOnCVSS`, `junitFailOnCVSS`,
+     `failBuildOnUnusedSuppressionRule`, `skipTestScope`, `prettyPrint`, `format`, `suppressionFiles`,
+     `outputDirectory`, `failOnError`, `dataDirectory`, `autoUpdate`, `nvdApiKeyEnvironmentVariable`) existent
+     tous dans le `plugin.xml` de 12.2.2. Ce critère-là ne bloquait pas ; le premier bloque.
+
+   S'y ajoute que le retour n'était pas nécessaire au problème de cache : le schéma étant identique
+   (voir ci-dessus), `develop` scanne déjà avec le *matching* de 13.0.0 une base rafraîchie par 12.2.2, ce qui
+   est la meilleure des deux combinaisons et non un compromis. Enfin
+   `D2RepositoryHardeningArchitectureTest#dependencyAndQualityBaselineIsPinned` épingle 13.0.0 textuellement.
 
 Ne **pas** relâcher `DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS` pour faire disparaître le symptôme : une base plus
 vieille est une base moins fiable, et le problème est le rafraîchissement, pas le seuil.

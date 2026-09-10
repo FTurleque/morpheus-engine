@@ -158,6 +158,121 @@ class DependencyCheckWorkflowContractTest {
                 "security.yml must keep its update-only and both aggregate scans on the pinned version");
     }
 
+    /**
+     * The cache key must answer whether this analyzer can read this database, and only the schema decides that.
+     *
+     * <p>The key used to carry the plugin version, with a restore-key falling back to the previous one. That
+     * pair contradicted itself: if the version in the key meant anything the fallback discarded the meaning,
+     * and if it meant nothing the key was decoration. Measured rather than assumed, it meant nothing --
+     * Dependency-Check 12.2.2 and 13.0.0 both declare {@code data.version=5.6} and ship byte-identical
+     * {@code data/initialize.sql} and {@code data/dbStatements.properties}, because upstream changed the schema
+     * at 12.2.2 and not at 13.0.0. So the fallback was not the defect it looked like, and the plugin-versioned
+     * key was: a routine bump orphaned a readable database, and the fallback added to compensate would have
+     * matched an unreadable one just as willingly had the schema really moved.</p>
+     *
+     * <p>Keyed on the schema the key means exactly one thing, and nothing is left to fall back to: a schema
+     * change yields a different key, no match, and an honest cold start. That is also the only outcome a
+     * fallback could have produced anyway, since every scan runs {@code -DautoUpdate=false}, under which
+     * Dependency-Check refuses a mismatched schema rather than migrating it.</p>
+     */
+    @Test
+    void theTrustedCacheIsKeyedOnTheSchemaVersionAndNeverFallsBackAcrossSchemas() throws IOException {
+        Path root = repoRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+
+        Matcher schema = Pattern.compile(
+                        "<dependency-check\\.data\\.version>([^<]+)</dependency-check\\.data\\.version>")
+                .matcher(pom);
+        assertTrue(schema.find(),
+                "the root POM must pin the Dependency-Check H2 schema version the cache key is built from");
+        String pinnedSchema = schema.group(1).trim();
+
+        assertTrue(security.contains("DEPENDENCY_CHECK_SCHEMA_VERSION: '" + pinnedSchema + "'"),
+                "security.yml must build its cache key from the schema version the root POM pins, so a bump of "
+                        + "one cannot silently leave the other behind");
+
+        String expectedKey = "key: dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-"
+                + "${{ runner.os }}-${{ github.run_id }}";
+        assertTrue(security.split(Pattern.quote(expectedKey), -1).length - 1 == 2,
+                "the restore and the save must address the same schema-keyed cache entry");
+
+        for (String line : security.split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("key: dependency-check") || trimmed.startsWith("dependency-check-")) {
+                assertTrue(trimmed.contains("DEPENDENCY_CHECK_SCHEMA_VERSION"),
+                        () -> "every Dependency-Check cache key and restore-key must carry the schema version, "
+                                + "so none of them can match a database this analyzer cannot read: " + trimmed);
+            }
+        }
+        assertFalse(Pattern.compile("dependency-check-v[0-9]").matcher(security).find(),
+                "no plugin-versioned cache key may survive: the plugin version is not the schema version and "
+                        + "does not track it");
+    }
+
+    /**
+     * Freshness must be a fact a refresh recorded, never an mtime the filesystem happened to leave behind.
+     *
+     * <p>The previous probe read {@code stat -c %Y} on whichever file {@code find ... -print -quit} reached
+     * first, which is neither the database nor the newest file, and compared it to now. Two further mechanisms
+     * made that number meaningless even had it picked the right file: {@code actions/cache} restores through
+     * tar, which preserves mtimes, so the timestamp describes the last write by Dependency-Check rather than
+     * the restore; and an incremental {@code update-only} that rewrites nothing leaves an old mtime on a
+     * current database. The 54h age the first freshness report published was that artefact, not an age.</p>
+     *
+     * <p>The sentinel is written by the refresh itself, so its presence is evidence and its absence is the
+     * absence of evidence -- which is not freshness. It carries the writing plugin version, which is what makes
+     * a database refreshed by one analyzer and scanned by another visible at runtime instead of silent.</p>
+     */
+    @Test
+    void freshnessIsReadFromARefreshSentinelAndNeverFromAFileModificationTime() throws IOException {
+        Path root = repoRoot();
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+        String writer = Files.readString(root.resolve("scripts/write-dependency-check-sentinel.sh"));
+        String reader = Files.readString(root.resolve("scripts/read-dependency-check-sentinel.sh"));
+
+        assertFalse(security.contains("stat -c %Y"),
+                "no freshness reading may go through a file modification time");
+        assertFalse(security.contains("-print -quit"),
+                "no freshness reading may depend on whichever file the directory walk reaches first");
+
+        assertTrue(writer.contains("refreshedAtEpoch=$(date +%s)"),
+                "the sentinel must record when the refresh actually completed");
+        assertTrue(writer.contains("pluginVersion=${plugin_version}"),
+                "the sentinel must record which analyzer refreshed the database, so cross-version reuse is "
+                        + "visible at runtime rather than silent");
+        assertTrue(writer.contains("schemaVersion=${schema_version}"),
+                "the sentinel must record the schema the database was written against");
+        assertTrue(writer.contains("sentinel=\"${data_dir}/dependency-check-refresh.sentinel\""),
+                "the sentinel must live inside the cached data directory, so it travels with the cache it dates");
+
+        int updateStart = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
+        int saveStart = security.indexOf("- name: Save trusted Dependency-Check database");
+        String trustedUpdate = security.substring(updateStart, saveStart);
+        int sentinelWrite = trustedUpdate.indexOf("bash ./scripts/write-dependency-check-sentinel.sh");
+        assertTrue(sentinelWrite > trustedUpdate.indexOf("org.owasp:dependency-check-maven"),
+                "the sentinel must be written after the refresh it certifies, never before it");
+        assertTrue(sentinelWrite < trustedUpdate.indexOf("echo \"updated=true\""),
+                "a refresh that publishes a cache must have dated it first, so no cache is ever saved without "
+                        + "the sentinel that lets a later run judge its age");
+
+        assertTrue(security.contains("path: target/dependency-check-data"),
+                "the cached path must be the data directory the sentinel is written into");
+
+        assertTrue(reader.contains("emit_and_exit MISSING") && reader.contains("emit_and_exit MALFORMED")
+                        && reader.contains("emit_and_exit SCHEMA_MISMATCH"),
+                "a sentinel that is absent, unusable or written against another schema must each be classified, "
+                        + "never collapsed into an age");
+        assertTrue(reader.contains("echo \"status=$1\""),
+                "status must be the first fact emitted, so a caller that reads only the first line still fails "
+                        + "closed rather than reading an age that was never established");
+
+        int freshnessRefusals = security.split(Pattern.quote("if [[ \"${status}\" != 'OK' ]]; then"), -1).length - 1;
+        assertTrue(freshnessRefusals == 2,
+                "both freshness readings -- the pull-request check and the no-key fallback -- must refuse any "
+                        + "status but OK, so a missing sentinel is treated as stale rather than as fresh");
+    }
+
     private static Path repoRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {

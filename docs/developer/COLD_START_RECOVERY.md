@@ -80,8 +80,11 @@ requests réutilisent. À la promotion de la baseline courante, `main` prend le 
 rien n'est sauvegardé, et environ 72 heures plus tard tout devient rouge.
 
 Le résumé de job publie l'âge du cache et la marge restante à chaque exécution, et alerte avant
-la falaise — mais **l'observabilité ne remplace pas le secret**. Le détail complet, les preuves
-datées et les trois sorties possibles sont dans
+la falaise — mais **l'observabilité ne remplace pas le secret**. Depuis le 09/09/2026 cet âge
+est lu sur une **sentinelle écrite par le rafraîchissement lui-même**, et non plus déduit du
+`mtime` d'un fichier : la déduction précédente annonçait 54 h sur une base rafraîchie 15 h plus
+tôt. Un cache restauré sans sentinelle a un âge **inconnu**, donc refusé — jamais supposé frais.
+Le détail complet, les preuves datées et les trois sorties possibles sont dans
 [le registre des risques, RT-13](../architecture/risks/register.md).
 
 ---
@@ -164,6 +167,15 @@ d'infrastructure — la base de vulnérabilités est trop vieille pour qu'on sca
 et non une CVE. Voir RT-13 au §2. Ne **jamais** relâcher
 `DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS` pour faire disparaître le symptôme : une base plus
 vieille est une base moins fiable, et le problème est le rafraîchissement, pas le seuil.
+
+**Premier scan après un changement de namespace de cache.** La clé de cache Dependency-Check
+est construite sur la **version de schéma H2** (`<dependency-check.data.version>` du POM racine),
+pas sur la version du plugin. Changer cette valeur — ou introduire la sentinelle, comme le
+09/09/2026 — invalide délibérément le cache : le scan suivant ne trouve rien, refuse sur
+`STALE_DATABASE`, et c'est la bonne réponse. La fenêtre se referme au premier événement de
+confiance qui écrit une sentinelle (`schedule` ou `workflow_dispatch` sur `main`), ou
+immédiatement si `NVD_API_KEY` est configuré. **Ne pas** ajouter de repli pour la raccourcir :
+un repli qui accepte une base non datée annule la mesure qu'il est censé protéger.
 
 **Voie macOS (RT-08).** macOS enracine son répertoire temporaire sous `/var`, lien symbolique
 vers `/private/var`, et MORPHEUS refuse tout chemin atteint par lien symbolique. **Ce refus est
