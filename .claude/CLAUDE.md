@@ -63,10 +63,10 @@ Les adaptateurs dépendent vers l'intérieur. Les adaptateurs sont **frères** �
 
 ```
                   ┌──────────────────────────────┐
-                  │      morpheus-domain         │  ← modèle pur, 22 packages
+                  │      morpheus-domain         │  ← modèle pur
                   └──────────────▲───────────────┘
                   ┌──────────────┴───────────────┐
-                  │   morpheus-application       │  ← ports + use cases, 29 packages
+                  │   morpheus-application       │  ← ports + use cases
                   └──▲────▲────▲────▲────▲────▲──┘
       ┌──────────────┘    │    │    │    │    └──────────────┐
 ┌─────┴─────┐ ┌───────────┴┐ ┌─┴────┴─┐ ┌┴──────────┐ ┌──────┴──────┐

@@ -1,6 +1,6 @@
 # ADR-0002 — OpenSpec comme premier provider de référence, sans verrouillage du domaine
 
-- Statut : **Proposée — à valider pendant C0 et M0**
+- Statut : **Acceptée avec contraintes — M0**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001
 - Portée : stratégie d'intégration initiale

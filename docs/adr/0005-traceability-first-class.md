@@ -1,6 +1,6 @@
 # ADR-0005 — La traçabilité est un concept de premier ordre dans MORPHEUS
 
-- Statut : **Proposée — à valider pendant C0 et M0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Portée : modèle de connaissance et requêtes
 
