@@ -54,6 +54,18 @@
         <jacoco.version>0.8.15</jacoco.version>
         <cyclonedx.maven.plugin.version>2.9.3</cyclonedx.maven.plugin.version>
         <dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>
+        <!--
+            The H2 schema version Dependency-Check expects, read from `data.version` in the
+            dependencycheck.properties of dependency-check-core. It is NOT the plugin version and does not
+            track it: 12.2.2 and 13.0.0 both declare 5.6, with byte-identical data/initialize.sql and
+            data/dbStatements.properties. Upstream changed the schema at 12.2.2, not at 13.0.0.
+
+            It is pinned here because the CI cache key is built from it, so that a cached vulnerability
+            database is reused exactly when the running analyzer can read it and never otherwise. Bumping
+            the plugin above without checking this value is safe; changing this value is a deliberate cold
+            start.
+        -->
+        <dependency-check.data.version>5.6</dependency-check.data.version>
     </properties>
 
     <dependencyManagement>

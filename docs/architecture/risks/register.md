@@ -45,6 +45,7 @@ Ils restent traçables dans l'historique Git et les issues #154/#166, mais ne do
 | DT-03 | Seuils de performance M19 peu visibles depuis la documentation d'architecture | Qualité | **Moyenne** | Relier les scénarios qualité aux tests/gates autoritatifs |
 | DT-04 | SQLite reste l'unique backend persistant | Architecture | **Faible à moyenne** | N'engager un backend alternatif qu'après besoin et ADR dédiés |
 | DT-05 | Distribution macOS absente | Distribution | **Faible** | Décision produit avant ajout du packaging ; la lane smoke n'en produit aucun |
+| DT-13 | Alias de renommage `dependency-check-v12-trusted-` conservé dans `restore-keys` de `security.yml` | CI / supply chain | **Faible** | Transitoire, ajouté le 10/09/2026 pour que le passage à la clé de cache par version de schéma se fasse sans démarrage à froid. Ce n'est **pas** un repli inter-schéma : un cache écrit par 12.2.2 *est* du schéma 5.6, l'alias restaure donc la même base sous son ancien nom. Il cesse d'avoir un effet dès qu'une exécution publie sous la nouvelle clé ; le retirer alors, dans une PR dédiée |
 
 Les anciennes dettes `DT-06` (protection `main`) et `DT-09` (protection `develop`) sont résolues et retirées du tableau actif.
 
