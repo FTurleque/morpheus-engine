@@ -45,7 +45,19 @@ Le gate applique `max(plancher, ratchet)`.
   `CoverageQualityGateTest.java` **ne contient pas** les chaînes `LINE_RATCHET = 0.40d` / `BRANCH_RATCHET = 0.35d`
   (le ratchet ne doit jamais être recodé en dur à la valeur plancher D2) et lit bien
   `config/m21-quality-ratchets.properties`
-- Le gate exige **≥ 8 rapports JaCoCo** — le reactor complet doit avoir tourné
+- Le gate **dérive** la population attendue au lieu de la compter : tout module déclaré dans les
+  `<modules>` du POM racine qui porte au moins une classe sous `src/main/java` doit avoir produit son
+  `target/site/jacoco/jacoco.xml`. Aucun seuil n'est écrit en dur — le compte observé (**16** au
+  10/09/2026, sur un `clean verify` réel) est un constat, pas une constante : déclarer un module le rend
+  obligatoire du même geste, et les deux modules sans sources principales
+  (`morpheus-architecture-tests`, `morpheus-coverage-report`) sont *expliqués* par la règle au lieu d'être
+  exclus par leur nom. L'ancienne garde `>= 8` se trompait dans le sens permissif : retirer un module
+  retire ses lignes manquées avec ses lignes couvertes, donc un module moins bien couvert que la moyenne
+  **faisait monter** le ratio en disparaissant.
+- Ce gate exige donc un `./mvnw clean verify` complet **préalable** — il n'a jamais su conclure d'un arbre
+  fraîchement nettoyé, et il refuse désormais aussi un réacteur à moitié construit. Le refus **nomme** les
+  modules manquants et sépare les deux causes : jamais construit par cette invocation (erreur
+  d'invocation, relancer le réacteur) ou construit sans produire de rapport (régression du module).
 
 ### Pourquoi le ratchet plafonne sous la mesure réelle
 
