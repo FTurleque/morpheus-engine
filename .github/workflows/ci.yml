@@ -63,9 +63,11 @@ jobs:
               ;;
           esac
 
-      # scripts\validate-m28.ps1 chains M28 -> R2 -> M27 only (measured ~8 minutes end to end: one
-      # `mvnw clean verify`, the M22-M27/M28 contract/convergence checks, and both real Windows installer
-      # builds plus their lifecycle/MCP-smoke verification against the actually compiled Setup.exe) -- it
+      # scripts\validate-m28.ps1 chains M28 -> R2 -> M27 only (median 15.7 minutes of runner time end to
+      # end, measured over 21 runs on 10/09/2026; an earlier "~8 minutes" figure had drifted to half the
+      # real cost. One `mvnw clean verify`, the M22-M27/M28 contract/convergence checks, and both real
+      # Windows installer builds plus their lifecycle/MCP-smoke verification against the actually
+      # compiled Setup.exe) -- it
       # does not re-run every earlier milestone's own reactor pass, so running it here is not the redundant
       # historical chain that would be disproportionate for a PR. It replaces the old M21-only gate: M28's
       # own chain already runs M27's full reactor verify, so a separate M21-only step would just repeat that
