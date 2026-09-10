@@ -1,6 +1,6 @@
 # ADR-0013 — Modéliser le cycle de vie d'un changement comme machine d'état explicite
 
-- Statut : **Proposée — à valider pendant C0 et M0**
+- Statut : **Acceptée avec contraintes — M0**
 - Date : 22 juillet 2026
 - Portée : domaine, validation, providers, orchestration future
 
