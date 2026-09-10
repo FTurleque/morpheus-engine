@@ -15,6 +15,11 @@ permissions:
 
 env:
   DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS: '72'
+  # The H2 schema Dependency-Check expects (`data.version` in dependency-check-core), pinned in the root POM
+  # as <dependency-check.data.version>. Not the plugin version, and it does not track it: 12.2.2 and 13.0.0
+  # both declare 5.6, with byte-identical data/initialize.sql and data/dbStatements.properties.
+  DEPENDENCY_CHECK_SCHEMA_VERSION: '5.6'
+  DEPENDENCY_CHECK_PLUGIN_VERSION: '12.2.2'
 
 concurrency:
   group: morpheus-security-${{ github.ref }}
@@ -46,8 +51,21 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
-          key: dependency-check-v12-trusted-${{ runner.os }}-${{ github.run_id }}
+          # Keyed on the H2 schema version rather than the plugin version.
+          #
+          # What a cache key must answer is whether the running analyzer can read this database, and only the
+          # schema decides that. Dependency-Check 12.2.2 and 13.0.0 both declare data.version 5.6 and ship
+          # byte-identical data/initialize.sql and data/dbStatements.properties; upstream changed the schema at
+          # 12.2.2, not at 13.0.0. A plugin-versioned key therefore orphaned a perfectly readable database on
+          # every routine bump, which is what stranded the 1.2.1 branch.
+          #
+          # The v12 entry below is a one-time rename alias, not a fallback across schemas: a cache written by
+          # 12.2.2 IS schema 5.6, so restoring it under the new name reuses the same database rather than a
+          # different one. It exists so this very change can land without a cold start, and it stops mattering
+          # as soon as a run publishes under the new key. Its removal is tracked as DT-13 in the risk register.
+          key: dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
+            dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-${{ runner.os }}-
             dependency-check-v12-trusted-${{ runner.os }}-
 
       - name: Verify restored Dependency-Check database freshness
@@ -92,17 +110,34 @@ jobs:
           )
           if [[ -n "${NVD_API_KEY:-}" ]]; then
             args+=("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY")
+            source_label="NVD API key refresh"
           else
             echo "::warning::NVD_API_KEY is not configured; a cold NVD update can be slower."
+            source_label="anonymous NVD refresh (Dependency-Check ${DEPENDENCY_CHECK_PLUGIN_VERSION})"
           fi
           ./mvnw "${args[@]}"
+
+          # Record that a refresh really happened, as a fact the refresh produces rather than something a later
+          # run infers from a file mtime. An mtime survives actions/cache restore untouched because tar
+          # preserves it, and an incremental update-only that rewrites nothing leaves an old one behind a
+          # current database -- which is how a database refreshed 15h earlier came to be reported as 54h old.
+          #
+          # Written on both paths because on ${DEPENDENCY_CHECK_PLUGIN_VERSION} both are genuine refreshes: the
+          # anonymous update still works here. It is broken from 13.0.0 onwards (upstream #8715, fixed in the
+          # unreleased 13.0.1), so on a branch pinned there only the API-key path may write one. That asymmetry
+          # is the whole reason this branch has to be the one that seeds the first sentinel.
+          bash ./scripts/write-dependency-check-sentinel.sh \
+            "${GITHUB_WORKSPACE}/target/dependency-check-data" \
+            "${DEPENDENCY_CHECK_PLUGIN_VERSION}" \
+            "${DEPENDENCY_CHECK_SCHEMA_VERSION}" \
+            "${source_label}"
 
       - name: Save trusted Dependency-Check database
         if: github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
-          key: dependency-check-v12-trusted-${{ runner.os }}-${{ github.run_id }}
+          key: dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-${{ runner.os }}-${{ github.run_id }}
 
       - name: Run OWASP Dependency-Check scan
         shell: bash
