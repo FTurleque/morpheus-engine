@@ -81,7 +81,7 @@ jobs:
           status="$(sed -n 's/^status=//p' <<< "${facts}" | head -n 1)"
 
           if [[ "${status}" != 'OK' ]]; then
-            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check refresh could be established for this pull request (${status}). A cache restored without a trusted-refresh sentinel has an unknown age, and an unknown age is not a fresh one. This is an infrastructure failure, not a vulnerability finding."
+            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check refresh could be established for this pull request (${status}). A cache restored without a trusted-refresh sentinel has an unknown age, and an unknown age is not a fresh one. This is an infrastructure failure, not a vulnerability finding. Expected once, and only once, right after the cache namespace or the sentinel format changes: no entry exists under the new key yet. It clears when a trusted event writes the first sentinel -- immediately if NVD_API_KEY is configured, otherwise at the next schedule or workflow_dispatch on the default branch. Do not widen DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS and do not add a fallback that accepts an undated database: either would discard the measurement this refusal exists to make."
             exit 1
           fi
 
