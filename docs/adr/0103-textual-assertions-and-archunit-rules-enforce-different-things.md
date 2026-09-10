@@ -7,21 +7,33 @@
 
 ## Contexte
 
-Sur `8cff0093`, `morpheus-architecture-tests` porte 3 082 assertions réparties sur 119 classes.
-Parmi elles, **1 428** ont la forme `assertX(<contenu d'un fichier>.contains("littéral"))`, dont
-**927** visent un fichier `.java`. Une sous-famille de **198 assertions**, sur 32 classes, a la forme
-strictement mécanique :
+`morpheus-architecture-tests` compte 119 classes de test. Une large part de ses assertions ne sont pas
+des assertions sur du comportement mais sur du **texte** : elles lisent un fichier du dépôt et y
+cherchent une chaîne. Une sous-famille a la forme strictement mécanique :
 
 ```java
 assertFalse(<source .java lu>.contains("<Identifiant>"));
 ```
 
-Chacune de ces 198 dit « cette classe ne doit pas dépendre de celle-là », ce qui est mot pour mot
-l'énoncé d'une règle ArchUnit. ArchUnit 1.5.0 est déjà une dépendance déclarée du module et n'y sert
-que dans **5 classes sur 119**.
+Chacune dit « cette classe ne doit pas dépendre de celle-là », ce qui est mot pour mot l'énoncé d'une
+règle ArchUnit. ArchUnit 1.5.0 est déjà une dépendance déclarée du module et n'y servait avant ce
+pilote que dans **cinq** classes.
 
-Un audit a résolu 502 de ces assertions jusqu'à leur fichier cible pour chercher celles que seul un
-commentaire satisfait — le cas où l'assertion serait creuse. **Une seule sur 502**, et elle est
+Les totaux exacts dépendent de la regex de comptage et **ne doivent pas être recopiés** (`rules/meta.md`).
+Mesure du 10/09/2026 sur `origin/develop`, méthode citée pour être rejouable :
+
+| Grandeur | Commande | Valeur mesurée |
+|---|---|---|
+| assertions du module | `grep -rhoE "assert[A-Z][A-Za-z]*\("` | 2 885 |
+| dont `assertTrue/False(<var>.contains(` | `grep -rhoE "assert(True\|False)\([a-zA-Z0-9_]+\.contains\("` | 1 525 |
+| famille mécanique ci-dessus | `grep -rhoE "assertFalse\([a-zA-Z0-9_]+\.contains\(\"[A-Z][A-Za-z0-9_]*\"\)\)"` | 198 |
+| classes la portant | même motif, `grep -rl` | 30 |
+
+L'audit du 10/09/2026 annonçait 2 880 / 1 428 / 197 / 32 avec une regex plus large — l'écart est de
+définition, pas de fond, et **aucune décision de cet ADR n'en dépend**.
+
+Ce même audit a résolu 502 de ces assertions jusqu'à leur fichier cible pour chercher celles que seul
+un commentaire satisfait — le cas où l'assertion serait creuse. **Une seule sur 502**, et elle est
 délibérée. Il n'y a donc **aucun contournement vivant** : ce qui suit réduit une dette de forme, ne
 répare pas une fuite. La barre est en conséquence « aucune règle affaiblie », pas « le build est
 vert ».
@@ -29,7 +41,7 @@ vert ».
 ### La question que cet ADR tranche
 
 La formulation intuitive — « ArchUnit est le bon outil, le texte est un pis-aller historique » — est
-fausse, et il faut l'écrire avant qu'un mainteneur ne migre les 198 sur cette croyance.
+fausse, et il faut l'écrire avant qu'un mainteneur ne migre la famille entière sur cette croyance.
 
 Les deux formes n'enforcent pas la même proposition :
 
@@ -64,6 +76,25 @@ constante en package-private est un changement d'un mot qui le rouvre sans rien 
 L'expérience 5 du pilote a exécuté exactement ce scénario. La règle ArchUnit a **passé** ; seule
 l'assertion textuelle conservée a mordu.
 
+Et ce n'est pas un scénario de laboratoire : **l'angle mort est déjà exercé dans le code actuel.**
+`MorpheusHttpServer` déclare `public static final String API_PREFIX = "/api/v1"`, empruntée par neuf
+classes de `morpheus-api`, dont quatre routeurs `*HttpRoutes`. Chacune de ces références est inlinée
+à la compilation : pour ArchUnit, ces routeurs ne dépendent **pas** de `MorpheusHttpServer`. Toute
+règle qui prétendrait borner ce couplage sans assertion textuelle le manquerait aujourd'hui, sur du
+code livré.
+
+### Une seconde asymétrie : `contains` produit des faux positifs
+
+L'inverse existe aussi et se constate sur les mêmes fichiers. `assertFalse(x.contains("HttpServer"))`
+vise le type `com.sun.net.httpserver.HttpServer`, mais la chaîne est également un sous-mot de
+`MorpheusHttpServer`. Six routeurs écrivent `MorpheusHttpServer.SyncRequest` ou
+`MorpheusHttpServer.API_PREFIX` : appliquée à eux, l'assertion échouerait sur un couplage qu'elle ne
+visait pas. Une règle de package ne confond pas les deux.
+
+Le texte rate donc des dépendances réelles **et** en signale d'imaginaires ; la règle ArchUnit fait
+l'exact opposé. C'est la raison de fond pour laquelle le choix se fait par intention et non par
+préférence d'outil.
+
 ## Décision
 
 **Le mécanisme d'enforcement se choisit par l'intention de la règle, énoncée en une phrase avant
@@ -87,8 +118,8 @@ Et à trois conditions cumulatives, vérifiées et non supposées :
 
 C'est le cas de tout ce qui n'est pas du Java compilé, et de certains invariants de sécurité.
 
-**Les 421 assertions visant un artefact non-Java ne sont pas concernées par cette décision** — 90
-`.yml`, 87 `.ps1`, 70 `.md`, 52 `.iss`, 34 `.yaml`, 27 `.sh`, 25 `.xml`. Pour un workflow, un script
+**Les assertions visant un artefact non-Java ne sont pas concernées par cette décision** — `.yml`,
+`.ps1`, `.md`, `.iss`, `.yaml`, `.sh`, `.xml`. Pour un workflow, un script
 ou un Markdown, le texte est la **seule prise possible** et c'est le bon outil. `.claude/rules/security.md`
 l'écrit déjà : ces invariants sont *« assertés textuellement dans les sources »* et *« supprimer une
 de ces chaînes casse le build »*. Rien ici ne change cela.
@@ -158,9 +189,24 @@ Compter avant, compter après ; si le total descend, c'est le découpage qui est
 
 ### Non décidé par cet ADR
 
-La généralisation aux **31 classes restantes** de la famille mécanique. Le pilote donne la méthode et
+La généralisation aux **vingt-neuf classes restantes** de la famille mécanique (trente la portent, une
+est pilotée ; l'audit en annonçait trente-deux, écart de regex sans incidence). Le pilote donne la méthode et
 son coût réel ; il ne donne pas mandat. Toute extension applique les cinq règles ci-dessus,
 classe par classe, avec sa preuve de violation.
+
+**Et surtout : le périmètre par classe est porteur, pas accidentel.** L'idée naturelle en voyant
+trente classes répéter les mêmes interdits est d'exprimer la frontière **une fois** sur la famille
+`*HttpRoutes`, comme `LayerDependencyTest` le fait pour les modules. Mesuré, ce raccourci est faux :
+sur les dix-sept routeurs `*HttpRoutes` de `morpheus-api`, **neuf portent légitimement `HttpExchange`**
+et le décodeur ou le mapper qui va avec — ce sont exactement ceux qui lisent un corps de requête. Une
+règle unique sur la famille échouerait immédiatement, et l'affaiblir pour qu'elle passe reviendrait à
+supprimer l'invariant des huit routeurs en lecture seule.
+
+La partition utile n'est donc pas « par classe » ni « par famille » mais **par capacité** : les
+routeurs qui lisent un corps et ceux qui n'en lisent pas. Trois interdits en revanche sont bien
+famille-larges et vérifiés tels quels — aucun des dix-sept ne porte `MorpheusRemote*`,
+`MorpheusHttpResponseWriter` ni `MorpheusHttpPathParser`. Ceux-là, et eux seuls, s'expriment une fois
+pour toutes.
 
 ### Ce qu'il ne faut pas faire
 
