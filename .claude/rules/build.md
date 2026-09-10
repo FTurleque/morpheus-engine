@@ -102,7 +102,10 @@ juste au-dessus de cette dépendance dans le POM).
 ## Workflows CI
 
 - `ci.yml` — `mvn clean verify` sur `ubuntu-latest` **et** `windows-latest`
-- `security.yml` — OWASP hebdomadaire (lundi 04:17), branches `[main, develop]`, `timeout-minutes: 90`
+- `security.yml` — OWASP **quotidien** (04:17 UTC), branches `[main, develop]`, `timeout-minutes: 90`
+  — la cadence est journalière parce que le refresh de confiance doit tourner plus souvent que
+  `DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS` (72 h) ; un cron hebdomadaire violerait ce budget et est
+  explicitement refusé par `D2RepositoryHardeningArchitectureTest` et `AuditHardeningWorkflowContractTest`
 - `dependabot.yml` — écosystèmes `maven` + `github-actions`, `target-branch: develop`
 
 Voir [security.md](security.md) pour les règles de pinning SHA des actions.
