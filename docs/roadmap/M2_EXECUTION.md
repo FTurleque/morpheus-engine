@@ -4,7 +4,7 @@ Statut : **M2 VALIDÉE — 8 slices sur 8 ; M3 autorisée**
 
 Dernière mise à jour : 22 juillet 2026
 
-Ce document complète [`../ROADMAP.md`](../ROADMAP.md) et conserve la vue opérationnelle finale de M2.
+Ce document complète [`../governance/ROADMAP.md`](../governance/ROADMAP.md) et conserve la vue opérationnelle finale de M2.
 
 ---
 

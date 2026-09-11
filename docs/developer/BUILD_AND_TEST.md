@@ -59,10 +59,12 @@ Linux :
 Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubuntu pour les pull requests ainsi que sur les pushes `main` et `develop`.
 
 ```text
-baseline Surefire totale       >= 1300
-baseline architecture          >= 335
-JaCoCo line ratchet            >= 54.5%
-JaCoCo branch ratchet          >= 47.7%
+baseline Surefire totale       >= 1550
+baseline architecture          >= 385
+JaCoCo aggregate line ratchet     >= 85.0%
+JaCoCo aggregate branch ratchet   >= 68.0%
+JaCoCo per-module line ratchet    >= 62.0%
+JaCoCo per-module branch ratchet  >= 53.5%
 D2 absolute line floor         40%
 D2 absolute branch floor       35%
 maven dependency analyze       failOnWarning=true
@@ -71,7 +73,7 @@ CycloneDX SBOM                  JSON + XML
 product/package version         1.2.1
 ```
 
-La source normative des quatre ratchets M21 est `config/m21-quality-ratchets.properties`. Les scripts Windows/Linux et `CoverageQualityGateTest` consomment ce même fichier afin d'empêcher toute divergence entre gate shell, gate PowerShell et gate Java.
+La source normative des six ratchets M21 est `config/m21-quality-ratchets.properties`. Les deux échelles de couverture y sont déclarées séparément : `aggregate*` pour la mesure canonique (`morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml`, qui fusionne aussi l'exécution cross-module des tests d'architecture) et `perModule*` pour la somme des rapports JaCoCo de chaque module pris isolément. `AggregateCoverageGateTest` et les deux validateurs `validate-m21.*` consomment la première, `CoverageQualityGateTest` la seconde ; aucun gate ne lit les clés de l'autre échelle, et `CoverageScaleSeparationTest` fait échouer le build si l'un d'eux s'y essaie. Les deux échelles portent sur la même population de modules — tout module du réacteur qui porte une classe sous `src/main/java`, outillage de vérification compris (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne : `AggregateCoverageGateTest` dérive cette population du POM racine et refuse un rapport agrégé qui en mesure une autre.
 
 Les floors sont des ratchets de présence : ils ne sont pas abaissés automatiquement, et toute hausse ultérieure doit être fondée sur une qualification exacte du même SHA sous Windows et Linux.
 
@@ -90,18 +92,18 @@ Cette garde différentielle complète le ratchet global : elle évite qu'une nou
 
 ## Qualité et ratchet JaCoCo
 
-La baseline globale courante est verrouillée à **54,5% lignes / 47,7% branches**.
+La baseline courante est verrouillée à **85,0% lignes / 68,0% branches** sur l'échelle agrégée et **62,0% lignes / 53,5% branches** par module. Les deux chiffres mesurent des populations de lignes différentes : les comparer entre eux n'a pas de sens, et comparer l'un au seuil de l'autre est précisément le défaut que la séparation des clés supprime.
 
 Règle d’évolution :
 
-1. une baisse sous 54,5% lignes ou 47,7% branches fait échouer le gate M21 ;
+1. une baisse sous 85,0% lignes ou 68,0% branches agrégées, ou sous 62,0% lignes ou 53,5% branches par module, fait échouer le gate M21 ;
 2. les floors D2 40% / 35% restent des minima absolus et ne peuvent jamais affaiblir le ratchet ;
 3. une amélioration de couverture ne relève le ratchet qu’après qualification du même SHA exact sur Windows et Linux ;
 4. le ratchet n’est jamais abaissé automatiquement ; une baisse nécessite une décision d’audit explicite et motivée ;
 5. les compteurs de tests sont eux aussi des ratchets de présence, pas une mesure de qualité autonome ;
 6. la couverture ne justifie pas des tests artificiels : les tests doivent conserver une valeur fonctionnelle, de contrat, de sécurité ou d’architecture indépendante du chiffre.
 
-`CoverageQualityGateTest` écrit dans `morpheus-architecture-tests/target/m21-coverage-summary.txt` la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2.
+Chaque gate écrit sa propre preuve, dont la première ligne déclare l'échelle mesurée : `CoverageQualityGateTest` écrit `morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt` (`coverageScope=per-module`) et `AggregateCoverageGateTest` écrit `morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt` (`coverageScope=aggregate`). Les deux fichiers portent la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2 ; la preuve agrégée nomme en outre les modules qu'elle a mesurés (`population=`). Les validateurs refusent de conclure sur une preuve dont l'échelle n'est pas celle qu'ils attendent.
 
 ## Frontière HTTP des corps de requête
 
@@ -116,25 +118,46 @@ Il est interdit aux contextes Query, Saved Views, Export, Policy, Policy Managem
 
 ## SCA / dépendances
 
-OWASP Dependency-Check est épinglé à `12.2.2` dans le profil Maven `d2-security`.
+OWASP Dependency-Check est épinglé à `13.0.0` dans les profils Maven `d2-security` et
+`d2-security-tests`. La version exacte est assertée par
+`D2RepositoryHardeningArchitectureTest#dependencyAndQualityBaselineIsPinned` — la relire dans
+`pom.xml` avant de la citer.
 
-Commande :
+Deux scans, deux périmètres différents :
 
 ```text
-./mvnw -Pd2-security org.owasp:dependency-check-maven:12.2.2:aggregate
+d2-security          ce que MORPHEUS distribue        test scope ignoré
+d2-security-tests    ce que le build exécute          test scope inclus
+```
+
+Le SBOM produit (`cyclonedx`, `includeTestScope=false`) et `d2-security` excluent délibérément
+le scope `test` : un artefact JUnit ou ArchUnit n'est jamais installé chez un opérateur, et le
+faire figurer comme composant du produit décrirait mal ce qui est livré. Mais ces artefacts
+s'exécutent sur chaque machine qui construit MORPHEUS, donc `d2-security-tests` les regarde,
+avec le même seuil bloquant. Il réutilise la base Dependency-Check déjà préparée par le scan
+produit, donc ce second regard ne coûte aucun téléchargement NVD supplémentaire.
+
+Commandes :
+
+```text
+./mvnw -Pd2-security       -DautoUpdate=false org.owasp:dependency-check-maven:13.0.0:aggregate
+./mvnw -Pd2-security-tests -DautoUpdate=false org.owasp:dependency-check-maven:13.0.0:aggregate
 ```
 
 Politique :
 
 ```text
-CVSS >= 7.0     FAIL
+CVSS >= 7.0      FAIL (les deux scans)
 scan error       FAIL
-test scope       skipped
 report format    ALL
-output            target/d2-security
+output           target/d2-security · target/d2-security-tests
 ```
 
-La suppression versionnée dans `config/dependency-check-suppressions.xml` retire uniquement l'association CPE erronée entre le module interne `io.github.fturleque:morpheus-store-sqlite:1.2.1` et SQLite 1.2.1 ; le véritable driver `org.xerial:sqlite-jdbc:3.53.2.0` reste analysé. Le scan échoue si cette règle devient inutilisée afin d'empêcher une suppression obsolète ou trop large.
+Les suppressions versionnées dans `config/dependency-check-suppressions.xml` retirent uniquement
+deux associations CPE erronées sur des modules internes : `io.github.fturleque:morpheus-store-sqlite`
+n'est pas SQLite, `io.github.fturleque:morpheus-cli` n'est pas GitHub CLI. Le vrai driver
+`org.xerial:sqlite-jdbc` et toutes les dépendances tierces restent analysés. Le scan produit échoue
+si une de ces règles devient inutilisée, afin d'empêcher une suppression obsolète ou trop large.
 
 Le workflow **MORPHEUS Security** utilise une base Dependency-Check produite uniquement par des événements de confiance. Sa politique est :
 

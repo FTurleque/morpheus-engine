@@ -1,5 +1,6 @@
 package com.morpheus.architecture.d2;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -21,16 +22,25 @@ class D2RepositoryHardeningArchitectureTest {
             "(?m)^\\s*(?:-\\s*)?uses: actions/upload-artifact@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
     private static final Pattern CACHE_NODE24 = Pattern.compile(
             "(?m)^\\s*(?:-\\s*)?uses: actions/cache/(?:restore|save)@[0-9a-f]{40} # v(?:[6-9]|[1-9][0-9])(?:\\.[0-9]+){0,2}\\s*$");
+    /**
+     * Matches a {@code pull_request} trigger key, not the words. A workflow explains in prose why it has no such
+     * trigger, so a substring search finds its own documentation and reports a violation that is not there.
+     */
+    private static final Pattern WORKFLOW_PULL_REQUEST_TRIGGER =
+            Pattern.compile("(?m)^\\s*pull_request(?:_target)?:\\s*$");
     private static final Pattern CODEQL_V4 = Pattern.compile(
             "(?m)^\\s*(?:-\\s*)?uses: github/codeql-action/(?:init|analyze)@[0-9a-f]{40} # v4(?:\\.[0-9]+){1,2}\\s*$");
+    private static final Pattern WORKFLOW_FILE = Pattern.compile(".+\\.ya?ml");
+    private static final Pattern HISTORICAL_PREFLIGHT =
+            Pattern.compile("m(?:9|1[0-2])-(?:validation|preflight)\\.ya?ml");
 
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
         String pom = Files.readString(repoRoot().resolve("pom.xml"));
         assertTrue(pom.contains("<jackson.version>3.2.2</jackson.version>"));
-        assertTrue(pom.contains("<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>"));
+        assertTrue(pom.contains("<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>"));
         assertTrue(pom.contains("<mcp-sdk.version>2.0.1</mcp-sdk.version>"));
-        assertTrue(pom.contains("<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>"));
+        assertTrue(pom.contains("<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>"));
         assertTrue(pom.contains("<failOnWarning>true</failOnWarning>"));
         assertTrue(pom.contains("<id>d2-security</id>"));
         assertTrue(pom.contains("<failBuildOnCVSS>7.0</failBuildOnCVSS>"));
@@ -47,17 +57,26 @@ class D2RepositoryHardeningArchitectureTest {
     void coverageRatchetCannotSilentlyReturnToTheD2Floor() throws IOException {
         Path root = repoRoot();
         Properties ratchets = m21Ratchets(root);
-        double line = Double.parseDouble(ratchets.getProperty("lineCoverageMinimum"));
-        double branch = Double.parseDouble(ratchets.getProperty("branchCoverageMinimum"));
-        assertTrue(line > 0.40d, "M21 line ratchet must remain stricter than the D2 floor");
-        assertTrue(branch > 0.35d, "M21 branch ratchet must remain stricter than the D2 floor");
+        // Both scales, because a floor that only one of them respects leaves the other free to return to it.
+        for (String key : List.of("perModuleLineCoverageMinimum", "aggregateLineCoverageMinimum")) {
+            assertTrue(Double.parseDouble(ratchets.getProperty(key)) > 0.40d,
+                    () -> "M21 line ratchet " + key + " must remain stricter than the D2 floor");
+        }
+        for (String key : List.of("perModuleBranchCoverageMinimum", "aggregateBranchCoverageMinimum")) {
+            assertTrue(Double.parseDouble(ratchets.getProperty(key)) > 0.35d,
+                    () -> "M21 branch ratchet " + key + " must remain stricter than the D2 floor");
+        }
 
         String coverage = Files.readString(root.resolve(
                 "morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java"));
-        assertTrue(coverage.contains("config/m21-quality-ratchets.properties"),
-                "M21 coverage gate must consume the centralized ratchet configuration");
-        assertFalse(coverage.contains("LINE_RATCHET = 0.40d"));
-        assertFalse(coverage.contains("BRANCH_RATCHET = 0.35d"));
+        String aggregate = Files.readString(root.resolve(
+                "morpheus-coverage-report/src/test/java/com/morpheus/coverage/AggregateCoverageGateTest.java"));
+        for (String gate : List.of(coverage, aggregate)) {
+            assertTrue(gate.contains("config/m21-quality-ratchets.properties"),
+                    "each M21 coverage gate must consume the centralized ratchet configuration");
+            assertFalse(gate.contains("LINE_RATCHET = 0.40d"));
+            assertFalse(gate.contains("BRANCH_RATCHET = 0.35d"));
+        }
     }
 
     @Test
@@ -66,8 +85,10 @@ class D2RepositoryHardeningArchitectureTest {
         Properties ratchets = m21Ratchets(root);
         assertTrue(Integer.parseInt(ratchets.getProperty("testsMinimum")) >= 860);
         assertTrue(Integer.parseInt(ratchets.getProperty("architectureTestsMinimum")) >= 265);
-        assertTrue(Double.parseDouble(ratchets.getProperty("lineCoverageMinimum")) >= 0.510d);
-        assertTrue(Double.parseDouble(ratchets.getProperty("branchCoverageMinimum")) >= 0.435d);
+        assertTrue(Double.parseDouble(ratchets.getProperty("perModuleLineCoverageMinimum")) >= 0.510d);
+        assertTrue(Double.parseDouble(ratchets.getProperty("perModuleBranchCoverageMinimum")) >= 0.435d);
+        assertTrue(Double.parseDouble(ratchets.getProperty("aggregateLineCoverageMinimum")) >= 0.510d);
+        assertTrue(Double.parseDouble(ratchets.getProperty("aggregateBranchCoverageMinimum")) >= 0.435d);
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
@@ -82,7 +103,7 @@ class D2RepositoryHardeningArchitectureTest {
         Path root = repoRoot();
         String linux = Files.readString(root.resolve("scripts/validate-d2.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-d2.ps1"));
-        for (String script : java.util.List.of(linux, windows)) {
+        for (String script : List.of(linux, windows)) {
             assertTrue(script.contains("820"));
             assertTrue(script.contains("258"));
             assertTrue(script.contains("1.2.1"));
@@ -92,12 +113,12 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void activeWorkflowsUsePinnedNode24GenerationActions() throws IOException {
         Path root = repoRoot();
-        for (String workflow : java.util.List.of("ci.yml", "security.yml", "codeql.yml")) {
+        for (String workflow : List.of("ci.yml", "security.yml", "codeql.yml", "nightly.yml")) {
             String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
             assertPinnedNode24(text, CHECKOUT_NODE24, "checkout", workflow);
             assertPinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", workflow);
         }
-        for (String workflow : java.util.List.of("ci.yml", "security.yml")) {
+        for (String workflow : List.of("ci.yml", "security.yml", "nightly.yml")) {
             String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
             assertPinnedNode24(text, UPLOAD_ARTIFACT_NODE24, "upload-artifact", workflow);
         }
@@ -115,31 +136,46 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     /**
-     * The macOS lane observes; it must never be mistaken for support.
+     * The macOS lane is observed, never claimed as supported, and now runs on a bounded cadence.
      *
-     * <p>An unqualified platform must not gate pull requests, so the lane is advisory. The opposite mistake is
-     * the one worth guarding against in a contract: a green advisory lane is not a support decision, and the
-     * qualified-platform list must keep saying Windows and Linux until a product decision says otherwise.</p>
+     * <p>This contract used to read {@code ci.yml}, because that is where the lane lived. It moved to
+     * {@code nightly.yml} and this test moved with it: the finding it reports is a property of the platform and
+     * of the MORPHEUS symlink invariant, not of the change under review, so RT-08 reported the same result on
+     * every pull request and reproducing it several hundred times a month bought no information. Every guarantee
+     * the previous version asserted is asserted here unchanged -- advisory, no distribution artifacts, the
+     * reactor outcome published rather than swallowed, RT-08 named, and the documentation still refusing to call
+     * macOS supported. Only the cadence changed, so this test additionally pins the cadence itself: the lane must
+     * be reachable from a bounded schedule and must not be reachable from a pull request, which is the property
+     * that would silently regress if someone later "restored" the lane to ci.yml.</p>
      */
     @Test
     void theMacosLaneStaysAdvisoryAndClaimsNoSupport() throws IOException {
         Path root = repoRoot();
-        String ci = Files.readString(root.resolve(".github/workflows/ci.yml"));
+        String nightly = Files.readString(root.resolve(".github/workflows/nightly.yml"));
 
-        assertTrue(ci.contains("runs-on: macos-latest"), "ci.yml must observe macOS at least at smoke level");
-        assertTrue(ci.contains("continue-on-error: true"),
-                "an unqualified platform must not gate pull requests");
-        assertFalse(ci.contains("jpackage") && ci.contains("macos"),
+        assertTrue(nightly.contains("runs-on: macos-latest"),
+                "the nightly workflow must observe macOS at least at smoke level");
+        assertTrue(nightly.contains("continue-on-error: true"),
+                "an unqualified platform must not gate anything");
+        assertFalse(nightly.contains("jpackage") && nightly.contains("macos"),
                 "the macOS lane must not produce distribution artifacts");
-
-        // The lane tolerates a failing reactor so it does not sit permanently red, which is only acceptable
-        // while it still says what happened. Swallowing the outcome would turn an observation lane into a
-        // rubber stamp: green because it ran, not because anything worked.
-        assertTrue(ci.contains("id: reactor"), "the macOS reactor step must be identifiable");
-        assertTrue(ci.contains("Reactor outcome on macOS: ${{ steps.reactor.outcome }}"),
+        assertTrue(nightly.contains("id: reactor"), "the macOS reactor step must be identifiable");
+        assertTrue(nightly.contains("Reactor outcome on macOS: ${{ steps.reactor.outcome }}"),
                 "the macOS lane must publish the reactor outcome rather than swallow it");
-        assertTrue(ci.contains("RT-08 open, no support claimed"),
+        assertTrue(nightly.contains("RT-08 open, no support claimed"),
                 "a failing macOS reactor must be surfaced as a warning naming the open risk");
+
+        assertTrue(nightly.contains("schedule:") && nightly.contains("- cron: "),
+                "the macOS observation must run on a bounded cadence rather than on demand only, or nobody "
+                        + "will ever see it");
+        assertFalse(WORKFLOW_PULL_REQUEST_TRIGGER.matcher(nightly).find(),
+                "the macOS lane must not be reachable from a pull request: its finding does not change between "
+                        + "one pull request and the next, and a permanently failing advisory lane in the checks "
+                        + "list teaches people to ignore CI");
+
+        String ci = Files.readString(root.resolve(".github/workflows/ci.yml"));
+        assertFalse(ci.contains("macos"),
+                "the macOS lane must not come back to the per-pull-request workflow");
 
         String qualityScenarios = Files.readString(root.resolve("docs/architecture/quality/scenarios.md"));
         String architecture = Files.readString(root.resolve("docs/architecture/arc42/10-exigences-qualite.md"));
@@ -151,15 +187,49 @@ class D2RepositoryHardeningArchitectureTest {
                 "arc42 must keep separating observation from qualification");
     }
 
+    /**
+     * No workflow may pin a pre-Node 24 checkout or setup-java, and the four historical preflights stay removed.
+     *
+     * <p>This replaces a test that read m10, m11 and m12 by name to keep a deprecated setup-java out of workflows
+     * nobody ran. Those three and m9-validation.yml were removed on 11/09/2026 (DT-14): they ran
+     * {@code mvnw clean test}, which does not package the reference plugin JAR ProviderPluginPlatformContractTest
+     * loads from {@code target/}, so they could no longer pass on the current tree, and no M9-M12 tag exists to
+     * replay them on the tree they were written for. The intention outlives the files and is widened rather than
+     * dropped: every workflow in the directory is held to it, including one added tomorrow that nobody remembers
+     * to list, and the historical names are refused so that a restored copy cannot come back unnoticed.</p>
+     */
     @Test
-    void historicalPreflightsAvoidDeprecatedSetupJavaV4() throws IOException {
+    void everyWorkflowAvoidsDeprecatedActionGenerationsAndTheHistoricalPreflightsStayRemoved() throws IOException {
         Path root = repoRoot().resolve(".github/workflows");
-        for (String workflow : java.util.List.of("m10-preflight.yml", "m11-preflight.yml", "m12-preflight.yml")) {
-            String text = Files.readString(root.resolve(workflow));
-            assertPinnedNode24(text, CHECKOUT_NODE24, "checkout", workflow);
-            assertPinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", workflow);
-            assertFalse(text.contains("cf277c60eb25467037889841efdb72551f06f6c3"));
+        List<Path> workflows;
+        try (var files = Files.list(root)) {
+            workflows = files.filter(path -> WORKFLOW_FILE.matcher(path.getFileName().toString()).matches())
+                    .sorted()
+                    .toList();
         }
+        assertFalse(workflows.isEmpty(), "no workflow found under .github/workflows");
+        for (Path workflow : workflows) {
+            String name = workflow.getFileName().toString();
+            assertFalse(HISTORICAL_PREFLIGHT.matcher(name).matches(),
+                    () -> name + " was removed with DT-14: it cannot pass on the current tree, and ci.yml already "
+                            + "runs clean verify exact-head on Linux and Windows");
+            String text = Files.readString(workflow);
+            assertEveryUsePinnedNode24(text, CHECKOUT_NODE24, "checkout", name);
+            assertEveryUsePinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", name);
+            assertFalse(text.contains("cf277c60eb25467037889841efdb72551f06f6c3"),
+                    () -> name + " pins the deprecated setup-java v4 commit");
+        }
+    }
+
+    /**
+     * Every use, not one: a workflow that pins a current setup-java in one job and a deprecated one in another
+     * satisfies a single match, which is all {@link #assertPinnedNode24} asks for.
+     */
+    private static void assertEveryUsePinnedNode24(String workflow, Pattern pattern, String action, String file) {
+        long uses = workflow.lines().filter(line -> line.contains("uses: actions/" + action + "@")).count();
+        long pinned = pattern.matcher(workflow).results().count();
+        assertEquals(uses, pinned, () -> file + " must pin every actions/" + action
+                + " use to a 40-char SHA from the Node 24 generation or newer");
     }
 
     @Test
@@ -170,11 +240,23 @@ class D2RepositoryHardeningArchitectureTest {
 
         assertTrue(security.contains("branches: [main, develop]"));
         assertTrue(security.contains("timeout-minutes: 90"));
-        assertTrue(security.contains("dependency-check-maven:12.2.2:update-only"));
-        assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"));
+        assertTrue(security.contains("dependency-check-maven:13.0.0:update-only"));
+        assertTrue(security.contains("dependency-check-maven:13.0.0:aggregate"));
         assertTrue(security.contains("-DautoUpdate=false"));
         assertTrue(security.contains("target/dependency-check-data"));
-        assertTrue(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"));
+        // Same intention as the v13/v12 namespace assertions this replaces -- a trusted cache must never be
+        // reused by an analyzer that cannot read it -- retargeted onto the property that actually decides it.
+        // The plugin version never did: 12.2.2 and 13.0.0 both declare data.version 5.6 with byte-identical
+        // DDL, so the namespace was strict where it did not need to be, and the v12 restore-key added for the
+        // rollout would have been permissive where it must not be. The schema version decides it exactly, and
+        // leaves nothing to fall back to. DependencyCheckWorkflowContractTest carries the full argument.
+        assertTrue(security.contains("dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-"
+                        + "${{ runner.os }}-"),
+                "the trusted cache must be namespaced by the H2 schema version, so it is reused exactly when "
+                        + "the running analyzer can read it");
+        assertFalse(security.contains("dependency-check-v12-trusted-${{ runner.os }}-"),
+                "the v13 rollout migration is over: a restore-key that crosses schema namespaces must not "
+                        + "outlive it");
         assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32587778460"));
         assertFalse(security.contains("dependency-check-v12-${{ runner.os }}-32690353897"));
         assertTrue(security.contains("Verify restored Dependency-Check database freshness"));
@@ -183,7 +265,10 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(security.contains("max_age_seconds=\"$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))\""));
         assertTrue(security.contains("- cron: '17 4 * * *'"));
         assertFalse(security.contains("- cron: '17 4 * * 1'"));
-        assertTrue(security.contains("No trusted Dependency-Check database was restored"));
+        assertTrue(security.contains("No trusted Dependency-Check refresh could be established"),
+                "a pull request handed a cache it cannot date must still refuse: freshness is now established "
+                        + "from the sentinel a refresh wrote, so the refusal names the missing refresh rather "
+                        + "than a missing file");
         assertTrue(security.contains("if: github.event_name != 'pull_request'"));
         assertTrue(security.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"));
         assertTrue(security.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"));
@@ -212,19 +297,66 @@ class D2RepositoryHardeningArchitectureTest {
                 "Dependency-Check database updates must be restricted to trusted events");
         assertTrue(trustedUpdateStep.contains("${{ secrets.NVD_API_KEY }}"),
                 "trusted Dependency-Check updates must use the configured NVD API key when available");
-        int firstUpdateOnly = security.indexOf("dependency-check-maven:12.2.2:update-only");
+        int firstUpdateOnly = security.indexOf("dependency-check-maven:13.0.0:update-only");
         assertTrue(firstUpdateOnly >= trustedUpdateIndex && firstUpdateOnly < saveIndex,
                 "Dependency-Check update-only must remain inside the trusted-event update step");
-        assertTrue(security.indexOf("dependency-check-maven:12.2.2:update-only", firstUpdateOnly + 1) < 0,
+        assertTrue(security.indexOf("dependency-check-maven:13.0.0:update-only", firstUpdateOnly + 1) < 0,
                 "pull requests must consume the trusted cache and must not run a second anonymous NVD update");
 
         String saveStep = security.substring(saveIndex, scanIndex);
         assertTrue(saveStep.contains("if: github.event_name != 'pull_request'"),
                 "Dependency-Check cache writes must be restricted to trusted events");
+        assertTrue(saveStep.contains("dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}"
+                        + "-trusted-${{ runner.os }}-${{ github.run_id }}"),
+                "trusted events must publish the cache under the schema namespace the restore reads, so a save "
+                        + "and a restore can never disagree about which databases are interchangeable");
 
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
         assertTrue(dependabot.contains("target-branch: develop"));
+    }
+
+    /**
+     * What the build executes is scanned even though it is not what the build ships.
+     *
+     * <p>The product SBOM and the product scan exclude test scope deliberately: a JUnit artifact is never
+     * installed on an operator's machine, and listing it as a product component would misdescribe the product.
+     * That exclusion becomes a blind spot the moment it is the only view, because those artifacts still execute
+     * on every machine that builds MORPHEUS. The second scan closes it, on the same CVSS threshold, reusing the
+     * database the product scan already prepared so the coverage costs no extra NVD traffic.</p>
+     */
+    @Test
+    void buildAndTestDependenciesAreScannedSeparatelyFromTheDistributedProduct() throws IOException {
+        Path root = repoRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+
+        assertTrue(pom.contains("<includeTestScope>false</includeTestScope>"),
+                "the product SBOM must keep describing only what is distributed");
+        assertTrue(pom.contains("<id>d2-security-tests</id>"));
+        assertTrue(pom.contains("<skipTestScope>false</skipTestScope>"),
+                "the build-time scan must look at exactly what the product scan skips");
+        assertTrue(pom.contains("<outputDirectory>${project.build.directory}/d2-security-tests</outputDirectory>"));
+        assertEquals(2, countOccurrences(pom, "<failBuildOnCVSS>7.0</failBuildOnCVSS>"),
+                "both scans must fail closed on the same severity threshold");
+
+        int productScan = security.indexOf("- name: Run OWASP Dependency-Check scan");
+        int buildScan = security.indexOf("- name: Run OWASP Dependency-Check scan over build and test dependencies");
+        assertTrue(productScan >= 0 && buildScan > productScan,
+                "the build-time scan must reuse the database the product scan already prepared");
+
+        String buildScanStep = security.substring(buildScan);
+        assertTrue(buildScanStep.contains("-Pd2-security-tests"));
+        assertTrue(buildScanStep.contains("-DautoUpdate=false"),
+                "the second scan must not trigger a second NVD download");
+        assertFalse(buildScanStep.contains("continue-on-error"),
+                "a scan that cannot fail the build is not a gate");
+        assertTrue(security.contains("target/d2-security-tests/**"),
+                "the build-time scan must publish its evidence");
+    }
+
+    private static int countOccurrences(String text, String needle) {
+        return text.split(Pattern.quote(needle), -1).length - 1;
     }
 
     @Test
@@ -255,7 +387,8 @@ class D2RepositoryHardeningArchitectureTest {
 
         try (var files = Files.walk(root, 16)) {
             for (Path source : files.filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> path.toString().contains("src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
+                    .filter(path -> path.toString().contains(
+                            "src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
                     .toList()) {
                 String text = Files.readString(source);
                 assertFalse(text.contains("activateDefaultTyping("), "default typing activation forbidden: " + source);
@@ -264,10 +397,6 @@ class D2RepositoryHardeningArchitectureTest {
         }
     }
 
-    /**
-     * A prefix test on Content-Type admits {@code application/jsonp} and {@code application/json-patch+json} as
-     * JSON. Every request-body boundary must decide admission through the shared exact parser instead.
-     */
     @Test
     void requestBodyBoundariesAdmitJsonByExactMediaTypeNotByPrefix() throws IOException {
         Path api = repoRoot().resolve("morpheus-api/src/main/java/com/morpheus/api");
@@ -295,14 +424,6 @@ class D2RepositoryHardeningArchitectureTest {
         }
     }
 
-    /**
-     * The documented CVE command must actually scan.
-     *
-     * <p>The {@code d2-security} profile only configures the plugin; it binds no execution to a phase. So
-     * {@code ./mvnw verify -P d2-security}, which four governance surfaces documented as the CVE scan, completed
-     * in seconds with BUILD SUCCESS having analysed nothing — an auditor following it would have reported a clean
-     * scan without running one. The goal has to be invoked explicitly, as {@code security.yml} does.</p>
-     */
     @Test
     void governanceSurfacesDocumentACveCommandThatActuallyInvokesTheScan() throws IOException {
         Path root = repoRoot();
@@ -325,8 +446,8 @@ class D2RepositoryHardeningArchitectureTest {
         }
 
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
-        assertTrue(security.contains("dependency-check-maven:12.2.2:aggregate"),
-                "CI must invoke the aggregate goal explicitly");
+        assertTrue(security.contains("dependency-check-maven:13.0.0:aggregate"),
+                "CI must invoke the pinned aggregate goal explicitly");
     }
 
     @Test
@@ -359,7 +480,8 @@ class D2RepositoryHardeningArchitectureTest {
             return current;
         }
         Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml")) && Files.isDirectory(parent.resolve("distribution"))) {
+        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
+                && Files.isDirectory(parent.resolve("distribution"))) {
             return parent;
         }
         throw new IllegalStateException("MORPHEUS repository root not found from " + current);

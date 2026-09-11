@@ -1,15 +1,21 @@
 package com.morpheus.architecture;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,8 +45,136 @@ class RepositoryDocumentationCoherenceTest {
     private static final Pattern SCHEMA_VERSION_PROSE = Pattern.compile(
             "(?i)(?:sch[eé]ma|schema)\\s+(?:supported\\s+|support[eé]e?\\s+)?V?\\d+"
                     + "|SUPPORTED_SCHEMA_VERSION[^\\n]{0,40}?\\bV?\\d+");
+    /**
+     * A dependency version stated next to the name of the dependency it belongs to.
+     *
+     * <p>The window is short and digit-free on purpose: it catches the table cell, the aligned block and the
+     * Maven coordinate an active page actually uses, without reaching across a sentence into an unrelated
+     * number.</p>
+     */
+    private static final Pattern SQLITE_JDBC_MENTION =
+            Pattern.compile("(?i)sqlite[- ]jdbc[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2,3})");
+    private static final Pattern DEPENDENCY_CHECK_MENTION =
+            Pattern.compile("(?i)dependency-check[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2})");
+    private static final Pattern JACKSON_MENTION =
+            Pattern.compile("(?i)jackson(?: bom)?[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2})");
+
+    /**
+     * Surfaces whose stack statement is about the current baseline rather than a dated one.
+     *
+     * <p>Deliberately excludes the D2 evidence blocks in {@code DOCUMENTATION_STATUS.md}, {@code ROADMAP.md} and
+     * {@code validation/README.md}: those describe what was integrated at SHA {@code fa54b3d6}, and updating them
+     * would falsify a record rather than refresh a claim.</p>
+     */
+    private static final List<String> CURRENT_STACK_SURFACES = List.of(
+            "README.md",
+            "docs/README.md",
+            "docs/developer/README.md",
+            "docs/developer/BUILD_AND_TEST.md",
+            "docs/architecture/arc42/02-contraintes.md",
+            "docs/architecture/arc42/04-strategie-solution.md",
+            "docs/architecture/arc42/05-vue-blocs.md",
+            "docs/architecture/arc42/08-concepts-transverses.md");
+
     private static final Pattern MODULE = Pattern.compile("<module>([^<]+)</module>");
     private static final Pattern DOCUMENTED_THRESHOLD = Pattern.compile(">=\\s*([0-9]+(?:[.,][0-9]+)?)");
+
+    /** An inline Markdown link or image, {@code [text](target)} or {@code [text](target "title")}. */
+    private static final Pattern MARKDOWN_LINK = Pattern.compile("\\[[^\\]]*\\]\\(([^)\\s]+)(?:\\s+\"[^\"]*\")?\\)");
+    private static final Pattern FENCED_CODE = Pattern.compile("```.*?```", Pattern.DOTALL);
+    private static final Pattern INLINE_CODE = Pattern.compile("`[^`\\n]*`");
+    private static final Pattern URI_SCHEME = Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]*:");
+    /** Trees the build and the validators generate, which .gitignore keeps out of the repository. */
+    private static final Set<String> GENERATED_TREES = Set.of(".git", "target", "dist", "validation-output");
+
+    /**
+     * Every relative Markdown link resolves, on a current guide and on a dated record alike.
+     *
+     * <p>This is the one property that holds for the whole corpus without sorting it into live and frozen pages:
+     * it asks no page to be current and freezes nothing, and a dated validation record whose evidence link no
+     * longer resolves has lost that evidence as surely as a guide has. A link is resolved from the directory of
+     * the page that holds it; resolving from the repository root turns every {@code ../} into a false positive.</p>
+     */
+    @Test
+    void everyRelativeMarkdownLinkResolvesFromThePageThatHoldsIt() throws Exception {
+        List<String> broken = brokenMarkdownLinks(repositoryRoot());
+        assertTrue(broken.isEmpty(), () -> broken.size() + " relative Markdown link(s) do not resolve from their page:"
+                + System.lineSeparator() + String.join(System.lineSeparator(), broken));
+    }
+
+    /**
+     * An empty corpus would satisfy the rule above as well (ADR-0103). This proves it refuses a moved target, names
+     * the page and the target, and leaves alone what is not a link to a file.
+     */
+    @Test
+    void theLinkRuleRefusesAMovedTargetAndIgnoresWhatIsNotAFileLink(@TempDir Path corpus) throws Exception {
+        Files.createDirectories(corpus.resolve("docs/guide"));
+        Files.createDirectories(corpus.resolve("docs/validation"));
+        Files.writeString(corpus.resolve("docs/validation/VALIDATION_M1.md"), "# M1\n");
+        Files.writeString(corpus.resolve("docs/guide/page.md"), """
+                [resolves from its page, not from the root](../validation/VALIDATION_M1.md#preuve)
+                ![image with a title](../validation/VALIDATION_M1.md "M1")
+                [web](https://example.test/missing.md) [mail](mailto:someone@example.test) [anchor](#section)
+                [prose shorthand](morpheus-api/.../Missing.java)
+                `[inline code](missing-inline.md)`
+                ```text
+                [fenced](missing-fenced.md)
+                ```
+                [moved into a subdirectory](../VALIDATION_M1.md)
+                """);
+        Files.createDirectories(corpus.resolve("module/target"));
+        Files.writeString(corpus.resolve("module/target/generated.md"), "[generated](nowhere.md)\n");
+
+        assertEquals(List.of("docs/guide/page.md -> ../VALIDATION_M1.md"), brokenMarkdownLinks(corpus),
+                "only the moved target may be refused, named by its page and its target as written");
+    }
+
+    private static List<String> brokenMarkdownLinks(Path root) throws IOException {
+        List<Path> pages = new ArrayList<>();
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
+                return !directory.equals(root) && GENERATED_TREES.contains(directory.getFileName().toString())
+                        ? FileVisitResult.SKIP_SUBTREE
+                        : FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+                if (attributes.isRegularFile() && file.getFileName().toString().endsWith(".md")) {
+                    pages.add(file);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+        pages.sort(null);
+
+        List<String> broken = new ArrayList<>();
+        for (Path page : pages) {
+            String prose = INLINE_CODE.matcher(FENCED_CODE.matcher(Files.readString(page)).replaceAll("")).replaceAll("");
+            Matcher link = MARKDOWN_LINK.matcher(prose);
+            while (link.find()) {
+                String target = link.group(1);
+                if (URI_SCHEME.matcher(target).find() || target.startsWith("#") || target.contains("...")) {
+                    continue;
+                }
+                String file = target.replaceFirst("[#?].*$", "");
+                if (!file.isEmpty() && !resolves(root, page, file)) {
+                    broken.add(root.relativize(page).toString().replace('\\', '/') + " -> " + target);
+                }
+            }
+        }
+        return broken;
+    }
+
+    private static boolean resolves(Path root, Path page, String file) {
+        try {
+            Path base = file.startsWith("/") ? root : page.getParent();
+            return Files.exists(base.resolve(file.startsWith("/") ? file.substring(1) : file).normalize());
+        } catch (InvalidPathException unrepresentable) {
+            return false;
+        }
+    }
 
     @Test
     void rootReadmeMatchesPomVersionMcpSdkAndModuleList() throws Exception {
@@ -90,24 +224,134 @@ class RepositoryDocumentationCoherenceTest {
         }
     }
 
+    /**
+     * Surfaces that state the current stack must state the version the root POM declares.
+     *
+     * <p>They had drifted: the POM carried {@code sqlite-jdbc 3.53.4.0} and Dependency-Check {@code 13.0.0} while
+     * both D2 validators still asserted {@code 3.53.2.0} and {@code 12.2.2}. Those two are executable, so the
+     * drift was not merely misleading -- {@code validate-d2} could not pass on {@code develop} at all, because it
+     * required a token the POM no longer contains. The expected values are read from the POM rather than pinned
+     * here, so this test cannot itself become the next stale copy.</p>
+     *
+     * <p><strong>A page is not the unit of currency; a block is.</strong> The first version of this rule scanned
+     * whole files, and the sweep that satisfied it rewrote dated evidence: three D2 records tied to SHA
+     * {@code fa54b3d6} were given today's versions, and two arc42 tables labelled "baseline 1.2.0" came out half
+     * updated -- sqlite and Dependency-Check current, Jackson and the MCP SDK not -- which is worse than either
+     * being stale. Only surfaces whose stack statement is unambiguously about now are scanned.</p>
+     */
+    @Test
+    void activeStackDocumentationAndD2ValidatorsFollowTheRootPomDependencyVersions() throws Exception {
+        Path root = repositoryRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String sqlite = pomProperty(pom, "sqlite-jdbc.version");
+        String dependencyCheck = pomProperty(pom, "dependency-check.maven.plugin.version");
+
+        for (String validator : List.of("scripts/validate-d2.sh", "scripts/validate-d2.ps1")) {
+            String script = Files.readString(root.resolve(validator));
+            assertTrue(script.contains("<sqlite-jdbc.version>" + sqlite + "</sqlite-jdbc.version>"),
+                    () -> validator + " asserts a sqlite-jdbc version the root POM no longer declares");
+            assertTrue(script.contains(
+                            "<dependency-check.maven.plugin.version>" + dependencyCheck
+                                    + "</dependency-check.maven.plugin.version>"),
+                    () -> validator + " asserts a Dependency-Check version the root POM no longer declares");
+            assertTrue(script.contains("dependency-check-maven:" + dependencyCheck + ":aggregate"),
+                    () -> validator + " invokes a Dependency-Check version the root POM no longer declares");
+        }
+
+        String jackson = pomProperty(pom, "jackson.version");
+        for (String page : CURRENT_STACK_SURFACES) {
+            String content = Files.readString(root.resolve(page));
+            assertStatedVersion(page, content, SQLITE_JDBC_MENTION, sqlite, "sqlite-jdbc");
+            assertStatedVersion(page, content, DEPENDENCY_CHECK_MENTION, dependencyCheck, "Dependency-Check");
+            assertStatedVersion(page, content, JACKSON_MENTION, jackson, "Jackson");
+        }
+    }
+
+    /**
+     * A dated snapshot has to agree with itself.
+     *
+     * <p>The arc42 stack tables defer authority to {@code pom.xml} and describe "la baseline au moment de la
+     * réconciliation documentaire", so reconciling them means moving every row at once. Half a reconciliation
+     * produces a table that is true about two dependencies and false about five, and nothing in it says which
+     * is which -- which is how this repository's documentation actually broke.</p>
+     */
+    @Test
+    void theArc42StackTablesAreReconciledAsAWholeRatherThanRowByRow() throws Exception {
+        Path root = repositoryRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        Map<String, String> reconciled = new HashMap<>();
+        for (String property : List.of(
+                "junit.version", "archunit.version", "mcp-sdk.version", "cyclonedx.maven.plugin.version")) {
+            reconciled.put(property, pomProperty(pom, property));
+        }
+
+        for (String page : List.of(
+                "docs/architecture/arc42/04-strategie-solution.md",
+                "docs/architecture/arc42/08-concepts-transverses.md")) {
+            String content = Files.readString(root.resolve(page));
+            for (Map.Entry<String, String> row : reconciled.entrySet()) {
+                assertTrue(content.contains(row.getValue()),
+                        () -> page + " omits the reconciled " + row.getKey() + " " + row.getValue()
+                                + "; the stack table moves as a whole or not at all");
+            }
+        }
+    }
+
+    private static void assertStatedVersion(
+            String page, String content, Pattern mention, String expected, String label) {
+        Matcher matcher = mention.matcher(content);
+        while (matcher.find()) {
+            String stated = matcher.group(1);
+            assertEquals(expected, stated,
+                    () -> page + " states " + label + " " + stated + " while the root POM declares " + expected);
+        }
+    }
+
+    private static String pomProperty(String pom, String name) {
+        Matcher matcher = Pattern.compile("<" + Pattern.quote(name) + ">([^<]+)</" + Pattern.quote(name) + ">")
+                .matcher(pom);
+        assertTrue(matcher.find(), () -> "the root POM must declare " + name);
+        return matcher.group(1).trim();
+    }
+
     @Test
     void bothPlatformValidatorsConsumeSingleQualityRatchetConfiguration() throws Exception {
         Path root = repositoryRoot();
         Path ratchetFile = root.resolve("config/m21-quality-ratchets.properties");
         Map<String, String> ratchets = properties(ratchetFile);
-        // Pinned so that moving a ratchet is a deliberate act with evidence, never a side effect. Raised on
-        // 04/09/2026 from 1150/310/0.540/0.470 against an exact-head Windows measurement of 57.49% lines and
-        // 50.21% branches over 1324 tests, of which 343 are architecture tests. The coverage values stay under
-        // CoverageQualityGateTest's qualified cap, which requires evidence from both platforms to move.
-        assertEquals("1300", ratchets.get("testsMinimum"));
-        assertEquals("335", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.545", ratchets.get("lineCoverageMinimum"));
-        assertEquals("0.477", ratchets.get("branchCoverageMinimum"));
+        // Pinned so that moving a ratchet is a deliberate act with evidence, never a side effect. The presence
+        // ratchets were raised on 08/09/2026 from 1300/335 against exact-head measurements taken on BOTH
+        // platforms at fix/audit-hardening-2026-09-08, 1560+ tests of which 390+ are architecture tests.
+        //
+        // The coverage ratchets are two pairs because two gates measure two different grandeurs, each with its
+        // own qualified cap, and until 09/09/2026 they shared one pair of keys:
+        //     per-module (CoverageQualityGateTest, sum of each module's own report)
+        //         Windows  62.5328% / 62.5432% lines,  53.8092% / 53.8188% branches
+        //         Linux    62.5083% / 62.5013% lines,  53.7997% / 53.7997% branches
+        //     aggregate  (AggregateCoverageGateTest, canonical jacoco-aggregate report), 09/09/2026 at e5127486
+        //         Windows  85.7612% / 85.7717% lines,  68.5342% / 68.5629% branches
+        //         Linux    85.7263% / 85.7367% lines,  68.5246% / 68.5437% branches
+        // Each pair stays below its own cap rather than at it: two runs of one commit differed by two covered
+        // lines, so pinning a ratchet to the measurement would make ordinary variation fail the build.
+        assertEquals("1550", ratchets.get("testsMinimum"));
+        assertEquals("385", ratchets.get("architectureTestsMinimum"));
+        assertEquals("0.620", ratchets.get("perModuleLineCoverageMinimum"));
+        assertEquals("0.535", ratchets.get("perModuleBranchCoverageMinimum"));
+        assertEquals("0.850", ratchets.get("aggregateLineCoverageMinimum"));
+        assertEquals("0.680", ratchets.get("aggregateBranchCoverageMinimum"));
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
         assertTrue(linux.contains("config/m21-quality-ratchets.properties"));
         assertTrue(windows.contains("config\\m21-quality-ratchets.properties"));
+        // Both validators conclude on the aggregate scale, so both must read the aggregate keys and neither
+        // may fall back to a scale-agnostic one.
+        for (String script : List.of(linux, windows)) {
+            assertTrue(script.contains("aggregateLineCoverageMinimum"));
+            assertTrue(script.contains("aggregateBranchCoverageMinimum"));
+            assertFalse(script.contains("read_ratchet lineCoverageMinimum"));
+            assertFalse(script.contains("$values.lineCoverageMinimum"));
+        }
         assertFalse(linux.contains("line < 0.506"), "Linux validator must not retain the old embedded line ratchet");
         assertFalse(windows.contains("-lt 0.506"), "Windows validator must not retain the old embedded line ratchet");
     }
@@ -117,17 +361,21 @@ class RepositoryDocumentationCoherenceTest {
         Path root = repositoryRoot();
         Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
         String expectedRatchets = """
-                Surefire total       >= %s
-                architecture         >= %s
-                line coverage        >= %s
-                branch coverage      >= %s
-                changed-line         >= 80%%
-                changed-branch       >= 70%%
+                Surefire total          >= %s
+                architecture            >= %s
+                aggregate line          >= %s
+                aggregate branch        >= %s
+                per-module line         >= %s
+                per-module branch       >= %s
+                changed-line            >= 80%%
+                changed-branch          >= 70%%
                 """.formatted(
                 ratchets.get("testsMinimum"),
                 ratchets.get("architectureTestsMinimum"),
-                percentage(ratchets.get("lineCoverageMinimum")),
-                percentage(ratchets.get("branchCoverageMinimum")));
+                percentage(ratchets.get("aggregateLineCoverageMinimum")),
+                percentage(ratchets.get("aggregateBranchCoverageMinimum")),
+                percentage(ratchets.get("perModuleLineCoverageMinimum")),
+                percentage(ratchets.get("perModuleBranchCoverageMinimum")));
 
         for (Path page : List.of(
                 root.resolve("docs/architecture/arc42/11-risques-dette.md"),
@@ -151,64 +399,89 @@ class RepositoryDocumentationCoherenceTest {
         Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
         String tests = ratchets.get("testsMinimum");
         String architecture = ratchets.get("architectureTestsMinimum");
-        String line = decimalPercentage(ratchets.get("lineCoverageMinimum"));
-        String branch = decimalPercentage(ratchets.get("branchCoverageMinimum"));
+        String aggregateLine = decimalPercentage(ratchets.get("aggregateLineCoverageMinimum"));
+        String aggregateBranch = decimalPercentage(ratchets.get("aggregateBranchCoverageMinimum"));
+        String perModuleLine = decimalPercentage(ratchets.get("perModuleLineCoverageMinimum"));
+        String perModuleBranch = decimalPercentage(ratchets.get("perModuleBranchCoverageMinimum"));
 
         assertLabelledThresholds(root, "docs/developer/BUILD_AND_TEST.md", Map.of(
                 "baseline Surefire totale", tests,
                 "baseline architecture", architecture,
-                "JaCoCo line ratchet", line,
-                "JaCoCo branch ratchet", branch));
+                "JaCoCo aggregate line ratchet", aggregateLine,
+                "JaCoCo aggregate branch ratchet", aggregateBranch,
+                "JaCoCo per-module line ratchet", perModuleLine,
+                "JaCoCo per-module branch ratchet", perModuleBranch));
         assertLabelledThresholds(root, "docs/developer/PRODUCTION_INTEGRITY.md", Map.of(
                 "Tests ", tests,
                 "Architecture ", architecture,
-                "JaCoCo lines", line,
-                "JaCoCo branches", branch));
+                "JaCoCo aggregate lines", aggregateLine,
+                "JaCoCo aggregate branches", aggregateBranch,
+                "JaCoCo per-module lines", perModuleLine,
+                "JaCoCo per-module branches", perModuleBranch));
         assertLabelledThresholds(root, "docs/README.md", Map.of(
                 "Surefire total", tests,
                 "architecture tests", architecture,
-                "JaCoCo global lines", line,
-                "JaCoCo global branches", branch));
+                "JaCoCo aggregate lines", aggregateLine,
+                "JaCoCo aggregate branches", aggregateBranch,
+                "JaCoCo per-module lines", perModuleLine,
+                "JaCoCo per-module branches", perModuleBranch));
         // The operator surfaces an engineer actually opens before running a gate. Each of these still announced
         // the pre-1.2.1 ratchets, so four different numbers were in circulation for one executable threshold.
+        // Each now has to name the scale as well as the number: one figure standing alone was exactly how a
+        // per-module threshold came to be read as governing the canonical measurement.
         assertLabelledThresholds(root, "scripts/README.md", Map.of(
                 "Surefire total", tests,
                 "architecture ", architecture,
-                "line coverage", line,
-                "branch coverage", branch));
+                "aggregate line coverage", aggregateLine,
+                "aggregate branch coverage", aggregateBranch,
+                "per-module line coverage", perModuleLine,
+                "per-module branch coverage", perModuleBranch));
         assertLabelledThresholds(root, "distribution/README.md", Map.of(
                 "Surefire total", tests,
                 "architecture ", architecture,
-                "line coverage", line,
-                "branch coverage", branch));
+                "aggregate line coverage", aggregateLine,
+                "aggregate branch coverage", aggregateBranch,
+                "per-module line coverage", perModuleLine,
+                "per-module branch coverage", perModuleBranch));
         assertLabelledThresholds(root, "docs/developer/README.md", Map.of(
                 "Surefire floor", tests,
                 "Architecture floor", architecture,
-                "JaCoCo line ratchet", line,
-                "JaCoCo branch ratchet", branch));
+                "JaCoCo aggregate line ratchet", aggregateLine,
+                "JaCoCo aggregate branch ratchet", aggregateBranch,
+                "JaCoCo per-module line ratchet", perModuleLine,
+                "JaCoCo per-module branch ratchet", perModuleBranch));
         assertLabelledThresholds(root, "docs/governance/DOCUMENTATION_STATUS.md", Map.of(
                 "Surefire ratchet", tests,
                 "Architecture ratchet", architecture,
-                "Global line ratchet", line,
-                "Global branch ratchet", branch));
+                "Aggregate line ratchet", aggregateLine,
+                "Aggregate branch ratchet", aggregateBranch,
+                "Per-module line ratchet", perModuleLine,
+                "Per-module branch ratchet", perModuleBranch));
         assertLabelledThresholds(root, "docs/governance/ROADMAP.md", Map.of(
                 "Surefire ratchet", tests,
                 "architecture ratchet", architecture,
-                "global line ratchet", line,
-                "global branch ratchet", branch));
+                "aggregate line ratchet", aggregateLine,
+                "aggregate branch ratchet", aggregateBranch,
+                "per-module line ratchet", perModuleLine,
+                "per-module branch ratchet", perModuleBranch));
 
         String readme = Files.readString(root.resolve("README.md"));
-        String readmeClaim = "Le ratchet global est **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire** et **≥ %s tests d’architecture**"
-                .formatted(french(line), french(branch), tests, architecture);
+        String readmeClaim = ("Le ratchet agrégé est **≥ %s %% lignes / ≥ %s %% branches**, le ratchet par module"
+                + " **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire** et"
+                + " **≥ %s tests d’architecture**")
+                .formatted(french(aggregateLine), french(aggregateBranch),
+                        french(perModuleLine), french(perModuleBranch), tests, architecture);
         assertTrue(readme.contains(readmeClaim),
                 () -> "README.md must state the normative M21 ratchets: " + readmeClaim);
 
         String buildAndTest = Files.readString(root.resolve("docs/developer/BUILD_AND_TEST.md"));
-        String lockedBaseline = "**%s%% lignes / %s%% branches**".formatted(french(line), french(branch));
+        String lockedBaseline = "**%s%% lignes / %s%% branches** sur l'échelle agrégée et **%s%% lignes / %s%% branches** par module"
+                .formatted(french(aggregateLine), french(aggregateBranch), french(perModuleLine), french(perModuleBranch));
         assertTrue(buildAndTest.contains("verrouillée à " + lockedBaseline),
                 () -> "BUILD_AND_TEST.md locked baseline must be " + lockedBaseline);
-        assertTrue(buildAndTest.contains("une baisse sous %s%% lignes ou %s%% branches".formatted(french(line), french(branch))),
-                "BUILD_AND_TEST.md regression rule must quote the normative coverage ratchets");
+        assertTrue(buildAndTest.contains("une baisse sous %s%% lignes ou %s%% branches agrégées, ou sous %s%% lignes ou %s%% branches par module"
+                        .formatted(french(aggregateLine), french(aggregateBranch), french(perModuleLine), french(perModuleBranch))),
+                "BUILD_AND_TEST.md regression rule must quote the normative coverage ratchets of both scales");
     }
 
     /**

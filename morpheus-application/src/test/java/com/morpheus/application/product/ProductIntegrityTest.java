@@ -49,7 +49,43 @@ class ProductIntegrityTest {
         assertEquals(ProductMetadata.version(), result.currentVersion());
         assertEquals(availableVersion, result.availableVersion());
         assertEquals("stable", result.channel());
+        assertTrue(result.attestationUri().isEmpty());
+        assertEquals(UpdateTrustLevel.DISCOVERY_ONLY, result.trustLevel());
         assertTrue(result.updateAvailable());
+    }
+
+    @Test
+    void discoveryResultPreservesProvenanceReferenceWithoutClaimingVerification() throws IOException {
+        String availableVersion = nextPatchVersion(ProductMetadata.version());
+        URI attestation = URI.create("https://github.com/FTurleque/morpheus-engine/attestations/123");
+        Path manifest = tempDir.resolve("provenance.properties");
+        Files.writeString(manifest, String.join("\n",
+                "version=" + availableVersion,
+                "channel=stable",
+                "artifactUri=https://example.invalid/morpheus-" + availableVersion + ".zip",
+                "sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "attestationUri=" + attestation,
+                ""));
+
+        UpdateCheckResult result = new UpdateDiscoveryService().check(manifest.toUri());
+
+        assertEquals(Optional.of(attestation), result.attestationUri());
+        assertEquals(UpdateTrustLevel.DISCOVERY_ONLY, result.trustLevel());
+    }
+
+    @Test
+    void historicalResultConstructorRemainsExplicitlyDiscoveryOnly() {
+        UpdateCheckResult result = new UpdateCheckResult(
+                ProductMetadata.version(),
+                ProductMetadata.version(),
+                "stable",
+                URI.create("https://example.invalid/morpheus.zip"),
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                URI.create("file:///tmp/update.properties"),
+                false);
+
+        assertTrue(result.attestationUri().isEmpty());
+        assertEquals(UpdateTrustLevel.DISCOVERY_ONLY, result.trustLevel());
     }
 
     @Test
@@ -114,7 +150,7 @@ class ProductIntegrityTest {
     }
 
     @Test
-    void remoteManifestRequiresHttpsArtifactAndAttestation() {
+    void remoteManifestRequiresHttpsArtifactAndAttestationReference() {
         URI remoteManifest = URI.create("https://updates.example.invalid/stable.properties");
         UpdateManifest missingAttestation = new UpdateManifest(
                 "1.0.1",
@@ -124,17 +160,17 @@ class ProductIntegrityTest {
 
         IllegalArgumentException missing = assertThrows(
                 IllegalArgumentException.class,
-                () -> missingAttestation.requireRemoteTrust(remoteManifest));
+                () -> missingAttestation.requireRemoteDiscoveryContract(remoteManifest));
         assertTrue(missing.getMessage().contains("attestationUri"));
 
-        UpdateManifest trusted = new UpdateManifest(
+        UpdateManifest withProvenanceReference = new UpdateManifest(
                 "1.0.1",
                 "stable",
                 URI.create("https://downloads.example.invalid/morpheus.zip"),
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 Optional.of(URI.create("https://github.com/example/morpheus/attestations/123")));
-        trusted.requireRemoteTrust(remoteManifest);
-        assertTrue(trusted.attestationUri().isPresent());
+        withProvenanceReference.requireRemoteDiscoveryContract(remoteManifest);
+        assertTrue(withProvenanceReference.attestationUri().isPresent());
     }
 
     @Test
@@ -148,7 +184,8 @@ class ProductIntegrityTest {
 
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
-                () -> manifest.requireRemoteTrust(URI.create("https://updates.example.invalid/stable.properties")));
+                () -> manifest.requireRemoteDiscoveryContract(
+                        URI.create("https://updates.example.invalid/stable.properties")));
         assertTrue(failure.getMessage().contains("attestationUri must use https"));
     }
 
@@ -159,7 +196,7 @@ class ProductIntegrityTest {
                 "stable",
                 URI.create("https://downloads.example.invalid/morpheus.zip"),
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-        manifest.requireRemoteTrust(tempDir.resolve("local.properties").toUri());
+        manifest.requireRemoteDiscoveryContract(tempDir.resolve("local.properties").toUri());
         assertTrue(manifest.attestationUri().isEmpty());
     }
 

@@ -93,8 +93,8 @@ Assert-ReactorVersion $Version
 $pom = Get-Content -LiteralPath (Join-Path $repo 'pom.xml') -Raw
 foreach ($token in @(
     '<jackson.version>3.2.2</jackson.version>',
-    '<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>',
-    '<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>',
+    '<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>',
+    '<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>',
     '<failOnWarning>true</failOnWarning>',
     '<id>d2-security</id>',
     '<failBuildOnCVSS>7.0</failBuildOnCVSS>',
@@ -133,10 +133,8 @@ if ($tests -lt 820) { throw "D2 test baseline regression: $tests < 820" }
 if ($architectureTests -lt 258) { throw "D2 architecture baseline regression: $architectureTests < 258" }
 Write-Host "D2 tests: PASS ($tests tests, architecture=$architectureTests, skipped=$skipped)"
 
-$coveragePath = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
-if (-not (Test-Path -LiteralPath $coveragePath -PathType Leaf)) {
-    throw "D2 coverage summary missing: $coveragePath"
-}
+$coveragePath = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
+& (Join-Path $PSScriptRoot 'lib\Require-AggregateCoverageEvidence.ps1') -EvidencePath $coveragePath
 $coverage = Read-KeyValueFile $coveragePath
 $lineCoverage = [double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture)
 $branchCoverage = [double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture)
@@ -153,7 +151,7 @@ Write-Host 'D2 SBOM: PASS'
 
 $securityScan = 'SKIPPED'
 if (-not $SkipSecurityScan) {
-    & .\mvnw.cmd '-Pd2-security' 'org.owasp:dependency-check-maven:12.2.2:aggregate'
+    & .\mvnw.cmd '-Pd2-security' 'org.owasp:dependency-check-maven:13.0.0:aggregate'
     Assert-NativeSuccess 'D2 OWASP Dependency-Check aggregate'
     $securityReport = Join-Path $repo 'target\d2-security\dependency-check-report.json'
     if (-not (Test-Path -LiteralPath $securityReport -PathType Leaf)) {

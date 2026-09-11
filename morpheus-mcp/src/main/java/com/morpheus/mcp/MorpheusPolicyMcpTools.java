@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -76,38 +77,38 @@ final class MorpheusPolicyMcpTools {
 
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
-            Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
+            Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
             try (SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(databasePath)) {
                 Object result = switch (toolName) {
                     case CREATE -> PolicyPublicViews.definition(runtime.registry().create(
-                            requiredString(arguments, "name"), rules(arguments),
-                            requiredString(arguments, "actor"), requiredString(arguments, "reason")));
+                            McpArguments.requiredString(arguments, "name"), rules(arguments),
+                            McpArguments.requiredString(arguments, "actor"), McpArguments.requiredString(arguments, "reason")));
                     case LIST -> PolicyPublicViews.definitions(runtime.registry().list());
                     case GET -> PolicyPublicViews.definition(runtime.registry().get(pack(arguments)));
                     case VERSIONS -> PolicyPublicViews.versions(runtime.registry().versions(pack(arguments)));
                     case UPDATE -> PolicyPublicViews.definition(runtime.registry().update(
-                            pack(arguments), longValue(arguments, "expectedRevision", 1, Long.MAX_VALUE),
-                            requiredString(arguments, "name"), rules(arguments),
-                            requiredString(arguments, "actor"), requiredString(arguments, "reason")));
+                            pack(arguments), McpArguments.requiredInteger(arguments, "expectedRevision", 1, Long.MAX_VALUE),
+                            McpArguments.requiredString(arguments, "name"), rules(arguments),
+                            McpArguments.requiredString(arguments, "actor"), McpArguments.requiredString(arguments, "reason")));
                     case ACTIVATE -> PolicyPublicViews.activation(runtime.registry().activate(
-                            scope(arguments), pack(arguments), PolicyIds.VersionId.parse(requiredString(arguments, "versionId")),
-                            longValue(arguments, "expectedRevision", 0, Long.MAX_VALUE),
-                            requiredString(arguments, "actor"), requiredString(arguments, "reason")));
+                            scope(arguments), pack(arguments), PolicyIds.VersionId.parse(McpArguments.requiredString(arguments, "versionId")),
+                            McpArguments.requiredInteger(arguments, "expectedRevision", 0, Long.MAX_VALUE),
+                            McpArguments.requiredString(arguments, "actor"), McpArguments.requiredString(arguments, "reason")));
                     case DEACTIVATE -> {
                         runtime.registry().deactivate(
-                                scope(arguments), pack(arguments), longValue(arguments, "expectedRevision", 1, Long.MAX_VALUE),
-                                requiredString(arguments, "actor"), requiredString(arguments, "reason"));
+                                scope(arguments), pack(arguments), McpArguments.requiredInteger(arguments, "expectedRevision", 1, Long.MAX_VALUE),
+                                McpArguments.requiredString(arguments, "actor"), McpArguments.requiredString(arguments, "reason"));
                         yield Map.of("deactivated", true);
                     }
                     case PUT_OVERRIDE -> PolicyPublicViews.override(runtime.registry().putOverride(
-                            scope(arguments), pack(arguments), PolicyIds.RuleId.parse(requiredString(arguments, "ruleId")),
-                            PolicyConfiguration.OverrideMode.valueOf(requiredString(arguments, "mode").toUpperCase()),
-                            longValue(arguments, "expectedRevision", 0, Long.MAX_VALUE),
-                            requiredString(arguments, "actor"), requiredString(arguments, "reason")));
+                            scope(arguments), pack(arguments), PolicyIds.RuleId.parse(McpArguments.requiredString(arguments, "ruleId")),
+                            PolicyConfiguration.OverrideMode.valueOf(McpArguments.requiredString(arguments, "mode").toUpperCase(Locale.ROOT)),
+                            McpArguments.requiredInteger(arguments, "expectedRevision", 0, Long.MAX_VALUE),
+                            McpArguments.requiredString(arguments, "actor"), McpArguments.requiredString(arguments, "reason")));
                     case LIST_OVERRIDES -> PolicyPublicViews.overrides(runtime.registry().overrides(scope(arguments)));
                     case EVALUATE -> {
                         PolicyScope evaluationScope = scope(arguments);
-                        Optional<String> packId = optionalString(arguments, "id");
+                        Optional<String> packId = McpArguments.optionalString(arguments, "id");
                         if (packId.isPresent()) {
                             yield PolicyPublicViews.report(runtime.evaluation().evaluatePack(
                                     evaluationScope, PolicyIds.PackId.parse(packId.orElseThrow())));
@@ -115,7 +116,7 @@ final class MorpheusPolicyMcpTools {
                         yield PolicyPublicViews.governance(runtime.evaluation().evaluate(evaluationScope));
                     }
                     case DRY_RUN -> PolicyPublicViews.report(runtime.evaluation().dryRun(
-                            scope(arguments), pack(arguments), PolicyIds.VersionId.parse(requiredString(arguments, "versionId"))));
+                            scope(arguments), pack(arguments), PolicyIds.VersionId.parse(McpArguments.requiredString(arguments, "versionId"))));
                     case AUDIT -> PolicyPublicViews.audit(runtime.registry().audit(pack(arguments)));
                     default -> throw new IllegalArgumentException("unknown M25 MCP tool: " + toolName);
                 };
@@ -125,10 +126,7 @@ final class MorpheusPolicyMcpTools {
                         .build();
             }
         } catch (IllegalArgumentException | IllegalStateException | KnowledgeStoreException | PolicyConflictException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(safeMessage(expected))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
@@ -143,50 +141,42 @@ final class MorpheusPolicyMcpTools {
         List<PolicyRule> result = new ArrayList<>(list.size());
         for (Object item : list) {
             if (!(item instanceof Map<?, ?> rawRule)) {
-                throw new IllegalArgumentException("rules items must be objects");
+                throw new IllegalArgumentException("rules must contain objects");
             }
-            Map<String, Object> rule = stringKeyMap(rawRule);
-            PolicyIds.RuleId id = optionalString(rule, "id").map(PolicyIds.RuleId::parse).orElseGet(PolicyIds.RuleId::generate);
-            PolicyRule.Kind kind = PolicyRule.Kind.valueOf(requiredString(rule, "kind").toUpperCase());
-            PolicyRule.Severity severity = PolicyRule.Severity.valueOf(requiredString(rule, "severity").toUpperCase());
+            Map<String, Object> rule = McpArguments.nestedObject(rawRule, "rules");
+            PolicyIds.RuleId id = McpArguments.optionalString(rule, "id").map(PolicyIds.RuleId::parse).orElseGet(PolicyIds.RuleId::generate);
+            PolicyRule.Kind kind = PolicyRule.Kind.valueOf(McpArguments.requiredString(rule, "kind").toUpperCase(Locale.ROOT));
+            PolicyRule.Severity severity = PolicyRule.Severity.valueOf(McpArguments.requiredString(rule, "severity").toUpperCase(Locale.ROOT));
             PolicyRule.Config config = switch (kind) {
                 case CONSTRAINT_GUARD -> new PolicyRule.ConstraintGuard(
-                        ChangeId.parse(requiredString(rule, "changeId")),
-                        ChangeLifecycleState.valueOf(requiredString(rule, "targetState").toUpperCase()));
+                        ChangeId.parse(McpArguments.requiredString(rule, "changeId")),
+                        ChangeLifecycleState.valueOf(McpArguments.requiredString(rule, "targetState").toUpperCase(Locale.ROOT)));
                 case LIFECYCLE_GUARD -> new PolicyRule.LifecycleGuard(
-                        ChangeId.parse(requiredString(rule, "changeId")),
-                        ChangeLifecycleState.valueOf(requiredString(rule, "sourceState").toUpperCase()),
-                        ChangeLifecycleState.valueOf(requiredString(rule, "targetState").toUpperCase()));
+                        ChangeId.parse(McpArguments.requiredString(rule, "changeId")),
+                        ChangeLifecycleState.valueOf(McpArguments.requiredString(rule, "sourceState").toUpperCase(Locale.ROOT)),
+                        ChangeLifecycleState.valueOf(McpArguments.requiredString(rule, "targetState").toUpperCase(Locale.ROOT)));
                 case QUALITY_THRESHOLD -> new PolicyRule.QualityThreshold(
-                        PolicyRule.QualityMetric.valueOf(requiredString(rule, "qualityMetric").toUpperCase()),
-                        PolicyRule.Comparison.valueOf(requiredString(rule, "comparison").toUpperCase()),
-                        doubleValue(rule, "threshold"));
+                        PolicyRule.QualityMetric.valueOf(McpArguments.requiredString(rule, "qualityMetric").toUpperCase(Locale.ROOT)),
+                        PolicyRule.Comparison.valueOf(McpArguments.requiredString(rule, "comparison").toUpperCase(Locale.ROOT)),
+                        McpArguments.requiredFiniteNumber(rule, "threshold"));
                 case QUERY_ASSERTION -> new PolicyRule.QueryAssertion(
-                        queryCodec.decode(requiredString(rule, "queryDefinition")),
-                        PolicyRule.Comparison.valueOf(requiredString(rule, "comparison").toUpperCase()),
-                        longValue(rule, "expectedCount", 0, Long.MAX_VALUE));
+                        queryCodec.decode(McpArguments.requiredString(rule, "queryDefinition")),
+                        PolicyRule.Comparison.valueOf(McpArguments.requiredString(rule, "comparison").toUpperCase(Locale.ROOT)),
+                        McpArguments.requiredInteger(rule, "expectedCount", 0, Long.MAX_VALUE));
             };
-            result.add(new PolicyRule(id, requiredString(rule, "description"), kind, severity, config));
+            result.add(new PolicyRule(id, McpArguments.requiredString(rule, "description"), kind, severity, config));
         }
         return List.copyOf(result);
     }
 
-    private Map<String, Object> stringKeyMap(Map<?, ?> raw) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        raw.forEach((key, value) -> {
-            if (!(key instanceof String text)) throw new IllegalArgumentException("rule property names must be strings");
-            result.put(text, value);
-        });
-        return Map.copyOf(result);
-    }
 
     private PolicyIds.PackId pack(Map<String, Object> arguments) {
-        return PolicyIds.PackId.parse(requiredString(arguments, "id"));
+        return PolicyIds.PackId.parse(McpArguments.requiredString(arguments, "id"));
     }
 
     private PolicyScope scope(Map<String, Object> arguments) {
-        String kind = requiredString(arguments, "scopeKind").toUpperCase();
-        String id = requiredString(arguments, "scopeId");
+        String kind = McpArguments.requiredString(arguments, "scopeKind").toUpperCase(Locale.ROOT);
+        String id = McpArguments.requiredString(arguments, "scopeId");
         return switch (kind) {
             case "PROJECT" -> new PolicyScope.Project(ProjectSpecificationId.parse(id));
             case "PORTFOLIO" -> new PolicyScope.Portfolio(PortfolioId.parse(id));
@@ -303,42 +293,4 @@ final class MorpheusPolicyMcpTools {
     private static Map<String, Object> castMap(Object value) {
         return (Map<String, Object>) value;
     }
-
-    private static String requiredString(Map<String, Object> arguments, String key) {
-        return optionalString(arguments, key)
-                .orElseThrow(() -> new IllegalArgumentException(key + " must be a non-blank string"));
-    }
-
-    private static Optional<String> optionalString(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (value == null) return Optional.empty();
-        if (!(value instanceof String text) || text.isBlank()) {
-            throw new IllegalArgumentException(key + " must be a non-blank string when present");
-        }
-        return Optional.of(text.trim());
-    }
-
-    private static long longValue(Map<String, Object> arguments, String key, long minimum, long maximum) {
-        Object raw = arguments.get(key);
-        if (!(raw instanceof Number number)) throw new IllegalArgumentException(key + " must be an integer");
-        long value = number.longValue();
-        if (Double.compare(number.doubleValue(), (double) value) != 0 || value < minimum || value > maximum) {
-            throw new IllegalArgumentException(key + " must be an integer between " + minimum + " and " + maximum);
-        }
-        return value;
-    }
-
-    private static double doubleValue(Map<String, Object> arguments, String key) {
-        Object raw = arguments.get(key);
-        if (!(raw instanceof Number number) || !Double.isFinite(number.doubleValue())) {
-            throw new IllegalArgumentException(key + " must be a finite number");
-        }
-        return number.doubleValue();
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
 }

@@ -91,6 +91,27 @@ public final class MorpheusMcpServer {
         try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(databasePath)) {
             new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
         }
+        List<McpServerFeatures.SyncToolSpecification> tools = toolSpecifications(
+                databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver);
+
+        return McpServer.sync(transport)
+                .serverInfo(SERVER_NAME, SERVER_VERSION)
+                .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
+                .validateToolInputs(true)
+                .tools(tools)
+                .build();
+    }
+
+    /**
+     * Every tool this server serves, assembled once so a contract test can hold the same list the transport
+     * does. A thirteenth tool class wired into the server but absent from the failure contract would otherwise
+     * be invisible to the tests that exist to catch exactly that.
+     */
+    static List<McpServerFeatures.SyncToolSpecification> toolSpecifications(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver) {
         MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
         MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath);
         List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
@@ -110,13 +131,15 @@ public final class MorpheusMcpServer {
         tools.addAll(new MorpheusJarvisOrchestrationMcpTools(databasePath).specifications());
         tools.addAll(new MorpheusCompositionMcpTools(databasePath).specifications());
         tools.addAll(new MorpheusControlledLifecycleMcpTools(databasePath, writeCapabilityResolver).specifications());
+        return List.copyOf(tools);
+    }
 
-        return McpServer.sync(transport)
-                .serverInfo(SERVER_NAME, SERVER_VERSION)
-                .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
-                .validateToolInputs(true)
-                .tools(tools)
-                .build();
+    static TechnicalContextProvider unconfiguredTechnicalContext() {
+        return disabledNexus();
+    }
+
+    static ChangeWriteCapabilityResolver deniedWriteCapability() {
+        return deniedWrites();
     }
 
     public static int run(Path databasePath) {
@@ -175,16 +198,13 @@ public final class MorpheusMcpServer {
             String toolName,
             Map<String, Object> arguments) {
         try {
-            String result = service.execute(toolName, arguments == null ? Map.of() : arguments);
+            String result = service.execute(toolName, McpArguments.orEmpty(arguments));
             return McpSchema.CallToolResult.builder()
                     .addTextContent(result)
                     .isError(false)
                     .build();
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(safeMessage(expected))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
@@ -197,8 +217,4 @@ public final class MorpheusMcpServer {
                 "No WRITE_CHANGE provider capability resolver is configured for this MCP server");
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

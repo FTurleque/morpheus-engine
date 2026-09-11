@@ -18,7 +18,7 @@
 | RT-05 | Plugin provider externe malformé, trop volumineux ou non fiable | 2 | 2 | **4** | Discovery metadata-only sans symlink avec revalidation d'identité avant/après lecture, activation explicite, SHA-256 obligatoire en remote, staging vérifié, budgets d'ingestion et environnement enfant minimisé |
 | RT-06 | Diagnostic runtime limité par les choix de logging silencieux compatibles MCP | 2 | 2 | **4** | Health/metrics, erreurs structurées, redaction des diagnostics peer et preuves de validation ; toute évolution doit préserver stdout MCP |
 | RT-07 | Baseline remote limitée à Bearer auth / RBAC, sans IAM entreprise | 1 | 2 | **2** | Périmètre explicitement documenté ; mutations inter-processus sérialisées, live reload, audit secret-free roulant borné ; mot de passe TLS résolu tardivement en `char[]` et jamais retenu dans les options de lancement ; SSO/LDAP seulement après besoin et ADR dédiés |
-| RT-08 | macOS non qualifié dans la baseline de distribution | 2 | 1 | **2** | Windows + Linux sont les plateformes qualifiées ; lane CI advisory `macos-smoke` (observation, pas qualification) ; ajouter macOS uniquement si support produit décidé |
+| RT-08 | macOS non qualifié dans la baseline de distribution | 2 | 1 | **2** | Windows + Linux sont les plateformes qualifiées ; lane advisory `macos-smoke` de `nightly.yml` sur cadence quotidienne bornée (observation, pas qualification) ; ajouter macOS uniquement si support produit décidé |
 | RT-09 | Drift entre documents historiques et HEAD actuel | 2 | 2 | **4** | Sources de vérité hiérarchisées ; réconciliation documentaire et contrats d'architecture sur les invariants CI |
 | RT-12 | Peer MCP externe MINOS/NEXUS compromis | 2 | 2 | **4** | JAR optionnel/pinnable, environnement hérité réduit à une allowlist, descendants observés et terminés, frames/queues bornées, stderr et exceptions peer redacted ; la frontière n'est pas une sandbox OS |
 
@@ -36,7 +36,7 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 | DT-05 | Pas de distribution macOS qualifiée | Distribution | **Faible** | Décision produit préalable avant investissement packaging ; la lane smoke n'en produit aucun |
 | DT-07 | Quality Gate SonarCloud potentiellement moins strict que le gate repository sur le nouveau code | Qualité externe | **Moyenne** | Le repository impose indépendamment `>= 80%` changed-line et `>= 70%` changed-branch coverage ; vérifier le réglage SonarCloud sur sa propre plateforme |
 | DT-08 | État des alertes Dependabot / Secret Scanning non vérifiable par le connecteur | Supply chain | **Moyenne** | Vérifier/activer les réglages administrateur ; le dépôt fournit indépendamment Dependabot, OWASP Dependency-Check et CodeQL versionné |
-| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `1300 / 335 / 54,5% / 47,7%` ; ne relever qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
+| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `1550 / 385`, couverture `85,0% / 68,0%` agrégée et `62,0% / 53,5%` par module ; chaque échelle a son propre plafond qualifié et ne se relève qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
 | DT-12 | Identités remote historiques à trois champs sans expiration | Sécurité remote | **Faible à moyenne** | Compatibilité contractuelle verrouillée par test ; `server identity migrate-legacy` donne une échéance explicite sans rotation de token ; retirer le format à trois champs reste une évolution incompatible, pas un patch 1.2.1 |
 
@@ -57,12 +57,14 @@ mécaniquement M21 dans `ci.yml`.
 La baseline active du gate est :
 
 ```text
-Surefire total       >= 1300
-architecture         >= 335
-line coverage        >= 54.5%
-branch coverage      >= 47.7%
-changed-line         >= 80%
-changed-branch       >= 70%
+Surefire total          >= 1550
+architecture            >= 385
+aggregate line          >= 85.0%
+aggregate branch        >= 68.0%
+per-module line         >= 62.0%
+per-module branch       >= 53.5%
+changed-line            >= 80%
+changed-branch          >= 70%
 ```
 
 Le workflow de sécurité rafraîchit sa base OWASP de confiance **quotidiennement** et refuse sur PR un cache âgé de plus de 72 h. Le workflow de release produit une attestation GitHub de provenance sur les tags `vX.Y.Z` atteignables depuis `main` et refuse d'écraser une release existante.

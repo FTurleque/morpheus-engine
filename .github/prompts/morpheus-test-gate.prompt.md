@@ -42,7 +42,10 @@ le stack trace.
 
 ## Floors de coverage (enforced)
 
-Le gate applique `max(plancher D2 fixe, ratchet qualifié vivant)`. Le plancher D2 est une
-constante fixe dans `CoverageQualityGateTest.java` (`D2_MIN_LINE_RATIO` /
-`D2_MIN_BRANCH_RATIO`) ; le ratchet qualifié monte à chaque milestone — lire
-`config/m21-quality-ratchets.properties`, jamais un pourcentage mémorisé.
+Deux gates mesurent deux grandeurs distinctes et chacun applique
+`max(plancher D2 fixe, ratchet qualifié vivant de son échelle)` : `AggregateCoverageGateTest`
+(rapport canonique `jacoco-aggregate`, clés `aggregate*`) et `CoverageQualityGateTest`
+(somme des rapports par module, clés `perModule*`). Le plancher D2 est une constante fixe
+dans chaque gate (`D2_MIN_LINE_RATIO` / `D2_MIN_BRANCH_RATIO`) ; les ratchets qualifiés montent
+à chaque milestone — lire `config/m21-quality-ratchets.properties`, jamais un pourcentage
+mémorisé, et toujours en nommant l'échelle du seuil cité.

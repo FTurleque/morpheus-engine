@@ -1,0 +1,201 @@
+name: MORPHEUS Nightly
+
+# Bounded-cadence lanes for signals that are worth having but are not worth reproducing on every pull request.
+#
+# Two different problems are solved by the same cadence. `develop` accumulates every merge for weeks before a
+# promotion, and until this workflow existed it never saw a static-analysis verdict at all: Sonar ran only on a
+# push to `main`, so the first quality signal for a hundred merged commits arrived at promotion time, when it is
+# most expensive to act on. The macOS lane has the opposite problem -- it produced the same RT-08 observation on
+# every pull request, several hundred times a month, for a platform MORPHEUS does not support and whose finding
+# does not change between one pull request and the next.
+#
+# A daily verdict on an integration branch is worth nearly as much as a per-merge one and costs a fraction of it;
+# an observation that does not change does not need to be reproduced per pull request. Neither lane gates a
+# merge, and neither is reachable from a `pull_request` event -- this workflow deliberately has no such trigger.
+
+on:
+  schedule:
+    # Bounded cadence. These lanes are advisory signals, not merge gates: a daily verdict on the integration
+    # branch is the point, and re-running either of them per pull request buys no information.
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: morpheus-nightly-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  sonar-develop:
+    # SONAR_TOKEN is a durable secret and the same reasoning that keeps it out of ci.yml's pull_request builds
+    # applies here: it must never share an environment with code that has not been merged. This workflow has no
+    # pull_request trigger at all, so that path does not exist. Two further conditions close the remaining gap.
+    # The checkout below pins `ref: develop` rather than taking the event's default -- a scheduled run is
+    # dispatched against the default branch, so an unpinned checkout would silently analyse `main` a second time
+    # instead of the integration branch this job exists for. And the guard below requires the workflow definition
+    # itself to come from `main` or `develop`, so a workflow_dispatch launched from a feature branch cannot bring
+    # its own edited job definition into scope of the secret.
+    name: SonarQube Cloud Analysis (develop)
+    if: github.ref_name == 'main' || github.ref_name == 'develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout develop explicitly
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      - name: Build and test the full reactor for coverage
+        shell: bash
+        run: ./mvnw -B -ntp clean verify
+
+      - name: Run SonarQube Cloud CI analysis with JaCoCo
+        id: sonar_scan
+        continue-on-error: true
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SONAR_TOKEN:-}" ]; then
+            echo "::error::SONAR_TOKEN is required for SonarQube Cloud CI analysis"
+            exit 1
+          fi
+          aggregate="$GITHUB_WORKSPACE/morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml"
+          if [ -s "$aggregate" ]; then
+            reports="$aggregate"
+          else
+            reports="$(find "$GITHUB_WORKSPACE" -type f -path '*/target/site/jacoco/jacoco.xml' -print | sort | paste -sd, -)"
+          fi
+          if [ -z "$reports" ]; then
+            echo "::error::No JaCoCo XML reports were produced by the reactor build"
+            exit 1
+          fi
+          ./mvnw -B -ntp -DskipTests -Djacoco.skip=true \
+            -Dsonar.projectKey=FTurleque_morpheus-engine \
+            -Dsonar.organization=fturleque \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.branch.name=develop \
+            -Dsonar.qualitygate.wait=true \
+            -Dsonar.coverage.jacoco.xmlReportPaths="$reports" \
+            org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar
+
+      - name: Classify failed Sonar scanner outcome
+        if: steps.sonar_scan.outcome == 'failure'
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: bash ./scripts/classify-sonar-quality-gate.sh
+
+  macos-smoke:
+    # macOS is NOT an officially supported MORPHEUS platform. This lane exists to turn "macOS unknown" into
+    # "macOS observed", and stays non-blocking until it has been reproducibly green for long enough to justify
+    # a support decision. Making it required before that would gate every pull request on an unqualified
+    # platform; claiming support because a smoke lane passes would be worse.
+    #
+    # It runs here, on a bounded cadence, rather than on every pull request. The observation it produces is a
+    # property of the platform and of MORPHEUS's symlink invariant, not of the change under review: RT-08 has
+    # reported the same finding on every run, so reproducing it per pull request added a 60-minute lane and a
+    # permanently failing entry in the checks list without adding information. A lane people learn to skip over
+    # costs more attention than the observation is worth. The observation itself is not discarded -- it is taken
+    # daily, and the macOS lane contract still forbids turning it into a rubber stamp.
+    name: macOS smoke (advisory, not a supported platform)
+    runs-on: macos-latest
+    continue-on-error: true
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout develop explicitly
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      # This step exists to report a finding, not to work around it. The macOS temporary directory lives under
+      # /var, and /var is a symlink to /private/var; MORPHEUS refuses to harden or read a path reached through a
+      # symbolic link, and that refusal is a security invariant working exactly as designed. Neither exporting a
+      # resolved TMPDIR nor passing -Djava.io.tmpdir moves the tests off it -- on macOS the JVM takes its
+      # temporary directory from a Darwin API at startup, so the environment does not reach it and a Maven
+      # command-line property arrives too late for the forked test JVM. Closing this needs a decision about where
+      # MORPHEUS tests root their temporary files, which belongs to a macOS support decision rather than to a CI
+      # tweak. Recorded in docs/architecture/quality/scenarios.md; the lane stays advisory meanwhile.
+      - name: Report how macOS roots its temporary directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          real="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
+          echo "macOS TMPDIR: ${TMPDIR:-/tmp}"
+          echo "resolved:     $real"
+          if [ "$real" != "${TMPDIR%/}" ]; then
+            echo "::notice::macOS reaches its temporary directory through a symlink; MORPHEUS refuses such paths by design."
+          fi
+
+      # The build's outcome is the observation, so it is captured rather than thrown. A lane whose whole job is
+      # to report on an unqualified platform must not sit permanently red in the checks list -- that teaches
+      # people to ignore CI, which costs more than the information here is worth. The outcome is published in
+      # full below, and the macOS lane contract asserts it cannot degrade into a rubber stamp.
+      - name: Build and test the full reactor on macOS
+        id: reactor
+        continue-on-error: true
+        shell: bash
+        run: ./mvnw -B -ntp clean verify
+
+      - name: Record the macOS filesystem and process facts MORPHEUS depends on
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## macOS smoke observations" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Fact | Observed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Case-sensitive filesystem | $(if [ -e /etc/HOSTS ] && [ -e /etc/hosts ]; then echo no; else echo yes; fi) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Path separator | $(python3 -c 'import os; print(repr(os.sep))') |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| POSIX permissions on TMPDIR | $(ls -ld "${TMPDIR:-/tmp}" | cut -d' ' -f1) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Symlink creation | $(ln -s /tmp "$RUNNER_TEMP/morpheus-symlink-probe" 2>/dev/null && echo permitted || echo refused) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| TMPDIR reached through a symlink | $(if [ "$(cd "${TMPDIR:-/tmp}" && pwd -P)" = "${TMPDIR%/}" ]; then echo no; else echo yes; fi) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Java version | $(java -version 2>&1 | head -1) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Reactor outcome on macOS: ${{ steps.reactor.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.reactor.outcome }}" != "success" ]; then
+            echo "The full reactor did NOT pass on macOS. Known cause, tracked as RT-08: macOS roots its temporary directory under /var, which is a symlink to /private/var, and MORPHEUS refuses paths reached through a symbolic link. That refusal is a security invariant behaving correctly, and it is not bypassable from CI configuration -- neither a resolved TMPDIR nor -Djava.io.tmpdir reaches the forked test JVM on this platform. See docs/architecture/quality/scenarios.md, Q-PO-03." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::macOS reactor outcome is ${{ steps.reactor.outcome }} (advisory, RT-08 open, no support claimed)." >> /dev/null
+            echo "::warning::macOS reactor outcome is ${{ steps.reactor.outcome }} (advisory, RT-08 open, no support claimed)."
+          else
+            echo "The full reactor passed on macOS. This is evidence, not a support decision: qualifying the platform additionally requires packaging, an extended dual-platform validation and an ADR." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "macOS is not an officially supported MORPHEUS platform. This lane is advisory evidence only; it creates no packaging and no support commitment." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload macOS smoke evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos-smoke-evidence
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            **/target/surefire-reports/*.xml
+            morpheus-api/target/remote-load-profile.txt

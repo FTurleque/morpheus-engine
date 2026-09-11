@@ -70,10 +70,16 @@ class ProviderPluginPlatformContractTest {
         String activator = Files.readString(root.resolve("morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginActivator.java"));
 
         assertFalse(cliPom.contains("morpheus-provider-reference"), "reference plugin must remain external to launcher runtime");
-        assertTrue(surfaces.contains("provider.plugins.discover\tREAD\tprovider-plugins discover\tdiscover_provider_plugins\tGET /api/v1/provider-plugins/discover"));
+        assertTrue(surfaces.contains("provider.plugins.discover\tREAD\tprovider-plugins discover\tEXPLICITLY_NOT_EXPOSED\tGET /api/v1/provider-plugins/discover"));
         assertTrue(surfaces.contains("provider.plugins.probe\tWRITE\tprovider-plugins probe\tEXPLICITLY_NOT_EXPOSED\tPOST /api/v1/provider-plugins/probe"));
         assertTrue(main.contains("Provider plugins (M22, explicit only)"));
         assertTrue(mcp.contains("discover_provider_plugins"));
+        assertTrue(mcp.contains("this.pluginDirectory = Optional.empty()"),
+                "default MCP wiring must expose no filesystem discovery root");
+        assertTrue(mcp.contains("ProviderPluginViews.remoteDiscovery"),
+                "any explicitly configured future MCP discovery must use the remote-safe projection");
+        assertFalse(mcp.contains("requiredString(arguments, \"directory\")"),
+                "an MCP caller must never choose a local provider-plugin directory");
         assertTrue(mcp.contains("RETIRED_PROBE_TOOL"));
         assertFalse(mcp.contains("case RETIRED_PROBE_TOOL"));
         assertTrue(http.contains("new MorpheusProviderPluginHttpRoutes(providerPluginProbeEnabled)"));

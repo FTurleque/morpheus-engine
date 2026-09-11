@@ -46,6 +46,10 @@ Si un test échoue :
 - Le gate applique `max(plancher D2, ratchet qualifié)` — le plancher D2 est une constante
   fixe (`D2_MIN_LINE_RATIO` / `D2_MIN_BRANCH_RATIO`), le ratchet qualifié est **vivant** et
   monte au fil des milestones : lire `config/m21-quality-ratchets.properties`
-  (`lineCoverageMinimum` / `branchCoverageMinimum`), jamais un pourcentage mémorisé
+  (`aggregateLineCoverageMinimum` / `aggregateBranchCoverageMinimum` pour la mesure canonique,
+  `perModuleLineCoverageMinimum` / `perModuleBranchCoverageMinimum` pour la somme des rapports
+  par module), jamais un pourcentage mémorisé et jamais un seuil détaché de son échelle
 - Défini dans `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java`
+  (échelle par module) et `morpheus-coverage-report/src/test/java/com/morpheus/coverage/AggregateCoverageGateTest.java`
+  (échelle agrégée, canonique)
 - Voir `.claude/rules/meta.md` avant de citer un seuil dans un rapport

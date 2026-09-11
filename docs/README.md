@@ -41,6 +41,7 @@ Les distributions Windows/Linux embarquent leur runtime Java.
 
 | Besoin | Document |
 |---|---|
+| **reprendre le dépôt après une longue interruption** | [**Reprise à froid**](developer/COLD_START_RECOVERY.md) |
 | comprendre les modules | [Guide développeur](developer/README.md) |
 | comprendre les couches | [Architecture](developer/ARCHITECTURE.md) |
 | compiler / tester / qualifier | [Build, tests et validation](developer/BUILD_AND_TEST.md) |
@@ -54,7 +55,7 @@ Les distributions Windows/Linux embarquent leur runtime Java.
 | MCP | [MCP](developer/MCP.md) |
 | cross-engine | [Intégrations](developer/INTEGRATIONS.md) |
 
-Baseline technique courante : Java 21, Maven Wrapper 3.9.16, SQLite JDBC 3.53.2.0, Jackson 3.2.2, Java MCP SDK 2.0.1, `jdk.httpserver`, `jpackage` et Inno Setup.
+Baseline technique courante : Java 21, Maven Wrapper 3.9.16, SQLite JDBC 3.53.4.0, Jackson 3.2.2, Java MCP SDK 2.0.1, `jdk.httpserver`, `jpackage` et Inno Setup.
 
 ## Gouvernance
 
@@ -88,10 +89,12 @@ bash ./scripts/validate-m21.sh 1.2.1
 Contrats actifs :
 
 ```text
-Surefire total                 >= 1300
-architecture tests             >= 335
-JaCoCo global lines            >= 54.5%
-JaCoCo global branches         >= 47.7%
+Surefire total                 >= 1550
+architecture tests             >= 385
+JaCoCo aggregate lines         >= 85.0%
+JaCoCo aggregate branches      >= 68.0%
+JaCoCo per-module lines        >= 62.0%
+JaCoCo per-module branches     >= 53.5%
 PR changed executable lines    >= 80%
 PR changed branches            >= 70%
 dependency hygiene             blocking

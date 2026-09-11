@@ -142,7 +142,7 @@ Le script Linux confirme explicitement que l'archive contient son runtime Java e
 
 Les fins de ligne des scripts cross-platform sont figées via `.gitattributes` (`mvnw`/`*.sh` en LF, scripts Windows en CRLF).
 
-Validation complète : [`../VALIDATION_M9.md`](../VALIDATION_M9.md).
+Validation complète : [`../validation/VALIDATION_M9.md`](../validation/VALIDATION_M9.md).
 
 ## Critères d'acceptation
 

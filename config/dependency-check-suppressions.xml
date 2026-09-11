@@ -5,9 +5,19 @@
         False-positive CPE association: the internal Maven module
         io.github.fturleque:morpheus-store-sqlite:1.2.1 is MORPHEUS code, not
         SQLite 1.2.1. The actual runtime driver is independently scanned as
-        org.xerial:sqlite-jdbc:3.53.2.0.
+        org.xerial:sqlite-jdbc:3.53.4.0.
         ]]></notes>
         <packageUrl regex="true">^pkg:maven/io\.github\.fturleque/morpheus-store-sqlite@1\.2\.1$</packageUrl>
         <cpe>cpe:/a:sqlite:sqlite</cpe>
+    </suppress>
+    <suppress>
+        <notes><![CDATA[
+        False-positive CPE association introduced by the aggregate coverage module:
+        io.github.fturleque:morpheus-cli:1.2.1 is the MORPHEUS command-line adapter,
+        not GitHub CLI 1.2.1. This rule removes only the github:cli CPE from that exact
+        internal package URL; all third-party dependencies of morpheus-cli remain scanned.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/io\.github\.fturleque/morpheus-cli@1\.2\.1$</packageUrl>
+        <cpe>cpe:/a:github:cli</cpe>
     </suppress>
 </suppressions>

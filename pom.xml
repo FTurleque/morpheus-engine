@@ -30,6 +30,7 @@
         <module>morpheus-api</module>
         <module>morpheus-cli</module>
         <module>morpheus-architecture-tests</module>
+        <module>morpheus-coverage-report</module>
     </modules>
 
     <properties>
@@ -37,23 +38,31 @@
         <project.build.outputTimestamp>2026-01-01T00:00:00Z</project.build.outputTimestamp>
         <maven.compiler.release>21</maven.compiler.release>
 
+        <!--
+            Surefire's own default, declared so it can be referenced as ${skipTests}. The aggregate coverage
+            gate has to re-enable itself for one execution bound to verify, and writing false there literally
+            made it the one execution nobody could skip: `./mvnw verify -DskipTests` then failed on the last
+            module, reporting a missing JaCoCo report rather than the skip that caused it.
+        -->
+        <skipTests>false</skipTests>
+
         <junit.version>6.1.3</junit.version>
         <archunit.version>1.5.0</archunit.version>
-        <sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>
+        <sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>
         <mcp-sdk.version>2.0.1</mcp-sdk.version>
         <reactor-bom.version>2024.0.0</reactor-bom.version>
         <slf4j.version>2.0.18</slf4j.version>
         <jackson.version>3.2.2</jackson.version>
 
-        <maven.compiler.plugin.version>3.14.1</maven.compiler.plugin.version>
-        <maven.surefire.plugin.version>3.5.6</maven.surefire.plugin.version>
+        <maven.compiler.plugin.version>3.16.0</maven.compiler.plugin.version>
+        <maven.surefire.plugin.version>3.6.0</maven.surefire.plugin.version>
         <maven.enforcer.plugin.version>3.6.3</maven.enforcer.plugin.version>
         <maven.jar.plugin.version>3.5.1</maven.jar.plugin.version>
         <maven.shade.plugin.version>3.6.2</maven.shade.plugin.version>
         <maven.dependency.plugin.version>3.11.0</maven.dependency.plugin.version>
         <jacoco.version>0.8.15</jacoco.version>
         <cyclonedx.maven.plugin.version>2.9.3</cyclonedx.maven.plugin.version>
-        <dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>
+        <dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>
         <!--
             The H2 schema version Dependency-Check expects, read from `data.version` in the
             dependencycheck.properties of dependency-check-core. It is NOT the plugin version and does not
@@ -63,7 +72,7 @@
             It is pinned here because the CI cache key is built from it, so that a cached vulnerability
             database is reused exactly when the running analyzer can read it and never otherwise. Bumping
             the plugin above without checking this value is safe; changing this value is a deliberate cold
-            start.
+            start. DependencyCheckWorkflowContractTest keeps security.yml and this property in step.
         -->
         <dependency-check.data.version>5.6</dependency-check.data.version>
     </properties>
@@ -250,6 +259,7 @@
                         <configuration>
                             <format>ALL</format>
                             <failBuildOnCVSS>7.0</failBuildOnCVSS>
+                            <junitFailOnCVSS>4.0</junitFailOnCVSS>
                             <failOnError>true</failOnError>
                             <failBuildOnUnusedSuppressionRule>true</failBuildOnUnusedSuppressionRule>
                             <skipTestScope>true</skipTestScope>
@@ -258,6 +268,48 @@
                                 <suppressionFile>${maven.multiModuleProjectDirectory}/config/dependency-check-suppressions.xml</suppressionFile>
                             </suppressionFiles>
                             <outputDirectory>${project.build.directory}/d2-security</outputDirectory>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+            Build-time supply chain, scanned separately from the distributed product.
+
+            The product SBOM and the d2-security scan deliberately exclude test scope: a JUnit or ArchUnit
+            artifact is never shipped, and listing it as a product component would misdescribe what an operator
+            installs. It is still executed on every CI machine that builds MORPHEUS, so excluding it from the
+            product view must not mean nobody looks at it. This profile is that second look, and it is
+            fail-closed on the same CVSS threshold: a critical vulnerability in something the build runs is a
+            critical vulnerability in the build.
+        -->
+        <profile>
+            <id>d2-security-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>${dependency-check.maven.plugin.version}</version>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <format>ALL</format>
+                            <failBuildOnCVSS>7.0</failBuildOnCVSS>
+                            <junitFailOnCVSS>4.0</junitFailOnCVSS>
+                            <failOnError>true</failOnError>
+                            <!--
+                                failBuildOnUnusedSuppressionRule stays on the product scan alone: the suppression
+                                file is the same one, so a stale rule is already caught there, and asserting it
+                                twice over two different dependency sets only adds a way to fail for a reason that
+                                is not a vulnerability.
+                            -->
+                            <skipTestScope>false</skipTestScope>
+                            <prettyPrint>true</prettyPrint>
+                            <suppressionFiles>
+                                <suppressionFile>${maven.multiModuleProjectDirectory}/config/dependency-check-suppressions.xml</suppressionFile>
+                            </suppressionFiles>
+                            <outputDirectory>${project.build.directory}/d2-security-tests</outputDirectory>
                         </configuration>
                     </plugin>
                 </plugins>

@@ -63,11 +63,8 @@ fi
 printf '%s\n' "Tests: PASS ($TESTS, baseline >= 473)"
 printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= 187)"
 
-COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
-if [[ ! -f "$COVERAGE" ]]; then
-  echo "Missing production coverage summary: $COVERAGE" >&2
-  exit 1
-fi
+COVERAGE="$REPO/morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt"
+bash "$SCRIPT_DIR/lib/require-aggregate-coverage-evidence.sh" "$COVERAGE"
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
 morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'

@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -57,25 +56,11 @@ public final class SqliteServerMaintenance {
         private final FileLock lock;
         private boolean closed;
 
-        // Package-private so the close contract can be driven over a channel and a lock that fail on demand:
-        // a real descriptor does not refuse to close, and that branch is the one that must stay retryable.
         ServerLease(FileChannel channel, FileLock lock) {
             this.channel = channel;
             this.lock = lock;
         }
 
-        /**
-         * Releases the lease, and says so only once the descriptor is actually gone.
-         *
-         * <p>Marking the lease closed before either release ran meant a failed {@code channel.close()} left a
-         * lease that reported itself released over a descriptor that may still be open, and no retry could
-         * finish the job: the next call returned immediately.</p>
-         *
-         * <p>Releasing the lock is attempted first and is best effort on its own -- closing the channel releases
-         * the operating-system lock anyway, so a failure there must not stop the call that actually frees the
-         * descriptor. It is reported with the channel failure when both go wrong, and a lock already released by
-         * an earlier attempt simply has no effect.</p>
-         */
         @Override
         public synchronized void close() {
             if (closed) return;
@@ -97,14 +82,6 @@ public final class SqliteServerMaintenance {
         }
     }
 
-    /**
-     * Takes the exclusive server lease, and owns the lock channel until the lease that will close it exists.
-     *
-     * <p>Hardening and locking both run after the channel is open and both fail unchecked -- a permissive
-     * ancestor raises {@code LocalWritePermissionException}, and an already-held lease raises
-     * {@code IllegalStateException}. Only the two paths that were written out by hand closed the descriptor;
-     * every other failure between the open and the returned lease leaked it for the life of the process.</p>
-     */
     public ServerLease acquireServerLease(Path databasePath) {
         Path lockPath = lockPath(databasePath);
         try (StartupOwnership owned = new StartupOwnership()) {
@@ -134,7 +111,6 @@ public final class SqliteServerMaintenance {
         }
     }
 
-    /** Best effort while unwinding a lease acquisition that will not complete. */
     private static void closeQuietly(FileChannel channel) {
         try {
             channel.close();
@@ -235,7 +211,7 @@ public final class SqliteServerMaintenance {
                 Files.deleteIfExists(sidecar(database, "-journal"));
                 Files.deleteIfExists(sidecar(database, "-wal"));
                 Files.deleteIfExists(sidecar(database, "-shm"));
-                moveReplacing(temp, database);
+                SqliteAtomicFileReplacer.replace(temp, database);
                 LocalWritePermissionHardener hardener = new LocalWritePermissionHardener();
                 hardener.hardenDirectory(parent);
                 hardener.hardenFile(database);
@@ -281,14 +257,6 @@ public final class SqliteServerMaintenance {
 
     private static String sqlLiteral(String value) {
         return value.replace("'", "''");
-    }
-
-    private static void moveReplacing(Path source, Path target) throws IOException {
-        try {
-            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException unsupported) {
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
-        }
     }
 
     private static String sha256(Path file) throws IOException {

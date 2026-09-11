@@ -11,9 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import reactor.core.publisher.Mono;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -24,11 +22,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -96,12 +92,22 @@ class BoundedStdioClientTransportTest {
             childPid = awaitPublishedPid(childPidFile, Duration.ofSeconds(5));
             long parentPid = awaitPublishedPid(parentExitMarker, Duration.ofSeconds(5));
 
-            awaitCondition(Duration.ofSeconds(5), () -> !isAlive(parentPid));
+            BoundedWait.until(
+                    "the MCP parent process to exit, leaving its descendant orphaned",
+                    Duration.ofSeconds(5),
+                    BoundedWait.PROCESS_TRANSITION_POLL,
+                    () -> !isAlive(parentPid),
+                    () -> "parent " + parentPid + " alive=" + isAlive(parentPid));
             assertTrue(isAlive(childPid), "fixture descendant must still be alive after its MCP parent exits");
 
             transport.closeGracefully().block();
             long retainedChildPid = childPid;
-            awaitCondition(Duration.ofSeconds(5), () -> !isAlive(retainedChildPid));
+            BoundedWait.until(
+                    "the retained descendant to be terminated by closeGracefully",
+                    Duration.ofSeconds(5),
+                    BoundedWait.PROCESS_TRANSITION_POLL,
+                    () -> !isAlive(retainedChildPid),
+                    () -> "descendant " + retainedChildPid + " alive=" + isAlive(retainedChildPid));
         } finally {
             transport.closeGracefully().block();
             if (childPid > 0) {
@@ -164,6 +170,10 @@ class BoundedStdioClientTransportTest {
             assertTrue(firstHandlerStarted.await(2, TimeUnit.SECONDS));
             McpSchema.JSONRPCNotification outbound =
                     new McpSchema.JSONRPCNotification("notifications/test", Map.of("value", "probe"));
+            // java:S2925, category one of three: a bounded poll of external state. The condition is that the
+            // transport has observably closed, which it reports by throwing rather than by signalling, so the
+            // loop retries until it does and assertTimeoutPreemptively is the bound. BoundedWait is the wrong
+            // shape here: what is awaited is an exception, not a value a supplier could report.
             assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
                 while (true) {
                     try {
@@ -271,37 +281,6 @@ class BoundedStdioClientTransportTest {
                 parameters, McpJsonDefaults.getMapper(), 1024, 0));
     }
 
-    @Test
-    void acceptsFrameAtExactByteLimitAndStripsCrLfDelimiter() throws Exception {
-        String json = "{\"id\":1}";
-        byte[] line = (json + "\r\n").getBytes(StandardCharsets.UTF_8);
-
-        assertEquals(json, BoundedStdioClientTransport.readUtf8LineBounded(
-                new ByteArrayInputStream(line), json.getBytes(StandardCharsets.UTF_8).length + 1));
-    }
-
-    @Test
-    void rejectsFrameBeforeCreatingStringPastByteLimit() {
-        byte[] oversized = "12345\n".getBytes(StandardCharsets.UTF_8);
-
-        assertThrows(BoundedStdioClientTransport.MessageTooLargeException.class, () ->
-                BoundedStdioClientTransport.readUtf8LineBounded(new ByteArrayInputStream(oversized), 4));
-    }
-
-    @Test
-    void countsUtf8BytesRatherThanCharacters() {
-        byte[] multibyte = "é\n".getBytes(StandardCharsets.UTF_8);
-
-        assertThrows(BoundedStdioClientTransport.MessageTooLargeException.class, () ->
-                BoundedStdioClientTransport.readUtf8LineBounded(new ByteArrayInputStream(multibyte), 1));
-    }
-
-    @Test
-    void returnsNullForCleanEndOfStream() throws Exception {
-        assertNull(BoundedStdioClientTransport.readUtf8LineBounded(
-                new ByteArrayInputStream(new byte[0]), 16));
-    }
-
     private BoundedStdioClientTransport transport(int maxBytes) {
         return new BoundedStdioClientTransport(
                 serverParameters(),
@@ -344,31 +323,24 @@ class BoundedStdioClientTransportTest {
         return List.of("-cp", testClasspath, mainClass.getName());
     }
 
-    private long awaitPublishedPid(Path path, Duration timeout) throws InterruptedException {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        while (true) {
-            if (Files.isRegularFile(path)) {
-                try {
-                    String published = Files.readString(path).trim();
-                    if (!published.isEmpty()) return Long.parseLong(published);
-                } catch (IOException | NumberFormatException transientPublicationRace) {
-                    // Files.writeString may make the entry visible before the PID bytes are observable.
-                }
-            }
-            if (System.nanoTime() >= deadline) {
-                throw new AssertionError("PID was not published within " + timeout + ": " + path.getFileName());
-            }
-            TimeUnit.MILLISECONDS.sleep(10);
-        }
+    private long awaitPublishedPid(Path path, Duration timeout) throws Exception {
+        return BoundedWait.untilObserved(
+                "the child process to publish its PID into " + path.getFileName(),
+                timeout,
+                BoundedWait.FILE_PUBLICATION_POLL,
+                () -> readPublishedPid(path),
+                published -> published > 0);
     }
 
-    private void awaitCondition(Duration timeout, BooleanSupplier condition) throws InterruptedException {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() >= deadline) {
-                throw new AssertionError("condition was not satisfied within " + timeout);
-            }
-            TimeUnit.MILLISECONDS.sleep(10);
+    /** Returns 0 while the file is absent or half-written: publication is not atomic, so a partial read is normal. */
+    private long readPublishedPid(Path path) {
+        if (!Files.isRegularFile(path)) return 0L;
+        try {
+            String published = Files.readString(path).trim();
+            return published.isEmpty() ? 0L : Long.parseLong(published);
+        } catch (IOException | NumberFormatException transientPublicationRace) {
+            // Files.writeString may make the entry visible before the PID bytes are observable.
+            return 0L;
         }
     }
 

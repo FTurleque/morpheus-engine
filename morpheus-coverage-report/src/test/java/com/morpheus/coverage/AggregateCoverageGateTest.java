@@ -1,0 +1,391 @@
+package com.morpheus.coverage;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.xml.sax.InputSource;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.IOException;
+import java.io.StringReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Canonical post-reactor coverage gate including cross-module architecture-test execution.
+ *
+ * <p>This is the aggregate scale. It counts a different population of covered lines from the per-module scale
+ * enforced by CoverageQualityGateTest, so it reads its own pair of ratchet keys and writes its own evidence
+ * file. Comparing a ratio produced here against a threshold qualified over there is the defect this separation
+ * exists to prevent.</p>
+ *
+ * <p>Both scales cover the same population of modules -- every reactor module with classes under
+ * {@code src/main/java}, the verification tooling included -- and differ only in which executions may credit a
+ * line. This gate derives that population from the root POM and refuses a report that measured another one.</p>
+ */
+class AggregateCoverageGateTest {
+    private static final double D2_MIN_LINE_RATIO = 0.40d;
+    private static final double D2_MIN_BRANCH_RATIO = 0.35d;
+
+    // Qualified exact-head baseline of the AGGREGATE scale: 85.7263% lines / 68.5246% branches.
+    //
+    // No aggregate measurement had ever been qualified. Until the scale split, this gate read the ratchet keys
+    // CoverageQualityGateTest had qualified on the per-module scale, so its threshold carried no evidence about
+    // this grandeur at all: it sat roughly 24 points under the measurement, and about 6800 lines and 1570
+    // branches of aggregate coverage could disappear without any gate reacting.
+    //
+    // Measured on 09/09/2026 at fix/coverage-ratchet-scale-split-2026-09-09 (e5127486), two full runs per
+    // platform, the first of each being the platform's validate-m21 run:
+    //     Windows  85.7612% / 85.7717% lines,  68.5342% / 68.5629% branches
+    //     Linux    85.7263% / 85.7367% lines,  68.5246% / 68.5437% branches   <- qualified on the lowest
+    // Qualified on the lowest of the four, never the best: Linux and Windows run the same tests, but some
+    // no-op off their own OS, so the platform that covers fewer lines is the one the cap has to be reachable
+    // on. The four runs spread 0.045 point on lines and 0.038 on branches.
+    //
+    // The aggregate ratchets in config/m21-quality-ratchets.properties sit deliberately BELOW this cap rather
+    // than at it: 0.850 / 0.680 leaves about 208 lines and 55 branches of headroom, an order of magnitude more
+    // than the observed run-to-run variation and small enough that a real regression is caught.
+    //
+    // Raising these two constants requires a fresh aggregate measurement on BOTH platforms, cited here.
+    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.857263d;
+    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.685246d;
+
+    @Test
+    void aggregateCoverageIncludesCrossModuleExecutionAndMeetsRatchets() throws Exception {
+        Path root = repoRoot();
+        Path report = root.resolve("morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml");
+        assertTrue(Files.isRegularFile(report), "aggregate JaCoCo report is missing: " + report);
+
+        Ratchets ratchets = Ratchets.load(root.resolve("config/m21-quality-ratchets.properties"));
+        double minimumLine = Math.max(D2_MIN_LINE_RATIO, ratchets.aggregateLineCoverageMinimum());
+        double minimumBranch = Math.max(D2_MIN_BRANCH_RATIO, ratchets.aggregateBranchCoverageMinimum());
+        assertTrue(minimumLine >= D2_MIN_LINE_RATIO, "coverage ratchet must never weaken the D2 line floor");
+        assertTrue(minimumBranch >= D2_MIN_BRANCH_RATIO, "coverage ratchet must never weaken the D2 branch floor");
+        assertRatchetWithinQualifiedWindow("line", ratchets.aggregateLineCoverageMinimum(),
+                D2_MIN_LINE_RATIO, AGGREGATE_QUALIFIED_LINE_RATIO);
+        assertRatchetWithinQualifiedWindow("branch", ratchets.aggregateBranchCoverageMinimum(),
+                D2_MIN_BRANCH_RATIO, AGGREGATE_QUALIFIED_BRANCH_RATIO);
+
+        var document = parse(report);
+        List<String> population = derivedPopulation(root);
+        assertReportMeasuresPopulation(population, reportedModules(document.getDocumentElement()));
+        Counter lines = counter(document.getDocumentElement(), "LINE");
+        Counter branches = counter(document.getDocumentElement(), "BRANCH");
+        double lineRatio = lines.ratio();
+        double branchRatio = branches.ratio();
+
+        Path summary = root.resolve("morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt");
+        Files.createDirectories(summary.getParent());
+        Files.writeString(summary, String.format(
+                Locale.ROOT,
+                "coverageScope=aggregate%n"
+                        + "coverageSource=jacoco-report-aggregate%n"
+                        + "aggregateReport=morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml%n"
+                        + "populationRule=reactor-modules-with-main-classes%n"
+                        + "populationModules=%d%npopulation=%s%n"
+                        + "lineCovered=%d%nlineMissed=%d%nlineRatio=%.6f%n"
+                        + "branchCovered=%d%nbranchMissed=%d%nbranchRatio=%.6f%n"
+                        + "qualifiedLineBaseline=%.6f%nqualifiedBranchBaseline=%.6f%n"
+                        + "lineRatchet=%.3f%nbranchRatchet=%.3f%n"
+                        + "d2LineFloor=%.2f%nd2BranchFloor=%.2f%n",
+                population.size(), String.join(",", population),
+                lines.covered, lines.missed, lineRatio,
+                branches.covered, branches.missed, branchRatio,
+                AGGREGATE_QUALIFIED_LINE_RATIO, AGGREGATE_QUALIFIED_BRANCH_RATIO,
+                minimumLine, minimumBranch,
+                D2_MIN_LINE_RATIO, D2_MIN_BRANCH_RATIO));
+
+        assertTrue(lineRatio >= minimumLine,
+                () -> "aggregate JaCoCo line coverage " + lineRatio + " is below aggregate ratchet " + minimumLine);
+        assertTrue(branchRatio >= minimumBranch,
+                () -> "aggregate JaCoCo branch coverage " + branchRatio + " is below aggregate ratchet " + minimumBranch);
+    }
+
+    /**
+     * The window is what makes a ratchet a ratchet: strictly above the D2 floor it may never silently return to,
+     * and at or below the aggregate measurement that qualified it. Both ends are proven here rather than merely
+     * exercised by whichever value happens to be configured today.
+     */
+    @Test
+    void aggregateRatchetWindowRejectsAnUnqualifiedRaiseAndAReturnToTheD2Floor() {
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "line", AGGREGATE_QUALIFIED_LINE_RATIO + 0.000001d, D2_MIN_LINE_RATIO, AGGREGATE_QUALIFIED_LINE_RATIO));
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "branch", AGGREGATE_QUALIFIED_BRANCH_RATIO + 0.000001d, D2_MIN_BRANCH_RATIO, AGGREGATE_QUALIFIED_BRANCH_RATIO));
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "line", D2_MIN_LINE_RATIO, D2_MIN_LINE_RATIO, AGGREGATE_QUALIFIED_LINE_RATIO));
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "branch", D2_MIN_BRANCH_RATIO, D2_MIN_BRANCH_RATIO, AGGREGATE_QUALIFIED_BRANCH_RATIO));
+    }
+
+    /** Every key is required, and a missing one must name itself rather than surface as a parse failure. */
+    @Test
+    void ratchetLoadingNamesAMissingAggregateKeyInsteadOfFailingObscurely() {
+        Properties incomplete = new Properties();
+        incomplete.setProperty("aggregateLineCoverageMinimum", "0.620");
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> Ratchets.of(incomplete));
+        assertTrue(failure.getMessage().contains("aggregateBranchCoverageMinimum"),
+                () -> "a missing ratchet must name itself, got: " + failure.getMessage());
+    }
+
+    /**
+     * A guard that has never refused is not a guard (ADR-0103). A reactor assembled on purpose, then a report that
+     * dropped one of its modules and one that measured a stranger, must both be refused by name before the report
+     * that matches is accepted.
+     */
+    @Test
+    void thePopulationGuardRefusesAReportThatMeasuredAnotherPopulation(@TempDir Path reactor) throws Exception {
+        Files.writeString(reactor.resolve("pom.xml"), """
+                <project>
+                  <modules>
+                    <module>product</module>
+                    <module>tooling</module>
+                    <module>without-main-classes</module>
+                  </modules>
+                </project>
+                """);
+        declareMainClass(reactor.resolve("product"));
+        declareMainClass(reactor.resolve("tooling"));
+        Files.createDirectories(reactor.resolve("without-main-classes/src/test/java"));
+
+        List<String> population = derivedPopulation(reactor);
+        assertEquals(List.of("product", "tooling"), population,
+                "a module without main classes is outside the population, every other declared module is inside it");
+
+        AssertionError amputated = assertThrows(AssertionError.class, () -> assertReportMeasuresPopulation(
+                population, reportedModules(report(reactor, "product"))));
+        assertTrue(amputated.getMessage().contains("absent from the report: tooling"),
+                () -> "the refusal must name the module the report left out: " + amputated.getMessage());
+
+        AssertionError foreign = assertThrows(AssertionError.class, () -> assertReportMeasuresPopulation(
+                population, reportedModules(report(reactor, "product", "tooling", "stranger"))));
+        assertTrue(foreign.getMessage().contains("not a reactor module with main classes: stranger"),
+                () -> "the refusal must name the module the population does not hold: " + foreign.getMessage());
+        assertFalse(foreign.getMessage().contains("absent from the report"),
+                () -> "a report holding every module must not be blamed for a missing one: " + foreign.getMessage());
+
+        assertReportMeasuresPopulation(population, reportedModules(report(reactor, "product", "tooling")));
+    }
+
+    private static void declareMainClass(Path module) throws IOException {
+        Path sources = module.resolve("src/main/java");
+        Files.createDirectories(sources);
+        Files.writeString(sources.resolve("Placeholder.java"), "class Placeholder {}");
+    }
+
+    private static Element report(Path reactor, String... groups) throws Exception {
+        StringBuilder xml = new StringBuilder("<report name=\"aggregate\">");
+        for (String group : groups) {
+            xml.append("<group name=\"").append(group).append("\"/>");
+        }
+        Path report = reactor.resolve("jacoco.xml");
+        Files.writeString(report, xml.append("</report>").toString());
+        return parse(report).getDocumentElement();
+    }
+
+    /**
+     * Which modules the aggregate scale measures, derived from the reactor rather than listed by hand.
+     *
+     * <p>The rule is the per-module scale's: every module the root POM declares that carries a class under
+     * {@code src/main/java}. Holding both scales to one population leaves them differing only in which executions
+     * may credit a line, which is the one difference their separation is about. The verification tooling --
+     * morpheus-store-memory, morpheus-provider-synthetic, morpheus-provider-testkit and morpheus-provider-reference
+     * -- is inside it on purpose: on 11/09/2026 it moved this ratio by 0.15 point, and taking it out would leave
+     * the qualified cap above bounding a population it was never measured on.</p>
+     */
+    private static List<String> derivedPopulation(Path root) throws Exception {
+        List<String> population = new ArrayList<>();
+        Node child = parse(root.resolve("pom.xml")).getDocumentElement().getFirstChild();
+        while (child != null) {
+            if (child instanceof Element element && element.getTagName().equals("modules")) {
+                Node declared = element.getFirstChild();
+                while (declared != null) {
+                    if (declared instanceof Element module && module.getTagName().equals("module")
+                            && hasMainClasses(root.resolve(module.getTextContent().trim()))) {
+                        population.add(module.getTextContent().trim());
+                    }
+                    declared = declared.getNextSibling();
+                }
+            }
+            child = child.getNextSibling();
+        }
+        assertFalse(population.isEmpty(), () -> "no reactor module with main classes is declared under " + root);
+        return List.copyOf(population);
+    }
+
+    private static boolean hasMainClasses(Path module) throws IOException {
+        Path sources = module.resolve("src/main/java");
+        if (!Files.isDirectory(sources)) {
+            return false;
+        }
+        try (var files = Files.walk(sources)) {
+            return files.anyMatch(path -> path.getFileName().toString().endsWith(".java") && Files.isRegularFile(path));
+        }
+    }
+
+    /** report-aggregate emits one top-level group per aggregated module, named after its artifactId. */
+    private static List<String> reportedModules(Element report) {
+        List<String> modules = new ArrayList<>();
+        Node child = report.getFirstChild();
+        while (child != null) {
+            if (child instanceof Element element && element.getTagName().equals("group")) {
+                modules.add(element.getAttribute("name"));
+            }
+            child = child.getNextSibling();
+        }
+        return List.copyOf(modules);
+    }
+
+    private static void assertReportMeasuresPopulation(List<String> population, List<String> reported) {
+        List<String> absent = population.stream().filter(module -> !reported.contains(module)).toList();
+        List<String> foreign = reported.stream().filter(module -> !population.contains(module)).toList();
+        if (absent.isEmpty() && foreign.isEmpty()) {
+            return;
+        }
+        StringBuilder refusal = new StringBuilder()
+                .append("the aggregate report did not measure the population of the aggregate scale, ")
+                .append("every reactor module with main classes");
+        if (!absent.isEmpty()) {
+            refusal.append(System.lineSeparator())
+                    .append("  declare it as a compile dependency of morpheus-coverage-report -- absent from the report: ")
+                    .append(String.join(", ", absent));
+        }
+        if (!foreign.isEmpty()) {
+            refusal.append(System.lineSeparator())
+                    .append("  measured by the report, but not a reactor module with main classes: ")
+                    .append(String.join(", ", foreign));
+        }
+        throw new AssertionError(refusal.toString());
+    }
+
+    private static void assertRatchetWithinQualifiedWindow(String kind, double ratchet, double floor, double cap) {
+        assertTrue(ratchet > floor,
+                () -> "aggregate " + kind + " ratchet " + ratchet + " must stay stricter than the D2 floor " + floor);
+        assertTrue(ratchet <= cap,
+                () -> "aggregate " + kind + " ratchet " + ratchet + " exceeds its qualified aggregate baseline " + cap);
+    }
+
+    private static Counter counter(Element root, String type) {
+        Counter direct = directCounter(root, type);
+        if (direct.total() > 0) {
+            return direct;
+        }
+
+        // JaCoCo normally emits report-level counters. Keep a group-level fallback for report layouts that wrap
+        // module reports in <group> elements; summing only each group's direct counter avoids package/class double count.
+        Counter grouped = new Counter();
+        Node child = root.getFirstChild();
+        while (child != null) {
+            if (child instanceof Element element && element.getTagName().equals("group")) {
+                grouped.add(directCounter(element, type));
+            }
+            child = child.getNextSibling();
+        }
+        if (grouped.total() == 0) {
+            throw new IllegalArgumentException("aggregate JaCoCo report has no " + type + " counter");
+        }
+        return grouped;
+    }
+
+    private static Counter directCounter(Element parent, String type) {
+        Counter result = new Counter();
+        Node child = parent.getFirstChild();
+        while (child != null) {
+            if (child instanceof Element element
+                    && element.getTagName().equals("counter")
+                    && element.getAttribute("type").equals(type)) {
+                result.covered += Long.parseLong(element.getAttribute("covered"));
+                result.missed += Long.parseLong(element.getAttribute("missed"));
+            }
+            child = child.getNextSibling();
+        }
+        return result;
+    }
+
+    private static org.w3c.dom.Document parse(Path report) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setExpandEntityReferences(false);
+        var builder = factory.newDocumentBuilder();
+        builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+        return builder.parse(report.toFile());
+    }
+
+    private static Path repoRoot() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        while (current != null) {
+            if (Files.isRegularFile(current.resolve("pom.xml"))
+                    && Files.isDirectory(current.resolve("morpheus-application"))
+                    && Files.isDirectory(current.resolve("distribution"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("MORPHEUS repository root not found");
+    }
+
+    private record Ratchets(double aggregateLineCoverageMinimum, double aggregateBranchCoverageMinimum) {
+        private static Ratchets load(Path path) throws IOException {
+            Properties properties = new Properties();
+            try (var reader = Files.newBufferedReader(path)) {
+                properties.load(reader);
+            }
+            return of(properties);
+        }
+
+        private static Ratchets of(Properties properties) {
+            return new Ratchets(
+                    requiredRatio(properties, "aggregateLineCoverageMinimum"),
+                    requiredRatio(properties, "aggregateBranchCoverageMinimum"));
+        }
+
+        private static double requiredRatio(Properties properties, String key) {
+            String value = properties.getProperty(key);
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException("missing M21 quality ratchet: " + key);
+            }
+            double parsed;
+            try {
+                parsed = Double.parseDouble(value.trim());
+            } catch (NumberFormatException failure) {
+                throw new IllegalArgumentException("invalid M21 quality ratchet: " + key, failure);
+            }
+            if (parsed <= 0.0d || parsed > 1.0d) {
+                throw new IllegalArgumentException("M21 quality ratchet must be in (0, 1]: " + key);
+            }
+            return parsed;
+        }
+    }
+
+    private static final class Counter {
+        private long covered;
+        private long missed;
+
+        private void add(Counter other) {
+            covered += other.covered;
+            missed += other.missed;
+        }
+
+        private long total() {
+            return covered + missed;
+        }
+
+        private double ratio() {
+            long total = total();
+            return total == 0 ? 1.0d : (double) covered / total;
+        }
+    }
+}

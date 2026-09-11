@@ -30,7 +30,7 @@ class ProductReleaseContractTest {
                     .toList();
         }
 
-        assertEquals(18, poms.size(), "Unexpected Maven reactor POM count");
+        assertEquals(19, poms.size(), "Unexpected Maven reactor POM count");
         for (Path pomPath : poms) {
             String pom = Files.readString(pomPath);
             assertTrue(pom.contains("<version>1.2.1</version>"),
@@ -40,7 +40,7 @@ class ProductReleaseContractTest {
             assertFalse(pom.contains("<version>1.1.0</version>"),
                     () -> "Stale MORPHEUS 1.1.0 version remains in " + root.relativize(pomPath));
             assertFalse(pom.contains("<version>1.0.0</version>"),
-                    () -> "Stale MORPHEUS 1.0.0 version remains in " + root.relativize(pomPath));
+                    () -> "Stale MORPHEUS 1.0.0 version remains active in " + root.relativize(pomPath));
             assertFalse(pom.contains("<version>0.1.0-SNAPSHOT</version>"),
                     () -> "Snapshot version remains in " + root.relativize(pomPath));
         }
@@ -127,6 +127,9 @@ class ProductReleaseContractTest {
         assertTrue(bootstrap.contains("$innoVersion = '7.0.2'"));
         assertTrue(bootstrap.contains("$assetName = \"innosetup-$innoVersion-x64.exe\""));
         assertTrue(bootstrap.contains("releases/download/is-7_0_2/$assetName"));
+        assertTrue(bootstrap.contains(
+                "$expectedInstallerSha256 = '5ad54ca3def786f8f4212552e54cc6d8d61329e2d24a1cfee0571d42c2684ff1'"));
+        assertTrue(bootstrap.contains("Get-FileHash -LiteralPath $installer -Algorithm SHA256"));
         assertTrue(bootstrap.contains("Get-AuthenticodeSignature"));
         assertTrue(bootstrap.contains("Pyrsys B\\.V\\."));
         assertTrue(bootstrap.contains("/PORTABLE=1"));

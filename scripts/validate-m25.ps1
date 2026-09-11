@@ -156,8 +156,8 @@ if ($architecture.Tests -lt 221) { throw "M25 architecture baseline regression: 
 Write-Host "Tests: PASS ($($totals.Tests), M24 baseline >= 543)"
 Write-Host "Architecture: PASS ($($architecture.Tests), M24 baseline >= 221)"
 
-$coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
-if (-not (Test-Path $coverageSummary)) { throw "Missing production coverage summary: $coverageSummary" }
+$coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
+& (Join-Path $PSScriptRoot 'lib\Require-AggregateCoverageEvidence.ps1') -EvidencePath $coverageSummary
 $coverage = @{}; Get-Content $coverageSummary | ForEach-Object { if ($_ -match '^([^=]+)=(.*)$') { $coverage[$matches[1]] = $matches[2] } }
 if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.25) { throw "M25 line coverage below 25%: $($coverage.lineRatio)" }
 if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.20) { throw "M25 branch coverage below 20%: $($coverage.branchRatio)" }

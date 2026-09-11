@@ -28,8 +28,9 @@ import java.util.regex.Pattern;
 /**
  * Explicit read-only update discovery. Construction performs no I/O; callers must invoke {@link #check(URI)} with a
  * concrete manifest URI. The service never downloads or installs the advertised artifact. Remote manifests require
- * HTTPS, advertise only HTTPS artifacts, and must provide an HTTPS provenance attestation URI. Local manifests use the
- * file scheme and remain available for explicit diagnostics and test fixtures.
+ * HTTPS, advertise only HTTPS artifacts, and must provide an HTTPS provenance-attestation reference. Presence of that
+ * reference is a discovery contract, not cryptographic verification. Local manifests use the file scheme and remain
+ * available for explicit diagnostics and test fixtures.
  */
 public final class UpdateDiscoveryService {
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
@@ -69,6 +70,8 @@ public final class UpdateDiscoveryService {
                 manifest.artifactUri(),
                 manifest.sha256(),
                 manifestUri,
+                manifest.attestationUri(),
+                UpdateTrustLevel.DISCOVERY_ONLY,
                 available);
     }
 
@@ -88,7 +91,7 @@ public final class UpdateDiscoveryService {
                 URI.create(required(properties, "artifactUri")),
                 required(properties, "sha256"),
                 optionalUri(properties, "attestationUri"));
-        manifest.requireRemoteTrust(manifestUri);
+        manifest.requireRemoteDiscoveryContract(manifestUri);
         return manifest;
     }
 

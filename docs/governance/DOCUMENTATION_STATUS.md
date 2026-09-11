@@ -2,7 +2,7 @@
 
 Statut : **ACTIF — MORPHEUS 1.2.0 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.1**
 
-Dernière mise à jour : 27 août 2026
+Dernière mise à jour : 7 septembre 2026
 
 ## Hiérarchie d’autorité
 
@@ -112,10 +112,11 @@ La règle « CI NOT USED » appartient exclusivement au protocole historique D2.
 Version                    1.2.1
 Java                       21
 Maven Wrapper              3.9.16
-Maven modules              17
+Maven modules              18
 MCP SDK                    2.0.1
-SQLite JDBC                3.53.2.0
+SQLite JDBC                3.53.4.0
 Jackson                    3.2.2
+OWASP Dependency-Check     13.0.0
 ```
 
 Qualité continue :
@@ -124,16 +125,21 @@ Qualité continue :
 MORPHEUS CI                exact-head Windows + Ubuntu
 MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
-Surefire ratchet           >= 1300
-Architecture ratchet       >= 335
-Global line ratchet        >= 54.5%
-Global branch ratchet      >= 47.7%
+Surefire ratchet           >= 1550
+Architecture ratchet       >= 385
+Aggregate line ratchet     >= 85.0%
+Aggregate branch ratchet   >= 68.0%
+Per-module line ratchet    >= 62.0%
+Per-module branch ratchet  >= 53.5%
 PR changed line coverage   >= 80%
 PR changed branch coverage >= 70%
+JaCoCo canonical report    morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml
 Dependency hygiene         blocking
 CycloneDX SBOM             required
 Build provenance           required
 ```
+
+Le rapport JaCoCo canonique est généré après les tests d’architecture et fusionne leur exécution cross-module avec les classes des modules de production. Les classes du module de tests d’architecture ne sont pas comptées comme code produit. Le gate différentiel et Sonar privilégient ce rapport agrégé.
 
 Le gate durable est documenté dans [`../developer/BUILD_AND_TEST.md`](../developer/BUILD_AND_TEST.md).
 
@@ -166,6 +172,7 @@ Les éléments suivants ne doivent pas être déclarés terminés sans preuve ex
 
 ```text
 #185  qualifier le workflow de release attestée lors d'une vraie v1.2.1+ release
+#287  configurer NVD_API_KEY / valider le refresh trusted de Dependency-Check 13.0.0 jusqu'au correctif upstream
 ```
 
 ## État fonctionnel

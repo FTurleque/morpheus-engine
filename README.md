@@ -155,7 +155,7 @@ Build                  Maven Wrapper 3.9.16
 Release stable         1.2.0
 Baseline développement 1.2.1
 Persistent store       SQLite
-SQLite JDBC            3.53.2.0
+SQLite JDBC            3.53.4.0
 Jackson                3.2.2
 MCP SDK                Java MCP SDK 2.0.1
 HTTP local             JDK jdk.httpserver
@@ -183,6 +183,7 @@ morpheus-mcp
 morpheus-api
 morpheus-cli
 morpheus-architecture-tests
+morpheus-coverage-report
 ```
 
 ## Build développeur
@@ -207,14 +208,14 @@ Le gate durable exact-head utilisé par `MORPHEUS CI` est :
 bash ./scripts/validate-m21.sh 1.2.1
 ```
 
-Sur les pull requests, la couverture différentielle impose **≥ 80 % des lignes exécutables changées** et **≥ 70 % des branches changées**. Le ratchet global est **≥ 54,5 % lignes / ≥ 47,7 % branches**, avec **≥ 1300 tests Surefire** et **≥ 335 tests d’architecture** (source normative : `config/m21-quality-ratchets.properties`). Dependency hygiene, SBOM CycloneDX, provenance et smoke packaging font partie du gate durable.
+Sur les pull requests, la couverture différentielle impose **≥ 80 % des lignes exécutables changées** et **≥ 70 % des branches changées**. Le ratchet agrégé est **≥ 85,0 % lignes / ≥ 68,0 % branches**, le ratchet par module **≥ 62,0 % lignes / ≥ 53,5 % branches**, avec **≥ 1550 tests Surefire** et **≥ 385 tests d’architecture** (source normative : `config/m21-quality-ratchets.properties`). La mesure canonique de couverture est le rapport JaCoCo agrégé `morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml`, qui fusionne aussi l’exécution cross-module des tests d’architecture sans compter leurs classes comme code produit ; l’échelle par module somme au contraire le rapport propre à chaque module et révèle donc un module qui cesse de se tester lui-même. Les deux échelles portent des seuils distincts et ne sont jamais comparées entre elles. Dependency hygiene, SBOM CycloneDX, provenance et smoke packaging font partie du gate durable.
 
 D2 reste une preuve historique distincte : sa qualification finale a été effectuée localement sur Windows et Linux/WSL au même SHA, sans utiliser la CI comme gate D2. Cette contrainte historique ne désactive pas les workflows actuels `MORPHEUS CI`, `MORPHEUS Security` et `MORPHEUS CodeQL`.
 
 ## Sécurité et supply chain
 
 ```text
-OWASP Dependency-Check 12.2.2
+OWASP Dependency-Check 13.0.0
 SCA fail threshold      CVSS >= 7.0
 Dependency hygiene      failOnWarning=true
 SBOM                    CycloneDX JSON + XML
@@ -222,7 +223,7 @@ Code scanning           CodeQL security-extended
 Dependency updates      Dependabot Maven + GitHub Actions
 ```
 
-La qualification end-to-end du workflow de release attestée sera faite lors de la prochaine vraie release `v1.2.1` ou supérieure ; elle n’est pas simulée sur un tag artificiel.
+La qualification end-to-end du workflow de release attestée sera faite lors de la prochaine vraie release `v1.2.1` ou supérieure ; elle n’est pas simulée sur un tag artificiel. Tant que Dependency-Check 13.0.0 reste affecté par le problème NVD suivi dans #287, le workflow Security conserve son comportement fail-closed et le secret GitHub Actions `NVD_API_KEY` doit être configuré côté dépôt pour rafraîchir le cache trusted.
 
 ## Documentation
 

@@ -13,6 +13,16 @@ Set-Location $repo
 $outputRoot = Join-Path $repo 'validation-output\m26'
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 $validationSha = (git rev-parse HEAD).Trim()
+$migrationDir = Join-Path $repo 'morpheus-store-sqlite\src\main\resources\db\migration'
+$schemaMeasurement = Get-ChildItem -LiteralPath $migrationDir -File -Filter 'V???__*.sql' |
+    ForEach-Object {
+        if ($_.Name -match '^V(\d{3})__.*\.sql$') { [int]$matches[1] }
+    } | Measure-Object -Maximum
+$expectedSchema = $schemaMeasurement.Maximum
+if ($null -eq $expectedSchema -or [int]$expectedSchema -le 0) {
+    throw "No valid SQLite migrations found in $migrationDir"
+}
+$expectedSchema = [int]$expectedSchema
 
 function Invoke-Native([string]$Label, [scriptblock]$Command) {
     Write-Host ''; Write-Host ('=' * 78); Write-Host $Label; Write-Host ('=' * 78)
@@ -55,7 +65,7 @@ function Invoke-ExpectedFailure([string]$Launcher, [string[]]$Arguments, [string
     $diagnostic = if (Test-Path $stderr) { Get-Content -LiteralPath $stderr -Raw } else { '' }
     # The console renders a native command's stderr wrapped at the window width, so a long diagnostic arrives
     # split across lines. Collapsing whitespace keeps the expectation about the message, not the terminal.
-    $normalized = ($diagnostic -replace '\\s+', ' ').Trim()
+    $normalized = ($diagnostic -replace '\s+', ' ').Trim()
     if ($normalized -notmatch $ExpectedPattern) { throw "$Name diagnostic mismatch: $diagnostic" }
 }
 
@@ -81,17 +91,17 @@ function Assert-PackagedM26([string]$Launcher) {
 
         $backupJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'backup', 'create')
         $backup = $backupJson | ConvertFrom-Json
-        if (-not $backup.integrityOk -or [int]$backup.schemaVersion -ne 17) { throw "M26 backup contract mismatch: $backupJson" }
+        if (-not $backup.integrityOk -or [int]$backup.schemaVersion -ne $expectedSchema) { throw "M26 backup contract mismatch: $backupJson" }
         if (-not (Test-Path ([string]$backup.path))) { throw "M26 backup file missing: $($backup.path)" }
         $verifyJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'backup', 'verify', '--file', ([string]$backup.path))
         $verified = $verifyJson | ConvertFrom-Json
-        if (-not $verified.integrityOk -or [int]$verified.schemaVersion -ne 17 -or $verified.sha256 -ne $backup.sha256) {
+        if (-not $verified.integrityOk -or [int]$verified.schemaVersion -ne $expectedSchema -or $verified.sha256 -ne $backup.sha256) {
             throw "M26 backup verification mismatch: $verifyJson"
         }
         Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'server', 'restore', '--file', ([string]$backup.path)) '--confirm' 'restore-unconfirmed'
         $restoredJson = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'server', 'restore', '--file', ([string]$backup.path), '--confirm')
         $restored = $restoredJson | ConvertFrom-Json
-        if (-not $restored.integrityOk -or [int]$restored.schemaVersion -ne 17) { throw "M26 offline restore mismatch: $restoredJson" }
+        if (-not $restored.integrityOk -or [int]$restored.schemaVersion -ne $expectedSchema) { throw "M26 offline restore mismatch: $restoredJson" }
         Write-Host 'SQLite backup + verify + explicit offline restore: PASS'
 
         Invoke-ExpectedFailure $Launcher @('--data-dir', $data, 'api', '--host', '0.0.0.0', '--port', '18765') 'non-loopback API bind requires explicit remote mode' 'local-nonloopback'
@@ -104,6 +114,7 @@ function Assert-PackagedM26([string]$Launcher) {
 }
 
 Write-Host "M26 exact-head validation SHA: $validationSha"
+Write-Host "M26 expected SQLite schema: $expectedSchema"
 $initialTracked = @(git status --porcelain --untracked-files=no)
 if ($initialTracked.Count -ne 0) { throw "M26 exact-head gate requires no tracked workspace delta before validation:`n$($initialTracked -join "`n")" }
 
@@ -124,8 +135,8 @@ if ($architecture.Tests -lt 231) { throw "M26 architecture baseline regression: 
 Write-Host "Tests: PASS ($($totals.Tests), M25 baseline >= 565)"
 Write-Host "Architecture: PASS ($($architecture.Tests), M25 baseline >= 231)"
 
-$coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
-if (-not (Test-Path $coverageSummary)) { throw "Missing production coverage summary: $coverageSummary" }
+$coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
+& (Join-Path $PSScriptRoot 'lib\Require-AggregateCoverageEvidence.ps1') -EvidencePath $coverageSummary
 $coverage = @{}; Get-Content $coverageSummary | ForEach-Object { if ($_ -match '^([^=]+)=(.*)$') { $coverage[$matches[1]] = $matches[2] } }
 if ([double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.25) { throw "M26 line coverage below 25%: $($coverage.lineRatio)" }
 if ([double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture) -lt 0.20) { throw "M26 branch coverage below 20%: $($coverage.branchRatio)" }
@@ -169,12 +180,12 @@ $finalTracked = @(git status --porcelain --untracked-files=no)
 if ($finalTracked.Count -ne 0) { throw "Tracked workspace delta appeared during M26 validation:`n$($finalTracked -join "`n")" }
 
 $summary = @(
-    'M26 VALIDATION PASS', "sha=$validationSha", "baseRef=$BaseRef", "version=$Version",
+    'M26 VALIDATION PASS', "sha=$validationSha", "baseRef=$BaseRef", "version=$Version", "expectedSchema=$expectedSchema",
     "tests=$($totals.Tests)", "architectureTests=$($architecture.Tests)",
     "lineCoverage=$($coverage.lineRatio)", "branchCoverage=$($coverage.branchRatio)",
     'localFirst=PASS', 'remoteTlsAuthRbac=PASS', 'boundedConcurrency=PASS',
     'secretNonDisclosure=PASS', 'backupRestore=PASS', 'schemaCompatibility=PASS',
-    'surfaceConvergence=PASS', 'sqliteV017=PASS', 'sbom=PASS', 'provenance=PASS',
+    'surfaceConvergence=PASS', 'sqliteSchema=PASS', 'sbom=PASS', 'provenance=PASS',
     "portable=$(-not $SkipPortable)", 'postGateExecutableDelta=NONE')
 $summary | Set-Content -Encoding UTF8 (Join-Path $outputRoot 'validation-summary.txt')
 $summary | ForEach-Object { Write-Host $_ }

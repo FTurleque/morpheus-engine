@@ -43,6 +43,54 @@ void applicationMustNotDependOnAdapters() {
 milestone (règles de sous-plateforme, ex. `m24/QueryPlatformArchitectureTest`). Ne jamais
 se contenter d'une convention non testée — si ArchUnit ne la vérifie pas, elle n'existe pas.
 
+## Règle ArchUnit ou assertion textuelle — cf. ADR-0103
+
+Beaucoup d'interdits de dépendance sont aujourd'hui écrits `assertFalse(<source lue>.contains("X"))`.
+**Ce n'est pas une forme dégradée à migrer par réflexe** : les deux mécanismes n'enforcent pas la
+même proposition, et aucun ne domine l'autre.
+
+| | `assertFalse(src.contains("X"))` | règle ArchUnit |
+|---|---|---|
+| Interdit | la **mention** de `X` | la **dépendance** compilée |
+| Dépendance indirecte, ou non épelée | ratée | **vue** |
+| Référence à une constante de compilation | **vue** | ratée — `javac` l'inline |
+| Portée | tout `src/main/java` | classpath de `morpheus-architecture-tests` |
+
+Avant de choisir, **écrire l'intention en une phrase**. « Aucune dépendance » → ArchUnit.
+« Ce nom ne doit pas apparaître ici » → texte. Dans le doute, **garder les deux**.
+
+Restent textuels par nature, ne pas les migrer :
+
+- les interdits de chaîne scannés sur tout le dépôt (`activateDefaultTyping(`,
+  `request.header("Authorization"`, `token + "|"`) — ArchUnit ne voit pas les fichiers hors classpath ;
+- les expressions de **câblage explicite** — aucune règle sur le bytecode ne dit quel argument un
+  constructeur a reçu ;
+- tout ce qui vise un `.yml`, `.ps1`, `.md`, `.iss`, `.sh`, `.xml`, `.tsv` : le texte y est la seule prise.
+
+Trois obligations avant d'accepter une règle migrée :
+
+1. **Vérifier que la classe visée est dans l'ensemble importé.** `morpheus-provider-reference` et
+   `morpheus-provider-testkit` n'y sont pas. Le garde-fou `archRule.failOnEmptyShould` est actif et
+   fait échouer une règle qui ne retient aucune classe — **ne pas le désactiver**.
+2. **Vérifier qu'un littéral n'est pas un préfixe de famille.** `contains("MorpheusRemote")` interdit
+   toute une famille de types, pas un seul.
+3. **Casser la règle pour prouver qu'elle tient** : introduire la violation, constater l'échec,
+   revenir en arrière. Une règle vide passe aussi.
+
+Découper par **intention**, jamais par classe de test : regrouper fait descendre le compte de
+méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testing.md`).
+
+**Généralisation décidée le 11/09/2026** (amendement d'ADR-0103), par groupe de capacité, jamais par
+famille entière :
+
+- les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, `MorpheusHttpResponseWriter`,
+  `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
+  ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes` ;
+- la frontière transport/JSON se règle par capacité, routeurs sans corps d'un côté, routeurs à corps de
+  l'autre (DT-15 du registre des risques) ;
+- les assertions visant des cibles sans famille (services, plomberie `LocalHttp*`, serveur remote) **ne
+  migrent pas**.
+
 ## JAMAIS — interdits enforced par ArchUnit
 
 ### `com.morpheus.domain..` ne doit dépendre de rien de tout ça

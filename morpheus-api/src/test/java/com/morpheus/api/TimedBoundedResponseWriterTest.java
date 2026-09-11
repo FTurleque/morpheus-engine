@@ -167,7 +167,15 @@ class TimedBoundedResponseWriterTest {
         }
     }
 
-    /** A peer that keeps reading, a little at a time, until it is told to stop. */
+    /**
+     * A peer that keeps reading, a little at a time, until it is told to stop.
+     *
+     * <p>java:S2925, category two of three: a deliberately slow actor, where the sleep is the device under
+     * test. The sleep is the slow reader this writer's rearming deadline is tested against, so it is a
+     * fixture and not an attempt to synchronise:
+     * removing it removes the test. Nothing here waits for a condition, so BoundedWait would be the wrong
+     * shape.</p>
+     */
     @SuppressWarnings("java:S2925")
     private static Thread drainSlowly(Peers peers, AtomicBoolean draining) {
         Thread reader = new Thread(() -> {

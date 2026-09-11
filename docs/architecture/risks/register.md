@@ -22,7 +22,136 @@
 | RT-06 | Diagnostic runtime limité par le logging silencieux | 2 | 2 | **4** | Health/metrics, erreurs structurées et diagnostics MCP sanitizés ; préserver stdout MCP | Permanent |
 | RT-09 | Drift documentaire entre sources historiques et HEAD | 2 | 2 | **4** | Hiérarchie des sources, séparation release publiée `1.2.0` / baseline active `1.2.1`, guides actifs réconciliés et contrats d'architecture sur les invariants CI | À chaque release/hardening |
 | RT-07 | Auth remote sans SSO/LDAP | 1 | 2 | **2** | Bearer auth + RBAC, mutations inter-processus sérialisées, live reload, audit secret-free roulant borné ; mot de passe TLS résolu tardivement en `char[]` et jamais retenu dans les options de lancement | Si besoin entreprise démontré |
-| RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement ; lane CI `macos-smoke` **advisory** (`continue-on-error`) qui exécute le reactor complet et publie les faits système observés — observation, pas qualification | Si support macOS décidé |
+| RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement ; lane `macos-smoke` **advisory** (`continue-on-error`) de `nightly.yml`, sur cadence quotidienne bornée et non par pull request, qui exécute le reactor complet et publie les faits système observés — observation, pas qualification | Si support macOS décidé |
+| RT-13 | `NVD_API_KEY` absent : la base Dependency-Check ne peut plus être rafraîchie une fois 1.2.1 promue sur `main` | 3 | 3 | **9** | **Aucune mitigation technique possible — action propriétaire requise.** Voir la section dédiée ci-dessous | Immédiate ; à clore en configurant le secret |
+
+### RT-13 — la base Dependency-Check n'a plus de source de rafraîchissement (constaté le 09/09/2026)
+
+Ce risque n'est pas une hypothèse : c'est une panne **datée**, qui se déclenchera environ
+**72 heures après la promotion de 1.2.1 sur `main`**, et qu'aucune modification de workflow ne peut
+éviter. Il est enregistré ici parce que sa résolution appartient au propriétaire du dépôt, pas au code.
+
+Constats du 09/09/2026, vérifiés sur le dépôt et non recopiés :
+
+- `NVD_API_KEY` **n'est pas configuré**. `gh api repos/FTurleque/morpheus-engine/actions/secrets` ne
+  retourne que `SONAR_TOKEN` ; il n'existe ni secret d'organisation (le dépôt appartient à un compte
+  utilisateur) ni environnement GitHub.
+- Le job planifié quotidien **réussit** — dernière exécution `34311308046`, 09/09/2026 04:31 UTC — mais il
+  s'exécute sur `main`. Un déclencheur `schedule` est toujours dispatché sur la branche par défaut : le
+  filtre `branches: [main, develop]` ne s'applique qu'à `push` et `pull_request` et n'a aucun effet ici.
+- `main` épingle encore Dependency-Check **12.2.2**, dont la mise à jour anonyme fonctionne (`3 788`
+  enregistrements, 210 s dans ce run) et dont l'étape de sauvegarde de cache est inconditionnelle. C'est
+  **cette** exécution qui alimente le cache que toutes les pull requests de `develop` restaurent via la
+  `restore-key` `dependency-check-v12-trusted-`.
+- `develop` épingle **13.0.0**, dont la mise à jour anonyme est cassée en amont
+  ([issue #8715](https://github.com/dependency-check/DependencyCheck/issues/8715)). Le correctif #8716 est
+  mergé mais jalonné **13.0.1**, qui n'est pas publiée : la dernière release est 13.0.0 du 03/08/2026.
+
+Enchaînement une fois 1.2.1 promue : le workflow de `main` devient celui de `develop`, la branche de repli
+s'active, elle ne rafraîchit rien, et l'étape de sauvegarde est conditionnée à
+`steps.dependency-check-update.outputs.updated == 'true'` — donc plus aucun cache n'est publié. Le dernier
+cache `v12` cesse de vieillir sous surveillance et franchit `DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS: 72`.
+À partir de là, le job planifié **et chaque pull request** échouent, sur un motif qui n'est pas une
+vulnérabilité.
+
+Ce qui a été fait le 09/09/2026 (PR #299), et ce que ça ne fait pas : la panne devient **visible avant de se
+produire** — âge du cache, marge restante et voie d'obtention publiés dans le résumé de job, alerte aux deux
+tiers du budget, motif d'échec nommé `STALE_DATABASE` et distingué de `VULNERABILITY_THRESHOLD_EXCEEDED`.
+**Aucune de ces améliorations ne remplace le secret manquant.** Elles transforment une falaise en pente ; elles
+ne rafraîchissent pas la base.
+
+#### Ce que la première mesure a réellement montré (corrigé le 09/09/2026)
+
+Le premier rapport de fraîcheur a annoncé une base à **54 h, 75 % du budget consommé**, alors que le job
+planifié avait réussi 15 h plus tôt. Les deux chiffres ne pouvaient pas être vrais ensemble, et c'est le
+rapport qui avait tort. **Cette valeur était un artefact de mesure, pas un âge.** Trois constats, tous
+vérifiés sur les artefacts et non déduits :
+
+- La sonde lisait `stat -c %Y` sur le fichier retourné par `find … -print -quit`, c'est-à-dire **le premier
+  fichier que la marche du système de fichiers croisait** — ni la base, ni le plus récent.
+- `actions/cache` restaure via tar, qui **préserve les mtimes**. Même en visant le bon fichier, la date lue
+  est celle de la dernière écriture par Dependency-Check, pas celle de la restauration ; et un `update-only`
+  incrémental qui ne réécrit rien laisse un mtime ancien sur une base courante.
+- Aucun de ces mécanismes ne mesurait la seule chose qui compte : **quand le flux de vulnérabilités a
+  réellement été renouvelé**.
+
+Conséquence pour l'appréciation du risque : **un job planifié vert sur `main` n'a jamais prouvé que la base
+scannée par `develop` était fraîche.** Il prouvait qu'un rafraîchissement avait réussi sur `main` ; rien, dans
+la chaîne, ne datait la base que `develop` restaurait. RT-13 restait donc juste sur le fond — il n'y a pas de
+source de rafraîchissement propre à `develop` — mais l'instrumentation censée le surveiller ne le surveillait
+pas.
+
+#### Ce qui n'était **pas** un défaut : le repli de clé `v12`
+
+L'audit soupçonnait que la `restore-key` `dependency-check-v12-trusted-` faisait scanner `develop` (13.0.0)
+avec une base écrite par 12.2.2, et que la version dans la clé existait précisément pour l'empêcher. **Mesuré,
+ce n'est pas le cas** :
+
+- 12.2.2 et 13.0.0 déclarent tous deux `data.version=5.6` dans le `dependencycheck.properties` de
+  `dependency-check-core`, et livrent des `data/initialize.sql` et `data/dbStatements.properties`
+  **identiques octet pour octet**. Le changement de schéma amont a eu lieu **à 12.2.2**, pas à 13.0.0 — les
+  notes de version 13.0.0 le disent explicitement (« highlighting 12.2.2 DB schema change »).
+- `DatabaseManager#ensureSchemaVersion` vérifie le schéma **à chaque ouverture de connexion**. Sous
+  `-DautoUpdate=false`, que tous les scans MORPHEUS passent, une base d'un autre schéma fait lever
+  `DatabaseException` au lieu d'être migrée silencieusement. La compatibilité est donc **déjà fail-closed**,
+  au seul endroit qui peut la connaître.
+
+La version du plugin dans la clé de cache mesurait donc la mauvaise variable : trop stricte (elle orphelinait
+une base parfaitement lisible à chaque bump de routine) et sans rapport avec ce qu'elle prétendait garantir.
+La clé est désormais construite sur la **version de schéma** (`<dependency-check.data.version>` du POM
+racine), et il n'y a plus de repli : un changement de schéma produit une clé différente, aucun `hit`, et un
+démarrage à froid honnête — qui est de toute façon le seul résultat qu'un repli aurait pu produire, puisque
+l'analyseur aurait refusé la base.
+
+#### Correctif du 09/09/2026 — la fraîcheur est un fait, plus une déduction
+
+Un **sentinelle horodaté** (`dependency-check-refresh.sentinel`) est écrit dans le répertoire de données
+**uniquement** par un rafraîchissement réussi, avant toute publication de cache, et voyage avec le cache. Il
+porte l'epoch du rafraîchissement, la **version de schéma** (divergence = refus) et la **version du plugin**
+qui l'a écrit (divergence = signalée, jamais fatale — 12.2.2 et 13.0.0 écrivent le même schéma, donc la
+réutilisation croisée est correcte et doit être *visible*, pas interdite). Plus aucune lecture de fraîcheur ne
+passe par un mtime.
+
+**Un cache restauré sans sentinelle est traité comme périmé**, jamais comme frais : son âge est *inconnu*, et
+la règle tri-state de ce dépôt (ADR-0078, ADR-0093) interdit de convertir `UNKNOWN` en `PASS`.
+`DependencyCheckWorkflowContractTest` verrouille les cinq points.
+
+**Effet attendu et assumé de ce correctif :** le premier scan qui suit ne trouvera ni cache à la nouvelle clé,
+ni sentinelle dans l'ancien, et **refusera** — `STALE_DATABASE`. Ce n'est pas une régression : c'est la
+première mesure honnête. Elle se résorbe dès qu'un événement de confiance écrit une sentinelle, c'est-à-dire
+au premier `schedule`/`workflow_dispatch` exécuté sur `main` **après** que ce correctif y soit promu (12.2.2 y
+rafraîchit encore anonymement), ou immédiatement si `NVD_API_KEY` est configuré. Ne **pas** relâcher le gate
+pour raccourcir cette fenêtre.
+
+Trois sorties possibles, par ordre de préférence :
+
+1. **Configurer `NVD_API_KEY`** (clé gratuite auprès du NIST). C'est la seule qui restaure un vrai
+   rafraîchissement et la seule qui clôt RT-13.
+2. Attendre la publication de **13.0.1** et bumper le pin — remet la mise à jour anonyme en service, mais la
+   date de publication n'est pas maîtrisée.
+3. Revenir à **12.2.2**. Réévalué le 09/09/2026 avec les deux vérifications qu'exige un tel retour, et
+   **écarté sur la première** :
+   - *Aucune déficience corrigée par 13.0.0 ?* **Faux.** 13.0.0 contient
+     [#8509](https://github.com/dependency-check/DependencyCheck/pull/8509) (« use more conservative CPE 22
+     prefix suppression syntax **to avoid false negatives** ») et
+     [#8548](https://github.com/dependency-check/DependencyCheck/pull/8548), qui resserrent le *matching* des
+     suppressions CPE 2.2. Redescendre en 12.2.2 réintroduirait une classe de **faux négatifs de suppression**
+     dans le gate dont la raison d'être est précisément de ne pas en avoir — et ce dépôt exécute
+     `failBuildOnUnusedSuppressionRule`, dont la sémantique dépend de ce même *matching*. Échanger une gêne
+     d'exploitation contre un angle mort de détection est le mauvais sens de l'échange.
+   - *Aucune configuration `d2-security` dépendante de 13.0.0 ?* **Vrai, vérifié** : les douze paramètres
+     configurés par les profils `d2-security` et `d2-security-tests` (`failBuildOnCVSS`, `junitFailOnCVSS`,
+     `failBuildOnUnusedSuppressionRule`, `skipTestScope`, `prettyPrint`, `format`, `suppressionFiles`,
+     `outputDirectory`, `failOnError`, `dataDirectory`, `autoUpdate`, `nvdApiKeyEnvironmentVariable`) existent
+     tous dans le `plugin.xml` de 12.2.2. Ce critère-là ne bloquait pas ; le premier bloque.
+
+   S'y ajoute que le retour n'était pas nécessaire au problème de cache : le schéma étant identique
+   (voir ci-dessus), `develop` scanne déjà avec le *matching* de 13.0.0 une base rafraîchie par 12.2.2, ce qui
+   est la meilleure des deux combinaisons et non un compromis. Enfin
+   `D2RepositoryHardeningArchitectureTest#dependencyAndQualityBaselineIsPinned` épingle 13.0.0 textuellement.
+
+Ne **pas** relâcher `DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS` pour faire disparaître le symptôme : une base plus
+vieille est une base moins fiable, et le problème est le rafraîchissement, pas le seuil.
 
 ### Risques de gouvernance résolus le 27/08/2026
 
@@ -39,15 +168,29 @@ Ils restent traçables dans l'historique Git et les issues #154/#166, mais ne do
 | DT-01 | Documents historiques encore présentés avec des baselines C0/M20/M27 | Documentation | **Haute** | Les qualifier comme historiques ou les réconcilier dans des PR dédiées sans falsifier les preuves passées |
 | DT-07 | Quality Gate SonarCloud potentiellement moins strict que le gate repository sur le nouveau code | Qualité externe | **Moyenne** | Vérifier le réglage SonarCloud ; le repository impose indépendamment `>= 80%` changed-line et `>= 70%` changed-branch coverage ; suivi #154 |
 | DT-08 | État des alertes Dependabot / Secret Scanning non vérifiable par le connecteur | Supply chain | **Moyenne** | Vérifier/activer les réglages administrateur ; le dépôt fournit Dependabot, OWASP Dependency-Check et CodeQL versionné ; suivi #154 |
-| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `1300 / 335 / 54,5% / 47,7%` (mesure exact-head Windows du 04/09/2026 : 57,49% lignes / 50,21% branches) ; #184 est clôturée, conserver la remontée progressive uniquement après nouvelle preuve exact-head reproductible |
+| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `1550 / 385`, couverture `85,0% / 68,0%` agrégée et `62,0% / 53,5%` par module (mesures exact-head dual-plateforme : échelle agrégée le 09/09/2026, plus basse des quatre 85,7263% lignes / 68,5246% branches sous Linux ; échelle par module le 08/09/2026, Windows 62,53% / 53,81%, Linux 62,51% / 53,80%) ; #184 est clôturée, conserver la remontée progressive uniquement après nouvelle preuve exact-head reproductible |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
 | DT-12 | Identités remote historiques à trois champs sans expiration | Sécurité remote | **Faible à moyenne** | Compatibilité contractuelle et verrouillée par `legacyThreeFieldIdentityRemainsNonExpiring` ; `server identity list` expose `nonExpiring` par entrée et le total `nonExpiringIdentities`. **`server identity migrate-legacy`** donne une échéance explicite sans rotation de token, avec `--dry-run`, écriture atomique verrouillée, audit `EXPIRY_MIGRATED` et refus complet d'un lockout ADMIN. Les nouvelles identités exigent `--expires-at`, `never` restant un choix explicite. Retirer le format à trois champs reste une évolution explicitement incompatible, pas un patch 1.2.1 |
+| DT-13 | `ci.yml` s'exécute deux fois sur le même arbre quand une PR de promotion `develop -> main` est ouverte | CI | **Faible** | **Coût accepté, mesuré le 10/09/2026.** L'événement `push` sur `develop` et l'événement `pull_request` de la PR permanente construisent le même SHA : `ci.yml` fait `checkout` de `github.event.pull_request.head.sha`, donc la PR teste la tête exacte, pas `refs/pull/<n>/merge`. Sur 30 jours : 776 exécutions dont 39 imputables à la PR de promotion (**5,0 %**) ; depuis l'ouverture de #274 la duplication est quasi 1:1 (21 contre 23 pushes, **17,6 %** des exécutions), soit ≈ 434 min de runner en 4 jours, dominées par la lane Windows (≈ 17 min, dispersion 12-29 min sur 53 exécutions réussies échantillonnées le 10/09/2026 : la variance ordinaire de cette lane est plus large que le chiffre lui-même, ne pas citer une valeur ponctuelle). **Rien n'est modifié** : le dépôt est public (pas d'argument de coût), l'attente de file mesurée est nulle (médiane et p90 à 0 s sur les 100 dernières exécutions, donc aucun délai de restitution), et surtout la lane Linux de cette PR est **le seul endroit** où tourne le gate de changed-line coverage `origin/main...HEAD` (`scripts/check-diff-coverage.py`, `>= 80 %` / `>= 70 %`) : la supprimer retirerait un gate de promotion. Filtrer `pull_request` sur `branches: [develop]` est exclu — les checks requis `exact-head (*)` resteraient *Pending* et bloqueraient la PR de promotion définitivement (documentation GitHub : un workflow écarté par filtre de branche laisse ses checks en attente). À rouvrir seulement si la cadence de `develop` augmente nettement |
 | DT-03 | Seuils de performance M19 peu visibles depuis la documentation d'architecture | Qualité | **Moyenne** | Relier les scénarios qualité aux tests/gates autoritatifs |
 | DT-04 | SQLite reste l'unique backend persistant | Architecture | **Faible à moyenne** | N'engager un backend alternatif qu'après besoin et ADR dédiés |
+| DT-15 | Généralisation d'ADR-0103, groupe 2 : la frontière transport/JSON des routeurs `*HttpRoutes` n'est encore exprimée qu'en texte, routeur par routeur | Tests d'architecture | **Faible** | **Décidée le 11/09/2026, non livrée — une PR dédiée.** L'amendement d'ADR-0103 tranche la généralisation en trois groupes : le groupe 1 (trois interdits vrais pour les dix-sept routeurs) est livré dans `HttpRoutesFamilyArchitectureTest`, le groupe 3 (cibles sans famille) est refusé. Reste le groupe 2, **par capacité** : une règle `noClasses()` sur les huit routeurs sans corps de requête, **listés explicitement** dans le `that()` (`Composition`, `Diagnostics`, `ExternalReference`, `IntegrationStatus`, `ProviderPlugin`, `Root`, `Specifications`, `Versions`), vers `com.sun.net.httpserver..`, `tools.jackson..` et `MorpheusHttpRequestDecoder` ; puis, pour les neuf routeurs qui lisent un corps et portent légitimement `HttpExchange`, l'établissement littéral par littéral de ce qui leur reste interdit. Conditions : une preuve de violation par règle, le texte conservé partout où le type interdit déclare une constante inlinable, un compte `@Test` qui ne descend pas. **Aucune fuite connue** : c'est un gain de portée, pas une correction |
 | DT-05 | Distribution macOS absente | Distribution | **Faible** | Décision produit avant ajout du packaging ; la lane smoke n'en produit aucun |
-| DT-13 | Alias de renommage `dependency-check-v12-trusted-` conservé dans `restore-keys` de `security.yml` | CI / supply chain | **Faible** | Transitoire, ajouté le 10/09/2026 pour que le passage à la clé de cache par version de schéma se fasse sans démarrage à froid. Ce n'est **pas** un repli inter-schéma : un cache écrit par 12.2.2 *est* du schéma 5.6, l'alias restaure donc la même base sous son ancien nom. Il cesse d'avoir un effet dès qu'une exécution publie sous la nouvelle clé ; le retirer alors, dans une PR dédiée |
 
 Les anciennes dettes `DT-06` (protection `main`) et `DT-09` (protection `develop`) sont résolues et retirées du tableau actif.
+
+`DT-14` est **tranchée le 11/09/2026 et retirée du tableau actif** : les quatre workflows historiques `m9-validation.yml`, `m10-preflight.yml`, `m11-preflight.yml` et `m12-preflight.yml` sont supprimés, ce qui clôt aussi F-13 (audit du 09/09/2026). Les garder exigeait de nommer une preuve qu'ils portaient encore, et aucune ne tient : ils lançaient `mvnw clean test`, qui ne construit pas le JAR que `ProviderPluginPlatformContractTest` exige avant les tests d'architecture, donc ils échouaient sur l'arbre courant ; aucun tag M9–M12 ne permet de les rejouer sur leur état d'origine ; `ci.yml` exécute `clean verify` exact-head sous Linux et Windows. Le commit `b1edfffc` (24/07/2026) les gardait comme validation manuelle optionnelle ; depuis que les contrats M22 chargent ce JAR, ils ne peuvent plus remplir ce rôle. `D2RepositoryHardeningArchitectureTest#historicalPreflightsAvoidDeprecatedSetupJavaV4` est **remplacé, pas supprimé**, par `everyWorkflowAvoidsDeprecatedActionGenerationsAndTheHistoricalPreflightsStayRemoved`, plus strict : l'interdit d'un `checkout`/`setup-java` antérieur à Node 24 couvre désormais **tous** les workflows du répertoire au lieu d'une liste de trois noms, et les quatre noms historiques sont refusés. `docs/roadmap/DEPLOYMENT.md` §9 renvoie désormais à `ci.yml`.
+
+---
+
+## Constats de l'audit du 09/09/2026 restés sans verdict : F-11 et F-12 (tranchés le 11/09/2026)
+
+Ces deux constats ont traversé quatre révisions d'audit sans être ré-examinés. Ils sont mesurés et clos ici ; leur voisin F-13 est clos avec DT-14.
+
+| Constat | Verdict |
+|---|---|
+| **F-11** — les ratchets de comptage `testsMinimum` et `architectureTestsMinimum` sont des valeurs absolues : « fusionner deux cas en un test paramétré, ou retirer une classe devenue redondante, fait échouer le gate alors que la qualité n'a pas bougé » (marges de +11 et +6 le 09/09/2026) | **Aucun changement de forme — clos.** La marge est relue dans un **relevé Surefire** (`validate-m21`, somme des attributs `tests` des `TEST-*.xml`), jamais dans le source : à `24bd5a9b` (Windows, 11/09/2026) `tests=1674` pour un plancher de 1550, **marge 124 (8,0 %)**, et `architectureTests=422` pour 385, **marge 37 (9,6 %)** ; à `86d1799a` le même jour, 1663 / 420. La marge a été multipliée par dix depuis le constat. Trois faits fondent le verdict. **(1) La moitié du scénario n'existe pas sous ce comptage** : Surefire compte une exécution par invocation paramétrée — mesuré le 11/09/2026 avec les versions du dépôt (Surefire 3.6.0, JUnit 6.1.3) sur un projet témoin, une classe portant un `@Test` et un `@ParameterizedTest` à trois valeurs produit `tests="4"` pour deux annotations. Fusionner des cas en test paramétré ne fait donc pas descendre le compte ; le dépôt ne porte d'ailleurs aucun `@ParameterizedTest` à cette date. **(2)** Retirer des tests le fait descendre, mais la marge absorbe désormais une consolidation de plus de cent tests ; une consolidation plus large est un événement qui mérite une décision écrite, et c'est précisément ce que le plancher force. **(3)** Les formes alternatives ne sont pas qualifiées : un seuil relatif doit mémoriser la valeur précédente, soit le même absolu sous un autre nom ; un seuil par module multiplie les clés sans preuve supplémentaire. **Grandeur à ne pas confondre** : `grep -rhoE '@Test\b'` compte des annotations — 1673 dans tout le dépôt et 427 dans `morpheus-architecture-tests` à `24bd5a9b` — quand les ratchets comptent des exécutions (1674 et 422 au même SHA) ; citer une marge exige le relevé Surefire. À rouvrir sur un **fait** : une consolidation légitime qui bute sur le plancher |
+| **F-12** — mélangeait une surface d'entrée non couverte et une observation sur la taille des classes | **Coupé en deux, clos.** **(a) Le défaut réel, corrigé.** `MorpheusAugmentedContextCli$ContextOptions`, parseur d'options de la commande `augmented-context`, était à **0/49 lignes et 0/32 branches** sur l'agrégat du 11/09/2026 (`86d1799a`) : le pendant CLI de F-02, une validation d'arguments jamais atteinte. `MorpheusAugmentedContextCliTest` (neuf tests, chaque refus asserté par le message que lit l'utilisateur, aucune base créée par un refus) le porte à **49/49 et 32/32** à `24bd5a9b`, sur l'échelle agrégée comme sur l'échelle par module ; la classe englobante passe de 24/78 à 78/78 lignes (16/34 à 32/34 branches), `$Parsed` de 14/21 à 19/21 (5/13 à 11/13). **(b) L'observation de taille, sans action.** 17 classes de production dépassent 400 lignes (`MorpheusCli` 853 en tête, puis `SqlitePolicyPackStore` 743 et `BoundedStdioClientTransport` 570), inchangé depuis le 09/09/2026. Aucune ne traverse une frontière de module (`LayerDependencyTest`), et aucun instrument ne qualifie un seuil de taille : en fabriquer un inventerait une règle que rien ne mesure. Aucune n'est touchée. À rouvrir pour une raison indépendante de la taille — un défaut, une couverture manquante, une frontière franchie |
 
 ---
 
@@ -178,15 +321,19 @@ Windows -> scripts\validate.cmd m21 -Version 1.2.1
 
 M21 s'exécute sur les pull requests ainsi que sur les pushes `main` et `develop`. Les actions tierces des workflows actifs sont référencées par SHA immuable et le Maven Wrapper vérifie le SHA-256 de la distribution Maven.
 
+Deux signaux tournent sur une **cadence bornée** plutôt que par pull request, dans `nightly.yml` : l'analyse SonarQube Cloud de `develop` — que `ci.yml` ne couvrait pas, puisqu'il n'analyse que les pushes sur `main`, soit une fois par promotion — et la lane advisory `macos-smoke`. `nightly.yml` n'a **aucun** déclencheur `pull_request`, ce qui est la raison même de son existence : `SONAR_TOKEN` est un secret durable et ne doit jamais côtoyer du code non mergé.
+
 Ratchets actifs :
 
 ```text
-Surefire total       >= 1300
-architecture         >= 335
-line coverage        >= 54.5%
-branch coverage      >= 47.7%
-changed-line         >= 80%
-changed-branch       >= 70%
+Surefire total          >= 1550
+architecture            >= 385
+aggregate line          >= 85.0%
+aggregate branch        >= 68.0%
+per-module line         >= 62.0%
+per-module branch       >= 53.5%
+changed-line            >= 80%
+changed-branch          >= 70%
 ```
 
 La qualification exact-head de #230 sur `9602eaa4a20b08955e63a6dfe10e30fb1ec90f1d` a produit `1017` tests, `308` tests d'architecture, `52,6971%` lignes et `45,7250%` branches et a justifié les ratchets ci-dessus. Les PR de hardening ultérieures doivent satisfaire les mêmes gates ; le registre n'utilise pas un SHA mouvant de `develop` comme prétendue baseline active.
