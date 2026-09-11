@@ -80,6 +80,17 @@ Trois obligations avant d'accepter une règle migrée :
 Découper par **intention**, jamais par classe de test : regrouper fait descendre le compte de
 méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testing.md`).
 
+**Généralisation décidée le 11/09/2026** (amendement d'ADR-0103), par groupe de capacité, jamais par
+famille entière :
+
+- les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, `MorpheusHttpResponseWriter`,
+  `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
+  ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes` ;
+- la frontière transport/JSON se règle par capacité, routeurs sans corps d'un côté, routeurs à corps de
+  l'autre (DT-15 du registre des risques) ;
+- les assertions visant des cibles sans famille (services, plomberie `LocalHttp*`, serveur remote) **ne
+  migrent pas**.
+
 ## JAMAIS — interdits enforced par ArchUnit
 
 ### `com.morpheus.domain..` ne doit dépendre de rien de tout ça
