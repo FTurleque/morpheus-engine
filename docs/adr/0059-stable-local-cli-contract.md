@@ -145,7 +145,7 @@ MORPHEUS 0.1.0-SNAPSHOT
 {"version":"0.1.0-SNAPSHOT"}
 ```
 
-Validation complète : [`../VALIDATION_M9.md`](../VALIDATION_M9.md).
+Validation complète : [`../validation/VALIDATION_M9.md`](../validation/VALIDATION_M9.md).
 
 ## Critères d'acceptation
 

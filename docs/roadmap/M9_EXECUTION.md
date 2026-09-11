@@ -22,7 +22,7 @@ Head exécutable validé : `3b0fb46486cb28257d87d56084ef6e4fbe4cf7c7`
 
 **Réponse : OUI.**
 
-Validation complète : [`../VALIDATION_M9.md`](../VALIDATION_M9.md).
+Validation complète : [`../validation/VALIDATION_M9.md`](../validation/VALIDATION_M9.md).
 
 ## M9-S1 — Contrat CLI ✅
 

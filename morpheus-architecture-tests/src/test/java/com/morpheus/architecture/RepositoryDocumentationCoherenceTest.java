@@ -1,15 +1,21 @@
 package com.morpheus.architecture;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -72,6 +78,103 @@ class RepositoryDocumentationCoherenceTest {
 
     private static final Pattern MODULE = Pattern.compile("<module>([^<]+)</module>");
     private static final Pattern DOCUMENTED_THRESHOLD = Pattern.compile(">=\\s*([0-9]+(?:[.,][0-9]+)?)");
+
+    /** An inline Markdown link or image, {@code [text](target)} or {@code [text](target "title")}. */
+    private static final Pattern MARKDOWN_LINK = Pattern.compile("\\[[^\\]]*\\]\\(([^)\\s]+)(?:\\s+\"[^\"]*\")?\\)");
+    private static final Pattern FENCED_CODE = Pattern.compile("```.*?```", Pattern.DOTALL);
+    private static final Pattern INLINE_CODE = Pattern.compile("`[^`\\n]*`");
+    private static final Pattern URI_SCHEME = Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]*:");
+    /** Trees the build and the validators generate, which .gitignore keeps out of the repository. */
+    private static final Set<String> GENERATED_TREES = Set.of(".git", "target", "dist", "validation-output");
+
+    /**
+     * Every relative Markdown link resolves, on a current guide and on a dated record alike.
+     *
+     * <p>This is the one property that holds for the whole corpus without sorting it into live and frozen pages:
+     * it asks no page to be current and freezes nothing, and a dated validation record whose evidence link no
+     * longer resolves has lost that evidence as surely as a guide has. A link is resolved from the directory of
+     * the page that holds it; resolving from the repository root turns every {@code ../} into a false positive.</p>
+     */
+    @Test
+    void everyRelativeMarkdownLinkResolvesFromThePageThatHoldsIt() throws Exception {
+        List<String> broken = brokenMarkdownLinks(repositoryRoot());
+        assertTrue(broken.isEmpty(), () -> broken.size() + " relative Markdown link(s) do not resolve from their page:"
+                + System.lineSeparator() + String.join(System.lineSeparator(), broken));
+    }
+
+    /**
+     * An empty corpus would satisfy the rule above as well (ADR-0103). This proves it refuses a moved target, names
+     * the page and the target, and leaves alone what is not a link to a file.
+     */
+    @Test
+    void theLinkRuleRefusesAMovedTargetAndIgnoresWhatIsNotAFileLink(@TempDir Path corpus) throws Exception {
+        Files.createDirectories(corpus.resolve("docs/guide"));
+        Files.createDirectories(corpus.resolve("docs/validation"));
+        Files.writeString(corpus.resolve("docs/validation/VALIDATION_M1.md"), "# M1\n");
+        Files.writeString(corpus.resolve("docs/guide/page.md"), """
+                [resolves from its page, not from the root](../validation/VALIDATION_M1.md#preuve)
+                ![image with a title](../validation/VALIDATION_M1.md "M1")
+                [web](https://example.test/missing.md) [mail](mailto:someone@example.test) [anchor](#section)
+                [prose shorthand](morpheus-api/.../Missing.java)
+                `[inline code](missing-inline.md)`
+                ```text
+                [fenced](missing-fenced.md)
+                ```
+                [moved into a subdirectory](../VALIDATION_M1.md)
+                """);
+        Files.createDirectories(corpus.resolve("module/target"));
+        Files.writeString(corpus.resolve("module/target/generated.md"), "[generated](nowhere.md)\n");
+
+        assertEquals(List.of("docs/guide/page.md -> ../VALIDATION_M1.md"), brokenMarkdownLinks(corpus),
+                "only the moved target may be refused, named by its page and its target as written");
+    }
+
+    private static List<String> brokenMarkdownLinks(Path root) throws IOException {
+        List<Path> pages = new ArrayList<>();
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
+                return !directory.equals(root) && GENERATED_TREES.contains(directory.getFileName().toString())
+                        ? FileVisitResult.SKIP_SUBTREE
+                        : FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+                if (attributes.isRegularFile() && file.getFileName().toString().endsWith(".md")) {
+                    pages.add(file);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+        pages.sort(null);
+
+        List<String> broken = new ArrayList<>();
+        for (Path page : pages) {
+            String prose = INLINE_CODE.matcher(FENCED_CODE.matcher(Files.readString(page)).replaceAll("")).replaceAll("");
+            Matcher link = MARKDOWN_LINK.matcher(prose);
+            while (link.find()) {
+                String target = link.group(1);
+                if (URI_SCHEME.matcher(target).find() || target.startsWith("#") || target.contains("...")) {
+                    continue;
+                }
+                String file = target.replaceFirst("[#?].*$", "");
+                if (!file.isEmpty() && !resolves(root, page, file)) {
+                    broken.add(root.relativize(page).toString().replace('\\', '/') + " -> " + target);
+                }
+            }
+        }
+        return broken;
+    }
+
+    private static boolean resolves(Path root, Path page, String file) {
+        try {
+            Path base = file.startsWith("/") ? root : page.getParent();
+            return Files.exists(base.resolve(file.startsWith("/") ? file.substring(1) : file).normalize());
+        } catch (InvalidPathException unrepresentable) {
+            return false;
+        }
+    }
 
     @Test
     void rootReadmeMatchesPomVersionMcpSdkAndModuleList() throws Exception {

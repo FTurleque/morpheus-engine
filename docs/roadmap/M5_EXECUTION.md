@@ -4,7 +4,7 @@ Statut : **M5 VALIDÉ — 6/6 slices validés ; S6 Ready, intégration finale en
 
 Dernière mise à jour : 23 juillet 2026
 
-Ce document complète [`../ROADMAP.md`](../ROADMAP.md) et pilote l'exécution de M5.
+Ce document complète [`../governance/ROADMAP.md`](../governance/ROADMAP.md) et pilote l'exécution de M5.
 
 ---
 
@@ -28,7 +28,7 @@ M5-S6 gate  = 227/227 PASS
 ```
 
 Issue de pilotage : **#36**.  
-Validation finale : [`../VALIDATION_M5.md`](../VALIDATION_M5.md).
+Validation finale : [`../validation/VALIDATION_M5.md`](../validation/VALIDATION_M5.md).
 
 ---
 
