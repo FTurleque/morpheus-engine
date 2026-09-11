@@ -1,6 +1,6 @@
 # ADR-0103 — Assertion textuelle et règle ArchUnit n'enforcent pas la même chose
 
-- Statut : **Acceptée — pilote livré, généralisation non décidée**
+- Statut : **Acceptée — pilote livré ; généralisation décidée le 11/09/2026 par groupe de capacité (voir l'amendement)**
 - Date : 10 septembre 2026
 - Dépend de : ADR-0078 et ADR-0093 (sémantique tri-state), ADR-0085 (déterminisme des gates)
 - Portée : `morpheus-architecture-tests` — critère de choix du mécanisme d'enforcement
@@ -189,6 +189,9 @@ Compter avant, compter après ; si le total descend, c'est le découpage qui est
 
 ### Non décidé par cet ADR
 
+> Tranché par l'amendement du 11 septembre 2026, en fin de document. Le texte ci-dessous est conservé tel
+> qu'il a été écrit le 10 septembre.
+
 La généralisation aux **vingt-neuf classes restantes** de la famille mécanique (trente la portent, une
 est pilotée ; l'audit en annonçait trente-deux, écart de regex sans incidence). Le pilote donne la méthode et
 son coût réel ; il ne donne pas mandat. Toute extension applique les cinq règles ci-dessus,
@@ -214,3 +217,107 @@ Migrer `assertFalse(src.contains("activateDefaultTyping("))` vers ArchUnit. Ce s
 sur **tout** `src/main/java`, y compris les fichiers absents du classpath des tests d'architecture.
 Une règle ArchUnit équivalente serait silencieusement plus étroite — exactement le genre de perte que
 la section 2 existe pour interdire.
+
+## Amendement du 11 septembre 2026 — la généralisation est décidée, par groupe de capacité
+
+La section « Non décidé par cet ADR » laissait un mandat ouvert. Il est tranché ici en trois groupes, et chacun
+reçoit son propre verdict : un mandat ouvert indéfiniment finit par être rouvert par quelqu'un qui n'a pas le
+contexte du pilote.
+
+### Le périmètre, recompté
+
+Recompté le 11/09/2026 sur `develop` (`a1417cc8`), avec la regex de la famille mécanique donnée plus haut :
+**193** assertions dans **30** classes, pilote compris, donc **29** classes restantes — le brief de reliquat en
+annonçait 31 et 192, écart de définition sans incidence sur la décision.
+
+Leur répartition décide du découpage mieux que leur nombre :
+
+| Groupe de classes | Classes | Assertions de la famille |
+|---|---|---|
+| tests de routeurs `Local*HttpRoutesArchitectureTest` | 13 (pilote compris) | 83 |
+| autres cibles : services `*ApiService`, plomberie `LocalHttp*`, bootstraps local et remote, serveur remote | 17 | 110 |
+
+Sur les 83 assertions des routeurs, **49** portent les trois interdits vérifiés famille-larges
+(`MorpheusRemoteRoutePolicy` 13, `MorpheusRemoteRole` 13, `MorpheusHttpResponseWriter` 13,
+`MorpheusHttpPathParser` 10) et **32** la frontière transport/JSON (`JsonMapper` 11, `HttpServer` 9,
+`HttpExchange` 6, `MorpheusHttpRequestDecoder` 5, `CanonicalJsonSerializer` 1).
+
+Et un fait que le décompte par assertion cachait : `morpheus-api` déclare **dix-sept** routeurs pour **treize**
+tests de routeur. `MorpheusPolicyHttpRoutes`, `MorpheusPolicyManagementHttpRoutes`, `MorpheusQueryHttpRoutes` et
+`MorpheusReasoningHttpRoutes` ne portaient **aucun** de ces interdits.
+
+### Groupe 1 — les trois interdits famille-larges : oui, livré
+
+`HttpRoutesFamilyArchitectureTest` les exprime une fois sur tous les `*HttpRoutes` : aucun routeur n'atteint le
+modèle d'autorisation remote (`MorpheusRemote*`), n'écrit la réponse lui-même (`MorpheusHttpResponseWriter`), ne
+parse le chemin lui-même (`MorpheusHttpPathParser`).
+
+**Ce groupe ne supprime aucune assertion** : les 49 assertions textuelles par routeur restent. Son gain est la
+portée — les quatre routeurs sans test, et tout routeur ajouté ensuite, sont couverts sans que personne ait à
+s'en souvenir.
+
+Les règles de la section Décision, appliquées :
+
+- **Classe dans l'ensemble importé.** Les dix-sept routeurs sont dans `morpheus-api`, sur le classpath. Mais
+  `failOnEmptyShould` ne voit pas une famille qui rétrécit de dix-sept à seize ; une quatrième méthode exige donc
+  que les routeurs vus par ArchUnit soient **exactement** ceux que déclarent les sources de tous les modules.
+- **Constante inlinable — c'est ici que ce groupe diffère du pilote.** Les constantes du pilote étaient toutes
+  `private`. La famille `MorpheusRemote*` en expose qui ne le sont pas : `MorpheusRemoteHttpServer` en déclare
+  deux `public` et trois package-private, `MorpheusRemoteIdentityFile` quatre `public`. La coexistence est donc
+  **obligatoire** : la règle `MorpheusRemote*` est doublée d'un scan textuel de toutes les sources
+  `*HttpRoutes.java`, de même que la règle `MorpheusHttpResponseWriter` (une constante `private`,
+  `JSON_CONTENT_TYPE`). `MorpheusHttpPathParser` n'en déclare aucune : règle seule.
+- **Portée réelle.** `MorpheusRemote` est un préfixe de famille ; il est exprimé comme tel
+  (`haveSimpleNameStartingWith`), pas comme deux noms.
+- **Cassée avant d'être acceptée.** Six exécutions, chaque violation retirée ensuite. Chacune a lancé la classe
+  de la famille avec les trois seules suites qui nomment l'un des quatre routeurs sans test
+  (`D2RepositoryHardeningArchitectureTest`, `RepositoryDocumentationCoherenceTest`,
+  `LocalHttpServerBootstrapArchitectureTest`) :
+
+| # | Violation introduite | Résultat |
+|---|---|---|
+| E0 | aucune | tout est vert |
+| E1 | `MorpheusRemoteProxyTransport.class` dans `MorpheusPolicyHttpRoutes` | la règle `MorpheusRemote*` échoue ; les trois autres suites **passent** — avant ce groupe, rien ne l'attrapait |
+| E2 | `MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS` dans `MorpheusQueryHttpRoutes` | **la règle ArchUnit passe**, javac ayant inliné la valeur ; seul le scan textuel échoue (`routers mentioning MorpheusRemote: [MorpheusQueryHttpRoutes]`) |
+| E3 | `MorpheusHttpResponseWriter.class` dans `MorpheusReasoningHttpRoutes` | `noRouterWritesTheResponseItself` échoue, et elle seule |
+| E4 | `MorpheusHttpPathParser.class` dans `MorpheusPolicyManagementHttpRoutes` | `noRouterParsesThePathItself` échoue, et elle seule |
+| E5 | `ProbeHttpRoutes` déclaré dans `morpheus-provider-testkit`, hors du classpath ArchUnit | `theRulesSeeEveryRouterTheSourcesDeclare` échoue en le nommant |
+
+E2 rejoue sur la famille `MorpheusRemote*` l'expérience 7 du pilote, avec une différence qui aggrave le
+constat : la constante utilisée est **publique aujourd'hui**. Pour cette famille, l'angle mort n'est pas fermé
+par accident ; il est ouvert, et seul le texte le couvre.
+
+Quatre méthodes `@Test` ajoutées, aucune retirée : le compte du module monte.
+
+### Groupe 2 — la frontière transport/JSON, par capacité : oui, dans une PR dédiée
+
+Ces 32 assertions ne sont pas famille-larges ; c'est la **capacité** qui les partage.
+
+- **Les huit routeurs sans corps de requête** — `Composition`, `Diagnostics`, `ExternalReference`,
+  `IntegrationStatus`, `ProviderPlugin`, `Root`, `Specifications`, `Versions` — ne dépendent ni de
+  `com.sun.net.httpserver..`, ni de `tools.jackson..`, ni de `MorpheusHttpRequestDecoder`. Le pilote l'exprime
+  déjà pour `Diagnostics`. La règle vise les huit **listés explicitement** dans le `that()`, jamais par suffixe :
+  un neuvième routeur doit être classé par quelqu'un, pas par défaut.
+- **Les neuf routeurs qui lisent un corps** — `Changes`, `Policy`, `PolicyManagement`, `Portfolio`,
+  `ProjectRoot`, `ProjectSync`, `Query`, `Reasoning`, `Requirements` — portent légitimement `HttpExchange` et un
+  décodeur. Ce qui leur reste interdit, le serveur et le mapper JSON notamment, s'établit littéral par littéral
+  avant d'écrire la règle.
+
+C'est le premier groupe **substitutif** : `HttpServer`, `HttpExchange` et `JsonMapper` sont des types JDK et
+Jackson, et la règle de package corrige en passant le faux positif de `contains("HttpServer")` sur
+`MorpheusHttpServer`. Il n'est pas livré avec le groupe 1 — une PR par groupe, chacune avec ses preuves — et il
+est suivi comme **DT-15** dans le registre des risques, pour ne pas redevenir un mandat implicite.
+
+### Groupe 3 — les cibles sans famille : non
+
+Les 110 assertions des 17 autres classes visent des cibles uniques ou presque — `QualityReportService`,
+`LocalSourceInventoryScanner`, `RequirementQueryService`, les services `*ApiService`, la plomberie `LocalHttp*`,
+les bootstraps et le serveur remote. **Elles ne migrent pas.**
+
+- Sans famille, le coût du pilote ne se mutualise pas : chaque littéral redemande son comptage de constantes et
+  son cycle de violation, pour un gain de portée que rien, aujourd'hui, ne mesure.
+- `RemoteServerArchitectureTest` (19 assertions) garde des frontières de sécurité, où la mention elle-même est
+  un signal (section 3).
+
+Ce refus se rouvre sur un **fait** — une dépendance réelle qu'une de ces assertions textuelles a manquée —, pas
+sur l'impression que la famille est répétitive.
