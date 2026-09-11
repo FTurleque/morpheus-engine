@@ -381,20 +381,25 @@ Objectifs : environnement d'intégration reproductible, réseau local des moteur
 
 # 9. CI/CD
 
-Workflow cross-platform versionné :
+Le workflow manuel `.github/workflows/m9-validation.yml`, présenté ici à la clôture de M9 comme workflow
+cross-platform optionnel, a été **retiré le 11/09/2026** avec les préflights `m10`, `m11` et `m12` (DT-14 du
+[registre des risques](../architecture/risks/register.md)). Il lançait `mvnw clean test`, qui ne construit pas le
+JAR du plugin de référence que les contrats M22 chargent depuis `target/` : il ne pouvait plus passer sur l'arbre
+courant, et aucun tag M9 n'existe pour le rejouer sur son état d'origine.
+
+La validation cross-platform est portée par `.github/workflows/ci.yml`, exact-head sous Linux et Windows, sur le
+gate durable M21 :
 
 ```text
-.github/workflows/m9-validation.yml
+Ubuntu  : bash ./scripts/validate-m21.sh <version>
+Windows : scripts\validate.cmd m21 -Version <version>
 ```
 
-Il reste optionnel. Le gate local constitue la preuve de référence :
+Localement, le reactor complet se construit avec `./mvnw clean verify` (`.\mvnw.cmd clean verify` sous Windows) ;
+`clean test` ne suffit plus, pour la même raison.
 
-```text
-Windows : .\mvnw.cmd clean test
-Unix    : ./mvnw clean test
-```
-
-Les preuves M9 finales ont été obtenues localement sur Windows et Linux/WSL.
+Les preuves M9 finales ont été obtenues localement sur Windows et Linux/WSL ; elles restent la preuve historique du
+jalon ([`VALIDATION_M9.md`](../validation/VALIDATION_M9.md)).
 
 ---
 
