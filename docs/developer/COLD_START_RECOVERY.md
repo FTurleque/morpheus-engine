@@ -143,7 +143,9 @@ la même grandeur :
   d'architecture exclu. Un service exercé uniquement à travers les tests d'un module voisin y
   apparaît comme non couvert.
 
-Les deux échelles ont donc des ratios légitimement différents, des clés de seuil distinctes dans
+Les deux échelles portent pourtant sur la même population — tout module du réacteur qui porte une
+classe sous `src/main/java`, outillage de vérification compris — et ne diffèrent que par les
+exécutions qui créditent une ligne. Elles ont donc des ratios légitimement différents, des clés de seuil distinctes dans
 `config/m21-quality-ratchets.properties` (préfixes `aggregate*` et `perModule*`), des fichiers de
 preuve distincts et des messages distincts. **Comparer un ratio par module à un seuil agrégé, ou
 l'inverse, produit une conclusion fausse** — c'est précisément le défaut que la PR #297 a corrigé,
