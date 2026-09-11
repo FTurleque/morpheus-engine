@@ -11,7 +11,7 @@ Décisions de référence :
 
 Les ADR M9 sont **Acceptées** après preuves reproductibles Windows/Linux.
 
-Validation : [`../VALIDATION_M9.md`](../VALIDATION_M9.md).
+Validation : [`../validation/VALIDATION_M9.md`](../validation/VALIDATION_M9.md).
 
 ---
 
@@ -94,7 +94,7 @@ exit codes stables
 
 La CLI appelle les services applicatifs ; les règles métier restent dans `morpheus-application`.
 
-Documentation : [`../CLI.md`](../CLI.md).
+Documentation : [`../user/CLI.md`](../user/CLI.md).
 
 ## M9-S2 — Layout runtime
 

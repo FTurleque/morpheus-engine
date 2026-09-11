@@ -5,7 +5,7 @@ Statut : **M6 VALIDÉ — 6/6 slices validées ; intégration finale via PR #49*
 Dernière mise à jour : 23 juillet 2026
 
 Issue de pilotage : **#43**.  
-Validation finale : [`../VALIDATION_M6.md`](../VALIDATION_M6.md).
+Validation finale : [`../validation/VALIDATION_M6.md`](../validation/VALIDATION_M6.md).
 
 ---
 

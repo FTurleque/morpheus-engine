@@ -4,7 +4,7 @@ Statut : **Proposition — à valider pendant C0**
 
 Date : 22 juillet 2026
 
-La source de vérité fonctionnelle reste [`../CAHIER_DES_CHARGES.md`](../CAHIER_DES_CHARGES.md).
+La source de vérité fonctionnelle reste [`../product/CAHIER_DES_CHARGES.md`](../product/CAHIER_DES_CHARGES.md).
 
 ---
 
@@ -574,7 +574,7 @@ analyzeChangeScope
 resolveExternalReference
 ```
 
-Voir [`../USE_CASES.md`](../USE_CASES.md).
+Voir [`../product/USE_CASES.md`](../product/USE_CASES.md).
 
 ---
 
