@@ -27,7 +27,8 @@ clés `perModule*`. Chacun écrit sa propre preuve, dont la première ligne déc
 Les deux échelles portent sur la **même population** — tout module du réacteur qui porte une
 classe sous `src/main/java`, outillage de vérification compris — et ne diffèrent que par les
 exécutions qui créditent une ligne ; `AggregateCoverageGateTest` refuse un rapport agrégé qui
-en mesure une autre.
+en mesure une autre. La décision et ses raisons sont consignées dans **ADR-0104**
+(`docs/adr/0104-two-coverage-scales-share-one-population.md`).
 
 ## TOUJOURS
 
