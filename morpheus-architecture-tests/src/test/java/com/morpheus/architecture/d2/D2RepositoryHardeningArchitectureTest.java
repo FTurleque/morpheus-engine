@@ -30,6 +30,9 @@ class D2RepositoryHardeningArchitectureTest {
             Pattern.compile("(?m)^\\s*pull_request(?:_target)?:\\s*$");
     private static final Pattern CODEQL_V4 = Pattern.compile(
             "(?m)^\\s*(?:-\\s*)?uses: github/codeql-action/(?:init|analyze)@[0-9a-f]{40} # v4(?:\\.[0-9]+){1,2}\\s*$");
+    private static final Pattern WORKFLOW_FILE = Pattern.compile(".+\\.ya?ml");
+    private static final Pattern HISTORICAL_PREFLIGHT =
+            Pattern.compile("m(?:9|1[0-2])-(?:validation|preflight)\\.ya?ml");
 
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
@@ -184,15 +187,49 @@ class D2RepositoryHardeningArchitectureTest {
                 "arc42 must keep separating observation from qualification");
     }
 
+    /**
+     * No workflow may pin a pre-Node 24 checkout or setup-java, and the four historical preflights stay removed.
+     *
+     * <p>This replaces a test that read m10, m11 and m12 by name to keep a deprecated setup-java out of workflows
+     * nobody ran. Those three and m9-validation.yml were removed on 11/09/2026 (DT-14): they ran
+     * {@code mvnw clean test}, which does not package the reference plugin JAR ProviderPluginPlatformContractTest
+     * loads from {@code target/}, so they could no longer pass on the current tree, and no M9-M12 tag exists to
+     * replay them on the tree they were written for. The intention outlives the files and is widened rather than
+     * dropped: every workflow in the directory is held to it, including one added tomorrow that nobody remembers
+     * to list, and the historical names are refused so that a restored copy cannot come back unnoticed.</p>
+     */
     @Test
-    void historicalPreflightsAvoidDeprecatedSetupJavaV4() throws IOException {
+    void everyWorkflowAvoidsDeprecatedActionGenerationsAndTheHistoricalPreflightsStayRemoved() throws IOException {
         Path root = repoRoot().resolve(".github/workflows");
-        for (String workflow : List.of("m10-preflight.yml", "m11-preflight.yml", "m12-preflight.yml")) {
-            String text = Files.readString(root.resolve(workflow));
-            assertPinnedNode24(text, CHECKOUT_NODE24, "checkout", workflow);
-            assertPinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", workflow);
-            assertFalse(text.contains("cf277c60eb25467037889841efdb72551f06f6c3"));
+        List<Path> workflows;
+        try (var files = Files.list(root)) {
+            workflows = files.filter(path -> WORKFLOW_FILE.matcher(path.getFileName().toString()).matches())
+                    .sorted()
+                    .toList();
         }
+        assertFalse(workflows.isEmpty(), "no workflow found under .github/workflows");
+        for (Path workflow : workflows) {
+            String name = workflow.getFileName().toString();
+            assertFalse(HISTORICAL_PREFLIGHT.matcher(name).matches(),
+                    () -> name + " was removed with DT-14: it cannot pass on the current tree, and ci.yml already "
+                            + "runs clean verify exact-head on Linux and Windows");
+            String text = Files.readString(workflow);
+            assertEveryUsePinnedNode24(text, CHECKOUT_NODE24, "checkout", name);
+            assertEveryUsePinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", name);
+            assertFalse(text.contains("cf277c60eb25467037889841efdb72551f06f6c3"),
+                    () -> name + " pins the deprecated setup-java v4 commit");
+        }
+    }
+
+    /**
+     * Every use, not one: a workflow that pins a current setup-java in one job and a deprecated one in another
+     * satisfies a single match, which is all {@link #assertPinnedNode24} asks for.
+     */
+    private static void assertEveryUsePinnedNode24(String workflow, Pattern pattern, String action, String file) {
+        long uses = workflow.lines().filter(line -> line.contains("uses: actions/" + action + "@")).count();
+        long pinned = pattern.matcher(workflow).results().count();
+        assertEquals(uses, pinned, () -> file + " must pin every actions/" + action
+                + " use to a 40-char SHA from the Node 24 generation or newer");
     }
 
     @Test
