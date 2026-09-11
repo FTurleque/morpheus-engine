@@ -30,6 +30,8 @@ Deux gates mesurent la couverture et ne mesurent **pas la même grandeur**. Jusq
 
 `CoverageScaleSeparationTest` fait échouer le build si un gate lit une clé, un rapport ou une preuve de l'autre échelle, et prouve que les validateurs `validate-m21.*` refusent une preuve dont la première ligne n'est pas `coverageScope=aggregate`. **Ne jamais comparer un ratio par module à un seuil agrégé, ni l'inverse.**
 
+**Même population, attribution différente.** Les deux échelles portent sur les mêmes modules — tout module du réacteur qui porte une classe sous `src/main/java`, **outillage de vérification compris** (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne. `AggregateCoverageGateTest` dérive cette population du POM racine, refuse un rapport agrégé qui en mesure une autre, et la nomme dans sa preuve (`population=`). Garder l'outillage dans le dénominateur est un choix : mesuré le 11/09/2026, il déplace le ratio agrégé de 0,15 point, et l'en retirer laisserait `AGGREGATE_QUALIFIED_*` plafonner une population sur laquelle il n'a jamais été mesuré.
+
 Chaque gate applique **deux** niveaux :
 
 | Niveau | Line | Branch | Rôle |

@@ -24,6 +24,10 @@ Deux gates mesurent la couverture sur deux grandeurs différentes et chacun appl
 clés `perModule*`. Chacun écrit sa propre preuve, dont la première ligne déclare
 `coverageScope=`. **Ne jamais comparer un ratio d'une échelle au seuil de l'autre** —
 `CoverageScaleSeparationTest` fait échouer le build sur cette confusion.
+Les deux échelles portent sur la **même population** — tout module du réacteur qui porte une
+classe sous `src/main/java`, outillage de vérification compris — et ne diffèrent que par les
+exécutions qui créditent une ligne ; `AggregateCoverageGateTest` refuse un rapport agrégé qui
+en mesure une autre.
 
 ## TOUJOURS
 
