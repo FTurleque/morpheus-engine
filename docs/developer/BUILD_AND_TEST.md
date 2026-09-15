@@ -107,14 +107,14 @@ Chaque gate écrit sa propre preuve, dont la première ligne déclare l'échelle
 
 ## Frontière HTTP des corps de requête
 
-Toutes les routes HTTP doivent utiliser la primitive partagée `HttpRequestBodyReader`, qui délègue à `TimedBoundedInputReader`. La politique active est :
+Toutes les routes HTTP locales lisent leur corps par `MorpheusHttpRequestDecoder`, celui du serveur : les treize routeurs construits par `MorpheusHttpServer` le reçoivent à la construction, les contextes Query/Saved Views/Export, Policy, Policy Management et Reasoning le reçoivent à `register(...)`. Le décodeur lit par la primitive partagée `HttpRequestBodyReader`, qui délègue à `TimedBoundedInputReader`. La politique active est :
 
 ```text
 request body max size     65 536 bytes
 request body read timeout 15 seconds
 ```
 
-Il est interdit aux contextes Query, Saved Views, Export, Policy, Policy Management ou Reasoning de revenir à un `exchange.getRequestBody().readNBytes(...)` direct sans deadline. `RepositoryDocumentationCoherenceTest` verrouille cette règle de repository et `HttpRequestBodyReaderTest` couvre succès, dépassement de taille, timeout et erreur I/O.
+Aucun routeur `*HttpRoutes` ne lit `getRequestBody()`, n'utilise `HttpRequestBodyReader` ni ne consulte le `Content-Type` lui-même. `RepositoryDocumentationCoherenceTest`, `D2RepositoryHardeningArchitectureTest` et `HttpRoutesTransportBoundaryArchitectureTest` verrouillent cette règle ; `HttpRequestBodyReaderTest` couvre succès, dépassement de taille, timeout et erreur I/O, et `ExtensionRoutesRequestBoundaryParityTest` fige octet pour octet les réponses d'échec des quatre contextes d'extension.
 
 ## SCA / dépendances
 

@@ -41,6 +41,9 @@ avec l'OpenAPI. Modifier une signature sans mettre à jour les deux casse le gat
 - Écrire un ADR dans `docs/adr/` pour toute décision structurelle (compter `docs/adr/0*.md` avec un `glob` — ne jamais recopier un total, cf. `rules/meta.md` ; le `README.md` du répertoire n'est pas un ADR)
 - Livrer le quadruplet complet pour un nouveau milestone (suite ArchUnit + scripts dual-platform + EXECUTION + VALIDATION)
 - Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée
+- Justifier dans la description de la PR toute modification de `contracts/public-surfaces.tsv`,
+  `config/*ratchets*.properties`, `docs/openapi/*.yaml` ou d'un test sous `morpheus-architecture-tests/` —
+  ce sont des fichiers de gouvernance, pas de simples fichiers de configuration
 
 ## JAMAIS
 

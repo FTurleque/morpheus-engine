@@ -42,19 +42,17 @@ laisse passer la commande plutôt que de bloquer 100% des outils par accident �
 bloque tout est pire que l'absence de hook. Si un hook semble bloquer une commande anodine,
 c'est un bug du hook à corriger, pas une règle à contourner.
 
-`.claude/settings.local.json` reste **versionné** (choix assumé) : il complète
-`.claude/settings.json` avec des permissions additionnelles (ex. `Bash(rtk git *)`) plutôt
-que de les dupliquer — ne pas fusionner les deux fichiers.
+`.claude/settings.local.json` n'est **pas versionné** : il porte sur la machine du mainteneur
+des permissions additionnelles (ex. `Bash(rtk git *)`) qui complètent `.claude/settings.json`
+sans le dupliquer. Une permission dont tout contributeur a besoin va dans `settings.json`.
 
-## Paramétrage IA — pendant Copilot
+## Paramétrage IA — une seule surface
 
-Ce dépôt paramètre l'IA sur deux surfaces qui doivent rester convergentes :
-`.claude/` (ce fichier) et `.github/` (Copilot). La cartographie complète — instructions
-ciblées par chemin, prompts, skill projet, correspondance commande ↔ prompt — vit dans
-`.github/AI_GOVERNANCE.md`. Le hook RTK est configuré des deux côtés :
-`.claude/settings.local.json` (`Bash(rtk git *)`) et `.github/hooks/rtk-rewrite.json`
-(`PreToolUse` → `rtk hook copilot`, portable au niveau repo, indépendant du profil
-utilisateur `~/.copilot/`).
+`.claude/` est la **seule** configuration IA du dépôt. La configuration Copilot
+(`.github/copilot-instructions.md`, `instructions/`, `prompts/`, `skills/`, `hooks/`) a été
+retirée le 15/09/2026 : elle doublait `.claude/rules/` sans qu'aucun test ne vérifie que les
+deux copies disaient la même chose. Ne pas la reconstruire — `.github/AI_GOVERNANCE.md` dit
+ce qui est chargé, par quoi, et pourquoi.
 
 ## Architecture : ports & adapters
 
