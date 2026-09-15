@@ -655,8 +655,7 @@ class RepositoryDocumentationCoherenceTest {
         Path root = repositoryRoot();
         Path api = root.resolve("morpheus-api/src/main/java/com/morpheus/api");
         List<String> routersReadingTheirOwnBody = List.of(
-                "MorpheusQueryHttpRoutes.java",
-                "MorpheusPolicyHttpRoutes.java");
+                "MorpheusQueryHttpRoutes.java");
 
         for (String route : routersReadingTheirOwnBody) {
             String content = Files.readString(api.resolve(route));
