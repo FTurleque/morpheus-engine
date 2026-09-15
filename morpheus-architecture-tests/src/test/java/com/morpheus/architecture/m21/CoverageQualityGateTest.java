@@ -32,27 +32,32 @@ class CoverageQualityGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline of the PER-MODULE scale: 62.5013% lines / 53.7997% branches.
+    // Qualified exact-head baseline of the PER-MODULE scale: 64.5143% lines / 56.2964% branches.
     // Deliberately at or below the LOWEST reproducible exact-head measurement across both platforms, never the
     // best one. The two platforms run the same number of tests, but some of them no-op off their own OS -- the
     // Windows junction check is one -- so Linux covers slightly fewer lines for an identical test count.
     // Qualifying on the higher figure would pin a baseline the other platform cannot reach.
     //
-    // Measured on 08/09/2026 at fix/audit-hardening-2026-09-08, two full runs per platform:
-    //     Windows  62.5328% / 62.5432% lines,  53.8092% / 53.8188% branches
-    //     Linux    62.5083% / 62.5013% lines,  53.7997% / 53.7997% branches   <- qualified on the lowest
-    // The previous baseline (54.5801% / 47.7791%, #253) had drifted well below the measured reality: develop
-    // already stood at 60.41% lines on Linux before this branch added a test.
+    // Measured on 15/09/2026 at develop a1fc0a8d, on the GitHub-hosted runners, two full runs per platform: the
+    // push run of develop (34991048836) and the pull_request run of the promotion PR #274 (34991052539), which
+    // check out the same SHA. Read from each run's m21-integrity-<OS> artifact, per-module-coverage-summary.txt,
+    // reports=16, 28434 lines and 10228 branches on all four:
+    //     Windows  64.5952% / 64.5987% lines,  56.3942% / 56.4040% branches
+    //     Linux    64.5143% / 64.5495% lines,  56.2964% / 56.3453% branches   <- qualified on the lowest
+    // The two Linux runs differed by 10 covered lines and 5 branches, the two platforms by up to 24 lines and
+    // 11 branches: wider than the two lines observed on 08/09, so quote the spread, not a point value.
+    // Previous cap: 62.5013% / 53.7997% (08/09/2026, fix/audit-hardening-2026-09-08), exceeded since 09/09.
     //
     // The per-module ratchets in config/m21-quality-ratchets.properties sit deliberately BELOW this cap rather
-    // than at it. Two runs of the same commit on the same machine differed by two covered lines, so a ratchet
-    // pinned to the measurement would turn ordinary run-to-run variation into a build failure. 0.620 / 0.535
-    // leaves roughly 140 lines and 30 branches of headroom ON THIS SCALE only; the canonical measurement counts
-    // a different population of covered lines and carries its own cap in AggregateCoverageGateTest.
+    // than at it, so a ratchet pinned to the measurement cannot turn ordinary run-to-run variation into a build
+    // failure. On the qualifying run 0.620 / 0.535 leaves 714 lines and 286 branches of headroom ON THIS SCALE
+    // only -- far more than the variation, so raising the ratchet inside this cap is possible and is a decision
+    // of its own. The canonical measurement counts a different population of covered lines and carries its own
+    // cap in AggregateCoverageGateTest.
     //
     // Raising these two constants requires a fresh per-module measurement on BOTH platforms, cited here.
-    private static final double PER_MODULE_QUALIFIED_LINE_RATIO = 0.625013d;
-    private static final double PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.537997d;
+    private static final double PER_MODULE_QUALIFIED_LINE_RATIO = 0.645143d;
+    private static final double PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.562964d;
 
     @Test
     void perModuleCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {
