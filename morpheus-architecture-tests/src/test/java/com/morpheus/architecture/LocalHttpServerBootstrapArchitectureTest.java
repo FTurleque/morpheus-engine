@@ -38,7 +38,8 @@ class LocalHttpServerBootstrapArchitectureTest {
         assertTrue(bootstrap.contains("new CapabilityProtectedHttpServer(loopbackProtected, capability)"));
         assertTrue(bootstrap.contains("Executors.newVirtualThreadPerTaskExecutor()"));
         assertTrue(bootstrap.contains("httpServer.createContext(MorpheusHttpServer.API_PREFIX, result::handle)"));
-        assertTrue(bootstrap.contains("MorpheusQueryHttpRoutes.register(httpServer, databasePath)"));
+        assertTrue(bootstrap.contains(
+                "MorpheusQueryHttpRoutes.register(httpServer, databasePath, result.requestDecoder())"));
         assertTrue(bootstrap.contains("httpServer.start()"));
 
         assertTrue(server.contains("private final MorpheusChangesHttpRoutes changesRoutes;"));

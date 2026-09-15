@@ -38,7 +38,9 @@ class LocalHttpRequestDecoderArchitectureTest {
         assertTrue(decoder.contains("final class MorpheusHttpRequestDecoder"));
         assertTrue(decoder.contains("FAIL_ON_UNKNOWN_PROPERTIES"));
         assertTrue(decoder.contains("FAIL_ON_TRAILING_TOKENS"));
-        assertTrue(decoder.contains("TimedBoundedInputReader.read("));
+        assertTrue(decoder.contains("HttpRequestBodyReader.read("));
+        assertTrue(Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/HttpRequestBodyReader.java"))
+                .contains("TimedBoundedInputReader.read("));
         assertTrue(decoder.contains("Content-Type application/json is required"));
         assertFalse(decoder.contains("MorpheusApiService"));
         assertFalse(decoder.contains("MorpheusRemoteRoutePolicy"));

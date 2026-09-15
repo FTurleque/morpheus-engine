@@ -447,7 +447,11 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(server.contains("private final MorpheusHttpRequestDecoder requestDecoder;"));
         assertTrue(requestDecoder.contains("FAIL_ON_UNKNOWN_PROPERTIES"));
         assertTrue(requestDecoder.contains("FAIL_ON_TRAILING_TOKENS"));
-        assertTrue(requestDecoder.contains("TimedBoundedInputReader.read("));
+        assertTrue(requestDecoder.contains("HttpRequestBodyReader.read("),
+                "the request decoder must read bodies through the shared bounded reader");
+        assertTrue(Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/HttpRequestBodyReader.java"))
+                        .contains("TimedBoundedInputReader.read("),
+                "the shared bounded reader must delegate to the deadline-aware primitive");
         assertTrue(Files.isRegularFile(root.resolve(
                 "morpheus-api/src/test/java/com/morpheus/api/JacksonSecurityRegressionTest.java")));
 
@@ -469,16 +473,17 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(Files.isRegularFile(api.resolve("JsonMediaType.java")),
                 "the shared exact JSON media-type parser must exist");
 
-        List<String> boundaries = List.of(
-                "MorpheusHttpRequestDecoder.java",
-                "MorpheusQueryHttpRoutes.java",
-                "MorpheusPolicyHttpRoutes.java",
-                "MorpheusPolicyManagementHttpRoutes.java",
-                "MorpheusReasoningHttpRoutes.java");
-        for (String boundary : boundaries) {
-            String content = Files.readString(api.resolve(boundary));
-            assertTrue(content.contains("JsonMediaType.isJson("),
-                    () -> boundary + " must admit JSON through the shared exact media-type parser");
+        assertTrue(Files.readString(api.resolve("MorpheusHttpRequestDecoder.java")).contains("JsonMediaType.isJson("),
+                "the request decoder must admit JSON through the shared exact media-type parser");
+        List<Path> routers;
+        try (var files = Files.list(api)) {
+            routers = files.filter(path -> path.getFileName().toString().endsWith("HttpRoutes.java")).toList();
+        }
+        assertFalse(routers.isEmpty(), "no *HttpRoutes.java found under " + api);
+        for (Path router : routers) {
+            String content = Files.readString(router);
+            assertFalse(content.contains("getRequestHeaders()") || content.contains("JsonMediaType"),
+                    () -> router.getFileName() + " must leave Content-Type admission to MorpheusHttpRequestDecoder");
         }
 
         try (var files = Files.walk(api, 4)) {

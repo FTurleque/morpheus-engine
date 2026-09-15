@@ -177,6 +177,11 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return URI.create("http://" + hostForUri(host()) + ":" + port() + API_PREFIX);
     }
 
+    /** The request boundary this server's routers read through, handed to the contexts registered beside it. */
+    MorpheusHttpRequestDecoder requestDecoder() {
+        return requestDecoder;
+    }
+
     @Override
     public void close() {
         ExhaustiveShutdown.releaseAll(

@@ -689,23 +689,26 @@ class RepositoryDocumentationCoherenceTest {
     void httpExtensionRoutesUseSharedTimedRequestBodyBoundary() throws Exception {
         Path root = repositoryRoot();
         Path api = root.resolve("morpheus-api/src/main/java/com/morpheus/api");
-        List<String> routes = List.of(
-                "MorpheusQueryHttpRoutes.java",
-                "MorpheusPolicyHttpRoutes.java",
-                "MorpheusPolicyManagementHttpRoutes.java",
-                "MorpheusReasoningHttpRoutes.java");
-
-        for (String route : routes) {
-            String content = Files.readString(api.resolve(route));
-            assertTrue(content.contains("HttpRequestBodyReader.read(exchange)"),
-                    () -> route + " must use the shared timed request-body boundary");
-            assertFalse(content.contains("getRequestBody().readNBytes("),
-                    () -> route + " must not perform direct wall-clock-unbounded request-body reads");
+        List<Path> routers;
+        try (var files = Files.list(api)) {
+            routers = files.filter(path -> path.getFileName().toString().endsWith("HttpRoutes.java")).sorted().toList();
+        }
+        assertFalse(routers.isEmpty(), "no *HttpRoutes.java found under " + api);
+        for (Path router : routers) {
+            String route = router.getFileName().toString();
+            String content = Files.readString(router);
+            assertFalse(content.contains("getRequestBody()"),
+                    () -> route + " must leave reading the request body to MorpheusHttpRequestDecoder");
+            assertFalse(content.contains("HttpRequestBodyReader"),
+                    () -> route + " must read its body through MorpheusHttpRequestDecoder, not a reader of its own");
         }
 
+        String decoder = Files.readString(api.resolve("MorpheusHttpRequestDecoder.java"));
+        assertTrue(decoder.contains("HttpRequestBodyReader.read("),
+                "the request decoder must read bodies through the shared bounded reader");
         String reader = Files.readString(api.resolve("HttpRequestBodyReader.java"));
         assertTrue(reader.contains("TimedBoundedInputReader.read("),
-                "shared extension-route body reader must delegate to the deadline-aware primitive");
+                "shared request-body reader must delegate to the deadline-aware primitive");
     }
 
     @Test
