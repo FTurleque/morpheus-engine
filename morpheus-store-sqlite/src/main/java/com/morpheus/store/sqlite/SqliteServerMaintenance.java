@@ -17,6 +17,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -141,8 +142,9 @@ public final class SqliteServerMaintenance {
                 throw new IllegalStateException("backup destination already exists");
             }
             try (Connection connection = SqliteDatabaseSecurity.open(db);
-                 Statement statement = connection.createStatement()) {
-                statement.execute("VACUUM INTO '" + sqlLiteral(target.toString()) + "'");
+                 PreparedStatement statement = connection.prepareStatement("VACUUM INTO ?")) {
+                statement.setString(1, target.toString());
+                statement.execute();
             }
             new LocalWritePermissionHardener().hardenFile(target);
             return verify(target);
@@ -253,10 +255,6 @@ public final class SqliteServerMaintenance {
 
     private static Path sidecar(Path database, String suffix) {
         return database.resolveSibling(database.getFileName() + suffix);
-    }
-
-    private static String sqlLiteral(String value) {
-        return value.replace("'", "''");
     }
 
     private static String sha256(Path file) throws IOException {
