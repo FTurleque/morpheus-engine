@@ -14,13 +14,19 @@ Audit de gouvernance complet. Les règles sont exécutables — exécute-les, ne
 ```bash
 ./mvnw test -pl morpheus-architecture-tests
 ```
-Rapporter par milestone : M19 M20 M21 M22 M23 M24 M25 M26 M27 M28 D2 + tests racine.
+Rapporter par gate actif — lire la liste courante dans `.claude/CLAUDE.md` (section Milestones)
+et dans les répertoires de `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/`,
+jamais une liste mémorisée : elle évolue.
 
-### 3. Coverage — vrais seuils
+### 3. Coverage — seuils vivants
 ```bash
-./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest
+./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest    # échelle par module
+./mvnw test -pl morpheus-coverage-report                                      # échelle agrégée
 ```
-Seuils appliqués : **47% lignes / 40% branches** (ratchet qualifié), pas 40/35 (plancher D2).
+Chaque gate applique `max(plancher D2 fixe, ratchet qualifié vivant de son échelle)`. Lire les
+ratchets actifs dans `config/m21-quality-ratchets.properties` (`aggregate*` pour la mesure
+canonique, `perModule*` pour la somme par module), jamais un pourcentage mémorisé, et toujours en
+nommant l'échelle du seuil cité.
 Lire les résumés générés, dont la première ligne déclare l'échelle mesurée :
 `morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt` (`coverageScope=aggregate`,
 mesure canonique) et `morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt`
@@ -38,7 +44,8 @@ Signaler toute ligne du TSV avec une case vide — chaque absence doit porter un
 ```bash
 grep -rn "0.1.0-SNAPSHOT\|FALLBACK_VERSION" --include="*.java" .
 ```
-Doit être vide sous `src/main/java/`. Version courante : **1.2.1**.
+Doit être vide sous `src/main/java/`. Lire la version courante dans `ProductMetadata` et dans
+`pom.xml` (`<version>`), jamais recopiée de mémoire.
 
 ### 6. Complétude des milestones
 Pour chaque milestone actif, vérifier le quadruplet :

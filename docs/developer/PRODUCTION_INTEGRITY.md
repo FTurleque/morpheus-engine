@@ -52,14 +52,14 @@ release metadata != runtime business state
 
 ## Frontière HTTP des corps de requête
 
-Toutes les routes HTTP étendues utilisent `HttpRequestBodyReader`, qui délègue à `TimedBoundedInputReader` et applique la même politique que la frontière HTTP principale :
+Les routes HTTP étendues lisent leur corps par le décodeur du serveur, `MorpheusHttpRequestDecoder`, qui passe par `HttpRequestBodyReader` puis `TimedBoundedInputReader` : c'est la frontière HTTP principale elle-même, pas une copie de sa politique.
 
 ```text
 request body max size     65 536 bytes
 request body read timeout 15 seconds
 ```
 
-Les contextes Query/Saved Views/Export, Policy, Policy Management et Reasoning ne doivent pas effectuer de `readNBytes(...)` direct sur `HttpExchange.getRequestBody()`. Cette règle empêche un client local lent ou défaillant de conserver indéfiniment une lecture de body ouverte et est verrouillée par un contrat de repository.
+Les contextes Query/Saved Views/Export, Policy, Policy Management et Reasoning n'effectuent aucune lecture directe sur `HttpExchange.getRequestBody()`. Cette règle empêche un client local lent ou défaillant de conserver indéfiniment une lecture de body ouverte et est verrouillée par un contrat de repository.
 
 ## Supply chain et provenance de release
 

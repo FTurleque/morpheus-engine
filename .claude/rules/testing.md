@@ -72,21 +72,25 @@ même nombre de tests, mais certains no-opent hors de leur OS, donc Linux couvre
 moins de lignes à nombre de tests identique.
 
 Relever le plafond exige donc une preuve Linux **et** Windows, citée dans le commentaire.
-Mesure du 08/09/2026 sur `fix/audit-hardening-2026-09-08`, deux runs complets par plateforme :
+Mesure du 15/09/2026 sur `develop` à `a1fc0a8d`, runners GitHub, deux runs complets par plateforme
+(le run `push` de `develop` et le run `pull_request` de la PR de promotion, même SHA ; preuve lue dans
+l'artefact `m21-integrity-<OS>` de chaque run) :
 
 ```text
-Windows   62,5328 % / 62,5432 % lignes   53,8092 % / 53,8188 % branches
-Linux     62,5083 % / 62,5013 % lignes   53,7997 % / 53,7997 % branches   <- plafond sur la plus basse
+Windows   64,5952 % / 64,5987 % lignes   56,3942 % / 56,4040 % branches
+Linux     64,5143 % / 64,5495 % lignes   56,2964 % / 56,3453 % branches   <- plafond sur la plus basse
 ```
 
-Le plafond précédent (54,5801 % / 47,7791 %) avait dérivé loin sous la réalité mesurée :
-`develop` était déjà à 60,41 % lignes sur Linux **avant** que cette branche n'ajoute un test.
+Les runners CI sont une source recevable : ce sont les mêmes que ceux des checks requis, et la preuve reste
+consultable dans les artefacts. Le plafond précédent (62,5013 % / 53,7997 %, 08/09/2026) était dépassé
+depuis le 09/09.
 
-Le **ratchet** se place délibérément *sous* le plafond, pas dessus : deux runs du même commit
-sur la même machine ont différé de deux lignes couvertes, donc un ratchet collé à la mesure
-transformerait une variation ordinaire en échec de build. `0.620 / 0.535` laisse environ
-140 lignes et 30 branches de marge **sur l'échelle par module** ; l'échelle agrégée compte une autre
-population de lignes et sa marge se lit dans `AggregateCoverageGateTest`.
+Le **ratchet** se place délibérément *sous* le plafond, pas dessus : les deux runs Linux de ce SHA ont
+différé de 10 lignes et 5 branches couvertes, les deux plateformes de 24 lignes et 11 branches, donc un
+ratchet collé à la mesure transformerait une variation ordinaire en échec de build. `0.620 / 0.535` laisse
+714 lignes et 286 branches de marge **sur l'échelle par module** — bien plus que la variation : le relever
+dans ce plafond est possible et reste une décision distincte. L'échelle agrégée compte une autre population
+de lignes et sa marge se lit dans `AggregateCoverageGateTest`.
 
 Une session qui ne dispose que d'une plateforme ne peut relever que le ratchet, dans la marge
 déjà qualifiée ; elle ne touche pas au plafond.
@@ -107,9 +111,12 @@ Voir `rules/meta.md`.
 - Vérifier la parité de persistance quand un store change : les tests `*PersistenceParityTest`
   exigent un comportement identique entre `store-memory` et `store-sqlite`
 - Construire `morpheus-provider-reference` **avant** les tests d'architecture — M22 charge son JAR depuis `target/`
+- Tester un cas d'échec par `assertThrows` **et** une assertion sur le message ou le code de rejet — un échec
+  pour une autre raison ne doit pas faire passer le test
 
 ## JAMAIS
 
+- Jamais de champ `static` mutable partagé entre tests
 - Jamais affaiblir un ratchet de coverage ni un budget de performance
 - Jamais mocker SQLite — utiliser le store mémoire
 - Jamais JUnit 4 (`org.junit.Test`, `@RunWith`, `@Rule`)

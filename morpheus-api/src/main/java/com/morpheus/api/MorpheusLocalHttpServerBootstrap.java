@@ -179,7 +179,7 @@ final class MorpheusLocalHttpServerBootstrap {
                     allowedWorkspaceRoots.isPresent());
             httpServer.setExecutor(executor);
             httpServer.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
-            MorpheusQueryHttpRoutes.register(httpServer, databasePath);
+            MorpheusQueryHttpRoutes.register(httpServer, databasePath, result.requestDecoder());
             httpServer.start();
             owned.transferred();
             return result;
