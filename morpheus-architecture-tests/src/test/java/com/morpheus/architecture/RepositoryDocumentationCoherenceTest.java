@@ -21,6 +21,7 @@ import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Guards active repository documentation and validation contracts against drifting from repository facts. */
@@ -52,6 +53,13 @@ class RepositoryDocumentationCoherenceTest {
      * Maven coordinate an active page actually uses, without reaching across a sentence into an unrelated
      * number.</p>
      */
+    /**
+     * The AI governance surfaces the checks below scan. {@code .claude/CLAUDE.md} is the always-loaded entry point,
+     * so a stale fact on it propagates furthest; {@code .github/AI_GOVERNANCE.md} maps what is loaded and by what.
+     */
+    private static final List<String> GOVERNANCE_PAGES = List.of(".claude/CLAUDE.md", ".github/AI_GOVERNANCE.md");
+    private static final List<String> GOVERNANCE_DIRECTORIES =
+            List.of(".claude/commands", ".claude/agents", ".claude/rules");
     private static final Pattern SQLITE_JDBC_MENTION =
             Pattern.compile("(?i)sqlite[- ]jdbc[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2,3})");
     private static final Pattern DEPENDENCY_CHECK_MENTION =
@@ -532,9 +540,6 @@ class RepositoryDocumentationCoherenceTest {
         // Active governance surfaces describe the *current* contract, so a literal here silently rots.
         // Historical snapshots under docs/validation and docs/roadmap legitimately record past versions.
         for (Path page : activeGovernanceSurfaces(root)) {
-            if (!Files.isRegularFile(page)) {
-                continue;
-            }
             String content = Files.readString(page);
             Matcher pinned = SCHEMA_VERSION_LITERAL.matcher(content);
             assertFalse(pinned.find(),
@@ -549,6 +554,39 @@ class RepositoryDocumentationCoherenceTest {
                     () -> root.relativize(page) + " states a current SQLite schema version in prose ("
                             + describeFirstMatch(SCHEMA_VERSION_PROSE, content)
                             + "); active surfaces must read SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION instead");
+        }
+    }
+
+    /**
+     * The surface list must refuse a missing surface rather than scan less (ADR-0103): every check iterating it would
+     * otherwise keep passing on a narrower population. Proven on a copy, one surface removed at a time.
+     */
+    @Test
+    void theGovernanceSurfaceListRefusesAMissingSurfaceInsteadOfShrinking(@TempDir Path corpus) throws Exception {
+        for (String page : GOVERNANCE_PAGES) {
+            Files.createDirectories(corpus.resolve(page).getParent());
+            Files.writeString(corpus.resolve(page), "# page\n");
+        }
+        for (String directory : GOVERNANCE_DIRECTORIES) {
+            Files.createDirectories(corpus.resolve(directory));
+            Files.writeString(corpus.resolve(directory).resolve("rule.md"), "# rule\n");
+        }
+        assertEquals(GOVERNANCE_PAGES.size() + GOVERNANCE_DIRECTORIES.size(),
+                activeGovernanceSurfaces(corpus).size(), "a complete corpus must be scanned whole");
+
+        for (String page : GOVERNANCE_PAGES) {
+            Path file = corpus.resolve(page);
+            Files.delete(file);
+            AssertionError refusal = assertThrows(AssertionError.class, () -> activeGovernanceSurfaces(corpus));
+            assertTrue(refusal.getMessage().contains(page), () -> "the refusal must name " + page);
+            Files.writeString(file, "# page\n");
+        }
+        for (String directory : GOVERNANCE_DIRECTORIES) {
+            Path rule = corpus.resolve(directory).resolve("rule.md");
+            Files.delete(rule);
+            AssertionError refusal = assertThrows(AssertionError.class, () -> activeGovernanceSurfaces(corpus));
+            assertTrue(refusal.getMessage().contains(directory), () -> "the refusal must name " + directory);
+            Files.writeString(rule, "# rule\n");
         }
     }
 
@@ -569,9 +607,6 @@ class RepositoryDocumentationCoherenceTest {
         assertTrue(numberedAdrs > 0, "the ADR directory must contain numbered decision records");
 
         for (Path page : activeGovernanceSurfaces(root)) {
-            if (!Files.isRegularFile(page)) {
-                continue;
-            }
             String content = Files.readString(page);
             assertFalse(ADR_OR_MODULE_TOTAL.matcher(content).find(),
                     () -> root.relativize(page) + " restates a perishable total (\""
@@ -772,25 +807,41 @@ class RepositoryDocumentationCoherenceTest {
         return decimal.replace('.', ',');
     }
 
+    /**
+     * The pages and directories every governance check above scans.
+     *
+     * <p>A missing surface is refused, not skipped. The list used to tolerate an absent page or directory, so
+     * deleting one narrowed every check that iterates it while each of them kept passing -- the population defect
+     * A-03 removed from the coverage gate. A surface retired on purpose leaves {@link #GOVERNANCE_PAGES} or
+     * {@link #GOVERNANCE_DIRECTORIES} in the same change.</p>
+     */
     private static List<Path> activeGovernanceSurfaces(Path root) throws IOException {
         List<Path> surfaces = new ArrayList<>();
-        // The two always-loaded entry points belong here too: they are the surfaces an agent reads first, so a
-        // stale fact on them propagates furthest.
-        for (String page : List.of(".claude/CLAUDE.md", ".github/copilot-instructions.md")) {
+        List<String> missing = new ArrayList<>();
+        for (String page : GOVERNANCE_PAGES) {
             Path file = root.resolve(page);
             if (Files.isRegularFile(file)) {
                 surfaces.add(file);
+            } else {
+                missing.add(page);
             }
         }
-        for (String directory : List.of(".claude/commands", ".claude/agents", ".claude/rules", ".github/prompts",
-                ".github/instructions")) {
+        for (String directory : GOVERNANCE_DIRECTORIES) {
             Path base = root.resolve(directory);
-            if (!Files.isDirectory(base)) {
-                continue;
+            List<Path> pages = List.of();
+            if (Files.isDirectory(base)) {
+                try (var entries = Files.list(base)) {
+                    pages = entries.filter(path -> path.toString().endsWith(".md")).sorted().toList();
+                }
             }
-            try (var entries = Files.list(base)) {
-                entries.filter(path -> path.toString().endsWith(".md")).sorted().forEach(surfaces::add);
+            if (pages.isEmpty()) {
+                missing.add(directory + "/*.md");
             }
+            surfaces.addAll(pages);
+        }
+        if (!missing.isEmpty()) {
+            throw new AssertionError("declared governance surface(s) absent: " + String.join(", ", missing)
+                    + "; retire a surface by removing it from the declared list, never by letting the scan shrink");
         }
         return surfaces;
     }

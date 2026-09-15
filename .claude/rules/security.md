@@ -3,6 +3,12 @@
 Toutes ces invariants sont **assertés textuellement** dans les sources par les tests d'architecture.
 Supprimer une de ces chaînes casse le build.
 
+## Secrets — règle absolue
+
+- `NVD_API_KEY` et `MORPHEUS_SERVER_TLS_PASSWORD` sont des **variables d'environnement** : jamais un flag CLI,
+  jamais un littéral
+- Aucun secret, clé API, token ou mot de passe en dur dans le code, les logs ou les messages de commit
+
 ## Désérialisation JSON — interdits absolus
 
 - **Aucun** fichier sous `src/main/java/` ne doit contenir `activateDefaultTyping(` ou `enableDefaultTyping(`
