@@ -5,7 +5,6 @@ import com.sun.net.httpserver.HttpExchange;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
@@ -56,14 +55,9 @@ final class MorpheusHttpRequestDecoder {
 
     private byte[] readBody(HttpExchange exchange) {
         try {
-            return TimedBoundedInputReader.read(
-                    exchange.getRequestBody(), maxRequestBodyBytes, readTimeout, executor);
-        } catch (TimedBoundedInputReader.LimitExceededException tooLarge) {
-            throw ApiFailure.badRequest("request body exceeds " + maxRequestBodyBytes + " bytes");
-        } catch (TimedBoundedInputReader.ReadTimeoutException timeout) {
-            throw ApiFailure.badRequest("request body exceeded its read deadline");
-        } catch (IOException failure) {
-            throw ApiFailure.badRequest("cannot read request body");
+            return HttpRequestBodyReader.read(exchange.getRequestBody(), maxRequestBodyBytes, readTimeout, executor);
+        } catch (HttpRequestBodyReader.RequestBodyException failure) {
+            throw ApiFailure.badRequest(failure.getMessage());
         }
     }
 
