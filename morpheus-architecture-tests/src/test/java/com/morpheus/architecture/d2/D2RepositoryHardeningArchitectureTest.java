@@ -499,8 +499,7 @@ class D2RepositoryHardeningArchitectureTest {
         List<String> surfaces = List.of(
                 ".claude/commands/security-audit.md",
                 ".claude/agents/security-reviewer.md",
-                ".claude/rules/build.md",
-                ".github/prompts/morpheus-security-audit.prompt.md");
+                ".claude/rules/build.md");
         for (String surface : surfaces) {
             String content = Files.readString(root.resolve(surface));
             assertTrue(content.contains("org.owasp:dependency-check-maven:aggregate"),

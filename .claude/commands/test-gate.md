@@ -13,7 +13,8 @@ Exécute les tests avec rapport de coverage pour un module ou le projet entier.
 ```bash
 ./mvnw test -pl morpheus-architecture-tests 2>&1
 ```
-Afficher tous les tests passants/échouants par milestone (m19 à m28).
+Afficher tous les tests passants/échouants par milestone — découvrir les répertoires `m*/` existants
+par `glob`, ne pas supposer une plage figée.
 
 ### Si $ARGUMENTS = un nom de module (ex: "morpheus-api", "api")
 ```bash

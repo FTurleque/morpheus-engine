@@ -1,106 +1,83 @@
 # Gouvernance IA — Morpheus Engine
 
-Ce document cartographie **tout le paramétrage IA du dépôt** (Copilot + Claude Code) : où
-vit chaque artefact, son rôle, et comment il reste cohérent avec les autres. Il ne
-duplique aucune règle métier — pour le contenu réel, suivre les renvois.
+Ce document cartographie **tout le paramétrage IA du dépôt** : où vit chaque artefact, ce
+qui le charge, et où vit la vérité. Il ne duplique aucune règle métier — pour le contenu
+réel, suivre les renvois.
 
 ## Principe fondamental
 
-**Deux surfaces IA, une seule vérité.** `.github/` (Copilot) et `.claude/` (Claude Code)
-doivent toujours converger vers les mêmes règles. Le contenu détaillé (exemples réels,
-invariants complets) vit dans `.claude/rules/*.md` ; `.github/` en dérive des artefacts
-ciblés (instructions par chemin, prompts, skill) plutôt que de le recopier intégralement.
-Toute divergence constatée entre les deux surfaces doit être corrigée **dans le même
-changement**, des deux côtés.
+**Une seule surface IA : `.claude/`.** Les règles détaillées (exemples réels, invariants
+complets) vivent dans `.claude/rules/*.md` et nulle part ailleurs. Une règle se modifie
+à un seul endroit.
 
-**Aucun chiffre périssable n'est jamais recopié tel quel** dans un artefact IA — seuils de
+**Aucun chiffre périssable n'est recopié tel quel** dans un artefact IA — seuils de
 coverage, nombre de tests, nombre d'ADR, version produit. Chaque artefact renvoie vers sa
 source vivante (`config/m21-quality-ratchets.properties`, `pom.xml`, `docs/adr/` compté
 par `glob`, les tests sous `morpheus-architecture-tests/`). Voir `.claude/rules/meta.md`.
 
+## Le dépôt n'a plus de configuration Copilot — ne pas la reconstruire
+
+Jusqu'au 15/09/2026, `.github/` portait une configuration Copilot complète
+(`copilot-instructions.md`, `instructions/*.instructions.md`, `prompts/*.prompt.md`,
+`skills/morpheus-engine/SKILL.md`, `hooks/rtk-rewrite.json`) présentée comme le pendant de
+`.claude/`. Elle a été **retirée**, pour une raison mesurée et non de préférence :
+
+- les six `instructions/*.instructions.md` doublaient `.claude/rules/*.md`, et **aucun test ne
+  vérifiait que les deux copies disaient la même chose** — chaque changement de règle se
+  payait deux fois, à la main, sans filet ;
+- la dérive s'était déjà produite dans les deux sens : les prompts Copilot avaient été
+  purgés de leurs chiffres codés en dur alors que les commandes `.claude/commands/` citaient
+  encore un ratchet de couverture périmé ; à l'inverse `copilot-instructions.md` portait des
+  consignes absentes de `.claude/rules/`, dont deux contredisaient les règles Claude.
+
+Avant la suppression, les consignes normatives propres à la surface Copilot ont été
+reportées dans `.claude/` (secrets, justification des fichiers de gouvernance en PR, style
+de test, formulations sans chiffre des commandes). Celles qui contredisaient `.claude/rules/`
+n'ont pas été reportées : un commentaire de code qui cite un ticket, et l'interdiction
+d'amender un ADR fusionné — ADR-0103 porte un amendement daté.
+
+**Ne pas réintroduire** de miroir `.github/instructions/`, `.github/prompts/`, ni de
+`copilot-instructions.md`. Si un second outil IA doit un jour lire les règles, il lit
+`.claude/rules/`, ou un test vérifie la convergence des deux copies — jamais une copie
+maintenue à la main.
+
+L'intégration MCP de MORPHEUS avec Copilot (M28 : `integration/configure-mcp-clients.ps1`,
+installeur, `docs/user/MCP_CLIENTS.md`) est une **fonctionnalité produit**, sans rapport avec
+ce paramétrage : elle reste entière.
+
 ## Matrice des artefacts
 
-| Type | Emplacement | Portée | Versionné | Rôle |
+| Type | Emplacement | Chargé par | Versionné | Rôle |
 |---|---|---|---|---|
-| Instructions repo (Copilot) | `.github/copilot-instructions.md` | Tout le dépôt, chargé automatiquement par Copilot | ✅ | Résumé court + renvoi vers `.claude/rules/` |
-| Instructions ciblées (Copilot) | `.github/instructions/*.instructions.md` | Par chemin (`applyTo`) | ✅ | Ciblage fin : architecture, sécurité, tests, gouvernance, build, style |
-| Prompts (Copilot) | `.github/prompts/*.prompt.md` | Invocables à la demande | ✅ | Workflows guidés : audit, validation, bug-fix, santé dépôt |
-| Skill projet (Copilot) | `.github/skills/morpheus-engine/SKILL.md` | Chargée si l'outil Copilot supporte les skills projet | ✅ | Carte de navigation du savoir Morpheus, anti-dérive |
-| Hook Copilot | `.github/hooks/rtk-rewrite.json` | Repo — indépendant du profil utilisateur | ✅ | Réécriture des commandes shell via `rtk` |
-| Règles Claude | `.claude/CLAUDE.md` + `.claude/rules/*.md` | Chargées automatiquement par Claude Code | ✅ | Source détaillée de référence, partagée avec Copilot |
-| Agents Claude / Copilot (partagés) | `.claude/agents/*.md` | Invocables comme sub-agents par les deux outils (`architect`, `bug-investigator`, `contract-guardian`, `security-reviewer`) | ✅ | Revue spécialisée avec procédure et format de réponse stricts |
-| Commandes Claude | `.claude/commands/*.md` | Invocables (`/governance`, `/security-audit`, `/test-gate`, `/validate`, `/milestone`, `/health`, `/bug-fix`) | ✅ | Équivalent des prompts Copilot, workflows pas-à-pas |
-| Hooks Claude | `.claude/hooks/pre-bash.ps1`, `.claude/hooks/post-edit.ps1` | `PreToolUse`/`PostToolUse`, déclarés dans `.claude/settings.json` | ✅ | Garde-fous fail-open (avertir/bloquer sans jamais bloquer 100% par bug interne) |
-| Permissions Claude | `.claude/settings.json` | Allow/deny globaux (force-push protégé, `rm -rf` non borné) | ✅ | Garde-fous non négociables |
-| Permissions locales | `.claude/settings.local.json` | Allow additionnel (`rtk git *`) | ✅ (choix assumé du mainteneur) | Complète `settings.json` sans le dupliquer |
+| Règles | `.claude/CLAUDE.md` + `.claude/rules/*.md` | Claude Code, automatiquement | ✅ | Source détaillée unique |
+| Agents | `.claude/agents/*.md` | Invocables comme sub-agents (`architect`, `bug-investigator`, `contract-guardian`, `security-reviewer`) | ✅ | Revue spécialisée avec procédure et format de réponse stricts |
+| Commandes | `.claude/commands/*.md` | Invocables (`/governance`, `/security-audit`, `/test-gate`, `/validate`, `/milestone`, `/health`, `/bug-fix`) | ✅ | Workflows pas-à-pas |
+| Hooks | `.claude/hooks/pre-bash.ps1`, `.claude/hooks/post-edit.ps1` | `PreToolUse`/`PostToolUse`, déclarés dans `.claude/settings.json` | ✅ | Garde-fous fail-open (avertir/bloquer sans jamais bloquer tous les outils par bug interne) |
+| Permissions | `.claude/settings.json` | Claude Code | ✅ | Allow/deny partagés (force-push protégé, `rm -rf` non borné) |
+| Permissions locales | `.claude/settings.local.json` | Claude Code, machine du mainteneur | ❌ | Allow additionnel (`rtk git *`) ; toute permission utile à tous va dans `settings.json` |
 
-## Correspondance Claude ↔ Copilot
+## Ce que les tests vérifient
 
-| Commande Claude | Prompt Copilot équivalent |
-|---|---|
-| `/governance` | `morpheus-governance-audit.prompt.md` |
-| `/security-audit` | `morpheus-security-audit.prompt.md` |
-| `/test-gate` | `morpheus-test-gate.prompt.md` |
-| `/validate` | `morpheus-validate.prompt.md` |
-| `/milestone` | `morpheus-milestone.prompt.md` |
-| `/health` | `morpheus-health.prompt.md` |
-| `/bug-fix` | `morpheus-bug-fix.prompt.md` |
-| *(point d'entrée additionnel, pas d'équivalent Claude dédié)* | `morpheus-orchestrator.prompt.md` |
+`RepositoryDocumentationCoherenceTest` scanne `.claude/CLAUDE.md`, ce document,
+`.claude/commands/`, `.claude/agents/` et `.claude/rules/` à la recherche de chiffres
+périssables (version de schéma SQLite, totaux d'ADR ou de modules). La liste de ces
+surfaces **refuse** une surface absente au lieu de scanner moins : une surface se retire en
+la retirant de la liste déclarée, dans le même changement.
+`D2RepositoryHardeningArchitectureTest` vérifie que la commande CVE documentée par
+`.claude/commands/security-audit.md`, `.claude/agents/security-reviewer.md` et
+`.claude/rules/build.md` est bien celle qui lance le scan.
 
-| Règle Claude (`.claude/rules/`) | Instruction Copilot (`.github/instructions/`) |
-|---|---|
-| `architecture.md` | `architecture.instructions.md` |
-| `security.md` | `security.instructions.md` |
-| `testing.md` | `testing.instructions.md` |
-| `governance.md` | `governance.instructions.md` |
-| `build.md` | `build.instructions.md` |
-| `code-style.md` | `code-style.instructions.md` |
-| `meta.md` | Pas de miroir dédié — le principe anti-dérive est répété dans `copilot-instructions.md` et dans chaque `*.instructions.md` |
+## RTK
 
-## Agents — déjà partagés nativement, aucun miroir requis
-
-Contrairement aux commandes (qui ont un équivalent Copilot sous forme de prompt), **les
-agents `.claude/agents/*.md` n'ont pas besoin de miroir dans `.github/`** : les outils
-Copilot capables de lancer des sub-agents lisent directement les définitions présentes
-dans `.claude/agents/` — confirmé par la disponibilité effective de `architect`,
-`bug-investigator`, `contract-guardian` et `security-reviewer` comme sub-agents invocables
-tels quels, sans conversion ni fichier supplémentaire.
-
-Conséquence pratique :
-- **Ne jamais dupliquer** un agent dans `.github/agents/` (ce dossier n'existe pas et ne
-  doit pas être créé pour ce besoin) — un seul fichier `.claude/agents/<nom>.md` sert les
-  deux écosystèmes.
-- Toute correction de dérive (chiffre périssable, seuil, milestone codé en dur) faite dans
-  un agent `.claude/agents/*.md` bénéficie **automatiquement** aux deux surfaces — pas de
-  changement supplémentaire à faire côté `.github/`.
-- Le frontmatter `tools:` de chaque agent (`Read`, `Grep`, `Glob`, `Bash`, parfois `Edit`/
-  `Write`) reste la nomenclature Claude Code ; les outils Copilot équivalents sont résolus
-  par l'outil hôte au moment de l'invocation, pas par une déclaration dans le repo.
-
-## RTK — statut de détection
-
-RTK est configuré aux deux niveaux :
-
-- **Claude Code** : `.claude/settings.local.json` autorise `Bash(rtk git *)` explicitement,
-  en complément de `.claude/settings.json`.
-- **Copilot** : `.github/hooks/rtk-rewrite.json` déclare un hook `PreToolUse` qui invoque
-  `rtk hook copilot` — ce fichier est le miroir repo du hook utilisateur
-  `~/.copilot/hooks/rtk-rewrite.json`. Le placer dans `.github/hooks/` rend la
-  configuration **portable** : elle s'applique à quiconque clone le dépôt, sans dépendre
-  du profil `~/.copilot` de la machine.
-
-Aucune action supplémentaire n'est requise pour la détection — la présence du fichier au
-niveau repo suffit à ce que l'outil Copilot local applique la règle de réécriture `rtk`
-pour ce dépôt.
+La réécriture des commandes shell par `rtk` est configurée **hors du dépôt**, dans le profil
+Claude Code de l'utilisateur ; `.claude/settings.local.json` autorise `Bash(rtk git *)` sur la
+machine du mainteneur. Le dépôt ne porte aucun hook RTK.
 
 ## Procédure de changement
 
-Toute modification d'un artefact de gouvernance IA (`.github/instructions/`,
-`.github/prompts/`, `.github/skills/`, `.claude/rules/`, `.claude/agents/`,
-`.claude/commands/`, `.claude/hooks/`, `.claude/settings*.json`) doit :
+Toute modification d'un artefact de gouvernance IA (`.claude/rules/`, `.claude/agents/`,
+`.claude/commands/`, `.claude/hooks/`, `.claude/settings.json`, ce document) doit :
 
-1. Être répercutée **des deux côtés** (`.github` et `.claude`) si elle touche une règle
-   partagée
-2. Éviter tout chiffre périssable — renvoyer vers la source vivante
-3. Être mentionnée dans la description de la PR (ce sont des fichiers de gouvernance, pas
+1. Éviter tout chiffre périssable — renvoyer vers la source vivante
+2. Être mentionnée dans la description de la PR (ce sont des fichiers de gouvernance, pas
    de simples fichiers de config)
