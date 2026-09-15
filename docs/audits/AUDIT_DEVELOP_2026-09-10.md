@@ -1,14 +1,17 @@
 # Audit complet — MORPHEUS 1.2.1 — `develop`
 
-Statut : **Relevé daté — audit de branche du 10 septembre 2026, révision 5 du 11 septembre (d95549e2)**
+Statut : **Relevé daté — audit de branche du 10 septembre 2026, révision 6 du 15 septembre (a1fc0a8d)**
 
-**Rév. 5 — 11 septembre 2026.** Rév. 1 à l'aveugle sur `8cff0093` · rév. 2 (A-01, A-02) sur `4387ec37` ·
+**Rév. 6 — 15 septembre 2026.** Rév. 1 à l'aveugle sur `8cff0093` · rév. 2 (A-01, A-02) sur `4387ec37` ·
 rév. 3 (A-03, A-04, A-05) sur `8f8193bc` · rév. 4 (A-06, A-07) sur `30adc86c` ·
-**rév. 5 (reliquat) sur `d95549e2`** (PR #312, #313, #314, #315).
+rév. 5 (reliquat) sur `d95549e2` (PR #312, #313, #314, #315) ·
+**rév. 6 (A-09 et clôture) sur `a1fc0a8d`** (PR #321 à #325 ; lots de clôture #326, #327, #328).
 
 > **Régime de ce document.** Relevé daté, versé au dépôt le 15 septembre 2026 sans réécriture de son analyse :
-> les analyses corrigées et les errata en font partie. Sauf mention d'un autre SHA, tout nombre qu'il cite vaut
-> **à `d95549e2`** et n'est pas réputé courant. La provenance de chaque nombre — mesure de l'auditeur ou relevé
+> les analyses corrigées et les errata en font partie ; chaque révision s'ajoute aux précédentes sans les
+> corriger. Sauf mention d'un autre SHA, tout nombre des révisions 1 à 5 vaut **à `d95549e2`**, tout nombre de la
+> section [Révision 6](#révision-6--a-09-et-la-clôture-du-chantier) **à `a1fc0a8d`**, et aucun n'est réputé
+> courant. La provenance de chaque nombre — mesure de l'auditeur ou relevé
 > du propriétaire — est établie par la section [Limites de cette vérification](#limites-de-cette-vérification),
 > qui est normative.
 
@@ -22,10 +25,11 @@ implicite de se reformer. C'est le bon usage du [registre](../architecture/risks
 
 ---
 
-## État final des huit findings
+## État des findings
 
 | | Finding | Statut | Clos en |
 |---|---|---|---|
+| A-09 | Cible de `VACUUM INTO` concaténée dans le texte SQL (CodeQL `java/concatenated-sql-query`) | **Clos par le dépôt (#321), non trouvé par l'audit** — vrai positif sur le motif, non exploitable | rév. 6 · #321 |
 | A-01 | Gates d'architecture asservissant du texte | **Clos** — pilote livré (rév. 2) ; **généralisation tranchée** en rév. 5 | rév. 2 · #305 → rév. 5 · #314 |
 | A-02 | Fraîcheur du scan de sécurité | **Clos** — clé indexée sur le schéma H2, sentinelle horodatée | rév. 2 · #301 #304 |
 | A-03 | Garde du gate de couverture par module | **Clos** — peuplement dérivé du réacteur | rév. 3 · #306 |
@@ -49,6 +53,67 @@ Ratchets à l'arrivée, lus dans [`config/m21-quality-ratchets.properties`](../.
 `aggregate*=0.850 / 0.680`. **Aucun ratchet n'a été relevé ni abaissé sur les douze lots** — le fichier de seuils
 est identique octet pour octet de `30adc86c` à `d95549e2`. **104 ADR et 104 lignes d'[index](../adr/README.md) à
 `d95549e2`.**
+
+---
+
+## Révision 6 — A-09 et la clôture du chantier
+
+### A-09 — un correctif de sécurité que l'audit n'avait pas trouvé
+
+Le 15/09/2026, `df4cbe4c` (#321) corrige
+[`SqliteServerMaintenance`](../../morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteServerMaintenance.java) :
+la cible d'un `VACUUM INTO` était concaténée dans le texte SQL derrière un échappement écrit à la main. Alerte
+CodeQL n° 2, `java/concatenated-sql-query`, sévérité **high**, ouverte sur `main` depuis le **26/08/2026** — deux
+semaines avant l'ouverture de cet audit.
+
+Le constat porte deux moitiés, et le document doit porter les deux :
+
+```text
+l'échappement était CORRECT
+  value.replace("'", "''") est l'échappement exact d'un littéral SQLite
+  le commit le dit lui-même : le nouveau test passe aussi sur l'ancien code
+
+la cible ne porte AUCUNE entrée distante
+  nom de fichier   généré : "morpheus-" + horodatage + 8 caractères d'UUID
+  répertoire  CLI      → fourni par l'opérateur local
+              remote   → POST /api/v1/server/backups exige un corps VIDE
+                         et utilise le backupDirectory CONFIGURÉ du serveur (champ du constructeur)
+
+→ vrai positif sur le motif, NON EXPLOITABLE dans cette configuration.
+  Le correctif ne ferme pas une faille : il supprime une dépendance à une règle d'échappement
+  manuscrite. VACUUM INTO ? avec paramètre lié, et le helper disparaît.
+```
+
+**Le constat d'audit n'est donc pas le SQL, c'est la méthode.** La conclusion « aucun défaut de sécurité exploitable »
+tenait sur le fond ; elle tenait sans que j'aie regardé là où ce défaut était signalé. Je l'écris une fois, et je
+n'en tire pas de programme de travail.
+
+L'identifiant A-09 est propre à ce document : le [registre des risques](../architecture/risks/register.md) porte
+un autre « A-09 », issu de la passe post-audit du 04/09/2026, comme il porte d'autres A-02 à A-08.
+
+### Ce que #321 à #325 ont livré
+
+| PR | Contenu |
+|---|---|
+| #321 | A-09 ci-dessus, et son test de régression |
+| #322 | Ce document versé sous `docs/audits/`, en relevé daté |
+| #323 | L'observation 1 de la rév. 5 résolue : les refus des deux gardes de la rév. 5 (`HttpRoutesFamilyArchitectureTest`, remplaçant du test D2) sont rejoués à chaque build |
+| #324 | **DT-15 livrée** : la frontière transport/JSON des routeurs, en trois groupes 8/5/4 plutôt que les deux (8/9) de l'amendement |
+| #325 | L'observation 2 résolue (statut d'ADR-0103 dans l'index) ; la requalification du plafond par module consignée |
+
+### Les lots de clôture
+
+Relevés du propriétaire. Les trois PR ont été fusionnées dans `develop` le 15/09/2026, avant cette révision : #326 en `6eee46ef`, #327 en `ab3aef01`, #328 en `e732900f`, chacune verte sur les checks requis après mise à jour sur la précédente.
+
+| Lot | PR | État |
+|---|---|---|
+| Retrait de la surface Copilot | #326 | `.claude/` devient la seule configuration IA. Les six paires comparées avant suppression ; les consignes propres à Copilot reportées, deux contradictoires écartées. La liste des surfaces de gouvernance **refuse** désormais une surface absente au lieu de scanner moins — le défaut d'A-03, évité là où la suppression l'aurait créé |
+| **DT-16** — les quatre routes d'extension rejoignent le décodeur du serveur | #327 | Réduction de duplication, **pas un correctif de sécurité**. Parité d'échec épinglée avant migration sur le code d'origine — 41 cas de corps, puis 30 de routage, de méthode et de paramètres quand le gate de couverture des lignes modifiées a montré le trou, soit 71 cas octet pour octet — identique après, une route par commit. **DT-16 est close** (fusion `ab3aef01`) |
+| DT-13 — sauter la lane Windows sur la PR de promotion | — | **Non livré.** Le mécanisme proposé est impossible : `jobs.<job_id>.if` ne voit pas `matrix`. Le détail et les deux autres obstacles sont consignés sur la ligne DT-13 du registre ; la dette reste acceptée telle quelle |
+| DT-10 — plafond de couverture par module | #328 | **Requalifié** sur quatre mesures exact-head de `a1fc0a8d`, deux par plateforme : 62,5013 % / 53,7997 % → **64,5143 % / 56,2964 %**. Ratchets inchangés |
+
+**Aucun ratchet n'a bougé.** `config/m21-quality-ratchets.properties` est identique octet pour octet de `30adc86c` à
+`a1fc0a8d`, et aucun des lots de clôture ne le modifie ; #328 relève un plafond, pas un seuil.
 
 ---
 
@@ -291,6 +356,13 @@ réutilise un chiffre de cet audit commence par le retrouver ici ; la fluidité 
 | `@ParameterizedTest` dans le dépôt | **0** | `d95549e2` |
 | Modules du réacteur, dont portant des sources principales | **18**, dont **16** — ce qui confirme statiquement le `reports=16` du gate par module | `d95549e2` |
 | Ascendance | `main` est ancêtre de `develop` | `d95549e2` |
+| Liens Markdown relatifs, et liens brisés | **587**, **0** brisé | `a1fc0a8d` |
+| Partition transport/JSON de `HttpRoutesTransportBoundaryArchitectureTest` | **8 / 5 / 4**, conforme aux sources | `a1fc0a8d` |
+| `MorpheusHttpServer` dans les interdits de ce test | **absent** de tout interdit | `a1fc0a8d` |
+| Méthodes `@Test` de #321 à #325 | **9** ajoutées dans `morpheus-architecture-tests`, **0** retirée | `d95549e2` → `a1fc0a8d` |
+| `config/m21-quality-ratchets.properties` | identique octet pour octet | `30adc86c` → `a1fc0a8d` |
+| A-09 : échappement de l'ancien code | `replace("'", "''")`, échappement exact d'un littéral SQLite | `df4cbe4c^` |
+| A-09 : origine de la cible | nom généré (`morpheus-` + horodatage + 8 caractères d'UUID) ; répertoire fourni par l'opérateur en CLI, `backupDirectory` configuré du serveur en remote ; `POST /api/v1/server/backups` exige un corps vide | `a1fc0a8d` |
 
 Les chiffres que l'auditeur avait **annoncés puis vus corrigés** — 31 classes et 192 assertions, 17 rapports
 attendus (A-03), 294 documents non couverts (A-06 · A-07) — sont des affirmations de l'auditeur, pas des mesures ;
@@ -314,21 +386,28 @@ la table *Cinq analyses corrigées par la mesure* les conserve pour cette raison
 | A-06 | effet de l'outillage sur le ratio agrégé : 0,15 point | rapport JaCoCo, #309 ; ADR-0104 |
 | Durée de la lane Windows | 17 minutes, dispersion 12–29 | registre des risques, DT-13 |
 | Plafond qualifié par module | `PER_MODULE_QUALIFIED_*` 62,5013 % / 53,7997 %, qualifié le 08/09 ; mesure du 09/09 : 63,02–63,06 % de lignes | ADR-0104 |
+| Recomptages de la rév. 6 | 588 liens Markdown relatifs par un comptage approché, 0 brisé (écart d'un lien avec la mesure de l'auditeur, de définition, sans incidence) ; 10 méthodes `@Test` ajoutées de `d95549e2` à `a1fc0a8d` en comptant le test de régression d'A-09 dans `morpheus-store-sqlite` (#321), 9 hors de lui | session de clôture, 15/09 |
+| A-09 : le nouveau test passe aussi sur l'ancien code | constat du commit | `df4cbe4c` |
+| Surface Copilot | 6 paires `instructions/` ↔ `rules/` comparées ; 4 consignes reportées dans `.claude/rules/`, 2 écartées car contraires ; les commandes `.claude/commands/` réalignées sur les prompts (dont un ratchet « 47 % / 40 % » périmé) ; +1 `@Test`, 0 retirée | #326 |
+| DT-16 | 71 cas de parité (41 de corps, puis 30 de routage après un échec du gate des lignes modifiées à 68,52 %), identiques avant et après ; lignes modifiées 104/108 ; sans `catch (ApiFailure)`, 11 cas en `500` ; routeurs 1 018 → 863 lignes ; +7 `@Test`, 0 retirée ; `clean verify` Windows vert | #327 |
+| DT-13 | `jobs.<job_id>.if` limité à `github`, `needs`, `vars`, `inputs` | documentation GitHub, *Contexts reference* ; registre, DT-13 |
+| DT-10 | Windows 64,5952 % / 64,5987 % lignes, 56,3942 % / 56,4040 % branches ; Linux 64,5143 % / 64,5495 %, 56,2964 % / 56,3453 % ; `reports=16`, 28 434 lignes, 10 228 branches ; dispersion 10 lignes / 5 branches entre les runs Linux | runs 34991048836 et 34991052539, `a1fc0a8d` ; #328 |
 
 ---
 
 ## Ce qu'il reste
 
-Rien qui soit un finding, et plus rien qui soit une décision en attente. Trois choses **suivies**, chacune avec
-ses conditions écrites :
+*Réécrit en rév. 6.* Rien qui soit un finding. Trois dettes **suivies**, chacune avec ses conditions écrites dans
+le [registre](../architecture/risks/register.md) :
 
-1. **DT-15** — groupe 2 d'ADR-0103, la frontière transport/JSON par capacité. Décidé, non livré, une PR dédiée.
-2. **DT-13** — la duplication CI sur la PR de promotion. Coût mesuré, accepté, à rouvrir si la cadence de
-   `develop` augmente nettement.
-3. **Le plafond qualifié par module est daté.** ADR-0104 le dit lui-même : `PER_MODULE_QUALIFIED_*`
-   (62,5013 % / 53,7997 %) a été qualifié le 08/09 et la mesure l'a dépassé depuis (63,02–63,06 % de lignes).
-   Le requalifier exige **une mesure exact-head sur Windows et sur Linux**, qualifiée sur la plus basse des
-   deux. C'est le seul lot restant qui demande les deux plateformes.
+1. **DT-10** — la couverture par module. Le plafond est requalifié (#328) ; les ratchets `0.620 / 0.535` restent
+   sous lui avec une large marge. Les relever sous ce plafond est possible et reste une décision distincte, qui se
+   répercute sur toutes les pages citant le ratchet.
+2. **DT-13** — la duplication CI sur la PR de promotion. Coût mesuré et accepté ; la réduction étudiée le 15/09
+   n'est pas livrée, parce que son mécanisme n'existe pas et que le point incertain ne s'observe qu'après fusion.
+   À rouvrir si la cadence de `develop` augmente nettement.
+3. **DT-16** — les quatre routes d'extension et le décodeur du serveur. Livrée en #327 et **close** (fusion `ab3aef01`).
+   Ce qui reste dupliqué — l'écriture de leur enveloppe de réponse — n'est pas une dette nommée faute de décision.
 
 Et une observation sans action assumée : les 17 classes au-dessus de 400 lignes. Elle se rouvre pour une raison
 indépendante de la taille — un défaut, une couverture manquante, une frontière franchie — jamais sur le nombre
