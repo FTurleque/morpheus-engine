@@ -51,7 +51,7 @@
         <sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>
         <mcp-sdk.version>2.0.1</mcp-sdk.version>
         <reactor-bom.version>2024.0.0</reactor-bom.version>
-        <slf4j.version>2.0.18</slf4j.version>
+        <slf4j.version>2.0.19</slf4j.version>
         <jackson.version>3.2.2</jackson.version>
 
         <maven.compiler.plugin.version>3.16.0</maven.compiler.plugin.version>
