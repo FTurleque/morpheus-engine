@@ -4,8 +4,6 @@ import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -15,49 +13,47 @@ import java.util.Objects;
 /** Isolated M27 HTTP context. Reasoning execution never mutates the knowledge store. */
 final class MorpheusReasoningHttpRoutes {
     static final String CONTEXT = MorpheusHttpServer.API_PREFIX + "/reasoning";
+    private static final String ADAPTERS = CONTEXT + "/adapters";
+    private static final String ANALYZE = CONTEXT + "/analyze";
 
     private final MorpheusReasoningApiService service = new MorpheusReasoningApiService();
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
-    private final JsonMapper mapper = JsonMapper.builder()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-            .build();
+    private final MorpheusHttpRequestDecoder requestDecoder;
 
-    private MorpheusReasoningHttpRoutes() {
+    private MorpheusReasoningHttpRoutes(MorpheusHttpRequestDecoder requestDecoder) {
+        this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
     }
 
-    static void register(HttpServer server) {
+    static void register(HttpServer server, MorpheusHttpRequestDecoder requestDecoder) {
         Objects.requireNonNull(server, "server");
-        MorpheusReasoningHttpRoutes routes = new MorpheusReasoningHttpRoutes();
+        MorpheusReasoningHttpRoutes routes = new MorpheusReasoningHttpRoutes(requestDecoder);
         server.createContext(CONTEXT, routes::handle);
     }
 
     private void handle(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath();
         try {
             rejectQueryParameters(exchange);
-            String path = exchange.getRequestURI().getPath();
             String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
             Object response;
-            if (path.equals(CONTEXT + "/adapters")) {
+            if (path.equals(ADAPTERS)) {
                 requireMethod(method, "GET");
-                requireEmptyBody(exchange);
+                requestDecoder.requireEmptyBody(exchange);
                 response = service.adapters();
-            } else if (path.equals(CONTEXT + "/analyze")) {
+            } else if (path.equals(ANALYZE)) {
                 requireMethod(method, "POST");
-                response = service.analyze(readJson(exchange));
+                response = service.analyze(
+                        requestDecoder.readRequiredJson(exchange, MorpheusReasoningApiService.ReasoningRequest.class));
             } else {
-                throw new HttpFailure(404, "NOT_FOUND", "unknown reasoning route");
+                throw ApiFailure.notFound("unknown reasoning route");
             }
             sendJson(exchange, 200, new ApiSuccess("v1", response));
-        } catch (HttpFailure failure) {
-            if (failure.status == 405) {
-                exchange.getResponseHeaders().set("Allow", failure.allowedMethod);
+        } catch (ApiFailure failure) {
+            if (failure.status() == 405) {
+                exchange.getResponseHeaders().set("Allow", path.equals(ADAPTERS) ? "GET" : "POST");
             }
-            sendJson(exchange, failure.status, new ApiErrorEnvelope(
-                    "v1", new ApiError(failure.code, failure.getMessage(), Map.of())));
-        } catch (HttpRequestBodyReader.RequestBodyException failure) {
-            sendJson(exchange, 400, new ApiErrorEnvelope(
-                    "v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
+            sendJson(exchange, failure.status(), new ApiErrorEnvelope(
+                    "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
             sendJson(exchange, 400, new ApiErrorEnvelope(
                     "v1", new ApiError("REASONING_VALIDATION", safeMessage(failure), Map.of())));
@@ -69,42 +65,15 @@ final class MorpheusReasoningHttpRoutes {
         }
     }
 
-    private MorpheusReasoningApiService.ReasoningRequest readJson(HttpExchange exchange) {
-        byte[] body = readBody(exchange);
-        if (body.length == 0) {
-            throw new HttpFailure(400, "BAD_REQUEST", "JSON request body is required");
-        }
-        String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-        if (!JsonMediaType.isJson(contentType)) {
-            throw new HttpFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Content-Type application/json is required");
-        }
-        try {
-            return mapper.readValue(body, MorpheusReasoningApiService.ReasoningRequest.class);
-        } catch (Exception failure) {
-            throw new HttpFailure(400, "BAD_REQUEST", "invalid JSON request body: " + safeMessage(failure));
-        }
-    }
-
-    private byte[] readBody(HttpExchange exchange) {
-        return HttpRequestBodyReader.read(exchange);
-    }
-
-    private void requireEmptyBody(HttpExchange exchange) {
-        if (readBody(exchange).length != 0) {
-            throw new HttpFailure(400, "BAD_REQUEST", "request body must be empty");
-        }
-    }
-
     private static void rejectQueryParameters(HttpExchange exchange) {
         if (exchange.getRequestURI().getRawQuery() != null && !exchange.getRequestURI().getRawQuery().isBlank()) {
-            throw new HttpFailure(400, "BAD_REQUEST", "query parameters are not supported on reasoning routes");
+            throw ApiFailure.badRequest("query parameters are not supported on reasoning routes");
         }
     }
 
     private static void requireMethod(String actual, String expected) {
         if (!actual.equals(expected)) {
-            throw new HttpFailure(405, "METHOD_NOT_ALLOWED",
-                    "expected HTTP " + expected + " but received " + actual, expected);
+            throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
         }
     }
 
@@ -130,22 +99,5 @@ final class MorpheusReasoningHttpRoutes {
     }
 
     private record ApiErrorEnvelope(String apiVersion, ApiError error) {
-    }
-
-    private static final class HttpFailure extends RuntimeException {
-        private final int status;
-        private final String code;
-        private final String allowedMethod;
-
-        private HttpFailure(int status, String code, String message) {
-            this(status, code, message, "");
-        }
-
-        private HttpFailure(int status, String code, String message, String allowedMethod) {
-            super(message);
-            this.status = status;
-            this.code = code;
-            this.allowedMethod = allowedMethod;
-        }
     }
 }

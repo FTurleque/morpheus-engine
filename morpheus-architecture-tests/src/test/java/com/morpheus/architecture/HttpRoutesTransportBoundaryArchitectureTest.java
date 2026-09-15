@@ -21,6 +21,7 @@ import java.util.regex.Pattern;
 
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.name;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -76,13 +77,15 @@ class HttpRoutesTransportBoundaryArchitectureTest {
             "MorpheusProjectRootHttpRoutes",
             "MorpheusProjectSyncHttpRoutes",
             "MorpheusRequirementsHttpRoutes");
+    private static final List<String> ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE = List.of(
+            "MorpheusReasoningHttpRoutes");
     private static final List<String> ROUTERS_WITH_THEIR_OWN_MAPPER = List.of(
             "MorpheusPolicyHttpRoutes",
             "MorpheusPolicyManagementHttpRoutes",
-            "MorpheusQueryHttpRoutes",
-            "MorpheusReasoningHttpRoutes");
+            "MorpheusQueryHttpRoutes");
 
     private static final String REQUEST_DECODER = API_PACKAGE + ".MorpheusHttpRequestDecoder";
+    private static final String REQUEST_BODY_READER = API_PACKAGE + ".HttpRequestBodyReader";
     private static final String CANONICAL_JSON_SERIALIZER =
             "com.morpheus.application.query.compact.CanonicalJsonSerializer";
     private static final List<String> STRICT_FEATURES = List.of("FAIL_ON_UNKNOWN_PROPERTIES", "FAIL_ON_TRAILING_TOKENS");
@@ -198,6 +201,34 @@ class HttpRoutesTransportBoundaryArchitectureTest {
     }
 
     /**
+     * A router that registers its own HTTP context and writes its own response still reads its body through the
+     * server's decoder: it depends on {@code MorpheusHttpRequestDecoder}, on no body reader of its own, and on no
+     * Jackson type.
+     *
+     * <p>These routers serialize their response envelope themselves, through {@code CanonicalJsonSerializer}; that
+     * is the one difference with the routers above and it is why they are a group of their own. What they no longer
+     * carry is a second request boundary -- a mapper, a reader, a failure type -- that nothing kept in step with the
+     * decoder's. {@code HttpRequestBodyReader} and the decoder declare no static constant, so the rule alone covers
+     * them; Jackson declares many, so its half keeps its text.</p>
+     */
+    @Test
+    void routersWritingTheirOwnResponseReadTheirBodyThroughTheSharedDecoder() throws IOException {
+        classes()
+                .that(routersNamed(ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE))
+                .should().dependOnClassesThat(name(REQUEST_DECODER))
+                .because("the request boundary of a router that registers its own context is the server's decoder")
+                .check(classes);
+        noClasses()
+                .that(routersNamed(ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE))
+                .should().dependOnClassesThat(resideInAnyPackage("tools.jackson..").or(name(REQUEST_BODY_READER)))
+                .because("a mapper or a body reader of its own is a second request boundary nothing keeps in step")
+                .check(classes);
+
+        assertNoSourceMentions(
+                routerSources(repositoryRoot(), ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE), "tools.jackson");
+    }
+
+    /**
      * Every {@code JsonMapper.builder()} of {@code morpheus-api} enables {@code FAIL_ON_UNKNOWN_PROPERTIES} and
      * {@code FAIL_ON_TRAILING_TOKENS}, and no mapper is built any other way.
      *
@@ -267,6 +298,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
         return Map.of(
                 "without a body", ROUTERS_WITHOUT_A_BODY,
                 "through the shared decoder", ROUTERS_THROUGH_THE_SHARED_DECODER,
+                "through the decoder, writing their own response", ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE,
                 "with their own mapper", ROUTERS_WITH_THEIR_OWN_MAPPER);
     }
 

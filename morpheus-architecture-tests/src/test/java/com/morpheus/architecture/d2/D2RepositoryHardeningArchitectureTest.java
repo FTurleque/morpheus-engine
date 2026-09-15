@@ -473,12 +473,19 @@ class D2RepositoryHardeningArchitectureTest {
                 "MorpheusHttpRequestDecoder.java",
                 "MorpheusQueryHttpRoutes.java",
                 "MorpheusPolicyHttpRoutes.java",
-                "MorpheusPolicyManagementHttpRoutes.java",
-                "MorpheusReasoningHttpRoutes.java");
+                "MorpheusPolicyManagementHttpRoutes.java");
         for (String boundary : boundaries) {
             String content = Files.readString(api.resolve(boundary));
             assertTrue(content.contains("JsonMediaType.isJson("),
                     () -> boundary + " must admit JSON through the shared exact media-type parser");
+        }
+        try (var files = Files.list(api)) {
+            for (Path router : files.filter(path -> path.getFileName().toString().endsWith("HttpRoutes.java"))
+                    .filter(path -> !boundaries.contains(path.getFileName().toString())).toList()) {
+                String content = Files.readString(router);
+                assertFalse(content.contains("getRequestHeaders()"),
+                        () -> router.getFileName() + " must leave Content-Type admission to MorpheusHttpRequestDecoder");
+            }
         }
 
         try (var files = Files.walk(api, 4)) {

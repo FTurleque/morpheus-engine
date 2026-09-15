@@ -49,6 +49,11 @@ final class MorpheusHttpRequestDecoder {
         return decode(body, type);
     }
 
+    void requireEmptyBody(HttpExchange exchange) {
+        Objects.requireNonNull(exchange, "exchange");
+        if (readBody(exchange).length != 0) throw ApiFailure.badRequest("request body must be empty");
+    }
+
     private byte[] readBody(HttpExchange exchange) {
         try {
             return TimedBoundedInputReader.read(

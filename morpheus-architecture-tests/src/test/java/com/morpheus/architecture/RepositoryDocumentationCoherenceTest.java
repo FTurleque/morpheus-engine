@@ -654,18 +654,34 @@ class RepositoryDocumentationCoherenceTest {
     void httpExtensionRoutesUseSharedTimedRequestBodyBoundary() throws Exception {
         Path root = repositoryRoot();
         Path api = root.resolve("morpheus-api/src/main/java/com/morpheus/api");
-        List<String> routes = List.of(
+        List<String> routersReadingTheirOwnBody = List.of(
                 "MorpheusQueryHttpRoutes.java",
                 "MorpheusPolicyHttpRoutes.java",
-                "MorpheusPolicyManagementHttpRoutes.java",
-                "MorpheusReasoningHttpRoutes.java");
+                "MorpheusPolicyManagementHttpRoutes.java");
 
-        for (String route : routes) {
+        for (String route : routersReadingTheirOwnBody) {
             String content = Files.readString(api.resolve(route));
             assertTrue(content.contains("HttpRequestBodyReader.read(exchange)"),
                     () -> route + " must use the shared timed request-body boundary");
             assertFalse(content.contains("getRequestBody().readNBytes("),
                     () -> route + " must not perform direct wall-clock-unbounded request-body reads");
+        }
+
+        List<Path> routers;
+        try (var files = Files.list(api)) {
+            routers = files.filter(path -> path.getFileName().toString().endsWith("HttpRoutes.java")).sorted().toList();
+        }
+        assertTrue(routers.size() > routersReadingTheirOwnBody.size(), "no other *HttpRoutes.java found under " + api);
+        for (Path router : routers) {
+            String route = router.getFileName().toString();
+            if (routersReadingTheirOwnBody.contains(route)) {
+                continue;
+            }
+            String content = Files.readString(router);
+            assertFalse(content.contains("getRequestBody()"),
+                    () -> route + " must leave reading the request body to MorpheusHttpRequestDecoder");
+            assertFalse(content.contains("HttpRequestBodyReader"),
+                    () -> route + " must read its body through MorpheusHttpRequestDecoder, not a reader of its own");
         }
 
         String reader = Files.readString(api.resolve("HttpRequestBodyReader.java"));

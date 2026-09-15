@@ -41,14 +41,14 @@ final class MorpheusQueryHttpRoutes {
         service = new MorpheusQueryApiService(databasePath);
     }
 
-    static void register(HttpServer server, Path databasePath) {
+    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder) {
         Objects.requireNonNull(server, "server");
         MorpheusQueryHttpRoutes routes = new MorpheusQueryHttpRoutes(databasePath);
         server.createContext(QUERY_CONTEXT, routes::handleQueries);
         server.createContext(VIEW_CONTEXT, routes::handleSavedViews);
         server.createContext(EXPORT_CONTEXT, routes::handleExports);
         MorpheusPolicyHttpRoutes.register(server, databasePath);
-        MorpheusReasoningHttpRoutes.register(server);
+        MorpheusReasoningHttpRoutes.register(server, requestDecoder);
     }
 
     private void handleQueries(HttpExchange exchange) throws IOException {
