@@ -77,7 +77,7 @@ public final class PolicyPackService {
             throw new PolicyConflictException(
                     "stale policy pack revision: expected " + expectedRevision + " but current is " + current.revision());
         }
-        Instant now = clock.instant();
+        Instant now = revisionTime(current);
         long nextVersionNumber = current.latestVersionNumber() + 1;
         PolicyIds.VersionId versionId = PolicyIds.VersionId.generate();
         PolicyPack.Version version = new PolicyPack.Version(
@@ -230,6 +230,15 @@ public final class PolicyPackService {
     public List<PolicyConfiguration.AuditRecord> audit(PolicyIds.PackId packId) {
         get(packId);
         return store.listAudit(packId).stream().sorted().toList();
+    }
+
+    /**
+     * The wall clock can step backwards (NTP correction, VM resume); a valid CAS write must not be refused for it,
+     * so a revision is stamped no earlier than the revision it replaces.
+     */
+    private Instant revisionTime(PolicyPack.Definition current) {
+        Instant now = clock.instant();
+        return now.isBefore(current.updatedAt()) ? current.updatedAt() : now;
     }
 
     private PolicyConfiguration.AuditRecord audit(
