@@ -108,7 +108,7 @@ Relevés du propriétaire ; aucune de ces PR n'est fusionnée au moment où la r
 | Lot | PR | État |
 |---|---|---|
 | Retrait de la surface Copilot | #326 | `.claude/` devient la seule configuration IA. Les six paires comparées avant suppression ; les consignes propres à Copilot reportées, deux contradictoires écartées. La liste des surfaces de gouvernance **refuse** désormais une surface absente au lieu de scanner moins — le défaut d'A-03, évité là où la suppression l'aurait créé |
-| **DT-16** — les quatre routes d'extension rejoignent le décodeur du serveur | #327 | Réduction de duplication, **pas un correctif de sécurité**. Parité d'échec épinglée avant migration (41 cas, octet pour octet), identique après, une route par commit. **DT-16 est close à la fusion de #327** |
+| **DT-16** — les quatre routes d'extension rejoignent le décodeur du serveur | #327 | Réduction de duplication, **pas un correctif de sécurité**. Parité d'échec épinglée avant migration sur le code d'origine — 41 cas de corps, puis 30 de routage, de méthode et de paramètres quand le gate de couverture des lignes modifiées a montré le trou, soit 71 cas octet pour octet — identique après, une route par commit. **DT-16 est close à la fusion de #327** |
 | DT-13 — sauter la lane Windows sur la PR de promotion | — | **Non livré.** Le mécanisme proposé est impossible : `jobs.<job_id>.if` ne voit pas `matrix`. Le détail et les deux autres obstacles sont consignés sur la ligne DT-13 du registre ; la dette reste acceptée telle quelle |
 | DT-10 — plafond de couverture par module | #328 | **Requalifié** sur quatre mesures exact-head de `a1fc0a8d`, deux par plateforme : 62,5013 % / 53,7997 % → **64,5143 % / 56,2964 %**. Ratchets inchangés |
 
@@ -389,7 +389,7 @@ la table *Cinq analyses corrigées par la mesure* les conserve pour cette raison
 | Recomptages de la rév. 6 | 588 liens Markdown relatifs par un comptage approché, 0 brisé (écart d'un lien avec la mesure de l'auditeur, de définition, sans incidence) ; 10 méthodes `@Test` ajoutées de `d95549e2` à `a1fc0a8d` en comptant le test de régression d'A-09 dans `morpheus-store-sqlite` (#321), 9 hors de lui | session de clôture, 15/09 |
 | A-09 : le nouveau test passe aussi sur l'ancien code | constat du commit | `df4cbe4c` |
 | Surface Copilot | 6 paires `instructions/` ↔ `rules/` comparées ; 4 consignes reportées dans `.claude/rules/`, 2 écartées car contraires ; les commandes `.claude/commands/` réalignées sur les prompts (dont un ratchet « 47 % / 40 % » périmé) ; +1 `@Test`, 0 retirée | #326 |
-| DT-16 | 41 cas de parité, identiques avant et après ; sans `catch (ApiFailure)`, 11 cas en `500` ; routeurs 1 018 → 863 lignes ; +7 `@Test`, 0 retirée ; `clean verify` Windows vert | #327 |
+| DT-16 | 71 cas de parité (41 de corps, puis 30 de routage après un échec du gate des lignes modifiées à 68,52 %), identiques avant et après ; lignes modifiées 104/108 ; sans `catch (ApiFailure)`, 11 cas en `500` ; routeurs 1 018 → 863 lignes ; +7 `@Test`, 0 retirée ; `clean verify` Windows vert | #327 |
 | DT-13 | `jobs.<job_id>.if` limité à `github`, `needs`, `vars`, `inputs` | documentation GitHub, *Contexts reference* ; registre, DT-13 |
 | DT-10 | Windows 64,5952 % / 64,5987 % lignes, 56,3942 % / 56,4040 % branches ; Linux 64,5143 % / 64,5495 %, 56,2964 % / 56,3453 % ; `reports=16`, 28 434 lignes, 10 228 branches ; dispersion 10 lignes / 5 branches entre les runs Linux | runs 34991048836 et 34991052539, `a1fc0a8d` ; #328 |
 
