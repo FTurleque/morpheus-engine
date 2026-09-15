@@ -7,10 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class D2RepositoryHardeningArchitectureTest {
 
@@ -33,6 +36,7 @@ class D2RepositoryHardeningArchitectureTest {
     private static final Pattern WORKFLOW_FILE = Pattern.compile(".+\\.ya?ml");
     private static final Pattern HISTORICAL_PREFLIGHT =
             Pattern.compile("m(?:9|1[0-2])-(?:validation|preflight)\\.ya?ml");
+    private static final String DEPRECATED_SETUP_JAVA_V4 = "cf277c60eb25467037889841efdb72551f06f6c3";
 
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
@@ -211,23 +215,73 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void everyWorkflowAvoidsDeprecatedActionGenerationsAndTheHistoricalPreflightsStayRemoved() throws IOException {
         Path root = repoRoot().resolve(".github/workflows");
-        List<Path> workflows;
-        try (var files = Files.list(root)) {
-            workflows = files.filter(path -> WORKFLOW_FILE.matcher(path.getFileName().toString()).matches())
+        assertFalse(workflowFiles(root).isEmpty(), "no workflow found under .github/workflows");
+        List<String> violations = deprecatedWorkflowViolations(root);
+        assertTrue(violations.isEmpty(), () -> "workflows must pin every checkout and setup-java to the Node 24 "
+                + "generation, and the historical preflights removed with DT-14 cannot pass on the current tree while "
+                + "ci.yml already runs clean verify exact-head on Linux and Windows:" + System.lineSeparator()
+                + String.join(System.lineSeparator(), violations));
+    }
+
+    /**
+     * The guard above was broken on the real tree before it was accepted, four times (commit {@code 12142aee},
+     * 11/09/2026), and that proof lived in a commit message. This replays the refusal on every build, through the same
+     * method, over a directory built to violate it.
+     *
+     * <p>The partial pin is the case the guard exists for: {@code partial.yml} carries one conforming setup-java, so a
+     * single match -- what the replaced test asked for -- accepted it.</p>
+     */
+    @Test
+    void theWorkflowGuardRefusesARestoredPreflightADeprecatedPinAndAPartialPin(@TempDir Path workflows)
+            throws IOException {
+        String current = "      - uses: actions/setup-java@" + "b".repeat(40) + " # v5.0.0\n";
+        String deprecated = "      - uses: actions/setup-java@" + DEPRECATED_SETUP_JAVA_V4 + " # v4.7.1\n";
+        Files.writeString(workflows.resolve("m11-preflight.yml"), "jobs:\n  build:\n    steps:\n" + current);
+        Files.writeString(workflows.resolve("deprecated.yml"), "jobs:\n  build:\n    steps:\n" + deprecated);
+        Files.writeString(workflows.resolve("partial.yml"),
+                "jobs:\n  linux:\n    steps:\n" + current + "  windows:\n    steps:\n" + deprecated.replace(
+                        DEPRECATED_SETUP_JAVA_V4, "c".repeat(40)));
+        Files.writeString(workflows.resolve("conforming.yml"), """
+                jobs:
+                  build:
+                    steps:
+                      - uses: actions/checkout@%s # v6.0.1
+                """.formatted("a".repeat(40)) + current);
+        Files.writeString(workflows.resolve("notes.txt"), deprecated);
+
+        assertTrue(SETUP_JAVA_NODE24.matcher(Files.readString(workflows.resolve("partial.yml"))).find(),
+                "partial.yml must hold one conforming pin, or it does not exercise the partial case");
+        assertEquals(List.of(
+                        "deprecated.yml: 1 of 1 actions/setup-java use(s) not pinned to the Node 24 generation",
+                        "deprecated.yml: pins the deprecated setup-java v4 commit",
+                        "m11-preflight.yml: historical preflight removed with DT-14",
+                        "partial.yml: 1 of 2 actions/setup-java use(s) not pinned to the Node 24 generation"),
+                deprecatedWorkflowViolations(workflows),
+                "each violation must be named by its workflow; conforming.yml and a non-workflow file pass");
+    }
+
+    private static List<String> deprecatedWorkflowViolations(Path workflowsDirectory) throws IOException {
+        List<String> violations = new ArrayList<>();
+        for (Path workflow : workflowFiles(workflowsDirectory)) {
+            String name = workflow.getFileName().toString();
+            if (HISTORICAL_PREFLIGHT.matcher(name).matches()) {
+                violations.add(name + ": historical preflight removed with DT-14");
+            }
+            String text = Files.readString(workflow);
+            unpinnedUses(text, CHECKOUT_NODE24, "checkout", name).ifPresent(violations::add);
+            unpinnedUses(text, SETUP_JAVA_NODE24, "setup-java", name).ifPresent(violations::add);
+            if (text.contains(DEPRECATED_SETUP_JAVA_V4)) {
+                violations.add(name + ": pins the deprecated setup-java v4 commit");
+            }
+        }
+        return violations;
+    }
+
+    private static List<Path> workflowFiles(Path workflowsDirectory) throws IOException {
+        try (var files = Files.list(workflowsDirectory)) {
+            return files.filter(path -> WORKFLOW_FILE.matcher(path.getFileName().toString()).matches())
                     .sorted()
                     .toList();
-        }
-        assertFalse(workflows.isEmpty(), "no workflow found under .github/workflows");
-        for (Path workflow : workflows) {
-            String name = workflow.getFileName().toString();
-            assertFalse(HISTORICAL_PREFLIGHT.matcher(name).matches(),
-                    () -> name + " was removed with DT-14: it cannot pass on the current tree, and ci.yml already "
-                            + "runs clean verify exact-head on Linux and Windows");
-            String text = Files.readString(workflow);
-            assertEveryUsePinnedNode24(text, CHECKOUT_NODE24, "checkout", name);
-            assertEveryUsePinnedNode24(text, SETUP_JAVA_NODE24, "setup-java", name);
-            assertFalse(text.contains("cf277c60eb25467037889841efdb72551f06f6c3"),
-                    () -> name + " pins the deprecated setup-java v4 commit");
         }
     }
 
@@ -235,11 +289,13 @@ class D2RepositoryHardeningArchitectureTest {
      * Every use, not one: a workflow that pins a current setup-java in one job and a deprecated one in another
      * satisfies a single match, which is all {@link #assertPinnedNode24} asks for.
      */
-    private static void assertEveryUsePinnedNode24(String workflow, Pattern pattern, String action, String file) {
+    private static Optional<String> unpinnedUses(String workflow, Pattern pattern, String action, String file) {
         long uses = workflow.lines().filter(line -> line.contains("uses: actions/" + action + "@")).count();
         long pinned = pattern.matcher(workflow).results().count();
-        assertEquals(uses, pinned, () -> file + " must pin every actions/" + action
-                + " use to a 40-char SHA from the Node 24 generation or newer");
+        return uses == pinned
+                ? Optional.empty()
+                : Optional.of(file + ": " + (uses - pinned) + " of " + uses + " actions/" + action
+                        + " use(s) not pinned to the Node 24 generation");
     }
 
     @Test
