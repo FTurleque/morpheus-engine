@@ -101,14 +101,14 @@ un autre « A-09 », issu de la passe post-audit du 04/09/2026, comme il porte d
 | #324 | **DT-15 livrée** : la frontière transport/JSON des routeurs, en trois groupes 8/5/4 plutôt que les deux (8/9) de l'amendement |
 | #325 | L'observation 2 résolue (statut d'ADR-0103 dans l'index) ; la requalification du plafond par module consignée |
 
-### Les lots de clôture, à la date de ce relevé
+### Les lots de clôture
 
-Relevés du propriétaire ; aucune de ces PR n'est fusionnée au moment où la révision est écrite.
+Relevés du propriétaire. Les trois PR ont été fusionnées dans `develop` le 15/09/2026, avant cette révision : #326 en `6eee46ef`, #327 en `ab3aef01`, #328 en `e732900f`, chacune verte sur les checks requis après mise à jour sur la précédente.
 
 | Lot | PR | État |
 |---|---|---|
 | Retrait de la surface Copilot | #326 | `.claude/` devient la seule configuration IA. Les six paires comparées avant suppression ; les consignes propres à Copilot reportées, deux contradictoires écartées. La liste des surfaces de gouvernance **refuse** désormais une surface absente au lieu de scanner moins — le défaut d'A-03, évité là où la suppression l'aurait créé |
-| **DT-16** — les quatre routes d'extension rejoignent le décodeur du serveur | #327 | Réduction de duplication, **pas un correctif de sécurité**. Parité d'échec épinglée avant migration sur le code d'origine — 41 cas de corps, puis 30 de routage, de méthode et de paramètres quand le gate de couverture des lignes modifiées a montré le trou, soit 71 cas octet pour octet — identique après, une route par commit. **DT-16 est close à la fusion de #327** |
+| **DT-16** — les quatre routes d'extension rejoignent le décodeur du serveur | #327 | Réduction de duplication, **pas un correctif de sécurité**. Parité d'échec épinglée avant migration sur le code d'origine — 41 cas de corps, puis 30 de routage, de méthode et de paramètres quand le gate de couverture des lignes modifiées a montré le trou, soit 71 cas octet pour octet — identique après, une route par commit. **DT-16 est close** (fusion `ab3aef01`) |
 | DT-13 — sauter la lane Windows sur la PR de promotion | — | **Non livré.** Le mécanisme proposé est impossible : `jobs.<job_id>.if` ne voit pas `matrix`. Le détail et les deux autres obstacles sont consignés sur la ligne DT-13 du registre ; la dette reste acceptée telle quelle |
 | DT-10 — plafond de couverture par module | #328 | **Requalifié** sur quatre mesures exact-head de `a1fc0a8d`, deux par plateforme : 62,5013 % / 53,7997 % → **64,5143 % / 56,2964 %**. Ratchets inchangés |
 
@@ -406,7 +406,7 @@ le [registre](../architecture/risks/register.md) :
 2. **DT-13** — la duplication CI sur la PR de promotion. Coût mesuré et accepté ; la réduction étudiée le 15/09
    n'est pas livrée, parce que son mécanisme n'existe pas et que le point incertain ne s'observe qu'après fusion.
    À rouvrir si la cadence de `develop` augmente nettement.
-3. **DT-16** — les quatre routes d'extension et le décodeur du serveur. Livrée en #327 ; **close à sa fusion**.
+3. **DT-16** — les quatre routes d'extension et le décodeur du serveur. Livrée en #327 et **close** (fusion `ab3aef01`).
    Ce qui reste dupliqué — l'écriture de leur enveloppe de réponse — n'est pas une dette nommée faute de décision.
 
 Et une observation sans action assumée : les 17 classes au-dessus de 400 lignes. Elle se rouvre pour une raison
