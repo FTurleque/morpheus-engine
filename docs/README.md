@@ -61,6 +61,7 @@ Baseline technique courante : Java 21, Maven Wrapper 3.9.16, SQLite JDBC 3.53.4.
 
 - [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global et priorités post-D2 ;
 - [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité documentaire courante ;
+- [`audits/README.md`](audits/README.md) — audits datés, relevés jamais réécrits ;
 - [`roadmap/D2_EXECUTION.md`](roadmap/D2_EXECUTION.md) — plan historique D2 ;
 - [`validation/VALIDATION_D2.md`](validation/VALIDATION_D2.md) — preuve historique D2, complétée par les sorties exact-head publiées sur la PR #121 ;
 - [`validation/VALIDATION_R3.md`](validation/VALIDATION_R3.md) — preuve de publication 1.2.0 ;
