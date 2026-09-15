@@ -472,8 +472,7 @@ class D2RepositoryHardeningArchitectureTest {
         List<String> boundaries = List.of(
                 "MorpheusHttpRequestDecoder.java",
                 "MorpheusQueryHttpRoutes.java",
-                "MorpheusPolicyHttpRoutes.java",
-                "MorpheusPolicyManagementHttpRoutes.java");
+                "MorpheusPolicyHttpRoutes.java");
         for (String boundary : boundaries) {
             String content = Files.readString(api.resolve(boundary));
             assertTrue(content.contains("JsonMediaType.isJson("),

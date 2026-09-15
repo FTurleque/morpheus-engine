@@ -78,10 +78,10 @@ class HttpRoutesTransportBoundaryArchitectureTest {
             "MorpheusProjectSyncHttpRoutes",
             "MorpheusRequirementsHttpRoutes");
     private static final List<String> ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE = List.of(
+            "MorpheusPolicyManagementHttpRoutes",
             "MorpheusReasoningHttpRoutes");
     private static final List<String> ROUTERS_WITH_THEIR_OWN_MAPPER = List.of(
             "MorpheusPolicyHttpRoutes",
-            "MorpheusPolicyManagementHttpRoutes",
             "MorpheusQueryHttpRoutes");
 
     private static final String REQUEST_DECODER = API_PACKAGE + ".MorpheusHttpRequestDecoder";

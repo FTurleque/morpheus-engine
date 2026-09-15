@@ -37,13 +37,13 @@ final class MorpheusPolicyHttpRoutes {
         service = new MorpheusPolicyApiService(databasePath);
     }
 
-    static void register(HttpServer server, Path databasePath) {
+    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder) {
         Objects.requireNonNull(server, "server");
         MorpheusPolicyHttpRoutes routes = new MorpheusPolicyHttpRoutes(databasePath);
         server.createContext(PACK_CONTEXT, routes::handlePacks);
         server.createContext(POLICY_CONTEXT, routes::handlePolicies);
         server.createContext(OVERRIDE_CONTEXT, routes::handleOverrides);
-        MorpheusPolicyManagementHttpRoutes.register(server, databasePath);
+        MorpheusPolicyManagementHttpRoutes.register(server, databasePath, requestDecoder);
     }
 
     private void handlePacks(HttpExchange exchange) throws IOException {
