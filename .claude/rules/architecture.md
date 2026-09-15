@@ -86,8 +86,12 @@ famille entière :
 - les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, `MorpheusHttpResponseWriter`,
   `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
   ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes` ;
-- la frontière transport/JSON se règle par capacité, routeurs sans corps d'un côté, routeurs à corps de
-  l'autre (DT-15 du registre des risques) ;
+- la frontière transport/JSON se règle par capacité dans `HttpRoutesTransportBoundaryArchitectureTest` —
+  routeurs sans corps, routeurs lisant leur corps par `MorpheusHttpRequestDecoder`, routeurs à `JsonMapper`
+  propre —, chaque groupe **listé par nom** : un nouveau routeur est refusé tant que personne ne l'a classé.
+  Pour les routeurs à mapper propre la règle porte sur la configuration (les deux features de désérialisation
+  stricte), pas sur un interdit. `MorpheusHttpServer` n'est la frontière d'aucun groupe : ne l'interdire nulle
+  part (constante inlinée pour les uns, records imbriqués pour les autres) ;
 - les assertions visant des cibles sans famille (services, plomberie `LocalHttp*`, serveur remote) **ne
   migrent pas**.
 

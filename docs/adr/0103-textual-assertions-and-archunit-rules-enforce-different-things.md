@@ -308,6 +308,15 @@ Jackson, et la règle de package corrige en passant le faux positif de `contains
 `MorpheusHttpServer`. Il n'est pas livré avec le groupe 1 — une PR par groupe, chacune avec ses preuves — et il
 est suivi comme **DT-15** dans le registre des risques, pour ne pas redevenir un mandat implicite.
 
+**Livré le 15/09/2026, sur une partition corrigée par la mesure.** L'établissement littéral par littéral a
+montré que les neuf routeurs à corps forment deux groupes — cinq lisent leur corps par
+`MorpheusHttpRequestDecoder` sans jamais toucher Jackson, quatre (`Policy`, `PolicyManagement`, `Query`,
+`Reasoning`) construisent leur propre `JsonMapper` —, si bien que `HttpRoutesTransportBoundaryArchitectureTest`
+livre un découpage 8/5/4 où la règle du dernier groupe exige la configuration stricte du mapper au lieu d'interdire
+une dépendance. `MorpheusHttpServer` n'y est la frontière d'aucun groupe, quatre routeurs n'en lisant qu'une
+constante inlinée et deux en décodant des records imbriqués ; le détail et les violations exécutées sont dans la
+clôture de DT-15 du registre des risques.
+
 ### Groupe 3 — les cibles sans famille : non
 
 Les 110 assertions des 17 autres classes visent des cibles uniques ou presque — `QualityReportService`,
