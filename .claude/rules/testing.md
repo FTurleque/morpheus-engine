@@ -107,9 +107,12 @@ Voir `rules/meta.md`.
 - Vérifier la parité de persistance quand un store change : les tests `*PersistenceParityTest`
   exigent un comportement identique entre `store-memory` et `store-sqlite`
 - Construire `morpheus-provider-reference` **avant** les tests d'architecture — M22 charge son JAR depuis `target/`
+- Tester un cas d'échec par `assertThrows` **et** une assertion sur le message ou le code de rejet — un échec
+  pour une autre raison ne doit pas faire passer le test
 
 ## JAMAIS
 
+- Jamais de champ `static` mutable partagé entre tests
 - Jamais affaiblir un ratchet de coverage ni un budget de performance
 - Jamais mocker SQLite — utiliser le store mémoire
 - Jamais JUnit 4 (`org.junit.Test`, `@RunWith`, `@Rule`)
