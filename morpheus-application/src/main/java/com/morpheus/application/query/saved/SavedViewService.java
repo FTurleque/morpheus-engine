@@ -80,7 +80,8 @@ public final class SavedViewService {
             throw new IllegalArgumentException("saved view scope is immutable");
         }
         SavedViewDefinition replacement = new SavedViewDefinition(
-                current.id(), name, query, expectedRevision + 1, current.status(), current.createdAt(), clock.instant());
+                current.id(), name, query, expectedRevision + 1, current.status(), current.createdAt(),
+                revisionTime(current));
         return store.compareAndSet(id, expectedRevision, replacement, version(replacement));
     }
 
@@ -89,7 +90,7 @@ public final class SavedViewService {
         requireActive(current);
         SavedViewDefinition replacement = new SavedViewDefinition(
                 current.id(), current.name(), current.query(), expectedRevision + 1,
-                SavedViewStatus.ARCHIVED, current.createdAt(), clock.instant());
+                SavedViewStatus.ARCHIVED, current.createdAt(), revisionTime(current));
         return store.compareAndSet(id, expectedRevision, replacement, version(replacement));
     }
 
@@ -97,6 +98,15 @@ public final class SavedViewService {
         SavedViewDefinition definition = get(id);
         requireActive(definition);
         return execution.execute(definition.query());
+    }
+
+    /**
+     * The wall clock can step backwards (NTP correction, VM resume); a valid CAS write must not be refused for it,
+     * so a revision is stamped no earlier than the revision it replaces.
+     */
+    private Instant revisionTime(SavedViewDefinition current) {
+        Instant now = clock.instant();
+        return now.isBefore(current.updatedAt()) ? current.updatedAt() : now;
     }
 
     private SavedViewVersion version(SavedViewDefinition definition) {
