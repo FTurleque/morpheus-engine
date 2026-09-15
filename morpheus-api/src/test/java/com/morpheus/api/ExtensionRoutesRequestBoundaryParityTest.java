@@ -17,13 +17,16 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * The request-boundary failures of the four extension routers -- query, policy, policy management, reasoning --
- * pinned byte for byte: status, {@code Content-Type}, {@code Allow} and the whole error envelope.
+ * The failures of the four extension routers -- query, policy, policy management, reasoning -- pinned byte for
+ * byte: status, {@code Content-Type}, {@code Allow} and the whole error envelope.
  *
  * <p>These routers registered their own HTTP contexts and carried their own copy of the request boundary: a
  * {@code JsonMapper}, a body reader, a private failure type. The values below were captured from that code on
  * 15/09/2026, before it moved onto {@code MorpheusHttpRequestDecoder}, so they are the contract a client already
  * observes. A different message, code or status after the move is a regression, not a refinement.</p>
+ *
+ * <p>The private failure type carried routing, method and query-string refusals too, not only body refusals, so
+ * those are pinned here as well: they changed exception type in the move just as the body failures did.</p>
  */
 class ExtensionRoutesRequestBoundaryParityTest {
     private static final String OVERSIZED_JSON = "{\"x\":\"" + "a".repeat(MorpheusHttpServer.MAX_REQUEST_BODY_BYTES) + "\"}";
@@ -49,6 +52,21 @@ class ExtensionRoutesRequestBoundaryParityTest {
                 "request body must be empty"));
         cases.add(new Case("DELETE", "/saved-views", null, null, 405, "GET, POST", "METHOD_NOT_ALLOWED",
                 "saved-views supports GET and POST"));
+        cases.add(new Case("POST", execute + "?x=1", "application/json", "{}", 400, null, "BAD_REQUEST",
+                "query parameters are not supported on this route"));
+        cases.add(failure("POST", "/queries/other", 404, null, "NOT_FOUND", "unknown API route"));
+        cases.add(failure("DELETE", "/saved-views/view-1", 405, "GET, PUT", "METHOD_NOT_ALLOWED",
+                "saved view supports GET and PUT"));
+        cases.add(failure("GET", "/saved-views/a/b/c", 404, null, "NOT_FOUND", "unknown saved-view route"));
+        cases.add(failure("GET", "/saved-views/view-1/unknown", 404, null, "NOT_FOUND",
+                "unknown saved-view action: unknown"));
+        cases.add(failure("GET", "/saved-views//versions", 404, null, "NOT_FOUND", "invalid API path"));
+        cases.addAll(queryParameterCases("/saved-views", "invalid or duplicate query parameter: scopeKind",
+                "query parameter is required: scopeId"));
+        cases.add(failure("POST", "/saved-views/view-1/execute", 400, null, "BAD_REQUEST",
+                "Invalid UUID string: view-1"));
+        cases.add(new Case("POST", "/saved-views/view-1/archive", "application/json", "{\"expectedRevision\":1}", 400,
+                null, "BAD_REQUEST", "Invalid UUID string: view-1"));
         assertBoundary("query.db", cases);
     }
 
@@ -67,6 +85,24 @@ class ExtensionRoutesRequestBoundaryParityTest {
                 "policy-packs supports GET and POST"));
         cases.add(new Case("GET", "/policies/evaluate", null, null, 405, "POST", "METHOD_NOT_ALLOWED",
                 "expected HTTP POST but received GET"));
+        cases.add(failure("DELETE", "/policy-packs/pack-1", 405, "GET, PUT", "METHOD_NOT_ALLOWED",
+                "policy pack supports GET and PUT"));
+        cases.add(failure("GET", "/policy-packs/pack-1/unknown", 404, null, "NOT_FOUND",
+                "unknown policy-pack action: unknown"));
+        cases.add(failure("GET", "/policy-packs/pack-1/a/b", 404, null, "NOT_FOUND", "unknown policy-pack route"));
+        cases.add(new Case("POST", "/policies/a/b", "application/json", "{}", 404, null, "NOT_FOUND",
+                "unknown policies route"));
+        cases.add(new Case("POST", "/policies/unknown", "application/json", "{}", 404, null, "NOT_FOUND",
+                "unknown policies action"));
+        cases.add(new Case("POST", packs + "?x=1", "application/json", "{}", 400, null, "BAD_REQUEST",
+                "query parameters are not supported on this route"));
+        cases.add(failure("GET", "/policy-packs//versions", 404, null, "NOT_FOUND", "invalid API path"));
+        cases.addAll(queryParameterCases("/policy-overrides", "invalid or duplicate query parameter",
+                "missing query parameter: scopeId"));
+        cases.add(failure("GET", "/policy-packs/pack-1", 400, null, "BAD_REQUEST", "Invalid UUID string: pack-1"));
+        cases.add(new Case("POST", "/policy-packs/pack-1/deactivate", "application/json",
+                "{\"scopeKind\":\"PROJECT\",\"scopeId\":\"x\",\"expectedRevision\":1,\"actor\":\"a\",\"reason\":\"r\"}",
+                400, null, "BAD_REQUEST", "Invalid UUID string: x"));
         assertBoundary("policy.db", cases);
     }
 
@@ -86,6 +122,11 @@ class ExtensionRoutesRequestBoundaryParityTest {
                 "request body must be empty"));
         cases.add(new Case("POST", "/policy-activations", null, null, 405, "GET", "METHOD_NOT_ALLOWED",
                 "expected HTTP GET but received POST"));
+        cases.add(failure("GET", "/policy-activations/x", 404, null, "NOT_FOUND", "unknown API route"));
+        cases.add(new Case("POST", remove + "?x=1", "application/json", "{}", 400, null, "BAD_REQUEST",
+                "query parameters are not supported on this route"));
+        cases.addAll(queryParameterCases("/policy-activations", "invalid or duplicate query parameter: scopeKind",
+                "query parameter is required: scopeId"));
         assertBoundary("policy-management.db", cases);
     }
 
@@ -105,7 +146,23 @@ class ExtensionRoutesRequestBoundaryParityTest {
                 "expected HTTP GET but received POST"));
         cases.add(new Case("GET", "/reasoning/adapters", "application/json", "{}", 400, null, "BAD_REQUEST",
                 "request body must be empty"));
+        cases.add(failure("GET", "/reasoning/other", 404, null, "NOT_FOUND", "unknown reasoning route"));
+        cases.add(failure("GET", "/reasoning/adapters?x=1", 400, null, "BAD_REQUEST",
+                "query parameters are not supported on reasoning routes"));
         assertBoundary("reasoning.db", cases);
+    }
+
+    /** A request without a body whose failure comes from routing, a method check or the service behind it. */
+    private static Case failure(String method, String path, int status, String allow, String code, String message) {
+        return new Case(method, path, null, null, status, allow, code, message);
+    }
+
+    /** The three ways a GET listing refuses its query string: a repeated key, a missing key, an unknown key. */
+    private static List<Case> queryParameterCases(String path, String duplicateMessage, String missingMessage) {
+        return List.of(
+                failure("GET", path + "?scopeKind=a&scopeKind=b", 400, null, "BAD_REQUEST", duplicateMessage),
+                failure("GET", path + "?scopeKind=PROJECT", 400, null, "BAD_REQUEST", missingMessage),
+                failure("GET", path + "?foo=1", 400, null, "BAD_REQUEST", "unknown query parameter: foo"));
     }
 
     /** The failures every JSON body route shares, in the order the boundary checks them: presence, type, syntax. */
