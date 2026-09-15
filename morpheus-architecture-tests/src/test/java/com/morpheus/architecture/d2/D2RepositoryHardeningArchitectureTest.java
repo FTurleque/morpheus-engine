@@ -133,6 +133,16 @@ class D2RepositoryHardeningArchitectureTest {
                 "codeql.yml must pin CodeQL init/analyze actions by immutable SHA");
         assertFalse(codeql.contains("uses: github/codeql-action/init@v"));
         assertFalse(codeql.contains("uses: github/codeql-action/analyze@v"));
+        // CodeQL refuses an analyze step running another version than init ("Loaded a configuration file for
+        // version '4.38.0', but running version '4.37.9'"), so the two pins move together or the job fails.
+        assertEquals(1L, Pattern.compile("uses: github/codeql-action/(?:init|analyze)@([0-9a-f]{40}) # (v[0-9.]+)")
+                        .matcher(codeql).results()
+                        .map(pin -> pin.group(1) + " " + pin.group(2))
+                        .distinct()
+                        .count(),
+                "codeql.yml must pin init and analyze to the same CodeQL action commit");
+        assertTrue(Files.readString(root.resolve(".github/dependabot.yml")).contains("- \"github/codeql-action*\""),
+                "dependabot must bump the CodeQL action components in one group, or each bump fails on its own");
     }
 
     /**
