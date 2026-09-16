@@ -86,12 +86,24 @@ famille entière :
 - les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, `MorpheusHttpResponseWriter`,
   `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
   ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes` ;
-- la frontière transport/JSON se règle par capacité dans `HttpRoutesTransportBoundaryArchitectureTest` —
-  routeurs sans corps, routeurs lisant leur corps par `MorpheusHttpRequestDecoder`, routeurs à `JsonMapper`
-  propre —, chaque groupe **listé par nom** : un nouveau routeur est refusé tant que personne ne l'a classé.
-  Pour les routeurs à mapper propre la règle porte sur la configuration (les deux features de désérialisation
-  stricte), pas sur un interdit. `MorpheusHttpServer` n'est la frontière d'aucun groupe : ne l'interdire nulle
-  part (constante inlinée pour les uns, records imbriqués pour les autres) ;
+- la frontière transport/JSON se règle par capacité dans `HttpRoutesTransportBoundaryArchitectureTest`, en
+  **trois groupes listés par nom** — `ROUTERS_WITHOUT_A_BODY`, `ROUTERS_THROUGH_THE_SHARED_DECODER`,
+  `ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE` : un nouveau routeur est refusé tant que personne
+  ne l'a classé, et `theClassificationRefusesAnUnclassifiedADoublyClassifiedAndAVanishedRouter` le prouve.
+  Le troisième groupe porte une **règle de dépendance**, pas une règle de configuration : ces routeurs
+  *doivent* dépendre de `MorpheusHttpRequestDecoder` et ne dépendent ni de `tools.jackson..` ni
+  d'`HttpRequestBodyReader` (le volet Jackson garde son doublon textuel, la classe déclarant des constantes
+  inlinables ; le décodeur et le reader n'en déclarent aucune, donc la règle seule suffit).
+  La règle de configuration existe toujours mais elle est **transverse, pas liée à un groupe** :
+  `everyApiJsonMapperIsStrictAboutUnknownPropertiesAndTrailingTokens` exige les deux features de
+  désérialisation stricte de **tout** `JsonMapper.builder()` de `morpheus-api` — depuis DT-16 elle ne trouve
+  plus qu'un seul site, le décodeur. `MorpheusHttpServer` n'est la frontière d'aucun groupe : ne l'interdire
+  nulle part (constante inlinée pour les uns, records imbriqués pour les autres) ;
+
+  > Rien ne compare cette description à la classe qu'elle décrit. Ces lignes ont menti d'une révision entière
+  > après DT-16 (constat O-3 de l'audit du 16/09/2026) : elles annonçaient un groupe « à `JsonMapper` propre »
+  > supprimé depuis, et une règle de configuration là où c'est une règle de dépendance. **Relire la classe avant
+  > de modifier ce paragraphe** — les noms de constantes ci-dessus sont la seule prise fiable.
 - les assertions visant des cibles sans famille (services, plomberie `LocalHttp*`, serveur remote) **ne
   migrent pas**.
 
