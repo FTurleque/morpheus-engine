@@ -1,9 +1,10 @@
 package com.morpheus.api;
 
+import com.morpheus.api.MorpheusHttpServer.ApiError;
+import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
+import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
 import com.morpheus.application.policy.PolicyConflictException;
-import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -25,21 +26,24 @@ final class MorpheusPolicyHttpRoutes {
     private static final String OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-overrides";
 
     private final MorpheusPolicyApiService service;
-    private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusHttpResponseWriter responseWriter;
 
-    private MorpheusPolicyHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder) {
+    private MorpheusPolicyHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+            MorpheusHttpResponseWriter responseWriter) {
         service = new MorpheusPolicyApiService(databasePath);
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
+        this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
-    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder) {
+    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+            MorpheusHttpResponseWriter responseWriter) {
         Objects.requireNonNull(server, "server");
-        MorpheusPolicyHttpRoutes routes = new MorpheusPolicyHttpRoutes(databasePath, requestDecoder);
+        MorpheusPolicyHttpRoutes routes = new MorpheusPolicyHttpRoutes(databasePath, requestDecoder, responseWriter);
         server.createContext(PACK_CONTEXT, routes::handlePacks);
         server.createContext(POLICY_CONTEXT, routes::handlePolicies);
         server.createContext(OVERRIDE_CONTEXT, routes::handleOverrides);
-        MorpheusPolicyManagementHttpRoutes.register(server, databasePath, requestDecoder);
+        MorpheusPolicyManagementHttpRoutes.register(server, databasePath, requestDecoder, responseWriter);
     }
 
     private void handlePacks(HttpExchange exchange) throws IOException {
@@ -138,18 +142,18 @@ final class MorpheusPolicyHttpRoutes {
     private void handle(HttpExchange exchange, Handler handler) throws IOException {
         try {
             Response response = handler.route();
-            send(exchange, response.status(), new ApiSuccess("v1", response.data()));
+            responseWriter.send(exchange, response.status(), new ApiSuccess("v1", response.data()));
         } catch (PolicyConflictException failure) {
-            send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) exchange.getResponseHeaders().set("Allow", allowed(exchange.getRequestURI().getPath()));
-            send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
+            responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
-            send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
         } catch (KnowledgeStoreException | IllegalStateException failure) {
-            send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
         } catch (RuntimeException failure) {
-            send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
+            responseWriter.send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
             exchange.close();
         }
@@ -180,16 +184,6 @@ final class MorpheusPolicyHttpRoutes {
         return List.copyOf(result);
     }
 
-    private void send(HttpExchange exchange, int status, Object body) throws IOException {
-        byte[] bytes = serializer.toUtf8(body);
-        Headers headers = exchange.getResponseHeaders();
-        headers.set("Content-Type", "application/json; charset=utf-8");
-        headers.set("Cache-Control", "no-store");
-        headers.set("X-Content-Type-Options", "nosniff");
-        exchange.sendResponseHeaders(status, bytes.length);
-        exchange.getResponseBody().write(bytes);
-    }
-
     private String allowed(String path) {
         if (path.equals(PACK_CONTEXT)) return "GET, POST";
         if (path.startsWith(PACK_CONTEXT + "/") && suffixSegments(path, PACK_CONTEXT).size() == 1) return "GET, PUT";
@@ -203,9 +197,6 @@ final class MorpheusPolicyHttpRoutes {
     }
 
     private record Response(int status, Object data) {}
-    private record ApiSuccess(String apiVersion, Object data) {}
-    private record ApiError(String code, String message, Map<String, Object> details) {}
-    private record ApiErrorEnvelope(String apiVersion, ApiError error) {}
 
     @FunctionalInterface
     private interface Handler { Response route(); }

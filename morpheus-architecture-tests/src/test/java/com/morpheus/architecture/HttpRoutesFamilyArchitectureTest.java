@@ -16,6 +16,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import static com.tngtech.archunit.core.domain.JavaCall.Predicates.target;
+import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.name;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -75,23 +77,44 @@ class HttpRoutesFamilyArchitectureTest {
     }
 
     /**
-     * {@code MorpheusHttpResponseWriter} declares one compile-time constant, {@code JSON_CONTENT_TYPE}. It is private
-     * today and shares a package with every router, so widening it is a one-word change: the text stays beside the
-     * rule.
+     * No router pushes a response onto the exchange itself: {@code sendResponseHeaders} is called in
+     * {@code MorpheusHttpResponseWriter} and nowhere else in the family.
      *
-     * <p>Broken before acceptance, 11/09/2026. E3, {@code MorpheusHttpResponseWriter.class} written into
-     * {@code MorpheusReasoningHttpRoutes}: this method failed, and it alone.</p>
+     * <p>Until DT-17 (16/09/2026) this rule banned the <em>writer</em> rather than the mechanics: no router could
+     * depend on {@code MorpheusHttpResponseWriter}. That held for the thirteen routers the server holds as fields,
+     * which return a {@code MorpheusHttpRouteResponse} and never touch the exchange. For the four that register their
+     * own HTTP context it was worse than untrue -- those four always wrote their own response, through a private copy
+     * of the writer's eight lines, and the only way to satisfy a ban on the shared writer was to keep the copy. The
+     * rule named the right intention and enforced its opposite.</p>
+     *
+     * <p>Banning the mechanics states what the method was always called: a router does not write a response itself.
+     * Delegating to the server's writer is not writing it. The thirteen keep a stricter guard than this one -- each
+     * carries {@code assertFalse(routes.contains("MorpheusHttpResponseWriter"))} in its own suite, and
+     * {@code HttpRoutesTransportBoundaryArchitectureTest} bans the writer over both groups the server holds -- so
+     * nothing that was true before is no longer checked.</p>
+     *
+     * <p>Rule and text both. A call is not a compile-time constant, so javac inlines nothing and the rule is the
+     * load-bearing half; the text scan reaches the modules the ArchUnit classpath excludes, and its refusal is
+     * replayed on every build by {@link #theSourceScanNamesTheRouterThatMentionsTheLiteralAndNoOther}.</p>
+     *
+     * <p>Broken before acceptance, 16/09/2026: {@code exchange.sendResponseHeaders(200, 0)} written into
+     * {@code MorpheusChangesHttpRoutes} failed this method and this method alone -- the rule half reports it, and
+     * short-circuits before the text half runs. The converse was measured in the same session: a
+     * {@code MorpheusHttpResponseWriter} field added to {@code MorpheusRootHttpRoutes} left this method passing and
+     * failed {@code HttpRoutesTransportBoundaryArchitectureTest} instead. The two are complementary, not redundant --
+     * this one bans the call, that one bans the dependency, and a router can carry either without the other.</p>
      */
     @Test
     void noRouterWritesTheResponseItself() throws IOException {
         noClasses()
                 .that().haveSimpleNameEndingWith(ROUTER_SUFFIX)
-                .should().dependOnClassesThat().haveSimpleName("MorpheusHttpResponseWriter")
-                .because("a router decides a route and returns a MorpheusHttpRouteResponse; encoding it onto the "
-                        + "exchange belongs to the server")
+                .should().callMethodWhere(target(name("sendResponseHeaders")))
+                .because("a router decides a route and hands the outcome on; setting the response headers and "
+                        + "pushing the bytes belongs to MorpheusHttpResponseWriter, which owns them for the whole "
+                        + "local facade")
                 .check(classes);
 
-        assertNoRouterSourceMentions("MorpheusHttpResponseWriter");
+        assertNoRouterSourceMentions("sendResponseHeaders");
     }
 
     /**

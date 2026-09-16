@@ -1,6 +1,6 @@
 # ADR-0103 — Assertion textuelle et règle ArchUnit n'enforcent pas la même chose
 
-- Statut : **Acceptée — pilote livré ; généralisation décidée le 11/09/2026 par groupe de capacité (voir l'amendement)**
+- Statut : **Acceptée — pilote livré ; généralisation décidée le 11/09/2026 par groupe de capacité ; cible d'un interdit famille-large précisée le 16/09/2026 (voir les deux amendements)**
 - Date : 10 septembre 2026
 - Dépend de : ADR-0078 et ADR-0093 (sémantique tri-state), ADR-0085 (déterminisme des gates)
 - Portée : `morpheus-architecture-tests` — critère de choix du mécanisme d'enforcement
@@ -330,3 +330,45 @@ les bootstraps et le serveur remote. **Elles ne migrent pas.**
 
 Ce refus se rouvre sur un **fait** — une dépendance réelle qu'une de ces assertions textuelles a manquée —, pas
 sur l'impression que la famille est répétitive.
+
+## Amendement du 16 septembre 2026 — un interdit famille-large doit être vrai de chaque membre, pas seulement juste d'intention
+
+L'amendement précédent tranche *où* énoncer une règle : par groupe de capacité, jamais par famille entière. Il ne
+disait pas comment reconnaître qu'un interdit déjà écrit sur une famille n'y a jamais eu sa place. DT-17 en a
+fourni le cas, et il est plus instructif qu'une erreur de portée ordinaire.
+
+`HttpRoutesFamilyArchitectureTest#noRouterWritesTheResponseItself` interdisait à tout `*HttpRoutes` de dépendre de
+`MorpheusHttpResponseWriter`, au motif qu'« un routeur retourne un `MorpheusHttpRouteResponse` ; l'encodage
+appartient au serveur ». L'intention est juste et la formulation était verte depuis le 11/09/2026.
+
+Elle était pourtant fausse de quatre des dix-sept routeurs. Les treize que le serveur porte en champ retournent
+bien une valeur et ne touchent jamais l'échange. Les quatre qui enregistrent leur propre contexte HTTP ont
+toujours écrit leur réponse eux-mêmes — ils n'avaient pas d'autre interlocuteur. Pour eux, **le seul moyen de
+satisfaire un interdit portant sur le writer partagé était d'en garder une copie privée** : trois méthodes d'envoi
+identiques octet pour octet à celle du writer, plus douze records d'enveloppe redéclarés en `private`. La règle
+nommait la bonne intention et **entretenait exactement la duplication qu'elle était censée empêcher**.
+
+Le défaut n'est pas la portée, c'est la **cible**. L'interdit visait le *collaborateur* — un type — là où
+l'intention visait la *mécanique* : écrire soi-même sur l'échange. Depuis DT-17 la règle interdit l'appel
+`sendResponseHeaders`, qui est vrai des dix-sept et dit ce que le nom de la méthode annonçait déjà : déléguer au
+writer du serveur n'est pas écrire sa réponse. Le writer, lui, est devenu une propriété **de groupe** — exigé des
+quatre, interdit des deux autres groupes.
+
+### Ce qu'il faut en retenir avant d'écrire un interdit sur une famille
+
+1. **Un interdit vert n'est pas un interdit vrai.** Celui-ci passait parce que les quatre routeurs concernés
+   avaient chacun leur duplicata ; c'est la duplication qui le rendait vert. Un interdit qu'un membre ne peut
+   satisfaire qu'en dupliquant quelque chose est un interdit mal ciblé — la question à se poser est *comment* ce
+   membre le satisfait, pas *s'il* le satisfait.
+2. **Interdire une mécanique, pas un collaborateur**, quand l'intention est « X ne fait pas cette chose
+   lui-même ». Un collaborateur partagé est le moyen normal de ne pas faire une chose soi-même ; l'interdire
+   force chacun à se la refaire.
+3. **Une propriété qui s'inverse d'un sous-groupe à l'autre n'est pas une propriété de famille.** Le writer est
+   exigé des uns et interdit des autres : aucune règle famille-large ne peut l'exprimer, et essayer produit soit
+   un faux, soit un interdit que la duplication satisfait.
+
+Le contrôle correspondant s'ajoute à la section 4 : avant d'accepter une règle **famille-large**, vérifier non
+seulement qu'elle est verte, mais **par quel moyen chaque membre la rend verte**. Casser la règle reste
+obligatoire ; ici la cassure d'origine (`MorpheusHttpResponseWriter.class` écrit dans
+`MorpheusReasoningHttpRoutes`, E3 du 11/09/2026) avait bien échoué — elle prouvait que la règle mordait, pas
+qu'elle visait juste.

@@ -182,6 +182,10 @@ public final class MorpheusHttpServer implements AutoCloseable {
         return requestDecoder;
     }
 
+    MorpheusHttpResponseWriter responseWriter() {
+        return responseWriter;
+    }
+
     @Override
     public void close() {
         ExhaustiveShutdown.releaseAll(
