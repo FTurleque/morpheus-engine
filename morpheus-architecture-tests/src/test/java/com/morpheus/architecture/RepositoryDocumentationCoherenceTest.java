@@ -341,10 +341,17 @@ class RepositoryDocumentationCoherenceTest {
         //         Linux    85.7263% / 85.7367% lines,  68.5246% / 68.5437% branches
         // Each pair stays below its own cap rather than at it: two runs of one commit differed by two covered
         // lines, so pinning a ratchet to the measurement would make ordinary variation fail the build.
+        //
+        // 16/09/2026: the per-module pair is raised 0.620/0.535 -> 0.640/0.560 inside the cap requalified on
+        // 15/09 (0.645143 / 0.562964). No new measurement was taken and the cap is untouched -- raising a ratchet
+        // within an already-qualified cap is a decision, not a measurement. Remaining headroom on this scale:
+        // 146 lines and 30 branches, against a cross-platform spread of 24 lines and 11 branches. The branch key
+        // is the tight one (2.8x the spread, against 6.1x for lines); treat the two keys separately next time.
+        // The aggregate pair is deliberately NOT touched: it measures another population and has its own cap.
         assertEquals("1550", ratchets.get("testsMinimum"));
         assertEquals("385", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.620", ratchets.get("perModuleLineCoverageMinimum"));
-        assertEquals("0.535", ratchets.get("perModuleBranchCoverageMinimum"));
+        assertEquals("0.640", ratchets.get("perModuleLineCoverageMinimum"));
+        assertEquals("0.560", ratchets.get("perModuleBranchCoverageMinimum"));
         assertEquals("0.850", ratchets.get("aggregateLineCoverageMinimum"));
         assertEquals("0.680", ratchets.get("aggregateBranchCoverageMinimum"));
 

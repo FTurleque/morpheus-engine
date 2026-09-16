@@ -84,8 +84,8 @@ diff coverage PR lines           >= 80%
 diff coverage PR branches        >= 70%
 aggregate line ratchet           >= 85.0%
 aggregate branch ratchet         >= 68.0%
-per-module line ratchet          >= 62.0%
-per-module branch ratchet        >= 53.5%
+per-module line ratchet          >= 64.0%
+per-module branch ratchet        >= 56.0%
 Surefire ratchet                 >= 1550
 architecture ratchet             >= 385
 SBOM / provenance                required

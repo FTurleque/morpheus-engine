@@ -16,8 +16,8 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (08/09/2026
 | `architectureTestsMinimum` | 385 |
 | `aggregateLineCoverageMinimum` | 0.850 (85.0%) |
 | `aggregateBranchCoverageMinimum` | 0.680 (68.0%) |
-| `perModuleLineCoverageMinimum` | 0.620 (62.0%) |
-| `perModuleBranchCoverageMinimum` | 0.535 (53.5%) |
+| `perModuleLineCoverageMinimum` | 0.640 (64.0%) |
+| `perModuleBranchCoverageMinimum` | 0.560 (56.0%) |
 
 ## Deux échelles de couverture, deux jeux de seuils
 
@@ -87,9 +87,11 @@ depuis le 09/09.
 
 Le **ratchet** se place délibérément *sous* le plafond, pas dessus : les deux runs Linux de ce SHA ont
 différé de 10 lignes et 5 branches couvertes, les deux plateformes de 24 lignes et 11 branches, donc un
-ratchet collé à la mesure transformerait une variation ordinaire en échec de build. `0.620 / 0.535` laisse
-714 lignes et 286 branches de marge **sur l'échelle par module** — bien plus que la variation : le relever
-dans ce plafond est possible et reste une décision distincte. L'échelle agrégée compte une autre population
+ratchet collé à la mesure transformerait une variation ordinaire en échec de build. `0.640 / 0.560`, relevé le 16/09/2026 depuis
+`0.620 / 0.535`, laisse **146 lignes et 30 branches** de marge sur l'échelle par module — soit 6,1 fois la
+variation inter-plateforme en lignes, mais seulement 2,8 fois en branches. **C'est la branche qui est serrée,
+pas la ligne** : un relèvement ultérieur dans ce plafond doit traiter les deux clés séparément, et rien
+n'oblige à les faire bouger ensemble (ADR-0104 §4 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
 de lignes et sa marge se lit dans `AggregateCoverageGateTest`.
 
 Une session qui ne dispose que d'une plateforme ne peut relever que le ratchet, dans la marge

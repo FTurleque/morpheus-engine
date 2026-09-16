@@ -129,8 +129,8 @@ Surefire ratchet           >= 1550
 Architecture ratchet       >= 385
 Aggregate line ratchet     >= 85.0%
 Aggregate branch ratchet   >= 68.0%
-Per-module line ratchet    >= 62.0%
-Per-module branch ratchet  >= 53.5%
+Per-module line ratchet    >= 64.0%
+Per-module branch ratchet  >= 56.0%
 PR changed line coverage   >= 80%
 PR changed branch coverage >= 70%
 JaCoCo canonical report    morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml
