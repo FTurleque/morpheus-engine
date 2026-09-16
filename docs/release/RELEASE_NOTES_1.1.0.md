@@ -1,10 +1,25 @@
 # MORPHEUS 1.1.0 — Notes de version
 
-Statut : **CANDIDATE — NON PUBLIÉE**
+Statut : **PUBLISHED / STABLE / SUPERSEDED BY 1.2.0**
 
-Date de préparation : 30 juillet 2026
+Publication : 30 juillet 2026
 
-La version 1.1.0 consolide dans une release stable les évolutions M21 à M27 développées après MORPHEUS 1.0.0. La publication reste bloquée jusqu'à la qualification exacte Windows/Linux, au merge dans `main`, au tag `v1.1.0` et aux builds exact-tag.
+La version 1.1.0 consolide dans une release stable les évolutions M21 à M27 développées après MORPHEUS 1.0.0. Elle est publiée et vérifiée ; MORPHEUS 1.2.0 lui a succédé comme version courante.
+
+## Publication vérifiée
+
+```text
+Tag                       v1.1.0
+Main merge commit         31506029ded1101f0571edeb0d79c59bbf3f68c6
+Qualified exact head      31212087ee5fab3c88b269d56f7f21402f31b683
+PR                        #114 MERGED
+Issue                     #113 CLOSED / completed
+Windows exact-head        PASS — 603 tests
+Linux/WSL exact-head      PASS — 603 tests
+GitHub Release            stable / 8 assets
+```
+
+Preuve : [`../validation/VALIDATION_R2.md`](../validation/VALIDATION_R2.md).
 
 ## Points forts
 
