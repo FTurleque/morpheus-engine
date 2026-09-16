@@ -1,6 +1,6 @@
 # Provider SDK — développer un plugin MORPHEUS
 
-Statut : **M22 candidate** — SDK API `1`.
+Statut : **M22 livré et intégré** — SDK API `1` ; ce document décrit le comportement actuel ; la preuve de qualification du jalon reste `docs/validation/VALIDATION_M22.md` (historique).
 
 MORPHEUS M22 permet de livrer un provider comme JAR externe sans modifier `morpheus-domain`, `morpheus-application` ni le launcher.
 
