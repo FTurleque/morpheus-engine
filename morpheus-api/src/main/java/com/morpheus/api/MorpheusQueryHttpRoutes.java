@@ -48,7 +48,7 @@ final class MorpheusQueryHttpRoutes {
         server.createContext(VIEW_CONTEXT, routes::handleSavedViews);
         server.createContext(EXPORT_CONTEXT, routes::handleExports);
         MorpheusPolicyHttpRoutes.register(server, databasePath, requestDecoder, responseWriter);
-        MorpheusReasoningHttpRoutes.register(server, requestDecoder);
+        MorpheusReasoningHttpRoutes.register(server, requestDecoder, responseWriter);
     }
 
     private void handleQueries(HttpExchange exchange) throws IOException {
