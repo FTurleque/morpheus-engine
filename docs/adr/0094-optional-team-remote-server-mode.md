@@ -98,6 +98,22 @@ Une base plus récente que le schéma supporté est rejetée. Une base plus anci
 
 Les identités remote, limites de concurrence, TLS et backups sont de la configuration/opérabilité. Ils ne deviennent jamais source de vérité des spécifications, snapshots, providers ou portfolios.
 
+### Identités historiques à trois champs — position tenue
+
+Les identités remote au format historique à trois champs **n'expirent pas**, et c'est un engagement de
+compatibilité, pas un défaut à résorber. Il est verrouillé par `legacyThreeFieldIdentityRemainsNonExpiring`
+(`MorpheusRemoteIdentityFileTest`), rendu visible par `server identity list` — qui expose `nonExpiring` par
+entrée et le total `nonExpiringIdentities` — et migrable sans rotation de token par
+`server identity migrate-legacy`, avec `--dry-run`, écriture atomique verrouillée, audit `EXPIRY_MIGRATED`
+et refus complet d'un lockout ADMIN. Les identités **nouvelles** exigent `--expires-at`, `never` restant un
+choix explicite et nommé.
+
+**Requalification de `DT-12` (16/09/2026).** Le registre la portait comme dette de sécurité remote alors que
+le tableau disait lui-même que retirer le format « reste une évolution explicitement incompatible, pas un
+patch 1.2.1 ». C'est donc une position, et elle est ici. **Événement de réouverture** : une version majeure
+qui assume la rupture de compatibilité, ou la constatation qu'une identité historique non expirante a servi
+à un accès non légitime — auquel cas c'est un incident, pas une dette.
+
 ## Conséquences
 
 Positives : exposition réseau explicite et fail-closed, usage équipe possible, authz séparée des capabilities métier, restauration opérable, surcharge bornée et observabilité sans télémétrie obligatoire.

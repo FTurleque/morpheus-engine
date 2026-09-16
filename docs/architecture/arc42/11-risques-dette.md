@@ -30,13 +30,17 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 
 | ID | Dette | Domaine | Priorité | Traitement |
 |----|-------|---------|----------|------------|
-| DT-04 | Aucun backend persistant alternatif à SQLite n'est implémenté | Architecture | **Faible à moyenne** | Ne pas pré-déclarer une solution ; créer un ADR seulement si un besoin réel de substitution apparaît |
-| DT-05 | Pas de distribution macOS qualifiée | Distribution | **Faible** | Décision produit préalable avant investissement packaging ; la lane smoke n'en produit aucun |
-| DT-07 | Quality Gate SonarCloud potentiellement moins strict que le gate repository sur le nouveau code | Qualité externe | **Moyenne** | Le repository impose indépendamment `>= 80%` changed-line et `>= 70%` changed-branch coverage ; vérifier le réglage SonarCloud sur sa propre plateforme |
-| DT-08 | État des alertes Dependabot / Secret Scanning non vérifiable par le connecteur | Supply chain | **Moyenne** | Vérifier/activer les réglages administrateur ; le dépôt fournit indépendamment Dependabot, OWASP Dependency-Check et CodeQL versionné |
 | DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `1550 / 385`, couverture `85,0% / 68,0%` agrégée et `62,0% / 53,5%` par module ; chaque échelle a son propre plafond qualifié et ne se relève qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
-| DT-12 | Identités remote historiques à trois champs sans expiration | Sécurité remote | **Faible à moyenne** | Compatibilité contractuelle verrouillée par test ; `server identity migrate-legacy` donne une échéance explicite sans rotation de token ; retirer le format à trois champs reste une évolution incompatible, pas un patch 1.2.1 |
+
+`DT-04` (SQLite unique backend), `DT-05` (macOS) et `DT-12` (identités historiques à trois champs) sont
+**requalifiées le 16/09/2026** : ce sont des positions tenues, pas des dettes. Elles partent respectivement vers
+[ADR-0018 §15](../../adr/0018-sqlite-initial-persistent-store.md), [§10.4 ci-contre](10-exigences-qualite.md) et
+[ADR-0094](../../adr/0094-optional-team-remote-server-mode.md), chacune avec l'événement qui la rouvrira.
+`DT-07` et `DT-08` **sortent du registre technique** le même jour : ce sont des réglages de comptes externes,
+suivis dans #154, qu'aucun commit ne ferme et qu'aucun test ne surveille — suivis ailleurs, pas réglés. Détail
+et conditions de réouverture : [`../risks/register.md`](../risks/register.md).
+
 | DT-17 | Les quatre routeurs d'extension écrivent chacun leur propre enveloppe de réponse | API HTTP | **Faible à moyenne** | Nommée le 16/09/2026 après vérification sur le code : trois des quatre méthodes d'envoi sont identiques octet pour octet à `MorpheusHttpResponseWriter.send`, et les quatre redéclarent en `private` des records d'enveloppe identiques aux records `public` de `MorpheusHttpServer`. Parité de réponse à épingler avant migration, comme DT-16 l'a fait pour la requête. Détail : [`../risks/register.md`](../risks/register.md) |
 
 `DT-03` est **éliminée le 16/09/2026** : [`10-exigences-qualite.md`](10-exigences-qualite.md) §10.3 nomme désormais les cinq gates de performance M19, leur contrat de fixture et ADR-0085, sans reproduire aucun seuil — les budgets restent portés par les constantes des gates.
