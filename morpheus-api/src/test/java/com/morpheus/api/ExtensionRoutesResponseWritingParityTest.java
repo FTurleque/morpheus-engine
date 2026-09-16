@@ -35,6 +35,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * <p>Identifiers and timestamps are generated per run, so they are normalized to {@code <uuid>} and
  * {@code <instant>}; everything else is compared literally. Normalizing them is what makes the rest comparable --
  * the envelope's shape, field order and punctuation are pinned exactly.</p>
+ *
+ * <p><strong>What is deliberately not here.</strong> Each router ends with
+ * {@code catch (RuntimeException) -> 500 INTERNAL_ERROR}, and none of those four lines is exercised. They are
+ * catch-alls for a failure no request can provoke: every exception these services raise on a reachable path is
+ * already caught by name above them. Reaching one would mean injecting a fault below the service, which would pin
+ * the behaviour of the injection rather than of the contract. Two more stay out for the same reason -- policy's and
+ * policy-management's {@code STATE_CONFLICT}, whose services validate the request before any state conflict can
+ * arise, so every attempt lands on {@code BAD_REQUEST} instead -- plus query's {@code QUERY_BUDGET_EXCEEDED}, which
+ * needs an export larger than the bounded budget. The changed-line gate is met without them; they are named here so
+ * the gap is a recorded decision rather than an oversight.</p>
  */
 class ExtensionRoutesResponseWritingParityTest {
     private static final Pattern UUID = Pattern.compile(
@@ -115,6 +125,27 @@ class ExtensionRoutesResponseWritingParityTest {
             recorded.add(expect(client, "DELETE", base + "/saved-views", null, null, 405, JSON, "GET, POST",
                     "{\"apiVersion\":\"v1\",\"error\":{\"code\":\"METHOD_NOT_ALLOWED\",\"message\":"
                             + "\"saved-views supports GET and POST\",\"details\":{}}}"));
+            recorded.add(expect(client, "POST", base + "/queries/execute", JSON,
+                    "{\"scopeKind\":\"PROJECT\",\"scopeId\":\"" + PROJECT
+                            + "\",\"query\":{\"entity\":\"change\",\"fields\":\"nope\"}}",
+                    400, JSON, null,
+                    "{\"apiVersion\":\"v1\",\"error\":{\"code\":\"QUERY_VALIDATION\",\"message\":"
+                            + "\"QUERY_FIELD_UNKNOWN at $.projection[0]: unknown field: nope\",\"details\":{}}}"));
+            recorded.add(expect(client, "PUT", base + "/saved-views/" + firstUuid(created.rawBody()), JSON,
+                    "{\"name\":\"Report2\",\"query\":{\"entity\":\"change\",\"fields\":\"id\"},"
+                            + "\"expectedRevision\":99}",
+                    409, JSON, null,
+                    "{\"apiVersion\":\"v1\",\"error\":{\"code\":\"REVISION_CONFLICT\",\"message\":"
+                            + "\"stale saved view revision: expected 99 but current is 1\",\"details\":{}}}"));
+
+            String archived = firstUuid(send(client, "POST", base + "/saved-views", JSON,
+                    "{\"name\":\"Archived\",\"scopeKind\":\"PROJECT\",\"scopeId\":\"" + PROJECT
+                            + "\",\"query\":{\"entity\":\"change\",\"fields\":\"id\"}}"));
+            send(client, "POST", base + "/saved-views/" + archived + "/archive", JSON, "{\"expectedRevision\":1}");
+            recorded.add(expect(client, "POST", base + "/saved-views/" + archived + "/execute", JSON, null,
+                    409, JSON, null,
+                    "{\"apiVersion\":\"v1\",\"error\":{\"code\":\"STATE_CONFLICT\",\"message\":"
+                            + "\"saved view is archived: <uuid>\",\"details\":{}}}"));
             return recorded;
         });
     }
@@ -146,15 +177,48 @@ class ExtensionRoutesResponseWritingParityTest {
         });
     }
 
-    /** Policy management writes an empty list and an {@code Allow} header from its own branch. */
+    /**
+     * Policy management writes an empty list, an {@code Allow} header, and the two business codes that reach the
+     * client from its own catch branches. The {@code REVISION_CONFLICT} needs the whole override lifecycle in front
+     * of it -- activate a version, force-block a rule, then remove with a stale revision -- because a conflict is
+     * only observable once there is something to conflict with.
+     */
     @Test
     void policyManagementRoutesKeepTheirResponses() throws Exception {
-        run("policy-management.db", (client, base) -> List.of(
-                expect(client, "GET", base + "/policy-activations?scopeKind=PROJECT&scopeId=" + PROJECT, null, null,
-                        200, JSON, null, "{\"apiVersion\":\"v1\",\"data\":[]}"),
-                expect(client, "POST", base + "/policy-activations", null, null, 405, JSON, "GET",
-                        "{\"apiVersion\":\"v1\",\"error\":{\"code\":\"METHOD_NOT_ALLOWED\",\"message\":"
-                                + "\"expected HTTP GET but received POST\",\"details\":{}}}")));
+        run("policy-management.db", (client, base) -> {
+            List<Recorded> recorded = new ArrayList<>();
+            recorded.add(expect(client, "GET", base + "/policy-activations?scopeKind=PROJECT&scopeId=" + PROJECT,
+                    null, null, 200, JSON, null, "{\"apiVersion\":\"v1\",\"data\":[]}"));
+            recorded.add(expect(client, "POST", base + "/policy-activations", null, null, 405, JSON, "GET",
+                    "{\"apiVersion\":\"v1\",\"error\":{\"code\":\"METHOD_NOT_ALLOWED\",\"message\":"
+                            + "\"expected HTTP GET but received POST\",\"details\":{}}}"));
+            recorded.add(expect(client, "GET", base + "/policy-activations?scopeKind=BOGUS&scopeId=" + PROJECT,
+                    null, null, 400, JSON, null,
+                    "{\"apiVersion\":\"v1\",\"error\":{\"code\":\"BAD_REQUEST\",\"message\":"
+                            + "\"scopeKind must be PROJECT or PORTFOLIO\",\"details\":{}}}"));
+
+            String pack = send(client, "POST", base + "/policy-packs", JSON,
+                    "{\"name\":\"Governance\",\"rules\":[" + RULE + "],\"actor\":\"alice\",\"reason\":\"baseline\"}");
+            String packId = uuids(pack).get(0);
+            List<String> versionIds = uuids(send(client, "GET", base + "/policy-packs/" + packId + "/versions",
+                    null, null));
+            String versionId = versionIds.get(1);
+            String ruleId = versionIds.get(2);
+            send(client, "POST", base + "/policy-packs/" + packId + "/activate", JSON,
+                    "{\"versionId\":\"" + versionId + "\",\"scopeKind\":\"PROJECT\",\"scopeId\":\"" + PROJECT
+                            + "\",\"expectedRevision\":0,\"actor\":\"alice\",\"reason\":\"enable\"}");
+            send(client, "PUT", base + "/policy-packs/" + packId + "/overrides/" + ruleId, JSON,
+                    "{\"scopeKind\":\"PROJECT\",\"scopeId\":\"" + PROJECT + "\",\"mode\":\"FORCE_BLOCK\","
+                            + "\"expectedRevision\":0,\"actor\":\"security\",\"reason\":\"temporary\"}");
+            recorded.add(expect(client, "POST", base + "/policy-overrides/remove", JSON,
+                    "{\"id\":\"" + packId + "\",\"ruleId\":\"" + ruleId + "\",\"scopeKind\":\"PROJECT\","
+                            + "\"scopeId\":\"" + PROJECT + "\",\"expectedRevision\":99,\"actor\":\"security\","
+                            + "\"reason\":\"waiver expired\"}",
+                    409, JSON, null,
+                    "{\"apiVersion\":\"v1\",\"error\":{\"code\":\"REVISION_CONFLICT\",\"message\":"
+                            + "\"stale policy override revision: expected 99 but current is 1\",\"details\":{}}}"));
+            return recorded;
+        });
     }
 
     /**
@@ -210,6 +274,32 @@ class ExtensionRoutesResponseWritingParityTest {
             throw new IllegalStateException("no identifier in " + body);
         }
         return matcher.group();
+    }
+
+    /** A setup request whose own response is not the subject: only its identifiers are needed. */
+    private static String send(HttpClient client, String method, String uri, String contentType, String body)
+            throws Exception {
+        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(uri))
+                .method(method, body == null
+                        ? HttpRequest.BodyPublishers.noBody()
+                        : HttpRequest.BodyPublishers.ofString(body));
+        if (contentType != null) {
+            request.header("Content-Type", contentType);
+        }
+        HttpResponse<String> response = client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new IllegalStateException(method + " " + uri + " failed the setup: " + response.body());
+        }
+        return response.body();
+    }
+
+    private static List<String> uuids(String body) {
+        List<String> identifiers = new ArrayList<>();
+        Matcher matcher = UUID.matcher(body);
+        while (matcher.find()) {
+            identifiers.add(matcher.group());
+        }
+        return identifiers;
     }
 
     private static String normalize(String body) {
