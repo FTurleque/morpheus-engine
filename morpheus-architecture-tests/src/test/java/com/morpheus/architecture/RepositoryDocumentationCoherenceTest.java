@@ -60,6 +60,15 @@ class RepositoryDocumentationCoherenceTest {
     private static final List<String> GOVERNANCE_PAGES = List.of(".claude/CLAUDE.md", ".github/AI_GOVERNANCE.md");
     private static final List<String> GOVERNANCE_DIRECTORIES =
             List.of(".claude/commands", ".claude/agents", ".claude/rules");
+    /**
+     * Skills are the one AI surface that does not live one file deep: Claude Code loads
+     * {@code .claude/skills/<name>/SKILL.md} and ignores anything else under that root. Listing the directory the
+     * way the three above are listed would therefore have found no Markdown at all and reported the whole surface
+     * as absent, so the collection descends one level -- and refuses a skill written in a shape that is never
+     * loaded, which would otherwise be governance nobody applies and nobody scans.
+     */
+    private static final String GOVERNANCE_SKILL_DIRECTORY = ".claude/skills";
+    private static final String SKILL_FILE = "SKILL.md";
     private static final Pattern SQLITE_JDBC_MENTION =
             Pattern.compile("(?i)sqlite[- ]jdbc[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2,3})");
     private static final Pattern DEPENDENCY_CHECK_MENTION =
@@ -578,7 +587,10 @@ class RepositoryDocumentationCoherenceTest {
             Files.createDirectories(corpus.resolve(directory));
             Files.writeString(corpus.resolve(directory).resolve("rule.md"), "# rule\n");
         }
-        assertEquals(GOVERNANCE_PAGES.size() + GOVERNANCE_DIRECTORIES.size(),
+        Path skill = corpus.resolve(GOVERNANCE_SKILL_DIRECTORY).resolve("a-skill");
+        Files.createDirectories(skill);
+        Files.writeString(skill.resolve(SKILL_FILE), "# skill\n");
+        assertEquals(GOVERNANCE_PAGES.size() + GOVERNANCE_DIRECTORIES.size() + 1,
                 activeGovernanceSurfaces(corpus).size(), "a complete corpus must be scanned whole");
 
         for (String page : GOVERNANCE_PAGES) {
@@ -595,6 +607,24 @@ class RepositoryDocumentationCoherenceTest {
             assertTrue(refusal.getMessage().contains(directory), () -> "the refusal must name " + directory);
             Files.writeString(rule, "# rule\n");
         }
+
+        Files.delete(skill.resolve(SKILL_FILE));
+        AssertionError emptied = assertThrows(AssertionError.class, () -> activeGovernanceSurfaces(corpus));
+        assertTrue(emptied.getMessage().contains("a-skill/" + SKILL_FILE),
+                () -> "the refusal must name the skill folder that lost its " + SKILL_FILE);
+        Files.writeString(skill.resolve(SKILL_FILE), "# skill\n");
+
+        // A skill written as a loose file is never loaded by Claude Code, so it would be governance that applies
+        // to nothing while escaping every check above. Refused rather than ignored.
+        Path loose = corpus.resolve(GOVERNANCE_SKILL_DIRECTORY).resolve("written-as-a-loose-file.md");
+        Files.writeString(loose, "# not a skill\n");
+        AssertionError misplaced = assertThrows(AssertionError.class, () -> activeGovernanceSurfaces(corpus));
+        assertTrue(misplaced.getMessage().contains("written-as-a-loose-file.md"),
+                () -> "the refusal must name the file written outside a skill folder");
+        Files.delete(loose);
+
+        assertEquals(GOVERNANCE_PAGES.size() + GOVERNANCE_DIRECTORIES.size() + 1,
+                activeGovernanceSurfaces(corpus).size(), "the corpus must be whole again once each shape is fixed");
     }
 
     /**
@@ -849,11 +879,49 @@ class RepositoryDocumentationCoherenceTest {
             }
             surfaces.addAll(pages);
         }
+        surfaces.addAll(collectSkillSurfaces(root, missing));
         if (!missing.isEmpty()) {
             throw new AssertionError("declared governance surface(s) absent: " + String.join(", ", missing)
                     + "; retire a surface by removing it from the declared list, never by letting the scan shrink");
         }
         return surfaces;
+    }
+
+    /**
+     * The {@code SKILL.md} of every skill folder, in name order.
+     *
+     * <p>A skill is only loaded from {@code .claude/skills/&lt;name&gt;/SKILL.md}. Two shapes are therefore refused
+     * rather than skipped: a folder without its {@code SKILL.md}, and a loose {@code .md} sitting directly under
+     * the skills root. Both would be governance that Claude Code never reads and that no check here would ever
+     * scan -- the quietest way for a rule to stop existing.</p>
+     */
+    private static List<Path> collectSkillSurfaces(Path root, List<String> missing) throws IOException {
+        Path skillsRoot = root.resolve(GOVERNANCE_SKILL_DIRECTORY);
+        List<Path> skills = new ArrayList<>();
+        if (Files.isDirectory(skillsRoot)) {
+            List<Path> entries;
+            try (var stream = Files.list(skillsRoot)) {
+                entries = stream.sorted().toList();
+            }
+            for (Path entry : entries) {
+                String name = entry.getFileName().toString();
+                if (Files.isDirectory(entry)) {
+                    Path skillFile = entry.resolve(SKILL_FILE);
+                    if (Files.isRegularFile(skillFile)) {
+                        skills.add(skillFile);
+                    } else {
+                        missing.add(GOVERNANCE_SKILL_DIRECTORY + "/" + name + "/" + SKILL_FILE);
+                    }
+                } else if (name.endsWith(".md")) {
+                    missing.add(GOVERNANCE_SKILL_DIRECTORY + "/" + name
+                            + " (a skill is loaded from <name>/" + SKILL_FILE + ", never from a loose file)");
+                }
+            }
+        }
+        if (skills.isEmpty()) {
+            missing.add(GOVERNANCE_SKILL_DIRECTORY + "/*/" + SKILL_FILE);
+        }
+        return skills;
     }
 
     private static List<Path> activeStatusPages(Path root) {

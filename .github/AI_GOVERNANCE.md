@@ -50,34 +50,59 @@ ce paramétrage : elle reste entière.
 | Type | Emplacement | Chargé par | Versionné | Rôle |
 |---|---|---|---|---|
 | Règles | `.claude/CLAUDE.md` + `.claude/rules/*.md` | Claude Code, automatiquement | ✅ | Source détaillée unique |
+| Skills | `.claude/skills/<nom>/SKILL.md` | Claude Code, à la demande quand la description correspond à la tâche | ✅ | Procédures (« comment faire »), là où une règle dit « ce qui est interdit » |
 | Agents | `.claude/agents/*.md` | Invocables comme sub-agents (`architect`, `bug-investigator`, `contract-guardian`, `security-reviewer`) | ✅ | Revue spécialisée avec procédure et format de réponse stricts |
 | Commandes | `.claude/commands/*.md` | Invocables (`/governance`, `/security-audit`, `/test-gate`, `/validate`, `/milestone`, `/health`, `/bug-fix`) | ✅ | Workflows pas-à-pas |
 | Hooks | `.claude/hooks/pre-bash.ps1`, `.claude/hooks/post-edit.ps1` | `PreToolUse`/`PostToolUse`, déclarés dans `.claude/settings.json` | ✅ | Garde-fous fail-open (avertir/bloquer sans jamais bloquer tous les outils par bug interne) |
 | Permissions | `.claude/settings.json` | Claude Code | ✅ | Allow/deny partagés (force-push protégé, `rm -rf` non borné) |
-| Permissions locales | `.claude/settings.local.json` | Claude Code, machine du mainteneur | ❌ | Allow additionnel (`rtk git *`) ; toute permission utile à tous va dans `settings.json` |
+| Permissions locales | `.claude/settings.local.json` | Claude Code, machine du mainteneur | ❌ | Allow additionnel (commandes `rtk`) ; toute permission utile à tous va dans `settings.json` |
+| Filtres RTK | `.rtk/filters.toml` | `rtk`, une fois la confiance accordée localement (`rtk trust`) | ✅ | Filtre de sortie des validateurs, avec ses propres tests inline |
 
 ## Ce que les tests vérifient
 
 `RepositoryDocumentationCoherenceTest` scanne `.claude/CLAUDE.md`, ce document,
-`.claude/commands/`, `.claude/agents/` et `.claude/rules/` à la recherche de chiffres
-périssables (version de schéma SQLite, totaux d'ADR ou de modules). La liste de ces
+`.claude/commands/`, `.claude/agents/`, `.claude/rules/` et `.claude/skills/` à la recherche
+de chiffres périssables (version de schéma SQLite, totaux d'ADR ou de modules). La liste de ces
 surfaces **refuse** une surface absente au lieu de scanner moins : une surface se retire en
-la retirant de la liste déclarée, dans le même changement.
+la retirant de la liste déclarée, dans le même changement. Les skills vivent un niveau plus
+bas que les autres répertoires (`<nom>/SKILL.md`), donc la collecte descend d'un cran — une
+skill posée hors de ce schéma ne serait pas scannée, ce qu'un test refuse explicitement.
 `D2RepositoryHardeningArchitectureTest` vérifie que la commande CVE documentée par
 `.claude/commands/security-audit.md`, `.claude/agents/security-reviewer.md` et
 `.claude/rules/build.md` est bien celle qui lance le scan.
 
 ## RTK
 
-La réécriture des commandes shell par `rtk` est configurée **hors du dépôt**, dans le profil
-Claude Code de l'utilisateur ; `.claude/settings.local.json` autorise `Bash(rtk git *)` sur la
-machine du mainteneur. Le dépôt ne porte aucun hook RTK.
+La **réécriture** des commandes shell par `rtk` reste configurée **hors du dépôt**, dans le
+profil Claude Code de l'utilisateur ; `.claude/settings.local.json` porte les autorisations
+correspondantes sur la machine du mainteneur. Le dépôt ne porte toujours aucun hook RTK et
+n'en dépend pas : sans `rtk` installé, chaque commande s'exécute telle quelle.
+
+Le dépôt porte en revanche un **filtre projet**, `.rtk/filters.toml`, parce que la
+connaissance qu'il encode est celle du dépôt et non celle d'une machine : quelles lignes d'un
+validateur MORPHEUS sont un verdict et lesquelles sont du bruit Maven. Un filtre qui coupe une
+ligne d'échec est pire que pas de filtre, donc il porte ses propres tests inline
+(`rtk verify --filter morpheus-validators`), au même titre qu'un gate porte les siens. La
+confiance (`rtk trust`) est accordée **par machine** et n'est pas versionnée ; un filtre
+modifié la perd, donc n'est plus chargé du tout tant qu'elle n'est pas réaccordée.
+
+`.claude/rules/tooling.md` dit ce qui est couvert, ce qui ne l'est pas, et pourquoi le relevé
+écrit par un validateur dans `validation-output/` reste la lecture la moins chère.
+
+Les règles `deny` de `.claude/settings.json` existent en double, avec et sans le préfixe
+`rtk` : une commande réécrite ne doit pas échapper à une interdiction écrite pour sa forme
+d'origine.
 
 ## Procédure de changement
 
-Toute modification d'un artefact de gouvernance IA (`.claude/rules/`, `.claude/agents/`,
-`.claude/commands/`, `.claude/hooks/`, `.claude/settings.json`, ce document) doit :
+Toute modification d'un artefact de gouvernance IA (`.claude/rules/`, `.claude/skills/`,
+`.claude/agents/`, `.claude/commands/`, `.claude/hooks/`, `.claude/settings.json`,
+`.rtk/filters.toml`, ce document) doit :
 
 1. Éviter tout chiffre périssable — renvoyer vers la source vivante
 2. Être mentionnée dans la description de la PR (ce sont des fichiers de gouvernance, pas
    de simples fichiers de config)
+3. Si elle touche un `.ps1` : rester ASCII et être **exécutée une fois** avant de conclure —
+   une erreur d'analyse rend un hook muet sans rien casser de visible (`.claude/rules/tooling.md`)
+4. Si elle touche `.rtk/filters.toml` : rejouer les tests inline du filtre, puis réaccorder
+   la confiance locale

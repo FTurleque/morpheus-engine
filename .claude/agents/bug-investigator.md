@@ -26,6 +26,12 @@ Avant de modifier quoi que ce soit :
 - Si aucun test n'existe, en écrire un minimal qui échoue de manière déterministe
 - Exécuter : `./mvnw test -pl <module> -Dtest=<TestClass> 2>&1`
 
+**Séparer d'abord « mon changement l'a cassé » de « c'était déjà cassé ».** Remiser
+(`git stash -u`) et relancer sur l'arbre nu : une commande sépare les deux hypothèses, et se
+tromper de côté oriente toute l'enquête dans le vide. Pour un gate qui parcourt le dépôt, vérifier
+aussi `git worktree list` — un worktree résiduel fait compter deux fois ce qui doit l'être une
+seule, et la CI ne le voit jamais.
+
 ### 3. Traçage d'exécution
 
 Le chemin standard de Morpheus Engine :

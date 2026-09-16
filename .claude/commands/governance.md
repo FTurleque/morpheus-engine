@@ -2,6 +2,16 @@
 
 Audit de gouvernance complet. Les règles sont exécutables — exécute-les, ne les devine pas.
 
+## Étape 0 — relever les chiffres vivants
+
+```bash
+bash .claude/skills/live-numbers/numbers.sh
+```
+
+Ce relevé donne en une commande tous les seuils, comptes et versions que le rapport final doit
+citer, chacun accompagné de sa source. Aucun chiffre du rapport ne doit venir d'ailleurs. Les
+pièges de lecture (échelles de couverture, ADR contre fichiers) sont dans la skill `live-numbers`.
+
 ## Étapes
 
 ### 1. Hygiène des dépendances

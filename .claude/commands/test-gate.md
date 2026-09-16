@@ -53,4 +53,7 @@ Si un test échoue :
 - Défini dans `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java`
   (échelle par module) et `morpheus-coverage-report/src/test/java/com/morpheus/coverage/AggregateCoverageGateTest.java`
   (échelle agrégée, canonique)
+- Relever les seuils avec `bash .claude/skills/live-numbers/numbers.sh` avant d'en citer un
+- Pour faire *monter* un ratchet plutôt que le constater, suivre la skill `coverage-ratchet` :
+  relever le ratchet et relever le plafond ne demandent pas la même preuve
 - Voir `.claude/rules/meta.md` avant de citer un seuil dans un rapport

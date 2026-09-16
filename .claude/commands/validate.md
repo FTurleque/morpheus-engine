@@ -23,6 +23,9 @@ Exécute le script de validation du milestone spécifié.
    - `./mvnw test -pl morpheus-architecture-tests -Dtest=*M<N>*`
    - Si un script spécifique existe pour ce milestone, l'exécuter aussi en passant la version courante
      lue dans `ProductMetadata` : les validateurs ont une version par défaut datée de leur milestone
+   - Le verdict et les écarts arrivent filtrés par `.rtk/filters.toml` ; le relevé complet reste
+     écrit dans `validation-output/m<N>/validation-summary.txt` et ses échecs dans
+     `failure-summary.txt`. Lire le relevé plutôt que de rejouer la commande sans filtre
 
 4. **Analyser les résultats** :
    - Lister les tests passants et échouants
