@@ -47,7 +47,7 @@ final class MorpheusQueryHttpRoutes {
         server.createContext(QUERY_CONTEXT, routes::handleQueries);
         server.createContext(VIEW_CONTEXT, routes::handleSavedViews);
         server.createContext(EXPORT_CONTEXT, routes::handleExports);
-        MorpheusPolicyHttpRoutes.register(server, databasePath, requestDecoder);
+        MorpheusPolicyHttpRoutes.register(server, databasePath, requestDecoder, responseWriter);
         MorpheusReasoningHttpRoutes.register(server, requestDecoder);
     }
 
