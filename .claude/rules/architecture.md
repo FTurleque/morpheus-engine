@@ -83,22 +83,34 @@ méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testin
 **Généralisation décidée le 11/09/2026** (amendement d'ADR-0103), par groupe de capacité, jamais par
 famille entière :
 
-- les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, `MorpheusHttpResponseWriter`,
+- les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, l'appel `sendResponseHeaders`,
   `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
-  ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes` ;
+  ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes`. Le deuxième a visé **le type**
+  `MorpheusHttpResponseWriter` jusqu'à DT-17 : vrai des treize routeurs que le serveur porte en champ, il
+  était faux des quatre autres, qui écrivaient déjà leur réponse et ne pouvaient satisfaire un interdit sur
+  le writer partagé qu'en gardant une copie privée de ses huit lignes — la règle nommait la bonne intention
+  et enforçait son contraire. Interdire **la mécanique** plutôt que le collaborateur dit ce que la méthode a
+  toujours annoncé ; le writer, lui, s'interdit **par groupe** (voir ci-dessous) ;
 - la frontière transport/JSON se règle par capacité dans `HttpRoutesTransportBoundaryArchitectureTest`, en
   **trois groupes listés par nom** — `ROUTERS_WITHOUT_A_BODY`, `ROUTERS_THROUGH_THE_SHARED_DECODER`,
-  `ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE` : un nouveau routeur est refusé tant que personne
+  `ROUTERS_REGISTERING_THEIR_OWN_CONTEXT` : un nouveau routeur est refusé tant que personne
   ne l'a classé, et `theClassificationRefusesAnUnclassifiedADoublyClassifiedAndAVanishedRouter` le prouve.
   Le troisième groupe porte une **règle de dépendance**, pas une règle de configuration : ces routeurs
-  *doivent* dépendre de `MorpheusHttpRequestDecoder` et ne dépendent ni de `tools.jackson..` ni
-  d'`HttpRequestBodyReader` (le volet Jackson garde son doublon textuel, la classe déclarant des constantes
-  inlinables ; le décodeur et le reader n'en déclarent aucune, donc la règle seule suffit).
+  *doivent* dépendre de `MorpheusHttpRequestDecoder` **et de `MorpheusHttpResponseWriter`**, et ne dépendent
+  ni de `tools.jackson..`, ni d'`HttpRequestBodyReader`, ni de `CanonicalJsonSerializer` (les volets Jackson
+  et sérialiseur gardent leur doublon textuel, ces classes déclarant des constantes inlinables ; le décodeur,
+  le reader et le writer n'en déclarent aucune, donc la règle seule suffit). Le writer est **exigé** ici et
+  **interdit** dans les deux autres groupes : depuis DT-17 c'est une propriété de groupe, jamais de famille.
+  Le troisième groupe s'est appelé « à `JsonMapper` propre » puis « qui écrit sa propre réponse » : les deux
+  noms décrivaient une duplication depuis supprimée (DT-16, puis DT-17). Il est nommé pour ce qui reste vrai —
+  ces quatre routeurs enregistrent leur propre contexte HTTP au lieu d'être portés en champ par le serveur.
   La règle de configuration existe toujours mais elle est **transverse, pas liée à un groupe** :
   `everyApiJsonMapperIsStrictAboutUnknownPropertiesAndTrailingTokens` exige les deux features de
   désérialisation stricte de **tout** `JsonMapper.builder()` de `morpheus-api` — depuis DT-16 elle ne trouve
   plus qu'un seul site, le décodeur. `MorpheusHttpServer` n'est la frontière d'aucun groupe : ne l'interdire
-  nulle part (constante inlinée pour les uns, records imbriqués pour les autres) ;
+  nulle part. Depuis DT-17 tout routeur qui le mentionne en dépend aussi — les quatre du troisième groupe
+  construisent ses records publics d'enveloppe, en plus d'emprunter `API_PREFIX` que `javac` inline ; avant
+  DT-17 quatre des six mentions étaient la constante seule, invisible à toute règle de bytecode ;
 
   > Rien ne compare cette description à la classe qu'elle décrit. Ces lignes ont menti d'une révision entière
   > après DT-16 (constat O-3 de l'audit du 16/09/2026) : elles annonçaient un groupe « à `JsonMapper` propre »

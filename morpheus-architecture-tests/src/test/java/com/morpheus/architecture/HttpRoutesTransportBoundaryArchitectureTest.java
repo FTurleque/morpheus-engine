@@ -38,25 +38,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       Jackson, nor the shared decoder;</li>
  *   <li><strong>through the shared decoder</strong> -- five routers that carry {@code HttpExchange} and read their
  *       body through {@code MorpheusHttpRequestDecoder}, and never touch Jackson;</li>
- *   <li><strong>through the decoder, writing their own response</strong> -- four routers, policy, policy-management,
- *       query and reasoning, that register their own HTTP context and serialize their own response envelope through
- *       {@code CanonicalJsonSerializer}, and read their body through the server's decoder.</li>
+ *   <li><strong>registering their own context</strong> -- four routers, policy, policy-management, query and
+ *       reasoning, that register their own HTTP context rather than being held as a field by the server, and receive
+ *       both of the server's boundaries -- the decoder and the writer -- at {@code register(...)}.</li>
  * </ul>
  *
- * <p>Until 15/09/2026 the last four formed a group "with their own mapper": each built a {@code JsonMapper}, read its
- * body through {@code HttpRequestBodyReader} and threw a private failure type. Their protections were the decoder's,
- * so what they duplicated was a request boundary, not a missing guard. They now receive the decoder at
- * {@code register(...)}; {@code ExtensionRoutesRequestBoundaryParityTest} pins their failures byte for byte across
- * the move. The group was deleted rather than left empty: an empty list would satisfy every rule written over it, and
- * the classification below still refuses a router that fits no group.</p>
+ * <p>Both of the last group's names described a duplication since removed. Until 15/09/2026 it was "with their own
+ * mapper": each built a {@code JsonMapper}, read its body through {@code HttpRequestBodyReader} and threw a private
+ * failure type; DT-16 gave them the server's decoder. Until 16/09/2026 it was "writing their own response": each
+ * carried a copy of an eight-line send method, three private envelope records identical to the {@code public} ones on
+ * {@code MorpheusHttpServer}, and a {@code CanonicalJsonSerializer} of its own; DT-17 gave them the server's writer.
+ * {@code ExtensionRoutesRequestBoundaryParityTest} and {@code ExtensionRoutesResponseWritingParityTest} pin what they
+ * read and what they write, byte for byte, across those two moves. Neither group was left empty when its reason
+ * disappeared -- an empty list satisfies every rule written over it -- so the first was deleted and the second
+ * renamed for the one thing still true of it.</p>
  *
  * <p>Every group is listed by name. A router added tomorrow belongs to no group until someone classifies it, and
  * {@link #everyRouterIsClassifiedIntoExactlyOneTransportGroup} refuses it until then.</p>
  *
- * <p>{@code MorpheusHttpServer} appears in no ban. Six routers mention it for two different reasons: four borrow
- * {@code API_PREFIX}, a compile-time constant javac inlines, so ArchUnit sees no dependency; two decode into records
- * nested in it, which ArchUnit does see. A bytecode ban would miss the first four and a text ban would refuse all
- * six. It is not the boundary.</p>
+ * <p>{@code MorpheusHttpServer} appears in no ban, and since DT-17 every router that mentions it also depends on it:
+ * the four above decode into, or build, records nested in it, which ArchUnit sees, on top of borrowing
+ * {@code API_PREFIX}, a compile-time constant javac inlines. Before DT-17 four of the six mentions were the inlined
+ * constant alone and no bytecode ban could have seen them. It is not the boundary either way.</p>
  */
 class HttpRoutesTransportBoundaryArchitectureTest {
 
@@ -78,7 +81,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
             "MorpheusProjectRootHttpRoutes",
             "MorpheusProjectSyncHttpRoutes",
             "MorpheusRequirementsHttpRoutes");
-    private static final List<String> ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE = List.of(
+    private static final List<String> ROUTERS_REGISTERING_THEIR_OWN_CONTEXT = List.of(
             "MorpheusPolicyHttpRoutes",
             "MorpheusPolicyManagementHttpRoutes",
             "MorpheusQueryHttpRoutes",
@@ -86,6 +89,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
 
     private static final String REQUEST_DECODER = API_PACKAGE + ".MorpheusHttpRequestDecoder";
     private static final String REQUEST_BODY_READER = API_PACKAGE + ".HttpRequestBodyReader";
+    private static final String RESPONSE_WRITER = API_PACKAGE + ".MorpheusHttpResponseWriter";
     private static final String CANONICAL_JSON_SERIALIZER =
             "com.morpheus.application.query.compact.CanonicalJsonSerializer";
     private static final List<String> STRICT_FEATURES = List.of("FAIL_ON_UNKNOWN_PROPERTIES", "FAIL_ON_TRAILING_TOKENS");
@@ -163,7 +167,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
         noClasses()
                 .that(routersNamed(ROUTERS_WITHOUT_A_BODY))
                 .should().dependOnClassesThat(resideInAnyPackage("com.sun.net.httpserver..", "tools.jackson..")
-                        .or(name(REQUEST_DECODER)))
+                        .or(name(REQUEST_DECODER)).or(name(RESPONSE_WRITER)))
                 .because("a router that reads no request body decides a route and returns a value; the exchange, "
                         + "the decoding and the encoding belong to the server")
                 .check(classes);
@@ -190,7 +194,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
         noClasses()
                 .that(routersNamed(ROUTERS_THROUGH_THE_SHARED_DECODER))
                 .should().dependOnClassesThat(resideInAnyPackage("tools.jackson..")
-                        .or(name(CANONICAL_JSON_SERIALIZER)).or(name(REQUEST_BODY_READER)))
+                        .or(name(CANONICAL_JSON_SERIALIZER)).or(name(REQUEST_BODY_READER)).or(name(RESPONSE_WRITER)))
                 .because("a router that reads its body through MorpheusHttpRequestDecoder inherits its strict "
                         + "mapper; a mapper, reader or serializer of its own is a second configuration nothing keeps "
                         + "in step")
@@ -202,31 +206,53 @@ class HttpRoutesTransportBoundaryArchitectureTest {
     }
 
     /**
-     * A router that registers its own HTTP context and writes its own response still reads its body through the
-     * server's decoder: it depends on {@code MorpheusHttpRequestDecoder}, on no body reader of its own, and on no
-     * Jackson type.
+     * A router that registers its own HTTP context receives both of the server's boundaries and builds neither: it
+     * depends on {@code MorpheusHttpRequestDecoder} and on {@code MorpheusHttpResponseWriter}, on no body reader of
+     * its own, on no Jackson type and on no serializer of its own.
      *
-     * <p>These routers serialize their response envelope themselves, through {@code CanonicalJsonSerializer}; that
-     * is the one difference with the routers above and it is why they are a group of their own. What they no longer
-     * carry is a second request boundary -- a mapper, a reader, a failure type -- that nothing kept in step with the
-     * decoder's. {@code HttpRequestBodyReader} and the decoder declare no static constant, so the rule alone covers
-     * them; Jackson declares many, so its half keeps its text.</p>
+     * <p>Until DT-17 (16/09/2026) this group was named for what it did wrong: it wrote its own response. Each of the
+     * four carried a copy of an eight-line send method and three private envelope records identical to the
+     * {@code public} ones already on {@code MorpheusHttpServer}, and serialized through a
+     * {@code CanonicalJsonSerializer} of its own. They now receive the server's writer at {@code register(...)},
+     * exactly as DT-16 gave them its decoder, and {@code ExtensionRoutesResponseWritingParityTest} pins what they
+     * write byte for byte across the move. What still sets them apart -- and what this group is now named for -- is
+     * that they register their own HTTP context instead of being held as a field by the server.</p>
+     *
+     * <p>{@code HttpRequestBodyReader}, the decoder and the writer declare no static constant, so the rule alone
+     * covers them; Jackson and {@code CanonicalJsonSerializer} declare compile-time constants javac would inline, so
+     * those two halves keep their text.</p>
+     *
+     * <p>The writer is banned from the two groups the server holds, in their own methods above, and required here:
+     * the family cannot state either, because since DT-17 the four routers below must depend on the writer and the
+     * thirteen others must not. Broken before acceptance, 16/09/2026: a {@code MorpheusHttpResponseWriter} field
+     * added to {@code MorpheusRootHttpRoutes} failed
+     * {@link #routersWithoutABodyTouchNeitherTheTransportNorJsonNorTheDecoder} and
+     * {@code LocalRootHttpRoutesArchitectureTest}, while {@code HttpRoutesFamilyArchitectureTest} passed -- a field
+     * is not a call.</p>
      */
     @Test
-    void routersWritingTheirOwnResponseReadTheirBodyThroughTheSharedDecoder() throws IOException {
+    void routersRegisteringTheirOwnContextReceiveBothBoundariesAndBuildNeither() throws IOException {
         classes()
-                .that(routersNamed(ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE))
+                .that(routersNamed(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
                 .should().dependOnClassesThat(name(REQUEST_DECODER))
                 .because("the request boundary of a router that registers its own context is the server's decoder")
                 .check(classes);
+        classes()
+                .that(routersNamed(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
+                .should().dependOnClassesThat(name(RESPONSE_WRITER))
+                .because("the response boundary of a router that registers its own context is the server's writer")
+                .check(classes);
         noClasses()
-                .that(routersNamed(ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE))
-                .should().dependOnClassesThat(resideInAnyPackage("tools.jackson..").or(name(REQUEST_BODY_READER)))
-                .because("a mapper or a body reader of its own is a second request boundary nothing keeps in step")
+                .that(routersNamed(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
+                .should().dependOnClassesThat(resideInAnyPackage("tools.jackson..")
+                        .or(name(REQUEST_BODY_READER)).or(name(CANONICAL_JSON_SERIALIZER)))
+                .because("a mapper, a body reader or a serializer of its own is a second boundary nothing keeps in "
+                        + "step with the server's")
                 .check(classes);
 
-        assertNoSourceMentions(
-                routerSources(repositoryRoot(), ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE), "tools.jackson");
+        Map<String, Path> sources = routerSources(repositoryRoot(), ROUTERS_REGISTERING_THEIR_OWN_CONTEXT);
+        assertNoSourceMentions(sources, "tools.jackson");
+        assertNoSourceMentions(sources, "CanonicalJsonSerializer");
     }
 
     /**
@@ -301,7 +327,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
         return Map.of(
                 "without a body", ROUTERS_WITHOUT_A_BODY,
                 "through the shared decoder", ROUTERS_THROUGH_THE_SHARED_DECODER,
-                "through the decoder, writing their own response", ROUTERS_THROUGH_THE_DECODER_WRITING_THEIR_OWN_RESPONSE);
+                "registering their own context", ROUTERS_REGISTERING_THEIR_OWN_CONTEXT);
     }
 
     private static List<String> classificationDefects(Set<String> routers, Map<String, List<String>> groups) {
