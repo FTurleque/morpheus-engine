@@ -1,16 +1,17 @@
 package com.morpheus.api;
 
+import com.morpheus.api.MorpheusHttpServer.ApiError;
+import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
+import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyPublicViews;
 import com.morpheus.application.policy.PolicyScope;
-import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.store.sqlite.SqlitePolicyPackStore;
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -30,16 +31,20 @@ final class MorpheusPolicyManagementHttpRoutes {
     private static final String REMOVE_OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-overrides/remove";
 
     private final Path databasePath;
-    private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusHttpResponseWriter responseWriter;
 
-    private MorpheusPolicyManagementHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder) {
+    private MorpheusPolicyManagementHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+            MorpheusHttpResponseWriter responseWriter) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
+        this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
-    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder) {
-        MorpheusPolicyManagementHttpRoutes routes = new MorpheusPolicyManagementHttpRoutes(databasePath, requestDecoder);
+    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+            MorpheusHttpResponseWriter responseWriter) {
+        MorpheusPolicyManagementHttpRoutes routes = new MorpheusPolicyManagementHttpRoutes(databasePath,
+                requestDecoder, responseWriter);
         server.createContext(ACTIVATION_CONTEXT, routes::handleActivations);
         server.createContext(REMOVE_OVERRIDE_CONTEXT, routes::handleRemoveOverride);
     }
@@ -89,20 +94,20 @@ final class MorpheusPolicyManagementHttpRoutes {
 
     private void handle(HttpExchange exchange, Handler handler) throws IOException {
         try {
-            send(exchange, 200, new ApiSuccess("v1", handler.execute()));
+            responseWriter.send(exchange, 200, new ApiSuccess("v1", handler.execute()));
         } catch (PolicyConflictException failure) {
-            send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
                 exchange.getResponseHeaders().set("Allow", exchange.getRequestURI().getPath().equals(ACTIVATION_CONTEXT) ? "GET" : "POST");
             }
-            send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
+            responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
-            send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
         } catch (KnowledgeStoreException | IllegalStateException failure) {
-            send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
         } catch (RuntimeException failure) {
-            send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
+            responseWriter.send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
             exchange.close();
         }
@@ -125,16 +130,6 @@ final class MorpheusPolicyManagementHttpRoutes {
         if (exchange.getRequestURI().getRawQuery() != null && !exchange.getRequestURI().getRawQuery().isBlank()) {
             throw ApiFailure.badRequest("query parameters are not supported on this route");
         }
-    }
-
-    private void send(HttpExchange exchange, int status, Object body) throws IOException {
-        byte[] bytes = serializer.toUtf8(body);
-        Headers headers = exchange.getResponseHeaders();
-        headers.set("Content-Type", "application/json; charset=utf-8");
-        headers.set("Cache-Control", "no-store");
-        headers.set("X-Content-Type-Options", "nosniff");
-        exchange.sendResponseHeaders(status, bytes.length);
-        exchange.getResponseBody().write(bytes);
     }
 
     private static String requiredText(String value, String name) {
@@ -165,9 +160,6 @@ final class MorpheusPolicyManagementHttpRoutes {
             String actor,
             String reason) {}
 
-    private record ApiSuccess(String apiVersion, Object data) {}
-    private record ApiError(String code, String message, Map<String, Object> details) {}
-    private record ApiErrorEnvelope(String apiVersion, ApiError error) {}
 
     @FunctionalInterface
     private interface Handler {

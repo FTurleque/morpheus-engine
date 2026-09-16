@@ -43,7 +43,7 @@ final class MorpheusPolicyHttpRoutes {
         server.createContext(PACK_CONTEXT, routes::handlePacks);
         server.createContext(POLICY_CONTEXT, routes::handlePolicies);
         server.createContext(OVERRIDE_CONTEXT, routes::handleOverrides);
-        MorpheusPolicyManagementHttpRoutes.register(server, databasePath, requestDecoder);
+        MorpheusPolicyManagementHttpRoutes.register(server, databasePath, requestDecoder, responseWriter);
     }
 
     private void handlePacks(HttpExchange exchange) throws IOException {
