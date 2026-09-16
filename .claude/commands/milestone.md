@@ -2,6 +2,10 @@
 
 Assistant pour travailler sur un milestone spécifique de Morpheus Engine.
 
+Cette commande **constate** l'état d'un milestone. Pour en *livrer* un — les quatre artefacts
+obligatoires, la parité dual-platform des validateurs, l'isolement d'une sous-plateforme — suivre
+la skill `milestone-quadruplet`.
+
 ## Usage
 - `/milestone` → statut du dernier milestone livré
 - `/milestone m27` → analyse le milestone M27

@@ -1,0 +1,76 @@
+# Filtres RTK propres a MORPHEUS.
+#
+# RTK reecrit deja seul ce qu'il connait (./mvnw -> rtk mvn, git, gh, grep, cat, ls...).
+# Ce fichier ne couvre QUE ce que la reecriture native ne voit pas : les validateurs
+# scripts/validate-*.{ps1,sh} et scripts/verify-*.{ps1,sh}, qui relancent ./mvnw en interne
+# et noient leur verdict sous plusieurs milliers de lignes Maven.
+#
+# `match_command` est ancre sur `scripts/` a dessein : il ne doit jamais attraper
+# `./mvnw clean verify` (deja filtre par `rtk mvn`) ni `rtk verify` (auto-test des filtres).
+# Les regex sont des chaines TOML litterales (guillemets simples) : pas d'echappement.
+#
+# Un filtre qui coupe une ligne de verdict est pire que pas de filtre : la liste
+# `keep_lines_matching` est une allowlist, donc tout motif d'echec doit y figurer
+# explicitement. Les deux tests inline ci-dessous en sont la preuve executable, au meme
+# titre qu'un gate ArchUnit l'est pour une regle d'architecture.
+#
+# Apres toute modification : `rtk verify --filter morpheus-validators`, puis `rtk trust -y`.
+# Les filtres projet ne sont charges qu'une fois la confiance accordee, machine par machine.
+
+schema_version = 1
+
+[filters.morpheus-validators]
+description = "Validateurs MORPHEUS : garde verdicts, ecarts et echecs, coupe la sortie Maven intercalee"
+match_command = 'scripts.(validate|verify)[-.]'
+strip_ansi = true
+filter_stderr = true
+keep_lines_matching = [
+    '(?i)\b(PASS|PASSED|FAIL|FAILED|FAILURE|SKIP|SKIPPED)\b',
+    '(?i)(error|exception|caused by)',
+    '(?i)\b(violation|refus\w*|regression|mismatch|missing|unexpected|inconsistent)\b',
+    '(?i)validation SHA|diff base|exact-head',
+    '(?i)baseline|ratchet|coverageScope|line=|branch=',
+    '(?i)^\s*Tests run:|BUILD (SUCCESS|FAILURE)',
+]
+truncate_lines_at = 220
+max_lines = 160
+on_empty = "validateur termine sans ligne retenue - relancer via `rtk proxy` pour la sortie brute"
+
+[[tests.morpheus-validators]]
+name = "garde le verdict et l'ecart, coupe le bruit Maven"
+input = """
+[INFO] Scanning for projects...
+[INFO] --- jacoco-maven-plugin:0.8.15:report (report) @ morpheus-domain ---
+[INFO] Downloading from central: https://repo.maven.apache.org/x.jar
+Tests: PASS (1552, baseline >= 1550)
+[INFO] ------------------------------------------------------------------------
+JaCoCo: PASS (scope=aggregate, line=0.8531, branch=0.6812)
+M21 architecture baseline regression: 384 < 385
+"""
+expected = """
+Tests: PASS (1552, baseline >= 1550)
+JaCoCo: PASS (scope=aggregate, line=0.8531, branch=0.6812)
+M21 architecture baseline regression: 384 < 385
+"""
+
+[[tests.morpheus-validators]]
+name = "une AssertionError survit a l'allowlist"
+input = """
+[INFO] Building morpheus-api 1.2.1
+java.lang.AssertionError: contracts/public-surfaces.tsv line 12 has an empty mcp column
+	at com.morpheus.architecture.PublicSurfaceTest.manifest(PublicSurfaceTest.java:88)
+[INFO] BUILD FAILURE
+"""
+expected = """
+java.lang.AssertionError: contracts/public-surfaces.tsv line 12 has an empty mcp column
+[INFO] BUILD FAILURE
+"""
+
+[[tests.morpheus-validators]]
+name = "un echec ecrit en francais par un validateur reste visible"
+input = """
+[INFO] Reactor Summary:
+Le gate refuse une preuve dont la portee n'est pas aggregate
+[INFO] Total time: 04:12 min
+"""
+expected = "Le gate refuse une preuve dont la portee n'est pas aggregate"

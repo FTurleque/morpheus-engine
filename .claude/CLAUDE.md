@@ -9,6 +9,7 @@
 @.claude/rules/governance.md
 @.claude/rules/build.md
 @.claude/rules/code-style.md
+@.claude/rules/tooling.md
 
 ---
 
@@ -33,6 +34,18 @@ avant d'en assigner un nouveau : un doublon de numérotation a déjà existé.
 > Ne jamais deviner une règle — elle est écrite quelque part et vérifiable.
 > Ne jamais deviner un **chiffre** non plus (coverage, nb de tests, nb d'ADR) — voir `rules/meta.md`.
 
+## Skills — procédures chargées à la demande
+
+`.claude/skills/<nom>/SKILL.md` porte les **procédures** du dépôt, chargées seulement quand
+elles servent, là où `.claude/rules/` porte les invariants toujours chargés. Disponibles :
+`live-numbers` (relire tout chiffre périssable depuis sa source vivante), `coverage-ratchet`
+(relever un ratchet ou un plafond), `enforcement-choice` (règle ArchUnit ou assertion
+textuelle), `public-capability` (livrer une surface publique et sa convergence),
+`milestone-quadruplet` (les quatre artefacts d'un milestone).
+
+Une skill ne duplique pas une règle : elle dit *comment faire*, la règle dit *ce qui est
+interdit*. En cas de désaccord entre les deux, c'est le code et les tests qui tranchent.
+
 ## Garde-fous (hooks) — principe fail-open
 
 `.claude/hooks/pre-bash.ps1` et `post-edit.ps1` avertissent ou bloquent des opérations
@@ -41,6 +54,12 @@ conçus pour **fail-open sur un bug interne** : toute exception non prévue dans
 laisse passer la commande plutôt que de bloquer 100% des outils par accident — un hook qui
 bloque tout est pire que l'absence de hook. Si un hook semble bloquer une commande anodine,
 c'est un bug du hook à corriger, pas une règle à contourner.
+
+Le fail-open ne protège pas d'une **erreur d'analyse** : un hook qui ne parse plus est muet
+sans que rien ne le signale, et les deux hooks l'ont été pendant toute une révision à cause
+d'un octet non-ASCII dans un fichier sans BOM lu par Windows PowerShell 5.1. Les `.ps1` du
+dépôt restent ASCII, et un hook se teste après édition — voir `rules/tooling.md`, qui couvre
+aussi les codes de sortie (seul `exit 2` bloque) et le branchement RTK.
 
 `.claude/settings.local.json` n'est **pas versionné** : il porte sur la machine du mainteneur
 des permissions additionnelles (ex. `Bash(rtk git *)`) qui complètent `.claude/settings.json`
