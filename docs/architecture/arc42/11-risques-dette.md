@@ -41,6 +41,8 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 suivis dans #154, qu'aucun commit ne ferme et qu'aucun test ne surveille — suivis ailleurs, pas réglés. Détail
 et conditions de réouverture : [`../risks/register.md`](../risks/register.md).
 
+| DT-17 | Les quatre routeurs d'extension écrivent chacun leur propre enveloppe de réponse | API HTTP | **Faible à moyenne** | Nommée le 16/09/2026 après vérification sur le code : trois des quatre méthodes d'envoi sont identiques octet pour octet à `MorpheusHttpResponseWriter.send`, et les quatre redéclarent en `private` des records d'enveloppe identiques aux records `public` de `MorpheusHttpServer`. Parité de réponse à épingler avant migration, comme DT-16 l'a fait pour la requête. Détail : [`../risks/register.md`](../risks/register.md) |
+
 `DT-03` est **éliminée le 16/09/2026** : [`10-exigences-qualite.md`](10-exigences-qualite.md) §10.3 nomme désormais les cinq gates de performance M19, leur contrat de fixture et ADR-0085, sans reproduire aucun seuil — les budgets restent portés par les constantes des gates.
 
 `DT-01` est **éliminée le 16/09/2026** : les quatre documents vivants dont le statut avait résolu sans être mis à jour sont corrigés (`RELEASE_NOTES_1.1.0.md` et `UPGRADE_1_1.md`, qui présentaient encore comme non publiée une release taguée et vérifiée ; `PROVIDER_PLUGINS.md` et `PROVIDER_SDK.md`, encore en « M22 candidate »), et les huit documents de cadrage C0 du 22/07/2026 reçoivent une notice historique **sans que leur ligne `Statut` soit réécrite**. Les preuves datées de `docs/validation/`, `docs/research/` et `docs/roadmap/*_EXECUTION.md` sont intactes. Détail et condition de réouverture : [`../risks/register.md`](../risks/register.md).
