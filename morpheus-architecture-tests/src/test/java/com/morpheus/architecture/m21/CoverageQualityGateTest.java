@@ -50,9 +50,10 @@ class CoverageQualityGateTest {
     //
     // The per-module ratchets in config/m21-quality-ratchets.properties sit deliberately BELOW this cap rather
     // than at it, so a ratchet pinned to the measurement cannot turn ordinary run-to-run variation into a build
-    // failure. On the qualifying run 0.620 / 0.535 leaves 714 lines and 286 branches of headroom ON THIS SCALE
-    // only -- far more than the variation, so raising the ratchet inside this cap is possible and is a decision
-    // of its own. The canonical measurement counts a different population of covered lines and carries its own
+    // failure. Raised 0.620 / 0.535 -> 0.640 / 0.560 on 16/09/2026, inside this same cap and with no new
+    // measurement: what was left is 146 lines and 30 branches of headroom ON THIS SCALE only, against a
+    // cross-platform spread of 24 lines and 11 branches. The branch key is now the tight one -- 2.8x the spread,
+    // against 6.1x for the line key -- so a further raise must treat the two keys separately. The canonical measurement counts a different population of covered lines and carries its own
     // cap in AggregateCoverageGateTest.
     //
     // Raising these two constants requires a fresh per-module measurement on BOTH platforms, cited here.

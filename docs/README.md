@@ -94,8 +94,8 @@ Surefire total                 >= 1550
 architecture tests             >= 385
 JaCoCo aggregate lines         >= 85.0%
 JaCoCo aggregate branches      >= 68.0%
-JaCoCo per-module lines        >= 62.0%
-JaCoCo per-module branches     >= 53.5%
+JaCoCo per-module lines        >= 64.0%
+JaCoCo per-module branches     >= 56.0%
 PR changed executable lines    >= 80%
 PR changed branches            >= 70%
 dependency hygiene             blocking
