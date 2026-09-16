@@ -182,6 +182,34 @@ fixture + threshold + test > prose estimate
 Si un nouveau SLO produit est requis, il doit être mesurable, versionné et
 qualifié avant d'être présenté comme garanti.
 
+### Où lire la preuve qui fait autorité
+
+Conformément à §10.5, le scénario de performance pointe vers ses gates plutôt
+que vers une valeur recopiée ici. Les budgets sont **portés par les gates
+eux-mêmes**, sous forme de constantes, dans
+`morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m19/` :
+
+| Gate | Couvre |
+|---|---|
+| `M19PerformanceGate` | scan d'inventaire, plan incrémental, empreinte mémoire |
+| `M19QueryPerformanceGate` | exécution du Query DSL |
+| `M19CompositionPerformanceGate` | composition multi-provider |
+| `M19TraceabilityPerformanceGate` | traversée de traçabilité |
+| `M19FullPublishPerformanceGate` | cycle de publication complet |
+
+Le contrat de fixture qu'ils partagent est `M19LargeFixtureContractTest`, outillé
+par `M19LargeFixtureSupport` ; les jeux de données déterministes vivent dans
+`experiments/m0/fixtures/`. La déclaration gelée des budgets et le protocole de
+mesure sont [`../../roadmap/M19_PERFORMANCE_BUDGETS.md`](../../roadmap/M19_PERFORMANCE_BUDGETS.md)
+(document daté M19-S1, `FROZEN BEFORE OPTIMIZATION` — c'est une preuve
+historique, pas un état courant). La décision qui institue ces budgets
+pré-déclarés sur fixtures larges déterministes est
+[ADR-0085](../../adr/0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md).
+
+**Cette page ne reproduit aucun seuil.** Un budget se lit dans la constante du
+gate qui l'applique — une valeur recopiée ici deviendrait périmée sans que rien
+ne le signale, et un gate qui change resterait vrai pendant que la page mentirait.
+
 ---
 
 ## 10.4 Portabilité
