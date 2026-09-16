@@ -30,7 +30,6 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 
 | ID | Dette | Domaine | Priorité | Traitement |
 |----|-------|---------|----------|------------|
-| DT-03 | Le suivi des seuils de performance M19 est difficile à lire depuis la documentation d'architecture | Qualité | **Moyenne** | Maintenir les scénarios qualité et pointer vers les tests/gates autoritatifs plutôt que dupliquer les valeurs |
 | DT-04 | Aucun backend persistant alternatif à SQLite n'est implémenté | Architecture | **Faible à moyenne** | Ne pas pré-déclarer une solution ; créer un ADR seulement si un besoin réel de substitution apparaît |
 | DT-05 | Pas de distribution macOS qualifiée | Distribution | **Faible** | Décision produit préalable avant investissement packaging ; la lane smoke n'en produit aucun |
 | DT-07 | Quality Gate SonarCloud potentiellement moins strict que le gate repository sur le nouveau code | Qualité externe | **Moyenne** | Le repository impose indépendamment `>= 80%` changed-line et `>= 70%` changed-branch coverage ; vérifier le réglage SonarCloud sur sa propre plateforme |
@@ -38,6 +37,8 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 | DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `1550 / 385`, couverture `85,0% / 68,0%` agrégée et `62,0% / 53,5%` par module ; chaque échelle a son propre plafond qualifié et ne se relève qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
 | DT-12 | Identités remote historiques à trois champs sans expiration | Sécurité remote | **Faible à moyenne** | Compatibilité contractuelle verrouillée par test ; `server identity migrate-legacy` donne une échéance explicite sans rotation de token ; retirer le format à trois champs reste une évolution incompatible, pas un patch 1.2.1 |
+
+`DT-03` est **éliminée le 16/09/2026** : [`10-exigences-qualite.md`](10-exigences-qualite.md) §10.3 nomme désormais les cinq gates de performance M19, leur contrat de fixture et ADR-0085, sans reproduire aucun seuil — les budgets restent portés par les constantes des gates.
 
 `DT-01` est **éliminée le 16/09/2026** : les quatre documents vivants dont le statut avait résolu sans être mis à jour sont corrigés (`RELEASE_NOTES_1.1.0.md` et `UPGRADE_1_1.md`, qui présentaient encore comme non publiée une release taguée et vérifiée ; `PROVIDER_PLUGINS.md` et `PROVIDER_SDK.md`, encore en « M22 candidate »), et les huit documents de cadrage C0 du 22/07/2026 reçoivent une notice historique **sans que leur ligne `Statut` soit réécrite**. Les preuves datées de `docs/validation/`, `docs/research/` et `docs/roadmap/*_EXECUTION.md` sont intactes. Détail et condition de réouverture : [`../risks/register.md`](../risks/register.md).
 
