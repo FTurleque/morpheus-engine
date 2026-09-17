@@ -182,18 +182,36 @@ class BoundaryResilienceContractTest {
      */
     @Test
     void aCorruptedIdentityAuditIsQuarantinedRatherThanBlockingCredentialMutations() throws IOException {
+        String audit = read(Path.of("morpheus-api/src/main/java/com/morpheus/api/RemoteIdentityAudit.java"));
         String identities = read(Path.of(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteIdentityFile.java"));
 
-        assertTrue(identities.contains("private static RetainedAudit retainableAudit(List<String> lines)"),
+        assertTrue(audit.contains("static RetainedAudit salvage(List<String> lines)"),
                 "the mutation path must salvage the audit rather than require it");
-        assertTrue(identities.contains("if (salvaged.quarantined() > 0) retainedAudit.add(quarantineRecord());"),
+        assertTrue(audit.contains("if (salvaged.quarantined() > 0) retained.add(quarantineRecord());"),
                 "dropping unreadable history must leave evidence rather than happen silently");
-        assertTrue(identities.contains("Mutation.AUDIT_QUARANTINED"));
-        assertFalse(identities.contains("retainedAudit.addAll(parseAudit(readLinesSecurely(file,"),
-                "the strict reader must not be what a credential mutation depends on");
-        assertTrue(identities.contains("AUDIT_QUARANTINE_SUBJECT = \"morpheus.audit\""),
+        assertTrue(audit.contains("Mutation.AUDIT_QUARANTINED"));
+        assertTrue(audit.contains("AUDIT_QUARANTINE_SUBJECT = \"morpheus.audit\""),
                 "the quarantine record must name a reserved subject, never quote the line it replaced");
+
+        assertTrue(identities.contains("RemoteIdentityAudit.salvage("),
+                "the write path must reach the audit through the salvaging reader");
+        assertTrue(strictAuditReaderIsReportingOnly(identities),
+                "the strict audit reader must only serve the read-only audit() reporting surface");
+    }
+
+    /**
+     * The strict reader is a reporting surface, so it may appear exactly once -- inside {@code audit(Path)}.
+     *
+     * <p>Counting rather than merely matching a shape is what keeps the rule from decaying: a second call site
+     * would be a mutation path that once again depends on history it cannot repair.</p>
+     */
+    private boolean strictAuditReaderIsReportingOnly(String identities) {
+        int occurrences = identities.split("RemoteIdentityAudit\\.parseStrict\\(", -1).length - 1;
+        int reportingSurface = identities.indexOf("public static List<AuditRecord> audit(Path authFile)");
+        return occurrences == 1
+                && reportingSurface >= 0
+                && identities.indexOf("RemoteIdentityAudit.parseStrict(") > reportingSurface;
     }
 
     private String read(Path relative) throws IOException {

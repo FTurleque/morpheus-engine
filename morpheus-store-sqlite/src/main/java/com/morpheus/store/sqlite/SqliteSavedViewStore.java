@@ -2,6 +2,7 @@ package com.morpheus.store.sqlite;
 
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
+import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.application.query.dsl.QueryDefinition;
 import com.morpheus.application.query.dsl.QueryDefinitionCodec;
 import com.morpheus.application.query.dsl.QueryScope;
@@ -47,14 +48,26 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
             throw new SavedViewConflictException("saved view already exists: " + definition.id());
         }
         transaction(() -> {
+            int inserted;
             try (PreparedStatement statement = connection.prepareStatement("""
                     INSERT INTO saved_views(
                         id, scope_kind, scope_id, name, query_definition,
                         revision, status, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    WHERE (
+                        SELECT COUNT(*) FROM saved_views
+                        WHERE scope_kind = ? AND scope_id = ?
+                    ) < ?
                     """)) {
                 bindDefinition(statement, definition);
-                statement.executeUpdate();
+                statement.setString(10, scopeKind(definition.query().scope()));
+                statement.setString(11, scopeId(definition.query().scope()));
+                statement.setInt(12, QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE);
+                inserted = statement.executeUpdate();
+            }
+            if (inserted != 1) {
+                throw new IllegalStateException(
+                        "saved view budget exceeded for scope: " + QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE);
             }
             insertVersion(version);
             return null;
@@ -296,7 +309,6 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
             throw new IllegalStateException("SQLite saved-view store is closed");
         }
     }
-
 
     @FunctionalInterface
     private interface SqlWork<T> {

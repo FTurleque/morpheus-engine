@@ -1,13 +1,12 @@
 package com.morpheus.api;
 
+import com.morpheus.api.MorpheusHttpServer.ApiError;
+import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
+import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
 import com.morpheus.application.policy.PolicyConflictException;
-import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.net.URLDecoder;
@@ -27,23 +26,24 @@ final class MorpheusPolicyHttpRoutes {
     private static final String OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-overrides";
 
     private final MorpheusPolicyApiService service;
-    private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
-    private final JsonMapper mapper = JsonMapper.builder()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-            .build();
+    private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusHttpResponseWriter responseWriter;
 
-    private MorpheusPolicyHttpRoutes(Path databasePath) {
+    private MorpheusPolicyHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+            MorpheusHttpResponseWriter responseWriter) {
         service = new MorpheusPolicyApiService(databasePath);
+        this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
+        this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
-    static void register(HttpServer server, Path databasePath) {
+    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+            MorpheusHttpResponseWriter responseWriter) {
         Objects.requireNonNull(server, "server");
-        MorpheusPolicyHttpRoutes routes = new MorpheusPolicyHttpRoutes(databasePath);
+        MorpheusPolicyHttpRoutes routes = new MorpheusPolicyHttpRoutes(databasePath, requestDecoder, responseWriter);
         server.createContext(PACK_CONTEXT, routes::handlePacks);
         server.createContext(POLICY_CONTEXT, routes::handlePolicies);
         server.createContext(OVERRIDE_CONTEXT, routes::handleOverrides);
-        MorpheusPolicyManagementHttpRoutes.register(server, databasePath);
+        MorpheusPolicyManagementHttpRoutes.register(server, databasePath, requestDecoder, responseWriter);
     }
 
     private void handlePacks(HttpExchange exchange) throws IOException {
@@ -56,57 +56,61 @@ final class MorpheusPolicyHttpRoutes {
         if (segments.isEmpty()) {
             rejectQueryParameters(exchange);
             if (method.equals("GET")) {
-                requireEmptyBody(exchange);
+                requestDecoder.requireEmptyBody(exchange);
                 return new Response(200, service.list());
             }
             if (method.equals("POST")) {
-                return new Response(201, service.create(readJson(exchange, MorpheusPolicyApiService.CreateRequest.class)));
+                return new Response(201, service.create(
+                        requestDecoder.readRequiredJson(exchange, MorpheusPolicyApiService.CreateRequest.class)));
             }
-            throw new HttpFailure(405, "METHOD_NOT_ALLOWED", "policy-packs supports GET and POST");
+            throw ApiFailure.methodNotAllowed("policy-packs supports GET and POST");
         }
 
         rejectQueryParameters(exchange);
         String id = segments.getFirst();
         if (segments.size() == 1) {
             if (method.equals("GET")) {
-                requireEmptyBody(exchange);
+                requestDecoder.requireEmptyBody(exchange);
                 return new Response(200, service.get(id));
             }
             if (method.equals("PUT")) {
-                return new Response(200, service.update(id, readJson(exchange, MorpheusPolicyApiService.UpdateRequest.class)));
+                return new Response(200, service.update(
+                        id, requestDecoder.readRequiredJson(exchange, MorpheusPolicyApiService.UpdateRequest.class)));
             }
-            throw new HttpFailure(405, "METHOD_NOT_ALLOWED", "policy pack supports GET and PUT");
+            throw ApiFailure.methodNotAllowed("policy pack supports GET and PUT");
         }
         if (segments.size() == 2) {
             String action = segments.get(1);
             return switch (action) {
                 case "versions" -> {
                     requireMethod(exchange, "GET");
-                    requireEmptyBody(exchange);
+                    requestDecoder.requireEmptyBody(exchange);
                     yield new Response(200, service.versions(id));
                 }
                 case "activate" -> {
                     requireMethod(exchange, "POST");
-                    yield new Response(200, service.activate(id, readJson(exchange, MorpheusPolicyApiService.ActivationRequest.class)));
+                    yield new Response(200, service.activate(
+                            id, requestDecoder.readRequiredJson(exchange, MorpheusPolicyApiService.ActivationRequest.class)));
                 }
                 case "deactivate" -> {
                     requireMethod(exchange, "POST");
-                    yield new Response(200, service.deactivate(id, readJson(exchange, MorpheusPolicyApiService.DeactivationRequest.class)));
+                    yield new Response(200, service.deactivate(
+                            id, requestDecoder.readRequiredJson(exchange, MorpheusPolicyApiService.DeactivationRequest.class)));
                 }
                 case "audit" -> {
                     requireMethod(exchange, "GET");
-                    requireEmptyBody(exchange);
+                    requestDecoder.requireEmptyBody(exchange);
                     yield new Response(200, service.audit(id));
                 }
-                default -> throw new HttpFailure(404, "NOT_FOUND", "unknown policy-pack action: " + action);
+                default -> throw ApiFailure.notFound("unknown policy-pack action: " + action);
             };
         }
         if (segments.size() == 3 && segments.get(1).equals("overrides")) {
             requireMethod(exchange, "PUT");
-            return new Response(200, service.putOverride(
-                    id, segments.get(2), readJson(exchange, MorpheusPolicyApiService.OverrideRequest.class)));
+            return new Response(200, service.putOverride(id, segments.get(2),
+                    requestDecoder.readRequiredJson(exchange, MorpheusPolicyApiService.OverrideRequest.class)));
         }
-        throw new HttpFailure(404, "NOT_FOUND", "unknown policy-pack route");
+        throw ApiFailure.notFound("unknown policy-pack route");
     }
 
     private void handlePolicies(HttpExchange exchange) throws IOException {
@@ -114,11 +118,13 @@ final class MorpheusPolicyHttpRoutes {
             requireMethod(exchange, "POST");
             rejectQueryParameters(exchange);
             List<String> segments = suffixSegments(exchange.getRequestURI().getPath(), POLICY_CONTEXT);
-            if (segments.size() != 1) throw new HttpFailure(404, "NOT_FOUND", "unknown policies route");
+            if (segments.size() != 1) throw ApiFailure.notFound("unknown policies route");
             return switch (segments.getFirst()) {
-                case "evaluate" -> new Response(200, service.evaluate(readJson(exchange, MorpheusPolicyApiService.EvaluateRequest.class)));
-                case "dry-run" -> new Response(200, service.dryRun(readJson(exchange, MorpheusPolicyApiService.DryRunRequest.class)));
-                default -> throw new HttpFailure(404, "NOT_FOUND", "unknown policies action");
+                case "evaluate" -> new Response(200, service.evaluate(
+                        requestDecoder.readRequiredJson(exchange, MorpheusPolicyApiService.EvaluateRequest.class)));
+                case "dry-run" -> new Response(200, service.dryRun(
+                        requestDecoder.readRequiredJson(exchange, MorpheusPolicyApiService.DryRunRequest.class)));
+                default -> throw ApiFailure.notFound("unknown policies action");
             };
         });
     }
@@ -126,7 +132,7 @@ final class MorpheusPolicyHttpRoutes {
     private void handleOverrides(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "GET");
-            requireEmptyBody(exchange);
+            requestDecoder.requireEmptyBody(exchange);
             Query query = Query.parse(exchange.getRequestURI().getRawQuery());
             query.rejectUnknown(List.of("scopeKind", "scopeId"));
             return new Response(200, service.listOverrides(query.required("scopeKind"), query.required("scopeId")));
@@ -136,78 +142,46 @@ final class MorpheusPolicyHttpRoutes {
     private void handle(HttpExchange exchange, Handler handler) throws IOException {
         try {
             Response response = handler.route();
-            send(exchange, response.status(), new ApiSuccess("v1", response.data()));
+            responseWriter.send(exchange, response.status(), new ApiSuccess("v1", response.data()));
         } catch (PolicyConflictException failure) {
-            send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
-        } catch (HttpFailure failure) {
-            if (failure.status == 405) exchange.getResponseHeaders().set("Allow", allowed(exchange.getRequestURI().getPath()));
-            send(exchange, failure.status, new ApiErrorEnvelope("v1", new ApiError(failure.code, failure.getMessage(), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
+        } catch (ApiFailure failure) {
+            if (failure.status() == 405) exchange.getResponseHeaders().set("Allow", allowed(exchange.getRequestURI().getPath()));
+            responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
-            send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
         } catch (KnowledgeStoreException | IllegalStateException failure) {
-            send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
         } catch (RuntimeException failure) {
-            send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
+            responseWriter.send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
             exchange.close();
         }
     }
 
-    private <T> T readJson(HttpExchange exchange, Class<T> type) {
-        byte[] body = readBody(exchange);
-        if (body.length == 0) throw new HttpFailure(400, "BAD_REQUEST", "JSON request body is required");
-        String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-        if (!JsonMediaType.isJson(contentType)) {
-            throw new HttpFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Content-Type application/json is required");
-        }
-        try {
-            return mapper.readValue(body, type);
-        } catch (Exception failure) {
-            throw new HttpFailure(400, "BAD_REQUEST", "invalid JSON request body: " + safeMessage(failure));
-        }
-    }
-
-    private byte[] readBody(HttpExchange exchange) {
-        return HttpRequestBodyReader.read(exchange);
-    }
-
-    private void requireEmptyBody(HttpExchange exchange) {
-        if (readBody(exchange).length != 0) throw new HttpFailure(400, "BAD_REQUEST", "request body must be empty");
-    }
-
     private void requireMethod(HttpExchange exchange, String expected) {
         String actual = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
-        if (!actual.equals(expected)) throw new HttpFailure(405, "METHOD_NOT_ALLOWED", "expected HTTP " + expected + " but received " + actual);
+        if (!actual.equals(expected)) throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
     }
 
     private void rejectQueryParameters(HttpExchange exchange) {
         if (exchange.getRequestURI().getRawQuery() != null && !exchange.getRequestURI().getRawQuery().isBlank()) {
-            throw new HttpFailure(400, "BAD_REQUEST", "query parameters are not supported on this route");
+            throw ApiFailure.badRequest("query parameters are not supported on this route");
         }
     }
 
     private List<String> suffixSegments(String path, String context) {
-        if (!path.startsWith(context)) throw new HttpFailure(404, "NOT_FOUND", "unknown API route");
+        if (!path.startsWith(context)) throw ApiFailure.notFound("unknown API route");
         String suffix = path.substring(context.length());
         if (suffix.isEmpty() || suffix.equals("/")) return List.of();
         String normalized = suffix.startsWith("/") ? suffix.substring(1) : suffix;
         if (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
         List<String> result = new ArrayList<>();
         for (String segment : normalized.split("/")) {
-            if (segment.isBlank()) throw new HttpFailure(404, "NOT_FOUND", "invalid API path");
+            if (segment.isBlank()) throw ApiFailure.notFound("invalid API path");
             result.add(URLDecoder.decode(segment, StandardCharsets.UTF_8));
         }
         return List.copyOf(result);
-    }
-
-    private void send(HttpExchange exchange, int status, Object body) throws IOException {
-        byte[] bytes = serializer.toUtf8(body);
-        Headers headers = exchange.getResponseHeaders();
-        headers.set("Content-Type", "application/json; charset=utf-8");
-        headers.set("Cache-Control", "no-store");
-        headers.set("X-Content-Type-Options", "nosniff");
-        exchange.sendResponseHeaders(status, bytes.length);
-        exchange.getResponseBody().write(bytes);
     }
 
     private String allowed(String path) {
@@ -223,17 +197,6 @@ final class MorpheusPolicyHttpRoutes {
     }
 
     private record Response(int status, Object data) {}
-    private record ApiSuccess(String apiVersion, Object data) {}
-    private record ApiError(String code, String message, Map<String, Object> details) {}
-    private record ApiErrorEnvelope(String apiVersion, ApiError error) {}
-
-    private static final class HttpFailure extends RuntimeException {
-        private final int status;
-        private final String code;
-        private HttpFailure(int status, String code, String message) {
-            super(message); this.status = status; this.code = code;
-        }
-    }
 
     @FunctionalInterface
     private interface Handler { Response route(); }
@@ -249,7 +212,7 @@ final class MorpheusPolicyHttpRoutes {
                 String key = URLDecoder.decode(separator < 0 ? part : part.substring(0, separator), StandardCharsets.UTF_8);
                 String value = URLDecoder.decode(separator < 0 ? "" : part.substring(separator + 1), StandardCharsets.UTF_8);
                 if (key.isBlank() || values.putIfAbsent(key, value) != null) {
-                    throw new HttpFailure(400, "BAD_REQUEST", "invalid or duplicate query parameter");
+                    throw ApiFailure.badRequest("invalid or duplicate query parameter");
                 }
             }
             return new Query(values);
@@ -257,13 +220,13 @@ final class MorpheusPolicyHttpRoutes {
 
         String required(String key) {
             String value = values.get(key);
-            if (value == null || value.isBlank()) throw new HttpFailure(400, "BAD_REQUEST", "missing query parameter: " + key);
+            if (value == null || value.isBlank()) throw ApiFailure.badRequest("missing query parameter: " + key);
             return value;
         }
 
         void rejectUnknown(List<String> allowed) {
             values.keySet().stream().filter(key -> !allowed.contains(key)).findFirst()
-                    .ifPresent(key -> { throw new HttpFailure(400, "BAD_REQUEST", "unknown query parameter: " + key); });
+                    .ifPresent(key -> { throw ApiFailure.badRequest("unknown query parameter: " + key); });
         }
     }
 }

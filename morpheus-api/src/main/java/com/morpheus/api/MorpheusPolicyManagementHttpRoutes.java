@@ -1,20 +1,19 @@
 package com.morpheus.api;
 
+import com.morpheus.api.MorpheusHttpServer.ApiError;
+import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
+import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyPublicViews;
 import com.morpheus.application.policy.PolicyScope;
-import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.store.sqlite.SqlitePolicyPackStore;
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.net.URLDecoder;
@@ -32,18 +31,20 @@ final class MorpheusPolicyManagementHttpRoutes {
     private static final String REMOVE_OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-overrides/remove";
 
     private final Path databasePath;
-    private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
-    private final JsonMapper mapper = JsonMapper.builder()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-            .build();
+    private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusHttpResponseWriter responseWriter;
 
-    private MorpheusPolicyManagementHttpRoutes(Path databasePath) {
+    private MorpheusPolicyManagementHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+            MorpheusHttpResponseWriter responseWriter) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
+        this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
-    static void register(HttpServer server, Path databasePath) {
-        MorpheusPolicyManagementHttpRoutes routes = new MorpheusPolicyManagementHttpRoutes(databasePath);
+    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+            MorpheusHttpResponseWriter responseWriter) {
+        MorpheusPolicyManagementHttpRoutes routes = new MorpheusPolicyManagementHttpRoutes(databasePath,
+                requestDecoder, responseWriter);
         server.createContext(ACTIVATION_CONTEXT, routes::handleActivations);
         server.createContext(REMOVE_OVERRIDE_CONTEXT, routes::handleRemoveOverride);
     }
@@ -52,7 +53,7 @@ final class MorpheusPolicyManagementHttpRoutes {
         handle(exchange, () -> {
             requireMethod(exchange, "GET");
             requireExactPath(exchange, ACTIVATION_CONTEXT);
-            requireEmptyBody(exchange);
+            requestDecoder.requireEmptyBody(exchange);
             Query query = Query.parse(exchange.getRequestURI().getRawQuery());
             query.rejectUnknown(List.of("scopeKind", "scopeId"));
             PolicyScope scope = scope(query.required("scopeKind"), query.required("scopeId"));
@@ -67,7 +68,7 @@ final class MorpheusPolicyManagementHttpRoutes {
             requireMethod(exchange, "POST");
             requireExactPath(exchange, REMOVE_OVERRIDE_CONTEXT);
             rejectQueryParameters(exchange);
-            RemoveOverrideRequest request = readJson(exchange, RemoveOverrideRequest.class);
+            RemoveOverrideRequest request = requestDecoder.readRequiredJson(exchange, RemoveOverrideRequest.class);
             try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(databasePath)) {
                 new PolicyPackService(store).removeOverride(
                         scope(request.scopeKind(), request.scopeId()),
@@ -93,78 +94,42 @@ final class MorpheusPolicyManagementHttpRoutes {
 
     private void handle(HttpExchange exchange, Handler handler) throws IOException {
         try {
-            send(exchange, 200, new ApiSuccess("v1", handler.execute()));
+            responseWriter.send(exchange, 200, new ApiSuccess("v1", handler.execute()));
         } catch (PolicyConflictException failure) {
-            send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
-        } catch (HttpFailure failure) {
-            if (failure.status == 405) {
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
+        } catch (ApiFailure failure) {
+            if (failure.status() == 405) {
                 exchange.getResponseHeaders().set("Allow", exchange.getRequestURI().getPath().equals(ACTIVATION_CONTEXT) ? "GET" : "POST");
             }
-            send(exchange, failure.status, new ApiErrorEnvelope("v1", new ApiError(failure.code, failure.getMessage(), Map.of())));
+            responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
-            send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
         } catch (KnowledgeStoreException | IllegalStateException failure) {
-            send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
         } catch (RuntimeException failure) {
-            send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
+            responseWriter.send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
             exchange.close();
-        }
-    }
-
-    private <T> T readJson(HttpExchange exchange, Class<T> type) {
-        byte[] body = readBody(exchange);
-        if (body.length == 0) {
-            throw new HttpFailure(400, "BAD_REQUEST", "JSON request body is required");
-        }
-        String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-        if (!JsonMediaType.isJson(contentType)) {
-            throw new HttpFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Content-Type application/json is required");
-        }
-        try {
-            return mapper.readValue(body, type);
-        } catch (Exception failure) {
-            throw new HttpFailure(400, "BAD_REQUEST", "invalid JSON request body: " + safeMessage(failure));
-        }
-    }
-
-    private byte[] readBody(HttpExchange exchange) {
-        return HttpRequestBodyReader.read(exchange);
-    }
-
-    private void requireEmptyBody(HttpExchange exchange) {
-        if (readBody(exchange).length != 0) {
-            throw new HttpFailure(400, "BAD_REQUEST", "request body must be empty");
         }
     }
 
     private void requireMethod(HttpExchange exchange, String expected) {
         String actual = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
         if (!actual.equals(expected)) {
-            throw new HttpFailure(405, "METHOD_NOT_ALLOWED", "expected HTTP " + expected + " but received " + actual);
+            throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
         }
     }
 
     private void requireExactPath(HttpExchange exchange, String expected) {
         if (!exchange.getRequestURI().getPath().equals(expected)) {
-            throw new HttpFailure(404, "NOT_FOUND", "unknown API route");
+            throw ApiFailure.notFound("unknown API route");
         }
     }
 
     private void rejectQueryParameters(HttpExchange exchange) {
         if (exchange.getRequestURI().getRawQuery() != null && !exchange.getRequestURI().getRawQuery().isBlank()) {
-            throw new HttpFailure(400, "BAD_REQUEST", "query parameters are not supported on this route");
+            throw ApiFailure.badRequest("query parameters are not supported on this route");
         }
-    }
-
-    private void send(HttpExchange exchange, int status, Object body) throws IOException {
-        byte[] bytes = serializer.toUtf8(body);
-        Headers headers = exchange.getResponseHeaders();
-        headers.set("Content-Type", "application/json; charset=utf-8");
-        headers.set("Cache-Control", "no-store");
-        headers.set("X-Content-Type-Options", "nosniff");
-        exchange.sendResponseHeaders(status, bytes.length);
-        exchange.getResponseBody().write(bytes);
     }
 
     private static String requiredText(String value, String name) {
@@ -195,20 +160,6 @@ final class MorpheusPolicyManagementHttpRoutes {
             String actor,
             String reason) {}
 
-    private record ApiSuccess(String apiVersion, Object data) {}
-    private record ApiError(String code, String message, Map<String, Object> details) {}
-    private record ApiErrorEnvelope(String apiVersion, ApiError error) {}
-
-    private static final class HttpFailure extends RuntimeException {
-        private final int status;
-        private final String code;
-
-        private HttpFailure(int status, String code, String message) {
-            super(message);
-            this.status = status;
-            this.code = code;
-        }
-    }
 
     @FunctionalInterface
     private interface Handler {
@@ -230,7 +181,7 @@ final class MorpheusPolicyManagementHttpRoutes {
                 String key = URLDecoder.decode(separator < 0 ? part : part.substring(0, separator), StandardCharsets.UTF_8);
                 String value = URLDecoder.decode(separator < 0 ? "" : part.substring(separator + 1), StandardCharsets.UTF_8);
                 if (key.isBlank() || values.putIfAbsent(key, value) != null) {
-                    throw new HttpFailure(400, "BAD_REQUEST", "invalid or duplicate query parameter: " + key);
+                    throw ApiFailure.badRequest("invalid or duplicate query parameter: " + key);
                 }
             }
             return new Query(values);
@@ -239,7 +190,7 @@ final class MorpheusPolicyManagementHttpRoutes {
         String required(String name) {
             String value = values.get(name);
             if (value == null || value.isBlank()) {
-                throw new HttpFailure(400, "BAD_REQUEST", "query parameter is required: " + name);
+                throw ApiFailure.badRequest("query parameter is required: " + name);
             }
             return value;
         }
@@ -247,7 +198,7 @@ final class MorpheusPolicyManagementHttpRoutes {
         void rejectUnknown(List<String> allowed) {
             values.keySet().stream().filter(key -> !allowed.contains(key)).findFirst()
                     .ifPresent(key -> {
-                        throw new HttpFailure(400, "BAD_REQUEST", "unknown query parameter: " + key);
+                        throw ApiFailure.badRequest("unknown query parameter: " + key);
                     });
         }
     }

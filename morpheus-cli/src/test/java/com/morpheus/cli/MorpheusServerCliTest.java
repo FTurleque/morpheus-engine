@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.store.sqlite.SqliteServerMaintenance;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -161,7 +162,8 @@ class MorpheusServerCliTest {
 
         Result verified = run("--json", "server", "backup", "verify", "--file", backupPath.toString());
         assertEquals(CliExitCode.SUCCESS.code(), verified.exitCode(), verified.err());
-        assertTrue(verified.out().contains("\"schemaVersion\":17"), verified.out());
+        assertTrue(verified.out().contains(
+                "\"schemaVersion\":" + SqliteServerMaintenance.SUPPORTED_SCHEMA_VERSION), verified.out());
 
         Result unconfirmed = run("--json", "server", "restore", "--file", backupPath.toString());
         assertEquals(CliExitCode.USAGE.code(), unconfirmed.exitCode(), unconfirmed.err());

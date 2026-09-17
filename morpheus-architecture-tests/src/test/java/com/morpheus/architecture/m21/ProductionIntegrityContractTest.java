@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
@@ -101,10 +102,19 @@ class ProductionIntegrityContractTest {
                 "PRODUCTION_INTEGRITY.md must quote the normative Surefire ratchet " + ratchets.tests());
         assertTrue(integrity.contains(ratchets.architectureTests() + " PASS"),
                 "PRODUCTION_INTEGRITY.md must quote the normative architecture ratchet " + ratchets.architectureTests());
-        assertTrue(integrity.contains(ratchets.lineCoverage() + " % aggregate"),
-                "PRODUCTION_INTEGRITY.md must quote the normative line ratchet " + ratchets.lineCoverage());
-        assertTrue(integrity.contains(ratchets.branchCoverage() + " % aggregate"),
-                "PRODUCTION_INTEGRITY.md must quote the normative branch ratchet " + ratchets.branchCoverage());
+        // Both scales, each naming itself. The page used to quote one figure as "aggregate" while the number it
+        // quoted had been qualified on the per-module scale, which is how a reader could believe the canonical
+        // measurement was governed by a threshold nothing had ever measured it against.
+        String collapsed = integrity.replaceAll("\\s+", " ");
+        for (Map.Entry<String, String> quoted : Map.of(
+                "JaCoCo aggregate lines", ratchets.aggregateLineCoverage(),
+                "JaCoCo aggregate branches", ratchets.aggregateBranchCoverage(),
+                "JaCoCo per-module lines", ratchets.perModuleLineCoverage(),
+                "JaCoCo per-module branches", ratchets.perModuleBranchCoverage()).entrySet()) {
+            String claim = quoted.getKey() + " >= " + quoted.getValue() + " %";
+            assertTrue(collapsed.contains(claim),
+                    () -> "PRODUCTION_INTEGRITY.md must quote the normative ratchet as \"" + claim + "\"");
+        }
         assertTrue(integrity.contains("Changed lines       >= 80 %"));
         assertTrue(integrity.contains("Changed branches    >= 70 %"));
         assertTrue(integrity.contains("config/m21-quality-ratchets.properties"));
@@ -130,7 +140,9 @@ class ProductionIntegrityContractTest {
     }
 
     /** Reads the single normative source of the M21 ratchets so documentation gates can never pin stale numbers. */
-    private record Ratchets(String tests, String architectureTests, String lineCoverage, String branchCoverage) {
+    private record Ratchets(String tests, String architectureTests,
+                            String aggregateLineCoverage, String aggregateBranchCoverage,
+                            String perModuleLineCoverage, String perModuleBranchCoverage) {
         private static Ratchets load(Path path) throws IOException {
             Properties properties = new Properties();
             try (var reader = Files.newBufferedReader(path)) {
@@ -139,8 +151,10 @@ class ProductionIntegrityContractTest {
             return new Ratchets(
                     properties.getProperty("testsMinimum"),
                     properties.getProperty("architectureTestsMinimum"),
-                    percentage(properties.getProperty("lineCoverageMinimum")),
-                    percentage(properties.getProperty("branchCoverageMinimum")));
+                    percentage(properties.getProperty("aggregateLineCoverageMinimum")),
+                    percentage(properties.getProperty("aggregateBranchCoverageMinimum")),
+                    percentage(properties.getProperty("perModuleLineCoverageMinimum")),
+                    percentage(properties.getProperty("perModuleBranchCoverageMinimum")));
         }
 
         private static String percentage(String decimal) {

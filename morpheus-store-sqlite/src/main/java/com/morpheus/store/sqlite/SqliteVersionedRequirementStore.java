@@ -29,7 +29,6 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -38,6 +37,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     private static final int SEQUENCE_ALLOCATION_MAX_ATTEMPTS = 24;
     private static final long SEQUENCE_ALLOCATION_INITIAL_BACKOFF_MILLIS = 10L;
     private static final long SEQUENCE_ALLOCATION_MAX_BACKOFF_MILLIS = 250L;
+    private static final SqliteFailureClassifier CONTENTION_CLASSIFIER = new SqliteFailureClassifier();
 
     private final Connection connection;
     private boolean closed;
@@ -275,6 +275,36 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
+    public synchronized List<RequirementVersionRecord> listCurrentRequirementVersions(
+            KnowledgeSnapshotId snapshotId,
+            int limit) {
+        ensureOpen();
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        if (limit < 1) {
+            throw new IllegalArgumentException("limit must be positive");
+        }
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT * FROM requirement_versions
+                WHERE snapshot_id = ? AND temporal_state = 'CURRENT'
+                ORDER BY entity_version_id
+                LIMIT ?
+                """)) {
+            statement.setString(1, snapshotId.toString());
+            statement.setInt(2, limit);
+            try (ResultSet result = statement.executeQuery()) {
+                List<RequirementVersionRecord> records = new ArrayList<>();
+                while (result.next()) {
+                    records.add(mapRequirementVersion(result));
+                }
+                return List.copyOf(records);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot list bounded CURRENT requirement versions for snapshot "
+                    + snapshotId, exception);
+        }
+    }
+
+    @Override
     public synchronized Optional<RequirementVersionRecord> currentRequirement(
             KnowledgeSnapshotId snapshotId,
             DomainIdentity entityIdentity) {
@@ -388,18 +418,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     private static boolean isSqliteBusy(Throwable failure) {
-        Throwable current = failure;
-        while (current != null) {
-            if (current instanceof SQLException sqlFailure) {
-                String message = sqlFailure.getMessage();
-                if (sqlFailure.getErrorCode() == 5
-                        || (message != null && message.toUpperCase(Locale.ROOT).contains("SQLITE_BUSY"))) {
-                    return true;
-                }
-            }
-            current = current.getCause();
-        }
-        return false;
+        return CONTENTION_CLASSIFIER.classify(failure).isPresent();
     }
 
     private Optional<SpecificationVersion> findSpecificationVersionInternal(SpecificationVersionId versionId)

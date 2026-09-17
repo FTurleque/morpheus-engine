@@ -1,5 +1,6 @@
 package com.morpheus.store.memory;
 
+import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyIds;
@@ -10,6 +11,7 @@ import com.morpheus.application.store.PolicyPackStore;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 
@@ -26,9 +28,16 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
             PolicyPack.Definition definition,
             PolicyPack.Version initialVersion,
             PolicyConfiguration.AuditRecord audit) {
-        if (!definition.id().equals(initialVersion.packId()) || !definition.id().equals(audit.packId())) {
+        if (!definition.id().equals(initialVersion.packId())) {
             throw new IllegalArgumentException("policy create identity mismatch");
         }
+        requireAudit(
+                audit,
+                PolicyConfiguration.AuditAction.CREATE,
+                definition.id(),
+                Optional.of(initialVersion.versionId()),
+                Optional.empty(),
+                Optional.empty());
         if (definitions.containsKey(definition.id())) {
             throw new PolicyConflictException("policy pack already exists: " + definition.id());
         }
@@ -72,9 +81,16 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
         if (current.revision() != expectedRevision) {
             throw conflict("policy pack", expectedRevision, current.revision());
         }
-        if (!replacement.id().equals(packId) || !newVersion.packId().equals(packId) || !audit.packId().equals(packId)) {
+        if (!replacement.id().equals(packId) || !newVersion.packId().equals(packId)) {
             throw new IllegalArgumentException("policy update identity mismatch");
         }
+        requireAudit(
+                audit,
+                PolicyConfiguration.AuditAction.UPDATE,
+                packId,
+                Optional.of(newVersion.versionId()),
+                Optional.empty(),
+                Optional.empty());
         if (replacement.revision() != expectedRevision + 1
                 || replacement.latestVersionNumber() != current.latestVersionNumber() + 1
                 || newVersion.versionNumber() != replacement.latestVersionNumber()) {
@@ -121,7 +137,18 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
                 || replacement.revision() != expectedRevision + 1) {
             throw new IllegalArgumentException("policy activation replacement mismatch");
         }
+        requireAudit(
+                audit,
+                PolicyConfiguration.AuditAction.ACTIVATE,
+                packId,
+                Optional.of(replacement.versionId()),
+                Optional.empty(),
+                Optional.of(scope));
         requireVersion(packId, replacement.versionId());
+        if (expectedRevision == 0 && countActivations(scope) >= PolicyBudgets.MAX_ACTIVE_PACKS_PER_SCOPE) {
+            throw new IllegalArgumentException(
+                    "policy scope exceeds active pack budget: " + PolicyBudgets.MAX_ACTIVE_PACKS_PER_SCOPE);
+        }
         activations.put(key, replacement);
         appendAudit(audit);
         return replacement;
@@ -141,6 +168,13 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
         if (current.revision() != expectedRevision) {
             throw conflict("policy activation", expectedRevision, current.revision());
         }
+        requireAudit(
+                audit,
+                PolicyConfiguration.AuditAction.DEACTIVATE,
+                packId,
+                Optional.of(current.versionId()),
+                Optional.empty(),
+                Optional.of(scope));
         activations.remove(key);
         appendAudit(audit);
     }
@@ -182,6 +216,21 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
                 || !replacement.ruleId().equals(ruleId) || replacement.revision() != expectedRevision + 1) {
             throw new IllegalArgumentException("policy override replacement mismatch");
         }
+        PolicyConfiguration.Activation active = activations.get(activationKey(scope, packId));
+        if (active == null) {
+            throw new IllegalArgumentException("policy pack must be active before adding an override: " + packId);
+        }
+        requireAudit(
+                audit,
+                PolicyConfiguration.AuditAction.PUT_OVERRIDE,
+                packId,
+                Optional.of(active.versionId()),
+                Optional.of(ruleId),
+                Optional.of(scope));
+        if (expectedRevision == 0 && countOverrides(scope) >= PolicyBudgets.MAX_OVERRIDES_PER_SCOPE) {
+            throw new IllegalArgumentException(
+                    "policy scope exceeds override budget: " + PolicyBudgets.MAX_OVERRIDES_PER_SCOPE);
+        }
         overrides.put(key, replacement);
         appendAudit(audit);
         return replacement;
@@ -202,6 +251,13 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
         if (current.revision() != expectedRevision) {
             throw conflict("policy override", expectedRevision, current.revision());
         }
+        requireAudit(
+                audit,
+                PolicyConfiguration.AuditAction.REMOVE_OVERRIDE,
+                packId,
+                Optional.empty(),
+                Optional.of(ruleId),
+                Optional.of(scope));
         overrides.remove(key);
         appendAudit(audit);
     }
@@ -227,6 +283,33 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
     private void appendAudit(PolicyConfiguration.AuditRecord audit) {
         requireDefinition(audit.packId());
         audits.computeIfAbsent(audit.packId(), ignored -> new ArrayList<>()).add(audit);
+    }
+
+    private void requireAudit(
+            PolicyConfiguration.AuditRecord audit,
+            PolicyConfiguration.AuditAction action,
+            PolicyIds.PackId packId,
+            Optional<PolicyIds.VersionId> versionId,
+            Optional<PolicyIds.RuleId> ruleId,
+            Optional<PolicyScope> scope) {
+        Objects.requireNonNull(audit, "audit");
+        if (audit.action() != action
+                || !audit.packId().equals(packId)
+                || !audit.versionId().equals(versionId)
+                || !audit.ruleId().equals(ruleId)
+                || !audit.scope().equals(scope)) {
+            throw new IllegalArgumentException("policy audit target mismatch for " + action);
+        }
+    }
+
+    private long countActivations(PolicyScope scope) {
+        String prefix = scopeKey(scope) + "|";
+        return activations.keySet().stream().filter(key -> key.startsWith(prefix)).count();
+    }
+
+    private long countOverrides(PolicyScope scope) {
+        String prefix = scopeKey(scope) + "|";
+        return overrides.keySet().stream().filter(key -> key.startsWith(prefix)).count();
     }
 
     private PolicyConflictException conflict(String target, long expected, long actual) {

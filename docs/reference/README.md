@@ -36,7 +36,8 @@ M21 n’expose volontairement pas un endpoint HTTP générique de découverte d�
 
 - [Guide développeur MCP](../developer/MCP.md)
 - M21 ajoute `get_product_info` ;
-- M21 ajoute `check_product_update` en lecture explicite ;
+- le nom historique `check_product_update` reste un stub sans fichier ni réseau et retourne une erreur ;
+- la découverte de plugins à chemin fourni par l’agent est `EXPLICITLY_NOT_EXPOSED` ;
 - `apply_change_lifecycle_transition` reste une capability write séparée ;
 - `evaluate_change_transition` reste read-only : `ALLOWED != applied`.
 

@@ -1,6 +1,6 @@
 # ADR-0012 — Publier l'état de connaissance par snapshots versionnés
 
-- Statut : **Proposée — à valider pendant C0 et M0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Portée : ingestion, versionnement, stockage, cohérence
 

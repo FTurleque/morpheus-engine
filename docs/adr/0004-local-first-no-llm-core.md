@@ -1,6 +1,6 @@
 # ADR-0004 — Le cœur MORPHEUS est local-first et ne dépend d'aucun LLM
 
-- Statut : **Proposée — à valider pendant C0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Portée : sécurité, confidentialité et dépendances d'exécution
 

@@ -30,10 +30,12 @@ public record UpdateManifest(
     }
 
     /**
-     * Remote manifests are only considered suitable for a future installer when both the artifact and its provenance
-     * are transported over HTTPS. Local file manifests remain available for explicit diagnostics and test fixtures.
+     * Validates the remote discovery contract only: HTTPS transport for the artifact and an HTTPS provenance
+     * reference are mandatory. This method does not cryptographically verify the attestation and must never be
+     * treated as an installation or publisher-identity decision. Local file manifests remain available for explicit
+     * diagnostics and test fixtures.
      */
-    void requireRemoteTrust(URI manifestUri) {
+    void requireRemoteDiscoveryContract(URI manifestUri) {
         Objects.requireNonNull(manifestUri, "manifestUri");
         if (!"https".equalsIgnoreCase(manifestUri.getScheme())) return;
         if (!"https".equalsIgnoreCase(artifactUri.getScheme())) {

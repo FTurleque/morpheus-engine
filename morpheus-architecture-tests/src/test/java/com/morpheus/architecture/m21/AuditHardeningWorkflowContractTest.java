@@ -119,6 +119,61 @@ class AuditHardeningWorkflowContractTest {
     }
 
     /**
+     * The integration branch gets a static-analysis verdict, on a bounded cadence, without ever meeting the secret.
+     *
+     * <p>Sonar analysed {@code main} only, and a push to main is a promotion. Everything merged in between --
+     * over a hundred commits between promotions -- reached the quality gate for the first time at promotion, when
+     * acting on the verdict is most expensive. The fix is a daily analysis of {@code develop} rather than a
+     * per-merge one: an integration branch reviewed within a day is worth nearly as much as one reviewed per
+     * merge, and costs about a fifth as much.</p>
+     *
+     * <p>The security reasoning of the main-branch job is not weakened to get there, which is why the develop
+     * analysis lives in a workflow that has no {@code pull_request} trigger at all rather than in a widened
+     * condition on {@code ci.yml}. Two further properties are asserted because both are silent when they break: a
+     * scheduled run is dispatched against the default branch, so the checkout must name {@code develop}
+     * explicitly or the job would analyse {@code main} twice and report a green integration branch it never
+     * looked at; and the job must refuse to run when the workflow definition itself comes from an unmerged
+     * branch, which is the one way a manual dispatch could still bring unreviewed code into scope of the
+     * token.</p>
+     */
+    @Test
+    void developIsAnalysedOnABoundedCadenceInAWorkflowNoPullRequestCanReach() throws IOException {
+        Path root = repoRoot();
+        String nightly = Files.readString(root.resolve(".github/workflows/nightly.yml"));
+
+        // A trigger key, not the words: the workflow explains in prose why it has no pull_request trigger, and a
+        // substring search would find that explanation and fail on it.
+        assertFalse(Pattern.compile("(?m)^\\s*pull_request(?:_target)?:\\s*$").matcher(nightly).find(),
+                "the workflow carrying SONAR_TOKEN on develop must not be reachable from a pull request in any "
+                        + "form -- that is the whole reason it is a separate workflow");
+        assertTrue(nightly.contains("schedule:") && nightly.contains("- cron: "),
+                "develop analysis must run on a bounded cadence, not only when somebody remembers to ask");
+
+        assertTrue(nightly.contains("SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}"),
+                "the develop analysis must authenticate through the repository secret");
+        assertTrue(nightly.contains("if: github.ref_name == 'main' || github.ref_name == 'develop'"),
+                "a workflow_dispatch from a feature branch must not run its own edited job definition with "
+                        + "SONAR_TOKEN in scope");
+        assertTrue(nightly.contains("ref: develop"),
+                "a scheduled run is dispatched against the default branch, so the analysed ref must be pinned to "
+                        + "develop rather than defaulted to main");
+        assertTrue(nightly.contains("-Dsonar.branch.name=develop"),
+                "the analysis must be reported against develop rather than overwriting the main branch verdict");
+        assertTrue(nightly.contains("-Dsonar.qualitygate.wait=true"),
+                "the develop analysis must fail when SonarQube Cloud rejects it");
+        assertTrue(nightly.contains("org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar"),
+                "the SonarScanner for Maven must be version-pinned on develop exactly as it is on main");
+        assertTrue(nightly.contains("bash ./scripts/classify-sonar-quality-gate.sh"),
+                "an indeterminate SonarCloud verdict on develop must be classified by the same script as on "
+                        + "main, so an external outage cannot masquerade as a MORPHEUS regression");
+
+        String ci = Files.readString(root.resolve(".github/workflows/ci.yml"));
+        assertTrue(ci.contains("nightly.yml"),
+                "the main-branch Sonar job must point at where the integration branch is covered, so the gap it "
+                        + "deliberately leaves is not mistaken for an oversight");
+    }
+
+    /**
      * Isolates the required exact-head job from the advisory/trusted-only lanes beside it.
      *
      * <p>This guard used to scan the whole file for {@code continue-on-error}, which was exact while ci.yml held
@@ -161,7 +216,7 @@ class AuditHardeningWorkflowContractTest {
     }
 
     @Test
-    void futureRemoteUpdaterCannotRegressToChecksumOnlyTrust() throws IOException {
+    void remoteDiscoveryCannotRegressToChecksumOnlyOrClaimVerifiedTrust() throws IOException {
         Path root = repoRoot();
         String manifest = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/product/UpdateManifest.java"));
@@ -171,8 +226,10 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(manifest.contains("remote update manifest must declare attestationUri"));
         assertTrue(manifest.contains("remote update artifactUri must use https"));
         assertTrue(manifest.contains("remote update attestationUri must use https"));
+        assertTrue(manifest.contains("does not cryptographically verify the attestation"),
+                "discovery validation must never be presented as publisher-identity verification");
         assertTrue(discovery.contains("optionalUri(properties, \"attestationUri\")"));
-        assertTrue(discovery.contains("manifest.requireRemoteTrust(manifestUri)"));
+        assertTrue(discovery.contains("manifest.requireRemoteDiscoveryContract(manifestUri)"));
     }
 
     @Test

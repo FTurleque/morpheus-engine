@@ -503,12 +503,17 @@ function Test-JetBrainsCopilotPresent([string] $ConfigPath) {
 function Stop-NativeProcessTree([System.Diagnostics.Process] $Process) {
     if ($null -eq $Process) { return }
     try { if ($Process.HasExited) { return } } catch { return }
+    # taskkill's exit code is deliberately ignored, but a native call still writes the global $LASTEXITCODE, and
+    # /T races children that exit during enumeration (128 when a process is already gone). Restore it, or a caller
+    # that reads $LASTEXITCODE after this script sees a failure that never happened.
+    $PreviousExitCode = $global:LASTEXITCODE
     try {
         $TaskKill = Join-Path ([Environment]::SystemDirectory) 'taskkill.exe'
         if (Test-Path -LiteralPath $TaskKill -PathType Leaf) {
             & $TaskKill /PID ([string]$Process.Id) /T /F 2>&1 | Out-Null
         }
     } catch { }
+    finally { $global:LASTEXITCODE = $PreviousExitCode }
     try { if (-not $Process.HasExited) { $Process.Kill() } } catch { }
 }
 

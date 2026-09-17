@@ -52,23 +52,23 @@ final class MorpheusControlledLifecycleMcpTools {
 
     private McpSchema.CallToolResult call(Map<String, Object> rawArguments) {
         try {
-            Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
-            ProjectSpecificationId projectId = ProjectSpecificationId.parse(requiredString(arguments, "projectId"));
-            ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
-            ChangeLifecycleState targetState = lifecycleState(requiredString(arguments, "targetState"));
-            long expectedRevision = requiredLong(arguments, "expectedRevision");
+            Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
+            ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
+            ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
+            ChangeLifecycleState targetState = lifecycleState(McpArguments.requiredString(arguments, "targetState"));
+            long expectedRevision = McpArguments.requiredInteger(arguments, "expectedRevision");
             if (expectedRevision < 0) {
                 throw new IllegalArgumentException("expectedRevision must be non-negative");
             }
-            ChangeLifecycleMutationId mutationId = optionalString(arguments, "mutationId")
+            ChangeLifecycleMutationId mutationId = McpArguments.optionalString(arguments, "mutationId")
                     .map(ChangeLifecycleMutationId::parse)
                     .orElseGet(ChangeLifecycleMutationId::generate);
             ChangeLifecycleIdempotencyKey idempotencyKey =
-                    new ChangeLifecycleIdempotencyKey(requiredString(arguments, "idempotencyKey"));
-            String actor = requiredString(arguments, "actor");
-            boolean confirmed = requiredBoolean(arguments, "confirmed");
+                    new ChangeLifecycleIdempotencyKey(McpArguments.requiredString(arguments, "idempotencyKey"));
+            String actor = McpArguments.requiredString(arguments, "actor");
+            boolean confirmed = McpArguments.requiredBoolean(arguments, "confirmed");
             Optional<ChangeAbandonmentReason> abandonmentReason = abandonmentReason(
-                    optionalString(arguments, "abandonmentReason"));
+                    McpArguments.optionalString(arguments, "abandonmentReason"));
 
             try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
                 if (runtime.snapshots.findProject(projectId).isEmpty()) {
@@ -101,10 +101,7 @@ final class MorpheusControlledLifecycleMcpTools {
                 return McpSchema.CallToolResult.builder(List.of(content)).build();
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            McpSchema.TextContent content = McpSchema.TextContent.builder(safeMessage(expected)).build();
-            return McpSchema.CallToolResult.builder(List.of(content))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
@@ -137,37 +134,6 @@ final class MorpheusControlledLifecycleMcpTools {
         return Map.of("type", "string", "minLength", 1);
     }
 
-    private String requiredString(Map<String, Object> arguments, String key) {
-        return optionalString(arguments, key)
-                .orElseThrow(() -> new IllegalArgumentException("missing required MCP argument: " + key));
-    }
-
-    private Optional<String> optionalString(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (value == null) {
-            return Optional.empty();
-        }
-        if (!(value instanceof String text) || text.isBlank()) {
-            throw new IllegalArgumentException(key + " must be a non-blank string");
-        }
-        return Optional.of(text.trim());
-    }
-
-    private long requiredLong(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (!(value instanceof Number number)) {
-            throw new IllegalArgumentException(key + " must be an integer");
-        }
-        return number.longValue();
-    }
-
-    private boolean requiredBoolean(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (!(value instanceof Boolean bool)) {
-            throw new IllegalArgumentException(key + " must be a boolean");
-        }
-        return bool;
-    }
 
     private ChangeLifecycleState lifecycleState(String value) {
         try {
@@ -188,8 +154,4 @@ final class MorpheusControlledLifecycleMcpTools {
         }
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

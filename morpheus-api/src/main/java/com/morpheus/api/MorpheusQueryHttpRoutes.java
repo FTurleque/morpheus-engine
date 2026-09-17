@@ -1,16 +1,15 @@
 package com.morpheus.api;
 
-import com.morpheus.application.query.compact.CanonicalJsonSerializer;
+import com.morpheus.api.MorpheusHttpServer.ApiError;
+import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
+import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
 import com.morpheus.application.query.export.QueryExport;
 import com.morpheus.application.query.export.QueryExportBudgetException;
 import com.morpheus.application.query.saved.SavedViewConflictException;
 import com.morpheus.application.query.dsl.QueryValidationException;
 import com.morpheus.application.store.KnowledgeStoreException;
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.net.URLDecoder;
@@ -31,24 +30,25 @@ final class MorpheusQueryHttpRoutes {
     private static final String EXPORT_CONTEXT = MorpheusHttpServer.API_PREFIX + "/exports";
 
     private final MorpheusQueryApiService service;
-    private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
-    private final JsonMapper mapper = JsonMapper.builder()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-            .build();
+    private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusHttpResponseWriter responseWriter;
 
-    private MorpheusQueryHttpRoutes(Path databasePath) {
+    private MorpheusQueryHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+            MorpheusHttpResponseWriter responseWriter) {
         service = new MorpheusQueryApiService(databasePath);
+        this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
+        this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
-    static void register(HttpServer server, Path databasePath) {
+    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+            MorpheusHttpResponseWriter responseWriter) {
         Objects.requireNonNull(server, "server");
-        MorpheusQueryHttpRoutes routes = new MorpheusQueryHttpRoutes(databasePath);
+        MorpheusQueryHttpRoutes routes = new MorpheusQueryHttpRoutes(databasePath, requestDecoder, responseWriter);
         server.createContext(QUERY_CONTEXT, routes::handleQueries);
         server.createContext(VIEW_CONTEXT, routes::handleSavedViews);
         server.createContext(EXPORT_CONTEXT, routes::handleExports);
-        MorpheusPolicyHttpRoutes.register(server, databasePath);
-        MorpheusReasoningHttpRoutes.register(server);
+        MorpheusPolicyHttpRoutes.register(server, databasePath, requestDecoder, responseWriter);
+        MorpheusReasoningHttpRoutes.register(server, requestDecoder, responseWriter);
     }
 
     private void handleQueries(HttpExchange exchange) throws IOException {
@@ -56,7 +56,8 @@ final class MorpheusQueryHttpRoutes {
             requireMethod(exchange, "POST");
             requireExactPath(exchange, QUERY_CONTEXT + "/execute");
             rejectQueryParameters(exchange);
-            return json(200, service.execute(readJson(exchange, MorpheusQueryApiService.ScopedQueryRequest.class)));
+            return json(200, service.execute(
+                    requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.ScopedQueryRequest.class)));
         });
     }
 
@@ -65,7 +66,8 @@ final class MorpheusQueryHttpRoutes {
             requireMethod(exchange, "POST");
             requireExactPath(exchange, EXPORT_CONTEXT);
             rejectQueryParameters(exchange);
-            return raw(200, service.export(readJson(exchange, MorpheusQueryApiService.ExportRequest.class)));
+            return raw(200, service.export(
+                    requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.ExportRequest.class)));
         });
     }
 
@@ -85,9 +87,9 @@ final class MorpheusQueryHttpRoutes {
             if (method.equals("POST")) {
                 rejectQueryParameters(exchange);
                 return json(201, service.createSavedView(
-                        readJson(exchange, MorpheusQueryApiService.CreateSavedViewRequest.class)));
+                        requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.CreateSavedViewRequest.class)));
             }
-            throw new HttpFailure(405, "METHOD_NOT_ALLOWED", "saved-views supports GET and POST");
+            throw ApiFailure.methodNotAllowed("saved-views supports GET and POST");
         }
 
         rejectQueryParameters(exchange);
@@ -98,12 +100,12 @@ final class MorpheusQueryHttpRoutes {
             }
             if (method.equals("PUT")) {
                 return json(200, service.updateSavedView(
-                        id, readJson(exchange, MorpheusQueryApiService.UpdateSavedViewRequest.class)));
+                        id, requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.UpdateSavedViewRequest.class)));
             }
-            throw new HttpFailure(405, "METHOD_NOT_ALLOWED", "saved view supports GET and PUT");
+            throw ApiFailure.methodNotAllowed("saved view supports GET and PUT");
         }
         if (segments.size() != 2) {
-            throw new HttpFailure(404, "NOT_FOUND", "unknown saved-view route");
+            throw ApiFailure.notFound("unknown saved-view route");
         }
         String action = segments.get(1);
         return switch (action) {
@@ -113,20 +115,20 @@ final class MorpheusQueryHttpRoutes {
             }
             case "execute" -> {
                 requireMethod(exchange, "POST");
-                requireEmptyBody(exchange);
+                requestDecoder.requireEmptyBody(exchange);
                 yield json(200, service.executeSavedView(id));
             }
             case "archive" -> {
                 requireMethod(exchange, "POST");
                 yield json(200, service.archiveSavedView(
-                        id, readJson(exchange, MorpheusQueryApiService.RevisionRequest.class)));
+                        id, requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.RevisionRequest.class)));
             }
             case "export" -> {
                 requireMethod(exchange, "POST");
                 yield raw(200, service.exportSavedView(
-                        id, readJson(exchange, MorpheusQueryApiService.ExportSavedViewRequest.class)));
+                        id, requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.ExportSavedViewRequest.class)));
             }
-            default -> throw new HttpFailure(404, "NOT_FOUND", "unknown saved-view action: " + action);
+            default -> throw ApiFailure.notFound("unknown saved-view action: " + action);
         };
     }
 
@@ -135,87 +137,61 @@ final class MorpheusQueryHttpRoutes {
             Response response = handler.route();
             if (response.export().isPresent()) {
                 QueryExport export = response.export().orElseThrow();
-                sendRaw(exchange, response.status(), export.mediaType(), export.utf8());
+                responseWriter.sendRaw(exchange, response.status(), export.mediaType(), export.utf8());
             } else {
-                sendJson(exchange, response.status(), new ApiSuccess("v1", response.data()));
+                responseWriter.send(exchange, response.status(), new ApiSuccess("v1", response.data()));
             }
         } catch (QueryValidationException failure) {
-            sendJson(exchange, 400, new ApiErrorEnvelope(
+            responseWriter.send(exchange, 400, new ApiErrorEnvelope(
                     "v1", new ApiError("QUERY_VALIDATION", safeMessage(failure), Map.of())));
         } catch (QueryExportBudgetException failure) {
-            sendJson(exchange, 400, new ApiErrorEnvelope(
+            responseWriter.send(exchange, 400, new ApiErrorEnvelope(
                     "v1", new ApiError("QUERY_BUDGET_EXCEEDED", safeMessage(failure), Map.of())));
         } catch (SavedViewConflictException failure) {
-            sendJson(exchange, 409, new ApiErrorEnvelope(
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope(
                     "v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
-        } catch (HttpFailure failure) {
-            if (failure.status == 405) {
+        } catch (ApiFailure failure) {
+            if (failure.status() == 405) {
                 exchange.getResponseHeaders().set("Allow", allowed(exchange.getRequestURI().getPath()));
             }
-            sendJson(exchange, failure.status, new ApiErrorEnvelope(
-                    "v1", new ApiError(failure.code, failure.getMessage(), Map.of())));
+            responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope(
+                    "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
-            sendJson(exchange, 400, new ApiErrorEnvelope(
+            responseWriter.send(exchange, 400, new ApiErrorEnvelope(
                     "v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
         } catch (KnowledgeStoreException | IllegalStateException failure) {
-            sendJson(exchange, 409, new ApiErrorEnvelope(
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope(
                     "v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
         } catch (RuntimeException failure) {
-            sendJson(exchange, 500, new ApiErrorEnvelope(
+            responseWriter.send(exchange, 500, new ApiErrorEnvelope(
                     "v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
             exchange.close();
         }
     }
 
-    private <T> T readJson(HttpExchange exchange, Class<T> type) {
-        byte[] body = readBody(exchange);
-        if (body.length == 0) {
-            throw new HttpFailure(400, "BAD_REQUEST", "JSON request body is required");
-        }
-        String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-        if (!JsonMediaType.isJson(contentType)) {
-            throw new HttpFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Content-Type application/json is required");
-        }
-        try {
-            return mapper.readValue(body, type);
-        } catch (Exception failure) {
-            throw new HttpFailure(400, "BAD_REQUEST", "invalid JSON request body: " + safeMessage(failure));
-        }
-    }
-
-    private byte[] readBody(HttpExchange exchange) {
-        return HttpRequestBodyReader.read(exchange);
-    }
-
-    private void requireEmptyBody(HttpExchange exchange) {
-        if (readBody(exchange).length != 0) {
-            throw new HttpFailure(400, "BAD_REQUEST", "request body must be empty");
-        }
-    }
-
     private void requireMethod(HttpExchange exchange, String expected) {
         String actual = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
         if (!actual.equals(expected)) {
-            throw new HttpFailure(405, "METHOD_NOT_ALLOWED", "expected HTTP " + expected + " but received " + actual);
+            throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
         }
     }
 
     private void requireExactPath(HttpExchange exchange, String expected) {
         if (!exchange.getRequestURI().getPath().equals(expected)) {
-            throw new HttpFailure(404, "NOT_FOUND", "unknown API route");
+            throw ApiFailure.notFound("unknown API route");
         }
     }
 
     private void rejectQueryParameters(HttpExchange exchange) {
         if (exchange.getRequestURI().getRawQuery() != null && !exchange.getRequestURI().getRawQuery().isBlank()) {
-            throw new HttpFailure(400, "BAD_REQUEST", "query parameters are not supported on this route");
+            throw ApiFailure.badRequest("query parameters are not supported on this route");
         }
     }
 
     private List<String> suffixSegments(String path, String context) {
         if (!path.startsWith(context)) {
-            throw new HttpFailure(404, "NOT_FOUND", "unknown API route");
+            throw ApiFailure.notFound("unknown API route");
         }
         String suffix = path.substring(context.length());
         if (suffix.isEmpty() || suffix.equals("/")) {
@@ -228,7 +204,7 @@ final class MorpheusQueryHttpRoutes {
         List<String> result = new ArrayList<>();
         for (String segment : normalized.split("/")) {
             if (segment.isBlank()) {
-                throw new HttpFailure(404, "NOT_FOUND", "invalid API path");
+                throw ApiFailure.notFound("invalid API path");
             }
             result.add(URLDecoder.decode(segment, StandardCharsets.UTF_8));
         }
@@ -241,19 +217,6 @@ final class MorpheusQueryHttpRoutes {
 
     private Response raw(int status, QueryExport export) {
         return new Response(status, export, Optional.of(export));
-    }
-
-    private void sendJson(HttpExchange exchange, int status, Object body) throws IOException {
-        sendRaw(exchange, status, "application/json; charset=utf-8", serializer.toUtf8(body));
-    }
-
-    private void sendRaw(HttpExchange exchange, int status, String contentType, byte[] bytes) throws IOException {
-        Headers headers = exchange.getResponseHeaders();
-        headers.set("Content-Type", contentType);
-        headers.set("Cache-Control", "no-store");
-        headers.set("X-Content-Type-Options", "nosniff");
-        exchange.sendResponseHeaders(status, bytes.length);
-        exchange.getResponseBody().write(bytes);
     }
 
     private String allowed(String path) {
@@ -281,26 +244,6 @@ final class MorpheusQueryHttpRoutes {
         }
     }
 
-    private record ApiSuccess(String apiVersion, Object data) {
-    }
-
-    private record ApiError(String code, String message, Map<String, Object> details) {
-    }
-
-    private record ApiErrorEnvelope(String apiVersion, ApiError error) {
-    }
-
-    private static final class HttpFailure extends RuntimeException {
-        private final int status;
-        private final String code;
-
-        private HttpFailure(int status, String code, String message) {
-            super(message);
-            this.status = status;
-            this.code = code;
-        }
-    }
-
     @FunctionalInterface
     private interface Handler {
         Response route();
@@ -321,7 +264,7 @@ final class MorpheusQueryHttpRoutes {
                 String key = URLDecoder.decode(separator < 0 ? part : part.substring(0, separator), StandardCharsets.UTF_8);
                 String value = URLDecoder.decode(separator < 0 ? "" : part.substring(separator + 1), StandardCharsets.UTF_8);
                 if (key.isBlank() || values.putIfAbsent(key, value) != null) {
-                    throw new HttpFailure(400, "BAD_REQUEST", "invalid or duplicate query parameter: " + key);
+                    throw ApiFailure.badRequest("invalid or duplicate query parameter: " + key);
                 }
             }
             return new Query(values);
@@ -330,7 +273,7 @@ final class MorpheusQueryHttpRoutes {
         String required(String name) {
             String value = values.get(name);
             if (value == null || value.isBlank()) {
-                throw new HttpFailure(400, "BAD_REQUEST", "query parameter is required: " + name);
+                throw ApiFailure.badRequest("query parameter is required: " + name);
             }
             return value;
         }
@@ -338,7 +281,7 @@ final class MorpheusQueryHttpRoutes {
         void rejectUnknown(List<String> allowed) {
             values.keySet().stream().filter(key -> !allowed.contains(key)).findFirst()
                     .ifPresent(key -> {
-                        throw new HttpFailure(400, "BAD_REQUEST", "unknown query parameter: " + key);
+                        throw ApiFailure.badRequest("unknown query parameter: " + key);
                     });
         }
     }

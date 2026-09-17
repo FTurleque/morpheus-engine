@@ -1,6 +1,6 @@
 # ADR-0009 — Séparer l'identité logique, la version, l'emplacement et l'identifiant externe
 
-- Statut : **Proposée — à valider pendant C0 et M0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Portée : modèle de domaine, ingestion, versionnement, stockage
 

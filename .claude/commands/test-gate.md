@@ -13,7 +13,8 @@ Exécute les tests avec rapport de coverage pour un module ou le projet entier.
 ```bash
 ./mvnw test -pl morpheus-architecture-tests 2>&1
 ```
-Afficher tous les tests passants/échouants par milestone (m19 à m28).
+Afficher tous les tests passants/échouants par milestone — découvrir les répertoires `m*/` existants
+par `glob`, ne pas supposer une plage figée.
 
 ### Si $ARGUMENTS = un nom de module (ex: "morpheus-api", "api")
 ```bash
@@ -46,6 +47,13 @@ Si un test échoue :
 - Le gate applique `max(plancher D2, ratchet qualifié)` — le plancher D2 est une constante
   fixe (`D2_MIN_LINE_RATIO` / `D2_MIN_BRANCH_RATIO`), le ratchet qualifié est **vivant** et
   monte au fil des milestones : lire `config/m21-quality-ratchets.properties`
-  (`lineCoverageMinimum` / `branchCoverageMinimum`), jamais un pourcentage mémorisé
+  (`aggregateLineCoverageMinimum` / `aggregateBranchCoverageMinimum` pour la mesure canonique,
+  `perModuleLineCoverageMinimum` / `perModuleBranchCoverageMinimum` pour la somme des rapports
+  par module), jamais un pourcentage mémorisé et jamais un seuil détaché de son échelle
 - Défini dans `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java`
+  (échelle par module) et `morpheus-coverage-report/src/test/java/com/morpheus/coverage/AggregateCoverageGateTest.java`
+  (échelle agrégée, canonique)
+- Relever les seuils avec `bash .claude/skills/live-numbers/numbers.sh` avant d'en citer un
+- Pour faire *monter* un ratchet plutôt que le constater, suivre la skill `coverage-ratchet` :
+  relever le ratchet et relever le plafond ne demandent pas la même preuve
 - Voir `.claude/rules/meta.md` avant de citer un seuil dans un rapport

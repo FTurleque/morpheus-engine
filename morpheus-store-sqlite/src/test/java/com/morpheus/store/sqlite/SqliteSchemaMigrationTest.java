@@ -36,7 +36,7 @@ class SqliteSchemaMigrationTest {
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(17, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(18, new SqliteSchemaManager().currentVersion(connection));
             List<String> expectedTables = List.of(
                     "schema_migrations",
                     "projects",
@@ -121,6 +121,8 @@ class SqliteSchemaMigrationTest {
             assertTrue(indexExists(connection, "idx_policy_pack_activations_scope"));
             assertTrue(indexExists(connection, "idx_policy_overrides_scope"));
             assertTrue(indexExists(connection, "idx_policy_audit_pack"));
+            assertTrue(triggerExists(connection, "trg_policy_packs_revision_step"));
+            assertTrue(triggerExists(connection, "trg_policy_pack_versions_latest"));
             assertEquals(
                     List.of("UNKNOWN"),
                     defaultValues(connection, "snapshot_constraints", "applicability"));
@@ -135,7 +137,7 @@ class SqliteSchemaMigrationTest {
     }
 
     @Test
-    void migrationReplayIsIdempotentAndLedgerContainsSeventeenImmutableEntries() throws Exception {
+    void migrationReplayIsIdempotentAndLedgerContainsEighteenImmutableEntries() throws Exception {
         Path database = tempDir.resolve("replay.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // First application.
@@ -149,7 +151,7 @@ class SqliteSchemaMigrationTest {
              ResultSet result = statement.executeQuery(
                      "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum FROM schema_migrations")) {
             assertTrue(result.next());
-            assertEquals(17, result.getInt("count"));
+            assertEquals(18, result.getInt("count"));
             assertEquals(64, result.getInt("min_checksum"));
             assertEquals(64, result.getInt("max_checksum"));
         }
@@ -189,7 +191,7 @@ class SqliteSchemaMigrationTest {
             while (result.next()) sequences.add(result.getLong(1));
             assertEquals(List.of(1L, 2L, 3L), sequences);
             assertTrue(indexExists(connection, "uq_specification_versions_project_sequence"));
-            assertEquals(17, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(18, new SqliteSchemaManager().currentVersion(connection));
         }
     }
 
@@ -263,6 +265,16 @@ class SqliteSchemaMigrationTest {
         try (var statement = connection.prepareStatement(
                 "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?")) {
             statement.setString(1, indexName);
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        }
+    }
+
+    private boolean triggerExists(java.sql.Connection connection, String triggerName) throws Exception {
+        try (var statement = connection.prepareStatement(
+                "SELECT 1 FROM sqlite_master WHERE type = 'trigger' AND name = ?")) {
+            statement.setString(1, triggerName);
             try (ResultSet result = statement.executeQuery()) {
                 return result.next();
             }

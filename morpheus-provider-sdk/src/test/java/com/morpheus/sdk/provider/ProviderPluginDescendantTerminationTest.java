@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,6 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ProviderPluginDescendantTerminationTest {
     private static final Duration GRACE = Duration.ofSeconds(5);
+
+    /** How long the fixture child is given to reach its main method and say so. Bounds a read, not a guess. */
+    private static final Duration CHILD_READY_BUDGET = Duration.ofSeconds(30);
 
     @Test
     void anEmptyHandleListIsAlreadyTerminated() {
@@ -59,6 +63,42 @@ class ProviderPluginDescendantTerminationTest {
             assertTrue(ProviderPluginDescendantTermination.terminate(
                     List.of(child.toHandle()), Duration.ofMillis(1)));
             assertTrue(child.waitFor(GRACE.toSeconds(), TimeUnit.SECONDS), "escalation must terminate the process");
+        } finally {
+            child.destroyForcibly();
+        }
+    }
+
+    /**
+     * A short grace must not turn a successful kill into a reported failure.
+     *
+     * <p>{@code terminate} used the caller's grace twice: to wait politely after {@code SIGTERM}, and again to
+     * observe that the {@code SIGKILL} it then sent had landed. Killing a child JVM needs single-digit
+     * milliseconds to become observable, so a one-millisecond grace produced {@code false} for a subtree that
+     * was already dead.</p>
+     *
+     * <p>The sibling test above hits the same path but only fails intermittently, because whether {@code SIGTERM}
+     * kills the child outright or triggers a graceful JVM shutdown depends on how far the child got starting up
+     * -- which is why the defect only ever surfaced on a loaded CI runner. Waiting for the child to be running
+     * first removes that coin flip and makes the regression deterministic.</p>
+     *
+     * <p>That wait used to be {@code Thread.sleep(250)}: a fixed stabilisation delay, the third and riskiest of
+     * the three shapes java:S2925 covers, because a runner slower than the guess passes the test without ever
+     * establishing the precondition. Here the precondition turned out to be observable after all -- the child
+     * announces on stdout once its main method is running -- so this waits for that announcement rather than
+     * for a duration chosen to be probably long enough. No sleep is left, and no suppression with it.</p>
+     */
+    @Test
+    void aGraceShorterThanTheReapLatencyStillReportsTheKillItPerformed() throws Exception {
+        Process child = spawnPersistentProcess();
+        try {
+            awaitChildReady(child);
+            assertTrue(child.isAlive(), "fixture process must still be running before the kill");
+
+            assertTrue(
+                    ProviderPluginDescendantTermination.terminate(
+                            List.of(child.toHandle()), Duration.ofMillis(1)),
+                    "a kill that succeeded must not be reported as a failure because the grace was short");
+            assertFalse(child.isAlive(), "the process must be gone once termination reports success");
         } finally {
             child.destroyForcibly();
         }
@@ -154,6 +194,20 @@ class ProviderPluginDescendantTerminationTest {
             }
         }
         throw new AssertionError("fixture grandchild did not publish its PID");
+    }
+
+    /**
+     * Blocks until the fixture child announces that its main method is running.
+     *
+     * <p>Event-driven rather than polled: the announcement arrives on the child's stdout, so the read itself is
+     * the wait and {@code assertTimeoutPreemptively} is the bound. There is no sleep here to suppress.</p>
+     */
+    private void awaitChildReady(Process child) {
+        assertTimeoutPreemptively(CHILD_READY_BUDGET, () -> assertEquals(
+                TestLateDescendantProviderPlugin.PersistentChild.READY_ANNOUNCEMENT,
+                new BufferedReader(new InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8))
+                        .readLine(),
+                "the fixture child must announce readiness before it is a meaningful kill target"));
     }
 
     private Process spawnPersistentProcess() throws IOException {
