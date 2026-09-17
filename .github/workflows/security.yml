@@ -138,35 +138,59 @@ jobs:
           echo "updated=false" >> "${GITHUB_OUTPUT}"
           data_dir="${GITHUB_WORKSPACE}/target/dependency-check-data"
           max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
+
+          # A refresh that did not happen must never be reported as one -- and it is also not, by itself, a
+          # reason to refuse a database that is still inside its freshness budget. The budget is the refusal,
+          # and it already exists below. The no-key branch has always worked that way; the key branch did not,
+          # so a key the NVD refuses killed the step outright while a fresh trusted cache sat right there.
+          # An invalid or unactivated key is epistemically identical to an absent one: nothing here refreshed
+          # the feed. Both now converge on the same handling, and `refresh_skipped_because` carries which of
+          # the two it was into every message, so the two are never told apart by reading the workflow.
+          #
+          # What does not converge: a failed refresh writes no sentinel and leaves `updated=false`, so no cache
+          # is published and nothing later can mistake this run for a refresh.
+          refresh_skipped_because=''
           if [[ -n "${NVD_API_KEY:-}" ]]; then
-            ./mvnw \
+            if ./mvnw \
               -Pd2-security \
               "-DdataDirectory=${data_dir}" \
               -DnvdApiKeyEnvironmentVariable=NVD_API_KEY \
-              org.owasp:dependency-check-maven:13.0.0:update-only
-            # The sentinel is written here and only here on this path: after the refresh succeeded, so its
-            # presence is evidence the feed was actually renewed rather than that a file happens to exist.
-            bash ./scripts/write-dependency-check-sentinel.sh \
-              "${data_dir}" "${DEPENDENCY_CHECK_PLUGIN_VERSION}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}" "NVD API key refresh"
-            echo "updated=true" >> "${GITHUB_OUTPUT}"
-            bash ./scripts/report-dependency-check-cache.sh 0 "NVD API key refresh"
+              org.owasp:dependency-check-maven:13.0.0:update-only; then
+              # The sentinel is written here and only here on this path: after the refresh succeeded, so its
+              # presence is evidence the feed was actually renewed rather than that a file happens to exist.
+              bash ./scripts/write-dependency-check-sentinel.sh \
+                "${data_dir}" "${DEPENDENCY_CHECK_PLUGIN_VERSION}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}" "NVD API key refresh"
+              echo "updated=true" >> "${GITHUB_OUTPUT}"
+              bash ./scripts/report-dependency-check-cache.sh 0 "NVD API key refresh"
+            else
+              refresh_skipped_because='NVD_API_KEY was refused by the NVD'
+              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The trusted Dependency-Check refresh did not complete although NVD_API_KEY is configured; the NVD refuses an invalid or unactivated key exactly as it refuses a wrong one. Nothing here refreshed the feed, so this run falls back to the last trusted cache and its freshness budget keeps running from that cache's own refresh, not from now. Replace NVD_API_KEY: when the budget expires, every scan including every pull request fails with STALE_DATABASE. See RT-13 in docs/architecture/risks/register.md."
+            fi
           else
             # Dependency-Check 13.0.0 upstream bug #8715 treats its built-in blank nvd.api.key as a real key.
             # Until a release containing upstream fix #8716 exists, never attempt the broken anonymous update.
+            refresh_skipped_because='NVD_API_KEY is not configured'
             echo "::warning::NVD_API_KEY is not configured; Dependency-Check 13.0.0 anonymous update is broken upstream. Reusing a fresh trusted cache."
+          fi
+
+          if [[ -n "${refresh_skipped_because}" ]]; then
             facts="$(bash ./scripts/read-dependency-check-sentinel.sh "${data_dir}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}")"
             status="$(sed -n 's/^status=//p' <<< "${facts}" | head -n 1)"
             if [[ "${status}" != 'OK' ]]; then
-              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check database is available (${status}): nothing here refreshed the feed, and the restored cache carries no trusted-refresh sentinel to date. Configure NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released."
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check database is available (${status}): nothing here refreshed the feed (${refresh_skipped_because}), and the restored cache carries no trusted-refresh sentinel to date. Configure a working NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released."
               exit 1
             fi
             age_seconds="$(sed -n 's/^ageSeconds=//p' <<< "${facts}" | head -n 1)"
-            bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "trusted cache fallback (NVD_API_KEY absent, no refresh performed)"
+            # Same rule as the pull-request path: the row names the provenance the sentinel recorded, never a
+            # literal describing this run. Why this run refreshed nothing is a separate fact, and it is carried
+            # by the annotations and the messages below, where a cause belongs.
+            refreshed_by="$(sed -n 's/^refreshedBy=//p' <<< "${facts}" | head -n 1)"
+            bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "${refreshed_by:-unknown}"
             if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
-              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Trusted Dependency-Check database is stale (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s). Configure NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released. This is an infrastructure failure, not a vulnerability finding."
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Trusted Dependency-Check database is stale (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s), and nothing here refreshed it (${refresh_skipped_because}). Configure a working NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released. This is an infrastructure failure, not a vulnerability finding."
               exit 1
             fi
-            echo "Dependency-Check trusted cache fallback PASS (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s)."
+            echo "Dependency-Check trusted cache fallback PASS (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s; ${refresh_skipped_because})."
           fi
 
       - name: Save trusted Dependency-Check database

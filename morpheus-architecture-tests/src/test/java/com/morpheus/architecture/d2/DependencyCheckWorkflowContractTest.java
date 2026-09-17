@@ -91,9 +91,11 @@ class DependencyCheckWorkflowContractTest {
                         + "\"${refreshed_by:-unknown}\""),
                 "pull-request scans must publish the freshness of the cache they were handed, and name where "
                         + "that cache came from rather than how it reached them");
-        assertTrue(security.contains("bash ./scripts/report-dependency-check-cache.sh \"${age_seconds}\" "
-                        + "\"trusted cache fallback (NVD_API_KEY absent, no refresh performed)\""),
-                "the fallback must say out loud that it refreshed nothing");
+        assertTrue(security.contains("Dependency-Check trusted cache fallback PASS (${age_seconds}s since "
+                        + "its last trusted refresh; maximum ${max_age_seconds}s; ${refresh_skipped_because})."),
+                "the fallback must say out loud that it refreshed nothing, and which of the two reasons it "
+                        + "was; the provenance row carries where the database came from, never why this run "
+                        + "renewed nothing");
         assertTrue(security.contains("\"NVD API key refresh\""),
                 "a real refresh must be reported through the same summary as the fallback, so the two paths are "
                         + "told apart by what the run says rather than by reading the workflow");
@@ -246,6 +248,64 @@ class DependencyCheckWorkflowContractTest {
                 "a provenance from elsewhere must never stop the scan: refusing would close the 12.2.2 "
                         + "bootstrap this workflow names as a way out of a cold start, and would discard a "
                         + "readable database still inside its freshness budget");
+    }
+    /**
+     * A refresh that failed is not a refresh -- and it is also not, by itself, a reason to refuse the scan.
+     *
+     * <p>The budget is the refusal, and it is already there: a database past
+     * {@code DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS} stops every scan, and a database with no sentinel at all
+     * stops it too. The no-key branch has always relied on exactly that -- it refreshes nothing, says so, and
+     * lets the budget decide. The key branch did not. It ran the refresh as a bare command under an exiting
+     * shell, so a key the NVD refuses killed the step outright while a trusted cache 15h old sat unused, and
+     * the failure surfaced as a raw Maven error rather than under a MORPHEUS reason. Observed on 2026-09-17:
+     * run 35269719882 on {@code develop}, {@code Error updating the NVD Data: Invalid API Key}.</p>
+     *
+     * <p>An invalid or unactivated key is epistemically the same as an absent one: nothing here refreshed the
+     * feed. The two now converge on one handling and stay distinguishable in every message through
+     * {@code refresh_skipped_because}. What must not converge is what a failed refresh is allowed to leave
+     * behind -- no sentinel, and {@code updated=false}, so nothing downstream can mistake this run for a
+     * refresh or publish a cache in its name.</p>
+     *
+     * <p>Each rule below was broken and its failure observed on 2026-09-17: the refresh back as a bare
+     * command, the two causes collapsed into one string, the missing MORPHEUS reason, the literal back in the
+     * fallback summary, and the budget refusal removed each failed exactly one assertion. Moving
+     * {@code updated=true} out of the success branch failed two, the second in
+     * {@link #freshnessIsReadFromARefreshSentinelAndNeverFromAFileModificationTime()}.</p>
+     */
+    @Test
+    void aRefreshThatFailedIsNotARefreshAndIsAlsoNotByItselfARefusal() throws IOException {
+        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String trustedUpdate = section(security,
+                "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+
+        assertTrue(trustedUpdate.contains("if ./mvnw \\"),
+                "the key-path refresh must be a condition, not a bare command: under an exiting shell a "
+                        + "refused key kills the step while a perfectly fresh trusted cache sits unused");
+        assertTrue(trustedUpdate.contains("refresh_skipped_because='NVD_API_KEY was refused by the NVD'")
+                        && trustedUpdate.contains("refresh_skipped_because='NVD_API_KEY is not configured'"),
+                "both ways of not refreshing must be named apart, so a run says which one it was instead of "
+                        + "leaving it to be inferred from the workflow");
+        assertTrue(trustedUpdate.contains("MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED"),
+                "a refused key must carry a MORPHEUS reason of its own, not surface as a raw Maven error that "
+                        + "reads like an analyzer crash");
+
+        String onSuccess = trustedUpdate.substring(trustedUpdate.indexOf("update-only; then"),
+                trustedUpdate.indexOf("refresh_skipped_because='NVD_API_KEY was refused"));
+        assertTrue(onSuccess.contains("write-dependency-check-sentinel.sh")
+                        && onSuccess.contains("echo \"updated=true\""),
+                "the sentinel and updated=true must stay inside the branch a successful refresh takes, so a "
+                        + "failed refresh can neither date a database it did not renew nor publish a cache");
+
+        String fallback = trustedUpdate.substring(
+                trustedUpdate.indexOf("if [[ -n \"${refresh_skipped_because}\" ]]"));
+        assertTrue(fallback.contains("bash ./scripts/report-dependency-check-cache.sh \"${age_seconds}\" "
+                        + "\"${refreshed_by:-unknown}\""),
+                "the fallback summary must name the provenance the sentinel recorded, the same rule the "
+                        + "pull-request path follows");
+        assertTrue(fallback.split(Pattern.quote("exit 1"), -1).length - 1 == 2,
+                "the fallback must keep both refusals -- no sentinel at all, and a sentinel past its budget -- "
+                        + "because the budget is what refuses, and it is all that refuses");
     }
     /**
      * The workflow must scan with the Dependency-Check the repository pins, not a version of its own.
