@@ -29,7 +29,6 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -38,6 +37,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     private static final int SEQUENCE_ALLOCATION_MAX_ATTEMPTS = 24;
     private static final long SEQUENCE_ALLOCATION_INITIAL_BACKOFF_MILLIS = 10L;
     private static final long SEQUENCE_ALLOCATION_MAX_BACKOFF_MILLIS = 250L;
+    private static final SqliteFailureClassifier CONTENTION_CLASSIFIER = new SqliteFailureClassifier();
 
     private final Connection connection;
     private boolean closed;
@@ -418,18 +418,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     private static boolean isSqliteBusy(Throwable failure) {
-        Throwable current = failure;
-        while (current != null) {
-            if (current instanceof SQLException sqlFailure) {
-                String message = sqlFailure.getMessage();
-                if (sqlFailure.getErrorCode() == 5
-                        || (message != null && message.toUpperCase(Locale.ROOT).contains("SQLITE_BUSY"))) {
-                    return true;
-                }
-            }
-            current = current.getCause();
-        }
-        return false;
+        return CONTENTION_CLASSIFIER.classify(failure).isPresent();
     }
 
     private Optional<SpecificationVersion> findSpecificationVersionInternal(SpecificationVersionId versionId)
