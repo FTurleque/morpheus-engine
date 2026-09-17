@@ -87,7 +87,32 @@ jobs:
 
           age_seconds="$(sed -n 's/^ageSeconds=//p' <<< "${facts}" | head -n 1)"
           max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
-          bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "trusted cache restored for this pull request"
+          # The summary names the provenance the sentinel recorded, never a literal describing this run. A
+          # literal here can only say how the database reached this run -- always "restored from cache" on a
+          # pull request -- and it keeps saying exactly that after the refresh that produced the database
+          # stops using NVD_API_KEY. The sentinel already carries how the feed was obtained; re-deriving that
+          # from a constant is what would leave a lost key invisible until the freshness budget expired three
+          # days later, under a reason indistinguishable from a legitimately old cache.
+          #
+          # The role of this run stays implicit in the age already published: 0 is a refresh performed here,
+          # anything else is a restore. A field of its own would be a field a caller could fill falsely.
+          refreshed_by="$(sed -n 's/^refreshedBy=//p' <<< "${facts}" | head -n 1)"
+          bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "${refreshed_by:-unknown}"
+
+          # A database this branch produced can only carry the API-key label: Dependency-Check 13.0.0 cannot
+          # refresh anonymously (upstream #8715). Any other provenance was written elsewhere -- most plausibly
+          # the branch still pinned to 12.2.2, whose anonymous refresh works and whose database uses the same
+          # H2 schema, which is the bootstrap the STALE_DATABASE message above points at. That case is
+          # legitimate, so this warns and never refuses: refusing would close the documented way out of a cold
+          # start, and the freshness budget bounds the deviation regardless. What it must not do is stay quiet,
+          # because a lost NVD_API_KEY reads exactly the same way and nothing else would say so before the
+          # budget expired three days later.
+          if [[ "${refreshed_by:-unknown}" != 'NVD API key refresh' ]]; then
+            plugin_version="$(sed -n 's/^pluginVersion=//p' <<< "${facts}" | head -n 1)"
+            refreshed_on_ref="$(sed -n 's/^refreshedOnRef=//p' <<< "${facts}" | head -n 1)"
+            echo "::warning::Dependency-Check database was obtained via ${refreshed_by:-unknown}, not NVD API key refresh, on a branch pinned to Dependency-Check ${DEPENDENCY_CHECK_PLUGIN_VERSION}, which cannot refresh anonymously. The sentinel was written by Dependency-Check ${plugin_version:-unknown} on ${refreshed_on_ref:-unknown}. Expected while bootstrapping from the branch pinned to 12.2.2; otherwise NVD_API_KEY has stopped being read. See RT-13 in docs/architecture/risks/register.md."
+          fi
+
           if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
             echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Restored Dependency-Check database is stale (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s). This is an infrastructure failure, not a vulnerability finding: no dependency crossed the CVSS threshold, the vulnerability feed is simply too old to scan against."
             exit 1
