@@ -74,7 +74,9 @@ class DependencyCheckWorkflowContractTest {
         assertTrue(report.contains("GITHUB_STEP_SUMMARY"),
                 "cache freshness must reach the job summary, not only the log of a job nobody opens while green");
         assertTrue(report.contains("| Obtained via | ${source_label} |"),
-                "the summary must say whether the database came from an API-key refresh or from the fallback");
+                "the summary must carry a provenance row for its caller to fill; that the caller fills it with "
+                        + "what the sentinel recorded rather than with a literal is asserted by "
+                        + "theProvenancePublishedOnAPullRequestIsReadFromTheSentinelNotFromALiteral");
         assertTrue(report.contains("| Remaining before expiry |"),
                 "the summary must publish the margin left before the freshness budget expires");
         assertTrue(report.contains("| Budget consumed | ${consumed_percent}% |"),
@@ -86,8 +88,9 @@ class DependencyCheckWorkflowContractTest {
                 "the approaching-expiry alert must be a visible annotation, not a plain log line");
 
         assertTrue(security.contains("bash ./scripts/report-dependency-check-cache.sh \"${age_seconds}\" "
-                        + "\"trusted cache restored for this pull request\""),
-                "pull-request scans must publish the freshness of the cache they were handed");
+                        + "\"${refreshed_by:-unknown}\""),
+                "pull-request scans must publish the freshness of the cache they were handed, and name where "
+                        + "that cache came from rather than how it reached them");
         assertTrue(security.contains("bash ./scripts/report-dependency-check-cache.sh \"${age_seconds}\" "
                         + "\"trusted cache fallback (NVD_API_KEY absent, no refresh performed)\""),
                 "the fallback must say out loud that it refreshed nothing");
@@ -125,6 +128,125 @@ class DependencyCheckWorkflowContractTest {
                 "the security workflow must stay fail-closed: naming a failure must not make it survivable");
     }
 
+    /**
+     * A summary that names where the scanned database came from is the only continuous evidence that
+     * {@code NVD_API_KEY} is still being read.
+     *
+     * <p>The sentinel has recorded {@code refreshedBy} from the start, and its writer states why: so a summary can
+     * name the path without re-deriving it. Nothing read it. All three call sites of the freshness report passed a
+     * literal instead, and the pull-request one -- the only summary anyone opens daily -- passed a literal that
+     * describes how the database reached the run rather than how it was produced. It said {@code trusted cache
+     * restored for this pull request} whether the refresh behind that cache had used the key or not. The key
+     * disappearing would therefore have changed nothing visible until the 72h budget expired three days later,
+     * under {@code STALE_DATABASE} -- the same reason a legitimately old cache produces.</p>
+     *
+     * <p>The assertion that should have caught this was green on the wrong subject: it checked that the template
+     * {@code | Obtained via | ${source_label} |} existed in the reporting script, while its own message promised
+     * that the summary tells an API-key refresh apart from the fallback. A template accepts any string. What
+     * follows pins the chain end to end -- the writer records the provenance, the reader re-emits it on the only
+     * path the pull-request step reads, and that step extracts it and passes it on -- because a break anywhere
+     * along that chain degrades into {@code unknown} without failing anything.</p>
+     *
+     * <p>Every rule below was broken and its failure observed before this test was accepted, because the
+     * assertion it replaces was green on the very literal its message claimed to forbid. Measured on
+     * 2026-09-17: removing the extraction line, letting the literal reappear anywhere in the step, renaming the
+     * key the writer records, pointing the reader at another key, and deleting the reader OK-path re-emission
+     * each failed exactly one assertion. Putting the literal back at the call site, dropping the
+     * {@code :-unknown} default, and drifting the API-key label each failed two, the second being in
+     * {@link #databaseFreshnessAndFailureReasonsAreObservableBeforeAndWhenTheyStopTheBuild()}.</p>
+     */
+    @Test
+    void theProvenancePublishedOnAPullRequestIsReadFromTheSentinelNotFromALiteral() throws IOException {
+        Path root = repoRoot();
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+        String writer = Files.readString(root.resolve("scripts/write-dependency-check-sentinel.sh"));
+        String reader = Files.readString(root.resolve("scripts/read-dependency-check-sentinel.sh"));
+
+        String freshnessStep = section(security,
+                "- name: Verify restored Dependency-Check database freshness",
+                "- name: Remove stale Dependency-Check update lock");
+
+        assertTrue(freshnessStep.contains(
+                        "refreshed_by=\"$(sed -n 's/^refreshedBy=//p' <<< \"${facts}\" | head -n 1)\""),
+                "the pull-request path must read the provenance out of the sentinel facts it has already parsed, "
+                        + "exactly as it reads the age");
+        assertTrue(freshnessStep.contains("bash ./scripts/report-dependency-check-cache.sh \"${age_seconds}\" "
+                        + "\"${refreshed_by"),
+                "the pull-request summary must publish what the sentinel recorded, passed as the variable it was "
+                        + "extracted into");
+        assertFalse(freshnessStep.contains("\"trusted cache restored for this pull request\""),
+                "a literal at this call site is the defect this test exists for: it states how the database "
+                        + "reached this run, which never varies, in the row that must state how it was produced");
+        assertTrue(freshnessStep.contains("\"${refreshed_by:-unknown}\""),
+                "a sentinel carrying no provenance must publish `unknown`, never an empty cell: an empty cell "
+                        + "reads as a broken table, and an unknown is never silently a pass here");
+
+        assertTrue(writer.contains("refreshedBy=${source_label}"),
+                "the sentinel must record how the refresh was obtained, or the summary has nothing to name");
+        assertTrue(reader.contains("recorded_source=\"$(value_of refreshedBy)\""),
+                "the reader must take the provenance from the sentinel key the writer writes");
+        int okEmit = reader.indexOf("emit_and_exit OK");
+        assertTrue(okEmit >= 0, "the reader must keep an OK path for the pull-request step to read");
+        assertTrue(reader.substring(okEmit).contains("\"refreshedBy=${recorded_source}\""),
+                "the reader must re-emit the provenance on its OK path, the only path the pull-request summary "
+                        + "reads: dropping it degrades that summary to `unknown` in silence");
+
+        String trustedUpdate = section(security,
+                "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+        assertTrue(trustedUpdate.contains("\"${DEPENDENCY_CHECK_SCHEMA_VERSION}\" \"NVD API key refresh\""),
+                "the API-key path must keep writing this exact label into the sentinel: it is the string a later "
+                        + "pull-request summary echoes to prove the secret was read, and the branch pinned to "
+                        + "12.2.2 writes the same one, so one literal identifies the key path on both");
+    }
+
+    /**
+     * A provenance this branch cannot have produced is a deviation worth naming and never worth refusing.
+     *
+     * <p>Pinned to Dependency-Check 13.0.0, whose anonymous refresh is broken upstream (#8715), the only
+     * provenance a refresh performed here can carry is the API-key label. Anything else was written somewhere
+     * else, and there are exactly two ways that happens. One is legitimate and documented: the branch still
+     * pinned to 12.2.2 refreshes anonymously and writes the same H2 schema, and the STALE_DATABASE message in
+     * this workflow names that backport as a way out of a cold start. The other is that {@code NVD_API_KEY}
+     * stopped being read after the promotion and nobody knows it yet.</p>
+     *
+     * <p>The two are indistinguishable from the sentinel alone, so the step warns and lets the scan proceed.
+     * Refusing would close the documented bootstrap and discard a database that is perfectly readable and
+     * still inside its freshness budget -- and that budget already bounds how long the deviation can last.
+     * What the step may not do is pass over it in silence, which is what it did before: the lost-key case
+     * would then surface three days later as STALE_DATABASE, the same reason an honestly old cache gives.</p>
+     *
+     * <p>Each rule below was broken and its failure observed on 2026-09-17: removing the guard, downgrading the
+     * annotation to a plain log line, dropping the analyzer and ref from its text, dropping the RT-13 pointer,
+     * and adding an {@code exit 1} inside the block each failed exactly one assertion, this one.</p>
+     */
+    @Test
+    void aProvenanceThisBranchCannotHaveProducedIsWarnedAboutAndNeverRefused() throws IOException {
+        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String freshnessStep = section(security,
+                "- name: Verify restored Dependency-Check database freshness",
+                "- name: Remove stale Dependency-Check update lock");
+
+        int deviation = freshnessStep.indexOf(
+                "if [[ \"${refreshed_by:-unknown}\" != 'NVD API key refresh' ]]; then");
+        assertTrue(deviation >= 0,
+                "the pull-request step must compare the provenance it publishes against the only label a "
+                        + "refresh performed on this branch can produce");
+
+        String warning = freshnessStep.substring(deviation, freshnessStep.indexOf("\n          fi", deviation));
+        assertTrue(warning.contains("::warning::Dependency-Check database was obtained via"),
+                "the deviation must be a visible annotation, not a log line in a green job nobody opens");
+        assertTrue(warning.contains("${plugin_version:-unknown}")
+                        && warning.contains("${refreshed_on_ref:-unknown}"),
+                "the annotation must name which analyzer wrote the sentinel and on which ref, because that is "
+                        + "what tells the legitimate bootstrap apart from a secret that stopped being read");
+        assertTrue(warning.contains("RT-13"),
+                "the annotation must point at the risk it is the standing evidence for");
+        assertFalse(warning.contains("exit "),
+                "a provenance from elsewhere must never stop the scan: refusing would close the 12.2.2 "
+                        + "bootstrap this workflow names as a way out of a cold start, and would discard a "
+                        + "readable database still inside its freshness budget");
+    }
     /**
      * The workflow must scan with the Dependency-Check the repository pins, not a version of its own.
      *
@@ -271,6 +393,14 @@ class DependencyCheckWorkflowContractTest {
         assertTrue(freshnessRefusals == 2,
                 "both freshness readings -- the pull-request check and the no-key fallback -- must refuse any "
                         + "status but OK, so a missing sentinel is treated as stale rather than as fresh");
+    }
+
+    private static String section(String workflow, String from, String to) {
+        int start = workflow.indexOf(from);
+        int end = workflow.indexOf(to);
+        assertTrue(start >= 0 && end > start,
+                () -> "security.yml must keep the step \"" + from + "\" before the step \"" + to + "\"");
+        return workflow.substring(start, end);
     }
 
     private static Path repoRoot() {
