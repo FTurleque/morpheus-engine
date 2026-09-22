@@ -65,27 +65,40 @@ la CI.
 | Secret / service | À quoi il sert | Ce qui casse sans lui |
 |---|---|---|
 | `SONAR_TOKEN` | Analyse SonarQube Cloud : job `sonar` de [`ci.yml`](../../.github/workflows/ci.yml) après un push sur `main`, job `sonar-develop` de `nightly.yml` sur cadence quotidienne | Ces deux jobs échouent. **Aucun merge n'est bloqué** : Sonar n'est délibérément pas un check requis, pour qu'une panne SonarCloud ne bloque pas une promotion dont les gates propres passent |
-| `NVD_API_KEY` | Rafraîchir la base de vulnérabilités OWASP Dependency-Check dans [`security.yml`](../../.github/workflows/security.yml) | **Actuellement absent — voir RT-13 ci-dessous.** À terme : plus aucun rafraîchissement, la base périme, et *toutes* les pull requests échouent sur `STALE_DATABASE` |
+| `NVD_API_KEY` | Rafraîchir la base de vulnérabilités OWASP Dependency-Check dans [`security.yml`](../../.github/workflows/security.yml) | **Configuré** (posé le 17/09/2026, remplacé le 22/09/2026, lecture prouvée le 22/09/2026) — voir ci-dessous comment le vérifier. Sans lui : plus aucun rafraîchissement, la base périme, et *toutes* les pull requests échouent sur `STALE_DATABASE` |
 | Attestations de release | Provenance signée des artefacts publiés ([`release.yml`](../../.github/workflows/release.yml), `actions/attest`) | Aucun secret à gérer : la signature passe par l'OIDC GitHub, via les permissions `id-token: write` et `attestations: write` déclarées par job. Retirer ces permissions supprime silencieusement la provenance des artefacts publiés |
 
 Il n'existe **ni secret d'organisation** (le dépôt appartient à un compte utilisateur) **ni
 environnement GitHub**. Ce que liste `gh secret list` est donc exhaustif.
 
-### RT-13 — à lire en premier après une longue absence
+### `NVD_API_KEY` (RT-13, clos) — vérifier en premier après une longue absence
 
-`NVD_API_KEY` n'est pas configuré. Tant que `main` épingle Dependency-Check 12.2.2, dont la mise
-à jour anonyme fonctionne, le job planifié quotidien alimente le cache que toutes les pull
-requests réutilisent. À la promotion de la baseline courante, `main` prend le workflow qui
-épingle 13.0.0, dont la mise à jour anonyme est cassée en amont : plus rien ne rafraîchit, plus
-rien n'est sauvegardé, et environ 72 heures plus tard tout devient rouge.
+`NVD_API_KEY` est configuré. `main` et `develop` rafraîchissent la base Dependency-Check avec la clé,
+y compris en 13.0.0, dont la mise à jour anonyme est cassée en amont : **la clé est la seule source de
+rafraîchissement de 13.0.0**, et il n'y a aucun repli si elle cesse de fonctionner.
 
-Le résumé de job publie l'âge du cache et la marge restante à chaque exécution, et alerte avant
-la falaise — mais **l'observabilité ne remplace pas le secret**. Depuis le 09/09/2026 cet âge
-est lu sur une **sentinelle écrite par le rafraîchissement lui-même**, et non plus déduit du
-`mtime` d'un fichier : la déduction précédente annonçait 54 h sur une base rafraîchie 15 h plus
-tôt. Un cache restauré sans sentinelle a un âge **inconnu**, donc refusé — jamais supposé frais.
-Le détail complet, les preuves datées et les trois sorties possibles sont dans
-[le registre des risques, RT-13](../architecture/risks/register.md).
+Pour vérifier qu'elle fonctionne toujours, ouvrir la dernière exécution de *MORPHEUS Security* et lire le
+résumé « Dependency-Check database freshness » :
+
+| Ce qu'on lit | Ce que ça veut dire |
+|---|---|
+| `Obtained via` = `NVD API key refresh`, âge 0 | La clé est lue et acceptée |
+| Annotation `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED` | Le rafraîchissement par clé a échoué ; le run retombe sur le dernier cache, qui a au plus 72 h de vie |
+| Avertissement « obtained via … not NVD API key refresh » | La base vient d'ailleurs que de la clé sur une branche en 13.0.0 |
+| `STALE_DATABASE` | Le budget de 72 h est dépassé : plus aucun scan ne passe |
+
+`REFRESH_FAILED` ne prouve pas à lui seul que la clé est en cause : le workflow attribue tout échec du
+`./mvnw` à un refus de clé, sans lire le journal (constat CI-1 de l'audit du 22/09/2026). Lire le journal de
+l'étape avant de remplacer la clé : `Invalid API Key` désigne la clé ; une erreur réseau ou un code 5xx du
+NVD désigne une panne passagère.
+
+Remplacer la clé : en redemander une sur https://nvd.nist.gov/developers/request-an-api-key, **cliquer le
+lien d'activation du mail** (une clé non activée est refusée comme une clé fausse — la clé posée le
+17/09/2026 a été refusée jusqu'à son remplacement le 22/09/2026), puis `gh secret set NVD_API_KEY` en
+collant l'UUID seul.
+
+L'historique complet — la panne annoncée, la mesure de fraîcheur corrigée, les trois sorties évaluées —
+est dans [le registre des risques, RT-13](../architecture/risks/register.md).
 
 ---
 
