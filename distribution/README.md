@@ -154,8 +154,8 @@ Surefire total       >= 1550
 architecture         >= 385
 aggregate line coverage    >= 85.0%
 aggregate branch coverage  >= 68.0%
-per-module line coverage   >= 64.2%
-per-module branch coverage >= 56.0%
+per-module line coverage   >= 64.6%
+per-module branch coverage >= 56.9%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```
