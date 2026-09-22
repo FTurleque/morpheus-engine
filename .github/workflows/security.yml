@@ -144,27 +144,37 @@ jobs:
           # and it already exists below. The no-key branch has always worked that way; the key branch did not,
           # so a key the NVD refuses killed the step outright while a fresh trusted cache sat right there.
           # An invalid or unactivated key is epistemically identical to an absent one: nothing here refreshed
-          # the feed. Both now converge on the same handling, and `refresh_skipped_because` carries which of
-          # the two it was into every message, so the two are never told apart by reading the workflow.
+          # the feed. Every way of not refreshing converges on the same handling, and `refresh_skipped_because`
+          # carries which one it was into every message, so they are never told apart by reading the workflow.
           #
           # What does not converge: a failed refresh writes no sentinel and leaves `updated=false`, so no cache
           # is published and nothing later can mistake this run for a refresh.
+          #
+          # The cause is read from the log, never assumed from the exit status: an NVD outage, a quota, a network
+          # cut or an unreachable Maven repository fail the same command as a refused key, and naming the key for
+          # all of them sent operators to replace a key that worked. Only the marker the NVD actually printed for
+          # a refused key (run 35269719882, 2026-09-17) names the key. Under pipefail the status is still Maven's.
+          set -o pipefail
           refresh_skipped_because=''
           if [[ -n "${NVD_API_KEY:-}" ]]; then
+            update_log="${RUNNER_TEMP}/dependency-check-update.log"
             if ./mvnw \
               -Pd2-security \
               "-DdataDirectory=${data_dir}" \
               -DnvdApiKeyEnvironmentVariable=NVD_API_KEY \
-              org.owasp:dependency-check-maven:13.0.0:update-only; then
+              org.owasp:dependency-check-maven:13.0.0:update-only 2>&1 | tee "${update_log}"; then
               # The sentinel is written here and only here on this path: after the refresh succeeded, so its
               # presence is evidence the feed was actually renewed rather than that a file happens to exist.
               bash ./scripts/write-dependency-check-sentinel.sh \
                 "${data_dir}" "${DEPENDENCY_CHECK_PLUGIN_VERSION}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}" "NVD API key refresh"
               echo "updated=true" >> "${GITHUB_OUTPUT}"
               bash ./scripts/report-dependency-check-cache.sh 0 "NVD API key refresh"
-            else
+            elif grep -qF 'Invalid API Key' "${update_log}"; then
               refresh_skipped_because='NVD_API_KEY was refused by the NVD'
-              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The trusted Dependency-Check refresh did not complete although NVD_API_KEY is configured; the NVD refuses an invalid or unactivated key exactly as it refuses a wrong one. Nothing here refreshed the feed, so this run falls back to the last trusted cache and its freshness budget keeps running from that cache's own refresh, not from now. Replace NVD_API_KEY: when the budget expires, every scan including every pull request fails with STALE_DATABASE. See RT-13 in docs/architecture/risks/register.md."
+              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The NVD refused NVD_API_KEY (the refresh log reports Invalid API Key); the NVD refuses an invalid or unactivated key exactly as it refuses a wrong one. Nothing here refreshed the feed, so this run falls back to the last trusted cache and its freshness budget keeps running from that cache's own refresh, not from now. Replace NVD_API_KEY: when the budget expires, every scan including every pull request fails with STALE_DATABASE. See RT-13 in docs/architecture/risks/register.md."
+            else
+              refresh_skipped_because='the NVD refresh failed with NVD_API_KEY configured'
+              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The trusted Dependency-Check refresh did not complete, and its log does not report a refused key: the cause is in the log of this step (NVD outage, quota, network, Maven repository). Do not rotate the key on this evidence alone. Nothing here refreshed the feed, so this run falls back to the last trusted cache and its freshness budget keeps running from that cache's own refresh, not from now. See docs/developer/COLD_START_RECOVERY.md."
             fi
           else
             # Dependency-Check 13.0.0 upstream bug #8715 treats its built-in blank nvd.api.key as a real key.
