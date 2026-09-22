@@ -22,6 +22,8 @@ Remote identity tokens contain 256 bits of random material and only their SHA-25
 
 Credential material printed by `server identity create` or `server identity rotate` must be captured once into an appropriate secret store. Never commit generated tokens, keystore passwords, or authentication files containing operational credential hashes.
 
+MORPHEUS integrates no secret vault and persists no reusable secret: tokens are stored as SHA-256 hashes only, and the TLS keystore password is read from the `MORPHEUS_SERVER_TLS_PASSWORD` environment variable alone — never from a command-line argument or a `-D` JVM property, both of which other local accounts can read. The protection is bounded to other accounts of the host; it does not extend to a compromise of the account running MORPHEUS, to an administrator, or to unencrypted backups. The full threat model and the conditions that would reopen the decision are in [ADR-0105](docs/adr/0105-no-secret-vault-no-reusable-secret-at-rest.md).
+
 ### Response lifetime and abandoned clients
 
 Concurrency permits, the proxied-response memory budget and the request-body deadline are all taken before a

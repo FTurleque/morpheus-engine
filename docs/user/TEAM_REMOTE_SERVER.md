@@ -43,9 +43,11 @@ export MORPHEUS_SERVER_TLS_PASSWORD='<secret>'
 
 Le chemin du keystore peut être passé par `--tls-keystore` ou `MORPHEUS_SERVER_TLS_KEYSTORE`.
 
-MORPHEUS ne recopie pas ce secret. La JVM le détient déjà sous forme de `String` dès qu'il vient de l'environnement ou d'une propriété — cela, MORPHEUS ne peut pas l'effacer. Ce qu'il contrôle, c'est de ne pas en fabriquer une seconde copie : les options de lancement analysées ne portent que le moyen de le retrouver, jamais la valeur. Le mot de passe n'existe sous forme de `char[]` que le temps d'ouvrir le keystore, puis chaque tampon est écrasé. Aucune surface de diagnostic (`toString()`, log, exception, JSON, métrique) ne peut donc le rendre.
+MORPHEUS ne recopie pas ce secret. La JVM le détient déjà sous forme de `String` dès qu'il vient de l'environnement — cela, MORPHEUS ne peut pas l'effacer. Ce qu'il contrôle, c'est de ne pas en fabriquer une seconde copie : les options de lancement analysées ne portent que le moyen de le retrouver, jamais la valeur. Le mot de passe n'existe sous forme de `char[]` que le temps d'ouvrir le keystore, puis chaque tampon est écrasé. Aucune surface de diagnostic (`toString()`, log, exception, JSON, métrique) ne peut donc le rendre.
 
 **Ce n'est pas une promesse d'effacement.** Un secret présent dans l'environnement d'un processus reste lisible par tout ce qui peut inspecter ce processus. La mesure réduit le nombre et la durée de vie des copies, elle ne remplace pas un gestionnaire de secrets ni un compte OS dédié.
+
+L'environnement est la **seule** source acceptée. Une propriété JVM (`-Dmorpheus.server.tls.password=…`) est refusée au démarrage, avec un message qui nomme `MORPHEUS_SERVER_TLS_PASSWORD` : c'est un argument de ligne de commande, et sous Linux `/proc/<pid>/cmdline` est lisible par tous les comptes de la machine, là où `/proc/<pid>/environ` ne l'est que par le propriétaire du processus. MORPHEUS n'intègre pas de coffre de secrets ; ce qu'il protège, ce qu'il ne protège pas, et les conditions qui rouvriraient la question sont décrits dans [ADR-0105](../adr/0105-no-secret-vault-no-reusable-secret-at-rest.md).
 
 ## 2. Créer et administrer les identités
 
@@ -201,7 +203,7 @@ Options utiles :
 Variables :
 
 ```text
-MORPHEUS_SERVER_TLS_PASSWORD       obligatoire (jamais un argument de ligne de commande)
+MORPHEUS_SERVER_TLS_PASSWORD       obligatoire (jamais un argument de ligne de commande, ni une propriété -D)
 MORPHEUS_SERVER_TLS_KEYSTORE       alternative à --tls-keystore
 MORPHEUS_SERVER_AUTH_FILE          alternative à --auth-file
 MORPHEUS_SERVER_MAX_CONCURRENT     limite de concurrence
