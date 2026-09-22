@@ -32,7 +32,21 @@ class CoverageQualityGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline of the PER-MODULE scale: 64.5143% lines / 56.2964% branches.
+    // Qualified exact-head baseline of the PER-MODULE scale: 64.9302% lines / 57.2366% branches.
+    //
+    // Requalified on 22/09/2026 at develop e8e0f0ca, same method as 15/09: the push run of develop (35756505624)
+    // and the pull_request run of the promotion PR #274 (35756512657). Read from each run's m21-integrity-<OS>
+    // artifact, per-module-coverage-summary.txt, coverageScope=per-module, reports=16, 28352 lines and 10212
+    // branches on all four:
+    //     Windows  64.9831% / 64.9831% lines,  57.3051% / 57.3051% branches
+    //     Linux    64.9302% / 64.9302% lines,  57.2464% / 57.2366% branches   <- qualified on the lowest
+    // The two Windows runs were identical; the two Linux runs had the same lines and differed by 1 branch; the
+    // two platforms by 15 lines and up to 7 branches -- inside the 24 / 11 spread of 15/09, which stays the one
+    // margins are sized against. Everything between e8e0f0ca and this change touches only the architecture-test
+    // module, which this scale excludes. Previous cap: 64.5143% / 56.2964% (15/09/2026, below), exceeded
+    // since 22/09/2026.
+    //
+    // History of this cap, kept as measured:
     // Deliberately at or below the LOWEST reproducible exact-head measurement across both platforms, never the
     // best one. The two platforms run the same number of tests, but some of them no-op off their own OS -- the
     // Windows junction check is one -- so Linux covers slightly fewer lines for an identical test count.
@@ -57,10 +71,13 @@ class CoverageQualityGateTest {
     // cap in AggregateCoverageGateTest.
     // Line key alone raised 0.640 -> 0.642 on 22/09/2026, same cap, no new measurement: 89 lines of headroom
     // (3.7x the spread); the branch key keeps 0.560 and its 30 branches.
+    // Both keys raised on 22/09/2026 inside the requalified cap above, each sized separately to at least 3x the
+    // 24-line / 11-branch spread: line 0.642 -> 0.646 leaves 93 lines (3.9x), branch 0.560 -> 0.569 leaves 34
+    // branches (3.1x). One more thousandth on either key would drop it under 3x (65 lines, 24 branches).
     //
     // Raising these two constants requires a fresh per-module measurement on BOTH platforms, cited here.
-    private static final double PER_MODULE_QUALIFIED_LINE_RATIO = 0.645143d;
-    private static final double PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.562964d;
+    private static final double PER_MODULE_QUALIFIED_LINE_RATIO = 0.649302d;
+    private static final double PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.572366d;
 
     @Test
     void perModuleCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {

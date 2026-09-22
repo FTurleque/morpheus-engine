@@ -16,8 +16,8 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (22/09/2026
 | `architectureTestsMinimum` | 385 |
 | `aggregateLineCoverageMinimum` | 0.850 (85.0%) |
 | `aggregateBranchCoverageMinimum` | 0.680 (68.0%) |
-| `perModuleLineCoverageMinimum` | 0.642 (64.2%) |
-| `perModuleBranchCoverageMinimum` | 0.560 (56.0%) |
+| `perModuleLineCoverageMinimum` | 0.646 (64.6%) |
+| `perModuleBranchCoverageMinimum` | 0.569 (56.9%) |
 
 ## Deux échelles de couverture, deux jeux de seuils
 
@@ -99,6 +99,20 @@ la marge devient **89 lignes**, 3,7 fois la dispersion inter-plateforme ; la cl�
 garde ses **30 branches** (2,8 fois). La population par module, relue ce jour-là sur les artefacts
 `m21-integrity-Linux` des deux runs de `develop` à `e8e0f0ca`, compte 28 352 lignes et 10 212 branches —
 82 lignes de moins qu'au 15/09, ce qui ne déplace aucune des deux marges d'une unité.
+
+Le même jour, le plafond par module est **requalifié** : la mesure dépassait celui du 15/09 sur les deux clés.
+Quatre preuves exact-head de `e8e0f0ca` (runs `35756505624` `push` et `35756512657` `pull_request`,
+`coverageScope=per-module`, `reports=16`, même population sur les quatre) :
+
+```text
+Windows   64,9831 % / 64,9831 % lignes   57,3051 % / 57,3051 % branches
+Linux     64,9302 % / 64,9302 % lignes   57,2464 % / 57,2366 % branches   <- plafond sur la plus basse
+```
+
+Dispersion : 0 ligne / 1 branche entre les runs Linux, 15 lignes / 7 branches entre plateformes, dans celle
+du 15/09 (24 / 11), qui reste la référence des marges. Les deux ratchets montent **séparément**, chacun au
+plus haut millième qui garde trois fois cette dispersion : ligne `0.646` (**93 lignes**, 3,9 fois), branche
+`0.569` (**34 branches**, 3,1 fois).
 
 Une session qui ne dispose que d'une plateforme ne peut relever que le ratchet, dans la marge
 déjà qualifiée ; elle ne touche pas au plafond.
