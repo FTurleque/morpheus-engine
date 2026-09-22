@@ -23,9 +23,26 @@
 | RT-09 | Drift documentaire entre sources historiques et HEAD | 2 | 2 | **4** | Hiérarchie des sources, séparation release publiée `1.2.0` / baseline active `1.2.1`, guides actifs réconciliés et contrats d'architecture sur les invariants CI | À chaque release/hardening |
 | RT-07 | Auth remote sans SSO/LDAP | 1 | 2 | **2** | Bearer auth + RBAC, mutations inter-processus sérialisées, live reload, audit secret-free roulant borné ; mot de passe TLS résolu tardivement en `char[]` et jamais retenu dans les options de lancement | Si besoin entreprise démontré |
 | RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement ; lane `macos-smoke` **advisory** (`continue-on-error`) de `nightly.yml`, sur cadence quotidienne bornée et non par pull request, qui exécute le reactor complet et publie les faits système observés — observation, pas qualification | Si support macOS décidé |
-| RT-13 | `NVD_API_KEY` absent : la base Dependency-Check ne peut plus être rafraîchie une fois 1.2.1 promue sur `main` | 3 | 3 | **9** | **Aucune mitigation technique possible — action propriétaire requise.** Voir la section dédiée ci-dessous | Immédiate ; à clore en configurant le secret |
 
-### RT-13 — la base Dependency-Check n'a plus de source de rafraîchissement (constaté le 09/09/2026)
+### RT-13 — la base Dependency-Check n'avait plus de source de rafraîchissement (constaté le 09/09/2026, clos le 22/09/2026)
+
+> **Clos le 22/09/2026.** Sortie n° 1 retenue : `NVD_API_KEY` est configuré. Posé le 17/09/2026, il a d'abord
+> été refusé par le NVD (run `35269719882` sur `develop`, 17/09/2026, « Invalid API Key », puis chaque
+> `schedule` de `main` jusqu'au run `35687241977` du 22/09/2026 04:32 UTC), avant d'être remplacé le
+> 22/09/2026 à 07:40 UTC. Il est accepté depuis, par les deux versions épinglées :
+>
+> | Branche | Dependency-Check | Run | Constat |
+> |---|---|---|---|
+> | `main` | 12.2.2 | `35701902846` (`workflow_dispatch`, 22/09/2026) | `Wrote trusted Dependency-Check refresh sentinel (schema 5.6, plugin 12.2.2, via NVD API key refresh)` — `main` ne publie pas encore la ligne `Obtained via`, la preuve est la ligne du rédacteur de sentinelle |
+> | `develop` | 13.0.0 | `35744008694` (`push`, merge de #345, 22/09/2026) | sentinelle écrite `via NVD API key refresh`, `obtained via NVD API key refresh: 0h 00m old`, aucune annotation `REFRESH_FAILED` |
+>
+> La panne annoncée ci-dessous — plus aucun rafraîchissement 72 h après la promotion — ne se produit donc
+> pas : les deux versions épinglées rafraîchissent par la clé.
+>
+> **Condition de réouverture** : un résumé de *MORPHEUS Security* publie un « Obtained via » autre que
+> `NVD API key refresh` sur une branche épinglée à 13.0.0 ou au-delà, une annotation
+> `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED` apparaît, ou `gh secret list` ne retourne plus
+> `NVD_API_KEY`. Le texte ci-dessous est l'analyse du 09/09/2026, conservée telle quelle.
 
 Ce risque n'est pas une hypothèse : c'est une panne **datée**, qui se déclenchera environ
 **72 heures après la promotion de 1.2.1 sur `main`**, et qu'aucune modification de workflow ne peut
@@ -125,7 +142,7 @@ pour raccourcir cette fenêtre.
 
 Trois sorties possibles, par ordre de préférence :
 
-1. **Configurer `NVD_API_KEY`** (clé gratuite auprès du NIST). C'est la seule qui restaure un vrai
+1. **Configurer `NVD_API_KEY`** (clé gratuite auprès du NIST) — **retenue, voir la clôture ci-dessus**. C'est la seule qui restaure un vrai
    rafraîchissement et la seule qui clôt RT-13.
 2. Attendre la publication de **13.0.1** et bumper le pin — remet la mise à jour anonyme en service, mais la
    date de publication n'est pas maîtrisée.
