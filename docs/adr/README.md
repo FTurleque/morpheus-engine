@@ -120,6 +120,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0102](0102-mcp-failure-contract-is-one-rule.md) | Le contrat d'échec MCP est une règle unique : un format de message canonique, un mapping d'exceptions dérivé, un refus des arguments inconnus avant dispatch | **Acceptée — post-audit 1.2.1** |
 | [ADR-0103](0103-textual-assertions-and-archunit-rules-enforce-different-things.md) | Assertion textuelle et règle ArchUnit n'enforcent pas la même chose : le mécanisme se choisit sur l'intention, pas par réflexe de migration | **Acceptée — pilote livré ; généralisation décidée le 11/09/2026** |
 | [ADR-0104](0104-two-coverage-scales-share-one-population.md) | Deux échelles de couverture, une population commune : une paire de clés, un plafond qualifié et une preuve par échelle, une population dérivée du réacteur, outillage de vérification compris | **Acceptée — post-audit 1.2.1** |
+| [ADR-0105](0105-no-secret-vault-no-reusable-secret-at-rest.md) | Pas de coffre de secrets : MORPHEUS ne stocke aucun secret réutilisable, et le seul qu'il lit vient de l'environnement | **Acceptée — post-audit 1.2.1** |
 
 # Preuves par jalon
 

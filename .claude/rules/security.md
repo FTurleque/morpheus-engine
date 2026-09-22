@@ -7,6 +7,13 @@ Supprimer une de ces chaînes casse le build.
 
 - `NVD_API_KEY` et `MORPHEUS_SERVER_TLS_PASSWORD` sont des **variables d'environnement** : jamais un flag CLI,
   jamais un littéral
+- Le mot de passe TLS n'est **jamais** lu depuis une propriété JVM (`-Dmorpheus.server.tls.password=…`) : c'est un
+  argument de ligne de commande comme un autre, et `/proc/<pid>/cmdline` est lisible par tous les comptes d'un
+  Linux par défaut, là où `/proc/<pid>/environ` ne l'est que par le propriétaire. Contrairement aux autres réglages
+  du mode remote, il n'a **pas** de repli propriété — ne pas l'aligner sur eux (ADR-0105,
+  `RemoteHttpServerBootstrapArchitectureTest`, `RemoteApiLaunchOptionsTest#aTlsPasswordGivenOnlyAsAJvmPropertyIsRefused`)
+- MORPHEUS ne persiste **aucun secret réutilisable** : jetons remote stockés en empreinte SHA-256 seulement, pas de
+  coffre de secrets — le modèle de menace et les conditions de réouverture sont dans ADR-0105
 - Aucun secret, clé API, token ou mot de passe en dur dans le code, les logs ou les messages de commit
 
 ## Désérialisation JSON — interdits absolus

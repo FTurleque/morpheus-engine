@@ -145,14 +145,14 @@ record RemoteApiLaunchOptions(
                 environment,
                 properties);
         // The value is deliberately not captured here. Only the way back to it is: the JVM already holds the
-        // environment and property strings, and a field on these options would be a second copy living as long
-        // as the server does. Presence is still proven now, so a misconfigured launch fails before startup.
+        // environment string, and a field on these options would be a second copy living as long as the server
+        // does. Presence is still proven now, so a misconfigured launch fails before startup. Unlike every other
+        // setting above, there is no JVM-property fallback: a -D property sits in /proc/<pid>/cmdline, which any
+        // account of the host can read, while /proc/<pid>/environ is readable by the owner alone.
         TlsKeystorePassword password = new TlsKeystorePassword(
-                () -> nonBlank(environment.get("MORPHEUS_SERVER_TLS_PASSWORD"))
-                        .or(() -> nonBlank(properties.getProperty("morpheus.server.tls.password"))));
+                () -> nonBlank(environment.get("MORPHEUS_SERVER_TLS_PASSWORD")));
         if (!password.isPresent()) {
-            throw new IllegalArgumentException(
-                    "remote mode requires the TLS keystore password from environment or protected property");
+            throw new IllegalArgumentException(TlsKeystorePassword.MISSING);
         }
         if (!maxConcurrentExplicit) {
             Optional<String> configured = nonBlank(environment.get("MORPHEUS_SERVER_MAX_CONCURRENT"))

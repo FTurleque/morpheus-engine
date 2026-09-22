@@ -60,10 +60,13 @@ class RemoteHttpServerBootstrapArchitectureTest {
     /**
      * The TLS keystore password gets no long-lived copy of MORPHEUS's own making.
      *
-     * <p>The JVM already holds it as a {@link String} the moment it arrives from the environment or a property,
-     * and nothing here can erase that. What MORPHEUS controls is whether it keeps a second one: the parsed
-     * launch options carried the password as a field for the entire lifetime of the running server, and the
-     * record's generated {@code toString()} would have rendered it into any diagnostic that printed them.</p>
+     * <p>The JVM already holds it as a {@link String} the moment it arrives from the environment, and nothing
+     * here can erase that. The environment is its only source (ADR-0105): a {@code -D} property is readable by
+     * every account through {@code /proc/<pid>/cmdline}; restoring that fallback fails this test on the first
+     * assertion naming the property (observed 2026-09-22). What MORPHEUS controls is whether it keeps a second
+     * one: the parsed launch options carried the password as a field for the entire lifetime of the running
+     * server, and the record's generated {@code toString()} would have rendered it into any diagnostic that
+     * printed them.</p>
      */
     @Test
     void theTlsKeystorePasswordIsResolvedLateHeldMutablyAndWiped() throws IOException {
@@ -82,7 +85,13 @@ class RemoteHttpServerBootstrapArchitectureTest {
         assertTrue(options.contains("TlsKeystorePassword tlsPassword"));
         assertFalse(options.contains("--tls-password"),
                 "the TLS password must never become a command-line argument");
+        assertFalse(options.contains("morpheus.server.tls.password"),
+                "a JVM property is a command-line argument: /proc/<pid>/cmdline is world-readable");
         assertTrue(options.contains("MORPHEUS_SERVER_TLS_PASSWORD"));
+        assertFalse(options.contains("protected property"),
+                "the refusal must name the environment variable, not a property nothing protects");
+        assertFalse(handle.contains("protected property"),
+                "the refusal must name the environment variable, not a property nothing protects");
 
         assertTrue(handle.contains("char[] resolve()"), "the password must reach the keystore as a char[]");
         assertTrue(handle.contains("value=<redacted>"), "the password handle must render redacted");
