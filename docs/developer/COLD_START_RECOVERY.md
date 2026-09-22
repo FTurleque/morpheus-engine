@@ -87,6 +87,14 @@ résumé « Dependency-Check database freshness » :
 | Avertissement « obtained via … not NVD API key refresh » | La base vient d'ailleurs que de la clé sur une branche en 13.0.0 |
 | `STALE_DATABASE` | Le budget de 72 h est dépassé : plus aucun scan ne passe |
 
+**Sur `main`, rien de ce tableau n'existe encore.** Son `security.yml` ne publie pas la section
+« Dependency-Check database freshness » et ne connaît ni `REFRESH_FAILED` ni `STALE_DATABASE` : il faut lire,
+dans le journal de l'étape « Update Dependency-Check vulnerability database (trusted events) », la ligne du
+rédacteur de sentinelle — `Wrote trusted Dependency-Check refresh sentinel (schema 5.6, plugin 12.2.2, via NVD API key refresh)`.
+Un libellé `via anonymous NVD refresh` y veut dire que la clé n'a pas été lue ; un rafraîchissement en échec
+fait échouer l'étape elle-même, sans repli sur le cache. L'écart disparaît à la promotion de 1.2.1, quand
+`main` prendra le workflow de `develop` ; le tableau ci-dessus vaudra alors pour les deux branches.
+
 `REFRESH_FAILED` porte l'une de deux causes, et le workflow les distingue désormais en lisant le journal de
 l'étape (constat CI-1 de l'audit du 22/09/2026, corrigé le même jour) :
 
