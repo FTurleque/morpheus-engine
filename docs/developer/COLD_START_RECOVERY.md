@@ -87,10 +87,16 @@ résumé « Dependency-Check database freshness » :
 | Avertissement « obtained via … not NVD API key refresh » | La base vient d'ailleurs que de la clé sur une branche en 13.0.0 |
 | `STALE_DATABASE` | Le budget de 72 h est dépassé : plus aucun scan ne passe |
 
-`REFRESH_FAILED` ne prouve pas à lui seul que la clé est en cause : le workflow attribue tout échec du
-`./mvnw` à un refus de clé, sans lire le journal (constat CI-1 de l'audit du 22/09/2026). Lire le journal de
-l'étape avant de remplacer la clé : `Invalid API Key` désigne la clé ; une erreur réseau ou un code 5xx du
-NVD désigne une panne passagère.
+`REFRESH_FAILED` porte l'une de deux causes, et le workflow les distingue désormais en lisant le journal de
+l'étape (constat CI-1 de l'audit du 22/09/2026, corrigé le même jour) :
+
+| Cause portée par l'annotation et par `STALE_DATABASE` | Ce qu'elle veut dire |
+|---|---|
+| `NVD_API_KEY was refused by the NVD` | Le journal contient `Invalid API Key` : remplacer la clé |
+| `the NVD refresh failed with NVD_API_KEY configured` | Le journal ne désigne pas la clé : panne du NVD, quota, réseau ou dépôt Maven — ne pas remplacer la clé sur ce seul constat |
+
+Lire quand même le journal de l'étape avant d'agir : le classement ne reconnaît qu'un marqueur, celui que le
+NVD a imprimé le 17/09/2026, et un refus formulé autrement tomberait dans la seconde cause.
 
 Remplacer la clé : en redemander une sur https://nvd.nist.gov/developers/request-an-api-key, **cliquer le
 lien d'activation du mail** (une clé non activée est refusée comme une clé fausse — la clé posée le
