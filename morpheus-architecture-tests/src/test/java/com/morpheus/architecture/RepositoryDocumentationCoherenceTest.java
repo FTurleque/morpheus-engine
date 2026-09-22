@@ -362,10 +362,15 @@ class RepositoryDocumentationCoherenceTest {
         // Headroom becomes 89 lines (3.7x the spread); the branch key stays at 0.560 with its 30 branches (2.8x).
         // Population re-read that day on both m21-integrity-Linux artifacts of develop at e8e0f0ca: 28352 lines
         // and 10212 branches, which moves neither headroom by one unit.
+        //
+        // 22/09/2026, later: the per-module cap is requalified to 0.649302 / 0.572366 on four exact-head
+        // measurements of e8e0f0ca (see CoverageQualityGateTest), and BOTH per-module keys are raised inside it,
+        // each sized separately to at least 3x the 24-line / 11-branch spread: line 0.642 -> 0.646 (93 lines, 3.9x),
+        // branch 0.560 -> 0.569 (34 branches, 3.1x). The aggregate pair is still not touched.
         assertEquals("1550", ratchets.get("testsMinimum"));
         assertEquals("385", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.642", ratchets.get("perModuleLineCoverageMinimum"));
-        assertEquals("0.560", ratchets.get("perModuleBranchCoverageMinimum"));
+        assertEquals("0.646", ratchets.get("perModuleLineCoverageMinimum"));
+        assertEquals("0.569", ratchets.get("perModuleBranchCoverageMinimum"));
         assertEquals("0.850", ratchets.get("aggregateLineCoverageMinimum"));
         assertEquals("0.680", ratchets.get("aggregateBranchCoverageMinimum"));
 
