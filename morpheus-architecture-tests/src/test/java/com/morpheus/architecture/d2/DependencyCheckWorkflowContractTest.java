@@ -290,7 +290,8 @@ class DependencyCheckWorkflowContractTest {
                 "a refused key must carry a MORPHEUS reason of its own, not surface as a raw Maven error that "
                         + "reads like an analyzer crash");
 
-        String onSuccess = trustedUpdate.substring(trustedUpdate.indexOf("update-only; then"),
+        String onSuccess = trustedUpdate.substring(
+                trustedUpdate.indexOf("update-only 2>&1 | tee \"${update_log}\"; then"),
                 trustedUpdate.indexOf("refresh_skipped_because='NVD_API_KEY was refused"));
         assertTrue(onSuccess.contains("write-dependency-check-sentinel.sh")
                         && onSuccess.contains("echo \"updated=true\""),
@@ -306,6 +307,62 @@ class DependencyCheckWorkflowContractTest {
         assertTrue(fallback.split(Pattern.quote("exit 1"), -1).length - 1 == 2,
                 "the fallback must keep both refusals -- no sentinel at all, and a sentinel past its budget -- "
                         + "because the budget is what refuses, and it is all that refuses");
+    }
+    /**
+     * A failed refresh names the key only when the log says the key was refused.
+     *
+     * <p>Until 2026-09-22 every non-zero exit of the key-path refresh became "NVD_API_KEY was refused by the
+     * NVD" and a warning telling the operator to replace the key: an NVD outage, a 5xx, a quota, a network cut
+     * or an unreachable Maven repository all read as a bad key, and the recovery guide had to warn its reader not
+     * to believe the annotation before reading the log (finding CI-1). The step now captures its output the way
+     * both scan steps of the same file already do, and classifies on the marker the NVD printed when it did
+     * refuse the key: {@code Invalid API Key}, run 35269719882 on 2026-09-17. Everything else keeps the same
+     * fallback and the same budget, but under a cause that does not accuse the key.</p>
+     *
+     * <p>Capturing through {@code tee} is only safe under {@code pipefail}: without it the condition would test
+     * {@code tee}, which always succeeds, and a failed refresh would write the sentinel and publish a cache.
+     * The step sets it explicitly rather than relying on the default {@code shell: bash} flags.</p>
+     *
+     * <p>Each rule below was broken and its failure observed on 2026-09-22, each failing exactly its own
+     * assertion: the single attribution restored (no {@code grep}, one {@code else} naming the key), the other
+     * cause renamed to the refused-key string, the generic message told to replace the key, and
+     * {@code set -o pipefail} removed. The step itself was also run under {@code bash -eo pipefail} against a
+     * stub {@code mvnw} printing the 2026-09-17 marker, a 503, and a success: each took its own branch, and only
+     * the success wrote the sentinel and {@code updated=true}.</p>
+     */
+    @Test
+    void aFailedRefreshNamesTheKeyOnlyWhenTheLogSaysTheKeyWasRefused() throws IOException {
+        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String trustedUpdate = section(security,
+                "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+
+        assertTrue(trustedUpdate.contains("set -o pipefail")
+                        && trustedUpdate.indexOf("set -o pipefail") < trustedUpdate.indexOf("| tee \"${update_log}\""),
+                "the refresh output is piped through tee, so the step must set pipefail before it or the "
+                        + "condition tests tee and a failed refresh reads as a success");
+        assertTrue(trustedUpdate.contains("update_log=\"${RUNNER_TEMP}/dependency-check-update.log\"")
+                        && trustedUpdate.contains("| tee \"${update_log}\""),
+                "the refresh must keep its own output, the way both scan steps do, or no cause can be read");
+        assertTrue(trustedUpdate.contains("grep -qF 'Invalid API Key' \"${update_log}\""),
+                "the cause must be read from the refresh log, never assumed from a non-zero exit status");
+
+        int keyRefused = trustedUpdate.indexOf("refresh_skipped_because='NVD_API_KEY was refused by the NVD'");
+        int otherCause = trustedUpdate.indexOf(
+                "refresh_skipped_because='the NVD refresh failed with NVD_API_KEY configured'");
+        int noKey = trustedUpdate.indexOf("refresh_skipped_because='NVD_API_KEY is not configured'");
+        assertTrue(keyRefused >= 0 && otherCause > keyRefused && noKey > otherCause,
+                "a refused key and any other refresh failure must be two causes, named apart, so a reader "
+                        + "tells them apart without opening the log");
+
+        String otherCauseBranch = trustedUpdate.substring(otherCause, noKey);
+        assertTrue(otherCauseBranch.contains("MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED"),
+                "a refresh that failed for another reason is still a failed refresh and keeps the same reason code");
+        assertFalse(otherCauseBranch.contains("Replace NVD_API_KEY")
+                        || otherCauseBranch.contains("invalid or unactivated"),
+                "a failure the log does not attribute to the key must not send anyone to replace a working key");
+        assertTrue(trustedUpdate.substring(keyRefused, otherCause).contains("Replace NVD_API_KEY"),
+                "a key the NVD did refuse must still say to replace it");
     }
     /**
      * The workflow must scan with the Dependency-Check the repository pins, not a version of its own.
