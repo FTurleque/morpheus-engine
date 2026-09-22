@@ -8,7 +8,7 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (08/09/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (22/09/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
@@ -16,7 +16,7 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (08/09/2026
 | `architectureTestsMinimum` | 385 |
 | `aggregateLineCoverageMinimum` | 0.850 (85.0%) |
 | `aggregateBranchCoverageMinimum` | 0.680 (68.0%) |
-| `perModuleLineCoverageMinimum` | 0.640 (64.0%) |
+| `perModuleLineCoverageMinimum` | 0.642 (64.2%) |
 | `perModuleBranchCoverageMinimum` | 0.560 (56.0%) |
 
 ## Deux échelles de couverture, deux jeux de seuils
@@ -93,6 +93,12 @@ variation inter-plateforme en lignes, mais seulement 2,8 fois en branches. **C'e
 pas la ligne** : un relèvement ultérieur dans ce plafond doit traiter les deux clés séparément, et rien
 n'oblige à les faire bouger ensemble (ADR-0104 §4 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
 de lignes et sa marge se lit dans `AggregateCoverageGateTest`.
+
+Le 22/09/2026 la seule clé ligne passe de `0.640` à `0.642`, dans le même plafond et sans mesure nouvelle :
+la marge devient **89 lignes**, 3,7 fois la dispersion inter-plateforme ; la clé branche reste à `0.560` et
+garde ses **30 branches** (2,8 fois). La population par module, relue ce jour-là sur les artefacts
+`m21-integrity-Linux` des deux runs de `develop` à `e8e0f0ca`, compte 28 352 lignes et 10 212 branches —
+82 lignes de moins qu'au 15/09, ce qui ne déplace aucune des deux marges d'une unité.
 
 Une session qui ne dispose que d'une plateforme ne peut relever que le ratchet, dans la marge
 déjà qualifiée ; elle ne touche pas au plafond.
