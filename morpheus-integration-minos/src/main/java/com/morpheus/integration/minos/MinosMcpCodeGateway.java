@@ -2,9 +2,9 @@ package com.morpheus.integration.minos;
 
 import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.integration.mcp.BoundedStdioClientTransport;
+import com.morpheus.integration.mcp.McpPeerLaunch;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
@@ -54,13 +54,9 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         this.stagedJar = launch.stagedJar();
         McpSyncClient started = null;
         try {
-            var parameters = ServerParameters.builder(launch.command())
-                    .args(launch.arguments().toArray(String[]::new));
-            if (!launch.environment().isEmpty()) {
-                parameters.env(launch.environment());
-            }
             BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                    parameters.build(), McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
+                    new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
+                    McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
             started = McpClient.sync(transport)
                     .requestTimeout(launch.timeout())
                     .build();
