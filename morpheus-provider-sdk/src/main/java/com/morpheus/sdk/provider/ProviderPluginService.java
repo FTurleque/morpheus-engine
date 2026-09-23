@@ -99,13 +99,6 @@ public final class ProviderPluginService {
             // Verify in the parent for precise fail-closed diagnostics. The child verifies again before loading,
             // so a path swap between this check and process launch cannot bypass the trusted SHA-256 pin.
             ExternalJarIntegrity.verifySha256(selected.jarPath(), trustedSha256);
-            ProviderProbeResult probe = probeProcess.probe(selected, workspaceRoot, trustedSha256);
-            return new ProviderPluginProbeOutcome(
-                    requestedPluginId,
-                    selected.jarPath().toString(),
-                    selected.metadata(),
-                    Optional.of(probe),
-                    selected.diagnostics());
         } catch (IllegalArgumentException integrityFailure) {
             List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
             diagnostics.add(ProviderPluginDiagnostic.error(
@@ -121,6 +114,17 @@ public final class ProviderPluginService {
                     selected.metadata(),
                     Optional.empty(),
                     diagnostics);
+        }
+
+        // Past this point the pin has matched, so no failure may be reported as an integrity rejection.
+        try {
+            ProviderProbeResult probe = probeProcess.probe(selected, workspaceRoot, trustedSha256);
+            return new ProviderPluginProbeOutcome(
+                    requestedPluginId,
+                    selected.jarPath().toString(),
+                    selected.metadata(),
+                    Optional.of(probe),
+                    selected.diagnostics());
         } catch (ProviderPluginProbeProcessException failure) {
             List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
             diagnostics.add(ProviderPluginDiagnostic.error(

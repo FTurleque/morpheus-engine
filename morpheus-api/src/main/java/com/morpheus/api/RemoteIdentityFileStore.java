@@ -1,6 +1,7 @@
 package com.morpheus.api;
 
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
+import com.morpheus.application.files.WorkspaceFileTooLargeException;
 import com.morpheus.application.security.LocalWritePermissionHardener;
 
 import java.io.IOException;
@@ -92,11 +93,9 @@ final class RemoteIdentityFileStore {
             String text = SafeWorkspaceFileResolver.rootedAt(parent)
                     .readUtf8(file.getFileName(), MAX_FILE_BYTES);
             return text.lines().toList();
+        } catch (WorkspaceFileTooLargeException failure) {
+            throw new IllegalArgumentException("remote auth file exceeds " + MAX_FILE_BYTES + " bytes", failure);
         } catch (IOException | RuntimeException failure) {
-            if (failure.getMessage() != null && failure.getMessage().contains("exceeds maximum input size")) {
-                throw new IllegalArgumentException(
-                        "remote auth file exceeds " + MAX_FILE_BYTES + " bytes", failure);
-            }
             throw new IllegalArgumentException(failureMessage, failure);
         }
     }

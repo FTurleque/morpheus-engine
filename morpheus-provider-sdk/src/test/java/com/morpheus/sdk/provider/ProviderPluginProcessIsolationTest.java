@@ -163,6 +163,28 @@ class ProviderPluginProcessIsolationTest {
     }
 
     @Test
+    void aProbeFailureAfterAVerifiedPinIsNotReportedAsAPinMismatch() throws Exception {
+        Path jar = pluginJar(
+                "malformed-result.jar",
+                "malformed-result-plugin",
+                "malformed-result-provider",
+                TestMalformedResultProviderPlugin.class);
+
+        // The real path, so the exact list below is not joined by the declaration of a resolved directory.
+        ProviderPluginProbeOutcome outcome = service(Duration.ofSeconds(10)).probe(
+                directory.toRealPath(),
+                "malformed-result-plugin",
+                directory,
+                ExternalJarIntegrity.sha256(jar));
+
+        assertFalse(outcome.success());
+        assertEquals(
+                List.of("PLUGIN_ACTIVATION_OR_PROBE_FAILED"),
+                outcome.diagnostics().stream().map(ProviderPluginDiagnostic::code).toList());
+        assertEquals("IllegalArgumentException", outcome.diagnostics().getFirst().details().get("reasonType"));
+    }
+
+    @Test
     void childEnvironmentKeepsExecutionVariablesButDropsSecretsAndJvmInjection() {
         Map<String, String> environment = new LinkedHashMap<>();
         environment.put("MORPHEUS_TOKEN", "secret");
