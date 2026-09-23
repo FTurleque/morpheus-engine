@@ -54,6 +54,19 @@ class SafeWorkspaceFileResolverTest {
     }
 
     @Test
+    void anOversizedReadIsRaisedAsItsOwnTypeCarryingTheLimitAndTheRelativePath() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace-typed-limit"));
+        Files.writeString(workspace.resolve("spec.md"), "123456");
+
+        SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
+        WorkspaceFileTooLargeException failure = assertThrows(
+                WorkspaceFileTooLargeException.class,
+                () -> resolver.readUtf8(Path.of("spec.md"), 5));
+        assertEquals(5, failure.maximumBytes());
+        assertEquals(Path.of("spec.md"), failure.relativePath());
+    }
+
+    @Test
     void defaultReadAcceptsFileExactlyOneMiB() throws Exception {
         Path workspace = Files.createDirectory(temp.resolve("workspace-default-limit-boundary"));
         byte[] exactlyOneMiB = new byte[1024 * 1024];

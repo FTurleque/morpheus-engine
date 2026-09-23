@@ -176,9 +176,8 @@ public final class SafeWorkspaceFileResolver {
         }
     }
 
-    private IllegalArgumentException inputLimitExceeded(Path relativePath, int maxBytes) {
-        return new IllegalArgumentException(
-                "workspace file exceeds maximum input size of " + maxBytes + " bytes: " + relativePath);
+    private WorkspaceFileTooLargeException inputLimitExceeded(Path relativePath, int maxBytes) {
+        return new WorkspaceFileTooLargeException(relativePath, maxBytes);
     }
 
     private IllegalArgumentException changedDuringRead(Path relativePath) {
