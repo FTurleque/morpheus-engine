@@ -34,6 +34,7 @@ import com.morpheus.domain.temporal.TemporalState;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,12 +88,23 @@ public final class MorpheusMcpToolService {
                 .map(RequirementVersionRecord::entityVersion)
                 .filter(version -> version.temporalState() == TemporalState.CURRENT)
                 .count();
+        PageRequest pageRequest = page(arguments);
+        List<Specification> specifications = content.specifications().stream()
+                .sorted(Comparator.comparing(Specification::id))
+                .toList();
+        int total = specifications.size();
+        int from = Math.min(pageRequest.offset(), total);
+        int to = (int) Math.min((long) from + pageRequest.limit(), total);
         return map(
                 "projectId", projectId.toString(),
                 "snapshotId", snapshot.id().toString(),
                 "snapshotState", snapshot.state().name(),
                 "specificationVersionId", specificationVersionId,
-                "specifications", content.specifications().stream().map(this::specification).toList(),
+                "specificationCount", total,
+                "offset", pageRequest.offset(),
+                "limit", pageRequest.limit(),
+                "hasMore", to < total,
+                "specifications", specifications.subList(from, to).stream().map(this::specification).toList(),
                 "requirementCount", currentRequirementCount,
                 "scenarioCount", content.scenarios().size(),
                 "changeCount", content.changes().size(),

@@ -42,6 +42,10 @@ import java.util.function.UnaryOperator;
  * minimizes inherited child-process environment, retains observed descendants for deterministic cleanup, handles stderr
  * synchronously on its reader thread, and fails closed when a peer exceeds a resource budget.</p>
  *
+ * <p>The frame bound reacts differently in each direction (ADR-0106). A peer frame past it fails the transport
+ * closed. An outbound frame past it is MORPHEUS's own defect: a client has no pending peer request to answer, so the
+ * frame is refused to its local sender and the peer keeps running.</p>
+ *
  * <p>The child-process boundary is lifecycle and environment isolation, not an operating-system security sandbox. An
  * explicitly configured MCP peer still runs as the MORPHEUS operating-system account and must therefore be trusted for
  * filesystem and network access.</p>
@@ -248,6 +252,8 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
             final OutboundFrame frame;
             try {
                 frame = encode(message);
+            } catch (OutboundMessageRefusedException refused) {
+                return Mono.error(refused);
             } catch (IOException failure) {
                 failClosed(failure);
                 return Mono.error(failure);
@@ -427,8 +433,14 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 .replace("\n", "\\n")
                 .replace("\r", "\\n");
         byte[] encoded = json.getBytes(StandardCharsets.UTF_8);
-        if (encoded.length > maxMessageBytes) throw new MessageTooLargeException(maxMessageBytes);
-        return new OutboundFrame(encoded);
+        if (encoded.length <= maxMessageBytes) return new OutboundFrame(encoded);
+        LOGGER.log(
+                System.Logger.Level.WARNING,
+                "MCP STDIO client refused an outbound {0} of {1} bytes past the {2}-byte frame bound",
+                OutboundMessageRefusedException.kindOf(message),
+                Integer.toString(encoded.length),
+                Integer.toString(maxMessageBytes));
+        throw new OutboundMessageRefusedException(message, encoded.length, maxMessageBytes);
     }
 
     private void failClosed(Throwable failure) {

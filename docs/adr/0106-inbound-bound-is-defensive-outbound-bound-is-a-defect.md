@@ -93,3 +93,98 @@ de 10 ms, ni `destroyObservedDescendants` ne changent.
   assertion textuelle (ADR-0103 : l'intention est « ce mécanisme ne doit pas être recâblé ») ; cassée en
   réintroduisant `failClosed(` dans le chemin d'encodage sortant, puis rétablie.
 - `BoundedStdioClientTransportHandlePruningTest` — la règle d'élagage, sur la fonction pure qui la porte.
+
+## Amendement du 23 septembre 2026 — le conseil sort du transport, la pagination n'est plus écartée, la règle vaut des deux côtés
+
+La relecture de l'implémentation initiale (constats **MCP-6** et **MCP-7**) a relevé un même défaut à deux endroits :
+la décision énonçait une règle plus large que ce qu'elle appliquait. Les paragraphes ci-dessus restent tels quels ;
+cette section dit ce qui change et pourquoi.
+
+### 1. Le conseil sort du transport
+
+Le message `MCP_RESPONSE_TOO_LARGE` nommait `find_requirements` depuis `BoundedStdioServerTransportProvider`. Deux
+défauts :
+
+- **le conseil était faux là où il comptait.** Le débordement de `get_current_specification` venait de la liste des
+  spécifications, chacune avec sa `description` ; `find_requirements` pagine les **exigences**, une autre collection.
+  Pour les outils qui portaient déjà `offset` et `limit`, le bon geste était de baisser `limit`, pas de changer d'outil ;
+- **le transport ne peut pas savoir.** `morpheus-mcp-transport` est partagé par le serveur (`morpheus-mcp`) et par
+  les clients MINOS et NEXUS. Un nom d'outil du catalogue serveur écrit en dur dans ce module est une fuite de
+  l'applicatif dans le transport, et côté client il ne désigne rien.
+
+Le transport décrit désormais **ce qu'il a refusé** — l'état nommé, la taille produite, la borne — et rien d'autre.
+Un texte d'orientation est fourni à la construction par la couche qui connaît le catalogue ; il est vide par défaut
+(clients MINOS/NEXUS), borné à `MAX_GUIDANCE_CHARS` caractères pour que le substitut garde une taille fixe, et ne
+contient jamais de fragment du contenu qui a débordé. `MorpheusMcpServer` fournit
+`OVERSIZED_RESPONSE_GUIDANCE`, générique et vrai : les outils de lecture paginés acceptent `offset` et `limit`, et
+le premier geste est de relancer avec un `limit` plus petit. Les quatre chemins de construction du serveur passent
+par une seule fabrique, pour que le chemin de test et le chemin de production ne puissent pas diverger.
+
+### 2. La pagination de `get_current_specification` n'est plus écartée — et le motif qui l'écartait était inexact
+
+La section « Alternatives écartées » écarte la pagination parce qu'elle « change un schéma d'outil, donc le manifeste
+de convergence et l'OpenAPI ». **C'est inexact.** Vérifié à la date de cet amendement : `contracts/public-surfaces.tsv`
+ne porte `get_current_specification` dans aucune colonne, et aucun fichier de `docs/openapi/` ne mentionne un nom
+d'outil MCP. Ajouter `offset` et `limit` à cet outil ne déplace ni le manifeste ni l'OpenAPI ; le coût réel est
+interne à `morpheus-mcp` (catalogue, service, tests). Le paragraphe d'origine reste visible à dessein : une
+alternative écartée pour un motif faux, corrigée à découvert, ne sera pas réécartée plus tard pour la même raison.
+Pour la même raison, la phrase de la décision §1 « aucun schéma d'outil ne change » ne vaut plus que pour la
+réponse à la borne elle-même ; le schéma de `get_current_specification` change, pas le manifeste.
+
+`get_current_specification` accepte donc `offset` et `limit` aux **mêmes bornes** que ses voisins paginés
+(`0..1 000 000`, `1..MAX_LIMIT`, `limit` par défaut `DEFAULT_LIMIT`) : huit outils sur les quatorze du catalogue de
+lecture les portent désormais, contre sept. La réponse garde ses identifiants et ses compteurs, et porte une page de
+spécifications ordonnée par identifiant — l'ordre que `GET /projects/{projectId}/specifications` applique déjà —,
+avec `specificationCount`, `offset`, `limit` et `hasMore`. La projection par spécification ne perd rien :
+`description` reste, parce que c'est le contenu que le modèle vient chercher et que la version HTTP le rend. Borner
+n'est pas amputer. La description de l'outil, qui annonçait un *summary* pour une charge utile complète, dit
+maintenant ce qui est rendu. Aucun outil n'est ajouté.
+
+Une page d'une seule spécification dont la description dépasse à elle seule la borne reste refusée par
+`MCP_RESPONSE_TOO_LARGE` : c'est le cas que la borne existe pour refuser, et la session survit.
+
+### 3. La règle vaut des deux côtés et pour les deux transports
+
+La portée de cet ADR nomme `BoundedStdioClientTransport`, mais son chemin sortant levait encore
+`MessageTooLargeException` et fermait la session du pair — exactement ce que la décision §1 déclare fautif. Le
+risque pratique était faible (une requête MORPHEUS de plus de 4 Mio vers MINOS est peu plausible, et son contenu est
+du code MORPHEUS) ; l'enjeu est qu'un ADR dont l'un des fichiers de sa portée fait l'inverse n'est plus exécutable.
+
+Le client applique désormais la branche **« sans `id` »** du serveur, la seule qui ait un sens ici : il n'a aucune
+requête du pair en attente à laquelle substituer une réponse. La trame est journalisée en `WARNING` (nature, taille,
+borne — jamais le message d'une exception), puis refusée à son émetteur local par
+`OutboundMessageRefusedException`, extraite du serveur vers son propre fichier pour que les deux transports la
+partagent. `sendMessage` rattrape ce refus **avant** la branche `IOException` qui échoue fermé. Le pair continue de
+tourner et la requête suivante est servie.
+
+Côté client, le refus couvre aussi une réponse à une requête initiée par le pair : en substituer une exigerait une
+forme d'erreur propre à chaque méthode serveur, et le client MORPHEUS n'enregistre aucune capacité (`roots`,
+`sampling`) qui en émettrait une. Si cela change, la substitution se décidera avec la capacité.
+
+**L'entrée ne change pas.** `readLine(maxMessageBytes)` lève toujours `MessageTooLargeException`, et la boucle de
+lecture échoue toujours fermé, des deux côtés.
+
+### Hors de cet amendement
+
+Treize des quatorze outils du catalogue de lecture sont absents de `contracts/public-surfaces.tsv` : seul
+`get_acceptance_criteria` y figure, dans la colonne `mcp` de `acceptance.criteria`. Treize outils publics hors
+manifeste de convergence, c'est une question de gouvernance qui mérite sa propre décision ; elle n'est pas traitée ici.
+
+### Preuves exécutables ajoutées
+
+- `BoundedStdioServerTransportProviderFrameBoundTest#theOversizedResponseErrorDoesNotNameAToolTheTransportCannotKnow`
+  — sans orientation, le transport ne nomme aucun outil et ne suggère aucune surface ;
+  `aResponseLargerThanTheFrameBoundIsAnsweredWithAnErrorAndTheSessionSurvives` vérifie désormais que l'orientation
+  fournie atteint le client, au lieu du nom d'outil.
+- `BoundedStdioClientTransportTest#anOversizedOutboundRequestIsRefusedWithoutKillingThePeer` — refus nommé à
+  l'émetteur, transport toujours `CONNECTED`, et un appel suivant servi par le **même** pair : la preuve qu'il est
+  vivant, pas une supposition ; `anInboundFrameOverTheBoundStillFailsClosed` — non-régression de l'entrée.
+- `MorpheusMcpServerOversizedResponseTest` — par le câblage réel de `MorpheusMcpServer.run`, une spécification
+  hors borne est refusée avec l'orientation du serveur, sans fragment, et le code de sortie reste `0`.
+- `MorpheusMcpToolServiceTest#aBoundedSliceOfSpecificationsIsReturnedForAnOffsetAndALimit` et
+  `MorpheusMcpToolCatalogTest#theCurrentSpecificationToolDescribesWhatItActuallyReturns`.
+- `AuditHardeningWorkflowContractTest#mcpClientTransportRefusesAnOversizedOutboundFrameInsteadOfFailingClosed` — la
+  garde textuelle devient symétrique ; `mcpTransportNamesNoServerCatalogTool` interdit dans tout
+  `morpheus-mcp-transport` un nom d'outil lu dans le catalogue. Toutes deux cassées avant acceptation, en
+  réintroduisant `failClosed(` dans l'encodage client, en retirant la capture du refus, puis la constante
+  `"find_requirements"` dans le transport serveur ; chaque violation a fait échouer sa règle, puis a été retirée.

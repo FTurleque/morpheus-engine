@@ -35,13 +35,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class BoundedStdioServerTransportProviderFrameBoundTest {
     private static final int FRAME_BOUND = 512;
+    private static final String GUIDANCE = "reduce limit, then page with offset";
 
     @Test
     void aResponseLargerThanTheFrameBoundIsAnsweredWithAnErrorAndTheSessionSurvives() throws Exception {
         String input = request(1) + request(2);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        BoundedStdioServerTransportProvider provider = provider(
-                new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), output);
+        BoundedStdioServerTransportProvider provider = new BoundedStdioServerTransportProvider(
+                McpJsonDefaults.getMapper(),
+                new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)),
+                output,
+                FRAME_BOUND,
+                4,
+                GUIDANCE);
 
         provider.setSessionFactory(transport -> echoSession(transport, id -> id.equals(1) ? "x".repeat(4096) : "ok"));
 
@@ -53,7 +59,8 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
         assertTrue(oversized.contains("\"id\":1"), oversized);
         assertTrue(oversized.contains("\"error\""), oversized);
         assertTrue(oversized.contains("MCP_RESPONSE_TOO_LARGE"), oversized);
-        assertTrue(oversized.contains("find_requirements"), oversized);
+        assertTrue(oversized.contains(GUIDANCE), () -> "the owner's guidance must reach the client: " + oversized);
+        assertTrue(oversized.contains("offset") && oversized.contains("limit"), oversized);
         assertTrue(oversized.contains(Integer.toString(FRAME_BOUND)), oversized);
         assertFalse(oversized.contains("xxxx"), () -> "the error must not leak the overflowing content: " + oversized);
 
@@ -61,6 +68,30 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
         assertTrue(next.contains("\"id\":2"), next);
         assertTrue(next.contains("\"ok\""), next);
         assertFalse(provider.terminatedInFailure(), "an oversized response is not a transport failure");
+    }
+
+    /**
+     * This transport is shared by the MORPHEUS server and by the MINOS and NEXUS clients. It knows no tool catalog,
+     * so its own diagnostic states the refusal -- the named state, the size produced, the bound -- and nothing else.
+     */
+    @Test
+    void theOversizedResponseErrorDoesNotNameAToolTheTransportCannotKnow() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        BoundedStdioServerTransportProvider provider = provider(
+                new ByteArrayInputStream(request(1).getBytes(StandardCharsets.UTF_8)), output);
+
+        provider.setSessionFactory(transport -> echoSession(transport, id -> "x".repeat(4096)));
+
+        assertTrue(provider.awaitTermination(Duration.ofSeconds(5)));
+        List<String> frames = frames(output);
+        assertEquals(1, frames.size(), () -> "the request must be answered: " + frames);
+        String oversized = frames.get(0);
+        assertTrue(oversized.contains("MCP_RESPONSE_TOO_LARGE"), oversized);
+        assertTrue(oversized.contains(Integer.toString(FRAME_BOUND)), oversized);
+        assertFalse(oversized.contains("find_requirements"),
+                () -> "a transport shared with MCP clients cannot name a server tool: " + oversized);
+        assertFalse(oversized.contains(" such as "),
+                () -> "without guidance from its owner the transport must not suggest a surface: " + oversized);
     }
 
     @Test

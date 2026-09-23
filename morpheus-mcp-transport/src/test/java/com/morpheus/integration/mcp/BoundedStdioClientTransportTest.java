@@ -206,6 +206,62 @@ class BoundedStdioClientTransportTest {
         }
     }
 
+    /**
+     * ADR-0106, on the client side: an outbound frame is MORPHEUS's own, so overstepping the bound is a MORPHEUS
+     * defect and the peer must not pay for it. A client has no pending peer request to answer, so the only
+     * treatment is refusal to the local sender. The follow-up call is the proof that the peer is still alive and
+     * still reachable, not an assumption about it.
+     */
+    @Test
+    void anOversizedOutboundRequestIsRefusedWithoutKillingThePeer() {
+        BoundedStdioClientTransport transport = transport(4096);
+        McpSyncClient client = McpClient.sync(transport)
+                .requestTimeout(Duration.ofSeconds(5))
+                .build();
+        try {
+            client.initialize();
+            RuntimeException refused = assertThrows(RuntimeException.class, () -> client.callTool(
+                    CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_ECHO)
+                            .arguments(Map.of("value", "x".repeat(8192)))
+                            .build()));
+            assertTrue(causeChainMentions(refused, "exceeds the 4096-byte frame bound and was not sent"),
+                    () -> "the sender must be told why its request was refused: " + refused);
+
+            BoundedStdioClientTransport.State afterRefusal = transport.state();
+            assertEquals(BoundedStdioClientTransport.State.CONNECTED, afterRefusal,
+                    "an outbound refusal must neither fail nor close the transport");
+            var next = client.callTool(CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_ECHO)
+                    .arguments(Map.of("value", "peer-still-alive"))
+                    .build());
+            assertEquals("peer-still-alive", ((TextContent) next.content().getFirst()).text());
+        } finally {
+            client.closeGracefully();
+        }
+    }
+
+    @Test
+    void anInboundFrameOverTheBoundStillFailsClosed() throws Exception {
+        BoundedStdioClientTransport transport = transport(2048);
+        McpSyncClient client = McpClient.sync(transport)
+                .requestTimeout(Duration.ofSeconds(2))
+                .build();
+        try {
+            client.initialize();
+            assertThrows(RuntimeException.class, () -> client.callTool(
+                    CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_LARGE)
+                            .arguments(Map.of("size", 8192))
+                            .build()));
+            BoundedWait.until(
+                    "the transport to fail closed on an inbound frame past its bound",
+                    Duration.ofSeconds(5),
+                    BoundedWait.PROCESS_TRANSITION_POLL,
+                    () -> transport.state() == BoundedStdioClientTransport.State.FAILED,
+                    () -> "state=" + transport.state());
+        } finally {
+            client.closeGracefully();
+        }
+    }
+
     @Test
     void failsClosedWhenOutboundQueueCapacityIsExceeded() {
         BoundedStdioClientTransport transport = transport(1024, 1);
@@ -342,6 +398,13 @@ class BoundedStdioClientTransportTest {
             // Files.writeString may make the entry visible before the PID bytes are observable.
             return 0L;
         }
+    }
+
+    private static boolean causeChainMentions(Throwable failure, String fragment) {
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            if (current.getMessage() != null && current.getMessage().contains(fragment)) return true;
+        }
+        return false;
     }
 
     private boolean isAlive(long pid) {
