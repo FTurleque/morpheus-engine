@@ -119,6 +119,13 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
             return PolicyEvaluation.Fact.unknown("no ACTIVE snapshot is available for quality evaluation", List.of());
         }
         QualityReportMetrics metrics = report.orElseThrow().metrics();
+        Optional<String> emptyPopulation = emptyRatioPopulation(config.metric(), metrics);
+        if (emptyPopulation.isPresent()) {
+            return PolicyEvaluation.Fact.unknown(
+                    "quality metric " + config.metric() + " is undefined: the ACTIVE snapshot has no "
+                            + emptyPopulation.orElseThrow(),
+                    List.of("quality:active-snapshot"));
+        }
         double actual = switch (config.metric()) {
             case FINDINGS -> metrics.totalFindings();
             case ORPHAN_REQUIREMENTS -> metrics.orphanRequirements();
@@ -135,6 +142,24 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
                 actual,
                 "quality metric " + config.metric() + "=" + actual + " " + config.comparison() + " " + config.threshold(),
                 List.of("quality:active-snapshot"));
+    }
+
+    /**
+     * A coverage ratio over an empty population is not a measurement. The quality records fill it with 1.0 so their
+     * own validation holds; read as a percentage it would pass any coverage threshold for a project that ingested
+     * nothing. Counts are left alone: zero orphans among zero requirements is a true zero.
+     */
+    private static Optional<String> emptyRatioPopulation(PolicyRule.QualityMetric metric, QualityReportMetrics metrics) {
+        return switch (metric) {
+            case REQUIREMENT_COVERAGE_PERCENT -> metrics.totalRequirements() == 0
+                    ? Optional.of("CURRENT requirement")
+                    : Optional.empty();
+            case TASK_COVERAGE_PERCENT -> metrics.totalTasks() == 0
+                    ? Optional.of("implementation task")
+                    : Optional.empty();
+            case FINDINGS, ORPHAN_REQUIREMENTS, UNCOVERED_TASKS, CHANGES, DECISIONS, EXTERNAL_REFERENCES ->
+                    Optional.empty();
+        };
     }
 
     private PolicyEvaluation.Fact query(PolicyScope scope, PolicyRule.QueryAssertion config) {

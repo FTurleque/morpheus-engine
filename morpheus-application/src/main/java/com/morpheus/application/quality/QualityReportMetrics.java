@@ -47,6 +47,8 @@ public record QualityReportMetrics(
         if (coveredTasks + uncoveredTasks != totalTasks) {
             throw new IllegalArgumentException("covered + uncovered must equal total tasks");
         }
+        // Both ratios are 1.0 over an empty population. That is a validation filler, not a measurement: a policy
+        // threshold on either ratio reads it as UNKNOWN (DefaultPolicyFactResolver#emptyRatioPopulation).
         double expectedRequirementRatio = totalRequirements == 0
                 ? 1.0
                 : (double) linkedRequirements / totalRequirements;
