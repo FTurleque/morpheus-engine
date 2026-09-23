@@ -83,22 +83,6 @@ class BoundedStdioServerTransportProviderTest {
     }
 
     @Test
-    void failsClosedWhenSerializedOutboundFrameExceedsLimit() throws Exception {
-        BlockingInputStream input = new BlockingInputStream();
-        BoundedStdioServerTransportProvider provider = new BoundedStdioServerTransportProvider(
-                McpJsonDefaults.getMapper(), input, new ByteArrayOutputStream(), 128, 4);
-
-        McpSyncServer server = server(provider);
-        try {
-            assertThrows(RuntimeException.class, () -> provider.notifyClients(
-                    "notifications/test", Map.of("value", "x".repeat(1024))).block());
-            assertTrue(provider.awaitTermination(Duration.ofSeconds(5)));
-        } finally {
-            server.close();
-        }
-    }
-
-    @Test
     void failsClosedWhenOutboundQueueCapacityIsExceeded() throws Exception {
         BlockingInputStream input = new BlockingInputStream();
         BlockingOutputStream output = new BlockingOutputStream();

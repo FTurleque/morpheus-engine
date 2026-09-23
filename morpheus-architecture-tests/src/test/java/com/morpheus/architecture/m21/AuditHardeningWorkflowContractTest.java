@@ -215,6 +215,28 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(redactor.contains("JSON_OR_NAMED_SECRET"));
     }
 
+    /**
+     * ADR-0106: an outbound frame past the bound is a MORPHEUS defect, not a hostile peer. The outbound encoding
+     * path must answer it with a named error and leave the fail-closed decision to its caller, which only takes it
+     * when even that error cannot fit. Text, not ArchUnit: the intent is that this mechanism is not rewired, and no
+     * bytecode rule says which private method calls which.
+     */
+    @Test
+    void mcpServerTransportAnswersAnOversizedResponseInsteadOfFailingClosed() throws IOException {
+        String server = Files.readString(repoRoot().resolve(
+                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioServerTransportProvider.java"));
+
+        assertTrue(server.contains("\"MCP_RESPONSE_TOO_LARGE\""));
+        int encodeStart = server.indexOf("private OutboundFrame encode(");
+        int encodeEnd = server.indexOf("private void requestStop()", encodeStart);
+        assertTrue(encodeStart >= 0 && encodeEnd > encodeStart,
+                "the outbound encoding path must stay between encode(...) and requestStop()");
+        String outboundEncoding = server.substring(encodeStart, encodeEnd);
+        assertFalse(outboundEncoding.contains("failClosed("),
+                "the outbound encoding path must not fail the session closed itself");
+        assertTrue(outboundEncoding.contains("responseTooLarge("));
+    }
+
     @Test
     void remoteDiscoveryCannotRegressToChecksumOnlyOrClaimVerifiedTrust() throws IOException {
         Path root = repoRoot();

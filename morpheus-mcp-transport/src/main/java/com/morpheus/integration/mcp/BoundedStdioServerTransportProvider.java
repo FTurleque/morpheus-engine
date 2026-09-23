@@ -4,6 +4,9 @@ import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.TypeRef;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCMessage;
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCNotification;
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCResponse;
 import io.modelcontextprotocol.spec.McpServerSession;
 import io.modelcontextprotocol.spec.McpServerTransport;
 import io.modelcontextprotocol.spec.McpServerTransportProvider;
@@ -34,10 +37,18 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>Frames are bounded as UTF-8 bytes before JSON deserialization. Inbound messages are handled sequentially so an
  * untrusted peer cannot build an aggregate inbound queue. Outbound messages are serialized before enqueueing and use a
  * fixed-capacity queue, which bounds both individual frames and aggregate pending output.</p>
+ *
+ * <p>The frame bound reacts differently in each direction. Inbound it is defensive: a peer past it is hostile or
+ * broken, and the session is failed closed. Outbound the frame is MORPHEUS's own, so overstepping it is a MORPHEUS
+ * defect the client must not pay for with its session: an oversized response is replaced by a
+ * {@value #RESPONSE_TOO_LARGE} error carrying the same id, and any other oversized message is refused to its local
+ * sender while the session stays open (ADR-0106).</p>
  */
 public final class BoundedStdioServerTransportProvider implements McpServerTransportProvider {
     public static final int DEFAULT_MAX_FRAME_BYTES = 1024 * 1024;
     public static final int DEFAULT_MAX_PENDING_MESSAGES = 64;
+    public static final String RESPONSE_TOO_LARGE = "MCP_RESPONSE_TOO_LARGE";
+    private static final String BOUNDED_ALTERNATIVE = "find_requirements";
 
     private static final System.Logger LOGGER =
             System.getLogger(BoundedStdioServerTransportProvider.class.getName());
@@ -182,6 +193,8 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
                 final OutboundFrame frame;
                 try {
                     frame = encode(message);
+                } catch (OutboundMessageRefusedException refused) {
+                    return Mono.error(refused);
                 } catch (IOException failure) {
                     failClosed(failure);
                     return Mono.error(failure);
@@ -280,13 +293,51 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         }
 
         private OutboundFrame encode(JSONRPCMessage message) throws IOException {
+            byte[] encoded = serialize(message);
+            if (encoded.length <= maxFrameBytes) return new OutboundFrame(encoded);
+            if (message instanceof JSONRPCResponse response && response.id() != null) {
+                return responseTooLarge(response.id(), encoded.length);
+            }
+            // A notification or a server-initiated request has no pending client request to answer, so there is
+            // nothing to substitute on the wire. The session stays open, the trace names what was refused, and the
+            // local sender receives an explicit error instead of a silent success.
+            LOGGER.log(
+                    System.Logger.Level.WARNING,
+                    "MCP STDIO server refused an outbound {0} of {1} bytes past the {2}-byte frame bound",
+                    outboundKind(message),
+                    Integer.toString(encoded.length),
+                    Integer.toString(maxFrameBytes));
+            throw new OutboundMessageRefusedException(outboundKind(message), encoded.length, maxFrameBytes);
+        }
+
+        /**
+         * Answers the pending request with a fixed-shape error naming the overflow and the bounded surface to use
+         * instead. It carries sizes only, never a fragment of the content that overflowed. An error that cannot fit
+         * either -- only possible when the peer chose an id close to the bound itself -- raises the ordinary frame
+         * exception, which the caller fails closed.
+         */
+        private OutboundFrame responseTooLarge(Object id, int producedBytes) throws IOException {
+            String diagnostic = RESPONSE_TOO_LARGE + ": the response is " + producedBytes + " bytes, past the "
+                    + maxFrameBytes + "-byte MCP STDIO frame bound; request a bounded slice instead, such as "
+                    + BOUNDED_ALTERNATIVE + " with offset and limit";
+            byte[] error = serialize(JSONRPCResponse.error(
+                    id, new JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.INTERNAL_ERROR, diagnostic)));
+            if (error.length > maxFrameBytes) throw new MessageTooLargeException(maxFrameBytes);
+            LOGGER.log(
+                    System.Logger.Level.WARNING,
+                    "MCP STDIO server replaced a {0}-byte response with {1}; the frame bound is {2} bytes",
+                    Integer.toString(producedBytes),
+                    RESPONSE_TOO_LARGE,
+                    Integer.toString(maxFrameBytes));
+            return new OutboundFrame(error);
+        }
+
+        private byte[] serialize(JSONRPCMessage message) throws IOException {
             String json = jsonMapper.writeValueAsString(message)
                     .replace("\r\n", "\\n")
                     .replace("\n", "\\n")
                     .replace("\r", "\\n");
-            byte[] encoded = json.getBytes(StandardCharsets.UTF_8);
-            if (encoded.length > maxFrameBytes) throw new MessageTooLargeException(maxFrameBytes);
-            return new OutboundFrame(encoded);
+            return json.getBytes(StandardCharsets.UTF_8);
         }
 
         private void requestStop() {
@@ -330,6 +381,20 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
          */
         private void releaseWorkers() {
             SchedulerRelease.disposeAll(inboundScheduler, outboundScheduler);
+        }
+    }
+
+    private static String outboundKind(JSONRPCMessage message) {
+        if (message instanceof JSONRPCNotification notification) return "notification " + notification.method();
+        if (message instanceof JSONRPCRequest request) return "request " + request.method();
+        return "response without an id";
+    }
+
+    /** An outbound message past the frame bound that has no request to answer; the session is not closed. */
+    static final class OutboundMessageRefusedException extends IllegalStateException {
+        OutboundMessageRefusedException(String kind, int producedBytes, int maximum) {
+            super("MCP STDIO outbound " + kind + " of " + producedBytes + " bytes exceeds the " + maximum
+                    + "-byte frame bound and was not sent");
         }
     }
 
