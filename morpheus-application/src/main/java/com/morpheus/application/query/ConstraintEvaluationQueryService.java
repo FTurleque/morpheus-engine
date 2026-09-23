@@ -6,6 +6,7 @@ import com.morpheus.application.store.SnapshotBusinessContentStore;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
+import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.constraint.ConstraintEvaluation;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
@@ -15,18 +16,27 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 /** Deterministic snapshot-scoped query for explicit M16 constraint-policy evaluations. */
 public final class ConstraintEvaluationQueryService {
     private final SpecificationKnowledgeStore snapshotStore;
     private final SnapshotBusinessContentStore contentStore;
-    private final ConstraintPolicyEvaluationService evaluator = new ConstraintPolicyEvaluationService();
+    private final BiFunction<Constraint, ChangeLifecycleState, ConstraintEvaluation> evaluator;
 
     public ConstraintEvaluationQueryService(
             SpecificationKnowledgeStore snapshotStore,
             SnapshotBusinessContentStore contentStore) {
+        this(snapshotStore, contentStore, new ConstraintPolicyEvaluationService()::evaluate);
+    }
+
+    ConstraintEvaluationQueryService(
+            SpecificationKnowledgeStore snapshotStore,
+            SnapshotBusinessContentStore contentStore,
+            BiFunction<Constraint, ChangeLifecycleState, ConstraintEvaluation> evaluator) {
         this.snapshotStore = Objects.requireNonNull(snapshotStore, "snapshotStore");
         this.contentStore = Objects.requireNonNull(contentStore, "contentStore");
+        this.evaluator = Objects.requireNonNull(evaluator, "evaluator");
     }
 
     public Optional<SnapshotPage<ConstraintEvaluation>> activeEvaluations(
@@ -65,7 +75,7 @@ public final class ConstraintEvaluationQueryService {
         List<ConstraintEvaluation> all = content.constraints().stream()
                 .filter(item -> item.changeId().equals(changeId))
                 .sorted(java.util.Comparator.comparing(item -> item.id().toString()))
-                .map(item -> evaluator.evaluate(item, targetState))
+                .map(item -> evaluator.apply(item, targetState))
                 .toList();
         int from = Math.min(pageRequest.offset(), all.size());
         int to = Math.min(from + pageRequest.limit(), all.size());
