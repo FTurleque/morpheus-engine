@@ -8,6 +8,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusMcpToolCatalogTest {
 
@@ -52,6 +53,27 @@ class MorpheusMcpToolCatalogTest {
 
         Map<?, ?> syncProperties = properties(catalog.require("get_sync_status"));
         assertEquals(525_600L, ((Number) ((Map<?, ?>) syncProperties.get("maxAgeMinutes")).get("maximum")).longValue());
+    }
+
+    /**
+     * The tool used to call itself a summary while it returned every specification with its full description --
+     * the payload that overflowed the MCP frame. It now pages that collection exactly as its paginated neighbours
+     * do, and says so.
+     */
+    @Test
+    void theCurrentSpecificationToolDescribesWhatItActuallyReturns() {
+        MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
+        MorpheusMcpToolCatalog.ToolDefinition tool = catalog.require("get_current_specification");
+
+        Map<?, ?> properties = properties(tool);
+        Map<?, ?> neighbour = properties(catalog.require("list_changes"));
+        assertEquals(neighbour.get("offset"), properties.get("offset"));
+        assertEquals(neighbour.get("limit"), properties.get("limit"));
+        assertEquals(List.of("projectId"), tool.inputSchema().get("required"));
+
+        assertFalse(tool.description().contains("summary"), tool.description());
+        assertTrue(tool.description().contains("page"), tool.description());
+        assertTrue(tool.description().contains("description"), tool.description());
     }
 
     @Test

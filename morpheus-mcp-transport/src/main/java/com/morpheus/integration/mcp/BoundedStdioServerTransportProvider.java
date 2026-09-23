@@ -4,8 +4,6 @@ import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.TypeRef;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCMessage;
-import io.modelcontextprotocol.spec.McpSchema.JSONRPCNotification;
-import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCResponse;
 import io.modelcontextprotocol.spec.McpServerSession;
 import io.modelcontextprotocol.spec.McpServerTransport;
@@ -43,12 +41,17 @@ import java.util.concurrent.atomic.AtomicReference;
  * defect the client must not pay for with its session: an oversized response is replaced by a
  * {@value #RESPONSE_TOO_LARGE} error carrying the same id, and any other oversized message is refused to its local
  * sender while the session stays open (ADR-0106).</p>
+ *
+ * <p>This transport is shared by the MORPHEUS server and by the MINOS and NEXUS clients, and it knows no tool
+ * catalog. Its own diagnostic therefore names the refusal and nothing else; the layer that owns a catalog may supply
+ * a fixed piece of guidance at construction, appended verbatim.</p>
  */
 public final class BoundedStdioServerTransportProvider implements McpServerTransportProvider {
     public static final int DEFAULT_MAX_FRAME_BYTES = 1024 * 1024;
     public static final int DEFAULT_MAX_PENDING_MESSAGES = 64;
     public static final String RESPONSE_TOO_LARGE = "MCP_RESPONSE_TOO_LARGE";
-    private static final String BOUNDED_ALTERNATIVE = "find_requirements";
+    /** Keeps the substitute error fixed-size whatever its owner supplies. */
+    public static final int MAX_GUIDANCE_CHARS = 256;
 
     private static final System.Logger LOGGER =
             System.getLogger(BoundedStdioServerTransportProvider.class.getName());
@@ -58,6 +61,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
     private final OutputStream outputStream;
     private final int maxFrameBytes;
     private final int maxPendingMessages;
+    private final String oversizedResponseGuidance;
     private final AtomicBoolean closing = new AtomicBoolean(false);
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private final AtomicBoolean failedClosed = new AtomicBoolean(false);
@@ -81,6 +85,21 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
             OutputStream outputStream,
             int maxFrameBytes,
             int maxPendingMessages) {
+        this(jsonMapper, inputStream, outputStream, maxFrameBytes, maxPendingMessages, "");
+    }
+
+    /**
+     * @param oversizedResponseGuidance what a client should do instead when a response overflows the frame, from the
+     *                                  layer that knows the tools; empty for none. At most {@value #MAX_GUIDANCE_CHARS}
+     *                                  characters, so the substitute error keeps a fixed bound.
+     */
+    public BoundedStdioServerTransportProvider(
+            McpJsonMapper jsonMapper,
+            InputStream inputStream,
+            OutputStream outputStream,
+            int maxFrameBytes,
+            int maxPendingMessages,
+            String oversizedResponseGuidance) {
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
         this.inputStream = Objects.requireNonNull(inputStream, "inputStream");
         this.outputStream = Objects.requireNonNull(outputStream, "outputStream");
@@ -88,6 +107,12 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         if (maxPendingMessages < 1) throw new IllegalArgumentException("maxPendingMessages must be positive");
         this.maxFrameBytes = maxFrameBytes;
         this.maxPendingMessages = maxPendingMessages;
+        this.oversizedResponseGuidance =
+                Objects.requireNonNull(oversizedResponseGuidance, "oversizedResponseGuidance");
+        if (oversizedResponseGuidance.length() > MAX_GUIDANCE_CHARS) {
+            throw new IllegalArgumentException(
+                    "oversizedResponseGuidance must not exceed " + MAX_GUIDANCE_CHARS + " characters");
+        }
     }
 
     // java:S1181 catches Error deliberately: the transport's two worker executors exist before the factory runs,
@@ -314,22 +339,22 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
             LOGGER.log(
                     System.Logger.Level.WARNING,
                     "MCP STDIO server refused an outbound {0} of {1} bytes past the {2}-byte frame bound",
-                    outboundKind(message),
+                    OutboundMessageRefusedException.kindOf(message),
                     Integer.toString(encoded.length),
                     Integer.toString(maxFrameBytes));
-            throw new OutboundMessageRefusedException(outboundKind(message), encoded.length, maxFrameBytes);
+            throw new OutboundMessageRefusedException(message, encoded.length, maxFrameBytes);
         }
 
         /**
-         * Answers the pending request with a fixed-shape error naming the overflow and the bounded surface to use
-         * instead. It carries sizes only, never a fragment of the content that overflowed. An error that cannot fit
-         * either -- only possible when the peer chose an id close to the bound itself -- raises the ordinary frame
-         * exception, which the caller fails closed.
+         * Answers the pending request with a fixed-shape error naming the overflow, followed by the owner's guidance
+         * when there is one. It carries sizes only, never a fragment of the content that overflowed. An error that
+         * cannot fit either -- only possible when the peer chose an id close to the bound itself -- raises the ordinary
+         * frame exception, which the caller fails closed.
          */
         private OutboundFrame responseTooLarge(Object id, int producedBytes) throws IOException {
             String diagnostic = RESPONSE_TOO_LARGE + ": the response is " + producedBytes + " bytes, past the "
-                    + maxFrameBytes + "-byte MCP STDIO frame bound; request a bounded slice instead, such as "
-                    + BOUNDED_ALTERNATIVE + " with offset and limit";
+                    + maxFrameBytes + "-byte MCP STDIO frame bound"
+                    + (oversizedResponseGuidance.isEmpty() ? "" : "; " + oversizedResponseGuidance);
             byte[] error = serialize(JSONRPCResponse.error(
                     id, new JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.INTERNAL_ERROR, diagnostic)));
             if (error.length > maxFrameBytes) throw new MessageTooLargeException(maxFrameBytes);
@@ -392,20 +417,6 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
          */
         private void releaseWorkers() {
             SchedulerRelease.disposeAll(inboundScheduler, outboundScheduler);
-        }
-    }
-
-    private static String outboundKind(JSONRPCMessage message) {
-        if (message instanceof JSONRPCNotification notification) return "notification " + notification.method();
-        if (message instanceof JSONRPCRequest request) return "request " + request.method();
-        return "response without an id";
-    }
-
-    /** An outbound message past the frame bound that has no request to answer; the session is not closed. */
-    static final class OutboundMessageRefusedException extends IllegalStateException {
-        OutboundMessageRefusedException(String kind, int producedBytes, int maximum) {
-            super("MCP STDIO outbound " + kind + " of " + producedBytes + " bytes exceeds the " + maximum
-                    + "-byte frame bound and was not sent");
         }
     }
 

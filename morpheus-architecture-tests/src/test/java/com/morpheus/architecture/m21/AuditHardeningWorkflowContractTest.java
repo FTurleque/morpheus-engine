@@ -5,8 +5,10 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -235,6 +237,66 @@ class AuditHardeningWorkflowContractTest {
         assertFalse(outboundEncoding.contains("failClosed("),
                 "the outbound encoding path must not fail the session closed itself");
         assertTrue(outboundEncoding.contains("responseTooLarge("));
+    }
+
+    /**
+     * ADR-0106, amendment of 23/09/2026: the principle holds in both transports. A client has no pending peer request
+     * to answer, so its only outbound treatment is refusal to the local sender, and {@code sendMessage} must catch that
+     * refusal before the {@code IOException} branch that fails the session closed. Text, for the same reason as the
+     * server rule above.
+     */
+    @Test
+    void mcpClientTransportRefusesAnOversizedOutboundFrameInsteadOfFailingClosed() throws IOException {
+        String client = Files.readString(repoRoot().resolve(
+                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
+
+        int encodeStart = client.indexOf("private OutboundFrame encode(");
+        int encodeEnd = client.indexOf("private void failClosed(", encodeStart);
+        assertTrue(encodeStart >= 0 && encodeEnd > encodeStart,
+                "the outbound encoding path must stay between encode(...) and failClosed(...)");
+        String outboundEncoding = client.substring(encodeStart, encodeEnd);
+        assertFalse(outboundEncoding.contains("failClosed("),
+                "the outbound encoding path must not fail the session closed itself");
+        assertFalse(outboundEncoding.contains("MessageTooLargeException"),
+                "outbound, the inbound fail-closed signal must not be raised");
+        assertTrue(outboundEncoding.contains("new OutboundMessageRefusedException("));
+
+        int sendStart = client.indexOf("public Mono<Void> sendMessage(");
+        int sendEnd = client.indexOf("public Mono<Void> closeGracefully()", sendStart);
+        assertTrue(sendStart >= 0 && sendEnd > sendStart, "sendMessage must precede closeGracefully");
+        String send = client.substring(sendStart, sendEnd);
+        int refusal = send.indexOf("catch (OutboundMessageRefusedException");
+        int ioFailure = send.indexOf("catch (IOException");
+        assertTrue(refusal >= 0 && ioFailure > refusal,
+                "sendMessage must hand an outbound refusal back to its sender before the fail-closed branch");
+    }
+
+    /**
+     * The MCP transport module is shared by the MORPHEUS server and by the MINOS and NEXUS clients. Naming a tool of
+     * the server catalog in it would leak the application into the transport; the guidance for an oversized response
+     * is supplied by the layer that owns the catalog (ADR-0106, amendment of 23/09/2026).
+     */
+    @Test
+    void mcpTransportNamesNoServerCatalogTool() throws IOException {
+        Path root = repoRoot();
+        String catalog = Files.readString(root.resolve(
+                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusMcpToolCatalog.java"));
+        List<String> tools = Pattern.compile("tool\\(\"([a-z_]+)\"").matcher(catalog).results()
+                .map(match -> match.group(1))
+                .toList();
+        assertTrue(tools.contains("find_requirements") && tools.contains("get_current_specification"),
+                () -> "the catalog tool names must be readable from the catalog source: " + tools);
+
+        Path transportSources = root.resolve("morpheus-mcp-transport/src/main/java");
+        try (Stream<Path> files = Files.walk(transportSources)) {
+            for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
+                String source = Files.readString(file);
+                for (String tool : tools) {
+                    assertFalse(source.contains("\"" + tool + "\""),
+                            () -> transportSources.relativize(file) + " must not name the server tool " + tool);
+                }
+            }
+        }
     }
 
     @Test

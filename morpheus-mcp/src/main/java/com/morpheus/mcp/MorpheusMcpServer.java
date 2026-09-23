@@ -37,6 +37,13 @@ public final class MorpheusMcpServer {
      * pinned by a test in morpheus-architecture-tests (ADR-0106).
      */
     public static final int EXIT_TRANSPORT_FAILURE = 5;
+    /**
+     * What a client should do when a response overflows the MCP frame. The transport knows no catalog, so this layer
+     * says it. Generic on purpose: the tool that overflowed is not known here either, only that paginated read tools
+     * share one pair of parameters.
+     */
+    static final String OVERSIZED_RESPONSE_GUIDANCE =
+            "paginated read tools accept offset and limit: retry with a smaller limit, then page with offset";
 
     private MorpheusMcpServer() {
     }
@@ -56,6 +63,7 @@ public final class MorpheusMcpServer {
         return build(databasePath, resolverRegistry, technicalContextProvider, deniedWrites());
     }
 
+    @SuppressWarnings("java:S106") // System.out is the actual MCP wire-protocol stream, not a log write.
     public static McpSyncServer build(
             Path databasePath,
             ExternalReferenceResolverRegistry resolverRegistry,
@@ -66,7 +74,7 @@ public final class MorpheusMcpServer {
                 resolverRegistry,
                 technicalContextProvider,
                 writeCapabilityResolver,
-                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper()));
+                transport(System.in, System.out));
     }
 
     static McpSyncServer build(Path databasePath, InputStream inputStream, OutputStream outputStream) {
@@ -77,12 +85,17 @@ public final class MorpheusMcpServer {
                 new ExternalReferenceResolverRegistry(List.of()),
                 disabledNexus(),
                 deniedWrites(),
-                new BoundedStdioServerTransportProvider(
-                        McpJsonDefaults.getMapper(),
-                        inputStream,
-                        outputStream,
-                        BoundedStdioServerTransportProvider.DEFAULT_MAX_FRAME_BYTES,
-                        BoundedStdioServerTransportProvider.DEFAULT_MAX_PENDING_MESSAGES));
+                transport(inputStream, outputStream));
+    }
+
+    private static BoundedStdioServerTransportProvider transport(InputStream inputStream, OutputStream outputStream) {
+        return new BoundedStdioServerTransportProvider(
+                McpJsonDefaults.getMapper(),
+                inputStream,
+                outputStream,
+                BoundedStdioServerTransportProvider.DEFAULT_MAX_FRAME_BYTES,
+                BoundedStdioServerTransportProvider.DEFAULT_MAX_PENDING_MESSAGES,
+                OVERSIZED_RESPONSE_GUIDANCE);
     }
 
     private static McpSyncServer build(
@@ -165,6 +178,7 @@ public final class MorpheusMcpServer {
         return run(databasePath, resolverRegistry, technicalContextProvider, deniedWrites());
     }
 
+    @SuppressWarnings("java:S106") // System.out is the actual MCP wire-protocol stream, not a log write.
     public static int run(
             Path databasePath,
             ExternalReferenceResolverRegistry resolverRegistry,
@@ -175,7 +189,7 @@ public final class MorpheusMcpServer {
                 resolverRegistry,
                 technicalContextProvider,
                 writeCapabilityResolver,
-                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper()));
+                transport(System.in, System.out));
     }
 
     static int run(Path databasePath, InputStream inputStream, OutputStream outputStream) {
@@ -186,12 +200,7 @@ public final class MorpheusMcpServer {
                 new ExternalReferenceResolverRegistry(List.of()),
                 disabledNexus(),
                 deniedWrites(),
-                new BoundedStdioServerTransportProvider(
-                        McpJsonDefaults.getMapper(),
-                        inputStream,
-                        outputStream,
-                        BoundedStdioServerTransportProvider.DEFAULT_MAX_FRAME_BYTES,
-                        BoundedStdioServerTransportProvider.DEFAULT_MAX_PENDING_MESSAGES));
+                transport(inputStream, outputStream));
     }
 
     private static int serve(

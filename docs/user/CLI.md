@@ -362,8 +362,11 @@ Codes de sortie de `morpheus mcp --stdio` (ADR-0106), alignés sur la table du �
 | 5 | `IO_ERROR` | le transport a fermé la session en échec (trame entrante hors borne, JSON-RPC invalide, `stdout` rompu, file sortante saturée), ou l’attente a été interrompue avant la fin de `stdin` |
 
 Une **réponse** qui dépasserait la borne de trame (1 Mio) ne ferme pas la session : le client reçoit à la place
-une erreur JSON-RPC portant le même `id` et l’état `MCP_RESPONSE_TOO_LARGE`, qui renvoie vers `find_requirements`
-(`offset`, `limit`). La requête suivante est servie normalement.
+une erreur JSON-RPC portant le même `id` et l’état `MCP_RESPONSE_TOO_LARGE`, avec la taille produite et la borne.
+Le conseil qui l’accompagne est générique : les outils de lecture paginés acceptent `offset` et `limit`, et la
+première chose à faire est de relancer avec un `limit` plus petit, puis de paginer avec `offset`.
+`get_current_specification` en fait partie : il rend une page de spécifications (`specificationCount`, `hasMore`).
+La requête suivante est servie normalement.
 
 ## 19. Codes de sortie
 
