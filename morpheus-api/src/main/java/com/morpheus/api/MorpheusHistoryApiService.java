@@ -51,16 +51,9 @@ final class MorpheusHistoryApiService {
             requireSnapshotProject(runtime, projectId, snapshotId);
             List<RequirementVersionRecord> records = new HistoricalRequirementQueryService(runtime.snapshots, runtime.requirements)
                     .requirements(snapshotId);
-            int total = records.size();
-            int from = Math.min(pageRequest.offset(), total);
-            int to = (int) Math.min((long) from + pageRequest.limit(), total);
-            return map(
-                    "snapshotId", snapshotId.toString(),
-                    "offset", pageRequest.offset(),
-                    "limit", pageRequest.limit(),
-                    "totalMatches", total,
-                    "hasMore", to < total,
-                    "items", records.subList(from, to).stream().map(this::requirementRecord).toList());
+            return PagedEnvelope.following(
+                    map("snapshotId", snapshotId.toString()),
+                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), records, this::requirementRecord));
         }
     }
 

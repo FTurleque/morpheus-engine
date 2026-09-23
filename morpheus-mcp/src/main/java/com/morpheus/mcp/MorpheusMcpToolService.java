@@ -92,19 +92,13 @@ public final class MorpheusMcpToolService {
         List<Specification> specifications = content.specifications().stream()
                 .sorted(Comparator.comparing(Specification::id))
                 .toList();
-        int total = specifications.size();
-        int from = Math.min(pageRequest.offset(), total);
-        int to = (int) Math.min((long) from + pageRequest.limit(), total);
         return map(
                 "projectId", projectId.toString(),
                 "snapshotId", snapshot.id().toString(),
                 "snapshotState", snapshot.state().name(),
                 "specificationVersionId", specificationVersionId,
-                "specificationCount", total,
-                "offset", pageRequest.offset(),
-                "limit", pageRequest.limit(),
-                "hasMore", to < total,
-                "specifications", specifications.subList(from, to).stream().map(this::specification).toList(),
+                "specifications", PagedEnvelope.slice(
+                        pageRequest.offset(), pageRequest.limit(), specifications, this::specification),
                 "requirementCount", currentRequirementCount,
                 "scenarioCount", content.scenarios().size(),
                 "changeCount", content.changes().size(),
@@ -118,12 +112,10 @@ public final class MorpheusMcpToolService {
         var result = new RequirementQueryService(runtime.snapshots, runtime.requirements)
                 .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        return map(
-                "snapshotId", result.snapshot().id().toString(),
-                "query", queryText,
-                "totalMatches", result.totalMatches(),
-                "hasMore", result.hasMore(),
-                "items", result.items().stream().map(item -> requirement(item.entityVersion().content())).toList());
+        return PagedEnvelope.following(
+                map("snapshotId", result.snapshot().id().toString(), "query", queryText),
+                PagedEnvelope.page(result.pageRequest(), result.totalMatches(), result.hasMore(),
+                        result.items().stream().map(item -> requirement(item.entityVersion().content())).toList()));
     }
 
     private Object getChange(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
@@ -310,13 +302,7 @@ public final class MorpheusMcpToolService {
 
 
     private Object page(SnapshotPage<?> page, List<?> items) {
-        return map(
-                "snapshotId", page.snapshot().id().toString(),
-                "offset", page.pageRequest().offset(),
-                "limit", page.pageRequest().limit(),
-                "totalMatches", page.totalMatches(),
-                "hasMore", page.hasMore(),
-                "items", items);
+        return PagedEnvelope.snapshotPage(page, items);
     }
 
     private Object specification(Specification item) {

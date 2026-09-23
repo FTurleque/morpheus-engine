@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 /** M18 read-only tools exposing persisted multi-provider composition state and conflicts. */
 final class MorpheusCompositionMcpTools {
@@ -76,17 +77,9 @@ final class MorpheusCompositionMcpTools {
     private Object conflicts(CompositionStateView state, Map<String, Object> arguments) {
         int offset = McpArguments.optionalInt(arguments, "offset", 0, 0, Integer.MAX_VALUE);
         int limit = McpArguments.optionalInt(arguments, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
-        int total = state.conflicts().size();
-        int from = Math.min(offset, total);
-        int to = Math.min(total, from + limit);
-        return map(
-                "snapshotId", state.snapshotId(),
-                "primaryProviderId", state.primaryProviderId(),
-                "offset", offset,
-                "limit", limit,
-                "totalMatches", total,
-                "hasMore", to < total,
-                "items", state.conflicts().subList(from, to));
+        return PagedEnvelope.following(
+                map("snapshotId", state.snapshotId(), "primaryProviderId", state.primaryProviderId()),
+                PagedEnvelope.slice(offset, limit, state.conflicts(), Function.identity()));
     }
 
     private Map<String, Object> schema(boolean paged) {
