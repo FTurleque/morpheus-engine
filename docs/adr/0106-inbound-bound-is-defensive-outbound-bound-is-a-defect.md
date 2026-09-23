@@ -188,3 +188,46 @@ manifeste de convergence, c'est une question de gouvernance qui mérite sa propr
   `morpheus-mcp-transport` un nom d'outil lu dans le catalogue. Toutes deux cassées avant acceptation, en
   réintroduisant `failClosed(` dans l'encodage client, en retirant la capture du refus, puis la constante
   `"find_requirements"` dans le transport serveur ; chaque violation a fait échouer sa règle, puis a été retirée.
+
+## Amendement du 23 septembre 2026 (MCP-4) — un handler a une borne de sécurité, et la dépasser ferme la session
+
+### 4. Le lecteur ne peut plus rester bloqué sur un handler
+
+`BoundedStdioServerTransportProvider` traite les messages entrants **un par un**, dans la boucle qui lit `stdin` :
+tant qu'un handler ne termine pas, le serveur ne lit plus rien, pas même une annulation. Jusqu'ici l'attente était
+`future.get()` sans délai. Le risque était atténué — la fermeture annule le handler actif, et tout ce qui est câblé
+est borné en amont (`MinosMcpCodeGateway` et `NexusMcpContextGateway` imposent un `requestTimeout`) — mais c'était
+un contrat tenu par convention, que rien n'empêchait un futur outil de rompre.
+
+L'attente est désormais bornée par `DEFAULT_HANDLER_DEADLINE` (deux minutes). C'est une **borne de sécurité**, pas
+un délai de service : elle est choisie très au-dessus de tout handler sain, n'est pas réglable par le client, et
+n'existe que pour qu'un défaut se voie. Elle se règle par le constructeur pour les tests, comme `maxFrameBytes`.
+
+Au dépassement, le handler est annulé, la session **échoue fermé** avec une cause nommée
+(`HandlerDeadlineExceededException`), la trace passe par `McpDiagnosticRedactor` comme tout échec de transport, et
+`MorpheusMcpServer` rend `EXIT_TRANSPORT_FAILURE` : le superviseur l'apprend.
+
+### Pourquoi échouer fermé ici, alors que §1 fait survivre la session à une réponse hors borne
+
+Répondre une erreur au même `id` et reprendre la lecture semble plus aimable. C'est un piège :
+
+- `future.cancel(true)` **ne garantit pas** que le travail s'arrête : il interrompt, et un handler qui ignore
+  l'interruption continue. Le délai libère **le lecteur**, pas forcément l'ouvrier.
+- Si la session continue, un handler zombie qui termine plus tard écrit **une seconde réponse pour le même `id`**.
+  L'empêcher demanderait de retenir les `id` déjà répondus dans une structure bornée : soit de la mémoire non
+  bornée, soit une fenêtre au-delà de laquelle le doublon repasse. On remplacerait un défaut par un plus discret.
+- Un handler qui dépasse deux minutes a déjà rompu l'invariant de la boucle séquentielle. L'état de la session n'est
+  plus celui qu'on croit ; continuer serait prétendre le contraire.
+
+Ce n'est pas une incohérence avec §1. Là, la trame hors borne est un défaut **connu et contenu** : MORPHEUS sait
+exactement ce qui a été refusé, rien ne tourne encore, et la substitution garde l'ordonnancement intact — la session
+est réparable en vol. Ici, la session a perdu sa garantie d'ordonnancement et personne ne sait ce que fait le handler.
+Deux situations différentes, deux réponses différentes.
+
+### Preuves exécutables ajoutées
+
+- `BoundedStdioServerTransportProviderHandlerDeadlineTest#aHandlerThatNeverCompletesDoesNotBlockTheReaderForever` —
+  un handler qui ne rend jamais la main, borne réduite : la session se ferme, `terminatedInFailure()` est vrai et le
+  handler est annulé. Rouge avant le changement (le lecteur restait bloqué au-delà des dix secondes d'attente du test).
+- `aHandlerWithinItsDeadlineIsServedNormally` — non-régression, vert des deux côtés ;
+  `theDeadlineMustBePositiveAndDefaultsToTheProductionBound`.

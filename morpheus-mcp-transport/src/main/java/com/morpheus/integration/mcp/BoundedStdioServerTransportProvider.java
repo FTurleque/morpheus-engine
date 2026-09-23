@@ -25,6 +25,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -45,6 +46,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>This transport is shared by the MORPHEUS server and by the MINOS and NEXUS clients, and it knows no tool
  * catalog. Its own diagnostic therefore names the refusal and nothing else; the layer that owns a catalog may supply
  * a fixed piece of guidance at construction, appended verbatim.</p>
+ *
+ * <p>Each handler must complete within {@link #DEFAULT_HANDLER_DEADLINE}. The deadline is a safety bound, not a
+ * service timeout: it sits far above any healthy handler, and a handler past it fails the session closed, because
+ * cancelling it frees the reader without proving the work stopped (ADR-0106, §4).</p>
  */
 public final class BoundedStdioServerTransportProvider implements McpServerTransportProvider {
     public static final int DEFAULT_MAX_FRAME_BYTES = 1024 * 1024;
@@ -52,6 +57,8 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
     public static final String RESPONSE_TOO_LARGE = "MCP_RESPONSE_TOO_LARGE";
     /** Keeps the substitute error fixed-size whatever its owner supplies. */
     public static final int MAX_GUIDANCE_CHARS = 256;
+    /** Far above any healthy handler; every wired handler is bounded upstream well below it. */
+    public static final Duration DEFAULT_HANDLER_DEADLINE = Duration.ofMinutes(2);
 
     private static final System.Logger LOGGER =
             System.getLogger(BoundedStdioServerTransportProvider.class.getName());
@@ -62,6 +69,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
     private final int maxFrameBytes;
     private final int maxPendingMessages;
     private final String oversizedResponseGuidance;
+    private final Duration handlerDeadline;
     private final AtomicBoolean closing = new AtomicBoolean(false);
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private final AtomicBoolean failedClosed = new AtomicBoolean(false);
@@ -100,6 +108,19 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
             int maxFrameBytes,
             int maxPendingMessages,
             String oversizedResponseGuidance) {
+        this(jsonMapper, inputStream, outputStream, maxFrameBytes, maxPendingMessages, oversizedResponseGuidance,
+                DEFAULT_HANDLER_DEADLINE);
+    }
+
+    /** @param handlerDeadline the safety bound on one handler; production uses {@link #DEFAULT_HANDLER_DEADLINE}. */
+    public BoundedStdioServerTransportProvider(
+            McpJsonMapper jsonMapper,
+            InputStream inputStream,
+            OutputStream outputStream,
+            int maxFrameBytes,
+            int maxPendingMessages,
+            String oversizedResponseGuidance,
+            Duration handlerDeadline) {
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
         this.inputStream = Objects.requireNonNull(inputStream, "inputStream");
         this.outputStream = Objects.requireNonNull(outputStream, "outputStream");
@@ -112,6 +133,10 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         if (oversizedResponseGuidance.length() > MAX_GUIDANCE_CHARS) {
             throw new IllegalArgumentException(
                     "oversizedResponseGuidance must not exceed " + MAX_GUIDANCE_CHARS + " characters");
+        }
+        this.handlerDeadline = Objects.requireNonNull(handlerDeadline, "handlerDeadline");
+        if (handlerDeadline.isNegative() || handlerDeadline.isZero()) {
+            throw new IllegalArgumentException("handlerDeadline must be positive");
         }
     }
 
@@ -294,7 +319,12 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
             activeHandler.set(future);
             if (closing.get()) future.cancel(true);
             try {
-                future.get();
+                future.get(handlerDeadline.toNanos(), TimeUnit.NANOSECONDS);
+            } catch (TimeoutException expired) {
+                // Answering an error and reading on would let a handler that ignores the interrupt write a second
+                // response for the same id later; the sequential guarantee is already broken, so the session ends.
+                future.cancel(true);
+                throw new HandlerDeadlineExceededException(handlerDeadline);
             } catch (CancellationException cancelled) {
                 if (!closing.get()) throw cancelled;
             } catch (ExecutionException failure) {
