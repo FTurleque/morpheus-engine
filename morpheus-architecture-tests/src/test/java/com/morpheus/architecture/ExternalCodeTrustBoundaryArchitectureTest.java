@@ -95,6 +95,35 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     }
 
     /**
+     * The MCP peer's explicit environment is what MORPHEUS configured, never what the SDK's parameter object holds.
+     *
+     * <p>The SDK's {@code ServerParameters} builder fills in its own environment allowlist by default. Reading it
+     * back as "explicit" configuration made the inherited set the union of two allowlists, and a peer launched on
+     * Windows received eight variables MORPHEUS never allowed. The transport now takes the environment from the
+     * layer that configures the peer; this rule keeps the SDK's parameter object out of every launch path, so an SDK
+     * upgrade cannot reopen the question. {@code BoundedStdioClientTransportTest} measures the same property on a real
+     * peer process.</p>
+     */
+    @Test
+    void noMcpLaunchPathTakesThePeerEnvironmentFromTheSdkParameters() throws IOException {
+        Path root = repositoryRoot();
+        for (Path source : List.of(
+                MCP_TRANSPORT,
+                Path.of("morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosMcpCodeGateway.java"),
+                Path.of("morpheus-integration-nexus/src/main/java/com/morpheus/integration/nexus/NexusMcpContextGateway.java"))) {
+            String text = Files.readString(root.resolve(source));
+            assertFalse(text.contains("ServerParameters"),
+                    () -> source + " must launch its peer from McpPeerLaunch, not from the SDK's ServerParameters");
+            assertFalse(text.contains("getEnv("),
+                    () -> source + " must not read a parameter object's environment as explicit peer configuration");
+            assertTrue(text.contains("McpPeerLaunch"), () -> source + " must describe its peer with McpPeerLaunch");
+        }
+        String transport = Files.readString(root.resolve(MCP_TRANSPORT));
+        assertTrue(transport.contains("sanitizeEnvironment(builder.environment(), launch.explicitEnvironment());"),
+                "the transport must apply exactly the environment MORPHEUS configured on top of its allowlist");
+    }
+
+    /**
      * Executable plugin activation stays pinned and staged.
      *
      * <p>The pin is what makes the JAR identifiable and the verified staging copy is what makes the identity
