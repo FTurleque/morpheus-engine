@@ -10,7 +10,9 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProviderIngestionBudgetTest {
 
@@ -113,5 +115,24 @@ class ProviderIngestionBudgetTest {
                 () -> session.addEvidenceFragment("567", "blocks.md"));
 
         assertEquals(4, session.evidenceBytes());
+    }
+
+    /**
+     * A limit is recognized by the resolver's exception type, never by a phrase in its message: a file whose name
+     * happens to contain that phrase and fails for another reason keeps its own failure.
+     */
+    @Test
+    void aFailureThatOnlyMentionsTheLimitPhraseIsNotReportedAsABudgetOverrun(@TempDir Path workspace)
+            throws Exception {
+        Path misleading = Path.of("exceeds maximum input size.md");
+        Files.write(workspace.resolve(misleading), new byte[]{(byte) 0xC3, (byte) 0x28});
+        ProviderIngestionBudget budget = new ProviderIngestionBudget(10, 3, 30, 10, 10, 10, 6);
+        var session = budget.open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> session.readDocument(misleading));
+
+        assertFalse(failure instanceof ProviderIngestionLimitException, failure::toString);
+        assertTrue(failure.getMessage().contains("not valid UTF-8"), failure::getMessage);
     }
 }
