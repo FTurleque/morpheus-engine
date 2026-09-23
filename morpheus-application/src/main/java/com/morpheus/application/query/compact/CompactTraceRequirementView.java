@@ -11,6 +11,7 @@ import com.morpheus.application.query.compact.CompactQueryTypes.WarningView;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /** Compact deterministic exposure view for trace_requirement. */
 public record CompactTraceRequirementView(
@@ -21,7 +22,9 @@ public record CompactTraceRequirementView(
         List<TraceLinkView> links,
         List<ExternalReferenceView> externalReferences,
         List<EvidenceView> evidence,
-        List<WarningView> warnings) {
+        List<WarningView> warnings,
+        Optional<String> truncationReason,
+        boolean truncated) {
 
     public CompactTraceRequirementView {
         Objects.requireNonNull(metadata, "metadata");
@@ -32,5 +35,9 @@ public record CompactTraceRequirementView(
         externalReferences = List.copyOf(Objects.requireNonNull(externalReferences, "externalReferences"));
         evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
         warnings = List.copyOf(Objects.requireNonNull(warnings, "warnings"));
+        truncationReason = Objects.requireNonNull(truncationReason, "truncationReason");
+        if (truncated != truncationReason.isPresent()) {
+            throw new IllegalArgumentException("truncated must be true exactly when a truncationReason is present");
+        }
     }
 }
