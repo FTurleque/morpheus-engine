@@ -68,6 +68,16 @@ Supprimer une de ces chaînes casse le build.
   → `ProviderPluginActivator` : *"provider plugin activation requires a trusted SHA-256 pin"*
 - La découverte est **métadonnées uniquement** : pas de classloading, pas de scan au démarrage
 - `ProviderPluginDiscovery` doit utiliser `LinkOption.NOFOLLOW_LINKS` + `Files.isSymbolicLink`
+- Ce qui est **refusé** : un répertoire de plugins qui est lui-même un lien symbolique (`PLUGIN_PATH_NOT_DIRECTORY`)
+  et tout JAR symbolique (ignoré à l'énumération, refusé à l'inspection). Ce qui est **résolu et déclaré** : un
+  **ancêtre** lié du répertoire — `/opt` qui pointe ailleurs, un montage — est suivi ; la découverte énumère le
+  chemin réel (`toRealPath()`) et ajoute `PLUGIN_DIRECTORY_PATH_RESOLVED` (chemin configuré + chemin réel) dès
+  qu'ils diffèrent. Ne pas transformer ce diagnostic en refus : un ancêtre lié est un déploiement banal, la
+  découverte reste métadonnées seules et l'activation exige toujours le pin — le défaut était de ne pas le dire.
+  Les deux chemins restent locaux : `directory` / `resolvedDirectory` ne sont pas dans l'allowlist distante
+- La copie vérifiée d'un JAR épinglé (`ExternalJarIntegrity.stageVerifiedCopy`) est marquée `deleteOnExit` et son
+  nom ne porte aucune partie du pin ; le résidu après `SIGKILL`/crash est documenté dans `SECURITY.md`, **jamais**
+  balayé au démarrage (impossible de le distinguer de la copie vivante d'une autre instance)
 - Le probe (exécution de code tiers) est :
   - **remote-only** + **ADMIN** (`PLUGIN_SHA256_REQUIRED`, `usesBoundedUpstreamTimeout`)
   - **jamais model-facing** → `EXPLICITLY_NOT_EXPOSED` côté MCP
