@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -65,7 +66,7 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
     @Test
     void anOversizedNotificationIsDroppedWithoutClosingTheSession() throws Exception {
         BlockingInputStream input = new BlockingInputStream();
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        FrameSignallingOutputStream output = new FrameSignallingOutputStream();
         BoundedStdioServerTransportProvider provider = provider(input, output);
 
         McpSyncServer server = server(provider);
@@ -76,8 +77,10 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
 
             assertFalse(provider.awaitTermination(Duration.ofMillis(300)),
                     "an oversized notification must not close the session");
-            awaitOutputContaining(output, "still-open");
-            assertFalse(output.toString(StandardCharsets.UTF_8).contains("xxxx"));
+            assertTrue(output.awaitFrame(Duration.ofSeconds(5)), "the next notification must reach the wire");
+            List<String> frames = frames(output);
+            assertEquals(1, frames.size(), () -> "only the small notification may be written: " + frames);
+            assertTrue(frames.get(0).contains("still-open"), frames.get(0));
         } finally {
             server.close();
         }
@@ -155,12 +158,17 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
         return output.toString(StandardCharsets.UTF_8).lines().filter(line -> !line.isBlank()).toList();
     }
 
-    private static void awaitOutputContaining(ByteArrayOutputStream output, String expected)
-            throws InterruptedException {
-        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
-        while (!output.toString(StandardCharsets.UTF_8).contains(expected)) {
-            assertTrue(System.nanoTime() < deadline, () -> "never written: " + expected);
-            Thread.sleep(10);
+    /** The transport's writer flushes after every frame, so a flush is the signal that a frame reached the wire. */
+    private static final class FrameSignallingOutputStream extends ByteArrayOutputStream {
+        private final CountDownLatch frameWritten = new CountDownLatch(1);
+
+        @Override
+        public void flush() {
+            frameWritten.countDown();
+        }
+
+        boolean awaitFrame(Duration timeout) throws InterruptedException {
+            return frameWritten.await(timeout.toMillis(), TimeUnit.MILLISECONDS);
         }
     }
 
