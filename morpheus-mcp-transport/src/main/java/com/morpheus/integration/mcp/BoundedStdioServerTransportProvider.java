@@ -60,6 +60,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
     private final int maxPendingMessages;
     private final AtomicBoolean closing = new AtomicBoolean(false);
     private final AtomicBoolean initialized = new AtomicBoolean(false);
+    private final AtomicBoolean failedClosed = new AtomicBoolean(false);
     private final CountDownLatch terminated = new CountDownLatch(1);
 
     private final AtomicReference<McpServerSession> session = new AtomicReference<>();
@@ -173,6 +174,15 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         Objects.requireNonNull(timeout, "timeout");
         if (timeout.isNegative() || timeout.isZero()) throw new IllegalArgumentException("timeout must be positive");
         return terminated.await(timeout.toMillis(), TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Whether the session was failed closed rather than ended by EOF or by a requested stop. Only the outcome is
+     * exposed, never the cause: the cause may be peer-controlled, and it has already been logged through
+     * {@link McpDiagnosticRedactor}.
+     */
+    public boolean terminatedInFailure() {
+        return failedClosed.get();
     }
 
     private final class BoundedSessionTransport implements McpServerTransport {
@@ -348,6 +358,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
 
         private void failClosed(Throwable failure) {
             if (closing.compareAndSet(false, true)) {
+                failedClosed.set(true);
                 LOGGER.log(
                         System.Logger.Level.WARNING,
                         "MCP STDIO server transport failed: {0}",

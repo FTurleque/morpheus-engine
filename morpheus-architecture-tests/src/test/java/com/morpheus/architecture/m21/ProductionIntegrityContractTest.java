@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.application.product.ProductMetadata;
+import com.morpheus.cli.CliExitCode;
 import com.morpheus.mcp.MorpheusMcpServer;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,6 +22,16 @@ class ProductionIntegrityContractTest {
     void productVersionHasOneBuildDerivedSourceAcrossPackagedSurfaces() {
         assertEquals(System.getProperty("morpheus.project.version"), ProductMetadata.version());
         assertEquals(ProductMetadata.version(), MorpheusMcpServer.SERVER_VERSION);
+    }
+
+    /**
+     * ADR-0106: morpheus-mcp cannot import CliExitCode (the CLI depends on it, not the reverse), so the MCP exit
+     * codes converge on the CLI table by value. This module is the only one that sees both.
+     */
+    @Test
+    void mcpServerExitCodesConvergeWithTheCliExitCodeTable() {
+        assertEquals(CliExitCode.SUCCESS.code(), MorpheusMcpServer.EXIT_END_OF_INPUT);
+        assertEquals(CliExitCode.IO_ERROR.code(), MorpheusMcpServer.EXIT_TRANSPORT_FAILURE);
     }
 
     @Test

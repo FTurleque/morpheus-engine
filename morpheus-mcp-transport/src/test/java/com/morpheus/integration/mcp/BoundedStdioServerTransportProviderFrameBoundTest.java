@@ -59,6 +59,7 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
         String next = frames.get(1);
         assertTrue(next.contains("\"id\":2"), next);
         assertTrue(next.contains("\"ok\""), next);
+        assertFalse(provider.terminatedInFailure(), "an oversized response is not a transport failure");
     }
 
     @Test
@@ -81,6 +82,7 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
             server.close();
         }
         assertTrue(provider.awaitTermination(Duration.ofSeconds(5)));
+        assertFalse(provider.terminatedInFailure(), "a requested stop is not a transport failure");
     }
 
     @Test
@@ -100,6 +102,7 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
 
         assertTrue(provider.awaitTermination(Duration.ofSeconds(5)),
                 "an error substitute that cannot fit is a real failure and must still fail closed");
+        assertTrue(provider.terminatedInFailure());
         assertEquals(List.of(), frames(output));
     }
 
@@ -117,6 +120,7 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
 
         assertTrue(provider.awaitTermination(Duration.ofSeconds(5)),
                 "an inbound frame past the bound must close the session, not wait for more input");
+        assertTrue(provider.terminatedInFailure());
         assertEquals(List.of(), frames(output));
     }
 
