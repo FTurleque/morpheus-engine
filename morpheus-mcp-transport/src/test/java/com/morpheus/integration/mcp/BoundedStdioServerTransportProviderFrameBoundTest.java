@@ -94,6 +94,23 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
                 () -> "without guidance from its owner the transport must not suggest a surface: " + oversized);
     }
 
+    /** The guidance is appended to a substitute that must stay fixed-size, so its owner cannot make it unbounded. */
+    @Test
+    void guidanceLongerThanItsBoundIsRefusedAtConstruction() {
+        String atTheBound = "g".repeat(BoundedStdioServerTransportProvider.MAX_GUIDANCE_CHARS);
+        new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper(), new BlockingInputStream(),
+                new ByteArrayOutputStream(), FRAME_BOUND, 4, atTheBound);
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper(), new BlockingInputStream(),
+                        new ByteArrayOutputStream(), FRAME_BOUND, 4, atTheBound + "g"));
+        assertEquals("oversizedResponseGuidance must not exceed "
+                + BoundedStdioServerTransportProvider.MAX_GUIDANCE_CHARS + " characters", refused.getMessage());
+        assertThrows(NullPointerException.class,
+                () -> new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper(), new BlockingInputStream(),
+                        new ByteArrayOutputStream(), FRAME_BOUND, 4, null));
+    }
+
     @Test
     void anOversizedNotificationIsDroppedWithoutClosingTheSession() throws Exception {
         BlockingInputStream input = new BlockingInputStream();

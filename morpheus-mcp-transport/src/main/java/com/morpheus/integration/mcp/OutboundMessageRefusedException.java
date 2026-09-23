@@ -3,7 +3,6 @@ package com.morpheus.integration.mcp;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCMessage;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCNotification;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCRequest;
-import io.modelcontextprotocol.spec.McpSchema.JSONRPCResponse;
 
 /**
  * An outbound message past the frame bound that has no pending peer request to answer, refused to its local sender.
@@ -18,11 +17,13 @@ final class OutboundMessageRefusedException extends IllegalStateException {
                 + "-byte frame bound and was not sent");
     }
 
-    /** Names what was refused by its protocol shape and method only, never by a payload fragment or a peer id. */
+    /**
+     * Names what was refused by its protocol shape and method only, never by a payload fragment or a peer id. The SDK
+     * refuses to build a response without an id, so a response needs no further distinction.
+     */
     static String kindOf(JSONRPCMessage message) {
         if (message instanceof JSONRPCNotification notification) return "notification " + notification.method();
         if (message instanceof JSONRPCRequest request) return "request " + request.method();
-        if (message instanceof JSONRPCResponse response && response.id() != null) return "response";
-        return "response without an id";
+        return "response";
     }
 }
