@@ -167,8 +167,12 @@ class ProviderPluginDiscoveryTest {
     /** Windows grants junctions without the symbolic-link privilege, so an ancestor link is testable there too. */
     private static boolean createJunction(Path link, Path target) throws Exception {
         if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) return false;
+        String systemRoot = System.getenv("SystemRoot");
+        if (systemRoot == null || systemRoot.isBlank()) return false;
+        Path shell = Path.of(systemRoot, "System32", "cmd.exe");
+        if (!Files.isRegularFile(shell)) return false;
         Process process = new ProcessBuilder(
-                "cmd.exe", "/d", "/c", "mklink", "/J", link.toString(), target.toString())
+                shell.toString(), "/d", "/c", "mklink", "/J", link.toString(), target.toString())
                 .redirectErrorStream(true)
                 .start();
         process.getInputStream().readAllBytes();
