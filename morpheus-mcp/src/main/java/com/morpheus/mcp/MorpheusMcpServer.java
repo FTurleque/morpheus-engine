@@ -29,6 +29,14 @@ import java.util.Objects;
 public final class MorpheusMcpServer {
     public static final String SERVER_NAME = "morpheus";
     public static final String SERVER_VERSION = ProductMetadata.version();
+    /** The peer closed stdin: the session ended the way the protocol says it ends. */
+    public static final int EXIT_END_OF_INPUT = 0;
+    /**
+     * The transport failed the session closed, or the wait was interrupted before end of input. Converges with
+     * {@code CliExitCode.IO_ERROR} without depending on the CLI, which depends on this module; the equality is
+     * pinned by a test in morpheus-architecture-tests (ADR-0106).
+     */
+    public static final int EXIT_TRANSPORT_FAILURE = 5;
 
     private MorpheusMcpServer() {
     }
@@ -162,8 +170,36 @@ public final class MorpheusMcpServer {
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
-        BoundedStdioServerTransportProvider transport =
-                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper());
+        return serve(
+                databasePath,
+                resolverRegistry,
+                technicalContextProvider,
+                writeCapabilityResolver,
+                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper()));
+    }
+
+    static int run(Path databasePath, InputStream inputStream, OutputStream outputStream) {
+        Objects.requireNonNull(inputStream, "inputStream");
+        Objects.requireNonNull(outputStream, "outputStream");
+        return serve(
+                databasePath,
+                new ExternalReferenceResolverRegistry(List.of()),
+                disabledNexus(),
+                deniedWrites(),
+                new BoundedStdioServerTransportProvider(
+                        McpJsonDefaults.getMapper(),
+                        inputStream,
+                        outputStream,
+                        BoundedStdioServerTransportProvider.DEFAULT_MAX_FRAME_BYTES,
+                        BoundedStdioServerTransportProvider.DEFAULT_MAX_PENDING_MESSAGES));
+    }
+
+    private static int serve(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            BoundedStdioServerTransportProvider transport) {
         McpSyncServer server = build(
                 databasePath,
                 resolverRegistry,
@@ -172,10 +208,11 @@ public final class MorpheusMcpServer {
                 transport);
         try {
             transport.awaitTermination();
-            return 0;
+            return transport.terminatedInFailure() ? EXIT_TRANSPORT_FAILURE : EXIT_END_OF_INPUT;
         } catch (InterruptedException interrupted) {
+            // The server never reached the end of its input stream, so this is not the clean exit EOF reports.
             Thread.currentThread().interrupt();
-            return 0;
+            return EXIT_TRANSPORT_FAILURE;
         } finally {
             server.close();
         }

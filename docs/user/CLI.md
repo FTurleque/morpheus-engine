@@ -354,6 +354,17 @@ Catalogue MCP M18 : **22 tools read-only + 1 tool write explicite**.
 
 En mode MCP, `--json` n’est pas applicable : `stdout` est réservé au protocole MCP.
 
+Codes de sortie de `morpheus mcp --stdio` (ADR-0106), alignés sur la table du §19 :
+
+| Code | Nom | Signification |
+|---:|---|---|
+| 0 | `SUCCESS` | le client a fermé `stdin` : fin de session normale |
+| 5 | `IO_ERROR` | le transport a fermé la session en échec (trame entrante hors borne, JSON-RPC invalide, `stdout` rompu, file sortante saturée), ou l’attente a été interrompue avant la fin de `stdin` |
+
+Une **réponse** qui dépasserait la borne de trame (1 Mio) ne ferme pas la session : le client reçoit à la place
+une erreur JSON-RPC portant le même `id` et l’état `MCP_RESPONSE_TOO_LARGE`, qui renvoie vers `find_requirements`
+(`offset`, `limit`). La requête suivante est servie normalement.
+
 ## 19. Codes de sortie
 
 | Code | Nom | Signification | Action typique |
