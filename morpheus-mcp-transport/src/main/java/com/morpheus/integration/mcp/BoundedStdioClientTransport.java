@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 /**
@@ -533,14 +534,35 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private void observeTree(ProcessHandle root) {
         observedProcesses.putIfAbsent(root.pid(), root);
-        for (ProcessHandle seed : List.copyOf(observedProcesses.values())) {
-            if (!seed.isAlive()) continue;
+        for (ProcessHandle seed : pruneDeadHandles(observedProcesses, root.pid(), ProcessHandle::isAlive)) {
             try {
                 seed.descendants().forEach(handle -> observedProcesses.putIfAbsent(handle.pid(), handle));
             } catch (RuntimeException ignored) {
                 // A process can disappear between isAlive() and descendants(); retained handles remain available.
             }
         }
+    }
+
+    /**
+     * Releases every observed handle whose process is dead, except the root, and returns the handles still alive.
+     *
+     * <p>A dead process cannot be terminated, and its orphaned children are no longer reachable through any handle
+     * we hold from it -- SECURITY.md already says so. Retaining a dead handle therefore buys nothing and costs one
+     * liveness query per observation tick for the rest of the peer's life. Live descendants stay retained: that
+     * retention is the documented lifecycle guarantee. The root stays whatever its state, because shutdown and
+     * teardown start from it. Removal is by key and value, so a handle observed under a reused PID in the meantime
+     * is not released in place of the dead one.</p>
+     */
+    static <H> List<H> pruneDeadHandles(Map<Long, H> observed, long rootPid, Predicate<? super H> alive) {
+        List<H> live = new ArrayList<>();
+        for (Map.Entry<Long, H> entry : List.copyOf(observed.entrySet())) {
+            if (alive.test(entry.getValue())) {
+                live.add(entry.getValue());
+            } else if (entry.getKey() != rootPid) {
+                observed.remove(entry.getKey(), entry.getValue());
+            }
+        }
+        return live;
     }
 
     private void destroyObservedDescendants(ProcessHandle root, boolean force) {
