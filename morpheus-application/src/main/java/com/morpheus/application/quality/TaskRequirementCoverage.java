@@ -25,6 +25,8 @@ public record TaskRequirementCoverage(
         if (!Double.isFinite(coverageRatio) || coverageRatio < 0.0 || coverageRatio > 1.0) {
             throw new IllegalArgumentException("coverageRatio must be finite and between 0.0 and 1.0");
         }
+        // 1.0 over zero tasks is a validation filler, not a measurement: a policy threshold reads it as UNKNOWN
+        // (DefaultPolicyFactResolver#emptyRatioPopulation), never as full coverage.
         double expected = totalTasks == 0 ? 1.0 : (double) coveredTasks / totalTasks;
         if (Double.compare(expected, coverageRatio) != 0) {
             throw new IllegalArgumentException("coverageRatio does not match task counts");

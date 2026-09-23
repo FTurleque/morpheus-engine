@@ -29,6 +29,8 @@ public record RequirementTraceabilityCoverage(
         if (!Double.isFinite(coverageRatio) || coverageRatio < 0.0 || coverageRatio > 1.0) {
             throw new IllegalArgumentException("coverageRatio must be finite and between 0.0 and 1.0");
         }
+        // 1.0 over zero requirements is a validation filler, not a measurement: a policy threshold reads it as
+        // UNKNOWN (DefaultPolicyFactResolver#emptyRatioPopulation), never as full coverage.
         double expected = totalRequirements == 0 ? 1.0 : (double) linkedRequirements / totalRequirements;
         if (Double.compare(coverageRatio, expected) != 0) {
             throw new IllegalArgumentException("coverageRatio is inconsistent with counts");

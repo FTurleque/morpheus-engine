@@ -89,7 +89,11 @@ class M19TraceabilityPerformanceGate {
                     TraceabilityTraversalDirection.BIDIRECTIONAL,
                     Set.of());
             assertFalse(expected.links().isEmpty());
-            assertTrue(expected.nodes().size() <= NODE_COUNT);
+            // Depth 4 from node 0 reaches 1 583 of the 5 000 nodes; the traversal node budget stops it first, and the
+            // subgraph says so. Timing the truncated traversal still measures a traversal at its largest legal size.
+            assertEquals(TraceabilityTraversalService.MAX_NODES, expected.nodes().size());
+            assertEquals(Optional.of("NODE_BUDGET_REACHED:" + TraceabilityTraversalService.MAX_NODES),
+                    expected.truncationReason());
 
             for (int index = 0; index < WARMUP_ITERATIONS; index++) {
                 assertEquals(expected, service.traverse(
@@ -113,6 +117,7 @@ class M19TraceabilityPerformanceGate {
             System.out.println("M19_METRIC trace_traversal_p95_ms=" + p95 / 1_000_000L);
             System.out.println("M19_METRIC trace_traversal_nodes=" + expected.nodes().size());
             System.out.println("M19_METRIC trace_traversal_links=" + expected.links().size());
+            System.out.println("M19_METRIC trace_traversal_truncation=" + expected.truncationReason().orElse("none"));
             assertTrue(p95 <= TRAVERSAL_BUDGET_NANOS,
                     () -> "trace traversal p95 exceeded frozen 2000ms budget: " + p95 / 1_000_000L + " ms");
         }

@@ -475,6 +475,8 @@ public final class MorpheusCli {
                 out.println("requirement=" + result.requirement().entityVersion().content().title());
                 out.println("nodes=" + result.subgraph().nodes().size() + " links=" + result.subgraph().links().size()
                         + " externalReferences=" + result.externalLinks().size());
+                result.subgraph().truncationReason()
+                        .ifPresent(reason -> out.println("truncationReason=" + reason));
             }
             return CliExitCode.SUCCESS.code();
         }
@@ -504,6 +506,8 @@ public final class MorpheusCli {
                         + " decisions=" + result.designDecisions().size()
                         + " tasks=" + result.implementationTasks().size()
                         + " links=" + result.subgraph().links().size());
+                result.subgraph().truncationReason()
+                        .ifPresent(reason -> out.println("truncationReason=" + reason));
             }
             return CliExitCode.SUCCESS.code();
         }
