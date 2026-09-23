@@ -14,7 +14,6 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.domain.task.ImplementationTask;
-import com.morpheus.domain.temporal.TemporalState;
 import com.morpheus.domain.traceability.TraceabilityEntityKind;
 import com.morpheus.domain.traceability.TraceabilityEntityRef;
 import com.morpheus.domain.traceability.TraceabilityRelationType;
@@ -65,8 +64,7 @@ public final class TaskQualityService {
                 .orElseThrow(() -> new KnowledgeStoreException(
                         "published snapshot has no business-content projection: " + snapshot.id()));
 
-        Set<DomainIdentity> currentRequirementIdentities = requirementStore.listRequirementVersions(snapshot.id()).stream()
-                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+        Set<DomainIdentity> currentRequirementIdentities = requirementStore.listCurrentRequirementVersions(snapshot.id()).stream()
                 .map(RequirementVersionRecord::entityVersion)
                 .map(version -> version.content().id().value())
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());

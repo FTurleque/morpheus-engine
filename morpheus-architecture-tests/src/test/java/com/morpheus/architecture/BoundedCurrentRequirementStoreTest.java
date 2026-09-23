@@ -27,6 +27,9 @@ import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Comparator;
@@ -56,6 +59,29 @@ class BoundedCurrentRequirementStoreTest {
              var requirements = new SqliteVersionedRequirementStore(database)) {
             verifyBoundedCurrentListing(snapshots, requirements);
         }
+    }
+
+    @Test
+    void defaultCurrentListingsFilterInMemoryForAnAdapterThatOverridesNeither() {
+        var store = new MemorySpecificationKnowledgeStore();
+        verifyBoundedCurrentListing(store, abstractMethodsOnly(store));
+    }
+
+    /** Delegates the abstract methods only, so both CURRENT listings run the port's default implementation. */
+    private static VersionedRequirementStore abstractMethodsOnly(VersionedRequirementStore delegate) {
+        return (VersionedRequirementStore) Proxy.newProxyInstance(
+                VersionedRequirementStore.class.getClassLoader(),
+                new Class<?>[]{VersionedRequirementStore.class},
+                (proxy, method, args) -> {
+                    if (method.isDefault() && method.getName().equals("listCurrentRequirementVersions")) {
+                        return InvocationHandler.invokeDefault(proxy, method, args);
+                    }
+                    try {
+                        return method.invoke(delegate, args);
+                    } catch (InvocationTargetException failure) {
+                        throw failure.getCause();
+                    }
+                });
     }
 
     private void verifyBoundedCurrentListing(
@@ -106,6 +132,7 @@ class BoundedCurrentRequirementStoreTest {
         assertTrue(allCurrent.stream().allMatch(record -> record.entityVersion().temporalState() == TemporalState.CURRENT));
         assertTrue(allCurrent.stream().allMatch(record -> record.snapshotId().equals(snapshotId)));
 
+        assertEquals(expected, requirements.listCurrentRequirementVersions(snapshotId));
         assertEquals(expected.subList(0, 1), requirements.listCurrentRequirementVersions(snapshotId, 1));
         assertThrows(IllegalArgumentException.class,
                 () -> requirements.listCurrentRequirementVersions(snapshotId, 0));

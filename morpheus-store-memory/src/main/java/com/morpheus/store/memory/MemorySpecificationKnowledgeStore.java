@@ -326,6 +326,15 @@ public final class MemorySpecificationKnowledgeStore
     }
 
     @Override
+    public synchronized List<RequirementVersionRecord> listCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
+        return requirementVersions.values().stream()
+                .filter(record -> record.snapshotId().equals(snapshotId))
+                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+                .sorted((left, right) -> left.entityVersion().id().compareTo(right.entityVersion().id()))
+                .toList();
+    }
+
+    @Override
     public synchronized List<RequirementVersionRecord> listCurrentRequirementVersions(
             KnowledgeSnapshotId snapshotId,
             int limit) {

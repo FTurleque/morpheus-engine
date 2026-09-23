@@ -15,7 +15,6 @@ import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
-import com.morpheus.domain.temporal.TemporalState;
 import com.morpheus.domain.traceability.TraceabilityEntityKind;
 import com.morpheus.domain.traceability.TraceabilityEntityRef;
 import com.morpheus.domain.traceability.TraceabilityRelationType;
@@ -72,9 +71,8 @@ public final class SpecificationContextQueryService {
                 .findFirst()
                 .orElseThrow(() -> new KnowledgeStoreException("specification not found: " + specificationId));
 
-        List<Requirement> allRequirements = requirementStore.listRequirementVersions(snapshot.id()).stream()
+        List<Requirement> allRequirements = requirementStore.listCurrentRequirementVersions(snapshot.id()).stream()
                 .map(RequirementVersionRecord::entityVersion)
-                .filter(version -> version.temporalState() == TemporalState.CURRENT)
                 .map(version -> version.content())
                 .filter(requirement -> requirement.specificationId().equals(specificationId))
                 .sorted(REQUIREMENT_ORDER)

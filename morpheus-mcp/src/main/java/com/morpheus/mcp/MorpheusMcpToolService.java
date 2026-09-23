@@ -14,7 +14,6 @@ import com.morpheus.application.query.TraceRequirementQueryService;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.compact.CompactQueryViewService;
 import com.morpheus.application.store.KnowledgeStoreException;
-import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.sync.SyncFreshness;
 import com.morpheus.application.sync.SyncFreshnessService;
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
@@ -29,7 +28,6 @@ import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 import com.morpheus.domain.task.ImplementationTask;
-import com.morpheus.domain.temporal.TemporalState;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -84,10 +82,7 @@ public final class MorpheusMcpToolService {
         String specificationVersionId = runtime.requirements.findSnapshotVersion(snapshot.id())
                 .map(binding -> binding.specificationVersionId().toString())
                 .orElse("unknown");
-        long currentRequirementCount = runtime.requirements.listRequirementVersions(snapshot.id()).stream()
-                .map(RequirementVersionRecord::entityVersion)
-                .filter(version -> version.temporalState() == TemporalState.CURRENT)
-                .count();
+        long currentRequirementCount = runtime.requirements.listCurrentRequirementVersions(snapshot.id()).size();
         PageRequest pageRequest = page(arguments);
         List<Specification> specifications = content.specifications().stream()
                 .sorted(Comparator.comparing(Specification::id))

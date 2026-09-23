@@ -7,7 +7,6 @@ import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
-import com.morpheus.domain.temporal.TemporalState;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -77,10 +76,7 @@ public final class RequirementSnapshotComparisonService {
 
     private Map<DomainIdentity, RequirementVersionRecord> currentProjection(KnowledgeSnapshotId snapshotId) {
         Map<DomainIdentity, RequirementVersionRecord> current = new TreeMap<>();
-        for (RequirementVersionRecord record : requirementStore.listRequirementVersions(snapshotId)) {
-            if (record.entityVersion().temporalState() != TemporalState.CURRENT) {
-                continue;
-            }
+        for (RequirementVersionRecord record : requirementStore.listCurrentRequirementVersions(snapshotId)) {
             RequirementVersionRecord previous = current.put(record.entityVersion().entityIdentity(), record);
             if (previous != null) {
                 throw new PublishedHistoryException(
