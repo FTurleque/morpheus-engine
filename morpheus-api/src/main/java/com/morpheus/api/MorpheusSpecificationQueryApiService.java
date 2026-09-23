@@ -41,7 +41,9 @@ final class MorpheusSpecificationQueryApiService {
             List<Specification> specifications = content.specifications().stream()
                     .sorted(Comparator.comparing(Specification::id))
                     .toList();
-            return page(snapshot, specifications, pageRequest, specifications.stream().map(this::specification).toList());
+            return PagedEnvelope.following(
+                    map("snapshotId", snapshot.id().toString()),
+                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), specifications, this::specification));
         }
     }
 
@@ -143,30 +145,7 @@ final class MorpheusSpecificationQueryApiService {
     }
 
     private Object page(SnapshotPage<?> page, List<?> items) {
-        return map(
-                "snapshotId", page.snapshot().id().toString(),
-                "offset", page.pageRequest().offset(),
-                "limit", page.pageRequest().limit(),
-                "totalMatches", page.totalMatches(),
-                "hasMore", page.hasMore(),
-                "items", items);
-    }
-
-    private Object page(
-            KnowledgeSnapshotMetadata snapshot,
-            List<?> source,
-            PageRequest pageRequest,
-            List<?> mapped) {
-        int total = source.size();
-        int from = Math.min(pageRequest.offset(), total);
-        int to = (int) Math.min((long) from + pageRequest.limit(), total);
-        return map(
-                "snapshotId", snapshot.id().toString(),
-                "offset", pageRequest.offset(),
-                "limit", pageRequest.limit(),
-                "totalMatches", total,
-                "hasMore", to < total,
-                "items", mapped.subList(from, to));
+        return PagedEnvelope.snapshotPage(page, items);
     }
 
     /** LinkedHashMap preserves stable construction order before canonical JSON serialization. */

@@ -55,7 +55,9 @@ class MorpheusMcpToolServiceTest {
         String changeId = fixture.change.id().toString();
 
         assertContains(service.execute("get_current_specification", Map.of("projectId", projectId)), fixture.specification.title());
-        assertContains(service.execute("find_requirements", Map.of("projectId", projectId, "query", "session")), fixture.requirement.title());
+        String requirements = service.execute("find_requirements", Map.of("projectId", projectId, "query", "session"));
+        assertContains(requirements, fixture.requirement.title());
+        assertContains(requirements, "],\"limit\":" + MorpheusMcpToolCatalog.DEFAULT_LIMIT + ",\"offset\":0,\"query\":\"session\",");
         assertContains(service.execute("get_change", Map.of("projectId", projectId, "changeId", changeId)), fixture.change.title());
         assertContains(service.execute("list_changes", Map.of("projectId", projectId)), fixture.change.title());
         assertContains(service.execute("get_constraints", Map.of("projectId", projectId, "changeId", changeId)), fixture.constraint.statement());
@@ -106,21 +108,21 @@ class MorpheusMcpToolServiceTest {
 
         String middle = service.execute("get_current_specification",
                 Map.of("projectId", projectId, "offset", 1, "limit", 1));
-        assertContains(middle, "\"specificationCount\":3");
-        assertContains(middle, "\"offset\":1");
-        assertContains(middle, "\"limit\":1");
-        assertContains(middle, "\"hasMore\":true");
+        assertContains(middle, "\"specifications\":{\"hasMore\":true,\"items\":[{");
+        assertContains(middle, "}],\"limit\":1,\"offset\":1,\"totalMatches\":3}");
         assertContains(middle, ordered.get(1).description().orElseThrow());
         assertFalse(middle.contains(ordered.get(0).description().orElseThrow()), middle);
         assertFalse(middle.contains(ordered.get(2).description().orElseThrow()), middle);
+        assertFalse(middle.contains("specificationCount"), middle);
+        assertContains(middle, "\"requirementCount\":1,\"scenarioCount\":1,");
 
         String last = service.execute("get_current_specification",
                 Map.of("projectId", projectId, "offset", 2, "limit", 1));
-        assertContains(last, "\"hasMore\":false");
+        assertContains(last, "\"specifications\":{\"hasMore\":false,");
         assertContains(last, ordered.get(2).description().orElseThrow());
 
         String firstPageByDefault = service.execute("get_current_specification", Map.of("projectId", projectId));
-        assertContains(firstPageByDefault, "\"limit\":" + MorpheusMcpToolCatalog.DEFAULT_LIMIT);
+        assertContains(firstPageByDefault, "],\"limit\":" + MorpheusMcpToolCatalog.DEFAULT_LIMIT + ",\"offset\":0,");
         for (Specification specification : ordered) {
             assertContains(firstPageByDefault, specification.description().orElseThrow());
         }

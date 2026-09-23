@@ -140,6 +140,10 @@ avec `specificationCount`, `offset`, `limit` et `hasMore`. La projection par sp�
 n'est pas amputer. La description de l'outil, qui annonçait un *summary* pour une charge utile complète, dit
 maintenant ce qui est rendu. Aucun outil n'est ajouté.
 
+> **Vocabulaire remplacé par ADR-0107** (23/09/2026). La page n'est plus à plat : elle est l'objet porté par
+> `specifications`, sous les clés canoniques `offset`, `limit`, `totalMatches`, `hasMore`, `items`, et
+> `specificationCount` a disparu. Le paragraphe ci-dessus décrit la forme livrée par la #353.
+
 Une page d'une seule spécification dont la description dépasse à elle seule la borne reste refusée par
 `MCP_RESPONSE_TOO_LARGE` : c'est le cas que la borne existe pour refuser, et la session survit.
 
