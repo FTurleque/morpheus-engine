@@ -123,6 +123,7 @@ Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 | [ADR-0105](0105-no-secret-vault-no-reusable-secret-at-rest.md) | Pas de coffre de secrets : MORPHEUS ne stocke aucun secret réutilisable, et le seul qu'il lit vient de l'environnement | **Acceptée — post-audit 1.2.1** |
 | [ADR-0106](0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) | Une borne entrante est défensive, une borne sortante est un défaut interne : réponse MCP hors borne remplacée par `MCP_RESPONSE_TOO_LARGE`, code de sortie distinct après un échec de transport, poignées de processus morts libérées | **Acceptée — post-audit 1.2.1** |
 | [ADR-0107](0107-one-vocabulary-for-a-paginated-response.md) | Un seul vocabulaire pour une réponse paginée (`offset`, `limit`, `totalMatches`, `hasMore`, `items`), une page embarquée est une valeur, une fabrique par adaptateur tenue par une garde textuelle | **Acceptée — post-audit 1.2.1** |
+| [ADR-0108](0108-a-response-says-what-it-could-not-observe.md) | Une réponse dit ce qu'elle n'a pas pu observer : traversée de traçabilité bornée avec raison de troncature, budget d'évaluation de garde de contraintes au-delà duquel le fait est `UNKNOWN`, ratio de couverture indéfini sur une population vide | **Acceptée — post-audit 1.2.1** |
 
 # Preuves par jalon
 
