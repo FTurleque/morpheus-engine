@@ -1,6 +1,5 @@
 package com.morpheus.integration.mcp;
 
-import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.TypeRef;
 import io.modelcontextprotocol.spec.McpClientTransport;
@@ -58,7 +57,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private static final Duration PROCESS_SHUTDOWN_GRACE = Duration.ofSeconds(2);
     private static final Duration PROCESS_SHUTDOWN_FORCE = Duration.ofSeconds(2);
     private static final long PROCESS_OBSERVATION_POLL_MILLIS = 10L;
-    private static final Set<String> SAFE_ENVIRONMENT_KEYS = Set.of(
+    static final Set<String> SAFE_ENVIRONMENT_KEYS = Set.of(
             "SYSTEMROOT",
             "WINDIR",
             "PATH",
@@ -96,7 +95,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private final Sinks.Many<JSONRPCMessage> inboundSink;
     private final Sinks.Many<OutboundFrame> outboundSink;
-    private final ServerParameters parameters;
+    private final McpPeerLaunch launch;
     private final McpJsonMapper jsonMapper;
     private final int maxMessageBytes;
     private final int maxPendingMessages;
@@ -114,18 +113,18 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
             System.Logger.Level.INFO, "MCP STDERR: {0}", McpDiagnosticRedactor.redact(error));
 
     public BoundedStdioClientTransport(
-            ServerParameters parameters,
+            McpPeerLaunch launch,
             McpJsonMapper jsonMapper,
             int maxInboundMessageBytes) {
-        this(parameters, jsonMapper, maxInboundMessageBytes, DEFAULT_MAX_PENDING_MESSAGES);
+        this(launch, jsonMapper, maxInboundMessageBytes, DEFAULT_MAX_PENDING_MESSAGES);
     }
 
     public BoundedStdioClientTransport(
-            ServerParameters parameters,
+            McpPeerLaunch launch,
             McpJsonMapper jsonMapper,
             int maxMessageBytes,
             int maxPendingMessages) {
-        this.parameters = Objects.requireNonNull(parameters, "parameters");
+        this.launch = Objects.requireNonNull(launch, "launch");
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
         if (maxMessageBytes < 1) throw new IllegalArgumentException("maxMessageBytes must be positive");
         if (maxPendingMessages < 1) throw new IllegalArgumentException("maxPendingMessages must be positive");
@@ -205,10 +204,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
      */
     private Process startPeer() {
         List<String> command = new ArrayList<>();
-        command.add(parameters.getCommand());
-        command.addAll(parameters.getArgs());
+        command.add(launch.command());
+        command.addAll(launch.arguments());
         ProcessBuilder builder = new ProcessBuilder(command);
-        sanitizeEnvironment(builder.environment(), parameters.getEnv());
+        sanitizeEnvironment(builder.environment(), launch.explicitEnvironment());
         synchronized (lifecycleLock) {
             if (state.get() != State.CONNECTING) {
                 throw new IllegalStateException("MCP transport was closed while connecting");

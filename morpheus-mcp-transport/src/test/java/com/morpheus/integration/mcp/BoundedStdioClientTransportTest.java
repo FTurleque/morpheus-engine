@@ -2,7 +2,6 @@ package com.morpheus.integration.mcp;
 
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
@@ -20,6 +19,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -75,12 +76,79 @@ class BoundedStdioClientTransportTest {
         assertEquals("kept", environment.get("MCP_EXPLICIT_SETTING"));
     }
 
+    /**
+     * The only test that looks at what a real peer actually received, rather than calling sanitizeEnvironment with
+     * arguments of its own. A peer launched with no explicit environment must see nothing beyond the launch
+     * allowlist -- in particular nothing a third-party parameter object filled in by default.
+     */
+    @Test
+    void aPeerLaunchedWithoutExplicitEnvironmentReceivesOnlyTheLaunchAllowlist() throws Exception {
+        Path record = tempDir.resolve("peer-environment.txt");
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                peerLaunch(FixtureEnvironmentRecordingMcpPeer.class, record.toString()),
+                McpJsonDefaults.getMapper(),
+                4096);
+        try {
+            Set<String> received = recordedEnvironment(transport, record);
+            Set<String> beyondTheAllowlist = new TreeSet<>(received);
+            beyondTheAllowlist.removeAll(BoundedStdioClientTransport.SAFE_ENVIRONMENT_KEYS);
+
+            assertEquals(Set.of(), beyondTheAllowlist, "received: " + received);
+            assertTrue(received.contains("PATH"), "the launch allowlist itself must still reach the peer: " + received);
+        } finally {
+            transport.closeGracefully().block();
+        }
+    }
+
+    @Test
+    void anExplicitlyConfiguredVariableReachesThePeerAndNothingElseDoes() throws Exception {
+        Path record = tempDir.resolve("peer-explicit-environment.txt");
+        List<String> arguments = new ArrayList<>(peerArguments(FixtureEnvironmentRecordingMcpPeer.class));
+        arguments.add(record.toString());
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                new McpPeerLaunch(javaExecutable(), arguments, Map.of("MCP_EXPLICIT_SETTING", "kept")),
+                McpJsonDefaults.getMapper(),
+                4096);
+        try {
+            Set<String> received = recordedEnvironment(transport, record);
+            Set<String> beyondTheAllowlist = new TreeSet<>(received);
+            beyondTheAllowlist.removeAll(BoundedStdioClientTransport.SAFE_ENVIRONMENT_KEYS);
+
+            assertEquals(Set.of("MCP_EXPLICIT_SETTING"), beyondTheAllowlist, "received: " + received);
+        } finally {
+            transport.closeGracefully().block();
+        }
+    }
+
+    @Test
+    void aPeerLaunchNeedsACommandAndCopiesWhatItIsGiven() {
+        IllegalArgumentException blank = assertThrows(IllegalArgumentException.class,
+                () -> new McpPeerLaunch(" ", List.of(), Map.of()));
+        assertEquals("command must not be blank", blank.getMessage());
+
+        List<String> arguments = new ArrayList<>(List.of("-version"));
+        McpPeerLaunch launch = new McpPeerLaunch("java", arguments, Map.of());
+        arguments.add("--mutated-after-construction");
+        assertEquals(List.of("-version"), launch.arguments());
+    }
+
+    private Set<String> recordedEnvironment(BoundedStdioClientTransport transport, Path record) throws Exception {
+        transport.connect(message -> message).block();
+        BoundedWait.untilObserved("the peer to record its environment", Duration.ofSeconds(20),
+                BoundedWait.FILE_PUBLICATION_POLL, () -> Files.exists(record), published -> published);
+        Set<String> received = new TreeSet<>();
+        for (String key : Files.readAllLines(record)) {
+            if (!key.isBlank()) received.add(key.toUpperCase(Locale.ROOT));
+        }
+        return received;
+    }
+
     @Test
     void closesDescendantObservedBeforePeerParentExits() throws Exception {
         Path childPidFile = tempDir.resolve("mcp-child.pid");
         Path parentExitMarker = tempDir.resolve("mcp-parent-exit.pid");
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                peerParameters(
+                peerLaunch(
                         FixtureOrphaningMcpPeer.class,
                         childPidFile.toString(),
                         parentExitMarker.toString()),
@@ -128,7 +196,7 @@ class BoundedStdioClientTransportTest {
         Path childPidFile = tempDir.resolve("immediate-exit-child.pid");
         Path peerPidFile = tempDir.resolve("immediate-exit-peer.pid");
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                peerParameters(
+                peerLaunch(
                         FixtureImmediateExitOrphaningMcpPeer.class,
                         childPidFile.toString(),
                         peerPidFile.toString()),
@@ -156,7 +224,7 @@ class BoundedStdioClientTransportTest {
     @Test
     void aggregateInboundBudgetIncludesActiveHandlersAndFailsClosed() throws Exception {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                peerParameters(FixtureFloodingMcpPeer.class),
+                peerLaunch(FixtureFloodingMcpPeer.class),
                 McpJsonDefaults.getMapper(),
                 4096,
                 1);
@@ -284,9 +352,9 @@ class BoundedStdioClientTransportTest {
 
     @Test
     void cleansUpSchedulersWhenPeerProcessCannotStart() {
-        ServerParameters parameters = ServerParameters.builder("morpheus-command-that-does-not-exist-20260822").build();
+        McpPeerLaunch launch = new McpPeerLaunch("morpheus-command-that-does-not-exist-20260822", List.of(), Map.of());
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                parameters, McpJsonDefaults.getMapper(), 1024);
+                launch, McpJsonDefaults.getMapper(), 1024);
 
         assertThrows(RuntimeException.class, () -> transport.connect(message -> message).block());
     }
@@ -304,7 +372,7 @@ class BoundedStdioClientTransportTest {
     @Test
     void handleErrorLineSurvivesThrowingStderrHandlerAndKeepsTransportUsable() throws Exception {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                peerParameters(FixtureStderrChattyMcpServer.class),
+                peerLaunch(FixtureStderrChattyMcpServer.class),
                 McpJsonDefaults.getMapper(),
                 4096);
         CountDownLatch handlerInvoked = new CountDownLatch(1);
@@ -329,39 +397,37 @@ class BoundedStdioClientTransportTest {
 
     @Test
     void rejectsNonPositiveTransportLimits() {
-        ServerParameters parameters = serverParameters();
+        McpPeerLaunch launch = serverLaunch();
 
         assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
-                parameters, McpJsonDefaults.getMapper(), 0, 1));
+                launch, McpJsonDefaults.getMapper(), 0, 1));
         assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
-                parameters, McpJsonDefaults.getMapper(), 1024, 0));
+                launch, McpJsonDefaults.getMapper(), 1024, 0));
     }
 
     private BoundedStdioClientTransport transport(int maxBytes) {
         return new BoundedStdioClientTransport(
-                serverParameters(),
+                serverLaunch(),
                 McpJsonDefaults.getMapper(),
                 maxBytes);
     }
 
     private BoundedStdioClientTransport transport(int maxBytes, int maxPendingMessages) {
         return new BoundedStdioClientTransport(
-                serverParameters(),
+                serverLaunch(),
                 McpJsonDefaults.getMapper(),
                 maxBytes,
                 maxPendingMessages);
     }
 
-    private ServerParameters serverParameters() {
-        return peerParameters(FixtureBoundedMcpServer.class);
+    private McpPeerLaunch serverLaunch() {
+        return peerLaunch(FixtureBoundedMcpServer.class);
     }
 
-    private ServerParameters peerParameters(Class<?> mainClass, String... extraArguments) {
+    private McpPeerLaunch peerLaunch(Class<?> mainClass, String... extraArguments) {
         List<String> arguments = new ArrayList<>(peerArguments(mainClass));
         arguments.addAll(List.of(extraArguments));
-        return ServerParameters.builder(javaExecutable())
-                .args(arguments.toArray(String[]::new))
-                .build();
+        return new McpPeerLaunch(javaExecutable(), arguments, Map.of());
     }
 
     private String javaExecutable() {

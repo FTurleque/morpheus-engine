@@ -1,6 +1,5 @@
 package com.morpheus.integration.mcp;
 
-import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -14,6 +13,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -182,8 +182,8 @@ class BoundedStdioClientTransportLifecycleTest {
     @Test
     @Timeout(30)
     void aFailedConnectEndsInATerminalStateThatCannotBeReconnected() throws InterruptedException {
-        ServerParameters missingCommand =
-                ServerParameters.builder("morpheus-command-that-does-not-exist-20260904").build();
+        McpPeerLaunch missingCommand =
+                new McpPeerLaunch("morpheus-command-that-does-not-exist-20260904", List.of(), Map.of());
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                 missingCommand, McpJsonDefaults.getMapper(), 1024);
 
@@ -204,7 +204,7 @@ class BoundedStdioClientTransportLifecycleTest {
 
     private BoundedStdioClientTransport recordingTransport(Path launches) {
         return new BoundedStdioClientTransport(
-                peerParameters(FixtureLaunchRecordingMcpPeer.class, launches.toString()),
+                peerLaunch(FixtureLaunchRecordingMcpPeer.class, launches.toString()),
                 McpJsonDefaults.getMapper(),
                 4096);
     }
@@ -296,12 +296,10 @@ class BoundedStdioClientTransportLifecycleTest {
         return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
     }
 
-    private ServerParameters peerParameters(Class<?> mainClass, String... extraArguments) {
+    private McpPeerLaunch peerLaunch(Class<?> mainClass, String... extraArguments) {
         List<String> arguments = new ArrayList<>(peerArguments(mainClass));
         arguments.addAll(List.of(extraArguments));
-        return ServerParameters.builder(javaExecutable())
-                .args(arguments.toArray(String[]::new))
-                .build();
+        return new McpPeerLaunch(javaExecutable(), arguments, Map.of());
     }
 
     private String javaExecutable() {
