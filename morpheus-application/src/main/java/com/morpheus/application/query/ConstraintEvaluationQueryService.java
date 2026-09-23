@@ -72,15 +72,16 @@ public final class ConstraintEvaluationQueryService {
         var content = contentStore.findSnapshotContent(snapshot.id())
                 .orElseThrow(() -> new KnowledgeStoreException(
                         "published snapshot has no business-content projection: " + snapshot.id()));
-        List<ConstraintEvaluation> all = content.constraints().stream()
+        List<Constraint> matches = content.constraints().stream()
                 .filter(item -> item.changeId().equals(changeId))
                 .sorted(java.util.Comparator.comparing(item -> item.id().toString()))
+                .toList();
+        int from = Math.min(pageRequest.offset(), matches.size());
+        int to = Math.min(from + pageRequest.limit(), matches.size());
+        List<ConstraintEvaluation> items = matches.subList(from, to).stream()
                 .map(item -> evaluator.apply(item, targetState))
                 .toList();
-        int from = Math.min(pageRequest.offset(), all.size());
-        int to = Math.min(from + pageRequest.limit(), all.size());
-        List<ConstraintEvaluation> items = all.subList(from, to);
-        return new SnapshotPage<>(snapshot, items, pageRequest, all.size(), to < all.size());
+        return new SnapshotPage<>(snapshot, items, pageRequest, matches.size(), to < matches.size());
     }
 
     private KnowledgeSnapshotMetadata requirePublished(KnowledgeSnapshotId snapshotId) {

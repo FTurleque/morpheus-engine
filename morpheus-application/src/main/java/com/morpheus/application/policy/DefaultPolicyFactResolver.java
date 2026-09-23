@@ -55,17 +55,26 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
         if (!(scope instanceof PolicyScope.Project project)) {
             return PolicyEvaluation.Fact.notApplicable("constraint guard requires project scope");
         }
+        int budget = PolicyBudgets.MAX_CONSTRAINT_EVALUATIONS_PER_FACT;
         int offset = 0;
         boolean unknown = false;
         List<String> evidence = new ArrayList<>();
         while (true) {
+            int limit = Math.min(PageRequest.MAX_LIMIT, budget - evidence.size() + 1);
             var page = constraints.activeEvaluations(
-                    project.projectId(), config.changeId(), config.targetState(), new PageRequest(offset, PageRequest.MAX_LIMIT));
+                    project.projectId(), config.changeId(), config.targetState(), new PageRequest(offset, limit));
             if (page.isEmpty()) {
                 return PolicyEvaluation.Fact.unknown("no ACTIVE snapshot is available for constraint evaluation", List.of());
             }
             var value = page.orElseThrow();
             for (var evaluation : value.items()) {
+                if (evidence.size() == budget) {
+                    return PolicyEvaluation.Fact.unknown(
+                            "EVALUATION_BUDGET_REACHED:" + budget
+                                    + " constraints observed without an explicit blocking constraint; the rest of change "
+                                    + config.changeId() + " was not observed",
+                            evidence);
+                }
                 evidence.add("constraint:" + evaluation.constraintId());
                 if (evaluation.state() == ConstraintEvaluationState.BLOCKING) {
                     return PolicyEvaluation.Fact.fail(
