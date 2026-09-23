@@ -102,6 +102,17 @@ class RemoteIdentityFileStoreTest {
     }
 
     @Test
+    void aFailureThatOnlyMentionsTheLimitPhraseIsNotReportedAsAnOversizedFile() throws IOException {
+        Path file = temp.resolve("exceeds maximum input size.txt");
+        Files.write(file, new byte[]{(byte) 0xC3, (byte) 0x28});
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> RemoteIdentityFileStore.readLines(file, "cannot read"));
+
+        assertEquals("cannot read", failure.getMessage());
+    }
+
+    @Test
     void aMissingOrNonRegularFileIsRefusedRatherThanReadAsEmpty() throws IOException {
         Path missing = temp.resolve("absent.txt");
         Path directory = Files.createDirectory(temp.resolve("a-directory"));

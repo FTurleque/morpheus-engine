@@ -90,8 +90,6 @@ public final class ProviderPluginService {
             // Verify in the parent for precise fail-closed diagnostics. The child verifies again before loading,
             // so a path swap between this check and process launch cannot bypass the trusted SHA-256 pin.
             ExternalJarIntegrity.verifySha256(selected.jarPath(), trustedSha256);
-            ProviderProbeResult probe = probeProcess.probe(selected, workspaceRoot, trustedSha256);
-            return outcomes.selected(selected, Optional.of(probe));
         } catch (IllegalArgumentException integrityFailure) {
             return outcomes.selected(selected, Optional.empty(), ProviderPluginDiagnostic.error(
                     "PLUGIN_INTEGRITY_VERIFICATION_FAILED",
@@ -100,6 +98,12 @@ public final class ProviderPluginService {
                             "pluginId", requestedPluginId,
                             "reason", safeMessage(integrityFailure),
                             "reasonType", failureType(integrityFailure))));
+        }
+
+        // Past this point the pin has matched, so no failure may be reported as an integrity rejection.
+        try {
+            ProviderProbeResult probe = probeProcess.probe(selected, workspaceRoot, trustedSha256);
+            return outcomes.selected(selected, Optional.of(probe));
         } catch (ProviderPluginProbeProcessException failure) {
             return outcomes.selected(selected, Optional.empty(), ProviderPluginDiagnostic.error(
                     failure.timeout() ? "PLUGIN_PROBE_TIMEOUT" : "PLUGIN_ACTIVATION_OR_PROBE_FAILED",
