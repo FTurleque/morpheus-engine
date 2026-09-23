@@ -44,6 +44,24 @@ public interface VersionedRequirementStore {
     List<RequirementVersionRecord> listRequirementVersions(KnowledgeSnapshotId snapshotId);
 
     /**
+     * Returns every CURRENT requirement version for one snapshot in deterministic entity-version order. Production
+     * adapters should override this method so the temporal predicate is applied by the persistence backend rather
+     * than after loading historical/proposed versions into memory.
+     *
+     * <p>Unlike {@link #listCurrentRequirementVersions(KnowledgeSnapshotId, int)} this applies no row limit: it is
+     * for readers that need the whole CURRENT population, for instance to compute a total before paging.</p>
+     *
+     * <p>The default implementation preserves source compatibility for third-party/test adapters while keeping the
+     * public semantic contract correct.</p>
+     */
+    default List<RequirementVersionRecord> listCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        return listRequirementVersions(snapshotId).stream()
+                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+                .toList();
+    }
+
+    /**
      * Returns at most {@code limit} CURRENT requirement versions for one snapshot in deterministic entity-version
      * order. Production adapters should override this method so the temporal predicate and row limit are applied by
      * the persistence backend rather than after loading historical/proposed versions into memory.

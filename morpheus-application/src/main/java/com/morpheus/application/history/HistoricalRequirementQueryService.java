@@ -7,7 +7,6 @@ import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
-import com.morpheus.domain.temporal.TemporalState;
 
 import java.util.List;
 import java.util.Objects;
@@ -27,8 +26,7 @@ public final class HistoricalRequirementQueryService {
 
     public List<RequirementVersionRecord> requirements(KnowledgeSnapshotId snapshotId) {
         requirePublished(snapshotId);
-        return requirementStore.listRequirementVersions(snapshotId).stream()
-                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+        return requirementStore.listCurrentRequirementVersions(snapshotId).stream()
                 .sorted((left, right) -> left.entityVersion().entityIdentity()
                         .compareTo(right.entityVersion().entityIdentity()))
                 .toList();

@@ -17,7 +17,6 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
-import com.morpheus.domain.temporal.TemporalState;
 import com.morpheus.domain.traceability.TraceabilityEntityKind;
 import com.morpheus.domain.traceability.TraceabilityEntityRef;
 import com.morpheus.domain.traceability.TraceabilityLink;
@@ -189,8 +188,7 @@ public final class DecisionReferenceQualityService {
                 TraceabilityEntityKind.DESIGN_DECISION, item.id().value())));
         content.tasks().forEach(item -> roots.add(new TraceabilityEntityRef(
                 TraceabilityEntityKind.IMPLEMENTATION_TASK, item.id().value())));
-        requirementStore.listRequirementVersions(snapshot.id()).stream()
-                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+        requirementStore.listCurrentRequirementVersions(snapshot.id()).stream()
                 .map(RequirementVersionRecord::entityVersion)
                 .map(version -> version.content().id())
                 .forEach(id -> roots.add(new TraceabilityEntityRef(

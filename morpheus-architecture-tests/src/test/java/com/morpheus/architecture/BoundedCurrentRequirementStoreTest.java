@@ -106,6 +106,7 @@ class BoundedCurrentRequirementStoreTest {
         assertTrue(allCurrent.stream().allMatch(record -> record.entityVersion().temporalState() == TemporalState.CURRENT));
         assertTrue(allCurrent.stream().allMatch(record -> record.snapshotId().equals(snapshotId)));
 
+        assertEquals(expected, requirements.listCurrentRequirementVersions(snapshotId));
         assertEquals(expected.subList(0, 1), requirements.listCurrentRequirementVersions(snapshotId, 1));
         assertThrows(IllegalArgumentException.class,
                 () -> requirements.listCurrentRequirementVersions(snapshotId, 0));
