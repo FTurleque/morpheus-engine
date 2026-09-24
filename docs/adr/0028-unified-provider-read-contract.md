@@ -237,6 +237,13 @@ catégorie restée `READ` ; réutiliser `UNSUPPORTED_SOURCE` aurait signifié «
   suppression fantôme d'origine —, et un `### Requirement:` écrit dans un exemple crée encore une exigence fantôme.
   C'est le comportement de `develop`, inchangé. OpenSpec amont masque les trois cas (`requirement-blocks.ts`) ; les
   masquer ici sortirait du reset que ce constat exige et changerait des deltas aujourd'hui publiés.
+- **Un bloc de code jamais fermé masque jusqu'à la fin du fichier**, comme chez OpenSpec amont : une ligne qui
+  commence par ```` ``` ```` ou `~~~` suivie de texte (```` ```inline``` markers are gone ````) suffit à en ouvrir un.
+  Une section non reconnue placée après n'est plus vue, et une exigence dessous hérite du genre précédent — une
+  exigence peut ainsi sortir `REMOVED` sans diagnostic, catégorie `READ`, exactement comme sur `develop`. OpenSpec
+  amont perd cette exigence sans rien dire ; MORPHEUS en fait un delta fantôme parce que son masque ne couvre pas les
+  titres d'exigence (point précédent). Option écartée pour l'instant : un diagnostic quand un bloc est encore ouvert
+  en fin de fichier — à reconsidérer avec le point précédent, dont il est la conséquence.
 
 ### Preuves exécutables ajoutées
 
@@ -253,5 +260,9 @@ catégorie restée `READ` ; réutiliser `UNSUPPORTED_SOURCE` aurait signifié «
   `#aShorterRunOfTheSameCharacterDoesNotCloseAFence` (`~~~` dans `~~~~`, longueur),
   `#aRunOfTheOtherCharacterDoesNotCloseAFence` (```` ```` ```` dans `~~~~`, caractère),
   `#aFenceRunFollowedByTextDoesNotCloseAFence` (```` ``` ```` suivi de texte dans ```` ``` ````).
+- `#aNonBreakingSpaceBeforeAFenceIsWhitespaceAsInUpstreamOpenSpec` — garde la classe d'espaces de JavaScript : une
+  insécable devant l'ouverture et la fermeture donne la sortie de `develop` ; réduite à l'ASCII, seul ce test tombe.
+- `#anUnclosedFenceMasksTheRestOfTheFileSoALaterSectionKeepsThePreviousKind` — fige le comportement du bloc jamais
+  fermé décrit ci-dessus (`REMOVED` hérité, aucun diagnostic), égal à `develop`.
 - `OpenSpecSpecificationContentReaderTest#aSkippedRequirementDeltaMakesTheCategoryPartialInsteadOfRead` et
   `#aLevelTwoLineInsideACodeFenceLeavesTheCategoryRead`.

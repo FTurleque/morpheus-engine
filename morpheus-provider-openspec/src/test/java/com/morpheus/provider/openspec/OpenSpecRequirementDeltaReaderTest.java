@@ -406,6 +406,64 @@ class OpenSpecRequirementDeltaReaderTest {
         assertEquals(0, result.skippedRequirements());
     }
 
+    @Test
+    void aNonBreakingSpaceBeforeAFenceIsWhitespaceAsInUpstreamOpenSpec(@TempDir Path workspace) throws Exception {
+        writeDelta(workspace, "nbsp", String.join("\n",
+                "# Delta",
+                "",
+                "## ADDED Requirements",
+                "",
+                "### Requirement: Render headings",
+                "The renderer SHALL render level-two headings, for example:",
+                "\u00A0```markdown",
+                "## Overview",
+                "\u00A0```",
+                "",
+                "### Requirement: Render lists",
+                "The renderer SHALL render lists.",
+                ""));
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(List.of("ADDED Render headings", "ADDED Render lists"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertEquals(
+                "The renderer SHALL render level-two headings, for example: \u00A0```markdown",
+                result.requirementDeltas().getFirst().statement().orElseThrow());
+        assertTrue(result.diagnostics().isEmpty());
+        assertEquals(0, result.skippedRequirements());
+    }
+
+    @Test
+    void anUnclosedFenceMasksTheRestOfTheFileSoALaterSectionKeepsThePreviousKind(@TempDir Path workspace)
+            throws Exception {
+        writeDelta(workspace, "unclosed", """
+                # Delta
+
+                ## REMOVED Requirements
+
+                ### Requirement: Legacy session warning
+
+                ```inline``` markers are gone
+
+                ## Notes
+
+                ### Requirement: Keep the audit trail
+                The system SHALL keep the audit trail.
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(
+                List.of("REMOVED Legacy session warning", "REMOVED Keep the audit trail"),
+                result.requirementDeltas().stream()
+                        .map(delta -> delta.kind() + " " + delta.title())
+                        .toList());
+        assertTrue(result.diagnostics().isEmpty());
+        assertEquals(0, result.skippedRequirements());
+    }
+
     private void assertOnlyTheSectionAfterTheFenceIsNamed(Path workspace, String delta) throws Exception {
         writeDelta(workspace, "fenced", delta);
 
