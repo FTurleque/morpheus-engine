@@ -157,3 +157,62 @@ Les critères d'acceptation sont démontrés :
 9. le build complet est vert.
 
 Les warnings JDK 24 `--enable-native-access=ALL-UNNAMED` de SQLite et SLF4J NOP d'ArchUnit restent non bloquants et ne justifient aucune dépendance de production supplémentaire à ce stade.
+
+## Amendement du 24 septembre 2026 (PRV-2) — une section non reconnue termine la précédente
+
+### Constat
+
+`OpenSpecRequirementDeltaReader` ne changeait de genre courant qu'en rencontrant une des trois sections
+`## ADDED|MODIFIED|REMOVED Requirements`. Toute autre ligne `## ` était sautée sans effet : une exigence placée sous
+`## Notes` après `## REMOVED Requirements` héritait du genre `REMOVED` et était normalisée en suppression — et passait
+la validation, puisque `RequirementDelta` n'exige un `statement` qu'hors `REMOVED`. Symétriquement, une exigence
+placée avant toute section reconnue était jetée sans rien dire, et la catégorie `REQUIREMENT_DELTAS` restait `READ`.
+
+### Décision
+
+1. **Une section termine la précédente.** Toute ligne qui commence par `## ` et n'est pas une section de delta
+   normalisée remet le genre courant à « aucun ». Le genre ne traverse plus une section étrangère.
+2. **`## RENAMED Requirements` est reconnue, pas normalisée.** C'est une section légitime du format OpenSpec. Elle
+   termine la section précédente sans avertissement ; son contenu (lignes `FROM:` / `TO:`) n'est pas normalisé, la
+   taxonomie des renommages restant différée (ADR-0036 : `RENAMED` n'est pas introduit implicitement).
+3. **Ce qui a été sauté est nommé**, par deux diagnostics `WARNING` dont `source` est le chemin du fichier **relatif à
+   la racine du workspace** (jamais absolu) et dont les détails portent `provider`, `change` et `line` :
+   - section `##` non reconnue → `UNRECOGNIZED_SECTION`, détail `section` (le titre) ;
+   - `### Requirement:` rencontré hors de toute section de delta → `PARTIAL_INGESTION`, détail `requirement`.
+4. **La catégorie passe à `PARTIAL`** dès qu'au moins une exigence a été sautée : du contenu valide est conservé mais
+   la lecture est incomplète, ce que le tableau « Statuts » ci-dessus appelle `PARTIAL`. Une section non reconnue qui
+   ne contient aucune exigence produit l'avertissement mais laisse la catégorie `READ` : rien n'a été perdu que le
+   modèle sache porter.
+
+`UNRECOGNIZED_SECTION` est le seul code ajouté à `DiagnosticCode` (en fin d'énumération). `PARTIAL_INGESTION` est
+réutilisé pour l'exigence sautée parce qu'il nomme exactement ce cas et reste cohérent avec la table « Diagnostics »
+(`PARTIAL -> PARTIAL_INGESTION`). Réutiliser `PARTIAL_INGESTION` pour la section seule aurait associé ce code à une
+catégorie restée `READ` ; réutiliser `UNSUPPORTED_SOURCE` aurait signifié « source entière non reconnue ».
+
+### Ce qui ne change pas
+
+- **Un fichier bien formé produit exactement ce qu'il produisait** : mêmes deltas, mêmes genres, aucun diagnostic.
+  Vérifié le 24 septembre 2026 sur les quatre fichiers de delta présents dans le dépôt
+  (`experiments/m0/fixtures/openspec-basic` et `openspec-state-matrix`, archive comprise) : sortie identique avant et
+  après, zéro avertissement nouveau.
+- **Le piège : la troncature d'une exigence est inchangée.** `requirementEnd` s'arrêtait déjà sur toute ligne `## `,
+  donc une sous-section `##` écrite dans le corps d'une exigence la tronquait déjà. Le prédicat est désormais partagé
+  entre la fin d'exigence et la fin de section, sans être élargi : la même ligne termine les deux, et elle est
+  maintenant nommée.
+
+### Hors périmètre, laissé ouvert
+
+- Le contenu d'une section `RENAMED` n'est pas normalisé et n'est pas signalé (comportement antérieur, conforme à
+  ADR-0036).
+- Le lecteur ne masque pas les blocs de code clôturés : une ligne `## ` dans un bloc de code termine la section
+  comme avant, et produit maintenant un avertissement.
+
+### Preuves exécutables ajoutées
+
+- `OpenSpecRequirementDeltaReaderTest#aRequirementUnderAnUnrecognizedSectionDoesNotInheritTheKindOfThePreviousSection`
+  — rouge avant le correctif (l'exigence sous `## Notes` sortait `REMOVED`) ; asserte aussi qu'aucun message, détail ni
+  `source` ne satisfait `ServerLocationDisclosure.namesAServerLocation`.
+- `OpenSpecRequirementDeltaReaderTest#aRequirementBeforeAnyRecognizedSectionIsNamedInsteadOfSilentlyDropped`,
+  `#theRenamedSectionIsRecognizedAndEndsThePreviousSectionWithoutAWarning`,
+  `#aLevelTwoHeadingInsideARequirementStillEndsItsBody`, `#theStateMatrixDeltasReadExactlyAsBeforeWithoutAnyDiagnostic`.
+- `OpenSpecSpecificationContentReaderTest#aSkippedRequirementDeltaMakesTheCategoryPartialInsteadOfRead`.

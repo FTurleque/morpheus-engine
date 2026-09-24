@@ -1,6 +1,10 @@
 package com.morpheus.provider.openspec;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.security.ServerLocationDisclosure;
+import com.morpheus.domain.diagnostic.Diagnostic;
+import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
@@ -11,9 +15,11 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,6 +44,7 @@ class OpenSpecRequirementDeltaReaderTest {
         assertEquals(5, result.requirementDeltas().stream().mapToInt(delta -> delta.scenarios().size()).sum());
         assertEquals(8, result.evidence().size());
         assertTrue(result.diagnostics().isEmpty());
+        assertEquals(0, result.skippedRequirements());
 
         var modified = result.requirementDeltas().stream()
                 .filter(delta -> delta.kind() == RequirementDeltaKind.MODIFIED)
@@ -128,6 +135,162 @@ class OpenSpecRequirementDeltaReaderTest {
         assertTrue(removed.statement().isEmpty());
         assertTrue(removed.scenarios().isEmpty());
         assertEquals(1, result.evidence().size());
+    }
+
+    @Test
+    void aRequirementUnderAnUnrecognizedSectionDoesNotInheritTheKindOfThePreviousSection(@TempDir Path workspace)
+            throws Exception {
+        writeDelta(workspace, "remove-legacy", """
+                # Authentication Session Delta
+
+                ## REMOVED Requirements
+
+                ### Requirement: Legacy session warning
+
+                ## Notes
+
+                ### Requirement: Keep the audit trail
+                The system SHALL keep the audit trail.
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(List.of("REMOVED Legacy session warning"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertEquals(1, result.skippedRequirements());
+
+        String source = "openspec/changes/remove-legacy/specs/auth-session/spec.md";
+        Diagnostic section = only(result.diagnostics(), DiagnosticCode.UNRECOGNIZED_SECTION);
+        assertEquals(DiagnosticSeverity.WARNING, section.severity());
+        assertEquals("Notes", section.details().get("section"));
+        assertEquals("7", section.details().get("line"));
+        assertEquals("remove-legacy", section.details().get("change"));
+        assertEquals(source, section.source().orElseThrow());
+
+        Diagnostic skipped = only(result.diagnostics(), DiagnosticCode.PARTIAL_INGESTION);
+        assertEquals(DiagnosticSeverity.WARNING, skipped.severity());
+        assertEquals("Keep the audit trail", skipped.details().get("requirement"));
+        assertEquals("9", skipped.details().get("line"));
+        assertEquals(source, skipped.source().orElseThrow());
+
+        for (Diagnostic diagnostic : result.diagnostics()) {
+            assertFalse(ServerLocationDisclosure.namesAServerLocation(diagnostic.message()), diagnostic.message());
+            assertFalse(ServerLocationDisclosure.namesAServerLocation(diagnostic.source().orElseThrow()));
+            diagnostic.details().values().forEach(value ->
+                    assertFalse(ServerLocationDisclosure.namesAServerLocation(value), value));
+        }
+    }
+
+    @Test
+    void aRequirementBeforeAnyRecognizedSectionIsNamedInsteadOfSilentlyDropped(@TempDir Path workspace)
+            throws Exception {
+        writeDelta(workspace, "early", """
+                # Delta
+
+                ### Requirement: Orphan requirement
+                The system SHALL be read.
+
+                ## ADDED Requirements
+
+                ### Requirement: Placed requirement
+                The system SHALL be placed.
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(List.of("ADDED Placed requirement"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertEquals(1, result.skippedRequirements());
+        Diagnostic skipped = only(result.diagnostics(), DiagnosticCode.PARTIAL_INGESTION);
+        assertEquals("Orphan requirement", skipped.details().get("requirement"));
+        assertEquals("3", skipped.details().get("line"));
+        assertTrue(result.diagnostics().stream().noneMatch(
+                diagnostic -> diagnostic.code() == DiagnosticCode.UNRECOGNIZED_SECTION));
+    }
+
+    @Test
+    void theRenamedSectionIsRecognizedAndEndsThePreviousSectionWithoutAWarning(@TempDir Path workspace)
+            throws Exception {
+        writeDelta(workspace, "rename-login", """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Session audit
+                The system SHALL audit sessions.
+
+                ## RENAMED Requirements
+
+                - FROM: `### Requirement: Login`
+                - TO: `### Requirement: User authentication`
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(List.of("ADDED Session audit"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertEquals(
+                "The system SHALL audit sessions.",
+                result.requirementDeltas().getFirst().statement().orElseThrow());
+        assertTrue(result.diagnostics().isEmpty());
+        assertEquals(0, result.skippedRequirements());
+    }
+
+    @Test
+    void aLevelTwoHeadingInsideARequirementStillEndsItsBody(@TempDir Path workspace) throws Exception {
+        writeDelta(workspace, "truncated", """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Truncated requirement
+                The system SHALL keep this sentence.
+
+                ## Rationale
+                This sentence was never part of the requirement.
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(1, result.requirementDeltas().size());
+        assertEquals(
+                "The system SHALL keep this sentence.",
+                result.requirementDeltas().getFirst().statement().orElseThrow());
+        assertEquals("Rationale", only(result.diagnostics(), DiagnosticCode.UNRECOGNIZED_SECTION)
+                .details().get("section"));
+        assertEquals(0, result.skippedRequirements());
+    }
+
+    @Test
+    void theStateMatrixDeltasReadExactlyAsBeforeWithoutAnyDiagnostic() {
+        var result = new OpenSpecRequirementDeltaReader().read(
+                fixture("openspec-state-matrix"),
+                new StableTestIdentityResolver());
+
+        assertEquals(
+                List.of("MODIFIED Session expiration", "MODIFIED Session expiration"),
+                result.requirementDeltas().stream()
+                        .map(delta -> delta.kind() + " " + delta.title())
+                        .toList());
+        assertTrue(result.diagnostics().isEmpty());
+        assertEquals(0, result.skippedRequirements());
+    }
+
+    private void writeDelta(Path workspace, String change, String content) throws Exception {
+        Path openspec = workspace.resolve("openspec");
+        Path deltaFile = openspec.resolve("changes/" + change + "/specs/auth-session/spec.md");
+        Files.createDirectories(deltaFile.getParent());
+        Files.writeString(openspec.resolve("config.yaml"), "schema: spec-driven\n");
+        Files.writeString(deltaFile, content);
+    }
+
+    private Diagnostic only(List<Diagnostic> diagnostics, DiagnosticCode code) {
+        List<Diagnostic> matching = diagnostics.stream().filter(diagnostic -> diagnostic.code() == code).toList();
+        assertEquals(1, matching.size(), "diagnostics with code " + code + ": " + diagnostics);
+        return matching.getFirst();
     }
 
     private Path fixture(String name) {
