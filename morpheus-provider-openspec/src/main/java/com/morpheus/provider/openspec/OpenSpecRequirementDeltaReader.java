@@ -46,6 +46,7 @@ public final class OpenSpecRequirementDeltaReader {
             "^##\\s+RENAMED\\s+Requirements\\s*$",
             Pattern.CASE_INSENSITIVE);
     private static final String SECTION_PREFIX = "## ";
+    private static final Pattern CODE_FENCE = Pattern.compile("^ {0,3}(`{3,}|~{3,})(.*)$");
     private static final Pattern REQUIREMENT_HEADING = Pattern.compile("^###\\s+Requirement:\\s*(.+?)\\s*$");
     private static final Pattern SCENARIO_HEADING = Pattern.compile("^####\\s+Scenario:\\s*(.+?)\\s*$");
     private static final Pattern SCENARIO_STEP = Pattern.compile(
@@ -132,6 +133,7 @@ public final class OpenSpecRequirementDeltaReader {
         List<String> lines = readAllLines(workspaceRoot, specificationFile, budget);
         String specificationKey = specificationKey(specsRoot, specificationFile);
         SourceLocator source = SourceLocator.file(workspaceRoot.relativize(specificationFile).toString());
+        boolean[] fenced = codeFenceMask(lines);
         RequirementDeltaKind currentKind = null;
         int skippedRequirements = 0;
 
@@ -142,7 +144,7 @@ public final class OpenSpecRequirementDeltaReader {
                 currentKind = RequirementDeltaKind.valueOf(section.group(1).toUpperCase(Locale.ROOT));
                 continue;
             }
-            if (isSectionHeading(line)) {
+            if (isSectionHeading(line) && !fenced[index]) {
                 currentKind = null;
                 if (!UNNORMALIZED_DELTA_SECTION.matcher(line).matches()) {
                     diagnostics.add(warning(
@@ -377,6 +379,33 @@ public final class OpenSpecRequirementDeltaReader {
 
     private static boolean isSectionHeading(String line) {
         return line.startsWith(SECTION_PREFIX);
+    }
+
+    /**
+     * Marks every line of a fenced code block, delimiters included. A fence closes only on a run of its own character
+     * at least as long as the opening one, with nothing after it, as in CommonMark.
+     */
+    private static boolean[] codeFenceMask(List<String> lines) {
+        boolean[] fenced = new boolean[lines.size()];
+        String opening = null;
+        for (int index = 0; index < lines.size(); index++) {
+            Matcher fence = CODE_FENCE.matcher(lines.get(index));
+            if (opening == null) {
+                if (fence.matches() && !(fence.group(1).charAt(0) == '`' && fence.group(2).contains("`"))) {
+                    opening = fence.group(1);
+                    fenced[index] = true;
+                }
+                continue;
+            }
+            fenced[index] = true;
+            if (fence.matches()
+                    && fence.group(1).charAt(0) == opening.charAt(0)
+                    && fence.group(1).length() >= opening.length()
+                    && fence.group(2).isBlank()) {
+                opening = null;
+            }
+        }
+        return fenced;
     }
 
     private Diagnostic warning(

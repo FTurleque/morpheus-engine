@@ -170,16 +170,27 @@ placée avant toute section reconnue était jetée sans rien dire, et la catégo
 
 ### Décision
 
-1. **Une section termine la précédente.** Toute ligne qui commence par `## ` et n'est pas une section de delta
-   normalisée remet le genre courant à « aucun ». Le genre ne traverse plus une section étrangère.
-2. **`## RENAMED Requirements` est reconnue, pas normalisée.** C'est une section légitime du format OpenSpec. Elle
-   termine la section précédente sans avertissement ; son contenu (lignes `FROM:` / `TO:`) n'est pas normalisé, la
-   taxonomie des renommages restant différée (ADR-0036 : `RENAMED` n'est pas introduit implicitement).
-3. **Ce qui a été sauté est nommé**, par deux diagnostics `WARNING` dont `source` est le chemin du fichier **relatif à
-   la racine du workspace** (jamais absolu) et dont les détails portent `provider`, `change` et `line` :
+1. **Une section termine la précédente.** Toute ligne qui commence par `## `, hors bloc de code clôturé, et qui n'est
+   pas une section de delta normalisée remet le genre courant à « aucun ». Le genre ne traverse plus une section
+   étrangère.
+2. **Une ligne `## ` dans un bloc de code clôturé (```` ``` ```` ou `~~~`) n'est pas une section.** Elle ne remet pas le
+   genre à zéro et ne produit aucun diagnostic. C'est ce que fait le format OpenSpec amont, qui masque les blocs de
+   code avant de chercher les titres `##` : une exigence qui montre un exemple Markdown contenant `## Overview` est un
+   document bien formé, et les exigences qui la suivent dans la même section gardent leur genre.
+3. **`## RENAMED Requirements` est reconnue, pas normalisée.** C'est une des quatre sections du format de delta
+   OpenSpec amont (ADDED / MODIFIED / REMOVED / RENAMED). Elle termine la section précédente sans avertissement ; son
+   contenu (lignes `FROM:` / `TO:`) n'est pas normalisé, `RequirementDeltaKind` n'ayant pas de genre de renommage.
+4. **Ce qui a été sauté est nommé dans les diagnostics de lecture**, deux `WARNING` dont `source` est le chemin du
+   fichier **relatif à la racine du workspace** (jamais absolu) et dont les détails portent `provider`, `change` et
+   `line` :
    - section `##` non reconnue → `UNRECOGNIZED_SECTION`, détail `section` (le titre) ;
    - `### Requirement:` rencontré hors de toute section de delta → `PARTIAL_INGESTION`, détail `requirement`.
-4. **La catégorie passe à `PARTIAL`** dès qu'au moins une exigence a été sautée : du contenu valide est conservé mais
+
+   Ce nom n'existe qu'en mémoire, dans `Diagnostic.details`. Aucune surface CLI, HTTP ou MCP ne sérialise aujourd'hui
+   les détails d'un diagnostic de lecture : la synchronisation n'expose que le nombre de diagnostics, et
+   `SnapshotValidationResult` ne garde que `code: message`. Un opérateur voit ce nombre augmenter, pas **quelle**
+   exigence a été sautée. Rendre ce nom visible est une autre décision, hors de cet amendement.
+5. **La catégorie passe à `PARTIAL`** dès qu'au moins une exigence a été sautée : du contenu valide est conservé mais
    la lecture est incomplète, ce que le tableau « Statuts » ci-dessus appelle `PARTIAL`. Une section non reconnue qui
    ne contient aucune exigence produit l'avertissement mais laisse la catégorie `READ` : rien n'a été perdu que le
    modèle sache porter.
@@ -192,20 +203,22 @@ catégorie restée `READ` ; réutiliser `UNSUPPORTED_SOURCE` aurait signifié «
 ### Ce qui ne change pas
 
 - **Un fichier bien formé produit exactement ce qu'il produisait** : mêmes deltas, mêmes genres, aucun diagnostic.
-  Vérifié le 24 septembre 2026 sur les quatre fichiers de delta présents dans le dépôt
-  (`experiments/m0/fixtures/openspec-basic` et `openspec-state-matrix`, archive comprise) : sortie identique avant et
-  après, zéro avertissement nouveau.
+  Vérifié le 24 septembre 2026 sur les **trois** fichiers de delta que le lecteur lit dans le dépôt
+  (`openspec-basic/.../add-remember-me`, `openspec-state-matrix/.../extend-timeout` et `.../shorten-timeout`) : sortie
+  identique avant et après, zéro avertissement nouveau. Le quatrième fichier présent,
+  `openspec-state-matrix/openspec/changes/archive/...`, n'est jamais lu : `listChangeRoots` exclut `archive`.
 - **Le piège : la troncature d'une exigence est inchangée.** `requirementEnd` s'arrêtait déjà sur toute ligne `## `,
-  donc une sous-section `##` écrite dans le corps d'une exigence la tronquait déjà. Le prédicat est désormais partagé
-  entre la fin d'exigence et la fin de section, sans être élargi : la même ligne termine les deux, et elle est
-  maintenant nommée.
+  qu'elle soit ou non dans un bloc de code, donc une ligne `##` écrite dans le corps d'une exigence la tronquait déjà ;
+  ce prédicat n'est pas modifié. Hors bloc de code, cette ligne termine désormais aussi la section et elle est nommée.
+  Dans un bloc de code, elle ne termine que l'exigence, comme avant : le genre est conservé, et rien n'est signalé.
 
 ### Hors périmètre, laissé ouvert
 
-- Le contenu d'une section `RENAMED` n'est pas normalisé et n'est pas signalé (comportement antérieur, conforme à
-  ADR-0036).
-- Le lecteur ne masque pas les blocs de code clôturés : une ligne `## ` dans un bloc de code termine la section
-  comme avant, et produit maintenant un avertissement.
+- Le contenu d'une section `RENAMED` n'est pas normalisé et n'est pas signalé (comportement antérieur).
+- Seul le préfixe littéral `## ` est une section. `##<TAB>Notes` et un titre indenté `   ## Notes` sont des titres
+  ATX valides en CommonMark mais ne le satisfont pas : une exigence placée dessous hérite encore du genre précédent,
+  exactement comme avant ce correctif.
+- La troncature du corps d'une exigence sur une ligne `## ` placée dans un bloc de code reste le défaut préexistant.
 
 ### Preuves exécutables ajoutées
 
@@ -215,4 +228,8 @@ catégorie restée `READ` ; réutiliser `UNSUPPORTED_SOURCE` aurait signifié «
 - `OpenSpecRequirementDeltaReaderTest#aRequirementBeforeAnyRecognizedSectionIsNamedInsteadOfSilentlyDropped`,
   `#theRenamedSectionIsRecognizedAndEndsThePreviousSectionWithoutAWarning`,
   `#aLevelTwoHeadingInsideARequirementStillEndsItsBody`, `#theStateMatrixDeltasReadExactlyAsBeforeWithoutAnyDiagnostic`.
-- `OpenSpecSpecificationContentReaderTest#aSkippedRequirementDeltaMakesTheCategoryPartialInsteadOfRead`.
+- `OpenSpecRequirementDeltaReaderTest#aLevelTwoLineInsideACodeFenceNeitherEndsTheSectionNorWarns` et
+  `#aClosedTildeFenceGivesBackTheSectionHeadingsThatFollowIt` — mêmes deltas, même `statement` tronqué qu'avant ce
+  correctif pour le premier ; le second prouve qu'une clôture ```` ``` ```` ne ferme pas un bloc ouvert par `~~~~`.
+- `OpenSpecSpecificationContentReaderTest#aSkippedRequirementDeltaMakesTheCategoryPartialInsteadOfRead` et
+  `#aLevelTwoLineInsideACodeFenceLeavesTheCategoryRead`.

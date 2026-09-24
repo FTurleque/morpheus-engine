@@ -279,6 +279,69 @@ class OpenSpecRequirementDeltaReaderTest {
         assertEquals(0, result.skippedRequirements());
     }
 
+    @Test
+    void aLevelTwoLineInsideACodeFenceNeitherEndsTheSectionNorWarns(@TempDir Path workspace) throws Exception {
+        writeDelta(workspace, "fenced", """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Render headings
+                The renderer SHALL render level-two headings, for example:
+                ```markdown
+                ## Overview
+                ```
+
+                ### Requirement: Render lists
+                The renderer SHALL render lists.
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(List.of("ADDED Render headings", "ADDED Render lists"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertEquals(
+                "The renderer SHALL render level-two headings, for example: ```markdown",
+                result.requirementDeltas().getFirst().statement().orElseThrow());
+        assertTrue(result.diagnostics().isEmpty());
+        assertEquals(0, result.skippedRequirements());
+    }
+
+    @Test
+    void aClosedTildeFenceGivesBackTheSectionHeadingsThatFollowIt(@TempDir Path workspace) throws Exception {
+        writeDelta(workspace, "tilde", """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Render headings
+                The renderer SHALL render level-two headings.
+
+                ~~~~
+                ## Overview
+                ```
+                ## Still inside
+                ~~~~
+
+                ## Notes
+
+                ### Requirement: Keep the audit trail
+                The system SHALL keep the audit trail.
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(List.of("ADDED Render headings"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertEquals("Notes", only(result.diagnostics(), DiagnosticCode.UNRECOGNIZED_SECTION)
+                .details().get("section"));
+        assertEquals("Keep the audit trail", only(result.diagnostics(), DiagnosticCode.PARTIAL_INGESTION)
+                .details().get("requirement"));
+        assertEquals(1, result.skippedRequirements());
+    }
+
     private void writeDelta(Path workspace, String change, String content) throws Exception {
         Path openspec = workspace.resolve("openspec");
         Path deltaFile = openspec.resolve("changes/" + change + "/specs/auth-session/spec.md");

@@ -227,6 +227,43 @@ class OpenSpecSpecificationContentReaderTest {
                         && "Orphan requirement".equals(diagnostic.details().get("requirement"))));
     }
 
+    @Test
+    void aLevelTwoLineInsideACodeFenceLeavesTheCategoryRead(@TempDir Path workspace) throws Exception {
+        Path change = workspace.resolve("openspec/changes/fenced");
+        Path delta = change.resolve("specs/renderer/spec.md");
+        Files.createDirectories(delta.getParent());
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Files.writeString(change.resolve("proposal.md"), """
+                # Proposal: Fenced example
+
+                ## Intent
+
+                Show a Markdown example inside a requirement.
+                """);
+        Files.writeString(delta, """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Render headings
+                The renderer SHALL render level-two headings, for example:
+                ```markdown
+                ## Overview
+                ```
+
+                ### Requirement: Render lists
+                The renderer SHALL render lists.
+                """);
+
+        var result = new OpenSpecSpecificationContentReader().read(
+                request(workspace, EnumSet.of(ReadCategory.CHANGES, ReadCategory.REQUIREMENT_DELTAS)),
+                new StableTestIdentityResolver());
+
+        assertEquals(ReadCategoryStatus.READ, status(result, ReadCategory.REQUIREMENT_DELTAS));
+        assertEquals(2, count(result, ReadCategory.REQUIREMENT_DELTAS));
+        assertTrue(result.diagnostics().isEmpty());
+    }
+
     private ProviderReadRequest request(Path workspace, Set<ReadCategory> categories) {
         return new ProviderReadRequest(workspace, ProjectSpecificationId.generate(), categories);
     }
