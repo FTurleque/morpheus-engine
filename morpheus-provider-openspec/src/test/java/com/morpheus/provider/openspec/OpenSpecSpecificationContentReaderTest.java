@@ -334,6 +334,83 @@ class OpenSpecSpecificationContentReaderTest {
                 diagnostic -> diagnostic.code() == DiagnosticCode.PARTIAL_INGESTION));
     }
 
+    @Test
+    void aSkippedRequirementDeltaMakesTheCategoryPartialInsteadOfRead(@TempDir Path workspace) throws Exception {
+        Path change = workspace.resolve("openspec/changes/early");
+        Path delta = change.resolve("specs/auth-session/spec.md");
+        Files.createDirectories(delta.getParent());
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Files.writeString(change.resolve("proposal.md"), """
+                # Proposal: Early requirement
+
+                ## Intent
+
+                Show that a requirement outside a delta section is named.
+                """);
+        Files.writeString(delta, """
+                # Delta
+
+                ### Requirement: Orphan requirement
+                The system SHALL be read.
+
+                ## ADDED Requirements
+
+                ### Requirement: Placed requirement
+                The system SHALL be placed.
+                """);
+
+        var result = new OpenSpecSpecificationContentReader().read(
+                request(workspace, EnumSet.of(ReadCategory.CHANGES, ReadCategory.REQUIREMENT_DELTAS)),
+                new StableTestIdentityResolver());
+
+        var report = result.report(ReadCategory.REQUIREMENT_DELTAS).orElseThrow();
+        assertEquals(ReadCategoryStatus.PARTIAL, report.status());
+        assertEquals(1, report.itemCount());
+        assertEquals(java.util.List.of(DiagnosticCode.PARTIAL_INGESTION), report.diagnosticCodes());
+        assertEquals(ReadCategoryStatus.READ, status(result, ReadCategory.CHANGES));
+        assertEquals(1, result.content().orElseThrow().requirementDeltas().size());
+        assertTrue(result.diagnostics().stream().anyMatch(diagnostic ->
+                diagnostic.code() == DiagnosticCode.PARTIAL_INGESTION
+                        && "Orphan requirement".equals(diagnostic.details().get("requirement"))));
+    }
+
+    @Test
+    void aLevelTwoLineInsideACodeFenceLeavesTheCategoryRead(@TempDir Path workspace) throws Exception {
+        Path change = workspace.resolve("openspec/changes/fenced");
+        Path delta = change.resolve("specs/renderer/spec.md");
+        Files.createDirectories(delta.getParent());
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Files.writeString(change.resolve("proposal.md"), """
+                # Proposal: Fenced example
+
+                ## Intent
+
+                Show a Markdown example inside a requirement.
+                """);
+        Files.writeString(delta, """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Render headings
+                The renderer SHALL render level-two headings, for example:
+                ```markdown
+                ## Overview
+                ```
+
+                ### Requirement: Render lists
+                The renderer SHALL render lists.
+                """);
+
+        var result = new OpenSpecSpecificationContentReader().read(
+                request(workspace, EnumSet.of(ReadCategory.CHANGES, ReadCategory.REQUIREMENT_DELTAS)),
+                new StableTestIdentityResolver());
+
+        assertEquals(ReadCategoryStatus.READ, status(result, ReadCategory.REQUIREMENT_DELTAS));
+        assertEquals(2, count(result, ReadCategory.REQUIREMENT_DELTAS));
+        assertTrue(result.diagnostics().isEmpty());
+    }
+
     private static void writeValidSpecification(Path workspace, String key) throws Exception {
         Path spec = workspace.resolve("openspec/specs/" + key + "/spec.md");
         Files.createDirectories(spec.getParent());

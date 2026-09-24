@@ -4,6 +4,8 @@ import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.diagnostic.Diagnostic;
+import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.evidence.SourceRange;
@@ -29,6 +31,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -39,6 +42,16 @@ public final class OpenSpecRequirementDeltaReader {
     private static final Pattern DELTA_SECTION = Pattern.compile(
             "^##\\s+(ADDED|MODIFIED|REMOVED)\\s+Requirements\\s*$",
             Pattern.CASE_INSENSITIVE);
+    private static final Pattern UNNORMALIZED_DELTA_SECTION = Pattern.compile(
+            "^##\\s+RENAMED\\s+Requirements\\s*$",
+            Pattern.CASE_INSENSITIVE);
+    private static final String SECTION_PREFIX = "## ";
+    private static final String UPSTREAM_WHITESPACE =
+            "[\\t\\n\\u000B\\f\\r \\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]";
+    private static final Pattern OPENING_FENCE = Pattern.compile(
+            "^" + UPSTREAM_WHITESPACE + "*(`{3,}|~{3,})");
+    private static final Pattern CLOSING_FENCE = Pattern.compile(
+            "^" + UPSTREAM_WHITESPACE + "*(`{3,}|~{3,})" + UPSTREAM_WHITESPACE + "*$");
     private static final Pattern REQUIREMENT_HEADING = Pattern.compile("^###\\s+Requirement:\\s*(.+?)\\s*$");
     private static final Pattern SCENARIO_HEADING = Pattern.compile("^####\\s+Scenario:\\s*(.+?)\\s*$");
     private static final Pattern SCENARIO_STEP = Pattern.compile(
@@ -79,6 +92,8 @@ public final class OpenSpecRequirementDeltaReader {
 
         List<RequirementDelta> deltas = new ArrayList<>();
         List<Evidence> evidence = new ArrayList<>();
+        List<Diagnostic> diagnostics = new ArrayList<>(probe.diagnostics());
+        int skippedRequirements = 0;
 
         for (Path changeRoot : listChangeRoots(root.resolve("openspec/changes"), budget)) {
             String changeKey = changeRoot.getFileName().toString();
@@ -88,7 +103,7 @@ public final class OpenSpecRequirementDeltaReader {
                     "change:" + changeKey));
             Path specsRoot = changeRoot.resolve("specs");
             for (Path specificationFile : listSpecificationFiles(specsRoot, budget)) {
-                OpenSpecSourceAttribution.attribute(root, specificationFile, () -> normalizeDeltaFile(
+                skippedRequirements += OpenSpecSourceAttribution.attribute(root, specificationFile, () -> normalizeDeltaFile(
                         root,
                         changeKey,
                         changeId,
@@ -97,6 +112,7 @@ public final class OpenSpecRequirementDeltaReader {
                         identityResolver,
                         deltas,
                         evidence,
+                        diagnostics,
                         budget));
             }
         }
@@ -105,10 +121,10 @@ public final class OpenSpecRequirementDeltaReader {
         budget.addBlocks(deltas.size() + scenarios, "openspec/requirement-deltas");
         budget.addEntities(deltas.size() + scenarios + evidence.size(), "openspec/requirement-deltas");
 
-        return new ReadResult(deltas, evidence, probe.diagnostics());
+        return new ReadResult(deltas, evidence, diagnostics, skippedRequirements);
     }
 
-    private void normalizeDeltaFile(
+    private int normalizeDeltaFile(
             Path workspaceRoot,
             String changeKey,
             ChangeId changeId,
@@ -117,21 +133,51 @@ public final class OpenSpecRequirementDeltaReader {
             EntityIdentityResolver identities,
             List<RequirementDelta> deltas,
             List<Evidence> evidence,
+            List<Diagnostic> diagnostics,
             ProviderIngestionBudget.Session budget) {
         List<String> lines = readAllLines(workspaceRoot, specificationFile, budget);
         String specificationKey = specificationKey(specsRoot, specificationFile);
         SourceLocator source = SourceLocator.file(workspaceRoot.relativize(specificationFile).toString());
+        boolean[] fenced = codeFenceMask(lines);
         RequirementDeltaKind currentKind = null;
+        int skippedRequirements = 0;
 
         for (int index = 0; index < lines.size(); index++) {
-            Matcher section = DELTA_SECTION.matcher(lines.get(index));
+            String line = lines.get(index);
+            Matcher section = DELTA_SECTION.matcher(line);
             if (section.matches()) {
                 currentKind = RequirementDeltaKind.valueOf(section.group(1).toUpperCase(Locale.ROOT));
                 continue;
             }
+            if (isSectionHeading(line) && !fenced[index]) {
+                currentKind = null;
+                if (!UNNORMALIZED_DELTA_SECTION.matcher(line).matches()) {
+                    diagnostics.add(warning(
+                            DiagnosticCode.UNRECOGNIZED_SECTION,
+                            "OpenSpec delta section is not a requirement delta section and ends the previous one",
+                            changeKey,
+                            "section",
+                            line.substring(SECTION_PREFIX.length()).trim(),
+                            index,
+                            source));
+                }
+                continue;
+            }
 
-            Matcher requirementHeading = REQUIREMENT_HEADING.matcher(lines.get(index));
-            if (currentKind == null || !requirementHeading.matches()) {
+            Matcher requirementHeading = REQUIREMENT_HEADING.matcher(line);
+            if (!requirementHeading.matches()) {
+                continue;
+            }
+            if (currentKind == null) {
+                skippedRequirements++;
+                diagnostics.add(warning(
+                        DiagnosticCode.PARTIAL_INGESTION,
+                        "OpenSpec requirement is outside any requirement delta section and was not normalized",
+                        changeKey,
+                        "requirement",
+                        requirementHeading.group(1).trim(),
+                        index,
+                        source));
                 continue;
             }
 
@@ -151,6 +197,7 @@ public final class OpenSpecRequirementDeltaReader {
                     budget);
             index = endExclusive - 1;
         }
+        return skippedRequirements;
     }
 
     private void normalizeRequirementDelta(
@@ -328,11 +375,65 @@ public final class OpenSpecRequirementDeltaReader {
 
     private int requirementEnd(List<String> lines, int from) {
         for (int index = from; index < lines.size(); index++) {
-            if (REQUIREMENT_HEADING.matcher(lines.get(index)).matches() || lines.get(index).startsWith("## ")) {
+            if (REQUIREMENT_HEADING.matcher(lines.get(index)).matches() || isSectionHeading(lines.get(index))) {
                 return index;
             }
         }
         return lines.size();
+    }
+
+    private static boolean isSectionHeading(String line) {
+        return line.startsWith(SECTION_PREFIX);
+    }
+
+    /**
+     * Marks every line of a fenced code block, delimiters included, by the rules of upstream OpenSpec's
+     * {@code buildCodeFenceMask}, the format these files are written for: a fence opens on a run of three or more
+     * backticks or tildes after any whitespace, whatever follows, and closes only on a run of its own character at
+     * least as long as the opening one with nothing but whitespace after it. Whitespace is JavaScript's {@code \s}.
+     */
+    private static boolean[] codeFenceMask(List<String> lines) {
+        boolean[] fenced = new boolean[lines.size()];
+        String opening = null;
+        for (int index = 0; index < lines.size(); index++) {
+            String line = lines.get(index);
+            if (opening == null) {
+                Matcher fence = OPENING_FENCE.matcher(line);
+                if (fence.lookingAt()) {
+                    opening = fence.group(1);
+                    fenced[index] = true;
+                }
+                continue;
+            }
+            fenced[index] = true;
+            Matcher fence = CLOSING_FENCE.matcher(line);
+            if (fence.matches()
+                    && fence.group(1).charAt(0) == opening.charAt(0)
+                    && fence.group(1).length() >= opening.length()) {
+                opening = null;
+            }
+        }
+        return fenced;
+    }
+
+    private Diagnostic warning(
+            DiagnosticCode code,
+            String message,
+            String changeKey,
+            String subjectKey,
+            String subject,
+            int lineIndex,
+            SourceLocator source) {
+        return new Diagnostic(
+                code,
+                DiagnosticSeverity.WARNING,
+                message,
+                Map.of(
+                        "provider", OpenSpecSpecificationProvider.ID.value(),
+                        "change", changeKey,
+                        subjectKey, subject,
+                        "line", Integer.toString(lineIndex + 1)),
+                Optional.of(source.value()));
     }
 
     private List<Path> listChangeRoots(
@@ -471,8 +572,12 @@ public final class OpenSpecRequirementDeltaReader {
     public record ReadResult(
             List<RequirementDelta> requirementDeltas,
             List<Evidence> evidence,
-            List<Diagnostic> diagnostics) {
+            List<Diagnostic> diagnostics,
+            int skippedRequirements) {
         public ReadResult {
+            if (skippedRequirements < 0) {
+                throw new IllegalArgumentException("skippedRequirements must be >= 0");
+            }
             requirementDeltas = List.copyOf(Objects.requireNonNull(requirementDeltas, "requirementDeltas"));
             evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
             diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
