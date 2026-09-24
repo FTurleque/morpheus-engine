@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusCompositionCliTest {
@@ -47,6 +48,30 @@ class MorpheusCompositionCliTest {
         assertEquals(0, conflicts.exitCode(), conflicts.stderr());
         assertTrue(conflicts.stdout().contains("\"logicalKey\":\"auth-session/session-expiration\""), conflicts.stdout());
         assertTrue(conflicts.stdout().contains("\"evidenceId\""), conflicts.stdout());
+    }
+
+    /**
+     * A workspace that only the structured-markdown provider supports publishes under its registered root.
+     *
+     * <p>The markdown reader used to publish its specification file as the project root, so the registered
+     * workspace root and the published one never matched and every such sync ended on a store collision.</p>
+     */
+    @Test
+    void syncsAMarkdownOnlyWorkspaceUnderItsRegisteredRoot() throws Exception {
+        Path workspace = tempDirectory.resolve("markdown-only");
+        Path specification = workspace.resolve("morpheus/specification.md");
+        Files.createDirectories(specification.getParent());
+        Files.copy(fixture("openspec-basic").resolve("morpheus/specification.md"), specification);
+        Path data = tempDirectory.resolve("markdown-only-data");
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        register(data, projectId, workspace);
+
+        Invocation sync = invokeWithData(
+                data, "--json", "composition", "sync", "--project", projectId.toString());
+
+        assertEquals(0, sync.exitCode(), sync.stderr());
+        assertTrue(sync.stdout().contains("\"primaryProviderId\":\"structured-markdown\""), sync.stdout());
+        assertFalse(sync.stderr().contains("collision"), sync.stderr());
     }
 
     private void register(Path data, ProjectSpecificationId projectId, Path workspace) {
