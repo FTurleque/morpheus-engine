@@ -151,6 +151,31 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     }
 
     /**
+     * The verified staging copy does not outlive its JVM by default, and its name does not announce its content.
+     *
+     * <p>Both boundaries stage through the same factory, so the property is held there once. The explicit deletion
+     * by each caller stays the normal path; marking the copy for deletion at exit covers a JVM that ends before it
+     * runs. What a kill or a crash still leaves behind is stated in SECURITY.md rather than swept at startup.</p>
+     */
+    @Test
+    void theVerifiedStagingCopyIsDeletedAtExitNamedWithoutThePinAndItsResidueIsStated() throws IOException {
+        Path root = repositoryRoot();
+        String integrity = Files.readString(root.resolve(
+                "morpheus-application/src/main/java/com/morpheus/application/security/ExternalJarIntegrity.java"));
+        String security = Files.readString(root.resolve("SECURITY.md"));
+
+        assertTrue(integrity.contains("Files.createTempFile(\"morpheus-trusted-plugin-\", \".jar\")"),
+                "the staging copy must be named by a fixed prefix and the temporary-file factory alone");
+        assertTrue(integrity.contains("staged.toFile().deleteOnExit();"),
+                "the staging copy must be marked for deletion when its JVM exits");
+        assertFalse(integrity.contains("expected.substring("),
+                "no part of the pin may appear in the staging file name");
+        assertTrue(security.contains("### Verified staging copies")
+                        && security.contains("The residue is **not** guaranteed away"),
+                "SECURITY.md must keep stating what a killed or crashed JVM leaves behind");
+    }
+
+    /**
      * Every source that runs external code says, in its own file, that it is not a sandbox.
      *
      * <p>Someone reading only one of these classes must not be able to conclude that MORPHEUS confines what the

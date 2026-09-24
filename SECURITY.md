@@ -60,6 +60,12 @@ The two external-code boundaries give different guarantees, because only one of 
 
 Neither guarantee is a sandbox. Operators who need a hard bound on what an external process can leave running must run MORPHEUS under an OS-level container or job/cgroup that owns the whole tree.
 
+### Verified staging copies
+
+A pinned JAR — a provider plugin, or a MINOS/NEXUS gateway JAR — is never loaded from its configured path. It is copied to a private temporary file named `morpheus-trusted-plugin-*.jar`, hardened so that only the MORPHEUS account can write it (`LocalWritePermissionHardener`), and verified against its pin; only that copy is ever loaded or launched. The name carries no part of the pin. Each user deletes its copy explicitly once it no longer needs it, and the copy is also marked for deletion when the JVM exits, so a JVM that ends before that explicit deletion runs does not leave it behind.
+
+The residue is **not** guaranteed away. A JVM killed by `SIGKILL`/`TerminateProcess` — which on Windows is also how a timed-out probe worker ends — or lost to a crash leaves its copy in the temporary directory, and on Windows a copy still open when the JVM exits — held by a class loader or by a peer process still running it — cannot be deleted then either. What remains is an inert, owner-writable copy of a JAR whose SHA-256 already matched a pin; it is never used again, since every activation or launch stages a fresh copy. MORPHEUS does not sweep the temporary directory at startup: telling a residue apart from the live copy of another running instance is not possible from its name alone, and a concurrent deletion would be worse than an inert file.
+
 ## Supply chain
 
 Repository CI includes dependency convergence checks, OWASP Dependency-Check, CodeQL, CycloneDX SBOM generation, exact-head qualification, and Linux/Windows release provenance. GitHub Actions used by release workflows are pinned to immutable commit SHAs.
