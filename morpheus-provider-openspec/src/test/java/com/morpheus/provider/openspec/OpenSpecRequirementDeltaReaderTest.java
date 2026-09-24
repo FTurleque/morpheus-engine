@@ -309,8 +309,8 @@ class OpenSpecRequirementDeltaReaderTest {
     }
 
     @Test
-    void aClosedTildeFenceGivesBackTheSectionHeadingsThatFollowIt(@TempDir Path workspace) throws Exception {
-        writeDelta(workspace, "tilde", """
+    void aShorterRunOfTheSameCharacterDoesNotCloseAFence(@TempDir Path workspace) throws Exception {
+        assertOnlyTheSectionAfterTheFenceIsNamed(workspace, """
                 # Delta
 
                 ## ADDED Requirements
@@ -320,7 +320,7 @@ class OpenSpecRequirementDeltaReaderTest {
 
                 ~~~~
                 ## Overview
-                ```
+                ~~~
                 ## Still inside
                 ~~~~
 
@@ -329,11 +329,90 @@ class OpenSpecRequirementDeltaReaderTest {
                 ### Requirement: Keep the audit trail
                 The system SHALL keep the audit trail.
                 """);
+    }
+
+    @Test
+    void aRunOfTheOtherCharacterDoesNotCloseAFence(@TempDir Path workspace) throws Exception {
+        assertOnlyTheSectionAfterTheFenceIsNamed(workspace, """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Render headings
+                The renderer SHALL render level-two headings.
+
+                ~~~~
+                ## Overview
+                ````
+                ## Still inside
+                ~~~~
+
+                ## Notes
+
+                ### Requirement: Keep the audit trail
+                The system SHALL keep the audit trail.
+                """);
+    }
+
+    @Test
+    void aFenceRunFollowedByTextDoesNotCloseAFence(@TempDir Path workspace) throws Exception {
+        assertOnlyTheSectionAfterTheFenceIsNamed(workspace, """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Render headings
+                The renderer SHALL render level-two headings.
+
+                ```
+                ## Overview
+                ``` not a closing fence
+                ## Still inside
+                ```
+
+                ## Notes
+
+                ### Requirement: Keep the audit trail
+                The system SHALL keep the audit trail.
+                """);
+    }
+
+    @Test
+    void aFenceIsRecognizedAtAnyIndentationAsUpstreamOpenSpecDoes(@TempDir Path workspace) throws Exception {
+        writeDelta(workspace, "indented", """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Render headings
+                The renderer SHALL render level-two headings, for example:
+                    ```markdown
+                ## Overview
+                    ```
+
+                ### Requirement: Render lists
+                The renderer SHALL render lists.
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(List.of("ADDED Render headings", "ADDED Render lists"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertEquals(
+                "The renderer SHALL render level-two headings, for example: ```markdown",
+                result.requirementDeltas().getFirst().statement().orElseThrow());
+        assertTrue(result.diagnostics().isEmpty());
+        assertEquals(0, result.skippedRequirements());
+    }
+
+    private void assertOnlyTheSectionAfterTheFenceIsNamed(Path workspace, String delta) throws Exception {
+        writeDelta(workspace, "fenced", delta);
 
         var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
 
         assertEquals(List.of("ADDED Render headings"), result.requirementDeltas().stream()
-                .map(delta -> delta.kind() + " " + delta.title())
+                .map(item -> item.kind() + " " + item.title())
                 .toList());
         assertEquals("Notes", only(result.diagnostics(), DiagnosticCode.UNRECOGNIZED_SECTION)
                 .details().get("section"));

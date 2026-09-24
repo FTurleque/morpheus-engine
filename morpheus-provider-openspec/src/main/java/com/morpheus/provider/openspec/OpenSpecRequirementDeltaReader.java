@@ -46,7 +46,12 @@ public final class OpenSpecRequirementDeltaReader {
             "^##\\s+RENAMED\\s+Requirements\\s*$",
             Pattern.CASE_INSENSITIVE);
     private static final String SECTION_PREFIX = "## ";
-    private static final Pattern CODE_FENCE = Pattern.compile("^ {0,3}(`{3,}|~{3,})(.*)$");
+    private static final String UPSTREAM_WHITESPACE =
+            "[\\t\\n\\u000B\\f\\r \\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]";
+    private static final Pattern OPENING_FENCE = Pattern.compile(
+            "^" + UPSTREAM_WHITESPACE + "*(`{3,}|~{3,})");
+    private static final Pattern CLOSING_FENCE = Pattern.compile(
+            "^" + UPSTREAM_WHITESPACE + "*(`{3,}|~{3,})" + UPSTREAM_WHITESPACE + "*$");
     private static final Pattern REQUIREMENT_HEADING = Pattern.compile("^###\\s+Requirement:\\s*(.+?)\\s*$");
     private static final Pattern SCENARIO_HEADING = Pattern.compile("^####\\s+Scenario:\\s*(.+?)\\s*$");
     private static final Pattern SCENARIO_STEP = Pattern.compile(
@@ -382,26 +387,29 @@ public final class OpenSpecRequirementDeltaReader {
     }
 
     /**
-     * Marks every line of a fenced code block, delimiters included. A fence closes only on a run of its own character
-     * at least as long as the opening one, with nothing after it, as in CommonMark.
+     * Marks every line of a fenced code block, delimiters included, by the rules of upstream OpenSpec's
+     * {@code buildCodeFenceMask}, the format these files are written for: a fence opens on a run of three or more
+     * backticks or tildes after any whitespace, whatever follows, and closes only on a run of its own character at
+     * least as long as the opening one with nothing but whitespace after it. Whitespace is JavaScript's {@code \s}.
      */
     private static boolean[] codeFenceMask(List<String> lines) {
         boolean[] fenced = new boolean[lines.size()];
         String opening = null;
         for (int index = 0; index < lines.size(); index++) {
-            Matcher fence = CODE_FENCE.matcher(lines.get(index));
+            String line = lines.get(index);
             if (opening == null) {
-                if (fence.matches() && !(fence.group(1).charAt(0) == '`' && fence.group(2).contains("`"))) {
+                Matcher fence = OPENING_FENCE.matcher(line);
+                if (fence.lookingAt()) {
                     opening = fence.group(1);
                     fenced[index] = true;
                 }
                 continue;
             }
             fenced[index] = true;
+            Matcher fence = CLOSING_FENCE.matcher(line);
             if (fence.matches()
                     && fence.group(1).charAt(0) == opening.charAt(0)
-                    && fence.group(1).length() >= opening.length()
-                    && fence.group(2).isBlank()) {
+                    && fence.group(1).length() >= opening.length()) {
                 opening = null;
             }
         }

@@ -173,10 +173,22 @@ placée avant toute section reconnue était jetée sans rien dire, et la catégo
 1. **Une section termine la précédente.** Toute ligne qui commence par `## `, hors bloc de code clôturé, et qui n'est
    pas une section de delta normalisée remet le genre courant à « aucun ». Le genre ne traverse plus une section
    étrangère.
-2. **Une ligne `## ` dans un bloc de code clôturé (```` ``` ```` ou `~~~`) n'est pas une section.** Elle ne remet pas le
-   genre à zéro et ne produit aucun diagnostic. C'est ce que fait le format OpenSpec amont, qui masque les blocs de
-   code avant de chercher les titres `##` : une exigence qui montre un exemple Markdown contenant `## Overview` est un
-   document bien formé, et les exigences qui la suivent dans la même section gardent leur genre.
+2. **Une ligne `## ` non reconnue, dans un bloc de code clôturé, ne termine pas la section.** Elle ne remet pas le
+   genre à zéro et ne produit aucun diagnostic : une exigence qui montre un exemple Markdown contenant `## Overview`
+   est un document bien formé, et les exigences qui la suivent dans la même section gardent leur genre.
+
+   **La référence est OpenSpec amont**, pas CommonMark : c'est le format pour lequel ces fichiers sont écrits. Le
+   masque reproduit `buildCodeFenceMask` (`src/core/parsers/code-fence.ts`) : un bloc s'ouvre sur une suite d'au
+   moins trois ```` ` ```` ou `~`, précédée de n'importe quelle indentation et suivie de n'importe quoi ; il ne se
+   ferme que sur une suite **du même caractère**, **au moins aussi longue**, suivie **uniquement d'espaces** ; les
+   espaces sont ceux du `\s` de JavaScript. CommonMark limiterait l'indentation à trois espaces et refuserait une
+   info string contenant un ```` ` ```` : suivre CommonMark ferait, par exemple, disparaître une exigence placée
+   après un bloc indenté de quatre espaces contenant `## Overview` en colonne 0, que `develop` conservait et
+   qu'OpenSpec tient pour bien formé.
+
+   **Portée du masque : les seules sections non reconnues.** Une ligne `## ADDED|MODIFIED|REMOVED Requirements` ou
+   `### Requirement:` écrite dans un bloc de code reste interprétée, exactement comme avant ce correctif (voir « Hors
+   périmètre »).
 3. **`## RENAMED Requirements` est reconnue, pas normalisée.** C'est une des quatre sections du format de delta
    OpenSpec amont (ADDED / MODIFIED / REMOVED / RENAMED). Elle termine la section précédente sans avertissement ; son
    contenu (lignes `FROM:` / `TO:`) n'est pas normalisé, `RequirementDeltaKind` n'ayant pas de genre de renommage.
@@ -209,8 +221,9 @@ catégorie restée `READ` ; réutiliser `UNSUPPORTED_SOURCE` aurait signifié «
   `openspec-state-matrix/openspec/changes/archive/...`, n'est jamais lu : `listChangeRoots` exclut `archive`.
 - **Le piège : la troncature d'une exigence est inchangée.** `requirementEnd` s'arrêtait déjà sur toute ligne `## `,
   qu'elle soit ou non dans un bloc de code, donc une ligne `##` écrite dans le corps d'une exigence la tronquait déjà ;
-  ce prédicat n'est pas modifié. Hors bloc de code, cette ligne termine désormais aussi la section et elle est nommée.
-  Dans un bloc de code, elle ne termine que l'exigence, comme avant : le genre est conservé, et rien n'est signalé.
+  ce prédicat n'est pas modifié et n'utilise pas le masque. Hors bloc de code, cette ligne termine désormais aussi la
+  section et elle est nommée. Dans un bloc de code, elle ne termine que l'exigence, comme avant : le genre est
+  conservé, et rien n'est signalé.
 
 ### Hors périmètre, laissé ouvert
 
@@ -219,6 +232,11 @@ catégorie restée `READ` ; réutiliser `UNSUPPORTED_SOURCE` aurait signifié «
   ATX valides en CommonMark mais ne le satisfont pas : une exigence placée dessous hérite encore du genre précédent,
   exactement comme avant ce correctif.
 - La troncature du corps d'une exigence sur une ligne `## ` placée dans un bloc de code reste le défaut préexistant.
+- **Le masque ne couvre que les sections non reconnues.** Un exemple de code contenant `## REMOVED Requirements`
+  change encore le genre des exigences qui suivent — une exigence `ADDED` peut ainsi sortir `REMOVED`, variante de la
+  suppression fantôme d'origine —, et un `### Requirement:` écrit dans un exemple crée encore une exigence fantôme.
+  C'est le comportement de `develop`, inchangé. OpenSpec amont masque les trois cas (`requirement-blocks.ts`) ; les
+  masquer ici sortirait du reset que ce constat exige et changerait des deltas aujourd'hui publiés.
 
 ### Preuves exécutables ajoutées
 
@@ -229,7 +247,11 @@ catégorie restée `READ` ; réutiliser `UNSUPPORTED_SOURCE` aurait signifié «
   `#theRenamedSectionIsRecognizedAndEndsThePreviousSectionWithoutAWarning`,
   `#aLevelTwoHeadingInsideARequirementStillEndsItsBody`, `#theStateMatrixDeltasReadExactlyAsBeforeWithoutAnyDiagnostic`.
 - `OpenSpecRequirementDeltaReaderTest#aLevelTwoLineInsideACodeFenceNeitherEndsTheSectionNorWarns` et
-  `#aClosedTildeFenceGivesBackTheSectionHeadingsThatFollowIt` — mêmes deltas, même `statement` tronqué qu'avant ce
-  correctif pour le premier ; le second prouve qu'une clôture ```` ``` ```` ne ferme pas un bloc ouvert par `~~~~`.
+  `#aFenceIsRecognizedAtAnyIndentationAsUpstreamOpenSpecDoes` — mêmes deltas et même `statement` tronqué que sur
+  `develop`, aucun diagnostic.
+- Une garde de fermeture par test, chacune prouvée seule en la retirant :
+  `#aShorterRunOfTheSameCharacterDoesNotCloseAFence` (`~~~` dans `~~~~`, longueur),
+  `#aRunOfTheOtherCharacterDoesNotCloseAFence` (```` ```` ```` dans `~~~~`, caractère),
+  `#aFenceRunFollowedByTextDoesNotCloseAFence` (```` ``` ```` suivi de texte dans ```` ``` ````).
 - `OpenSpecSpecificationContentReaderTest#aSkippedRequirementDeltaMakesTheCategoryPartialInsteadOfRead` et
   `#aLevelTwoLineInsideACodeFenceLeavesTheCategoryRead`.
