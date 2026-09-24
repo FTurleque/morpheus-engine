@@ -158,6 +158,47 @@ Les critères d'acceptation sont démontrés :
 
 Les warnings JDK 24 `--enable-native-access=ALL-UNNAMED` de SQLite et SLF4J NOP d'ArchUnit restent non bloquants et ne justifient aucune dépendance de production supplémentaire à ce stade.
 
+## Amendement du 24 septembre 2026 (PRV-1) — la racine publiée par un lecteur est la racine du workspace reçue
+
+### Le contrat ne disait pas ce qu'est la racine d'un projet
+
+`ProviderReadRequest` porte la racine du workspace, `ProjectSpecification` porte un `rootLocator`, et rien ne reliait
+les deux. Trois lecteurs publiaient la racine reçue, chacun avec sa propre expression ; le lecteur Markdown structuré
+publiait le fichier qu'il lisait (`morpheus/specification.md`). La publication compare ce `rootLocator`, caractère
+par caractère, avec la racine sous laquelle le projet a été enregistré (`morpheus projects add`) : dès que le
+provider Markdown était primaire — un workspace sans OpenSpec — `composition sync` échouait sur
+`project identity collision`. Un workspace uniquement Markdown ne pouvait pas être publié.
+
+### Décision
+
+La racine de projet publiée par un lecteur **est la racine du workspace qu'il a reçue**, normalisée par un point
+unique : `ProviderProjectRoot.locator(Path)` (`com.morpheus.application.read`), qui rend
+`SourceLocator.file(workspaceRoot.toAbsolutePath().normalize().toString())` — exactement l'expression qu'employaient
+déjà les lecteurs OpenSpec, de référence et synthétique, qui ne changent donc pas de chaîne publiée. Un lecteur qui
+publie autre chose rend sa propre publication impossible. Les évidences et provenances continuent de nommer le
+fichier où elles ont été observées : seule la racine du projet change.
+
+Le point vit dans `morpheus-application`, à côté de `ProviderReadRequest`, et non dans `morpheus-provider-sdk` : les
+providers intégrés (`openspec`, `markdown`, `synthetic`) ne dépendent pas du SDK, et lui ajouter cette arête mettrait
+la mécanique de découverte et de probe des plugins sur leur classpath pour une seule méthode ; le contrat de lecture
+est déjà applicatif (voir « Contrat applicatif » plus haut), et le SDK, le testkit et tout plugin le voient
+transitivement.
+
+### Preuves exécutables ajoutées
+
+- `ProviderProjectRootTest#spellsEveryWorkspaceExactlyAsBothFormerReaderExpressionsDid` — chemins relatif, absolu,
+  avec `..`, avec `.` et avec séparateurs `\` : le point unique rend la même chaîne que les deux expressions
+  antérieures.
+- `ProviderPluginContractAssertions.verifyRead` (testkit publié) échoue quand le contenu publié porte une autre racine
+  que `ProviderProjectRoot.locator(request.workspaceRoot())`, comparée en `SourceLocator` et non en `Path`.
+- `ProviderProjectRootArchitectureTest` — assertion textuelle sur les sources de tous les modules
+  `morpheus-provider-*` (le troisième argument de `new ProjectSpecification(` est `ProviderProjectRoot.locator(...)`,
+  y compris dans `morpheus-provider-reference`, hors classpath ArchUnit) et règle ArchUnit (toute classe qui construit
+  un `ProjectSpecification` appelle `ProviderProjectRoot.locator`), les deux selon ADR-0103.
+- `StructuredMarkdownSpecificationContentReaderTest#publishesTheWorkspaceRootAsProjectRootAndKeepsTheFileAsEvidenceSource`
+  et `MorpheusCompositionCliTest#syncsAMarkdownOnlyWorkspaceUnderItsRegisteredRoot` — rouges avant le correctif, le
+  second sur `project identity collision`.
+
 ## Amendement du 24 septembre 2026 (PRV-3) — une lecture en échec nomme le fichier en cause
 
 ### Le défaut

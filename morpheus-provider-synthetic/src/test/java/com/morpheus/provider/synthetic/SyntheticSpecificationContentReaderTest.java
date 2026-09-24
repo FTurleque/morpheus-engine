@@ -1,6 +1,7 @@
 package com.morpheus.provider.synthetic;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryStatus;
@@ -49,6 +50,25 @@ class SyntheticSpecificationContentReaderTest {
                 new InMemoryResolver());
         assertTrue(result.content().isEmpty());
         assertFalse(result.diagnostics().isEmpty());
+    }
+
+    /**
+     * The project root is the workspace this reader received, spelled by the single point.
+     *
+     * <p>The architecture rule only proves the root argument starts with {@code ProviderProjectRoot.locator(};
+     * this test holds what goes inside it. The workspace is handed over un-normalized on purpose.</p>
+     */
+    @Test
+    void publishesTheWorkspaceItReceivedAsProjectRoot() {
+        Path workspace = fixture("synthetic-basic");
+
+        var content = reader.read(
+                ProviderReadRequest.all(workspace.resolve("nested").resolve(".."), ProjectSpecificationId.generate()),
+                new InMemoryResolver())
+                .content()
+                .orElseThrow();
+
+        assertEquals(ProviderProjectRoot.locator(workspace), content.project().rootLocator());
     }
 
     @Test

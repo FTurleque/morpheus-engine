@@ -2,6 +2,7 @@ package com.morpheus.provider.reference;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ReadCategory;
@@ -73,7 +74,7 @@ public final class ReferenceSpecificationContentReader implements SpecificationC
         ProjectSpecification project = new ProjectSpecification(
                 request.projectId(),
                 "MORPHEUS Reference Project",
-                SourceLocator.file(workspace.toString()));
+                ProviderProjectRoot.locator(workspace));
         NormalizedProjectContent content = new NormalizedProjectContent(
                 project,
                 specifications,

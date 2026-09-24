@@ -232,6 +232,8 @@ Un plugin ne doit pas fabriquer une identité MORPHEUS à partir d’un simple c
 
 Pour les données normalisées, la provenance doit conserver le `ProviderId`, la source et l’évidence réellement observée. Le template M22 montre ce flux avec une `Specification`, une `Evidence` et une `Provenance`.
 
+La racine du projet publié (`ProjectSpecification.rootLocator`) n’est pas une source : c’est la racine du workspace que le lecteur a reçue, obtenue par `ProviderProjectRoot.locator(request.workspaceRoot())` (`com.morpheus.application.read`). La publication la compare caractère par caractère avec la racine sous laquelle le projet a été enregistré ; un lecteur qui publie le fichier qu’il a lu, ou la racine normalisée autrement, rend sa propre publication impossible (ADR-0028, amendement PRV-1). Les évidences et provenances, elles, nomment le fichier où elles ont été observées.
+
 ## 10. Test kit
 
 `morpheus-provider-testkit` fournit `ProviderPluginContractAssertions.verify(...)` et
@@ -249,8 +251,15 @@ Pour les données normalisées, la provenance doit conserver le `ProviderId`, la
 `verifyRead(...)` exerce ensuite `SpecificationContentReader.read(...)` sur le workspace fourni,
 en demandant toutes les `ReadCategory` : il vérifie que le `providerId` du résultat correspond aux
 métadonnées du plugin, qu'une lecture répétée sur le même workspace avec le même état de résolveur
-d'identité produit un résultat rigoureusement identique (déterminisme), et qu'un rapport est
-présent pour chaque catégorie demandée — y compris celles non supportées par le provider.
+d'identité produit un résultat rigoureusement identique (déterminisme), qu'un rapport est
+présent pour chaque catégorie demandée — y compris celles non supportées par le provider — et, quand un
+contenu est publié, que sa racine de projet vaut `ProviderProjectRoot.locator(...)` du workspace reçu
+(comparée en `SourceLocator`, la valeur que la publication stocke et compare, et non en `Path`).
+
+Le résolveur d'identité du test kit indexe par `EntityIdentityKey`, la clé du résolveur de production : deux
+triplets `(ProviderId, type, identifiant externe)` distincts reçoivent deux identités même si leur concaténation
+coïncide (un identifiant peut contenir `|`), et un triplet qui ne diffère que par des blancs de bord reçoit la
+même identité, comme en production.
 
 Le provider `morpheus-provider-reference` consomme réellement les deux méthodes du test kit.
 
