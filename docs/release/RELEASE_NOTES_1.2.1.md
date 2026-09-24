@@ -3,7 +3,9 @@
 Statut : **EN PRÉPARATION — NON PUBLIÉE**
 
 `1.2.1` est la baseline corrective de développement. Elle ne devient une release publiée qu'après création du tag et
-qualification de ses artefacts (suivi #185, voir [`../developer/PRODUCT_VERSION.md`](../developer/PRODUCT_VERSION.md)).
+qualification de ses artefacts (suivi #185, critère de clôture dans
+[`../validation/RELEASE_QUALIFICATION.md`](../validation/RELEASE_QUALIFICATION.md) ; version courante dans
+[`../developer/PRODUCT_VERSION.md`](../developer/PRODUCT_VERSION.md)).
 Cette page recense, au fil des corrections, les changements qu'un utilisateur de 1.2.0 doit connaître avant de migrer.
 Elle ne revendique aucune publication.
 
