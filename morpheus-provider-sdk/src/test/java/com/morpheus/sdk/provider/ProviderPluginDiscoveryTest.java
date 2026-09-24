@@ -1,6 +1,7 @@
 package com.morpheus.sdk.provider;
 
 import com.morpheus.application.security.ExternalJarIntegrity;
+import com.morpheus.application.security.ServerLocationDisclosure;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -8,6 +9,7 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Properties;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -97,10 +99,40 @@ class ProviderPluginDiscoveryTest {
         assertEquals(requested.toAbsolutePath().normalize().toString(), declared.details().get("directory"));
         assertEquals(resolved.toString(), declared.details().get("resolvedDirectory"));
 
+        assertEquals("true", declared.details().get("pathResolved"));
+
         String remote = ProviderPluginViews.remoteDiscovery(result).toString();
         assertTrue(remote.contains("PLUGIN_DIRECTORY_PATH_RESOLVED"), remote);
         assertFalse(remote.contains(resolved.toString()) || remote.contains(requested.toString()),
                 "neither the configured nor the resolved pathname may reach a remote caller: " + remote);
+    }
+
+    /**
+     * The remote projection is asserted against the production disclosure rule itself, not an approximation of it:
+     * the fact of the resolution crosses, its target does not, and the message stays true without the details.
+     */
+    @Test
+    void theRemoteProjectionOfAResolutionCarriesTheFactAndNoServerLocation() throws Exception {
+        Path real = Files.createDirectories(directory.resolve("real").resolve("plugins"));
+        writeMetadataOnlyJar(real.resolve("provider.jar"), metadata("provider", 1, "1.0.0"));
+        Path alias = directory.resolve("alias");
+        if (!createSymlink(alias, real.getParent()) && !createJunction(alias, real.getParent())) return;
+
+        ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(alias.resolve("plugins"));
+
+        ProviderPluginViews.RemoteProviderDiagnostic projected = ProviderPluginViews.remoteDiscovery(result)
+                .diagnostics().stream()
+                .filter(d -> d.code().equals("PLUGIN_DIRECTORY_PATH_RESOLVED"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("resolution must reach the remote view: " + result));
+        assertEquals(Map.of("pathResolved", "true"), projected.details());
+        assertFalse(ServerLocationDisclosure.namesAServerLocation(projected.message()), projected.message());
+        projected.details().values().forEach(value ->
+                assertFalse(ServerLocationDisclosure.namesAServerLocation(value), value));
+        String localMessage = result.diagnostics().stream()
+                .filter(d -> d.code().equals("PLUGIN_DIRECTORY_PATH_RESOLVED"))
+                .findFirst().orElseThrow().message();
+        assertEquals(localMessage, projected.message(), "the same sentence must be true on both transports");
     }
 
     @Test
