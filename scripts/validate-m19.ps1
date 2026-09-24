@@ -322,8 +322,11 @@ try {
     if ($mavenExitCode -ne 0) { throw 'Maven Wrapper --version failed' }
     $script:Results['Toolchain'] = 'PASS'
 
+    # verify, not test: the architecture suite this reactor runs reads the JaCoCo reports and the packaged
+    # morpheus-provider-reference JAR, and neither exists after `clean test`. The coverage gate and the
+    # provider-plugin contract failed here for that reason alone. Every other validator uses verify.
     Invoke-LoggedStage -Name 'Full Maven reactor' -FilePath (Join-Path $repoRoot 'mvnw.cmd') `
-        -Arguments @('clean', 'test') -LogName '02-full-reactor.log'
+        -Arguments @('clean', 'verify') -LogName '02-full-reactor.log'
     $script:FullTestSummary = Get-SurefireTotals $repoRoot
     $script:ArchitectureTestSummary = Get-SurefireTotals (Join-Path $repoRoot 'morpheus-architecture-tests')
     Write-Host ('M19_TESTS full={0} failures={1} errors={2} skipped={3}' -f

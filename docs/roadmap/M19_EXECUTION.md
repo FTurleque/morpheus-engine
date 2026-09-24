@@ -216,7 +216,7 @@ Validator responsibilities :
 ```text
 workspace / SHA
 toolchain
-clean test full reactor
+clean verify full reactor
 M19 reproducible performance gates
 robustness tests
 Windows packaging

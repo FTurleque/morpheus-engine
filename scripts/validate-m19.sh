@@ -220,7 +220,9 @@ chmod +x ./mvnw distribution/build-portable.sh
 ./mvnw --version 2>&1 | tee "$LOG_ROOT/01-maven-version.log"
 record "Toolchain" "PASS"
 
-run_stage "Full Maven reactor" "02-full-reactor.log" ./mvnw clean test
+# verify, not test: the architecture suite this reactor runs reads the JaCoCo reports and the packaged
+# morpheus-provider-reference JAR, and neither exists after `clean test`. Every other validator uses verify.
+run_stage "Full Maven reactor" "02-full-reactor.log" ./mvnw clean verify
 FULL_TEST_SUMMARY="$(surefire_totals "$REPO_ROOT")"
 ARCHITECTURE_TEST_SUMMARY="$(surefire_totals "$REPO_ROOT/morpheus-architecture-tests")"
 echo "M19_TESTS full=$FULL_TEST_SUMMARY"
