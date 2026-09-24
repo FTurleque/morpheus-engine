@@ -20,9 +20,12 @@ import java.util.jar.JarFile;
 /**
  * Explicit, metadata-only discovery of provider plugin JARs.
  *
- * <p>This class never creates a ClassLoader or ServiceLoader. Discovery refuses symbolic links and revalidates the
- * candidate file identity immediately before and after metadata inspection so a concurrent replacement is rejected
- * instead of being silently accepted. Executable activation has the stronger boundary: it requires a SHA-256 pin and
+ * <p>This class never creates a ClassLoader or ServiceLoader. Discovery refuses a symbolic plugin directory and
+ * symbolic JARs, and revalidates the candidate file identity immediately before and after metadata inspection so a
+ * concurrent replacement is rejected instead of being silently accepted. A linked <em>ancestor</em> of the plugin
+ * directory is an ordinary deployment and is followed: discovery scans the directory's real path and declares it
+ * with {@code PLUGIN_DIRECTORY_PATH_RESOLVED} whenever it differs from the configured one, so an operator always
+ * sees which tree was read. Executable activation has the stronger boundary: it requires a SHA-256 pin and
  * loads only an owner-hardened verified staging copy.</p>
  */
 public final class ProviderPluginDiscovery {
@@ -59,9 +62,17 @@ public final class ProviderPluginDiscovery {
         }
 
         List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>();
+        Path enumerated;
         BoundedJarSelection selection;
         try {
-            selection = selectJars(directory);
+            enumerated = directory.toRealPath();
+            if (!enumerated.equals(directory)) {
+                diagnostics.add(ProviderPluginDiagnostic.info(
+                        "PLUGIN_DIRECTORY_PATH_RESOLVED",
+                        "Provider plugin directory was reached through a linked ancestor; its real path was scanned",
+                        Map.of("directory", directory.toString(), "resolvedDirectory", enumerated.toString())));
+            }
+            selection = selectJars(enumerated);
         } catch (IOException failure) {
             return new ProviderPluginDiscoveryResult(
                     directory,
@@ -83,7 +94,7 @@ public final class ProviderPluginDiscovery {
         }
 
         List<ProviderPluginCandidate> candidates = selection.jars().stream().map(this::inspect).toList();
-        return new ProviderPluginDiscoveryResult(directory, candidates, diagnostics);
+        return new ProviderPluginDiscoveryResult(enumerated, candidates, diagnostics);
     }
 
     private BoundedJarSelection selectJars(Path directory) throws IOException {

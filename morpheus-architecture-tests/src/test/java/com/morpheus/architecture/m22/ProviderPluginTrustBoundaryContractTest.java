@@ -73,6 +73,8 @@ class ProviderPluginTrustBoundaryContractTest {
 
         assertTrue(discovery.contains("LinkOption.NOFOLLOW_LINKS"));
         assertTrue(discovery.contains("Files.isSymbolicLink"));
+        assertTrue(discovery.contains(".toRealPath()") && discovery.contains("\"PLUGIN_DIRECTORY_PATH_RESOLVED\""),
+                "a linked ancestor must be resolved and declared, so the operator sees which tree was scanned");
         assertTrue(discovery.contains("This class never creates a ClassLoader or ServiceLoader"),
                 "the metadata-only contract must stay stated where it is implemented");
         assertFalse(discovery.contains("new URLClassLoader"), "discovery must never load a class");
