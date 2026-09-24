@@ -190,6 +190,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
                 OpenSpecRequirementDeltaReader.ReadResult deltas = deltaReader.read(
                         request.workspaceRoot(), identityResolver, budget);
                 state.requirementDeltas.addAll(deltas.requirementDeltas());
+                state.skippedRequirementDeltas = deltas.skippedRequirements();
                 state.evidence.addAll(deltas.evidence());
                 addDistinct(diagnostics, deltas.diagnostics());
             } catch (ProviderIngestionLimitException exception) {
@@ -282,6 +283,14 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             return ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0);
         }
         int count = state.requirementDeltas.size();
+        if (state.skippedRequirementDeltas > 0) {
+            return new ReadCategoryReport(
+                    category,
+                    ReadCategoryStatus.PARTIAL,
+                    count,
+                    List.of(DiagnosticCode.PARTIAL_INGESTION),
+                    Optional.of("at least one requirement lies outside any requirement delta section"));
+        }
         return ReadCategoryReport.of(
                 category,
                 count == 0 ? ReadCategoryStatus.ABSENT : ReadCategoryStatus.READ,
@@ -399,5 +408,6 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         private boolean changeFailed;
         private boolean deltaAttempted;
         private boolean deltaFailed;
+        private int skippedRequirementDeltas;
     }
 }
