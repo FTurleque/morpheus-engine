@@ -6,6 +6,7 @@ import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
@@ -133,17 +134,18 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
             ProviderIngestionBudget.Session budget) throws IOException {
         List<StructuredMarkdownBlockParser.Block> blocks = parser.parse(sourceText);
         budget.addBlocks(blocks.size(), StructuredMarkdownSpecificationProvider.SOURCE_FILE);
-        SourceLocator source = SourceLocator.file(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
+        SourceLocator specificationFile = SourceLocator.file(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
         Normalization result = new Normalization();
         String displayName = request.workspaceRoot().getFileName() == null
                 ? request.workspaceRoot().toString()
                 : request.workspaceRoot().getFileName().toString();
-        result.project = new ProjectSpecification(request.projectId(), displayName, source);
+        result.project = new ProjectSpecification(
+                request.projectId(), displayName, ProviderProjectRoot.locator(request.workspaceRoot()));
 
         for (StructuredMarkdownBlockParser.Block block : blocks) {
             budget.addEvidenceFragment(block.raw(), StructuredMarkdownSpecificationProvider.SOURCE_FILE);
             String externalId = block.type() + ":" + block.required("key");
-            Evidence evidence = blockEvidence(identities, externalId, source, block);
+            Evidence evidence = blockEvidence(identities, externalId, specificationFile, block);
             result.evidence.add(evidence);
             result.blocks.add(new ParsedBlock(block, externalId, evidence.id()));
         }

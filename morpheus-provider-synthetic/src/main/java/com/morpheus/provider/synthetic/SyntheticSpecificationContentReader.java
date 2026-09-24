@@ -6,6 +6,7 @@ import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
@@ -264,7 +265,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
         ProjectSpecification project = new ProjectSpecification(
                 request.projectId(),
                 displayName,
-                SourceLocator.file(request.workspaceRoot().toString()));
+                ProviderProjectRoot.locator(request.workspaceRoot()));
 
         budget.addEntities(
                 1L + requirements.size() + scenarios.size() + changes.size()
