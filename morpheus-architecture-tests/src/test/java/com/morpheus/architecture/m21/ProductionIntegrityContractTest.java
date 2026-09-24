@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.cli.CliExitCode;
+import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
+import com.morpheus.integration.minos.MinosIntegrationSettings;
+import com.morpheus.integration.nexus.NexusIntegrationSettings;
 import com.morpheus.mcp.MorpheusMcpServer;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,6 +35,22 @@ class ProductionIntegrityContractTest {
     void mcpServerExitCodesConvergeWithTheCliExitCodeTable() {
         assertEquals(CliExitCode.SUCCESS.code(), MorpheusMcpServer.EXIT_END_OF_INPUT);
         assertEquals(CliExitCode.IO_ERROR.code(), MorpheusMcpServer.EXIT_TRANSPORT_FAILURE);
+    }
+
+    /**
+     * ADR-0106, amendment of 24/09/2026: the handler bound is a safety bound, so a handler waiting on a peer at the
+     * longest request timeout an operator may configure must still end by the peer's bounded error. The relation is
+     * asserted over the maximum of every peer ceiling, so a third peer asks the question again instead of slipping
+     * under the bound. This module is the only one that sees the transport and both peer settings.
+     */
+    @Test
+    void theHandlerSafetyBoundKeepsTwiceTheLongestConfigurablePeerTimeout() {
+        long longestPeerTimeoutSeconds = Math.max(
+                MinosIntegrationSettings.MAX_TIMEOUT_SECONDS, NexusIntegrationSettings.MAX_TIMEOUT_SECONDS);
+        long boundSeconds = BoundedStdioServerTransportProvider.DEFAULT_HANDLER_DEADLINE.toSeconds();
+        assertTrue(boundSeconds >= 2 * longestPeerTimeoutSeconds,
+                () -> "handler bound " + boundSeconds + " s must keep twice the longest peer timeout "
+                        + longestPeerTimeoutSeconds + " s");
     }
 
     @Test

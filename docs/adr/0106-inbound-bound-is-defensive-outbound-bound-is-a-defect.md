@@ -235,3 +235,40 @@ Deux situations différentes, deux réponses différentes.
   handler est annulé. Rouge avant le changement (le lecteur restait bloqué au-delà des dix secondes d'attente du test).
 - `aHandlerWithinItsDeadlineIsServedNormally` — non-régression, vert des deux côtés ;
   `theDeadlineMustBePositiveAndDefaultsToTheProductionBound`.
+
+## Amendement du 24 septembre 2026 (MCP-9) — la borne de sécurité garde deux fois le plus long délai de pair
+
+### 4 bis. « Très au-dessus de tout handler sain » était faux au maximum supporté
+
+Le §4 ci-dessus choisit `DEFAULT_HANDLER_DEADLINE` « très au-dessus de tout handler sain » et affirme que « tout ce
+qui est câblé est borné en amont ». Vérifié à la date de cet amendement, la seconde phrase est vraie et la première ne
+l'était qu'au réglage par défaut : `MinosIntegrationSettings` et `NexusIntegrationSettings` acceptent un
+`requestTimeout` jusqu'à `MAX_TIMEOUT_SECONDS` = 120 s, par propriété ou variable d'environnement, soit **exactement**
+les deux minutes de la borne. Un opérateur qui règle un pair à son maximum autorisé crée un handler légitime qui
+consomme tout le budget de sécurité avant même le travail local : la borne se déclenche à la place du délai du pair,
+et la session MCP meurt au lieu que l'outil rende une erreur bornée. Le §4 reste tel qu'écrit ; cet amendement dit
+ce qui change.
+
+**Marge exigée.** La borne vaut au moins **deux fois** le plus long `requestTimeout` configurable parmi tous les
+pairs. Elle passe de deux à **quatre minutes**. Le facteur couvre le travail local qui précède et suit l'appel au
+pair ; il ne fait pas de la borne un délai de service.
+
+**Pourquoi c'est la borne qui bouge, et non le plafond des pairs.** Abaisser `MAX_TIMEOUT_SECONDS` restreindrait une
+configuration que des déploiements utilisent peut-être déjà, et ferait échouer au démarrage un réglage jusque-là
+valide. Relever une borne qui ne doit jamais se déclencher ne coûte rien à un handler sain ; le seul coût est qu'un
+handler réellement bloqué est détecté deux minutes plus tard, ce qui ne change pas la nature de la réponse — la
+session échoue fermé, comme au §4.
+
+**Ce qui tient la relation.** Aucun des deux modules ne voit l'autre : le transport ne connaît pas les pairs, et les
+pairs n'ont pas à connaître la borne du serveur. `morpheus-architecture-tests` est le seul module qui voit les trois,
+comme pour la convergence des codes de sortie du §2. Le test y exprime la **relation**, pas les nombres : il prend le
+`max` des plafonds de tous les pairs, de sorte qu'un troisième pair ajouté un jour repose la question au lieu de
+passer sous la borne sans que rien ne le signale.
+
+### Preuves exécutables ajoutées
+
+- `ProductionIntegrityContractTest#theHandlerSafetyBoundKeepsTwiceTheLongestConfigurablePeerTimeout` — exige
+  `DEFAULT_HANDLER_DEADLINE >= 2 * max(MinosIntegrationSettings.MAX_TIMEOUT_SECONDS,
+  NexusIntegrationSettings.MAX_TIMEOUT_SECONDS)`. Rouge avant le changement (120 s contre 240 s exigées).
+- `BoundedStdioServerTransportProviderHandlerDeadlineTest#theDeadlineMustBePositiveAndDefaultsToTheProductionBound`
+  épingle la nouvelle valeur.
