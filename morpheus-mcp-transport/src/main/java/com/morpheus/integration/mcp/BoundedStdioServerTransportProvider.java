@@ -57,8 +57,11 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
     public static final String RESPONSE_TOO_LARGE = "MCP_RESPONSE_TOO_LARGE";
     /** Keeps the substitute error fixed-size whatever its owner supplies. */
     public static final int MAX_GUIDANCE_CHARS = 256;
-    /** Far above any healthy handler; every wired handler is bounded upstream well below it. */
-    public static final Duration DEFAULT_HANDLER_DEADLINE = Duration.ofMinutes(2);
+    /**
+     * At least twice the longest peer request timeout an operator may configure, so a legitimate handler waiting on
+     * a peer at its maximum still ends by the peer's own bounded error, never by this bound (ADR-0106, 24/09/2026).
+     */
+    public static final Duration DEFAULT_HANDLER_DEADLINE = Duration.ofMinutes(4);
 
     private static final System.Logger LOGGER =
             System.getLogger(BoundedStdioServerTransportProvider.class.getName());
