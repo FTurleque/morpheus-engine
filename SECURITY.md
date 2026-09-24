@@ -60,6 +60,10 @@ The two external-code boundaries give different guarantees, because only one of 
 
 Neither guarantee is a sandbox. Operators who need a hard bound on what an external process can leave running must run MORPHEUS under an OS-level container or job/cgroup that owns the whole tree.
 
+### Plugin directory resolution and the remote view
+
+A plugin directory that is itself a symbolic link is refused, but a linked *ancestor* — an installation directory mounted elsewhere — is followed: discovery scans the directory's real path and declares it with the `PLUGIN_DIRECTORY_PATH_RESOLVED` diagnostic, whose details carry the configured path (`directory`) and the real path (`resolvedDirectory`). Those two pathnames are local only. The remote view learns **that** a resolution happened — the diagnostic's code and its `pathResolved` detail cross the boundary — and never **towards what**: server pathnames reveal the host's layout, so both are withheld by the detail allowlist and would be refused by the value policy (`ServerLocationDisclosure`) even if a key were admitted. A remote operator who sees the signal checks the deployment on the host; the CLI shows both paths.
+
 ### Verified staging copies
 
 A pinned JAR — a provider plugin, or a MINOS/NEXUS gateway JAR — is never loaded from its configured path. It is copied to a private temporary file named `morpheus-trusted-plugin-*.jar`, hardened so that only the MORPHEUS account can write it (`LocalWritePermissionHardener`), and verified against its pin; only that copy is ever loaded or launched. The name carries no part of the pin. Each user deletes its copy explicitly once it no longer needs it, and the copy is also marked for deletion when the JVM exits, so a JVM that ends before that explicit deletion runs does not leave it behind.
