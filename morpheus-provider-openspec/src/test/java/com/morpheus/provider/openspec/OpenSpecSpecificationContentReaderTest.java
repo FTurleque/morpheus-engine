@@ -192,6 +192,75 @@ class OpenSpecSpecificationContentReaderTest {
     }
 
     @Test
+    void aRefusedReadKeepsItsCauseAndNamesTheFileWithForwardSlashesOnEveryPlatform(@TempDir Path workspace)
+            throws Exception {
+        writeValidSpecification(workspace, "alpha");
+        Files.write(workspace.resolve("openspec/specs/alpha/spec.md"), new byte[] {'#', ' ', (byte) 0xC3, (byte) 0x28});
+
+        var result = new OpenSpecSpecificationContentReader().read(
+                request(workspace, EnumSet.of(ReadCategory.CURRENT_SPECIFICATIONS)),
+                new StableTestIdentityResolver());
+
+        Diagnostic failure = singleInvalidSource(result);
+        assertEquals(Optional.of("openspec/specs/alpha/spec.md"), failure.source());
+        assertTrue(failure.message().contains(
+                "openspec/specs/alpha/spec.md: workspace file is not valid UTF-8: openspec/specs/alpha/spec.md"),
+                failure.message());
+        assertNamesNoServerLocation(failure);
+    }
+
+    @Test
+    void aProposalWithoutIntentIsNamedAsTheFileAtFault(@TempDir Path workspace) throws Exception {
+        writeChange(workspace, "# Proposal: Missing intent\n\n## Scope\n\n- nothing\n", null, null);
+
+        Diagnostic failure = singleInvalidSource(new OpenSpecSpecificationContentReader().read(
+                request(workspace, EnumSet.of(ReadCategory.CHANGES)), new StableTestIdentityResolver()));
+
+        assertEquals(Optional.of("openspec/changes/demo/proposal.md"), failure.source());
+        assertTrue(failure.message().contains("openspec/changes/demo/proposal.md: OpenSpec change has no Intent"),
+                failure.message());
+        assertNamesNoServerLocation(failure);
+    }
+
+    @Test
+    void aDesignDecisionWithoutBodyIsNamedAsTheDesignFileNotTheProposal(@TempDir Path workspace) throws Exception {
+        writeChange(workspace, VALID_PROPOSAL, "# Design\n\n## Decisions\n\n### Empty decision\n", null);
+
+        Diagnostic failure = singleInvalidSource(new OpenSpecSpecificationContentReader().read(
+                request(workspace, EnumSet.of(ReadCategory.DESIGN_DECISIONS)), new StableTestIdentityResolver()));
+
+        assertEquals(Optional.of("openspec/changes/demo/design.md"), failure.source());
+        assertTrue(failure.message().contains("openspec/changes/demo/design.md: OpenSpec design decision has no body"),
+                failure.message());
+        assertNamesNoServerLocation(failure);
+    }
+
+    @Test
+    void aMalformedRequirementDeltaIsNamedAsItsDeltaFile(@TempDir Path workspace) throws Exception {
+        writeChange(workspace, VALID_PROPOSAL, null, """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Half a scenario
+                The system SHALL describe a complete scenario.
+
+                #### Scenario: Missing then
+                - **WHEN** the delta is read
+                """);
+
+        var result = new OpenSpecSpecificationContentReader().read(
+                request(workspace, EnumSet.of(ReadCategory.REQUIREMENT_DELTAS)), new StableTestIdentityResolver());
+
+        Diagnostic failure = singleInvalidSource(result);
+        assertEquals(Optional.of("openspec/changes/demo/specs/auth/spec.md"), failure.source());
+        assertTrue(failure.message().contains("openspec/changes/demo/specs/auth/spec.md: OpenSpec delta scenario"),
+                failure.message());
+        assertEquals("requirement-deltas", failure.details().get("group"));
+        assertNamesNoServerLocation(failure);
+    }
+
+    @Test
     void unsupportedProviderProbeReturnsNoContentAndExplicitFailure(@TempDir Path workspace) throws Exception {
         Path openspec = workspace.resolve("openspec");
         Files.createDirectories(openspec);
@@ -261,6 +330,22 @@ class OpenSpecSpecificationContentReaderTest {
                 - **WHEN** the reader runs
                 - **THEN** %s is normalized
                 """.formatted(key, key, key, key, key));
+    }
+
+    private static final String VALID_PROPOSAL = "# Proposal: Demo\n\n## Intent\n\nExercise attribution.\n";
+
+    private static void writeChange(Path workspace, String proposal, String design, String delta) throws Exception {
+        Path change = Files.createDirectories(workspace.resolve("openspec/changes/demo"));
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Files.writeString(change.resolve("proposal.md"), proposal);
+        if (design != null) {
+            Files.writeString(change.resolve("design.md"), design);
+        }
+        if (delta != null) {
+            Path deltaFile = change.resolve("specs/auth/spec.md");
+            Files.createDirectories(deltaFile.getParent());
+            Files.writeString(deltaFile, delta);
+        }
     }
 
     private static Diagnostic singleInvalidSource(ProviderReadResult result) {

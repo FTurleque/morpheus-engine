@@ -185,10 +185,23 @@ remplacée par son type, selon la même décision que `ServerLocationDisclosure`
 écrits par le lecteur lui-même ne portent plus de chemin absolu, puisque l'attribution fournit le chemin relatif.
 `invalidSource` applique la même décision une seconde fois, à tout ce qu'il reçoit, attribué ou non.
 
-**L'attribution garde la catégorie de sa cause.** Un contenu invalide reste une `IllegalArgumentException`, tout autre
-échec devient une `IllegalStateException` ; un dépassement de budget n'est pas attribué — il nomme déjà sa source en
-relatif, et ses appelants abandonnent la lecture entière. Les surfaces qui distinguent ces deux catégories (codes de
-sortie CLI, statut HTTP de la synchronisation) répondent comme avant.
+**Une attribution ne change pas la catégorie d'un échec.** Seuls les trois échecs qu'un fichier peut causer par son
+contenu ou sa lecture sont attribués, chacun dans sa propre catégorie : une `IllegalArgumentException` reste une
+`IllegalArgumentException`, une `IllegalStateException` reste une `IllegalStateException`, une `UncheckedIOException`
+reste une `UncheckedIOException` sur la même `IOException`. Tout le reste passe **inchangé et non attribué** : un défaut
+(`NullPointerException`, dépassement arithmétique), un échec d'un collaborateur (magasin d'identités, persistance) ou
+un dépassement de budget. Un défaut n'est pas un échec de contenu d'un fichier, et nommer un fichier pour un échec du
+magasin d'identités accuserait un fichier innocent. Vérifié route par route contre `develop` : la synchronisation HTTP
+locale et remote (400 pour `IllegalArgumentException`, 409 pour `IllegalStateException` et `KnowledgeStoreException`,
+500 pour le reste), la CLI `sync` et `analyze-change` (codes de sortie `USAGE`, `STATE_ERROR`, `INTERNAL_ERROR` sur les
+mêmes catégories) et la CLI `composition sync` (échec du groupe converti en diagnostic, puis `STATE_ERROR` sur le refus
+de publication) répondent avec le même statut et le même code de sortie qu'avant, pour tout type d'exception.
+
+**Un chemin relatif s'écrit avec `/` sur toutes les plateformes.** `SafeWorkspaceFileResolver` et
+`ProviderIngestionBudget` écrivaient le chemin relatif de leurs refus (fichier non UTF-8, lien symbolique, fichier absent,
+budget dépassé) avec le séparateur de la plateforme. Sous Windows le `\` fait rejeter le texte entier par
+`ServerLocationDisclosure`, et la cause était remplacée par son type là où Linux la relayait. Ces messages écrivent
+désormais le chemin comme `SourceLocator` : le même refus se lit à l'identique sur les deux plateformes.
 
 **Le refus de publication dit pourquoi.** `ProjectSnapshotImportService` inclut dans son refus les diagnostics
 bloquants, borné à ce que `ServerLocationDisclosure.isSafeToRelay` accepte : ce refus atteint la CLI et, par le
@@ -211,3 +224,18 @@ Faire du groupe un `PARTIAL` exigerait de garder les fichiers valides, ce qui es
 - `ProjectSnapshotImportContractTest#aRejectedPublicationNamesTheFileThatFailedToReadRelativeToTheWorkspace` et
   `#aRejectedPublicationWithholdsABlockingDiagnosticThatNamesAServerLocationAndSaysSo` — le refus de publication, sur
   le store mémoire, nomme le fichier, reste relayable, et retient en le disant un diagnostic qui nomme un chemin absolu.
+- `ProjectSnapshotImportContractTest#aRejectedPublicationStaysWithinTheRelayedBoundAndCountsTheDiagnosticsItDoesNotShow`
+  — vingt diagnostics bloquants : le refus tient dans `MAX_RELAYED_LENGTH` et se termine par le compte exact de ceux
+  qu'il ne montre pas.
+- `OpenSpecProjectContentReaderTest#anAttributedFailureKeepsTheCategoryEverySurfaceMapsToAStatus` et
+  `#aFailureThatIsNotTheFilesPassesThroughUnchangedAndUnattributed` — les trois catégories attribuées gardent leur type
+  (et la même `IOException` pour la troisième) ; un dépassement arithmétique et un échec de collaborateur ressortent
+  comme la même instance.
+- `MorpheusApiProjectSyncIntegrationTest#aSyncRefusedForInvalidContentIsABadRequestThatNamesTheFileRelativeToTheWorkspace`
+  et `MorpheusCliTest#aSyncRefusedForInvalidContentIsAUsageErrorThatNamesTheFileRelativeToTheWorkspace` — un contenu
+  invalide reste un 400 et un `USAGE`, avec le fichier en relatif.
+- `OpenSpecSpecificationContentReaderTest#aProposalWithoutIntentIsNamedAsTheFileAtFault`,
+  `#aDesignDecisionWithoutBodyIsNamedAsTheDesignFileNotTheProposal` et `#aMalformedRequirementDeltaIsNamedAsItsDeltaFile`
+  — l'attribution nomme le fichier le plus interne hors du groupe `current`.
+- `OpenSpecSpecificationContentReaderTest#aRefusedReadKeepsItsCauseAndNamesTheFileWithForwardSlashesOnEveryPlatform`
+  — un fichier non UTF-8 garde sa cause et son chemin en `/` sous Windows.

@@ -155,6 +155,40 @@ class ProjectSnapshotImportContractTest {
     }
 
     @Test
+    void aRejectedPublicationStaysWithinTheRelayedBoundAndCountsTheDiagnosticsItDoesNotShow() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        var snapshots = new MemorySpecificationKnowledgeStore();
+        var service = new ProjectSnapshotImportService(
+                snapshots,
+                snapshots,
+                new MemorySnapshotBusinessContentStore(snapshots, snapshots),
+                new MemoryTraceabilityStore(snapshots));
+        NormalizedProjectContent valid = new OpenSpecProjectContentReader().read(
+                fixture("openspec-basic"), projectId, new PersistentEntityIdentityResolver(snapshots));
+        List<Diagnostic> blocking = java.util.stream.IntStream.rangeClosed(1, 20)
+                .mapToObj(index -> Diagnostic.error(
+                        DiagnosticCode.INVALID_SOURCE,
+                        "openspec/specs/file-" + index + "/spec.md: OpenSpec specification has no title",
+                        Map.of()))
+                .toList();
+        NormalizedProjectContent invalid = new NormalizedProjectContent(
+                valid.project(), valid.specifications(), valid.requirements(), valid.scenarios(), valid.changes(),
+                valid.requirementDeltas(), valid.constraints(), valid.designDecisions(), valid.tasks(), valid.evidence(),
+                blocking);
+
+        KnowledgeStoreException failure = assertThrows(KnowledgeStoreException.class, () ->
+                service.publishFull(invalid, Optional.of("rev-many"), T0));
+
+        String message = failure.getMessage();
+        assertTrue(message.length() <= ServerLocationDisclosure.MAX_RELAYED_LENGTH, message.length() + ": " + message);
+        assertTrue(ServerLocationDisclosure.isSafeToRelay(message), message);
+        assertTrue(message.contains("openspec/specs/file-1/spec.md"), message);
+        assertFalse(message.contains("openspec/specs/file-20/spec.md"), message);
+        long shown = java.util.regex.Pattern.compile("INVALID_SOURCE: ").matcher(message).results().count();
+        assertTrue(message.endsWith("; " + (20 - shown) + " more not shown"), message);
+    }
+
+    @Test
     void sqliteReopenPreservesPublishedImport() {
         Path database = tempDir.resolve("m9-import.db");
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();

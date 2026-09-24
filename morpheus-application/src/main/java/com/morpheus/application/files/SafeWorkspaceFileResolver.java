@@ -47,7 +47,7 @@ public final class SafeWorkspaceFileResolver {
         Path lexical = lexical(relativePath);
         rejectSymbolicComponents(lexical);
         if (!Files.isDirectory(lexical, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IllegalArgumentException("workspace directory does not exist: " + relativePath);
+            throw new IllegalArgumentException("workspace directory does not exist: " + portable(relativePath));
         }
         return requireContainedRealPath(lexical, relativePath);
     }
@@ -56,7 +56,7 @@ public final class SafeWorkspaceFileResolver {
         Path lexical = lexical(relativePath);
         rejectSymbolicComponents(lexical);
         if (!Files.isRegularFile(lexical, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IllegalArgumentException("workspace file does not exist or is not regular: " + relativePath);
+            throw new IllegalArgumentException("workspace file does not exist or is not regular: " + portable(relativePath));
         }
         return requireContainedRealPath(lexical, relativePath);
     }
@@ -172,7 +172,7 @@ public final class SafeWorkspaceFileResolver {
                     .decode(ByteBuffer.wrap(content))
                     .toString();
         } catch (CharacterCodingException failure) {
-            throw new IllegalArgumentException("workspace file is not valid UTF-8: " + relativePath, failure);
+            throw new IllegalArgumentException("workspace file is not valid UTF-8: " + portable(relativePath), failure);
         }
     }
 
@@ -182,7 +182,16 @@ public final class SafeWorkspaceFileResolver {
 
     private IllegalArgumentException changedDuringRead(Path relativePath) {
         return new IllegalArgumentException("workspace file changed identity or metadata (including content) during read: "
-                + relativePath);
+                + portable(relativePath));
+    }
+
+    /**
+     * A workspace-relative path as a failure names it: with {@code /} on every platform, as {@code SourceLocator} writes
+     * it. A backslash separator would make the same refusal read differently on Windows, and boundary filters reject
+     * any backslash as a possible server location, so the cause would be lost there and relayed elsewhere.
+     */
+    private static String portable(Path relativePath) {
+        return relativePath.toString().replace('\\', '/');
     }
 
     public Path lexicalRoot() {
@@ -218,7 +227,7 @@ public final class SafeWorkspaceFileResolver {
             Path noFollow = current.toRealPath(LinkOption.NOFOLLOW_LINKS);
             Path followed = current.toRealPath();
             if (Files.isSymbolicLink(current) || !noFollow.equals(followed)) {
-                throw new IllegalArgumentException("symbolic workspace path is not allowed: " + relative);
+                throw new IllegalArgumentException("symbolic workspace path is not allowed: " + portable(relative));
             }
         }
     }
@@ -226,7 +235,7 @@ public final class SafeWorkspaceFileResolver {
     private Path requireContainedRealPath(Path lexical, Path relativePath) throws IOException {
         Path real = lexical.toRealPath();
         if (!real.startsWith(realRoot)) {
-            throw new IllegalArgumentException("canonical path escapes workspace: " + relativePath);
+            throw new IllegalArgumentException("canonical path escapes workspace: " + portable(relativePath));
         }
         return real;
     }
