@@ -55,24 +55,20 @@ public final class ProviderPluginService {
         String requestedPluginId = requireText(pluginId, "pluginId");
         String trustedSha256 = ExternalJarIntegrity.normalizeSha256(expectedSha256);
         ProviderPluginDiscoveryResult result = discovery.discover(pluginDirectory);
+        Outcomes outcomes = new Outcomes(requestedPluginId, result.diagnostics());
         List<ProviderPluginCandidate> matches = result.candidates().stream()
                 .filter(item -> item.metadata().map(metadata -> metadata.pluginId().equals(requestedPluginId)).orElse(false))
                 .toList();
         if (matches.isEmpty()) {
-            List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(result.diagnostics());
-            diagnostics.add(ProviderPluginDiagnostic.error(
+            return outcomes.unselected(List.of(), ProviderPluginDiagnostic.error(
                     "PLUGIN_NOT_FOUND",
                     "Requested provider plugin was not discovered",
                     Map.of("pluginId", requestedPluginId, "directory", result.directory().toString())));
-            return new ProviderPluginProbeOutcome(requestedPluginId, "", Optional.empty(), Optional.empty(), diagnostics);
         }
         if (matches.size() > 1) {
-            return new ProviderPluginProbeOutcome(
-                    requestedPluginId,
-                    "",
-                    Optional.empty(),
-                    Optional.empty(),
-                    List.of(ProviderPluginDiagnostic.error(
+            return outcomes.unselected(
+                    matches.stream().flatMap(candidate -> candidate.diagnostics().stream()).toList(),
+                    ProviderPluginDiagnostic.error(
                             "PLUGIN_ID_AMBIGUOUS",
                             "Multiple provider plugin JARs declare the requested plugin id; no plugin was activated",
                             Map.of(
@@ -82,17 +78,12 @@ public final class ProviderPluginService {
                                             .map(candidate -> candidate.jarPath().getFileName().toString())
                                             .sorted()
                                             .reduce((left, right) -> left + "," + right)
-                                            .orElse("")))));
+                                            .orElse(""))));
         }
 
         ProviderPluginCandidate selected = matches.getFirst();
         if (!selected.compatible()) {
-            return new ProviderPluginProbeOutcome(
-                    requestedPluginId,
-                    selected.jarPath().toString(),
-                    selected.metadata(),
-                    Optional.empty(),
-                    selected.diagnostics());
+            return outcomes.selected(selected, Optional.empty());
         }
 
         try {
@@ -100,34 +91,21 @@ public final class ProviderPluginService {
             // so a path swap between this check and process launch cannot bypass the trusted SHA-256 pin.
             ExternalJarIntegrity.verifySha256(selected.jarPath(), trustedSha256);
         } catch (IllegalArgumentException integrityFailure) {
-            List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
-            diagnostics.add(ProviderPluginDiagnostic.error(
+            return outcomes.selected(selected, Optional.empty(), ProviderPluginDiagnostic.error(
                     "PLUGIN_INTEGRITY_VERIFICATION_FAILED",
                     "Provider plugin was rejected before activation because its SHA-256 pin did not match",
                     Map.of(
                             "pluginId", requestedPluginId,
                             "reason", safeMessage(integrityFailure),
                             "reasonType", failureType(integrityFailure))));
-            return new ProviderPluginProbeOutcome(
-                    requestedPluginId,
-                    selected.jarPath().toString(),
-                    selected.metadata(),
-                    Optional.empty(),
-                    diagnostics);
         }
 
         // Past this point the pin has matched, so no failure may be reported as an integrity rejection.
         try {
             ProviderProbeResult probe = probeProcess.probe(selected, workspaceRoot, trustedSha256);
-            return new ProviderPluginProbeOutcome(
-                    requestedPluginId,
-                    selected.jarPath().toString(),
-                    selected.metadata(),
-                    Optional.of(probe),
-                    selected.diagnostics());
+            return outcomes.selected(selected, Optional.of(probe));
         } catch (ProviderPluginProbeProcessException failure) {
-            List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
-            diagnostics.add(ProviderPluginDiagnostic.error(
+            return outcomes.selected(selected, Optional.empty(), ProviderPluginDiagnostic.error(
                     failure.timeout() ? "PLUGIN_PROBE_TIMEOUT" : "PLUGIN_ACTIVATION_OR_PROBE_FAILED",
                     failure.timeout()
                             ? "Provider plugin probe exceeded its isolated execution deadline and was terminated"
@@ -136,27 +114,14 @@ public final class ProviderPluginService {
                             "pluginId", requestedPluginId,
                             "reason", safeMessage(failure),
                             "reasonType", failureType(failure))));
-            return new ProviderPluginProbeOutcome(
-                    requestedPluginId,
-                    selected.jarPath().toString(),
-                    selected.metadata(),
-                    Optional.empty(),
-                    diagnostics);
         } catch (RuntimeException | LinkageError failure) {
-            List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
-            diagnostics.add(ProviderPluginDiagnostic.error(
+            return outcomes.selected(selected, Optional.empty(), ProviderPluginDiagnostic.error(
                     "PLUGIN_ACTIVATION_OR_PROBE_FAILED",
                     "Provider plugin activation or probe failed without terminating MORPHEUS",
                     Map.of(
                             "pluginId", requestedPluginId,
                             "reason", safeMessage(failure),
                             "reasonType", failureType(failure))));
-            return new ProviderPluginProbeOutcome(
-                    requestedPluginId,
-                    selected.jarPath().toString(),
-                    selected.metadata(),
-                    Optional.empty(),
-                    diagnostics);
         }
     }
 
@@ -179,5 +144,40 @@ public final class ProviderPluginService {
      */
     private static String failureType(Throwable failure) {
         return failure.getClass().getSimpleName();
+    }
+
+    /**
+     * The single construction point of a probe outcome.
+     *
+     * <p>Diagnostics arrive in one stable order: the directory's, then the candidate's, then the branch's own. A
+     * truncated scan is reported whatever became of the requested plugin — it matters most precisely when the plugin
+     * was found, because that is when the operator can still act on it.</p>
+     */
+    private record Outcomes(String pluginId, List<ProviderPluginDiagnostic> directoryDiagnostics) {
+        ProviderPluginProbeOutcome unselected(
+                List<ProviderPluginDiagnostic> candidateDiagnostics, ProviderPluginDiagnostic branchDiagnostic) {
+            return outcome("", Optional.empty(), Optional.empty(), candidateDiagnostics, List.of(branchDiagnostic));
+        }
+
+        ProviderPluginProbeOutcome selected(
+                ProviderPluginCandidate candidate,
+                Optional<ProviderProbeResult> probe,
+                ProviderPluginDiagnostic... branchDiagnostics) {
+            return outcome(
+                    candidate.jarPath().toString(), candidate.metadata(), probe,
+                    candidate.diagnostics(), List.of(branchDiagnostics));
+        }
+
+        private ProviderPluginProbeOutcome outcome(
+                String jarPath,
+                Optional<ProviderPluginMetadata> metadata,
+                Optional<ProviderProbeResult> probe,
+                List<ProviderPluginDiagnostic> candidateDiagnostics,
+                List<ProviderPluginDiagnostic> branchDiagnostics) {
+            List<ProviderPluginDiagnostic> diagnostics = new ArrayList<>(directoryDiagnostics);
+            diagnostics.addAll(candidateDiagnostics);
+            diagnostics.addAll(branchDiagnostics);
+            return new ProviderPluginProbeOutcome(pluginId, jarPath, metadata, probe, diagnostics);
+        }
     }
 }
