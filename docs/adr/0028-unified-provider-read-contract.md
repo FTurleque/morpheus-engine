@@ -307,3 +307,96 @@ catégorie restée `READ` ; réutiliser `UNSUPPORTED_SOURCE` aurait signifié «
   fermé décrit ci-dessus (`REMOVED` hérité, aucun diagnostic), égal à `develop`.
 - `OpenSpecSpecificationContentReaderTest#aSkippedRequirementDeltaMakesTheCategoryPartialInsteadOfRead` et
   `#aLevelTwoLineInsideACodeFenceLeavesTheCategoryRead`.
+
+## Amendement du 24 septembre 2026 (PRV-3) — une lecture en échec nomme le fichier en cause
+
+### Le défaut
+
+Le lecteur OpenSpec rapportait l'échec d'un groupe (`current`, `changes`, `requirement-deltas`) par un `INVALID_SOURCE`
+qui ne portait que le nom du groupe et le type de l'exception. Le message de l'exception, qui désignait le fichier —
+`OpenSpec specification has no title: <chemin>` —, était jeté, et le champ `source` de `Diagnostic` restait vide.
+Le diagnostic étant bloquant, la publication échouait ensuite sur `normalized content contains blocking diagnostics`
+sans que rien, ni dans le diagnostic ni dans le refus, ne dise quel fichier corriger. Les lecteurs Markdown et
+synthétique reportent le message de leur exception : l'omission n'était pas une politique de non-divulgation, c'était
+une perte.
+
+### Décision
+
+**Un échec de lecture nomme le fichier en cause, en chemin relatif à la racine du workspace.** Le diagnostic
+`INVALID_SOURCE` porte ce chemin dans `source`, et son message porte le chemin et la cause.
+
+**L'attribution se fait à la source, pas dans le diagnostic.** Chaque lecteur OpenSpec normalise ses fichiers un par
+un ; c'est là que le fichier est connu, et c'est là que l'échec est rattaché à lui (`OpenSpecSourceAttribution`). La
+variante écartée — relativiser dans `invalidSource` à partir de `request.workspaceRoot()` — demandait de retrouver un
+chemin dans un texte : le texte peut venir de la plateforme (`NoSuchFileException` ne porte que le chemin absolu), le
+chemin peut y apparaître sous une autre forme (séparateurs, lien résolu), et un chemin à moitié retiré d'une phrase
+reste un chemin. Aucun texte n'est donc réécrit : une cause dont le texte nomme un emplacement du serveur est
+remplacée par son type, selon la même décision que `ServerLocationDisclosure` applique aux frontières. Les messages
+écrits par le lecteur lui-même ne portent plus de chemin absolu, puisque l'attribution fournit le chemin relatif.
+`invalidSource` applique la même décision une seconde fois, à tout ce qu'il reçoit, attribué ou non.
+
+**Une attribution ne change pas la catégorie d'un échec.** Seuls les trois échecs qu'un fichier peut causer par son
+contenu ou sa lecture sont attribués, chacun dans sa propre catégorie : une `IllegalArgumentException` reste une
+`IllegalArgumentException`, une `IllegalStateException` reste une `IllegalStateException`, une `UncheckedIOException`
+reste une `UncheckedIOException` sur la même `IOException`. Tout le reste passe **inchangé et non attribué** : un défaut
+(`NullPointerException`, dépassement arithmétique), un échec d'un collaborateur (magasin d'identités, persistance) ou
+un dépassement de budget. Un défaut n'est pas un échec de contenu d'un fichier, et nommer un fichier pour un échec du
+magasin d'identités accuserait un fichier innocent. Vérifié route par route contre `develop` : la synchronisation HTTP
+locale et remote (400 pour `IllegalArgumentException`, 409 pour `IllegalStateException` et `KnowledgeStoreException`,
+500 pour toute autre exception qu'une lecture de fichier peut lever ; `PublishedHistoryException`, que le serveur mappe
+aussi en 409, ne peut pas naître d'une lecture de fichier), la CLI `sync` et `analyze-change` (codes de sortie `USAGE`, `STATE_ERROR`, `INTERNAL_ERROR` sur les
+mêmes catégories) et la CLI `composition sync` (échec du groupe converti en diagnostic, puis `STATE_ERROR` sur le refus
+de publication) répondent avec le même statut et le même code de sortie qu'avant, pour tout type d'exception.
+
+**Un chemin relatif s'écrit avec `/` sur toutes les plateformes.** `SafeWorkspaceFileResolver` et
+`ProviderIngestionBudget` écrivaient le chemin relatif de leurs refus avec le séparateur de la plateforme : répertoire
+absent, fichier absent ou non régulier, fichier non UTF-8, fichier changé pendant la lecture, lien symbolique, chemin
+canonique hors du workspace, budget dépassé. Sous Windows le `\` fait rejeter le texte entier par
+`ServerLocationDisclosure`, et la cause était remplacée par son type là où Linux la relayait. Ces messages nomment
+désormais le chemin par un point unique, `WorkspaceRelativePathText`, qui joint ses **composants** par `/` : le même
+refus se lit à l'identique sur les deux plateformes. Le chemin n'est pas réécrit caractère par caractère : sous Linux
+`\` est un caractère légal d'un nom, et `docs\proof.md` y est un seul nom, qui doit rester `docs\proof.md` sous peine de
+désigner un autre fichier. Un chemin qui porte une racine n'est pas relatif et reste tel que la plateforme l'écrit.
+
+**Le refus de publication dit pourquoi.** `ProjectSnapshotImportService` inclut dans son refus les diagnostics
+bloquants, borné à ce que `ServerLocationDisclosure.isSafeToRelay` accepte : ce refus atteint la CLI et, par le
+serveur local, les appelants remote. Un diagnostic qui nomme un emplacement du serveur est retenu plutôt que nettoyé,
+ceux qui ne tiennent pas dans la borne sont comptés, et les deux comptes sont écrits dans le refus.
+
+**Le statut de la catégorie ne change pas : `FAILED`.** Un groupe est lu d'un seul appel, et son contenu n'est versé
+dans le résultat qu'au retour de cet appel ; un fichier en échec fait donc tomber le groupe sans qu'aucun élément déjà
+normalisé n'y soit conservé. C'est « lecture tentée mais en échec », pas « contenu valide conservé mais incomplet ».
+Faire du groupe un `PARTIAL` exigerait de garder les fichiers valides, ce qui est un autre changement.
+
+### Preuves exécutables ajoutées
+
+- `OpenSpecSpecificationContentReaderTest#aFileWithoutTitleIsNamedRelativeToTheWorkspaceAndItsCauseIsReported` —
+  deux `spec.md` valides et un sans titre : `source` vaut `openspec/specs/broken/spec.md`, le message porte la cause,
+  le groupe est `FAILED` et aucune spécification n'est conservée ; ni message, ni `source`, ni `details` ne nomment un
+  emplacement du serveur.
+- `OpenSpecSpecificationContentReaderTest#aPlatformFailureNamingAnAbsolutePathIsAttributedWithoutRelayingThatPath` —
+  une `UncheckedIOException` dont le texte est un chemin absolu est attribuée au fichier sans que ce chemin soit relayé.
+- `ProjectSnapshotImportContractTest#aRejectedPublicationNamesTheFileThatFailedToReadRelativeToTheWorkspace` et
+  `#aRejectedPublicationWithholdsABlockingDiagnosticThatNamesAServerLocationAndSaysSo` — le refus de publication, sur
+  le store mémoire, nomme le fichier, reste relayable, et retient en le disant un diagnostic qui nomme un chemin absolu.
+- `ProjectSnapshotImportContractTest#aRejectedPublicationStaysWithinTheRelayedBoundAndCountsTheDiagnosticsItDoesNotShow`
+  — vingt diagnostics bloquants : le refus tient dans `MAX_RELAYED_LENGTH` et se termine par le compte exact de ceux
+  qu'il ne montre pas.
+- `OpenSpecProjectContentReaderTest#anAttributedFailureKeepsTheCategoryEverySurfaceMapsToAStatus` et
+  `#aFailureThatIsNotTheFilesPassesThroughUnchangedAndUnattributed` — les trois catégories attribuées gardent leur type
+  (et la même `IOException` pour la troisième) ; un dépassement arithmétique et un échec de collaborateur ressortent
+  comme la même instance.
+- `MorpheusApiProjectSyncIntegrationTest#aSyncRefusedForInvalidContentIsABadRequestThatNamesTheFileRelativeToTheWorkspace`
+  et `MorpheusCliTest#aSyncRefusedForInvalidContentIsAUsageErrorThatNamesTheFileRelativeToTheWorkspace` — un contenu
+  invalide reste un 400 et un `USAGE`, avec le fichier en relatif.
+- `OpenSpecSpecificationContentReaderTest#aProposalWithoutIntentIsNamedAsTheFileAtFault`,
+  `#aDesignDecisionWithoutBodyIsNamedAsTheDesignFileNotTheProposal` et `#aMalformedRequirementDeltaIsNamedAsItsDeltaFile`
+  — l'attribution nomme le fichier le plus interne hors du groupe `current`.
+- `OpenSpecSpecificationContentReaderTest#aRefusedReadKeepsItsCauseAndNamesTheFileWithForwardSlashesOnEveryPlatform`
+  — un fichier non UTF-8 garde sa cause et son chemin en `/` sous Windows.
+- `WorkspaceRelativePathTextTest` — un chemin construit par composants s'écrit `docs/proof.md` partout ;
+  `Path.of("docs\\proof.md")` s'écrit comme la jonction de ses composants, soit `docs/proof.md` sous Windows et
+  `docs\proof.md` sous Linux.
+- `SafeWorkspaceFileResolverTest#aNonRegularFileInASubdirectoryIsNamedWithForwardSlashesAndNoServerLocation` et
+  `ProviderIngestionBudgetTest#aBudgetRefusalNamesAFileInASubdirectoryWithForwardSlashesAndNoServerLocation` — un
+  second refus du résolveur et le refus de budget nomment le fichier en `/`, sans emplacement du serveur.

@@ -1,5 +1,6 @@
 package com.morpheus.application.ingestion;
 
+import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.application.snapshot.SnapshotLifecycleService;
 import com.morpheus.application.snapshot.SnapshotValidationResult;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -36,6 +37,9 @@ import java.util.Optional;
  * observable until the candidate has been fully persisted and validated; activation is the final operation.</p>
  */
 public final class ProjectSnapshotImportService {
+    /** Leaves room for the two trailing counts inside {@link ServerLocationDisclosure#MAX_RELAYED_LENGTH}. */
+    private static final int RELAYED_DIAGNOSTICS_BUDGET = ServerLocationDisclosure.MAX_RELAYED_LENGTH - 96;
+
     private final SpecificationKnowledgeStore snapshotStore;
     private final VersionedRequirementStore requirementStore;
     private final SnapshotBusinessContentStore contentStore;
@@ -127,8 +131,7 @@ public final class ProjectSnapshotImportService {
             KnowledgeSnapshotMetadata validated = lifecycle.validate(
                     candidate.id(), ignored -> validation(content.diagnostics()));
             if (validated.state() != KnowledgeSnapshotState.READY) {
-                throw new KnowledgeStoreException(
-                        "normalized content contains blocking diagnostics; candidate snapshot is " + validated.state());
+                throw new KnowledgeStoreException(blockingDiagnosticsFailure(validated.state(), content.diagnostics()));
             }
             KnowledgeSnapshotMetadata active = lifecycle.activate(candidate.id());
 
@@ -159,6 +162,39 @@ public final class ProjectSnapshotImportService {
         return warnings.isEmpty()
                 ? SnapshotValidationResult.valid()
                 : SnapshotValidationResult.validWithWarnings(warnings);
+    }
+
+    /**
+     * The refusal names the blocking diagnostics, because a publication rejected without them leaves the caller no
+     * way to find the file at fault. It reaches the CLI and, through the local HTTP server, remote callers, so it is
+     * kept within what {@link ServerLocationDisclosure#isSafeToRelay} accepts: a diagnostic that names a server
+     * location is withheld rather than scrubbed, those that do not fit are counted, and both counts are stated.
+     */
+    private String blockingDiagnosticsFailure(KnowledgeSnapshotState state, List<Diagnostic> diagnostics) {
+        StringBuilder message = new StringBuilder(
+                "normalized content contains blocking diagnostics; candidate snapshot is " + state);
+        int withheld = 0;
+        int notShown = 0;
+        for (Diagnostic diagnostic : diagnostics) {
+            if (diagnostic.severity() != DiagnosticSeverity.ERROR) {
+                continue;
+            }
+            String entry = diagnostic.code() + ": " + diagnostic.message();
+            if (ServerLocationDisclosure.namesAServerLocation(entry)) {
+                withheld++;
+            } else if (message.length() + entry.length() + 2 > RELAYED_DIAGNOSTICS_BUDGET) {
+                notShown++;
+            } else {
+                message.append("; ").append(entry);
+            }
+        }
+        if (withheld > 0) {
+            message.append("; ").append(withheld).append(" withheld because they name a server location");
+        }
+        if (notShown > 0) {
+            message.append("; ").append(notShown).append(" more not shown");
+        }
+        return message.toString();
     }
 
     private Optional<String> commonProviderVersion(NormalizedProjectContent content) {

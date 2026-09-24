@@ -128,6 +128,32 @@ class MorpheusApiProjectSyncIntegrationTest {
     }
 
     @Test
+    void aSyncRefusedForInvalidContentIsABadRequestThatNamesTheFileRelativeToTheWorkspace() throws IOException {
+        Path database = tempDirectory.resolve("invalid-content.db");
+        Path workspace = Files.createDirectories(tempDirectory.resolve("untitled-openspec"));
+        Files.createDirectories(workspace.resolve("openspec/specs/broken"));
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                workspace.resolve("openspec/specs/broken/spec.md"),
+                "## Requirements\n\n### Requirement: Untitled\nThe system SHALL reject an untitled specification.\n",
+                StandardCharsets.UTF_8);
+
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            ApiTestSupport.Response created = http.postJson(
+                    server, "/projects", "{\"workspace\":" + http.jsonString(workspace.toString()) + "}");
+            assertEquals(201, created.status(), created.body());
+            String projectId = http.field(created.body(), "projectId");
+
+            ApiTestSupport.Response refused = http.post(server, "/projects/" + projectId + "/sync");
+
+            assertEquals(400, refused.status(), refused.body());
+            assertTrue(refused.body().contains(
+                    "openspec/specs/broken/spec.md: OpenSpec specification has no title"), refused.body());
+            assertFalse(refused.body().contains(workspace.toString()), refused.body());
+        }
+    }
+
+    @Test
     void failedSyncNeverReplacesPreviouslyPublishedActiveSnapshot() throws IOException {
         Path database = tempDirectory.resolve("failure-preservation.db");
         Path workspace = http.copyFixture("openspec-basic", tempDirectory.resolve("mutable-openspec"));

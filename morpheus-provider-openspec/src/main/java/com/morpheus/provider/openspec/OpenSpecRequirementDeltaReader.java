@@ -103,7 +103,7 @@ public final class OpenSpecRequirementDeltaReader {
                     "change:" + changeKey));
             Path specsRoot = changeRoot.resolve("specs");
             for (Path specificationFile : listSpecificationFiles(specsRoot, budget)) {
-                skippedRequirements += normalizeDeltaFile(
+                skippedRequirements += OpenSpecSourceAttribution.attribute(root, specificationFile, () -> normalizeDeltaFile(
                         root,
                         changeKey,
                         changeId,
@@ -113,7 +113,7 @@ public final class OpenSpecRequirementDeltaReader {
                         deltas,
                         evidence,
                         diagnostics,
-                        budget);
+                        budget));
             }
         }
 
@@ -525,7 +525,8 @@ public final class OpenSpecRequirementDeltaReader {
                     .lines()
                     .toList();
         } catch (IOException exception) {
-            throw new IllegalStateException("Cannot read OpenSpec source " + source, exception);
+            throw new IllegalStateException(
+                    "Cannot read OpenSpec source: " + OpenSpecSourceAttribution.relayable(exception), exception);
         }
     }
 

@@ -94,7 +94,7 @@ public final class OpenSpecCurrentSpecificationReader {
         List<Evidence> evidence = new ArrayList<>();
 
         for (Path specificationFile : specificationFiles) {
-            normalizeSpecification(
+            OpenSpecSourceAttribution.attribute(root, specificationFile, () -> normalizeSpecification(
                     root,
                     specsRoot,
                     specificationFile,
@@ -104,7 +104,7 @@ public final class OpenSpecCurrentSpecificationReader {
                     requirements,
                     scenarios,
                     evidence,
-                    budget);
+                    budget));
         }
 
         budget.addBlocks(specifications.size() + requirements.size() + scenarios.size(), "openspec/current");
@@ -140,14 +140,14 @@ public final class OpenSpecCurrentSpecificationReader {
             ProviderIngestionBudget.Session budget) {
         List<String> lines = readAllLines(workspaceRoot, specificationFile, budget);
         if (lines.isEmpty()) {
-            throw new IllegalArgumentException("OpenSpec specification is empty: " + specificationFile);
+            throw new IllegalArgumentException("OpenSpec specification is empty");
         }
 
         String specificationKey = specificationKey(specsRoot, specificationFile);
         String specificationExternalId = "specification:" + specificationKey;
         SourceLocator source = SourceLocator.file(workspaceRoot.relativize(specificationFile).toString());
         String title = firstHeading(lines)
-                .orElseThrow(() -> new IllegalArgumentException("OpenSpec specification has no title: " + specificationFile));
+                .orElseThrow(() -> new IllegalArgumentException("OpenSpec specification has no title"));
         Optional<String> purpose = sectionBody(lines, "## Purpose");
 
         Evidence specificationEvidence = evidence(
@@ -407,7 +407,8 @@ public final class OpenSpecCurrentSpecificationReader {
                     .lines()
                     .toList();
         } catch (IOException exception) {
-            throw new IllegalStateException("Cannot read OpenSpec source " + source, exception);
+            throw new IllegalStateException(
+                    "Cannot read OpenSpec source: " + OpenSpecSourceAttribution.relayable(exception), exception);
         }
     }
 

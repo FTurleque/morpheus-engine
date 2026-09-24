@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
+import com.morpheus.application.security.ServerLocationDisclosure;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -146,6 +147,21 @@ class ProviderIngestionBudgetTest {
 
         assertTrue(failure.getMessage().contains("document bytes"), failure::getMessage);
         assertEquals(0, session.evidenceBytes());
+    }
+
+    @Test
+    void aBudgetRefusalNamesAFileInASubdirectoryWithForwardSlashesAndNoServerLocation(@TempDir Path workspace)
+            throws Exception {
+        Files.createDirectories(workspace.resolve("docs"));
+        Files.writeString(workspace.resolve("docs/big.md"), "123456");
+        ProviderIngestionBudget budget = new ProviderIngestionBudget(5, 3, 30, 10, 10, 10, 6);
+        var session = budget.open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        ProviderIngestionLimitException failure = assertThrows(
+                ProviderIngestionLimitException.class, () -> session.readDocument(Path.of("docs", "big.md")));
+
+        assertTrue(failure.getMessage().contains("exceeds budget for docs/big.md:"), failure::getMessage);
+        assertFalse(ServerLocationDisclosure.namesAServerLocation(failure.getMessage()), failure::getMessage);
     }
 
     /**

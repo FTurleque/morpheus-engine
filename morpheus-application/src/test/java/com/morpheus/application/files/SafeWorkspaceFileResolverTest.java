@@ -1,5 +1,6 @@
 package com.morpheus.application.files;
 
+import com.morpheus.application.security.ServerLocationDisclosure;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -14,6 +15,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -95,6 +97,20 @@ class SafeWorkspaceFileResolverTest {
                 IllegalArgumentException.class,
                 () -> resolver.readUtf8(Path.of("spec.md")));
         assertTrue(failure.getMessage().contains("changed identity or metadata"), failure::getMessage);
+    }
+
+    @Test
+    void aNonRegularFileInASubdirectoryIsNamedWithForwardSlashesAndNoServerLocation() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace-not-regular"));
+        Files.createDirectories(workspace.resolve("docs/proof.md"));
+
+        SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> resolver.readUtf8(Path.of("docs", "proof.md")));
+
+        assertEquals("workspace file does not exist or is not regular: docs/proof.md", failure.getMessage());
+        assertFalse(ServerLocationDisclosure.namesAServerLocation(failure.getMessage()), failure.getMessage());
     }
 
     @Test
