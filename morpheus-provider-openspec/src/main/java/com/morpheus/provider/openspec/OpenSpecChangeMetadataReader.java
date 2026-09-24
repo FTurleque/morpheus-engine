@@ -3,6 +3,7 @@ package com.morpheus.provider.openspec;
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -98,7 +99,7 @@ public final class OpenSpecChangeMetadataReader {
                 "openspec/changes");
 
         String displayName = root.getFileName() == null ? root.toString() : root.getFileName().toString();
-        ProjectSpecification project = new ProjectSpecification(projectId, displayName, SourceLocator.file(root.toString()));
+        ProjectSpecification project = new ProjectSpecification(projectId, displayName, ProviderProjectRoot.locator(root));
         return new NormalizedProjectContent(
                 project,
                 List.of(),

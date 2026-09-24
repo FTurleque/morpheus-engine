@@ -1,6 +1,7 @@
 package com.morpheus.provider.openspec;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
@@ -78,6 +79,24 @@ class OpenSpecCurrentSpecificationReaderTest {
         assertTrue(content.scenarios().stream()
                 .allMatch(item -> content.evidence().stream()
                         .anyMatch(evidence -> evidence.id().equals(item.provenance().evidenceId()))));
+    }
+
+    /**
+     * The project root is the workspace this reader received, spelled by the single point.
+     *
+     * <p>The architecture rule only proves the root argument starts with {@code ProviderProjectRoot.locator(};
+     * this test holds what goes inside it. The workspace is handed over un-normalized on purpose.</p>
+     */
+    @Test
+    void publishesTheWorkspaceItReceivedAsProjectRoot() {
+        Path workspace = fixture("openspec-basic");
+
+        var content = new OpenSpecCurrentSpecificationReader().read(
+                workspace.resolve("openspec").resolve(".."),
+                ProjectSpecificationId.generate(),
+                new StableTestIdentityResolver());
+
+        assertEquals(ProviderProjectRoot.locator(workspace), content.project().rootLocator());
     }
 
     @Test

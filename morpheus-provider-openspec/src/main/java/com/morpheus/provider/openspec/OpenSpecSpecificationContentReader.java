@@ -4,6 +4,7 @@ import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ProviderIngestionLimitException;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ReadCategory;
@@ -24,7 +25,6 @@ import com.morpheus.domain.provider.ProviderProbeStatus;
 import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.requirement.RequirementDelta;
 import com.morpheus.domain.scenario.Scenario;
-import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.task.ImplementationTask;
 
@@ -113,7 +113,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         ProjectSpecification project = new ProjectSpecification(
                 request.projectId(),
                 displayName,
-                SourceLocator.file(root.toString()));
+                ProviderProjectRoot.locator(root));
 
         NormalizedProjectContent content = new NormalizedProjectContent(
                 project,

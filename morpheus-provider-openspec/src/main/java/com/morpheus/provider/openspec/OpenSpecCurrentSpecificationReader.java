@@ -3,6 +3,7 @@ package com.morpheus.provider.openspec;
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.evidence.SourceRange;
@@ -115,7 +116,7 @@ public final class OpenSpecCurrentSpecificationReader {
         ProjectSpecification project = new ProjectSpecification(
                 projectId,
                 displayName,
-                SourceLocator.file(root.toString()));
+                ProviderProjectRoot.locator(root));
 
         return new NormalizedProjectContent(
                 project,
