@@ -56,6 +56,7 @@ docs/governance/DOCUMENTATION_STATUS.md
 docs/validation/README.md
 docs/validation/VALIDATION_R3.md
 docs/release/RELEASE_NOTES_1.2.0.md
+docs/release/RELEASE_NOTES_1.2.1.md
 integration/README.md
 scripts/README.md
 ```
