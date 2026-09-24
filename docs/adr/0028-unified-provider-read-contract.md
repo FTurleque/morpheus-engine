@@ -193,15 +193,20 @@ reste une `UncheckedIOException` sur la même `IOException`. Tout le reste passe
 un dépassement de budget. Un défaut n'est pas un échec de contenu d'un fichier, et nommer un fichier pour un échec du
 magasin d'identités accuserait un fichier innocent. Vérifié route par route contre `develop` : la synchronisation HTTP
 locale et remote (400 pour `IllegalArgumentException`, 409 pour `IllegalStateException` et `KnowledgeStoreException`,
-500 pour le reste), la CLI `sync` et `analyze-change` (codes de sortie `USAGE`, `STATE_ERROR`, `INTERNAL_ERROR` sur les
+500 pour toute autre exception qu'une lecture de fichier peut lever ; `PublishedHistoryException`, que le serveur mappe
+aussi en 409, ne peut pas naître d'une lecture de fichier), la CLI `sync` et `analyze-change` (codes de sortie `USAGE`, `STATE_ERROR`, `INTERNAL_ERROR` sur les
 mêmes catégories) et la CLI `composition sync` (échec du groupe converti en diagnostic, puis `STATE_ERROR` sur le refus
 de publication) répondent avec le même statut et le même code de sortie qu'avant, pour tout type d'exception.
 
 **Un chemin relatif s'écrit avec `/` sur toutes les plateformes.** `SafeWorkspaceFileResolver` et
-`ProviderIngestionBudget` écrivaient le chemin relatif de leurs refus (fichier non UTF-8, lien symbolique, fichier absent,
-budget dépassé) avec le séparateur de la plateforme. Sous Windows le `\` fait rejeter le texte entier par
-`ServerLocationDisclosure`, et la cause était remplacée par son type là où Linux la relayait. Ces messages écrivent
-désormais le chemin comme `SourceLocator` : le même refus se lit à l'identique sur les deux plateformes.
+`ProviderIngestionBudget` écrivaient le chemin relatif de leurs refus avec le séparateur de la plateforme : répertoire
+absent, fichier absent ou non régulier, fichier non UTF-8, fichier changé pendant la lecture, lien symbolique, chemin
+canonique hors du workspace, budget dépassé. Sous Windows le `\` fait rejeter le texte entier par
+`ServerLocationDisclosure`, et la cause était remplacée par son type là où Linux la relayait. Ces messages nomment
+désormais le chemin par un point unique, `WorkspaceRelativePathText`, qui joint ses **composants** par `/` : le même
+refus se lit à l'identique sur les deux plateformes. Le chemin n'est pas réécrit caractère par caractère : sous Linux
+`\` est un caractère légal d'un nom, et `docs\proof.md` y est un seul nom, qui doit rester `docs\proof.md` sous peine de
+désigner un autre fichier. Un chemin qui porte une racine n'est pas relatif et reste tel que la plateforme l'écrit.
 
 **Le refus de publication dit pourquoi.** `ProjectSnapshotImportService` inclut dans son refus les diagnostics
 bloquants, borné à ce que `ServerLocationDisclosure.isSafeToRelay` accepte : ce refus atteint la CLI et, par le
@@ -239,3 +244,9 @@ Faire du groupe un `PARTIAL` exigerait de garder les fichiers valides, ce qui es
   — l'attribution nomme le fichier le plus interne hors du groupe `current`.
 - `OpenSpecSpecificationContentReaderTest#aRefusedReadKeepsItsCauseAndNamesTheFileWithForwardSlashesOnEveryPlatform`
   — un fichier non UTF-8 garde sa cause et son chemin en `/` sous Windows.
+- `WorkspaceRelativePathTextTest` — un chemin construit par composants s'écrit `docs/proof.md` partout ;
+  `Path.of("docs\\proof.md")` s'écrit comme la jonction de ses composants, soit `docs/proof.md` sous Windows et
+  `docs\proof.md` sous Linux.
+- `SafeWorkspaceFileResolverTest#aNonRegularFileInASubdirectoryIsNamedWithForwardSlashesAndNoServerLocation` et
+  `ProviderIngestionBudgetTest#aBudgetRefusalNamesAFileInASubdirectoryWithForwardSlashesAndNoServerLocation` — un
+  second refus du résolveur et le refus de budget nomment le fichier en `/`, sans emplacement du serveur.

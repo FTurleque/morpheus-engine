@@ -2,6 +2,7 @@ package com.morpheus.application.read;
 
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.files.WorkspaceFileTooLargeException;
+import com.morpheus.application.files.WorkspaceRelativePathText;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -102,7 +103,7 @@ public record ProviderIngestionBudget(
         }
 
         private String read(Path relativePath, long itemMaximum, boolean evidence) throws IOException {
-            String source = relativePath.toString().replace('\\', '/');
+            String source = WorkspaceRelativePathText.of(relativePath);
             budget.requireFiles(Math.addExact(fileCount, 1), source);
             long aggregateRemaining = budget.maxAggregateBytes - aggregateBytes;
             if (aggregateRemaining < 1) {
