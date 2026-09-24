@@ -74,7 +74,10 @@ Supprimer une de ces chaînes casse le build.
   chemin réel (`toRealPath()`) et ajoute `PLUGIN_DIRECTORY_PATH_RESOLVED` (chemin configuré + chemin réel) dès
   qu'ils diffèrent. Ne pas transformer ce diagnostic en refus : un ancêtre lié est un déploiement banal, la
   découverte reste métadonnées seules et l'activation exige toujours le pin — le défaut était de ne pas le dire.
-  Les deux chemins restent locaux : `directory` / `resolvedDirectory` ne sont pas dans l'allowlist distante
+  Les deux chemins restent locaux : `directory` / `resolvedDirectory` ne sont pas dans l'allowlist distante, et
+  le filtre de valeurs (`ServerLocationDisclosure`) les refuserait de toute façon. Le remote apprend **qu'une**
+  résolution a eu lieu — le code et le détail `pathResolved`, seul ajouté à l'allowlist — **jamais vers quoi**. Ne
+  pas ajouter une clé de chemin à `REMOTE_SAFE_DETAIL_KEYS`, ni une troisième vue « semi-remote » pour la faire passer
 - La copie vérifiée d'un JAR épinglé (`ExternalJarIntegrity.stageVerifiedCopy`) est marquée `deleteOnExit` et son
   nom ne porte aucune partie du pin ; le résidu après `SIGKILL`/crash est documenté dans `SECURITY.md`, **jamais**
   balayé au démarrage (impossible de le distinguer de la copie vivante d'une autre instance)
