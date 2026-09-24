@@ -157,6 +157,8 @@ morpheus tasks list --project <projectId> --change <changeId>
 
 `Scenario != AcceptanceCriterion`.
 
+Le champ `completed` d’une tâche est celui que la source a déclaré. Côté Structured Markdown, un bloc `morpheus task` sans `completed=true|false` est refusé à la synchronisation au lieu d’être publié comme inachevé (format du bloc : [QUICKSTART](QUICKSTART.md#3-préparer-un-workspace-compatible)).
+
 ## 10. Acceptance Criteria — M15
 
 ```bash

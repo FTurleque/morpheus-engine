@@ -296,7 +296,7 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
                 changeId,
                 Optional.of(key),
                 parsed.block.required("title"),
-                parseStrictBoolean(parsed.block, "completed", false),
+                requiredStrictBoolean(parsed.block, "completed"),
                 provenance(parsed, source())));
     }
 
@@ -445,11 +445,8 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
         }
     }
 
-    private static boolean parseStrictBoolean(
-            StructuredMarkdownBlockParser.Block block,
-            String key,
-            boolean fallback) {
-        String value = block.optional(key, Boolean.toString(fallback)).trim().toLowerCase(Locale.ROOT);
+    private static boolean requiredStrictBoolean(StructuredMarkdownBlockParser.Block block, String key) {
+        String value = block.required(key).toLowerCase(Locale.ROOT);
         return switch (value) {
             case "true" -> true;
             case "false" -> false;

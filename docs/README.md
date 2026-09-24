@@ -65,7 +65,8 @@ Baseline technique courante : Java 21, Maven Wrapper 3.9.16, SQLite JDBC 3.53.4.
 - [`roadmap/D2_EXECUTION.md`](roadmap/D2_EXECUTION.md) — plan historique D2 ;
 - [`validation/VALIDATION_D2.md`](validation/VALIDATION_D2.md) — preuve historique D2, complétée par les sorties exact-head publiées sur la PR #121 ;
 - [`validation/VALIDATION_R3.md`](validation/VALIDATION_R3.md) — preuve de publication 1.2.0 ;
-- [`release/RELEASE_NOTES_1.2.0.md`](release/RELEASE_NOTES_1.2.0.md) — release publiée.
+- [`release/RELEASE_NOTES_1.2.0.md`](release/RELEASE_NOTES_1.2.0.md) — release publiée ;
+- [`release/RELEASE_NOTES_1.2.1.md`](release/RELEASE_NOTES_1.2.1.md) — baseline corrective non publiée : ruptures à connaître avant de migrer.
 
 Les documents de preuve historiques ne sont pas réécrits pour leur faire revendiquer des résultats postérieurs à leur SHA. Les pages actives décrivent, elles, la baseline courante.
 
