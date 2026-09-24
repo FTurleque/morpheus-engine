@@ -4,12 +4,15 @@ import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.read.ProviderReadRequest;
+import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.provider.openspec.OpenSpecProjectContentReader;
+import com.morpheus.provider.openspec.OpenSpecSpecificationContentReader;
 import com.morpheus.store.memory.MemorySnapshotBusinessContentStore;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
 import com.morpheus.store.memory.MemoryTraceabilityStore;
@@ -29,8 +32,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProjectSnapshotImportContractTest {
     private static final Instant T0 = Instant.parse("2026-07-24T10:00:00Z");
@@ -87,6 +92,66 @@ class ProjectSnapshotImportContractTest {
         assertThrows(KnowledgeStoreException.class, () ->
                 service.publishFull(invalid, Optional.of("rev-bad"), T0.plusSeconds(30)));
         assertEquals(baseline.snapshot().id(), snapshots.activeSnapshot(projectId).orElseThrow().id());
+    }
+
+    @Test
+    void aRejectedPublicationNamesTheFileThatFailedToReadRelativeToTheWorkspace() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("workspace"));
+        Files.createDirectories(workspace.resolve("openspec/specs/broken"));
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Files.writeString(workspace.resolve("openspec/specs/broken/spec.md"), """
+                ## Requirements
+
+                ### Requirement: Untitled
+                The system SHALL reject a specification without a title.
+                """);
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        var snapshots = new MemorySpecificationKnowledgeStore();
+        var service = new ProjectSnapshotImportService(
+                snapshots,
+                snapshots,
+                new MemorySnapshotBusinessContentStore(snapshots, snapshots),
+                new MemoryTraceabilityStore(snapshots));
+        NormalizedProjectContent content = new OpenSpecSpecificationContentReader()
+                .read(ProviderReadRequest.all(workspace, projectId), new PersistentEntityIdentityResolver(snapshots))
+                .content()
+                .orElseThrow();
+
+        KnowledgeStoreException failure = assertThrows(KnowledgeStoreException.class, () ->
+                service.publishFull(content, Optional.of("rev-broken"), T0));
+
+        assertTrue(failure.getMessage().contains("openspec/specs/broken/spec.md"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("has no title"), failure.getMessage());
+        assertTrue(ServerLocationDisclosure.isSafeToRelay(failure.getMessage()), failure.getMessage());
+        assertTrue(snapshots.activeSnapshot(projectId).isEmpty());
+    }
+
+    @Test
+    void aRejectedPublicationWithholdsABlockingDiagnosticThatNamesAServerLocationAndSaysSo() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        var snapshots = new MemorySpecificationKnowledgeStore();
+        var service = new ProjectSnapshotImportService(
+                snapshots,
+                snapshots,
+                new MemorySnapshotBusinessContentStore(snapshots, snapshots),
+                new MemoryTraceabilityStore(snapshots));
+        NormalizedProjectContent valid = new OpenSpecProjectContentReader().read(
+                fixture("openspec-basic"), projectId, new PersistentEntityIdentityResolver(snapshots));
+        String absolute = tempDir.resolve("secret/spec.md").toAbsolutePath().toString();
+        NormalizedProjectContent invalid = new NormalizedProjectContent(
+                valid.project(), valid.specifications(), valid.requirements(), valid.scenarios(), valid.changes(),
+                valid.requirementDeltas(), valid.constraints(), valid.designDecisions(), valid.tasks(), valid.evidence(),
+                List.of(
+                        Diagnostic.error(DiagnosticCode.INVALID_SOURCE, "cannot read " + absolute, Map.of()),
+                        Diagnostic.error(DiagnosticCode.INVALID_SOURCE, "specs/relayable/spec.md: no title", Map.of())));
+
+        KnowledgeStoreException failure = assertThrows(KnowledgeStoreException.class, () ->
+                service.publishFull(invalid, Optional.of("rev-bad"), T0));
+
+        assertFalse(failure.getMessage().contains(absolute), failure.getMessage());
+        assertTrue(failure.getMessage().contains("specs/relayable/spec.md: no title"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("1 withheld"), failure.getMessage());
+        assertTrue(ServerLocationDisclosure.isSafeToRelay(failure.getMessage()), failure.getMessage());
     }
 
     @Test

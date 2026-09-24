@@ -15,6 +15,7 @@ import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.decision.DesignDecision;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.provider.ProviderCapability;
@@ -345,13 +346,19 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
     }
 
     private Diagnostic invalidSource(String group, RuntimeException exception) {
-        return Diagnostic.error(
+        Optional<String> source = exception instanceof OpenSpecSourceAttribution.AttributedFailure attributed
+                ? Optional.of(attributed.source())
+                : Optional.empty();
+        return new Diagnostic(
                 DiagnosticCode.INVALID_SOURCE,
-                "OpenSpec content reader failed for group " + group,
+                DiagnosticSeverity.ERROR,
+                "OpenSpec content reader failed for group " + group + ": "
+                        + OpenSpecSourceAttribution.relayable(exception),
                 Map.of(
                         "provider", providerId().value(),
                         "group", group,
-                        "exception", exception.getClass().getSimpleName()));
+                        "exception", OpenSpecSourceAttribution.failureType(exception)),
+                source);
     }
 
     private List<ReadCategory> ordered(Set<ReadCategory> categories) {
