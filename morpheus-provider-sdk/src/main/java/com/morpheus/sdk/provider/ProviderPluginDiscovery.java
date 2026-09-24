@@ -24,8 +24,9 @@ import java.util.jar.JarFile;
  * symbolic JARs, and revalidates the candidate file identity immediately before and after metadata inspection so a
  * concurrent replacement is rejected instead of being silently accepted. A linked <em>ancestor</em> of the plugin
  * directory is an ordinary deployment and is followed: discovery scans the directory's real path and declares it
- * with {@code PLUGIN_DIRECTORY_PATH_RESOLVED} whenever it differs from the configured one, so an operator always
- * sees which tree was read. Executable activation has the stronger boundary: it requires a SHA-256 pin and
+ * with {@code PLUGIN_DIRECTORY_PATH_RESOLVED} whenever it differs from the configured one, so a local operator
+ * sees which tree was read. The two pathnames never cross the remote boundary; the {@code pathResolved} detail
+ * does, so a remote operator learns that a resolution happened, never towards what. Executable activation has the stronger boundary: it requires a SHA-256 pin and
  * loads only an owner-hardened verified staging copy.</p>
  */
 public final class ProviderPluginDiscovery {
@@ -69,8 +70,12 @@ public final class ProviderPluginDiscovery {
             if (!enumerated.equals(directory)) {
                 diagnostics.add(ProviderPluginDiagnostic.info(
                         "PLUGIN_DIRECTORY_PATH_RESOLVED",
-                        "Provider plugin directory was reached through a linked ancestor; its real path was scanned",
-                        Map.of("directory", directory.toString(), "resolvedDirectory", enumerated.toString())));
+                        "Provider plugin directory was reached through a linked ancestor and its real path was"
+                                + " scanned; both paths are in the details where they are available",
+                        Map.of(
+                                "directory", directory.toString(),
+                                "resolvedDirectory", enumerated.toString(),
+                                "pathResolved", "true")));
             }
             selection = selectJars(enumerated);
         } catch (IOException failure) {
