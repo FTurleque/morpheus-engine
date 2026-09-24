@@ -133,3 +133,50 @@ dit que ce n'est pas une mesure et nomme le garde-fou côté policy.
   trois sorties publiques pour un gain nul. Le mal est là où la convention devient un verdict.
 - **`notApplicable` pour un ratio indéfini** : voir §3.
 - **Deux budgets de policy** : voir §2.
+
+## Amendement du 24 septembre 2026 (PRV-4) — quand le modèle n'a pas d'« inconnu », la frontière refuse l'absence
+
+### Constat
+
+L'audit indépendant du 24/09/2026 relève la même faute que les trois constats d'origine, à l'entrée plutôt qu'à la
+sortie. `StructuredMarkdownSpecificationContentReader` lisait le champ `completed` d'un bloc `morpheus task` par
+`parseStrictBoolean(parsed.block, "completed", false)` : la stricture portait sur la **valeur** (`true`/`false`, rien
+d'autre), jamais sur la **présence**. Un bloc muet devenait `false`. Tous les autres champs du bloc passaient par
+`required(...)`. Ce `false` inventé était ensuite persisté (`SqliteSnapshotBusinessContentWriter`), rendu
+`[pending]` par le contexte augmenté (`AugmentedContextService`) et servi `"completed": false` par la route de
+change (`MorpheusChangeQueryApiService`) : une observation, là où la source n'avait rien dit.
+
+### Décision
+
+**Quand le modèle publié ne porte pas d'état « inconnu » pour un champ, la frontière d'entrée refuse l'absence
+plutôt que d'inventer une valeur.** C'est la règle de cet ADR appliquée à l'endroit où la réponse naît : une réponse
+ne peut pas dire ce qu'elle n'a pas pu observer si la lecture a déjà remplacé le silence par une valeur.
+
+`completed` est désormais obligatoire dans un bloc `morpheus task`, au même titre que `key`, `change` et `title`, et
+reste contraint à `true`/`false`. L'absence est refusée par le même `required(...)` que les autres champs, donc avec le
+même message, qui nomme le bloc et sa ligne (`missing 'completed' in task block at line N`) et aucun chemin d'hôte.
+Refuser l'absence est la même discipline que refuser une valeur non canonique : les deux sont des entrées que le
+lecteur ne sait pas traduire sans deviner.
+
+`verification_status` du bloc `acceptance` garde son défaut `UNKNOWN` : ce défaut est un état du modèle, pas une
+valeur inventée. C'est exactement la distinction que trace cet amendement.
+
+### Alternatives écartées
+
+- **Un tri-état au domaine.** `ImplementationTask.completed` est un `boolean`. Lui donner un état inconnu toucherait le
+  schéma SQLite, les réponses HTTP, MCP et CLI, et le contexte augmenté : c'est un changement du modèle publié, pas un
+  correctif de frontière. À reconsidérer si un besoin réel d'« achèvement inconnu » apparaît — par exemple un provider
+  dont la source ne peut structurellement pas le dire.
+- **Garder le défaut et ajouter un avertissement.** La réponse continuerait de porter `"completed": false` ; un
+  avertissement que le champ contredit ne satisfait pas la règle de cet ADR. Le lecteur d'une réponse lit le champ,
+  pas le diagnostic d'ingestion.
+
+### Conséquences
+
+- **Rupture de format annoncée.** Un fichier `morpheus/specification.md` dont un bloc `task` omet `completed` était
+  accepté jusqu'à 1.2.0 ; il est refusé à partir de 1.2.1. La note de rupture et la migration (ajouter
+  `completed=false` ou `completed=true`) sont dans `docs/release/RELEASE_NOTES_1.2.1.md`, le format du bloc dans
+  `docs/user/QUICKSTART.md`. Vérifié à la date de cet amendement : aucune fixture, ressource de test, doc ni script
+  du dépôt ne s'appuyait sur le défaut implicite.
+- **Preuve.** `StructuredMarkdownStrictValidationTest` refuse un bloc sans `completed` en assertant le message
+  exact (bloc et ligne) et l'absence de chemin d'hôte, et vérifie qu'un `completed` explicite est lu tel que déclaré.
