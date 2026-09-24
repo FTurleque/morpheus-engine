@@ -206,6 +206,26 @@ class MorpheusCliTest {
         assertTrue(status.stdout().contains("\"lastSuccessfulMode\":\"FULL_REBUILD\""), status.stdout());
     }
 
+    @Test
+    void aSyncRefusedForInvalidContentIsAUsageErrorThatNamesTheFileRelativeToTheWorkspace() throws Exception {
+        Path data = tempDir.resolve("invalid-content-data");
+        Path workspace = Files.createDirectories(tempDir.resolve("untitled-openspec"));
+        Files.createDirectories(workspace.resolve("openspec/specs/broken"));
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Files.writeString(
+                workspace.resolve("openspec/specs/broken/spec.md"),
+                "## Requirements\n\n### Requirement: Untitled\nThe system SHALL reject an untitled specification.\n");
+        Invocation add = invokeWithData(data, "projects", "add", "--workspace", workspace.toString());
+        assertEquals(0, add.exitCode(), add.stderr());
+
+        Invocation sync = invokeWithData(data, "sync", "--project", value(add.stdout(), "projectId"));
+
+        assertEquals(CliExitCode.USAGE.code(), sync.exitCode(), sync.stderr());
+        assertTrue(sync.stderr().contains("openspec/specs/broken/spec.md: OpenSpec specification has no title"),
+                sync.stderr());
+        assertFalse(sync.stderr().contains(workspace.toString()), sync.stderr());
+    }
+
     private Invocation invokeWithData(Path data, String... command) {
         String[] args = new String[command.length + 2];
         args[0] = "--data-dir";
