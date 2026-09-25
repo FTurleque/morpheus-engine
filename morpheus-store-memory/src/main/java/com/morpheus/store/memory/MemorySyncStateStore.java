@@ -7,6 +7,7 @@ import com.morpheus.application.sync.ProjectSyncState;
 import com.morpheus.application.sync.SourceArchiveRecord;
 import com.morpheus.application.sync.SourceInventory;
 import com.morpheus.application.sync.SyncPlan;
+import com.morpheus.application.sync.SyncStateConflictException;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.time.Instant;
@@ -47,14 +48,17 @@ public final class MemorySyncStateStore implements SyncStateStore {
     }
 
     @Override
-    public synchronized void recordAttempt(
+    public synchronized long recordAttempt(
             ProjectSpecificationId projectId,
+            long expectedRevision,
             Instant attemptedAt,
             Optional<SyncPlan.FullRebuildReason> pendingFullRebuildReason) {
         requireProject(projectId);
         Objects.requireNonNull(attemptedAt, "attemptedAt");
         Objects.requireNonNull(pendingFullRebuildReason, "pendingFullRebuildReason");
         ProjectSyncState previous = states.getOrDefault(projectId, ProjectSyncState.empty(projectId));
+        requireRevision(projectId, expectedRevision, previous.revision());
+        long revision = previous.revision() + 1;
         states.put(projectId, new ProjectSyncState(
                 projectId,
                 Optional.of(attemptedAt),
@@ -63,12 +67,15 @@ public final class MemorySyncStateStore implements SyncStateStore {
                 previous.sourceRevision(),
                 previous.lastSuccessfulMode(),
                 pendingFullRebuildReason,
-                previous.currentSourceCount()));
+                previous.currentSourceCount(),
+                revision));
+        return revision;
     }
 
     @Override
-    public synchronized void commitSuccessfulSync(
+    public synchronized long commitSuccessfulSync(
             SourceInventory inventory,
+            long expectedRevision,
             SyncPlan.SyncMode mode,
             Instant attemptedAt,
             Instant completedAt,
@@ -95,6 +102,10 @@ public final class MemorySyncStateStore implements SyncStateStore {
             }
         });
 
+        long currentRevision = states.getOrDefault(
+                inventory.projectId(), ProjectSyncState.empty(inventory.projectId())).revision();
+        requireRevision(inventory.projectId(), expectedRevision, currentRevision);
+        long revision = currentRevision + 1;
         inventories.put(inventory.projectId(), inventory);
         states.put(inventory.projectId(), new ProjectSyncState(
                 inventory.projectId(),
@@ -104,7 +115,8 @@ public final class MemorySyncStateStore implements SyncStateStore {
                 inventory.sourceRevision(),
                 Optional.of(mode),
                 Optional.empty(),
-                inventory.entries().size()));
+                inventory.entries().size(),
+                revision));
 
         List<SourceArchiveRecord> projectArchives = archives.computeIfAbsent(
                 inventory.projectId(), ignored -> new ArrayList<>());
@@ -114,6 +126,13 @@ public final class MemorySyncStateStore implements SyncStateStore {
             }
         }
         projectArchives.sort(SourceArchiveRecord::compareTo);
+        return revision;
+    }
+
+    private static void requireRevision(ProjectSpecificationId projectId, long expected, long current) {
+        if (expected != current) {
+            throw new SyncStateConflictException(projectId.toString(), expected, current);
+        }
     }
 
     private void requireProject(ProjectSpecificationId projectId) {

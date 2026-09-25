@@ -9,7 +9,9 @@ import java.util.Locale;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MinosMcpTransportIntegrationTest {
     @Test
@@ -23,8 +25,12 @@ class MinosMcpTransportIntegrationTest {
             assertEquals("project-123", status.projectId());
             assertEquals("snapshot-abc", status.activeSnapshotId());
 
-            List<MinosCodeGateway.Symbol> symbols = gateway.findSymbols(
+            MinosCodeGateway.SymbolSearch search = gateway.findSymbols(
                     "morpheus-engine", "symbol:RequirementService", 20);
+            List<MinosCodeGateway.Symbol> symbols = search.symbols();
+            assertFalse(search.possiblyTruncated(), "one symbol under a limit of 20 is an exhaustive search");
+            assertTrue(gateway.findSymbols("morpheus-engine", "symbol:RequirementService", 1).possiblyTruncated(),
+                    "a page that fills the limit cannot claim to be exhaustive");
             assertEquals(1, symbols.size());
             assertEquals("symbol:RequirementService", symbols.getFirst().symbolKey());
             assertEquals("com.morpheus.RequirementService", symbols.getFirst().qualifiedName());

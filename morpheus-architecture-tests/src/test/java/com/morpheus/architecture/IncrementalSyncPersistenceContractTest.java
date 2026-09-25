@@ -147,12 +147,12 @@ class IncrementalSyncPersistenceContractTest {
         var memoryCore = new MemorySpecificationKnowledgeStore();
         var memoryStore = new MemorySyncStateStore(memoryCore);
         assertThrows(KnowledgeStoreException.class, () ->
-                memoryStore.recordAttempt(unknown, T0, Optional.empty()));
+                attempt(memoryStore, unknown, T0, Optional.empty()));
 
         Path database = tempDir.resolve("unknown-project.db");
         try (var sqliteStore = new SqliteSyncStateStore(database)) {
             assertThrows(KnowledgeStoreException.class, () ->
-                    sqliteStore.recordAttempt(unknown, T0, Optional.empty()));
+                    attempt(sqliteStore, unknown, T0, Optional.empty()));
         }
     }
 
@@ -198,5 +198,31 @@ class IncrementalSyncPersistenceContractTest {
             SourceInventory inventory,
             List<SourceArchiveRecord> archives,
             SyncFreshness freshness) {
+    }
+
+    private static long attempt(
+            com.morpheus.application.store.SyncStateStore target,
+            ProjectSpecificationId project,
+            Instant attemptedAt,
+            Optional<SyncPlan.FullRebuildReason> reason) {
+        return target.recordAttempt(project, currentRevision(target, project), attemptedAt, reason);
+    }
+
+    private static long commit(
+            com.morpheus.application.store.SyncStateStore target,
+            SourceInventory inventory,
+            SyncPlan.SyncMode mode,
+            Instant attemptedAt,
+            Instant completedAt,
+            Optional<Instant> observedChange,
+            List<SourceArchiveRecord> archives) {
+        return target.commitSuccessfulSync(
+                inventory, currentRevision(target, inventory.projectId()), mode, attemptedAt, completedAt,
+                observedChange, archives);
+    }
+
+    private static long currentRevision(
+            com.morpheus.application.store.SyncStateStore target, ProjectSpecificationId project) {
+        return target.findSyncState(project).map(ProjectSyncState::revision).orElse(0L);
     }
 }

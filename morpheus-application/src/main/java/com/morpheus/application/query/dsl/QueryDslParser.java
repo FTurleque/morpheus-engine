@@ -180,12 +180,12 @@ public final class QueryDslParser {
             }
             requireWhitespace("predicate value");
             if (operator == QueryOperator.IN) {
-                return new QueryPredicate(field, operator, list());
+                return new QueryPredicate(field, operator, list(field));
             }
             return QueryPredicate.unary(field, operator, value());
         }
 
-        private List<String> list() {
+        private List<String> list(String field) {
             skipWhitespace();
             expect('[');
             List<String> values = new ArrayList<>();
@@ -194,6 +194,9 @@ public final class QueryDslParser {
                 throw error("IN list must not be empty");
             }
             while (true) {
+                if (values.size() == QueryBudgets.MAX_PREDICATE_VALUES) {
+                    throw error("IN list for " + field + " exceeds " + QueryBudgets.MAX_PREDICATE_VALUES + " values");
+                }
                 values.add(value());
                 skipWhitespace();
                 if (peek(',')) {
