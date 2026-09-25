@@ -32,8 +32,13 @@ class SqliteSyncStateRevisionMigrationTest {
              var statement = connection.createStatement()) {
             statement.execute("ALTER TABLE sync_state DROP COLUMN revision");
             statement.execute("DELETE FROM schema_migrations WHERE version = 19");
-            statement.execute("INSERT INTO sync_state(project_id, last_attempt_at, pending_full_rebuild_reason, "
-                    + "current_source_count) VALUES ('" + project + "', '" + T0 + "', 'SCAN_INCOMPLETE', 0)");
+        }
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+             var insert = connection.prepareStatement("INSERT INTO sync_state(project_id, last_attempt_at, "
+                     + "pending_full_rebuild_reason, current_source_count) VALUES (?, ?, 'SCAN_INCOMPLETE', 0)")) {
+            insert.setString(1, project.toString());
+            insert.setString(2, T0.toString());
+            insert.executeUpdate();
         }
 
         try (var store = new SqliteSyncStateStore(database)) {
