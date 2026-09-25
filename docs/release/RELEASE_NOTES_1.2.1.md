@@ -35,7 +35,6 @@ n'est pas resynchronisé.
 Décision : [ADR-0108, amendement du 24 septembre 2026 (PRV-4)](../adr/0108-a-response-says-what-it-could-not-observe.md).
 Format du bloc : [`../user/QUICKSTART.md`](../user/QUICKSTART.md).
 
-<<<<<<< HEAD
 ### CLI `portfolio` : une option inconnue est refusée
 
 Jusqu'à 1.2.0, `morpheus portfolio <action>` acceptait en silence toute option `--clé valeur` qu'elle ne lisait pas.
@@ -53,7 +52,7 @@ MORPHEUS error [2]: unknown option: --projet
 Les options reconnues par action sont exactement celles que l'action lit (`ACTION_OPTIONS` dans `MorpheusPortfolioCli`).
 
 Décision : garde `CliOptionParsingRefusesUnknownOptionsTest` (chaque méthode qui appelle `SimpleOptions.parse` appelle aussi `rejectUnknown`) ; un `case` sans entrée dans `ACTION_OPTIONS` est refusé comme action inconnue.
-=======
+
 ### CLI `policy evaluate` et `policy dry-run` : un refus atteint le code de sortie
 
 Jusqu'à 1.2.0, ces commandes rendaient `0` quelle que soit la décision écrite dans le JSON, `BLOCK` et `UNKNOWN` compris.
@@ -75,4 +74,3 @@ changent pas : elles rendent `0` quand elles réussissent.
 `scripts/validate-m25.*` attendent désormais explicitement le code `4` sur leurs deux appels.
 
 Décision : [ADR-0108](../adr/0108-a-response-says-what-it-could-not-observe.md).
->>>>>>> origin/develop
