@@ -81,7 +81,7 @@ class MorpheusCompositionApiContractTest {
                     List.of(
                             new CompositionCandidate(openspec, 100, "30 minutes", "file:openspec/spec.md", "evidence-openspec"),
                             new CompositionCandidate(markdown, 50, "45 minutes", "file:morpheus/specification.md", "evidence-markdown")),
-                    CompositionResolution.SELECTED_BY_PRECEDENCE,
+                    CompositionResolution.PRECEDENCE_RECORDED,
                     Optional.of(openspec),
                     "OpenSpec has higher configured precedence");
             runtime.compositions.save(new CompositionSnapshotState(

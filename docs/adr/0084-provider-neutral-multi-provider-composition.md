@@ -60,7 +60,7 @@ Toute divergence sur un champ canonique produit un `CompositionConflict` explici
 - champ ;
 - candidats et provenance ;
 - priorité ;
-- résolution (`SELECTED_BY_PRECEDENCE`, `UNRESOLVED`, `IDENTICAL`).
+- résolution (`PRECEDENCE_RECORDED` — anciennement `SELECTED_BY_PRECEDENCE` —, `UNRESOLVED`, `IDENTICAL`).
 
 Les conflits de contenu, d'ownership et de type/identité sont représentés explicitement. Une valeur absente face à une valeur présente reste une observation valide et requêtable.
 

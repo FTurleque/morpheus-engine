@@ -1,5 +1,6 @@
 package com.morpheus.application.policy;
 
+import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessService;
@@ -10,6 +11,7 @@ import com.morpheus.application.quality.TaskQualityService;
 import com.morpheus.application.query.ConstraintEvaluationQueryService;
 import com.morpheus.application.query.ConstraintSnapshotFixture;
 import com.morpheus.application.query.dsl.QueryExecutionService;
+import com.morpheus.application.store.CompositionStateStore;
 import com.morpheus.application.store.ExternalReferenceStore;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
@@ -77,7 +79,9 @@ class ConstraintGuardBudgetTest {
                         unusedPort(SpecificationKnowledgeStore.class),
                         unusedPort(VersionedRequirementStore.class),
                         unusedPort(SnapshotBusinessContentStore.class),
-                        unusedPort(PortfolioStore.class)));
+                        unusedPort(PortfolioStore.class)),
+                new CompositionQueryService(
+                        unusedPort(SpecificationKnowledgeStore.class), unusedPort(CompositionStateStore.class)));
         PolicyRule rule = new PolicyRule(
                 PolicyIds.RuleId.generate(),
                 "No explicit blockers",

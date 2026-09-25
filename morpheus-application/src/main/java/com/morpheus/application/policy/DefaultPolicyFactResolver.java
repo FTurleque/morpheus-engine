@@ -1,6 +1,8 @@
 package com.morpheus.application.policy;
 
 import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.application.composition.CompositionEntityType;
+import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationState;
 import com.morpheus.application.quality.QualityReportMetrics;
@@ -27,16 +29,19 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
     private final ChangeTransitionEvaluationService lifecycle;
     private final QualityReportService quality;
     private final QueryExecutionService queries;
+    private final CompositionQueryService compositions;
 
     public DefaultPolicyFactResolver(
             ConstraintEvaluationQueryService constraints,
             ChangeTransitionEvaluationService lifecycle,
             QualityReportService quality,
-            QueryExecutionService queries) {
+            QueryExecutionService queries,
+            CompositionQueryService compositions) {
         this.constraints = Objects.requireNonNull(constraints, "constraints");
         this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
         this.quality = Objects.requireNonNull(quality, "quality");
         this.queries = Objects.requireNonNull(queries, "queries");
+        this.compositions = Objects.requireNonNull(compositions, "compositions");
     }
 
     @Override
@@ -135,6 +140,12 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
                             + emptyPopulation.orElseThrow(),
                     List.of("quality:active-snapshot"));
         }
+        Optional<String> duplicated = duplicatedPopulation(project, config.metric());
+        if (duplicated.isPresent()) {
+            return PolicyEvaluation.Fact.unknown(
+                    "quality metric " + config.metric() + " is undefined: the composed ACTIVE snapshot " + duplicated.orElseThrow(),
+                    List.of("quality:active-snapshot", "composition:active-snapshot"));
+        }
         double actual = switch (config.metric()) {
             case FINDINGS -> metrics.totalFindings();
             case ORPHAN_REQUIREMENTS -> metrics.orphanRequirements();
@@ -169,6 +180,32 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
             case FINDINGS, ORPHAN_REQUIREMENTS, UNCOVERED_TASKS, CHANGES, DECISIONS, EXTERNAL_REFERENCES ->
                     Optional.empty();
         };
+    }
+
+    /**
+     * A ratio is a measurement only over a population that is counted once. A multi-provider composition publishes
+     * each provider's entity separately, so a logical key observed by two providers is in the denominator twice and
+     * the ratio is computed on a population known to be wrong. The composition state says which entity types carry
+     * such duplicates; a ratio over one of them is UNKNOWN rather than a number. Counts stay counts: they say how
+     * many entities are published, which is true.
+     */
+    private Optional<String> duplicatedPopulation(PolicyScope.Project project, PolicyRule.QualityMetric metric) {
+        CompositionEntityType type = switch (metric) {
+            case REQUIREMENT_COVERAGE_PERCENT -> CompositionEntityType.REQUIREMENT;
+            case TASK_COVERAGE_PERCENT -> CompositionEntityType.TASK;
+            case FINDINGS, ORPHAN_REQUIREMENTS, UNCOVERED_TASKS, CHANGES, DECISIONS, EXTERNAL_REFERENCES -> null;
+        };
+        if (type == null) {
+            return Optional.empty();
+        }
+        return compositions.findActive(project.projectId())
+                .map(state -> state.conflicts().stream()
+                        .filter(conflict -> conflict.entityType().equals(type.name()))
+                        .map(conflict -> conflict.logicalKey())
+                        .distinct()
+                        .count())
+                .filter(keys -> keys > 0)
+                .map(keys -> "publishes " + keys + " duplicated " + type.name() + " key(s) observed by more than one provider");
     }
 
     private PolicyEvaluation.Fact query(PolicyScope scope, PolicyRule.QueryAssertion config) {
