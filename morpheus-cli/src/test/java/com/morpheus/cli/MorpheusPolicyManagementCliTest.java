@@ -62,6 +62,7 @@ class MorpheusPolicyManagementCliTest {
         assertEquals(CliExitCode.SUCCESS.code(), override.exitCode(), override.err());
         assertEquals(CliExitCode.SUCCESS.code(), removed.exitCode(), removed.err());
         assertTrue(removed.out().contains("\"removed\":true"), removed.out());
+        assertEquals(CliExitCode.STATE_ERROR.code(), evaluated.exitCode(), evaluated.err());
         assertTrue(evaluated.out().contains("\"originalDecision\":\"UNKNOWN\""), evaluated.out());
         assertTrue(evaluated.out().contains("\"effectiveDecision\":\"UNKNOWN\""), evaluated.out());
         assertTrue(audit.out().contains("REMOVE_OVERRIDE"), audit.out());

@@ -130,13 +130,17 @@ PY
     echo 'Stale policy CAS unexpectedly succeeded' >&2; exit 1
   fi
   grep -q 'stale policy pack revision' "$OUTPUT/stale.stderr" || { cat "$OUTPUT/stale.stderr" >&2; exit 1; }
-  DRY="$($LAUNCHER --data-dir "$DATA" --json policy dry-run --id "$PACK_ID" --version "$VERSION_ID" --project "$PROJECT_ID")"
+  DRY_EXIT=0
+  DRY="$($LAUNCHER --data-dir "$DATA" --json policy dry-run --id "$PACK_ID" --version "$VERSION_ID" --project "$PROJECT_ID")" || DRY_EXIT=$?
+  [[ "$DRY_EXIT" -eq 4 ]] || { echo "Policy dry-run exit $DRY_EXIT, expected 4 (UNKNOWN is a refusal): $DRY" >&2; exit 1; }
   [[ "$DRY" == *'"dryRun":true'* && "$DRY" == *'"decision":"UNKNOWN"'* ]] || { echo "Policy dry-run mismatch: $DRY" >&2; exit 1; }
   AUDIT_BEFORE="$($LAUNCHER --data-dir "$DATA" --json policy audit --id "$PACK_ID")"
   [[ "$AUDIT_BEFORE" != *'ACTIVATE'* ]] || { echo 'Dry-run unexpectedly wrote activation audit' >&2; exit 1; }
   "$LAUNCHER" --data-dir "$DATA" --json policy activate --id "$PACK_ID" --version "$VERSION_ID" --project "$PROJECT_ID" --expected-revision 0 --actor gate --reason enable >/dev/null
   "$LAUNCHER" --data-dir "$DATA" --json policy override put --id "$PACK_ID" --rule "$RULE_ID" --mode FORCE_BLOCK --project "$PROJECT_ID" --expected-revision 0 --actor gate --reason explicit >/dev/null
-  EVALUATED="$($LAUNCHER --data-dir "$DATA" --json policy evaluate --id "$PACK_ID" --project "$PROJECT_ID")"
+  EVAL_EXIT=0
+  EVALUATED="$($LAUNCHER --data-dir "$DATA" --json policy evaluate --id "$PACK_ID" --project "$PROJECT_ID")" || EVAL_EXIT=$?
+  [[ "$EVAL_EXIT" -eq 4 ]] || { echo "Policy evaluate exit $EVAL_EXIT, expected 4 (BLOCK is a refusal): $EVALUATED" >&2; exit 1; }
   [[ "$EVALUATED" == *'"originalDecision":"UNKNOWN"'* && "$EVALUATED" == *'"effectiveDecision":"BLOCK"'* ]] || { echo "Policy override provenance mismatch: $EVALUATED" >&2; exit 1; }
   printf '%s\n' 'Policy versioning + CAS + dry-run + override explainability: PASS'
 
