@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +26,8 @@ class IntegrationStatusProjectionArchitectureTest {
 
     private static final String PROJECTION = "IntegrationStatusDisclosure";
     private static final List<String> STATUS_SOURCES = List.of("new AugmentedContextService(", "Status.status()", "provider.status()");
+    /** A call that turns an augmented-context service into a result: each one needs its own projection. */
+    private static final Pattern RESULT_CALL = Pattern.compile("\\.(requirement|change)\\(\\s*projectId,");
     private static final List<String> BOUNDARY_MODULES = List.of("morpheus-api", "morpheus-mcp");
 
     @Test
@@ -36,7 +39,7 @@ class IntegrationStatusProjectionArchitectureTest {
                 String text = Files.readString(source);
                 if (producesAStatus(text)) {
                     producers.add(source.getFileName().toString());
-                    if (!goesThroughTheProjection(text)) {
+                    if (!goesThroughTheProjection(text) || resultCalls(text) > projectionCalls(text)) {
                         unprojected.add(source.getFileName().toString());
                     }
                 }
@@ -54,11 +57,17 @@ class IntegrationStatusProjectionArchitectureTest {
         String projected = "return new AugmentedContextService(a, b).requirement(p, r, o)"
                 + ".map(IntegrationStatusDisclosure::project).orElseThrow();";
         String viaViews = "return IntegrationStatusViews.status(provider.status());";
+        String twoResultsOneProjection = "new AugmentedContextService(a).requirement(projectId, r, o)"
+                + ".map(IntegrationStatusDisclosure::project); new AugmentedContextService(a).change(projectId, c, o);";
 
         assertTrue(producesAStatus(verbatim));
         assertFalse(goesThroughTheProjection(verbatim));
         assertTrue(goesThroughTheProjection(projected));
         assertTrue(goesThroughTheProjection(viaViews));
+        assertTrue(goesThroughTheProjection(twoResultsOneProjection));
+        assertEquals(2, resultCalls(twoResultsOneProjection));
+        assertEquals(1, projectionCalls(twoResultsOneProjection),
+                "one projection cannot cover two results: dropping either .map must fail the rule");
     }
 
     @Test
@@ -85,6 +94,20 @@ class IntegrationStatusProjectionArchitectureTest {
 
     private static boolean producesAStatus(String text) {
         return STATUS_SOURCES.stream().anyMatch(text::contains);
+    }
+
+    private static int resultCalls(String text) {
+        return (int) RESULT_CALL.matcher(text).results().count();
+    }
+
+    private static int projectionCalls(String text) {
+        int total = 0;
+        for (String call : List.of(PROJECTION + "::project", PROJECTION + ".project(")) {
+            for (int from = text.indexOf(call); from >= 0; from = text.indexOf(call, from + call.length())) {
+                total++;
+            }
+        }
+        return total;
     }
 
     private static boolean goesThroughTheProjection(String text) {

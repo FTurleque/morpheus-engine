@@ -176,4 +176,7 @@ là qu'un opérateur corrige les réglages.
   qui produit un statut (assertion textuelle : c'est un appel qui doit *exister*, ADR-0103) et interdit la projection dans la CLI.
 - **Résidu assumé.** La garde textuelle ne voit qu'un adaptateur qui produit un statut par les formes reconnues (`new AugmentedContextService(`,
   `….status()`) ; un nouveau chemin d'obtention d'un statut hors de ces formes n'est pas détecté. Le contenu du `TechnicalContextBundle` lui-même
-  (chemins de fichiers du projet indexé, relatifs) n'est pas dans le périmètre de ce constat.
+  (`items[].path`, `excluded`, `metadata`, issus de la charge utile NEXUS) n'est pas filtré : c'est le contenu voulu du projet indexé, pas un
+  réglage du serveur, et le contrat NEXUS qu'ils sont des chemins *relatifs au projet* est une **hypothèse**, non vérifiée par MORPHEUS.
+  Sont aussi hors périmètre les messages `INVALID`/`UNAVAILABLE` qui reprennent une chaîne de configuration *relative* de l'opérateur
+  (`invalid NEXUS path: …`, `Cannot run program "jdk/bin/java"`) : le prédicat partagé ne reconnaît que les formes absolues, quotées ou espacées.
