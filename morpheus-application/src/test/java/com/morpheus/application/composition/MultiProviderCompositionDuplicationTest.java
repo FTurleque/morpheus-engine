@@ -10,6 +10,7 @@ import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.acceptance.AcceptanceCriterionId;
 import com.morpheus.domain.acceptance.VerificationStatus;
 import com.morpheus.domain.change.ChangeId;
+import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.constraint.ConstraintId;
 import com.morpheus.domain.decision.DesignDecision;
@@ -151,7 +152,10 @@ class MultiProviderCompositionDuplicationTest {
         Scenario scenario = new Scenario(
                 ScenarioId.generate(), Optional.of(requirementId), scenarioTitle, List.of(), "act", "outcome",
                 provenance(provider, evidence, "SC-1"));
-        ChangeId changeId = ChangeId.generate();
+        ChangeProposal change = new ChangeProposal(
+                ChangeId.generate(), PROJECT, Optional.of("C-1"), "Change", "Intent", List.of(), List.of(), List.of(),
+                provenance(provider, evidence, "C-1"));
+        ChangeId changeId = change.id();
         Constraint constraint = new Constraint(
                 ConstraintId.generate(), changeId, "Constraint", provenance(provider, evidence, "CON-1"));
         DesignDecision decision = new DesignDecision(
@@ -163,7 +167,7 @@ class MultiProviderCompositionDuplicationTest {
                 VerificationStatus.NOT_VERIFIED, List.of(), provenance(provider, evidence, "AC-1"));
         return new NormalizedProjectContent(
                 new ProjectSpecification(PROJECT, projectName, SourceLocator.file("/srv/workspace/" + provider.value())),
-                List.of(specification), List.of(requirement), List.of(scenario), List.of(), List.of(),
+                List.of(specification), List.of(requirement), List.of(scenario), List.of(change), List.of(),
                 List.of(constraint), List.of(decision), List.of(task), List.of(criterion), List.of(evidence), List.of());
     }
 

@@ -168,3 +168,25 @@ La forme d'une vue lisible ne change pas : seule une vue illisible porte `unread
 (`morpheus views archive`, `archive_saved_view`, `POST /api/v1/saved-views/{id}/archive`) la retire de la liste des vues actives.
 
 Décision : [ADR-0108, amendement du 25 septembre 2026 (QRY-1)](../adr/0108-a-response-says-what-it-could-not-observe.md).
+
+### Composition multi-provider : l'union est le mode, et elle cesse d'être muette
+
+Jusqu'à 1.2.0, un conflit annonçait `SELECTED_BY_PRECEDENCE` (« provider sélectionné ») alors que le contenu publié était l'union : les entités des
+deux providers, sous des identités différentes (ADR-0023). Quand les providers s'accordaient sur une valeur, **aucun conflit** n'était émis : la
+duplication était totalement muette ; et seuls trois types d'entité sur huit étaient observés. Les services de qualité comptaient donc une
+population dupliquée.
+
+À partir de 1.2.1 :
+
+- `SELECTED_BY_PRECEDENCE` devient **`PRECEDENCE_RECORDED`** (précédence *enregistrée*, toutes les observations *publiées*) ; le motif est réécrit. Le nom est
+  exposé (HTTP, CLI, MCP, OpenAPI) : un consommateur qui branchait sur l'ancien nom doit suivre. Les lignes déjà persistées sont migrées (`V020`) ;
+- un accord entre providers émet **`IDENTICAL`**, valeur qui existait dans l'énuméré sans jamais être produite ;
+- tous les types publiés sont observés : ajout de `PROJECT` (`displayName` ; `rootLocator` comme empreinte SHA-256, jamais comme chemin),
+  `SCENARIO`, `CONSTRAINT`, `DESIGN_DECISION`, `TASK`, `ACCEPTANCE_CRITERION` ;
+- un ratio de couverture (exigences, tâches) évalué par une politique est **`UNKNOWN`** quand le snapshot actif publie des clés dupliquées de ce type ; un
+  comptage reste un comptage.
+
+Une composition à un seul provider est inchangée : mêmes entités, aucun conflit, mêmes ratios. En revanche des compositions multi-providers qui ne
+rapportaient aucun conflit en rapportent maintenant (les `IDENTICAL`), et un seuil de couverture peut passer de mesuré à `UNKNOWN`.
+
+Décision : [ADR-0084, amendement du 26 septembre 2026 (CMP-1, CMP-2)](../adr/0084-provider-neutral-multi-provider-composition.md).
