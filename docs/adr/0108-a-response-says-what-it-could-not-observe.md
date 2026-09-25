@@ -181,6 +181,42 @@ valeur inventée. C'est exactement la distinction que trace cet amendement.
 - **Preuve.** `StructuredMarkdownStrictValidationTest` refuse un bloc sans `completed` en assertant le message
   exact (bloc et ligne) et l'absence de chemin d'hôte, et vérifie qu'un `completed` explicite est lu tel que déclaré.
 
+## Amendement du 25 septembre 2026 (QLT-1, QLT-2) — un flux vide n'est pas un fait affirmatif
+
+`ChangeCompletenessService` calculait `criticalConstraintsKnown` par `allMatch`, vrai d'un flux vide : un change sans aucune contrainte
+ingérée affirmait `TRUE`, alors que le même bloc code la prudence inverse pour `planPresent` (`count > 0 ? TRUE : UNAVAILABLE`). Un
+flux vide est explicitement `UNAVAILABLE` ; le test est écrit (`isEmpty()`) plutôt que caché dans l'expression.
+
+QLT-2, même bloc : les critères d'acceptation ne comptaient que ceux dont le `changeId` correspond, alors qu'un critère ne doit référencer qu'un
+changement **ou** une exigence ; et l'absence était convertie en `FALSE` définitif. Sont maintenant comptés aussi les critères rattachés aux
+exigences courantes du change (celles de ses liens `AFFECTS`) ; un compte nul vaut `FALSE` si au moins une exigence est résolue,
+`UNAVAILABLE` sinon (les critères d'exigence ne peuvent alors pas être énumérés).
+
+### Verdict sur les autres faits de `ChangeLifecycleFactAssessment`
+
+- `requirementsIdentified = of(count > 0)` : `FALSE` observe l'absence de lien `AFFECTS` vers une exigence courante dans le snapshot (le
+  magasin de traçabilité est complet pour un snapshot publié) et le finding `CHANGE_WITHOUT_CURRENT_REQUIREMENT` le dit. Observation, inchangé.
+- `designDecisionsAvailable = of(count > 0)` : décisions filtrées sur le change, requête complète. Observation ; le consommateur ne lit
+  `FALSE` que si `designRequired` est `TRUE`, et il est `UNAVAILABLE` en dur. Inchangé.
+- `planPresent` : déjà `TRUE`/`UNAVAILABLE`. `designRequired`, `blockingAcceptanceCriterionFailed`, `blockingAcceptanceCriterionUnverified` :
+  déjà `UNAVAILABLE` en dur.
+- `knownBlocker` : `FALSE` sur zéro contrainte signifie « aucun bloqueur *connu* », vrai littéralement ; c'est `criticalConstraintsKnown`, ici
+  corrigé, qui porte l'affirmation de complétude. Inchangé, à reconsidérer si la transition `PLANNED → IMPLEMENTING` doit exiger les deux.
+
+### Alternatives écartées
+
+- **Traiter zéro contrainte comme « connu » explicitement.** C'est le comportement corrigé : l'absence d'ingestion et l'absence de contrainte
+  sont indiscernables pour le snapshot.
+- **Élargir aux sept autres faits.** Aucun n'est démontré comme une non-observation convertie ; la liste ci-dessus dit pourquoi.
+
+### Conséquences
+
+- **Rupture annoncée** (notes de version) : un change sans contrainte ne passe plus `PROPOSED → SPECIFIED` sans les avoir déclarées.
+- **Résidu assumé.** Un change dont les critères sont tous rattachés à des exigences non liées par `AFFECTS` reste `UNAVAILABLE`, pas `TRUE` : le
+  lien est la seule preuve d'appartenance que le snapshot fournit.
+- **Preuve.** `ChangeCompletenessAbsentObservationContractTest` : flux vide → `UNAVAILABLE`, contraintes connues → `TRUE`, contrainte inconnue →
+  `UNAVAILABLE`, transition non évaluée sur le change vide et permise avec critères d'exigence, `FALSE` observé, `UNAVAILABLE` sans lien.
+
 ## Amendement du 25 septembre 2026 (INT-1) — une recherche bornée rend une indisponibilité, pas une absence
 
 Un résultat borné par une taille de page ne dit rien de ce qui se trouve au-delà. Le résolveur MINOS filtrait sur l'égalité
