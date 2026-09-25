@@ -81,7 +81,7 @@ class MemorySyncStateStoreTest {
     void aSuccessfulSyncClearsThePendingRebuildReasonAndPublishesTheInventory() {
         attempt(store, projectId, ATTEMPTED, Optional.of(SyncPlan.FullRebuildReason.NO_BASELINE));
 
-        commit(store, 
+        commit(store,
                 inventory("revision-1", entry("spec/a.md", "alpha")),
                 SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.of(COMPLETED), List.of());
 
@@ -96,11 +96,11 @@ class MemorySyncStateStoreTest {
 
     @Test
     void aCommittedInventoryReplacesThePreviousOneWhole() {
-        commit(store, 
+        commit(store,
                 inventory("revision-1", entry("spec/a.md", "alpha"), entry("spec/b.md", "beta")),
                 SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), List.of());
 
-        commit(store, 
+        commit(store,
                 inventory("revision-2", entry("spec/b.md", "beta-2")),
                 SyncPlan.SyncMode.INCREMENTAL, COMPLETED, COMPLETED.plusSeconds(5), Optional.empty(), List.of());
 
@@ -119,10 +119,10 @@ class MemorySyncStateStoreTest {
                 SourceArchiveRecord.ArchiveReason.MOVED, Optional.of(new SourcePath("spec/new.md")),
                 Optional.of("revision-2"));
 
-        commit(store, 
+        commit(store,
                 inventory("revision-1", entry("spec/a.md", "alpha")),
                 SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), List.of(moved, deleted));
-        commit(store, 
+        commit(store,
                 inventory("revision-2", entry("spec/a.md", "alpha")),
                 SyncPlan.SyncMode.INCREMENTAL, COMPLETED, COMPLETED.plusSeconds(5),
                 Optional.empty(), List.of(deleted));
@@ -138,14 +138,14 @@ class MemorySyncStateStoreTest {
                 ProjectSpecificationId.generate(), entry("spec/gone.md", "gone"), COMPLETED,
                 SourceArchiveRecord.ArchiveReason.DELETED, Optional.empty(), Optional.empty());
 
-        assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store, 
+        assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store,
                 inventory, SyncPlan.SyncMode.INCREMENTAL, COMPLETED, ATTEMPTED, Optional.empty(), List.of()))
                 .getMessage().contains("completedAt must not be before attemptedAt"));
-        assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store, 
+        assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store,
                 inventory, SyncPlan.SyncMode.INCREMENTAL, ATTEMPTED, COMPLETED,
                 Optional.of(COMPLETED.plusSeconds(1)), List.of()))
                 .getMessage().contains("lastObservedChangeAt must not be after completedAt"));
-        assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store, 
+        assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store,
                 inventory, SyncPlan.SyncMode.INCREMENTAL, ATTEMPTED, COMPLETED, Optional.empty(), List.of(foreign)))
                 .getMessage().contains("archive belongs to another project"));
 

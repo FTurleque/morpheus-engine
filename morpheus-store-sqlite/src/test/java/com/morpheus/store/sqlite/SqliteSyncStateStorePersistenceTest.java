@@ -82,7 +82,7 @@ class SqliteSyncStateStorePersistenceTest {
             assertEquals(Optional.of(SyncPlan.FullRebuildReason.WATCH_OVERFLOW),
                     reopened.findSyncState(projectId).orElseThrow().pendingFullRebuildReason());
 
-            commit(reopened, 
+            commit(reopened,
                     inventory(projectId, "revision-1", entry("spec/a.md", "alpha")),
                     SyncPlan.SyncMode.FULL_REBUILD,
                     ATTEMPTED,
@@ -106,10 +106,10 @@ class SqliteSyncStateStorePersistenceTest {
         ProjectSpecificationId projectId = project(database);
 
         try (SqliteSyncStateStore store = new SqliteSyncStateStore(database)) {
-            commit(store, 
+            commit(store,
                     inventory(projectId, "revision-1", entry("spec/a.md", "alpha"), entry("spec/b.md", "beta")),
                     SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), List.of());
-            commit(store, 
+            commit(store,
                     inventory(projectId, "revision-2", entry("spec/b.md", "beta-2")),
                     SyncPlan.SyncMode.INCREMENTAL, COMPLETED, COMPLETED.plusSeconds(5), Optional.empty(), List.of());
         }
@@ -130,7 +130,7 @@ class SqliteSyncStateStorePersistenceTest {
         ProjectSpecificationId projectId = project(database);
 
         try (SqliteSyncStateStore store = new SqliteSyncStateStore(database)) {
-            commit(store, 
+            commit(store,
                     new SourceInventory(projectId, Optional.empty(), ATTEMPTED, List.of(entry("spec/a.md", "alpha"))),
                     SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), List.of());
 
@@ -152,10 +152,10 @@ class SqliteSyncStateStorePersistenceTest {
                 Optional.of("revision-2"));
 
         try (SqliteSyncStateStore store = new SqliteSyncStateStore(database)) {
-            commit(store, 
+            commit(store,
                     inventory(projectId, "revision-1", entry("spec/a.md", "alpha")),
                     SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), List.of(deleted));
-            commit(store, 
+            commit(store,
                     inventory(projectId, "revision-2", entry("spec/a.md", "alpha")),
                     SyncPlan.SyncMode.INCREMENTAL, COMPLETED, COMPLETED.plusSeconds(5),
                     Optional.empty(), List.of(moved));
@@ -180,7 +180,7 @@ class SqliteSyncStateStorePersistenceTest {
                     other, entry("spec/gone.md", "gone"), COMPLETED,
                     SourceArchiveRecord.ArchiveReason.DELETED, Optional.empty(), Optional.empty());
 
-            assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store, 
+            assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store,
                     inventory(projectId, "revision-1", entry("spec/a.md", "alpha")),
                     SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), List.of(foreign)))
                     .getMessage().contains("archive belongs to another project"));
@@ -197,10 +197,10 @@ class SqliteSyncStateStorePersistenceTest {
         try (SqliteSyncStateStore store = new SqliteSyncStateStore(database)) {
             SourceInventory inventory = inventory(projectId, "revision-1", entry("spec/a.md", "alpha"));
 
-            assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store, 
+            assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store,
                     inventory, SyncPlan.SyncMode.INCREMENTAL, COMPLETED, ATTEMPTED, Optional.empty(), List.of()))
                     .getMessage().contains("completedAt must not be before attemptedAt"));
-            assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store, 
+            assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store,
                     inventory, SyncPlan.SyncMode.INCREMENTAL, ATTEMPTED, COMPLETED,
                     Optional.of(COMPLETED.plusSeconds(1)), List.of()))
                     .getMessage().contains("lastObservedChangeAt must not be after completedAt"));
