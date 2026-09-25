@@ -181,6 +181,7 @@ valeur inventée. C'est exactement la distinction que trace cet amendement.
 - **Preuve.** `StructuredMarkdownStrictValidationTest` refuse un bloc sans `completed` en assertant le message
   exact (bloc et ligne) et l'absence de chemin d'hôte, et vérifie qu'un `completed` explicite est lu tel que déclaré.
 
+<<<<<<< HEAD
 ## Amendement du 25 septembre 2026 (INT-1) — une recherche bornée rend une indisponibilité, pas une absence
 
 Un résultat borné par une taille de page ne dit rien de ce qui se trouve au-delà. Le résolveur MINOS filtrait sur l'égalité
@@ -210,3 +211,29 @@ exacte, le résolveur rend `unavailable()` si la recherche est possiblement tron
 - **Preuve.** `MinosBoundedSearchResolutionTest` (résolveur + service : `STALE`/`TARGET_UNAVAILABLE`, jamais `TARGET_REMOVED`),
   `MinosMcpExternalReferenceResolverTest`, `MinosMcpTransportIntegrationTest` (le gateway réel dérive le drapeau de la limite).
 - **Résidu assumé.** Une correspondance exacte unique dans une page tronquée reste `FOUND` : un second exact au-delà de la page ne serait pas vu (`AMBIGUOUS` manqué). Un `symbolKey` exact est quasi unique et la donnée MINOS ne permet pas de le prouver ; c'est la même famille (« borne prise pour totalité ») que le constat, sur un cas dont la conséquence est moindre.
+=======
+## Amendement du 25 septembre 2026 (CLI-1) — un refus atteint le code de sortie du processus
+
+La règle de cet ADR vaut aussi pour le processus : un `UNKNOWN` écrit dans le JSON mais absent du code de sortie est
+converti en succès par tout ce qui ne parse pas le JSON. `policy evaluate` et `policy dry-run` rendaient `0` pour les
+quatre décisions, alors que `docs/user/CLI.md` publie `4` pour « résultat métier non applicable » et prescrit
+`if ($LASTEXITCODE -ne 0) { throw }`.
+
+`PASS` et `WARN` rendent `0` ; `BLOCK` et `UNKNOWN` rendent `4` (`STATE_ERROR`), via une seule méthode
+(`MorpheusPolicyCli.exitCodeOf`). Le JSON reste imprimé dans tous les cas : un pipeline a besoin du code **et** de la
+décision. Les autres actions de `policy` ne portent pas de décision et rendent `0` quand elles réussissent.
+
+### Alternatives écartées
+
+- **`UNKNOWN` → 0 avec un avertissement sur stderr.** C'est la conversion en `PASS` que l'ADR interdit, déplacée d'un
+  flux à l'autre.
+- **Un code distinct pour `UNKNOWN`.** Le tableau des codes de sortie est un contrat public ; `4` dit déjà « résultat
+  métier non applicable ». Un code de plus est un changement de contrat que ce constat ne justifie pas.
+
+### Conséquences
+
+- **Rupture annoncée** dans `docs/release/RELEASE_NOTES_1.2.1.md` ; `scripts/validate-m25.*` attendent `4`.
+- **Preuve.** `MorpheusPolicyCliTest` couvre les quatre décisions de bout en bout sur `evaluate`, le rapport agrégé, `dry-run`,
+  le maintien de `0` pour les actions de configuration, et l'impression du JSON avec le code `4`.
+- **Résidu assumé.** Un scope sans pack actif rend un rapport agrégé `PASS` et donc `0` : aucune règle n'a échoué d'être évaluée, ce n'est pas un `UNKNOWN`. Un pipeline qui croit avoir un contrôle actif ne le voit pas ; c'est une question de sémantique du service d'évaluation (le rapport ne dit pas « aucun pack »), pas de code de sortie, à décider séparément.
+>>>>>>> origin/develop

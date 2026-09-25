@@ -35,6 +35,7 @@ n'est pas resynchronisé.
 Décision : [ADR-0108, amendement du 24 septembre 2026 (PRV-4)](../adr/0108-a-response-says-what-it-could-not-observe.md).
 Format du bloc : [`../user/QUICKSTART.md`](../user/QUICKSTART.md).
 
+<<<<<<< HEAD
 ### Références externes MINOS : une recherche tronquée n'est plus une absence
 
 Jusqu'à 1.2.0, le résolveur MINOS demandait au plus 1000 symboles, filtrait sur la clé exacte et répondait « introuvable »
@@ -48,5 +49,26 @@ qu'un « supprimé » faux). Une recherche non pleine sans correspondance reste 
 
 **Migration.** Aucune. Un consommateur qui traitait `TARGET_REMOVED` comme certain n'y trouvera plus de faux positifs ;
 relancer la résolution ou affiner la clé de symbole.
+=======
+### CLI `policy evaluate` et `policy dry-run` : un refus atteint le code de sortie
+
+Jusqu'à 1.2.0, ces commandes rendaient `0` quelle que soit la décision écrite dans le JSON, `BLOCK` et `UNKNOWN` compris.
+Un pipeline qui appliquait l'idiome documenté `if ($LASTEXITCODE -ne 0) { throw }` laissait donc passer un refus, et un
+`UNKNOWN` (règle non évaluable) était converti en succès au niveau du processus.
+
+À partir de 1.2.1, la décision effective est reportée sur le code de sortie :
+
+| Décision | Code |
+|---|---:|
+| `PASS`, `WARN` | `0` |
+| `BLOCK`, `UNKNOWN` | `4` (`STATE_ERROR`) |
+
+Le JSON est toujours imprimé, y compris avec le code `4`. Les autres actions de `policy` (configuration, listes, audit) ne
+changent pas : elles rendent `0` quand elles réussissent.
+
+**Migration.** Une CI qui appelait `policy evaluate` ou `policy dry-run` sans regarder le JSON échoue maintenant sur `BLOCK` et
+`UNKNOWN` : c'est le but. Pour ne pas échouer, lire `decision` dans le JSON plutôt que le code de sortie. Les validateurs
+`scripts/validate-m25.*` attendent désormais explicitement le code `4` sur leurs deux appels.
+>>>>>>> origin/develop
 
 Décision : [ADR-0108](../adr/0108-a-response-says-what-it-could-not-observe.md).
