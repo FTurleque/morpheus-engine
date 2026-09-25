@@ -216,3 +216,28 @@ exigences courantes du change (celles de ses liens `AFFECTS`) ; un compte nul va
   lien est la seule preuve d'appartenance que le snapshot fournit.
 - **Preuve.** `ChangeCompletenessAbsentObservationContractTest` : flux vide → `UNAVAILABLE`, contraintes connues → `TRUE`, contrainte inconnue →
   `UNAVAILABLE`, transition non évaluée sur le change vide et permise avec critères d'exigence, `FALSE` observé, `UNAVAILABLE` sans lien.
+
+## Amendement du 25 septembre 2026 (CLI-1) — un refus atteint le code de sortie du processus
+
+La règle de cet ADR vaut aussi pour le processus : un `UNKNOWN` écrit dans le JSON mais absent du code de sortie est
+converti en succès par tout ce qui ne parse pas le JSON. `policy evaluate` et `policy dry-run` rendaient `0` pour les
+quatre décisions, alors que `docs/user/CLI.md` publie `4` pour « résultat métier non applicable » et prescrit
+`if ($LASTEXITCODE -ne 0) { throw }`.
+
+`PASS` et `WARN` rendent `0` ; `BLOCK` et `UNKNOWN` rendent `4` (`STATE_ERROR`), via une seule méthode
+(`MorpheusPolicyCli.exitCodeOf`). Le JSON reste imprimé dans tous les cas : un pipeline a besoin du code **et** de la
+décision. Les autres actions de `policy` ne portent pas de décision et rendent `0` quand elles réussissent.
+
+### Alternatives écartées
+
+- **`UNKNOWN` → 0 avec un avertissement sur stderr.** C'est la conversion en `PASS` que l'ADR interdit, déplacée d'un
+  flux à l'autre.
+- **Un code distinct pour `UNKNOWN`.** Le tableau des codes de sortie est un contrat public ; `4` dit déjà « résultat
+  métier non applicable ». Un code de plus est un changement de contrat que ce constat ne justifie pas.
+
+### Conséquences
+
+- **Rupture annoncée** dans `docs/release/RELEASE_NOTES_1.2.1.md` ; `scripts/validate-m25.*` attendent `4`.
+- **Preuve.** `MorpheusPolicyCliTest` couvre les quatre décisions de bout en bout sur `evaluate`, le rapport agrégé, `dry-run`,
+  le maintien de `0` pour les actions de configuration, et l'impression du JSON avec le code `4`.
+- **Résidu assumé.** Un scope sans pack actif rend un rapport agrégé `PASS` et donc `0` : aucune règle n'a échoué d'être évaluée, ce n'est pas un `UNKNOWN`. Un pipeline qui croit avoir un contrôle actif ne le voit pas ; c'est une question de sémantique du service d'évaluation (le rapport ne dit pas « aucun pack »), pas de code de sortie, à décider séparément.

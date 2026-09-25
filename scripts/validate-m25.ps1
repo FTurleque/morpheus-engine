@@ -49,6 +49,13 @@ function Invoke-LauncherText([string]$Launcher, [string[]]$Arguments) {
     return $text
 }
 
+# A policy decision other than PASS/WARN is a refusal and exits 4: the gate asserts the code as well as the JSON.
+function Invoke-LauncherTextExpecting([string]$Launcher, [string[]]$Arguments, [int]$ExpectedExit) {
+    $text = (& $Launcher @Arguments) -join "`n"
+    if ($LASTEXITCODE -ne $ExpectedExit) { throw "Packaged launcher exited $LASTEXITCODE, expected $ExpectedExit : $($Arguments -join ' ')`n$text" }
+    return $text
+}
+
 function Assert-PackagedM25([string]$Launcher) {
     # MORPHEUS creates and hardens its own data directory, so the gate must not pre-create it: a directory made
     # here inherits the ACLs of whatever it sits under, and the real owner-controlled storage path is never
@@ -92,8 +99,8 @@ function Assert-PackagedM25([string]$Launcher) {
     $staleError = if (Test-Path $staleErr) { Get-Content $staleErr -Raw } else { '' }
     if ($staleError -notmatch 'stale policy pack revision') { throw "Stale policy diagnostic mismatch: $staleError" }
 
-    $dry = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'policy', 'dry-run',
-        '--id', $packId, '--version', $versionId, '--project', $projectId)
+    $dry = Invoke-LauncherTextExpecting $Launcher @('--data-dir', $data, '--json', 'policy', 'dry-run',
+        '--id', $packId, '--version', $versionId, '--project', $projectId) 4
     if ($dry -notmatch '"dryRun":true' -or $dry -notmatch '"decision":"UNKNOWN"') { throw "Policy dry-run mismatch: $dry" }
     $auditBefore = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'policy', 'audit', '--id', $packId)
     if ($auditBefore -match 'ACTIVATE') { throw 'Dry-run unexpectedly wrote activation audit' }
@@ -103,7 +110,7 @@ function Assert-PackagedM25([string]$Launcher) {
     Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'policy', 'override', 'put', '--id', $packId,
         '--rule', $ruleId, '--mode', 'FORCE_BLOCK', '--project', $projectId, '--expected-revision', '0',
         '--actor', 'gate', '--reason', 'explicit') | Out-Null
-    $evaluated = Invoke-LauncherText $Launcher @('--data-dir', $data, '--json', 'policy', 'evaluate', '--id', $packId, '--project', $projectId)
+    $evaluated = Invoke-LauncherTextExpecting $Launcher @('--data-dir', $data, '--json', 'policy', 'evaluate', '--id', $packId, '--project', $projectId) 4
     if ($evaluated -notmatch '"originalDecision":"UNKNOWN"' -or $evaluated -notmatch '"effectiveDecision":"BLOCK"') {
         throw "Policy override provenance mismatch: $evaluated"
     }
