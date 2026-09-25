@@ -4,6 +4,7 @@ import com.morpheus.application.context.AugmentedContextService;
 import com.morpheus.application.context.TechnicalContextOptions;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
+import com.morpheus.application.security.IntegrationStatusDisclosure;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -74,12 +75,14 @@ final class MorpheusAugmentedContextMcpTools {
                                     projectId,
                                     RequirementId.parse(McpArguments.requiredString(arguments, "requirementId")),
                                     options)
+                            .map(IntegrationStatusDisclosure::project)
                             .orElseThrow(() -> new KnowledgeStoreException(
                                     "project has no ACTIVE snapshot: " + projectId));
                     case CHANGE_TOOL -> service.change(
                                     projectId,
                                     ChangeId.parse(McpArguments.requiredString(arguments, "changeId")),
                                     options)
+                            .map(IntegrationStatusDisclosure::project)
                             .orElseThrow(() -> new KnowledgeStoreException(
                                     "project has no ACTIVE snapshot: " + projectId));
                     default -> throw new IllegalArgumentException("unknown M13 MCP tool: " + toolName);
