@@ -2,6 +2,7 @@ package com.morpheus.cli;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.policy.PolicyConfiguration;
+import com.morpheus.application.policy.PolicyEvaluation;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPublicViews;
 import com.morpheus.application.policy.PolicyRule;
@@ -47,10 +48,15 @@ final class MorpheusPolicyCli {
             Parsed parsed = Parsed.parse(args, environment, properties);
             try (SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(parsed.layout().databasePath())) {
                 Object result = execute(parsed, runtime);
+                CliExitCode exitCode = CliExitCode.SUCCESS;
+                if (result instanceof Decided decided) {
+                    result = decided.view();
+                    exitCode = exitCodeOf(decided.decision());
+                }
                 if (result != VoidMarker.INSTANCE) {
                     out.println(parsed.json() ? json.toJson(result) : result);
                 }
-                return CliExitCode.SUCCESS.code();
+                return exitCode.code();
             }
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS error [" + CliExitCode.USAGE.code() + "]: " + safeMessage(failure));
@@ -127,14 +133,15 @@ final class MorpheusPolicyCli {
                 PolicyScope evaluationScope = scope(options);
                 Optional<String> packId = options.optional("id");
                 if (packId.isPresent()) {
-                    yield PolicyPublicViews.report(runtime.evaluation().evaluatePack(
+                    yield decided(runtime.evaluation().evaluatePack(
                             evaluationScope, PolicyIds.PackId.parse(packId.orElseThrow())));
                 }
-                yield PolicyPublicViews.governance(runtime.evaluation().evaluate(evaluationScope));
+                PolicyEvaluation.GovernanceReport governance = runtime.evaluation().evaluate(evaluationScope);
+                yield new Decided(PolicyPublicViews.governance(governance), governance.decision());
             }
             case "dry-run" -> {
                 options.rejectUnknown(Set.of("id", OPT_VERSION, OPT_PROJECT, OPT_PORTFOLIO));
-                yield PolicyPublicViews.report(runtime.evaluation().dryRun(
+                yield decided(runtime.evaluation().dryRun(
                         scope(options), pack(options), PolicyIds.VersionId.parse(options.required(OPT_VERSION))));
             }
             case "audit" -> {
@@ -142,6 +149,21 @@ final class MorpheusPolicyCli {
                 yield PolicyPublicViews.audit(runtime.registry().audit(pack(options)));
             }
             default -> throw new IllegalArgumentException("unknown policy action: " + parsed.action());
+        };
+    }
+
+    private static Decided decided(PolicyEvaluation.Report report) {
+        return new Decided(PolicyPublicViews.report(report), report.decision());
+    }
+
+    /**
+     * Only PASS and WARN let a pipeline continue. UNKNOWN is a refusal to certify, not a pass: it must not reach
+     * exit code 0, where it would be indistinguishable from PASS to anything that does not parse the JSON.
+     */
+    static CliExitCode exitCodeOf(PolicyEvaluation.Decision decision) {
+        return switch (decision) {
+            case PASS, WARN -> CliExitCode.SUCCESS;
+            case BLOCK, UNKNOWN -> CliExitCode.STATE_ERROR;
         };
     }
 
@@ -245,6 +267,8 @@ final class MorpheusPolicyCli {
     }
 
     private enum VoidMarker { INSTANCE }
+
+    private record Decided(Object view, PolicyEvaluation.Decision decision) { }
 
     private record Parsed(boolean json, CliLayout layout, String action, List<String> arguments) {
         static Parsed parse(String[] args, Map<String, String> environment, Properties properties) {

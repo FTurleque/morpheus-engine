@@ -35,6 +35,7 @@ n'est pas resynchronisé.
 Décision : [ADR-0108, amendement du 24 septembre 2026 (PRV-4)](../adr/0108-a-response-says-what-it-could-not-observe.md).
 Format du bloc : [`../user/QUICKSTART.md`](../user/QUICKSTART.md).
 
+<<<<<<< HEAD
 ### Contexte augmenté : plus de chemin serveur dans le statut NEXUS (HTTP et MCP)
 
 Jusqu'à 1.2.0, les deux routes `augmented-context` (rôle READ en remote) et les deux outils MCP `get_augmented_*_context`
@@ -51,3 +52,26 @@ remplacer). La CLI garde les réglages complets.
 `jarPathConfigured`, `homeDirectoryConfigured` ou `javaCommandConfigured` ; la valeur du chemin reste disponible via la CLI.
 
 Décision : [ADR-0094, amendement du 25 septembre 2026 (NEX-1)](../adr/0094-optional-team-remote-server-mode.md).
+=======
+### CLI `policy evaluate` et `policy dry-run` : un refus atteint le code de sortie
+
+Jusqu'à 1.2.0, ces commandes rendaient `0` quelle que soit la décision écrite dans le JSON, `BLOCK` et `UNKNOWN` compris.
+Un pipeline qui appliquait l'idiome documenté `if ($LASTEXITCODE -ne 0) { throw }` laissait donc passer un refus, et un
+`UNKNOWN` (règle non évaluable) était converti en succès au niveau du processus.
+
+À partir de 1.2.1, la décision effective est reportée sur le code de sortie :
+
+| Décision | Code |
+|---|---:|
+| `PASS`, `WARN` | `0` |
+| `BLOCK`, `UNKNOWN` | `4` (`STATE_ERROR`) |
+
+Le JSON est toujours imprimé, y compris avec le code `4`. Les autres actions de `policy` (configuration, listes, audit) ne
+changent pas : elles rendent `0` quand elles réussissent.
+
+**Migration.** Une CI qui appelait `policy evaluate` ou `policy dry-run` sans regarder le JSON échoue maintenant sur `BLOCK` et
+`UNKNOWN` : c'est le but. Pour ne pas échouer, lire `decision` dans le JSON plutôt que le code de sortie. Les validateurs
+`scripts/validate-m25.*` attendent désormais explicitement le code `4` sur leurs deux appels.
+
+Décision : [ADR-0108](../adr/0108-a-response-says-what-it-could-not-observe.md).
+>>>>>>> origin/develop
