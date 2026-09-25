@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.application.context.AugmentedContextService;
 import com.morpheus.application.context.TechnicalContextOptions;
 import com.morpheus.application.context.TechnicalContextProvider;
+import com.morpheus.application.security.IntegrationStatusDisclosure;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.requirement.RequirementId;
@@ -44,6 +45,7 @@ final class MorpheusAugmentedContextApiService {
                     runtime.externalReferences,
                     provider)
                     .requirement(projectId, requirementId, options)
+                    .map(IntegrationStatusDisclosure::project)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
         }
     }
@@ -64,6 +66,7 @@ final class MorpheusAugmentedContextApiService {
                     runtime.externalReferences,
                     provider)
                     .change(projectId, changeId, options)
+                    .map(IntegrationStatusDisclosure::project)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
         }
     }
