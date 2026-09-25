@@ -149,6 +149,21 @@ class MorpheusPortfolioCliTest {
     }
 
     @Test
+    void everyActionRefusesAnOptionNoActionReads() {
+        String portfolioId = firstUuid(run("--json", "portfolio", "create", "--name", "Bogus").out());
+        String projectId = ProjectSpecificationId.generate().toString();
+
+        for (String action : java.util.List.of("create", "add-project", "missing", "freshness", "add-reference",
+                "list", "overview", "members", "references", "conflicts", "traverse")) {
+            Result result = run("portfolio", action, "--portfolio", portfolioId, "--project", projectId,
+                    "--bogus", "x");
+
+            assertEquals(CliExitCode.USAGE.code(), result.exitCode(), action + ": " + result.err());
+            assertTrue(result.err().contains("unknown option: --"), action + ": " + result.err());
+        }
+    }
+
+    @Test
     void everyActionAcceptsEachOptionItReads() {
         String portfolioId = firstUuid(run("--json", "portfolio", "create", "--name", "Reads").out());
         String projectId = ProjectSpecificationId.generate().toString();

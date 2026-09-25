@@ -51,4 +51,4 @@ MORPHEUS error [2]: unknown option: --projet
 **Migration.** Un script qui passait une option ignorée reçoit maintenant le code `2` : corriger ou retirer l'option.
 Les options reconnues par action sont exactement celles que l'action lit (`ACTION_OPTIONS` dans `MorpheusPortfolioCli`).
 
-Décision : garde `CliOptionParsingRefusesUnknownOptionsTest` (tout `SimpleOptions.parse` est suivi d'un `rejectUnknown`).
+Décision : garde `CliOptionParsingRefusesUnknownOptionsTest` (chaque méthode qui appelle `SimpleOptions.parse` appelle aussi `rejectUnknown`) ; un `case` sans entrée dans `ACTION_OPTIONS` est refusé comme action inconnue.

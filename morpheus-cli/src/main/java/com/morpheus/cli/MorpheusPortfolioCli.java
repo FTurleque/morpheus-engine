@@ -71,9 +71,11 @@ final class MorpheusPortfolioCli {
             }
             String action = parsed.tokens().getFirst();
             SimpleOptions options = SimpleOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()));
-            if (ACTION_OPTIONS.containsKey(action)) {
-                options.rejectUnknown(ACTION_OPTIONS.get(action));
+            Set<String> allowed = ACTION_OPTIONS.get(action);
+            if (allowed == null) {
+                throw new IllegalArgumentException("unknown portfolio action: " + action);
             }
+            options.rejectUnknown(allowed);
             try (SqlitePortfolioStore store = new SqlitePortfolioStore(parsed.layout().databasePath())) {
                 PortfolioRegistryService registry = new PortfolioRegistryService(store);
                 PortfolioQueryService query = new PortfolioQueryService(store);
