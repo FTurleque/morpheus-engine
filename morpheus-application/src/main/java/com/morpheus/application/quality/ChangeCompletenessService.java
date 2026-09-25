@@ -94,16 +94,15 @@ public final class ChangeCompletenessService {
                 TraceabilityEntityKind.CHANGE,
                 change.id().value());
 
-        int currentRequirementCount = traceabilityStore
+        Set<DomainIdentity> affectedRequirements = traceabilityStore
                 .outgoing(snapshot.id(), changeRef, Set.of(TraceabilityRelationType.AFFECTS))
                 .stream()
                 .map(link -> link.target())
                 .filter(target -> target.kind() == TraceabilityEntityKind.REQUIREMENT)
                 .map(TraceabilityEntityRef::identity)
                 .filter(currentRequirementIdentities::contains)
-                .distinct()
-                .toList()
-                .size();
+                .collect(Collectors.toUnmodifiableSet());
+        int currentRequirementCount = affectedRequirements.size();
 
         List<Constraint> changeConstraints = content.constraints().stream()
                 .filter(item -> item.changeId().equals(change.id()))
@@ -117,14 +116,27 @@ public final class ChangeCompletenessService {
                 .filter(item -> item.changeId().equals(change.id()))
                 .count();
         int acceptanceCriterionCount = (int) content.acceptanceCriteria().stream()
-                .filter(item -> item.changeId().filter(change.id()::equals).isPresent())
+                .filter(item -> item.changeId().filter(change.id()::equals).isPresent()
+                        || item.requirementId().map(id -> affectedRequirements.contains(id.value())).orElse(false))
                 .count();
 
-        QualityFactValue criticalConstraintsKnown = changeConstraints.stream()
-                .allMatch(item -> item.applicability() != ConstraintApplicability.UNKNOWN
-                        && item.severity() != ConstraintSeverity.UNKNOWN)
+        // allMatch is true of an empty stream: a change with no ingested constraint has observed none, which is not
+        // the same as having observed that all of them are known.
+        QualityFactValue criticalConstraintsKnown;
+        if (changeConstraints.isEmpty()) {
+            criticalConstraintsKnown = QualityFactValue.UNAVAILABLE;
+        } else if (changeConstraints.stream().allMatch(item -> item.applicability() != ConstraintApplicability.UNKNOWN
+                && item.severity() != ConstraintSeverity.UNKNOWN)) {
+            criticalConstraintsKnown = QualityFactValue.TRUE;
+        } else {
+            criticalConstraintsKnown = QualityFactValue.UNAVAILABLE;
+        }
+
+        // Criteria attach to a change or to a requirement. Without any requirement link resolved for the change,
+        // the requirement-attached ones cannot be enumerated, so an empty count is not an observation of absence.
+        QualityFactValue acceptanceCriteriaDefined = acceptanceCriterionCount > 0
                 ? QualityFactValue.TRUE
-                : QualityFactValue.UNAVAILABLE;
+                : currentRequirementCount > 0 ? QualityFactValue.FALSE : QualityFactValue.UNAVAILABLE;
 
         var implementationEvaluations = changeConstraints.stream()
                 .map(item -> constraintPolicy.evaluate(item, ChangeLifecycleState.IMPLEMENTING))
@@ -141,7 +153,7 @@ public final class ChangeCompletenessService {
         ChangeLifecycleFactAssessment facts = new ChangeLifecycleFactAssessment(
                 QualityFactValue.of(currentRequirementCount > 0),
                 criticalConstraintsKnown,
-                QualityFactValue.of(acceptanceCriterionCount > 0),
+                acceptanceCriteriaDefined,
                 QualityFactValue.UNAVAILABLE,
                 QualityFactValue.of(designDecisionCount > 0),
                 implementationTaskCount > 0 ? QualityFactValue.TRUE : QualityFactValue.UNAVAILABLE,
