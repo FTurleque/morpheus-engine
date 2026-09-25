@@ -164,6 +164,8 @@ morpheus --json policy evaluate --project <projectId>
 morpheus --json policy evaluate --project <projectId> --id <policyPackId>
 ```
 
+Le code de sortie porte la décision de `evaluate` et de `dry-run` : `PASS` et `WARN` rendent `0`, `BLOCK` et `UNKNOWN` rendent `4` (`STATE_ERROR`). Le JSON est imprimé dans tous les cas. `UNKNOWN` n'est jamais un succès : la règle n'a pas pu être évaluée.
+
 Dry-run :
 
 ```bash
