@@ -65,6 +65,8 @@ class RemoteServerArchitectureTest {
         String integrations = Files.readString(root.resolve(
                 "morpheus-api/src/main/java/com/morpheus/api/IntegrationStatusViews.java"));
         String cli = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusCli.java"));
+        String integrationProjection = Files.readString(root.resolve(
+                "morpheus-application/src/main/java/com/morpheus/application/security/IntegrationStatusDisclosure.java"));
 
         assertTrue(projects.contains("result.put(\"workspaceName\", workspaceName(entry.rootLocator()))"),
                 "the HTTP project view must name the workspace");
@@ -73,9 +75,11 @@ class RemoteServerArchitectureTest {
         assertTrue(cli.contains("new ProjectView(item.id().toString(), item.rootLocator().value())"),
                 "the local CLI must keep the workspace pathname an operator passes back to --workspace");
 
-        assertTrue(integrations.contains("LOCATION_DETAIL_KEYS"),
+        assertTrue(integrations.contains("IntegrationStatusDisclosure.project("),
+                "the integration view must go through the shared status projection");
+        assertTrue(integrationProjection.contains("LOCATION_KEYS"),
                 "integration launch locations must be reported as configured rather than named");
-        assertTrue(integrations.contains("ServerLocationDisclosure.namesAServerLocation"),
+        assertTrue(integrationProjection.contains("ServerLocationDisclosure.namesAServerLocation"),
                 "the integration projection must consult the shared boundary predicate");
 
         String policy = Files.readString(root.resolve(
