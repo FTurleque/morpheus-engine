@@ -204,3 +204,4 @@ décision. Les autres actions de `policy` ne portent pas de décision et rendent
 - **Rupture annoncée** dans `docs/release/RELEASE_NOTES_1.2.1.md` ; `scripts/validate-m25.*` attendent `4`.
 - **Preuve.** `MorpheusPolicyCliTest` couvre les quatre décisions de bout en bout sur `evaluate`, le rapport agrégé, `dry-run`,
   le maintien de `0` pour les actions de configuration, et l'impression du JSON avec le code `4`.
+- **Résidu assumé.** Un scope sans pack actif rend un rapport agrégé `PASS` et donc `0` : aucune règle n'a échoué d'être évaluée, ce n'est pas un `UNKNOWN`. Un pipeline qui croit avoir un contrôle actif ne le voit pas ; c'est une question de sémantique du service d'évaluation (le rapport ne dit pas « aucun pack »), pas de code de sortie, à décider séparément.

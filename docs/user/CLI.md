@@ -388,6 +388,8 @@ La requête suivante est servie normalement.
 | 5 | `IO_ERROR` | erreur d’I/O classifiée | vérifier chemins, droits, processus externe |
 | 10 | `INTERNAL_ERROR` | erreur inattendue | conserver stderr et contexte |
 
+Un code `4` peut s'accompagner d'un JSON valide : `policy evaluate` et `policy dry-run` rendent `4` sur une décision `BLOCK` ou `UNKNOWN` (`0` sur `PASS` et `WARN`) et impriment toujours la décision.
+
 ## 20. Patron PowerShell robuste
 
 ```powershell
