@@ -21,9 +21,9 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -134,19 +134,22 @@ class SqliteSavedViewUnreadableRowTest {
 
     private void poison(Path database, SavedViewId id) throws SQLException {
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
-             Statement statement = connection.createStatement()) {
-            statement.executeUpdate("UPDATE saved_views SET query_definition = 'not-a-definition' WHERE id = '"
-                    + id + "'");
+             PreparedStatement statement = connection.prepareStatement(
+                     "UPDATE saved_views SET query_definition = 'not-a-definition' WHERE id = ?")) {
+            statement.setString(1, id.toString());
+            statement.executeUpdate();
         }
     }
 
     private int versionRows(Path database, SavedViewId id) throws SQLException {
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
-             Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(
-                     "SELECT COUNT(*) FROM saved_view_versions WHERE saved_view_id = '" + id + "'")) {
-            result.next();
-            return result.getInt(1);
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT COUNT(*) FROM saved_view_versions WHERE saved_view_id = ?")) {
+            statement.setString(1, id.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
         }
     }
 }
