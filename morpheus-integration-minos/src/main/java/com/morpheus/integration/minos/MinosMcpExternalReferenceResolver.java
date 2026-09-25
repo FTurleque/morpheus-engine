@@ -49,12 +49,15 @@ public final class MinosMcpExternalReferenceResolver implements ExternalReferenc
                 return ExternalReferenceResolverResult.revisionMismatch();
             }
 
-            List<MinosCodeGateway.Symbol> exact = gateway
-                    .findSymbols(project, target.externalId(), MAX_SYMBOL_RESULTS).stream()
+            MinosCodeGateway.SymbolSearch search = gateway.findSymbols(project, target.externalId(), MAX_SYMBOL_RESULTS);
+            List<MinosCodeGateway.Symbol> exact = search.symbols().stream()
                     .filter(symbol -> target.externalId().equals(symbol.symbolKey()))
                     .toList();
             if (exact.isEmpty()) {
-                return ExternalReferenceResolverResult.notFound();
+                // A full page proves nothing about what lies beyond it: not found is only true of an exhaustive search.
+                return search.possiblyTruncated()
+                        ? ExternalReferenceResolverResult.unavailable()
+                        : ExternalReferenceResolverResult.notFound();
             }
             if (exact.size() > 1) {
                 return ExternalReferenceResolverResult.ambiguous();
