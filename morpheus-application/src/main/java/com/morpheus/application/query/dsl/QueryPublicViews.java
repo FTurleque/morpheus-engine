@@ -1,6 +1,7 @@
 package com.morpheus.application.query.dsl;
 
 import com.morpheus.application.query.saved.SavedViewDefinition;
+import com.morpheus.application.query.saved.SavedViewEntry;
 import com.morpheus.application.query.saved.SavedViewVersion;
 
 import java.util.List;
@@ -29,6 +30,22 @@ public final class QueryPublicViews {
                 view.status().name(), view.createdAt().toString(), view.updatedAt().toString());
     }
 
+    /**
+     * A saved view whose stored definition cannot be decoded keeps its identity and says why; it is never omitted.
+     * A readable view keeps its wire shape byte for byte: the degraded entry is a different record, not an extra
+     * nullable field on every view.
+     */
+    public static Object savedView(SavedViewEntry entry) {
+        Objects.requireNonNull(entry, "entry");
+        return switch (entry) {
+            case SavedViewEntry.Readable readable -> savedView(readable.definition());
+            case SavedViewEntry.Unreadable unreadable -> new UnreadableSavedViewView(
+                    unreadable.id().toString(), unreadable.name(), unreadable.revision(),
+                    unreadable.status().name(), unreadable.createdAt().toString(), unreadable.updatedAt().toString(),
+                    unreadable.reason());
+        };
+    }
+
     public static SavedViewVersionView savedVersion(SavedViewVersion version) {
         Objects.requireNonNull(version, "version");
         return new SavedViewVersionView(
@@ -36,8 +53,8 @@ public final class QueryPublicViews {
                 version.status().name(), version.recordedAt().toString());
     }
 
-    public static List<SavedViewView> savedViews(List<SavedViewDefinition> views) {
-        return List.copyOf(views).stream().map(QueryPublicViews::savedView).toList();
+    public static List<Object> savedViews(List<SavedViewEntry> views) {
+        return List.copyOf(views).stream().map(entry -> savedView(entry)).toList();
     }
 
     public static List<SavedViewVersionView> savedVersions(List<SavedViewVersion> versions) {
@@ -136,6 +153,16 @@ public final class QueryPublicViews {
             String status,
             String createdAt,
             String updatedAt) {
+    }
+
+    public record UnreadableSavedViewView(
+            String id,
+            String name,
+            long revision,
+            String status,
+            String createdAt,
+            String updatedAt,
+            String unreadableReason) {
     }
 
     public record SavedViewVersionView(

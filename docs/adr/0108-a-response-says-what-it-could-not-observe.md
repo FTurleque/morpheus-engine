@@ -181,6 +181,72 @@ valeur inventée. C'est exactement la distinction que trace cet amendement.
 - **Preuve.** `StructuredMarkdownStrictValidationTest` refuse un bloc sans `completed` en assertant le message
   exact (bloc et ligne) et l'absence de chemin d'hôte, et vérifie qu'un `completed` explicite est lu tel que déclaré.
 
+## Amendement du 25 septembre 2026 (QLT-1, QLT-2) — un flux vide n'est pas un fait affirmatif
+
+`ChangeCompletenessService` calculait `criticalConstraintsKnown` par `allMatch`, vrai d'un flux vide : un change sans aucune contrainte
+ingérée affirmait `TRUE`, alors que le même bloc code la prudence inverse pour `planPresent` (`count > 0 ? TRUE : UNAVAILABLE`). Un
+flux vide est explicitement `UNAVAILABLE` ; le test est écrit (`isEmpty()`) plutôt que caché dans l'expression.
+
+QLT-2, même bloc : les critères d'acceptation ne comptaient que ceux dont le `changeId` correspond, alors qu'un critère ne doit référencer qu'un
+changement **ou** une exigence ; et l'absence était convertie en `FALSE` définitif. Sont maintenant comptés aussi les critères rattachés aux
+exigences courantes du change (celles de ses liens `AFFECTS`) ; un compte nul vaut `FALSE` si au moins une exigence est résolue,
+`UNAVAILABLE` sinon (les critères d'exigence ne peuvent alors pas être énumérés).
+
+### Verdict sur les autres faits de `ChangeLifecycleFactAssessment`
+
+- `requirementsIdentified = of(count > 0)` : `FALSE` observe l'absence de lien `AFFECTS` vers une exigence courante dans le snapshot (le
+  magasin de traçabilité est complet pour un snapshot publié) et le finding `CHANGE_WITHOUT_CURRENT_REQUIREMENT` le dit. Observation, inchangé.
+- `designDecisionsAvailable = of(count > 0)` : décisions filtrées sur le change, requête complète. Observation ; le consommateur ne lit
+  `FALSE` que si `designRequired` est `TRUE`, et il est `UNAVAILABLE` en dur. Inchangé.
+- `planPresent` : déjà `TRUE`/`UNAVAILABLE`. `designRequired`, `blockingAcceptanceCriterionFailed`, `blockingAcceptanceCriterionUnverified` :
+  déjà `UNAVAILABLE` en dur.
+- `knownBlocker` : `FALSE` sur zéro contrainte signifie « aucun bloqueur *connu* », vrai littéralement ; c'est `criticalConstraintsKnown`, ici
+  corrigé, qui porte l'affirmation de complétude. Inchangé, à reconsidérer si la transition `PLANNED → IMPLEMENTING` doit exiger les deux.
+
+### Alternatives écartées
+
+- **Traiter zéro contrainte comme « connu » explicitement.** C'est le comportement corrigé : l'absence d'ingestion et l'absence de contrainte
+  sont indiscernables pour le snapshot.
+- **Élargir aux sept autres faits.** Aucun n'est démontré comme une non-observation convertie ; la liste ci-dessus dit pourquoi.
+
+### Conséquences
+
+- **Rupture annoncée** (notes de version) : un change sans contrainte ne passe plus `PROPOSED → SPECIFIED` sans les avoir déclarées.
+- **Résidu assumé.** Un change dont les critères sont tous rattachés à des exigences non liées par `AFFECTS` reste `UNAVAILABLE`, pas `TRUE` : le
+  lien est la seule preuve d'appartenance que le snapshot fournit.
+- **Preuve.** `ChangeCompletenessAbsentObservationContractTest` : flux vide → `UNAVAILABLE`, contraintes connues → `TRUE`, contrainte inconnue →
+  `UNAVAILABLE`, transition non évaluée sur le change vide et permise avec critères d'exigence, `FALSE` observé, `UNAVAILABLE` sans lien.
+
+## Amendement du 25 septembre 2026 (INT-1) — une recherche bornée rend une indisponibilité, pas une absence
+
+Un résultat borné par une taille de page ne dit rien de ce qui se trouve au-delà. Le résolveur MINOS filtrait sur l'égalité
+exacte une page d'au plus 1000 symboles (le filtre prouve que MINOS rend des correspondances non exactes, donc que la borne
+peut mordre) et répondait `NOT_FOUND` ; le service de résolution en faisait `TARGET_REMOVED`. Rien ne transportait la troncature :
+le port ne rendait qu'une liste, et le contrôle du gateway comparait la page à sa propre taille.
+
+`MinosCodeGateway.findSymbols` rend désormais un `SymbolSearch(symbols, possiblyTruncated)`. MINOS ne fournit ni total ni drapeau
+(l'enveloppe ne porte que `count`) : une page qui atteint la limite demandée est déclarée *possiblement tronquée*. Sans correspondance
+exacte, le résolveur rend `unavailable()` si la recherche est possiblement tronquée, `notFound()` sinon. `ambiguous()` et
+`revisionMismatch()`, en amont du filtre, ne changent pas ; une correspondance exacte présente dans une page tronquée reste `FOUND`.
+
+### Alternatives écartées
+
+- **Paginer jusqu'à l'épuisement.** L'outil MINOS ne fournit pas de curseur ; ce serait inventer un contrat.
+- **Aligner sur NEXUS.** `NexusMcpContextGateway.requireCardinality` *refuse* le dépassement (échec de l'intégration entière). Ici le
+  dépassement est le cas normal d'une recherche lexicale sur un grand projet et le résultat exact peut être présent : refuser
+  perdrait la précision. Les deux intégrations partagent le principe (ne jamais présenter une troncature comme un fait) ; leur
+  traduction diffère parce que la donnée diffère.
+- **Traiter tout échec de correspondance comme indisponible.** Un symbole réellement supprimé ne serait plus jamais signalé :
+  un faux positif échangé contre un faux négatif.
+
+### Conséquences
+
+- **Résidu assumé.** Une page qui contient *exactement* autant de symboles que la limite sans être tronquée est aussi
+  déclarée possiblement tronquée : un « indisponible » de trop, jamais un « supprimé » faux.
+- **Preuve.** `MinosBoundedSearchResolutionTest` (résolveur + service : `STALE`/`TARGET_UNAVAILABLE`, jamais `TARGET_REMOVED`),
+  `MinosMcpExternalReferenceResolverTest`, `MinosMcpTransportIntegrationTest` (le gateway réel dérive le drapeau de la limite).
+- **Résidu assumé.** Une correspondance exacte unique dans une page tronquée reste `FOUND` : un second exact au-delà de la page ne serait pas vu (`AMBIGUOUS` manqué). Un `symbolKey` exact est quasi unique et la donnée MINOS ne permet pas de le prouver ; c'est la même famille (« borne prise pour totalité ») que le constat, sur un cas dont la conséquence est moindre.
+
 ## Amendement du 25 septembre 2026 (CLI-1) — un refus atteint le code de sortie du processus
 
 La règle de cet ADR vaut aussi pour le processus : un `UNKNOWN` écrit dans le JSON mais absent du code de sortie est
@@ -205,3 +271,35 @@ décision. Les autres actions de `policy` ne portent pas de décision et rendent
 - **Preuve.** `MorpheusPolicyCliTest` couvre les quatre décisions de bout en bout sur `evaluate`, le rapport agrégé, `dry-run`,
   le maintien de `0` pour les actions de configuration, et l'impression du JSON avec le code `4`.
 - **Résidu assumé.** Un scope sans pack actif rend un rapport agrégé `PASS` et donc `0` : aucune règle n'a échoué d'être évaluée, ce n'est pas un `UNKNOWN`. Un pipeline qui croit avoir un contrôle actif ne le voit pas ; c'est une question de sémantique du service d'évaluation (le rapport ne dit pas « aucun pack »), pas de code de sortie, à décider séparément.
+
+## Amendement du 25 septembre 2026 (QRY-1) — ce que le système accepte d'écrire, il sait le relire ; une liste nomme ce qu'elle n'a pas pu lire
+
+`QueryDefinitionCodec` bornait au décodage le nombre de valeurs d'un prédicat avec `MAX_PREDICATES` (le nombre de prédicats d'une requête : deux
+grandeurs différentes sous une constante) alors que la boucle `list()` du parseur n'avait aucun compteur, que le validateur ne faisait qu'itérer et
+que l'encodage écrivait `values().size()` sans contrôle. Une vue de 65 clés passait parse, validation et écriture, puis n'était plus lisible ; et
+`list(scope)` décodant chaque ligne, une seule vue empoisonnée rendait toute la liste du scope inutilisable, sans suppression possible.
+
+- `MAX_PREDICATE_VALUES` (256) sépare les deux grandeurs. Il est appliqué par le parseur (le message nomme la borne et le champ), le validateur
+  (donc l'encodeur, qui valide), et le décodeur : une seule constante, la symétrie est dans le code. 256 : la plus grande valeur qui reste sous
+  `MAX_ENCODED_EXPRESSION_BYTES` pour des clés d'exigence usuelles avec marge, et qui ne rend lisible que ce qui l'était déjà (toute vue écrite
+  avec ≤ 64 valeurs).
+- `SavedViewStore.list` rend des `SavedViewEntry` : lisible, ou **illisible** (identifiant, nom, révision, statut, dates, raison de l'échec de
+  décodage). Une ligne indécodable n'est ni cause d'échec de la liste ni omise : c'est la règle de cet ADR appliquée à une liste.
+- `SavedViewStore.archive` change le statut sans décoder la définition (l'INSERT d'historique copie les colonnes brutes), pour qu'une vue déjà
+  empoisonnée puisse être retirée. Refus dans l'ordre inconnu, déjà archivée, révision périmée, comme avant.
+- Les vues publiques : une vue illisible est un enregistrement distinct (`UnreadableSavedViewView`, avec `unreadableReason`, sans `query`) ; la forme d'une vue lisible ne change pas d'un octet (une parité de réponses la fige).
+
+### Alternatives écartées
+
+- **Un `catch` dans `list` qui saute la ligne.** Dégradation silencieuse : le défaut d'origine sous une autre forme.
+- **Une méthode `unreadable(scope)` à part.** Deux appels que l'appelant peut oublier ; la liste doit dire ce qu'elle n'a pas pu lire elle-même.
+- **Une suppression de vue.** Non destructif par doctrine (identité et historique conservés) : l'archivage suffit à retirer de la liste active.
+- **Réparer la ligne au démarrage.** Réécrire une donnée que le système ne sait pas lire est de la magie ; l'utilisateur décide.
+
+### Conséquences
+
+- **Résidus assumés.** `versions(id)` d'une vue illisible échoue (le décodage de ses versions passe par `get`) ; `QRY-4` (le budget de
+  scope compte les vues archivées, donc monotone) n'est **pas** fermé ici : deux décisions dans une PR sont une PR qu'on ne peut refuser à moitié.
+- **Preuve.** `QueryPredicateValuesBudgetTest` (refus au parse nommant borne et champ, aller-retour à exactement la borne, validateur et encodeur),
+  `SqliteSavedViewUnreadableRowTest` (liste avec ligne empoisonnée, lecture par id qui dit d'archiver, archivage sans décodage avec historique,
+  ordre des refus), `QueryPublicViewsUnreadableTest`.
