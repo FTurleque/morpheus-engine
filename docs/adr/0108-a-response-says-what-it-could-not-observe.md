@@ -209,3 +209,4 @@ exacte, le résolveur rend `unavailable()` si la recherche est possiblement tron
   déclarée possiblement tronquée : un « indisponible » de trop, jamais un « supprimé » faux.
 - **Preuve.** `MinosBoundedSearchResolutionTest` (résolveur + service : `STALE`/`TARGET_UNAVAILABLE`, jamais `TARGET_REMOVED`),
   `MinosMcpExternalReferenceResolverTest`, `MinosMcpTransportIntegrationTest` (le gateway réel dérive le drapeau de la limite).
+- **Résidu assumé.** Une correspondance exacte unique dans une page tronquée reste `FOUND` : un second exact au-delà de la page ne serait pas vu (`AMBIGUOUS` manqué). Un `symbolKey` exact est quasi unique et la donnée MINOS ne permet pas de le prouver ; c'est la même famille (« borne prise pour totalité ») que le constat, sur un cas dont la conséquence est moindre.
