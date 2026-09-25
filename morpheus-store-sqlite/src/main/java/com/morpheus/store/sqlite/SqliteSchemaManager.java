@@ -38,8 +38,9 @@ final class SqliteSchemaManager {
             new Migration(17, "specification-version-sequence-reservations",
                     "/db/migration/V017__specification_version_sequence_reservations.sql"),
             new Migration(18, "policy-version-sequence-integrity",
-                    "/db/migration/V018__policy_version_sequence_integrity.sql"));
-    static final int SUPPORTED_SCHEMA_VERSION = 18;
+                    "/db/migration/V018__policy_version_sequence_integrity.sql"),
+            new Migration(19, "sync-state-revision", "/db/migration/V019__sync_state_revision.sql"));
+    static final int SUPPORTED_SCHEMA_VERSION = 19;
 
     void migrate(Connection connection) {
         if (SqliteConnectionScope.schemaReadyIfActive()) return;

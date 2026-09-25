@@ -127,6 +127,26 @@ changent pas : elles rendent `0` quand elles réussissent.
 
 Décision : [ADR-0108](../adr/0108-a-response-says-what-it-could-not-observe.md).
 
+### Synchronisation : l'état de sync s'écrit avec une révision attendue
+
+Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes
+du même projet ouvrent chacune leur connexion SQLite : le `synchronized` de l'adaptateur ne les excluait pas l'une de l'autre. Si A enregistrait
+`SCAN_INCOMPLETE` pendant que B, qui avait lu l'état avant, terminait avec succès, le drapeau repassait à `NULL` et le `prepare()` suivant choisissait
+le mode `INCREMENTAL` sur un inventaire que le système savait incomplet.
+
+À partir de 1.2.1 :
+
+- l'état porte une révision (colonne `revision`, schéma **19**) ; toute écriture énonce la révision qu'elle a lue et l'avance de un ;
+- une divergence est l'échec nommé `SyncStateConflictException` (HTTP `409 STATE_CONFLICT`, code de sortie CLI `4`), et l'état persisté est celui du premier
+  écrivain ; un plan dépassé ne réessaie pas et ne marque pas la baseline incohérente : il échoue ;
+- `SyncPlan` porte `stateRevision` (la révision après l'enregistrement de sa tentative).
+
+**Migration.** La migration `V019` ajoute la colonne ; les lignes existantes valent 1 (0 signifie « aucune ligne ») et une base 1.2.0 s'ouvre sans action.
+Un client qui enchaînait deux `sync` concurrents sur le même projet voit maintenant l'un d'eux échouer au lieu d'un succès silencieux et faux : relancer
+la sync. Un appelant du port `SyncStateStore` (tests, doubles) doit passer la révision attendue.
+
+Décision : [ADR-0054, amendement du 25 septembre 2026 (SYN-1)](../adr/0054-persisted-sync-state-archives-and-freshness.md).
+
 ### Vues sauvegardées : ce qui s'écrit se relit, et une vue illisible est nommée
 
 Jusqu'à 1.2.0, le codec bornait au décodage à 64 le nombre de valeurs d'un prédicat `IN` (avec la constante qui borne le nombre de

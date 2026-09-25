@@ -11,6 +11,7 @@ import com.morpheus.application.sync.LocalSourceInventoryScanner;
 import com.morpheus.application.sync.SyncFreshness;
 import com.morpheus.application.sync.SyncFreshnessService;
 import com.morpheus.application.sync.SyncPlan;
+import com.morpheus.application.sync.SyncStateConflictException;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.provider.openspec.OpenSpecProjectContentReader;
 
@@ -89,6 +90,9 @@ final class MorpheusProjectSyncApiService {
                 syncService.fail(plan, Instant.now());
                 throw failure;
             }
+        } catch (SyncStateConflictException overtaken) {
+            // Another sync of this project moved the state first; this one must not overwrite it.
+            throw ApiFailure.conflict(overtaken.getMessage());
         }
     }
 

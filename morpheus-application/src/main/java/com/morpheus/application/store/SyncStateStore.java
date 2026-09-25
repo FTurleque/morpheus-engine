@@ -3,6 +3,7 @@ package com.morpheus.application.store;
 import com.morpheus.application.sync.ProjectSyncState;
 import com.morpheus.application.sync.SourceArchiveRecord;
 import com.morpheus.application.sync.SourceInventory;
+import com.morpheus.application.sync.SyncStateConflictException;
 import com.morpheus.application.sync.SyncPlan;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
@@ -18,13 +19,20 @@ public interface SyncStateStore {
 
     List<SourceArchiveRecord> listArchives(ProjectSpecificationId projectId);
 
-    void recordAttempt(
+    /**
+     * Records an attempt and returns the new revision. {@code expectedRevision} is the revision the caller read
+     * (0 when it saw no state); a different current revision is a {@link SyncStateConflictException}.
+     */
+    long recordAttempt(
             ProjectSpecificationId projectId,
+            long expectedRevision,
             Instant attemptedAt,
             Optional<SyncPlan.FullRebuildReason> pendingFullRebuildReason);
 
-    void commitSuccessfulSync(
+    /** Commits a successful sync and returns the new revision, under the same revision rule as {@link #recordAttempt}. */
+    long commitSuccessfulSync(
             SourceInventory inventory,
+            long expectedRevision,
             SyncPlan.SyncMode mode,
             Instant attemptedAt,
             Instant completedAt,

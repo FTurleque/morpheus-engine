@@ -58,7 +58,7 @@ class SqliteSyncStateStorePersistenceTest {
         ProjectSpecificationId projectId = project(database);
 
         try (SqliteSyncStateStore store = new SqliteSyncStateStore(database)) {
-            store.recordAttempt(projectId, ATTEMPTED, Optional.of(SyncPlan.FullRebuildReason.SCAN_INCOMPLETE));
+            attempt(store, projectId, ATTEMPTED, Optional.of(SyncPlan.FullRebuildReason.SCAN_INCOMPLETE));
 
             ProjectSyncState state = store.findSyncState(projectId).orElseThrow();
             assertEquals(Optional.of(ATTEMPTED), state.lastAttemptAt());
@@ -75,14 +75,14 @@ class SqliteSyncStateStorePersistenceTest {
         ProjectSpecificationId projectId = project(database);
 
         try (SqliteSyncStateStore store = new SqliteSyncStateStore(database)) {
-            store.recordAttempt(projectId, ATTEMPTED, Optional.of(SyncPlan.FullRebuildReason.WATCH_OVERFLOW));
+            attempt(store, projectId, ATTEMPTED, Optional.of(SyncPlan.FullRebuildReason.WATCH_OVERFLOW));
         }
 
         try (SqliteSyncStateStore reopened = new SqliteSyncStateStore(database)) {
             assertEquals(Optional.of(SyncPlan.FullRebuildReason.WATCH_OVERFLOW),
                     reopened.findSyncState(projectId).orElseThrow().pendingFullRebuildReason());
 
-            reopened.commitSuccessfulSync(
+            commit(reopened,
                     inventory(projectId, "revision-1", entry("spec/a.md", "alpha")),
                     SyncPlan.SyncMode.FULL_REBUILD,
                     ATTEMPTED,
@@ -106,10 +106,10 @@ class SqliteSyncStateStorePersistenceTest {
         ProjectSpecificationId projectId = project(database);
 
         try (SqliteSyncStateStore store = new SqliteSyncStateStore(database)) {
-            store.commitSuccessfulSync(
+            commit(store,
                     inventory(projectId, "revision-1", entry("spec/a.md", "alpha"), entry("spec/b.md", "beta")),
                     SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), List.of());
-            store.commitSuccessfulSync(
+            commit(store,
                     inventory(projectId, "revision-2", entry("spec/b.md", "beta-2")),
                     SyncPlan.SyncMode.INCREMENTAL, COMPLETED, COMPLETED.plusSeconds(5), Optional.empty(), List.of());
         }
@@ -130,7 +130,7 @@ class SqliteSyncStateStorePersistenceTest {
         ProjectSpecificationId projectId = project(database);
 
         try (SqliteSyncStateStore store = new SqliteSyncStateStore(database)) {
-            store.commitSuccessfulSync(
+            commit(store,
                     new SourceInventory(projectId, Optional.empty(), ATTEMPTED, List.of(entry("spec/a.md", "alpha"))),
                     SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), List.of());
 
@@ -152,10 +152,10 @@ class SqliteSyncStateStorePersistenceTest {
                 Optional.of("revision-2"));
 
         try (SqliteSyncStateStore store = new SqliteSyncStateStore(database)) {
-            store.commitSuccessfulSync(
+            commit(store,
                     inventory(projectId, "revision-1", entry("spec/a.md", "alpha")),
                     SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), List.of(deleted));
-            store.commitSuccessfulSync(
+            commit(store,
                     inventory(projectId, "revision-2", entry("spec/a.md", "alpha")),
                     SyncPlan.SyncMode.INCREMENTAL, COMPLETED, COMPLETED.plusSeconds(5),
                     Optional.empty(), List.of(moved));
@@ -180,7 +180,7 @@ class SqliteSyncStateStorePersistenceTest {
                     other, entry("spec/gone.md", "gone"), COMPLETED,
                     SourceArchiveRecord.ArchiveReason.DELETED, Optional.empty(), Optional.empty());
 
-            assertTrue(assertThrows(IllegalArgumentException.class, () -> store.commitSuccessfulSync(
+            assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store,
                     inventory(projectId, "revision-1", entry("spec/a.md", "alpha")),
                     SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), List.of(foreign)))
                     .getMessage().contains("archive belongs to another project"));
@@ -197,10 +197,10 @@ class SqliteSyncStateStorePersistenceTest {
         try (SqliteSyncStateStore store = new SqliteSyncStateStore(database)) {
             SourceInventory inventory = inventory(projectId, "revision-1", entry("spec/a.md", "alpha"));
 
-            assertTrue(assertThrows(IllegalArgumentException.class, () -> store.commitSuccessfulSync(
+            assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store,
                     inventory, SyncPlan.SyncMode.INCREMENTAL, COMPLETED, ATTEMPTED, Optional.empty(), List.of()))
                     .getMessage().contains("completedAt must not be before attemptedAt"));
-            assertTrue(assertThrows(IllegalArgumentException.class, () -> store.commitSuccessfulSync(
+            assertTrue(assertThrows(IllegalArgumentException.class, () -> commit(store,
                     inventory, SyncPlan.SyncMode.INCREMENTAL, ATTEMPTED, COMPLETED,
                     Optional.of(COMPLETED.plusSeconds(1)), List.of()))
                     .getMessage().contains("lastObservedChangeAt must not be after completedAt"));
@@ -215,7 +215,7 @@ class SqliteSyncStateStorePersistenceTest {
             ProjectSpecificationId orphan = ProjectSpecificationId.generate();
 
             assertTrue(assertThrows(KnowledgeStoreException.class,
-                    () -> store.recordAttempt(orphan, ATTEMPTED, Optional.empty()))
+                    () -> attempt(store, orphan, ATTEMPTED, Optional.empty()))
                     .getMessage().contains("project not found for synchronization state"));
         }
     }
@@ -231,7 +231,7 @@ class SqliteSyncStateStorePersistenceTest {
         assertThrows(KnowledgeStoreException.class, () -> store.findSyncState(projectId));
         assertThrows(KnowledgeStoreException.class, () -> store.findCurrentInventory(projectId));
         assertThrows(KnowledgeStoreException.class, () -> store.listArchives(projectId));
-        assertThrows(KnowledgeStoreException.class, () -> store.recordAttempt(projectId, ATTEMPTED, Optional.empty()));
+        assertThrows(KnowledgeStoreException.class, () -> attempt(store, projectId, ATTEMPTED, Optional.empty()));
     }
 
     private ProjectSpecificationId project(Path database) {
@@ -251,5 +251,31 @@ class SqliteSyncStateStorePersistenceTest {
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         return new SourceInventory.Entry(
                 new SourcePath(path), SourceFingerprint.ofBytes(bytes), bytes.length);
+    }
+
+    private static long attempt(
+            com.morpheus.application.store.SyncStateStore target,
+            ProjectSpecificationId project,
+            Instant attemptedAt,
+            Optional<SyncPlan.FullRebuildReason> reason) {
+        return target.recordAttempt(project, currentRevision(target, project), attemptedAt, reason);
+    }
+
+    private static long commit(
+            com.morpheus.application.store.SyncStateStore target,
+            SourceInventory inventory,
+            SyncPlan.SyncMode mode,
+            Instant attemptedAt,
+            Instant completedAt,
+            Optional<Instant> observedChange,
+            List<SourceArchiveRecord> archives) {
+        return target.commitSuccessfulSync(
+                inventory, currentRevision(target, inventory.projectId()), mode, attemptedAt, completedAt,
+                observedChange, archives);
+    }
+
+    private static long currentRevision(
+            com.morpheus.application.store.SyncStateStore target, ProjectSpecificationId project) {
+        return target.findSyncState(project).map(ProjectSyncState::revision).orElse(0L);
     }
 }
