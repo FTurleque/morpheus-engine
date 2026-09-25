@@ -181,7 +181,6 @@ valeur inventée. C'est exactement la distinction que trace cet amendement.
 - **Preuve.** `StructuredMarkdownStrictValidationTest` refuse un bloc sans `completed` en assertant le message
   exact (bloc et ligne) et l'absence de chemin d'hôte, et vérifie qu'un `completed` explicite est lu tel que déclaré.
 
-<<<<<<< HEAD
 ## Amendement du 25 septembre 2026 (INT-1) — une recherche bornée rend une indisponibilité, pas une absence
 
 Un résultat borné par une taille de page ne dit rien de ce qui se trouve au-delà. Le résolveur MINOS filtrait sur l'égalité
@@ -211,7 +210,7 @@ exacte, le résolveur rend `unavailable()` si la recherche est possiblement tron
 - **Preuve.** `MinosBoundedSearchResolutionTest` (résolveur + service : `STALE`/`TARGET_UNAVAILABLE`, jamais `TARGET_REMOVED`),
   `MinosMcpExternalReferenceResolverTest`, `MinosMcpTransportIntegrationTest` (le gateway réel dérive le drapeau de la limite).
 - **Résidu assumé.** Une correspondance exacte unique dans une page tronquée reste `FOUND` : un second exact au-delà de la page ne serait pas vu (`AMBIGUOUS` manqué). Un `symbolKey` exact est quasi unique et la donnée MINOS ne permet pas de le prouver ; c'est la même famille (« borne prise pour totalité ») que le constat, sur un cas dont la conséquence est moindre.
-=======
+
 ## Amendement du 25 septembre 2026 (CLI-1) — un refus atteint le code de sortie du processus
 
 La règle de cet ADR vaut aussi pour le processus : un `UNKNOWN` écrit dans le JSON mais absent du code de sortie est
@@ -236,4 +235,3 @@ décision. Les autres actions de `policy` ne portent pas de décision et rendent
 - **Preuve.** `MorpheusPolicyCliTest` couvre les quatre décisions de bout en bout sur `evaluate`, le rapport agrégé, `dry-run`,
   le maintien de `0` pour les actions de configuration, et l'impression du JSON avec le code `4`.
 - **Résidu assumé.** Un scope sans pack actif rend un rapport agrégé `PASS` et donc `0` : aucune règle n'a échoué d'être évaluée, ce n'est pas un `UNKNOWN`. Un pipeline qui croit avoir un contrôle actif ne le voit pas ; c'est une question de sémantique du service d'évaluation (le rapport ne dit pas « aucun pack »), pas de code de sortie, à décider séparément.
->>>>>>> origin/develop
