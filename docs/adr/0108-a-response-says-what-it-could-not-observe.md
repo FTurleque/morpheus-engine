@@ -205,3 +205,35 @@ décision. Les autres actions de `policy` ne portent pas de décision et rendent
 - **Preuve.** `MorpheusPolicyCliTest` couvre les quatre décisions de bout en bout sur `evaluate`, le rapport agrégé, `dry-run`,
   le maintien de `0` pour les actions de configuration, et l'impression du JSON avec le code `4`.
 - **Résidu assumé.** Un scope sans pack actif rend un rapport agrégé `PASS` et donc `0` : aucune règle n'a échoué d'être évaluée, ce n'est pas un `UNKNOWN`. Un pipeline qui croit avoir un contrôle actif ne le voit pas ; c'est une question de sémantique du service d'évaluation (le rapport ne dit pas « aucun pack »), pas de code de sortie, à décider séparément.
+
+## Amendement du 25 septembre 2026 (QRY-1) — ce que le système accepte d'écrire, il sait le relire ; une liste nomme ce qu'elle n'a pas pu lire
+
+`QueryDefinitionCodec` bornait au décodage le nombre de valeurs d'un prédicat avec `MAX_PREDICATES` (le nombre de prédicats d'une requête : deux
+grandeurs différentes sous une constante) alors que la boucle `list()` du parseur n'avait aucun compteur, que le validateur ne faisait qu'itérer et
+que l'encodage écrivait `values().size()` sans contrôle. Une vue de 65 clés passait parse, validation et écriture, puis n'était plus lisible ; et
+`list(scope)` décodant chaque ligne, une seule vue empoisonnée rendait toute la liste du scope inutilisable, sans suppression possible.
+
+- `MAX_PREDICATE_VALUES` (256) sépare les deux grandeurs. Il est appliqué par le parseur (le message nomme la borne et le champ), le validateur
+  (donc l'encodeur, qui valide), et le décodeur : une seule constante, la symétrie est dans le code. 256 : la plus grande valeur qui reste sous
+  `MAX_ENCODED_EXPRESSION_BYTES` pour des clés d'exigence usuelles avec marge, et qui ne rend lisible que ce qui l'était déjà (toute vue écrite
+  avec ≤ 64 valeurs).
+- `SavedViewStore.list` rend des `SavedViewEntry` : lisible, ou **illisible** (identifiant, nom, révision, statut, dates, raison de l'échec de
+  décodage). Une ligne indécodable n'est ni cause d'échec de la liste ni omise : c'est la règle de cet ADR appliquée à une liste.
+- `SavedViewStore.archive` change le statut sans décoder la définition (l'INSERT d'historique copie les colonnes brutes), pour qu'une vue déjà
+  empoisonnée puisse être retirée. Refus dans l'ordre inconnu, déjà archivée, révision périmée, comme avant.
+- Les vues publiques (`SavedViewView`) portent `query` optionnel et `unreadableReason` ; la forme d'une vue lisible ne change que par ce dernier champ.
+
+### Alternatives écartées
+
+- **Un `catch` dans `list` qui saute la ligne.** Dégradation silencieuse : le défaut d'origine sous une autre forme.
+- **Une méthode `unreadable(scope)` à part.** Deux appels que l'appelant peut oublier ; la liste doit dire ce qu'elle n'a pas pu lire elle-même.
+- **Une suppression de vue.** Non destructif par doctrine (identité et historique conservés) : l'archivage suffit à retirer de la liste active.
+- **Réparer la ligne au démarrage.** Réécrire une donnée que le système ne sait pas lire est de la magie ; l'utilisateur décide.
+
+### Conséquences
+
+- **Résidus assumés.** `versions(id)` d'une vue illisible échoue (le décodage de ses versions passe par `get`) ; `QRY-4` (le budget de
+  scope compte les vues archivées, donc monotone) n'est **pas** fermé ici : deux décisions dans une PR sont une PR qu'on ne peut refuser à moitié.
+- **Preuve.** `QueryPredicateValuesBudgetTest` (refus au parse nommant borne et champ, aller-retour à exactement la borne, validateur et encodeur),
+  `SqliteSavedViewUnreadableRowTest` (liste avec ligne empoisonnée, lecture par id qui dit d'archiver, archivage sans décodage avec historique,
+  ordre des refus), `QueryPublicViewsUnreadableTest`.

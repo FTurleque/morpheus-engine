@@ -1,6 +1,7 @@
 package com.morpheus.application.query.dsl;
 
 import com.morpheus.application.query.saved.SavedViewDefinition;
+import com.morpheus.application.query.saved.SavedViewEntry;
 import com.morpheus.application.query.saved.SavedViewVersion;
 
 import java.util.List;
@@ -25,8 +26,20 @@ public final class QueryPublicViews {
     public static SavedViewView savedView(SavedViewDefinition view) {
         Objects.requireNonNull(view, "view");
         return new SavedViewView(
-                view.id().toString(), view.name(), query(view.query()), view.revision(),
-                view.status().name(), view.createdAt().toString(), view.updatedAt().toString());
+                view.id().toString(), view.name(), Optional.of(query(view.query())), view.revision(),
+                view.status().name(), view.createdAt().toString(), view.updatedAt().toString(), Optional.empty());
+    }
+
+    /** A saved view whose stored definition cannot be decoded keeps its identity and says why; it is never omitted. */
+    public static SavedViewView savedView(SavedViewEntry entry) {
+        Objects.requireNonNull(entry, "entry");
+        return switch (entry) {
+            case SavedViewEntry.Readable readable -> savedView(readable.definition());
+            case SavedViewEntry.Unreadable unreadable -> new SavedViewView(
+                    unreadable.id().toString(), unreadable.name(), Optional.empty(), unreadable.revision(),
+                    unreadable.status().name(), unreadable.createdAt().toString(), unreadable.updatedAt().toString(),
+                    Optional.of(unreadable.reason()));
+        };
     }
 
     public static SavedViewVersionView savedVersion(SavedViewVersion version) {
@@ -36,8 +49,8 @@ public final class QueryPublicViews {
                 version.status().name(), version.recordedAt().toString());
     }
 
-    public static List<SavedViewView> savedViews(List<SavedViewDefinition> views) {
-        return List.copyOf(views).stream().map(QueryPublicViews::savedView).toList();
+    public static List<SavedViewView> savedViews(List<SavedViewEntry> views) {
+        return List.copyOf(views).stream().map(entry -> savedView(entry)).toList();
     }
 
     public static List<SavedViewVersionView> savedVersions(List<SavedViewVersion> versions) {
@@ -131,11 +144,12 @@ public final class QueryPublicViews {
     public record SavedViewView(
             String id,
             String name,
-            QueryDefinitionView query,
+            Optional<QueryDefinitionView> query,
             long revision,
             String status,
             String createdAt,
-            String updatedAt) {
+            String updatedAt,
+            Optional<String> unreadableReason) {
     }
 
     public record SavedViewVersionView(
