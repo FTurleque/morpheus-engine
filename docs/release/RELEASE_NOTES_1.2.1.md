@@ -126,3 +126,25 @@ changent pas : elles rendent `0` quand elles réussissent.
 `scripts/validate-m25.*` attendent désormais explicitement le code `4` sur leurs deux appels.
 
 Décision : [ADR-0108](../adr/0108-a-response-says-what-it-could-not-observe.md).
+
+### Vues sauvegardées : ce qui s'écrit se relit, et une vue illisible est nommée
+
+Jusqu'à 1.2.0, le codec bornait au décodage à 64 le nombre de valeurs d'un prédicat `IN` (avec la constante qui borne le nombre de
+*prédicats* d'une requête), alors qu'aucune frontière d'entrée ne posait cette limite. Un `create_saved_view` avec un `IN` de 65 clés était
+accepté puis devenait illisible ; et, comme `list` décode chaque ligne, **une seule vue empoisonnée rendait la liste entière de son scope
+inexploitable**, sans aucune suppression possible.
+
+À partir de 1.2.1 :
+
+- le nombre de valeurs d'un `IN` a sa propre borne, `MAX_PREDICATE_VALUES` (256), appliquée au parse (message : `IN list for <champ> exceeds
+  256 values`), à la validation, à l'encodage et au décodage : la même constante. Un `IN` de 65 à 256 valeurs, refusé au décodage avant, est accepté ;
+- `list` ne tombe plus sur une ligne indécodable : la vue est **rendue** avec son identifiant, son nom, sa révision, son statut, ses dates et un champ
+  `unreadableReason` (sans `query`) ;
+- l'archivage (`archive`) ne décode pas la définition : une vue illisible peut être archivée, avec une révision d'historique conservée.
+
+La forme d'une vue lisible ne change pas : seule une vue illisible porte `unreadableReason`.
+
+**Migration.** Une installation qui contient déjà une vue illisible la voit apparaître dans `list` avec sa raison ; l'archiver
+(`morpheus views archive`, `archive_saved_view`, `POST /api/v1/saved-views/{id}/archive`) la retire de la liste des vues actives.
+
+Décision : [ADR-0108, amendement du 25 septembre 2026 (QRY-1)](../adr/0108-a-response-says-what-it-could-not-observe.md).

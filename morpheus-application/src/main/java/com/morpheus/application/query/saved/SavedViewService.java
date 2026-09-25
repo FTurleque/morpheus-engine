@@ -53,13 +53,13 @@ public final class SavedViewService {
                 .orElseThrow(() -> new IllegalArgumentException("unknown saved view: " + id));
     }
 
-    public List<SavedViewDefinition> list(QueryScope scope) {
+    public List<SavedViewEntry> list(QueryScope scope) {
         return store.list(Objects.requireNonNull(scope, "scope")).stream()
                 .filter(item -> item.status() == SavedViewStatus.ACTIVE)
                 .toList();
     }
 
-    public List<SavedViewDefinition> listIncludingArchived(QueryScope scope) {
+    public List<SavedViewEntry> listIncludingArchived(QueryScope scope) {
         return store.list(Objects.requireNonNull(scope, "scope"));
     }
 
@@ -85,13 +85,8 @@ public final class SavedViewService {
         return store.compareAndSet(id, expectedRevision, replacement, version(replacement));
     }
 
-    public SavedViewDefinition archive(SavedViewId id, long expectedRevision) {
-        SavedViewDefinition current = get(id);
-        requireActive(current);
-        SavedViewDefinition replacement = new SavedViewDefinition(
-                current.id(), current.name(), current.query(), expectedRevision + 1,
-                SavedViewStatus.ARCHIVED, current.createdAt(), revisionTime(current));
-        return store.compareAndSet(id, expectedRevision, replacement, version(replacement));
+    public SavedViewEntry archive(SavedViewId id, long expectedRevision) {
+        return store.archive(Objects.requireNonNull(id, "id"), expectedRevision, clock.instant());
     }
 
     public QueryResult execute(SavedViewId id) {
