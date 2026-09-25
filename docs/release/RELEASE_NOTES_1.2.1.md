@@ -35,6 +35,20 @@ n'est pas resynchronisé.
 Décision : [ADR-0108, amendement du 24 septembre 2026 (PRV-4)](../adr/0108-a-response-says-what-it-could-not-observe.md).
 Format du bloc : [`../user/QUICKSTART.md`](../user/QUICKSTART.md).
 
+### Références externes MINOS : une recherche tronquée n'est plus une absence
+
+Jusqu'à 1.2.0, le résolveur MINOS demandait au plus 1000 symboles, filtrait sur la clé exacte et répondait « introuvable »
+quand elle n'était pas dans la page. Sur un projet dépassant cette borne, une référence déjà résolue devenait
+`STALE` / `TARGET_REMOVED` : l'affirmation que le code avait été supprimé, fondée sur une page qui s'était arrêtée avant.
+
+À partir de 1.2.1, une page pleine (autant de symboles que la limite demandée) sans correspondance exacte est
+`UNAVAILABLE` : la référence devient `UNRESOLVED` ou `STALE` avec la raison `TARGET_UNAVAILABLE`. MINOS ne fournit pas
+de total ni de drapeau de troncature ; le contrat est donc volontairement conservateur (mieux vaut un « indisponible » de trop
+qu'un « supprimé » faux). Une recherche non pleine sans correspondance reste `NOT_FOUND` / `TARGET_NOT_FOUND` ou `TARGET_REMOVED`.
+
+**Migration.** Aucune. Un consommateur qui traitait `TARGET_REMOVED` comme certain n'y trouvera plus de faux positifs ;
+relancer la résolution ou affiner la clé de symbole.
+
 ### CLI `portfolio` : une option inconnue est refusée
 
 Jusqu'à 1.2.0, `morpheus portfolio <action>` acceptait en silence toute option `--clé valeur` qu'elle ne lisait pas.
