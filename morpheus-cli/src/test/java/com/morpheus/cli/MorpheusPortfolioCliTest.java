@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusPortfolioCliTest {
@@ -96,6 +97,89 @@ class MorpheusPortfolioCliTest {
 
         assertEquals(CliExitCode.USAGE.code(), result.exitCode());
         assertTrue(result.err().contains("--start-project is required"), result.err());
+    }
+
+    @Test
+    void aMisspelledOptionOnAWriteActionIsRefusedAndNamed() {
+        String portfolioId = firstUuid(run("--json", "portfolio", "create", "--name", "Typos").out());
+        String projectId = ProjectSpecificationId.generate().toString();
+
+        Result addProject = run("--json", "portfolio", "add-project",
+                "--portfolio", portfolioId, "--project", projectId, "--name", "Alpha", "--workspac", "/src");
+        Result freshness = run("--json", "portfolio", "freshness",
+                "--portfolio", portfolioId, "--project", projectId, "--state", "stale", "--revison", "r1");
+        Result addReference = run("--json", "portfolio", "add-reference",
+                "--portfolio", portfolioId,
+                "--source-project", projectId, "--source-type", "REQUIREMENT",
+                "--source-id", com.morpheus.domain.identity.DomainIdentity.generate().toString(),
+                "--target-project", projectId, "--target-type", "REQUIREMENT",
+                "--target-id", com.morpheus.domain.identity.DomainIdentity.generate().toString(),
+                "--relation", "DEPENDS_ON", "--provider", "openspec", "--evidences", "E");
+
+        assertEquals(CliExitCode.USAGE.code(), addProject.exitCode(), addProject.err());
+        assertTrue(addProject.err().contains("unknown option: --workspac"), addProject.err());
+        assertEquals(CliExitCode.USAGE.code(), freshness.exitCode(), freshness.err());
+        assertTrue(freshness.err().contains("unknown option: --revison"), freshness.err());
+        assertEquals(CliExitCode.USAGE.code(), addReference.exitCode(), addReference.err());
+        assertTrue(addReference.err().contains("unknown option: --evidences"), addReference.err());
+        Result members = run("--json", "portfolio", "members", "--portfolio", portfolioId);
+        assertFalse(members.out().contains(projectId), "a refused write must not persist the membership");
+    }
+
+    @Test
+    void referencesRefusesAMisspelledProjectFilterInsteadOfListingEverything() {
+        String portfolioId = firstUuid(run("--json", "portfolio", "create", "--name", "Filter").out());
+        String projectId = ProjectSpecificationId.generate().toString();
+        run("--json", "portfolio", "add-project", "--portfolio", portfolioId, "--project", projectId, "--name", "A");
+
+        Result misspelled = run("--json", "portfolio", "references", "--portfolio", portfolioId, "--projet", projectId);
+        Result spelled = run("--json", "portfolio", "references", "--portfolio", portfolioId, "--project", projectId);
+
+        assertEquals(CliExitCode.USAGE.code(), misspelled.exitCode(), misspelled.err());
+        assertTrue(misspelled.err().contains("unknown option: --projet"), misspelled.err());
+        assertEquals(CliExitCode.SUCCESS.code(), spelled.exitCode(), spelled.err());
+    }
+
+    @Test
+    void anUnknownActionIsReportedAsSuchEvenWithOptions() {
+        Result result = run("portfolio", "frobnicate", "--anything", "x");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode());
+        assertTrue(result.err().contains("unknown portfolio action: frobnicate"), result.err());
+    }
+
+    @Test
+    void everyActionRefusesAnOptionNoActionReads() {
+        String portfolioId = firstUuid(run("--json", "portfolio", "create", "--name", "Bogus").out());
+        String projectId = ProjectSpecificationId.generate().toString();
+
+        for (String action : java.util.List.of("create", "add-project", "missing", "freshness", "add-reference",
+                "list", "overview", "members", "references", "conflicts", "traverse")) {
+            Result result = run("portfolio", action, "--portfolio", portfolioId, "--project", projectId,
+                    "--bogus", "x");
+
+            assertEquals(CliExitCode.USAGE.code(), result.exitCode(), action + ": " + result.err());
+            assertTrue(result.err().contains("unknown option: --"), action + ": " + result.err());
+        }
+    }
+
+    @Test
+    void everyActionAcceptsEachOptionItReads() {
+        String portfolioId = firstUuid(run("--json", "portfolio", "create", "--name", "Reads").out());
+        String projectId = ProjectSpecificationId.generate().toString();
+        run("--json", "portfolio", "add-project", "--portfolio", portfolioId, "--project", projectId, "--name", "A");
+
+        assertEquals(0, run("portfolio", "list", "--offset", "0", "--limit", "5").exitCode());
+        assertEquals(0, run("portfolio", "members", "--portfolio", portfolioId, "--offset", "0", "--limit", "5")
+                .exitCode());
+        assertEquals(0, run("portfolio", "references", "--portfolio", portfolioId, "--offset", "0", "--limit", "5")
+                .exitCode());
+        assertEquals(0, run("portfolio", "conflicts", "--portfolio", portfolioId).exitCode());
+        assertEquals(0, run("portfolio", "missing", "--portfolio", portfolioId, "--project", projectId).exitCode());
+        assertEquals(0, run("portfolio", "traverse", "--portfolio", portfolioId, "--start-project", projectId,
+                "--start-type", "PROJECT", "--start-id",
+                com.morpheus.domain.identity.DomainIdentity.generate().toString(),
+                "--depth", "2", "--nodes", "10", "--links", "10", "--direction", "both").exitCode());
     }
 
     private Result run(String... args) {
