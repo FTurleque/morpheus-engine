@@ -6,7 +6,10 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Persisted synchronization status independent from published knowledge snapshots. */
+/**
+ * Persisted synchronization status independent from published knowledge snapshots. {@code revision} is 0 before
+ * the first write and increases by one with every write; a writer states the revision it read.
+ */
 public record ProjectSyncState(
         ProjectSpecificationId projectId,
         Optional<Instant> lastAttemptAt,
@@ -15,7 +18,8 @@ public record ProjectSyncState(
         Optional<String> sourceRevision,
         Optional<SyncPlan.SyncMode> lastSuccessfulMode,
         Optional<SyncPlan.FullRebuildReason> pendingFullRebuildReason,
-        int currentSourceCount) {
+        int currentSourceCount,
+        long revision) {
 
     public ProjectSyncState {
         Objects.requireNonNull(projectId, "projectId");
@@ -27,6 +31,9 @@ public record ProjectSyncState(
         pendingFullRebuildReason = Objects.requireNonNull(pendingFullRebuildReason, "pendingFullRebuildReason");
         if (currentSourceCount < 0) {
             throw new IllegalArgumentException("currentSourceCount must be >= 0");
+        }
+        if (revision < 0) {
+            throw new IllegalArgumentException("revision must be >= 0");
         }
         if (lastSuccessfulSyncAt.isPresent() != lastSuccessfulMode.isPresent()) {
             throw new IllegalArgumentException("successful sync timestamp and mode must be present together");
@@ -45,6 +52,7 @@ public record ProjectSyncState(
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                0);
+                0,
+                0L);
     }
 }

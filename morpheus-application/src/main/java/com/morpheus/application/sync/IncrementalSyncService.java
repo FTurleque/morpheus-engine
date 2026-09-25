@@ -52,7 +52,10 @@ public final class IncrementalSyncService {
 
         SyncPlan.InvalidationSet invalidation = invalidation(previous, current, diff, mode);
         List<SyncPlan.ArchiveAction> archives = archiveActions(diff);
-        SyncPlan plan = new SyncPlan(
+        // The revision read above is the one the attempt is recorded against: read and write are one decision.
+        long expectedRevision = state.map(ProjectSyncState::revision).orElse(0L);
+        long stateRevision = store.recordAttempt(projectId, expectedRevision, attemptedAt, reason);
+        return new SyncPlan(
                 projectId,
                 attemptedAt,
                 mode,
@@ -62,10 +65,8 @@ public final class IncrementalSyncService {
                 current,
                 diff,
                 invalidation,
-                archives);
-
-        store.recordAttempt(projectId, attemptedAt, reason);
-        return plan;
+                archives,
+                stateRevision);
     }
 
     public void complete(SyncPlan plan, Instant completedAt) {
@@ -97,6 +98,10 @@ public final class IncrementalSyncService {
         try {
             commitSuccessfulSync(plan, current, completedAt, observedChangeAt, archives);
             return;
+        } catch (SyncStateConflictException overtaken) {
+            // A newer writer owns the state. Retrying, or marking the baseline inconsistent, would be this stale
+            // plan overwriting it: exactly what the revision exists to refuse.
+            throw overtaken;
         } catch (RuntimeException primary) {
             if (successfulCommitVisible(plan, current)) {
                 return;
@@ -108,6 +113,8 @@ public final class IncrementalSyncService {
             try {
                 commitSuccessfulSync(plan, current, completedAt, observedChangeAt, archives);
                 return;
+            } catch (SyncStateConflictException overtaken) {
+                throw overtaken;
             } catch (RuntimeException retryFailure) {
                 if (successfulCommitVisible(plan, current)) {
                     return;
@@ -122,6 +129,7 @@ public final class IncrementalSyncService {
                 try {
                     store.recordAttempt(
                             plan.projectId(),
+                            plan.stateRevision(),
                             plan.attemptedAt(),
                             Optional.of(SyncPlan.FullRebuildReason.BASELINE_INCONSISTENT));
                 } catch (RuntimeException markerFailure) {
@@ -165,7 +173,7 @@ public final class IncrementalSyncService {
         } else {
             failureReason = SyncPlan.FullRebuildReason.EXECUTION_FAILED;
         }
-        store.recordAttempt(plan.projectId(), plan.attemptedAt(), Optional.of(failureReason));
+        store.recordAttempt(plan.projectId(), plan.stateRevision(), plan.attemptedAt(), Optional.of(failureReason));
     }
 
     private void commitSuccessfulSync(
@@ -176,6 +184,7 @@ public final class IncrementalSyncService {
             List<SourceArchiveRecord> archives) {
         store.commitSuccessfulSync(
                 current,
+                plan.stateRevision(),
                 plan.mode(),
                 plan.attemptedAt(),
                 completedAt,

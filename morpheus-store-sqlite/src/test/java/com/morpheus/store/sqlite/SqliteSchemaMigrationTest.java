@@ -36,7 +36,7 @@ class SqliteSchemaMigrationTest {
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(18, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(19, new SqliteSchemaManager().currentVersion(connection));
             List<String> expectedTables = List.of(
                     "schema_migrations",
                     "projects",
@@ -151,7 +151,7 @@ class SqliteSchemaMigrationTest {
              ResultSet result = statement.executeQuery(
                      "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum FROM schema_migrations")) {
             assertTrue(result.next());
-            assertEquals(18, result.getInt("count"));
+            assertEquals(19, result.getInt("count"));
             assertEquals(64, result.getInt("min_checksum"));
             assertEquals(64, result.getInt("max_checksum"));
         }
@@ -191,7 +191,7 @@ class SqliteSchemaMigrationTest {
             while (result.next()) sequences.add(result.getLong(1));
             assertEquals(List.of(1L, 2L, 3L), sequences);
             assertTrue(indexExists(connection, "uq_specification_versions_project_sequence"));
-            assertEquals(18, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(19, new SqliteSchemaManager().currentVersion(connection));
         }
     }
 

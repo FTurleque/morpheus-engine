@@ -8,6 +8,7 @@ import com.morpheus.application.sync.SourceFingerprint;
 import com.morpheus.application.sync.SourceInventory;
 import com.morpheus.application.sync.SourcePath;
 import com.morpheus.application.sync.SyncPlan;
+import com.morpheus.application.sync.SyncStateConflictException;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.nio.file.Path;
@@ -40,7 +41,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT last_attempt_at, last_successful_sync_at, last_observed_change_at,
                        source_revision, last_successful_mode, pending_full_rebuild_reason,
-                       current_source_count
+                       current_source_count, revision
                 FROM sync_state
                 WHERE project_id = ?
                 """)) {
@@ -57,7 +58,8 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
                         optional(result.getString("source_revision")),
                         optional(result.getString("last_successful_mode")).map(SyncPlan.SyncMode::valueOf),
                         optional(result.getString("pending_full_rebuild_reason")).map(SyncPlan.FullRebuildReason::valueOf),
-                        result.getInt("current_source_count")));
+                        result.getInt("current_source_count"),
+                        result.getLong("revision")));
             }
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot read synchronization state for " + projectId, exception);
@@ -117,8 +119,9 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     }
 
     @Override
-    public synchronized void recordAttempt(
+    public synchronized long recordAttempt(
             ProjectSpecificationId projectId,
+            long expectedRevision,
             Instant attemptedAt,
             Optional<SyncPlan.FullRebuildReason> pendingFullRebuildReason) {
         ensureOpen();
@@ -126,25 +129,46 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
         Objects.requireNonNull(attemptedAt, "attemptedAt");
         Objects.requireNonNull(pendingFullRebuildReason, "pendingFullRebuildReason");
         requireProject(projectId);
-        try (PreparedStatement statement = connection.prepareStatement("""
-                INSERT INTO sync_state(project_id, last_attempt_at, pending_full_rebuild_reason, current_source_count)
-                VALUES (?, ?, ?, 0)
-                ON CONFLICT(project_id) DO UPDATE SET
-                    last_attempt_at = excluded.last_attempt_at,
-                    pending_full_rebuild_reason = excluded.pending_full_rebuild_reason
-                """)) {
-            statement.setString(1, projectId.toString());
-            statement.setString(2, attemptedAt.toString());
-            nullable(statement, 3, pendingFullRebuildReason.map(Enum::name));
-            statement.executeUpdate();
+        try {
+            int changed;
+            if (expectedRevision == 0) {
+                try (PreparedStatement statement = connection.prepareStatement("""
+                        INSERT INTO sync_state(project_id, last_attempt_at, pending_full_rebuild_reason,
+                                               current_source_count, revision)
+                        VALUES (?, ?, ?, 0, 1)
+                        ON CONFLICT(project_id) DO NOTHING
+                        """)) {
+                    statement.setString(1, projectId.toString());
+                    statement.setString(2, attemptedAt.toString());
+                    nullable(statement, 3, pendingFullRebuildReason.map(Enum::name));
+                    changed = statement.executeUpdate();
+                }
+            } else {
+                try (PreparedStatement statement = connection.prepareStatement("""
+                        UPDATE sync_state
+                        SET last_attempt_at = ?, pending_full_rebuild_reason = ?, revision = revision + 1
+                        WHERE project_id = ? AND revision = ?
+                        """)) {
+                    statement.setString(1, attemptedAt.toString());
+                    nullable(statement, 2, pendingFullRebuildReason.map(Enum::name));
+                    statement.setString(3, projectId.toString());
+                    statement.setLong(4, expectedRevision);
+                    changed = statement.executeUpdate();
+                }
+            }
+            if (changed != 1) {
+                throw conflict(projectId, expectedRevision);
+            }
+            return expectedRevision + 1;
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot record synchronization attempt for " + projectId, exception);
         }
     }
 
     @Override
-    public synchronized void commitSuccessfulSync(
+    public synchronized long commitSuccessfulSync(
             SourceInventory inventory,
+            long expectedRevision,
             SyncPlan.SyncMode mode,
             Instant attemptedAt,
             Instant completedAt,
@@ -174,10 +198,11 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
 
         SqliteTransactionRunner.runVoid(connection,
                 "Cannot commit synchronization state for " + inventory.projectId(), ignored -> {
-                upsertSuccessfulState(inventory, mode, attemptedAt, completedAt, lastObservedChangeAt);
+                upsertSuccessfulState(inventory, expectedRevision, mode, attemptedAt, completedAt, lastObservedChangeAt);
                 replaceInventory(inventory);
                 insertArchives(newArchives);
         });
+        return expectedRevision + 1;
     }
 
     @Override
@@ -195,36 +220,87 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
 
     private void upsertSuccessfulState(
             SourceInventory inventory,
+            long expectedRevision,
             SyncPlan.SyncMode mode,
             Instant attemptedAt,
             Instant completedAt,
             Optional<Instant> lastObservedChangeAt) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("""
-                INSERT INTO sync_state(
-                    project_id, last_attempt_at, last_successful_sync_at, last_observed_change_at,
-                    source_revision, last_successful_mode, pending_full_rebuild_reason,
-                    inventory_captured_at, current_source_count)
-                VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)
-                ON CONFLICT(project_id) DO UPDATE SET
-                    last_attempt_at = excluded.last_attempt_at,
-                    last_successful_sync_at = excluded.last_successful_sync_at,
-                    last_observed_change_at = excluded.last_observed_change_at,
-                    source_revision = excluded.source_revision,
-                    last_successful_mode = excluded.last_successful_mode,
-                    pending_full_rebuild_reason = NULL,
-                    inventory_captured_at = excluded.inventory_captured_at,
-                    current_source_count = excluded.current_source_count
-                """)) {
-            statement.setString(1, inventory.projectId().toString());
-            statement.setString(2, attemptedAt.toString());
-            statement.setString(3, completedAt.toString());
-            nullable(statement, 4, lastObservedChangeAt.map(Instant::toString));
-            nullable(statement, 5, inventory.sourceRevision());
-            statement.setString(6, mode.name());
-            statement.setString(7, inventory.capturedAt().toString());
-            statement.setInt(8, inventory.entries().size());
-            statement.executeUpdate();
+        int changed;
+        if (expectedRevision == 0) {
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    INSERT INTO sync_state(
+                        project_id, last_attempt_at, last_successful_sync_at, last_observed_change_at,
+                        source_revision, last_successful_mode, pending_full_rebuild_reason,
+                        inventory_captured_at, current_source_count, revision)
+                    VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, 1)
+                    ON CONFLICT(project_id) DO NOTHING
+                    """)) {
+                bindSuccessful(statement, inventory, mode, attemptedAt, completedAt, lastObservedChangeAt);
+                changed = statement.executeUpdate();
+            }
+        } else {
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    UPDATE sync_state SET
+                        last_attempt_at = ?,
+                        last_successful_sync_at = ?,
+                        last_observed_change_at = ?,
+                        source_revision = ?,
+                        last_successful_mode = ?,
+                        pending_full_rebuild_reason = NULL,
+                        inventory_captured_at = ?,
+                        current_source_count = ?,
+                        revision = revision + 1
+                    WHERE project_id = ? AND revision = ?
+                    """)) {
+                statement.setString(1, attemptedAt.toString());
+                statement.setString(2, completedAt.toString());
+                nullable(statement, 3, lastObservedChangeAt.map(Instant::toString));
+                nullable(statement, 4, inventory.sourceRevision());
+                statement.setString(5, mode.name());
+                statement.setString(6, inventory.capturedAt().toString());
+                statement.setInt(7, inventory.entries().size());
+                statement.setString(8, inventory.projectId().toString());
+                statement.setLong(9, expectedRevision);
+                changed = statement.executeUpdate();
+            }
         }
+        if (changed != 1) {
+            throw conflict(inventory.projectId(), expectedRevision);
+        }
+    }
+
+    private void bindSuccessful(
+            PreparedStatement statement,
+            SourceInventory inventory,
+            SyncPlan.SyncMode mode,
+            Instant attemptedAt,
+            Instant completedAt,
+            Optional<Instant> lastObservedChangeAt) throws SQLException {
+        statement.setString(1, inventory.projectId().toString());
+        statement.setString(2, attemptedAt.toString());
+        statement.setString(3, completedAt.toString());
+        nullable(statement, 4, lastObservedChangeAt.map(Instant::toString));
+        nullable(statement, 5, inventory.sourceRevision());
+        statement.setString(6, mode.name());
+        statement.setString(7, inventory.capturedAt().toString());
+        statement.setInt(8, inventory.entries().size());
+    }
+
+    /** The revision actually persisted, read after a refused write so the failure says what the writer was up against. */
+    private SyncStateConflictException conflict(ProjectSpecificationId projectId, long expectedRevision) {
+        long current = 0;
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT revision FROM sync_state WHERE project_id = ?")) {
+            statement.setString(1, projectId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                if (result.next()) {
+                    current = result.getLong(1);
+                }
+            }
+        } catch (SQLException failure) {
+            throw new KnowledgeStoreException("Cannot read synchronization state revision for " + projectId, failure);
+        }
+        return new SyncStateConflictException(projectId.toString(), expectedRevision, current);
     }
 
     private void replaceInventory(SourceInventory inventory) throws SQLException {
