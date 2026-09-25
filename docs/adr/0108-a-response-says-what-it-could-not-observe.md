@@ -180,3 +180,32 @@ valeur inventée. C'est exactement la distinction que trace cet amendement.
   du dépôt ne s'appuyait sur le défaut implicite.
 - **Preuve.** `StructuredMarkdownStrictValidationTest` refuse un bloc sans `completed` en assertant le message
   exact (bloc et ligne) et l'absence de chemin d'hôte, et vérifie qu'un `completed` explicite est lu tel que déclaré.
+
+## Amendement du 25 septembre 2026 (INT-1) — une recherche bornée rend une indisponibilité, pas une absence
+
+Un résultat borné par une taille de page ne dit rien de ce qui se trouve au-delà. Le résolveur MINOS filtrait sur l'égalité
+exacte une page d'au plus 1000 symboles (le filtre prouve que MINOS rend des correspondances non exactes, donc que la borne
+peut mordre) et répondait `NOT_FOUND` ; le service de résolution en faisait `TARGET_REMOVED`. Rien ne transportait la troncature :
+le port ne rendait qu'une liste, et le contrôle du gateway comparait la page à sa propre taille.
+
+`MinosCodeGateway.findSymbols` rend désormais un `SymbolSearch(symbols, possiblyTruncated)`. MINOS ne fournit ni total ni drapeau
+(l'enveloppe ne porte que `count`) : une page qui atteint la limite demandée est déclarée *possiblement tronquée*. Sans correspondance
+exacte, le résolveur rend `unavailable()` si la recherche est possiblement tronquée, `notFound()` sinon. `ambiguous()` et
+`revisionMismatch()`, en amont du filtre, ne changent pas ; une correspondance exacte présente dans une page tronquée reste `FOUND`.
+
+### Alternatives écartées
+
+- **Paginer jusqu'à l'épuisement.** L'outil MINOS ne fournit pas de curseur ; ce serait inventer un contrat.
+- **Aligner sur NEXUS.** `NexusMcpContextGateway.requireCardinality` *refuse* le dépassement (échec de l'intégration entière). Ici le
+  dépassement est le cas normal d'une recherche lexicale sur un grand projet et le résultat exact peut être présent : refuser
+  perdrait la précision. Les deux intégrations partagent le principe (ne jamais présenter une troncature comme un fait) ; leur
+  traduction diffère parce que la donnée diffère.
+- **Traiter tout échec de correspondance comme indisponible.** Un symbole réellement supprimé ne serait plus jamais signalé :
+  un faux positif échangé contre un faux négatif.
+
+### Conséquences
+
+- **Résidu assumé.** Une page qui contient *exactement* autant de symboles que la limite sans être tronquée est aussi
+  déclarée possiblement tronquée : un « indisponible » de trop, jamais un « supprimé » faux.
+- **Preuve.** `MinosBoundedSearchResolutionTest` (résolveur + service : `STALE`/`TARGET_UNAVAILABLE`, jamais `TARGET_REMOVED`),
+  `MinosMcpExternalReferenceResolverTest`, `MinosMcpTransportIntegrationTest` (le gateway réel dérive le drapeau de la limite).

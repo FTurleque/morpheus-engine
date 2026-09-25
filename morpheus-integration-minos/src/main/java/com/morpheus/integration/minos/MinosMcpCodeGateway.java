@@ -92,7 +92,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
     }
 
     @Override
-    public List<Symbol> findSymbols(String project, String query, int limit) {
+    public SymbolSearch findSymbols(String project, String query, int limit) {
         requireText(project, "project");
         requireText(query, "query");
         if (limit < 1 || limit > MAX_SYMBOLS) {
@@ -108,7 +108,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             if (symbols.size() > limit || symbols.size() > MAX_SYMBOLS) {
                 throw new MinosIntegrationException("MINOS symbol response exceeds requested limit " + limit);
             }
-            return symbols.stream().map(this::symbol).toList();
+            return new SymbolSearch(symbols.stream().map(this::symbol).toList(), symbols.size() == limit);
         } catch (MinosIntegrationException failure) {
             throw failure;
         } catch (Exception failure) {
