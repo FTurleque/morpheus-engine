@@ -26,16 +26,16 @@ class QueryPublicViewsUnreadableTest {
                         QueryEntityType.CHANGE, QueryPage.first(10)),
                 1L, SavedViewStatus.ACTIVE, NOW, NOW);
 
-        List<QueryPublicViews.SavedViewView> views = QueryPublicViews.savedViews(List.of(
+        List<Object> views = QueryPublicViews.savedViews(List.of(
                 new SavedViewEntry.Readable(readable),
                 new SavedViewEntry.Unreadable(id, "broken", 3L, SavedViewStatus.ACTIVE, NOW, NOW, "predicate values count is outside supported bounds: 65")));
 
         assertEquals(2, views.size());
-        assertTrue(views.get(0).query().isPresent());
-        assertTrue(views.get(0).unreadableReason().isEmpty());
-        assertEquals(id.toString(), views.get(1).id());
-        assertEquals(3L, views.get(1).revision());
-        assertEquals(Optional.empty(), views.get(1).query());
-        assertTrue(views.get(1).unreadableReason().orElseThrow().contains("outside supported bounds"));
+        assertTrue(views.get(0) instanceof QueryPublicViews.SavedViewView, "a readable view keeps its record and wire shape");
+        QueryPublicViews.UnreadableSavedViewView degraded =
+                (QueryPublicViews.UnreadableSavedViewView) views.get(1);
+        assertEquals(id.toString(), degraded.id());
+        assertEquals(3L, degraded.revision());
+        assertTrue(degraded.unreadableReason().contains("outside supported bounds"));
     }
 }

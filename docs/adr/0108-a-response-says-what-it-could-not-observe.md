@@ -221,7 +221,7 @@ que l'encodage écrivait `values().size()` sans contrôle. Une vue de 65 clés p
   décodage). Une ligne indécodable n'est ni cause d'échec de la liste ni omise : c'est la règle de cet ADR appliquée à une liste.
 - `SavedViewStore.archive` change le statut sans décoder la définition (l'INSERT d'historique copie les colonnes brutes), pour qu'une vue déjà
   empoisonnée puisse être retirée. Refus dans l'ordre inconnu, déjà archivée, révision périmée, comme avant.
-- Les vues publiques (`SavedViewView`) portent `query` optionnel et `unreadableReason` ; la forme d'une vue lisible ne change que par ce dernier champ.
+- Les vues publiques : une vue illisible est un enregistrement distinct (`UnreadableSavedViewView`, avec `unreadableReason`, sans `query`) ; la forme d'une vue lisible ne change pas d'un octet (une parité de réponses la fige).
 
 ### Alternatives écartées
 

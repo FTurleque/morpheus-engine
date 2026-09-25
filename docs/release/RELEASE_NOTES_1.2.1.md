@@ -68,11 +68,11 @@ inexploitable**, sans aucune suppression possible.
 
 - le nombre de valeurs d'un `IN` a sa propre borne, `MAX_PREDICATE_VALUES` (256), appliquée au parse (message : `IN list for <champ> exceeds
   256 values`), à la validation, à l'encodage et au décodage : la même constante. Un `IN` de 65 à 256 valeurs, refusé au décodage avant, est accepté ;
-- `list` ne tombe plus sur une ligne indécodable : la vue est **rendue** avec son identifiant, son nom, sa révision, son statut et un champ
-  `unreadableReason` (`query` vaut alors `null`) ;
+- `list` ne tombe plus sur une ligne indécodable : la vue est **rendue** avec son identifiant, son nom, sa révision, son statut, ses dates et un champ
+  `unreadableReason` (sans `query`) ;
 - l'archivage (`archive`) ne décode pas la définition : une vue illisible peut être archivée, avec une révision d'historique conservée.
 
-Un champ `unreadableReason` (`null` pour une vue lisible) apparaît dans chaque vue sauvegardée rendue par la CLI, HTTP et MCP.
+La forme d'une vue lisible ne change pas : seule une vue illisible porte `unreadableReason`.
 
 **Migration.** Une installation qui contient déjà une vue illisible la voit apparaître dans `list` avec sa raison ; l'archiver
 (`morpheus views archive`, `archive_saved_view`, `POST /api/v1/saved-views/{id}/archive`) la retire de la liste des vues actives.
