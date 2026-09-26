@@ -33,8 +33,10 @@ import org.junit.jupiter.api.Test;
  *
  * <ol>
  *   <li><b>Permissive families.</b> A type that declares {@code void rejectUnknown(} is a parser that accepts any key.
- *   Every {@code <Family>.parse(} call must be followed, in the block that encloses it, by a {@code rejectUnknown}
- *   call; when a {@code switch} dispatches before any such call, every arm that does not merely throw must make it.
+ *   Every {@code <Family>.parse(} call must be followed, in the block that encloses it -- or in its arm, when that
+ *   block is a {@code switch} body -- by a {@code rejectUnknown} call; when a {@code switch} dispatches before any such
+ *   call, every arm that does not merely throw must make it. This imposes a shape: a guard placed after the
+ *   {@code try}, the {@code if} or the lambda that holds the parse is refused, though it would run.
  *   Each family discovered must have at least one call site.</li>
  *   <li><b>Option switches.</b> A {@code switch} with a {@code case "--..."} label decides which options exist. It must
  *   have a {@code default} arm that throws. Handing the token on instead ({@code remaining.add(token)}) is accepted
@@ -66,6 +68,7 @@ class CliOptionParsingRefusesUnknownOptionsTest {
     private static final Pattern GUARD_CALL = Pattern.compile("\\.\\s*rejectUnknown\\s*\\(");
     private static final Pattern PARSE_CALL = Pattern.compile("\\b(\\w+)\\s*\\.\\s*parse\\s*\\(");
     private static final Pattern SWITCH = Pattern.compile("\\bswitch\\s*\\(");
+    private static final Pattern SWITCH_HEADER = Pattern.compile("\\bswitch\\s*\\(.*\\)$", Pattern.DOTALL);
     private static final Pattern TYPE_HEADER = Pattern.compile("\\b(?:class|interface|enum|record)\\s+(\\w+)");
     private static final Pattern THROWS_TAIL = Pattern.compile("\\)\\s*(?:throws\\s+[\\w.,\\s<>]+)?$");
     private static final Pattern ANONYMOUS = Pattern.compile("\\bnew\\s+[\\w.<>]+$");
@@ -105,7 +108,7 @@ class CliOptionParsingRefusesUnknownOptionsTest {
         Scan scan = scan(Map.of("Flags.java", family, "A.java", unguarded, "B.java", sameNameOutsideTheFamily));
 
         assertEquals(Map.of("Flags", 1), scan.sitesByFamily());
-        assertEquals(List.of("A.java:3 Flags.parse is not followed by rejectUnknown in the same method"), scan.violations());
+        assertEquals(List.of("A.java:3 Flags.parse is not followed by rejectUnknown in its block"), scan.violations());
     }
 
     @Test
@@ -173,9 +176,21 @@ class CliOptionParsingRefusesUnknownOptionsTest {
         String escapedTextBlock = "final class A {\n    private static final String S = \"\"\"\n        a \\\"\"\" b\n        \"\"\";\n\n"
                 + "    int run() {\n        SimpleOptions o = SimpleOptions.parse(t);\n        return 0;\n    }\n}\n";
 
-        assertEquals(List.of("A.java:5 SimpleOptions.parse is not followed by rejectUnknown in the same method"),
+        assertEquals(List.of("A.java:5 SimpleOptions.parse is not followed by rejectUnknown in its block"),
                 scan(withSimpleOptions("A.java", siblingArm)).violations());
-        assertEquals(List.of("A.java:7 SimpleOptions.parse is not followed by rejectUnknown in the same method"),
+        String bracelessArm = "final class A {\n    int run(String action) {\n        return switch (action) {\n"
+                + "            case \"a\" -> use(SimpleOptions.parse(t));\n"
+                + "            case \"b\" -> guarded(o.rejectUnknown(Set.of()));\n"
+                + "            default -> throw new IllegalArgumentException(\"x\");\n        };\n    }\n}\n";
+        String colonCase = "final class A {\n    int run(String action) {\n        switch (action) {\n"
+                + "            case \"a\":\n                SimpleOptions o = SimpleOptions.parse(t);\n                return 1;\n"
+                + "            case \"b\":\n                o.rejectUnknown(Set.of());\n                return 2;\n"
+                + "            default:\n                throw new IllegalArgumentException(\"x\");\n        }\n    }\n}\n";
+        assertEquals(List.of("A.java:4 SimpleOptions.parse is not followed by rejectUnknown in its block"),
+                scan(withSimpleOptions("A.java", bracelessArm)).violations(), "an arm without braces is its own block");
+        assertEquals(List.of("A.java:5 SimpleOptions.parse is not followed by rejectUnknown in its block"),
+                scan(withSimpleOptions("A.java", colonCase)).violations(), "a colon case ends at the next label");
+        assertEquals(List.of("A.java:7 SimpleOptions.parse is not followed by rejectUnknown in its block"),
                 scan(withSimpleOptions("A.java", escapedTextBlock)).violations());
     }
 
@@ -308,7 +323,8 @@ class CliOptionParsingRefusesUnknownOptionsTest {
         if (method == null) {
             return Optional.of("is called outside a method");
         }
-        int end = unit.innermostBlock(from).close();
+        Block enclosing = unit.innermostBlock(from);
+        int end = unit.isSwitchBody(enclosing) ? unit.armEnd(enclosing, from) : enclosing.close();
         Matcher guard = GUARD_CALL.matcher(unit.code()).region(from, end);
         Matcher switchKeyword = SWITCH.matcher(unit.code()).region(from, end);
         int guardAt = guard.find() ? guard.start() : -1;
@@ -317,7 +333,7 @@ class CliOptionParsingRefusesUnknownOptionsTest {
             return Optional.empty();
         }
         if (switchAt < 0) {
-            return Optional.of("is not followed by rejectUnknown in the same method");
+            return Optional.of("is not followed by rejectUnknown in its block");
         }
         for (Arm arm : unit.arms(unit.switchBody(switchKeyword.end() - 1))) {
             if (!arm.throwsOnly() && !GUARD_CALL.matcher(arm.content()).find()) {
@@ -380,6 +396,26 @@ class CliOptionParsingRefusesUnknownOptionsTest {
                 }
             }
             return found;
+        }
+
+        boolean isSwitchBody(Block block) {
+            return SWITCH_HEADER.matcher(header(block)).find();
+        }
+
+        /** Where the arm of {@code body} that contains {@code position} ends: the next top-level label, or the body. */
+        int armEnd(Block body, int position) {
+            int depth = 0;
+            for (int index = body.open() + 1; index < body.close(); index++) {
+                char character = code.charAt(index);
+                if (character == '{' || character == '(') {
+                    depth++;
+                } else if (character == '}' || character == ')') {
+                    depth--;
+                } else if (depth == 0 && index > position && (startsWord(index, "case") || startsWord(index, "default"))) {
+                    return index;
+                }
+            }
+            return body.close();
         }
 
         boolean isTopLevel(Block type) {

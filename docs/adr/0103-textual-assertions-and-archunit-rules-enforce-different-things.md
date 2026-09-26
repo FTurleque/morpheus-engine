@@ -387,9 +387,12 @@ et applique trois règles après avoir neutralisé commentaires, littéraux et t
 commentaire ou un message ne satisfait rien) :
 
 1. **Familles permissives.** Un type qui déclare `void rejectUnknown(` est un parseur qui accepte toute clé. Tout appel
-   `<Famille>.parse(` est suivi, **dans le bloc qui l'englobe**, d'un appel `rejectUnknown` ; si un `switch` aiguille
+   `<Famille>.parse(` est suivi, **dans le bloc qui l'englobe** — ou dans sa branche, quand ce bloc est le corps d'un
+   `switch`, avec ou sans accolades, flèche ou deux-points —, d'un appel `rejectUnknown` ; si un `switch` aiguille
    avant tout appel, chaque branche qui ne se contente pas de lever doit le faire. Chaque famille découverte a au moins
-   un site — une famille sans site rendrait la règle vide pour elle.
+   un site — une famille sans site rendrait la règle vide pour elle. La règle impose une forme : un `rejectUnknown`
+   placé après le `try`, le `if` ou la lambda qui contient le `parse` est refusé, bien qu'il s'exécute ; c'est le prix
+   d'une borne qui ne laisse pas une branche voisine satisfaire la sienne.
 2. **`switch` d'options.** Un `switch` qui porte un libellé `case "--…"` décide quelles options existent ; il a une
    branche `default` qui lève. Transmettre le jeton (`remaining.add(token)`) n'est admis que d'un `switch` qui ne porte
    **que les options globales** (`--json`, `--data-dir`, `--config-dir`, `--db`), dans un parseur du vecteur brut
@@ -441,8 +444,8 @@ inconnue.
 - **Une référence de méthode** (`SimpleOptions::parse`) et **un `switch` dont les libellés sont des constantes**.
 
 **Preuve.** Les auto-tests par fixture épinglent chaque règle dans les deux sens : découverte d'une famille inédite et
-homonyme non confondu ; garde dans une autre méthode, un commentaire, une chaîne, une branche voisine ou après un text
-block qui contient `\"""` ; `switch` sans `default`, transmission hors options globales, refus mentionné sans être levé.
+homonyme non confondu ; garde dans une autre méthode, un commentaire, une chaîne, une branche voisine (à accolades, sans
+accolades, `case` à deux-points) ou après un text block qui contient `\"""` ; `switch` sans `default`, transmission hors options globales, refus mentionné sans être levé.
 Cassée pour de vrai sur l'arbre : les deux adaptateurs d'origine, un `rejectUnknown` retiré de `MorpheusCli.syncStatus`,
 un `default` de parseur terminal qui stocke le jeton, un `default` de `MorpheusReasoningCli` qui le transmet, un text
 block `\"""` ajouté à `MorpheusQueryCli` avec un `rejectUnknown` retiré — chaque fois la garde tombe sur le bon site.
