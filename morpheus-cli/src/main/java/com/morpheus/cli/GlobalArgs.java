@@ -45,15 +45,15 @@ final class GlobalArgs {
             switch (token) {
                 case "--json" -> json = true;
                 case "--data-dir" -> {
-                    data = Optional.of(Path.of(requireValue(args, index, token)));
+                    data = Optional.of(OptionValue.path(token, requireValue(args, index, token)));
                     index++;
                 }
                 case "--config-dir" -> {
-                    config = Optional.of(Path.of(requireValue(args, index, token)));
+                    config = Optional.of(OptionValue.path(token, requireValue(args, index, token)));
                     index++;
                 }
                 case "--db" -> {
-                    database = Optional.of(Path.of(requireValue(args, index, token)));
+                    database = Optional.of(OptionValue.path(token, requireValue(args, index, token)));
                     index++;
                 }
                 default -> remaining.add(token);

@@ -172,9 +172,9 @@ final class MorpheusAugmentedContextCli {
                 String token = args[index];
                 switch (token) {
                     case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(Path.of(requireValue(args, ++index, token)));
+                    case "--data-dir" -> data = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
+                    case "--config-dir" -> config = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
+                    case "--db" -> database = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
                     default -> remaining.add(token);
                 }
             }
@@ -239,7 +239,7 @@ final class MorpheusAugmentedContextCli {
 
         String required(String key) {
             String value = values.get(key);
-            if (value == null || value.isBlank()) {
+            if (value == null) {
                 throw new IllegalArgumentException("--" + key + " is required");
             }
             return value.trim();
@@ -274,7 +274,7 @@ final class MorpheusAugmentedContextCli {
             if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
                 throw new IllegalArgumentException(option + " requires a value");
             }
-            return tokens.get(index);
+            return OptionValue.nonBlank(option, tokens.get(index));
         }
     }
 }

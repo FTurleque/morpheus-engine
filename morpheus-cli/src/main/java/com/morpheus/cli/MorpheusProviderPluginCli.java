@@ -109,6 +109,7 @@ final class MorpheusProviderPluginCli {
             }
             if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
                 index = requireValue(tokens, index, token);
+                OptionValue.nonBlank(token, tokens.get(index));
                 continue;
             }
             if (command.isEmpty()) {
@@ -122,7 +123,7 @@ final class MorpheusProviderPluginCli {
             if (token.equals("--directory") || token.equals("--plugin")
                     || token.equals("--workspace") || token.equals("--sha256")) {
                 int valueIndex = requireValue(tokens, index, token);
-                options.put(token.substring(2), tokens.get(valueIndex));
+                options.put(token.substring(2), OptionValue.nonBlank(token, tokens.get(valueIndex)));
                 index = valueIndex;
                 continue;
             }

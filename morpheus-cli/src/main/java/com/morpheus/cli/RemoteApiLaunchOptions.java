@@ -72,7 +72,7 @@ record RemoteApiLaunchOptions(
             }
             if (takesValue(token)) {
                 if (index + 1 >= args.length) throw new IllegalArgumentException(token + " requires a value");
-                String value = args[++index];
+                String value = OptionValue.nonBlank(token, args[++index]);
                 switch (token) {
                     case "--host" -> host = requireNonBlank(value, "--host");
                     case "--port" -> port = parsePort(value);
@@ -94,11 +94,11 @@ record RemoteApiLaunchOptions(
             if (token.startsWith("--") && token.contains("=")) {
                 int separator = token.indexOf('=');
                 String option = token.substring(0, separator);
-                String value = token.substring(separator + 1);
                 if (!takesValue(option)) {
                     unknown.add(token);
                     continue;
                 }
+                String value = OptionValue.nonBlank(option, token.substring(separator + 1));
                 switch (option) {
                     case "--host" -> host = requireNonBlank(value, "--host");
                     case "--port" -> port = parsePort(value);

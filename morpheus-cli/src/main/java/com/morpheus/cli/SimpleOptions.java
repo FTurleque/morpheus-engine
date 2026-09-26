@@ -17,8 +17,8 @@ import java.util.Set;
  * not: omitting it is the way to say "none".</p>
  *
  * <p>The refusal comes after the unknown-option check, in {@link #rejectUnknown}, so that a misspelled option given an
- * empty value is still reported as unknown; reading a blank value before that check refuses it too. "Blank" is what
- * {@link String#trim()} empties, the same test the reader applies.</p>
+ * empty value is still reported as unknown; reading a blank value before that check refuses it too. The refusal
+ * itself is {@link OptionValue}'s, shared with the other parser families.</p>
  */
 final class SimpleOptions {
     private final Map<String, String> values = new LinkedHashMap<>();
@@ -58,12 +58,7 @@ final class SimpleOptions {
     }
 
     private static String nonBlank(String key, String value) {
-        String trimmed = value.trim();
-        if (trimmed.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "--" + key + " requires a non-blank value; omit the option to leave it unset");
-        }
-        return trimmed;
+        return OptionValue.nonBlank("--" + key, value).trim();
     }
 
     private static String require(List<String> tokens, int index, String option) {

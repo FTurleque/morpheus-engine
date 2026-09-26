@@ -317,7 +317,7 @@ final class MorpheusServerCli {
             }
             if (token.equals("--data-dir") || token.equals(OPT_CONFIG_DIR) || token.equals("--db")) {
                 if (index + 1 >= args.length) throw new IllegalArgumentException(token + " requires a value");
-                Path value = Path.of(args[++index]);
+                Path value = OptionValue.path(token, args[++index]);
                 if (token.equals("--data-dir")) data = Optional.of(value);
                 if (token.equals(OPT_CONFIG_DIR)) config = Optional.of(value);
                 if (token.equals("--db")) database = Optional.of(value);
@@ -325,8 +325,8 @@ final class MorpheusServerCli {
             }
             if (token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=")) {
                 int separator = token.indexOf('=');
-                Path value = Path.of(token.substring(separator + 1));
                 String option = token.substring(0, separator);
+                Path value = OptionValue.path(option, token.substring(separator + 1));
                 if (option.equals("--data-dir")) data = Optional.of(value);
                 if (option.equals(OPT_CONFIG_DIR)) config = Optional.of(value);
                 if (option.equals("--db")) database = Optional.of(value);
@@ -354,6 +354,7 @@ final class MorpheusServerCli {
             if (index + 1 >= command.size()) throw new IllegalArgumentException(token + " requires a value");
             String value = command.get(++index);
             if (value.startsWith("--")) throw new IllegalArgumentException(token + " requires a value");
+            OptionValue.nonBlank(token, value);
             if (result.put(name, value) != null) throw new IllegalArgumentException("duplicate " + token);
         }
         return result;

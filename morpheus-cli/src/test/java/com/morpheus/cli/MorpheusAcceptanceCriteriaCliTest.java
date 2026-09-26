@@ -67,6 +67,28 @@ class MorpheusAcceptanceCriteriaCliTest {
         assertTrue(invalid.stderr().contains("mutually exclusive"), invalid.stderr());
     }
 
+    /** An empty --change used to drop the owner filter, so every criterion of the project came back, exit code 0. */
+    @Test
+    void anEmptyOwnerFilterIsRefusedInsteadOfListingTheWholeProject() {
+        Seed seed = seed(tempDirectory.resolve("acceptance-blank-data"));
+
+        Invocation emptyChange = invokeWithData(
+                seed.data(), "--json", "acceptance-criteria", "list",
+                "--project", seed.projectId(), "--change", "");
+        Invocation blankLimit = invokeWithData(
+                seed.data(), "--json", "acceptance-criteria", "list",
+                "--project", seed.projectId(), "--limit", " ");
+        Invocation omitted = invokeWithData(
+                seed.data(), "--json", "acceptance-criteria", "list", "--project", seed.projectId());
+
+        assertEquals(CliExitCode.USAGE.code(), emptyChange.exitCode(), emptyChange.stderr());
+        assertTrue(emptyChange.stderr().contains("--change requires a non-blank value"), emptyChange.stderr());
+        assertEquals(CliExitCode.USAGE.code(), blankLimit.exitCode(), blankLimit.stderr());
+        assertTrue(blankLimit.stderr().contains("--limit requires a non-blank value"), blankLimit.stderr());
+        assertEquals(0, omitted.exitCode(), omitted.stderr());
+        assertTrue(omitted.stdout().contains("\"totalMatches\":2"), omitted.stdout());
+    }
+
     private Seed seed(Path data) {
         Properties properties = properties();
         CliLayout layout = CliLayout.resolve(

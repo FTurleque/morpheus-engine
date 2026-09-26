@@ -60,7 +60,7 @@ record ApiLaunchOptions(CliLayout layout, String host, int port) {
                 if (index + 1 >= args.length) {
                     throw new IllegalArgumentException(token + " requires a value");
                 }
-                String value = args[++index];
+                String value = OptionValue.nonBlank(token, args[++index]);
                 switch (token) {
                     case "--host" -> host = requireHost(value);
                     case "--port" -> port = parsePort(value);
@@ -75,7 +75,7 @@ record ApiLaunchOptions(CliLayout layout, String host, int port) {
                     || token.startsWith("--host=") || token.startsWith("--port=")) {
                 int separator = token.indexOf('=');
                 String option = token.substring(0, separator);
-                String value = token.substring(separator + 1);
+                String value = OptionValue.nonBlank(option, token.substring(separator + 1));
                 switch (option) {
                     case "--host" -> host = requireHost(value);
                     case "--port" -> port = parsePort(value);

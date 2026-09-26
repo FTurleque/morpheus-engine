@@ -487,6 +487,114 @@ sans l'option l'enregistre ; `query execute --limit ""` et `--filter "  "` rende
 `policy evaluate --id ""` rend `2`. Remettre l'ancien `SimpleOptions` fait tomber les quatre, chaque fois avec le code
 `0` qui était le défaut.
 
+## Amendement du 26 septembre 2026 (CLI-7, suite) — la même décision pour toutes les familles de parseurs
+
+L'amendement CLI-7 a refusé la valeur vide dans `SimpleOptions` et laissé les autres familles de parseurs du CLI en
+l'état. Elles portaient le même défaut, sous trois formes : un `optional` qui filtrait le vide et le changeait en option
+absente ; une lecture de chemin où `Path.of("")` devenait **le répertoire courant du processus** ; et des lectures
+obligatoires qui refusaient déjà le blanc, mais avec leur propre message (`--… is required`, `missing required option`,
+`--host must not be blank`) et leur propre définition du blanc (`isBlank`, qui laisse passer un caractère de contrôle
+que `trim` vide ensuite).
+
+**Décision.** La décision CLI-7 s'applique à tous les parseurs du CLI : une option passée avec une valeur vide ou
+blanche est refusée à la lecture, code `2`, avec le message de `SimpleOptions` :
+`--x requires a non-blank value; omit the option to leave it unset`. Le refus a une seule implémentation,
+`OptionValue.nonBlank` (et `OptionValue.path` pour une option qui désigne un chemin), que `SimpleOptions` utilise aussi.
+Chaque famille l'appelle à son point d'entrée des valeurs :
+
+- les parseurs **ouverts**, qui acceptent toute clé puis la vérifient (`MorpheusCli.CommandOptions`, les `Options` de
+  `composition` et d'`external-references`), l'appellent comme `SimpleOptions` : dans `rejectUnknown`, **après** le
+  contrôle des clés, et à la lecture. `CommandOptions` et les `Options` d'`external-references` gardent leurs valeurs
+  dans un `Map.copyOf`, dont l'ordre d'itération est salé par JVM : le contrôle les parcourt dans l'ordre des clés, pour
+  que l'option nommée quand deux sont vides ne dépende pas de l'exécution ;
+- les parseurs **fermés par `switch`** (`acceptance-criteria`, `constraints evaluate`, `lifecycle`,
+  `change-orchestration`, `augmented-context`) l'appellent dans leur `require`, qui n'est atteint que depuis la branche
+  d'une option connue : le refus nomme toujours une option qui existe. Leur `optional` ne filtre plus rien ;
+- les parseurs **ad hoc** (`reason`, `update-check`, `provider-plugins`, `server`, et les lanceurs `api`, `mcp --stdio`,
+  `api --remote`) l'appellent dans la branche de chaque option reconnue ;
+- les **options de disposition** `--data-dir`, `--config-dir`, `--db` passent par `OptionValue.path` dans `GlobalArgs`
+  et dans chacune de leurs copies (les sept `Parsed`, `server`, les trois lanceurs, dans les deux orthographes
+  `--x v` et `--x=v`). `reason`, `update-check` et `provider-plugins` n'utilisent pas leur valeur, mais la vérifient
+  aussi : le même préfixe `morpheus --data-dir "$D"` doit échouer de la même façon quelle que soit la commande.
+
+Chaque site de lecture a été examiné. Aucun ne donne à la valeur vide un sens que l'omission n'a pas déjà — sauf les
+chemins, où ce sens existe mais n'est qu'un accident :
+
+| Famille | Option (site) | Une valeur vide y avait-elle un sens ? |
+|---|---|---|
+| `MorpheusCli` | `sync --revision` | Non : le vide publiait sans révision, ce que fait déjà l'omission. |
+| `MorpheusCli` | `requirements find --query` | Non : le vide et l'omission cherchaient tous deux sans texte. |
+| `MorpheusCli` | `--offset`, `--limit`, `--depth`, `--max-age-minutes` | Non : déjà refusés (`must be an integer`) ; le message nomme maintenant le vide. |
+| `MorpheusCli` | `--project`, `--change`, `--requirement`, `--workspace` (obligatoires) | Non : déjà refusés (`is required`). |
+| `composition` | `sync --revision` | Non : le vide publiait sans révision, comme l'omission. |
+| `external-references` | `--project`, `--owner`, `--reference` (obligatoires) | Non : déjà refusés, sauf un caractère de contrôle, que `isBlank` laissait passer et qui finissait en `Invalid UUID string`. |
+| `acceptance-criteria` | `--change`, `--requirement` | Non : le vide retirait le filtre et listait **tous** les critères du projet ; l'omission le fait déjà. |
+| `acceptance-criteria`, `constraints evaluate` | `--offset`, `--limit` | Non : le vide retombait sur la valeur par défaut. |
+| `lifecycle apply` | `--abandonment-reason` | Non : le vide valait « pas de raison », ce que dit l'omission ; la politique réclame la raison quand elle est due. |
+| `change-orchestration` | `state --lifecycle` | Non : le vide valait « cycle de vie non observé » (`UNAVAILABLE`) ; un appelant qui n'a rien observé omet l'option. |
+| `change-orchestration` | `--abandonment-reason`, `--from-abandonment-reason` | Non : le vide valait l'omission (`REQUIRES_INPUT`). |
+| `augmented-context` | `--source`, `--constraint`, `--budget`, `--nexus-project`, sujets | Non : tous déjà refusés, plus loin et sans nommer le vide (`unsupported technical context sources: []`, `constraint key must not be blank`, `is required`). |
+| `reason analyze` | `--question`, `--evidence`, `--adapter`, `--param`, `--max-claims` | Non : tous déjà refusés par le parseur ou par le contrat de raisonnement. |
+| `update-check`, `provider-plugins` | `--manifest` ; `--directory`, `--plugin`, `--workspace`, `--sha256` | Non : tous obligatoires, déjà refusés (`missing required option`). |
+| `server` | `backup create --output-dir` | Non : le vide était `Path.of("")` ; la commande durcissait les permissions **du répertoire courant** puis y écrivait la sauvegarde, code `0`, au lieu du répertoire de sauvegarde configuré que donne l'omission. |
+| `server` | `identity … --auth-file` | Non : le vide désignait le répertoire courant, pas le `remote-auth.txt` du répertoire de configuration que donne l'omission. |
+| `server` | `migrate-legacy --principal`, et les obligatoires `--principal`, `--role`, `--expires-at`, `--file` | Non : déjà refusés (`is required`, ou le codec d'identité). |
+| disposition | `--data-dir`, `--config-dir`, `--db` (toutes les familles) | **Oui, par accident** : `Path.of("")` est le répertoire courant, là où l'omission prend l'environnement ou la valeur par défaut de la plateforme. `paths` l'affichait ; une commande qui ouvre le store le faisait dans `./morpheus.db`. Ce sens a une orthographe explicite, `.` ; le vide est refusé. |
+| `api`, `mcp --stdio` | `--host`, `--port`, disposition | Non : `--host` et `--port` déjà refusés ; la disposition, comme ci-dessus. |
+| `api --remote` | `--workspace-root` | Non, et c'était le plus coûteux : le vide ajoutait **le répertoire courant** aux racines de workspace autorisées du serveur distant, un élargissement silencieux de sa liste d'autorisation. |
+| `api --remote` | `--auth-file`, `--tls-keystore`, `--provider-plugin-dir` | Non : le répertoire courant tenait lieu de fichier d'identités, de keystore ou de répertoire de plugins découverts. |
+| `api --remote` | `--host`, `--port`, `--max-concurrent` | Non : déjà refusés. |
+
+Les variables d'environnement (`MORPHEUS_DATA_DIR` vide, par exemple) ne sont **pas** concernées : une variable vide
+reste lue comme non définie. Beaucoup de shells et de gestionnaires de services ne distinguent pas une variable vide
+d'une variable absente ; une option de ligne de commande, elle, est écrite par l'appelant.
+
+### Alternatives écartées
+
+- **Ne refuser que là où le vide changeait le résultat** (filtres, pagination, `--revision`, chemins) et laisser les
+  lectures qui refusaient déjà. Elles refusaient avec des messages différents et deux définitions du blanc : un script
+  qui passe une variable vide recevait `is required` d'une commande, `must be an integer` d'une autre, et un caractère
+  de contrôle passait l'une et pas l'autre.
+- **Un contrôle dans `CliLayout.resolve`** pour les trois options de disposition, en un seul endroit. `Path.of(" ")` lève
+  déjà sous Windows (`InvalidPathException`, sans nom d'option) avant d'y arriver : le refus aurait dépendu de la
+  plateforme. Le contrôle précède `Path.of`.
+- **Refuser dans `parse` pour les parseurs ouverts.** C'est l'erreur corrigée dans CLI-7 : `--projet ""` aurait reçu le
+  conseil de renseigner une option qui n'existe pas.
+
+### Ce qui reste
+
+- **Deux commandes ouvrent le store avant de vérifier leurs options.** `projects add --workspace ""` et
+  `changes list --project P --limit ""` ouvrent (et créent au besoin) la base avant le refus ; rien n'est écrit, le test
+  le vérifie pour `projects add`. `external-references list|resolve` n'en fait plus partie : CLI-8 y a placé le contrôle
+  des options avant l'accès à l'état, et ce contrôle portant le refus du vide, `--owner ""` rend `2` même pour un projet
+  inconnu.
+- **Aucune garde ne vérifie qu'un futur parseur appelle `OptionValue`.** La preuve est comportementale et tenue par une
+  table écrite à la main : une option ajoutée sans ligne dans la table n'est pas couverte. La garde de CLI-8
+  (`CliOptionParsingRefusesUnknownOptionsTest`) vérifie la présence de `rejectUnknown`, pas celle du refus du vide.
+- **Une option répétée** garde sa dernière valeur en silence dans `GlobalArgs`, les copies de disposition, les
+  lanceurs, `update-check` et `provider-plugins` (`--data-dir a --data-dir b` vaut `b`) : un *last-write-wins* que les
+  autres parseurs refusent (`duplicate option`). Défaut distinct, non traité ici.
+- **Le blanc est ce que `trim()` vide**, comme dans CLI-7 : un espace Unicode (`U+2003`) n'est pas blanc et passe.
+- Les points laissés par CLI-7 restent ouverts : la route HTTP `…/references?projectId=` et une liste faite de
+  séparateurs (`--providers ","`).
+- **Les messages changent** pour une valeur vide là où la lecture refusait déjà : `--… is required`,
+  `missing required option --…`, `--host must not be blank`, `--… must be an integer`, `manifest must not be blank`
+  deviennent `--… requires a non-blank value; omit the option to leave it unset`. Le code reste `2`. Un seul test du
+  dépôt branchait sur l'ancien message (`MorpheusAugmentedContextCliTest`, `--project " "`) ; il est mis à jour.
+
+**Preuve.** `BlankOptionValueRefusalTest` passe chaque option de chaque parseur hors `SimpleOptions`, avec `""` et
+`" \t "`, par `MorpheusMain.run` : code `2`, message nommant l'option, et le répertoire propre à l'invocation — qui
+contient son répertoire de données et tout fichier désigné — reste **absent** : le refus n'écrit rien. Les trois
+lanceurs sont passés à leur `parse`, dans les deux orthographes. `projects add --workspace ""` n'enregistre aucun
+projet. Tests ciblés, qui échouent tous avec le code `0` sur les sources de CLI-7 : `sync --revision ""` ne publie rien
+(`lastSuccessfulSyncAt` reste nul) et la même commande sans l'option publie ; `--data-dir "" paths` est refusé ;
+`composition sync --revision ""` laisse l'état de composition identique, et sans l'option la synchronisation passe ;
+`acceptance-criteria list --change ""` et `--limit " "` sont refusés, sans l'option la liste rend les deux critères ;
+`constraints evaluate --limit ""` est refusé ; `change-orchestration state --lifecycle ""` et
+`transition-check --abandonment-reason "  "` sont refusés, sans l'option l'état reste `UNAVAILABLE`.
+`server backup create --output-dir ""` est refusé sans rien écrire dans le répertoire courant ni dans le répertoire de
+sauvegarde, et sans l'option la sauvegarde est créée dans ce dernier.
+
 ## Amendement du 26 septembre 2026 — un refus sur l'état n'est pas un refus d'usage
 
 L'amendement CLI-1 porte une décision sur le code de sortie ; celui-ci porte la même règle sur les refus. `morpheus help`

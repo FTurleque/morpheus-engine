@@ -385,6 +385,33 @@ class MorpheusCliTest {
         assertTrue(status.stdout().contains("\"lastSuccessfulMode\":\"FULL_REBUILD\""), status.stdout());
     }
 
+    /**
+     * An empty --revision used to be read as no revision and published a snapshot without one; an empty --data-dir
+     * was {@code Path.of("")}, the working directory. Each ran with exit code 0.
+     */
+    @Test
+    void anEmptyValueIsRefusedBeforeASyncPublishesAndBeforeTheLayoutResolves() {
+        Path data = tempDir.resolve("blank-data");
+        Invocation add = invokeWithData(data, "projects", "add", "--workspace", fixture("openspec-basic").toString());
+        assertEquals(0, add.exitCode(), add.stderr());
+        String projectId = value(add.stdout(), "projectId");
+
+        Invocation refused = invokeWithData(data, "sync", "--project", projectId, "--revision", "");
+        Invocation status = invokeWithData(data, "--json", "sync-status", "--project", projectId);
+        Invocation layout = invoke("--data-dir", "", "paths");
+
+        assertEquals(CliExitCode.USAGE.code(), refused.exitCode(), refused.stderr());
+        assertTrue(refused.stderr().contains("--revision requires a non-blank value"), refused.stderr());
+        assertEquals(0, status.exitCode(), status.stderr());
+        assertTrue(status.stdout().contains("\"lastSuccessfulSyncAt\":null"), "a refused sync must publish nothing: "
+                + status.stdout());
+        assertEquals(CliExitCode.USAGE.code(), layout.exitCode(), layout.stderr());
+        assertTrue(layout.stderr().contains("--data-dir requires a non-blank value"), layout.stderr());
+        Invocation omitted = invokeWithData(data, "sync", "--project", projectId);
+        assertEquals(0, omitted.exitCode(), omitted.stderr());
+        assertTrue(omitted.stdout().contains("published=true"), omitted.stdout());
+    }
+
     @Test
     void aSyncRefusedForInvalidContentIsAUsageErrorThatNamesTheFileRelativeToTheWorkspace() throws Exception {
         Path data = tempDir.resolve("invalid-content-data");

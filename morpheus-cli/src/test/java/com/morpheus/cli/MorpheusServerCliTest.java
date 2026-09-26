@@ -228,6 +228,36 @@ class MorpheusServerCliTest {
         assertTrue(restored.out().contains("\"integrityOk\":true"), restored.out());
     }
 
+    /**
+     * An empty --output-dir used to be {@code Path.of("")}: the backup was written into the working directory of the
+     * process instead of the configured backups directory, exit code 0.
+     */
+    @Test
+    void anEmptyBackupDirectoryIsRefusedInsteadOfWritingIntoTheWorkingDirectory() throws Exception {
+        Path workingDirectory = Path.of("").toAbsolutePath();
+        List<Path> before;
+        try (var entries = Files.list(workingDirectory)) {
+            before = entries.sorted().toList();
+        }
+
+        Result refused = run("--json", "server", "backup", "create", "--output-dir", "");
+
+        List<Path> after;
+        try (var entries = Files.list(workingDirectory)) {
+            after = entries.sorted().toList();
+        }
+        assertEquals(CliExitCode.USAGE.code(), refused.exitCode(), refused.err());
+        assertTrue(refused.err().contains("--output-dir requires a non-blank value"), refused.err());
+        assertEquals(before, after, "a refused backup must not write into the working directory");
+        assertFalse(Files.exists(temp.resolve("data/backups")), "a refused backup must not write anywhere");
+        Result omitted = run("--json", "server", "backup", "create");
+        assertEquals(CliExitCode.SUCCESS.code(), omitted.exitCode(), omitted.err());
+        Matcher path = PATH.matcher(omitted.out());
+        assertTrue(path.find(), omitted.out());
+        assertTrue(Path.of(path.group(1).replace("\\\\", "\\")).startsWith(temp.resolve("data/backups")),
+                omitted.out());
+    }
+
     @Test
     void configDirAcceptsEqualsFormAlongsideOtherEqualsFormGlobalFlags() throws Exception {
         Path dataDir = temp.resolve("data-eq");

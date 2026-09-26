@@ -94,6 +94,26 @@ class MorpheusCompositionCliTest {
         assertFalse(sync.stderr().contains("collision"), sync.stderr());
     }
 
+    /** An empty --revision used to be read as no revision, so sync published a snapshot without one, exit code 0. */
+    @Test
+    void anEmptyRevisionIsRefusedAndPublishesNothingWhileTheOmittedOneStillSyncs() {
+        Path data = tempDirectory.resolve("blank-revision-data");
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        register(data, projectId, fixture("openspec-basic"));
+        Invocation before = invokeWithData(data, "--json", "composition", "status", "--project", projectId.toString());
+
+        Invocation refused = invokeWithData(
+                data, "--json", "composition", "sync", "--project", projectId.toString(), "--revision", "");
+        Invocation after = invokeWithData(data, "--json", "composition", "status", "--project", projectId.toString());
+
+        assertEquals(CliExitCode.USAGE.code(), refused.exitCode(), refused.stderr());
+        assertTrue(refused.stderr().contains("--revision requires a non-blank value"), refused.stderr());
+        assertEquals(before, after, "a refused sync must leave the composition state untouched");
+        Invocation omitted = invokeWithData(
+                data, "--json", "composition", "sync", "--project", projectId.toString());
+        assertEquals(0, omitted.exitCode(), omitted.stderr());
+    }
+
     private void register(Path data, ProjectSpecificationId projectId, Path workspace) {
         CliLayout layout = CliLayout.resolve(
                 Optional.of(data), Optional.empty(), Optional.empty(), Map.of(), properties());

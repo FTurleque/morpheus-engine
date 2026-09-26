@@ -63,6 +63,24 @@ class MorpheusConstraintSemanticsCliTest {
         assertTrue(invalid.stderr().contains("not a valid MORPHEUS lifecycle state"), invalid.stderr());
     }
 
+    /** An empty --limit used to fall back to the default page size, exit code 0. */
+    @Test
+    void anEmptyPageBoundIsRefusedInsteadOfFallingBackToTheDefault() {
+        Seed seed = seed(tempDirectory.resolve("constraint-blank-data"));
+
+        Invocation empty = invokeWithData(
+                seed.data(), "--json", "constraints", "evaluate",
+                "--project", seed.projectId(), "--change", seed.changeId(), "--target", "VERIFYING", "--limit", "");
+        Invocation omitted = invokeWithData(
+                seed.data(), "--json", "constraints", "evaluate",
+                "--project", seed.projectId(), "--change", seed.changeId(), "--target", "VERIFYING");
+
+        assertEquals(CliExitCode.USAGE.code(), empty.exitCode(), empty.stderr());
+        assertTrue(empty.stderr().contains("--limit requires a non-blank value"), empty.stderr());
+        assertEquals(0, omitted.exitCode(), omitted.stderr());
+        assertTrue(omitted.stdout().contains("\"totalMatches\":2"), omitted.stdout());
+    }
+
     private Seed seed(Path data) {
         Properties properties = properties();
         CliLayout layout = CliLayout.resolve(

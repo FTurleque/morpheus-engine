@@ -303,3 +303,49 @@ valeur vide que l'omission n'ait pas déjà : `views update` reconstruit toute l
 suffit à retirer un filtre.
 
 Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7)](../adr/0108-a-response-says-what-it-could-not-observe.md).
+
+### CLI (toutes les autres commandes) et lanceurs `api`, `mcp`, `api --remote` : une option passée vide est refusée
+
+Le refus décrit ci-dessus pour `portfolio`, `query`, `views`, `export` et `policy` s'étend à **toutes** les commandes du
+CLI et aux trois lanceurs de serveur. Jusqu'à 1.2.0, une option passée avec une valeur vide ou blanche y était, selon la
+commande, lue comme absente, résolue comme le répertoire courant, ou refusée avec un message qui ne nommait pas le vide :
+
+- `acceptance-criteria list --project P --change ""` listait **tous** les critères du projet au lieu de ceux du change ;
+- `acceptance-criteria list … --limit ""` et `constraints evaluate … --limit ""` retombaient sur la taille de page par
+  défaut ;
+- `sync --project P --revision ""` et `composition sync --project P --revision ""` publiaient un snapshot sans révision ;
+- `change-orchestration state … --lifecycle ""` répondait « cycle de vie non observé » (`UNAVAILABLE`), et
+  `--abandonment-reason ""` valait une raison absente ;
+- `--data-dir ""`, `--config-dir ""` et `--db ""` désignaient **le répertoire courant** : `paths` l'affichait, et une
+  commande qui ouvre le store créait `morpheus.db` à cet endroit ;
+- `server backup create --output-dir ""` durcissait les permissions du répertoire courant puis **y écrivait la
+  sauvegarde**, et `server identity … --auth-file ""` y cherchait le fichier d'identités ;
+- `api --remote --workspace-root ""` ajoutait le répertoire courant aux **racines de workspace autorisées** du serveur
+  distant ; `--auth-file ""`, `--tls-keystore ""` et `--provider-plugin-dir ""` le prenaient pour fichier d'identités,
+  keystore ou répertoire de plugins.
+
+Chaque cas rendait `0`, ou échouait plus loin sans nommer l'option. À partir de 1.2.1, la valeur vide ou blanche est
+refusée à la lecture des arguments, avec le nom de l'option, code `2` (`USAGE`) :
+
+```text
+MORPHEUS error [2]: --change requires a non-blank value; omit the option to leave it unset
+```
+
+Les commandes qui préfixent leurs erreurs autrement (`server`, `reason`, `update-check`, `provider-plugins`) gardent leur
+préfixe ; les lanceurs refusent au démarrage, avant d'ouvrir un port ou le transport STDIO. Rien n'est enregistré quand le
+refus porte sur une commande d'écriture (`sync`, `composition sync`, `lifecycle apply`, `projects add`, `server …`). Une
+invocation qui ne passe pas l'option se comporte exactement comme avant.
+
+Là où une valeur vide était déjà refusée, **le message change**, pas le code : `--… is required`,
+`missing required option --…`, `--host must not be blank`, `--… must be an integer` et `manifest must not be blank`
+deviennent `--… requires a non-blank value` pour une valeur vide. Un outil qui analysait ces messages doit accepter le
+nouveau ; un outil qui ne regarde que le code de sortie n'a rien à changer.
+
+Les variables d'environnement ne changent pas : `MORPHEUS_DATA_DIR`, `MORPHEUS_CONFIG_DIR`, `MORPHEUS_DB` et les
+variables `MORPHEUS_SERVER_*` vides restent lues comme non définies.
+
+**Migration.** Un script qui passait une variable éventuellement vide (`--data-dir "$DATA"`, `--change "$CHANGE"`,
+`--workspace-root "$ROOT"`) reçoit maintenant le code `2` quand elle est vide. **Omettre l'option** quand il n'y a pas
+de valeur, au lieu de la passer vide. Pour viser réellement le répertoire courant, l'écrire : `--data-dir .`.
+
+Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, suite)](../adr/0108-a-response-says-what-it-could-not-observe.md).

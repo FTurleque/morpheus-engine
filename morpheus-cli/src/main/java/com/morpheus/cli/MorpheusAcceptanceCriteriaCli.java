@@ -138,9 +138,9 @@ final class MorpheusAcceptanceCriteriaCli {
                 String token = args[index];
                 switch (token) {
                     case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(Path.of(requireValue(args, ++index, token)));
+                    case "--data-dir" -> data = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
+                    case "--config-dir" -> config = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
+                    case "--db" -> database = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
                     default -> remaining.add(token);
                 }
             }
@@ -186,7 +186,7 @@ final class MorpheusAcceptanceCriteriaCli {
         }
 
         Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim).filter(value -> !value.isEmpty());
+            return Optional.ofNullable(values.get(key)).map(String::trim);
         }
 
         int intValue(String key, int defaultValue, int min, int max) {
@@ -209,7 +209,7 @@ final class MorpheusAcceptanceCriteriaCli {
             if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
                 throw new IllegalArgumentException(option + " requires a value");
             }
-            return tokens.get(index);
+            return OptionValue.nonBlank(option, tokens.get(index));
         }
     }
 
