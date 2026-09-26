@@ -113,6 +113,8 @@ class MorpheusApiProjectSyncIntegrationTest {
             ApiTestSupport.Response diagnostics = http.get(server, "/projects/" + projectId + "/diagnostics");
             assertEquals(200, diagnostics.status(), diagnostics.body());
             assertTrue(diagnostics.body().contains("get_quality_report"), diagnostics.body());
+            assertTrue(diagnostics.body().contains("\"requirementCoverageStatus\":\"MEASURED\""), diagnostics.body());
+            assertTrue(diagnostics.body().contains("\"taskCoverageStatus\":"), diagnostics.body());
         }
 
         try (MorpheusHttpServer reopened = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
