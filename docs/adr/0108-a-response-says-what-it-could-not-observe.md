@@ -364,6 +364,59 @@ raison émise par le service atteint le texte, pas qu'une analyse a manqué un n
 qu'un arc retour orienté est une troncature `DEPTH`. Le test de l'analyse complète vérifie l'absence de cette ligne et
 qu'il y a autant de codes que le compteur en annonce. Retirer la lecture des avertissements fait tomber les deux.
 
+## Amendement du 26 septembre 2026 (CLI-4) — un ratio sur population vide n'est pas publié comme une mesure
+
+`QualityReportMetrics` remplit par `1.0` un ratio dont la population est vide, pour que ses invariants tiennent. La
+frontière policy le savait : `DefaultPolicyFactResolver#emptyRatioPopulation` rendait `UNKNOWN` pour un seuil posé sur
+l'un des deux ratios. Mais ce prédicat était `private static`, et les autres surfaces ne pouvaient pas l'appeler. `morpheus
+quality` imprimait `requirementCoverage=1.0`, et le JSON compact — celui du CLI comme de la route HTTP de diagnostics —
+publiait `requirementCoverageRatio: 1.0` sans aucun drapeau. Une même valeur était `UNKNOWN` pour une policy et une
+couverture complète pour un script.
+
+**Décision.**
+
+- **Un seul point de vérité.** `QualityReportMetrics#requirementCoverageStatus()` et `#taskCoverageStatus()` rendent
+  `CoverageRatioStatus.MEASURED` ou `UNDEFINED_EMPTY_POPULATION`. La frontière policy, la vue compacte et le CLI les
+  lisent. La méthode privée de la policy est supprimée, pas contournée : elle ne fait plus que nommer la population
+  dans la raison. Une seconde implémentation du prédicat dériverait, et c'est la copie faible qui publierait `1.0` —
+  la raison même de la promotion d'`IntegrationStatusDisclosure` et de `ServerLocationDisclosure`.
+- **Le texte n'imprime pas un nombre qui n'est pas une mesure** : `requirementCoverage=UNDEFINED_EMPTY_POPULATION`.
+- **Le JSON porte l'indéfinition dans un champ frère**, sur le patron d'`acceptanceCoverageStatus` du même objet :
+  `requirementCoverageStatus` et `taskCoverageStatus`. Le ratio garde son type et sa valeur.
+
+Les autres ratios ont été cherchés. `AcceptanceCoverageAssessment#verifiedCoverageRatio` remplit lui aussi `1.0` sur
+zéro critère, mais aucune surface ne le publie : la vue compacte n'en expose que le statut, qui nomme déjà `NO_CRITERIA`.
+
+### Alternative écartée
+
+- **Rendre le ratio indéfinissable** (`null`, ou une valeur facultative). Il ferme le défaut plus fort — un client naïf
+  ne peut plus lire `1.0` — mais change le type d'un champ publié et casse tout client qui le lit comme un nombre, y
+  compris pour les projets qui ont des exigences, c'est-à-dire pour tout le monde sauf le cas fautif.
+
+### Ce que cela coûte, et ce qui reste
+
+- **Un client qui ignore le champ frère lit toujours `1.0`.** C'est le prix de la compatibilité ; les notes de version
+  le disent et prescrivent de lire le statut d'abord.
+- **Le JSON n'est pas identique octet pour octet** pour un projet qui a des exigences : le sérialiseur canonique écrit
+  chaque composant d'un record, et un champ facultatif vide y devient `null`. Aucune forme de champ frère ne peut donc
+  être absente quand le ratio est mesuré, et les deux statuts s'insèrent juste après leur ratio. Ce qui est garanti :
+  aucun champ n'est retiré ni renommé, les ratios restent numériques, et les deux statuts sont les seuls ajouts
+  (`aProjectWithRequirementsKeepsItsQualityFieldsAndGainsOnlyTheStatuses` compare l'ensemble des clés). Les valeurs
+  viennent des mêmes accesseurs qu'avant ; aucun test ne les compare à une sortie antérieure.
+- **La duplication de composition n'est pas couverte ici.** Depuis CMP-1, la policy rend aussi `UNKNOWN` un ratio dont
+  la population est dupliquée par une composition multi-provider (`duplicatedPopulation`). Ce prédicat-là lit l'état de
+  composition, que `QualityReportMetrics` ne connaît pas ; `quality` publie encore ce ratio comme `MEASURED`. C'est une
+  seconde cause d'indéfinition, à porter par le même champ dans un changement distinct.
+
+**Preuve.** `MorpheusCliTest#aProjectWithoutRequirementsOrTasksHasNoCoverageMeasurement` publie un workspace sans exigence
+ni tâche et vérifie le texte et le JSON ; forcer `taskCoverageStatus()` à `MEASURED` le fait tomber sur la seule ligne
+des tâches. `CoverageRatioHasOneEmptyPopulationPredicateTest` refuse toute comparaison de `totalRequirements()` ou
+`totalTasks()` avec zéro ou un, dans les deux sens, hors du record ; le retour du nom `emptyRatioPopulation` ; toute
+source hors `application.quality` qui lit un ratio des métriques sans son statut, ou le `coverageRatio()` des records par
+population, qui portent le même remplissage sans statut. Réintroduire la copie dans la policy le fait tomber. Il ne voit
+pas une vacuité testée sur une autre expression (`isEmpty()` d'une liste), ni un statut lu puis ignoré : il raisonne par
+fichier.
+
 ## Amendement du 26 septembre 2026 (CLI-7) — une valeur fournie vide n'est pas une option absente
 
 `SimpleOptions.optional` taillait la valeur puis la jetait si rien ne restait. Une option **fournie** avec une valeur
