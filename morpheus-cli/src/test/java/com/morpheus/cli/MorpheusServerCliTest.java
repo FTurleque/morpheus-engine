@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -43,6 +45,58 @@ class MorpheusServerCliTest {
         assertTrue(created.out().contains("NOT_PERSISTED_PRINTED_ONCE"));
         assertTrue(created.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
         assertTrue(created.out().contains("\"expiresAt\":\"NEVER\""), created.out());
+    }
+
+    @Test
+    void theTextIdentityListingPresentsItsFieldsInTheDeclaredOrder() {
+        assertEquals(CliExitCode.SUCCESS.code(), run("server", "identity", "create",
+                "--principal", "alice", "--role", "ADMIN").exitCode());
+
+        Result listed = run("server", "identity", "list");
+
+        assertEquals(CliExitCode.SUCCESS.code(), listed.exitCode(), listed.err());
+        String line = listed.out().lines().filter(text -> text.startsWith("identities=")).findFirst().orElseThrow();
+        List<String> declared = List.of("principal=alice", "role=ADMIN", "expiresAt=NEVER", "expired=false",
+                "nonExpiring=true");
+        int previous = -1;
+        for (String field : declared) {
+            int index = line.indexOf(field);
+            assertTrue(index > previous, field + " is out of the declared order in: " + line);
+            previous = index;
+        }
+    }
+
+    @Test
+    void theTextAndJsonIdentityListingsCarryTheSameFields() {
+        assertEquals(CliExitCode.SUCCESS.code(), run("server", "identity", "create",
+                "--principal", "alice", "--role", "ADMIN").exitCode());
+
+        String json = run("--json", "server", "identity", "list").out();
+        String text = run("server", "identity", "list").out();
+
+        Matcher identity = Pattern.compile("\"identities\":\\[\\{([^}]*)}").matcher(json);
+        assertTrue(identity.find(), json);
+        Set<String> jsonFields = new TreeSet<>();
+        Matcher key = Pattern.compile("\"(\\w+)\":").matcher(identity.group(1));
+        while (key.find()) {
+            jsonFields.add(key.group(1));
+        }
+        Matcher line = Pattern.compile("identities=\\[\\{([^}]*)}").matcher(text);
+        assertTrue(line.find(), text);
+        Set<String> textFields = new TreeSet<>();
+        for (String field : line.group(1).split(", ")) {
+            textFields.add(field.substring(0, field.indexOf('=')));
+        }
+        assertEquals(jsonFields, textFields, "a field of the identity view is missing from one of the two formats");
+    }
+
+    @Test
+    void anIdentityIsRenderedInTheDeclaredOrderWhateverTheIterationOrderOfItsMap() {
+        Map<String, Object> alphabetical = new java.util.TreeMap<>(Map.of(
+                "principal", "alice", "role", "ADMIN", "expiresAt", "NEVER", "expired", false, "nonExpiring", true));
+
+        assertEquals("{principal=alice, role=ADMIN, expiresAt=NEVER, expired=false, nonExpiring=true}",
+                MorpheusServerCli.identityLine(alphabetical));
     }
 
     @Test
@@ -231,6 +285,15 @@ class MorpheusServerCliTest {
         Path auth = configDir.resolve("remote-auth.txt");
         assertTrue(Files.exists(auth), "expected auth file under --config-dir= target: " + auth);
         assertTrue(Files.readString(auth).contains("eqform|READ"));
+    }
+
+    /** The parser checks an allowlist in a method not named parse, which the option guard does not see. */
+    @Test
+    void anUnknownOptionIsRefused() {
+        Result result = run("server", "identity", "list", "--principal", "alice");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode());
+        assertTrue(result.err().contains("unknown server option: --principal"), result.err());
     }
 
     private Result run(String... rawArgs) {
