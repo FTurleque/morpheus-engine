@@ -652,3 +652,89 @@ l'aide intégrée (`MorpheusHelpInvocationsParseTest`) devait en tenir une liste
   d'identités illisible (ligne invalide) rend `2`. HTTP rend `400` pour une entité absente sur les routes M23, M24 et M25.
   `MorpheusServerCli` rend `10` pour une `IllegalStateException` ou une `KnowledgeStoreException`, là où les autres
   adaptateurs rendent `4`. Chacun est une décision séparée.
+
+## Amendement du 26 septembre 2026 (CLI-7, répétition) — une option donnée deux fois est refusée
+
+L'amendement CLI-7, suite, a laissé ouvert un défaut voisin, sur les mêmes parseurs : une option à valeur **répétée**
+gardait sa dernière valeur en silence. `morpheus --data-dir a --data-dir b projects list` lisait le store de `b`, code
+`0`, sans rien dire de `a`. Les parseurs qui rangent leurs options dans une table refusaient déjà la seconde clé
+(`SimpleOptions`, `MorpheusCli.CommandOptions`, les `Options` de `composition`, d'`external-references`,
+d'`acceptance-criteria`, de `constraints`, de `lifecycle`, de `change-orchestration` et d'`augmented-context`, avec
+`duplicate option: --x`). Les autres affectaient chaque valeur à une variable, et la seconde écrasait la première :
+
+| Parseur | Options qui gardaient la dernière valeur |
+|---|---|
+| `GlobalArgs` (`MorpheusCli`, `policy`, `query`/`views`/`export`, `portfolio`) | `--data-dir`, `--config-dir`, `--db` |
+| les sept copies `Parsed` (`acceptance-criteria`, `augmented-context`, `composition`, `constraints`, `lifecycle`, `external-references`, `change-orchestration`) | `--data-dir`, `--config-dir`, `--db` |
+| `server` (`MorpheusServerCli.parse`) | `--data-dir`, `--config-dir`, `--db`, dans les deux orthographes |
+| `api` (`ApiLaunchOptions`) | `--host`, `--port`, `--data-dir`, `--config-dir`, `--db`, dans les deux orthographes |
+| `mcp --stdio` (`McpLaunchOptions`) | `--data-dir`, `--config-dir`, `--db`, dans les deux orthographes |
+| `api --remote` (`RemoteApiLaunchOptions`) | `--host`, `--port`, disposition, `--auth-file`, `--tls-keystore`, `--provider-plugin-dir`, `--max-concurrent`, dans les deux orthographes |
+| `update-check` (`MorpheusProductCli`) | `--manifest` (`options.put`) ; la disposition, lue puis ignorée |
+| `provider-plugins` (`MorpheusProviderPluginCli`) | `--directory`, `--plugin`, `--workspace`, `--sha256` (`options.put`) ; la disposition, lue puis ignorée |
+| `reason analyze` (`MorpheusReasoningCli`) | `--max-claims` ; la disposition, lue puis ignorée |
+
+`reason analyze --max-claims` n'était pas dans le constat de départ : il a été trouvé en balayant les affectations des
+parseurs. Aucune de ces options ne donne à une répétition un sens — ce ne sont pas des listes. C'est le
+*last-write-wins* silencieux que `rules/code-style.md` interdit : un conflit se signale.
+
+**Décision.** Une option à valeur unique donnée plus d'une fois est refusée à la lecture des arguments, code `2`, avec
+le libellé des parseurs à table : `duplicate option: --x`. Le refus a une seule implémentation,
+`OptionOccurrence.once`, qui enregistre le **nom** de l'option, jamais le jeton :
+
+- **Les deux orthographes sont une seule option.** Là où un parseur reconnaît `--x v` et `--x=v` (`server` et les trois
+  lanceurs), `--data-dir a --data-dir=b`, `--data-dir=a --data-dir b` et `--data-dir=a --data-dir=b` sont des doublons
+  comme `--data-dir a --data-dir b`. Une orthographe n'est qu'une façon d'écrire la même valeur ; laisser l'une
+  remplacer l'autre aurait gardé le défaut sous une forme plus difficile à voir.
+- **Là où l'orthographe `=` n'est pas reconnue**, elle n'est pas une seconde valeur : `GlobalArgs` ne connaît que
+  `--x v`, et `--data-dir a --data-dir=b paths` prend `--data-dir=b` pour le nom de la commande, refusé
+  (`unknown command`, code `2`, rien d'écrit). Ce n'était déjà pas un *last-write-wins* ; rien n'est changé.
+- **Les sept copies `Parsed` délèguent à `GlobalArgs.parse`.** Elles en étaient des copies à l'octet près ; corriger
+  huit boucles identiques aurait laissé à la prochaine copie le soin de s'en souvenir. `GlobalArgs` reste la seule
+  lecture de la disposition pour ces familles.
+- **`--workspace-root` accumule.** Il nomme une liste de racines autorisées ; le répéter, dans l'une ou l'autre
+  orthographe, en ajoute une. C'est la seule option à valeur exemptée.
+- **Les drapeaux sans valeur ne sont pas concernés.** `--json`, `--stdio` et `--remote` répétés ne perdent rien : il n'y
+  a pas de première valeur à écraser. Ils restent acceptés. Les drapeaux de commande que leur parseur refusait déjà en
+  double (`--confirm`, `--dry-run`, les drapeaux de `MorpheusCli.CommandOptions`) le restent.
+- **Le libellé est unifié.** `server` refusait ses options de commande répétées avec `duplicate --x`, `reason` son
+  `--question` répété de même ; ils disent maintenant `duplicate option: --x`. Le code ne change pas.
+
+Le refus précède la lecture de la valeur : `--data-dir a --data-dir` est un doublon, pas une valeur manquante. Dans
+`update-check`, `provider-plugins` et `reason`, la disposition n'est pas utilisée mais son doublon est refusé quand
+même, pour la raison qui y fait refuser le blanc : le même préfixe `morpheus --data-dir "$D"` doit échouer de la même
+façon quelle que soit la commande.
+
+### Alternatives écartées
+
+- **Garder la première valeur**, ou la dernière en l'annonçant sur la sortie d'erreur. L'une ou l'autre choisit à la
+  place de l'appelant entre deux intentions contradictoires ; un avertissement que personne ne lit ne signale rien.
+- **Refuser seulement quand les deux valeurs diffèrent.** `--data-dir a --data-dir a` ne perd rien, mais le refuser
+  aussi garde une règle qui se lit dans la ligne de commande, sans comparer de chemins (`a` et `./a` sont-ils égaux ?).
+  Les parseurs à table refusaient déjà deux valeurs égales.
+- **Traiter `--x=v` comme une option distincte de `--x v`.** Chaque orthographe aurait refusé sa propre répétition, et
+  `--data-dir a --data-dir=b` serait resté un *last-write-wins*.
+- **Refuser aussi `--json --json`.** Aucune valeur n'est perdue ; un enveloppeur qui ajoute `--json` à une commande qui
+  l'a déjà échouerait sans raison.
+
+### Conséquences
+
+- Une invocation qui répétait une option à valeur rend `2` au lieu de `0`. Rien n'est écrit : les lanceurs refusent
+  avant d'ouvrir un port ou le transport STDIO, les autres commandes avant d'ouvrir le store.
+- Le point « une option répétée » de l'amendement CLI-7, suite, est fermé. Les autres points de sa section « Ce qui
+  reste » sont inchangés.
+- **Aucune garde ne vérifie qu'un futur parseur appelle `OptionOccurrence`.** Comme pour le blanc, la preuve est une
+  table écrite à la main : une option à valeur ajoutée à un parseur à variables sans ligne dans la table n'est pas
+  couverte.
+
+**Preuve.** `DuplicateOptionRefusalTest`, par `MorpheusMain.run` : chacune des trois options de disposition, répétée
+devant une commande de chacune des quinze familles, rend `2`, nomme l'option, et le répertoire propre à l'invocation
+reste **absent** ; `server` refuse la répétition dans les quatre combinaisons d'orthographes ; `update-check --manifest`,
+`provider-plugins --directory|--plugin|--workspace|--sha256`, `reason analyze --max-claims|--question` et
+`server … --file|--confirm` répétés rendent `2` avec `duplicate option: --x`. Les trois lanceurs sont passés à leur
+`parse` pour chaque option à valeur unique, dans les quatre combinaisons, et à `MorpheusMain.runApi|runMcp|runRemoteApi`
+pour le code `2`. `--workspace-root` répété dans les deux orthographes donne trois racines ; une option donnée une fois,
+dans l'une ou l'autre orthographe, est toujours acceptée. Sur les sources de CLI-7, suite, 136 des 152 cas échouent, dont
+`--data-dir first --data-dir second paths` : code `0`, chemins de `second` affichés ; et
+`update-check --manifest a --manifest b`, qui lisait `b`. Les 16 cas qui passaient déjà sont ceux qui vérifient ce qui
+ne doit pas changer (l'orthographe `=` hors `server`, `--workspace-root`, une option donnée une fois).

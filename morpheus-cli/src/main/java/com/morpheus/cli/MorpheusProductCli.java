@@ -99,6 +99,7 @@ final class MorpheusProductCli {
         String command = "";
         List<String> tokens = new ArrayList<>(Arrays.asList(args));
         java.util.Map<String, String> options = new java.util.LinkedHashMap<>();
+        java.util.Set<String> given = new java.util.HashSet<>();
         for (int index = 0; index < tokens.size(); index++) {
             String token = tokens.get(index);
             if (token.equals("--json")) {
@@ -106,6 +107,7 @@ final class MorpheusProductCli {
                 continue;
             }
             if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
+                OptionOccurrence.once(given, token);
                 index = requireValue(tokens, index, token);
                 OptionValue.nonBlank(token, tokens.get(index));
                 continue;
@@ -115,6 +117,7 @@ final class MorpheusProductCli {
                 continue;
             }
             if (token.equals("--manifest")) {
+                OptionOccurrence.once(given, token);
                 int valueIndex = requireValue(tokens, index, token);
                 options.put("manifest", OptionValue.nonBlank(token, tokens.get(valueIndex)));
                 index = valueIndex;

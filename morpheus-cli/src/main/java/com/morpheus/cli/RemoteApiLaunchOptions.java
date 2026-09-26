@@ -5,10 +5,12 @@ import com.morpheus.api.MorpheusRemoteHttpServer;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /** Parses only the explicit `api --remote` M26 launch path, leaving legacy local API parsing unchanged. */
@@ -54,6 +56,7 @@ record RemoteApiLaunchOptions(
         boolean commandSeen = false;
         boolean remoteSeen = false;
         boolean maxConcurrentExplicit = false;
+        Set<String> given = new HashSet<>();
         List<String> unknown = new ArrayList<>();
 
         for (int index = 0; index < args.length; index++) {
@@ -71,6 +74,7 @@ record RemoteApiLaunchOptions(
                 throw new IllegalArgumentException("--json is not valid for API server mode");
             }
             if (takesValue(token)) {
+                onceUnlessList(given, token);
                 if (index + 1 >= args.length) throw new IllegalArgumentException(token + " requires a value");
                 String value = OptionValue.nonBlank(token, args[++index]);
                 switch (token) {
@@ -98,6 +102,7 @@ record RemoteApiLaunchOptions(
                     unknown.add(token);
                     continue;
                 }
+                onceUnlessList(given, option);
                 String value = OptionValue.nonBlank(option, token.substring(separator + 1));
                 switch (option) {
                     case "--host" -> host = requireNonBlank(value, "--host");
@@ -177,6 +182,13 @@ record RemoteApiLaunchOptions(
                 || token.equals("--auth-file") || token.equals("--tls-keystore")
                 || token.equals("--provider-plugin-dir") || token.equals("--workspace-root")
                 || token.equals("--max-concurrent");
+    }
+
+    /** {@code --workspace-root} names a list and accumulates; every other option takes one value. */
+    private static void onceUnlessList(Set<String> given, String option) {
+        if (!option.equals("--workspace-root")) {
+            OptionOccurrence.once(given, option);
+        }
     }
 
     private static List<Path> resolveWorkspaceRoots(
