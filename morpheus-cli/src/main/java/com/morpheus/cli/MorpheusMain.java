@@ -110,7 +110,8 @@ public final class MorpheusMain {
             out.println();
             out.println("Policy packs / governance automation (M25):");
             out.println("  morpheus [--json] policy pack create --name NAME --rules RULES --actor NAME --reason TEXT");
-            out.println("  morpheus [--json] policy pack list|get|versions [--id ID]");
+            out.println("  morpheus [--json] policy pack list");
+            out.println("  morpheus [--json] policy pack get|versions --id ID");
             out.println("  morpheus [--json] policy pack update --id ID --expected-revision N --name NAME --rules RULES --actor NAME --reason TEXT");
             out.println("  morpheus [--json] policy activate --id ID --version ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
             out.println("  morpheus [--json] policy deactivate --id ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");

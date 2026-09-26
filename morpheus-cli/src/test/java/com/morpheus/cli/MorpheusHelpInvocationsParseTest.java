@@ -27,18 +27,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * requires unconditionally: an operator who copied the line got a usage error. The documentation of reference was
  * right; only the embedded help was wrong, and nothing compared it to the parser.</p>
  *
- * <p>The guard reads the help as printed, reduces every usage line to its minimal form -- optional groups
- * dropped, the first of each alternative kept, placeholders filled -- and runs it. A usage refusal (exit code 2)
- * means the help documents an invocation the parser refuses. Server launch lines are handed to their launch-option
- * parser instead of being started. A placeholder the guard cannot fill fails the test rather than skipping the line,
- * so a new help line is covered the day it is written.</p>
+ * <p>The guard reads both embedded helps as printed ({@code morpheus help} and {@code morpheus reason help}), expands
+ * every usage line into the invocations it documents -- optional groups dropped, <em>every</em> branch of a command
+ * alternative ({@code get|versions}) and of a parenthesised group ({@code (--project ID | --portfolio ID)}) kept,
+ * placeholders filled -- and runs each one. A usage refusal (exit code 2) means the help documents an invocation the
+ * parser refuses. Server launch lines are handed to their launch-option parser instead of being started. A placeholder
+ * the guard cannot fill fails the test rather than skipping the line, so a new help line is covered the day it is
+ * written.</p>
  *
- * <p>Exit code 2 is not only the parser's: several adapters also return it when the entity an invocation names
- * does not exist in the empty store the guard runs against (an unknown policy pack, portfolio or saved view). Those
- * refusals are listed by their exact prefix in {@link #STATE_REFUSALS}; any other usage refusal fails the guard.</p>
+ * <p>Exit code 2 is not only the parser's. Run against an empty store, some adapters also return it for a refusal
+ * about state: an entity that does not exist (policy pack or pack version, saved view, portfolio), a policy pack that
+ * is not active in the scope, and the ADMIN lockout that {@code server identity migrate-legacy} refuses to schedule.
+ * Those refusals are listed by their exact prefix in {@link #STATE_REFUSALS}; any other usage refusal fails the
+ * guard.</p>
  *
- * <p>What it does not cover: the optional groups. A bracketed option that the parser does not recognise stays
- * invisible, because the minimal invocation never passes it.</p>
+ * <p>What it does not prove. It proves that no documented invocation is refused <em>as usage</em>; an exit code other
+ * than 2 counts as acceptance. So it cannot see a documented invocation that a command refuses only after resolving
+ * state, when the store is empty: a command that looks the project up before validating its options fails with
+ * "project not found" whatever the options are, and a refusal listed in {@link #STATE_REFUSALS} hides what the
+ * parser would have said next. Optional groups are never passed, so a bracketed option the parser does not recognise
+ * stays invisible; value alternatives ({@code --role READ|WRITE|ADMIN}) are exercised on their first branch only.</p>
  */
 class MorpheusHelpInvocationsParseTest {
     private static final List<String> STATE_REFUSALS = List.of(
@@ -51,19 +59,24 @@ class MorpheusHelpInvocationsParseTest {
             "MORPHEUS server usage error: migration would leave no ADMIN identity active after ");
     private static final String PROBE_WITHOUT_PIN =
             "  morpheus [--json] provider-plugins probe --directory PATH --plugin ID --workspace PATH";
+    private static final String PACK_READS_WITH_AN_OPTIONAL_ID =
+            "  morpheus [--json] policy pack list|get|versions [--id ID]";
 
     @TempDir
     Path tempDir;
 
     @Test
     void everyDocumentedInvocationIsAcceptedByItsParser() throws IOException {
-        List<String> usages = documentedUsages(help());
-        assertTrue(usages.size() > 40, "the help yielded too few usage lines to be a guard: " + usages);
-        assertTrue(usages.stream().anyMatch(line -> line.contains("provider-plugins probe")),
+        Usages usages = documentedUsages(help());
+        assertTrue(usages.commandBlock() > 10, "the Commands: block of the core help yielded too few usages: " + usages);
+        assertTrue(usages.invocations().size() > 60, "the help yielded too few invocations to be a guard: " + usages);
+        assertTrue(usages.invocations().stream().anyMatch(line -> line.contains("provider-plugins probe")),
                 "the provider-plugins probe usage line is no longer found: " + usages);
+        assertTrue(usages.invocations().stream().anyMatch(line -> line.startsWith("morpheus reason analyze")),
+                "the reason help is no longer read: " + usages);
 
         List<String> refused = new ArrayList<>();
-        for (String usage : usages) {
+        for (String usage : usages.invocations()) {
             refusal(usage).ifPresent(reason -> refused.add(usage + "\n      -> " + reason));
         }
 
@@ -72,23 +85,44 @@ class MorpheusHelpInvocationsParseTest {
 
     @Test
     void theGuardRefusesTheProbeLineWithoutItsTrustedPin() throws IOException {
-        String usage = minimalInvocation(PROBE_WITHOUT_PIN.trim());
+        List<String> usages = invocations(PROBE_WITHOUT_PIN.trim());
 
-        assertEquals("morpheus provider-plugins probe --directory PATH --plugin ID --workspace PATH", usage);
-        assertTrue(refusal(usage).orElseThrow().contains("probe requires --sha256 HEX"),
+        assertEquals(List.of("morpheus provider-plugins probe --directory PATH --plugin ID --workspace PATH"), usages);
+        assertTrue(refusal(usages.getFirst()).orElseThrow().contains("probe requires --sha256 HEX"),
                 "the guard must see the refusal the help used to hide");
     }
 
     @Test
-    void theMinimalInvocationDropsOptionsAndKeepsTheFirstAlternative() {
-        assertEquals("morpheus policy override list --project ID",
-                minimalInvocation("morpheus [--json] policy override list (--project ID | --portfolio ID)"));
-        assertEquals("morpheus views get --id ID", minimalInvocation("morpheus [--json] views get|versions|execute --id ID"));
-        assertEquals("morpheus server identity create --principal NAME --role READ",
-                minimalInvocation("morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN"
+    void theGuardRefusesAPackReadDocumentedWithAnOptionalId() throws IOException {
+        List<String> usages = invocations(PACK_READS_WITH_AN_OPTIONAL_ID.trim());
+
+        assertEquals(List.of("morpheus policy pack list", "morpheus policy pack get", "morpheus policy pack versions"),
+                usages);
+        assertEquals(Optional.empty(), refusal(usages.get(0)));
+        assertTrue(refusal(usages.get(1)).orElseThrow().contains("--id is required"),
+                "a later branch of a command alternative must be exercised, not only the first");
+    }
+
+    @Test
+    void anInvocationExpandsEveryCommandAlternativeAndKeepsTheFirstValue() {
+        assertEquals(List.of("morpheus policy override list --project ID", "morpheus policy override list --portfolio ID"),
+                invocations("morpheus [--json] policy override list (--project ID | --portfolio ID)"));
+        assertEquals(List.of("morpheus views get --id ID", "morpheus views versions --id ID",
+                        "morpheus views execute --id ID"),
+                invocations("morpheus [--json] views get|versions|execute --id ID"));
+        assertEquals(List.of("morpheus server identity create --principal NAME --role READ"),
+                invocations("morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN"
                         + " [--expires-at ISO-8601] [--auth-file FILE]"));
-        assertEquals("morpheus api --remote --host HOST",
-                minimalInvocation("morpheus [layout] api --remote --host HOST [--workspace-root PATH [--x Y] ...]"));
+        assertEquals(List.of("morpheus api --remote --host HOST"),
+                invocations("morpheus [layout] api --remote --host HOST [--workspace-root PATH [--x Y] ...]"));
+    }
+
+    @Test
+    void aBlankLineInsideTheCommandsBlockDoesNotEndIt() {
+        Usages usages = documentedUsages("Commands:\n  version\n\n  paths\n\nEnvironment overrides:\n  MORPHEUS_DB\n");
+
+        assertEquals(List.of("morpheus version", "morpheus paths"), usages.invocations());
+        assertEquals(2, usages.commandBlock());
     }
 
     private Optional<String> refusal(String usage) throws IOException {
@@ -177,29 +211,36 @@ class MorpheusHelpInvocationsParseTest {
         };
     }
 
-    static List<String> documentedUsages(String help) {
-        List<String> usages = new ArrayList<>();
+    /**
+     * The core help lists its commands without the {@code morpheus} prefix under {@code Commands:}; the block ends at
+     * the next section header, never at a blank line, so that grouping the commands cannot make them vanish.
+     */
+    static Usages documentedUsages(String help) {
+        List<String> invocations = new ArrayList<>();
         boolean commands = false;
+        int commandBlock = 0;
         for (String raw : help.replace("\r\n", "\n").split("\n")) {
             String line = raw.trim();
-            if (line.equals("Commands:")) {
-                commands = true;
+            if (line.isEmpty()) {
                 continue;
             }
-            if (line.isEmpty()) {
-                commands = false;
+            if (!raw.startsWith(" ") && line.endsWith(":")) {
+                commands = line.equals("Commands:");
                 continue;
             }
             if (line.startsWith("morpheus ") && !line.contains("<command>")) {
-                usages.add(minimalInvocation(line));
+                invocations.addAll(invocations(line));
             } else if (commands) {
-                usages.add(minimalInvocation("morpheus " + line));
+                List<String> expanded = invocations("morpheus " + line);
+                invocations.addAll(expanded);
+                commandBlock += expanded.size();
             }
         }
-        return usages;
+        return new Usages(List.copyOf(invocations), commandBlock);
     }
 
-    static String minimalInvocation(String line) {
+    /** Optional groups dropped; every branch of a parenthesised group or of a command word kept; a value keeps its first. */
+    static List<String> invocations(String line) {
         StringBuilder kept = new StringBuilder();
         int depth = 0;
         for (char character : line.toCharArray()) {
@@ -211,26 +252,46 @@ class MorpheusHelpInvocationsParseTest {
                 kept.append(character);
             }
         }
-        String text = kept.toString();
-        int open;
-        while ((open = text.indexOf('(')) >= 0) {
-            int close = text.indexOf(')', open);
-            String group = text.substring(open + 1, close);
-            text = text.substring(0, open) + group.split("\\|")[0].trim() + text.substring(close + 1);
+        return expandGroups(kept.toString().trim().replaceAll("\\s+", " "));
+    }
+
+    private static List<String> expandGroups(String text) {
+        int open = text.indexOf('(');
+        if (open < 0) {
+            return expandWords(List.of(text.split(" ")), 0, "");
         }
-        List<String> tokens = new ArrayList<>();
-        for (String token : text.trim().split("\\s+")) {
-            tokens.add(token.split("\\|")[0]);
+        int close = text.indexOf(')', open);
+        List<String> expanded = new ArrayList<>();
+        for (String branch : text.substring(open + 1, close).split("\\|")) {
+            String joined = (text.substring(0, open) + branch.trim() + text.substring(close + 1)).trim();
+            expanded.addAll(expandGroups(joined.replaceAll("\\s+", " ")));
         }
-        return String.join(" ", tokens);
+        return expanded;
+    }
+
+    private static List<String> expandWords(List<String> tokens, int index, String prefix) {
+        if (index == tokens.size()) {
+            return List.of(prefix);
+        }
+        String token = tokens.get(index);
+        boolean value = index > 0 && tokens.get(index - 1).startsWith("--");
+        List<String> branches = value ? List.of(token.split("\\|")[0]) : List.of(token.split("\\|"));
+        List<String> expanded = new ArrayList<>();
+        for (String branch : branches) {
+            expanded.addAll(expandWords(tokens, index + 1, prefix.isEmpty() ? branch : prefix + " " + branch));
+        }
+        return expanded;
     }
 
     private String help() {
+        return printed("help") + printed("reason", "help");
+    }
+
+    private String printed(String... args) {
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
         try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8)) {
-            assertEquals(CliExitCode.SUCCESS.code(),
-                    MorpheusMain.run(new String[]{"help"}, out, err, Map.of(), properties()));
+            assertEquals(CliExitCode.SUCCESS.code(), MorpheusMain.run(args, out, err, Map.of(), properties()));
         }
         return outBytes.toString(StandardCharsets.UTF_8);
     }
@@ -240,5 +301,8 @@ class MorpheusHelpInvocationsParseTest {
         properties.setProperty("user.home", tempDir.resolve("home").toString());
         properties.setProperty("os.name", "Linux");
         return properties;
+    }
+
+    record Usages(List<String> invocations, int commandBlock) {
     }
 }
