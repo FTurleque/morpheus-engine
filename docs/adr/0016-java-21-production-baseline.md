@@ -1,6 +1,6 @@
 # ADR-0016 — Utiliser Java 21 comme baseline de compatibilité MORPHEUS
 
-- Statut : **Proposée — décision de sortie M0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0014
 - Portée : langage, bytecode/runtime minimal, packaging, maintenance

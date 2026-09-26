@@ -41,6 +41,7 @@ Les distributions Windows/Linux embarquent leur runtime Java.
 
 | Besoin | Document |
 |---|---|
+| **reprendre le dépôt après une longue interruption** | [**Reprise à froid**](developer/COLD_START_RECOVERY.md) |
 | comprendre les modules | [Guide développeur](developer/README.md) |
 | comprendre les couches | [Architecture](developer/ARCHITECTURE.md) |
 | compiler / tester / qualifier | [Build, tests et validation](developer/BUILD_AND_TEST.md) |
@@ -54,16 +55,18 @@ Les distributions Windows/Linux embarquent leur runtime Java.
 | MCP | [MCP](developer/MCP.md) |
 | cross-engine | [Intégrations](developer/INTEGRATIONS.md) |
 
-Baseline technique courante : Java 21, Maven Wrapper 3.9.16, SQLite JDBC 3.53.2.0, Jackson 3.2.2, Java MCP SDK 2.0.1, `jdk.httpserver`, `jpackage` et Inno Setup.
+Baseline technique courante : Java 21, Maven Wrapper 3.9.16, SQLite JDBC 3.53.4.0, Jackson 3.2.2, Java MCP SDK 2.0.1, `jdk.httpserver`, `jpackage` et Inno Setup.
 
 ## Gouvernance
 
 - [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global et priorités post-D2 ;
 - [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité documentaire courante ;
+- [`audits/README.md`](audits/README.md) — audits datés, relevés jamais réécrits ;
 - [`roadmap/D2_EXECUTION.md`](roadmap/D2_EXECUTION.md) — plan historique D2 ;
 - [`validation/VALIDATION_D2.md`](validation/VALIDATION_D2.md) — preuve historique D2, complétée par les sorties exact-head publiées sur la PR #121 ;
 - [`validation/VALIDATION_R3.md`](validation/VALIDATION_R3.md) — preuve de publication 1.2.0 ;
-- [`release/RELEASE_NOTES_1.2.0.md`](release/RELEASE_NOTES_1.2.0.md) — release publiée.
+- [`release/RELEASE_NOTES_1.2.0.md`](release/RELEASE_NOTES_1.2.0.md) — release publiée ;
+- [`release/RELEASE_NOTES_1.2.1.md`](release/RELEASE_NOTES_1.2.1.md) — baseline corrective non publiée : ruptures à connaître avant de migrer.
 
 Les documents de preuve historiques ne sont pas réécrits pour leur faire revendiquer des résultats postérieurs à leur SHA. Les pages actives décrivent, elles, la baseline courante.
 
@@ -88,10 +91,12 @@ bash ./scripts/validate-m21.sh 1.2.1
 Contrats actifs :
 
 ```text
-Surefire total                 >= 1300
-architecture tests             >= 335
-JaCoCo global lines            >= 54.5%
-JaCoCo global branches         >= 47.7%
+Surefire total                 >= 1550
+architecture tests             >= 385
+JaCoCo aggregate lines         >= 85.0%
+JaCoCo aggregate branches      >= 68.0%
+JaCoCo per-module lines        >= 64.6%
+JaCoCo per-module branches     >= 56.9%
 PR changed executable lines    >= 80%
 PR changed branches            >= 70%
 dependency hygiene             blocking

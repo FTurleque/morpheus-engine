@@ -41,6 +41,60 @@ class MorpheusMinosCliTest {
         assertTrue(invocation.stdout().contains("\"system\":\"MINOS\""), invocation.stdout());
     }
 
+    /** The options used to be checked in list and resolve, after the project lookup had already failed. */
+    @Test
+    void anOptionTheSubcommandDoesNotReadIsRefusedBeforeTheProjectIsLookedUp() {
+        String data = tempDirectory.resolve("options").toString();
+        String projectId = ProjectSpecificationId.generate().toString();
+
+        Invocation list = invoke("--data-dir", data, "external-references", "list", "--project", projectId,
+                "--owner", DomainIdentity.generate().toString(), "--reference", "x");
+        assertEquals(2, list.exitCode(), list.stderr());
+        assertTrue(list.stderr().contains("unknown options: [reference]"), list.stderr());
+
+        Invocation resolve = invoke("--data-dir", data, "external-references", "resolve", "--project", projectId,
+                "--reference", ExternalReferenceId.generate().toString(), "--owner", "x");
+        assertEquals(2, resolve.exitCode(), resolve.stderr());
+        assertTrue(resolve.stderr().contains("unknown options: [owner]"), resolve.stderr());
+
+        Invocation unknownSubcommand = invoke("--data-dir", data, "external-references", "purge", "--project", projectId);
+        assertEquals(2, unknownSubcommand.exitCode(), unknownSubcommand.stderr());
+        assertTrue(unknownSubcommand.stderr().contains("unknown external-references subcommand: purge"),
+                unknownSubcommand.stderr());
+    }
+
+    /** The status record freezes its details with Map.copyOf, whose iteration order is salted once per JVM. */
+    @Test
+    void minosStatusPrintsItsDetailsInKeyOrderWhateverTheOrderOfTheStatusMap() {
+        MorpheusExternalIntegrationCli cli = new MorpheusExternalIntegrationCli(
+                new com.morpheus.application.reference.ExternalReferenceResolverRegistry(java.util.List.of()),
+                () -> new com.morpheus.application.reference.ExternalIntegrationStatus(
+                        "MINOS", "DISABLED", false, "m", java.util.Map.of("zeta", "6", "alpha", "1", "mu", "4", "beta", "2", "omega", "5", "kappa", "3")));
+        ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+        Properties properties = new Properties();
+        properties.setProperty("user.home", tempDirectory.resolve("home").toString());
+        int exit;
+        try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8)) {
+            exit = cli.run(new String[]{"--data-dir", tempDirectory.resolve("status").toString(), "minos-status"},
+                    out, err, Map.of(), properties);
+        }
+
+        assertEquals(0, exit);
+        assertEquals("""
+                system=MINOS
+                state=DISABLED
+                configured=false
+                message=m
+                alpha=1
+                beta=2
+                kappa=3
+                mu=4
+                omega=5
+                zeta=6
+                """, outBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"));
+    }
+
     @Test
     void listAndResolveWorkWithoutMinosAndNeverPersistNoResolverObservation() {
         Path database = tempDirectory.resolve("m12-cli.db");

@@ -4,7 +4,7 @@ Statut : **M3 VALIDÉ — 6 slices sur 6 ; intégration PR #26 requise avant M4*
 
 Dernière mise à jour : 23 juillet 2026
 
-Ce document complète [`../ROADMAP.md`](../ROADMAP.md) et sert de tableau de bord opérationnel pour M3.
+Ce document complète [`../governance/ROADMAP.md`](../governance/ROADMAP.md) et sert de tableau de bord opérationnel pour M3.
 
 ---
 
@@ -31,7 +31,7 @@ Progression :
 M3 : [████████████████████] 6 / 6 slices validés
 ```
 
-Preuve de sortie : [`../VALIDATION_M3.md`](../VALIDATION_M3.md).
+Preuve de sortie : [`../validation/VALIDATION_M3.md`](../validation/VALIDATION_M3.md).
 
 ---
 

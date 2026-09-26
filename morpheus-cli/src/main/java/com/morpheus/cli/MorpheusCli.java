@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.analysis.ChangeAnalysisService;
+import com.morpheus.application.analysis.ChangeAnalysisWarning;
 import com.morpheus.application.analysis.ProposedChangeSet;
 import com.morpheus.application.analysis.compact.CompactChangeAnalysisViewService;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
@@ -11,6 +12,7 @@ import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessService;
+import com.morpheus.application.quality.CoverageRatioStatus;
 import com.morpheus.application.quality.DecisionReferenceQualityService;
 import com.morpheus.application.quality.QualityReport;
 import com.morpheus.application.quality.QualityReportService;
@@ -63,6 +65,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /** Stable, scriptable local MORPHEUS command-line adapter. */
 public final class MorpheusCli {
@@ -475,6 +479,8 @@ public final class MorpheusCli {
                 out.println("requirement=" + result.requirement().entityVersion().content().title());
                 out.println("nodes=" + result.subgraph().nodes().size() + " links=" + result.subgraph().links().size()
                         + " externalReferences=" + result.externalLinks().size());
+                result.subgraph().truncationReason()
+                        .ifPresent(reason -> out.println("truncationReason=" + reason));
             }
             return CliExitCode.SUCCESS.code();
         }
@@ -504,6 +510,8 @@ public final class MorpheusCli {
                         + " decisions=" + result.designDecisions().size()
                         + " tasks=" + result.implementationTasks().size()
                         + " links=" + result.subgraph().links().size());
+                result.subgraph().truncationReason()
+                        .ifPresent(reason -> out.println("truncationReason=" + reason));
             }
             return CliExitCode.SUCCESS.code();
         }
@@ -535,9 +543,28 @@ public final class MorpheusCli {
                         + " removed=" + summary.removedRequirements());
                 out.println("dependencies=" + summary.dependencies() + " dependents=" + summary.dependents()
                         + " warnings=" + summary.warnings());
+                analysisWarningLines(result.warnings()).forEach(out::println);
             }
             return CliExitCode.SUCCESS.code();
         }
+    }
+
+    /**
+     * Names what the warning count counts. The count alone never said which warnings it held -- and it is never below
+     * one, since acceptance criteria are always reported unavailable -- while a truncated dependency traversal existed
+     * only as one of them: the text output lost the truncation the JSON output carried. One code per warning, in the
+     * result's order, then the distinct truncation reasons under the name the two sibling commands already print.
+     */
+    static List<String> analysisWarningLines(List<ChangeAnalysisWarning> warnings) {
+        List<String> lines = new ArrayList<>();
+        lines.add("warningCodes=" + warnings.stream().map(warning -> warning.code().name()).collect(Collectors.joining(",")));
+        warnings.stream()
+                .map(warning -> warning.details().get(ChangeAnalysisWarning.TRUNCATION_REASON))
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .forEach(reason -> lines.add("truncationReason=" + reason));
+        return lines;
     }
 
     private int quality(List<String> tokens, CliLayout layout, boolean jsonOutput, PrintStream out) {
@@ -562,13 +589,19 @@ public final class MorpheusCli {
                 out.println(KEY_SNAPSHOT_ID + report.snapshot().id());
                 out.println("findings=" + metrics.totalFindings()
                         + " requirements=" + metrics.totalRequirements()
-                        + " requirementCoverage=" + metrics.requirementCoverageRatio()
+                        + " requirementCoverage="
+                        + coverage(metrics.requirementCoverageStatus(), metrics.requirementCoverageRatio())
                         + " tasks=" + metrics.totalTasks()
-                        + " taskCoverage=" + metrics.taskCoverageRatio()
+                        + " taskCoverage=" + coverage(metrics.taskCoverageStatus(), metrics.taskCoverageRatio())
                         + " acceptance=" + metrics.acceptanceCoverageStatus());
             }
             return CliExitCode.SUCCESS.code();
         }
+    }
+
+    /** A ratio over an empty population is not a measurement, so it is not printed as a number. */
+    private static String coverage(CoverageRatioStatus status, double ratio) {
+        return status == CoverageRatioStatus.MEASURED ? Double.toString(ratio) : status.name();
     }
 
     private RequirementView requirementView(RequirementVersionRecord versionRecord) {
@@ -774,6 +807,7 @@ public final class MorpheusCli {
             if (!unknown.isEmpty()) {
                 throw new IllegalArgumentException("unknown options: " + unknown);
             }
+            new TreeMap<>(values).forEach((key, value) -> OptionValue.nonBlank("--" + key, value));
         }
 
         String required(String key) {
@@ -785,7 +819,7 @@ public final class MorpheusCli {
         }
 
         Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim).filter(value -> !value.isEmpty());
+            return Optional.ofNullable(values.get(key)).map(value -> OptionValue.nonBlank("--" + key, value).trim());
         }
 
         boolean flag(String key) {
@@ -801,7 +835,7 @@ public final class MorpheusCli {
             String raw = values.get(key);
             long value;
             try {
-                value = raw == null ? defaultValue : Long.parseLong(raw);
+                value = raw == null ? defaultValue : Long.parseLong(OptionValue.nonBlank("--" + key, raw));
             } catch (NumberFormatException exception) {
                 throw new IllegalArgumentException("--" + key + " must be an integer", exception);
             }

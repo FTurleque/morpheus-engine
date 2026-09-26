@@ -7,9 +7,9 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 /** M18 read-only HTTP application facade for persisted multi-provider composition state. */
 final class MorpheusCompositionApiService {
@@ -34,18 +34,11 @@ final class MorpheusCompositionApiService {
             throw new IllegalArgumentException("limit must be between 1 and " + MAX_LIMIT);
         }
         CompositionStateView state = state(projectId);
-        int total = state.conflicts().size();
-        int from = Math.min(offset, total);
-        int to = Math.min(total, from + limit);
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("snapshotId", state.snapshotId());
-        result.put("primaryProviderId", state.primaryProviderId());
-        result.put("offset", offset);
-        result.put("limit", limit);
-        result.put("totalMatches", total);
-        result.put("hasMore", to < total);
-        result.put("items", List.copyOf(state.conflicts().subList(from, to)));
-        return Map.copyOf(result);
+        Map<String, Object> identifiers = new LinkedHashMap<>();
+        identifiers.put("snapshotId", state.snapshotId());
+        identifiers.put("primaryProviderId", state.primaryProviderId());
+        return PagedEnvelope.following(
+                identifiers, PagedEnvelope.slice(offset, limit, state.conflicts(), Function.identity()));
     }
 
     private CompositionStateView state(String rawProjectId) {

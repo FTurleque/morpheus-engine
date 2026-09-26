@@ -2,10 +2,12 @@ package com.morpheus.cli;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 
 /** Parses the small native MCP launcher surface without writing to protocol stdout. */
 record McpLaunchOptions(CliLayout layout) {
@@ -34,6 +36,7 @@ record McpLaunchOptions(CliLayout layout) {
         Optional<Path> database = Optional.empty();
         boolean commandSeen = false;
         boolean stdio = false;
+        Set<String> given = new HashSet<>();
         List<String> unknown = new ArrayList<>();
 
         for (int index = 0; index < args.length; index++) {
@@ -53,10 +56,11 @@ record McpLaunchOptions(CliLayout layout) {
                 throw new IllegalArgumentException("--json is not valid for MCP transport mode");
             }
             if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
+                OptionOccurrence.once(given, token);
                 if (index + 1 >= args.length) {
                     throw new IllegalArgumentException(token + " requires a path");
                 }
-                Path value = Path.of(args[++index]);
+                Path value = OptionValue.path(token, args[++index]);
                 switch (token) {
                     case "--data-dir" -> data = Optional.of(value);
                     case "--config-dir" -> config = Optional.of(value);
@@ -67,8 +71,9 @@ record McpLaunchOptions(CliLayout layout) {
             }
             if (token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=")) {
                 int separator = token.indexOf('=');
-                Path value = Path.of(token.substring(separator + 1));
                 String option = token.substring(0, separator);
+                OptionOccurrence.once(given, option);
+                Path value = OptionValue.path(option, token.substring(separator + 1));
                 switch (option) {
                     case "--data-dir" -> data = Optional.of(value);
                     case "--config-dir" -> config = Optional.of(value);

@@ -1,6 +1,7 @@
 package com.morpheus.sdk.provider.testkit;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.provider.SpecificationProvider;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
@@ -8,27 +9,31 @@ import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
 import com.morpheus.application.read.SpecificationContentReader;
+import com.morpheus.domain.evidence.Evidence;
+import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.identity.DomainIdentity;
+import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderCapabilitySet;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.provider.ProviderProbeResult;
 import com.morpheus.domain.provider.ProviderProbeStatus;
+import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.sdk.provider.MorpheusProviderPlugin;
 import com.morpheus.sdk.provider.ProviderPluginMetadata;
 import com.morpheus.sdk.provider.ProviderSdk;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -79,11 +84,108 @@ class ProviderPluginContractAssertionsTest {
                 snapshot, WORKSPACE, projectId));
     }
 
+    /**
+     * A reader publishes the workspace it received as the project root, never a file inside it.
+     *
+     * <p>Publication compares that root with the one the project was registered under; a reader that publishes
+     * anything else makes its own publication impossible, and the testkit is where a plugin author learns it.</p>
+     */
+    @Test
+    void rejectsAReaderThatPublishesAFileInsideTheWorkspaceAsProjectRoot() {
+        FakePlugin plugin = new FakePlugin(PROVIDER_ID, false);
+        var snapshot = ProviderPluginContractAssertions.verify(plugin, WORKSPACE);
+        plugin.publish((request, identities) -> content(
+                request, SourceLocator.file("morpheus/specification.md"), List.of()));
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+
+        AssertionError failure = assertThrows(AssertionError.class, () -> ProviderPluginContractAssertions.verifyRead(
+                snapshot, WORKSPACE, projectId));
+        assertTrue(failure.getMessage().contains("project root"), failure.getMessage());
+    }
+
+    @Test
+    void acceptsAReaderThatPublishesTheWorkspaceRootItReceived() {
+        FakePlugin plugin = new FakePlugin(PROVIDER_ID, false);
+        var snapshot = ProviderPluginContractAssertions.verify(plugin, WORKSPACE);
+        plugin.publish((request, identities) -> content(
+                request, SourceLocator.file(request.workspaceRoot().toString()), List.of()));
+
+        var result = ProviderPluginContractAssertions.verifyRead(snapshot, WORKSPACE, ProjectSpecificationId.generate());
+
+        assertTrue(result.content().isPresent());
+    }
+
+    /**
+     * Identity keys are the triple the port declares, not a string joined on a separator the key may contain.
+     *
+     * <p>{@code ProviderId} and external ids may both contain a vertical bar. Joined on it, these two distinct
+     * keys became the same string, the testkit handed both entities one identity, and the normalized content
+     * refused it -- for a reader the production resolver accepts.</p>
+     */
+    @Test
+    void givesTwoDistinctKeysThatJoinToTheSameStringTwoIdentities() {
+        FakePlugin plugin = new FakePlugin(PROVIDER_ID, false);
+        var snapshot = ProviderPluginContractAssertions.verify(plugin, WORKSPACE);
+        plugin.publish((request, identities) -> content(
+                request,
+                SourceLocator.file(request.workspaceRoot().toString()),
+                List.of(
+                        evidence(identities.resolve(PROVIDER_ID, "evidence", "a|b")),
+                        evidence(identities.resolve(PROVIDER_ID, "evidence|a", "b")))));
+
+        var result = ProviderPluginContractAssertions.verifyRead(snapshot, WORKSPACE, ProjectSpecificationId.generate());
+
+        List<Evidence> evidence = result.content().orElseThrow().evidence();
+        assertEquals(2, evidence.size());
+        assertNotEquals(evidence.get(0).id(), evidence.get(1).id());
+    }
+
+    /**
+     * The testkit resolves identities exactly as the production resolver does, including its trimming.
+     *
+     * <p>A key that differs only by surrounding blanks is one key in production. A testkit that told the two
+     * apart would accept a reader that production refuses as publishing a duplicate identity.</p>
+     */
+    @Test
+    void resolvesAKeyThatDiffersOnlyBySurroundingBlanksToTheSameIdentity() {
+        FakePlugin plugin = new FakePlugin(PROVIDER_ID, false);
+        var snapshot = ProviderPluginContractAssertions.verify(plugin, WORKSPACE);
+        List<DomainIdentity> resolved = new ArrayList<>();
+        plugin.publish((request, identities) -> {
+            resolved.add(identities.resolve(PROVIDER_ID, "evidence", "key"));
+            resolved.add(identities.resolve(PROVIDER_ID, " evidence ", " key "));
+            return Optional.empty();
+        });
+
+        ProviderPluginContractAssertions.verifyRead(snapshot, WORKSPACE, ProjectSpecificationId.generate());
+
+        assertEquals(4, resolved.size());
+        assertEquals(1, resolved.stream().distinct().count(), resolved::toString);
+    }
+
+    private static Optional<NormalizedProjectContent> content(
+            ProviderReadRequest request, SourceLocator root, List<Evidence> evidence) {
+        return Optional.of(new NormalizedProjectContent(
+                new ProjectSpecification(request.projectId(), "fixture", root),
+                List.of(),
+                List.of(),
+                List.of(),
+                evidence,
+                List.of()));
+    }
+
+    private static Evidence evidence(DomainIdentity identity) {
+        return new Evidence(
+                new EvidenceId(identity), SourceLocator.file("fixture.md"), Optional.empty(), Optional.empty());
+    }
+
     private static final class FakePlugin implements MorpheusProviderPlugin {
         private final ProviderId providerId;
         private final boolean metadataMismatch;
         private int nonDeterministicAfterCall = Integer.MAX_VALUE;
         private ReadCategory droppedCategory;
+        private BiFunction<ProviderReadRequest, EntityIdentityResolver, Optional<NormalizedProjectContent>> published =
+                (request, identities) -> Optional.empty();
         private final AtomicInteger readCalls = new AtomicInteger();
 
         FakePlugin(ProviderId providerId, boolean metadataMismatch) {
@@ -97,6 +199,10 @@ class ProviderPluginContractAssertionsTest {
 
         void dropCategoryReport(ReadCategory category) {
             this.droppedCategory = category;
+        }
+
+        void publish(BiFunction<ProviderReadRequest, EntityIdentityResolver, Optional<NormalizedProjectContent>> content) {
+            this.published = content;
         }
 
         @Override
@@ -161,7 +267,8 @@ class ProviderPluginContractAssertionsTest {
                                         ? call
                                         : 0))
                         .toList();
-                return new ProviderReadResult(providerId, Optional.empty(), reports, List.of());
+                return new ProviderReadResult(
+                        providerId, published.apply(request, identityResolver), reports, List.of());
             }
         }
     }

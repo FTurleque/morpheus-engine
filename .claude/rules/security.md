@@ -3,6 +3,19 @@
 Toutes ces invariants sont **assertés textuellement** dans les sources par les tests d'architecture.
 Supprimer une de ces chaînes casse le build.
 
+## Secrets — règle absolue
+
+- `NVD_API_KEY` et `MORPHEUS_SERVER_TLS_PASSWORD` sont des **variables d'environnement** : jamais un flag CLI,
+  jamais un littéral
+- Le mot de passe TLS n'est **jamais** lu depuis une propriété JVM (`-Dmorpheus.server.tls.password=…`) : c'est un
+  argument de ligne de commande comme un autre, et `/proc/<pid>/cmdline` est lisible par tous les comptes d'un
+  Linux par défaut, là où `/proc/<pid>/environ` ne l'est que par le propriétaire. Contrairement aux autres réglages
+  du mode remote, il n'a **pas** de repli propriété — ne pas l'aligner sur eux (ADR-0105,
+  `RemoteHttpServerBootstrapArchitectureTest`, `RemoteApiLaunchOptionsTest#aTlsPasswordGivenOnlyAsAJvmPropertyIsRefused`)
+- MORPHEUS ne persiste **aucun secret réutilisable** : jetons remote stockés en empreinte SHA-256 seulement, pas de
+  coffre de secrets — le modèle de menace et les conditions de réouverture sont dans ADR-0105
+- Aucun secret, clé API, token ou mot de passe en dur dans le code, les logs ou les messages de commit
+
 ## Désérialisation JSON — interdits absolus
 
 - **Aucun** fichier sous `src/main/java/` ne doit contenir `activateDefaultTyping(` ou `enableDefaultTyping(`
@@ -41,9 +54,10 @@ Supprimer une de ces chaînes casse le build.
 ## Processus MCP externes — environnement et cycle de vie bornés
 
 - `BoundedStdioClientTransport` ne doit **jamais** transmettre implicitement tout l'environnement MORPHEUS à MINOS/NEXUS.
-- L'environnement hérité est réduit à une allowlist de lancement (`PATH`, variables Windows d'exécution, temp et locale), puis les variables explicitement configurées pour le peer sont appliquées.
+- L'environnement hérité est réduit à une allowlist de lancement (`PATH`, variables Windows d'exécution, temp et locale), puis complété par les variables **que MORPHEUS a explicitement configurées** pour ce pair (`McpPeerLaunch.explicitEnvironment`, construit par la passerelle) — **jamais** par ce qu'un objet de paramètres tiers aurait rempli par défaut.
+- Le `ServerParameters` du SDK n'entre dans aucun chemin de lancement et `getEnv()` n'y est jamais lu : son builder injecte sa propre allowlist, et un pair recevait ainsi sur Windows huit variables hors de celle de MORPHEUS (MCP-5). `ExternalCodeTrustBoundaryArchitectureTest#noMcpLaunchPathTakesThePeerEnvironmentFromTheSdkParameters` tient le texte, `BoundedStdioClientTransportTest#aPeerLaunchedWithoutExplicitEnvironmentReceivesOnlyTheLaunchAllowlist` mesure l'environnement d'un **vrai** processus pair.
 - Les variables sensibles comme `MORPHEUS_SERVER_TLS_PASSWORD` et les variables d'injection JVM ne sont jamais héritées implicitement.
-- Les descendants observés d'un peer MCP sont retenus par PID/`ProcessHandle` pendant toute la vie du parent afin de pouvoir les terminer même si le parent sort avant `closeGracefully()`.
+- Les descendants observés d'un peer MCP sont retenus par PID/`ProcessHandle` **tant que leur processus est vivant**, afin de pouvoir les terminer même si le parent sort avant `closeGracefully()`. Une poignée n'est libérée qu'une fois son processus mort — un processus mort ne peut plus être terminé — et la racine n'est jamais libérée (ADR-0106).
 - `ProviderPluginProbeWorker` (code MORPHEUS) termine **son propre sous-arbre avant de sortir** : c'est le seul endroit où ce sous-arbre est encore énumérable. Ne jamais revenir à un nettoyage assuré uniquement par le parent — l'observation périodique ne garantit rien pour un descendant créé puis orphelin dans le même intervalle.
 - Côté MCP le pair n'est pas du code MORPHEUS : la terminaison des descendants reste **best-effort** et ce trou est documenté dans `SECURITY.md`. Ne pas le présenter comme une garantie.
 - Cette frontière fournit une isolation de **lifecycle/environnement**, pas une sandbox OS : un peer explicitement configuré reste du code de confiance exécuté sous le compte MORPHEUS.
@@ -54,6 +68,19 @@ Supprimer une de ces chaînes casse le build.
   → `ProviderPluginActivator` : *"provider plugin activation requires a trusted SHA-256 pin"*
 - La découverte est **métadonnées uniquement** : pas de classloading, pas de scan au démarrage
 - `ProviderPluginDiscovery` doit utiliser `LinkOption.NOFOLLOW_LINKS` + `Files.isSymbolicLink`
+- Ce qui est **refusé** : un répertoire de plugins qui est lui-même un lien symbolique (`PLUGIN_PATH_NOT_DIRECTORY`)
+  et tout JAR symbolique (ignoré à l'énumération, refusé à l'inspection). Ce qui est **résolu et déclaré** : un
+  **ancêtre** lié du répertoire — `/opt` qui pointe ailleurs, un montage — est suivi ; la découverte énumère le
+  chemin réel (`toRealPath()`) et ajoute `PLUGIN_DIRECTORY_PATH_RESOLVED` (chemin configuré + chemin réel) dès
+  qu'ils diffèrent. Ne pas transformer ce diagnostic en refus : un ancêtre lié est un déploiement banal, la
+  découverte reste métadonnées seules et l'activation exige toujours le pin — le défaut était de ne pas le dire.
+  Les deux chemins restent locaux : `directory` / `resolvedDirectory` ne sont pas dans l'allowlist distante, et
+  le filtre de valeurs (`ServerLocationDisclosure`) les refuserait de toute façon. Le remote apprend **qu'une**
+  résolution a eu lieu — le code et le détail `pathResolved`, seul ajouté à l'allowlist — **jamais vers quoi**. Ne
+  pas ajouter une clé de chemin à `REMOTE_SAFE_DETAIL_KEYS`, ni une troisième vue « semi-remote » pour la faire passer
+- La copie vérifiée d'un JAR épinglé (`ExternalJarIntegrity.stageVerifiedCopy`) est marquée `deleteOnExit` et son
+  nom ne porte aucune partie du pin ; le résidu après `SIGKILL`/crash est documenté dans `SECURITY.md`, **jamais**
+  balayé au démarrage (impossible de le distinguer de la copie vivante d'une autre instance)
 - Le probe (exécution de code tiers) est :
   - **remote-only** + **ADMIN** (`PLUGIN_SHA256_REQUIRED`, `usesBoundedUpstreamTimeout`)
   - **jamais model-facing** → `EXPLICITLY_NOT_EXPOSED` côté MCP

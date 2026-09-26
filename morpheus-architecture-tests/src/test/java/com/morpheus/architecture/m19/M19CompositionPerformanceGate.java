@@ -40,6 +40,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class M19CompositionPerformanceGate {
     private static final int REQUIREMENTS_PER_PROVIDER = 5_000;
     private static final int SHARED_CONFLICTING_REQUIREMENTS = 1_000;
+    /**
+     * Agreement is reported since CMP-1: each shared requirement contributes its title, statement and owner
+     * specification (only one of them diverges), and the project and the one specification contribute two fields each.
+     * This is the number of observations reported, not a budget; the time budget below is unchanged.
+     */
+    private static final int EXPECTED_CONFLICTS = SHARED_CONFLICTING_REQUIREMENTS * 3 + 4;
     private static final long QUERY_BUDGET_NANOS = 1_000_000_000L;
     private static final int WARMUP_ITERATIONS = 1;
     private static final int MEASURED_ITERATIONS = 5;
@@ -68,7 +74,7 @@ class M19CompositionPerformanceGate {
 
         MultiProviderCompositionResult expected = composer.compose(List.of(primary, secondary));
         assertEquals(REQUIREMENTS_PER_PROVIDER * 2, expected.content().requirements().size());
-        assertEquals(SHARED_CONFLICTING_REQUIREMENTS, expected.conflicts().size());
+        assertEquals(EXPECTED_CONFLICTS, expected.conflicts().size());
 
         List<Long> compositionSamples = new ArrayList<>(MEASURED_ITERATIONS);
         for (int index = 0; index < MEASURED_ITERATIONS; index++) {
@@ -100,8 +106,8 @@ class M19CompositionPerformanceGate {
             CompositionQueryService queries = new CompositionQueryService(snapshots, compositionState);
             var expectedStatus = queries.findActive(projectId).orElseThrow();
             var expectedConflicts = expectedStatus.conflicts();
-            assertEquals(SHARED_CONFLICTING_REQUIREMENTS, expectedStatus.conflicts().size());
-            assertEquals(SHARED_CONFLICTING_REQUIREMENTS, expectedConflicts.size());
+            assertEquals(EXPECTED_CONFLICTS, expectedStatus.conflicts().size());
+            assertEquals(EXPECTED_CONFLICTS, expectedConflicts.size());
 
             for (int index = 0; index < WARMUP_ITERATIONS; index++) {
                 assertEquals(expectedStatus, queries.findActive(projectId).orElseThrow());

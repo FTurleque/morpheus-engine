@@ -50,6 +50,11 @@ final class MorpheusCompositionCli {
             }
             String action = parsed.tokens().getFirst();
             Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+            options.rejectUnknown(switch (action) {
+                case "sync" -> new String[]{"project", "revision"};
+                case "status", "conflicts" -> new String[]{"project"};
+                default -> throw new IllegalArgumentException("unknown composition action: " + action);
+            });
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
             return switch (action) {
                 case "sync" -> sync(projectId, parsed, options, out);
@@ -71,7 +76,6 @@ final class MorpheusCompositionCli {
             Parsed parsed,
             Options options,
             PrintStream out) {
-        options.rejectUnknown("project", "revision");
         try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
             var project = runtime.snapshots.findProject(projectId)
                     .orElseThrow(() -> new IllegalStateException("project not found: " + projectId));
@@ -175,35 +179,16 @@ final class MorpheusCompositionCli {
 
     private record Parsed(boolean json, CliLayout layout, List<String> tokens) {
         private static Parsed parse(String[] args, Map<String, String> environment, Properties properties) {
-            boolean json = false;
-            Optional<Path> data = Optional.empty();
-            Optional<Path> config = Optional.empty();
-            Optional<Path> database = Optional.empty();
-            List<String> remaining = new ArrayList<>();
-            for (int index = 0; index < args.length; index++) {
-                String token = args[index];
-                switch (token) {
-                    case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    default -> remaining.add(token);
-                }
-            }
+            GlobalArgs.Parsed global = GlobalArgs.parse(args);
+            List<String> remaining = global.remaining();
             if (remaining.isEmpty() || !"composition".equals(remaining.getFirst())) {
                 throw new IllegalArgumentException("composition command is required");
             }
             return new Parsed(
-                    json,
-                    CliLayout.resolve(data, config, database, environment, properties),
+                    global.json(),
+                    CliLayout.resolve(global.dataDirectory(), global.configDirectory(), global.databasePath(),
+                            environment, properties),
                     List.copyOf(remaining.subList(1, remaining.size())));
-        }
-
-        private static String requireValue(String[] args, int index, String option) {
-            if (index >= args.length || args[index].startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return args[index];
         }
     }
 
@@ -230,7 +215,7 @@ final class MorpheusCompositionCli {
         }
 
         Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim).filter(value -> !value.isEmpty());
+            return Optional.ofNullable(values.get(key)).map(value -> OptionValue.nonBlank("--" + key, value).trim());
         }
 
         void rejectUnknown(String... allowed) {
@@ -241,6 +226,7 @@ final class MorpheusCompositionCli {
                     .ifPresent(key -> {
                         throw new IllegalArgumentException("unknown option: --" + key);
                     });
+            values.forEach((key, value) -> OptionValue.nonBlank("--" + key, value));
         }
 
         private static String require(List<String> tokens, int index, String option) {

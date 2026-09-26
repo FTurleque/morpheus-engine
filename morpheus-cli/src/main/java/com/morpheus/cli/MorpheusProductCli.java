@@ -87,6 +87,8 @@ final class MorpheusProductCli {
             out.println("artifactUri=" + result.artifactUri());
             out.println("sha256=" + result.sha256());
             out.println("manifestUri=" + result.manifestUri());
+            out.println("attestationUri=" + result.attestationUri().map(URI::toString).orElse("none"));
+            out.println("trustLevel=" + result.trustLevel());
             out.println("action=none (discovery is read-only; MORPHEUS never auto-installs updates)");
         }
         return CliExitCode.SUCCESS.code();
@@ -97,6 +99,7 @@ final class MorpheusProductCli {
         String command = "";
         List<String> tokens = new ArrayList<>(Arrays.asList(args));
         java.util.Map<String, String> options = new java.util.LinkedHashMap<>();
+        java.util.Set<String> given = new java.util.HashSet<>();
         for (int index = 0; index < tokens.size(); index++) {
             String token = tokens.get(index);
             if (token.equals("--json")) {
@@ -104,7 +107,9 @@ final class MorpheusProductCli {
                 continue;
             }
             if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
+                OptionOccurrence.once(given, token);
                 index = requireValue(tokens, index, token);
+                OptionValue.nonBlank(token, tokens.get(index));
                 continue;
             }
             if (command.isEmpty()) {
@@ -112,8 +117,9 @@ final class MorpheusProductCli {
                 continue;
             }
             if (token.equals("--manifest")) {
+                OptionOccurrence.once(given, token);
                 int valueIndex = requireValue(tokens, index, token);
-                options.put("manifest", tokens.get(valueIndex));
+                options.put("manifest", OptionValue.nonBlank(token, tokens.get(valueIndex)));
                 index = valueIndex;
                 continue;
             }
@@ -156,9 +162,6 @@ final class MorpheusProductCli {
 
     private static URI explicitUri(String raw) {
         String value = Objects.requireNonNull(raw, "manifest").trim();
-        if (value.isEmpty()) {
-            throw new IllegalArgumentException("manifest must not be blank");
-        }
         if (value.matches("^[A-Za-z]:[\\\\/].*")) {
             return Path.of(value).toAbsolutePath().normalize().toUri();
         }

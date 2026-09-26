@@ -3,6 +3,8 @@ package com.morpheus.cli;
 import com.morpheus.api.MorpheusRemoteIdentityFile;
 import com.morpheus.api.MorpheusRemoteRole;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
 
 import java.io.PrintStream;
@@ -10,6 +12,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -17,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** M26 local administrative CLI for remote identities and SQLite backup/restore. */
 final class MorpheusServerCli {
@@ -26,6 +30,8 @@ final class MorpheusServerCli {
     private static final String OPT_DRY_RUN = "dry-run";
     private static final String VIEW_EXPIRES_AT = "expiresAt";
     private static final String VIEW_MUTATION = "mutation";
+    private static final List<String> IDENTITY_FIELDS =
+            List.of("principal", "role", VIEW_EXPIRES_AT, "expired", "nonExpiring");
     private static final String MIGRATE_LEGACY_COMMAND = "server identity migrate-legacy --expires-at <ISO-8601>";
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
@@ -76,6 +82,12 @@ final class MorpheusServerCli {
             throw new IllegalArgumentException(
                     "server command must be identity create|list|revoke|rotate|role|migrate-legacy, "
                             + "backup create, backup verify, or restore");
+        } catch (EntityNotFoundException failure) {
+            err.println("MORPHEUS server error: " + safeMessage(failure));
+            return CliExitCode.NOT_FOUND.code();
+        } catch (EntityStateException failure) {
+            err.println("MORPHEUS server error: " + safeMessage(failure));
+            return CliExitCode.STATE_ERROR.code();
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS server usage error: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
@@ -122,7 +134,9 @@ final class MorpheusServerCli {
         long nonExpiring = identities.stream().filter(identity -> Boolean.TRUE.equals(identity.get("nonExpiring"))).count();
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
-        view.put("identities", identities);
+        view.put("identities", parsed.json()
+                ? identities
+                : identities.stream().map(MorpheusServerCli::identityLine).toList());
         // Named once rather than repeated per row: an operator needs to know the file still contains credentials
         // that never expire, without the listing turning into a warning banner every time it is read.
         view.put("nonExpiringIdentities", nonExpiring);
@@ -295,6 +309,7 @@ final class MorpheusServerCli {
         Optional<Path> config = Optional.empty();
         Optional<Path> database = Optional.empty();
         boolean json = false;
+        Set<String> given = new HashSet<>();
         List<String> command = new ArrayList<>();
         for (int index = 0; index < args.length; index++) {
             String token = args[index];
@@ -303,8 +318,9 @@ final class MorpheusServerCli {
                 continue;
             }
             if (token.equals("--data-dir") || token.equals(OPT_CONFIG_DIR) || token.equals("--db")) {
+                OptionOccurrence.once(given, token);
                 if (index + 1 >= args.length) throw new IllegalArgumentException(token + " requires a value");
-                Path value = Path.of(args[++index]);
+                Path value = OptionValue.path(token, args[++index]);
                 if (token.equals("--data-dir")) data = Optional.of(value);
                 if (token.equals(OPT_CONFIG_DIR)) config = Optional.of(value);
                 if (token.equals("--db")) database = Optional.of(value);
@@ -312,8 +328,9 @@ final class MorpheusServerCli {
             }
             if (token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=")) {
                 int separator = token.indexOf('=');
-                Path value = Path.of(token.substring(separator + 1));
                 String option = token.substring(0, separator);
+                OptionOccurrence.once(given, option);
+                Path value = OptionValue.path(option, token.substring(separator + 1));
                 if (option.equals("--data-dir")) data = Optional.of(value);
                 if (option.equals(OPT_CONFIG_DIR)) config = Optional.of(value);
                 if (option.equals("--db")) database = Optional.of(value);
@@ -335,13 +352,14 @@ final class MorpheusServerCli {
             String name = token.substring(2);
             if (!allowed.contains(name)) throw new IllegalArgumentException("unknown server option: --" + name);
             if (name.equals(OPT_CONFIRM) || name.equals(OPT_DRY_RUN)) {
-                if (result.put(name, "true") != null) throw new IllegalArgumentException("duplicate --" + name);
+                if (result.put(name, "true") != null) throw new IllegalArgumentException("duplicate option: --" + name);
                 continue;
             }
             if (index + 1 >= command.size()) throw new IllegalArgumentException(token + " requires a value");
             String value = command.get(++index);
             if (value.startsWith("--")) throw new IllegalArgumentException(token + " requires a value");
-            if (result.put(name, value) != null) throw new IllegalArgumentException("duplicate " + token);
+            OptionValue.nonBlank(token, value);
+            if (result.put(name, value) != null) throw new IllegalArgumentException("duplicate option: " + token);
         }
         return result;
     }
@@ -354,6 +372,17 @@ final class MorpheusServerCli {
         } else {
             out.println(serializer.toJson(value));
         }
+    }
+
+    /**
+     * Renders one identity with the field order declared here, not the iteration order of the map that carries it.
+     * The map is immutable ({@code Map.copyOf}), and the iteration order of the JDK's immutable maps is salted once
+     * per JVM: two runs over an unchanged auth file used to print the same identity with its fields shuffled.
+     */
+    static String identityLine(Map<String, Object> identity) {
+        return IDENTITY_FIELDS.stream()
+                .map(field -> field + "=" + identity.get(field))
+                .collect(Collectors.joining(", ", "{", "}"));
     }
 
     private static String required(Map<String, String> options, String name) {

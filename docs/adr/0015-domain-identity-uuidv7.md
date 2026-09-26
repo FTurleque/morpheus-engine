@@ -1,6 +1,6 @@
 # ADR-0015 — Utiliser UUIDv7 comme format canonique de `DomainIdentity`
 
-- Statut : **Proposée — à valider pendant M0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0009, ADR-0014
 - Portée : identité, sérialisation, stockage, intégrations futures

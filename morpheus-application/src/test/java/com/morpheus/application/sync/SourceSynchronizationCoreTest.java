@@ -229,7 +229,8 @@ class SourceSynchronizationCoreTest {
         assertEquals(SyncFreshness.State.STALE,
                 service.assess(projectId, T0.plusSeconds(600), Duration.ofMinutes(5)).state());
 
-        store.recordAttempt(projectId, T0.plusSeconds(700), Optional.of(SyncPlan.FullRebuildReason.WATCH_OVERFLOW));
+        store.recordAttempt(projectId, store.findSyncState(projectId).orElseThrow().revision(), T0.plusSeconds(700),
+                Optional.of(SyncPlan.FullRebuildReason.WATCH_OVERFLOW));
         assertEquals(SyncFreshness.State.REBUILD_REQUIRED,
                 service.assess(projectId, T0.plusSeconds(701), Duration.ofMinutes(5)).state());
     }
@@ -278,6 +279,7 @@ class SourceSynchronizationCoreTest {
         FakeSyncStateStore store = new FakeSyncStateStore();
         store.commitSuccessfulSync(
                 inventory,
+                0L,
                 SyncPlan.SyncMode.FULL_REBUILD,
                 inventory.capturedAt(),
                 inventory.capturedAt(),
@@ -307,8 +309,9 @@ class SourceSynchronizationCoreTest {
         }
 
         @Override
-        public void recordAttempt(
+        public long recordAttempt(
                 ProjectSpecificationId projectId,
+                long expectedRevision,
                 Instant attemptedAt,
                 Optional<SyncPlan.FullRebuildReason> pendingFullRebuildReason) {
             ProjectSyncState previous = states.getOrDefault(projectId, ProjectSyncState.empty(projectId));
@@ -320,12 +323,15 @@ class SourceSynchronizationCoreTest {
                     previous.sourceRevision(),
                     previous.lastSuccessfulMode(),
                     pendingFullRebuildReason,
-                    previous.currentSourceCount()));
+                    previous.currentSourceCount(),
+                    previous.revision() + 1));
+            return previous.revision() + 1;
         }
 
         @Override
-        public void commitSuccessfulSync(
+        public long commitSuccessfulSync(
                 SourceInventory inventory,
+                long expectedRevision,
                 SyncPlan.SyncMode mode,
                 Instant attemptedAt,
                 Instant completedAt,
@@ -340,13 +346,15 @@ class SourceSynchronizationCoreTest {
                     inventory.sourceRevision(),
                     Optional.of(mode),
                     Optional.empty(),
-                    inventory.entries().size()));
+                    inventory.entries().size(),
+                    expectedRevision + 1));
             List<SourceArchiveRecord> list = archives.computeIfAbsent(inventory.projectId(), ignored -> new ArrayList<>());
             newArchives.forEach(record -> {
                 if (!list.contains(record)) {
                     list.add(record);
                 }
             });
+            return expectedRevision + 1;
         }
     }
 }

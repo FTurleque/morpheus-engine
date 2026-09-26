@@ -5,10 +5,12 @@ import com.morpheus.api.MorpheusRemoteHttpServer;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /** Parses only the explicit `api --remote` M26 launch path, leaving legacy local API parsing unchanged. */
@@ -54,6 +56,7 @@ record RemoteApiLaunchOptions(
         boolean commandSeen = false;
         boolean remoteSeen = false;
         boolean maxConcurrentExplicit = false;
+        Set<String> given = new HashSet<>();
         List<String> unknown = new ArrayList<>();
 
         for (int index = 0; index < args.length; index++) {
@@ -71,8 +74,9 @@ record RemoteApiLaunchOptions(
                 throw new IllegalArgumentException("--json is not valid for API server mode");
             }
             if (takesValue(token)) {
+                onceUnlessList(given, token);
                 if (index + 1 >= args.length) throw new IllegalArgumentException(token + " requires a value");
-                String value = args[++index];
+                String value = OptionValue.nonBlank(token, args[++index]);
                 switch (token) {
                     case "--host" -> host = requireNonBlank(value, "--host");
                     case "--port" -> port = parsePort(value);
@@ -94,11 +98,12 @@ record RemoteApiLaunchOptions(
             if (token.startsWith("--") && token.contains("=")) {
                 int separator = token.indexOf('=');
                 String option = token.substring(0, separator);
-                String value = token.substring(separator + 1);
                 if (!takesValue(option)) {
                     unknown.add(token);
                     continue;
                 }
+                onceUnlessList(given, option);
+                String value = OptionValue.nonBlank(option, token.substring(separator + 1));
                 switch (option) {
                     case "--host" -> host = requireNonBlank(value, "--host");
                     case "--port" -> port = parsePort(value);
@@ -145,14 +150,14 @@ record RemoteApiLaunchOptions(
                 environment,
                 properties);
         // The value is deliberately not captured here. Only the way back to it is: the JVM already holds the
-        // environment and property strings, and a field on these options would be a second copy living as long
-        // as the server does. Presence is still proven now, so a misconfigured launch fails before startup.
+        // environment string, and a field on these options would be a second copy living as long as the server
+        // does. Presence is still proven now, so a misconfigured launch fails before startup. Unlike every other
+        // setting above, there is no JVM-property fallback: a -D property sits in /proc/<pid>/cmdline, which any
+        // account of the host can read, while /proc/<pid>/environ is readable by the owner alone.
         TlsKeystorePassword password = new TlsKeystorePassword(
-                () -> nonBlank(environment.get("MORPHEUS_SERVER_TLS_PASSWORD"))
-                        .or(() -> nonBlank(properties.getProperty("morpheus.server.tls.password"))));
+                () -> nonBlank(environment.get("MORPHEUS_SERVER_TLS_PASSWORD")));
         if (!password.isPresent()) {
-            throw new IllegalArgumentException(
-                    "remote mode requires the TLS keystore password from environment or protected property");
+            throw new IllegalArgumentException(TlsKeystorePassword.MISSING);
         }
         if (!maxConcurrentExplicit) {
             Optional<String> configured = nonBlank(environment.get("MORPHEUS_SERVER_MAX_CONCURRENT"))
@@ -177,6 +182,13 @@ record RemoteApiLaunchOptions(
                 || token.equals("--auth-file") || token.equals("--tls-keystore")
                 || token.equals("--provider-plugin-dir") || token.equals("--workspace-root")
                 || token.equals("--max-concurrent");
+    }
+
+    /** {@code --workspace-root} names a list and accumulates; every other option takes one value. */
+    private static void onceUnlessList(Set<String> given, String option) {
+        if (!option.equals("--workspace-root")) {
+            OptionOccurrence.once(given, option);
+        }
     }
 
     private static List<Path> resolveWorkspaceRoots(

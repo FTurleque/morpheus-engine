@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.store.sqlite.SqliteServerMaintenance;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,6 +45,58 @@ class MorpheusServerCliTest {
         assertTrue(created.out().contains("NOT_PERSISTED_PRINTED_ONCE"));
         assertTrue(created.out().contains("LIVE_RELOAD_ON_AUTHENTICATION"));
         assertTrue(created.out().contains("\"expiresAt\":\"NEVER\""), created.out());
+    }
+
+    @Test
+    void theTextIdentityListingPresentsItsFieldsInTheDeclaredOrder() {
+        assertEquals(CliExitCode.SUCCESS.code(), run("server", "identity", "create",
+                "--principal", "alice", "--role", "ADMIN").exitCode());
+
+        Result listed = run("server", "identity", "list");
+
+        assertEquals(CliExitCode.SUCCESS.code(), listed.exitCode(), listed.err());
+        String line = listed.out().lines().filter(text -> text.startsWith("identities=")).findFirst().orElseThrow();
+        List<String> declared = List.of("principal=alice", "role=ADMIN", "expiresAt=NEVER", "expired=false",
+                "nonExpiring=true");
+        int previous = -1;
+        for (String field : declared) {
+            int index = line.indexOf(field);
+            assertTrue(index > previous, field + " is out of the declared order in: " + line);
+            previous = index;
+        }
+    }
+
+    @Test
+    void theTextAndJsonIdentityListingsCarryTheSameFields() {
+        assertEquals(CliExitCode.SUCCESS.code(), run("server", "identity", "create",
+                "--principal", "alice", "--role", "ADMIN").exitCode());
+
+        String json = run("--json", "server", "identity", "list").out();
+        String text = run("server", "identity", "list").out();
+
+        Matcher identity = Pattern.compile("\"identities\":\\[\\{([^}]*)}").matcher(json);
+        assertTrue(identity.find(), json);
+        Set<String> jsonFields = new TreeSet<>();
+        Matcher key = Pattern.compile("\"(\\w+)\":").matcher(identity.group(1));
+        while (key.find()) {
+            jsonFields.add(key.group(1));
+        }
+        Matcher line = Pattern.compile("identities=\\[\\{([^}]*)}").matcher(text);
+        assertTrue(line.find(), text);
+        Set<String> textFields = new TreeSet<>();
+        for (String field : line.group(1).split(", ")) {
+            textFields.add(field.substring(0, field.indexOf('=')));
+        }
+        assertEquals(jsonFields, textFields, "a field of the identity view is missing from one of the two formats");
+    }
+
+    @Test
+    void anIdentityIsRenderedInTheDeclaredOrderWhateverTheIterationOrderOfItsMap() {
+        Map<String, Object> alphabetical = new java.util.TreeMap<>(Map.of(
+                "principal", "alice", "role", "ADMIN", "expiresAt", "NEVER", "expired", false, "nonExpiring", true));
+
+        assertEquals("{principal=alice, role=ADMIN, expiresAt=NEVER, expired=false, nonExpiring=true}",
+                MorpheusServerCli.identityLine(alphabetical));
     }
 
     @Test
@@ -124,7 +179,7 @@ class MorpheusServerCliTest {
         assertTrue(listed.out().contains("server identity migrate-legacy"), listed.out());
 
         Result stranded = run("--json", "server", "identity", "migrate-legacy", "--expires-at", deadline);
-        assertEquals(CliExitCode.USAGE.code(), stranded.exitCode(), stranded.out());
+        assertEquals(CliExitCode.STATE_ERROR.code(), stranded.exitCode(), stranded.out());
         assertTrue(stranded.err().contains("no ADMIN identity active after"), stranded.err());
 
         Result rehearsal = run("--json", "server", "identity", "migrate-legacy",
@@ -161,7 +216,8 @@ class MorpheusServerCliTest {
 
         Result verified = run("--json", "server", "backup", "verify", "--file", backupPath.toString());
         assertEquals(CliExitCode.SUCCESS.code(), verified.exitCode(), verified.err());
-        assertTrue(verified.out().contains("\"schemaVersion\":17"), verified.out());
+        assertTrue(verified.out().contains(
+                "\"schemaVersion\":" + SqliteServerMaintenance.SUPPORTED_SCHEMA_VERSION), verified.out());
 
         Result unconfirmed = run("--json", "server", "restore", "--file", backupPath.toString());
         assertEquals(CliExitCode.USAGE.code(), unconfirmed.exitCode(), unconfirmed.err());
@@ -170,6 +226,36 @@ class MorpheusServerCliTest {
         Result restored = run("--json", "server", "restore", "--file", backupPath.toString(), "--confirm");
         assertEquals(CliExitCode.SUCCESS.code(), restored.exitCode(), restored.err());
         assertTrue(restored.out().contains("\"integrityOk\":true"), restored.out());
+    }
+
+    /**
+     * An empty --output-dir used to be {@code Path.of("")}: the backup was written into the working directory of the
+     * process instead of the configured backups directory, exit code 0.
+     */
+    @Test
+    void anEmptyBackupDirectoryIsRefusedInsteadOfWritingIntoTheWorkingDirectory() throws Exception {
+        Path workingDirectory = Path.of("").toAbsolutePath();
+        List<Path> before;
+        try (var entries = Files.list(workingDirectory)) {
+            before = entries.sorted().toList();
+        }
+
+        Result refused = run("--json", "server", "backup", "create", "--output-dir", "");
+
+        List<Path> after;
+        try (var entries = Files.list(workingDirectory)) {
+            after = entries.sorted().toList();
+        }
+        assertEquals(CliExitCode.USAGE.code(), refused.exitCode(), refused.err());
+        assertTrue(refused.err().contains("--output-dir requires a non-blank value"), refused.err());
+        assertEquals(before, after, "a refused backup must not write into the working directory");
+        assertFalse(Files.exists(temp.resolve("data/backups")), "a refused backup must not write anywhere");
+        Result omitted = run("--json", "server", "backup", "create");
+        assertEquals(CliExitCode.SUCCESS.code(), omitted.exitCode(), omitted.err());
+        Matcher path = PATH.matcher(omitted.out());
+        assertTrue(path.find(), omitted.out());
+        assertTrue(Path.of(path.group(1).replace("\\\\", "\\")).startsWith(temp.resolve("data/backups")),
+                omitted.out());
     }
 
     @Test
@@ -199,6 +285,15 @@ class MorpheusServerCliTest {
         Path auth = configDir.resolve("remote-auth.txt");
         assertTrue(Files.exists(auth), "expected auth file under --config-dir= target: " + auth);
         assertTrue(Files.readString(auth).contains("eqform|READ"));
+    }
+
+    /** The parser checks an allowlist in a method not named parse, which the option guard does not see. */
+    @Test
+    void anUnknownOptionIsRefused() {
+        Result result = run("server", "identity", "list", "--principal", "alice");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode());
+        assertTrue(result.err().contains("unknown server option: --principal"), result.err());
     }
 
     private Result run(String... rawArgs) {

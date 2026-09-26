@@ -95,6 +95,35 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     }
 
     /**
+     * The MCP peer's explicit environment is what MORPHEUS configured, never what the SDK's parameter object holds.
+     *
+     * <p>The SDK's {@code ServerParameters} builder fills in its own environment allowlist by default. Reading it
+     * back as "explicit" configuration made the inherited set the union of two allowlists, and a peer launched on
+     * Windows received eight variables MORPHEUS never allowed. The transport now takes the environment from the
+     * layer that configures the peer; this rule keeps the SDK's parameter object out of every launch path, so an SDK
+     * upgrade cannot reopen the question. {@code BoundedStdioClientTransportTest} measures the same property on a real
+     * peer process.</p>
+     */
+    @Test
+    void noMcpLaunchPathTakesThePeerEnvironmentFromTheSdkParameters() throws IOException {
+        Path root = repositoryRoot();
+        for (Path source : List.of(
+                MCP_TRANSPORT,
+                Path.of("morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosMcpCodeGateway.java"),
+                Path.of("morpheus-integration-nexus/src/main/java/com/morpheus/integration/nexus/NexusMcpContextGateway.java"))) {
+            String text = Files.readString(root.resolve(source));
+            assertFalse(text.contains("ServerParameters"),
+                    () -> source + " must launch its peer from McpPeerLaunch, not from the SDK's ServerParameters");
+            assertFalse(text.contains("getEnv("),
+                    () -> source + " must not read a parameter object's environment as explicit peer configuration");
+            assertTrue(text.contains("McpPeerLaunch"), () -> source + " must describe its peer with McpPeerLaunch");
+        }
+        String transport = Files.readString(root.resolve(MCP_TRANSPORT));
+        assertTrue(transport.contains("sanitizeEnvironment(builder.environment(), launch.explicitEnvironment());"),
+                "the transport must apply exactly the environment MORPHEUS configured on top of its allowlist");
+    }
+
+    /**
      * Executable plugin activation stays pinned and staged.
      *
      * <p>The pin is what makes the JAR identifiable and the verified staging copy is what makes the identity
@@ -119,6 +148,31 @@ class ExternalCodeTrustBoundaryArchitectureTest {
                 "discovery must stay metadata-only and refuse symbolic entries");
         assertFalse(discovery.contains("URLClassLoader"),
                 "discovery must never load classes; only explicit activation may");
+    }
+
+    /**
+     * The verified staging copy does not outlive its JVM by default, and its name does not announce its content.
+     *
+     * <p>Both boundaries stage through the same factory, so the property is held there once. The explicit deletion
+     * by each caller stays the normal path; marking the copy for deletion at exit covers a JVM that ends before it
+     * runs. What a kill or a crash still leaves behind is stated in SECURITY.md rather than swept at startup.</p>
+     */
+    @Test
+    void theVerifiedStagingCopyIsDeletedAtExitNamedWithoutThePinAndItsResidueIsStated() throws IOException {
+        Path root = repositoryRoot();
+        String integrity = Files.readString(root.resolve(
+                "morpheus-application/src/main/java/com/morpheus/application/security/ExternalJarIntegrity.java"));
+        String security = Files.readString(root.resolve("SECURITY.md"));
+
+        assertTrue(integrity.contains("Files.createTempFile(\"morpheus-trusted-plugin-\", \".jar\")"),
+                "the staging copy must be named by a fixed prefix and the temporary-file factory alone");
+        assertTrue(integrity.contains("staged.toFile().deleteOnExit();"),
+                "the staging copy must be marked for deletion when its JVM exits");
+        assertFalse(integrity.contains("expected.substring("),
+                "no part of the pin may appear in the staging file name");
+        assertTrue(security.contains("### Verified staging copies")
+                        && security.contains("The residue is **not** guaranteed away"),
+                "SECURITY.md must keep stating what a killed or crashed JVM leaves behind");
     }
 
     /**

@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusCompositionCliTest {
@@ -34,7 +35,7 @@ class MorpheusCompositionCliTest {
         assertTrue(sync.stdout().contains("\"primaryProviderId\":\"openspec\""), sync.stdout());
         assertTrue(sync.stdout().contains("\"providerId\":\"structured-markdown\""), sync.stdout());
         assertTrue(sync.stdout().contains("auth-session/session-expiration"), sync.stdout());
-        assertTrue(sync.stdout().contains("SELECTED_BY_PRECEDENCE"), sync.stdout());
+        assertTrue(sync.stdout().contains("PRECEDENCE_RECORDED"), sync.stdout());
 
         Invocation status = invokeWithData(
                 data, "--json", "composition", "status", "--project", projectId.toString());
@@ -47,6 +48,70 @@ class MorpheusCompositionCliTest {
         assertEquals(0, conflicts.exitCode(), conflicts.stderr());
         assertTrue(conflicts.stdout().contains("\"logicalKey\":\"auth-session/session-expiration\""), conflicts.stdout());
         assertTrue(conflicts.stdout().contains("\"evidenceId\""), conflicts.stdout());
+    }
+
+    /** Only sync reads --revision; status and conflicts used to accept it and ignore it, exit code 0. */
+    @Test
+    void anOptionTheActionDoesNotReadIsRefusedBeforeTheProjectIsLookedUp() {
+        Path data = tempDirectory.resolve("composition-options");
+        String projectId = ProjectSpecificationId.generate().toString();
+
+        for (String action : java.util.List.of("status", "conflicts")) {
+            Invocation refused = invokeWithData(data, "composition", action, "--project", projectId, "--revision", "r1");
+            assertEquals(2, refused.exitCode(), refused.stderr());
+            assertTrue(refused.stderr().contains("unknown option: --revision"), refused.stderr());
+        }
+        Invocation misspelledAction = invokeWithData(
+                data, "composition", "statsu", "--project", projectId, "--revision", "r1");
+        assertEquals(2, misspelledAction.exitCode(), misspelledAction.stderr());
+        assertTrue(misspelledAction.stderr().contains("unknown composition action: statsu"), misspelledAction.stderr());
+        Invocation withoutIt = invokeWithData(data, "composition", "status", "--project", projectId);
+        assertEquals(4, withoutIt.exitCode(), withoutIt.stderr());
+        assertTrue(withoutIt.stderr().contains("project has no ACTIVE snapshot"), withoutIt.stderr());
+    }
+
+    /**
+     * A workspace that only the structured-markdown provider supports publishes under its registered root.
+     *
+     * <p>The markdown reader used to publish its specification file as the project root, so the registered
+     * workspace root and the published one never matched and every such sync ended on a store collision.</p>
+     */
+    @Test
+    void syncsAMarkdownOnlyWorkspaceUnderItsRegisteredRoot() throws Exception {
+        Path workspace = tempDirectory.resolve("markdown-only");
+        Path specification = workspace.resolve("morpheus/specification.md");
+        Files.createDirectories(specification.getParent());
+        Files.copy(fixture("openspec-basic").resolve("morpheus/specification.md"), specification);
+        Path data = tempDirectory.resolve("markdown-only-data");
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        register(data, projectId, workspace);
+
+        Invocation sync = invokeWithData(
+                data, "--json", "composition", "sync", "--project", projectId.toString());
+
+        assertEquals(0, sync.exitCode(), sync.stderr());
+        assertTrue(sync.stdout().contains("\"primaryProviderId\":\"structured-markdown\""), sync.stdout());
+        assertFalse(sync.stderr().contains("collision"), sync.stderr());
+    }
+
+    /** An empty --revision used to be read as no revision, so sync published a snapshot without one, exit code 0. */
+    @Test
+    void anEmptyRevisionIsRefusedAndPublishesNothingWhileTheOmittedOneStillSyncs() {
+        Path data = tempDirectory.resolve("blank-revision-data");
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        register(data, projectId, fixture("openspec-basic"));
+        Invocation before = invokeWithData(data, "--json", "composition", "status", "--project", projectId.toString());
+
+        Invocation refused = invokeWithData(
+                data, "--json", "composition", "sync", "--project", projectId.toString(), "--revision", "");
+        Invocation after = invokeWithData(data, "--json", "composition", "status", "--project", projectId.toString());
+
+        assertEquals(CliExitCode.USAGE.code(), refused.exitCode(), refused.stderr());
+        assertTrue(refused.stderr().contains("--revision requires a non-blank value"), refused.stderr());
+        assertEquals(before, after, "a refused sync must leave the composition state untouched");
+        Invocation omitted = invokeWithData(
+                data, "--json", "composition", "sync", "--project", projectId.toString());
+        assertEquals(0, omitted.exitCode(), omitted.stderr());
     }
 
     private void register(Path data, ProjectSpecificationId projectId, Path workspace) {

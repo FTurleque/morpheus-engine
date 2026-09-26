@@ -66,7 +66,7 @@ REVISION_MISMATCH
 UNSUPPORTED
 ```
 
-`NOT_FOUND != UNAVAILABLE`. Une résolution live reste `persisted=false` et ne réécrit pas le snapshot.
+`NOT_FOUND != UNAVAILABLE`. Une recherche de symboles dont la page est pleine (limite atteinte) sans correspondance exacte est `UNAVAILABLE` et non `NOT_FOUND` : elle a pu s'arrêter avant le symbole (ADR-0108). Une résolution live reste `persisted=false` et ne réécrit pas le snapshot.
 
 # 3. NEXUS
 

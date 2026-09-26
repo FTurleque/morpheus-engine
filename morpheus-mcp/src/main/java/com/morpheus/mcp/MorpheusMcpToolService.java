@@ -14,7 +14,6 @@ import com.morpheus.application.query.TraceRequirementQueryService;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.compact.CompactQueryViewService;
 import com.morpheus.application.store.KnowledgeStoreException;
-import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.sync.SyncFreshness;
 import com.morpheus.application.sync.SyncFreshnessService;
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
@@ -29,16 +28,15 @@ import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 import com.morpheus.domain.task.ImplementationTask;
-import com.morpheus.domain.temporal.TemporalState;
 
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 /** Executes the M10 read-only tool contract over the same persisted SQLite state used by the CLI. */
 public final class MorpheusMcpToolService {
@@ -84,16 +82,18 @@ public final class MorpheusMcpToolService {
         String specificationVersionId = runtime.requirements.findSnapshotVersion(snapshot.id())
                 .map(binding -> binding.specificationVersionId().toString())
                 .orElse("unknown");
-        long currentRequirementCount = runtime.requirements.listRequirementVersions(snapshot.id()).stream()
-                .map(RequirementVersionRecord::entityVersion)
-                .filter(version -> version.temporalState() == TemporalState.CURRENT)
-                .count();
+        long currentRequirementCount = runtime.requirements.listCurrentRequirementVersions(snapshot.id()).size();
+        PageRequest pageRequest = page(arguments);
+        List<Specification> specifications = content.specifications().stream()
+                .sorted(Comparator.comparing(Specification::id))
+                .toList();
         return map(
                 "projectId", projectId.toString(),
                 "snapshotId", snapshot.id().toString(),
                 "snapshotState", snapshot.state().name(),
                 "specificationVersionId", specificationVersionId,
-                "specifications", content.specifications().stream().map(this::specification).toList(),
+                "specifications", PagedEnvelope.slice(
+                        pageRequest.offset(), pageRequest.limit(), specifications, this::specification),
                 "requirementCount", currentRequirementCount,
                 "scenarioCount", content.scenarios().size(),
                 "changeCount", content.changes().size(),
@@ -102,22 +102,20 @@ public final class MorpheusMcpToolService {
 
     private Object findRequirements(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        String queryText = optionalString(arguments, "query").orElse("");
+        String queryText = McpArguments.optionalText(arguments, "query").orElse("");
         PageRequest pageRequest = page(arguments);
         var result = new RequirementQueryService(runtime.snapshots, runtime.requirements)
                 .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        return map(
-                "snapshotId", result.snapshot().id().toString(),
-                "query", queryText,
-                "totalMatches", result.totalMatches(),
-                "hasMore", result.hasMore(),
-                "items", result.items().stream().map(item -> requirement(item.entityVersion().content())).toList());
+        return PagedEnvelope.following(
+                map("snapshotId", result.snapshot().id().toString(), "query", queryText),
+                PagedEnvelope.page(result.pageRequest(), result.totalMatches(), result.hasMore(),
+                        result.items().stream().map(item -> requirement(item.entityVersion().content())).toList()));
     }
 
     private Object getChange(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
+        ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         var result = business(runtime).activeChange(projectId, changeId)
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
         ChangeProposal change = result.item().orElseThrow(() -> notFound("change not found: " + changeId));
@@ -133,7 +131,7 @@ public final class MorpheusMcpToolService {
 
     private Object constraints(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
+        ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         requireChange(runtime, projectId, changeId);
         SnapshotPage<Constraint> result = business(runtime).activeConstraints(projectId, changeId, page(arguments))
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
@@ -142,7 +140,7 @@ public final class MorpheusMcpToolService {
 
     private Object acceptanceCriteria(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
+        ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         requireChange(runtime, projectId, changeId);
         SnapshotPage<AcceptanceCriterion> result = business(runtime)
                 .activeAcceptanceCriteriaForChange(projectId, changeId, page(arguments))
@@ -152,7 +150,7 @@ public final class MorpheusMcpToolService {
 
     private Object decisions(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
+        ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         requireChange(runtime, projectId, changeId);
         SnapshotPage<DesignDecision> result = business(runtime).activeDesignDecisions(projectId, changeId, page(arguments))
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
@@ -161,7 +159,7 @@ public final class MorpheusMcpToolService {
 
     private Object tasks(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
+        ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         requireChange(runtime, projectId, changeId);
         SnapshotPage<ImplementationTask> result = business(runtime).activeImplementationTasks(projectId, changeId, page(arguments))
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
@@ -170,8 +168,8 @@ public final class MorpheusMcpToolService {
 
     private Object traceRequirement(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        RequirementId requirementId = RequirementId.parse(requiredString(arguments, "requirementId"));
-        int depth = intValue(arguments, "depth", MorpheusMcpToolCatalog.DEFAULT_DEPTH, 1, MorpheusMcpToolCatalog.MAX_DEPTH);
+        RequirementId requirementId = RequirementId.parse(McpArguments.requiredString(arguments, "requirementId"));
+        int depth = McpArguments.optionalInt(arguments, "depth", MorpheusMcpToolCatalog.DEFAULT_DEPTH, 1, MorpheusMcpToolCatalog.MAX_DEPTH);
         var result = new TraceRequirementQueryService(
                 runtime.snapshots, runtime.requirements, runtime.traceability, runtime.externalReferences)
                 .active(projectId, requirementId, depth, java.util.Set.of())
@@ -181,8 +179,8 @@ public final class MorpheusMcpToolService {
 
     private Object changeContext(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
-        int depth = intValue(arguments, "depth", MorpheusMcpToolCatalog.DEFAULT_DEPTH, 1, MorpheusMcpToolCatalog.MAX_DEPTH);
+        ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
+        int depth = McpArguments.optionalInt(arguments, "depth", MorpheusMcpToolCatalog.DEFAULT_DEPTH, 1, MorpheusMcpToolCatalog.MAX_DEPTH);
         var result = new ChangeContextQueryService(
                 runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences)
                 .active(projectId, changeId, depth, java.util.Set.of())
@@ -195,7 +193,7 @@ public final class MorpheusMcpToolService {
 
     private Object specificationContext(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        SpecificationId specificationId = SpecificationId.parse(requiredString(arguments, "specificationId"));
+        SpecificationId specificationId = SpecificationId.parse(McpArguments.requiredString(arguments, "specificationId"));
         var result = new SpecificationContextQueryService(
                 runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
                 .active(projectId, specificationId, page(arguments))
@@ -210,7 +208,7 @@ public final class MorpheusMcpToolService {
 
     private Object changeStatus(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
+        ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
         return map(
                 "snapshotId", activeSnapshotId(runtime, projectId),
@@ -223,7 +221,7 @@ public final class MorpheusMcpToolService {
 
     private Object blockingConditions(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
+        ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
         return map(
                 "snapshotId", activeSnapshotId(runtime, projectId),
@@ -239,7 +237,7 @@ public final class MorpheusMcpToolService {
 
     private Object syncStatus(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        long maxAgeMinutes = longValue(arguments, "maxAgeMinutes", MorpheusMcpToolCatalog.DEFAULT_MAX_AGE_MINUTES,
+        long maxAgeMinutes = McpArguments.optionalInteger(arguments, "maxAgeMinutes", MorpheusMcpToolCatalog.DEFAULT_MAX_AGE_MINUTES,
                 1L, MorpheusMcpToolCatalog.MAX_MAX_AGE_MINUTES);
         SyncFreshness freshness = new SyncFreshnessService(runtime.syncState)
                 .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
@@ -289,71 +287,17 @@ public final class MorpheusMcpToolService {
 
     private PageRequest page(Map<String, Object> arguments) {
         return new PageRequest(
-                intValue(arguments, "offset", 0, 0, 1_000_000),
-                intValue(arguments, "limit", MorpheusMcpToolCatalog.DEFAULT_LIMIT, 1, MorpheusMcpToolCatalog.MAX_LIMIT));
+                McpArguments.optionalInt(arguments, "offset", 0, 0, 1_000_000),
+                McpArguments.optionalInt(arguments, "limit", MorpheusMcpToolCatalog.DEFAULT_LIMIT, 1, MorpheusMcpToolCatalog.MAX_LIMIT));
     }
 
     private ProjectSpecificationId projectId(Map<String, Object> arguments) {
-        return ProjectSpecificationId.parse(requiredString(arguments, "projectId"));
+        return ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
     }
 
-    private String requiredString(Map<String, Object> arguments, String name) {
-        Object raw = arguments.get(name);
-        if (!(raw instanceof String value) || value.trim().isEmpty()) {
-            throw new IllegalArgumentException(name + " is required and must be a non-blank string");
-        }
-        return value.trim();
-    }
-
-    private Optional<String> optionalString(Map<String, Object> arguments, String name) {
-        Object raw = arguments.get(name);
-        if (raw == null) {
-            return Optional.empty();
-        }
-        if (!(raw instanceof String value)) {
-            throw new IllegalArgumentException(name + " must be a string");
-        }
-        return Optional.of(value.trim());
-    }
-
-    private int intValue(Map<String, Object> arguments, String name, int defaultValue, int minimum, int maximum) {
-        Object raw = arguments.get(name);
-        if (raw == null) {
-            return defaultValue;
-        }
-        if (!(raw instanceof Number number)) {
-            throw new IllegalArgumentException(name + " must be an integer");
-        }
-        long value = number.longValue();
-        if (Double.compare(number.doubleValue(), (double) value) != 0 || value < minimum || value > maximum) {
-            throw new IllegalArgumentException(name + " must be an integer between " + minimum + " and " + maximum);
-        }
-        return Math.toIntExact(value);
-    }
-
-    private long longValue(Map<String, Object> arguments, String name, long defaultValue, long minimum, long maximum) {
-        Object raw = arguments.get(name);
-        if (raw == null) {
-            return defaultValue;
-        }
-        if (!(raw instanceof Number number)) {
-            throw new IllegalArgumentException(name + " must be an integer");
-        }
-        long value = number.longValue();
-        if (Double.compare(number.doubleValue(), (double) value) != 0 || value < minimum || value > maximum) {
-            throw new IllegalArgumentException(name + " must be an integer between " + minimum + " and " + maximum);
-        }
-        return value;
-    }
 
     private Object page(SnapshotPage<?> page, List<?> items) {
-        return map(
-                "snapshotId", page.snapshot().id().toString(),
-                "offset", page.pageRequest().offset(),
-                "limit", page.pageRequest().limit(),
-                "totalMatches", page.totalMatches(),
-                "hasMore", page.hasMore(),
-                "items", items);
+        return PagedEnvelope.snapshotPage(page, items);
     }
 
     private Object specification(Specification item) {

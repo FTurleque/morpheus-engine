@@ -2,14 +2,17 @@ package com.morpheus.cli;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Shared {@code --json}/{@code --data-dir}/{@code --config-dir}/{@code --db} global-flag parsing.
  *
  * <p>Every CLI adapter recognizes the same four global flags ahead of its own command-specific
- * arguments; this is the single implementation they all delegate to.</p>
+ * arguments; this is the single implementation they all delegate to. A layout option given twice is refused
+ * ({@link OptionOccurrence}); a repeated {@code --json} changes nothing and is accepted.</p>
  */
 final class GlobalArgs {
     private GlobalArgs() {
@@ -37,6 +40,7 @@ final class GlobalArgs {
         Optional<Path> data = Optional.empty();
         Optional<Path> config = Optional.empty();
         Optional<Path> database = Optional.empty();
+        Set<String> given = new HashSet<>();
         List<String> remaining = new ArrayList<>();
         int index = 0;
         while (index < args.length) {
@@ -45,21 +49,26 @@ final class GlobalArgs {
             switch (token) {
                 case "--json" -> json = true;
                 case "--data-dir" -> {
-                    data = Optional.of(Path.of(requireValue(args, index, token)));
+                    data = layoutOption(given, args, index, token);
                     index++;
                 }
                 case "--config-dir" -> {
-                    config = Optional.of(Path.of(requireValue(args, index, token)));
+                    config = layoutOption(given, args, index, token);
                     index++;
                 }
                 case "--db" -> {
-                    database = Optional.of(Path.of(requireValue(args, index, token)));
+                    database = layoutOption(given, args, index, token);
                     index++;
                 }
                 default -> remaining.add(token);
             }
         }
         return new Parsed(json, data, config, database, List.copyOf(remaining));
+    }
+
+    private static Optional<Path> layoutOption(Set<String> given, String[] args, int index, String option) {
+        OptionOccurrence.once(given, option);
+        return Optional.of(OptionValue.path(option, requireValue(args, index, option)));
     }
 
     private static boolean isValueFlag(String token) {

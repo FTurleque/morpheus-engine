@@ -6,6 +6,8 @@ import com.morpheus.application.portfolio.PortfolioRegistryService;
 import com.morpheus.application.portfolio.PortfolioTraversalDirection;
 import com.morpheus.application.portfolio.PortfolioTraversalService;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.portfolio.PortfolioEntityRef;
@@ -33,6 +35,25 @@ final class MorpheusPortfolioCli {
     private static final String OPT_LIMIT = "limit";
     private static final String OPT_OFFSET = "offset";
 
+    private static final Map<String, Set<String>> ACTION_OPTIONS = Map.ofEntries(
+            Map.entry("create", Set.of("name")),
+            Map.entry("add-project", Set.of(
+                    OPT_PORTFOLIO, OPT_PROJECT, "name", "workspace", "repository", "providers")),
+            Map.entry("missing", Set.of(OPT_PORTFOLIO, OPT_PROJECT)),
+            Map.entry("freshness", Set.of(OPT_PORTFOLIO, OPT_PROJECT, "state", "revision", "explanation")),
+            Map.entry("add-reference", Set.of(
+                    OPT_PORTFOLIO, "source-project", "source-type", "source-id",
+                    "target-project", "target-type", "target-id", "relation", "provider",
+                    "source-locator", "evidence")),
+            Map.entry("list", Set.of(OPT_OFFSET, OPT_LIMIT)),
+            Map.entry("overview", Set.of(OPT_PORTFOLIO)),
+            Map.entry("members", Set.of(OPT_PORTFOLIO, OPT_OFFSET, OPT_LIMIT)),
+            Map.entry("references", Set.of(OPT_PORTFOLIO, OPT_PROJECT, OPT_OFFSET, OPT_LIMIT)),
+            Map.entry("conflicts", Set.of(OPT_PORTFOLIO)),
+            Map.entry("traverse", Set.of(
+                    OPT_PORTFOLIO, "start-project", "start-type", "start-id",
+                    "depth", "nodes", "links", "direction")));
+
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
     static boolean handles(String[] args) {
@@ -52,6 +73,11 @@ final class MorpheusPortfolioCli {
             }
             String action = parsed.tokens().getFirst();
             SimpleOptions options = SimpleOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+            Set<String> allowed = ACTION_OPTIONS.get(action);
+            if (allowed == null) {
+                throw new IllegalArgumentException("unknown portfolio action: " + action);
+            }
+            options.rejectUnknown(allowed);
             try (SqlitePortfolioStore store = new SqlitePortfolioStore(parsed.layout().databasePath())) {
                 PortfolioRegistryService registry = new PortfolioRegistryService(store);
                 PortfolioQueryService query = new PortfolioQueryService(store);
@@ -106,6 +132,12 @@ final class MorpheusPortfolioCli {
                 write(result, parsed.json(), out);
                 return CliExitCode.SUCCESS.code();
             }
+        } catch (EntityNotFoundException failure) {
+            err.println("MORPHEUS error [" + CliExitCode.NOT_FOUND.code() + "]: " + safeMessage(failure));
+            return CliExitCode.NOT_FOUND.code();
+        } catch (EntityStateException failure) {
+            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
+            return CliExitCode.STATE_ERROR.code();
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS error [" + CliExitCode.USAGE.code() + "]: " + safeMessage(failure));
             return CliExitCode.USAGE.code();

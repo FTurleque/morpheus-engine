@@ -98,6 +98,22 @@ Une base plus récente que le schéma supporté est rejetée. Une base plus anci
 
 Les identités remote, limites de concurrence, TLS et backups sont de la configuration/opérabilité. Ils ne deviennent jamais source de vérité des spécifications, snapshots, providers ou portfolios.
 
+### Identités historiques à trois champs — position tenue
+
+Les identités remote au format historique à trois champs **n'expirent pas**, et c'est un engagement de
+compatibilité, pas un défaut à résorber. Il est verrouillé par `legacyThreeFieldIdentityRemainsNonExpiring`
+(`MorpheusRemoteIdentityFileTest`), rendu visible par `server identity list` — qui expose `nonExpiring` par
+entrée et le total `nonExpiringIdentities` — et migrable sans rotation de token par
+`server identity migrate-legacy`, avec `--dry-run`, écriture atomique verrouillée, audit `EXPIRY_MIGRATED`
+et refus complet d'un lockout ADMIN. Les identités **nouvelles** exigent `--expires-at`, `never` restant un
+choix explicite et nommé.
+
+**Requalification de `DT-12` (16/09/2026).** Le registre la portait comme dette de sécurité remote alors que
+le tableau disait lui-même que retirer le format « reste une évolution explicitement incompatible, pas un
+patch 1.2.1 ». C'est donc une position, et elle est ici. **Événement de réouverture** : une version majeure
+qui assume la rupture de compatibilité, ou la constatation qu'une identité historique non expirante a servi
+à un accès non légitime — auquel cas c'est un incident, pas une dette.
+
 ## Conséquences
 
 Positives : exposition réseau explicite et fail-closed, usage équipe possible, authz séparée des capabilities métier, restauration opérable, surcharge bornée et observabilité sans télémétrie obligatoire.
@@ -131,3 +147,36 @@ postGateExecutableDelta               NONE Windows + Linux
 Preuve : [`../validation/VALIDATION_M26.md`](../validation/VALIDATION_M26.md).
 
 En juillet 2026, aucune GitHub Actions / CI n’est utilisée comme preuve M26.
+
+## Amendement du 25 septembre 2026 (NEX-1, API-2) — une seule projection pour un statut d'intégration
+
+Le statut d'une intégration optionnelle (MINOS, NEXUS) porte l'emplacement du JAR, du répertoire personnel et de la JVM du
+serveur. Il était projeté sur `GET /api/v1/integrations/{system}/status` mais relayé tel quel par les deux routes
+`augmented-context` (rôle READ) et les deux outils MCP `get_augmented_*_context`, qui portent le même objet.
+
+La projection vit dans `morpheus-application` (`IntegrationStatusDisclosure`, à côté de `ServerLocationDisclosure`) et s'applique à toute
+frontière distante ou orientée modèle : la route de statut (`IntegrationStatusViews` n'en est plus que la mise en forme), les deux routes
+et les deux outils. Un emplacement est rapporté comme *configuré*, jamais nommé ; les alias NEXUS `jar`/`home` sont ramenés sur `jarPath`/
+`homeDirectory` **avant** l'examen de la valeur (une clé inconnue tombait dans le filtre générique, qui supprimait la ligne — l'opérateur
+ne pouvait plus distinguer « pas de JAR » de « ligne retirée » — et laissait un chemin relatif en clair). La CLI ne projette pas : c'est
+là qu'un opérateur corrige les réglages.
+
+### Alternatives écartées
+
+- **Projeter dans `AugmentedContextService`.** Le service est partagé avec la CLI, qui doit garder les réglages complets.
+- **Un filtre par transport.** Deux copies d'un prédicat dérivent, et la plus faible est celle qui fuit.
+- **Toujours émettre les trois clés `…Configured`, y compris à `false`.** Changerait la forme de la réponse de tout statut ; une clé absente
+  reste l'absence de réglage, comme pour MINOS.
+
+### Conséquences
+
+- **Preuve.** `MorpheusAugmentedContextApiContractTest` et `MorpheusAugmentedContextMcpToolsTest` assertent, sur *chaque valeur de chaîne* de
+  `technicalContext` (succès et échec, exigence et change), qu'aucune ne satisfait `namesAServerLocation`, et que `projectId`/`projectName`/
+  `estimatedTokens` survivent. `IntegrationStatusProjectionArchitectureTest` exige l'appel de la projection dans tout adaptateur `api`/`mcp`
+  qui produit un statut (assertion textuelle : c'est un appel qui doit *exister*, ADR-0103) et interdit la projection dans la CLI.
+- **Résidu assumé.** La garde textuelle ne voit qu'un adaptateur qui produit un statut par les formes reconnues (`new AugmentedContextService(`,
+  `….status()`) ; un nouveau chemin d'obtention d'un statut hors de ces formes n'est pas détecté. Le contenu du `TechnicalContextBundle` lui-même
+  (`items[].path`, `excluded`, `metadata`, issus de la charge utile NEXUS) n'est pas filtré : c'est le contenu voulu du projet indexé, pas un
+  réglage du serveur, et le contrat NEXUS qu'ils sont des chemins *relatifs au projet* est une **hypothèse**, non vérifiée par MORPHEUS.
+  Sont aussi hors périmètre les messages `INVALID`/`UNAVAILABLE` qui reprennent une chaîne de configuration *relative* de l'opérateur
+  (`invalid NEXUS path: …`, `Cannot run program "jdk/bin/java"`) : le prédicat partagé ne reconnaît que les formes absolues, quotées ou espacées.

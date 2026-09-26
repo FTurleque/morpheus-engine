@@ -2,14 +2,17 @@ package com.morpheus.store.sqlite;
 
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
+import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.application.query.dsl.QueryDefinition;
 import com.morpheus.application.query.dsl.QueryDefinitionCodec;
 import com.morpheus.application.query.dsl.QueryScope;
 import com.morpheus.application.query.saved.SavedViewConflictException;
 import com.morpheus.application.query.saved.SavedViewDefinition;
+import com.morpheus.application.query.saved.SavedViewEntry;
 import com.morpheus.application.query.saved.SavedViewId;
 import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.application.query.saved.SavedViewVersion;
+import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SavedViewStore;
 
@@ -47,14 +50,26 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
             throw new SavedViewConflictException("saved view already exists: " + definition.id());
         }
         transaction(() -> {
+            int inserted;
             try (PreparedStatement statement = connection.prepareStatement("""
                     INSERT INTO saved_views(
                         id, scope_kind, scope_id, name, query_definition,
                         revision, status, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    WHERE (
+                        SELECT COUNT(*) FROM saved_views
+                        WHERE scope_kind = ? AND scope_id = ?
+                    ) < ?
                     """)) {
                 bindDefinition(statement, definition);
-                statement.executeUpdate();
+                statement.setString(10, scopeKind(definition.query().scope()));
+                statement.setString(11, scopeId(definition.query().scope()));
+                statement.setInt(12, QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE);
+                inserted = statement.executeUpdate();
+            }
+            if (inserted != 1) {
+                throw new IllegalStateException(
+                        "saved view budget exceeded for scope: " + QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE);
             }
             insertVersion(version);
             return null;
@@ -73,7 +88,15 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
                 """)) {
             statement.setString(1, id.toString());
             try (ResultSet result = statement.executeQuery()) {
-                return result.next() ? Optional.of(readDefinition(result)) : Optional.empty();
+                if (!result.next()) {
+                    return Optional.empty();
+                }
+                SavedViewEntry entry = readEntry(result);
+                if (entry instanceof SavedViewEntry.Unreadable unreadable) {
+                    throw new KnowledgeStoreException("saved view " + id + " revision " + unreadable.revision()
+                            + " cannot be read (" + unreadable.reason() + "); archive it to retire it");
+                }
+                return Optional.of(((SavedViewEntry.Readable) entry).definition());
             }
         } catch (SQLException failure) {
             throw new KnowledgeStoreException("Cannot read saved view " + id, failure);
@@ -81,7 +104,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     @Override
-    public synchronized List<SavedViewDefinition> list(QueryScope scope) {
+    public synchronized List<SavedViewEntry> list(QueryScope scope) {
         ensureOpen();
         Objects.requireNonNull(scope, "scope");
         try (PreparedStatement statement = connection.prepareStatement("""
@@ -94,9 +117,9 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
             statement.setString(1, scopeKind(scope));
             statement.setString(2, scopeId(scope));
             try (ResultSet result = statement.executeQuery()) {
-                List<SavedViewDefinition> values = new ArrayList<>();
+                List<SavedViewEntry> values = new ArrayList<>();
                 while (result.next()) {
-                    values.add(readDefinition(result));
+                    values.add(readEntry(result));
                 }
                 return List.copyOf(values);
             }
@@ -145,6 +168,79 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     @Override
+    public synchronized SavedViewEntry archive(SavedViewId id, long expectedRevision, Instant at) {
+        ensureOpen();
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(at, "at");
+        transaction(() -> {
+            String status;
+            long revision;
+            Instant updatedAt;
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT status, revision, updated_at FROM saved_views WHERE id = ?")) {
+                statement.setString(1, id.toString());
+                try (ResultSet result = statement.executeQuery()) {
+                    if (!result.next()) {
+                        throw new EntityNotFoundException("unknown saved view: " + id);
+                    }
+                    status = result.getString("status");
+                    revision = result.getLong("revision");
+                    updatedAt = Instant.parse(result.getString("updated_at"));
+                }
+            }
+            if (!SavedViewStatus.ACTIVE.name().equals(status)) {
+                throw new IllegalStateException("saved view is archived: " + id);
+            }
+            if (revision != expectedRevision) {
+                throw new SavedViewConflictException(
+                        "stale saved view revision: expected " + expectedRevision + " but current is " + revision);
+            }
+            Instant stamped = at.isBefore(updatedAt) ? updatedAt : at;
+            int changed;
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    UPDATE saved_views
+                    SET revision = ?, status = ?, updated_at = ?
+                    WHERE id = ? AND revision = ?
+                    """)) {
+                statement.setLong(1, expectedRevision + 1);
+                statement.setString(2, SavedViewStatus.ARCHIVED.name());
+                statement.setString(3, stamped.toString());
+                statement.setString(4, id.toString());
+                statement.setLong(5, expectedRevision);
+                changed = statement.executeUpdate();
+            }
+            if (changed != 1) {
+                throw new SavedViewConflictException(
+                        "stale saved view revision: expected " + expectedRevision + " but the view changed concurrently");
+            }
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    INSERT INTO saved_view_versions(
+                        saved_view_id, revision, name, query_definition, status, recorded_at)
+                    SELECT id, revision, name, query_definition, status, updated_at
+                    FROM saved_views WHERE id = ?
+                    """)) {
+                statement.setString(1, id.toString());
+                statement.executeUpdate();
+            }
+            return null;
+        }, "Cannot archive saved view " + id);
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT id, scope_kind, scope_id, name, query_definition,
+                       revision, status, created_at, updated_at
+                FROM saved_views
+                WHERE id = ?
+                """)) {
+            statement.setString(1, id.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return readEntry(result);
+            }
+        } catch (SQLException failure) {
+            throw new KnowledgeStoreException("Cannot read archived saved view " + id, failure);
+        }
+    }
+
+    @Override
     public synchronized SavedViewDefinition compareAndSet(
             SavedViewId id,
             long expectedRevision,
@@ -162,7 +258,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
             throw new IllegalArgumentException("saved view replacement must advance revision by exactly one");
         }
         SavedViewDefinition before = find(id)
-                .orElseThrow(() -> new IllegalArgumentException("unknown saved view: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("unknown saved view: " + id));
         if (!before.query().scope().equals(replacement.query().scope())) {
             throw new IllegalArgumentException("saved view scope is immutable");
         }
@@ -190,7 +286,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
 
         if (changed != 1) {
             SavedViewDefinition current = find(id)
-                    .orElseThrow(() -> new IllegalArgumentException("unknown saved view: " + id));
+                    .orElseThrow(() -> new EntityNotFoundException("unknown saved view: " + id));
             throw new SavedViewConflictException(
                     "stale saved view revision: expected " + expectedRevision + " but current is " + current.revision());
         }
@@ -235,6 +331,26 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
             statement.setString(5, version.status().name());
             statement.setString(6, version.recordedAt().toString());
             statement.executeUpdate();
+        }
+    }
+
+    /**
+     * Decoding is the only step that can fail because of what a row holds; everything else on the row is a plain
+     * column. A row whose definition cannot be decoded is returned as such, never dropped.
+     */
+    private SavedViewEntry readEntry(ResultSet result) throws SQLException {
+        try {
+            return new SavedViewEntry.Readable(readDefinition(result));
+        } catch (IllegalArgumentException | KnowledgeStoreException failure) {
+            String reason = failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
+            return new SavedViewEntry.Unreadable(
+                    SavedViewId.parse(result.getString("id")),
+                    result.getString("name"),
+                    result.getLong("revision"),
+                    SavedViewStatus.valueOf(result.getString("status")),
+                    Instant.parse(result.getString("created_at")),
+                    Instant.parse(result.getString("updated_at")),
+                    reason.length() > 300 ? reason.substring(0, 300) : reason);
         }
     }
 
@@ -296,7 +412,6 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
             throw new IllegalStateException("SQLite saved-view store is closed");
         }
     }
-
 
     @FunctionalInterface
     private interface SqlWork<T> {

@@ -1,6 +1,6 @@
 # Provider SDK — développer un plugin MORPHEUS
 
-Statut : **M22 candidate** — SDK API `1`.
+Statut : **M22 livré et intégré** — SDK API `1` ; ce document décrit le comportement actuel ; la preuve de qualification du jalon reste `docs/validation/VALIDATION_M22.md` (historique).
 
 MORPHEUS M22 permet de livrer un provider comme JAR externe sans modifier `morpheus-domain`, `morpheus-application` ni le launcher.
 
@@ -161,7 +161,18 @@ manifest provider.id == contentReader.providerId()
 
 Le handle `ProviderPluginActivation` expose le `SpecificationProvider` et le `SpecificationContentReader`. Il est `AutoCloseable` et ferme son classloader.
 
-Cette isolation évite que les dépendances propres à deux plugins soient mélangées. Elle **n’est pas un sandbox de sécurité**. Exécuter du code non fiable demanderait une frontière process/OS distincte, différée au-delà de M22.
+Cette isolation évite que les dépendances propres à deux plugins soient mélangées. Elle **n’est pas un sandbox de sécurité**.
+
+La frontière de processus, elle, existe depuis M22 : le probe s’exécute dans une JVM enfant tuable,
+à l’environnement réduit à une liste blanche, dont le sous-arbre est réapé. Ce qui n’existe pas — et
+n’est pas planifié — c’est une **sandbox du système d’exploitation**. Un plugin approuvé s’exécute
+sous le compte système MORPHEUS et dispose donc des mêmes droits fichiers et réseau que MORPHEUS. Le
+pin SHA-256 garantit que le code exécuté est exactement celui qui a été approuvé ; il ne dit rien de
+ce que ce code fait. Voir [ADR-0101](../adr/0101-external-code-is-trusted-code-not-sandboxed-code.md)
+pour le modèle de confiance complet, garanties et non-garanties.
+
+Pour exécuter du code tiers **non fiable**, isoler MORPHEUS ou le processus externe avec un
+conteneur, un job object ou un cgroup, sous un compte dédié de moindre privilège.
 
 ## 8. Probe, capabilities et lecture
 
@@ -221,6 +232,8 @@ Un plugin ne doit pas fabriquer une identité MORPHEUS à partir d’un simple c
 
 Pour les données normalisées, la provenance doit conserver le `ProviderId`, la source et l’évidence réellement observée. Le template M22 montre ce flux avec une `Specification`, une `Evidence` et une `Provenance`.
 
+La racine du projet publié (`ProjectSpecification.rootLocator`) n’est pas une source : c’est la racine du workspace que le lecteur a reçue, obtenue par `ProviderProjectRoot.locator(request.workspaceRoot())` (`com.morpheus.application.read`). La publication la compare caractère par caractère avec la racine sous laquelle le projet a été enregistré ; un lecteur qui publie le fichier qu’il a lu, ou la racine normalisée autrement, rend sa propre publication impossible (ADR-0028, amendement PRV-1). Les évidences et provenances, elles, nomment le fichier où elles ont été observées.
+
 ## 10. Test kit
 
 `morpheus-provider-testkit` fournit `ProviderPluginContractAssertions.verify(...)` et
@@ -238,8 +251,15 @@ Pour les données normalisées, la provenance doit conserver le `ProviderId`, la
 `verifyRead(...)` exerce ensuite `SpecificationContentReader.read(...)` sur le workspace fourni,
 en demandant toutes les `ReadCategory` : il vérifie que le `providerId` du résultat correspond aux
 métadonnées du plugin, qu'une lecture répétée sur le même workspace avec le même état de résolveur
-d'identité produit un résultat rigoureusement identique (déterminisme), et qu'un rapport est
-présent pour chaque catégorie demandée — y compris celles non supportées par le provider.
+d'identité produit un résultat rigoureusement identique (déterminisme), qu'un rapport est
+présent pour chaque catégorie demandée — y compris celles non supportées par le provider — et, quand un
+contenu est publié, que sa racine de projet vaut `ProviderProjectRoot.locator(...)` du workspace reçu
+(comparée en `SourceLocator`, la valeur que la publication stocke et compare, et non en `Path`).
+
+Le résolveur d'identité du test kit indexe par `EntityIdentityKey`, la clé du résolveur de production : deux
+triplets `(ProviderId, type, identifiant externe)` distincts reçoivent deux identités même si leur concaténation
+coïncide (un identifiant peut contenir `|`), et un triplet qui ne diffère que par des blancs de bord reçoit la
+même identité, comme en production.
 
 Le provider `morpheus-provider-reference` consomme réellement les deux méthodes du test kit.
 

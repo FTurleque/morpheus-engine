@@ -1,8 +1,11 @@
 package com.morpheus.application.policy;
 
 import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.application.composition.CompositionEntityType;
+import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationState;
+import com.morpheus.application.quality.CoverageRatioStatus;
 import com.morpheus.application.quality.QualityReportMetrics;
 import com.morpheus.application.quality.QualityReportService;
 import com.morpheus.application.query.ConstraintEvaluationQueryService;
@@ -27,16 +30,19 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
     private final ChangeTransitionEvaluationService lifecycle;
     private final QualityReportService quality;
     private final QueryExecutionService queries;
+    private final CompositionQueryService compositions;
 
     public DefaultPolicyFactResolver(
             ConstraintEvaluationQueryService constraints,
             ChangeTransitionEvaluationService lifecycle,
             QualityReportService quality,
-            QueryExecutionService queries) {
+            QueryExecutionService queries,
+            CompositionQueryService compositions) {
         this.constraints = Objects.requireNonNull(constraints, "constraints");
         this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
         this.quality = Objects.requireNonNull(quality, "quality");
         this.queries = Objects.requireNonNull(queries, "queries");
+        this.compositions = Objects.requireNonNull(compositions, "compositions");
     }
 
     @Override
@@ -55,17 +61,26 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
         if (!(scope instanceof PolicyScope.Project project)) {
             return PolicyEvaluation.Fact.notApplicable("constraint guard requires project scope");
         }
+        int budget = PolicyBudgets.MAX_CONSTRAINT_EVALUATIONS_PER_FACT;
         int offset = 0;
         boolean unknown = false;
         List<String> evidence = new ArrayList<>();
         while (true) {
+            int limit = Math.min(PageRequest.MAX_LIMIT, budget - evidence.size() + 1);
             var page = constraints.activeEvaluations(
-                    project.projectId(), config.changeId(), config.targetState(), new PageRequest(offset, PageRequest.MAX_LIMIT));
+                    project.projectId(), config.changeId(), config.targetState(), new PageRequest(offset, limit));
             if (page.isEmpty()) {
                 return PolicyEvaluation.Fact.unknown("no ACTIVE snapshot is available for constraint evaluation", List.of());
             }
             var value = page.orElseThrow();
             for (var evaluation : value.items()) {
+                if (evidence.size() == budget) {
+                    return PolicyEvaluation.Fact.unknown(
+                            "EVALUATION_BUDGET_REACHED:" + budget
+                                    + " constraints observed without an explicit blocking constraint; the rest of change "
+                                    + config.changeId() + " was not observed",
+                            evidence);
+                }
                 evidence.add("constraint:" + evaluation.constraintId());
                 if (evaluation.state() == ConstraintEvaluationState.BLOCKING) {
                     return PolicyEvaluation.Fact.fail(
@@ -119,6 +134,24 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
             return PolicyEvaluation.Fact.unknown("no ACTIVE snapshot is available for quality evaluation", List.of());
         }
         QualityReportMetrics metrics = report.orElseThrow().metrics();
+        Optional<String> emptyPopulation = switch (config.metric()) {
+            case REQUIREMENT_COVERAGE_PERCENT -> undefined(metrics.requirementCoverageStatus(), "CURRENT requirement");
+            case TASK_COVERAGE_PERCENT -> undefined(metrics.taskCoverageStatus(), "implementation task");
+            case FINDINGS, ORPHAN_REQUIREMENTS, UNCOVERED_TASKS, CHANGES, DECISIONS, EXTERNAL_REFERENCES ->
+                    Optional.empty();
+        };
+        if (emptyPopulation.isPresent()) {
+            return PolicyEvaluation.Fact.unknown(
+                    "quality metric " + config.metric() + " is undefined: the ACTIVE snapshot has no "
+                            + emptyPopulation.orElseThrow(),
+                    List.of("quality:active-snapshot"));
+        }
+        Optional<String> duplicated = duplicatedPopulation(project, config.metric());
+        if (duplicated.isPresent()) {
+            return PolicyEvaluation.Fact.unknown(
+                    "quality metric " + config.metric() + " is undefined: the composed ACTIVE snapshot " + duplicated.orElseThrow(),
+                    List.of("quality:active-snapshot", "composition:active-snapshot"));
+        }
         double actual = switch (config.metric()) {
             case FINDINGS -> metrics.totalFindings();
             case ORPHAN_REQUIREMENTS -> metrics.orphanRequirements();
@@ -135,6 +168,41 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
                 actual,
                 "quality metric " + config.metric() + "=" + actual + " " + config.comparison() + " " + config.threshold(),
                 List.of("quality:active-snapshot"));
+    }
+
+    /**
+     * A coverage ratio over an empty population is not a measurement; {@link QualityReportMetrics} decides which is
+     * which, and this resolver only names the population for the reason. Counts are left alone: zero orphans among
+     * zero requirements is a true zero.
+     */
+    private static Optional<String> undefined(CoverageRatioStatus status, String population) {
+        return status == CoverageRatioStatus.MEASURED ? Optional.empty() : Optional.of(population);
+    }
+
+    /**
+     * A ratio is a measurement only over a population that is counted once. A multi-provider composition publishes
+     * each provider's entity separately, so a logical key observed by two providers is in the denominator twice and
+     * the ratio is computed on a population known to be wrong. The composition state says which entity types carry
+     * such duplicates; a ratio over one of them is UNKNOWN rather than a number. Counts stay counts: they say how
+     * many entities are published, which is true.
+     */
+    private Optional<String> duplicatedPopulation(PolicyScope.Project project, PolicyRule.QualityMetric metric) {
+        CompositionEntityType type = switch (metric) {
+            case REQUIREMENT_COVERAGE_PERCENT -> CompositionEntityType.REQUIREMENT;
+            case TASK_COVERAGE_PERCENT -> CompositionEntityType.TASK;
+            case FINDINGS, ORPHAN_REQUIREMENTS, UNCOVERED_TASKS, CHANGES, DECISIONS, EXTERNAL_REFERENCES -> null;
+        };
+        if (type == null) {
+            return Optional.empty();
+        }
+        return compositions.findActive(project.projectId())
+                .map(state -> state.conflicts().stream()
+                        .filter(conflict -> conflict.entityType().equals(type.name()))
+                        .map(conflict -> conflict.logicalKey())
+                        .distinct()
+                        .count())
+                .filter(keys -> keys > 0)
+                .map(keys -> "publishes " + keys + " duplicated " + type.name() + " key(s) observed by more than one provider");
     }
 
     private PolicyEvaluation.Fact query(PolicyScope scope, PolicyRule.QueryAssertion config) {

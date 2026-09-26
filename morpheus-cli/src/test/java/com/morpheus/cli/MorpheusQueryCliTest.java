@@ -19,6 +19,22 @@ class MorpheusQueryCliTest {
     @TempDir
     Path tempDirectory;
 
+    /** An empty --limit used to fall back to the default page size, exit code 0. */
+    @Test
+    void anEmptyOrBlankValueIsRefusedInsteadOfFallingBackToTheDefault() {
+        String project = ProjectSpecificationId.generate().toString();
+
+        Result empty = run("--json", "query", "execute", "--project", project, "--entity", "change", "--limit", "");
+        Result blank = run("--json", "query", "execute", "--project", project, "--entity", "change", "--filter", "  ");
+        Result omitted = run("--json", "query", "execute", "--project", project, "--entity", "change");
+
+        assertEquals(CliExitCode.USAGE.code(), empty.exitCode(), empty.err());
+        assertTrue(empty.err().contains("--limit requires a non-blank value"), empty.err());
+        assertEquals(CliExitCode.USAGE.code(), blank.exitCode(), blank.err());
+        assertTrue(blank.err().contains("--filter requires a non-blank value"), blank.err());
+        assertEquals(CliExitCode.SUCCESS.code(), omitted.exitCode(), omitted.err());
+    }
+
     @Test
     void executesProviderNeutralProjectQueryWithStructuredJson() {
         ProjectSpecificationId project = ProjectSpecificationId.generate();

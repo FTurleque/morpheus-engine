@@ -3,12 +3,16 @@ package com.morpheus.application.security;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExternalJarIntegrityTest {
     @TempDir
@@ -44,6 +48,51 @@ class ExternalJarIntegrityTest {
         } finally {
             Files.deleteIfExists(staged);
         }
+    }
+
+    @Test
+    void aStagedCopyIsNamedWithoutAnyPartOfThePin() throws Exception {
+        Path jar = temp.resolve("plugin.jar");
+        Files.writeString(jar, "trusted-content");
+        String trusted = ExternalJarIntegrity.sha256(jar);
+
+        Path staged = ExternalJarIntegrity.stageVerifiedCopy(jar, trusted);
+        try {
+            String name = staged.getFileName().toString();
+            assertTrue(name.startsWith("morpheus-trusted-plugin-"), name);
+            assertFalse(name.contains(trusted.substring(0, 12)), name);
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+    }
+
+    /**
+     * The explicit deletion by the caller stays the normal path. A JVM that exits before it runs -- normal exit
+     * included -- must still not leave the verified copy behind; only a crash or a kill can.
+     */
+    @Test
+    void aStagedCopyLeftOpenIsRemovedWhenItsJvmExits() throws Exception {
+        Path jar = temp.resolve("plugin.jar");
+        Files.writeString(jar, "trusted-content");
+        String trusted = ExternalJarIntegrity.sha256(jar);
+
+        String classPath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
+        Process child = new ProcessBuilder(
+                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                "-Djava.io.tmpdir=" + System.getProperty("java.io.tmpdir"),
+                "-cp", classPath,
+                StagedCopyLeftOpen.class.getName(),
+                jar.toString(),
+                trusted)
+                .redirectErrorStream(true)
+                .start();
+        String output = new String(child.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+        assertTrue(child.waitFor(30, TimeUnit.SECONDS), "the child JVM must exit");
+        assertEquals(0, child.exitValue(), output);
+
+        Path staged = Path.of(output.lines().reduce((first, last) -> last).orElseThrow());
+        assertTrue(staged.getFileName().toString().startsWith("morpheus-trusted-plugin-"), output);
+        assertFalse(Files.exists(staged), "the staged copy must be deleted when its JVM exits: " + staged);
     }
 
     @Test

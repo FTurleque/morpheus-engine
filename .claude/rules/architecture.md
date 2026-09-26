@@ -43,6 +43,82 @@ void applicationMustNotDependOnAdapters() {
 milestone (règles de sous-plateforme, ex. `m24/QueryPlatformArchitectureTest`). Ne jamais
 se contenter d'une convention non testée — si ArchUnit ne la vérifie pas, elle n'existe pas.
 
+## Règle ArchUnit ou assertion textuelle — cf. ADR-0103
+
+Beaucoup d'interdits de dépendance sont aujourd'hui écrits `assertFalse(<source lue>.contains("X"))`.
+**Ce n'est pas une forme dégradée à migrer par réflexe** : les deux mécanismes n'enforcent pas la
+même proposition, et aucun ne domine l'autre.
+
+| | `assertFalse(src.contains("X"))` | règle ArchUnit |
+|---|---|---|
+| Interdit | la **mention** de `X` | la **dépendance** compilée |
+| Dépendance indirecte, ou non épelée | ratée | **vue** |
+| Référence à une constante de compilation | **vue** | ratée — `javac` l'inline |
+| Portée | tout `src/main/java` | classpath de `morpheus-architecture-tests` |
+
+Avant de choisir, **écrire l'intention en une phrase**. « Aucune dépendance » → ArchUnit.
+« Ce nom ne doit pas apparaître ici » → texte. Dans le doute, **garder les deux**.
+
+Restent textuels par nature, ne pas les migrer :
+
+- les interdits de chaîne scannés sur tout le dépôt (`activateDefaultTyping(`,
+  `request.header("Authorization"`, `token + "|"`) — ArchUnit ne voit pas les fichiers hors classpath ;
+- les expressions de **câblage explicite** — aucune règle sur le bytecode ne dit quel argument un
+  constructeur a reçu ;
+- tout ce qui vise un `.yml`, `.ps1`, `.md`, `.iss`, `.sh`, `.xml`, `.tsv` : le texte y est la seule prise.
+
+Trois obligations avant d'accepter une règle migrée :
+
+1. **Vérifier que la classe visée est dans l'ensemble importé.** `morpheus-provider-reference` et
+   `morpheus-provider-testkit` n'y sont pas. Le garde-fou `archRule.failOnEmptyShould` est actif et
+   fait échouer une règle qui ne retient aucune classe — **ne pas le désactiver**.
+2. **Vérifier qu'un littéral n'est pas un préfixe de famille.** `contains("MorpheusRemote")` interdit
+   toute une famille de types, pas un seul.
+3. **Casser la règle pour prouver qu'elle tient** : introduire la violation, constater l'échec,
+   revenir en arrière. Une règle vide passe aussi.
+
+Découper par **intention**, jamais par classe de test : regrouper fait descendre le compte de
+méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testing.md`).
+
+**Généralisation décidée le 11/09/2026** (amendement d'ADR-0103), par groupe de capacité, jamais par
+famille entière :
+
+- les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, l'appel `sendResponseHeaders`,
+  `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
+  ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes`. Le deuxième a visé **le type**
+  `MorpheusHttpResponseWriter` jusqu'à DT-17 : vrai des treize routeurs que le serveur porte en champ, il
+  était faux des quatre autres, qui écrivaient déjà leur réponse et ne pouvaient satisfaire un interdit sur
+  le writer partagé qu'en gardant une copie privée de ses huit lignes — la règle nommait la bonne intention
+  et enforçait son contraire. Interdire **la mécanique** plutôt que le collaborateur dit ce que la méthode a
+  toujours annoncé ; le writer, lui, s'interdit **par groupe** (voir ci-dessous) ;
+- la frontière transport/JSON se règle par capacité dans `HttpRoutesTransportBoundaryArchitectureTest`, en
+  **trois groupes listés par nom** — `ROUTERS_WITHOUT_A_BODY`, `ROUTERS_THROUGH_THE_SHARED_DECODER`,
+  `ROUTERS_REGISTERING_THEIR_OWN_CONTEXT` : un nouveau routeur est refusé tant que personne
+  ne l'a classé, et `theClassificationRefusesAnUnclassifiedADoublyClassifiedAndAVanishedRouter` le prouve.
+  Le troisième groupe porte une **règle de dépendance**, pas une règle de configuration : ces routeurs
+  *doivent* dépendre de `MorpheusHttpRequestDecoder` **et de `MorpheusHttpResponseWriter`**, et ne dépendent
+  ni de `tools.jackson..`, ni d'`HttpRequestBodyReader`, ni de `CanonicalJsonSerializer` (les volets Jackson
+  et sérialiseur gardent leur doublon textuel, ces classes déclarant des constantes inlinables ; le décodeur,
+  le reader et le writer n'en déclarent aucune, donc la règle seule suffit). Le writer est **exigé** ici et
+  **interdit** dans les deux autres groupes : depuis DT-17 c'est une propriété de groupe, jamais de famille.
+  Le troisième groupe s'est appelé « à `JsonMapper` propre » puis « qui écrit sa propre réponse » : les deux
+  noms décrivaient une duplication depuis supprimée (DT-16, puis DT-17). Il est nommé pour ce qui reste vrai —
+  ces quatre routeurs enregistrent leur propre contexte HTTP au lieu d'être portés en champ par le serveur.
+  La règle de configuration existe toujours mais elle est **transverse, pas liée à un groupe** :
+  `everyApiJsonMapperIsStrictAboutUnknownPropertiesAndTrailingTokens` exige les deux features de
+  désérialisation stricte de **tout** `JsonMapper.builder()` de `morpheus-api` — depuis DT-16 elle ne trouve
+  plus qu'un seul site, le décodeur. `MorpheusHttpServer` n'est la frontière d'aucun groupe : ne l'interdire
+  nulle part. Depuis DT-17 tout routeur qui le mentionne en dépend aussi — les quatre du troisième groupe
+  construisent ses records publics d'enveloppe, en plus d'emprunter `API_PREFIX` que `javac` inline ; avant
+  DT-17 quatre des six mentions étaient la constante seule, invisible à toute règle de bytecode ;
+
+  > Rien ne compare cette description à la classe qu'elle décrit. Ces lignes ont menti d'une révision entière
+  > après DT-16 (constat O-3 de l'audit du 16/09/2026) : elles annonçaient un groupe « à `JsonMapper` propre »
+  > supprimé depuis, et une règle de configuration là où c'est une règle de dépendance. **Relire la classe avant
+  > de modifier ce paragraphe** — les noms de constantes ci-dessus sont la seule prise fiable.
+- les assertions visant des cibles sans famille (services, plomberie `LocalHttp*`, serveur remote) **ne
+  migrent pas**.
+
 ## JAMAIS — interdits enforced par ArchUnit
 
 ### `com.morpheus.domain..` ne doit dépendre de rien de tout ça

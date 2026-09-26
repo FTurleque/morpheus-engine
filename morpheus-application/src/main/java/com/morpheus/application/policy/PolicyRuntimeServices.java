@@ -1,5 +1,6 @@
 package com.morpheus.application.policy;
 
+import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessService;
@@ -9,6 +10,7 @@ import com.morpheus.application.quality.RequirementQualityService;
 import com.morpheus.application.quality.TaskQualityService;
 import com.morpheus.application.query.ConstraintEvaluationQueryService;
 import com.morpheus.application.query.dsl.QueryExecutionService;
+import com.morpheus.application.composition.CompositionStateStore;
 import com.morpheus.application.store.ExternalReferenceStore;
 import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.application.store.PortfolioStore;
@@ -48,7 +50,8 @@ public record PolicyRuntimeServices(PolicyPackService registry, PolicyEvaluation
             TraceabilityStore traceability,
             ExternalReferenceStore externalReferences,
             PortfolioStore portfolios,
-            PolicyPackStore policies) {
+            PolicyPackStore policies,
+            CompositionStateStore compositions) {
         QueryExecutionService queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
         ConstraintEvaluationQueryService constraints = new ConstraintEvaluationQueryService(snapshots, content);
         ChangeTransitionEvaluationService lifecycle = new ChangeTransitionEvaluationService(
@@ -64,6 +67,8 @@ public record PolicyRuntimeServices(PolicyPackService registry, PolicyEvaluation
         return new PolicyRuntimeServices(
                 new PolicyPackService(policies),
                 new PolicyEvaluationService(
-                        policies, new DefaultPolicyFactResolver(constraints, lifecycle, quality, queries)));
+                        policies, new DefaultPolicyFactResolver(
+                                constraints, lifecycle, quality, queries,
+                                new CompositionQueryService(snapshots, compositions))));
     }
 }

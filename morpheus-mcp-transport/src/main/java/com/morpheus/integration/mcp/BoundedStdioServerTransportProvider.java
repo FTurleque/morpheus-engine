@@ -4,6 +4,7 @@ import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.TypeRef;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCMessage;
+import io.modelcontextprotocol.spec.McpSchema.JSONRPCResponse;
 import io.modelcontextprotocol.spec.McpServerSession;
 import io.modelcontextprotocol.spec.McpServerTransport;
 import io.modelcontextprotocol.spec.McpServerTransportProvider;
@@ -11,8 +12,6 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -26,6 +25,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -36,10 +36,32 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>Frames are bounded as UTF-8 bytes before JSON deserialization. Inbound messages are handled sequentially so an
  * untrusted peer cannot build an aggregate inbound queue. Outbound messages are serialized before enqueueing and use a
  * fixed-capacity queue, which bounds both individual frames and aggregate pending output.</p>
+ *
+ * <p>The frame bound reacts differently in each direction. Inbound it is defensive: a peer past it is hostile or
+ * broken, and the session is failed closed. Outbound the frame is MORPHEUS's own, so overstepping it is a MORPHEUS
+ * defect the client must not pay for with its session: an oversized response is replaced by a
+ * {@value #RESPONSE_TOO_LARGE} error carrying the same id, and any other oversized message is refused to its local
+ * sender while the session stays open (ADR-0106).</p>
+ *
+ * <p>This transport is shared by the MORPHEUS server and by the MINOS and NEXUS clients, and it knows no tool
+ * catalog. Its own diagnostic therefore names the refusal and nothing else; the layer that owns a catalog may supply
+ * a fixed piece of guidance at construction, appended verbatim.</p>
+ *
+ * <p>Each handler must complete within {@link #DEFAULT_HANDLER_DEADLINE}. The deadline is a safety bound, not a
+ * service timeout: it sits far above any healthy handler, and a handler past it fails the session closed, because
+ * cancelling it frees the reader without proving the work stopped (ADR-0106, §4).</p>
  */
 public final class BoundedStdioServerTransportProvider implements McpServerTransportProvider {
     public static final int DEFAULT_MAX_FRAME_BYTES = 1024 * 1024;
     public static final int DEFAULT_MAX_PENDING_MESSAGES = 64;
+    public static final String RESPONSE_TOO_LARGE = "MCP_RESPONSE_TOO_LARGE";
+    /** Keeps the substitute error fixed-size whatever its owner supplies. */
+    public static final int MAX_GUIDANCE_CHARS = 256;
+    /**
+     * At least twice the longest peer request timeout an operator may configure, so a legitimate handler waiting on
+     * a peer at its maximum still ends by the peer's own bounded error, never by this bound (ADR-0106, 24/09/2026).
+     */
+    public static final Duration DEFAULT_HANDLER_DEADLINE = Duration.ofMinutes(4);
 
     private static final System.Logger LOGGER =
             System.getLogger(BoundedStdioServerTransportProvider.class.getName());
@@ -49,8 +71,11 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
     private final OutputStream outputStream;
     private final int maxFrameBytes;
     private final int maxPendingMessages;
+    private final String oversizedResponseGuidance;
+    private final Duration handlerDeadline;
     private final AtomicBoolean closing = new AtomicBoolean(false);
     private final AtomicBoolean initialized = new AtomicBoolean(false);
+    private final AtomicBoolean failedClosed = new AtomicBoolean(false);
     private final CountDownLatch terminated = new CountDownLatch(1);
 
     private final AtomicReference<McpServerSession> session = new AtomicReference<>();
@@ -71,6 +96,34 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
             OutputStream outputStream,
             int maxFrameBytes,
             int maxPendingMessages) {
+        this(jsonMapper, inputStream, outputStream, maxFrameBytes, maxPendingMessages, "");
+    }
+
+    /**
+     * @param oversizedResponseGuidance what a client should do instead when a response overflows the frame, from the
+     *                                  layer that knows the tools; empty for none. At most {@value #MAX_GUIDANCE_CHARS}
+     *                                  characters, so the substitute error keeps a fixed bound.
+     */
+    public BoundedStdioServerTransportProvider(
+            McpJsonMapper jsonMapper,
+            InputStream inputStream,
+            OutputStream outputStream,
+            int maxFrameBytes,
+            int maxPendingMessages,
+            String oversizedResponseGuidance) {
+        this(jsonMapper, inputStream, outputStream, maxFrameBytes, maxPendingMessages, oversizedResponseGuidance,
+                DEFAULT_HANDLER_DEADLINE);
+    }
+
+    /** @param handlerDeadline the safety bound on one handler; production uses {@link #DEFAULT_HANDLER_DEADLINE}. */
+    public BoundedStdioServerTransportProvider(
+            McpJsonMapper jsonMapper,
+            InputStream inputStream,
+            OutputStream outputStream,
+            int maxFrameBytes,
+            int maxPendingMessages,
+            String oversizedResponseGuidance,
+            Duration handlerDeadline) {
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
         this.inputStream = Objects.requireNonNull(inputStream, "inputStream");
         this.outputStream = Objects.requireNonNull(outputStream, "outputStream");
@@ -78,6 +131,16 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         if (maxPendingMessages < 1) throw new IllegalArgumentException("maxPendingMessages must be positive");
         this.maxFrameBytes = maxFrameBytes;
         this.maxPendingMessages = maxPendingMessages;
+        this.oversizedResponseGuidance =
+                Objects.requireNonNull(oversizedResponseGuidance, "oversizedResponseGuidance");
+        if (oversizedResponseGuidance.length() > MAX_GUIDANCE_CHARS) {
+            throw new IllegalArgumentException(
+                    "oversizedResponseGuidance must not exceed " + MAX_GUIDANCE_CHARS + " characters");
+        }
+        this.handlerDeadline = Objects.requireNonNull(handlerDeadline, "handlerDeadline");
+        if (handlerDeadline.isNegative() || handlerDeadline.isZero()) {
+            throw new IllegalArgumentException("handlerDeadline must be positive");
+        }
     }
 
     // java:S1181 catches Error deliberately: the transport's two worker executors exist before the factory runs,
@@ -166,6 +229,15 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         return terminated.await(timeout.toMillis(), TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * Whether the session was failed closed rather than ended by EOF or by a requested stop. Only the outcome is
+     * exposed, never the cause: the cause may be peer-controlled, and it has already been logged through
+     * {@link McpDiagnosticRedactor}.
+     */
+    public boolean terminatedInFailure() {
+        return failedClosed.get();
+    }
+
     private final class BoundedSessionTransport implements McpServerTransport {
         private final ArrayBlockingQueue<OutboundFrame> outboundQueue = new ArrayBlockingQueue<>(maxPendingMessages);
         private final Scheduler inboundScheduler = Schedulers.fromExecutorService(
@@ -184,6 +256,8 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
                 final OutboundFrame frame;
                 try {
                     frame = encode(message);
+                } catch (OutboundMessageRefusedException refused) {
+                    return Mono.error(refused);
                 } catch (IOException failure) {
                     failClosed(failure);
                     return Mono.error(failure);
@@ -221,9 +295,9 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
 
         private void readLoop() {
             try {
-                BufferedInputStream input = new BufferedInputStream(inputStream);
+                BoundedStdioLineReader frames = new BoundedStdioLineReader(inputStream);
                 while (!closing.get()) {
-                    String line = readUtf8LineBounded(input, maxFrameBytes);
+                    String line = frames.readLine(maxFrameBytes);
                     if (line == null || closing.get()) break;
                     JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(jsonMapper, line);
                     handleSequentially(message);
@@ -248,7 +322,12 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
             activeHandler.set(future);
             if (closing.get()) future.cancel(true);
             try {
-                future.get();
+                future.get(handlerDeadline.toNanos(), TimeUnit.NANOSECONDS);
+            } catch (TimeoutException expired) {
+                // Answering an error and reading on would let a handler that ignores the interrupt write a second
+                // response for the same id later; the sequential guarantee is already broken, so the session ends.
+                future.cancel(true);
+                throw new HandlerDeadlineExceededException(handlerDeadline);
             } catch (CancellationException cancelled) {
                 if (!closing.get()) throw cancelled;
             } catch (ExecutionException failure) {
@@ -282,13 +361,51 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
         }
 
         private OutboundFrame encode(JSONRPCMessage message) throws IOException {
+            byte[] encoded = serialize(message);
+            if (encoded.length <= maxFrameBytes) return new OutboundFrame(encoded);
+            if (message instanceof JSONRPCResponse response && response.id() != null) {
+                return responseTooLarge(response.id(), encoded.length);
+            }
+            // A notification or a server-initiated request has no pending client request to answer, so there is
+            // nothing to substitute on the wire. The session stays open, the trace names what was refused, and the
+            // local sender receives an explicit error instead of a silent success.
+            LOGGER.log(
+                    System.Logger.Level.WARNING,
+                    "MCP STDIO server refused an outbound {0} of {1} bytes past the {2}-byte frame bound",
+                    OutboundMessageRefusedException.kindOf(message),
+                    Integer.toString(encoded.length),
+                    Integer.toString(maxFrameBytes));
+            throw new OutboundMessageRefusedException(message, encoded.length, maxFrameBytes);
+        }
+
+        /**
+         * Answers the pending request with a fixed-shape error naming the overflow, followed by the owner's guidance
+         * when there is one. It carries sizes only, never a fragment of the content that overflowed. An error that
+         * cannot fit either -- only possible when the peer chose an id close to the bound itself -- raises the ordinary
+         * frame exception, which the caller fails closed.
+         */
+        private OutboundFrame responseTooLarge(Object id, int producedBytes) throws IOException {
+            String diagnostic = RESPONSE_TOO_LARGE + ": the response is " + producedBytes + " bytes, past the "
+                    + maxFrameBytes + "-byte MCP STDIO frame bound"
+                    + (oversizedResponseGuidance.isEmpty() ? "" : "; " + oversizedResponseGuidance);
+            byte[] error = serialize(JSONRPCResponse.error(
+                    id, new JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.INTERNAL_ERROR, diagnostic)));
+            if (error.length > maxFrameBytes) throw new MessageTooLargeException(maxFrameBytes);
+            LOGGER.log(
+                    System.Logger.Level.WARNING,
+                    "MCP STDIO server replaced a {0}-byte response with {1}; the frame bound is {2} bytes",
+                    Integer.toString(producedBytes),
+                    RESPONSE_TOO_LARGE,
+                    Integer.toString(maxFrameBytes));
+            return new OutboundFrame(error);
+        }
+
+        private byte[] serialize(JSONRPCMessage message) throws IOException {
             String json = jsonMapper.writeValueAsString(message)
                     .replace("\r\n", "\\n")
                     .replace("\n", "\\n")
                     .replace("\r", "\\n");
-            byte[] encoded = json.getBytes(StandardCharsets.UTF_8);
-            if (encoded.length > maxFrameBytes) throw new MessageTooLargeException(maxFrameBytes);
-            return new OutboundFrame(encoded);
+            return json.getBytes(StandardCharsets.UTF_8);
         }
 
         private void requestStop() {
@@ -299,6 +416,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
 
         private void failClosed(Throwable failure) {
             if (closing.compareAndSet(false, true)) {
+                failedClosed.set(true);
                 LOGGER.log(
                         System.Logger.Level.WARNING,
                         "MCP STDIO server transport failed: {0}",
@@ -340,29 +458,6 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
             inputStream.close();
         } catch (IOException ignored) {
             // Closing stdin is best-effort cleanup used to unblock a pending read.
-        }
-    }
-
-    static String readUtf8LineBounded(InputStream input, int maxBytes) throws IOException {
-        Objects.requireNonNull(input, "input");
-        if (maxBytes < 1) throw new IllegalArgumentException("maxBytes must be positive");
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream(Math.min(maxBytes, 8192));
-        int next;
-        while ((next = input.read()) != -1) {
-            if (next == '\n') break;
-            if (buffer.size() >= maxBytes) throw new MessageTooLargeException(maxBytes);
-            buffer.write(next);
-        }
-        if (next == -1 && buffer.size() == 0) return null;
-        byte[] bytes = buffer.toByteArray();
-        int length = bytes.length;
-        if (length > 0 && bytes[length - 1] == '\r') length--;
-        return StrictUtf8.decode(bytes, length);
-    }
-
-    static final class MessageTooLargeException extends IOException {
-        private MessageTooLargeException(int maximum) {
-            super("MCP STDIO frame exceeds " + maximum + " bytes");
         }
     }
 }

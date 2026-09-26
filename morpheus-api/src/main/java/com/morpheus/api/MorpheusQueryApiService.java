@@ -26,6 +26,7 @@ import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
 
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Objects;
 
 /** HTTP-facing M24 adapter; parsing and persistence wiring only, never query business semantics. */
@@ -144,7 +145,7 @@ public final class MorpheusQueryApiService {
     }
 
     private QueryScope scope(String kind, String id) {
-        String normalized = requireText(kind, "scopeKind").toUpperCase();
+        String normalized = requireText(kind, "scopeKind").toUpperCase(Locale.ROOT);
         String scopeId = requireText(id, "scopeId");
         return switch (normalized) {
             case "PROJECT" -> new ProjectQueryScope(ProjectSpecificationId.parse(scopeId));
@@ -155,7 +156,7 @@ public final class MorpheusQueryApiService {
 
     private QueryExportFormat format(String raw) {
         try {
-            return QueryExportFormat.valueOf(requireText(raw, "format").toUpperCase());
+            return QueryExportFormat.valueOf(requireText(raw, "format").toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException("format must be JSON, CSV or MARKDOWN");
         }

@@ -4,6 +4,14 @@ Statut : **Proposition C0 — à valider**
 
 Date : 22 juillet 2026
 
+> **Notice historique.** La ligne `Statut` ci-dessus est conservée telle qu'elle a été écrite : elle décrit
+> le cadrage C0 au moment où il a été établi, et n'énonce pas un état courant. **C0 à M14 sont validés et
+> intégrés** — le vocabulaire prospectif de ce document (`proposition`, `à valider`, `candidat`) ne doit donc
+> pas être lu comme une question encore ouverte. Les ADR acceptées, contrats machine, validations et roadmaps
+> ultérieures raffinent ce cadrage sans réécrire cette preuve historique. Pour l'état courant, voir
+> [`../governance/ROADMAP.md`](../governance/ROADMAP.md) ; pour la politique d'interprétation des documents historiques,
+> [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
+
 Ce document définit le cycle de vie conceptuel d'un `ChangeProposal`.
 
 > Le cycle de vie décrit l'avancement d'un changement. Il est orthogonal à l'état temporel `CURRENT / PROPOSED / HISTORICAL` et à la résolution `RESOLVED / ...`.

@@ -5,6 +5,7 @@ import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyEvaluation;
 import com.morpheus.application.policy.PolicyEvaluationService;
 import com.morpheus.application.policy.PolicyIds;
+import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyRule;
 import com.morpheus.application.policy.PolicyScope;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 
@@ -98,6 +100,39 @@ class PolicyPackContractTest {
         assertEquals(auditBefore, service.audit(definition.id()).size());
     }
 
+    @Test
+    void updateAfterBackwardWallClockStepIsAcceptedWithoutRewindingRevisionTime() {
+        Instant createdAt = Instant.parse("2026-07-29T10:00:00Z");
+        SteppableClock clock = new SteppableClock(createdAt);
+        PolicyPackService service = new PolicyPackService(new MemoryPolicyPackStore(), clock);
+        var first = service.create("Governance", List.of(rule()), "alice", "initial policy");
+
+        clock.set(createdAt.minusMillis(1_500));
+        var second = service.update(first.id(), 1, "Governance v2", List.of(rule()), "alice", "tighten policy");
+        clock.set(createdAt.minusSeconds(30));
+        var third = service.update(first.id(), 2, "Governance v3", List.of(rule()), "alice", "tighten again");
+
+        assertEquals(2, second.revision());
+        assertEquals(createdAt, second.createdAt());
+        assertEquals(createdAt, second.updatedAt());
+        assertEquals(3, third.revision());
+        assertEquals(createdAt, third.updatedAt());
+
+        clock.set(createdAt.plusSeconds(60));
+        var fourth = service.update(first.id(), 3, "Governance v4", List.of(rule()), "alice", "clock recovered");
+        assertEquals(createdAt.plusSeconds(60), fourth.updatedAt());
+    }
+
+    @Test
+    void persistedDefinitionWhoseUpdateTimePrecedesCreationStaysRejected() {
+        Instant createdAt = Instant.parse("2026-07-29T10:00:00Z");
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new PolicyPack.Definition(
+                PolicyIds.PackId.generate(), "Corrupt", 2, 2, createdAt, createdAt.minusNanos(1)));
+
+        assertEquals("updatedAt must not precede createdAt", failure.getMessage());
+    }
+
     private PolicyRule rule() {
         return new PolicyRule(
                 PolicyIds.RuleId.generate(),
@@ -105,5 +140,32 @@ class PolicyPackContractTest {
                 PolicyRule.Kind.CONSTRAINT_GUARD,
                 PolicyRule.Severity.BLOCKER,
                 new PolicyRule.ConstraintGuard(ChangeId.generate(), ChangeLifecycleState.IMPLEMENTING));
+    }
+
+    private static final class SteppableClock extends Clock {
+        private Instant instant;
+
+        private SteppableClock(Instant instant) {
+            this.instant = instant;
+        }
+
+        private void set(Instant next) {
+            instant = next;
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return Clock.fixed(instant, zone);
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
     }
 }

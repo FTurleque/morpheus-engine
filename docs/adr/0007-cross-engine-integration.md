@@ -1,6 +1,6 @@
 # ADR-0007 — Les intégrations cross-engine utilisent des contrats explicites et découplés
 
-- Statut : **Proposée — à valider pendant C0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Portée : frontières MORPHEUS / MINOS / NEXUS / JARVIS
 

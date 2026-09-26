@@ -10,16 +10,14 @@ import com.morpheus.domain.reference.ExternalReference;
 import com.morpheus.domain.reference.ExternalReferenceId;
 
 import java.io.PrintStream;
-import java.nio.file.Path;
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
 
 /** Additive M12 CLI surface. Business resolution remains in application services. */
 final class MorpheusExternalIntegrationCli {
@@ -73,7 +71,8 @@ final class MorpheusExternalIntegrationCli {
             out.println("state=" + status.state());
             out.println("configured=" + status.configured());
             out.println("message=" + status.message());
-            status.details().forEach((key, value) -> out.println(key + "=" + value));
+            // The status record freezes its details with Map.copyOf, whose iteration order is salted per JVM.
+            new TreeMap<>(status.details()).forEach((key, value) -> out.println(key + "=" + value));
         }
         return CliExitCode.SUCCESS.code();
     }
@@ -84,6 +83,11 @@ final class MorpheusExternalIntegrationCli {
         }
         String subcommand = parsed.tokens().getFirst();
         Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+        options.rejectUnknown(switch (subcommand) {
+            case "list" -> Set.of("project", "owner");
+            case "resolve" -> Set.of("project", "reference");
+            default -> throw new IllegalArgumentException("unknown external-references subcommand: " + subcommand);
+        });
         try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
             if (runtime.snapshots.findProject(projectId).isEmpty()) {
@@ -105,7 +109,6 @@ final class MorpheusExternalIntegrationCli {
             Options options,
             boolean jsonOutput,
             PrintStream out) {
-        options.rejectUnknown(Set.of("project", "owner"));
         DomainIdentity ownerId = DomainIdentity.parse(options.required("owner"));
         List<ExternalReference> references = service.listActive(projectId, ownerId)
                 .orElseThrow(() -> new IllegalStateException("project has no ACTIVE snapshot: " + projectId));
@@ -127,7 +130,6 @@ final class MorpheusExternalIntegrationCli {
             Options options,
             boolean jsonOutput,
             PrintStream out) {
-        options.rejectUnknown(Set.of("project", "reference"));
         ExternalReferenceId referenceId = ExternalReferenceId.parse(options.required("reference"));
         var result = service.resolveActive(projectId, referenceId)
                 .orElseThrow(() -> new IllegalStateException("project has no ACTIVE snapshot: " + projectId));
@@ -200,33 +202,15 @@ final class MorpheusExternalIntegrationCli {
 
     private record Parsed(boolean json, CliLayout layout, String command, List<String> tokens) {
         private static Parsed parse(String[] args, Map<String, String> environment, Properties properties) {
-            boolean json = false;
-            Optional<Path> data = Optional.empty();
-            Optional<Path> config = Optional.empty();
-            Optional<Path> database = Optional.empty();
-            List<String> remaining = new ArrayList<>();
-            for (int index = 0; index < args.length; index++) {
-                String token = args[index];
-                switch (token) {
-                    case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    default -> remaining.add(token);
-                }
-            }
+            GlobalArgs.Parsed global = GlobalArgs.parse(args);
+            List<String> remaining = global.remaining();
             if (remaining.isEmpty()) {
                 throw new IllegalArgumentException("external integration command is required");
             }
-            CliLayout layout = CliLayout.resolve(data, config, database, environment, properties);
-            return new Parsed(json, layout, remaining.getFirst(), List.copyOf(remaining.subList(1, remaining.size())));
-        }
-
-        private static String requireValue(String[] args, int index, String option) {
-            if (index >= args.length || args[index].startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return args[index];
+            CliLayout layout = CliLayout.resolve(
+                    global.dataDirectory(), global.configDirectory(), global.databasePath(), environment, properties);
+            return new Parsed(
+                    global.json(), layout, remaining.getFirst(), List.copyOf(remaining.subList(1, remaining.size())));
         }
     }
 
@@ -257,10 +241,10 @@ final class MorpheusExternalIntegrationCli {
 
         String required(String key) {
             String value = values.get(key);
-            if (value == null || value.isBlank()) {
+            if (value == null) {
                 throw new IllegalArgumentException("--" + key + " is required");
             }
-            return value.trim();
+            return OptionValue.nonBlank("--" + key, value).trim();
         }
 
         void rejectUnknown(Set<String> allowed) {
@@ -269,6 +253,7 @@ final class MorpheusExternalIntegrationCli {
             if (!unknown.isEmpty()) {
                 throw new IllegalArgumentException("unknown options: " + unknown);
             }
+            new java.util.TreeMap<>(values).forEach((key, value) -> OptionValue.nonBlank("--" + key, value));
         }
     }
 }

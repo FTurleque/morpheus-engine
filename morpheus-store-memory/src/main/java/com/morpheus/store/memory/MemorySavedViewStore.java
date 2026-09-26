@@ -1,12 +1,17 @@
 package com.morpheus.store.memory;
 
+import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.application.query.dsl.QueryScope;
 import com.morpheus.application.query.saved.SavedViewConflictException;
 import com.morpheus.application.query.saved.SavedViewDefinition;
+import com.morpheus.application.query.saved.SavedViewEntry;
 import com.morpheus.application.query.saved.SavedViewId;
+import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.application.query.saved.SavedViewVersion;
+import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.SavedViewStore;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +31,10 @@ public final class MemorySavedViewStore implements SavedViewStore {
         if (definitions.containsKey(definition.id())) {
             throw new SavedViewConflictException("saved view already exists: " + definition.id());
         }
+        if (count(definition.query().scope()) >= QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE) {
+            throw new IllegalStateException(
+                    "saved view budget exceeded for scope: " + QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE);
+        }
         definitions.put(definition.id(), definition);
         history.put(definition.id(), new ArrayList<>(List.of(version)));
     }
@@ -36,11 +45,35 @@ public final class MemorySavedViewStore implements SavedViewStore {
     }
 
     @Override
-    public synchronized List<SavedViewDefinition> list(QueryScope scope) {
+    public synchronized List<SavedViewEntry> list(QueryScope scope) {
         return definitions.values().stream()
                 .filter(item -> item.query().scope().equals(scope))
                 .sorted()
+                .<SavedViewEntry>map(SavedViewEntry.Readable::new)
                 .toList();
+    }
+
+    @Override
+    public synchronized SavedViewEntry archive(SavedViewId id, long expectedRevision, Instant at) {
+        SavedViewDefinition current = definitions.get(id);
+        if (current == null) {
+            throw new EntityNotFoundException("unknown saved view: " + id);
+        }
+        if (current.status() != SavedViewStatus.ACTIVE) {
+            throw new IllegalStateException("saved view is archived: " + id);
+        }
+        if (current.revision() != expectedRevision) {
+            throw new SavedViewConflictException(
+                    "stale saved view revision: expected " + expectedRevision + " but current is " + current.revision());
+        }
+        Instant stamped = at.isBefore(current.updatedAt()) ? current.updatedAt() : at;
+        SavedViewDefinition replacement = new SavedViewDefinition(
+                id, current.name(), current.query(), expectedRevision + 1, SavedViewStatus.ARCHIVED,
+                current.createdAt(), stamped);
+        definitions.put(id, replacement);
+        history.computeIfAbsent(id, ignored -> new ArrayList<>()).add(new SavedViewVersion(
+                id, replacement.revision(), replacement.name(), replacement.query(), replacement.status(), stamped));
+        return new SavedViewEntry.Readable(replacement);
     }
 
     @Override
@@ -61,7 +94,7 @@ public final class MemorySavedViewStore implements SavedViewStore {
             SavedViewVersion version) {
         SavedViewDefinition current = definitions.get(id);
         if (current == null) {
-            throw new IllegalArgumentException("unknown saved view: " + id);
+            throw new EntityNotFoundException("unknown saved view: " + id);
         }
         if (current.revision() != expectedRevision) {
             throw new SavedViewConflictException(
@@ -69,6 +102,9 @@ public final class MemorySavedViewStore implements SavedViewStore {
         }
         if (!replacement.id().equals(id) || !version.id().equals(id)) {
             throw new IllegalArgumentException("saved view replacement identity mismatch");
+        }
+        if (!current.query().scope().equals(replacement.query().scope())) {
+            throw new IllegalArgumentException("saved view scope is immutable");
         }
         long nextRevision = expectedRevision + 1;
         if (replacement.revision() != nextRevision || version.revision() != nextRevision) {

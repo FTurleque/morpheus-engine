@@ -11,7 +11,6 @@ import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
-import com.morpheus.domain.temporal.TemporalState;
 import com.morpheus.domain.traceability.TraceabilityEntityKind;
 import com.morpheus.domain.traceability.TraceabilityEntityRef;
 
@@ -55,8 +54,7 @@ public final class RequirementQualityService {
     }
 
     private RequirementTraceabilityCoverage assessPublished(KnowledgeSnapshotMetadata snapshot) {
-        List<RequirementVersionRecord> currentRequirements = requirementStore.listRequirementVersions(snapshot.id()).stream()
-                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+        List<RequirementVersionRecord> currentRequirements = requirementStore.listCurrentRequirementVersions(snapshot.id()).stream()
                 .sorted(REQUIREMENT_ORDER)
                 .toList();
 

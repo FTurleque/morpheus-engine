@@ -7,13 +7,17 @@ import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.requirement.RequirementDeltaKind;
 import org.junit.jupiter.api.Test;
 
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpenSpecProjectContentReaderTest {
@@ -57,6 +61,48 @@ class OpenSpecProjectContentReaderTest {
         assertEquals(currentExpiration.id(), modifiedExpiration.requirementId());
         assertTrue(currentExpiration.statement().contains("30 minutes of inactivity"));
         assertTrue(modifiedExpiration.statement().orElseThrow().contains("remember-me session"));
+    }
+
+    @Test
+    void anAttributedFailureKeepsTheCategoryEverySurfaceMapsToAStatus() {
+        Path workspace = fixture("openspec-basic");
+        String attributed = "openspec/specs/auth-session/spec.md";
+
+        IllegalArgumentException invalid = assertThrows(IllegalArgumentException.class, () -> read(
+                workspace, failingWith(new IllegalArgumentException("rejected content"))));
+        assertEquals(attributed + ": rejected content", invalid.getMessage());
+
+        IllegalStateException unreadable = assertThrows(IllegalStateException.class, () -> read(
+                workspace, failingWith(new IllegalStateException("unreadable content"))));
+        assertEquals(attributed + ": unreadable content", unreadable.getMessage());
+
+        NoSuchFileException platform = new NoSuchFileException(
+                workspace.resolve("openspec/specs/auth-session/spec.md").toAbsolutePath().toString());
+        UncheckedIOException unchecked = assertThrows(UncheckedIOException.class, () -> read(
+                workspace, failingWith(new UncheckedIOException(platform))));
+        assertSame(platform, unchecked.getCause());
+        assertEquals(attributed + ": UncheckedIOException", unchecked.getMessage());
+    }
+
+    @Test
+    void aFailureThatIsNotTheFilesPassesThroughUnchangedAndUnattributed() {
+        RuntimeException defect = new ArithmeticException("integer overflow");
+        RuntimeException collaborator = new RuntimeException("identity store unavailable");
+
+        assertSame(defect, assertThrows(ArithmeticException.class, () -> read(
+                fixture("openspec-basic"), failingWith(defect))));
+        assertSame(collaborator, assertThrows(RuntimeException.class, () -> read(
+                fixture("openspec-basic"), failingWith(collaborator))));
+    }
+
+    private void read(Path workspace, EntityIdentityResolver resolver) {
+        new OpenSpecProjectContentReader().read(workspace, ProjectSpecificationId.generate(), resolver);
+    }
+
+    private static EntityIdentityResolver failingWith(RuntimeException failure) {
+        return (providerId, entityType, externalId) -> {
+            throw failure;
+        };
     }
 
     private Path fixture(String name) {

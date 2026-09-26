@@ -4,6 +4,7 @@ import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ProviderIngestionLimitException;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ReadCategory;
@@ -15,6 +16,7 @@ import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.decision.DesignDecision;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.provider.ProviderCapability;
@@ -24,7 +26,6 @@ import com.morpheus.domain.provider.ProviderProbeStatus;
 import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.requirement.RequirementDelta;
 import com.morpheus.domain.scenario.Scenario;
-import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.task.ImplementationTask;
 
@@ -113,7 +114,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         ProjectSpecification project = new ProjectSpecification(
                 request.projectId(),
                 displayName,
-                SourceLocator.file(root.toString()));
+                ProviderProjectRoot.locator(root));
 
         NormalizedProjectContent content = new NormalizedProjectContent(
                 project,
@@ -190,6 +191,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
                 OpenSpecRequirementDeltaReader.ReadResult deltas = deltaReader.read(
                         request.workspaceRoot(), identityResolver, budget);
                 state.requirementDeltas.addAll(deltas.requirementDeltas());
+                state.skippedRequirementDeltas = deltas.skippedRequirements();
                 state.evidence.addAll(deltas.evidence());
                 addDistinct(diagnostics, deltas.diagnostics());
             } catch (ProviderIngestionLimitException exception) {
@@ -282,6 +284,14 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             return ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0);
         }
         int count = state.requirementDeltas.size();
+        if (state.skippedRequirementDeltas > 0) {
+            return new ReadCategoryReport(
+                    category,
+                    ReadCategoryStatus.PARTIAL,
+                    count,
+                    List.of(DiagnosticCode.PARTIAL_INGESTION),
+                    Optional.of("at least one requirement lies outside any requirement delta section"));
+        }
         return ReadCategoryReport.of(
                 category,
                 count == 0 ? ReadCategoryStatus.ABSENT : ReadCategoryStatus.READ,
@@ -345,13 +355,19 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
     }
 
     private Diagnostic invalidSource(String group, RuntimeException exception) {
-        return Diagnostic.error(
+        Optional<String> source = exception instanceof OpenSpecSourceAttribution.AttributedFailure attributed
+                ? Optional.of(attributed.source())
+                : Optional.empty();
+        return new Diagnostic(
                 DiagnosticCode.INVALID_SOURCE,
-                "OpenSpec content reader failed for group " + group,
+                DiagnosticSeverity.ERROR,
+                "OpenSpec content reader failed for group " + group + ": "
+                        + OpenSpecSourceAttribution.relayable(exception),
                 Map.of(
                         "provider", providerId().value(),
                         "group", group,
-                        "exception", exception.getClass().getSimpleName()));
+                        "exception", OpenSpecSourceAttribution.failureType(exception)),
+                source);
     }
 
     private List<ReadCategory> ordered(Set<ReadCategory> categories) {
@@ -399,5 +415,6 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         private boolean changeFailed;
         private boolean deltaAttempted;
         private boolean deltaFailed;
+        private int skippedRequirementDeltas;
     }
 }

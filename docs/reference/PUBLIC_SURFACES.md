@@ -30,7 +30,7 @@ M22 ajoute deux capabilities explicites :
 ```text
 provider.plugins.discover
   CLI   provider-plugins discover
-  MCP   discover_provider_plugins
+  MCP   EXPLICITLY_NOT_EXPOSED
   HTTP local  GET /api/v1/provider-plugins/discover
 
 provider.plugins.probe
@@ -38,6 +38,8 @@ provider.plugins.probe
   MCP   EXPLICITLY_NOT_EXPOSED
   HTTP local  POST /api/v1/provider-plugins/probe
 ```
+
+La découverte MCP est volontairement absente : un client agentique ne doit pas pouvoir fournir un chemin arbitraire du filesystem local. Le code MCP conserve uniquement une implémentation désactivée par défaut, utilisable si une future configuration serveur fournit explicitement une racine de plugins ; cette forme utilise obligatoirement la projection `remoteDiscovery` sans chemin absolu.
 
 Elles n’ont pas la même portée d’exécution :
 
@@ -53,6 +55,7 @@ plugin discovery != plugin activation
 provider metadata != executable trust
 capability declaration != capability implementation proof
 plugin failure != core crash
+agent input != local filesystem authority
 ```
 
 Aucun répertoire de plugins n’est inspecté au démarrage CLI/MCP/HTTP.
@@ -67,6 +70,17 @@ provider.plugins.probe     POST -> ADMIN + sha256 obligatoire
 ```
 
 Le client remote ne peut pas choisir le répertoire de plugins ; celui-ci vient de la configuration serveur. Le workspace doit appartenir aux racines autorisées et le JAR est chargé depuis une copie privée dont le SHA-256 a été vérifié. Le manifeste machine-readable porte cette asymétrie dans la colonne `notes` : c’est un exemple volontaire de `surface parity != same transport shape`.
+
+## M25 — mutations de policy
+
+Les mutations de Policy Packs restent disponibles sur les surfaces qui disposent d’une autorisation adaptée à leur scope. `policy.override.remove` est volontairement `EXPLICITLY_NOT_EXPOSED` en MCP tant que le resolver MCP actuel, centré sur `ProjectSpecificationId`, ne peut pas autoriser de façon cohérente une mutation dont le scope peut être `PROJECT` ou `PORTFOLIO`.
+
+```text
+policy evaluation != policy mutation
+policy read != governance write
+```
+
+La suppression auditée d’un override reste disponible en CLI et HTTP ; elle ne doit pas réapparaître dans le catalogue MCP sans capability resolver couvrant explicitement les deux scopes.
 
 ## M26 — Control plane local/remote
 
@@ -93,23 +107,27 @@ server.restore        CLI offline uniquement + confirmation
 
 ## Asymétrie déclarée : update discovery
 
-`product.update-discovery` est disponible par invocation explicite :
+`product.update-discovery` est disponible en CLI par invocation explicite :
 
 ```text
 CLI  morpheus update-check --manifest URI_OR_PATH
-MCP  check_product_update(manifestUri)
+MCP  check_product_update (stub historique sans I/O, retourne une erreur)
 HTTP EXPLICITLY_NOT_EXPOSED
 ```
 
-L’absence HTTP est volontaire. Une route HTTP acceptant une URI distante fournie par le client élargirait inutilement la surface SSRF de l’API locale. Cette différence est donc un **choix contractuel explicite**, et non une divergence silencieuse.
+L’absence HTTP est volontaire. Une route HTTP acceptant une URI distante fournie par le client élargirait inutilement la surface SSRF de l’API locale. Le nom MCP historique est conservé comme stub sans lecture de fichier ni accès réseau. Ces différences sont donc des **choix contractuels explicites**, et non des divergences silencieuses.
 
-L’update discovery :
+L’update discovery CLI :
 
 - n’est jamais lancée au démarrage ;
 - ne télécharge pas l’artefact annoncé ;
 - n’installe ni ne remplace MORPHEUS ;
 - ne modifie aucun état métier ;
-- valide le SHA-256 annoncé dans le manifeste.
+- valide la forme du SHA-256 annoncé ;
+- exige pour un manifeste distant une référence d’attestation HTTPS ;
+- **ne vérifie pas cryptographiquement** cette attestation et ne constitue donc pas une décision de confiance éditeur.
+
+Toute future installation devra introduire une vérification cryptographique de provenance séparée avant utilisation de l’artefact.
 
 ## Version produit
 

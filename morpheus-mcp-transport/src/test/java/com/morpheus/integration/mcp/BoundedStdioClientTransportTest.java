@@ -2,7 +2,6 @@ package com.morpheus.integration.mcp;
 
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
@@ -11,9 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import reactor.core.publisher.Mono;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -22,13 +19,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -79,12 +76,79 @@ class BoundedStdioClientTransportTest {
         assertEquals("kept", environment.get("MCP_EXPLICIT_SETTING"));
     }
 
+    /**
+     * The only test that looks at what a real peer actually received, rather than calling sanitizeEnvironment with
+     * arguments of its own. A peer launched with no explicit environment must see nothing beyond the launch
+     * allowlist -- in particular nothing a third-party parameter object filled in by default.
+     */
+    @Test
+    void aPeerLaunchedWithoutExplicitEnvironmentReceivesOnlyTheLaunchAllowlist() throws Exception {
+        Path record = tempDir.resolve("peer-environment.txt");
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                peerLaunch(FixtureEnvironmentRecordingMcpPeer.class, record.toString()),
+                McpJsonDefaults.getMapper(),
+                4096);
+        try {
+            Set<String> received = recordedEnvironment(transport, record);
+            Set<String> beyondTheAllowlist = new TreeSet<>(received);
+            beyondTheAllowlist.removeAll(BoundedStdioClientTransport.SAFE_ENVIRONMENT_KEYS);
+
+            assertEquals(Set.of(), beyondTheAllowlist, "received: " + received);
+            assertTrue(received.contains("PATH"), "the launch allowlist itself must still reach the peer: " + received);
+        } finally {
+            transport.closeGracefully().block();
+        }
+    }
+
+    @Test
+    void anExplicitlyConfiguredVariableReachesThePeerAndNothingElseDoes() throws Exception {
+        Path record = tempDir.resolve("peer-explicit-environment.txt");
+        List<String> arguments = new ArrayList<>(peerArguments(FixtureEnvironmentRecordingMcpPeer.class));
+        arguments.add(record.toString());
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                new McpPeerLaunch(javaExecutable(), arguments, Map.of("MCP_EXPLICIT_SETTING", "kept")),
+                McpJsonDefaults.getMapper(),
+                4096);
+        try {
+            Set<String> received = recordedEnvironment(transport, record);
+            Set<String> beyondTheAllowlist = new TreeSet<>(received);
+            beyondTheAllowlist.removeAll(BoundedStdioClientTransport.SAFE_ENVIRONMENT_KEYS);
+
+            assertEquals(Set.of("MCP_EXPLICIT_SETTING"), beyondTheAllowlist, "received: " + received);
+        } finally {
+            transport.closeGracefully().block();
+        }
+    }
+
+    @Test
+    void aPeerLaunchNeedsACommandAndCopiesWhatItIsGiven() {
+        IllegalArgumentException blank = assertThrows(IllegalArgumentException.class,
+                () -> new McpPeerLaunch(" ", List.of(), Map.of()));
+        assertEquals("command must not be blank", blank.getMessage());
+
+        List<String> arguments = new ArrayList<>(List.of("-version"));
+        McpPeerLaunch launch = new McpPeerLaunch("java", arguments, Map.of());
+        arguments.add("--mutated-after-construction");
+        assertEquals(List.of("-version"), launch.arguments());
+    }
+
+    private Set<String> recordedEnvironment(BoundedStdioClientTransport transport, Path record) throws Exception {
+        transport.connect(message -> message).block();
+        BoundedWait.untilObserved("the peer to record its environment", Duration.ofSeconds(20),
+                BoundedWait.FILE_PUBLICATION_POLL, () -> Files.exists(record), published -> published);
+        Set<String> received = new TreeSet<>();
+        for (String key : Files.readAllLines(record)) {
+            if (!key.isBlank()) received.add(key.toUpperCase(Locale.ROOT));
+        }
+        return received;
+    }
+
     @Test
     void closesDescendantObservedBeforePeerParentExits() throws Exception {
         Path childPidFile = tempDir.resolve("mcp-child.pid");
         Path parentExitMarker = tempDir.resolve("mcp-parent-exit.pid");
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                peerParameters(
+                peerLaunch(
                         FixtureOrphaningMcpPeer.class,
                         childPidFile.toString(),
                         parentExitMarker.toString()),
@@ -96,12 +160,22 @@ class BoundedStdioClientTransportTest {
             childPid = awaitPublishedPid(childPidFile, Duration.ofSeconds(5));
             long parentPid = awaitPublishedPid(parentExitMarker, Duration.ofSeconds(5));
 
-            awaitCondition(Duration.ofSeconds(5), () -> !isAlive(parentPid));
+            BoundedWait.until(
+                    "the MCP parent process to exit, leaving its descendant orphaned",
+                    Duration.ofSeconds(5),
+                    BoundedWait.PROCESS_TRANSITION_POLL,
+                    () -> !isAlive(parentPid),
+                    () -> "parent " + parentPid + " alive=" + isAlive(parentPid));
             assertTrue(isAlive(childPid), "fixture descendant must still be alive after its MCP parent exits");
 
             transport.closeGracefully().block();
             long retainedChildPid = childPid;
-            awaitCondition(Duration.ofSeconds(5), () -> !isAlive(retainedChildPid));
+            BoundedWait.until(
+                    "the retained descendant to be terminated by closeGracefully",
+                    Duration.ofSeconds(5),
+                    BoundedWait.PROCESS_TRANSITION_POLL,
+                    () -> !isAlive(retainedChildPid),
+                    () -> "descendant " + retainedChildPid + " alive=" + isAlive(retainedChildPid));
         } finally {
             transport.closeGracefully().block();
             if (childPid > 0) {
@@ -122,7 +196,7 @@ class BoundedStdioClientTransportTest {
         Path childPidFile = tempDir.resolve("immediate-exit-child.pid");
         Path peerPidFile = tempDir.resolve("immediate-exit-peer.pid");
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                peerParameters(
+                peerLaunch(
                         FixtureImmediateExitOrphaningMcpPeer.class,
                         childPidFile.toString(),
                         peerPidFile.toString()),
@@ -150,7 +224,7 @@ class BoundedStdioClientTransportTest {
     @Test
     void aggregateInboundBudgetIncludesActiveHandlersAndFailsClosed() throws Exception {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                peerParameters(FixtureFloodingMcpPeer.class),
+                peerLaunch(FixtureFloodingMcpPeer.class),
                 McpJsonDefaults.getMapper(),
                 4096,
                 1);
@@ -164,6 +238,10 @@ class BoundedStdioClientTransportTest {
             assertTrue(firstHandlerStarted.await(2, TimeUnit.SECONDS));
             McpSchema.JSONRPCNotification outbound =
                     new McpSchema.JSONRPCNotification("notifications/test", Map.of("value", "probe"));
+            // java:S2925, category one of three: a bounded poll of external state. The condition is that the
+            // transport has observably closed, which it reports by throwing rather than by signalling, so the
+            // loop retries until it does and assertTimeoutPreemptively is the bound. BoundedWait is the wrong
+            // shape here: what is awaited is an exception, not a value a supplier could report.
             assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
                 while (true) {
                     try {
@@ -196,6 +274,62 @@ class BoundedStdioClientTransportTest {
         }
     }
 
+    /**
+     * ADR-0106, on the client side: an outbound frame is MORPHEUS's own, so overstepping the bound is a MORPHEUS
+     * defect and the peer must not pay for it. A client has no pending peer request to answer, so the only
+     * treatment is refusal to the local sender. The follow-up call is the proof that the peer is still alive and
+     * still reachable, not an assumption about it.
+     */
+    @Test
+    void anOversizedOutboundRequestIsRefusedWithoutKillingThePeer() {
+        BoundedStdioClientTransport transport = transport(4096);
+        McpSyncClient client = McpClient.sync(transport)
+                .requestTimeout(Duration.ofSeconds(5))
+                .build();
+        try {
+            client.initialize();
+            RuntimeException refused = assertThrows(RuntimeException.class, () -> client.callTool(
+                    CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_ECHO)
+                            .arguments(Map.of("value", "x".repeat(8192)))
+                            .build()));
+            assertTrue(causeChainMentions(refused, "exceeds the 4096-byte frame bound and was not sent"),
+                    () -> "the sender must be told why its request was refused: " + refused);
+
+            BoundedStdioClientTransport.State afterRefusal = transport.state();
+            assertEquals(BoundedStdioClientTransport.State.CONNECTED, afterRefusal,
+                    "an outbound refusal must neither fail nor close the transport");
+            var next = client.callTool(CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_ECHO)
+                    .arguments(Map.of("value", "peer-still-alive"))
+                    .build());
+            assertEquals("peer-still-alive", ((TextContent) next.content().getFirst()).text());
+        } finally {
+            client.closeGracefully();
+        }
+    }
+
+    @Test
+    void anInboundFrameOverTheBoundStillFailsClosed() throws Exception {
+        BoundedStdioClientTransport transport = transport(2048);
+        McpSyncClient client = McpClient.sync(transport)
+                .requestTimeout(Duration.ofSeconds(2))
+                .build();
+        try {
+            client.initialize();
+            assertThrows(RuntimeException.class, () -> client.callTool(
+                    CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_LARGE)
+                            .arguments(Map.of("size", 8192))
+                            .build()));
+            BoundedWait.until(
+                    "the transport to fail closed on an inbound frame past its bound",
+                    Duration.ofSeconds(5),
+                    BoundedWait.PROCESS_TRANSITION_POLL,
+                    () -> transport.state() == BoundedStdioClientTransport.State.FAILED,
+                    () -> "state=" + transport.state());
+        } finally {
+            client.closeGracefully();
+        }
+    }
+
     @Test
     void failsClosedWhenOutboundQueueCapacityIsExceeded() {
         BoundedStdioClientTransport transport = transport(1024, 1);
@@ -218,9 +352,9 @@ class BoundedStdioClientTransportTest {
 
     @Test
     void cleansUpSchedulersWhenPeerProcessCannotStart() {
-        ServerParameters parameters = ServerParameters.builder("morpheus-command-that-does-not-exist-20260822").build();
+        McpPeerLaunch launch = new McpPeerLaunch("morpheus-command-that-does-not-exist-20260822", List.of(), Map.of());
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                parameters, McpJsonDefaults.getMapper(), 1024);
+                launch, McpJsonDefaults.getMapper(), 1024);
 
         assertThrows(RuntimeException.class, () -> transport.connect(message -> message).block());
     }
@@ -238,7 +372,7 @@ class BoundedStdioClientTransportTest {
     @Test
     void handleErrorLineSurvivesThrowingStderrHandlerAndKeepsTransportUsable() throws Exception {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                peerParameters(FixtureStderrChattyMcpServer.class),
+                peerLaunch(FixtureStderrChattyMcpServer.class),
                 McpJsonDefaults.getMapper(),
                 4096);
         CountDownLatch handlerInvoked = new CountDownLatch(1);
@@ -263,70 +397,37 @@ class BoundedStdioClientTransportTest {
 
     @Test
     void rejectsNonPositiveTransportLimits() {
-        ServerParameters parameters = serverParameters();
+        McpPeerLaunch launch = serverLaunch();
 
         assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
-                parameters, McpJsonDefaults.getMapper(), 0, 1));
+                launch, McpJsonDefaults.getMapper(), 0, 1));
         assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
-                parameters, McpJsonDefaults.getMapper(), 1024, 0));
-    }
-
-    @Test
-    void acceptsFrameAtExactByteLimitAndStripsCrLfDelimiter() throws Exception {
-        String json = "{\"id\":1}";
-        byte[] line = (json + "\r\n").getBytes(StandardCharsets.UTF_8);
-
-        assertEquals(json, BoundedStdioClientTransport.readUtf8LineBounded(
-                new ByteArrayInputStream(line), json.getBytes(StandardCharsets.UTF_8).length + 1));
-    }
-
-    @Test
-    void rejectsFrameBeforeCreatingStringPastByteLimit() {
-        byte[] oversized = "12345\n".getBytes(StandardCharsets.UTF_8);
-
-        assertThrows(BoundedStdioClientTransport.MessageTooLargeException.class, () ->
-                BoundedStdioClientTransport.readUtf8LineBounded(new ByteArrayInputStream(oversized), 4));
-    }
-
-    @Test
-    void countsUtf8BytesRatherThanCharacters() {
-        byte[] multibyte = "é\n".getBytes(StandardCharsets.UTF_8);
-
-        assertThrows(BoundedStdioClientTransport.MessageTooLargeException.class, () ->
-                BoundedStdioClientTransport.readUtf8LineBounded(new ByteArrayInputStream(multibyte), 1));
-    }
-
-    @Test
-    void returnsNullForCleanEndOfStream() throws Exception {
-        assertNull(BoundedStdioClientTransport.readUtf8LineBounded(
-                new ByteArrayInputStream(new byte[0]), 16));
+                launch, McpJsonDefaults.getMapper(), 1024, 0));
     }
 
     private BoundedStdioClientTransport transport(int maxBytes) {
         return new BoundedStdioClientTransport(
-                serverParameters(),
+                serverLaunch(),
                 McpJsonDefaults.getMapper(),
                 maxBytes);
     }
 
     private BoundedStdioClientTransport transport(int maxBytes, int maxPendingMessages) {
         return new BoundedStdioClientTransport(
-                serverParameters(),
+                serverLaunch(),
                 McpJsonDefaults.getMapper(),
                 maxBytes,
                 maxPendingMessages);
     }
 
-    private ServerParameters serverParameters() {
-        return peerParameters(FixtureBoundedMcpServer.class);
+    private McpPeerLaunch serverLaunch() {
+        return peerLaunch(FixtureBoundedMcpServer.class);
     }
 
-    private ServerParameters peerParameters(Class<?> mainClass, String... extraArguments) {
+    private McpPeerLaunch peerLaunch(Class<?> mainClass, String... extraArguments) {
         List<String> arguments = new ArrayList<>(peerArguments(mainClass));
         arguments.addAll(List.of(extraArguments));
-        return ServerParameters.builder(javaExecutable())
-                .args(arguments.toArray(String[]::new))
-                .build();
+        return new McpPeerLaunch(javaExecutable(), arguments, Map.of());
     }
 
     private String javaExecutable() {
@@ -344,32 +445,32 @@ class BoundedStdioClientTransportTest {
         return List.of("-cp", testClasspath, mainClass.getName());
     }
 
-    private long awaitPublishedPid(Path path, Duration timeout) throws InterruptedException {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        while (true) {
-            if (Files.isRegularFile(path)) {
-                try {
-                    String published = Files.readString(path).trim();
-                    if (!published.isEmpty()) return Long.parseLong(published);
-                } catch (IOException | NumberFormatException transientPublicationRace) {
-                    // Files.writeString may make the entry visible before the PID bytes are observable.
-                }
-            }
-            if (System.nanoTime() >= deadline) {
-                throw new AssertionError("PID was not published within " + timeout + ": " + path.getFileName());
-            }
-            TimeUnit.MILLISECONDS.sleep(10);
+    private long awaitPublishedPid(Path path, Duration timeout) throws Exception {
+        return BoundedWait.untilObserved(
+                "the child process to publish its PID into " + path.getFileName(),
+                timeout,
+                BoundedWait.FILE_PUBLICATION_POLL,
+                () -> readPublishedPid(path),
+                published -> published > 0);
+    }
+
+    /** Returns 0 while the file is absent or half-written: publication is not atomic, so a partial read is normal. */
+    private long readPublishedPid(Path path) {
+        if (!Files.isRegularFile(path)) return 0L;
+        try {
+            String published = Files.readString(path).trim();
+            return published.isEmpty() ? 0L : Long.parseLong(published);
+        } catch (IOException | NumberFormatException transientPublicationRace) {
+            // Files.writeString may make the entry visible before the PID bytes are observable.
+            return 0L;
         }
     }
 
-    private void awaitCondition(Duration timeout, BooleanSupplier condition) throws InterruptedException {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() >= deadline) {
-                throw new AssertionError("condition was not satisfied within " + timeout);
-            }
-            TimeUnit.MILLISECONDS.sleep(10);
+    private static boolean causeChainMentions(Throwable failure, String fragment) {
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            if (current.getMessage() != null && current.getMessage().contains(fragment)) return true;
         }
+        return false;
     }
 
     private boolean isAlive(long pid) {

@@ -15,8 +15,12 @@ public final class MorpheusMcpToolCatalog {
     public static final long MAX_MAX_AGE_MINUTES = 525_600L;
 
     private final List<ToolDefinition> tools = List.of(
-            tool("get_current_specification", "Return the ACTIVE specification snapshot summary for one project.",
-                    schema(required("projectId"), props("projectId", stringId()))),
+            tool("get_current_specification",
+                    "Return the ACTIVE snapshot of one project: its identifiers and entity counts, and one page of its specifications, each with its full description.",
+                    schema(required("projectId"), props(
+                            "projectId", stringId(),
+                            "offset", integer(0, 1_000_000),
+                            "limit", integer(1, MAX_LIMIT)))),
             tool("find_requirements", "Find CURRENT requirements in the ACTIVE snapshot using deterministic lexical search.",
                     schema(required("projectId"), props(
                             "projectId", stringId(),

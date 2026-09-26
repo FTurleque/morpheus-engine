@@ -4,7 +4,7 @@ Statut : **M4 VALIDÉ ET INTÉGRÉ — 6/6 slices — 189/189 PASS — M5 autori
 
 Dernière mise à jour : 23 juillet 2026
 
-Ce document complète [`../ROADMAP.md`](../ROADMAP.md) et constitue la trace d'exécution finale de M4.
+Ce document complète [`../governance/ROADMAP.md`](../governance/ROADMAP.md) et constitue la trace d'exécution finale de M4.
 
 ---
 
@@ -400,7 +400,7 @@ Gate terminé le **23 juillet 2026 à 14:57:23 +02:00**.
 
 Warnings connus non bloquants : Xerial SQLite/JDK native-access et SLF4J NOP.
 
-Validation : [`../VALIDATION_M4.md`](../VALIDATION_M4.md).
+Validation : [`../validation/VALIDATION_M4.md`](../validation/VALIDATION_M4.md).
 
 ---
 

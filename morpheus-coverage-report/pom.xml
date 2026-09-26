@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.fturleque</groupId>
+        <artifactId>morpheus-engine</artifactId>
+        <version>1.2.1</version>
+    </parent>
+
+    <artifactId>morpheus-coverage-report</artifactId>
+    <packaging>jar</packaging>
+    <name>MORPHEUS Aggregate Coverage Report</name>
+
+    <!--
+      Compile/runtime dependencies contribute classes + sources + execution data to report-aggregate, and together
+      they are the population of the aggregate scale: every reactor module with classes under src/main/java,
+      verification tooling (store-memory, provider-synthetic, provider-testkit, provider-reference) included.
+      AggregateCoverageGateTest derives that set from the root POM and refuses a report whose modules differ, so a
+      module declared in the reactor must be declared here in compile scope as well.
+      The architecture-test module is deliberately test-scoped: its classes are not production coverage targets,
+      but its JaCoCo execution data must be merged because those tests execute production modules cross-module.
+    -->
+    <dependencies>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-domain</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-application</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-sdk</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-testkit</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-reference</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-openspec</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-markdown</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-synthetic</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-store-memory</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-store-sqlite</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-mcp-transport</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-integration-minos</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-integration-nexus</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-mcp</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-api</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-cli</artifactId><version>${project.version}</version></dependency>
+        <dependency>
+            <groupId>io.github.fturleque</groupId>
+            <artifactId>morpheus-architecture-tests</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>jacoco-report-aggregate</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report-aggregate</goal>
+                        </goals>
+                        <configuration>
+                            <includeCurrentProject>false</includeCurrentProject>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-test</id>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </execution>
+                    <!--
+                      Bound to verify so it runs after report-aggregate, and re-enabled because default-test is
+                      skipped for this module. It follows ${skipTests} rather than a literal false: pinning it
+                      made this the one execution `-DskipTests` could not skip, and the resulting failure blamed
+                      a missing JaCoCo report instead of the skip that removed it.
+                    -->
+                    <execution>
+                        <id>aggregate-coverage-gate</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <skipTests>${skipTests}</skipTests>
+                            <includes>
+                                <include>**/AggregateCoverageGateTest.java</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -30,17 +30,21 @@ if [[ ! -f "$RATCHETS" ]]; then
 fi
 TESTS_MINIMUM="$(read_ratchet testsMinimum)"
 ARCH_TESTS_MINIMUM="$(read_ratchet architectureTestsMinimum)"
-LINE_COVERAGE_MINIMUM="$(read_ratchet lineCoverageMinimum)"
-BRANCH_COVERAGE_MINIMUM="$(read_ratchet branchCoverageMinimum)"
+# Both scales are read so that a missing key fails here rather than in whichever gate happens to run first.
+# Only the aggregate pair is compared below: this validator concludes on the canonical measurement.
+PER_MODULE_LINE_COVERAGE_MINIMUM="$(read_ratchet perModuleLineCoverageMinimum)"
+PER_MODULE_BRANCH_COVERAGE_MINIMUM="$(read_ratchet perModuleBranchCoverageMinimum)"
+LINE_COVERAGE_MINIMUM="$(read_ratchet aggregateLineCoverageMinimum)"
+BRANCH_COVERAGE_MINIMUM="$(read_ratchet aggregateBranchCoverageMinimum)"
 
-morpheus_python - "$TESTS_MINIMUM" "$ARCH_TESTS_MINIMUM" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
+morpheus_python - "$TESTS_MINIMUM" "$ARCH_TESTS_MINIMUM" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" "$PER_MODULE_LINE_COVERAGE_MINIMUM" "$PER_MODULE_BRANCH_COVERAGE_MINIMUM" <<'PY'
 import sys
 
 tests, architecture = map(int, sys.argv[1:3])
-line, branch = map(float, sys.argv[3:5])
+ratios = list(map(float, sys.argv[3:7]))
 if tests < 1 or architecture < 1:
     raise SystemExit('M21 test ratchets must be positive integers')
-if not 0.0 < line <= 1.0 or not 0.0 < branch <= 1.0:
+if any(not 0.0 < ratio <= 1.0 for ratio in ratios):
     raise SystemExit('M21 coverage ratchets must be ratios in (0, 1]')
 PY
 
@@ -95,11 +99,8 @@ fi
 printf '%s\n' "Tests: PASS ($TESTS, baseline >= $TESTS_MINIMUM)"
 printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= $ARCH_TESTS_MINIMUM)"
 
-COVERAGE="$REPO/morpheus-architecture-tests/target/m21-coverage-summary.txt"
-if [[ ! -f "$COVERAGE" ]]; then
-  echo "Missing M21 coverage summary: $COVERAGE" >&2
-  exit 1
-fi
+COVERAGE="$REPO/morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt"
+bash "$SCRIPT_DIR/lib/require-aggregate-coverage-evidence.sh" "$COVERAGE"
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
 morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
@@ -110,7 +111,7 @@ if line < minimum_line:
 if branch < minimum_branch:
     raise SystemExit(f'M21 branch coverage below {minimum_branch:.3f} ratchet: {branch}')
 PY
-printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO, ratchet=$LINE_COVERAGE_MINIMUM/$BRANCH_COVERAGE_MINIMUM)"
+printf '%s\n' "JaCoCo: PASS (scope=aggregate, line=$LINE_RATIO, branch=$BRANCH_RATIO, ratchet=$LINE_COVERAGE_MINIMUM/$BRANCH_COVERAGE_MINIMUM)"
 
 SBOM_JSON="$REPO/target/m21-supply-chain/morpheus-sbom.json"
 SBOM_XML="$REPO/target/m21-supply-chain/morpheus-sbom.xml"
@@ -229,6 +230,7 @@ baseRef=$BASE_REF
 version=$VERSION
 tests=$TESTS
 architectureTests=$ARCH_TESTS
+coverageScope=aggregate
 lineCoverage=$LINE_RATIO
 branchCoverage=$BRANCH_RATIO
 qualityRatchets=$TESTS_MINIMUM/$ARCH_TESTS_MINIMUM/$LINE_COVERAGE_MINIMUM/$BRANCH_COVERAGE_MINIMUM

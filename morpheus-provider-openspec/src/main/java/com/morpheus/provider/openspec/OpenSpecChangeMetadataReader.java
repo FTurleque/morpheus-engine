@@ -3,6 +3,7 @@ package com.morpheus.provider.openspec;
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -87,9 +88,9 @@ public final class OpenSpecChangeMetadataReader {
         List<Evidence> evidence = new ArrayList<>();
 
         for (Path changeRoot : listChangeRoots(root.resolve("openspec/changes"), budget)) {
-            normalizeChange(
+            OpenSpecSourceAttribution.attribute(root, changeRoot.resolve("proposal.md"), () -> normalizeChange(
                     root, changeRoot, projectId, identityResolver,
-                    changes, constraints, decisions, tasks, evidence, budget);
+                    changes, constraints, decisions, tasks, evidence, budget));
         }
 
         budget.addBlocks(changes.size() + constraints.size() + decisions.size() + tasks.size(), "openspec/changes");
@@ -98,7 +99,7 @@ public final class OpenSpecChangeMetadataReader {
                 "openspec/changes");
 
         String displayName = root.getFileName() == null ? root.toString() : root.getFileName().toString();
-        ProjectSpecification project = new ProjectSpecification(projectId, displayName, SourceLocator.file(root.toString()));
+        ProjectSpecification project = new ProjectSpecification(projectId, displayName, ProviderProjectRoot.locator(root));
         return new NormalizedProjectContent(
                 project,
                 List.of(),
@@ -156,8 +157,10 @@ public final class OpenSpecChangeMetadataReader {
                 provenance(changeExternalId, proposalSource, changeEvidence.id())));
 
         normalizeConstraints(changeKey, changeId, proposalLines, proposalSource, identities, constraints, evidence, budget);
-        normalizeDecisions(workspaceRoot, changeRoot, changeKey, changeId, identities, decisions, evidence, budget);
-        normalizeTasks(workspaceRoot, changeRoot, changeKey, changeId, identities, tasks, evidence, budget);
+        OpenSpecSourceAttribution.attribute(workspaceRoot, changeRoot.resolve("design.md"), () -> normalizeDecisions(
+                workspaceRoot, changeRoot, changeKey, changeId, identities, decisions, evidence, budget));
+        OpenSpecSourceAttribution.attribute(workspaceRoot, changeRoot.resolve("tasks.md"), () -> normalizeTasks(
+                workspaceRoot, changeRoot, changeKey, changeId, identities, tasks, evidence, budget));
     }
 
     private void normalizeConstraints(
@@ -399,7 +402,8 @@ public final class OpenSpecChangeMetadataReader {
                     .lines()
                     .toList();
         } catch (IOException exception) {
-            throw new IllegalStateException("Cannot read OpenSpec source " + source, exception);
+            throw new IllegalStateException(
+                    "Cannot read OpenSpec source: " + OpenSpecSourceAttribution.relayable(exception), exception);
         }
     }
 

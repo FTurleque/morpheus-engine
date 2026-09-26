@@ -35,14 +35,10 @@ final class MorpheusRequirementQueryApiService {
             var result = new RequirementQueryService(runtime.snapshots, runtime.requirements)
                     .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-            return map(
-                    "snapshotId", result.snapshot().id().toString(),
-                    "query", queryText,
-                    "offset", result.pageRequest().offset(),
-                    "limit", result.pageRequest().limit(),
-                    "totalMatches", result.totalMatches(),
-                    "hasMore", result.hasMore(),
-                    "items", result.items().stream().map(this::requirementRecord).toList());
+            return PagedEnvelope.following(
+                    map("snapshotId", result.snapshot().id().toString(), "query", queryText),
+                    PagedEnvelope.page(result.pageRequest(), result.totalMatches(), result.hasMore(),
+                            result.items().stream().map(this::requirementRecord).toList()));
         }
     }
 

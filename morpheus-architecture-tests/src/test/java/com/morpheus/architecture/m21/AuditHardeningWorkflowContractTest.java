@@ -5,8 +5,10 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -119,6 +121,61 @@ class AuditHardeningWorkflowContractTest {
     }
 
     /**
+     * The integration branch gets a static-analysis verdict, on a bounded cadence, without ever meeting the secret.
+     *
+     * <p>Sonar analysed {@code main} only, and a push to main is a promotion. Everything merged in between --
+     * over a hundred commits between promotions -- reached the quality gate for the first time at promotion, when
+     * acting on the verdict is most expensive. The fix is a daily analysis of {@code develop} rather than a
+     * per-merge one: an integration branch reviewed within a day is worth nearly as much as one reviewed per
+     * merge, and costs about a fifth as much.</p>
+     *
+     * <p>The security reasoning of the main-branch job is not weakened to get there, which is why the develop
+     * analysis lives in a workflow that has no {@code pull_request} trigger at all rather than in a widened
+     * condition on {@code ci.yml}. Two further properties are asserted because both are silent when they break: a
+     * scheduled run is dispatched against the default branch, so the checkout must name {@code develop}
+     * explicitly or the job would analyse {@code main} twice and report a green integration branch it never
+     * looked at; and the job must refuse to run when the workflow definition itself comes from an unmerged
+     * branch, which is the one way a manual dispatch could still bring unreviewed code into scope of the
+     * token.</p>
+     */
+    @Test
+    void developIsAnalysedOnABoundedCadenceInAWorkflowNoPullRequestCanReach() throws IOException {
+        Path root = repoRoot();
+        String nightly = Files.readString(root.resolve(".github/workflows/nightly.yml"));
+
+        // A trigger key, not the words: the workflow explains in prose why it has no pull_request trigger, and a
+        // substring search would find that explanation and fail on it.
+        assertFalse(Pattern.compile("(?m)^\\s*pull_request(?:_target)?:\\s*$").matcher(nightly).find(),
+                "the workflow carrying SONAR_TOKEN on develop must not be reachable from a pull request in any "
+                        + "form -- that is the whole reason it is a separate workflow");
+        assertTrue(nightly.contains("schedule:") && nightly.contains("- cron: "),
+                "develop analysis must run on a bounded cadence, not only when somebody remembers to ask");
+
+        assertTrue(nightly.contains("SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}"),
+                "the develop analysis must authenticate through the repository secret");
+        assertTrue(nightly.contains("if: github.ref_name == 'main' || github.ref_name == 'develop'"),
+                "a workflow_dispatch from a feature branch must not run its own edited job definition with "
+                        + "SONAR_TOKEN in scope");
+        assertTrue(nightly.contains("ref: develop"),
+                "a scheduled run is dispatched against the default branch, so the analysed ref must be pinned to "
+                        + "develop rather than defaulted to main");
+        assertTrue(nightly.contains("-Dsonar.branch.name=develop"),
+                "the analysis must be reported against develop rather than overwriting the main branch verdict");
+        assertTrue(nightly.contains("-Dsonar.qualitygate.wait=true"),
+                "the develop analysis must fail when SonarQube Cloud rejects it");
+        assertTrue(nightly.contains("org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar"),
+                "the SonarScanner for Maven must be version-pinned on develop exactly as it is on main");
+        assertTrue(nightly.contains("bash ./scripts/classify-sonar-quality-gate.sh"),
+                "an indeterminate SonarCloud verdict on develop must be classified by the same script as on "
+                        + "main, so an external outage cannot masquerade as a MORPHEUS regression");
+
+        String ci = Files.readString(root.resolve(".github/workflows/ci.yml"));
+        assertTrue(ci.contains("nightly.yml"),
+                "the main-branch Sonar job must point at where the integration branch is covered, so the gap it "
+                        + "deliberately leaves is not mistaken for an oversight");
+    }
+
+    /**
      * Isolates the required exact-head job from the advisory/trusted-only lanes beside it.
      *
      * <p>This guard used to scan the whole file for {@code continue-on-error}, which was exact while ci.yml held
@@ -160,8 +217,90 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(redactor.contains("JSON_OR_NAMED_SECRET"));
     }
 
+    /**
+     * ADR-0106: an outbound frame past the bound is a MORPHEUS defect, not a hostile peer. The outbound encoding
+     * path must answer it with a named error and leave the fail-closed decision to its caller, which only takes it
+     * when even that error cannot fit. Text, not ArchUnit: the intent is that this mechanism is not rewired, and no
+     * bytecode rule says which private method calls which.
+     */
     @Test
-    void futureRemoteUpdaterCannotRegressToChecksumOnlyTrust() throws IOException {
+    void mcpServerTransportAnswersAnOversizedResponseInsteadOfFailingClosed() throws IOException {
+        String server = Files.readString(repoRoot().resolve(
+                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioServerTransportProvider.java"));
+
+        assertTrue(server.contains("\"MCP_RESPONSE_TOO_LARGE\""));
+        int encodeStart = server.indexOf("private OutboundFrame encode(");
+        int encodeEnd = server.indexOf("private void requestStop()", encodeStart);
+        assertTrue(encodeStart >= 0 && encodeEnd > encodeStart,
+                "the outbound encoding path must stay between encode(...) and requestStop()");
+        String outboundEncoding = server.substring(encodeStart, encodeEnd);
+        assertFalse(outboundEncoding.contains("failClosed("),
+                "the outbound encoding path must not fail the session closed itself");
+        assertTrue(outboundEncoding.contains("responseTooLarge("));
+    }
+
+    /**
+     * ADR-0106, amendment of 23/09/2026: the principle holds in both transports. A client has no pending peer request
+     * to answer, so its only outbound treatment is refusal to the local sender, and {@code sendMessage} must catch that
+     * refusal before the {@code IOException} branch that fails the session closed. Text, for the same reason as the
+     * server rule above.
+     */
+    @Test
+    void mcpClientTransportRefusesAnOversizedOutboundFrameInsteadOfFailingClosed() throws IOException {
+        String client = Files.readString(repoRoot().resolve(
+                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
+
+        int encodeStart = client.indexOf("private OutboundFrame encode(");
+        int encodeEnd = client.indexOf("private void failClosed(", encodeStart);
+        assertTrue(encodeStart >= 0 && encodeEnd > encodeStart,
+                "the outbound encoding path must stay between encode(...) and failClosed(...)");
+        String outboundEncoding = client.substring(encodeStart, encodeEnd);
+        assertFalse(outboundEncoding.contains("failClosed("),
+                "the outbound encoding path must not fail the session closed itself");
+        assertFalse(outboundEncoding.contains("MessageTooLargeException"),
+                "outbound, the inbound fail-closed signal must not be raised");
+        assertTrue(outboundEncoding.contains("new OutboundMessageRefusedException("));
+
+        int sendStart = client.indexOf("public Mono<Void> sendMessage(");
+        int sendEnd = client.indexOf("public Mono<Void> closeGracefully()", sendStart);
+        assertTrue(sendStart >= 0 && sendEnd > sendStart, "sendMessage must precede closeGracefully");
+        String send = client.substring(sendStart, sendEnd);
+        int refusal = send.indexOf("catch (OutboundMessageRefusedException");
+        int ioFailure = send.indexOf("catch (IOException");
+        assertTrue(refusal >= 0 && ioFailure > refusal,
+                "sendMessage must hand an outbound refusal back to its sender before the fail-closed branch");
+    }
+
+    /**
+     * The MCP transport module is shared by the MORPHEUS server and by the MINOS and NEXUS clients. Naming a tool of
+     * the server catalog in it would leak the application into the transport; the guidance for an oversized response
+     * is supplied by the layer that owns the catalog (ADR-0106, amendment of 23/09/2026).
+     */
+    @Test
+    void mcpTransportNamesNoServerCatalogTool() throws IOException {
+        Path root = repoRoot();
+        String catalog = Files.readString(root.resolve(
+                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusMcpToolCatalog.java"));
+        List<String> tools = Pattern.compile("tool\\(\"([a-z_]+)\"").matcher(catalog).results()
+                .map(match -> match.group(1))
+                .toList();
+        assertTrue(tools.contains("find_requirements") && tools.contains("get_current_specification"),
+                () -> "the catalog tool names must be readable from the catalog source: " + tools);
+
+        Path transportSources = root.resolve("morpheus-mcp-transport/src/main/java");
+        try (Stream<Path> files = Files.walk(transportSources)) {
+            for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
+                String source = Files.readString(file);
+                for (String tool : tools) {
+                    assertFalse(source.contains("\"" + tool + "\""),
+                            () -> transportSources.relativize(file) + " must not name the server tool " + tool);
+                }
+            }
+        }
+    }
+
+    @Test
+    void remoteDiscoveryCannotRegressToChecksumOnlyOrClaimVerifiedTrust() throws IOException {
         Path root = repoRoot();
         String manifest = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/product/UpdateManifest.java"));
@@ -171,8 +310,10 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(manifest.contains("remote update manifest must declare attestationUri"));
         assertTrue(manifest.contains("remote update artifactUri must use https"));
         assertTrue(manifest.contains("remote update attestationUri must use https"));
+        assertTrue(manifest.contains("does not cryptographically verify the attestation"),
+                "discovery validation must never be presented as publisher-identity verification");
         assertTrue(discovery.contains("optionalUri(properties, \"attestationUri\")"));
-        assertTrue(discovery.contains("manifest.requireRemoteTrust(manifestUri)"));
+        assertTrue(discovery.contains("manifest.requireRemoteDiscoveryContract(manifestUri)"));
     }
 
     @Test

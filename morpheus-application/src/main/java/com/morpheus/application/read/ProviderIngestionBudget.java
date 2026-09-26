@@ -1,6 +1,8 @@
 package com.morpheus.application.read;
 
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
+import com.morpheus.application.files.WorkspaceFileTooLargeException;
+import com.morpheus.application.files.WorkspaceRelativePathText;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -101,7 +103,7 @@ public record ProviderIngestionBudget(
         }
 
         private String read(Path relativePath, long itemMaximum, boolean evidence) throws IOException {
-            String source = relativePath.toString();
+            String source = WorkspaceRelativePathText.of(relativePath);
             budget.requireFiles(Math.addExact(fileCount, 1), source);
             long aggregateRemaining = budget.maxAggregateBytes - aggregateBytes;
             if (aggregateRemaining < 1) {
@@ -116,22 +118,18 @@ public record ProviderIngestionBudget(
             String text;
             try {
                 text = files.readUtf8(relativePath, readMaximum);
-            } catch (IllegalArgumentException failure) {
-                if (failure.getMessage() != null
-                        && failure.getMessage().contains("exceeds maximum input size")) {
-                    if (aggregateRemaining <= effectiveItemMaximum) {
-                        throw exceeded("aggregate bytes", source, budget.maxAggregateBytes + 1, budget.maxAggregateBytes);
-                    }
-                    if (evidence && evidenceRemaining <= itemMaximum) {
-                        throw exceeded("evidence bytes", source, budget.maxEvidenceBytes + 1, budget.maxEvidenceBytes);
-                    }
-                    String metric = evidence && itemMaximum == budget.maxEvidenceBytes
-                            ? "evidence bytes"
-                            : "document bytes";
-                    long maximum = metric.equals("evidence bytes") ? budget.maxEvidenceBytes : budget.maxDocumentBytes;
-                    throw exceeded(metric, source, maximum + 1, maximum);
+            } catch (WorkspaceFileTooLargeException failure) {
+                if (aggregateRemaining <= effectiveItemMaximum) {
+                    throw exceeded("aggregate bytes", source, budget.maxAggregateBytes + 1, budget.maxAggregateBytes);
                 }
-                throw failure;
+                if (evidence && evidenceRemaining <= itemMaximum) {
+                    throw exceeded("evidence bytes", source, budget.maxEvidenceBytes + 1, budget.maxEvidenceBytes);
+                }
+                String metric = evidence && itemMaximum == budget.maxEvidenceBytes
+                        ? "evidence bytes"
+                        : "document bytes";
+                long maximum = metric.equals("evidence bytes") ? budget.maxEvidenceBytes : budget.maxDocumentBytes;
+                throw exceeded(metric, source, maximum + 1, maximum);
             }
             long bytes = utf8Bytes(text);
             long lines = text.lines().count();
