@@ -165,3 +165,57 @@ Les critères suivants sont satisfaits :
 12. builds complets Windows et Linux verts.
 
 **Décision : ADR-0059 acceptée.**
+
+## Amendement du 26 septembre 2026 (CLI-5) — une restitution a un ordre déclaré, jamais celui d'une structure
+
+« Sortie humaine stable » ne tenait pas pour `server identity list`. Chaque identité était construite dans une
+`LinkedHashMap` (`principal`, `role`, `expiresAt`, `expired`, `nonExpiring`) puis figée par `Map.copyOf`, et la sortie
+texte la rendait par `toString()`. L'ordre d'itération des collections immuables du JDK part d'un sel tiré une fois par
+JVM : deux exécutions sur un fichier d'identités inchangé imprimaient les mêmes champs dans un ordre différent — quatre
+ordres distincts en rejouant l'ancien rendu dans quatre JVM successives. Le mode `--json` n'était pas touché,
+`CanonicalJsonSerializer` triant les clés de map.
+
+La contre-vérification a trouvé la même forme ailleurs :
+
+- `minos-status` et `nexus-status` impriment en texte les `details` d'un `ExternalIntegrationStatus`, que le record fige
+  par `Map.copyOf`. Hors configuration, `minos-status` en porte déjà deux (`javaCommand`, `timeoutSeconds`).
+- `provider-plugins probe` imprime les capacités d'un plugin, **en texte comme en JSON** : `ProviderCapabilitySet`
+  construisait bien un `EnumSet`, puis le figeait par `Set.copyOf`, et `CanonicalJsonSerializer` trie les clés de map
+  mais **pas** les collections. La projection distante triait déjà (`ProviderPluginViews`) ; le chemin local, non.
+
+**Décision.** Une restitution ne dépend pas de l'ordre d'itération de la structure qui porte ses valeurs ; l'ordre est
+déclaré par le code qui la produit :
+
+- `MorpheusServerCli.identityLine` rend chaque identité selon `IDENTITY_FIELDS` ;
+- les deux commandes de statut rendent leurs détails par clé triée, l'ordre que le JSON canonique emploie déjà ;
+- `ProviderCapabilitySet` itère dans l'ordre de déclaration de `ProviderCapability` (`EnumSet` non modifiable). La
+  correction est dans le domaine et non dans le CLI parce que la collection atteint aussi le JSON, et que le JSON
+  canonique ne la trie pas : une correction au rendu texte en aurait laissé une copie fautive.
+
+Les autres vues de `MorpheusServerCli` (`credentialView`, `mutationView`, `backupView`, la vue de `migrate-legacy`,
+l'enveloppe de `identity list`) sont des `LinkedHashMap` de premier niveau jamais figées, et leurs listes (`migrated`,
+`retainedNonExpiring`) suivent l'ordre du fichier d'identités : leur ordre tenait déjà.
+
+### Alternative écartée
+
+- **Garder la map ordonnée jusqu'au rendu** (retirer le `Map.copyOf`). Elle ferme le constat, mais la propriété repose
+  sur une structure de données que rien ne protège : un `copyOf` rajouté par réflexe d'immuabilité le rouvre sans
+  bruit. Pour les statuts d'intégration elle obligerait en plus à changer le record applicatif partagé par trois
+  adaptateurs, là où la sortie fautive est une ligne du CLI.
+
+### Ce que l'ordre déclaré coûte
+
+La liste des champs d'une identité existe désormais deux fois : dans la vue, et dans `IDENTITY_FIELDS`. Une clé ajoutée
+à l'une sans l'autre disparaîtrait du texte en restant dans le JSON. `theTextAndJsonIdentityListingsCarryTheSameFields`
+compare les clés des deux formats et tombe dans ce cas.
+
+**Preuve.** `anIdentityIsRenderedInTheDeclaredOrderWhateverTheIterationOrderOfItsMap` donne au rendu une `TreeMap`
+(ordre alphabétique, différent de l'ordre déclaré) et attend l'ordre déclaré ; les tests de bout en bout assertent
+l'ordre, jamais la répétition d'une sortie — dans une même JVM le sel est constant, et comparer deux exécutions ne
+prouverait rien. Mesuré par la contre-vérification sur quarante JVM (JDK 21) : l'ancien rendu n'atteint que dix ordres
+pour une identité et douze pour les six détails de statut, et aucun n'est l'ordre attendu ; les tests échouent donc à
+coup sûr sur l'ancien code, sous la réserve que ce décompte dépend de la disposition interne des maps immuables du
+JDK. `ProviderCapabilitySetTest` attend l'ordre de déclaration de **toutes** les capacités, données à l'envers : la
+contre-vérification a mesuré qu'un sous-ensemble de quatre capacités retombait dans l'ordre attendu environ une fois
+sur huit avec l'ancien `Set.copyOf`, ce qu'un test sur ce seul sous-ensemble aurait laissé passer. Rejoué cinq fois sur
+l'ancien code, le test sur l'ensemble complet a échoué cinq fois.

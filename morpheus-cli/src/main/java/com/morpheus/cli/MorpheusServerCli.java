@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** M26 local administrative CLI for remote identities and SQLite backup/restore. */
 final class MorpheusServerCli {
@@ -28,6 +29,8 @@ final class MorpheusServerCli {
     private static final String OPT_DRY_RUN = "dry-run";
     private static final String VIEW_EXPIRES_AT = "expiresAt";
     private static final String VIEW_MUTATION = "mutation";
+    private static final List<String> IDENTITY_FIELDS =
+            List.of("principal", "role", VIEW_EXPIRES_AT, "expired", "nonExpiring");
     private static final String MIGRATE_LEGACY_COMMAND = "server identity migrate-legacy --expires-at <ISO-8601>";
     private final CanonicalJsonSerializer serializer = new CanonicalJsonSerializer();
     private final SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
@@ -130,7 +133,9 @@ final class MorpheusServerCli {
         long nonExpiring = identities.stream().filter(identity -> Boolean.TRUE.equals(identity.get("nonExpiring"))).count();
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("authFile", authFile.toAbsolutePath().normalize().toString());
-        view.put("identities", identities);
+        view.put("identities", parsed.json()
+                ? identities
+                : identities.stream().map(MorpheusServerCli::identityLine).toList());
         // Named once rather than repeated per row: an operator needs to know the file still contains credentials
         // that never expire, without the listing turning into a warning banner every time it is read.
         view.put("nonExpiringIdentities", nonExpiring);
@@ -362,6 +367,17 @@ final class MorpheusServerCli {
         } else {
             out.println(serializer.toJson(value));
         }
+    }
+
+    /**
+     * Renders one identity with the field order declared here, not the iteration order of the map that carries it.
+     * The map is immutable ({@code Map.copyOf}), and the iteration order of the JDK's immutable maps is salted once
+     * per JVM: two runs over an unchanged auth file used to print the same identity with its fields shuffled.
+     */
+    static String identityLine(Map<String, Object> identity) {
+        return IDENTITY_FIELDS.stream()
+                .map(field -> field + "=" + identity.get(field))
+                .collect(Collectors.joining(", ", "{", "}"));
     }
 
     private static String required(Map<String, String> options, String name) {
