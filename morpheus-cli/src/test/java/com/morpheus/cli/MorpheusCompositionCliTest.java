@@ -35,7 +35,7 @@ class MorpheusCompositionCliTest {
         assertTrue(sync.stdout().contains("\"primaryProviderId\":\"openspec\""), sync.stdout());
         assertTrue(sync.stdout().contains("\"providerId\":\"structured-markdown\""), sync.stdout());
         assertTrue(sync.stdout().contains("auth-session/session-expiration"), sync.stdout());
-        assertTrue(sync.stdout().contains("SELECTED_BY_PRECEDENCE"), sync.stdout());
+        assertTrue(sync.stdout().contains("PRECEDENCE_RECORDED"), sync.stdout());
 
         Invocation status = invokeWithData(
                 data, "--json", "composition", "status", "--project", projectId.toString());

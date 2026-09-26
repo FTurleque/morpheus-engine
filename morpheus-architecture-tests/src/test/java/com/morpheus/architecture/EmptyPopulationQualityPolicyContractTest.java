@@ -1,5 +1,6 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.policy.DefaultPolicyFactResolver;
 import com.morpheus.application.policy.PolicyEvaluation;
@@ -24,6 +25,7 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.version.SpecificationVersion;
 import com.morpheus.domain.version.SpecificationVersionId;
+import com.morpheus.store.memory.MemoryCompositionStateStore;
 import com.morpheus.store.memory.MemoryExternalReferenceStore;
 import com.morpheus.store.memory.MemoryPortfolioStore;
 import com.morpheus.store.memory.MemorySnapshotBusinessContentStore;
@@ -129,6 +131,7 @@ class EmptyPopulationQualityPolicyContractTest {
                 new ConstraintEvaluationQueryService(core, content),
                 new ChangeTransitionEvaluationService(core, content, core, traceability),
                 quality,
-                new QueryExecutionService(core, core, content, new MemoryPortfolioStore()));
+                new QueryExecutionService(core, core, content, new MemoryPortfolioStore()),
+                new CompositionQueryService(core, new MemoryCompositionStateStore()));
     }
 }

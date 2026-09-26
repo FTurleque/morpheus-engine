@@ -118,6 +118,8 @@ public final class MultiProviderCompositionService {
             Map<SpecificationId, String> specificationKeys = new LinkedHashMap<>();
             content.specifications().forEach(item -> specificationKeys.put(item.id(), item.key()));
 
+            observeProject(observations, contribution, content);
+
             content.specifications().forEach(item -> {
                 observeSpecification(observations, contribution, item);
                 observeIdentity(identityObservations, contribution, item.provenance(), item.key(), CompositionEntityType.SPECIFICATION);
@@ -144,15 +146,22 @@ public final class MultiProviderCompositionService {
                         logicalKey(item.key(), item.provenance(), item.id().toString()),
                         CompositionEntityType.CHANGE);
             });
+            // Every entity type the composition publishes is observed: a duplicate of a type that is not observed is
+            // published and counted without anything saying so.
+            content.scenarios().forEach(item -> observeScenario(observations, contribution, item));
+            content.constraints().forEach(item -> observeConstraint(observations, contribution, item));
+            content.designDecisions().forEach(item -> observeDecision(observations, contribution, item));
+            content.tasks().forEach(item -> observeTask(observations, contribution, item));
+            content.acceptanceCriteria().forEach(item -> observeAcceptance(observations, contribution, item));
         }
 
         List<CompositionConflict> result = new ArrayList<>();
         observations.entrySet().stream()
-                .filter(entry -> entry.getValue().stream().map(Observation::value).distinct().count() > 1)
+                .filter(entry -> observedByMoreThanOneProvider(entry.getValue()) || disagree(entry.getValue()))
                 .map(entry -> conflict(entry.getKey(), entry.getValue()))
                 .forEach(result::add);
         identityObservations.entrySet().stream()
-                .filter(entry -> entry.getValue().stream().map(Observation::value).distinct().count() > 1)
+                .filter(entry -> disagree(entry.getValue()))
                 .map(entry -> conflict(entry.getKey(), entry.getValue()))
                 .forEach(result::add);
 
@@ -161,6 +170,102 @@ public final class MultiProviderCompositionService {
                         .thenComparing(CompositionConflict::logicalKey)
                         .thenComparing(CompositionConflict::field))
                 .toList();
+    }
+
+    /**
+     * Agreement is not silence: two providers publishing the same logical key under different provider-scoped
+     * identities is a duplication whether or not their values differ. Observations of one provider alone (its own
+     * two entities sharing a key) are not a cross-provider duplication.
+     */
+    private static boolean disagree(List<Observation> observations) {
+        return observations.stream().map(Observation::value).distinct().count() > 1;
+    }
+
+    private static boolean observedByMoreThanOneProvider(List<Observation> observations) {
+        return observations.stream().map(Observation::providerId).distinct().count() > 1;
+    }
+
+    private void observeProject(
+            Map<ObservationKey, List<Observation>> target,
+            ProviderContribution contribution,
+            NormalizedProjectContent content) {
+        var project = content.project();
+        String key = project.id().toString();
+        // The root locator is a host path and conflicts are published on remote surfaces: only its fingerprint is a
+        // candidate value, which is enough to see that two providers disagree about the root without naming it.
+        addRaw(target, contribution, "project", "project:" + key, CompositionEntityType.PROJECT, key, "displayName",
+                project.displayName());
+        addRaw(target, contribution, "project", "project:" + key, CompositionEntityType.PROJECT, key, "rootLocator",
+                "sha256:" + com.morpheus.application.sync.SourceFingerprint
+                        .ofBytes(project.rootLocator().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                        .sha256());
+    }
+
+    private void observeScenario(
+            Map<ObservationKey, List<Observation>> target,
+            ProviderContribution contribution,
+            com.morpheus.domain.scenario.Scenario item) {
+        String key = logicalKey(Optional.empty(), item.provenance(), item.id().toString());
+        add(target, contribution, item.provenance(), CompositionEntityType.SCENARIO, key, "title", item.title());
+        add(target, contribution, item.provenance(), CompositionEntityType.SCENARIO, key, "preconditions",
+                String.join("\n", item.preconditions()));
+        add(target, contribution, item.provenance(), CompositionEntityType.SCENARIO, key, "action", item.action());
+        add(target, contribution, item.provenance(), CompositionEntityType.SCENARIO, key, "expectedOutcome",
+                item.expectedOutcome());
+    }
+
+    private void observeConstraint(
+            Map<ObservationKey, List<Observation>> target,
+            ProviderContribution contribution,
+            com.morpheus.domain.constraint.Constraint item) {
+        String key = logicalKey(Optional.empty(), item.provenance(), item.id().toString());
+        add(target, contribution, item.provenance(), CompositionEntityType.CONSTRAINT, key, "statement", item.statement());
+        add(target, contribution, item.provenance(), CompositionEntityType.CONSTRAINT, key, "applicability",
+                item.applicability().name());
+        add(target, contribution, item.provenance(), CompositionEntityType.CONSTRAINT, key, "severity",
+                item.severity().name());
+    }
+
+    private void observeDecision(
+            Map<ObservationKey, List<Observation>> target,
+            ProviderContribution contribution,
+            com.morpheus.domain.decision.DesignDecision item) {
+        String key = logicalKey(Optional.empty(), item.provenance(), item.id().toString());
+        add(target, contribution, item.provenance(), CompositionEntityType.DESIGN_DECISION, key, "title", item.title());
+        add(target, contribution, item.provenance(), CompositionEntityType.DESIGN_DECISION, key, "decision", item.decision());
+    }
+
+    private void observeTask(
+            Map<ObservationKey, List<Observation>> target,
+            ProviderContribution contribution,
+            com.morpheus.domain.task.ImplementationTask item) {
+        String key = logicalKey(item.key(), item.provenance(), item.id().toString());
+        add(target, contribution, item.provenance(), CompositionEntityType.TASK, key, "title", item.title());
+        add(target, contribution, item.provenance(), CompositionEntityType.TASK, key, "completed",
+                Boolean.toString(item.completed()));
+    }
+
+    private void observeAcceptance(
+            Map<ObservationKey, List<Observation>> target,
+            ProviderContribution contribution,
+            com.morpheus.domain.acceptance.AcceptanceCriterion item) {
+        String key = logicalKey(Optional.empty(), item.provenance(), item.id().toString());
+        add(target, contribution, item.provenance(), CompositionEntityType.ACCEPTANCE_CRITERION, key, "title", item.title());
+        add(target, contribution, item.provenance(), CompositionEntityType.ACCEPTANCE_CRITERION, key, "condition",
+                item.condition());
+    }
+
+    private void addRaw(
+            Map<ObservationKey, List<Observation>> target,
+            ProviderContribution contribution,
+            String source,
+            String evidence,
+            CompositionEntityType entityType,
+            String logicalKey,
+            String field,
+            String value) {
+        target.computeIfAbsent(new ObservationKey(entityType, logicalKey, field), ignored -> new ArrayList<>())
+                .add(new Observation(contribution.providerId(), contribution.priority(), value, source, evidence));
     }
 
     private void observeSpecification(
@@ -243,16 +348,24 @@ public final class MultiProviderCompositionService {
                 .filter(item -> item.priority() == highestPriority)
                 .toList();
         boolean topValuesAgree = highest.stream().map(Observation::value).distinct().count() == 1;
+        boolean everyoneAgrees = sorted.stream().map(Observation::value).distinct().count() == 1;
 
-        CompositionResolution resolution = topValuesAgree
-                ? CompositionResolution.SELECTED_BY_PRECEDENCE
-                : CompositionResolution.UNRESOLVED;
-        Optional<com.morpheus.domain.provider.ProviderId> selected = topValuesAgree
-                ? Optional.of(highest.getFirst().providerId())
-                : Optional.empty();
-        String reason = topValuesAgree
-                ? "Highest-priority provider selected while all observations remain preserved"
-                : "Multiple highest-priority providers disagree; explicit resolution is required";
+        CompositionResolution resolution;
+        Optional<com.morpheus.domain.provider.ProviderId> selected;
+        String reason;
+        if (everyoneAgrees) {
+            resolution = CompositionResolution.IDENTICAL;
+            selected = Optional.empty();
+            reason = "All providers agree on this value; each provider's entity is still published separately";
+        } else if (topValuesAgree) {
+            resolution = CompositionResolution.PRECEDENCE_RECORDED;
+            selected = Optional.of(highest.getFirst().providerId());
+            reason = "Highest-priority provider recorded as precedence; every observation is published as a separate entity";
+        } else {
+            resolution = CompositionResolution.UNRESOLVED;
+            selected = Optional.empty();
+            reason = "Multiple highest-priority providers disagree; explicit resolution is required";
+        }
 
         List<CompositionCandidate> candidates = sorted.stream()
                 .map(item -> new CompositionCandidate(

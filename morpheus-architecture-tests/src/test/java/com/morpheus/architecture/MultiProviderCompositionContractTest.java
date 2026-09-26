@@ -64,7 +64,7 @@ class MultiProviderCompositionContractTest {
                 conflict.entityType() == CompositionEntityType.REQUIREMENT
                         && conflict.logicalKey().equals("auth-session/session-expiration")
                         && conflict.field().equals("statement")
-                        && conflict.resolution() == CompositionResolution.SELECTED_BY_PRECEDENCE
+                        && conflict.resolution() == CompositionResolution.PRECEDENCE_RECORDED
                         && conflict.selectedProviderId().orElseThrow().equals(OpenSpecSpecificationProvider.ID)));
         assertTrue(result.conflicts().stream().anyMatch(conflict ->
                 conflict.entityType() == CompositionEntityType.REQUIREMENT
