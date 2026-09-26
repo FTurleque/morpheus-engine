@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -62,6 +64,30 @@ class MorpheusServerCliTest {
             assertTrue(index > previous, field + " is out of the declared order in: " + line);
             previous = index;
         }
+    }
+
+    @Test
+    void theTextAndJsonIdentityListingsCarryTheSameFields() {
+        assertEquals(CliExitCode.SUCCESS.code(), run("server", "identity", "create",
+                "--principal", "alice", "--role", "ADMIN").exitCode());
+
+        String json = run("--json", "server", "identity", "list").out();
+        String text = run("server", "identity", "list").out();
+
+        Matcher identity = Pattern.compile("\"identities\":\\[\\{([^}]*)}").matcher(json);
+        assertTrue(identity.find(), json);
+        Set<String> jsonFields = new TreeSet<>();
+        Matcher key = Pattern.compile("\"(\\w+)\":").matcher(identity.group(1));
+        while (key.find()) {
+            jsonFields.add(key.group(1));
+        }
+        Matcher line = Pattern.compile("identities=\\[\\{([^}]*)}").matcher(text);
+        assertTrue(line.find(), text);
+        Set<String> textFields = new TreeSet<>();
+        for (String field : line.group(1).split(", ")) {
+            textFields.add(field.substring(0, field.indexOf('=')));
+        }
+        assertEquals(jsonFields, textFields, "a field of the identity view is missing from one of the two formats");
     }
 
     @Test

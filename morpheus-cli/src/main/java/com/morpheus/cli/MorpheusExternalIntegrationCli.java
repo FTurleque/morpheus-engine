@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
 
 /** Additive M12 CLI surface. Business resolution remains in application services. */
 final class MorpheusExternalIntegrationCli {
@@ -74,7 +75,7 @@ final class MorpheusExternalIntegrationCli {
             out.println("configured=" + status.configured());
             out.println("message=" + status.message());
             // The status record freezes its details with Map.copyOf, whose iteration order is salted per JVM.
-            new java.util.TreeMap<>(status.details()).forEach((key, value) -> out.println(key + "=" + value));
+            new TreeMap<>(status.details()).forEach((key, value) -> out.println(key + "=" + value));
         }
         return CliExitCode.SUCCESS.code();
     }
