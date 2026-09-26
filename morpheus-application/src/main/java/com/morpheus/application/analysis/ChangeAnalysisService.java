@@ -316,7 +316,7 @@ public final class ChangeAnalysisService {
                 "Dependency traversal stopped before observing every dependency within the requested depth",
                 Map.of(
                         "direction", impactDirection.name(),
-                        "truncationReason", reason,
+                        ChangeAnalysisWarning.TRUNCATION_REASON, reason,
                         "snapshotId", snapshotId.toString()))));
         for (TraceabilityEntityRef target : subgraph.nodes()) {
             if (target.equals(root)) {

@@ -557,7 +557,7 @@ public final class MorpheusCli {
         List<String> lines = new ArrayList<>();
         lines.add("warningCodes=" + warnings.stream().map(warning -> warning.code().name()).collect(Collectors.joining(",")));
         warnings.stream()
-                .map(warning -> warning.details().get("truncationReason"))
+                .map(warning -> warning.details().get(ChangeAnalysisWarning.TRUNCATION_REASON))
                 .filter(Objects::nonNull)
                 .distinct()
                 .sorted()
