@@ -154,6 +154,9 @@ class MorpheusPortfolioCliTest {
         Result emptyWorkspace = run("--json", "portfolio", "add-project",
                 "--portfolio", portfolioId, "--project", projectId, "--name", "Alpha", "--workspace", "");
 
+        Result misspelledEmpty = run("--json", "portfolio", "references", "--portfolio", portfolioId, "--projet", "");
+        assertEquals(CliExitCode.USAGE.code(), misspelledEmpty.exitCode(), misspelledEmpty.err());
+        assertTrue(misspelledEmpty.err().contains("unknown option: --projet"), misspelledEmpty.err());
         for (Result refused : java.util.List.of(emptyFilter, blankFilter)) {
             assertEquals(CliExitCode.USAGE.code(), refused.exitCode(), refused.err());
             assertTrue(refused.err().contains("--project requires a non-blank value"), refused.err());

@@ -194,13 +194,14 @@ Décision : [ADR-0084, amendement du 26 septembre 2026 (CMP-1, CMP-2)](../adr/00
 ### CLI `portfolio`, `query`, `views`, `export` et `policy` : une option passée vide est refusée
 
 Jusqu'à 1.2.0, ces commandes lisaient une option passée avec une valeur vide ou blanche (`--project ""`, `--limit "  "`)
-comme une option **absente**. La conversion était silencieuse, code `0` :
+comme une option **absente**. La conversion était silencieuse :
 
 - `portfolio references --portfolio P --project ""` rendait **toutes** les références du portefeuille au lieu de celles
   du projet ;
 - `portfolio add-project … --workspace ""` enregistrait une appartenance sans workspace ;
 - `query execute … --limit ""` retombait sur la taille de page par défaut ;
-- `policy evaluate … --id ""` évaluait tous les packs actifs de la portée au lieu d'un seul.
+- `policy evaluate … --id ""` évaluait tous les packs actifs de la portée au lieu d'un seul, avec le code de leur
+  décision commune.
 
 À partir de 1.2.1, la valeur vide ou blanche est refusée avant tout traitement, avec le nom de l'option, code `2`
 (`USAGE`) :
@@ -210,7 +211,7 @@ MORPHEUS error [2]: --project requires a non-blank value; omit the option to lea
 ```
 
 Rien n'est écrit quand le refus porte sur une action d'écriture. Une invocation qui ne passe pas l'option se comporte
-exactement comme avant. Une option **obligatoire** passée vide reçoit ce message au lieu de `--… is required` ; le code
+exactement comme avant. Une option inconnue passée vide reste signalée comme inconnue (`unknown option: --projet`). Une option **obligatoire** passée vide reçoit ce message au lieu de `--… is required` ; le code
 reste `2`.
 
 **Migration.** Un script qui passait une variable éventuellement vide (`--project "$PROJECT"`) reçoit maintenant le code
