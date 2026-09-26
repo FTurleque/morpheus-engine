@@ -1,5 +1,6 @@
 package com.morpheus.application.query.dsl;
 
+import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.store.SnapshotBusinessContent;
@@ -121,7 +122,7 @@ public final class QueryExecutionService {
         }
         PortfolioQueryScope portfolio = (PortfolioQueryScope) query.scope();
         portfolioStore.findPortfolio(portfolio.portfolioId())
-                .orElseThrow(() -> new IllegalArgumentException("unknown portfolio: " + portfolio.portfolioId()));
+                .orElseThrow(() -> new EntityNotFoundException("unknown portfolio: " + portfolio.portfolioId()));
         List<PortfolioMembership> memberships = portfolioStore.listMemberships(portfolio.portfolioId());
         requirePortfolioProjectBudget(memberships.size());
         if (query.entityType() == QueryEntityType.PORTFOLIO_MEMBERSHIP) {

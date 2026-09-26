@@ -9,6 +9,8 @@ import com.morpheus.application.policy.PolicyRule;
 import com.morpheus.application.policy.PolicyScope;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.QueryDefinitionCodec;
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.portfolio.PortfolioId;
@@ -58,6 +60,12 @@ final class MorpheusPolicyCli {
                 }
                 return exitCode.code();
             }
+        } catch (EntityNotFoundException failure) {
+            err.println("MORPHEUS error [" + CliExitCode.NOT_FOUND.code() + "]: " + safeMessage(failure));
+            return CliExitCode.NOT_FOUND.code();
+        } catch (EntityStateException failure) {
+            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
+            return CliExitCode.STATE_ERROR.code();
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS error [" + CliExitCode.USAGE.code() + "]: " + safeMessage(failure));
             return CliExitCode.USAGE.code();

@@ -11,6 +11,8 @@ import com.morpheus.application.query.dsl.QueryScope;
 import com.morpheus.application.query.export.QueryExportFormat;
 import com.morpheus.application.query.saved.SavedViewId;
 import com.morpheus.application.query.saved.SavedViewStatus;
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.store.sqlite.SqliteQueryRuntime;
@@ -65,6 +67,12 @@ final class MorpheusQueryCli {
                     default -> throw new IllegalArgumentException("unknown M24 command: " + parsed.command());
                 };
             }
+        } catch (EntityNotFoundException failure) {
+            err.println("MORPHEUS error [" + CliExitCode.NOT_FOUND.code() + "]: " + safeMessage(failure));
+            return CliExitCode.NOT_FOUND.code();
+        } catch (EntityStateException failure) {
+            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
+            return CliExitCode.STATE_ERROR.code();
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS error [" + CliExitCode.USAGE.code() + "]: " + safeMessage(failure));
             return CliExitCode.USAGE.code();

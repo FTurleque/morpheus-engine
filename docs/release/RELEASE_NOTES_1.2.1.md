@@ -127,6 +127,39 @@ changent pas : elles rendent `0` quand elles réussissent.
 
 Décision : [ADR-0108](../adr/0108-a-response-says-what-it-could-not-observe.md).
 
+### CLI : un refus sur l'état ne rend plus le code d'usage
+
+Jusqu'à 1.2.0, les commandes `policy`, `views`, `export view`, `query execute`, `portfolio` et `server identity` rendaient
+`2` (usage) pour un refus qui ne portait pas sur l'appel mais sur l'état : un identifiant qui ne désigne rien, un pack qui
+n'est pas actif. La table des codes publiée par `morpheus help` réserve pourtant `3` à l'entité absente et `4` à l'état.
+Un script ne pouvait pas distinguer une faute de frappe d'un identifiant inconnu.
+
+À partir de 1.2.1 :
+
+| Refus | Avant | Après |
+|---|---:|---:|
+| `unknown policy pack: …`, `unknown policy pack version: …`, `policy override does not exist: …`, `rule is not present in active policy pack version: …` | `2` | `3` |
+| `unknown saved view: …` (`views get\|versions\|execute\|update\|archive`, `export view`) | `2` | `3` |
+| `unknown portfolio: …` (`portfolio …`, `query execute --portfolio`) | `2` | `3` |
+| `remote auth file does not exist`, `remote principal does not exist: …` | `2` | `3` |
+| `policy pack is not active in scope: …`, `policy pack must be active before adding an override: …` | `2` | `4` |
+| `project is not a portfolio member: …`, `start project is not a portfolio member: …` | `2` | `4` |
+| `remote principal already exists: …`, `cannot revoke the last active ADMIN identity`, `cannot change the role of the last active ADMIN identity`, `migration would leave no ADMIN identity active after …` | `2` | `4` |
+
+Deux messages changent aussi. Un fichier d'identités absent était refusé avec `remote auth file must be a regular
+non-symbolic file` ; il est maintenant refusé avec `remote auth file does not exist` (un répertoire ou un lien symbolique
+garde l'ancien message et le code `2`). `portfolio missing` sur un portefeuille inconnu répondait `project is not a
+portfolio member` ; il répond `unknown portfolio`, comme les autres actions. Les refus sur l'état de `server identity`
+s'impriment `MORPHEUS server error: …` au lieu de `MORPHEUS server usage error: …`.
+
+HTTP et MCP ne changent pas : ces refus restent `400 BAD_REQUEST` et un résultat d'outil en erreur.
+
+**Migration.** Un script qui traitait `2` comme « entité absente » ou « pack inactif » doit tester `3` ou `4`. Un script
+qui ne distingue que `0` du reste n'est pas concerné. Les refus de budget (packs actifs, overrides, règles évaluées,
+identités) et `freshness observation must not move backwards` rendent toujours `2`.
+
+Décision : [ADR-0108, amendement du 26 septembre 2026 (codes de sortie des refus sur l'état)](../adr/0108-a-response-says-what-it-could-not-observe.md).
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes

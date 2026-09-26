@@ -303,3 +303,61 @@ que l'encodage écrivait `values().size()` sans contrôle. Une vue de 65 clés p
 - **Preuve.** `QueryPredicateValuesBudgetTest` (refus au parse nommant borne et champ, aller-retour à exactement la borne, validateur et encodeur),
   `SqliteSavedViewUnreadableRowTest` (liste avec ligne empoisonnée, lecture par id qui dit d'archiver, archivage sans décodage avec historique,
   ordre des refus), `QueryPublicViewsUnreadableTest`.
+
+## Amendement du 26 septembre 2026 — un refus sur l'état n'est pas un refus d'usage
+
+L'amendement CLI-1 porte une décision sur le code de sortie ; celui-ci porte la même règle sur les refus. `morpheus help`
+publie `2` pour l'usage, `3` pour l'entité absente, `4` pour l'état. Les adaptateurs `policy`, `views`/`export`/`query`,
+`portfolio` et `server identity` rendaient `2` pour tout refus de leurs services, parce que ces services levaient
+`IllegalArgumentException` et que la chaîne de `catch` de l'adaptateur traduit ce type en `USAGE`. Un identifiant qui ne
+désigne rien se présentait comme un appel mal formé : le code disait autre chose que ce qui avait été observé. La garde de
+l'aide intégrée (`MorpheusHelpInvocationsParseTest`) devait en tenir une liste d'exemptions.
+
+### Décision
+
+- **La règle.** `3` quand un identifiant passé en argument ne désigne rien ; `4` quand ce qui est désigné existe mais que
+  la relation ou l'état résultant exigé par l'opération est refusé ; `2` seulement pour un appel mal formé. Un pack inactif
+  dans un scope est `4` (le pack est désigné, sa relation au scope manque) ; un override ou une règle introuvable est `3`
+  (l'identifiant `--rule` ne désigne rien).
+- **Deux exceptions nommées**, dans `com.morpheus.application.store` à côté de `KnowledgeStoreException` :
+  `EntityNotFoundException` et `EntityStateException`. Les services (`PolicyPackService`, `PolicyEvaluationService`,
+  `SavedViewService`, `QueryExecutionService`, les trois services de portefeuille) **et** les stores mémoire et SQLite qui
+  émettent les mêmes messages les lèvent : un refus levé par le store sous une course reçoit le même code que celui levé
+  par le service. `MorpheusRemoteIdentityFile` et `RemoteIdentityFileStore` (fichier absent, principal absent ou déjà
+  présent, dernier `ADMIN`) les lèvent aussi.
+- **Elles restent des `IllegalArgumentException`.** HTTP et MCP ne distinguent pas ces refus aujourd'hui (`400
+  BAD_REQUEST`, résultat d'outil en erreur) et leurs contrats ne déclarent pas de `404` sur ces routes : les en faire
+  sortir aurait changé deux transports sans que leur contrat le demande. Le précédent existe (`QueryValidationException`).
+  Les quatre adaptateurs CLI les interceptent **avant** `IllegalArgumentException`.
+- **Un fichier d'identités absent** n'est plus décrit comme « must be a regular non-symbolic file » : l'absence est
+  `remote auth file does not exist` (`3`) ; un répertoire ou un lien symbolique garde l'ancien message et le code `2`.
+- **`PortfolioRegistryService.markMissing`** vérifiait l'appartenance sans vérifier le portefeuille : un portefeuille
+  inconnu était rapporté comme « project is not a portfolio member ». Il passe par `requireMembership`, comme
+  `observeFreshness` et `addReference`.
+- **La garde de l'aide perd sa liste d'exemptions.** Contre un store vide, aucune invocation documentée ne rend plus `2` :
+  tout `2` est désormais une faute de l'aide ou du parseur.
+
+### Alternatives écartées
+
+- **Traduire par préfixe de message dans l'adaptateur.** Le texte deviendrait un contrat implicite, et un message reformulé
+  changerait un code de sortie sans que rien ne casse.
+- **Des exceptions hors de la hiérarchie `IllegalArgumentException`.** Chaque `catch` HTTP et MCP (ADR-0102) qui
+  traduit `IllegalArgumentException` aurait dû les ajouter pour rendre la même réponse qu'avant ; un `catch` oublié devenait un `500`.
+- **Des `404`/`409` HTTP dans le même changement.** Décision de contrat HTTP (OpenAPI M23, M24, M25) qui mérite sa propre
+  PR ; noté ci-dessous.
+- **Une exception par sous-plateforme** (`UnknownPolicyPackException`, …). Les adaptateurs auraient intercepté autant de
+  types que de sous-plateformes pour deux codes.
+
+### Conséquences
+
+- **Rupture annoncée** dans `docs/release/RELEASE_NOTES_1.2.1.md`, avec la table avant/après ; règle écrite au §19 de
+  `docs/user/CLI.md`.
+- **Preuve.** `MorpheusStateRefusalExitCodeTest` asserte le code et le message exact de chaque refus sur la commande qui le
+  produit, et le maintien de `2` pour un identifiant malformé, un scope absent et un fichier d'identités qui est un
+  répertoire. Six de ses sept tests échouent sur `develop` avant le changement (`expected <3|4> but was <2>`).
+  `MorpheusHelpInvocationsParseTest` n'a plus d'exemption.
+- **Résidus assumés.** Les refus de budget (packs actifs et overrides par scope, règles évaluées, identités par fichier) et
+  `freshness observation must not move backwards` sont des refus sur l'état qui rendent toujours `2`. Un fichier
+  d'identités illisible (ligne invalide) rend `2`. HTTP rend `400` pour une entité absente sur les routes M23, M24 et M25.
+  `MorpheusServerCli` rend `10` pour une `IllegalStateException` ou une `KnowledgeStoreException`, là où les autres
+  adaptateurs rendent `4`. Chacun est une décision séparée.

@@ -6,6 +6,7 @@ import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.application.query.dsl.QueryResult;
 import com.morpheus.application.query.dsl.QueryScope;
 import com.morpheus.application.query.dsl.QueryValidator;
+import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.SavedViewStore;
 
 import java.time.Clock;
@@ -50,7 +51,7 @@ public final class SavedViewService {
 
     public SavedViewDefinition get(SavedViewId id) {
         return store.find(Objects.requireNonNull(id, "id"))
-                .orElseThrow(() -> new IllegalArgumentException("unknown saved view: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("unknown saved view: " + id));
     }
 
     public List<SavedViewEntry> list(QueryScope scope) {

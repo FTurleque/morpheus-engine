@@ -8,6 +8,7 @@ import com.morpheus.application.query.saved.SavedViewEntry;
 import com.morpheus.application.query.saved.SavedViewId;
 import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.application.query.saved.SavedViewVersion;
+import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.SavedViewStore;
 
 import java.time.Instant;
@@ -56,7 +57,7 @@ public final class MemorySavedViewStore implements SavedViewStore {
     public synchronized SavedViewEntry archive(SavedViewId id, long expectedRevision, Instant at) {
         SavedViewDefinition current = definitions.get(id);
         if (current == null) {
-            throw new IllegalArgumentException("unknown saved view: " + id);
+            throw new EntityNotFoundException("unknown saved view: " + id);
         }
         if (current.status() != SavedViewStatus.ACTIVE) {
             throw new IllegalStateException("saved view is archived: " + id);
@@ -93,7 +94,7 @@ public final class MemorySavedViewStore implements SavedViewStore {
             SavedViewVersion version) {
         SavedViewDefinition current = definitions.get(id);
         if (current == null) {
-            throw new IllegalArgumentException("unknown saved view: " + id);
+            throw new EntityNotFoundException("unknown saved view: " + id);
         }
         if (current.revision() != expectedRevision) {
             throw new SavedViewConflictException(
