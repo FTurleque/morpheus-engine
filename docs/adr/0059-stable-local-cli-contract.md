@@ -165,3 +165,36 @@ Les critères suivants sont satisfaits :
 12. builds complets Windows et Linux verts.
 
 **Décision : ADR-0059 acceptée.**
+
+## Amendement du 26 septembre 2026 (CLI-5) — une restitution texte a un ordre de champs déclaré
+
+« Sortie humaine stable » ne tenait pas pour `server identity list`. Chaque identité était construite dans une
+`LinkedHashMap` (`principal`, `role`, `expiresAt`, `expired`, `nonExpiring`) puis figée par `Map.copyOf`, et la sortie
+texte la rendait par `toString()`. L'ordre d'itération des maps immuables du JDK part d'un sel tiré une fois par JVM :
+deux exécutions sur un fichier d'identités inchangé imprimaient les mêmes champs dans un ordre différent. Constaté en
+rejouant l'ancien rendu dans quatre JVM successives : quatre ordres distincts. Le mode `--json` n'était pas touché,
+`CanonicalJsonSerializer` triant les clés.
+
+La même forme existait chez deux voisins : `minos-status` et `nexus-status` impriment en texte les `details` d'un
+`ExternalIntegrationStatus`, que le record fige lui aussi par `Map.copyOf`. Hors configuration, `minos-status` en porte
+déjà deux (`javaCommand`, `timeoutSeconds`).
+
+**Décision.** Une restitution texte ne dépend pas de l'ordre d'itération de la structure qui porte ses valeurs. L'ordre
+est **déclaré dans le code de rendu** : `MorpheusServerCli.identityLine` rend chaque identité selon `IDENTITY_FIELDS`,
+et les deux commandes de statut rendent leurs détails par clé triée. Les autres vues de `MorpheusServerCli`
+(`credentialView`, `mutationView`, `backupView`, la vue de `migrate-legacy`, l'enveloppe de `identity list`) sont des
+`LinkedHashMap` de premier niveau jamais figées, et leurs listes (`migrated`, `retainedNonExpiring`) suivent l'ordre du
+fichier d'identités : leur ordre tenait déjà.
+
+### Alternative écartée
+
+- **Garder la map ordonnée jusqu'au rendu** (retirer le `Map.copyOf`). Elle ferme le constat, mais la propriété repose
+  sur une structure de données que rien ne protège : un `copyOf` rajouté par réflexe d'immuabilité le rouvre sans
+  bruit. Pour les statuts d'intégration elle obligerait en plus à changer le record applicatif partagé par trois
+  adaptateurs, là où la sortie fautive est une ligne du CLI.
+
+**Preuve.** `MorpheusServerCliTest#anIdentityIsRenderedInTheDeclaredOrderWhateverTheIterationOrderOfItsMap` donne au
+rendu une `TreeMap` (ordre alphabétique, différent de l'ordre déclaré) et attend l'ordre déclaré ; le test de bout en
+bout asserte l'ordre des champs, pas la répétition d'une sortie — dans une même JVM le sel est constant, et comparer
+deux exécutions ne prouverait rien. Les tests de statut passent six détails : le rendu d'origine ne les rend dans
+l'ordre trié qu'une fois sur 720.

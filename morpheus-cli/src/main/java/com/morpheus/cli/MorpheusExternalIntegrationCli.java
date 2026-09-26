@@ -73,7 +73,8 @@ final class MorpheusExternalIntegrationCli {
             out.println("state=" + status.state());
             out.println("configured=" + status.configured());
             out.println("message=" + status.message());
-            status.details().forEach((key, value) -> out.println(key + "=" + value));
+            // The status record freezes its details with Map.copyOf, whose iteration order is salted per JVM.
+            new java.util.TreeMap<>(status.details()).forEach((key, value) -> out.println(key + "=" + value));
         }
         return CliExitCode.SUCCESS.code();
     }

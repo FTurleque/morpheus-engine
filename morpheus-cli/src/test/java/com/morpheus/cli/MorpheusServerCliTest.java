@@ -46,6 +46,34 @@ class MorpheusServerCliTest {
     }
 
     @Test
+    void theTextIdentityListingPresentsItsFieldsInTheDeclaredOrder() {
+        assertEquals(CliExitCode.SUCCESS.code(), run("server", "identity", "create",
+                "--principal", "alice", "--role", "ADMIN").exitCode());
+
+        Result listed = run("server", "identity", "list");
+
+        assertEquals(CliExitCode.SUCCESS.code(), listed.exitCode(), listed.err());
+        String line = listed.out().lines().filter(text -> text.startsWith("identities=")).findFirst().orElseThrow();
+        List<String> declared = List.of("principal=alice", "role=ADMIN", "expiresAt=NEVER", "expired=false",
+                "nonExpiring=true");
+        int previous = -1;
+        for (String field : declared) {
+            int index = line.indexOf(field);
+            assertTrue(index > previous, field + " is out of the declared order in: " + line);
+            previous = index;
+        }
+    }
+
+    @Test
+    void anIdentityIsRenderedInTheDeclaredOrderWhateverTheIterationOrderOfItsMap() {
+        Map<String, Object> alphabetical = new java.util.TreeMap<>(Map.of(
+                "principal", "alice", "role", "ADMIN", "expiresAt", "NEVER", "expired", false, "nonExpiring", true));
+
+        assertEquals("{principal=alice, role=ADMIN, expiresAt=NEVER, expired=false, nonExpiring=true}",
+                MorpheusServerCli.identityLine(alphabetical));
+    }
+
+    @Test
     void identityExpiryCanBeCreatedPreservedAndExplicitlyRemoved() throws Exception {
         String expiry = "2099-01-01T00:00:00Z";
         Result created = run("--json", "server", "identity", "create",
