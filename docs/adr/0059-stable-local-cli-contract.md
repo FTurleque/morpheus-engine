@@ -215,5 +215,7 @@ l'ordre, jamais la répétition d'une sortie — dans une même JVM le sel est c
 prouverait rien. Mesuré par la contre-vérification sur quarante JVM (JDK 21) : l'ancien rendu n'atteint que dix ordres
 pour une identité et douze pour les six détails de statut, et aucun n'est l'ordre attendu ; les tests échouent donc à
 coup sûr sur l'ancien code, sous la réserve que ce décompte dépend de la disposition interne des maps immuables du
-JDK. `ProviderCapabilitySetTest` attend l'ordre de déclaration ; rejoué trois fois sur l'ancien `Set.copyOf`, il a
-échoué trois fois, sur deux ordres différents.
+JDK. `ProviderCapabilitySetTest` attend l'ordre de déclaration de **toutes** les capacités, données à l'envers : la
+contre-vérification a mesuré qu'un sous-ensemble de quatre capacités retombait dans l'ordre attendu environ une fois
+sur huit avec l'ancien `Set.copyOf`, ce qu'un test sur ce seul sous-ensemble aurait laissé passer. Rejoué cinq fois sur
+l'ancien code, le test sur l'ensemble complet a échoué cinq fois.

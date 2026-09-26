@@ -10,6 +10,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ProviderCapabilitySetTest {
 
+    /**
+     * Every capability, given in reverse: the salted order of the former {@code Set.copyOf} matched the declaration
+     * order of a four-element subset about once in eight runs, so a small subset alone could pass on the old code.
+     */
+    @Test
+    void everyCapabilityIteratesInDeclarationOrderWhenGivenInReverse() {
+        List<ProviderCapability> reversed = new java.util.ArrayList<>(List.of(ProviderCapability.values()));
+        java.util.Collections.reverse(reversed);
+
+        assertEquals(List.of(ProviderCapability.values()),
+                List.copyOf(ProviderCapabilitySet.copyOf(reversed).values()));
+    }
+
     @Test
     void theSetIteratesInTheDeclarationOrderOfTheCapabilitiesWhateverTheOrderGiven() {
         ProviderCapabilitySet set = ProviderCapabilitySet.copyOf(List.of(
