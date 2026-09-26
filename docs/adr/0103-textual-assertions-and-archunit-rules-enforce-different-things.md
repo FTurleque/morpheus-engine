@@ -372,3 +372,40 @@ seulement qu'elle est verte, mais **par quel moyen chaque membre la rend verte**
 obligatoire ; ici la cassure d'origine (`MorpheusHttpResponseWriter.class` écrit dans
 `MorpheusReasoningHttpRoutes`, E3 du 11/09/2026) avait bien échoué — elle prouvait que la règle mordait, pas
 qu'elle visait juste.
+
+## Amendement du 26 septembre 2026 (CLI-6) — une aide intégrée se confronte à son parseur en l'exécutant
+
+`morpheus help` documentait `provider-plugins probe --directory PATH --plugin ID --workspace PATH`, une invocation que
+`MorpheusProviderPluginCli` refuse sans condition (`probe requires --sha256 HEX`) : l'empreinte de confiance est
+exigée par le manifeste de convergence, et c'est l'aide qui était fausse. La documentation de référence était juste ;
+rien ne comparait l'aide embarquée au parseur qu'elle décrit.
+
+La proposition à tenir est : **toute invocation que l'aide documente est une invocation que le parseur accepte.** Ni
+une règle ArchUnit ni une assertion textuelle ne l'expriment. Le bytecode ne dit rien d'une chaîne d'aide ; une
+comparaison textuelle exigerait de connaître, pour chaque commande, ses options reconnues et obligatoires — une donnée
+qui n'existe nulle part sous forme lisible, puisque trois adaptateurs les encodent dans une chaîne de `if`. Le
+mécanisme retenu est donc **comportemental** : `MorpheusHelpInvocationsParseTest` lit l'aide telle qu'elle est
+imprimée, réduit chaque ligne d'usage à sa forme minimale (groupes `[...]` retirés, première branche de chaque
+alternative gardée, marqueurs remplis) et l'exécute. Un refus d'usage (code `2`) fait échouer la garde ; les lignes
+qui démarrent un serveur (`mcp`, `api`, `api --remote`) sont confiées à leur parseur de lancement au lieu d'être
+démarrées. Un marqueur que la garde ne sait pas remplir échoue au lieu de sauter la ligne : une nouvelle ligne d'aide
+est couverte le jour où elle est écrite.
+
+### Alternative écartée
+
+- **Le test étroit** — transformer la seule ligne `probe` en arguments et vérifier que le parseur l'accepte. Il ferme ce
+  constat et laisse passer toutes les autres lignes d'aide, c'est-à-dire la classe de défaut entière.
+- **Rendre `--sha256` facultatif** pour que le code rejoigne l'aide : c'est une régression de sécurité, l'empreinte est
+  la décision (`contracts/public-surfaces.tsv`, `provider.plugins.probe`).
+
+### Ce que la garde ne couvre pas
+
+- **Les groupes facultatifs.** Une option entre crochets que le parseur ne reconnaît pas reste invisible : la forme
+  minimale ne la passe jamais. Seules les options obligatoires et la première branche des alternatives sont exercées.
+- **Le code `2` n'est pas qu'au parseur.** Sur le store vide où la garde s'exécute, plusieurs adaptateurs (`policy`,
+  `views`, `export view`, `portfolio`) rendent aussi `2` pour une entité inconnue, alors que l'aide publie `3` pour
+  « introuvable ». Ces refus sont listés par leur préfixe exact (`STATE_REFUSALS`) ; tout autre refus d'usage fait
+  échouer la garde. Ce classement des codes est un défaut distinct, hors du périmètre de ce constat.
+
+**Preuve.** Sur l'aide d'origine, la garde échoue avec exactement une ligne : `provider-plugins probe … -> probe requires
+--sha256 HEX`. `theGuardRefusesTheProbeLineWithoutItsTrustedPin` garde ce cas sous forme de fixture.

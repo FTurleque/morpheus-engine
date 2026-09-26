@@ -143,7 +143,7 @@ public final class MorpheusMain {
             out.println();
             out.println("Provider plugins (M22, explicit only):");
             out.println("  morpheus [--json] provider-plugins discover --directory PATH");
-            out.println("  morpheus [--json] provider-plugins probe --directory PATH --plugin ID --workspace PATH");
+            out.println("  morpheus [--json] provider-plugins probe --directory PATH --plugin ID --workspace PATH --sha256 HEX");
             out.println("  Discovery reads JAR metadata only; probe performs explicit compatible-plugin activation.");
             out.println();
             out.println("Product integrity (M21):");
