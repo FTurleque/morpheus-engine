@@ -41,6 +41,28 @@ class MorpheusMinosCliTest {
         assertTrue(invocation.stdout().contains("\"system\":\"MINOS\""), invocation.stdout());
     }
 
+    /** The options used to be checked in list and resolve, after the project lookup had already failed. */
+    @Test
+    void anOptionTheSubcommandDoesNotReadIsRefusedBeforeTheProjectIsLookedUp() {
+        String data = tempDirectory.resolve("options").toString();
+        String projectId = ProjectSpecificationId.generate().toString();
+
+        Invocation list = invoke("--data-dir", data, "external-references", "list", "--project", projectId,
+                "--owner", DomainIdentity.generate().toString(), "--reference", "x");
+        assertEquals(2, list.exitCode(), list.stderr());
+        assertTrue(list.stderr().contains("unknown options: [reference]"), list.stderr());
+
+        Invocation resolve = invoke("--data-dir", data, "external-references", "resolve", "--project", projectId,
+                "--reference", ExternalReferenceId.generate().toString(), "--owner", "x");
+        assertEquals(2, resolve.exitCode(), resolve.stderr());
+        assertTrue(resolve.stderr().contains("unknown options: [owner]"), resolve.stderr());
+
+        Invocation unknownSubcommand = invoke("--data-dir", data, "external-references", "purge", "--project", projectId);
+        assertEquals(2, unknownSubcommand.exitCode(), unknownSubcommand.stderr());
+        assertTrue(unknownSubcommand.stderr().contains("unknown external-references subcommand: purge"),
+                unknownSubcommand.stderr());
+    }
+
     /** The status record freezes its details with Map.copyOf, whose iteration order is salted once per JVM. */
     @Test
     void minosStatusPrintsItsDetailsInKeyOrderWhateverTheOrderOfTheStatusMap() {
