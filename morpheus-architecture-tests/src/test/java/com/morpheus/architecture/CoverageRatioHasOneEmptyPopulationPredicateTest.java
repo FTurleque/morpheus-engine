@@ -37,8 +37,8 @@ import org.junit.jupiter.api.Test;
 class CoverageRatioHasOneEmptyPopulationPredicateTest {
 
     private static final Pattern COMPARED_WITH_ZERO = Pattern.compile(
-            "\\btotal(Requirements|Tasks)\\(\\)\\s*(==|!=|<=|>=|<|>)\\s*[01]\\b"
-                    + "|\\b[01]\\s*(==|!=|<=|>=|<|>)\\s*[\\w.()]*\\btotal(Requirements|Tasks)\\(\\)");
+            "\\btotal(Requirements|Tasks)\\(\\)\\s*(==|!=|<=|>=|<|>)\\s*[01][lL]?\\b"
+                    + "|\\b[01][lL]?\\s*(==|!=|<=|>=|<|>)\\s*[\\w.()]*\\btotal(Requirements|Tasks)\\(\\)");
     /** The per-population records carry the same 1.0 filler and no status: they are read inside the quality package only. */
     private static final Pattern STATUSLESS_RATIO = Pattern.compile("\\.\\s*coverageRatio\\s*\\(\\s*\\)");
     private static final Pattern OLD_PREDICATE = Pattern.compile("\\bemptyRatioPopulation\\b");
@@ -82,6 +82,8 @@ class CoverageRatioHasOneEmptyPopulationPredicateTest {
                 violations(Map.of("A.java", copy.replace("m.totalTasks() == 0", "m.totalTasks() > 0"))));
         assertEquals(List.of("A.java:4 compares a population with zero"),
                 violations(Map.of("A.java", copy.replace("m.totalTasks() == 0", "1 <= m.totalTasks()"))));
+        assertEquals(List.of("A.java:4 compares a population with zero"),
+                violations(Map.of("A.java", copy.replace("m.totalTasks() == 0", "m.totalTasks() == 0L"))));
         assertEquals(List.of("A.java:4 reads a coverage ratio that has no status"), violations(Map.of("A.java",
                 bareRatio.replace("m.requirementCoverageRatio()", "r.requirements().coverageRatio()"))));
         assertEquals(List.of("A.java reads requirementCoverageRatio() without requirementCoverageStatus()"),
