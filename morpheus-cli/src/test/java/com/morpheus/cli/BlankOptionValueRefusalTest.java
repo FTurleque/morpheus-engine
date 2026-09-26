@@ -204,7 +204,11 @@ class BlankOptionValueRefusalTest {
         add(invocations, "--project", "--data-dir", DATA, "composition", "status", "--project", B);
         add(invocations, "--revision", "--data-dir", DATA, "composition", "sync", "--project", P, "--revision", B);
         layout(invocations, "composition", "status", "--project", P);
-        // MorpheusExternalIntegrationCli: its options are read once the store is open, only the layout comes first.
+        // MorpheusExternalIntegrationCli.Options, checked before the store is opened.
+        add(invocations, "--project", "--data-dir", DATA, "external-references", "list", "--project", B);
+        add(invocations, "--owner", "--data-dir", DATA, "external-references", "list", "--project", P, "--owner", B);
+        add(invocations, "--reference", "--data-dir", DATA, "external-references", "resolve", "--project", P,
+                "--reference", B);
         layout(invocations, "external-references", "list", "--project", P);
         // MorpheusAcceptanceCriteriaCli.Options.
         for (String option : List.of("--project", "--change", "--requirement", "--offset", "--limit")) {

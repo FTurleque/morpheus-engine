@@ -135,6 +135,30 @@ class MorpheusAugmentedContextCliTest {
                 """, invocation.stdout());
     }
 
+    /** The status record freezes its details with Map.copyOf, whose iteration order is salted once per JVM. */
+    @Test
+    void nexusStatusPrintsItsDetailsInKeyOrderWhateverTheOrderOfTheStatusMap() {
+        RecordingProvider provider = RecordingProvider.available();
+        Invocation invocation = invoke(new MorpheusAugmentedContextCli(provider,
+                        () -> new com.morpheus.application.reference.ExternalIntegrationStatus(
+                                "NEXUS", "AVAILABLE", true, "m", java.util.Map.of("zeta", "6", "alpha", "1", "mu", "4", "beta", "2", "omega", "5", "kappa", "3"))),
+                "--data-dir", tempDirectory.resolve("status").toString(), "nexus-status");
+
+        assertEquals(0, invocation.exitCode(), invocation.stderr());
+        assertEquals("""
+                system=NEXUS
+                state=AVAILABLE
+                configured=true
+                message=m
+                alpha=1
+                beta=2
+                kappa=3
+                mu=4
+                omega=5
+                zeta=6
+                """, invocation.stdout());
+    }
+
     @Test
     void anUnknownProjectIsAStateErrorRatherThanAUsageError() {
         String project = ProjectSpecificationId.generate().toString();

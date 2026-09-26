@@ -50,6 +50,26 @@ class MorpheusCompositionCliTest {
         assertTrue(conflicts.stdout().contains("\"evidenceId\""), conflicts.stdout());
     }
 
+    /** Only sync reads --revision; status and conflicts used to accept it and ignore it, exit code 0. */
+    @Test
+    void anOptionTheActionDoesNotReadIsRefusedBeforeTheProjectIsLookedUp() {
+        Path data = tempDirectory.resolve("composition-options");
+        String projectId = ProjectSpecificationId.generate().toString();
+
+        for (String action : java.util.List.of("status", "conflicts")) {
+            Invocation refused = invokeWithData(data, "composition", action, "--project", projectId, "--revision", "r1");
+            assertEquals(2, refused.exitCode(), refused.stderr());
+            assertTrue(refused.stderr().contains("unknown option: --revision"), refused.stderr());
+        }
+        Invocation misspelledAction = invokeWithData(
+                data, "composition", "statsu", "--project", projectId, "--revision", "r1");
+        assertEquals(2, misspelledAction.exitCode(), misspelledAction.stderr());
+        assertTrue(misspelledAction.stderr().contains("unknown composition action: statsu"), misspelledAction.stderr());
+        Invocation withoutIt = invokeWithData(data, "composition", "status", "--project", projectId);
+        assertEquals(4, withoutIt.exitCode(), withoutIt.stderr());
+        assertTrue(withoutIt.stderr().contains("project has no ACTIVE snapshot"), withoutIt.stderr());
+    }
+
     /**
      * A workspace that only the structured-markdown provider supports publishes under its registered root.
      *

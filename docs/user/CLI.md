@@ -215,7 +215,10 @@ Une trace ou un contexte de change observe au plus 1 000 nœuds et 5 000 liens. 
 d'avoir tout vu dans la profondeur demandée, la réponse le dit : `truncationReason` (`NODE_BUDGET_REACHED:1000`,
 `LINK_BUDGET_REACHED:5000` ou `DEPTH_BUDGET_REACHED:<depth>`) et `truncated: true` en JSON, une ligne
 `truncationReason=…` en sortie texte. `analyze-change` émet alors l'avertissement `TRACEABILITY_TRAVERSAL_TRUNCATED`
-(ADR-0108).
+(ADR-0108). En sortie texte, `analyze-change` imprime aussi une ligne `warningCodes=…` — un code par avertissement
+compté par `warnings=`, dans l'ordre du résultat — puis une ligne `truncationReason=…` par raison distincte. Toute
+analyse porte au moins `ACCEPTANCE_CRITERIA_UNAVAILABLE` : les critères d'acceptation ne sont pas dans le modèle
+normalisé. Une traversée tronquée n'est pas un refus : le code de sortie reste `0`.
 
 ## 13. Qualité
 

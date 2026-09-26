@@ -1,5 +1,19 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.analysis.ChangeAnalysisWarning;
+import com.morpheus.application.analysis.ChangeAnalysisWarningCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
+import com.morpheus.domain.evidence.EvidenceId;
+import com.morpheus.domain.identity.DomainIdentity;
+import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
+import com.morpheus.domain.traceability.TraceabilityEntityKind;
+import com.morpheus.domain.traceability.TraceabilityEntityRef;
+import com.morpheus.domain.traceability.TraceabilityLink;
+import com.morpheus.domain.traceability.TraceabilityLinkId;
+import com.morpheus.domain.traceability.TraceabilityLinkOrigin;
+import com.morpheus.domain.traceability.TraceabilityRelationType;
+import com.morpheus.domain.traceability.TraceabilityResolutionState;
+import com.morpheus.store.sqlite.SqliteTraceabilityStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -8,8 +22,12 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -156,6 +174,100 @@ class MorpheusCliTest {
         assertEquals(0, listAfterReopen.exitCode());
         assertTrue(listAfterReopen.stdout().contains(projectId));
         assertTrue(Files.exists(data.resolve("morpheus.db")));
+    }
+
+    /**
+     * No provider derives DEPENDS_ON links, so the test writes a two-requirement cycle into the published snapshot:
+     * at depth 1 the link back from the frontier is never recorded, and the traversal reports its depth budget.
+     */
+    @Test
+    void aTruncatedAnalysisNamesItsTruncationInTextAsInJsonAndStillSucceeds() {
+        Path data = tempDir.resolve("truncation-data");
+        String projectId = value(invokeWithData(
+                data, "projects", "add", "--workspace", fixture("openspec-basic").toString()).stdout(), "projectId");
+        assertEquals(0, invokeWithData(data, "sync", "--project", projectId).exitCode());
+        Invocation requirements = invokeWithData(data, "requirements", "find", "--project", projectId);
+        String snapshotId = value(requirements.stdout(), "snapshotId").split(" ")[0];
+        List<String> requirementIds = requirements.stdout().lines()
+                .filter(line -> !line.startsWith("snapshotId=") && !line.isBlank())
+                .map(line -> line.split("\\t", 2)[0])
+                .toList();
+        assertEquals(2, requirementIds.size(), requirements.stdout());
+        try (SqliteTraceabilityStore store = new SqliteTraceabilityStore(data.resolve("morpheus.db"))) {
+            store.putLinks(KnowledgeSnapshotId.parse(snapshotId), List.of(
+                    dependsOn(requirementIds.get(0), requirementIds.get(1)),
+                    dependsOn(requirementIds.get(1), requirementIds.get(0))));
+        }
+        String changeId = firstIdLine(invokeWithData(data, "changes", "list", "--project", projectId).stdout());
+
+        Invocation text = invokeWithData(
+                data, "analyze-change", "--project", projectId, "--change", changeId, "--depth", "1");
+        Invocation json = invokeWithData(
+                data, "--json", "analyze-change", "--project", projectId, "--change", changeId, "--depth", "1");
+
+        assertEquals(0, text.exitCode(), "a truncated traversal is a partial observation, not a refusal: " + text.stderr());
+        assertEquals(0, json.exitCode(), json.stderr());
+        assertTrue(json.stdout().contains("\"truncationReason\":\"DEPTH_BUDGET_REACHED:1\""), json.stdout());
+        assertEquals(List.of("DEPTH_BUDGET_REACHED:1"), text.stdout().lines()
+                .filter(line -> line.startsWith("truncationReason="))
+                .map(line -> line.substring("truncationReason=".length()))
+                .toList(), text.stdout());
+        assertTrue(value(text.stdout(), "warningCodes").contains("TRACEABILITY_TRAVERSAL_TRUNCATED"), text.stdout());
+    }
+
+    @Test
+    void aCompleteAnalysisNamesItsWarningsAndPrintsNoTruncation() {
+        Path data = tempDir.resolve("complete-analysis-data");
+        String projectId = value(invokeWithData(
+                data, "projects", "add", "--workspace", fixture("openspec-basic").toString()).stdout(), "projectId");
+        assertEquals(0, invokeWithData(data, "sync", "--project", projectId).exitCode());
+        String changeId = firstIdLine(invokeWithData(data, "changes", "list", "--project", projectId).stdout());
+
+        Invocation text = invokeWithData(
+                data, "analyze-change", "--project", projectId, "--change", changeId, "--depth", "2");
+
+        assertEquals(0, text.exitCode(), text.stderr());
+        assertFalse(text.stdout().contains("truncationReason="), text.stdout());
+        String codes = value(text.stdout(), "warningCodes");
+        assertTrue(codes.contains("ACCEPTANCE_CRITERIA_UNAVAILABLE"), text.stdout());
+        assertFalse(codes.contains("TRACEABILITY_TRAVERSAL_TRUNCATED"), text.stdout());
+        String count = text.stdout().lines().filter(line -> line.startsWith("dependencies=")).findFirst().orElseThrow();
+        assertEquals(count.substring(count.indexOf("warnings=") + "warnings=".length()),
+                Integer.toString(codes.split(",").length), "one code per counted warning: " + text.stdout());
+    }
+
+    @Test
+    void theWarningLinesListOneCodePerWarningAndEachDistinctTruncationReasonOnce() {
+        List<ChangeAnalysisWarning> warnings = List.of(
+                warning(ChangeAnalysisWarningCode.ACCEPTANCE_CRITERIA_UNAVAILABLE, Map.of("status", "UNAVAILABLE")),
+                warning(ChangeAnalysisWarningCode.TRACEABILITY_TRAVERSAL_TRUNCATED,
+                        Map.of("direction", "DEPENDENCY", "truncationReason", "NODE_BUDGET_REACHED:1000")),
+                warning(ChangeAnalysisWarningCode.TRACEABILITY_TRAVERSAL_TRUNCATED,
+                        Map.of("direction", "DEPENDENT", "truncationReason", "NODE_BUDGET_REACHED:1000")),
+                warning(ChangeAnalysisWarningCode.TRACEABILITY_TRAVERSAL_TRUNCATED,
+                        Map.of("direction", "DEPENDENT", "truncationReason", "DEPTH_BUDGET_REACHED:2")));
+
+        assertEquals(List.of(
+                        "warningCodes=ACCEPTANCE_CRITERIA_UNAVAILABLE,TRACEABILITY_TRAVERSAL_TRUNCATED,"
+                                + "TRACEABILITY_TRAVERSAL_TRUNCATED,TRACEABILITY_TRAVERSAL_TRUNCATED",
+                        "truncationReason=DEPTH_BUDGET_REACHED:2",
+                        "truncationReason=NODE_BUDGET_REACHED:1000"),
+                MorpheusCli.analysisWarningLines(warnings));
+        assertEquals(List.of("warningCodes="), MorpheusCli.analysisWarningLines(List.of()));
+    }
+
+    private static ChangeAnalysisWarning warning(ChangeAnalysisWarningCode code, Map<String, String> details) {
+        return new ChangeAnalysisWarning(code, DiagnosticSeverity.WARNING, Optional.empty(), "message", details);
+    }
+
+    private static TraceabilityLink dependsOn(String source, String target) {
+        return new TraceabilityLink(
+                TraceabilityLinkId.generate(),
+                new TraceabilityEntityRef(TraceabilityEntityKind.REQUIREMENT, DomainIdentity.parse(source)),
+                TraceabilityRelationType.DEPENDS_ON,
+                new TraceabilityEntityRef(TraceabilityEntityKind.REQUIREMENT, DomainIdentity.parse(target)),
+                TraceabilityLinkOrigin.EXPLICIT, TraceabilityResolutionState.RESOLVED, Optional.empty(),
+                Set.of(EvidenceId.generate()), Instant.parse("2026-09-26T00:00:00Z"));
     }
 
     @Test

@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
 
 /** Additive M12 CLI surface. Business resolution remains in application services. */
 final class MorpheusExternalIntegrationCli {
@@ -73,7 +74,8 @@ final class MorpheusExternalIntegrationCli {
             out.println("state=" + status.state());
             out.println("configured=" + status.configured());
             out.println("message=" + status.message());
-            status.details().forEach((key, value) -> out.println(key + "=" + value));
+            // The status record freezes its details with Map.copyOf, whose iteration order is salted per JVM.
+            new TreeMap<>(status.details()).forEach((key, value) -> out.println(key + "=" + value));
         }
         return CliExitCode.SUCCESS.code();
     }
@@ -84,6 +86,11 @@ final class MorpheusExternalIntegrationCli {
         }
         String subcommand = parsed.tokens().getFirst();
         Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+        options.rejectUnknown(switch (subcommand) {
+            case "list" -> Set.of("project", "owner");
+            case "resolve" -> Set.of("project", "reference");
+            default -> throw new IllegalArgumentException("unknown external-references subcommand: " + subcommand);
+        });
         try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
             if (runtime.snapshots.findProject(projectId).isEmpty()) {
@@ -105,7 +112,6 @@ final class MorpheusExternalIntegrationCli {
             Options options,
             boolean jsonOutput,
             PrintStream out) {
-        options.rejectUnknown(Set.of("project", "owner"));
         DomainIdentity ownerId = DomainIdentity.parse(options.required("owner"));
         List<ExternalReference> references = service.listActive(projectId, ownerId)
                 .orElseThrow(() -> new IllegalStateException("project has no ACTIVE snapshot: " + projectId));
@@ -127,7 +133,6 @@ final class MorpheusExternalIntegrationCli {
             Options options,
             boolean jsonOutput,
             PrintStream out) {
-        options.rejectUnknown(Set.of("project", "reference"));
         ExternalReferenceId referenceId = ExternalReferenceId.parse(options.required("reference"));
         var result = service.resolveActive(projectId, referenceId)
                 .orElseThrow(() -> new IllegalStateException("project has no ACTIVE snapshot: " + projectId));
