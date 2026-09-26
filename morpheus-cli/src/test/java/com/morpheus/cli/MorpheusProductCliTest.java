@@ -54,6 +54,15 @@ class MorpheusProductCliTest {
         assertTrue(result.err().isEmpty());
     }
 
+    /** The parser is a chain of if, which the option guard does not see; this test holds its refusal instead. */
+    @Test
+    void anUnknownOptionIsRefused() {
+        Result result = run("version", "--verbose", "yes");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode());
+        assertTrue(result.err().contains("unknown option for version: --verbose"), result.err());
+    }
+
     private Result run(String... args) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ByteArrayOutputStream errors = new ByteArrayOutputStream();

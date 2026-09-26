@@ -172,6 +172,24 @@ class MorpheusMainTest {
                 () -> McpLaunchOptions.parse(new String[]{"mcp", "--stdio", "--json"}, Map.of(), properties));
     }
 
+    /** The launch parsers refuse after their loop, a shape the option guard does not see; this test holds it. */
+    @Test
+    void eachLaunchParserNamesAnUnknownArgument() {
+        Properties properties = properties();
+        Map<String, String> environment = Map.of("MORPHEUS_SERVER_TLS_PASSWORD", "changeit");
+
+        IllegalArgumentException mcp = assertThrows(IllegalArgumentException.class,
+                () -> McpLaunchOptions.parse(new String[]{"mcp", "--stdio", "--verbose"}, environment, properties));
+        IllegalArgumentException api = assertThrows(IllegalArgumentException.class,
+                () -> ApiLaunchOptions.parse(new String[]{"api", "--verbose"}, environment, properties));
+        IllegalArgumentException remote = assertThrows(IllegalArgumentException.class,
+                () -> RemoteApiLaunchOptions.parse(new String[]{"api", "--remote", "--verbose"}, environment, properties));
+
+        assertTrue(mcp.getMessage().contains("unknown MCP launcher arguments: [--verbose]"), mcp.getMessage());
+        assertTrue(api.getMessage().contains("unknown API launcher arguments: [--verbose]"), api.getMessage());
+        assertTrue(remote.getMessage().contains("unknown remote API arguments: [--verbose]"), remote.getMessage());
+    }
+
     @Test
     void rejectsInvalidApiPortJsonAndUnknownArguments() {
         Properties properties = properties();
