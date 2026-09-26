@@ -191,6 +191,28 @@ rapportaient aucun conflit en rapportent maintenant (les `IDENTICAL`), et un seu
 
 Décision : [ADR-0084, amendement du 26 septembre 2026 (CMP-1, CMP-2)](../adr/0084-provider-neutral-multi-provider-composition.md).
 
+### CLI `composition status` et `composition conflicts` : `--revision` est refusé
+
+Jusqu'à 1.2.0, `composition status` et `composition conflicts` acceptaient `--revision REV` sans le lire : seule
+`composition sync` s'en sert. L'option était ignorée en silence et la commande rendait `0`, comme si la révision avait
+été prise en compte.
+
+À partir de 1.2.1, ces deux actions refusent toute option autre que `--project`, avant d'accéder à l'état :
+
+```text
+MORPHEUS error [2]: unknown option: --revision
+```
+
+Dans le même mouvement, `external-references list` et `resolve` vérifient leurs options avant de chercher le projet :
+une option inconnue y rend `2` au lieu de `4` (« projet introuvable ») quand le projet n'existe pas, et une
+sous-commande inconnue aussi (`unknown external-references subcommand`). Le code d'une invocation correcte ne change pas.
+
+**Migration.** Retirer `--revision` des appels à `composition status` et `composition conflicts` ; il n'a jamais eu
+d'effet.
+
+Décision : [ADR-0103, amendement du 26 septembre 2026 (CLI-8)](../adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md) ;
+garde `CliOptionParsingRefusesUnknownOptionsTest`, qui découvre désormais toutes les familles de parseurs du CLI.
+
 ### Qualité (`quality`, diagnostics HTTP) : un ratio sur population vide n'est plus publié comme une mesure
 
 Jusqu'à 1.2.0, un projet dont le snapshot actif ne publiait aucune exigence rendait `requirementCoverageRatio: 1.0`
