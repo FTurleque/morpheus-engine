@@ -8,6 +8,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -156,6 +157,71 @@ class MorpheusCliTest {
         assertEquals(0, listAfterReopen.exitCode());
         assertTrue(listAfterReopen.stdout().contains(projectId));
         assertTrue(Files.exists(data.resolve("morpheus.db")));
+    }
+
+    /** A ratio over an empty population is 1.0 by convention; the quality output used to publish it as a coverage. */
+    @Test
+    void aProjectWithoutRequirementsOrTasksHasNoCoverageMeasurement() throws Exception {
+        Path workspace = tempDir.resolve("empty-workspace");
+        Files.createDirectories(workspace.resolve("openspec/specs"));
+        Files.copy(fixture("openspec-basic").resolve("openspec/config.yaml"), workspace.resolve("openspec/config.yaml"));
+        Files.createDirectories(workspace.resolve("openspec/changes/describe-only"));
+        Files.copy(fixture("openspec-basic").resolve("openspec/changes/add-remember-me/proposal.md"),
+                workspace.resolve("openspec/changes/describe-only/proposal.md"));
+        Path data = tempDir.resolve("empty-quality-data");
+        Invocation add = invokeWithData(data, "projects", "add", "--workspace", workspace.toString());
+        assertEquals(0, add.exitCode(), add.stderr());
+        String projectId = value(add.stdout(), "projectId");
+        Invocation sync = invokeWithData(data, "sync", "--project", projectId);
+        assertEquals(0, sync.exitCode(), sync.stderr());
+        assertTrue(sync.stdout().contains("requirements=0"), sync.stdout());
+
+        Invocation text = invokeWithData(data, "quality", "--project", projectId);
+        Invocation json = invokeWithData(data, "--json", "quality", "--project", projectId);
+
+        assertEquals(0, text.exitCode(), text.stderr());
+        assertTrue(text.stdout().contains(" requirementCoverage=UNDEFINED_EMPTY_POPULATION "), text.stdout());
+        assertTrue(text.stdout().contains(" taskCoverage=UNDEFINED_EMPTY_POPULATION "), text.stdout());
+        assertFalse(text.stdout().contains("Coverage=1.0"), text.stdout());
+        assertEquals(0, json.exitCode(), json.stderr());
+        assertTrue(json.stdout().contains("\"requirementCoverageStatus\":\"UNDEFINED_EMPTY_POPULATION\""), json.stdout());
+        assertTrue(json.stdout().contains("\"taskCoverageStatus\":\"UNDEFINED_EMPTY_POPULATION\""), json.stdout());
+        assertTrue(json.stdout().contains("\"requirementCoverageRatio\":1.0"),
+                "the ratio keeps its wire type and value; the status says it is not a measurement: " + json.stdout());
+    }
+
+    /**
+     * For a project that has requirements, the quality JSON keeps every field it had, with the same type; the two
+     * statuses are the only addition.
+     */
+    @Test
+    void aProjectWithRequirementsKeepsItsQualityFieldsAndGainsOnlyTheStatuses() {
+        Path data = tempDir.resolve("measured-quality-data");
+        String projectId = value(invokeWithData(
+                data, "projects", "add", "--workspace", fixture("openspec-basic").toString()).stdout(), "projectId");
+        assertEquals(0, invokeWithData(data, "sync", "--project", projectId).exitCode());
+
+        Invocation json = invokeWithData(data, "--json", "quality", "--project", projectId);
+        Invocation text = invokeWithData(data, "quality", "--project", projectId);
+
+        assertEquals(0, json.exitCode(), json.stderr());
+        java.util.regex.Matcher metrics = java.util.regex.Pattern.compile("\"metrics\":\\{(.*?)\\},\"findings\"")
+                .matcher(json.stdout());
+        assertTrue(metrics.find(), json.stdout());
+        java.util.Set<String> keys = new java.util.TreeSet<>();
+        java.util.regex.Matcher key = java.util.regex.Pattern.compile("\"(\\w+)\":").matcher(
+                metrics.group(1).replaceAll("\"findingsBy\\w+\":\\{[^}]*\\}", "\"findingsBy\":0"));
+        while (key.find()) {
+            keys.add(key.group(1));
+        }
+        assertEquals(new java.util.TreeSet<>(List.of("acceptanceCoverageStatus", "coveredTasks", "findingsBy",
+                        "lifecycleAggregationStatus", "linkedRequirements", "orphanRequirements", "requirementCoverageRatio",
+                        "requirementCoverageStatus", "taskCoverageRatio", "taskCoverageStatus", "totalChanges",
+                        "totalDesignDecisions", "totalExternalReferences", "totalFindings", "totalRequirements", "totalTasks",
+                        "uncoveredTasks")), keys);
+        assertTrue(json.stdout().matches("(?s).*\"requirementCoverageRatio\":[0-9.]+,.*"), json.stdout());
+        assertTrue(json.stdout().contains("\"requirementCoverageStatus\":\"MEASURED\""), json.stdout());
+        assertTrue(text.stdout().matches("(?s).* requirementCoverage=[0-9.]+ .*"), text.stdout());
     }
 
     @Test

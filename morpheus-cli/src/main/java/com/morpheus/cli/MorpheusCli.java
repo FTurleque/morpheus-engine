@@ -11,6 +11,7 @@ import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessService;
+import com.morpheus.application.quality.CoverageRatioStatus;
 import com.morpheus.application.quality.DecisionReferenceQualityService;
 import com.morpheus.application.quality.QualityReport;
 import com.morpheus.application.quality.QualityReportService;
@@ -566,13 +567,19 @@ public final class MorpheusCli {
                 out.println(KEY_SNAPSHOT_ID + report.snapshot().id());
                 out.println("findings=" + metrics.totalFindings()
                         + " requirements=" + metrics.totalRequirements()
-                        + " requirementCoverage=" + metrics.requirementCoverageRatio()
+                        + " requirementCoverage="
+                        + coverage(metrics.requirementCoverageStatus(), metrics.requirementCoverageRatio())
                         + " tasks=" + metrics.totalTasks()
-                        + " taskCoverage=" + metrics.taskCoverageRatio()
+                        + " taskCoverage=" + coverage(metrics.taskCoverageStatus(), metrics.taskCoverageRatio())
                         + " acceptance=" + metrics.acceptanceCoverageStatus());
             }
             return CliExitCode.SUCCESS.code();
         }
+    }
+
+    /** A ratio over an empty population is not a measurement, so it is not printed as a number. */
+    private static String coverage(CoverageRatioStatus status, double ratio) {
+        return status == CoverageRatioStatus.MEASURED ? Double.toString(ratio) : status.name();
     }
 
     private RequirementView requirementView(RequirementVersionRecord versionRecord) {

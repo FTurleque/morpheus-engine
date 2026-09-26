@@ -225,6 +225,12 @@ morpheus quality --project <projectId>
 
 Les diagnostics sont dérivés et ne mutent pas le snapshot publié.
 
+Les deux couvertures (`requirementCoverage`, `taskCoverage`) sont des ratios. Quand le snapshot actif ne publie aucune
+exigence, ou aucune tâche, le ratio correspondant n'est pas une mesure : la sortie texte imprime
+`UNDEFINED_EMPTY_POPULATION` à la place du nombre. Le JSON garde le ratio (`1.0` par convention) et le qualifie par
+`requirementCoverageStatus` / `taskCoverageStatus`, qui valent `MEASURED` ou `UNDEFINED_EMPTY_POPULATION`. Une garde de
+CI écrite sur un ratio doit lire son statut d'abord.
+
 ## 14. MINOS — références de code
 
 ```bash

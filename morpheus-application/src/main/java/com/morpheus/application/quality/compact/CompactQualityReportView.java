@@ -30,10 +30,12 @@ public record CompactQualityReportView(
             int linkedRequirements,
             int orphanRequirements,
             double requirementCoverageRatio,
+            String requirementCoverageStatus,
             int totalTasks,
             int coveredTasks,
             int uncoveredTasks,
             double taskCoverageRatio,
+            String taskCoverageStatus,
             String acceptanceCoverageStatus,
             String lifecycleAggregationStatus,
             int totalChanges,
@@ -44,6 +46,8 @@ public record CompactQualityReportView(
             Map<String, Integer> findingsByEvidenceKind) {
 
         public MetricsView {
+            requirementCoverageStatus = requireNonBlank(requirementCoverageStatus, "requirementCoverageStatus");
+            taskCoverageStatus = requireNonBlank(taskCoverageStatus, "taskCoverageStatus");
             acceptanceCoverageStatus = requireNonBlank(acceptanceCoverageStatus, "acceptanceCoverageStatus");
             lifecycleAggregationStatus = requireNonBlank(lifecycleAggregationStatus, "lifecycleAggregationStatus");
             findingsByCode = sortedCounts(findingsByCode, "findingsByCode");
