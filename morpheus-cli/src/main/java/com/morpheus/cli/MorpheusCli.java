@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.analysis.ChangeAnalysisService;
+import com.morpheus.application.analysis.ChangeAnalysisWarning;
 import com.morpheus.application.analysis.ProposedChangeSet;
 import com.morpheus.application.analysis.compact.CompactChangeAnalysisViewService;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
@@ -64,6 +65,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Stable, scriptable local MORPHEUS command-line adapter. */
 public final class MorpheusCli {
@@ -540,9 +542,28 @@ public final class MorpheusCli {
                         + " removed=" + summary.removedRequirements());
                 out.println("dependencies=" + summary.dependencies() + " dependents=" + summary.dependents()
                         + " warnings=" + summary.warnings());
+                analysisWarningLines(result.warnings()).forEach(out::println);
             }
             return CliExitCode.SUCCESS.code();
         }
+    }
+
+    /**
+     * Names what the warning count counts. The count alone never said which warnings it held -- and it is never below
+     * one, since acceptance criteria are always reported unavailable -- while a truncated dependency traversal existed
+     * only as one of them: the text output lost the truncation the JSON output carried. One code per warning, in the
+     * result's order, then the distinct truncation reasons under the name the two sibling commands already print.
+     */
+    static List<String> analysisWarningLines(List<ChangeAnalysisWarning> warnings) {
+        List<String> lines = new ArrayList<>();
+        lines.add("warningCodes=" + warnings.stream().map(warning -> warning.code().name()).collect(Collectors.joining(",")));
+        warnings.stream()
+                .map(warning -> warning.details().get(ChangeAnalysisWarning.TRUNCATION_REASON))
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .forEach(reason -> lines.add("truncationReason=" + reason));
+        return lines;
     }
 
     private int quality(List<String> tokens, CliLayout layout, boolean jsonOutput, PrintStream out) {
