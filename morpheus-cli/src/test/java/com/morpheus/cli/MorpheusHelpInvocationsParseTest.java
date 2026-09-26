@@ -35,31 +35,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the guard cannot fill fails the test rather than skipping the line, so a new help line is covered the day it is
  * written.</p>
  *
- * <p>Exit code 2 is not only the parser's. Run against an empty store, some adapters also return it for a refusal
- * about state: an entity that does not exist (policy pack or pack version, saved view, portfolio), a policy pack that
- * is not active in the scope, and a server identity command run where no auth file exists yet. Every invocation runs
- * against its own empty store, so no line reads a state another line wrote and the order of the help is irrelevant.
- * Those refusals are listed by their exact prefix in {@link #STATE_REFUSALS}; any other usage refusal fails the
- * guard.</p>
+ * <p>Exit code 2 is the parser's alone. Every invocation runs against its own empty store, so no line reads a state
+ * another line wrote and the order of the help is irrelevant; a refusal about that empty state -- an entity that does
+ * not exist, a policy pack that is not active in the scope, a server identity command run where no auth file exists
+ * yet -- exits 3 or 4, never 2. Any usage refusal fails the guard, with no exemption list.</p>
  *
  * <p>What it does not prove. It proves that no documented invocation is refused <em>as usage</em>; an exit code other
  * than 2 counts as acceptance. So it cannot see a documented invocation that a command refuses only after resolving
- * state, when the store is empty: a command that looks the project up before validating its options fails with
- * "project not found" whatever the options are, and a refusal listed in {@link #STATE_REFUSALS} hides what the
- * parser would have said next. Optional groups are never passed, so a bracketed option the parser does not recognise
- * stays invisible; value alternatives ({@code --role READ|WRITE|ADMIN}) are exercised on their first branch only, and
- * any word that follows an option is taken for its value, so a command alternative written after a boolean flag would
- * be exercised on its first branch too.</p>
+ * state, when the store is empty: a command that looks an entity up before validating its options fails with 3 or 4
+ * whatever the options are, and hides what the parser would have said next. Optional groups are never passed, so a
+ * bracketed option the parser does not recognise stays invisible; value alternatives ({@code --role READ|WRITE|ADMIN})
+ * are exercised on their first branch only, and any word that follows an option is taken for its value, so a command
+ * alternative written after a boolean flag would be exercised on its first branch too.</p>
  */
 class MorpheusHelpInvocationsParseTest {
-    private static final List<String> STATE_REFUSALS = List.of(
-            "MORPHEUS error [2]: unknown policy pack: ",
-            "MORPHEUS error [2]: unknown policy pack version: ",
-            "MORPHEUS error [2]: policy pack is not active in scope: ",
-            "MORPHEUS error [2]: policy pack must be active before adding an override: ",
-            "MORPHEUS error [2]: unknown saved view: ",
-            "MORPHEUS error [2]: unknown portfolio: ",
-            "MORPHEUS server usage error: remote auth file must be a regular non-symbolic file");
     private static final String PROBE_WITHOUT_PIN =
             "  morpheus [--json] provider-plugins probe --directory PATH --plugin ID --workspace PATH";
     private static final String PACK_READS_WITH_AN_OPTIONAL_ID =
@@ -147,7 +136,7 @@ class MorpheusHelpInvocationsParseTest {
             exitCode = MorpheusMain.run(invocation.toArray(String[]::new), out, err, Map.of(), properties());
         }
         String message = errBytes.toString(StandardCharsets.UTF_8).trim();
-        return exitCode == CliExitCode.USAGE.code() && STATE_REFUSALS.stream().noneMatch(message::startsWith)
+        return exitCode == CliExitCode.USAGE.code()
                 ? Optional.of(message)
                 : Optional.empty();
     }

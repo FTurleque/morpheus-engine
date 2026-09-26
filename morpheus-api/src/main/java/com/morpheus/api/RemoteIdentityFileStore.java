@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.files.WorkspaceFileTooLargeException;
 import com.morpheus.application.security.LocalWritePermissionHardener;
+import com.morpheus.application.store.EntityNotFoundException;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -148,6 +149,9 @@ final class RemoteIdentityFileStore {
 
     static Path secureExistingFile(Path authFile) {
         Path file = normalizedFile(authFile);
+        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+            throw new EntityNotFoundException("remote auth file does not exist");
+        }
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(file)) {
             throw new IllegalArgumentException("remote auth file must be a regular non-symbolic file");
         }

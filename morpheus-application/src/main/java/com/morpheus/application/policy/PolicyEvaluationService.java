@@ -1,5 +1,7 @@
 package com.morpheus.application.policy;
 
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.PolicyPackStore;
 
 import java.util.ArrayList;
@@ -39,7 +41,7 @@ public final class PolicyEvaluationService {
 
     public PolicyEvaluation.Report evaluatePack(PolicyScope scope, PolicyIds.PackId packId) {
         PolicyConfiguration.Activation activation = store.findActivation(scope, packId)
-                .orElseThrow(() -> new IllegalArgumentException("policy pack is not active in scope: " + packId));
+                .orElseThrow(() -> new EntityStateException("policy pack is not active in scope: " + packId));
         return evaluateVersion(scope, requireVersion(packId, activation.versionId()), false);
     }
 
@@ -96,7 +98,7 @@ public final class PolicyEvaluationService {
 
     private PolicyPack.Version requireVersion(PolicyIds.PackId packId, PolicyIds.VersionId versionId) {
         return store.findVersion(packId, versionId)
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> new EntityNotFoundException(
                         "unknown policy pack version: " + packId + "/" + versionId));
     }
 

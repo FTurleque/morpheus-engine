@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.store.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -118,9 +119,8 @@ class RemoteIdentityFileStoreTest {
         Path directory = Files.createDirectory(temp.resolve("a-directory"));
 
         assertFalse(RemoteIdentityFileStore.exists(missing));
-        assertTrue(assertThrows(IllegalArgumentException.class,
-                () -> RemoteIdentityFileStore.readLines(missing, "cannot read"))
-                .getMessage().contains("regular non-symbolic file"));
+        assertEquals("remote auth file does not exist", assertThrows(EntityNotFoundException.class,
+                () -> RemoteIdentityFileStore.readLines(missing, "cannot read")).getMessage());
         assertTrue(assertThrows(IllegalArgumentException.class,
                 () -> RemoteIdentityFileStore.secureExistingFile(directory))
                 .getMessage().contains("regular non-symbolic file"));

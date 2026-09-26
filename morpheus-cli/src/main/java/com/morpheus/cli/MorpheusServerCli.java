@@ -3,6 +3,8 @@ package com.morpheus.cli;
 import com.morpheus.api.MorpheusRemoteIdentityFile;
 import com.morpheus.api.MorpheusRemoteRole;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
 
 import java.io.PrintStream;
@@ -79,6 +81,12 @@ final class MorpheusServerCli {
             throw new IllegalArgumentException(
                     "server command must be identity create|list|revoke|rotate|role|migrate-legacy, "
                             + "backup create, backup verify, or restore");
+        } catch (EntityNotFoundException failure) {
+            err.println("MORPHEUS server error: " + safeMessage(failure));
+            return CliExitCode.NOT_FOUND.code();
+        } catch (EntityStateException failure) {
+            err.println("MORPHEUS server error: " + safeMessage(failure));
+            return CliExitCode.STATE_ERROR.code();
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS server usage error: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
