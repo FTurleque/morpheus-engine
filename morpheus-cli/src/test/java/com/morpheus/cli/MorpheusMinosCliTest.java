@@ -41,6 +41,38 @@ class MorpheusMinosCliTest {
         assertTrue(invocation.stdout().contains("\"system\":\"MINOS\""), invocation.stdout());
     }
 
+    /** The status record freezes its details with Map.copyOf, whose iteration order is salted once per JVM. */
+    @Test
+    void minosStatusPrintsItsDetailsInKeyOrderWhateverTheOrderOfTheStatusMap() {
+        MorpheusExternalIntegrationCli cli = new MorpheusExternalIntegrationCli(
+                new com.morpheus.application.reference.ExternalReferenceResolverRegistry(java.util.List.of()),
+                () -> new com.morpheus.application.reference.ExternalIntegrationStatus(
+                        "MINOS", "DISABLED", false, "m", java.util.Map.of("zeta", "6", "alpha", "1", "mu", "4", "beta", "2", "omega", "5", "kappa", "3")));
+        ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+        Properties properties = new Properties();
+        properties.setProperty("user.home", tempDirectory.resolve("home").toString());
+        int exit;
+        try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
+             PrintStream err = new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8)) {
+            exit = cli.run(new String[]{"--data-dir", tempDirectory.resolve("status").toString(), "minos-status"},
+                    out, err, Map.of(), properties);
+        }
+
+        assertEquals(0, exit);
+        assertEquals("""
+                system=MINOS
+                state=DISABLED
+                configured=false
+                message=m
+                alpha=1
+                beta=2
+                kappa=3
+                mu=4
+                omega=5
+                zeta=6
+                """, outBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"));
+    }
+
     @Test
     void listAndResolveWorkWithoutMinosAndNeverPersistNoResolverObservation() {
         Path database = tempDirectory.resolve("m12-cli.db");
