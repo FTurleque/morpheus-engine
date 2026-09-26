@@ -304,6 +304,66 @@ que l'encodage écrivait `values().size()` sans contrôle. Une vue de 65 clés p
   `SqliteSavedViewUnreadableRowTest` (liste avec ligne empoisonnée, lecture par id qui dit d'archiver, archivage sans décodage avec historique,
   ordre des refus), `QueryPublicViewsUnreadableTest`.
 
+## Amendement du 26 septembre 2026 (CLI-2) — une sortie texte dit la troncature comme la sortie machine
+
+L'ADR annonçait que « la sortie texte de la CLI ajoute une ligne `truncationReason=…` quand il y en a une ». C'était vrai
+de `trace-requirement` et de `change-context`, pas d'`analyze-change`. Dans ce résultat la troncature n'existe que
+comme un avertissement `TRACEABILITY_TRAVERSAL_TRUNCATED` portant le détail `truncationReason`, et la sortie texte n'en
+imprimait que le nombre (`warnings=N`). Ce nombre ne disait rien : `ACCEPTANCE_CRITERIA_UNAVAILABLE` est ajouté à chaque
+analyse, le compteur ne descend jamais sous `1`, et un opérateur n'avait aucun seuil pour distinguer `1` de `2`. Le JSON
+portait la liste entière ; les deux formats ne portaient pas la même information.
+
+**Décision.** La sortie texte d'`analyze-change` ajoute, sous la ligne des compteurs qui ne change pas :
+
+- `warningCodes=…` — un code par avertissement compté, dans l'ordre canonique du résultat, pour que le compteur se lise ;
+- une ligne `truncationReason=…` par raison distincte portée par un avertissement, sous le nom que les deux commandes
+  voisines emploient déjà. Deux noms pour la même chose sur trois commandes du même binaire obligeraient chaque lecteur
+  à les connaître tous les deux.
+
+La sélection se fait sur la présence du détail `truncationReason`, pas sur une liste de codes : un avertissement futur qui
+porterait une raison de troncature serait dit sans que le CLI ait à le connaître. Le nom du détail est une constante
+(`ChangeAnalysisWarning.TRUNCATION_REASON`) que le service et le CLI partagent : un renommage d'un seul côté rendrait la
+ligne muette.
+
+**Le code de sortie ne change pas.** CLI-1 a établi qu'un *refus* atteint le code de sortie. Une traversée tronquée n'est
+pas un refus : c'est une observation partielle, que cet ADR exige de *dire*, pas de faire échouer. `analyze-change` rend
+`0` avec ou sans troncature ; appliquer CLI-1 ici convertirait un résultat utilisable en échec.
+
+### Alternatives écartées
+
+- **Imprimer seulement `truncationReason=`** et laisser le compteur nu. La troncature serait dite, mais `warnings=2`
+  resterait illisible pour tout autre avertissement.
+- **Une ligne par avertissement avec son message.** Plus bavard sans rien ajouter à ce que le JSON porte déjà ; le texte
+  reste une vue compacte.
+
+### Ce que cela coûte
+
+La ligne `warningCodes=` apparaît sur **toute** analyse, saine comprise, avec au moins `ACCEPTANCE_CRITERIA_UNAVAILABLE`.
+C'est voulu : c'est ce qui rend le compteur lisible, et c'est le rappel honnête qu'un modèle normalisé ne porte pas de
+critères d'acceptation. Un script qui lisait la sortie texte ligne à ligne voit une ligne de plus ; le JSON est produit
+par le même chemin qu'avant (`CompactChangeAnalysisViewService`), qu'aucune ligne du correctif ne touche.
+
+### Ce qui reste
+
+- **Le texte ne dit pas où.** Il dit qu'une traversée a été tronquée et pourquoi, pas pour quelle exigence ni dans quelle
+  direction ; le JSON porte `requirementId` et `details.direction`. Sur un change à plusieurs exigences, l'opérateur
+  repasse en `--json`.
+- **La ligne `warningCodes=` n'est pas bornée.** Elle grandit comme la liste d'avertissements du JSON, par exemple d'un
+  `TRACEABILITY_PATH_PARTIALLY_RESOLVED` par cible non résolue. Aucun provider ne dérive encore de lien `DEPENDS_ON`, ce
+  qui la garde courte aujourd'hui.
+- **D'autres sorties texte comptent sans nommer**, hors du périmètre de ce constat : `quality` imprime `findings=N` sans
+  les codes, `augmented-context` imprime `items=N` sans le drapeau `truncated` de chaque élément, `reason analyze` n'imprime
+  que des compteurs.
+
+**Preuve.** `MorpheusCliTest#aTruncatedAnalysisNamesItsTruncationInTextAsInJsonAndStillSucceeds` publie `openspec-basic`,
+écrit dans le snapshot publié un cycle `DEPENDS_ON` entre ses deux exigences — aucun provider ne dérive encore ce type de
+lien — et analyse à la profondeur `1` : code `0`, `DEPTH_BUDGET_REACHED:1` dans le JSON et exactement une ligne
+`truncationReason=DEPTH_BUDGET_REACHED:1` en texte. Le cycle ne fait manquer aucune dépendance : à la profondeur `1`,
+l'arc retour depuis la frontière n'est pas enregistré, ce que le service compte comme une troncature. Le test prouve qu'une
+raison émise par le service atteint le texte, pas qu'une analyse a manqué un nœud ; c'est aussi le seul test qui fixe
+qu'un arc retour orienté est une troncature `DEPTH`. Le test de l'analyse complète vérifie l'absence de cette ligne et
+qu'il y a autant de codes que le compteur en annonce. Retirer la lecture des avertissements fait tomber les deux.
+
 ## Amendement du 26 septembre 2026 — un refus sur l'état n'est pas un refus d'usage
 
 L'amendement CLI-1 porte une décision sur le code de sortie ; celui-ci porte la même règle sur les refus. `morpheus help`
