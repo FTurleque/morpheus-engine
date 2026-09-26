@@ -417,6 +417,76 @@ population, qui portent le même remplissage sans statut. Réintroduire la copie
 pas une vacuité testée sur une autre expression (`isEmpty()` d'une liste), ni un statut lu puis ignoré : il raisonne par
 fichier.
 
+## Amendement du 26 septembre 2026 (CLI-7) — une valeur fournie vide n'est pas une option absente
+
+`SimpleOptions.optional` taillait la valeur puis la jetait si rien ne restait. Une option **fournie** avec une valeur
+vide ou blanche devenait une option **non fournie** : la conversion d'une observation en absence d'observation que cet
+ADR interdit, à la frontière même. Les conséquences sont celles de CLI-3, par la valeur au lieu du nom :
+`portfolio references --project ""` rendait toutes les références du portefeuille, `add-project --workspace ""`
+persistait une appartenance sans workspace, `query … --limit ""` retombait sur la valeur par défaut, `policy evaluate
+--id ""` évaluait tous les packs de la portée — sans rien signaler, avec le code de la décision obtenue sur la mauvaise
+population (`0` quand elle passe). `rejectUnknown` ne l'attrapait pas : la clé est juste.
+
+**Décision.** `SimpleOptions` refuse une valeur vide ou blanche, avec le nom de l'option :
+`--project requires a non-blank value; omit the option to leave it unset`. Le refus est une `IllegalArgumentException`,
+qui tombe dans la branche `USAGE` des trois adaptateurs (`MorpheusPortfolioCli`, `MorpheusQueryCli`,
+`MorpheusPolicyCli`) : code `2`. Il a lieu dans `rejectUnknown`, **après** le contrôle des clés : une première version le
+faisait dans `parse`, et `--projet ""` recevait alors le conseil de renseigner une option qui n'existe pas au lieu de
+`unknown option: --projet` ; une action inconnue perdait de même son message. Une lecture par `optional` ou `required`
+refuse aussi le blanc, pour le cas où une valeur serait lue avant `rejectUnknown`. « Blanc » est ce que `trim()` vide —
+le même test que celui du lecteur, pour qu'une valeur faite de caractères de contrôle ne passe pas la garde puis
+devienne vide à la lecture.
+
+Le refus est global parce que chacun des dix-neuf sites de lecture facultative a été examiné et qu'aucun ne donne à la
+valeur vide un sens que l'omission n'a pas déjà :
+
+| Adaptateur | Option (site) | Une valeur vide y avait-elle un sens ? |
+|---|---|---|
+| portfolio | `--workspace`, `--repository`, `--providers` (`add-project`) | Non : l'omission enregistre déjà l'appartenance sans ces observations. |
+| portfolio | `--revision`, `--explanation` (`freshness`) | Non : chaque appel enregistre une observation neuve ; rien n'est à effacer, l'omission dit « aucune ». |
+| portfolio | `--source-locator`, `--evidence` (`add-reference`) | Non : même raison, création seulement. |
+| portfolio | `--project` (`references`) | Non : c'est le défaut constaté, le filtre disparaissait. |
+| portfolio | `--direction` (`traverse`) | Non : l'omission vaut `BOTH`. |
+| portfolio | `--offset`, `--limit`, `--depth`, `--nodes`, `--links` (lecture entière) | Non : l'omission vaut la valeur par défaut, un vide la masquait. |
+| query / views / export | `--filter`, `--sort`, `--fields` | Non : `views update` reconstruit toute la définition, omettre l'option retire déjà le filtre, le tri ou la projection. |
+| query / views / export | `--project`, `--portfolio` (portée) | Non : une portée vide n'existe pas. |
+| query / views / export | `--offset`, `--limit` | Non : même raison que pour le portefeuille. |
+| policy | `--id` (`evaluate`) | Non : l'omission évalue déjà tous les packs actifs. |
+| policy | `--project`, `--portfolio` (portée) | Non : une portée vide n'existe pas. |
+
+### Alternatives écartées
+
+- **Un refus par site**, là où la valeur est lue. Il aurait laissé à chaque futur site le soin de s'en souvenir — la
+  forme même du défaut — sans qu'aucun site actuel n'en ait besoin.
+- **Traiter le vide comme une valeur** (le transmettre tel quel). Il ferait échouer plus loin, avec un message qui ne
+  nomme pas l'option (`Invalid UUID string: `), ou persisterait une chaîne vide là où une absence était attendue.
+
+### Ce qui reste
+
+- **Les autres familles de parseurs** ont le même motif, là où elles ont une lecture facultative qui filtre le vide :
+  `MorpheusCli.CommandOptions.optional`, `MorpheusCompositionCli.Options.optional` (`composition sync --revision ""` publie
+  sans révision), et les `optional` des parseurs d'`acceptance-criteria`, de `constraints` et de `lifecycle`. Les `Options`
+  d'`external-references` et d'`augmented-context` refusent déjà le blanc dans `required`. `GlobalArgs` lit
+  `--data-dir ""` comme le répertoire courant. Rien de cela n'est touché ici — une PR qui change quatre parseurs ne peut
+  pas être refusée à moitié — et reste à traiter avec la même décision.
+- **Le transport HTTP garde le défaut** pour les mêmes capacités : `GET …/portfolios/{id}/references?projectId=` lit un
+  paramètre vide comme absent et rend toutes les références, et un `filter` blanc dans une requête de query est ignoré.
+  Le MCP refuse le blanc (`McpArguments.optionalString`). Après ce changement, le CLI et le MCP refusent là où le HTTP
+  accepte en silence : c'est une divergence de convergence, à fermer sur la route.
+- **Une liste faite de séparateurs** (`--providers ","`, `--sort ","`) passe le refus et vaut une liste vide, donc
+  l'omission : le même défaut, au niveau des éléments.
+- **Le message d'une option obligatoire passée vide change** : `--… requires a non-blank value` au lieu de
+  `--… is required`. Le code reste `2`. Aucun test, validateur ni document du dépôt ne branchait sur l'ancien message
+  pour une valeur vide.
+
+**Preuve.** `SimpleOptionsTest` refuse `""`, `" "`, une tabulation, `"   "` et un caractère de contrôle, au contrôle des
+clés comme à la lecture ; une option inconnue passée vide reste `unknown option` ; l'absence et le message d'obligation
+sont inchangés. De bout en bout : `portfolio references --project ""` et `"   "` rendent `2` en nommant
+`--project` ; `add-project --workspace ""` rend `2` et `members` ne contient pas le projet, alors que la même commande
+sans l'option l'enregistre ; `query execute --limit ""` et `--filter "  "` rendent `2`, sans l'option `0` ;
+`policy evaluate --id ""` rend `2`. Remettre l'ancien `SimpleOptions` fait tomber les quatre, chaque fois avec le code
+`0` qui était le défaut.
+
 ## Amendement du 26 septembre 2026 — un refus sur l'état n'est pas un refus d'usage
 
 L'amendement CLI-1 porte une décision sur le code de sortie ; celui-ci porte la même règle sur les refus. `morpheus help`
