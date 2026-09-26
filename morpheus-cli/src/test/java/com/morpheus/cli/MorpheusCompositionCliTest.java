@@ -50,12 +50,6 @@ class MorpheusCompositionCliTest {
         assertTrue(conflicts.stdout().contains("\"evidenceId\""), conflicts.stdout());
     }
 
-    /**
-     * A workspace that only the structured-markdown provider supports publishes under its registered root.
-     *
-     * <p>The markdown reader used to publish its specification file as the project root, so the registered
-     * workspace root and the published one never matched and every such sync ended on a store collision.</p>
-     */
     /** Only sync reads --revision; status and conflicts used to accept it and ignore it, exit code 0. */
     @Test
     void anOptionTheActionDoesNotReadIsRefusedBeforeTheProjectIsLookedUp() {
@@ -67,11 +61,21 @@ class MorpheusCompositionCliTest {
             assertEquals(2, refused.exitCode(), refused.stderr());
             assertTrue(refused.stderr().contains("unknown option: --revision"), refused.stderr());
         }
+        Invocation misspelledAction = invokeWithData(
+                data, "composition", "statsu", "--project", projectId, "--revision", "r1");
+        assertEquals(2, misspelledAction.exitCode(), misspelledAction.stderr());
+        assertTrue(misspelledAction.stderr().contains("unknown composition action: statsu"), misspelledAction.stderr());
         Invocation withoutIt = invokeWithData(data, "composition", "status", "--project", projectId);
         assertEquals(4, withoutIt.exitCode(), withoutIt.stderr());
         assertTrue(withoutIt.stderr().contains("project has no ACTIVE snapshot"), withoutIt.stderr());
     }
 
+    /**
+     * A workspace that only the structured-markdown provider supports publishes under its registered root.
+     *
+     * <p>The markdown reader used to publish its specification file as the project root, so the registered
+     * workspace root and the published one never matched and every such sync ended on a store collision.</p>
+     */
     @Test
     void syncsAMarkdownOnlyWorkspaceUnderItsRegisteredRoot() throws Exception {
         Path workspace = tempDirectory.resolve("markdown-only");

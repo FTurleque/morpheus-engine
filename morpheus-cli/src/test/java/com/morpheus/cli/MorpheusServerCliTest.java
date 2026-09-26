@@ -203,6 +203,15 @@ class MorpheusServerCliTest {
         assertTrue(Files.readString(auth).contains("eqform|READ"));
     }
 
+    /** The parser checks an allowlist in a method not named parse, which the option guard does not see. */
+    @Test
+    void anUnknownOptionIsRefused() {
+        Result result = run("server", "identity", "list", "--principal", "alice");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode());
+        assertTrue(result.err().contains("unknown server option: --principal"), result.err());
+    }
+
     private Result run(String... rawArgs) {
         List<String> args = new ArrayList<>();
         args.add("--data-dir");

@@ -204,8 +204,8 @@ MORPHEUS error [2]: unknown option: --revision
 ```
 
 Dans le même mouvement, `external-references list` et `resolve` vérifient leurs options avant de chercher le projet :
-une option inconnue y rend `2` au lieu de `4` (« projet introuvable ») quand le projet n'existe pas. Le code d'une
-invocation correcte ne change pas.
+une option inconnue y rend `2` au lieu de `4` (« projet introuvable ») quand le projet n'existe pas, et une
+sous-commande inconnue aussi (`unknown external-references subcommand`). Le code d'une invocation correcte ne change pas.
 
 **Migration.** Retirer `--revision` des appels à `composition status` et `composition conflicts` ; il n'a jamais eu
 d'effet.

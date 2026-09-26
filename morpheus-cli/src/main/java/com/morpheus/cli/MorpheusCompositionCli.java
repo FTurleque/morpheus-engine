@@ -50,11 +50,11 @@ final class MorpheusCompositionCli {
             }
             String action = parsed.tokens().getFirst();
             Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
-            if (action.equals("sync")) {
-                options.rejectUnknown("project", "revision");
-            } else {
-                options.rejectUnknown("project");
-            }
+            options.rejectUnknown(switch (action) {
+                case "sync" -> new String[]{"project", "revision"};
+                case "status", "conflicts" -> new String[]{"project"};
+                default -> throw new IllegalArgumentException("unknown composition action: " + action);
+            });
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
             return switch (action) {
                 case "sync" -> sync(projectId, parsed, options, out);

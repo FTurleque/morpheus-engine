@@ -33,28 +33,32 @@ import org.junit.jupiter.api.Test;
  *
  * <ol>
  *   <li><b>Permissive families.</b> A type that declares {@code void rejectUnknown(} is a parser that accepts any key.
- *   Every {@code <Family>.parse(} call must be followed, in the same method, by a {@code rejectUnknown} call; when a
- *   {@code switch} dispatches before any such call, every arm that does not merely throw must make it. Each family
- *   discovered must have at least one call site.</li>
+ *   Every {@code <Family>.parse(} call must be followed, in the block that encloses it, by a {@code rejectUnknown}
+ *   call; when a {@code switch} dispatches before any such call, every arm that does not merely throw must make it.
+ *   Each family discovered must have at least one call site.</li>
  *   <li><b>Option switches.</b> A {@code switch} with a {@code case "--..."} label decides which options exist. It must
- *   have a {@code default} arm that throws. Forwarding the token instead ({@code remaining.add(token)}) is accepted only
- *   in a parser of the raw argument vector (a {@code String[]} parameter), which hands its leftovers to a sub-parser.</li>
+ *   have a {@code default} arm that throws. Handing the token on instead ({@code remaining.add(token)}) is accepted
+ *   only from a switch over the global options ({@code --json --data-dir --config-dir --db}) in a parser of the raw
+ *   argument vector ({@code String[]}), whose leftovers are the command a sub-parser reads.</li>
  *   <li><b>Terminal parsers.</b> A method named {@code parse} whose first parameter is a {@code List<String>} of
  *   option tokens either belongs to a family, or contains an option switch, or throws an {@code unknown ... option}
- *   refusal itself.</li>
+ *   refusal itself -- thrown, not merely mentioned.</li>
  * </ol>
  *
- * <p>Comments and string literals are blanked before scanning, so a {@code rejectUnknown} in a comment or in a message
- * satisfies nothing. The rule is textual because the proposition is about a call that must <em>follow</em> another in
- * the same method, and about the shape of a {@code switch}; no dependency rule over compiled classes expresses
- * either (ADR-0103).</p>
+ * <p>Comments and string literals, text blocks included, are blanked before scanning, so a {@code rejectUnknown} in a
+ * comment or in a message satisfies nothing. The rule is textual because the proposition is about a call that must
+ * <em>follow</em> another in the same block, and about the shape of a {@code switch}; no dependency rule over compiled
+ * classes expresses either (ADR-0103).</p>
  *
  * <p>What it does not cover: the <em>argument</em> of {@code rejectUnknown} -- a call allowing every option would
  * satisfy rule 1 -- nor its receiver; a dispatch written as a chain of {@code if} is checked for the presence of one
- * call, not per branch. The exact allowed sets are held by the adapters' own tests. Nor does it see the parsers of the
- * raw argument vector written as a chain of {@code if} ({@code MorpheusProductCli.parse},
- * {@code MorpheusProviderPluginCli.parse}) or as an allowlist check in a method not named {@code parse}
- * ({@code MorpheusServerCli.options}); their refusal of an unknown option is held by their adapter tests.</p>
+ * call, not per branch. The exact allowed sets are held by the adapters' own tests. Three parsers of the raw argument
+ * vector are not seen: {@code MorpheusProductCli.parse} and {@code MorpheusProviderPluginCli.parse} refuse at the end
+ * of a chain of {@code if}, {@code MorpheusServerCli.options} checks an allowlist in a method not named {@code parse};
+ * each adapter test has an unknown-option case instead. The launch parsers ({@code ApiLaunchOptions},
+ * {@code McpLaunchOptions}, {@code RemoteApiLaunchOptions}) pass rule 2 on a {@code default} that is unreachable:
+ * their real refusal collects unknown tokens and throws after the loop, which the rule does not see. Nor does it see
+ * a method reference ({@code SimpleOptions::parse}) or a switch whose labels are constants.</p>
  */
 class CliOptionParsingRefusesUnknownOptionsTest {
 
@@ -68,9 +72,12 @@ class CliOptionParsingRefusesUnknownOptionsTest {
     private static final Pattern LAST_IDENTIFIER = Pattern.compile("(\\w+)$");
     private static final Pattern TERMINAL_PARSE = Pattern.compile("\\bparse\\s*\\(\\s*(?:final\\s+)?List\\s*<\\s*String\\s*>");
     private static final Pattern OPTION_LABEL = Pattern.compile("\"--[^\"]*\"");
-    private static final Pattern UNKNOWN_OPTION_REFUSAL = Pattern.compile("\"unknown ([\\w-]+ )?options?\\b");
+    private static final Pattern UNKNOWN_OPTION_REFUSAL =
+            Pattern.compile("throw\\s+new\\s+[\\w.]+\\(\\s*\"unknown ([\\w-]+ )?options?\\b");
     private static final Pattern FORWARD = Pattern.compile("^\\w+\\s*\\.\\s*add\\s*\\(\\s*\\w+\\s*\\)\\s*;");
     private static final Set<String> CONTROL = Set.of("if", "for", "while", "switch", "catch", "synchronized", "try");
+    /** The options every command accepts ahead of its name; only a switch over these may hand a token on. */
+    private static final Set<String> GLOBAL_OPTIONS = Set.of("\"--json\"", "\"--data-dir\"", "\"--config-dir\"", "\"--db\"");
 
     @Test
     void everyOptionParserOfTheCliRefusesAnUnknownOption() throws IOException {
@@ -147,10 +154,29 @@ class CliOptionParsingRefusesUnknownOptionsTest {
                         + "                default -> throw new IllegalArgumentException(\"unknown option: \" + token);");
 
         assertEquals(List.of("A.java:4 option switch has no default arm"), scan(Map.of("A.java", noDefault)).violations());
-        assertEquals(List.of("A.java:4 option switch default neither throws nor forwards from a String[] parser"),
+        assertEquals(List.of("A.java:4 option switch default neither throws nor forwards the global options of a String[] parser"),
                 scan(Map.of("A.java", forwardingTerminal)).violations());
-        assertEquals(List.of(), scan(Map.of("A.java", forwardingArgv)).violations());
+        assertEquals(List.of("A.java:4 option switch default neither throws nor forwards the global options of a String[] parser"),
+                scan(Map.of("A.java", forwardingArgv)).violations(), "a String[] parser of command options must refuse");
+        assertEquals(List.of(), scan(Map.of("A.java", forwardingArgv.replace("\"--project\"", "\"--json\", \"--db\"")))
+                .violations(), "a String[] parser of the global options hands the rest to a sub-parser");
         assertEquals(List.of(), scan(Map.of("A.java", refusing)).violations());
+    }
+
+    @Test
+    void aGuardInASiblingArmOrAfterAnEscapedTextBlockIsSeenForWhatItIs() {
+        String siblingArm = "final class A {\n    int run(String action) {\n        switch (action) {\n"
+                + "            case \"a\" -> {\n                SimpleOptions o = SimpleOptions.parse(t);\n"
+                + "                return 1;\n            }\n            case \"b\" -> {\n"
+                + "                o.rejectUnknown(Set.of());\n                return 2;\n            }\n"
+                + "            default -> throw new IllegalArgumentException(\"x\");\n        }\n    }\n}\n";
+        String escapedTextBlock = "final class A {\n    private static final String S = \"\"\"\n        a \\\"\"\" b\n        \"\"\";\n\n"
+                + "    int run() {\n        SimpleOptions o = SimpleOptions.parse(t);\n        return 0;\n    }\n}\n";
+
+        assertEquals(List.of("A.java:5 SimpleOptions.parse is not followed by rejectUnknown in the same method"),
+                scan(withSimpleOptions("A.java", siblingArm)).violations());
+        assertEquals(List.of("A.java:7 SimpleOptions.parse is not followed by rejectUnknown in the same method"),
+                scan(withSimpleOptions("A.java", escapedTextBlock)).violations());
     }
 
     @Test
@@ -159,9 +185,12 @@ class CliOptionParsingRefusesUnknownOptionsTest {
                 + "        static Opts parse(List<String> tokens) {\n            return new Opts();\n        }\n    }\n}\n";
         String refusing = silent.replace("return new Opts();",
                 "throw new IllegalArgumentException(\"unknown option: \" + tokens);");
+        String mentioning = silent.replace("return new Opts();",
+                "log(\"unknown option: \" + tokens);\n            return new Opts();");
 
         assertEquals(List.of("A.java:3 terminal parser Opts.parse neither belongs to a family nor refuses an unknown option"),
                 scan(Map.of("A.java", silent)).violations());
+        assertEquals(1, scan(Map.of("A.java", mentioning)).violations().size(), "a mention is not a refusal");
         assertEquals(List.of(), scan(Map.of("A.java", refusing)).violations());
     }
 
@@ -228,8 +257,9 @@ class CliOptionParsingRefusesUnknownOptionsTest {
                 if (fallback == null) {
                     violations.add(where + "has no default arm");
                 } else if (!fallback.throwsOnly() && !(FORWARD.matcher(fallback.content()).find()
-                        && unit.header(unit.innermost(switchKeyword.start(), Kind.METHOD)).contains("String[]"))) {
-                    violations.add(where + "default neither throws nor forwards from a String[] parser");
+                        && unit.header(unit.innermost(switchKeyword.start(), Kind.METHOD)).contains("String[]")
+                        && onlyGlobalOptions(arms))) {
+                    violations.add(where + "default neither throws nor forwards the global options of a String[] parser");
                 }
             }
 
@@ -253,6 +283,12 @@ class CliOptionParsingRefusesUnknownOptionsTest {
         return new Scan(sitesByFamily, optionSwitches, terminalParsers, violations);
     }
 
+    private static boolean onlyGlobalOptions(List<Arm> arms) {
+        return arms.stream().filter(arm -> arm.label().startsWith("case"))
+                .allMatch(arm -> OPTION_LABEL.matcher(arm.label()).results()
+                        .allMatch(label -> GLOBAL_OPTIONS.contains(label.group())));
+    }
+
     private static boolean isOptionSwitch(List<Arm> arms) {
         return arms.stream().anyMatch(arm -> arm.label().startsWith("case") && OPTION_LABEL.matcher(arm.label()).find());
     }
@@ -272,8 +308,9 @@ class CliOptionParsingRefusesUnknownOptionsTest {
         if (method == null) {
             return Optional.of("is called outside a method");
         }
-        Matcher guard = GUARD_CALL.matcher(unit.code()).region(from, method.close());
-        Matcher switchKeyword = SWITCH.matcher(unit.code()).region(from, method.close());
+        int end = unit.innermostBlock(from).close();
+        Matcher guard = GUARD_CALL.matcher(unit.code()).region(from, end);
+        Matcher switchKeyword = SWITCH.matcher(unit.code()).region(from, end);
         int guardAt = guard.find() ? guard.start() : -1;
         int switchAt = switchKeyword.find() ? switchKeyword.start() : -1;
         if (guardAt >= 0 && (switchAt < 0 || guardAt < switchAt)) {
@@ -327,6 +364,17 @@ class CliOptionParsingRefusesUnknownOptionsTest {
             Block found = null;
             for (Block block : blocks) {
                 if (block.kind() == kind && block.open() < position && position < block.close()
+                        && (found == null || block.open() > found.open())) {
+                    found = block;
+                }
+            }
+            return found;
+        }
+
+        Block innermostBlock(int position) {
+            Block found = null;
+            for (Block block : blocks) {
+                if (block.open() < position && position < block.close()
                         && (found == null || block.open() > found.open())) {
                     found = block;
                 }
@@ -476,8 +524,11 @@ class CliOptionParsingRefusesUnknownOptionsTest {
                     end = end < 0 ? source.length() : end + 2;
                     spaces(out, source, index, end);
                 } else if (source.startsWith("\"\"\"", index)) {
-                    end = source.indexOf("\"\"\"", index + 3);
-                    end = end < 0 ? source.length() : end + 3;
+                    end = index + 3;
+                    while (end < source.length() && !source.startsWith("\"\"\"", end)) {
+                        end += source.charAt(end) == '\\' ? 2 : 1;
+                    }
+                    end = Math.min(end + 3, source.length());
                     literal(out, source, index, end, 3, keepStrings);
                 } else if (character == '"' || character == '\'') {
                     end = index + 1;
