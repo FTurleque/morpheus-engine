@@ -10,7 +10,6 @@ import com.morpheus.domain.constraint.ConstraintEvaluation;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.io.PrintStream;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -137,35 +136,16 @@ final class MorpheusConstraintSemanticsCli {
 
     private record Parsed(boolean json, CliLayout layout, List<String> tokens) {
         private static Parsed parse(String[] args, Map<String, String> environment, Properties properties) {
-            boolean json = false;
-            Optional<Path> data = Optional.empty();
-            Optional<Path> config = Optional.empty();
-            Optional<Path> database = Optional.empty();
-            List<String> remaining = new ArrayList<>();
-            for (int index = 0; index < args.length; index++) {
-                String token = args[index];
-                switch (token) {
-                    case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
-                    default -> remaining.add(token);
-                }
-            }
+            GlobalArgs.Parsed global = GlobalArgs.parse(args);
+            List<String> remaining = global.remaining();
             if (remaining.isEmpty() || !"constraints".equals(remaining.getFirst())) {
                 throw new IllegalArgumentException("constraints command is required");
             }
             return new Parsed(
-                    json,
-                    CliLayout.resolve(data, config, database, environment, properties),
+                    global.json(),
+                    CliLayout.resolve(global.dataDirectory(), global.configDirectory(), global.databasePath(),
+                            environment, properties),
                     List.copyOf(remaining.subList(1, remaining.size())));
-        }
-
-        private static String requireValue(String[] args, int index, String option) {
-            if (index >= args.length || args[index].startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return args[index];
         }
     }
 

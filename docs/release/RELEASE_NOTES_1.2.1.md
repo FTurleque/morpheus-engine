@@ -267,3 +267,39 @@ variables `MORPHEUS_SERVER_*` vides restent lues comme non définies.
 de valeur, au lieu de la passer vide. Pour viser réellement le répertoire courant, l'écrire : `--data-dir .`.
 
 Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, suite)](../adr/0108-a-response-says-what-it-could-not-observe.md).
+
+### CLI et lanceurs `api`, `mcp`, `api --remote` : une option répétée est refusée
+
+Jusqu'à 1.2.0, une option à valeur donnée deux fois gardait, dans une partie du CLI, **sa dernière valeur sans rien
+dire** :
+
+- `--data-dir`, `--config-dir` et `--db` devant n'importe quelle commande : `morpheus --data-dir a --data-dir b projects list`
+  lisait le store de `b`, code `0` ;
+- les lanceurs `api`, `mcp --stdio` et `api --remote` : `--host`, `--port`, la disposition, `--auth-file`,
+  `--tls-keystore`, `--provider-plugin-dir` et `--max-concurrent`, y compris quand les deux occurrences mélangeaient
+  les orthographes `--x v` et `--x=v` ;
+- `server` pour la disposition, dans les deux orthographes ;
+- `update-check --manifest`, `provider-plugins --directory|--plugin|--workspace|--sha256` et
+  `reason analyze --max-claims`.
+
+Les autres options du CLI refusaient déjà la répétition. À partir de 1.2.1, toutes le font, code `2` (`USAGE`), avec le
+même message :
+
+```text
+MORPHEUS error [2]: duplicate option: --data-dir
+```
+
+Les deux orthographes d'une option sont une seule option : `--data-dir a --data-dir=b` est refusé comme
+`--data-dir a --data-dir b`. Les lanceurs refusent au démarrage, avant d'ouvrir un port ou le transport STDIO ; aucune
+commande n'écrit quoi que ce soit avant le refus.
+
+Ne changent pas : `api --remote --workspace-root`, qui nomme une liste et accepte toujours plusieurs occurrences, dans
+l'une ou l'autre orthographe ; les drapeaux sans valeur `--json`, `--stdio` et `--remote`, qui peuvent être répétés sans
+effet. Le message de `server` et de `reason analyze --question` pour une option répétée passe de `duplicate --x` à
+`duplicate option: --x` ; leur code reste `2`.
+
+**Migration.** Un script ou un enveloppeur qui ajoutait une option déjà présente (`--data-dir "$DEFAULT" … --data-dir "$ICI"`)
+pour la remplacer reçoit maintenant le code `2`. **Passer l'option une seule fois**, avec la valeur voulue. Pour
+plusieurs racines de workspace, `--workspace-root` reste répétable.
+
+Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, répétition)](../adr/0108-a-response-says-what-it-could-not-observe.md).

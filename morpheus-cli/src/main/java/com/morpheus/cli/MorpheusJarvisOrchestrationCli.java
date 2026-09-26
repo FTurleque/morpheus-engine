@@ -14,8 +14,6 @@ import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.io.PrintStream;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -211,33 +209,14 @@ final class MorpheusJarvisOrchestrationCli {
 
     private record Parsed(boolean json, CliLayout layout, List<String> tokens) {
         private static Parsed parse(String[] args, Map<String, String> environment, Properties properties) {
-            boolean json = false;
-            Optional<Path> data = Optional.empty();
-            Optional<Path> config = Optional.empty();
-            Optional<Path> database = Optional.empty();
-            List<String> remaining = new ArrayList<>();
-            for (int index = 0; index < args.length; index++) {
-                String token = args[index];
-                switch (token) {
-                    case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
-                    default -> remaining.add(token);
-                }
-            }
+            GlobalArgs.Parsed global = GlobalArgs.parse(args);
+            List<String> remaining = global.remaining();
             if (remaining.isEmpty() || !"change-orchestration".equals(remaining.getFirst())) {
                 throw new IllegalArgumentException("change-orchestration command is required");
             }
-            CliLayout layout = CliLayout.resolve(data, config, database, environment, properties);
-            return new Parsed(json, layout, List.copyOf(remaining.subList(1, remaining.size())));
-        }
-
-        private static String requireValue(String[] args, int index, String option) {
-            if (index >= args.length || args[index].startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return args[index];
+            CliLayout layout = CliLayout.resolve(
+                    global.dataDirectory(), global.configDirectory(), global.databasePath(), environment, properties);
+            return new Parsed(global.json(), layout, List.copyOf(remaining.subList(1, remaining.size())));
         }
     }
 

@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -295,6 +296,7 @@ final class MorpheusServerCli {
         Optional<Path> config = Optional.empty();
         Optional<Path> database = Optional.empty();
         boolean json = false;
+        Set<String> given = new HashSet<>();
         List<String> command = new ArrayList<>();
         for (int index = 0; index < args.length; index++) {
             String token = args[index];
@@ -303,6 +305,7 @@ final class MorpheusServerCli {
                 continue;
             }
             if (token.equals("--data-dir") || token.equals(OPT_CONFIG_DIR) || token.equals("--db")) {
+                OptionOccurrence.once(given, token);
                 if (index + 1 >= args.length) throw new IllegalArgumentException(token + " requires a value");
                 Path value = OptionValue.path(token, args[++index]);
                 if (token.equals("--data-dir")) data = Optional.of(value);
@@ -313,6 +316,7 @@ final class MorpheusServerCli {
             if (token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=")) {
                 int separator = token.indexOf('=');
                 String option = token.substring(0, separator);
+                OptionOccurrence.once(given, option);
                 Path value = OptionValue.path(option, token.substring(separator + 1));
                 if (option.equals("--data-dir")) data = Optional.of(value);
                 if (option.equals(OPT_CONFIG_DIR)) config = Optional.of(value);
@@ -335,14 +339,14 @@ final class MorpheusServerCli {
             String name = token.substring(2);
             if (!allowed.contains(name)) throw new IllegalArgumentException("unknown server option: --" + name);
             if (name.equals(OPT_CONFIRM) || name.equals(OPT_DRY_RUN)) {
-                if (result.put(name, "true") != null) throw new IllegalArgumentException("duplicate --" + name);
+                if (result.put(name, "true") != null) throw new IllegalArgumentException("duplicate option: --" + name);
                 continue;
             }
             if (index + 1 >= command.size()) throw new IllegalArgumentException(token + " requires a value");
             String value = command.get(++index);
             if (value.startsWith("--")) throw new IllegalArgumentException(token + " requires a value");
             OptionValue.nonBlank(token, value);
-            if (result.put(name, value) != null) throw new IllegalArgumentException("duplicate " + token);
+            if (result.put(name, value) != null) throw new IllegalArgumentException("duplicate option: " + token);
         }
         return result;
     }

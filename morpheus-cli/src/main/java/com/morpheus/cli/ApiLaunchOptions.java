@@ -5,10 +5,12 @@ import com.morpheus.api.MorpheusHttpServer;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 
 /** Parses native M11 API launcher options without coupling the API adapter back to CLI. */
 record ApiLaunchOptions(CliLayout layout, String host, int port) {
@@ -41,6 +43,7 @@ record ApiLaunchOptions(CliLayout layout, String host, int port) {
         String host = MorpheusHttpServer.DEFAULT_HOST;
         int port = MorpheusHttpServer.DEFAULT_PORT;
         boolean commandSeen = false;
+        Set<String> given = new HashSet<>();
         List<String> unknown = new ArrayList<>();
 
         for (int index = 0; index < args.length; index++) {
@@ -57,6 +60,7 @@ record ApiLaunchOptions(CliLayout layout, String host, int port) {
             }
             if (token.equals("--host") || token.equals("--port")
                     || token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
+                OptionOccurrence.once(given, token);
                 if (index + 1 >= args.length) {
                     throw new IllegalArgumentException(token + " requires a value");
                 }
@@ -75,6 +79,7 @@ record ApiLaunchOptions(CliLayout layout, String host, int port) {
                     || token.startsWith("--host=") || token.startsWith("--port=")) {
                 int separator = token.indexOf('=');
                 String option = token.substring(0, separator);
+                OptionOccurrence.once(given, option);
                 String value = OptionValue.nonBlank(option, token.substring(separator + 1));
                 switch (option) {
                     case "--host" -> host = requireHost(value);

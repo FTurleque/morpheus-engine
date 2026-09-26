@@ -11,10 +11,12 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /** Explicit M22 provider-plugin discovery/probe commands. No plugin directory is scanned at startup. */
 final class MorpheusProviderPluginCli {
@@ -100,6 +102,7 @@ final class MorpheusProviderPluginCli {
         String command = "";
         String action = "";
         Map<String, String> options = new LinkedHashMap<>();
+        Set<String> given = new HashSet<>();
         List<String> tokens = new ArrayList<>(Arrays.asList(args));
         for (int index = 0; index < tokens.size(); index++) {
             String token = tokens.get(index);
@@ -108,6 +111,7 @@ final class MorpheusProviderPluginCli {
                 continue;
             }
             if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
+                OptionOccurrence.once(given, token);
                 index = requireValue(tokens, index, token);
                 OptionValue.nonBlank(token, tokens.get(index));
                 continue;
@@ -122,6 +126,7 @@ final class MorpheusProviderPluginCli {
             }
             if (token.equals("--directory") || token.equals("--plugin")
                     || token.equals("--workspace") || token.equals("--sha256")) {
+                OptionOccurrence.once(given, token);
                 int valueIndex = requireValue(tokens, index, token);
                 options.put(token.substring(2), OptionValue.nonBlank(token, tokens.get(valueIndex)));
                 index = valueIndex;

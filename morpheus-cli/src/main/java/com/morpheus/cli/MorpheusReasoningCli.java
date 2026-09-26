@@ -10,10 +10,12 @@ import com.morpheus.application.reasoning.ReasoningService;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /** Read-only M27 CLI. Evidence and adapter selection are always explicit. */
 final class MorpheusReasoningCli {
@@ -127,6 +129,7 @@ final class MorpheusReasoningCli {
         List<String> evidence = new ArrayList<>();
         List<String> adapters = new ArrayList<>();
         List<String> tokens = new ArrayList<>(Arrays.asList(args));
+        Set<String> given = new HashSet<>();
         int maxClaims = ReasoningContracts.MAX_CLAIMS;
 
         for (int index = 0; index < tokens.size(); index++) {
@@ -136,6 +139,7 @@ final class MorpheusReasoningCli {
                 continue;
             }
             if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
+                OptionOccurrence.once(given, token);
                 index = requireValue(tokens, index, token);
                 OptionValue.nonBlank(token, tokens.get(index));
                 continue;
@@ -155,8 +159,11 @@ final class MorpheusReasoningCli {
                 case "--evidence" -> evidence.add(OptionValue.nonBlank(token, value));
                 case "--adapter" -> adapters.add(OptionValue.nonBlank(token, value));
                 case "--param" -> addAssignment(parameters, OptionValue.nonBlank(token, value), "--param");
-                case "--max-claims" -> maxClaims = parseInteger(
-                        OptionValue.nonBlank(token, value), "--max-claims", 1, ReasoningContracts.MAX_CLAIMS);
+                case "--max-claims" -> {
+                    OptionOccurrence.once(given, token);
+                    maxClaims = parseInteger(
+                            OptionValue.nonBlank(token, value), "--max-claims", 1, ReasoningContracts.MAX_CLAIMS);
+                }
                 default -> throw new IllegalArgumentException("unknown reason option: " + token);
             }
             index = valueIndex;
@@ -217,7 +224,7 @@ final class MorpheusReasoningCli {
 
     private static void putOnce(Map<String, String> options, String key, String value) {
         if (options.putIfAbsent(key, value) != null) {
-            throw new IllegalArgumentException("duplicate --" + key);
+            throw new IllegalArgumentException("duplicate option: --" + key);
         }
     }
 
