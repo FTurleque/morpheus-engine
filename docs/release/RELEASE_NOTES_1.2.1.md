@@ -190,3 +190,33 @@ Une composition à un seul provider est inchangée : mêmes entités, aucun conf
 rapportaient aucun conflit en rapportent maintenant (les `IDENTICAL`), et un seuil de couverture peut passer de mesuré à `UNKNOWN`.
 
 Décision : [ADR-0084, amendement du 26 septembre 2026 (CMP-1, CMP-2)](../adr/0084-provider-neutral-multi-provider-composition.md).
+
+### CLI `portfolio`, `query`, `views`, `export` et `policy` : une option passée vide est refusée
+
+Jusqu'à 1.2.0, ces commandes lisaient une option passée avec une valeur vide ou blanche (`--project ""`, `--limit "  "`)
+comme une option **absente**. La conversion était silencieuse, code `0` :
+
+- `portfolio references --portfolio P --project ""` rendait **toutes** les références du portefeuille au lieu de celles
+  du projet ;
+- `portfolio add-project … --workspace ""` enregistrait une appartenance sans workspace ;
+- `query execute … --limit ""` retombait sur la taille de page par défaut ;
+- `policy evaluate … --id ""` évaluait tous les packs actifs de la portée au lieu d'un seul.
+
+À partir de 1.2.1, la valeur vide ou blanche est refusée avant tout traitement, avec le nom de l'option, code `2`
+(`USAGE`) :
+
+```text
+MORPHEUS error [2]: --project requires a non-blank value; omit the option to leave it unset
+```
+
+Rien n'est écrit quand le refus porte sur une action d'écriture. Une invocation qui ne passe pas l'option se comporte
+exactement comme avant. Une option **obligatoire** passée vide reçoit ce message au lieu de `--… is required` ; le code
+reste `2`.
+
+**Migration.** Un script qui passait une variable éventuellement vide (`--project "$PROJECT"`) reçoit maintenant le code
+`2` quand la variable est vide. C'est le but : le comportement par défaut qu'il obtenait était silencieusement faux.
+**Omettre l'option** quand il n'y a pas de valeur, au lieu de la passer vide. Aucune de ces options n'a de sens pour une
+valeur vide que l'omission n'ait pas déjà : `views update` reconstruit toute la définition, donc omettre `--filter`
+suffit à retirer un filtre.
+
+Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7)](../adr/0108-a-response-says-what-it-could-not-observe.md).

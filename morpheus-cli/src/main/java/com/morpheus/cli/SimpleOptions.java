@@ -9,6 +9,12 @@ import java.util.Set;
 /**
  * Shared {@code --key value} option parsing (no boolean flags, no positionals) used identically by
  * every CLI adapter whose commands take only key/value options.
+ *
+ * <p>An option given with an empty or blank value is refused here, not read as absent. {@link #optional} used to trim
+ * the value and drop it when nothing was left, so {@code --project ""} emptied a filter and widened a query,
+ * {@code --workspace ""} persisted a membership without a workspace and {@code --limit ""} fell back to the default,
+ * each with exit code 0. None of the adapters has an option whose empty value means something the omitted option does
+ * not: omitting it is the way to say "none".</p>
  */
 final class SimpleOptions {
     private final Map<String, String> values = new LinkedHashMap<>();
@@ -36,7 +42,7 @@ final class SimpleOptions {
     }
 
     Optional<String> optional(String key) {
-        return Optional.ofNullable(values.get(key)).map(String::trim).filter(value -> !value.isEmpty());
+        return Optional.ofNullable(values.get(key)).map(String::trim);
     }
 
     void rejectUnknown(Set<String> allowed) {
@@ -49,6 +55,9 @@ final class SimpleOptions {
     private static String require(List<String> tokens, int index, String option) {
         if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
             throw new IllegalArgumentException(option + " requires a value");
+        }
+        if (tokens.get(index).isBlank()) {
+            throw new IllegalArgumentException(option + " requires a non-blank value; omit the option to leave it unset");
         }
         return tokens.get(index);
     }
