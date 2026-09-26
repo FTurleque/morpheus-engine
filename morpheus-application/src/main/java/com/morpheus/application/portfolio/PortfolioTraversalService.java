@@ -1,5 +1,7 @@
 package com.morpheus.application.portfolio;
 
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.domain.portfolio.CrossProjectReference;
 import com.morpheus.domain.portfolio.CrossProjectReferenceId;
@@ -45,10 +47,10 @@ public final class PortfolioTraversalService {
         Objects.requireNonNull(direction, "direction");
         requireBudget(maxDepth, maxNodes, maxLinks);
         if (store.findPortfolio(portfolioId).isEmpty()) {
-            throw new IllegalArgumentException("unknown portfolio: " + portfolioId);
+            throw new EntityNotFoundException("unknown portfolio: " + portfolioId);
         }
         if (store.findMembership(portfolioId, start.projectId()).isEmpty()) {
-            throw new IllegalArgumentException("start project is not a portfolio member: " + start.projectId());
+            throw new EntityStateException("start project is not a portfolio member: " + start.projectId());
         }
 
         Map<PortfolioEntityRef, Integer> depthByNode = new LinkedHashMap<>();

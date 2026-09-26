@@ -7,6 +7,8 @@ import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyPackCodec;
 import com.morpheus.application.policy.PolicyScope;
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.domain.identity.DomainIdentity;
@@ -193,7 +195,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
         }, "Cannot update policy pack " + packId);
         if (changed != 1) {
             PolicyPack.Definition current = findDefinition(packId)
-                    .orElseThrow(() -> new IllegalArgumentException("unknown policy pack: " + packId));
+                    .orElseThrow(() -> new EntityNotFoundException("unknown policy pack: " + packId));
             throw stale("policy pack", expectedRevision, current.revision());
         }
         return replacement;
@@ -261,7 +263,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                 Optional.of(scope));
         requireAuditVersion(audit, Optional.of(replacement.versionId()));
         findVersion(packId, replacement.versionId())
-                .orElseThrow(() -> new IllegalArgumentException("unknown policy version: " + replacement.versionId()));
+                .orElseThrow(() -> new EntityNotFoundException("unknown policy version: " + replacement.versionId()));
 
         Integer changed = transaction(() -> {
             int updated;
@@ -424,7 +426,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                 Optional.of(ruleId),
                 Optional.of(scope));
         PolicyConfiguration.Activation active = findActivation(scope, packId)
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> new EntityStateException(
                         "policy pack must be active before adding an override: " + packId));
         requireAuditVersion(audit, Optional.of(active.versionId()));
         PolicyIds.VersionId activeVersionId = active.versionId();

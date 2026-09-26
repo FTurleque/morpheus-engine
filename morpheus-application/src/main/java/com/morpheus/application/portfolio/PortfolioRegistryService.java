@@ -1,5 +1,7 @@
 package com.morpheus.application.portfolio;
 
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.portfolio.CrossProjectReference;
@@ -69,9 +71,7 @@ public final class PortfolioRegistryService {
     }
 
     public PortfolioMembership markMissing(PortfolioId portfolioId, ProjectSpecificationId projectId) {
-        PortfolioMembership existing = store.findMembership(portfolioId, projectId)
-                .orElseThrow(() -> new IllegalArgumentException("project is not a portfolio member: " + projectId));
-        PortfolioMembership missing = existing.markMissing(clock.instant());
+        PortfolioMembership missing = requireMembership(portfolioId, projectId).markMissing(clock.instant());
         store.putMembership(missing);
         store.putFreshness(new PortfolioFreshness(
                 portfolioId,
@@ -132,12 +132,12 @@ public final class PortfolioRegistryService {
 
     private PortfolioDefinition requirePortfolio(PortfolioId portfolioId) {
         return store.findPortfolio(Objects.requireNonNull(portfolioId, "portfolioId"))
-                .orElseThrow(() -> new IllegalArgumentException("unknown portfolio: " + portfolioId));
+                .orElseThrow(() -> new EntityNotFoundException("unknown portfolio: " + portfolioId));
     }
 
     private PortfolioMembership requireMembership(PortfolioId portfolioId, ProjectSpecificationId projectId) {
         requirePortfolio(portfolioId);
         return store.findMembership(portfolioId, projectId)
-                .orElseThrow(() -> new IllegalArgumentException("project is not a portfolio member: " + projectId));
+                .orElseThrow(() -> new EntityStateException("project is not a portfolio member: " + projectId));
     }
 }

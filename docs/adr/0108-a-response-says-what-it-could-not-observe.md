@@ -364,6 +364,59 @@ raison émise par le service atteint le texte, pas qu'une analyse a manqué un n
 qu'un arc retour orienté est une troncature `DEPTH`. Le test de l'analyse complète vérifie l'absence de cette ligne et
 qu'il y a autant de codes que le compteur en annonce. Retirer la lecture des avertissements fait tomber les deux.
 
+## Amendement du 26 septembre 2026 (CLI-4) — un ratio sur population vide n'est pas publié comme une mesure
+
+`QualityReportMetrics` remplit par `1.0` un ratio dont la population est vide, pour que ses invariants tiennent. La
+frontière policy le savait : `DefaultPolicyFactResolver#emptyRatioPopulation` rendait `UNKNOWN` pour un seuil posé sur
+l'un des deux ratios. Mais ce prédicat était `private static`, et les autres surfaces ne pouvaient pas l'appeler. `morpheus
+quality` imprimait `requirementCoverage=1.0`, et le JSON compact — celui du CLI comme de la route HTTP de diagnostics —
+publiait `requirementCoverageRatio: 1.0` sans aucun drapeau. Une même valeur était `UNKNOWN` pour une policy et une
+couverture complète pour un script.
+
+**Décision.**
+
+- **Un seul point de vérité.** `QualityReportMetrics#requirementCoverageStatus()` et `#taskCoverageStatus()` rendent
+  `CoverageRatioStatus.MEASURED` ou `UNDEFINED_EMPTY_POPULATION`. La frontière policy, la vue compacte et le CLI les
+  lisent. La méthode privée de la policy est supprimée, pas contournée : elle ne fait plus que nommer la population
+  dans la raison. Une seconde implémentation du prédicat dériverait, et c'est la copie faible qui publierait `1.0` —
+  la raison même de la promotion d'`IntegrationStatusDisclosure` et de `ServerLocationDisclosure`.
+- **Le texte n'imprime pas un nombre qui n'est pas une mesure** : `requirementCoverage=UNDEFINED_EMPTY_POPULATION`.
+- **Le JSON porte l'indéfinition dans un champ frère**, sur le patron d'`acceptanceCoverageStatus` du même objet :
+  `requirementCoverageStatus` et `taskCoverageStatus`. Le ratio garde son type et sa valeur.
+
+Les autres ratios ont été cherchés. `AcceptanceCoverageAssessment#verifiedCoverageRatio` remplit lui aussi `1.0` sur
+zéro critère, mais aucune surface ne le publie : la vue compacte n'en expose que le statut, qui nomme déjà `NO_CRITERIA`.
+
+### Alternative écartée
+
+- **Rendre le ratio indéfinissable** (`null`, ou une valeur facultative). Il ferme le défaut plus fort — un client naïf
+  ne peut plus lire `1.0` — mais change le type d'un champ publié et casse tout client qui le lit comme un nombre, y
+  compris pour les projets qui ont des exigences, c'est-à-dire pour tout le monde sauf le cas fautif.
+
+### Ce que cela coûte, et ce qui reste
+
+- **Un client qui ignore le champ frère lit toujours `1.0`.** C'est le prix de la compatibilité ; les notes de version
+  le disent et prescrivent de lire le statut d'abord.
+- **Le JSON n'est pas identique octet pour octet** pour un projet qui a des exigences : le sérialiseur canonique écrit
+  chaque composant d'un record, et un champ facultatif vide y devient `null`. Aucune forme de champ frère ne peut donc
+  être absente quand le ratio est mesuré, et les deux statuts s'insèrent juste après leur ratio. Ce qui est garanti :
+  aucun champ n'est retiré ni renommé, les ratios restent numériques, et les deux statuts sont les seuls ajouts
+  (`aProjectWithRequirementsKeepsItsQualityFieldsAndGainsOnlyTheStatuses` compare l'ensemble des clés). Les valeurs
+  viennent des mêmes accesseurs qu'avant ; aucun test ne les compare à une sortie antérieure.
+- **La duplication de composition n'est pas couverte ici.** Depuis CMP-1, la policy rend aussi `UNKNOWN` un ratio dont
+  la population est dupliquée par une composition multi-provider (`duplicatedPopulation`). Ce prédicat-là lit l'état de
+  composition, que `QualityReportMetrics` ne connaît pas ; `quality` publie encore ce ratio comme `MEASURED`. C'est une
+  seconde cause d'indéfinition, à porter par le même champ dans un changement distinct.
+
+**Preuve.** `MorpheusCliTest#aProjectWithoutRequirementsOrTasksHasNoCoverageMeasurement` publie un workspace sans exigence
+ni tâche et vérifie le texte et le JSON ; forcer `taskCoverageStatus()` à `MEASURED` le fait tomber sur la seule ligne
+des tâches. `CoverageRatioHasOneEmptyPopulationPredicateTest` refuse toute comparaison de `totalRequirements()` ou
+`totalTasks()` avec zéro ou un, dans les deux sens, hors du record ; le retour du nom `emptyRatioPopulation` ; toute
+source hors `application.quality` qui lit un ratio des métriques sans son statut, ou le `coverageRatio()` des records par
+population, qui portent le même remplissage sans statut. Réintroduire la copie dans la policy le fait tomber. Il ne voit
+pas une vacuité testée sur une autre expression (`isEmpty()` d'une liste), ni un statut lu puis ignoré : il raisonne par
+fichier.
+
 ## Amendement du 26 septembre 2026 (CLI-7) — une valeur fournie vide n'est pas une option absente
 
 `SimpleOptions.optional` taillait la valeur puis la jetait si rien ne restait. Une option **fournie** avec une valeur
@@ -542,9 +595,67 @@ projet. Tests ciblés, qui échouent tous avec le code `0` sur les sources de CL
 `server backup create --output-dir ""` est refusé sans rien écrire dans le répertoire courant ni dans le répertoire de
 sauvegarde, et sans l'option la sauvegarde est créée dans ce dernier.
 
+## Amendement du 26 septembre 2026 — un refus sur l'état n'est pas un refus d'usage
+
+L'amendement CLI-1 porte une décision sur le code de sortie ; celui-ci porte la même règle sur les refus. `morpheus help`
+publie `2` pour l'usage, `3` pour l'entité absente, `4` pour l'état. Les adaptateurs `policy`, `views`/`export`/`query`,
+`portfolio` et `server identity` rendaient `2` pour tout refus de leurs services, parce que ces services levaient
+`IllegalArgumentException` et que la chaîne de `catch` de l'adaptateur traduit ce type en `USAGE`. Un identifiant qui ne
+désigne rien se présentait comme un appel mal formé : le code disait autre chose que ce qui avait été observé. La garde de
+l'aide intégrée (`MorpheusHelpInvocationsParseTest`) devait en tenir une liste d'exemptions.
+
+### Décision
+
+- **La règle.** `3` quand un identifiant passé en argument ne désigne rien ; `4` quand ce qui est désigné existe mais que
+  la relation ou l'état résultant exigé par l'opération est refusé ; `2` seulement pour un appel mal formé. Un pack inactif
+  dans un scope est `4` (le pack est désigné, sa relation au scope manque) ; un override ou une règle introuvable est `3`
+  (l'identifiant `--rule` ne désigne rien).
+- **Deux exceptions nommées**, dans `com.morpheus.application.store` à côté de `KnowledgeStoreException` :
+  `EntityNotFoundException` et `EntityStateException`. Les services (`PolicyPackService`, `PolicyEvaluationService`,
+  `SavedViewService`, `QueryExecutionService`, les trois services de portefeuille) **et** les stores mémoire et SQLite qui
+  émettent les mêmes messages les lèvent : un refus levé par le store sous une course reçoit le même code que celui levé
+  par le service. `MorpheusRemoteIdentityFile` et `RemoteIdentityFileStore` (fichier absent, principal absent ou déjà
+  présent, dernier `ADMIN`) les lèvent aussi.
+- **Elles restent des `IllegalArgumentException`.** HTTP et MCP ne distinguent pas ces refus aujourd'hui (`400
+  BAD_REQUEST`, résultat d'outil en erreur) et leurs contrats ne déclarent pas de `404` sur ces routes : les en faire
+  sortir aurait changé deux transports sans que leur contrat le demande. Le précédent existe (`QueryValidationException`).
+  Les quatre adaptateurs CLI les interceptent **avant** `IllegalArgumentException`.
+- **Un fichier d'identités absent** n'est plus décrit comme « must be a regular non-symbolic file » : l'absence est
+  `remote auth file does not exist` (`3`) ; un répertoire ou un lien symbolique garde l'ancien message et le code `2`.
+- **`PortfolioRegistryService.markMissing`** vérifiait l'appartenance sans vérifier le portefeuille : un portefeuille
+  inconnu était rapporté comme « project is not a portfolio member ». Il passe par `requireMembership`, comme
+  `observeFreshness` et `addReference`.
+- **La garde de l'aide perd sa liste d'exemptions.** Contre un store vide, aucune invocation documentée ne rend plus `2` :
+  tout `2` est désormais une faute de l'aide ou du parseur.
+
+### Alternatives écartées
+
+- **Traduire par préfixe de message dans l'adaptateur.** Le texte deviendrait un contrat implicite, et un message reformulé
+  changerait un code de sortie sans que rien ne casse.
+- **Des exceptions hors de la hiérarchie `IllegalArgumentException`.** Chaque `catch` HTTP et MCP (ADR-0102) qui
+  traduit `IllegalArgumentException` aurait dû les ajouter pour rendre la même réponse qu'avant ; un `catch` oublié devenait un `500`.
+- **Des `404`/`409` HTTP dans le même changement.** Décision de contrat HTTP (OpenAPI M23, M24, M25) qui mérite sa propre
+  PR ; noté ci-dessous.
+- **Une exception par sous-plateforme** (`UnknownPolicyPackException`, …). Les adaptateurs auraient intercepté autant de
+  types que de sous-plateformes pour deux codes.
+
+### Conséquences
+
+- **Rupture annoncée** dans `docs/release/RELEASE_NOTES_1.2.1.md`, avec la table avant/après ; règle écrite au §19 de
+  `docs/user/CLI.md`.
+- **Preuve.** `MorpheusStateRefusalExitCodeTest` asserte le code et le message exact de chaque refus sur la commande qui le
+  produit, et le maintien de `2` pour un identifiant malformé, un scope absent et un fichier d'identités qui est un
+  répertoire. Six de ses sept tests échouent sur `develop` avant le changement (`expected <3|4> but was <2>`).
+  `MorpheusHelpInvocationsParseTest` n'a plus d'exemption.
+- **Résidus assumés.** Les refus de budget (packs actifs et overrides par scope, règles évaluées, identités par fichier) et
+  `freshness observation must not move backwards` sont des refus sur l'état qui rendent toujours `2`. Un fichier
+  d'identités illisible (ligne invalide) rend `2`. HTTP rend `400` pour une entité absente sur les routes M23, M24 et M25.
+  `MorpheusServerCli` rend `10` pour une `IllegalStateException` ou une `KnowledgeStoreException`, là où les autres
+  adaptateurs rendent `4`. Chacun est une décision séparée.
+
 ## Amendement du 26 septembre 2026 (CLI-7, répétition) — une option donnée deux fois est refusée
 
-L'amendement précédent a laissé ouvert un défaut voisin, sur les mêmes parseurs : une option à valeur **répétée**
+L'amendement CLI-7, suite, a laissé ouvert un défaut voisin, sur les mêmes parseurs : une option à valeur **répétée**
 gardait sa dernière valeur en silence. `morpheus --data-dir a --data-dir b projects list` lisait le store de `b`, code
 `0`, sans rien dire de `a`. Les parseurs qui rangent leurs options dans une table refusaient déjà la seconde clé
 (`SimpleOptions`, `MorpheusCli.CommandOptions`, les `Options` de `composition`, d'`external-references`,

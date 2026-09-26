@@ -127,6 +127,39 @@ changent pas : elles rendent `0` quand elles réussissent.
 
 Décision : [ADR-0108](../adr/0108-a-response-says-what-it-could-not-observe.md).
 
+### CLI : un refus sur l'état ne rend plus le code d'usage
+
+Jusqu'à 1.2.0, les commandes `policy`, `views`, `export view`, `query execute`, `portfolio` et `server identity` rendaient
+`2` (usage) pour un refus qui ne portait pas sur l'appel mais sur l'état : un identifiant qui ne désigne rien, un pack qui
+n'est pas actif. La table des codes publiée par `morpheus help` réserve pourtant `3` à l'entité absente et `4` à l'état.
+Un script ne pouvait pas distinguer une faute de frappe d'un identifiant inconnu.
+
+À partir de 1.2.1 :
+
+| Refus | Avant | Après |
+|---|---:|---:|
+| `unknown policy pack: …`, `unknown policy pack version: …`, `policy override does not exist: …`, `rule is not present in active policy pack version: …` | `2` | `3` |
+| `unknown saved view: …` (`views get\|versions\|execute\|update\|archive`, `export view`) | `2` | `3` |
+| `unknown portfolio: …` (`portfolio …`, `query execute --portfolio`) | `2` | `3` |
+| `remote auth file does not exist`, `remote principal does not exist: …` | `2` | `3` |
+| `policy pack is not active in scope: …`, `policy pack must be active before adding an override: …` | `2` | `4` |
+| `project is not a portfolio member: …`, `start project is not a portfolio member: …` | `2` | `4` |
+| `remote principal already exists: …`, `cannot revoke the last active ADMIN identity`, `cannot change the role of the last active ADMIN identity`, `migration would leave no ADMIN identity active after …` | `2` | `4` |
+
+Deux messages changent aussi. Un fichier d'identités absent était refusé avec `remote auth file must be a regular
+non-symbolic file` ; il est maintenant refusé avec `remote auth file does not exist` (un répertoire ou un lien symbolique
+garde l'ancien message et le code `2`). `portfolio missing` sur un portefeuille inconnu répondait `project is not a
+portfolio member` ; il répond `unknown portfolio`, comme les autres actions. Les refus sur l'état de `server identity`
+s'impriment `MORPHEUS server error: …` au lieu de `MORPHEUS server usage error: …`.
+
+HTTP et MCP ne changent pas : ces refus restent `400 BAD_REQUEST` et un résultat d'outil en erreur.
+
+**Migration.** Un script qui traitait `2` comme « entité absente » ou « pack inactif » doit tester `3` ou `4`. Un script
+qui ne distingue que `0` du reste n'est pas concerné. Les refus de budget (packs actifs, overrides, règles évaluées,
+identités) et `freshness observation must not move backwards` rendent toujours `2`.
+
+Décision : [ADR-0108, amendement du 26 septembre 2026 (codes de sortie des refus sur l'état)](../adr/0108-a-response-says-what-it-could-not-observe.md).
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes
@@ -212,6 +245,33 @@ d'effet.
 
 Décision : [ADR-0103, amendement du 26 septembre 2026 (CLI-8)](../adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md) ;
 garde `CliOptionParsingRefusesUnknownOptionsTest`, qui découvre désormais toutes les familles de parseurs du CLI.
+
+### Qualité (`quality`, diagnostics HTTP) : un ratio sur population vide n'est plus publié comme une mesure
+
+Jusqu'à 1.2.0, un projet dont le snapshot actif ne publiait aucune exigence rendait `requirementCoverageRatio: 1.0`
+— et de même `taskCoverageRatio: 1.0` sans tâche. Ce `1.0` est une convention de validation, pas une observation : la
+frontière policy le lisait déjà `UNKNOWN`, mais `morpheus quality` l'imprimait comme une couverture complète, et une
+garde de CI écrite sur ce champ passait au vert sur un projet vide.
+
+À partir de 1.2.1 :
+
+- **JSON** (`morpheus --json quality`, `GET /api/v1/projects/{projectId}/diagnostics`) : l'objet `metrics` gagne deux
+  champs, `requirementCoverageStatus` et `taskCoverageStatus`, qui valent `MEASURED` ou `UNDEFINED_EMPTY_POPULATION`.
+  Les ratios gardent leur type (`double`) et leur valeur ; aucun autre champ ne change. Pour un projet qui a des
+  exigences et des tâches, la seule différence est l'ajout des deux statuts à `MEASURED`.
+- **Texte** (`morpheus quality`) : un ratio indéfini s'imprime `UNDEFINED_EMPTY_POPULATION` au lieu de `1.0`, par
+  exemple `requirementCoverage=UNDEFINED_EMPTY_POPULATION`. Un ratio mesuré s'imprime comme avant.
+
+Le code de sortie ne change pas (`0`).
+
+**Migration.** Une garde qui lit `metrics.requirementCoverageRatio` ou `metrics.taskCoverageRatio` doit d'abord lire le
+statut correspondant et traiter `UNDEFINED_EMPTY_POPULATION` comme une absence de mesure. **Un client qui ignore le
+nouveau champ continue de lire `1.0` sur un projet vide** : c'est le prix de la compatibilité, et c'est pourquoi il faut
+lire le statut. Un script qui analysait la sortie texte comme un nombre reçoit maintenant un mot sur un projet vide.
+`MEASURED` ne dit que la population n'est pas vide : sur une composition multi-provider qui publie deux fois la même
+exigence, le ratio reste `MEASURED` ici alors qu'une policy le lit `UNKNOWN` (voir la composition plus haut).
+
+Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-4)](../adr/0108-a-response-says-what-it-could-not-observe.md).
 
 ### CLI `portfolio`, `query`, `views`, `export` et `policy` : une option passée vide est refusée
 

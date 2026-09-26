@@ -1,5 +1,7 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.domain.evidence.EvidenceId;
@@ -429,13 +431,13 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
 
     private void requirePortfolio(PortfolioId portfolioId) {
         if (findPortfolio(portfolioId).isEmpty()) {
-            throw new IllegalArgumentException("unknown portfolio: " + portfolioId);
+            throw new EntityNotFoundException("unknown portfolio: " + portfolioId);
         }
     }
 
     private void requireMembership(PortfolioId portfolioId, ProjectSpecificationId projectId) {
         if (findMembership(portfolioId, projectId).isEmpty()) {
-            throw new IllegalArgumentException("project is not a portfolio member: " + projectId);
+            throw new EntityStateException("project is not a portfolio member: " + projectId);
         }
     }
 

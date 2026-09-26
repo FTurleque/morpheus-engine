@@ -5,6 +5,7 @@ import com.morpheus.application.composition.CompositionEntityType;
 import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationState;
+import com.morpheus.application.quality.CoverageRatioStatus;
 import com.morpheus.application.quality.QualityReportMetrics;
 import com.morpheus.application.quality.QualityReportService;
 import com.morpheus.application.query.ConstraintEvaluationQueryService;
@@ -133,7 +134,12 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
             return PolicyEvaluation.Fact.unknown("no ACTIVE snapshot is available for quality evaluation", List.of());
         }
         QualityReportMetrics metrics = report.orElseThrow().metrics();
-        Optional<String> emptyPopulation = emptyRatioPopulation(config.metric(), metrics);
+        Optional<String> emptyPopulation = switch (config.metric()) {
+            case REQUIREMENT_COVERAGE_PERCENT -> undefined(metrics.requirementCoverageStatus(), "CURRENT requirement");
+            case TASK_COVERAGE_PERCENT -> undefined(metrics.taskCoverageStatus(), "implementation task");
+            case FINDINGS, ORPHAN_REQUIREMENTS, UNCOVERED_TASKS, CHANGES, DECISIONS, EXTERNAL_REFERENCES ->
+                    Optional.empty();
+        };
         if (emptyPopulation.isPresent()) {
             return PolicyEvaluation.Fact.unknown(
                     "quality metric " + config.metric() + " is undefined: the ACTIVE snapshot has no "
@@ -165,21 +171,12 @@ public final class DefaultPolicyFactResolver implements PolicyFactResolver {
     }
 
     /**
-     * A coverage ratio over an empty population is not a measurement. The quality records fill it with 1.0 so their
-     * own validation holds; read as a percentage it would pass any coverage threshold for a project that ingested
-     * nothing. Counts are left alone: zero orphans among zero requirements is a true zero.
+     * A coverage ratio over an empty population is not a measurement; {@link QualityReportMetrics} decides which is
+     * which, and this resolver only names the population for the reason. Counts are left alone: zero orphans among
+     * zero requirements is a true zero.
      */
-    private static Optional<String> emptyRatioPopulation(PolicyRule.QualityMetric metric, QualityReportMetrics metrics) {
-        return switch (metric) {
-            case REQUIREMENT_COVERAGE_PERCENT -> metrics.totalRequirements() == 0
-                    ? Optional.of("CURRENT requirement")
-                    : Optional.empty();
-            case TASK_COVERAGE_PERCENT -> metrics.totalTasks() == 0
-                    ? Optional.of("implementation task")
-                    : Optional.empty();
-            case FINDINGS, ORPHAN_REQUIREMENTS, UNCOVERED_TASKS, CHANGES, DECISIONS, EXTERNAL_REFERENCES ->
-                    Optional.empty();
-        };
+    private static Optional<String> undefined(CoverageRatioStatus status, String population) {
+        return status == CoverageRatioStatus.MEASURED ? Optional.empty() : Optional.of(population);
     }
 
     /**

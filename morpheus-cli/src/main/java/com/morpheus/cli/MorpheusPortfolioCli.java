@@ -6,6 +6,8 @@ import com.morpheus.application.portfolio.PortfolioRegistryService;
 import com.morpheus.application.portfolio.PortfolioTraversalDirection;
 import com.morpheus.application.portfolio.PortfolioTraversalService;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.portfolio.PortfolioEntityRef;
@@ -130,6 +132,12 @@ final class MorpheusPortfolioCli {
                 write(result, parsed.json(), out);
                 return CliExitCode.SUCCESS.code();
             }
+        } catch (EntityNotFoundException failure) {
+            err.println("MORPHEUS error [" + CliExitCode.NOT_FOUND.code() + "]: " + safeMessage(failure));
+            return CliExitCode.NOT_FOUND.code();
+        } catch (EntityStateException failure) {
+            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
+            return CliExitCode.STATE_ERROR.code();
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS error [" + CliExitCode.USAGE.code() + "]: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
