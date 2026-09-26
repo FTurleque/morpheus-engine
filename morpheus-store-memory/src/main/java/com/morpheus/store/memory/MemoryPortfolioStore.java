@@ -1,5 +1,7 @@
 package com.morpheus.store.memory;
 
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.domain.portfolio.CrossProjectReference;
 import com.morpheus.domain.portfolio.CrossProjectReferenceId;
@@ -120,13 +122,13 @@ public final class MemoryPortfolioStore implements PortfolioStore {
 
     private void requirePortfolio(PortfolioId portfolioId) {
         if (!portfolios.containsKey(portfolioId)) {
-            throw new IllegalArgumentException("unknown portfolio: " + portfolioId);
+            throw new EntityNotFoundException("unknown portfolio: " + portfolioId);
         }
     }
 
     private void requireMembership(PortfolioId portfolioId, ProjectSpecificationId projectId) {
         if (!memberships.containsKey(new MembershipKey(portfolioId, projectId))) {
-            throw new IllegalArgumentException("project is not a portfolio member: " + projectId);
+            throw new EntityStateException("project is not a portfolio member: " + projectId);
         }
     }
 

@@ -399,6 +399,12 @@ La requête suivante est servie normalement.
 
 Un code `4` peut s'accompagner d'un JSON valide : `policy evaluate` et `policy dry-run` rendent `4` sur une décision `BLOCK` ou `UNKNOWN` (`0` sur `PASS` et `WARN`) et impriment toujours la décision.
 
+`2` est réservé à un appel mal formé. Un refus qui porte sur l'état rend `3` ou `4` : `3` quand un identifiant passé
+en argument ne désigne rien (policy pack ou version de pack, override, règle absente de la version active, saved view,
+portefeuille, fichier d'identités distant, principal) ; `4` quand ce qui est désigné existe mais que la relation ou
+l'état résultant exigé par l'opération est refusé (pack non actif dans le scope, projet non membre du portefeuille,
+principal déjà présent, dernier `ADMIN` actif révoqué, rétrogradé ou laissé expiré par `migrate-legacy`).
+
 ## 20. Patron PowerShell robuste
 
 ```powershell

@@ -1,6 +1,8 @@
 package com.morpheus.api;
 
 import com.morpheus.api.RemoteIdentityAudit.RetainedAudit;
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 
 import java.nio.file.Path;
 import java.time.Instant;
@@ -206,7 +208,7 @@ public final class MorpheusRemoteIdentityFile {
         return RemoteIdentityFileStore.withMutationLock(authFile, file -> {
             List<Identity> existing = RemoteIdentityFileStore.exists(file) ? load(file) : List.of();
             if (existing.stream().anyMatch(identity -> identity.principal().equals(normalizedPrincipal))) {
-                throw new IllegalArgumentException("remote principal already exists: " + normalizedPrincipal);
+                throw new EntityStateException("remote principal already exists: " + normalizedPrincipal);
             }
             if (existing.size() >= MAX_IDENTITIES) {
                 throw new IllegalArgumentException("remote auth file already contains the maximum number of identities");
@@ -227,7 +229,7 @@ public final class MorpheusRemoteIdentityFile {
             List<Identity> existing = load(existingFile);
             Identity target = requireIdentity(existing, normalizedPrincipal);
             if (target.role() == MorpheusRemoteRole.ADMIN && target.isActiveAt(Instant.now()) && adminCount(existing) == 1) {
-                throw new IllegalArgumentException("cannot revoke the last active ADMIN identity");
+                throw new EntityStateException("cannot revoke the last active ADMIN identity");
             }
             List<Identity> updated = existing.stream()
                     .filter(identity -> !identity.principal().equals(normalizedPrincipal))
@@ -298,7 +300,7 @@ public final class MorpheusRemoteIdentityFile {
                     && target.isActiveAt(Instant.now())
                     && newRole != MorpheusRemoteRole.ADMIN
                     && adminCount(existing) == 1) {
-                throw new IllegalArgumentException("cannot change the role of the last active ADMIN identity");
+                throw new EntityStateException("cannot change the role of the last active ADMIN identity");
             }
             List<Identity> updated = existing.stream()
                     .map(identity -> identity.principal().equals(normalizedPrincipal)
@@ -381,7 +383,7 @@ public final class MorpheusRemoteIdentityFile {
                 .anyMatch(identity -> identity.expiresAt().isEmpty()
                         || identity.expiresAt().orElseThrow().isAfter(expiry));
         if (!survives) {
-            throw new IllegalArgumentException(
+            throw new EntityStateException(
                     "migration would leave no ADMIN identity active after " + expiry
                             + "; give one administrator a later expiry or exclude it from the migration");
         }
@@ -408,7 +410,7 @@ public final class MorpheusRemoteIdentityFile {
         return identities.stream()
                 .filter(identity -> identity.principal().equals(principal))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("remote principal does not exist: " + principal));
+                .orElseThrow(() -> new EntityNotFoundException("remote principal does not exist: " + principal));
     }
 
     private static long adminCount(List<Identity> identities) {

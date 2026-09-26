@@ -179,7 +179,7 @@ class MorpheusServerCliTest {
         assertTrue(listed.out().contains("server identity migrate-legacy"), listed.out());
 
         Result stranded = run("--json", "server", "identity", "migrate-legacy", "--expires-at", deadline);
-        assertEquals(CliExitCode.USAGE.code(), stranded.exitCode(), stranded.out());
+        assertEquals(CliExitCode.STATE_ERROR.code(), stranded.exitCode(), stranded.out());
         assertTrue(stranded.err().contains("no ADMIN identity active after"), stranded.err());
 
         Result rehearsal = run("--json", "server", "identity", "migrate-legacy",

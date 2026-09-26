@@ -12,6 +12,7 @@ import com.morpheus.application.query.saved.SavedViewEntry;
 import com.morpheus.application.query.saved.SavedViewId;
 import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.application.query.saved.SavedViewVersion;
+import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SavedViewStore;
 
@@ -180,7 +181,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
                 statement.setString(1, id.toString());
                 try (ResultSet result = statement.executeQuery()) {
                     if (!result.next()) {
-                        throw new IllegalArgumentException("unknown saved view: " + id);
+                        throw new EntityNotFoundException("unknown saved view: " + id);
                     }
                     status = result.getString("status");
                     revision = result.getLong("revision");
@@ -257,7 +258,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
             throw new IllegalArgumentException("saved view replacement must advance revision by exactly one");
         }
         SavedViewDefinition before = find(id)
-                .orElseThrow(() -> new IllegalArgumentException("unknown saved view: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("unknown saved view: " + id));
         if (!before.query().scope().equals(replacement.query().scope())) {
             throw new IllegalArgumentException("saved view scope is immutable");
         }
@@ -285,7 +286,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
 
         if (changed != 1) {
             SavedViewDefinition current = find(id)
-                    .orElseThrow(() -> new IllegalArgumentException("unknown saved view: " + id));
+                    .orElseThrow(() -> new EntityNotFoundException("unknown saved view: " + id));
             throw new SavedViewConflictException(
                     "stale saved view revision: expected " + expectedRevision + " but current is " + current.revision());
         }

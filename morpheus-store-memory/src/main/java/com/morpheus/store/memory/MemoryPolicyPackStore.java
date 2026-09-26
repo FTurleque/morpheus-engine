@@ -6,6 +6,8 @@ import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyScope;
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.PolicyPackStore;
 
 import java.util.ArrayList;
@@ -218,7 +220,7 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
         }
         PolicyConfiguration.Activation active = activations.get(activationKey(scope, packId));
         if (active == null) {
-            throw new IllegalArgumentException("policy pack must be active before adding an override: " + packId);
+            throw new EntityStateException("policy pack must be active before adding an override: " + packId);
         }
         requireAudit(
                 audit,
@@ -246,7 +248,7 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
         String key = overrideKey(scope, packId, ruleId);
         PolicyConfiguration.Override current = overrides.get(key);
         if (current == null) {
-            throw new IllegalArgumentException("policy override does not exist: " + ruleId);
+            throw new EntityNotFoundException("policy override does not exist: " + ruleId);
         }
         if (current.revision() != expectedRevision) {
             throw conflict("policy override", expectedRevision, current.revision());
@@ -270,14 +272,14 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
     private PolicyPack.Definition requireDefinition(PolicyIds.PackId packId) {
         PolicyPack.Definition definition = definitions.get(packId);
         if (definition == null) {
-            throw new IllegalArgumentException("unknown policy pack: " + packId);
+            throw new EntityNotFoundException("unknown policy pack: " + packId);
         }
         return definition;
     }
 
     private PolicyPack.Version requireVersion(PolicyIds.PackId packId, PolicyIds.VersionId versionId) {
         return findVersion(packId, versionId)
-                .orElseThrow(() -> new IllegalArgumentException("unknown policy version: " + versionId));
+                .orElseThrow(() -> new EntityNotFoundException("unknown policy version: " + versionId));
     }
 
     private void appendAudit(PolicyConfiguration.AuditRecord audit) {
