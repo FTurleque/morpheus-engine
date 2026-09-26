@@ -68,7 +68,8 @@ class MorpheusAugmentedContextCliTest {
         refusals.put(List.of("change", "--project", project), "--change is required");
         refusals.put(List.of("change", "--change", "c", "--requirement", "r"),
                 "--requirement is not valid for augmented-context change");
-        refusals.put(List.of("requirement", "--requirement", "r", "--project", " "), "--project is required");
+        refusals.put(List.of("requirement", "--requirement", "r", "--project", " "),
+                "--project requires a non-blank value");
         refusals.put(List.of("requirement", "--requirement", "r", "--project", project), "--nexus-project is required");
         refusals.put(with("requirement", valid, "--budget", "ten"), "--budget must be an integer");
         refusals.put(with("requirement", valid, "--budget", "0"), "tokenBudget must be between 1 and 100000");

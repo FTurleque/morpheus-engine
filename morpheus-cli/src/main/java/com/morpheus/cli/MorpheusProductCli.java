@@ -107,6 +107,7 @@ final class MorpheusProductCli {
             }
             if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
                 index = requireValue(tokens, index, token);
+                OptionValue.nonBlank(token, tokens.get(index));
                 continue;
             }
             if (command.isEmpty()) {
@@ -115,7 +116,7 @@ final class MorpheusProductCli {
             }
             if (token.equals("--manifest")) {
                 int valueIndex = requireValue(tokens, index, token);
-                options.put("manifest", tokens.get(valueIndex));
+                options.put("manifest", OptionValue.nonBlank(token, tokens.get(valueIndex)));
                 index = valueIndex;
                 continue;
             }
@@ -158,9 +159,6 @@ final class MorpheusProductCli {
 
     private static URI explicitUri(String raw) {
         String value = Objects.requireNonNull(raw, "manifest").trim();
-        if (value.isEmpty()) {
-            throw new IllegalArgumentException("manifest must not be blank");
-        }
         if (value.matches("^[A-Za-z]:[\\\\/].*")) {
             return Path.of(value).toAbsolutePath().normalize().toUri();
         }
@@ -179,7 +177,7 @@ final class MorpheusProductCli {
     private record Parsed(String command, boolean json, java.util.Map<String, String> options) {
         String option(String name) {
             String value = options.get(name);
-            if (value == null || value.isBlank()) {
+            if (value == null) {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
             return value;

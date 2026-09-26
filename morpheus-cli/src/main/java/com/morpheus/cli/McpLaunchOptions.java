@@ -56,7 +56,7 @@ record McpLaunchOptions(CliLayout layout) {
                 if (index + 1 >= args.length) {
                     throw new IllegalArgumentException(token + " requires a path");
                 }
-                Path value = Path.of(args[++index]);
+                Path value = OptionValue.path(token, args[++index]);
                 switch (token) {
                     case "--data-dir" -> data = Optional.of(value);
                     case "--config-dir" -> config = Optional.of(value);
@@ -67,8 +67,8 @@ record McpLaunchOptions(CliLayout layout) {
             }
             if (token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=")) {
                 int separator = token.indexOf('=');
-                Path value = Path.of(token.substring(separator + 1));
                 String option = token.substring(0, separator);
+                Path value = OptionValue.path(option, token.substring(separator + 1));
                 switch (option) {
                     case "--data-dir" -> data = Optional.of(value);
                     case "--config-dir" -> config = Optional.of(value);

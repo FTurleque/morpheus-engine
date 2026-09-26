@@ -184,9 +184,9 @@ final class MorpheusCompositionCli {
                 String token = args[index];
                 switch (token) {
                     case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(Path.of(requireValue(args, ++index, token)));
+                    case "--data-dir" -> data = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
+                    case "--config-dir" -> config = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
+                    case "--db" -> database = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
                     default -> remaining.add(token);
                 }
             }
@@ -230,7 +230,7 @@ final class MorpheusCompositionCli {
         }
 
         Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim).filter(value -> !value.isEmpty());
+            return Optional.ofNullable(values.get(key)).map(value -> OptionValue.nonBlank("--" + key, value).trim());
         }
 
         void rejectUnknown(String... allowed) {
@@ -241,6 +241,7 @@ final class MorpheusCompositionCli {
                     .ifPresent(key -> {
                         throw new IllegalArgumentException("unknown option: --" + key);
                     });
+            values.forEach((key, value) -> OptionValue.nonBlank("--" + key, value));
         }
 
         private static String require(List<String> tokens, int index, String option) {

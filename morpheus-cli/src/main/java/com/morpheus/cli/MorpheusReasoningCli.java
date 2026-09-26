@@ -137,6 +137,7 @@ final class MorpheusReasoningCli {
             }
             if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
                 index = requireValue(tokens, index, token);
+                OptionValue.nonBlank(token, tokens.get(index));
                 continue;
             }
             if (command.isEmpty()) {
@@ -150,11 +151,12 @@ final class MorpheusReasoningCli {
             int valueIndex = requireValue(tokens, index, token);
             String value = tokens.get(valueIndex);
             switch (token) {
-                case "--question" -> putOnce(options, "question", value);
-                case "--evidence" -> evidence.add(value);
-                case "--adapter" -> adapters.add(value);
-                case "--param" -> addAssignment(parameters, value, "--param");
-                case "--max-claims" -> maxClaims = parseInteger(value, "--max-claims", 1, ReasoningContracts.MAX_CLAIMS);
+                case "--question" -> putOnce(options, "question", OptionValue.nonBlank(token, value));
+                case "--evidence" -> evidence.add(OptionValue.nonBlank(token, value));
+                case "--adapter" -> adapters.add(OptionValue.nonBlank(token, value));
+                case "--param" -> addAssignment(parameters, OptionValue.nonBlank(token, value), "--param");
+                case "--max-claims" -> maxClaims = parseInteger(
+                        OptionValue.nonBlank(token, value), "--max-claims", 1, ReasoningContracts.MAX_CLAIMS);
                 default -> throw new IllegalArgumentException("unknown reason option: " + token);
             }
             index = valueIndex;
@@ -285,7 +287,7 @@ final class MorpheusReasoningCli {
 
         String required(String name) {
             String value = options.get(name);
-            if (value == null || value.isBlank()) {
+            if (value == null) {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
             return value;

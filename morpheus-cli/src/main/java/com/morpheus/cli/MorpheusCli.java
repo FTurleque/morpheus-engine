@@ -63,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
 
 /** Stable, scriptable local MORPHEUS command-line adapter. */
 public final class MorpheusCli {
@@ -778,6 +779,7 @@ public final class MorpheusCli {
             if (!unknown.isEmpty()) {
                 throw new IllegalArgumentException("unknown options: " + unknown);
             }
+            new TreeMap<>(values).forEach((key, value) -> OptionValue.nonBlank("--" + key, value));
         }
 
         String required(String key) {
@@ -789,7 +791,7 @@ public final class MorpheusCli {
         }
 
         Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim).filter(value -> !value.isEmpty());
+            return Optional.ofNullable(values.get(key)).map(value -> OptionValue.nonBlank("--" + key, value).trim());
         }
 
         boolean flag(String key) {
@@ -805,7 +807,7 @@ public final class MorpheusCli {
             String raw = values.get(key);
             long value;
             try {
-                value = raw == null ? defaultValue : Long.parseLong(raw);
+                value = raw == null ? defaultValue : Long.parseLong(OptionValue.nonBlank("--" + key, raw));
             } catch (NumberFormatException exception) {
                 throw new IllegalArgumentException("--" + key + " must be an integer", exception);
             }

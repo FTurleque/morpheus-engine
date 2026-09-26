@@ -209,9 +209,9 @@ final class MorpheusExternalIntegrationCli {
                 String token = args[index];
                 switch (token) {
                     case "--json" -> json = true;
-                    case "--data-dir" -> data = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--config-dir" -> config = Optional.of(Path.of(requireValue(args, ++index, token)));
-                    case "--db" -> database = Optional.of(Path.of(requireValue(args, ++index, token)));
+                    case "--data-dir" -> data = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
+                    case "--config-dir" -> config = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
+                    case "--db" -> database = Optional.of(OptionValue.path(token, requireValue(args, ++index, token)));
                     default -> remaining.add(token);
                 }
             }
@@ -257,10 +257,10 @@ final class MorpheusExternalIntegrationCli {
 
         String required(String key) {
             String value = values.get(key);
-            if (value == null || value.isBlank()) {
+            if (value == null) {
                 throw new IllegalArgumentException("--" + key + " is required");
             }
-            return value.trim();
+            return OptionValue.nonBlank("--" + key, value).trim();
         }
 
         void rejectUnknown(Set<String> allowed) {
@@ -269,6 +269,7 @@ final class MorpheusExternalIntegrationCli {
             if (!unknown.isEmpty()) {
                 throw new IllegalArgumentException("unknown options: " + unknown);
             }
+            new java.util.TreeMap<>(values).forEach((key, value) -> OptionValue.nonBlank("--" + key, value));
         }
     }
 }
