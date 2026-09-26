@@ -29,8 +29,8 @@ public record RequirementTraceabilityCoverage(
         if (!Double.isFinite(coverageRatio) || coverageRatio < 0.0 || coverageRatio > 1.0) {
             throw new IllegalArgumentException("coverageRatio must be finite and between 0.0 and 1.0");
         }
-        // 1.0 over zero requirements is a validation filler, not a measurement: every surface reads it as
-        // undefined (QualityReportMetrics#requirementCoverageStatus), never as full coverage.
+        // 1.0 over zero requirements is a validation filler, not a measurement. Surfaces publish the ratio through
+        // QualityReportMetrics, whose requirementCoverageStatus says so; this record's ratio is read inside the package.
         double expected = totalRequirements == 0 ? 1.0 : (double) linkedRequirements / totalRequirements;
         if (Double.compare(coverageRatio, expected) != 0) {
             throw new IllegalArgumentException("coverageRatio is inconsistent with counts");

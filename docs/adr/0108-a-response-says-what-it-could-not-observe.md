@@ -339,8 +339,10 @@ zéro critère, mais aucune surface ne le publie : la vue compacte n'en expose q
   le disent et prescrivent de lire le statut d'abord.
 - **Le JSON n'est pas identique octet pour octet** pour un projet qui a des exigences : le sérialiseur canonique écrit
   chaque composant d'un record, et un champ facultatif vide y devient `null`. Aucune forme de champ frère ne peut donc
-  être absente quand le ratio est mesuré. Ce qui est garanti est plus utile : chaque champ existant garde son nom, son
-  type et sa valeur, et les deux statuts sont les seuls ajouts (`aProjectWithRequirementsKeepsItsQualityFieldsAndGainsOnlyTheStatuses`).
+  être absente quand le ratio est mesuré, et les deux statuts s'insèrent juste après leur ratio. Ce qui est garanti :
+  aucun champ n'est retiré ni renommé, les ratios restent numériques, et les deux statuts sont les seuls ajouts
+  (`aProjectWithRequirementsKeepsItsQualityFieldsAndGainsOnlyTheStatuses` compare l'ensemble des clés). Les valeurs
+  viennent des mêmes accesseurs qu'avant ; aucun test ne les compare à une sortie antérieure.
 - **La duplication de composition n'est pas couverte ici.** Depuis CMP-1, la policy rend aussi `UNKNOWN` un ratio dont
   la population est dupliquée par une composition multi-provider (`duplicatedPopulation`). Ce prédicat-là lit l'état de
   composition, que `QualityReportMetrics` ne connaît pas ; `quality` publie encore ce ratio comme `MEASURED`. C'est une
@@ -349,6 +351,8 @@ zéro critère, mais aucune surface ne le publie : la vue compacte n'en expose q
 **Preuve.** `MorpheusCliTest#aProjectWithoutRequirementsOrTasksHasNoCoverageMeasurement` publie un workspace sans exigence
 ni tâche et vérifie le texte et le JSON ; forcer `taskCoverageStatus()` à `MEASURED` le fait tomber sur la seule ligne
 des tâches. `CoverageRatioHasOneEmptyPopulationPredicateTest` refuse toute comparaison de `totalRequirements()` ou
-`totalTasks()` avec zéro hors du record, le retour du nom `emptyRatioPopulation`, et toute source hors
-`application.quality` qui lit un ratio sans son statut ; réintroduire la copie dans la policy le fait tomber. Il ne voit
-pas une vacuité testée sur une autre expression (`isEmpty()` d'une liste), ni un statut lu puis ignoré.
+`totalTasks()` avec zéro ou un, dans les deux sens, hors du record ; le retour du nom `emptyRatioPopulation` ; toute
+source hors `application.quality` qui lit un ratio des métriques sans son statut, ou le `coverageRatio()` des records par
+population, qui portent le même remplissage sans statut. Réintroduire la copie dans la policy le fait tomber. Il ne voit
+pas une vacuité testée sur une autre expression (`isEmpty()` d'une liste), ni un statut lu puis ignoré : il raisonne par
+fichier.

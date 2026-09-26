@@ -221,6 +221,8 @@ class MorpheusCliTest {
                         "uncoveredTasks")), keys);
         assertTrue(json.stdout().matches("(?s).*\"requirementCoverageRatio\":[0-9.]+,.*"), json.stdout());
         assertTrue(json.stdout().contains("\"requirementCoverageStatus\":\"MEASURED\""), json.stdout());
+        assertTrue(json.stdout().matches("(?s).*\"taskCoverageRatio\":[0-9.]+,\"taskCoverageStatus\":\"MEASURED\".*"),
+                json.stdout());
         assertTrue(text.stdout().matches("(?s).* requirementCoverage=[0-9.]+ .*"), text.stdout());
     }
 

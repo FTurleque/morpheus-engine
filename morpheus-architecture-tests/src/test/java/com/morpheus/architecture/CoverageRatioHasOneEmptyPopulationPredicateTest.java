@@ -24,10 +24,11 @@ import org.junit.jupiter.api.Test;
  * halves:</p>
  *
  * <ol>
- *   <li>no main source compares {@code totalRequirements()} or {@code totalTasks()} with zero, and the name of the old
- *   private predicate does not come back;</li>
- *   <li>every main source outside {@code com.morpheus.application.quality} that reads a coverage ratio also reads its
- *   status.</li>
+ *   <li>no main source compares {@code totalRequirements()} or {@code totalTasks()} with zero or one, in either order,
+ *   and the name of the old private predicate does not come back;</li>
+ *   <li>every main source outside {@code com.morpheus.application.quality} that reads a coverage ratio of the metrics
+ *   also reads its status, and none reads the {@code coverageRatio()} of the per-population records, which carry the
+ *   same filler without a status.</li>
  * </ol>
  *
  * <p>What it does not see: an emptiness test written on another expression -- a list's {@code isEmpty()}, the sum of
@@ -36,8 +37,10 @@ import org.junit.jupiter.api.Test;
 class CoverageRatioHasOneEmptyPopulationPredicateTest {
 
     private static final Pattern COMPARED_WITH_ZERO = Pattern.compile(
-            "\\btotal(Requirements|Tasks)\\(\\)\\s*(==|<=|<|!=)\\s*0\\b"
-                    + "|\\b0\\s*(==|>=|>|!=)\\s*[\\w.()]*\\btotal(Requirements|Tasks)\\(\\)");
+            "\\btotal(Requirements|Tasks)\\(\\)\\s*(==|!=|<=|>=|<|>)\\s*[01]\\b"
+                    + "|\\b[01]\\s*(==|!=|<=|>=|<|>)\\s*[\\w.()]*\\btotal(Requirements|Tasks)\\(\\)");
+    /** The per-population records carry the same 1.0 filler and no status: they are read inside the quality package only. */
+    private static final Pattern STATUSLESS_RATIO = Pattern.compile("\\.\\s*coverageRatio\\s*\\(\\s*\\)");
     private static final Pattern OLD_PREDICATE = Pattern.compile("\\bemptyRatioPopulation\\b");
     private static final Map<String, String> STATUS_OF = Map.of(
             "requirementCoverageRatio()", "requirementCoverageStatus()",
@@ -75,6 +78,12 @@ class CoverageRatioHasOneEmptyPopulationPredicateTest {
 
         assertEquals(List.of("A.java:4 compares a population with zero"), violations(Map.of("A.java", copy)));
         assertEquals(List.of("A.java:4 compares a population with zero"), violations(Map.of("A.java", reversed)));
+        assertEquals(List.of("A.java:4 compares a population with zero"),
+                violations(Map.of("A.java", copy.replace("m.totalTasks() == 0", "m.totalTasks() > 0"))));
+        assertEquals(List.of("A.java:4 compares a population with zero"),
+                violations(Map.of("A.java", copy.replace("m.totalTasks() == 0", "1 <= m.totalTasks()"))));
+        assertEquals(List.of("A.java:4 reads a coverage ratio that has no status"), violations(Map.of("A.java",
+                bareRatio.replace("m.requirementCoverageRatio()", "r.requirements().coverageRatio()"))));
         assertEquals(List.of("A.java reads requirementCoverageRatio() without requirementCoverageStatus()"),
                 violations(Map.of("A.java", bareRatio)));
         assertEquals(List.of(), violations(Map.of("A.java", ratioWithStatus)));
@@ -96,6 +105,11 @@ class CoverageRatioHasOneEmptyPopulationPredicateTest {
                 violations.add(shortName + ":" + line(code, old.start()) + " brings back emptyRatioPopulation");
             }
             if (!code.contains(PRODUCER_PACKAGE)) {
+                var statusless = STATUSLESS_RATIO.matcher(code);
+                while (statusless.find()) {
+                    violations.add(shortName + ":" + line(code, statusless.start())
+                            + " reads a coverage ratio that has no status");
+                }
                 STATUS_OF.forEach((ratio, status) -> {
                     if (code.contains(ratio) && !code.contains(status)) {
                         violations.add(shortName + " reads " + ratio + " without " + status);
