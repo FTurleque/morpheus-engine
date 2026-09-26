@@ -245,3 +245,30 @@ d'effet.
 
 Décision : [ADR-0103, amendement du 26 septembre 2026 (CLI-8)](../adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md) ;
 garde `CliOptionParsingRefusesUnknownOptionsTest`, qui découvre désormais toutes les familles de parseurs du CLI.
+
+### Qualité (`quality`, diagnostics HTTP) : un ratio sur population vide n'est plus publié comme une mesure
+
+Jusqu'à 1.2.0, un projet dont le snapshot actif ne publiait aucune exigence rendait `requirementCoverageRatio: 1.0`
+— et de même `taskCoverageRatio: 1.0` sans tâche. Ce `1.0` est une convention de validation, pas une observation : la
+frontière policy le lisait déjà `UNKNOWN`, mais `morpheus quality` l'imprimait comme une couverture complète, et une
+garde de CI écrite sur ce champ passait au vert sur un projet vide.
+
+À partir de 1.2.1 :
+
+- **JSON** (`morpheus --json quality`, `GET /api/v1/projects/{projectId}/diagnostics`) : l'objet `metrics` gagne deux
+  champs, `requirementCoverageStatus` et `taskCoverageStatus`, qui valent `MEASURED` ou `UNDEFINED_EMPTY_POPULATION`.
+  Les ratios gardent leur type (`double`) et leur valeur ; aucun autre champ ne change. Pour un projet qui a des
+  exigences et des tâches, la seule différence est l'ajout des deux statuts à `MEASURED`.
+- **Texte** (`morpheus quality`) : un ratio indéfini s'imprime `UNDEFINED_EMPTY_POPULATION` au lieu de `1.0`, par
+  exemple `requirementCoverage=UNDEFINED_EMPTY_POPULATION`. Un ratio mesuré s'imprime comme avant.
+
+Le code de sortie ne change pas (`0`).
+
+**Migration.** Une garde qui lit `metrics.requirementCoverageRatio` ou `metrics.taskCoverageRatio` doit d'abord lire le
+statut correspondant et traiter `UNDEFINED_EMPTY_POPULATION` comme une absence de mesure. **Un client qui ignore le
+nouveau champ continue de lire `1.0` sur un projet vide** : c'est le prix de la compatibilité, et c'est pourquoi il faut
+lire le statut. Un script qui analysait la sortie texte comme un nombre reçoit maintenant un mot sur un projet vide.
+`MEASURED` ne dit que la population n'est pas vide : sur une composition multi-provider qui publie deux fois la même
+exigence, le ratio reste `MEASURED` ici alors qu'une policy le lit `UNKNOWN` (voir la composition plus haut).
+
+Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-4)](../adr/0108-a-response-says-what-it-could-not-observe.md).
