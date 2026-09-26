@@ -372,3 +372,64 @@ seulement qu'elle est verte, mais **par quel moyen chaque membre la rend verte**
 obligatoire ; ici la cassure d'origine (`MorpheusHttpResponseWriter.class` écrit dans
 `MorpheusReasoningHttpRoutes`, E3 du 11/09/2026) avait bien échoué — elle prouvait que la règle mordait, pas
 qu'elle visait juste.
+
+## Amendement du 26 septembre 2026 (CLI-8) — une garde d'option découvre les parseurs au lieu de les nommer
+
+La garde écrite pour CLI-3 cherchait le littéral `SimpleOptions.parse(` et exigeait un `rejectUnknown` dans la même
+méthode. Le module compte pourtant plusieurs familles de parseurs permissifs, chacune avec son propre `rejectUnknown`
+(`SimpleOptions`, `MorpheusCli.CommandOptions`, les `Options` de `MorpheusCompositionCli` et de
+`MorpheusExternalIntegrationCli`), plus des parseurs fermés par un `switch`. Une sous-commande nouvelle appelant
+`CommandOptions.parse` sans `rejectUnknown` aurait accepté une option mal orthographiée, code `0`, garde verte. C'est
+une garde plus étroite que la classe de défaut : elle nommait un membre là où l'intention visait la famille.
+
+**Décision.** `CliOptionParsingRefusesUnknownOptionsTest` **découvre** les parseurs par leur forme, jamais par leur nom,
+et applique trois règles après avoir neutralisé commentaires et littéraux (un `rejectUnknown` dans un commentaire ou un
+message ne satisfait rien) :
+
+1. **Familles permissives.** Un type qui déclare `void rejectUnknown(` est un parseur qui accepte toute clé. Tout appel
+   `<Famille>.parse(` est suivi, dans la même méthode, d'un appel `rejectUnknown` ; si un `switch` aiguille avant tout
+   appel, chaque branche qui ne se contente pas de lever doit le faire. Chaque famille découverte a au moins un site —
+   une famille sans site rendrait la règle vide pour elle.
+2. **`switch` d'options.** Un `switch` qui porte un libellé `case "--…"` décide quelles options existent ; il a une
+   branche `default` qui lève. Transmettre le jeton (`remaining.add(token)`) n'est admis que dans un parseur du vecteur
+   brut d'arguments (paramètre `String[]`), qui confie ses restes à un sous-parseur.
+3. **Parseurs terminaux.** Une méthode `parse` dont le premier paramètre est une `List<String>` appartient à une
+   famille, ou contient un `switch` d'options, ou lève elle-même un refus `unknown … option`. Une famille qui perdrait
+   son `rejectUnknown` tomberait ici au lieu de disparaître de la règle 1.
+
+La résolution d'un nom suit la portée Java : un `Options.parse(` désigne d'abord le type imbriqué du même fichier, de
+sorte qu'un `Options` fermé par `switch` n'est pas confondu avec l'`Options` permissif d'un autre adaptateur.
+
+Sur l'arbre de ce jour, la garde voit quatre familles et dix-neuf sites d'appel (`CommandOptions` 12, `SimpleOptions` 5,
+les deux `Options` 1 chacun), vingt-trois `switch` d'options et neuf parseurs terminaux. Elle a refusé l'arbre
+d'origine sur deux sites que la garde précédente laissait passer : `MorpheusCompositionCli` et
+`MorpheusExternalIntegrationCli` appelaient `rejectUnknown` dans les méthodes appelées, pas dans celle du `parse`. Le
+second était sain, mais n'était refusé qu'après la recherche du projet (code `4` au lieu de `2`) ; le premier était un
+vrai défaut de la classe CLI-3 : `composition status` et `conflicts` acceptaient `--revision` sans le lire, code `0`.
+Les deux vérifient maintenant leurs options avant tout accès à l'état.
+
+### Alternatives écartées
+
+- **Quatre littéraux au lieu d'un.** C'est le même défaut avec quatre noms : la cinquième famille ne serait pas vue.
+- **Une règle ArchUnit** « une méthode qui appelle `parse` appelle aussi `rejectUnknown` ». Elle verrait la
+  co-occurrence, pas l'ordre ni les branches d'un `switch`, et rien de la forme d'un `default`.
+- **Un test comportemental par commande** (ajouter `--zz` à chaque invocation). C'est l'invariant vrai, mais il exige
+  une invocation valide de chaque commande et un état où elle atteint le parseur ; la contre-vérification de CLI-6 a
+  montré que plusieurs commandes résolvent l'état avant leurs options, ce qui masque le refus.
+
+### Ce que la garde ne couvre pas
+
+- **L'argument de `rejectUnknown`.** Un appel autorisant toutes les options satisferait la règle 1 tout en rouvrant
+  CLI-3 ; le receveur de l'appel n'est pas vérifié non plus. Les ensembles exacts, vérifiés à la main, sont tenus par
+  les tests des adaptateurs, pas par la garde.
+- **Un aiguillage par chaîne de `if`** n'est vérifié que pour la présence d'un appel, pas branche par branche.
+- **Les parseurs sans `switch` ni `parse(List<String>…)`** : `MorpheusProductCli.parse` et
+  `MorpheusProviderPluginCli.parse` (chaîne de `if` sur le vecteur brut, refus en fin de chaîne) et
+  `MorpheusServerCli.options` (contrôle par liste autorisée dans une méthode qui ne s'appelle pas `parse`). Leur refus
+  d'une option inconnue est tenu par leurs tests d'adaptateur.
+
+**Preuve.** Trois auto-tests par fixture épinglent chaque règle dans les deux sens (non gardé refusé, gardé accepté),
+plus la découverte d'une famille inédite, le commentaire, la chaîne et la méthode voisine, et un `switch` sans
+`default`. Cassée pour de vrai sur l'arbre : les deux adaptateurs d'origine, un `rejectUnknown` retiré de
+`MorpheusCli.syncStatus`, un `default` de parseur terminal qui stocke le jeton au lieu de lever — chaque fois la garde
+tombe sur le bon site.

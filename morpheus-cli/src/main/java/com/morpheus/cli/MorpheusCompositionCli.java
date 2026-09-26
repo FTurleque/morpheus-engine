@@ -50,6 +50,11 @@ final class MorpheusCompositionCli {
             }
             String action = parsed.tokens().getFirst();
             Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+            if (action.equals("sync")) {
+                options.rejectUnknown("project", "revision");
+            } else {
+                options.rejectUnknown("project");
+            }
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
             return switch (action) {
                 case "sync" -> sync(projectId, parsed, options, out);
@@ -71,7 +76,6 @@ final class MorpheusCompositionCli {
             Parsed parsed,
             Options options,
             PrintStream out) {
-        options.rejectUnknown("project", "revision");
         try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
             var project = runtime.snapshots.findProject(projectId)
                     .orElseThrow(() -> new IllegalStateException("project not found: " + projectId));

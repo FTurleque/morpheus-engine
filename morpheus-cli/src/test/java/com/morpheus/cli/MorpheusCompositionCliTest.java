@@ -56,6 +56,22 @@ class MorpheusCompositionCliTest {
      * <p>The markdown reader used to publish its specification file as the project root, so the registered
      * workspace root and the published one never matched and every such sync ended on a store collision.</p>
      */
+    /** Only sync reads --revision; status and conflicts used to accept it and ignore it, exit code 0. */
+    @Test
+    void anOptionTheActionDoesNotReadIsRefusedBeforeTheProjectIsLookedUp() {
+        Path data = tempDirectory.resolve("composition-options");
+        String projectId = ProjectSpecificationId.generate().toString();
+
+        for (String action : java.util.List.of("status", "conflicts")) {
+            Invocation refused = invokeWithData(data, "composition", action, "--project", projectId, "--revision", "r1");
+            assertEquals(2, refused.exitCode(), refused.stderr());
+            assertTrue(refused.stderr().contains("unknown option: --revision"), refused.stderr());
+        }
+        Invocation withoutIt = invokeWithData(data, "composition", "status", "--project", projectId);
+        assertEquals(4, withoutIt.exitCode(), withoutIt.stderr());
+        assertTrue(withoutIt.stderr().contains("project has no ACTIVE snapshot"), withoutIt.stderr());
+    }
+
     @Test
     void syncsAMarkdownOnlyWorkspaceUnderItsRegisteredRoot() throws Exception {
         Path workspace = tempDirectory.resolve("markdown-only");
