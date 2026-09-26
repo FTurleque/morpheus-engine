@@ -80,6 +80,71 @@ class BlankOptionValueRefusalTest {
     }
 
     /**
+     * A non-blank layout is still accepted by every copy of the layout parsing: each command gets past it and stops at
+     * its own first usage check, without writing anything.
+     */
+    @TestFactory
+    Stream<DynamicTest> aNonBlankLayoutIsStillAcceptedByEveryParser() {
+        Map<List<String>, String> commands = new java.util.LinkedHashMap<>();
+        commands.put(List.of("acceptance-criteria"), "acceptance-criteria requires action: list");
+        commands.put(List.of("constraints", "evaluate"), "--project is required");
+        commands.put(List.of("composition"), "composition requires action");
+        commands.put(List.of("lifecycle"), "lifecycle requires action: apply");
+        commands.put(List.of("change-orchestration"), "change-orchestration requires action");
+        commands.put(List.of("augmented-context"), "augmented-context requires subject");
+        commands.put(List.of("external-references"), "external-references requires subcommand");
+        return commands.entrySet().stream().map(command -> DynamicTest.dynamicTest(
+                String.join(" ", command.getKey()),
+                () -> {
+                    Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
+                    List<String> args = new ArrayList<>(List.of(
+                            "--data-dir", root.resolve("data").toString(),
+                            "--config-dir", root.resolve("config").toString(),
+                            "--db", root.resolve("data/morpheus.db").toString()));
+                    args.addAll(command.getKey());
+
+                    Result result = run(args.toArray(String[]::new));
+
+                    assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
+                    assertTrue(result.err().contains(command.getValue()), result.err());
+                    assertFalse(Files.exists(root), "a usage error must write nothing: " + root);
+                }));
+    }
+
+    /** Non-blank reasoning options still reach the analysis. */
+    @Test
+    void nonBlankReasoningOptionsAreStillAccepted() {
+        Result result = run("reason", "analyze", "--question", "q", "--param", "k=v", "--max-claims", "3");
+
+        assertEquals(CliExitCode.SUCCESS.code(), result.exitCode(), result.err());
+    }
+
+    /** An omitted required option is still reported as required, not as blank. */
+    @Test
+    void anOmittedExternalReferencesProjectIsStillRequired() {
+        Result result = run("--data-dir", tempDirectory.resolve("external").toString(), "external-references", "list");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
+        assertTrue(result.err().contains("--project is required"), result.err());
+    }
+
+    /** The {@code --x=v} spelling still accepts a non-blank value in the launchers that take it. */
+    @Test
+    void theLaunchersStillAcceptANonBlankValueInTheEqualsSpelling() {
+        Path data = tempDirectory.resolve("launcher-data");
+
+        McpLaunchOptions mcp = McpLaunchOptions.parse(
+                new String[]{"mcp", "--stdio", "--data-dir=" + data}, Map.of(), properties());
+        IllegalArgumentException remote = assertThrows(IllegalArgumentException.class,
+                () -> RemoteApiLaunchOptions.parse(
+                        new String[]{"api", "--remote", "--host=127.0.0.1"}, Map.of(), properties()));
+
+        assertEquals(data.toAbsolutePath().normalize(), mcp.layout().dataDirectory());
+        assertTrue(remote.getMessage().contains("--tls-keystore"),
+                "the remote launcher must get past --host= to its keystore check: " + remote.getMessage());
+    }
+
+    /**
      * A launcher is parsed before any server starts: a blank value is refused there, not resolved as the working
      * directory.
      */

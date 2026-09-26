@@ -183,7 +183,7 @@ final class MorpheusProviderPluginCli {
     private record Parsed(boolean json, String action, Map<String, String> options) {
         String required(String name) {
             String value = options.get(name);
-            if (value == null) {
+            if (value == null || value.isBlank()) {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
             return value;

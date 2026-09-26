@@ -177,7 +177,7 @@ final class MorpheusProductCli {
     private record Parsed(String command, boolean json, java.util.Map<String, String> options) {
         String option(String name) {
             String value = options.get(name);
-            if (value == null) {
+            if (value == null || value.isBlank()) {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
             return value;
