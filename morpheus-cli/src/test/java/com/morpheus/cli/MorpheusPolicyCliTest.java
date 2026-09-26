@@ -107,6 +107,17 @@ class MorpheusPolicyCliTest {
         assertTrue(evaluated.out().contains("explicit exception"), evaluated.out());
     }
 
+    /** An empty --id used to be read as no pack, so evaluate ran every active pack of the scope instead. */
+    @Test
+    void anEmptyPackFilterIsRefusedInsteadOfEvaluatingEveryPack() {
+        String projectId = com.morpheus.domain.project.ProjectSpecificationId.generate().toString();
+
+        Result result = run("--json", "policy", "evaluate", "--project", projectId, "--id", "");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
+        assertTrue(result.err().contains("--id requires a non-blank value"), result.err());
+    }
+
     @Test
     void packCreateAcceptsConstraintAndLifecycleGuardRuleKinds() {
         String changeId = ChangeId.generate().toString();

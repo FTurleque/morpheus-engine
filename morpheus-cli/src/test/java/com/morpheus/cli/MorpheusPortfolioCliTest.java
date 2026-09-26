@@ -140,6 +140,40 @@ class MorpheusPortfolioCliTest {
         assertEquals(CliExitCode.SUCCESS.code(), spelled.exitCode(), spelled.err());
     }
 
+    /**
+     * An option given empty used to be read as an option not given: the project filter vanished and every reference
+     * of the portfolio came back, and add-project persisted a membership without a workspace, exit code 0 each time.
+     */
+    @Test
+    void anEmptyOrBlankValueIsRefusedAndNamedInsteadOfReadAsAnAbsentOption() {
+        String portfolioId = firstUuid(run("--json", "portfolio", "create", "--name", "Blank").out());
+        String projectId = ProjectSpecificationId.generate().toString();
+
+        Result emptyFilter = run("--json", "portfolio", "references", "--portfolio", portfolioId, "--project", "");
+        Result blankFilter = run("--json", "portfolio", "references", "--portfolio", portfolioId, "--project", "   ");
+        Result emptyWorkspace = run("--json", "portfolio", "add-project",
+                "--portfolio", portfolioId, "--project", projectId, "--name", "Alpha", "--workspace", "");
+
+        Result misspelledEmpty = run("--json", "portfolio", "references", "--portfolio", portfolioId, "--projet", "");
+        assertEquals(CliExitCode.USAGE.code(), misspelledEmpty.exitCode(), misspelledEmpty.err());
+        assertTrue(misspelledEmpty.err().contains("unknown option: --projet"), misspelledEmpty.err());
+        for (Result refused : java.util.List.of(emptyFilter, blankFilter)) {
+            assertEquals(CliExitCode.USAGE.code(), refused.exitCode(), refused.err());
+            assertTrue(refused.err().contains("--project requires a non-blank value"), refused.err());
+        }
+        assertEquals(CliExitCode.USAGE.code(), emptyWorkspace.exitCode(), emptyWorkspace.err());
+        assertTrue(emptyWorkspace.err().contains("--workspace requires a non-blank value"), emptyWorkspace.err());
+        Result members = run("--json", "portfolio", "members", "--portfolio", portfolioId);
+        assertEquals(CliExitCode.SUCCESS.code(), members.exitCode(), members.err());
+        assertFalse(members.out().contains(projectId), "a refused write must not persist the membership");
+
+        Result withoutWorkspace = run("--json", "portfolio", "add-project",
+                "--portfolio", portfolioId, "--project", projectId, "--name", "Alpha");
+        assertEquals(CliExitCode.SUCCESS.code(), withoutWorkspace.exitCode(), withoutWorkspace.err());
+        assertTrue(run("--json", "portfolio", "members", "--portfolio", portfolioId).out().contains(projectId),
+                "omitting the option still registers the membership without a workspace");
+    }
+
     @Test
     void anUnknownActionIsReportedAsSuchEvenWithOptions() {
         Result result = run("portfolio", "frobnicate", "--anything", "x");
