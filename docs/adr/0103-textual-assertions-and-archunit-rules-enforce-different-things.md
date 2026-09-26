@@ -408,22 +408,25 @@ facultatif, alors que `get` et `versions` l'exigent. L'aide porte désormais deu
 ### Ce que la garde ne prouve pas
 
 Elle prouve qu'aucune invocation documentée n'est refusée **comme erreur d'usage** ; tout autre code vaut
-acceptation. Elle s'exécute contre un store vide, ce qui l'aveugle sur trois formes, mesurées en retirant une à une les
-options obligatoires de chaque ligne :
+acceptation. Chaque invocation s'exécute contre son propre store vide — aucune ne relit un état qu'une autre a écrit, et
+l'ordre des lignes d'aide ne change aucun verdict ; une première version partageait un store, et les lignes
+`server identity` ne passaient que parce que `create` précédait les autres. Le store vide l'aveugle sur trois formes,
+mesurées en retirant une à une les options obligatoires de chaque ligne :
 
 - **Une commande qui résout l'état avant de valider ses options.** `lifecycle apply` sans `--confirm`,
   `change-orchestration transition-check` sans `--from` ou `--to`, `external-references list` sans `--owner` et
-  `resolve` sans `--reference` rendent « projet introuvable » (code `4` ou `10`) quelles que soient leurs options : si
+  `resolve` sans `--reference` rendent « projet introuvable » (code `4`) quelles que soient leurs options : si
   l'aide perdait l'une d'elles, la garde resterait verte.
 - **Un refus d'état en code `2`.** Plusieurs adaptateurs rendent `2` pour un refus qui porte sur l'état et non sur
   l'invocation : entité inconnue (pack ou version de pack, vue sauvegardée, portefeuille — alors que l'aide publie `3`
-  pour « introuvable »), pack non actif dans la portée, et le verrouillage ADMIN que `migrate-legacy` refuse de
-  programmer. Ces refus sont listés par leur préfixe exact (`STATE_REFUSALS`) ; tout autre refus d'usage fait échouer la
+  pour « introuvable »), pack non actif dans la portée, et une commande `server identity` lancée alors qu'aucun
+  fichier d'identités n'existe. Ces refus sont listés par leur préfixe exact (`STATE_REFUSALS`) ; tout autre refus d'usage fait échouer la
   garde. Mais un refus listé masque ce que le parseur aurait dit ensuite : `views update` sans `--name` est refusé
   comme « vue inconnue ». Le classement de ces refus en code `2` est un défaut distinct, hors du périmètre de ce constat.
 - **Les options facultatives et les valeurs.** Une option entre crochets n'est jamais passée ; une alternative de
   valeur (`--role READ|WRITE|ADMIN`) n'est exercée que sur sa première branche — une invocation par valeur, contre un
-  store partagé, se heurterait aux doublons qu'elle crée elle-même.
+  store partagé, se heurterait aux doublons qu'elle crée elle-même. Tout mot qui suit une option est lu comme sa
+  valeur : une alternative de commande écrite après un drapeau booléen ne serait exercée que sur sa première branche.
 
 **Preuve.** Sur l'aide d'origine, la garde échoue avec exactement la ligne `provider-plugins probe … -> probe requires
 --sha256 HEX` ; une fois les alternatives développées, avec exactement `policy pack get` et `policy pack versions ->

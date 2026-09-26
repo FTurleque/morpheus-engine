@@ -37,7 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>Exit code 2 is not only the parser's. Run against an empty store, some adapters also return it for a refusal
  * about state: an entity that does not exist (policy pack or pack version, saved view, portfolio), a policy pack that
- * is not active in the scope, and the ADMIN lockout that {@code server identity migrate-legacy} refuses to schedule.
+ * is not active in the scope, and a server identity command run where no auth file exists yet. Every invocation runs
+ * against its own empty store, so no line reads a state another line wrote and the order of the help is irrelevant.
  * Those refusals are listed by their exact prefix in {@link #STATE_REFUSALS}; any other usage refusal fails the
  * guard.</p>
  *
@@ -46,7 +47,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * state, when the store is empty: a command that looks the project up before validating its options fails with
  * "project not found" whatever the options are, and a refusal listed in {@link #STATE_REFUSALS} hides what the
  * parser would have said next. Optional groups are never passed, so a bracketed option the parser does not recognise
- * stays invisible; value alternatives ({@code --role READ|WRITE|ADMIN}) are exercised on their first branch only.</p>
+ * stays invisible; value alternatives ({@code --role READ|WRITE|ADMIN}) are exercised on their first branch only, and
+ * any word that follows an option is taken for its value, so a command alternative written after a boolean flag would
+ * be exercised on its first branch too.</p>
  */
 class MorpheusHelpInvocationsParseTest {
     private static final List<String> STATE_REFUSALS = List.of(
@@ -56,7 +59,7 @@ class MorpheusHelpInvocationsParseTest {
             "MORPHEUS error [2]: policy pack must be active before adding an override: ",
             "MORPHEUS error [2]: unknown saved view: ",
             "MORPHEUS error [2]: unknown portfolio: ",
-            "MORPHEUS server usage error: migration would leave no ADMIN identity active after ");
+            "MORPHEUS server usage error: remote auth file must be a regular non-symbolic file");
     private static final String PROBE_WITHOUT_PIN =
             "  morpheus [--json] provider-plugins probe --directory PATH --plugin ID --workspace PATH";
     private static final String PACK_READS_WITH_AN_OPTIONAL_ID =
@@ -64,6 +67,8 @@ class MorpheusHelpInvocationsParseTest {
 
     @TempDir
     Path tempDir;
+
+    private int runs;
 
     @Test
     void everyDocumentedInvocationIsAcceptedByItsParser() throws IOException {
@@ -131,7 +136,9 @@ class MorpheusHelpInvocationsParseTest {
         if (command.equals("mcp") || command.equals("api")) {
             return launchRefusal(args);
         }
-        List<String> invocation = new ArrayList<>(List.of("--data-dir", tempDir.resolve("data").toString()));
+        // Each invocation gets its own empty store: none reads a state another one wrote, so the order of the help
+        // lines cannot change a verdict.
+        List<String> invocation = new ArrayList<>(List.of("--data-dir", tempDir.resolve("data-" + ++runs).toString()));
         invocation.addAll(args);
         ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
         int exitCode;
