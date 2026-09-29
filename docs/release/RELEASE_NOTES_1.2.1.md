@@ -200,6 +200,7 @@ révision croissante, audit par instant puis identifiant, comparés comme des va
 **Migration.** Le tableau devient `items` : un client qui lisait la réponse comme un tableau doit lire `items`. Une collection de 50
 éléments ou moins revient avec les mêmes éléments dans le même ordre ; au-delà, un client qui lisait « tout » n'obtient plus que les 50
 premiers : **lire `hasMore` et paginer** (`offset` + `limit`, jusqu'à `hasMore` faux). `get_policy_pack` et `get_saved_view` ne changent pas.
+`list_composition_conflicts` garde ses valeurs par défaut et ses bornes (50, 1 à 100) : son schéma publie désormais le maximum d'`offset` (2147483647) que son handler appliquait déjà. Un `offset` au-delà était déjà refusé ; il l'est maintenant avant le handler, avec le texte de validation du SDK.
 
 **Ce qui n'est pas borné.** La borne limite la réponse, pas la lecture : la collection est toujours lue en entier avant d'être
 tranchée. Et HTTP et le CLI ne changent pas : `GET /api/v1/policy-packs/{id}/versions`, `…/audit`, `GET /api/v1/saved-views/{id}/versions`,

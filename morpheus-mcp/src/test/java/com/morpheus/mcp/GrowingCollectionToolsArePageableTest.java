@@ -29,8 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * its author to answer the question rather than to remember it.</p>
  *
  * <p>"Paged" is read from the schema, structurally; no paged tool is named here. The exemptions are named, because
- * naming them is the point: each carries a reason of one of three kinds, and a reason of the third kind is a
- * recorded residual, not a guarantee. The check runs in both directions: an exemption for a tool that is no longer
+ * naming them is the point: each carries a reason of one of three kinds. A count bound (the second kind) says nothing
+ * about size under the 1 MiB frame, and a reason of the third kind is a recorded residual, not a guarantee. The check runs in both directions: an exemption for a tool that is no longer
  * served, or that has since become paged, fails too, so the list cannot rot into decoration.</p>
  *
  * <p><b>What it does not cover.</b></p>
@@ -42,6 +42,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   is read. {@code export_query} declares them and ignores them (a sibling finding), and {@code create_saved_view}
  *   and {@code update_saved_view} declare them because they belong to the stored query, not to a page of results.
  *   {@code get_specification_context} pages its requirements and answers its scenarios and changes whole.</li>
+ *   <li>Whether an answer fits the 1 MiB frame. {@code BOUNDED_IN_COUNT} is a number of elements; the tools listed
+ *   as unbounded for that reason are the ones where the count budget times the largest element was found to exceed
+ *   the frame, by arithmetic on the constants and never by a measurement.</li>
  *   <li>Whether the page is bounded at the source. The slice is taken from a collection already read, so the bound
  *   limits the response and not the cost of reading it.</li>
  *   <li>Tools the default wiring does not serve. It judges {@code MorpheusMcpServer.toolSpecifications} as built
@@ -53,8 +56,12 @@ class GrowingCollectionToolsArePageableTest {
     private enum Reason {
         /** The tool answers about one identified thing, or applies one write and answers with what it wrote. */
         ONE_RESULT,
-        /** A number the code enforces bounds the answer; the constant is named so it can be checked. */
-        BOUNDED_BY_BUDGET,
+        /**
+         * A count the code enforces bounds the answer; the constant is named so it can be checked. It says nothing about
+         * the size of the answer under the 1 MiB MCP frame: an element can itself be large, and a tool whose worst case
+         * (count times the largest element) exceeds the frame is listed as unbounded, not here.
+         */
+        BOUNDED_IN_COUNT,
         /** No bound was found. Recorded so the gap is visible; it is not a claim that the answer stays small. */
         UNBOUNDED_ACKNOWLEDGED
     }
@@ -205,40 +212,50 @@ class GrowingCollectionToolsArePageableTest {
         one(map, "evaluate_change_transition", "one verdict on one transition of one change");
         one(map, "get_change_orchestration_state", "one orchestration state for one change");
 
-        // A number the code enforces bounds the answer.
-        budget(map, "list_saved_views", "active views of one scope; SavedViewService.create and the store refuse past"
-                + " QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE (250)");
-        budget(map, "list_policy_overrides", "overrides of one scope; PolicyPackService and the store refuse past"
-                + " PolicyBudgets.MAX_OVERRIDES_PER_SCOPE (256)");
-        budget(map, "list_policy_activations", "activations of one scope; PolicyPackService and the store refuse past"
+        // A count the code enforces bounds the answer. Nothing here says the answer fits the 1 MiB frame.
+        count(map, "list_policy_overrides", "overrides of one scope; PolicyPackService and the store refuse past"
+                + " PolicyBudgets.MAX_OVERRIDES_PER_SCOPE (256); each carries an actor and a reason of at most 256 and 1024 characters");
+        count(map, "list_policy_activations", "activations of one scope; PolicyPackService and the store refuse past"
                 + " PolicyBudgets.MAX_ACTIVE_PACKS_PER_SCOPE (32)");
-        budget(map, "evaluate_policies", "at most MAX_ACTIVE_PACKS_PER_SCOPE (32) packs and MAX_DRY_RUN_EVALUATIONS (4096)"
-                + " rules, refused above by PolicyEvaluationService");
-        budget(map, "dry_run_policy_pack", "one version of at most PolicyBudgets.MAX_DRY_RUN_EVALUATIONS (4096) rules,"
-                + " refused above by PolicyEvaluationService");
-        budget(map, "execute_saved_view", "one page of the stored query; QueryPage refuses a limit past"
-                + " QueryBudgets.MAX_PAGE_SIZE (500)");
-        budget(map, "export_saved_view", "the stored query's complete view, refused past QueryBudgets.MAX_EXPORT_ROWS (10000)");
-        budget(map, "traverse_portfolio", "maxDepth, maxNodes and maxLinks are bounded by PortfolioTraversalService"
-                + " (8, 1000, 5000) and truncation is declared");
-        budget(map, "trace_requirement", "depth is at most MorpheusMcpToolCatalog.MAX_DEPTH (20) and"
+        count(map, "execute_saved_view", "one page of the stored query; QueryPage refuses a limit past"
+                + " QueryBudgets.MAX_PAGE_SIZE (500) rows; the size of a row is not bounded here");
+        count(map, "traverse_portfolio", "maxDepth, maxNodes and maxLinks are bounded by PortfolioTraversalService"
+                + " (8, 1000, 5000) and truncation is declared; the size of a node is not bounded here");
+        count(map, "trace_requirement", "depth is at most MorpheusMcpToolCatalog.MAX_DEPTH (20) and"
                 + " TraceabilityTraversalService stops at MAX_NODES (1000) and MAX_LINKS (5000), declaring the truncation (ADR-0108)");
-        budget(map, "get_change_context", "same traversal as trace_requirement: depth at most 20, MAX_NODES (1000),"
+        count(map, "get_change_context", "same traversal as trace_requirement: depth at most 20, MAX_NODES (1000),"
                 + " MAX_LINKS (5000), truncation declared (ADR-0108)");
-        budget(map, "reason_with_evidence", "the request is bounded (ReasoningContracts.MAX_EVIDENCE 256, MAX_ADAPTERS 8,"
-                + " MAX_CLAIMS 256) and the answer is made of it");
-        budget(map, "get_augmented_requirement_context", "the request carries a tokenBudget of at most"
-                + " TechnicalContextOptions.MAX_TOKEN_BUDGET (100000)");
-        budget(map, "get_augmented_change_context", "the request carries a tokenBudget of at most"
-                + " TechnicalContextOptions.MAX_TOKEN_BUDGET (100000)");
 
-        // No bound found. Recorded, not vouched for.
+        // No bound found, or a bound above the frame. Recorded, not vouched for.
+        unbounded(map, "list_saved_views", "views of one scope are refused past QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE (250)"
+                + " and each carries its query definition, whose encoded expression may reach"
+                + " QueryBudgets.MAX_ENCODED_EXPRESSION_BYTES (16 KiB): 250 times 16 KiB is above the 1 MiB frame."
+                + " Worst case by arithmetic, not measured");
+        unbounded(map, "evaluate_policies", "at most MAX_ACTIVE_PACKS_PER_SCOPE (32) packs and MAX_DRY_RUN_EVALUATIONS (4096)"
+                + " rules are evaluated, but each rule result carries an evidence list of up to"
+                + " PolicyBudgets.MAX_CONSTRAINT_EVALUATIONS_PER_FACT (1024) entries (ADR-0108): the count budget is above the frame");
+        unbounded(map, "dry_run_policy_pack", "one version of at most 4096 rules is evaluated, but each rule result carries an"
+                + " evidence list of up to 1024 entries (ADR-0108): the count budget is above the frame");
+        unbounded(map, "export_saved_view", "complete by contract; refused past MAX_EXPORT_ROWS (10000) rows and"
+                + " QueryBudgets.MAX_EXPORT_BYTES (10 MiB), and 10 MiB is above the 1 MiB frame: a valid export of a few MiB"
+                + " cannot be answered and the transport's advice cannot be followed on it");
+        unbounded(map, "reason_with_evidence", "the request is bounded (MAX_EVIDENCE 256, MAX_ADAPTERS 8, MAX_CLAIMS 256) and"
+                + " by the inbound 1 MiB frame, but the answer repeats each PUBLISHED_FACT evidence twice (in evidence and in facts): a request near"
+                + " the frame can overflow it on the way out");
+        unbounded(map, "get_augmented_requirement_context", "the request carries a tokenBudget of at most"
+                + " TechnicalContextOptions.MAX_TOKEN_BUDGET (100000): a token budget, not a byte budget, and not measured"
+                + " against the frame");
+        unbounded(map, "get_augmented_change_context", "the request carries a tokenBudget of at most"
+                + " TechnicalContextOptions.MAX_TOKEN_BUDGET (100000): a token budget, not a byte budget, and not measured"
+                + " against the frame");
         unbounded(map, "list_policy_packs", "every pack definition of the registry: PolicyPackService.create has no ceiling"
                 + " and nothing deletes a pack; each element is metadata. A recognised residual, not a guarantee");
         unbounded(map, "list_external_references", "the references one owner declares in the active snapshot: no ceiling,"
                 + " but replaced at each publication rather than appended to. A recognised residual, not a guarantee");
-        unbounded(map, "get_portfolio_overview", "the memberships and freshness of one portfolio: MAX_PORTFOLIO_PROJECTS"
-                + " bounds portfolio queries, not registration, and nothing removes a membership. A recognised residual");
+        unbounded(map, "get_portfolio_overview", "PortfolioQueryService.overview returns the memberships and freshness of"
+                + " one portfolio, and also the conflicts and the count derived from ALL its cross-project references, which"
+                + " add_cross_project_reference only ever adds to. MAX_PORTFOLIO_PROJECTS bounds portfolio queries, not"
+                + " registration, and nothing removes a membership. A recognised residual");
         unbounded(map, "get_composition_status", "the composition state of the active snapshot, its conflicts included,"
                 + " unpaged; list_composition_conflicts pages the same conflicts. Replaced per snapshot, no ceiling");
         unbounded(map, "get_blocking_conditions", "the findings of one change, recomputed from the active snapshot: no"
@@ -252,8 +269,8 @@ class GrowingCollectionToolsArePageableTest {
         map.put(tool, new Exemption(Reason.ONE_RESULT, why + " (a single answer, nothing to page)"));
     }
 
-    private static void budget(Map<String, Exemption> map, String tool, String why) {
-        map.put(tool, new Exemption(Reason.BOUNDED_BY_BUDGET, why));
+    private static void count(Map<String, Exemption> map, String tool, String why) {
+        map.put(tool, new Exemption(Reason.BOUNDED_IN_COUNT, why));
     }
 
     private static void unbounded(Map<String, Exemption> map, String tool, String why) {

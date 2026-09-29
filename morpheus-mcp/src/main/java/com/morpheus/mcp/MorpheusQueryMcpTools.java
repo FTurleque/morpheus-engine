@@ -83,7 +83,7 @@ final class MorpheusQueryMcpTools {
                     case LIST_SAVED_VIEWS -> QueryPublicViews.savedViews(runtime.views().list(scope(arguments)));
                     case GET_SAVED_VIEW -> QueryPublicViews.savedView(runtime.views().get(id(arguments)));
                     case LIST_SAVED_VIEW_VERSIONS -> PageArguments.slice(
-                            arguments, runtime.views().versions(id(arguments)), QueryPublicViews::savedVersion);
+                            arguments, () -> runtime.views().versions(id(arguments)), QueryPublicViews::savedVersion);
                     case UPDATE_SAVED_VIEW -> {
                         SavedViewId id = id(arguments);
                         var current = runtime.views().get(id);

@@ -86,7 +86,7 @@ final class MorpheusPolicyMcpTools {
                     case LIST -> PolicyPublicViews.definitions(runtime.registry().list());
                     case GET -> PolicyPublicViews.definition(runtime.registry().get(pack(arguments)));
                     case VERSIONS -> PageArguments.slice(
-                            arguments, runtime.registry().versions(pack(arguments)), PolicyPublicViews::version);
+                            arguments, () -> runtime.registry().versions(pack(arguments)), PolicyPublicViews::version);
                     case UPDATE -> PolicyPublicViews.definition(runtime.registry().update(
                             pack(arguments), McpArguments.requiredInteger(arguments, "expectedRevision", 1, Long.MAX_VALUE),
                             McpArguments.requiredString(arguments, "name"), rules(arguments),
@@ -119,7 +119,7 @@ final class MorpheusPolicyMcpTools {
                     case DRY_RUN -> PolicyPublicViews.report(runtime.evaluation().dryRun(
                             scope(arguments), pack(arguments), PolicyIds.VersionId.parse(McpArguments.requiredString(arguments, "versionId"))));
                     case AUDIT -> PageArguments.slice(
-                            arguments, runtime.registry().audit(pack(arguments)), PolicyPublicViews::audit);
+                            arguments, () -> runtime.registry().audit(pack(arguments)), PolicyPublicViews::audit);
                     default -> throw new IllegalArgumentException("unknown M25 MCP tool: " + toolName);
                 };
                 return McpSchema.CallToolResult.builder()

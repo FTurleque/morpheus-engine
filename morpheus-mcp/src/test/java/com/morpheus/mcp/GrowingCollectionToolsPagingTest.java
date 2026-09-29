@@ -186,6 +186,31 @@ class GrowingCollectionToolsPagingTest {
         }
     }
 
+    /**
+     * The page arguments are read first. Asked for {@code limit = 0} on a collection that does not exist, the caller
+     * hears about the limit; asked for a valid page, it hears that the collection is unknown, so the read did happen
+     * and only came second.
+     */
+    @Test
+    void thePageArgumentsAreRefusedBeforeTheCollectionIsRead() throws Exception {
+        for (Subject subject : subjects()) {
+            Map<String, Object> absent = new LinkedHashMap<>(subject.arguments());
+            absent.put("id", McpToolCall.ABSENT_PROJECT_ID);
+
+            Map<String, Object> badPage = new LinkedHashMap<>(absent);
+            badPage.put("limit", 0);
+            Map<String, Object> goodPage = new LinkedHashMap<>(absent);
+            goodPage.put("limit", 1);
+            String pageRefusal = McpToolCall.text(McpToolCall.call(subject.specifications(), subject.tool(), badPage));
+            String readRefusal = McpToolCall.text(McpToolCall.call(subject.specifications(), subject.tool(), goodPage));
+
+            assertTrue(pageRefusal.startsWith("limit must be an integer between"), subject.tool() + ": " + pageRefusal);
+            assertFalse(readRefusal.startsWith("limit"), subject.tool() + " should have read the collection: " + readRefusal);
+            assertTrue(readRefusal.toLowerCase().contains("unknown") || readRefusal.toLowerCase().contains("not found"),
+                    subject.tool() + ": " + readRefusal);
+        }
+    }
+
     /** Widening these three must not widen their neighbour: a single-entity read has nothing to page. */
     @Test
     void aSingleEntityReadStillRefusesAPage() throws Exception {

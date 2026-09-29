@@ -238,8 +238,35 @@ paginé **honore** `offset` et `limit` : `export_query` les déclare et les igno
 déclarent parce qu'ils appartiennent à la requête stockée, et `get_specification_context` pagine ses exigences mais rend ses scénarios
 et ses changements entiers. Elle ne juge que ce que `MorpheusMcpServer.toolSpecifications` sert avec le câblage par défaut.
 
-**Résidus nommés par la liste `NOT_PAGED`** (raison `UNBOUNDED_ACKNOWLEDGED`, sans borne trouvée) : `list_policy_packs` (aucun plafond à
-`PolicyPackService.create`, aucune suppression), `list_external_references`, `get_portfolio_overview` (`MAX_PORTFOLIO_PROJECTS` borne
-les requêtes de portefeuille, pas l'inscription), `get_composition_status` (rend aussi ses conflits, que `list_composition_conflicts`
-pagine), `get_blocking_conditions`, `list_reasoning_adapters`. Ce sont des éléments de métadonnées ou des contenus remplacés à chaque
-publication plutôt qu'ajoutés ; aucun n'est garanti petit.
+**Ce que la liste `NOT_PAGED` dit, et ne dit pas.** Ses raisons sont de trois sortes : `ONE_RESULT` (une seule réponse sur une seule
+chose), `BOUNDED_IN_COUNT` et `UNBOUNDED_ACKNOWLEDGED`. La deuxième s'appelait d'abord « bornée par un budget » : le mot trompait. Un budget
+**en nombre d'éléments** ne dit **rien** de la taille de la réponse sous le cadre d'1 Mio, puisqu'un élément peut être lui-même gros. Les outils
+dont le budget, multiplié par le plus gros élément, dépasse le cadre — par arithmétique sur les constantes lues, jamais par mesure — sont donc
+classés `UNBOUNDED_ACKNOWLEDGED` avec cette raison : `export_saved_view` (budget d'octets `MAX_EXPORT_BYTES`, 10 Mio : un export valide de
+quelques Mio ne peut pas être rendu et le conseil du transport ne peut pas être suivi, ce qui est la classe du constat), `list_saved_views`
+(250 vues × une expression encodée pouvant atteindre 16 Kio), `evaluate_policies` et `dry_run_policy_pack` (budget en nombre de règles, mais
+chaque résultat de règle porte une `evidence` de jusqu'à 1024 entrées, ADR-0108), `reason_with_evidence` (la réponse répète chaque évidence
+`PUBLISHED_FACT` dans `evidence` et dans `facts`), `get_augmented_*` (un budget de jetons, pas d'octets). Restent `BOUNDED_IN_COUNT`, sans aucune
+promesse de taille : `list_policy_overrides`, `list_policy_activations`, `execute_saved_view`, `traverse_portfolio`, `trace_requirement`,
+`get_change_context`.
+
+**Résidus nommés** (raison `UNBOUNDED_ACKNOWLEDGED`) : les précédents, plus `list_policy_packs` (aucun plafond à `PolicyPackService.create`,
+aucune suppression), `list_external_references`, `get_portfolio_overview` (`PortfolioQueryService.overview` rend les inscriptions et la
+fraîcheur d'un portefeuille **et** les conflits et le compte dérivés de **toutes** ses références inter-projets, auxquelles
+`add_cross_project_reference` ne fait qu'ajouter ; `MAX_PORTFOLIO_PROJECTS` borne les requêtes de portefeuille, pas l'inscription),
+`get_composition_status` (rend aussi ses conflits, que `list_composition_conflicts` pagine), `get_blocking_conditions`,
+`list_reasoning_adapters`, et `export_query` une fois l'export déclaré complet (MCP-3). Aucun n'est garanti petit.
+
+### Décisions ajoutées après relecture
+
+- **`list_composition_conflicts` consomme `PageArguments`.** Il appliquait déjà les mêmes bornes (50 et 100 ; `offset` jusqu'à `Integer.MAX_VALUE`)
+  par une copie privée. Il les prend désormais de `PageArguments`, lecture et schéma. Le seul effet visible : son schéma publie enfin le
+  `maximum` d'`offset` que son handler appliquait déjà.
+- **Ce qui garde ses propres bornes, non gardé, par choix.** `MorpheusPortfolioMcpTools` (défaut 100, maximum `PortfolioQueryService.MAX_PAGE_SIZE`,
+  500), les outils de requête (`queryProperties()` : défaut 100, maximum `QueryBudgets.MAX_PAGE_SIZE`, et un `offset` dont le schéma ne déclare aucun
+  maximum alors que le code applique `Integer.MAX_VALUE`) et le catalogue (`MorpheusMcpToolCatalog`, `MorpheusMcpToolService` : 50 et 100, `offset`
+  jusqu'à 1 000 000). Leurs valeurs diffèrent, donc une garde d'égalité serait fausse ; le désaccord schéma/code des outils de requête est la
+  classe du défaut de MCP-3, dont la garde est la liste des propriétés de `export_query`, pas une garde de bornes. Aucune garde n'est revendiquée ici.
+- **Les arguments de page sont lus, et refusés hors bornes, avant la lecture de la collection** (`PageArguments.slice` prend un `Supplier`) : un
+  `limit` de 0 sur une collection inconnue répond sur le `limit`, un `limit` valide répond que la collection est inconnue
+  (`thePageArgumentsAreRefusedBeforeTheCollectionIsRead`). `list_composition_conflicts` reçoit son état d'abord ; sa lecture précède donc sa validation.

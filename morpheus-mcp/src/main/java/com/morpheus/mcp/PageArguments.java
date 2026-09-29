@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * The {@code offset} and {@code limit} arguments of a paginated read tool, read and declared from one set of
@@ -18,6 +19,16 @@ import java.util.function.Function;
  * <p>The page itself is {@link PagedEnvelope#slice}; this class adds no second way to spell one. The slice is taken
  * from a collection the application has already read and ordered, so the bound limits the response and not the
  * cost of reading: reading the collection stays unbounded.</p>
+ *
+ * <p>Four tools read it: the audit journal, the policy pack versions and the saved-view versions, and
+ * {@code list_composition_conflicts}, whose bounds it already applied and which now takes them from here. Other
+ * tools still spell their own bounds, on purpose and unguarded: {@code MorpheusPortfolioMcpTools} (default 100,
+ * maximum {@code PortfolioQueryService.MAX_PAGE_SIZE}, 500), the query tools ({@code queryProperties()}: default 100,
+ * maximum {@code QueryBudgets.MAX_PAGE_SIZE}, and an {@code offset} whose schema declares no maximum although the code
+ * enforces {@code Integer.MAX_VALUE}), and the catalog tools ({@code MorpheusMcpToolCatalog} and
+ * {@code MorpheusMcpToolService}: 50 and 100, {@code offset} up to 1 000 000). They differ in value, so an equality guard
+ * across them would be wrong, and the schema-versus-code disagreement of the query tools is the defect class of the
+ * export finding (MCP-3), not of this one: no guard on it is claimed here.</p>
  */
 final class PageArguments {
     static final int DEFAULT_LIMIT = MorpheusMcpToolCatalog.DEFAULT_LIMIT;
@@ -34,10 +45,14 @@ final class PageArguments {
         return properties;
     }
 
+    /**
+     * The arguments are read, and refused if out of range, <em>before</em> the collection is: a caller who asks for
+     * {@code limit = 0} learns that without the store having been opened for a page nobody can return.
+     */
     static <T> Map<String, Object> slice(
-            Map<String, Object> arguments, List<T> source, Function<? super T, ?> projection) {
+            Map<String, Object> arguments, Supplier<? extends List<T>> source, Function<? super T, ?> projection) {
         int offset = McpArguments.optionalInt(arguments, "offset", 0, 0, Integer.MAX_VALUE);
         int limit = McpArguments.optionalInt(arguments, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
-        return PagedEnvelope.slice(offset, limit, source, projection);
+        return PagedEnvelope.slice(offset, limit, source.get(), projection);
     }
 }

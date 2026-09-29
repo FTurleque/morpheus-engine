@@ -21,8 +21,6 @@ import java.util.function.Function;
 final class MorpheusCompositionMcpTools {
     static final String STATUS_TOOL = "get_composition_status";
     static final String CONFLICTS_TOOL = "list_composition_conflicts";
-    private static final int DEFAULT_LIMIT = 50;
-    private static final int MAX_LIMIT = 100;
 
     private final Path databasePath;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
@@ -75,19 +73,16 @@ final class MorpheusCompositionMcpTools {
     }
 
     private Object conflicts(CompositionStateView state, Map<String, Object> arguments) {
-        int offset = McpArguments.optionalInt(arguments, "offset", 0, 0, Integer.MAX_VALUE);
-        int limit = McpArguments.optionalInt(arguments, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
         return PagedEnvelope.following(
                 map("snapshotId", state.snapshotId(), "primaryProviderId", state.primaryProviderId()),
-                PagedEnvelope.slice(offset, limit, state.conflicts(), Function.identity()));
+                PageArguments.slice(arguments, state::conflicts, Function.identity()));
     }
 
     private Map<String, Object> schema(boolean paged) {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("projectId", Map.of("type", "string", "minLength", 1));
         if (paged) {
-            properties.put("offset", Map.of("type", "integer", "minimum", 0));
-            properties.put("limit", Map.of("type", "integer", "minimum", 1, "maximum", MAX_LIMIT));
+            properties.putAll(PageArguments.properties());
         }
         Map<String, Object> schema = new LinkedHashMap<>();
         schema.put("$schema", "https://json-schema.org/draft/2020-12/schema");
