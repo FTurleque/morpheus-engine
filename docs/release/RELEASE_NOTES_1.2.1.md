@@ -388,22 +388,21 @@ Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, répétition)](..
 
 ### OpenAPI : `CompositionConflict.entityType` publie dix valeurs, `direction` de M23 publie `OUTGOING`/`INCOMING`
 
-Jusqu'à 1.2.0, `docs/openapi/morpheus-v1.yaml` figeait `CompositionConflict.entityType` à `SPECIFICATION`, `REQUIREMENT`,
-`CHANGE`, `IDENTITY`, alors que `GET /api/v1/projects/{id}/composition` publie depuis CMP-1 dix types. Un client qui valide
-la réponse contre le schéma la rejetait dès qu'une composition à deux providers existait.
+Dans 1.2.0, `CompositionEntityType` comptait quatre valeurs (`SPECIFICATION`, `REQUIREMENT`, `CHANGE`, `IDENTITY`) et
+`docs/openapi/morpheus-v1.yaml` les listait exactement. La composition de 1.2.1 observe dix types (voir « Composition
+multi-provider » plus haut), et le contrat les publie enfin : `GET /api/v1/projects/{id}/composition` peut renvoyer, dans
+`entityType`, les six valeurs `PROJECT`, `SCENARIO`, `CONSTRAINT`, `DESIGN_DECISION`, `TASK` et `ACCEPTANCE_CRITERION`, que
+le schéma de `develop` n'annonçait pas. L'énuméré est dans l'ordre de `CompositionEntityType` : `PROJECT`,
+`SPECIFICATION`, `REQUIREMENT`, `SCENARIO`, `CHANGE`, `CONSTRAINT`, `DESIGN_DECISION`, `TASK`, `ACCEPTANCE_CRITERION`,
+`IDENTITY`.
 
-À partir de 1.2.1 le schéma liste les dix valeurs, dans l'ordre de `CompositionEntityType` : `PROJECT`, `SPECIFICATION`,
-`REQUIREMENT`, `SCENARIO`, `CHANGE`, `CONSTRAINT`, `DESIGN_DECISION`, `TASK`, `ACCEPTANCE_CRITERION`, `IDENTITY`. Les six
-dernières arrivées sont `PROJECT`, `SCENARIO`, `CONSTRAINT`, `DESIGN_DECISION`, `TASK` et `ACCEPTANCE_CRITERION`. La réponse du serveur
-ne change pas : c'est le contrat qui rattrape le code.
+**Migration.** Un client généré ou écrit d'après le schéma de 1.2.0, avec un `switch` exhaustif sur les quatre valeurs,
+gagne six cas : régénérer le client, ou traiter une valeur inconnue sans lever.
 
-**Migration.** Un client généré ou écrit d'après l'ancien schéma, avec un `switch` exhaustif sur les quatre valeurs, gagne
-six cas : régénérer le client, ou traiter une valeur inconnue sans lever.
-
-Le même balayage a trouvé une dérive de sens inverse dans `morpheus-v1-portfolio-m23.yaml` : `TraversalRequest.direction`
-annonçait `OUTBOUND`, `INBOUND`, `BOTH`, alors que le serveur, le CLI (`--direction`) et le serveur MCP n'acceptent que
-`OUTGOING`, `INCOMING` et `BOTH`. Le contrat et `docs/user/PORTFOLIOS.md` sont corrigés ; le code ne change pas. Une requête
-écrite d'après l'ancien contrat avec `OUTBOUND` ou `INBOUND` était déjà refusée et l'est toujours : **écrire `OUTGOING` ou
-`INCOMING`**.
+Le même balayage a trouvé une dérive qui, elle, existait dans 1.2.0 : `morpheus-v1-portfolio-m23.yaml` annonçait pour
+`TraversalRequest.direction` `OUTBOUND`, `INBOUND`, `BOTH`, alors que le serveur, le CLI (`--direction`) et le serveur MCP
+n'acceptent que `OUTGOING`, `INCOMING` et `BOTH` (sans distinction de casse). Le contrat et `docs/user/PORTFOLIOS.md` sont
+corrigés ; le code ne change pas. Une requête écrite d'après l'ancien contrat avec `OUTBOUND` ou `INBOUND` était refusée
+(HTTP 400, code d'usage du CLI, erreur d'outil MCP) et l'est toujours : **écrire `OUTGOING` ou `INCOMING`**.
 
 Décision : [ADR-0103, amendement du 29 septembre 2026 (API-5)](../adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md).

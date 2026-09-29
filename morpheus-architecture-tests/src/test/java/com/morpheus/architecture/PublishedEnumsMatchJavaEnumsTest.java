@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -49,7 +50,7 @@ import org.junit.jupiter.api.Test;
  * <p>Three halves keep the guard from asserting more than it checks:</p>
  * <ol>
  *   <li>every table row resolves to a non-empty YAML enum and equals its Java set;</li>
- *   <li>every {@code enum:} written in the six {@code docs/openapi/*.yaml} files is either a table row or a
+ *   <li>every {@code enum:} key -- flow or block style -- written in the six {@code docs/openapi/*.yaml} files is either a table row or a
  *   declared {@link #EXEMPT} one, so a new enum is refused until someone classifies it, and the table cannot
  *   quietly be empty or stale;</li>
  *   <li>the locator itself is proved on a synthetic document: a value removed from the YAML, or a schema path that
@@ -59,21 +60,22 @@ import org.junit.jupiter.api.Test;
  * <p>What it does not cover: the {@link #EXEMPT} enums, which have no Java enum to compare with ({@code ScopeKind}
  * is derived from sealed {@code PolicyScope} records, {@code Error.code} from string literals in {@code ApiFailure});
  * enumerations spelled {@code const}, {@code oneOf} or in prose; and an enum-typed property that is written without
- * an {@code enum:} list. The read is textual by design (ADR-0103): no YAML parser dependency is added, and the
+ * an {@code enum:} list. A block-style {@code enum:} is counted, so it must be classified, but a table row on it
+ * fails to resolve until the locator learns the form. The read is textual by design (ADR-0103): no YAML parser dependency is added, and the
  * proposition -- these two lists of names are equal -- is about the text of the contract.</p>
  */
 class PublishedEnumsMatchJavaEnumsTest {
 
-    private record Row(String file, String schema, String property, Set<String> javaValues) {
+    private record Locator(String file, String schema, String property) {
         String path() {
             return file + "#" + schema + (property == null ? "" : "." + property);
         }
     }
 
-    private record Exemption(String file, String schema, String property, String reason) {
-        String path() {
-            return file + "#" + schema + (property == null ? "" : "." + property);
-        }
+    private record Row(Locator at, Set<String> javaValues) {
+    }
+
+    private record Exemption(Locator at, String reason) {
     }
 
     private static final String V1 = "morpheus-v1.yaml";
@@ -97,7 +99,7 @@ class PublishedEnumsMatchJavaEnumsTest {
             row(V1, "LifecycleState", null, ChangeLifecycleState.class),
             row(V1, "AbandonmentReason", null, ChangeAbandonmentReason.class),
             row(V1, "LifecycleMutationResultState", null, ChangeLifecycleMutationResultState.class),
-            new Row(V1, "AugmentedContextRequest", "requestedSources", TechnicalContextOptions.ALLOWED_SOURCES),
+            new Row(new Locator(V1, "AugmentedContextRequest", "requestedSources"), TechnicalContextOptions.ALLOWED_SOURCES),
             row(M23, "TraversalRequest", "direction", PortfolioTraversalDirection.class),
             row(M24, "ExportFormat", null, QueryExportFormat.class),
             row(M25, "PolicyRule", "kind", PolicyRule.Kind.class),
@@ -111,10 +113,11 @@ class PublishedEnumsMatchJavaEnumsTest {
             row(M27, "AdapterExecution", "status", ReasoningContracts.AdapterStatus.class));
 
     private static final List<Exemption> EXEMPT = List.of(
-            new Exemption(V1, "Error", "code", "string literals in ApiFailure, no Java enum"),
-            new Exemption(M24, "ScopeKind", null, "derived from the sealed PolicyScope records, no Java enum"),
-            new Exemption(M25, "ScopeKind", null, "derived from the sealed PolicyScope records, no Java enum"));
+            new Exemption(new Locator(V1, "Error", "code"), "string literals in ApiFailure, no Java enum"),
+            new Exemption(new Locator(M24, "ScopeKind", null), "derived from the sealed PolicyScope records, no Java enum"),
+            new Exemption(new Locator(M25, "ScopeKind", null), "derived from the sealed PolicyScope records, no Java enum"));
 
+    private static final Pattern ENUM_KEY = Pattern.compile("\\benum:");
     private static final Pattern ENUM_LIST = Pattern.compile("\\benum:\\s*\\[([^\\]]*)\\]");
 
     @Test
@@ -122,11 +125,11 @@ class PublishedEnumsMatchJavaEnumsTest {
         assertFalse(TABLE.isEmpty(), "the table is empty: the guard would pass without comparing anything");
         List<String> failures = new ArrayList<>();
         for (Row row : TABLE) {
-            Set<String> published = locate(read(row.file()), row.schema(), row.property(), row.path());
+            Set<String> published = locate(read(row.at().file()), row.at().schema(), row.at().property(), row.at().path());
             Set<String> missingFromContract = difference(row.javaValues(), published);
             Set<String> unknownToCode = difference(published, row.javaValues());
             if (!missingFromContract.isEmpty() || !unknownToCode.isEmpty()) {
-                failures.add(row.path() + ": published by the code but absent from the contract " + missingFromContract
+                failures.add(row.at().path() + ": published by the code but absent from the contract " + missingFromContract
                         + "; in the contract but unknown to the code " + unknownToCode);
             }
         }
@@ -135,20 +138,26 @@ class PublishedEnumsMatchJavaEnumsTest {
 
     @Test
     void everyEnumWrittenInTheSixContractsIsEitherGuardedOrDeclaredExempt() throws IOException {
-        assertEquals(6, FILES.size());
         List<String> failures = new ArrayList<>();
+        try (Stream<Path> contracts = Files.list(repoRoot().resolve("docs/openapi"))) {
+            List<String> onDisk = contracts.map(path -> path.getFileName().toString())
+                    .filter(name -> name.endsWith(".yaml")).sorted().toList();
+            assertEquals(FILES.stream().sorted().toList(), onDisk,
+                    "docs/openapi holds a contract this guard does not read: add it to FILES");
+        }
         for (String file : FILES) {
             int written = countEnumLists(read(file));
-            long classified = TABLE.stream().filter(row -> row.file().equals(file)).count()
-                    + EXEMPT.stream().filter(exemption -> exemption.file().equals(file)).count();
+            long classified = TABLE.stream().filter(row -> row.at().file().equals(file)).count()
+                    + EXEMPT.stream().filter(exemption -> exemption.at().file().equals(file)).count();
             if (written != classified) {
                 failures.add(file + " writes " + written + " enum list(s) but the table and the exemptions classify "
                         + classified + ": add the new enum to TABLE, or to EXEMPT with the reason it has no Java enum");
             }
         }
         for (Exemption exemption : EXEMPT) {
-            assertFalse(locate(read(exemption.file()), exemption.schema(), exemption.property(), exemption.path())
-                    .isEmpty(), exemption.path() + " is declared exempt but no longer exists");
+            Locator at = exemption.at();
+            assertFalse(locate(read(at.file()), at.schema(), at.property(), at.path()).isEmpty(),
+                    at.path() + " is declared exempt but no longer exists");
         }
         assertTrue(failures.isEmpty(), String.join("\n", failures));
     }
@@ -191,7 +200,7 @@ class PublishedEnumsMatchJavaEnumsTest {
     private static Row row(String file, String schema, String property, Class<? extends Enum<?>> enumType) {
         Set<String> names = new TreeSet<>();
         Arrays.stream(enumType.getEnumConstants()).forEach(constant -> names.add(constant.name()));
-        return new Row(file, schema, property, names);
+        return new Row(new Locator(file, schema, property), names);
     }
 
     private static Set<String> difference(Set<String> left, Set<String> right) {
@@ -201,7 +210,7 @@ class PublishedEnumsMatchJavaEnumsTest {
     }
 
     private static int countEnumLists(String document) {
-        Matcher matcher = ENUM_LIST.matcher(document);
+        Matcher matcher = ENUM_KEY.matcher(document);
         int count = 0;
         while (matcher.find()) {
             count++;
@@ -210,8 +219,9 @@ class PublishedEnumsMatchJavaEnumsTest {
     }
 
     /**
-     * The values of the one enum list under {@code schema} (and {@code property}); a nullable enum's {@code null}
-     * entry is not a value and is dropped. Fails, naming {@code path}, when nothing resolves.
+     * The values of the one flow-style enum list under {@code schema} (and {@code property}); a nullable enum's
+     * {@code null} entry is not a value and is dropped. It fails, naming {@code path}, rather than return an empty
+     * set: an empty resolution would make every comparison against it vacuous.
      */
     private static Set<String> locate(String document, String schema, String property, String path) {
         List<String> lines = document.lines().toList();
@@ -252,8 +262,9 @@ class PublishedEnumsMatchJavaEnumsTest {
     }
 
     /**
-     * The block opened by {@code header} (alone on its line, or followed by an inline value) up to the next line
-     * indented {@code indent} or less; null when absent.
+     * The block opened by {@code header}, alone on its line or followed by an inline value, ending at the next line
+     * indented {@code indent} or less: the indentation is what keeps a same-named property of a neighbouring schema
+     * out of the block.
      */
     private static List<String> blockUnder(List<String> lines, int from, String header, int indent) {
         for (int index = from; index < lines.size(); index++) {

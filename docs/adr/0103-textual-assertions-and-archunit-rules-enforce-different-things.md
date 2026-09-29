@@ -525,7 +525,7 @@ une valeur que seul le YAML connaît est une requête que le code refuse. Trois 
 
 1. chaque ligne doit résoudre un énuméré YAML non vide — un chemin qui ne résout rien échoue en le disant, la table ne
    peut pas être vide ;
-2. **tout** `enum:` écrit dans les six `docs/openapi/*.yaml` est soit une ligne de la table, soit une exemption déclarée
+2. **tout** `enum:` (style flux ou bloc) écrit dans les contrats de `docs/openapi/` (la liste des fichiers lus est elle-même confrontée au répertoire) est soit une ligne de la table, soit une exemption déclarée
    avec sa raison : un énuméré nouveau est refusé tant que personne ne l'a classé, au lieu de rester silencieusement non
    gardé (le Javadoc de CLI-3 se contentait de l'écrire) ;
 3. le localisateur est prouvé sur un document synthétique — valeur retirée, schéma ou propriété inconnus, énuméré absent.
@@ -533,7 +533,7 @@ une valeur que seul le YAML connaît est une requête que le code refuse. Trois 
 La lecture est textuelle : aucun analyseur YAML n'est ajouté, et la proposition — ces deux listes de noms sont égales —
 porte sur le texte du contrat (voir plus haut le critère de choix).
 
-Sur l'arbre de ce jour la table compte 23 lignes (dont 1 sur une constante `Set<String>`, `TechnicalContextOptions.ALLOWED_SOURCES`, faute
+Sur l'arbre de ce jour la table compte 24 lignes (dont 1 sur une constante `Set<String>`, `TechnicalContextOptions.ALLOWED_SOURCES`, faute
 d'énuméré Java) et 3 exemptions. Elle a refusé l'arbre d'origine sur **deux** défauts, pas un : `entityType` (six valeurs
 absentes) et `TraversalRequest.direction` de m23, qui publiait `OUTBOUND`/`INBOUND` là où le code, ses tests et le CLI
 n'acceptent que `OUTGOING`/`INCOMING` — une requête écrite d'après le contrat était refusée.
@@ -551,7 +551,7 @@ n'acceptent que `OUTGOING`/`INCOMING` — une requête écrite d'après le contr
 
 - **Les trois exemptions** : `ScopeKind` (m24 et m25, dérivé des records scellés de `PolicyScope`) et `Error.code`
   (littéraux de chaîne de `ApiFailure`). Leur existence est vérifiée, pas leurs valeurs.
-- **Les énumérations écrites autrement** : `const`, `oneOf`, prose, ou une propriété typée sur un énuméré sans liste `enum:`.
+- **Les énumérations écrites autrement** : `const`, `oneOf`, prose, ou une propriété typée sur un énuméré sans liste `enum:`. Un `enum:` en style bloc est compté, donc classé, mais une ligne de table sur lui échoue à résoudre tant que le localisateur ne lit que le style flux — aucun n'existe aujourd'hui.
 - **Le sens Java → OpenAPI d'un énuméré que le code n'émet pas encore** : la garde compare ce que déclare l'énuméré, pas
   ce que les services produisent.
 
