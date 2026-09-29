@@ -150,3 +150,96 @@ aucune page déjà lue.
 n'aurait **pas** vu l'ancien `items` nu, et ne voit toujours pas une collection non paginée. Le comportement est tenu par
 `MorpheusApiHistoryContractTest` (deux pages, `hasMore`, paramètre inconnu refusé) et le texte du routeur par
 `LocalVersionsHttpRoutesArchitectureTest`.
+
+## Amendement du 29 septembre 2026 (MCP-2) — un outil MCP sur une collection croissante prend une page, parce que le conseil du transport en dépend
+
+### Constat
+
+`get_policy_audit`, `list_policy_pack_versions` et `list_saved_view_versions` rendaient leur collection **entière**, sous un tableau
+nu, avec un schéma d'entrée réduit à `{id}` et `additionalProperties: false`. Les trois collections ne décroissent jamais : un
+enregistrement d'audit par changement de configuration, une version par mise à jour d'un pack, une révision par mise à jour d'une vue
+(`SqlitePolicyPackStore.listAudit`, `ORDER BY at, id` ; `listVersions`, `ORDER BY version_number` ; `SqliteSavedViewStore.listVersions`,
+`ORDER BY revision` — aucune n'a de `LIMIT`).
+
+Or le cadre MCP est de 1 Mio (`BoundedStdioServerTransportProvider.DEFAULT_MAX_FRAME_BYTES`) et, au-delà, le transport remplace la
+réponse par `MCP_RESPONSE_TOO_LARGE` accompagné de `MorpheusMcpServer.OVERSIZED_RESPONSE_GUIDANCE` : *paginated read tools accept offset
+and limit: retry with a smaller limit, then page with offset* (amendement d'ADR-0106). L'agent qui suit ce conseil envoie `{id, limit}` ;
+le serveur arme `validateToolInputs(true)` et le SDK refuse l'appel avant tout handler pour argument inconnu. L'outil était
+**inappelable au-delà d'1 Mio, avec une instruction de réparation que son propre schéma interdisait**.
+
+### Décision
+
+1. **Les trois outils rendent une page**, dans le vocabulaire de cet ADR et par la même fabrique : `PagedEnvelope.slice`, dont la
+   projection ne s'applique qu'aux éléments retenus. Aucune méthode n'est ajoutée à la copie de `morpheus-mcp` ni de clé `count`/`total` :
+   `PagedResponseVocabularyArchitectureTest` exige que les deux copies restent identiques.
+2. **Un seul endroit lit et déclare les bornes : `PageArguments`.** `limit` vaut 50 par défaut, de 1 à 100 (les constantes du catalogue
+   MCP, que `PageRequest` applique aussi) ; `offset` vaut 0 par défaut, de 0 à `Integer.MAX_VALUE`. Le schéma déclare **les mêmes bornes
+   que le code**, `maximum` d'`offset` compris : un schéma qui tait une borne que le handler applique est le défaut de MCP-3.
+   Le dépôt avait trois conventions pour `offset` (catalogue : 0 à 1 000 000 des deux côtés ; composition, portefeuille et requête :
+   `Integer.MAX_VALUE` dans le code, aucun `maximum` dans le schéma). J'ai retenu la borne du code des trois derniers, **déclarée**, sans
+   plafond arbitraire sur une collection qui ne fait que croître ; les deux autres conventions ne sont pas touchées.
+3. **L'ordre est celui que le service rend, et il est total.** Versions d'un pack : `PolicyPackService.versions` trie par
+   `Comparable`. Audit : `PolicyPackService.audit` trie par `(at, id)` **comparés comme valeurs**, pas comme texte — la colonne `at`
+   est un `TEXT` (`Instant.toString()`) dont l'ordre lexicographique n'est pas l'ordre chronologique quand le nombre de décimales varie
+   (`…:00.5Z` se trie avant `…:00Z`), et `ORDER BY at, id` en SQL le rendrait faux. Révisions d'une vue : `ORDER BY revision` sur un
+   entier, non retrié par le service. Aucun curseur : une page lue pendant qu'un enregistrement s'ajoute peut se décaler, ce que l'audit
+   n'exclut pas (l'horloge peut reculer, `at` n'est pas monotone) ; `totalMatches`, rendu à chaque page, permet de le constater.
+4. **La borne s'applique en mémoire, pas en SQL, et c'est dit.** La tranche est prise dans une liste déjà lue. Descendre à
+   `LIMIT/OFFSET` passerait par les ports `application.store.PolicyPackStore` et `SavedViewStore`, leurs implémentations mémoire et
+   SQLite et les tests de parité, et — pour l'audit — obligerait à réordonner en SQL une colonne `TEXT` dont l'ordre est faux. La borne
+   **limite la réponse, pas le coût de lecture** : la collection reste lue en entier à chaque appel. C'est un résidu assumé, écrit dans
+   le Javadoc de `PageArguments`, à traiter si la lecture devient le goulot.
+
+### Périmètre : MCP seul, et pourquoi
+
+Ces trois collections sont aussi servies par HTTP (`GET /api/v1/policy-packs/{id}/versions`, `MorpheusPolicyHttpRoutes` :85-88 ;
+`GET /api/v1/policy-packs/{id}/audit`, :100-103 ; `GET /api/v1/saved-views/{id}/versions`, `MorpheusQueryApiService.savedViewVersions`
+:78) et par le CLI (`policy pack-versions`, `MorpheusPolicyCli` :95-97 ; `policy audit`, :155-157 ; `views versions`,
+`MorpheusQueryCli` :115-117). **Elles n'y sont pas paginées et ne le deviennent pas ici.** La raison n'est pas que leur croissance
+soit acceptable : c'est que seul le cadre MCP d'1 Mio rend l'outil *inappelable* — un client HTTP ou CLI lit une réponse plus grande
+sans que rien ne casse. Cet amendement **qualifie** donc la phrase de l'amendement API-3 (« une collection qui ne décroît jamais est
+restituée par page ») : elle décrit la route `versions` d'un projet, et son extension à d'autres collections n'est faite ici que pour
+MCP. Résidu à nommer : le proxy remote refuse toute réponse locale de plus de 16 Mio (`MorpheusRemoteHttpServer.MAX_PROXY_RESPONSE_BYTES`,
+`MorpheusRemoteProxyTransport.requireBoundedLength` : `502 UPSTREAM_RESPONSE_TOO_LARGE`), sans recours par `limit` sur ces routes ;
+**la taille à laquelle ces trois collections atteindraient ce seuil n'a pas été mesurée**. Étendre la page à HTTP et au CLI est un
+changement de contrat public (OpenAPI, manifeste, deux surfaces de plus) à décider séparément.
+
+### Ce qui change pour un client MCP
+
+Une rupture de forme, annoncée dans `docs/release/RELEASE_NOTES_1.2.1.md` : le tableau nu devient l'enveloppe à cinq clés, avec `limit`
+à 50 par défaut. Pour une collection de 50 éléments ou moins, les éléments et leur ordre sont ceux d'avant, sous `items`.
+
+### Alternatives écartées
+
+- **`LIMIT`/`OFFSET` dans le port.** Voir §4 : plus juste sur le coût, plus large que le constat, et l'ordre de l'audit y est faux.
+- **Un second vocabulaire de page**, ou une clé `count` : la copie qui dérive (§1 de cet ADR).
+- **Étendre `idSchema()` à `offset` et `limit` pour tous les outils à identifiant.** `get_policy_pack` et `get_saved_view` lisent une
+  chose ; un schéma qui accepte un paramètre qu'il ignore est le défaut de MCP-3.
+- **Nommer les trois outils dans la garde.** C'est le filtre trop étroit d'API-7 : le quatrième outil du même défaut passerait.
+
+### Preuves exécutables
+
+- `GrowingCollectionToolsPagingTest` : par outil, sans `offset` ni `limit` la collection revient entière, dans l'ordre, sous
+  l'enveloppe ; `limit=1` rend un élément et `hasMore` ; parcourir les pages redonne la collection une fois ; un `offset` au-delà
+  du total rend une page vide avec le bon `totalMatches` ; l'audit est rendu chronologiquement sur des `at` dont l'ordre texte diffère
+  (le test vérifie qu'il diffère, faute de quoi il ne prouverait rien) ; **`{id, limit}` passe la validation de schéma du serveur
+  sur les trois outils**, `{id, argumentInconnu}` reste refusé ; les bornes sont refusées à l'identique par le schéma et par le
+  handler (`limit` 0 et 101, `offset` −1 et 2³¹), et la plus large est acceptée des deux côtés ; `get_policy_pack` refuse toujours
+  une page.
+- `GrowingCollectionToolsArePageableTest` : tout outil que le câblage par défaut sert déclare `offset` **et** `limit`, ou figure
+  dans `NOT_PAGED` avec une raison. Le critère de « paginé » est structurel, sans nom d'outil ; l'échec nomme l'outil ; une
+  exemption qui n'est plus servie, ou qui est devenue paginée, échoue aussi ; un ensemble vide échoue.
+
+### Ce que la garde ne couvre pas
+
+Elle ne sait pas si une collection **croît** : une exemption est un jugement écrit, vérifié contre le code le 29/09/2026, que le test ne
+rejoue pas — un outil qui rend une collection croissante et figure à tort dans `NOT_PAGED` la satisfait. Elle ne sait pas si un outil
+paginé **honore** `offset` et `limit` : `export_query` les déclare et les ignore, `create_saved_view` et `update_saved_view` les
+déclarent parce qu'ils appartiennent à la requête stockée, et `get_specification_context` pagine ses exigences mais rend ses scénarios
+et ses changements entiers. Elle ne juge que ce que `MorpheusMcpServer.toolSpecifications` sert avec le câblage par défaut.
+
+**Résidus nommés par la liste `NOT_PAGED`** (raison `UNBOUNDED_ACKNOWLEDGED`, sans borne trouvée) : `list_policy_packs` (aucun plafond à
+`PolicyPackService.create`, aucune suppression), `list_external_references`, `get_portfolio_overview` (`MAX_PORTFOLIO_PROJECTS` borne
+les requêtes de portefeuille, pas l'inscription), `get_composition_status` (rend aussi ses conflits, que `list_composition_conflicts`
+pagine), `get_blocking_conditions`, `list_reasoning_adapters`. Ce sont des éléments de métadonnées ou des contenus remplacés à chaque
+publication plutôt qu'ajoutés ; aucun n'est garanti petit.
