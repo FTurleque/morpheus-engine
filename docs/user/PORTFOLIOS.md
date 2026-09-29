@@ -153,7 +153,7 @@ morpheus portfolio traverse \
   --links 1000
 ```
 
-Directions : `OUTBOUND`, `INBOUND` ou `BOTH`.
+Directions : `OUTGOING`, `INCOMING` ou `BOTH`.
 
 Budgets maximaux M23 :
 

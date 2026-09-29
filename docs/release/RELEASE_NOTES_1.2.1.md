@@ -385,3 +385,25 @@ pour la remplacer reçoit maintenant le code `2`. **Passer l'option une seule fo
 plusieurs racines de workspace, `--workspace-root` reste répétable.
 
 Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, répétition)](../adr/0108-a-response-says-what-it-could-not-observe.md).
+
+### OpenAPI : `CompositionConflict.entityType` publie dix valeurs, `direction` de M23 publie `OUTGOING`/`INCOMING`
+
+Jusqu'à 1.2.0, `docs/openapi/morpheus-v1.yaml` figeait `CompositionConflict.entityType` à `SPECIFICATION`, `REQUIREMENT`,
+`CHANGE`, `IDENTITY`, alors que `GET /api/v1/projects/{id}/composition` publie depuis CMP-1 dix types. Un client qui valide
+la réponse contre le schéma la rejetait dès qu'une composition à deux providers existait.
+
+À partir de 1.2.1 le schéma liste les dix valeurs, dans l'ordre de `CompositionEntityType` : `PROJECT`, `SPECIFICATION`,
+`REQUIREMENT`, `SCENARIO`, `CHANGE`, `CONSTRAINT`, `DESIGN_DECISION`, `TASK`, `ACCEPTANCE_CRITERION`, `IDENTITY`. Les six
+dernières arrivées sont `PROJECT`, `SCENARIO`, `CONSTRAINT`, `DESIGN_DECISION`, `TASK` et `ACCEPTANCE_CRITERION`. La réponse du serveur
+ne change pas : c'est le contrat qui rattrape le code.
+
+**Migration.** Un client généré ou écrit d'après l'ancien schéma, avec un `switch` exhaustif sur les quatre valeurs, gagne
+six cas : régénérer le client, ou traiter une valeur inconnue sans lever.
+
+Le même balayage a trouvé une dérive de sens inverse dans `morpheus-v1-portfolio-m23.yaml` : `TraversalRequest.direction`
+annonçait `OUTBOUND`, `INBOUND`, `BOTH`, alors que le serveur, le CLI (`--direction`) et le serveur MCP n'acceptent que
+`OUTGOING`, `INCOMING` et `BOTH`. Le contrat et `docs/user/PORTFOLIOS.md` sont corrigés ; le code ne change pas. Une requête
+écrite d'après l'ancien contrat avec `OUTBOUND` ou `INBOUND` était déjà refusée et l'est toujours : **écrire `OUTGOING` ou
+`INCOMING`**.
+
+Décision : [ADR-0103, amendement du 29 septembre 2026 (API-5)](../adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md).
