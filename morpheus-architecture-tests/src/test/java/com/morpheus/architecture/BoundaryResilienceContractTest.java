@@ -5,7 +5,14 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,10 +41,8 @@ class BoundaryResilienceContractTest {
             Path.of("morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTransport.java");
     private static final Path QUERY_BUDGET =
             Path.of("morpheus-api/src/main/java/com/morpheus/api/HttpQueryBudget.java");
-    private static final Path LOCAL_QUERY =
-            Path.of("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpQuery.java");
-    private static final Path PROXY_TARGETS =
-            Path.of("morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTargetResolver.java");
+    private static final Pattern SPLIT_ON_AMPERSAND = Pattern.compile(
+            "\\.split\\(\\s*\"[^\"]*&|splitAsStream|StringTokenizer\\(|Pattern\\.compile\\(\"[^\"]*&");
     private static final Path MCP_TRANSPORT = Path.of(
             "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java");
 
@@ -118,18 +123,33 @@ class BoundaryResilienceContractTest {
     }
 
     /**
-     * Query strings are bounded before they are split, decoded or mapped.
+     * Query strings are bounded before they are split, decoded or mapped, by every parser of the module.
      *
-     * <p>Both parsers share one budget because they parse the same input for the same server: the remote facade
+     * <p>The budget is one, shared, because the parsers read the same input for the same server: the remote facade
      * resolves its upstream target from the query, and the local facade parses it again on the other side of the
-     * proxy hop. Two copies of the limits is how one of them gets raised alone.</p>
+     * proxy hop. Two copies of the limits is how one of them gets raised alone -- and three routes that registered
+     * their own HTTP contexts did exactly that, splitting the raw text with {@code split("&")} and decoding it
+     * without ever asking the budget (API-4). The rule used to name two files and one spelling, so a third parser
+     * written as {@code raw.split("&")} was invisible to it.</p>
+     *
+     * <p>The parsers are <em>discovered</em>, never named, over every main source of {@code morpheus-api}, after
+     * comments are removed:</p>
+     * <ol>
+     *   <li>nothing splits on {@code "&"}: the split is the allocation the budget exists to refuse;</li>
+     *   <li>a source that reads {@code getRawQuery()} for anything other than a null or blank test -- a refusal that
+     *   parses nothing -- calls {@code MorpheusHttpQuery.parse(} or {@code HttpQueryBudget.requireBoundedQuery(};</li>
+     *   <li>a source that calls {@code requireBoundedQuery(} applies the other three bounds too;</li>
+     *   <li>the discovery finds at least one reader, so the rule cannot pass on an empty population.</li>
+     * </ol>
+     *
+     * <p>What it does not see: a query read from something other than {@code getRawQuery()} (for instance
+     * {@code getQuery()}, which is already decoded), a parser reached by a method reference, a split written on a
+     * non-literal separator, a reader that calls the budget on a different string than the one it parses -- the rule
+     * is per source, not per call -- and code following a {@code //} inside a string literal on the same line.</p>
      */
     @Test
     void everyQueryParserSharesOneBudgetAppliedBeforeMaterialization() throws IOException {
         String budget = read(QUERY_BUDGET);
-        String local = read(LOCAL_QUERY);
-        String targets = read(PROXY_TARGETS);
-
         assertTrue(budget.contains("MAX_QUERY_BYTES"));
         assertTrue(budget.contains("MAX_PARAMETERS"));
         assertTrue(budget.contains("MAX_PARAMETER_NAME_BYTES"));
@@ -137,16 +157,79 @@ class BoundaryResilienceContractTest {
         assertTrue(budget.contains("static boolean exceedsUtf8(String value, int maxBytes)"),
                 "the budget is in UTF-8 bytes, like every other MORPHEUS input budget");
 
-        for (String parser : java.util.List.of(local, targets)) {
-            assertTrue(parser.contains("HttpQueryBudget.requireBoundedQuery("),
-                    "the whole query must be refused before it is split");
-            assertTrue(parser.contains("HttpQueryBudget.requireBoundedParameterCount("));
-            assertTrue(parser.contains("HttpQueryBudget.requireBoundedParameterName("));
-            assertTrue(parser.contains("HttpQueryBudget.requireBoundedParameterValue("));
+        Map<String, String> sources = mainSources("morpheus-api");
+        List<String> violations = queryParserViolations(sources);
+        assertTrue(violations.isEmpty(), () -> "query parsers outside the shared budget:\n"
+                + String.join("\n", violations));
+        long readers = sources.values().stream()
+                .map(BoundaryResilienceContractTest::withoutComments)
+                .filter(source -> readsRawQuery(source) || source.contains("HttpQueryBudget.requireBoundedQuery("))
+                .count();
+        assertTrue(readers >= 1, "no query reader was discovered: the rule would pass on an empty population");
+    }
+
+    /** The rule proved on fixtures, in both directions: what it refuses and what it must not refuse. */
+    @Test
+    void theQueryBudgetRuleRefusesASplitAnUnbudgetedReaderAndAPartialBudget() {
+        assertEquals(List.of("A splits on \"&\""), queryParserViolations(Map.of("A",
+                "class A { void f(String raw) { for (String p : raw.split(\"&\")) {} } }")));
+        assertEquals(List.of("G splits on \"&\""), queryParserViolations(Map.of("G",
+                "class G { void f(String raw) { new StringTokenizer(raw, \"&\"); } }")));
+        assertEquals(List.of("H splits on \"&\""), queryParserViolations(Map.of("H",
+                "class H { void f(String raw) { Pattern.compile(\"&\").split(raw); } }")));
+        assertEquals(List.of("B reads getRawQuery() without MorpheusHttpQuery.parse( or requireBoundedQuery("),
+                queryParserViolations(Map.of("B", "class B { Object f(X x) { return decode(x.getRawQuery()); } }")));
+        assertEquals(List.of("C calls requireBoundedQuery( without the count, name and value bounds"),
+                queryParserViolations(Map.of("C", "class C { void f(X x) { HttpQueryBudget.requireBoundedQuery("
+                        + "x.getRawQuery(), F); } }")));
+        assertEquals(List.of(), queryParserViolations(Map.of(
+                "D", "class D { void f(X x) { MorpheusHttpQuery.parse(x.getRawQuery()); } }",
+                "E", "class E { boolean f(X x) { return x.getRawQuery() != null && !x.getRawQuery().isBlank(); } }",
+                "F", "class F { // raw.split(\"&\") and x.getRawQuery() in a comment\n int g; }")));
+    }
+
+    private static List<String> queryParserViolations(Map<String, String> sources) {
+        List<String> violations = new ArrayList<>();
+        sources.forEach((name, raw) -> {
+            String source = withoutComments(raw);
+            if (SPLIT_ON_AMPERSAND.matcher(source).find()) {
+                violations.add(name + " splits on \"&\"");
+            }
+            boolean bounded = source.contains("MorpheusHttpQuery.parse(")
+                    || source.contains("HttpQueryBudget.requireBoundedQuery(");
+            if (readsRawQuery(source) && !bounded) {
+                violations.add(name + " reads getRawQuery() without MorpheusHttpQuery.parse( or requireBoundedQuery(");
+            }
+            if (source.contains("HttpQueryBudget.requireBoundedQuery(")
+                    && !(source.contains("HttpQueryBudget.requireBoundedParameterCount(")
+                    && source.contains("HttpQueryBudget.requireBoundedParameterName(")
+                    && source.contains("HttpQueryBudget.requireBoundedParameterValue("))) {
+                violations.add(name + " calls requireBoundedQuery( without the count, name and value bounds");
+            }
+        });
+        return violations;
+    }
+
+    /** Whether a {@code getRawQuery()} read remains once the refusal-only ones -- a null test, a blank test -- are removed. */
+    private static boolean readsRawQuery(String sourceWithoutComments) {
+        return sourceWithoutComments
+                .replaceAll("getRawQuery\\(\\)\\s*(!=|==)\\s*null", "")
+                .replaceAll("getRawQuery\\(\\)\\.isBlank\\(\\)", "")
+                .contains("getRawQuery()");
+    }
+
+    private static String withoutComments(String raw) {
+        return raw.replaceAll("(?s)/\\*.*?\\*/", "").replaceAll("//[^\\n]*", "");
+    }
+
+    private Map<String, String> mainSources(String module) throws IOException {
+        Map<String, String> sources = new TreeMap<>();
+        try (Stream<Path> tree = Files.walk(repositoryRoot().resolve(module).resolve("src/main/java"))) {
+            for (Path file : tree.filter(path -> path.toString().endsWith(".java")).toList()) {
+                sources.put(file.getFileName().toString(), Files.readString(file));
+            }
         }
-        assertFalse(local.contains("rawQuery.split(\"&\")"),
-                "splitting the whole query first is the allocation the budget exists to refuse");
-        assertFalse(targets.contains("rawQuery.split(\"&\")"));
+        return sources;
     }
 
     /**

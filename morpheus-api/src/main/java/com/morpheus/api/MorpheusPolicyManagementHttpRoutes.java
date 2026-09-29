@@ -16,14 +16,11 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /** M25 management routes needed to discover CAS state and remove an override explicitly. */
 final class MorpheusPolicyManagementHttpRoutes {
@@ -54,8 +51,8 @@ final class MorpheusPolicyManagementHttpRoutes {
             requireMethod(exchange, "GET");
             requireExactPath(exchange, ACTIVATION_CONTEXT);
             requestDecoder.requireEmptyBody(exchange);
-            Query query = Query.parse(exchange.getRequestURI().getRawQuery());
-            query.rejectUnknown(List.of("scopeKind", "scopeId"));
+            MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
+            query.rejectUnknown(Set.of("scopeKind", "scopeId"));
             PolicyScope scope = scope(query.required("scopeKind"), query.required("scopeId"));
             try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(databasePath)) {
                 return PolicyPublicViews.activations(new PolicyPackService(store).activations(scope));
@@ -164,42 +161,5 @@ final class MorpheusPolicyManagementHttpRoutes {
     @FunctionalInterface
     private interface Handler {
         Object execute();
-    }
-
-    private record Query(Map<String, String> values) {
-        private Query {
-            values = Map.copyOf(values);
-        }
-
-        static Query parse(String raw) {
-            if (raw == null || raw.isBlank()) {
-                return new Query(Map.of());
-            }
-            Map<String, String> values = new LinkedHashMap<>();
-            for (String part : raw.split("&")) {
-                int separator = part.indexOf('=');
-                String key = URLDecoder.decode(separator < 0 ? part : part.substring(0, separator), StandardCharsets.UTF_8);
-                String value = URLDecoder.decode(separator < 0 ? "" : part.substring(separator + 1), StandardCharsets.UTF_8);
-                if (key.isBlank() || values.putIfAbsent(key, value) != null) {
-                    throw ApiFailure.badRequest("invalid or duplicate query parameter: " + key);
-                }
-            }
-            return new Query(values);
-        }
-
-        String required(String name) {
-            String value = values.get(name);
-            if (value == null || value.isBlank()) {
-                throw ApiFailure.badRequest("query parameter is required: " + name);
-            }
-            return value;
-        }
-
-        void rejectUnknown(List<String> allowed) {
-            values.keySet().stream().filter(key -> !allowed.contains(key)).findFirst()
-                    .ifPresent(key -> {
-                        throw ApiFailure.badRequest("unknown query parameter: " + key);
-                    });
-        }
     }
 }
