@@ -29,7 +29,7 @@ class LocalVersionsHttpRoutesArchitectureTest {
         assertTrue(routes.contains("MorpheusVersionsHttpRoutes(MorpheusApiService facade)"));
         assertTrue(routes.contains("this(Objects.requireNonNull(facade, \"facade\").historyService());"));
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
-        assertTrue(routes.contains("service.versions(projectId)"));
+        assertTrue(routes.contains("service.versions(projectId, page(query))"));
         assertTrue(routes.contains("service.compareVersions("));
         assertTrue(routes.contains("service.historicalRequirements(projectId, segments.get(3), page(query))"));
         assertTrue(routes.contains("query.required(\"fromSnapshotId\")"));

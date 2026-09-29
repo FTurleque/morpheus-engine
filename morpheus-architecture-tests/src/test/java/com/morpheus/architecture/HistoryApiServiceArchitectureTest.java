@@ -45,7 +45,7 @@ class HistoryApiServiceArchitectureTest {
 
         assertTrue(routes.contains("private final MorpheusHistoryApiService service;"));
         assertTrue(routes.contains("historyService()"));
-        assertTrue(routes.contains("service.versions(projectId)"));
+        assertTrue(routes.contains("service.versions(projectId, page(query))"));
         assertTrue(routes.contains("service.compareVersions("));
         assertTrue(routes.contains("service.historicalRequirements(projectId, segments.get(3), page(query))"));
         assertFalse(routes.contains("private final MorpheusApiService service;"));

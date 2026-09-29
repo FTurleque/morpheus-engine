@@ -35,7 +35,7 @@ class MorpheusHistoryApiServiceContractTest {
         sync.sync(projectId, Optional.of("history-r2"));
 
         MorpheusHistoryApiService service = new MorpheusHistoryApiService(database);
-        Map<?, ?> versions = (Map<?, ?>) service.versions(projectId);
+        Map<?, ?> versions = (Map<?, ?>) service.versions(projectId, PageRequest.first(50));
         List<?> versionItems = (List<?>) versions.get("items");
         Map<?, ?> sourceVersion = (Map<?, ?>) versionItems.getFirst();
         Map<?, ?> targetVersion = (Map<?, ?>) versionItems.getLast();
@@ -74,6 +74,10 @@ class MorpheusHistoryApiServiceContractTest {
         assertEquals(projectId, versions.get("projectId"));
         assertEquals("KEEP_ALL_PUBLISHED", versions.get("retentionPolicy"));
         assertEquals(2, versionItems.size());
+        assertEquals(0, versions.get("offset"));
+        assertEquals(50, versions.get("limit"));
+        assertEquals(2, versions.get("totalMatches"));
+        assertEquals(Boolean.FALSE, versions.get("hasMore"));
         assertEquals("RETIRED", sourceVersion.get("snapshotState"));
         assertEquals("ACTIVE", targetVersion.get("snapshotState"));
     }
@@ -115,7 +119,7 @@ class MorpheusHistoryApiServiceContractTest {
             String secondProjectId) {
         ApiFailure missingProject = assertThrows(
                 ApiFailure.class,
-                () -> service.versions(ProjectSpecificationId.generate().toString()));
+                () -> service.versions(ProjectSpecificationId.generate().toString(), PageRequest.first(1)));
         assertEquals(404, missingProject.status());
 
         PageRequest firstOfOne = PageRequest.first(1);

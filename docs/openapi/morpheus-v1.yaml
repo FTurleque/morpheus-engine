@@ -387,7 +387,10 @@ paths:
         '415': {$ref: '#/components/responses/UnsupportedMediaType'}
 
   /projects/{projectId}/versions:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}]
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
     get:
       operationId: listPublishedVersions
       responses: {'200': {$ref: '#/components/responses/Success'}}

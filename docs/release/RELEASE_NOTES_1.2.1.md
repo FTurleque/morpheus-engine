@@ -385,3 +385,16 @@ pour la remplacer reçoit maintenant le code `2`. **Passer l'option une seule fo
 plusieurs racines de workspace, `--workspace-root` reste répétable.
 
 Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, répétition)](../adr/0108-a-response-says-what-it-could-not-observe.md).
+
+### HTTP `GET /api/v1/projects/{id}/versions` : la lignée est une page
+
+Jusqu'à 1.2.0, la route rendait toute la lignée publiée dans `items`, sans `offset` ni `limit` (ces paramètres étaient refusés).
+À partir de 1.2.1, elle rend une **page**, avec le vocabulaire commun : `projectId`, `retentionPolicy`, `offset`, `limit`,
+`totalMatches`, `hasMore`, `items` — quatre clés de plus. `offset` (0 par défaut) et `limit` (1 à 100, 50 par défaut) sont
+acceptés ; l'ordre reste du plus ancien au plus récent.
+
+**Migration.** Un client qui lisait `items` en entier n'obtient plus que les 50 premières publications : **lire `hasMore` et
+paginer** (`?offset=50`, puis suivants). Une lignée de moins de 50 publications rend exactement les mêmes éléments qu'avant, aux clés de
+page près. Le contrat OpenAPI déclare `offset` et `limit` sur cette route.
+
+Décision : [ADR-0107, amendement du 29 septembre 2026 (API-3)](../adr/0107-one-vocabulary-for-a-paginated-response.md).
