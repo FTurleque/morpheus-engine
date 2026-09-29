@@ -27,7 +27,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/** M17 write tool, intentionally separate from the M14-M16 read-only orchestration tools. */
+/**
+ * M17 write tool, intentionally separate from the M14-M16 read-only orchestration tools.
+ *
+ * <p>The mutation service returns its refusals instead of throwing them, so {@code isError} is decided from the
+ * result state ({@link com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultState#successful()}),
+ * not from an exception. The body is the same JSON either way: the flag adds a fact, it removes none.</p>
+ */
 final class MorpheusControlledLifecycleMcpTools {
     static final String APPLY_TOOL = "apply_change_lifecycle_transition";
 
@@ -95,10 +101,10 @@ final class MorpheusControlledLifecycleMcpTools {
                                 actor,
                                 Instant.now()),
                         ChangeLifecycleMutationPolicy.strict());
-                McpSchema.TextContent content = McpSchema.TextContent.builder(
-                                json.toJson(ChangeLifecycleMutationResultView.from(result)))
-                        .build();
-                return McpSchema.CallToolResult.builder(List.of(content)).build();
+                String body = json.toJson(ChangeLifecycleMutationResultView.from(result));
+                return result.state().successful()
+                        ? McpSchema.CallToolResult.builder().addTextContent(body).isError(false).build()
+                        : McpToolFailure.refusal(body);
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
             return McpToolFailure.result(expected);

@@ -67,7 +67,7 @@ final class MorpheusCompositionMcpTools {
                     default -> throw new IllegalArgumentException("unknown M18 MCP tool: " + toolName);
                 };
                 McpSchema.TextContent content = McpSchema.TextContent.builder(json.toJson(result)).build();
-                return McpSchema.CallToolResult.builder(List.of(content)).build();
+                return McpSchema.CallToolResult.builder(List.of(content)).isError(false).build();
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
             return McpToolFailure.result(expected);

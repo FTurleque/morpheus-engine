@@ -70,10 +70,7 @@ final class MorpheusProviderPluginMcpTools {
             // Remote/model-facing callers must never receive an arbitrary RuntimeException message: filesystem
             // exceptions frequently render their pathname as the message. Detailed diagnostics stay on local
             // operator surfaces; this boundary returns only a stable, non-locating failure code.
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(REMOTE_DISCOVERY_FAILURE)
-                    .isError(true)
-                    .build();
+            return McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE);
         }
     }
 

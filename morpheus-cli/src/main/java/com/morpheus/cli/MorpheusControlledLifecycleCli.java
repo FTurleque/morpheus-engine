@@ -3,7 +3,6 @@ package com.morpheus.cli;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationCommand;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPolicy;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResult;
-import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultState;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultView;
 import com.morpheus.application.lifecycle.mutation.ControlledChangeLifecycleMutationService;
 import com.morpheus.application.lifecycle.mutation.RegisteredProjectWriteCapabilityResolver;
@@ -87,8 +86,7 @@ final class MorpheusControlledLifecycleCli {
                                 Instant.now()),
                         ChangeLifecycleMutationPolicy.strict());
                 write(result, parsed.json(), out);
-                return result.state() == ChangeLifecycleMutationResultState.APPLIED
-                                || result.state() == ChangeLifecycleMutationResultState.ALREADY_APPLIED
+                return result.state().successful()
                         ? CliExitCode.SUCCESS.code()
                         : CliExitCode.STATE_ERROR.code();
             }

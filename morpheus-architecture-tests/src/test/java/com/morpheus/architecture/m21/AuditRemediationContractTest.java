@@ -55,9 +55,14 @@ class AuditRemediationContractTest {
                 "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java");
 
         assertTrue(mcp.contains("PROVIDER_PLUGIN_DISCOVERY_FAILED"));
-        assertTrue(mcp.contains("addTextContent(REMOTE_DISCOVERY_FAILURE)"));
+        assertTrue(mcp.contains("McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE)"));
         assertFalse(mcp.contains("addTextContent(safeMessage"));
         assertFalse(mcp.contains("failure.getMessage()"));
+        assertFalse(mcp.contains("McpToolFailure.result("),
+                "this boundary answers a stable code; result(RuntimeException) relays the exception's message");
+        assertFalse(mcp.contains("McpToolFailure.safeMessage"));
+        assertEquals(occurrences(mcp, "refusal("), occurrences(mcp, "McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE)"),
+                "every refusal built here is written McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE): a bare refusal( or one fed anything else is refused");
     }
 
     @Test
@@ -114,6 +119,14 @@ class AuditRemediationContractTest {
 
     private static String read(Path root, String relative) throws IOException {
         return Files.readString(root.resolve(relative));
+    }
+
+    private static long occurrences(String text, String needle) {
+        long count = 0;
+        for (int at = text.indexOf(needle); at >= 0; at = text.indexOf(needle, at + needle.length())) {
+            count++;
+        }
+        return count;
     }
 
     private static Path repoRoot() {

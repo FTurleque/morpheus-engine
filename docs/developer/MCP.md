@@ -76,6 +76,8 @@ sequenceDiagram
 
 Les erreurs de schéma sont rejetées avant l’appel applicatif. Les erreurs métier attendues deviennent des résultats MCP en erreur sans exposer de stack trace sur stdout.
 
+Un refus que le service *rend* au lieu de le lever est aussi un résultat en erreur : `apply_change_lifecycle_transition` répond `isError: true` pour `CONFLICT`, `NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION` et `REJECTED`, et `isError: false` pour `APPLIED` et `ALREADY_APPLIED`. Le corps JSON est identique dans les deux cas (`state`, `reason`, `lifecycleState`, `audit`). La partition est `ChangeLifecycleMutationResultState.successful()`, et tout résultat d'erreur est construit par `McpToolFailure` (ADR-0102).
+
 ## 4. Lecture, gestion et mutation
 
 La majorité des tools sont read-only. Certaines surfaces administratives ou lifecycle sont explicitement mutantes, mais aucune lecture ne se transforme implicitement en écriture.

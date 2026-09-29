@@ -19,14 +19,10 @@ public record ChangeLifecycleMutationResult(
         if (reason.isEmpty()) {
             throw new IllegalArgumentException("reason must not be blank");
         }
-        if ((state == ChangeLifecycleMutationResultState.APPLIED
-                || state == ChangeLifecycleMutationResultState.ALREADY_APPLIED)
-                && (lifecycleState.isEmpty() || audit.isEmpty())) {
+        if (state.successful() && (lifecycleState.isEmpty() || audit.isEmpty())) {
             throw new IllegalArgumentException(state + " requires lifecycle state and audit");
         }
-        if (state != ChangeLifecycleMutationResultState.APPLIED
-                && state != ChangeLifecycleMutationResultState.ALREADY_APPLIED
-                && audit.isPresent()) {
+        if (!state.successful() && audit.isPresent()) {
             throw new IllegalArgumentException(state + " must not fabricate an applied audit record");
         }
     }

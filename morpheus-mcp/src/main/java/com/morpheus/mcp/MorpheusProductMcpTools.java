@@ -44,10 +44,8 @@ final class MorpheusProductMcpTools {
                     .build();
         }
         if (UPDATE_TOOL.equals(toolName)) {
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent("URI-backed update discovery is CLI-only; check_product_update performs no file or network I/O.")
-                    .isError(true)
-                    .build();
+            return McpToolFailure.refusal(
+                    "URI-backed update discovery is CLI-only; check_product_update performs no file or network I/O.");
         }
         throw new IllegalArgumentException("unknown M21 MCP tool: " + toolName);
     }
