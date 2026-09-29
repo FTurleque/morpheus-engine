@@ -22,7 +22,7 @@ class HistoryApiServiceArchitectureTest {
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusVersionsHttpRoutes.java"));
 
         assertTrue(facade.contains("private final MorpheusHistoryApiService historyService;"));
-        assertTrue(facade.contains("return historyService.versions(projectIdValue);"));
+        assertTrue(facade.contains("return historyService.versions(projectIdValue, pageRequest);"));
         assertTrue(facade.contains("return historyService.historicalRequirements(projectIdValue, snapshotIdValue, pageRequest);"));
         assertTrue(facade.contains("return historyService.compareVersions(projectIdValue, sourceIdValue, targetIdValue);"));
         assertFalse(facade.contains("PublishedSnapshotHistoryService"));
