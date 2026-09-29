@@ -56,19 +56,14 @@ class ProductionIntegrityContractTest {
     @Test
     void publicSurfaceManifestIsCompleteExplicitAndBackedByAdapters() throws IOException {
         Path root = repoRoot();
-        List<String> lines = Files.readAllLines(root.resolve("contracts/public-surfaces.tsv"));
-        List<String[]> entries = new ArrayList<>();
-        for (String line : lines) {
-            if (line.isBlank() || line.startsWith("#")) {
-                continue;
-            }
-            String[] columns = line.split("\\t", -1);
+        List<String[]> entries = PublicSurfaceManifest.rows(root);
+        for (String[] columns : entries) {
+            String line = String.join("\t", columns);
             assertEquals(6, columns.length, "each public surface row must have six columns: " + line);
             assertTrue(columns[1].equals("READ") || columns[1].equals("WRITE"), "intent must be READ or WRITE");
             assertFalse(columns[2].isBlank(), "CLI shape must be explicit");
             assertFalse(columns[3].isBlank(), "MCP shape must be explicit");
             assertFalse(columns[4].isBlank(), "HTTP shape or explicit omission must be present");
-            entries.add(columns);
         }
         assertTrue(entries.size() >= 6, "M21 convergence manifest must cover the critical public capabilities");
 
