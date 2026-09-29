@@ -53,7 +53,7 @@ final class MorpheusQueryMcpTools {
                 tool(CREATE_SAVED_VIEW, "Persist a versioned query definition, never materialized results.", querySchema(true)),
                 tool(LIST_SAVED_VIEWS, "List active saved views for one explicit project or portfolio scope.", scopeSchema()),
                 tool(GET_SAVED_VIEW, "Read one saved view by stable identity.", idSchema(false)),
-                tool(LIST_SAVED_VIEW_VERSIONS, "List immutable saved-view revisions in ascending order.", idSchema(false)),
+                tool(LIST_SAVED_VIEW_VERSIONS, "List immutable saved-view revisions in ascending order, one page at a time (offset, limit; default 50, maximum 100).", versionsSchema()),
                 tool(UPDATE_SAVED_VIEW, "CAS-update one saved-view definition using expectedRevision.", updateSchema()),
                 tool(ARCHIVE_SAVED_VIEW, "CAS-archive one saved view without deleting revision history.", idSchema(true)),
                 tool(EXECUTE_SAVED_VIEW, "Execute the current stored query definition of one active saved view.", idSchema(false)),
@@ -82,7 +82,8 @@ final class MorpheusQueryMcpTools {
                             McpArguments.requiredString(arguments, "name"), query(arguments, scope(arguments))));
                     case LIST_SAVED_VIEWS -> QueryPublicViews.savedViews(runtime.views().list(scope(arguments)));
                     case GET_SAVED_VIEW -> QueryPublicViews.savedView(runtime.views().get(id(arguments)));
-                    case LIST_SAVED_VIEW_VERSIONS -> QueryPublicViews.savedVersions(runtime.views().versions(id(arguments)));
+                    case LIST_SAVED_VIEW_VERSIONS -> PageArguments.slice(
+                            arguments, () -> runtime.views().versions(id(arguments)), QueryPublicViews::savedVersion);
                     case UPDATE_SAVED_VIEW -> {
                         SavedViewId id = id(arguments);
                         var current = runtime.views().get(id);
@@ -182,6 +183,14 @@ final class MorpheusQueryMcpTools {
             properties.put("expectedRevision", Map.of("type", "integer", "minimum", 1));
         }
         return schema(revision ? List.of("id", "expectedRevision") : List.of("id"), properties);
+    }
+
+    /** A saved view gains one immutable revision per update, so its history takes a page. */
+    private static Map<String, Object> versionsSchema() {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("id", Map.of("type", "string", "minLength", 1));
+        properties.putAll(PageArguments.properties());
+        return schema(List.of("id"), properties);
     }
 
     private static Map<String, Object> exportQuerySchema() {

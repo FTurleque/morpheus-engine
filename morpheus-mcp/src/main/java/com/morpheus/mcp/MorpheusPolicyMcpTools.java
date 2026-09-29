@@ -56,7 +56,7 @@ final class MorpheusPolicyMcpTools {
                 tool(CREATE, "Create one versioned provider-neutral policy pack.", createSchema()),
                 tool(LIST, "List policy pack identities and current registry metadata.", emptySchema()),
                 tool(GET, "Read one policy pack by stable identity.", idSchema()),
-                tool(VERSIONS, "List immutable versions of one policy pack.", idSchema()),
+                tool(VERSIONS, "List immutable versions of one policy pack, oldest first, one page at a time (offset, limit; default 50, maximum 100).", pagedIdSchema()),
                 tool(UPDATE, "CAS-update a policy pack by creating a new immutable version.", updateSchema()),
                 tool(ACTIVATE, "Explicitly activate one immutable policy version in a project or portfolio scope.", activationSchema(true)),
                 tool(DEACTIVATE, "CAS-deactivate one policy pack from a scope.", activationSchema(false)),
@@ -64,7 +64,7 @@ final class MorpheusPolicyMcpTools {
                 tool(LIST_OVERRIDES, "List policy overrides for one explicit scope.", scopeSchema()),
                 tool(EVALUATE, "Evaluate active policies read-only for one explicit scope.", evaluateSchema()),
                 tool(DRY_RUN, "Dry-run one policy version without activation or mutation.", dryRunSchema()),
-                tool(AUDIT, "Read immutable policy configuration audit records.", idSchema()));
+                tool(AUDIT, "Read immutable policy configuration audit records, oldest first, one page at a time (offset, limit; default 50, maximum 100).", pagedIdSchema()));
     }
 
     private McpServerFeatures.SyncToolSpecification tool(String name, String description, Map<String, Object> schema) {
@@ -85,7 +85,8 @@ final class MorpheusPolicyMcpTools {
                             McpArguments.requiredString(arguments, "actor"), McpArguments.requiredString(arguments, "reason")));
                     case LIST -> PolicyPublicViews.definitions(runtime.registry().list());
                     case GET -> PolicyPublicViews.definition(runtime.registry().get(pack(arguments)));
-                    case VERSIONS -> PolicyPublicViews.versions(runtime.registry().versions(pack(arguments)));
+                    case VERSIONS -> PageArguments.slice(
+                            arguments, () -> runtime.registry().versions(pack(arguments)), PolicyPublicViews::version);
                     case UPDATE -> PolicyPublicViews.definition(runtime.registry().update(
                             pack(arguments), McpArguments.requiredInteger(arguments, "expectedRevision", 1, Long.MAX_VALUE),
                             McpArguments.requiredString(arguments, "name"), rules(arguments),
@@ -117,7 +118,8 @@ final class MorpheusPolicyMcpTools {
                     }
                     case DRY_RUN -> PolicyPublicViews.report(runtime.evaluation().dryRun(
                             scope(arguments), pack(arguments), PolicyIds.VersionId.parse(McpArguments.requiredString(arguments, "versionId"))));
-                    case AUDIT -> PolicyPublicViews.audit(runtime.registry().audit(pack(arguments)));
+                    case AUDIT -> PageArguments.slice(
+                            arguments, () -> runtime.registry().audit(pack(arguments)), PolicyPublicViews::audit);
                     default -> throw new IllegalArgumentException("unknown M25 MCP tool: " + toolName);
                 };
                 return McpSchema.CallToolResult.builder()
@@ -240,6 +242,17 @@ final class MorpheusPolicyMcpTools {
 
     private static Map<String, Object> idSchema() {
         return schema(List.of("id"), Map.of("id", nonBlankString()));
+    }
+
+    /**
+     * The collections behind these tools only ever grow (a version per update, an audit record per configuration
+     * change), so they take a page. {@code get_policy_pack} shares the identifier and does not.
+     */
+    private static Map<String, Object> pagedIdSchema() {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("id", nonBlankString());
+        properties.putAll(PageArguments.properties());
+        return schema(List.of("id"), properties);
     }
 
     private static Map<String, Object> scopeSchema() {

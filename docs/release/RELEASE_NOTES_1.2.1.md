@@ -185,6 +185,32 @@ branchait sur `isError` seul obtient désormais le bon comportement sans changem
 
 Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-5)](../adr/0102-mcp-failure-contract-is-one-rule.md).
 
+### MCP `get_policy_audit`, `list_policy_pack_versions`, `list_saved_view_versions` : une page, et non plus un tableau nu
+
+Jusqu'à 1.2.0, ces trois outils rendaient leur collection entière sous un **tableau JSON nu**, avec un schéma d'entrée réduit à
+`{id}`. Au-delà d'1 Mio le transport remplace la réponse par `MCP_RESPONSE_TOO_LARGE` et conseille de réessayer avec un `limit` plus
+petit ; le serveur refusait ce `limit` comme argument inconnu. L'outil était inappelable, avec une instruction de réparation que son
+propre schéma interdisait.
+
+À partir de 1.2.1, chacun rend une **page** dans le vocabulaire commun : `offset`, `limit`, `totalMatches`, `hasMore`, `items`. Les
+schémas déclarent `offset` (0 par défaut, de 0 à 2147483647) et `limit` (50 par défaut, de 1 à 100) ; un argument hors de ces bornes est
+refusé, et tout autre argument inconnu l'est toujours. L'ordre est total : versions d'un pack par numéro croissant, révisions d'une vue par
+révision croissante, audit par instant puis identifiant, comparés comme des valeurs.
+
+**Migration.** Le tableau devient `items` : un client qui lisait la réponse comme un tableau doit lire `items`. Une collection de 50
+éléments ou moins revient avec les mêmes éléments dans le même ordre ; au-delà, un client qui lisait « tout » n'obtient plus que les 50
+premiers : **lire `hasMore` et paginer** (`offset` + `limit`, jusqu'à `hasMore` faux). `get_policy_pack` et `get_saved_view` ne changent pas.
+`list_composition_conflicts` garde ses valeurs par défaut et ses bornes (50, 1 à 100) : son schéma publie désormais le maximum d'`offset` (2147483647) que son handler appliquait déjà. Un `offset` au-delà était déjà refusé ; il l'est maintenant avant le handler, avec le texte de validation du SDK.
+
+**Ce qui n'est pas borné.** La borne limite la réponse, pas la lecture : la collection est toujours lue en entier avant d'être
+tranchée. Et HTTP et le CLI ne changent pas : `GET /api/v1/policy-packs/{id}/versions`, `…/audit`, `GET /api/v1/saved-views/{id}/versions`,
+`policy pack-versions`, `policy audit` et `views versions` rendent toujours la collection entière, sans `offset` ni `limit`.
+Enfin, ce changement ne promet pas que toute réponse MCP tient dans 1 Mio : d'autres outils (les parcours de graphe `traverse_portfolio`,
+`trace_requirement` et `get_change_context`, `export_saved_view`, entre autres) ne prennent pas de page, et le pire cas en octets de
+plusieurs d'entre eux dépasse le cadre par arithmétique (non mesuré) ; la liste, avec sa raison par outil, est dans l'ADR-0107.
+
+Décision : [ADR-0107, amendement du 29 septembre 2026 (MCP-2)](../adr/0107-one-vocabulary-for-a-paginated-response.md).
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes

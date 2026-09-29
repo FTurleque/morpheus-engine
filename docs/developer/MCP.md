@@ -78,6 +78,8 @@ Les erreurs de schéma sont rejetées avant l’appel applicatif. Les erreurs m�
 
 Un refus que le service *rend* au lieu de le lever est aussi un résultat en erreur : `apply_change_lifecycle_transition` répond `isError: true` pour `CONFLICT`, `NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION` et `REJECTED`, et `isError: false` pour `APPLIED` et `ALREADY_APPLIED`. Le corps JSON est identique dans les deux cas (`state`, `reason`, `lifecycleState`, `audit`). La partition est `ChangeLifecycleMutationResultState.successful()`, et tout résultat d'erreur est construit par `McpToolFailure` (ADR-0102).
 
+Un outil qui lit une collection qui ne fait que croître prend `offset` et `limit` (50 par défaut, de 1 à 100), parce que le conseil rendu quand une réponse dépasse le cadre d'1 Mio est de « réessayer avec un `limit` plus petit ». Les bornes sont lues et déclarées par `PageArguments`, la page est `PagedEnvelope.slice`, et `GrowingCollectionToolsArePageableTest` refuse tout outil servi qui ne pagine pas sans figurer, avec une raison, dans sa liste d'exemptions (ADR-0107, amendement MCP-2). Aujourd'hui : `get_policy_audit`, `list_policy_pack_versions`, `list_saved_view_versions`. La borne limite la réponse, pas la lecture.
+
 ## 4. Lecture, gestion et mutation
 
 La majorité des tools sont read-only. Certaines surfaces administratives ou lifecycle sont explicitement mutantes, mais aucune lecture ne se transforme implicitement en écriture.
