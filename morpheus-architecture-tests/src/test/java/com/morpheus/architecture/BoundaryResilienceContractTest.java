@@ -41,7 +41,8 @@ class BoundaryResilienceContractTest {
             Path.of("morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTransport.java");
     private static final Path QUERY_BUDGET =
             Path.of("morpheus-api/src/main/java/com/morpheus/api/HttpQueryBudget.java");
-    private static final Pattern SPLIT_ON_AMPERSAND = Pattern.compile("\\.split\\(\\s*\"&\"");
+    private static final Pattern SPLIT_ON_AMPERSAND = Pattern.compile(
+            "\\.split\\(\\s*\"[^\"]*&|splitAsStream|StringTokenizer\\(|Pattern\\.compile\\(\"[^\"]*&");
     private static final Path MCP_TRANSPORT = Path.of(
             "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java");
 
@@ -172,6 +173,10 @@ class BoundaryResilienceContractTest {
     void theQueryBudgetRuleRefusesASplitAnUnbudgetedReaderAndAPartialBudget() {
         assertEquals(List.of("A splits on \"&\""), queryParserViolations(Map.of("A",
                 "class A { void f(String raw) { for (String p : raw.split(\"&\")) {} } }")));
+        assertEquals(List.of("G splits on \"&\""), queryParserViolations(Map.of("G",
+                "class G { void f(String raw) { new StringTokenizer(raw, \"&\"); } }")));
+        assertEquals(List.of("H splits on \"&\""), queryParserViolations(Map.of("H",
+                "class H { void f(String raw) { Pattern.compile(\"&\").split(raw); } }")));
         assertEquals(List.of("B reads getRawQuery() without MorpheusHttpQuery.parse( or requireBoundedQuery("),
                 queryParserViolations(Map.of("B", "class B { Object f(X x) { return decode(x.getRawQuery()); } }")));
         assertEquals(List.of("C calls requireBoundedQuery( without the count, name and value bounds"),

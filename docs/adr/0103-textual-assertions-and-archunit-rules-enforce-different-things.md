@@ -543,9 +543,14 @@ dit `query parameter is required: <clé>` comme les quatre autres routes (et non
 - **Le second parseur du résolveur remote** (`parseQuery`/`addParameter`) est conservé : il lève une `ResolutionException` avec un code d'enveloppe
   remote, pas une `ApiFailure`. C'est une copie **nécessaire**, désormais gardée par les règles 2 et 3.
 
+### Dettes assumées
+
+- **Le résolveur remote garde sa propre copie** de `parseQuery`/`addParameter`/`decode`. Elle est réductible en paramétrant `MorpheusHttpQuery` par une `Function<String, RuntimeException>` comme le fait déjà `HttpQueryBudget` ; non fait ici pour ne pas mêler une refonte du proxy remote au correctif. Le risque est une dérive des deux copies (règle du segment vide, par exemple), tenue aujourd'hui par les règles 2 et 3 et par `MorpheusRemoteProxyTargetResolverTest`.
+- **Ordre de `rejectUnknown`** : `MorpheusHttpQuery` garde une `Map.copyOf`, donc avec plusieurs paramètres inconnus la clé nommée dans l'erreur n'est pas déterministe. Préexistant (les parseurs supprimés faisaient de même), hors périmètre.
+
 ### Ce que la garde ne couvre pas
 
-Une query lue par `getQuery()` (déjà décodée) ; un parseur atteint par référence de méthode ; un `split` à séparateur non littéral ; un
+Une query lue par `getQuery()` (déjà décodée) ; un parseur atteint par référence de méthode ; un `split` à séparateur non littéral ; la règle 1 voit aussi `splitAsStream`, `StringTokenizer(` et `Pattern.compile("…&…")`, mais pas un séparateur construit ; un
 budget appelé sur une autre chaîne que celle qui est parsée (la règle est par source, pas par appel) ; du code qui suit un `//`
 à l'intérieur d'un littéral sur la même ligne. Le risque n'est **pas** démontré comme un déni de service : le travail reste borné par la ligne de requête que
 `jdk.httpserver` accepte, ce que cet amendement n'a pas mesuré. Le constat porte sur l'asymétrie entre routes et sur une garde qui affirmait plus qu'elle ne vérifiait.

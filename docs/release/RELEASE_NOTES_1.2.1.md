@@ -392,10 +392,13 @@ Jusqu'à 1.2.0, ces trois routes (`GET /api/v1/saved-views`, `/api/v1/policy-ove
 leur query string elles-mêmes, sans le budget que toutes les autres routes appliquent. À partir de 1.2.1 elles passent par le même
 parseur : une query de plus de 16 paramètres ou de plus de 16 Kio est refusée en `400`, comme ailleurs.
 
-Trois différences visibles, toutes sur des requêtes déjà mal formées :
+Différences visibles, toutes sur des requêtes déjà mal formées (le statut reste `400` là où il l'était déjà) :
 
 - un segment vide (`?scopeKind=PROJECT&&scopeId=…`, ou une `&` finale) est **accepté** au lieu d'être refusé ;
 - un paramètre répété répond `duplicate query parameter: <clé>` (auparavant `invalid or duplicate query parameter[: <clé>]`) ;
+- un nom de paramètre vide (`?=x`) répond `query parameter name must not be blank` (auparavant `invalid or duplicate query parameter`) ;
+- un pourcentage invalide (`%zz`) répond `query parameter uses an invalid percent-encoding` au lieu du message brut du JDK ;
+- un segment fait uniquement d'espaces est ignoré comme un segment vide ;
 - `policy-overrides` répond `query parameter is required: <clé>` pour une clé absente (auparavant `missing query parameter: <clé>`).
 
 Un client qui branchait sur l'ancien texte d'erreur doit brancher sur le code (`BAD_REQUEST`, HTTP 400), pas sur le message. Une requête
