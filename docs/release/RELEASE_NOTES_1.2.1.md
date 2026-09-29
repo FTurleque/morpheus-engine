@@ -165,8 +165,8 @@ Décision : [ADR-0108, amendement du 26 septembre 2026 (codes de sortie des refu
 Jusqu'à 1.2.0, l'outil rendait un résultat **sans `isError`** (donc sans erreur) pour les quatre refus que le service lui
 rend au lieu de les lever : `CONFLICT` (clé d'idempotence réutilisée pour une autre commande, révision attendue périmée),
 `NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION` et `REJECTED`. Seul le corps disait le refus (`"state":"CONFLICT"`). Le lanceur
-`mcp --stdio` refuse aujourd'hui toute écriture (le provider OpenSpec qu'il embarque n'expose pas `WRITE_CHANGE`) et le câblage par
-défaut de `MorpheusMcpServer` la refuse toujours : un client qui ne regardait que `isError` tenait donc pour réussie une mutation
+`mcp --stdio` refuse aujourd'hui toute mutation de cycle de vie (le provider OpenSpec qu'il embarque ne déclare pas `WRITE_CHANGE`) et
+le câblage par défaut de `MorpheusMcpServer` la refuse toujours : un client qui ne regardait que `isError` tenait donc pour réussie une mutation
 qui n'avait pas eu lieu.
 
 À partir de 1.2.1, `isError` suit l'état :

@@ -195,7 +195,8 @@ Le contrat ci-dessus dérive ce que le handler *mappe* de ce qu'il peut *lever*.
 `NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION`, `REJECTED`. Aucun ne lève, donc aucun ne franchissait le `catch` de
 `MorpheusControlledLifecycleMcpTools`, et tous sortaient d'un résultat sans `isError` : un agent qui lit le drapeau, comme le
 protocole l'y invite, voyait un succès. Le câblage par défaut (`MorpheusMcpServer.build(Path)`, `run(Path)`) passe
-`deniedWrites()` : **toute** tentative d'écriture y rendait `NOT_AUTHORIZED` sous la forme d'un succès. Le lanceur
+`deniedWrites()` : **toute** tentative de mutation de cycle de vie y rendait `NOT_AUTHORIZED` sous la forme d'un succès (les autres
+outils d'écriture — portefeuilles, vues sauvegardées, packs de policy — ne passent pas par ce résolveur). Le lanceur
 `mcp --stdio` passe `CliProjectWriteCapabilityResolver` : il refuse de même tant que le provider qu'il embarque (OpenSpec)
 n'expose pas `WRITE_CHANGE`, ce que `MorpheusM17McpStdioIntegrationTest` observe sur un vrai processus.
 Le corps portait `"state":"CONFLICT"`, ce qui bornait la gravité sans la supprimer. Le CLI, lui, distinguait déjà : code de
@@ -261,17 +262,29 @@ Chaque site, et s'il peut porter un refus que le service rend au lieu de le leve
   appelle le câblage par défaut sur le transport réel et lit le membre `isError` du résultat JSON-RPC.
   `MorpheusM17McpStdioIntegrationTest` l'exige aussi d'un vrai processus `mcp --stdio`.
 - `ChangeLifecycleMutationContractTest#onlyAppliedAndAlreadyAppliedAreSuccessful` écrit la partition indépendamment du `switch`.
-- `McpResultOwnershipTest` : hors `McpToolFailure`, `isError` n'est jamais autre chose que le littéral `false`, et toute
-  construction d'un `CallToolResult` écrit son `isError`. Le balayage est récursif, échoue s'il ne trouve rien, et ses motifs
-  sont eux-mêmes éprouvés sur des sources synthétiques.
+- `McpResultOwnershipTest` : hors `McpToolFailure`, chaque chaîne `CallToolResult.builder(...)` décide elle-même son `isError` et
+  le décide au littéral `false` ; `isError` n'est jamais appelé avec autre chose ; l'import statique du builder, le type
+  `CallToolResult.Builder` et le constructeur sont refusés ; `McpToolFailure` pose `isError(true)` exactement une fois. Elle lit du
+  code (commentaires retirés, littéraux vidés par un petit scanner qui connaît les blocs de texte et les caractères), juge chaque
+  builder sur sa propre chaîne (deux builders dans une expression, ou un `;` dans un argument lambda, ne brouillent pas le verdict),
+  est récursive, échoue si elle ne juge rien dans une classe qui retourne un résultat d'outil, et chaque règle est éprouvée dans les
+  deux sens sur des sources synthétiques.
+- `AuditRemediationContractTest#providerPluginMcpFallbackNeverRelaysArbitraryExceptionMessages` (fichier de gouvernance) exigeait le
+  texte `addTextContent(REMOTE_DISCOVERY_FAILURE)`. Il exige désormais `McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE)`, refuse
+  `McpToolFailure.result(` et `McpToolFailure.safeMessage` (les deux relaient le message d'une exception, ce que cette frontière de
+  rédaction ne fait jamais — §3) et veut que **chaque** `refusal(` de ce fichier porte le code stable. Aucune assertion n'est retirée.
 
 ### Ce que la garde ne couvre pas
 
 `McpResultOwnershipTest` ne peut pas savoir si un **corps** porte un refus : un handler qui répond `isError(false)` autour d'un
 résultat d'état `BLOCKED` la satisfait. Cette propriété est celle de chaque outil et se teste là où l'état existe ; l'inventaire
-ci-dessus est le jugement porté aujourd'hui, pas une vérification qui se rejoue. La garde ne voit ni un résultat assemblé hors du
-constructeur du SDK, ni un autre paquet, ni `morpheus-mcp-transport` (qui écrit des erreurs JSON-RPC, pas des résultats d'outil),
-et retirer les commentaires est une expression régulière, non un analyseur.
+ci-dessus est le jugement porté aujourd'hui, pas une vérification qui se rejoue. Elle ne voit pas non plus : un builder gardé dans une
+variable et décidé dans une instruction suivante (refusé comme non décidé — conservateur, pas exact) ; un résultat assemblé hors des
+sources principales de ce module (un autre paquet, `morpheus-mcp-transport` qui écrit des erreurs JSON-RPC et non des résultats
+d'outil, la réflexion, une méthode qui retourne un builder) ; une séquence d'échappement Unicode qui tient lieu de guillemet ; un
+`McpToolFailure.refusal(...)` alimenté par un corps qui n'est pas un refus ; ni si les outils jugés sont ceux qui sont servis (elle lit
+des sources, pas les spécifications enregistrées). Elle interdit qu'un résultat sorte **sans** que son `isError` ait été écrit ; elle
+n'affirme pas qu'il soit juste.
 
 ### Ce que cet amendement ne tranche pas
 
