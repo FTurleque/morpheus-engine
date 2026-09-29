@@ -54,7 +54,7 @@ Le hardening D2 renforce les frontières qui traitent des données non fiables :
 | Workspaces HTTP/remote | `AllowedWorkspaceRoots`, politique de host et résolveurs sûrs |
 | Fichiers workspace | `SafeWorkspaceFileResolver` et refus des évasions hors racine |
 | Ingestion provider | budgets explicites (`ProviderIngestionBudget`) et erreurs bornées |
-| JSON | baseline Jackson 3.2.2 + tests de régression de profondeur / parsing |
+| JSON | baseline Jackson 3.2.3 + tests de régression de profondeur / parsing |
 | Plugins externes | intégrité JAR et activation explicite |
 | SQLite | accès transactionnels, checksums de migrations, sécurité du fichier |
 
@@ -160,7 +160,7 @@ Baseline 1.2.1 :
 Java                  21
 Maven Wrapper         3.9.16
 sqlite-jdbc           3.53.4.0
-Jackson BOM           3.2.2
+Jackson BOM           3.2.3
 MCP SDK Java          2.0.1
 JUnit                 6.1.3
 ArchUnit              1.5.0
