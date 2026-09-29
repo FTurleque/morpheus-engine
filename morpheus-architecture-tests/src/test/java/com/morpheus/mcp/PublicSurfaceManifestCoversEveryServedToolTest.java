@@ -134,9 +134,14 @@ class PublicSurfaceManifestCoversEveryServedToolTest {
     @Test
     void theSentinelVocabularyIsTheGovernanceOneAndEveryCellOfTheManifestUsesIt() throws IOException {
         String governance = Files.readString(repoRoot().resolve(".claude/rules/governance.md"));
-        for (String sentinel : PublicSurfaceManifest.SENTINELS) {
-            assertTrue(governance.contains("`" + sentinel + "`"), sentinel + " is not in the governance table");
+        Set<String> governed = new TreeSet<>();
+        java.util.regex.Matcher named = java.util.regex.Pattern.compile("`(" + PublicSurfaceManifest.SENTINEL_PREFIX + "[A-Z_]+)`")
+                .matcher(governance);
+        while (named.find()) {
+            governed.add(named.group(1));
         }
+        assertEquals(new TreeSet<>(PublicSurfaceManifest.SENTINELS), governed,
+                "the sentinel vocabulary and the governance table name different sentinels");
         Set<String> invented = new TreeSet<>();
         for (String[] columns : PublicSurfaceManifest.rows(repoRoot())) {
             for (int column = PublicSurfaceManifest.CLI; column <= PublicSurfaceManifest.HTTP; column++) {
