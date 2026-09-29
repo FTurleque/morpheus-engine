@@ -92,7 +92,7 @@ Write-Host 'D2 no-CI scope: PASS (.github/workflows delta NONE)'
 Assert-ReactorVersion $Version
 $pom = Get-Content -LiteralPath (Join-Path $repo 'pom.xml') -Raw
 foreach ($token in @(
-    '<jackson.version>3.2.2</jackson.version>',
+    '<jackson.version>3.2.3</jackson.version>',
     '<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>',
     '<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>',
     '<failOnWarning>true</failOnWarning>',

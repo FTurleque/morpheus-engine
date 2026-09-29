@@ -386,6 +386,27 @@ plusieurs racines de workspace, `--workspace-root` reste répétable.
 
 Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, répétition)](../adr/0108-a-response-says-what-it-could-not-observe.md).
 
+### OpenAPI : `CompositionConflict.entityType` publie dix valeurs, `direction` de M23 publie `OUTGOING`/`INCOMING`
+
+Dans 1.2.0, `CompositionEntityType` comptait quatre valeurs (`SPECIFICATION`, `REQUIREMENT`, `CHANGE`, `IDENTITY`) et
+`docs/openapi/morpheus-v1.yaml` les listait exactement. La composition de 1.2.1 observe dix types (voir « Composition
+multi-provider » plus haut), et le contrat les publie enfin : `GET /api/v1/projects/{id}/composition` peut renvoyer, dans
+`entityType`, les six valeurs `PROJECT`, `SCENARIO`, `CONSTRAINT`, `DESIGN_DECISION`, `TASK` et `ACCEPTANCE_CRITERION`, que
+le schéma de `develop` n'annonçait pas. L'énuméré est dans l'ordre de `CompositionEntityType` : `PROJECT`,
+`SPECIFICATION`, `REQUIREMENT`, `SCENARIO`, `CHANGE`, `CONSTRAINT`, `DESIGN_DECISION`, `TASK`, `ACCEPTANCE_CRITERION`,
+`IDENTITY`.
+
+**Migration.** Un client généré ou écrit d'après le schéma de 1.2.0, avec un `switch` exhaustif sur les quatre valeurs,
+gagne six cas : régénérer le client, ou traiter une valeur inconnue sans lever.
+
+Le même balayage a trouvé une dérive qui, elle, existait dans 1.2.0 : `morpheus-v1-portfolio-m23.yaml` annonçait pour
+`TraversalRequest.direction` `OUTBOUND`, `INBOUND`, `BOTH`, alors que le serveur, le CLI (`--direction`) et le serveur MCP
+n'acceptent que `OUTGOING`, `INCOMING` et `BOTH` (sans distinction de casse). Le contrat et `docs/user/PORTFOLIOS.md` sont
+corrigés ; le code ne change pas. Une requête écrite d'après l'ancien contrat avec `OUTBOUND` ou `INBOUND` était refusée
+(HTTP 400, code d'usage du CLI, erreur d'outil MCP) et l'est toujours : **écrire `OUTGOING` ou `INCOMING`**.
+
+Décision : [ADR-0103, amendement du 29 septembre 2026 (API-5)](../adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md).
+
 ### HTTP `saved-views`, `policy-overrides`, `policy-activations` : la query string passe par le budget partagé
 
 Jusqu'à 1.2.0, ces trois routes (`GET /api/v1/saved-views`, `/api/v1/policy-overrides`, `/api/v1/policy-activations`) parsaient

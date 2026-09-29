@@ -510,6 +510,55 @@ Cassée pour de vrai sur l'arbre : les deux adaptateurs d'origine, un `rejectUnk
 un `default` de parseur terminal qui stocke le jeton, un `default` de `MorpheusReasoningCli` qui le transmet, un text
 block `\"""` ajouté à `MorpheusQueryCli` avec un `rejectUnknown` retiré — chaque fois la garde tombe sur le bon site.
 
+## Amendement du 29 septembre 2026 (API-5) — un énuméré publié est confronté à l'énuméré Java, dans les deux sens
+
+`CompositionConflict.entityType` listait quatre valeurs dans `docs/openapi/morpheus-v1.yaml` alors que
+`CompositionEntityType` en publie dix depuis CMP-1 ; `resolution`, trois lignes plus bas, avait été corrigé dans le même
+commit. Un énuméré recopié dans un contrat est une liste tenue à la main à côté d'une liste Java, et rien ne les liait :
+un client qui valide contre le schéma rejette une réponse que le serveur envoie légitimement, un générateur de client typé
+produit une désérialisation qui lève. C'est le défaut des gardes trop étroites vu de l'autre côté — ici il n'y avait pas de
+garde du tout.
+
+**Décision.** `PublishedEnumsMatchJavaEnumsTest` déclare une table `(fichier, schéma, propriété, énuméré Java)` et exige
+l'égalité des ensembles **dans les deux sens** : une valeur que seul Java connaît est une réponse que le contrat interdit,
+une valeur que seul le YAML connaît est une requête que le code refuse. Trois propriétés la tiennent honnête :
+
+1. chaque ligne doit résoudre un énuméré YAML non vide — un chemin qui ne résout rien échoue en le disant, la table ne
+   peut pas être vide ;
+2. **tout** `enum:` (style flux ou bloc) écrit dans les contrats de `docs/openapi/` (la liste des fichiers lus est elle-même confrontée au répertoire) est soit une ligne de la table, soit une exemption déclarée
+   avec sa raison : un énuméré nouveau est refusé tant que personne ne l'a classé, au lieu de rester silencieusement non
+   gardé (le Javadoc de CLI-3 se contentait de l'écrire) ;
+3. le localisateur est prouvé sur un document synthétique — valeur retirée, schéma ou propriété inconnus, énuméré absent.
+
+La lecture est textuelle : aucun analyseur YAML n'est ajouté, et la proposition — ces deux listes de noms sont égales —
+porte sur le texte du contrat (voir plus haut le critère de choix).
+
+Sur l'arbre de ce jour la table compte 24 lignes (dont 1 sur une constante `Set<String>`, `TechnicalContextOptions.ALLOWED_SOURCES`, faute
+d'énuméré Java) et 3 exemptions. Elle a refusé l'arbre d'origine sur **deux** défauts, pas un : `entityType` (six valeurs
+absentes) et `TraversalRequest.direction` de m23, qui publiait `OUTBOUND`/`INBOUND` là où le code, ses tests et le CLI
+n'acceptent que `OUTGOING`/`INCOMING` — une requête écrite d'après le contrat était refusée.
+
+### Alternatives écartées
+
+- **Corriger `entityType` seul.** C'est remettre les deux copies d'accord une fois de plus ; la suivante dériverait
+  pareil, et m23 en était la preuve.
+- **Générer le YAML depuis les énuméré Java.** Le contrat est une pièce rédigée à la main (bornes, descriptions) ; un
+  générateur en déplacerait la maintenance sans supprimer la copie.
+- **Un analyseur YAML dans le module de tests.** Une dépendance de plus pour lire trois formes de ligne ; le localisateur
+  refuse d'ailleurs ce qu'il ne comprend pas plutôt que de deviner.
+
+### Ce que la garde ne couvre pas
+
+- **Les trois exemptions** : `ScopeKind` (m24 et m25, dérivé des records scellés de `PolicyScope`) et `Error.code`
+  (littéraux de chaîne de `ApiFailure`). Leur existence est vérifiée, pas leurs valeurs.
+- **Les énumérations écrites autrement** : `const`, `oneOf`, prose, ou une propriété typée sur un énuméré sans liste `enum:`. Un `enum:` en style bloc est compté, donc classé, mais une ligne de table sur lui échoue à résoudre tant que le localisateur ne lit que le style flux — aucun n'existe aujourd'hui.
+- **Le sens Java → OpenAPI d'un énuméré que le code n'émet pas encore** : la garde compare ce que déclare l'énuméré, pas
+  ce que les services produisent.
+
+**Preuve.** Cassée pour de vrai : `TASK` retiré de `entityType` (l'arbre corrigé) fait tomber la règle en nommant la
+valeur ; un `enum:` inédit ajouté à `morpheus-v1-query-m24.yaml` fait tomber la règle de classement (« writes 3 enum
+list(s) but … classify 2 ») ; l'arbre d'origine tombait sur `entityType` et `direction`.
+
 ## Amendement du 29 septembre 2026 (API-4) — le budget de query string est imposé par découverte, plus par deux chemins nommés
 
 `HttpQueryBudget` s'annonce « partagé par tous les parseurs de query string de MORPHEUS », et `BoundaryResilienceContractTest`
