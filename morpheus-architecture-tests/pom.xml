@@ -28,6 +28,7 @@
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-mcp-transport</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-api</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-cli</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>io.modelcontextprotocol.sdk</groupId><artifactId>mcp-core</artifactId><scope>test</scope></dependency>
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter-api</artifactId><scope>test</scope></dependency>
         <dependency><groupId>com.tngtech.archunit</groupId><artifactId>archunit</artifactId><version>${archunit.version}</version><scope>test</scope></dependency>
     </dependencies>

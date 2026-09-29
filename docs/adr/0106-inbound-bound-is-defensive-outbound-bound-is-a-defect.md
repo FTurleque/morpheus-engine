@@ -272,3 +272,37 @@ passer sous la borne sans que rien ne le signale.
   NexusIntegrationSettings.MAX_TIMEOUT_SECONDS)`. Rouge avant le changement (120 s contre 240 s exigées).
 - `BoundedStdioServerTransportProviderHandlerDeadlineTest#theDeadlineMustBePositiveAndDefaultsToTheProductionBound`
   épingle la nouvelle valeur.
+
+
+## Amendement du 29 septembre 2026 (MAN-1) — la question de gouvernance laissée ouverte par l'amendement du 23 septembre est traitée
+
+La section « Hors de cet amendement » de l'amendement du 23 septembre écrivait que treize des quatorze outils du catalogue de lecture
+étaient absents de `contracts/public-surfaces.tsv`, et que c'était « une question de gouvernance qui mérite sa propre décision ». Le constat
+était plus étroit que le trou : relevé le 29 septembre 2026 en **appelant** `MorpheusMcpServer.toolSpecifications` avec le câblage par défaut,
+le serveur sert **58** outils et la colonne `mcp` du manifeste en nommait **39** ; **dix-neuf** outils servis n'avaient aucune ligne, dont les
+treize du catalogue de lecture (le seul `get_acceptance_criteria` y figurait) et six autres : références externes, contexte augmenté et orchestration. `discover_provider_plugins` n'est pas servi par ce câblage (sa classe ne
+s'instancie avec un répertoire qu'ailleurs) et sa ligne dit `EXPLICITLY_NOT_EXPOSED`.
+
+**Décision.** Le manifeste porte une ligne par capacité, donc une par outil (chacun a sa commande CLI et sa route HTTP propres : aucun regroupement,
+donc aucune convention de cellule nouvelle). Les dix-neuf lignes sont ajoutées, sans toucher aux existantes ni à leur ordre. Leurs colonnes `cli` et
+`http` sont lues dans les commandes et les routes réelles ; une sentinelle n'est écrite que là où la capacité est réellement absente du transport
+(`get_current_specification`, `get_specification_context`, `get_change_status`, `get_blocking_conditions` n'ont pas de commande CLI).
+
+**La garde.** `PublicSurfaceManifestCoversEveryServedToolTest` compare, dans les deux sens, les noms que le serveur sert à ceux que la colonne `mcp`
+nomme, et nomme les absents comme les noms cités et plus servis. Elle vit dans `morpheus-architecture-tests` (paquet `com.morpheus.mcp` de ses tests,
+parce que `toolSpecifications` est de visibilité paquet) et lit le manifeste par `PublicSurfaceManifest`, désormais l'unique lecteur du fichier, que
+`ProductionIntegrityContractTest` utilise aussi : la placer dans `morpheus-mcp` aurait exigé un second lecteur qu'aucun test ne pouvait tenir égal au premier.
+Le coût est une déclaration `mcp-core` en scope `test` dans le POM de ce module (mesuré : sans elle, `dependency:analyze` signale « used undeclared »). Elle
+refuse le vide (aucun outil servi, aucune ligne, un manifeste de seules sentinelles), refuse une cellule qui nomme plusieurs outils, et son Javadoc écrit
+ce qu'elle ne couvre pas : la **présence** d'une ligne, non la justesse des colonnes `cli` et `http` ; un talon (`check_product_update`) n'est pas distingué d'un
+outil réel ; seuls les outils du câblage par défaut sont jugés.
+
+**Ce que cet amendement ne tranche pas.** `resolve_external_reference`, `get_augmented_requirement_context` et `get_augmented_change_context` lancent un pair
+MCP que l'opérateur a configuré (MINOS, NEXUS), à chaque appel. L'arbitrage écrit sur `provider.plugins.probe` (« le code tiers exécutable n'est pas orienté
+modèle », ADR-0101 §2) ne s'y applique pas de plein droit : ADR-0101 §1 range un pair MCP explicitement configuré parmi le code de confiance, et
+§2 ne met que le probe dans la garantie « le modèle ne peut pas déclencher l'exécution de code tiers ». Lu dans le code : la commande, les arguments et
+l'environnement de lancement viennent des réglages de l'opérateur (`MinosMcpCodeGateway.launch`, `NexusMcpContextGateway.launch`) ; ce que le modèle fournit
+(`nexusProject`, `requestedSources`, `constraints`, l'identifiant d'une référence) part vers le pair déjà lancé, comme arguments d'appel. Lue à la lettre, la ligne « le modèle ne peut pas déclencher l'exécution de code tiers » du tableau du §2 n'est vraie que si « code tiers » ne désigne pas un pair configuré : ces trois
+outils en lancent un à la demande du modèle. Les trois lignes **nomment
+donc l'outil** — une sentinelle affirmerait une absence fausse — et leurs notes le disent. Faut-il que ces trois outils soient orientés modèle ? C'est une décision de
+produit, laissée ouverte ; aucune exposition n'est changée ici.
