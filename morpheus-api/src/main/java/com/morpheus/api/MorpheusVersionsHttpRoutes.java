@@ -25,8 +25,7 @@ final class MorpheusVersionsHttpRoutes {
             String projectId) {
         MorpheusHttpRouteGuards.requireMethod(method, "GET");
         if (segments.size() == 3) {
-            query.rejectUnknown(Set.of());
-            return ok(service.versions(projectId));
+            return ok(service.versions(projectId, page(query)));
         }
         if (segments.size() == 4 && segments.get(3).equals("compare")) {
             query.rejectUnknown(Set.of("fromSnapshotId", "toSnapshotId"));

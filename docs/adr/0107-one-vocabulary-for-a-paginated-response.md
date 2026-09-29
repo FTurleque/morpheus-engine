@@ -117,3 +117,36 @@ fait échouer la règle d'ordre canonique et la règle de copie identique ; un `
   cas d'usage, ou huit réponses publiques changeraient de forme.
 - **Une règle ArchUnit.** Aucune règle de bytecode ne voit le nom d'une clé de map ; ADR-0103 classe ce cas parmi
   les interdits textuels par nature.
+
+## Amendement du 29 septembre 2026 (API-3) — une collection qui ne décroît jamais est restituée par page
+
+`GET /api/v1/projects/{id}/versions` rendait sa lignée entière sous un `items` nu, refusait `?offset` et `?limit` (400
+`unknown query parameter`) que sa route sœur `.../versions/{snapshotId}/requirements` accepte, et n'employait pas le
+vocabulaire de page que cet ADR déclare unique. La collection est **structurellement croissante**
+(`retentionPolicy = KEEP_ALL_PUBLISHED`, un élément par publication réussie), et chaque élément coûte deux lectures de store
+(`findSnapshotVersion`, `findSpecificationVersion`) qu'aucun paramètre ne permettait d'éviter.
+
+**Décision.** La route reprend le patron de sa sœur : `MorpheusVersionsHttpRoutes` alimente `versions(...)` par le même
+`page(query)` privé (`offset` ≥ 0, `limit` de 1 à `MAX_LIMIT`, 50 par défaut), et la réponse est
+`PagedEnvelope.following(projectId, retentionPolicy ; slice(...))`. `slice` n'applique la projection qu'aux éléments retenus :
+le coût par élément est borné par `limit`. Une collection qui ne décroît jamais est restituée par page.
+
+**Ce qui n'est pas borné, et c'est dit.** La lignée reste parcourue **en entier** pour connaître `totalMatches` : c'est une
+lecture de métadonnées (un `findSnapshot` par prédécesseur, chaînée), inévitable sans changer le modèle de stockage. Seule la
+projection — les deux lectures de store par élément — est bornée. L'ordre est celui de la lignée, du plus ancien au plus
+récent : total, stable et **append-only**, donc une publication survenue entre deux requêtes s'ajoute en fin et ne décale
+aucune page déjà lue.
+
+### Alternatives écartées
+
+- **Borner la lignée côté domaine.** La rétention `KEEP_ALL_PUBLISHED` est une décision ; le constat porte sur la
+  restitution, pas sur la conservation.
+- **Un second extracteur de page** propre à cette route : c'est la copie qui dérive.
+- **Un curseur** (`?after=<snapshotId>`) : plus fidèle à une collection append-only, mais une troisième forme de page.
+
+### Ce que la garde ne couvre pas
+
+`PagedResponseVocabularyArchitectureTest` n'interdit que les littéraux `"totalMatches"` et `"hasMore"` écrits à la main ; elle
+n'aurait **pas** vu l'ancien `items` nu, et ne voit toujours pas une collection non paginée. Le comportement est tenu par
+`MorpheusApiHistoryContractTest` (deux pages, `hasMore`, paramètre inconnu refusé) et le texte du routeur par
+`LocalVersionsHttpRoutesArchitectureTest`.
