@@ -25,7 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * that third way at the source. Outside {@link McpToolFailure}: every {@code CallToolResult.builder(...)} call
  * chain decides {@code isError} itself and decides the literal {@code false}; {@code isError} is never called
  * with anything else; and the other ways to reach a builder or a result (static import of the builder, its
- * {@code Builder} type, the constructor) are refused, so the shape above is the only one left to check.</p>
+ * {@code Builder} type, the constructor, and a static import of {@link McpToolFailure}, which would hide the owner's
+ * calls from the guards that read for them) are refused, so the shape above is the only one left to check.</p>
  *
  * <p>It reads code, not text: comments are removed and string literals emptied by a small scanner that knows
  * text blocks and character literals, so a {@code //} inside a string does not swallow the rest of a line. Each
@@ -47,6 +48,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>Unicode escapes standing for a quote, which the scanner does not decode, and a
  *   {@code McpToolFailure.refusal(...)} call fed a body that is not a refusal.</li>
  *   <li>That the tools judged are the tools served: it reads sources, not the registered specifications.</li>
+ *   <li>The owner itself. {@code McpToolFailure} is exempt from every rule but "sets {@code isError(true)} exactly
+ *   once": it could build through the constructor, or through a static import, without failing anything.</li>
+ *   <li>The "was something judged" check is loose in three ways. A class that only cites
+ *   {@code McpToolFailure.safeMessage} counts as routed through the owner although it builds no result there;
+ *   a method returning {@code Optional<CallToolResult>} or a lambda without a named method does not make its class
+ *   count as one that returns a tool result, so the check does not look at it. The main rule is not weakened by
+ *   either: it judges every builder in every file, whatever the file declares.</li>
  * </ul>
  */
 class McpResultOwnershipTest {
@@ -56,7 +64,8 @@ class McpResultOwnershipTest {
     private static final Pattern BUILDER_CALL = Pattern.compile("CallToolResult\\s*\\.\\s*builder\\s*(?=\\()");
     private static final Pattern BUILDER_TYPE = Pattern.compile("CallToolResult\\s*\\.\\s*Builder\\b");
     private static final Pattern STATIC_IMPORT = Pattern.compile("import\\s+static\\s+[\\w.]*CallToolResult\\b");
-    private static final Pattern CONSTRUCTOR = Pattern.compile("new\\s+(?:McpSchema\\s*\\.\\s*)?CallToolResult\\s*\\(");
+    private static final Pattern STATIC_OWNER_IMPORT = Pattern.compile("import\\s+static\\s+[\\w.]*McpToolFailure\\b");
+    private static final Pattern CONSTRUCTOR =Pattern.compile("new\\s+(?:McpSchema\\s*\\.\\s*)?CallToolResult\\s*\\(");
     private static final Pattern IS_ERROR_CALL = Pattern.compile("\\.\\s*isError\\s*(?=\\()");
     private static final Pattern RESULT_RETURNING_METHOD = Pattern.compile("CallToolResult\\s+\\w+\\s*\\(");
 
@@ -132,6 +141,8 @@ class McpResultOwnershipTest {
         assertViolations(1, "import static io.modelcontextprotocol.spec.McpSchema.CallToolResult.*;");
         assertViolations(1, "var b = new McpSchema.CallToolResult.Builder();");
         assertViolations(1, "import io.modelcontextprotocol.spec.McpSchema.CallToolResult.Builder;\nBuilder b;");
+        assertViolations(1, "import static com.morpheus.mcp.McpToolFailure.refusal;");
+        assertViolations(1, "import static com.morpheus.mcp.McpToolFailure.*;");
     }
 
     @Test
@@ -166,6 +177,7 @@ class McpResultOwnershipTest {
         assertViolations(0, "return McpSchema.CallToolResult.builder().addTextContent(x).isError(false).build();");
         assertViolations(0, "return McpSchema.CallToolResult.builder(List.of(content))\n        .isError( false )\n        .build();");
         assertViolations(0, "return McpToolFailure.refusal(body);");
+        assertViolations(0, "import com.morpheus.mcp.McpToolFailure;");
     }
 
     private static void assertViolations(int expected, String source) {
@@ -178,6 +190,9 @@ class McpResultOwnershipTest {
 
         if (STATIC_IMPORT.matcher(code).find()) {
             violations.add("a static import of CallToolResult members hides the builder from this scan");
+        }
+        if (STATIC_OWNER_IMPORT.matcher(code).find()) {
+            violations.add("a static import of McpToolFailure members hides the calls into the owner from the guards that read for them");
         }
         if (BUILDER_TYPE.matcher(code).find()) {
             violations.add("CallToolResult.Builder used directly");

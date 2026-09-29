@@ -263,7 +263,7 @@ Chaque site, et s'il peut porter un refus que le service rend au lieu de le leve
   `MorpheusM17McpStdioIntegrationTest` l'exige aussi d'un vrai processus `mcp --stdio`.
 - `ChangeLifecycleMutationContractTest#onlyAppliedAndAlreadyAppliedAreSuccessful` écrit la partition indépendamment du `switch`.
 - `McpResultOwnershipTest` : hors `McpToolFailure`, chaque chaîne `CallToolResult.builder(...)` décide elle-même son `isError` et
-  le décide au littéral `false` ; `isError` n'est jamais appelé avec autre chose ; l'import statique du builder, le type
+  le décide au littéral `false` ; `isError` n'est jamais appelé avec autre chose ; l'import statique du builder ou de `McpToolFailure`, le type
   `CallToolResult.Builder` et le constructeur sont refusés ; `McpToolFailure` pose `isError(true)` exactement une fois. Elle lit du
   code (commentaires retirés, littéraux vidés par un petit scanner qui connaît les blocs de texte et les caractères), juge chaque
   builder sur sa propre chaîne (deux builders dans une expression, ou un `;` dans un argument lambda, ne brouillent pas le verdict),
@@ -283,7 +283,11 @@ variable et décidé dans une instruction suivante (refusé comme non décidé �
 sources principales de ce module (un autre paquet, `morpheus-mcp-transport` qui écrit des erreurs JSON-RPC et non des résultats
 d'outil, la réflexion, une méthode qui retourne un builder) ; une séquence d'échappement Unicode qui tient lieu de guillemet ; un
 `McpToolFailure.refusal(...)` alimenté par un corps qui n'est pas un refus ; ni si les outils jugés sont ceux qui sont servis (elle lit
-des sources, pas les spécifications enregistrées). Elle interdit qu'un résultat sorte **sans** que son `isError` ait été écrit ; elle
+des sources, pas les spécifications enregistrées) ; le propriétaire lui-même, exempté de toutes les règles sauf « exactement un
+`isError(true)` » (il pourrait construire par constructeur ou import statique sans rien faire échouer) ; le contrôle « quelque chose a-t-il été
+jugé dans cette classe » est lâche de trois façons : une classe qui ne cite que `McpToolFailure.safeMessage` compte comme routée par le propriétaire
+sans y construire de résultat, et un `Optional<CallToolResult>` ou une lambda sans méthode nommée ne font pas compter leur classe comme
+retournant un résultat — la règle principale, elle, juge tout builder de tout fichier, quoi que le fichier déclare. Elle interdit qu'un résultat sorte **sans** que son `isError` ait été écrit ; elle
 n'affirme pas qu'il soit juste.
 
 ### Ce que cet amendement ne tranche pas

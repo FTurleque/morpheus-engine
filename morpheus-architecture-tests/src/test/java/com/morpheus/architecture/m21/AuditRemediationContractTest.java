@@ -61,8 +61,8 @@ class AuditRemediationContractTest {
         assertFalse(mcp.contains("McpToolFailure.result("),
                 "this boundary answers a stable code; result(RuntimeException) relays the exception's message");
         assertFalse(mcp.contains("McpToolFailure.safeMessage"));
-        assertEquals(occurrences(mcp, "McpToolFailure.refusal("), occurrences(mcp, "McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE)"),
-                "every refusal built here carries the stable code and nothing derived from the exception");
+        assertEquals(occurrences(mcp, "refusal("), occurrences(mcp, "McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE)"),
+                "every refusal built here is written McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE): a bare refusal( or one fed anything else is refused");
     }
 
     @Test
