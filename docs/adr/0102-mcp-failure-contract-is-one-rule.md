@@ -184,3 +184,101 @@ handler sur une base absente.
 Ce contrat ne dit rien de la **sémantique** des échecs métier — `UNKNOWN` n'est toujours pas
 `BLOCKED` (ADR-0093), un conflit de composition reste explicite, et un `CallToolResult` en erreur
 reste un refus, jamais une dégradation silencieuse.
+
+## Amendement du 29 septembre 2026 (MCP-5) — un refus rendu comme valeur se lit comme un refus
+
+### Constat
+
+Le contrat ci-dessus dérive ce que le handler *mappe* de ce qu'il peut *lever*. Il ne dit rien d'un refus que le service
+**rend**. `ControlledChangeLifecycleMutationService.apply` rend ses refus dans `ChangeLifecycleMutationResult` : `CONFLICT`
+(clé d'idempotence réutilisée pour une autre commande, révision attendue périmée, ou perte de la course CAS à l'écriture),
+`NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION`, `REJECTED`. Aucun ne lève, donc aucun ne franchissait le `catch` de
+`MorpheusControlledLifecycleMcpTools`, et tous sortaient d'un résultat sans `isError` : un agent qui lit le drapeau, comme le
+protocole l'y invite, voyait un succès. Le câblage par défaut (`MorpheusMcpServer.build(Path)`, `run(Path)`) passe
+`deniedWrites()` : **toute** tentative d'écriture y rendait `NOT_AUTHORIZED` sous la forme d'un succès. Le lanceur
+`mcp --stdio` passe `CliProjectWriteCapabilityResolver` : il refuse de même tant que le provider qu'il embarque (OpenSpec)
+n'expose pas `WRITE_CHANGE`, ce que `MorpheusM17McpStdioIntegrationTest` observe sur un vrai processus.
+Le corps portait `"state":"CONFLICT"`, ce qui bornait la gravité sans la supprimer. Le CLI, lui, distinguait déjà : code de
+sortie `4` pour tout état hors `APPLIED` et `ALREADY_APPLIED`.
+
+### Décision
+
+1. **`isError` se décide sur l'état du résultat.** Succès : `APPLIED` (appliqué maintenant) et `ALREADY_APPLIED` (appliqué par
+   un appel antérieur de même clé — le changement est là où l'appelant le voulait). Tout le reste est une erreur.
+2. **Le corps ne change pas d'un octet.** L'état, la raison, `lifecycleState` et `audit` restent ceux d'avant : le drapeau
+   ajoute un fait, il n'en retire aucun (ADR-0108). Un client qui lisait `state` continue de le lire.
+3. **La partition s'écrit à un seul endroit : `ChangeLifecycleMutationResultState.successful()`**, un `switch` qui nomme
+   chaque constante et n'a **pas de `default`** (patron de `MorpheusPolicyCli.exitCodeOf`) : un nouvel état ne compile pas tant
+   que personne n'a décidé de quel côté de la ligne il tombe. Trois lecteurs la consomment : le CLI (code de sortie), MCP
+   (`isError`) et l'invariant de `ChangeLifecycleMutationResult` (seul un succès porte un enregistrement d'audit). Le CLI et
+   l'invariant écrivaient chacun la paire `APPLIED` / `ALREADY_APPLIED` (l'invariant deux fois, dont une niée) ; MCP n'en avait
+   aucune, ce qui était le défaut. Deux copies plus l'absence d'une troisième deviennent une méthode : c'est le cas où l'on
+   supprime la copie plutôt que de la garder sous garde, parce que MCP et CLI dépendent tous deux d'`application`, où
+   l'énumération vit.
+4. **`McpToolFailure` est étendue, pas contournée.** `refusal(String body)` construit le résultat d'erreur à partir d'un corps
+   déjà structuré et le laisse passer tel quel ; `result(RuntimeException)` y délègue avec le message de l'exception. C'est
+   désormais **le seul endroit du module qui pose `isError(true)`** : le talon `check_product_update` et la frontière de
+   rédaction de `MorpheusProviderPluginMcpTools` le construisaient à la main, et le passent désormais par lui. La rédaction de
+   ce dernier ne change pas (il rend toujours un code stable, jamais le message de l'exception).
+5. **Deux résultats sans décision ont reçu la leur.** `MorpheusAugmentedContextMcpTools` et `MorpheusCompositionMcpTools`
+   construisaient un succès sans écrire `isError` (résultat de lecture, `false` par défaut du protocole) ; ils l'écrivent, pour
+   que la garde puisse exiger qu'aucun résultat n'échappe à la décision.
+
+### Inventaire des constructions de `CallToolResult` dans `morpheus-mcp`
+
+Chaque site, et s'il peut porter un refus que le service rend au lieu de le lever :
+
+| Site | Peut porter un refus rendu ? |
+|---|---|
+| `McpToolFailure.refusal` | Le seul constructeur d'erreur. |
+| `MorpheusControlledLifecycleMcpTools` | **Oui**, quatre états de refus (sept chemins de retour) : corrigé, `isError` suit `successful()`. |
+| `MorpheusMcpServer.call` (les quatorze outils du catalogue) | Non : lectures ; leurs refus lèvent. |
+| `MorpheusQueryMcpTools` | Non : les écritures de vues (CAS, archivage) lèvent `SavedViewConflictException` (une `IllegalStateException`), attrapée ; les exports lèvent. |
+| `MorpheusPolicyMcpTools` | Écritures : non, elles lèvent `PolicyConflictException`. `evaluate_policies` et `dry_run_policy_pack` rendent une **décision** (`BLOCK`, `UNKNOWN` comprises) — voir plus bas. |
+| `MorpheusPolicyMcpManagementTools`, `MorpheusPortfolioMcpTools`, `MorpheusExternalReferenceMcpTools`, `MorpheusAugmentedContextMcpTools`, `MorpheusCompositionMcpTools` | Non : lectures. Un statut d'intégration, un `resolutionState` ou un conflit de composition sont des observations déclarées dans la réponse (ADR-0108), pas le refus d'une opération. |
+| `MorpheusJarvisOrchestrationMcpTools` | `evaluate_change_transition` rend le verdict d'une évaluation (`ALLOWED`, `BLOCKED`…) : c'est la réponse à la question posée, et le CLI le rend par le code `0`. |
+| `MorpheusReasoningMcpTools` | Le statut `FAILED` d'un adaptateur figure dans `executions` : une exécution partielle déclarée, que le CLI rend aussi par le code `0`. |
+| `MorpheusProductMcpTools` | `product_info` : non. `check_product_update` : refus par construction, désormais via `McpToolFailure.refusal`. |
+| `MorpheusProviderPluginMcpTools` | Échec : via `McpToolFailure.refusal` avec le code stable ; succès : non. |
+
+### Alternatives écartées
+
+- **Faire lever le service.** Changerait le contrat d'`application` et les sorties CLI et HTTP, qui lisent l'état ; le constat
+  porte sur la traduction MCP, pas sur le modèle.
+- **Deux copies (MCP et CLI) et une garde qui les tient égales**, sur le modèle de `PagedResponseVocabularyArchitectureTest`.
+  Une garde entre deux copies ne se justifie que là où la copie ne peut pas disparaître ; ici elle le peut.
+- **Un `default -> false` ou un `Set` d'états de succès.** Un état futur y serait classé en erreur (ou en succès) sans que
+  personne ne l'ait décidé : c'est la conversion silencieuse que l'ADR-0093 interdit, en plus discret.
+- **Poser `isError` sur `CONFLICT` seulement.** Le constat était plus large que le conflit : `NOT_AUTHORIZED` est ce que
+  reçoit tout client du câblage par défaut.
+
+### Preuves exécutables
+
+- `MorpheusControlledLifecycleMcpToolsTest` : un test par état de refus (les deux `CONFLICT` distincts, `NOT_AUTHORIZED`,
+  `REQUIRES_CONFIRMATION`, `REJECTED`) qui exige `isError()` **et** que le corps garde l'état, la raison et `"audit":null` ;
+  `APPLIED` et `ALREADY_APPLIED` en succès ; `everyResultStateIsReachedThroughTheToolAndReadsAccordingToTheEnum` exige que
+  chaque constante de l'énumération soit atteinte par l'outil et lue selon `successful()` ; `theDefaultWiringRefusesEveryWriteAsAnError`
+  appelle le câblage par défaut sur le transport réel et lit le membre `isError` du résultat JSON-RPC.
+  `MorpheusM17McpStdioIntegrationTest` l'exige aussi d'un vrai processus `mcp --stdio`.
+- `ChangeLifecycleMutationContractTest#onlyAppliedAndAlreadyAppliedAreSuccessful` écrit la partition indépendamment du `switch`.
+- `McpResultOwnershipTest` : hors `McpToolFailure`, `isError` n'est jamais autre chose que le littéral `false`, et toute
+  construction d'un `CallToolResult` écrit son `isError`. Le balayage est récursif, échoue s'il ne trouve rien, et ses motifs
+  sont eux-mêmes éprouvés sur des sources synthétiques.
+
+### Ce que la garde ne couvre pas
+
+`McpResultOwnershipTest` ne peut pas savoir si un **corps** porte un refus : un handler qui répond `isError(false)` autour d'un
+résultat d'état `BLOCKED` la satisfait. Cette propriété est celle de chaque outil et se teste là où l'état existe ; l'inventaire
+ci-dessus est le jugement porté aujourd'hui, pas une vérification qui se rejoue. La garde ne voit ni un résultat assemblé hors du
+constructeur du SDK, ni un autre paquet, ni `morpheus-mcp-transport` (qui écrit des erreurs JSON-RPC, pas des résultats d'outil),
+et retirer les commentaires est une expression régulière, non un analyseur.
+
+### Ce que cet amendement ne tranche pas
+
+- **HTTP.** `POST /api/v1/projects/{projectId}/changes/{changeId}/lifecycle-transitions` répond `200` avec l'état de refus dans
+  le corps, y compris `NOT_AUTHORIZED` (`MorpheusControlledLifecycleApiContractTest` le fige). C'est la même classe de défaut
+  que celle corrigée ici, sur une surface dont le contrat OpenAPI et les statuts sont un choix distinct, à arbitrer séparément.
+- **Décisions de policy.** `evaluate_policies` et `dry_run_policy_pack` rendent `isError(false)` pour `BLOCK` et `UNKNOWN`,
+  là où `policy evaluate` et `policy dry-run` rendent le code `4` (amendement CLI-1 d'ADR-0108). La décision est la réponse de
+  l'évaluation, pas le refus de l'appel ; mais les deux surfaces divergent, et le sens à donner à `isError` pour un verdict est
+  une question ouverte.

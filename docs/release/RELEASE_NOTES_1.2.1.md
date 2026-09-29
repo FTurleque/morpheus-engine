@@ -160,6 +160,31 @@ identités) et `freshness observation must not move backwards` rendent toujours 
 
 Décision : [ADR-0108, amendement du 26 septembre 2026 (codes de sortie des refus sur l'état)](../adr/0108-a-response-says-what-it-could-not-observe.md).
 
+### MCP `apply_change_lifecycle_transition` : un refus rend un résultat en erreur
+
+Jusqu'à 1.2.0, l'outil rendait un résultat **sans `isError`** (donc sans erreur) pour les quatre refus que le service lui
+rend au lieu de les lever : `CONFLICT` (clé d'idempotence réutilisée pour une autre commande, révision attendue périmée),
+`NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION` et `REJECTED`. Seul le corps disait le refus (`"state":"CONFLICT"`). Le lanceur
+`mcp --stdio` refuse aujourd'hui toute écriture (le provider OpenSpec qu'il embarque n'expose pas `WRITE_CHANGE`) et le câblage par
+défaut de `MorpheusMcpServer` la refuse toujours : un client qui ne regardait que `isError` tenait donc pour réussie une mutation
+qui n'avait pas eu lieu.
+
+À partir de 1.2.1, `isError` suit l'état :
+
+| État | `isError` |
+|---|:---:|
+| `APPLIED`, `ALREADY_APPLIED` | `false` |
+| `CONFLICT`, `NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION`, `REJECTED` | `true` |
+
+Le corps ne change pas d'un octet : c'est le même JSON (`state`, `reason`, `lifecycleState`, `audit`), avec ou sans erreur. Le CLI
+(code de sortie `4` pour les quatre mêmes états) ne change pas, ni HTTP, qui répond toujours `200` avec l'état dans le corps.
+
+**Migration.** Un client qui ne lisait le texte du résultat que lorsque `isError` valait `false` doit le lire aussi lorsqu'il vaut
+`true` : c'est là que se trouvent désormais l'état et la raison du refus, en JSON et non en message d'exception. Un client qui
+branchait sur `isError` seul obtient désormais le bon comportement sans changement.
+
+Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-5)](../adr/0102-mcp-failure-contract-is-one-rule.md).
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes

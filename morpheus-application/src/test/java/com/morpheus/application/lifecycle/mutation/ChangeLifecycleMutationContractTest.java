@@ -11,7 +11,9 @@ import com.morpheus.domain.provider.ProviderId;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -147,5 +149,23 @@ class ChangeLifecycleMutationContractTest {
                 providerId,
                 "allowed",
                 T0));
+    }
+
+    /**
+     * The partition is spelled out here independently of the {@code switch} that implements it, so a state moved
+     * to the wrong side is a failing test and not a reviewed diff.
+     */
+    @Test
+    void onlyAppliedAndAlreadyAppliedAreSuccessful() {
+        Set<ChangeLifecycleMutationResultState> successful = EnumSet.noneOf(ChangeLifecycleMutationResultState.class);
+        for (ChangeLifecycleMutationResultState state : ChangeLifecycleMutationResultState.values()) {
+            if (state.successful()) {
+                successful.add(state);
+            }
+        }
+
+        assertEquals(
+                EnumSet.of(ChangeLifecycleMutationResultState.APPLIED, ChangeLifecycleMutationResultState.ALREADY_APPLIED),
+                successful);
     }
 }
