@@ -247,7 +247,7 @@ Invariant :
 export != mutation
 ```
 
-`QueryExportService` lit les pages nécessaires et rejette explicitement un résultat dépassant le nombre maximal de lignes ou la taille maximale en octets. Il ne tronque pas silencieusement un export.
+`QueryExportService` matérialise la vue complète en une passe (`QueryExecutionService.materializeComplete`, bornée par `QueryBudgets.MAX_EXPORT_ROWS`) : la page de la `QueryDefinition` (`offset`, `limit`) n'y est jamais lue, ce qui est pourquoi aucune surface ne l'accepte pour un export (CLI `export query`, MCP `export_query`, HTTP `POST /api/v1/exports`). Il rejette explicitement un résultat dépassant le nombre maximal de lignes ou la taille maximale en octets, avant de produire un contenu partiel. Il ne tronque pas silencieusement un export.
 
 ## 10. Budgets centralisés
 

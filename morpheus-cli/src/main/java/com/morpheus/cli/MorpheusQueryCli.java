@@ -4,6 +4,7 @@ import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
+import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.application.query.dsl.QueryDefinition;
 import com.morpheus.application.query.dsl.QueryDslParser;
 import com.morpheus.application.query.dsl.QueryPublicViews;
@@ -149,9 +150,15 @@ final class MorpheusQueryCli {
         QueryExportFormat format = format(options);
         QueryDefinition definition = switch (action) {
             case CMD_QUERY -> {
+                for (String paging : List.of(OPT_OFFSET, OPT_LIMIT)) {
+                    if (options.optional(paging).isPresent()) {
+                        throw new IllegalArgumentException("--" + paging + " is not accepted by export: an export is always"
+                                + " complete, bounded by " + QueryBudgets.MAX_EXPORT_ROWS + " rows and never by a page");
+                    }
+                }
                 options.rejectUnknown(Set.of(
-                        OPT_FORMAT, OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, "sort", OPT_FIELDS, OPT_OFFSET, OPT_LIMIT));
-                yield query(options, scope(options));
+                        OPT_FORMAT, OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, "sort", OPT_FIELDS));
+                yield query(options, scope(options), 0, DEFAULT_LIMIT);
             }
             case "view" -> {
                 options.rejectUnknown(Set.of(OPT_FORMAT, "id"));
@@ -172,14 +179,18 @@ final class MorpheusQueryCli {
     }
 
     private QueryDefinition query(SimpleOptions options, QueryScope scope) {
+        return query(options, scope, integer(options, OPT_OFFSET, 0), integer(options, OPT_LIMIT, DEFAULT_LIMIT));
+    }
+
+    private QueryDefinition query(SimpleOptions options, QueryScope scope, int offset, int limit) {
         return parser.parse(
                 scope,
                 options.required(OPT_ENTITY),
                 options.optional(OPT_FILTER).orElse(null),
                 options.optional("sort").orElse(null),
                 options.optional(OPT_FIELDS).orElse(null),
-                integer(options, OPT_OFFSET, 0),
-                integer(options, OPT_LIMIT, DEFAULT_LIMIT));
+                offset,
+                limit);
     }
 
     private QueryScope scope(SimpleOptions options) {

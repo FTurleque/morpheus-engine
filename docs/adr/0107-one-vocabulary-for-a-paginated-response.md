@@ -234,7 +234,7 @@ Une rupture de forme, annoncée dans `docs/release/RELEASE_NOTES_1.2.1.md` : le 
 
 Elle ne sait pas si une collection **croît** : une exemption est un jugement écrit, vérifié contre le code le 29/09/2026, que le test ne
 rejoue pas — un outil qui rend une collection croissante et figure à tort dans `NOT_PAGED` la satisfait. Elle ne sait pas si un outil
-paginé **honore** `offset` et `limit` : `export_query` les déclare et les ignore, `create_saved_view` et `update_saved_view` les
+paginé **honore** `offset` et `limit` : `export_query` les déclarait et les ignorait (MCP-3 les a retirés), `create_saved_view` et `update_saved_view` les
 déclarent parce qu'ils appartiennent à la requête stockée, et `get_specification_context` pagine ses exigences mais rend ses scénarios
 et ses changements entiers. Elle ne juge que ce que `MorpheusMcpServer.toolSpecifications` sert avec le câblage par défaut.
 
