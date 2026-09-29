@@ -337,6 +337,34 @@ qui promet ce que le handler ne tient pas. L'ADR-0107 traite du vocabulaire d'un
 de ce qu'une réponse dit ne pas avoir observé. Le mot de l'ADR-0102 — le refus est explicite, jamais une dégradation silencieuse — est celui
 qui s'applique ici.
 
+### Conséquence directe, écrite sans détour : un export de plus d'1 Mio n'est pas rendu par `export_query`
+
+Un export est complet par contrat, donc **il ne se pagine pas**. Or le cadre MCP est d'1 Mio (`BoundedStdioServerTransportProvider.DEFAULT_MAX_FRAME_BYTES`,
+1 048 576 octets) et le budget d'un export est de **10 Mio** (`QueryBudgets.MAX_EXPORT_BYTES`), dix fois plus, sur 10 000 lignes au plus. Un export valide de
+plus d'1 Mio est donc **refusé par le transport MCP** : le client reçoit non pas un résultat mais une erreur JSON-RPC dont le texte est
+`MCP_RESPONSE_TOO_LARGE: the response is <N> bytes, past the 1048576-byte MCP STDIO frame bound; paginated read tools accept offset and
+limit: retry with a smaller limit, then page with offset` (`BoundedStdioServerTransportProvider.responseTooLarge`, la fin du message est
+`MorpheusMcpServer.OVERSIZED_RESPONSE_GUIDANCE`). **Ce conseil ne peut pas être suivi sur `export_query`**, qui ne prend ni `limit` ni `offset` : c'est
+exactement ce que la décision ci-dessus impose, et c'est le même trou que celui de l'amendement MCP-2 d'ADR-0107, où `export_query` (et `export_saved_view`)
+figurent dans la garde comme résidu reconnu (`UNBOUNDED_ACKNOWLEDGED`). Ce n'est pas une régression : avant cet amendement l'outil acceptait `limit` et
+l'ignorait, si bien que le conseil du transport ne servait pas non plus. Ce n'est pas non plus corrigé ici : un export entre 1 et 10 Mio reste valide sur
+le CLI et sur HTTP et **inatteignable en un appel MCP**.
+
+**Recours, tels qu'ils ont été vérifiés.**
+
+- **`execute_query`, paginé.** Mêmes `scopeKind`, `scopeId`, `entity`, `filter`, `sort`, `fields`, avec `offset` et `limit` (de 1 à 500) : il rend les **mêmes
+  lignes**, page par page, dans le JSON d'un résultat de requête. Il ne rend **ni l'enveloppe d'un export ni ses rendus CSV et Markdown**. Prouvé de bout en bout
+  sur le serveur réel (`anExportPastTheFrameIsRefusedByTheTransportAndItsRowsAreReadThroughPagedQueries`) : un export de plus d'1 Mio est refusé avec ce message, et les
+  quatorze exigences sont relues, une fois chacune, en trois pages.
+- **CLI `export query`** : écrit l'export complet sur la sortie standard (`MorpheusQueryCli.export`), sans cadre d'1 Mio. **HTTP `POST /api/v1/exports`** : route de
+  lecture du serveur local et du remote (`MorpheusRemoteRoutePolicy`), sans cadre non plus ; le proxy remote refuse une réponse locale de plus de 16 Mio
+  (`MorpheusRemoteHttpServer.MAX_PROXY_RESPONSE_BYTES`), au-dessus du budget de 10 Mio. **Non exécuté** sur un export de plus d'1 Mio : ces deux recours sont lus dans le code,
+  pas mesurés, et la marge du proxy n'a pas été éprouvée avec un export réel.
+- **`export_saved_view`** a la même conséquence et **n'a pas de recours MCP paginé** : `execute_saved_view` exécute la définition avec la page stockée, que l'appelant
+  ne choisit pas. Son recours est le CLI (`export view`) ou HTTP (`POST /api/v1/saved-views/{id}/export`), lus dans le code et non mesurés.
+
+La description de l'outil `export_query` le dit désormais à l'agent qui la lit, au moment où il choisit l'outil.
+
 ### Alternatives écartées
 
 - **(b) L'export honore la fenêtre.** `QueryExportService.export` appliquerait `offset` et `limit` et le budget se mesurerait sur la
@@ -348,7 +376,8 @@ qui s'applique ici.
 
 - `MorpheusQueryMcpToolsTest` : `export_query` ne déclare que ses sept propriétés attendues et sa description dit pourquoi ; `limit` et
   `offset` y sont refusés par la validation de schéma alors que `execute_query` les accepte ; **sur le serveur réel**, un projet de 120
-  exigences (au-delà de la page par défaut) s'exporte en entier, et le même export avec `limit` ou `offset` est une erreur.
+  exigences (au-delà de la page par défaut) s'exporte en entier, et le même export avec `limit` ou `offset` est une erreur ; **un export de plus
+  d'1 Mio est refusé par le transport avec `MCP_RESPONSE_TOO_LARGE` et le conseil du serveur, et ses lignes sont relues par `execute_query` paginé**.
 - `MorpheusQueryCliTest` : `export query --limit` et `--offset` sortent en code d'usage avec le motif, sans rien imprimer ; sans eux l'export
   réussit ; l'aide dit qu'un export est complet.
 - `MorpheusQueryApiContractTest` : `POST /exports` avec `limit` ou `offset` dans `query` répond 400 ; sans eux, 200.

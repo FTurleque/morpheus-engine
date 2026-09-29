@@ -97,6 +97,8 @@ class MorpheusQueryMcpToolsTest {
         String description = tool(MorpheusQueryMcpTools.EXPORT_QUERY).description();
         assertTrue(description.contains("always complete") && description.contains("no offset or limit"), description);
         assertTrue(description.contains(Integer.toString(QueryBudgets.MAX_EXPORT_ROWS)), description);
+        assertTrue(description.contains("MCP_RESPONSE_TOO_LARGE") && description.contains("execute_query")
+                && description.contains("export query") && description.contains("POST /api/v1/exports"), description);
     }
 
     @Test
@@ -130,7 +132,7 @@ class MorpheusQueryMcpToolsTest {
     @Test
     void anExportIsCompleteAndARequestedPageIsRefusedOverTheServer() throws Exception {
         Path database = temporaryDirectory.resolve("export.db").toAbsolutePath().normalize();
-        int requirements = MorpheusQueryMcpTools.DEFAULT_LIMIT + 20;
+        int requirements = MorpheusQueryMcpTools.QUERY_DEFAULT_LIMIT + 20;
         McpToolCall.PublishedProject project = McpToolCall.publish(database, requirements);
         String input = """
                 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"export-test","version":"1.0"}}}
@@ -152,6 +154,51 @@ class MorpheusQueryMcpToolsTest {
         assertEquals(requirements, ((List<?>) export.get("rows")).size());
         assertEquals(Boolean.TRUE, result(output, 3).get("isError"), "an export asked for one row must be refused");
         assertEquals(Boolean.TRUE, result(output, 4).get("isError"), "an export asked to skip rows must be refused");
+    }
+
+    /**
+     * What an MCP client has to do when a valid export does not fit the 1 MiB frame, over the real server wiring. The
+     * transport refuses the export (an export cannot be paged, and its refusal advises a smaller {@code limit} that
+     * {@code export_query} does not take), and the same rows are read, page by page, through {@code execute_query}.
+     * The rows come back; the CSV and Markdown renderings of an export do not, and that is written in ADR-0102.
+     */
+    @Test
+    void anExportPastTheFrameIsRefusedByTheTransportAndItsRowsAreReadThroughPagedQueries() throws Exception {
+        Path database = temporaryDirectory.resolve("oversized-export.db").toAbsolutePath().normalize();
+        int requirements = 14;
+        McpToolCall.PublishedProject project = McpToolCall.publish(database, requirements, 100_000);
+        String scope = "\"scopeKind\":\"PROJECT\",\"scopeId\":\"" + project.projectId() + "\",\"entity\":\"REQUIREMENT\"";
+        String input = """
+                {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"export-frame-test","version":"1.0"}}}
+                {"jsonrpc":"2.0","method":"notifications/initialized"}
+                {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"export_query","arguments":{%1$s,"format":"JSON"}}}
+                {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"execute_query","arguments":{%1$s,"limit":5,"offset":0}}}
+                {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"execute_query","arguments":{%1$s,"limit":5,"offset":5}}}
+                {"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"execute_query","arguments":{%1$s,"limit":5,"offset":10}}}
+                """.formatted(scope);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        int exit = MorpheusMcpServer.run(
+                database, new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), output);
+
+        assertEquals(MorpheusMcpServer.EXIT_END_OF_INPUT, exit, "an oversized response is not a failure");
+        String refused = output.toString(StandardCharsets.UTF_8).lines()
+                .filter(candidate -> candidate.contains("\"id\":2,"))
+                .findFirst().orElseThrow(() -> new AssertionError("the export was not answered: " + output));
+        assertTrue(refused.contains("MCP_RESPONSE_TOO_LARGE"), refused);
+        assertTrue(refused.contains(MorpheusMcpServer.OVERSIZED_RESPONSE_GUIDANCE), refused);
+        assertTrue(refused.length() < 1024, "the refusal must be small: " + refused.length());
+
+        java.util.List<Object> read = new java.util.ArrayList<>();
+        for (int id = 3; id <= 5; id++) {
+            Map<?, ?> page = result(output, id);
+            assertEquals(Boolean.FALSE, page.get("isError"), page.toString());
+            Map<?, ?> view = McpJsonDefaults.getMapper().readValue(text(page), Map.class);
+            assertEquals(requirements, view.get("totalMatches"));
+            ((List<?>) view.get("items")).forEach(item -> read.add(((Map<?, ?>) item).get("entityId")));
+        }
+        assertEquals(requirements, read.size());
+        assertEquals(requirements, new java.util.HashSet<>(read).size(), "every requirement is read once");
     }
 
     private static Map<?, ?> result(ByteArrayOutputStream output, int id) throws Exception {

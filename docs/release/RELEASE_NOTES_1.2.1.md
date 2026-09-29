@@ -234,6 +234,15 @@ page stockée avec la vue : il le dit désormais dans l'aide et les descriptions
 tranche, utiliser `query execute` / `execute_query` / `POST /api/v1/queries/execute`, qui paginent. Le contrat OpenAPI M24
 (`morpheus-v1-query-m24.yaml`) déclare le nouveau schéma d'entrée `ExportQueryRequest`.
 
+**Ce que cela laisse ouvert : un export de plus d'1 Mio n'est pas rendu par `export_query`.** Un export ne se pagine pas, et le cadre du
+transport MCP est d'1 Mio alors que le budget d'un export est de 10 Mio. Un export valide de plus d'1 Mio est donc **refusé par le transport**
+(erreur `MCP_RESPONSE_TOO_LARGE`, dont le message conseille de « réessayer avec un `limit` plus petit » : **ce conseil ne peut pas être suivi
+sur `export_query`**, qui ne prend pas `limit`). Ce n'est pas nouveau (l'outil acceptait `limit` sans en tenir compte) et ce n'est pas corrigé
+dans 1.2.1. Recours : sur MCP, lire les mêmes lignes avec `execute_query`, paginé (`offset`, `limit` de 1 à 500), qui ne rend pas l'enveloppe
+d'un export ni ses rendus CSV et Markdown ; ou exporter par le CLI (`export query`) ou par HTTP (`POST /api/v1/exports`), qui n'ont pas ce
+cadre. `export_saved_view` a la même limite et pas de recours MCP paginé (CLI `export view` ou HTTP). Le recours par `execute_query` est
+prouvé par un test sur le serveur réel ; ceux du CLI et de HTTP sont lus dans le code, non mesurés sur un export de plus d'1 Mio.
+
 Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-3)](../adr/0102-mcp-failure-contract-is-one-rule.md).
 
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue

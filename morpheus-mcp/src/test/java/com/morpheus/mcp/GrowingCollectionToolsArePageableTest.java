@@ -269,7 +269,8 @@ class GrowingCollectionToolsArePageableTest {
                 + " against the frame");
         unbounded(map, "export_query", "always complete by contract (ADR-0102, MCP-3): refused past MAX_EXPORT_ROWS (10000) rows and"
                 + " MAX_EXPORT_BYTES (10 MiB), both above the 1 MiB MCP frame, so a valid large export cannot be answered and"
-                + " the transport's advice cannot be followed on it. A recognised residual, not a guarantee");
+                + " the transport's advice cannot be followed on it. A recognised residual, not a guarantee; the ways round it (execute_query"
+                + " paged, the CLI, HTTP) are written in ADR-0102");
         unbounded(map, "list_policy_packs", "every pack definition of the registry: PolicyPackService.create has no ceiling"
                 + " and nothing deletes a pack; each element is metadata. A recognised residual, not a guarantee");
         unbounded(map, "list_external_references", "the references one owner declares in the active snapshot: no ceiling,"

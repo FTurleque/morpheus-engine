@@ -39,7 +39,7 @@ final class MorpheusQueryMcpTools {
     static final String EXPORT_QUERY = "export_query";
     static final String EXPORT_SAVED_VIEW = "export_saved_view";
 
-    static final int DEFAULT_LIMIT = 100;
+    static final int QUERY_DEFAULT_LIMIT = 100;
 
     private final Path databasePath;
     private final QueryDslParser parser = new QueryDslParser();
@@ -60,7 +60,9 @@ final class MorpheusQueryMcpTools {
                 tool(ARCHIVE_SAVED_VIEW, "CAS-archive one saved view without deleting revision history.", idSchema(true)),
                 tool(EXECUTE_SAVED_VIEW, "Execute the current stored query definition of one active saved view.", idSchema(false)),
                 tool(EXPORT_QUERY, "Export the complete bounded query view as canonical JSON, CSV or Markdown. An export is always complete"
-                        + " (at most " + QueryBudgets.MAX_EXPORT_ROWS + " rows, refused above): it takes no offset or limit.",
+                        + " (at most " + QueryBudgets.MAX_EXPORT_ROWS + " rows, refused above): it takes no offset or limit."
+                        + " Over MCP a response past 1 MiB is refused (MCP_RESPONSE_TOO_LARGE) and this export cannot be paged: read the"
+                        + " rows with execute_query, page by page, or export with the CLI (export query) or HTTP (POST /api/v1/exports).",
                         exportQuerySchema()),
                 tool(EXPORT_SAVED_VIEW, "Export one active saved view as canonical JSON, CSV or Markdown. The export is always complete: it"
                         + " ignores the page stored with the view.", exportSavedViewSchema()));
@@ -102,7 +104,7 @@ final class MorpheusQueryMcpTools {
                             id(arguments), McpArguments.requiredInteger(arguments, "expectedRevision", 1, Long.MAX_VALUE)));
                     case EXECUTE_SAVED_VIEW -> QueryPublicViews.result(runtime.views().execute(id(arguments)));
                     case EXPORT_QUERY -> runtime.exports().export(
-                            query(arguments, scope(arguments), 0, DEFAULT_LIMIT), format(arguments)).content();
+                            query(arguments, scope(arguments), 0, QUERY_DEFAULT_LIMIT), format(arguments)).content();
                     case EXPORT_SAVED_VIEW -> {
                         var view = runtime.views().get(id(arguments));
                         if (view.status() != SavedViewStatus.ACTIVE) {
@@ -128,7 +130,7 @@ final class MorpheusQueryMcpTools {
                 arguments,
                 scope,
                 McpArguments.optionalInt(arguments, "offset", 0, 0, Integer.MAX_VALUE),
-                McpArguments.optionalInt(arguments, "limit", DEFAULT_LIMIT, 1, QueryBudgets.MAX_PAGE_SIZE));
+                McpArguments.optionalInt(arguments, "limit", QUERY_DEFAULT_LIMIT, 1, QueryBudgets.MAX_PAGE_SIZE));
     }
 
     /** The page is the caller's for a query and irrelevant to an export, which is always complete. */
