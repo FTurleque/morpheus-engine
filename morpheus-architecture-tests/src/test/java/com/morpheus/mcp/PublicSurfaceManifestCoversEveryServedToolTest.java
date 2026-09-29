@@ -47,10 +47,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * stub ({@code check_product_update} always answers an error) from a working tool. It cannot see a sentinel written
  * for a served tool: a sentinel names nothing, so the tool then appears absent and is reported. And a cell must name
  * one tool: no grouping convention exists, and a cell that tries one is refused rather than guessed at.</p>
+ *
+ * <p>Two more limits. It reads the <em>compiled</em> {@code morpheus-mcp} on this module's classpath: run outside the
+ * reactor, a stale jar in {@code ~/.m2} yields a stale set of tools, so build the reactor first. And a sentinel is
+ * checked against the vocabulary of {@code .claude/rules/governance.md} ({@link PublicSurfaceManifest#SENTINELS}) in the
+ * {@code mcp} column only; the other columns' cells are checked for the vocabulary by a separate test, not for meaning.</p>
  */
 class PublicSurfaceManifestCoversEveryServedToolTest {
-    private static final String SENTINEL_PREFIX = "EXPLICITLY_";
-
     @TempDir
     Path temporaryDirectory;
 
@@ -118,6 +121,35 @@ class PublicSurfaceManifestCoversEveryServedToolTest {
     }
 
     @Test
+    void anInventedSentinelIsRefusedAndEveryOneOfTheVocabularyIsAccepted() {
+        assertEquals(List.of("row b: the mcp cell \"EXPLICITLY_MAYBE\" is not a sentinel of the manifest vocabulary "
+                        + "[EXPLICITLY_LOCAL_ONLY, EXPLICITLY_NOT_EXPOSED, EXPLICITLY_OFFLINE_ONLY, EXPLICITLY_REMOTE_ONLY]"),
+                problems(Set.of("kept"), rows(row("a", "kept"), row("b", "EXPLICITLY_MAYBE"))));
+        for (String sentinel : PublicSurfaceManifest.SENTINELS) {
+            assertEquals(List.of(), problems(Set.of("kept"), rows(row("a", "kept"), row("b", sentinel))), sentinel);
+        }
+    }
+
+    /** The vocabulary is a copy of the governance table; this holds the copy to it, and the manifest to the copy. */
+    @Test
+    void theSentinelVocabularyIsTheGovernanceOneAndEveryCellOfTheManifestUsesIt() throws IOException {
+        String governance = Files.readString(repoRoot().resolve(".claude/rules/governance.md"));
+        for (String sentinel : PublicSurfaceManifest.SENTINELS) {
+            assertTrue(governance.contains("`" + sentinel + "`"), sentinel + " is not in the governance table");
+        }
+        Set<String> invented = new TreeSet<>();
+        for (String[] columns : PublicSurfaceManifest.rows(repoRoot())) {
+            for (int column = PublicSurfaceManifest.CLI; column <= PublicSurfaceManifest.HTTP; column++) {
+                String cell = columns[column].trim();
+                if (cell.startsWith(PublicSurfaceManifest.SENTINEL_PREFIX) && !PublicSurfaceManifest.SENTINELS.contains(cell)) {
+                    invented.add(columns[PublicSurfaceManifest.CAPABILITY] + ": " + cell);
+                }
+            }
+        }
+        assertEquals(Set.of(), invented, "a cell invents a sentinel");
+    }
+
+    @Test
     void aWellFormedManifestPasses() {
         assertEquals(List.of(), problems(Set.of("one", "two"),
                 rows(row("a", "one"), row("b", "two"), row("c", "EXPLICITLY_LOCAL_ONLY"))));
@@ -142,8 +174,11 @@ class PublicSurfaceManifestCoversEveryServedToolTest {
             String cell = columns.length > PublicSurfaceManifest.MCP ? columns[PublicSurfaceManifest.MCP].trim() : "";
             if (cell.isEmpty()) {
                 problems.add("row " + capability + ": the mcp cell is empty: write a tool or an EXPLICITLY_* sentinel");
-            } else if (cell.startsWith(SENTINEL_PREFIX)) {
-                continue;
+            } else if (cell.startsWith(PublicSurfaceManifest.SENTINEL_PREFIX)) {
+                if (!PublicSurfaceManifest.SENTINELS.contains(cell)) {
+                    problems.add("row " + capability + ": the mcp cell \"" + cell + "\" is not a sentinel of the manifest vocabulary "
+                            + new TreeSet<>(PublicSurfaceManifest.SENTINELS));
+                }
             } else if (!cell.matches("[A-Za-z0-9_]+")) {
                 problems.add("row " + capability + ": the mcp cell \"" + cell + "\" must name a single tool");
             } else {
@@ -175,7 +210,7 @@ class PublicSurfaceManifestCoversEveryServedToolTest {
         Set<String> tools = new HashSet<>();
         for (String[] columns : rows) {
             String cell = columns[PublicSurfaceManifest.MCP].trim();
-            if (!cell.isEmpty() && !cell.startsWith(SENTINEL_PREFIX)) {
+            if (!cell.isEmpty() && !cell.startsWith(PublicSurfaceManifest.SENTINEL_PREFIX)) {
                 tools.add(cell);
             }
         }

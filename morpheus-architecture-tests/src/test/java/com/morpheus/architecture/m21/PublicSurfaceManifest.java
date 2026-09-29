@@ -24,6 +24,17 @@ public final class PublicSurfaceManifest {
     public static final int HTTP = 4;
     public static final int NOTES = 5;
 
+    /**
+     * The sentinels the manifest may carry in place of a surface, as written in {@code .claude/rules/governance.md}.
+     * A cell that starts with {@code EXPLICITLY_} and is not one of these is an invented vocabulary, not a declared absence.
+     */
+    public static final java.util.Set<String> SENTINELS = java.util.Set.of(
+            "EXPLICITLY_NOT_EXPOSED",
+            "EXPLICITLY_LOCAL_ONLY",
+            "EXPLICITLY_REMOTE_ONLY",
+            "EXPLICITLY_OFFLINE_ONLY");
+    public static final String SENTINEL_PREFIX = "EXPLICITLY_";
+
     private PublicSurfaceManifest() {
     }
 

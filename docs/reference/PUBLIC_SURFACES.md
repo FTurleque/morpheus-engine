@@ -16,7 +16,7 @@ READ != WRITE
 ALLOWED != applied
 ```
 
-Le manifeste indique pour chaque capability critique :
+Le manifeste indique, pour chaque capability qu'il liste :
 
 - son intention `READ` ou `WRITE` ;
 - sa forme CLI ;
@@ -24,7 +24,7 @@ Le manifeste indique pour chaque capability critique :
 - sa route HTTP ou une omission explicitement justifiée.
 
 Tout outil MCP servi par le câblage par défaut y figure, dans la colonne `mcp`, une fois et une seule ; un outil non exposé y porte une sentinelle `EXPLICITLY_*`,
-jamais une case vide. `PublicSurfaceManifestCoversEveryServedToolTest` le vérifie dans les deux sens (un outil servi sans ligne, un nom cité et plus servi). Elle ne
+jamais une case vide. `PublicSurfaceManifestCoversEveryServedToolTest` le vérifie dans les deux sens (un outil servi sans ligne, un nom cité et plus servi). Aucune garde ne vérifie qu'une commande CLI ou une route HTTP y figure : seuls les outils MCP servis sont confrontés au manifeste. Elle ne
 vérifie que la **présence** d'une ligne : la justesse de ses colonnes `cli` et `http` n'est pas l'objet de cette garde (d'autres tests comparent certaines familles du manifeste à l'OpenAPI ; les lignes ajoutées par MAN-1 n'en font pas partie).
 
 ## M22 — Provider plugins
