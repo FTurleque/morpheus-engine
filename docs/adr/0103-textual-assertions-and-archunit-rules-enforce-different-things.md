@@ -509,3 +509,47 @@ accolades, `case` à deux-points) ou après un text block qui contient `\"""` ; 
 Cassée pour de vrai sur l'arbre : les deux adaptateurs d'origine, un `rejectUnknown` retiré de `MorpheusCli.syncStatus`,
 un `default` de parseur terminal qui stocke le jeton, un `default` de `MorpheusReasoningCli` qui le transmet, un text
 block `\"""` ajouté à `MorpheusQueryCli` avec un `rejectUnknown` retiré — chaque fois la garde tombe sur le bon site.
+
+## Amendement du 29 septembre 2026 (API-4) — le budget de query string est imposé par découverte, plus par deux chemins nommés
+
+`HttpQueryBudget` s'annonce « partagé par tous les parseurs de query string de MORPHEUS », et `BoundaryResilienceContractTest`
+le gardait en lisant **deux** fichiers en dur (`MorpheusHttpQuery`, `MorpheusRemoteProxyTargetResolver`) et le seul
+littéral `rawQuery.split("&")`. Le module comptait pourtant cinq parseurs : les routes `saved-views`, `policy-overrides` et
+`policy-activations`, qui enregistrent leurs propres contextes HTTP et donc ne passent pas par `MorpheusHttpServer.handle`,
+faisaient chacune `raw.split("&")` puis `URLDecoder.decode`, sans jamais appeler le budget. Une même requête était refusée sur
+`/api/v1/projects/…` et intégralement traitée sur `/api/v1/saved-views` : une garde plus étroite que la classe de défaut.
+
+**Décision.** Les trois parseurs locaux **disparaissent** au profit de `MorpheusHttpQuery` (les routes gardent leurs contextes
+propres ; seul ce qui parse change), et la garde **découvre** les parseurs sur toutes les sources main de `morpheus-api`,
+commentaires retirés : (1) aucun `.split("&")` ; (2) toute source qui lit `getRawQuery()` autrement que par un test de nullité ou de
+blanc — un refus qui ne parse rien — appelle `MorpheusHttpQuery.parse(` ou `HttpQueryBudget.requireBoundedQuery(` ; (3) toute source qui appelle
+`requireBoundedQuery(` applique aussi les bornes de nombre, de nom et de valeur ; (4) la découverte trouve au moins un lecteur.
+Les deux chemins en dur et l'affirmation « both parsers » disparaissent. Les règles sont prouvées sur fixtures dans les deux sens.
+
+Sur l'arbre de ce jour la garde voit six sources qui lisent ou budgètent une query : deux parseurs (`MorpheusHttpQuery`, le
+résolveur de cible du proxy remote) et quatre qui délèguent (`MorpheusHttpServer` et les trois routes converties). Sur l'arbre d'origine elle refuse les trois routes,
+sur deux règles chacune.
+
+**Différences de comportement, décidées.** `MorpheusHttpQuery` accepte un segment vide (`?a=1&&b=2`, `?a=1&`) que les parseurs locaux refusaient :
+c'est ce que font déjà toutes les autres routes, et un segment vide ne porte aucune clé. Un nom vide (`?=x`) est refusé par « query parameter name must not
+be blank ». Le message d'un doublon devient `duplicate query parameter: <clé>` (et non plus `invalid or duplicate query parameter`), et `policy-overrides`
+dit `query parameter is required: <clé>` comme les quatre autres routes (et non `missing query parameter`).
+
+### Alternatives écartées
+
+- **Corriger les trois parseurs sur place.** Trois copies au lieu d'une : le constat serait déplacé, pas fermé.
+- **Une règle ArchUnit.** Le défaut est une chaîne (`"&"`) et l'absence d'un appel sur une valeur ; aucune règle de bytecode ne voit
+  l'un ni l'autre sans faux négatifs (ADR-0103, critère de choix).
+- **Le second parseur du résolveur remote** (`parseQuery`/`addParameter`) est conservé : il lève une `ResolutionException` avec un code d'enveloppe
+  remote, pas une `ApiFailure`. C'est une copie **nécessaire**, désormais gardée par les règles 2 et 3.
+
+### Ce que la garde ne couvre pas
+
+Une query lue par `getQuery()` (déjà décodée) ; un parseur atteint par référence de méthode ; un `split` à séparateur non littéral ; un
+budget appelé sur une autre chaîne que celle qui est parsée (la règle est par source, pas par appel) ; du code qui suit un `//`
+à l'intérieur d'un littéral sur la même ligne. Le risque n'est **pas** démontré comme un déni de service : le travail reste borné par la ligne de requête que
+`jdk.httpserver` accepte, ce que cet amendement n'a pas mesuré. Le constat porte sur l'asymétrie entre routes et sur une garde qui affirmait plus qu'elle ne vérifiait.
+
+**Preuve.** Cassée pour de vrai : l'ancien code de production remis fait tomber la règle sur les trois routes ; un `raw.split("&")` réintroduit dans
+`MorpheusPolicyManagementHttpRoutes` la fait tomber sur ce fichier. Côté HTTP, `ExtensionRoutesRequestBoundaryParityTest` refuse, sur les trois routes, une query de plus de 16 paramètres
+et une query de plus de 16 Kio — rouge avant le correctif.

@@ -385,3 +385,20 @@ pour la remplacer reçoit maintenant le code `2`. **Passer l'option une seule fo
 plusieurs racines de workspace, `--workspace-root` reste répétable.
 
 Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, répétition)](../adr/0108-a-response-says-what-it-could-not-observe.md).
+
+### HTTP `saved-views`, `policy-overrides`, `policy-activations` : la query string passe par le budget partagé
+
+Jusqu'à 1.2.0, ces trois routes (`GET /api/v1/saved-views`, `/api/v1/policy-overrides`, `/api/v1/policy-activations`) parsaient
+leur query string elles-mêmes, sans le budget que toutes les autres routes appliquent. À partir de 1.2.1 elles passent par le même
+parseur : une query de plus de 16 paramètres ou de plus de 16 Kio est refusée en `400`, comme ailleurs.
+
+Trois différences visibles, toutes sur des requêtes déjà mal formées :
+
+- un segment vide (`?scopeKind=PROJECT&&scopeId=…`, ou une `&` finale) est **accepté** au lieu d'être refusé ;
+- un paramètre répété répond `duplicate query parameter: <clé>` (auparavant `invalid or duplicate query parameter[: <clé>]`) ;
+- `policy-overrides` répond `query parameter is required: <clé>` pour une clé absente (auparavant `missing query parameter: <clé>`).
+
+Un client qui branchait sur l'ancien texte d'erreur doit brancher sur le code (`BAD_REQUEST`, HTTP 400), pas sur le message. Une requête
+légitime (`?scopeKind=…&scopeId=…`) répond à l'identique.
+
+Décision : [ADR-0103, amendement du 29 septembre 2026 (API-4)](../adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md).

@@ -61,7 +61,7 @@ class ExtensionRoutesRequestBoundaryParityTest {
         cases.add(failure("GET", "/saved-views/view-1/unknown", 404, null, "NOT_FOUND",
                 "unknown saved-view action: unknown"));
         cases.add(failure("GET", "/saved-views//versions", 404, null, "NOT_FOUND", "invalid API path"));
-        cases.addAll(queryParameterCases("/saved-views", "invalid or duplicate query parameter: scopeKind",
+        cases.addAll(queryParameterCases("/saved-views", "duplicate query parameter: scopeKind",
                 "query parameter is required: scopeId"));
         cases.add(failure("POST", "/saved-views/view-1/execute", 400, null, "BAD_REQUEST",
                 "Invalid UUID string: view-1"));
@@ -97,8 +97,8 @@ class ExtensionRoutesRequestBoundaryParityTest {
         cases.add(new Case("POST", packs + "?x=1", "application/json", "{}", 400, null, "BAD_REQUEST",
                 "query parameters are not supported on this route"));
         cases.add(failure("GET", "/policy-packs//versions", 404, null, "NOT_FOUND", "invalid API path"));
-        cases.addAll(queryParameterCases("/policy-overrides", "invalid or duplicate query parameter",
-                "missing query parameter: scopeId"));
+        cases.addAll(queryParameterCases("/policy-overrides", "duplicate query parameter: scopeKind",
+                "query parameter is required: scopeId"));
         cases.add(failure("GET", "/policy-packs/pack-1", 400, null, "BAD_REQUEST", "Invalid UUID string: pack-1"));
         cases.add(new Case("POST", "/policy-packs/pack-1/deactivate", "application/json",
                 "{\"scopeKind\":\"PROJECT\",\"scopeId\":\"x\",\"expectedRevision\":1,\"actor\":\"a\",\"reason\":\"r\"}",
@@ -125,7 +125,7 @@ class ExtensionRoutesRequestBoundaryParityTest {
         cases.add(failure("GET", "/policy-activations/x", 404, null, "NOT_FOUND", "unknown API route"));
         cases.add(new Case("POST", remove + "?x=1", "application/json", "{}", 400, null, "BAD_REQUEST",
                 "query parameters are not supported on this route"));
-        cases.addAll(queryParameterCases("/policy-activations", "invalid or duplicate query parameter: scopeKind",
+        cases.addAll(queryParameterCases("/policy-activations", "duplicate query parameter: scopeKind",
                 "query parameter is required: scopeId"));
         assertBoundary("policy-management.db", cases);
     }
@@ -157,12 +157,24 @@ class ExtensionRoutesRequestBoundaryParityTest {
         return new Case(method, path, null, null, status, allow, code, message);
     }
 
-    /** The three ways a GET listing refuses its query string: a repeated key, a missing key, an unknown key. */
+    /**
+     * The ways a GET listing refuses its query string: a repeated key, a missing key, an unknown key, and the two
+     * shared-budget refusals (too many parameters, a query longer than the whole-query budget).
+     */
     private static List<Case> queryParameterCases(String path, String duplicateMessage, String missingMessage) {
         return List.of(
                 failure("GET", path + "?scopeKind=a&scopeKind=b", 400, null, "BAD_REQUEST", duplicateMessage),
                 failure("GET", path + "?scopeKind=PROJECT", 400, null, "BAD_REQUEST", missingMessage),
-                failure("GET", path + "?foo=1", 400, null, "BAD_REQUEST", "unknown query parameter: foo"));
+                failure("GET", path + "?foo=1", 400, null, "BAD_REQUEST", "unknown query parameter: foo"),
+                failure("GET", path + "?" + distinctParameters(HttpQueryBudget.MAX_PARAMETERS + 1), 400, null,
+                        "BAD_REQUEST", "query string exceeds " + HttpQueryBudget.MAX_PARAMETERS + " parameters"),
+                failure("GET", path + "?scopeKind=" + "a".repeat(HttpQueryBudget.MAX_QUERY_BYTES), 400, null,
+                        "BAD_REQUEST", "query string exceeds " + HttpQueryBudget.MAX_QUERY_BYTES + " bytes"));
+    }
+
+    private static String distinctParameters(int count) {
+        return java.util.stream.IntStream.range(0, count).mapToObj(index -> "p" + index + "=1")
+                .collect(java.util.stream.Collectors.joining("&"));
     }
 
     /** The failures every JSON body route shares, in the order the boundary checks them: presence, type, syntax. */
