@@ -129,6 +129,34 @@ class MorpheusQueryApiContractTest {
         }
     }
 
+    /**
+     * The export request selects rows, it does not page them. {@code limit} and {@code offset} used to be properties
+     * of its {@code query} and were ignored, so a client that bounded an export received all of it. The strict
+     * decoder now refuses them as unknown properties.
+     */
+    @Test
+    void anExportRequestCarriesNoPageAndOneThatDoesIsRefused() throws Exception {
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(
+                temporaryDirectory.resolve("export-page.db"), "127.0.0.1", 0)) {
+            ProjectSpecificationId project = ProjectSpecificationId.generate();
+            URI endpoint = URI.create(server.baseUri() + "/exports");
+            String template = """
+                    {"scopeKind":"PROJECT","scopeId":"%s","format":"JSON","query":{"entity":"change"%s}}
+                    """;
+
+            HttpResponse<String> complete = postJson(endpoint, template.formatted(project, ""));
+            HttpResponse<String> limited = postJson(endpoint, template.formatted(project, ",\"limit\":10"));
+            HttpResponse<String> skipped = postJson(endpoint, template.formatted(project, ",\"offset\":5"));
+
+            assertEquals(200, complete.statusCode(), complete.body());
+            assertTrue(complete.body().contains("\"totalMatches\":0"), complete.body());
+            assertEquals(400, limited.statusCode(), limited.body());
+            assertTrue(limited.body().contains("BAD_REQUEST"), limited.body());
+            assertEquals(400, skipped.statusCode(), skipped.body());
+            assertTrue(skipped.body().contains("BAD_REQUEST"), skipped.body());
+        }
+    }
+
     private HttpResponse<String> postJson(URI uri, String body) throws Exception {
         return send(HttpRequest.newBuilder(uri)
                 .header("Content-Type", "application/json")

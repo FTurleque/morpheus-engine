@@ -111,8 +111,10 @@ paths:
     post:
       operationId: exportQuery
       description: >-
-        Read-only export of the complete filtered/sorted bounded view. Interactive pagination
-        does not silently truncate the export. Row and byte budgets fail explicitly.
+        Read-only export of the complete filtered/sorted bounded view. An export is always complete:
+        the request takes no `offset` or `limit` (a request that carries one is refused with 400, never
+        accepted and ignored), so interactive pagination cannot silently truncate the export. Row and
+        byte budgets fail explicitly.
       requestBody:
         required: true
         content:
@@ -129,7 +131,9 @@ paths:
       - {$ref: '#/components/parameters/SavedViewId'}
     post:
       operationId: exportSavedView
-      description: Read-only export of one active saved-view definition.
+      description: >-
+        Read-only export of one active saved-view definition. The export is always complete: it ignores
+        the page stored with the view.
       requestBody:
         required: true
         content:
@@ -246,7 +250,30 @@ components:
         scopeKind: {$ref: '#/components/schemas/ScopeKind'}
         scopeId: {$ref: '#/components/schemas/Uuid'}
         format: {$ref: '#/components/schemas/ExportFormat'}
-        query: {$ref: '#/components/schemas/QueryRequest'}
+        query: {$ref: '#/components/schemas/ExportQueryRequest'}
+
+    ExportQueryRequest:
+      type: object
+      additionalProperties: false
+      required: [entity]
+      description: >-
+        What an export selects: a QueryRequest without the page. An export is always complete, so
+        `offset` and `limit` are not properties of it.
+      properties:
+        entity:
+          type: string
+          minLength: 1
+          description: Provider-neutral QueryEntityType, case-insensitive at the transport boundary.
+        filter:
+          type: [string, 'null']
+          maxLength: 16384
+          description: Bounded M24 DSL expression. Never SQL.
+        sort:
+          type: [string, 'null']
+          description: Comma-separated field:asc or field:desc ordering keys; maximum 8 fields.
+        fields:
+          type: [string, 'null']
+          description: Ordered comma-separated projection; maximum 32 fields. Required identities remain explicit.
 
     ExportSavedViewRequest:
       type: object

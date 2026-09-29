@@ -211,6 +211,31 @@ plusieurs d'entre eux dépasse le cadre par arithmétique (non mesuré) ; la lis
 
 Décision : [ADR-0107, amendement du 29 septembre 2026 (MCP-2)](../adr/0107-one-vocabulary-for-a-paginated-response.md).
 
+### Exports (CLI `export query`, MCP `export_query`, HTTP `POST /api/v1/exports`) : `limit` et `offset` sont refusés
+
+Jusqu'à 1.2.0, ces trois surfaces acceptaient `limit` et `offset` pour un export et les ignoraient : `export query --limit 10`,
+`export_query` avec `limit: 10` et `POST /api/v1/exports` avec `"query":{"limit":10}` rendaient l'export **complet** (jusqu'à
+10 000 lignes), ou une erreur de budget sur le total, pour une demande que l'appelant croyait bornée. Un export a toujours été
+complet (`QueryExportService` matérialise toute la vue et ne lit jamais la page) ; c'est l'entrée qui promettait le contraire.
+
+À partir de 1.2.1, un export est complet **par contrat** et refuse tout paramètre de page :
+
+| Surface | Avant | Après |
+|---|---|---|
+| CLI `export query` | `--limit N`, `--offset N` acceptés et ignorés | code d'usage `2`, `--limit is not accepted by export: an export is always complete, bounded by 10000 rows and never by a page` ; rien n'est imprimé |
+| MCP `export_query` | schéma déclarant `offset` et `limit` | schéma sans les deux ; un appel qui en porte un est refusé avant le handler, comme tout argument inconnu (le texte du refus est celui du SDK) |
+| HTTP `POST /api/v1/exports` | `query` acceptait `offset` et `limit` | `query` porte `entity`, `filter`, `sort`, `fields` ; `limit` ou `offset` répond `400 BAD_REQUEST` |
+
+L'export d'une saved view (`export view`, `export_saved_view`, `POST /api/v1/saved-views/{id}/export`) n'a jamais pris de page et ignore la
+page stockée avec la vue : il le dit désormais dans l'aide et les descriptions. Ce qui borne un export est le nombre de lignes
+(10 000) et la taille (`QueryBudgets`), avec un échec explicite au-delà.
+
+**Migration.** Retirer `--limit`, `--offset`, `limit` et `offset` des appels d'export : ils n'ont jamais eu d'effet. Pour lire une
+tranche, utiliser `query execute` / `execute_query` / `POST /api/v1/queries/execute`, qui paginent. Le contrat OpenAPI M24
+(`morpheus-v1-query-m24.yaml`) déclare le nouveau schéma d'entrée `ExportQueryRequest`.
+
+Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-3)](../adr/0102-mcp-failure-contract-is-one-rule.md).
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes

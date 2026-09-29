@@ -124,9 +124,15 @@ final class McpToolCall {
 
     /** Publishes one ACTIVE snapshot holding a specification, a requirement and a change. */
     static PublishedProject publish(Path database) {
+        return publish(database, 1);
+    }
+
+    /** As {@link #publish(Path)}, with {@code requirementCount} requirements, the first of which the result names. */
+    static PublishedProject publish(Path database, int requirementCount) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         SpecificationId specificationId = SpecificationId.generate();
         RequirementId requirementId = RequirementId.generate();
+        List<Requirement> published = new ArrayList<>();
         ChangeId changeId = ChangeId.generate();
         SourceLocator source = SourceLocator.file("openspec/specs/auth/spec.md");
         Evidence evidence = new Evidence(EvidenceId.generate(), source, Optional.empty(), Optional.empty());
@@ -138,16 +144,21 @@ final class McpToolCall {
         Specification specification = new Specification(
                 specificationId, projectId, "auth", "Authentication",
                 Optional.of("Authentication behavior"), provenance);
-        Requirement requirement = new Requirement(
+        published.add(new Requirement(
                 requirementId, specificationId, Optional.of("auth/session"),
-                "Session expiration", "The system SHALL expire inactive sessions.", provenance);
+                "Session expiration", "The system SHALL expire inactive sessions.", provenance));
+        for (int index = 1; index < requirementCount; index++) {
+            published.add(new Requirement(
+                    RequirementId.generate(), specificationId, Optional.of("auth/session-" + index),
+                    "Session rule " + index, "The system SHALL apply session rule " + index + ".", provenance));
+        }
         ChangeProposal change = new ChangeProposal(
                 changeId, projectId, Optional.of("tighten-session"), "Tighten session expiration",
                 "Reduce exposure from idle sessions.", List.of("Session timeout"), List.of(), List.of(), provenance);
         NormalizedProjectContent content = new NormalizedProjectContent(
                 project,
                 List.of(specification),
-                List.of(requirement),
+                List.copyOf(published),
                 List.of(),
                 List.of(change),
                 List.of(),

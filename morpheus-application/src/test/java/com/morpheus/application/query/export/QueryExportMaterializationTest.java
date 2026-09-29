@@ -65,6 +65,30 @@ class QueryExportMaterializationTest {
         assertFalse(export.content().contains(secondView.getFirst().projectId().toString()));
     }
 
+    /**
+     * An export is complete whatever page its definition carries. No surface lets a caller pass one to an export,
+     * and this is why: the page is never read, so accepting it would be accepting and ignoring it.
+     */
+    @Test
+    void anExportIgnoresThePageOfItsDefinitionAndIsComplete() {
+        PortfolioId portfolioId = PortfolioId.generate();
+        List<PortfolioMembership> view = memberships(portfolioId, 300, "row");
+        QueryExportService exports = new QueryExportService(queries(new SwitchingPortfolioStore(portfolioId, view, view)));
+        QueryDefinition narrow = QueryDefinition.all(
+                new PortfolioQueryScope(portfolioId), QueryEntityType.PORTFOLIO_MEMBERSHIP, new QueryPage(5, 1));
+        QueryDefinition first = QueryDefinition.all(
+                new PortfolioQueryScope(portfolioId), QueryEntityType.PORTFOLIO_MEMBERSHIP, QueryPage.first(10));
+
+        String throughANarrowPage = exports.export(narrow, QueryExportFormat.JSON).content();
+
+        assertEquals(exports.export(first, QueryExportFormat.JSON).content(), throughANarrowPage);
+        assertTrue(throughANarrowPage.contains("\"totalMatches\":300"), throughANarrowPage);
+        for (PortfolioMembership membership : view) {
+            assertTrue(throughANarrowPage.contains(membership.projectId().toString()),
+                    () -> "a row is missing from a complete export: " + membership.projectId());
+        }
+    }
+
     @Test
     void completeMaterializationRejectsOverBudgetResultAfterOneSourceRead() {
         PortfolioId portfolioId = PortfolioId.generate();

@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.api.AllowedWorkspaceRoots;
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.api.MorpheusRemoteHttpServer;
+import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
 import com.morpheus.mcp.MorpheusMcpServer;
@@ -130,8 +131,9 @@ public final class MorpheusMain {
             out.println("  morpheus [--json] views get|versions|execute --id ID");
             out.println("  morpheus [--json] views update --id ID --expected-revision N --name NAME --entity TYPE [query options]");
             out.println("  morpheus [--json] views archive --id ID --expected-revision N");
-            out.println("  morpheus export query --format json|csv|markdown (--project ID | --portfolio ID) --entity TYPE [query options]");
+            out.println("  morpheus export query --format json|csv|markdown (--project ID | --portfolio ID) --entity TYPE [--filter DSL] [--sort field:asc,...] [--fields a,b]");
             out.println("  morpheus export view --format json|csv|markdown --id ID");
+            out.println("  An export is always complete (at most " + QueryBudgets.MAX_EXPORT_ROWS + " rows): it takes no --offset or --limit, and export view ignores the stored page.");
             out.println("  Filter DSL examples: title contains \"security\" ; and(title contains login,providerId in [openspec,markdown])");
             out.println();
             out.println("Portfolio intelligence (M23):");

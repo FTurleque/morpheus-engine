@@ -39,6 +39,8 @@ final class MorpheusQueryMcpTools {
     static final String EXPORT_QUERY = "export_query";
     static final String EXPORT_SAVED_VIEW = "export_saved_view";
 
+    static final int DEFAULT_LIMIT = 100;
+
     private final Path databasePath;
     private final QueryDslParser parser = new QueryDslParser();
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
@@ -57,8 +59,11 @@ final class MorpheusQueryMcpTools {
                 tool(UPDATE_SAVED_VIEW, "CAS-update one saved-view definition using expectedRevision.", updateSchema()),
                 tool(ARCHIVE_SAVED_VIEW, "CAS-archive one saved view without deleting revision history.", idSchema(true)),
                 tool(EXECUTE_SAVED_VIEW, "Execute the current stored query definition of one active saved view.", idSchema(false)),
-                tool(EXPORT_QUERY, "Export the complete bounded query view as canonical JSON, CSV or Markdown.", exportQuerySchema()),
-                tool(EXPORT_SAVED_VIEW, "Export one active saved view as canonical JSON, CSV or Markdown.", exportSavedViewSchema()));
+                tool(EXPORT_QUERY, "Export the complete bounded query view as canonical JSON, CSV or Markdown. An export is always complete"
+                        + " (at most " + QueryBudgets.MAX_EXPORT_ROWS + " rows, refused above): it takes no offset or limit.",
+                        exportQuerySchema()),
+                tool(EXPORT_SAVED_VIEW, "Export one active saved view as canonical JSON, CSV or Markdown. The export is always complete: it"
+                        + " ignores the page stored with the view.", exportSavedViewSchema()));
     }
 
     private McpServerFeatures.SyncToolSpecification tool(
@@ -97,7 +102,7 @@ final class MorpheusQueryMcpTools {
                             id(arguments), McpArguments.requiredInteger(arguments, "expectedRevision", 1, Long.MAX_VALUE)));
                     case EXECUTE_SAVED_VIEW -> QueryPublicViews.result(runtime.views().execute(id(arguments)));
                     case EXPORT_QUERY -> runtime.exports().export(
-                            query(arguments, scope(arguments)), format(arguments)).content();
+                            query(arguments, scope(arguments), 0, DEFAULT_LIMIT), format(arguments)).content();
                     case EXPORT_SAVED_VIEW -> {
                         var view = runtime.views().get(id(arguments));
                         if (view.status() != SavedViewStatus.ACTIVE) {
@@ -119,14 +124,23 @@ final class MorpheusQueryMcpTools {
     }
 
     private QueryDefinition query(Map<String, Object> arguments, QueryScope scope) {
+        return query(
+                arguments,
+                scope,
+                McpArguments.optionalInt(arguments, "offset", 0, 0, Integer.MAX_VALUE),
+                McpArguments.optionalInt(arguments, "limit", DEFAULT_LIMIT, 1, QueryBudgets.MAX_PAGE_SIZE));
+    }
+
+    /** The page is the caller's for a query and irrelevant to an export, which is always complete. */
+    private QueryDefinition query(Map<String, Object> arguments, QueryScope scope, int offset, int limit) {
         return parser.parse(
                 scope,
                 McpArguments.requiredString(arguments, "entity"),
                 McpArguments.optionalString(arguments, "filter").orElse(null),
                 McpArguments.optionalString(arguments, "sort").orElse(null),
                 McpArguments.optionalString(arguments, "fields").orElse(null),
-                McpArguments.optionalInt(arguments, "offset", 0, 0, Integer.MAX_VALUE),
-                McpArguments.optionalInt(arguments, "limit", 100, 1, QueryBudgets.MAX_PAGE_SIZE));
+                offset,
+                limit);
     }
 
     private QueryScope scope(Map<String, Object> arguments) {
@@ -196,7 +210,7 @@ final class MorpheusQueryMcpTools {
     private static Map<String, Object> exportQuerySchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.putAll(scopeProperties());
-        properties.putAll(queryProperties());
+        properties.putAll(queryShapeProperties());
         properties.put("format", formatProperty());
         return schema(List.of("scopeKind", "scopeId", "entity", "format"), properties);
     }
@@ -207,12 +221,18 @@ final class MorpheusQueryMcpTools {
                 Map.of("id", Map.of("type", "string", "minLength", 1), "format", formatProperty()));
     }
 
-    private static Map<String, Object> queryProperties() {
+    /** What a query selects, without the page it is read in: all an export takes. */
+    private static Map<String, Object> queryShapeProperties() {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("entity", Map.of("type", "string", "minLength", 1));
         properties.put("filter", Map.of("type", "string", "maxLength", QueryBudgets.MAX_ENCODED_EXPRESSION_BYTES));
         properties.put("sort", Map.of("type", "string", "minLength", 1));
         properties.put("fields", Map.of("type", "string", "minLength", 1));
+        return properties;
+    }
+
+    private static Map<String, Object> queryProperties() {
+        Map<String, Object> properties = new LinkedHashMap<>(queryShapeProperties());
         properties.put("offset", Map.of("type", "integer", "minimum", 0));
         properties.put("limit", Map.of("type", "integer", "minimum", 1, "maximum", QueryBudgets.MAX_PAGE_SIZE));
         return properties;

@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   by a person, checked against the code on the day they were written, and this test cannot re-check them. A tool
  *   that returns a growing collection and is wrongly listed passes.</li>
  *   <li>Whether a paged tool <em>honours</em> its {@code offset} and {@code limit}. Having both properties is what
- *   is read. {@code export_query} declares them and ignores them (a sibling finding), and {@code create_saved_view}
+ *   is read. {@code export_query} used to declare them and ignore them (MCP-3 removed them), and {@code create_saved_view}
  *   and {@code update_saved_view} declare them because they belong to the stored query, not to a page of results.
  *   {@code get_specification_context} pages its requirements and answers its scenarios and changes whole.</li>
  *   <li>Whether an answer fits the 1 MiB frame. {@code BOUNDED_IN_COUNT} is a number of elements and promises no
@@ -267,6 +267,9 @@ class GrowingCollectionToolsArePageableTest {
         unbounded(map, "get_augmented_change_context", "the request carries a tokenBudget of at most"
                 + " TechnicalContextOptions.MAX_TOKEN_BUDGET (100000): a token budget, not a byte budget, and not measured"
                 + " against the frame");
+        unbounded(map, "export_query", "always complete by contract (ADR-0102, MCP-3): refused past MAX_EXPORT_ROWS (10000) rows and"
+                + " MAX_EXPORT_BYTES (10 MiB), both above the 1 MiB MCP frame, so a valid large export cannot be answered and"
+                + " the transport's advice cannot be followed on it. A recognised residual, not a guarantee");
         unbounded(map, "list_policy_packs", "every pack definition of the registry: PolicyPackService.create has no ceiling"
                 + " and nothing deletes a pack; each element is metadata. A recognised residual, not a guarantee");
         unbounded(map, "list_external_references", "the references one owner declares in the active snapshot: no ceiling,"
