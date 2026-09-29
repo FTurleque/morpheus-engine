@@ -205,6 +205,9 @@ premiers : **lire `hasMore` et paginer** (`offset` + `limit`, jusqu'à `hasMore`
 **Ce qui n'est pas borné.** La borne limite la réponse, pas la lecture : la collection est toujours lue en entier avant d'être
 tranchée. Et HTTP et le CLI ne changent pas : `GET /api/v1/policy-packs/{id}/versions`, `…/audit`, `GET /api/v1/saved-views/{id}/versions`,
 `policy pack-versions`, `policy audit` et `views versions` rendent toujours la collection entière, sans `offset` ni `limit`.
+Enfin, ce changement ne promet pas que toute réponse MCP tient dans 1 Mio : d'autres outils (les parcours de graphe `traverse_portfolio`,
+`trace_requirement` et `get_change_context`, `export_saved_view`, entre autres) ne prennent pas de page, et le pire cas en octets de
+plusieurs d'entre eux dépasse le cadre par arithmétique (non mesuré) ; la liste, avec sa raison par outil, est dans l'ADR-0107.
 
 Décision : [ADR-0107, amendement du 29 septembre 2026 (MCP-2)](../adr/0107-one-vocabulary-for-a-paginated-response.md).
 

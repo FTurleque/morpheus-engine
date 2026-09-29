@@ -42,9 +42,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   is read. {@code export_query} declares them and ignores them (a sibling finding), and {@code create_saved_view}
  *   and {@code update_saved_view} declare them because they belong to the stored query, not to a page of results.
  *   {@code get_specification_context} pages its requirements and answers its scenarios and changes whole.</li>
- *   <li>Whether an answer fits the 1 MiB frame. {@code BOUNDED_IN_COUNT} is a number of elements; the tools listed
- *   as unbounded for that reason are the ones where the count budget times the largest element was found to exceed
- *   the frame, by arithmetic on the constants and never by a measurement.</li>
+ *   <li>Whether an answer fits the 1 MiB frame. {@code BOUNDED_IN_COUNT} is a number of elements and promises no
+ *   size. The criterion "count budget times the largest element exceeds the frame" was <b>not applied in bytes to
+ *   every tool</b>: it was applied, by arithmetic on the constants and on a constructed sample of the JSON, to the
+ *   tools whose reason says so (the traversals {@code traverse_portfolio}, {@code trace_requirement} and
+ *   {@code get_change_context} among them: 5000 links of at least about 320 bytes each are above the frame), and not
+ *   applied to {@code list_policy_activations} and {@code execute_saved_view}, whose byte worst case is unevaluated.
+ *   Nothing was measured on a real answer, and whether a real snapshot or portfolio can reach the count is not
+ *   established either.</li>
  *   <li>Whether the page is bounded at the source. The slice is taken from a collection already read, so the bound
  *   limits the response and not the cost of reading it.</li>
  *   <li>Tools the default wiring does not serve. It judges {@code MorpheusMcpServer.toolSpecifications} as built
@@ -58,8 +63,10 @@ class GrowingCollectionToolsArePageableTest {
         ONE_RESULT,
         /**
          * A count the code enforces bounds the answer; the constant is named so it can be checked. It says nothing about
-         * the size of the answer under the 1 MiB MCP frame: an element can itself be large, and a tool whose worst case
-         * (count times the largest element) exceeds the frame is listed as unbounded, not here.
+         * the size of the answer under the 1 MiB MCP frame: an element can itself be large. A tool whose worst case
+         * (count times the smallest element that arithmetic can establish) was found to exceed the frame is listed as
+         * unbounded, not here; a tool listed here was either found below the frame, in which case its reason says so, or
+         * was not evaluated in bytes, in which case its reason says that.
          */
         BOUNDED_IN_COUNT,
         /** No bound was found. Recorded so the gap is visible; it is not a claim that the answer stays small. */
@@ -214,19 +221,31 @@ class GrowingCollectionToolsArePageableTest {
 
         // A count the code enforces bounds the answer. Nothing here says the answer fits the 1 MiB frame.
         count(map, "list_policy_overrides", "overrides of one scope; PolicyPackService and the store refuse past"
-                + " PolicyBudgets.MAX_OVERRIDES_PER_SCOPE (256); each carries an actor and a reason of at most 256 and 1024 characters");
+                + " PolicyBudgets.MAX_OVERRIDES_PER_SCOPE (256); each carries an actor and a reason of at most 256 and 1024 characters (256 times 1280 is about 330 KB for those"
+                + " two fields; the other fields were not summed, and it is not a measurement)");
         count(map, "list_policy_activations", "activations of one scope; PolicyPackService and the store refuse past"
-                + " PolicyBudgets.MAX_ACTIVE_PACKS_PER_SCOPE (32)");
+                + " PolicyBudgets.MAX_ACTIVE_PACKS_PER_SCOPE (32); the worst case in bytes was not evaluated");
         count(map, "execute_saved_view", "one page of the stored query; QueryPage refuses a limit past"
-                + " QueryBudgets.MAX_PAGE_SIZE (500) rows; the size of a row is not bounded here");
-        count(map, "traverse_portfolio", "maxDepth, maxNodes and maxLinks are bounded by PortfolioTraversalService"
-                + " (8, 1000, 5000) and truncation is declared; the size of a node is not bounded here");
-        count(map, "trace_requirement", "depth is at most MorpheusMcpToolCatalog.MAX_DEPTH (20) and"
-                + " TraceabilityTraversalService stops at MAX_NODES (1000) and MAX_LINKS (5000), declaring the truncation (ADR-0108)");
-        count(map, "get_change_context", "same traversal as trace_requirement: depth at most 20, MAX_NODES (1000),"
-                + " MAX_LINKS (5000), truncation declared (ADR-0108)");
+                + " QueryBudgets.MAX_PAGE_SIZE (500) rows; the size of a row is not bounded here, so the worst case in bytes was not evaluated");
 
         // No bound found, or a bound above the frame. Recorded, not vouched for.
+        unbounded(map, "traverse_portfolio", "maxNodes and maxLinks are bounded by PortfolioTraversalService (1000 and 5000;"
+                + " the tool defaults to 250 and 1000) and truncation is declared, but a link is not small: its six identifiers"
+                + " and its timestamp are about 240 bytes, and a link with one-character text fields already renders as about"
+                + " 420 bytes (relation and entityType go up to 128 characters, a source locator has no bound written down), so"
+                + " the declared maximum of 5000 links is above the frame. Worst case by arithmetic, not measured; whether a"
+                + " portfolio holds that many references is not established");
+        unbounded(map, "trace_requirement", "depth is at most MorpheusMcpToolCatalog.MAX_DEPTH (20) and"
+                + " TraceabilityTraversalService stops at MAX_NODES (1000) and MAX_LINKS (5000), declaring the truncation"
+                + " (ADR-0108), but the link budget is not the caller's and a link is not small: the smallest link the compact"
+                + " view renders (four identifiers, one evidence id) is about 320 bytes and may carry any number of evidence"
+                + " ids, so 5000 links are above the frame. Worst case by arithmetic, not measured; whether a snapshot holds"
+                + " that many links is not established");
+        unbounded(map, "get_change_context", "same traversal and budgets as trace_requirement (MAX_NODES 1000, MAX_LINKS"
+                + " 5000, about 320 bytes for the smallest link, so above the frame at the budget), and it also returns the"
+                + " requirements, constraints, decisions and tasks of one change, for which no count bound was found and whose"
+                + " text fields have no size written down. Worst case by arithmetic, not measured; whether a snapshot holds"
+                + " that many links is not established");
         unbounded(map, "list_saved_views", "views of one scope are refused past QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE (250)"
                 + " and each carries its query definition, whose encoded expression may reach"
                 + " QueryBudgets.MAX_ENCODED_EXPRESSION_BYTES (16 KiB): 250 times 16 KiB is above the 1 MiB frame."

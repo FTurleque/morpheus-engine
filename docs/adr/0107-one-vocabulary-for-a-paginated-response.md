@@ -241,14 +241,25 @@ et ses changements entiers. Elle ne juge que ce que `MorpheusMcpServer.toolSpeci
 **Ce que la liste `NOT_PAGED` dit, et ne dit pas.** Ses raisons sont de trois sortes : `ONE_RESULT` (une seule réponse sur une seule
 chose), `BOUNDED_IN_COUNT` et `UNBOUNDED_ACKNOWLEDGED`. La deuxième s'appelait d'abord « bornée par un budget » : le mot trompait. Un budget
 **en nombre d'éléments** ne dit **rien** de la taille de la réponse sous le cadre d'1 Mio, puisqu'un élément peut être lui-même gros. Les outils
-dont le budget, multiplié par le plus gros élément, dépasse le cadre — par arithmétique sur les constantes lues, jamais par mesure — sont donc
+dont le budget, multiplié par la taille d'un élément que l'arithmétique établit au minimum (ou par le plus gros élément, quand une constante le borne), dépasse le cadre — par arithmétique sur les constantes lues, jamais par mesure — sont donc
 classés `UNBOUNDED_ACKNOWLEDGED` avec cette raison : `export_saved_view` (budget d'octets `MAX_EXPORT_BYTES`, 10 Mio : un export valide de
 quelques Mio ne peut pas être rendu et le conseil du transport ne peut pas être suivi, ce qui est la classe du constat), `list_saved_views`
 (250 vues × une expression encodée pouvant atteindre 16 Kio), `evaluate_policies` et `dry_run_policy_pack` (budget en nombre de règles, mais
 chaque résultat de règle porte une `evidence` de jusqu'à 1024 entrées, ADR-0108), `reason_with_evidence` (la réponse répète chaque évidence
-`PUBLISHED_FACT` dans `evidence` et dans `facts`), `get_augmented_*` (un budget de jetons, pas d'octets). Restent `BOUNDED_IN_COUNT`, sans aucune
-promesse de taille : `list_policy_overrides`, `list_policy_activations`, `execute_saved_view`, `traverse_portfolio`, `trace_requirement`,
-`get_change_context`.
+`PUBLISHED_FACT` dans `evidence` et dans `facts`), `get_augmented_*` (un budget de jetons, pas d'octets), et les trois parcours de graphe
+`traverse_portfolio`, `trace_requirement` et `get_change_context` (plafonds de 1000 nœuds et 5000 liens, `PortfolioTraversalService`,
+`TraceabilityTraversalService` ; un lien n'est pas petit : le plus petit lien que la vue compacte rend — quatre identifiants et un identifiant
+d'évidence, `TraceLinkView` — fait environ 320 octets sur une chaîne d'exemple construite, un lien de portefeuille environ 420, et 5000 liens de
+320 octets sont au-dessus de 1 Mio. **Pire cas par arithmétique, non mesuré**, et l'ADR n'établit pas qu'un instantané ou un portefeuille réel
+atteigne ce nombre de liens ; `traverse_portfolio` prend 1000 liens par défaut, soit environ 420 Kio au minimum, et n'excède le cadre qu'à son
+maximum déclaré ; `get_change_context` rend en plus les exigences, contraintes, décisions et tâches d'un changement, dont aucune borne en nombre
+n'a été trouvée).
+
+**Le critère n'a pas été appliqué en octets à tous les outils.** Ce paragraphe l'a d'abord été à une partie seulement, et une première rédaction
+laissait `BOUNDED_IN_COUNT` pour les trois parcours de graphe sans l'avoir fait. Restent `BOUNDED_IN_COUNT`, **sans aucune promesse de taille** :
+`list_policy_overrides` (256 × 1280 caractères d'acteur et de motif font environ 330 Kio pour ces deux champs ; les autres champs n'ont pas été
+sommés), `list_policy_activations` et `execute_saved_view` (pire cas en octets **non évalué** : la taille d'une ligne n'est bornée par aucune
+constante lue). Cette catégorie dit « borné en nombre » et rien d'autre.
 
 **Résidus nommés** (raison `UNBOUNDED_ACKNOWLEDGED`) : les précédents, plus `list_policy_packs` (aucun plafond à `PolicyPackService.create`,
 aucune suppression), `list_external_references`, `get_portfolio_overview` (`PortfolioQueryService.overview` rend les inscriptions et la
