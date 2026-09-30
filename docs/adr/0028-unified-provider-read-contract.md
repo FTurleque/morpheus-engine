@@ -587,3 +587,165 @@ déclarent constructrices de refus et juge les appels du budget ; elle ne voit d
 
 Les planchers qu'elle impose (trois classes de refus connues découvertes, les quatre modules qui appellent le budget
 vus) empêchent qu'elle passe à vide.
+## Amendement du 30 septembre 2026 (PRV-7) — la garde de la racine publiée contrôle l'argument entier
+
+### Le défaut
+
+La garde posée par l'amendement PRV-1 affirmait plus qu'elle ne vérifiait, sur trois points.
+
+- **Le balayage textuel ne lisait que le préfixe.** Il exigeait que le troisième argument de
+  `new ProjectSpecification(` commence par `ProviderProjectRoot.locator(` (`startsWith`). La forme
+  `ProviderProjectRoot.locator(request.workspaceRoot().resolve("openspec"))` passait : un septième lecteur écrit ainsi
+  republierait une racine divergente et PRV-1 se reproduirait à l'identique.
+- **La règle ArchUnit était large et, pour un module, vacante.** Elle n'exigeait qu'un appel à `locator` quelque part
+  dans la classe : une classe portant deux constructions dont une seule correcte passait. Et
+  `morpheus-provider-reference` n'était pas une dépendance de test de `morpheus-architecture-tests` : la règle ne le
+  voyait pas, seul le texte le gardait. L'amendement PRV-1 l'écrit (« hors classpath ArchUnit »).
+- **Rien n'obligeait un nouveau lecteur à avoir un test comportemental de sa racine**, alors que ce sont ces tests qui
+  tiennent l'invariant, le texte n'en tenant que l'orthographe.
+
+### Décision
+
+1. **L'argument entier est contrôlé.** La parenthèse ouverte par `ProviderProjectRoot.locator(` doit fermer
+   l'argument, mesurée par équilibre des parenthèses (littéraux ignorés) et non par `endsWith(")")`, qui accepterait
+   `locator(a).resolve(b)`. Ce qu'elle enclôt doit être reconnu par une des formes admises de
+   `ProviderProjectRootArchitectureTest.ReceivedRootForm` : **chaque constante porte sa propre reconnaissance**, et le
+   balayage les interroge dans l'ordre, si bien que la liste qu'un refus affiche est la logique appliquée, pas un
+   message à tenir d'accord avec elle. Formes énumérées avec leur raison plutôt que laissées à une expression régulière
+   qui refuserait sans dire pourquoi tout ce qu'elle n'a pas prévu :
+   - directement dans l'argument : `<request>.workspaceRoot()`, **dont le receveur est lui-même reçu** — un paramètre
+     déclaré du fichier, ou un nom lié seulement à de tels noms —, parce qu'une requête construite sur un chemin dérivé
+     (`ProviderReadRequest.all(request.workspaceRoot().resolve("openspec"), …)`) porte ce chemin ; et un **nom** ou
+     `this.<nom>` ;
+   - dans une liaison de ce nom, en plus : `Objects.requireNonNull(<admise>, "<message>")` (rend son argument) et
+     `<admise>.toAbsolutePath()` / `<admise>.normalize()` (le point unique les réapplique, et elles sont idempotentes :
+     la racine publiée est celle que donne la racine reçue). Dans l'argument lui-même, ces deux dernières seraient une
+     seconde orthographe de la normalisation que le point unique possède : elles y sont refusées.
+
+   Un nom est suivi jusqu'à **chacune** de ses liaisons dans le fichier : déclaration, affectation parenthésée ou non,
+   y compris à un champ du même nom. Une variable de boucle for-each, une variable de motif (`instanceof Path root`,
+   `case Path root ->`) et une composante de motif d'enregistrement sont des liaisons, jamais admises. Un nom **sans
+   liaison** n'est admis que si le fichier le **déclare comme paramètre** typé (`(Type nom,` ou `, Type nom)`) : un
+   nom lié ailleurs — un champ hérité, par exemple — est refusé au lieu d'être tenu pour reçu.
+
+   Le texte est lu **une fois**, comme le compilateur le lit pour ce qui compte ici : échappements unicode traduits
+   d'abord (un `root = …` est une liaison de `root`), puis commentaires retirés, littéraux conservés. Un
+   commentaire dans l'argument ne le fait donc plus refuser, et une apostrophe dans un commentaire ne fait plus lever
+   d'exception ; une construction que le balayage ne sait pas délimiter lève une exception qui **nomme le fichier**.
+   La construction est reconnue sous son nom simple ou qualifié (`new com.morpheus.domain.project.ProjectSpecification(`),
+   et une référence de constructeur `ProjectSpecification::new`, dont l'argument est illisible, est refusée.
+
+   Les six constructions du dépôt s'écrivent sous trois formes — `locator(request.workspaceRoot())` (Markdown,
+   synthétique), `locator(root)` (trois lecteurs OpenSpec) et `locator(workspace)` (référence) — toutes admises sans
+   modification des lecteurs : `request` y est partout le paramètre de `read`, sans autre liaison, et `root` /
+   `workspace` n'y sont liés qu'à des formes admises.
+2. **La règle ArchUnit est par unité de code, et voit les références de constructeur.** Chaque méthode, constructeur ou
+   lambda qui construit un `ProjectSpecification` ou référence son constructeur appelle `ProviderProjectRoot.locator` au
+   moins une fois par construction. Elle compte des appels et **ne lit pas l'argument** : une construction que seule la
+   règle voit est tenue à la co-localisation d'un appel `locator`, pas à ce que devient son résultat
+   (`SourceLocator.file(ProviderProjectRoot.locator(w).value() + "/openspec")` la satisfait ; c'est le texte, qui lit
+   désormais aussi la forme qualifiée, qui la refuse).
+3. **La vacance est comblée par la dépendance, pas écrite.** `morpheus-provider-reference` devient dépendance de test
+   de `morpheus-architecture-tests`. Elle n'est lue que par l'import de classpath d'ArchUnit, jamais par nom : le POM
+   la déclare donc utilisée (`usedDependencies`), selon le précédent de `morpheus-cli` pour une dépendance découverte
+   au classpath. Un test (`#theRuleSeesEverySourceFileTheScanReads`) tient la règle et le balayage au même ensemble de
+   fichiers source : un module lecteur absent du classpath est refusé par son nom, comme `HttpRoutesFamilyArchitectureTest`
+   le fait pour les routeurs.
+4. **Un lecteur a un test de sa racine.** Tout fichier source qui construit un `ProjectSpecification` a, dans son
+   propre module, un test qui, **hors commentaires**, construit ce lecteur, mentionne `rootLocator()` et épelle une
+   racine attendue (`ProviderProjectRoot.locator(` ou `SourceLocator.file(`), ou qui remet à
+   `ProviderPluginContractAssertions.verifyRead(` un plugin dont la source construit ce lecteur (le contrat publié
+   compare la racine publiée à la racine reçue, `ProviderPluginContractAssertionsTest` prouve qu'il refuse un fichier).
+   Ce sont des **mentions** : la garde ne vérifie pas que le test compare les deux.
+
+### Ce que l'ajout de la dépendance a déclenché
+
+La suite complète de `morpheus-architecture-tests` a été exécutée avant et après l'ajout (réacteur `-am`, hors
+`clean verify`) : **aucune règle existante ne tombe sur le code du plugin de référence.** Le seul échec, identique
+avant et après, est `CoverageQualityGateTest#perModuleCoverageDoesNotRegressBelowQualifiedBaseline`, qui refuse de
+conclure sans les rapports JaCoCo d'un `clean verify` complet (« 0 of 16 reactor modules ») — condition
+d'exécution, pas un constat.
+
+Un risque **latent** est nommé, non corrigé. `ProviderPluginActivator` crée son `URLClassLoader` avec pour parent le
+chargeur de `MorpheusProviderPlugin` ; sur le classpath de test de ce module, ce parent voit désormais le service
+`META-INF/services/com.morpheus.sdk.provider.MorpheusProviderPlugin` et les classes du plugin de référence. Mesuré sur
+le JDK 21 du dépôt (deux `URLClassLoader` parent et enfant déclarant le même service et la même classe) :
+`ServiceLoader` rend **un seul** service, **chargé par le parent** — il dédoublonne par nom de classe. Un test
+d'architecture qui activerait le JAR de référence trouverait donc exactement un service, chargé depuis le classpath,
+et **passerait sans exécuter la copie vérifiée par SHA-256** : le contrôle d'intégrité serait contourné sans que rien
+ne le signale. Aucun test du module n'active de plugin aujourd'hui : le seul test M22 sur ce JAR
+(`ProviderPluginPlatformContractTest#externalReferenceJarIsDiscoveredAsMetadataWithoutActivation`) s'arrête à la
+découverte, qui ne charge aucune classe. Un commentaire du POM, à côté de la dépendance, le dit à qui la lira ; un
+test d'activation, s'il devient nécessaire, a sa place dans `morpheus-provider-sdk` ou `morpheus-provider-reference`,
+pas ici.
+
+### Ce que la garde ne couvre pas
+
+Figé par `ProviderProjectRootArchitectureTest#theScanAcceptsTheDivergencesItDoesNotFollow`, pour qu'un changement dans
+un sens ou dans l'autre se voie :
+
+- une valeur qui atteint un **paramètre** est tenue pour reçue : le balayage ne la suit pas jusqu'à l'appelant qui la
+  passe. Le `read(Path workspaceRoot, …, budget)` package-privé des lecteurs OpenSpec en est un, et un appelant qui lui
+  passerait `root.resolve("openspec")` ne serait vu que par les tests comportementaux ;
+- un nom est suivi dans son fichier seulement, et sans portée. Une liaison du même nom dans une autre méthode est tenue
+  aux mêmes formes (strict à dessein : un lecteur qui réutilise le nom pour un autre chemin doit le renommer), et un
+  **paramètre du même nom dans une autre méthode** suffit à faire admettre un nom qui n'est lié nulle part dans le
+  fichier — un champ hérité, par exemple ;
+- le receveur de `.workspaceRoot()` doit être un paramètre ou un nom lié seulement à de tels noms, mais son **type**
+  n'est pas lu ;
+- un paramètre est reconnu à sa déclaration typée : un paramètre de lambda non typé n'en est pas un, et une racine
+  obtenue par lui est refusée (strict, écrit) ;
+- la garde des tests comportementaux vérifie des mentions : un test qui construit le lecteur, lit `rootLocator()` et
+  épelle une racine attendue passe, qu'il les compare ou non, et qu'il s'exécute ou non ; elle est par fichier source,
+  pas par construction ;
+- une construction par réflexion n'est vue ni par le texte ni par la règle ;
+- le point unique écrit qualifié ou importé statiquement est refusé, pas admis.
+
+### Texte rendu faux, amendé ici
+
+- Cet ADR, amendement PRV-1, « Preuves exécutables ajoutées » : « y compris dans `morpheus-provider-reference`, hors
+  classpath ArchUnit » — vrai au 24 septembre, faux depuis cet amendement. Mesure datée, non réécrite.
+- ADR-0103, décision 1, condition 1 : amendé à la même date.
+- `.claude/rules/architecture.md` et le Javadoc de
+  `HttpRoutesFamilyArchitectureTest#theRulesSeeEveryRouterTheSourcesDeclare` énonçaient au présent que le plugin de
+  référence est hors de l'ensemble importé : énoncés de règle, corrigés. La skill `enforcement-choice`, qui ne nomme
+  aucun module, reste juste et n'est pas touchée.
+- Le Javadoc des quatre tests de lecteur qui l'écrivaient (`OpenSpecChangeMetadataReaderTest`,
+  `OpenSpecCurrentSpecificationReaderTest`, `OpenSpecSpecificationContentReaderTest`,
+  `SyntheticSpecificationContentReaderTest`) : « the architecture rule only proves the root argument starts with
+  `ProviderProjectRoot.locator(` » est corrigé en ce que le balayage tient désormais, et ce qu'il ne suit pas.
+
+### Preuves exécutables ajoutées
+
+- `ProviderProjectRootArchitectureTest#theScanRefusesARootResolvedInsideTheSinglePoint` — la forme
+  `ProviderProjectRoot.locator(request.workspaceRoot().resolve("openspec"))`, sur une source synthétique, est refusée
+  et nommée.
+- `#theScanRefusesEveryDerivedRootInsideOrAroundTheSinglePoint` — vingt autres formes, chacune refusée une fois :
+  autour du point unique (`getParent()`, un appel chaîné après lui, `normalize()` dans l'argument, un point unique
+  imbriqué, une racine qui n'y passe pas) ; par un nom (liaison à un sous-répertoire, réaffectation, second nom, boucle
+  for-each, affectation parenthésée, nom en échappement unicode, champ sans liaison ni paramètre) ; par une requête
+  dérivée, locale ou en champ ; par une variable de motif `instanceof`, de `case` ou une composante de motif
+  d'enregistrement portant le nom d'un paramètre ; par un paramètre de lambda non typé ; par une construction qualifiée
+  et par une référence de constructeur.
+- `#theScanAcceptsTheFormsTheReadersWrite` — les formes des quatre modules lecteurs, écrites comme ils les écrivent,
+  plus un commentaire (avec apostrophe) dans l'argument et dans la construction, et `this.root` lié depuis un paramètre.
+- `#theScanAcceptsTheDivergencesItDoesNotFollow` — les trois angles morts ci-dessus, figés.
+- `#aScanThatFindsNothingInARequiredModuleIsRefused` — le refus de passer à vide, auparavant prouvé seulement sur le
+  dépôt réel, est rejoué sur un arbre synthétique ; l'assertion sur le dépôt réel reste.
+- `#aConstructionTheScanCannotDelimitNamesItsFile`.
+- `#theRuleRefusesAConstructionWithoutTheSinglePointInItsOwnCodeUnit` — trois classes de test sont refusées (deux
+  constructions pour un appel ; l'appel dans une autre méthode ; une référence de constructeur, que l'ancienne règle ne
+  voyait pas), une quatrième acceptée.
+- `#theRuleSeesEverySourceFileTheScanReads` et `#aReaderWithoutATestOfItsPublishedRootIsRefused` (dont un test qui ne
+  mentionne la racine qu'en commentaire, et un qui lit `rootLocator()` sans épeler de racine attendue).
+
+Cassées pour de vrai, puis remises. Sur le code réel : la forme `resolve("openspec")`, puis une requête dérivée
+`ProviderReadRequest sub = ProviderReadRequest.all(request.workspaceRoot().resolve("openspec"), …)` suivie de
+`locator(sub.workspaceRoot())`, écrites dans `SyntheticSpecificationContentReader`, font chacune tomber
+`#everyProviderPublishesItsProjectRootThroughTheSinglePoint` en nommant le fichier ; la dépendance retirée du POM fait
+tomber `#theRuleSeesEverySourceFileTheScanReads` en nommant `ReferenceSpecificationContentReader.java` ; l'assertion
+de racine retirée de `SyntheticSpecificationContentReaderTest` fait tomber
+`#everyClassThatConstructsAProjectSpecificationHasATestThatReadsTheRootItPublishes`. Dans la garde : chaque correctif
+retiré fait tomber exactement les cas qu'il tient (receveur non suivi, variables de motif, exigence de paramètre,
+traduction unicode, retrait des commentaires, références de constructeur, racine attendue du test comportemental) ;
+le contrôle réduit à l'ancien préfixe fait tomber les deux tests de refus synthétiques.

@@ -20,6 +20,8 @@
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-openspec</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-markdown</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-synthetic</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+        <!-- Never activate the reference JAR from a test of this module: with the plugin on this classpath, ServiceLoader finds one service, loaded from the classpath, and the SHA-256-verified copy never runs (ADR-0028, amendment PRV-7). -->
+        <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-provider-reference</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-store-memory</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-store-sqlite</artifactId><version>${project.version}</version><scope>test</scope></dependency>
         <dependency><groupId>io.github.fturleque</groupId><artifactId>morpheus-integration-minos</artifactId><version>${project.version}</version><scope>test</scope></dependency>
@@ -32,4 +34,21 @@
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter-api</artifactId><scope>test</scope></dependency>
         <dependency><groupId>com.tngtech.archunit</groupId><artifactId>archunit</artifactId><version>${archunit.version}</version><scope>test</scope></dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <!-- Read by ArchUnit's classpath import, never by name: without it the project-root rule is
+                         vacant for the reference reader, and ProviderProjectRootArchitectureTest
+                         #theRuleSeesEverySourceFileTheScanReads fails naming it (ADR-0028, amendment PRV-7). -->
+                    <usedDependencies>
+                        <usedDependency>io.github.fturleque:morpheus-provider-reference</usedDependency>
+                    </usedDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

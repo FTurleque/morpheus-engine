@@ -607,3 +607,21 @@ budget appelé sur une autre chaîne que celle qui est parsée (la règle est pa
 **Preuve.** Cassée pour de vrai : l'ancien code de production remis fait tomber la règle sur les trois routes ; un `raw.split("&")` réintroduit dans
 `MorpheusPolicyManagementHttpRoutes` la fait tomber sur ce fichier. Côté HTTP, `ExtensionRoutesRequestBoundaryParityTest` refuse, sur les trois routes, une query de plus de 16 paramètres
 et une query de plus de 16 Kio — rouge avant le correctif.
+
+## Amendement du 30 septembre 2026 (PRV-7) — `morpheus-provider-reference` entre dans l'ensemble importé
+
+La décision 1, condition 1, écrit que `morpheus-provider-reference` et `morpheus-provider-testkit` ne sont pas sur le
+classpath de `morpheus-architecture-tests`. C'était vrai à sa date ; depuis cet amendement, **seul
+`morpheus-provider-testkit` n'y est pas**. Le plugin de référence est devenu dépendance de test pour que la règle de
+racine de projet cesse d'être vacante sur lui (ADR-0028, amendement PRV-7, qui porte la décision, la mesure de ce que
+l'ajout a déclenché et le risque latent de classloader qu'il introduit).
+
+Deux conséquences pour qui applique cet ADR :
+
+- la condition 1 reste une vérification à faire, pas une liste à recopier : relire le `pom.xml` du module ;
+- une dépendance que seul l'import de classpath d'ArchUnit lit n'a pas d'usage de bytecode, et
+  `dependency:analyze` la déclare inutilisée. Elle se déclare utilisée (`usedDependencies`) avec un commentaire qui
+  nomme le test qui tombe si elle disparaît ; sans ce test, la déclaration affirmerait un usage que rien ne vérifie.
+
+Les exécutions datées de cet ADR (dont E5, `ProbeHttpRoutes` dans `morpheus-provider-testkit`) ne sont pas réécrites :
+le testkit est toujours hors de l'ensemble importé.

@@ -69,8 +69,9 @@ Restent textuels par nature, ne pas les migrer :
 
 Trois obligations avant d'accepter une règle migrée :
 
-1. **Vérifier que la classe visée est dans l'ensemble importé.** `morpheus-provider-reference` et
-   `morpheus-provider-testkit` n'y sont pas. Le garde-fou `archRule.failOnEmptyShould` est actif et
+1. **Vérifier que la classe visée est dans l'ensemble importé.** `morpheus-provider-testkit` n'y est
+   pas (`morpheus-provider-reference` y est depuis le 30/09/2026, ADR-0028 amendement PRV-7) — relire
+   le `pom.xml` de `morpheus-architecture-tests` plutôt que cette ligne. Le garde-fou `archRule.failOnEmptyShould` est actif et
    fait échouer une règle qui ne retient aucune classe — **ne pas le désactiver**.
 2. **Vérifier qu'un littéral n'est pas un préfixe de famille.** `contains("MorpheusRemote")` interdit
    toute une famille de types, pas un seul.

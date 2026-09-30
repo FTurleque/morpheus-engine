@@ -138,9 +138,8 @@ class HttpRoutesFamilyArchitectureTest {
      *
      * <p>{@code failOnEmptyShould} catches a rule that retains no class at all; it does not catch one that retains
      * sixteen routers out of seventeen. The rules above see the ArchUnit classpath, which excludes
-     * {@code morpheus-provider-reference} and {@code morpheus-provider-testkit}; the text scan sees every module's
-     * sources. Holding the two to the same set means a router declared where the rules cannot follow is refused by
-     * name instead of silently escaping them.</p>
+     * {@code morpheus-provider-testkit}; the text scan sees every module's sources. Holding the two to the same set
+     * means a router declared where the rules cannot follow is refused by name instead of silently escaping them.</p>
      */
     @Test
     void theRulesSeeEveryRouterTheSourcesDeclare() throws IOException {
