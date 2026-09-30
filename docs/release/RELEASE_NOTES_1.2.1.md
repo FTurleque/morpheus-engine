@@ -211,6 +211,17 @@ plusieurs d'entre eux dépasse le cadre par arithmétique (non mesuré) ; la lis
 
 Décision : [ADR-0107, amendement du 29 septembre 2026 (MCP-2)](../adr/0107-one-vocabulary-for-a-paginated-response.md).
 
+### MCP, pages des trois outils de collection croissante : aucune sortie ne change, trois phrases sont corrigées
+
+Aucun comportement ne change. Le Javadoc de `PageArguments` (MCP-2) affirmait trois choses que le code ne tenait pas : qu'un `limit = 0` est refusé « sans que le store
+ait été ouvert » (le refus de `slice` précède la **lecture de la collection**, mais un appel direct du handler a déjà ouvert le store ; sous le serveur, le SDK refuse `limit = 0`
+contre le schéma publié avant tout handler, donc aucun store n'est ouvert : établi par lecture du code et du SDK, non mesuré de bout en bout) ;
+que les bornes de `limit` sont celles du catalogue « que `PageRequest` applique aussi » (vrai du seul **maximum**, 100, et rien ne le tenait : `PageBoundsAgreementTest` le tient
+désormais, ainsi que trois descriptions d'outils qui écrivaient « default 50, maximum 100 » à la main) ; et que tout outil sur une collection qui ne fait que croître prend une page
+(trois outils le font ; `list_policy_packs` et d'autres restent rendus entiers, avec leur raison dans l'ADR-0107).
+
+Décision : [ADR-0107, amendement du 30 septembre 2026 (MCP-6)](../adr/0107-one-vocabulary-for-a-paginated-response.md).
+
 ### Exports (CLI `export query`, MCP `export_query`, HTTP `POST /api/v1/exports`) : `limit` et `offset` sont refusés
 
 Jusqu'à 1.2.0, ces trois surfaces acceptaient `limit` et `offset` pour un export et les ignoraient : `export query --limit 10`,

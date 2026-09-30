@@ -281,3 +281,69 @@ fraîcheur d'un portefeuille **et** les conflits et le compte dérivés de **tou
 - **Les arguments de page sont lus, et refusés hors bornes, avant la lecture de la collection** (`PageArguments.slice` prend un `Supplier`) : un
   `limit` de 0 sur une collection inconnue répond sur le `limit`, un `limit` valide répond que la collection est inconnue
   (`thePageArgumentsAreRefusedBeforeTheCollectionIsRead`). `list_composition_conflicts` reçoit son état d'abord ; sa lecture précède donc sa validation.
+
+## Amendement du 30 septembre 2026 (MCP-6) — le Javadoc de `PageArguments` décrit le chemin servi, et l'égalité des bornes est tenue
+
+Cet amendement ne change aucun comportement. Il corrige trois énoncés du Javadoc de `PageArguments` que l'amendement MCP-2 avait écrits et que le code ne tenait pas,
+et il ajoute la garde d'une égalité que ce même amendement affirmait.
+
+### Constat
+
+1. **« sans que le store ait été ouvert ».** Le Javadoc de `PageArguments.slice` écrivait qu'un appelant qui demande `limit = 0` l'apprend « without
+   the store having been opened for a page nobody can return ». Le `Supplier` diffère la **lecture de la collection**, pas l'ouverture du store :
+   `MorpheusPolicyMcpTools.call` ouvre `SqlitePolicyRuntime` avant son `switch` (ligne 81 à `933a63fe`), `MorpheusQueryMcpTools.call` ouvre
+   `SqliteQueryRuntime` de même (ligne 85), et les `PageArguments.slice` sont dans le `try`. L'énoncé de l'amendement MCP-2 de cet ADR (« avant la
+   lecture de la collection ») était juste ; c'est le Javadoc qui promettait plus. **Mais ce refus n'est pas celui qu'un appel servi rencontre** (voir la décision).
+2. **« que `PageRequest` applique aussi ».** L'amendement MCP-2, Décision, point 2 (« `limit` vaut 50 par défaut, de 1 à 100 (les constantes du catalogue
+   MCP, que `PageRequest` applique aussi) »), et le Javadoc écrivaient que les bornes de `limit` sont celles du catalogue que `PageRequest` applique aussi.
+   `PageRequest.MAX_LIMIT` (`morpheus-application`) et `MorpheusMcpToolCatalog.MAX_LIMIT` (`morpheus-mcp`) sont deux littéraux `100` dans deux modules, et
+   rien ne tenait leur égalité. Et `PageRequest` ne porte **pas de valeur par défaut** : l'énoncé ne pouvait être vrai que du maximum.
+3. **« tout outil qui rend une collection qui ne fait que croître prend ces arguments ».** Faux à l'époque : `list_policy_packs` rend une collection
+   sans plafond ni suppression et figure dans les résidus nommés (`UNBOUNDED_ACKNOWLEDGED`) de cet ADR. Le Javadoc nomme désormais les trois outils du constat
+   MCP-2 et renvoie à `GrowingCollectionToolsArePageableTest` pour les autres.
+
+### Décision
+
+- **Le texte est corrigé seul ; la validation de page n'est pas remontée avant l'ouverture du store.** Sous le serveur la propriété voulue existe déjà, pour les
+  refus que le schéma exprime : `MorpheusMcpServer.build` arme `validateToolInputs(true)` (tenu par
+  `McpFailureContractTest#theServerArmsSchemaValidationForEveryToolItServes`), et le SDK (`mcp-core` 2.0.1, `McpAsyncServer.toolsCallRequestHandler`) exécute
+  `ToolInputValidator.validate` **avant** `callHandler().apply` ; `McpSyncServer` enveloppe le serveur asynchrone. Le schéma de ces outils publie les mêmes bornes que
+  le handler (`PageArguments.properties()` ; `GrowingCollectionToolsPagingTest#theBoundsAreEnforcedByTheHandlerAndAnnouncedByTheSchemaAlike`). Un appel servi avec
+  `limit = 0` est donc refusé par le SDK avant tout handler, et **aucun store n'est ouvert pour lui**. C'est ce que CLI-9 installe dans le CLI (le store n'est
+  ouvert qu'une fois les options acceptées) : la surface MCP servie l'avait déjà pour ce qu'un schéma exprime. Le refus propre de `PageArguments.slice` n'est atteint
+  qu'en appel direct du handler, comme le font les tests ; il y a le store déjà ouvert, c'est **assumé et non gardé**. Cela est établi **par lecture** du code
+  et des sources du SDK, non mesuré par un appel servi de bout en bout.
+- **Conséquence.** Le constat portait sur un énoncé faux au niveau du handler ; il n'y a pas de défaut de comportement sur le chemin servi.
+  Remonter la validation dans `MorpheusPolicyMcpTools` et `MorpheusQueryMcpTools` n'apporterait rien à un appelant réel, seulement aux appels directs des tests.
+- **Inventaire des ouvertures de store par appel dans `morpheus-mcp`** (vérifié à `933a63fe`). Il décrit l'ordre des refus **sémantiques** dans les handlers (un identifiant
+  qui doit être analysé, une valeur que le schéma n'exprime pas), **pas** les refus de schéma, que le SDK rend avant tout handler. Ouvrent **avant** de lire un argument :
+  `MorpheusPolicyMcpTools`, `MorpheusPolicyMcpManagementTools`, `MorpheusQueryMcpTools`, `MorpheusPortfolioMcpTools` et `MorpheusMcpToolService.execute`
+  (outils du catalogue, dont la page est lue dans la branche). Lisent leurs identifiants **puis** ouvrent : `MorpheusCompositionMcpTools` (`projectId`),
+  `MorpheusAugmentedContextMcpTools` (`projectId` et les options), `MorpheusControlledLifecycleMcpTools`, `MorpheusExternalReferenceMcpTools` (`list`, `resolve`) et
+  `MorpheusJarvisOrchestrationMcpTools`. Aucun ordre uniforme n'est revendiqué pour les refus sémantiques. Les noms de classes et les lignes sont une lecture à `933a63fe`.
+- **L'égalité des maxima est gardée** : `PageBoundsAgreementTest` exige `PageRequest.MAX_LIMIT == MorpheusMcpToolCatalog.MAX_LIMIT`, que `PageArguments.MAX_LIMIT`
+  et le `maximum` publié par son schéma lui soient égaux, que `PageArguments.slice` accepte `MAX_LIMIT` et refuse `MAX_LIMIT + 1` sans lire la collection, et que
+  `PageRequest` refuse `MAX_LIMIT + 1` avec le texte qui nomme `MAX_LIMIT`. Le message d'échec dit quels énoncés deviennent faux.
+- **Le consommateur qui rend cette égalité nécessaire dans un sens.** `MorpheusMcpToolService.page` (l. 288-291) construit un `PageRequest` avec un `limit` borné par
+  `MorpheusMcpToolCatalog.MAX_LIMIT`, et les schémas du catalogue publient `integer(1, MAX_LIMIT)`. Si le maximum du catalogue dépasse celui de `PageRequest`, les
+  outils du catalogue refusent un `limit` que leur schéma accepte : la classe de défaut de MCP-3. **Dans ce sens de divergence, réécrire la phrase n'est pas un remède
+  suffisant** ; il faut ramener les constantes l'une à l'autre. Aucun test n'appelle un outil du catalogue à son `limit` maximal (`MorpheusMcpToolServiceTest` prend
+  `limit` = 1 ; `MorpheusMcpToolCatalogTest` fige le `maximum` du schéma sur le littéral 100 sans rien appeler) : cette garde d'égalité est la seule de ce sens.
+- **Trois copies écrites à la main, gardées.** Les descriptions de `list_policy_pack_versions`, `get_policy_audit` (`MorpheusPolicyMcpTools`) et `list_saved_view_versions`
+  (`MorpheusQueryMcpTools`) écrivent « default 50, maximum 100 » en dur. `PageBoundsAgreementTest` exige que chacune contienne le texte construit à partir des constantes.
+  Une quatrième description qui recopierait ces nombres ne serait pas vue.
+- Précision sur « Leurs valeurs diffèrent, donc une garde d'égalité serait fausse » (amendement MCP-2, « Ce qui garde ses propres bornes ») : cela vaut pour
+  le portefeuille et les outils de requête. Pour le catalogue (50 et 100), `PageArguments` **lit** ces constantes : l'égalité n'est pas à garder, elle est
+  structurelle, et c'est celle avec `PageRequest` qui ne l'était pas. L'énoncé MCP-2 (Décision, point 2) reste écrit tel quel ; il se lit, depuis cet amendement,
+  comme ne portant que sur le **maximum** de `limit`.
+- **Le CLI, pour mémoire.** Dans le CLI l'ouverture du store créait le fichier à un emplacement non validé avant le refus des options (CLI-9, corrigé : voir l'ADR-0108,
+  amendement du 30 septembre 2026) ; la surface MCP servie n'était pas dans ce cas pour un refus de schéma.
+
+### Ce que la garde ne couvre pas
+
+`PageBoundsAgreementTest` ne compare que les **maxima** de `limit` et le texte de trois descriptions : pas les valeurs par défaut (`PageRequest` n'en a pas ; le CLI prend 20,
+le catalogue 50, le portefeuille et les outils de requête 100), pas les plafonds d'`offset` (1 000 000 dans le catalogue, `Integer.MAX_VALUE` dans `PageArguments`, par
+choix), pas les maxima des outils qui gardent leurs propres bornes (500, volontairement différents de `PageRequest`). Il ne découvre aucun outil : un quatrième outil qui
+recopierait `100` au lieu de lire `PageArguments` ou le catalogue, ou une quatrième description, ne serait pas vu. Il n'appelle aucun outil du catalogue à son maximum. Le fait
+que l'ouverture du store précède le refus d'une page en appel direct n'est pas gardé : c'est un résidu écrit, pas une propriété testée. Le fait qu'un appel servi avec
+`limit = 0` n'ouvre aucun store est établi par lecture (`validateToolInputs(true)`, l'ordre du SDK), non par une mesure de bout en bout.
