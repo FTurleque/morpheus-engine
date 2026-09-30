@@ -78,7 +78,7 @@ record RemoteApiLaunchOptions(
                 if (index + 1 >= args.length) throw new IllegalArgumentException(token + " requires a value");
                 String value = OptionValue.nonBlank(token, args[++index]);
                 switch (token) {
-                    case "--host" -> host = requireNonBlank(value, "--host");
+                    case "--host" -> host = value.trim();
                     case "--port" -> port = parsePort(value);
                     case "--data-dir" -> data = Optional.of(Path.of(value));
                     case "--config-dir" -> config = Optional.of(Path.of(value));
@@ -105,7 +105,7 @@ record RemoteApiLaunchOptions(
                 onceUnlessList(given, option);
                 String value = OptionValue.nonBlank(option, token.substring(separator + 1));
                 switch (option) {
-                    case "--host" -> host = requireNonBlank(value, "--host");
+                    case "--host" -> host = value.trim();
                     case "--port" -> port = parsePort(value);
                     case "--data-dir" -> data = Optional.of(Path.of(value));
                     case "--config-dir" -> config = Optional.of(Path.of(value));
@@ -155,13 +155,13 @@ record RemoteApiLaunchOptions(
         // setting above, there is no JVM-property fallback: a -D property sits in /proc/<pid>/cmdline, which any
         // account of the host can read, while /proc/<pid>/environ is readable by the owner alone.
         TlsKeystorePassword password = new TlsKeystorePassword(
-                () -> nonBlank(environment.get("MORPHEUS_SERVER_TLS_PASSWORD")));
+                () -> presentSetting(environment.get("MORPHEUS_SERVER_TLS_PASSWORD")));
         if (!password.isPresent()) {
             throw new IllegalArgumentException(TlsKeystorePassword.MISSING);
         }
         if (!maxConcurrentExplicit) {
-            Optional<String> configured = nonBlank(environment.get("MORPHEUS_SERVER_MAX_CONCURRENT"))
-                    .or(() -> nonBlank(properties.getProperty("morpheus.server.maxConcurrent")));
+            Optional<String> configured = presentSetting(environment.get("MORPHEUS_SERVER_MAX_CONCURRENT"))
+                    .or(() -> presentSetting(properties.getProperty("morpheus.server.maxConcurrent")));
             if (configured.isPresent()) maxConcurrent = parseConcurrency(configured.orElseThrow());
         }
         return new RemoteApiLaunchOptions(
@@ -197,8 +197,8 @@ record RemoteApiLaunchOptions(
             Properties properties) {
         List<Path> configured = new ArrayList<>(explicit);
         if (configured.isEmpty()) {
-            String raw = nonBlank(environment.get("MORPHEUS_SERVER_WORKSPACE_ROOTS"))
-                    .or(() -> nonBlank(properties.getProperty("morpheus.server.workspaceRoots")))
+            String raw = presentSetting(environment.get("MORPHEUS_SERVER_WORKSPACE_ROOTS"))
+                    .or(() -> presentSetting(properties.getProperty("morpheus.server.workspaceRoots")))
                     .orElseThrow(() -> new IllegalArgumentException(
                             "remote mode requires at least one --workspace-root or MORPHEUS_SERVER_WORKSPACE_ROOTS"));
             for (String item : raw.split(Pattern.quote(File.pathSeparator))) {
@@ -234,20 +234,15 @@ record RemoteApiLaunchOptions(
         }
     }
 
-    private static String requireNonBlank(String value, String option) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException(option + " must not be blank");
-        return value.trim();
-    }
-
     private static Optional<Path> envPath(Map<String, String> environment, String key) {
-        return nonBlank(environment.get(key)).map(Path::of);
+        return presentSetting(environment.get(key)).map(Path::of);
     }
 
     private static Optional<Path> propertyPath(Properties properties, String key) {
-        return nonBlank(properties.getProperty(key)).map(Path::of);
+        return presentSetting(properties.getProperty(key)).map(Path::of);
     }
 
-    private static Optional<String> nonBlank(String value) {
+    private static Optional<String> presentSetting(String value) {
         return Optional.ofNullable(value).map(String::trim).filter(item -> !item.isEmpty());
     }
 }

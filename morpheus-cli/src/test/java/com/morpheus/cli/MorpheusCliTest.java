@@ -412,6 +412,28 @@ class MorpheusCliTest {
         assertTrue(omitted.stdout().contains("published=true"), omitted.stdout());
     }
 
+    /**
+     * A query made of an em space passed a {@code trim()} test and was then stripped to nothing by the search, which
+     * ran without text as if the option had been omitted, exit code 0 -- the CLI-7 defect, spelled differently.
+     */
+    @Test
+    void aQueryMadeOfAUnicodeSpaceIsRefusedInsteadOfSearchingWithoutText() {
+        Path data = tempDir.resolve("unicode-space-query");
+        Invocation add = invokeWithData(data, "projects", "add", "--workspace", fixture("openspec-basic").toString());
+        assertEquals(0, add.exitCode(), add.stderr());
+        String projectId = value(add.stdout(), "projectId");
+        assertEquals(0, invokeWithData(data, "sync", "--project", projectId).exitCode());
+
+        Invocation refused = invokeWithData(data, "requirements", "find", "--project", projectId, "--query", "\u2003");
+        Invocation omitted = invokeWithData(data, "requirements", "find", "--project", projectId);
+
+        assertEquals(CliExitCode.USAGE.code(), refused.exitCode(), refused.stdout());
+        assertTrue(refused.stderr().contains("--query requires a non-blank value"), refused.stderr());
+        assertEquals("", refused.stdout());
+        assertEquals(0, omitted.exitCode(), omitted.stderr());
+        assertFalse(omitted.stdout().isBlank(), omitted.stdout());
+    }
+
     @Test
     void aSyncRefusedForInvalidContentIsAUsageErrorThatNamesTheFileRelativeToTheWorkspace() throws Exception {
         Path data = tempDir.resolve("invalid-content-data");

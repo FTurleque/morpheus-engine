@@ -435,6 +435,40 @@ de valeur, au lieu de la passer vide. Pour viser réellement le répertoire cour
 
 Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, suite)](../adr/0108-a-response-says-what-it-could-not-observe.md).
 
+### CLI et lanceurs `api`, `mcp`, `api --remote` : une valeur faite d'espaces Unicode est une valeur blanche
+
+Le refus d'une option passée vide, décrit ci-dessus, tenait pour blanche une valeur que `trim()` vide : espaces ASCII,
+tabulations et caractères de contrôle. Une valeur faite d'un **espace Unicode** — espace cadratin `U+2003`, espace
+idéographique `U+3000` — n'était pas blanche pour ce test, et six lectures d'options en appliquaient un autre. Selon la
+commande, une telle valeur était donc :
+
+- signalée comme une option **absente** : `server identity create --principal <U+2003>` répondait
+  `--principal is required`, `reason analyze --question <U+2003>` répondait `missing required option --question` ;
+- refusée plus loin sans nom d'option : `external-references list --project <U+2003>` répondait
+  `Invalid UUID string`, après avoir créé la base de données ;
+- ou **acceptée** : `requirements find --query <U+2003>` rendait, code `0`, exactement la sortie de la même commande
+  sans `--query`, et `--data-dir <U+2003>` désignait un répertoire de ce nom dans le répertoire courant, pour
+  toutes les commandes comme pour les lanceurs.
+
+À partir de 1.2.1, une valeur est blanche si **chacun de ses caractères** est soit un blanc au sens de Java
+(`Character.isWhitespace`, ce que retient `String.isBlank`), soit inférieur ou égal à `U+0020` (ce que retire
+`trim()`) : espaces Unicode, caractères de contrôle, ou un mélange des deux. Elle est refusée avec le même message et le
+même code `2` que la valeur vide :
+
+```text
+MORPHEUS error [2]: --project requires a non-blank value; omit the option to leave it unset
+```
+
+Le message `--host must not be blank` des lanceurs `api` et `api --remote` disparaît au profit de celui-ci. Une option
+**omise** reçoit toujours `--… is required` ou `missing required option --…`. Un espace insécable (`U+00A0`), l'espace
+sans chasse (`U+200B`) et la marque d'ordre des octets (`U+FEFF`) ne sont pas blancs et restent des valeurs. Les
+variables d'environnement ne changent pas.
+
+**Migration.** Aucune pour une valeur qui porte un contenu. Un fichier ou un répertoire dont le nom entier est un
+espace Unicode se désigne par une orthographe qui n'est pas blanche : `--data-dir ./<nom>`.
+
+Décision : [ADR-0108, amendement du 30 septembre 2026 (CLI-10, CLI-11)](../adr/0108-a-response-says-what-it-could-not-observe.md).
+
 ### CLI et lanceurs `api`, `mcp`, `api --remote` : une option répétée est refusée
 
 Jusqu'à 1.2.0, une option à valeur donnée deux fois gardait, dans une partie du CLI, **sa dernière valeur sans rien

@@ -180,9 +180,10 @@ final class MorpheusProductCli {
     private record Parsed(String command, boolean json, java.util.Map<String, String> options) {
         String option(String name) {
             String value = options.get(name);
-            if (value == null || value.isBlank()) {
+            if (value == null) {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
+            // A blank value never gets here: parse() refuses it through OptionValue as it reads the arguments.
             return value;
         }
     }

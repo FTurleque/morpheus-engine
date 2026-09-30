@@ -599,7 +599,7 @@ class CliOptionParsingRefusesUnknownOptionsTest {
         }
     }
 
-    private static Map<String, String> cliSources() throws IOException {
+    static Map<String, String> cliSources() throws IOException {
         Path directory = repoRoot().resolve("morpheus-cli/src/main/java");
         Map<String, String> sources = new TreeMap<>();
         try (Stream<Path> tree = Files.walk(directory)) {

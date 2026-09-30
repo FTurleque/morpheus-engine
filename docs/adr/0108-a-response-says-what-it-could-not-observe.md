@@ -738,3 +738,192 @@ dans l'une ou l'autre orthographe, est toujours acceptée. Sur les sources de CL
 `--data-dir first --data-dir second paths` : code `0`, chemins de `second` affichés ; et
 `update-check --manifest a --manifest b`, qui lisait `b`. Les 16 cas qui passaient déjà sont ceux qui vérifient ce qui
 ne doit pas changer (l'orthographe `=` hors `server`, `--workspace-root`, une option donnée une fois).
+
+## Amendement du 30 septembre 2026 (CLI-10, CLI-11) — un seul prédicat du blanc, et le plus fort des deux
+
+L'amendement CLI-7 a défini le blanc d'une option par `trim()` (« « Blanc » est ce que `trim()` vide »), et
+l'amendement CLI-7, suite, en a écrit le résidu : « un espace Unicode (`U+2003`) n'est pas blanc et passe ». Ce résidu
+supposait que le refus avait une seule implémentation. Ce n'était pas le cas : six lectures d'options gardaient leur
+propre test, `value == null || value.isBlank()` — `MorpheusServerCli.required`, `MorpheusProductCli.Parsed.option`,
+`MorpheusProviderPluginCli.Parsed.required`, `MorpheusReasoningCli.Parsed.required`, `ApiLaunchOptions.requireHost` et
+`RemoteApiLaunchOptions.requireNonBlank`. La quatrième n'était pas dans le constat d'audit ; elle a été trouvée par la
+garde décrite plus bas, qui balaie le module.
+
+Or les deux définitions divergent dans les deux sens. `trim()` retire tout caractère inférieur ou égal à `U+0020`,
+caractères de contrôle compris, que `isBlank()` ne tient pas pour blancs. `isBlank()` tient pour blanc tout caractère
+que `Character.isWhitespace` reconnaît, dont les espaces Unicode (`U+2003`, `U+3000`), que `trim()` garde. Une valeur
+faite d'un `U+2003` passait donc `OptionValue.nonBlank`, puis :
+
+- **était signalée absente** par la copie : `server identity create --principal U+2003` répondait `--principal is
+  required`, `reason analyze --question U+2003` répondait `missing required option --question`. C'est la forme exacte
+  du défaut CLI-7, survivante dans la copie la plus faible (CLI-10) ;
+- **traversait `trim()` intacte** jusqu'à un analyseur qui échouait sans nommer l'option :
+  `external-references list --project U+2003` répondait `Invalid UUID string`, le message que l'amendement CLI-7 cite
+  comme la chose à ne pas produire, et la base de données était créée avant ce refus (CLI-11) ;
+- **ou était acceptée**, comme nom d'un fichier ou d'un répertoire du répertoire courant, ou comme texte.
+
+**Mesure, sur les sources de `933a63fe`.** La table de `BlankOptionValueRefusalTest` (108 invocations, plus 18 options
+de lanceur dans leurs deux orthographes) a été rejouée avec `U+2003` et `U+0001`. Avec `U+0001` : aucun échec, le
+caractère de contrôle était déjà refusé partout. Avec `U+2003` : **108 invocations sur 108 et 36 cas de lanceur sur 36
+échouent** — aucune lecture d'option ne refusait l'espace Unicode en le nommant. Parmi les 108 :
+
+| Effet observé | Invocations |
+|---|---|
+| Option fournie **signalée absente** (`--… is required`, `missing required option --…`) | 9 |
+| `Invalid UUID string`, sans nom d'option | 11 |
+| Code `0` : `--data-dir`, `--config-dir`, `--db` devant `paths`, `reason adapters`, `version`, `provider-plugins discover` désignaient un répertoire nommé `U+2003` dans le répertoire courant | 12 |
+| Valeur acceptée, échec plus loin pour une autre raison (autre option manquante, état, système de fichiers, codec, entier invalide) | 76 |
+
+Parmi les 76, `--data-dir U+2003` devant une commande qui ouvre le store, et `server backup create --output-dir
+U+2003`, ont tenté d'écrire **dans le répertoire courant** : le refus est venu du contrôle d'ACL sur ce répertoire, et
+une exécution de la mesure y a laissé un répertoire vide nommé `U+2003`. C'est la conséquence que l'amendement CLI-7,
+suite, avait fermée pour `Path.of("")`, rouverte par une autre orthographe du vide. Pour les lanceurs : `--host`
+refusé avec son propre message (4 cas), `--port` et `--max-concurrent` refusés comme entiers invalides (6), toutes les
+options de chemin acceptées (26).
+
+**Décision.** Une valeur d'option est blanche si **chacun de ses points de code** est blanc pour l'une des deux
+lectures : `c <= ' '`, ce que `trim()` retire, ou `Character.isWhitespace(c)`, ce que `isBlank()` retient —
+`value.codePoints().allMatch(c -> c <= ' ' || Character.isWhitespace(c))`. C'est l'union des deux définitions, prise
+**par caractère**. La première écriture de ce correctif la prenait par chaîne, `value.isBlank() ||
+value.trim().isEmpty()`, et laissait passer un mélange : `U+0001` à côté de `U+2003` n'est blanc pour aucun des deux
+tests de chaîne, bien que chacun de ses caractères soit blanc pour l'un d'eux. `external-references list --project
+U+0001U+2003` rendait alors encore `Invalid UUID string` après avoir créé la base (`trim()` retire `U+0001` et laisse
+`U+2003`) : CLI-11 survivait sous cette orthographe. La lecture par caractère est la forme exacte de « l'union » que
+demandait le constat ; elle la précise, elle ne la contredit pas. Sur les chaînes pures (vide, contrôle seul, espace
+Unicode seul, espace insécable), les deux formes donnent le même verdict — vérifié par exécution ; elles ne diffèrent
+que sur les mélanges. `U+0001` suivi d'un vrai texte (`U+0001 x`) reste une valeur.
+
+Le prédicat vit dans `OptionValue.nonBlank` et nulle part ailleurs ; sa Javadoc nomme les deux moitiés et ce que chacune
+attrape. Les six copies sont supprimées :
+
+- les quatre lectures d'options obligatoires ne gardent que la question de l'**absence** : `null` répond toujours
+  `--x is required` ou `missing required option --x`. Le blanc n'y arrive jamais : il est refusé à l'analyse des
+  arguments, par `OptionValue.nonBlank`, dans `MorpheusServerCli.options` (`:361`), `MorpheusProductCli.parse`
+  (`:122`), `MorpheusProviderPluginCli.parse` (`:131`) et `MorpheusReasoningCli.parse` (`:158`). Les deux messages
+  restent donc distincts — l'absence au lecteur, le blanc à l'analyse — et le lecteur ne refait pas un contrôle
+  impossible. Une ligne de commentaire le dit à chaque lecteur. `MorpheusServerCli.required` rend toujours la valeur
+  taillée, les trois autres telle quelle. Dans `update-check`, `provider-plugins` et `reason`, la présence est aussi
+  vérifiée à l'analyse : la branche `null` y est conservée telle quelle et n'est pas atteignable depuis la ligne de
+  commande ;
+- les deux `require*` des lanceurs sont supprimés, pour la même raison : ils ne recevaient que des valeurs déjà passées
+  par `nonBlank`, leur branche `null` était inatteignable et leur test du blanc était la copie. Le refus est celui de
+  `nonBlank`, fait une ligne plus haut ; la valeur retournée reste `value.trim()`. Le message `--host must not be
+  blank` disparaît.
+
+`nonBlank` rend toujours la valeur **telle que donnée** : un appelant qui taillait taille encore, un chemin garde son
+orthographe. `RemoteApiLaunchOptions.nonBlank(String)`, qui lit une variable d'environnement ou une propriété JVM et
+n'appelait pas `OptionValue`, devient `presentSetting` : même comportement, sans l'homonymie qui la faisait lire, à ses
+appels, comme la définition.
+
+**Élargissement du refus, mesuré.** Le changement refuse une valeur aujourd'hui acceptée : une valeur faite
+uniquement de caractères blancs pour l'une ou l'autre lecture, dont au moins un au-delà de `U+0020`. Les dix-neuf
+sites de lecture facultative de l'amendement CLI-7 et la table de l'amendement CLI-7, suite, ont été repris sous cet
+angle :
+
+- **identifiants, entiers, énumérations, instants, empreintes, URI** : une telle valeur échouait déjà plus loin
+  (`Invalid UUID string`, `must be an integer`, `valueOf`, codec) ; elle échoue maintenant en nommant l'option ;
+- **textes libres** (`--query`, `--question`, `--revision`, `--explanation`, `--evidence`, `--actor`,
+  `--idempotency-key`, `--filter`, `--sort`, `--fields`…) : une valeur faite de blancs ne porte rien.
+  `requirements find --query U+2003` était exactement le défaut CLI-7 : `RequirementSearchQuery` normalise par
+  `strip()`, qui vide `U+2003`, et la commande rendait, code `0`, une sortie identique à celle de la même commande
+  sans l'option (mesuré sur `openspec-basic`) ;
+- **chemins** : c'est le seul cas où un usage disparaît. Un fichier ou un répertoire dont le nom entier est un espace
+  Unicode est légal sous Linux et sous Windows, et `--data-dir U+2003` le désignait. Il reste désignable, par une
+  orthographe qui n'est pas blanche : `--data-dir ./U+2003`. Aucun test, validateur ni document du dépôt ne passait
+  une telle valeur.
+
+Les variables d'environnement ne changent pas (amendement CLI-7, suite) : `CliLayout` et `RemoteApiLaunchOptions`
+gardent leur lecture, où une variable vide vaut une variable absente.
+
+### La garde
+
+`CliOptionValueHasOneBlankDefinitionTest` découvre chaque test du blanc de `morpheus-cli/src/main/java`
+(`Files.walk`, aucun fichier nommé) — `isBlank()` ; `trim()`, `strip()`, `stripLeading()` ou `stripTrailing()` suivis
+de `isEmpty()` ou de `length() == 0` ; `String::isBlank` ; `String::trim` suivi d'un `filter(v -> !v.isEmpty())` ;
+`codePoints()` ou `chars()` suivis de `allMatch`, `anyMatch` ou `noneMatch` dont l'argument nomme `isWhitespace`,
+`isSpaceChar` ou une comparaison `<=` — et exige que chacun soit dans exactement une classe :
+
+1. **la définition**, dans `OptionValue.nonBlank`, qui doit décider **par point de code** et porter les deux moitiés,
+   `c <= ' '` et `Character.isWhitespace` ; un test sur la chaîne entière y est refusé ;
+2. **le message d'une exception** — les `safeMessage`, qui remplacent un message vide par le nom de la classe.
+   Reconnu à ce que le test lit, jamais au nom de la méthode : `p.getMessage()` pour un paramètre `p` de la méthode
+   dont le type déclaré est `Throwable` ou un nom finissant par `Exception` ou `Error`, directement, par une locale
+   déclarée depuis lui, ou par le paramètre d'un `filter` sur `Optional.ofNullable(p.getMessage())`. Une variable
+   nommée `message` lue ailleurs n'est pas reconnue ;
+3. **une autre question nommée**, avec le nombre de tests de sa méthode : le *nom* d'une option
+   (`MorpheusCli.consumeOption`), une variable d'environnement ou une propriété JVM (`CliLayout.envPath`,
+   `RemoteApiLaunchOptions.presentSetting` et `resolveWorkspaceRoots`), le message d'une exécution d'adaptateur
+   imprimé par `reason analyze`, et deux résidus ouverts qui lisent une **partie** d'une valeur d'option et non la
+   valeur : les éléments de `--providers` (le point « une liste faite de séparateurs » de l'amendement CLI-7) et le
+   champ de provenance d'un `--evidence`.
+
+Elle refuse en outre toute méthode nommée `nonBlank` hors d'`OptionValue` qui ne délègue pas à `OptionValue.nonBlank` :
+un homonyme doté de son propre test se lit, à ses appels, comme la définition.
+
+Un test qui ne tombe dans aucune classe fait échouer la garde, et une méthode nommée qui gagne, perd ou n'a plus de test
+aussi. Rejouée sur les sources de `933a63fe`, la première version de la garde nommait exactement les six copies et une
+définition à qui manquait une moitié, et rien d'autre : les vingt autres `isBlank()` du module — seize messages
+d'exception, quatre autres questions — et les trois `String::trim` suivis d'un `filter` sont classés.
+
+Ce qu'elle ne couvre pas, écrit dans sa Javadoc :
+
+- **l'appel d'une méthode classée sur une valeur d'option** : la garde classe l'endroit où un blanc est *testé*, pas
+  la provenance de la valeur testée. `CliLayout.envPath` ou `RemoteApiLaunchOptions.presentSetting` appelée sur une
+  valeur d'option lui donnerait leur définition, sans que rien ici ne le voie. Le renommage de l'homonyme et la règle
+  sur les méthodes `nonBlank` ferment le cas qui se lisait comme la définition, pas les autres ;
+- **le paramètre jetable est reconnu au suffixe du nom de son type**, jamais résolu : un paramètre d'un type non
+  jetable nommé `…Error`, portant un `getMessage()`, serait classé message d'exception ;
+- **les autres orthographes** : `isEmpty()` sans `trim()`, `equals("")`, une boucle sur `Character.isWhitespace`, un
+  `map(String::trim)` séparé de son `filter` par une autre étape, un prédicat de point de code écrit comme référence à
+  une méthode auxiliaire, un `trim()` et un `isEmpty()` en deux instructions, comme la clé et la valeur de `--param`
+  dans `MorpheusReasoningCli.addAssignment` ;
+- une locale déclarée depuis `getMessage()` puis réaffectée ; un test d'une méthode nommée remplacé par un autre au
+  même compte ;
+- les transports MCP et HTTP, qui ont leur propre définition ;
+- que chaque valeur d'option atteigne la définition : cette preuve reste la table de `BlankOptionValueRefusalTest`,
+  écrite à la main.
+
+### Ce qui reste
+
+- Le point « Le blanc est ce que `trim()` vide » de l'amendement CLI-7, suite, est fermé. Les autres points de sa section
+  « Ce qui reste » sont inchangés.
+- **Les invisibles qui ne sont pas blancs** restent des valeurs : l'espace insécable (`U+00A0`, `U+2007`, `U+202F`),
+  l'espace sans chasse `U+200B`, la marque d'ordre des octets `U+FEFF`, le contrôle « ligne suivante » `U+0085` et le
+  contrôle `U+007F` ne sont blancs pour aucune des deux lectures. Une valeur qui n'est faite que d'eux atteint le
+  lecteur telle quelle, avec les conséquences qu'avait l'espace Unicode : un analyseur peut échouer plus loin sans
+  nommer l'option, ou la prendre pour un nom de fichier.
+- **Une partie d'une valeur d'option** garde sa propre définition : les éléments de `--providers` (`trim` puis
+  `isEmpty`, un élément vide est ignoré), la provenance d'un `--evidence` (`isBlank`, une provenance blanche vaut
+  aucune), la clé et la valeur d'un `--param` (`trim` puis `isEmpty`, refusées). Ce ne sont pas des valeurs d'option ;
+  la garde les nomme au lieu de les ignorer.
+- **Les variables d'environnement** ont leur propre lecture, hors de ce prédicat par décision. Un défaut y a été
+  constaté en écrivant la garde, vérifié par exécution et **non corrigé ici** : dans
+  `RemoteApiLaunchOptions.resolveWorkspaceRoots` (`:204-205`), un élément de `MORPHEUS_SERVER_WORKSPACE_ROOTS` placé
+  entre deux autres et fait uniquement de contrôles C0 non blancs (`U+0000`–`U+0008`, `U+000E`–`U+001B`) échappe à
+  `isBlank()` ; `trim()` le vide, et `Path.of("")` puis `toAbsolutePath()` (`:211`) donnent le répertoire courant du
+  processus. `MorpheusMain` (`:287`) passe la liste à `AllowedWorkspaceRoots.of`, qui accepte ce répertoire réel comme
+  racine ; il fonde ensuite `requireAllowedDirectory` pour l'enregistrement (`MorpheusProjectRegistryApiService:38`) et
+  la synchronisation (`MorpheusProjectSyncApiService:130-131`) distants. Un élément en tête ou en queue de la variable
+  n'a pas cet effet : le `trim()` de la variable entière l'efface avant le découpage. Si le processus a `/` pour
+  répertoire courant — le défaut de systemd pour un service système ; le dépôt ne fournit pas d'unité — tout le
+  système de fichiers devient racine autorisée. Déclencheur : une configuration d'opérateur, de confiance, mal formée.
+  Sévérité estimée basse à moyenne. Correctif à instruire à part : refuser, et non écarter, un élément vide après
+  `trim`/`isBlank`, et refuser une racine relative.
+- **MCP et HTTP** ne partagent pas ce prédicat. `McpArguments.nonBlankString` teste `isBlank()` puis rend `trim()` : un
+  caractère de contrôle passe le test et devient une chaîne vide — la copie faible dans l'autre sens, sur un autre
+  transport. À instruire avec l'audit MCP ; non traité ici.
+
+**Preuve.** `OptionValueTest` refuse `""`, `" "`, une tabulation, `U+2003`, `U+3000`, `U+0001`, `U+0000` et les trois
+mélanges `U+0001U+2003`, `U+2003U+0001`, `U+0001U+2003U+0001` avec le message de `nonBlank` ; accepte `U+00A0`,
+`U+2007`, `U+202F`, `U+200B`, `U+FEFF`, `U+0085`, `U+007F` et `U+0001 x`, rendus **identiques** (la même instance) ; et
+un chemin avec des espaces significatifs garde son orthographe. `BlankOptionValueRefusalTest` passe chaque option de
+chaque parseur avec `U+2003`, `U+0001` et les trois mélanges en plus de `""` et `" \t "`, par `MorpheusMain.run`, et les
+trois lanceurs dans les deux orthographes : code `2`, message nommant l'option, rien d'écrit.
+`external-references list|resolve --project` avec `U+2003`, `U+0001U+2003` ou `U+2003U+0001` répond `--project
+requires a non-blank value` et jamais `Invalid UUID string`, sans créer la base. Une option omise répond toujours
+`--principal is required`, une option blanche le message de `nonBlank`. `SimpleOptionsTest` ajoute `U+2003`, `U+3000` et
+`U+0001U+2003`. Sur les sources de `933a63fe`, la table échoue sur ses 108 invocations et ses 36 cas de lanceur avec
+`U+2003` ; avec le prédicat par chaîne, elle échoue sur les 432 cas des trois mélanges et le test bout-en-bout de
+CLI-11 rend `Invalid UUID string`. La garde tombe quand on remet le prédicat par chaîne dans `OptionValue.nonBlank`,
+quand on rend à `presentSetting` son nom `nonBlank`, et quand on écrit `value.trim().length() == 0` dans
+`MorpheusServerCli.required`.

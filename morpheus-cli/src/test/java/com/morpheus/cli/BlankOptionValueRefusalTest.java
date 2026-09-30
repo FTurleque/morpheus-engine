@@ -32,9 +32,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The table is the inventory of the adapter's value-taking options outside {@link SimpleOptions} (covered by
  * {@link SimpleOptionsTest}). Each invocation runs in its own case directory, which holds its data directory and any
  * file an option points to; a refused invocation must leave that directory absent, i.e. write nothing at all.</p>
+ *
+ * <p>The blanks cover both halves of {@link OptionValue}'s definition: the em space U+2003 is blank for
+ * {@link String#isBlank()} but survives {@link String#trim()}, the control character U+0001 is emptied by
+ * {@code trim()} but is not white space for {@code isBlank()}. A copy of either half alone lets one of them
+ * through, and so does testing the two halves on the whole string: a control character next to an em space is
+ * blank for neither whole-string test, though each of its characters is blank for one of them.</p>
  */
 class BlankOptionValueRefusalTest {
-    private static final List<String> BLANKS = List.of("", " \t ");
+    private static final List<String> BLANKS = List.of("", " \t ", "\u2003", "\u0001",
+            "\u0001\u2003", "\u2003\u0001", "\u0001\u2003\u0001");
     private static final String B = "{blank}";
     private static final String DATA = "{data}";
     private static final String ROOT = "{root}";
@@ -50,7 +57,7 @@ class BlankOptionValueRefusalTest {
     @TestFactory
     Stream<DynamicTest> aBlankValueIsRefusedNamingItsOptionBeforeAnythingIsWritten() {
         return invocations().stream().flatMap(invocation -> BLANKS.stream().map(blank -> DynamicTest.dynamicTest(
-                String.join(" ", invocation.template()).replace(B, "'" + blank + "'"),
+                String.join(" ", invocation.template()).replace(B, shown(blank)),
                 () -> {
                     Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
                     Result result = run(expand(invocation.template(), root, blank));
@@ -164,8 +171,82 @@ class BlankOptionValueRefusalTest {
                     "api", "--remote"));
         }
         return launchers.stream().flatMap(launcher -> BLANKS.stream().flatMap(blank -> Stream.of(
-                launcherTest(launcher, launcher.option() + " '" + blank + "'", launcher.option(), blank),
-                launcherTest(launcher, launcher.option() + "='" + blank + "'", launcher.option() + "=" + blank))));
+                launcherTest(launcher, launcher.option() + " " + shown(blank), launcher.option(), blank),
+                launcherTest(launcher, launcher.option() + "=" + shown(blank), launcher.option() + "=" + blank))));
+    }
+
+    /**
+     * An em space, alone or next to a control character, given as the project of {@code external-references} is
+     * refused naming the option, before the store is opened. It used to pass the blank check, keep its em space through
+     * {@code trim()} and fail further on as {@code Invalid UUID string}, after the database had been created -- the
+     * message CLI-7 was written against.
+     */
+    @Test
+    void anExternalReferencesProjectMadeOfAUnicodeSpaceIsRefusedNamingTheOptionNotAsAnInvalidUuid() {
+        for (List<String> command : List.of(
+                List.of("external-references", "list", "--project", "\u2003"),
+                List.of("external-references", "resolve", "--project", "\u2003", "--reference", R),
+                List.of("external-references", "list", "--project", "\u0001\u2003"),
+                List.of("external-references", "resolve", "--project", "\u2003\u0001", "--reference", R))) {
+            Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
+            List<String> args = new ArrayList<>(List.of("--data-dir", root.resolve("data").toString()));
+            args.addAll(command);
+
+            Result result = run(args.toArray(String[]::new));
+
+            assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
+            assertTrue(result.err().contains("--project requires a non-blank value"), result.err());
+            assertFalse(result.err().contains("Invalid UUID string"), result.err());
+            assertFalse(Files.exists(root), "a refused invocation must write nothing: " + root);
+        }
+    }
+
+    /**
+     * Where a required option is read by a method that also tested the blank, an omitted option is still reported as
+     * required and a blank one as blank: the two questions keep two messages.
+     */
+    @Test
+    void anOmittedServerOptionIsStillRequiredWhileABlankOneIsNamedAsBlank() {
+        Path omittedRoot = tempDirectory.resolve("server-omitted");
+        Path blankRoot = tempDirectory.resolve("server-blank");
+
+        Result omitted = run("--data-dir", omittedRoot.toString(), "server", "identity", "create", "--role", "READ");
+        Result blank = run("--data-dir", blankRoot.toString(), "server", "identity", "create",
+                "--role", "READ", "--principal", "\u2003");
+
+        assertEquals(CliExitCode.USAGE.code(), omitted.exitCode(), omitted.err());
+        assertTrue(omitted.err().contains("--principal is required"), omitted.err());
+        assertFalse(omitted.err().contains("non-blank"), omitted.err());
+        assertEquals(CliExitCode.USAGE.code(), blank.exitCode(), blank.err());
+        assertTrue(blank.err().contains("--principal requires a non-blank value"), blank.err());
+        assertFalse(blank.err().contains("is required"), blank.err());
+        assertFalse(Files.exists(omittedRoot), "a refused invocation must write nothing: " + omittedRoot);
+        assertFalse(Files.exists(blankRoot), "a refused invocation must write nothing: " + blankRoot);
+    }
+
+    /** A non-blank host is still trimmed: the refusal moved to {@link OptionValue}, the value returned did not. */
+    @Test
+    void theLaunchersStillTrimANonBlankHost() {
+        ApiLaunchOptions local = ApiLaunchOptions.parse(
+                new String[]{"api", "--host", " 127.0.0.1 ", "--data-dir", tempDirectory.resolve("h").toString()},
+                Map.of(), properties());
+        RemoteApiLaunchOptions remote = RemoteApiLaunchOptions.parse(
+                new String[]{"api", "--remote", "--host= 127.0.0.1 ",
+                        "--data-dir", tempDirectory.resolve("r").toString(),
+                        "--tls-keystore", tempDirectory.resolve("server.p12").toString(),
+                        "--workspace-root", tempDirectory.toString()},
+                Map.of("MORPHEUS_SERVER_TLS_PASSWORD", "test-password"), properties());
+
+        assertEquals("127.0.0.1", local.host());
+        assertEquals("127.0.0.1", remote.host());
+    }
+
+    /** A blank rendered readably in a test name: a control character would not survive a report. */
+    private static String shown(String blank) {
+        StringBuilder shown = new StringBuilder("'");
+        blank.codePoints().forEach(point -> shown.append(point == ' ' || point > ' ' && point < 0x7F
+                ? Character.toString(point) : String.format("\\u%04X", point)));
+        return shown.append('\'').toString();
     }
 
     private DynamicTest launcherTest(Launcher launcher, String spelling, String... option) {

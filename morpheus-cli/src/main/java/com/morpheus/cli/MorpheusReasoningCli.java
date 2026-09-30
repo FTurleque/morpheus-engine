@@ -294,9 +294,10 @@ final class MorpheusReasoningCli {
 
         String required(String name) {
             String value = options.get(name);
-            if (value == null || value.isBlank()) {
+            if (value == null) {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
+            // A blank value never gets here: parse() refuses it through OptionValue as it reads the arguments.
             return value;
         }
     }
