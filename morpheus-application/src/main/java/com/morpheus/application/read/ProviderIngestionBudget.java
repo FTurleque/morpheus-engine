@@ -78,10 +78,19 @@ public record ProviderIngestionBudget(
         return new Session(this, files);
     }
 
-    /** One ingestion attempt. Counters advance only after every check for the current item succeeds. */
+    /**
+     * One ingestion attempt. Counters advance only after every check for the current item succeeds.
+     *
+     * <p>The {@code source} parameter of every method is the text of a refusal, not a locator: it says where the
+     * budget was exceeded, as the operator will find it, and it is written by {@code WorkspaceRelativePathText} when
+     * it names a file, or is a group label such as {@code openspec/current}, or a constant a reader chooses. A value
+     * derived from a
+     * {@code SourceLocator} would rewrite a backslash, which is legal in a Linux file name, and name another file.</p>
+     */
     public static final class Session {
         private final ProviderIngestionBudget budget;
         private final SafeWorkspaceFileResolver files;
+        private String lastDocument;
         private long fileCount;
         private long aggregateBytes;
         private long lineCount;
@@ -104,6 +113,7 @@ public record ProviderIngestionBudget(
 
         private String read(Path relativePath, long itemMaximum, boolean evidence) throws IOException {
             String source = WorkspaceRelativePathText.of(relativePath);
+            lastDocument = source;
             budget.requireFiles(Math.addExact(fileCount, 1), source);
             long aggregateRemaining = budget.maxAggregateBytes - aggregateBytes;
             if (aggregateRemaining < 1) {
@@ -156,6 +166,18 @@ public record ProviderIngestionBudget(
             if (count < 0) throw new IllegalArgumentException("entity count must not be negative");
             budget.requireEntities(Math.addExact(entityCount, count), source);
             entityCount += count;
+        }
+
+        /**
+         * Counts a fragment cited from the document this session last began to read, which a refusal then names as it names
+         * any document. The caller does not restate the file: a reader cites a file right after reading it, and the
+         * name it would pass is the one this session already wrote for its own refusals.
+         */
+        public void addEvidenceFragment(String fragment) {
+            if (lastDocument == null) {
+                throw new IllegalStateException("an evidence fragment is cited from a document this session has read");
+            }
+            addEvidenceFragment(fragment, lastDocument);
         }
 
         public void addEvidenceFragment(String fragment, String source) {

@@ -584,3 +584,30 @@ refuser une partie de leurs options.
 **Migration.** Aucune : seul disparaît l'effet de bord d'une invocation refusée.
 
 Décision : [ADR-0108, amendement du 30 septembre 2026 (CLI-9)](../adr/0108-a-response-says-what-it-could-not-observe.md).
+### Synchronisation OpenSpec : un refus nomme le fichier tel qu'il existe
+
+Jusqu'à 1.2.0, l'échec de lecture d'un fichier OpenSpec ne nommait que le groupe (`current`, `changes`,
+`requirement-deltas`) et le type de l'exception. À partir de 1.2.1, le refus nomme le fichier en cause, relatif à la racine
+du workspace et écrit avec `/` sur toutes les plateformes (`openspec/specs/auth-session/spec.md: OpenSpec specification has
+no title`). Le nom n'est jamais réécrit caractère par caractère : il est celui que l'opérateur trouvera sur son disque. Le
+locator publié pour le même fichier, lui, reste normalisé (`file:openspec/specs/auth-session/spec.md`) ; les deux
+s'accordent pour tout nom sans `\`.
+
+Un seul cas change de texte, et seulement sous Linux et macOS, où `\` est un caractère légal d'un nom : un fichier dans un
+répertoire nommé `a\b`. Le refus ne le nomme plus `openspec/specs/a/b/spec.md` (un chemin qui n'existe pas), et un texte
+qui contient `\` est pris pour un emplacement du serveur par les filtres de divulgation, que toutes les surfaces
+n'appliquent pas. Selon la surface :
+
+- la CLI `sync` écrit le nom exact et la cause (`openspec/specs/a\b/spec.md: …`) : **mieux** qu'avant ;
+- la synchronisation HTTP, locale et remote, répond `InvalidOpenSpecSource` : ni le fichier ni la cause — **moins** qu'avant ;
+- `composition sync` rapporte `OpenSpec content reader failed for group current: InvalidOpenSpecSource` : **moins** qu'avant,
+  et le refus de publication ne le compte pas comme retenu.
+
+Le refus de budget de preuve (`evidence bytes exceeds budget for …`) suit la même règle. Le locator publié reste
+`file:openspec/specs/a/b/spec.md`. Sous Windows `\` est le séparateur : ce cas n'existe pas et rien ne change. Le
+constat plus large — un texte retenu devient un type nu sans dire qu'il a été retenu — est consigné dans l'ADR et
+instruit à part.
+
+**Migration.** Aucune. Un client qui branchait sur le texte d'un refus doit brancher sur le code (`INVALID_SOURCE`).
+
+Décision : [ADR-0028, amendement du 30 septembre 2026 (PRV-6)](../adr/0028-unified-provider-read-contract.md).

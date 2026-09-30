@@ -164,6 +164,39 @@ class ProviderIngestionBudgetTest {
         assertFalse(ServerLocationDisclosure.namesAServerLocation(failure.getMessage()), failure::getMessage);
     }
 
+    @Test
+    void anEvidenceFragmentIsRefusedUnderTheNameOfTheDocumentTheSessionReadLast(@TempDir Path workspace)
+            throws Exception {
+        Files.createDirectories(workspace.resolve("docs"));
+        Files.writeString(workspace.resolve("docs/spec.md"), "abc");
+        Files.writeString(workspace.resolve("docs/other.md"), "abc");
+        var session = new ProviderIngestionBudget(5, 3, 30, 10, 10, 10, 4)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        session.readDocument(Path.of("docs", "spec.md"));
+        session.addEvidenceFragment("ab");
+        session.readDocument(Path.of("docs", "other.md"));
+        ProviderIngestionLimitException failure = assertThrows(
+                ProviderIngestionLimitException.class, () -> session.addEvidenceFragment("abc"));
+
+        assertEquals("provider ingestion evidence bytes exceeds budget for docs/other.md: 5 > 4",
+                failure.getMessage());
+        assertEquals(2, session.evidenceBytes(), "a refused fragment does not advance the counter");
+    }
+
+    @Test
+    void anEvidenceFragmentWithoutADocumentReadByTheSessionIsRefusedAsAMisuse(@TempDir Path workspace)
+            throws Exception {
+        var session = new ProviderIngestionBudget(5, 3, 30, 10, 10, 10, 4)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class, () -> session.addEvidenceFragment("a"));
+
+        assertEquals("an evidence fragment is cited from a document this session has read", failure.getMessage());
+        assertEquals(0, session.evidenceBytes());
+    }
+
     /**
      * A limit is recognized by the resolver's exception type, never by a phrase in its message: a file whose name
      * happens to contain that phrase and fails for another reason keeps its own failure.

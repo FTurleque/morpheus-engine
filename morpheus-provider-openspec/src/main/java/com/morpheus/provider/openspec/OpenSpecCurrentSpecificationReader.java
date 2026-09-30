@@ -370,7 +370,7 @@ public final class OpenSpecCurrentSpecificationReader {
             ProviderIngestionBudget.Session budget) {
         int normalizedEndLine = Math.max(startLine, endLineExclusive);
         String excerpt = String.join("\n", lines.subList(startLine - 1, normalizedEndLine));
-        budget.addEvidenceFragment(excerpt, source.value());
+        budget.addEvidenceFragment(excerpt);
         EvidenceId evidenceId = new EvidenceId(identityResolver.resolve(
                 OpenSpecSpecificationProvider.ID,
                 "evidence",
