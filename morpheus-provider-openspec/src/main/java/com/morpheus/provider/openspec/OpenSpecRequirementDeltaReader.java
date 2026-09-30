@@ -504,7 +504,7 @@ public final class OpenSpecRequirementDeltaReader {
         int normalizedStart = Math.max(1, Math.min(startLine, lines.size()));
         int normalizedEnd = Math.max(normalizedStart, Math.min(endLine, lines.size()));
         String excerpt = String.join("\n", lines.subList(normalizedStart - 1, normalizedEnd));
-        budget.addEvidenceFragment(excerpt, source.value());
+        budget.addEvidenceFragment(excerpt);
         EvidenceId evidenceId = new EvidenceId(identities.resolve(
                 OpenSpecSpecificationProvider.ID,
                 "evidence",

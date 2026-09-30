@@ -213,6 +213,15 @@ utiliser directement les méthodes de lecture `Files.*` sur un chemin fourni par
 le contenu du workspace. Le locator et la provenance restent relatifs au
 workspace, même si la primitive lit le chemin canonique.
 
+Un locator et le texte d'un refus n'obéissent pas à la même règle. `SourceLocator.file(...)` normalise (`\` devient
+`/`), pour que le même fichier porte le même locator sur toutes les plateformes ; le texte d'un refus nomme le fichier
+tel qu'il existe et passe par `WorkspaceRelativePathText`, sans rien substituer. Un refus ne se construit donc jamais à
+partir d'un locator (ADR-0028, amendement du 30 septembre 2026, PRV-6). Le paramètre `source` de chaque méthode de
+`ProviderIngestionBudget.Session` (`addBlocks`, `addEntities`, `addEvidenceFragment`, `requireAdditionalFiles`) est
+**le texte d'un refus** : un nom écrit par `WorkspaceRelativePathText`, une constante ou une étiquette de groupe, jamais la
+valeur d'un locator. `addEvidenceFragment(fragment)`, sans texte, attribue le fragment au dernier document lu par la
+session : un lecteur cite les preuves d'un fichier juste après l'avoir lu.
+
 Chaque tentative d’ingestion ouvre en plus une session `ProviderIngestionBudget` partagée par tous les
 lecteurs du provider. Les limites par défaut, vérifiées avant publication du snapshot, sont :
 

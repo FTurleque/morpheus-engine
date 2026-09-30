@@ -1,8 +1,8 @@
 package com.morpheus.provider.openspec;
 
+import com.morpheus.application.files.WorkspaceRelativePathText;
 import com.morpheus.application.read.ProviderIngestionLimitException;
 import com.morpheus.application.security.ServerLocationDisclosure;
-import com.morpheus.domain.source.SourceLocator;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -24,6 +24,29 @@ import java.util.function.Supplier;
  * collaborator such as the identity store, not of the file being read, and passes through unchanged: naming a file
  * there would accuse an innocent one. A budget refusal is not attributed either; it already names its source
  * relatively and its callers discard the whole read on it.</p>
+ *
+ * <p>The name is a refusal text, not a locator, and the two are written by different rules. A
+ * {@link com.morpheus.domain.source.SourceLocator} designates a source stably, so that two platforms reading the same
+ * file record the same one: it rewrites a backslash to a slash, and the readers record it in the deltas and
+ * evidence they publish. A refusal names the file as the operator will find it, so it substitutes nothing and goes
+ * through {@link WorkspaceRelativePathText}. The two agree for every path these readers produce that holds no
+ * backslash (they always begin with {@code openspec/} and end with a {@code .md} name, so the locator's trim has
+ * nothing to remove). They differ for a name that has a backslash on a platform where it is a legal character:
+ * the delta read from {@code openspec/specs/a\b/spec.md} carries the locator
+ * {@code file:openspec/specs/a/b/spec.md}, and the refusal names {@code openspec/specs/a\b/spec.md}.
+ * That difference is intended and is the reason this class builds no text from a locator (ADR-0028, amendment of
+ * 30 September 2026).</p>
+ *
+ * <p>A backslash also makes {@link ServerLocationDisclosure} take a text for a possible server location, and the
+ * surfaces differ in whether they ask. The CLI {@code sync} relays the message as written, so it names the exact file
+ * and the cause. The HTTP {@code sync}, local and remote, answers through a filter that replaces the whole message
+ * by the failure's type: {@code InvalidOpenSpecSource}, neither file nor cause. The content reader, hence
+ * {@code composition sync}, reports the failure by its type alone too
+ * ({@code OpenSpec content reader failed for group current: InvalidOpenSpecSource}), and the publication refusal
+ * then counts that text as shown, not as withheld, because it no longer holds a backslash. Before, all three named
+ * the rewritten path, which does not exist, and kept the cause. The exact path stays in the diagnostic's
+ * {@code source}, which no CLI, HTTP or MCP surface serializes today. The amendment of ADR-0028 records why this
+ * is kept and names the broader finding, a withheld refusal that becomes a bare type without saying so.</p>
  */
 final class OpenSpecSourceAttribution {
 
@@ -75,7 +98,7 @@ final class OpenSpecSourceAttribution {
     }
 
     private static String source(Path workspaceRoot, Path file) {
-        return SourceLocator.file(workspaceRoot.relativize(file).toString()).value();
+        return WorkspaceRelativePathText.of(workspaceRoot.relativize(file));
     }
 
     /** The failure's own text when it names no server location, its type otherwise. */

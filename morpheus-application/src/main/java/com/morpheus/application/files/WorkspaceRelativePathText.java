@@ -12,6 +12,11 @@ import java.util.StringJoiner;
  * built from the components rather than by substituting characters, because on Linux a backslash is a legal character
  * of a file name: {@code docs\proof.md} is one name there, and rewriting it would name another file.</p>
  *
+ * <p>This is the text of a refusal, which names a file as the operator will find it. It is not a locator: a
+ * {@code SourceLocator} designates a source stably across platforms and therefore does rewrite a backslash, so its
+ * value and this text differ for a name that contains one on Linux. A refusal that needs the text of a path must not
+ * be built from a locator, and a locator must not be built from this text.</p>
+ *
  * <p>A path with a root is not relative and is left as the platform wrote it; rewriting it would present an absolute
  * path as a relative one.</p>
  */

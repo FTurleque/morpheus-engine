@@ -400,3 +400,190 @@ Faire du groupe un `PARTIAL` exigerait de garder les fichiers valides, ce qui es
 - `SafeWorkspaceFileResolverTest#aNonRegularFileInASubdirectoryIsNamedWithForwardSlashesAndNoServerLocation` et
   `ProviderIngestionBudgetTest#aBudgetRefusalNamesAFileInASubdirectoryWithForwardSlashesAndNoServerLocation` — un
   second refus du résolveur et le refus de budget nomment le fichier en `/`, sans emplacement du serveur.
+
+## Amendement du 30 septembre 2026 (PRV-6) — un locator normalise, un texte de refus ne substitue rien
+
+### Le défaut
+
+L'amendement du 24 septembre (PRV-3) a posé que le chemin d'un refus s'écrit par ses composants, jamais caractère par
+caractère (`WorkspaceRelativePathText`), puisque sous Linux `\` est un caractère légal d'un nom. Dans le même lot, quatre
+sites écrivaient encore le texte d'un refus à partir d'un locator, et `SourceLocator.file` réécrit `\` en `/` :
+exactement la substitution que l'autre classe déclare interdite.
+
+- `OpenSpecSourceAttribution.source()` : `SourceLocator.file(workspaceRoot.relativize(file).toString()).value()`.
+- Les trois lecteurs OpenSpec (courant, changements, deltas) : `budget.addEvidenceFragment(excerpt, source.value())`,
+  dont le second argument ne sert qu'au texte du refus de budget de preuve
+  (`provider ingestion evidence bytes exceeds budget for <texte>`).
+
+Sous Linux, un `spec.md` dans un répertoire `a\b` était donc nommé `openspec/specs/a/b/spec.md`, chemin qui n'existe pas,
+par le refus de lecture **et** par le refus de budget de preuve. Aucun texte ne disait que ces deux écritures répondaient
+à deux besoins différents ; l'audit les a lues comme une seule règle violée. L'attribution (22:52) précède le point
+unique (23:33) : le commit qui a introduit celui-ci a migré le résolveur et le budget de document, pas elle, et n'a pas
+vu le budget de preuve.
+
+### Décision
+
+**Il y a deux règles, et chacune est juste là où elle s'applique.**
+
+- Un **locator** (`SourceLocator`) désigne une source de façon stable et comparable. Il **normalise** : `file(...)`
+  retire les blancs de bord, réécrit `\` en `/` et retire un `./` initial, pour que le même fichier lu sur deux
+  plateformes porte le même locator. Il n'est pas le texte d'un refus.
+- Le **texte d'un refus** nomme le fichier tel que l'opérateur le trouvera. Il **ne substitue rien** et passe par
+  `WorkspaceRelativePathText`.
+
+**`SourceLocator` n'est pas modifié.** La normalisation est voulue, et elle est portée par ce que le dépôt persiste et
+compare (inventaire ci-dessous) : la changer changerait des locators déjà publiés et le nom sous lequel un projet est
+retrouvé. Les lecteurs OpenSpec continuent d'enregistrer le locator dans les deltas, les spécifications et les preuves.
+
+**Les deux corrections.**
+
+- `OpenSpecSourceAttribution.source()` passe par `WorkspaceRelativePathText.of(...)`.
+- Le texte du refus de budget de preuve n'est pas disponible à l'endroit où les lecteurs construisent la preuve : ils n'y
+  ont que le locator, et le texte sans substitution ne s'en déduit pas. Faire traverser un second paramètre par les
+  méthodes de normalisation de trois lecteurs, dont celui que PRV-2 remanie, était possible ; la session de budget connaît
+  déjà ce texte, puisqu'elle l'écrit pour ses propres refus en lisant le document. `Session.addEvidenceFragment(String)`
+  attribue donc le fragment **au dernier document lu par la session**, et les trois lecteurs l'appellent sans texte.
+  C'est un couplage implicite, nommé comme tel : il tient parce qu'un lecteur lit un fichier et cite ses preuves dans la
+  même méthode, et rien ne vérifie cet ordre (voir la garde). La forme à deux arguments reste pour le lecteur Markdown
+  (`StructuredMarkdownSpecificationContentReader`), qui passe la constante `SOURCE_FILE` ; le lecteur synthétique
+  n'appelle pas `addEvidenceFragment`.
+- Le paramètre `source` de chaque méthode de `ProviderIngestionBudget.Session` est **le texte d'un refus**, pas un locator :
+  un nom écrit par `WorkspaceRelativePathText`, une étiquette de groupe comme `openspec/current`, ou la constante du
+  lecteur Markdown. C'est écrit dans son
+  Javadoc et dans `PROVIDER_SDK.md`. Le paramètre ne sert qu'à ce texte : `requireWithin` le place dans le message de
+  `ProviderIngestionLimitException`, et nulle part ailleurs.
+
+### Ce que cela implique, et qui est assumé
+
+Pour un nom de fichier qui contient `\` sous une plateforme où c'est un caractère légal (Linux, macOS), **le locator
+enregistré et le chemin nommé par le refus diffèrent** : le delta lu dans `openspec/specs/a\b/spec.md` porte
+`file:openspec/specs/a/b/spec.md`, et le refus nomme `openspec/specs/a\b/spec.md`. Les deux s'accordent pour tout chemin
+que ces lecteurs produisent et qui ne contient pas `\` : ils commencent par `openspec/` et finissent par un nom
+`.md`, donc le retrait des blancs de bord du locator n'a rien à retirer. Sous Windows `\` est le séparateur, `a\b` y est
+deux composants, le cas n'est pas atteignable et les deux textes s'accordent sur `a/b`.
+
+**Ce que le correctif change, par surface, pour ce cas seul.** Un texte qui contient `\` est pris par
+`ServerLocationDisclosure` pour un emplacement possible du serveur ; les surfaces ne demandent pas toutes ce filtre.
+Mesuré par lecture du code et par un relevé indépendant sous Linux :
+
+| Surface | Chemin du message | Avant | Après |
+|---|---|---|---|
+| CLI `sync` | `MorpheusCli.safeMessage`, texte brut | `openspec/specs/a/b/spec.md: <cause>` — un fichier qui n'existe pas | `openspec/specs/a\b/spec.md: <cause>` — le nom exact et la cause : **mieux** |
+| HTTP `sync`, local et remote | `BoundaryFailureMessage.safe` (`MorpheusHttpServer`), filtre tout le message | même texte que la CLI, relayé | `InvalidOpenSpecSource` : ni fichier ni cause — **pire** |
+| `composition sync` (diagnostic `INVALID_SOURCE`) | `invalidSource` filtre, puis `ProjectSnapshotImportService` relaie `code: message` | nom réécrit et cause | `OpenSpec content reader failed for group current: InvalidOpenSpecSource` — **pire**, et non compté « withheld » : le texte filtré ne contient plus de `\`, donc le refus de publication le tient pour montrable |
+
+Le refus de budget de preuve suit le même chemin (il entre par les mêmes filtres) : avant, il nommait la version
+réécrite ; après, il nomme `openspec/specs/a\b/spec.md` dans la CLI et est filtré ailleurs. `Diagnostic.source` porte le
+chemin exact, qu'aucune surface CLI, HTTP ou MCP ne sérialise aujourd'hui.
+
+Le refus du résolveur est déjà dans ce cas pour un nom à `\` : son texte contient `\` (il passe par le point), la cause
+attribuée est remplacée par son type, et le diagnostic se réduit au même texte nu
+(`OpenSpecRefusedFileNameTest#aResolverRefusalOnTheSameNameIsAlsoReportedByItsTypeAlone`). Le refus de budget de
+**document** écrit aussi son nom par le point et suit la même règle de filtre, par lecture du code et non par un test.
+Le refus de budget de **preuve** ne l'était pas ; il l'est maintenant.
+
+**Option écartée : relayer, dans `invalidSource`, la cause sans le nom.** Elle ne suffit pas. Elle ne change que le
+diagnostic de la lecture de contenu, donc `composition sync` ; la synchronisation HTTP n'y passe pas : elle filtre le
+message de l'exception elle-même, dans `BoundaryFailureMessage.safe`, et n'a pas de « cause » à relayer séparément.
+Le défaut est plus large que ce site.
+
+### Constat à instruire à part
+
+**Un refus retenu devient un type nu sans dire qu'il a été retenu.** `invalidSource` (lecture de contenu) et
+`BoundaryFailureMessage.safe` (HTTP) remplacent le texte d'un refus par le nom de la classe de l'exception, et la réponse
+ne dit pas qu'un texte a été retenu, ni pourquoi, ni qu'une cause existait. Le refus de publication, lui, compte ce qu'il
+retient (`N withheld because they name a server location`) — mais seulement ce qu'il filtre lui-même : un texte déjà
+réduit en amont passe pour montrable. La correction est une décision de divulgation, pas de ce correctif : dire qu'un
+texte a été retenu, et garder la cause quand elle est relayable, sur ces deux filtres et sur le même modèle. Non traité
+ici.
+
+**La racine d'un projet est relue comme un chemin depuis son locator.** `Path.of(project.rootLocator().value())`
+dans `MorpheusProjectSyncApiService`, `MorpheusCompositionCli` et `MorpheusCli#projectWorkspace`. Sous Linux, une racine
+dont le chemin absolu contient `\` a été enregistrée en `/` (le locator normalise) et est relue comme un autre répertoire.
+C'est le sens inverse de PRV-6 — un locator relu comme un chemin — et il préexiste. Non corrigé ici.
+
+**`LocalSourceInventoryScanner#display` et la collision possible.** Voir « Sites de même classe » ; par lecture, non
+exécuté, `SourcePath` y fait aussi se confondre `a\b/spec.md` et `a/b/spec.md`.
+
+### Inventaire de `SourceLocator` (mesuré le 30 septembre 2026 à `933a63fe`)
+
+La décision de ne pas modifier `SourceLocator` repose sur ceci, pas sur une intuition. Méthode de comptage :
+`git grep` à `933a63fe`, occurrences littérales dans `src/main` et `src/test` ; « nomme » désigne tout fichier qui contient
+le mot `SourceLocator`. Les nombres sont un ordre de grandeur daté, pas une constante.
+
+- **Constructions** : 20 appels de production à `SourceLocator.file(` dans 16 fichiers, 11 `new SourceLocator(` dans 10
+  fichiers ; 38 fichiers de production nomment le type ; 94 fichiers de test appellent `file(`.
+- **Persisté (SQLite)** : `projects(root_scheme, root_value)` et la recherche d'un projet par racine
+  (`WHERE root_scheme = ? AND root_value = ?`, `SqliteSpecificationKnowledgeStore`) ; `source_scheme`/`source_value` des
+  preuves et de chaque famille de provenance (`SqliteSnapshotBusinessContentWriter`, `SqliteVersionedRequirementStore`) ;
+  `provenance_source_*` des références externes ; `source_locator_*` du portefeuille ;
+  `composition_conflict_candidate.source_locator` (`V012__multi_provider_composition.sql`), colonne de texte qui garde la
+  forme `file:<chemin>` écrite depuis `MultiProviderCompositionService` (`provenance.source().toString()`). Les stores
+  mémoire gardent l'objet.
+- **Comparé** : égalité de `record` et `compareTo` (schéma puis valeur) ; la racine qu'un lecteur publie
+  (`ProviderProjectRoot.locator`) doit égaler celle sous laquelle le projet est enregistré, sans quoi la publication
+  entre en collision (PRV-1). Cette racine est un chemin **absolu** : sous Windows `C:\w` y est enregistré `C:/w`.
+- **Relu comme un chemin** : la racine, par `Path.of(project.rootLocator().value())` (constat ci-dessus).
+- **Servi** : `provenance.source().toString()` (`file:<chemin>`) dans les vues compactes et la composition ; IPC
+  d'un résultat de probe (`ProviderProbeResultCodec`).
+
+Aucun de ces usages ne peut changer de normalisation sans migrer des lignes existantes.
+
+### Sites de même classe : corrigés, nommés, laissés
+
+- **Corrigés** : `OpenSpecSourceAttribution.source()` et les trois appels `budget.addEvidenceFragment(excerpt,
+  source.value())` des lecteurs OpenSpec.
+- **Laissé, nommé** : `LocalSourceInventoryScanner#display` écrit `Failure.source` d'un échec de scan avec
+  `replace('\\', '/')`, et la même classe écrit un autre `Failure.source` par `SourcePath.toString()`, qui normalise de
+  la même façon. `SourcePath` est l'identité persistée du fichier dans l'état de synchronisation
+  (`SqliteSyncStateStore`) : corriger `display` seul ferait nommer le même fichier de deux façons dans un même résultat,
+  et corriger `SourcePath` est le changement d'un identifiant, qui n'est pas celui-ci. Par lecture du code, **non
+  exécuté** : un fichier nommé `a\b` sous Linux y serait inventorié sous `a/b`, et `a\b/spec.md` et `a/b/spec.md`
+  coexistant donneraient la même clé, donc un `SOURCE_OBSERVED_TWICE` si leur contenu diffère
+  (`LocalSourceInventoryScanner`, `entries.putIfAbsent`) et une fusion silencieuse sinon. Constat à instruire à part.
+- **Laissé, nommé** : `specificationKey` (`relativeParent.toString().replace('\\', '/')` dans le lecteur des
+  spécifications courantes et dans celui des deltas) est une clé d'identité externe (`specification:<clé>`), pas un
+  texte de refus.
+- **Laissé, nommé** : le `Diagnostic.source` des diagnostics d'exigence sautée du lecteur de deltas
+  (`OpenSpecRequirementDeltaReader`, valeur du locator). `Diagnostic.source` n'est pas un locator : c'est un texte libre,
+  et il porte aujourd'hui trois formes (le texte d'un refus pour `INVALID_SOURCE` d'une lecture, la valeur d'un locator
+  pour ces avertissements, un chemin sondé pour `INVALID_SOURCE` d'un probe) ; le Javadoc de `Diagnostic` le dit
+  désormais. Ces avertissements ne sont pas modifiés ici parce que le fichier est celui que PRV-2 remanie et que leur
+  aligner sur le texte de refus est un choix qui revient avec lui ; ils s'accordent avec le refus pour tout nom sans `\`.
+- **Hors classe** : `MorpheusProjectRegistryApiService#workspaceName` réécrit `\` pour chercher le dernier segment d'un
+  locator avant de le projeter ; c'est une projection de locator, pas un refus.
+
+### Preuves exécutables ajoutées
+
+- `OpenSpecRefusedFileNameTest` (7 tests, dont 5 sous Linux et macOS) : un refus nomme `openspec/specs/a\b/spec.md` tel
+  qu'il est (`source` du diagnostic, exception de la lecture de projet), aucun texte ne nomme `a/b`, le locator du même
+  fichier reste `file:openspec/specs/a/b/spec.md`, **le refus de budget de preuve des trois lecteurs nomme le fichier
+  tel qu'il est**, et le refus du résolveur est lui aussi réduit à son type ; sur toute plateforme : le même fichier sans
+  `\` porte le même texte comme refus et comme locator, et l'attribution écrit `a\b` ou `a/b` selon que `\` est un
+  séparateur. Sous Windows, cinq des sept tests sont ignorés (`@EnabledOnOs`) parce que le nom n'y existe pas.
+- `ProviderIngestionBudgetTest` : un fragment de preuve est refusé sous le nom du dernier document lu, et refusé comme
+  un mésusage si la session n'en a lu aucun.
+- `RefusalPathTextArchitectureTest` (8 tests) : une classe qui écrit le chemin d'un refus par
+  `WorkspaceRelativePathText.of(` (ou l'importe statiquement) ne l'écrit par aucune des sept voies de locator,
+  substitution ou séparateur de plateforme ; aucun appel d'une méthode de `ProviderIngestionBudget` ne reçoit un
+  locator (`.value()`, `.toString()`, `SourceLocator`) comme texte ; règle ArchUnit : `OpenSpecSourceAttribution` ne dépend
+  pas de `SourceLocator`.
+
+### Ce que la garde ne couvre pas
+
+Une lecture statique ne sait pas distinguer un refus d'un locator par leur intention : `SourceLocator.file(` et
+`replace('\\', '/')` sont légitimes là où l'on construit un locator ou une clé. La garde **découvre** les classes qui se
+déclarent constructrices de refus et juge les appels du budget ; elle ne voit donc pas :
+
+- un constructeur de refus qui n'appelle jamais le point (`LocalSourceInventoryScanner#display`) ;
+- une classe du plancher qui **reçoit** le texte de son refus en paramètre `String` : `ProviderIngestionBudget`
+  n'est pas tenu sur ce que ses appelants lui passent — le défaut des trois sites de preuve était de ce type, et
+  seule la seconde analyse, sur les sites d'appel, le voit ; un texte passé par une variable ou un assistant n'est vu
+  par aucune ;
+- l'ordre « lire un fichier, puis citer ses preuves » dont dépend `addEvidenceFragment(String)` : un lecteur qui
+  citerait un fragment d'un autre fichier que le dernier lu serait refusé sous un mauvais nom ;
+- un jugement par méthode (il est par classe), ni une écriture par un autre tour (`Path.toString()` puis `replace` aux
+  autres arguments, un `Pattern`).
+
+Les planchers qu'elle impose (trois classes de refus connues découvertes, les quatre modules qui appellent le budget
+vus) empêchent qu'elle passe à vide.
