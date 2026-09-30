@@ -558,3 +558,29 @@ Un client qui branchait sur l'ancien texte d'erreur doit brancher sur le code (`
 légitime (`?scopeKind=…&scopeId=…`) répond à l'identique.
 
 Décision : [ADR-0103, amendement du 29 septembre 2026 (API-4)](../adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md).
+
+### CLI `policy`, `query`, `views` et `export` : un refus d'option ne crée plus de base de données
+
+Jusqu'à 1.2.0, ces quatre commandes ouvraient le store **avant** de vérifier leur action et leurs options. L'ouverture
+crée le répertoire de données, le fichier de base et son schéma : une invocation refusée pour une option ou une action
+inconnue rendait bien le code `2`, mais laissait une base créée à un emplacement que rien n'avait validé :
+
+```text
+morpheus --data-dir /tmp/neuf policy pack list --projet P
+MORPHEUS error [2]: unknown option: --projet
+```
+
+`/tmp/neuf/morpheus.db` existait après ce refus. Les refus que 1.2.1 ajoute plus haut (valeur vide, option répétée) et,
+pour `export`, le format invalide et le refus de page, venaient eux aussi après l'ouverture. À partir de 1.2.1, tous ces
+refus précèdent l'ouverture, comme dans `portfolio` : rien n'est créé. Chaque refus garde son code et son message, et
+chaque action accepte exactement les options qu'elle acceptait. Une seule préséance change, en mieux : un refus d'usage
+(code `2`) précède désormais une erreur d'ouverture du store (répertoire non inscriptible, base verrouillée), qui rendait
+le code `4` et masquait l'option fautive.
+
+Ne changent pas : une option obligatoire absente, un identifiant mal formé, un entier invalide ou une portée absente sont
+refusés après l'ouverture, comme avant. `projects`, `changes` et `change-orchestration` ouvrent encore le store avant de
+refuser une partie de leurs options.
+
+**Migration.** Aucune : seul disparaît l'effet de bord d'une invocation refusée.
+
+Décision : [ADR-0108, amendement du 30 septembre 2026 (CLI-9)](../adr/0108-a-response-says-what-it-could-not-observe.md).

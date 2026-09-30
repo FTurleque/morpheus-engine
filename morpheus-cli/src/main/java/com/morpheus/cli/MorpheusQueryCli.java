@@ -29,7 +29,15 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
-/** M24 CLI adapter. All query semantics remain centralized in application services. */
+/**
+ * M24 CLI adapter. All query semantics remain centralized in application services.
+ *
+ * <p>The command, its action and its options are accepted before the store is opened: opening it creates the database,
+ * its parent directory and its schema, so a refusal that came after it left a database where the caller had asked for
+ * nothing. The options each action accepts are therefore tables ({@link #EXECUTE_OPTIONS}, {@link #VIEW_ACTION_OPTIONS},
+ * {@link #EXPORT_ACTION_OPTIONS}), read by {@link #accepted} before the store is opened; each entry is the set of options
+ * its {@code case} reads, no more and no less.</p>
+ */
 final class MorpheusQueryCli {
     private static final String CMD_QUERY = "query";
     private static final String CMD_EXPORT = "export";
@@ -44,6 +52,27 @@ final class MorpheusQueryCli {
     private static final String OPT_EXPECTED_REVISION = "expected-revision";
     private static final String OPT_FORMAT = "format";
     private static final int DEFAULT_LIMIT = 100;
+    private static final String EXPORT_VIEW = "view";
+    private static final String OPT_ID = "id";
+    private static final String OPT_NAME = "name";
+    private static final String OPT_SORT = "sort";
+
+    static final Set<String> EXECUTE_OPTIONS = Set.of(
+            OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, OPT_SORT, OPT_FIELDS, OPT_OFFSET, OPT_LIMIT);
+    static final Map<String, Set<String>> VIEW_ACTION_OPTIONS = Map.ofEntries(
+            Map.entry("create", Set.of(
+                    OPT_NAME, OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, OPT_SORT, OPT_FIELDS, OPT_OFFSET, OPT_LIMIT)),
+            Map.entry("list", Set.of(OPT_PROJECT, OPT_PORTFOLIO)),
+            Map.entry("get", Set.of(OPT_ID)),
+            Map.entry("versions", Set.of(OPT_ID)),
+            Map.entry("update", Set.of(
+                    OPT_ID, OPT_EXPECTED_REVISION, OPT_NAME, OPT_ENTITY, OPT_FILTER, OPT_SORT, OPT_FIELDS, OPT_OFFSET, OPT_LIMIT)),
+            Map.entry("archive", Set.of(OPT_ID, OPT_EXPECTED_REVISION)),
+            Map.entry("execute", Set.of(OPT_ID)));
+    /** {@code --offset} and {@code --limit} are refused by {@link #accepted} with their own reason, not as unknown. */
+    static final Map<String, Set<String>> EXPORT_ACTION_OPTIONS = Map.of(
+            CMD_QUERY, Set.of(OPT_FORMAT, OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, OPT_SORT, OPT_FIELDS),
+            EXPORT_VIEW, Set.of(OPT_FORMAT, OPT_ID));
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final QueryDslParser parser = new QueryDslParser();
 
@@ -60,12 +89,13 @@ final class MorpheusQueryCli {
             Properties properties) {
         try {
             Parsed parsed = Parsed.parse(args, environment, properties);
+            SimpleOptions options = accepted(parsed);
             try (SqliteQueryRuntime runtime = SqliteQueryRuntime.open(parsed.layout().databasePath())) {
                 return switch (parsed.command()) {
-                    case CMD_QUERY -> query(parsed, runtime, out);
-                    case CMD_VIEWS -> views(parsed, runtime, out);
-                    case CMD_EXPORT -> export(parsed, runtime, out);
-                    default -> throw new IllegalArgumentException("unknown M24 command: " + parsed.command());
+                    case CMD_QUERY -> query(options, runtime, parsed.json(), out);
+                    case CMD_VIEWS -> views(parsed, options, runtime, out);
+                    case CMD_EXPORT -> export(parsed, options, runtime, out);
+                    default -> throw new IllegalStateException("M24 command accepted without a handler: " + parsed.command());
                 };
             }
         } catch (EntityNotFoundException failure) {
@@ -83,92 +113,98 @@ final class MorpheusQueryCli {
         }
     }
 
-    private int query(Parsed parsed, SqliteQueryRuntime runtime, PrintStream out) {
-        requireAction(parsed, "execute");
-        SimpleOptions options = SimpleOptions.parse(parsed.arguments());
-        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, "sort", OPT_FIELDS, OPT_OFFSET, OPT_LIMIT));
+    /**
+     * Everything that can be refused without the store: the action, the parsing of the options, an export's format and
+     * page, and the options the action does not read. The checks keep the order they had in each command's own method,
+     * so a refusal names the same thing as before.
+     */
+    private static SimpleOptions accepted(Parsed parsed) {
+        return switch (parsed.command()) {
+            case CMD_QUERY -> {
+                requireAction(parsed, "execute");
+                SimpleOptions options = SimpleOptions.parse(parsed.arguments());
+                options.rejectUnknown(EXECUTE_OPTIONS);
+                yield options;
+            }
+            case CMD_VIEWS -> {
+                String action = parsed.action().orElseThrow(() -> new IllegalArgumentException("views requires an action"));
+                SimpleOptions options = SimpleOptions.parse(parsed.arguments());
+                options.rejectUnknown(allowed(VIEW_ACTION_OPTIONS, action, "unknown views action: "));
+                yield options;
+            }
+            case CMD_EXPORT -> {
+                String action = parsed.action().orElseThrow(() -> new IllegalArgumentException("export requires query or view"));
+                SimpleOptions options = SimpleOptions.parse(parsed.arguments());
+                format(options);
+                Set<String> allowed = allowed(EXPORT_ACTION_OPTIONS, action, "unknown export action: ");
+                if (action.equals(CMD_QUERY)) {
+                    for (String paging : List.of(OPT_OFFSET, OPT_LIMIT)) {
+                        if (options.optional(paging).isPresent()) {
+                            throw new IllegalArgumentException("--" + paging + " is not accepted by export: an export is always"
+                                    + " complete, bounded by " + QueryBudgets.MAX_EXPORT_ROWS + " rows and never by a page");
+                        }
+                    }
+                }
+                options.rejectUnknown(allowed);
+                yield options;
+            }
+            default -> throw new IllegalStateException("M24 command parsed without a validation: " + parsed.command());
+        };
+    }
+
+    private static Set<String> allowed(Map<String, Set<String>> actionOptions, String action, String unknown) {
+        Set<String> allowed = actionOptions.get(action);
+        if (allowed == null) {
+            throw new IllegalArgumentException(unknown + action);
+        }
+        return allowed;
+    }
+
+    private int query(SimpleOptions options, SqliteQueryRuntime runtime, boolean jsonOutput, PrintStream out) {
         QueryDefinition query = query(options, scope(options));
-        write(QueryPublicViews.result(runtime.queries().execute(query)), parsed.json(), out);
+        write(QueryPublicViews.result(runtime.queries().execute(query)), jsonOutput, out);
         return CliExitCode.SUCCESS.code();
     }
 
-    private int views(Parsed parsed, SqliteQueryRuntime runtime, PrintStream out) {
-        if (parsed.action().isEmpty()) {
-            throw new IllegalArgumentException("views requires an action");
-        }
+    private int views(Parsed parsed, SimpleOptions options, SqliteQueryRuntime runtime, PrintStream out) {
         String action = parsed.action().orElseThrow();
-        SimpleOptions options = SimpleOptions.parse(parsed.arguments());
         Object result = switch (action) {
             case "create" -> {
-                options.rejectUnknown(Set.of(
-                        "name", OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, "sort", OPT_FIELDS, OPT_OFFSET, OPT_LIMIT));
                 QueryDefinition definition = query(options, scope(options));
-                yield QueryPublicViews.savedView(runtime.views().create(options.required("name"), definition));
+                yield QueryPublicViews.savedView(runtime.views().create(options.required(OPT_NAME), definition));
             }
-            case "list" -> {
-                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO));
-                yield QueryPublicViews.savedViews(runtime.views().list(scope(options)));
-            }
-            case "get" -> {
-                options.rejectUnknown(Set.of("id"));
-                yield QueryPublicViews.savedView(runtime.views().get(savedView(options)));
-            }
-            case "versions" -> {
-                options.rejectUnknown(Set.of("id"));
-                yield QueryPublicViews.savedVersions(runtime.views().versions(savedView(options)));
-            }
+            case "list" -> QueryPublicViews.savedViews(runtime.views().list(scope(options)));
+            case "get" -> QueryPublicViews.savedView(runtime.views().get(savedView(options)));
+            case "versions" -> QueryPublicViews.savedVersions(runtime.views().versions(savedView(options)));
             case "update" -> {
-                options.rejectUnknown(Set.of(
-                        "id", OPT_EXPECTED_REVISION, "name", OPT_ENTITY, OPT_FILTER, "sort", OPT_FIELDS, OPT_OFFSET, OPT_LIMIT));
                 SavedViewId id = savedView(options);
                 var current = runtime.views().get(id);
                 QueryDefinition definition = query(options, current.query().scope());
                 yield QueryPublicViews.savedView(runtime.views().update(
-                        id, positiveLong(options, OPT_EXPECTED_REVISION), options.required("name"), definition));
+                        id, positiveLong(options, OPT_EXPECTED_REVISION), options.required(OPT_NAME), definition));
             }
-            case "archive" -> {
-                options.rejectUnknown(Set.of("id", OPT_EXPECTED_REVISION));
-                yield QueryPublicViews.savedView(runtime.views().archive(
-                        savedView(options), positiveLong(options, OPT_EXPECTED_REVISION)));
-            }
-            case "execute" -> {
-                options.rejectUnknown(Set.of("id"));
-                yield QueryPublicViews.result(runtime.views().execute(savedView(options)));
-            }
-            default -> throw new IllegalArgumentException("unknown views action: " + action);
+            case "archive" -> QueryPublicViews.savedView(runtime.views().archive(
+                    savedView(options), positiveLong(options, OPT_EXPECTED_REVISION)));
+            case "execute" -> QueryPublicViews.result(runtime.views().execute(savedView(options)));
+            default -> throw new IllegalStateException("views action accepted without a handler: " + action);
         };
         write(result, parsed.json(), out);
         return CliExitCode.SUCCESS.code();
     }
 
-    private int export(Parsed parsed, SqliteQueryRuntime runtime, PrintStream out) {
-        if (parsed.action().isEmpty()) {
-            throw new IllegalArgumentException("export requires query or view");
-        }
+    private int export(Parsed parsed, SimpleOptions options, SqliteQueryRuntime runtime, PrintStream out) {
         String action = parsed.action().orElseThrow();
-        SimpleOptions options = SimpleOptions.parse(parsed.arguments());
         QueryExportFormat format = format(options);
         QueryDefinition definition = switch (action) {
-            case CMD_QUERY -> {
-                for (String paging : List.of(OPT_OFFSET, OPT_LIMIT)) {
-                    if (options.optional(paging).isPresent()) {
-                        throw new IllegalArgumentException("--" + paging + " is not accepted by export: an export is always"
-                                + " complete, bounded by " + QueryBudgets.MAX_EXPORT_ROWS + " rows and never by a page");
-                    }
-                }
-                options.rejectUnknown(Set.of(
-                        OPT_FORMAT, OPT_PROJECT, OPT_PORTFOLIO, OPT_ENTITY, OPT_FILTER, "sort", OPT_FIELDS));
-                yield query(options, scope(options), 0, DEFAULT_LIMIT);
-            }
-            case "view" -> {
-                options.rejectUnknown(Set.of(OPT_FORMAT, "id"));
+            case CMD_QUERY -> query(options, scope(options), 0, DEFAULT_LIMIT);
+            case EXPORT_VIEW -> {
                 var view = runtime.views().get(savedView(options));
                 if (view.status() != SavedViewStatus.ACTIVE) {
                     throw new IllegalStateException("saved view is archived: " + view.id());
                 }
                 yield view.query();
             }
-            default -> throw new IllegalArgumentException("unknown export action: " + action);
+            default -> throw new IllegalStateException("export action accepted without a handler: " + action);
         };
         var export = runtime.exports().export(definition, format);
         out.print(export.content());
@@ -187,7 +223,7 @@ final class MorpheusQueryCli {
                 scope,
                 options.required(OPT_ENTITY),
                 options.optional(OPT_FILTER).orElse(null),
-                options.optional("sort").orElse(null),
+                options.optional(OPT_SORT).orElse(null),
                 options.optional(OPT_FIELDS).orElse(null),
                 offset,
                 limit);
@@ -204,10 +240,10 @@ final class MorpheusQueryCli {
     }
 
     private SavedViewId savedView(SimpleOptions options) {
-        return SavedViewId.parse(options.required("id"));
+        return SavedViewId.parse(options.required(OPT_ID));
     }
 
-    private QueryExportFormat format(SimpleOptions options) {
+    private static QueryExportFormat format(SimpleOptions options) {
         try {
             return QueryExportFormat.valueOf(options.required(OPT_FORMAT).replace('-', '_').toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException failure) {
