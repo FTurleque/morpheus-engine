@@ -387,7 +387,8 @@ final class MorpheusServerCli {
 
     private static String required(Map<String, String> options, String name) {
         String value = options.get(name);
-        if (value == null || value.isBlank()) throw new IllegalArgumentException("--" + name + " is required");
+        if (value == null) throw new IllegalArgumentException("--" + name + " is required");
+        // A blank value never gets here: options() refuses it through OptionValue as it reads the arguments.
         return value.trim();
     }
 

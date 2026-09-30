@@ -14,7 +14,8 @@ class SimpleOptionsTest {
 
     @Test
     void anEmptyOrBlankValueIsRefusedAtTheFrontierAndNamesItsOption() {
-        for (String value : List.of("", " ", "\t", "   ", "\u0001")) {
+        for (String value : List.of("", " ", "\t", "   ", "\u0001", "\u2003", "\u3000",
+                "\u0001\u2003")) {
             SimpleOptions options = SimpleOptions.parse(List.of("--name", "n", "--project", value));
 
             IllegalArgumentException checked = assertThrows(IllegalArgumentException.class,

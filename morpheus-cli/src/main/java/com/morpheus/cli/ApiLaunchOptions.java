@@ -66,7 +66,7 @@ record ApiLaunchOptions(CliLayout layout, String host, int port) {
                 }
                 String value = OptionValue.nonBlank(token, args[++index]);
                 switch (token) {
-                    case "--host" -> host = requireHost(value);
+                    case "--host" -> host = value.trim();
                     case "--port" -> port = parsePort(value);
                     case "--data-dir" -> data = Optional.of(Path.of(value));
                     case "--config-dir" -> config = Optional.of(Path.of(value));
@@ -82,7 +82,7 @@ record ApiLaunchOptions(CliLayout layout, String host, int port) {
                 OptionOccurrence.once(given, option);
                 String value = OptionValue.nonBlank(option, token.substring(separator + 1));
                 switch (option) {
-                    case "--host" -> host = requireHost(value);
+                    case "--host" -> host = value.trim();
                     case "--port" -> port = parsePort(value);
                     case "--data-dir" -> data = Optional.of(Path.of(value));
                     case "--config-dir" -> config = Optional.of(Path.of(value));
@@ -105,13 +105,6 @@ record ApiLaunchOptions(CliLayout layout, String host, int port) {
                 CliLayout.resolve(data, config, database, environment, properties),
                 host,
                 port);
-    }
-
-    private static String requireHost(String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("--host must not be blank");
-        }
-        return value.trim();
     }
 
     private static int parsePort(String raw) {
