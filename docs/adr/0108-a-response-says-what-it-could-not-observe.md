@@ -927,3 +927,133 @@ requires a non-blank value` et jamais `Invalid UUID string`, sans créer la base
 CLI-11 rend `Invalid UUID string`. La garde tombe quand on remet le prédicat par chaîne dans `OptionValue.nonBlank`,
 quand on rend à `presentSetting` son nom `nonBlank`, et quand on écrit `value.trim().length() == 0` dans
 `MorpheusServerCli.required`.
+## Amendement du 30 septembre 2026 (CLI-9) — rien n'est créé sur disque avant que les options soient acceptées
+
+L'amendement CLI-7, suite, nomme dans « Ce qui reste » deux commandes qui ouvrent le store avant de vérifier leurs
+options : `projects add` et `changes list`. Quatre autres avaient le même défaut, plus largement : `policy`, `query`,
+`views` et `export`. `MorpheusPolicyCli.run` ouvrait `SqlitePolicyRuntime` (`:51` à `933a63fe`) avant d'appeler
+`execute`, seul à faire `SimpleOptions.parse` puis, dans chaque branche de son `switch`, `rejectUnknown` ;
+`MorpheusQueryCli.run` ouvrait `SqliteQueryRuntime` (`:63`) avant `query`, `views` et `export`, qui faisaient de même.
+L'ouverture crée le répertoire de données, le fichier de base et son schéma. Mesuré à `933a63fe` sur un `--data-dir`
+inexistant : `policy evaluate --project P --id ""`, `policy pack list --bogus x`, `policy pack get --id a --id b`,
+`policy frobnicate`, `query execute … --bogus x`, `views list … --bogus x`, `views frobnicate`,
+`export query … --limit 5`, `export view --format json --bogus x` et `export view --format yaml --id x` rendent tous
+`2` **et** laissent la base créée. Le contre-exemple était dans la même famille : `MorpheusPortfolioCli` résout son
+action dans `ACTION_OPTIONS` et refuse les options inconnues avant `new SqlitePortfolioStore`.
+
+Deux phrases du dépôt affirmaient déjà la propriété pour ces commandes : les Conséquences de l'amendement CLI-7,
+répétition (« les autres commandes avant d'ouvrir le store ») et la note de version de la répétition (« aucune commande
+n'écrit quoi que ce soit avant le refus »). Elles étaient fausses pour une option de commande répétée de ces quatre
+commandes, que `SimpleOptions.parse` ne lisait qu'après l'ouverture. Elles ne sont pas réécrites : cet amendement les
+rend vraies.
+
+**Décision.** Ces quatre commandes acceptent leur action et leurs options avant d'ouvrir le store, sur le patron de
+`portfolio` : action reconnue, options lues (doublon refusé), valeur blanche et option inconnue refusées, *puis* le
+store. Les ensembles d'options autorisées deviennent des tables lues avant l'ouverture :
+`MorpheusPolicyCli.ACTION_OPTIONS` (quatorze actions), `MorpheusQueryCli.EXECUTE_OPTIONS`, `VIEW_ACTION_OPTIONS` (sept
+actions) et `EXPORT_ACTION_OPTIONS` (`query`, `view`). Chaque entrée recopie le `rejectUnknown` de sa branche, qui
+disparaît : aucune option n'est ajoutée ni retirée, et la preuve compare chaque action à une liste écrite
+indépendamment de ces tables. Pour `export`, le contrôle du format et le refus nommé de `--offset`/`--limit`
+(`export query`) sont remontés aussi, dans l'ordre qu'ils avaient : chaque refus nomme la même chose qu'avant.
+Une seule préséance change, et c'est le but : un refus d'usage (code `2`) précède désormais une erreur d'ouverture du
+store (répertoire non inscriptible, base verrouillée), qui rendait jusqu'ici le code `4` et masquait l'option fautive.
+
+Ce qui vient après l'ouverture n'a pas bougé, ici comme dans `portfolio` : une option obligatoire absente, un
+identifiant mal formé, un entier qui n'en est pas un, une portée absente ou donnée deux fois. Ces refus ont besoin de
+la valeur ; les remonter demanderait de construire chaque requête avant l'ouverture, et `views update` lit la vue
+courante pour connaître sa portée. `policy evaluate --id x`, sans portée, crée donc toujours la base avant de répondre
+`exactly one of --project or --portfolio is required`.
+
+### Alternatives écartées
+
+- **Une phase de validation qui refait le `switch` d'actions sans toucher au store**, comme `composition` et
+  `external-references` le font (un `switch` pour `rejectUnknown`, un second pour exécuter). Chaque action serait
+  écrite deux fois avec ses options d'un côté seulement, et aucune garde ne tient aujourd'hui d'accord les deux `switch`
+  de ces deux adaptateurs.
+- **Une table qui porte aussi l'exécution** (`action → options, traitement`). Elle supprimerait le dernier couple à tenir
+  d'accord, mais réécrirait en lambda chacune des vingt-quatre branches et s'écarterait du patron de `portfolio`, que les
+  trois adaptateurs `SimpleOptions` partagent désormais.
+- **Ouvrir le store paresseusement**, au premier accès. La propriété dépendrait de l'ordre des lectures dans chaque
+  branche, c'est-à-dire de ce que chaque futur `case` penserait à faire en premier.
+
+### La table et le `switch`
+
+La table ne supprime pas tout couplage : chaque action est encore écrite deux fois, comme clé de la table et comme
+`case` du `switch` qui l'exécute. Un `case` sans clé est du code mort, refusé comme action inconnue avant l'ouverture.
+Une clé sans `case` reproduit le défaut : l'action est acceptée, le store est ouvert, et la branche `default` refuse
+après coup. La forme de `portfolio` n'avait pas de garde pour cela : `CliOptionParsingRefusesUnknownOptionsTest`
+vérifie qu'un `rejectUnknown` suit chaque `parse`, pas que la table et le `switch` s'accordent, ni que la table précède
+le store. La branche `default` des `switch` d'exécution de `policy`, `views` et `export`, comme celles, déjà
+inatteignables, des deux `switch` sur la commande de `MorpheusQueryCli`, lève maintenant `IllegalStateException` et non
+plus un message d'action ou de commande inconnue : atteinte, elle n'est plus une faute de l'appelant. `portfolio` garde la sienne ; sa table devient visible du paquetage pour que la
+même garde la lise.
+
+### Inventaire — les adaptateurs du CLI qui ouvrent un store
+
+Relevé à `933a63fe` par lecture de chaque point d'entrée ; les éléments marqués † ont aussi été exécutés sur un
+`--data-dir` inexistant, avec une option inconnue et, selon le cas, une action inconnue, une valeur vide ou une option
+d'une autre action. « Oui » : le refus d'une option inconnue, vide ou répétée et d'une action inconnue précède
+l'ouverture.
+
+| Adaptateur | Commandes | Store ouvert | Options acceptées avant l'ouverture ? |
+|---|---|---|---|
+| `MorpheusCli` | `sync`†, `sync-status`, `requirements find`, `constraints list`, `decisions list`, `tasks list`, `trace-requirement`, `change-context`, `analyze-change`, `quality`† | `CliRuntime` | Oui ; les identifiants obligatoires sont lus avant aussi. |
+| `MorpheusCli` | `projects list`†, `projects add`† | `CliRuntime` | **Non** : seul le doublon est refusé avant ; option inconnue, sous-commande inconnue et valeur vide après. |
+| `MorpheusCli` | `changes list`†, `changes get`† | `CliRuntime` | **Non** : `--project` est lu avant ; option inconnue, sous-commande inconnue et valeur vide (`--limit ""`) après. |
+| `portfolio`† | toutes | `SqlitePortfolioStore` | Oui — sans qu'aucun test ne le tienne jusqu'ici. |
+| `policy`†, `query`†, `views`†, `export`† | toutes | `SqlitePolicyRuntime`, `SqliteQueryRuntime` | **Oui depuis cet amendement** ; non à `933a63fe`. |
+| `composition`† | `sync`, `status`, `conflicts` | `CliRuntime` | Oui. |
+| `external-references`† | `list`, `resolve` | `CliRuntime` | Oui (CLI-8). |
+| `acceptance-criteria`†, `constraints evaluate`†, `lifecycle apply`†, `augmented-context`† | toutes | `CliRuntime` | Oui : parseurs fermés, toutes les valeurs lues avant. |
+| `change-orchestration`† | `state`, `transition-check` | `CliRuntime` | **En partie** : une option hors du vocabulaire de la famille est refusée avant ; une action inconnue et une option d'une autre action (`state --from`†, `transition-check --lifecycle`†, les drapeaux `--allow-*` sous `state`) le sont après — et après `findProject` : sur un store vide elles répondent `project not found`, code `4`, au lieu du refus d'usage. |
+| `server backup create`†, `server restore` | — | `SqliteServerMaintenance` | Oui : l'allowlist d'options précède la maintenance. |
+| lanceurs `api`, `mcp --stdio`, `api --remote` | — | serveur | Oui : options analysées avant tout démarrage. |
+
+`server identity …` n'ouvre que le fichier d'identités ; `reason`, `update-check`, `provider-plugins`, `paths`,
+`version`, `help`, `nexus-status` et `minos-status` n'ouvrent aucun store.
+
+**L'inventaire est complet, pas seulement élargi** — complet au sens d'une lecture de chaque adaptateur de
+`morpheus-cli/src/main/java` à `933a63fe`, pas d'une garde. Aux deux commandes nommées par CLI-7, suite, il ajoute une
+famille qu'elle ne nommait pas, `change-orchestration`, et précise les deux premières : `projects list` et `changes get`
+en sont aussi. Rien ne le tient à jour : un adaptateur ajouté demain n'y est pas.
+
+### Ce qui reste
+
+- `projects`, `changes` et `change-orchestration` ouvrent le store avant de refuser une partie de leurs options. Non
+  traités ici.
+- Les refus qui lisent une valeur viennent après l'ouverture dans les trois adaptateurs `SimpleOptions` (voir la
+  décision).
+- `composition` et `external-references` écrivent chaque action dans deux `switch`, sans garde qui les accorde.
+- Aucune garde ne découvre un futur adaptateur qui ouvrirait le store avant d'accepter ses options.
+
+**Preuve.** `NothingIsCreatedBeforeTheOptionsAreAcceptedTest`, par `MorpheusMain.run`, chaque cas sur un répertoire de
+données inexistant :
+
+- chaque option du vocabulaire de l'adaptateur, plus une faute de frappe, donnée seule à chacune des vingt-quatre
+  actions : acceptée, elle atteint le store et le fichier de base existe ; refusée, le code est `2`, le message nomme
+  l'option (ou, pour `export query`, le refus de page), et le répertoire du cas reste absent ;
+- une valeur vide et une option répétée sur chaque action qui prend une option, une action inconnue ou absente pour
+  chacune des quatre commandes, et `portfolio` : code `2`, répertoire absent ;
+- le chemin heureux crée toujours la base (`policy pack list`, `policy evaluate`, `query execute`, `views list`,
+  `export query`) ;
+- chaque table est égale, clé par clé **et valeur par valeur**, à la liste écrite dans le test ; le sondage du premier
+  point envoie l'union de cette liste et de toutes les valeurs des tables, pour qu'une option connue d'une seule table
+  soit envoyée à chaque action ;
+- chaque clé des tables, `portfolio` compris, atteint un `case` : lancée seule sur un store vide, elle rend `0`, ou `2`
+  avec `--x is required` ou le refus de portée — ce que fait la première lecture de chaque `case`. L'assertion est
+  positive et ne dépend pas du message de la branche `default` ;
+- une option inconnue passée à un store qu'on ne peut pas ouvrir (répertoire de données sous un fichier ordinaire) rend
+  `2` et nomme l'option ; la même commande valide rend `4`.
+
+Ce que la preuve ne couvre pas : un `case` sans clé (code mort, refusé avant l'ouverture, non détecté) ; une branche
+`default` dont le message imiterait un refus d'option obligatoire ; une option absente à la fois de la liste et de toutes
+les tables, qui n'est pas sondée et que seule la comparaison de valeurs tient ; un futur adaptateur, que rien ne découvre.
+
+Casser la règle en remettant l'ouverture avant toute validation dans `policy` et dans `query` — l'ordre de
+`933a63fe` — fait tomber 261 des 395 cas : tous les refus des quatre commandes et la préséance sur un store qu'on ne peut
+pas ouvrir (`4` au lieu de `2`) ; restent verts les 92 cas d'option acceptée, le chemin heureux, les tables et les deux
+cas de `portfolio`. Élargir `policy evaluate` de `format` et `views get` de `bogus` — deux options qu'aucune action ne
+lit, qu'une première version de la preuve ne sondait pas et laissait passer — fait tomber 3 cas : l'égalité des tables et
+les deux sondages. Ajouter à `policy` et à `portfolio` une clé sans `case`, en changeant le message de la branche
+`default` de `policy`, fait tomber 3 cas : l'égalité des tables et les deux clés, rendues `4` et `2` sans atteindre leur
+`case`.

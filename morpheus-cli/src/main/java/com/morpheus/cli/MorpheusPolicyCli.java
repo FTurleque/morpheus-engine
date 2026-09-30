@@ -28,7 +28,14 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
-/** M25 CLI adapter. Policy semantics remain centralized in application services. */
+/**
+ * M25 CLI adapter. Policy semantics remain centralized in application services.
+ *
+ * <p>The action and its options are accepted before the store is opened: opening it creates the database, its parent
+ * directory and its schema, so a refusal that came after it left a database where the caller had asked for nothing.
+ * The options an action accepts are therefore a table, {@link #ACTION_OPTIONS}, read before {@code execute} and not
+ * inside it; each entry is the set of options its {@code case} reads, no more and no less.</p>
+ */
 final class MorpheusPolicyCli {
     private static final String OPT_ACTOR = "actor";
     private static final String OPT_REASON = "reason";
@@ -37,6 +44,25 @@ final class MorpheusPolicyCli {
     private static final String OPT_PROJECT = "project";
     private static final String OPT_PORTFOLIO = "portfolio";
     private static final String OPT_VERSION = "version";
+
+    static final Map<String, Set<String>> ACTION_OPTIONS = Map.ofEntries(
+            Map.entry("pack-create", Set.of("name", OPT_RULES, OPT_ACTOR, OPT_REASON)),
+            Map.entry("pack-list", Set.of()),
+            Map.entry("pack-get", Set.of("id")),
+            Map.entry("pack-versions", Set.of("id")),
+            Map.entry("pack-update", Set.of("id", OPT_EXPECTED_REVISION, "name", OPT_RULES, OPT_ACTOR, OPT_REASON)),
+            Map.entry("activate", Set.of(
+                    "id", OPT_VERSION, OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON)),
+            Map.entry("activations", Set.of(OPT_PROJECT, OPT_PORTFOLIO)),
+            Map.entry("deactivate", Set.of("id", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON)),
+            Map.entry("override-put", Set.of(
+                    "id", "rule", "mode", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON)),
+            Map.entry("override-list", Set.of(OPT_PROJECT, OPT_PORTFOLIO)),
+            Map.entry("override-remove", Set.of(
+                    "id", "rule", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON)),
+            Map.entry("evaluate", Set.of("id", OPT_PROJECT, OPT_PORTFOLIO)),
+            Map.entry("dry-run", Set.of("id", OPT_VERSION, OPT_PROJECT, OPT_PORTFOLIO)),
+            Map.entry("audit", Set.of("id")));
 
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final QueryDefinitionCodec queryCodec = new QueryDefinitionCodec();
@@ -48,8 +74,14 @@ final class MorpheusPolicyCli {
     int run(String[] args, PrintStream out, PrintStream err, Map<String, String> environment, Properties properties) {
         try {
             Parsed parsed = Parsed.parse(args, environment, properties);
+            SimpleOptions options = SimpleOptions.parse(parsed.arguments());
+            Set<String> allowed = ACTION_OPTIONS.get(parsed.action());
+            if (allowed == null) {
+                throw new IllegalArgumentException("unknown policy action: " + parsed.action());
+            }
+            options.rejectUnknown(allowed);
             try (SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(parsed.layout().databasePath())) {
-                Object result = execute(parsed, runtime);
+                Object result = execute(parsed.action(), options, runtime);
                 CliExitCode exitCode = CliExitCode.SUCCESS;
                 if (result instanceof Decided decided) {
                     result = decided.view();
@@ -75,69 +107,38 @@ final class MorpheusPolicyCli {
         }
     }
 
-    private Object execute(Parsed parsed, SqlitePolicyRuntime runtime) {
-        SimpleOptions options = SimpleOptions.parse(parsed.arguments());
-        return switch (parsed.action()) {
-            case "pack-create" -> {
-                options.rejectUnknown(Set.of("name", OPT_RULES, OPT_ACTOR, OPT_REASON));
-                yield PolicyPublicViews.definition(runtime.registry().create(
-                        options.required("name"), rules(options.required(OPT_RULES)),
-                        options.required(OPT_ACTOR), options.required(OPT_REASON)));
-            }
-            case "pack-list" -> {
-                options.rejectUnknown(Set.of());
-                yield PolicyPublicViews.definitions(runtime.registry().list());
-            }
-            case "pack-get" -> {
-                options.rejectUnknown(Set.of("id"));
-                yield PolicyPublicViews.definition(runtime.registry().get(pack(options)));
-            }
-            case "pack-versions" -> {
-                options.rejectUnknown(Set.of("id"));
-                yield PolicyPublicViews.versions(runtime.registry().versions(pack(options)));
-            }
-            case "pack-update" -> {
-                options.rejectUnknown(Set.of("id", OPT_EXPECTED_REVISION, "name", OPT_RULES, OPT_ACTOR, OPT_REASON));
-                yield PolicyPublicViews.definition(runtime.registry().update(
-                        pack(options), revision(options), options.required("name"), rules(options.required(OPT_RULES)),
-                        options.required(OPT_ACTOR), options.required(OPT_REASON)));
-            }
-            case "activate" -> {
-                options.rejectUnknown(Set.of("id", OPT_VERSION, OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
-                yield PolicyPublicViews.activation(runtime.registry().activate(
-                        scope(options), pack(options), PolicyIds.VersionId.parse(options.required(OPT_VERSION)), revisionAllowZero(options),
-                        options.required(OPT_ACTOR), options.required(OPT_REASON)));
-            }
-            case "activations" -> {
-                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO));
-                yield PolicyPublicViews.activations(runtime.registry().activations(scope(options)));
-            }
+    private Object execute(String action, SimpleOptions options, SqlitePolicyRuntime runtime) {
+        return switch (action) {
+            case "pack-create" -> PolicyPublicViews.definition(runtime.registry().create(
+                    options.required("name"), rules(options.required(OPT_RULES)),
+                    options.required(OPT_ACTOR), options.required(OPT_REASON)));
+            case "pack-list" -> PolicyPublicViews.definitions(runtime.registry().list());
+            case "pack-get" -> PolicyPublicViews.definition(runtime.registry().get(pack(options)));
+            case "pack-versions" -> PolicyPublicViews.versions(runtime.registry().versions(pack(options)));
+            case "pack-update" -> PolicyPublicViews.definition(runtime.registry().update(
+                    pack(options), revision(options), options.required("name"), rules(options.required(OPT_RULES)),
+                    options.required(OPT_ACTOR), options.required(OPT_REASON)));
+            case "activate" -> PolicyPublicViews.activation(runtime.registry().activate(
+                    scope(options), pack(options), PolicyIds.VersionId.parse(options.required(OPT_VERSION)), revisionAllowZero(options),
+                    options.required(OPT_ACTOR), options.required(OPT_REASON)));
+            case "activations" -> PolicyPublicViews.activations(runtime.registry().activations(scope(options)));
             case "deactivate" -> {
-                options.rejectUnknown(Set.of("id", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
                 runtime.registry().deactivate(scope(options), pack(options), revision(options),
                         options.required(OPT_ACTOR), options.required(OPT_REASON));
                 yield VoidMarker.INSTANCE;
             }
-            case "override-put" -> {
-                options.rejectUnknown(Set.of("id", "rule", "mode", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
-                yield PolicyPublicViews.override(runtime.registry().putOverride(
-                        scope(options), pack(options), PolicyIds.RuleId.parse(options.required("rule")),
-                        PolicyConfiguration.OverrideMode.valueOf(options.required("mode").toUpperCase(Locale.ROOT)),
-                        revisionAllowZero(options), options.required(OPT_ACTOR), options.required(OPT_REASON)));
-            }
-            case "override-list" -> {
-                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_PORTFOLIO));
-                yield PolicyPublicViews.overrides(runtime.registry().overrides(scope(options)));
-            }
+            case "override-put" -> PolicyPublicViews.override(runtime.registry().putOverride(
+                    scope(options), pack(options), PolicyIds.RuleId.parse(options.required("rule")),
+                    PolicyConfiguration.OverrideMode.valueOf(options.required("mode").toUpperCase(Locale.ROOT)),
+                    revisionAllowZero(options), options.required(OPT_ACTOR), options.required(OPT_REASON)));
+            case "override-list" -> PolicyPublicViews.overrides(runtime.registry().overrides(scope(options)));
             case "override-remove" -> {
-                options.rejectUnknown(Set.of("id", "rule", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON));
                 runtime.registry().removeOverride(
                         scope(options), pack(options), PolicyIds.RuleId.parse(options.required("rule")), revision(options),
                         options.required(OPT_ACTOR), options.required(OPT_REASON));
                 yield Map.of("removed", true);
             }
             case "evaluate" -> {
-                options.rejectUnknown(Set.of("id", OPT_PROJECT, OPT_PORTFOLIO));
                 PolicyScope evaluationScope = scope(options);
                 Optional<String> packId = options.optional("id");
                 if (packId.isPresent()) {
@@ -147,16 +148,10 @@ final class MorpheusPolicyCli {
                 PolicyEvaluation.GovernanceReport governance = runtime.evaluation().evaluate(evaluationScope);
                 yield new Decided(PolicyPublicViews.governance(governance), governance.decision());
             }
-            case "dry-run" -> {
-                options.rejectUnknown(Set.of("id", OPT_VERSION, OPT_PROJECT, OPT_PORTFOLIO));
-                yield decided(runtime.evaluation().dryRun(
-                        scope(options), pack(options), PolicyIds.VersionId.parse(options.required(OPT_VERSION))));
-            }
-            case "audit" -> {
-                options.rejectUnknown(Set.of("id"));
-                yield PolicyPublicViews.audit(runtime.registry().audit(pack(options)));
-            }
-            default -> throw new IllegalArgumentException("unknown policy action: " + parsed.action());
+            case "dry-run" -> decided(runtime.evaluation().dryRun(
+                    scope(options), pack(options), PolicyIds.VersionId.parse(options.required(OPT_VERSION))));
+            case "audit" -> PolicyPublicViews.audit(runtime.registry().audit(pack(options)));
+            default -> throw new IllegalStateException("policy action accepted without a handler: " + action);
         };
     }
 

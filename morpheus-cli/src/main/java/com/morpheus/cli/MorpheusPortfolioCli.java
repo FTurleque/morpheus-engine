@@ -35,7 +35,7 @@ final class MorpheusPortfolioCli {
     private static final String OPT_LIMIT = "limit";
     private static final String OPT_OFFSET = "offset";
 
-    private static final Map<String, Set<String>> ACTION_OPTIONS = Map.ofEntries(
+    static final Map<String, Set<String>> ACTION_OPTIONS = Map.ofEntries(
             Map.entry("create", Set.of("name")),
             Map.entry("add-project", Set.of(
                     OPT_PORTFOLIO, OPT_PROJECT, "name", "workspace", "repository", "providers")),
