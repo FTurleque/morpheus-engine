@@ -749,3 +749,187 @@ de racine retirée de `SyntheticSpecificationContentReaderTest` fait tomber
 retiré fait tomber exactement les cas qu'il tient (receveur non suivi, variables de motif, exigence de paramètre,
 traduction unicode, retrait des commentaires, références de constructeur, racine attendue du test comportemental) ;
 le contrôle réduit à l'ancien préfixe fait tomber les deux tests de refus synthétiques.
+## Amendement du 30 septembre 2026 (PRV-2, suite) — un bloc jamais fermé est un diagnostic, une exigence sautée a un nom
+
+Cet amendement reprend deux points que l'amendement PRV-2 du 24 septembre a laissés ouverts par écrit (« Hors périmètre,
+laissé ouvert », quatrième et cinquième puces, et la fin de sa décision 4). Il **applique** l'option que ce texte
+reportait — un diagnostic pour un bloc encore ouvert en fin de fichier — et **prend** la décision de visibilité qu'il
+renvoyait ailleurs. Le texte du 24 septembre reste tel quel : il décrit `develop` à cette date.
+
+### Constat (à `933a63fe`)
+
+1. **Le masque conditionnait une moitié de la décision de section, pas l'autre.** Dans `normalizeDeltaFile`, une ligne
+   `## ADDED|MODIFIED|REMOVED Requirements` posait le genre sans consulter le masque (`OpenSpecRequirementDeltaReader.java:147-151`),
+   alors que le reset sur une section non reconnue le consultait (`:152`). Un `## REMOVED Requirements` écrit dans un
+   exemple de code changeait donc le genre des exigences suivantes. OpenSpec amont masque les deux.
+2. **Un bloc jamais fermé désactivait le reset sans rien dire.** `OPENING_FENCE` ouvre sur une ligne qui *commence* par
+   trois accents graves ou tildes, quoi qu'il suive (`:51-52`) ; `CLOSING_FENCE` exige une ligne entière (`:53-54`). Une
+   ligne de prose ```` ```inline``` markers are gone ```` masquait donc le reste du fichier : une exigence sous `## Notes`
+   sortait `REMOVED`, sans diagnostic, catégorie `READ`. `anUnclosedFenceMasksTheRestOfTheFileSoALaterSectionKeepsThePreviousKind`
+   l'épinglait comme attendu.
+3. **Le nom de l'exigence sautée n'atteignait aucune surface.** Il vivait dans `Diagnostic.details` (clé `requirement`) ;
+   `sync` n'exposait que `diagnosticCount`, en CLI comme en HTTP. La prémisse selon laquelle `SnapshotValidationResult`
+   serait le point qui perd l'information est **inexacte** : ce record ne quitte jamais l'application.
+   `SnapshotLifecycleService.validate` n'en lit que `isValid()` pour choisir `READY` ou `FAILED`, et ses `warnings` sont
+   jetés. L'élargir n'aurait rien rendu visible. Le point qui perd le nom est la vue de sync, qui réduit
+   `ProjectSnapshotImportResult.diagnostics()` — des `Diagnostic` complets, détails compris — à sa taille.
+
+### Décision
+
+1. **Le masque est symétrique.** Une ligne masquée ne pose pas le genre et ne le remet pas à zéro. C'est la correction
+   d'une incohérence interne, pas une divergence d'avec l'amont, qui masque les deux. Conséquence mesurée : un exemple
+   **fermé** placé sous `## Notes` et contenant `## ADDED Requirements` puis `### Requirement: Phantom` était publié
+   `ADDED Phantom` ; il ne l'est plus, et un `PARTIAL_INGESTION` nomme `Phantom` (le genre reste « aucun » après
+   `## Notes`, et le titre d'exigence de l'exemple n'est pas masqué — voir « Hors périmètre »). C'est une amélioration,
+   avec un **faux positif assumé** : la catégorie passe à `PARTIAL` à cause d'un exemple de code.
+2. **Un bloc encore ouvert en fin de fichier est nommé.** `UNCLOSED_CODE_FENCE` (ajouté en fin de `DiagnosticCode`), en
+   `WARNING`, `source` relative au workspace, détails `provider`, `change`, `fence` (la suite qui l'a ouvert) et `line`
+   (la ligne d'ouverture, base 1). La catégorie `REQUIREMENT_DELTAS` passe à `PARTIAL`, codes
+   `[PARTIAL_INGESTION, UNCLOSED_CODE_FENCE]`, **même si aucune exigence ne suit le bloc** : MORPHEUS dit qu'il a lu un
+   fichier dont la structure lui échappe, et la table « Diagnostics » ci-dessus (`PARTIAL -> PARTIAL_INGESTION`) reste
+   vraie. Les règles d'ouverture et de fermeture (`OPENING_FENCE`, `CLOSING_FENCE`) ne changent pas : le masque reste
+   celui de `buildCodeFenceMask`.
+3. **Aucune exigence placée après l'ouverture d'un bloc jamais fermé ne reçoit de genre — décision à confirmer
+   explicitement par le relecteur.** Elle est sautée et nommée par un `PARTIAL_INGESTION` (détail `requirement`, message
+   « follows a code fence that is never closed »), **même quand un en-tête de delta bien formé suit le bloc**. Ce point
+   n'était pas dans l'option reportée ; il en est la condition, et il a un coût qu'il faut lire en entier :
+   - **Ce qu'il empêche.** Le point 1 seul aggravait le bloc jamais fermé : un `## ADDED Requirements` placé après lui
+     devenait masqué, et les exigences qui le suivent sortaient avec le genre d'avant le bloc — `REMOVED` pour une
+     exigence `ADDED`, la suppression fantôme d'origine, sur une section bien écrite.
+   - **Ce qu'il coûte.** Jusqu'ici, une exigence placée après un bloc jamais fermé mais **sous un en-tête de delta bien
+     formé** était publiée **avec le bon genre**, parce que `DELTA_SECTION` n'était pas masqué. Elle ne l'est plus. Exemple
+     minimal : un fichier dont la ligne 1 est ```` ``` ````, suivi de `## ADDED Requirements` puis
+     `### Requirement: A` — 1.2.0 publiait `ADDED A` ; 1.2.1 ne publie rien, et nomme `A` avec la ligne d'ouverture du
+     bloc. Mesuré le 30 septembre 2026 (tableau ci-dessous) : c'est aussi le cas d'un bloc indenté ouvert sous
+     `## REMOVED` puis d'un `## ADDED` bien formé, et d'un bloc ouvert dans un scénario, suivi d'une exigence de la
+     **même** section.
+   - **Pourquoi l'accepter.** Après l'ouverture d'un bloc jamais fermé, tout titre de section est masqué : le genre en
+     vigueur n'est plus une lecture du fichier mais une supposition, que MORPHEUS ne peut pas distinguer de la bonne
+     réponse. C'est aussi ce que fait l'amont, sans le dire : dans OpenSpec (`src/core/parsers/code-fence.ts`,
+     `buildCodeFenceMask` ; `src/core/parsers/requirement-blocks.ts`, lu sur `main` à `c879d13d`),
+     `splitTopLevelSections` ignore toute ligne masquée, `parseRequirementBlocksFromSection` ne reconnaît pas un
+     `### Requirement:` masqué, `parseRemovedNames` saute les lignes masquées, et `findOrphanedRequirements` — qui
+     signale une exigence hors section — les saute aussi. Une exigence après un bloc jamais fermé est donc perdue par
+     l'amont **en silence** ; MORPHEUS la perd de même, **et la nomme**.
+   - **Alternative écartée : « un bloc jamais fermé n'est pas un bloc »** (ne masquer que les blocs fermés). Elle
+     rendrait `ADDED A` dans l'exemple, mais s'écarte **et** de l'amont, dont le masque court jusqu'à la fin du fichier,
+     **et** de CommonMark, pour qui un bloc non fermé se termine à la fin du document. Elle réintroduirait aussi une
+     lecture de la structure là où le format dit qu'il n'y en a pas.
+4. **Le nom atteint l'opérateur par `sync`, en CLI et en HTTP.** C'est la commande qui publie, donc celle que l'opérateur
+   lit au moment où une exigence disparaît. Le vocabulaire est celui de `Diagnostic` — `code`, `severity`, `message`,
+   `details`, `source` —, porté par un seul record applicatif, `BoundedDiagnostics` : au plus `MAX_ITEMS` (32)
+   diagnostics, les plus graves d'abord puis dans l'ordre de production, `truncated` et `truncationReason`
+   (`DIAGNOSTIC_LIMIT_REACHED:32`) quand il en manque, sur le modèle des traversées ; `diagnosticCount` reste le total.
+   - **CLI** (`sync`, texte et `--json`) : `BoundedDiagnostics.local`, chaque diagnostic tel que produit — la CLI est
+     l'endroit où l'opérateur corrige ses fichiers. Une ligne `diagnostic=<SEVERITY> <CODE> <source> {détails} <message>`
+     par élément, puis `truncationReason=` sous le nom que les commandes de traversée impriment déjà. Ces lignes vont sur
+     **stdout**, alors qu'ADR-0059 réserve stderr aux « erreurs/diagnostics d'exécution CLI » : ce ne sont pas des
+     diagnostics d'exécution de la commande, qui a réussi, mais des **données de son résultat** — ce que la lecture a
+     publié et ce qu'elle a sauté —, au même titre que `diagnostics=<n>` qui y était déjà. Le `--json` les porte dans le
+     même objet ; les séparer sur stderr couperait le résultat en deux flux.
+   - **HTTP** (`POST /api/v1/projects/{projectId}/sync`, joignable par un appelant remote `WRITE`) :
+     `BoundedDiagnostics.remote`, projection **allowlistée** sur le modèle de `ProviderPluginViews` : seules les clés de
+     `REMOTE_DETAIL_KEYS`, seules les valeurs que `ServerLocationDisclosure.isSafeToRelay` accepte ; un message refusé
+     est remplacé par le code, une `source` refusée est retirée. Chaque valeur relayée tient donc dans
+     `MAX_RELAYED_LENGTH`.
+   - **OpenAPI** : la réponse de `syncProject` était le `SuccessEnvelope` générique ; elle est typée (`SyncResult`,
+     `BoundedDiagnostics`, `Diagnostic`, `DiagnosticCode`, `DiagnosticSeverity`). Les deux énumérations sont tenues
+     contre Java par `PublishedEnumsMatchJavaEnumsTest` ; la borne, la forme de la liste et d'un élément et la liste
+     des clés relayées par `SyncDiagnosticsContractTest` ; les clés de `SyncResult` par le test d'intégration HTTP, sur
+     une vraie réponse.
+   - **Le choix de projection est gardé.** `SyncDiagnosticsContractTest` porte deux règles ArchUnit : aucune classe de
+     `com.morpheus.api..` n'appelle `BoundedDiagnostics.local`, et `MorpheusProjectSyncApiService` appelle
+     `BoundedDiagnostics.remote`. Le test d'intégration HTTP le prouve sur la valeur servie : un titre refusé par le
+     prédicat de localisation (`Support TCP / UDP`) est absent du corps HTTP, présent dans la sortie CLI ; ce test ne
+     dépend d'aucune permission POSIX et tourne sous Windows, contrairement à `MorpheusProjectSyncDisclosureTest`.
+   - `SnapshotValidationResult` **n'est pas élargi** (constat 3) : aucune surface ne le lit.
+
+### Ce qui change — mesure du 30 septembre 2026
+
+Mesurée sur le lecteur de `933a63fe` et sur celui de cet amendement, par un harnais jetable qui écrivait, pour chaque
+fichier, les deltas publiés, les diagnostics et `skippedRequirements` :
+
+| Fichier (résumé) | `933a63fe` | Cet amendement |
+|---|---|---|
+| ligne 1 ```` ``` ````, puis `## ADDED Requirements`, `### Requirement: A` | `ADDED A` | rien ; `PARTIAL_INGESTION` nomme `A`, `UNCLOSED_CODE_FENCE` ligne 1 |
+| `## REMOVED` / `Old`, bloc indenté jamais fermé, puis `## ADDED` / `B` | `REMOVED Old`, `ADDED B` | `REMOVED Old` ; `B` nommée, bloc nommé |
+| `## ADDED` / `A` + scénario ouvrant un bloc jamais fermé, puis `B` | `ADDED A`, `ADDED B` | `ADDED A` ; `B` nommée, bloc nommé |
+| `## REMOVED` / `Legacy…`, ```` ```inline``` ```` jamais fermé, `## Notes` / `Keep the audit trail` | `REMOVED Legacy…`, `REMOVED Keep the audit trail`, rien de signalé | `REMOVED Legacy…` ; `Keep the audit trail` nommée, bloc nommé |
+| `## ADDED` / `A`, `## Notes`, exemple **fermé** avec `## ADDED` + `### Requirement: Phantom` | `ADDED A`, `ADDED Phantom` | `ADDED A` ; `Phantom` nommée (faux positif assumé, décision 1) |
+
+Les trois premières lignes sont le coût de la décision 3 : un genre qui était juste est perdu, et l'exigence est
+nommée au lieu d'être publiée. La quatrième est le défaut que la décision 3 corrige.
+
+### Ce qui ne change pas — mesure du 30 septembre 2026
+
+Mesurée avant toute modification du lecteur puis après, par un harnais jetable qui écrivait pour chaque fixture les
+deltas (genre, clé, titre, énoncé, source, identifiant externe), leurs scénarios (étapes et identifiants externes), les
+preuves (source, plage, empreinte SHA-256), les diagnostics et `skippedRequirements` d'`OpenSpecRequirementDeltaReader`,
+puis le rapport `REQUIREMENT_DELTAS` et les diagnostics d'`OpenSpecSpecificationContentReader`. Les deux relevés sont
+**identiques octet pour octet** sur les trois fichiers de delta lus (`openspec-basic/.../add-remember-me`,
+`openspec-state-matrix/.../extend-timeout` et `.../shorten-timeout`) : trois deltas et huit preuves, puis deux deltas et
+quatre preuves, aucun diagnostic, aucun bloc ouvert. Aucun de ces fichiers ne contient de bloc de code.
+
+La catégorie de `openspec-state-matrix`, lue par `OpenSpecSpecificationContentReader`, est `FAILED` **avant comme
+après** : ses changes n'ont pas de `proposal.md`, le groupe `changes` échoue et les deltas ne sont pas tentés. Ce n'est
+pas l'effet de cet amendement ; c'est la raison pour laquelle le test qui fige ces fixtures lit le lecteur de deltas
+directement.
+
+Inchangés aussi (mesurés identiques avant et après) : un `#### Scenario:` écrit dans un bloc, et la ligne `## ` écrite
+dans un bloc fermé au milieu du corps d'une exigence — deux défauts nommés ci-dessous —, le seul préfixe littéral `## `,
+le contenu non normalisé de `RENAMED`, et `composition sync`, dont les diagnostics restent un compte par provider.
+
+### Hors périmètre, laissé ouvert
+
+- Un `### Requirement:` écrit dans un bloc **fermé** crée toujours une exigence fantôme : OpenSpec amont le masque,
+  MORPHEUS non. Le masquer changerait des deltas que ce lot n'a pas mesurés sur des données réelles.
+- `composition sync` et `composition status` ne portent toujours qu'un compte de diagnostics par provider.
+- Dans `SyncResult`, `mode` et `fullRebuildReason` sont typés `string` sans énumération : ils étaient publiés non typés
+  avant ce schéma, et `fullRebuildReason` vaut `none` hors de toute énumération Java.
+- La projection locale ne borne la longueur d'une valeur que par le budget d'ingestion ; seule la projection remote
+  applique `MAX_RELAYED_LENGTH`.
+- Une valeur légitime qui ressemble à un chemin (un titre d'exigence contenant ` /admin`) est retirée de la projection
+  remote : c'est le coût assumé d'un faux positif de `ServerLocationDisclosure`. La CLI la montre.
+- Un `#### Scenario:` écrit dans un bloc, fermé ou non, reste rattaché à l'exigence précédente comme un vrai scénario
+  (mesuré : `ADDED A` porte `[Real, Fenced]`, avant comme après). L'amont le masque (`requirement-text.ts`).
+- Une ligne `## ` écrite dans un bloc **fermé** au milieu du corps d'une exigence ne fait pas que « tronquer » : tout le
+  texte et **tous les scénarios** qui la suivent dans cette exigence sont perdus, **sans diagnostic** (`requirementEnd`
+  n'utilise pas le masque). Mesuré : `The system SHALL also a2.` et le scénario `Lost` disparaissent, avant comme après.
+  Le mot « troncature » de l'amendement du 24 septembre sous-estimait ce défaut.
+- Un diagnostic `FATAL` est compté dans `diagnosticCount` mais ne bloque pas la publication :
+  `ProjectSnapshotImportService` ne refuse que sur `ERROR` et ne relaie en avertissement que `WARNING`. Préexistant ;
+  `BoundedDiagnostics` le place en tête de liste, sans changer ce qu'il bloque.
+
+### Preuves exécutables ajoutées
+
+- `OpenSpecRequirementDeltaReaderTest#anUnclosedFenceIsNamedAndNoRequirementAfterItInheritsAKind` — **remplace**
+  `anUnclosedFenceMasksTheRestOfTheFileSoALaterSectionKeepsThePreviousKind`, même fichier, attente changée :
+  avant, `[REMOVED Legacy session warning, REMOVED Keep the audit trail]`, aucun diagnostic, `skippedRequirements = 0` ;
+  après, `[REMOVED Legacy session warning]`, `UNCLOSED_CODE_FENCE` ligne 7 (`fence` = ```` ``` ````),
+  `PARTIAL_INGESTION` nommant `Keep the audit trail` ligne 11, `skippedRequirements = 1`.
+- `#aDeltaSectionAfterAnUnclosedFenceIsMaskedSoItsRequirementIsNamedRatherThanGivenTheKindBeforeTheFence` — le cas que la
+  décision 3 existe pour refuser.
+- `#aRemovedSectionWrittenInACodeExampleDoesNotChangeTheKind` — décision 1.
+- `#aWellFormedSectionAfterAFenceThatNeverClosesNoLongerPublishesItsRequirement` — épingle le coût de la décision 3
+  (1.2.0 publiait `ADDED A`) ; tenu à la fois par la décision 1 et par la décision 3, il ne tombe que si les deux sont
+  retirées.
+- `#aDeltaSectionInAClosedExampleUnderAForeignSectionNamesTheExampleRequirementInsteadOfPublishingIt` — le faux positif
+  assumé de la décision 1.
+- `#theRepositoryDeltaFixturesReadExactlyAsFrozen` — fige la sortie des trois fichiers de delta du dépôt.
+- `OpenSpecSpecificationContentReaderTest#anUnclosedFenceMakesTheCategoryPartialEvenWhenNoRequirementFollowsIt`.
+- `BoundedDiagnosticsTest` — borne et raison de troncature, ordre, projection remote allowlistée, projection locale
+  intacte.
+- `MorpheusCliTest#aSyncNamesTheRequirementItSkippedAndTheFenceThatWasNeverClosed` et
+  `#theSyncTextNamesTheTruncationReasonWhenTheDiagnosticsWereBounded` ;
+  `MorpheusApiProjectSyncIntegrationTest#aSyncNamesTheRequirementItSkippedWithoutNamingTheServerWorkspace` — le nom
+  lu sur la surface, par un vrai serveur HTTP et par la CLI.
+- `SyncDiagnosticsContractTest` et deux lignes de `PublishedEnumsMatchJavaEnumsTest`.
+
+Chaque moitié a été cassée une fois avant acceptation : `DELTA_SECTION` sans le masque fait tomber
+`aRemovedSectionWrittenInACodeExampleDoesNotChangeTheKind` et le test du faux positif `Phantom` ; la règle de la
+décision 3 retirée fait tomber les deux tests du bloc jamais fermé ; le diagnostic retiré, ces deux-là et le test de
+catégorie ; le `PARTIAL` retiré, le test de catégorie seul ; la clé `diagnostics` retirée de la réponse HTTP, le test
+HTTP ; les lignes `diagnostic=` retirées, le test CLI ; la projection remote remplacée par l'identité, le test de
+projection ; `BoundedDiagnostics.remote` remplacé par `.local` dans `MorpheusProjectSyncApiService`, les deux règles
+ArchUnit et le test HTTP ; `truncationReason` retiré du `required` publié de `BoundedDiagnostics`, le test de forme ;
+`diagnostics` retiré du `required` de `SyncResult`, le test HTTP.

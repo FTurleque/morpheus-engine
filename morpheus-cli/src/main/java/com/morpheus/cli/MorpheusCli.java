@@ -5,6 +5,7 @@ import com.morpheus.application.analysis.ChangeAnalysisWarning;
 import com.morpheus.application.analysis.ProposedChangeSet;
 import com.morpheus.application.analysis.compact.CompactChangeAnalysisViewService;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
+import com.morpheus.application.ingestion.BoundedDiagnostics;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
@@ -260,7 +261,8 @@ public final class MorpheusCli {
                         0,
                         0,
                         0,
-                        false);
+                        false,
+                        BoundedDiagnostics.local(List.of()));
                 printSync(out, jsonOutput, view);
                 return CliExitCode.SUCCESS.code();
             }
@@ -286,7 +288,8 @@ public final class MorpheusCli {
                         imported.requirementCount(),
                         imported.traceabilityLinkCount(),
                         imported.diagnostics().size(),
-                        true);
+                        true,
+                        BoundedDiagnostics.local(imported.diagnostics()));
                 printSync(out, jsonOutput, view);
                 return CliExitCode.SUCCESS.code();
             } catch (RuntimeException failure) {
@@ -297,7 +300,7 @@ public final class MorpheusCli {
     }
 
     private void printSync(PrintStream out, boolean jsonOutput, SyncView view) {
-        print(out, jsonOutput, view, String.join(System.lineSeparator(),
+        List<String> lines = new ArrayList<>(List.of(
                 "projectId=" + view.projectId(),
                 KEY_SNAPSHOT_ID + view.snapshotId(),
                 "mode=" + view.mode(),
@@ -307,6 +310,23 @@ public final class MorpheusCli {
                 "traceLinks=" + view.traceabilityLinkCount(),
                 "diagnostics=" + view.diagnosticCount(),
                 "published=" + view.published()));
+        lines.addAll(diagnosticLines(view.diagnostics()));
+        print(out, jsonOutput, view, String.join(System.lineSeparator(), lines));
+    }
+
+    /**
+     * One line per relayed diagnostic, so the text output names what the count counts -- a skipped requirement is in
+     * its details -- then the truncation reason under the name the traversal commands already print.
+     */
+    static List<String> diagnosticLines(BoundedDiagnostics diagnostics) {
+        List<String> lines = new ArrayList<>();
+        diagnostics.items().forEach(diagnostic -> lines.add("diagnostic=" + diagnostic.severity()
+                + " " + diagnostic.code()
+                + " " + diagnostic.source().orElse("-")
+                + " " + new TreeMap<>(diagnostic.details())
+                + " " + diagnostic.message()));
+        diagnostics.truncationReason().ifPresent(reason -> lines.add("truncationReason=" + reason));
+        return lines;
     }
 
     private int syncStatus(List<String> tokens, CliLayout layout, boolean jsonOutput, PrintStream out) {
@@ -858,7 +878,8 @@ public final class MorpheusCli {
             int requirementCount,
             int traceabilityLinkCount,
             int diagnosticCount,
-            boolean published) {}
+            boolean published,
+            BoundedDiagnostics diagnostics) {}
     private record SyncStatusView(
             String projectId,
             String state,

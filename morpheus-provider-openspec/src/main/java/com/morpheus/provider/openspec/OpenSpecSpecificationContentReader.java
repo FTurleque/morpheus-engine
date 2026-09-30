@@ -192,6 +192,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
                         request.workspaceRoot(), identityResolver, budget);
                 state.requirementDeltas.addAll(deltas.requirementDeltas());
                 state.skippedRequirementDeltas = deltas.skippedRequirements();
+                state.unclosedCodeFences = deltas.unclosedCodeFences();
                 state.evidence.addAll(deltas.evidence());
                 addDistinct(diagnostics, deltas.diagnostics());
             } catch (ProviderIngestionLimitException exception) {
@@ -284,13 +285,22 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             return ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0);
         }
         int count = state.requirementDeltas.size();
-        if (state.skippedRequirementDeltas > 0) {
+        if (state.skippedRequirementDeltas > 0 || state.unclosedCodeFences > 0) {
+            List<DiagnosticCode> codes = new ArrayList<>(List.of(DiagnosticCode.PARTIAL_INGESTION));
+            List<String> details = new ArrayList<>();
+            if (state.skippedRequirementDeltas > 0) {
+                details.add("at least one requirement was not normalized");
+            }
+            if (state.unclosedCodeFences > 0) {
+                codes.add(DiagnosticCode.UNCLOSED_CODE_FENCE);
+                details.add("at least one delta file opens a code fence that is never closed");
+            }
             return new ReadCategoryReport(
                     category,
                     ReadCategoryStatus.PARTIAL,
                     count,
-                    List.of(DiagnosticCode.PARTIAL_INGESTION),
-                    Optional.of("at least one requirement lies outside any requirement delta section"));
+                    codes,
+                    Optional.of(String.join("; ", details)));
         }
         return ReadCategoryReport.of(
                 category,
@@ -416,5 +426,6 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         private boolean deltaAttempted;
         private boolean deltaFailed;
         private int skippedRequirementDeltas;
+        private int unclosedCodeFences;
     }
 }

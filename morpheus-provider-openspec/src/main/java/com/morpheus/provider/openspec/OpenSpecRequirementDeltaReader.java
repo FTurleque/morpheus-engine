@@ -94,6 +94,7 @@ public final class OpenSpecRequirementDeltaReader {
         List<Evidence> evidence = new ArrayList<>();
         List<Diagnostic> diagnostics = new ArrayList<>(probe.diagnostics());
         int skippedRequirements = 0;
+        int unclosedCodeFences = 0;
 
         for (Path changeRoot : listChangeRoots(root.resolve("openspec/changes"), budget)) {
             String changeKey = changeRoot.getFileName().toString();
@@ -103,7 +104,7 @@ public final class OpenSpecRequirementDeltaReader {
                     "change:" + changeKey));
             Path specsRoot = changeRoot.resolve("specs");
             for (Path specificationFile : listSpecificationFiles(specsRoot, budget)) {
-                skippedRequirements += OpenSpecSourceAttribution.attribute(root, specificationFile, () -> normalizeDeltaFile(
+                FileOutcome outcome = OpenSpecSourceAttribution.attribute(root, specificationFile, () -> normalizeDeltaFile(
                         root,
                         changeKey,
                         changeId,
@@ -114,6 +115,8 @@ public final class OpenSpecRequirementDeltaReader {
                         evidence,
                         diagnostics,
                         budget));
+                skippedRequirements += outcome.skippedRequirements();
+                unclosedCodeFences += outcome.unclosedCodeFence() ? 1 : 0;
             }
         }
 
@@ -121,10 +124,16 @@ public final class OpenSpecRequirementDeltaReader {
         budget.addBlocks(deltas.size() + scenarios, "openspec/requirement-deltas");
         budget.addEntities(deltas.size() + scenarios + evidence.size(), "openspec/requirement-deltas");
 
-        return new ReadResult(deltas, evidence, diagnostics, skippedRequirements);
+        return new ReadResult(deltas, evidence, diagnostics, skippedRequirements, unclosedCodeFences);
     }
 
-    private int normalizeDeltaFile(
+    /**
+     * Reads one delta file. The code fence mask applies to both halves of the section decision: a fenced line neither
+     * sets the current kind nor resets it. A fence still open at the end of the file is named, and no requirement
+     * after its opening line is given a kind, because every section heading from there on is masked and the kind in
+     * force would be a guess; such a requirement is skipped and named like one outside any section.
+     */
+    private FileOutcome normalizeDeltaFile(
             Path workspaceRoot,
             String changeKey,
             ChangeId changeId,
@@ -138,14 +147,16 @@ public final class OpenSpecRequirementDeltaReader {
         List<String> lines = readAllLines(workspaceRoot, specificationFile, budget);
         String specificationKey = specificationKey(specsRoot, specificationFile);
         SourceLocator source = SourceLocator.file(workspaceRoot.relativize(specificationFile).toString());
-        boolean[] fenced = codeFenceMask(lines);
+        CodeFences fences = codeFences(lines);
+        boolean[] fenced = fences.fenced();
+        int unclosedOpening = fences.unclosedOpening();
         RequirementDeltaKind currentKind = null;
         int skippedRequirements = 0;
 
         for (int index = 0; index < lines.size(); index++) {
             String line = lines.get(index);
             Matcher section = DELTA_SECTION.matcher(line);
-            if (section.matches()) {
+            if (section.matches() && !fenced[index]) {
                 currentKind = RequirementDeltaKind.valueOf(section.group(1).toUpperCase(Locale.ROOT));
                 continue;
             }
@@ -168,11 +179,14 @@ public final class OpenSpecRequirementDeltaReader {
             if (!requirementHeading.matches()) {
                 continue;
             }
-            if (currentKind == null) {
+            boolean afterUnclosedFence = unclosedOpening >= 0 && index > unclosedOpening;
+            if (currentKind == null || afterUnclosedFence) {
                 skippedRequirements++;
                 diagnostics.add(warning(
                         DiagnosticCode.PARTIAL_INGESTION,
-                        "OpenSpec requirement is outside any requirement delta section and was not normalized",
+                        afterUnclosedFence
+                                ? "OpenSpec requirement follows a code fence that is never closed and was not normalized"
+                                : "OpenSpec requirement is outside any requirement delta section and was not normalized",
                         changeKey,
                         "requirement",
                         requirementHeading.group(1).trim(),
@@ -197,7 +211,17 @@ public final class OpenSpecRequirementDeltaReader {
                     budget);
             index = endExclusive - 1;
         }
-        return skippedRequirements;
+        if (unclosedOpening >= 0) {
+            diagnostics.add(warning(
+                    DiagnosticCode.UNCLOSED_CODE_FENCE,
+                    "OpenSpec delta file opens a code fence that is never closed; the rest of the file is fenced",
+                    changeKey,
+                    "fence",
+                    fences.unclosedRun(),
+                    unclosedOpening,
+                    source));
+        }
+        return new FileOutcome(skippedRequirements, unclosedOpening >= 0);
     }
 
     private void normalizeRequirementDelta(
@@ -391,16 +415,20 @@ public final class OpenSpecRequirementDeltaReader {
      * {@code buildCodeFenceMask}, the format these files are written for: a fence opens on a run of three or more
      * backticks or tildes after any whitespace, whatever follows, and closes only on a run of its own character at
      * least as long as the opening one with nothing but whitespace after it. Whitespace is JavaScript's {@code \s}.
+     * A fence that never closes masks the rest of the file, as upstream does; unlike upstream, the line that opened it
+     * is reported, so the caller can say that it read a file whose structure escaped it.
      */
-    private static boolean[] codeFenceMask(List<String> lines) {
+    private static CodeFences codeFences(List<String> lines) {
         boolean[] fenced = new boolean[lines.size()];
         String opening = null;
+        int openingIndex = -1;
         for (int index = 0; index < lines.size(); index++) {
             String line = lines.get(index);
             if (opening == null) {
                 Matcher fence = OPENING_FENCE.matcher(line);
                 if (fence.lookingAt()) {
                     opening = fence.group(1);
+                    openingIndex = index;
                     fenced[index] = true;
                 }
                 continue;
@@ -413,7 +441,16 @@ public final class OpenSpecRequirementDeltaReader {
                 opening = null;
             }
         }
-        return fenced;
+        return opening == null
+                ? new CodeFences(fenced, -1, "")
+                : new CodeFences(fenced, openingIndex, opening);
+    }
+
+    /** The fence mask, and the opening line and run of a fence still open at the end of the file ({@code -1} if none). */
+    private record CodeFences(boolean[] fenced, int unclosedOpening, String unclosedRun) {
+    }
+
+    private record FileOutcome(int skippedRequirements, boolean unclosedCodeFence) {
     }
 
     private Diagnostic warning(
@@ -573,10 +610,14 @@ public final class OpenSpecRequirementDeltaReader {
             List<RequirementDelta> requirementDeltas,
             List<Evidence> evidence,
             List<Diagnostic> diagnostics,
-            int skippedRequirements) {
+            int skippedRequirements,
+            int unclosedCodeFences) {
         public ReadResult {
             if (skippedRequirements < 0) {
                 throw new IllegalArgumentException("skippedRequirements must be >= 0");
+            }
+            if (unclosedCodeFences < 0) {
+                throw new IllegalArgumentException("unclosedCodeFences must be >= 0");
             }
             requirementDeltas = List.copyOf(Objects.requireNonNull(requirementDeltas, "requirementDeltas"));
             evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));

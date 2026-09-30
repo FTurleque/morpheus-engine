@@ -368,6 +368,7 @@ class OpenSpecSpecificationContentReaderTest {
         assertEquals(ReadCategoryStatus.PARTIAL, report.status());
         assertEquals(1, report.itemCount());
         assertEquals(java.util.List.of(DiagnosticCode.PARTIAL_INGESTION), report.diagnosticCodes());
+        assertEquals(Optional.of("at least one requirement was not normalized"), report.detail());
         assertEquals(ReadCategoryStatus.READ, status(result, ReadCategory.CHANGES));
         assertEquals(1, result.content().orElseThrow().requirementDeltas().size());
         assertTrue(result.diagnostics().stream().anyMatch(diagnostic ->
@@ -410,6 +411,50 @@ class OpenSpecSpecificationContentReaderTest {
         assertEquals(ReadCategoryStatus.READ, status(result, ReadCategory.REQUIREMENT_DELTAS));
         assertEquals(2, count(result, ReadCategory.REQUIREMENT_DELTAS));
         assertTrue(result.diagnostics().isEmpty());
+    }
+
+    /** Nothing follows the fence, so nothing is skipped: the category is PARTIAL because the structure escaped the reader. */
+    @Test
+    void anUnclosedFenceMakesTheCategoryPartialEvenWhenNoRequirementFollowsIt(@TempDir Path workspace)
+            throws Exception {
+        Path change = workspace.resolve("openspec/changes/unclosed");
+        Path delta = change.resolve("specs/renderer/spec.md");
+        Files.createDirectories(delta.getParent());
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Files.writeString(change.resolve("proposal.md"), """
+                # Proposal: Unclosed example
+
+                ## Intent
+
+                Show a code example whose fence is never closed.
+                """);
+        Files.writeString(delta, """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Render headings
+                The renderer SHALL render level-two headings, for example:
+                ```markdown
+                ## Overview
+                """);
+
+        var result = new OpenSpecSpecificationContentReader().read(
+                request(workspace, EnumSet.of(ReadCategory.CHANGES, ReadCategory.REQUIREMENT_DELTAS)),
+                new StableTestIdentityResolver());
+
+        var report = result.report(ReadCategory.REQUIREMENT_DELTAS).orElseThrow();
+        assertEquals(ReadCategoryStatus.PARTIAL, report.status());
+        assertEquals(1, report.itemCount());
+        assertEquals(List.of(DiagnosticCode.PARTIAL_INGESTION, DiagnosticCode.UNCLOSED_CODE_FENCE),
+                report.diagnosticCodes());
+        assertEquals(Optional.of("at least one delta file opens a code fence that is never closed"), report.detail());
+        assertTrue(result.diagnostics().stream().anyMatch(diagnostic ->
+                diagnostic.code() == DiagnosticCode.UNCLOSED_CODE_FENCE
+                        && "7".equals(diagnostic.details().get("line"))
+                        && "openspec/changes/unclosed/specs/renderer/spec.md".equals(diagnostic.source().orElseThrow())));
+        assertTrue(result.diagnostics().stream().noneMatch(diagnostic ->
+                diagnostic.code() == DiagnosticCode.PARTIAL_INGESTION && diagnostic.details().containsKey("requirement")));
     }
 
     private static void writeValidSpecification(Path workspace, String key) throws Exception {
