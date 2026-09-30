@@ -1,6 +1,7 @@
 package com.morpheus.api;
 
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
+import com.morpheus.application.ingestion.BoundedDiagnostics;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
@@ -85,7 +86,8 @@ final class MorpheusProjectSyncApiService {
                         "requirementCount", imported.requirementCount(),
                         "traceabilityLinkCount", imported.traceabilityLinkCount(),
                         "diagnosticCount", imported.diagnostics().size(),
-                        "published", true);
+                        "published", true,
+                        "diagnostics", BoundedDiagnostics.remote(imported.diagnostics()));
             } catch (RuntimeException failure) {
                 syncService.fail(plan, Instant.now());
                 throw failure;

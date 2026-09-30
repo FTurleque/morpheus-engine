@@ -611,3 +611,41 @@ instruit à part.
 **Migration.** Aucune. Un client qui branchait sur le texte d'un refus doit brancher sur le code (`INVALID_SOURCE`).
 
 Décision : [ADR-0028, amendement du 30 septembre 2026 (PRV-6)](../adr/0028-unified-provider-read-contract.md).
+### Deltas OpenSpec : un bloc de code jamais fermé est signalé, et `sync` nomme ce qu'il a sauté
+
+Jusqu'à 1.2.0, une ligne qui commence par trois accents graves ou tildes suivis de texte (```` ```inline``` markers ````)
+ouvrait un bloc de code jusqu'à la fin du fichier de delta : toute section qui suivait était ignorée, une exigence placée
+après pouvait sortir avec le genre d'une section précédente (`REMOVED` au lieu d'`ADDED`), sans diagnostic, et la
+catégorie `REQUIREMENT_DELTAS` restait `READ`. Un `## REMOVED Requirements` écrit dans un exemple de code changeait aussi
+le genre des exigences suivantes. Et `sync` ne rapportait qu'un nombre de diagnostics : une exigence sautée n'était
+nommée nulle part.
+
+À partir de 1.2.1 :
+
+- un titre de section de delta écrit dans un bloc de code n'est plus interprété. Un exemple fermé placé sous une
+  section étrangère (`## Notes`) et contenant `## ADDED Requirements` puis `### Requirement: Phantom` ne publie plus
+  `ADDED Phantom` : `Phantom` est nommée comme exigence sautée, et la catégorie passe à `PARTIAL` à cause de cet
+  exemple (faux positif assumé) ;
+- un bloc jamais fermé produit l'avertissement **`UNCLOSED_CODE_FENCE`** (nouveau code de `DiagnosticCode`), avec la
+  ligne d'ouverture ; la catégorie passe à `PARTIAL` ; **toute** exigence placée après l'ouverture n'est plus publiée,
+  elle est nommée par un `PARTIAL_INGESTION` (détail `requirement`) — **y compris quand un en-tête de delta bien formé
+  suit le bloc**, cas où 1.2.0 la publiait avec le bon genre. Exemple : un fichier dont la ligne 1 est ```` ``` ````,
+  suivi de `## ADDED Requirements` puis `### Requirement: A` publiait `ADDED A` en 1.2.0 ; en 1.2.1 il ne publie rien et
+  nomme `A`. OpenSpec amont perd ces exigences sans rien signaler ;
+- `sync` porte `diagnostics` : au plus 32 diagnostics (`code`, `severity`, `message`, `details`, `source`), les plus
+  graves d'abord, avec `truncated` et `truncationReason` (`DIAGNOSTIC_LIMIT_REACHED:32`). En CLI, une ligne
+  `diagnostic=…` par élément ; en JSON (`--json`) et en HTTP (`POST /api/v1/projects/{projectId}/sync`), une clé
+  `diagnostics` de plus. Côté HTTP, seuls des détails allowlistés et des valeurs qui ne nomment aucun emplacement du
+  serveur sont relayés. La réponse de `syncProject` est désormais typée dans l'OpenAPI (`SyncResult`).
+
+Un fichier de delta sans bloc de code se lit à l'identique : mesuré sur les trois fichiers de delta du dépôt, avant et
+après, deltas, preuves et diagnostics sont inchangés.
+
+**Migration.** Un fichier de delta qui contient un bloc jamais fermé publie **moins** de deltas qu'en 1.2.0 : aucune
+exigence qui suit l'ouverture n'est publiée — celles dont le genre était deviné à tort, mais aussi celles qu'un en-tête
+de delta bien formé plaçait correctement —, et chacune est nommée dans `diagnostics`. Fermer le bloc (ou retirer la
+suite d'accents graves en début de ligne) les rétablit. Un client qui lisait la réponse
+de `sync` clé par clé n'est pas affecté ; un client qui validait la réponse contre un schéma fermé doit accepter
+`diagnostics`.
+
+Décision : [ADR-0028, amendement du 30 septembre 2026 (PRV-2, suite)](../adr/0028-unified-provider-read-contract.md).

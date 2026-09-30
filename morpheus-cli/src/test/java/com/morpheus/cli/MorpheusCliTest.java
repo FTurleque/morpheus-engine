@@ -2,6 +2,9 @@ package com.morpheus.cli;
 
 import com.morpheus.application.analysis.ChangeAnalysisWarning;
 import com.morpheus.application.analysis.ChangeAnalysisWarningCode;
+import com.morpheus.application.ingestion.BoundedDiagnostics;
+import com.morpheus.domain.diagnostic.Diagnostic;
+import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.identity.DomainIdentity;
@@ -23,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -452,6 +456,103 @@ class MorpheusCliTest {
         assertTrue(sync.stderr().contains("openspec/specs/broken/spec.md: OpenSpec specification has no title"),
                 sync.stderr());
         assertFalse(sync.stderr().contains(workspace.toString()), sync.stderr());
+    }
+
+    /**
+     * The requirement a delta file could not normalize is named by the sync itself, in text and in JSON, not only
+     * counted: the count said that something was skipped, never what. The CLI is where the operator fixes the files, so
+     * it relays each diagnostic as produced, including a title the remote projection withholds ({@code Support TCP / UDP}).
+     */
+    @Test
+    void aSyncNamesTheRequirementItSkippedAndTheFenceThatWasNeverClosed() throws Exception {
+        Path data = tempDir.resolve("skipped-requirement-data");
+        Path workspace = Files.createDirectories(tempDir.resolve("unclosed-openspec"));
+        Files.createDirectories(workspace.resolve("openspec/specs/auth-session"));
+        Files.createDirectories(workspace.resolve("openspec/changes/unclosed/specs/auth-session"));
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Files.writeString(workspace.resolve("openspec/specs/auth-session/spec.md"), """
+                # Authentication Session Specification
+
+                ## Purpose
+
+                Describe the authenticated session.
+
+                ## Requirements
+
+                ### Requirement: Session expiration
+
+                The system SHALL expire an authenticated session after 30 minutes of inactivity.
+
+                #### Scenario: Expire an inactive session
+
+                - **WHEN** no activity has occurred for 30 minutes
+                - **THEN** the system SHALL require authentication again
+                """);
+        Files.writeString(workspace.resolve("openspec/changes/unclosed/proposal.md"), """
+                # Proposal: Unclosed example
+
+                ## Intent
+
+                Show that a requirement after a fence that is never closed is named.
+                """);
+        Files.writeString(workspace.resolve("openspec/changes/unclosed/specs/auth-session/spec.md"), """
+                # Delta
+
+                ## REMOVED Requirements
+
+                ### Requirement: Legacy session warning
+
+                ```inline``` markers are gone
+
+                ## Notes
+
+                ### Requirement: Keep the audit trail
+                The system SHALL keep the audit trail.
+
+                ### Requirement: Support TCP / UDP
+                The system SHALL support both transports.
+                """);
+        Invocation add = invokeWithData(data, "projects", "add", "--workspace", workspace.toString());
+        assertEquals(0, add.exitCode(), add.stderr());
+        String projectId = value(add.stdout(), "projectId");
+
+        Invocation text = invokeWithData(data, "sync", "--project", projectId);
+
+        assertEquals(0, text.exitCode(), text.stderr());
+        String source = "openspec/changes/unclosed/specs/auth-session/spec.md";
+        assertTrue(text.stdout().contains("diagnostic=WARNING PARTIAL_INGESTION " + source
+                + " {change=unclosed, line=11, provider=openspec, requirement=Keep the audit trail}"), text.stdout());
+        assertTrue(text.stdout().contains("diagnostic=WARNING UNCLOSED_CODE_FENCE " + source
+                + " {change=unclosed, fence=```, line=7, provider=openspec}"), text.stdout());
+        assertTrue(text.stdout().contains("requirement=Support TCP / UDP}"),
+                "the CLI relays what the remote projection withholds: " + text.stdout());
+        assertFalse(text.stdout().contains("truncationReason="), text.stdout());
+
+        Invocation json = invokeWithData(data, "--json", "sync", "--project", projectId, "--force");
+
+        assertEquals(0, json.exitCode(), json.stderr());
+        assertTrue(json.stdout().contains("\"requirement\":\"Keep the audit trail\""), json.stdout());
+        assertTrue(json.stdout().contains("\"code\":\"UNCLOSED_CODE_FENCE\""), json.stdout());
+        assertTrue(json.stdout().contains("\"truncated\":false,\"truncationReason\":null"), json.stdout());
+    }
+
+    @Test
+    void theSyncTextNamesTheTruncationReasonWhenTheDiagnosticsWereBounded() {
+        List<Diagnostic> many = new ArrayList<>();
+        for (int index = 0; index <= BoundedDiagnostics.MAX_ITEMS; index++) {
+            many.add(Diagnostic.warning(
+                    DiagnosticCode.PARTIAL_INGESTION,
+                    "skipped",
+                    Map.of("requirement", "Requirement " + index)));
+        }
+
+        List<String> lines = MorpheusCli.diagnosticLines(
+                BoundedDiagnostics.local(many));
+
+        assertEquals(BoundedDiagnostics.MAX_ITEMS + 1, lines.size());
+        assertEquals("diagnostic=WARNING PARTIAL_INGESTION - {requirement=Requirement 0} skipped", lines.getFirst());
+        assertEquals("truncationReason=DIAGNOSTIC_LIMIT_REACHED:"
+                + BoundedDiagnostics.MAX_ITEMS, lines.getLast());
     }
 
     private Invocation invokeWithData(Path data, String... command) {

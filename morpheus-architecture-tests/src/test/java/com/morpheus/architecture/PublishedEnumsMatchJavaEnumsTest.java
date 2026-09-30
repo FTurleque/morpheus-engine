@@ -23,6 +23,8 @@ import com.morpheus.domain.constraint.ConstraintBlockingMode;
 import com.morpheus.domain.constraint.ConstraintEvaluationState;
 import com.morpheus.domain.constraint.ConstraintSatisfaction;
 import com.morpheus.domain.constraint.ConstraintSeverity;
+import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -99,6 +101,8 @@ class PublishedEnumsMatchJavaEnumsTest {
             row(V1, "LifecycleState", null, ChangeLifecycleState.class),
             row(V1, "AbandonmentReason", null, ChangeAbandonmentReason.class),
             row(V1, "LifecycleMutationResultState", null, ChangeLifecycleMutationResultState.class),
+            row(V1, "DiagnosticCode", null, DiagnosticCode.class),
+            row(V1, "DiagnosticSeverity", null, DiagnosticSeverity.class),
             new Row(new Locator(V1, "AugmentedContextRequest", "requestedSources"), TechnicalContextOptions.ALLOWED_SOURCES),
             row(M23, "TraversalRequest", "direction", PortfolioTraversalDirection.class),
             row(M24, "ExportFormat", null, QueryExportFormat.class),

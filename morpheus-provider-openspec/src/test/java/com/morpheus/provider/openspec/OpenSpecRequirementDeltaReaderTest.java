@@ -435,9 +435,13 @@ class OpenSpecRequirementDeltaReaderTest {
         assertEquals(0, result.skippedRequirements());
     }
 
+    /**
+     * Until 30 September 2026 this file read as two REMOVED deltas and no diagnostic: the unclosed fence masked
+     * {@code ## Notes}, so the kind was never reset and the second requirement came out as a phantom removal. The fence
+     * is now named, and no requirement after its opening line is given a kind.
+     */
     @Test
-    void anUnclosedFenceMasksTheRestOfTheFileSoALaterSectionKeepsThePreviousKind(@TempDir Path workspace)
-            throws Exception {
+    void anUnclosedFenceIsNamedAndNoRequirementAfterItInheritsAKind(@TempDir Path workspace) throws Exception {
         writeDelta(workspace, "unclosed", """
                 # Delta
 
@@ -455,13 +459,222 @@ class OpenSpecRequirementDeltaReaderTest {
 
         var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
 
-        assertEquals(
-                List.of("REMOVED Legacy session warning", "REMOVED Keep the audit trail"),
-                result.requirementDeltas().stream()
-                        .map(delta -> delta.kind() + " " + delta.title())
-                        .toList());
-        assertTrue(result.diagnostics().isEmpty());
+        assertEquals(List.of("REMOVED Legacy session warning"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertEquals(1, result.skippedRequirements());
+        assertEquals(1, result.unclosedCodeFences());
+
+        String source = "openspec/changes/unclosed/specs/auth-session/spec.md";
+        Diagnostic fence = only(result.diagnostics(), DiagnosticCode.UNCLOSED_CODE_FENCE);
+        assertEquals(DiagnosticSeverity.WARNING, fence.severity());
+        assertEquals("7", fence.details().get("line"));
+        assertEquals("```", fence.details().get("fence"));
+        assertEquals("unclosed", fence.details().get("change"));
+        assertEquals(source, fence.source().orElseThrow());
+
+        Diagnostic skipped = only(result.diagnostics(), DiagnosticCode.PARTIAL_INGESTION);
+        assertEquals("Keep the audit trail", skipped.details().get("requirement"));
+        assertEquals("11", skipped.details().get("line"));
+        assertTrue(skipped.message().contains("never closed"), skipped.message());
+        assertTrue(result.diagnostics().stream().noneMatch(
+                diagnostic -> diagnostic.code() == DiagnosticCode.UNRECOGNIZED_SECTION));
+        for (Diagnostic diagnostic : result.diagnostics()) {
+            assertFalse(ServerLocationDisclosure.namesAServerLocation(diagnostic.message()), diagnostic.message());
+            diagnostic.details().values().forEach(value ->
+                    assertFalse(ServerLocationDisclosure.namesAServerLocation(value), value));
+        }
+    }
+
+    @Test
+    void aDeltaSectionAfterAnUnclosedFenceIsMaskedSoItsRequirementIsNamedRatherThanGivenTheKindBeforeTheFence(
+            @TempDir Path workspace) throws Exception {
+        writeDelta(workspace, "unclosed", """
+                # Delta
+
+                ## REMOVED Requirements
+
+                ### Requirement: Legacy session warning
+
+                ~~~ this tilde run opens a fence that never closes
+
+                ## ADDED Requirements
+
+                ### Requirement: Keep the audit trail
+                The system SHALL keep the audit trail.
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(List.of("REMOVED Legacy session warning"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertEquals("Keep the audit trail", only(result.diagnostics(), DiagnosticCode.PARTIAL_INGESTION)
+                .details().get("requirement"));
+        assertEquals("~~~", only(result.diagnostics(), DiagnosticCode.UNCLOSED_CODE_FENCE).details().get("fence"));
+        assertEquals(1, result.skippedRequirements());
+    }
+
+    /**
+     * The cost of the rule, pinned: 1.2.0 published {@code ADDED A} here, with the right kind, because a delta section
+     * heading was read even inside a fence. The heading is now masked like upstream OpenSpec masks it, so the
+     * requirement is skipped and named instead; upstream drops it without a word.
+     */
+    @Test
+    void aWellFormedSectionAfterAFenceThatNeverClosesNoLongerPublishesItsRequirement(@TempDir Path workspace)
+            throws Exception {
+        writeDelta(workspace, "unclosed", """
+                ```
+                ## ADDED Requirements
+
+                ### Requirement: A
+                The system SHALL a.
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertTrue(result.requirementDeltas().isEmpty(), result.requirementDeltas().toString());
+        Diagnostic skipped = only(result.diagnostics(), DiagnosticCode.PARTIAL_INGESTION);
+        assertEquals("A", skipped.details().get("requirement"));
+        assertTrue(skipped.message().contains("follows a code fence that is never closed"), skipped.message());
+        assertEquals("1", only(result.diagnostics(), DiagnosticCode.UNCLOSED_CODE_FENCE).details().get("line"));
+    }
+
+    /**
+     * 1.2.0 published {@code ADDED Phantom} out of this closed example. Nothing is published now, and the example's
+     * requirement heading is named as skipped: an improvement with an accepted false positive, since the category turns
+     * PARTIAL because of a code example.
+     */
+    @Test
+    void aDeltaSectionInAClosedExampleUnderAForeignSectionNamesTheExampleRequirementInsteadOfPublishingIt(
+            @TempDir Path workspace) throws Exception {
+        writeDelta(workspace, "example", """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: A
+                The system SHALL a.
+
+                ## Notes
+
+                ```markdown
+                ## ADDED Requirements
+                ### Requirement: Phantom
+                ```
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(List.of("ADDED A"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertEquals("Phantom", only(result.diagnostics(), DiagnosticCode.PARTIAL_INGESTION)
+                .details().get("requirement"));
+        assertEquals(1, result.skippedRequirements());
+        assertEquals(0, result.unclosedCodeFences());
+    }
+
+    @Test
+    void aRemovedSectionWrittenInACodeExampleDoesNotChangeTheKind(@TempDir Path workspace) throws Exception {
+        writeDelta(workspace, "example", """
+                # Delta
+
+                ## ADDED Requirements
+
+                ### Requirement: Document delta files
+                The guide SHALL show a delta file, for example:
+                ```markdown
+                ## REMOVED Requirements
+                ```
+
+                ### Requirement: Render lists
+                The renderer SHALL render lists.
+                """);
+
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+
+        assertEquals(List.of("ADDED Document delta files", "ADDED Render lists"), result.requirementDeltas().stream()
+                .map(delta -> delta.kind() + " " + delta.title())
+                .toList());
+        assertTrue(result.diagnostics().isEmpty(), result.diagnostics().toString());
         assertEquals(0, result.skippedRequirements());
+        assertEquals(0, result.unclosedCodeFences());
+    }
+
+    /**
+     * The three delta files the reader reads in the repository, frozen: kinds, keys, statements, scenarios, evidence
+     * ranges and diagnostics. The fourth delta file present, under {@code changes/archive/}, is never read. A change to
+     * the reader that moves any of this is a change to published deltas and must say so.
+     */
+    @Test
+    void theRepositoryDeltaFixturesReadExactlyAsFrozen() {
+        assertEquals("""
+                MODIFIED auth-session/session-expiration | Session expiration | The system SHALL expire a standard \
+                authenticated session after 30 minutes of inactivity and SHALL preserve a remember-me session according \
+                to its persistent-session policy when the user explicitly opted in. | \
+                file:openspec/changes/add-remember-me/specs/auth-session/spec.md
+                  Expire a standard inactive session | given [an authenticated user session without remember-me enabled, \
+                no activity has occurred for 30 minutes] | when the user attempts a protected action | then the system SHALL \
+                require authentication again
+                  Preserve an opted-in remember-me session | given [an authenticated session created with remember-me \
+                explicitly enabled] | when the standard inactivity window expires | then the system MAY restore \
+                authentication using the valid persistent credential AND restoration SHALL fail if that credential has \
+                been revoked
+                ADDED auth-session/explicit-remember-me-opt-in | Explicit remember-me opt-in | The system SHALL enable \
+                persistent authentication only when the user explicitly requests remember-me during authentication. | \
+                file:openspec/changes/add-remember-me/specs/auth-session/spec.md
+                  Default authentication remains non-persistent | given [a user authenticating without selecting \
+                remember-me] | when authentication succeeds | then the session SHALL use the standard non-persistent policy
+                  User opts into persistent authentication | given [a user authenticating on a trusted device] | when the \
+                user explicitly selects remember-me | then the system SHALL create a revocable persistent credential
+                ADDED auth-session/persistent-credential-revocation | Persistent credential revocation | The system SHALL \
+                revoke the active persistent credential when the user explicitly logs out. | \
+                file:openspec/changes/add-remember-me/specs/auth-session/spec.md
+                  Logout prevents future restoration | given [a valid persistent credential] | when the user explicitly \
+                logs out | then the persistent credential SHALL be revoked AND a later request SHALL NOT restore \
+                authentication from that credential
+                evidence 5-8 9-15 16-22 25-28 29-34 35-40 41-44 45-50
+                diagnostics [] skipped 0 unclosed 0
+                """, frozen(fixture("openspec-basic")));
+        assertEquals("""
+                MODIFIED auth-session/session-expiration | Session expiration | The system SHALL expire an authenticated \
+                session after 60 minutes. | file:openspec/changes/extend-timeout/specs/auth-session/spec.md
+                  Proposed timeout | given [] | when the proposed timeout passes | then the session SHALL expire
+                MODIFIED auth-session/session-expiration | Session expiration | The system SHALL expire an authenticated \
+                session after 15 minutes. | file:openspec/changes/shorten-timeout/specs/auth-session/spec.md
+                  Proposed timeout | given [] | when the proposed timeout passes | then the session SHALL expire
+                evidence 5-8 9-12 5-8 9-12
+                diagnostics [] skipped 0 unclosed 0
+                """, frozen(fixture("openspec-state-matrix")));
+    }
+
+    private String frozen(Path workspace) {
+        var result = new OpenSpecRequirementDeltaReader().read(workspace, new StableTestIdentityResolver());
+        StringBuilder text = new StringBuilder();
+        for (var delta : result.requirementDeltas()) {
+            text.append(delta.kind()).append(' ').append(delta.key().orElseThrow())
+                    .append(" | ").append(delta.title())
+                    .append(" | ").append(delta.statement().orElse("<none>"))
+                    .append(" | ").append(delta.provenance().source())
+                    .append('\n');
+            for (var scenario : delta.scenarios()) {
+                text.append("  ").append(scenario.title())
+                        .append(" | given ").append(scenario.preconditions())
+                        .append(" | when ").append(scenario.action())
+                        .append(" | then ").append(scenario.expectedOutcome())
+                        .append('\n');
+            }
+        }
+        text.append("evidence");
+        result.evidence().forEach(item -> text.append(' ')
+                .append(item.range().orElseThrow().startLine()).append('-').append(item.range().orElseThrow().endLine()));
+        return text.append('\n')
+                .append("diagnostics ").append(result.diagnostics())
+                .append(" skipped ").append(result.skippedRequirements())
+                .append(" unclosed ").append(result.unclosedCodeFences())
+                .append('\n')
+                .toString();
     }
 
     private void assertOnlyTheSectionAfterTheFenceIsNamed(Path workspace, String delta) throws Exception {
