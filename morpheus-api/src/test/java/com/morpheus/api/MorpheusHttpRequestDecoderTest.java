@@ -140,6 +140,36 @@ class MorpheusHttpRequestDecoderTest {
     }
 
     @Test
+    void anEmptyBodyIsAdmittedWhereABodyMustBeAbsentAndAnyByteIsRefused() {
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            MorpheusHttpRequestDecoder decoder = new MorpheusHttpRequestDecoder(256, Duration.ofSeconds(1), executor);
+            decoder.requireEmptyBody(new StubExchange(new byte[0]));
+
+            ApiFailure failure = assertThrows(
+                    ApiFailure.class,
+                    () -> decoder.requireEmptyBody(new StubExchange(new byte[] {' '})));
+
+            assertEquals(400, failure.status());
+            assertEquals("BAD_REQUEST", failure.code());
+            assertEquals("request body must be empty", failure.getMessage());
+        }
+    }
+
+    @Test
+    void aBodyThatMustBeAbsentIsStillReadWithinTheConfiguredBound() {
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            MorpheusHttpRequestDecoder decoder = new MorpheusHttpRequestDecoder(8, Duration.ofSeconds(1), executor);
+
+            ApiFailure failure = assertThrows(
+                    ApiFailure.class,
+                    () -> decoder.requireEmptyBody(new StubExchange(new byte[9])));
+
+            assertEquals(400, failure.status());
+            assertEquals("request body exceeds 8 bytes", failure.getMessage());
+        }
+    }
+
+    @Test
     void constructorRejectsNonPositiveBounds() {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             Duration oneSecond = Duration.ofSeconds(1);

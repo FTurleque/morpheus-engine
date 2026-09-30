@@ -2,9 +2,9 @@ package com.morpheus.integration.minos;
 
 import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.integration.mcp.BoundedStdioClientTransport;
+import com.morpheus.integration.mcp.McpPeerLaunch;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
@@ -54,13 +54,9 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         this.stagedJar = launch.stagedJar();
         McpSyncClient started = null;
         try {
-            var parameters = ServerParameters.builder(launch.command())
-                    .args(launch.arguments().toArray(String[]::new));
-            if (!launch.environment().isEmpty()) {
-                parameters.env(launch.environment());
-            }
             BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                    parameters.build(), McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
+                    new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
+                    McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
             started = McpClient.sync(transport)
                     .requestTimeout(launch.timeout())
                     .build();
@@ -96,7 +92,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
     }
 
     @Override
-    public List<Symbol> findSymbols(String project, String query, int limit) {
+    public SymbolSearch findSymbols(String project, String query, int limit) {
         requireText(project, "project");
         requireText(query, "query");
         if (limit < 1 || limit > MAX_SYMBOLS) {
@@ -112,7 +108,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             if (symbols.size() > limit || symbols.size() > MAX_SYMBOLS) {
                 throw new MinosIntegrationException("MINOS symbol response exceeds requested limit " + limit);
             }
-            return symbols.stream().map(this::symbol).toList();
+            return new SymbolSearch(symbols.stream().map(this::symbol).toList(), symbols.size() == limit);
         } catch (MinosIntegrationException failure) {
             throw failure;
         } catch (Exception failure) {

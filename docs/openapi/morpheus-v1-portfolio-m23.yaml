@@ -254,7 +254,7 @@ components:
         startId: {$ref: '#/components/schemas/Uuid'}
         direction:
           type: [string, 'null']
-          enum: [OUTBOUND, INBOUND, BOTH, null]
+          enum: [OUTGOING, INCOMING, BOTH, null]
           default: BOTH
         maxDepth: {type: [integer, 'null'], minimum: 1, maximum: 8, default: 4}
         maxNodes: {type: [integer, 'null'], minimum: 1, maximum: 1000, default: 250}

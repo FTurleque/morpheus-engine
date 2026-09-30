@@ -1,5 +1,7 @@
 package com.morpheus.architecture.m21;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -12,38 +14,86 @@ import java.util.List;
 import java.util.Properties;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
+/**
+ * Per-module coverage gate: the sum of every module's own JaCoCo report, architecture-test module excluded.
+ *
+ * <p>This scale answers a question the canonical post-reactor measurement cannot: what each module covers
+ * <em>by itself</em>. A service exercised only through a sibling module's tests reads as uncovered here, so a
+ * module that stops testing itself stays visible instead of being masked by its consumers. It is a different
+ * grandeur from the canonical measurement and therefore reads its own pair of ratchet keys.</p>
+ */
 class CoverageQualityGateTest {
+    private static final String PER_MODULE_REPORT = "target/site/jacoco/jacoco.xml";
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline after #253: 54.5801% lines / 47.7791% branches.
+    // Qualified exact-head baseline of the PER-MODULE scale: 64.9302% lines / 57.2366% branches.
+    //
+    // Requalified on 22/09/2026 at develop e8e0f0ca, same method as 15/09: the push run of develop (35756505624)
+    // and the pull_request run of the promotion PR #274 (35756512657). Read from each run's m21-integrity-<OS>
+    // artifact, per-module-coverage-summary.txt, coverageScope=per-module, reports=16, 28352 lines and 10212
+    // branches on all four:
+    //     Windows  64.9831% / 64.9831% lines,  57.3051% / 57.3051% branches
+    //     Linux    64.9302% / 64.9302% lines,  57.2464% / 57.2366% branches   <- qualified on the lowest
+    // The two Windows runs were identical; the two Linux runs had the same lines and differed by 1 branch; the
+    // two platforms by 15 lines and up to 7 branches -- inside the 24 / 11 spread of 15/09, which stays the one
+    // margins are sized against. Everything between e8e0f0ca and this change touches only the architecture-test
+    // module, which this scale excludes. Previous cap: 64.5143% / 56.2964% (15/09/2026, below), exceeded
+    // since 22/09/2026.
+    //
+    // History of this cap, kept as measured:
     // Deliberately at or below the LOWEST reproducible exact-head measurement across both platforms, never the
     // best one. The two platforms run the same number of tests, but some of them no-op off their own OS -- the
-    // Windows junction check is one -- so Linux covers slightly fewer lines for an identical test count
-    // (#254 measured 54.6286% on Linux against 54.6678% on Windows). Qualifying on the higher figure would pin a
-    // baseline the other platform cannot reach. Durable ratchets are loaded from
-    // config/m21-quality-ratchets.properties and must remain below this evidence.
-    private static final double QUALIFIED_LINE_RATIO = 0.545801d;
-    private static final double QUALIFIED_BRANCH_RATIO = 0.477791d;
+    // Windows junction check is one -- so Linux covers slightly fewer lines for an identical test count.
+    // Qualifying on the higher figure would pin a baseline the other platform cannot reach.
+    //
+    // Measured on 15/09/2026 at develop a1fc0a8d, on the GitHub-hosted runners, two full runs per platform: the
+    // push run of develop (34991048836) and the pull_request run of the promotion PR #274 (34991052539), which
+    // check out the same SHA. Read from each run's m21-integrity-<OS> artifact, per-module-coverage-summary.txt,
+    // reports=16, 28434 lines and 10228 branches on all four:
+    //     Windows  64.5952% / 64.5987% lines,  56.3942% / 56.4040% branches
+    //     Linux    64.5143% / 64.5495% lines,  56.2964% / 56.3453% branches   <- qualified on the lowest
+    // The two Linux runs differed by 10 covered lines and 5 branches, the two platforms by up to 24 lines and
+    // 11 branches: wider than the two lines observed on 08/09, so quote the spread, not a point value.
+    // Previous cap: 62.5013% / 53.7997% (08/09/2026, fix/audit-hardening-2026-09-08), exceeded since 09/09.
+    //
+    // The per-module ratchets in config/m21-quality-ratchets.properties sit deliberately BELOW this cap rather
+    // than at it, so a ratchet pinned to the measurement cannot turn ordinary run-to-run variation into a build
+    // failure. Raised 0.620 / 0.535 -> 0.640 / 0.560 on 16/09/2026, inside this same cap and with no new
+    // measurement: what was left is 146 lines and 30 branches of headroom ON THIS SCALE only, against a
+    // cross-platform spread of 24 lines and 11 branches. The branch key is now the tight one -- 2.8x the spread,
+    // against 6.1x for the line key -- so a further raise must treat the two keys separately. The canonical measurement counts a different population of covered lines and carries its own
+    // cap in AggregateCoverageGateTest.
+    // Line key alone raised 0.640 -> 0.642 on 22/09/2026, same cap, no new measurement: 89 lines of headroom
+    // (3.7x the spread); the branch key keeps 0.560 and its 30 branches.
+    // Both keys raised on 22/09/2026 inside the requalified cap above, each sized separately to at least 3x the
+    // 24-line / 11-branch spread: line 0.642 -> 0.646 leaves 93 lines (3.9x), branch 0.560 -> 0.569 leaves 34
+    // branches (3.1x). One more thousandth on either key would drop it under 3x (65 lines, 24 branches).
+    //
+    // Raising these two constants requires a fresh per-module measurement on BOTH platforms, cited here.
+    private static final double PER_MODULE_QUALIFIED_LINE_RATIO = 0.649302d;
+    private static final double PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.572366d;
 
     @Test
-    void reactorCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {
+    void perModuleCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {
         Path root = repoRoot();
         Ratchets ratchets = Ratchets.load(root.resolve("config/m21-quality-ratchets.properties"));
-        double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.lineCoverageMinimum());
-        double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.branchCoverageMinimum());
-        List<Path> reports = jacocoReports(root);
-        assertTrue(reports.size() >= 8, "expected JaCoCo reports from the tested reactor modules, got " + reports.size());
+        double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.perModuleLineCoverageMinimum());
+        double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.perModuleBranchCoverageMinimum());
+        ReportPopulation population = reportPopulation(root);
+        population.assertComplete();
+        List<Path> reports = population.reports();
         assertTrue(minLineRatio >= D2_MIN_LINE_RATIO, "coverage ratchet must never weaken the D2 line floor");
         assertTrue(minBranchRatio >= D2_MIN_BRANCH_RATIO, "coverage ratchet must never weaken the D2 branch floor");
-        assertTrue(ratchets.lineCoverageMinimum() <= QUALIFIED_LINE_RATIO,
-                "line ratchet must not exceed its qualified baseline");
-        assertTrue(ratchets.branchCoverageMinimum() <= QUALIFIED_BRANCH_RATIO,
-                "branch ratchet must not exceed its qualified baseline");
+        assertRatchetWithinQualifiedWindow("line", ratchets.perModuleLineCoverageMinimum(),
+                D2_MIN_LINE_RATIO, PER_MODULE_QUALIFIED_LINE_RATIO);
+        assertRatchetWithinQualifiedWindow("branch", ratchets.perModuleBranchCoverageMinimum(),
+                D2_MIN_BRANCH_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO);
 
         Counter lines = new Counter();
         Counter branches = new Counter();
@@ -68,14 +118,14 @@ class CoverageQualityGateTest {
 
         double lineRatio = lines.ratio();
         double branchRatio = branches.ratio();
-        Path summary = root.resolve("morpheus-architecture-tests/target/m21-coverage-summary.txt");
+        Path summary = root.resolve("morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt");
         Files.createDirectories(summary.getParent());
         Files.writeString(summary, String.format(
                 java.util.Locale.ROOT,
-                "reports=%d%nlineCovered=%d%nlineMissed=%d%nlineRatio=%.6f%nbranchCovered=%d%nbranchMissed=%d%nbranchRatio=%.6f%nqualifiedLineBaseline=%.6f%nqualifiedBranchBaseline=%.6f%nlineRatchet=%.3f%nbranchRatchet=%.3f%nd2LineFloor=%.2f%nd2BranchFloor=%.2f%n",
+                "coverageScope=per-module%nreports=%d%nlineCovered=%d%nlineMissed=%d%nlineRatio=%.6f%nbranchCovered=%d%nbranchMissed=%d%nbranchRatio=%.6f%nqualifiedLineBaseline=%.6f%nqualifiedBranchBaseline=%.6f%nlineRatchet=%.3f%nbranchRatchet=%.3f%nd2LineFloor=%.2f%nd2BranchFloor=%.2f%n",
                 reports.size(), lines.covered, lines.missed, lineRatio,
                 branches.covered, branches.missed, branchRatio,
-                QUALIFIED_LINE_RATIO, QUALIFIED_BRANCH_RATIO,
+                PER_MODULE_QUALIFIED_LINE_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO,
                 minLineRatio, minBranchRatio,
                 D2_MIN_LINE_RATIO, D2_MIN_BRANCH_RATIO));
 
@@ -86,17 +136,100 @@ class CoverageQualityGateTest {
     @Test
     void ratchetRejectsARegressionThatTheOldD2FloorWouldHaveAccepted() throws Exception {
         Ratchets ratchets = Ratchets.load(repoRoot().resolve("config/m21-quality-ratchets.properties"));
-        double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.lineCoverageMinimum());
-        double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.branchCoverageMinimum());
+        double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.perModuleLineCoverageMinimum());
+        double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.perModuleBranchCoverageMinimum());
         assertTrue(0.49d >= D2_MIN_LINE_RATIO);
         assertTrue(0.41d >= D2_MIN_BRANCH_RATIO);
         assertThrows(AssertionError.class, () -> assertCoverageAtLeast("line", 0.49d, minLineRatio));
         assertThrows(AssertionError.class, () -> assertCoverageAtLeast("branch", 0.41d, minBranchRatio));
     }
 
+    /**
+     * A guard that has never refused is not a guard (ADR-0103). The rule is exercised here against a reactor
+     * assembled on purpose, holding one module of every kind it must tell apart, and then completed to prove it
+     * stops refusing for the right reason rather than for none.
+     */
+    @Test
+    void theDerivedPopulationRefusesAnAmputatedReactorAndNamesWhatIsMissing(@TempDir Path reactor) throws Exception {
+        Files.writeString(reactor.resolve("pom.xml"), """
+                <project>
+                  <modules>
+                    <module>reported</module>
+                    <module>built-without-report</module>
+                    <module>never-built</module>
+                    <module>without-main-classes</module>
+                  </modules>
+                </project>
+                """);
+        declareMainClass(reactor.resolve("reported"));
+        declareMainClass(reactor.resolve("built-without-report"));
+        declareMainClass(reactor.resolve("never-built"));
+        Files.createDirectories(reactor.resolve("without-main-classes/src/test/java"));
+        Files.createDirectories(reactor.resolve("built-without-report/target/classes"));
+        writeReport(reactor.resolve("reported"));
+
+        ReportPopulation amputated = reportPopulation(reactor);
+        assertEquals(1, amputated.reports().size(), "only a module that emitted a report may be summed");
+        AssertionError refusal = assertThrows(AssertionError.class, amputated::assertComplete);
+        assertTrue(refusal.getMessage().contains("1 of 3"),
+                () -> "the refusal must count the modules that owe a report: " + refusal.getMessage());
+        assertTrue(refusal.getMessage().contains("never-built"),
+                () -> "the refusal must name the module that was never built: " + refusal.getMessage());
+        assertTrue(refusal.getMessage().contains("built-without-report"),
+                () -> "the refusal must name the module that stopped reporting: " + refusal.getMessage());
+        assertFalse(refusal.getMessage().contains("without-main-classes"),
+                () -> "a module without main classes owes no report: " + refusal.getMessage());
+        assertTrue(refusal.getMessage().contains("./mvnw clean verify"),
+                () -> "a partial reactor is an invocation mistake and the refusal must say so: " + refusal.getMessage());
+        assertTrue(refusal.getMessage().contains("regression in the module"),
+                () -> "a module that stopped reporting is not an invocation mistake: " + refusal.getMessage());
+
+        writeReport(reactor.resolve("built-without-report"));
+        writeReport(reactor.resolve("never-built"));
+        ReportPopulation whole = reportPopulation(reactor);
+        assertEquals(3, whole.reports().size(), "every module with main classes must be summed once complete");
+        whole.assertComplete();
+    }
+
+    private static void declareMainClass(Path module) throws IOException {
+        Path sources = module.resolve("src/main/java");
+        Files.createDirectories(sources);
+        Files.writeString(sources.resolve("Placeholder.java"), "class Placeholder {}");
+    }
+
+    private static void writeReport(Path module) throws IOException {
+        Path report = module.resolve(PER_MODULE_REPORT);
+        Files.createDirectories(report.getParent());
+        Files.writeString(report, "<report/>");
+    }
+
+    /**
+     * The window is what makes a ratchet a ratchet: strictly above the D2 floor it may never silently return to,
+     * and at or below the measurement that qualified it. Both ends are proven here rather than merely exercised
+     * by whichever value happens to be configured today.
+     */
+    @Test
+    void perModuleRatchetWindowRejectsAnUnqualifiedRaiseAndAReturnToTheD2Floor() {
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "line", PER_MODULE_QUALIFIED_LINE_RATIO + 0.000001d, D2_MIN_LINE_RATIO, PER_MODULE_QUALIFIED_LINE_RATIO));
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "branch", PER_MODULE_QUALIFIED_BRANCH_RATIO + 0.000001d, D2_MIN_BRANCH_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO));
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "line", D2_MIN_LINE_RATIO, D2_MIN_LINE_RATIO, PER_MODULE_QUALIFIED_LINE_RATIO));
+        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+                "branch", D2_MIN_BRANCH_RATIO, D2_MIN_BRANCH_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO));
+    }
+
+    private static void assertRatchetWithinQualifiedWindow(String kind, double ratchet, double floor, double cap) {
+        assertTrue(ratchet > floor,
+                () -> "per-module " + kind + " ratchet " + ratchet + " must stay stricter than the D2 floor " + floor);
+        assertTrue(ratchet <= cap,
+                () -> "per-module " + kind + " ratchet " + ratchet + " exceeds its qualified per-module baseline " + cap);
+    }
+
     private static void assertCoverageAtLeast(String kind, double actual, double minimum) {
         assertTrue(actual >= minimum,
-                () -> "aggregate JaCoCo " + kind + " coverage " + actual + " is below qualified-baseline ratchet " + minimum);
+                () -> "per-module JaCoCo " + kind + " coverage " + actual + " is below qualified-baseline ratchet " + minimum);
     }
 
     private org.w3c.dom.Document parse(Path report) throws Exception {
@@ -110,19 +243,98 @@ class CoverageQualityGateTest {
         return builder.parse(report.toFile());
     }
 
-    private List<Path> jacocoReports(Path root) throws IOException {
-        List<Path> result = new ArrayList<>();
-        try (var files = Files.walk(root, 5)) {
-            for (Path file : files
-                    .filter(path -> path.endsWith(Path.of("target", "site", "jacoco", "jacoco.xml")))
-                    .sorted()
-                    .toList()) {
-                if (!file.startsWith(root.resolve("morpheus-architecture-tests/target"))) {
-                    result.add(file);
-                }
+    /**
+     * Which modules owe a report, derived from the reactor rather than counted by hand.
+     *
+     * <p>Every module the root POM declares that carries at least one class under {@code src/main/java} owes its
+     * own report. The rule maintains itself -- a module becomes mandatory the day it is declared -- and it
+     * <em>explains</em> the two modules that legitimately produce nothing, morpheus-architecture-tests and
+     * morpheus-coverage-report, instead of naming one of them in an exclusion list that could never match. A
+     * hand-written floor does neither, and its error runs the permissive way: dropping a module removes its
+     * missed lines along with its covered ones, so a module covered below the mean raises this ratio by
+     * disappearing. The gate was easier to pass on an amputated reactor than on a whole one.</p>
+     */
+    private ReportPopulation reportPopulation(Path root) throws Exception {
+        List<Path> reports = new ArrayList<>();
+        List<String> neverBuilt = new ArrayList<>();
+        List<String> builtWithoutReport = new ArrayList<>();
+        for (String module : declaredModules(root)) {
+            Path directory = root.resolve(module);
+            if (!hasMainClasses(directory)) {
+                continue;
+            }
+            Path report = directory.resolve(PER_MODULE_REPORT);
+            if (Files.isRegularFile(report)) {
+                reports.add(report);
+            } else if (Files.isDirectory(directory.resolve("target/classes"))) {
+                builtWithoutReport.add(module);
+            } else {
+                neverBuilt.add(module);
             }
         }
-        return result;
+        return new ReportPopulation(List.copyOf(reports), List.copyOf(neverBuilt), List.copyOf(builtWithoutReport));
+    }
+
+    private List<String> declaredModules(Path root) throws Exception {
+        Path pom = root.resolve("pom.xml");
+        List<String> modules = new ArrayList<>();
+        Node child = parse(pom).getDocumentElement().getFirstChild();
+        while (child != null) {
+            if (child instanceof Element element && element.getTagName().equals("modules")) {
+                Node declared = element.getFirstChild();
+                while (declared != null) {
+                    if (declared instanceof Element module && module.getTagName().equals("module")) {
+                        modules.add(module.getTextContent().trim());
+                    }
+                    declared = declared.getNextSibling();
+                }
+            }
+            child = child.getNextSibling();
+        }
+        assertFalse(modules.isEmpty(), () -> "no reactor module is declared in " + pom);
+        return modules;
+    }
+
+    private boolean hasMainClasses(Path module) throws IOException {
+        Path sources = module.resolve("src/main/java");
+        if (!Files.isDirectory(sources)) {
+            return false;
+        }
+        try (var files = Files.walk(sources)) {
+            return files.anyMatch(path -> path.getFileName().toString().endsWith(".java") && Files.isRegularFile(path));
+        }
+    }
+
+    /**
+     * A missing report has two causes that call for opposite reactions, so the refusal names them apart. A module
+     * with no {@code target/classes} was never built by this invocation -- {@code -pl morpheus-architecture-tests}
+     * alone reaches this state -- and the fix is to run the reactor. A module that compiled and still emitted no
+     * report has stopped reporting, and the fix is to find out why.
+     */
+    private record ReportPopulation(List<Path> reports, List<String> neverBuilt, List<String> builtWithoutReport) {
+        private void assertComplete() {
+            if (neverBuilt.isEmpty() && builtWithoutReport.isEmpty()) {
+                return;
+            }
+            int owed = reports.size() + neverBuilt.size() + builtWithoutReport.size();
+            StringBuilder refusal = new StringBuilder()
+                    .append("the per-module scale refuses to conclude from a partial population: ")
+                    .append(reports.size()).append(" of ").append(owed)
+                    .append(" reactor modules with main classes produced ").append(PER_MODULE_REPORT);
+            if (!neverBuilt.isEmpty()) {
+                refusal.append(System.lineSeparator())
+                        .append("  never built by this invocation, so no ratio can be computed -- run ")
+                        .append("./mvnw clean verify over the whole reactor first: ")
+                        .append(String.join(", ", neverBuilt));
+            }
+            if (!builtWithoutReport.isEmpty()) {
+                refusal.append(System.lineSeparator())
+                        .append("  built but emitted no report: this is a regression in the module, not a ")
+                        .append("mistaken invocation: ")
+                        .append(String.join(", ", builtWithoutReport));
+            }
+            throw new AssertionError(refusal.toString());
+        }
     }
 
     private Path repoRoot() {
@@ -137,15 +349,15 @@ class CoverageQualityGateTest {
         throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 
-    private record Ratchets(double lineCoverageMinimum, double branchCoverageMinimum) {
+    private record Ratchets(double perModuleLineCoverageMinimum, double perModuleBranchCoverageMinimum) {
         private static Ratchets load(Path path) throws IOException {
             Properties properties = new Properties();
             try (var reader = Files.newBufferedReader(path)) {
                 properties.load(reader);
             }
             return new Ratchets(
-                    requiredDouble(properties, "lineCoverageMinimum"),
-                    requiredDouble(properties, "branchCoverageMinimum"));
+                    requiredDouble(properties, "perModuleLineCoverageMinimum"),
+                    requiredDouble(properties, "perModuleBranchCoverageMinimum"));
         }
 
         private static double requiredDouble(Properties properties, String key) {

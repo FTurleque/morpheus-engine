@@ -1,0 +1,535 @@
+package com.morpheus.architecture.d2;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.Test;
+
+class DependencyCheckWorkflowContractTest {
+
+    @Test
+    void trustedUpdateUsesApiKeyWhenPresentAndFreshCacheWhenUpstreamAnonymousUpdateIsBroken() throws IOException {
+        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+
+        int updateStart = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
+        int saveStart = security.indexOf("- name: Save trusted Dependency-Check database");
+        int scanStart = security.indexOf("- name: Run OWASP Dependency-Check scan");
+        assertTrue(updateStart >= 0 && saveStart > updateStart && scanStart > saveStart,
+                "security workflow must keep trusted update, cache save, then aggregate scan in that order");
+
+        String trustedUpdate = security.substring(updateStart, saveStart);
+        assertTrue(trustedUpdate.contains("id: dependency-check-update"),
+                "trusted update step must expose whether a database refresh actually occurred");
+        assertTrue(trustedUpdate.contains("NVD_API_KEY: ${{ secrets.NVD_API_KEY }}"),
+                "trusted updates must still consume the configured GitHub secret when available");
+        assertTrue(trustedUpdate.contains("if [[ -n \"${NVD_API_KEY:-}\" ]]"),
+                "the secret must be tested before Dependency-Check consumes it");
+        assertTrue(trustedUpdate.contains("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY"),
+                "a non-empty key must be passed by environment-variable name, never by value");
+        assertTrue(trustedUpdate.contains("org.owasp:dependency-check-maven:13.0.0:update-only"),
+                "trusted updates with a key must continue to refresh the NVD database");
+        assertFalse(trustedUpdate.contains("-DnvdApiKey=${NVD_API_KEY}"),
+                "the NVD secret value must never appear on the Maven command line");
+
+        assertTrue(trustedUpdate.contains("upstream bug #8715"),
+                "the temporary anonymous-update workaround must remain explicitly tied to the upstream defect");
+        assertTrue(trustedUpdate.contains("upstream fix #8716"),
+                "the workflow must document the upstream fix that allows removal of this workaround");
+        assertTrue(trustedUpdate.contains("No trusted Dependency-Check database is available"),
+                "missing cache must fail closed when the anonymous update cannot run");
+        assertTrue(trustedUpdate.contains("Trusted Dependency-Check database is stale"),
+                "stale cache must fail closed when the anonymous update cannot run");
+        assertTrue(trustedUpdate.contains("DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS"),
+                "the trusted fallback must use the same freshness budget as pull-request scans");
+
+        String saveStep = security.substring(saveStart, scanStart);
+        assertTrue(saveStep.contains("steps.dependency-check-update.outputs.updated == 'true'"),
+                "the workflow must publish a new trusted cache only after a real NVD refresh");
+    }
+
+    /**
+     * A fail-closed gate that nobody can see coming fails everything at once, with no warning and no diagnosis.
+     *
+     * <p>The refusal itself is correct and is asserted above; what this test adds is that the refusal is legible.
+     * Without NVD_API_KEY the workflow cannot refresh the vulnerability feed at all, only reuse a cache some
+     * earlier trusted event produced. While that cache is fresh nothing looks wrong, and the first visible symptom
+     * is every pull request failing simultaneously the moment the freshness budget runs out. Three properties turn
+     * that cliff into a slope, and each is pinned here because each is the kind of thing a later edit removes
+     * without noticing: the age and remaining margin are published in the job summary along with which path
+     * produced the database, an approaching expiry is announced before it fails, and the failure names its own
+     * reason so an infrastructure outage cannot be read as a vulnerability.</p>
+     */
+    @Test
+    void databaseFreshnessAndFailureReasonsAreObservableBeforeAndWhenTheyStopTheBuild() throws IOException {
+        Path root = repoRoot();
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+        String report = Files.readString(root.resolve("scripts/report-dependency-check-cache.sh"));
+        String classify = Files.readString(root.resolve("scripts/classify-dependency-check-failure.sh"));
+
+        assertTrue(report.contains("GITHUB_STEP_SUMMARY"),
+                "cache freshness must reach the job summary, not only the log of a job nobody opens while green");
+        assertTrue(report.contains("| Obtained via | ${source_label} |"),
+                "the summary must carry a provenance row for its caller to fill; that the caller fills it with "
+                        + "what the sentinel recorded rather than with a literal is asserted by "
+                        + "theProvenancePublishedOnAPullRequestIsReadFromTheSentinelNotFromALiteral");
+        assertTrue(report.contains("| Remaining before expiry |"),
+                "the summary must publish the margin left before the freshness budget expires");
+        assertTrue(report.contains("| Budget consumed | ${consumed_percent}% |"),
+                "the summary must publish how much of the freshness budget is already spent");
+
+        assertTrue(report.contains("if (( age_seconds * 3 >= max_age_seconds * 2 )); then"),
+                "an approaching expiry must be announced at two thirds of the budget, not discovered at 100%");
+        assertTrue(report.contains("::warning::Dependency-Check database has consumed"),
+                "the approaching-expiry alert must be a visible annotation, not a plain log line");
+
+        assertTrue(security.contains("bash ./scripts/report-dependency-check-cache.sh \"${age_seconds}\" "
+                        + "\"${refreshed_by:-unknown}\""),
+                "pull-request scans must publish the freshness of the cache they were handed, and name where "
+                        + "that cache came from rather than how it reached them");
+        assertTrue(security.contains("Dependency-Check trusted cache fallback PASS (${age_seconds}s since "
+                        + "its last trusted refresh; maximum ${max_age_seconds}s; ${refresh_skipped_because})."),
+                "the fallback must say out loud that it refreshed nothing, and which of the two reasons it "
+                        + "was; the provenance row carries where the database came from, never why this run "
+                        + "renewed nothing");
+        assertTrue(security.contains("\"NVD API key refresh\""),
+                "a real refresh must be reported through the same summary as the fallback, so the two paths are "
+                        + "told apart by what the run says rather than by reading the workflow");
+
+        int staleOccurrences = security.split("MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE", -1).length - 1;
+        assertTrue(staleOccurrences >= 3,
+                "every freshness refusal -- missing cache on a pull request, missing cache on a trusted event, "
+                        + "and an expired cache -- must name STALE_DATABASE as its reason");
+        assertTrue(security.contains("This is an infrastructure failure, not a vulnerability finding"),
+                "a stale database must state that it is not a CVE finding");
+
+        assertTrue(classify.contains("VULNERABILITY_THRESHOLD_EXCEEDED")
+                        && classify.contains("SCAN_EXECUTION_FAILED"),
+                "a scan failure must distinguish a crossed CVSS threshold from an analyzer that never finished");
+        assertTrue(classify.contains(
+                        "One or more dependencies were identified with vulnerabilities that have a CVSS score "
+                                + "greater than or equal to"),
+                "the threshold classification must key off what Dependency-Check actually prints when "
+                        + "failBuildOnCVSS stops the build, never off a guess");
+        assertTrue(classify.contains("is not STALE_DATABASE"),
+                "the scan failure summary must state explicitly that it is not the stale-database failure");
+        assertTrue(classify.trim().endsWith("exit 1"),
+                "classifying a failure must never turn it into a success");
+
+        assertTrue(security.contains(
+                        "bash ./scripts/classify-dependency-check-failure.sh \"${log}\" "
+                                + "\"product runtime dependencies\"")
+                        && security.contains("bash ./scripts/classify-dependency-check-failure.sh \"${log}\" "
+                                + "\"build and test dependencies\""),
+                "both aggregate scans must classify their own failure");
+        assertFalse(security.contains("continue-on-error"),
+                "the security workflow must stay fail-closed: naming a failure must not make it survivable");
+    }
+
+    /**
+     * A summary that names where the scanned database came from is the only continuous evidence that
+     * {@code NVD_API_KEY} is still being read.
+     *
+     * <p>The sentinel has recorded {@code refreshedBy} from the start, and its writer states why: so a summary can
+     * name the path without re-deriving it. Nothing read it. All three call sites of the freshness report passed a
+     * literal instead, and the pull-request one -- the only summary anyone opens daily -- passed a literal that
+     * describes how the database reached the run rather than how it was produced. It said {@code trusted cache
+     * restored for this pull request} whether the refresh behind that cache had used the key or not. The key
+     * disappearing would therefore have changed nothing visible until the 72h budget expired three days later,
+     * under {@code STALE_DATABASE} -- the same reason a legitimately old cache produces.</p>
+     *
+     * <p>The assertion that should have caught this was green on the wrong subject: it checked that the template
+     * {@code | Obtained via | ${source_label} |} existed in the reporting script, while its own message promised
+     * that the summary tells an API-key refresh apart from the fallback. A template accepts any string. What
+     * follows pins the chain end to end -- the writer records the provenance, the reader re-emits it on the only
+     * path the pull-request step reads, and that step extracts it and passes it on -- because a break anywhere
+     * along that chain degrades into {@code unknown} without failing anything.</p>
+     *
+     * <p>Every rule below was broken and its failure observed before this test was accepted, because the
+     * assertion it replaces was green on the very literal its message claimed to forbid. Measured on
+     * 2026-09-17: removing the extraction line, letting the literal reappear anywhere in the step, renaming the
+     * key the writer records, pointing the reader at another key, and deleting the reader OK-path re-emission
+     * each failed exactly one assertion. Putting the literal back at the call site, dropping the
+     * {@code :-unknown} default, and drifting the API-key label each failed two, the second being in
+     * {@link #databaseFreshnessAndFailureReasonsAreObservableBeforeAndWhenTheyStopTheBuild()}.</p>
+     */
+    @Test
+    void theProvenancePublishedOnAPullRequestIsReadFromTheSentinelNotFromALiteral() throws IOException {
+        Path root = repoRoot();
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+        String writer = Files.readString(root.resolve("scripts/write-dependency-check-sentinel.sh"));
+        String reader = Files.readString(root.resolve("scripts/read-dependency-check-sentinel.sh"));
+
+        String freshnessStep = section(security,
+                "- name: Verify restored Dependency-Check database freshness",
+                "- name: Remove stale Dependency-Check update lock");
+
+        assertTrue(freshnessStep.contains(
+                        "refreshed_by=\"$(sed -n 's/^refreshedBy=//p' <<< \"${facts}\" | head -n 1)\""),
+                "the pull-request path must read the provenance out of the sentinel facts it has already parsed, "
+                        + "exactly as it reads the age");
+        assertTrue(freshnessStep.contains("bash ./scripts/report-dependency-check-cache.sh \"${age_seconds}\" "
+                        + "\"${refreshed_by"),
+                "the pull-request summary must publish what the sentinel recorded, passed as the variable it was "
+                        + "extracted into");
+        assertFalse(freshnessStep.contains("\"trusted cache restored for this pull request\""),
+                "a literal at this call site is the defect this test exists for: it states how the database "
+                        + "reached this run, which never varies, in the row that must state how it was produced");
+        assertTrue(freshnessStep.contains("\"${refreshed_by:-unknown}\""),
+                "a sentinel carrying no provenance must publish `unknown`, never an empty cell: an empty cell "
+                        + "reads as a broken table, and an unknown is never silently a pass here");
+
+        assertTrue(writer.contains("refreshedBy=${source_label}"),
+                "the sentinel must record how the refresh was obtained, or the summary has nothing to name");
+        assertTrue(reader.contains("recorded_source=\"$(value_of refreshedBy)\""),
+                "the reader must take the provenance from the sentinel key the writer writes");
+        int okEmit = reader.indexOf("emit_and_exit OK");
+        assertTrue(okEmit >= 0, "the reader must keep an OK path for the pull-request step to read");
+        assertTrue(reader.substring(okEmit).contains("\"refreshedBy=${recorded_source}\""),
+                "the reader must re-emit the provenance on its OK path, the only path the pull-request summary "
+                        + "reads: dropping it degrades that summary to `unknown` in silence");
+
+        String trustedUpdate = section(security,
+                "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+        assertTrue(trustedUpdate.contains("\"${DEPENDENCY_CHECK_SCHEMA_VERSION}\" \"NVD API key refresh\""),
+                "the API-key path must keep writing this exact label into the sentinel: it is the string a later "
+                        + "pull-request summary echoes to prove the secret was read, and the branch pinned to "
+                        + "12.2.2 writes the same one, so one literal identifies the key path on both");
+    }
+
+    /**
+     * A provenance this branch cannot have produced is a deviation worth naming and never worth refusing.
+     *
+     * <p>Pinned to Dependency-Check 13.0.0, whose anonymous refresh is broken upstream (#8715), the only
+     * provenance a refresh performed here can carry is the API-key label. Anything else was written somewhere
+     * else, and there are exactly two ways that happens. One is legitimate and documented: the branch still
+     * pinned to 12.2.2 refreshes anonymously and writes the same H2 schema, and the STALE_DATABASE message in
+     * this workflow names that backport as a way out of a cold start. The other is that {@code NVD_API_KEY}
+     * stopped being read after the promotion and nobody knows it yet.</p>
+     *
+     * <p>The two are indistinguishable from the sentinel alone, so the step warns and lets the scan proceed.
+     * Refusing would close the documented bootstrap and discard a database that is perfectly readable and
+     * still inside its freshness budget -- and that budget already bounds how long the deviation can last.
+     * What the step may not do is pass over it in silence, which is what it did before: the lost-key case
+     * would then surface three days later as STALE_DATABASE, the same reason an honestly old cache gives.</p>
+     *
+     * <p>Each rule below was broken and its failure observed on 2026-09-17: removing the guard, downgrading the
+     * annotation to a plain log line, dropping the analyzer and ref from its text, dropping the RT-13 pointer,
+     * and adding an {@code exit 1} inside the block each failed exactly one assertion, this one.</p>
+     */
+    @Test
+    void aProvenanceThisBranchCannotHaveProducedIsWarnedAboutAndNeverRefused() throws IOException {
+        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String freshnessStep = section(security,
+                "- name: Verify restored Dependency-Check database freshness",
+                "- name: Remove stale Dependency-Check update lock");
+
+        int deviation = freshnessStep.indexOf(
+                "if [[ \"${refreshed_by:-unknown}\" != 'NVD API key refresh' ]]; then");
+        assertTrue(deviation >= 0,
+                "the pull-request step must compare the provenance it publishes against the only label a "
+                        + "refresh performed on this branch can produce");
+
+        String warning = freshnessStep.substring(deviation, freshnessStep.indexOf("\n          fi", deviation));
+        assertTrue(warning.contains("::warning::Dependency-Check database was obtained via"),
+                "the deviation must be a visible annotation, not a log line in a green job nobody opens");
+        assertTrue(warning.contains("${plugin_version:-unknown}")
+                        && warning.contains("${refreshed_on_ref:-unknown}"),
+                "the annotation must name which analyzer wrote the sentinel and on which ref, because that is "
+                        + "what tells the legitimate bootstrap apart from a secret that stopped being read");
+        assertTrue(warning.contains("RT-13"),
+                "the annotation must point at the risk it is the standing evidence for");
+        assertFalse(warning.contains("exit "),
+                "a provenance from elsewhere must never stop the scan: refusing would close the 12.2.2 "
+                        + "bootstrap this workflow names as a way out of a cold start, and would discard a "
+                        + "readable database still inside its freshness budget");
+    }
+    /**
+     * A refresh that failed is not a refresh -- and it is also not, by itself, a reason to refuse the scan.
+     *
+     * <p>The budget is the refusal, and it is already there: a database past
+     * {@code DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS} stops every scan, and a database with no sentinel at all
+     * stops it too. The no-key branch has always relied on exactly that -- it refreshes nothing, says so, and
+     * lets the budget decide. The key branch did not. It ran the refresh as a bare command under an exiting
+     * shell, so a key the NVD refuses killed the step outright while a trusted cache 15h old sat unused, and
+     * the failure surfaced as a raw Maven error rather than under a MORPHEUS reason. Observed on 2026-09-17:
+     * run 35269719882 on {@code develop}, {@code Error updating the NVD Data: Invalid API Key}.</p>
+     *
+     * <p>An invalid or unactivated key is epistemically the same as an absent one: nothing here refreshed the
+     * feed. The two now converge on one handling and stay distinguishable in every message through
+     * {@code refresh_skipped_because}. What must not converge is what a failed refresh is allowed to leave
+     * behind -- no sentinel, and {@code updated=false}, so nothing downstream can mistake this run for a
+     * refresh or publish a cache in its name.</p>
+     *
+     * <p>Each rule below was broken and its failure observed on 2026-09-17: the refresh back as a bare
+     * command, the two causes collapsed into one string, the missing MORPHEUS reason, the literal back in the
+     * fallback summary, and the budget refusal removed each failed exactly one assertion. Moving
+     * {@code updated=true} out of the success branch failed two, the second in
+     * {@link #freshnessIsReadFromARefreshSentinelAndNeverFromAFileModificationTime()}.</p>
+     */
+    @Test
+    void aRefreshThatFailedIsNotARefreshAndIsAlsoNotByItselfARefusal() throws IOException {
+        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String trustedUpdate = section(security,
+                "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+
+        assertTrue(trustedUpdate.contains("if ./mvnw \\"),
+                "the key-path refresh must be a condition, not a bare command: under an exiting shell a "
+                        + "refused key kills the step while a perfectly fresh trusted cache sits unused");
+        assertTrue(trustedUpdate.contains("refresh_skipped_because='NVD_API_KEY was refused by the NVD'")
+                        && trustedUpdate.contains("refresh_skipped_because='NVD_API_KEY is not configured'"),
+                "both ways of not refreshing must be named apart, so a run says which one it was instead of "
+                        + "leaving it to be inferred from the workflow");
+        assertTrue(trustedUpdate.contains("MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED"),
+                "a refused key must carry a MORPHEUS reason of its own, not surface as a raw Maven error that "
+                        + "reads like an analyzer crash");
+
+        String onSuccess = trustedUpdate.substring(
+                trustedUpdate.indexOf("update-only 2>&1 | tee \"${update_log}\"; then"),
+                trustedUpdate.indexOf("refresh_skipped_because='NVD_API_KEY was refused"));
+        assertTrue(onSuccess.contains("write-dependency-check-sentinel.sh")
+                        && onSuccess.contains("echo \"updated=true\""),
+                "the sentinel and updated=true must stay inside the branch a successful refresh takes, so a "
+                        + "failed refresh can neither date a database it did not renew nor publish a cache");
+
+        String fallback = trustedUpdate.substring(
+                trustedUpdate.indexOf("if [[ -n \"${refresh_skipped_because}\" ]]"));
+        assertTrue(fallback.contains("bash ./scripts/report-dependency-check-cache.sh \"${age_seconds}\" "
+                        + "\"${refreshed_by:-unknown}\""),
+                "the fallback summary must name the provenance the sentinel recorded, the same rule the "
+                        + "pull-request path follows");
+        assertTrue(fallback.split(Pattern.quote("exit 1"), -1).length - 1 == 2,
+                "the fallback must keep both refusals -- no sentinel at all, and a sentinel past its budget -- "
+                        + "because the budget is what refuses, and it is all that refuses");
+    }
+    /**
+     * A failed refresh names the key only when the log says the key was refused.
+     *
+     * <p>Until 2026-09-22 every non-zero exit of the key-path refresh became "NVD_API_KEY was refused by the
+     * NVD" and a warning telling the operator to replace the key: an NVD outage, a 5xx, a quota, a network cut
+     * or an unreachable Maven repository all read as a bad key, and the recovery guide had to warn its reader not
+     * to believe the annotation before reading the log (finding CI-1). The step now captures its output the way
+     * both scan steps of the same file already do, and classifies on the marker the NVD printed when it did
+     * refuse the key: {@code Invalid API Key}, run 35269719882 on 2026-09-17. Everything else keeps the same
+     * fallback and the same budget, but under a cause that does not accuse the key.</p>
+     *
+     * <p>Capturing through {@code tee} is only safe under {@code pipefail}: without it the condition would test
+     * {@code tee}, which always succeeds, and a failed refresh would write the sentinel and publish a cache.
+     * The step sets it explicitly rather than relying on the default {@code shell: bash} flags.</p>
+     *
+     * <p>Each rule below was broken and its failure observed on 2026-09-22, each failing exactly its own
+     * assertion: the single attribution restored (no {@code grep}, one {@code else} naming the key), the other
+     * cause renamed to the refused-key string, the generic message told to replace the key, and
+     * {@code set -o pipefail} removed. The step itself was also run under {@code bash -eo pipefail} against a
+     * stub {@code mvnw} printing the 2026-09-17 marker, a 503, and a success: each took its own branch, and only
+     * the success wrote the sentinel and {@code updated=true}.</p>
+     */
+    @Test
+    void aFailedRefreshNamesTheKeyOnlyWhenTheLogSaysTheKeyWasRefused() throws IOException {
+        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String trustedUpdate = section(security,
+                "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+
+        assertTrue(trustedUpdate.contains("set -o pipefail")
+                        && trustedUpdate.indexOf("set -o pipefail") < trustedUpdate.indexOf("| tee \"${update_log}\""),
+                "the refresh output is piped through tee, so the step must set pipefail before it or the "
+                        + "condition tests tee and a failed refresh reads as a success");
+        assertTrue(trustedUpdate.contains("update_log=\"${RUNNER_TEMP}/dependency-check-update.log\"")
+                        && trustedUpdate.contains("| tee \"${update_log}\""),
+                "the refresh must keep its own output, the way both scan steps do, or no cause can be read");
+        assertTrue(trustedUpdate.contains("grep -qF 'Invalid API Key' \"${update_log}\""),
+                "the cause must be read from the refresh log, never assumed from a non-zero exit status");
+
+        int keyRefused = trustedUpdate.indexOf("refresh_skipped_because='NVD_API_KEY was refused by the NVD'");
+        int otherCause = trustedUpdate.indexOf(
+                "refresh_skipped_because='the NVD refresh failed with NVD_API_KEY configured'");
+        int noKey = trustedUpdate.indexOf("refresh_skipped_because='NVD_API_KEY is not configured'");
+        assertTrue(keyRefused >= 0 && otherCause > keyRefused && noKey > otherCause,
+                "a refused key and any other refresh failure must be two causes, named apart, so a reader "
+                        + "tells them apart without opening the log");
+
+        String otherCauseBranch = trustedUpdate.substring(otherCause, noKey);
+        assertTrue(otherCauseBranch.contains("MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED"),
+                "a refresh that failed for another reason is still a failed refresh and keeps the same reason code");
+        assertFalse(otherCauseBranch.contains("Replace NVD_API_KEY")
+                        || otherCauseBranch.contains("invalid or unactivated"),
+                "a failure the log does not attribute to the key must not send anyone to replace a working key");
+        assertTrue(trustedUpdate.substring(keyRefused, otherCause).contains("Replace NVD_API_KEY"),
+                "a key the NVD did refuse must still say to replace it");
+    }
+    /**
+     * The workflow must scan with the Dependency-Check the repository pins, not a version of its own.
+     *
+     * <p>The goal coordinates in {@code security.yml} carry the version explicitly, so a POM bump that forgets
+     * the workflow leaves CI scanning with a different analyzer than the one the build declares -- and the
+     * 13.0.0 workaround below is tied to one specific upstream defect, so running a different version silently
+     * would make that workaround either useless or wrong. Deriving the expectation from the POM is what keeps
+     * the two from drifting apart the way the D2 validators already did.</p>
+     */
+    @Test
+    void everyDependencyCheckInvocationUsesTheVersionTheRootPomPins() throws IOException {
+        Path root = repoRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+
+        Matcher property = Pattern.compile(
+                        "<dependency-check\\.maven\\.plugin\\.version>([^<]+)</dependency-check\\.maven\\.plugin\\.version>")
+                .matcher(pom);
+        assertTrue(property.find(), "the root POM must pin the Dependency-Check version");
+        String pinned = property.group(1).trim();
+
+        Matcher invocations = Pattern.compile("dependency-check-maven:([0-9][^:]*):").matcher(security);
+        int found = 0;
+        while (invocations.find()) {
+            assertTrue(pinned.equals(invocations.group(1)),
+                    () -> "security.yml invokes Dependency-Check " + invocations.group(1)
+                            + " while the root POM pins " + pinned);
+            found++;
+        }
+        assertTrue(found >= 3,
+                "security.yml must keep its update-only and both aggregate scans on the pinned version");
+    }
+
+    /**
+     * The cache key must answer whether this analyzer can read this database, and only the schema decides that.
+     *
+     * <p>The key used to carry the plugin version, with a restore-key falling back to the previous one. That
+     * pair contradicted itself: if the version in the key meant anything the fallback discarded the meaning,
+     * and if it meant nothing the key was decoration. Measured rather than assumed, it meant nothing --
+     * Dependency-Check 12.2.2 and 13.0.0 both declare {@code data.version=5.6} and ship byte-identical
+     * {@code data/initialize.sql} and {@code data/dbStatements.properties}, because upstream changed the schema
+     * at 12.2.2 and not at 13.0.0. So the fallback was not the defect it looked like, and the plugin-versioned
+     * key was: a routine bump orphaned a readable database, and the fallback added to compensate would have
+     * matched an unreadable one just as willingly had the schema really moved.</p>
+     *
+     * <p>Keyed on the schema the key means exactly one thing, and nothing is left to fall back to: a schema
+     * change yields a different key, no match, and an honest cold start. That is also the only outcome a
+     * fallback could have produced anyway, since every scan runs {@code -DautoUpdate=false}, under which
+     * Dependency-Check refuses a mismatched schema rather than migrating it.</p>
+     */
+    @Test
+    void theTrustedCacheIsKeyedOnTheSchemaVersionAndNeverFallsBackAcrossSchemas() throws IOException {
+        Path root = repoRoot();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+
+        Matcher schema = Pattern.compile(
+                        "<dependency-check\\.data\\.version>([^<]+)</dependency-check\\.data\\.version>")
+                .matcher(pom);
+        assertTrue(schema.find(),
+                "the root POM must pin the Dependency-Check H2 schema version the cache key is built from");
+        String pinnedSchema = schema.group(1).trim();
+
+        assertTrue(security.contains("DEPENDENCY_CHECK_SCHEMA_VERSION: '" + pinnedSchema + "'"),
+                "security.yml must build its cache key from the schema version the root POM pins, so a bump of "
+                        + "one cannot silently leave the other behind");
+
+        String expectedKey = "key: dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-"
+                + "${{ runner.os }}-${{ github.run_id }}";
+        assertTrue(security.split(Pattern.quote(expectedKey), -1).length - 1 == 2,
+                "the restore and the save must address the same schema-keyed cache entry");
+
+        for (String line : security.split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("key: dependency-check") || trimmed.startsWith("dependency-check-")) {
+                assertTrue(trimmed.contains("DEPENDENCY_CHECK_SCHEMA_VERSION"),
+                        () -> "every Dependency-Check cache key and restore-key must carry the schema version, "
+                                + "so none of them can match a database this analyzer cannot read: " + trimmed);
+            }
+        }
+        assertFalse(Pattern.compile("dependency-check-v[0-9]").matcher(security).find(),
+                "no plugin-versioned cache key may survive: the plugin version is not the schema version and "
+                        + "does not track it");
+    }
+
+    /**
+     * Freshness must be a fact a refresh recorded, never an mtime the filesystem happened to leave behind.
+     *
+     * <p>The previous probe read {@code stat -c %Y} on whichever file {@code find ... -print -quit} reached
+     * first, which is neither the database nor the newest file, and compared it to now. Two further mechanisms
+     * made that number meaningless even had it picked the right file: {@code actions/cache} restores through
+     * tar, which preserves mtimes, so the timestamp describes the last write by Dependency-Check rather than
+     * the restore; and an incremental {@code update-only} that rewrites nothing leaves an old mtime on a
+     * current database. The 54h age the first freshness report published was that artefact, not an age.</p>
+     *
+     * <p>The sentinel is written by the refresh itself, so its presence is evidence and its absence is the
+     * absence of evidence -- which is not freshness. It carries the writing plugin version, which is what makes
+     * a database refreshed by one analyzer and scanned by another visible at runtime instead of silent.</p>
+     */
+    @Test
+    void freshnessIsReadFromARefreshSentinelAndNeverFromAFileModificationTime() throws IOException {
+        Path root = repoRoot();
+        String security = Files.readString(root.resolve(".github/workflows/security.yml"));
+        String writer = Files.readString(root.resolve("scripts/write-dependency-check-sentinel.sh"));
+        String reader = Files.readString(root.resolve("scripts/read-dependency-check-sentinel.sh"));
+
+        assertFalse(security.contains("stat -c %Y"),
+                "no freshness reading may go through a file modification time");
+        assertFalse(security.contains("-print -quit"),
+                "no freshness reading may depend on whichever file the directory walk reaches first");
+
+        assertTrue(writer.contains("refreshedAtEpoch=$(date +%s)"),
+                "the sentinel must record when the refresh actually completed");
+        assertTrue(writer.contains("pluginVersion=${plugin_version}"),
+                "the sentinel must record which analyzer refreshed the database, so cross-version reuse is "
+                        + "visible at runtime rather than silent");
+        assertTrue(writer.contains("schemaVersion=${schema_version}"),
+                "the sentinel must record the schema the database was written against");
+        assertTrue(writer.contains("sentinel=\"${data_dir}/dependency-check-refresh.sentinel\""),
+                "the sentinel must live inside the cached data directory, so it travels with the cache it dates");
+
+        int updateStart = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
+        int saveStart = security.indexOf("- name: Save trusted Dependency-Check database");
+        String trustedUpdate = security.substring(updateStart, saveStart);
+        int sentinelWrite = trustedUpdate.indexOf("bash ./scripts/write-dependency-check-sentinel.sh");
+        assertTrue(sentinelWrite > trustedUpdate.indexOf("org.owasp:dependency-check-maven"),
+                "the sentinel must be written after the refresh it certifies, never before it");
+        assertTrue(sentinelWrite < trustedUpdate.indexOf("echo \"updated=true\""),
+                "a refresh that publishes a cache must have dated it first, so no cache is ever saved without "
+                        + "the sentinel that lets a later run judge its age");
+
+        assertTrue(security.contains("path: target/dependency-check-data"),
+                "the cached path must be the data directory the sentinel is written into");
+
+        assertTrue(reader.contains("emit_and_exit MISSING") && reader.contains("emit_and_exit MALFORMED")
+                        && reader.contains("emit_and_exit SCHEMA_MISMATCH"),
+                "a sentinel that is absent, unusable or written against another schema must each be classified, "
+                        + "never collapsed into an age");
+        assertTrue(reader.contains("echo \"status=$1\""),
+                "status must be the first fact emitted, so a caller that reads only the first line still fails "
+                        + "closed rather than reading an age that was never established");
+
+        int freshnessRefusals = security.split(Pattern.quote("if [[ \"${status}\" != 'OK' ]]; then"), -1).length - 1;
+        assertTrue(freshnessRefusals == 2,
+                "both freshness readings -- the pull-request check and the no-key fallback -- must refuse any "
+                        + "status but OK, so a missing sentinel is treated as stale rather than as fresh");
+    }
+
+    private static String section(String workflow, String from, String to) {
+        int start = workflow.indexOf(from);
+        int end = workflow.indexOf(to);
+        assertTrue(start >= 0 && end > start,
+                () -> "security.yml must keep the step \"" + from + "\" before the step \"" + to + "\"");
+        return workflow.substring(start, end);
+    }
+
+    private static Path repoRoot() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
+            return current;
+        }
+        Path parent = current.getParent();
+        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
+                && Files.isDirectory(parent.resolve("distribution"))) {
+            return parent;
+        }
+        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
+    }
+}

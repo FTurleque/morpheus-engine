@@ -56,9 +56,9 @@ final class MorpheusJarvisOrchestrationMcpTools {
 
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
-            Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
-            ProjectSpecificationId projectId = ProjectSpecificationId.parse(requiredString(arguments, "projectId"));
-            ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
+            Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
+            ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
+            ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
             try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
                 if (runtime.snapshots.findProject(projectId).isEmpty()) {
                     throw new KnowledgeStoreException("project not found: " + projectId);
@@ -82,10 +82,7 @@ final class MorpheusJarvisOrchestrationMcpTools {
                         .build();
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(safeMessage(expected))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
@@ -94,10 +91,10 @@ final class MorpheusJarvisOrchestrationMcpTools {
             ProjectSpecificationId projectId,
             ChangeId changeId,
             Map<String, Object> arguments) {
-        ChangeLifecycleState from = lifecycleState(requiredString(arguments, "fromState"), "fromState");
-        ChangeLifecycleState target = lifecycleState(requiredString(arguments, "targetState"), "targetState");
-        Optional<ChangeAbandonmentReason> fromReason = abandonmentReason(optionalString(arguments, "fromAbandonmentReason"), "fromAbandonmentReason");
-        Optional<ChangeAbandonmentReason> targetReason = abandonmentReason(optionalString(arguments, "abandonmentReason"), "abandonmentReason");
+        ChangeLifecycleState from = lifecycleState(McpArguments.requiredString(arguments, "fromState"), "fromState");
+        ChangeLifecycleState target = lifecycleState(McpArguments.requiredString(arguments, "targetState"), "targetState");
+        Optional<ChangeAbandonmentReason> fromReason = abandonmentReason(McpArguments.optionalString(arguments, "fromAbandonmentReason"), "fromAbandonmentReason");
+        Optional<ChangeAbandonmentReason> targetReason = abandonmentReason(McpArguments.optionalString(arguments, "abandonmentReason"), "abandonmentReason");
         ChangeLifecycle source = from == ChangeLifecycleState.ABANDONED
                 ? ChangeLifecycle.abandoned(changeId, fromReason.orElseThrow(() ->
                         new IllegalArgumentException("fromAbandonmentReason is required when fromState=ABANDONED")))
@@ -106,8 +103,8 @@ final class MorpheusJarvisOrchestrationMcpTools {
             throw new IllegalArgumentException("fromAbandonmentReason is only valid when fromState=ABANDONED");
         }
         ChangeLifecyclePolicy policy = new ChangeLifecyclePolicy(
-                bool(arguments, "allowBackwardTransitions", false),
-                bool(arguments, "allowCompletedReopen", false));
+                McpArguments.optionalBoolean(arguments, "allowBackwardTransitions", false),
+                McpArguments.optionalBoolean(arguments, "allowCompletedReopen", false));
         return new ChangeTransitionEvaluationService(
                         runtime.snapshots,
                         runtime.content,
@@ -119,8 +116,8 @@ final class MorpheusJarvisOrchestrationMcpTools {
     }
 
     private ChangeLifecycleObservation observation(Map<String, Object> arguments) {
-        Optional<String> rawState = optionalString(arguments, "lifecycleState");
-        Optional<String> rawReason = optionalString(arguments, "abandonmentReason");
+        Optional<String> rawState = McpArguments.optionalString(arguments, "lifecycleState");
+        Optional<String> rawReason = McpArguments.optionalString(arguments, "abandonmentReason");
         if (rawState.isEmpty()) {
             if (rawReason.isPresent()) {
                 throw new IllegalArgumentException("abandonmentReason requires lifecycleState=ABANDONED");
@@ -180,32 +177,6 @@ final class MorpheusJarvisOrchestrationMcpTools {
                 "enum", java.util.Arrays.stream(ChangeAbandonmentReason.values()).map(Enum::name).toList());
     }
 
-    private String requiredString(Map<String, Object> arguments, String key) {
-        return optionalString(arguments, key)
-                .orElseThrow(() -> new IllegalArgumentException("missing required MCP argument: " + key));
-    }
-
-    private Optional<String> optionalString(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (value == null) {
-            return Optional.empty();
-        }
-        if (!(value instanceof String text) || text.isBlank()) {
-            throw new IllegalArgumentException(key + " must be a non-blank string");
-        }
-        return Optional.of(text.trim());
-    }
-
-    private boolean bool(Map<String, Object> arguments, String key, boolean defaultValue) {
-        Object value = arguments.get(key);
-        if (value == null) {
-            return defaultValue;
-        }
-        if (!(value instanceof Boolean bool)) {
-            throw new IllegalArgumentException(key + " must be a boolean");
-        }
-        return bool;
-    }
 
     private ChangeLifecycleState lifecycleState(String value, String name) {
         try {
@@ -226,8 +197,4 @@ final class MorpheusJarvisOrchestrationMcpTools {
         }
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

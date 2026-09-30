@@ -29,6 +29,21 @@ import java.util.Objects;
 public final class MorpheusMcpServer {
     public static final String SERVER_NAME = "morpheus";
     public static final String SERVER_VERSION = ProductMetadata.version();
+    /** The peer closed stdin: the session ended the way the protocol says it ends. */
+    public static final int EXIT_END_OF_INPUT = 0;
+    /**
+     * The transport failed the session closed, or the wait was interrupted before end of input. Converges with
+     * {@code CliExitCode.IO_ERROR} without depending on the CLI, which depends on this module; the equality is
+     * pinned by a test in morpheus-architecture-tests (ADR-0106).
+     */
+    public static final int EXIT_TRANSPORT_FAILURE = 5;
+    /**
+     * What a client should do when a response overflows the MCP frame. The transport knows no catalog, so this layer
+     * says it. Generic on purpose: the tool that overflowed is not known here either, only that paginated read tools
+     * share one pair of parameters.
+     */
+    static final String OVERSIZED_RESPONSE_GUIDANCE =
+            "paginated read tools accept offset and limit: retry with a smaller limit, then page with offset";
 
     private MorpheusMcpServer() {
     }
@@ -48,6 +63,7 @@ public final class MorpheusMcpServer {
         return build(databasePath, resolverRegistry, technicalContextProvider, deniedWrites());
     }
 
+    @SuppressWarnings("java:S106") // System.out is the actual MCP wire-protocol stream, not a log write.
     public static McpSyncServer build(
             Path databasePath,
             ExternalReferenceResolverRegistry resolverRegistry,
@@ -58,7 +74,7 @@ public final class MorpheusMcpServer {
                 resolverRegistry,
                 technicalContextProvider,
                 writeCapabilityResolver,
-                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper()));
+                transport(System.in, System.out));
     }
 
     static McpSyncServer build(Path databasePath, InputStream inputStream, OutputStream outputStream) {
@@ -69,12 +85,17 @@ public final class MorpheusMcpServer {
                 new ExternalReferenceResolverRegistry(List.of()),
                 disabledNexus(),
                 deniedWrites(),
-                new BoundedStdioServerTransportProvider(
-                        McpJsonDefaults.getMapper(),
-                        inputStream,
-                        outputStream,
-                        BoundedStdioServerTransportProvider.DEFAULT_MAX_FRAME_BYTES,
-                        BoundedStdioServerTransportProvider.DEFAULT_MAX_PENDING_MESSAGES));
+                transport(inputStream, outputStream));
+    }
+
+    private static BoundedStdioServerTransportProvider transport(InputStream inputStream, OutputStream outputStream) {
+        return new BoundedStdioServerTransportProvider(
+                McpJsonDefaults.getMapper(),
+                inputStream,
+                outputStream,
+                BoundedStdioServerTransportProvider.DEFAULT_MAX_FRAME_BYTES,
+                BoundedStdioServerTransportProvider.DEFAULT_MAX_PENDING_MESSAGES,
+                OVERSIZED_RESPONSE_GUIDANCE);
     }
 
     private static McpSyncServer build(
@@ -91,6 +112,27 @@ public final class MorpheusMcpServer {
         try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(databasePath)) {
             new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
         }
+        List<McpServerFeatures.SyncToolSpecification> tools = toolSpecifications(
+                databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver);
+
+        return McpServer.sync(transport)
+                .serverInfo(SERVER_NAME, SERVER_VERSION)
+                .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
+                .validateToolInputs(true)
+                .tools(tools)
+                .build();
+    }
+
+    /**
+     * Every tool this server serves, assembled once so a contract test can hold the same list the transport
+     * does. A thirteenth tool class wired into the server but absent from the failure contract would otherwise
+     * be invisible to the tests that exist to catch exactly that.
+     */
+    static List<McpServerFeatures.SyncToolSpecification> toolSpecifications(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver) {
         MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
         MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath);
         List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
@@ -110,13 +152,15 @@ public final class MorpheusMcpServer {
         tools.addAll(new MorpheusJarvisOrchestrationMcpTools(databasePath).specifications());
         tools.addAll(new MorpheusCompositionMcpTools(databasePath).specifications());
         tools.addAll(new MorpheusControlledLifecycleMcpTools(databasePath, writeCapabilityResolver).specifications());
+        return List.copyOf(tools);
+    }
 
-        return McpServer.sync(transport)
-                .serverInfo(SERVER_NAME, SERVER_VERSION)
-                .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
-                .validateToolInputs(true)
-                .tools(tools)
-                .build();
+    static TechnicalContextProvider unconfiguredTechnicalContext() {
+        return disabledNexus();
+    }
+
+    static ChangeWriteCapabilityResolver deniedWriteCapability() {
+        return deniedWrites();
     }
 
     public static int run(Path databasePath) {
@@ -134,13 +178,37 @@ public final class MorpheusMcpServer {
         return run(databasePath, resolverRegistry, technicalContextProvider, deniedWrites());
     }
 
+    @SuppressWarnings("java:S106") // System.out is the actual MCP wire-protocol stream, not a log write.
     public static int run(
             Path databasePath,
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
-        BoundedStdioServerTransportProvider transport =
-                new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper());
+        return serve(
+                databasePath,
+                resolverRegistry,
+                technicalContextProvider,
+                writeCapabilityResolver,
+                transport(System.in, System.out));
+    }
+
+    static int run(Path databasePath, InputStream inputStream, OutputStream outputStream) {
+        Objects.requireNonNull(inputStream, "inputStream");
+        Objects.requireNonNull(outputStream, "outputStream");
+        return serve(
+                databasePath,
+                new ExternalReferenceResolverRegistry(List.of()),
+                disabledNexus(),
+                deniedWrites(),
+                transport(inputStream, outputStream));
+    }
+
+    private static int serve(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            BoundedStdioServerTransportProvider transport) {
         McpSyncServer server = build(
                 databasePath,
                 resolverRegistry,
@@ -149,10 +217,11 @@ public final class MorpheusMcpServer {
                 transport);
         try {
             transport.awaitTermination();
-            return 0;
+            return transport.terminatedInFailure() ? EXIT_TRANSPORT_FAILURE : EXIT_END_OF_INPUT;
         } catch (InterruptedException interrupted) {
+            // The server never reached the end of its input stream, so this is not the clean exit EOF reports.
             Thread.currentThread().interrupt();
-            return 0;
+            return EXIT_TRANSPORT_FAILURE;
         } finally {
             server.close();
         }
@@ -175,16 +244,13 @@ public final class MorpheusMcpServer {
             String toolName,
             Map<String, Object> arguments) {
         try {
-            String result = service.execute(toolName, arguments == null ? Map.of() : arguments);
+            String result = service.execute(toolName, McpArguments.orEmpty(arguments));
             return McpSchema.CallToolResult.builder()
                     .addTextContent(result)
                     .isError(false)
                     .build();
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(safeMessage(expected))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
@@ -197,8 +263,4 @@ public final class MorpheusMcpServer {
                 "No WRITE_CHANGE provider capability resolver is configured for this MCP server");
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

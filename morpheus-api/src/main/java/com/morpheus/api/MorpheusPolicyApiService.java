@@ -17,6 +17,7 @@ import com.morpheus.store.sqlite.SqlitePolicyRuntime;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /** HTTP-facing M25 adapter: strict transport parsing and persistence wiring only. */
@@ -92,7 +93,7 @@ public final class MorpheusPolicyApiService {
         try (SqlitePolicyRuntime runtime = runtime()) {
             return PolicyPublicViews.override(runtime.registry().putOverride(
                     scope(request.scopeKind(), request.scopeId()), PolicyIds.PackId.parse(id), PolicyIds.RuleId.parse(ruleId),
-                    PolicyConfiguration.OverrideMode.valueOf(requireText(request.mode(), "mode").toUpperCase()),
+                    PolicyConfiguration.OverrideMode.valueOf(requireText(request.mode(), "mode").toUpperCase(Locale.ROOT)),
                     nonNegative(request.expectedRevision(), "expectedRevision"),
                     requireText(request.actor(), "actor"), requireText(request.reason(), "reason")));
         }
@@ -140,23 +141,23 @@ public final class MorpheusPolicyApiService {
             Objects.requireNonNull(request, "rules item");
             PolicyIds.RuleId id = request.id() == null || request.id().isBlank()
                     ? PolicyIds.RuleId.generate() : PolicyIds.RuleId.parse(request.id());
-            PolicyRule.Kind kind = PolicyRule.Kind.valueOf(requireText(request.kind(), "rule.kind").toUpperCase());
-            PolicyRule.Severity severity = PolicyRule.Severity.valueOf(requireText(request.severity(), "rule.severity").toUpperCase());
+            PolicyRule.Kind kind = PolicyRule.Kind.valueOf(requireText(request.kind(), "rule.kind").toUpperCase(Locale.ROOT));
+            PolicyRule.Severity severity = PolicyRule.Severity.valueOf(requireText(request.severity(), "rule.severity").toUpperCase(Locale.ROOT));
             PolicyRule.Config config = switch (kind) {
                 case CONSTRAINT_GUARD -> new PolicyRule.ConstraintGuard(
                         ChangeId.parse(requireText(request.changeId(), "rule.changeId")),
-                        ChangeLifecycleState.valueOf(requireText(request.targetState(), "rule.targetState").toUpperCase()));
+                        ChangeLifecycleState.valueOf(requireText(request.targetState(), "rule.targetState").toUpperCase(Locale.ROOT)));
                 case LIFECYCLE_GUARD -> new PolicyRule.LifecycleGuard(
                         ChangeId.parse(requireText(request.changeId(), "rule.changeId")),
-                        ChangeLifecycleState.valueOf(requireText(request.sourceState(), "rule.sourceState").toUpperCase()),
-                        ChangeLifecycleState.valueOf(requireText(request.targetState(), "rule.targetState").toUpperCase()));
+                        ChangeLifecycleState.valueOf(requireText(request.sourceState(), "rule.sourceState").toUpperCase(Locale.ROOT)),
+                        ChangeLifecycleState.valueOf(requireText(request.targetState(), "rule.targetState").toUpperCase(Locale.ROOT)));
                 case QUALITY_THRESHOLD -> new PolicyRule.QualityThreshold(
-                        PolicyRule.QualityMetric.valueOf(requireText(request.qualityMetric(), "rule.qualityMetric").toUpperCase()),
-                        PolicyRule.Comparison.valueOf(requireText(request.comparison(), "rule.comparison").toUpperCase()),
+                        PolicyRule.QualityMetric.valueOf(requireText(request.qualityMetric(), "rule.qualityMetric").toUpperCase(Locale.ROOT)),
+                        PolicyRule.Comparison.valueOf(requireText(request.comparison(), "rule.comparison").toUpperCase(Locale.ROOT)),
                         requireFinite(request.threshold(), "rule.threshold"));
                 case QUERY_ASSERTION -> new PolicyRule.QueryAssertion(
                         queryCodec.decode(requireText(request.queryDefinition(), "rule.queryDefinition")),
-                        PolicyRule.Comparison.valueOf(requireText(request.comparison(), "rule.comparison").toUpperCase()),
+                        PolicyRule.Comparison.valueOf(requireText(request.comparison(), "rule.comparison").toUpperCase(Locale.ROOT)),
                         nonNegative(request.expectedCount(), "rule.expectedCount"));
             };
             result.add(new PolicyRule(id, requireText(request.description(), "rule.description"), kind, severity, config));
@@ -165,7 +166,7 @@ public final class MorpheusPolicyApiService {
     }
 
     private PolicyScope scope(String rawKind, String rawId) {
-        String kind = requireText(rawKind, "scopeKind").toUpperCase();
+        String kind = requireText(rawKind, "scopeKind").toUpperCase(Locale.ROOT);
         String id = requireText(rawId, "scopeId");
         return switch (kind) {
             case "PROJECT" -> new PolicyScope.Project(ProjectSpecificationId.parse(id));

@@ -44,11 +44,15 @@ function Invoke-SilentSetup([string] $InstallDirValue, [string] $LogPath) {
 function Stop-ProcessTreeSafely([System.Diagnostics.Process] $Process) {
     if ($null -eq $Process) { return }
     try { if ($Process.HasExited) { return } } catch { return }
+    # Same reason as Stop-NativeProcessTree in integration/configure-mcp-clients.ps1: the ignored taskkill exit
+    # code must not reach validate-m28.ps1 through $LASTEXITCODE.
+    $PreviousExitCode = $global:LASTEXITCODE
     try {
         $TaskKill = Join-Path ([Environment]::SystemDirectory) 'taskkill.exe'
         & $TaskKill '/PID' ([string]$Process.Id) '/T' '/F' 2>&1 | Out-Null
     }
     catch { }
+    finally { $global:LASTEXITCODE = $PreviousExitCode }
     try { if (-not $Process.HasExited) { $Process.Kill() } } catch { }
 }
 

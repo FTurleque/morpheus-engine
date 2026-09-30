@@ -10,7 +10,8 @@ Workflow structuré de correction de bug pour Morpheus Engine.
 
 ### Étape 1 — Triage
 - Identifier le module affecté (domain / application / provider / store / api / mcp / cli)
-- Déterminer si le bug touche un gate milestone (M19–M28)
+- Déterminer si le bug touche un gate milestone (lire les gates actifs dans `.claude/CLAUDE.md`, ne pas
+  les supposer)
 - Classifier la sévérité : critique (régression gate) / majeure (comportement incorrect) / mineure (edge case)
 
 ### Étape 2 — Reproduction
@@ -44,5 +45,5 @@ Fichier: src/main/java/.../Foo.java:42
 Cause: <une phrase sur le pourquoi>
 Fix: <une phrase sur le quoi>
 Tests: ✅ <N> tests passants, 0 régression
-Gates: ✅ M28 intact
+Gates: ✅ <gates actifs lus en live> intacts
 ```

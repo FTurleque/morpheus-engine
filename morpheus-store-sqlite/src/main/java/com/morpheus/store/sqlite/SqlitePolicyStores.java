@@ -9,7 +9,7 @@ import java.util.Objects;
 /**
  * The SQLite stores a policy runtime reads from, opened together and released together.
  *
- * <p>Three adapters expose policy, and each opened the same seven stores in the same order. Opening several
+ * <p>Three adapters expose policy, and each opened the same eight stores in the same order. Opening several
  * stores is where a partial assembly leaks, so the set is opened in one place that gets that right once: each
  * store is registered with the caller's {@link StartupOwnership} as it opens, and the caller transfers only
  * when the whole runtime it is building is complete.</p>
@@ -21,7 +21,8 @@ public record SqlitePolicyStores(
         SqliteTraceabilityStore traceability,
         SqliteExternalReferenceStore externalReferences,
         SqlitePortfolioStore portfolios,
-        SqlitePolicyPackStore policies) implements AutoCloseable {
+        SqlitePolicyPackStore policies,
+        SqliteCompositionStateStore compositions) implements AutoCloseable {
 
     /**
      * Opens the set, registering each store with the ownership the caller is still assembling under.
@@ -42,7 +43,8 @@ public record SqlitePolicyStores(
                 owned.keep(new SqliteTraceabilityStore(databasePath), SqliteTraceabilityStore::close),
                 owned.keep(new SqliteExternalReferenceStore(databasePath), SqliteExternalReferenceStore::close),
                 owned.keep(new SqlitePortfolioStore(databasePath), SqlitePortfolioStore::close),
-                owned.keep(new SqlitePolicyPackStore(databasePath), SqlitePolicyPackStore::close));
+                owned.keep(new SqlitePolicyPackStore(databasePath), SqlitePolicyPackStore::close),
+                owned.keep(new SqliteCompositionStateStore(databasePath), SqliteCompositionStateStore::close));
     }
 
     /** Releases every store, in the reverse of the order they were opened, even when one release fails. */
@@ -50,6 +52,7 @@ public record SqlitePolicyStores(
     public void close() {
         ExhaustiveShutdown.releaseAll(
                 "cannot close the SQLite policy store set",
+                compositions,
                 policies,
                 portfolios,
                 externalReferences,

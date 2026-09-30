@@ -43,7 +43,8 @@ class SyncReliabilityFallbackTest {
                         Optional.of("r1"),
                         Optional.of(SyncPlan.SyncMode.FULL_REBUILD),
                         Optional.empty(),
-                        99)),
+                        99,
+                        1L)),
                 Optional.of(baseline));
 
         SyncPlan plan = new IncrementalSyncService(store).prepare(
@@ -198,7 +199,8 @@ class SyncReliabilityFallbackTest {
                             inventory.sourceRevision(),
                             Optional.of(SyncPlan.SyncMode.FULL_REBUILD),
                             Optional.empty(),
-                            inventory.entries().size())),
+                            inventory.entries().size(),
+                            1L)),
                     Optional.of(inventory));
         }
 
@@ -218,8 +220,9 @@ class SyncReliabilityFallbackTest {
         }
 
         @Override
-        public void recordAttempt(
+        public long recordAttempt(
                 ProjectSpecificationId projectId,
+                long expectedRevision,
                 Instant attemptedAt,
                 Optional<SyncPlan.FullRebuildReason> pendingFullRebuildReason) {
             ProjectSyncState previous = state.orElse(ProjectSyncState.empty(projectId));
@@ -231,12 +234,15 @@ class SyncReliabilityFallbackTest {
                     previous.sourceRevision(),
                     previous.lastSuccessfulMode(),
                     pendingFullRebuildReason,
-                    previous.currentSourceCount()));
+                    previous.currentSourceCount(),
+                    previous.revision() + 1));
+            return previous.revision() + 1;
         }
 
         @Override
-        public void commitSuccessfulSync(
+        public long commitSuccessfulSync(
                 SourceInventory inventory,
+                long expectedRevision,
                 SyncPlan.SyncMode mode,
                 Instant attemptedAt,
                 Instant completedAt,
@@ -256,10 +262,12 @@ class SyncReliabilityFallbackTest {
                     inventory.sourceRevision(),
                     Optional.of(mode),
                     Optional.empty(),
-                    inventory.entries().size()));
+                    inventory.entries().size(),
+                    expectedRevision + 1));
             if (throwAfterCommit) {
                 throw new IllegalStateException("synthetic committed cleanup failure");
             }
+            return expectedRevision + 1;
         }
     }
 }

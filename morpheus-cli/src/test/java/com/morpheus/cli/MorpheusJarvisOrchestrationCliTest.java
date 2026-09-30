@@ -75,6 +75,34 @@ class MorpheusJarvisOrchestrationCliTest {
         assertTrue(requiresInput.stdout().contains("ABANDONMENT_REASON_REQUIRED"), requiresInput.stdout());
     }
 
+    /**
+     * An empty --lifecycle used to be read as no observation (UNAVAILABLE), and an empty --abandonment-reason as no
+     * reason (REQUIRES_INPUT), each with exit code 0: the answer to a question the caller did not ask.
+     */
+    @Test
+    void anEmptyObservationIsRefusedInsteadOfBeingAnsweredAsAnOmittedOne() {
+        Seed seed = seed(tempDirectory.resolve("blank-data"));
+
+        Invocation emptyLifecycle = invokeWithData(
+                seed.data(), "--json", "change-orchestration", "state",
+                "--project", seed.projectId(), "--change", seed.changeId(), "--lifecycle", "");
+        Invocation blankReason = invokeWithData(
+                seed.data(), "--json", "change-orchestration", "transition-check",
+                "--project", seed.projectId(), "--change", seed.changeId(),
+                "--from", "DRAFT", "--to", "ABANDONED", "--abandonment-reason", "  ");
+        Invocation omitted = invokeWithData(
+                seed.data(), "--json", "change-orchestration", "state",
+                "--project", seed.projectId(), "--change", seed.changeId());
+
+        assertEquals(CliExitCode.USAGE.code(), emptyLifecycle.exitCode(), emptyLifecycle.stderr());
+        assertTrue(emptyLifecycle.stderr().contains("--lifecycle requires a non-blank value"), emptyLifecycle.stderr());
+        assertEquals(CliExitCode.USAGE.code(), blankReason.exitCode(), blankReason.stderr());
+        assertTrue(blankReason.stderr().contains("--abandonment-reason requires a non-blank value"),
+                blankReason.stderr());
+        assertEquals(0, omitted.exitCode(), omitted.stderr());
+        assertTrue(omitted.stdout().contains("\"source\":\"UNAVAILABLE\""), omitted.stdout());
+    }
+
     private Seed seed(Path data) {
         Path fixture = fixture("openspec-basic");
         Invocation add = invokeWithData(data, "projects", "add", "--workspace", fixture.toString());

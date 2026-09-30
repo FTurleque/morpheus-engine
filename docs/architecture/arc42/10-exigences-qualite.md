@@ -182,6 +182,34 @@ fixture + threshold + test > prose estimate
 Si un nouveau SLO produit est requis, il doit être mesurable, versionné et
 qualifié avant d'être présenté comme garanti.
 
+### Où lire la preuve qui fait autorité
+
+Conformément à §10.5, le scénario de performance pointe vers ses gates plutôt
+que vers une valeur recopiée ici. Les budgets sont **portés par les gates
+eux-mêmes**, sous forme de constantes, dans
+`morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m19/` :
+
+| Gate | Couvre |
+|---|---|
+| `M19PerformanceGate` | scan d'inventaire, plan incrémental, empreinte mémoire |
+| `M19QueryPerformanceGate` | exécution du Query DSL |
+| `M19CompositionPerformanceGate` | composition multi-provider |
+| `M19TraceabilityPerformanceGate` | traversée de traçabilité |
+| `M19FullPublishPerformanceGate` | cycle de publication complet |
+
+Le contrat de fixture qu'ils partagent est `M19LargeFixtureContractTest`, outillé
+par `M19LargeFixtureSupport` ; les jeux de données déterministes vivent dans
+`experiments/m0/fixtures/`. La déclaration gelée des budgets et le protocole de
+mesure sont [`../../roadmap/M19_PERFORMANCE_BUDGETS.md`](../../roadmap/M19_PERFORMANCE_BUDGETS.md)
+(document daté M19-S1, `FROZEN BEFORE OPTIMIZATION` — c'est une preuve
+historique, pas un état courant). La décision qui institue ces budgets
+pré-déclarés sur fixtures larges déterministes est
+[ADR-0085](../../adr/0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md).
+
+**Cette page ne reproduit aucun seuil.** Un budget se lit dans la constante du
+gate qui l'applique — une valeur recopiée ici deviendrait périmée sans que rien
+ne le signale, et un gate qui change resterait vrai pendant que la page mentirait.
+
 ---
 
 ## 10.4 Portabilité
@@ -196,10 +224,13 @@ Linux
 macOS n'est pas déclaré supporté par simple analogie avec Linux. Son ajout doit
 être une décision produit accompagnée de packaging et de qualification dédiés.
 
-Depuis la passe post-audit A-09, `ci.yml` porte une lane `macos-smoke` **advisory**
-(`continue-on-error: true`) qui exécute le reactor complet sur `macos-latest` et
+Depuis la passe post-audit A-09, une lane `macos-smoke` **advisory**
+(`continue-on-error: true`) exécute le reactor complet sur `macos-latest` et
 publie les faits système observés. Elle transforme « macOS inconnu » en « macOS
-observé ».
+observé ». Elle vit dans `nightly.yml` et tourne sur une **cadence bornée**
+quotidienne, plus par pull request : le constat qu'elle produit est une propriété
+de la plateforme et de l'invariant de lien symbolique, pas du changement examiné —
+il ne varie donc pas d'une pull request à l'autre.
 
 **Observation n'est pas qualification** : cette lane ne produit aucun artefact de
 distribution, et la liste des plateformes qualifiées ci-dessus est inchangée.

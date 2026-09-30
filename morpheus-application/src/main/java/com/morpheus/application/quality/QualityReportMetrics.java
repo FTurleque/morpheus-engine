@@ -47,6 +47,8 @@ public record QualityReportMetrics(
         if (coveredTasks + uncoveredTasks != totalTasks) {
             throw new IllegalArgumentException("covered + uncovered must equal total tasks");
         }
+        // Both ratios are 1.0 over an empty population. That is a validation filler, not a measurement: see
+        // requirementCoverageStatus() and taskCoverageStatus(), which every surface reads before the ratio.
         double expectedRequirementRatio = totalRequirements == 0
                 ? 1.0
                 : (double) linkedRequirements / totalRequirements;
@@ -67,6 +69,21 @@ public record QualityReportMetrics(
                 || sum(findingsByEvidenceKind) != totalFindings) {
             throw new IllegalArgumentException("finding count maps must each sum to totalFindings");
         }
+    }
+
+    /**
+     * Whether {@link #requirementCoverageRatio()} measures anything. Over zero CURRENT requirements the ratio is 1.0
+     * by convention; read as a coverage it would pass any threshold for a project that ingested nothing. This is the
+     * single test of that condition: the policy frontier, the compact view and the CLI read it here, because a second
+     * copy would drift, and the weaker copy is the one that publishes 1.0.
+     */
+    public CoverageRatioStatus requirementCoverageStatus() {
+        return totalRequirements == 0 ? CoverageRatioStatus.UNDEFINED_EMPTY_POPULATION : CoverageRatioStatus.MEASURED;
+    }
+
+    /** Whether {@link #taskCoverageRatio()} measures anything; see {@link #requirementCoverageStatus()}. */
+    public CoverageRatioStatus taskCoverageStatus() {
+        return totalTasks == 0 ? CoverageRatioStatus.UNDEFINED_EMPTY_POPULATION : CoverageRatioStatus.MEASURED;
     }
 
     private static Map<QualityFindingCode, Integer> immutableCodeCounts(

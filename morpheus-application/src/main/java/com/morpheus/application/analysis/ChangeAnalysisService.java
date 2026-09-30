@@ -309,6 +309,15 @@ public final class ChangeAnalysisService {
                 maxDepth,
                 traversalDirection,
                 DEPENDS_ON_ONLY);
+        subgraph.truncationReason().ifPresent(reason -> warnings.add(new ChangeAnalysisWarning(
+                ChangeAnalysisWarningCode.TRACEABILITY_TRAVERSAL_TRUNCATED,
+                DiagnosticSeverity.WARNING,
+                Optional.of(requirementId),
+                "Dependency traversal stopped before observing every dependency within the requested depth",
+                Map.of(
+                        "direction", impactDirection.name(),
+                        ChangeAnalysisWarning.TRUNCATION_REASON, reason,
+                        "snapshotId", snapshotId.toString()))));
         for (TraceabilityEntityRef target : subgraph.nodes()) {
             if (target.equals(root)) {
                 continue;

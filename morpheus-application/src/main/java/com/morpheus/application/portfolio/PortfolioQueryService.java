@@ -1,5 +1,7 @@
 package com.morpheus.application.portfolio;
 
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.domain.portfolio.CrossProjectReference;
 import com.morpheus.domain.portfolio.PortfolioDefinition;
@@ -55,7 +57,7 @@ public final class PortfolioQueryService {
             int limit) {
         requirePortfolio(portfolioId);
         if (store.findMembership(portfolioId, projectId).isEmpty()) {
-            throw new IllegalArgumentException("project is not a portfolio member: " + projectId);
+            throw new EntityStateException("project is not a portfolio member: " + projectId);
         }
         List<CrossProjectReference> scoped = store.listReferences(portfolioId).stream()
                 .filter(item -> item.source().projectId().equals(projectId)
@@ -92,7 +94,7 @@ public final class PortfolioQueryService {
 
     private PortfolioDefinition requirePortfolio(PortfolioId portfolioId) {
         return store.findPortfolio(Objects.requireNonNull(portfolioId, "portfolioId"))
-                .orElseThrow(() -> new IllegalArgumentException("unknown portfolio: " + portfolioId));
+                .orElseThrow(() -> new EntityNotFoundException("unknown portfolio: " + portfolioId));
     }
 
     private <T> List<T> page(List<T> source, int offset, int limit) {

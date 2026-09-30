@@ -25,3 +25,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Permissions Claude Code propres a une machine : .claude/settings.json porte
+# ce dont tout contributeur a besoin, settings.local.json le reste.
+.claude/settings.local.json

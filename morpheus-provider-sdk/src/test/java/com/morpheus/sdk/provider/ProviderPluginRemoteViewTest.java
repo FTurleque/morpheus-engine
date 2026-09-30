@@ -151,7 +151,8 @@ class ProviderPluginRemoteViewTest {
 
         ProviderPluginViews.DiscoveryView local = ProviderPluginViews.discovery(result);
 
-        assertEquals(pluginDirectory.toString(), local.directory());
+        // The directory actually scanned: its real path, which on a Windows runner expands the 8.3 temp name.
+        assertEquals(pluginDirectory.toRealPath().toString(), local.directory());
         assertTrue(local.candidates().getFirst().jarPath().endsWith("acme-provider.jar"));
     }
 }

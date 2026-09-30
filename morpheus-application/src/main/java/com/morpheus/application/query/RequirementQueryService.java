@@ -9,7 +9,6 @@ import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
-import com.morpheus.domain.temporal.TemporalState;
 
 import java.util.Comparator;
 import java.util.List;
@@ -61,8 +60,7 @@ public final class RequirementQueryService {
             KnowledgeSnapshotMetadata snapshot,
             RequirementSearchQuery query,
             PageRequest pageRequest) {
-        List<RequirementVersionRecord> matches = requirementStore.listRequirementVersions(snapshot.id()).stream()
-                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+        List<RequirementVersionRecord> matches = requirementStore.listCurrentRequirementVersions(snapshot.id()).stream()
                 .filter(record -> matches(record.entityVersion().content(), query))
                 .sorted(REQUIREMENT_ORDER)
                 .toList();

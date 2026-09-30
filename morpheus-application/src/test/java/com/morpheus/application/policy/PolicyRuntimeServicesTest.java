@@ -1,5 +1,6 @@
 package com.morpheus.application.policy;
 
+import com.morpheus.application.composition.CompositionStateStore;
 import com.morpheus.application.store.ExternalReferenceStore;
 import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.application.store.PortfolioStore;
@@ -35,7 +36,8 @@ class PolicyRuntimeServicesTest {
                 unusedPort(TraceabilityStore.class),
                 unusedPort(ExternalReferenceStore.class),
                 unusedPort(PortfolioStore.class),
-                unusedPort(PolicyPackStore.class));
+                unusedPort(PolicyPackStore.class),
+                unusedPort(CompositionStateStore.class));
 
         assertNotNull(services.registry(), "the pack registry must be wired");
         assertNotNull(services.evaluation(), "the evaluation service must be wired");
@@ -51,7 +53,8 @@ class PolicyRuntimeServicesTest {
         PortfolioStore portfolio = unusedPort(PortfolioStore.class);
 
         assertThrows(NullPointerException.class, () -> PolicyRuntimeServices.from(
-                specifications, requirements, businessContent, traceability, externalReferences, portfolio, null));
+                specifications, requirements, businessContent, traceability, externalReferences, portfolio, null,
+                unusedPort(CompositionStateStore.class)));
     }
 
     @Test
@@ -63,7 +66,8 @@ class PolicyRuntimeServicesTest {
                 unusedPort(TraceabilityStore.class),
                 unusedPort(ExternalReferenceStore.class),
                 unusedPort(PortfolioStore.class),
-                unusedPort(PolicyPackStore.class));
+                unusedPort(PolicyPackStore.class),
+                unusedPort(CompositionStateStore.class));
         PolicyEvaluationService evaluation = services.evaluation();
         PolicyPackService registry = services.registry();
 

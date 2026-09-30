@@ -1,8 +1,8 @@
 # Mettre MORPHEUS à niveau de 1.0.0 vers 1.1.0
 
-Statut : **GUIDE CANDIDAT — 1.1.0 NON ENCORE PUBLIÉE**
+Statut : **ACTIVE — MORPHEUS 1.1.0 PUBLIÉ**
 
-Ce guide décrit la procédure contrôlée d'upgrade depuis la release stable `v1.0.0` vers la candidate `v1.1.0`.
+Ce guide décrit la procédure contrôlée d'upgrade depuis la release stable `v1.0.0` vers la release stable `v1.1.0`. Pour passer ensuite en 1.2.0, voir [`UPGRADE_1_2.md`](UPGRADE_1_2.md).
 
 ## Ce qui change
 

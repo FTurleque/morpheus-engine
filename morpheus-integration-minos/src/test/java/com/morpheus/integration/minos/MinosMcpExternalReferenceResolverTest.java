@@ -51,6 +51,29 @@ class MinosMcpExternalReferenceResolverTest {
     }
 
     @Test
+    void aFullPageWithoutTheExactSymbolIsUnavailableNeverNotFound() {
+        MinosMcpExternalReferenceResolver resolver = new MinosMcpExternalReferenceResolver(
+                () -> new FakeGateway(status(), List.of(symbol(KEY + "Helper", "helper")), true));
+
+        ExternalReferenceResolverResult result = resolver.resolve(target(Optional.empty()));
+
+        assertEquals(ExternalReferenceResolverResult.Status.UNAVAILABLE, result.status());
+    }
+
+    @Test
+    void anExhaustiveSearchWithoutTheExactSymbolStaysNotFoundAndATruncatedOneStillFindsItsMatch() {
+        MinosMcpExternalReferenceResolver exhaustive = new MinosMcpExternalReferenceResolver(
+                () -> new FakeGateway(status(), List.of(symbol(KEY + "Helper", "helper")), false));
+        MinosMcpExternalReferenceResolver truncatedButPresent = new MinosMcpExternalReferenceResolver(
+                () -> new FakeGateway(status(), List.of(symbol(KEY, "id")), true));
+
+        assertEquals(ExternalReferenceResolverResult.Status.NOT_FOUND,
+                exhaustive.resolve(target(Optional.empty())).status());
+        assertEquals(ExternalReferenceResolverResult.Status.FOUND,
+                truncatedButPresent.resolve(target(Optional.empty())).status());
+    }
+
+    @Test
     void matchingRevisionIsPreservedAndMismatchOrUnsupportedTypeAreExplicit() {
         MinosMcpExternalReferenceResolver resolver = new MinosMcpExternalReferenceResolver(
                 () -> new FakeGateway(status(), List.of(symbol(KEY, "id"))));
@@ -107,10 +130,16 @@ class MinosMcpExternalReferenceResolverTest {
     private static final class FakeGateway implements MinosCodeGateway {
         private final IndexStatus status;
         private final List<Symbol> symbols;
+        private final boolean possiblyTruncated;
 
         private FakeGateway(IndexStatus status, List<Symbol> symbols) {
+            this(status, symbols, false);
+        }
+
+        private FakeGateway(IndexStatus status, List<Symbol> symbols, boolean possiblyTruncated) {
             this.status = status;
             this.symbols = List.copyOf(symbols);
+            this.possiblyTruncated = possiblyTruncated;
         }
 
         @Override
@@ -119,8 +148,8 @@ class MinosMcpExternalReferenceResolverTest {
         }
 
         @Override
-        public List<Symbol> findSymbols(String project, String query, int limit) {
-            return symbols;
+        public SymbolSearch findSymbols(String project, String query, int limit) {
+            return new SymbolSearch(symbols, possiblyTruncated);
         }
 
         @Override

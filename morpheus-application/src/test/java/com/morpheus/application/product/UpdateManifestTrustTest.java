@@ -30,7 +30,7 @@ class UpdateManifestTrustTest {
         URI remoteManifestUri = URI.create("https://updates.example.invalid/stable.properties");
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
-                () -> manifest.requireRemoteTrust(remoteManifestUri));
+                () -> manifest.requireRemoteDiscoveryContract(remoteManifestUri));
 
         assertTrue(failure.getMessage().contains("artifactUri must use https"));
     }

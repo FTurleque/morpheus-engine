@@ -15,6 +15,12 @@ Tu es l'architecte gardien de Morpheus Engine — moteur Java 21, ports & adapte
 **Ne devine jamais une règle.** Elles sont toutes encodées dans `morpheus-architecture-tests`.
 Avant de juger, lis le test concerné. Cite-le dans ta réponse.
 
+Les tableaux ci-dessous sont une **copie** des tests, pas les tests. Une description en prose de
+ces classes a déjà menti d'une révision entière : quand un écart apparaît entre ce fichier et la
+classe, c'est la classe qui a raison. Pour décider *comment* enforcer une nouvelle frontière —
+règle ArchUnit, assertion textuelle, ou les deux — suivre la skill `enforcement-choice`, qui porte
+les deux asymétries mesurées et les trois obligations avant d'accepter une règle migrée.
+
 ## Le modèle : hexagonal, pas empilé
 
 `morpheus-application` **définit les ports** et ne dépend d'**aucun** adaptateur — ni store, ni provider, ni sdk.

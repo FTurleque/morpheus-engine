@@ -197,13 +197,7 @@ final class MorpheusChangeQueryApiService {
     }
 
     private Object page(SnapshotPage<?> page, List<?> items) {
-        return map(
-                "snapshotId", page.snapshot().id().toString(),
-                "offset", page.pageRequest().offset(),
-                "limit", page.pageRequest().limit(),
-                "totalMatches", page.totalMatches(),
-                "hasMore", page.hasMore(),
-                "items", items);
+        return PagedEnvelope.snapshotPage(page, items);
     }
 
     /** LinkedHashMap preserves stable construction order before canonical JSON serialization. */

@@ -8,15 +8,20 @@ import com.morpheus.application.context.TechnicalContextRequest;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
+import com.morpheus.application.security.ServerLocationDisclosure;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusAugmentedContextApiContractTest {
@@ -158,5 +163,109 @@ class MorpheusAugmentedContextApiContractTest {
             assertTrue(response.body().contains("generated/Excluded.java"), response.body());
             assertTrue(response.body().contains("\"estimatedTokens\":222"), response.body());
         }
+    }
+
+    /**
+     * Both augmented-context routes are READ-role remotely and carry the very status object the status route
+     * projects. The property is asserted on every string value of the whole response, not on the absence of a
+     * field name: a renamed key would keep passing a field-based check while still publishing the path.
+     */
+    @Test
+    void noAugmentedContextResponseNamesWhereTheServerKeepsNexus() {
+        for (boolean available : new boolean[] {true, false}) {
+            Path database = tempDirectory.resolve("nex1-" + available + ".db");
+            try (MorpheusHttpServer server = MorpheusHttpServer.start(
+                    database, "127.0.0.1", 0, new ExternalReferenceResolverRegistry(List.of()),
+                    () -> new ExternalIntegrationStatus("MINOS", "DISABLED", false, "MINOS disabled", Map.of()),
+                    launchedNexus(available))) {
+                String projectId = http.field(http.postJson(server, "/projects",
+                        "{\"workspace\":" + http.jsonString(http.fixture("openspec-basic").toString()) + "}").body(),
+                        "projectId");
+                http.post(server, "/projects/" + projectId + "/sync");
+                String requirementId = http.field(
+                        http.get(server, "/projects/" + projectId + "/requirements?query=session").body(), "id");
+                String changeId = http.field(http.get(server, "/projects/" + projectId + "/changes").body(), "id");
+                String body = "{\"nexusProject\":\"morpheus-engine\"}";
+
+                ApiTestSupport.Response requirement = http.postJson(server,
+                        "/projects/" + projectId + "/requirements/" + requirementId + "/augmented-context", body);
+                ApiTestSupport.Response change = http.postJson(server,
+                        "/projects/" + projectId + "/changes/" + changeId + "/augmented-context", body);
+
+                for (ApiTestSupport.Response response : List.of(requirement, change)) {
+                    assertEquals(200, response.status(), response.body());
+                    for (String value : technicalContextStrings(response.body())) {
+                        assertFalse(ServerLocationDisclosure.namesAServerLocation(value),
+                                () -> "augmented context named a server location: " + value);
+                    }
+                    assertTrue(response.body().contains("\"jarPathConfigured\":\"true\""), response.body());
+                    assertTrue(response.body().contains("\"homeDirectoryConfigured\":\"true\""), response.body());
+                    assertTrue(response.body().contains("\"javaCommandConfigured\":\"true\""), response.body());
+                    if (available) {
+                        assertTrue(response.body().contains("\"projectId\":\"nexus-project-id\""), response.body());
+                        assertTrue(response.body().contains("\"projectName\":\"morpheus-engine\""), response.body());
+                        assertTrue(response.body().contains("\"estimatedTokens\":\"222\""), response.body());
+                    } else {
+                        assertTrue(response.body().contains("\"state\":\"UNAVAILABLE\""), response.body());
+                    }
+                }
+            }
+        }
+    }
+
+    private static List<String> technicalContextStrings(String body) {
+        JsonNode context = JsonMapper.builder().build().readTree(body).findValue("technicalContext");
+        List<String> values = new ArrayList<>();
+        collectStrings(context, values);
+        return values;
+    }
+
+    private static void collectStrings(JsonNode node, List<String> into) {
+        if (node.isString()) {
+            into.add(node.asString());
+        }
+        node.forEach(child -> collectStrings(child, into));
+    }
+
+    private static TechnicalContextProvider launchedNexus(boolean available) {
+        Map<String, String> settings = Map.of(
+                "javaCommand", "/usr/lib/jvm/temurin-21/bin/java",
+                "jar", "tools/nexus/nexus-server.jar",
+                "home", "/home/alice/.nexus",
+                "timeoutSeconds", "30");
+        return new TechnicalContextProvider() {
+            @Override
+            public String system() {
+                return "NEXUS";
+            }
+
+            @Override
+            public ExternalIntegrationStatus status() {
+                return new ExternalIntegrationStatus("NEXUS", "AVAILABLE", true, "NEXUS MCP integration is available", settings);
+            }
+
+            @Override
+            public TechnicalContextObservation build(TechnicalContextRequest request) {
+                Map<String, String> details = new java.util.LinkedHashMap<>(settings);
+                if (!available) {
+                    return TechnicalContextObservation.unavailable(new ExternalIntegrationStatus(
+                            "NEXUS", "UNAVAILABLE", true,
+                            "NEXUS integration is unavailable: Cannot run program \"/usr/lib/jvm/temurin-21/bin/java\"",
+                            details));
+                }
+                details.put("projectId", "nexus-project-id");
+                details.put("projectName", "morpheus-engine");
+                details.put("estimatedTokens", "222");
+                TechnicalContextBundle bundle = new TechnicalContextBundle(
+                        "nexus-project-id", request.options().externalProject(), request.query(), false, 1,
+                        request.options().tokenBudget(), 222,
+                        List.of(new TechnicalContextItem(
+                                "SYMBOL", "src/main/java/SessionService.java", "SessionService", 11, 21,
+                                "class SessionService {}", 0.5, Map.of(), List.of(), 222, false)),
+                        List.of(), Map.of("engine", "NEXUS"));
+                return TechnicalContextObservation.available(new ExternalIntegrationStatus(
+                        "NEXUS", "AVAILABLE", true, "NEXUS technical context built successfully", details), bundle);
+            }
+        };
     }
 }

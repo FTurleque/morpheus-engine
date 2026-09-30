@@ -15,7 +15,7 @@ M13 merge = 2f6d0df95d6e58d12a57a1ff2e31cdad636b5d8f
 Issue : **#63 — completed**  
 PR : **#64 — merged**  
 Head de code validé : `a44e8938bfa03e8b8a1039c8271a8865b871ed7d`  
-Validation : [`../VALIDATION_M13.md`](../VALIDATION_M13.md)
+Validation : [`../validation/VALIDATION_M13.md`](../validation/VALIDATION_M13.md)
 
 ## Question de sortie
 

@@ -19,6 +19,22 @@ class MorpheusQueryCliTest {
     @TempDir
     Path tempDirectory;
 
+    /** An empty --limit used to fall back to the default page size, exit code 0. */
+    @Test
+    void anEmptyOrBlankValueIsRefusedInsteadOfFallingBackToTheDefault() {
+        String project = ProjectSpecificationId.generate().toString();
+
+        Result empty = run("--json", "query", "execute", "--project", project, "--entity", "change", "--limit", "");
+        Result blank = run("--json", "query", "execute", "--project", project, "--entity", "change", "--filter", "  ");
+        Result omitted = run("--json", "query", "execute", "--project", project, "--entity", "change");
+
+        assertEquals(CliExitCode.USAGE.code(), empty.exitCode(), empty.err());
+        assertTrue(empty.err().contains("--limit requires a non-blank value"), empty.err());
+        assertEquals(CliExitCode.USAGE.code(), blank.exitCode(), blank.err());
+        assertTrue(blank.err().contains("--filter requires a non-blank value"), blank.err());
+        assertEquals(CliExitCode.SUCCESS.code(), omitted.exitCode(), omitted.err());
+    }
+
     @Test
     void executesProviderNeutralProjectQueryWithStructuredJson() {
         ProjectSpecificationId project = ProjectSpecificationId.generate();
@@ -112,6 +128,37 @@ class MorpheusQueryCliTest {
         assertEquals("\"id\",\"projectId\",\"title\"\n", exported.out());
         assertEquals(CliExitCode.SUCCESS.code(), after.exitCode(), after.err());
         assertTrue(after.out().contains("\"revision\":1"), after.out());
+    }
+
+    /**
+     * An export is always complete, so a page has nothing to apply to. {@code --limit} and {@code --offset} used to
+     * be on the allowlist of {@code export query} and be ignored: a caller who bounded the export got all of it.
+     */
+    @Test
+    void anExportRefusesAPageAndSaysWhy() {
+        String project = ProjectSpecificationId.generate().toString();
+
+        for (String paging : new String[] {"--limit", "--offset"}) {
+            Result refused = run("export", "query", "--format", "json", "--project", project,
+                    "--entity", "requirement", paging, "10");
+
+            assertEquals(CliExitCode.USAGE.code(), refused.exitCode(), paging + " " + refused.err());
+            assertTrue(refused.err().contains(paging + " is not accepted by export"), refused.err());
+            assertTrue(refused.err().contains("always complete"), refused.err());
+            assertEquals("", refused.out(), "a refused export must print nothing");
+        }
+        Result complete = run("export", "query", "--format", "json", "--project", project, "--entity", "requirement");
+        assertEquals(CliExitCode.SUCCESS.code(), complete.exitCode(), complete.err());
+        assertTrue(complete.out().contains("\"totalMatches\":0"), complete.out());
+    }
+
+    @Test
+    void theHelpSaysAnExportTakesNoPage() {
+        Result help = run("help");
+
+        assertTrue(help.out().contains("An export is always complete"), help.out());
+        assertTrue(help.out().contains("no --offset or --limit"), help.out());
+        assertFalse(help.out().contains("export query --format json|csv|markdown (--project ID | --portfolio ID) --entity TYPE [query options]"));
     }
 
     @Test

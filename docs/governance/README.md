@@ -10,7 +10,7 @@ Les documents de ce groupe servent à piloter et auditer le projet. Ils ne sont 
 - [`../roadmap/POST_M14_EXECUTION.md`](../roadmap/POST_M14_EXECUTION.md) — roadmap détaillée D0 + M15→M20 (historique) ;
 - [`../roadmap/M18_EXECUTION.md`](../roadmap/M18_EXECUTION.md) — jalon M18 (historique, non le dernier intégré) ;
 - [`PLAN.md`](PLAN.md) — plan de cadrage C0/M0 historique ;
-- [`AUDIT_COHERENCE_C0.md`](AUDIT_COHERENCE_C0.md) — audit de cohérence C0.
+- [`../audits/README.md`](../audits/README.md) — audits datés du projet (cohérence C0, audit de `develop`).
 
 La roadmap opérationnelle d’un jalon reste la source de vérité pendant son exécution. Pour l’état d’intégration courant des jalons déjà livrés, `ROADMAP.md` prévaut sur une instruction de merge conservée dans une preuve historique.
 

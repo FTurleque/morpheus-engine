@@ -10,6 +10,7 @@ Aucun linter n'est configuré. La cohérence vient du code existant et des tests
 - Valider aux **frontières système** (entrée CLI, endpoint HTTP, outil MCP) et faire confiance au code interne
 - Rendre les échecs **explicites** : exception nommée (`SyncBaselineInconsistentException`) plutôt que retour silencieux
 - Nommer les états de rejet explicitement (`SCAN_INCOMPLETE`, `PLUGIN_SHA256_REQUIRED`, `existing-unmanaged-morpheus-entry`)
+- Préférer des **fabriques nommées** (`generate()`, `parse()`) à plusieurs constructeurs publics surchargés
 
 ## Anatomie d'un type domaine (exemple réel)
 

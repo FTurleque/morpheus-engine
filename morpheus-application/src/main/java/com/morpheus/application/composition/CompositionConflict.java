@@ -31,7 +31,7 @@ public record CompositionConflict(
         Objects.requireNonNull(resolution, "resolution");
         selectedProviderId = Objects.requireNonNull(selectedProviderId, "selectedProviderId");
         reason = requireNonBlank(reason, "reason");
-        if (resolution == CompositionResolution.SELECTED_BY_PRECEDENCE && selectedProviderId.isEmpty()) {
+        if (resolution == CompositionResolution.PRECEDENCE_RECORDED && selectedProviderId.isEmpty()) {
             throw new IllegalArgumentException("precedence resolution requires selected provider");
         }
         if (resolution == CompositionResolution.UNRESOLVED && selectedProviderId.isPresent()) {

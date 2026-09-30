@@ -157,6 +157,8 @@ morpheus tasks list --project <projectId> --change <changeId>
 
 `Scenario != AcceptanceCriterion`.
 
+Le champ `completed` d’une tâche est celui que la source a déclaré. Côté Structured Markdown, un bloc `morpheus task` sans `completed=true|false` est refusé à la synchronisation au lieu d’être publié comme inachevé (format du bloc : [QUICKSTART](QUICKSTART.md#3-préparer-un-workspace-compatible)).
+
 ## 10. Acceptance Criteria — M15
 
 ```bash
@@ -209,6 +211,15 @@ ANALYZE != PROMOTE
 ANALYZE != ACTIVATE
 ```
 
+Une trace ou un contexte de change observe au plus 1 000 nœuds et 5 000 liens. Quand la traversée s'arrête avant
+d'avoir tout vu dans la profondeur demandée, la réponse le dit : `truncationReason` (`NODE_BUDGET_REACHED:1000`,
+`LINK_BUDGET_REACHED:5000` ou `DEPTH_BUDGET_REACHED:<depth>`) et `truncated: true` en JSON, une ligne
+`truncationReason=…` en sortie texte. `analyze-change` émet alors l'avertissement `TRACEABILITY_TRAVERSAL_TRUNCATED`
+(ADR-0108). En sortie texte, `analyze-change` imprime aussi une ligne `warningCodes=…` — un code par avertissement
+compté par `warnings=`, dans l'ordre du résultat — puis une ligne `truncationReason=…` par raison distincte. Toute
+analyse porte au moins `ACCEPTANCE_CRITERIA_UNAVAILABLE` : les critères d'acceptation ne sont pas dans le modèle
+normalisé. Une traversée tronquée n'est pas un refus : le code de sortie reste `0`.
+
 ## 13. Qualité
 
 ```bash
@@ -216,6 +227,12 @@ morpheus quality --project <projectId>
 ```
 
 Les diagnostics sont dérivés et ne mutent pas le snapshot publié.
+
+Les deux couvertures (`requirementCoverage`, `taskCoverage`) sont des ratios. Quand le snapshot actif ne publie aucune
+exigence, ou aucune tâche, le ratio correspondant n'est pas une mesure : la sortie texte imprime
+`UNDEFINED_EMPTY_POPULATION` à la place du nombre. Le JSON garde le ratio (`1.0` par convention) et le qualifie par
+`requirementCoverageStatus` / `taskCoverageStatus`, qui valent `MEASURED` ou `UNDEFINED_EMPTY_POPULATION`. Une garde de
+CI écrite sur un ratio doit lire son statut d'abord.
 
 ## 14. MINOS — références de code
 
@@ -354,6 +371,21 @@ Catalogue MCP M18 : **22 tools read-only + 1 tool write explicite**.
 
 En mode MCP, `--json` n’est pas applicable : `stdout` est réservé au protocole MCP.
 
+Codes de sortie de `morpheus mcp --stdio` (ADR-0106), alignés sur la table du §19 :
+
+| Code | Nom | Signification |
+|---:|---|---|
+| 0 | `SUCCESS` | le client a fermé `stdin` : fin de session normale |
+| 5 | `IO_ERROR` | le transport a fermé la session en échec (trame entrante hors borne, JSON-RPC invalide, `stdout` rompu, file sortante saturée, traitement d’un message resté bloqué au-delà de sa borne de sécurité de quatre minutes), ou l’attente a été interrompue avant la fin de `stdin` |
+
+Une **réponse** qui dépasserait la borne de trame (1 Mio) ne ferme pas la session : le client reçoit à la place
+une erreur JSON-RPC portant le même `id` et l’état `MCP_RESPONSE_TOO_LARGE`, avec la taille produite et la borne.
+Le conseil qui l’accompagne est générique : les outils de lecture paginés acceptent `offset` et `limit`, et la
+première chose à faire est de relancer avec un `limit` plus petit, puis de paginer avec `offset`.
+`get_current_specification` en fait partie : sa page de spécifications est l'objet `specifications`, qui porte les
+mêmes clés que toute page (`offset`, `limit`, `totalMatches`, `hasMore`, `items` — ADR-0107).
+La requête suivante est servie normalement.
+
 ## 19. Codes de sortie
 
 | Code | Nom | Signification | Action typique |
@@ -364,6 +396,14 @@ En mode MCP, `--json` n’est pas applicable : `stdout` est réservé au protoco
 | 4 | `STATE_ERROR` | état incompatible ou résultat métier non applicable | inspecter le JSON |
 | 5 | `IO_ERROR` | erreur d’I/O classifiée | vérifier chemins, droits, processus externe |
 | 10 | `INTERNAL_ERROR` | erreur inattendue | conserver stderr et contexte |
+
+Un code `4` peut s'accompagner d'un JSON valide : `policy evaluate` et `policy dry-run` rendent `4` sur une décision `BLOCK` ou `UNKNOWN` (`0` sur `PASS` et `WARN`) et impriment toujours la décision.
+
+`2` est réservé à un appel mal formé. Un refus qui porte sur l'état rend `3` ou `4` : `3` quand un identifiant passé
+en argument ne désigne rien (policy pack ou version de pack, override, règle absente de la version active, saved view,
+portefeuille, fichier d'identités distant, principal) ; `4` quand ce qui est désigné existe mais que la relation ou
+l'état résultant exigé par l'opération est refusé (pack non actif dans le scope, projet non membre du portefeuille,
+principal déjà présent, dernier `ADMIN` actif révoqué, rétrogradé ou laissé expiré par `migrate-legacy`).
 
 ## 20. Patron PowerShell robuste
 

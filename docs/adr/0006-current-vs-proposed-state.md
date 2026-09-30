@@ -1,6 +1,6 @@
 # ADR-0006 — Distinguer structurellement l'état courant des changements proposés
 
-- Statut : **Proposée — à valider pendant C0 et M0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Portée : sémantique fondamentale du modèle
 

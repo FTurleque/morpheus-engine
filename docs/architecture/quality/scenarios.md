@@ -199,12 +199,19 @@ milestone fonctionnel livré.
 macOS n'est **pas** une plateforme publiée ou supportée par la baseline actuelle.
 Aucun packaging macOS n'est produit et aucun engagement de support n'est pris.
 
-Ce qui a changé : la lane `macos-smoke` de `ci.yml` fait tourner le reactor complet
+Ce qui a changé : la lane `macos-smoke` de `nightly.yml` fait tourner le reactor complet
 sur `macos-latest` et enregistre les faits système dont MORPHEUS dépend
 (sensibilité à la casse, permissions POSIX sur `TMPDIR`, création de liens
 symboliques, version Java). Elle est **advisory** — `continue-on-error: true` —
 parce qu'une plateforme jamais qualifiée ne doit pas bloquer les pull requests, et
 parce qu'une lane verte ne vaut pas une décision de support.
+
+Elle s'exécute sur une **cadence bornée** quotidienne et non par pull request. Le
+constat rapporté ci-dessous est stable : il découle de la façon dont macOS enracine
+son répertoire temporaire et de l'invariant de sécurité MORPHEUS, pas du changement
+sous revue. Le reproduire à chaque pull request n'ajoutait aucune information et
+laissait en permanence une entrée en échec dans la liste des checks, ce qui apprend
+à ignorer la CI. L'observation reste prise — quotidiennement — et reste publiée.
 
 | Champ | Valeur |
 |-------|--------|
@@ -212,7 +219,7 @@ parce qu'une lane verte ne vaut pas une décision de support.
 | Réponse | Observation enregistrée, sans engagement de support ni packaging |
 | Mesure | Résultat de la lane advisory + faits système publiés dans le résumé de job |
 | Seuil | Aucun — la lane est non bloquante |
-| Preuve | Job `macos-smoke` de `.github/workflows/ci.yml` |
+| Preuve | Job `macos-smoke` de `.github/workflows/nightly.yml` (cadence quotidienne bornée) |
 
 #### Premier fait observé (04/09/2026)
 

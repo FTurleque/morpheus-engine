@@ -1,11 +1,14 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyPackCodec;
 import com.morpheus.application.policy.PolicyScope;
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.domain.identity.DomainIdentity;
@@ -42,10 +45,16 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
         ensureOpen();
         Objects.requireNonNull(definition, "definition");
         Objects.requireNonNull(initialVersion, "initialVersion");
-        Objects.requireNonNull(audit, "audit");
-        if (!definition.id().equals(initialVersion.packId()) || !definition.id().equals(audit.packId())) {
+        if (!definition.id().equals(initialVersion.packId())) {
             throw new IllegalArgumentException("policy create identity mismatch");
         }
+        requireAuditTarget(
+                audit,
+                PolicyConfiguration.AuditAction.CREATE,
+                definition.id(),
+                Optional.empty(),
+                Optional.empty());
+        requireAuditVersion(audit, Optional.of(initialVersion.versionId()));
         if (findDefinition(definition.id()).isPresent()) {
             throw new PolicyConflictException("policy pack already exists: " + definition.id());
         }
@@ -153,9 +162,16 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
             PolicyPack.Version newVersion,
             PolicyConfiguration.AuditRecord audit) {
         ensureOpen();
-        if (!replacement.id().equals(packId) || !newVersion.packId().equals(packId) || !audit.packId().equals(packId)) {
+        if (!replacement.id().equals(packId) || !newVersion.packId().equals(packId)) {
             throw new IllegalArgumentException("policy update identity mismatch");
         }
+        requireAuditTarget(
+                audit,
+                PolicyConfiguration.AuditAction.UPDATE,
+                packId,
+                Optional.empty(),
+                Optional.empty());
+        requireAuditVersion(audit, Optional.of(newVersion.versionId()));
         Integer changed = transaction(() -> {
             int updated;
             try (PreparedStatement statement = connection.prepareStatement("""
@@ -179,7 +195,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
         }, "Cannot update policy pack " + packId);
         if (changed != 1) {
             PolicyPack.Definition current = findDefinition(packId)
-                    .orElseThrow(() -> new IllegalArgumentException("unknown policy pack: " + packId));
+                    .orElseThrow(() -> new EntityNotFoundException("unknown policy pack: " + packId));
             throw stale("policy pack", expectedRevision, current.revision());
         }
         return replacement;
@@ -239,16 +255,27 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                 || replacement.revision() != expectedRevision + 1) {
             throw new IllegalArgumentException("policy activation replacement mismatch");
         }
+        requireAuditTarget(
+                audit,
+                PolicyConfiguration.AuditAction.ACTIVATE,
+                packId,
+                Optional.empty(),
+                Optional.of(scope));
+        requireAuditVersion(audit, Optional.of(replacement.versionId()));
+        findVersion(packId, replacement.versionId())
+                .orElseThrow(() -> new EntityNotFoundException("unknown policy version: " + replacement.versionId()));
+
         Integer changed = transaction(() -> {
             int updated;
             if (expectedRevision == 0) {
-                if (findActivation(scope, packId).isPresent()) {
-                    return 0;
-                }
                 try (PreparedStatement statement = connection.prepareStatement("""
-                        INSERT INTO policy_pack_activations(
+                        INSERT OR IGNORE INTO policy_pack_activations(
                             scope_kind, scope_id, pack_id, version_id, revision, actor, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        SELECT ?, ?, ?, ?, ?, ?, ?
+                        WHERE (
+                            SELECT COUNT(*) FROM policy_pack_activations
+                            WHERE scope_kind = ? AND scope_id = ?
+                        ) < ?
                         """)) {
                     bindScope(statement, 1, scope);
                     statement.setString(3, packId.toString());
@@ -256,6 +283,8 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                     statement.setLong(5, replacement.revision());
                     statement.setString(6, replacement.actor());
                     statement.setString(7, replacement.updatedAt().toString());
+                    bindScope(statement, 8, scope);
+                    statement.setInt(10, PolicyBudgets.MAX_ACTIVE_PACKS_PER_SCOPE);
                     updated = statement.executeUpdate();
                 }
             } else {
@@ -282,6 +311,10 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
         }, "Cannot update policy activation");
         if (changed != 1) {
             long actual = findActivation(scope, packId).map(PolicyConfiguration.Activation::revision).orElse(0L);
+            if (expectedRevision == 0 && actual == 0) {
+                throw new IllegalArgumentException(
+                        "policy scope exceeds active pack budget: " + PolicyBudgets.MAX_ACTIVE_PACKS_PER_SCOPE);
+            }
             throw stale("policy activation", expectedRevision, actual);
         }
         return replacement;
@@ -294,6 +327,19 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
             long expectedRevision,
             PolicyConfiguration.AuditRecord audit) {
         ensureOpen();
+        requireAuditTarget(
+                audit,
+                PolicyConfiguration.AuditAction.DEACTIVATE,
+                packId,
+                Optional.empty(),
+                Optional.of(scope));
+        PolicyConfiguration.Activation before = findActivation(scope, packId).orElse(null);
+        if (before != null && before.revision() == expectedRevision) {
+            requireAuditVersion(audit, Optional.of(before.versionId()));
+        } else if (audit.versionId().isEmpty()) {
+            throw new IllegalArgumentException("policy audit target mismatch for DEACTIVATE");
+        }
+
         Integer changed = transaction(() -> {
             int deleted;
             try (PreparedStatement statement = connection.prepareStatement("""
@@ -373,16 +419,33 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                 || !replacement.ruleId().equals(ruleId) || replacement.revision() != expectedRevision + 1) {
             throw new IllegalArgumentException("policy override replacement mismatch");
         }
+        requireAuditTarget(
+                audit,
+                PolicyConfiguration.AuditAction.PUT_OVERRIDE,
+                packId,
+                Optional.of(ruleId),
+                Optional.of(scope));
+        PolicyConfiguration.Activation active = findActivation(scope, packId)
+                .orElseThrow(() -> new EntityStateException(
+                        "policy pack must be active before adding an override: " + packId));
+        requireAuditVersion(audit, Optional.of(active.versionId()));
+        PolicyIds.VersionId activeVersionId = active.versionId();
+
         Integer changed = transaction(() -> {
             int updated;
             if (expectedRevision == 0) {
-                if (findOverride(scope, packId, ruleId).isPresent()) {
-                    return 0;
-                }
                 try (PreparedStatement statement = connection.prepareStatement("""
-                        INSERT INTO policy_overrides(
+                        INSERT OR IGNORE INTO policy_overrides(
                             scope_kind, scope_id, pack_id, rule_id, mode, reason, actor, revision, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+                        WHERE EXISTS (
+                            SELECT 1 FROM policy_pack_activations
+                            WHERE scope_kind = ? AND scope_id = ? AND pack_id = ? AND version_id = ?
+                        )
+                        AND (
+                            SELECT COUNT(*) FROM policy_overrides
+                            WHERE scope_kind = ? AND scope_id = ?
+                        ) < ?
                         """)) {
                     bindScope(statement, 1, scope);
                     statement.setString(3, packId.toString());
@@ -392,6 +455,11 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                     statement.setString(7, replacement.actor());
                     statement.setLong(8, replacement.revision());
                     statement.setString(9, replacement.updatedAt().toString());
+                    bindScope(statement, 10, scope);
+                    statement.setString(12, packId.toString());
+                    statement.setString(13, activeVersionId.toString());
+                    bindScope(statement, 14, scope);
+                    statement.setInt(16, PolicyBudgets.MAX_OVERRIDES_PER_SCOPE);
                     updated = statement.executeUpdate();
                 }
             } else {
@@ -399,6 +467,10 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                         UPDATE policy_overrides
                         SET mode = ?, reason = ?, actor = ?, revision = ?, updated_at = ?
                         WHERE scope_kind = ? AND scope_id = ? AND pack_id = ? AND rule_id = ? AND revision = ?
+                          AND EXISTS (
+                              SELECT 1 FROM policy_pack_activations
+                              WHERE scope_kind = ? AND scope_id = ? AND pack_id = ? AND version_id = ?
+                          )
                         """)) {
                     statement.setString(1, replacement.mode().name());
                     statement.setString(2, replacement.reason());
@@ -410,6 +482,9 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                     statement.setString(8, packId.toString());
                     statement.setString(9, ruleId.toString());
                     statement.setLong(10, expectedRevision);
+                    bindScope(statement, 11, scope);
+                    statement.setString(13, packId.toString());
+                    statement.setString(14, activeVersionId.toString());
                     updated = statement.executeUpdate();
                 }
             }
@@ -419,7 +494,15 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
             return updated;
         }, "Cannot update policy override");
         if (changed != 1) {
+            PolicyConfiguration.Activation currentActivation = findActivation(scope, packId).orElse(null);
+            if (currentActivation == null || !currentActivation.versionId().equals(activeVersionId)) {
+                throw new PolicyConflictException("policy activation changed while updating override");
+            }
             long actual = findOverride(scope, packId, ruleId).map(PolicyConfiguration.Override::revision).orElse(0L);
+            if (expectedRevision == 0 && actual == 0) {
+                throw new IllegalArgumentException(
+                        "policy scope exceeds override budget: " + PolicyBudgets.MAX_OVERRIDES_PER_SCOPE);
+            }
             throw stale("policy override", expectedRevision, actual);
         }
         return replacement;
@@ -433,6 +516,13 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
             long expectedRevision,
             PolicyConfiguration.AuditRecord audit) {
         ensureOpen();
+        requireAuditTarget(
+                audit,
+                PolicyConfiguration.AuditAction.REMOVE_OVERRIDE,
+                packId,
+                Optional.of(ruleId),
+                Optional.of(scope));
+        requireAuditVersion(audit, Optional.empty());
         Integer changed = transaction(() -> {
             int deleted;
             try (PreparedStatement statement = connection.prepareStatement("""
@@ -590,6 +680,29 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
         }
     }
 
+    private void requireAuditTarget(
+            PolicyConfiguration.AuditRecord audit,
+            PolicyConfiguration.AuditAction action,
+            PolicyIds.PackId packId,
+            Optional<PolicyIds.RuleId> ruleId,
+            Optional<PolicyScope> scope) {
+        Objects.requireNonNull(audit, "audit");
+        if (audit.action() != action
+                || !audit.packId().equals(packId)
+                || !audit.ruleId().equals(ruleId)
+                || !audit.scope().equals(scope)) {
+            throw new IllegalArgumentException("policy audit target mismatch for " + action);
+        }
+    }
+
+    private void requireAuditVersion(
+            PolicyConfiguration.AuditRecord audit,
+            Optional<PolicyIds.VersionId> versionId) {
+        if (!audit.versionId().equals(versionId)) {
+            throw new IllegalArgumentException("policy audit version mismatch for " + audit.action());
+        }
+    }
+
     private void bindScope(PreparedStatement statement, int start, PolicyScope scope) throws SQLException {
         statement.setString(start, scopeKind(scope));
         statement.setString(start + 1, scopeId(scope));
@@ -624,7 +737,6 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
             throw new IllegalStateException("SQLite policy-pack store is closed");
         }
     }
-
 
     @FunctionalInterface
     private interface SqlWork<T> {

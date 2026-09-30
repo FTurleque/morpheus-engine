@@ -1,6 +1,6 @@
 # ADR-0011 — Sélectionner les providers par capacités et non par type de source uniquement
 
-- Statut : **Proposée — à valider pendant C0 et M0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Portée : providers, registry, orchestration d'ingestion
 

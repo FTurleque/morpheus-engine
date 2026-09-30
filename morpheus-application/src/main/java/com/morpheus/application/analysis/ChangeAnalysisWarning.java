@@ -16,6 +16,9 @@ public record ChangeAnalysisWarning(
         String message,
         Map<String, String> details) {
 
+    /** The detail that carries the reason a dependency traversal stopped; the CLI text output reads it by this name. */
+    public static final String TRUNCATION_REASON = "truncationReason";
+
     public ChangeAnalysisWarning {
         Objects.requireNonNull(code, "code");
         Objects.requireNonNull(severity, "severity");

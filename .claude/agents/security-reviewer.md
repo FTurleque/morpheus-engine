@@ -57,7 +57,10 @@ Tokens : `SecureRandom`, `TOKEN_BYTES = 32`, stockés en `sha256`, comparés par
 - `morpheus-cli/pom.xml` ne doit jamais embarquer `morpheus-provider-reference`
 
 ### 5. Persistance SQLite
-- `SUPPORTED_SCHEMA_VERSION` courant dans `SqliteServerMaintenance.java`
+- `SqliteSchemaManager` **déclare** `SUPPORTED_SCHEMA_VERSION` ; `SqliteServerMaintenance` doit
+  **consommer cette constante** et jamais restituer un littéral. Lire la valeur dans la classe qui
+  la déclare, jamais dans la classe qui la relaie, et jamais de mémoire — la reporter telle que
+  détectée (cf. `rules/meta.md`)
 - Backup : `VACUUM INTO` + `PRAGMA integrity_check` + `tryLock` + `ATOMIC_MOVE`
 - Restore : exige `"explicit confirmation"`, reste `EXPLICITLY_OFFLINE_ONLY`
 - `SqliteTransactionRunner` doit gérer `catch (Error failure)` + `rollbackSuppressing`

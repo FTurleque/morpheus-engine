@@ -6,6 +6,7 @@ import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderCapability;
 import com.morpheus.domain.provider.ProviderProbeStatus;
+import com.morpheus.domain.source.SourceLocator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -112,6 +113,45 @@ class StructuredMarkdownSpecificationContentReaderTest {
         assertEquals(1, content.tasks().size());
         assertEquals(1, content.acceptanceCriteria().size());
         assertEquals(9, content.evidence().size());
+    }
+
+    /**
+     * The project root is the workspace the reader was handed, not the file it read inside it.
+     *
+     * <p>A registered project stores its workspace root, and publication compares the root a reader publishes
+     * with the stored one. Publishing {@code morpheus/specification.md} made every markdown-only workspace
+     * unpublishable; the evidence and provenance still name that file, because that is where they were observed.</p>
+     */
+    @Test
+    void publishesTheWorkspaceRootAsProjectRootAndKeepsTheFileAsEvidenceSource() throws Exception {
+        Path source = workspace.resolve(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, """
+                ```morpheus specification
+                key=core
+                title=Core
+                ```
+                ```morpheus requirement
+                key=REQ-001
+                specification=core
+                title=Retain evidence
+                statement=The system retains source evidence.
+                ```
+                """);
+
+        EntityIdentityResolver identities = (providerId, entityType, externalId) -> DomainIdentity.generate();
+        var content = new StructuredMarkdownSpecificationContentReader()
+                .read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()), identities)
+                .content()
+                .orElseThrow();
+
+        assertEquals(
+                SourceLocator.file(workspace.toAbsolutePath().normalize().toString()),
+                content.project().rootLocator());
+        SourceLocator specificationFile = SourceLocator.file(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
+        assertFalse(content.evidence().isEmpty());
+        content.evidence().forEach(evidence -> assertEquals(specificationFile, evidence.source()));
+        assertEquals(specificationFile, content.requirements().getFirst().provenance().source());
     }
 
     @Test

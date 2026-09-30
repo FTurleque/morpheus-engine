@@ -1,6 +1,5 @@
 package com.morpheus.integration.mcp;
 
-import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.TypeRef;
 import io.modelcontextprotocol.spec.McpClientTransport;
@@ -12,8 +11,6 @@ import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 /**
@@ -42,6 +40,10 @@ import java.util.function.UnaryOperator;
  * MORPHEUS reads process streams as bounded UTF-8 bytes before JSON parsing, caps pending inbound/outbound messages,
  * minimizes inherited child-process environment, retains observed descendants for deterministic cleanup, handles stderr
  * synchronously on its reader thread, and fails closed when a peer exceeds a resource budget.</p>
+ *
+ * <p>The frame bound reacts differently in each direction (ADR-0106). A peer frame past it fails the transport
+ * closed. An outbound frame past it is MORPHEUS's own defect: a client has no pending peer request to answer, so the
+ * frame is refused to its local sender and the peer keeps running.</p>
  *
  * <p>The child-process boundary is lifecycle and environment isolation, not an operating-system security sandbox. An
  * explicitly configured MCP peer still runs as the MORPHEUS operating-system account and must therefore be trusted for
@@ -55,7 +57,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private static final Duration PROCESS_SHUTDOWN_GRACE = Duration.ofSeconds(2);
     private static final Duration PROCESS_SHUTDOWN_FORCE = Duration.ofSeconds(2);
     private static final long PROCESS_OBSERVATION_POLL_MILLIS = 10L;
-    private static final Set<String> SAFE_ENVIRONMENT_KEYS = Set.of(
+    static final Set<String> SAFE_ENVIRONMENT_KEYS = Set.of(
             "SYSTEMROOT",
             "WINDIR",
             "PATH",
@@ -93,7 +95,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private final Sinks.Many<JSONRPCMessage> inboundSink;
     private final Sinks.Many<OutboundFrame> outboundSink;
-    private final ServerParameters parameters;
+    private final McpPeerLaunch launch;
     private final McpJsonMapper jsonMapper;
     private final int maxMessageBytes;
     private final int maxPendingMessages;
@@ -111,18 +113,18 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
             System.Logger.Level.INFO, "MCP STDERR: {0}", McpDiagnosticRedactor.redact(error));
 
     public BoundedStdioClientTransport(
-            ServerParameters parameters,
+            McpPeerLaunch launch,
             McpJsonMapper jsonMapper,
             int maxInboundMessageBytes) {
-        this(parameters, jsonMapper, maxInboundMessageBytes, DEFAULT_MAX_PENDING_MESSAGES);
+        this(launch, jsonMapper, maxInboundMessageBytes, DEFAULT_MAX_PENDING_MESSAGES);
     }
 
     public BoundedStdioClientTransport(
-            ServerParameters parameters,
+            McpPeerLaunch launch,
             McpJsonMapper jsonMapper,
             int maxMessageBytes,
             int maxPendingMessages) {
-        this.parameters = Objects.requireNonNull(parameters, "parameters");
+        this.launch = Objects.requireNonNull(launch, "launch");
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
         if (maxMessageBytes < 1) throw new IllegalArgumentException("maxMessageBytes must be positive");
         if (maxPendingMessages < 1) throw new IllegalArgumentException("maxPendingMessages must be positive");
@@ -202,10 +204,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
      */
     private Process startPeer() {
         List<String> command = new ArrayList<>();
-        command.add(parameters.getCommand());
-        command.addAll(parameters.getArgs());
+        command.add(launch.command());
+        command.addAll(launch.arguments());
         ProcessBuilder builder = new ProcessBuilder(command);
-        sanitizeEnvironment(builder.environment(), parameters.getEnv());
+        sanitizeEnvironment(builder.environment(), launch.explicitEnvironment());
         synchronized (lifecycleLock) {
             if (state.get() != State.CONNECTING) {
                 throw new IllegalStateException("MCP transport was closed while connecting");
@@ -249,6 +251,8 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
             final OutboundFrame frame;
             try {
                 frame = encode(message);
+            } catch (OutboundMessageRefusedException refused) {
+                return Mono.error(refused);
             } catch (IOException failure) {
                 failClosed(failure);
                 return Mono.error(failure);
@@ -312,9 +316,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private void startInboundProcessing() {
         inboundScheduler.schedule(() -> {
-            try (InputStream input = new BufferedInputStream(process.get().getInputStream())) {
+            try (InputStream input = process.get().getInputStream()) {
+                BoundedStdioLineReader frames = new BoundedStdioLineReader(input);
                 String line;
-                while (!isClosing() && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
+                while (!isClosing() && (line = frames.readLine(maxMessageBytes)) != null) {
                     if (!processInboundLine(line)) return;
                 }
                 if (!isClosing()) inboundSink.tryEmitComplete();
@@ -343,9 +348,10 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private void startErrorProcessing() {
         errorScheduler.schedule(() -> {
-            try (InputStream input = new BufferedInputStream(process.get().getErrorStream())) {
+            try (InputStream input = process.get().getErrorStream()) {
+                BoundedStdioLineReader frames = new BoundedStdioLineReader(input);
                 String line;
-                while (!isClosing() && (line = readUtf8LineBounded(input, maxMessageBytes)) != null) {
+                while (!isClosing() && (line = frames.readLine(maxMessageBytes)) != null) {
                     handleErrorLine(line);
                 }
             } catch (MessageTooLargeException oversized) {
@@ -426,8 +432,14 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
                 .replace("\n", "\\n")
                 .replace("\r", "\\n");
         byte[] encoded = json.getBytes(StandardCharsets.UTF_8);
-        if (encoded.length > maxMessageBytes) throw new MessageTooLargeException(maxMessageBytes);
-        return new OutboundFrame(encoded);
+        if (encoded.length <= maxMessageBytes) return new OutboundFrame(encoded);
+        LOGGER.log(
+                System.Logger.Level.WARNING,
+                "MCP STDIO client refused an outbound {0} of {1} bytes past the {2}-byte frame bound",
+                OutboundMessageRefusedException.kindOf(message),
+                Integer.toString(encoded.length),
+                Integer.toString(maxMessageBytes));
+        throw new OutboundMessageRefusedException(message, encoded.length, maxMessageBytes);
     }
 
     private void failClosed(Throwable failure) {
@@ -533,14 +545,35 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private void observeTree(ProcessHandle root) {
         observedProcesses.putIfAbsent(root.pid(), root);
-        for (ProcessHandle seed : List.copyOf(observedProcesses.values())) {
-            if (!seed.isAlive()) continue;
+        for (ProcessHandle seed : pruneDeadHandles(observedProcesses, root.pid(), ProcessHandle::isAlive)) {
             try {
                 seed.descendants().forEach(handle -> observedProcesses.putIfAbsent(handle.pid(), handle));
             } catch (RuntimeException ignored) {
                 // A process can disappear between isAlive() and descendants(); retained handles remain available.
             }
         }
+    }
+
+    /**
+     * Releases every observed handle whose process is dead, except the root, and returns the handles still alive.
+     *
+     * <p>A dead process cannot be terminated, and its orphaned children are no longer reachable through any handle
+     * we hold from it -- SECURITY.md already says so. Retaining a dead handle therefore buys nothing and costs one
+     * liveness query per observation tick for the rest of the peer's life. Live descendants stay retained: that
+     * retention is the documented lifecycle guarantee. The root stays whatever its state, because shutdown and
+     * teardown start from it. Removal is by key and value, so a handle observed under a reused PID in the meantime
+     * is not released in place of the dead one.</p>
+     */
+    static <H> List<H> pruneDeadHandles(Map<Long, H> observed, long rootPid, Predicate<? super H> alive) {
+        List<H> live = new ArrayList<>();
+        for (Map.Entry<Long, H> entry : List.copyOf(observed.entrySet())) {
+            if (alive.test(entry.getValue())) {
+                live.add(entry.getValue());
+            } else if (entry.getKey() != rootPid) {
+                observed.remove(entry.getKey(), entry.getValue());
+            }
+        }
+        return live;
     }
 
     private void destroyObservedDescendants(ProcessHandle root, boolean force) {
@@ -567,28 +600,5 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private void disposeSchedulers() {
         SchedulerRelease.disposeAll(inboundScheduler, outboundScheduler, errorScheduler, lifecycleScheduler);
-    }
-
-    static String readUtf8LineBounded(InputStream input, int maxBytes) throws IOException {
-        Objects.requireNonNull(input, "input");
-        if (maxBytes < 1) throw new IllegalArgumentException("maxBytes must be positive");
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream(Math.min(maxBytes, 8192));
-        int next;
-        while ((next = input.read()) != -1) {
-            if (next == '\n') break;
-            if (buffer.size() >= maxBytes) throw new MessageTooLargeException(maxBytes);
-            buffer.write(next);
-        }
-        if (next == -1 && buffer.size() == 0) return null;
-        byte[] bytes = buffer.toByteArray();
-        int length = bytes.length;
-        if (length > 0 && bytes[length - 1] == '\r') length--;
-        return StrictUtf8.decode(bytes, length);
-    }
-
-    static final class MessageTooLargeException extends IOException {
-        private MessageTooLargeException(int maximum) {
-            super("MCP STDIO frame exceeds " + maximum + " bytes");
-        }
     }
 }

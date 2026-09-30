@@ -6,6 +6,8 @@ public final class QueryBudgets {
     public static final int MAX_AST_NODES = 128;
     public static final int MAX_BOOLEAN_DEPTH = 8;
     public static final int MAX_PREDICATES = 64;
+    /** Values of one IN predicate: bounded at parse, validation and decode by this one constant. */
+    public static final int MAX_PREDICATE_VALUES = 256;
     public static final int MAX_SORT_FIELDS = 8;
     public static final int MAX_PROJECTION_FIELDS = 32;
     public static final int MAX_PAGE_SIZE = 500;

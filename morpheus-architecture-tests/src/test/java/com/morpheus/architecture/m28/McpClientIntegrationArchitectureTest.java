@@ -76,6 +76,16 @@ class McpClientIntegrationArchitectureTest {
         assertTrue(manager.contains("Uninstall is state-driven"));
         assertFalse(manager.contains("docker"));
 
+        // taskkill's exit code is ignored, yet a native call writes the global $LASTEXITCODE. validate-m28.ps1 reads
+        // it after each script, so an unrestored taskkill that raced an exiting child failed the Windows lane on
+        // promotion PR #274 (15/09/2026) after both verifications printed PASS.
+        String lifecycle = Files.readString(root.resolve("scripts/verify-windows-setup-lifecycle.ps1"));
+        for (String script : List.of(manager, lifecycle)) {
+            assertTrue(script.contains("$PreviousExitCode = $global:LASTEXITCODE")
+                            && script.contains("finally { $global:LASTEXITCODE = $PreviousExitCode }"),
+                    "a process-tree stop that runs taskkill must restore the caller's $LASTEXITCODE");
+        }
+
         assertTrue(setupWrapper.contains("MORPHEUS setup MCP client selection SUCCESS"));
         assertTrue(setupWrapper.contains("One or more selected MORPHEUS MCP client integrations were not configured"));
     }

@@ -224,7 +224,7 @@ class CompactQueryViewContractTest {
                 changeRef, TraceabilityRelationType.AFFECTS, requirementRef,
                 TraceabilityResolutionState.RESOLVED, evidence.id());
         TraceabilitySubgraph graph = new TraceabilitySubgraph(
-                changeRef, List.of(changeRef, requirementRef), List.of(affects));
+                changeRef, List.of(changeRef, requirementRef), List.of(affects), Optional.empty());
         ChangeContextResult result = new ChangeContextResult(
                 snapshot,
                 changeId,
@@ -301,7 +301,7 @@ class CompactQueryViewContractTest {
                 List.of(),
                 List.of(),
                 List.of(),
-                new TraceabilitySubgraph(root, nodes, links),
+                new TraceabilitySubgraph(root, nodes, links, Optional.empty()),
                 externalViews);
         SnapshotBusinessContent content = content(snapshotId, versionId, List.of(evidence));
 
@@ -350,7 +350,7 @@ class CompactQueryViewContractTest {
         TraceRequirementResult result = new TraceRequirementResult(
                 snapshot,
                 requirement,
-                new TraceabilitySubgraph(requirementRef, List.of(scenarioRef, requirementRef), List.of(refines)),
+                new TraceabilitySubgraph(requirementRef, List.of(scenarioRef, requirementRef), List.of(refines), Optional.empty()),
                 List.of());
         SnapshotBusinessContent content = content(snapshotId, versionId, List.of(evidence));
 

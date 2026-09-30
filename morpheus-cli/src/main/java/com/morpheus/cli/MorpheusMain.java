@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.api.AllowedWorkspaceRoots;
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.api.MorpheusRemoteHttpServer;
+import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
 import com.morpheus.mcp.MorpheusMcpServer;
@@ -110,7 +111,8 @@ public final class MorpheusMain {
             out.println();
             out.println("Policy packs / governance automation (M25):");
             out.println("  morpheus [--json] policy pack create --name NAME --rules RULES --actor NAME --reason TEXT");
-            out.println("  morpheus [--json] policy pack list|get|versions [--id ID]");
+            out.println("  morpheus [--json] policy pack list");
+            out.println("  morpheus [--json] policy pack get|versions --id ID");
             out.println("  morpheus [--json] policy pack update --id ID --expected-revision N --name NAME --rules RULES --actor NAME --reason TEXT");
             out.println("  morpheus [--json] policy activate --id ID --version ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
             out.println("  morpheus [--json] policy deactivate --id ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
@@ -129,8 +131,9 @@ public final class MorpheusMain {
             out.println("  morpheus [--json] views get|versions|execute --id ID");
             out.println("  morpheus [--json] views update --id ID --expected-revision N --name NAME --entity TYPE [query options]");
             out.println("  morpheus [--json] views archive --id ID --expected-revision N");
-            out.println("  morpheus export query --format json|csv|markdown (--project ID | --portfolio ID) --entity TYPE [query options]");
+            out.println("  morpheus export query --format json|csv|markdown (--project ID | --portfolio ID) --entity TYPE [--filter DSL] [--sort field:asc,...] [--fields a,b]");
             out.println("  morpheus export view --format json|csv|markdown --id ID");
+            out.println("  An export is always complete (at most " + QueryBudgets.MAX_EXPORT_ROWS + " rows): it takes no --offset or --limit, and export view ignores the stored page.");
             out.println("  Filter DSL examples: title contains \"security\" ; and(title contains login,providerId in [openspec,markdown])");
             out.println();
             out.println("Portfolio intelligence (M23):");
@@ -143,7 +146,7 @@ public final class MorpheusMain {
             out.println();
             out.println("Provider plugins (M22, explicit only):");
             out.println("  morpheus [--json] provider-plugins discover --directory PATH");
-            out.println("  morpheus [--json] provider-plugins probe --directory PATH --plugin ID --workspace PATH");
+            out.println("  morpheus [--json] provider-plugins probe --directory PATH --plugin ID --workspace PATH --sha256 HEX");
             out.println("  Discovery reads JAR metadata only; probe performs explicit compatible-plugin activation.");
             out.println();
             out.println("Product integrity (M21):");

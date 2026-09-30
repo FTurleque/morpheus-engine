@@ -37,6 +37,11 @@ public final class ExternalJarIntegrity {
     /**
      * Copies a trusted JAR to an owner-hardened private staging file and verifies that immutable copy.
      * The caller must delete the returned path after its classloader has been closed.
+     *
+     * <p>That explicit deletion is the normal path. The copy is also marked for deletion when the JVM exits, so a
+     * JVM that ends before its caller's {@code close()} runs does not leave it behind; a JVM that is killed or
+     * crashes still can, which {@code SECURITY.md} states. The name carries no part of the pin: the temporary-file
+     * factory already makes it unique, and a temporary file has no reason to announce what it contains.</p>
      */
     public static Path stageVerifiedCopy(Path jar, String expectedSha256) {
         String expected = normalizeSha256(expectedSha256);
@@ -44,7 +49,8 @@ public final class ExternalJarIntegrity {
         Path staged = null;
         boolean success = false;
         try {
-            staged = Files.createTempFile("morpheus-trusted-plugin-" + expected.substring(0, 12) + "-", ".jar");
+            staged = Files.createTempFile("morpheus-trusted-plugin-", ".jar");
+            staged.toFile().deleteOnExit();
             try (InputStream input = Files.newInputStream(candidate, LinkOption.NOFOLLOW_LINKS)) {
                 Files.copy(input, staged, StandardCopyOption.REPLACE_EXISTING);
             }

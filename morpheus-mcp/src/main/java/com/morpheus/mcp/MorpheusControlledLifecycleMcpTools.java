@@ -27,7 +27,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/** M17 write tool, intentionally separate from the M14-M16 read-only orchestration tools. */
+/**
+ * M17 write tool, intentionally separate from the M14-M16 read-only orchestration tools.
+ *
+ * <p>The mutation service returns its refusals instead of throwing them, so {@code isError} is decided from the
+ * result state ({@link com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultState#successful()}),
+ * not from an exception. The body is the same JSON either way: the flag adds a fact, it removes none.</p>
+ */
 final class MorpheusControlledLifecycleMcpTools {
     static final String APPLY_TOOL = "apply_change_lifecycle_transition";
 
@@ -52,23 +58,23 @@ final class MorpheusControlledLifecycleMcpTools {
 
     private McpSchema.CallToolResult call(Map<String, Object> rawArguments) {
         try {
-            Map<String, Object> arguments = rawArguments == null ? Map.of() : rawArguments;
-            ProjectSpecificationId projectId = ProjectSpecificationId.parse(requiredString(arguments, "projectId"));
-            ChangeId changeId = ChangeId.parse(requiredString(arguments, "changeId"));
-            ChangeLifecycleState targetState = lifecycleState(requiredString(arguments, "targetState"));
-            long expectedRevision = requiredLong(arguments, "expectedRevision");
+            Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
+            ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
+            ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
+            ChangeLifecycleState targetState = lifecycleState(McpArguments.requiredString(arguments, "targetState"));
+            long expectedRevision = McpArguments.requiredInteger(arguments, "expectedRevision");
             if (expectedRevision < 0) {
                 throw new IllegalArgumentException("expectedRevision must be non-negative");
             }
-            ChangeLifecycleMutationId mutationId = optionalString(arguments, "mutationId")
+            ChangeLifecycleMutationId mutationId = McpArguments.optionalString(arguments, "mutationId")
                     .map(ChangeLifecycleMutationId::parse)
                     .orElseGet(ChangeLifecycleMutationId::generate);
             ChangeLifecycleIdempotencyKey idempotencyKey =
-                    new ChangeLifecycleIdempotencyKey(requiredString(arguments, "idempotencyKey"));
-            String actor = requiredString(arguments, "actor");
-            boolean confirmed = requiredBoolean(arguments, "confirmed");
+                    new ChangeLifecycleIdempotencyKey(McpArguments.requiredString(arguments, "idempotencyKey"));
+            String actor = McpArguments.requiredString(arguments, "actor");
+            boolean confirmed = McpArguments.requiredBoolean(arguments, "confirmed");
             Optional<ChangeAbandonmentReason> abandonmentReason = abandonmentReason(
-                    optionalString(arguments, "abandonmentReason"));
+                    McpArguments.optionalString(arguments, "abandonmentReason"));
 
             try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
                 if (runtime.snapshots.findProject(projectId).isEmpty()) {
@@ -95,16 +101,13 @@ final class MorpheusControlledLifecycleMcpTools {
                                 actor,
                                 Instant.now()),
                         ChangeLifecycleMutationPolicy.strict());
-                McpSchema.TextContent content = McpSchema.TextContent.builder(
-                                json.toJson(ChangeLifecycleMutationResultView.from(result)))
-                        .build();
-                return McpSchema.CallToolResult.builder(List.of(content)).build();
+                String body = json.toJson(ChangeLifecycleMutationResultView.from(result));
+                return result.state().successful()
+                        ? McpSchema.CallToolResult.builder().addTextContent(body).isError(false).build()
+                        : McpToolFailure.refusal(body);
             }
         } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            McpSchema.TextContent content = McpSchema.TextContent.builder(safeMessage(expected)).build();
-            return McpSchema.CallToolResult.builder(List.of(content))
-                    .isError(true)
-                    .build();
+            return McpToolFailure.result(expected);
         }
     }
 
@@ -137,37 +140,6 @@ final class MorpheusControlledLifecycleMcpTools {
         return Map.of("type", "string", "minLength", 1);
     }
 
-    private String requiredString(Map<String, Object> arguments, String key) {
-        return optionalString(arguments, key)
-                .orElseThrow(() -> new IllegalArgumentException("missing required MCP argument: " + key));
-    }
-
-    private Optional<String> optionalString(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (value == null) {
-            return Optional.empty();
-        }
-        if (!(value instanceof String text) || text.isBlank()) {
-            throw new IllegalArgumentException(key + " must be a non-blank string");
-        }
-        return Optional.of(text.trim());
-    }
-
-    private long requiredLong(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (!(value instanceof Number number)) {
-            throw new IllegalArgumentException(key + " must be an integer");
-        }
-        return number.longValue();
-    }
-
-    private boolean requiredBoolean(Map<String, Object> arguments, String key) {
-        Object value = arguments.get(key);
-        if (!(value instanceof Boolean bool)) {
-            throw new IllegalArgumentException(key + " must be a boolean");
-        }
-        return bool;
-    }
 
     private ChangeLifecycleState lifecycleState(String value) {
         try {
@@ -188,8 +160,4 @@ final class MorpheusControlledLifecycleMcpTools {
         }
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 }

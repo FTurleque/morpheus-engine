@@ -401,4 +401,4 @@ Windows  .\validate-m26.cmd 1.0.0
 Linux    bash ./scripts/validate-m26.sh 1.0.0
 ```
 
-La CI canonique déclenche M21 sur les pull requests, `main` et `develop`. Le workflow `MORPHEUS Security` ajoute OWASP Dependency-Check à la frontière `main` et sur cadence hebdomadaire. Les actions GitHub sont épinglées par SHA immuable et le Maven Wrapper vérifie le SHA-256 de Maven 3.9.16.
+La CI canonique déclenche M21 sur les pull requests, `main` et `develop`. Le workflow `MORPHEUS Security` ajoute OWASP Dependency-Check aux frontières `main` et `develop` et sur cadence quotidienne (04:17 UTC). Les actions GitHub sont épinglées par SHA immuable et le Maven Wrapper vérifie le SHA-256 de Maven 3.9.16.

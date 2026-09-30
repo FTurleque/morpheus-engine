@@ -42,6 +42,10 @@ public final class ProviderPluginViews {
      * considered whether it should. Every value is still checked by {@link RemoteTextPolicy}, because a key being
      * remote-safe by intent does not make an arbitrary value remote-safe in fact.</p>
      *
+     * <p>{@code pathResolved} is the fact of a linked-ancestor resolution without its target: the pathnames it
+     * stands for, {@code directory} and {@code resolvedDirectory}, stay local, and would be refused by the value
+     * gate anyway.</p>
+     *
      * <p>{@code reason} is deliberately absent — it relays an exception message. Producers pair it with
      * {@code reasonType}, the exception's class name, which names the failure without locating it.</p>
      */
@@ -57,6 +61,7 @@ public final class ProviderPluginViews {
             "sizeBytes",
             "matches",
             "jars",
+            "pathResolved",
             "reasonType");
 
     private ProviderPluginViews() {

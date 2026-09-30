@@ -102,7 +102,9 @@ public final class CompactQueryViewService {
                 links,
                 externalReferences,
                 evidence,
-                collector.warnings());
+                collector.warnings(),
+                result.subgraph().truncationReason(),
+                result.subgraph().truncated());
     }
 
     public CompactChangeContextView changeContext(ChangeContextResult result) {
@@ -180,7 +182,9 @@ public final class CompactQueryViewService {
                 links,
                 externalReferences,
                 evidence,
-                collector.warnings());
+                collector.warnings(),
+                result.subgraph().truncationReason(),
+                result.subgraph().truncated());
     }
 
     private QueryMetadata metadata(String operation) {

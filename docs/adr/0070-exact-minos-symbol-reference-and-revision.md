@@ -30,7 +30,7 @@ result.symbolKey.equals(target.externalId)
 Puis :
 
 ```text
-0 exact  -> NOT_FOUND
+0 exact  -> NOT_FOUND (UNAVAILABLE si la page est pleine : ADR-0108, amendement INT-1)
 1 exact  -> FOUND
 >1 exact -> AMBIGUOUS
 ```

@@ -100,7 +100,14 @@ paths:
           application/json:
             schema: {$ref: '#/components/schemas/SyncRequest'}
       responses:
-        '200': {$ref: '#/components/responses/Success'}
+        '200':
+          description: >-
+            Publication receipt. diagnosticCount counts every read diagnostic of the publication;
+            diagnostics relays at most 32 of them, most severe first, through the remote-safe
+            projection, and says when it was truncated and why.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SyncResultSuccessEnvelope'}
         '409': {$ref: '#/components/responses/StateConflict'}
 
   /projects/{projectId}/sync-status:
@@ -387,7 +394,10 @@ paths:
         '415': {$ref: '#/components/responses/UnsupportedMediaType'}
 
   /projects/{projectId}/versions:
-    parameters: [{$ref: '#/components/parameters/ProjectId'}]
+    parameters:
+      - {$ref: '#/components/parameters/ProjectId'}
+      - {$ref: '#/components/parameters/Offset'}
+      - {$ref: '#/components/parameters/Limit'}
     get:
       operationId: listPublishedVersions
       responses: {'200': {$ref: '#/components/responses/Success'}}
@@ -475,10 +485,10 @@ components:
       additionalProperties: false
       required: [entityType, logicalKey, field, resolution, selectedProviderId, reason, candidates]
       properties:
-        entityType: {type: string, enum: [SPECIFICATION, REQUIREMENT, CHANGE, IDENTITY]}
+        entityType: {type: string, enum: [PROJECT, SPECIFICATION, REQUIREMENT, SCENARIO, CHANGE, CONSTRAINT, DESIGN_DECISION, TASK, ACCEPTANCE_CRITERION, IDENTITY]}
         logicalKey: {type: string, minLength: 1}
         field: {type: string, minLength: 1}
-        resolution: {type: string, enum: [IDENTICAL, SELECTED_BY_PRECEDENCE, UNRESOLVED]}
+        resolution: {type: string, enum: [IDENTICAL, PRECEDENCE_RECORDED, UNRESOLVED]}
         selectedProviderId:
           anyOf:
             - {type: string, minLength: 1}
@@ -741,6 +751,76 @@ components:
       additionalProperties: false
       properties:
         revision: {type: [string, 'null']}
+
+    SyncResult:
+      type: object
+      additionalProperties: false
+      required: [projectId, snapshotId, mode, fullRebuildReason, sourceCount, requirementCount, traceabilityLinkCount, diagnosticCount, published, diagnostics]
+      properties:
+        projectId: {$ref: '#/components/schemas/Uuid'}
+        snapshotId: {$ref: '#/components/schemas/Uuid'}
+        mode: {type: string, minLength: 1}
+        fullRebuildReason:
+          type: string
+          minLength: 1
+          description: The name of the full-rebuild reason, or none.
+        sourceCount: {type: integer, minimum: 0}
+        requirementCount: {type: integer, minimum: 0}
+        traceabilityLinkCount: {type: integer, minimum: 0}
+        diagnosticCount: {type: integer, minimum: 0}
+        published: {type: boolean}
+        diagnostics: {$ref: '#/components/schemas/BoundedDiagnostics'}
+
+    SyncResultSuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, data]
+      properties:
+        apiVersion: {const: v1}
+        data: {$ref: '#/components/schemas/SyncResult'}
+
+    BoundedDiagnostics:
+      type: object
+      additionalProperties: false
+      required: [items, truncated, truncationReason]
+      properties:
+        items:
+          type: array
+          maxItems: 32
+          items: {$ref: '#/components/schemas/Diagnostic'}
+        truncated: {type: boolean}
+        truncationReason:
+          type: [string, 'null']
+          maxLength: 64
+          description: "DIAGNOSTIC_LIMIT_REACHED:<bound> when truncated, null otherwise."
+
+    Diagnostic:
+      type: object
+      additionalProperties: false
+      required: [code, severity, message, details, source]
+      properties:
+        code: {$ref: '#/components/schemas/DiagnosticCode'}
+        severity: {$ref: '#/components/schemas/DiagnosticSeverity'}
+        message: {type: string, maxLength: 512}
+        details:
+          type: object
+          description: >-
+            Only allowlisted keys (provider, change, section, requirement, fence, line, category,
+            group, exception, schema, supportedSchema), and only values that name no server location.
+            A skipped requirement is named by the requirement key.
+          additionalProperties: {type: string, maxLength: 512}
+        source:
+          type: [string, 'null']
+          maxLength: 512
+          description: The file at fault, relative to the workspace.
+
+    DiagnosticCode:
+      type: string
+      enum: [NO_PROVIDER_FOUND, UNSUPPORTED_SOURCE, UNSUPPORTED_PROVIDER_SCHEMA, UNSUPPORTED_FORMAT_VERSION, MISSING_REQUIRED_CAPABILITY, OPTIONAL_CAPABILITY_UNAVAILABLE, MULTIPLE_PROVIDER_MATCHES, EXPLICIT_PROVIDER_INCOMPATIBLE, REMOTE_PROVIDER_REQUIRES_OPT_IN, INVALID_SOURCE, PARTIAL_INGESTION, IDENTITY_COLLISION, UNRECOGNIZED_SECTION, UNCLOSED_CODE_FENCE]
+
+    DiagnosticSeverity:
+      type: string
+      enum: [INFO, WARNING, ERROR, FATAL]
 
     AugmentedContextRequest:
       type: object

@@ -27,16 +27,21 @@ final class MorpheusHistoryApiService {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
     }
 
-    Object versions(String projectIdValue) {
+    /**
+     * One page of the published lineage, oldest first. The lineage never shrinks ({@code KEEP_ALL_PUBLISHED}), so it is
+     * walked whole to know {@code totalMatches}, but only the retained page pays the two store reads of {@link #version}.
+     */
+    Object versions(String projectIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
+        Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireProject(runtime, projectId);
             PublishedSnapshotHistoryService history = new PublishedSnapshotHistoryService(runtime.snapshots);
             List<KnowledgeSnapshotMetadata> lineage = history.lineage(projectId);
-            return map(
-                    "projectId", projectId.toString(),
-                    "retentionPolicy", history.retentionPolicy().name(),
-                    "items", lineage.stream().map(snapshot -> version(runtime, snapshot)).toList());
+            return PagedEnvelope.following(
+                    map("projectId", projectId.toString(), "retentionPolicy", history.retentionPolicy().name()),
+                    PagedEnvelope.slice(
+                            pageRequest.offset(), pageRequest.limit(), lineage, snapshot -> version(runtime, snapshot)));
         }
     }
 
@@ -51,16 +56,9 @@ final class MorpheusHistoryApiService {
             requireSnapshotProject(runtime, projectId, snapshotId);
             List<RequirementVersionRecord> records = new HistoricalRequirementQueryService(runtime.snapshots, runtime.requirements)
                     .requirements(snapshotId);
-            int total = records.size();
-            int from = Math.min(pageRequest.offset(), total);
-            int to = (int) Math.min((long) from + pageRequest.limit(), total);
-            return map(
-                    "snapshotId", snapshotId.toString(),
-                    "offset", pageRequest.offset(),
-                    "limit", pageRequest.limit(),
-                    "totalMatches", total,
-                    "hasMore", to < total,
-                    "items", records.subList(from, to).stream().map(this::requirementRecord).toList());
+            return PagedEnvelope.following(
+                    map("snapshotId", snapshotId.toString()),
+                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), records, this::requirementRecord));
         }
     }
 

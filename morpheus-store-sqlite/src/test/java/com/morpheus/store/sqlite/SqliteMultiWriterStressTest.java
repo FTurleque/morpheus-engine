@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.OperationalEventCode;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,7 @@ class SqliteMultiWriterStressTest {
         CountDownLatch start = new CountDownLatch(1);
         Set<String> committed = ConcurrentHashMap.newKeySet();
         AtomicInteger refused = new AtomicInteger();
+        AtomicInteger refusedOpens = new AtomicInteger();
 
         try (ExecutorService writers = Executors.newFixedThreadPool(WRITERS)) {
             List<Future<?>> running = new ArrayList<>();
@@ -63,7 +65,17 @@ class SqliteMultiWriterStressTest {
                     ready.countDown();
                     start.await();
                     // A physical connection per writer is exactly the multi-writer shape RT-01 describes.
-                    try (Connection connection = SqliteDatabaseSecurity.openPhysical(database, 5_000)) {
+                    Connection connection;
+                    try {
+                        connection = SqliteDatabaseSecurity.openPhysical(database, 5_000);
+                    } catch (SQLException | RuntimeException contended) {
+                        if (!lostToContention(contended)) {
+                            throw contended;
+                        }
+                        refusedOpens.incrementAndGet();
+                        return null;
+                    }
+                    try (connection) {
                         for (int write = 0; write < WRITES_PER_WRITER; write++) {
                             String identity = ProjectSpecificationId.generate().toString();
                             try {
@@ -85,8 +97,12 @@ class SqliteMultiWriterStressTest {
         }
 
         List<String> persisted = readAllProjectIds(database);
+        assertFalse(committed.isEmpty(),
+                () -> "the stress run must have committed something, or it proves nothing; refusedOpens="
+                        + refusedOpens.get() + " refusedWrites=" + refused.get());
         assertEquals(committed.size(), persisted.size(),
-                () -> "a write that reported success must be durable; refused=" + refused.get());
+                () -> "a write that reported success must be durable; refused=" + refused.get()
+                        + " refusedOpens=" + refusedOpens.get());
         assertEquals(committed, Set.copyOf(persisted), "no writer may observe another writer's row as its own");
         assertEquals(persisted.size(), Set.copyOf(persisted).size(), "an identity must never be stored twice");
     }
@@ -110,8 +126,12 @@ class SqliteMultiWriterStressTest {
                         // time, which is where a release that only ran on the success path would show up.
                         try (Connection connection = SqliteDatabaseSecurity.openPhysical(database, 5_000)) {
                             insertProject(connection, ProjectSpecificationId.generate().toString());
-                        } catch (KnowledgeStoreException ignored) {
-                            // A refusal under contention is an accepted outcome; the lease still has to come back.
+                        } catch (SQLException | RuntimeException refusal) {
+                            // A refusal under contention is an accepted outcome -- whether it is the write or the
+                            // open that loses -- and the lease still has to come back either way.
+                            if (!(refusal instanceof KnowledgeStoreException) && !lostToContention(refusal)) {
+                                throw refusal;
+                            }
                         }
                     }
                     return null;
@@ -126,6 +146,25 @@ class SqliteMultiWriterStressTest {
         SqliteServerMaintenance.ServerLease lease = new SqliteServerMaintenance().acquireServerLease(database);
         assertFalse(readAllProjectIds(database).isEmpty(), "the stress run must have committed something");
         lease.close();
+    }
+
+    /**
+     * Whether a failure is the database telling a caller it lost the lock, rather than anything else.
+     *
+     * <p>Production already models this outcome: {@code SqliteDatabaseSecurity} increments a dedicated
+     * {@code CONTENDED_CONNECTION_OPENS} counter when an open fails and classifies as
+     * {@link OperationalEventCode#DATABASE_LOCKED}. These tests accepted a write that lost the lock and counted
+     * it, but let the identical outcome on the open escape as an error -- so eight writers released onto one
+     * database from a barrier failed the build on a loaded runner for doing exactly what the design says
+     * happens under contention.</p>
+     *
+     * <p>The tolerance is deliberately narrow: only {@code DATABASE_LOCKED} passes. Any other SQL failure still
+     * fails the test, and every invariant below -- durability, uniqueness, the returned lease -- is unchanged.</p>
+     */
+    private static boolean lostToContention(Throwable failure) {
+        return new SqliteFailureClassifier().classify(failure)
+                .filter(OperationalEventCode.DATABASE_LOCKED::equals)
+                .isPresent();
     }
 
     private Path bootstrappedDatabase() {

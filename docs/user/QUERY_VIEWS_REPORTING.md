@@ -217,6 +217,10 @@ JSON est canonique et transport-safe. CSV est UTF-8 avec ordre de colonnes et es
 
 L’export est read-only : il ne modifie ni snapshot, ni lifecycle, ni saved view.
 
+Un export est toujours complet : il n’accepte ni `offset` ni `limit` (le CLI, MCP et HTTP les refusent), et l’export d’une saved view ignore la page stockée avec la vue. Il est borné par le nombre de lignes exportées (10 000) et échoue explicitement au-delà, sans jamais rendre un export partiel.
+
+Sur MCP, une réponse de plus d’1 Mio est refusée par le transport (`MCP_RESPONSE_TOO_LARGE`) et un export ne se pagine pas : au-delà, lire les mêmes lignes avec `execute_query`, page par page, ou exporter par le CLI (`export query`) ou par HTTP (`POST /api/v1/exports`).
+
 ## Budgets
 
 ```text

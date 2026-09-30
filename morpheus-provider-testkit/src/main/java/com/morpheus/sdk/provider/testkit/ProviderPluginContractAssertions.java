@@ -1,7 +1,9 @@
 package com.morpheus.sdk.provider.testkit;
 
+import com.morpheus.application.identity.EntityIdentityKey;
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.provider.SpecificationProvider;
+import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ReadCategory;
@@ -70,8 +72,13 @@ public final class ProviderPluginContractAssertions {
     /**
      * Exercises {@link SpecificationContentReader#read} against a workspace this plugin claims to
      * support, asserting the same fail-closed and determinism contract every built-in provider is
-     * held to: exactly one report per requested category, and an identical result on a repeated
-     * read against the same workspace and identity-resolver state.
+     * held to: exactly one report per requested category, an identical result on a repeated
+     * read against the same workspace and identity-resolver state, and -- when content is published --
+     * a project root equal to {@link ProviderProjectRoot#locator} of the workspace the reader received.
+     *
+     * <p>The root is compared as the {@code SourceLocator} publication stores and compares, not as a
+     * {@code Path}: two paths the file system considers equal can still spell two different locators,
+     * and the store refuses the second one.</p>
      */
     public static ProviderReadResult verifyRead(
             ContractSnapshot snapshot, Path supportedWorkspace, ProjectSpecificationId projectId) {
@@ -103,6 +110,13 @@ public final class ProviderPluginContractAssertions {
             fail("contentReader.read() must return exactly one report per requested category, requested="
                     + request.requestedCategories() + " reported=" + reported);
         }
+        if (first.content().isPresent()
+                && !first.content().orElseThrow().project().rootLocator()
+                        .equals(ProviderProjectRoot.locator(request.workspaceRoot()))) {
+            fail("contentReader.read() must publish as project root the workspace root it received, "
+                    + "normalized by ProviderProjectRoot.locator(request.workspaceRoot()), never a file or "
+                    + "directory inside it; publication refuses any other project root");
+        }
 
         return first;
     }
@@ -119,12 +133,12 @@ public final class ProviderPluginContractAssertions {
     }
 
     private static final class InMemoryIdentityResolver implements EntityIdentityResolver {
-        private final Map<String, DomainIdentity> identities = new HashMap<>();
+        private final Map<EntityIdentityKey, DomainIdentity> identities = new HashMap<>();
 
         @Override
         public DomainIdentity resolve(ProviderId providerId, String entityType, String externalId) {
-            String key = providerId + "|" + entityType + "|" + externalId;
-            return identities.computeIfAbsent(key, ignored -> DomainIdentity.generate());
+            return identities.computeIfAbsent(
+                    new EntityIdentityKey(providerId, entityType, externalId), ignored -> DomainIdentity.generate());
         }
     }
 

@@ -162,6 +162,12 @@ public final class QueryValidator {
         if (predicate.operator() == QueryOperator.EXISTS) {
             return;
         }
+        if (predicate.values().size() > QueryBudgets.MAX_PREDICATE_VALUES) {
+            diagnostics.add(new QueryDiagnostic(
+                    "QUERY_BUDGET_EXCEEDED", path + ".values",
+                    "predicate values exceed " + QueryBudgets.MAX_PREDICATE_VALUES + " for field " + field.name()));
+            return;
+        }
         for (int index = 0; index < predicate.values().size(); index++) {
             String value = predicate.values().get(index);
             if (!validLiteral(field.type(), value)) {

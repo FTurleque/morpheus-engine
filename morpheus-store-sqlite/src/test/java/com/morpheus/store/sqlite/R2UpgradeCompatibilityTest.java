@@ -41,7 +41,7 @@ class R2UpgradeCompatibilityTest {
     Path tempDir;
 
     @Test
-    void oneDotZeroSchemaMigratesToV17WithoutIdentityOrHistoryLoss() throws Exception {
+    void oneDotZeroSchemaMigratesToCurrentSchemaWithoutIdentityOrHistoryLoss() throws Exception {
         Path database = tempDir.resolve("morpheus-1.0.0.db");
         Map<Integer, String> baselineChecksums;
 
@@ -53,7 +53,7 @@ class R2UpgradeCompatibilityTest {
         }
 
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
-            // Opening with the current runtime applies V013 through V017.
+            // Opening with the current runtime applies every migration after the 1.0 baseline.
         }
 
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
@@ -81,8 +81,9 @@ class R2UpgradeCompatibilityTest {
     }
 
     private void assertUpgradedSchemaVersionAndMigrationCount(Connection connection) throws Exception {
-        assertEquals(17, new SqliteSchemaManager().currentVersion(connection));
-        assertEquals(17, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
+        int current = SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION;
+        assertEquals(current, new SqliteSchemaManager().currentVersion(connection));
+        assertEquals(current, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
     }
 
     private void assertProjectAndSnapshotPreservedAfterUpgrade(Connection connection) throws Exception {
@@ -113,7 +114,8 @@ class R2UpgradeCompatibilityTest {
     }
 
     private void assertNoDuplicateRowsAfterSecondStartup(Connection connection) throws Exception {
-        assertEquals(17, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
+        assertEquals(SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION,
+                integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
         assertEquals(1, integerScalar(connection, "SELECT COUNT(*) FROM projects WHERE id = 'project-r2'"));
         assertEquals(1, integerScalar(connection,
                 "SELECT COUNT(*) FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
