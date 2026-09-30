@@ -70,8 +70,9 @@ class OpenSpecSpecificationContentReaderTest {
     /**
      * The project root is the workspace this reader received, spelled by the single point.
      *
-     * <p>The architecture rule only proves the root argument starts with {@code ProviderProjectRoot.locator(};
-     * this test holds what goes inside it. The workspace is handed over un-normalized on purpose.</p>
+     * <p>The architecture scan holds the argument to the forms it admits and follows a named root to its bindings
+     * in this reader's file, but not through a method parameter, and it reads only the source; this test holds
+     * what the reader actually publishes. The workspace is handed over un-normalized on purpose.</p>
      */
     @Test
     void publishesTheWorkspaceItReceivedAsProjectRoot() {
