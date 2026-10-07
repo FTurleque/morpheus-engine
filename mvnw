@@ -55,21 +55,13 @@ set_java_home() {
 
       if [ ! -x "$JAVACMD" ] || [ ! -x "$JAVACCMD" ]; then
         echo "The JAVA_HOME environment variable is not defined correctly, so mvnw cannot run." >&2
-        echo "JAVA_HOME is set to \"$JAVA_HOME\", but \"\$JAVA_HOME/bin/java\" or \"\$JAVA_HOME/bin/javac\" does not exist." >&2
+        echo "JAVA_HOME is set to \"$JAVA_HOME\", but \"$JAVA_HOME/bin/java\" or \"$JAVA_HOME/bin/javac\" does not exist." >&2
         return 1
       fi
     fi
   else
-    JAVACMD="$(
-      'set' +e
-      'unset' -f command 2>/dev/null
-      'command' -v java
-    )" || :
-    JAVACCMD="$(
-      'set' +e
-      'unset' -f command 2>/dev/null
-      'command' -v javac
-    )" || :
+    JAVACMD="$(command -v java)"
+    JAVACCMD="$(command -v javac)"
 
     if [ ! -x "${JAVACMD-}" ] || [ ! -x "${JAVACCMD-}" ]; then
       echo "The java/javac command does not exist in PATH nor is JAVA_HOME set, so mvnw cannot run." >&2
@@ -86,7 +78,7 @@ hash_string() {
     h=$(((h * 31 + $(LC_CTYPE=C printf %d "'$char")) % 4294967296))
     str="${str#?}"
   done
-  printf %x\\n $h
+  printf %x\\n "$h"
 }
 
 verbose() { :; }
@@ -105,17 +97,14 @@ trim() {
   printf "%s" "${1}" | tr -d '[:space:]'
 }
 
-scriptDir="$(dirname "$0")"
-scriptName="$(basename "$0")"
-
 # parse distributionUrl and optional distributionSha256Sum, requires .mvn/wrapper/maven-wrapper.properties
 while IFS="=" read -r key value; do
   case "${key-}" in
   distributionUrl) distributionUrl=$(trim "${value-}") ;;
   distributionSha256Sum) distributionSha256Sum=$(trim "${value-}") ;;
   esac
-done <"$scriptDir/.mvn/wrapper/maven-wrapper.properties"
-[ -n "${distributionUrl-}" ] || die "cannot read distributionUrl property in $scriptDir/.mvn/wrapper/maven-wrapper.properties"
+ done <"${0%/*}/.mvn/wrapper/maven-wrapper.properties"
+[ -n "${distributionUrl-}" ] || die "cannot read distributionUrl property in ${0%/*}/.mvn/wrapper/maven-wrapper.properties"
 
 case "${distributionUrl##*/}" in
 maven-mvnd-*bin.*)
@@ -133,7 +122,7 @@ maven-mvnd-*bin.*)
   distributionUrl="${distributionUrl%-bin.*}-$distributionPlatform.zip"
   ;;
 maven-mvnd-*) MVN_CMD=mvnd.sh _MVNW_REPO_PATTERN=/maven/mvnd/ ;;
-*) MVN_CMD="mvn${scriptName#mvnw}" _MVNW_REPO_PATTERN=/org/apache/maven/ ;;
+*) MVN_CMD="mvn${0##*/mvnw}" _MVNW_REPO_PATTERN=/org/apache/maven/ ;;
 esac
 
 # apply MVNW_REPOURL and calculate MAVEN_HOME
@@ -143,7 +132,7 @@ distributionUrlName="${distributionUrl##*/}"
 distributionUrlNameMain="${distributionUrlName%.*}"
 distributionUrlNameMain="${distributionUrlNameMain%-bin}"
 MAVEN_USER_HOME="${MAVEN_USER_HOME:-${HOME}/.m2}"
-MAVEN_HOME="${MAVEN_USER_HOME}/wrapper/dists/${distributionUrlNameMain-}/$(hash_string "$distributionUrl")"
+MAVEN_HOME="$MAVEN_USER_HOME/wrapper/dists/$distributionUrlNameMain/$(hash_string "$distributionUrl")"
 
 exec_maven() {
   unset MVNW_VERBOSE MVNW_USERNAME MVNW_PASSWORD MVNW_REPOURL || :
@@ -180,6 +169,10 @@ if ! command -v unzip >/dev/null; then
   distributionUrl="${distributionUrl%.zip}.tar.gz"
   distributionUrlName="${distributionUrl##*/}"
 fi
+
+distributionUrlNameMain="${distributionUrlName%.*}"
+distributionUrlNameMain="${distributionUrlNameMain%.tar}"
+distributionUrlNameMain="${distributionUrlNameMain%-bin}"
 
 # verbose opt
 __MVNW_QUIET_WGET=--quiet __MVNW_QUIET_CURL=--silent __MVNW_QUIET_UNZIP=-q __MVNW_QUIET_TAR=''

@@ -17,7 +17,7 @@ Bumper une de ces versions **casse le gate** tant que le test n'est pas mis à j
 
 ## TOUJOURS
 
-- Utiliser `./mvnw` (Maven Wrapper 3.9.16) — jamais `mvn` nu
+- Utiliser `./mvnw` (Maven Wrapper 3.10.0) — jamais `mvn` nu
 - Déclarer toute dépendance dans le `<dependencyManagement>` du POM racine, puis la référencer **sans version** dans le module
 - Vérifier l'hygiène après ajout : `./mvnw dependency:analyze` — `<failOnWarning>true</failOnWarning>` est actif, **0 warning** ou le build casse
 - Construire `morpheus-provider-reference` avant les tests d'architecture (M22 lit son JAR depuis `target/`)

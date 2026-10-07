@@ -15,7 +15,7 @@ branche d'intégration    develop
 
 ```text
 Java   >= 21
-Maven  via Maven Wrapper 3.9.16 + SHA-256 vérifié
+Maven  via Maven Wrapper 3.10.0 + SHA-256 vérifié
 Git
 Windows PowerShell pour le gate Windows
 Linux/WSL pour le gate Linux

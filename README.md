@@ -151,7 +151,7 @@ Docker required for native MCP = false
 
 ```text
 Java                   21
-Build                  Maven Wrapper 3.9.16
+Build                  Maven Wrapper 3.10.0
 Release stable         1.2.0
 Baseline développement 1.2.1
 Persistent store       SQLite
