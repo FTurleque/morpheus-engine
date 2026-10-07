@@ -378,7 +378,7 @@
         </profile>
 
         <!--
-            Mutation testing, opt-in and one module at a time: `./mvnw -Paudit-mutation ... -pl <module>`. The
+            Mutation testing, opt-in and one module at a time: `./mvnw -Paudit-mutation ... -pl NAME`. The
             plugin is NOT bound to any phase: PIT is invoked by its goal, never by `verify`. The default scope is
             a small, deterministic part of morpheus-domain; every knob below is a pit.* property so the scope
             changes from the command line without editing this file.
