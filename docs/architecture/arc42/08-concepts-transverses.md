@@ -163,7 +163,7 @@ sqlite-jdbc           3.53.4.0
 Jackson BOM           3.2.3
 MCP SDK Java          2.0.1
 JUnit                 6.1.3
-ArchUnit              1.5.0
+ArchUnit              1.5.1
 JaCoCo                0.8.15
 CycloneDX plugin      2.9.3
 Dependency-Check      13.0.0

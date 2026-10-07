@@ -47,7 +47,7 @@
         <skipTests>false</skipTests>
 
         <junit.version>6.1.3</junit.version>
-        <archunit.version>1.5.0</archunit.version>
+        <archunit.version>1.5.1</archunit.version>
         <sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>
         <mcp-sdk.version>2.0.1</mcp-sdk.version>
         <reactor-bom.version>2024.0.0</reactor-bom.version>
@@ -75,6 +75,19 @@
             start. DependencyCheckWorkflowContractTest keeps security.yml and this property in step.
         -->
         <dependency-check.data.version>5.6</dependency-check.data.version>
+
+        <!--
+            Audit tooling, active only through the audit-spotbugs and audit-mutation profiles. None of these
+            plugins is bound to a default build: see docs/developer/CODE_AUDIT.md.
+
+            spotbugs.version is the analysis engine, pinned next to its plugin so that bumping the plugin never
+            changes which detectors run without anyone choosing it. pitest.junit5.plugin.version is the bridge
+            PIT needs to run a JUnit Platform test; it is released on its own cadence, not with pitest.
+        -->
+        <spotbugs.maven.plugin.version>4.10.4.1</spotbugs.maven.plugin.version>
+        <spotbugs.version>4.10.4</spotbugs.version>
+        <pitest.maven.plugin.version>1.30.0</pitest.maven.plugin.version>
+        <pitest.junit5.plugin.version>1.2.3</pitest.junit5.plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -310,6 +323,111 @@
                                 <suppressionFile>${maven.multiModuleProjectDirectory}/config/dependency-check-suppressions.xml</suppressionFile>
                             </suppressionFiles>
                             <outputDirectory>${project.build.directory}/d2-security-tests</outputDirectory>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+            Static analysis of production bytecode, opt-in: `./mvnw -Paudit-spotbugs ...`. Nothing here runs in a
+            plain `clean verify`. The plugin is declared in <plugins> (not only pluginManagement) so that every
+            module with production classes inherits it; the check goal is bound to verify, and a module without
+            classes (architecture tests, coverage report) is skipped by the plugin itself, not excluded by name.
+
+            Reports without failing: add -Dspotbugs.failOnError=false. The blocking check is the same run
+            without it. See docs/developer/CODE_AUDIT.md.
+        -->
+        <profile>
+            <id>audit-spotbugs</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>${spotbugs.maven.plugin.version}</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.github.spotbugs</groupId>
+                                <artifactId>spotbugs</artifactId>
+                                <version>${spotbugs.version}</version>
+                            </dependency>
+                        </dependencies>
+                        <configuration>
+                            <effort>Max</effort>
+                            <threshold>Medium</threshold>
+                            <maxRank>20</maxRank>
+                            <maxAllowedViolations>0</maxAllowedViolations>
+                            <includeTests>false</includeTests>
+                            <xmlOutput>true</xmlOutput>
+                            <htmlOutput>true</htmlOutput>
+                            <excludeFilterFile>${maven.multiModuleProjectDirectory}/config/spotbugs-exclude.xml</excludeFilterFile>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>audit-spotbugs-check</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+            Mutation testing, opt-in and one module at a time: `./mvnw -Paudit-mutation ... -pl NAME`. The
+            plugin is NOT bound to any phase: PIT is invoked by its goal, never by `verify`. The default scope is
+            a small, deterministic part of morpheus-domain; every knob below is a pit.* property so the scope
+            changes from the command line without editing this file.
+
+            PIT runs the tests of the module it is launched in. A test living in another module (the
+            architecture tests, for instance) is not on this classpath and cannot kill a mutation, whatever the
+            targetTests pattern says. See docs/developer/CODE_AUDIT.md.
+        -->
+        <profile>
+            <id>audit-mutation</id>
+            <properties>
+                <pit.targetClasses>com.morpheus.domain.constraint.*,com.morpheus.domain.change.lifecycle.*</pit.targetClasses>
+                <pit.targetTests>com.morpheus.domain.constraint.*,com.morpheus.domain.change.lifecycle.*</pit.targetTests>
+                <pit.threads>2</pit.threads>
+                <pit.timeoutConstant>4000</pit.timeoutConstant>
+                <pit.timeoutFactor>1.25</pit.timeoutFactor>
+                <!--
+                    Not a quality bar: PIT ends in BUILD SUCCESS with every mutation NO_COVERAGE when the test
+                    pattern matches no test, so one covered line in the mutated classes is required for the run
+                    to mean anything. There is deliberately no mutation threshold before a first measurement.
+                -->
+                <pit.coverageThreshold>1</pit.coverageThreshold>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <version>${pitest.maven.plugin.version}</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.pitest</groupId>
+                                <artifactId>pitest-junit5-plugin</artifactId>
+                                <version>${pitest.junit5.plugin.version}</version>
+                            </dependency>
+                        </dependencies>
+                        <configuration>
+                            <targetClasses>${pit.targetClasses}</targetClasses>
+                            <targetTests>${pit.targetTests}</targetTests>
+                            <threads>${pit.threads}</threads>
+                            <timeoutConstant>${pit.timeoutConstant}</timeoutConstant>
+                            <timeoutFactor>${pit.timeoutFactor}</timeoutFactor>
+                            <coverageThreshold>${pit.coverageThreshold}</coverageThreshold>
+                            <outputFormats>
+                                <outputFormat>HTML</outputFormat>
+                                <outputFormat>XML</outputFormat>
+                            </outputFormats>
+                            <timestampedReports>false</timestampedReports>
+                            <reportsDirectory>${project.build.directory}/pit-reports</reportsDirectory>
                         </configuration>
                     </plugin>
                 </plugins>

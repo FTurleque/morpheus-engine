@@ -82,7 +82,7 @@ contrats métier.
 | Jackson | Sérialisation / parsing JSON | BOM 3.2.3 |
 | MCP SDK Java | MCP STDIO | 2.0.1 |
 | JUnit Jupiter | Tests | 6.1.3 |
-| ArchUnit | Tests d'architecture | 1.5.0 |
+| ArchUnit | Tests d'architecture | 1.5.1 |
 | JaCoCo | Couverture | 0.8.15 |
 | CycloneDX | SBOM | 2.9.3 |
 | OWASP Dependency-Check | SCA locale | 13.0.0 |
