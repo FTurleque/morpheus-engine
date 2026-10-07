@@ -71,7 +71,7 @@ reactor, pas une exception au principe « pas de version en dur » ; `junit-jupi
 n'a pas de `<version>` du tout, elle vient du `junit-bom` importé plus haut.
 
 Versions actuelles pilotées par propriété dans le POM racine (à revérifier avant de citer,
-cf. `rules/meta.md`) : `junit.version=6.1.3`, `archunit.version=1.5.0`,
+cf. `rules/meta.md`) : `junit.version=6.1.3`, `archunit.version=1.5.1`,
 `sqlite-jdbc.version=3.53.4.0`, `mcp-sdk.version=2.0.1`, `reactor-bom.version=2024.0.0`,
 `slf4j.version=2.0.20`, `jackson.version=3.2.3`, `jacoco.version=0.8.15`,
 `dependency-check.maven.plugin.version=13.0.0`.
