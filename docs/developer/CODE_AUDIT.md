@@ -45,7 +45,7 @@ Pourquoi ces choix :
 
 - **SpotBugs 4.10.4.1** est la dernière version stable ; elle embarque déjà le moteur 4.10.4, qui est épinglé quand même
   pour qu'une montée du plugin ne change pas les détecteurs sans décision. Le plugin exige Maven 3.8.9 ou plus (le
-  wrapper est en 3.9.16) et s'exécute sur le JDK 21 imposé par Enforcer. La version 4.10.4.1 a des ruptures de
+  wrapper est en 3.10.0) et s'exécute sur le JDK 21 imposé par Enforcer. La version 4.10.4.1 a des ruptures de
   configuration documentées (`outputEncoding` et `outputDirectory` ne se configurent plus directement) : aucune des
   deux n'est utilisée ici.
 - **PIT 1.30.0**. Les notes de version officielles précisent que le saut depuis la série 1.25.x vient d'une release
@@ -119,7 +119,7 @@ Prérequis :
 > `Unknown lifecycle phase ".targetClasses=…"`. Écrire `"-Dpit.targetClasses=…"`. Bash n'a pas ce défaut.
 
 Chaque commande porte une étiquette qui dit ce qui a réellement tourné, sur cette machine (Windows 10, JDK 21.0.12.1,
-Maven 3.9.16, le 07/10/2026) :
+Maven 3.9.16, le 07/10/2026 ; les deux profils ont ensuite été rejoués sous Maven 3.10.0 avec les mêmes résultats sur `morpheus-domain`) :
 
 - **[exécutée]** : lancée telle quelle ;
 - **[exécutée avec `-pl morpheus-domain`]** : la variante limitée à un module a tourné, pas la version sur tout le

@@ -16,7 +16,7 @@
 ## Identité
 
 `io.github.fturleque:morpheus-engine` **1.2.1** — Specification & Intent Intelligence Engine
-Java 21 · Maven 3.9.16 · multi-module Maven (compter les `<module>` de `pom.xml` — ne jamais citer un total de mémoire) · local-first · **sans framework** · **sans Docker**
+Java 21 · Maven 3.10.0 · multi-module Maven (compter les `<module>` de `pom.xml` — ne jamais citer un total de mémoire) · local-first · **sans framework** · **sans Docker**
 
 ## Principe directeur
 

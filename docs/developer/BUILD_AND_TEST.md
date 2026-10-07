@@ -8,7 +8,7 @@ Ce guide décrit l’environnement de développement et les gates actifs sur la 
 Java 21 uniquement (>= 21 et < 22)
 Maven >= 3.9.16 et < 4.0.0
 compiler release = 21
-Maven Wrapper = 3.9.16 + distribution SHA-256
+Maven Wrapper = 3.10.0 + distribution SHA-256
 Maven Enforcer = dependency convergence obligatoire
 ```
 

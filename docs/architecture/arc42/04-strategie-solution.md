@@ -77,7 +77,7 @@ contrats métier.
 | Technologie | Rôle | Version / baseline |
 |-------------|------|--------------------|
 | Java | Runtime et langage | 21 |
-| Maven Wrapper | Build multi-module | 3.9.16 |
+| Maven Wrapper | Build multi-module | 3.10.0 |
 | SQLite JDBC | Persistance embarquée | 3.53.4.0 |
 | Jackson | Sérialisation / parsing JSON | BOM 3.2.3 |
 | MCP SDK Java | MCP STDIO | 2.0.1 |

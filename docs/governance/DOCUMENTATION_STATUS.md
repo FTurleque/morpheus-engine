@@ -112,7 +112,7 @@ La règle « CI NOT USED » appartient exclusivement au protocole historique D2.
 ```text
 Version                    1.2.1
 Java                       21
-Maven Wrapper              3.9.16
+Maven Wrapper              3.10.0
 Maven modules              18
 MCP SDK                    2.0.1
 SQLite JDBC                3.53.4.0
