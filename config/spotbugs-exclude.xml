@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    SpotBugs exclusion filter, read by the audit-spotbugs profile.
+
+    Empty on purpose: a rule belongs here only after a finding has been qualified as a false positive for a
+    reason that can be written down. Each entry names one bug pattern on one class (or one method), never a
+    package or a whole pattern family, and carries a comment saying why the finding is wrong for that code.
+    See docs/developer/CODE_AUDIT.md.
+-->
+<FindBugsFilter>
+</FindBugsFilter>
