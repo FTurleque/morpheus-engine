@@ -115,6 +115,12 @@ M21 exige le même SHA exact sur Windows et Ubuntu/Linux, vérifie les ratchets 
 
 La CI canonique exécute M21 sur les pull requests ainsi que sur les pushes `main` et `develop`. Les PR Java de production doivent en plus conserver `>= 80%` de changed-line coverage et `>= 70%` de changed-branch coverage.
 
+## Audit de code : SpotBugs et PIT
+
+Deux profils Maven opt-in, absents de `clean verify` et de la CI : `audit-spotbugs` (analyse statique, contrôle
+bloquant) et `audit-mutation` (tests de mutation, un module à la fois). Configuration, commandes, rapports et lecture des
+résultats : [Audit de code](CODE_AUDIT.md).
+
 ## Gate D2 spécialisé
 
 Windows :
