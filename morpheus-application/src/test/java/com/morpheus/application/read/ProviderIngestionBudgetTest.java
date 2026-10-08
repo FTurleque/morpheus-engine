@@ -61,6 +61,41 @@ class ProviderIngestionBudgetTest {
         assertEquals(10, session.aggregateBytes());
     }
 
+    /**
+     * The file budget alone: every other budget has room, so only the file count can refuse the second read. The test
+     * above also exhausts the aggregate bytes, which refused the read even with the file check removed (PIT-AUD-3).
+     */
+    @Test
+    void theFileBudgetAloneRefusesTheReadPastIt(@TempDir Path workspace) throws Exception {
+        Files.writeString(workspace.resolve("a.md"), "a");
+        Files.writeString(workspace.resolve("b.md"), "b");
+        var session = new ProviderIngestionBudget(10, 1, 100, 10, 10, 10, 10)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        assertEquals("a", session.readDocument(Path.of("a.md")));
+        ProviderIngestionLimitException refused = assertThrows(ProviderIngestionLimitException.class,
+                () -> session.readDocument(Path.of("b.md")));
+
+        assertEquals("provider ingestion file count exceeds budget for b.md: 2 > 1", refused.getMessage());
+        assertEquals(1, session.fileCount());
+    }
+
+    /** The line budget alone, across two reads: one line short of it after the first, two lines past it after. */
+    @Test
+    void theLineBudgetAloneRefusesTheReadPastIt(@TempDir Path workspace) throws Exception {
+        Files.writeString(workspace.resolve("a.md"), "1\n2\n");
+        Files.writeString(workspace.resolve("b.md"), "3\n4\n");
+        var session = new ProviderIngestionBudget(10, 10, 100, 3, 10, 10, 10)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        session.readDocument(Path.of("a.md"));
+        ProviderIngestionLimitException refused = assertThrows(ProviderIngestionLimitException.class,
+                () -> session.readDocument(Path.of("b.md")));
+
+        assertEquals("provider ingestion line count exceeds budget for b.md: 4 > 3", refused.getMessage());
+        assertEquals(2, session.lineCount());
+    }
+
     @Test
     void sessionRejectsAggregateBytesAcrossManySmallFiles(@TempDir Path workspace) throws Exception {
         Files.writeString(workspace.resolve("a.md"), "12345");

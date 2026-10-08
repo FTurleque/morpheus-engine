@@ -15,6 +15,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class SourceFingerprintSecurityTest {
 
@@ -125,9 +126,7 @@ class SourceFingerprintSecurityTest {
         Path target = tempDir.resolve("link-target.md");
         Files.writeString(source, "source", StandardCharsets.UTF_8);
         Files.writeString(target, "target", StandardCharsets.UTF_8);
-        if (!symbolicLinksSupported(target)) {
-            return;
-        }
+        assumeTrue(symbolicLinksSupported(target), "symbolic links cannot be created in this environment");
 
         IOException failure = assertThrows(IOException.class, () -> SourceFingerprint.ofFile(
                 source,
@@ -147,9 +146,7 @@ class SourceFingerprintSecurityTest {
         Path target = tempDir.resolve("outside.md");
         Files.writeString(target, "outside", StandardCharsets.UTF_8);
         Path link = tempDir.resolve("source-link.md");
-        if (!tryCreateSymbolicLink(link, target)) {
-            return;
-        }
+        assumeTrue(tryCreateSymbolicLink(link, target), "symbolic links cannot be created in this environment");
 
         IOException failure = assertThrows(IOException.class, () -> SourceFingerprint.ofFile(link, Files.size(target)));
         assertTrue(failure.getMessage().contains("regular non-symbolic"), failure::getMessage);

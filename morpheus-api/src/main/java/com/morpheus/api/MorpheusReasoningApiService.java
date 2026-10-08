@@ -32,6 +32,11 @@ final class MorpheusReasoningApiService {
         if (request == null) {
             throw new IllegalArgumentException("reasoning request is required");
         }
+        return service.execute(converted(request));
+    }
+
+    /** A null the client sent is an invalid request; a null pointer raised by the service is a defect, not this. */
+    private static Request converted(ReasoningRequest request) {
         try {
             List<Evidence> evidence = new ArrayList<>();
             for (EvidenceRequest item : request.evidenceOrEmpty()) {
@@ -45,12 +50,12 @@ final class MorpheusReasoningApiService {
                         item.statement(),
                         item.provenanceOrEmpty()));
             }
-            return service.execute(new Request(
+            return new Request(
                     request.question(),
                     List.copyOf(evidence),
                     request.adapterIdsOrEmpty(),
                     request.parametersOrEmpty(),
-                    request.maxClaimsOrDefault()));
+                    request.maxClaimsOrDefault());
         } catch (NullPointerException failure) {
             throw new IllegalArgumentException("reasoning request contains a null value", failure);
         }

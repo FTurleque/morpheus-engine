@@ -24,6 +24,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 class SyntheticSpecificationContentReaderTest {
     @TempDir
@@ -39,7 +40,7 @@ class SyntheticSpecificationContentReaderTest {
         try {
             Files.createSymbolicLink(source, outside);
         } catch (UnsupportedOperationException | java.io.IOException | SecurityException unsupported) {
-            return;
+            abort("symbolic links cannot be created in this environment");
         }
 
         assertEquals(

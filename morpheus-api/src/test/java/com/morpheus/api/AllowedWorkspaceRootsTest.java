@@ -11,6 +11,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class AllowedWorkspaceRootsTest {
     @TempDir
@@ -36,7 +37,7 @@ class AllowedWorkspaceRootsTest {
         Path allowed = Files.createDirectory(temp.resolve("allowed"));
         Path outside = Files.createDirectory(temp.resolve("outside"));
         Path link = allowed.resolve("linked");
-        if (!createSymlink(link, outside)) return;
+        assumeTrue(createSymlink(link, outside), "symbolic links cannot be created in this environment");
 
         AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
         assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(link));
@@ -47,7 +48,7 @@ class AllowedWorkspaceRootsTest {
         Path allowed = Files.createDirectory(temp.resolve("allowed"));
         Path project = Files.createDirectory(allowed.resolve("project"));
         Path alias = temp.resolve("outside-alias");
-        if (!createSymlink(alias, project)) return;
+        assumeTrue(createSymlink(alias, project), "symbolic links cannot be created in this environment");
 
         AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
         assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(alias));
