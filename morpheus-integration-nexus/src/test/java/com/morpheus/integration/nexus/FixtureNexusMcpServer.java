@@ -35,6 +35,19 @@ public final class FixtureNexusMcpServer {
         }
     }
 
+    /** A peer that is slow but within its timeout: {@code -Dfixture.toolDelayMillis} holds every tool answer. */
+    private static void delayLikeASlowPeer() {
+        long delay = Long.getLong("fixture.toolDelayMillis", 0L);
+        if (delay <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     private static McpServerFeatures.SyncToolSpecification tool(
             String name,
             java.util.function.Function<Map<String, Object>, String> handler) {
@@ -42,6 +55,7 @@ public final class FixtureNexusMcpServer {
         return McpServerFeatures.SyncToolSpecification.builder()
                 .tool(tool)
                 .callHandler((exchange, request) -> {
+                    delayLikeASlowPeer();
                     String text = handler.apply(request.arguments() == null ? Map.of() : request.arguments());
                     return McpSchema.CallToolResult.builder(List.of(McpSchema.TextContent.builder(text).build()))
                             .build();
