@@ -31,14 +31,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * The public HTTP surface is served, declared in {@code contracts/public-surfaces.tsv} and documented in
  * {@code docs/openapi/} consistently, in both directions, route by route (method and path).
  *
- * <p>The served routes are read from {@link MorpheusRemoteRoutePolicy#declaredRoutes()}, the only enumeration of the
- * HTTP surface the code holds. A table is a declaration too, so {@link #theLocalServerDispatchesEveryRouteThePolicyLists}
- * binds it to the real dispatcher: a route the policy lists and the local server does not route fails it. The
- * reverse -- a route the dispatcher serves and the policy omits -- cannot be enumerated from outside; such a route is
- * refused remotely with 404, which {@code MorpheusRemoteRoutePolicy} documents as fail-closed.</p>
+ * <p>The served routes are read from {@link MorpheusHttpRouteTable#declaredRoutes()}, the only enumeration of the
+ * HTTP surface the code holds: {@code MorpheusRemoteRoutePolicy} refuses to load unless its roles cover exactly that
+ * table, and the local {@code Allow} header is computed from it. A table is a declaration too, so
+ * {@link #theLocalServerDispatchesEveryRouteTheTableLists} binds it to the real dispatcher: a route the table lists and
+ * the local server does not route fails it. The reverse -- a route the dispatcher serves and the table omits -- cannot
+ * be enumerated from outside; such a route is refused remotely with 404, which {@code MorpheusRemoteRoutePolicy}
+ * documents as fail-closed.</p>
  *
  * <p>Path parameters are compared by position, not by name: the manifest writes {@code {id}}, OpenAPI
- * {@code {savedViewId}} and the policy {@code {viewId}} for the same segment.</p>
+ * {@code {savedViewId}} and the table {@code {viewId}} for the same segment.</p>
  *
  * <p>This class lives in {@code com.morpheus.api} because the route table is package-private, as
  * {@code com.morpheus.mcp.PublicSurfaceManifestCoversEveryServedToolTest} does for the MCP tool list.</p>
@@ -50,6 +52,7 @@ class PublicHttpRouteConvergenceTest {
     private static final Pattern TOP_LEVEL_KEY = Pattern.compile("^[A-Za-z]");
     private static final Pattern ERROR_MESSAGE = Pattern.compile("\"message\":\"([^\"]*)\"");
     private static final String ABSENT_ID = "01920000-0000-7000-8000-0000000000ff";
+    private static final List<String> PROBE_METHODS = List.of("GET", "POST", "PUT", "DELETE");
 
     /** Served by the remote server only; the local server must refuse them. */
     private static final Map<String, String> REMOTE_ONLY = Map.of(
@@ -142,7 +145,7 @@ class PublicHttpRouteConvergenceTest {
     }
 
     @Test
-    void theLocalServerDispatchesEveryRouteThePolicyLists() throws Exception {
+    void theLocalServerDispatchesEveryRouteTheTableLists() throws Exception {
         Path database = temporaryDirectory.resolve("convergence.db");
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
         List<String> problems = new ArrayList<>();
@@ -159,7 +162,7 @@ class PublicHttpRouteConvergenceTest {
                         problems.add(route + " is remote-only but the local server answered " + response.statusCode());
                     }
                 } else if (refusedAsUnrouted) {
-                    problems.add(route + " is listed by the route policy but not dispatched: "
+                    problems.add(route + " is listed by the route table but not dispatched: "
                             + response.statusCode() + " " + response.body());
                 }
             }
@@ -198,6 +201,47 @@ class PublicHttpRouteConvergenceTest {
         assertEquals(List.of(), problems);
     }
 
+    /**
+     * A 405 names, in {@code Allow}, exactly the methods the route accepts (RFC 9110 section 15.5.6): each route is
+     * sent the first of {@link #PROBE_METHODS} it does not accept, and the header is compared as a set.
+     */
+    @Test
+    void everyRouteRefusesAnUnacceptedMethodWithItsExactAllowHeader() throws Exception {
+        Path database = temporaryDirectory.resolve("allow.db");
+        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        List<String> problems = new ArrayList<>();
+
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            for (Map.Entry<String, Set<String>> route : MorpheusHttpRouteTable.declaredRoutes().entrySet()) {
+                Set<String> accepted = route.getValue();
+                if (accepted.stream().anyMatch(method -> REMOTE_ONLY.containsKey(method + " " + route.getKey()))) {
+                    continue;
+                }
+                String refused = PROBE_METHODS.stream().filter(method -> !accepted.contains(method))
+                        .findFirst().orElseThrow();
+                String path = PARAMETER.matcher(route.getKey()).replaceAll(ABSENT_ID);
+                HttpResponse<String> response = client.send(request(server, refused, path),
+                        HttpResponse.BodyHandlers.ofString());
+                String allow = response.headers().firstValue("Allow").orElse(null);
+                if (response.statusCode() != 405) {
+                    problems.add(refused + " " + route.getKey() + " -> " + response.statusCode() + ", expected 405");
+                } else if (allow == null || !accepted.equals(methods(allow))) {
+                    problems.add(refused + " " + route.getKey() + " -> Allow: " + allow + ", expected " + accepted);
+                }
+            }
+        }
+
+        assertEquals(List.of(), problems);
+    }
+
+    private static Set<String> methods(String allow) {
+        Set<String> methods = new TreeSet<>();
+        for (String method : allow.split(",")) {
+            if (!method.isBlank()) methods.add(method.trim().toUpperCase(Locale.ROOT));
+        }
+        return methods;
+    }
+
     /** A 404 that says the route does not exist, as opposed to a 404 for a resource the route did not find. */
     private static boolean unroutedNotFound(HttpResponse<String> response) {
         if (response.statusCode() != 404) return false;
@@ -219,10 +263,10 @@ class PublicHttpRouteConvergenceTest {
                 .build();
     }
 
-    /** {@code METHOD /api/v1/path} for every method of every route the policy lists, in declaration order. */
+    /** {@code METHOD /api/v1/path} for every method of every route the table lists, in declaration order. */
     private static List<String> servedRoutes() {
         List<String> routes = new ArrayList<>();
-        MorpheusRemoteRoutePolicy.declaredRoutes().forEach((path, methods) ->
+        MorpheusHttpRouteTable.declaredRoutes().forEach((path, methods) ->
                 methods.forEach(method -> routes.add(method + " " + path)));
         return routes;
     }

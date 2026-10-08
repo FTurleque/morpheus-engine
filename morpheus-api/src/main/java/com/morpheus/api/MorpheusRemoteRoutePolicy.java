@@ -16,6 +16,10 @@ import java.util.TreeSet;
  * <p>Every remotely reachable API route is explicitly registered with the HTTP methods and minimum role it accepts.
  * Unknown paths fail closed with 404 and a known path invoked with an unregistered method fails with 405. In
  * particular, a future GET endpoint can never inherit READ authority merely because of its HTTP verb.</p>
+ *
+ * <p>Which routes exist and which methods they accept is {@link MorpheusHttpRouteTable}'s to say; this class assigns
+ * the roles. It refuses to load unless its entries name exactly the table's routes and methods, so a route can never
+ * be served locally without a remote role, nor carry a role for a method the local surface does not accept.</p>
  */
 final class MorpheusRemoteRoutePolicy {
     private static final String GET = "GET";
@@ -109,31 +113,53 @@ final class MorpheusRemoteRoutePolicy {
             route("reasoning/adapters", Map.of(GET, MorpheusRemoteRole.READ)),
             route("reasoning/analyze", Map.of(POST, MorpheusRemoteRole.READ)));
 
-    private MorpheusRemoteRoutePolicy() {
-    }
+    private static final Map<String, Map<String, MorpheusRemoteRole>> ROLES =
+            requireExactCover(MorpheusHttpRouteTable.templates(), ROUTES);
 
-    /**
-     * Every route this policy registers, as a full {@code /api/v1} path template mapped to the methods it accepts, in
-     * declaration order: the only enumeration of the public HTTP surface the code holds.
-     */
-    static Map<String, Set<String>> declaredRoutes() {
-        Map<String, Set<String>> routes = new LinkedHashMap<>();
-        for (RouteRule route : ROUTES) {
-            String suffix = String.join("/", route.template());
-            String path = suffix.isEmpty() ? MorpheusHttpServer.API_PREFIX : MorpheusHttpServer.API_PREFIX + "/" + suffix;
-            routes.put(path, Collections.unmodifiableSet(new TreeSet<>(route.methods().keySet())));
-        }
-        return Collections.unmodifiableMap(routes);
+    private MorpheusRemoteRoutePolicy() {
     }
 
     static MorpheusRemoteRole requiredRole(String rawMethod, String path) {
         String method = normalizeMethod(rawMethod);
-        RouteRule route = requireRoute(path);
-        MorpheusRemoteRole role = route.methods().get(method);
+        String template = MorpheusHttpRouteTable.templateOf(apiSegments(path))
+                .orElseThrow(() -> new RoutePolicyException(404, "NOT_FOUND", "unknown remote API path"));
+        MorpheusRemoteRole role = ROLES.get(template).get(method);
         if (role == null) {
             throw new RoutePolicyException(405, "METHOD_NOT_ALLOWED", "HTTP method is not allowed for remote API route");
         }
         return role;
+    }
+
+    /**
+     * The roles of {@code rules} by template, provided they name exactly the routes and methods of {@code surface}.
+     *
+     * @throws IllegalStateException naming every route that has no entry, a duplicate entry, an entry the surface does
+     *         not declare, or a role for a method set other than the one the route accepts
+     */
+    static Map<String, Map<String, MorpheusRemoteRole>> requireExactCover(
+            Map<String, Set<String>> surface, List<RouteRule> rules) {
+        Map<String, Map<String, MorpheusRemoteRole>> roles = new LinkedHashMap<>();
+        List<String> defects = new ArrayList<>();
+        for (RouteRule rule : rules) {
+            if (roles.putIfAbsent(rule.template(), rule.methods()) != null) {
+                defects.add("duplicate entry for /" + rule.template());
+            } else if (!surface.containsKey(rule.template())) {
+                defects.add("entry for undeclared route /" + rule.template());
+            }
+        }
+        surface.forEach((template, methods) -> {
+            Map<String, MorpheusRemoteRole> assigned = roles.get(template);
+            if (assigned == null) {
+                defects.add("no entry for /" + template);
+            } else if (!assigned.keySet().equals(methods)) {
+                defects.add("/" + template + " assigns roles to " + new TreeSet<>(assigned.keySet())
+                        + " but accepts " + new TreeSet<>(methods));
+            }
+        });
+        if (!defects.isEmpty()) {
+            throw new IllegalStateException("remote route policy must cover the HTTP route table exactly: " + defects);
+        }
+        return Collections.unmodifiableMap(roles);
     }
 
     /**
@@ -150,17 +176,8 @@ final class MorpheusRemoteRoutePolicy {
         }
     }
 
-    private static RouteRule requireRoute(String path) {
-        List<String> segments = apiSegments(path);
-        return ROUTES.stream()
-                .filter(route -> route.matches(segments))
-                .findFirst()
-                .orElseThrow(() -> new RoutePolicyException(404, "NOT_FOUND", "unknown remote API path"));
-    }
-
-    private static RouteRule route(String template, Map<String, MorpheusRemoteRole> methods) {
-        List<String> segments = template.isEmpty() ? List.of() : List.of(template.split("/"));
-        return new RouteRule(segments, Map.copyOf(methods));
+    static RouteRule route(String template, Map<String, MorpheusRemoteRole> methods) {
+        return new RouteRule(template, Map.copyOf(methods));
     }
 
     private static List<String> apiSegments(String path) {
@@ -187,20 +204,7 @@ final class MorpheusRemoteRoutePolicy {
         return Objects.requireNonNull(rawMethod, "rawMethod").toUpperCase(Locale.ROOT);
     }
 
-    private record RouteRule(List<String> template, Map<String, MorpheusRemoteRole> methods) {
-        private boolean matches(List<String> actual) {
-            if (template.size() != actual.size()) return false;
-            for (int index = 0; index < template.size(); index++) {
-                String expected = template.get(index);
-                if (isVariable(expected)) continue;
-                if (!expected.equals(actual.get(index))) return false;
-            }
-            return true;
-        }
-
-        private static boolean isVariable(String segment) {
-            return segment.length() > 2 && segment.startsWith("{") && segment.endsWith("}");
-        }
+    record RouteRule(String template, Map<String, MorpheusRemoteRole> methods) {
     }
 
     static final class RoutePolicyException extends RuntimeException {

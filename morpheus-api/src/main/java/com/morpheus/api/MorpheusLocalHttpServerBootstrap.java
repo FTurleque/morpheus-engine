@@ -180,7 +180,7 @@ final class MorpheusLocalHttpServerBootstrap {
             httpServer.setExecutor(executor);
             httpServer.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
             MorpheusQueryHttpRoutes.register(httpServer, databasePath, result.requestDecoder(),
-                    result.responseWriter());
+                    result.allowedMethods(), result.responseWriter());
             httpServer.start();
             owned.transferred();
             return result;

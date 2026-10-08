@@ -2,6 +2,11 @@ package com.morpheus.api;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -136,5 +141,36 @@ class MorpheusRemoteRoutePolicyTest {
                 MorpheusRemoteRoutePolicy.RoutePolicyException.class,
                 () -> MorpheusRemoteRoutePolicy.requiredRole("GET", "/api/v1/projects//health"));
         assertEquals(404, emptySegment.status());
+    }
+
+    @Test
+    void everyRouteOfTheTableCarriesARoleForExactlyItsMethods() {
+        MorpheusHttpRouteTable.templates().forEach((template, methods) -> {
+            String path = MorpheusHttpServer.API_PREFIX + (template.isEmpty() ? "" : "/" + template);
+            for (String method : methods) {
+                assertDoesNotThrow(() -> MorpheusRemoteRoutePolicy.requiredRole(method, path), method + " " + path);
+            }
+        });
+    }
+
+    @Test
+    void theRolesMustCoverTheRouteTableExactlyAndNameEachDefect() {
+        Map<String, Set<String>> surface = Map.of("alpha", Set.of("GET"), "beta", Set.of("GET", "POST"));
+
+        assertEquals(Set.of("alpha", "beta"), MorpheusRemoteRoutePolicy.requireExactCover(surface, List.of(
+                MorpheusRemoteRoutePolicy.route("alpha", Map.of("GET", MorpheusRemoteRole.READ)),
+                MorpheusRemoteRoutePolicy.route("beta",
+                        Map.of("GET", MorpheusRemoteRole.READ, "POST", MorpheusRemoteRole.WRITE)))).keySet());
+
+        IllegalStateException defects = assertThrows(IllegalStateException.class,
+                () -> MorpheusRemoteRoutePolicy.requireExactCover(surface, List.of(
+                        MorpheusRemoteRoutePolicy.route("beta", Map.of("GET", MorpheusRemoteRole.READ)),
+                        MorpheusRemoteRoutePolicy.route("beta", Map.of("GET", MorpheusRemoteRole.READ)),
+                        MorpheusRemoteRoutePolicy.route("gamma", Map.of("GET", MorpheusRemoteRole.READ)))));
+        String message = defects.getMessage();
+        assertTrue(message.contains("duplicate entry for /beta"), message);
+        assertTrue(message.contains("entry for undeclared route /gamma"), message);
+        assertTrue(message.contains("no entry for /alpha"), message);
+        assertTrue(message.contains("/beta assigns roles to [GET] but accepts [GET, POST]"), message);
     }
 }

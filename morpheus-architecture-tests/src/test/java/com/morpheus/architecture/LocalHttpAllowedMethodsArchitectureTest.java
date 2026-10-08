@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,17 +43,40 @@ class LocalHttpAllowedMethodsArchitectureTest {
         assertTrue(allowed.contains("final class MorpheusHttpAllowedMethods"));
         assertTrue(allowed.contains("String forPath(String path)"));
         assertTrue(allowed.contains("MorpheusHttpPathParser"));
-        assertTrue(allowed.contains("segments.getFirst().equals(\"projects\") || segments.getFirst().equals(\"portfolios\")"));
-        assertTrue(allowed.contains("segments.get(2).equals(\"projects\") || segments.get(2).equals(\"references\")"));
-        assertTrue(allowed.contains("return \"GET, POST\";"));
-        assertTrue(allowed.contains("segments.get(2).equals(\"sync\")"));
-        assertTrue(allowed.contains("return \"POST\";"));
-        assertTrue(allowed.contains("provider-plugins"));
+        assertTrue(allowed.contains("MorpheusHttpRouteTable.methodsOf(segments)"));
+        assertFalse(allowed.contains(".equals(\""), "the Allow header is read from the route table, not matched by hand");
         assertFalse(allowed.contains("HttpExchange"));
         assertFalse(allowed.contains("ApiFailure"));
         assertFalse(allowed.contains("MorpheusApiService"));
         assertFalse(allowed.contains("MorpheusRemoteRoutePolicy"));
         assertFalse(allowed.contains("MorpheusRemoteRole"));
+    }
+
+    /**
+     * The four routers that register their own context set {@code Allow} on their own 405s; until 8 October 2026 each
+     * computed it by hand and five routes answered a wrong one. They now read the server's
+     * {@code MorpheusHttpAllowedMethods}, received at {@code register(...)} like the decoder and the writer.
+     */
+    @Test
+    void routersRegisteringTheirOwnContextReadTheAllowHeaderFromTheRouteTable() throws IOException {
+        Path api = repositoryRoot().resolve("morpheus-api/src/main/java/com/morpheus/api");
+        for (String router : List.of("MorpheusPolicyHttpRoutes", "MorpheusPolicyManagementHttpRoutes",
+                "MorpheusQueryHttpRoutes", "MorpheusReasoningHttpRoutes")) {
+            String source = Files.readString(api.resolve(router + ".java"));
+            assertTrue(source.contains("exchange.getResponseHeaders().set(\"Allow\", allowedMethods.forPath("), router);
+            assertFalse(source.contains("String allowed("), router);
+        }
+    }
+
+    /** The table states routes and methods only: roles stay in the remote policy, which reads the table. */
+    @Test
+    void theRouteTableKnowsNothingOfTheRemoteAuthorizationModel() throws IOException {
+        Path api = repositoryRoot().resolve("morpheus-api/src/main/java/com/morpheus/api");
+        String table = Files.readString(api.resolve("MorpheusHttpRouteTable.java"));
+        String policy = Files.readString(api.resolve("MorpheusRemoteRoutePolicy.java"));
+
+        assertFalse(table.contains("MorpheusRemote"));
+        assertTrue(policy.contains("requireExactCover(MorpheusHttpRouteTable.templates(), ROUTES)"));
     }
 
     private Path repositoryRoot() {
