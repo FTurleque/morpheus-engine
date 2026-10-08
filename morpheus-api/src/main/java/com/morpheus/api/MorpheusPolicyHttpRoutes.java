@@ -132,6 +132,10 @@ final class MorpheusPolicyHttpRoutes {
     private void handleOverrides(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "GET");
+            // The context also receives every deeper path; the list is served at its own path only.
+            if (!suffixSegments(exchange.getRequestURI().getPath(), OVERRIDE_CONTEXT).isEmpty()) {
+                throw ApiFailure.notFound("unknown policy-overrides route");
+            }
             requestDecoder.requireEmptyBody(exchange);
             MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
             query.rejectUnknown(Set.of("scopeKind", "scopeId"));

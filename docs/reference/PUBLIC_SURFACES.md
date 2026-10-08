@@ -24,8 +24,15 @@ Le manifeste indique, pour chaque capability qu'il liste :
 - sa route HTTP ou une omission explicitement justifiée.
 
 Tout outil MCP servi par le câblage par défaut y figure, dans la colonne `mcp`, une fois et une seule ; un outil non exposé y porte une sentinelle `EXPLICITLY_*`,
-jamais une case vide. `PublicSurfaceManifestCoversEveryServedToolTest` le vérifie dans les deux sens (un outil servi sans ligne, un nom cité et plus servi). Aucune garde ne vérifie qu'une commande CLI ou une route HTTP y figure : seuls les outils MCP servis sont confrontés au manifeste. Elle ne
-vérifie que la **présence** d'une ligne : la justesse de ses colonnes `cli` et `http` n'est pas l'objet de cette garde (d'autres tests comparent certaines familles du manifeste à l'OpenAPI ; les lignes ajoutées par MAN-1 n'en font pas partie).
+jamais une case vide. `PublicSurfaceManifestCoversEveryServedToolTest` le vérifie dans les deux sens (un outil servi sans ligne, un nom cité et plus servi). Elle ne
+vérifie que la **présence** d'une ligne : la justesse de ses colonnes `cli` et `http` n'est pas l'objet de cette garde.
+
+Depuis le 8 octobre 2026, la colonne `http` a sa propre garde : `PublicHttpRouteConvergenceTest` compare, méthode et
+chemin, les routes que sert le serveur, la colonne `http` et les opérations des documents `docs/openapi/*.yaml`, dans
+les deux sens, et prouve sur un vrai serveur local que chaque route de la table d'autorisation est routée. Le manifeste
+liste des capacités : toute route servie y a une ligne, sauf les quatre sondes d'exploitation de l'API (racine,
+`health`, `readiness`, `metrics`), exclues avec leur raison dans le test. Aucune garde ne vérifie encore la colonne
+`cli`.
 
 ## M22 — Provider plugins
 

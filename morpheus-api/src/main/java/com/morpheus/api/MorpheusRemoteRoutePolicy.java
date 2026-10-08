@@ -1,10 +1,14 @@
 package com.morpheus.api;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Exhaustive remote route policy.
@@ -106,6 +110,20 @@ final class MorpheusRemoteRoutePolicy {
             route("reasoning/analyze", Map.of(POST, MorpheusRemoteRole.READ)));
 
     private MorpheusRemoteRoutePolicy() {
+    }
+
+    /**
+     * Every route this policy registers, as a full {@code /api/v1} path template mapped to the methods it accepts, in
+     * declaration order: the only enumeration of the public HTTP surface the code holds.
+     */
+    static Map<String, Set<String>> declaredRoutes() {
+        Map<String, Set<String>> routes = new LinkedHashMap<>();
+        for (RouteRule route : ROUTES) {
+            String suffix = String.join("/", route.template());
+            String path = suffix.isEmpty() ? MorpheusHttpServer.API_PREFIX : MorpheusHttpServer.API_PREFIX + "/" + suffix;
+            routes.put(path, Collections.unmodifiableSet(new TreeSet<>(route.methods().keySet())));
+        }
+        return Collections.unmodifiableMap(routes);
     }
 
     static MorpheusRemoteRole requiredRole(String rawMethod, String path) {
