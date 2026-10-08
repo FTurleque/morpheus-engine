@@ -16,7 +16,15 @@ public final class FixtureNexusMcpServer {
     private FixtureNexusMcpServer() {
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
+        if (Boolean.getBoolean("fixture.exitAtStart")) {
+            Runtime.getRuntime().halt(2);
+        }
+        if (Boolean.getBoolean("fixture.silent")) {
+            // A peer that never speaks MCP: the client waits on initialize until something gives up.
+            Thread.sleep(120_000);
+            return;
+        }
         StdioServerTransportProvider transport = new StdioServerTransportProvider(McpJsonDefaults.getMapper());
         McpSyncServer server = McpServer.sync(transport)
                 .serverInfo("fixture-nexus", "1.0")
@@ -35,8 +43,14 @@ public final class FixtureNexusMcpServer {
         }
     }
 
-    /** A peer that is slow but within its timeout: {@code -Dfixture.toolDelayMillis} holds every tool answer. */
+    /**
+     * A peer that is slow but within its timeout: {@code -Dfixture.toolDelayMillis} holds every tool answer, and
+     * {@code -Dfixture.exitOnCall} makes the peer die in the middle of one.
+     */
     private static void delayLikeASlowPeer() {
+        if (Boolean.getBoolean("fixture.exitOnCall")) {
+            Runtime.getRuntime().halt(3);
+        }
         long delay = Long.getLong("fixture.toolDelayMillis", 0L);
         if (delay <= 0) {
             return;

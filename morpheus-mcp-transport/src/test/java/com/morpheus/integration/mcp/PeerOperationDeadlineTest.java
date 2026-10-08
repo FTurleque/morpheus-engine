@@ -69,6 +69,12 @@ class PeerOperationDeadlineTest {
                 () -> PeerOperationDeadline.of(Duration.ofSeconds(1), 5));
         assertTrue(tooMany.getMessage().contains("between 1 and 4"), tooMany.getMessage());
         assertThrows(IllegalArgumentException.class, () -> PeerOperationDeadline.of(Duration.ZERO, 1));
+        assertThrows(IllegalArgumentException.class, () -> PeerOperationDeadline.of(Duration.ofSeconds(-1), 1));
+        IllegalArgumentException none = assertThrows(IllegalArgumentException.class,
+                () -> PeerOperationDeadline.of(Duration.ofSeconds(1), 0));
+        assertTrue(none.getMessage().contains("between 1 and 4"), none.getMessage());
         assertThrows(IllegalArgumentException.class, () -> PeerOperationDeadline.arm(Duration.ZERO, () -> { }));
+        assertThrows(IllegalArgumentException.class,
+                () -> PeerOperationDeadline.arm(Duration.ofMillis(-1), () -> { }));
     }
 }

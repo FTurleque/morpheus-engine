@@ -74,16 +74,10 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
 
     private NexusMcpContextGateway(Launch launch) {
         this.stagedJar = launch.stagedJar();
-        McpSyncClient started = null;
-        PeerOperationDeadline armed = null;
+        McpSyncClient started = buildClient(launch, stagedJar);
+        // Closing the client fails the pending request at once, so the operation ends at its deadline.
+        PeerOperationDeadline armed = PeerOperationDeadline.arm(launch.operationDeadline(), started::close);
         try {
-            BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                    new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
-                    McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
-            McpSyncClient built = McpClient.sync(transport).requestTimeout(launch.timeout()).build();
-            started = built;
-            // Closing the client fails the pending request at once, so the operation ends at its deadline.
-            armed = PeerOperationDeadline.arm(launch.operationDeadline(), built::close);
             started.initialize();
             Set<String> available = started.listTools().tools().stream()
                     .map(tool -> tool.name())
@@ -96,8 +90,8 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             this.client = started;
             this.deadline = armed;
         } catch (RuntimeException failure) {
-            boolean expired = armed != null && armed.expired();
-            if (armed != null) armed.close();
+            boolean expired = armed.expired();
+            armed.close();
             closeStartedSuppressing(started, failure);
             deleteStagedSuppressing(stagedJar, failure);
             if (expired) throw deadlineExceeded(launch.operationDeadline(), failure);
@@ -250,6 +244,18 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
         } catch (RuntimeException failure) {
             deleteStagedQuietly(staged);
             throw failure;
+        }
+    }
+
+    private static McpSyncClient buildClient(Launch launch, Optional<Path> stagedJar) {
+        try {
+            BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                    new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
+                    McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
+            return McpClient.sync(transport).requestTimeout(launch.timeout()).build();
+        } catch (RuntimeException failure) {
+            deleteStagedSuppressing(stagedJar, failure);
+            throw new NexusIntegrationException("cannot start or initialize NEXUS MCP server", failure);
         }
     }
 
