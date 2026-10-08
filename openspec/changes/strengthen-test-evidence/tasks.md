@@ -21,8 +21,8 @@
 
 ## 4. Code hygiene found by SpotBugs
 
-- [ ] 4.1 Remove or read `currentAttempted`, `changeAttempted`, `deltaAttempted` in `OpenSpecSpecificationContentReader.ReadState`; verify SpotBugs no longer reports `URF_UNREAD_FIELD` there
-  - Deferred (maintainer decision, 2026-10-08): `ReadState` is rewritten by PR #408; done after it merges to avoid a certain conflict
+- [x] 4.1 Remove or read `currentAttempted`, `changeAttempted`, `deltaAttempted` in `OpenSpecSpecificationContentReader.ReadState`; verify SpotBugs no longer reports `URF_UNREAD_FIELD` there
+  - 2026-10-08, done in PR #408 (commit `3d845406`), which rewrites `ReadState` (maintainer decision): the three fields and their assignments are removed; SpotBugs at max effort and low threshold reported 3 `URF_UNREAD_FIELD` on `ReadState` before and none after, the other 11 findings of the module unchanged
 - [x] 4.2 Narrow the `catch (NullPointerException)` of `MorpheusReasoningApiService.analyze` to the request conversion; verify an NPE injected in the service is no longer reported as "reasoning request contains a null value"
 
 ## 5. Mutation-testing follow-up
