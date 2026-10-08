@@ -174,7 +174,8 @@ class SafeWorkspaceFileResolverTest {
 
     @Test
     void rejectsWindowsJunctionAncestor() throws Exception {
-        if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) return;
+        assumeTrue(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win"),
+                "NTFS junctions exist only on Windows");
         Path workspace = Files.createDirectory(temp.resolve("workspace"));
         Path target = Files.createDirectory(temp.resolve("junction-target"));
         Files.writeString(target.resolve("spec.md"), "secret");

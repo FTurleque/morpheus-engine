@@ -75,7 +75,8 @@ class AllowedWorkspaceRootsTest {
 
     @Test
     void rejectsWindowsJunctionInsideRoot() throws Exception {
-        if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) return;
+        assumeTrue(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win"),
+                "NTFS junctions exist only on Windows");
         Path allowed = Files.createDirectory(temp.resolve("allowed"));
         Path target = Files.createDirectory(temp.resolve("junction-target"));
         Path junction = allowed.resolve("junction");
@@ -92,13 +93,17 @@ class AllowedWorkspaceRootsTest {
     }
 
     @Test
-    void rejectsEmptyOrSymbolicRootConfiguration() throws Exception {
+    void rejectsEmptyRootConfiguration() {
         assertThrows(IllegalArgumentException.class, () -> AllowedWorkspaceRoots.of(List.of()));
+    }
+
+    @Test
+    void rejectsSymbolicRootConfiguration() throws Exception {
         Path target = Files.createDirectory(temp.resolve("target"));
         Path link = temp.resolve("root-link");
-        if (createSymlink(link, target)) {
-            assertThrows(IllegalArgumentException.class, () -> AllowedWorkspaceRoots.of(List.of(link)));
-        }
+        assumeTrue(createSymlink(link, target), "symbolic links cannot be created in this environment");
+
+        assertThrows(IllegalArgumentException.class, () -> AllowedWorkspaceRoots.of(List.of(link)));
     }
 
     private boolean createSymlink(Path link, Path target) {
