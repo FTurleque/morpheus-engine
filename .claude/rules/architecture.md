@@ -156,9 +156,25 @@ Interdits : `cli..`, `mcp..`, `api..`, `store..`, **et l'implémentation `com.mi
 ni `morpheus-provider-sdk` ni `morpheus-provider-reference`.
 > `ProviderPluginPlatformContractTest#domainAndApplicationDoNotDependOnSdkOrReferencePlugin`
 
+### `api` / `mcp` → stores et providers concrets : seulement par les racines nommées (ADR-0109)
+Les serveurs HTTP et MCP construisent le runtime de chaque requête à partir de `store-sqlite` (et le provider OpenSpec
+pour la synchronisation HTTP). Seules les classes de `AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS` y ont
+droit ; la liste est exactement l'ensemble mesuré et ne fait que rétrécir. En ajouter une exige d'amender ADR-0109.
+> `onlyTheNamedCompositionRootsReachAConcreteStoreOrProvider`, `everyNamedCompositionRootStillReachesAConcreteStoreOrProvider`
+
+### `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
+Le transport STDIO borné est partagé par le serveur MCP et les clients MINOS/NEXUS.
+> `theMcpTransportDependsOnNoOtherMorpheusPackage`
+
+### Les paquets du domaine sont sans cycle, à deux exceptions nommées
+`ProviderProbeResult → SourceLocator` et `RequirementDelta → Scenario`, nommées par la paire de types exacte ; tout
+autre cycle échoue. La même règle sur `application` est reportée (167 cycles mesurés le 08/10/2026, ADR-0109).
+> `domainPackagesAreFreeOfCyclesBesideTheTwoNamedOnes`
+
 ### Pas de framework, pas de magie
 Jamais Spring / Quarkus / Micronaut / Guice, jamais de réflexion, de classpath scanning
-ou d'annotations d'injection. Le câblage est explicite dans `MorpheusMain`.
+ou d'annotations d'injection. Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines
+de composition nommées d'ADR-0109 pour le runtime de chaque requête HTTP ou appel MCP.
 
 ## Cœurs purs — interdits textuels (scannés dans les sources)
 
