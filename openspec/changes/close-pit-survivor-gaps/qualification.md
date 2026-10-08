@@ -166,7 +166,7 @@ Context that affects several verdicts:
 - **Both production callers read the source through `SafeWorkspaceFileResolver.readUtf8`.** `SyntheticSpecificationProvider` caps the read at `MAX_INPUT_BYTES`. `SyntheticSpecificationContentReader` reads through `ProviderIngestionBudget.DEFAULT`, whose `maxDocumentBytes` is also 1 MiB. Both reads cap the byte count and decode strict UTF-8 before the parser runs. Two consequences:
   - A parsed `String` never contains a lone surrogate.
   - Its real UTF-8 size is never above `MAX_INPUT_BYTES`.
-  
+
   So in production `exceedsUtf8ByteLimit` can never decide the outcome. It only matters for direct calls to the package-private `parseObject`, which is what `SyntheticJsonParserSecurityTest` does.
 - **Both callers catch only `IOException | IllegalArgumentException`.** A mutant that turns a refusal into `StringIndexOutOfBoundsException` would therefore escape the `INVALID_SOURCE` diagnostic and crash the read. That is why the "truncated input" boundaries below are worth killing.
 - **The existing tests cover:** grammar (numbers, control characters, `\t`/`\n`/`\u0001`, uppercase-surrogate escapes, duplicate keys, whitespace set) and bounds (depth, nodes, string length, oversized ASCII, oversized `€`, non-finite numbers). No test covers any of the following:
@@ -238,7 +238,7 @@ Nearly all MISSING_TEST rows fall into five tests:
    - `""`, `{`, `{"value"`, `{"value":`, `{"value":1`, `1`
    - `{"value":"abc`, `{"value":"abc\`
    - `{"value":"\uD83D`, `{"value":"\uD83D\`, `{"value":"\u0041`
-   
+
    This kills 77, 142, 157, 197×2, 211, 290, 336 and 343. It matters because the providers catch only IAE, so each of these mutants would crash a read instead of producing an `INVALID_SOURCE` diagnostic.
 2. **Empty containers with and without whitespace**: `{}`, `{ }`, `[ ]`. Kills 94, 96 and 123.
 3. **The remaining escapes and hex digits**: `\" \\ \/ \b \f \r`, `\u0039`, `\u00af`, `\u00AF`. Kills 162-166 and 228-230.
