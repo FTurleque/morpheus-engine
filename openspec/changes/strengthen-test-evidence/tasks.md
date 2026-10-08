@@ -18,6 +18,7 @@
 - [x] 3.2 Test the database lease against a second JVM holding it (`ProcessBuilder`), on Windows and Linux; verify shared/shared succeeds and exclusive is refused
 - [ ] 3.3 Record real `tools/list` and tool responses from pinned MINOS and NEXUS versions as fixtures and assert the gateways parse them; verify a schema change in the recording fails the test
   - Deferred (maintainer decision, 2026-10-08): recordings of the real peers would carry the names and paths of indexed projects; to be done on a dedicated neutral project
+  - 2026-10-08, attempt on MINOS only (maintainer decision; NEXUS left out because indexing would write into the real `~/.nexus` its container shares): MINOS 1.2.0 (commit `730b7600`) was run with an isolated `MINOS_HOME`, the Java tooling copied from the installation (no download) and a one-class Maven project; the project registers, the plan resolves `scip-java` READY, but `minos index` fails with a bare `IllegalStateException`, also from a short path. The installation keeps its indexes in PostgreSQL, configured in its real data directory, so an isolated home has no backend. Still deferred: isolation needs a dedicated database or a throwaway MINOS container
 
 ## 4. Code hygiene found by SpotBugs
 
