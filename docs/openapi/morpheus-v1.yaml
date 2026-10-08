@@ -60,6 +60,16 @@ paths:
         settings, which is where an operator changes them.
       responses: {'200': {$ref: '#/components/responses/Success'}}
 
+  /provider-plugins/discover:
+    get:
+      operationId: discoverProviderPlugins
+      description: >-
+        Metadata-only scan of an explicit provider-plugin directory: no plugin is loaded and no plugin code runs.
+        The remote server scans its own configured directory and refuses this parameter (M26 supplement).
+      parameters:
+        - {name: directory, in: query, required: true, schema: {type: string, minLength: 1}}
+      responses: {'200': {$ref: '#/components/responses/Success'}}
+
   /projects:
     get:
       operationId: listProjects
