@@ -23,6 +23,7 @@ import com.morpheus.domain.task.ImplementationTask;
 import com.morpheus.domain.task.TaskId;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -68,6 +70,40 @@ public final class OpenSpecChangeMetadataReader {
             ProjectSpecificationId projectId,
             EntityIdentityResolver identityResolver,
             ProviderIngestionBudget.Session budget) {
+        return read(workspaceRoot, projectId, identityResolver, budget, failure -> {
+            throw failure;
+        });
+    }
+
+    /**
+     * Reads every change it can and returns, beside them, the attributed failure of each change it rejected.
+     *
+     * <p>A rejected change contributes nothing, not even the part read before its failure. Any other failure
+     * still aborts the whole read: it is not a fault of one change's files.</p>
+     */
+    ContainedRead readContained(
+            Path workspaceRoot,
+            ProjectSpecificationId projectId,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget) {
+        List<RuntimeException> rejected = new ArrayList<>();
+        NormalizedProjectContent content = read(workspaceRoot, projectId, identityResolver, budget, rejected::add);
+        return new ContainedRead(content, rejected);
+    }
+
+    record ContainedRead(NormalizedProjectContent content, List<RuntimeException> rejectedChanges) {
+        ContainedRead {
+            Objects.requireNonNull(content, "content");
+            rejectedChanges = List.copyOf(rejectedChanges);
+        }
+    }
+
+    private NormalizedProjectContent read(
+            Path workspaceRoot,
+            ProjectSpecificationId projectId,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget,
+            Consumer<RuntimeException> rejectChange) {
         Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
         Objects.requireNonNull(projectId, "projectId");
         Objects.requireNonNull(identityResolver, "identityResolver");
@@ -88,9 +124,27 @@ public final class OpenSpecChangeMetadataReader {
         List<Evidence> evidence = new ArrayList<>();
 
         for (Path changeRoot : listChangeRoots(root.resolve("openspec/changes"), budget)) {
-            OpenSpecSourceAttribution.attribute(root, changeRoot.resolve("proposal.md"), () -> normalizeChange(
-                    root, changeRoot, projectId, identityResolver,
-                    changes, constraints, decisions, tasks, evidence, budget));
+            List<ChangeProposal> changeProposals = new ArrayList<>();
+            List<Constraint> changeConstraints = new ArrayList<>();
+            List<DesignDecision> changeDecisions = new ArrayList<>();
+            List<ImplementationTask> changeTasks = new ArrayList<>();
+            List<Evidence> changeEvidence = new ArrayList<>();
+            try {
+                OpenSpecSourceAttribution.attribute(root, changeRoot.resolve("proposal.md"), () -> normalizeChange(
+                        root, changeRoot, projectId, identityResolver,
+                        changeProposals, changeConstraints, changeDecisions, changeTasks, changeEvidence, budget));
+            } catch (IllegalArgumentException | IllegalStateException | UncheckedIOException failure) {
+                if (!(failure instanceof OpenSpecSourceAttribution.AttributedFailure)) {
+                    throw failure;
+                }
+                rejectChange.accept(failure);
+                continue;
+            }
+            changes.addAll(changeProposals);
+            constraints.addAll(changeConstraints);
+            decisions.addAll(changeDecisions);
+            tasks.addAll(changeTasks);
+            evidence.addAll(changeEvidence);
         }
 
         budget.addBlocks(changes.size() + constraints.size() + decisions.size() + tasks.size(), "openspec/changes");
@@ -133,9 +187,12 @@ public final class OpenSpecChangeMetadataReader {
         List<String> proposalLines = readAllLines(workspaceRoot, proposalFile, budget);
         SourceLocator proposalSource = locator(workspaceRoot, proposalFile);
         String changeExternalId = "change:" + changeKey;
-        String title = proposalTitle(proposalLines);
+        // Two proposal dialects (ADR-0028, amendment of 8 October 2026): the original `# Proposal: <title>` and
+        // `## Intent`, and the OpenSpec CLI templates, whose `# Proposal` has no title and whose motivation is `## Why`.
+        String title = proposalTitle(proposalLines).orElse(changeKey);
         String intent = sectionBody(proposalLines, "## Intent")
-                .orElseThrow(() -> new IllegalArgumentException("OpenSpec change has no Intent: " + changeKey));
+                .or(() -> sectionBody(proposalLines, "## Why"))
+                .orElseThrow(() -> new IllegalArgumentException("OpenSpec change has no Intent or Why: " + changeKey));
         List<String> scope = bulletSection(proposalLines, "## Scope");
         List<String> outOfScope = bulletSection(proposalLines, "## Out of scope");
         List<String> risks = bulletSection(proposalLines, "## Risks");
@@ -281,13 +338,12 @@ public final class OpenSpecChangeMetadataReader {
         }
     }
 
-    private String proposalTitle(List<String> lines) {
+    private Optional<String> proposalTitle(List<String> lines) {
         return lines.stream()
                 .map(PROPOSAL_TITLE::matcher)
                 .filter(Matcher::matches)
                 .map(matcher -> matcher.group(1).trim())
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("OpenSpec proposal has no Proposal title"));
+                .findFirst();
     }
 
     private Optional<String> sectionBody(List<String> lines, String heading) {

@@ -114,6 +114,19 @@ class SafeWorkspaceFileResolverTest {
     }
 
     @Test
+    void stripsOneLeadingByteOrderMarkAndKeepsAnyOther() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("workspace-bom"));
+        Files.writeString(workspace.resolve("one.md"), "\uFEFF# Title");
+        Files.writeString(workspace.resolve("two.md"), "\uFEFF\uFEFF# Title");
+        Files.writeString(workspace.resolve("inner.md"), "# Ti\uFEFFtle");
+
+        SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
+        assertEquals("# Title", resolver.readUtf8(Path.of("one.md")));
+        assertEquals("\uFEFF# Title", resolver.readUtf8(Path.of("two.md")));
+        assertEquals("# Ti\uFEFFtle", resolver.readUtf8(Path.of("inner.md")));
+    }
+
+    @Test
     void rejectsMalformedUtf8InsteadOfReplacingInvalidBytes() throws Exception {
         Path workspace = Files.createDirectory(temp.resolve("workspace-invalid-utf8"));
         Files.write(workspace.resolve("spec.md"), new byte[]{(byte) 0xC3, (byte) 0x28});
