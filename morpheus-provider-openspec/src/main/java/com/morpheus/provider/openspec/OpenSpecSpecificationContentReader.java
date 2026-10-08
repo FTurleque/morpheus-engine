@@ -149,7 +149,6 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         boolean needDeltas = requested.contains(ReadCategory.REQUIREMENT_DELTAS);
 
         if (needCurrent && probe.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS)) {
-            state.currentAttempted = true;
             try {
                 NormalizedProjectContent current = currentReader.read(
                         request.workspaceRoot(), request.projectId(), identityResolver, budget);
@@ -170,7 +169,6 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         }
 
         if (needChanges && probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
-            state.changeAttempted = true;
             try {
                 OpenSpecChangeMetadataReader.ContainedRead read = changeReader.readContained(
                         request.workspaceRoot(), request.projectId(), identityResolver, budget);
@@ -197,7 +195,6 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         if (needDeltas
                 && !state.changeFailed
                 && probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
-            state.deltaAttempted = true;
             try {
                 OpenSpecRequirementDeltaReader.ReadResult deltas = deltaReader.read(
                         request.workspaceRoot(), identityResolver, budget);
@@ -465,12 +462,9 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         private final List<DesignDecision> designDecisions = new ArrayList<>();
         private final List<ImplementationTask> tasks = new ArrayList<>();
         private final List<Evidence> evidence = new ArrayList<>();
-        private boolean currentAttempted;
         private boolean currentFailed;
         private int currentUnclosedCodeFences;
-        private boolean changeAttempted;
         private boolean changeFailed;
-        private boolean deltaAttempted;
         private boolean deltaFailed;
         private int rejectedChanges;
         private int droppedRequirementDeltas;
