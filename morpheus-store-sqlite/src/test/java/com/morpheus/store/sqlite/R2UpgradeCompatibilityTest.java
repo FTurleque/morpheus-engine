@@ -6,14 +6,12 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Types;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -134,10 +132,12 @@ class R2UpgradeCompatibilityTest {
                     """);
         }
 
+        // The ledger a released 1.0 database holds is a fact of the past: recomputing it from the resources under test
+        // would follow any later edit of a released migration instead of catching it.
         Map<Integer, String> checksums = new LinkedHashMap<>();
         for (BaselineMigration migration : ONE_DOT_ZERO_MIGRATIONS) {
             String script = loadScript(migration.resourcePath());
-            String checksum = sha256(script);
+            String checksum = SqliteMigrationChecksumGoldenTest.CANONICAL_CHECKSUMS.get(migration.version());
             executeScript(connection, script);
             try (var statement = connection.prepareStatement(
                     "INSERT INTO schema_migrations(version, name, checksum, applied_at) VALUES (?, ?, ?, ?)")) {
@@ -196,11 +196,6 @@ class R2UpgradeCompatibilityTest {
                 statement.execute(sql);
             }
         }
-    }
-
-    private String sha256(String value) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
     }
 
     private boolean tableExists(Connection connection, String table) throws Exception {
