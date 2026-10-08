@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static com.morpheus.domain.OrderingAssertions.assertStrictlyOrdered;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The natural order of domain values is what makes every published collection deterministic, so each comparison is
@@ -57,11 +57,5 @@ class DomainValueOrderingTest {
     private static SpecificationSource source(String provider, String locator) {
         return new SpecificationSource(new ProviderId(provider), SourceLocator.file(locator),
                 Optional.empty(), Optional.empty(), ProviderCapabilitySet.of());
-    }
-
-    static <T extends Comparable<T>> void assertStrictlyOrdered(T lower, T higher) {
-        assertTrue(lower.compareTo(higher) < 0, () -> lower + " must order before " + higher);
-        assertTrue(higher.compareTo(lower) > 0, () -> higher + " must order after " + lower);
-        assertEquals(0, lower.compareTo(lower), () -> lower + " must order equal to itself");
     }
 }

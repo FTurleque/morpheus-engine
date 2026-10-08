@@ -10,9 +10,9 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.morpheus.domain.OrderingAssertions.assertStrictlyOrdered;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Portfolio values order deterministically on every tie-breaking key, and their transitions keep identity and refuse
@@ -95,11 +95,5 @@ class PortfolioValueTest {
     private static PortfolioFreshness freshness(String portfolio, String project) {
         return new PortfolioFreshness(PortfolioId.parse(portfolio), ProjectSpecificationId.parse(project),
                 PortfolioFreshnessState.FRESH, T0, Optional.empty(), Optional.empty());
-    }
-
-    private static <T extends Comparable<T>> void assertStrictlyOrdered(T lower, T higher) {
-        assertTrue(lower.compareTo(higher) < 0, () -> lower + " must order before " + higher);
-        assertTrue(higher.compareTo(lower) > 0, () -> higher + " must order after " + lower);
-        assertEquals(0, lower.compareTo(lower), () -> lower + " must order equal to itself");
     }
 }
