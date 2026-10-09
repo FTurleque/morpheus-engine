@@ -551,7 +551,7 @@ verts sur ce document dans son état final, ce que le § 10 laissait en suspens.
 ## 12. Suivi du 9 octobre 2026 — PIT-AUD-5 traité (`close-pit-survivor-gaps`)
 
 Les 169 mutations survivantes ou non couvertes des six classes de PIT-AUD-5 ont été qualifiées une à une
-(`openspec/changes/close-pit-survivor-gaps/qualification.md`), puis fermées dans la PR #414. Ce paragraphe ajoute des
+(`openspec/changes/archive/2026-10-09-close-pit-survivor-gaps/qualification.md`), puis fermées dans la PR #414. Ce paragraphe ajoute des
 mesures ; il ne réécrit pas le constat du § 5.2, qui décrit `3ec3ea46`.
 
 **Deux défauts confirmés et corrigés**, chacun après un test rouge :
