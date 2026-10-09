@@ -9,9 +9,12 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpenSpecSpecificationProviderTest {
@@ -87,6 +90,28 @@ class OpenSpecSpecificationProviderTest {
         assertEquals(SourceLocator.file("openspec/config.yaml"), result.sourceLocator().orElseThrow());
         assertTrue(result.diagnostics().stream()
                 .anyMatch(diagnostic -> diagnostic.code() == DiagnosticCode.INVALID_SOURCE));
+    }
+
+    @Test
+    void aSchemaWrittenAsAQuotedScalarIsTheSameSchema(@TempDir Path workspace) throws Exception {
+        Path openspec = Files.createDirectories(workspace.resolve("openspec"));
+        for (String declaration : List.of(
+                "schema: \"spec-driven\"\n", "schema: 'spec-driven'\n", "schema: spec-driven # default\n")) {
+            Files.writeString(openspec.resolve("config.yaml"), declaration);
+
+            var result = provider.probe(workspace);
+
+            assertEquals(ProviderProbeStatus.SUPPORTED, result.status(), declaration);
+            assertEquals(Optional.of("spec-driven"), result.schema(), declaration);
+        }
+    }
+
+    @Test
+    void aSchemaWithMismatchedQuotesIsNotRecognized(@TempDir Path workspace) throws Exception {
+        Path openspec = Files.createDirectories(workspace.resolve("openspec"));
+        Files.writeString(openspec.resolve("config.yaml"), "schema: \"spec-driven'\n");
+
+        assertNotEquals(ProviderProbeStatus.SUPPORTED, provider.probe(workspace).status());
     }
 
     private Path fixture(String name) {

@@ -91,9 +91,14 @@ Les adaptateurs dépendent vers l'intérieur. Les adaptateurs sont **frères** �
 └───────────┘ └────────────┘ └───▲────┘ └───────────┘ └─────────────┘
                                  │
                           ┌──────┴──────┐
-                          │ morpheus-cli│  ← câblage explicite uniquement
+                          │ morpheus-cli│  ← câblage explicite du processus
                           └─────────────┘
 ```
+
+Exception écrite et bornée (ADR-0109) : `api` et `mcp` construisent le runtime de chaque requête HTTP ou appel
+d'outil MCP à partir de `store-sqlite` (et, pour la synchronisation HTTP, du provider OpenSpec), **uniquement** par
+les racines de composition nommées dans `AdapterCompositionRootArchitectureTest`. Cette liste ne fait que rétrécir ;
+une nouvelle classe qui veut un store concret passe par une racine existante ou amende l'ADR.
 
 ## Commandes
 
@@ -120,7 +125,7 @@ Gates actifs : **M19** (perf) · **M20** (release) · **M21** (coverage + intég
 
 | Fichier | Rôle |
 |---|---|
-| `morpheus-cli/.../MorpheusMain.java` | Câblage complet de l'application |
+| `morpheus-cli/.../MorpheusMain.java` | Câblage du processus (les runtimes par requête : racines nommées d'ADR-0109) |
 | `morpheus-api/.../MorpheusHttpServer.java` | Serveur local (loopback obligatoire) |
 | `morpheus-api/.../MorpheusRemoteHttpServer.java` | Serveur remote (TLS + RBAC) |
 | `morpheus-application/.../product/ProductMetadata.java` | Source unique de la version |

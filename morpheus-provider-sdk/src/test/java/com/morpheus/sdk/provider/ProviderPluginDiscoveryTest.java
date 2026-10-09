@@ -17,6 +17,7 @@ import java.util.jar.JarOutputStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class ProviderPluginDiscoveryTest {
     @TempDir
@@ -56,7 +57,7 @@ class ProviderPluginDiscoveryTest {
         Path external = directory.resolve("external.jar");
         writeMetadataOnlyJar(external, metadata("external-plugin", 1, "1.0.0"));
         Path link = plugins.resolve("linked.jar");
-        if (!createSymlink(link, external)) return;
+        assumeTrue(createSymlink(link, external), "symbolic links cannot be created in this environment");
 
         ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(plugins);
         assertTrue(result.candidates().isEmpty());
@@ -67,7 +68,7 @@ class ProviderPluginDiscoveryTest {
         Path real = Files.createDirectory(directory.resolve("real-plugins"));
         writeMetadataOnlyJar(real.resolve("provider.jar"), metadata("provider", 1, "1.0.0"));
         Path link = directory.resolve("linked-plugins");
-        if (!createSymlink(link, real)) return;
+        assumeTrue(createSymlink(link, real), "symbolic links cannot be created in this environment");
 
         ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(link);
         assertTrue(result.candidates().isEmpty());
@@ -83,7 +84,8 @@ class ProviderPluginDiscoveryTest {
         Path real = Files.createDirectories(directory.resolve("real").resolve("plugins"));
         writeMetadataOnlyJar(real.resolve("provider.jar"), metadata("provider", 1, "1.0.0"));
         Path alias = directory.resolve("alias");
-        if (!createSymlink(alias, real.getParent()) && !createJunction(alias, real.getParent())) return;
+        assumeTrue(createSymlink(alias, real.getParent()) || createJunction(alias, real.getParent()),
+                "neither a symbolic link nor a junction can be created in this environment");
         Path requested = alias.resolve("plugins");
 
         ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(requested);
@@ -116,7 +118,8 @@ class ProviderPluginDiscoveryTest {
         Path real = Files.createDirectories(directory.resolve("real").resolve("plugins"));
         writeMetadataOnlyJar(real.resolve("provider.jar"), metadata("provider", 1, "1.0.0"));
         Path alias = directory.resolve("alias");
-        if (!createSymlink(alias, real.getParent()) && !createJunction(alias, real.getParent())) return;
+        assumeTrue(createSymlink(alias, real.getParent()) || createJunction(alias, real.getParent()),
+                "neither a symbolic link nor a junction can be created in this environment");
 
         ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(alias.resolve("plugins"));
 

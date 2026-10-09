@@ -91,6 +91,25 @@ class McpClientIntegrationArchitectureTest {
     }
 
     /**
+     * The lifecycle verification runs the production installer under the production AppId: on a machine where
+     * MORPHEUS is installed, it would rewrite and then uninstall the real registration (PKG-AUD-1). It refuses to
+     * start when that registration exists, and does so before it starts anything.
+     */
+    @Test
+    void theSetupLifecycleVerificationRefusesToRunOverAnExistingInstallation() throws IOException {
+        String lifecycle = Files.readString(repoRoot().resolve("scripts/verify-windows-setup-lifecycle.ps1"));
+        int guard = lifecycle.indexOf("if (Test-Path -LiteralPath $UninstallRegistryKey) {");
+        int firstStart = lifecycle.indexOf("Start-Process");
+
+        assertTrue(guard > 0, "the lifecycle verification must check for an existing registration");
+        assertTrue(firstStart > guard, "the registration must be checked before any process is started");
+        assertTrue(lifecycle.contains("{4D0DC052-2FD6-49F5-88F4-E32C9B1EB67A}_is1'"),
+                "the default must stay the production registration");
+        assertTrue(lifecycle.contains("$RegistryKey = $UninstallRegistryKey"),
+                "the key the lifecycle asserts on must be the key it guarded");
+    }
+
+    /**
      * The five MCP client checkboxes are no longer static Inno {@code [Tasks]}: they live on a custom wizard
      * page driven by a real preflight ({@code -Action Detect}), so the wizard and the manager can never
      * disagree about a client's state. This pins that the custom page exists, that it is actually populated

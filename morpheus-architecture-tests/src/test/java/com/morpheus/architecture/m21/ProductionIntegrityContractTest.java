@@ -7,12 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.cli.CliExitCode;
 import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
+import com.morpheus.integration.mcp.PeerOperationDeadline;
 import com.morpheus.integration.minos.MinosIntegrationSettings;
+import com.morpheus.integration.minos.MinosMcpCodeGateway;
 import com.morpheus.integration.nexus.NexusIntegrationSettings;
+import com.morpheus.integration.nexus.NexusMcpContextGateway;
 import com.morpheus.mcp.MorpheusMcpServer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -38,19 +42,30 @@ class ProductionIntegrityContractTest {
     }
 
     /**
-     * ADR-0106, amendment of 24/09/2026: the handler bound is a safety bound, so a handler waiting on a peer at the
-     * longest request timeout an operator may configure must still end by the peer's bounded error. The relation is
-     * asserted over the maximum of every peer ceiling, so a third peer asks the question again instead of slipping
-     * under the bound. This module is the only one that sees the transport and both peer settings.
+     * ADR-0106, amendment of 8 October 2026: the handler bound is a safety bound, so a handler waiting on a peer
+     * that keeps every request within the longest timeout an operator may configure must still end by the
+     * operation's bounded error. One operation is several requests in sequence, so the bound is composed from each
+     * gateway's request count, not from one request: the previous rule, twice one timeout, gave 240 s against a
+     * 480 s MINOS operation. Every gateway must fit the transport's envelope, and the bound must outlast the longest
+     * of them plus the closing of its gateway. This module is the only one that sees the transport and both peers.
      */
     @Test
-    void theHandlerSafetyBoundKeepsTwiceTheLongestConfigurablePeerTimeout() {
-        long longestPeerTimeoutSeconds = Math.max(
-                MinosIntegrationSettings.MAX_TIMEOUT_SECONDS, NexusIntegrationSettings.MAX_TIMEOUT_SECONDS);
-        long boundSeconds = BoundedStdioServerTransportProvider.DEFAULT_HANDLER_DEADLINE.toSeconds();
-        assertTrue(boundSeconds >= 2 * longestPeerTimeoutSeconds,
-                () -> "handler bound " + boundSeconds + " s must keep twice the longest peer timeout "
-                        + longestPeerTimeoutSeconds + " s");
+    void theHandlerSafetyBoundOutlastsTheLongestPeerOperation() {
+        Duration minosOperation = PeerOperationDeadline.of(
+                Duration.ofSeconds(MinosIntegrationSettings.MAX_TIMEOUT_SECONDS),
+                MinosMcpCodeGateway.REQUESTS_PER_OPERATION);
+        Duration nexusOperation = PeerOperationDeadline.of(
+                Duration.ofSeconds(NexusIntegrationSettings.MAX_TIMEOUT_SECONDS),
+                NexusMcpContextGateway.REQUESTS_PER_OPERATION);
+        Duration longestOperation = minosOperation.compareTo(nexusOperation) >= 0 ? minosOperation : nexusOperation;
+        Duration needed = longestOperation.plus(PeerOperationDeadline.CLOSE_ALLOWANCE);
+        Duration bound = BoundedStdioServerTransportProvider.DEFAULT_HANDLER_DEADLINE;
+
+        assertTrue(longestOperation.compareTo(PeerOperationDeadline.LONGEST_OPERATION) <= 0,
+                () -> "a gateway outgrows the transport envelope: " + longestOperation);
+        assertTrue(bound.compareTo(needed) > 0,
+                () -> "handler bound " + bound.toSeconds() + " s must outlast the longest peer operation and its close "
+                        + needed.toSeconds() + " s");
     }
 
     @Test

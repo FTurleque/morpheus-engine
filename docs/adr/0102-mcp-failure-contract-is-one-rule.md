@@ -394,3 +394,35 @@ pas mécaniquement le prochain outil. La garde **faible** est la liste exacte de
 lu. Pas de comparaison de complétude sur le CLI et HTTP avec des données réelles au-delà d'une page : ils sont vérifiés sur le refus, et la
 complétude par le test d'application et le test MCP sur données réelles. Le message d'un argument inconnu côté MCP est celui du SDK,
 localisé (§4) : les tests assertent le refus, pas son texte ; le « pourquoi » est porté par la description de l'outil.
+
+## Amendement du 8 octobre 2026 (MCP-AUD-1) — l'échec d'ouverture du store est déjà un refus, et c'est désormais épinglé
+
+**Constat de l'audit, réfuté par exécution.** L'audit outillé du 8 octobre 2026 a relevé, à la lecture, que
+`SqliteConnectionScope.open` enveloppe toute `SQLException` en `IllegalStateException` et que le bail SQLite lève
+`IllegalStateException` (« reserved for exclusive maintenance ») ; il en concluait que `MorpheusMcpServer.call` et six autres
+classes d'outils, qui ne mappent que `IllegalArgumentException | KnowledgeStoreException`, laissaient s'échapper l'échec
+d'ouverture du store en erreur de protocole. Les deux tests de reproduction écrits avant tout correctif sont **verts sur le code
+d'origine** : `get_current_specification` répond `isError` avec `Cannot initialize SQLite knowledge store`, base réservée comme
+base illisible. Aucun handler MCP n'ouvre de `SqliteConnectionScope` ; chaque store qu'il ouvre passe par
+`SqliteStoreConnection.open`, qui convertit toute `RuntimeException` — refus du bail et échec du pilote compris — en
+`KnowledgeStoreException`. La règle du §2 (« ouvre un store → `+ KnowledgeStoreException` ») suffisait donc ; c'est la lecture
+qui avait manqué la conversion. Les `IllegalStateException` relevées existent bien, mais seuls les adaptateurs HTTP et CLI
+ouvrent des portées, et tous deux mappent `IllegalStateException` comme `KnowledgeStoreException`.
+
+**Décision (mainteneur, 8 octobre 2026).** Aucun changement de production : convertir quand même le type aurait modifié un
+type que trois tests du store épinglent, pour aucun défaut observable. Le contrat, vrai aujourd'hui sans être tenu par un test,
+est en revanche **épinglé** :
+
+- `McpStoreFailureInjectionTest` appelle **chaque** outil servi, avec les plus petits arguments que son propre schéma accepte
+  (`McpSchemaArguments`, vérifiés par le validateur du SDK pour que l'appel corresponde au chemin servi), contre une base que
+  le pilote ne peut pas lire puis contre une base réservée par une maintenance exclusive. Tout handler qui atteint un store
+  doit répondre `isError` par un refus du store, sans chaîne d'exception ni chemin absolu ; les classes sans store (`Product`,
+  `ProviderPlugin`, `Reasoning`) doivent seulement répondre.
+- Les classes d'outils y sont listées par nom, et `#theInjectedClassesAreExactlyTheServedOnes` refuse une liste qui diverge de
+  ce que le serveur sert.
+- Retirer `KnowledgeStoreException` du `catch` de `MorpheusMcpServer.call` ou de `MorpheusPortfolioMcpTools` fait échouer le
+  test en nommant l'outil (`get_current_specification`, `create_portfolio`) ; mesuré, puis restauré.
+
+La phrase « Un `catch` qui oublie `KnowledgeStoreException` sur un handler qui ouvre un store fait échouer le test qui appelle
+ce handler sur une base absente » de la section *Conséquences* devient vraie pour **tous** les handlers, et non plus pour ceux
+qu'un test appelait déjà.

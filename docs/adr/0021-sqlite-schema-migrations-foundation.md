@@ -285,3 +285,28 @@ Les migrations suivantes pourront étendre le schéma en conservant :
 ```text
 provider -> normalization -> MORPHEUS domain -> SpecificationKnowledgeStore -> adapters
 ```
+
+## Amendement du 8 octobre 2026 — le checksum identifie le texte d'une migration, pas les octets d'un checkout
+
+« Le checksum est SHA-256 du script appliqué » se lisait comme le SHA-256 des octets de la ressource. Ces octets dépendaient
+du checkout : `.gitattributes` ne fixait pas les fins de ligne des `*.sql`, si bien qu'un build Windows embarquait les
+migrations en CRLF et un build Linux en LF, depuis le même commit. Mesuré sur `3ec3ea46` : V001 vaut `eeb86cf3…` en LF
+(blob Git) et `a4342864…` dans le JAR de `dist/morpheus-1.2.1-windows-x64.zip`. Une base créée par l'un était refusée par
+l'autre (« SQLite migration history mismatch for version 1 »), et une restauration hors ligne acceptait une telle
+sauvegarde puis jetait la base précédente (audit `docs/audits/AUDIT_OUTILLE_2026-10-08.md`, STO-AUD-1).
+
+- **Checksum canonique** : SHA-256 du script dont les fins de ligne sont normalisées en LF. C'est la valeur enregistrée
+  pour toute migration appliquée à partir de cet amendement.
+- **Deux valeurs acceptées, pas plus** : pour une migration déjà enregistrée, le checksum canonique et celui du même texte
+  en CRLF — la valeur qu'un build Windows antérieur a écrite. Toute autre valeur reste une divergence d'historique
+  refusée. Accepter la variante CRLF accepte aussi une modification qui ne toucherait que les fins de ligne : elle ne
+  peut pas changer le SQL exécuté.
+- **Aucune réécriture** : une valeur acceptée reste telle qu'enregistrée. L'historique n'est jamais réécrit silencieusement.
+- **Restauration** : la vérification d'une sauvegarde confronte chaque ligne de son registre (version, nom, checksum) à
+  cette même règle **avant** de mettre la base vivante en quarantaine ; un registre refusé l'est avec la raison
+  « backup migration history is not accepted by this runtime for version N », et la base vivante reste en place.
+- **Checkout** : `.gitattributes` fixe `*.sql text eol=lf`, pour que les builds embarquent les mêmes octets.
+- **Preuves** : `SqliteMigrationChecksumGoldenTest` épingle le checksum canonique de chaque migration en littéral (une
+  modification de contenu fait échouer le build) ; `SqliteMigrationLineEndingCompatibilityTest` ouvre un registre écrit
+  en LF et un registre écrit en CRLF, et refuse un contenu modifié ; `SqliteRestoreLedgerVerificationTest` refuse une
+  sauvegarde au registre refusé sans toucher à la base vivante et restaure une sauvegarde écrite par l'autre convention.

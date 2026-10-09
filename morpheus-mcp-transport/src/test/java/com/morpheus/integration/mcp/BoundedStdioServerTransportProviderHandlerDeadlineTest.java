@@ -60,7 +60,8 @@ class BoundedStdioServerTransportProviderHandlerDeadlineTest {
         IllegalArgumentException zero = assertThrows(IllegalArgumentException.class, () -> provider(Duration.ZERO));
         assertEquals("handlerDeadline must be positive", zero.getMessage());
         assertThrows(NullPointerException.class, () -> provider(null));
-        assertEquals(Duration.ofMinutes(4), BoundedStdioServerTransportProvider.DEFAULT_HANDLER_DEADLINE);
+        // 4 requests x 120 s + 15 s start-up, + 15 s to close the gateway, + 30 s of local work.
+        assertEquals(Duration.ofMinutes(9), BoundedStdioServerTransportProvider.DEFAULT_HANDLER_DEADLINE);
     }
 
     private static BoundedStdioServerTransportProvider provider(Duration handlerDeadline) {

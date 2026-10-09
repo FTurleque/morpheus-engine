@@ -1,7 +1,11 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string] $SetupExePath
+    [string] $SetupExePath,
+
+    # The per-user uninstall registration of the production AppId the installer under test writes. A parameter only
+    # so that the refusal below can be exercised on a throwaway key; production runs keep the default.
+    [string] $UninstallRegistryKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{4D0DC052-2FD6-49F5-88F4-E32C9B1EB67A}_is1'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -9,6 +13,13 @@ Set-StrictMode -Version Latest
 
 if ($env:OS -ne 'Windows_NT') {
     throw 'MORPHEUS Windows setup lifecycle verification must run on Windows.'
+}
+# The installer run below is the production one, under the production AppId: on a machine where MORPHEUS is
+# installed, it would rewrite that installation's registration and the final uninstall would delete it. Nothing has
+# been started yet, so refusing here leaves the machine exactly as it was.
+if (Test-Path -LiteralPath $UninstallRegistryKey) {
+    throw ("MORPHEUS is already registered on this machine ($UninstallRegistryKey); " +
+        'refusing to run the setup lifecycle verification over a real installation.')
 }
 if (-not (Test-Path -LiteralPath $SetupExePath -PathType Leaf)) {
     throw "Setup executable not found: $SetupExePath"
@@ -59,7 +70,7 @@ function Stop-ProcessTreeSafely([System.Diagnostics.Process] $Process) {
 $Root = Join-Path ([System.IO.Path]::GetTempPath()) ("morpheus-setup-lifecycle-" + [Guid]::NewGuid())
 New-Item -ItemType Directory -Force -Path $Root | Out-Null
 $InstallDir = Join-Path $Root 'MORPHEUS install with spaces'
-$RegistryKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{4D0DC052-2FD6-49F5-88F4-E32C9B1EB67A}_is1'
+$RegistryKey = $UninstallRegistryKey
 $StartMenuFolder = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\MORPHEUS'
 
 try {

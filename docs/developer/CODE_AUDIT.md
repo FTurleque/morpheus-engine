@@ -70,8 +70,8 @@ Aucune version de JUnit ou de Java n'a été modifiée.
 | Profil | Déclare | Lié à une phase ? | Effet |
 |---|---|---|---|
 | *(aucun)* | rien de SpotBugs ni de PIT | — | build habituel inchangé ; les deux plugins n'apparaissent pas dans le POM effectif d'un module |
-| `audit-spotbugs` | `spotbugs-maven-plugin` dans `<build><plugins>`, hérité par tous les modules | **oui**, `check` sur `verify` | analyse chaque module qui a des classes de production, écrit les rapports, puis échoue s'il reste des alertes |
-| `audit-mutation` | `pitest-maven` + `pitest-junit5-plugin`, et des propriétés `pit.*` | **non** | ne fait rien tant que l'objectif `pitest:mutationCoverage` n'est pas appelé explicitement |
+| `audit-spotbugs` | `spotbugs-maven-plugin` dans `<build><plugins>`, hérité par tous les modules ; propriétés `spotbugs.audit.includeTests` (`false`) et `spotbugs.audit.xmlOutputFilename` (`spotbugsXml.xml`) | **oui**, `check` sur `verify` | analyse chaque module qui a des classes de production, écrit les rapports, puis échoue s'il reste des alertes |
+| `audit-mutation` | `pitest-maven` + `pitest-junit5-plugin`, des propriétés `pit.*` (dont `pit.crossModule`, `false`), et `-Dmorpheus.project.version` transmis au minion | **non** | ne fait rien tant que l'objectif `pitest:mutationCoverage` n'est pas appelé explicitement |
 
 Le contrôle du POM effectif (`./mvnw help:effective-pom -Paudit-spotbugs -pl morpheus-domain`) a été fait : le plugin
 SpotBugs n'apparaît dans `morpheus-domain` qu'avec `audit-spotbugs`, PIT qu'avec `audit-mutation`.
@@ -89,8 +89,8 @@ analysées (`includeTests=false`).
 **Aucune exclusion n'est en place.** [`config/spotbugs-exclude.xml`](../../config/spotbugs-exclude.xml) est un filtre
 vide, volontairement. Aucun module de production n'est désactivé.
 
-**PIT** ne s'exécute **jamais** sur tout le dépôt. Le périmètre par défaut est petit et déterministe, dans
-`morpheus-domain` :
+**PIT** ne s'exécute **jamais** sur tout le dépôt en une seule commande : un audit complet enchaîne un lot par module
+(§ 14). Le périmètre par défaut est petit et déterministe, dans `morpheus-domain` :
 
 ```text
 classes   com.morpheus.domain.constraint.*   com.morpheus.domain.change.lifecycle.*
@@ -230,6 +230,12 @@ Cinq propriétés, toutes `-D` :
 | `pit.threads` | `2` | parallélisme de PIT |
 | `pit.timeoutConstant` / `pit.timeoutFactor` | `4000` / `1.25` | délai d'une mutation : constante en ms + facteur sur le temps normal |
 | `pit.coverageThreshold` | `1` | garde-fou, voir ci-dessous |
+| `pit.crossModule` | `false` | muter aussi les classes de modules amont avec les tests du module courant (§ 9) |
+
+Le profil transmet aussi `-Dmorpheus.project.version=${project.version}` au minion. PIT ne lit pas les
+`systemPropertyVariables` de Surefire : sans cette ligne, `ProductMetadata.version()` vaut `development` dans le minion,
+deux tests de `ProductIntegrityTest` échouent avant toute mutation, et PIT refuse le module entier
+(« Mutation testing requires a green suite »). Mesuré le 08/10/2026.
 
 Exemple, **une seule classe** et **un seul test**. Sous PowerShell, une variante à deux classes avec guillemets a été
 **exécutée** (14 mutations) ; la forme ci-dessous a tourné **sous Git Bash** (10 mutations) :
@@ -300,7 +306,19 @@ du domaine, donne 11 mutations, 0 ligne couverte, `Ran 0 tests` — et le build 
 - un `NO_COVERAGE` dans un module ne prouve pas que le comportement est non testé dans le dépôt ;
 - les tests d'architecture (ArchUnit) vérifient la structure, pas le comportement, et ne tuent aucune mutation d'un
   autre module ; ils ne remplacent pas des tests comportementaux placés **dans** le module de la classe ;
-- pour mesurer une classe, il faut des tests dans son propre module.
+- pour mesurer une classe, il faut des tests dans son propre module, **ou** la passe transverse ci-dessous.
+
+**Passe transverse (`-Dpit.crossModule=true`).** Lancée dans un module aval, elle mute les classes amont nommées par
+`pit.targetClasses` et les fait tuer par les tests du module aval. Condition mesurée : le module amont doit être
+**dans le réacteur**. `-pl morpheus-application -Dpit.crossModule=true -Dpit.targetClasses=com.morpheus.domain.*`
+répond `No mutations found` (le domaine est alors un JAR de `~/.m2`) ; il faut
+`-pl morpheus-domain,morpheus-application`, et PIT tourne alors aussi dans le module amont. Mesuré : les tests
+d'application tuent 168 des 315 mutations du domaine, contre 100 pour les tests du domaine seuls.
+
+Deux limites de la passe transverse. Un test qui lance un **sous-processus** (`java … MorpheusMain`) exécute le
+bytecode non muté de `target/classes` et ne peut tuer aucune mutation. Un mutant qui casse le nettoyage d'un arbre de
+processus (`provider-sdk`, `mcp-transport`) peut laisser des **JVM orphelines** après la mort du minion : les compter
+et les arrêter après chaque lot (le relevé du 08/10/2026 en a trouvé 5 après le lot `provider-sdk`).
 
 ## 10. Mesures
 
@@ -424,3 +442,40 @@ Un constat n'est pas une tâche. Pour en faire une :
 
 Ne pas corriger en masse : un changement qui ne vise que « faire taire » l'outil (un `@SuppressFBWarnings` posé sans
 analyse, un test sans assertion) dégrade ce que l'outil est censé protéger.
+
+## 14. Audit complet du réacteur
+
+Les profils servent aussi à un audit couvrant tous les modules, découpé en lots. Les chiffres d'un tel audit sont
+des relevés datés : celui du 08/10/2026 est [`../audits/AUDIT_OUTILLE_2026-10-08.md`](../audits/AUDIT_OUTILLE_2026-10-08.md).
+
+**SpotBugs, deux passes.** La passe production est celle du § 7. La passe qui ajoute le bytecode de test écrit un
+autre fichier et n'écrase pas la première :
+
+```bash
+./mvnw -o -Paudit-spotbugs -Dspotbugs.failOnError=false -Dspotbugs.audit.includeTests=true \
+  -Dspotbugs.audit.xmlOutputFilename=spotbugsXml-with-tests.xml -DskipTests verify
+```
+
+Le XML du plugin publie `total_classes='0'` : pour prouver ce qui a été analysé, lire l'élément `<Jar>` du rapport (le
+répertoire analysé), compter ses `.class`, et vérifier `missingClasses='0'` et un `cpu_seconds` non nul. Une alerte se
+classe « test » quand sa classe n'existe que sous `target/test-classes`.
+
+**PIT, un lot par module**, chacun sur tous les paquetages de production du module, avec tous ses tests :
+
+```bash
+./mvnw -o -Paudit-mutation -pl <module> "-Dpit.targetClasses=<paquetage racine du module>.*" \
+  "-Dpit.targetTests=com.morpheus.*" -Dpit.threads=12 -Dpit.timeoutConstant=8000 \
+  test-compile org.pitest:pitest-maven:mutationCoverage
+```
+
+puis les passes transverses du § 9 pour les classes que leur module teste peu. Règles tirées de l'audit du 08/10 :
+
+- **un seul lot à la fois** — deux lots simultanés se disputent les cœurs et transforment des mutations en
+  `TIMED_OUT`, comptées comme tuées ;
+- après un lot de `provider-sdk` ou `mcp-transport`, compter et arrêter les JVM orphelines (§ 9) ;
+- arrêter un lot de force laisse son Maven et ses minions vivants : retrouver les JVM dont la ligne de commande porte
+  le dépôt, et ne terminer que celles-là ;
+- archiver `target/pit-reports` après chaque lot : le lot suivant du même module l'écrase.
+
+**Gitleaks et Dependency-Check** ne sont pas des profils de ce dépôt. L'audit du 08/10 donne les commandes exactes,
+la vérification de l'archive Gitleaks, et le repli sur le rapport CI quand la clé NVD locale est refusée.

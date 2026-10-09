@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -21,12 +22,14 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class LocalWritePermissionHardenerTest {
 
@@ -176,9 +179,9 @@ class LocalWritePermissionHardenerTest {
         Path existing = tempDir.resolve("acl-shared-parent");
         Files.createDirectory(existing);
         AclFileAttributeView view = Files.getFileAttributeView(existing, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-        if (view == null) return;
+        assumeTrue(view != null, "this file system has no ACL view");
         GroupPrincipal broad = broadGroupPrincipal();
-        if (broad == null) return;
+        assumeTrue(broad != null, "no broad group could be resolved from its well-known SID");
 
         List<AclEntry> acl = new ArrayList<>(view.getAcl());
         acl.add(0, AclEntry.newBuilder()
@@ -191,9 +194,13 @@ class LocalWritePermissionHardenerTest {
                 .build());
         view.setAcl(acl);
 
-        assertThrows(
+        LocalWritePermissionHardener.LocalWritePermissionException refused = assertThrows(
                 LocalWritePermissionHardener.LocalWritePermissionException.class,
                 () -> new LocalWritePermissionHardener().hardenDirectory(existing));
+        assertTrue(refused.getMessage().startsWith(
+                        "Sensitive path ACL grants replacement or mutation rights to an untrusted principal: "),
+                refused.getMessage());
+        assertTrue(refused.getMessage().endsWith("(" + broad.getName() + ")"), refused.getMessage());
     }
 
     @Test
@@ -206,14 +213,51 @@ class LocalWritePermissionHardenerTest {
                 () -> new LocalWritePermissionHardener().hardenFile(directory));
     }
 
+    /**
+     * A broad group, found by its well-known SID rather than its name: "Everyone" is "Tout le monde" on a French
+     * Windows, where looking it up by its English name resolved nothing and the test passed having verified nothing.
+     * The JDK looks principals up by name only, so the SID is translated to the local name by the platform.
+     */
     private GroupPrincipal broadGroupPrincipal() throws IOException {
-        for (String name : List.of("Everyone", "BUILTIN\\Users", "Users")) {
+        for (String sid : List.of("S-1-1-0", "S-1-5-32-545")) {
+            String localName = localNameOfSid(sid);
+            if (localName == null) continue;
             try {
-                return FileSystems.getDefault().getUserPrincipalLookupService().lookupPrincipalByGroupName(name);
+                return FileSystems.getDefault().getUserPrincipalLookupService().lookupPrincipalByGroupName(localName);
             } catch (UserPrincipalNotFoundException ignored) {
-                // Try the next well-known spelling. ACL-backed CI currently resolves at least one on Windows.
+                // Try the next well-known SID.
             }
         }
         return null;
+    }
+
+    /** Windows PowerShell ships with Windows, at a fixed place under the system root; the PATH is not relied on. */
+    private static String windowsPowerShell() {
+        String systemRoot = System.getenv("SystemRoot");
+        if (systemRoot == null) return "powershell";
+        Path shipped = Path.of(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+        return Files.isRegularFile(shipped) ? shipped.toString() : "powershell";
+    }
+
+    private static String localNameOfSid(String sid) {
+        try {
+            Process process = new ProcessBuilder(windowsPowerShell(), "-NoProfile", "-NonInteractive", "-Command",
+                    "(New-Object System.Security.Principal.SecurityIdentifier('" + sid + "'))"
+                            + ".Translate([System.Security.Principal.NTAccount]).Value")
+                    .redirectErrorStream(true)
+                    .start();
+            // Bounded before reading: reading first would wait on the stream of a hung PowerShell without limit.
+            if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return null;
+            }
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            return process.exitValue() != 0 || output.isEmpty() ? null : output;
+        } catch (IOException interruptedOrMissing) {
+            return null;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
     }
 }

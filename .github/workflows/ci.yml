@@ -42,6 +42,11 @@ jobs:
         shell: bash
         run: bash ./scripts/validate-m21.sh 1.2.1
 
+      - name: Test the changed-coverage gate script on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: python3 -m unittest discover -s scripts/tests -v
+
       - name: Enforce changed line and branch coverage on Linux PRs
         if: runner.os == 'Linux' && github.event_name == 'pull_request'
         shell: bash
