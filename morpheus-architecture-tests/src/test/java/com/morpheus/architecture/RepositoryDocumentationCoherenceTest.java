@@ -367,12 +367,18 @@ class RepositoryDocumentationCoherenceTest {
         // measurements of e8e0f0ca (see CoverageQualityGateTest), and BOTH per-module keys are raised inside it,
         // each sized separately to at least 3x the 24-line / 11-branch spread: line 0.642 -> 0.646 (93 lines, 3.9x),
         // branch 0.560 -> 0.569 (34 branches, 3.1x). The aggregate pair is still not touched.
-        assertEquals("1550", ratchets.get("testsMinimum"));
-        assertEquals("385", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.646", ratchets.get("perModuleLineCoverageMinimum"));
-        assertEquals("0.569", ratchets.get("perModuleBranchCoverageMinimum"));
-        assertEquals("0.850", ratchets.get("aggregateLineCoverageMinimum"));
-        assertEquals("0.680", ratchets.get("aggregateBranchCoverageMinimum"));
+        //
+        // 09/10/2026: both caps requalified on four exact-head measurements of develop 8e3fda5a (see each gate),
+        // and every ratchet raised inside them. Coverage keys, each the highest thousandth keeping 3x the 24-line /
+        // 11-branch reference spread: per-module 0.646 -> 0.691 (97 lines) and 0.569 -> 0.612 (38 branches),
+        // aggregate 0.850 -> 0.900 (88 lines) and 0.680 -> 0.757 (42 branches). Presence ratchets, 3830 tests of
+        // which 590 architecture tests on all four runs: 1550 -> 3820 and 385 -> 585, the 10 / 5 margin of 08/09.
+        assertEquals("3820", ratchets.get("testsMinimum"));
+        assertEquals("585", ratchets.get("architectureTestsMinimum"));
+        assertEquals("0.691", ratchets.get("perModuleLineCoverageMinimum"));
+        assertEquals("0.612", ratchets.get("perModuleBranchCoverageMinimum"));
+        assertEquals("0.900", ratchets.get("aggregateLineCoverageMinimum"));
+        assertEquals("0.757", ratchets.get("aggregateBranchCoverageMinimum"));
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));

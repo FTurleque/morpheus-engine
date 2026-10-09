@@ -104,10 +104,10 @@ Toute spec `docs/openapi/*.yaml` doit porter :
 lisent ce fichier et assertent le nombre de tests, le nombre de tests d'architecture,
 la couverture ligne/branche et la version courante (`1.2.1`). La couverture y est déclarée
 **deux fois**, une paire de clés par échelle de mesure (`aggregate*` et `perModule*`) — citer
-un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 22/09/2026 :
-`1550 / 385`, couverture `85,0% / 68,0%` agrégée et `64,6% / 56,9%` par module
-(les deux clés par module relevées ce jour-là dans un plafond requalifié le même jour,
-l'agrégée inchangée depuis le 09/09/2026). Ces nombres sont des
+un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 09/10/2026 :
+`3820 / 585`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module
+(les six relevées ce jour-là, dans les deux plafonds requalifiés le même jour sur `8e3fda5a`).
+Ces nombres sont des
 **ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones, donc
 toute valeur recopiée ici (y compris dans une version antérieure de cette page) peut être
 périmée. Relire le fichier `.properties` avant de citer un chiffre. Voir `rules/meta.md`.
