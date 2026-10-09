@@ -4,6 +4,9 @@ import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ProviderProjectRoot;
+import com.morpheus.domain.diagnostic.Diagnostic;
+import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.evidence.SourceRange;
@@ -31,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -92,6 +96,7 @@ public final class OpenSpecCurrentSpecificationReader {
         List<Requirement> requirements = new ArrayList<>();
         List<Scenario> scenarios = new ArrayList<>();
         List<Evidence> evidence = new ArrayList<>();
+        List<Diagnostic> diagnostics = new ArrayList<>(probe.diagnostics());
 
         for (Path specificationFile : specificationFiles) {
             OpenSpecSourceAttribution.attribute(root, specificationFile, () -> normalizeSpecification(
@@ -104,6 +109,7 @@ public final class OpenSpecCurrentSpecificationReader {
                     requirements,
                     scenarios,
                     evidence,
+                    diagnostics,
                     budget));
         }
 
@@ -124,7 +130,7 @@ public final class OpenSpecCurrentSpecificationReader {
                 requirements,
                 scenarios,
                 evidence,
-                probe.diagnostics());
+                diagnostics);
     }
 
     private void normalizeSpecification(
@@ -137,6 +143,7 @@ public final class OpenSpecCurrentSpecificationReader {
             List<Requirement> requirements,
             List<Scenario> scenarios,
             List<Evidence> evidence,
+            List<Diagnostic> diagnostics,
             ProviderIngestionBudget.Session budget) {
         List<String> lines = readAllLines(workspaceRoot, specificationFile, budget);
         if (lines.isEmpty()) {
@@ -146,9 +153,10 @@ public final class OpenSpecCurrentSpecificationReader {
         String specificationKey = specificationKey(specsRoot, specificationFile);
         String specificationExternalId = "specification:" + specificationKey;
         SourceLocator source = SourceLocator.file(workspaceRoot.relativize(specificationFile).toString());
+        OpenSpecCodeFences fences = OpenSpecCodeFences.of(lines);
         String title = firstHeading(lines)
                 .orElseThrow(() -> new IllegalArgumentException("OpenSpec specification has no title"));
-        Optional<String> purpose = sectionBody(lines, "## Purpose");
+        Optional<String> purpose = sectionBody(lines, fences, "## Purpose");
 
         Evidence specificationEvidence = evidence(
                 identityResolver,
@@ -172,16 +180,13 @@ public final class OpenSpecCurrentSpecificationReader {
                 purpose,
                 provenance(specificationExternalId, source, specificationEvidence.id())));
 
-        List<Integer> requirementHeadings = headingIndexes(lines, REQUIREMENT_HEADING);
-        for (int index = 0; index < requirementHeadings.size(); index++) {
-            int start = requirementHeadings.get(index);
-            int endExclusive = index + 1 < requirementHeadings.size()
-                    ? requirementHeadings.get(index + 1)
-                    : lines.size();
+        // Structure is read outside fenced code only, as the delta reader reads its sections: a requirement ends at the
+        // next requirement or level-two heading, and a heading shown as an example inside a fence is neither.
+        for (int start : headingIndexes(lines, fences, REQUIREMENT_HEADING)) {
             normalizeRequirement(
                     lines,
                     start,
-                    endExclusive,
+                    requirementEnd(lines, fences, start + 1),
                     specificationKey,
                     specificationId,
                     source,
@@ -191,6 +196,32 @@ public final class OpenSpecCurrentSpecificationReader {
                     evidence,
                     budget);
         }
+        if (fences.hasUnclosedFence()) {
+            // Everything after the opening line is masked, so a requirement there is lost: said, not silent.
+            diagnostics.add(new Diagnostic(
+                    DiagnosticCode.UNCLOSED_CODE_FENCE,
+                    DiagnosticSeverity.WARNING,
+                    "OpenSpec specification opens a code fence that is never closed; the rest of the file is fenced",
+                    Map.of(
+                            "provider", OpenSpecSpecificationProvider.ID.value(),
+                            "specification", specificationKey,
+                            "fence", fences.unclosedRun(),
+                            "line", Integer.toString(fences.unclosedOpening() + 1)),
+                    Optional.of(source.value())));
+        }
+    }
+
+    private int requirementEnd(List<String> lines, OpenSpecCodeFences fences, int from) {
+        for (int index = from; index < lines.size(); index++) {
+            if (fences.isFenced(index)) {
+                continue;
+            }
+            String line = lines.get(index);
+            if (REQUIREMENT_HEADING.matcher(line).matches() || line.startsWith("## ")) {
+                return index;
+            }
+        }
+        return lines.size();
     }
 
     private void normalizeRequirement(
@@ -241,6 +272,10 @@ public final class OpenSpecCurrentSpecificationReader {
                 OpenSpecSpecificationProvider.ID,
                 "requirement",
                 requirementExternalId));
+        // Refused here, inside the file's attribution, rather than by NormalizedProjectContent, which names no file.
+        if (requirements.stream().anyMatch(existing -> existing.id().equals(requirementId))) {
+            throw new IllegalArgumentException("OpenSpec specification declares the same requirement twice: " + title);
+        }
         requirements.add(new Requirement(
                 requirementId,
                 specificationId,
@@ -340,6 +375,9 @@ public final class OpenSpecCurrentSpecificationReader {
                 OpenSpecSpecificationProvider.ID,
                 "scenario",
                 scenarioExternalId));
+        if (scenarios.stream().anyMatch(existing -> existing.id().equals(scenarioId))) {
+            throw new IllegalArgumentException("OpenSpec specification declares the same scenario twice: " + title);
+        }
         scenarios.add(new Scenario(
                 scenarioId,
                 Optional.of(requirementId),
@@ -429,13 +467,13 @@ public final class OpenSpecCurrentSpecificationReader {
                 .findFirst();
     }
 
-    private Optional<String> sectionBody(List<String> lines, String heading) {
+    private Optional<String> sectionBody(List<String> lines, OpenSpecCodeFences fences, String heading) {
         for (int index = 0; index < lines.size(); index++) {
-            if (!lines.get(index).trim().equals(heading)) {
+            if (fences.isFenced(index) || !lines.get(index).trim().equals(heading)) {
                 continue;
             }
             int end = index + 1;
-            while (end < lines.size() && !lines.get(end).startsWith("## ")) {
+            while (end < lines.size() && (fences.isFenced(end) || !lines.get(end).startsWith("## "))) {
                 end++;
             }
             String body = joinContent(lines, index + 1, end);
@@ -444,10 +482,10 @@ public final class OpenSpecCurrentSpecificationReader {
         return Optional.empty();
     }
 
-    private List<Integer> headingIndexes(List<String> lines, Pattern pattern) {
+    private List<Integer> headingIndexes(List<String> lines, OpenSpecCodeFences fences, Pattern pattern) {
         List<Integer> indexes = new ArrayList<>();
         for (int index = 0; index < lines.size(); index++) {
-            if (pattern.matcher(lines.get(index)).matches()) {
+            if (!fences.isFenced(index) && pattern.matcher(lines.get(index)).matches()) {
                 indexes.add(index);
             }
         }
