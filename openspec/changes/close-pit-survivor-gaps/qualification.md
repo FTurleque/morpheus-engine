@@ -377,3 +377,43 @@ Five tests would kill all 29:
 1. **`listAudit` ordering is not chronological (potential DEFECT, `SqlitePolicyPackStore:554`).** `ORDER BY at, id` compares `at` as ISO-8601 *text*. `Instant.toString()` drops zero fractions and prints 3, 6 or 9 digits otherwise, so `…T14:30:00.500Z` sorts **before** `…T14:30:00Z`, because `.` < `Z`. Ties fall back to a UUIDv7 `DomainIdentity` whose sub-millisecond bits are random, so equal-`at` rows are not in insertion order either. `MemoryPolicyPackStore.listAudit` returns insertion order, so the two stores can disagree. Test to write: two audits written with `at` = `T…00Z` and `T…00.500Z`, then assert that chronological order is returned.
 2. **Memory and SQLite disagree on a missing row.** Removing an activation that does not exist throws `IllegalArgumentException("policy activation does not exist")` in memory, but `PolicyConflictException("stale … current is 0")` in SQLite, and `SqlitePolicyPackStoreAtomicityTest` pins the SQLite behaviour. `removeOverride` disagrees the same way: `EntityNotFoundException` in memory, `PolicyConflictException` in SQLite. The order of checks also differs. Memory checks the revision before the audit, SQLite checks the audit first. A CAS update that skips a step is refused by an IAE in memory (explicit check) but by a `KnowledgeStoreException` raised by the V018 trigger in SQLite.
 3. **The exception for a closed store differs between SQLite stores.** `SqlitePolicyPackStore`, `SqliteSavedViewStore` and `SqliteCompositionStateStore` throw `IllegalStateException`, while the other nine throw `KnowledgeStoreException`. Callers cannot handle "store closed" in one uniform way.
+
+## Replay of 2026-10-09 (task 5.1)
+
+The audit's lots P03, P09, P11 and X1 were replayed restricted to the six classes, on `test/pit-survivor-gaps` merged
+with `develop` (`908a410f`) plus the tests of task 5.1, under WSL2 Ubuntu (JDK 21), with the audit's options
+(`-Dpit.threads=12 -Dpit.timeoutConstant=8000`, `targetTests=com.morpheus.*`; X1 with `crossModule`, the
+architecture tests and the M19 gates excluded). Lots X2 and X3 were not replayed: X3 does not mutate these classes,
+and the tests of 5.1 replace what X2 contributed (below).
+
+| Class | Mutations | Killed | Survived | No coverage |
+|---|---:|---:|---:|---:|
+| `MultiProviderCompositionService` | 90 | 90 | 0 | 0 |
+| `QueryExecutionService` | 68 | 67 | 1 | 0 |
+| `NormalizedProjectContent` | 51 | 51 | 0 | 0 |
+| `SyntheticJsonParser` | 186 | 184 | 2 | 0 |
+| `SqlitePolicyPackStore` | 210 | 205 | 5 | 0 |
+| `SqlitePortfolioStore` | 110 | 102 | 8 | 0 |
+| **Total** | **715** | **699** | **16** | **0** |
+
+Eleven survivors are rows marked `EQUIVALENT` above, under their shifted lines: `SyntheticJsonParser` 96 and 125 (97
+and 126 before line 65 was removed), `SqlitePolicyPackStore` 329 and 417, `SqlitePortfolioStore` 99, 156, 181, 228,
+265, 314 and 489 (490 before the blank-segment filter was removed).
+
+Five survivors are not rows above: the audit counted them detected, by a lot or by a timeout this replay does not
+reproduce. Each is qualified here.
+
+| Class | Line | Mutation | Audit status | Verdict | Reason |
+|---|---:|---|---|---|---|
+| `QueryExecutionService` | 199 | `boundedRows`: removed `requireSourceRowBudget` | `TIMED_OUT` (X2, `cli`) | REDUNDANT_CODE | The bound wraps the project rows, each branch of which is already bounded, and the memberships, bounded first by the 1 000-project budget: it cannot fail (side observation of the summary above). |
+| `SqlitePolicyPackStore` | 45 | `create`: removed `ensureOpen` | `TIMED_OUT` (P11) | EQUIVALENT | `findDefinition`, reached before any write, re-runs `ensureOpen` with the same message. Same shape as 329 and 417. |
+| `SqlitePolicyPackStore` | 253 | `compareAndSetActivation`: removed `ensureOpen` | `TIMED_OUT` (P11) | EQUIVALENT | `findVersion`, reached before any write, re-runs it. |
+| `SqlitePolicyPackStore` | 579 | `close`: removed `Connection::close` | `KILLED` (P11, Windows) | EQUIVALENT on Linux | The store marks itself closed either way; only a Windows file lock on the database observes the open connection. |
+| `SqlitePortfolioStore` | 341 | `close`: removed `Connection::close` | `KILLED` (P11, Windows) | EQUIVALENT on Linux | Same as the line above. |
+
+What X2 contributed on `QueryExecutionService` besides line 199 — ten mutations it killed or timed out, at lines 73
+(two), 86, 98, 112, 115, 125, 162, 163 and 210 — is now killed by application tests added in task 5.1: the order of a
+complete materialization, a ceiling of one row, an invalid definition refused before the source is read, an unknown
+portfolio, a mapped current requirement, a source of exactly the budget. Seven of the ten had been detected only by a
+timeout. The six mutations X2 detected on `SqlitePolicyPackStore` (lines 93, 100, 103, 389, 508, 646 of the audited
+source) are all killed in this replay.

@@ -1,5 +1,6 @@
 package com.morpheus.application.query.dsl;
 
+import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.store.ProjectStoreEntry;
@@ -241,6 +242,33 @@ class QuerySourceBudgetTest {
 
         assertBudgetExceededAt("$.source.evidence", () -> service.execute(QueryDefinition.all(
                 new ProjectQueryScope(projectId), QueryEntityType.EVIDENCE, QueryPage.first(10))));
+    }
+
+    @Test
+    void projectContentOfExactlyTheSourceBudgetIsQueried() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.generate();
+        QueryExecutionService service = service(
+                new StubPortfolioStore(PortfolioId.generate(), List.of()),
+                new StubSnapshotStore(activeSnapshot(projectId, snapshotId)),
+                new EmptyVersionStore(),
+                new StubContentStore(evidenceOnly(snapshotId, QueryBudgets.MAX_SOURCE_ROWS)));
+
+        QueryResult result = service.execute(QueryDefinition.all(
+                new ProjectQueryScope(projectId), QueryEntityType.EVIDENCE, QueryPage.first(1)));
+
+        assertEquals(QueryBudgets.MAX_SOURCE_ROWS, result.totalMatches());
+    }
+
+    @Test
+    void anUnknownPortfolioIsRefusedByName() {
+        PortfolioId unknown = PortfolioId.generate();
+        QueryExecutionService service = service(new StubPortfolioStore(PortfolioId.generate(), List.of()));
+
+        EntityNotFoundException refusal = assertThrows(EntityNotFoundException.class, () -> service.execute(
+                QueryDefinition.all(new PortfolioQueryScope(unknown), QueryEntityType.EVIDENCE, QueryPage.first(1))));
+
+        assertEquals("unknown portfolio: " + unknown, refusal.getMessage());
     }
 
     @Test

@@ -118,5 +118,12 @@ Every test asserts the message, value or order that kills its mutations (`rules/
 
 ## 5. Replay and record
 
-- [ ] 5.1 Replay the PIT command of PIT-AUD-5 on the six classes; verify every survivor left is a row `qualification.md` marks `EQUIVALENT` or `UNREACHABLE`, and record the before/after counts in the audit document
+- [x] 5.1 Replay the PIT command of PIT-AUD-5 on the six classes; verify every survivor left is a row `qualification.md` marks `EQUIVALENT` or `UNREACHABLE`, and record the before/after counts in the audit document
+
+  Lots P03, P09, P11 and X1 replayed on the six classes (WSL, 2026-10-09): 16 survivors and no uncovered mutation
+  out of 715, against 169 out of 723. Eleven are equivalent rows of the qualification; five were not rows because the
+  audit counted them detected, and are qualified in its replay section. The replay also showed eight
+  `QueryExecutionService` mutations detected only by a timeout of lot X2 (`cli`) and two killed only by X2's adapter
+  suites: application tests now kill them, except `boundedRows`, redundant. Recorded as § 12 of
+  `docs/audits/AUDIT_OUTILLE_2026-10-08.md`.
 - [ ] 5.2 Run `./mvnw clean verify` and the persistence parity tests; verify the test ratchets of `config/m21-quality-ratchets.properties` still hold and record whether a ratchet can rise (`coverage-ratchet` skill)

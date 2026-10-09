@@ -68,6 +68,26 @@ class QueryCurrentRequirementBudgetTest {
         assertEquals(QueryBudgets.MAX_SOURCE_ROWS + 1, versions.lastLimit);
     }
 
+    @Test
+    void aCurrentRequirementIsMappedToItsRow() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.generate();
+        TrackingVersionStore versions = new TrackingVersionStore(snapshotId, 1);
+        QueryExecutionService service = new QueryExecutionService(
+                new ActiveSnapshotStore(activeSnapshot(projectId, snapshotId)),
+                versions,
+                new EmptyContentStore(),
+                new EmptyPortfolioStore());
+
+        QueryResult result = service.execute(QueryDefinition.all(
+                new ProjectQueryScope(projectId), QueryEntityType.REQUIREMENT, QueryPage.first(10)));
+
+        assertEquals(1, result.totalMatches());
+        assertEquals(QueryEntityType.REQUIREMENT, result.items().getFirst().entityType());
+        assertEquals(versions.records.getFirst().entityVersion().content().id().toString(),
+                result.items().getFirst().entityId());
+    }
+
     /** The project-scope bound would refuse it too, but later, after mapping, and at {@code $.scope.project}. */
     @Test
     void aRequirementSourceAboveTheBudgetIsRefusedAtItsOwnPath() {
