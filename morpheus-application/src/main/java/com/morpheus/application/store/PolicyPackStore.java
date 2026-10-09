@@ -69,5 +69,6 @@ public interface PolicyPackStore {
             long expectedRevision,
             PolicyConfiguration.AuditRecord audit);
 
+    /** The pack's audit in {@link PolicyConfiguration.AuditRecord}'s natural order: by instant, ties by identity. */
     List<PolicyConfiguration.AuditRecord> listAudit(PolicyIds.PackId packId);
 }
