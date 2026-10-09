@@ -23,15 +23,15 @@ La documentation humaine explique ces contrats ; elle ne doit pas devenir une de
 Baseline active :
 
 ```text
-Tests              >= 1550 PASS
-Architecture       >= 385 PASS
+Tests              >= 3820 PASS
+Architecture       >= 585 PASS
 Reactor            18/18 SUCCESS
 Windows            PASS
 Linux              PASS
-JaCoCo aggregate lines      >= 85.0 %
-JaCoCo aggregate branches   >= 68.0 %
-JaCoCo per-module lines     >= 64.6 %
-JaCoCo per-module branches  >= 56.9 %
+JaCoCo aggregate lines      >= 90.0 %
+JaCoCo aggregate branches   >= 75.7 %
+JaCoCo per-module lines     >= 69.1 %
+JaCoCo per-module branches  >= 61.2 %
 Changed lines       >= 80 %
 Changed branches    >= 70 %
 ```

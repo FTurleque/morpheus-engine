@@ -8,16 +8,16 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (22/09/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (09/10/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
-| `testsMinimum` | 1550 |
-| `architectureTestsMinimum` | 385 |
-| `aggregateLineCoverageMinimum` | 0.850 (85.0%) |
-| `aggregateBranchCoverageMinimum` | 0.680 (68.0%) |
-| `perModuleLineCoverageMinimum` | 0.646 (64.6%) |
-| `perModuleBranchCoverageMinimum` | 0.569 (56.9%) |
+| `testsMinimum` | 3820 |
+| `architectureTestsMinimum` | 585 |
+| `aggregateLineCoverageMinimum` | 0.900 (90.0%) |
+| `aggregateBranchCoverageMinimum` | 0.757 (75.7%) |
+| `perModuleLineCoverageMinimum` | 0.691 (69.1%) |
+| `perModuleBranchCoverageMinimum` | 0.612 (61.2%) |
 
 ## Deux échelles de couverture, deux jeux de seuils
 
@@ -113,6 +113,22 @@ Dispersion : 0 ligne / 1 branche entre les runs Linux, 15 lignes / 7 branches en
 du 15/09 (24 / 11), qui reste la référence des marges. Les deux ratchets montent **séparément**, chacun au
 plus haut millième qui garde trois fois cette dispersion : ligne `0.646` (**93 lignes**, 3,9 fois), branche
 `0.569` (**34 branches**, 3,1 fois).
+
+Le 09/10/2026, les **deux** plafonds sont requalifiés sur `develop` à `8e3fda5a` (runs `37925178678`
+`push` et `37925186306` `pull_request`, mêmes populations sur les quatre : 29 245 lignes, 10 326 branches) :
+
+```text
+par module  Windows  69,4888 % / 69,4888 % lignes   61,6502 % / 61,6308 % branches
+            Linux    69,4341 % / 69,4409 % lignes   61,5727 % / 61,5921 % branches   <- plafond
+agrégée     Windows  90,3539 % / 90,3539 % lignes   76,1670 % / 76,1476 % branches
+            Linux    90,3026 % / 90,3060 % lignes   76,1089 % / 76,1089 % branches   <- plafond
+```
+
+Dispersion : 16 lignes / 8 branches par module, 15 / 6 en agrégé, toutes deux dans la référence 24 / 11 du
+15/09, contre laquelle les quatre clés sont dimensionnées, chacune au plus haut millième qui en garde trois
+fois : par module `0.691` (**97 lignes**) et `0.612` (**38 branches**), agrégé `0.900` (**88 lignes**) et
+`0.757` (**42 branches**). Les ratchets de présence montent avec eux, `3820 / 585` pour 3 830 / 590
+exécutions identiques sur les quatre runs, la marge de 10 / 5 du 08/09.
 
 Une session qui ne dispose que d'une plateforme ne peut relever que le ratchet, dans la marge
 déjà qualifiée ; elle ne touche pas au plafond.
