@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class StructuredMarkdownSpecificationContentReaderTest {
 
@@ -204,7 +205,7 @@ class StructuredMarkdownSpecificationContentReaderTest {
         Path source = workspace.resolve(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
         Files.createDirectories(source.getParent());
         Path outside = Files.writeString(workspace.getParent().resolve("outside-markdown.md"), "# outside");
-        if (!createSymlink(source, outside)) return;
+        assumeTrue(createSymlink(source, outside), "symbolic links cannot be created in this environment");
 
         assertEquals(ProviderProbeStatus.INVALID, new StructuredMarkdownSpecificationProvider().probe(workspace).status());
         EntityIdentityResolver identities = (providerId, entityType, externalId) -> DomainIdentity.generate();
@@ -226,6 +227,23 @@ class StructuredMarkdownSpecificationContentReaderTest {
 
         assertTrue(result.content().isEmpty());
         assertFalse(result.diagnostics().isEmpty());
+    }
+
+    /** Through a real provider read with the default budget: a small document with too many lines is refused. */
+    @Test
+    void aDocumentPastTheLineBudgetIsRefusedNamingTheMetric() throws Exception {
+        Path source = workspace.resolve(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, "x\n".repeat(100_001));
+
+        EntityIdentityResolver identities = (providerId, entityType, externalId) -> DomainIdentity.generate();
+        var result = new StructuredMarkdownSpecificationContentReader()
+                .read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()), identities);
+
+        assertTrue(result.content().isEmpty());
+        assertEquals("Structured Markdown normalization failed: provider ingestion line count exceeds budget for "
+                        + "morpheus/specification.md: 100001 > 100000",
+                result.diagnostics().getFirst().message());
     }
 
     private boolean createSymlink(Path link, Path target) {

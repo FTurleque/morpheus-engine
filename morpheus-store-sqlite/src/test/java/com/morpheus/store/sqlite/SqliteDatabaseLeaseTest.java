@@ -37,15 +37,17 @@ class SqliteDatabaseLeaseTest {
             assertFalse(first.isClosed());
             assertFalse(second.isClosed());
             assertTrue(first.toString().startsWith("LeasedSqliteConnection["));
-            assertThrows(IllegalStateException.class, () -> SqliteDatabaseLease.acquireExclusive(database));
+            assertRefused("SQLite database is still open in another MORPHEUS operation",
+                    () -> SqliteDatabaseLease.acquireExclusive(database));
 
             first.close();
             assertTrue(first.isClosed());
-            assertThrows(IllegalStateException.class, () -> SqliteDatabaseLease.acquireExclusive(database));
+            assertRefused("SQLite database is still open in another MORPHEUS operation",
+                    () -> SqliteDatabaseLease.acquireExclusive(database));
 
             second.close();
             try (SqliteDatabaseLease.Lease exclusive = SqliteDatabaseLease.acquireExclusive(database)) {
-                assertThrows(IllegalStateException.class, () -> SqliteDatabaseSecurity.open(database));
+                assertRefused("SQLite database is reserved for exclusive maintenance", () -> SqliteDatabaseSecurity.open(database));
             }
 
             try (var reopened = SqliteDatabaseSecurity.open(database)) {
@@ -65,7 +67,7 @@ class SqliteDatabaseLeaseTest {
 
         try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.WRITE);
              FileLock ignored = channel.lock()) {
-            assertThrows(IllegalStateException.class, () -> SqliteDatabaseLease.acquireShared(database));
+            assertRefused("SQLite database is reserved for exclusive maintenance", () -> SqliteDatabaseLease.acquireShared(database));
         }
     }
 
@@ -78,7 +80,8 @@ class SqliteDatabaseLeaseTest {
         try (FileChannel channel = FileChannel.open(
                 lockPath, StandardOpenOption.READ, StandardOpenOption.WRITE);
              FileLock ignored = channel.lock(0L, Long.MAX_VALUE, true)) {
-            assertThrows(IllegalStateException.class, () -> SqliteDatabaseLease.acquireExclusive(database));
+            assertRefused("SQLite database is still open in another MORPHEUS process",
+                    () -> SqliteDatabaseLease.acquireExclusive(database));
         }
     }
 
@@ -133,7 +136,8 @@ class SqliteDatabaseLeaseTest {
         Connection guarded = SqliteDatabaseLease.guard(failingFirstCloseUnchecked(closeAttempts, injected), lease);
 
         assertSame(injected, assertThrows(IllegalStateException.class, guarded::close));
-        assertThrows(IllegalStateException.class, () -> SqliteDatabaseLease.acquireExclusive(database));
+        assertRefused("SQLite database is still open in another MORPHEUS operation",
+                () -> SqliteDatabaseLease.acquireExclusive(database));
 
         guarded.close();
         SqliteDatabaseLease.acquireExclusive(database).close();
@@ -179,7 +183,7 @@ class SqliteDatabaseLeaseTest {
 
         try (FileChannel external = FileChannel.open(lockPath, StandardOpenOption.WRITE);
              FileLock ignored = external.lock()) {
-            assertThrows(IllegalStateException.class, () -> SqliteDatabaseLease.acquireShared(database));
+            assertRefused("SQLite database is reserved for exclusive maintenance", () -> SqliteDatabaseLease.acquireShared(database));
         }
 
         assertTrue(Files.deleteIfExists(lockPath),
@@ -196,7 +200,8 @@ class SqliteDatabaseLeaseTest {
         try (FileChannel external = FileChannel.open(lockPath, StandardOpenOption.WRITE);
              FileLock ignored = external.lock()) {
             SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
-            assertThrows(IllegalStateException.class, () -> maintenance.acquireServerLease(database));
+            assertRefused("MORPHEUS server lease is already held for this database",
+                    () -> maintenance.acquireServerLease(database));
         }
 
         assertTrue(Files.deleteIfExists(lockPath),
@@ -272,6 +277,13 @@ class SqliteDatabaseLeaseTest {
         Path database = temp.resolve("morpheus.db");
         Files.createDirectory(temp.resolve("morpheus.db.access.lock"));
 
-        assertThrows(IllegalArgumentException.class, () -> SqliteDatabaseLease.acquireShared(database));
+        IllegalArgumentException refused = assertThrows(
+                IllegalArgumentException.class, () -> SqliteDatabaseLease.acquireShared(database));
+        assertEquals("SQLite database access lease must be a regular non-symbolic file", refused.getMessage());
+    }
+
+    /** The type alone would also pass for a refusal raised for another reason. */
+    private static void assertRefused(String message, org.junit.jupiter.api.function.Executable action) {
+        assertEquals(message, assertThrows(IllegalStateException.class, action).getMessage());
     }
 }

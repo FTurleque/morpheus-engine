@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Filesystem custody of the identity snapshot, exercised without any knowledge of what it carries.
@@ -140,7 +141,7 @@ class RemoteIdentityFileStoreTest {
         Path target = temp.resolve("real-auth.txt");
         Files.writeString(target, "content\n", StandardCharsets.UTF_8);
         Path link = temp.resolve("linked-auth.txt");
-        if (!canCreateSymbolicLink(link, target)) return;
+        assumeTrue(canCreateSymbolicLink(link, target), "symbolic links cannot be created in this environment");
 
         assertTrue(assertThrows(IllegalArgumentException.class,
                 () -> RemoteIdentityFileStore.readLines(link, "cannot read"))
@@ -158,7 +159,7 @@ class RemoteIdentityFileStoreTest {
         Path lockTarget = temp.resolve("lock-target");
         Files.writeString(lockTarget, "", StandardCharsets.UTF_8);
         Path lock = RemoteIdentityFileStore.mutationLockPath(file);
-        if (!canCreateSymbolicLink(lock, lockTarget)) return;
+        assumeTrue(canCreateSymbolicLink(lock, lockTarget), "symbolic links cannot be created in this environment");
 
         AtomicBoolean ran = new AtomicBoolean();
 

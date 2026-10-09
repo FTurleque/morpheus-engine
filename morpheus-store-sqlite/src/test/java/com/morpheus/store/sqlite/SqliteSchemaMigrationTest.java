@@ -207,11 +207,12 @@ class SqliteSchemaMigrationTest {
             statement.executeUpdate("UPDATE schema_migrations SET checksum = 'tampered' WHERE version = 1");
         }
 
-        assertThrows(KnowledgeStoreException.class, () -> {
+        KnowledgeStoreException refused = assertThrows(KnowledgeStoreException.class, () -> {
             try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
                 // Opening must fail before the store becomes usable.
             }
         });
+        assertEquals("SQLite migration history mismatch for version 1", refused.getMessage());
     }
 
     @Test

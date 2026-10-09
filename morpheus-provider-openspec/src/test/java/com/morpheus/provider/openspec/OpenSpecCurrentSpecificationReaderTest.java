@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 class OpenSpecCurrentSpecificationReaderTest {
 
@@ -199,7 +200,7 @@ class OpenSpecCurrentSpecificationReaderTest {
         try {
             Files.createSymbolicLink(source, outside);
         } catch (UnsupportedOperationException | java.io.IOException | SecurityException unsupported) {
-            return;
+            abort("symbolic links cannot be created in this environment");
         }
 
         assertThrows(IllegalArgumentException.class, () -> new OpenSpecCurrentSpecificationReader().read(

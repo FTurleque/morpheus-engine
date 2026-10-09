@@ -143,6 +143,8 @@ public record ProviderIngestionBudget(
             }
             long bytes = utf8Bytes(text);
             long lines = text.lines().count();
+            // The bounded read already enforces the three byte budgets; they are checked again on the decoded text so
+            // that a budget never rests on another class keeping its contract. The line budget only this read checks.
             budget.requireDocumentBytes(bytes, source);
             budget.requireAggregateBytes(Math.addExact(aggregateBytes, bytes), source);
             budget.requireLines(Math.addExact(lineCount, lines), source);

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class LocalSourceInventorySecurityTest {
 
@@ -68,7 +69,8 @@ class LocalSourceInventorySecurityTest {
         Files.writeString(workspace.resolve("local.md"), "local");
         Files.writeString(external.resolve("outside.md"), "outside");
 
-        boolean linkCreated = tryCreateSymbolicLink(workspace.resolve("external-link"), external);
+        assumeTrue(tryCreateSymbolicLink(workspace.resolve("external-link"), external),
+                "symbolic links cannot be created in this environment");
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
         var result = scan(scanner, workspace);
 
@@ -78,9 +80,7 @@ class LocalSourceInventorySecurityTest {
                 .toList());
         assertFalse(scanner.policy().followSymbolicLinks());
 
-        if (linkCreated) {
-            assertTrue(Files.isSymbolicLink(workspace.resolve("external-link")));
-        }
+        assertTrue(Files.isSymbolicLink(workspace.resolve("external-link")));
     }
 
     @Test
@@ -89,10 +89,7 @@ class LocalSourceInventorySecurityTest {
         Path target = Files.createDirectories(tempDir.resolve("symlink-root-target"));
         Files.writeString(target.resolve("inside.md"), "inside content");
         Path link = workspace.resolve("linked-root");
-        if (!tryCreateSymbolicLink(link, target)) {
-            Assumptions.assumeTrue(false, "symlinks not supported in this environment");
-            return;
-        }
+        assumeTrue(tryCreateSymbolicLink(link, target), "symbolic links cannot be created in this environment");
 
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
         assertFalse(scanner.policy().followSymbolicLinks());
@@ -183,9 +180,7 @@ class LocalSourceInventorySecurityTest {
         Path target = tempDir.resolve("symlink-target.md");
         Files.writeString(source, "source", StandardCharsets.UTF_8);
         Files.writeString(target, "target", StandardCharsets.UTF_8);
-        if (!symbolicLinksSupported(target)) {
-            return;
-        }
+        assumeTrue(symbolicLinksSupported(target), "symbolic links cannot be created in this environment");
 
         LocalSourceInventoryScanner scanner = mutationScanner((path, maxBytes) -> {
             Files.delete(path);

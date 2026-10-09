@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class SafeWorkspaceFileResolverTest {
     @TempDir
@@ -154,7 +155,7 @@ class SafeWorkspaceFileResolverTest {
         Path secret = temp.resolve("secret.txt");
         Files.writeString(secret, "secret");
         Path link = workspace.resolve("spec.md");
-        if (!createSymlink(link, secret)) return;
+        assumeTrue(createSymlink(link, secret), "symbolic links cannot be created in this environment");
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
         assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("spec.md")));
@@ -166,7 +167,7 @@ class SafeWorkspaceFileResolverTest {
         Path outside = Files.createDirectory(temp.resolve("outside"));
         Files.writeString(outside.resolve("spec.md"), "secret");
         Path link = workspace.resolve("linked");
-        if (!createSymlink(link, outside)) return;
+        assumeTrue(createSymlink(link, outside), "symbolic links cannot be created in this environment");
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
         assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("linked/spec.md")));
@@ -178,7 +179,7 @@ class SafeWorkspaceFileResolverTest {
         Path target = Files.createDirectory(workspace.resolve("target"));
         Files.writeString(target.resolve("spec.md"), "safe-but-aliased");
         Path link = workspace.resolve("linked");
-        if (!createSymlink(link, target)) return;
+        assumeTrue(createSymlink(link, target), "symbolic links cannot be created in this environment");
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
         assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("linked/spec.md")));
@@ -186,7 +187,8 @@ class SafeWorkspaceFileResolverTest {
 
     @Test
     void rejectsWindowsJunctionAncestor() throws Exception {
-        if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) return;
+        assumeTrue(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win"),
+                "NTFS junctions exist only on Windows");
         Path workspace = Files.createDirectory(temp.resolve("workspace"));
         Path target = Files.createDirectory(temp.resolve("junction-target"));
         Files.writeString(target.resolve("spec.md"), "secret");

@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 class ExternalJarIntegrityTest {
     @TempDir
@@ -111,7 +112,7 @@ class ExternalJarIntegrityTest {
         try {
             Files.createSymbolicLink(link, target);
         } catch (UnsupportedOperationException | java.io.IOException failure) {
-            return;
+            abort("symbolic links cannot be created in this environment");
         }
         assertThrows(
                 IllegalArgumentException.class,
