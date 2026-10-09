@@ -1,11 +1,10 @@
-# Spec Delta
+# policy-store-refusals Specification
 
 ## Purpose
-
 Define how a policy pack store refuses an invalid write — a missing row, a stale or skipped revision, a mismatched
 audit — so that the memory store and the SQLite store give the same refusal for the same write.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Removing a missing row is refused as not found
 
@@ -25,8 +24,10 @@ refusal that names the missing row, and the memory and SQLite stores SHALL give 
 ### Requirement: A write is checked in one order
 
 A policy pack store SHALL check a write in this order: the target of the audit record (action, pack, rule, scope);
-then the stored state, existence before revision; then the version the audit record names, which depends on the stored
-row. The first failed check SHALL decide the refusal, in both stores.
+then the stored state, existence before revision; then the version the audit record names when it must match a stored
+row (deactivation, override write). A version the caller supplies itself (creation, update, activation, override
+removal) SHALL be checked with the target, before any state is read. The first failed check SHALL decide the refusal,
+in both stores.
 
 #### Scenario: A mismatched audit on a missing row
 

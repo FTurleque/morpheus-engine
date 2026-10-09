@@ -24,5 +24,5 @@ its fix.
 
 ## 4. Verify and record
 
-- [ ] 4.1 Run `./mvnw clean verify` and the persistence parity tests on both platforms (CI for Windows); verify every ratchet holds
-- [ ] 4.2 Close issue #416 with a link to the merged change
+- [x] 4.1 Run `./mvnw clean verify` and the persistence parity tests on both platforms (CI for Windows); verify every ratchet holds
+- [x] 4.2 Close issue #416 with a link to the merged change
