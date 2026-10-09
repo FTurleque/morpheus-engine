@@ -68,7 +68,12 @@ Every test asserts the message, value or order that kills its mutations (`rules/
 
 ## 4. Missing tests, class by class
 
-- [ ] 4.1 `MultiProviderCompositionService`: the exact field set per entity type (with `CHANGE`), different projects with their message, secondary diagnostics (dedupe, append, an `ERROR` one), a specification/requirement key collision, the conflict order, the `rootLocator` conflict asserted before its loop; apply 2.3
+- [x] 4.1 `MultiProviderCompositionService`: the exact field set per entity type (with `CHANGE`), different projects with their message, secondary diagnostics (dedupe, append, an `ERROR` one), a specification/requirement key collision, the conflict order, the `rootLocator` conflict asserted before its loop; apply 2.3
+
+  Decision 3 applied (`diagnostics()` and `distinctDiagnostics` removed), decision 5 applied (the comment names the
+  two unobserved types and why). The key collision also covers a change: PIT showed the change's identity
+  observation was killed only by an architecture test. PIT on this class with the application's composition tests
+  (WSL, 2026-10-09): 90 mutations, 90 killed — the audit's 32 survivors, 4 of them removed with the code.
 - [ ] 4.2 `QueryExecutionService`: each budget at its exact boundary (references, portfolio sum, rows), the row mapping, and the diagnostic paths of lines 161 and 194 with the path they report
 - [ ] 4.3 `NormalizedProjectContent`: one rejection test per reference check with its message, and the message added to the existing `rejects*` tests
 - [ ] 4.4 `SyntheticJsonParser`: truncated documents refused as `IllegalArgumentException` with their message, empty containers, every escape and hex digit case, raw non-BMP characters, exact-limit documents; apply 2.3
