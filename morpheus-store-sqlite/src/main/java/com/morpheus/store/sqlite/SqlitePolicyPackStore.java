@@ -172,6 +172,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                 Optional.empty(),
                 Optional.empty());
         requireAuditVersion(audit, Optional.of(newVersion.versionId()));
+        requireNextDefinitionStep(packId, expectedRevision, replacement, newVersion);
         Integer changed = transaction(() -> {
             int updated;
             try (PreparedStatement statement = connection.prepareStatement("""
@@ -194,9 +195,9 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
             return updated;
         }, "Cannot update policy pack " + packId);
         if (changed != 1) {
-            PolicyPack.Definition current = findDefinition(packId)
+            PolicyPack.Definition concurrent = findDefinition(packId)
                     .orElseThrow(() -> new EntityNotFoundException("unknown policy pack: " + packId));
-            throw stale("policy pack", expectedRevision, current.revision());
+            throw stale("policy pack", expectedRevision, concurrent.revision());
         }
         return replacement;
     }
@@ -333,12 +334,12 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                 packId,
                 Optional.empty(),
                 Optional.of(scope));
-        PolicyConfiguration.Activation before = findActivation(scope, packId).orElse(null);
-        if (before != null && before.revision() == expectedRevision) {
-            requireAuditVersion(audit, Optional.of(before.versionId()));
-        } else if (audit.versionId().isEmpty()) {
-            throw new IllegalArgumentException("policy audit target mismatch for DEACTIVATE");
+        PolicyConfiguration.Activation before = findActivation(scope, packId)
+                .orElseThrow(() -> new EntityNotFoundException("policy activation does not exist: " + packId));
+        if (before.revision() != expectedRevision) {
+            throw stale("policy activation", expectedRevision, before.revision());
         }
+        requireAuditVersion(audit, Optional.of(before.versionId()));
 
         Integer changed = transaction(() -> {
             int deleted;
@@ -523,6 +524,11 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                 Optional.of(ruleId),
                 Optional.of(scope));
         requireAuditVersion(audit, Optional.empty());
+        PolicyConfiguration.Override before = findOverride(scope, packId, ruleId)
+                .orElseThrow(() -> new EntityNotFoundException("policy override does not exist: " + ruleId));
+        if (before.revision() != expectedRevision) {
+            throw stale("policy override", expectedRevision, before.revision());
+        }
         Integer changed = transaction(() -> {
             int deleted;
             try (PreparedStatement statement = connection.prepareStatement("""
@@ -699,6 +705,23 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
         }
     }
 
+    private void requireNextDefinitionStep(
+            PolicyIds.PackId packId,
+            long expectedRevision,
+            PolicyPack.Definition replacement,
+            PolicyPack.Version newVersion) {
+        PolicyPack.Definition current = findDefinition(packId)
+                .orElseThrow(() -> new EntityNotFoundException("unknown policy pack: " + packId));
+        if (current.revision() != expectedRevision) {
+            throw stale("policy pack", expectedRevision, current.revision());
+        }
+        if (replacement.revision() != expectedRevision + 1
+                || replacement.latestVersionNumber() != current.latestVersionNumber() + 1
+                || newVersion.versionNumber() != replacement.latestVersionNumber()) {
+            throw new IllegalArgumentException("policy update must advance revision and version by exactly one");
+        }
+    }
+
     private void requireAuditVersion(
             PolicyConfiguration.AuditRecord audit,
             Optional<PolicyIds.VersionId> versionId) {
@@ -738,7 +761,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
 
     private void ensureOpen() {
         if (closed) {
-            throw new IllegalStateException("SQLite policy-pack store is closed");
+            throw new KnowledgeStoreException("SQLite policy-pack store is closed");
         }
     }
 

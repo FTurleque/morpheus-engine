@@ -2,12 +2,14 @@ package com.morpheus.architecture.m25;
 
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyIds;
+import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyRule;
 import com.morpheus.application.policy.PolicyScope;
 import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
+import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.store.memory.MemoryPolicyPackStore;
 import com.morpheus.store.sqlite.SqlitePolicyPackStore;
@@ -19,8 +21,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PolicyPersistenceParityTest {
@@ -93,6 +97,126 @@ class PolicyPersistenceParityTest {
                 service.audit(definition.id()).size(),
                 service.activation(scope, definition.id()).orElseThrow().revision(),
                 service.overrides(scope).getFirst().revision());
+    }
+
+    @Test
+    void removingAMissingActivationIsRefusedAsNotFoundByBothStores() {
+        assertBothRefuse("missing-activation", new Refusal("EntityNotFoundException", "policy activation does not exist: %s"),
+                (store, pack) -> store.removeActivation(pack.scope(), pack.packId(), 1L,
+                        audit(PolicyConfiguration.AuditAction.DEACTIVATE, pack.packId(), Optional.of(pack.versionId()),
+                                Optional.empty(), Optional.of(pack.scope()))));
+    }
+
+    @Test
+    void removingAMissingOverrideIsRefusedAsNotFoundByBothStores() {
+        assertBothRefuse("missing-override", new Refusal("EntityNotFoundException", "policy override does not exist: %r"),
+                (store, pack) -> store.removeOverride(pack.scope(), pack.packId(), pack.ruleId(), 1L,
+                        audit(PolicyConfiguration.AuditAction.REMOVE_OVERRIDE, pack.packId(), Optional.empty(),
+                                Optional.of(pack.ruleId()), Optional.of(pack.scope()))));
+    }
+
+    /** The caller's audit is checked before the stored state, so a missing row cannot hide a malformed audit. */
+    @Test
+    void aMismatchedAuditIsRefusedBeforeTheMissingRowByBothStores() {
+        assertBothRefuse("mismatched-audit", new Refusal("IllegalArgumentException", "policy audit target mismatch for DEACTIVATE"),
+                (store, pack) -> store.removeActivation(pack.scope(), pack.packId(), 1L,
+                        audit(PolicyConfiguration.AuditAction.DEACTIVATE, pack.packId(), Optional.of(pack.versionId()),
+                                Optional.empty(), Optional.of(new PolicyScope.Project(ProjectSpecificationId.generate())))));
+    }
+
+    @Test
+    void anUpdateThatSkipsARevisionIsRefusedBeforeAnythingIsWrittenByBothStores() {
+        assertBothRefuse("skipped-revision",
+                new Refusal("IllegalArgumentException", "policy update must advance revision and version by exactly one"),
+                (store, pack) -> {
+                    PolicyIds.VersionId next = PolicyIds.VersionId.generate();
+                    store.compareAndSetDefinition(pack.packId(), 1L,
+                            new PolicyPack.Definition(pack.packId(), "Governance", 3L, 2L, CLOCK.instant(), CLOCK.instant()),
+                            new PolicyPack.Version(pack.packId(), next, 2L, "Governance", List.of(rule()), CLOCK.instant()),
+                            audit(PolicyConfiguration.AuditAction.UPDATE, pack.packId(), Optional.of(next),
+                                    Optional.empty(), Optional.empty()));
+                });
+    }
+
+    @Test
+    void aStaleRevisionIsAConflictInBothStores() {
+        assertBothRefuse("stale-revision",
+                new Refusal("PolicyConflictException", "stale policy activation revision: expected 2 but current is 1"),
+                (store, pack) -> new PolicyPackService(store, CLOCK).activate(
+                        pack.scope(), pack.packId(), pack.versionId(), 0, "alice", "activate"),
+                (store, pack) -> store.removeActivation(pack.scope(), pack.packId(), 2L,
+                        audit(PolicyConfiguration.AuditAction.DEACTIVATE, pack.packId(), Optional.of(pack.versionId()),
+                                Optional.empty(), Optional.of(pack.scope()))));
+    }
+
+    /**
+     * Runs one invalid write against a fresh pack in each store, and requires both to refuse it with the expected type
+     * and message, to leave the pack's state as it was, and to agree with each other.
+     */
+    private void assertBothRefuse(String name, Refusal expected, StoreWrite write) {
+        assertBothRefuse(name, expected, (store, pack) -> { }, write);
+    }
+
+    private void assertBothRefuse(String name, Refusal expected, StoreWrite prepare, StoreWrite write) {
+        Refusal memory = refusalOf(new MemoryPolicyPackStore(), prepare, write, expected);
+        Refusal sqlite;
+        try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(tempDir.resolve(name + ".db"))) {
+            sqlite = refusalOf(store, prepare, write, expected);
+        }
+        assertEquals(memory, sqlite, "both stores must refuse the same write the same way");
+    }
+
+    private Refusal refusalOf(PolicyPackStore store, StoreWrite prepare, StoreWrite write, Refusal expected) {
+        PackFixture pack = pack(store);
+        prepare.apply(store, pack);
+        int audits = store.listAudit(pack.packId()).size();
+        RuntimeException failure = assertThrows(RuntimeException.class, () -> write.apply(store, pack),
+                () -> store.getClass().getSimpleName() + " accepted the write");
+        Refusal actual = new Refusal(failure.getClass().getSimpleName(), failure.getMessage());
+        assertEquals(expected.resolve(pack), actual, store.getClass().getSimpleName());
+        assertEquals(1L, store.findDefinition(pack.packId()).orElseThrow().revision());
+        assertEquals(1, store.listVersions(pack.packId()).size());
+        assertEquals(audits, store.listAudit(pack.packId()).size(), "a refused write records no audit");
+        return actual.withPlaceholders(pack);
+    }
+
+    private PackFixture pack(PolicyPackStore store) {
+        PolicyPackService service = new PolicyPackService(store, CLOCK);
+        var definition = service.create("Governance", List.of(rule()), "alice", "create");
+        var version = service.versions(definition.id()).getFirst();
+        return new PackFixture(definition.id(), version.versionId(), version.rules().getFirst().id(),
+                new PolicyScope.Project(ProjectSpecificationId.generate()));
+    }
+
+    private PolicyConfiguration.AuditRecord audit(
+            PolicyConfiguration.AuditAction action,
+            PolicyIds.PackId packId,
+            Optional<PolicyIds.VersionId> versionId,
+            Optional<PolicyIds.RuleId> ruleId,
+            Optional<PolicyScope> scope) {
+        return new PolicyConfiguration.AuditRecord(
+                DomainIdentity.generate(), action, packId, versionId, ruleId, scope, "alice", "parity", CLOCK.instant());
+    }
+
+    @FunctionalInterface
+    private interface StoreWrite {
+        void apply(PolicyPackStore store, PackFixture pack);
+    }
+
+    private record PackFixture(
+            PolicyIds.PackId packId, PolicyIds.VersionId versionId, PolicyIds.RuleId ruleId, PolicyScope scope) {
+    }
+
+    /** {@code %s} in the message stands for the pack identifier, {@code %r} for the rule identifier. */
+    private record Refusal(String type, String message) {
+        Refusal resolve(PackFixture pack) {
+            return new Refusal(type, message.replace("%s", pack.packId().toString()).replace("%r", pack.ruleId().toString()));
+        }
+
+        /** Each store generates its own pack, so two refusals are compared with their identifiers abstracted. */
+        Refusal withPlaceholders(PackFixture pack) {
+            return new Refusal(type, message.replace(pack.packId().toString(), "%s").replace(pack.ruleId().toString(), "%r"));
+        }
     }
 
     private PolicyRule rule() {

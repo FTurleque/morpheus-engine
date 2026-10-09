@@ -45,6 +45,13 @@ activation and `IllegalStateException` on a closed store. Its assertions change 
    validated before the state is read, so a malformed audit is refused the same way whether the row exists or not.
    The audit version is checked last because it is compared with the stored row's version. Alternative set aside: the
    memory store's order, which lets a missing row hide a malformed audit.
+
+   Where the audit version comes from decides where it is checked. When it is the caller's own input — the new version
+   of `create` and `compareAndSetDefinition`, the version being activated, the absent version of a removed override —
+   it is checked with the target, before any state is read. When it must match a stored row — the active version on
+   `removeActivation` and `compareAndSetOverride` — it is checked after that row was found. A deactivation whose audit
+   names no version therefore reports a missing activation before the version mismatch: there is nothing to compare
+   it with.
 3. **A skipped revision step is checked explicitly in SQLite** with the memory store's message, before the
    transaction. The trigger keeps raising if a write bypasses the store. Alternative set aside: mapping the trigger's
    `SQLException` back to `IllegalArgumentException`, which would depend on parsing a driver message.

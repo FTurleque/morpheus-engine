@@ -409,7 +409,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
 
     private void ensureOpen() {
         if (closed) {
-            throw new IllegalStateException("SQLite saved-view store is closed");
+            throw new KnowledgeStoreException("SQLite saved-view store is closed");
         }
     }
 

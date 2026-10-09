@@ -34,6 +34,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -93,20 +94,28 @@ class SqlitePolicyPackStoreAtomicityTest {
             assertFalse(store.findActivation(scope, updated.id()).isPresent());
             assertFalse(store.findOverride(scope, updated.id(), ruleId).isPresent());
             assertEquals(7, store.listAudit(updated.id()).size());
-
-            assertThrows(IllegalArgumentException.class, () -> store.removeActivation(
-                    scope,
-                    updated.id(),
-                    1L,
-                    audit(PolicyConfiguration.AuditAction.DEACTIVATE, updated.id(),
-                            Optional.empty(), Optional.empty(), Optional.of(scope), "missing version")));
-            assertThrows(PolicyConflictException.class, () -> store.removeActivation(
-                    scope,
-                    updated.id(),
-                    1L,
-                    audit(PolicyConfiguration.AuditAction.DEACTIVATE, updated.id(),
-                            Optional.of(updatedVersion.versionId()), Optional.empty(), Optional.of(scope), "stale deactivate")));
+            assertDeactivatingAgainIsRefusedAsMissing(store, scope, updated.id(), updatedVersion.versionId());
         }
+    }
+
+    /**
+     * These two were refused as an audit mismatch and as a stale revision of 0 until the two policy stores were
+     * aligned: a deactivated pack has no row, so both are now refused as such. The audit version is compared with the
+     * stored row and cannot be checked when there is none.
+     */
+    private void assertDeactivatingAgainIsRefusedAsMissing(
+            SqlitePolicyPackStore store, PolicyScope scope, PolicyIds.PackId packId, PolicyIds.VersionId versionId) {
+        String missing = "policy activation does not exist: " + packId;
+        EntityNotFoundException withoutVersion = assertThrows(EntityNotFoundException.class,
+                () -> store.removeActivation(scope, packId, 1L,
+                        audit(PolicyConfiguration.AuditAction.DEACTIVATE, packId,
+                                Optional.empty(), Optional.empty(), Optional.of(scope), "missing version")));
+        assertEquals(missing, withoutVersion.getMessage());
+        EntityNotFoundException alreadyRemoved = assertThrows(EntityNotFoundException.class,
+                () -> store.removeActivation(scope, packId, 1L,
+                        audit(PolicyConfiguration.AuditAction.DEACTIVATE, packId,
+                                Optional.of(versionId), Optional.empty(), Optional.of(scope), "deactivate twice")));
+        assertEquals(missing, alreadyRemoved.getMessage());
     }
 
     @Test
@@ -179,9 +188,11 @@ class SqlitePolicyPackStoreAtomicityTest {
                         audit(PolicyConfiguration.AuditAction.REMOVE_OVERRIDE, pack.packId(), Optional.empty(),
                                 Optional.of(rule), Optional.of(scope), "remove")),
                 () -> store.listAudit(pack.packId()));
+        // An IllegalStateException until the twelve SQLite stores were aligned on one closed-store refusal.
         for (Executable operation : operations) {
-            IllegalStateException refusal = assertThrows(IllegalStateException.class, operation);
+            KnowledgeStoreException refusal = assertThrows(KnowledgeStoreException.class, operation);
             assertEquals("SQLite policy-pack store is closed", refusal.getMessage());
+            assertNull(refusal.getCause());
         }
     }
 
