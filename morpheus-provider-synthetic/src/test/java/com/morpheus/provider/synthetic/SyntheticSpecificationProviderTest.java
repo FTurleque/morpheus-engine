@@ -44,6 +44,18 @@ class SyntheticSpecificationProviderTest {
     }
 
     @Test
+    void aByteOrderMarkBeforeTheSourceIsAccepted(@TempDir Path tempDir) throws IOException {
+        Path fixtureSource = fixture("synthetic-basic").resolve(SyntheticSpecificationProvider.SOURCE_FILE);
+        Path source = tempDir.resolve(SyntheticSpecificationProvider.SOURCE_FILE);
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, "\uFEFF" + Files.readString(fixtureSource));
+
+        var result = provider.probe(tempDir);
+
+        assertEquals(ProviderProbeStatus.SUPPORTED, result.status(), result.diagnostics().toString());
+    }
+
+    @Test
     void reportsMalformedSyntheticSourceAsInvalid(@TempDir Path tempDir) throws IOException {
         Files.writeString(tempDir.resolve(SyntheticSpecificationProvider.SOURCE_FILE), "{not-json");
 

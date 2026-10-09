@@ -91,12 +91,11 @@ final class SqliteSchemaManager {
     }
 
     private void applyMigration(Connection connection, Migration migration) throws SQLException {
-        String script = loadScript(migration.resourcePath());
-        String checksum = sha256(script);
+        String script = canonicalScript(migration);
         AppliedMigration applied = findAppliedMigration(connection, migration.version());
 
         if (applied != null) {
-            if (!applied.name().equals(migration.name()) || !applied.checksum().equals(checksum)) {
+            if (!accepts(migration.version(), applied.name(), applied.checksum())) {
                 throw new KnowledgeStoreException(
                         "SQLite migration history mismatch for version " + migration.version());
             }
@@ -108,7 +107,7 @@ final class SqliteSchemaManager {
                 "INSERT INTO schema_migrations(version, name, checksum, applied_at) VALUES (?, ?, ?, ?)")) {
             statement.setInt(1, migration.version());
             statement.setString(2, migration.name());
-            statement.setString(3, checksum);
+            statement.setString(3, sha256(script));
             statement.setString(4, Instant.now().toString());
             statement.executeUpdate();
         }
@@ -135,7 +134,29 @@ final class SqliteSchemaManager {
         }
     }
 
-    private String loadScript(String resourcePath) {
+    /**
+     * Whether a recorded migration is one this runtime knows. The checksum identifies the text of the migration, not
+     * the bytes a checkout produced: builds of the same commit made from an LF and a CRLF checkout must accept each
+     * other's databases, and databases written before the checksum was normalised hold the digest of whichever
+     * convention their build used. Exactly those two digests are accepted, so a change to the content is still
+     * refused. The recorded value is never rewritten (ADR-0021).
+     */
+    static boolean accepts(int version, String name, String checksum) {
+        for (Migration migration : MIGRATIONS) {
+            if (migration.version() == version) {
+                String script = canonicalScript(migration);
+                return migration.name().equals(name)
+                        && (sha256(script).equals(checksum) || sha256(script.replace("\n", "\r\n")).equals(checksum));
+            }
+        }
+        return false;
+    }
+
+    private static String canonicalScript(Migration migration) {
+        return loadScript(migration.resourcePath()).replace("\r\n", "\n");
+    }
+
+    private static String loadScript(String resourcePath) {
         try (var stream = SqliteSchemaManager.class.getResourceAsStream(resourcePath)) {
             if (stream == null) {
                 throw new KnowledgeStoreException("SQLite migration resource not found: " + resourcePath);
@@ -146,7 +167,7 @@ final class SqliteSchemaManager {
         }
     }
 
-    private String sha256(String value) {
+    private static String sha256(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));

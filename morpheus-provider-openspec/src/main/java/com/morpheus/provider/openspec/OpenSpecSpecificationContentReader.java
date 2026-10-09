@@ -11,6 +11,7 @@ import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
 import com.morpheus.application.read.SpecificationContentReader;
+import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.decision.DesignDecision;
@@ -18,6 +19,7 @@ import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.evidence.Evidence;
+import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.provider.ProviderCapability;
 import com.morpheus.domain.provider.ProviderId;
@@ -147,7 +149,6 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         boolean needDeltas = requested.contains(ReadCategory.REQUIREMENT_DELTAS);
 
         if (needCurrent && probe.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS)) {
-            state.currentAttempted = true;
             try {
                 NormalizedProjectContent current = currentReader.read(
                         request.workspaceRoot(), request.projectId(), identityResolver, budget);
@@ -155,6 +156,9 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
                 state.requirements.addAll(current.requirements());
                 state.scenarios.addAll(current.scenarios());
                 state.evidence.addAll(current.evidence());
+                state.currentUnclosedCodeFences = (int) current.diagnostics().stream()
+                        .filter(diagnostic -> diagnostic.code() == DiagnosticCode.UNCLOSED_CODE_FENCE)
+                        .count();
                 addDistinct(diagnostics, current.diagnostics());
             } catch (ProviderIngestionLimitException exception) {
                 throw exception;
@@ -165,16 +169,21 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         }
 
         if (needChanges && probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
-            state.changeAttempted = true;
             try {
-                NormalizedProjectContent changes = changeReader.read(
+                OpenSpecChangeMetadataReader.ContainedRead read = changeReader.readContained(
                         request.workspaceRoot(), request.projectId(), identityResolver, budget);
+                NormalizedProjectContent changes = read.content();
                 state.changes.addAll(changes.changes());
                 state.constraints.addAll(changes.constraints());
                 state.designDecisions.addAll(changes.designDecisions());
                 state.tasks.addAll(changes.tasks());
                 state.evidence.addAll(changes.evidence());
                 addDistinct(diagnostics, changes.diagnostics());
+                for (RuntimeException rejected : read.rejectedChanges()) {
+                    addDistinct(diagnostics, List.of(invalidSource("changes", rejected)));
+                }
+                state.rejectedChanges = read.rejectedChanges().size();
+                state.changeFailed = state.rejectedChanges > 0 && state.changes.isEmpty();
             } catch (ProviderIngestionLimitException exception) {
                 throw exception;
             } catch (RuntimeException exception) {
@@ -186,14 +195,27 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         if (needDeltas
                 && !state.changeFailed
                 && probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
-            state.deltaAttempted = true;
             try {
                 OpenSpecRequirementDeltaReader.ReadResult deltas = deltaReader.read(
                         request.workspaceRoot(), identityResolver, budget);
-                state.requirementDeltas.addAll(deltas.requirementDeltas());
+                // A delta of a rejected change would reference a change that is not published.
+                Set<ChangeId> readChanges = new HashSet<>();
+                state.changes.forEach(change -> readChanges.add(change.id()));
+                Set<EvidenceId> droppedEvidence = new HashSet<>();
+                for (RequirementDelta delta : deltas.requirementDeltas()) {
+                    if (readChanges.contains(delta.changeId())) {
+                        state.requirementDeltas.add(delta);
+                    } else {
+                        state.droppedRequirementDeltas++;
+                        droppedEvidence.add(delta.provenance().evidenceId());
+                        delta.scenarios().forEach(scenario -> droppedEvidence.add(scenario.provenance().evidenceId()));
+                    }
+                }
                 state.skippedRequirementDeltas = deltas.skippedRequirements();
                 state.unclosedCodeFences = deltas.unclosedCodeFences();
-                state.evidence.addAll(deltas.evidence());
+                deltas.evidence().stream()
+                        .filter(item -> !droppedEvidence.contains(item.id()))
+                        .forEach(state.evidence::add);
                 addDistinct(diagnostics, deltas.diagnostics());
             } catch (ProviderIngestionLimitException exception) {
                 throw exception;
@@ -243,6 +265,14 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         if (!probe.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS)) {
             return ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0);
         }
+        if (state.currentUnclosedCodeFences > 0) {
+            return new ReadCategoryReport(
+                    category,
+                    ReadCategoryStatus.PARTIAL,
+                    count,
+                    List.of(DiagnosticCode.PARTIAL_INGESTION, DiagnosticCode.UNCLOSED_CODE_FENCE),
+                    Optional.of("at least one specification opens a code fence that is never closed"));
+        }
         if (partial) {
             return new ReadCategoryReport(
                     category,
@@ -268,6 +298,15 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         if (!probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
             return ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0);
         }
+        if (state.rejectedChanges > 0) {
+            // What a rejected change held is unknown, so even an empty count is PARTIAL, never ABSENT.
+            return new ReadCategoryReport(
+                    category,
+                    ReadCategoryStatus.PARTIAL,
+                    count,
+                    List.of(DiagnosticCode.PARTIAL_INGESTION, DiagnosticCode.INVALID_SOURCE),
+                    Optional.of("at least one change was rejected"));
+        }
         return ReadCategoryReport.of(
                 category,
                 count == 0 ? ReadCategoryStatus.ABSENT : ReadCategoryStatus.READ,
@@ -285,9 +324,13 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             return ReadCategoryReport.of(category, ReadCategoryStatus.ABSENT, 0);
         }
         int count = state.requirementDeltas.size();
-        if (state.skippedRequirementDeltas > 0 || state.unclosedCodeFences > 0) {
+        if (state.skippedRequirementDeltas > 0 || state.unclosedCodeFences > 0 || state.droppedRequirementDeltas > 0) {
             List<DiagnosticCode> codes = new ArrayList<>(List.of(DiagnosticCode.PARTIAL_INGESTION));
             List<String> details = new ArrayList<>();
+            if (state.droppedRequirementDeltas > 0) {
+                codes.add(DiagnosticCode.INVALID_SOURCE);
+                details.add("at least one delta belongs to a rejected change");
+            }
             if (state.skippedRequirementDeltas > 0) {
                 details.add("at least one requirement was not normalized");
             }
@@ -419,12 +462,12 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         private final List<DesignDecision> designDecisions = new ArrayList<>();
         private final List<ImplementationTask> tasks = new ArrayList<>();
         private final List<Evidence> evidence = new ArrayList<>();
-        private boolean currentAttempted;
         private boolean currentFailed;
-        private boolean changeAttempted;
+        private int currentUnclosedCodeFences;
         private boolean changeFailed;
-        private boolean deltaAttempted;
         private boolean deltaFailed;
+        private int rejectedChanges;
+        private int droppedRequirementDeltas;
         private int skippedRequirementDeltas;
         private int unclosedCodeFences;
     }

@@ -104,6 +104,31 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Success' }
         '400': { $ref: '#/components/responses/BadRequest' }
+  /policy-overrides/remove:
+    post:
+      operationId: removePolicyOverride
+      description: >-
+        Removes one rule override of one scope under compare-and-set on the expected revision; a stale writer fails
+        explicitly and the removal is audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RemoveOverrideRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /policy-activations:
+    get:
+      operationId: listPolicyActivations
+      description: Active policy pack versions of one scope.
+      parameters:
+        - $ref: '#/components/parameters/ScopeKindQuery'
+        - $ref: '#/components/parameters/ScopeIdQuery'
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
   /policies/evaluate:
     post:
       operationId: evaluatePolicies
@@ -256,6 +281,18 @@ components:
           type: string
           enum: [DISABLE, FORCE_WARN, FORCE_BLOCK]
         expectedRevision: { type: integer, minimum: 0 }
+        actor: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 1024 }
+    RemoveOverrideRequest:
+      type: object
+      additionalProperties: false
+      required: [id, ruleId, scopeKind, scopeId, expectedRevision, actor, reason]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        ruleId: { type: string, minLength: 1 }
+        scopeKind: { $ref: '#/components/schemas/ScopeKind' }
+        scopeId: { $ref: '#/components/schemas/Uuid' }
+        expectedRevision: { type: integer, minimum: 1 }
         actor: { type: string, minLength: 1, maxLength: 256 }
         reason: { type: string, minLength: 1, maxLength: 1024 }
     EvaluateRequest:

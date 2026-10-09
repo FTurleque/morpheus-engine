@@ -306,3 +306,52 @@ l'environnement de lancement viennent des réglages de l'opérateur (`MinosMcpCo
 outils en lancent un à la demande du modèle. Les trois lignes **nomment
 donc l'outil** — une sentinelle affirmerait une absence fausse — et leurs notes le disent. Faut-il que ces trois outils soient orientés modèle ? C'est une décision de
 produit, laissée ouverte ; aucune exposition n'est changée ici.
+
+## Amendement du 8 octobre 2026 (MCP-AUD-2) — une opération de pair a une échéance, et la borne du handler en est dérivée
+
+**Constat.** L'amendement du 24 septembre fixe la borne de sécurité d'un handler à deux fois le plus long délai de requête
+configurable (2 × 120 s = 4 min) et affirme qu'un pair à son maximum finit par sa propre erreur bornée. C'est faux pour une
+**opération** : la passerelle MINOS envoie à la suite `initialize`, `tools/list`, `minos_index_status` et `minos_find_symbols`,
+la passerelle NEXUS `initialize`, `tools/list` puis `build_context`, `explain_context` ou `list_projects`, et le SDK ne borne
+que chaque requête, une à une. `tools/list` est en outre paginé sans limite du nombre de pages. Un pair MINOS qui répond à
+chaque requête juste sous 120 s occupe 480 s ; le handler expirait à 240 s et fermait la session MCP, alors que le pair n'avait
+jamais dépassé son délai. Relevé à la lecture par l'audit outillé du 8 octobre 2026, puis rendu rouge par le gate de composition
+ci-dessous avant tout correctif (« handler bound 240 s must outlast the longest peer operation 480 s »).
+
+**Décision.**
+
+1. **Une enveloppe dans le transport.** `PeerOperationDeadline` (`morpheus-mcp-transport`) déclare ce que toute intégration
+   de pair doit respecter : un délai de requête d'au plus `MAX_REQUEST_TIMEOUT` (120 s) et au plus `MAX_SEQUENTIAL_REQUESTS`
+   (4) requêtes par opération. L'échéance d'une opération vaut délai × requêtes + `START_UP_ALLOWANCE` (15 s, lancement du
+   processus et travail local) ; `of` refuse tout ce qui sort de l'enveloppe.
+2. **Une échéance par opération, imposée dans la passerelle.** Chaque passerelle déclare `REQUESTS_PER_OPERATION` (MINOS 4,
+   NEXUS 3), arme l'échéance à sa construction et la désarme à sa fermeture ; une passerelle ne sert qu'une opération. À
+   l'échéance, une sentinelle ferme le client du SDK, ce qui fait échouer immédiatement la requête en attente (le SDK
+   « congédie » les réponses attendues), et la passerelle répond `… MCP operation exceeded its N ms deadline` au lieu d'une
+   session rompue. La pagination sans fin de `tools/list` est bornée par la même horloge.
+3. **La borne du handler est dérivée.** `DEFAULT_HANDLER_DEADLINE` = `LONGEST_OPERATION` (4 × 120 + 15 = 495 s) +
+   `CLOSE_ALLOWANCE` (15 s : fermeture gracieuse du SDK, 10 s, puis 2 + 2 s d'arrêt du processus) +
+   `HANDLER_LOCAL_WORK_MARGIN` (30 s), soit **9 minutes**. Elle reste une borne de sécurité au sens du §4 : la dépasser ferme
+   toujours la session.
+4. **Le gate compose au lieu de multiplier.** `ProductionIntegrityContractTest#theHandlerSafetyBoundOutlastsTheLongestPeerOperation`
+   remplace `#theHandlerSafetyBoundKeepsTwiceTheLongestConfigurablePeerTimeout`. Il calcule l'opération de chaque passerelle à
+   partir de son `MAX_TIMEOUT_SECONDS` et de son `REQUESTS_PER_OPERATION`, exige qu'elle tienne dans l'enveloppe, et que la
+   borne dépasse la plus longue augmentée de sa fermeture. Un troisième pair, ou une requête de plus, repose la question.
+
+**Alternatives écartées.** Abaisser le délai maximal configurable à 60 s aurait fait tenir 4 × 60 s sous 4 min, mais aurait
+retiré aux opérateurs un réglage publié pour un défaut qui ne vient pas d'eux, et laissé la pagination non bornée. Borner chaque
+requête par le temps restant de l'opération est impossible avec le client synchrone du SDK 2.0.1, dont le délai de requête est
+fixé à la construction.
+
+**Coût assumé.** Un handler réellement bloqué est détecté après 9 minutes au lieu de 4. La borne reste finie et elle est
+désormais calculée, plus choisie.
+
+**Preuves.**
+- `PeerOperationDeadlineTest` — l'abandon à l'échéance, une seule fois ; aucun abandon après désarmement ; l'échéance expirée
+  même si l'abandon échoue ; la formule ; le refus hors enveloppe.
+- `MinosMcpOperationDeadlineTest`, `NexusMcpOperationDeadlineTest` — un vrai processus pair qui répond à chaque appel juste sous
+  son délai mène l'opération à son terme ; une opération qui dépasse son échéance se termine par l'erreur d'échéance bien avant
+  le délai de la requête en cours.
+- `BoundedStdioServerTransportProviderHandlerDeadlineTest#theDeadlineMustBePositiveAndDefaultsToTheProductionBound` — épingle
+  9 minutes.
+- `ProductionIntegrityContractTest#theHandlerSafetyBoundOutlastsTheLongestPeerOperation` — rouge à 240 s avant le correctif.

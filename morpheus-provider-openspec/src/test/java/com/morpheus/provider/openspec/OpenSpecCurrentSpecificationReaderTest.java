@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -79,6 +80,62 @@ class OpenSpecCurrentSpecificationReaderTest {
         assertTrue(content.scenarios().stream()
                 .allMatch(item -> content.evidence().stream()
                         .anyMatch(evidence -> evidence.id().equals(item.provenance().evidenceId()))));
+    }
+
+    @Test
+    void aRequirementHeadingInsideACodeFenceIsNotARequirement(@TempDir Path workspace) throws Exception {
+        writeSpecification(workspace, """
+                # Auth Specification
+
+                ## Purpose
+
+                Authentication. A requirement is written like this:
+
+                ```markdown
+                ### Requirement: Example only
+                The system SHALL be an example.
+                ```
+
+                ## Requirements
+
+                ### Requirement: Session expiration
+                The system SHALL expire inactive sessions.
+                """);
+
+        var content = new OpenSpecCurrentSpecificationReader().read(
+                workspace, ProjectSpecificationId.generate(), new StableTestIdentityResolver());
+
+        assertEquals(List.of("Session expiration"),
+                content.requirements().stream().map(requirement -> requirement.title()).toList());
+    }
+
+    @Test
+    void aLevelTwoSectionAfterTheLastRequirementIsNotPartOfIt(@TempDir Path workspace) throws Exception {
+        writeSpecification(workspace, """
+                # Auth Specification
+
+                ## Requirements
+
+                ### Requirement: Session expiration
+                The system SHALL expire inactive sessions.
+
+                ## Notes
+
+                Sessions were introduced in 2024.
+                """);
+
+        var content = new OpenSpecCurrentSpecificationReader().read(
+                workspace, ProjectSpecificationId.generate(), new StableTestIdentityResolver());
+
+        assertEquals(List.of("The system SHALL expire inactive sessions."),
+                content.requirements().stream().map(requirement -> requirement.statement()).toList());
+    }
+
+    private static void writeSpecification(Path workspace, String specification) throws Exception {
+        Path spec = workspace.resolve("openspec/specs/auth/spec.md");
+        Files.createDirectories(spec.getParent());
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n");
+        Files.writeString(spec, specification);
     }
 
     /**

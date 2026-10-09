@@ -429,6 +429,8 @@ Si un serveur M26 détient encore le lease de la base, la restauration échoue.
 
 Une base future n’est jamais downgradée. Une base historique compatible peut être restaurée ; le mécanisme normal de migration MORPHEUS s’appliquera lors de l’ouverture suivante.
 
+Une sauvegarde créée par MORPHEUS sous Windows se restaure sous Linux, et inversement. En revanche, une sauvegarde dont l’historique de migrations n’est pas celui que cette version connaît est refusée **avant** que la base en place ne soit touchée, avec le message `backup migration history is not accepted by this runtime for version N` : la base actuelle reste intacte et utilisable.
+
 ## 7. Cohérence des synchronisations
 
 La publication d'un snapshot et la persistance de la baseline d'inventaire restent deux mutations distinctes, mais l'orchestration ne transforme plus un résultat déjà commité en faux échec :

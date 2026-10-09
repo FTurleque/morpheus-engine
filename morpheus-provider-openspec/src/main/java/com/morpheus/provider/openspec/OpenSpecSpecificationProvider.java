@@ -29,7 +29,9 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
     public static final String PROVIDER_VERSION = "m1-v1";
     public static final String SUPPORTED_SCHEMA = "spec-driven";
 
-    private static final Pattern SCHEMA_PATTERN = Pattern.compile("^schema:\\s*([^#\\s]+)");
+    private static final Pattern SCHEMA_PATTERN = Pattern.compile(
+            "^schema:\\s*(?:"
+            + "\"([^\"#\\s]+)\"|'([^'#\\s]+)'|([^#\\s\"']+))(?:\\s|#|$)");
     private static final SourceLocator CONFIG_LOCATOR = SourceLocator.file("openspec/config.yaml");
 
     @Override
@@ -139,8 +141,14 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
         return configText.lines()
                 .map(SCHEMA_PATTERN::matcher)
                 .filter(Matcher::find)
-                .map(matcher -> matcher.group(1).trim())
+                .map(OpenSpecSpecificationProvider::schemaValue)
                 .findFirst();
+    }
+
+    /** The declared value, unquoted when written as a double- or single-quoted YAML scalar. */
+    private static String schemaValue(Matcher matcher) {
+        String quoted = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+        return quoted != null ? quoted : matcher.group(3);
     }
 
     private ProviderProbeResult invalid(Path source, String message) {
