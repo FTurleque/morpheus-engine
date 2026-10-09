@@ -241,3 +241,58 @@ BUILD SUCCESS
 La migration SQLite V3 est appliquée, le binding survit à une réouverture de la base et le reader OpenSpec retrouve les mêmes identités de `Specification`, `Requirement`, `Scenario` et `Evidence` après redémarrage du resolver.
 
 Le warning JDK 24 `--enable-native-access=ALL-UNNAMED` du driver SQLite reste non bloquant et relève de la stratégie runtime/packaging.
+
+## Amendement du 9 octobre 2026 (PIT-AUD-5) — un identifiant de fournisseur ne contient aucun caractère de contrôle
+
+### Constat
+
+§4 fait du `providerId` une partie de la clé, sans dire ce qu'un identifiant peut contenir. `ProviderId` se
+contentait de retirer les blancs aux extrémités et de refuser une valeur vide : un saut de ligne **interne** passait.
+Or `SqlitePortfolioStore` range l'ensemble des fournisseurs d'une adhésion en texte joint par `"\n"` et le redécoupe à
+la lecture. Une adhésion enregistrée avec le seul fournisseur `"openspec\nmarkdown"` revenait de SQLite avec deux
+fournisseurs ; `{"openspec\nmarkdown", "openspec"}` revenait en `{openspec, markdown}` — un fournisseur enregistré
+perdu, un autre jamais enregistré inventé, à taille égale. Le store mémoire gardait la valeur intacte : les deux
+stores divergeaient. L'entrée est atteignable par HTTP et MCP, dont l'argument `providers` n'est découpé que sur la
+virgule. Le défaut a été révélé par une mutation survivante du filtre de lignes vides de `decodeProviders`
+(audit outillé du 8 octobre 2026, constat PIT-AUD-5), filtre qui n'existait qu'à cause de cette ambiguïté.
+
+### Décision
+
+`ProviderId` refuse tout caractère de contrôle ISO (`Character.isISOControl` : U+0000–U+001F et U+007F–U+009F)
+qui reste après le retrait des blancs d'extrémité. Le refus est une `IllegalArgumentException` dont le message nomme
+l'identifiant, caractères de contrôle échappés en `\uXXXX` :
+
+```text
+provider id must not contain control characters: "openspec\u000Amarkdown"
+```
+
+Aucun caractère de contrôle brut n'atteint ainsi un journal ou une réponse. La règle vit dans le constructeur
+compact : elle vaut pour chaque chemin qui fabrique un identifiant — HTTP, MCP, CLI, `provider.id` des métadonnées
+de plugin et du codec de probe, et la relecture des stores.
+
+### Options écartées
+
+- **Refuser aux seuls points d'entrée du portefeuille.** Un appel direct au store resterait ambigu, et la parité
+  mémoire/SQLite ne tiendrait que tant que chaque appelant passe par ces points.
+- **Encoder l'ensemble en tableau JSON.** Supprime l'ambiguïté sans rien refuser, mais coûte une migration de colonne
+  pour accepter des identifiants qu'aucun fournisseur livré ne produit (`openspec`, `structured-markdown`,
+  `synthetic-json`, `reference-plugin`).
+
+### Conséquences
+
+- Aucune donnée de portefeuille n'est à récupérer : SQLite coupait la valeur à l'écriture, aucune ligne stockée ne
+  porte de saut de ligne dans un identifiant.
+- Les autres tables qui rangent un `provider_id` le relisent par ce constructeur. Une base qui contiendrait un
+  identifiant à caractère de contrôle — seul un plugin tiers dont `provider.id` en porterait un aurait pu l'y
+  écrire — cesserait d'être lisible sur ces lignes, avec ce message. Aucun fournisseur livré n'en produit et aucun
+  cas n'a été constaté ; ce n'est pas un repli silencieux, c'est un refus nommé.
+- Le filtre de lignes vides de `decodeProviders` est retiré : aucun identifiant ne peut plus produire de segment vide.
+  Une ligne qui en porterait un malgré tout — écrite avant ce changement avec un identifiant à double saut de ligne —
+  est refusée à la lecture (`provider id must not be blank`) au lieu d'être recomposée en deux fournisseurs.
+
+### Preuve
+
+`ProviderIdTest` (`morpheus-domain`) et `m23/PortfolioPersistenceParityTest` (tests d'architecture, où les deux
+stores sont présents), rouges avant la correction : aucun refus, puis trois cas sur quatre altérés côté SQLite. Le
+test de parité compare les *résultats* des deux stores, refus compris, et n'interdit qu'un ensemble de fournisseurs
+différent de celui enregistré.

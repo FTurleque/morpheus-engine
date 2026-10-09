@@ -5,20 +5,35 @@ Every test asserts the message, value or order that kills its mutations (`rules/
 
 ## 1. Reproduce the two defects
 
-- [ ] 1.1 In `morpheus-store-sqlite`, register a membership with one provider `"openspec\nmarkdown"` and read it back; verify it fails today (two providers) while the memory store returns one
+- [x] 1.1 In `morpheus-store-sqlite`, register a membership with one provider `"openspec\nmarkdown"` and read it back; verify it fails today (two providers) while the memory store returns one
+
+  Written as `m23/PortfolioPersistenceParityTest` (architecture tests, where both stores are on the classpath), so it
+  holds whichever option 2.1 takes: it compares the two stores' outcomes, a refusal included, and forbids only a
+  provider set other than the one registered. Red on 2026-10-09 for three of four cases, SQLite only; the fourth
+  case shows the defect also substitutes providers: `{"openspec\nmarkdown", "openspec"}` reads back as
+  `{openspec, markdown}`, a registered provider lost and an unregistered one invented, at the same set size.
 - [ ] 1.2 Repeat 1.1 through the HTTP and MCP `providers` argument; verify both reach the same store state
 - [ ] 1.3 In `morpheus-store-sqlite`, write audits at `…:00Z`, `…:00.500Z`, `…:00.500100Z` (and three at one instant); verify `listAudit` returns them out of order today and the memory store in order
 
 ## 2. Decisions (design, "Open decisions")
 
-- [ ] 2.1 Decide where a provider identifier is constrained (decision 1) and record it in an ADR or an amendment of the ADR that owns `ProviderId`
+- [x] 2.1 Decide where a provider identifier is constrained (decision 1) and record it in an ADR or an amendment of the ADR that owns `ProviderId`
+
+  Option (a), in the amendment of ADR-0023 dated 2026-10-09.
 - [ ] 2.2 Decide the audit-order strategy (decision 2), including what an existing database migrates to
 - [ ] 2.3 Decide `MultiProviderCompositionResult.diagnostics()` (decision 3), the parser's double whitespace skip (decision 4) and requirement-delta observation (decision 5)
 - [ ] 2.4 Decide whether the store parity of decision 6 is fixed here or spun off; if spun off, open the issue and link it here
 
 ## 3. Fix the defects
 
-- [ ] 3.1 Apply 2.1; verify 1.1 and 1.2 pass and an existing SQLite membership still reads back
+- [x] 3.1 Apply 2.1; verify 1.1 and 1.2 pass and an existing SQLite membership still reads back
+
+  `ProviderId` refuses ISO control characters left after trimming, naming the identifier with them escaped as
+  `\uXXXX` (`ProviderIdTest`, red first). 1.1 passes; `SqlitePortfolioStorePersistenceTest` keeps the existing
+  round trips and adds a stored empty segment refused by name, the filter that recomposed it being removed. 1.2 is
+  still open: the transport tests are not written yet. `PROVIDER_SDK.md` states the constraint for `provider.id`.
+  Run in WSL on 2026-10-09: the Windows home directory refuses listing to its own user, which breaks `javac`'s
+  `toRealPath` on every JAR of `~/.m2` (an environment fault, not a code one).
 - [ ] 3.2 Apply 2.2; verify 1.3 passes, a database written before the change reads back in chronological order, and `SqliteMigrationAtomicityTest` and the migration checksum tests still pass if a migration is added
 
 ## 4. Missing tests, class by class

@@ -20,6 +20,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -93,6 +97,33 @@ class SqlitePortfolioStorePersistenceTest {
             assertEquals(Optional.empty(), stored.repository());
             assertEquals(Set.of(), stored.providers());
             assertEquals(PortfolioMembershipStatus.MISSING, stored.status());
+        }
+    }
+
+    /**
+     * A provider set holding an empty segment can only come from an identifier written with a doubled line break,
+     * which {@link ProviderId} refuses; such a row is refused by name rather than read back as other providers.
+     */
+    @Test
+    void aStoredProviderSetWithAnEmptySegmentIsRefusedRatherThanRecomposed() throws SQLException {
+        Path database = tempDir.resolve("legacy-providers.db");
+        PortfolioId portfolioId = PortfolioId.generate();
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        try (SqlitePortfolioStore store = new SqlitePortfolioStore(database)) {
+            store.putPortfolio(portfolio(portfolioId, "platform"));
+            store.putMembership(membership(portfolioId, projectId, "checkout"));
+        }
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+                PreparedStatement update = connection.prepareStatement(
+                        "UPDATE portfolio_memberships SET provider_ids = ?")) {
+            update.setString(1, "openspec\n\nmarkdown");
+            assertEquals(1, update.executeUpdate());
+        }
+
+        try (SqlitePortfolioStore reopened = new SqlitePortfolioStore(database)) {
+            IllegalArgumentException refusal = assertThrows(IllegalArgumentException.class,
+                    () -> reopened.findMembership(portfolioId, projectId));
+            assertEquals("provider id must not be blank", refusal.getMessage());
         }
     }
 

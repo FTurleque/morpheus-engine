@@ -41,6 +41,9 @@ mutations through at once.
 1. **Where a provider identifier is constrained.** (a) `ProviderId` refuses control characters — one rule for every
    provider identifier, at the domain boundary; (b) the portfolio entry points refuse them; (c) the store encodes the
    set as a JSON array — no new refusal, a migration of the column.
+   **Decided on 2026-10-09: (a)**, recorded as an amendment of ADR-0023. (b) leaves a direct store call ambiguous; (c)
+   migrates a column to accept identifiers no shipped provider produces. The blank-segment filter of
+   `decodeProviders` goes with it: a stored empty segment is refused by name instead of being recomposed.
 2. **How the audit order is restored.** (a) store `at` as fixed-width text (nanosecond precision, always nine
    digits) and order by it, with a migration of existing rows; (b) add an insertion sequence and order by it; (c)
    order by the parsed instant in Java after reading.

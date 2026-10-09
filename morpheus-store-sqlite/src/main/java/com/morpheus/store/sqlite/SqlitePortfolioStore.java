@@ -474,7 +474,6 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
             return Set.of();
         }
         return Arrays.stream(value.split("\\n"))
-                .filter(item -> !item.isBlank())
                 .map(ProviderId::new)
                 .collect(Collectors.toUnmodifiableSet());
     }
