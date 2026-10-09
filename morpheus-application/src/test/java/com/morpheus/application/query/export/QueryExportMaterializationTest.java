@@ -6,7 +6,12 @@ import com.morpheus.application.query.dsl.QueryDefinition;
 import com.morpheus.application.query.dsl.QueryEntityType;
 import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.application.query.dsl.QueryMaterializationLimitException;
+import com.morpheus.application.query.dsl.QueryMaterializedView;
+import com.morpheus.application.query.dsl.QueryOperator;
 import com.morpheus.application.query.dsl.QueryPage;
+import com.morpheus.application.query.dsl.QueryPredicate;
+import com.morpheus.application.query.dsl.QueryProjection;
+import com.morpheus.application.query.dsl.QueryRow;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.RequirementVersionRecord;
@@ -39,6 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -104,6 +110,44 @@ class QueryExportMaterializationTest {
         assertEquals(500, failure.maximumRows());
         assertEquals(600, failure.actualRows());
         assertEquals(1, portfolios.membershipReads);
+    }
+
+    @Test
+    void completeMaterializationKeepsEveryRowAtExactlyItsCeiling() {
+        PortfolioId portfolioId = PortfolioId.generate();
+        List<PortfolioMembership> view = memberships(portfolioId, 500, "row");
+        QueryExecutionService queries = queries(new SwitchingPortfolioStore(portfolioId, view, view));
+
+        QueryMaterializedView materialized = queries.materializeComplete(query(portfolioId), 500);
+
+        assertEquals(
+                view.stream().map(membership -> membership.projectId().toString()).collect(Collectors.toSet()),
+                materialized.items().stream().map(QueryRow::projectId).collect(Collectors.toSet()));
+        assertEquals(500, materialized.items().size());
+    }
+
+    @Test
+    void completeMaterializationKeepsExactlyTheRowsItsFilterMatches() {
+        PortfolioId portfolioId = PortfolioId.generate();
+        List<PortfolioMembership> view = memberships(portfolioId, 300, "row");
+        QueryExecutionService queries = queries(new SwitchingPortfolioStore(portfolioId, view, view));
+        QueryDefinition filtered = new QueryDefinition(
+                new PortfolioQueryScope(portfolioId),
+                QueryEntityType.PORTFOLIO_MEMBERSHIP,
+                Optional.of(QueryPredicate.unary("displayName", QueryOperator.STARTS_WITH, "row-2")),
+                List.of(),
+                QueryProjection.defaults(),
+                QueryPage.first(10));
+
+        QueryMaterializedView materialized = queries.materializeComplete(filtered, QueryBudgets.MAX_SOURCE_ROWS);
+
+        Set<String> expected = view.stream()
+                .filter(membership -> membership.displayName().startsWith("row-2"))
+                .map(membership -> membership.projectId().toString())
+                .collect(Collectors.toSet());
+        assertEquals(111, expected.size(), "row-2, row-20 to row-29 and row-200 to row-299");
+        assertEquals(expected, materialized.items().stream().map(QueryRow::projectId).collect(Collectors.toSet()));
+        assertEquals(expected.size(), materialized.items().size());
     }
 
     @Test

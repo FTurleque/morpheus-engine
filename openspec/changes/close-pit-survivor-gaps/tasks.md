@@ -74,7 +74,16 @@ Every test asserts the message, value or order that kills its mutations (`rules/
   two unobserved types and why). The key collision also covers a change: PIT showed the change's identity
   observation was killed only by an architecture test. PIT on this class with the application's composition tests
   (WSL, 2026-10-09): 90 mutations, 90 killed — the audit's 32 survivors, 4 of them removed with the code.
-- [ ] 4.2 `QueryExecutionService`: each budget at its exact boundary (references, portfolio sum, rows), the row mapping, and the diagnostic paths of lines 161 and 194 with the path they report
+- [x] 4.2 `QueryExecutionService`: each budget at its exact boundary (references, portfolio sum, rows), the row mapping, and the diagnostic paths of lines 161 and 194 with the path they report
+
+  `QuerySourceBudgetTest` (portfolio of exactly 1 000 projects, references over budget at their own path and
+  within it, a snapshot without content projection refused by name, one mapped item per business type instead of
+  empty lists, project content over budget at `$.source.evidence`, two projects within budget each but over it
+  together), `QueryCurrentRequirementBudgetTest` (requirements over budget at `$.source.requirements`),
+  `QueryExportMaterializationTest` (exactly 500 rows at a ceiling of 500, a filter on the export path). Over-budget
+  content uses distinct items: `SnapshotBusinessContent` refuses duplicate identities. PIT on the class with the
+  application tests (product package excluded, it needs a JVM argument only #407's pom passes; WSL, 2026-10-09):
+  the 18 qualified mutations are killed; P03's 42 survivors fall to 15, all killed in the audit by other lots.
 - [ ] 4.3 `NormalizedProjectContent`: one rejection test per reference check with its message, and the message added to the existing `rejects*` tests
 - [ ] 4.4 `SyntheticJsonParser`: truncated documents refused as `IllegalArgumentException` with their message, empty containers, every escape and hex digit case, raw non-BMP characters, exact-limit documents; apply 2.3
 - [ ] 4.5 `SqlitePolicyPackStore`: a closed store for every public method, re-activation on a new version (UPDATE branch), audit mismatch per write method with no state change, unknown pack, version and inactive pack, full-record audit equality and `listDefinitions` content
