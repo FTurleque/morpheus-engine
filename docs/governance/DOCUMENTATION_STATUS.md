@@ -126,12 +126,12 @@ Qualité continue :
 MORPHEUS CI                exact-head Windows + Ubuntu
 MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
-Surefire ratchet           >= 1550
-Architecture ratchet       >= 385
-Aggregate line ratchet     >= 85.0%
-Aggregate branch ratchet   >= 68.0%
-Per-module line ratchet    >= 64.6%
-Per-module branch ratchet  >= 56.9%
+Surefire ratchet           >= 3820
+Architecture ratchet       >= 585
+Aggregate line ratchet     >= 90.0%
+Aggregate branch ratchet   >= 75.7%
+Per-module line ratchet    >= 69.1%
+Per-module branch ratchet  >= 61.2%
 PR changed line coverage   >= 80%
 PR changed branch coverage >= 70%
 JaCoCo canonical report    morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml

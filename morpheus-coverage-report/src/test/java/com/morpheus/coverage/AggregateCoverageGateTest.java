@@ -37,12 +37,26 @@ class AggregateCoverageGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline of the AGGREGATE scale: 85.7263% lines / 68.5246% branches.
+    // Qualified exact-head baseline of the AGGREGATE scale: 90.3026% lines / 76.1089% branches.
     //
-    // No aggregate measurement had ever been qualified. Until the scale split, this gate read the ratchet keys
-    // CoverageQualityGateTest had qualified on the per-module scale, so its threshold carried no evidence about
-    // this grandeur at all: it sat roughly 24 points under the measurement, and about 6800 lines and 1570
-    // branches of aggregate coverage could disappear without any gate reacting.
+    // Requalified on 09/10/2026 at develop 8e3fda5a: the push run of develop (37925178678) and the pull_request
+    // run of the promotion PR #274 (37925186306), which check out the same SHA. Read from each run's
+    // m21-integrity-<OS> artifact, aggregate-coverage-summary.txt, coverageScope=aggregate, populationModules=16,
+    // 29245 lines and 10326 branches on all four:
+    //     Windows  90.3539% / 90.3539% lines,  76.1670% / 76.1476% branches
+    //     Linux    90.3026% / 90.3060% lines,  76.1089% / 76.1089% branches   <- qualified on the lowest
+    // Spread across the four: 15 lines and 6 branches. Previous cap: 85.7263% / 68.5246% (09/09/2026, below),
+    // overtaken by 4.6 points on lines and 7.6 on branches.
+    // Both ratchets raised inside this cap and sized like the per-module ones, each the highest thousandth that
+    // keeps 3x the 24-line / 11-branch reference spread of 15/09 -- the widest observed on either scale, rather
+    // than this run's narrower one: line 0.850 -> 0.900 leaves 88 lines (3.7x), branch 0.680 -> 0.757 leaves 42
+    // branches (3.8x). One more thousandth would drop either under 3x (59 lines, 31 branches).
+    //
+    // First qualified on 09/09/2026 -- no aggregate measurement had been qualified before. Until the scale
+    // split, this gate read the ratchet keys CoverageQualityGateTest had qualified on the per-module scale, so
+    // its threshold carried no evidence about this grandeur at all: it sat roughly 24 points under the
+    // measurement, and about 6800 lines and 1570 branches of aggregate coverage could disappear without any
+    // gate reacting.
     //
     // Measured on 09/09/2026 at fix/coverage-ratchet-scale-split-2026-09-09 (e5127486), two full runs per
     // platform, the first of each being the platform's validate-m21 run:
@@ -52,13 +66,13 @@ class AggregateCoverageGateTest {
     // no-op off their own OS, so the platform that covers fewer lines is the one the cap has to be reachable
     // on. The four runs spread 0.045 point on lines and 0.038 on branches.
     //
-    // The aggregate ratchets in config/m21-quality-ratchets.properties sit deliberately BELOW this cap rather
-    // than at it: 0.850 / 0.680 leaves about 208 lines and 55 branches of headroom, an order of magnitude more
-    // than the observed run-to-run variation and small enough that a real regression is caught.
+    // The aggregate ratchets in config/m21-quality-ratchets.properties sit deliberately BELOW the cap rather
+    // than at it. On 09/09/2026, 0.850 / 0.680 left about 208 lines and 55 branches of headroom, an order of
+    // magnitude more than the observed run-to-run variation and small enough that a real regression is caught.
     //
     // Raising these two constants requires a fresh aggregate measurement on BOTH platforms, cited here.
-    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.857263d;
-    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.685246d;
+    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.903026d;
+    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.761089d;
 
     @Test
     void aggregateCoverageIncludesCrossModuleExecutionAndMeetsRatchets() throws Exception {

@@ -92,12 +92,12 @@ bash ./scripts/validate-m21.sh 1.2.1
 Contrats actifs :
 
 ```text
-Surefire total                 >= 1550
-architecture tests             >= 385
-JaCoCo aggregate lines         >= 85.0%
-JaCoCo aggregate branches      >= 68.0%
-JaCoCo per-module lines        >= 64.6%
-JaCoCo per-module branches     >= 56.9%
+Surefire total                 >= 3820
+architecture tests             >= 585
+JaCoCo aggregate lines         >= 90.0%
+JaCoCo aggregate branches      >= 75.7%
+JaCoCo per-module lines        >= 69.1%
+JaCoCo per-module branches     >= 61.2%
 PR changed executable lines    >= 80%
 PR changed branches            >= 70%
 dependency hygiene             blocking
