@@ -239,7 +239,7 @@ public final class SqliteCompositionStateStore implements CompositionStateStore,
 
     private void ensureOpen() {
         if (closed) {
-            throw new IllegalStateException("SQLite composition state store is closed");
+            throw new KnowledgeStoreException("SQLite composition state store is closed");
         }
     }
 

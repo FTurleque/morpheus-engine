@@ -6,6 +6,7 @@ import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.application.query.dsl.QueryResult;
 import com.morpheus.application.query.dsl.QueryScope;
 import com.morpheus.application.query.dsl.QueryValidator;
+import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.SavedViewStore;
 
 import java.time.Clock;
@@ -50,16 +51,16 @@ public final class SavedViewService {
 
     public SavedViewDefinition get(SavedViewId id) {
         return store.find(Objects.requireNonNull(id, "id"))
-                .orElseThrow(() -> new IllegalArgumentException("unknown saved view: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("unknown saved view: " + id));
     }
 
-    public List<SavedViewDefinition> list(QueryScope scope) {
+    public List<SavedViewEntry> list(QueryScope scope) {
         return store.list(Objects.requireNonNull(scope, "scope")).stream()
                 .filter(item -> item.status() == SavedViewStatus.ACTIVE)
                 .toList();
     }
 
-    public List<SavedViewDefinition> listIncludingArchived(QueryScope scope) {
+    public List<SavedViewEntry> listIncludingArchived(QueryScope scope) {
         return store.list(Objects.requireNonNull(scope, "scope"));
     }
 
@@ -80,23 +81,28 @@ public final class SavedViewService {
             throw new IllegalArgumentException("saved view scope is immutable");
         }
         SavedViewDefinition replacement = new SavedViewDefinition(
-                current.id(), name, query, expectedRevision + 1, current.status(), current.createdAt(), clock.instant());
+                current.id(), name, query, expectedRevision + 1, current.status(), current.createdAt(),
+                revisionTime(current));
         return store.compareAndSet(id, expectedRevision, replacement, version(replacement));
     }
 
-    public SavedViewDefinition archive(SavedViewId id, long expectedRevision) {
-        SavedViewDefinition current = get(id);
-        requireActive(current);
-        SavedViewDefinition replacement = new SavedViewDefinition(
-                current.id(), current.name(), current.query(), expectedRevision + 1,
-                SavedViewStatus.ARCHIVED, current.createdAt(), clock.instant());
-        return store.compareAndSet(id, expectedRevision, replacement, version(replacement));
+    public SavedViewEntry archive(SavedViewId id, long expectedRevision) {
+        return store.archive(Objects.requireNonNull(id, "id"), expectedRevision, clock.instant());
     }
 
     public QueryResult execute(SavedViewId id) {
         SavedViewDefinition definition = get(id);
         requireActive(definition);
         return execution.execute(definition.query());
+    }
+
+    /**
+     * The wall clock can step backwards (NTP correction, VM resume); a valid CAS write must not be refused for it,
+     * so a revision is stamped no earlier than the revision it replaces.
+     */
+    private Instant revisionTime(SavedViewDefinition current) {
+        Instant now = clock.instant();
+        return now.isBefore(current.updatedAt()) ? current.updatedAt() : now;
     }
 
     private SavedViewVersion version(SavedViewDefinition definition) {

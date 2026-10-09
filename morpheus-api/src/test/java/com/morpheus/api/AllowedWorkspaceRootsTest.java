@@ -11,6 +11,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class AllowedWorkspaceRootsTest {
     @TempDir
@@ -36,7 +37,7 @@ class AllowedWorkspaceRootsTest {
         Path allowed = Files.createDirectory(temp.resolve("allowed"));
         Path outside = Files.createDirectory(temp.resolve("outside"));
         Path link = allowed.resolve("linked");
-        if (!createSymlink(link, outside)) return;
+        assumeTrue(createSymlink(link, outside), "symbolic links cannot be created in this environment");
 
         AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
         assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(link));
@@ -47,7 +48,7 @@ class AllowedWorkspaceRootsTest {
         Path allowed = Files.createDirectory(temp.resolve("allowed"));
         Path project = Files.createDirectory(allowed.resolve("project"));
         Path alias = temp.resolve("outside-alias");
-        if (!createSymlink(alias, project)) return;
+        assumeTrue(createSymlink(alias, project), "symbolic links cannot be created in this environment");
 
         AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
         assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(alias));
@@ -57,6 +58,7 @@ class AllowedWorkspaceRootsTest {
     void rejectsRootReplacementAfterAllowlistCreation() throws Exception {
         Path allowed = Files.createDirectory(temp.resolve("allowed"));
         AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
+        awaitFileSystemClockTickAfterCreationOf(allowed);
         Path original = temp.resolve("allowed-original");
         Files.move(allowed, original);
         Path replacement = Files.createDirectory(allowed);
@@ -74,7 +76,8 @@ class AllowedWorkspaceRootsTest {
 
     @Test
     void rejectsWindowsJunctionInsideRoot() throws Exception {
-        if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) return;
+        assumeTrue(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win"),
+                "NTFS junctions exist only on Windows");
         Path allowed = Files.createDirectory(temp.resolve("allowed"));
         Path target = Files.createDirectory(temp.resolve("junction-target"));
         Path junction = allowed.resolve("junction");
@@ -91,13 +94,40 @@ class AllowedWorkspaceRootsTest {
     }
 
     @Test
-    void rejectsEmptyOrSymbolicRootConfiguration() throws Exception {
+    void rejectsEmptyRootConfiguration() {
         assertThrows(IllegalArgumentException.class, () -> AllowedWorkspaceRoots.of(List.of()));
+    }
+
+    @Test
+    void rejectsSymbolicRootConfiguration() throws Exception {
         Path target = Files.createDirectory(temp.resolve("target"));
         Path link = temp.resolve("root-link");
-        if (createSymlink(link, target)) {
-            assertThrows(IllegalArgumentException.class, () -> AllowedWorkspaceRoots.of(List.of(link)));
+        assumeTrue(createSymlink(link, target), "symbolic links cannot be created in this environment");
+
+        assertThrows(IllegalArgumentException.class, () -> AllowedWorkspaceRoots.of(List.of(link)));
+    }
+
+    /**
+     * Without a file key (Windows) a root is identified by its owner and creation time, and the file system stamps
+     * creation times with a clock that ticks about every 15 ms. A real allowed root was created long before it is
+     * replaced; a test that creates it, moves it and recreates it within one tick gets two directories with the
+     * same creation time and no way to tell them apart. Measured on Windows: 15 of 200 such replacements
+     * collided, none of 200 once the original was older than one tick, move and recreation still immediate.
+     * Waiting for a directory created now to carry a later creation time reproduces the production precondition
+     * without a fixed sleep.
+     */
+    private void awaitFileSystemClockTickAfterCreationOf(Path root) throws IOException {
+        java.nio.file.attribute.FileTime rootCreated = Files.readAttributes(
+                root, java.nio.file.attribute.BasicFileAttributes.class).creationTime();
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        for (int attempt = 0; System.nanoTime() < deadline; attempt++) {
+            Path probe = Files.createDirectory(temp.resolve("clock-probe-" + attempt));
+            if (Files.readAttributes(probe, java.nio.file.attribute.BasicFileAttributes.class)
+                    .creationTime().compareTo(rootCreated) > 0) {
+                return;
+            }
         }
+        throw new AssertionError("the file system clock did not advance within 5 s of the root's creation");
     }
 
     private boolean createSymlink(Path link, Path target) {

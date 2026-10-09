@@ -18,8 +18,18 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 
-/** Bounded deterministic traversal over the snapshot-scoped traceability persistence port. */
+/**
+ * Bounded deterministic traversal over the snapshot-scoped traceability persistence port.
+ *
+ * <p>Depth is the caller's; nodes and links are bounded here, with the budgets and the truncation vocabulary of
+ * {@code PortfolioTraversalService}. A traversal that stops before observing everything within its depth says so in
+ * {@link TraceabilitySubgraph#truncationReason()}; a path search that exhausts its node budget fails with
+ * {@link TraceabilityTraversalBudgetException} instead of answering that no path exists.</p>
+ */
 public final class TraceabilityTraversalService {
+    public static final int MAX_NODES = 1_000;
+    public static final int MAX_LINKS = 5_000;
+
     private static final Comparator<Neighbor> NEIGHBOR_ORDER = Comparator
             .comparing(Neighbor::next)
             .thenComparing(neighbor -> neighbor.link().relationType())
@@ -71,7 +81,9 @@ public final class TraceabilityTraversalService {
         ArrayDeque<TraceabilityEntityRef> queue = new ArrayDeque<>();
         depthByNode.put(start, 0);
         queue.add(start);
+        Optional<String> truncation = Optional.empty();
 
+        outer:
         while (!queue.isEmpty()) {
             TraceabilityEntityRef current = queue.removeFirst();
             int currentDepth = depthByNode.get(current);
@@ -80,16 +92,28 @@ public final class TraceabilityTraversalService {
             }
 
             for (Neighbor neighbor : neighbors(snapshotId, current, direction, filter)) {
-                discoveredLinks.put(neighbor.link().id(), neighbor.link());
+                if (!discoveredLinks.containsKey(neighbor.link().id()) && discoveredLinks.size() >= MAX_LINKS) {
+                    truncation = Optional.of("LINK_BUDGET_REACHED:" + MAX_LINKS);
+                    break outer;
+                }
                 if (!depthByNode.containsKey(neighbor.next())) {
+                    if (depthByNode.size() >= MAX_NODES) {
+                        truncation = Optional.of("NODE_BUDGET_REACHED:" + MAX_NODES);
+                        break outer;
+                    }
                     depthByNode.put(neighbor.next(), currentDepth + 1);
                     queue.addLast(neighbor.next());
                 }
+                discoveredLinks.put(neighbor.link().id(), neighbor.link());
             }
         }
 
+        if (truncation.isEmpty() && linkBeyondDepth(snapshotId, depthByNode, discoveredLinks, maxDepth, direction, filter)) {
+            truncation = Optional.of("DEPTH_BUDGET_REACHED:" + maxDepth);
+        }
+
         List<TraceabilityEntityRef> nodes = depthByNode.keySet().stream().sorted().toList();
-        return new TraceabilitySubgraph(start, nodes, List.copyOf(discoveredLinks.values()));
+        return new TraceabilitySubgraph(start, nodes, List.copyOf(discoveredLinks.values()), truncation);
     }
 
     public Optional<TraceabilityPath> findPath(
@@ -128,6 +152,9 @@ public final class TraceabilityTraversalService {
                 if (depthByNode.containsKey(neighbor.next())) {
                     continue;
                 }
+                if (depthByNode.size() >= MAX_NODES) {
+                    throw new TraceabilityTraversalBudgetException("NODE_BUDGET_REACHED:" + MAX_NODES);
+                }
                 depthByNode.put(neighbor.next(), currentDepth + 1);
                 predecessor.put(
                         neighbor.next(),
@@ -141,6 +168,26 @@ public final class TraceabilityTraversalService {
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * True when a node at the requested depth has a link the traversal did not record: a node beyond the depth, or a
+     * link between two nodes at the depth. A link back towards the start was recorded when its other end was expanded
+     * and does not count, so a graph that ends exactly at the requested depth is not reported as truncated.
+     */
+    private boolean linkBeyondDepth(
+            KnowledgeSnapshotId snapshotId,
+            Map<TraceabilityEntityRef, Integer> depthByNode,
+            Map<TraceabilityLinkId, TraceabilityLink> discoveredLinks,
+            int maxDepth,
+            TraceabilityTraversalDirection direction,
+            Set<TraceabilityRelationType> relationTypes) {
+        return depthByNode.entrySet().stream()
+                .filter(entry -> entry.getValue() == maxDepth)
+                .map(Map.Entry::getKey)
+                .sorted()
+                .anyMatch(frontier -> neighbors(snapshotId, frontier, direction, relationTypes).stream()
+                        .anyMatch(neighbor -> !discoveredLinks.containsKey(neighbor.link().id())));
     }
 
     private List<Neighbor> neighbors(

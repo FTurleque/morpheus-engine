@@ -2,6 +2,7 @@ package com.morpheus.provider.synthetic;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -169,6 +170,69 @@ class SyntheticJsonGrammarTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> SyntheticJsonParser.parseObject("{" + (char) 0x00A0 + "\"value\":1}"));
+    }
+
+    /**
+     * Both providers catch {@code IllegalArgumentException} and turn it into an {@code INVALID_SOURCE} diagnostic. A
+     * truncated document that escaped as an index exception would crash the read instead of being reported.
+     */
+    @Test
+    void truncatedDocumentsAreRefusedAsIllegalArgumentNamingWhatIsMissing() {
+        Map<String, String> refusals = new LinkedHashMap<>();
+        refusals.put("", "unexpected end of input");
+        refusals.put("{", "expected '\"'");
+        refusals.put("{\"value\"", "expected ':'");
+        refusals.put("{\"value\":", "unexpected end of input");
+        refusals.put("{\"value\":1", "expected ','");
+        refusals.put("{\"value\":\"abc", "unterminated string");
+        refusals.put("{\"value\":\"abc\\", "unterminated escape sequence");
+        refusals.put("{\"value\":\"\\uD83D", "high surrogate escape must be followed by a low surrogate escape");
+        refusals.put("{\"value\":\"\\uD83D\\", "high surrogate escape must be followed by a low surrogate escape");
+        refusals.put("{\"value\":\"\\u0041", "unterminated string");
+        refusals.forEach((document, message) -> {
+            IllegalArgumentException refusal = assertThrows(
+                    IllegalArgumentException.class, () -> SyntheticJsonParser.parseObject(document), document);
+            assertTrue(refusal.getMessage().startsWith(message + " at index "),
+                    () -> document + " -> " + refusal.getMessage());
+        });
+        IllegalArgumentException notAnObject = assertThrows(
+                IllegalArgumentException.class, () -> SyntheticJsonParser.parseObject("1"));
+        assertEquals("synthetic source root must be a JSON object", notAnObject.getMessage());
+    }
+
+    @Test
+    void emptyContainersParseWithOrWithoutWhitespaceInside() {
+        assertEquals(Map.of(), SyntheticJsonParser.parseObject("{}"));
+        assertEquals(Map.of(), SyntheticJsonParser.parseObject("{\n}"));
+        assertEquals(Map.of(), value("{}"));
+        assertEquals(Map.of(), value("{ }"));
+        assertEquals(List.of(), value("[]"));
+        assertEquals(List.of(), value("[ ]"));
+        assertEquals(List.of(), value("[\n]"));
+    }
+
+    @Test
+    void everyJsonEscapeIsDecoded() {
+        assertEquals("a\"b\\c/d", value("\"a\\\"b\\\\c\\/d\""));
+        assertEquals("a\bb", value("\"a\\bb\""));
+        assertEquals("a\fb", value("\"a\\fb\""));
+        assertEquals("a\rb", value("\"a\\rb\""));
+    }
+
+    /** Each boundary of each hexadecimal digit range: {@code 9}, {@code a}, {@code f}, {@code A}, {@code F}. */
+    @Test
+    void unicodeEscapesAcceptEveryHexadecimalDigitRangeToItsBounds() {
+        assertEquals("9", value("\"\\u0039\""));
+        assertEquals(String.valueOf((char) 0x00AF), value("\"\\u00af\""));
+        assertEquals(String.valueOf((char) 0x00AF), value("\"\\u00AF\""));
+    }
+
+    @Test
+    void aRawCharacterOutsideTheBasicPlaneParsesInsideAString() {
+        String emoji = new String(Character.toChars(0x1F600));
+
+        assertEquals(emoji, value("\"" + emoji + "\""));
+        assertThrows(IllegalArgumentException.class, () -> SyntheticJsonParser.parseObject(emoji));
     }
 
     private static Object value(String jsonLiteral) {

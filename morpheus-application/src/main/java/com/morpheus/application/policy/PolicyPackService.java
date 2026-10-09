@@ -1,5 +1,7 @@
 package com.morpheus.application.policy;
 
+import com.morpheus.application.store.EntityNotFoundException;
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.domain.identity.DomainIdentity;
 
@@ -47,7 +49,7 @@ public final class PolicyPackService {
 
     public PolicyPack.Definition get(PolicyIds.PackId packId) {
         return store.findDefinition(Objects.requireNonNull(packId, "packId"))
-                .orElseThrow(() -> new IllegalArgumentException("unknown policy pack: " + packId));
+                .orElseThrow(() -> new EntityNotFoundException("unknown policy pack: " + packId));
     }
 
     public List<PolicyPack.Definition> list() {
@@ -56,7 +58,7 @@ public final class PolicyPackService {
 
     public PolicyPack.Version version(PolicyIds.PackId packId, PolicyIds.VersionId versionId) {
         return store.findVersion(packId, versionId)
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> new EntityNotFoundException(
                         "unknown policy pack version: " + packId + "/" + versionId));
     }
 
@@ -77,7 +79,7 @@ public final class PolicyPackService {
             throw new PolicyConflictException(
                     "stale policy pack revision: expected " + expectedRevision + " but current is " + current.revision());
         }
-        Instant now = clock.instant();
+        Instant now = revisionTime(current);
         long nextVersionNumber = current.latestVersionNumber() + 1;
         PolicyIds.VersionId versionId = PolicyIds.VersionId.generate();
         PolicyPack.Version version = new PolicyPack.Version(
@@ -142,7 +144,7 @@ public final class PolicyPackService {
             String actor,
             String reason) {
         PolicyConfiguration.Activation current = store.findActivation(scope, packId)
-                .orElseThrow(() -> new IllegalArgumentException("policy pack is not active in scope: " + packId));
+                .orElseThrow(() -> new EntityStateException("policy pack is not active in scope: " + packId));
         if (current.revision() != expectedRevision) {
             throw new PolicyConflictException(
                     "stale policy activation revision: expected " + expectedRevision + " but current is " + current.revision());
@@ -168,10 +170,10 @@ public final class PolicyPackService {
             String actor,
             String reason) {
         PolicyConfiguration.Activation active = store.findActivation(scope, packId)
-                .orElseThrow(() -> new IllegalArgumentException("policy pack must be active before adding an override: " + packId));
+                .orElseThrow(() -> new EntityStateException("policy pack must be active before adding an override: " + packId));
         PolicyPack.Version version = version(packId, active.versionId());
         if (version.rules().stream().noneMatch(rule -> rule.id().equals(ruleId))) {
-            throw new IllegalArgumentException("rule is not present in active policy pack version: " + ruleId);
+            throw new EntityNotFoundException("rule is not present in active policy pack version: " + ruleId);
         }
         long actualRevision = store.findOverride(scope, packId, ruleId)
                 .map(PolicyConfiguration.Override::revision)
@@ -210,7 +212,7 @@ public final class PolicyPackService {
             String actor,
             String reason) {
         PolicyConfiguration.Override current = store.findOverride(scope, packId, ruleId)
-                .orElseThrow(() -> new IllegalArgumentException("policy override does not exist: " + ruleId));
+                .orElseThrow(() -> new EntityNotFoundException("policy override does not exist: " + ruleId));
         if (current.revision() != expectedRevision) {
             throw new PolicyConflictException(
                     "stale policy override revision: expected " + expectedRevision + " but current is " + current.revision());
@@ -230,6 +232,15 @@ public final class PolicyPackService {
     public List<PolicyConfiguration.AuditRecord> audit(PolicyIds.PackId packId) {
         get(packId);
         return store.listAudit(packId).stream().sorted().toList();
+    }
+
+    /**
+     * The wall clock can step backwards (NTP correction, VM resume); a valid CAS write must not be refused for it,
+     * so a revision is stamped no earlier than the revision it replaces.
+     */
+    private Instant revisionTime(PolicyPack.Definition current) {
+        Instant now = clock.instant();
+        return now.isBefore(current.updatedAt()) ? current.updatedAt() : now;
     }
 
     private PolicyConfiguration.AuditRecord audit(

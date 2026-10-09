@@ -2,11 +2,17 @@ package com.morpheus.api;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.TreeSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -113,6 +119,8 @@ class MorpheusApiProjectSyncIntegrationTest {
             ApiTestSupport.Response diagnostics = http.get(server, "/projects/" + projectId + "/diagnostics");
             assertEquals(200, diagnostics.status(), diagnostics.body());
             assertTrue(diagnostics.body().contains("get_quality_report"), diagnostics.body());
+            assertTrue(diagnostics.body().contains("\"requirementCoverageStatus\":\"MEASURED\""), diagnostics.body());
+            assertTrue(diagnostics.body().contains("\"taskCoverageStatus\":"), diagnostics.body());
         }
 
         try (MorpheusHttpServer reopened = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
@@ -124,6 +132,32 @@ class MorpheusApiProjectSyncIntegrationTest {
                     reopened, "/projects/" + projectId + "/requirements/" + requirementId);
             assertEquals(200, requirement.status(), requirement.body());
             assertTrue(requirement.body().contains(requirementId), requirement.body());
+        }
+    }
+
+    @Test
+    void aSyncRefusedForInvalidContentIsABadRequestThatNamesTheFileRelativeToTheWorkspace() throws IOException {
+        Path database = tempDirectory.resolve("invalid-content.db");
+        Path workspace = Files.createDirectories(tempDirectory.resolve("untitled-openspec"));
+        Files.createDirectories(workspace.resolve("openspec/specs/broken"));
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: spec-driven\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                workspace.resolve("openspec/specs/broken/spec.md"),
+                "## Requirements\n\n### Requirement: Untitled\nThe system SHALL reject an untitled specification.\n",
+                StandardCharsets.UTF_8);
+
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            ApiTestSupport.Response created = http.postJson(
+                    server, "/projects", "{\"workspace\":" + http.jsonString(workspace.toString()) + "}");
+            assertEquals(201, created.status(), created.body());
+            String projectId = http.field(created.body(), "projectId");
+
+            ApiTestSupport.Response refused = http.post(server, "/projects/" + projectId + "/sync");
+
+            assertEquals(400, refused.status(), refused.body());
+            assertTrue(refused.body().contains(
+                    "openspec/specs/broken/spec.md: OpenSpec specification has no title"), refused.body());
+            assertFalse(refused.body().contains(workspace.toString()), refused.body());
         }
     }
 
@@ -173,5 +207,94 @@ class MorpheusApiProjectSyncIntegrationTest {
             assertTrue(versions.body().contains(activeSnapshotId), versions.body());
             assertTrue(!versions.body().contains("\"snapshotState\":\"RETIRED\""), versions.body());
         }
+    }
+
+    /**
+     * The sync answer names the requirement a delta file could not normalize, and the fence that was never closed,
+     * through the remote-safe projection: this route is reachable by a remote WRITE caller. A title the location
+     * predicate refuses ({@code Support TCP / UDP}) is therefore absent from this answer, while the CLI shows it
+     * ({@code MorpheusCliTest}); the local projection wired here instead would relay it. Unlike
+     * {@code MorpheusProjectSyncDisclosureTest}, nothing here depends on POSIX permissions, so it runs on every platform.
+     * The keys of {@code data} are also held to the {@code required} list the contract publishes for {@code SyncResult},
+     * which declares {@code additionalProperties: false}.
+     */
+    @Test
+    void aSyncNamesTheRequirementItSkippedWithoutNamingTheServerWorkspace() throws IOException {
+        Path database = tempDirectory.resolve("skipped-requirement.db");
+        Path workspace = http.copyFixture("openspec-basic", tempDirectory.resolve("unclosed-openspec"));
+        Path change = Files.createDirectories(workspace.resolve("openspec/changes/unclosed/specs/auth-session"))
+                .getParent().getParent();
+        Files.writeString(change.resolve("proposal.md"), """
+                # Proposal: Unclosed example
+
+                ## Intent
+
+                Show that a requirement after a fence that is never closed is named.
+                """, StandardCharsets.UTF_8);
+        Files.writeString(change.resolve("specs/auth-session/spec.md"), """
+                # Delta
+
+                ## REMOVED Requirements
+
+                ### Requirement: Legacy session warning
+
+                ```inline``` markers are gone
+
+                ## Notes
+
+                ### Requirement: Keep the audit trail
+                The system SHALL keep the audit trail.
+
+                ### Requirement: Support TCP / UDP
+                The system SHALL support both transports.
+                """, StandardCharsets.UTF_8);
+
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            ApiTestSupport.Response created = http.postJson(
+                    server, "/projects", "{\"workspace\":" + http.jsonString(workspace.toString()) + "}");
+            assertEquals(201, created.status(), created.body());
+            String projectId = http.field(created.body(), "projectId");
+
+            ApiTestSupport.Response sync = http.post(server, "/projects/" + projectId + "/sync");
+
+            assertEquals(200, sync.status(), sync.body());
+            String body = sync.body();
+            JsonNode data = JsonMapper.builder().build().readTree(body).get("data");
+            List<String> keys = new ArrayList<>();
+            data.propertyNames().forEach(keys::add);
+            assertEquals(new TreeSet<>(publishedRequired("SyncResult")), new TreeSet<>(keys), body);
+            assertEquals(3, data.get("diagnostics").get("items").size(), body);
+            assertTrue(body.contains("\"diagnosticCount\":3"), body);
+            assertFalse(body.contains("TCP"), "the remote projection must drop a title that reads as a path: " + body);
+            assertTrue(body.contains("\"code\":\"PARTIAL_INGESTION\""), body);
+            assertTrue(body.contains("\"requirement\":\"Keep the audit trail\""), body);
+            assertTrue(body.contains("\"code\":\"UNCLOSED_CODE_FENCE\""), body);
+            assertTrue(body.contains("\"source\":\"openspec/changes/unclosed/specs/auth-session/spec.md\""), body);
+            assertTrue(body.contains("\"truncated\":false,\"truncationReason\":null"), body);
+            assertFalse(body.contains(workspace.toString()), body);
+            assertFalse(body.contains(tempDirectory.toString()), body);
+        }
+    }
+
+    private static List<String> publishedRequired(String schema) throws IOException {
+        Path root = Path.of("").toAbsolutePath().normalize();
+        while (root != null && !Files.exists(root.resolve("contracts/public-surfaces.tsv"))) {
+            root = root.getParent();
+        }
+        if (root == null) {
+            throw new IllegalStateException("repository root (contracts/public-surfaces.tsv) not found");
+        }
+        List<String> lines = Files.readAllLines(root.resolve("docs/openapi/morpheus-v1.yaml"), StandardCharsets.UTF_8);
+        int start = lines.indexOf("    " + schema + ":");
+        assertTrue(start >= 0, "docs/openapi/morpheus-v1.yaml has no schema " + schema);
+        for (int index = start + 1; index < lines.size() && lines.get(index).startsWith("      "); index++) {
+            String line = lines.get(index).trim();
+            if (line.startsWith("required: [")) {
+                return Arrays.stream(line.substring(line.indexOf('[') + 1, line.indexOf(']')).split(","))
+                        .map(String::trim)
+                        .toList();
+            }
+        }
+        throw new AssertionError(schema + " publishes no required list");
     }
 }

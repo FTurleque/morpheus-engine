@@ -60,7 +60,7 @@ Toute divergence sur un champ canonique produit un `CompositionConflict` explici
 - champ ;
 - candidats et provenance ;
 - priorité ;
-- résolution (`SELECTED_BY_PRECEDENCE`, `UNRESOLVED`, `IDENTICAL`).
+- résolution (`PRECEDENCE_RECORDED` — anciennement `SELECTED_BY_PRECEDENCE` —, `UNRESOLVED`, `IDENTICAL`).
 
 Les conflits de contenu, d'ownership et de type/identité sont représentés explicitement. Une valeur absente face à une valeur présente reste une observation valide et requêtable.
 
@@ -143,3 +143,41 @@ Le gate reproductible `validate-m18.cmd` a prouvé :
 - archive portable `morpheus-0.1.0-windows-x64.zip` de **33,919,431 octets**.
 
 Preuve détaillée : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
+
+## Amendement du 26 septembre 2026 (CMP-1, CMP-2) — la composition est une union, une précédence est enregistrée, jamais appliquée
+
+`compose()` produisait un conflit `SELECTED_BY_PRECEDENCE` avec un provider « sélectionné » alors que `concatenate()` publie chaque collection de **chaque**
+contribution : aucune sélection n'est appliquée. Les identités étant scopées par provider (ADR-0023), les deux versions d'une exigence portent des
+identités différentes et rien ne détecte le doublon ; quand les valeurs s'accordaient, `distinct().count() > 1` supprimait le conflit. Seuls
+`SPECIFICATION`, `REQUIREMENT`, `CHANGE` et `IDENTITY` étaient observés ; l'entité projet était fusionnée sans comparaison (`primary.project()`).
+
+Décision : **l'union est le mode de composition**, et elle se dit.
+
+- `SELECTED_BY_PRECEDENCE` devient `PRECEDENCE_RECORDED` ; motif : « précédence enregistrée ; chaque observation est publiée comme entité distincte ».
+- Une clé observée par plusieurs providers émet un conflit même à valeurs égales : `IDENTICAL`. Une clé observée par un seul provider n'émet rien (le cas
+  mono-provider est inchangé).
+- `CompositionEntityType` couvre tout ce qui est publié (`PROJECT`, `SCENARIO`, `CONSTRAINT`, `DESIGN_DECISION`, `TASK`, `ACCEPTANCE_CRITERION`). Pour
+  `PROJECT`, la valeur candidate de `rootLocator` est l'empreinte SHA-256 du localisateur : un conflit est publié sur des surfaces distantes et un chemin d'hôte
+  ne doit pas y figurer.
+- Les faits de politique `QUALITY_THRESHOLD` sur un ratio (`REQUIREMENT_COVERAGE_PERCENT`, `TASK_COVERAGE_PERCENT`) sont `UNKNOWN` quand l'état de composition du
+  snapshot actif porte des clés dupliquées de ce type : un ratio ne se calcule pas sur une population qu'on sait dupliquée. Les comptages ne changent pas.
+
+### Alternative écartée : appliquer réellement la sélection
+
+La clé logique nécessaire existe (`logicalKey(...)`), la sélection serait donc faisable pour spécifications, exigences et changes. Mais l'identité de l'entité
+perdante est référencée, **chez son propre provider**, par ses scénarios, contraintes, critères d'acceptation et liens de traçabilité. La retirer sans remapper ces
+références les orpheline ; les remapper, c'est fusionner les identités de deux providers, ce qu'ADR-0023 interdit. La sélection exige une décision sur la
+corrélation inter-provider que cet amendement ne prend pas.
+
+### Conséquences
+
+- **Ruptures annoncées** : nom d'énuméré public (migration `V020` des lignes persistées), nouveaux conflits `IDENTICAL` sur des compositions qui n'en
+  rapportaient aucun, seuils de couverture `UNKNOWN` sous duplication. Gate M19 : le nombre de conflits attendu passe de 1 000 à 3 004 (accords désormais
+  rapportés) ; le budget de temps est inchangé.
+- **Résidus assumés.** Le **rapport de qualité** lui-même (`QualityReportMetrics`) affiche toujours ses ratios : seule la politique les rend `UNKNOWN` ; leur
+  rendre le tri-état exige de changer `double` en valeur optionnelle sur toutes les surfaces (choix distinct de cet amendement). Les comptages restent des
+  comptages d'entités publiées, doublons compris. Une contrainte, décision ou critère sans `externalId` n'a pour clé logique que son identité scopée par
+  provider : il ne peut pas être observé d'un provider à l'autre.
+- **Preuve.** `MultiProviderCompositionDuplicationTest` (accord → `IDENTICAL`, divergence → `PRECEDENCE_RECORDED` avec deux entités publiées, huit types observés,
+  scénario, `displayName` du projet, racine jamais en clair, cas mono-provider inchangé), `DuplicatedCompositionPolicyContractTest`,
+  `SqliteCompositionResolutionMigrationTest`.

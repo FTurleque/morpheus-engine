@@ -21,6 +21,7 @@ import java.util.Objects;
  */
 public final class SafeWorkspaceFileResolver {
     private static final int DEFAULT_MAX_UTF8_BYTES = 1024 * 1024;
+    private static final String BYTE_ORDER_MARK = "\uFEFF";
 
     private final Path lexicalRoot;
     private final Path realRoot;
@@ -47,7 +48,8 @@ public final class SafeWorkspaceFileResolver {
         Path lexical = lexical(relativePath);
         rejectSymbolicComponents(lexical);
         if (!Files.isDirectory(lexical, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IllegalArgumentException("workspace directory does not exist: " + relativePath);
+            throw new IllegalArgumentException(
+                    "workspace directory does not exist: " + WorkspaceRelativePathText.of(relativePath));
         }
         return requireContainedRealPath(lexical, relativePath);
     }
@@ -56,7 +58,8 @@ public final class SafeWorkspaceFileResolver {
         Path lexical = lexical(relativePath);
         rejectSymbolicComponents(lexical);
         if (!Files.isRegularFile(lexical, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IllegalArgumentException("workspace file does not exist or is not regular: " + relativePath);
+            throw new IllegalArgumentException(
+                    "workspace file does not exist or is not regular: " + WorkspaceRelativePathText.of(relativePath));
         }
         return requireContainedRealPath(lexical, relativePath);
     }
@@ -164,26 +167,31 @@ public final class SafeWorkspaceFileResolver {
         return sameIdentity(expectedAttributes, verificationAfter);
     }
 
+    /**
+     * Decodes strict UTF-8 and drops one leading byte order mark, which editors on Windows write and which is an
+     * encoding signature, not content. A second one, or one inside the text, is content and is kept.
+     */
     private String decodeStrictUtf8(byte[] content, Path relativePath) {
         try {
-            return StandardCharsets.UTF_8.newDecoder()
+            String text = StandardCharsets.UTF_8.newDecoder()
                     .onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT)
                     .decode(ByteBuffer.wrap(content))
                     .toString();
+            return text.startsWith(BYTE_ORDER_MARK) ? text.substring(BYTE_ORDER_MARK.length()) : text;
         } catch (CharacterCodingException failure) {
-            throw new IllegalArgumentException("workspace file is not valid UTF-8: " + relativePath, failure);
+            throw new IllegalArgumentException(
+                    "workspace file is not valid UTF-8: " + WorkspaceRelativePathText.of(relativePath), failure);
         }
     }
 
-    private IllegalArgumentException inputLimitExceeded(Path relativePath, int maxBytes) {
-        return new IllegalArgumentException(
-                "workspace file exceeds maximum input size of " + maxBytes + " bytes: " + relativePath);
+    private WorkspaceFileTooLargeException inputLimitExceeded(Path relativePath, int maxBytes) {
+        return new WorkspaceFileTooLargeException(relativePath, maxBytes);
     }
 
     private IllegalArgumentException changedDuringRead(Path relativePath) {
         return new IllegalArgumentException("workspace file changed identity or metadata (including content) during read: "
-                + relativePath);
+                + WorkspaceRelativePathText.of(relativePath));
     }
 
     public Path lexicalRoot() {
@@ -219,7 +227,8 @@ public final class SafeWorkspaceFileResolver {
             Path noFollow = current.toRealPath(LinkOption.NOFOLLOW_LINKS);
             Path followed = current.toRealPath();
             if (Files.isSymbolicLink(current) || !noFollow.equals(followed)) {
-                throw new IllegalArgumentException("symbolic workspace path is not allowed: " + relative);
+                throw new IllegalArgumentException(
+                        "symbolic workspace path is not allowed: " + WorkspaceRelativePathText.of(relative));
             }
         }
     }
@@ -227,7 +236,8 @@ public final class SafeWorkspaceFileResolver {
     private Path requireContainedRealPath(Path lexical, Path relativePath) throws IOException {
         Path real = lexical.toRealPath();
         if (!real.startsWith(realRoot)) {
-            throw new IllegalArgumentException("canonical path escapes workspace: " + relativePath);
+            throw new IllegalArgumentException(
+                    "canonical path escapes workspace: " + WorkspaceRelativePathText.of(relativePath));
         }
         return real;
     }

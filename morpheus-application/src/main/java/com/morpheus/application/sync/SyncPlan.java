@@ -7,7 +7,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Explainable synchronization plan derived from one complete source scan and the persisted baseline. */
+/**
+ * Explainable synchronization plan derived from one complete source scan and the persisted baseline.
+ * {@code stateRevision} is the revision of the synchronization state after this plan recorded its attempt: every
+ * later write on behalf of the plan states it, so a plan that has been overtaken cannot overwrite the newer state.
+ */
 public record SyncPlan(
         ProjectSpecificationId projectId,
         Instant attemptedAt,
@@ -18,7 +22,8 @@ public record SyncPlan(
         Optional<SourceInventory> currentInventory,
         Optional<SourceInventoryDiff> diff,
         InvalidationSet invalidation,
-        List<ArchiveAction> archiveActions) {
+        List<ArchiveAction> archiveActions,
+        long stateRevision) {
 
     public SyncPlan {
         Objects.requireNonNull(projectId, "projectId");
@@ -35,6 +40,9 @@ public record SyncPlan(
                 .sorted()
                 .toList();
 
+        if (stateRevision < 1) {
+            throw new IllegalArgumentException("a plan is made after its attempt is recorded: stateRevision must be >= 1");
+        }
         if ((mode == SyncMode.FULL_REBUILD) != fullRebuildReason.isPresent()) {
             throw new IllegalArgumentException("FULL_REBUILD requires a reason and INCREMENTAL must not have one");
         }

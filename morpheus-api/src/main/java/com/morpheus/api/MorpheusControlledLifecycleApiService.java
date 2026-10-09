@@ -99,8 +99,17 @@ final class MorpheusControlledLifecycleApiService {
         }
     }
 
+    /**
+     * An omitted field is a client fault, not a server one. This used to call
+     * {@link Objects#requireNonNull}, so a request without {@code actor}, {@code idempotencyKey} or
+     * {@code targetState} raised a NullPointerException that the server mapped to 500 "internal MORPHEUS API
+     * error" -- the same command the CLI and the MCP tool refuse by naming the argument. The blank case already
+     * answered 400 and keeps the wording it had.
+     */
     private String requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
+        if (value == null) {
+            throw new IllegalArgumentException(name + " is required and must be a non-blank string");
+        }
         String normalized = value.trim();
         if (normalized.isEmpty()) {
             throw new IllegalArgumentException(name + " must not be blank");

@@ -1,6 +1,6 @@
 # ADR-0003 — Isoler la persistance derrière `SpecificationKnowledgeStore`
 
-- Statut : **Proposée — à valider pendant C0 et M0**
+- Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001
 - Portée : stockage et requêtes
@@ -245,3 +245,13 @@ Cette ADR peut passer à **Acceptée** lorsque :
 - les tests contractuels passent sur les deux implémentations.
 
 Le choix du backend concret peut faire l'objet d'une ADR séparée.
+---
+
+## Amendement du 8 octobre 2026 — ADR-0109
+
+La conséquence « aucune dépendance de CLI/MCP/API à la base choisie » (§ 7) n'était pas tenue : mesuré par ArchUnit,
+32 classes de `morpheus-api` et `morpheus-mcp` construisent leur runtime à partir de `morpheus-store-sqlite`, et une
+à partir de `morpheus-provider-openspec`. ADR-0109 reconnaît ces 32 classes comme les **racines de composition**
+nommées des transports HTTP et MCP, dans une liste tenue par `AdapterCompositionRootArchitectureTest` qui ne peut que
+rétrécir. La conséquence vaut désormais pour la CLI et pour toute autre classe de `api` et de `mcp`. Le texte
+ci-dessus, décision datée, n'est pas réécrit.

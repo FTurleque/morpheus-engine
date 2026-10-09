@@ -49,6 +49,18 @@ class MorpheusApiHistoryContractTest {
             List<String> snapshotIds = snapshotIds(versions.body());
             assertEquals(2, snapshotIds.size(), versions.body());
 
+            ApiTestSupport.Response firstPage = http.get(server, "/projects/" + projectId + "/versions?offset=0&limit=1");
+            assertEquals(200, firstPage.status(), firstPage.body());
+            assertTrue(firstPage.body().contains("\"totalMatches\":2"), firstPage.body());
+            assertTrue(firstPage.body().contains("\"hasMore\":true"), firstPage.body());
+            assertEquals(List.of(snapshotIds.getFirst()), snapshotIds(firstPage.body()), firstPage.body());
+            ApiTestSupport.Response secondPage = http.get(server, "/projects/" + projectId + "/versions?offset=1&limit=1");
+            assertTrue(secondPage.body().contains("\"hasMore\":false"), secondPage.body());
+            assertEquals(List.of(snapshotIds.getLast()), snapshotIds(secondPage.body()), secondPage.body());
+            ApiTestSupport.Response unknown = http.get(server, "/projects/" + projectId + "/versions?cursor=1");
+            assertEquals(400, unknown.status(), unknown.body());
+            assertTrue(unknown.body().contains("unknown query parameter: cursor"), unknown.body());
+
             ApiTestSupport.Response historical = http.get(
                     server, "/projects/" + projectId + "/versions/" + snapshotIds.getFirst() + "/requirements");
             assertEquals(200, historical.status(), historical.body());

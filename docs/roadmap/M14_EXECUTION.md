@@ -20,7 +20,7 @@ Head MORPHEUS validé : `d44d418ae0f1e528ea09a56cdd8c45647048c740`
 Preuve cross-repo JARVIS : issue **#92**, PR **#93**, branche `feature/morpheus-orchestration-client`.  
 Head JARVIS validé : `58899855bcd3446636c1f274ace8c1bfc8f46930`.
 
-Validation : [`../VALIDATION_M14.md`](../VALIDATION_M14.md).
+Validation : [`../validation/VALIDATION_M14.md`](../validation/VALIDATION_M14.md).
 
 ## Question de sortie
 

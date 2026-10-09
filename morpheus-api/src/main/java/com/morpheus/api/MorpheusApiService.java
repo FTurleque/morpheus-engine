@@ -180,8 +180,8 @@ public final class MorpheusApiService {
         return diagnosticsService.blockingConditions(projectIdValue, changeIdValue);
     }
 
-    public Object versions(String projectIdValue) {
-        return historyService.versions(projectIdValue);
+    public Object versions(String projectIdValue, PageRequest pageRequest) {
+        return historyService.versions(projectIdValue, pageRequest);
     }
 
     public Object historicalRequirements(

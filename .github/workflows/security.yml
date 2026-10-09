@@ -16,10 +16,9 @@ permissions:
 env:
   DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS: '72'
   # The H2 schema Dependency-Check expects (`data.version` in dependency-check-core), pinned in the root POM
-  # as <dependency-check.data.version>. Not the plugin version, and it does not track it: 12.2.2 and 13.0.0
-  # both declare 5.6, with byte-identical data/initialize.sql and data/dbStatements.properties.
+  # as <dependency-check.data.version> and kept in step with it by DependencyCheckWorkflowContractTest.
   DEPENDENCY_CHECK_SCHEMA_VERSION: '5.6'
-  DEPENDENCY_CHECK_PLUGIN_VERSION: '12.2.2'
+  DEPENDENCY_CHECK_PLUGIN_VERSION: '13.0.0'
 
 concurrency:
   group: morpheus-security-${{ github.ref }}
@@ -39,7 +38,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Java 21
-        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '21'
@@ -51,42 +50,74 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
-          # Keyed on the H2 schema version rather than the plugin version.
+          # Keyed on the H2 schema version, not on the plugin version.
           #
-          # What a cache key must answer is whether the running analyzer can read this database, and only the
-          # schema decides that. Dependency-Check 12.2.2 and 13.0.0 both declare data.version 5.6 and ship
-          # byte-identical data/initialize.sql and data/dbStatements.properties; upstream changed the schema at
-          # 12.2.2, not at 13.0.0. A plugin-versioned key therefore orphaned a perfectly readable database on
-          # every routine bump, which is what stranded the 1.2.1 branch.
+          # What a cache key must answer is whether the running analyzer can read this database, and that is
+          # decided by the schema alone. Dependency-Check 12.2.2 and 13.0.0 both declare data.version 5.6 and
+          # ship byte-identical data/initialize.sql and data/dbStatements.properties; upstream changed the
+          # schema at 12.2.2, not at 13.0.0. A plugin-versioned key therefore answered a question nobody
+          # asked, and answered it wrongly in both directions: it orphaned a perfectly readable database on a
+          # routine bump, and the v12 restore-key added to paper over that orphaning would equally have
+          # matched a genuinely incompatible database had the schema really moved.
           #
-          # The v12 entry below is a one-time rename alias, not a fallback across schemas: a cache written by
-          # 12.2.2 IS schema 5.6, so restoring it under the new name reuses the same database rather than a
-          # different one. It exists so this very change can land without a cold start, and it stops mattering
-          # as soon as a run publishes under the new key. Its removal is tracked as DT-13 in the risk register.
+          # Keyed on the schema there is nothing left to fall back to. A schema change produces a different
+          # key, no match, and an honest cold start -- which is the correct outcome, because the alternative
+          # is a database the analyzer will refuse anyway: every scan below runs -DautoUpdate=false, under
+          # which Dependency-Check throws rather than migrating a mismatched schema.
           key: dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             dependency-check-schema${{ env.DEPENDENCY_CHECK_SCHEMA_VERSION }}-trusted-${{ runner.os }}-
-            dependency-check-v12-trusted-${{ runner.os }}-
 
+      # Freshness is read from the sentinel a real refresh wrote, never from a file mtime. An mtime says when
+      # Dependency-Check last rewrote some file, survives actions/cache restore untouched because tar
+      # preserves it, and an incremental update-only that rewrites nothing leaves it stale behind a current
+      # database. The sentinel is a fact the refresh produces; the mtime was a side effect of the filesystem.
       - name: Verify restored Dependency-Check database freshness
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
           data_dir="${GITHUB_WORKSPACE}/target/dependency-check-data"
-          db_file="$(find "${data_dir}" -type f \( -name 'odc*.mv.db' -o -name 'odc*.db' \) -print -quit 2>/dev/null || true)"
-          if [[ -z "${db_file}" ]]; then
-            echo "::error::No trusted Dependency-Check database was restored for this pull request."
+          facts="$(bash ./scripts/read-dependency-check-sentinel.sh "${data_dir}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}")"
+          status="$(sed -n 's/^status=//p' <<< "${facts}" | head -n 1)"
+
+          if [[ "${status}" != 'OK' ]]; then
+            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check refresh could be established for this pull request (${status}). A cache restored without a trusted-refresh sentinel has an unknown age, and an unknown age is not a fresh one. This is an infrastructure failure, not a vulnerability finding. Expected right after the cache namespace or the sentinel format changes: no entry exists under the new key yet. It clears when a trusted event writes the first sentinel, and on this branch exactly one thing can do that: NVD_API_KEY being configured. Waiting for a schedule will NOT clear it -- the only writer is the API-key path, because Dependency-Check 13.0.0 cannot refresh anonymously (upstream #8715, fixed in the unreleased 13.0.1). Backporting this sentinel writer to a branch still pinned to 12.2.2, whose anonymous refresh works and which writes the same H2 schema, would also bootstrap it. See RT-13 in docs/architecture/risks/register.md. Do not widen DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS and do not add a fallback that accepts an undated database: either would discard the measurement this refusal exists to make."
             exit 1
           fi
-          now_epoch="$(date +%s)"
-          modified_epoch="$(stat -c %Y "${db_file}")"
-          age_seconds="$((now_epoch - modified_epoch))"
+
+          age_seconds="$(sed -n 's/^ageSeconds=//p' <<< "${facts}" | head -n 1)"
           max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
+          # The summary names the provenance the sentinel recorded, never a literal describing this run. A
+          # literal here can only say how the database reached this run -- always "restored from cache" on a
+          # pull request -- and it keeps saying exactly that after the refresh that produced the database
+          # stops using NVD_API_KEY. The sentinel already carries how the feed was obtained; re-deriving that
+          # from a constant is what would leave a lost key invisible until the freshness budget expired three
+          # days later, under a reason indistinguishable from a legitimately old cache.
+          #
+          # The role of this run stays implicit in the age already published: 0 is a refresh performed here,
+          # anything else is a restore. A field of its own would be a field a caller could fill falsely.
+          refreshed_by="$(sed -n 's/^refreshedBy=//p' <<< "${facts}" | head -n 1)"
+          bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "${refreshed_by:-unknown}"
+
+          # A database this branch produced can only carry the API-key label: Dependency-Check 13.0.0 cannot
+          # refresh anonymously (upstream #8715). Any other provenance was written elsewhere -- most plausibly
+          # the branch still pinned to 12.2.2, whose anonymous refresh works and whose database uses the same
+          # H2 schema, which is the bootstrap the STALE_DATABASE message above points at. That case is
+          # legitimate, so this warns and never refuses: refusing would close the documented way out of a cold
+          # start, and the freshness budget bounds the deviation regardless. What it must not do is stay quiet,
+          # because a lost NVD_API_KEY reads exactly the same way and nothing else would say so before the
+          # budget expired three days later.
+          if [[ "${refreshed_by:-unknown}" != 'NVD API key refresh' ]]; then
+            plugin_version="$(sed -n 's/^pluginVersion=//p' <<< "${facts}" | head -n 1)"
+            refreshed_on_ref="$(sed -n 's/^refreshedOnRef=//p' <<< "${facts}" | head -n 1)"
+            echo "::warning::Dependency-Check database was obtained via ${refreshed_by:-unknown}, not NVD API key refresh, on a branch pinned to Dependency-Check ${DEPENDENCY_CHECK_PLUGIN_VERSION}, which cannot refresh anonymously. The sentinel was written by Dependency-Check ${plugin_version:-unknown} on ${refreshed_on_ref:-unknown}. Expected while bootstrapping from the branch pinned to 12.2.2; otherwise NVD_API_KEY has stopped being read. See RT-13 in docs/architecture/risks/register.md."
+          fi
+
           if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
-            echo "::error::Restored Dependency-Check database is stale (${age_seconds}s old; maximum ${max_age_seconds}s)."
+            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Restored Dependency-Check database is stale (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s). This is an infrastructure failure, not a vulnerability finding: no dependency crossed the CVSS threshold, the vulnerability feed is simply too old to scan against."
             exit 1
           fi
-          echo "Dependency-Check database freshness PASS (${age_seconds}s old; maximum ${max_age_seconds}s)."
+          echo "Dependency-Check database freshness PASS (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s)."
 
       - name: Remove stale Dependency-Check update lock
         shell: bash
@@ -98,42 +129,82 @@ jobs:
           fi
 
       - name: Update Dependency-Check vulnerability database (trusted events)
+        id: dependency-check-update
         if: github.event_name != 'pull_request'
         shell: bash
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          args=(
-            "-Pd2-security"
-            "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data"
-            "org.owasp:dependency-check-maven:12.2.2:update-only"
-          )
-          if [[ -n "${NVD_API_KEY:-}" ]]; then
-            args+=("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY")
-            source_label="NVD API key refresh"
-          else
-            echo "::warning::NVD_API_KEY is not configured; a cold NVD update can be slower."
-            source_label="anonymous NVD refresh (Dependency-Check ${DEPENDENCY_CHECK_PLUGIN_VERSION})"
-          fi
-          ./mvnw "${args[@]}"
+          echo "updated=false" >> "${GITHUB_OUTPUT}"
+          data_dir="${GITHUB_WORKSPACE}/target/dependency-check-data"
+          max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
 
-          # Record that a refresh really happened, as a fact the refresh produces rather than something a later
-          # run infers from a file mtime. An mtime survives actions/cache restore untouched because tar
-          # preserves it, and an incremental update-only that rewrites nothing leaves an old one behind a
-          # current database -- which is how a database refreshed 15h earlier came to be reported as 54h old.
+          # A refresh that did not happen must never be reported as one -- and it is also not, by itself, a
+          # reason to refuse a database that is still inside its freshness budget. The budget is the refusal,
+          # and it already exists below. The no-key branch has always worked that way; the key branch did not,
+          # so a key the NVD refuses killed the step outright while a fresh trusted cache sat right there.
+          # An invalid or unactivated key is epistemically identical to an absent one: nothing here refreshed
+          # the feed. Every way of not refreshing converges on the same handling, and `refresh_skipped_because`
+          # carries which one it was into every message, so they are never told apart by reading the workflow.
           #
-          # Written on both paths because on ${DEPENDENCY_CHECK_PLUGIN_VERSION} both are genuine refreshes: the
-          # anonymous update still works here. It is broken from 13.0.0 onwards (upstream #8715, fixed in the
-          # unreleased 13.0.1), so on a branch pinned there only the API-key path may write one. That asymmetry
-          # is the whole reason this branch has to be the one that seeds the first sentinel.
-          bash ./scripts/write-dependency-check-sentinel.sh \
-            "${GITHUB_WORKSPACE}/target/dependency-check-data" \
-            "${DEPENDENCY_CHECK_PLUGIN_VERSION}" \
-            "${DEPENDENCY_CHECK_SCHEMA_VERSION}" \
-            "${source_label}"
+          # What does not converge: a failed refresh writes no sentinel and leaves `updated=false`, so no cache
+          # is published and nothing later can mistake this run for a refresh.
+          #
+          # The cause is read from the log, never assumed from the exit status: an NVD outage, a quota, a network
+          # cut or an unreachable Maven repository fail the same command as a refused key, and naming the key for
+          # all of them sent operators to replace a key that worked. Only the marker the NVD actually printed for
+          # a refused key (run 35269719882, 2026-09-17) names the key. Under pipefail the status is still Maven's.
+          set -o pipefail
+          refresh_skipped_because=''
+          if [[ -n "${NVD_API_KEY:-}" ]]; then
+            update_log="${RUNNER_TEMP}/dependency-check-update.log"
+            if ./mvnw \
+              -Pd2-security \
+              "-DdataDirectory=${data_dir}" \
+              -DnvdApiKeyEnvironmentVariable=NVD_API_KEY \
+              org.owasp:dependency-check-maven:13.0.0:update-only 2>&1 | tee "${update_log}"; then
+              # The sentinel is written here and only here on this path: after the refresh succeeded, so its
+              # presence is evidence the feed was actually renewed rather than that a file happens to exist.
+              bash ./scripts/write-dependency-check-sentinel.sh \
+                "${data_dir}" "${DEPENDENCY_CHECK_PLUGIN_VERSION}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}" "NVD API key refresh"
+              echo "updated=true" >> "${GITHUB_OUTPUT}"
+              bash ./scripts/report-dependency-check-cache.sh 0 "NVD API key refresh"
+            elif grep -qF 'Invalid API Key' "${update_log}"; then
+              refresh_skipped_because='NVD_API_KEY was refused by the NVD'
+              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The NVD refused NVD_API_KEY (the refresh log reports Invalid API Key); the NVD refuses an invalid or unactivated key exactly as it refuses a wrong one. Nothing here refreshed the feed, so this run falls back to the last trusted cache and its freshness budget keeps running from that cache's own refresh, not from now. Replace NVD_API_KEY: when the budget expires, every scan including every pull request fails with STALE_DATABASE. See RT-13 in docs/architecture/risks/register.md."
+            else
+              refresh_skipped_because='the NVD refresh failed with NVD_API_KEY configured'
+              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The trusted Dependency-Check refresh did not complete, and its log does not report a refused key: the cause is in the log of this step (NVD outage, quota, network, Maven repository). Do not rotate the key on this evidence alone. Nothing here refreshed the feed, so this run falls back to the last trusted cache and its freshness budget keeps running from that cache's own refresh, not from now. See docs/developer/COLD_START_RECOVERY.md."
+            fi
+          else
+            # Dependency-Check 13.0.0 upstream bug #8715 treats its built-in blank nvd.api.key as a real key.
+            # Until a release containing upstream fix #8716 exists, never attempt the broken anonymous update.
+            refresh_skipped_because='NVD_API_KEY is not configured'
+            echo "::warning::NVD_API_KEY is not configured; Dependency-Check 13.0.0 anonymous update is broken upstream. Reusing a fresh trusted cache."
+          fi
+
+          if [[ -n "${refresh_skipped_because}" ]]; then
+            facts="$(bash ./scripts/read-dependency-check-sentinel.sh "${data_dir}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}")"
+            status="$(sed -n 's/^status=//p' <<< "${facts}" | head -n 1)"
+            if [[ "${status}" != 'OK' ]]; then
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check database is available (${status}): nothing here refreshed the feed (${refresh_skipped_because}), and the restored cache carries no trusted-refresh sentinel to date. Configure a working NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released."
+              exit 1
+            fi
+            age_seconds="$(sed -n 's/^ageSeconds=//p' <<< "${facts}" | head -n 1)"
+            # Same rule as the pull-request path: the row names the provenance the sentinel recorded, never a
+            # literal describing this run. Why this run refreshed nothing is a separate fact, and it is carried
+            # by the annotations and the messages below, where a cause belongs.
+            refreshed_by="$(sed -n 's/^refreshedBy=//p' <<< "${facts}" | head -n 1)"
+            bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "${refreshed_by:-unknown}"
+            if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Trusted Dependency-Check database is stale (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s), and nothing here refreshed it (${refresh_skipped_because}). Configure a working NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released. This is an infrastructure failure, not a vulnerability finding."
+              exit 1
+            fi
+            echo "Dependency-Check trusted cache fallback PASS (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s; ${refresh_skipped_because})."
+          fi
 
       - name: Save trusted Dependency-Check database
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.dependency-check-update.outputs.updated == 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/dependency-check-data
@@ -142,11 +213,34 @@ jobs:
       - name: Run OWASP Dependency-Check scan
         shell: bash
         run: |
-          ./mvnw \
+          set -uo pipefail
+          log="${RUNNER_TEMP}/dependency-check-product.log"
+          if ./mvnw \
             -Pd2-security \
             "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data" \
             -DautoUpdate=false \
-            org.owasp:dependency-check-maven:12.2.2:aggregate
+            org.owasp:dependency-check-maven:13.0.0:aggregate 2>&1 | tee "${log}"; then
+            exit 0
+          fi
+          bash ./scripts/classify-dependency-check-failure.sh "${log}" "product runtime dependencies"
+
+      # The product SBOM and the scan above exclude test scope on purpose: those artifacts are never shipped.
+      # They are executed on every machine that builds MORPHEUS, so they get their own fail-closed scan rather
+      # than no scan at all. It reuses the trusted database the steps above already prepared, so this second
+      # look costs no additional NVD traffic.
+      - name: Run OWASP Dependency-Check scan over build and test dependencies
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="${RUNNER_TEMP}/dependency-check-build-and-test.log"
+          if ./mvnw \
+            -Pd2-security-tests \
+            "-DdataDirectory=${GITHUB_WORKSPACE}/target/dependency-check-data" \
+            -DautoUpdate=false \
+            org.owasp:dependency-check-maven:13.0.0:aggregate 2>&1 | tee "${log}"; then
+            exit 0
+          fi
+          bash ./scripts/classify-dependency-check-failure.sh "${log}" "build and test dependencies"
 
       - name: Upload dependency-check evidence
         if: always()
@@ -155,4 +249,6 @@ jobs:
           name: dependency-check
           if-no-files-found: warn
           retention-days: 14
-          path: target/d2-security/**
+          path: |
+            target/d2-security/**
+            target/d2-security-tests/**

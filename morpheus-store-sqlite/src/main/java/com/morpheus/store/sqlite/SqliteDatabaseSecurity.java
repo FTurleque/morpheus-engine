@@ -118,10 +118,25 @@ final class SqliteDatabaseSecurity {
             statement.execute("PRAGMA busy_timeout = " + busyTimeoutMillis);
             statement.execute("PRAGMA temp_store = MEMORY");
             statement.execute("PRAGMA locking_mode = NORMAL");
-            try (ResultSet result = statement.executeQuery("PRAGMA journal_mode = PERSIST")) {
-                if (!result.next() || !"persist".equals(result.getString(1).toLowerCase(Locale.ROOT))) {
-                    throw new SQLException("SQLite journal mode must be PERSIST for secure reusable sidecars");
-                }
+            ensurePersistentJournalMode(statement);
+        }
+    }
+
+    /**
+     * PERSIST is a database-wide journal mode. Re-applying the assignment on every physical connection asks
+     * SQLite for a write-level journal-mode lock even when the invariant is already satisfied. Under sustained
+     * multi-writer pressure that unnecessary transition can exhaust the busy timeout on Windows. Read first and
+     * only request the transition when the database is not already configured.
+     */
+    private static void ensurePersistentJournalMode(Statement statement) throws SQLException {
+        try (ResultSet current = statement.executeQuery("PRAGMA journal_mode")) {
+            if (current.next() && "persist".equals(current.getString(1).toLowerCase(Locale.ROOT))) {
+                return;
+            }
+        }
+        try (ResultSet changed = statement.executeQuery("PRAGMA journal_mode = PERSIST")) {
+            if (!changed.next() || !"persist".equals(changed.getString(1).toLowerCase(Locale.ROOT))) {
+                throw new SQLException("SQLite journal mode must be PERSIST for secure reusable sidecars");
             }
         }
     }

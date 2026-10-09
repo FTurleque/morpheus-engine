@@ -331,3 +331,5 @@ ALLOWED != applied
 ```
 
 Le tool `apply_change_lifecycle_transition` conserve les garde-fous applicatifs : capability explicite, confirmation, CAS, idempotency et audit. Sans provider `WRITE_CHANGE`, la mutation est refusée.
+
+Un refus se lit comme un refus : le résultat de l'outil porte `isError: true` et son corps JSON garde l'état (`CONFLICT`, `NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION` ou `REJECTED`) et la raison. Seuls `APPLIED` et `ALREADY_APPLIED` sont des succès.

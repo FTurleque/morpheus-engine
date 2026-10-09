@@ -60,6 +60,15 @@ class MorpheusProviderPluginCliTest {
         assertTrue(result.err().contains("64 hexadecimal characters"));
     }
 
+    /** The parser is a chain of if, which the option guard does not see; this test holds its refusal instead. */
+    @Test
+    void anUnknownOptionIsRefused() {
+        Result result = run("provider-plugins", "discover", "--directory", tempDir.toString(), "--recursive", "yes");
+
+        assertEquals(CliExitCode.USAGE.code(), result.exitCode());
+        assertTrue(result.err().contains("unknown provider-plugins option: --recursive"), result.err());
+    }
+
     private Result run(String... args) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ByteArrayOutputStream errors = new ByteArrayOutputStream();

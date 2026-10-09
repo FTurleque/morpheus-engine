@@ -7,10 +7,21 @@ import java.util.Objects;
 public interface MinosCodeGateway extends AutoCloseable {
     IndexStatus indexStatus(String project);
 
-    List<Symbol> findSymbols(String project, String query, int limit);
+    /**
+     * A search bounded by {@code limit}. MINOS reports a count but no total or truncation flag, so a page that
+     * fills the limit is declared {@link SymbolSearch#possiblyTruncated() possibly truncated}: a caller must
+     * not read the absence of a symbol from a page that may have stopped before reaching it.
+     */
+    SymbolSearch findSymbols(String project, String query, int limit);
 
     @Override
     void close();
+
+    record SymbolSearch(List<Symbol> symbols, boolean possiblyTruncated) {
+        public SymbolSearch {
+            symbols = List.copyOf(Objects.requireNonNull(symbols, "symbols"));
+        }
+    }
 
     record IndexStatus(
             String projectId,

@@ -19,3 +19,9 @@ updates:
       time: "05:30"
       timezone: Europe/Paris
     open-pull-requests-limit: 5
+    # CodeQL refuses an analyze step whose version differs from the init step's configuration, so a bump that
+    # moves one without the other can never pass. One group, one pull request.
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"

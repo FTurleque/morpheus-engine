@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 JACOCO_SUFFIX = PurePosixPath("target/site/jacoco/jacoco.xml")
+AGGREGATE_JACOCO = Path("morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml")
 EVIDENCE_OUTPUT = Path("validation-output/m21/diff-coverage.txt")
 LineCoverage = tuple[bool, int, int]
 
@@ -148,10 +149,43 @@ def load_jacoco_report(report: Path) -> dict[tuple[str, str], dict[int, LineCove
     return coverage
 
 
+def repository_module_for(relative: str) -> str:
+    matches = sorted(
+        path for path in Path(".").glob(f"*/src/main/java/{relative}") if path.is_file()
+    )
+    if len(matches) != 1:
+        rendered = ", ".join(path.as_posix() for path in matches) or "none"
+        raise ValueError(
+            f"aggregate JaCoCo source {relative} maps to {len(matches)} repository files: {rendered}"
+        )
+    return matches[0].parts[0]
+
+
+def load_aggregate_jacoco(report: Path) -> dict[tuple[str, str], dict[int, LineCoverage]]:
+    root = ET.parse(report).getroot()
+    coverage: dict[tuple[str, str], dict[int, LineCoverage]] = {}
+    for package in root.iter("package"):
+        package_name = package.get("name", "")
+        for source in package.findall("sourcefile"):
+            source_name = source.get("name")
+            if not source_name:
+                continue
+            relative = f"{package_name}/{source_name}" if package_name else source_name
+            module = repository_module_for(relative)
+            coverage[(module, relative)] = source_lines(source)
+    return coverage
+
+
 def load_jacoco() -> dict[tuple[str, str], dict[int, LineCoverage]]:
     coverage: dict[tuple[str, str], dict[int, LineCoverage]] = {}
+    if AGGREGATE_JACOCO.is_file():
+        coverage.update(load_aggregate_jacoco(AGGREGATE_JACOCO))
+
+    # Keep module-local reports as a fail-safe for a production module omitted from the aggregate dependency set.
+    # Aggregate data wins because it includes cross-module architecture-test execution that module reports cannot see.
     for report in sorted(Path(".").rglob(JACOCO_SUFFIX.as_posix())):
-        coverage.update(load_jacoco_report(report))
+        for key, lines in load_jacoco_report(report).items():
+            coverage.setdefault(key, lines)
     return coverage
 
 
@@ -219,6 +253,7 @@ def evidence_lines(
     details: list[str],
 ) -> list[str]:
     return [
+        f"coverage_source={'aggregate' if AGGREGATE_JACOCO.is_file() else 'module-local'}",
         "diff_source=stdin",
         f"changed_java_files={len(changed)}",
         f"covered_executable_changed_lines={covered_lines}",

@@ -76,8 +76,37 @@ class McpClientIntegrationArchitectureTest {
         assertTrue(manager.contains("Uninstall is state-driven"));
         assertFalse(manager.contains("docker"));
 
+        // taskkill's exit code is ignored, yet a native call writes the global $LASTEXITCODE. validate-m28.ps1 reads
+        // it after each script, so an unrestored taskkill that raced an exiting child failed the Windows lane on
+        // promotion PR #274 (15/09/2026) after both verifications printed PASS.
+        String lifecycle = Files.readString(root.resolve("scripts/verify-windows-setup-lifecycle.ps1"));
+        for (String script : List.of(manager, lifecycle)) {
+            assertTrue(script.contains("$PreviousExitCode = $global:LASTEXITCODE")
+                            && script.contains("finally { $global:LASTEXITCODE = $PreviousExitCode }"),
+                    "a process-tree stop that runs taskkill must restore the caller's $LASTEXITCODE");
+        }
+
         assertTrue(setupWrapper.contains("MORPHEUS setup MCP client selection SUCCESS"));
         assertTrue(setupWrapper.contains("One or more selected MORPHEUS MCP client integrations were not configured"));
+    }
+
+    /**
+     * The lifecycle verification runs the production installer under the production AppId: on a machine where
+     * MORPHEUS is installed, it would rewrite and then uninstall the real registration (PKG-AUD-1). It refuses to
+     * start when that registration exists, and does so before it starts anything.
+     */
+    @Test
+    void theSetupLifecycleVerificationRefusesToRunOverAnExistingInstallation() throws IOException {
+        String lifecycle = Files.readString(repoRoot().resolve("scripts/verify-windows-setup-lifecycle.ps1"));
+        int guard = lifecycle.indexOf("if (Test-Path -LiteralPath $UninstallRegistryKey) {");
+        int firstStart = lifecycle.indexOf("Start-Process");
+
+        assertTrue(guard > 0, "the lifecycle verification must check for an existing registration");
+        assertTrue(firstStart > guard, "the registration must be checked before any process is started");
+        assertTrue(lifecycle.contains("{4D0DC052-2FD6-49F5-88F4-E32C9B1EB67A}_is1'"),
+                "the default must stay the production registration");
+        assertTrue(lifecycle.contains("$RegistryKey = $UninstallRegistryKey"),
+                "the key the lifecycle asserts on must be the key it guarded");
     }
 
     /**

@@ -1,6 +1,6 @@
 # Plugins de provider MORPHEUS
 
-Statut : **M22 candidate**.
+Statut : **M22 livré et intégré** — ce document décrit le comportement actuel ; la preuve de qualification du jalon reste `docs/validation/VALIDATION_M22.md` (historique).
 
 ## Modèle de confiance
 

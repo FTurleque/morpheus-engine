@@ -4,13 +4,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
+import com.morpheus.application.security.ServerLocationDisclosure;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProviderIngestionBudgetTest {
 
@@ -56,6 +59,41 @@ class ProviderIngestionBudgetTest {
         assertThrows(ProviderIngestionLimitException.class, () -> session.readDocument(Path.of("c.md")));
         assertEquals(2, session.fileCount());
         assertEquals(10, session.aggregateBytes());
+    }
+
+    /**
+     * The file budget alone: every other budget has room, so only the file count can refuse the second read. The test
+     * above also exhausts the aggregate bytes, which refused the read even with the file check removed (PIT-AUD-3).
+     */
+    @Test
+    void theFileBudgetAloneRefusesTheReadPastIt(@TempDir Path workspace) throws Exception {
+        Files.writeString(workspace.resolve("a.md"), "a");
+        Files.writeString(workspace.resolve("b.md"), "b");
+        var session = new ProviderIngestionBudget(10, 1, 100, 10, 10, 10, 10)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        assertEquals("a", session.readDocument(Path.of("a.md")));
+        ProviderIngestionLimitException refused = assertThrows(ProviderIngestionLimitException.class,
+                () -> session.readDocument(Path.of("b.md")));
+
+        assertEquals("provider ingestion file count exceeds budget for b.md: 2 > 1", refused.getMessage());
+        assertEquals(1, session.fileCount());
+    }
+
+    /** The line budget alone, across two reads: one line short of it after the first, two lines past it after. */
+    @Test
+    void theLineBudgetAloneRefusesTheReadPastIt(@TempDir Path workspace) throws Exception {
+        Files.writeString(workspace.resolve("a.md"), "1\n2\n");
+        Files.writeString(workspace.resolve("b.md"), "3\n4\n");
+        var session = new ProviderIngestionBudget(10, 10, 100, 3, 10, 10, 10)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        session.readDocument(Path.of("a.md"));
+        ProviderIngestionLimitException refused = assertThrows(ProviderIngestionLimitException.class,
+                () -> session.readDocument(Path.of("b.md")));
+
+        assertEquals("provider ingestion line count exceeds budget for b.md: 4 > 3", refused.getMessage());
+        assertEquals(2, session.lineCount());
     }
 
     @Test
@@ -113,5 +151,103 @@ class ProviderIngestionBudgetTest {
                 () -> session.addEvidenceFragment("567", "blocks.md"));
 
         assertEquals(4, session.evidenceBytes());
+    }
+
+    @Test
+    void aFileLargerThanTheRemainingAggregateIsReportedAsAnAggregateOverrun(@TempDir Path workspace)
+            throws Exception {
+        Files.writeString(workspace.resolve("a.md"), "12345678");
+        Files.writeString(workspace.resolve("b.md"), "123456");
+        ProviderIngestionBudget budget = new ProviderIngestionBudget(10, 3, 12, 10, 10, 10, 10);
+        var session = budget.open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        session.readDocument(Path.of("a.md"));
+        ProviderIngestionLimitException failure = assertThrows(
+                ProviderIngestionLimitException.class, () -> session.readDocument(Path.of("b.md")));
+
+        assertTrue(failure.getMessage().contains("aggregate bytes"), failure::getMessage);
+        assertEquals(1, session.fileCount());
+        assertEquals(8, session.aggregateBytes());
+    }
+
+    @Test
+    void anEvidenceFileLargerThanTheDocumentBoundIsReportedAsADocumentOverrun(@TempDir Path workspace)
+            throws Exception {
+        Files.writeString(workspace.resolve("large.txt"), "123456");
+        ProviderIngestionBudget budget = new ProviderIngestionBudget(5, 3, 30, 10, 10, 10, 10);
+        var session = budget.open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        ProviderIngestionLimitException failure = assertThrows(
+                ProviderIngestionLimitException.class, () -> session.readEvidence(Path.of("large.txt")));
+
+        assertTrue(failure.getMessage().contains("document bytes"), failure::getMessage);
+        assertEquals(0, session.evidenceBytes());
+    }
+
+    @Test
+    void aBudgetRefusalNamesAFileInASubdirectoryWithForwardSlashesAndNoServerLocation(@TempDir Path workspace)
+            throws Exception {
+        Files.createDirectories(workspace.resolve("docs"));
+        Files.writeString(workspace.resolve("docs/big.md"), "123456");
+        ProviderIngestionBudget budget = new ProviderIngestionBudget(5, 3, 30, 10, 10, 10, 6);
+        var session = budget.open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        ProviderIngestionLimitException failure = assertThrows(
+                ProviderIngestionLimitException.class, () -> session.readDocument(Path.of("docs", "big.md")));
+
+        assertTrue(failure.getMessage().contains("exceeds budget for docs/big.md:"), failure::getMessage);
+        assertFalse(ServerLocationDisclosure.namesAServerLocation(failure.getMessage()), failure::getMessage);
+    }
+
+    @Test
+    void anEvidenceFragmentIsRefusedUnderTheNameOfTheDocumentTheSessionReadLast(@TempDir Path workspace)
+            throws Exception {
+        Files.createDirectories(workspace.resolve("docs"));
+        Files.writeString(workspace.resolve("docs/spec.md"), "abc");
+        Files.writeString(workspace.resolve("docs/other.md"), "abc");
+        var session = new ProviderIngestionBudget(5, 3, 30, 10, 10, 10, 4)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        session.readDocument(Path.of("docs", "spec.md"));
+        session.addEvidenceFragment("ab");
+        session.readDocument(Path.of("docs", "other.md"));
+        ProviderIngestionLimitException failure = assertThrows(
+                ProviderIngestionLimitException.class, () -> session.addEvidenceFragment("abc"));
+
+        assertEquals("provider ingestion evidence bytes exceeds budget for docs/other.md: 5 > 4",
+                failure.getMessage());
+        assertEquals(2, session.evidenceBytes(), "a refused fragment does not advance the counter");
+    }
+
+    @Test
+    void anEvidenceFragmentWithoutADocumentReadByTheSessionIsRefusedAsAMisuse(@TempDir Path workspace)
+            throws Exception {
+        var session = new ProviderIngestionBudget(5, 3, 30, 10, 10, 10, 4)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class, () -> session.addEvidenceFragment("a"));
+
+        assertEquals("an evidence fragment is cited from a document this session has read", failure.getMessage());
+        assertEquals(0, session.evidenceBytes());
+    }
+
+    /**
+     * A limit is recognized by the resolver's exception type, never by a phrase in its message: a file whose name
+     * happens to contain that phrase and fails for another reason keeps its own failure.
+     */
+    @Test
+    void aFailureThatOnlyMentionsTheLimitPhraseIsNotReportedAsABudgetOverrun(@TempDir Path workspace)
+            throws Exception {
+        Path misleading = Path.of("exceeds maximum input size.md");
+        Files.write(workspace.resolve(misleading), new byte[]{(byte) 0xC3, (byte) 0x28});
+        ProviderIngestionBudget budget = new ProviderIngestionBudget(10, 3, 30, 10, 10, 10, 6);
+        var session = budget.open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> session.readDocument(misleading));
+
+        assertFalse(failure instanceof ProviderIngestionLimitException, failure::toString);
+        assertTrue(failure.getMessage().contains("not valid UTF-8"), failure::getMessage);
     }
 }

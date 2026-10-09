@@ -26,6 +26,7 @@ import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
 
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Objects;
 
 /** HTTP-facing M24 adapter; parsing and persistence wiring only, never query business semantics. */
@@ -109,7 +110,10 @@ public final class MorpheusQueryApiService {
     public QueryExport export(ExportRequest request) {
         Objects.requireNonNull(request, "request");
         try (Runtime runtime = runtime()) {
-            QueryDefinition definition = query(scope(request.scopeKind(), request.scopeId()), request.query());
+            ExportQueryRequest selection = request.query();
+            QueryDefinition definition = query(
+                    scope(request.scopeKind(), request.scopeId()),
+                    new QueryRequest(selection.entity(), selection.filter(), selection.sort(), selection.fields(), null, null));
             return runtime.exports.export(definition, format(request.format()));
         }
     }
@@ -144,7 +148,7 @@ public final class MorpheusQueryApiService {
     }
 
     private QueryScope scope(String kind, String id) {
-        String normalized = requireText(kind, "scopeKind").toUpperCase();
+        String normalized = requireText(kind, "scopeKind").toUpperCase(Locale.ROOT);
         String scopeId = requireText(id, "scopeId");
         return switch (normalized) {
             case "PROJECT" -> new ProjectQueryScope(ProjectSpecificationId.parse(scopeId));
@@ -155,7 +159,7 @@ public final class MorpheusQueryApiService {
 
     private QueryExportFormat format(String raw) {
         try {
-            return QueryExportFormat.valueOf(requireText(raw, "format").toUpperCase());
+            return QueryExportFormat.valueOf(requireText(raw, "format").toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException("format must be JSON, CSV or MARKDOWN");
         }
@@ -227,7 +231,15 @@ public final class MorpheusQueryApiService {
     public record RevisionRequest(Long expectedRevision) {
     }
 
-    public record ExportRequest(String scopeKind, String scopeId, String format, QueryRequest query) {
+    /**
+     * What an export selects: a {@link QueryRequest} without the page. An export is always complete, so a
+     * {@code limit} or an {@code offset} has nothing to apply to; the strict decoder refuses them as unknown
+     * properties instead of accepting and ignoring them.
+     */
+    public record ExportQueryRequest(String entity, String filter, String sort, String fields) {
+    }
+
+    public record ExportRequest(String scopeKind, String scopeId, String format, ExportQueryRequest query) {
         public ExportRequest {
             Objects.requireNonNull(query, "query");
         }

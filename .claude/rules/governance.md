@@ -32,8 +32,26 @@ code tiers, donc il est délibérément absent du transport MCP (jamais model-fa
 colonne `notes` justifie pourquoi. C'est le patron à reproduire pour toute nouvelle
 capacité qui n'expose pas les trois transports.
 
-Les tests `publicManifestAndOpenApiExposeSame*IntentFamilies` comparent le TSV **caractère par caractère**
-avec l'OpenAPI. Modifier une signature sans mettre à jour les deux casse le gate.
+Ce que les gates comparent réellement — deux mécanismes, à ne pas confondre :
+
+- **Route par route, dans les deux sens** : `PublicHttpRouteConvergenceTest` (paquet `com.morpheus.api` des tests
+  d'architecture) compare méthode + chemin entre la table `MorpheusHttpRouteTable`, la colonne `http` du manifeste
+  et les opérations de **tous** les `docs/openapi/*.yaml`, paramètres de chemin comparés par position (`{id}`,
+  `{savedViewId}` et `{viewId}` sont le même segment). Une route servie absente de l'OpenAPI, une opération OpenAPI ou
+  une ligne du manifeste qu'aucun serveur ne sert, une route servie sans ligne au manifeste font échouer le build. Il
+  démarre aussi un vrai serveur local pour prouver qu'il route chaque entrée de la table, et qu'un `405` y porte un
+  `Allow` égal aux méthodes de la route. Exclusions motivées dans le
+  test : les routes servies par le seul serveur remote (`REMOTE_ONLY`) et les sondes d'exploitation sans ligne au
+  manifeste (`NOT_IN_MANIFEST` : racine, `health`, `readiness`, `metrics`). La colonne `mcp` a son équivalent,
+  `PublicSurfaceManifestCoversEveryServedToolTest`. Ni l'un ni l'autre ne vérifie la colonne `cli`.
+- **Lignes épinglées** : les tests `publicManifestAndOpenApiExposeSame*IntentFamilies` (M24, M25, M27) cherchent quelques
+  lignes **exactes** du TSV et quelques clés de chemin de l'OpenAPI, choisies à la main. Ils épinglent une famille de
+  capacités ; ils ne comparent pas les deux fichiers.
+
+`MorpheusHttpRouteTable` est la seule liste des routes et de leurs méthodes : l'en-tête `Allow` local en est calculé,
+et `MorpheusRemoteRoutePolicy` refuse de se charger si ses rôles ne couvrent pas exactement ses routes et méthodes.
+Une route ajoutée au code sans sa ligne de manifeste et son opération OpenAPI casse le gate de convergence ; une route
+servie qui manque à `MorpheusHttpRouteTable` n'est vue par aucun des deux (elle est refusée en remote, 404).
 
 ## TOUJOURS
 
@@ -41,6 +59,9 @@ avec l'OpenAPI. Modifier une signature sans mettre à jour les deux casse le gat
 - Écrire un ADR dans `docs/adr/` pour toute décision structurelle (compter `docs/adr/0*.md` avec un `glob` — ne jamais recopier un total, cf. `rules/meta.md` ; le `README.md` du répertoire n'est pas un ADR)
 - Livrer le quadruplet complet pour un nouveau milestone (suite ArchUnit + scripts dual-platform + EXECUTION + VALIDATION)
 - Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée
+- Justifier dans la description de la PR toute modification de `contracts/public-surfaces.tsv`,
+  `config/*ratchets*.properties`, `docs/openapi/*.yaml` ou d'un test sous `morpheus-architecture-tests/` —
+  ce sont des fichiers de gouvernance, pas de simples fichiers de configuration
 
 ## JAMAIS
 
@@ -81,8 +102,12 @@ Toute spec `docs/openapi/*.yaml` doit porter :
 **Ne pas se fier aux nombres codés en dur ici** — source de vérité vivante :
 `config/m21-quality-ratchets.properties`. `scripts/validate-m21.*` et `scripts/validate-d2.*`
 lisent ce fichier et assertent le nombre de tests, le nombre de tests d'architecture,
-la couverture ligne/branche et la version courante (`1.2.1`). Valeurs constatées le
-04/09/2026 : `1300 / 335 / 54,5% / 47,7%`. Ces nombres sont des
+la couverture ligne/branche et la version courante (`1.2.1`). La couverture y est déclarée
+**deux fois**, une paire de clés par échelle de mesure (`aggregate*` et `perModule*`) — citer
+un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 09/10/2026 :
+`3820 / 585`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module
+(les six relevées ce jour-là, dans les deux plafonds requalifiés le même jour sur `8e3fda5a`).
+Ces nombres sont des
 **ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones, donc
 toute valeur recopiée ici (y compris dans une version antérieure de cette page) peut être
 périmée. Relire le fichier `.properties` avant de citer un chiffre. Voir `rules/meta.md`.

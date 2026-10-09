@@ -1,6 +1,6 @@
 # ADR-0001 — Le domaine MORPHEUS est indépendant des formats et providers
 
-- Statut : **Proposée — à valider pendant C0**
+- Statut : **Acceptée avec contraintes — M0**
 - Date : 22 juillet 2026
 - Décision concernée : frontière du domaine
 - Portée : structurante, difficile à inverser si elle est violée tôt

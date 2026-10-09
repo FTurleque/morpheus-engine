@@ -307,6 +307,15 @@ Réouvrir cette décision si :
 - distribution du driver devient problématique ;
 - un mode serveur central devient le déploiement principal.
 
+**Requalification de `DT-04` (16/09/2026).** Le registre de dette portait « SQLite reste l'unique backend
+persistant » avec pour action « n'engager un backend alternatif qu'après besoin et ADR dédiés ». Une action
+qui se lit « ne rien faire jusqu'à nouvel ordre » n'est pas une dette : c'est cette décision d'architecture,
+toujours valide, et ses critères de réouverture sont **exactement la liste ci-dessus**. La ligne sort du
+tableau actif ; elle n'a jamais rien décrit d'autre que cette section. Garder une dette en face d'une
+position tenue suggère qu'on a l'intention d'en sortir, ce qui est faux tant qu'aucun des cinq critères
+n'est rempli. L'absence de second backend reste donc un choix, et `morpheus-store-memory` demeure le store
+de contrat/test — pas un backend de production en attente de promotion.
+
 ---
 
 ## 16. Décision de sortie M0

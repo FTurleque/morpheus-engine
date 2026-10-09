@@ -2,9 +2,10 @@ package com.morpheus.integration.minos;
 
 import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.integration.mcp.BoundedStdioClientTransport;
+import com.morpheus.integration.mcp.McpPeerLaunch;
+import com.morpheus.integration.mcp.PeerOperationDeadline;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
@@ -29,10 +30,17 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
     public static final String TOOL_INDEX_STATUS = "minos_index_status";
     public static final String TOOL_FIND_SYMBOLS = "minos_find_symbols";
     static final int MAX_MCP_RESPONSE_BYTES = 4 * 1024 * 1024;
+    /**
+     * The requests one gateway sends in sequence, each bounded by the configured timeout:
+     * initialize, tools/list, minos_index_status, minos_find_symbols.
+     * The operation deadline, and through it the MCP server's handler bound, is derived from it (ADR-0106).
+     */
+    public static final int REQUESTS_PER_OPERATION = 4;
     private static final int MAX_SYMBOLS = 1000;
     private static final Set<String> REQUIRED_TOOLS = Set.of(TOOL_INDEX_STATUS, TOOL_FIND_SYMBOLS);
 
     private final McpSyncClient client;
+    private final PeerOperationDeadline deadline;
     private final Optional<Path> stagedJar;
     private final JsonMapper mapper = JsonMapper.builder()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -47,23 +55,25 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             List<String> arguments,
             Map<String, String> environment,
             Duration timeout) {
-        this(new Launch(command, arguments, environment, timeout, Optional.empty()));
+        this(command, arguments, environment, timeout,
+                PeerOperationDeadline.of(timeout, REQUESTS_PER_OPERATION));
+    }
+
+    MinosMcpCodeGateway(
+            String command,
+            List<String> arguments,
+            Map<String, String> environment,
+            Duration timeout,
+            Duration operationDeadline) {
+        this(new Launch(command, arguments, environment, timeout, operationDeadline, Optional.empty()));
     }
 
     private MinosMcpCodeGateway(Launch launch) {
         this.stagedJar = launch.stagedJar();
-        McpSyncClient started = null;
+        McpSyncClient started = buildClient(launch, stagedJar);
+        // Closing the client fails the pending request at once, so the operation ends at its deadline.
+        PeerOperationDeadline armed = PeerOperationDeadline.arm(launch.operationDeadline(), started::close);
         try {
-            var parameters = ServerParameters.builder(launch.command())
-                    .args(launch.arguments().toArray(String[]::new));
-            if (!launch.environment().isEmpty()) {
-                parameters.env(launch.environment());
-            }
-            BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                    parameters.build(), McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
-            started = McpClient.sync(transport)
-                    .requestTimeout(launch.timeout())
-                    .build();
             started.initialize();
             Set<String> available = started.listTools().tools().stream()
                     .map(tool -> tool.name())
@@ -74,9 +84,13 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
                                 + REQUIRED_TOOLS.stream().filter(tool -> !available.contains(tool)).sorted().toList());
             }
             this.client = started;
+            this.deadline = armed;
         } catch (RuntimeException failure) {
+            boolean expired = armed.expired();
+            armed.close();
             closeStartedSuppressing(started, failure);
             deleteStagedSuppressing(stagedJar, failure);
+            if (expired) throw deadlineExceeded(launch.operationDeadline(), failure);
             if (failure instanceof MinosIntegrationException integrationFailure) throw integrationFailure;
             throw new MinosIntegrationException("cannot start or initialize MINOS MCP server", failure);
         }
@@ -96,7 +110,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
     }
 
     @Override
-    public List<Symbol> findSymbols(String project, String query, int limit) {
+    public SymbolSearch findSymbols(String project, String query, int limit) {
         requireText(project, "project");
         requireText(query, "query");
         if (limit < 1 || limit > MAX_SYMBOLS) {
@@ -112,7 +126,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             if (symbols.size() > limit || symbols.size() > MAX_SYMBOLS) {
                 throw new MinosIntegrationException("MINOS symbol response exceeds requested limit " + limit);
             }
-            return symbols.stream().map(this::symbol).toList();
+            return new SymbolSearch(symbols.stream().map(this::symbol).toList(), symbols.size() == limit);
         } catch (MinosIntegrationException failure) {
             throw failure;
         } catch (Exception failure) {
@@ -122,6 +136,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
 
     @Override
     public void close() {
+        deadline.close();
         try {
             client.closeGracefully();
         } catch (RuntimeException ignored) {
@@ -157,6 +172,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         } catch (MinosIntegrationException failure) {
             throw failure;
         } catch (RuntimeException failure) {
+            if (deadline.expired()) throw deadlineExceeded(deadline.deadline(), failure);
             throw new MinosIntegrationException("MINOS MCP call failed: " + toolName, failure);
         }
     }
@@ -191,7 +207,8 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             List<String> arguments = new ArrayList<>();
             settings.homeDirectory().ifPresent(home -> arguments.add("-Dminos.home=" + home));
             arguments.addAll(List.of("-cp", launchJar.toString(), MINOS_SERVER_CLASS));
-            return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout(), staged);
+            return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout(),
+                    PeerOperationDeadline.of(settings.timeout(), REQUESTS_PER_OPERATION), staged);
         } catch (IllegalArgumentException integrityFailure) {
             deleteStagedQuietly(staged);
             throw new MinosIntegrationException(
@@ -200,6 +217,23 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             deleteStagedQuietly(staged);
             throw failure;
         }
+    }
+
+    private static McpSyncClient buildClient(Launch launch, Optional<Path> stagedJar) {
+        try {
+            BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                    new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
+                    McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
+            return McpClient.sync(transport).requestTimeout(launch.timeout()).build();
+        } catch (RuntimeException failure) {
+            deleteStagedSuppressing(stagedJar, failure);
+            throw new MinosIntegrationException("cannot start or initialize MINOS MCP server", failure);
+        }
+    }
+
+    private static MinosIntegrationException deadlineExceeded(Duration operationDeadline, RuntimeException failure) {
+        return new MinosIntegrationException(
+                "MINOS MCP operation exceeded its " + operationDeadline.toMillis() + " ms deadline", failure);
     }
 
     private static void closeStartedSuppressing(McpSyncClient started, Throwable primary) {
@@ -241,12 +275,14 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             List<String> arguments,
             Map<String, String> environment,
             Duration timeout,
+            Duration operationDeadline,
             Optional<Path> stagedJar) {
         private Launch {
             command = requireText(command, "command");
             arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
             environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));
             Objects.requireNonNull(timeout, "timeout");
+            Objects.requireNonNull(operationDeadline, "operationDeadline");
             stagedJar = Objects.requireNonNull(stagedJar, "stagedJar")
                     .map(path -> path.toAbsolutePath().normalize());
         }

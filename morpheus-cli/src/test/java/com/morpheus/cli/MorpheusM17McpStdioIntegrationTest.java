@@ -39,6 +39,7 @@ class MorpheusM17McpStdioIntegrationTest {
                     + "\",\"idempotencyKey\":\"m17-stdio-denied\",\"expectedRevision\":0,\"targetState\":\"PROPOSED\",\"actor\":\"m17-stdio-test\",\"confirmed\":true}}}");
             String mutation = session.readLine(Duration.ofSeconds(10));
             assertTrue(mutation.contains("NOT_AUTHORIZED"), mutation);
+            assertTrue(mutation.contains("\"isError\":true"), () -> "the launcher denies the write as an error: " + mutation);
             assertTrue(mutation.contains("WRITE_CHANGE"), mutation);
 
             session.send("{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"evaluate_change_transition\",\"arguments\":{\"projectId\":\""

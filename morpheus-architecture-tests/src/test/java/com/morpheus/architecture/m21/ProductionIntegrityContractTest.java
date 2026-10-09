@@ -5,13 +5,22 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.application.product.ProductMetadata;
+import com.morpheus.cli.CliExitCode;
+import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
+import com.morpheus.integration.mcp.PeerOperationDeadline;
+import com.morpheus.integration.minos.MinosIntegrationSettings;
+import com.morpheus.integration.minos.MinosMcpCodeGateway;
+import com.morpheus.integration.nexus.NexusIntegrationSettings;
+import com.morpheus.integration.nexus.NexusMcpContextGateway;
 import com.morpheus.mcp.MorpheusMcpServer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
@@ -22,22 +31,54 @@ class ProductionIntegrityContractTest {
         assertEquals(ProductMetadata.version(), MorpheusMcpServer.SERVER_VERSION);
     }
 
+    /**
+     * ADR-0106: morpheus-mcp cannot import CliExitCode (the CLI depends on it, not the reverse), so the MCP exit
+     * codes converge on the CLI table by value. This module is the only one that sees both.
+     */
+    @Test
+    void mcpServerExitCodesConvergeWithTheCliExitCodeTable() {
+        assertEquals(CliExitCode.SUCCESS.code(), MorpheusMcpServer.EXIT_END_OF_INPUT);
+        assertEquals(CliExitCode.IO_ERROR.code(), MorpheusMcpServer.EXIT_TRANSPORT_FAILURE);
+    }
+
+    /**
+     * ADR-0106, amendment of 8 October 2026: the handler bound is a safety bound, so a handler waiting on a peer
+     * that keeps every request within the longest timeout an operator may configure must still end by the
+     * operation's bounded error. One operation is several requests in sequence, so the bound is composed from each
+     * gateway's request count, not from one request: the previous rule, twice one timeout, gave 240 s against a
+     * 480 s MINOS operation. Every gateway must fit the transport's envelope, and the bound must outlast the longest
+     * of them plus the closing of its gateway. This module is the only one that sees the transport and both peers.
+     */
+    @Test
+    void theHandlerSafetyBoundOutlastsTheLongestPeerOperation() {
+        Duration minosOperation = PeerOperationDeadline.of(
+                Duration.ofSeconds(MinosIntegrationSettings.MAX_TIMEOUT_SECONDS),
+                MinosMcpCodeGateway.REQUESTS_PER_OPERATION);
+        Duration nexusOperation = PeerOperationDeadline.of(
+                Duration.ofSeconds(NexusIntegrationSettings.MAX_TIMEOUT_SECONDS),
+                NexusMcpContextGateway.REQUESTS_PER_OPERATION);
+        Duration longestOperation = minosOperation.compareTo(nexusOperation) >= 0 ? minosOperation : nexusOperation;
+        Duration needed = longestOperation.plus(PeerOperationDeadline.CLOSE_ALLOWANCE);
+        Duration bound = BoundedStdioServerTransportProvider.DEFAULT_HANDLER_DEADLINE;
+
+        assertTrue(longestOperation.compareTo(PeerOperationDeadline.LONGEST_OPERATION) <= 0,
+                () -> "a gateway outgrows the transport envelope: " + longestOperation);
+        assertTrue(bound.compareTo(needed) > 0,
+                () -> "handler bound " + bound.toSeconds() + " s must outlast the longest peer operation and its close "
+                        + needed.toSeconds() + " s");
+    }
+
     @Test
     void publicSurfaceManifestIsCompleteExplicitAndBackedByAdapters() throws IOException {
         Path root = repoRoot();
-        List<String> lines = Files.readAllLines(root.resolve("contracts/public-surfaces.tsv"));
-        List<String[]> entries = new ArrayList<>();
-        for (String line : lines) {
-            if (line.isBlank() || line.startsWith("#")) {
-                continue;
-            }
-            String[] columns = line.split("\\t", -1);
+        List<String[]> entries = PublicSurfaceManifest.rows(root);
+        for (String[] columns : entries) {
+            String line = String.join("\t", columns);
             assertEquals(6, columns.length, "each public surface row must have six columns: " + line);
             assertTrue(columns[1].equals("READ") || columns[1].equals("WRITE"), "intent must be READ or WRITE");
             assertFalse(columns[2].isBlank(), "CLI shape must be explicit");
             assertFalse(columns[3].isBlank(), "MCP shape must be explicit");
             assertFalse(columns[4].isBlank(), "HTTP shape or explicit omission must be present");
-            entries.add(columns);
         }
         assertTrue(entries.size() >= 6, "M21 convergence manifest must cover the critical public capabilities");
 
@@ -101,10 +142,19 @@ class ProductionIntegrityContractTest {
                 "PRODUCTION_INTEGRITY.md must quote the normative Surefire ratchet " + ratchets.tests());
         assertTrue(integrity.contains(ratchets.architectureTests() + " PASS"),
                 "PRODUCTION_INTEGRITY.md must quote the normative architecture ratchet " + ratchets.architectureTests());
-        assertTrue(integrity.contains(ratchets.lineCoverage() + " % aggregate"),
-                "PRODUCTION_INTEGRITY.md must quote the normative line ratchet " + ratchets.lineCoverage());
-        assertTrue(integrity.contains(ratchets.branchCoverage() + " % aggregate"),
-                "PRODUCTION_INTEGRITY.md must quote the normative branch ratchet " + ratchets.branchCoverage());
+        // Both scales, each naming itself. The page used to quote one figure as "aggregate" while the number it
+        // quoted had been qualified on the per-module scale, which is how a reader could believe the canonical
+        // measurement was governed by a threshold nothing had ever measured it against.
+        String collapsed = integrity.replaceAll("\\s+", " ");
+        for (Map.Entry<String, String> quoted : Map.of(
+                "JaCoCo aggregate lines", ratchets.aggregateLineCoverage(),
+                "JaCoCo aggregate branches", ratchets.aggregateBranchCoverage(),
+                "JaCoCo per-module lines", ratchets.perModuleLineCoverage(),
+                "JaCoCo per-module branches", ratchets.perModuleBranchCoverage()).entrySet()) {
+            String claim = quoted.getKey() + " >= " + quoted.getValue() + " %";
+            assertTrue(collapsed.contains(claim),
+                    () -> "PRODUCTION_INTEGRITY.md must quote the normative ratchet as \"" + claim + "\"");
+        }
         assertTrue(integrity.contains("Changed lines       >= 80 %"));
         assertTrue(integrity.contains("Changed branches    >= 70 %"));
         assertTrue(integrity.contains("config/m21-quality-ratchets.properties"));
@@ -130,7 +180,9 @@ class ProductionIntegrityContractTest {
     }
 
     /** Reads the single normative source of the M21 ratchets so documentation gates can never pin stale numbers. */
-    private record Ratchets(String tests, String architectureTests, String lineCoverage, String branchCoverage) {
+    private record Ratchets(String tests, String architectureTests,
+                            String aggregateLineCoverage, String aggregateBranchCoverage,
+                            String perModuleLineCoverage, String perModuleBranchCoverage) {
         private static Ratchets load(Path path) throws IOException {
             Properties properties = new Properties();
             try (var reader = Files.newBufferedReader(path)) {
@@ -139,8 +191,10 @@ class ProductionIntegrityContractTest {
             return new Ratchets(
                     properties.getProperty("testsMinimum"),
                     properties.getProperty("architectureTestsMinimum"),
-                    percentage(properties.getProperty("lineCoverageMinimum")),
-                    percentage(properties.getProperty("branchCoverageMinimum")));
+                    percentage(properties.getProperty("aggregateLineCoverageMinimum")),
+                    percentage(properties.getProperty("aggregateBranchCoverageMinimum")),
+                    percentage(properties.getProperty("perModuleLineCoverageMinimum")),
+                    percentage(properties.getProperty("perModuleBranchCoverageMinimum")));
         }
 
         private static String percentage(String decimal) {

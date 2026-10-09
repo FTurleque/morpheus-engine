@@ -7,6 +7,7 @@ import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.source.SourceLocator;
+import com.morpheus.store.sqlite.SqliteServerMaintenance;
 import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -398,7 +399,8 @@ class MorpheusRemoteHttpServerTest {
         assertEquals(403, writerCannotBackup.statusCode());
         assertEquals(201, backup.statusCode());
         assertTrue(backup.body().contains("\"integrityOk\":true"));
-        assertTrue(backup.body().contains("\"schemaVersion\":17"));
+        assertTrue(backup.body().contains(
+                "\"schemaVersion\":" + SqliteServerMaintenance.SUPPORTED_SCHEMA_VERSION));
         assertRemoteBackupNamesTheFileWithoutTheServerPathname(backup);
     }
 

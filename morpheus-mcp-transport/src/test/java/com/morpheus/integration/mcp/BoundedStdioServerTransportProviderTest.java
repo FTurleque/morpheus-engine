@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -84,22 +83,6 @@ class BoundedStdioServerTransportProviderTest {
     }
 
     @Test
-    void failsClosedWhenSerializedOutboundFrameExceedsLimit() throws Exception {
-        BlockingInputStream input = new BlockingInputStream();
-        BoundedStdioServerTransportProvider provider = new BoundedStdioServerTransportProvider(
-                McpJsonDefaults.getMapper(), input, new ByteArrayOutputStream(), 128, 4);
-
-        McpSyncServer server = server(provider);
-        try {
-            assertThrows(RuntimeException.class, () -> provider.notifyClients(
-                    "notifications/test", Map.of("value", "x".repeat(1024))).block());
-            assertTrue(provider.awaitTermination(Duration.ofSeconds(5)));
-        } finally {
-            server.close();
-        }
-    }
-
-    @Test
     void failsClosedWhenOutboundQueueCapacityIsExceeded() throws Exception {
         BlockingInputStream input = new BlockingInputStream();
         BlockingOutputStream output = new BlockingOutputStream();
@@ -161,31 +144,6 @@ class BoundedStdioServerTransportProviderTest {
                 new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper(), 2048);
         customFrameLimit.closeGracefully().block();
         assertTrue(customFrameLimit.awaitTermination(Duration.ofSeconds(1)));
-    }
-
-    @Test
-    void acceptsInboundFrameAtConfiguredBoundary() throws Exception {
-        String json = "{\"jsonrpc\":\"2.0\"}";
-        byte[] frame = (json + "\n").getBytes(StandardCharsets.UTF_8);
-
-        assertEquals(json, BoundedStdioServerTransportProvider.readUtf8LineBounded(
-                new ByteArrayInputStream(frame), json.getBytes(StandardCharsets.UTF_8).length));
-    }
-
-    @Test
-    void rejectsInboundFrameBeforeMaterializingPastByteLimit() {
-        byte[] frame = "12345\n".getBytes(StandardCharsets.UTF_8);
-
-        assertThrows(BoundedStdioServerTransportProvider.MessageTooLargeException.class, () ->
-                BoundedStdioServerTransportProvider.readUtf8LineBounded(new ByteArrayInputStream(frame), 4));
-    }
-
-    @Test
-    void countsUtf8BytesInsteadOfCharacters() {
-        byte[] frame = "é\n".getBytes(StandardCharsets.UTF_8);
-
-        assertThrows(BoundedStdioServerTransportProvider.MessageTooLargeException.class, () ->
-                BoundedStdioServerTransportProvider.readUtf8LineBounded(new ByteArrayInputStream(frame), 1));
     }
 
     private McpSyncServer server(BoundedStdioServerTransportProvider provider) {

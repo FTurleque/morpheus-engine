@@ -15,7 +15,7 @@ branche d'intégration    develop
 
 ```text
 Java   >= 21
-Maven  via Maven Wrapper 3.9.16 + SHA-256 vérifié
+Maven  via Maven Wrapper 3.10.0 + SHA-256 vérifié
 Git
 Windows PowerShell pour le gate Windows
 Linux/WSL pour le gate Linux
@@ -64,14 +64,16 @@ Le domaine et l’application ne dépendent ni des transports ni des clients MCP
 ```text
 product                    1.2.1
 Java                       21
-Jackson                    3.2.2
-sqlite-jdbc                3.53.2.0
+Jackson                    3.2.3
+sqlite-jdbc                3.53.4.0
 MCP SDK                    2.0.1
-OWASP Dependency-Check     12.2.2
-JaCoCo line ratchet        >= 54.5%
-JaCoCo branch ratchet      >= 47.7%
-Surefire floor             >= 1300
-Architecture floor         >= 335
+OWASP Dependency-Check     13.0.0
+JaCoCo aggregate line ratchet     >= 90.0%
+JaCoCo aggregate branch ratchet   >= 75.7%
+JaCoCo per-module line ratchet    >= 69.1%
+JaCoCo per-module branch ratchet  >= 61.2%
+Surefire floor             >= 3820
+Architecture floor         >= 585
 Changed-line gate          80%
 Changed-branch gate        70%
 dependency analyze         failOnWarning=true
@@ -113,6 +115,12 @@ M21 exige le même SHA exact sur Windows et Ubuntu/Linux, vérifie les ratchets 
 
 La CI canonique exécute M21 sur les pull requests ainsi que sur les pushes `main` et `develop`. Les PR Java de production doivent en plus conserver `>= 80%` de changed-line coverage et `>= 70%` de changed-branch coverage.
 
+## Audit de code : SpotBugs et PIT
+
+Deux profils Maven opt-in, absents de `clean verify` et de la CI : `audit-spotbugs` (analyse statique, contrôle
+bloquant) et `audit-mutation` (tests de mutation, un module à la fois). Configuration, commandes, rapports et lecture des
+résultats : [Audit de code](CODE_AUDIT.md).
+
 ## Gate D2 spécialisé
 
 Windows :
@@ -139,7 +147,7 @@ FAIL_ON_UNKNOWN_PROPERTIES
 FAIL_ON_TRAILING_TOKENS
 ```
 
-Jackson 3.2.2 est utilisé sans default typing. Les tests de régression couvrent notamment la profondeur JSON, les tailles de requête et les frontières workspace/provider.
+Jackson 3.2.3 est utilisé sans default typing. Les tests de régression couvrent notamment la profondeur JSON, les tailles de requête et les frontières workspace/provider.
 
 ## SCA
 
@@ -152,7 +160,7 @@ d2-security
 Commande :
 
 ```text
-org.owasp:dependency-check-maven:12.2.2:aggregate
+org.owasp:dependency-check-maven:13.0.0:aggregate
 ```
 
 Politique : CVSS >= 7.0 fait échouer la qualification ; test scope exclu ; erreur de scan bloquante ; rapports sous `target/d2-security`.
@@ -217,6 +225,7 @@ Le choix de `0` approbation obligatoire reste cohérent avec le contexte mono-ma
 - [API](API.md)
 - [MCP](MCP.md)
 - [Version produit](PRODUCT_VERSION.md)
+- [Reprise à froid](COLD_START_RECOVERY.md) — par où recommencer après une longue interruption : la commande unique qui qualifie le dépôt, les secrets externes et ce qui casse sans eux, comment lire une preuve, et quels gates rouges ne sont pas des régressions
 - [Build et tests](BUILD_AND_TEST.md)
 - [Production integrity](PRODUCTION_INTEGRITY.md)
 - [Registre des risques](../architecture/risks/register.md)

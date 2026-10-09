@@ -1,6 +1,7 @@
 package com.morpheus.sdk.provider;
 
 import com.morpheus.application.security.ExternalJarIntegrity;
+import com.morpheus.application.security.ServerLocationDisclosure;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -8,6 +9,7 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Properties;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -15,6 +17,7 @@ import java.util.jar.JarOutputStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class ProviderPluginDiscoveryTest {
     @TempDir
@@ -54,7 +57,7 @@ class ProviderPluginDiscoveryTest {
         Path external = directory.resolve("external.jar");
         writeMetadataOnlyJar(external, metadata("external-plugin", 1, "1.0.0"));
         Path link = plugins.resolve("linked.jar");
-        if (!createSymlink(link, external)) return;
+        assumeTrue(createSymlink(link, external), "symbolic links cannot be created in this environment");
 
         ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(plugins);
         assertTrue(result.candidates().isEmpty());
@@ -65,11 +68,85 @@ class ProviderPluginDiscoveryTest {
         Path real = Files.createDirectory(directory.resolve("real-plugins"));
         writeMetadataOnlyJar(real.resolve("provider.jar"), metadata("provider", 1, "1.0.0"));
         Path link = directory.resolve("linked-plugins");
-        if (!createSymlink(link, real)) return;
+        assumeTrue(createSymlink(link, real), "symbolic links cannot be created in this environment");
 
         ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(link);
         assertTrue(result.candidates().isEmpty());
         assertTrue(result.diagnostics().stream().anyMatch(d -> d.code().equals("PLUGIN_PATH_NOT_DIRECTORY")));
+    }
+
+    /**
+     * A linked ancestor is an ordinary deployment -- an installation directory mounted elsewhere -- so it is
+     * followed rather than refused. What discovery owes the operator is the directory it actually enumerated.
+     */
+    @Test
+    void aLinkedAncestorIsResolvedAndTheEnumeratedDirectoryIsDeclared() throws Exception {
+        Path real = Files.createDirectories(directory.resolve("real").resolve("plugins"));
+        writeMetadataOnlyJar(real.resolve("provider.jar"), metadata("provider", 1, "1.0.0"));
+        Path alias = directory.resolve("alias");
+        assumeTrue(createSymlink(alias, real.getParent()) || createJunction(alias, real.getParent()),
+                "neither a symbolic link nor a junction can be created in this environment");
+        Path requested = alias.resolve("plugins");
+
+        ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(requested);
+
+        Path resolved = real.toRealPath();
+        assertEquals(resolved, result.directory());
+        assertEquals(resolved.resolve("provider.jar"), result.candidates().getFirst().jarPath());
+        ProviderPluginDiagnostic declared = result.diagnostics().stream()
+                .filter(d -> d.code().equals("PLUGIN_DIRECTORY_PATH_RESOLVED"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("resolution must be declared: " + result.diagnostics()));
+        assertEquals(ProviderPluginDiagnostic.Severity.INFO, declared.severity());
+        assertEquals(requested.toAbsolutePath().normalize().toString(), declared.details().get("directory"));
+        assertEquals(resolved.toString(), declared.details().get("resolvedDirectory"));
+
+        assertEquals("true", declared.details().get("pathResolved"));
+
+        String remote = ProviderPluginViews.remoteDiscovery(result).toString();
+        assertTrue(remote.contains("PLUGIN_DIRECTORY_PATH_RESOLVED"), remote);
+        assertFalse(remote.contains(resolved.toString()) || remote.contains(requested.toString()),
+                "neither the configured nor the resolved pathname may reach a remote caller: " + remote);
+    }
+
+    /**
+     * The remote projection is asserted against the production disclosure rule itself, not an approximation of it:
+     * the fact of the resolution crosses, its target does not, and the message stays true without the details.
+     */
+    @Test
+    void theRemoteProjectionOfAResolutionCarriesTheFactAndNoServerLocation() throws Exception {
+        Path real = Files.createDirectories(directory.resolve("real").resolve("plugins"));
+        writeMetadataOnlyJar(real.resolve("provider.jar"), metadata("provider", 1, "1.0.0"));
+        Path alias = directory.resolve("alias");
+        assumeTrue(createSymlink(alias, real.getParent()) || createJunction(alias, real.getParent()),
+                "neither a symbolic link nor a junction can be created in this environment");
+
+        ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(alias.resolve("plugins"));
+
+        ProviderPluginViews.RemoteProviderDiagnostic projected = ProviderPluginViews.remoteDiscovery(result)
+                .diagnostics().stream()
+                .filter(d -> d.code().equals("PLUGIN_DIRECTORY_PATH_RESOLVED"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("resolution must reach the remote view: " + result));
+        assertEquals(Map.of("pathResolved", "true"), projected.details());
+        assertFalse(ServerLocationDisclosure.namesAServerLocation(projected.message()), projected.message());
+        projected.details().values().forEach(value ->
+                assertFalse(ServerLocationDisclosure.namesAServerLocation(value), value));
+        String localMessage = result.diagnostics().stream()
+                .filter(d -> d.code().equals("PLUGIN_DIRECTORY_PATH_RESOLVED"))
+                .findFirst().orElseThrow().message();
+        assertEquals(localMessage, projected.message(), "the same sentence must be true on both transports");
+    }
+
+    @Test
+    void aDirectoryReachedWithoutAnyLinkDeclaresNoResolution() throws Exception {
+        Path real = directory.toRealPath();
+        writeMetadataOnlyJar(real.resolve("provider.jar"), metadata("provider", 1, "1.0.0"));
+
+        ProviderPluginDiscoveryResult result = new ProviderPluginDiscovery().discover(real);
+
+        assertEquals(real, result.directory());
+        assertTrue(result.diagnostics().isEmpty(), result.diagnostics()::toString);
     }
 
     @Test
@@ -120,6 +197,21 @@ class ProviderPluginDiscoveryTest {
         } catch (UnsupportedOperationException | java.io.IOException | SecurityException unsupported) {
             return false;
         }
+    }
+
+    /** Windows grants junctions without the symbolic-link privilege, so an ancestor link is testable there too. */
+    private static boolean createJunction(Path link, Path target) throws Exception {
+        if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) return false;
+        String systemRoot = System.getenv("SystemRoot");
+        if (systemRoot == null || systemRoot.isBlank()) return false;
+        Path shell = Path.of(systemRoot, "System32", "cmd.exe");
+        if (!Files.isRegularFile(shell)) return false;
+        Process process = new ProcessBuilder(
+                shell.toString(), "/d", "/c", "mklink", "/J", link.toString(), target.toString())
+                .redirectErrorStream(true)
+                .start();
+        process.getInputStream().readAllBytes();
+        return process.waitFor() == 0;
     }
 
     private static Properties metadata(String pluginId, int sdkApiVersion, String minimumVersion) {

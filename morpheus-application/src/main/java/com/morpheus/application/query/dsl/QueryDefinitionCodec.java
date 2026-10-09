@@ -177,7 +177,7 @@ public final class QueryDefinitionCodec {
         budget.enterPredicate();
         String field = in.readUTF();
         QueryOperator operator = QueryOperator.valueOf(in.readUTF());
-        int count = boundedCount(in.readInt(), QueryBudgets.MAX_PREDICATES, "predicate values");
+        int count = boundedCount(in.readInt(), QueryBudgets.MAX_PREDICATE_VALUES, "predicate values");
         List<String> values = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
             values.add(in.readUTF());

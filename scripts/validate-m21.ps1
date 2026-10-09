@@ -56,23 +56,31 @@ function Get-M21QualityRatchets([string]$Path) {
         }
         $values[$matches[1].Trim()] = $matches[2].Trim()
     }
-    foreach ($required in @('testsMinimum', 'architectureTestsMinimum', 'lineCoverageMinimum', 'branchCoverageMinimum')) {
+    # Both scales are required so that a missing key fails here rather than in whichever gate happens to run
+    # first. Only the aggregate pair is compared below: this validator concludes on the canonical measurement.
+    foreach ($required in @('testsMinimum', 'architectureTestsMinimum',
+            'perModuleLineCoverageMinimum', 'perModuleBranchCoverageMinimum',
+            'aggregateLineCoverageMinimum', 'aggregateBranchCoverageMinimum')) {
         if (-not $values.ContainsKey($required)) { throw "Missing M21 quality ratchet: $required" }
     }
     $result = [pscustomobject]@{
         Tests = [int]$values.testsMinimum
         ArchitectureTests = [int]$values.architectureTestsMinimum
-        LineCoverage = [double]::Parse($values.lineCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
-        BranchCoverage = [double]::Parse($values.branchCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
-        LineCoverageText = [string]$values.lineCoverageMinimum
-        BranchCoverageText = [string]$values.branchCoverageMinimum
+        LineCoverage = [double]::Parse($values.aggregateLineCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
+        BranchCoverage = [double]::Parse($values.aggregateBranchCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
+        LineCoverageText = [string]$values.aggregateLineCoverageMinimum
+        BranchCoverageText = [string]$values.aggregateBranchCoverageMinimum
+        PerModuleLineCoverage = [double]::Parse($values.perModuleLineCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
+        PerModuleBranchCoverage = [double]::Parse($values.perModuleBranchCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
     }
     if ($result.Tests -lt 1 -or $result.ArchitectureTests -lt 1) {
         throw 'M21 test ratchets must be positive integers'
     }
-    if ($result.LineCoverage -le 0 -or $result.LineCoverage -gt 1 -or
-        $result.BranchCoverage -le 0 -or $result.BranchCoverage -gt 1) {
-        throw 'M21 coverage ratchets must be ratios in (0, 1]'
+    foreach ($ratio in @($result.LineCoverage, $result.BranchCoverage,
+            $result.PerModuleLineCoverage, $result.PerModuleBranchCoverage)) {
+        if ($ratio -le 0 -or $ratio -gt 1) {
+            throw 'M21 coverage ratchets must be ratios in (0, 1]'
+        }
     }
     return $result
 }
@@ -172,8 +180,8 @@ if ($architecture.Tests -lt $ratchets.ArchitectureTests) {
 Write-Host "Tests: PASS ($($totals.Tests), baseline >= $($ratchets.Tests))"
 Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= $($ratchets.ArchitectureTests))"
 
-$coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-coverage-summary.txt'
-if (-not (Test-Path $coverageSummary)) { throw "Missing M21 coverage summary: $coverageSummary" }
+$coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
+& (Join-Path $PSScriptRoot 'lib\Require-AggregateCoverageEvidence.ps1') -EvidencePath $coverageSummary
 $coverage = @{}
 Get-Content $coverageSummary | ForEach-Object {
     if ($_ -match '^([^=]+)=(.*)$') { $coverage[$matches[1]] = $matches[2] }
@@ -186,7 +194,7 @@ if ($lineRatio -lt $ratchets.LineCoverage) {
 if ($branchRatio -lt $ratchets.BranchCoverage) {
     throw "M21 branch coverage below $($ratchets.BranchCoverageText) ratchet: $($coverage.branchRatio)"
 }
-Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio), ratchet=$($ratchets.LineCoverageText)/$($ratchets.BranchCoverageText))"
+Write-Host "JaCoCo: PASS (scope=aggregate, line=$($coverage.lineRatio), branch=$($coverage.branchRatio), ratchet=$($ratchets.LineCoverageText)/$($ratchets.BranchCoverageText))"
 
 $sbomJson = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.json'
 $sbomXml = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.xml'
@@ -241,6 +249,7 @@ $summary = @(
     "version=$Version"
     "tests=$($totals.Tests)"
     "architectureTests=$($architecture.Tests)"
+    'coverageScope=aggregate'
     "lineCoverage=$($coverage.lineRatio)"
     "branchCoverage=$($coverage.branchRatio)"
     "qualityRatchets=$($ratchets.Tests)/$($ratchets.ArchitectureTests)/$($ratchets.LineCoverageText)/$($ratchets.BranchCoverageText)"

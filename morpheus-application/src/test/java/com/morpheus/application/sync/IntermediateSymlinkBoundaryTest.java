@@ -14,6 +14,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class IntermediateSymlinkBoundaryTest {
     @TempDir
@@ -25,7 +26,7 @@ class IntermediateSymlinkBoundaryTest {
         Path outside = Files.createDirectories(temp.resolve("outside/nested"));
         Files.writeString(outside.resolve("outside.md"), "outside");
         Path link = workspace.resolve("link");
-        if (!createSymlink(link, outside.getParent())) return;
+        assumeTrue(createSymlink(link, outside.getParent()), "symbolic links cannot be created in this environment");
 
         SourceInventoryScanResult result = new LocalSourceInventoryScanner().scan(
                 workspace,
@@ -45,7 +46,7 @@ class IntermediateSymlinkBoundaryTest {
         Path workspace = Files.createDirectory(temp.resolve("watch-workspace"));
         Path outside = Files.createDirectories(temp.resolve("watch-outside/nested"));
         Path link = workspace.resolve("link");
-        if (!createSymlink(link, outside.getParent())) return;
+        assumeTrue(createSymlink(link, outside.getParent()), "symbolic links cannot be created in this environment");
 
         assertThrows(IOException.class,
                 () -> new LocalSourceWatcher(workspace, List.of(Path.of("link/nested"))));

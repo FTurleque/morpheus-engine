@@ -91,6 +91,19 @@ Structured Markdown
 
 Le workspace doit contenir une structure reconnue par au moins un provider installé. L’enregistrement du projet ne publie encore aucun contenu.
 
+Structured Markdown lit les blocs de code clôturés `morpheus <type>` de `morpheus/specification.md`. Un bloc `task` déclare **toujours** son achèvement :
+
+````text
+```morpheus task
+key=TASK-001
+change=CHG-001
+title=Implement retention policy
+completed=false
+```
+````
+
+`completed` est obligatoire et vaut `true` ou `false`. Un bloc `task` qui l’omet est refusé à la lecture (`missing 'completed' in task block at line N`) et le fichier ne contribue aucun contenu : MORPHEUS ne suppose pas qu’une tâche muette est inachevée. Jusqu’à 1.2.0 l’absence valait `false` ; voir [les notes de 1.2.1](../release/RELEASE_NOTES_1.2.1.md).
+
 ```mermaid
 flowchart LR
     W[Workspace] --> D[Découverte provider]

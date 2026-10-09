@@ -21,7 +21,7 @@ git diff --stat HEAD~1
 ./mvnw test -pl morpheus-architecture-tests -q 2>&1 | tail -20
 ```
 - Tests ArchUnit passants/échouants
-- Gate M28 : PASS ou FAIL
+- Gate du dernier milestone livré (lu dans `.claude/CLAUDE.md`, section Milestones) : PASS ou FAIL
 
 ### 3. Hygiene des dépendances
 ```bash
@@ -48,7 +48,7 @@ git diff --stat HEAD~1
 ═══════════════════════════════════════
 
 GIT       <branch> | <N> commits ahead | <status>
-ARCH      M28 gate ✅/❌ | <N> tests
+ARCH      <milestone lu en live> gate ✅/❌ | <N> tests
 DEPS      <N> warnings / 0 violations
 CONTRACTS <N> fichiers | dernière MAJ: <date>
 DEBT      <N> TODOs | <N> @Disabled

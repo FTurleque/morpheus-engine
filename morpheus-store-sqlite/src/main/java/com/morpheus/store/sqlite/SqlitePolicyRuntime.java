@@ -43,7 +43,8 @@ public final class SqlitePolicyRuntime implements AutoCloseable {
                             opened.traceability(),
                             opened.externalReferences(),
                             opened.portfolios(),
-                            opened.policies()));
+                            opened.policies(),
+                            opened.compositions()));
             owned.transferred();
             return runtime;
         }

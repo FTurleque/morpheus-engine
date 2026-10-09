@@ -5,9 +5,10 @@ import com.morpheus.application.context.TechnicalContextItem;
 import com.morpheus.application.context.TechnicalContextRequest;
 import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.integration.mcp.BoundedStdioClientTransport;
+import com.morpheus.integration.mcp.McpPeerLaunch;
+import com.morpheus.integration.mcp.PeerOperationDeadline;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
@@ -33,6 +34,12 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
     public static final String TOOL_BUILD_CONTEXT = "build_context";
     public static final String TOOL_EXPLAIN_CONTEXT = "explain_context";
     static final int MAX_MCP_RESPONSE_BYTES = 4 * 1024 * 1024;
+    /**
+     * The requests one gateway sends in sequence, each bounded by the configured timeout:
+     * initialize, tools/list, then build_context, explain_context or list_projects.
+     * The operation deadline, and through it the MCP server's handler bound, is derived from it (ADR-0106).
+     */
+    public static final int REQUESTS_PER_OPERATION = 3;
     static final int MAX_PROJECTS = 4_096;
     static final int MAX_CONTEXT_ITEMS = 4_096;
     static final int MAX_EXCLUDED_ITEMS = 4_096;
@@ -41,6 +48,7 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             TOOL_LIST_PROJECTS, TOOL_BUILD_CONTEXT, TOOL_EXPLAIN_CONTEXT);
 
     private final McpSyncClient client;
+    private final PeerOperationDeadline deadline;
     private final Optional<Path> stagedJar;
     private final JsonMapper mapper = JsonMapper.builder()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -51,21 +59,25 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
     }
 
     NexusMcpContextGateway(String command, List<String> arguments, Map<String, String> environment, Duration timeout) {
-        this(new Launch(command, arguments, environment, timeout, Optional.empty()));
+        this(command, arguments, environment, timeout,
+                PeerOperationDeadline.of(timeout, REQUESTS_PER_OPERATION));
+    }
+
+    NexusMcpContextGateway(
+            String command,
+            List<String> arguments,
+            Map<String, String> environment,
+            Duration timeout,
+            Duration operationDeadline) {
+        this(new Launch(command, arguments, environment, timeout, operationDeadline, Optional.empty()));
     }
 
     private NexusMcpContextGateway(Launch launch) {
         this.stagedJar = launch.stagedJar();
-        McpSyncClient started = null;
+        McpSyncClient started = buildClient(launch, stagedJar);
+        // Closing the client fails the pending request at once, so the operation ends at its deadline.
+        PeerOperationDeadline armed = PeerOperationDeadline.arm(launch.operationDeadline(), started::close);
         try {
-            var parameters = ServerParameters.builder(launch.command())
-                    .args(launch.arguments().toArray(String[]::new));
-            if (!launch.environment().isEmpty()) {
-                parameters.env(launch.environment());
-            }
-            BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                    parameters.build(), McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
-            started = McpClient.sync(transport).requestTimeout(launch.timeout()).build();
             started.initialize();
             Set<String> available = started.listTools().tools().stream()
                     .map(tool -> tool.name())
@@ -76,9 +88,13 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
                                 + REQUIRED_TOOLS.stream().filter(tool -> !available.contains(tool)).sorted().toList());
             }
             this.client = started;
+            this.deadline = armed;
         } catch (RuntimeException failure) {
+            boolean expired = armed.expired();
+            armed.close();
             closeStartedSuppressing(started, failure);
             deleteStagedSuppressing(stagedJar, failure);
+            if (expired) throw deadlineExceeded(launch.operationDeadline(), failure);
             if (failure instanceof NexusIntegrationException integrationFailure) throw integrationFailure;
             throw new NexusIntegrationException("cannot start or initialize NEXUS MCP server", failure);
         }
@@ -147,6 +163,7 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
 
     @Override
     public void close() {
+        deadline.close();
         try {
             client.closeGracefully();
         } catch (RuntimeException ignored) {
@@ -177,6 +194,7 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
         } catch (NexusIntegrationException failure) {
             throw failure;
         } catch (RuntimeException failure) {
+            if (deadline.expired()) throw deadlineExceeded(deadline.deadline(), failure);
             throw new NexusIntegrationException("NEXUS MCP call failed: " + toolName, failure);
         }
     }
@@ -217,7 +235,8 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             List<String> arguments = new ArrayList<>();
             settings.homeDirectory().ifPresent(home -> arguments.add("-Dnexus.home=" + home));
             arguments.addAll(List.of("-jar", launchJar.toString()));
-            return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout(), staged);
+            return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout(),
+                    PeerOperationDeadline.of(settings.timeout(), REQUESTS_PER_OPERATION), staged);
         } catch (IllegalArgumentException integrityFailure) {
             deleteStagedQuietly(staged);
             throw new NexusIntegrationException(
@@ -226,6 +245,23 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             deleteStagedQuietly(staged);
             throw failure;
         }
+    }
+
+    private static McpSyncClient buildClient(Launch launch, Optional<Path> stagedJar) {
+        try {
+            BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                    new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
+                    McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
+            return McpClient.sync(transport).requestTimeout(launch.timeout()).build();
+        } catch (RuntimeException failure) {
+            deleteStagedSuppressing(stagedJar, failure);
+            throw new NexusIntegrationException("cannot start or initialize NEXUS MCP server", failure);
+        }
+    }
+
+    private static NexusIntegrationException deadlineExceeded(Duration operationDeadline, RuntimeException failure) {
+        return new NexusIntegrationException(
+                "NEXUS MCP operation exceeded its " + operationDeadline.toMillis() + " ms deadline", failure);
     }
 
     private static void closeStartedSuppressing(McpSyncClient started, Throwable primary) {
@@ -267,12 +303,14 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             List<String> arguments,
             Map<String, String> environment,
             Duration timeout,
+            Duration operationDeadline,
             Optional<Path> stagedJar) {
         private Launch {
             command = requireText(command, "command");
             arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
             environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));
             Objects.requireNonNull(timeout, "timeout");
+            Objects.requireNonNull(operationDeadline, "operationDeadline");
             stagedJar = Objects.requireNonNull(stagedJar, "stagedJar")
                     .map(path -> path.toAbsolutePath().normalize());
         }

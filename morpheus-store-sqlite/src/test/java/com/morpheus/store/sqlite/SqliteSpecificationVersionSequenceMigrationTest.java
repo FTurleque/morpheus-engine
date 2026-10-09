@@ -71,7 +71,8 @@ class SqliteSpecificationVersionSequenceMigrationTest {
                 assertTrue(result.next());
                 assertEquals(6L, result.getLong(1));
             }
-            assertEquals(17, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION,
+                    new SqliteSchemaManager().currentVersion(connection));
         }
     }
 }

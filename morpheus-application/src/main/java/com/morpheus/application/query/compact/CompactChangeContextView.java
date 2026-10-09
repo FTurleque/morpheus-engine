@@ -32,7 +32,9 @@ public record CompactChangeContextView(
         List<TraceLinkView> links,
         List<ExternalReferenceView> externalReferences,
         List<EvidenceView> evidence,
-        List<WarningView> warnings) {
+        List<WarningView> warnings,
+        Optional<String> truncationReason,
+        boolean truncated) {
 
     public CompactChangeContextView {
         Objects.requireNonNull(metadata, "metadata");
@@ -52,5 +54,9 @@ public record CompactChangeContextView(
         externalReferences = List.copyOf(Objects.requireNonNull(externalReferences, "externalReferences"));
         evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
         warnings = List.copyOf(Objects.requireNonNull(warnings, "warnings"));
+        truncationReason = Objects.requireNonNull(truncationReason, "truncationReason");
+        if (truncated != truncationReason.isPresent()) {
+            throw new IllegalArgumentException("truncated must be true exactly when a truncationReason is present");
+        }
     }
 }

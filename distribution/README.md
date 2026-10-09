@@ -150,10 +150,12 @@ bash ./scripts/validate-m21.sh 1.2.1
 Ratchets :
 
 ```text
-Surefire total       >= 1300
-architecture         >= 335
-line coverage        >= 54.5%
-branch coverage      >= 47.7%
+Surefire total       >= 3820
+architecture         >= 585
+aggregate line coverage    >= 90.0%
+aggregate branch coverage  >= 75.7%
+per-module line coverage   >= 69.1%
+per-module branch coverage >= 61.2%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```

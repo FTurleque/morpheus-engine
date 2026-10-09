@@ -6,6 +6,7 @@ import com.morpheus.application.store.SnapshotBusinessContentStore;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
+import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.constraint.ConstraintEvaluation;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
@@ -15,18 +16,27 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 /** Deterministic snapshot-scoped query for explicit M16 constraint-policy evaluations. */
 public final class ConstraintEvaluationQueryService {
     private final SpecificationKnowledgeStore snapshotStore;
     private final SnapshotBusinessContentStore contentStore;
-    private final ConstraintPolicyEvaluationService evaluator = new ConstraintPolicyEvaluationService();
+    private final BiFunction<Constraint, ChangeLifecycleState, ConstraintEvaluation> evaluator;
 
     public ConstraintEvaluationQueryService(
             SpecificationKnowledgeStore snapshotStore,
             SnapshotBusinessContentStore contentStore) {
+        this(snapshotStore, contentStore, new ConstraintPolicyEvaluationService()::evaluate);
+    }
+
+    ConstraintEvaluationQueryService(
+            SpecificationKnowledgeStore snapshotStore,
+            SnapshotBusinessContentStore contentStore,
+            BiFunction<Constraint, ChangeLifecycleState, ConstraintEvaluation> evaluator) {
         this.snapshotStore = Objects.requireNonNull(snapshotStore, "snapshotStore");
         this.contentStore = Objects.requireNonNull(contentStore, "contentStore");
+        this.evaluator = Objects.requireNonNull(evaluator, "evaluator");
     }
 
     public Optional<SnapshotPage<ConstraintEvaluation>> activeEvaluations(
@@ -62,15 +72,16 @@ public final class ConstraintEvaluationQueryService {
         var content = contentStore.findSnapshotContent(snapshot.id())
                 .orElseThrow(() -> new KnowledgeStoreException(
                         "published snapshot has no business-content projection: " + snapshot.id()));
-        List<ConstraintEvaluation> all = content.constraints().stream()
+        List<Constraint> matches = content.constraints().stream()
                 .filter(item -> item.changeId().equals(changeId))
                 .sorted(java.util.Comparator.comparing(item -> item.id().toString()))
-                .map(item -> evaluator.evaluate(item, targetState))
                 .toList();
-        int from = Math.min(pageRequest.offset(), all.size());
-        int to = Math.min(from + pageRequest.limit(), all.size());
-        List<ConstraintEvaluation> items = all.subList(from, to);
-        return new SnapshotPage<>(snapshot, items, pageRequest, all.size(), to < all.size());
+        int from = Math.min(pageRequest.offset(), matches.size());
+        int to = Math.min(from + pageRequest.limit(), matches.size());
+        List<ConstraintEvaluation> items = matches.subList(from, to).stream()
+                .map(item -> evaluator.apply(item, targetState))
+                .toList();
+        return new SnapshotPage<>(snapshot, items, pageRequest, matches.size(), to < matches.size());
     }
 
     private KnowledgeSnapshotMetadata requirePublished(KnowledgeSnapshotId snapshotId) {

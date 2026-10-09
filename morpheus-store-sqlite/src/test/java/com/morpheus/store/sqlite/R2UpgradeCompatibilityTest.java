@@ -6,14 +6,12 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Types;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +39,7 @@ class R2UpgradeCompatibilityTest {
     Path tempDir;
 
     @Test
-    void oneDotZeroSchemaMigratesToV17WithoutIdentityOrHistoryLoss() throws Exception {
+    void oneDotZeroSchemaMigratesToCurrentSchemaWithoutIdentityOrHistoryLoss() throws Exception {
         Path database = tempDir.resolve("morpheus-1.0.0.db");
         Map<Integer, String> baselineChecksums;
 
@@ -53,7 +51,7 @@ class R2UpgradeCompatibilityTest {
         }
 
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
-            // Opening with the current runtime applies V013 through V017.
+            // Opening with the current runtime applies every migration after the 1.0 baseline.
         }
 
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
@@ -81,8 +79,9 @@ class R2UpgradeCompatibilityTest {
     }
 
     private void assertUpgradedSchemaVersionAndMigrationCount(Connection connection) throws Exception {
-        assertEquals(17, new SqliteSchemaManager().currentVersion(connection));
-        assertEquals(17, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
+        int current = SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION;
+        assertEquals(current, new SqliteSchemaManager().currentVersion(connection));
+        assertEquals(current, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
     }
 
     private void assertProjectAndSnapshotPreservedAfterUpgrade(Connection connection) throws Exception {
@@ -113,7 +112,8 @@ class R2UpgradeCompatibilityTest {
     }
 
     private void assertNoDuplicateRowsAfterSecondStartup(Connection connection) throws Exception {
-        assertEquals(17, integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
+        assertEquals(SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION,
+                integerScalar(connection, "SELECT COUNT(*) FROM schema_migrations"));
         assertEquals(1, integerScalar(connection, "SELECT COUNT(*) FROM projects WHERE id = 'project-r2'"));
         assertEquals(1, integerScalar(connection,
                 "SELECT COUNT(*) FROM knowledge_snapshots WHERE id = 'snapshot-r2'"));
@@ -132,10 +132,12 @@ class R2UpgradeCompatibilityTest {
                     """);
         }
 
+        // The ledger a released 1.0 database holds is a fact of the past: recomputing it from the resources under test
+        // would follow any later edit of a released migration instead of catching it.
         Map<Integer, String> checksums = new LinkedHashMap<>();
         for (BaselineMigration migration : ONE_DOT_ZERO_MIGRATIONS) {
             String script = loadScript(migration.resourcePath());
-            String checksum = sha256(script);
+            String checksum = SqliteMigrationChecksumGoldenTest.CANONICAL_CHECKSUMS.get(migration.version());
             executeScript(connection, script);
             try (var statement = connection.prepareStatement(
                     "INSERT INTO schema_migrations(version, name, checksum, applied_at) VALUES (?, ?, ?, ?)")) {
@@ -194,11 +196,6 @@ class R2UpgradeCompatibilityTest {
                 statement.execute(sql);
             }
         }
-    }
-
-    private String sha256(String value) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
     }
 
     private boolean tableExists(Connection connection, String table) throws Exception {

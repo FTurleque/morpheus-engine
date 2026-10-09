@@ -4,6 +4,8 @@
 
 mvnw text eol=lf
 *.sh text eol=lf
+# SQLite migrations are packaged as resources and identified by checksum: every build must ship the same bytes.
+*.sql text eol=lf
 
 mvnw.cmd text eol=crlf
 *.ps1 text eol=crlf

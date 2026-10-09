@@ -62,7 +62,6 @@ final class SyntheticJsonParser {
     }
 
     private Object parseDocument() {
-        skipWhitespace();
         Object value = parseValue(1);
         skipWhitespace();
         if (index != input.length()) {
@@ -331,8 +330,8 @@ final class SyntheticJsonParser {
         }
     }
 
+    /** Matches exactly one character: whitespace is skipped by the caller, at the positions the grammar allows it. */
     private void expect(char expected) {
-        skipWhitespace();
         if (index >= input.length() || input.charAt(index) != expected) {
             throw error("expected '" + expected + "'");
         }

@@ -1,6 +1,6 @@
 # ADR-0010 — Définir une taxonomie contrôlée des relations de traçabilité
 
-- Statut : **Proposée — à valider pendant C0 et M0**
+- Statut : **Acceptée avec contraintes — M0**
 - Date : 22 juillet 2026
 - Portée : domaine, requêtes, qualité, intégrations
 

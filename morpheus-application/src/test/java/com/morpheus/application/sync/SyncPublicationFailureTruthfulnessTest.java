@@ -76,8 +76,9 @@ class SyncPublicationFailureTruthfulnessTest {
         }
 
         @Override
-        public void recordAttempt(
+        public long recordAttempt(
                 ProjectSpecificationId projectId,
+                long expectedRevision,
                 Instant attemptedAt,
                 Optional<SyncPlan.FullRebuildReason> pendingFullRebuildReason) {
             if (recordAttemptFailuresRemaining > 0) {
@@ -93,12 +94,15 @@ class SyncPublicationFailureTruthfulnessTest {
                     previous.sourceRevision(),
                     previous.lastSuccessfulMode(),
                     pendingFullRebuildReason,
-                    previous.currentSourceCount()));
+                    previous.currentSourceCount(),
+                    previous.revision() + 1));
+            return previous.revision() + 1;
         }
 
         @Override
-        public void commitSuccessfulSync(
+        public long commitSuccessfulSync(
                 SourceInventory inventory,
+                long expectedRevision,
                 SyncPlan.SyncMode mode,
                 Instant attemptedAt,
                 Instant completedAt,
@@ -117,7 +121,9 @@ class SyncPublicationFailureTruthfulnessTest {
                     inventory.sourceRevision(),
                     Optional.of(mode),
                     Optional.empty(),
-                    inventory.entries().size()));
+                    inventory.entries().size(),
+                    state.map(ProjectSyncState::revision).orElse(0L) + 1));
+            return state.orElseThrow().revision();
         }
     }
 }

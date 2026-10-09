@@ -37,9 +37,9 @@ M25 accepte quatre types fermés :
 
 | Kind | Source de faits | Effet |
 |---|---|---|
-| `CONSTRAINT_GUARD` | évaluations de contraintes M16 | observe blocking/unknown, sans lire le texte comme code |
+| `CONSTRAINT_GUARD` | évaluations de contraintes M16 | observe blocking/unknown, sans lire le texte comme code ; au-delà de 1 024 contraintes observées sans blocage, le fait est `UNKNOWN` (`EVALUATION_BUDGET_REACHED:1024`), jamais `PASS` (ADR-0108) |
 | `LIFECYCLE_GUARD` | transition-check read-only | observe ALLOWED/BLOCKED/UNKNOWN/REQUIRES_INPUT |
-| `QUALITY_THRESHOLD` | métriques qualité | compare une métrique déclarée à un seuil |
+| `QUALITY_THRESHOLD` | métriques qualité | compare une métrique déclarée à un seuil ; un ratio de couverture sur une population vide (aucune exigence, aucune tâche) est `UNKNOWN`, un comptage reste mesuré (ADR-0108) |
 | `QUERY_ASSERTION` | Query DSL M24 | compare `totalMatches` à un seuil |
 
 Il n’existe pas de règle JavaScript, Groovy, SQL, nom de classe ou script arbitraire.
@@ -163,6 +163,8 @@ morpheus --json policy evaluate --project <projectId>
 ```bash
 morpheus --json policy evaluate --project <projectId> --id <policyPackId>
 ```
+
+Le code de sortie porte la décision de `evaluate` et de `dry-run` : `PASS` et `WARN` rendent `0`, `BLOCK` et `UNKNOWN` rendent `4` (`STATE_ERROR`). Le JSON est imprimé dans tous les cas. `UNKNOWN` n'est jamais un succès : la règle n'a pas pu être évaluée.
 
 Dry-run :
 

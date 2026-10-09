@@ -114,7 +114,7 @@ Le test CLI end-to-end couvre OpenSpec -> sync -> SQLite -> reopen et vérifie q
 
 Le gate Linux a été exécuté avec OpenJDK 21.0.11 sur filesystem Linux WSL et confirme la même sémantique que le gate Windows.
 
-Validation complète : [`../VALIDATION_M9.md`](../VALIDATION_M9.md).
+Validation complète : [`../validation/VALIDATION_M9.md`](../validation/VALIDATION_M9.md).
 
 ## Critères d'acceptation
 

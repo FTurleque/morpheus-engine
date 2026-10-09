@@ -5,9 +5,9 @@
 `D2RepositoryHardeningArchitectureTest#dependencyAndQualityBaselineIsPinned` exige la présence littérale de :
 
 ```xml
-<jackson.version>3.2.2</jackson.version>
-<sqlite-jdbc.version>3.53.2.0</sqlite-jdbc.version>
-<dependency-check.maven.plugin.version>12.2.2</dependency-check.maven.plugin.version>
+<jackson.version>3.2.3</jackson.version>
+<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>
+<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>
 <failOnWarning>true</failOnWarning>
 <id>d2-security</id>
 <failBuildOnCVSS>7.0</failBuildOnCVSS>
@@ -17,7 +17,7 @@ Bumper une de ces versions **casse le gate** tant que le test n'est pas mis à j
 
 ## TOUJOURS
 
-- Utiliser `./mvnw` (Maven Wrapper 3.9.16) — jamais `mvn` nu
+- Utiliser `./mvnw` (Maven Wrapper 3.10.0) — jamais `mvn` nu
 - Déclarer toute dépendance dans le `<dependencyManagement>` du POM racine, puis la référencer **sans version** dans le module
 - Vérifier l'hygiène après ajout : `./mvnw dependency:analyze` — `<failOnWarning>true</failOnWarning>` est actif, **0 warning** ou le build casse
 - Construire `morpheus-provider-reference` avant les tests d'architecture (M22 lit son JAR depuis `target/`)
@@ -71,9 +71,10 @@ reactor, pas une exception au principe « pas de version en dur » ; `junit-jupi
 n'a pas de `<version>` du tout, elle vient du `junit-bom` importé plus haut.
 
 Versions actuelles pilotées par propriété dans le POM racine (à revérifier avant de citer,
-cf. `rules/meta.md`) : `junit.version=6.1.3`, `archunit.version=1.5.0`,
-`sqlite-jdbc.version=3.53.2.0`, `mcp-sdk.version=2.0.1`, `reactor-bom.version=2024.0.0`,
-`slf4j.version=2.0.18`, `jackson.version=3.2.2`, `jacoco.version=0.8.15`.
+cf. `rules/meta.md`) : `junit.version=6.1.3`, `archunit.version=1.5.1`,
+`sqlite-jdbc.version=3.53.4.0`, `mcp-sdk.version=2.0.1`, `reactor-bom.version=2024.0.0`,
+`slf4j.version=2.0.20`, `jackson.version=3.2.3`, `jacoco.version=0.8.15`,
+`dependency-check.maven.plugin.version=13.0.0`.
 Un commentaire explique un couplage de versions non trivial quand il existe
 (ex. `reactor-bom` doit rester sur la même ligne que `mcp-sdk` 2.0.1 — voir le commentaire
 juste au-dessus de cette dépendance dans le POM).
@@ -101,7 +102,10 @@ juste au-dessus de cette dépendance dans le POM).
 ## Workflows CI
 
 - `ci.yml` — `mvn clean verify` sur `ubuntu-latest` **et** `windows-latest`
-- `security.yml` — OWASP hebdomadaire (lundi 04:17), branches `[main, develop]`, `timeout-minutes: 90`
+- `security.yml` — OWASP **quotidien** (04:17 UTC), branches `[main, develop]`, `timeout-minutes: 90`
+  — la cadence est journalière parce que le refresh de confiance doit tourner plus souvent que
+  `DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS` (72 h) ; un cron hebdomadaire violerait ce budget et est
+  explicitement refusé par `D2RepositoryHardeningArchitectureTest` et `AuditHardeningWorkflowContractTest`
 - `dependabot.yml` — écosystèmes `maven` + `github-actions`, `target-branch: develop`
 
 Voir [security.md](security.md) pour les règles de pinning SHA des actions.

@@ -40,6 +40,26 @@ class SqliteServerMaintenanceTest {
         assertEquals(backup.sha256(), restoredView.sha256());
     }
 
+    /**
+     * The backup target reaches SQLite as a bound value, never as SQL text: a quote in an operator-chosen
+     * directory is a filename character, not a string delimiter.
+     */
+    @Test
+    void aBackupDirectoryContainingAQuoteIsAFilenameNotSql() throws Exception {
+        Path database = temp.resolve("morpheus.db");
+        try (SqliteSpecificationKnowledgeStore ignored = new SqliteSpecificationKnowledgeStore(database)) {
+            // Opening the store creates and validates the current schema.
+        }
+        Path directory = temp.resolve("o'brien backups'); DROP TABLE schema_migrations; --");
+
+        SqliteServerMaintenance.BackupVerification backup =
+                new SqliteServerMaintenance().createBackup(database, directory);
+
+        assertEquals(directory.toAbsolutePath().normalize(), backup.path().getParent());
+        assertTrue(backup.integrityOk());
+        assertEquals(SqliteServerMaintenance.SUPPORTED_SCHEMA_VERSION, backup.schemaVersion());
+    }
+
     @Test
     void restoreRequiresConfirmationAndFailsWhileAnyMorpheusLeaseIsHeld() throws Exception {
         Path database = temp.resolve("morpheus.db");

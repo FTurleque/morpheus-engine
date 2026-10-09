@@ -7,6 +7,13 @@ import java.util.Optional;
 /**
  * Machine-readable diagnostic with a human message and optional source locator.
  * Consumers must rely on {@code code}, {@code severity} and {@code details}, not the message text.
+ *
+ * <p>{@code source} is free text saying where the diagnostic was observed, not a {@link
+ * com.morpheus.domain.source.SourceLocator}, and it has no single form. Providers write, today, the text of a refusal
+ * that names the file as it exists ({@code INVALID_SOURCE} of a failed OpenSpec read), the value of a locator (the
+ * warnings of the OpenSpec delta reader), and a probed path ({@code INVALID_SOURCE} of a failed probe). The first two
+ * differ only for a file name that contains a backslash on a platform where that is legal. A consumer must not parse
+ * it or compare it with a locator.</p>
  */
 public record Diagnostic(
         DiagnosticCode code,

@@ -4,6 +4,8 @@ import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.diagnostic.Diagnostic;
+import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.evidence.SourceRange;
@@ -29,6 +31,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -39,6 +42,10 @@ public final class OpenSpecRequirementDeltaReader {
     private static final Pattern DELTA_SECTION = Pattern.compile(
             "^##\\s+(ADDED|MODIFIED|REMOVED)\\s+Requirements\\s*$",
             Pattern.CASE_INSENSITIVE);
+    private static final Pattern UNNORMALIZED_DELTA_SECTION = Pattern.compile(
+            "^##\\s+RENAMED\\s+Requirements\\s*$",
+            Pattern.CASE_INSENSITIVE);
+    private static final String SECTION_PREFIX = "## ";
     private static final Pattern REQUIREMENT_HEADING = Pattern.compile("^###\\s+Requirement:\\s*(.+?)\\s*$");
     private static final Pattern SCENARIO_HEADING = Pattern.compile("^####\\s+Scenario:\\s*(.+?)\\s*$");
     private static final Pattern SCENARIO_STEP = Pattern.compile(
@@ -79,6 +86,9 @@ public final class OpenSpecRequirementDeltaReader {
 
         List<RequirementDelta> deltas = new ArrayList<>();
         List<Evidence> evidence = new ArrayList<>();
+        List<Diagnostic> diagnostics = new ArrayList<>(probe.diagnostics());
+        int skippedRequirements = 0;
+        int unclosedCodeFences = 0;
 
         for (Path changeRoot : listChangeRoots(root.resolve("openspec/changes"), budget)) {
             String changeKey = changeRoot.getFileName().toString();
@@ -88,7 +98,7 @@ public final class OpenSpecRequirementDeltaReader {
                     "change:" + changeKey));
             Path specsRoot = changeRoot.resolve("specs");
             for (Path specificationFile : listSpecificationFiles(specsRoot, budget)) {
-                normalizeDeltaFile(
+                FileOutcome outcome = OpenSpecSourceAttribution.attribute(root, specificationFile, () -> normalizeDeltaFile(
                         root,
                         changeKey,
                         changeId,
@@ -97,7 +107,10 @@ public final class OpenSpecRequirementDeltaReader {
                         identityResolver,
                         deltas,
                         evidence,
-                        budget);
+                        diagnostics,
+                        budget));
+                skippedRequirements += outcome.skippedRequirements();
+                unclosedCodeFences += outcome.unclosedCodeFence() ? 1 : 0;
             }
         }
 
@@ -105,10 +118,16 @@ public final class OpenSpecRequirementDeltaReader {
         budget.addBlocks(deltas.size() + scenarios, "openspec/requirement-deltas");
         budget.addEntities(deltas.size() + scenarios + evidence.size(), "openspec/requirement-deltas");
 
-        return new ReadResult(deltas, evidence, probe.diagnostics());
+        return new ReadResult(deltas, evidence, diagnostics, skippedRequirements, unclosedCodeFences);
     }
 
-    private void normalizeDeltaFile(
+    /**
+     * Reads one delta file. The code fence mask applies to both halves of the section decision: a fenced line neither
+     * sets the current kind nor resets it. A fence still open at the end of the file is named, and no requirement
+     * after its opening line is given a kind, because every section heading from there on is masked and the kind in
+     * force would be a guess; such a requirement is skipped and named like one outside any section.
+     */
+    private FileOutcome normalizeDeltaFile(
             Path workspaceRoot,
             String changeKey,
             ChangeId changeId,
@@ -117,21 +136,55 @@ public final class OpenSpecRequirementDeltaReader {
             EntityIdentityResolver identities,
             List<RequirementDelta> deltas,
             List<Evidence> evidence,
+            List<Diagnostic> diagnostics,
             ProviderIngestionBudget.Session budget) {
         List<String> lines = readAllLines(workspaceRoot, specificationFile, budget);
         String specificationKey = specificationKey(specsRoot, specificationFile);
         SourceLocator source = SourceLocator.file(workspaceRoot.relativize(specificationFile).toString());
+        OpenSpecCodeFences fences = OpenSpecCodeFences.of(lines);
+        int unclosedOpening = fences.unclosedOpening();
         RequirementDeltaKind currentKind = null;
+        int skippedRequirements = 0;
 
         for (int index = 0; index < lines.size(); index++) {
-            Matcher section = DELTA_SECTION.matcher(lines.get(index));
-            if (section.matches()) {
+            String line = lines.get(index);
+            Matcher section = DELTA_SECTION.matcher(line);
+            if (section.matches() && !fences.isFenced(index)) {
                 currentKind = RequirementDeltaKind.valueOf(section.group(1).toUpperCase(Locale.ROOT));
                 continue;
             }
+            if (isSectionHeading(line) && !fences.isFenced(index)) {
+                currentKind = null;
+                if (!UNNORMALIZED_DELTA_SECTION.matcher(line).matches()) {
+                    diagnostics.add(warning(
+                            DiagnosticCode.UNRECOGNIZED_SECTION,
+                            "OpenSpec delta section is not a requirement delta section and ends the previous one",
+                            changeKey,
+                            "section",
+                            line.substring(SECTION_PREFIX.length()).trim(),
+                            index,
+                            source));
+                }
+                continue;
+            }
 
-            Matcher requirementHeading = REQUIREMENT_HEADING.matcher(lines.get(index));
-            if (currentKind == null || !requirementHeading.matches()) {
+            Matcher requirementHeading = REQUIREMENT_HEADING.matcher(line);
+            if (!requirementHeading.matches()) {
+                continue;
+            }
+            boolean afterUnclosedFence = unclosedOpening >= 0 && index > unclosedOpening;
+            if (currentKind == null || afterUnclosedFence) {
+                skippedRequirements++;
+                diagnostics.add(warning(
+                        DiagnosticCode.PARTIAL_INGESTION,
+                        afterUnclosedFence
+                                ? "OpenSpec requirement follows a code fence that is never closed and was not normalized"
+                                : "OpenSpec requirement is outside any requirement delta section and was not normalized",
+                        changeKey,
+                        "requirement",
+                        requirementHeading.group(1).trim(),
+                        index,
+                        source));
                 continue;
             }
 
@@ -151,6 +204,17 @@ public final class OpenSpecRequirementDeltaReader {
                     budget);
             index = endExclusive - 1;
         }
+        if (unclosedOpening >= 0) {
+            diagnostics.add(warning(
+                    DiagnosticCode.UNCLOSED_CODE_FENCE,
+                    "OpenSpec delta file opens a code fence that is never closed; the rest of the file is fenced",
+                    changeKey,
+                    "fence",
+                    fences.unclosedRun(),
+                    unclosedOpening,
+                    source));
+        }
+        return new FileOutcome(skippedRequirements, unclosedOpening >= 0);
     }
 
     private void normalizeRequirementDelta(
@@ -185,6 +249,11 @@ public final class OpenSpecRequirementDeltaReader {
                 OpenSpecSpecificationProvider.ID,
                 "requirement-delta",
                 deltaExternalId));
+        // Refused here, inside the file's attribution: the same refusal raised later by NormalizedProjectContent
+        // escapes the reader and names no file.
+        if (deltas.stream().anyMatch(existing -> existing.id().equals(deltaId))) {
+            throw new IllegalArgumentException("OpenSpec delta declares the same requirement twice: " + title);
+        }
 
         int firstScenario = endExclusive;
         for (int index = start + 1; index < endExclusive; index++) {
@@ -220,7 +289,7 @@ public final class OpenSpecRequirementDeltaReader {
             int scenarioEnd = index + 1 < scenarioHeadings.size()
                     ? scenarioHeadings.get(index + 1)
                     : endExclusive;
-            deltaScenarios.add(normalizeScenario(
+            Scenario scenario = normalizeScenario(
                     lines,
                     scenarioStart,
                     scenarioEnd,
@@ -231,7 +300,13 @@ public final class OpenSpecRequirementDeltaReader {
                     source,
                     identities,
                     evidence,
-                    budget));
+                    budget);
+            if (deltaScenarios.stream().anyMatch(existing -> existing.id().equals(scenario.id()))) {
+                throw new IllegalArgumentException(
+                        "OpenSpec delta declares the same scenario twice in requirement " + title + ": "
+                                + scenario.title());
+            }
+            deltaScenarios.add(scenario);
         }
 
         deltas.add(new RequirementDelta(
@@ -328,11 +403,38 @@ public final class OpenSpecRequirementDeltaReader {
 
     private int requirementEnd(List<String> lines, int from) {
         for (int index = from; index < lines.size(); index++) {
-            if (REQUIREMENT_HEADING.matcher(lines.get(index)).matches() || lines.get(index).startsWith("## ")) {
+            if (REQUIREMENT_HEADING.matcher(lines.get(index)).matches() || isSectionHeading(lines.get(index))) {
                 return index;
             }
         }
         return lines.size();
+    }
+
+    private static boolean isSectionHeading(String line) {
+        return line.startsWith(SECTION_PREFIX);
+    }
+
+    private record FileOutcome(int skippedRequirements, boolean unclosedCodeFence) {
+    }
+
+    private Diagnostic warning(
+            DiagnosticCode code,
+            String message,
+            String changeKey,
+            String subjectKey,
+            String subject,
+            int lineIndex,
+            SourceLocator source) {
+        return new Diagnostic(
+                code,
+                DiagnosticSeverity.WARNING,
+                message,
+                Map.of(
+                        "provider", OpenSpecSpecificationProvider.ID.value(),
+                        "change", changeKey,
+                        subjectKey, subject,
+                        "line", Integer.toString(lineIndex + 1)),
+                Optional.of(source.value()));
     }
 
     private List<Path> listChangeRoots(
@@ -403,7 +505,7 @@ public final class OpenSpecRequirementDeltaReader {
         int normalizedStart = Math.max(1, Math.min(startLine, lines.size()));
         int normalizedEnd = Math.max(normalizedStart, Math.min(endLine, lines.size()));
         String excerpt = String.join("\n", lines.subList(normalizedStart - 1, normalizedEnd));
-        budget.addEvidenceFragment(excerpt, source.value());
+        budget.addEvidenceFragment(excerpt);
         EvidenceId evidenceId = new EvidenceId(identities.resolve(
                 OpenSpecSpecificationProvider.ID,
                 "evidence",
@@ -424,7 +526,8 @@ public final class OpenSpecRequirementDeltaReader {
                     .lines()
                     .toList();
         } catch (IOException exception) {
-            throw new IllegalStateException("Cannot read OpenSpec source " + source, exception);
+            throw new IllegalStateException(
+                    "Cannot read OpenSpec source: " + OpenSpecSourceAttribution.relayable(exception), exception);
         }
     }
 
@@ -470,8 +573,16 @@ public final class OpenSpecRequirementDeltaReader {
     public record ReadResult(
             List<RequirementDelta> requirementDeltas,
             List<Evidence> evidence,
-            List<Diagnostic> diagnostics) {
+            List<Diagnostic> diagnostics,
+            int skippedRequirements,
+            int unclosedCodeFences) {
         public ReadResult {
+            if (skippedRequirements < 0) {
+                throw new IllegalArgumentException("skippedRequirements must be >= 0");
+            }
+            if (unclosedCodeFences < 0) {
+                throw new IllegalArgumentException("unclosedCodeFences must be >= 0");
+            }
             requirementDeltas = List.copyOf(Objects.requireNonNull(requirementDeltas, "requirementDeltas"));
             evidence = List.copyOf(Objects.requireNonNull(evidence, "evidence"));
             diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
