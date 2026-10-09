@@ -37,8 +37,15 @@ Every test asserts the message, value or order that kills its mutations (`rules/
 - [x] 2.2 Decide the audit-order strategy (decision 2), including what an existing database migrates to
 
   Option (c) with stable ties, decided on 2026-10-09 (design, decision 2): no migration.
-- [ ] 2.3 Decide `MultiProviderCompositionResult.diagnostics()` (decision 3), the parser's double whitespace skip (decision 4) and requirement-delta observation (decision 5)
-- [ ] 2.4 Decide whether the store parity of decision 6 is fixed here or spun off; if spun off, open the issue and link it here
+- [x] 2.3 Decide `MultiProviderCompositionResult.diagnostics()` (decision 3), the parser's double whitespace skip (decision 4) and requirement-delta observation (decision 5)
+
+  Decided on 2026-10-09 (design): remove the component; remove the skips of `expect()` and `parseDocument`; correct
+  the comment rather than observe deltas. Applied by 4.1 (decisions 3 and 5) and 4.4 (decision 4).
+- [x] 2.4 Decide whether the store parity of decision 6 is fixed here or spun off; if spun off, open the issue and link it here
+
+  Spun off on 2026-10-09: https://github.com/FTurleque/morpheus-engine/issues/416. It touches twelve stores and the
+  exception type callers catch, and no production path observes it today. Task 4.5 tests the policy store's
+  closed-store guard and refusals as they are, so a later alignment changes those assertions deliberately.
 
 ## 3. Fix the defects
 

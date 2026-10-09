@@ -61,17 +61,29 @@ mutations through at once.
    does not produce. `PolicyPackService.audit` keeps its own sort; it no longer changes the order the store returns.
 3. **`MultiProviderCompositionResult.diagnostics()`**, filled by `distinctDiagnostics` and read by nothing in
    production or tests (4 redundant mutations): remove it, or expose and test it.
+   **Decided on 2026-10-09: remove** the component and `distinctDiagnostics`. `CompositionSnapshotState` copies only
+   the primary provider, the contributions and the conflicts, so no public surface serves it, and the diagnostics of
+   an unavailable provider stay reachable through `contributions()`.
 4. **The double whitespace skip of `SyntheticJsonParser`** (lines 65 and 335 against 76, 100, 102): remove one side,
    never both.
+   **Decided on 2026-10-09: remove the skip inside `expect()` (line 335) and the one of `parseDocument` (line 65).**
+   Each grammar position keeps one skip, written where the grammar allows whitespace, and `expect` matches exactly
+   one character; the mutants of lines 100 and 102 become killable by the existing whitespace test.
 5. **Composition of requirement deltas.** The composition publishes the deltas and evidence of every provider but
    observes neither for duplicates, while its comment says every published type is observed. Evidence is distinct per
    provider by construction; deltas are not. Either observe deltas, or correct the comment.
+   **Decided on 2026-10-09: correct the comment.** `NormalizedProjectContent` refuses a delta whose change is not in
+   the same content, so two providers contributing deltas to one change both publish that change, which is already
+   observed (`CHANGE` and `IDENTITY` conflicts). Observing deltas would add `REQUIREMENT_DELTA` to
+   `CompositionEntityType`, a public enumeration of `docs/openapi/morpheus-v1.yaml`, for a duplication already
+   reported one level up. The comment states both exceptions and why.
 6. **Store parity found beside the mutations** (not defects by themselves, but the persistence parity rule asks for
    one behaviour): removing a missing activation throws `IllegalArgumentException("policy activation does not exist")`
    in memory and removing a missing override `EntityNotFoundException`, where SQLite throws `PolicyConflictException`
    for both (pinned by `SqlitePolicyPackStoreAtomicityTest`); memory checks the revision before the audit and SQLite
    the audit first; a closed SQLite store throws `IllegalStateException` in three stores (`SqlitePolicyPackStore`,
    `SqliteSavedViewStore`, `SqliteCompositionStateStore`) and `KnowledgeStoreException` in nine.
+   **Decided on 2026-10-09: spun off** to https://github.com/FTurleque/morpheus-engine/issues/416.
 
 ## Non-Goals
 
