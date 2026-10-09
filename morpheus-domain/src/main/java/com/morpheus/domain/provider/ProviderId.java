@@ -21,11 +21,12 @@ public record ProviderId(String value) implements Comparable<ProviderId> {
         }
     }
 
+    /** No backslash: the HTTP boundaries read one as a Windows path and drop the whole message. */
     private static String escapeControls(String value) {
         StringBuilder escaped = new StringBuilder(value.length() + 8);
         value.chars().forEach(character -> {
             if (Character.isISOControl(character)) {
-                escaped.append("\\u%04X".formatted(character));
+                escaped.append("[U+%04X]".formatted(character));
             } else {
                 escaped.append((char) character);
             }

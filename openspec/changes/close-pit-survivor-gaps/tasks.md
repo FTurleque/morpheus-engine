@@ -12,7 +12,14 @@ Every test asserts the message, value or order that kills its mutations (`rules/
   provider set other than the one registered. Red on 2026-10-09 for three of four cases, SQLite only; the fourth
   case shows the defect also substitutes providers: `{"openspec\nmarkdown", "openspec"}` reads back as
   `{openspec, markdown}`, a registered provider lost and an unregistered one invented, at the same set size.
-- [ ] 1.2 Repeat 1.1 through the HTTP and MCP `providers` argument; verify both reach the same store state
+- [x] 1.2 Repeat 1.1 through the HTTP and MCP `providers` argument; verify both reach the same store state
+
+  Written after 3.1, so proved red by running them against the pre-fix `ProviderId`: all three accepted the
+  registration (HTTP 201, MCP success, CLI exit 0). With the fix, HTTP answers 400, MCP an error result and the CLI
+  the usage exit, each with the named reason, and no membership is stored. The CLI was added: it splits `--providers`
+  the same way. HTTP also covers `providerId` of a reference. The HTTP test found that the first refusal text,
+  written `\u000A`, never reached the caller: the boundary's location filter drops any message holding a backslash
+  and answers the exception name. The notation became `[U+000A]` (ADR-0023 amendment).
 - [ ] 1.3 In `morpheus-store-sqlite`, write audits at `…:00Z`, `…:00.500Z`, `…:00.500100Z` (and three at one instant); verify `listAudit` returns them out of order today and the memory store in order
 
 ## 2. Decisions (design, "Open decisions")
@@ -28,8 +35,8 @@ Every test asserts the message, value or order that kills its mutations (`rules/
 
 - [x] 3.1 Apply 2.1; verify 1.1 and 1.2 pass and an existing SQLite membership still reads back
 
-  `ProviderId` refuses ISO control characters left after trimming, naming the identifier with them escaped as
-  `\uXXXX` (`ProviderIdTest`, red first). 1.1 passes; `SqlitePortfolioStorePersistenceTest` keeps the existing
+  `ProviderId` refuses ISO control characters left after trimming, naming the identifier with them written as
+  `[U+XXXX]` (`ProviderIdTest`, red first). 1.1 passes; `SqlitePortfolioStorePersistenceTest` keeps the existing
   round trips and adds a stored empty segment refused by name, the filter that recomposed it being removed. 1.2 is
   still open: the transport tests are not written yet. `PROVIDER_SDK.md` states the constraint for `provider.id`.
   Run in WSL on 2026-10-09: the Windows home directory refuses listing to its own user, which breaks `javac`'s

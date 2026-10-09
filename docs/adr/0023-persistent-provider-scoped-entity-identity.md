@@ -260,13 +260,16 @@ virgule. Le défaut a été révélé par une mutation survivante du filtre de l
 
 `ProviderId` refuse tout caractère de contrôle ISO (`Character.isISOControl` : U+0000–U+001F et U+007F–U+009F)
 qui reste après le retrait des blancs d'extrémité. Le refus est une `IllegalArgumentException` dont le message nomme
-l'identifiant, caractères de contrôle échappés en `\uXXXX` :
+l'identifiant, caractères de contrôle écrits `[U+XXXX]` :
 
 ```text
-provider id must not contain control characters: "openspec\u000Amarkdown"
+provider id must not contain control characters: "openspec[U+000A]markdown"
 ```
 
-Aucun caractère de contrôle brut n'atteint ainsi un journal ou une réponse. La règle vit dans le constructeur
+Aucun caractère de contrôle brut n'atteint ainsi un journal ou une réponse. La notation ne porte pas de barre oblique
+inverse, et ce n'est pas un détail : les frontières HTTP lisent une barre oblique inverse comme un chemin Windows
+(`ServerLocationDisclosure`) et remplacent alors tout le message par le nom de l'exception. Une première version
+écrivait `\u000A` ; le test HTTP a montré que la raison n'arrivait jamais à l'appelant. La règle vit dans le constructeur
 compact : elle vaut pour chaque chemin qui fabrique un identifiant — HTTP, MCP, CLI, `provider.id` des métadonnées
 de plugin et du codec de probe, et la relecture des stores.
 

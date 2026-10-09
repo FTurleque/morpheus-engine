@@ -24,7 +24,7 @@ class ProviderIdTest {
         IllegalArgumentException refusal =
                 assertThrows(IllegalArgumentException.class, () -> new ProviderId("openspec\nmarkdown"));
 
-        assertEquals("provider id must not contain control characters: \"openspec\\u000Amarkdown\"",
+        assertEquals("provider id must not contain control characters: \"openspec[U+000A]markdown\"",
                 refusal.getMessage());
     }
 
@@ -35,7 +35,7 @@ class ProviderIdTest {
             IllegalArgumentException refusal =
                     assertThrows(IllegalArgumentException.class, () -> new ProviderId(value), value);
 
-            assertEquals("provider id must not contain control characters: \"open\\u%04Xspec\"".formatted((int) control),
+            assertEquals("provider id must not contain control characters: \"open[U+%04X]spec\"".formatted((int) control),
                     refusal.getMessage());
         }
         assertThrows(IllegalArgumentException.class, () -> new ProviderId("openspec\u007F"));
