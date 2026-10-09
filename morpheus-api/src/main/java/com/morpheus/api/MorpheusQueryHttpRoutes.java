@@ -31,24 +31,27 @@ final class MorpheusQueryHttpRoutes {
 
     private final MorpheusQueryApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusHttpAllowedMethods allowedMethods;
     private final MorpheusHttpResponseWriter responseWriter;
 
     private MorpheusQueryHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpResponseWriter responseWriter) {
+            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
         service = new MorpheusQueryApiService(databasePath);
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
+        this.allowedMethods = Objects.requireNonNull(allowedMethods, "allowedMethods");
         this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
     static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpResponseWriter responseWriter) {
+            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
         Objects.requireNonNull(server, "server");
-        MorpheusQueryHttpRoutes routes = new MorpheusQueryHttpRoutes(databasePath, requestDecoder, responseWriter);
+        MorpheusQueryHttpRoutes routes = new MorpheusQueryHttpRoutes(databasePath, requestDecoder, allowedMethods,
+                responseWriter);
         server.createContext(QUERY_CONTEXT, routes::handleQueries);
         server.createContext(VIEW_CONTEXT, routes::handleSavedViews);
         server.createContext(EXPORT_CONTEXT, routes::handleExports);
-        MorpheusPolicyHttpRoutes.register(server, databasePath, requestDecoder, responseWriter);
-        MorpheusReasoningHttpRoutes.register(server, requestDecoder, responseWriter);
+        MorpheusPolicyHttpRoutes.register(server, databasePath, requestDecoder, allowedMethods, responseWriter);
+        MorpheusReasoningHttpRoutes.register(server, requestDecoder, allowedMethods, responseWriter);
     }
 
     private void handleQueries(HttpExchange exchange) throws IOException {
@@ -152,7 +155,7 @@ final class MorpheusQueryHttpRoutes {
                     "v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", allowed(exchange.getRequestURI().getPath()));
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getPath()));
             }
             responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope(
                     "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
@@ -217,16 +220,6 @@ final class MorpheusQueryHttpRoutes {
 
     private Response raw(int status, QueryExport export) {
         return new Response(status, export, Optional.of(export));
-    }
-
-    private String allowed(String path) {
-        if (path.equals(VIEW_CONTEXT)) {
-            return "GET, POST";
-        }
-        if (path.startsWith(VIEW_CONTEXT + "/") && path.split("/").length == 5) {
-            return "GET, PUT";
-        }
-        return "POST";
     }
 
     private static String safeMessage(Throwable failure) {

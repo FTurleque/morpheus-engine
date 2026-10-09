@@ -73,3 +73,18 @@ augmented-context.requirement	READ	augmented-context requirement	get_augmented_r
 augmented-context.change	READ	augmented-context change	get_augmented_change_context	POST /api/v1/projects/{projectId}/changes/{changeId}/augmented-context	Launches the operator-configured NEXUS MCP peer on demand (ADR-0101: an explicitly configured peer is trusted code, not sandboxed code). Launch command, arguments and environment come from operator settings; the model-supplied nexusProject, requestedSources and constraints are sent to the running peer as tool arguments, not to its launch. Whether this tool should be model-facing is an open product decision this row does not settle
 orchestration.state	READ	change-orchestration state	get_change_orchestration_state	GET /api/v1/projects/{projectId}/changes/{changeId}/orchestration	Read-only lifecycle facts and decisions; JARVIS remains responsible for orchestration
 orchestration.transition	READ	change-orchestration transition-check	evaluate_change_transition	POST /api/v1/projects/{projectId}/changes/{changeId}/transition-check	Read-only verdict on one transition; ALLOWED is not applied
+project.list	READ	projects list	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects	Registered projects; no MCP tool lists them today
+project.register	WRITE	projects add	EXPLICITLY_NOT_EXPOSED	POST /api/v1/projects	Registers a workspace root; no MCP tool registers a project today
+project.get	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}	Project descriptor by identity; HTTP-only today
+project.sync	WRITE	sync	EXPLICITLY_NOT_EXPOSED	POST /api/v1/projects/{projectId}/sync	Publishes a new snapshot from the workspace; no MCP tool triggers a synchronization
+portfolio.list	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/portfolios	Portfolio identities; HTTP-only today
+portfolio.members	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/portfolios/{portfolioId}/members	Membership observations of one portfolio; HTTP-only today
+portfolio.conflicts	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/portfolios/{portfolioId}/conflicts	Explicit cross-project conflicts, never resolved silently; HTTP-only today
+integration.minos.status	READ	minos-status	EXPLICITLY_NOT_EXPOSED	GET /api/v1/integrations/minos/status	Launches the configured MINOS peer to report its status; no MCP tool reports it today
+integration.nexus.status	READ	nexus-status	EXPLICITLY_NOT_EXPOSED	GET /api/v1/integrations/nexus/status	Launches the configured NEXUS peer to report its status; no MCP tool reports it today
+specification.get	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}/specifications/{specificationId}	One specification by identity; get_current_specification serves the list
+requirement.get	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}/requirements/{requirementId}	One requirement by identity; find_requirements serves the search
+version.list	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}/versions	Published snapshot history; HTTP-only today
+version.compare	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}/versions/compare	Deterministic comparison of two published snapshots; HTTP-only today
+version.requirements	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}/versions/{snapshotId}/requirements	Requirements as published in one snapshot; HTTP-only today
+project.diagnostics	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}/diagnostics	Diagnostics of the active snapshot; distinct from the CLI quality report

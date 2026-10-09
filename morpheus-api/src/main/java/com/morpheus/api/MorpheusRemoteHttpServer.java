@@ -305,6 +305,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer realm=\"morpheus\"");
         }
         if (failure.status == 403) runtime.recordAuthorizationFailure();
+        if (failure.status == 405) {
+            exchange.getResponseHeaders().set(
+                    "Allow", MorpheusRemoteRoutePolicy.allowedMethods(exchange.getRequestURI().getPath()));
+        }
         responses.sendError(exchange, failure.status, failure.code, failure.getMessage());
     }
 
