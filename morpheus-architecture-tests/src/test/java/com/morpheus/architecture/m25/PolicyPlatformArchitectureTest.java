@@ -21,7 +21,7 @@ class PolicyPlatformArchitectureTest {
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "..cli..", "..mcp..", "..api..",
                         "..store.memory..", "..store.sqlite..",
-                        "..provider.openspec..", "..provider.markdown..", "..provider.sdk..")
+                        "..provider.openspec..", "..provider.markdown..", "..sdk.provider..")
                 .check(classes);
     }
 

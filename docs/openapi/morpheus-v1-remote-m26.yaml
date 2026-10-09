@@ -46,6 +46,34 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /provider-plugins/discover:
+    get:
+      operationId: discoverRemoteProviderPlugins
+      summary: List provider-plugin metadata from the server-configured directory
+      description: >-
+        Remote overlay of the local provider-plugin discovery. Requires READ. Metadata only: no plugin is loaded and
+        no plugin code runs. The plugin directory is configured by the server; a client that supplies `directory` is
+        refused with SERVER_CONFIGURED_PLUGIN_DIRECTORY. The response is an allowlisted projection that names no
+        server filesystem location.
+      responses:
+        '200':
+          description: Provider-plugin discovery outcome from the existing v1 provider-plugin API
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: A client-supplied plugin directory, or an invalid provider-plugin request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /provider-plugins/probe:
     post:
       operationId: probeRemoteProviderPlugin
