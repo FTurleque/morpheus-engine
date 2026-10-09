@@ -84,8 +84,20 @@ Every test asserts the message, value or order that kills its mutations (`rules/
   content uses distinct items: `SnapshotBusinessContent` refuses duplicate identities. PIT on the class with the
   application tests (product package excluded, it needs a JVM argument only #407's pom passes; WSL, 2026-10-09):
   the 18 qualified mutations are killed; P03's 42 survivors fall to 15, all killed in the audit by other lots.
-- [ ] 4.3 `NormalizedProjectContent`: one rejection test per reference check with its message, and the message added to the existing `rejects*` tests
-- [ ] 4.4 `SyntheticJsonParser`: truncated documents refused as `IllegalArgumentException` with their message, empty containers, every escape and hex digit case, raw non-BMP characters, exact-limit documents; apply 2.3
+- [x] 4.3 `NormalizedProjectContent`: one rejection test per reference check with its message, and the message added to the existing `rejects*` tests
+
+  Fourteen new refusals, each making exactly one item of the fixture's graph invalid; the six existing ones assert
+  their exact message. PIT on the class with the application tests (product package excluded; WSL, 2026-10-09):
+  51 mutations, 51 killed.
+- [x] 4.4 `SyntheticJsonParser`: truncated documents refused as `IllegalArgumentException` with their message, empty containers, every escape and hex digit case, raw non-BMP characters, exact-limit documents; apply 2.3
+
+  Decision 4 applied: `expect()` and `parseDocument` no longer skip whitespace. Grammar tests: ten truncated
+  documents refused with their message, a non-object root, empty containers, every escape, each hexadecimal digit
+  range at its bounds, a raw non-BMP character. Security tests: a document of exactly the byte limit, U+007F and
+  U+07FF padded to exactly the limit, two-byte and four-byte counting, and the direct-call lone-surrogate cases the
+  qualification marked unreachable in production. PIT on the class with the synthetic provider's tests (WSL,
+  2026-10-09): 111 mutations, 109 killed; the two survivors are the equivalent ones of `qualification.md` (an empty
+  result returned as an empty collection).
 - [ ] 4.5 `SqlitePolicyPackStore`: a closed store for every public method, re-activation on a new version (UPDATE branch), audit mismatch per write method with no state change, unknown pack, version and inactive pack, full-record audit equality and `listDefinitions` content
 - [ ] 4.6 `SqlitePortfolioStore`: the closed-store test asserts `SQLite portfolio store is closed` and covers `findMembership`, `findReference`, `outgoing`, `incoming`, `findFreshness`; the repository and source locators, the source-membership and freshness-membership guards
 
