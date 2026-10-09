@@ -34,7 +34,11 @@ mutations through at once.
    `ProviderId`). Reachable through HTTP and MCP, whose `providers` argument is a comma-separated string. Revealed by
    the surviving mutant of the blank-item filter at line 477, which only matters because of this ambiguity.
 2. **Policy audit order** (`SqlitePolicyPackStore.listAudit`, `ORDER BY at, id` over `Instant.toString()` text). Found
-   beside the mutations; not revealed by one.
+   beside the mutations; not revealed by one. Measured by task 1.3: the store port is out of order in SQLite only;
+   the public audit is chronological in both stores because `PolicyPackService.audit` re-sorts by
+   `AuditRecord.compareTo`, and loses write order only among records sharing one instant (random UUIDv7 bits). With
+   the system clock, two audit writes sharing an instant to the nanosecond are not expected — each write is its own
+   transaction — so the public effect needs a coarse or fixed clock.
 
 ## Open decisions
 
@@ -46,7 +50,15 @@ mutations through at once.
    `decodeProviders` goes with it: a stored empty segment is refused by name instead of being recomposed.
 2. **How the audit order is restored.** (a) store `at` as fixed-width text (nanosecond precision, always nine
    digits) and order by it, with a migration of existing rows; (b) add an insertion sequence and order by it; (c)
-   order by the parsed instant in Java after reading.
+   order by the parsed instant in Java after reading. Since task 1.3 a second question goes with it: whether records
+   sharing one instant must keep write order (the spec says so) — which needs a write sequence in both stores and a
+   change of `AuditRecord.compareTo` or of the service's sort — or only a stable order, which `(at, id)` already
+   gives once the port sorts by instant.
+   **Decided on 2026-10-09: (c), ties stable rather than in write order.** Both stores sort `listAudit` by
+   `AuditRecord`'s natural order (instant, then identity) and the port says so. No migration: the stored text is
+   unchanged and is parsed before sorting, so an existing database reads back in chronological order. A write
+   sequence was set aside: it costs a migration and a change of `AuditRecord.compareTo` for a tie the system clock
+   does not produce. `PolicyPackService.audit` keeps its own sort; it no longer changes the order the store returns.
 3. **`MultiProviderCompositionResult.diagnostics()`**, filled by `distinctDiagnostics` and read by nothing in
    production or tests (4 redundant mutations): remove it, or expose and test it.
 4. **The double whitespace skip of `SyntheticJsonParser`** (lines 65 and 335 against 76, 100, 102): remove one side,

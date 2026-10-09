@@ -24,10 +24,13 @@ Two defects were confirmed by reading the code, one revealed by a surviving muta
   providers with `"\n"` and splits on it when reading back. The HTTP and MCP `providers` argument is split on commas
   only, so `"openspec\nmarkdown"` is registered as one provider and read back from SQLite as two. The memory store
   keeps it as one: the two stores disagree.
-- **The policy audit is not returned in chronological order.** `SqlitePolicyPackStore.listAudit` orders by `at`,
-  stored as `Instant.toString()` text whose fractional part has a variable length: `…:00.500100Z` sorts before
-  `…:00.500Z` though it is later. Ties fall back to a UUIDv7 whose low bits are random. The memory store returns
-  insertion order.
+- **The policy store port does not return the audit in chronological order.** `SqlitePolicyPackStore.listAudit`
+  orders by `at`, stored as `Instant.toString()` text whose fractional part has a variable length: `…:00.500100Z`
+  sorts before `…:00.500Z` though it is later, and `…:00Z` after both. The memory store returns insertion order.
+  *Corrected on 2026-10-09 by the test of task 1.3:* the only reader, `PolicyPackService.audit`, re-sorts by
+  `AuditRecord.compareTo` (instant, then identity), so the public audit **is** chronological across distinct
+  instants; what it does not keep is the write order of records sharing one instant, which it breaks by a UUIDv7
+  whose sub-millisecond bits are random. The store-port defect is a parity breach no caller observes today.
 
 ## What Changes
 
@@ -42,7 +45,7 @@ Two defects were confirmed by reading the code, one revealed by a surviving muta
 ### New Capabilities
 
 - `portfolio-provider-identity`: a portfolio membership reads back the providers it was registered with.
-- `policy-audit-order`: a policy audit is returned in the order it was written.
+- `policy-audit-order`: a policy audit is returned by instant, then by identity, in both stores.
 
 ### Modified Capabilities
 

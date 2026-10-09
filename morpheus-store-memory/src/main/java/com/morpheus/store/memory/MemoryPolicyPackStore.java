@@ -266,7 +266,7 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
 
     @Override
     public synchronized List<PolicyConfiguration.AuditRecord> listAudit(PolicyIds.PackId packId) {
-        return List.copyOf(audits.getOrDefault(packId, List.of()));
+        return audits.getOrDefault(packId, List.of()).stream().sorted().toList();
     }
 
     private PolicyPack.Definition requireDefinition(PolicyIds.PackId packId) {

@@ -6,25 +6,24 @@ Define the order in which a policy store returns the audit of policy pack writes
 
 ## ADDED Requirements
 
-### Requirement: The policy audit is returned in the order it was written
+### Requirement: The policy audit is returned by instant, then by identity
 
-A policy pack store SHALL return its audit records in chronological order of their timestamp, and records with the
-same timestamp in the order they were written; the memory and SQLite stores SHALL return the same order for the same
-writes.
+A policy pack store SHALL return its audit records in chronological order of their timestamp, and records sharing a
+timestamp in the order of their identity, so that the order is the same on every read; the memory and SQLite stores
+SHALL apply the same order, and the public audit SHALL return the order the store returns.
 
 #### Scenario: Timestamps whose text forms sort differently from time
 
-- **WHEN** two audit records are written with timestamps `T…:00Z` then `T…:00.500Z`, or `T…:00.500Z` then
-  `T…:00.500100Z`
-- **THEN** the store returns them in that order
+- **WHEN** audit records are written with timestamps `T…:00Z`, then `T…:00.500Z`, then `T…:00.500100Z`
+- **THEN** each store returns them in that order
 
-#### Scenario: Records written within the same instant
+#### Scenario: Records sharing one instant
 
 - **WHEN** several audit records are written with the same timestamp
-- **THEN** the store returns them in the order they were written
+- **THEN** each store returns them ordered by identity, and returns the same order on every read
 
 #### Scenario: An existing database keeps its history
 
 - **WHEN** a database whose audit was written before this change is opened
-- **THEN** its records are returned in chronological order and none is lost or rewritten in content; records it
-  already holds with an identical timestamp keep a deterministic order, since their write order was never recorded
+- **THEN** its records are returned in chronological order and none is lost or rewritten, since the stored format
+  does not change

@@ -20,14 +20,23 @@ Every test asserts the message, value or order that kills its mutations (`rules/
   the same way. HTTP also covers `providerId` of a reference. The HTTP test found that the first refusal text,
   written `\u000A`, never reached the caller: the boundary's location filter drops any message holding a backslash
   and answers the exception name. The notation became `[U+000A]` (ADR-0023 amendment).
-- [ ] 1.3 In `morpheus-store-sqlite`, write audits at `…:00Z`, `…:00.500Z`, `…:00.500100Z` (and three at one instant); verify `listAudit` returns them out of order today and the memory store in order
+- [x] 1.3 In `morpheus-store-sqlite`, write audits at `…:00Z`, `…:00.500Z`, `…:00.500100Z` (and three at one instant); verify `listAudit` returns them out of order today and the memory store in order
+
+  Written as `m25/PolicyAuditOrderTest` (both stores; eight writes in one instant rather than three, so ordering
+  by identity passes by chance once in 8!). Red on 2026-10-09. Store port: memory in order, SQLite
+  `[write-2, write-1, write-3 … write-10, write-0]`. Public audit (`PolicyPackService.audit`): chronological in both
+  stores, but the memory store's eight tied records came back shuffled (`write-6, write-7, write-5, write-3, …`).
+  SQLite's ties happened to keep write order only because each SQLite write takes over a millisecond, so their
+  UUIDv7 prefixes differ. This corrects the proposal: the public audit was never out of chronological order.
 
 ## 2. Decisions (design, "Open decisions")
 
 - [x] 2.1 Decide where a provider identifier is constrained (decision 1) and record it in an ADR or an amendment of the ADR that owns `ProviderId`
 
   Option (a), in the amendment of ADR-0023 dated 2026-10-09.
-- [ ] 2.2 Decide the audit-order strategy (decision 2), including what an existing database migrates to
+- [x] 2.2 Decide the audit-order strategy (decision 2), including what an existing database migrates to
+
+  Option (c) with stable ties, decided on 2026-10-09 (design, decision 2): no migration.
 - [ ] 2.3 Decide `MultiProviderCompositionResult.diagnostics()` (decision 3), the parser's double whitespace skip (decision 4) and requirement-delta observation (decision 5)
 - [ ] 2.4 Decide whether the store parity of decision 6 is fixed here or spun off; if spun off, open the issue and link it here
 
@@ -41,7 +50,14 @@ Every test asserts the message, value or order that kills its mutations (`rules/
   still open: the transport tests are not written yet. `PROVIDER_SDK.md` states the constraint for `provider.id`.
   Run in WSL on 2026-10-09: the Windows home directory refuses listing to its own user, which breaks `javac`'s
   `toRealPath` on every JAR of `~/.m2` (an environment fault, not a code one).
-- [ ] 3.2 Apply 2.2; verify 1.3 passes, a database written before the change reads back in chronological order, and `SqliteMigrationAtomicityTest` and the migration checksum tests still pass if a migration is added
+- [x] 3.2 Apply 2.2; verify 1.3 passes, a database written before the change reads back in chronological order, and `SqliteMigrationAtomicityTest` and the migration checksum tests still pass if a migration is added
+
+  `PolicyPackStore.listAudit` documents the order; `SqlitePolicyPackStore` drops `ORDER BY at, id` and sorts the
+  parsed records, `MemoryPolicyPackStore` sorts instead of returning insertion order. `PolicyAuditOrderTest` now
+  asserts the decided requirement (chronological, ties by identity, same order on every read); against the pre-fix
+  stores its store-port case fails (memory ties in insertion order, SQLite as in 1.3), its public case passes
+  because the service already sorted — it stays as a regression guard. No migration: the stored text is unchanged,
+  so an older database is read by the same code.
 
 ## 4. Missing tests, class by class
 
