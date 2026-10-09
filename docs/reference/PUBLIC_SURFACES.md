@@ -29,7 +29,8 @@ vérifie que la **présence** d'une ligne : la justesse de ses colonnes `cli` et
 
 Depuis le 8 octobre 2026, la colonne `http` a sa propre garde : `PublicHttpRouteConvergenceTest` compare, méthode et
 chemin, les routes que sert le serveur, la colonne `http` et les opérations des documents `docs/openapi/*.yaml`, dans
-les deux sens, et prouve sur un vrai serveur local que chaque route de la table d'autorisation est routée. Le manifeste
+les deux sens, et prouve sur un vrai serveur local que chaque route de `MorpheusHttpRouteTable` est routée et qu'une
+méthode refusée y reçoit un `405` dont l'`Allow` liste exactement les méthodes de la route. Le manifeste
 liste des capacités : toute route servie y a une ligne, sauf les quatre sondes d'exploitation de l'API (racine,
 `health`, `readiness`, `metrics`), exclues avec leur raison dans le test. Aucune garde ne vérifie encore la colonne
 `cli`.

@@ -19,18 +19,21 @@ final class MorpheusReasoningHttpRoutes {
 
     private final MorpheusReasoningApiService service = new MorpheusReasoningApiService();
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusHttpAllowedMethods allowedMethods;
     private final MorpheusHttpResponseWriter responseWriter;
 
     private MorpheusReasoningHttpRoutes(MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpResponseWriter responseWriter) {
+            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
+        this.allowedMethods = Objects.requireNonNull(allowedMethods, "allowedMethods");
         this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
     static void register(HttpServer server, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpResponseWriter responseWriter) {
+            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
         Objects.requireNonNull(server, "server");
-        MorpheusReasoningHttpRoutes routes = new MorpheusReasoningHttpRoutes(requestDecoder, responseWriter);
+        MorpheusReasoningHttpRoutes routes =
+                new MorpheusReasoningHttpRoutes(requestDecoder, allowedMethods, responseWriter);
         server.createContext(CONTEXT, routes::handle);
     }
 
@@ -54,7 +57,7 @@ final class MorpheusReasoningHttpRoutes {
             responseWriter.send(exchange, 200, new ApiSuccess("v1", response));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", path.equals(ADAPTERS) ? "GET" : "POST");
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(path));
             }
             responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope(
                     "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
